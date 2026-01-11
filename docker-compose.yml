@@ -1,0 +1,75 @@
+# Docker Compose for local development and integration testing
+# Usage:
+#   docker-compose up -d localstack    # Start LocalStack for testing
+#   docker-compose down                # Stop all services
+#   docker-compose logs -f localstack  # View LocalStack logs
+
+version: '3.8'
+
+services:
+  localstack:
+    image: localstack/localstack:3.0
+    ports:
+      - "4566:4566"            # LocalStack gateway
+      - "4510-4559:4510-4559"  # External services port range
+    environment:
+      # AWS Services to enable
+      - SERVICES=iam,s3,sts,cloudtrail,ec2,rds
+      - DEFAULT_REGION=us-east-1
+      - AWS_DEFAULT_REGION=us-east-1
+      # Debug settings
+      - DEBUG=0
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      # Persistence (optional - uncomment to persist data)
+      # - PERSISTENCE=1
+    volumes:
+      - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - tracevault
+
+  # Optional: LocalStack initializer for test data
+  localstack-init:
+    image: amazon/aws-cli:latest
+    depends_on:
+      localstack:
+        condition: service_healthy
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ENDPOINT_URL=http://localstack:4566
+    entrypoint: /bin/sh
+    command: >
+      -c "
+        echo 'Creating test IAM users...'
+        aws --endpoint-url=http://localstack:4566 iam create-user --user-name alice || true
+        aws --endpoint-url=http://localstack:4566 iam create-user --user-name bob || true
+
+        echo 'Creating test S3 buckets...'
+        aws --endpoint-url=http://localstack:4566 s3 mb s3://test-bucket-1 || true
+        aws --endpoint-url=http://localstack:4566 s3 mb s3://test-bucket-2 || true
+
+        echo 'Creating test CloudTrail...'
+        aws --endpoint-url=http://localstack:4566 cloudtrail create-trail \
+          --name test-trail \
+          --s3-bucket-name test-bucket-1 || true
+
+        echo 'Test data initialized!'
+      "
+    networks:
+      - tracevault
+
+networks:
+  tracevault:
+    driver: bridge
+
+# Uncomment to persist LocalStack data
+# volumes:
+#   localstack-data:

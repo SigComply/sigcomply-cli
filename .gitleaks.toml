@@ -1,0 +1,64 @@
+# Gitleaks configuration for TraceVault CLI
+# https://github.com/gitleaks/gitleaks
+
+title = "TraceVault Gitleaks Configuration"
+
+[extend]
+# Use default gitleaks rules as base
+useDefault = true
+
+# Custom rules for TraceVault-specific patterns
+[[rules]]
+id = "tracevault-api-key"
+description = "TraceVault API Key"
+regex = '''(?i)tracevault[_-]?api[_-]?key\s*[:=]\s*['"]?([a-zA-Z0-9]{32,})['"]?'''
+secretGroup = 1
+keywords = ["tracevault"]
+
+[[rules]]
+id = "tracevault-signing-key"
+description = "TraceVault Signing Key"
+regex = '''(?i)tracevault[_-]?signing[_-]?key\s*[:=]\s*['"]?([a-zA-Z0-9+/]{32,}={0,2})['"]?'''
+secretGroup = 1
+keywords = ["tracevault", "signing"]
+
+# Allow rules - files and patterns to ignore
+[allowlist]
+description = "Global allowlist"
+
+# Files to ignore
+paths = [
+    '''go\.sum$''',
+    '''go\.mod$''',
+    '''\.gitleaks\.toml$''',
+    '''testdata/.*''',
+    '''.*_test\.go$''',
+    '''.*\.md$''',
+    '''LICENSE''',
+]
+
+# Regex patterns to ignore (for test/example values)
+regexes = [
+    '''AKIA[0-9A-Z]{16}EXAMPLE''',
+    '''test[_-]?api[_-]?key''',
+    '''example[_-]?token''',
+    '''dummy[_-]?secret''',
+    '''placeholder''',
+    '''your[_-]?.*[_-]?here''',
+    '''xxx+''',
+    '''000+''',
+]
+
+# Commits to ignore (if needed)
+commits = []
+
+# Stop words to prevent false positives
+stopwords = [
+    "example",
+    "test",
+    "dummy",
+    "placeholder",
+    "sample",
+    "fake",
+    "mock",
+]

@@ -1,0 +1,91 @@
+# Pre-commit hooks for TraceVault CLI
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # General hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # Go formatting
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: v0.5.1
+    hooks:
+      - id: go-fmt
+      - id: go-vet
+      - id: go-imports
+      - id: go-mod-tidy
+
+  # Secret detection
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.1
+    hooks:
+      - id: gitleaks
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.38.0
+    hooks:
+      - id: markdownlint
+        args: ['--fix', '--disable', 'MD013', 'MD033', 'MD041']
+
+  # YAML linting
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.33.0
+    hooks:
+      - id: yamllint
+        args: ['-d', '{extends: relaxed, rules: {line-length: disable}}']
+
+  # Shell script linting
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.9.0.6
+    hooks:
+      - id: shellcheck
+
+  # Rego/OPA policy linting
+  - repo: local
+    hooks:
+      - id: opa-fmt
+        name: OPA Format
+        entry: bash -c 'if command -v opa &> /dev/null && [ -d "internal/policy/policies" ]; then opa fmt -w internal/policy/policies/; fi'
+        language: system
+        files: '\.rego$'
+        pass_filenames: false
+
+      - id: opa-check
+        name: OPA Check
+        entry: bash -c 'if command -v opa &> /dev/null && [ -d "internal/policy/policies" ]; then opa check internal/policy/policies/; fi'
+        language: system
+        files: '\.rego$'
+        pass_filenames: false
+
+  # Go security scan (local)
+  - repo: local
+    hooks:
+      - id: gosec
+        name: Go Security Check
+        entry: bash -c 'if command -v gosec &> /dev/null; then gosec -quiet ./...; fi'
+        language: system
+        files: '\.go$'
+        pass_filenames: false
+
+      - id: govulncheck
+        name: Go Vulnerability Check
+        entry: bash -c 'if command -v govulncheck &> /dev/null; then govulncheck ./...; fi'
+        language: system
+        files: '(\.go$|go\.mod$|go\.sum$)'
+        pass_filenames: false
+
+# CI configuration
+ci:
+  autofix_prs: false
+  autoupdate_schedule: weekly

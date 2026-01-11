@@ -1,0 +1,122 @@
+# golangci-lint configuration v2
+# https://golangci-lint.run/usage/configuration/
+
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+output:
+  formats:
+    text:
+      path: stdout
+
+linters:
+  enable:
+    # Default linters
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+    # Additional linters for code quality
+    - bodyclose        # Check HTTP response body is closed
+    - dogsled          # Check for too many blank identifiers
+    - dupl             # Check for duplicate code
+    - gochecknoinits   # Check for init functions
+    - goconst          # Check for repeated strings
+    - gocritic         # Comprehensive Go linter
+    - gocyclo          # Check cyclomatic complexity
+    - goprintffuncname # Check printf-like function names
+    - gosec            # Security checks
+    - misspell         # Check spelling
+    - nakedret         # Check for naked returns
+    - nilerr           # Check for nil error returns
+    - noctx            # Check for context usage
+    - prealloc         # Check for slice preallocation
+    - predeclared      # Check for shadowed predeclared identifiers
+    - revive           # Replacement for golint
+    - rowserrcheck     # Check sql.Rows error handling
+    - sqlclosecheck    # Check sql.Rows/Stmt are closed
+    - tparallel        # Check for missing t.Parallel()
+    - unconvert        # Check for unnecessary conversions
+    - unparam          # Check for unused parameters
+    - whitespace       # Check for whitespace issues
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment  # Field ordering is for readability
+        - shadow          # Intentional shadowing in loops is acceptable
+
+    gocyclo:
+      min-complexity: 15
+
+    dupl:
+      threshold: 150
+
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+
+    misspell:
+      locale: US
+
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: var-declaration
+        - name: var-naming
+
+    gosec:
+      severity: medium
+      confidence: medium
+      excludes:
+        - G104  # Audit errors not checked - too noisy
+        - G304  # File inclusion - false positives with config files
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      disabled-checks:
+        - ifElseChain  # Sometimes clearer than switch
+        - octalLiteral # Not common in Go
+
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 10
+  new: false
+  fix: false
+
+severity:
+  default: warning
+  rules:
+    - linters:
+        - gosec
+      severity: error
+    - linters:
+        - govet
+      severity: error

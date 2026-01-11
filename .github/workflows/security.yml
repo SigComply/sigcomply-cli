@@ -1,0 +1,383 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly on Monday at 00:00 UTC
+    - cron: '0 0 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+  pull-requests: write
+
+jobs:
+  # ===========================================
+  # SUPPLY CHAIN SECURITY
+  # ===========================================
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          deny-licenses: GPL-3.0, AGPL-3.0
+          comment-summary-in-pr: always
+
+  supply-chain:
+    name: Supply Chain Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for Go packages
+        id: check-packages
+        run: |
+          if find . -name "*.go" -type f | grep -q .; then
+            echo "has_go_files=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_go_files=false" >> $GITHUB_OUTPUT
+            echo "::notice::No Go source files found - skipping supply chain checks"
+          fi
+
+      - name: Set up Go
+        if: steps.check-packages.outputs.has_go_files == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Verify go.sum checksums
+        if: steps.check-packages.outputs.has_go_files == 'true'
+        run: |
+          echo "Verifying module checksums..."
+          go mod verify
+          echo "✓ All module checksums verified"
+
+      - name: Check for tidiness
+        if: steps.check-packages.outputs.has_go_files == 'true'
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum || (echo "go.mod/go.sum not tidy. Run 'go mod tidy'" && exit 1)
+
+      - name: Run govulncheck
+        if: steps.check-packages.outputs.has_go_files == 'true'
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./... || echo "::warning::Vulnerabilities found - review govulncheck output"
+
+      - name: Run nancy (Sonatype OSS Index)
+        if: steps.check-packages.outputs.has_go_files == 'true'
+        run: |
+          go install github.com/sonatype-nexus-community/nancy@latest
+          go list -json -deps ./... | nancy sleuth --loud || echo "::warning::Nancy check failed - OSS Index may require authentication"
+        continue-on-error: true
+
+  scorecard:
+    name: OpenSSF Scorecard
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Run Scorecard analysis
+        uses: ossf/scorecard-action@v2.4.0
+        with:
+          results_file: scorecard-results.sarif
+          results_format: sarif
+          publish_results: true
+        continue-on-error: true
+
+      - name: Upload Scorecard results
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: scorecard-results.sarif
+        if: always()
+        continue-on-error: true  # May fail on private repos without GitHub Advanced Security
+
+  # ===========================================
+  # STATIC APPLICATION SECURITY TESTING (SAST)
+  # ===========================================
+
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for Go packages
+        id: check-packages
+        run: |
+          if find . -name "*.go" -type f | grep -q .; then
+            echo "has_go_files=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_go_files=false" >> $GITHUB_OUTPUT
+            echo "::notice::No Go source files found - skipping CodeQL analysis"
+          fi
+
+      - name: Initialize CodeQL
+        if: steps.check-packages.outputs.has_go_files == 'true'
+        uses: github/codeql-action/init@v4
+        with:
+          languages: go
+          queries: security-and-quality
+
+      - name: Build
+        if: steps.check-packages.outputs.has_go_files == 'true'
+        run: go build ./...
+
+      - name: Perform CodeQL Analysis
+        if: steps.check-packages.outputs.has_go_files == 'true'
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:go"
+
+  gosec:
+    name: Go Security Scanner (gosec)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for Go packages
+        id: check-packages
+        run: |
+          if find . -name "*.go" -type f | grep -q .; then
+            echo "has_go_files=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_go_files=false" >> $GITHUB_OUTPUT
+            echo "::notice::No Go source files found - skipping gosec scan"
+          fi
+
+      - name: Run gosec
+        if: steps.check-packages.outputs.has_go_files == 'true'
+        uses: securego/gosec@v2.21.4
+        with:
+          args: '-fmt sarif -out gosec.sarif -severity high ./...'
+        continue-on-error: true  # SARIF upload handles findings
+
+      - name: Upload SARIF file
+        if: steps.check-packages.outputs.has_go_files == 'true'
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: gosec.sarif
+        continue-on-error: true  # May fail on private repos without GitHub Advanced Security
+
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for Go packages
+        id: check-packages
+        run: |
+          if find . -name "*.go" -type f 2>/dev/null | grep -q .; then
+            echo "has_go_files=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_go_files=false" >> $GITHUB_OUTPUT
+            echo "No Go source files found - skipping semgrep scan"
+          fi
+
+      - name: Run Semgrep
+        if: steps.check-packages.outputs.has_go_files == 'true'
+        run: semgrep ci --sarif --output=semgrep.sarif || true
+        env:
+          SEMGREP_RULES: >-
+            p/golang
+            p/security-audit
+            p/secrets
+            p/owasp-top-ten
+
+      - name: Upload SARIF file
+        if: steps.check-packages.outputs.has_go_files == 'true'
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: semgrep.sarif
+        continue-on-error: true  # May fail on private repos without GitHub Advanced Security
+
+  # ===========================================
+  # VULNERABILITY SCANNING
+  # ===========================================
+
+  trivy:
+    name: Trivy Vulnerability Scanner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy (filesystem scan)
+        uses: aquasecurity/trivy-action@0.18.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-fs.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+        continue-on-error: true
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: 'trivy-fs.sarif'
+        if: always()
+        continue-on-error: true  # May fail on private repos without GitHub Advanced Security
+
+  # ===========================================
+  # SECRET DETECTION
+  # ===========================================
+
+  secret-scan:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: TruffleHog Secret Scan
+        uses: trufflesecurity/trufflehog@v3.67.1
+        with:
+          extra_args: --only-verified
+
+      - name: Gitleaks Secret Scan
+        uses: gitleaks/gitleaks-action@v2.3.4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          GITLEAKS_ENABLE_COMMENTS: true
+        continue-on-error: true  # License required for gitleaks-action v2
+
+  # ===========================================
+  # SBOM & LICENSE COMPLIANCE
+  # ===========================================
+
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Generate SBOM (SPDX)
+        uses: anchore/sbom-action@v0.17.8
+        with:
+          format: spdx-json
+          output-file: sbom.spdx.json
+          upload-artifact: false
+
+      - name: Generate SBOM (CycloneDX)
+        uses: anchore/sbom-action@v0.17.8
+        with:
+          format: cyclonedx-json
+          output-file: sbom.cyclonedx.json
+          upload-artifact: false
+
+      - name: Upload SBOMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            sbom.spdx.json
+            sbom.cyclonedx.json
+
+  license-check:
+    name: License Compliance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for Go packages
+        id: check-packages
+        run: |
+          if find . -name "*.go" -type f | grep -q .; then
+            echo "has_go_files=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_go_files=false" >> $GITHUB_OUTPUT
+            echo "::notice::No Go source files found - skipping license check"
+          fi
+
+      - name: Set up Go
+        if: steps.check-packages.outputs.has_go_files == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Check licenses
+        if: steps.check-packages.outputs.has_go_files == 'true'
+        run: |
+          go install github.com/google/go-licenses@latest
+          echo "Checking for forbidden licenses..."
+          go-licenses check ./... \
+            --disallowed_types=forbidden,restricted \
+            --ignore github.com/tracevault 2>&1 || true
+
+          echo ""
+          echo "License summary:"
+          go-licenses report ./... 2>/dev/null | head -50 || true
+
+  # ===========================================
+  # SECURITY SUMMARY
+  # ===========================================
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [supply-chain, codeql, gosec, semgrep, trivy, secret-scan]
+    if: always()
+    steps:
+      - name: Check security job results
+        run: |
+          echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Supply Chain | ${{ needs.supply-chain.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| CodeQL | ${{ needs.codeql.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| gosec | ${{ needs.gosec.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Semgrep | ${{ needs.semgrep.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy | ${{ needs.trivy.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Secret Scan | ${{ needs.secret-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+
+          # Fail if any critical check failed
+          if [[ "${{ needs.supply-chain.result }}" == "failure" ]] || \
+             [[ "${{ needs.secret-scan.result }}" == "failure" ]]; then
+            echo ""
+            echo "❌ Critical security checks failed!" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All critical security checks passed" >> $GITHUB_STEP_SUMMARY

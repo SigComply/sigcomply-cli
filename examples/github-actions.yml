@@ -1,0 +1,360 @@
+# TraceVault CLI - GitHub Actions Example
+#
+# This workflow demonstrates how to integrate TraceVault compliance checks
+# into your GitHub Actions CI/CD pipeline.
+#
+# Features:
+# - Runs on every push and pull request
+# - Uses OIDC for AWS authentication (no long-lived credentials)
+# - Fails build on compliance violations
+# - Comments on PRs with compliance results
+# - Uploads results as artifacts
+#
+# Setup Instructions:
+# 1. Copy this file to .github/workflows/compliance.yml in your repository
+# 2. Configure AWS OIDC (see: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
+# 3. Add repository secrets:
+#    - AWS_ROLE_ARN: ARN of IAM role for TraceVault (e.g., arn:aws:iam::123456789012:role/TraceVaultComplianceRole)
+#    - TRACEVAULT_API_TOKEN: Your TraceVault Cloud API token (optional, for attestation submission)
+# 4. Commit and push to trigger the workflow
+
+name: Compliance Check
+
+# Trigger on pushes to main and all pull requests
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+  # Allow manual triggering from Actions tab
+  workflow_dispatch:
+    inputs:
+      framework:
+        description: 'Compliance framework to check'
+        required: false
+        default: 'soc2'
+        type: choice
+        options:
+          - soc2
+          - iso27001
+          - hipaa
+
+# Required permissions for OIDC and PR comments
+permissions:
+  id-token: write       # Required for OIDC authentication
+  contents: read        # Required to checkout code
+  pull-requests: write  # Required to comment on PRs
+  checks: write         # Required for check runs
+
+jobs:
+  compliance-check:
+    name: SOC 2 Compliance Check
+    runs-on: ubuntu-latest
+
+    # Environment variables
+    env:
+      TRACEVAULT_OUTPUT_FORMAT: json
+      TRACEVAULT_VERBOSITY: 1
+
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Configure AWS credentials using OIDC
+      # This is the recommended approach - no long-lived AWS keys!
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: tracevault-compliance-${{ github.run_id }}
+          aws-region: us-east-1
+
+      # Alternative: Use traditional AWS credentials (not recommended)
+      # Uncomment if you haven't set up OIDC yet
+      # - name: Configure AWS credentials (traditional)
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region: us-east-1
+
+      # Step 3: Install TraceVault CLI
+      - name: Install TraceVault CLI
+        run: |
+          # Download and install latest version
+          curl -fsSL https://install.tracevault.com | sh
+
+          # Add to PATH
+          echo "$HOME/.tracevault/bin" >> $GITHUB_PATH
+
+          # Verify installation
+          tracevault version
+
+      # Alternative: Install specific version
+      # - name: Install TraceVault CLI (specific version)
+      #   run: |
+      #     curl -fsSL https://install.tracevault.com | sh -s -- v0.1.0
+      #     echo "$HOME/.tracevault/bin" >> $GITHUB_PATH
+
+      # Step 4: Run compliance check
+      - name: Run SOC 2 compliance check
+        id: compliance
+        continue-on-error: true  # Don't fail workflow yet, we want to post results first
+        env:
+          TRACEVAULT_API_TOKEN: ${{ secrets.TRACEVAULT_API_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # For GitHub integration
+        run: |
+          # Determine framework (from workflow dispatch or default to soc2)
+          FRAMEWORK="${{ github.event.inputs.framework || 'soc2' }}"
+
+          # Run compliance check with JSON output
+          tracevault check \
+            --framework "$FRAMEWORK" \
+            --format json \
+            --output results.json \
+            --verbose
+
+          # Capture exit code
+          exit_code=$?
+          echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
+
+          # Extract compliance metrics
+          status=$(jq -r '.summary.status' results.json)
+          rate=$(jq -r '.summary.compliance_rate * 100' results.json)
+          passed=$(jq -r '.summary.passed_controls' results.json)
+          total=$(jq -r '.summary.total_controls' results.json)
+
+          # Set outputs for later steps
+          echo "status=$status" >> $GITHUB_OUTPUT
+          echo "rate=$rate" >> $GITHUB_OUTPUT
+          echo "passed=$passed" >> $GITHUB_OUTPUT
+          echo "total=$total" >> $GITHUB_OUTPUT
+
+          # Generate JUnit XML for GitHub UI
+          tracevault report --framework "$FRAMEWORK" --format junit --output junit.xml
+
+      # Step 5: Upload results as artifacts
+      - name: Upload compliance results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-results
+          path: |
+            results.json
+            junit.xml
+          retention-days: 90
+
+      # Step 6: Publish JUnit results (shows in Actions UI)
+      - name: Publish test results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: junit.xml
+          check_name: SOC 2 Compliance Results
+
+      # Step 7: Comment on PR with results
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Read results
+            const results = JSON.parse(fs.readFileSync('results.json', 'utf8'));
+            const status = results.summary.status;
+            const rate = (results.summary.compliance_rate * 100).toFixed(1);
+            const passed = results.summary.passed_controls;
+            const total = results.summary.total_controls;
+
+            // Determine emoji and status text
+            const statusEmoji = status === 'compliant' ? '✅' : '❌';
+            const statusText = status === 'compliant' ? 'PASSING' : 'FAILING';
+
+            // Build violations list
+            let violationsText = '';
+            if (results.summary.violations > 0) {
+              violationsText = '\n\n### ⚠️ Violations\n\n';
+              results.gaps.slice(0, 5).forEach(gap => {
+                violationsText += `- **${gap.control}**: ${gap.message}\n`;
+              });
+              if (results.gaps.length > 5) {
+                violationsText += `\n_...and ${results.gaps.length - 5} more violations_\n`;
+              }
+            }
+
+            // Build comment body
+            const body = `## ${statusEmoji} Compliance Check: ${statusText}
+
+            **Framework**: SOC 2 Type II
+            **Status**: ${status}
+            **Compliance Rate**: ${rate}%
+            **Controls**: ${passed}/${total} passed
+            ${violationsText}
+
+            <details>
+            <summary>📊 Detailed Results</summary>
+
+            \`\`\`json
+            ${JSON.stringify(results.summary, null, 2)}
+            \`\`\`
+
+            </details>
+
+            ---
+
+            [View detailed report](https://app.tracevault.com/reports/${results.report_id}) | [TraceVault CLI](https://github.com/tracevault/tracevault-cli)
+            `;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            const existingComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Compliance Check:')
+            );
+
+            // Create or update comment
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                comment_id: existingComment.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            }
+
+      # Step 8: Create check run with detailed results
+      - name: Create check run
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const results = JSON.parse(fs.readFileSync('results.json', 'utf8'));
+
+            const conclusion = results.summary.status === 'compliant' ? 'success' : 'failure';
+            const status_text = results.summary.status === 'compliant' ? 'All compliance checks passed' : 'Compliance violations found';
+
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'SOC 2 Compliance',
+              head_sha: context.sha,
+              status: 'completed',
+              conclusion: conclusion,
+              output: {
+                title: status_text,
+                summary: `Compliance Rate: ${(results.summary.compliance_rate * 100).toFixed(1)}%\nPassed: ${results.summary.passed_controls}/${results.summary.total_controls}`,
+                text: JSON.stringify(results, null, 2)
+              }
+            });
+
+      # Step 9: Fail workflow if compliance check failed
+      - name: Check compliance status
+        if: steps.compliance.outputs.exit_code != '0'
+        run: |
+          echo "❌ Compliance check failed"
+          echo "Status: ${{ steps.compliance.outputs.status }}"
+          echo "Compliance rate: ${{ steps.compliance.outputs.rate }}%"
+          echo "Passed controls: ${{ steps.compliance.outputs.passed }}/${{ steps.compliance.outputs.total }}"
+          exit 1
+
+      # Step 10: Success message
+      - name: Compliance check passed
+        if: steps.compliance.outputs.exit_code == '0'
+        run: |
+          echo "✅ Compliance check passed!"
+          echo "Status: ${{ steps.compliance.outputs.status }}"
+          echo "Compliance rate: ${{ steps.compliance.outputs.rate }}%"
+          echo "Passed controls: ${{ steps.compliance.outputs.passed }}/${{ steps.compliance.outputs.total }}"
+
+# Advanced: Multi-framework compliance check
+# Uncomment to check multiple frameworks in parallel
+
+# jobs:
+#   compliance-matrix:
+#     name: ${{ matrix.framework }} Compliance
+#     runs-on: ubuntu-latest
+#
+#     strategy:
+#       matrix:
+#         framework: [soc2, iso27001, hipaa]
+#       fail-fast: false  # Continue checking other frameworks even if one fails
+#
+#     permissions:
+#       id-token: write
+#       contents: read
+#       pull-requests: write
+#
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+#           aws-region: us-east-1
+#
+#       - name: Install TraceVault CLI
+#         run: |
+#           curl -fsSL https://install.tracevault.com | sh
+#           echo "$HOME/.tracevault/bin" >> $GITHUB_PATH
+#
+#       - name: Run ${{ matrix.framework }} compliance check
+#         env:
+#           TRACEVAULT_API_TOKEN: ${{ secrets.TRACEVAULT_API_TOKEN }}
+#         run: |
+#           tracevault check --framework ${{ matrix.framework }}
+
+# Advanced: Scheduled compliance scans
+# Uncomment to run compliance checks on a schedule
+
+# on:
+#   schedule:
+#     # Run every day at 2 AM UTC
+#     - cron: '0 2 * * *'
+#
+# jobs:
+#   scheduled-compliance:
+#     name: Scheduled Compliance Scan
+#     runs-on: ubuntu-latest
+#
+#     steps:
+#       # Same steps as above
+#
+#       # Additional: Send Slack notification
+#       - name: Send Slack notification
+#         if: failure()
+#         uses: slackapi/slack-github-action@v1
+#         with:
+#           payload: |
+#             {
+#               "text": "⚠️ Scheduled compliance check failed",
+#               "blocks": [
+#                 {
+#                   "type": "section",
+#                   "text": {
+#                     "type": "mrkdwn",
+#                     "text": "*Compliance Check Failed*\n\nFramework: SOC 2\nStatus: ${{ steps.compliance.outputs.status }}\nRate: ${{ steps.compliance.outputs.rate }}%"
+#                   }
+#                 }
+#               ]
+#             }
+#         env:
+#           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

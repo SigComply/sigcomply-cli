@@ -1,0 +1,439 @@
+# TraceVault CLI - GitLab CI Example
+#
+# This configuration demonstrates how to integrate TraceVault compliance checks
+# into your GitLab CI/CD pipeline.
+#
+# Features:
+# - Runs on every push and merge request
+# - Uses OIDC for AWS authentication (no long-lived credentials)
+# - Fails pipeline on compliance violations
+# - Uploads JUnit reports (visible in GitLab UI)
+# - Generates compliance artifacts
+#
+# Setup Instructions:
+# 1. Copy this file to .gitlab-ci.yml in your repository root
+# 2. Configure AWS OIDC trust (see: https://docs.gitlab.com/ee/ci/cloud_services/aws/)
+# 3. Add CI/CD variables in Settings → CI/CD → Variables:
+#    - AWS_ROLE_ARN: ARN of IAM role for TraceVault (e.g., arn:aws:iam::123456789012:role/TraceVaultComplianceRole)
+#    - TRACEVAULT_API_TOKEN: Your TraceVault Cloud API token (optional, masked)
+# 4. Commit and push to trigger the pipeline
+
+# Define stages
+stages:
+  - compliance
+  - report
+
+# Global variables
+variables:
+  # TraceVault CLI version to use
+  TRACEVAULT_VERSION: "latest"
+
+  # Output configuration
+  TRACEVAULT_OUTPUT_FORMAT: "json"
+  TRACEVAULT_VERBOSITY: "1"
+
+  # AWS region for compliance checks
+  AWS_REGION: "us-east-1"
+
+# Main compliance check job
+soc2-compliance:
+  stage: compliance
+  image: debian:bullseye-slim
+
+  # Only run on main branch and merge requests
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'  # Manual pipelines
+
+  # Required for OIDC authentication
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: https://gitlab.com
+
+  before_script:
+    # Update package lists
+    - apt-get update -qq
+
+    # Install required dependencies
+    - apt-get install -y -qq curl jq ca-certificates
+
+    # Install TraceVault CLI
+    - curl -fsSL https://install.tracevault.com | sh -s -- $TRACEVAULT_VERSION
+    - export PATH="$HOME/.tracevault/bin:$PATH"
+
+    # Verify installation
+    - tracevault version
+
+    # Configure AWS credentials using OIDC
+    # The AWS_WEB_IDENTITY_TOKEN_FILE and AWS_ROLE_ARN are automatically used by AWS SDK
+    - export AWS_WEB_IDENTITY_TOKEN_FILE=$AWS_OIDC_TOKEN
+    - export AWS_ROLE_SESSION_NAME="tracevault-compliance-${CI_PIPELINE_ID}"
+
+    # Verify AWS authentication
+    - |
+      if command -v aws > /dev/null; then
+        aws sts get-caller-identity
+      fi
+
+  script:
+    # Run compliance check
+    - |
+      echo "🔍 Running SOC 2 compliance check..."
+
+      # Run check and capture exit code
+      set +e
+      tracevault check \
+        --framework soc2 \
+        --format json \
+        --output results.json \
+        --verbose
+      EXIT_CODE=$?
+      set -e
+
+      # Extract compliance metrics
+      STATUS=$(jq -r '.summary.status' results.json)
+      RATE=$(jq -r '.summary.compliance_rate * 100' results.json)
+      PASSED=$(jq -r '.summary.passed_controls' results.json)
+      TOTAL=$(jq -r '.summary.total_controls' results.json)
+
+      # Print summary
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      echo "📊 Compliance Summary"
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      echo "Status: $STATUS"
+      echo "Compliance Rate: ${RATE}%"
+      echo "Controls: $PASSED/$TOTAL passed"
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      # Generate JUnit XML for GitLab UI
+      tracevault report --framework soc2 --format junit --output junit.xml
+
+      # Fail if compliance check failed
+      if [ $EXIT_CODE -ne 0 ]; then
+        echo "❌ Compliance check failed"
+        exit $EXIT_CODE
+      else
+        echo "✅ Compliance check passed!"
+      fi
+
+  # Upload artifacts
+  artifacts:
+    reports:
+      junit: junit.xml
+    paths:
+      - results.json
+      - junit.xml
+    expire_in: 90 days
+    when: always
+
+  # Allow viewing results even if job fails
+  allow_failure: false
+
+# Alternative job using traditional AWS credentials
+# Uncomment if you haven't set up OIDC yet
+#
+# soc2-compliance-traditional:
+#   stage: compliance
+#   image: debian:bullseye-slim
+#
+#   rules:
+#     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+#     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+#
+#   before_script:
+#     - apt-get update -qq && apt-get install -y -qq curl jq
+#     - curl -fsSL https://install.tracevault.com | sh
+#     - export PATH="$HOME/.tracevault/bin:$PATH"
+#
+#   script:
+#     - |
+#       # Use traditional AWS credentials from CI/CD variables
+#       export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+#       export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+#       export AWS_REGION=$AWS_REGION
+#
+#       tracevault check --framework soc2 --output results.json
+#
+#   artifacts:
+#     paths:
+#       - results.json
+#     expire_in: 30 days
+
+# Generate PDF report (runs after compliance check)
+generate-report:
+  stage: report
+  image: debian:bullseye-slim
+
+  # Only run on main branch
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+  dependencies:
+    - soc2-compliance
+
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq curl
+    - curl -fsSL https://install.tracevault.com | sh
+    - export PATH="$HOME/.tracevault/bin:$PATH"
+
+  script:
+    # Generate PDF report from historical data
+    - |
+      echo "📄 Generating compliance report..."
+      tracevault report \
+        --framework soc2 \
+        --format pdf \
+        --output compliance-report.pdf
+
+      echo "✅ Report generated: compliance-report.pdf"
+
+  artifacts:
+    paths:
+      - compliance-report.pdf
+    expire_in: 90 days
+
+  allow_failure: true
+
+# Advanced: Multi-framework compliance check
+# Uncomment to check multiple frameworks in parallel
+
+# compliance:multi-framework:
+#   stage: compliance
+#   image: debian:bullseye-slim
+#
+#   parallel:
+#     matrix:
+#       - FRAMEWORK: soc2
+#       - FRAMEWORK: iso27001
+#       - FRAMEWORK: hipaa
+#
+#   rules:
+#     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+#     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+#
+#   id_tokens:
+#     AWS_OIDC_TOKEN:
+#       aud: https://gitlab.com
+#
+#   before_script:
+#     - apt-get update -qq && apt-get install -y -qq curl jq
+#     - curl -fsSL https://install.tracevault.com | sh
+#     - export PATH="$HOME/.tracevault/bin:$PATH"
+#     - export AWS_WEB_IDENTITY_TOKEN_FILE=$AWS_OIDC_TOKEN
+#
+#   script:
+#     - |
+#       echo "🔍 Running ${FRAMEWORK} compliance check..."
+#       tracevault check --framework $FRAMEWORK --output ${FRAMEWORK}-results.json
+#
+#   artifacts:
+#     paths:
+#       - "*-results.json"
+#     expire_in: 30 days
+#     when: always
+
+# Advanced: Scheduled compliance scans
+# Uncomment to run compliance checks on a schedule
+
+# scheduled-compliance:
+#   stage: compliance
+#   image: debian:bullseye-slim
+#
+#   # Run daily at 2 AM UTC
+#   rules:
+#     - if: '$CI_PIPELINE_SOURCE == "schedule"'
+#
+#   id_tokens:
+#     AWS_OIDC_TOKEN:
+#       aud: https://gitlab.com
+#
+#   before_script:
+#     - apt-get update -qq && apt-get install -y -qq curl jq
+#     - curl -fsSL https://install.tracevault.com | sh
+#     - export PATH="$HOME/.tracevault/bin:$PATH"
+#     - export AWS_WEB_IDENTITY_TOKEN_FILE=$AWS_OIDC_TOKEN
+#
+#   script:
+#     - |
+#       tracevault check --framework soc2 --output scheduled-results.json
+#
+#       # Send notification on failure
+#       if [ $? -ne 0 ]; then
+#         echo "⚠️ Scheduled compliance check failed!"
+#         # Add notification logic here (Slack, email, etc.)
+#       fi
+#
+#   artifacts:
+#     paths:
+#       - scheduled-results.json
+#     expire_in: 90 days
+#   allow_failure: true
+
+# Advanced: Compliance dashboard
+# Create a GitLab Pages site with compliance dashboard
+
+# pages:
+#   stage: report
+#   image: debian:bullseye-slim
+#
+#   rules:
+#     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+#
+#   dependencies:
+#     - soc2-compliance
+#
+#   before_script:
+#     - apt-get update -qq && apt-get install -y -qq curl
+#     - curl -fsSL https://install.tracevault.com | sh
+#     - export PATH="$HOME/.tracevault/bin:$PATH"
+#
+#   script:
+#     - mkdir -p public
+#
+#     # Generate HTML report
+#     - tracevault report --framework soc2 --format html --output public/index.html
+#
+#     # Copy JSON results
+#     - cp results.json public/results.json
+#
+#   artifacts:
+#     paths:
+#       - public
+#     expire_in: 30 days
+
+# Advanced: Merge request compliance widget
+# Add compliance status to merge request description
+
+# mr-compliance-widget:
+#   stage: compliance
+#   image: debian:bullseye-slim
+#
+#   rules:
+#     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+#
+#   dependencies:
+#     - soc2-compliance
+#
+#   before_script:
+#     - apt-get update -qq && apt-get install -y -qq curl jq
+#
+#   script:
+#     - |
+#       # Extract compliance data
+#       STATUS=$(jq -r '.summary.status' results.json)
+#       RATE=$(jq -r '.summary.compliance_rate * 100' results.json)
+#       PASSED=$(jq -r '.summary.passed_controls' results.json)
+#       TOTAL=$(jq -r '.summary.total_controls' results.json)
+#
+#       # Determine emoji
+#       if [ "$STATUS" = "compliant" ]; then
+#         EMOJI="✅"
+#       else
+#         EMOJI="❌"
+#       fi
+#
+#       # Create comment using GitLab API
+#       COMMENT="## ${EMOJI} Compliance Check: ${STATUS}
+#
+#       **Framework**: SOC 2 Type II
+#       **Compliance Rate**: ${RATE}%
+#       **Controls**: ${PASSED}/${TOTAL} passed
+#
+#       [View detailed report](${CI_JOB_URL}/artifacts/browse)
+#       "
+#
+#       # Post comment to merge request
+#       curl --request POST \
+#         --header "PRIVATE-TOKEN: ${CI_JOB_TOKEN}" \
+#         --data "body=${COMMENT}" \
+#         "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}/notes"
+#
+#   allow_failure: true
+
+# Advanced: Compliance diff
+# Show what changed since last compliance check
+
+# compliance-diff:
+#   stage: compliance
+#   image: debian:bullseye-slim
+#
+#   rules:
+#     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+#
+#   before_script:
+#     - apt-get update -qq && apt-get install -y -qq curl jq git
+#     - curl -fsSL https://install.tracevault.com | sh
+#     - export PATH="$HOME/.tracevault/bin:$PATH"
+#
+#   script:
+#     - |
+#       # Run compliance check on current branch
+#       tracevault check --framework soc2 --output current.json
+#
+#       # Checkout main branch
+#       git fetch origin $CI_DEFAULT_BRANCH
+#       git checkout origin/$CI_DEFAULT_BRANCH
+#
+#       # Run compliance check on main
+#       tracevault check --framework soc2 --output baseline.json
+#
+#       # Compare results
+#       echo "📊 Compliance Diff:"
+#       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#
+#       BASELINE_RATE=$(jq -r '.summary.compliance_rate * 100' baseline.json)
+#       CURRENT_RATE=$(jq -r '.summary.compliance_rate * 100' current.json)
+#       DIFF=$(echo "$CURRENT_RATE - $BASELINE_RATE" | bc)
+#
+#       echo "Baseline: ${BASELINE_RATE}%"
+#       echo "Current: ${CURRENT_RATE}%"
+#       echo "Change: ${DIFF}%"
+#
+#       if (( $(echo "$DIFF < 0" | bc -l) )); then
+#         echo "⚠️ Compliance decreased!"
+#         exit 1
+#       else
+#         echo "✅ Compliance maintained or improved"
+#       fi
+#
+#   artifacts:
+#     paths:
+#       - current.json
+#       - baseline.json
+#     expire_in: 7 days
+#   allow_failure: true
+
+# Tips for GitLab CI:
+#
+# 1. OIDC Setup (Recommended):
+#    - Configure AWS IAM Identity Provider for GitLab
+#    - Create IAM role with trust relationship for your GitLab project
+#    - Set AWS_ROLE_ARN as CI/CD variable
+#
+# 2. Traditional Credentials:
+#    - Add AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as masked variables
+#    - Less secure than OIDC, but easier to set up initially
+#
+# 3. Pipeline Efficiency:
+#    - Use caching for TraceVault CLI binary
+#    - Run compliance checks in parallel for multiple frameworks
+#    - Use artifacts to share results between jobs
+#
+# 4. Notifications:
+#    - Integrate with Slack, Teams, or email for failed checks
+#    - Use GitLab's merge request widgets for inline compliance status
+#
+# 5. Scheduled Scans:
+#    - Set up pipeline schedules in CI/CD → Schedules
+#    - Run daily compliance checks to catch drift
+#
+# 6. Compliance Reports:
+#    - Generate PDF reports for auditors
+#    - Use GitLab Pages to host compliance dashboard
+#    - Archive reports as artifacts
+#
+# For more information:
+# - TraceVault Docs: https://docs.tracevault.com/cicd/gitlab
+# - GitLab CI Docs: https://docs.gitlab.com/ee/ci/
+# - AWS OIDC Setup: https://docs.gitlab.com/ee/ci/cloud_services/aws/
