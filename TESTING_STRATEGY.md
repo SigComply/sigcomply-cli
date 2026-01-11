@@ -15,8 +15,8 @@ This document defines the testing strategy for TraceVault CLI. Every code change
 
 ```
                     ┌─────────────┐
-                    │   E2E       │  Manual, pre-release
-                    │   Tests     │  Real AWS account
+                    │   E2E       │  External repos (GitHub/GitLab)
+                    │   Tests     │  Real AWS, real CI/CD
                     └──────┬──────┘
                            │
               ┌────────────┴────────────┐
@@ -28,6 +28,10 @@ This document defines the testing strategy for TraceVault CLI. Every code change
     │              Unit Tests                      │  Every commit
     │         (Fast, mocked, >80% coverage)        │  Required for PR
     └─────────────────────────────────────────────┘
+
+External E2E Testing Repositories:
+- GitHub: https://github.com/Trace-Vault/tracevault-cli-testing-github
+- GitLab: https://gitlab.com/tracevault/tracevault-cli-testing-gitlab
 ```
 
 ---
@@ -439,6 +443,89 @@ func TestCheckCommand_JSONOutput(t *testing.T) {
     assert.Equal(t, "soc2", result.Framework)
     assert.NotEmpty(t, result.Controls)
 }
+```
+
+---
+
+### 5. E2E Testing Repositories (External)
+
+TraceVault maintains dedicated external repositories for E2E testing in real CI/CD environments. These repositories validate complete CLI workflows against real infrastructure.
+
+#### GitHub Actions Testing
+
+**Repository**: [tracevault-cli-testing-github](https://github.com/Trace-Vault/tracevault-cli-testing-github)
+
+**Purpose**: Validates TraceVault CLI in GitHub Actions CI environment.
+
+**Validates**:
+- CLI installation via GitHub Actions
+- Real AWS API evidence collection (IAM, S3, CloudTrail)
+- Compliance policy evaluation (SOC 2)
+- Attestation generation with OIDC signing
+- Submission to TraceVault Cloud API (paid tier)
+
+**Required Secrets**:
+| Secret | Description |
+|--------|-------------|
+| `AWS_ACCESS_KEY_ID` | AWS credentials for evidence collection |
+| `AWS_SECRET_ACCESS_KEY` | AWS credentials for evidence collection |
+| `AWS_REGION` | AWS region (e.g., `us-east-1`) |
+| `TRACEVAULT_API_KEY` | TraceVault Cloud API key |
+| `TRACEVAULT_API_ENDPOINT` | TraceVault Cloud API URL |
+
+**Exit Codes Tested**:
+- `0` - Success, all checks passed
+- `1` - Compliance violations found
+- `2` - Execution error
+
+#### GitLab CI Testing
+
+**Repository**: [tracevault-cli-testing-gitlab](https://gitlab.com/tracevault/tracevault-cli-testing-gitlab)
+
+**Purpose**: Validates TraceVault CLI in GitLab CI environment.
+
+**Validates**:
+- CLI installation in GitLab CI
+- Real AWS API evidence collection
+- GitLab OIDC token integration (`$CI_JOB_JWT_V2`)
+- Multiple framework evaluation (SOC 2, HIPAA, ISO 27001)
+- Multiple output formats (JSON, text, SARIF)
+- Cloud API submission with GitLab OIDC
+
+**GitLab-Specific Features**:
+- OIDC token integration
+- Environment variable handling
+- Artifact management
+- Runner compatibility
+
+**Required CI/CD Variables**:
+| Variable | Description |
+|----------|-------------|
+| `AWS_ACCESS_KEY_ID` | AWS credentials |
+| `AWS_SECRET_ACCESS_KEY` | AWS credentials |
+| `AWS_REGION` | AWS region |
+| `TRACEVAULT_API_KEY` | Cloud API key |
+| `TRACEVAULT_API_ENDPOINT` | Cloud API URL |
+
+#### Key Differences Between Test Repos
+
+| Aspect | GitHub | GitLab |
+|--------|--------|--------|
+| OIDC Source | `ACTIONS_ID_TOKEN_REQUEST_TOKEN` | `CI_JOB_JWT_V2` |
+| Workflow Format | YAML with `uses:` | YAML with `include:` |
+| Artifact Handling | `actions/upload-artifact` | `artifacts:` directive |
+| Status | Active | Documentation phase |
+
+#### Running E2E Tests Locally
+
+The external repos test against real infrastructure. For local testing:
+
+```bash
+# Run E2E tests against real AWS (requires credentials)
+make test-e2e
+
+# Or run specific E2E test
+go test -tags=e2e -v ./test/e2e/...
 ```
 
 ---

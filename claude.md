@@ -796,6 +796,9 @@ TRACEVAULT_OUTPUT_FORMAT    # Output format: text, json, sarif
 - Integration tests for service collectors
 - Mock external APIs in tests
 - Policy tests using OPA's testing framework
+- **E2E Testing Repositories** (external, real CI/CD environments):
+  - GitHub Actions: https://github.com/Trace-Vault/tracevault-cli-testing-github
+  - GitLab CI: https://gitlab.com/tracevault/tracevault-cli-testing-gitlab
 
 ### Error Handling
 - Descriptive error messages
@@ -1022,6 +1025,11 @@ Each policy lives within its framework directory. Simplicity and readability ove
 - ISO 27001: https://www.iso.org/isoiec-27001-information-security.html
 - HIPAA: https://www.hhs.gov/hipaa/
 
+### E2E Testing Repositories
+
+- GitHub Actions Testing: https://github.com/Trace-Vault/tracevault-cli-testing-github
+- GitLab CI Testing: https://gitlab.com/tracevault/tracevault-cli-testing-gitlab
+
 ---
 
-Last Updated: 2026-01-10
+Last Updated: 2026-01-11
