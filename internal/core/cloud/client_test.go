@@ -17,7 +17,7 @@ import (
 func TestNewClient_DefaultConfig(t *testing.T) {
 	client := NewClient(nil)
 	assert.NotNil(t, client)
-	assert.Equal(t, "https://api.tracevault.com", client.config.BaseURL)
+	assert.Equal(t, "https://api.tracevault.io", client.config.BaseURL)
 	assert.Equal(t, 30*time.Second, client.config.Timeout)
 }
 
@@ -107,7 +107,7 @@ func TestClient_Submit_Success(t *testing.T) {
 			Success:      true,
 			RunID:        "run-123",
 			Message:      "Submission accepted",
-			DashboardURL: "https://app.tracevault.com/runs/run-123",
+			DashboardURL: "https://app.tracevault.io/runs/run-123",
 		}
 		w.Header().Set("Content-Type", "application/json")
 		//nolint:errcheck // Test server - error handling not critical
@@ -283,7 +283,7 @@ func TestAPIError_Error(t *testing.T) {
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
-	assert.Equal(t, "https://api.tracevault.com", cfg.BaseURL)
+	assert.Equal(t, "https://api.tracevault.io", cfg.BaseURL)
 	assert.Equal(t, 30*time.Second, cfg.Timeout)
 	assert.Equal(t, 3, cfg.RetryCount)
 	assert.Equal(t, "tracevault-cli/1.0", cfg.UserAgent)
@@ -340,7 +340,7 @@ func TestSubmitResponse_WithDrift(t *testing.T) {
 	resp := &SubmitResponse{
 		Success:      true,
 		RunID:        "run-123",
-		DashboardURL: "https://app.tracevault.com/runs/run-123",
+		DashboardURL: "https://app.tracevault.io/runs/run-123",
 		DriftSummary: &DriftSummary{
 			HasDrift:           true,
 			NewViolations:      3,

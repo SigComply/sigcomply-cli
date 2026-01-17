@@ -163,7 +163,7 @@ type ClientConfig struct {
 // DefaultConfig returns a ClientConfig with default values.
 func DefaultConfig() *ClientConfig {
 	return &ClientConfig{
-		BaseURL:    "https://api.tracevault.com",
+		BaseURL:    "https://api.tracevault.io",
 		Timeout:    30 * time.Second,
 		RetryCount: 3,
 		UserAgent:  "tracevault-cli/1.0",

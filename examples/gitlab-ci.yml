@@ -59,7 +59,7 @@ soc2-compliance:
     - apt-get install -y -qq curl jq ca-certificates
 
     # Install TraceVault CLI
-    - curl -fsSL https://install.tracevault.com | sh -s -- $TRACEVAULT_VERSION
+    - curl -fsSL https://install.tracevault.io | sh -s -- $TRACEVAULT_VERSION
     - export PATH="$HOME/.tracevault/bin:$PATH"
 
     # Verify installation
@@ -143,7 +143,7 @@ soc2-compliance:
 #
 #   before_script:
 #     - apt-get update -qq && apt-get install -y -qq curl jq
-#     - curl -fsSL https://install.tracevault.com | sh
+#     - curl -fsSL https://install.tracevault.io | sh
 #     - export PATH="$HOME/.tracevault/bin:$PATH"
 #
 #   script:
@@ -174,7 +174,7 @@ generate-report:
 
   before_script:
     - apt-get update -qq && apt-get install -y -qq curl
-    - curl -fsSL https://install.tracevault.com | sh
+    - curl -fsSL https://install.tracevault.io | sh
     - export PATH="$HOME/.tracevault/bin:$PATH"
 
   script:
@@ -218,7 +218,7 @@ generate-report:
 #
 #   before_script:
 #     - apt-get update -qq && apt-get install -y -qq curl jq
-#     - curl -fsSL https://install.tracevault.com | sh
+#     - curl -fsSL https://install.tracevault.io | sh
 #     - export PATH="$HOME/.tracevault/bin:$PATH"
 #     - export AWS_WEB_IDENTITY_TOKEN_FILE=$AWS_OIDC_TOKEN
 #
@@ -250,7 +250,7 @@ generate-report:
 #
 #   before_script:
 #     - apt-get update -qq && apt-get install -y -qq curl jq
-#     - curl -fsSL https://install.tracevault.com | sh
+#     - curl -fsSL https://install.tracevault.io | sh
 #     - export PATH="$HOME/.tracevault/bin:$PATH"
 #     - export AWS_WEB_IDENTITY_TOKEN_FILE=$AWS_OIDC_TOKEN
 #
@@ -285,7 +285,7 @@ generate-report:
 #
 #   before_script:
 #     - apt-get update -qq && apt-get install -y -qq curl
-#     - curl -fsSL https://install.tracevault.com | sh
+#     - curl -fsSL https://install.tracevault.io | sh
 #     - export PATH="$HOME/.tracevault/bin:$PATH"
 #
 #   script:
@@ -363,7 +363,7 @@ generate-report:
 #
 #   before_script:
 #     - apt-get update -qq && apt-get install -y -qq curl jq git
-#     - curl -fsSL https://install.tracevault.com | sh
+#     - curl -fsSL https://install.tracevault.io | sh
 #     - export PATH="$HOME/.tracevault/bin:$PATH"
 #
 #   script:
@@ -434,6 +434,6 @@ generate-report:
 #    - Archive reports as artifacts
 #
 # For more information:
-# - TraceVault Docs: https://docs.tracevault.com/cicd/gitlab
+# - TraceVault Docs: https://docs.tracevault.io/cicd/gitlab
 # - GitLab CI Docs: https://docs.gitlab.com/ee/ci/
 # - AWS OIDC Setup: https://docs.gitlab.com/ee/ci/cloud_services/aws/

@@ -4,6 +4,19 @@ This document provides context for AI assistants (like Claude) working on the Tr
 
 ---
 
+## IMPORTANT: Check for Local Instructions
+
+**Before starting any work, check if `CLAUDE.local.md` exists in the repository root.**
+
+If present, read it first and follow its instructions. The local file contains:
+- Private integration references not suitable for public documentation
+- Additional context for maintaining consistency with external systems
+- Instructions that override or supplement this public document
+
+The local file is gitignored and will not be present in all environments.
+
+---
+
 ## Documentation
 
 Key documents for development:

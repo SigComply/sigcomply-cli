@@ -86,7 +86,7 @@ jobs:
       - name: Install TraceVault CLI
         run: |
           # Download and install latest version
-          curl -fsSL https://install.tracevault.com | sh
+          curl -fsSL https://install.tracevault.io | sh
 
           # Add to PATH
           echo "$HOME/.tracevault/bin" >> $GITHUB_PATH
@@ -97,7 +97,7 @@ jobs:
       # Alternative: Install specific version
       # - name: Install TraceVault CLI (specific version)
       #   run: |
-      #     curl -fsSL https://install.tracevault.com | sh -s -- v0.1.0
+      #     curl -fsSL https://install.tracevault.io | sh -s -- v0.1.0
       #     echo "$HOME/.tracevault/bin" >> $GITHUB_PATH
 
       # Step 4: Run compliance check
@@ -207,7 +207,7 @@ jobs:
 
             ---
 
-            [View detailed report](https://app.tracevault.com/reports/${results.report_id}) | [TraceVault CLI](https://github.com/tracevault/tracevault-cli)
+            [View detailed report](https://app.tracevault.io/reports/${results.report_id}) | [TraceVault CLI](https://github.com/tracevault/tracevault-cli)
             `;
 
             // Find existing comment
@@ -313,7 +313,7 @@ jobs:
 #
 #       - name: Install TraceVault CLI
 #         run: |
-#           curl -fsSL https://install.tracevault.com | sh
+#           curl -fsSL https://install.tracevault.io | sh
 #           echo "$HOME/.tracevault/bin" >> $GITHUB_PATH
 #
 #       - name: Run ${{ matrix.framework }} compliance check
