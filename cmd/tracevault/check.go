@@ -13,14 +13,23 @@ import (
 	"github.com/tracevault/tracevault-cli/internal/core/config"
 	"github.com/tracevault/tracevault-cli/internal/core/evidence"
 	"github.com/tracevault/tracevault-cli/internal/core/output"
+	"github.com/tracevault/tracevault-cli/internal/core/storage"
 	"github.com/tracevault/tracevault-cli/internal/data_sources/apis/aws"
 )
 
+const (
+	backendLocal = "local"
+	backendS3    = "s3"
+)
+
 var (
-	flagFramework string
-	flagOutput    string
-	flagVerbose   bool
-	flagRegion    string
+	flagFramework    string
+	flagOutput       string
+	flagVerbose      bool
+	flagRegion       string
+	flagStore        bool
+	flagStoragePath  string
+	flagStorageBackend string
 )
 
 var checkCmd = newCheckCmd()
@@ -55,6 +64,9 @@ Examples:
 	cmd.Flags().StringVarP(&flagOutput, "output", "o", "", "Output format (text, json, junit)")
 	cmd.Flags().BoolVarP(&flagVerbose, "verbose", "v", false, "Verbose output")
 	cmd.Flags().StringVar(&flagRegion, "region", "", "AWS region")
+	cmd.Flags().BoolVar(&flagStore, "store", false, "Store evidence and results to configured storage")
+	cmd.Flags().StringVar(&flagStoragePath, "storage-path", "", "Local storage path (default: ./.tracevault/evidence)")
+	cmd.Flags().StringVar(&flagStorageBackend, "storage-backend", "", "Storage backend (local, s3)")
 
 	return cmd
 }
@@ -78,6 +90,27 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	}
 	if flagVerbose {
 		cfg.Verbose = true
+	}
+
+	// Apply storage flag overrides
+	if flagStore {
+		cfg.Storage.Enabled = true
+	}
+	if flagStoragePath != "" {
+		cfg.Storage.Path = flagStoragePath
+	}
+	if flagStorageBackend != "" {
+		cfg.Storage.Backend = flagStorageBackend
+	}
+
+	// Set storage defaults if enabled but not configured
+	if cfg.Storage.Enabled {
+		if cfg.Storage.Backend == "" {
+			cfg.Storage.Backend = backendLocal
+		}
+		if cfg.Storage.Backend == backendLocal && cfg.Storage.Path == "" {
+			cfg.Storage.Path = "./.tracevault/evidence"
+		}
 	}
 
 	// Re-validate after overrides
@@ -178,7 +211,23 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 	}
 	checkResult.CalculateSummary()
 
+	// Store evidence if enabled
+	if cfg.Storage.Enabled {
+		fmt.Println()
+		fmt.Println("Storage")
+		fmt.Println("-------")
+
+		manifest, err := storeEvidence(ctx, cfg, checkResult, result.Evidence)
+		if err != nil {
+			fmt.Printf("  [warn] Failed to store evidence: %s\n", err)
+		} else {
+			fmt.Printf("  [done] Stored %d evidence items\n", manifest.EvidenceCount)
+			fmt.Printf("  [done] Manifest: %s\n", manifest.RunID)
+		}
+	}
+
 	// Format and display results
+	fmt.Println()
 	formatter := output.NewTextFormatter(os.Stdout)
 	if err := formatter.FormatCheckResult(checkResult); err != nil {
 		return fmt.Errorf("failed to format results: %w", err)
@@ -233,6 +282,15 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 	}
 	checkResult.CalculateSummary()
 
+	// Store evidence if enabled
+	var manifestID string
+	if cfg.Storage.Enabled {
+		manifest, err := storeEvidence(ctx, cfg, checkResult, result.Evidence)
+		if err == nil {
+			manifestID = manifest.RunID
+		}
+	}
+
 	// Build JSON output
 	jsonOutput := struct {
 		Framework     string                  `json:"framework"`
@@ -243,6 +301,7 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 		Summary       evidence.CheckSummary   `json:"summary"`
 		Evidence      []evidence.Evidence     `json:"evidence,omitempty"`
 		Errors        []aws.CollectionError   `json:"errors,omitempty"`
+		ManifestID    string                  `json:"manifest_id,omitempty"`
 	}{
 		Framework:     cfg.Framework,
 		AccountID:     status.AccountID,
@@ -252,6 +311,7 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 		Summary:       checkResult.Summary,
 		Evidence:      result.Evidence,
 		Errors:        result.Errors,
+		ManifestID:    manifestID,
 	}
 
 	enc := json.NewEncoder(os.Stdout)
@@ -305,6 +365,12 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 	}
 	checkResult.CalculateSummary()
 
+	// Store evidence if enabled (silently, as JUnit output should be pure XML)
+	if cfg.Storage.Enabled {
+		//nolint:errcheck // Intentionally ignoring storage errors in JUnit mode to preserve XML output
+		storeEvidence(ctx, cfg, checkResult, result.Evidence)
+	}
+
 	// Format as JUnit XML
 	formatter := output.NewJUnitFormatter(os.Stdout)
 	if err := formatter.FormatCheckResult(checkResult); err != nil {
@@ -348,4 +414,47 @@ func countByResourceType(evidenceList []evidence.Evidence) map[string]int {
 		counts[evidenceList[i].ResourceType]++
 	}
 	return counts
+}
+
+// storeEvidence stores evidence and check results to the configured storage backend.
+func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence) (*storage.Manifest, error) {
+	// Build storage configuration
+	storageCfg := &storage.Config{
+		Backend: cfg.Storage.Backend,
+	}
+
+	switch cfg.Storage.Backend {
+	case backendLocal:
+		storageCfg.Local = &storage.LocalConfig{
+			Path: cfg.Storage.Path,
+		}
+	case backendS3:
+		storageCfg.S3 = &storage.S3Config{
+			Bucket: cfg.Storage.Bucket,
+			Region: cfg.Storage.Region,
+			Prefix: cfg.Storage.Prefix,
+		}
+	}
+
+	// Create backend
+	backend, err := storage.NewBackend(storageCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create storage backend: %w", err)
+	}
+	defer func() {
+		_ = backend.Close() //nolint:errcheck // Close errors are not critical for storage cleanup
+	}()
+
+	// Initialize backend
+	if err := backend.Init(ctx); err != nil {
+		return nil, fmt.Errorf("failed to initialize storage: %w", err)
+	}
+
+	// Store everything and get manifest
+	manifest, err := storage.StoreRun(ctx, backend, checkResult, evidenceList)
+	if err != nil {
+		return nil, fmt.Errorf("failed to store run: %w", err)
+	}
+
+	return manifest, nil
 }

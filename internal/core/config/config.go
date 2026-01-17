@@ -26,6 +26,9 @@ type Config struct {
 	CloudEnabled bool   `json:"cloud_enabled"`
 	APIToken     string `json:"-"` // Never serialize
 
+	// Storage settings
+	Storage StorageConfig `json:"storage"`
+
 	// CI/CD environment
 	CI         bool   `json:"ci"`
 	CIProvider string `json:"ci_provider,omitempty"`
@@ -35,6 +38,16 @@ type Config struct {
 
 	// Collector settings
 	AWS AWSConfig `json:"aws"`
+}
+
+// StorageConfig holds evidence storage settings.
+type StorageConfig struct {
+	Enabled bool   `json:"enabled"`
+	Backend string `json:"backend"` // local, s3
+	Path    string `json:"path"`    // For local backend
+	Bucket  string `json:"bucket"`  // For S3 backend
+	Region  string `json:"region"`  // For S3 backend
+	Prefix  string `json:"prefix"`  // For S3 backend
 }
 
 // AWSConfig holds AWS-specific configuration.
@@ -86,6 +99,31 @@ func (c *Config) LoadFromEnv() {
 
 	if os.Getenv("TRACEVAULT_FAIL_ON_VIOLATION") == "false" {
 		c.FailOnViolation = false
+	}
+
+	// Storage configuration
+	if os.Getenv("TRACEVAULT_STORAGE_ENABLED") == envTrue {
+		c.Storage.Enabled = true
+	}
+
+	if v := os.Getenv("TRACEVAULT_STORAGE_BACKEND"); v != "" {
+		c.Storage.Backend = v
+	}
+
+	if v := os.Getenv("TRACEVAULT_STORAGE_PATH"); v != "" {
+		c.Storage.Path = v
+	}
+
+	if v := os.Getenv("TRACEVAULT_STORAGE_BUCKET"); v != "" {
+		c.Storage.Bucket = v
+	}
+
+	if v := os.Getenv("TRACEVAULT_STORAGE_REGION"); v != "" {
+		c.Storage.Region = v
+	}
+
+	if v := os.Getenv("TRACEVAULT_STORAGE_PREFIX"); v != "" {
+		c.Storage.Prefix = v
 	}
 }
 

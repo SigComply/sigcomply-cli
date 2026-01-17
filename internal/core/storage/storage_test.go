@@ -259,3 +259,122 @@ func TestManifest_JSON(t *testing.T) {
 	assert.Equal(t, manifest.RunID, parsed.RunID)
 	assert.Len(t, parsed.Items, 1)
 }
+
+func TestManifestBuilder_New(t *testing.T) {
+	backend := NewLocalBackend(&LocalConfig{Path: t.TempDir()})
+	builder := NewManifestBuilder(backend, "soc2")
+
+	manifest := builder.Build()
+	assert.NotEmpty(t, manifest.RunID)
+	assert.Equal(t, "soc2", manifest.Framework)
+	assert.Equal(t, "local", manifest.Backend)
+}
+
+func TestManifestBuilder_WithRunID(t *testing.T) {
+	backend := NewLocalBackend(&LocalConfig{Path: t.TempDir()})
+	builder := NewManifestBuilder(backend, "soc2").WithRunID("custom-run-id")
+
+	manifest := builder.Build()
+	assert.Equal(t, "custom-run-id", manifest.RunID)
+}
+
+func TestManifestBuilder_AddItem(t *testing.T) {
+	backend := NewLocalBackend(&LocalConfig{Path: t.TempDir()})
+	builder := NewManifestBuilder(backend, "soc2")
+
+	item := &StoredItem{
+		Path: "evidence/test.json",
+		Hash: "abc123",
+		Size: 1024,
+	}
+	builder.AddItem(item)
+
+	manifest := builder.Build()
+	assert.Len(t, manifest.Items, 1)
+	assert.Equal(t, int64(1024), manifest.TotalSize)
+}
+
+func TestManifestBuilder_Store(t *testing.T) {
+	tmpDir := t.TempDir()
+	backend := NewLocalBackend(&LocalConfig{Path: tmpDir})
+	err := backend.Init(context.Background())
+	require.NoError(t, err)
+
+	builder := NewManifestBuilder(backend, "soc2").WithRunID("test-run")
+	builder.SetEvidenceCount(3)
+	builder.SetCheckResult("runs/test-run/check_result.json")
+
+	item, err := builder.Store(context.Background())
+	require.NoError(t, err)
+
+	assert.Contains(t, item.Path, "test-run")
+	assert.Contains(t, item.Path, "manifest.json")
+	assert.NotEmpty(t, item.Hash)
+}
+
+func TestStoreRun(t *testing.T) {
+	tmpDir := t.TempDir()
+	backend := NewLocalBackend(&LocalConfig{Path: tmpDir})
+	err := backend.Init(context.Background())
+	require.NoError(t, err)
+
+	result := &evidence.CheckResult{
+		RunID:     "test-run-123",
+		Framework: "soc2",
+		Timestamp: time.Now(),
+		PolicyResults: []evidence.PolicyResult{
+			{PolicyID: "policy1", Status: evidence.StatusPass},
+		},
+	}
+	result.CalculateSummary()
+
+	evidenceList := []evidence.Evidence{
+		evidence.New("aws", "aws:iam:user", "user1", []byte(`{"name":"alice"}`)),
+		evidence.New("aws", "aws:iam:user", "user2", []byte(`{"name":"bob"}`)),
+	}
+
+	manifest, err := StoreRun(context.Background(), backend, result, evidenceList)
+	require.NoError(t, err)
+
+	assert.Equal(t, "test-run-123", manifest.RunID)
+	assert.Equal(t, "soc2", manifest.Framework)
+	assert.Equal(t, 2, manifest.EvidenceCount)
+	assert.NotEmpty(t, manifest.CheckResult)
+	// Items: 2 evidence + 1 check result + 1 manifest = 4
+	assert.GreaterOrEqual(t, len(manifest.Items), 3)
+}
+
+func TestLoadManifest(t *testing.T) {
+	tmpDir := t.TempDir()
+	backend := NewLocalBackend(&LocalConfig{Path: tmpDir})
+	err := backend.Init(context.Background())
+	require.NoError(t, err)
+
+	// First store a run
+	result := &evidence.CheckResult{
+		RunID:     "load-test-run",
+		Framework: "soc2",
+		Timestamp: time.Now(),
+	}
+	result.CalculateSummary()
+
+	_, err = StoreRun(context.Background(), backend, result, []evidence.Evidence{})
+	require.NoError(t, err)
+
+	// Now load it
+	loaded, err := LoadManifest(context.Background(), backend, "load-test-run")
+	require.NoError(t, err)
+
+	assert.Equal(t, "load-test-run", loaded.RunID)
+	assert.Equal(t, "soc2", loaded.Framework)
+}
+
+func TestLoadManifest_NotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	backend := NewLocalBackend(&LocalConfig{Path: tmpDir})
+	err := backend.Init(context.Background())
+	require.NoError(t, err)
+
+	_, err = LoadManifest(context.Background(), backend, "nonexistent-run")
+	require.Error(t, err)
+}

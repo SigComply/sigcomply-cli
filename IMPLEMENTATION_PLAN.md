@@ -1,6 +1,6 @@
 # TraceVault CLI - Implementation Plan
 
-**Version**: 3.0 | **Date**: 2026-01-10
+**Version**: 3.1 | **Date**: 2026-01-17
 
 Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md) | Glossary: [GLOSSARY.md](./GLOSSARY.md)
 
@@ -31,7 +31,7 @@ require (
 
 ---
 
-## Phase 0: MVP
+## Phase 0: MVP (COMPLETED)
 
 **Goal**: `tracevault check` with zero config shows compliance results.
 
@@ -39,61 +39,61 @@ require (
 
 | Task | Files | Tests | Done |
 |------|-------|-------|------|
-| Initialize Go module | `go.mod`, `go.sum` | - | [ ] |
-| CLI entry point | `cmd/tracevault/main.go` | - | [ ] |
-| Makefile | `Makefile` | - | [ ] |
-| golangci-lint config | `.golangci.yml` | - | [ ] |
-| GitHub Actions CI | `.github/workflows/test.yml` | - | [ ] |
-| AWS config auto-loading | `internal/core/config/config.go` | `config_test.go` | [ ] |
-| Account ID detection (STS) | `internal/data_sources/apis/aws/collector.go` | `collector_test.go` | [ ] |
-| Check command | `cmd/tracevault/main.go` | - | [ ] |
-| Evidence struct | `internal/core/evidence/evidence.go` | `evidence_test.go` | [ ] |
+| Initialize Go module | `go.mod`, `go.sum` | - | [x] |
+| CLI entry point | `cmd/tracevault/main.go` | - | [x] |
+| Makefile | `Makefile` | - | [x] |
+| golangci-lint config | `.golangci.yml` | - | [x] |
+| GitHub Actions CI | `.github/workflows/test.yml` | - | [x] |
+| AWS config auto-loading | `internal/core/config/config.go` | `config_test.go` | [x] |
+| Account ID detection (STS) | `internal/data_sources/apis/aws/collector.go` | `collector_test.go` | [x] |
+| Check command | `cmd/tracevault/main.go` | - | [x] |
+| Evidence struct | `internal/core/evidence/evidence.go` | `evidence_test.go` | [x] |
 
 ### Week 2: AWS Collector
 
 | Task | Files | Tests | Done |
 |------|-------|-------|------|
-| IAM client setup | `internal/data_sources/apis/aws/collector.go` | - | [ ] |
-| List users with MFA status | `internal/data_sources/apis/aws/iam.go` | `iam_test.go` | [ ] |
-| Handle pagination | `internal/data_sources/apis/aws/iam.go` | `iam_test.go` | [ ] |
-| List S3 buckets | `internal/data_sources/apis/aws/s3.go` | `s3_test.go` | [ ] |
-| Get bucket encryption | `internal/data_sources/apis/aws/s3.go` | `s3_test.go` | [ ] |
-| List CloudTrail trails | `internal/data_sources/apis/aws/cloudtrail.go` | `cloudtrail_test.go` | [ ] |
-| Get trail status | `internal/data_sources/apis/aws/cloudtrail.go` | `cloudtrail_test.go` | [ ] |
-| Collector orchestration | `internal/data_sources/apis/aws/collector.go` | `collector_test.go` | [ ] |
-| Fail-safe collection | `internal/data_sources/apis/aws/collector.go` | `collector_test.go` | [ ] |
+| IAM client setup | `internal/data_sources/apis/aws/collector.go` | - | [x] |
+| List users with MFA status | `internal/data_sources/apis/aws/iam.go` | `iam_test.go` | [x] |
+| Handle pagination | `internal/data_sources/apis/aws/iam.go` | `iam_test.go` | [x] |
+| List S3 buckets | `internal/data_sources/apis/aws/s3.go` | `s3_test.go` | [x] |
+| Get bucket encryption | `internal/data_sources/apis/aws/s3.go` | `s3_test.go` | [x] |
+| List CloudTrail trails | `internal/data_sources/apis/aws/cloudtrail.go` | `cloudtrail_test.go` | [x] |
+| Get trail status | `internal/data_sources/apis/aws/cloudtrail.go` | `cloudtrail_test.go` | [x] |
+| Collector orchestration | `internal/data_sources/apis/aws/collector.go` | `collector_test.go` | [x] |
+| Fail-safe collection | `internal/data_sources/apis/aws/collector.go` | `collector_test.go` | [x] |
 
 ### Week 3: Policy Engine & Policies
 
 | Task | Files | Tests | Done |
 |------|-------|-------|------|
-| OPA engine wrapper | `internal/compliance_frameworks/engine/engine.go` | `engine_test.go` | [ ] |
-| Framework registry | `internal/compliance_frameworks/engine/registry.go` | - | [ ] |
-| SOC2 framework setup | `internal/compliance_frameworks/soc2/framework.go` | - | [ ] |
-| SOC2 controls mapping | `internal/compliance_frameworks/soc2/controls.go` | - | [ ] |
-| CC6.1 MFA policy | `internal/compliance_frameworks/soc2/policies/cc6_1_mfa.rego` | `*_test.rego` | [ ] |
-| CC6.2 Encryption policy | `internal/compliance_frameworks/soc2/policies/cc6_2_encryption.rego` | `*_test.rego` | [ ] |
-| CC7.1 Logging policy | `internal/compliance_frameworks/soc2/policies/cc7_1_logging.rego` | `*_test.rego` | [ ] |
-| Shared Rego helpers | `internal/compliance_frameworks/shared/lib.rego` | - | [ ] |
-| Text output formatter | `internal/core/output/text.go` | `text_test.go` | [ ] |
-| Wire engine into check | `cmd/tracevault/main.go` | - | [ ] |
+| OPA engine wrapper | `internal/compliance_frameworks/engine/engine.go` | `engine_test.go` | [x] |
+| Framework registry | `internal/compliance_frameworks/engine/registry.go` | - | [x] |
+| SOC2 framework setup | `internal/compliance_frameworks/soc2/framework.go` | - | [x] |
+| SOC2 controls mapping | `internal/compliance_frameworks/soc2/controls.go` | - | [x] |
+| CC6.1 MFA policy | `internal/compliance_frameworks/soc2/policies/cc6_1_mfa.rego` | `*_test.rego` | [x] |
+| CC6.2 Encryption policy | `internal/compliance_frameworks/soc2/policies/cc6_2_encryption.rego` | `*_test.rego` | [x] |
+| CC7.1 Logging policy | `internal/compliance_frameworks/soc2/policies/cc7_1_logging.rego` | `*_test.rego` | [x] |
+| Shared Rego helpers | `internal/compliance_frameworks/shared/lib.rego` | - | [x] |
+| Text output formatter | `internal/core/output/text.go` | `text_test.go` | [x] |
+| Wire engine into check | `cmd/tracevault/main.go` | - | [x] |
 
 ### Week 4: Polish & CI/CD
 
 | Task | Files | Tests | Done |
 |------|-------|-------|------|
-| JSON output formatter | `internal/core/output/json.go` | `json_test.go` | [ ] |
-| JUnit XML formatter | `internal/core/output/junit.go` | `junit_test.go` | [ ] |
-| --format flag | `cmd/tracevault/main.go` | - | [ ] |
-| Reusable GH workflow | `.github/workflows/compliance.yml` | - | [ ] |
-| Example workflow | `examples/github-actions/basic.yml` | - | [ ] |
-| Install script | `scripts/install.sh` | - | [ ] |
-| GoReleaser config | `.goreleaser.yml` | - | [ ] |
-| Release workflow | `.github/workflows/release.yml` | - | [ ] |
+| JSON output formatter | `internal/core/output/json.go` | `json_test.go` | [x] |
+| JUnit XML formatter | `internal/core/output/junit.go` | `junit_test.go` | [x] |
+| --format flag | `cmd/tracevault/main.go` | - | [x] |
+| Reusable GH workflow | `.github/workflows/compliance.yml` | - | [x] |
+| Example workflow | `examples/github-actions/basic.yml` | - | [x] |
+| Install script | `scripts/install.sh` | - | [x] |
+| GoReleaser config | `.goreleaser.yml` | - | [x] |
+| Release workflow | `.github/workflows/release.yml` | - | [x] |
 
 ---
 
-## Phase 0 Deliverables
+## Phase 0 Deliverables (COMPLETED)
 
 **Commands**: `tracevault version`, `tracevault check`, `tracevault check --format json`
 
@@ -117,35 +117,35 @@ require (
 
 ---
 
-## Phase 1: Launch
+## Phase 1: Launch (IN PROGRESS)
 
 **Goal**: Production-ready with storage, attestations, and cloud integration.
 
-### Storage
+### Storage (COMPLETED)
 
 | Task | Files | Done |
 |------|-------|------|
-| Storage interface | `internal/core/storage/storage.go` | [ ] |
-| Local backend | `internal/core/storage/local/local.go` | [ ] |
-| S3 backend | `internal/core/storage/s3/s3.go` | [ ] |
-| Manifest generation | `internal/core/storage/manifest.go` | [ ] |
-| --store flag | `cmd/tracevault/main.go` | [ ] |
+| Storage interface | `internal/core/storage/storage.go` | [x] |
+| Local backend | `internal/core/storage/local.go` | [x] |
+| S3 backend | `internal/core/storage/s3.go` | [x] |
+| Manifest generation | `internal/core/storage/manifest.go` | [x] |
+| --store flag | `cmd/tracevault/check.go` | [x] |
 
-### Attestation
+### Attestation (PARTIAL)
 
 | Task | Files | Done |
 |------|-------|------|
-| Attestation types | `internal/core/attestation/types.go` | [ ] |
-| Hash computation | `internal/core/attestation/hash.go` | [ ] |
-| HMAC signing | `internal/core/attestation/hmac.go` | [ ] |
+| Attestation types | `internal/core/attestation/types.go` | [x] |
+| Hash computation | `internal/core/attestation/hash.go` | [x] |
+| HMAC signing | `internal/core/attestation/hmac.go` | [x] |
 | OIDC signing | `internal/core/attestation/oidc.go` | [ ] |
 
-### Cloud Integration
+### Cloud Integration (PARTIAL)
 
 | Task | Files | Done |
 |------|-------|------|
-| Cloud client | `internal/core/cloud/client.go` | [ ] |
-| CloudSubmission type | `internal/core/cloud/types.go` | [ ] |
+| Cloud client | `internal/core/cloud/client.go` | [x] |
+| CloudSubmission type | `internal/core/cloud/types.go` | [x] |
 | OIDC auth | `internal/core/cloud/auth.go` | [ ] |
 | --cloud flag | `cmd/tracevault/main.go` | [ ] |
 
@@ -163,7 +163,7 @@ require (
 | Task | Files | Done |
 |------|-------|------|
 | Secret scanner | `internal/core/scanner/scanner.go` | [ ] |
-| Config loader | `internal/core/config/loader.go` | [ ] |
+| Config loader | `internal/core/config/loader.go` | [x] |
 | Config validator | `internal/core/config/validator.go` | [ ] |
 | init command | `cmd/tracevault/init.go` | [ ] |
 | init-ci command | `cmd/tracevault/init_ci.go` | [ ] |
@@ -176,19 +176,20 @@ require (
 
 ## Success Criteria
 
-### P0 MVP
+### P0 MVP (COMPLETED)
 
-- [ ] `tracevault check` works with zero config
-- [ ] Shows 3 SOC 2 control results
-- [ ] Unit test coverage >80%
-- [ ] Policy tests pass
-- [ ] GitHub Actions workflow works
-- [ ] First binary release (v0.1.0)
+- [x] `tracevault check` works with zero config
+- [x] Shows 3 SOC 2 control results
+- [x] Unit test coverage >80%
+- [x] Policy tests pass
+- [x] GitHub Actions workflow works
+- [x] First binary release (v0.1.0)
 
 ### P1 Launch
 
-- [ ] Local + S3 storage backends
-- [ ] Attestation with HMAC + OIDC signing
+- [x] Local + S3 storage backends
+- [x] Attestation with HMAC signing
+- [ ] Attestation with OIDC signing
 - [ ] Cloud submission working
 - [ ] GitHub collector
 - [ ] Secret scanner
@@ -207,3 +208,11 @@ make test-integration  # Requires LocalStack
 ```
 
 Use interface-based mocks for AWS SDK. See ARCHITECTURE.md for mock pattern.
+
+---
+
+## Current Status
+
+**Tests**: 115 passing | **Linter**: 0 issues
+
+**Last Updated**: 2026-01-17
