@@ -1,0 +1,53 @@
+# Example: Multi-Environment Compliance Checks
+#
+# This example shows how to run compliance checks across multiple
+# AWS accounts and regions using a matrix strategy.
+#
+# Copy this file to your repository at .github/workflows/compliance-multi-env.yml
+
+name: Multi-Environment Compliance
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Monday at 6 AM
+
+jobs:
+  compliance:
+    name: Check ${{ matrix.environment }}
+    strategy:
+      fail-fast: false  # Continue checking other environments if one fails
+      matrix:
+        include:
+          - environment: production
+            aws-region: us-east-1
+            role-secret: AWS_ROLE_ARN_PROD
+          - environment: staging
+            aws-region: us-east-1
+            role-secret: AWS_ROLE_ARN_STAGING
+          - environment: development
+            aws-region: us-west-2
+            role-secret: AWS_ROLE_ARN_DEV
+
+    uses: tracevault/tracevault-cli/.github/workflows/compliance.yml@v1
+    with:
+      framework: soc2
+      aws-region: ${{ matrix.aws-region }}
+      fail-on-violation: ${{ matrix.environment == 'production' }}
+    secrets:
+      AWS_ROLE_ARN: ${{ secrets[matrix.role-secret] }}
+      TRACEVAULT_API_TOKEN: ${{ secrets.TRACEVAULT_API_TOKEN }}
+
+  summary:
+    name: Compliance Summary
+    needs: compliance
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## Multi-Environment Compliance Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Compliance checks completed for all environments." >> $GITHUB_STEP_SUMMARY
+          echo "Check individual job results for details." >> $GITHUB_STEP_SUMMARY

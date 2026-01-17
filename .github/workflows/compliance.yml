@@ -1,0 +1,217 @@
+# Reusable workflow for TraceVault compliance checks
+# This workflow can be called from other repositories to run compliance checks
+#
+# Usage:
+#   jobs:
+#     compliance:
+#       uses: tracevault/tracevault-cli/.github/workflows/compliance.yml@v1
+#       with:
+#         framework: soc2
+#       secrets:
+#         AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+
+name: Compliance Check
+
+on:
+  workflow_call:
+    inputs:
+      framework:
+        description: 'Compliance framework to check (soc2, hipaa, iso27001)'
+        required: false
+        type: string
+        default: 'soc2'
+      output-format:
+        description: 'Output format (text, json, junit)'
+        required: false
+        type: string
+        default: 'text'
+      aws-region:
+        description: 'AWS region to check'
+        required: false
+        type: string
+        default: 'us-east-1'
+      fail-on-violation:
+        description: 'Fail the workflow if compliance violations are found'
+        required: false
+        type: boolean
+        default: true
+      tracevault-version:
+        description: 'TraceVault CLI version to use'
+        required: false
+        type: string
+        default: 'latest'
+      upload-results:
+        description: 'Upload results as workflow artifact'
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      AWS_ROLE_ARN:
+        description: 'AWS IAM role ARN for OIDC authentication'
+        required: false
+      AWS_ACCESS_KEY_ID:
+        description: 'AWS access key ID (fallback if OIDC not configured)'
+        required: false
+      AWS_SECRET_ACCESS_KEY:
+        description: 'AWS secret access key (fallback if OIDC not configured)'
+        required: false
+      TRACEVAULT_API_TOKEN:
+        description: 'TraceVault Cloud API token for paid features'
+        required: false
+    outputs:
+      compliance-score:
+        description: 'Overall compliance score (0-100)'
+        value: ${{ jobs.check.outputs.compliance-score }}
+      passed-policies:
+        description: 'Number of passed policies'
+        value: ${{ jobs.check.outputs.passed-policies }}
+      failed-policies:
+        description: 'Number of failed policies'
+        value: ${{ jobs.check.outputs.failed-policies }}
+      result:
+        description: 'Overall result (pass/fail)'
+        value: ${{ jobs.check.outputs.result }}
+
+jobs:
+  check:
+    name: Run Compliance Check
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # Required for OIDC authentication
+      contents: read
+    outputs:
+      compliance-score: ${{ steps.parse-results.outputs.compliance-score }}
+      passed-policies: ${{ steps.parse-results.outputs.passed-policies }}
+      failed-policies: ${{ steps.parse-results.outputs.failed-policies }}
+      result: ${{ steps.parse-results.outputs.result }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install TraceVault CLI
+        run: |
+          VERSION="${{ inputs.tracevault-version }}"
+          if [ "$VERSION" = "latest" ]; then
+            # Get latest release version
+            VERSION=$(curl -s https://api.github.com/repos/tracevault/tracevault-cli/releases/latest | jq -r .tag_name)
+          fi
+
+          # Download and install
+          ARCH=$(uname -m)
+          case $ARCH in
+            x86_64) ARCH="amd64" ;;
+            aarch64|arm64) ARCH="arm64" ;;
+          esac
+
+          OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+
+          echo "Installing TraceVault CLI ${VERSION} for ${OS}/${ARCH}"
+          curl -sL "https://github.com/tracevault/tracevault-cli/releases/download/${VERSION}/tracevault_${VERSION#v}_${OS}_${ARCH}.tar.gz" | tar xz -C /tmp
+          sudo mv /tmp/tracevault /usr/local/bin/
+          tracevault version
+
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ secrets.AWS_ROLE_ARN != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ inputs.aws-region }}
+
+      - name: Configure AWS credentials (Static)
+        if: ${{ secrets.AWS_ROLE_ARN == '' && secrets.AWS_ACCESS_KEY_ID != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ inputs.aws-region }}
+
+      - name: Run compliance check
+        id: compliance
+        continue-on-error: ${{ !inputs.fail-on-violation }}
+        env:
+          TRACEVAULT_API_TOKEN: ${{ secrets.TRACEVAULT_API_TOKEN }}
+        run: |
+          # Create output directory
+          mkdir -p .tracevault/results
+
+          # Run the compliance check
+          tracevault check \
+            --framework "${{ inputs.framework }}" \
+            --output json \
+            --region "${{ inputs.aws-region }}" \
+            > .tracevault/results/compliance-results.json
+
+          # Generate JUnit report for CI integration
+          tracevault check \
+            --framework "${{ inputs.framework }}" \
+            --output junit \
+            --region "${{ inputs.aws-region }}" \
+            > .tracevault/results/compliance-results.xml 2>/dev/null || true
+
+      - name: Parse results
+        id: parse-results
+        if: always()
+        run: |
+          if [ -f .tracevault/results/compliance-results.json ]; then
+            SCORE=$(jq -r '.summary.compliance_score // 0' .tracevault/results/compliance-results.json)
+            PASSED=$(jq -r '.summary.passed_policies // 0' .tracevault/results/compliance-results.json)
+            FAILED=$(jq -r '.summary.failed_policies // 0' .tracevault/results/compliance-results.json)
+
+            echo "compliance-score=$SCORE" >> $GITHUB_OUTPUT
+            echo "passed-policies=$PASSED" >> $GITHUB_OUTPUT
+            echo "failed-policies=$FAILED" >> $GITHUB_OUTPUT
+
+            if [ "$FAILED" -gt 0 ]; then
+              echo "result=fail" >> $GITHUB_OUTPUT
+            else
+              echo "result=pass" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "compliance-score=0" >> $GITHUB_OUTPUT
+            echo "passed-policies=0" >> $GITHUB_OUTPUT
+            echo "failed-policies=0" >> $GITHUB_OUTPUT
+            echo "result=error" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Display results
+        if: always()
+        run: |
+          echo "## Compliance Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Framework | ${{ inputs.framework }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Compliance Score | ${{ steps.parse-results.outputs.compliance-score }}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Passed Policies | ${{ steps.parse-results.outputs.passed-policies }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Failed Policies | ${{ steps.parse-results.outputs.failed-policies }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Result | ${{ steps.parse-results.outputs.result }} |" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f .tracevault/results/compliance-results.json ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Policy Results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            jq -r '.policy_results[] | "- **\(.policy_id)** (\(.control_id)): \(.status) - \(.message)"' .tracevault/results/compliance-results.json >> $GITHUB_STEP_SUMMARY || true
+          fi
+
+      - name: Upload results artifact
+        if: ${{ always() && inputs.upload-results }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tracevault-compliance-results
+          path: .tracevault/results/
+          retention-days: 30
+
+      - name: Publish JUnit test results
+        if: always()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: '.tracevault/results/compliance-results.xml'
+          fail_on_failure: ${{ inputs.fail-on-violation }}
+          check_name: 'Compliance Check Results'
+
+      - name: Check for failures
+        if: ${{ inputs.fail-on-violation && steps.compliance.outcome == 'failure' }}
+        run: |
+          echo "Compliance check failed with violations"
+          exit 1

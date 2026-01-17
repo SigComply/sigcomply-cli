@@ -1,0 +1,184 @@
+# GoReleaser configuration for TraceVault CLI
+# https://goreleaser.com
+
+version: 2
+
+project_name: tracevault
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: tracevault
+    main: ./cmd/tracevault
+    binary: tracevault
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "6"
+      - "7"
+    ignore:
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X github.com/tracevault/tracevault-cli/internal/version.Version={{.Version}}
+      - -X github.com/tracevault/tracevault-cli/internal/version.Commit={{.Commit}}
+      - -X github.com/tracevault/tracevault-cli/internal/version.Date={{.Date}}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE*
+      - README*
+      - CHANGELOG*
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: Features
+      regexp: '^feat'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^fix'
+      order: 1
+    - title: Performance
+      regexp: '^perf'
+      order: 2
+    - title: Refactoring
+      regexp: '^refactor'
+      order: 3
+    - title: Other
+      order: 999
+
+release:
+  github:
+    owner: tracevault
+    name: tracevault-cli
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## TraceVault CLI {{ .Version }}
+
+    Compliance automation without third-party access to your infrastructure.
+
+    ### Installation
+
+    **Quick Install (macOS/Linux):**
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/tracevault/tracevault-cli/main/scripts/install.sh | sh
+    ```
+
+    **Homebrew (coming soon):**
+    ```bash
+    brew install tracevault/tap/tracevault
+    ```
+
+    **Manual Download:**
+    Download the appropriate binary for your platform from the assets below.
+
+  footer: |
+    ---
+    **Full Changelog**: https://github.com/tracevault/tracevault-cli/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+    For documentation, visit: https://github.com/tracevault/tracevault-cli
+
+brews:
+  - name: tracevault
+    repository:
+      owner: tracevault
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    skip_upload: auto
+    folder: Formula
+    homepage: https://github.com/tracevault/tracevault-cli
+    description: Compliance automation CLI - evidence without access
+    license: Apache-2.0
+    test: |
+      system "#{bin}/tracevault", "version"
+    install: |
+      bin.install "tracevault"
+
+dockers:
+  - image_templates:
+      - "ghcr.io/tracevault/tracevault-cli:{{ .Version }}-amd64"
+    use: buildx
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.source=https://github.com/tracevault/tracevault-cli"
+    skip_push: auto
+
+  - image_templates:
+      - "ghcr.io/tracevault/tracevault-cli:{{ .Version }}-arm64"
+    use: buildx
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.source=https://github.com/tracevault/tracevault-cli"
+    goarch: arm64
+    skip_push: auto
+
+docker_manifests:
+  - name_template: "ghcr.io/tracevault/tracevault-cli:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/tracevault/tracevault-cli:{{ .Version }}-amd64"
+      - "ghcr.io/tracevault/tracevault-cli:{{ .Version }}-arm64"
+    skip_push: auto
+
+  - name_template: "ghcr.io/tracevault/tracevault-cli:latest"
+    image_templates:
+      - "ghcr.io/tracevault/tracevault-cli:{{ .Version }}-amd64"
+      - "ghcr.io/tracevault/tracevault-cli:{{ .Version }}-arm64"
+    skip_push: auto
+
+sboms:
+  - artifacts: archive

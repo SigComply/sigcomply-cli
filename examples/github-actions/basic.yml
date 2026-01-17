@@ -1,0 +1,53 @@
+# Example: Basic TraceVault Compliance Check
+#
+# This example shows how to use the TraceVault reusable workflow
+# to run compliance checks on every push and pull request.
+#
+# Copy this file to your repository at .github/workflows/compliance.yml
+# and configure the secrets as described below.
+
+name: Compliance Check
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  # Optional: Run on a schedule
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight
+
+jobs:
+  compliance:
+    uses: tracevault/tracevault-cli/.github/workflows/compliance.yml@v1
+    with:
+      framework: soc2           # Options: soc2, hipaa, iso27001
+      aws-region: us-east-1     # Your AWS region
+      fail-on-violation: true   # Fail the workflow on compliance violations
+    secrets:
+      # Option 1 (Recommended): Use OIDC authentication
+      # This requires setting up an IAM role with OIDC trust policy.
+      # See: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+
+      # Option 2 (Fallback): Use static credentials
+      # Only use this if OIDC is not available.
+      # AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      # AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      # Optional: TraceVault Cloud API token for paid features
+      # TRACEVAULT_API_TOKEN: ${{ secrets.TRACEVAULT_API_TOKEN }}
+
+  # Example: Post results to Slack
+  notify:
+    needs: compliance
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify on failure
+        if: needs.compliance.outputs.result == 'fail'
+        run: |
+          echo "Compliance check failed!"
+          echo "Score: ${{ needs.compliance.outputs.compliance-score }}%"
+          echo "Failed policies: ${{ needs.compliance.outputs.failed-policies }}"
+          # Add your notification logic here (Slack, Teams, etc.)

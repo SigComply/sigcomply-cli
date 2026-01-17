@@ -44,12 +44,15 @@ Examples:
   tracevault check --framework soc2 --region us-west-2
 
   # Output as JSON
-  tracevault check --output json`,
+  tracevault check --output json
+
+  # Output as JUnit XML (for CI/CD)
+  tracevault check --output junit`,
 		RunE: runCheck,
 	}
 
 	cmd.Flags().StringVarP(&flagFramework, "framework", "f", "", "Compliance framework (soc2, hipaa, iso27001)")
-	cmd.Flags().StringVarP(&flagOutput, "output", "o", "", "Output format (text, json)")
+	cmd.Flags().StringVarP(&flagOutput, "output", "o", "", "Output format (text, json, junit)")
 	cmd.Flags().BoolVarP(&flagVerbose, "verbose", "v", false, "Verbose output")
 	cmd.Flags().StringVar(&flagRegion, "region", "", "AWS region")
 
@@ -82,13 +85,15 @@ func runCheck(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("configuration error: %w", err)
 	}
 
-	// JSON output mode
-	if cfg.OutputFormat == "json" {
+	// Select output mode based on format
+	switch cfg.OutputFormat {
+	case "json":
 		return runCheckJSON(ctx, cfg)
+	case "junit":
+		return runCheckJUnit(ctx, cfg)
+	default:
+		return runCheckText(ctx, cfg, startTime)
 	}
-
-	// Text output mode
-	return runCheckText(ctx, cfg, startTime)
 }
 
 func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) error {
@@ -253,6 +258,57 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(jsonOutput); err != nil {
 		return fmt.Errorf("failed to encode JSON: %w", err)
+	}
+
+	// Return error if there are failures (for CI/CD exit code)
+	if checkResult.HasFailures() {
+		return fmt.Errorf("compliance check failed: %d policy violations", checkResult.Summary.FailedPolicies)
+	}
+
+	return nil
+}
+
+func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
+	// Initialize AWS collector
+	collector := aws.New()
+	if flagRegion != "" {
+		collector.WithRegion(flagRegion)
+	}
+
+	if err := collector.Init(ctx); err != nil {
+		return fmt.Errorf("failed to initialize AWS collector: %w", err)
+	}
+
+	// Check connectivity
+	status := collector.Status(ctx)
+	if !status.Connected {
+		return fmt.Errorf("no AWS credentials available: %s", status.Error)
+	}
+
+	// Collect evidence
+	result, err := collector.Collect(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to collect evidence: %w", err)
+	}
+
+	// Load framework and evaluate policies
+	policyResults, err := evaluatePolicies(ctx, cfg.Framework, result.Evidence)
+	if err != nil {
+		return fmt.Errorf("failed to evaluate policies: %w", err)
+	}
+
+	// Build check result
+	checkResult := &evidence.CheckResult{
+		Framework:     cfg.Framework,
+		Timestamp:     time.Now(),
+		PolicyResults: policyResults,
+	}
+	checkResult.CalculateSummary()
+
+	// Format as JUnit XML
+	formatter := output.NewJUnitFormatter(os.Stdout)
+	if err := formatter.FormatCheckResult(checkResult); err != nil {
+		return fmt.Errorf("failed to format JUnit XML: %w", err)
 	}
 
 	// Return error if there are failures (for CI/CD exit code)
