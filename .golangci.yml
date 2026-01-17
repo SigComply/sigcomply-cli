@@ -113,4 +113,3 @@ issues:
 
 severity:
   default: warning
-  case-sensitive: false
