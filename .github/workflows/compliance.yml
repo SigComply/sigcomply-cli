@@ -1,6 +1,11 @@
 # Reusable workflow for TraceVault compliance checks
 # This workflow can be called from other repositories to run compliance checks
 #
+# NOTE: This workflow only triggers via workflow_call. GitHub may show it as
+# a "failed" check on direct pushes - this is a known display quirk with
+# reusable workflows and can be safely ignored. The actual Test and Security
+# workflows are the source of truth for CI status.
+#
 # Usage:
 #   jobs:
 #     compliance:
@@ -13,12 +18,6 @@
 name: Compliance Check
 
 on:
-  # Direct triggers (push/PR) run a simple validation job
-  # The actual compliance check only runs when called by another workflow
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_call:
     inputs:
       framework:
@@ -79,20 +78,9 @@ on:
         value: ${{ jobs.check.outputs.result }}
 
 jobs:
-  # Simple validation job for push/PR - just confirms workflow syntax is valid
-  validate:
-    name: Validate Workflow
-    runs-on: ubuntu-latest
-    if: github.event_name != 'workflow_call'
-    steps:
-      - name: Workflow validation passed
-        run: echo "Reusable compliance workflow is valid"
-
-  # Actual compliance check - only runs when called by another workflow
   check:
     name: Run Compliance Check
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_call'
     permissions:
       id-token: write  # Required for OIDC authentication
       contents: read
