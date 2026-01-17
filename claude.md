@@ -309,155 +309,15 @@ include:
 - Customers never need to change their code when TraceVault improves features
 - Standardized across all customer implementations
 
-### 3. OIDC Authentication (Dual-Purpose)
+### 3. OIDC Authentication
 
-TraceVault uses **ephemeral OIDC tokens** for authentication in two critical areas:
+TraceVault uses ephemeral OIDC tokens for dual-purpose authentication:
+1. **CLI → TraceVault Cloud API**: Eliminates long-lived API keys
+2. **CLI → Third-party services** (AWS, GCP, Azure): Preferred over static credentials
 
-#### A. Authenticating CLI with TraceVault Cloud API
+**Key principle**: OIDC first, fall back to environment variables/secrets when unavailable.
 
-The CLI uses OIDC to authenticate with the TraceVault Rails backend, eliminating the need for long-lived API keys.
-
-**How it works:**
-
-1. **CI/CD Environment Provides OIDC Token:**
-   - GitHub Actions automatically generates OIDC tokens via `permissions: id-token: write`
-   - GitLab CI provides OIDC tokens via `$CI_JOB_JWT_V2`
-   - These tokens are short-lived (minutes to hours)
-
-2. **CLI Obtains Token:**
-   ```go
-   // The CLI retrieves the OIDC token from the CI environment
-   token := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN") // GitHub
-   // OR
-   token := os.Getenv("CI_JOB_JWT_V2") // GitLab
-   ```
-
-3. **CLI Sends Signed Attestation:**
-   ```go
-   // Attestation includes:
-   // - SHA-256 hash of evidence
-   // - Metadata (timestamp, control ID, status)
-   // - OIDC token for authentication
-
-   attestation := Attestation{
-       Hash: sha256Hash,
-       ControlID: "SOC2-CC6.1",
-       Status: "pass",
-       Timestamp: time.Now().UTC(),
-   }
-
-   // Send to Rails API with OIDC token in Authorization header
-   client.SendAttestation(attestation, oidcToken)
-   ```
-
-4. **Rails API Verifies Token:**
-   - Validates OIDC token signature using GitHub/GitLab's public keys
-   - Extracts repository and organization information from token claims
-   - Ensures the token is valid and not expired
-   - Associates attestation with correct customer account
-
-#### B. Authenticating with Third-Party Services (Preferred)
-
-**CRITICAL DESIGN DECISION:** The GitHub Actions and GitLab CI reusable workflows should **prefer OIDC authentication** when fetching data from third-party services (AWS, GCP, Azure, GitHub, etc.) instead of using long-lived API keys stored as secrets.
-
-**Supported OIDC Integrations:**
-
-1. **AWS (via IAM Roles for OIDC)**
-   ```yaml
-   # GitHub Actions Example
-   - name: Configure AWS Credentials
-     uses: aws-actions/configure-aws-credentials@v4
-     with:
-       role-to-assume: arn:aws:iam::123456789012:role/TraceVaultComplianceRole
-       aws-region: us-east-1
-
-   # No AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY needed!
-   ```
-
-2. **Google Cloud (via Workload Identity Federation)**
-   ```yaml
-   - name: Authenticate to Google Cloud
-     uses: google-github-actions/auth@v2
-     with:
-       workload_identity_provider: 'projects/123/locations/global/...'
-       service_account: 'tracevault@project.iam.gserviceaccount.com'
-   ```
-
-3. **Azure (via Workload Identity Federation)**
-   ```yaml
-   - name: Azure Login
-     uses: azure/login@v1
-     with:
-       client-id: ${{ secrets.AZURE_CLIENT_ID }}
-       tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-       subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-   ```
-
-4. **GitHub API (using GITHUB_TOKEN)**
-   ```yaml
-   # GitHub Actions automatically provides GITHUB_TOKEN
-   - name: Fetch GitHub Data
-     env:
-       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-     run: tracevault check --integration github
-   ```
-
-**Fallback Strategy:**
-
-When OIDC is not available or not configured, fall back to traditional credential methods:
-- Environment variables (AWS_ACCESS_KEY_ID, GITHUB_TOKEN, etc.)
-- Service account keys (for GCP, Azure)
-- User provides these as repository secrets
-
-**CLI Implementation:**
-
-The CLI must detect which authentication method is available:
-
-```go
-// Example: AWS authentication detection
-func (c *AWSCollector) Authenticate() error {
-    // 1. Try OIDC (check for Web Identity Token)
-    if os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE") != "" {
-        return c.authenticateWithOIDC()
-    }
-
-    // 2. Fallback to IAM role (EC2, ECS, Lambda)
-    if metadata := ec2metadata.New(session.New()); metadata.Available() {
-        return c.authenticateWithIAMRole()
-    }
-
-    // 3. Fallback to environment variables
-    if os.Getenv("AWS_ACCESS_KEY_ID") != "" {
-        return c.authenticateWithCredentials()
-    }
-
-    return errors.New("No AWS credentials found")
-}
-```
-
-**Security Benefits:**
-- **No long-lived secrets** stored in customer repositories
-- **Automatic credential rotation** - tokens expire after job completion
-- **Principle of least privilege** - IAM roles can be scoped per repository
-- **Audit trail** - Cloud providers log which repository/workflow accessed what resources
-- **Impossible to exfiltrate** - Credentials only work from authorized CI/CD context
-- **Revocation at scale** - Disable OIDC trust relationship instead of rotating keys
-
-**Documentation for Users:**
-
-The TraceVault reusable workflows will document how to set up OIDC for each cloud provider. Example setup instructions:
-
-**AWS Setup:**
-1. Create IAM role with trust policy for GitHub Actions OIDC provider
-2. Attach read-only compliance policies (CloudTrail, IAM, Config, etc.)
-3. Add role ARN to workflow configuration
-4. No secrets needed in repository settings!
-
-**Implementation Notes:**
-- Reusable workflows should attempt OIDC first, then fall back to secrets
-- CLI should log which authentication method is being used (for debugging)
-- Clear error messages when OIDC setup is incorrect
-- Documentation should strongly recommend OIDC over long-lived credentials
+> **Full details**: See [docs/claude/auth.md](./docs/claude/auth.md) when implementing auth flows.
 
 ---
 
@@ -857,22 +717,6 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 
 ---
 
-## Competitive Landscape
-
-**Traditional Platforms** (Vanta, Drata, Secureframe):
-- Require read-only API keys to customer infrastructure
-- Centralized data collection and storage
-- Black-box compliance checks
-- SaaS pricing model
-
-**TraceVault Advantages**:
-- Zero data liability - no production data leaves customer environment
-- Open-source policies - complete transparency
-- Developer-first - terminal and CI/CD native
-- Non-custodial - customer owns all evidence
-
----
-
 ## Security Considerations
 
 ### Credentials Management
@@ -897,74 +741,12 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 
 ## Common Tasks
 
-### Adding a New Service Integration (Data Source)
-
-1. Create collector directory in `internal/data_sources/apis/<service>/`
-   - Example: `internal/data_sources/apis/github/`
-2. Create files following the service-split pattern:
-   - `collector.go` - Auth, config, orchestration
-   - `repos.go`, `members.go`, etc. - Service-specific collection
-3. Implement multi-method authentication:
-   - OIDC/Workload Identity (primary)
-   - IAM roles (secondary)
-   - Environment variables (fallback)
-   - Log which auth method is being used
-4. Implement `Collect(ctx) ([]evidence.Evidence, error)` method
-5. Write unit tests with mocked API client
-6. Add policies to relevant frameworks in `internal/compliance_frameworks/<framework>/policies/`
-7. Document OIDC setup steps for users
-8. Update reusable workflows to support new integration
-
-### Adding a New Compliance Policy
-
-**Design Guideline: Framework-Specific Policies**
-Each policy lives within its framework directory. Simplicity and readability over DRY abstraction.
-
-1. Create Rego file in `internal/compliance_frameworks/<framework>/policies/<control>_<name>.rego`
-   - Example: `internal/compliance_frameworks/soc2/policies/cc6_1_mfa.rego`
-   - Example: `internal/compliance_frameworks/hipaa/policies/164_312_access.rego`
-2. Use package naming: `package tracevault.<framework>.<control>`
-3. Include metadata with id, name, framework, control, severity
-4. Define `violations` rule for policy checks
-5. Write policy tests in `<policy>_test.rego`
-6. Policy automatically embedded via framework's `go:embed` on next build
-
-### Adding a New Compliance Framework
-
-1. Create framework directory: `internal/compliance_frameworks/<framework>/`
-2. Create `framework.go` implementing the Framework interface
-3. Create `controls.go` with control hierarchy and mappings
-4. Create `policies/` directory with at least one policy
-5. Register framework in `internal/compliance_frameworks/engine/registry.go`
-6. Add framework to CLI `--framework` flag options
-7. Add documentation
-
-### Adding a New Storage Backend
-1. Implement storage interface in `internal/core/storage/<backend>/`
-2. Add configuration options
-3. Write integration tests
-4. Update storage documentation
-
-### Creating CI/CD Reusable Workflows
-1. **GitHub Actions Workflow** (`.github/workflows/compliance.yml`):
-   - Define reusable workflow with `workflow_call` trigger
-   - Add inputs for framework selection, custom policies, etc.
-   - Include OIDC token permissions (`id-token: write`)
-   - Install CLI binary
-   - Run compliance checks with proper error handling
-   - Output results and artifact attestations
-
-2. **GitLab CI Component** (`.gitlab/components/compliance.yml`):
-   - Define component with `spec:inputs` for parameters
-   - Use GitLab's built-in OIDC token (`$CI_JOB_JWT_V2`)
-   - Install CLI and execute checks
-   - Handle exit codes for pipeline pass/fail
-
-3. **init-ci Command Implementation**:
-   - Detect CI/CD platform (check for `$GITHUB_ACTIONS` or `$GITLAB_CI`)
-   - Generate minimal caller YAML in correct location
-   - Validate required secrets are configured
-   - Provide copy-paste setup instructions
+> See [docs/claude/recipes.md](./docs/claude/recipes.md) for step-by-step guides on:
+> - Adding a new service integration (data source)
+> - Adding a new compliance policy
+> - Adding a new compliance framework
+> - Adding a new storage backend
+> - Creating CI/CD reusable workflows
 
 ---
 
