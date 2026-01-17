@@ -13,15 +13,6 @@
 name: Compliance Check
 
 on:
-  # This workflow is meant to be called by other workflows
-  # The push trigger with paths that never match prevents GitHub from
-  # showing this as a "failed" check on direct pushes
-  push:
-    paths:
-      - '.github/workflows/THIS_FILE_DOES_NOT_EXIST'
-  pull_request:
-    paths:
-      - '.github/workflows/THIS_FILE_DOES_NOT_EXIST'
   workflow_call:
     inputs:
       framework:
