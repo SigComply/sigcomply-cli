@@ -2,12 +2,14 @@ package tracevault
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/tracevault/tracevault-cli/internal/core/config"
+	"github.com/tracevault/tracevault-cli/internal/core/evidence"
 	"github.com/tracevault/tracevault-cli/internal/data_sources/apis/aws"
 )
 
@@ -77,6 +79,16 @@ func runCheck(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("configuration error: %w", err)
 	}
 
+	// JSON output mode
+	if cfg.OutputFormat == "json" {
+		return runCheckJSON(ctx, cfg)
+	}
+
+	// Text output mode
+	return runCheckText(ctx, cfg, startTime)
+}
+
+func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) error {
 	// Print header
 	fmt.Println("TraceVault Compliance Check")
 	fmt.Println("===========================")
@@ -116,17 +128,35 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println()
 
-	// TODO: Week 2 - Collect evidence from IAM, S3, CloudTrail
-	// TODO: Week 3 - Evaluate policies with OPA engine
-	// For now, just report successful connection
-
+	// Collect evidence
 	fmt.Println("Evidence Collection")
 	fmt.Println("-------------------")
-	fmt.Println("  [pending] AWS IAM users")
-	fmt.Println("  [pending] AWS S3 buckets")
-	fmt.Println("  [pending] AWS CloudTrail trails")
+
+	result, err := collector.Collect(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to collect evidence: %w", err)
+	}
+
+	// Count by resource type
+	typeCounts := countByResourceType(result.Evidence)
+	for resourceType, count := range typeCounts {
+		fmt.Printf("  [done] %s: %d resources\n", resourceType, count)
+	}
+
+	// Show collection errors
+	if result.HasErrors() {
+		fmt.Println()
+		fmt.Println("Collection Warnings:")
+		for _, e := range result.Errors {
+			fmt.Printf("  [warn] %s: %s\n", e.Service, e.Error)
+		}
+	}
+
+	fmt.Println()
+	fmt.Printf("Total evidence collected: %d resources\n", len(result.Evidence))
 	fmt.Println()
 
+	// TODO: Week 3 - Evaluate policies with OPA engine
 	fmt.Println("Policy Evaluation")
 	fmt.Println("-----------------")
 	fmt.Println("  [pending] CC6.1 - MFA for all users")
@@ -138,4 +168,62 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Completed in %s\n", elapsed.Round(time.Millisecond))
 
 	return nil
+}
+
+func runCheckJSON(ctx context.Context, cfg *config.Config) error {
+	// Initialize AWS collector
+	collector := aws.New()
+	if flagRegion != "" {
+		collector.WithRegion(flagRegion)
+	}
+
+	if err := collector.Init(ctx); err != nil {
+		return fmt.Errorf("failed to initialize AWS collector: %w", err)
+	}
+
+	// Check connectivity
+	status := collector.Status(ctx)
+	if !status.Connected {
+		return fmt.Errorf("no AWS credentials available: %s", status.Error)
+	}
+
+	// Collect evidence
+	result, err := collector.Collect(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to collect evidence: %w", err)
+	}
+
+	// Build JSON output
+	output := struct {
+		Framework string              `json:"framework"`
+		AccountID string              `json:"account_id"`
+		Region    string              `json:"region"`
+		Evidence  []evidence.Evidence `json:"evidence"`
+		Errors    []aws.CollectionError `json:"errors,omitempty"`
+		Summary   struct {
+			TotalResources int            `json:"total_resources"`
+			ByType         map[string]int `json:"by_type"`
+		} `json:"summary"`
+	}{
+		Framework: cfg.Framework,
+		AccountID: status.AccountID,
+		Region:    status.Region,
+		Evidence:  result.Evidence,
+		Errors:    result.Errors,
+	}
+
+	output.Summary.TotalResources = len(result.Evidence)
+	output.Summary.ByType = countByResourceType(result.Evidence)
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(output)
+}
+
+func countByResourceType(evidenceList []evidence.Evidence) map[string]int {
+	counts := make(map[string]int)
+	for i := range evidenceList {
+		counts[evidenceList[i].ResourceType]++
+	}
+	return counts
 }
