@@ -8,8 +8,11 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/tracevault/tracevault-cli/internal/compliance_frameworks/engine"
+	"github.com/tracevault/tracevault-cli/internal/compliance_frameworks/soc2"
 	"github.com/tracevault/tracevault-cli/internal/core/config"
 	"github.com/tracevault/tracevault-cli/internal/core/evidence"
+	"github.com/tracevault/tracevault-cli/internal/core/output"
 	"github.com/tracevault/tracevault-cli/internal/data_sources/apis/aws"
 )
 
@@ -156,16 +159,34 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 	fmt.Printf("Total evidence collected: %d resources\n", len(result.Evidence))
 	fmt.Println()
 
-	// TODO: Week 3 - Evaluate policies with OPA engine
-	fmt.Println("Policy Evaluation")
-	fmt.Println("-----------------")
-	fmt.Println("  [pending] CC6.1 - MFA for all users")
-	fmt.Println("  [pending] CC6.2 - S3 encryption")
-	fmt.Println("  [pending] CC7.1 - CloudTrail enabled")
-	fmt.Println()
+	// Load framework and evaluate policies
+	policyResults, err := evaluatePolicies(ctx, cfg.Framework, result.Evidence)
+	if err != nil {
+		return fmt.Errorf("failed to evaluate policies: %w", err)
+	}
 
+	// Build check result
+	checkResult := &evidence.CheckResult{
+		Framework:     cfg.Framework,
+		Timestamp:     time.Now(),
+		PolicyResults: policyResults,
+	}
+	checkResult.CalculateSummary()
+
+	// Format and display results
+	formatter := output.NewTextFormatter(os.Stdout)
+	if err := formatter.FormatCheckResult(checkResult); err != nil {
+		return fmt.Errorf("failed to format results: %w", err)
+	}
+
+	fmt.Println()
 	elapsed := time.Since(startTime)
 	fmt.Printf("Completed in %s\n", elapsed.Round(time.Millisecond))
+
+	// Return error if there are failures (for CI/CD exit code)
+	if checkResult.HasFailures() {
+		return fmt.Errorf("compliance check failed: %d policy violations", checkResult.Summary.FailedPolicies)
+	}
 
 	return nil
 }
@@ -193,31 +214,76 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 		return fmt.Errorf("failed to collect evidence: %w", err)
 	}
 
-	// Build JSON output
-	output := struct {
-		Framework string              `json:"framework"`
-		AccountID string              `json:"account_id"`
-		Region    string              `json:"region"`
-		Evidence  []evidence.Evidence `json:"evidence"`
-		Errors    []aws.CollectionError `json:"errors,omitempty"`
-		Summary   struct {
-			TotalResources int            `json:"total_resources"`
-			ByType         map[string]int `json:"by_type"`
-		} `json:"summary"`
-	}{
-		Framework: cfg.Framework,
-		AccountID: status.AccountID,
-		Region:    status.Region,
-		Evidence:  result.Evidence,
-		Errors:    result.Errors,
+	// Load framework and evaluate policies
+	policyResults, err := evaluatePolicies(ctx, cfg.Framework, result.Evidence)
+	if err != nil {
+		return fmt.Errorf("failed to evaluate policies: %w", err)
 	}
 
-	output.Summary.TotalResources = len(result.Evidence)
-	output.Summary.ByType = countByResourceType(result.Evidence)
+	// Build check result
+	checkResult := &evidence.CheckResult{
+		Framework:     cfg.Framework,
+		Timestamp:     time.Now(),
+		PolicyResults: policyResults,
+	}
+	checkResult.CalculateSummary()
+
+	// Build JSON output
+	jsonOutput := struct {
+		Framework     string                  `json:"framework"`
+		AccountID     string                  `json:"account_id"`
+		Region        string                  `json:"region"`
+		Timestamp     time.Time               `json:"timestamp"`
+		PolicyResults []evidence.PolicyResult `json:"policy_results"`
+		Summary       evidence.CheckSummary   `json:"summary"`
+		Evidence      []evidence.Evidence     `json:"evidence,omitempty"`
+		Errors        []aws.CollectionError   `json:"errors,omitempty"`
+	}{
+		Framework:     cfg.Framework,
+		AccountID:     status.AccountID,
+		Region:        status.Region,
+		Timestamp:     checkResult.Timestamp,
+		PolicyResults: checkResult.PolicyResults,
+		Summary:       checkResult.Summary,
+		Evidence:      result.Evidence,
+		Errors:        result.Errors,
+	}
 
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	return enc.Encode(output)
+	if err := enc.Encode(jsonOutput); err != nil {
+		return fmt.Errorf("failed to encode JSON: %w", err)
+	}
+
+	// Return error if there are failures (for CI/CD exit code)
+	if checkResult.HasFailures() {
+		return fmt.Errorf("compliance check failed: %d policy violations", checkResult.Summary.FailedPolicies)
+	}
+
+	return nil
+}
+
+// evaluatePolicies loads the framework and evaluates all policies against evidence.
+func evaluatePolicies(ctx context.Context, frameworkName string, evidenceList []evidence.Evidence) ([]evidence.PolicyResult, error) {
+	// Get framework (currently only SOC2 is implemented)
+	var framework engine.Framework
+	switch frameworkName {
+	case "soc2":
+		framework = soc2.New()
+	default:
+		return nil, fmt.Errorf("unsupported framework: %s (only 'soc2' is currently supported)", frameworkName)
+	}
+
+	// Create engine and load policies
+	eng := engine.New()
+	for _, policy := range framework.Policies() {
+		if err := eng.LoadPolicy(policy.Name, policy.Source); err != nil {
+			return nil, fmt.Errorf("failed to load policy %s: %w", policy.Name, err)
+		}
+	}
+
+	// Evaluate all policies
+	return eng.Evaluate(ctx, evidenceList)
 }
 
 func countByResourceType(evidenceList []evidence.Evidence) map[string]int {
