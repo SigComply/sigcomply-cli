@@ -113,10 +113,4 @@ issues:
 
 severity:
   default: warning
-  rules:
-    - linters:
-        - gosec
-      severity: error
-    - linters:
-        - govet
-      severity: error
+  case-sensitive: false
