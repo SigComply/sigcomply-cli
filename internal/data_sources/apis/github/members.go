@@ -130,3 +130,81 @@ func (c *MemberCollector) CollectMembersWithFilter(ctx context.Context, org, fil
 
 	return evidenceList, nil
 }
+
+// CollectMembersWithTwoFactorStatus collects all members and determines their 2FA status.
+// It first attempts to query members with 2FA disabled (requires org admin access).
+// If successful, it cross-references to determine each member's 2FA status.
+// If the filter query fails (no admin access), it falls back to unknown status.
+func (c *MemberCollector) CollectMembersWithTwoFactorStatus(ctx context.Context, org string) ([]evidence.Evidence, bool, error) {
+	// First, try to get members with 2FA disabled (requires admin access)
+	membersWithout2FA := make(map[string]bool)
+	has2FAVisibility := false
+
+	disabledOpts := &gh.ListMembersOptions{
+		Filter:      "2fa_disabled",
+		ListOptions: gh.ListOptions{PerPage: 100},
+	}
+
+	for {
+		members, resp, err := c.client.ListOrgMembers(ctx, org, disabledOpts)
+		if err != nil {
+			// If we get an error (likely 403 Forbidden), we don't have admin access
+			// Fall back to collecting without 2FA status
+			break
+		}
+
+		// If we get here, we have admin access
+		has2FAVisibility = true
+		for _, user := range members {
+			membersWithout2FA[user.GetLogin()] = true
+		}
+
+		if resp.NextPage == 0 {
+			break
+		}
+		disabledOpts.Page = resp.NextPage
+	}
+
+	// Now get all members
+	var allMembers []*gh.User
+	opts := &gh.ListMembersOptions{
+		ListOptions: gh.ListOptions{PerPage: 100},
+	}
+
+	for {
+		members, resp, err := c.client.ListOrgMembers(ctx, org, opts)
+		if err != nil {
+			return nil, has2FAVisibility, fmt.Errorf("failed to list organization members: %w", err)
+		}
+
+		allMembers = append(allMembers, members...)
+
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+
+	// Convert to evidence with 2FA status
+	evidenceList := make([]evidence.Evidence, 0, len(allMembers))
+	for _, user := range allMembers {
+		member := &Member{
+			Login:        user.GetLogin(),
+			ID:           user.GetID(),
+			Type:         user.GetType(),
+			SiteAdmin:    user.GetSiteAdmin(),
+			Organization: org,
+		}
+
+		if has2FAVisibility {
+			// We have admin access, so we can determine 2FA status
+			twoFactorEnabled := !membersWithout2FA[user.GetLogin()]
+			member.TwoFactorEnabled = &twoFactorEnabled
+		}
+		// If no admin access, TwoFactorEnabled remains nil (unknown)
+
+		evidenceList = append(evidenceList, member.ToEvidence())
+	}
+
+	return evidenceList, has2FAVisibility, nil
+}

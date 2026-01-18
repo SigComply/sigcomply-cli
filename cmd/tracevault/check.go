@@ -10,12 +10,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/tracevault/tracevault-cli/internal/compliance_frameworks/engine"
+	"github.com/tracevault/tracevault-cli/internal/compliance_frameworks/iso27001"
 	"github.com/tracevault/tracevault-cli/internal/compliance_frameworks/soc2"
 	"github.com/tracevault/tracevault-cli/internal/core/config"
 	"github.com/tracevault/tracevault-cli/internal/core/evidence"
 	"github.com/tracevault/tracevault-cli/internal/core/output"
 	"github.com/tracevault/tracevault-cli/internal/core/storage"
 	"github.com/tracevault/tracevault-cli/internal/data_sources/apis/aws"
+	"github.com/tracevault/tracevault-cli/internal/data_sources/apis/github"
 )
 
 const (
@@ -33,6 +35,7 @@ var (
 	flagStorageBackend string
 	flagCloud          bool
 	flagNoCloud        bool
+	flagGitHubOrg      string
 )
 
 var checkCmd = newCheckCmd()
@@ -72,6 +75,7 @@ Examples:
 	cmd.Flags().StringVar(&flagStorageBackend, "storage-backend", "", "Storage backend (local, s3)")
 	cmd.Flags().BoolVar(&flagCloud, "cloud", false, "Force submission to TraceVault Cloud (requires TRACEVAULT_API_TOKEN)")
 	cmd.Flags().BoolVar(&flagNoCloud, "no-cloud", false, "Disable submission to TraceVault Cloud")
+	cmd.Flags().StringVar(&flagGitHubOrg, "github-org", "", "GitHub organization to collect evidence from (requires GITHUB_TOKEN)")
 
 	return cmd
 }
@@ -174,13 +178,24 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 	}
 	fmt.Println()
 
-	// Collect evidence
+	// Collect evidence from AWS
 	result, err := collector.Collect(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to collect evidence: %w", err)
 	}
 
 	printEvidenceCollection(result)
+
+	// Collect evidence from GitHub if organization is specified
+	if flagGitHubOrg != "" {
+		ghResult, ghErr := collectGitHubEvidence(ctx, flagGitHubOrg)
+		if ghErr != nil {
+			fmt.Printf("  [warn] GitHub collection failed: %s\n", ghErr)
+		} else {
+			result.Evidence = append(result.Evidence, ghResult.Evidence...)
+			printGitHubEvidenceCollection(ghResult)
+		}
+	}
 
 	// Load framework and evaluate policies
 	policyResults, err := evaluatePolicies(ctx, cfg.Framework, result.Evidence)
@@ -238,6 +253,7 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 	return nil
 }
 
+//nolint:gocyclo // Complexity is acceptable for orchestration function with multiple data sources
 func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 	// Initialize AWS collector
 	collector := aws.New()
@@ -255,10 +271,18 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 		return fmt.Errorf("no AWS credentials available: %s", status.Error)
 	}
 
-	// Collect evidence
+	// Collect evidence from AWS
 	result, err := collector.Collect(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to collect evidence: %w", err)
+	}
+
+	// Collect evidence from GitHub if organization is specified
+	if flagGitHubOrg != "" {
+		ghResult, ghErr := collectGitHubEvidence(ctx, flagGitHubOrg)
+		if ghErr == nil {
+			result.Evidence = append(result.Evidence, ghResult.Evidence...)
+		}
 	}
 
 	// Load framework and evaluate policies
@@ -370,10 +394,18 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 		return fmt.Errorf("no AWS credentials available: %s", status.Error)
 	}
 
-	// Collect evidence
+	// Collect evidence from AWS
 	result, err := collector.Collect(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to collect evidence: %w", err)
+	}
+
+	// Collect evidence from GitHub if organization is specified
+	if flagGitHubOrg != "" {
+		ghResult, ghErr := collectGitHubEvidence(ctx, flagGitHubOrg)
+		if ghErr == nil {
+			result.Evidence = append(result.Evidence, ghResult.Evidence...)
+		}
 	}
 
 	// Load framework and evaluate policies
@@ -420,13 +452,15 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 
 // evaluatePolicies loads the framework and evaluates all policies against evidence.
 func evaluatePolicies(ctx context.Context, frameworkName string, evidenceList []evidence.Evidence) ([]evidence.PolicyResult, error) {
-	// Get framework (currently only SOC2 is implemented)
+	// Get framework
 	var framework engine.Framework
 	switch frameworkName {
 	case "soc2":
 		framework = soc2.New()
+	case "iso27001":
+		framework = iso27001.New()
 	default:
-		return nil, fmt.Errorf("unsupported framework: %s (only 'soc2' is currently supported)", frameworkName)
+		return nil, fmt.Errorf("unsupported framework: %s (supported: 'soc2', 'iso27001')", frameworkName)
 	}
 
 	// Create engine and load policies
@@ -555,4 +589,45 @@ type driftInfo struct {
 	NewViolations      int     `json:"new_violations"`
 	ResolvedViolations int     `json:"resolved_violations"`
 	ScoreChange        float64 `json:"score_change,omitempty"`
+}
+
+// collectGitHubEvidence collects evidence from a GitHub organization.
+func collectGitHubEvidence(ctx context.Context, org string) (*github.CollectionResult, error) {
+	collector := github.New().WithOrganization(org)
+
+	if err := collector.Init(ctx); err != nil {
+		return nil, fmt.Errorf("failed to initialize GitHub collector: %w", err)
+	}
+
+	// Check connectivity
+	status := collector.Status(ctx)
+	if !status.Connected {
+		return nil, fmt.Errorf("GitHub connection failed: %s", status.Error)
+	}
+
+	return collector.Collect(ctx)
+}
+
+// printGitHubEvidenceCollection prints GitHub evidence collection results.
+func printGitHubEvidenceCollection(result *github.CollectionResult) {
+	fmt.Println()
+	fmt.Println("GitHub Evidence Collection")
+	fmt.Println("--------------------------")
+
+	typeCounts := make(map[string]int)
+	for i := range result.Evidence {
+		typeCounts[result.Evidence[i].ResourceType]++
+	}
+
+	for resourceType, count := range typeCounts {
+		fmt.Printf("  [done] %s: %d resources\n", resourceType, count)
+	}
+
+	if result.HasErrors() {
+		fmt.Println()
+		fmt.Println("GitHub Collection Warnings:")
+		for _, e := range result.Errors {
+			fmt.Printf("  [warn] %s: %s\n", e.Resource, e.Error)
+		}
+	}
 }

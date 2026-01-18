@@ -235,10 +235,12 @@ func (c *Collector) collectRepos(ctx context.Context, result *CollectionResult) 
 	result.Evidence = append(result.Evidence, ev...)
 }
 
-// collectMembers collects organization member evidence.
+// collectMembers collects organization member evidence with 2FA status.
 func (c *Collector) collectMembers(ctx context.Context, result *CollectionResult) {
 	memberCollector := NewMemberCollector(c.client)
-	ev, err := memberCollector.CollectMembers(ctx, c.organization)
+
+	// Try to collect members with 2FA status (requires admin access for full visibility)
+	ev, has2FAVisibility, err := memberCollector.CollectMembersWithTwoFactorStatus(ctx, c.organization)
 
 	if err != nil {
 		result.Errors = append(result.Errors, CollectionError{
@@ -246,6 +248,14 @@ func (c *Collector) collectMembers(ctx context.Context, result *CollectionResult
 			Error:    err.Error(),
 		})
 		return
+	}
+
+	if !has2FAVisibility {
+		// Add a warning that 2FA status couldn't be determined
+		result.Errors = append(result.Errors, CollectionError{
+			Resource: "members-2fa",
+			Error:    "2FA status unknown - requires org admin access to verify member 2FA status",
+		})
 	}
 
 	result.Evidence = append(result.Evidence, ev...)

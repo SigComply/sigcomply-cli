@@ -1,5 +1,5 @@
-// Package soc2 provides the SOC 2 compliance framework implementation.
-package soc2
+// Package iso27001 provides the ISO 27001 compliance framework implementation.
+package iso27001
 
 import (
 	_ "embed"
@@ -7,51 +7,45 @@ import (
 	"github.com/tracevault/tracevault-cli/internal/compliance_frameworks/engine"
 )
 
-//go:embed policies/cc6_1_mfa.rego
-var cc61MFAPolicy string
+//go:embed policies/a_9_2_1_access.rego
+var a921AccessPolicy string
 
-//go:embed policies/cc6_1_github_mfa.rego
-var cc61GitHubMFAPolicy string
+//go:embed policies/a_12_4_1_logging.rego
+var a1241LoggingPolicy string
 
-//go:embed policies/cc6_2_encryption.rego
-var cc62EncryptionPolicy string
-
-//go:embed policies/cc7_1_logging.rego
-var cc71LoggingPolicy string
-
-// Framework implements the engine.Framework interface for SOC 2.
+// Framework implements the engine.Framework interface for ISO 27001.
 type Framework struct{}
 
-// New creates a new SOC 2 framework instance.
+// New creates a new ISO 27001 framework instance.
 func New() *Framework {
 	return &Framework{}
 }
 
 // Name returns the framework identifier.
 func (f *Framework) Name() string {
-	return "soc2"
+	return "iso27001"
 }
 
 // DisplayName returns the human-readable name.
 func (f *Framework) DisplayName() string {
-	return "SOC 2 Type II"
+	return "ISO 27001:2022"
 }
 
 // Version returns the framework version.
 func (f *Framework) Version() string {
-	return "2017"
+	return "2022"
 }
 
 // Description returns a brief description of the framework.
 func (f *Framework) Description() string {
-	return "AICPA Trust Services Criteria for SOC 2 Type II compliance"
+	return "ISO/IEC 27001:2022 Information Security Management System (ISMS)"
 }
 
 // Controls returns all controls defined in this framework.
 func (f *Framework) Controls() []engine.Control {
-	soc2Controls := GetControls()
-	result := make([]engine.Control, len(soc2Controls))
-	for i, c := range soc2Controls {
+	iso27001Controls := GetControls()
+	result := make([]engine.Control, len(iso27001Controls))
+	for i, c := range iso27001Controls {
 		result[i] = engine.Control{
 			ID:          c.ID,
 			Name:        c.Name,
@@ -81,14 +75,12 @@ func (f *Framework) GetControl(id string) *engine.Control {
 // Policies returns all Rego policy sources for this framework.
 func (f *Framework) Policies() []engine.PolicySource {
 	return []engine.PolicySource{
-		{Name: "cc6_1_mfa", Source: cc61MFAPolicy},
-		{Name: "cc6_1_github_mfa", Source: cc61GitHubMFAPolicy},
-		{Name: "cc6_2_encryption", Source: cc62EncryptionPolicy},
-		{Name: "cc7_1_logging", Source: cc71LoggingPolicy},
+		{Name: "a_9_2_1_access", Source: a921AccessPolicy},
+		{Name: "a_12_4_1_logging", Source: a1241LoggingPolicy},
 	}
 }
 
-// Register registers the SOC 2 framework with the default registry.
+// Register registers the ISO 27001 framework with the default registry.
 func Register() error {
 	return engine.RegisterFramework(New())
 }
