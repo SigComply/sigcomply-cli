@@ -98,7 +98,7 @@ func TestClient_IsConfigured(t *testing.T) {
 
 func TestClient_Submit_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v1/runs", r.URL.Path)
+		assert.Equal(t, "/api/v1/cli/runs", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 		assert.Contains(t, r.Header.Get("Authorization"), "Bearer test-token")

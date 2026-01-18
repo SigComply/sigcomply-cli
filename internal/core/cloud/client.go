@@ -82,7 +82,7 @@ func (c *Client) Submit(ctx context.Context, req *SubmitRequest) (*SubmitRespons
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.config.BaseURL+"/api/v1/runs", bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.config.BaseURL+"/api/v1/cli/runs", bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

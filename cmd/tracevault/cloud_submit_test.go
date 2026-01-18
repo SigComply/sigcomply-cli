@@ -254,7 +254,7 @@ func TestBuildCloudSubmitRequest_LocalStorage(t *testing.T) {
 
 func TestSubmitToCloud_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v1/runs", r.URL.Path)
+		assert.Equal(t, "/api/v1/cli/runs", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 		assert.Contains(t, r.Header.Get("Authorization"), "Bearer test-token")
 

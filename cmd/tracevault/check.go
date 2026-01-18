@@ -209,6 +209,14 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 		Framework:     cfg.Framework,
 		Timestamp:     time.Now(),
 		PolicyResults: policyResults,
+		Environment: evidence.RunEnvironment{
+			CI:         cfg.CI,
+			CIProvider: cfg.CIProvider,
+			Repository: cfg.Repository,
+			Branch:     cfg.Branch,
+			CommitSHA:  cfg.CommitSHA,
+			CLIVersion: version,
+		},
 	}
 	checkResult.CalculateSummary()
 
@@ -297,6 +305,14 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 		Framework:     cfg.Framework,
 		Timestamp:     time.Now(),
 		PolicyResults: policyResults,
+		Environment: evidence.RunEnvironment{
+			CI:         cfg.CI,
+			CIProvider: cfg.CIProvider,
+			Repository: cfg.Repository,
+			Branch:     cfg.Branch,
+			CommitSHA:  cfg.CommitSHA,
+			CLIVersion: version,
+		},
 	}
 	checkResult.CalculateSummary()
 
@@ -420,6 +436,14 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 		Framework:     cfg.Framework,
 		Timestamp:     time.Now(),
 		PolicyResults: policyResults,
+		Environment: evidence.RunEnvironment{
+			CI:         cfg.CI,
+			CIProvider: cfg.CIProvider,
+			Repository: cfg.Repository,
+			Branch:     cfg.Branch,
+			CommitSHA:  cfg.CommitSHA,
+			CLIVersion: version,
+		},
 	}
 	checkResult.CalculateSummary()
 

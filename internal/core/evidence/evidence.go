@@ -132,6 +132,7 @@ type RunEnvironment struct {
 	Repository string `json:"repository,omitempty"`
 	Branch     string `json:"branch,omitempty"`
 	CommitSHA  string `json:"commit_sha,omitempty"`
+	CLIVersion string `json:"cli_version,omitempty"`
 }
 
 // CheckResult represents the complete output of a compliance check run.
