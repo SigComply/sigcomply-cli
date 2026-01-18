@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/tracevault/tracevault-cli/internal/compliance_frameworks/engine"
 	"github.com/tracevault/tracevault-cli/internal/compliance_frameworks/soc2"
@@ -23,13 +24,15 @@ const (
 )
 
 var (
-	flagFramework    string
-	flagOutput       string
-	flagVerbose      bool
-	flagRegion       string
-	flagStore        bool
-	flagStoragePath  string
+	flagFramework      string
+	flagOutput         string
+	flagVerbose        bool
+	flagRegion         string
+	flagStore          bool
+	flagStoragePath    string
 	flagStorageBackend string
+	flagCloud          bool
+	flagNoCloud        bool
 )
 
 var checkCmd = newCheckCmd()
@@ -67,6 +70,8 @@ Examples:
 	cmd.Flags().BoolVar(&flagStore, "store", false, "Store evidence and results to configured storage")
 	cmd.Flags().StringVar(&flagStoragePath, "storage-path", "", "Local storage path (default: ./.tracevault/evidence)")
 	cmd.Flags().StringVar(&flagStorageBackend, "storage-backend", "", "Storage backend (local, s3)")
+	cmd.Flags().BoolVar(&flagCloud, "cloud", false, "Force submission to TraceVault Cloud (requires TRACEVAULT_API_TOKEN)")
+	cmd.Flags().BoolVar(&flagNoCloud, "no-cloud", false, "Disable submission to TraceVault Cloud")
 
 	return cmd
 }
@@ -170,32 +175,12 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 	fmt.Println()
 
 	// Collect evidence
-	fmt.Println("Evidence Collection")
-	fmt.Println("-------------------")
-
 	result, err := collector.Collect(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to collect evidence: %w", err)
 	}
 
-	// Count by resource type
-	typeCounts := countByResourceType(result.Evidence)
-	for resourceType, count := range typeCounts {
-		fmt.Printf("  [done] %s: %d resources\n", resourceType, count)
-	}
-
-	// Show collection errors
-	if result.HasErrors() {
-		fmt.Println()
-		fmt.Println("Collection Warnings:")
-		for _, e := range result.Errors {
-			fmt.Printf("  [warn] %s: %s\n", e.Service, e.Error)
-		}
-	}
-
-	fmt.Println()
-	fmt.Printf("Total evidence collected: %d resources\n", len(result.Evidence))
-	fmt.Println()
+	printEvidenceCollection(result)
 
 	// Load framework and evaluate policies
 	policyResults, err := evaluatePolicies(ctx, cfg.Framework, result.Evidence)
@@ -205,6 +190,7 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 
 	// Build check result
 	checkResult := &evidence.CheckResult{
+		RunID:         uuid.New().String(),
 		Framework:     cfg.Framework,
 		Timestamp:     time.Now(),
 		PolicyResults: policyResults,
@@ -212,18 +198,25 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 	checkResult.CalculateSummary()
 
 	// Store evidence if enabled
+	var manifest *storage.Manifest
 	if cfg.Storage.Enabled {
 		fmt.Println()
 		fmt.Println("Storage")
 		fmt.Println("-------")
 
-		manifest, err := storeEvidence(ctx, cfg, checkResult, result.Evidence)
-		if err != nil {
-			fmt.Printf("  [warn] Failed to store evidence: %s\n", err)
+		var storageErr error
+		manifest, storageErr = storeEvidence(ctx, cfg, checkResult, result.Evidence)
+		if storageErr != nil {
+			fmt.Printf("  [warn] Failed to store evidence: %s\n", storageErr)
 		} else {
 			fmt.Printf("  [done] Stored %d evidence items\n", manifest.EvidenceCount)
 			fmt.Printf("  [done] Manifest: %s\n", manifest.RunID)
 		}
+	}
+
+	// Submit to TraceVault Cloud if enabled
+	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) {
+		printCloudSubmission(ctx, cfg, checkResult, result.Evidence, manifest)
 	}
 
 	// Format and display results
@@ -276,6 +269,7 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 
 	// Build check result
 	checkResult := &evidence.CheckResult{
+		RunID:         uuid.New().String(),
 		Framework:     cfg.Framework,
 		Timestamp:     time.Now(),
 		PolicyResults: policyResults,
@@ -283,17 +277,45 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 	checkResult.CalculateSummary()
 
 	// Store evidence if enabled
-	var manifestID string
+	var manifest *storage.Manifest
 	if cfg.Storage.Enabled {
-		manifest, err := storeEvidence(ctx, cfg, checkResult, result.Evidence)
-		if err == nil {
-			manifestID = manifest.RunID
+		var storageErr error
+		manifest, storageErr = storeEvidence(ctx, cfg, checkResult, result.Evidence)
+		if storageErr != nil {
+			// Log storage error but continue
+			_ = storageErr
+		}
+	}
+
+	// Submit to cloud if enabled
+	var cloudResponse *cloudSubmitResult
+	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) {
+		cloudResp, cloudErr := submitToCloud(ctx, cfg, checkResult, result.Evidence, manifest, "")
+		if cloudErr == nil && cloudResp != nil {
+			cloudResponse = &cloudSubmitResult{
+				Success:      cloudResp.Success,
+				RunID:        cloudResp.RunID,
+				DashboardURL: cloudResp.DashboardURL,
+			}
+			if cloudResp.DriftSummary != nil {
+				cloudResponse.DriftSummary = &driftInfo{
+					HasDrift:           cloudResp.DriftSummary.HasDrift,
+					NewViolations:      cloudResp.DriftSummary.NewViolations,
+					ResolvedViolations: cloudResp.DriftSummary.ResolvedViolations,
+				}
+			}
 		}
 	}
 
 	// Build JSON output
+	var manifestID string
+	if manifest != nil {
+		manifestID = manifest.RunID
+	}
+
 	jsonOutput := struct {
 		Framework     string                  `json:"framework"`
+		RunID         string                  `json:"run_id"`
 		AccountID     string                  `json:"account_id"`
 		Region        string                  `json:"region"`
 		Timestamp     time.Time               `json:"timestamp"`
@@ -302,8 +324,10 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 		Evidence      []evidence.Evidence     `json:"evidence,omitempty"`
 		Errors        []aws.CollectionError   `json:"errors,omitempty"`
 		ManifestID    string                  `json:"manifest_id,omitempty"`
+		Cloud         *cloudSubmitResult      `json:"cloud,omitempty"`
 	}{
 		Framework:     cfg.Framework,
+		RunID:         checkResult.RunID,
 		AccountID:     status.AccountID,
 		Region:        status.Region,
 		Timestamp:     checkResult.Timestamp,
@@ -312,6 +336,7 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 		Evidence:      result.Evidence,
 		Errors:        result.Errors,
 		ManifestID:    manifestID,
+		Cloud:         cloudResponse,
 	}
 
 	enc := json.NewEncoder(os.Stdout)
@@ -359,6 +384,7 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 
 	// Build check result
 	checkResult := &evidence.CheckResult{
+		RunID:         uuid.New().String(),
 		Framework:     cfg.Framework,
 		Timestamp:     time.Now(),
 		PolicyResults: policyResults,
@@ -366,9 +392,16 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 	checkResult.CalculateSummary()
 
 	// Store evidence if enabled (silently, as JUnit output should be pure XML)
+	var manifest *storage.Manifest
 	if cfg.Storage.Enabled {
 		//nolint:errcheck // Intentionally ignoring storage errors in JUnit mode to preserve XML output
-		storeEvidence(ctx, cfg, checkResult, result.Evidence)
+		manifest, _ = storeEvidence(ctx, cfg, checkResult, result.Evidence)
+	}
+
+	// Submit to cloud if enabled (silently, as JUnit output should be pure XML)
+	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) {
+		//nolint:errcheck // Intentionally ignoring cloud errors in JUnit mode to preserve XML output
+		submitToCloud(ctx, cfg, checkResult, result.Evidence, manifest, "")
 	}
 
 	// Format as JUnit XML
@@ -406,6 +439,55 @@ func evaluatePolicies(ctx context.Context, frameworkName string, evidenceList []
 
 	// Evaluate all policies
 	return eng.Evaluate(ctx, evidenceList)
+}
+
+// printEvidenceCollection prints evidence collection results.
+func printEvidenceCollection(result *aws.CollectionResult) {
+	fmt.Println("Evidence Collection")
+	fmt.Println("-------------------")
+
+	typeCounts := countByResourceType(result.Evidence)
+	for resourceType, count := range typeCounts {
+		fmt.Printf("  [done] %s: %d resources\n", resourceType, count)
+	}
+
+	if result.HasErrors() {
+		fmt.Println()
+		fmt.Println("Collection Warnings:")
+		for _, e := range result.Errors {
+			fmt.Printf("  [warn] %s: %s\n", e.Service, e.Error)
+		}
+	}
+
+	fmt.Println()
+	fmt.Printf("Total evidence collected: %d resources\n", len(result.Evidence))
+	fmt.Println()
+}
+
+// printCloudSubmission handles cloud submission and prints the results for text output.
+func printCloudSubmission(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence, manifest *storage.Manifest) {
+	fmt.Println()
+	fmt.Println("Cloud Submission")
+	fmt.Println("----------------")
+
+	cloudResp, cloudErr := submitToCloud(ctx, cfg, checkResult, evidenceList, manifest, "")
+	if cloudErr != nil {
+		fmt.Printf("  [warn] Failed to submit to cloud: %s\n", cloudErr)
+		return
+	}
+	if cloudResp == nil {
+		return
+	}
+
+	fmt.Printf("  [done] Submitted to TraceVault Cloud\n")
+	fmt.Printf("  [done] Run ID: %s\n", cloudResp.RunID)
+	if cloudResp.DashboardURL != "" {
+		fmt.Printf("  [done] Dashboard: %s\n", cloudResp.DashboardURL)
+	}
+	if cloudResp.DriftSummary != nil && cloudResp.DriftSummary.HasDrift {
+		fmt.Printf("  [info] Drift detected: %d new violations, %d resolved\n",
+			cloudResp.DriftSummary.NewViolations, cloudResp.DriftSummary.ResolvedViolations)
+	}
 }
 
 func countByResourceType(evidenceList []evidence.Evidence) map[string]int {
@@ -457,4 +539,19 @@ func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidenc
 	}
 
 	return manifest, nil
+}
+
+// cloudSubmitResult is used for JSON output of cloud submission results.
+type cloudSubmitResult struct {
+	Success      bool       `json:"success"`
+	RunID        string     `json:"run_id"`
+	DashboardURL string     `json:"dashboard_url,omitempty"`
+	DriftSummary *driftInfo `json:"drift_summary,omitempty"`
+}
+
+// driftInfo is used for JSON output of drift information.
+type driftInfo struct {
+	HasDrift           bool `json:"has_drift"`
+	NewViolations      int  `json:"new_violations"`
+	ResolvedViolations int  `json:"resolved_violations"`
 }
