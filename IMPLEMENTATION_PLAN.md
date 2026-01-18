@@ -131,31 +131,31 @@ require (
 | Manifest generation | `internal/core/storage/manifest.go` | [x] |
 | --store flag | `cmd/tracevault/check.go` | [x] |
 
-### Attestation (PARTIAL)
+### Attestation (COMPLETED)
 
 | Task | Files | Done |
 |------|-------|------|
 | Attestation types | `internal/core/attestation/types.go` | [x] |
 | Hash computation | `internal/core/attestation/hash.go` | [x] |
 | HMAC signing | `internal/core/attestation/hmac.go` | [x] |
-| OIDC signing | `internal/core/attestation/oidc.go` | [ ] |
+| OIDC signing | `internal/core/attestation/oidc.go` | [x] |
 
-### Cloud Integration (PARTIAL)
+### Cloud Integration (COMPLETED)
 
 | Task | Files | Done |
 |------|-------|------|
 | Cloud client | `internal/core/cloud/client.go` | [x] |
 | CloudSubmission type | `internal/core/cloud/types.go` | [x] |
-| OIDC auth | `internal/core/cloud/auth.go` | [ ] |
-| --cloud flag | `cmd/tracevault/main.go` | [ ] |
+| OIDC auth | `internal/core/cloud/auth.go` | [x] |
+| --cloud flag | `cmd/tracevault/check.go` | [x] |
 
-### GitHub Collector
+### GitHub Collector (PARTIAL)
 
 | Task | Files | Done |
 |------|-------|------|
-| GitHub client | `internal/data_sources/apis/github/collector.go` | [ ] |
-| Repo collection | `internal/data_sources/apis/github/repos.go` | [ ] |
-| Member collection | `internal/data_sources/apis/github/members.go` | [ ] |
+| GitHub client | `internal/data_sources/apis/github/collector.go` | [x] |
+| Repo collection | `internal/data_sources/apis/github/repos.go` | [x] |
+| Member collection | `internal/data_sources/apis/github/members.go` | [x] |
 | Branch protection policy | `internal/compliance_frameworks/soc2/policies/` | [ ] |
 
 ### Additional Components
@@ -189,8 +189,8 @@ require (
 
 - [x] Local + S3 storage backends
 - [x] Attestation with HMAC signing
-- [ ] Attestation with OIDC signing
-- [ ] Cloud submission working
+- [x] Attestation with OIDC signing
+- [x] Cloud submission working
 - [ ] GitHub collector
 - [ ] Secret scanner
 - [ ] All CLI commands implemented

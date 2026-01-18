@@ -66,6 +66,7 @@ type Evidence struct {
 type Metadata struct {
 	AccountID        string            `json:"account_id,omitempty"`
 	Region           string            `json:"region,omitempty"`
+	Organization     string            `json:"organization,omitempty"`
 	Tags             map[string]string `json:"tags,omitempty"`
 	CollectorVersion string            `json:"collector_version,omitempty"`
 }

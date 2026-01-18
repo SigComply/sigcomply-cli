@@ -1,7 +1,9 @@
 package attestation
 
 import (
+	"context"
 	"encoding/json"
+	"os"
 	"testing"
 	"time"
 
@@ -307,4 +309,278 @@ func TestAttestation_MarshalJSON(t *testing.T) {
 func TestSignerAlgorithm(t *testing.T) {
 	signer := NewHMACSigner([]byte("secret"))
 	assert.Equal(t, AlgorithmHMACSHA256, signer.Algorithm())
+}
+
+// Test helper functions for env var management
+// These suppress errcheck warnings as env var operations in tests are best-effort
+
+func setEnv(key, value string) {
+	_ = os.Setenv(key, value) //nolint:errcheck // Test helper, error not critical
+}
+
+func unsetEnv(key string) {
+	_ = os.Unsetenv(key) //nolint:errcheck // Test helper, error not critical
+}
+
+// OIDC Signer Tests
+
+func TestOIDCSigner_Sign(t *testing.T) {
+	token := &OIDCToken{
+		Token:    "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.test.signature",
+		Provider: ProviderGitHubActions,
+		Issuer:   "https://token.actions.githubusercontent.com",
+	}
+	signer := NewOIDCSigner(token)
+
+	attestation := &Attestation{
+		ID:        "attest-123",
+		RunID:     "run-123",
+		Framework: "soc2",
+		Timestamp: time.Now(),
+		Hashes: EvidenceHashes{
+			CheckResult: "abc123",
+			Combined:    "def456",
+		},
+	}
+
+	err := signer.Sign(attestation)
+	require.NoError(t, err)
+
+	assert.Equal(t, AlgorithmOIDCJWT, attestation.Signature.Algorithm)
+	assert.Equal(t, token.Token, attestation.Signature.Value)
+	assert.Equal(t, "github-actions", attestation.Signature.KeyID)
+}
+
+func TestOIDCSigner_Algorithm(t *testing.T) {
+	signer := NewOIDCSigner(&OIDCToken{Token: "test"})
+	assert.Equal(t, AlgorithmOIDCJWT, signer.Algorithm())
+}
+
+func TestOIDCSigner_Sign_NilToken(t *testing.T) {
+	signer := NewOIDCSigner(nil)
+
+	attestation := &Attestation{
+		ID:        "attest-123",
+		Timestamp: time.Now(),
+	}
+
+	err := signer.Sign(attestation)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "OIDC token is required")
+}
+
+func TestOIDCSigner_Sign_EmptyToken(t *testing.T) {
+	signer := NewOIDCSigner(&OIDCToken{Token: ""})
+
+	attestation := &Attestation{
+		ID:        "attest-123",
+		Timestamp: time.Now(),
+	}
+
+	err := signer.Sign(attestation)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "OIDC token is required")
+}
+
+func TestOIDCSigner_WithGitLabProvider(t *testing.T) {
+	token := &OIDCToken{
+		Token:    "gitlab-jwt-token",
+		Provider: ProviderGitLabCI,
+		Issuer:   "https://gitlab.com",
+	}
+	signer := NewOIDCSigner(token)
+
+	attestation := &Attestation{
+		ID:        "attest-456",
+		Timestamp: time.Now(),
+	}
+
+	err := signer.Sign(attestation)
+	require.NoError(t, err)
+
+	assert.Equal(t, AlgorithmOIDCJWT, attestation.Signature.Algorithm)
+	assert.Equal(t, "gitlab-jwt-token", attestation.Signature.Value)
+	assert.Equal(t, "gitlab-ci", attestation.Signature.KeyID)
+}
+
+func TestDetectOIDCProvider_NoProvider(t *testing.T) {
+	// Save and restore original values
+	originalGH := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
+	originalGL := os.Getenv("CI_JOB_JWT_V2")
+	t.Cleanup(func() {
+		if originalGH != "" {
+			setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", originalGH)
+		}
+		if originalGL != "" {
+			setEnv("CI_JOB_JWT_V2", originalGL)
+		}
+	})
+
+	unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
+	unsetEnv("CI_JOB_JWT_V2")
+
+	provider := DetectOIDCProvider()
+	assert.Equal(t, ProviderUnknown, provider)
+}
+
+func TestDetectOIDCProvider_GitHubActions(t *testing.T) {
+	original := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
+	t.Cleanup(func() {
+		if original != "" {
+			setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", original)
+		} else {
+			unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
+		}
+	})
+
+	setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", "https://token.actions.githubusercontent.com")
+
+	provider := DetectOIDCProvider()
+	assert.Equal(t, ProviderGitHubActions, provider)
+}
+
+func TestDetectOIDCProvider_GitLabCI(t *testing.T) {
+	// Clear GitHub Actions first
+	originalGH := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
+	originalGL := os.Getenv("CI_JOB_JWT_V2")
+	t.Cleanup(func() {
+		if originalGH != "" {
+			setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", originalGH)
+		}
+		if originalGL != "" {
+			setEnv("CI_JOB_JWT_V2", originalGL)
+		} else {
+			unsetEnv("CI_JOB_JWT_V2")
+		}
+	})
+
+	unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
+	setEnv("CI_JOB_JWT_V2", "some-jwt-token")
+
+	provider := DetectOIDCProvider()
+	assert.Equal(t, ProviderGitLabCI, provider)
+}
+
+func TestGitHubActionsTokenProvider_Available(t *testing.T) {
+	originalURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
+	originalToken := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN")
+	t.Cleanup(func() {
+		if originalURL != "" {
+			setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", originalURL)
+		} else {
+			unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
+		}
+		if originalToken != "" {
+			setEnv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", originalToken)
+		} else {
+			unsetEnv("ACTIONS_ID_TOKEN_REQUEST_TOKEN")
+		}
+	})
+
+	provider := NewGitHubActionsTokenProvider()
+
+	// Not available when env vars are not set
+	unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
+	unsetEnv("ACTIONS_ID_TOKEN_REQUEST_TOKEN")
+	assert.False(t, provider.Available())
+
+	// Available when both env vars are set
+	setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", "https://example.com")
+	setEnv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "token123")
+	assert.True(t, provider.Available())
+}
+
+func TestGitLabCITokenProvider_Available(t *testing.T) {
+	original := os.Getenv("CI_JOB_JWT_V2")
+	t.Cleanup(func() {
+		if original != "" {
+			setEnv("CI_JOB_JWT_V2", original)
+		} else {
+			unsetEnv("CI_JOB_JWT_V2")
+		}
+	})
+
+	provider := NewGitLabCITokenProvider()
+
+	unsetEnv("CI_JOB_JWT_V2")
+	assert.False(t, provider.Available())
+
+	setEnv("CI_JOB_JWT_V2", "jwt-token")
+	assert.True(t, provider.Available())
+}
+
+func TestGitLabCITokenProvider_GetToken(t *testing.T) {
+	originalJWT := os.Getenv("CI_JOB_JWT_V2")
+	originalURL := os.Getenv("CI_SERVER_URL")
+	t.Cleanup(func() {
+		if originalJWT != "" {
+			setEnv("CI_JOB_JWT_V2", originalJWT)
+		} else {
+			unsetEnv("CI_JOB_JWT_V2")
+		}
+		if originalURL != "" {
+			setEnv("CI_SERVER_URL", originalURL)
+		} else {
+			unsetEnv("CI_SERVER_URL")
+		}
+	})
+
+	ctx := context.Background()
+	provider := NewGitLabCITokenProvider()
+
+	// Test when token is set
+	setEnv("CI_JOB_JWT_V2", "test-jwt-token")
+	setEnv("CI_SERVER_URL", "https://gitlab.example.com")
+
+	token, err := provider.GetToken(ctx, "")
+	require.NoError(t, err)
+	assert.Equal(t, "test-jwt-token", token.Token)
+	assert.Equal(t, ProviderGitLabCI, token.Provider)
+	assert.Equal(t, "https://gitlab.example.com", token.Issuer)
+}
+
+func TestGitLabCITokenProvider_GetToken_NotSet(t *testing.T) {
+	original := os.Getenv("CI_JOB_JWT_V2")
+	t.Cleanup(func() {
+		if original != "" {
+			setEnv("CI_JOB_JWT_V2", original)
+		} else {
+			unsetEnv("CI_JOB_JWT_V2")
+		}
+	})
+
+	unsetEnv("CI_JOB_JWT_V2")
+
+	ctx := context.Background()
+	provider := NewGitLabCITokenProvider()
+
+	token, err := provider.GetToken(ctx, "")
+	require.Error(t, err)
+	assert.Nil(t, token)
+	assert.Contains(t, err.Error(), "CI_JOB_JWT_V2 not set")
+}
+
+func TestGetOIDCTokenProvider_NoProvider(t *testing.T) {
+	originalGH := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
+	originalGL := os.Getenv("CI_JOB_JWT_V2")
+	t.Cleanup(func() {
+		if originalGH != "" {
+			setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", originalGH)
+		}
+		if originalGL != "" {
+			setEnv("CI_JOB_JWT_V2", originalGL)
+		}
+	})
+
+	unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
+	unsetEnv("CI_JOB_JWT_V2")
+
+	provider := GetOIDCTokenProvider()
+	assert.Nil(t, provider)
+}
+
+func TestOIDCProviderConstants(t *testing.T) {
+	assert.Equal(t, OIDCProvider("github-actions"), ProviderGitHubActions)
+	assert.Equal(t, OIDCProvider("gitlab-ci"), ProviderGitLabCI)
+	assert.Equal(t, OIDCProvider("unknown"), ProviderUnknown)
 }

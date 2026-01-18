@@ -140,7 +140,7 @@ func TestBuildAttestation_WithStorageLocation(t *testing.T) {
 
 	assert.Equal(t, "s3", att.StorageLocation.Backend)
 	assert.Equal(t, "my-evidence-bucket", att.StorageLocation.Bucket)
-	assert.Equal(t, "compliance/", att.StorageLocation.Prefix)
+	assert.Equal(t, "compliance/", att.StorageLocation.Path)
 	assert.Equal(t, "compliance/runs/run-789/manifest.json", att.StorageLocation.ManifestPath)
 }
 
@@ -193,11 +193,18 @@ func TestBuildCloudSubmitRequest(t *testing.T) {
 
 	req := buildCloudSubmitRequest(cfg, checkResult, att, manifest)
 
-	assert.Equal(t, checkResult, req.CheckResult)
+	// Check result should be sanitized (same content for this test, no error statuses)
+	assert.NotNil(t, req.CheckResult)
+	assert.Equal(t, "run-123", req.CheckResult.RunID)
 	assert.Equal(t, att, req.Attestation)
+
+	// Check EvidenceLocation has all required fields for Rails
 	assert.Equal(t, "s3", req.EvidenceLocation.Backend)
-	assert.Equal(t, "my-bucket", req.EvidenceLocation.Path)
+	assert.Equal(t, "my-bucket", req.EvidenceLocation.Bucket)
+	assert.Equal(t, "evidence/", req.EvidenceLocation.Path)
+	assert.Equal(t, "s3://my-bucket/evidence/", req.EvidenceLocation.URL)
 	assert.Equal(t, "evidence/runs/run-123/manifest.json", req.EvidenceLocation.ManifestPath)
+
 	assert.True(t, req.RunMetadata.CI)
 	assert.Equal(t, "github-actions", req.RunMetadata.CIProvider)
 }
@@ -241,6 +248,7 @@ func TestBuildCloudSubmitRequest_LocalStorage(t *testing.T) {
 
 	assert.Equal(t, "local", req.EvidenceLocation.Backend)
 	assert.Equal(t, "/var/tracevault/evidence", req.EvidenceLocation.Path)
+	assert.Equal(t, "file:///var/tracevault/evidence", req.EvidenceLocation.URL)
 	assert.Equal(t, "/var/tracevault/evidence/runs/run-456/manifest.json", req.EvidenceLocation.ManifestPath)
 }
 
@@ -257,14 +265,23 @@ func TestSubmitToCloud_Success(t *testing.T) {
 		assert.NotNil(t, req.CheckResult)
 		assert.NotNil(t, req.Attestation)
 
+		// Return response in the Rails API format (nested structure)
 		resp := cloud.SubmitResponse{
-			Success:      true,
-			RunID:        "run-123",
-			Message:      "Submission accepted",
-			DashboardURL: "https://app.tracevault.io/runs/run-123",
-			DriftSummary: &cloud.DriftSummary{
-				HasDrift:      true,
-				NewViolations: 2,
+			Data: &cloud.SubmitResponseData{
+				Run: &cloud.RunResponseData{
+					ID:                 "run-123",
+					AttestationID:      456,
+					PolicyEvaluationID: 789,
+					Status:             "accepted",
+					DriftSummary: &cloud.DriftSummary{
+						HasDrift:      true,
+						NewViolations: 2,
+						ScoreChange:   -5.0,
+						ChangedPolicies: []cloud.PolicyChange{
+							{PolicyCode: "aws-iam-mfa-enabled", Change: "new_violation"},
+						},
+					},
+				},
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -292,10 +309,26 @@ func TestSubmitToCloud_Success(t *testing.T) {
 	resp, err := submitToCloud(context.Background(), cfg, checkResult, evidenceList, nil, server.URL)
 	require.NoError(t, err)
 
-	assert.True(t, resp.Success)
-	assert.Equal(t, "run-123", resp.RunID)
-	assert.True(t, resp.DriftSummary.HasDrift)
-	assert.Equal(t, 2, resp.DriftSummary.NewViolations)
+	// Use convenience methods to access the nested response
+	assert.True(t, resp.Success())
+	assert.Equal(t, "run-123", resp.RunID())
+
+	// Also verify direct access works
+	require.NotNil(t, resp.Data)
+	require.NotNil(t, resp.Data.Run)
+	assert.Equal(t, int64(456), resp.Data.Run.AttestationID)
+	assert.Equal(t, int64(789), resp.Data.Run.PolicyEvaluationID)
+	assert.Equal(t, "accepted", resp.Data.Run.Status)
+
+	// Check drift summary
+	driftSummary := resp.GetDriftSummary()
+	require.NotNil(t, driftSummary)
+	assert.True(t, driftSummary.HasDrift)
+	assert.Equal(t, 2, driftSummary.NewViolations)
+	assert.Equal(t, -5.0, driftSummary.ScoreChange)
+	require.Len(t, driftSummary.ChangedPolicies, 1)
+	assert.Equal(t, "aws-iam-mfa-enabled", driftSummary.ChangedPolicies[0].PolicyCode)
+	assert.Equal(t, "new_violation", driftSummary.ChangedPolicies[0].Change)
 }
 
 func TestSubmitToCloud_NotConfigured(t *testing.T) {
@@ -397,6 +430,181 @@ func TestShouldSubmitToCloud(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := shouldSubmitToCloud(tt.cfg, tt.cloud, tt.noCloud)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestSanitizeCheckResultForCloud(t *testing.T) {
+	t.Run("nil input returns nil", func(t *testing.T) {
+		result := sanitizeCheckResultForCloud(nil)
+		assert.Nil(t, result)
+	})
+
+	t.Run("no error statuses unchanged", func(t *testing.T) {
+		checkResult := &evidence.CheckResult{
+			RunID:     "run-123",
+			Framework: "soc2",
+			Timestamp: time.Now(),
+			PolicyResults: []evidence.PolicyResult{
+				{PolicyID: "policy-1", Status: evidence.StatusPass, Message: "Passed"},
+				{PolicyID: "policy-2", Status: evidence.StatusFail, Message: "Failed"},
+				{PolicyID: "policy-3", Status: evidence.StatusSkip, Message: "Skipped"},
+			},
+		}
+		checkResult.CalculateSummary()
+
+		sanitized := sanitizeCheckResultForCloud(checkResult)
+
+		assert.Equal(t, "run-123", sanitized.RunID)
+		require.Len(t, sanitized.PolicyResults, 3)
+		assert.Equal(t, evidence.StatusPass, sanitized.PolicyResults[0].Status)
+		assert.Equal(t, "Passed", sanitized.PolicyResults[0].Message)
+		assert.Equal(t, evidence.StatusFail, sanitized.PolicyResults[1].Status)
+		assert.Equal(t, "Failed", sanitized.PolicyResults[1].Message)
+		assert.Equal(t, evidence.StatusSkip, sanitized.PolicyResults[2].Status)
+	})
+
+	t.Run("error status mapped to fail", func(t *testing.T) {
+		checkResult := &evidence.CheckResult{
+			RunID:     "run-456",
+			Framework: "soc2",
+			Timestamp: time.Now(),
+			PolicyResults: []evidence.PolicyResult{
+				{PolicyID: "policy-1", Status: evidence.StatusPass, Message: "Passed"},
+				{PolicyID: "policy-2", Status: evidence.StatusError, Message: "Connection timeout"},
+				{PolicyID: "policy-3", Status: evidence.StatusError, Message: ""},
+			},
+		}
+		checkResult.CalculateSummary()
+
+		sanitized := sanitizeCheckResultForCloud(checkResult)
+
+		require.Len(t, sanitized.PolicyResults, 3)
+
+		// First policy unchanged
+		assert.Equal(t, evidence.StatusPass, sanitized.PolicyResults[0].Status)
+		assert.Equal(t, "Passed", sanitized.PolicyResults[0].Message)
+
+		// Error with message -> Fail with prefixed message
+		assert.Equal(t, evidence.StatusFail, sanitized.PolicyResults[1].Status)
+		assert.Equal(t, "[Error during evaluation] Connection timeout", sanitized.PolicyResults[1].Message)
+
+		// Error without message -> Fail with indicator
+		assert.Equal(t, evidence.StatusFail, sanitized.PolicyResults[2].Status)
+		assert.Equal(t, "[Error during evaluation]", sanitized.PolicyResults[2].Message)
+	})
+
+	t.Run("summary recalculated after sanitization", func(t *testing.T) {
+		checkResult := &evidence.CheckResult{
+			RunID:     "run-789",
+			Framework: "soc2",
+			Timestamp: time.Now(),
+			PolicyResults: []evidence.PolicyResult{
+				{PolicyID: "policy-1", Status: evidence.StatusPass},
+				{PolicyID: "policy-2", Status: evidence.StatusError},
+			},
+		}
+		checkResult.CalculateSummary()
+
+		sanitized := sanitizeCheckResultForCloud(checkResult)
+
+		// After sanitization, error becomes fail
+		assert.Equal(t, 2, sanitized.Summary.TotalPolicies)
+		assert.Equal(t, 1, sanitized.Summary.PassedPolicies)
+		assert.Equal(t, 1, sanitized.Summary.FailedPolicies)
+		assert.Equal(t, 0, sanitized.Summary.SkippedPolicies)
+		assert.Equal(t, 0.5, sanitized.Summary.ComplianceScore)
+	})
+
+	t.Run("original unchanged", func(t *testing.T) {
+		checkResult := &evidence.CheckResult{
+			RunID:     "run-orig",
+			Framework: "soc2",
+			Timestamp: time.Now(),
+			PolicyResults: []evidence.PolicyResult{
+				{PolicyID: "policy-1", Status: evidence.StatusError, Message: "Original error"},
+			},
+		}
+		checkResult.CalculateSummary()
+
+		_ = sanitizeCheckResultForCloud(checkResult)
+
+		// Original should remain unchanged
+		assert.Equal(t, evidence.StatusError, checkResult.PolicyResults[0].Status)
+		assert.Equal(t, "Original error", checkResult.PolicyResults[0].Message)
+	})
+}
+
+func TestBuildEvidenceURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		backend  string
+		bucket   string
+		path     string
+		expected string
+	}{
+		{
+			name:     "s3 with bucket and path",
+			backend:  "s3",
+			bucket:   "my-bucket",
+			path:     "evidence/path",
+			expected: "s3://my-bucket/evidence/path",
+		},
+		{
+			name:     "s3 with bucket only",
+			backend:  "s3",
+			bucket:   "my-bucket",
+			path:     "",
+			expected: "s3://my-bucket",
+		},
+		{
+			name:     "s3 without bucket",
+			backend:  "s3",
+			bucket:   "",
+			path:     "evidence/path",
+			expected: "",
+		},
+		{
+			name:     "gcs with bucket and path",
+			backend:  "gcs",
+			bucket:   "my-gcs-bucket",
+			path:     "compliance/",
+			expected: "gs://my-gcs-bucket/compliance/",
+		},
+		{
+			name:     "gcs with bucket only",
+			backend:  "gcs",
+			bucket:   "my-gcs-bucket",
+			path:     "",
+			expected: "gs://my-gcs-bucket",
+		},
+		{
+			name:     "local with path",
+			backend:  "local",
+			bucket:   "",
+			path:     "/var/tracevault/evidence",
+			expected: "file:///var/tracevault/evidence",
+		},
+		{
+			name:     "local without path",
+			backend:  "local",
+			bucket:   "",
+			path:     "",
+			expected: "",
+		},
+		{
+			name:     "unknown backend",
+			backend:  "azure",
+			bucket:   "container",
+			path:     "path",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildEvidenceURL(tt.backend, tt.bucket, tt.path)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

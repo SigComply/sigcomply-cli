@@ -103,11 +103,16 @@ func TestClient_Submit_Success(t *testing.T) {
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 		assert.Contains(t, r.Header.Get("Authorization"), "Bearer test-token")
 
+		// Return response in the Rails API format (nested structure)
 		resp := SubmitResponse{
-			Success:      true,
-			RunID:        "run-123",
-			Message:      "Submission accepted",
-			DashboardURL: "https://app.tracevault.io/runs/run-123",
+			Data: &SubmitResponseData{
+				Run: &RunResponseData{
+					ID:                 "run-123",
+					AttestationID:      456,
+					PolicyEvaluationID: 789,
+					Status:             "accepted",
+				},
+			},
 		}
 		w.Header().Set("Content-Type", "application/json")
 		//nolint:errcheck // Test server - error handling not critical
@@ -134,15 +139,16 @@ func TestClient_Submit_Success(t *testing.T) {
 		},
 		EvidenceLocation: &EvidenceLocation{
 			Backend: "s3",
-			Path:    "s3://my-bucket/evidence",
+			Bucket:  "my-bucket",
+			Path:    "evidence",
+			URL:     "s3://my-bucket/evidence",
 		},
 	}
 
 	resp, err := client.Submit(context.Background(), req)
 	require.NoError(t, err)
-	assert.True(t, resp.Success)
-	assert.Equal(t, "run-123", resp.RunID)
-	assert.Contains(t, resp.DashboardURL, "run-123")
+	assert.True(t, resp.Success())
+	assert.Equal(t, "run-123", resp.RunID())
 }
 
 func TestClient_Submit_NotConfigured(t *testing.T) {
@@ -337,19 +343,25 @@ func TestSubmitRequest_JSON(t *testing.T) {
 }
 
 func TestSubmitResponse_WithDrift(t *testing.T) {
+	// Test the new nested response structure matching Rails API
 	resp := &SubmitResponse{
-		Success:      true,
-		RunID:        "run-123",
-		DashboardURL: "https://app.tracevault.io/runs/run-123",
-		DriftSummary: &DriftSummary{
-			HasDrift:           true,
-			NewViolations:      3,
-			ResolvedViolations: 1,
-			ChangedPolicies: []PolicyChange{
-				{
-					PolicyID:      "soc2-cc6.1-mfa",
-					PreviousState: "pass",
-					CurrentState:  "fail",
+		Data: &SubmitResponseData{
+			Run: &RunResponseData{
+				ID:                 "run-123",
+				AttestationID:      456,
+				PolicyEvaluationID: 789,
+				Status:             "accepted",
+				DriftSummary: &DriftSummary{
+					HasDrift:           true,
+					NewViolations:      3,
+					ResolvedViolations: 1,
+					ScoreChange:        -5.5,
+					ChangedPolicies: []PolicyChange{
+						{
+							PolicyCode: "soc2-cc6.1-mfa",
+							Change:     "new_violation",
+						},
+					},
 				},
 			},
 		},
@@ -362,7 +374,59 @@ func TestSubmitResponse_WithDrift(t *testing.T) {
 	err = json.Unmarshal(data, &parsed)
 	require.NoError(t, err)
 
-	assert.True(t, parsed.DriftSummary.HasDrift)
-	assert.Equal(t, 3, parsed.DriftSummary.NewViolations)
-	assert.Len(t, parsed.DriftSummary.ChangedPolicies, 1)
+	// Test convenience methods
+	assert.True(t, parsed.Success())
+	assert.Equal(t, "run-123", parsed.RunID())
+
+	// Test direct access
+	require.NotNil(t, parsed.Data)
+	require.NotNil(t, parsed.Data.Run)
+	assert.Equal(t, int64(456), parsed.Data.Run.AttestationID)
+	assert.Equal(t, "accepted", parsed.Data.Run.Status)
+
+	// Test drift summary
+	driftSummary := parsed.GetDriftSummary()
+	require.NotNil(t, driftSummary)
+	assert.True(t, driftSummary.HasDrift)
+	assert.Equal(t, 3, driftSummary.NewViolations)
+	assert.Equal(t, -5.5, driftSummary.ScoreChange)
+	require.Len(t, driftSummary.ChangedPolicies, 1)
+	assert.Equal(t, "soc2-cc6.1-mfa", driftSummary.ChangedPolicies[0].PolicyCode)
+	assert.Equal(t, "new_violation", driftSummary.ChangedPolicies[0].Change)
+}
+
+func TestSubmitResponse_ConvenienceMethods(t *testing.T) {
+	t.Run("nil response", func(t *testing.T) {
+		var resp *SubmitResponse
+		assert.False(t, resp.Success())
+		assert.Empty(t, resp.RunID())
+		assert.Nil(t, resp.GetDriftSummary())
+	})
+
+	t.Run("nil data", func(t *testing.T) {
+		resp := &SubmitResponse{}
+		assert.False(t, resp.Success())
+		assert.Empty(t, resp.RunID())
+		assert.Nil(t, resp.GetDriftSummary())
+	})
+
+	t.Run("nil run", func(t *testing.T) {
+		resp := &SubmitResponse{Data: &SubmitResponseData{}}
+		assert.False(t, resp.Success())
+		assert.Empty(t, resp.RunID())
+		assert.Nil(t, resp.GetDriftSummary())
+	})
+
+	t.Run("non-accepted status", func(t *testing.T) {
+		resp := &SubmitResponse{
+			Data: &SubmitResponseData{
+				Run: &RunResponseData{
+					ID:     "run-123",
+					Status: "pending",
+				},
+			},
+		}
+		assert.False(t, resp.Success())
+		assert.Equal(t, "run-123", resp.RunID())
+	})
 }

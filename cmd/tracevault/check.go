@@ -293,15 +293,15 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 		cloudResp, cloudErr := submitToCloud(ctx, cfg, checkResult, result.Evidence, manifest, "")
 		if cloudErr == nil && cloudResp != nil {
 			cloudResponse = &cloudSubmitResult{
-				Success:      cloudResp.Success,
-				RunID:        cloudResp.RunID,
-				DashboardURL: cloudResp.DashboardURL,
+				Success: cloudResp.Success(),
+				RunID:   cloudResp.RunID(),
 			}
-			if cloudResp.DriftSummary != nil {
+			if driftSummary := cloudResp.GetDriftSummary(); driftSummary != nil {
 				cloudResponse.DriftSummary = &driftInfo{
-					HasDrift:           cloudResp.DriftSummary.HasDrift,
-					NewViolations:      cloudResp.DriftSummary.NewViolations,
-					ResolvedViolations: cloudResp.DriftSummary.ResolvedViolations,
+					HasDrift:           driftSummary.HasDrift,
+					NewViolations:      driftSummary.NewViolations,
+					ResolvedViolations: driftSummary.ResolvedViolations,
+					ScoreChange:        driftSummary.ScoreChange,
 				}
 			}
 		}
@@ -480,13 +480,13 @@ func printCloudSubmission(ctx context.Context, cfg *config.Config, checkResult *
 	}
 
 	fmt.Printf("  [done] Submitted to TraceVault Cloud\n")
-	fmt.Printf("  [done] Run ID: %s\n", cloudResp.RunID)
-	if cloudResp.DashboardURL != "" {
-		fmt.Printf("  [done] Dashboard: %s\n", cloudResp.DashboardURL)
-	}
-	if cloudResp.DriftSummary != nil && cloudResp.DriftSummary.HasDrift {
+	fmt.Printf("  [done] Run ID: %s\n", cloudResp.RunID())
+	if driftSummary := cloudResp.GetDriftSummary(); driftSummary != nil && driftSummary.HasDrift {
 		fmt.Printf("  [info] Drift detected: %d new violations, %d resolved\n",
-			cloudResp.DriftSummary.NewViolations, cloudResp.DriftSummary.ResolvedViolations)
+			driftSummary.NewViolations, driftSummary.ResolvedViolations)
+		if driftSummary.ScoreChange != 0 {
+			fmt.Printf("  [info] Compliance score change: %.1f%%\n", driftSummary.ScoreChange)
+		}
 	}
 }
 
@@ -551,7 +551,8 @@ type cloudSubmitResult struct {
 
 // driftInfo is used for JSON output of drift information.
 type driftInfo struct {
-	HasDrift           bool `json:"has_drift"`
-	NewViolations      int  `json:"new_violations"`
-	ResolvedViolations int  `json:"resolved_violations"`
+	HasDrift           bool    `json:"has_drift"`
+	NewViolations      int     `json:"new_violations"`
+	ResolvedViolations int     `json:"resolved_violations"`
+	ScoreChange        float64 `json:"score_change,omitempty"`
 }

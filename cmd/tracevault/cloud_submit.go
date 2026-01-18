@@ -13,6 +13,65 @@ import (
 	"github.com/tracevault/tracevault-cli/internal/core/storage"
 )
 
+// sanitizeCheckResultForCloud creates a copy of the check result with status values
+// compatible with the Rails API. The Rails API only accepts "pass", "fail", "skip"
+// but the CLI also has "error" status. This function maps "error" to "fail".
+func sanitizeCheckResultForCloud(result *evidence.CheckResult) *evidence.CheckResult {
+	if result == nil {
+		return nil
+	}
+
+	// Create a shallow copy
+	sanitized := *result
+
+	// Deep copy and sanitize policy results
+	sanitized.PolicyResults = make([]evidence.PolicyResult, len(result.PolicyResults))
+	for i := range result.PolicyResults {
+		sanitized.PolicyResults[i] = result.PolicyResults[i]
+		// Map "error" status to "fail" for Rails API compatibility
+		// Rails only accepts: pass, fail, skip
+		if result.PolicyResults[i].Status == evidence.StatusError {
+			sanitized.PolicyResults[i].Status = evidence.StatusFail
+			// Prepend error indicator to message if not already present
+			if result.PolicyResults[i].Message != "" {
+				sanitized.PolicyResults[i].Message = "[Error during evaluation] " + result.PolicyResults[i].Message
+			} else {
+				sanitized.PolicyResults[i].Message = "[Error during evaluation]"
+			}
+		}
+	}
+
+	// Recalculate summary with sanitized statuses
+	sanitized.CalculateSummary()
+
+	return &sanitized
+}
+
+// buildEvidenceURL constructs a URL for the evidence location.
+func buildEvidenceURL(backend, bucket, path string) string {
+	switch backend {
+	case backendS3:
+		if bucket != "" {
+			if path != "" {
+				return fmt.Sprintf("s3://%s/%s", bucket, path)
+			}
+			return fmt.Sprintf("s3://%s", bucket)
+		}
+	case "gcs":
+		if bucket != "" {
+			if path != "" {
+				return fmt.Sprintf("gs://%s/%s", bucket, path)
+			}
+			return fmt.Sprintf("gs://%s", bucket)
+		}
+	case backendLocal:
+		if path != "" {
+			return fmt.Sprintf("file://%s", path)
+		}
+	}
+	return ""
+}
+
 // buildAttestation creates a signed attestation from check results and evidence.
 func buildAttestation(cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence, manifest *storage.Manifest) (*attestation.Attestation, error) {
 	// Compute evidence hashes
@@ -53,7 +112,7 @@ func buildAttestation(cfg *config.Config, checkResult *evidence.CheckResult, evi
 		att.StorageLocation = attestation.StorageLocation{
 			Backend: cfg.Storage.Backend,
 			Bucket:  cfg.Storage.Bucket,
-			Prefix:  cfg.Storage.Prefix,
+			Path:    cfg.Storage.Prefix, // cfg.Storage.Prefix maps to StorageLocation.Path
 		}
 		if manifest != nil {
 			att.StorageLocation.ManifestPath = computeManifestPath(cfg, manifest.RunID)
@@ -72,9 +131,14 @@ func buildAttestation(cfg *config.Config, checkResult *evidence.CheckResult, evi
 }
 
 // buildCloudSubmitRequest creates a cloud API submission request.
+// The check result is sanitized to ensure status values are compatible with Rails API.
 func buildCloudSubmitRequest(cfg *config.Config, checkResult *evidence.CheckResult, att *attestation.Attestation, manifest *storage.Manifest) *cloud.SubmitRequest {
+	// Sanitize check result for Rails API compatibility
+	// Rails only accepts pass/fail/skip, not error
+	sanitizedResult := sanitizeCheckResultForCloud(checkResult)
+
 	req := &cloud.SubmitRequest{
-		CheckResult: checkResult,
+		CheckResult: sanitizedResult,
 		Attestation: att,
 		RunMetadata: &cloud.RunMetadata{
 			CI:         cfg.CI,
@@ -94,9 +158,12 @@ func buildCloudSubmitRequest(cfg *config.Config, checkResult *evidence.CheckResu
 
 		switch cfg.Storage.Backend {
 		case backendS3:
-			req.EvidenceLocation.Path = cfg.Storage.Bucket
+			req.EvidenceLocation.Bucket = cfg.Storage.Bucket
+			req.EvidenceLocation.Path = cfg.Storage.Prefix
+			req.EvidenceLocation.URL = buildEvidenceURL(backendS3, cfg.Storage.Bucket, cfg.Storage.Prefix)
 		case backendLocal:
 			req.EvidenceLocation.Path = cfg.Storage.Path
+			req.EvidenceLocation.URL = buildEvidenceURL(backendLocal, "", cfg.Storage.Path)
 		default:
 			req.EvidenceLocation.Path = cfg.Storage.Path
 		}

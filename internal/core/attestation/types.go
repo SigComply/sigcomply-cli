@@ -91,6 +91,7 @@ type Environment struct {
 }
 
 // StorageLocation describes where evidence is stored.
+// This structure is sent to the TraceVault Cloud API as part of attestations.
 type StorageLocation struct {
 	// Backend is the storage backend type (local, s3, gcs).
 	Backend string `json:"backend"`
@@ -98,11 +99,16 @@ type StorageLocation struct {
 	// Bucket is the storage bucket (for cloud storage).
 	Bucket string `json:"bucket,omitempty"`
 
-	// Prefix is the key/path prefix.
-	Prefix string `json:"prefix,omitempty"`
+	// Path is the key/path prefix where evidence is stored.
+	// For S3: this is the prefix within the bucket.
+	// For local: this is the directory path.
+	Path string `json:"path,omitempty"`
 
 	// ManifestPath is the path to the storage manifest.
 	ManifestPath string `json:"manifest_path,omitempty"`
+
+	// Encrypted indicates if the evidence is encrypted at rest.
+	Encrypted bool `json:"encrypted,omitempty"`
 }
 
 // SigningAlgorithm constants.

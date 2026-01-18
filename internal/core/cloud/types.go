@@ -24,15 +24,27 @@ type SubmitRequest struct {
 }
 
 // EvidenceLocation describes where evidence is stored.
+// This structure is sent to the TraceVault Cloud API.
 type EvidenceLocation struct {
+	// URL is the full URL to the evidence location (e.g., "s3://bucket/path").
+	// This is a convenience field for Rails to display/link to evidence.
+	URL string `json:"url,omitempty"`
+
 	// Backend is the storage type (local, s3, gcs)
 	Backend string `json:"backend"`
 
-	// Path is the location reference (bucket/prefix for S3, path for local)
+	// Bucket is the storage bucket name (for cloud storage).
+	// Required for S3/GCS backends.
+	Bucket string `json:"bucket,omitempty"`
+
+	// Path is the key/path prefix where evidence is stored.
 	Path string `json:"path"`
 
 	// ManifestPath is the path to the manifest file
 	ManifestPath string `json:"manifest_path,omitempty"`
+
+	// Encrypted indicates if the evidence is encrypted at rest.
+	Encrypted bool `json:"encrypted,omitempty"`
 }
 
 // RunMetadata contains context about the compliance check run.
@@ -60,24 +72,61 @@ type RunMetadata struct {
 }
 
 // SubmitResponse is the response from submitting check results.
+// This matches the Rails API response structure.
 type SubmitResponse struct {
-	// Success indicates if the submission was successful
-	Success bool `json:"success"`
+	// Data contains the response payload
+	Data *SubmitResponseData `json:"data"`
+}
 
-	// RunID is the unique identifier for this run
-	RunID string `json:"run_id"`
+// SubmitResponseData contains the response data wrapper.
+type SubmitResponseData struct {
+	// Run contains the run details
+	Run *RunResponseData `json:"run"`
+}
 
-	// Message contains any additional information
-	Message string `json:"message,omitempty"`
+// RunResponseData contains the details of the submitted run.
+type RunResponseData struct {
+	// ID is the unique identifier for this run (from Rails)
+	ID string `json:"id"`
 
-	// DashboardURL is a link to view this run in the dashboard
-	DashboardURL string `json:"dashboard_url,omitempty"`
+	// AttestationID is the database ID of the created attestation
+	AttestationID int64 `json:"attestation_id,omitempty"`
+
+	// PolicyEvaluationID is the database ID of the created policy evaluation
+	PolicyEvaluationID int64 `json:"policy_evaluation_id,omitempty"`
+
+	// Status indicates the acceptance status (e.g., "accepted")
+	Status string `json:"status"`
 
 	// DriftSummary contains drift information compared to previous runs
 	DriftSummary *DriftSummary `json:"drift_summary,omitempty"`
 }
 
+// Convenience methods for SubmitResponse
+
+// Success returns true if the submission was successful.
+func (r *SubmitResponse) Success() bool {
+	return r != nil && r.Data != nil && r.Data.Run != nil && r.Data.Run.Status == "accepted"
+}
+
+// RunID returns the run ID from the response.
+func (r *SubmitResponse) RunID() string {
+	if r != nil && r.Data != nil && r.Data.Run != nil {
+		return r.Data.Run.ID
+	}
+	return ""
+}
+
+// GetDriftSummary returns the drift summary if available.
+func (r *SubmitResponse) GetDriftSummary() *DriftSummary {
+	if r != nil && r.Data != nil && r.Data.Run != nil {
+		return r.Data.Run.DriftSummary
+	}
+	return nil
+}
+
 // DriftSummary describes changes since the last compliance check.
+// This matches the Rails API response structure.
 type DriftSummary struct {
 	// HasDrift indicates if there are any changes
 	HasDrift bool `json:"has_drift"`
@@ -88,15 +137,22 @@ type DriftSummary struct {
 	// ResolvedViolations is the count of resolved violations
 	ResolvedViolations int `json:"resolved_violations"`
 
+	// ScoreChange is the change in compliance score from previous run.
+	// Positive means improvement, negative means regression.
+	ScoreChange float64 `json:"score_change,omitempty"`
+
 	// ChangedPolicies lists policies with status changes
 	ChangedPolicies []PolicyChange `json:"changed_policies,omitempty"`
 }
 
 // PolicyChange describes a policy that changed status.
+// This matches the Rails API response structure.
 type PolicyChange struct {
-	PolicyID      string `json:"policy_id"`
-	PreviousState string `json:"previous_state"`
-	CurrentState  string `json:"current_state"`
+	// PolicyCode is the policy identifier (e.g., "aws-iam-mfa-enabled")
+	PolicyCode string `json:"policy_code"`
+
+	// Change describes the type of change (e.g., "new_violation", "resolved", "still_failing")
+	Change string `json:"change"`
 }
 
 // APIError represents an error from the Cloud API.
@@ -131,6 +187,9 @@ type TokenInfo struct {
 
 	// Subject is the token subject claim
 	Subject string `json:"subject,omitempty"`
+
+	// Issuer is the token issuer
+	Issuer string `json:"issuer,omitempty"`
 
 	// Audience is the token audience
 	Audience string `json:"audience,omitempty"`
