@@ -30,7 +30,19 @@ type Attestation struct {
 	Environment Environment `json:"environment"`
 
 	// StorageLocation references where evidence is stored.
+	// NOTE: This field is NOT included in the signed payload.
+	// It is operational metadata that may change (e.g., evidence migration)
+	// without invalidating the attestation signature.
 	StorageLocation StorageLocation `json:"storage_location"`
+
+	// Version information for reproducibility.
+
+	// CLIVersion is the version of the CLI that created this attestation.
+	CLIVersion string `json:"cli_version,omitempty"`
+
+	// PolicyVersions maps policy IDs to their version hashes.
+	// This allows verification that the same policies were used.
+	PolicyVersions map[string]string `json:"policy_versions,omitempty"`
 }
 
 // EvidenceHashes contains cryptographic hashes of evidence components.
@@ -130,25 +142,33 @@ func (a *Attestation) MarshalJSON() ([]byte, error) {
 }
 
 // Payload returns the data that should be signed.
+// NOTE: StorageLocation is intentionally excluded from the signed payload.
+// It is operational metadata that may change (e.g., evidence migration)
+// without invalidating the cryptographic proof of the evidence itself.
 func (a *Attestation) Payload() ([]byte, error) {
-	// Create a copy without the signature for signing
+	// Create a copy without the signature and storage location for signing.
+	// We use CanonicalJSON to ensure deterministic serialization,
+	// especially for maps like PolicyVersions.
 	payload := struct {
-		ID              string          `json:"id"`
-		RunID           string          `json:"run_id"`
-		Framework       string          `json:"framework"`
-		Timestamp       string          `json:"timestamp"`
-		Hashes          EvidenceHashes  `json:"hashes"`
-		Environment     Environment     `json:"environment"`
-		StorageLocation StorageLocation `json:"storage_location"`
+		ID             string            `json:"id"`
+		RunID          string            `json:"run_id"`
+		Framework      string            `json:"framework"`
+		Timestamp      string            `json:"timestamp"`
+		Hashes         EvidenceHashes    `json:"hashes"`
+		Environment    Environment       `json:"environment"`
+		CLIVersion     string            `json:"cli_version,omitempty"`
+		PolicyVersions map[string]string `json:"policy_versions,omitempty"`
 	}{
-		ID:              a.ID,
-		RunID:           a.RunID,
-		Framework:       a.Framework,
-		Timestamp:       a.Timestamp.Format(time.RFC3339),
-		Hashes:          a.Hashes,
-		Environment:     a.Environment,
-		StorageLocation: a.StorageLocation,
+		ID:             a.ID,
+		RunID:          a.RunID,
+		Framework:      a.Framework,
+		Timestamp:      a.Timestamp.Format(time.RFC3339),
+		Hashes:         a.Hashes,
+		Environment:    a.Environment,
+		CLIVersion:     a.CLIVersion,
+		PolicyVersions: a.PolicyVersions,
 	}
 
-	return json.Marshal(payload)
+	// Use canonical JSON for deterministic serialization
+	return CanonicalJSON(payload)
 }

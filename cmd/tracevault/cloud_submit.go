@@ -105,6 +105,9 @@ func buildAttestation(cfg *config.Config, checkResult *evidence.CheckResult, evi
 			Branch:     cfg.Branch,
 			CommitSHA:  cfg.CommitSHA,
 		},
+		CLIVersion: version,
+		// PolicyVersions would be populated here once the policy engine
+		// supports tracking policy versions/hashes
 	}
 
 	// Set storage location

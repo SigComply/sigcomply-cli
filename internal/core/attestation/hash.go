@@ -16,6 +16,11 @@ func HashData(data []byte) string {
 }
 
 // HashJSON computes the SHA-256 hash of a JSON-serializable value.
+//
+// Deprecated: Use HashCanonicalJSON instead for structures containing maps.
+// This function uses standard json.Marshal which has non-deterministic
+// ordering for map keys. It is kept for backward compatibility with
+// simple structures that don't contain maps.
 func HashJSON(v interface{}) (string, error) {
 	data, err := json.Marshal(v)
 	if err != nil {
@@ -25,8 +30,10 @@ func HashJSON(v interface{}) (string, error) {
 }
 
 // HashCheckResult computes the SHA-256 hash of a check result.
+// Uses canonical JSON serialization to ensure deterministic hashing,
+// since CheckResult contains Violations with map[string]interface{} Details.
 func HashCheckResult(result *evidence.CheckResult) (string, error) {
-	return HashJSON(result)
+	return HashCanonicalJSON(result)
 }
 
 // HashEvidence computes the SHA-256 hash of an evidence item.

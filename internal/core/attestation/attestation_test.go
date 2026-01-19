@@ -68,6 +68,51 @@ func TestHashCheckResult(t *testing.T) {
 	assert.Equal(t, hash, hash2)
 }
 
+func TestHashCheckResult_DeterministicWithMaps(t *testing.T) {
+	// This test ensures that CheckResult hashing is deterministic
+	// even when Violations contain map[string]interface{} Details
+	result := &evidence.CheckResult{
+		RunID:     "run-123",
+		Framework: "soc2",
+		Timestamp: time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
+		PolicyResults: []evidence.PolicyResult{
+			{
+				PolicyID:  "soc2-cc6.1-mfa",
+				ControlID: "CC6.1",
+				Status:    evidence.StatusFail,
+				Violations: []evidence.Violation{
+					{
+						ResourceID:   "user-alice",
+						ResourceType: "aws:iam:user",
+						Reason:       "MFA not enabled",
+						Details: map[string]interface{}{
+							"z_field": "last",
+							"a_field": "first",
+							"m_field": map[string]interface{}{
+								"nested_z": "z",
+								"nested_a": "a",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	result.CalculateSummary()
+
+	// Hash multiple times - should always be identical
+	var hashes []string
+	for i := 0; i < 100; i++ {
+		hash, err := HashCheckResult(result)
+		require.NoError(t, err)
+		hashes = append(hashes, hash)
+	}
+
+	for i := 1; i < len(hashes); i++ {
+		assert.Equal(t, hashes[0], hashes[i], "Hash iteration %d differs", i)
+	}
+}
+
 func TestHashEvidence(t *testing.T) {
 	ev := evidence.New("aws", "aws:iam:user", "arn:aws:iam::123:user/alice", []byte(`{"user":"alice"}`))
 
@@ -290,6 +335,120 @@ func TestAttestation_Payload(t *testing.T) {
 	// Should contain other fields
 	assert.Equal(t, "attest-123", parsed["id"])
 	assert.Equal(t, "soc2", parsed["framework"])
+}
+
+func TestAttestation_Payload_ExcludesStorageLocation(t *testing.T) {
+	// StorageLocation should NOT be in the signed payload
+	// because it's operational metadata that may change
+	attestation := &Attestation{
+		ID:        "attest-123",
+		RunID:     "run-123",
+		Framework: "soc2",
+		Timestamp: time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
+		Hashes: EvidenceHashes{
+			CheckResult: "abc123",
+			Combined:    "def456",
+		},
+		StorageLocation: StorageLocation{
+			Backend: "s3",
+			Bucket:  "my-bucket",
+			Path:    "evidence/",
+		},
+	}
+
+	payload, err := attestation.Payload()
+	require.NoError(t, err)
+
+	var parsed map[string]interface{}
+	err = json.Unmarshal(payload, &parsed)
+	require.NoError(t, err)
+
+	// StorageLocation should NOT be in the payload
+	_, hasStorageLocation := parsed["storage_location"]
+	assert.False(t, hasStorageLocation, "storage_location should not be in signed payload")
+
+	// Verify that changing storage location doesn't change the payload
+	attestation2 := *attestation
+	attestation2.StorageLocation = StorageLocation{
+		Backend: "gcs",
+		Bucket:  "different-bucket",
+		Path:    "different/path/",
+	}
+
+	payload2, err := attestation2.Payload()
+	require.NoError(t, err)
+
+	assert.Equal(t, string(payload), string(payload2), "changing storage location should not change payload")
+}
+
+func TestAttestation_Payload_IncludesVersionInfo(t *testing.T) {
+	attestation := &Attestation{
+		ID:        "attest-123",
+		RunID:     "run-123",
+		Framework: "soc2",
+		Timestamp: time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
+		Hashes: EvidenceHashes{
+			CheckResult: "abc123",
+			Combined:    "def456",
+		},
+		CLIVersion: "1.2.3",
+		PolicyVersions: map[string]string{
+			"soc2-cc6.1-mfa":        "abc123",
+			"soc2-cc6.2-encryption": "def456",
+		},
+	}
+
+	payload, err := attestation.Payload()
+	require.NoError(t, err)
+
+	var parsed map[string]interface{}
+	err = json.Unmarshal(payload, &parsed)
+	require.NoError(t, err)
+
+	// CLIVersion should be in payload
+	assert.Equal(t, "1.2.3", parsed["cli_version"])
+
+	// PolicyVersions should be in payload
+	policyVersions, ok := parsed["policy_versions"].(map[string]interface{})
+	require.True(t, ok, "policy_versions should be a map")
+	assert.Equal(t, "abc123", policyVersions["soc2-cc6.1-mfa"])
+	assert.Equal(t, "def456", policyVersions["soc2-cc6.2-encryption"])
+}
+
+func TestAttestation_Payload_Deterministic(t *testing.T) {
+	// Payload should be deterministic even with maps
+	attestation := &Attestation{
+		ID:        "attest-123",
+		RunID:     "run-123",
+		Framework: "soc2",
+		Timestamp: time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
+		Hashes: EvidenceHashes{
+			CheckResult: "abc123",
+			Evidence: map[string]string{
+				"z_evidence": "hash_z",
+				"a_evidence": "hash_a",
+				"m_evidence": "hash_m",
+			},
+			Combined: "def456",
+		},
+		PolicyVersions: map[string]string{
+			"z_policy": "version_z",
+			"a_policy": "version_a",
+			"m_policy": "version_m",
+		},
+	}
+
+	// Generate payload multiple times - should always be identical
+	var payloads []string
+	for i := 0; i < 100; i++ {
+		payload, err := attestation.Payload()
+		require.NoError(t, err)
+		payloads = append(payloads, string(payload))
+	}
+
+	for i := 1; i < len(payloads); i++ {
+		assert.Equal(t, payloads[0], payloads[i], "Payload iteration %d differs", i)
+	}
 }
 
 func TestAttestation_MarshalJSON(t *testing.T) {
