@@ -139,6 +139,13 @@ require (
 | Hash computation | `internal/core/attestation/hash.go` | [x] |
 | HMAC signing | `internal/core/attestation/hmac.go` | [x] |
 | OIDC signing | `internal/core/attestation/oidc.go` | [x] |
+| Canonical JSON (deterministic hashing) | `internal/core/attestation/canonical.go` | [x] |
+| Version tracking (CLIVersion, PolicyVersions) | `internal/core/attestation/types.go` | [x] |
+
+**Design decisions:**
+- `StorageLocation` excluded from signed payload (operational metadata)
+- Canonical JSON ensures deterministic hashing for maps
+- `CLIVersion` and `PolicyVersions` included for reproducibility
 
 ### Cloud Integration (COMPLETED)
 

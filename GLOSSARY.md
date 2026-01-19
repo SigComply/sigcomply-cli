@@ -34,8 +34,20 @@ Quick reference for key terms and concepts. For full context, see [CLAUDE.md](./
 | **PolicyResult** | Outcome of evaluating one policy (pass/fail, violations, metrics) |
 | **Violation** | A specific resource that failed a policy check (resource ID, type, reason) |
 | **CheckResult** | Complete results of a compliance run (all PolicyResults, summary, environment info) |
-| **Attestation** | Cryptographic proof: SHA-256 hashes of evidence + signature. Proves evidence existed without revealing it. |
+| **Attestation** | Cryptographic proof: SHA-256 hashes of evidence + signature + version info. Proves evidence existed and which tools/policies were used. Uses canonical JSON for deterministic hashing. |
 | **EvidenceManifest** | Index file listing all stored evidence with file paths and hashes |
+
+---
+
+## Cryptographic Integrity
+
+| Term | Definition |
+|------|------------|
+| **Canonical JSON** | JSON serialization with deterministic map key ordering (alphabetically sorted). Required because Go's map iteration is random—without it, identical data could produce different hashes. |
+| **EvidenceHashes** | Container for all hashes: `CheckResult` hash, individual `Evidence` hashes, optional `Manifest` hash, and `Combined` (single hash of all) |
+| **Combined Hash** | Single SHA-256 hash representing all evidence, computed from concatenation of sorted individual hashes |
+| **CLIVersion** | Version of TraceVault CLI that created the attestation—enables reproducibility |
+| **PolicyVersions** | Map of policy ID to version/hash—proves which exact policies were evaluated |
 
 ---
 
@@ -135,10 +147,14 @@ Quick reference for key terms and concepts. For full context, see [CLAUDE.md](./
 
 | Method | Use Case |
 |--------|----------|
-| `none` | Local development (no signature) |
-| `hmac-sha256` | Shared secret signing |
-| `oidc` | CI/CD platform OIDC token |
-| `ecdsa-p256` | Customer private key (enterprise) |
+| `hmac-sha256` | Shared secret signing (uses API token) |
+| `oidc-jwt` | CI/CD platform OIDC token (GitHub Actions, GitLab CI) |
+
+### Attestation Payload (What's Signed)
+
+The signature covers: `ID`, `RunID`, `Framework`, `Timestamp`, `Hashes`, `Environment`, `CLIVersion`, `PolicyVersions`
+
+**Not signed:** `StorageLocation` (operational metadata that may change without invalidating evidence integrity)
 
 ---
 

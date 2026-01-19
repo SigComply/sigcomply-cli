@@ -213,32 +213,86 @@ type RunEnvironment struct {
 
 ```go
 type Attestation struct {
-    ID        string               `json:"id"`
-    RunID     string               `json:"run_id"`
-    Timestamp time.Time            `json:"timestamp"`
-    Hashes    AttestationHashes    `json:"hashes"`
-    Signature AttestationSignature `json:"signature"`
+    ID              string            `json:"id"`
+    RunID           string            `json:"run_id"`
+    Framework       string            `json:"framework"`
+    Timestamp       time.Time         `json:"timestamp"`
+    Hashes          EvidenceHashes    `json:"hashes"`
+    Signature       Signature         `json:"signature"`
+    Environment     Environment       `json:"environment"`
+    StorageLocation StorageLocation   `json:"storage_location"`  // NOT signed (see below)
+    CLIVersion      string            `json:"cli_version,omitempty"`
+    PolicyVersions  map[string]string `json:"policy_versions,omitempty"`
 }
 
-type AttestationHashes struct {
-    EvidenceHash string `json:"evidence_hash"` // Hash of all raw evidence
-    ResultHash   string `json:"result_hash"`   // Hash of CheckResult
+type EvidenceHashes struct {
+    CheckResult string            `json:"check_result"` // SHA-256 of CheckResult JSON
+    Evidence    map[string]string `json:"evidence"`     // Evidence ID → SHA-256 hash
+    Manifest    string            `json:"manifest,omitempty"`
+    Combined    string            `json:"combined"`     // Single hash of all above
 }
 
-type AttestationSignature struct {
-    Method SigningMethod `json:"method"` // none, hmac-sha256, oidc, ecdsa-p256
-    Value  string        `json:"value"`
+type Signature struct {
+    Algorithm   string `json:"algorithm"`   // hmac-sha256, oidc-jwt
+    Value       string `json:"value"`       // Base64-encoded signature
+    KeyID       string `json:"key_id,omitempty"`
+    Certificate string `json:"certificate,omitempty"` // For OIDC
 }
 
-type SigningMethod string
+type Environment struct {
+    CI           bool   `json:"ci"`
+    Provider     string `json:"provider,omitempty"`     // github-actions, gitlab-ci
+    Repository   string `json:"repository,omitempty"`
+    Branch       string `json:"branch,omitempty"`
+    CommitSHA    string `json:"commit_sha,omitempty"`
+    WorkflowName string `json:"workflow_name,omitempty"`
+    RunID        string `json:"run_id,omitempty"`
+    Actor        string `json:"actor,omitempty"`
+}
+
+type StorageLocation struct {
+    Backend      string `json:"backend"`       // local, s3, gcs
+    Bucket       string `json:"bucket,omitempty"`
+    Path         string `json:"path,omitempty"`
+    ManifestPath string `json:"manifest_path,omitempty"`
+    Encrypted    bool   `json:"encrypted,omitempty"`
+}
 
 const (
-    SigningNone      SigningMethod = "none"
-    SigningHMAC      SigningMethod = "hmac-sha256"
-    SigningOIDC      SigningMethod = "oidc"
-    SigningECDSA     SigningMethod = "ecdsa-p256"
+    AlgorithmHMACSHA256 = "hmac-sha256"
+    AlgorithmOIDCJWT    = "oidc-jwt"
 )
 ```
+
+#### Attestation Design Decisions
+
+**What's Signed vs What's Not:**
+
+The attestation signature covers these fields:
+- `ID`, `RunID`, `Framework`, `Timestamp`
+- `Hashes` (evidence integrity)
+- `Environment` (execution context)
+- `CLIVersion`, `PolicyVersions` (reproducibility)
+
+**`StorageLocation` is intentionally NOT signed** because:
+- It's operational metadata that may change (e.g., evidence migration to different bucket)
+- Changing storage location should not invalidate the cryptographic proof of evidence integrity
+- The evidence hashes themselves prove integrity, regardless of where evidence is stored
+
+**Canonical JSON Serialization:**
+
+All hashing uses canonical JSON serialization (sorted map keys) to ensure deterministic output. This is critical because:
+- Go's `map` iteration order is randomized
+- `Violation.Details` is `map[string]interface{}`
+- `Evidence.Metadata.Tags` is `map[string]string`
+- Without canonical serialization, identical data could produce different hashes
+
+**Version Information:**
+
+`CLIVersion` and `PolicyVersions` enable:
+- Reproducibility: auditors can verify which tools/policies were used
+- Debugging: identify behavior differences between versions
+- Compliance: prove consistent policy application over time
 
 ---
 

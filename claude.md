@@ -486,7 +486,7 @@ tracevault-cli/
 │   │   ├── output/                      # Output formatting
 │   │   ├── scanner/                     # Secret scanner
 │   │   ├── storage/                     # Evidence storage (future)
-│   │   ├── attestation/                 # Attestation signing (future)
+│   │   ├── attestation/                 # Attestation signing & hashing
 │   │   └── cloud/                       # TraceVault Cloud client (future)
 │   │
 │   └── testutil/                        # Test helpers
@@ -765,12 +765,15 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 6. GitHub Actions reusable workflow
 7. Unit tests (>80% coverage) and policy tests
 
-**Not in P0** (deferred to P1):
-- Evidence storage (S3)
-- Attestation signing (HMAC)
+**Completed (post-P0)**:
+- Evidence storage (S3, local)
+- Attestation signing (HMAC, OIDC)
 - TraceVault Cloud API client
-- OIDC authentication
+- OIDC authentication (GitHub Actions, GitLab CI)
 - GitHub collector
+- Canonical JSON for deterministic hashing
+
+**Remaining**:
 - Secret scanner
 - init and init-ci commands
 
@@ -808,6 +811,11 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
   This enables drift detection, resource tracking, and compliance trends while maintaining non-custodial architecture (no API credentials, no raw infrastructure data).
 
 - **Why this is still "Evidence without Access"**: TraceVault never gets credentials to customer infrastructure and never receives raw API responses. We only see compliance evaluation results (which controls passed/failed and why).
+- **Attestation design decisions**:
+  - `StorageLocation` is NOT signed (operational metadata that may change)
+  - `CLIVersion` and `PolicyVersions` ARE signed (for reproducibility)
+  - All hashing uses canonical JSON (sorted map keys) for deterministic output
+  - This ensures customers can migrate evidence storage without invalidating attestations
 - Reference the comprehensive type definitions in [ARCHITECTURE.md - Post-Execution Architecture](./ARCHITECTURE.md#post-execution-architecture)
 
 ---

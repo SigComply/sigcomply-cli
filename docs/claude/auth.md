@@ -26,19 +26,35 @@ The CLI uses OIDC to authenticate with the TraceVault Rails backend, eliminating
 3. **CLI Sends Signed Attestation:**
    ```go
    // Attestation includes:
-   // - SHA-256 hash of evidence
-   // - Metadata (timestamp, control ID, status)
-   // - OIDC token for authentication
+   // - Evidence hashes (CheckResult, individual evidence, combined)
+   // - Environment context (CI provider, repo, branch, commit)
+   // - Version info (CLIVersion, PolicyVersions)
+   // - Signature (HMAC or OIDC JWT)
+   // NOTE: StorageLocation is NOT signed (operational metadata)
 
-   attestation := Attestation{
-       Hash: sha256Hash,
-       ControlID: "SOC2-CC6.1",
-       Status: "pass",
+   attestation := &attestation.Attestation{
+       ID:        uuid.New().String(),
+       RunID:     checkResult.RunID,
+       Framework: "soc2",
        Timestamp: time.Now().UTC(),
+       Hashes:    evidenceHashes, // Computed using canonical JSON
+       Environment: attestation.Environment{
+           CI:        true,
+           Provider:  "github-actions",
+           Repository: "org/repo",
+       },
+       CLIVersion: "1.0.0",
    }
 
-   // Send to Rails API with OIDC token in Authorization header
-   client.SendAttestation(attestation, oidcToken)
+   // Sign with OIDC token
+   signer := attestation.NewOIDCSigner(oidcToken)
+   signer.Sign(attestation)
+
+   // Send to Rails API
+   client.Submit(ctx, &cloud.SubmitRequest{
+       CheckResult: checkResult,
+       Attestation: attestation,
+   })
    ```
 
 4. **Rails API Verifies Token:**
