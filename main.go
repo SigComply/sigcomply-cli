@@ -1,8 +1,8 @@
-// TraceVault CLI - Compliance automation without infrastructure access
+// SigComply CLI - Compliance automation without infrastructure access
 package main
 
 import (
-	cmd "github.com/tracevault/tracevault-cli/cmd/tracevault"
+	cmd "github.com/sigcomply/sigcomply-cli/cmd/sigcomply"
 )
 
 // Set via ldflags

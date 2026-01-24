@@ -1,6 +1,6 @@
-# TraceVault CLI - GitHub Actions Example
+# SigComply CLI - GitHub Actions Example
 #
-# This workflow demonstrates how to integrate TraceVault compliance checks
+# This workflow demonstrates how to integrate SigComply compliance checks
 # into your GitHub Actions CI/CD pipeline.
 #
 # Features:
@@ -14,8 +14,8 @@
 # 1. Copy this file to .github/workflows/compliance.yml in your repository
 # 2. Configure AWS OIDC (see: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
 # 3. Add repository secrets:
-#    - AWS_ROLE_ARN: ARN of IAM role for TraceVault (e.g., arn:aws:iam::123456789012:role/TraceVaultComplianceRole)
-#    - TRACEVAULT_API_TOKEN: Your TraceVault Cloud API token (optional, for attestation submission)
+#    - AWS_ROLE_ARN: ARN of IAM role for SigComply (e.g., arn:aws:iam::123456789012:role/SigComplyComplianceRole)
+#    - SIGCOMPLY_API_TOKEN: Your SigComply Cloud API token (optional, for attestation submission)
 # 4. Commit and push to trigger the workflow
 
 name: Compliance Check
@@ -56,8 +56,8 @@ jobs:
 
     # Environment variables
     env:
-      TRACEVAULT_OUTPUT_FORMAT: json
-      TRACEVAULT_VERBOSITY: 1
+      SIGCOMPLY_OUTPUT_FORMAT: json
+      SIGCOMPLY_VERBOSITY: 1
 
     steps:
       # Step 1: Checkout repository
@@ -70,7 +70,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          role-session-name: tracevault-compliance-${{ github.run_id }}
+          role-session-name: sigcomply-compliance-${{ github.run_id }}
           aws-region: us-east-1
 
       # Alternative: Use traditional AWS credentials (not recommended)
@@ -82,37 +82,37 @@ jobs:
       #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       #     aws-region: us-east-1
 
-      # Step 3: Install TraceVault CLI
-      - name: Install TraceVault CLI
+      # Step 3: Install SigComply CLI
+      - name: Install SigComply CLI
         run: |
           # Download and install latest version
-          curl -fsSL https://install.tracevault.io | sh
+          curl -fsSL https://install.sigcomply.com | sh
 
           # Add to PATH
-          echo "$HOME/.tracevault/bin" >> $GITHUB_PATH
+          echo "$HOME/.sigcomply/bin" >> $GITHUB_PATH
 
           # Verify installation
-          tracevault version
+          sigcomply version
 
       # Alternative: Install specific version
-      # - name: Install TraceVault CLI (specific version)
+      # - name: Install SigComply CLI (specific version)
       #   run: |
-      #     curl -fsSL https://install.tracevault.io | sh -s -- v0.1.0
-      #     echo "$HOME/.tracevault/bin" >> $GITHUB_PATH
+      #     curl -fsSL https://install.sigcomply.com | sh -s -- v0.1.0
+      #     echo "$HOME/.sigcomply/bin" >> $GITHUB_PATH
 
       # Step 4: Run compliance check
       - name: Run SOC 2 compliance check
         id: compliance
         continue-on-error: true  # Don't fail workflow yet, we want to post results first
         env:
-          TRACEVAULT_API_TOKEN: ${{ secrets.TRACEVAULT_API_TOKEN }}
+          SIGCOMPLY_API_TOKEN: ${{ secrets.SIGCOMPLY_API_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # For GitHub integration
         run: |
           # Determine framework (from workflow dispatch or default to soc2)
           FRAMEWORK="${{ github.event.inputs.framework || 'soc2' }}"
 
           # Run compliance check with JSON output
-          tracevault check \
+          sigcomply check \
             --framework "$FRAMEWORK" \
             --format json \
             --output results.json \
@@ -135,7 +135,7 @@ jobs:
           echo "total=$total" >> $GITHUB_OUTPUT
 
           # Generate JUnit XML for GitHub UI
-          tracevault report --framework "$FRAMEWORK" --format junit --output junit.xml
+          sigcomply report --framework "$FRAMEWORK" --format junit --output junit.xml
 
       # Step 5: Upload results as artifacts
       - name: Upload compliance results
@@ -207,7 +207,7 @@ jobs:
 
             ---
 
-            [View detailed report](https://app.tracevault.io/reports/${results.report_id}) | [TraceVault CLI](https://github.com/tracevault/tracevault-cli)
+            [View detailed report](https://app.sigcomply.com/reports/${results.report_id}) | [SigComply CLI](https://github.com/SigComply/sigcomply-cli)
             `;
 
             // Find existing comment
@@ -311,16 +311,16 @@ jobs:
 #           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
 #           aws-region: us-east-1
 #
-#       - name: Install TraceVault CLI
+#       - name: Install SigComply CLI
 #         run: |
-#           curl -fsSL https://install.tracevault.io | sh
-#           echo "$HOME/.tracevault/bin" >> $GITHUB_PATH
+#           curl -fsSL https://install.sigcomply.com | sh
+#           echo "$HOME/.sigcomply/bin" >> $GITHUB_PATH
 #
 #       - name: Run ${{ matrix.framework }} compliance check
 #         env:
-#           TRACEVAULT_API_TOKEN: ${{ secrets.TRACEVAULT_API_TOKEN }}
+#           SIGCOMPLY_API_TOKEN: ${{ secrets.SIGCOMPLY_API_TOKEN }}
 #         run: |
-#           tracevault check --framework ${{ matrix.framework }}
+#           sigcomply check --framework ${{ matrix.framework }}
 
 # Advanced: Scheduled compliance scans
 # Uncomment to run compliance checks on a schedule

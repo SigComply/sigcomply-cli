@@ -1,4 +1,4 @@
-package tracevault
+package sigcomply
 
 import (
 	"context"
@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/tracevault/tracevault-cli/internal/core/attestation"
-	"github.com/tracevault/tracevault-cli/internal/core/cloud"
-	"github.com/tracevault/tracevault-cli/internal/core/config"
-	"github.com/tracevault/tracevault-cli/internal/core/evidence"
-	"github.com/tracevault/tracevault-cli/internal/core/storage"
+	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
+	"github.com/sigcomply/sigcomply-cli/internal/core/cloud"
+	"github.com/sigcomply/sigcomply-cli/internal/core/config"
+	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/storage"
 )
 
 // sanitizeCheckResultForCloud creates a copy of the check result with status values
@@ -194,7 +194,7 @@ func computeManifestPath(cfg *config.Config, runID string) string {
 	}
 }
 
-// submitToCloud submits check results to the TraceVault Cloud API.
+// submitToCloud submits check results to the SigComply Cloud API.
 // Returns nil, nil if cloud submission is not configured.
 func submitToCloud(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence, manifest *storage.Manifest, baseURL string) (*cloud.SubmitResponse, error) {
 	// Skip if cloud is not enabled or no token

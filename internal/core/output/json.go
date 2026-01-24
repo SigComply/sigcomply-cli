@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/tracevault/tracevault-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 // JSONFormatter formats compliance results as JSON.

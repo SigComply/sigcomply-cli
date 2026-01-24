@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tracevault/tracevault-cli/internal/core/attestation"
+	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
 )
 
 // Test helper functions for env var management
@@ -21,14 +21,14 @@ func unsetEnv(key string) {
 
 func TestDetectAuth_NoAuth(t *testing.T) {
 	// Save and restore environment
-	originalAPIToken := os.Getenv("TRACEVAULT_API_TOKEN")
+	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
 	originalGHURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
 	originalGLJWT := os.Getenv("CI_JOB_JWT_V2")
 	t.Cleanup(func() {
 		if originalAPIToken != "" {
-			setEnv("TRACEVAULT_API_TOKEN", originalAPIToken)
+			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
 		} else {
-			unsetEnv("TRACEVAULT_API_TOKEN")
+			unsetEnv("SIGCOMPLY_API_TOKEN")
 		}
 		if originalGHURL != "" {
 			setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", originalGHURL)
@@ -43,7 +43,7 @@ func TestDetectAuth_NoAuth(t *testing.T) {
 	})
 
 	// Clear all auth sources
-	unsetEnv("TRACEVAULT_API_TOKEN")
+	unsetEnv("SIGCOMPLY_API_TOKEN")
 	unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
 	unsetEnv("CI_JOB_JWT_V2")
 
@@ -56,16 +56,16 @@ func TestDetectAuth_NoAuth(t *testing.T) {
 }
 
 func TestDetectAuth_APIToken(t *testing.T) {
-	originalAPIToken := os.Getenv("TRACEVAULT_API_TOKEN")
+	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
 	t.Cleanup(func() {
 		if originalAPIToken != "" {
-			setEnv("TRACEVAULT_API_TOKEN", originalAPIToken)
+			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
 		} else {
-			unsetEnv("TRACEVAULT_API_TOKEN")
+			unsetEnv("SIGCOMPLY_API_TOKEN")
 		}
 	})
 
-	setEnv("TRACEVAULT_API_TOKEN", "test-api-token")
+	setEnv("SIGCOMPLY_API_TOKEN", "test-api-token")
 
 	ctx := context.Background()
 	result, err := DetectAuth(ctx, nil)
@@ -77,15 +77,15 @@ func TestDetectAuth_APIToken(t *testing.T) {
 
 func TestDetectAuth_ConfigAPIToken(t *testing.T) {
 	// Ensure no env token
-	originalAPIToken := os.Getenv("TRACEVAULT_API_TOKEN")
+	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
 	t.Cleanup(func() {
 		if originalAPIToken != "" {
-			setEnv("TRACEVAULT_API_TOKEN", originalAPIToken)
+			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
 		} else {
-			unsetEnv("TRACEVAULT_API_TOKEN")
+			unsetEnv("SIGCOMPLY_API_TOKEN")
 		}
 	})
-	unsetEnv("TRACEVAULT_API_TOKEN")
+	unsetEnv("SIGCOMPLY_API_TOKEN")
 
 	ctx := context.Background()
 	cfg := &AuthConfig{
@@ -100,13 +100,13 @@ func TestDetectAuth_ConfigAPIToken(t *testing.T) {
 
 func TestDetectAuth_APITokenPrecedence(t *testing.T) {
 	// When both API token and OIDC are available, API token takes precedence by default
-	originalAPIToken := os.Getenv("TRACEVAULT_API_TOKEN")
+	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
 	originalGLJWT := os.Getenv("CI_JOB_JWT_V2")
 	t.Cleanup(func() {
 		if originalAPIToken != "" {
-			setEnv("TRACEVAULT_API_TOKEN", originalAPIToken)
+			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
 		} else {
-			unsetEnv("TRACEVAULT_API_TOKEN")
+			unsetEnv("SIGCOMPLY_API_TOKEN")
 		}
 		if originalGLJWT != "" {
 			setEnv("CI_JOB_JWT_V2", originalGLJWT)
@@ -115,7 +115,7 @@ func TestDetectAuth_APITokenPrecedence(t *testing.T) {
 		}
 	})
 
-	setEnv("TRACEVAULT_API_TOKEN", "api-token")
+	setEnv("SIGCOMPLY_API_TOKEN", "api-token")
 	setEnv("CI_JOB_JWT_V2", "gitlab-jwt")
 
 	ctx := context.Background()
@@ -128,13 +128,13 @@ func TestDetectAuth_APITokenPrecedence(t *testing.T) {
 
 func TestDetectAuth_PreferOIDC(t *testing.T) {
 	// When PreferOIDC is set, OIDC takes precedence over API token
-	originalAPIToken := os.Getenv("TRACEVAULT_API_TOKEN")
+	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
 	originalGLJWT := os.Getenv("CI_JOB_JWT_V2")
 	t.Cleanup(func() {
 		if originalAPIToken != "" {
-			setEnv("TRACEVAULT_API_TOKEN", originalAPIToken)
+			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
 		} else {
-			unsetEnv("TRACEVAULT_API_TOKEN")
+			unsetEnv("SIGCOMPLY_API_TOKEN")
 		}
 		if originalGLJWT != "" {
 			setEnv("CI_JOB_JWT_V2", originalGLJWT)
@@ -143,7 +143,7 @@ func TestDetectAuth_PreferOIDC(t *testing.T) {
 		}
 	})
 
-	setEnv("TRACEVAULT_API_TOKEN", "api-token")
+	setEnv("SIGCOMPLY_API_TOKEN", "api-token")
 	setEnv("CI_JOB_JWT_V2", "gitlab-jwt")
 
 	ctx := context.Background()
@@ -160,14 +160,14 @@ func TestDetectAuth_PreferOIDC(t *testing.T) {
 
 func TestDetectAuth_GitLabCI(t *testing.T) {
 	// Clear API token and GitHub Actions
-	originalAPIToken := os.Getenv("TRACEVAULT_API_TOKEN")
+	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
 	originalGHURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
 	originalGLJWT := os.Getenv("CI_JOB_JWT_V2")
 	t.Cleanup(func() {
 		if originalAPIToken != "" {
-			setEnv("TRACEVAULT_API_TOKEN", originalAPIToken)
+			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
 		} else {
-			unsetEnv("TRACEVAULT_API_TOKEN")
+			unsetEnv("SIGCOMPLY_API_TOKEN")
 		}
 		if originalGHURL != "" {
 			setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", originalGHURL)
@@ -181,7 +181,7 @@ func TestDetectAuth_GitLabCI(t *testing.T) {
 		}
 	})
 
-	unsetEnv("TRACEVAULT_API_TOKEN")
+	unsetEnv("SIGCOMPLY_API_TOKEN")
 	unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
 	setEnv("CI_JOB_JWT_V2", "gitlab-jwt-token")
 
@@ -195,14 +195,14 @@ func TestDetectAuth_GitLabCI(t *testing.T) {
 }
 
 func TestConfigureClientAuth_NoAuth(t *testing.T) {
-	originalAPIToken := os.Getenv("TRACEVAULT_API_TOKEN")
+	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
 	originalGHURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
 	originalGLJWT := os.Getenv("CI_JOB_JWT_V2")
 	t.Cleanup(func() {
 		if originalAPIToken != "" {
-			setEnv("TRACEVAULT_API_TOKEN", originalAPIToken)
+			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
 		} else {
-			unsetEnv("TRACEVAULT_API_TOKEN")
+			unsetEnv("SIGCOMPLY_API_TOKEN")
 		}
 		if originalGHURL != "" {
 			setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", originalGHURL)
@@ -216,7 +216,7 @@ func TestConfigureClientAuth_NoAuth(t *testing.T) {
 		}
 	})
 
-	unsetEnv("TRACEVAULT_API_TOKEN")
+	unsetEnv("SIGCOMPLY_API_TOKEN")
 	unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
 	unsetEnv("CI_JOB_JWT_V2")
 
@@ -229,16 +229,16 @@ func TestConfigureClientAuth_NoAuth(t *testing.T) {
 }
 
 func TestConfigureClientAuth_WithAPIToken(t *testing.T) {
-	originalAPIToken := os.Getenv("TRACEVAULT_API_TOKEN")
+	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
 	t.Cleanup(func() {
 		if originalAPIToken != "" {
-			setEnv("TRACEVAULT_API_TOKEN", originalAPIToken)
+			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
 		} else {
-			unsetEnv("TRACEVAULT_API_TOKEN")
+			unsetEnv("SIGCOMPLY_API_TOKEN")
 		}
 	})
 
-	setEnv("TRACEVAULT_API_TOKEN", "test-api-token")
+	setEnv("SIGCOMPLY_API_TOKEN", "test-api-token")
 
 	ctx := context.Background()
 	client := NewClient(nil)
@@ -250,16 +250,16 @@ func TestConfigureClientAuth_WithAPIToken(t *testing.T) {
 }
 
 func TestNewAuthenticatedClient_Success(t *testing.T) {
-	originalAPIToken := os.Getenv("TRACEVAULT_API_TOKEN")
+	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
 	t.Cleanup(func() {
 		if originalAPIToken != "" {
-			setEnv("TRACEVAULT_API_TOKEN", originalAPIToken)
+			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
 		} else {
-			unsetEnv("TRACEVAULT_API_TOKEN")
+			unsetEnv("SIGCOMPLY_API_TOKEN")
 		}
 	})
 
-	setEnv("TRACEVAULT_API_TOKEN", "test-api-token")
+	setEnv("SIGCOMPLY_API_TOKEN", "test-api-token")
 
 	ctx := context.Background()
 	client, err := NewAuthenticatedClient(ctx, nil)
@@ -270,14 +270,14 @@ func TestNewAuthenticatedClient_Success(t *testing.T) {
 }
 
 func TestNewAuthenticatedClient_NoAuth(t *testing.T) {
-	originalAPIToken := os.Getenv("TRACEVAULT_API_TOKEN")
+	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
 	originalGHURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
 	originalGLJWT := os.Getenv("CI_JOB_JWT_V2")
 	t.Cleanup(func() {
 		if originalAPIToken != "" {
-			setEnv("TRACEVAULT_API_TOKEN", originalAPIToken)
+			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
 		} else {
-			unsetEnv("TRACEVAULT_API_TOKEN")
+			unsetEnv("SIGCOMPLY_API_TOKEN")
 		}
 		if originalGHURL != "" {
 			setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", originalGHURL)
@@ -291,7 +291,7 @@ func TestNewAuthenticatedClient_NoAuth(t *testing.T) {
 		}
 	})
 
-	unsetEnv("TRACEVAULT_API_TOKEN")
+	unsetEnv("SIGCOMPLY_API_TOKEN")
 	unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
 	unsetEnv("CI_JOB_JWT_V2")
 
@@ -303,14 +303,14 @@ func TestNewAuthenticatedClient_NoAuth(t *testing.T) {
 }
 
 func TestMustNewAuthenticatedClient_ReturnsUnconfiguredOnError(t *testing.T) {
-	originalAPIToken := os.Getenv("TRACEVAULT_API_TOKEN")
+	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
 	originalGHURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
 	originalGLJWT := os.Getenv("CI_JOB_JWT_V2")
 	t.Cleanup(func() {
 		if originalAPIToken != "" {
-			setEnv("TRACEVAULT_API_TOKEN", originalAPIToken)
+			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
 		} else {
-			unsetEnv("TRACEVAULT_API_TOKEN")
+			unsetEnv("SIGCOMPLY_API_TOKEN")
 		}
 		if originalGHURL != "" {
 			setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", originalGHURL)
@@ -324,7 +324,7 @@ func TestMustNewAuthenticatedClient_ReturnsUnconfiguredOnError(t *testing.T) {
 		}
 	})
 
-	unsetEnv("TRACEVAULT_API_TOKEN")
+	unsetEnv("SIGCOMPLY_API_TOKEN")
 	unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
 	unsetEnv("CI_JOB_JWT_V2")
 
@@ -395,7 +395,7 @@ func TestTokenInfoFromOIDC(t *testing.T) {
 		Provider: attestation.ProviderGitHubActions,
 		Subject:  "repo:owner/repo:ref:refs/heads/main",
 		Issuer:   "https://token.actions.githubusercontent.com",
-		Audience: "https://api.tracevault.io",
+		Audience: "https://api.sigcomply.com",
 	}
 
 	tokenInfo := TokenInfoFromOIDC(oidcToken)
@@ -404,7 +404,7 @@ func TestTokenInfoFromOIDC(t *testing.T) {
 	assert.Equal(t, "github-actions", tokenInfo.Provider)
 	assert.Equal(t, "repo:owner/repo:ref:refs/heads/main", tokenInfo.Subject)
 	assert.Equal(t, "https://token.actions.githubusercontent.com", tokenInfo.Issuer)
-	assert.Equal(t, "https://api.tracevault.io", tokenInfo.Audience)
+	assert.Equal(t, "https://api.sigcomply.com", tokenInfo.Audience)
 }
 
 func TestRefreshableAuth_NeedsRefresh(t *testing.T) {
@@ -444,5 +444,5 @@ func TestAuthMethodConstants(t *testing.T) {
 }
 
 func TestDefaultAudience(t *testing.T) {
-	assert.Equal(t, "https://api.tracevault.io", DefaultAudience)
+	assert.Equal(t, "https://api.sigcomply.com", DefaultAudience)
 }

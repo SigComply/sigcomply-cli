@@ -1,11 +1,11 @@
-// Package cloud provides the TraceVault Cloud API client.
+// Package cloud provides the SigComply Cloud API client.
 package cloud
 
 import (
 	"time"
 
-	"github.com/tracevault/tracevault-cli/internal/core/attestation"
-	"github.com/tracevault/tracevault-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
+	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 // SubmitRequest represents a request to submit compliance check results.
@@ -24,7 +24,7 @@ type SubmitRequest struct {
 }
 
 // EvidenceLocation describes where evidence is stored.
-// This structure is sent to the TraceVault Cloud API.
+// This structure is sent to the SigComply Cloud API.
 type EvidenceLocation struct {
 	// URL is the full URL to the evidence location (e.g., "s3://bucket/path").
 	// This is a convenience field for Rails to display/link to evidence.
@@ -222,9 +222,9 @@ type ClientConfig struct {
 // DefaultConfig returns a ClientConfig with default values.
 func DefaultConfig() *ClientConfig {
 	return &ClientConfig{
-		BaseURL:    "https://api.tracevault.io",
+		BaseURL:    "https://api.sigcomply.com",
 		Timeout:    30 * time.Second,
 		RetryCount: 3,
-		UserAgent:  "tracevault-cli/1.0",
+		UserAgent:  "sigcomply-cli/1.0",
 	}
 }

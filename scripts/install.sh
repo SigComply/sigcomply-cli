@@ -1,16 +1,16 @@
 #!/bin/sh
-# TraceVault CLI Installer
+# SigComply CLI Installer
 #
-# This script downloads and installs the TraceVault CLI.
+# This script downloads and installs the SigComply CLI.
 # It auto-detects your operating system and architecture.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/tracevault/tracevault-cli/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/SigComply/sigcomply-cli/main/scripts/install.sh | sh
 #
 # Options (via environment variables):
-#   TRACEVAULT_VERSION - Specific version to install (default: latest)
-#   TRACEVAULT_INSTALL_DIR - Installation directory (default: /usr/local/bin)
-#   TRACEVAULT_NO_SUDO - Set to 1 to skip sudo (for non-root installs)
+#   SIGCOMPLY_VERSION - Specific version to install (default: latest)
+#   SIGCOMPLY_INSTALL_DIR - Installation directory (default: /usr/local/bin)
+#   SIGCOMPLY_NO_SUDO - Set to 1 to skip sudo (for non-root installs)
 
 set -e
 
@@ -30,11 +30,11 @@ else
 fi
 
 # Configuration
-GITHUB_REPO="tracevault/tracevault-cli"
-BINARY_NAME="tracevault"
-VERSION="${TRACEVAULT_VERSION:-latest}"
-INSTALL_DIR="${TRACEVAULT_INSTALL_DIR:-/usr/local/bin}"
-USE_SUDO="${TRACEVAULT_NO_SUDO:-0}"
+GITHUB_REPO="SigComply/sigcomply-cli"
+BINARY_NAME="sigcomply"
+VERSION="${SIGCOMPLY_VERSION:-latest}"
+INSTALL_DIR="${SIGCOMPLY_INSTALL_DIR:-/usr/local/bin}"
+USE_SUDO="${SIGCOMPLY_NO_SUDO:-0}"
 
 # Helper functions
 info() {
@@ -107,7 +107,7 @@ install() {
         fi
     fi
 
-    info "Installing TraceVault CLI $VERSION"
+    info "Installing SigComply CLI $VERSION"
 
     # Remove 'v' prefix if present for filename
     VERSION_NO_V="${VERSION#v}"
@@ -146,21 +146,21 @@ install() {
         if command -v sudo >/dev/null 2>&1; then
             sudo mv "$TMP_DIR/$BINARY_NAME" "$INSTALL_DIR/"
         else
-            error "Cannot write to $INSTALL_DIR and sudo is not available. Try setting TRACEVAULT_INSTALL_DIR to a writable directory."
+            error "Cannot write to $INSTALL_DIR and sudo is not available. Try setting SIGCOMPLY_INSTALL_DIR to a writable directory."
         fi
     else
         mv "$TMP_DIR/$BINARY_NAME" "$INSTALL_DIR/"
     fi
 
     # Verify installation
-    if command -v tracevault >/dev/null 2>&1; then
-        success "TraceVault CLI installed successfully!"
+    if command -v sigcomply >/dev/null 2>&1; then
+        success "SigComply CLI installed successfully!"
         echo ""
-        tracevault version
+        sigcomply version
         echo ""
-        info "Run 'tracevault --help' to get started"
+        info "Run 'sigcomply --help' to get started"
     else
-        warn "Installation completed, but 'tracevault' is not in PATH"
+        warn "Installation completed, but 'sigcomply' is not in PATH"
         info "Add $INSTALL_DIR to your PATH or move the binary manually"
     fi
 }
@@ -168,8 +168,8 @@ install() {
 # Main
 main() {
     echo ""
-    echo "  TraceVault CLI Installer"
-    echo "  ========================"
+    echo "  SigComply CLI Installer"
+    echo "  ======================="
     echo ""
 
     check_dependencies
@@ -178,9 +178,9 @@ main() {
     echo ""
     echo "  Quick Start:"
     echo "  ------------"
-    echo "  tracevault check              # Run compliance checks"
-    echo "  tracevault check -o json      # Output as JSON"
-    echo "  tracevault check -o junit     # Output as JUnit XML"
+    echo "  sigcomply check              # Run compliance checks"
+    echo "  sigcomply check -o json      # Output as JSON"
+    echo "  sigcomply check -o junit     # Output as JUnit XML"
     echo ""
     echo "  For more information, visit:"
     echo "  https://github.com/${GITHUB_REPO}"

@@ -10,14 +10,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tracevault/tracevault-cli/internal/core/attestation"
-	"github.com/tracevault/tracevault-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
+	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 func TestNewClient_DefaultConfig(t *testing.T) {
 	client := NewClient(nil)
 	assert.NotNil(t, client)
-	assert.Equal(t, "https://api.tracevault.io", client.config.BaseURL)
+	assert.Equal(t, "https://api.sigcomply.com", client.config.BaseURL)
 	assert.Equal(t, 30*time.Second, client.config.Timeout)
 }
 
@@ -289,10 +289,10 @@ func TestAPIError_Error(t *testing.T) {
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
-	assert.Equal(t, "https://api.tracevault.io", cfg.BaseURL)
+	assert.Equal(t, "https://api.sigcomply.com", cfg.BaseURL)
 	assert.Equal(t, 30*time.Second, cfg.Timeout)
 	assert.Equal(t, 3, cfg.RetryCount)
-	assert.Equal(t, "tracevault-cli/1.0", cfg.UserAgent)
+	assert.Equal(t, "sigcomply-cli/1.0", cfg.UserAgent)
 }
 
 func TestDetectOIDCToken_NoCI(t *testing.T) {

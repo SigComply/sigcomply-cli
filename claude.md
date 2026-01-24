@@ -1,6 +1,6 @@
-# TraceVault CLI - Claude Context
+# SigComply CLI - Claude Context
 
-This document provides context for AI assistants (like Claude) working on the TraceVault CLI project.
+This document provides context for AI assistants (like Claude) working on the SigComply CLI project.
 
 ---
 
@@ -123,7 +123,7 @@ Before implementing any feature, verify:
 
 ## Project Purpose
 
-TraceVault CLI is an open-source compliance automation engine that enables organizations to achieve SOC 2, ISO 27001, and HIPAA readiness without granting third-party vendors access to their production infrastructure.
+SigComply CLI is an open-source compliance automation engine that enables organizations to achieve SOC 2, ISO 27001, and HIPAA readiness without granting third-party vendors access to their production infrastructure.
 
 **Core Philosophy**: "Evidence without Access" - a non-custodial approach to compliance automation.
 
@@ -134,7 +134,7 @@ TraceVault CLI is an open-source compliance automation engine that enables organ
 - **Language**: Go (Golang)
 - **Policy Engine**: Open Policy Agent (OPA) with Rego policies
 - **Authentication**: Dual OIDC approach
-  - OIDC tokens for TraceVault Cloud API authentication
+  - OIDC tokens for SigComply Cloud API authentication
   - OIDC tokens for third-party service authentication (AWS, GCP, Azure, etc.)
   - Fallback to traditional credentials when OIDC unavailable
 - **Cryptography**: SHA-256 hashing for evidence attestation
@@ -148,9 +148,9 @@ TraceVault CLI is an open-source compliance automation engine that enables organ
 
 ### 1. The 2-Repo Architecture
 
-TraceVault uses a two-repository architecture that balances transparency with business security:
+SigComply uses a two-repository architecture that balances transparency with business security:
 
-**Repo 1: tracevault-cli (This Repository - PUBLIC)**
+**Repo 1: sigcomply-cli (This Repository - PUBLIC)**
 - The "Front-of-House" / Distribution Layer
 - Contains the Go CLI source code
 - Open-source compliance policies (YAML/Rego)
@@ -159,7 +159,7 @@ TraceVault uses a two-repository architecture that balances transparency with bu
 - Installation scripts (`curl | sh` setup)
 - Complete transparency for security-conscious teams
 
-**Repo 2: tracevault-cloud (PRIVATE)**
+**Repo 2: sigcomply-cloud (PRIVATE)**
 - The "Intelligence/Storage Layer" / Attestation Ledger
 - Rails-based backend application
 - Stores attestation history and metadata
@@ -171,14 +171,14 @@ This separation ensures:
 - Compliance logic remains open and auditable
 - Business logic and customer data remain secure
 - Customers can inspect exactly what runs in their environment
-- TraceVault can iterate on backend features independently
+- SigComply can iterate on backend features independently
 
 ### 2. CLI Execution Flow
 
 ```
 User Environment
     ↓
-[TraceVault CLI]
+[SigComply CLI]
     ↓
     ├─> Fetch data from Service APIs (AWS, GitHub, etc.)
     ├─> Execute OPA/Rego policies against fetched data
@@ -189,7 +189,7 @@ User Environment
     │   ├─> Check results (evaluation outcomes)
     │   └─> Signed attestation
     │
-    └─> Send to TraceVault Cloud API (paid tier):
+    └─> Send to SigComply Cloud API (paid tier):
         ├─> Full CheckResult (all policy results with violations)
         ├─> Signed attestation (hashes + signature)
         └─> Evidence location reference (where raw evidence is stored)
@@ -202,7 +202,7 @@ User Environment
 #### Evidence Collection
 - CLI connects to various service APIs using customer's local credentials
 - Fetches infrastructure state, configuration, logs, user data, etc.
-- No credentials are sent to TraceVault servers
+- No credentials are sent to SigComply servers
 
 #### Policy Evaluation
 - OPA/Rego policies define compliance rules
@@ -213,7 +213,7 @@ User Environment
 #### Evidence Storage (Sovereign Vault)
 - Raw evidence sent to customer-controlled storage
 - Customer chooses: S3 bucket, Google Drive, Azure Blob, etc.
-- TraceVault never has access to raw evidence
+- SigComply never has access to raw evidence
 - Customer maintains complete data sovereignty
 
 #### Attestation Generation
@@ -222,7 +222,7 @@ User Environment
 - Hash + metadata (timestamp, status, control ID) form attestation
 
 #### Cloud Reporting (Paid Tier)
-- CLI sends **full compliance check results** to TraceVault Cloud API:
+- CLI sends **full compliance check results** to SigComply Cloud API:
   1. **CheckResult**: Complete policy evaluation results including all violations with resource details
   2. **Attestation**: Cryptographic proof with evidence hashes and signature
   3. **Evidence Location**: Reference to where raw evidence is stored (not the evidence itself)
@@ -239,7 +239,7 @@ User Environment
 
 ### 4. External Systems
 
-**TraceVault Cloud API** (Separate Rails Application - Private Repository):
+**SigComply Cloud API** (Separate Rails Application - Private Repository):
 - Receives compliance check results from CLI (paid tier):
   - Full CheckResult with all PolicyResults and Violations
   - Signed Attestation with evidence hashes
@@ -259,14 +259,14 @@ User Environment
 
 ## The "Seamless Integration" Blueprint
 
-To ensure developers can integrate TraceVault into their CI/CD pipelines in under 60 seconds, the CLI follows these design rules:
+To ensure developers can integrate SigComply into their CI/CD pipelines in under 60 seconds, the CLI follows these design rules:
 
 ### 1. The `init-ci` Command
 
 Instead of requiring developers to copy/paste YAML configuration files manually, they simply run:
 
 ```bash
-tracevault init-ci
+sigcomply init-ci
 ```
 
 The CLI will:
@@ -277,7 +277,7 @@ The CLI will:
 
 ### 2. "Thin" CI/CD Configuration
 
-The developer's repository contains only a few lines of YAML that reference TraceVault's reusable workflows:
+The developer's repository contains only a few lines of YAML that reference SigComply's reusable workflows:
 
 **GitHub Actions Example:**
 ```yaml
@@ -287,32 +287,32 @@ on: [push, pull_request]
 
 jobs:
   compliance:
-    uses: tracevault/tracevault-cli/.github/workflows/compliance.yml@v1
+    uses: sigcomply/sigcomply-cli/.github/workflows/compliance.yml@v1
     with:
       framework: soc2
     secrets:
-      TRACEVAULT_API_TOKEN: ${{ secrets.TRACEVAULT_API_TOKEN }}
+      SIGCOMPLY_API_TOKEN: ${{ secrets.SIGCOMPLY_API_TOKEN }}
 ```
 
 **GitLab CI Example:**
 ```yaml
 # .gitlab-ci.yml
 include:
-  - component: tracevault/tracevault-cli/compliance@v1
+  - component: sigcomply/sigcomply-cli/compliance@v1
     inputs:
       framework: soc2
 ```
 
 **Benefits:**
 - Customer's configuration file is tiny (3-10 lines)
-- TraceVault can update the underlying logic by updating the reusable workflow
-- Customers never need to change their code when TraceVault improves features
+- SigComply can update the underlying logic by updating the reusable workflow
+- Customers never need to change their code when SigComply improves features
 - Standardized across all customer implementations
 
 ### 3. OIDC Authentication
 
-TraceVault uses ephemeral OIDC tokens for dual-purpose authentication:
-1. **CLI → TraceVault Cloud API**: Eliminates long-lived API keys
+SigComply uses ephemeral OIDC tokens for dual-purpose authentication:
+1. **CLI → SigComply Cloud API**: Eliminates long-lived API keys
 2. **CLI → Third-party services** (AWS, GCP, Azure): Preferred over static credentials
 
 **Key principle**: OIDC first, fall back to environment variables/secrets when unavailable.
@@ -326,7 +326,7 @@ TraceVault uses ephemeral OIDC tokens for dual-purpose authentication:
 ### Security-First
 - Zero-trust architecture
 - No long-lived credentials stored
-- Ephemeral OIDC authentication for both TraceVault API and third-party services
+- Ephemeral OIDC authentication for both SigComply API and third-party services
 - Prefer OIDC over long-lived API keys whenever possible (AWS, GCP, Azure, etc.)
 - Cryptographic proof over data transfer
 - Open-source transparency
@@ -342,7 +342,7 @@ TraceVault uses ephemeral OIDC tokens for dual-purpose authentication:
 ### Data Sovereignty
 - Customer owns all raw evidence
 - Customer controls storage location
-- TraceVault never sees production data or raw evidence
+- SigComply never sees production data or raw evidence
 - Only derived compliance data leaves customer environment:
   - Cryptographic proofs (SHA-256 hashes)
   - Aggregated evaluation results (pass/fail counts, scores)
@@ -359,15 +359,15 @@ TraceVault uses ephemeral OIDC tokens for dual-purpose authentication:
 
 ### 1. Initial Setup (Local Development)
 ```bash
-tracevault init
-# Creates .tracevault.yaml config file
+sigcomply init
+# Creates .sigcomply.yaml config file
 # Prompts for storage backend (S3, GCS, etc.)
-# Prompts for TraceVault Cloud API credentials
+# Prompts for SigComply Cloud API credentials
 ```
 
 ### 2. CI/CD Integration Setup
 ```bash
-tracevault init-ci
+sigcomply init-ci
 # Auto-detects GitHub Actions or GitLab CI
 # Scaffolds minimal caller YAML file
 # Validates environment variables
@@ -385,7 +385,7 @@ jobs:
     permissions:
       id-token: write  # Required for OIDC authentication
       contents: read
-    uses: tracevault/tracevault-cli/.github/workflows/compliance.yml@v1
+    uses: sigcomply/sigcomply-cli/.github/workflows/compliance.yml@v1
     with:
       framework: soc2
 ```
@@ -394,14 +394,14 @@ Or (for GitLab):
 ```yaml
 # .gitlab-ci.yml
 include:
-  - component: tracevault/tracevault-cli/compliance@v1
+  - component: sigcomply/sigcomply-cli/compliance@v1
     inputs:
       framework: soc2
 ```
 
 ### 3. Running Compliance Checks (Local)
 ```bash
-tracevault check --framework soc2
+sigcomply check --framework soc2
 # Fetches current infrastructure state
 # Evaluates OPA policies
 # Stores evidence in customer's vault
@@ -413,7 +413,7 @@ tracevault check --framework soc2
 ### 4. CI/CD Execution (Automatic)
 When the workflow runs:
 1. CI/CD platform generates ephemeral OIDC token
-2. TraceVault CLI is installed via reusable workflow
+2. SigComply CLI is installed via reusable workflow
 3. CLI fetches infrastructure data using repository secrets
 4. Policies are evaluated locally
 5. Evidence stored in customer's sovereign vault
@@ -424,9 +424,9 @@ When the workflow runs:
 
 ### 5. Audit Preparation
 ```bash
-tracevault report --framework soc2 --format pdf
+sigcomply report --framework soc2 --format pdf
 # Generates audit-ready report
-# Auditor can verify evidence via TraceVault portal
+# Auditor can verify evidence via SigComply portal
 # Portal compares raw evidence against stored hashes
 ```
 
@@ -437,8 +437,8 @@ tracevault report --framework soc2 --format pdf
 The codebase follows a domain-driven organization with three main areas:
 
 ```
-tracevault-cli/
-├── cmd/tracevault/                      # CLI entry point
+sigcomply-cli/
+├── cmd/sigcomply/                       # CLI entry point
 │   └── main.go
 │
 ├── internal/
@@ -487,7 +487,7 @@ tracevault-cli/
 │   │   ├── scanner/                     # Secret scanner
 │   │   ├── storage/                     # Evidence storage (future)
 │   │   ├── attestation/                 # Attestation signing & hashing
-│   │   └── cloud/                       # TraceVault Cloud client (future)
+│   │   └── cloud/                       # SigComply Cloud client (future)
 │   │
 │   └── testutil/                        # Test helpers
 │
@@ -516,16 +516,16 @@ tracevault-cli/
 
 | Command | Description |
 |---------|-------------|
-| `tracevault check` | Main command: collect + evaluate + store + (optionally) cloud submit |
-| `tracevault init` | Initialize configuration file |
-| `tracevault init-ci` | Generate CI/CD workflow files |
-| `tracevault collect` | Collect evidence only (no evaluation) |
-| `tracevault evaluate` | Evaluate policies against stored evidence |
-| `tracevault report` | Generate compliance reports |
-| `tracevault config` | View/validate/set configuration |
-| `tracevault version` | Show version information |
+| `sigcomply check` | Main command: collect + evaluate + store + (optionally) cloud submit |
+| `sigcomply init` | Initialize configuration file |
+| `sigcomply init-ci` | Generate CI/CD workflow files |
+| `sigcomply collect` | Collect evidence only (no evaluation) |
+| `sigcomply evaluate` | Evaluate policies against stored evidence |
+| `sigcomply report` | Generate compliance reports |
+| `sigcomply config` | View/validate/set configuration |
+| `sigcomply version` | Show version information |
 
-### Key Flags for `tracevault check`
+### Key Flags for `sigcomply check`
 
 ```bash
 --framework string    # Compliance framework (default: "soc2")
@@ -554,7 +554,7 @@ tracevault-cli/
 The CLI automatically detects:
 - **Collectors**: Based on available credentials (AWS_*, GITHUB_TOKEN, etc.)
 - **CI Environment**: GITHUB_ACTIONS, GITLAB_CI, CI environment variables
-- **Cloud Mode**: Enabled if TRACEVAULT_API_TOKEN is set
+- **Cloud Mode**: Enabled if SIGCOMPLY_API_TOKEN is set
 
 ---
 
@@ -564,7 +564,7 @@ The CLI automatically detects:
 
 ### Configuration File
 
-Default file: `.tracevault.yaml`
+Default file: `.sigcomply.yaml`
 
 ```yaml
 # Minimal example
@@ -579,28 +579,28 @@ collectors:
 storage:
   backend: local
   local:
-    path: ./.tracevault/evidence
+    path: ./.sigcomply/evidence
 
 # Cloud settings (optional - for paid features)
 cloud:
-  enabled: false  # Auto-enabled if TRACEVAULT_API_TOKEN is set
+  enabled: false  # Auto-enabled if SIGCOMPLY_API_TOKEN is set
 ```
 
 ### Configuration Sources (Precedence)
 
 1. **CLI flags** (highest priority)
-2. **Environment variables** (TRACEVAULT_*)
-3. **Config file** (.tracevault.yaml)
+2. **Environment variables** (SIGCOMPLY_*)
+3. **Config file** (.sigcomply.yaml)
 4. **Built-in defaults** (lowest priority)
 
 ### Key Environment Variables
 
 ```bash
-TRACEVAULT_API_TOKEN        # Cloud API token (enables cloud mode)
-TRACEVAULT_FRAMEWORK        # Default framework
-TRACEVAULT_STORAGE_BACKEND  # Storage backend: local, s3, gcs
-TRACEVAULT_STORAGE_BUCKET   # S3/GCS bucket name
-TRACEVAULT_OUTPUT_FORMAT    # Output format: text, json, sarif
+SIGCOMPLY_API_TOKEN        # Cloud API token (enables cloud mode)
+SIGCOMPLY_FRAMEWORK        # Default framework
+SIGCOMPLY_STORAGE_BACKEND  # Storage backend: local, s3, gcs
+SIGCOMPLY_STORAGE_BUCKET   # S3/GCS bucket name
+SIGCOMPLY_OUTPUT_FORMAT    # Output format: text, json, sarif
 ```
 
 ### Configuration Sections
@@ -611,7 +611,7 @@ TRACEVAULT_OUTPUT_FORMAT    # Output format: text, json, sarif
 | `frameworks` | Which compliance frameworks to evaluate |
 | `policies` | Policy exclusions, inclusions, custom paths |
 | `storage` | Storage backend and artifact settings |
-| `cloud` | TraceVault Cloud API settings |
+| `cloud` | SigComply Cloud API settings |
 | `output` | Format, verbosity, color settings |
 | `ci` | CI/CD behavior (fail_on_violation, fail_severity) |
 
@@ -643,7 +643,7 @@ TRACEVAULT_OUTPUT_FORMAT    # Output format: text, json, sarif
 - Return violations/passes with detailed messages
 
 ### Cloud API Client
-- HTTP client for TraceVault Cloud API (paid tier)
+- HTTP client for SigComply Cloud API (paid tier)
 - Authenticates with OIDC tokens
 - Sends full compliance check results (no raw evidence):
   - Full `CheckResult` with all `PolicyResult` entries and `Violations`
@@ -670,8 +670,8 @@ TRACEVAULT_OUTPUT_FORMAT    # Output format: text, json, sarif
 - Mock external APIs in tests
 - Policy tests using OPA's testing framework
 - **E2E Testing Repositories** (external, real CI/CD environments):
-  - GitHub Actions: https://github.com/Trace-Vault/tracevault-cli-testing-github
-  - GitLab CI: https://gitlab.com/tracevault/tracevault-cli-testing-gitlab
+  - GitHub Actions: https://github.com/SigComply/sigcomply-cli-testing-github
+  - GitLab CI: https://gitlab.com/sigcomply/sigcomply-cli-testing-gitlab
 
 ### Error Handling
 - Descriptive error messages
@@ -733,7 +733,7 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 
 ### Auditor Access
 - Auditors never receive credentials from CLI
-- Auditors use TraceVault portal to verify evidence
+- Auditors use SigComply portal to verify evidence
 - Portal allows drag-and-drop verification (upload evidence, check hash)
 - Immutable audit trail in Cloud API
 
@@ -757,7 +757,7 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 **Architecture**: See [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 **P0 MVP Priorities** (3-4 weeks):
-1. Zero-config `tracevault check` command that works with AWS defaults
+1. Zero-config `sigcomply check` command that works with AWS defaults
 2. AWS collector (IAM, S3, CloudTrail)
 3. OPA engine with embedded policies (go:embed)
 4. 3 SOC 2 policies (MFA, encryption, logging)
@@ -768,7 +768,7 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 **Completed (post-P0)**:
 - Evidence storage (S3, local)
 - Attestation signing (HMAC, OIDC)
-- TraceVault Cloud API client
+- SigComply Cloud API client
 - OIDC authentication (GitHub Actions, GitLab CI)
 - GitHub collector
 - Canonical JSON for deterministic hashing
@@ -802,7 +802,7 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
   - Raw evidence (actual API responses)
   - Policy inputs (data sent to OPA)
 
-  **Goes to TraceVault Cloud (paid tier)**:
+  **Goes to SigComply Cloud (paid tier)**:
   - Full `CheckResult` with all `PolicyResult` entries
   - All `Violation` details (resource IDs, types, reasons)
   - Signed `Attestation` with evidence hashes
@@ -810,7 +810,7 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 
   This enables drift detection, resource tracking, and compliance trends while maintaining non-custodial architecture (no API credentials, no raw infrastructure data).
 
-- **Why this is still "Evidence without Access"**: TraceVault never gets credentials to customer infrastructure and never receives raw API responses. We only see compliance evaluation results (which controls passed/failed and why).
+- **Why this is still "Evidence without Access"**: SigComply never gets credentials to customer infrastructure and never receives raw API responses. We only see compliance evaluation results (which controls passed/failed and why).
 - **Attestation design decisions**:
   - `StorageLocation` is NOT signed (operational metadata that may change)
   - `CLIVersion` and `PolicyVersions` ARE signed (for reproducibility)
@@ -830,8 +830,8 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 
 ### E2E Testing Repositories
 
-- GitHub Actions Testing: https://github.com/Trace-Vault/tracevault-cli-testing-github
-- GitLab CI Testing: https://gitlab.com/tracevault/tracevault-cli-testing-gitlab
+- GitHub Actions Testing: https://github.com/SigComply/sigcomply-cli-testing-github
+- GitLab CI Testing: https://gitlab.com/sigcomply/sigcomply-cli-testing-gitlab
 
 ---
 

@@ -1,6 +1,6 @@
-# Example: Basic TraceVault Compliance Check
+# Example: Basic SigComply Compliance Check
 #
-# This example shows how to use the TraceVault reusable workflow
+# This example shows how to use the SigComply reusable workflow
 # to run compliance checks on every push and pull request.
 #
 # Copy this file to your repository at .github/workflows/compliance.yml
@@ -19,7 +19,7 @@ on:
 
 jobs:
   compliance:
-    uses: tracevault/tracevault-cli/.github/workflows/compliance.yml@v1
+    uses: SigComply/sigcomply-cli/.github/workflows/compliance.yml@v1
     with:
       framework: soc2           # Options: soc2, hipaa, iso27001
       aws-region: us-east-1     # Your AWS region
@@ -35,8 +35,8 @@ jobs:
       # AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       # AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      # Optional: TraceVault Cloud API token for paid features
-      # TRACEVAULT_API_TOKEN: ${{ secrets.TRACEVAULT_API_TOKEN }}
+      # Optional: SigComply Cloud API token for paid features
+      # SIGCOMPLY_API_TOKEN: ${{ secrets.SIGCOMPLY_API_TOKEN }}
 
   # Example: Post results to Slack
   notify:

@@ -9,7 +9,7 @@
 *.dylib
 
 # Binary (at repo root)
-/tracevault
+/sigcomply
 
 # Build directories
 bin/
@@ -82,7 +82,7 @@ sbom.json
 *.pem
 *.key
 credentials.json
-.tracevault.yaml
+.sigcomply.yaml
 
 # Build artifacts
 __debug_bin

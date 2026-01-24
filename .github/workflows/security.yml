@@ -341,7 +341,7 @@ jobs:
           echo "Checking for forbidden licenses..."
           go-licenses check ./... \
             --disallowed_types=forbidden,restricted \
-            --ignore github.com/tracevault 2>&1 || true
+            --ignore github.com/sigcomply 2>&1 || true
 
           echo ""
           echo "License summary:"

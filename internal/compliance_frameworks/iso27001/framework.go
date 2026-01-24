@@ -4,7 +4,7 @@ package iso27001
 import (
 	_ "embed"
 
-	"github.com/tracevault/tracevault-cli/internal/compliance_frameworks/engine"
+	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/engine"
 )
 
 //go:embed policies/a_9_2_1_access.rego

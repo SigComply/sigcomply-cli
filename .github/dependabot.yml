@@ -19,7 +19,7 @@ updates:
       - "dependencies"
       - "go"
     reviewers:
-      - "tracevault/maintainers"
+      - "sigcomply/maintainers"
     # Group minor and patch updates together
     groups:
       aws-sdk:

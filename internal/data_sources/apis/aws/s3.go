@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/tracevault/tracevault-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 // S3Client defines the interface for S3 operations we use.

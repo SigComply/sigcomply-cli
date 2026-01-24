@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tracevault/tracevault-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 // LocalBackend implements storage using the local filesystem.

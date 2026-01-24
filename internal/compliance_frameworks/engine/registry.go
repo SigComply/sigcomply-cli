@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/tracevault/tracevault-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 // Framework defines the interface for compliance frameworks.

@@ -1,4 +1,4 @@
-# TraceVault CLI - Testing Strategy
+# SigComply CLI - Testing Strategy
 
 **Version**: 1.0
 **Date**: 2026-01-08
@@ -7,7 +7,7 @@
 
 ## Overview
 
-This document defines the testing strategy for TraceVault CLI. Every code change requires appropriate tests. This is non-negotiable for security and reliability.
+This document defines the testing strategy for SigComply CLI. Every code change requires appropriate tests. This is non-negotiable for security and reliability.
 
 ---
 
@@ -30,8 +30,8 @@ This document defines the testing strategy for TraceVault CLI. Every code change
     └─────────────────────────────────────────────┘
 
 External E2E Testing Repositories:
-- GitHub: https://github.com/Trace-Vault/tracevault-cli-testing-github
-- GitLab: https://gitlab.com/tracevault/tracevault-cli-testing-gitlab
+- GitHub: https://github.com/SigComply/sigcomply-cli-testing-github
+- GitLab: https://gitlab.com/sigcomply/sigcomply-cli-testing-gitlab
 ```
 
 ---
@@ -214,7 +214,7 @@ func (m *mockIAMClient) ListMFADevices(ctx context.Context, params *iam.ListMFAD
 
 ```rego
 # internal/policy/policies/soc2_cc6_1_mfa_test.rego
-package tracevault.soc2.cc6_1
+package sigcomply.soc2.cc6_1
 
 # Test: User without MFA should trigger violation
 test_user_without_mfa_violates {
@@ -404,7 +404,7 @@ func TestCheckCommand_RealAWS(t *testing.T) {
     // This test runs against a real AWS account
     // Requires: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
 
-    cmd := exec.Command("tracevault", "check", "--format", "json")
+    cmd := exec.Command("sigcomply", "check", "--format", "json")
     var stdout, stderr bytes.Buffer
     cmd.Stdout = &stdout
     cmd.Stderr = &stderr
@@ -422,7 +422,7 @@ func TestCheckCommand_RealAWS(t *testing.T) {
 }
 
 func TestCheckCommand_JSONOutput(t *testing.T) {
-    cmd := exec.Command("tracevault", "check", "--format", "json")
+    cmd := exec.Command("sigcomply", "check", "--format", "json")
     var stdout bytes.Buffer
     cmd.Stdout = &stdout
 
@@ -449,20 +449,20 @@ func TestCheckCommand_JSONOutput(t *testing.T) {
 
 ### 5. E2E Testing Repositories (External)
 
-TraceVault maintains dedicated external repositories for E2E testing in real CI/CD environments. These repositories validate complete CLI workflows against real infrastructure.
+SigComply maintains dedicated external repositories for E2E testing in real CI/CD environments. These repositories validate complete CLI workflows against real infrastructure.
 
 #### GitHub Actions Testing
 
-**Repository**: [tracevault-cli-testing-github](https://github.com/Trace-Vault/tracevault-cli-testing-github)
+**Repository**: [sigcomply-cli-testing-github](https://github.com/SigComply/sigcomply-cli-testing-github)
 
-**Purpose**: Validates TraceVault CLI in GitHub Actions CI environment.
+**Purpose**: Validates SigComply CLI in GitHub Actions CI environment.
 
 **Validates**:
 - CLI installation via GitHub Actions
 - Real AWS API evidence collection (IAM, S3, CloudTrail)
 - Compliance policy evaluation (SOC 2)
 - Attestation generation with OIDC signing
-- Submission to TraceVault Cloud API (paid tier)
+- Submission to SigComply Cloud API (paid tier)
 
 **Required Secrets**:
 | Secret | Description |
@@ -470,8 +470,8 @@ TraceVault maintains dedicated external repositories for E2E testing in real CI/
 | `AWS_ACCESS_KEY_ID` | AWS credentials for evidence collection |
 | `AWS_SECRET_ACCESS_KEY` | AWS credentials for evidence collection |
 | `AWS_REGION` | AWS region (e.g., `us-east-1`) |
-| `TRACEVAULT_API_KEY` | TraceVault Cloud API key |
-| `TRACEVAULT_API_ENDPOINT` | TraceVault Cloud API URL |
+| `SIGCOMPLY_API_KEY` | SigComply Cloud API key |
+| `SIGCOMPLY_API_ENDPOINT` | SigComply Cloud API URL |
 
 **Exit Codes Tested**:
 - `0` - Success, all checks passed
@@ -480,9 +480,9 @@ TraceVault maintains dedicated external repositories for E2E testing in real CI/
 
 #### GitLab CI Testing
 
-**Repository**: [tracevault-cli-testing-gitlab](https://gitlab.com/tracevault/tracevault-cli-testing-gitlab)
+**Repository**: [sigcomply-cli-testing-gitlab](https://gitlab.com/sigcomply/sigcomply-cli-testing-gitlab)
 
-**Purpose**: Validates TraceVault CLI in GitLab CI environment.
+**Purpose**: Validates SigComply CLI in GitLab CI environment.
 
 **Validates**:
 - CLI installation in GitLab CI
@@ -504,8 +504,8 @@ TraceVault maintains dedicated external repositories for E2E testing in real CI/
 | `AWS_ACCESS_KEY_ID` | AWS credentials |
 | `AWS_SECRET_ACCESS_KEY` | AWS credentials |
 | `AWS_REGION` | AWS region |
-| `TRACEVAULT_API_KEY` | Cloud API key |
-| `TRACEVAULT_API_ENDPOINT` | Cloud API URL |
+| `SIGCOMPLY_API_KEY` | Cloud API key |
+| `SIGCOMPLY_API_ENDPOINT` | Cloud API URL |
 
 #### Key Differences Between Test Repos
 
@@ -769,7 +769,7 @@ open coverage.html
 
 ## API Contract Testing
 
-TraceVault integrates with hundreds of third-party APIs (AWS, GitHub, GCP, etc.). Contract testing ensures these integrations remain stable as APIs evolve.
+SigComply integrates with hundreds of third-party APIs (AWS, GitHub, GCP, etc.). Contract testing ensures these integrations remain stable as APIs evolve.
 
 ### Overview
 
@@ -840,7 +840,7 @@ package aws
 
 import (
     "testing"
-    "github.com/tracevault/tracevault-cli/internal/testutil"
+    "github.com/sigcomply/sigcomply-cli/internal/testutil"
 )
 
 func TestCollectIAMUsers(t *testing.T) {
@@ -873,7 +873,7 @@ package aws
 
 import (
     "testing"
-    "github.com/tracevault/tracevault-cli/internal/testutil"
+    "github.com/sigcomply/sigcomply-cli/internal/testutil"
 )
 
 func TestIAMContract_ListUsers(t *testing.T) {

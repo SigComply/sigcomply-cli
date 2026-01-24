@@ -45,7 +45,7 @@ type OIDCToken struct {
 }
 
 // OIDCSigner signs attestations using OIDC tokens from CI providers.
-// The OIDC token itself serves as the signature, allowing the TraceVault
+// The OIDC token itself serves as the signature, allowing the SigComply
 // Cloud API to verify the signature using the CI provider's public keys.
 type OIDCSigner struct {
 	token *OIDCToken

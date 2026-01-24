@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	gh "github.com/google/go-github/v57/github"
-	"github.com/tracevault/tracevault-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 // Member represents a GitHub organization member.

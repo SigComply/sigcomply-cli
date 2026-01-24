@@ -1,4 +1,4 @@
-package tracevault
+package sigcomply
 
 import (
 	"context"
@@ -9,15 +9,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
-	"github.com/tracevault/tracevault-cli/internal/compliance_frameworks/engine"
-	"github.com/tracevault/tracevault-cli/internal/compliance_frameworks/iso27001"
-	"github.com/tracevault/tracevault-cli/internal/compliance_frameworks/soc2"
-	"github.com/tracevault/tracevault-cli/internal/core/config"
-	"github.com/tracevault/tracevault-cli/internal/core/evidence"
-	"github.com/tracevault/tracevault-cli/internal/core/output"
-	"github.com/tracevault/tracevault-cli/internal/core/storage"
-	"github.com/tracevault/tracevault-cli/internal/data_sources/apis/aws"
-	"github.com/tracevault/tracevault-cli/internal/data_sources/apis/github"
+	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/engine"
+	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/iso27001"
+	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/soc2"
+	"github.com/sigcomply/sigcomply-cli/internal/core/config"
+	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/output"
+	"github.com/sigcomply/sigcomply-cli/internal/core/storage"
+	"github.com/sigcomply/sigcomply-cli/internal/data_sources/apis/aws"
+	"github.com/sigcomply/sigcomply-cli/internal/data_sources/apis/github"
 )
 
 const (
@@ -53,16 +53,16 @@ By default, it auto-detects available credentials and runs SOC 2 checks.
 
 Examples:
   # Run with auto-detected AWS credentials
-  tracevault check
+  sigcomply check
 
   # Specify framework and region
-  tracevault check --framework soc2 --region us-west-2
+  sigcomply check --framework soc2 --region us-west-2
 
   # Output as JSON
-  tracevault check --output json
+  sigcomply check --output json
 
   # Output as JUnit XML (for CI/CD)
-  tracevault check --output junit`,
+  sigcomply check --output junit`,
 		RunE: runCheck,
 	}
 
@@ -71,10 +71,10 @@ Examples:
 	cmd.Flags().BoolVarP(&flagVerbose, "verbose", "v", false, "Verbose output")
 	cmd.Flags().StringVar(&flagRegion, "region", "", "AWS region")
 	cmd.Flags().BoolVar(&flagStore, "store", false, "Store evidence and results to configured storage")
-	cmd.Flags().StringVar(&flagStoragePath, "storage-path", "", "Local storage path (default: ./.tracevault/evidence)")
+	cmd.Flags().StringVar(&flagStoragePath, "storage-path", "", "Local storage path (default: ./.sigcomply/evidence)")
 	cmd.Flags().StringVar(&flagStorageBackend, "storage-backend", "", "Storage backend (local, s3)")
-	cmd.Flags().BoolVar(&flagCloud, "cloud", false, "Force submission to TraceVault Cloud (requires TRACEVAULT_API_TOKEN)")
-	cmd.Flags().BoolVar(&flagNoCloud, "no-cloud", false, "Disable submission to TraceVault Cloud")
+	cmd.Flags().BoolVar(&flagCloud, "cloud", false, "Force submission to SigComply Cloud (requires SIGCOMPLY_API_TOKEN)")
+	cmd.Flags().BoolVar(&flagNoCloud, "no-cloud", false, "Disable submission to SigComply Cloud")
 	cmd.Flags().StringVar(&flagGitHubOrg, "github-org", "", "GitHub organization to collect evidence from (requires GITHUB_TOKEN)")
 
 	return cmd
@@ -118,7 +118,7 @@ func runCheck(cmd *cobra.Command, args []string) error {
 			cfg.Storage.Backend = backendLocal
 		}
 		if cfg.Storage.Backend == backendLocal && cfg.Storage.Path == "" {
-			cfg.Storage.Path = "./.tracevault/evidence"
+			cfg.Storage.Path = "./.sigcomply/evidence"
 		}
 	}
 
@@ -140,8 +140,8 @@ func runCheck(cmd *cobra.Command, args []string) error {
 
 func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) error {
 	// Print header
-	fmt.Println("TraceVault Compliance Check")
-	fmt.Println("===========================")
+	fmt.Println("SigComply Compliance Check")
+	fmt.Println("==========================")
 	fmt.Printf("Framework: %s\n", cfg.Framework)
 	if cfg.CI {
 		fmt.Printf("CI: %s\n", cfg.CIProvider)
@@ -237,7 +237,7 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 		}
 	}
 
-	// Submit to TraceVault Cloud if enabled
+	// Submit to SigComply Cloud if enabled
 	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) {
 		printCloudSubmission(ctx, cfg, checkResult, result.Evidence, manifest)
 	}
@@ -537,7 +537,7 @@ func printCloudSubmission(ctx context.Context, cfg *config.Config, checkResult *
 		return
 	}
 
-	fmt.Printf("  [done] Submitted to TraceVault Cloud\n")
+	fmt.Printf("  [done] Submitted to SigComply Cloud\n")
 	fmt.Printf("  [done] Run ID: %s\n", cloudResp.RunID())
 	if driftSummary := cloudResp.GetDriftSummary(); driftSummary != nil && driftSummary.HasDrift {
 		fmt.Printf("  [info] Drift detected: %d new violations, %d resolved\n",

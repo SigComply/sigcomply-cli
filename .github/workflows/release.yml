@@ -1,4 +1,4 @@
-# Release workflow for TraceVault CLI
+# Release workflow for SigComply CLI
 # Triggered when a new tag is pushed (e.g., v1.0.0)
 
 name: Release
@@ -87,12 +87,12 @@ jobs:
 
       - name: Install via script
         run: |
-          TRACEVAULT_VERSION="${GITHUB_REF_NAME}" ./scripts/install.sh
+          SIGCOMPLY_VERSION="${GITHUB_REF_NAME}" ./scripts/install.sh
 
       - name: Verify version
         run: |
-          tracevault version
-          VERSION_OUTPUT=$(tracevault version)
+          sigcomply version
+          VERSION_OUTPUT=$(sigcomply version)
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           if echo "$VERSION_OUTPUT" | grep -q "$TAG_VERSION"; then
             echo "Version matches: $TAG_VERSION"
@@ -105,7 +105,7 @@ jobs:
 
       - name: Verify check command
         run: |
-          tracevault check --help
+          sigcomply check --help
 
   notify:
     name: Notify
@@ -124,7 +124,7 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### Installation" >> $GITHUB_STEP_SUMMARY
             echo '```bash' >> $GITHUB_STEP_SUMMARY
-            echo 'curl -fsSL https://raw.githubusercontent.com/tracevault/tracevault-cli/main/scripts/install.sh | sh' >> $GITHUB_STEP_SUMMARY
+            echo 'curl -fsSL https://raw.githubusercontent.com/SigComply/sigcomply-cli/main/scripts/install.sh | sh' >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           else
             echo "**Status**: Release failed or verification failed" >> $GITHUB_STEP_SUMMARY

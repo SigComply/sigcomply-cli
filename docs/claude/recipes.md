@@ -28,7 +28,7 @@ Each policy lives within its framework directory. Simplicity and readability ove
 1. Create Rego file in `internal/compliance_frameworks/<framework>/policies/<control>_<name>.rego`
    - Example: `internal/compliance_frameworks/soc2/policies/cc6_1_mfa.rego`
    - Example: `internal/compliance_frameworks/hipaa/policies/164_312_access.rego`
-2. Use package naming: `package tracevault.<framework>.<control>`
+2. Use package naming: `package sigcomply.<framework>.<control>`
 3. Include metadata with id, name, framework, control, severity
 4. Define `violations` rule for policy checks
 5. Write policy tests in `<policy>_test.rego`

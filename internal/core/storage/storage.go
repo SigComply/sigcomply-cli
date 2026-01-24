@@ -5,7 +5,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/tracevault/tracevault-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 // Backend defines the interface for evidence storage backends.
@@ -137,7 +137,7 @@ func NewBackend(cfg *Config) (Backend, error) {
 	case "local", "":
 		localCfg := cfg.Local
 		if localCfg == nil {
-			localCfg = &LocalConfig{Path: ".tracevault/evidence"}
+			localCfg = &LocalConfig{Path: ".sigcomply/evidence"}
 		}
 		return NewLocalBackend(localCfg), nil
 	case "s3":

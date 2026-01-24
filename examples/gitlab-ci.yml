@@ -1,6 +1,6 @@
-# TraceVault CLI - GitLab CI Example
+# SigComply CLI - GitLab CI Example
 #
-# This configuration demonstrates how to integrate TraceVault compliance checks
+# This configuration demonstrates how to integrate SigComply compliance checks
 # into your GitLab CI/CD pipeline.
 #
 # Features:
@@ -14,8 +14,8 @@
 # 1. Copy this file to .gitlab-ci.yml in your repository root
 # 2. Configure AWS OIDC trust (see: https://docs.gitlab.com/ee/ci/cloud_services/aws/)
 # 3. Add CI/CD variables in Settings → CI/CD → Variables:
-#    - AWS_ROLE_ARN: ARN of IAM role for TraceVault (e.g., arn:aws:iam::123456789012:role/TraceVaultComplianceRole)
-#    - TRACEVAULT_API_TOKEN: Your TraceVault Cloud API token (optional, masked)
+#    - AWS_ROLE_ARN: ARN of IAM role for SigComply (e.g., arn:aws:iam::123456789012:role/SigComplyComplianceRole)
+#    - SIGCOMPLY_API_TOKEN: Your SigComply Cloud API token (optional, masked)
 # 4. Commit and push to trigger the pipeline
 
 # Define stages
@@ -25,12 +25,12 @@ stages:
 
 # Global variables
 variables:
-  # TraceVault CLI version to use
-  TRACEVAULT_VERSION: "latest"
+  # SigComply CLI version to use
+  SIGCOMPLY_VERSION: "latest"
 
   # Output configuration
-  TRACEVAULT_OUTPUT_FORMAT: "json"
-  TRACEVAULT_VERBOSITY: "1"
+  SIGCOMPLY_OUTPUT_FORMAT: "json"
+  SIGCOMPLY_VERBOSITY: "1"
 
   # AWS region for compliance checks
   AWS_REGION: "us-east-1"
@@ -58,17 +58,17 @@ soc2-compliance:
     # Install required dependencies
     - apt-get install -y -qq curl jq ca-certificates
 
-    # Install TraceVault CLI
-    - curl -fsSL https://install.tracevault.io | sh -s -- $TRACEVAULT_VERSION
-    - export PATH="$HOME/.tracevault/bin:$PATH"
+    # Install SigComply CLI
+    - curl -fsSL https://install.sigcomply.com | sh -s -- $SIGCOMPLY_VERSION
+    - export PATH="$HOME/.sigcomply/bin:$PATH"
 
     # Verify installation
-    - tracevault version
+    - sigcomply version
 
     # Configure AWS credentials using OIDC
     # The AWS_WEB_IDENTITY_TOKEN_FILE and AWS_ROLE_ARN are automatically used by AWS SDK
     - export AWS_WEB_IDENTITY_TOKEN_FILE=$AWS_OIDC_TOKEN
-    - export AWS_ROLE_SESSION_NAME="tracevault-compliance-${CI_PIPELINE_ID}"
+    - export AWS_ROLE_SESSION_NAME="sigcomply-compliance-${CI_PIPELINE_ID}"
 
     # Verify AWS authentication
     - |
@@ -83,7 +83,7 @@ soc2-compliance:
 
       # Run check and capture exit code
       set +e
-      tracevault check \
+      sigcomply check \
         --framework soc2 \
         --format json \
         --output results.json \
@@ -107,7 +107,7 @@ soc2-compliance:
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
       # Generate JUnit XML for GitLab UI
-      tracevault report --framework soc2 --format junit --output junit.xml
+      sigcomply report --framework soc2 --format junit --output junit.xml
 
       # Fail if compliance check failed
       if [ $EXIT_CODE -ne 0 ]; then
@@ -143,8 +143,8 @@ soc2-compliance:
 #
 #   before_script:
 #     - apt-get update -qq && apt-get install -y -qq curl jq
-#     - curl -fsSL https://install.tracevault.io | sh
-#     - export PATH="$HOME/.tracevault/bin:$PATH"
+#     - curl -fsSL https://install.sigcomply.com | sh
+#     - export PATH="$HOME/.sigcomply/bin:$PATH"
 #
 #   script:
 #     - |
@@ -153,7 +153,7 @@ soc2-compliance:
 #       export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 #       export AWS_REGION=$AWS_REGION
 #
-#       tracevault check --framework soc2 --output results.json
+#       sigcomply check --framework soc2 --output results.json
 #
 #   artifacts:
 #     paths:
@@ -174,14 +174,14 @@ generate-report:
 
   before_script:
     - apt-get update -qq && apt-get install -y -qq curl
-    - curl -fsSL https://install.tracevault.io | sh
-    - export PATH="$HOME/.tracevault/bin:$PATH"
+    - curl -fsSL https://install.sigcomply.com | sh
+    - export PATH="$HOME/.sigcomply/bin:$PATH"
 
   script:
     # Generate PDF report from historical data
     - |
       echo "📄 Generating compliance report..."
-      tracevault report \
+      sigcomply report \
         --framework soc2 \
         --format pdf \
         --output compliance-report.pdf
@@ -218,14 +218,14 @@ generate-report:
 #
 #   before_script:
 #     - apt-get update -qq && apt-get install -y -qq curl jq
-#     - curl -fsSL https://install.tracevault.io | sh
-#     - export PATH="$HOME/.tracevault/bin:$PATH"
+#     - curl -fsSL https://install.sigcomply.com | sh
+#     - export PATH="$HOME/.sigcomply/bin:$PATH"
 #     - export AWS_WEB_IDENTITY_TOKEN_FILE=$AWS_OIDC_TOKEN
 #
 #   script:
 #     - |
 #       echo "🔍 Running ${FRAMEWORK} compliance check..."
-#       tracevault check --framework $FRAMEWORK --output ${FRAMEWORK}-results.json
+#       sigcomply check --framework $FRAMEWORK --output ${FRAMEWORK}-results.json
 #
 #   artifacts:
 #     paths:
@@ -250,13 +250,13 @@ generate-report:
 #
 #   before_script:
 #     - apt-get update -qq && apt-get install -y -qq curl jq
-#     - curl -fsSL https://install.tracevault.io | sh
-#     - export PATH="$HOME/.tracevault/bin:$PATH"
+#     - curl -fsSL https://install.sigcomply.com | sh
+#     - export PATH="$HOME/.sigcomply/bin:$PATH"
 #     - export AWS_WEB_IDENTITY_TOKEN_FILE=$AWS_OIDC_TOKEN
 #
 #   script:
 #     - |
-#       tracevault check --framework soc2 --output scheduled-results.json
+#       sigcomply check --framework soc2 --output scheduled-results.json
 #
 #       # Send notification on failure
 #       if [ $? -ne 0 ]; then
@@ -285,14 +285,14 @@ generate-report:
 #
 #   before_script:
 #     - apt-get update -qq && apt-get install -y -qq curl
-#     - curl -fsSL https://install.tracevault.io | sh
-#     - export PATH="$HOME/.tracevault/bin:$PATH"
+#     - curl -fsSL https://install.sigcomply.com | sh
+#     - export PATH="$HOME/.sigcomply/bin:$PATH"
 #
 #   script:
 #     - mkdir -p public
 #
 #     # Generate HTML report
-#     - tracevault report --framework soc2 --format html --output public/index.html
+#     - sigcomply report --framework soc2 --format html --output public/index.html
 #
 #     # Copy JSON results
 #     - cp results.json public/results.json
@@ -363,20 +363,20 @@ generate-report:
 #
 #   before_script:
 #     - apt-get update -qq && apt-get install -y -qq curl jq git
-#     - curl -fsSL https://install.tracevault.io | sh
-#     - export PATH="$HOME/.tracevault/bin:$PATH"
+#     - curl -fsSL https://install.sigcomply.com | sh
+#     - export PATH="$HOME/.sigcomply/bin:$PATH"
 #
 #   script:
 #     - |
 #       # Run compliance check on current branch
-#       tracevault check --framework soc2 --output current.json
+#       sigcomply check --framework soc2 --output current.json
 #
 #       # Checkout main branch
 #       git fetch origin $CI_DEFAULT_BRANCH
 #       git checkout origin/$CI_DEFAULT_BRANCH
 #
 #       # Run compliance check on main
-#       tracevault check --framework soc2 --output baseline.json
+#       sigcomply check --framework soc2 --output baseline.json
 #
 #       # Compare results
 #       echo "📊 Compliance Diff:"
@@ -416,7 +416,7 @@ generate-report:
 #    - Less secure than OIDC, but easier to set up initially
 #
 # 3. Pipeline Efficiency:
-#    - Use caching for TraceVault CLI binary
+#    - Use caching for SigComply CLI binary
 #    - Run compliance checks in parallel for multiple frameworks
 #    - Use artifacts to share results between jobs
 #
@@ -434,6 +434,6 @@ generate-report:
 #    - Archive reports as artifacts
 #
 # For more information:
-# - TraceVault Docs: https://docs.tracevault.io/cicd/gitlab
+# - SigComply Docs: https://docs.sigcomply.com/cicd/gitlab
 # - GitLab CI Docs: https://docs.gitlab.com/ee/ci/
 # - AWS OIDC Setup: https://docs.gitlab.com/ee/ci/cloud_services/aws/

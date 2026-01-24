@@ -1,8 +1,8 @@
 # METADATA
-# title: TraceVault Shared Helpers
-# description: Common helper functions for TraceVault policies
+# title: SigComply Shared Helpers
+# description: Common helper functions for SigComply policies
 # scope: package
-package tracevault.lib
+package sigcomply.lib
 
 # is_aws_resource checks if the input is an AWS resource
 is_aws_resource if {

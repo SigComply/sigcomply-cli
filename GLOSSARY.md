@@ -1,4 +1,4 @@
-# TraceVault Glossary
+# SigComply Glossary
 
 Quick reference for key terms and concepts. For full context, see [CLAUDE.md](./CLAUDE.md) and [ARCHITECTURE.md](./ARCHITECTURE.md).
 
@@ -8,8 +8,8 @@ Quick reference for key terms and concepts. For full context, see [CLAUDE.md](./
 
 | Term | Definition |
 |------|------------|
-| **Evidence without Access** | TraceVault's core principle: prove compliance without giving vendors access to production infrastructure or raw data |
-| **Non-custodial** | TraceVault never holds customer credentials, raw evidence, or production data |
+| **Evidence without Access** | SigComply's core principle: prove compliance without giving vendors access to production infrastructure or raw data |
+| **Non-custodial** | SigComply never holds customer credentials, raw evidence, or production data |
 | **Compliance as Code** | Treating compliance checks like automated tests—they run in CI/CD and fail builds when controls are violated |
 
 ---
@@ -18,10 +18,10 @@ Quick reference for key terms and concepts. For full context, see [CLAUDE.md](./
 
 | Term | Definition |
 |------|------------|
-| **2-Repo Architecture** | Separation of open-source CLI (tracevault-cli) from private cloud backend (tracevault-cloud) |
-| **TraceVault CLI** | Open-source Go binary that collects evidence, evaluates policies, and generates attestations locally |
-| **TraceVault Cloud** | Private Rails backend that stores compliance results, enables drift detection, and provides auditor portal (paid tier) |
-| **Sovereign Vault** | Customer-controlled storage (S3, GCS, local) where raw evidence stays—TraceVault never accesses it |
+| **2-Repo Architecture** | Separation of open-source CLI (sigcomply-cli) from private cloud backend (sigcomply-cloud) |
+| **SigComply CLI** | Open-source Go binary that collects evidence, evaluates policies, and generates attestations locally |
+| **SigComply Cloud** | Private Rails backend that stores compliance results, enables drift detection, and provides auditor portal (paid tier) |
+| **Sovereign Vault** | Customer-controlled storage (S3, GCS, local) where raw evidence stays—SigComply never accesses it |
 
 ---
 
@@ -46,7 +46,7 @@ Quick reference for key terms and concepts. For full context, see [CLAUDE.md](./
 | **Canonical JSON** | JSON serialization with deterministic map key ordering (alphabetically sorted). Required because Go's map iteration is random—without it, identical data could produce different hashes. |
 | **EvidenceHashes** | Container for all hashes: `CheckResult` hash, individual `Evidence` hashes, optional `Manifest` hash, and `Combined` (single hash of all) |
 | **Combined Hash** | Single SHA-256 hash representing all evidence, computed from concatenation of sorted individual hashes |
-| **CLIVersion** | Version of TraceVault CLI that created the attestation—enables reproducibility |
+| **CLIVersion** | Version of SigComply CLI that created the attestation—enables reproducibility |
 | **PolicyVersions** | Map of policy ID to version/hash—proves which exact policies were evaluated |
 
 ---
@@ -106,7 +106,7 @@ Quick reference for key terms and concepts. For full context, see [CLAUDE.md](./
 
 | Term | Definition |
 |------|------------|
-| **Cloud Submission** | Sending CheckResult + Attestation to TraceVault Cloud (not raw evidence) |
+| **Cloud Submission** | Sending CheckResult + Attestation to SigComply Cloud (not raw evidence) |
 | **Drift Detection** | Tracking compliance changes over time ("CC6.1 failed last week, passing now") |
 | **Resource Tracking** | Following individual resources across compliance runs ("alice has had 3 MFA violations") |
 | **Evidence Location** | Reference (URI) to where raw evidence is stored—sent to cloud, not the evidence itself |
@@ -117,7 +117,7 @@ Quick reference for key terms and concepts. For full context, see [CLAUDE.md](./
 
 | Term | Definition |
 |------|------------|
-| **Zero-config** | `tracevault check` works immediately with AWS defaults, no setup required |
+| **Zero-config** | `sigcomply check` works immediately with AWS defaults, no setup required |
 | **Progressive Configuration** | Only configure features when you need them |
 | **Auto-detection** | CLI detects collectors (from credentials), CI environment, cloud mode automatically |
 | **init-ci** | Command to scaffold minimal CI/CD workflow files |
@@ -162,7 +162,7 @@ The signature covers: `ID`, `RunID`, `Framework`, `Timestamp`, `Hashes`, `Enviro
 
 ### What stays with customer vs goes to cloud
 
-| Stays with Customer | Goes to TraceVault Cloud |
+| Stays with Customer | Goes to SigComply Cloud |
 |---------------------|--------------------------|
 | Raw evidence (API responses) | Full CheckResult (policy outcomes) |
 | Policy inputs (OPA input data) | All Violations (resource IDs, reasons) |
@@ -171,7 +171,7 @@ The signature covers: `ID`, `RunID`, `Framework`, `Timestamp`, `Hashes`, `Enviro
 
 ### Why still "Evidence without Access"
 
-- TraceVault never gets customer credentials
-- TraceVault never receives raw API responses
-- TraceVault only sees compliance evaluation results (derived metadata)
+- SigComply never gets customer credentials
+- SigComply never receives raw API responses
+- SigComply only sees compliance evaluation results (derived metadata)
 - Competitors (Vanta, Drata) have full API access—we only see outcomes

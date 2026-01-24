@@ -1,8 +1,8 @@
-# TraceVault CLI Makefile
+# SigComply CLI Makefile
 # Run 'make help' for available targets
 
 # Variables
-BINARY_NAME := tracevault
+BINARY_NAME := sigcomply
 BUILD_DIR := bin
 COVERAGE_DIR := coverage
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")

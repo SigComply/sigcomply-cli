@@ -1,5 +1,5 @@
-// Package tracevault provides the CLI commands for TraceVault.
-package tracevault
+// Package sigcomply provides the CLI commands for SigComply.
+package sigcomply
 
 import (
 	"fmt"
@@ -17,15 +17,15 @@ var (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "tracevault",
+	Use:   "sigcomply",
 	Short: "Compliance automation without infrastructure access",
-	Long: `TraceVault CLI - Evidence without Access
+	Long: `SigComply CLI - Evidence without Access
 
-TraceVault enables organizations to achieve SOC 2, ISO 27001, and HIPAA
+SigComply enables organizations to achieve SOC 2, ISO 27001, and HIPAA
 readiness without granting third-party vendors access to their production
 infrastructure.
 
-Run 'tracevault check' to evaluate your infrastructure against compliance
+Run 'sigcomply check' to evaluate your infrastructure against compliance
 policies and generate evidence.`,
 }
 
@@ -34,7 +34,7 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("tracevault %s\n", version)
+		fmt.Printf("sigcomply %s\n", version)
 		fmt.Printf("  commit:  %s\n", commit)
 		fmt.Printf("  built:   %s\n", buildTime)
 	},

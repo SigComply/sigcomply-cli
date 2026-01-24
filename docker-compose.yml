@@ -32,7 +32,7 @@ services:
       retries: 5
       start_period: 10s
     networks:
-      - tracevault
+      - sigcomply
 
   # Optional: LocalStack initializer for test data
   localstack-init:
@@ -64,10 +64,10 @@ services:
         echo 'Test data initialized!'
       "
     networks:
-      - tracevault
+      - sigcomply
 
 networks:
-  tracevault:
+  sigcomply:
     driver: bridge
 
 # Uncomment to persist LocalStack data

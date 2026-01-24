@@ -4,7 +4,7 @@
 # scope: package
 # schemas:
 #   - input: schema.input
-package tracevault.iso27001.a_9_2_1
+package sigcomply.iso27001.a_9_2_1
 
 metadata := {
 	"id": "iso27001-a.9.2.1-access",

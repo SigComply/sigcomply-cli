@@ -1,4 +1,4 @@
-# TraceVault CLI - Implementation Plan
+# SigComply CLI - Implementation Plan
 
 **Version**: 3.1 | **Date**: 2026-01-17
 
@@ -33,20 +33,20 @@ require (
 
 ## Phase 0: MVP (COMPLETED)
 
-**Goal**: `tracevault check` with zero config shows compliance results.
+**Goal**: `sigcomply check` with zero config shows compliance results.
 
 ### Week 1: Foundation & CLI
 
 | Task | Files | Tests | Done |
 |------|-------|-------|------|
 | Initialize Go module | `go.mod`, `go.sum` | - | [x] |
-| CLI entry point | `cmd/tracevault/main.go` | - | [x] |
+| CLI entry point | `cmd/sigcomply/main.go` | - | [x] |
 | Makefile | `Makefile` | - | [x] |
 | golangci-lint config | `.golangci.yml` | - | [x] |
 | GitHub Actions CI | `.github/workflows/test.yml` | - | [x] |
 | AWS config auto-loading | `internal/core/config/config.go` | `config_test.go` | [x] |
 | Account ID detection (STS) | `internal/data_sources/apis/aws/collector.go` | `collector_test.go` | [x] |
-| Check command | `cmd/tracevault/main.go` | - | [x] |
+| Check command | `cmd/sigcomply/main.go` | - | [x] |
 | Evidence struct | `internal/core/evidence/evidence.go` | `evidence_test.go` | [x] |
 
 ### Week 2: AWS Collector
@@ -76,7 +76,7 @@ require (
 | CC7.1 Logging policy | `internal/compliance_frameworks/soc2/policies/cc7_1_logging.rego` | `*_test.rego` | [x] |
 | Shared Rego helpers | `internal/compliance_frameworks/shared/lib.rego` | - | [x] |
 | Text output formatter | `internal/core/output/text.go` | `text_test.go` | [x] |
-| Wire engine into check | `cmd/tracevault/main.go` | - | [x] |
+| Wire engine into check | `cmd/sigcomply/main.go` | - | [x] |
 
 ### Week 4: Polish & CI/CD
 
@@ -84,7 +84,7 @@ require (
 |------|-------|-------|------|
 | JSON output formatter | `internal/core/output/json.go` | `json_test.go` | [x] |
 | JUnit XML formatter | `internal/core/output/junit.go` | `junit_test.go` | [x] |
-| --format flag | `cmd/tracevault/main.go` | - | [x] |
+| --format flag | `cmd/sigcomply/main.go` | - | [x] |
 | Reusable GH workflow | `.github/workflows/compliance.yml` | - | [x] |
 | Example workflow | `examples/github-actions/basic.yml` | - | [x] |
 | Install script | `scripts/install.sh` | - | [x] |
@@ -95,7 +95,7 @@ require (
 
 ## Phase 0 Deliverables (COMPLETED)
 
-**Commands**: `tracevault version`, `tracevault check`, `tracevault check --format json`
+**Commands**: `sigcomply version`, `sigcomply check`, `sigcomply check --format json`
 
 **Evidence**: AWS IAM users (MFA), S3 buckets (encryption), CloudTrail trails (status)
 
@@ -129,7 +129,7 @@ require (
 | Local backend | `internal/core/storage/local.go` | [x] |
 | S3 backend | `internal/core/storage/s3.go` | [x] |
 | Manifest generation | `internal/core/storage/manifest.go` | [x] |
-| --store flag | `cmd/tracevault/check.go` | [x] |
+| --store flag | `cmd/sigcomply/check.go` | [x] |
 
 ### Attestation (COMPLETED)
 
@@ -154,7 +154,7 @@ require (
 | Cloud client | `internal/core/cloud/client.go` | [x] |
 | CloudSubmission type | `internal/core/cloud/types.go` | [x] |
 | OIDC auth | `internal/core/cloud/auth.go` | [x] |
-| --cloud flag | `cmd/tracevault/check.go` | [x] |
+| --cloud flag | `cmd/sigcomply/check.go` | [x] |
 
 ### GitHub Collector (PARTIAL)
 
@@ -172,11 +172,11 @@ require (
 | Secret scanner | `internal/core/scanner/scanner.go` | [ ] |
 | Config loader | `internal/core/config/loader.go` | [x] |
 | Config validator | `internal/core/config/validator.go` | [ ] |
-| init command | `cmd/tracevault/init.go` | [ ] |
-| init-ci command | `cmd/tracevault/init_ci.go` | [ ] |
-| collect command | `cmd/tracevault/collect.go` | [ ] |
-| evaluate command | `cmd/tracevault/evaluate.go` | [ ] |
-| report command | `cmd/tracevault/report.go` | [ ] |
+| init command | `cmd/sigcomply/init.go` | [ ] |
+| init-ci command | `cmd/sigcomply/init_ci.go` | [ ] |
+| collect command | `cmd/sigcomply/collect.go` | [ ] |
+| evaluate command | `cmd/sigcomply/evaluate.go` | [ ] |
+| report command | `cmd/sigcomply/report.go` | [ ] |
 | SARIF formatter | `internal/core/output/sarif.go` | [ ] |
 
 ---
@@ -185,7 +185,7 @@ require (
 
 ### P0 MVP (COMPLETED)
 
-- [x] `tracevault check` works with zero config
+- [x] `sigcomply check` works with zero config
 - [x] Shows 3 SOC 2 control results
 - [x] Unit test coverage >80%
 - [x] Policy tests pass

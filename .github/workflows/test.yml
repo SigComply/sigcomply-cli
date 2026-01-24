@@ -147,11 +147,11 @@ jobs:
       - name: Check for Go main package
         id: check-main
         run: |
-          if [ -d "cmd/tracevault" ] && find cmd/tracevault -name "*.go" -type f | grep -q .; then
+          if [ -d "cmd/sigcomply" ] && find cmd/sigcomply -name "*.go" -type f | grep -q .; then
             echo "has_main=true" >> $GITHUB_OUTPUT
           else
             echo "has_main=false" >> $GITHUB_OUTPUT
-            echo "::notice::No cmd/tracevault package found - skipping build"
+            echo "::notice::No cmd/sigcomply package found - skipping build"
           fi
 
       - name: Set up Go
@@ -168,14 +168,14 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: |
           mkdir -p bin
-          go build -ldflags="-s -w" -o bin/tracevault-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} ./cmd/tracevault
+          go build -ldflags="-s -w" -o bin/sigcomply-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} ./cmd/sigcomply
 
       - name: Upload artifact
         if: steps.check-main.outputs.has_main == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: tracevault-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: bin/tracevault-*
+          name: sigcomply-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: bin/sigcomply-*
 
   integration-tests:
     name: Integration Tests

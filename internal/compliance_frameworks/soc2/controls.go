@@ -1,12 +1,12 @@
 // Package soc2 provides the SOC 2 compliance framework implementation.
 package soc2
 
-import "github.com/tracevault/tracevault-cli/internal/core/evidence"
+import "github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 
 // SOC 2 Trust Service Criteria Controls
 // Reference: AICPA Trust Services Criteria (2017)
 
-// controls defines all SOC 2 controls supported by TraceVault.
+// controls defines all SOC 2 controls supported by SigComply.
 var controls = []Control{
 	// CC6 - Logical and Physical Access Controls
 	{

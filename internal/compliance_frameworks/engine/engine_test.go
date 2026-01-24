@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tracevault/tracevault-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 func TestEngine_New(t *testing.T) {
@@ -20,7 +20,7 @@ func TestEngine_LoadPolicy(t *testing.T) {
 	eng := New()
 
 	policy := `
-package tracevault.test
+package sigcomply.test
 
 metadata := {
 	"id": "test-policy",
@@ -65,7 +65,7 @@ func TestEngine_Evaluate_Individual_Violation(t *testing.T) {
 	eng := New()
 
 	policy := `
-package tracevault.test
+package sigcomply.test
 
 metadata := {
 	"id": "test-mfa",
@@ -121,7 +121,7 @@ func TestEngine_Evaluate_Individual_Pass(t *testing.T) {
 	eng := New()
 
 	policy := `
-package tracevault.test
+package sigcomply.test
 
 metadata := {
 	"id": "test-mfa",
@@ -172,7 +172,7 @@ func TestEngine_Evaluate_MultipleResources(t *testing.T) {
 	eng := New()
 
 	policy := `
-package tracevault.test
+package sigcomply.test
 
 metadata := {
 	"id": "test-mfa",
@@ -227,7 +227,7 @@ func TestEngine_Evaluate_SkipsNonMatchingResources(t *testing.T) {
 	eng := New()
 
 	policy := `
-package tracevault.test
+package sigcomply.test
 
 metadata := {
 	"id": "test-mfa",
@@ -279,7 +279,7 @@ func TestEngine_Evaluate_Batched(t *testing.T) {
 
 	// Batched policy: at least one trail must be logging
 	policy := `
-package tracevault.test
+package sigcomply.test
 
 metadata := {
 	"id": "test-logging",
@@ -336,7 +336,7 @@ func TestEngine_Evaluate_Batched_Pass(t *testing.T) {
 	eng := New()
 
 	policy := `
-package tracevault.test
+package sigcomply.test
 
 metadata := {
 	"id": "test-logging",
@@ -392,7 +392,7 @@ func TestEngine_Evaluate_MultiplePolicies(t *testing.T) {
 	eng := New()
 
 	mfaPolicy := `
-package tracevault.mfa
+package sigcomply.mfa
 
 metadata := {
 	"id": "test-mfa",
@@ -416,7 +416,7 @@ violations contains violation if {
 `
 
 	encryptionPolicy := `
-package tracevault.encryption
+package sigcomply.encryption
 
 metadata := {
 	"id": "test-encryption",
@@ -471,7 +471,7 @@ func TestEngine_Evaluate_NoMatchingResources(t *testing.T) {
 	eng := New()
 
 	policy := `
-package tracevault.test
+package sigcomply.test
 
 metadata := {
 	"id": "test-mfa",

@@ -1,4 +1,4 @@
-// Package config provides configuration loading and validation for TraceVault CLI.
+// Package config provides configuration loading and validation for SigComply CLI.
 package config
 
 import (
@@ -14,7 +14,7 @@ var SupportedFrameworks = []string{"soc2", "hipaa", "iso27001"}
 // SupportedOutputFormats lists valid output formats.
 var SupportedOutputFormats = []string{"text", "json", "sarif", "junit"}
 
-// Config holds all configuration for a TraceVault run.
+// Config holds all configuration for a SigComply run.
 type Config struct {
 	// Core settings
 	Framework       string `json:"framework"`
@@ -80,49 +80,49 @@ func Load() (*Config, error) {
 
 // LoadFromEnv loads configuration from environment variables.
 func (c *Config) LoadFromEnv() {
-	if v := os.Getenv("TRACEVAULT_FRAMEWORK"); v != "" {
+	if v := os.Getenv("SIGCOMPLY_FRAMEWORK"); v != "" {
 		c.Framework = v
 	}
 
-	if v := os.Getenv("TRACEVAULT_OUTPUT_FORMAT"); v != "" {
+	if v := os.Getenv("SIGCOMPLY_OUTPUT_FORMAT"); v != "" {
 		c.OutputFormat = v
 	}
 
-	if v := os.Getenv("TRACEVAULT_API_TOKEN"); v != "" {
+	if v := os.Getenv("SIGCOMPLY_API_TOKEN"); v != "" {
 		c.APIToken = v
 		c.CloudEnabled = true
 	}
 
-	if os.Getenv("TRACEVAULT_VERBOSE") == envTrue {
+	if os.Getenv("SIGCOMPLY_VERBOSE") == envTrue {
 		c.Verbose = true
 	}
 
-	if os.Getenv("TRACEVAULT_FAIL_ON_VIOLATION") == "false" {
+	if os.Getenv("SIGCOMPLY_FAIL_ON_VIOLATION") == "false" {
 		c.FailOnViolation = false
 	}
 
 	// Storage configuration
-	if os.Getenv("TRACEVAULT_STORAGE_ENABLED") == envTrue {
+	if os.Getenv("SIGCOMPLY_STORAGE_ENABLED") == envTrue {
 		c.Storage.Enabled = true
 	}
 
-	if v := os.Getenv("TRACEVAULT_STORAGE_BACKEND"); v != "" {
+	if v := os.Getenv("SIGCOMPLY_STORAGE_BACKEND"); v != "" {
 		c.Storage.Backend = v
 	}
 
-	if v := os.Getenv("TRACEVAULT_STORAGE_PATH"); v != "" {
+	if v := os.Getenv("SIGCOMPLY_STORAGE_PATH"); v != "" {
 		c.Storage.Path = v
 	}
 
-	if v := os.Getenv("TRACEVAULT_STORAGE_BUCKET"); v != "" {
+	if v := os.Getenv("SIGCOMPLY_STORAGE_BUCKET"); v != "" {
 		c.Storage.Bucket = v
 	}
 
-	if v := os.Getenv("TRACEVAULT_STORAGE_REGION"); v != "" {
+	if v := os.Getenv("SIGCOMPLY_STORAGE_REGION"); v != "" {
 		c.Storage.Region = v
 	}
 
-	if v := os.Getenv("TRACEVAULT_STORAGE_PREFIX"); v != "" {
+	if v := os.Getenv("SIGCOMPLY_STORAGE_PREFIX"); v != "" {
 		c.Storage.Prefix = v
 	}
 }

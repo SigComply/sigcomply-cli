@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/tracevault/tracevault-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 // TextFormatter formats compliance results as human-readable text.

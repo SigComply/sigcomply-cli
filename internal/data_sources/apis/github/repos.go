@@ -7,7 +7,7 @@ import (
 	"time"
 
 	gh "github.com/google/go-github/v57/github"
-	"github.com/tracevault/tracevault-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 // Repository represents a GitHub repository with its security settings.

@@ -4,7 +4,7 @@ package soc2
 import (
 	_ "embed"
 
-	"github.com/tracevault/tracevault-cli/internal/compliance_frameworks/engine"
+	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/engine"
 )
 
 //go:embed policies/cc6_1_mfa.rego

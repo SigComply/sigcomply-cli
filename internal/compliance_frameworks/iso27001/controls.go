@@ -1,12 +1,12 @@
 // Package iso27001 provides the ISO 27001 compliance framework implementation.
 package iso27001
 
-import "github.com/tracevault/tracevault-cli/internal/core/evidence"
+import "github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 
 // ISO 27001:2022 Annex A Controls
 // Reference: ISO/IEC 27001:2022
 
-// controls defines all ISO 27001 controls supported by TraceVault.
+// controls defines all ISO 27001 controls supported by SigComply.
 var controls = []Control{
 	// A.5 - Organizational Controls
 	{

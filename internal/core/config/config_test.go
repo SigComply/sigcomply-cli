@@ -19,9 +19,9 @@ func TestConfig_Defaults(t *testing.T) {
 
 func TestConfig_LoadFromEnv(t *testing.T) {
 	// Use t.Setenv which automatically cleans up after the test
-	t.Setenv("TRACEVAULT_FRAMEWORK", "hipaa")
-	t.Setenv("TRACEVAULT_OUTPUT_FORMAT", "json")
-	t.Setenv("TRACEVAULT_API_TOKEN", "test-token")
+	t.Setenv("SIGCOMPLY_FRAMEWORK", "hipaa")
+	t.Setenv("SIGCOMPLY_OUTPUT_FORMAT", "json")
+	t.Setenv("SIGCOMPLY_API_TOKEN", "test-token")
 
 	cfg := New()
 	cfg.LoadFromEnv()
@@ -159,7 +159,7 @@ func TestConfig_AWSRegions(t *testing.T) {
 func TestLoad_Integration(t *testing.T) {
 	// Use t.Setenv to ensure clean environment
 	// First unset the API token if it exists
-	os.Unsetenv("TRACEVAULT_API_TOKEN") //nolint:errcheck // Best effort cleanup
+	os.Unsetenv("SIGCOMPLY_API_TOKEN") //nolint:errcheck // Best effort cleanup
 
 	cfg, err := Load()
 	require.NoError(t, err)

@@ -2,11 +2,11 @@
 
 > **When to read**: Working on OIDC, credentials, cloud API auth, or CI/CD authentication flows.
 
-TraceVault uses **ephemeral OIDC tokens** for authentication in two critical areas:
+SigComply uses **ephemeral OIDC tokens** for authentication in two critical areas:
 
-## A. Authenticating CLI with TraceVault Cloud API
+## A. Authenticating CLI with SigComply Cloud API
 
-The CLI uses OIDC to authenticate with the TraceVault Rails backend, eliminating the need for long-lived API keys.
+The CLI uses OIDC to authenticate with the SigComply Rails backend, eliminating the need for long-lived API keys.
 
 **How it works:**
 
@@ -75,7 +75,7 @@ The CLI uses OIDC to authenticate with the TraceVault Rails backend, eliminating
    - name: Configure AWS Credentials
      uses: aws-actions/configure-aws-credentials@v4
      with:
-       role-to-assume: arn:aws:iam::123456789012:role/TraceVaultComplianceRole
+       role-to-assume: arn:aws:iam::123456789012:role/SigComplyComplianceRole
        aws-region: us-east-1
 
    # No AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY needed!
@@ -87,7 +87,7 @@ The CLI uses OIDC to authenticate with the TraceVault Rails backend, eliminating
      uses: google-github-actions/auth@v2
      with:
        workload_identity_provider: 'projects/123/locations/global/...'
-       service_account: 'tracevault@project.iam.gserviceaccount.com'
+       service_account: 'sigcomply@project.iam.gserviceaccount.com'
    ```
 
 3. **Azure (via Workload Identity Federation)**
@@ -106,7 +106,7 @@ The CLI uses OIDC to authenticate with the TraceVault Rails backend, eliminating
    - name: Fetch GitHub Data
      env:
        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-     run: tracevault check --integration github
+     run: sigcomply check --integration github
    ```
 
 ### Fallback Strategy

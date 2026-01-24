@@ -10,7 +10,7 @@ import (
 	"os"
 )
 
-// Client is the TraceVault Cloud API client.
+// Client is the SigComply Cloud API client.
 type Client struct {
 	config     *ClientConfig
 	httpClient *http.Client
@@ -34,11 +34,11 @@ func NewClient(cfg *ClientConfig) *Client {
 func NewClientFromEnv() *Client {
 	cfg := DefaultConfig()
 
-	if url := os.Getenv("TRACEVAULT_API_URL"); url != "" {
+	if url := os.Getenv("SIGCOMPLY_API_URL"); url != "" {
 		cfg.BaseURL = url
 	}
 
-	if token := os.Getenv("TRACEVAULT_API_TOKEN"); token != "" {
+	if token := os.Getenv("SIGCOMPLY_API_TOKEN"); token != "" {
 		cfg.APIToken = token
 	}
 

@@ -4,7 +4,7 @@
 # scope: package
 # schemas:
 #   - input: schema.input
-package tracevault.soc2.cc7_1
+package sigcomply.soc2.cc7_1
 
 metadata := {
 	"id": "soc2-cc7.1-logging",

@@ -103,7 +103,7 @@ type Environment struct {
 }
 
 // StorageLocation describes where evidence is stored.
-// This structure is sent to the TraceVault Cloud API as part of attestations.
+// This structure is sent to the SigComply Cloud API as part of attestations.
 type StorageLocation struct {
 	// Backend is the storage backend type (local, s3, gcs).
 	Backend string `json:"backend"`

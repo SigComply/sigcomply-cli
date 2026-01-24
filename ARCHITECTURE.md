@@ -1,4 +1,4 @@
-# TraceVault CLI - Architecture
+# SigComply CLI - Architecture
 
 **Version**: 2.0 | **Status**: Ready for Implementation
 
@@ -10,7 +10,7 @@ For terminology, see [GLOSSARY.md](./GLOSSARY.md).
 
 | Principle | Implementation |
 |-----------|----------------|
-| Zero-config | `tracevault check` works immediately with AWS defaults |
+| Zero-config | `sigcomply check` works immediately with AWS defaults |
 | Fail-safe | Partial success OK; missing permissions show warnings, not errors |
 | Embedded policies | Rego policies compiled into binary via `go:embed` |
 | Framework-specific | Each framework has its own policies (no shared abstractions) |
@@ -23,7 +23,7 @@ For terminology, see [GLOSSARY.md](./GLOSSARY.md).
 ### Execution Flow
 
 ```
-tracevault check
+sigcomply check
        │
        ▼
 ┌─────────────────┐
@@ -55,13 +55,13 @@ tracevault check
     (paid tier)
          ▼
 ┌─────────────────┐
-│   CLOUD API     │  CheckResult + Attestation → TraceVault Cloud
+│   CLOUD API     │  CheckResult + Attestation → SigComply Cloud
 └─────────────────┘  (NOT raw evidence - stays with customer)
 ```
 
 ### What Goes Where
 
-| Data | Customer Storage | TraceVault Cloud |
+| Data | Customer Storage | SigComply Cloud |
 |------|------------------|------------------|
 | Raw evidence (API responses) | ✓ | ✗ |
 | Policy inputs (OPA input) | ✓ | ✗ |
@@ -102,7 +102,7 @@ internal/
     ├── output/                 # Text, JSON, SARIF formatters
     ├── storage/                # S3, GCS, local backends
     ├── attestation/            # Signing (HMAC, OIDC, ECDSA)
-    └── cloud/                  # TraceVault Cloud client
+    └── cloud/                  # SigComply Cloud client
 ```
 
 ---
@@ -312,7 +312,7 @@ All hashing uses canonical JSON serialization (sorted map keys) to ensure determ
 
 ```rego
 # internal/compliance_frameworks/soc2/policies/cc6_1_mfa.rego
-package tracevault.soc2.cc6_1
+package sigcomply.soc2.cc6_1
 
 metadata := {
     "id": "soc2-cc6.1-mfa",
@@ -343,12 +343,12 @@ violations[violation] if {
 
 | Command | Description |
 |---------|-------------|
-| `tracevault check` | Main: collect → evaluate → store → cloud submit |
-| `tracevault init` | Initialize config file |
-| `tracevault init-ci` | Generate CI/CD workflow files |
-| `tracevault collect` | Collect evidence only |
-| `tracevault evaluate` | Evaluate policies against stored evidence |
-| `tracevault report` | Generate compliance reports |
+| `sigcomply check` | Main: collect → evaluate → store → cloud submit |
+| `sigcomply init` | Initialize config file |
+| `sigcomply init-ci` | Generate CI/CD workflow files |
+| `sigcomply collect` | Collect evidence only |
+| `sigcomply evaluate` | Evaluate policies against stored evidence |
+| `sigcomply report` | Generate compliance reports |
 
 ### Key Flags (check)
 
@@ -376,14 +376,14 @@ violations[violation] if {
 ### Precedence (highest to lowest)
 
 1. CLI flags
-2. Environment variables (`TRACEVAULT_*`)
-3. Config file (`.tracevault.yaml`)
+2. Environment variables (`SIGCOMPLY_*`)
+3. Config file (`.sigcomply.yaml`)
 4. Built-in defaults
 
 ### Minimal Config
 
 ```yaml
-# .tracevault.yaml - all settings optional
+# .sigcomply.yaml - all settings optional
 frameworks:
   - soc2
 
@@ -395,16 +395,16 @@ collectors:
 storage:
   backend: local
   local:
-    path: ./.tracevault/evidence
+    path: ./.sigcomply/evidence
 ```
 
 ### Key Environment Variables
 
 ```bash
-TRACEVAULT_API_TOKEN        # Cloud API token (enables cloud mode)
-TRACEVAULT_FRAMEWORK        # Default framework
-TRACEVAULT_STORAGE_BACKEND  # local, s3, gcs
-TRACEVAULT_STORAGE_BUCKET   # S3/GCS bucket name
+SIGCOMPLY_API_TOKEN        # Cloud API token (enables cloud mode)
+SIGCOMPLY_FRAMEWORK        # Default framework
+SIGCOMPLY_STORAGE_BACKEND  # local, s3, gcs
+SIGCOMPLY_STORAGE_BUCKET   # S3/GCS bucket name
 ```
 
 ---
@@ -429,7 +429,7 @@ TRACEVAULT_STORAGE_BUCKET   # S3/GCS bucket name
 | Method | Environment | How |
 |--------|-------------|-----|
 | `none` | Local dev | No signature |
-| `hmac-sha256` | Local/CI | `TRACEVAULT_SIGNING_SECRET` env var |
+| `hmac-sha256` | Local/CI | `SIGCOMPLY_SIGNING_SECRET` env var |
 | `oidc` | CI/CD | GitHub Actions / GitLab CI OIDC token |
 | `ecdsa-p256` | Enterprise | Customer private key |
 
@@ -499,7 +499,7 @@ on: [push, pull_request]
 
 jobs:
   check:
-    uses: tracevault/tracevault-cli/.github/workflows/compliance.yml@v1
+    uses: sigcomply/sigcomply-cli/.github/workflows/compliance.yml@v1
     secrets:
       AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
 ```

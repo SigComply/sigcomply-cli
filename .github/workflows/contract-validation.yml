@@ -224,7 +224,7 @@ jobs:
             4. Update contracts and/or code as needed
             5. Run validation manually to confirm fix
 
-            /cc @tracevault/maintainers
+            /cc @sigcomply/maintainers
             `;
 
             // Check if similar issue already exists

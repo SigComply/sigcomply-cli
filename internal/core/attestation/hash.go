@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"sort"
 
-	"github.com/tracevault/tracevault-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 // HashData computes the SHA-256 hash of arbitrary data.

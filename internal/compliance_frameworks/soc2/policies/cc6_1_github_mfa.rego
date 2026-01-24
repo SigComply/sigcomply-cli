@@ -4,7 +4,7 @@
 # scope: package
 # schemas:
 #   - input: schema.input
-package tracevault.soc2.cc6_1_github
+package sigcomply.soc2.cc6_1_github
 
 metadata := {
 	"id": "soc2-cc6.1-github-mfa",

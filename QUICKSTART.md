@@ -1,4 +1,4 @@
-# TraceVault CLI - Developer Quickstart
+# SigComply CLI - Developer Quickstart
 
 **Time to first PR**: 30 minutes
 
@@ -22,8 +22,8 @@ aws sts get-caller-identity  # Should return your account info
 
 ```bash
 # Clone the repository
-git clone https://github.com/tracevault/tracevault-cli.git
-cd tracevault-cli
+git clone https://github.com/sigcomply/sigcomply-cli.git
+cd sigcomply-cli
 
 # Install dependencies
 go mod download
@@ -32,7 +32,7 @@ go mod download
 make build
 
 # Verify
-./bin/tracevault version
+./bin/sigcomply version
 ```
 
 ---
@@ -55,7 +55,7 @@ make test-policy
 ## Project Structure
 
 ```
-tracevault-cli/
+sigcomply-cli/
 ├── cmd/                    # CLI commands (Cobra)
 │   ├── root.go            # Entry point
 │   ├── check.go           # Main compliance check
@@ -164,7 +164,7 @@ func (c *Collector) Collect(ctx context.Context) ([]Evidence, error) {
 
 ```rego
 # internal/policy/policies/soc2_cc6_3_rds_encryption.rego
-package tracevault.soc2.cc6_3
+package sigcomply.soc2.cc6_3
 
 import future.keywords.if
 
@@ -190,7 +190,7 @@ violations = result if {
 
 ```rego
 # internal/policy/policies/soc2_cc6_3_rds_encryption_test.rego
-package tracevault.soc2.cc6_3
+package sigcomply.soc2.cc6_3
 
 test_unencrypted_rds_fails {
     result := violations with input as {
@@ -230,7 +230,7 @@ That's it! Policy is automatically embedded in the next build.
 ## Make Commands
 
 ```bash
-make build          # Build binary to ./bin/tracevault
+make build          # Build binary to ./bin/sigcomply
 make test           # Run unit + policy tests
 make test-unit      # Run unit tests only
 make test-policy    # Run policy tests only
@@ -270,7 +270,7 @@ git push origin feature/add-rds-collector
 
 | File | Purpose |
 |------|---------|
-| `cmd/tracevault/main.go` | CLI entry point |
+| `cmd/sigcomply/main.go` | CLI entry point |
 | `internal/aws/collector.go` | AWS evidence collection |
 | `internal/policy/engine.go` | OPA policy evaluation |
 | `internal/policy/policies/*.rego` | Compliance policies |

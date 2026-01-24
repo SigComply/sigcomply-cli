@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/open-policy-agent/opa/v1/rego"
-	"github.com/tracevault/tracevault-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 // EvaluationMode defines how a policy evaluates evidence.
@@ -56,7 +56,7 @@ func (e *Engine) LoadPolicy(name, regoSource string) error {
 
 	// Try to compile the policy to validate syntax
 	_, err := rego.New(
-		rego.Query("data.tracevault"),
+		rego.Query("data.sigcomply"),
 		rego.Module(name+".rego", regoSource),
 	).PrepareForEval(ctx)
 	if err != nil {
@@ -112,13 +112,13 @@ func (e *Engine) findMetadataInResults(results rego.ResultSet) (map[string]inter
 		return nil, fmt.Errorf("unexpected data format")
 	}
 
-	tracevault, ok := data["tracevault"].(map[string]interface{})
+	sigcomply, ok := data["sigcomply"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("no tracevault namespace found")
+		return nil, fmt.Errorf("no sigcomply namespace found")
 	}
 
 	// Find metadata in any sub-package
-	for _, v := range tracevault {
+	for _, v := range sigcomply {
 		if pkg, ok := v.(map[string]interface{}); ok {
 			if m, ok := pkg["metadata"].(map[string]interface{}); ok {
 				return m, nil
@@ -271,7 +271,7 @@ func (e *Engine) evaluateIndividual(ctx context.Context, policy *LoadedPolicy, e
 
 	// Prepare and evaluate
 	query, err := rego.New(
-		rego.Query("data.tracevault[_].violations"),
+		rego.Query("data.sigcomply[_].violations"),
 		rego.Module(policy.ID+".rego", policy.Module),
 		rego.Input(input),
 	).PrepareForEval(ctx)
@@ -297,7 +297,7 @@ func (e *Engine) evaluateBatched(ctx context.Context, policy *LoadedPolicy, evid
 
 	// Prepare and evaluate
 	query, err := rego.New(
-		rego.Query("data.tracevault[_].violations"),
+		rego.Query("data.sigcomply[_].violations"),
 		rego.Module(policy.ID+".rego", policy.Module),
 		rego.Input(input),
 	).PrepareForEval(ctx)

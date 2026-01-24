@@ -1,4 +1,4 @@
-// Package cloud provides the TraceVault Cloud API client.
+// Package cloud provides the SigComply Cloud API client.
 package cloud
 
 import (
@@ -7,11 +7,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/tracevault/tracevault-cli/internal/core/attestation"
+	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
 )
 
-// DefaultAudience is the default audience for TraceVault OIDC tokens.
-const DefaultAudience = "https://api.tracevault.io"
+// DefaultAudience is the default audience for SigComply OIDC tokens.
+const DefaultAudience = "https://api.sigcomply.com"
 
 // AuthConfig holds authentication configuration options.
 type AuthConfig struct {
@@ -69,7 +69,7 @@ func DetectAuth(ctx context.Context, cfg *AuthConfig) (*AuthResult, error) {
 	// Check for API token from config or environment
 	apiToken := cfg.APIToken
 	if apiToken == "" {
-		apiToken = os.Getenv("TRACEVAULT_API_TOKEN")
+		apiToken = os.Getenv("SIGCOMPLY_API_TOKEN")
 	}
 
 	// Check for OIDC token availability
@@ -129,7 +129,7 @@ func ConfigureClientAuth(ctx context.Context, client *Client, cfg *AuthConfig) e
 
 	switch result.Method {
 	case AuthMethodNone:
-		return fmt.Errorf("no authentication available: set TRACEVAULT_API_TOKEN or run in a CI environment with OIDC support")
+		return fmt.Errorf("no authentication available: set SIGCOMPLY_API_TOKEN or run in a CI environment with OIDC support")
 
 	case AuthMethodAPIToken:
 		client.WithAPIToken(result.Token)

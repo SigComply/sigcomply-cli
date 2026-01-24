@@ -1,4 +1,4 @@
-module github.com/tracevault/tracevault-cli
+module github.com/sigcomply/sigcomply-cli
 
 go 1.24.6
 

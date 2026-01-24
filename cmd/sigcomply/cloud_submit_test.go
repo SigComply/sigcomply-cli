@@ -1,4 +1,4 @@
-package tracevault
+package sigcomply
 
 import (
 	"context"
@@ -10,11 +10,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tracevault/tracevault-cli/internal/core/attestation"
-	"github.com/tracevault/tracevault-cli/internal/core/cloud"
-	"github.com/tracevault/tracevault-cli/internal/core/config"
-	"github.com/tracevault/tracevault-cli/internal/core/evidence"
-	"github.com/tracevault/tracevault-cli/internal/core/storage"
+	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
+	"github.com/sigcomply/sigcomply-cli/internal/core/cloud"
+	"github.com/sigcomply/sigcomply-cli/internal/core/config"
+	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/storage"
 )
 
 func TestBuildAttestation(t *testing.T) {
@@ -40,7 +40,7 @@ func TestBuildAttestation(t *testing.T) {
 		Storage: config.StorageConfig{
 			Enabled: true,
 			Backend: "local",
-			Path:    "./.tracevault/evidence",
+			Path:    "./.sigcomply/evidence",
 		},
 	}
 
@@ -226,7 +226,7 @@ func TestBuildCloudSubmitRequest_LocalStorage(t *testing.T) {
 		Storage: config.StorageConfig{
 			Enabled: true,
 			Backend: "local",
-			Path:    "/var/tracevault/evidence",
+			Path:    "/var/sigcomply/evidence",
 		},
 	}
 
@@ -234,7 +234,7 @@ func TestBuildCloudSubmitRequest_LocalStorage(t *testing.T) {
 		RunID: "run-456",
 		Items: []storage.StoredItem{
 			{
-				Path: "/var/tracevault/evidence/runs/run-456/manifest.json",
+				Path: "/var/sigcomply/evidence/runs/run-456/manifest.json",
 				Hash: "manifesthashlocal",
 				Metadata: map[string]string{
 					"type":   "manifest",
@@ -247,9 +247,9 @@ func TestBuildCloudSubmitRequest_LocalStorage(t *testing.T) {
 	req := buildCloudSubmitRequest(cfg, checkResult, att, manifest)
 
 	assert.Equal(t, "local", req.EvidenceLocation.Backend)
-	assert.Equal(t, "/var/tracevault/evidence", req.EvidenceLocation.Path)
-	assert.Equal(t, "file:///var/tracevault/evidence", req.EvidenceLocation.URL)
-	assert.Equal(t, "/var/tracevault/evidence/runs/run-456/manifest.json", req.EvidenceLocation.ManifestPath)
+	assert.Equal(t, "/var/sigcomply/evidence", req.EvidenceLocation.Path)
+	assert.Equal(t, "file:///var/sigcomply/evidence", req.EvidenceLocation.URL)
+	assert.Equal(t, "/var/sigcomply/evidence/runs/run-456/manifest.json", req.EvidenceLocation.ManifestPath)
 }
 
 func TestSubmitToCloud_Success(t *testing.T) {
@@ -583,8 +583,8 @@ func TestBuildEvidenceURL(t *testing.T) {
 			name:     "local with path",
 			backend:  "local",
 			bucket:   "",
-			path:     "/var/tracevault/evidence",
-			expected: "file:///var/tracevault/evidence",
+			path:     "/var/sigcomply/evidence",
+			expected: "file:///var/sigcomply/evidence",
 		},
 		{
 			name:     "local without path",
