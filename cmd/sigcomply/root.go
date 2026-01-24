@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/sigcomply/sigcomply-cli/internal/core/telemetry"
 	"github.com/spf13/cobra"
 )
 
@@ -48,8 +49,18 @@ func setupCommands() {
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 func Execute() {
+	// Initialize Sentry for error tracking
+	sentryCleanup := telemetry.Init(telemetry.DefaultConfig(version))
+	defer sentryCleanup()
+	defer telemetry.RecoverAndReport()
+
+	// Set CLI context for Sentry
+	telemetry.SetTag("cli_version", version)
+	telemetry.SetTag("commit", commit)
+
 	setupCommands()
 	if err := rootCmd.Execute(); err != nil {
+		telemetry.CaptureException(err)
 		os.Exit(1)
 	}
 }
