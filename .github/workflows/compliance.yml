@@ -209,7 +209,7 @@ jobs:
 
       - name: Publish JUnit test results
         if: always()
-        uses: mikepenz/action-junit-report@v4
+        uses: mikepenz/action-junit-report@v6
         with:
           report_paths: '.sigcomply/results/compliance-results.xml'
           fail_on_failure: ${{ inputs.fail-on-violation }}
