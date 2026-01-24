@@ -596,14 +596,11 @@ cloud:
 ### Key Environment Variables
 
 ```bash
-SIGCOMPLY_API_TOKEN           # Cloud API token (enables cloud mode)
-SIGCOMPLY_FRAMEWORK           # Default framework
-SIGCOMPLY_STORAGE_BACKEND     # Storage backend: local, s3, gcs
-SIGCOMPLY_STORAGE_BUCKET      # S3/GCS bucket name
-SIGCOMPLY_OUTPUT_FORMAT       # Output format: text, json, sarif
-SIGCOMPLY_TELEMETRY_DISABLED  # Set to "true" to disable error telemetry
-SIGCOMPLY_SENTRY_DSN          # Custom Sentry DSN (optional)
-SIGCOMPLY_ENVIRONMENT         # Environment name (development, staging, production)
+SIGCOMPLY_API_TOKEN        # Cloud API token (enables cloud mode)
+SIGCOMPLY_FRAMEWORK        # Default framework
+SIGCOMPLY_STORAGE_BACKEND  # Storage backend: local, s3, gcs
+SIGCOMPLY_STORAGE_BUCKET   # S3/GCS bucket name
+SIGCOMPLY_OUTPUT_FORMAT    # Output format: text, json, sarif
 ```
 
 ### Configuration Sections

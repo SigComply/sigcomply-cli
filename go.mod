@@ -11,7 +11,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.53.2
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.95.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.6
-	github.com/getsentry/sentry-go v0.41.0
 	github.com/google/go-github/v57 v57.0.0
 	github.com/google/uuid v1.6.0
 	github.com/open-policy-agent/opa v1.4.2
@@ -67,7 +66,6 @@ require (
 	go.opentelemetry.io/otel/sdk v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/tools v0.26.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
