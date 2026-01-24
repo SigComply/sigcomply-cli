@@ -167,7 +167,7 @@ jobs:
 
       - name: Run gosec
         if: steps.check-packages.outputs.has_go_files == 'true'
-        uses: securego/gosec@v2.21.4
+        uses: securego/gosec@v2.22.11
         with:
           args: '-fmt sarif -out gosec.sarif -severity high ./...'
         continue-on-error: true  # SARIF upload handles findings
