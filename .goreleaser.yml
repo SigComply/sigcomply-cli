@@ -119,9 +119,9 @@ release:
 
   footer: |
     ---
-    **Full Changelog**: https://github.com/sigcomply/sigcomply-cli/compare/{{ .PreviousTag }}...{{ .Tag }}
+    **Full Changelog**: https://github.com/SigComply/sigcomply-cli/compare/{{ .PreviousTag }}...{{ .Tag }}
 
-    For documentation, visit: https://github.com/sigcomply/sigcomply-cli
+    For documentation, visit: https://github.com/SigComply/sigcomply-cli
 
 brews:
   - name: sigcomply
@@ -131,7 +131,7 @@ brews:
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     skip_upload: auto
     folder: Formula
-    homepage: https://github.com/sigcomply/sigcomply-cli
+    homepage: https://github.com/SigComply/sigcomply-cli
     description: Compliance automation CLI - evidence without access
     license: Apache-2.0
     test: |
@@ -150,7 +150,7 @@ dockers:
       - "--label=org.opencontainers.image.version={{ .Version }}"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.source=https://github.com/sigcomply/sigcomply-cli"
+      - "--label=org.opencontainers.image.source=https://github.com/SigComply/sigcomply-cli"
     skip_push: auto
 
   - image_templates:
@@ -163,7 +163,7 @@ dockers:
       - "--label=org.opencontainers.image.version={{ .Version }}"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.source=https://github.com/sigcomply/sigcomply-cli"
+      - "--label=org.opencontainers.image.source=https://github.com/SigComply/sigcomply-cli"
     goarch: arm64
     skip_push: auto
 

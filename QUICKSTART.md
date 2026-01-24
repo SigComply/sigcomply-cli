@@ -22,7 +22,7 @@ aws sts get-caller-identity  # Should return your account info
 
 ```bash
 # Clone the repository
-git clone https://github.com/sigcomply/sigcomply-cli.git
+git clone https://github.com/SigComply/sigcomply-cli.git
 cd sigcomply-cli
 
 # Install dependencies
