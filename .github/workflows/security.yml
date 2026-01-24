@@ -289,14 +289,14 @@ jobs:
           cache: true
 
       - name: Generate SBOM (SPDX)
-        uses: anchore/sbom-action@v0.17.8
+        uses: anchore/sbom-action@v0.22.0
         with:
           format: spdx-json
           output-file: sbom.spdx.json
           upload-artifact: false
 
       - name: Generate SBOM (CycloneDX)
-        uses: anchore/sbom-action@v0.17.8
+        uses: anchore/sbom-action@v0.22.0
         with:
           format: cyclonedx-json
           output-file: sbom.cyclonedx.json
