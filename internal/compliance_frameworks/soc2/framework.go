@@ -19,6 +19,9 @@ var cc62EncryptionPolicy string
 //go:embed policies/cc7_1_logging.rego
 var cc71LoggingPolicy string
 
+//go:embed policies/cc8_1_branch_protection.rego
+var cc81BranchProtectionPolicy string
+
 // Framework implements the engine.Framework interface for SOC 2.
 type Framework struct{}
 
@@ -85,6 +88,7 @@ func (f *Framework) Policies() []engine.PolicySource {
 		{Name: "cc6_1_github_mfa", Source: cc61GitHubMFAPolicy},
 		{Name: "cc6_2_encryption", Source: cc62EncryptionPolicy},
 		{Name: "cc7_1_logging", Source: cc71LoggingPolicy},
+		{Name: "cc8_1_branch_protection", Source: cc81BranchProtectionPolicy},
 	}
 }
 

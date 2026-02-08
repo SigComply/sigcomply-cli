@@ -1,0 +1,550 @@
+name: E2E Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      # ============================================
+      # Data Source Configuration
+      # ============================================
+      aws_enabled:
+        description: 'Enable AWS data collection'
+        type: boolean
+        default: false
+      github_enabled:
+        description: 'Enable GitHub data collection'
+        type: boolean
+        default: true
+      github_org:
+        description: 'GitHub organization (leave empty to use repo owner)'
+        type: string
+        default: ''
+      github_repo:
+        description: 'GitHub repository (leave empty to use current repo)'
+        type: string
+        default: ''
+
+      # ============================================
+      # Future Data Sources (placeholders)
+      # ============================================
+      # gcp_enabled:
+      #   description: 'Enable GCP data collection'
+      #   type: boolean
+      #   default: false
+      # workday_enabled:
+      #   description: 'Enable Workday HR evidence'
+      #   type: boolean
+      #   default: false
+      # okta_enabled:
+      #   description: 'Enable Okta identity evidence'
+      #   type: boolean
+      #   default: false
+
+      # ============================================
+      # Compliance Configuration
+      # ============================================
+      framework:
+        description: 'Compliance framework'
+        type: choice
+        default: 'soc2'
+        options:
+          - soc2
+          - hipaa
+          - iso27001
+
+      # ============================================
+      # Storage Configuration
+      # ============================================
+      storage_enabled:
+        description: 'Store evidence to S3'
+        type: boolean
+        default: true
+      storage_backend:
+        description: 'Storage backend'
+        type: choice
+        default: 's3'
+        options:
+          - s3
+          - local
+          # - gcs      # Future
+          # - azure    # Future
+
+      # ============================================
+      # Output Configuration
+      # ============================================
+      verbose:
+        description: 'Enable verbose output'
+        type: boolean
+        default: false
+      cloud_submit:
+        description: 'Submit results to SigComply Cloud'
+        type: boolean
+        default: false
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: '1.24'
+  # Unique run identifier for storage isolation
+  E2E_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+
+jobs:
+  # ============================================
+  # Build Job - Creates versioned artifact
+  # ============================================
+  build:
+    name: Build CLI
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      artifact_name: ${{ steps.meta.outputs.artifact_name }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for version
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Get build metadata
+        id: meta
+        run: |
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev-${GITHUB_SHA:0:7}")
+          ARTIFACT_NAME="sigcomply-${VERSION}-linux-amd64"
+
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "artifact_name=${ARTIFACT_NAME}" >> $GITHUB_OUTPUT
+          echo "Building version: ${VERSION}"
+
+      - name: Build binary
+        run: |
+          make build
+          # Rename with version for clarity
+          mv bin/sigcomply "bin/${{ steps.meta.outputs.artifact_name }}"
+
+      - name: Upload versioned artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.artifact_name }}
+          path: bin/${{ steps.meta.outputs.artifact_name }}
+          retention-days: 7
+          if-no-files-found: error
+
+  # ============================================
+  # AWS E2E Test Job
+  # ============================================
+  e2e-aws:
+    name: E2E - AWS (${{ inputs.framework }})
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ inputs.aws_enabled }}
+
+    permissions:
+      id-token: write   # OIDC
+      contents: read
+      checks: write
+
+    env:
+      # Storage configuration
+      SIGCOMPLY_STORAGE_ENABLED: ${{ inputs.storage_enabled }}
+      SIGCOMPLY_STORAGE_BACKEND: ${{ inputs.storage_backend }}
+      SIGCOMPLY_STORAGE_BUCKET: ${{ secrets.AWS_E2E_EVIDENCE_BUCKET }}
+      SIGCOMPLY_STORAGE_REGION: ${{ secrets.AWS_E2E_REGION }}
+      SIGCOMPLY_STORAGE_PREFIX: ${{ vars.E2E_STORAGE_PREFIX || 'e2e-tests' }}/${{ github.run_id }}
+
+    outputs:
+      compliance_score: ${{ steps.run.outputs.score }}
+      passed_policies: ${{ steps.run.outputs.passed }}
+      failed_policies: ${{ steps.run.outputs.failed }}
+      evidence_path: ${{ steps.run.outputs.evidence_path }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download CLI
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: bin/
+
+      - name: Setup CLI
+        run: |
+          chmod +x bin/*
+          mv bin/${{ needs.build.outputs.artifact_name }} bin/sigcomply
+          ./bin/sigcomply version
+
+      # ---- AWS Authentication (OIDC) ----
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_E2E_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_E2E_REGION }}
+          role-session-name: e2e-${{ env.E2E_RUN_ID }}
+
+      - name: Verify AWS access
+        run: |
+          echo "=== AWS Identity ==="
+          aws sts get-caller-identity
+          echo ""
+          echo "=== Evidence Storage Bucket ==="
+          aws s3 ls s3://${{ secrets.AWS_E2E_EVIDENCE_BUCKET }}/ --summarize || echo "Bucket empty or access issue"
+
+      # ---- Run Full Compliance Check ----
+      - name: Run sigcomply check
+        id: run
+        run: |
+          set +e  # Don't exit on violations (exit code 1)
+
+          GITHUB_ORG_FLAG=""
+          if [ "${{ inputs.github_enabled }}" == "true" ] && [ -n "${{ inputs.github_org }}" ]; then
+            GITHUB_ORG_FLAG="--github-org ${{ inputs.github_org }}"
+          fi
+
+          CLOUD_FLAG=""
+          if [ "${{ inputs.cloud_submit }}" == "true" ]; then
+            CLOUD_FLAG="--cloud"
+          else
+            CLOUD_FLAG="--no-cloud"
+          fi
+
+          VERBOSE_FLAG=""
+          if [ "${{ inputs.verbose }}" == "true" ]; then
+            VERBOSE_FLAG="--verbose"
+          fi
+
+          STORE_FLAG=""
+          if [ "${{ inputs.storage_enabled }}" == "true" ]; then
+            STORE_FLAG="--store"
+          fi
+
+          echo "=== Running Compliance Check ==="
+          echo "Framework: ${{ inputs.framework }}"
+          echo "Storage: ${{ inputs.storage_backend }} (enabled: ${{ inputs.storage_enabled }})"
+          echo "Evidence Path: s3://${{ secrets.AWS_E2E_EVIDENCE_BUCKET }}/${SIGCOMPLY_STORAGE_PREFIX}/"
+          echo ""
+
+          ./bin/sigcomply check \
+            --framework ${{ inputs.framework }} \
+            --output json \
+            ${STORE_FLAG} \
+            ${CLOUD_FLAG} \
+            ${GITHUB_ORG_FLAG} \
+            ${VERBOSE_FLAG} \
+            > results.json 2>&1
+
+          EXIT_CODE=$?
+          echo "exit_code=${EXIT_CODE}" >> $GITHUB_OUTPUT
+
+          # Parse results
+          if [ -f results.json ] && jq empty results.json 2>/dev/null; then
+            SCORE=$(jq -r '.summary.compliance_score // 0' results.json)
+            PASSED=$(jq -r '.summary.passed_policies // 0' results.json)
+            FAILED=$(jq -r '.summary.failed_policies // 0' results.json)
+
+            echo "score=${SCORE}" >> $GITHUB_OUTPUT
+            echo "passed=${PASSED}" >> $GITHUB_OUTPUT
+            echo "failed=${FAILED}" >> $GITHUB_OUTPUT
+            echo "evidence_path=s3://${{ secrets.AWS_E2E_EVIDENCE_BUCKET }}/${SIGCOMPLY_STORAGE_PREFIX}/" >> $GITHUB_OUTPUT
+          else
+            echo "ERROR: Failed to parse results"
+            cat results.json
+            exit 1
+          fi
+
+        env:
+          GITHUB_TOKEN: ${{ inputs.github_enabled && secrets.GITHUB_E2E_TOKEN || '' }}
+          SIGCOMPLY_API_TOKEN: ${{ inputs.cloud_submit && secrets.SIGCOMPLY_API_TOKEN || '' }}
+
+      # ---- Validate Storage ----
+      - name: Validate evidence storage
+        if: inputs.storage_enabled
+        run: |
+          echo "=== Validating Evidence Storage ==="
+          STORAGE_PATH="s3://${{ secrets.AWS_E2E_EVIDENCE_BUCKET }}/${SIGCOMPLY_STORAGE_PREFIX}"
+
+          echo "Checking evidence directory..."
+          aws s3 ls "${STORAGE_PATH}/evidence/" || echo "No evidence directory found"
+
+          echo ""
+          echo "Checking runs directory..."
+          aws s3 ls "${STORAGE_PATH}/runs/" || echo "No runs directory found"
+
+          echo ""
+          echo "Looking for manifest..."
+          MANIFEST=$(aws s3 ls "${STORAGE_PATH}/runs/" --recursive | grep manifest.json | head -1)
+          if [ -n "$MANIFEST" ]; then
+            echo "Found manifest: $MANIFEST"
+            aws s3 cp "s3://${{ secrets.AWS_E2E_EVIDENCE_BUCKET }}/${MANIFEST#* }" - | jq .
+          else
+            echo "WARNING: No manifest found"
+          fi
+
+      # ---- Generate Reports ----
+      - name: Generate JUnit report
+        run: |
+          ./bin/sigcomply check \
+            --framework ${{ inputs.framework }} \
+            --output junit \
+            --no-cloud \
+            > junit-report.xml 2>&1 || true
+
+      - name: Publish JUnit report
+        uses: mikepenz/action-junit-report@v4
+        if: always()
+        with:
+          report_paths: junit-report.xml
+          check_name: 'E2E Compliance - ${{ inputs.framework }}'
+          fail_on_failure: false
+
+      # ---- Upload Artifacts ----
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-results-aws-${{ env.E2E_RUN_ID }}
+          path: |
+            results.json
+            junit-report.xml
+          retention-days: 30
+
+      # ---- Summary ----
+      - name: Generate summary
+        if: always()
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          ## AWS E2E Test Results
+
+          | Metric | Value |
+          |--------|-------|
+          | **Framework** | ${{ inputs.framework }} |
+          | **CLI Version** | ${{ needs.build.outputs.version }} |
+          | **Compliance Score** | ${{ steps.run.outputs.score }}% |
+          | **Passed Policies** | ${{ steps.run.outputs.passed }} |
+          | **Failed Policies** | ${{ steps.run.outputs.failed }} |
+          | **Storage Backend** | ${{ inputs.storage_backend }} |
+          | **Evidence Location** | `${{ steps.run.outputs.evidence_path }}` |
+
+          EOF
+
+          if [ -f results.json ] && jq empty results.json 2>/dev/null; then
+            echo "### Policy Results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            jq -r '.policy_results[] | "| \(.policy_id) | \(.status) | \(.resources_evaluated) | \(.resources_failed) |"' results.json | \
+              (echo "| Policy | Status | Evaluated | Failed |"; echo "|--------|--------|-----------|--------|"; cat) >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ============================================
+  # GitHub E2E Test Job
+  # ============================================
+  e2e-github:
+    name: E2E - GitHub (${{ inputs.framework }})
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ inputs.github_enabled }}
+
+    permissions:
+      contents: read
+      checks: write
+
+    env:
+      # Storage configuration (local for GitHub tests)
+      SIGCOMPLY_STORAGE_ENABLED: ${{ inputs.storage_enabled }}
+      SIGCOMPLY_STORAGE_BACKEND: local
+      SIGCOMPLY_STORAGE_PATH: ./.sigcomply/evidence
+
+    outputs:
+      compliance_score: ${{ steps.run.outputs.score }}
+      passed_policies: ${{ steps.run.outputs.passed }}
+      failed_policies: ${{ steps.run.outputs.failed }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Download CLI
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: bin/
+
+      - name: Setup CLI
+        run: |
+          chmod +x bin/*
+          mv bin/${{ needs.build.outputs.artifact_name }} bin/sigcomply
+          ./bin/sigcomply version
+
+      # ---- Run GitHub E2E Go Tests ----
+      - name: Run GitHub E2E tests
+        id: e2e-tests
+        run: |
+          echo "=== Running GitHub E2E Tests ==="
+          go test -tags=e2e -v ./test/e2e/... -run TestGitHub 2>&1 | tee test-output.txt
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+          echo "test_exit_code=${TEST_EXIT_CODE}" >> $GITHUB_OUTPUT
+
+          # Count passed/failed
+          PASSED=$(grep -c "^--- PASS" test-output.txt || echo "0")
+          FAILED=$(grep -c "^--- FAIL" test-output.txt || echo "0")
+          echo "passed=${PASSED}" >> $GITHUB_OUTPUT
+          echo "failed=${FAILED}" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          E2E_GITHUB_ORG: ${{ inputs.github_org || github.repository_owner }}
+          E2E_GITHUB_REPO: ${{ inputs.github_repo || github.repository }}
+
+      # ---- Run Full Compliance Check with CLI ----
+      - name: Run sigcomply check (GitHub only)
+        id: run
+        run: |
+          set +e  # Don't exit on violations
+
+          VERBOSE_FLAG=""
+          if [ "${{ inputs.verbose }}" == "true" ]; then
+            VERBOSE_FLAG="--verbose"
+          fi
+
+          # Determine org to use
+          GITHUB_ORG="${{ inputs.github_org }}"
+          if [ -z "$GITHUB_ORG" ]; then
+            GITHUB_ORG="${{ github.repository_owner }}"
+          fi
+
+          echo "=== Running Compliance Check ==="
+          echo "Framework: ${{ inputs.framework }}"
+          echo "GitHub Org: ${GITHUB_ORG}"
+          echo "Storage: local"
+          echo ""
+
+          # Run with GitHub org flag
+          ./bin/sigcomply check \
+            --framework ${{ inputs.framework }} \
+            --output json \
+            --github-org "${GITHUB_ORG}" \
+            --no-cloud \
+            ${VERBOSE_FLAG} \
+            > results.json 2>&1 || true
+
+          # Parse results (may have AWS errors, focus on what we got)
+          if [ -f results.json ] && jq empty results.json 2>/dev/null; then
+            SCORE=$(jq -r '.summary.compliance_score // 0' results.json)
+            PASSED=$(jq -r '.summary.passed_policies // 0' results.json)
+            FAILED=$(jq -r '.summary.failed_policies // 0' results.json)
+
+            echo "score=${SCORE}" >> $GITHUB_OUTPUT
+            echo "passed=${PASSED}" >> $GITHUB_OUTPUT
+            echo "failed=${FAILED}" >> $GITHUB_OUTPUT
+
+            echo "=== Results ==="
+            jq '.summary' results.json
+          else
+            echo "Note: CLI check may have partial results (AWS not configured)"
+            cat results.json || echo "No results file"
+            echo "score=N/A" >> $GITHUB_OUTPUT
+            echo "passed=0" >> $GITHUB_OUTPUT
+            echo "failed=0" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ---- Upload Artifacts ----
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-results-github-${{ env.E2E_RUN_ID }}
+          path: |
+            results.json
+            test-output.txt
+            .sigcomply/
+          retention-days: 30
+
+      # ---- Summary ----
+      - name: Generate summary
+        if: always()
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          ## GitHub E2E Test Results
+
+          ### Go E2E Tests
+          | Metric | Value |
+          |--------|-------|
+          | **Tests Passed** | ${{ steps.e2e-tests.outputs.passed }} |
+          | **Tests Failed** | ${{ steps.e2e-tests.outputs.failed }} |
+
+          ### CLI Compliance Check
+          | Metric | Value |
+          |--------|-------|
+          | **Framework** | ${{ inputs.framework }} |
+          | **CLI Version** | ${{ needs.build.outputs.version }} |
+          | **Compliance Score** | ${{ steps.run.outputs.score }}% |
+          | **Passed Policies** | ${{ steps.run.outputs.passed }} |
+          | **Failed Policies** | ${{ steps.run.outputs.failed }} |
+          | **GitHub Org** | ${{ inputs.github_org || github.repository_owner }} |
+
+          EOF
+
+          # Add test output if available
+          if [ -f test-output.txt ]; then
+            echo "### Test Output" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -50 test-output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ============================================
+  # GCP E2E Test Job (Future)
+  # ============================================
+  # e2e-gcp:
+  #   name: E2E - GCP
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   if: ${{ inputs.gcp_enabled }}
+  #   steps:
+  #     - name: Configure GCP (Workload Identity)
+  #       uses: google-github-actions/auth@v2
+  #       with:
+  #         workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY }}
+  #         service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+  #     ...
+
+  # ============================================
+  # Summary Job
+  # ============================================
+  summary:
+    name: E2E Summary
+    needs: [build, e2e-aws, e2e-github]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Generate final summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          ## E2E Test Summary
+
+          | Component | Status |
+          |-----------|--------|
+          | Build | ${{ needs.build.result == 'success' && '✅' || '❌' }} ${{ needs.build.result }} |
+          | AWS E2E | ${{ needs.e2e-aws.result == 'success' && '✅' || needs.e2e-aws.result == 'skipped' && '⏭️' || '❌' }} ${{ needs.e2e-aws.result }} |
+          | GitHub E2E | ${{ needs.e2e-github.result == 'success' && '✅' || needs.e2e-github.result == 'skipped' && '⏭️' || '❌' }} ${{ needs.e2e-github.result }} |
+
+          ### Configuration Used
+          - **Framework**: ${{ inputs.framework }}
+          - **CLI Version**: ${{ needs.build.outputs.version }}
+          - **AWS Enabled**: ${{ inputs.aws_enabled }}
+          - **GitHub Enabled**: ${{ inputs.github_enabled }}
+          - **GitHub Org**: ${{ inputs.github_org || github.repository_owner }}
+          - **Storage**: ${{ inputs.storage_enabled && inputs.storage_backend || 'disabled' }}
+          - **Cloud Submit**: ${{ inputs.cloud_submit }}
+
+          EOF
+
+      - name: Fail if tests failed
+        if: needs.e2e-aws.result == 'failure' || needs.e2e-github.result == 'failure'
+        run: exit 1

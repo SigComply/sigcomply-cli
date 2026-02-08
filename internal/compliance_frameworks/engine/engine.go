@@ -117,16 +117,32 @@ func (e *Engine) findMetadataInResults(results rego.ResultSet) (map[string]inter
 		return nil, fmt.Errorf("no sigcomply namespace found")
 	}
 
-	// Find metadata in any sub-package
-	for _, v := range sigcomply {
+	// Recursively search for metadata in nested packages
+	// Policies use packages like sigcomply.soc2.cc6_1_github
+	if metadata := e.findMetadataRecursive(sigcomply); metadata != nil {
+		return metadata, nil
+	}
+
+	return nil, fmt.Errorf("no metadata found in policy")
+}
+
+// findMetadataRecursive searches for metadata in nested package structures.
+func (e *Engine) findMetadataRecursive(data map[string]interface{}) map[string]interface{} {
+	// Check if metadata exists at this level
+	if m, ok := data["metadata"].(map[string]interface{}); ok {
+		return m
+	}
+
+	// Search in nested packages
+	for _, v := range data {
 		if pkg, ok := v.(map[string]interface{}); ok {
-			if m, ok := pkg["metadata"].(map[string]interface{}); ok {
-				return m, nil
+			if metadata := e.findMetadataRecursive(pkg); metadata != nil {
+				return metadata
 			}
 		}
 	}
 
-	return nil, fmt.Errorf("no metadata found in policy")
+	return nil
 }
 
 // parseMetadata converts a metadata map to PolicyMetadata struct.
