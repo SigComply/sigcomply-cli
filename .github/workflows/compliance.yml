@@ -116,15 +116,29 @@ jobs:
           sudo mv /tmp/sigcomply /usr/local/bin/
           sigcomply version
 
+      - name: Check AWS credentials type
+        id: aws-creds
+        run: |
+          if [ -n "$AWS_ROLE_ARN" ]; then
+            echo "auth_type=oidc" >> $GITHUB_OUTPUT
+          elif [ -n "$AWS_ACCESS_KEY_ID" ]; then
+            echo "auth_type=static" >> $GITHUB_OUTPUT
+          else
+            echo "auth_type=none" >> $GITHUB_OUTPUT
+          fi
+        env:
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+
       - name: Configure AWS credentials (OIDC)
-        if: ${{ secrets.AWS_ROLE_ARN != '' }}
+        if: steps.aws-creds.outputs.auth_type == 'oidc'
         uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ inputs.aws-region }}
 
       - name: Configure AWS credentials (Static)
-        if: ${{ secrets.AWS_ROLE_ARN == '' && secrets.AWS_ACCESS_KEY_ID != '' }}
+        if: steps.aws-creds.outputs.auth_type == 'static'
         uses: aws-actions/configure-aws-credentials@v5
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
