@@ -1,0 +1,64 @@
+name: E2E Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: 'Specific scenario name (empty = all enabled)'
+        required: false
+        default: ''
+      region:
+        description: 'AWS region'
+        required: false
+        default: 'us-east-1'
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run E2E tests
+        env:
+          # Positive AWS credentials (full evidence collection + S3 storage)
+          E2E_AWS_ACCESS_KEY_ID: ${{ secrets.E2E_AWS_ACCESS_KEY_ID }}
+          E2E_AWS_SECRET_ACCESS_KEY: ${{ secrets.E2E_AWS_SECRET_ACCESS_KEY }}
+          E2E_AWS_REGION: ${{ inputs.region }}
+
+          # Negative AWS credentials (STS only — tests graceful degradation)
+          E2E_AWS_NEGATIVE_ACCESS_KEY_ID: ${{ secrets.E2E_AWS_NEGATIVE_ACCESS_KEY_ID }}
+          E2E_AWS_NEGATIVE_SECRET_ACCESS_KEY: ${{ secrets.E2E_AWS_NEGATIVE_SECRET_ACCESS_KEY }}
+
+          # Storage
+          E2E_S3_BUCKET: ${{ secrets.E2E_S3_BUCKET }}
+
+          # Signing
+          E2E_HMAC_SECRET: ${{ secrets.E2E_HMAC_SECRET }}
+
+          # Scenario filter
+          E2E_SCENARIO: ${{ inputs.scenario }}
+        run: make test-e2e
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "## E2E Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region**: ${{ inputs.region }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Scenario filter**: ${{ inputs.scenario || 'all enabled' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY

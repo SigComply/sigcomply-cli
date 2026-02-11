@@ -102,6 +102,8 @@ func (e *Engine) extractMetadata(ctx context.Context, name, regoSource string) (
 }
 
 // findMetadataInResults navigates OPA results to find the metadata object.
+// Policies may nest metadata at varying depths (e.g. sigcomply.soc2.cc6_1.metadata),
+// so we search recursively through the sigcomply namespace.
 func (e *Engine) findMetadataInResults(results rego.ResultSet) (map[string]interface{}, error) {
 	if len(results) == 0 || len(results[0].Expressions) == 0 {
 		return nil, fmt.Errorf("no data found in policy")
@@ -117,16 +119,26 @@ func (e *Engine) findMetadataInResults(results rego.ResultSet) (map[string]inter
 		return nil, fmt.Errorf("no sigcomply namespace found")
 	}
 
-	// Find metadata in any sub-package
-	for _, v := range sigcomply {
-		if pkg, ok := v.(map[string]interface{}); ok {
-			if m, ok := pkg["metadata"].(map[string]interface{}); ok {
-				return m, nil
-			}
-		}
+	if m := findMetadataRecursive(sigcomply); m != nil {
+		return m, nil
 	}
 
 	return nil, fmt.Errorf("no metadata found in policy")
+}
+
+// findMetadataRecursive searches for a "metadata" key at any depth in a nested map.
+func findMetadataRecursive(obj map[string]interface{}) map[string]interface{} {
+	if m, ok := obj["metadata"].(map[string]interface{}); ok {
+		return m
+	}
+	for _, v := range obj {
+		if nested, ok := v.(map[string]interface{}); ok {
+			if m := findMetadataRecursive(nested); m != nil {
+				return m
+			}
+		}
+	}
+	return nil
 }
 
 // parseMetadata converts a metadata map to PolicyMetadata struct.
@@ -269,9 +281,11 @@ func (e *Engine) evaluateIndividual(ctx context.Context, policy *LoadedPolicy, e
 		return nil, err
 	}
 
-	// Prepare and evaluate
+	// Prepare and evaluate.
+	// Query "data" and find violations recursively since policies may be nested
+	// at varying depths (e.g. sigcomply.test vs sigcomply.soc2.cc6_1).
 	query, err := rego.New(
-		rego.Query("data.sigcomply[_].violations"),
+		rego.Query("data"),
 		rego.Module(policy.ID+".rego", policy.Module),
 		rego.Input(input),
 	).PrepareForEval(ctx)
@@ -284,7 +298,7 @@ func (e *Engine) evaluateIndividual(ctx context.Context, policy *LoadedPolicy, e
 		return nil, fmt.Errorf("failed to evaluate policy: %w", err)
 	}
 
-	return e.extractViolations(results)
+	return e.extractViolationsFromData(results)
 }
 
 // evaluateBatched evaluates a policy against all matching evidence together.
@@ -295,9 +309,9 @@ func (e *Engine) evaluateBatched(ctx context.Context, policy *LoadedPolicy, evid
 		return nil, err
 	}
 
-	// Prepare and evaluate
+	// Prepare and evaluate.
 	query, err := rego.New(
-		rego.Query("data.sigcomply[_].violations"),
+		rego.Query("data"),
 		rego.Module(policy.ID+".rego", policy.Module),
 		rego.Input(input),
 	).PrepareForEval(ctx)
@@ -310,7 +324,7 @@ func (e *Engine) evaluateBatched(ctx context.Context, policy *LoadedPolicy, evid
 		return nil, fmt.Errorf("failed to evaluate policy: %w", err)
 	}
 
-	return e.extractViolations(results)
+	return e.extractViolationsFromData(results)
 }
 
 // buildIndividualInput builds OPA input for individual evaluation mode.
@@ -348,6 +362,50 @@ func (e *Engine) buildBatchedInput(evidenceList []evidence.Evidence) (map[string
 	return map[string]interface{}{
 		"resources": resources,
 	}, nil
+}
+
+// extractViolationsFromData extracts violations from a "data" query result by
+// recursively searching for a "violations" key. This handles policies at any
+// package depth (e.g. sigcomply.test or sigcomply.soc2.cc6_1).
+func (e *Engine) extractViolationsFromData(results rego.ResultSet) ([]evidence.Violation, error) {
+	if len(results) == 0 || len(results[0].Expressions) == 0 {
+		return []evidence.Violation{}, nil
+	}
+
+	data, ok := results[0].Expressions[0].Value.(map[string]interface{})
+	if !ok {
+		return []evidence.Violation{}, nil
+	}
+
+	raw := findViolationsRecursive(data)
+	if raw == nil {
+		return []evidence.Violation{}, nil
+	}
+
+	violations := []evidence.Violation{}
+	for _, item := range raw {
+		v, err := e.parseViolation(item)
+		if err != nil {
+			continue
+		}
+		violations = append(violations, *v)
+	}
+	return violations, nil
+}
+
+// findViolationsRecursive searches for a "violations" set at any depth in a nested map.
+func findViolationsRecursive(obj map[string]interface{}) []interface{} {
+	if v, ok := obj["violations"].([]interface{}); ok {
+		return v
+	}
+	for _, v := range obj {
+		if nested, ok := v.(map[string]interface{}); ok {
+			if found := findViolationsRecursive(nested); found != nil {
+				return found
+			}
+		}
+	}
+	return nil
 }
 
 // extractViolations extracts violations from OPA evaluation results.

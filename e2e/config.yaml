@@ -1,0 +1,186 @@
+version: "2"
+
+defaults:
+  timeout: 300
+
+# ---------------------------------------------------------------------------
+# Credential profiles
+#
+# Each profile maps semantic field names to environment variable names.
+# The test runner reads the env var, then sets the standard SDK env var
+# (e.g. AWS_ACCESS_KEY_ID) so the collector picks up the right identity.
+#
+# Create multiple profiles per provider for positive/negative testing with
+# different IAM permissions.
+# ---------------------------------------------------------------------------
+credentials:
+  aws-positive:
+    provider: aws
+    description: "Full-access AWS credentials for positive E2E tests"
+    env_vars:
+      access_key_id: E2E_AWS_ACCESS_KEY_ID
+      secret_access_key: E2E_AWS_SECRET_ACCESS_KEY
+      region: E2E_AWS_REGION
+
+  aws-negative:
+    provider: aws
+    description: "Minimal AWS credentials (STS only) for negative/graceful-degradation tests"
+    env_vars:
+      access_key_id: E2E_AWS_NEGATIVE_ACCESS_KEY_ID
+      secret_access_key: E2E_AWS_NEGATIVE_SECRET_ACCESS_KEY
+      region: E2E_AWS_REGION
+
+  # --- Future providers (uncomment when collectors are implemented) ---
+
+  # github-org:
+  #   provider: github
+  #   description: "GitHub org token for repo/user evidence collection"
+  #   env_vars:
+  #     token: E2E_GITHUB_TOKEN
+  #     org: E2E_GITHUB_ORG
+
+  # gitlab-group:
+  #   provider: gitlab
+  #   description: "GitLab group token for project/user evidence collection"
+  #   env_vars:
+  #     token: E2E_GITLAB_TOKEN
+  #     group: E2E_GITLAB_GROUP
+
+  # gcp-project:
+  #   provider: gcp
+  #   description: "GCP service account for evidence collection"
+  #   env_vars:
+  #     credentials_file: E2E_GCP_CREDENTIALS
+  #     project: E2E_GCP_PROJECT
+
+  # azure-subscription:
+  #   provider: azure
+  #   description: "Azure service principal for evidence collection"
+  #   env_vars:
+  #     client_id: E2E_AZURE_CLIENT_ID
+  #     client_secret: E2E_AZURE_CLIENT_SECRET
+  #     tenant_id: E2E_AZURE_TENANT_ID
+  #     subscription_id: E2E_AZURE_SUBSCRIPTION_ID
+
+  # workday-tenant:
+  #   provider: workday
+  #   description: "Workday API credentials for HR evidence collection"
+  #   env_vars:
+  #     api_url: E2E_WORKDAY_API_URL
+  #     client_id: E2E_WORKDAY_CLIENT_ID
+  #     client_secret: E2E_WORKDAY_CLIENT_SECRET
+
+# ---------------------------------------------------------------------------
+# Storage profiles
+#
+# Sensitive values (bucket names) come from env vars.
+# Static values (region) are inline.
+# ---------------------------------------------------------------------------
+storage_profiles:
+  s3-evidence:
+    backend: s3
+    env_vars:
+      bucket: E2E_S3_BUCKET
+    config:
+      region: us-east-1
+
+  # gcs-evidence:
+  #   backend: gcs
+  #   env_vars:
+  #     bucket: E2E_GCS_BUCKET
+  #   config:
+  #     project: my-gcp-project
+
+  # azure-blob-evidence:
+  #   backend: azure-blob
+  #   env_vars:
+  #     container: E2E_AZURE_CONTAINER
+  #     account: E2E_AZURE_STORAGE_ACCOUNT
+
+# ---------------------------------------------------------------------------
+# Signing configuration
+# ---------------------------------------------------------------------------
+signing:
+  env_vars:
+    hmac_secret: E2E_HMAC_SECRET
+  default_secret: "e2e-test-hmac-secret-default"
+
+# ---------------------------------------------------------------------------
+# Scenarios
+#
+# Each scenario references a credential profile and (optionally) a storage
+# profile by name.  Scenarios whose credential env vars are missing are
+# skipped, not failed — safe for local dev where you may only have one set
+# of credentials.
+#
+# Assertions:
+#   collection_errors_expected  - true for negative/permission-denied tests
+#   expected_policy_results     - assert specific pass/fail/skip per policy
+#
+# The pipeline phases (collect, evaluate, hash, sign) always run and are
+# always verified. Storage phases only run when "storage" is set.
+# ---------------------------------------------------------------------------
+scenarios:
+  # ---- Positive policy results (compliant account) ----
+  # Requires: MFA enabled on all IAM users, S3 encryption, CloudTrail active.
+  # Enable this after setting up MFA on sigcomply-e2e-positive.
+  - name: soc2-aws-compliant
+    description: "SOC2 check expecting policy PASS results — validates compliant account detection"
+    enabled: false  # Enable after MFA setup on test user
+    credentials: aws-positive
+    framework: soc2
+    storage: s3-evidence
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.1-mfa": pass           # MFA enabled on all users
+        "soc2-cc6.2-encryption": fail     # AES256 triggers low-severity warning (not KMS)
+
+  # ---- Mixed policy results (real-world account) ----
+  # Runs against the account as-is. Some policies may pass, some fail.
+  # Verifies the full pipeline works regardless of compliance state.
+  - name: soc2-aws-full
+    description: "Full SOC2 compliance check against AWS with S3 evidence storage"
+    enabled: true
+    credentials: aws-positive
+    framework: soc2
+    storage: s3-evidence
+    # No expected_policy_results — any valid status (pass/fail/skip) is OK.
+    # This scenario tests the pipeline, not the compliance state.
+
+  # ---- Negative: permission denied (graceful degradation) ----
+  - name: soc2-aws-negative
+    description: "SOC2 with minimal AWS perms — verifies fail-safe collection pattern"
+    enabled: true
+    credentials: aws-negative
+    framework: soc2
+    # No storage — negative user lacks S3 write access
+    assertions:
+      collection_errors_expected: true
+      # All policies should skip (no evidence to evaluate)
+      expected_policy_results:
+        "soc2-cc6.1-mfa": skip
+        "soc2-cc6.2-encryption": skip
+        "soc2-cc7.1-logging": skip
+
+  - name: iso27001-aws-full
+    description: "Full ISO27001 compliance check against AWS with S3 evidence storage"
+    enabled: true
+    credentials: aws-positive
+    framework: iso27001
+    storage: s3-evidence
+
+  # --- Future scenarios ---
+
+  # - name: soc2-github-full
+  #   description: "SOC2 check using GitHub org evidence"
+  #   enabled: false
+  #   credentials: github-org
+  #   framework: soc2
+  #   storage: s3-evidence
+
+  # - name: soc2-gcp-full
+  #   description: "SOC2 check using GCP evidence"
+  #   enabled: false
+  #   credentials: gcp-project
+  #   framework: soc2
+  #   storage: gcs-evidence
