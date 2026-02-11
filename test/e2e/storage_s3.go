@@ -5,6 +5,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,61 +13,9 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
-
-// providerSDKEnvVars maps credential profile field names to standard SDK
-// environment variables for each provider. When a scenario runs, the test
-// runner reads the source env var from the profile (e.g. E2E_AWS_ACCESS_KEY_ID)
-// and sets the standard SDK env var (e.g. AWS_ACCESS_KEY_ID) via t.Setenv.
-//
-// To add a new provider: add an entry here and a matching credential profile
-// in e2e/config.yaml — no other Go code changes needed.
-var providerSDKEnvVars = map[string]map[string]string{
-	"aws": {
-		"access_key_id":     "AWS_ACCESS_KEY_ID",
-		"secret_access_key": "AWS_SECRET_ACCESS_KEY",
-		"region":            "AWS_DEFAULT_REGION",
-	},
-	"github": {
-		"token": "GITHUB_TOKEN",
-	},
-	"gitlab": {
-		"token": "GITLAB_TOKEN",
-	},
-	"gcp": {
-		"credentials_file": "GOOGLE_APPLICATION_CREDENTIALS",
-		"project":          "GCP_PROJECT",
-	},
-	"azure": {
-		"client_id":       "AZURE_CLIENT_ID",
-		"client_secret":   "AZURE_CLIENT_SECRET",
-		"tenant_id":       "AZURE_TENANT_ID",
-		"subscription_id": "AZURE_SUBSCRIPTION_ID",
-	},
-}
-
-// applyCredentials sets the standard SDK environment variables for a provider
-// using t.Setenv (automatically restored after the test completes).
-// This allows each scenario to run with its own credentials without
-// cross-contamination — no t.Parallel() needed.
-func applyCredentials(t *testing.T, creds *ResolvedCredentials) {
-	t.Helper()
-
-	mapping, ok := providerSDKEnvVars[creds.Provider]
-	if !ok {
-		t.Fatalf("No SDK env var mapping for provider %q — add it to providerSDKEnvVars in helpers.go", creds.Provider)
-	}
-
-	for key, value := range creds.Values {
-		sdkEnvVar, ok := mapping[key]
-		if !ok {
-			// Extra fields (e.g. "org" for GitHub) don't map to SDK env vars.
-			// They're still available via creds.Values for direct use.
-			continue
-		}
-		t.Setenv(sdkEnvVar, value)
-	}
-}
 
 // testPrefix generates a unique S3 key prefix for a test scenario.
 // Format: e2e-test/<scenario>/<timestamp>-<uuid>/
@@ -145,4 +94,32 @@ func listS3Objects(t *testing.T, client *s3.Client, bucket, prefix string) []str
 	}
 
 	return keys
+}
+
+// verifyS3Objects lists S3 objects under the prefix and asserts that evidence
+// and check_result.json files exist.
+func verifyS3Objects(t *testing.T, client *s3.Client, bucket, prefix string) {
+	t.Helper()
+
+	keys := listS3Objects(t, client, bucket, prefix)
+	require.NotEmpty(t, keys, "No S3 objects found under prefix %s", prefix)
+
+	var hasEvidence, hasCheckResult bool
+	for _, key := range keys {
+		relKey := strings.TrimPrefix(key, prefix)
+		if strings.HasPrefix(relKey, "evidence/") {
+			hasEvidence = true
+		}
+		if strings.Contains(relKey, "check_result.json") {
+			hasCheckResult = true
+		}
+	}
+
+	assert.True(t, hasEvidence, "No evidence objects found under prefix")
+	assert.True(t, hasCheckResult, "No check_result.json found under prefix")
+
+	t.Logf("Verified %d S3 objects under prefix", len(keys))
+	for _, key := range keys {
+		t.Logf("  -> %s", key)
+	}
 }

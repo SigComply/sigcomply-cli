@@ -24,7 +24,8 @@ type E2EConfig struct {
 
 // Defaults holds default values applied to all scenarios.
 type Defaults struct {
-	Timeout int `yaml:"timeout"`
+	Timeout int   `yaml:"timeout"`
+	Cleanup *bool `yaml:"cleanup"` // nil = inherit default (true), false = skip, true = force
 }
 
 // CredentialProfile defines a named set of credentials for a provider.
@@ -55,9 +56,10 @@ type Scenario struct {
 	Name        string            `yaml:"name"`
 	Description string            `yaml:"description"`
 	Enabled     bool              `yaml:"enabled"`
-	Credentials string            `yaml:"credentials"` // references a credential profile name
+	Credentials []string          `yaml:"credentials"` // references credential profile names (multi-provider)
 	Framework   string            `yaml:"framework"`
-	Storage     string            `yaml:"storage"` // references a storage profile name (optional)
+	Storage     string            `yaml:"storage"`  // references a storage profile name (optional)
+	Cleanup     *bool             `yaml:"cleanup"` // nil = inherit from defaults, false = skip, true = force
 	Assertions  ScenarioAssertion `yaml:"assertions"`
 }
 

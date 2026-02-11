@@ -13,110 +13,33 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/engine"
-	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/iso27001"
-	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/soc2"
 	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 	"github.com/sigcomply/sigcomply-cli/internal/core/storage"
-	awscollector "github.com/sigcomply/sigcomply-cli/internal/data_sources/apis/aws"
 )
 
-// TestE2EFullFlow runs the full compliance pipeline for each enabled scenario:
-// collect -> evaluate -> hash -> sign -> store -> verify.
-//
-// Scenarios run sequentially (not parallel) because each may use different
-// credentials via t.Setenv. Scenarios whose credential env vars are missing
-// are skipped, not failed — safe for local dev.
-func TestE2EFullFlow(t *testing.T) {
-	cfg, err := LoadConfig()
-	require.NoError(t, err, "Failed to load E2E config")
-
-	scenarios := cfg.EnabledScenarios()
-	require.NotEmpty(t, scenarios, "No enabled E2E scenarios found")
-
-	for _, scenario := range scenarios {
-		scenario := scenario // capture loop variable
-		t.Run(scenario.Name, func(t *testing.T) {
-			// Resolve credentials — skip scenario if env vars not set
-			creds, err := cfg.ResolveCredentials(scenario.Credentials)
-			if err != nil {
-				t.Skipf("Skipping %s: %v", scenario.Name, err)
-			}
-
-			// Set standard SDK env vars for this scenario's provider.
-			// t.Setenv restores original values after the subtest completes.
-			applyCredentials(t, creds)
-
-			runScenario(t, cfg, creds, &scenario)
-		})
-	}
-}
-
-// resolveFramework returns the engine.Framework for a given framework name.
-func resolveFramework(name string) engine.Framework {
-	switch name {
-	case "soc2":
-		return soc2.New()
-	case "iso27001":
-		return iso27001.New()
-	default:
-		return nil
-	}
-}
-
-func runScenario(t *testing.T, cfg *E2EConfig, creds *ResolvedCredentials, scenario *Scenario) {
+func runScenario(t *testing.T, cfg *E2EConfig, allCreds []*ResolvedCredentials, scenario *Scenario) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	secret := cfg.ResolveHMACSecret()
-	region := creds.Values["region"]
-	if region == "" {
-		region = "us-east-1"
-	}
 
-	t.Logf("Scenario: %s | Framework: %s | Provider: %s | Region: %s",
-		scenario.Name, scenario.Framework, creds.Provider, region)
+	providers := make([]string, len(allCreds))
+	for i, c := range allCreds {
+		providers[i] = c.Provider
+	}
+	t.Logf("Scenario: %s | Framework: %s | Providers: %s",
+		scenario.Name, scenario.Framework, strings.Join(providers, ", "))
 
 	// ===== Phase 1: Collect Evidence =====
 	var evidenceList []evidence.Evidence
 
 	t.Run("collect-evidence", func(t *testing.T) {
-		// Currently only AWS collector is implemented
-		require.Equal(t, "aws", creds.Provider, "Only AWS collector is currently supported")
-
-		collector := awscollector.New().WithRegion(region)
-
-		err := collector.Init(ctx)
-		require.NoError(t, err, "AWS collector Init failed")
-
-		status := collector.Status(ctx)
-		require.True(t, status.Connected, "AWS collector not connected: %s", status.Error)
-		t.Logf("Connected to AWS account %s in %s", status.AccountID, status.Region)
-
-		result, err := collector.Collect(ctx)
-		require.NoError(t, err, "AWS Collect failed")
-		require.NotNil(t, result, "Collection result is nil")
-
-		if scenario.Assertions.CollectionErrorsExpected {
-			assert.True(t, result.HasErrors(),
-				"Expected collection errors (negative test) but got none")
-			for _, e := range result.Errors {
-				t.Logf("Expected collection error: service=%s error=%s", e.Service, e.Error)
-			}
-		} else if result.HasErrors() {
-			for _, e := range result.Errors {
-				t.Logf("Collection warning: service=%s error=%s", e.Service, e.Error)
-			}
+		for _, creds := range allCreds {
+			collected, err := collectEvidence(t, ctx, creds, scenario)
+			require.NoError(t, err, "Evidence collection failed for provider %s", creds.Provider)
+			evidenceList = append(evidenceList, collected...)
 		}
-
-		evidenceList = result.Evidence
-
-		// Always require evidence for positive scenarios
-		if !scenario.Assertions.CollectionErrorsExpected {
-			require.NotEmpty(t, evidenceList, "No evidence collected")
-		}
-
-		t.Logf("Collected %d evidence items", len(evidenceList))
 	})
 
 	// Ensure non-nil for downstream phases (may be empty for negative tests)
@@ -247,15 +170,15 @@ func runScenario(t *testing.T, cfg *E2EConfig, creds *ResolvedCredentials, scena
 	bucket := resolvedStorage.Config["bucket"]
 	storageRegion := resolvedStorage.Config["region"]
 	if storageRegion == "" {
-		storageRegion = region
+		storageRegion = "us-east-1"
 	}
 	prefix := testPrefix(scenario.Name)
 
 	// Create S3 client for verification/cleanup (uses credentials set by applyCredentials)
 	s3Client := newS3Client(t, storageRegion)
 
-	// Register cleanup — runs even on failure/panic
-	t.Cleanup(func() {
+	// Register cleanup — runs even on failure/panic (unless cleanup is disabled)
+	registerCleanup(t, cfg, scenario, func() {
 		cleanupS3Prefix(t, s3Client, bucket, prefix)
 	})
 
@@ -294,26 +217,6 @@ func runScenario(t *testing.T, cfg *E2EConfig, creds *ResolvedCredentials, scena
 
 	// ===== Phase 6: Verify S3 Objects =====
 	t.Run("verify-s3-objects", func(t *testing.T) {
-		keys := listS3Objects(t, s3Client, bucket, prefix)
-		require.NotEmpty(t, keys, "No S3 objects found under prefix %s", prefix)
-
-		var hasEvidence, hasCheckResult bool
-		for _, key := range keys {
-			relKey := strings.TrimPrefix(key, prefix)
-			if strings.HasPrefix(relKey, "evidence/") {
-				hasEvidence = true
-			}
-			if strings.Contains(relKey, "check_result.json") {
-				hasCheckResult = true
-			}
-		}
-
-		assert.True(t, hasEvidence, "No evidence objects found under prefix")
-		assert.True(t, hasCheckResult, "No check_result.json found under prefix")
-
-		t.Logf("Verified %d S3 objects under prefix", len(keys))
-		for _, key := range keys {
-			t.Logf("  -> %s", key)
-		}
+		verifyS3Objects(t, s3Client, bucket, prefix)
 	})
 }

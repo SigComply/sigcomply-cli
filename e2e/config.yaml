@@ -2,6 +2,7 @@ version: "2"
 
 defaults:
   timeout: 300
+  cleanup: true
 
 # ---------------------------------------------------------------------------
 # Credential profiles
@@ -108,10 +109,10 @@ signing:
 # ---------------------------------------------------------------------------
 # Scenarios
 #
-# Each scenario references a credential profile and (optionally) a storage
-# profile by name.  Scenarios whose credential env vars are missing are
-# skipped, not failed — safe for local dev where you may only have one set
-# of credentials.
+# Each scenario references one or more credential profiles (multi-provider)
+# and (optionally) a storage profile by name.  Scenarios whose credential
+# env vars are missing are skipped, not failed — safe for local dev where
+# you may only have one set of credentials.
 #
 # Assertions:
 #   collection_errors_expected  - true for negative/permission-denied tests
@@ -127,7 +128,8 @@ scenarios:
   - name: soc2-aws-compliant
     description: "SOC2 check expecting policy PASS results — validates compliant account detection"
     enabled: false  # Enable after MFA setup on test user
-    credentials: aws-positive
+    credentials:
+      - aws-positive
     framework: soc2
     storage: s3-evidence
     assertions:
@@ -141,7 +143,8 @@ scenarios:
   - name: soc2-aws-full
     description: "Full SOC2 compliance check against AWS with S3 evidence storage"
     enabled: true
-    credentials: aws-positive
+    credentials:
+      - aws-positive
     framework: soc2
     storage: s3-evidence
     # No expected_policy_results — any valid status (pass/fail/skip) is OK.
@@ -151,7 +154,8 @@ scenarios:
   - name: soc2-aws-negative
     description: "SOC2 with minimal AWS perms — verifies fail-safe collection pattern"
     enabled: true
-    credentials: aws-negative
+    credentials:
+      - aws-negative
     framework: soc2
     # No storage — negative user lacks S3 write access
     assertions:
@@ -165,22 +169,46 @@ scenarios:
   - name: iso27001-aws-full
     description: "Full ISO27001 compliance check against AWS with S3 evidence storage"
     enabled: true
-    credentials: aws-positive
+    credentials:
+      - aws-positive
     framework: iso27001
     storage: s3-evidence
 
-  # --- Future scenarios ---
+  # --- Future scenarios (multi-provider) ---
 
-  # - name: soc2-github-full
-  #   description: "SOC2 check using GitHub org evidence"
+  # - name: soc2-aws-github
+  #   description: "SOC2 with AWS infra + GitHub code review evidence"
   #   enabled: false
-  #   credentials: github-org
+  #   credentials:
+  #     - aws-positive
+  #     - github-org
   #   framework: soc2
   #   storage: s3-evidence
 
-  # - name: soc2-gcp-full
-  #   description: "SOC2 check using GCP evidence"
+  # - name: soc2-full-stack
+  #   description: "SOC2 full-stack: AWS + GitHub + Workday evidence"
   #   enabled: false
-  #   credentials: gcp-project
+  #   credentials:
+  #     - aws-positive
+  #     - github-org
+  #     - workday-tenant
+  #   framework: soc2
+  #   storage: s3-evidence
+
+  # - name: soc2-gcp-gitlab
+  #   description: "SOC2 with GCP infra + GitLab code review evidence"
+  #   enabled: false
+  #   credentials:
+  #     - gcp-project
+  #     - gitlab-group
   #   framework: soc2
   #   storage: gcs-evidence
+
+  # - name: iso27001-azure-github
+  #   description: "ISO27001 with Azure infra + GitHub evidence"
+  #   enabled: false
+  #   credentials:
+  #     - azure-subscription
+  #     - github-org
+  #   framework: iso27001
+  #   storage: azure-blob-evidence
