@@ -3,11 +3,13 @@ package aws
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
@@ -15,6 +17,7 @@ import (
 type IAMClient interface {
 	ListUsers(ctx context.Context, params *iam.ListUsersInput, optFns ...func(*iam.Options)) (*iam.ListUsersOutput, error)
 	ListMFADevices(ctx context.Context, params *iam.ListMFADevicesInput, optFns ...func(*iam.Options)) (*iam.ListMFADevicesOutput, error)
+	GetLoginProfile(ctx context.Context, params *iam.GetLoginProfileInput, optFns ...func(*iam.Options)) (*iam.GetLoginProfileOutput, error)
 }
 
 // IAMUser represents an IAM user with MFA status.
@@ -25,7 +28,8 @@ type IAMUser struct {
 	CreateDate     time.Time `json:"create_date"`
 	PasswordLastUsed *time.Time `json:"password_last_used,omitempty"`
 	MFAEnabled     bool      `json:"mfa_enabled"`
-	MFADevices     []string  `json:"mfa_devices,omitempty"`
+	MFADevices      []string  `json:"mfa_devices,omitempty"`
+	HasLoginProfile bool      `json:"has_login_profile"`
 }
 
 // ToEvidence converts an IAMUser to an Evidence struct.
@@ -88,6 +92,9 @@ func (c *IAMCollector) CollectUsers(ctx context.Context) ([]IAMUser, error) {
 				user.MFADevices = mfaDevices
 			}
 
+			// Check login profile (console access)
+			user.HasLoginProfile = c.hasLoginProfile(ctx, user.UserName)
+
 			users = append(users, user)
 		}
 
@@ -117,6 +124,27 @@ func (c *IAMCollector) getMFADevices(ctx context.Context, userName string) ([]st
 	}
 
 	return devices, nil
+}
+
+// hasLoginProfile checks if a user has a login profile (console access).
+// Returns false for programmatic-only users (NoSuchEntityException).
+// Returns true on other errors as a fail-safe (assume console access).
+func (c *IAMCollector) hasLoginProfile(ctx context.Context, userName string) bool {
+	input := &iam.GetLoginProfileInput{
+		UserName: aws.String(userName),
+	}
+
+	_, err := c.client.GetLoginProfile(ctx, input)
+	if err != nil {
+		var noSuchEntity *types.NoSuchEntityException
+		if errors.As(err, &noSuchEntity) {
+			return false
+		}
+		// Fail-safe: if we can't determine, assume console access
+		return true
+	}
+
+	return true
 }
 
 // CollectEvidence collects IAM users as evidence.

@@ -14,8 +14,9 @@ import (
 
 // MockIAMClient is a mock implementation of IAMClient for testing.
 type MockIAMClient struct {
-	ListUsersFunc      func(ctx context.Context, params *iam.ListUsersInput, optFns ...func(*iam.Options)) (*iam.ListUsersOutput, error)
-	ListMFADevicesFunc func(ctx context.Context, params *iam.ListMFADevicesInput, optFns ...func(*iam.Options)) (*iam.ListMFADevicesOutput, error)
+	ListUsersFunc       func(ctx context.Context, params *iam.ListUsersInput, optFns ...func(*iam.Options)) (*iam.ListUsersOutput, error)
+	ListMFADevicesFunc  func(ctx context.Context, params *iam.ListMFADevicesInput, optFns ...func(*iam.Options)) (*iam.ListMFADevicesOutput, error)
+	GetLoginProfileFunc func(ctx context.Context, params *iam.GetLoginProfileInput, optFns ...func(*iam.Options)) (*iam.GetLoginProfileOutput, error)
 }
 
 func (m *MockIAMClient) ListUsers(ctx context.Context, params *iam.ListUsersInput, optFns ...func(*iam.Options)) (*iam.ListUsersOutput, error) {
@@ -26,16 +27,21 @@ func (m *MockIAMClient) ListMFADevices(ctx context.Context, params *iam.ListMFAD
 	return m.ListMFADevicesFunc(ctx, params, optFns...)
 }
 
+func (m *MockIAMClient) GetLoginProfile(ctx context.Context, params *iam.GetLoginProfileInput, optFns ...func(*iam.Options)) (*iam.GetLoginProfileOutput, error) {
+	return m.GetLoginProfileFunc(ctx, params, optFns...)
+}
+
 func TestIAMCollector_CollectUsers(t *testing.T) {
 	tests := []struct {
-		name           string
-		mockUsers      []types.User
-		mockMFADevices map[string][]types.MFADevice // username -> devices
-		wantCount      int
-		wantError      bool
+		name              string
+		mockUsers         []types.User
+		mockMFADevices    map[string][]types.MFADevice // username -> devices
+		mockLoginProfiles map[string]bool              // username -> has login profile
+		wantCount         int
+		wantError         bool
 	}{
 		{
-			name: "users with and without MFA",
+			name: "console users with and without MFA",
 			mockUsers: []types.User{
 				{UserName: aws.String("alice"), Arn: aws.String("arn:aws:iam::123456789012:user/alice")},
 				{UserName: aws.String("bob"), Arn: aws.String("arn:aws:iam::123456789012:user/bob")},
@@ -44,6 +50,10 @@ func TestIAMCollector_CollectUsers(t *testing.T) {
 				"alice": {{SerialNumber: aws.String("arn:aws:iam::123456789012:mfa/alice")}},
 				"bob":   {}, // No MFA
 			},
+			mockLoginProfiles: map[string]bool{
+				"alice": true, // Console user with MFA
+				"bob":   true, // Console user without MFA
+			},
 			wantCount: 2,
 			wantError: false,
 		},
@@ -51,6 +61,20 @@ func TestIAMCollector_CollectUsers(t *testing.T) {
 			name:      "no users",
 			mockUsers: []types.User{},
 			wantCount: 0,
+			wantError: false,
+		},
+		{
+			name: "programmatic-only user without MFA",
+			mockUsers: []types.User{
+				{UserName: aws.String("ci-bot"), Arn: aws.String("arn:aws:iam::123456789012:user/ci-bot")},
+			},
+			mockMFADevices: map[string][]types.MFADevice{
+				"ci-bot": {}, // No MFA
+			},
+			mockLoginProfiles: map[string]bool{
+				"ci-bot": false, // No console access
+			},
+			wantCount: 1,
 			wantError: false,
 		},
 	}
@@ -70,6 +94,13 @@ func TestIAMCollector_CollectUsers(t *testing.T) {
 						MFADevices: devices,
 					}, nil
 				},
+				GetLoginProfileFunc: func(ctx context.Context, params *iam.GetLoginProfileInput, optFns ...func(*iam.Options)) (*iam.GetLoginProfileOutput, error) {
+					hasProfile := tt.mockLoginProfiles[*params.UserName]
+					if !hasProfile {
+						return nil, &types.NoSuchEntityException{Message: aws.String("Login Profile for User " + *params.UserName + " cannot be found.")}
+					}
+					return &iam.GetLoginProfileOutput{}, nil
+				},
 			}
 
 			collector := &IAMCollector{client: mockIAM}
@@ -83,15 +114,17 @@ func TestIAMCollector_CollectUsers(t *testing.T) {
 			require.NoError(t, err)
 			assert.Len(t, users, tt.wantCount)
 
-			if tt.wantCount > 0 {
-				// Check alice has MFA enabled
-				for _, u := range users {
-					if u.UserName == "alice" {
-						assert.True(t, u.MFAEnabled, "alice should have MFA enabled")
-					}
-					if u.UserName == "bob" {
-						assert.False(t, u.MFAEnabled, "bob should not have MFA enabled")
-					}
+			for _, u := range users {
+				switch u.UserName {
+				case "alice":
+					assert.True(t, u.MFAEnabled, "alice should have MFA enabled")
+					assert.True(t, u.HasLoginProfile, "alice should have console access")
+				case "bob":
+					assert.False(t, u.MFAEnabled, "bob should not have MFA enabled")
+					assert.True(t, u.HasLoginProfile, "bob should have console access")
+				case "ci-bot":
+					assert.False(t, u.MFAEnabled, "ci-bot should not have MFA enabled")
+					assert.False(t, u.HasLoginProfile, "ci-bot should not have console access")
 				}
 			}
 		})
@@ -122,6 +155,9 @@ func TestIAMCollector_CollectUsers_Pagination(t *testing.T) {
 		ListMFADevicesFunc: func(ctx context.Context, params *iam.ListMFADevicesInput, optFns ...func(*iam.Options)) (*iam.ListMFADevicesOutput, error) {
 			return &iam.ListMFADevicesOutput{MFADevices: []types.MFADevice{}}, nil
 		},
+		GetLoginProfileFunc: func(ctx context.Context, params *iam.GetLoginProfileInput, optFns ...func(*iam.Options)) (*iam.GetLoginProfileOutput, error) {
+			return &iam.GetLoginProfileOutput{}, nil
+		},
 	}
 
 	collector := &IAMCollector{client: mockIAM}
@@ -144,6 +180,32 @@ func TestIAMCollector_CollectUsers_APIError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "access denied")
+}
+
+func TestIAMCollector_HasLoginProfile_FailSafe(t *testing.T) {
+	mockIAM := &MockIAMClient{
+		ListUsersFunc: func(ctx context.Context, params *iam.ListUsersInput, optFns ...func(*iam.Options)) (*iam.ListUsersOutput, error) {
+			return &iam.ListUsersOutput{
+				Users: []types.User{
+					{UserName: aws.String("unknown-user"), Arn: aws.String("arn:aws:iam::123456789012:user/unknown-user")},
+				},
+				IsTruncated: false,
+			}, nil
+		},
+		ListMFADevicesFunc: func(ctx context.Context, params *iam.ListMFADevicesInput, optFns ...func(*iam.Options)) (*iam.ListMFADevicesOutput, error) {
+			return &iam.ListMFADevicesOutput{MFADevices: []types.MFADevice{}}, nil
+		},
+		GetLoginProfileFunc: func(ctx context.Context, params *iam.GetLoginProfileInput, optFns ...func(*iam.Options)) (*iam.GetLoginProfileOutput, error) {
+			return nil, errors.New("access denied")
+		},
+	}
+
+	collector := &IAMCollector{client: mockIAM}
+	users, err := collector.CollectUsers(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, users, 1)
+	assert.True(t, users[0].HasLoginProfile, "should default to true on non-NoSuchEntity errors (fail-safe)")
 }
 
 func TestIAMCollector_ToEvidence(t *testing.T) {

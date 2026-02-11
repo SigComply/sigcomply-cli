@@ -122,19 +122,22 @@ signing:
 # always verified. Storage phases only run when "storage" is set.
 # ---------------------------------------------------------------------------
 scenarios:
-  # ---- Positive policy results (compliant account) ----
-  # Requires: MFA enabled on all IAM users, S3 encryption, CloudTrail active.
-  # Enable this after setting up MFA on sigcomply-e2e-positive.
+  # ---- Policy results with mixed console/programmatic users ----
+  # Account has 4 IAM users:
+  #   - sigcomply-e2e-positive:      programmatic-only (no login profile) — exempt from MFA
+  #   - sigcomply-e2e-negative:      programmatic-only (no login profile) — exempt from MFA
+  #   - sigcomply-e2e-console-mfa:   console user WITH MFA — passes
+  #   - sigcomply-e2e-console-nomfa: console user WITHOUT MFA — triggers violation
   - name: soc2-aws-compliant
-    description: "SOC2 check expecting policy PASS results — validates compliant account detection"
-    enabled: false  # Enable after MFA setup on test user
+    description: "SOC2 check — validates programmatic-only exemption and console user MFA detection"
+    enabled: true
     credentials:
       - aws-positive
     framework: soc2
     storage: s3-evidence
     assertions:
       expected_policy_results:
-        "soc2-cc6.1-mfa": pass           # MFA enabled on all users
+        "soc2-cc6.1-mfa": fail           # console-nomfa user triggers violation; programmatic-only users exempt
         "soc2-cc6.2-encryption": fail     # AES256 triggers low-severity warning (not KMS)
 
   # ---- Mixed policy results (real-world account) ----

@@ -8,18 +8,20 @@ package sigcomply.soc2.cc6_1
 
 metadata := {
 	"id": "soc2-cc6.1-mfa",
-	"name": "MFA Required for All Users",
+	"name": "MFA Required for Console Users",
 	"framework": "soc2",
 	"control": "CC6.1",
 	"severity": "high",
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:user"],
-	"remediation": "Enable MFA for the user via the AWS Console or CLI: aws iam enable-mfa-device",
+	"remediation": "Enable MFA for the user via the AWS Console or CLI: aws iam enable-mfa-device. Programmatic-only users (no console access) are exempt from this policy.",
 }
 
-# violations contains a violation if the user does not have MFA enabled
+# violations contains a violation if a console user does not have MFA enabled
+# Programmatic-only users (no login profile) are exempt as they cannot use MFA
 violations contains violation if {
 	input.resource_type == "aws:iam:user"
+	input.data.has_login_profile == true
 	input.data.mfa_enabled == false
 	violation := {
 		"resource_id": input.resource_id,

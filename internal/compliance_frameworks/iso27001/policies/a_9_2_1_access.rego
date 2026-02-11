@@ -18,8 +18,10 @@ metadata := {
 }
 
 # AWS IAM User - Check for MFA as part of access provisioning security
+# Programmatic-only users (no login profile) are exempt as they cannot use MFA
 violations contains violation if {
 	input.resource_type == "aws:iam:user"
+	input.data.has_login_profile == true
 	input.data.mfa_enabled == false
 	violation := {
 		"resource_id": input.resource_id,
