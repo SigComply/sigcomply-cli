@@ -114,6 +114,10 @@ signing:
 # env vars are missing are skipped, not failed — safe for local dev where
 # you may only have one set of credentials.
 #
+# Optional fields:
+#   collectors  - limit collection to specific providers/services
+#   policies    - filter which policies are evaluated (include/exclude)
+#
 # Assertions:
 #   collection_errors_expected  - true for negative/permission-denied tests
 #   expected_policy_results     - assert specific pass/fail/skip per policy
@@ -176,6 +180,24 @@ scenarios:
       - aws-positive
     framework: iso27001
     storage: s3-evidence
+
+  # ---- Selective: only IAM evidence, only MFA policy ----
+  # Demonstrates per-scenario collector/policy filtering.
+  # Collects only IAM evidence and evaluates only the MFA policy.
+  - name: soc2-mfa-only
+    description: "SOC2 MFA-only check — selective collector and policy filtering"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [iam]
+    policies:
+      include: ["soc2-cc6.1-mfa"]
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.1-mfa": fail
 
   # --- Future scenarios (multi-provider) ---
 

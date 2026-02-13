@@ -1,11 +1,17 @@
 //go:build e2e
 
-package e2e
+package e2e_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	// Blank import to trigger collector init() registration.
+	_ "github.com/sigcomply/sigcomply-cli/test/e2e/collectors"
+
+	"github.com/sigcomply/sigcomply-cli/test/e2e/config"
+	"github.com/sigcomply/sigcomply-cli/test/e2e/pipeline"
 )
 
 // TestE2EFullFlow runs the full compliance pipeline for each enabled scenario:
@@ -15,7 +21,7 @@ import (
 // credentials via t.Setenv. Scenarios whose credential env vars are missing
 // are skipped, not failed — safe for local dev.
 func TestE2EFullFlow(t *testing.T) {
-	cfg, err := LoadConfig()
+	cfg, err := config.LoadConfig()
 	require.NoError(t, err, "Failed to load E2E config")
 
 	scenarios := cfg.EnabledScenarios()
@@ -25,7 +31,7 @@ func TestE2EFullFlow(t *testing.T) {
 		scenario := scenario // capture loop variable
 		t.Run(scenario.Name, func(t *testing.T) {
 			// Resolve all credential profiles — skip scenario if any env vars missing
-			var allCreds []*ResolvedCredentials
+			var allCreds []*config.ResolvedCredentials
 			for _, profileName := range scenario.Credentials {
 				creds, err := cfg.ResolveCredentials(profileName)
 				if err != nil {
@@ -38,10 +44,10 @@ func TestE2EFullFlow(t *testing.T) {
 			// Set standard SDK env vars for all providers in this scenario.
 			// t.Setenv restores original values after the subtest completes.
 			for _, creds := range allCreds {
-				applyCredentials(t, creds)
+				config.ApplyCredentials(t, creds)
 			}
 
-			runScenario(t, cfg, allCreds, &scenario)
+			pipeline.RunScenario(t, cfg, allCreds, &scenario)
 		})
 	}
 }

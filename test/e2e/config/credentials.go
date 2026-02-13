@@ -1,6 +1,6 @@
 //go:build e2e
 
-package e2e
+package config
 
 import "testing"
 
@@ -35,11 +35,11 @@ var providerSDKEnvVars = map[string]map[string]string{
 	},
 }
 
-// applyCredentials sets the standard SDK environment variables for a provider
+// ApplyCredentials sets the standard SDK environment variables for a provider
 // using t.Setenv (automatically restored after the test completes).
 // This allows each scenario to run with its own credentials without
 // cross-contamination — no t.Parallel() needed.
-func applyCredentials(t *testing.T, creds *ResolvedCredentials) {
+func ApplyCredentials(t *testing.T, creds *ResolvedCredentials) {
 	t.Helper()
 
 	mapping, ok := providerSDKEnvVars[creds.Provider]

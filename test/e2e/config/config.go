@@ -1,6 +1,7 @@
 //go:build e2e
 
-package e2e
+// Package config provides types and loading for E2E test configuration.
+package config
 
 import (
 	"fmt"
@@ -51,6 +52,18 @@ type SigningConfig struct {
 	DefaultSecret string            `yaml:"default_secret"`
 }
 
+// CollectorFilter specifies which provider and services to collect from.
+type CollectorFilter struct {
+	Provider string   `yaml:"provider"`
+	Services []string `yaml:"services,omitempty"`
+}
+
+// PolicyFilter controls which policies are evaluated.
+type PolicyFilter struct {
+	Include []string `yaml:"include,omitempty"`
+	Exclude []string `yaml:"exclude,omitempty"`
+}
+
 // Scenario defines a single E2E test scenario.
 type Scenario struct {
 	Name        string            `yaml:"name"`
@@ -59,7 +72,9 @@ type Scenario struct {
 	Credentials []string          `yaml:"credentials"` // references credential profile names (multi-provider)
 	Framework   string            `yaml:"framework"`
 	Storage     string            `yaml:"storage"`  // references a storage profile name (optional)
-	Cleanup     *bool             `yaml:"cleanup"` // nil = inherit from defaults, false = skip, true = force
+	Cleanup     *bool             `yaml:"cleanup"`  // nil = inherit from defaults, false = skip, true = force
+	Collectors  []CollectorFilter `yaml:"collectors,omitempty"`
+	Policies    *PolicyFilter     `yaml:"policies,omitempty"`
 	Assertions  ScenarioAssertion `yaml:"assertions"`
 }
 
@@ -105,8 +120,8 @@ func LoadConfig() (*E2EConfig, error) {
 		return nil, fmt.Errorf("failed to determine config.go source path")
 	}
 
-	// Navigate from test/e2e/config.go -> ../../e2e/config.yaml
-	configPath := filepath.Join(filepath.Dir(thisFile), "..", "..", "e2e", "config.yaml")
+	// Navigate from test/e2e/config/config.go -> ../../../e2e/config.yaml
+	configPath := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "e2e", "config.yaml")
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {

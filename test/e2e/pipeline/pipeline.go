@@ -1,6 +1,7 @@
 //go:build e2e
 
-package e2e
+// Package pipeline provides the E2E test scenario orchestration.
+package pipeline
 
 import (
 	"context"
@@ -15,10 +16,16 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/engine"
 	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
-	"github.com/sigcomply/sigcomply-cli/internal/core/storage"
+	corestorage "github.com/sigcomply/sigcomply-cli/internal/core/storage"
+	"github.com/sigcomply/sigcomply-cli/test/e2e/collectors"
+	"github.com/sigcomply/sigcomply-cli/test/e2e/config"
+	"github.com/sigcomply/sigcomply-cli/test/e2e/frameworks"
+	e2estorage "github.com/sigcomply/sigcomply-cli/test/e2e/storage"
 )
 
-func runScenario(t *testing.T, cfg *E2EConfig, allCreds []*ResolvedCredentials, scenario *Scenario) {
+// RunScenario runs the full compliance pipeline for one scenario:
+// collect -> evaluate -> hash -> sign -> store -> verify.
+func RunScenario(t *testing.T, cfg *config.E2EConfig, allCreds []*config.ResolvedCredentials, scenario *config.Scenario) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -31,14 +38,66 @@ func runScenario(t *testing.T, cfg *E2EConfig, allCreds []*ResolvedCredentials, 
 	t.Logf("Scenario: %s | Framework: %s | Providers: %s",
 		scenario.Name, scenario.Framework, strings.Join(providers, ", "))
 
+	// Build collector filter map from scenario config.
+	// nil map means collect everything; non-nil means only collect from specified providers.
+	var collectorFilters map[string][]string
+	if len(scenario.Collectors) > 0 {
+		collectorFilters = make(map[string][]string)
+		for _, cf := range scenario.Collectors {
+			collectorFilters[cf.Provider] = cf.Services // nil services = all services for that provider
+		}
+	}
+
 	// ===== Phase 1: Collect Evidence =====
 	var evidenceList []evidence.Evidence
 
 	t.Run("collect-evidence", func(t *testing.T) {
 		for _, creds := range allCreds {
-			collected, err := collectEvidence(t, ctx, creds, scenario)
-			require.NoError(t, err, "Evidence collection failed for provider %s", creds.Provider)
-			evidenceList = append(evidenceList, collected...)
+			// If filters are set, skip providers not in the filter list
+			if collectorFilters != nil {
+				if _, ok := collectorFilters[creds.Provider]; !ok {
+					t.Logf("Skipping provider %s (not in collector filters)", creds.Provider)
+					continue
+				}
+			}
+
+			collector, err := collectors.Get(creds.Provider)
+			if err != nil {
+				t.Fatalf("No collector for provider %q: %v", creds.Provider, err)
+			}
+
+			err = collector.Init(ctx, t, creds)
+			require.NoError(t, err, "Collector init failed for provider %s", creds.Provider)
+
+			// Get service filter for this provider (nil = all services)
+			var services []string
+			if collectorFilters != nil {
+				services = collectorFilters[creds.Provider]
+			}
+
+			result, collectErr := collector.Collect(ctx, t, services)
+			require.NoError(t, collectErr, "Evidence collection failed for provider %s", creds.Provider)
+
+			if scenario.Assertions.CollectionErrorsExpected {
+				assert.True(t, result.HasErrors(),
+					"Expected collection errors (negative test) but got none")
+				for _, e := range result.Errors {
+					t.Logf("Expected collection error: service=%s error=%s", e.Service, e.Error)
+				}
+			} else if result.HasErrors() {
+				for _, e := range result.Errors {
+					t.Logf("Collection warning: service=%s error=%s", e.Service, e.Error)
+				}
+			}
+
+			evidenceList = append(evidenceList, result.Evidence...)
+
+			// Always require evidence for positive scenarios
+			if !scenario.Assertions.CollectionErrorsExpected {
+				require.NotEmpty(t, result.Evidence, "No evidence collected from provider %s", creds.Provider)
+			}
+
+			t.Logf("Collected %d evidence items from %s", len(result.Evidence), creds.Provider)
 		}
 	})
 
@@ -60,7 +119,7 @@ func runScenario(t *testing.T, cfg *E2EConfig, allCreds []*ResolvedCredentials, 
 	var policyResults []evidence.PolicyResult
 
 	t.Run("evaluate-policies", func(t *testing.T) {
-		framework := resolveFramework(scenario.Framework)
+		framework := frameworks.Resolve(scenario.Framework)
 		require.NotNil(t, framework, "Unknown framework: %s", scenario.Framework)
 
 		eng := engine.New()
@@ -77,6 +136,16 @@ func runScenario(t *testing.T, cfg *E2EConfig, allCreds []*ResolvedCredentials, 
 		policyResults, evalErr = eng.Evaluate(ctx, evidenceList)
 		require.NoError(t, evalErr, "Policy evaluation failed")
 		require.NotEmpty(t, policyResults, "No policy results produced")
+
+		// Apply policy filtering if configured
+		if scenario.Policies != nil {
+			var include, exclude []string
+			if scenario.Policies != nil {
+				include = scenario.Policies.Include
+				exclude = scenario.Policies.Exclude
+			}
+			policyResults = frameworks.FilterResults(policyResults, include, exclude)
+		}
 
 		for _, pr := range policyResults {
 			assert.True(t, pr.Status.IsValid(),
@@ -172,37 +241,37 @@ func runScenario(t *testing.T, cfg *E2EConfig, allCreds []*ResolvedCredentials, 
 	if storageRegion == "" {
 		storageRegion = "us-east-1"
 	}
-	prefix := testPrefix(scenario.Name)
+	prefix := e2estorage.TestPrefix(scenario.Name)
 
-	// Create S3 client for verification/cleanup (uses credentials set by applyCredentials)
-	s3Client := newS3Client(t, storageRegion)
+	// Create S3 client for verification/cleanup (uses credentials set by ApplyCredentials)
+	s3Client := e2estorage.NewS3Client(t, storageRegion)
 
 	// Register cleanup — runs even on failure/panic (unless cleanup is disabled)
-	registerCleanup(t, cfg, scenario, func() {
-		cleanupS3Prefix(t, s3Client, bucket, prefix)
+	config.RegisterCleanup(t, cfg, scenario, func() {
+		e2estorage.CleanupS3Prefix(t, s3Client, bucket, prefix)
 	})
 
-	var manifest *storage.Manifest
+	var manifest *corestorage.Manifest
 
 	t.Run("store-evidence-s3", func(t *testing.T) {
-		storageCfg := &storage.Config{
+		storageCfg := &corestorage.Config{
 			Backend: "s3",
-			S3: &storage.S3Config{
+			S3: &corestorage.S3Config{
 				Bucket: bucket,
 				Region: storageRegion,
 				Prefix: prefix,
 			},
 		}
 
-		backend, err := storage.NewBackend(storageCfg)
-		require.NoError(t, err, "NewBackend failed")
+		backend, storageErr := corestorage.NewBackend(storageCfg)
+		require.NoError(t, storageErr, "NewBackend failed")
 
-		err = backend.Init(ctx)
-		require.NoError(t, err, "Storage backend Init failed")
+		storageErr = backend.Init(ctx)
+		require.NoError(t, storageErr, "Storage backend Init failed")
 		defer backend.Close() //nolint:errcheck
 
-		manifest, err = storage.StoreRun(ctx, backend, checkResult, evidenceList)
-		require.NoError(t, err, "StoreRun failed")
+		manifest, storageErr = corestorage.StoreRun(ctx, backend, checkResult, evidenceList)
+		require.NoError(t, storageErr, "StoreRun failed")
 		require.NotNil(t, manifest, "Manifest is nil")
 
 		assert.Equal(t, runID, manifest.RunID)
@@ -217,6 +286,6 @@ func runScenario(t *testing.T, cfg *E2EConfig, allCreds []*ResolvedCredentials, 
 
 	// ===== Phase 6: Verify S3 Objects =====
 	t.Run("verify-s3-objects", func(t *testing.T) {
-		verifyS3Objects(t, s3Client, bucket, prefix)
+		e2estorage.VerifyS3Objects(t, s3Client, bucket, prefix)
 	})
 }

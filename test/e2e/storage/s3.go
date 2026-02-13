@@ -1,32 +1,63 @@
 //go:build e2e
 
-package e2e
+package e2estorage
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/sigcomply/sigcomply-cli/test/e2e/config"
 )
 
-// testPrefix generates a unique S3 key prefix for a test scenario.
-// Format: e2e-test/<scenario>/<timestamp>-<uuid>/
-func testPrefix(scenarioName string) string {
-	ts := time.Now().UTC().Format("20060102-150405")
-	id := uuid.New().String()[:8]
-	return fmt.Sprintf("e2e-test/%s/%s-%s/", scenarioName, ts, id)
+func init() {
+	RegisterVerifier("s3", func() Verifier { return &S3Verifier{} })
 }
 
-// newS3Client creates a raw AWS S3 client for verification and cleanup.
-func newS3Client(t *testing.T, region string) *s3.Client {
+// S3Verifier implements Verifier for S3 storage.
+type S3Verifier struct {
+	client *s3.Client
+	bucket string
+	prefix string
+	region string
+}
+
+// Backend returns "s3".
+func (v *S3Verifier) Backend() string { return "s3" }
+
+// Setup initializes the S3 verifier.
+func (v *S3Verifier) Setup(t *testing.T, storage *config.ResolvedStorage, prefix string) {
+	t.Helper()
+
+	v.bucket = storage.Config["bucket"]
+	v.region = storage.Config["region"]
+	if v.region == "" {
+		v.region = "us-east-1"
+	}
+	v.prefix = prefix
+	v.client = NewS3Client(t, v.region)
+}
+
+// Verify checks that evidence and check_result.json files exist in S3.
+func (v *S3Verifier) Verify(t *testing.T, _ context.Context) {
+	t.Helper()
+	VerifyS3Objects(t, v.client, v.bucket, v.prefix)
+}
+
+// Cleanup removes all objects under the test prefix.
+func (v *S3Verifier) Cleanup(t *testing.T) {
+	t.Helper()
+	CleanupS3Prefix(t, v.client, v.bucket, v.prefix)
+}
+
+// NewS3Client creates a raw AWS S3 client for verification and cleanup.
+func NewS3Client(t *testing.T, region string) *s3.Client {
 	t.Helper()
 
 	cfg, err := awsconfig.LoadDefaultConfig(context.Background(),
@@ -39,9 +70,9 @@ func newS3Client(t *testing.T, region string) *s3.Client {
 	return s3.NewFromConfig(cfg)
 }
 
-// cleanupS3Prefix deletes all objects under a prefix in S3.
+// CleanupS3Prefix deletes all objects under a prefix in S3.
 // Intended for use with t.Cleanup to ensure test artifacts are removed.
-func cleanupS3Prefix(t *testing.T, client *s3.Client, bucket, prefix string) {
+func CleanupS3Prefix(t *testing.T, client *s3.Client, bucket, prefix string) {
 	t.Helper()
 	ctx := context.Background()
 
@@ -71,8 +102,8 @@ func cleanupS3Prefix(t *testing.T, client *s3.Client, bucket, prefix string) {
 	t.Logf("Cleaned up S3 prefix: s3://%s/%s", bucket, prefix)
 }
 
-// listS3Objects lists all object keys under a prefix in S3.
-func listS3Objects(t *testing.T, client *s3.Client, bucket, prefix string) []string {
+// ListS3Objects lists all object keys under a prefix in S3.
+func ListS3Objects(t *testing.T, client *s3.Client, bucket, prefix string) []string {
 	t.Helper()
 	ctx := context.Background()
 
@@ -96,12 +127,12 @@ func listS3Objects(t *testing.T, client *s3.Client, bucket, prefix string) []str
 	return keys
 }
 
-// verifyS3Objects lists S3 objects under the prefix and asserts that evidence
+// VerifyS3Objects lists S3 objects under the prefix and asserts that evidence
 // and check_result.json files exist.
-func verifyS3Objects(t *testing.T, client *s3.Client, bucket, prefix string) {
+func VerifyS3Objects(t *testing.T, client *s3.Client, bucket, prefix string) {
 	t.Helper()
 
-	keys := listS3Objects(t, client, bucket, prefix)
+	keys := ListS3Objects(t, client, bucket, prefix)
 	require.NotEmpty(t, keys, "No S3 objects found under prefix %s", prefix)
 
 	var hasEvidence, hasCheckResult bool
