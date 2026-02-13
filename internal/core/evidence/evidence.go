@@ -102,6 +102,7 @@ type Violation struct {
 type PolicyResult struct {
 	PolicyID           string       `json:"policy_id"`
 	ControlID          string       `json:"control_id"`
+	Name               string       `json:"name"`
 	Status             ResultStatus `json:"status"`
 	Severity           Severity     `json:"severity"`
 	Message            string       `json:"message"`
@@ -109,6 +110,7 @@ type PolicyResult struct {
 	ResourcesEvaluated int          `json:"resources_evaluated"`
 	ResourcesFailed    int          `json:"resources_failed"`
 	Violations         []Violation  `json:"violations,omitempty"`
+	ResourceTypes      []string     `json:"resource_types,omitempty"`
 }
 
 // HasViolations returns true if there are any violations.

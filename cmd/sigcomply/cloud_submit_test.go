@@ -46,10 +46,12 @@ func TestBuildAttestation(t *testing.T) {
 
 	manifest := &storage.Manifest{
 		RunID:         "run-123",
+		Framework:     "soc2",
+		Timestamp:     time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
 		EvidenceCount: 2,
 		Items: []storage.StoredItem{
 			{
-				Path: "runs/run-123/manifest.json",
+				Path: "runs/soc2/2026-01-17/10-00-00/manifest.json",
 				Hash: "abc123hash",
 				Metadata: map[string]string{
 					"type":   "manifest",
@@ -122,10 +124,12 @@ func TestBuildAttestation_WithStorageLocation(t *testing.T) {
 	}
 
 	manifest := &storage.Manifest{
-		RunID: "run-789",
+		RunID:     "run-789",
+		Framework: "soc2",
+		Timestamp: time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC),
 		Items: []storage.StoredItem{
 			{
-				Path: "compliance/runs/run-789/manifest.json",
+				Path: "compliance/runs/soc2/2026-02-14/manifest.json",
 				Hash: "manifesthash789",
 				Metadata: map[string]string{
 					"type":   "manifest",
@@ -141,7 +145,7 @@ func TestBuildAttestation_WithStorageLocation(t *testing.T) {
 	assert.Equal(t, "s3", att.StorageLocation.Backend)
 	assert.Equal(t, "my-evidence-bucket", att.StorageLocation.Bucket)
 	assert.Equal(t, "compliance/", att.StorageLocation.Path)
-	assert.Equal(t, "compliance/runs/run-789/manifest.json", att.StorageLocation.ManifestPath)
+	assert.Equal(t, "compliance/runs/soc2/2026-02-14/manifest.json", att.StorageLocation.ManifestPath)
 }
 
 func TestBuildCloudSubmitRequest(t *testing.T) {
@@ -178,10 +182,12 @@ func TestBuildCloudSubmitRequest(t *testing.T) {
 	}
 
 	manifest := &storage.Manifest{
-		RunID: "run-123",
+		RunID:     "run-123",
+		Framework: "soc2",
+		Timestamp: time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC),
 		Items: []storage.StoredItem{
 			{
-				Path: "evidence/runs/run-123/manifest.json",
+				Path: "evidence/runs/soc2/2026-02-14/manifest.json",
 				Hash: "manifesthash",
 				Metadata: map[string]string{
 					"type":   "manifest",
@@ -203,7 +209,7 @@ func TestBuildCloudSubmitRequest(t *testing.T) {
 	assert.Equal(t, "my-bucket", req.EvidenceLocation.Bucket)
 	assert.Equal(t, "evidence/", req.EvidenceLocation.Path)
 	assert.Equal(t, "s3://my-bucket/evidence/", req.EvidenceLocation.URL)
-	assert.Equal(t, "evidence/runs/run-123/manifest.json", req.EvidenceLocation.ManifestPath)
+	assert.Equal(t, "evidence/runs/soc2/2026-02-14/manifest.json", req.EvidenceLocation.ManifestPath)
 
 	assert.True(t, req.RunMetadata.CI)
 	assert.Equal(t, "github-actions", req.RunMetadata.CIProvider)
@@ -231,10 +237,12 @@ func TestBuildCloudSubmitRequest_LocalStorage(t *testing.T) {
 	}
 
 	manifest := &storage.Manifest{
-		RunID: "run-456",
+		RunID:     "run-456",
+		Framework: "soc2",
+		Timestamp: time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC),
 		Items: []storage.StoredItem{
 			{
-				Path: "/var/sigcomply/evidence/runs/run-456/manifest.json",
+				Path: "runs/soc2/2026-02-14/manifest.json",
 				Hash: "manifesthashlocal",
 				Metadata: map[string]string{
 					"type":   "manifest",
@@ -249,7 +257,7 @@ func TestBuildCloudSubmitRequest_LocalStorage(t *testing.T) {
 	assert.Equal(t, "local", req.EvidenceLocation.Backend)
 	assert.Equal(t, "/var/sigcomply/evidence", req.EvidenceLocation.Path)
 	assert.Equal(t, "file:///var/sigcomply/evidence", req.EvidenceLocation.URL)
-	assert.Equal(t, "/var/sigcomply/evidence/runs/run-456/manifest.json", req.EvidenceLocation.ManifestPath)
+	assert.Equal(t, "/var/sigcomply/evidence/runs/soc2/2026-02-14/manifest.json", req.EvidenceLocation.ManifestPath)
 }
 
 func TestSubmitToCloud_Success(t *testing.T) {

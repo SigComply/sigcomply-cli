@@ -189,11 +189,13 @@ func (e *Engine) Evaluate(ctx context.Context, evidenceList []evidence.Evidence)
 		if err != nil {
 			// Return error result for this policy
 			results = append(results, evidence.PolicyResult{
-				PolicyID:  policy.ID,
-				ControlID: policy.Control,
-				Status:    evidence.StatusError,
-				Severity:  policy.Severity,
-				Message:   fmt.Sprintf("Policy evaluation error: %v", err),
+				PolicyID:      policy.ID,
+				ControlID:     policy.Control,
+				Name:          policy.Name,
+				Status:        evidence.StatusError,
+				Severity:      policy.Severity,
+				Message:       fmt.Sprintf("Policy evaluation error: %v", err),
+				ResourceTypes: policy.ResourceTypes,
 			})
 			continue
 		}
@@ -209,9 +211,11 @@ func (e *Engine) evaluatePolicy(ctx context.Context, policy *LoadedPolicy, evide
 	matchingEvidence := e.filterEvidence(evidenceList, policy.ResourceTypes)
 
 	result := &evidence.PolicyResult{
-		PolicyID:  policy.ID,
-		ControlID: policy.Control,
-		Severity:  policy.Severity,
+		PolicyID:      policy.ID,
+		ControlID:     policy.Control,
+		Name:          policy.Name,
+		Severity:      policy.Severity,
+		ResourceTypes: policy.ResourceTypes,
 	}
 
 	// If no matching resources, skip the policy

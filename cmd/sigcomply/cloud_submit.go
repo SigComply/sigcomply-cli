@@ -118,7 +118,7 @@ func buildAttestation(cfg *config.Config, checkResult *evidence.CheckResult, evi
 			Path:    cfg.Storage.Prefix, // cfg.Storage.Prefix maps to StorageLocation.Path
 		}
 		if manifest != nil {
-			att.StorageLocation.ManifestPath = computeManifestPath(cfg, manifest.RunID)
+			att.StorageLocation.ManifestPath = computeManifestPath(cfg, manifest)
 		}
 	}
 
@@ -172,25 +172,43 @@ func buildCloudSubmitRequest(cfg *config.Config, checkResult *evidence.CheckResu
 		}
 
 		if manifest != nil {
-			req.EvidenceLocation.ManifestPath = computeManifestPath(cfg, manifest.RunID)
+			req.EvidenceLocation.ManifestPath = computeManifestPath(cfg, manifest)
 		}
 	}
 
 	return req
 }
 
-// computeManifestPath computes the manifest path based on storage config and run ID.
-func computeManifestPath(cfg *config.Config, runID string) string {
+// computeManifestPath computes the manifest path from the manifest's stored items.
+// With the new auditor-friendly layout, the manifest path is stored in the manifest itself.
+func computeManifestPath(cfg *config.Config, manifest *storage.Manifest) string {
+	// Find the manifest item in stored items (it contains the actual path)
+	for _, item := range manifest.Items {
+		if item.Metadata != nil && item.Metadata["type"] == "manifest" {
+			switch cfg.Storage.Backend {
+			case backendS3:
+				// S3 paths already include the prefix
+				return item.Path
+			case backendLocal:
+				return cfg.Storage.Path + "/" + item.Path
+			default:
+				return item.Path
+			}
+		}
+	}
+
+	// Fallback: compute from RunPath
+	rp := storage.NewRunPath(manifest.Framework, manifest.Timestamp)
 	switch cfg.Storage.Backend {
 	case backendS3:
 		if cfg.Storage.Prefix != "" {
-			return cfg.Storage.Prefix + "runs/" + runID + "/manifest.json"
+			return cfg.Storage.Prefix + rp.ManifestPath()
 		}
-		return "runs/" + runID + "/manifest.json"
+		return rp.ManifestPath()
 	case backendLocal:
-		return cfg.Storage.Path + "/runs/" + runID + "/manifest.json"
+		return cfg.Storage.Path + "/" + rp.ManifestPath()
 	default:
-		return "runs/" + runID + "/manifest.json"
+		return rp.ManifestPath()
 	}
 }
 
@@ -206,6 +224,17 @@ func submitToCloud(ctx context.Context, cfg *config.Config, checkResult *evidenc
 	att, err := buildAttestation(cfg, checkResult, evidenceList, manifest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build attestation: %w", err)
+	}
+
+	return submitToCloudWithAttestation(ctx, cfg, checkResult, manifest, att, baseURL)
+}
+
+// submitToCloudWithAttestation submits check results with a pre-built attestation.
+// Returns nil, nil if cloud submission is not configured.
+func submitToCloudWithAttestation(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, manifest *storage.Manifest, att *attestation.Attestation, baseURL string) (*cloud.SubmitResponse, error) {
+	// Skip if cloud is not enabled or no token
+	if !cfg.CloudEnabled || cfg.APIToken == "" {
+		return nil, nil
 	}
 
 	// Build submission request

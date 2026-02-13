@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -13,7 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 // S3Backend implements storage using Amazon S3.
@@ -60,30 +58,17 @@ func (b *S3Backend) Init(ctx context.Context) error {
 	return nil
 }
 
-// Store saves evidence to S3.
-func (b *S3Backend) Store(ctx context.Context, ev *evidence.Evidence) (*StoredItem, error) {
-	// Build key: <prefix>/evidence/<resource_type>/<resource_id>.json
-	resourcePath := strings.ReplaceAll(ev.ResourceType, ":", "/")
-	filename := sanitizeFilename(ev.ResourceID) + ".json"
-	key := buildS3Key(b.cfg.Prefix, "evidence", resourcePath, filename)
-
-	// Marshal evidence to JSON
-	data, err := json.MarshalIndent(ev, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal evidence: %w", err)
-	}
+// StoreRaw saves raw data to S3 at the given path.
+func (b *S3Backend) StoreRaw(ctx context.Context, path string, data []byte, metadata map[string]string) (*StoredItem, error) {
+	key := buildS3Key(b.cfg.Prefix, path)
 
 	// Upload to S3
-	_, err = b.client.PutObject(ctx, &s3.PutObjectInput{
+	_, err := b.client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:      aws.String(b.cfg.Bucket),
 		Key:         aws.String(key),
 		Body:        strings.NewReader(string(data)),
 		ContentType: aws.String("application/json"),
-		Metadata: map[string]string{
-			"resource_type": ev.ResourceType,
-			"resource_id":   ev.ResourceID,
-			"collector":     ev.Collector,
-		},
+		Metadata:    metadata,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload to S3: %w", err)
@@ -98,58 +83,7 @@ func (b *S3Backend) Store(ctx context.Context, ev *evidence.Evidence) (*StoredIt
 		Size:        int64(len(data)),
 		StoredAt:    time.Now().UTC(),
 		ContentType: "application/json",
-		Metadata: map[string]string{
-			"resource_type": ev.ResourceType,
-			"resource_id":   ev.ResourceID,
-			"collector":     ev.Collector,
-		},
-	}, nil
-}
-
-// StoreCheckResult saves a complete check result to S3.
-func (b *S3Backend) StoreCheckResult(ctx context.Context, result *evidence.CheckResult) (*StoredItem, error) {
-	// Build key: <prefix>/runs/<run_id>/check_result.json
-	runID := result.RunID
-	if runID == "" {
-		runID = time.Now().UTC().Format("20060102-150405")
-	}
-
-	key := buildS3Key(b.cfg.Prefix, "runs", runID, "check_result.json")
-
-	// Marshal result to JSON
-	data, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal check result: %w", err)
-	}
-
-	// Upload to S3
-	_, err = b.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:      aws.String(b.cfg.Bucket),
-		Key:         aws.String(key),
-		Body:        strings.NewReader(string(data)),
-		ContentType: aws.String("application/json"),
-		Metadata: map[string]string{
-			"run_id":    runID,
-			"framework": result.Framework,
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to upload to S3: %w", err)
-	}
-
-	// Compute hash
-	hash := sha256.Sum256(data)
-
-	return &StoredItem{
-		Path:        key,
-		Hash:        hex.EncodeToString(hash[:]),
-		Size:        int64(len(data)),
-		StoredAt:    time.Now().UTC(),
-		ContentType: "application/json",
-		Metadata: map[string]string{
-			"run_id":    runID,
-			"framework": result.Framework,
-		},
+		Metadata:    metadata,
 	}, nil
 }
 

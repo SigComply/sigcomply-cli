@@ -2,17 +2,261 @@ package storage
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
+	"strings"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
+
+// StoredPolicyResult wraps PolicyResult with storage-specific fields for the per-policy result.json.
+type StoredPolicyResult struct {
+	evidence.PolicyResult
+	EvidenceFiles []string `json:"evidence_files"`
+}
+
+// StoreRun stores all evidence and check results in an auditor-friendly, policy-centric layout:
+//
+//	<prefix>/runs/<framework>/<date>/<time>/
+//	  manifest.json
+//	  attestation.json
+//	  check_result.json
+//	  <policy-slug>/
+//	    result.json
+//	    evidence/<descriptor>.json
+func StoreRun(ctx context.Context, backend Backend, result *evidence.CheckResult,
+	evidenceList []evidence.Evidence, att *attestation.Attestation) (*Manifest, error) {
+
+	runPath := NewRunPath(result.Framework, result.Timestamp)
+
+	manifest := &Manifest{
+		RunID:     result.RunID,
+		Framework: result.Framework,
+		Timestamp: result.Timestamp,
+		Backend:   backend.Name(),
+		Items:     []StoredItem{},
+	}
+
+	// Build resource type → evidence index for fast lookup
+	typeToEvidence := buildEvidenceIndex(evidenceList)
+
+	evidenceCount := 0
+
+	// For each policy result, store its evidence and result.json
+	for i := range result.PolicyResults {
+		pr := &result.PolicyResults[i]
+
+		policyDir := runPath.PolicyDir(pr.PolicyID, result.Framework)
+
+		// Find matching evidence for this policy's resource types
+		matching := findMatchingEvidence(pr.ResourceTypes, typeToEvidence, evidenceList)
+
+		// Group matching evidence by resource type and store one aggregated file per type
+		var evidenceFiles []string
+		byType := groupEvidenceByType(matching)
+
+		for resourceType, items := range byType {
+			filename := EvidenceTypeFilename(resourceType)
+			evPath := policyDir + "/evidence/" + filename
+
+			// Build an array of evidence entries for this resource type
+			entries := make([]aggregatedEvidenceEntry, len(items))
+			for j, ev := range items {
+				entries[j] = aggregatedEvidenceEntry{
+					ResourceID:  ev.ResourceID,
+					CollectedAt: ev.CollectedAt,
+					Data:        ev.Data,
+				}
+			}
+
+			data, err := json.MarshalIndent(entries, "", "  ")
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal evidence for type %s: %w", resourceType, err)
+			}
+
+			item, err := backend.StoreRaw(ctx, evPath, data, map[string]string{
+				"resource_type": resourceType,
+				"count":         fmt.Sprintf("%d", len(items)),
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to store evidence for type %s: %w", resourceType, err)
+			}
+
+			manifest.Items = append(manifest.Items, *item)
+			manifest.TotalSize += item.Size
+			evidenceFiles = append(evidenceFiles, "evidence/"+filename)
+			evidenceCount += len(items)
+		}
+
+		// Build per-policy result.json with evidence file references and violation evidence pointers
+		storedResult := buildStoredPolicyResult(pr, evidenceFiles)
+
+		resultData, err := json.MarshalIndent(storedResult, "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal policy result %s: %w", pr.PolicyID, err)
+		}
+
+		resultPath := policyDir + "/result.json"
+		item, err := backend.StoreRaw(ctx, resultPath, resultData, map[string]string{
+			"type":      "policy_result",
+			"policy_id": pr.PolicyID,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to store policy result %s: %w", pr.PolicyID, err)
+		}
+		manifest.Items = append(manifest.Items, *item)
+		manifest.TotalSize += item.Size
+	}
+
+	manifest.EvidenceCount = evidenceCount
+
+	// Store aggregate check_result.json at run level
+	checkResultData, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal check result: %w", err)
+	}
+	crItem, err := backend.StoreRaw(ctx, runPath.CheckResultPath(), checkResultData, map[string]string{
+		"type":      "check_result",
+		"framework": result.Framework,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to store check result: %w", err)
+	}
+	manifest.Items = append(manifest.Items, *crItem)
+	manifest.TotalSize += crItem.Size
+	manifest.CheckResult = crItem.Path
+
+	// Store attestation.json at run level (if provided)
+	if att != nil {
+		attData, err := json.MarshalIndent(att, "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal attestation: %w", err)
+		}
+		attItem, err := backend.StoreRaw(ctx, runPath.AttestationPath(), attData, map[string]string{
+			"type": "attestation",
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to store attestation: %w", err)
+		}
+		manifest.Items = append(manifest.Items, *attItem)
+		manifest.TotalSize += attItem.Size
+		manifest.Attestation = attItem.Path
+	}
+
+	// Store manifest.json at run level
+	manifestData, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal manifest: %w", err)
+	}
+	mItem, err := backend.StoreRaw(ctx, runPath.ManifestPath(), manifestData, map[string]string{
+		"type":      "manifest",
+		"run_id":    result.RunID,
+		"framework": result.Framework,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to store manifest: %w", err)
+	}
+	manifest.Items = append(manifest.Items, *mItem)
+	manifest.TotalSize += mItem.Size
+
+	return manifest, nil
+}
+
+// buildEvidenceIndex creates a map from resource type to indices in the evidence list.
+func buildEvidenceIndex(evidenceList []evidence.Evidence) map[string][]int {
+	idx := make(map[string][]int)
+	for i := range evidenceList {
+		rt := evidenceList[i].ResourceType
+		idx[rt] = append(idx[rt], i)
+	}
+	return idx
+}
+
+// findMatchingEvidence returns evidence items that match any of the given resource types.
+func findMatchingEvidence(resourceTypes []string, typeIndex map[string][]int, evidenceList []evidence.Evidence) []evidence.Evidence {
+	var result []evidence.Evidence
+	seen := make(map[int]bool)
+	for _, rt := range resourceTypes {
+		for _, idx := range typeIndex[rt] {
+			if !seen[idx] {
+				seen[idx] = true
+				result = append(result, evidenceList[idx])
+			}
+		}
+	}
+	return result
+}
+
+// aggregatedEvidenceEntry represents a single resource within an aggregated evidence file.
+type aggregatedEvidenceEntry struct {
+	ResourceID  string          `json:"resource_id"`
+	CollectedAt time.Time       `json:"collected_at"`
+	Data        json.RawMessage `json:"data"`
+}
+
+// groupEvidenceByType groups evidence items by their resource type.
+func groupEvidenceByType(items []evidence.Evidence) map[string][]evidence.Evidence {
+	grouped := make(map[string][]evidence.Evidence)
+	for i := range items {
+		rt := items[i].ResourceType
+		grouped[rt] = append(grouped[rt], items[i])
+	}
+	return grouped
+}
+
+// buildStoredPolicyResult creates a StoredPolicyResult with evidence_files and violation evidence pointers.
+func buildStoredPolicyResult(pr *evidence.PolicyResult, evidenceFiles []string) *StoredPolicyResult {
+	stored := &StoredPolicyResult{
+		PolicyResult:  *pr,
+		EvidenceFiles: evidenceFiles,
+	}
+
+	// Add evidence_file to each violation so auditors can trace violations to the aggregated file
+	if len(stored.Violations) > 0 {
+		// Build resource type → aggregated filename map
+		typeToFile := make(map[string]string)
+		for _, rt := range pr.ResourceTypes {
+			typeToFile[rt] = "evidence/" + EvidenceTypeFilename(rt)
+		}
+
+		updatedViolations := make([]evidence.Violation, len(stored.Violations))
+		for i, v := range stored.Violations {
+			updatedViolations[i] = v
+			if file, ok := typeToFile[v.ResourceType]; ok {
+				if updatedViolations[i].Details == nil {
+					updatedViolations[i].Details = make(map[string]interface{})
+				}
+				updatedViolations[i].Details["evidence_file"] = file
+			}
+		}
+		stored.Violations = updatedViolations
+	}
+
+	return stored
+}
+
+// LoadManifest loads a manifest from storage by scanning for manifest.json under the runs prefix.
+func LoadManifest(ctx context.Context, backend Backend, runPath string) (*Manifest, error) {
+	// runPath should be the run base path (e.g. "runs/soc2/2026-02-14")
+	path := runPath
+	if !strings.HasSuffix(path, "/manifest.json") {
+		path = path + "/manifest.json"
+	}
+
+	data, err := backend.Get(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load manifest: %w", err)
+	}
+
+	var manifest Manifest
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return nil, fmt.Errorf("failed to parse manifest: %w", err)
+	}
+
+	return &manifest, nil
+}
 
 // ManifestBuilder helps construct a storage manifest.
 type ManifestBuilder struct {
@@ -24,7 +268,6 @@ type ManifestBuilder struct {
 func NewManifestBuilder(backend Backend, framework string) *ManifestBuilder {
 	return &ManifestBuilder{
 		manifest: &Manifest{
-			RunID:     uuid.New().String(),
 			Framework: framework,
 			Timestamp: time.Now().UTC(),
 			Backend:   backend.Name(),
@@ -60,147 +303,3 @@ func (b *ManifestBuilder) SetEvidenceCount(count int) {
 func (b *ManifestBuilder) Build() *Manifest {
 	return b.manifest
 }
-
-// Store saves the manifest to storage and returns the stored item.
-func (b *ManifestBuilder) Store(ctx context.Context) (*StoredItem, error) {
-	// Marshal manifest to JSON
-	data, err := json.MarshalIndent(b.manifest, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal manifest: %w", err)
-	}
-
-	// Compute hash
-	hash := sha256.Sum256(data)
-
-	// Build path based on backend type
-	var path string
-	switch lb := b.backend.(type) {
-	case *LocalBackend:
-		path = filepath.Join("runs", b.manifest.RunID, "manifest.json")
-		fullPath := filepath.Join(lb.GetPath(), path)
-
-		// Create directory
-		if err := createParentDir(fullPath); err != nil {
-			return nil, err
-		}
-
-		// Write file
-		if err := writeSecureFile(fullPath, data); err != nil {
-			return nil, err
-		}
-	default:
-		// For other backends, use the generic store method
-		// Create a temporary evidence-like structure
-		return b.storeGeneric(ctx, data)
-	}
-
-	return &StoredItem{
-		Path:        path,
-		Hash:        hex.EncodeToString(hash[:]),
-		Size:        int64(len(data)),
-		StoredAt:    time.Now().UTC(),
-		ContentType: "application/json",
-		Metadata: map[string]string{
-			"type":      "manifest",
-			"run_id":    b.manifest.RunID,
-			"framework": b.manifest.Framework,
-		},
-	}, nil
-}
-
-// storeGeneric stores manifest using a generic approach for non-local backends.
-func (b *ManifestBuilder) storeGeneric(_ context.Context, data []byte) (*StoredItem, error) {
-	// For S3 and other backends, we need to use their specific methods
-	// This is a placeholder that would need backend-specific implementation
-	hash := sha256.Sum256(data)
-
-	return &StoredItem{
-		Path:        fmt.Sprintf("runs/%s/manifest.json", b.manifest.RunID),
-		Hash:        hex.EncodeToString(hash[:]),
-		Size:        int64(len(data)),
-		StoredAt:    time.Now().UTC(),
-		ContentType: "application/json",
-	}, nil
-}
-
-// StoreRun stores all evidence and check result, building the manifest.
-func StoreRun(ctx context.Context, backend Backend, result *evidence.CheckResult, evidenceList []evidence.Evidence) (*Manifest, error) {
-	builder := NewManifestBuilder(backend, result.Framework)
-
-	if result.RunID != "" {
-		builder.WithRunID(result.RunID)
-	}
-
-	// Store each piece of evidence
-	for i := range evidenceList {
-		item, err := backend.Store(ctx, &evidenceList[i])
-		if err != nil {
-			return nil, fmt.Errorf("failed to store evidence %s: %w", evidenceList[i].ID, err)
-		}
-		builder.AddItem(item)
-	}
-	builder.SetEvidenceCount(len(evidenceList))
-
-	// Store check result
-	checkResultItem, err := backend.StoreCheckResult(ctx, result)
-	if err != nil {
-		return nil, fmt.Errorf("failed to store check result: %w", err)
-	}
-	builder.AddItem(checkResultItem)
-	builder.SetCheckResult(checkResultItem.Path)
-
-	// Store manifest
-	manifestItem, err := builder.Store(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to store manifest: %w", err)
-	}
-	builder.AddItem(manifestItem)
-
-	return builder.Build(), nil
-}
-
-// LoadManifest loads a manifest from storage.
-func LoadManifest(ctx context.Context, backend Backend, runID string) (*Manifest, error) {
-	path := fmt.Sprintf("runs/%s/manifest.json", runID)
-
-	data, err := backend.Get(ctx, path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load manifest: %w", err)
-	}
-
-	var manifest Manifest
-	if err := json.Unmarshal(data, &manifest); err != nil {
-		return nil, fmt.Errorf("failed to parse manifest: %w", err)
-	}
-
-	return &manifest, nil
-}
-
-// Helper functions for file operations
-func createParentDir(path string) error {
-	dir := filepath.Dir(path)
-	return osWrapper.MkdirAll(dir, 0750)
-}
-
-func writeSecureFile(path string, data []byte) error {
-	return osWrapper.WriteFile(path, data, 0600)
-}
-
-// osOperations provides an interface for OS operations (for testing).
-type osOperations interface {
-	MkdirAll(path string, perm uint32) error
-	WriteFile(path string, data []byte, perm uint32) error
-}
-
-// realOS implements osOperations using the real os package.
-type realOS struct{}
-
-func (realOS) MkdirAll(path string, perm uint32) error {
-	return os.MkdirAll(path, os.FileMode(perm))
-}
-
-func (realOS) WriteFile(path string, data []byte, perm uint32) error {
-	return os.WriteFile(path, data, os.FileMode(perm))
-}
-
-var osWrapper osOperations = realOS{}

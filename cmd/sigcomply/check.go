@@ -12,6 +12,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/engine"
 	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/iso27001"
 	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/soc2"
+	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
 	"github.com/sigcomply/sigcomply-cli/internal/core/config"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 	"github.com/sigcomply/sigcomply-cli/internal/core/output"
@@ -220,6 +221,16 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 	}
 	checkResult.CalculateSummary()
 
+	// Build attestation before storage (so it can be stored alongside evidence)
+	var att *attestation.Attestation
+	if cfg.APIToken != "" {
+		var attErr error
+		att, attErr = buildAttestation(cfg, checkResult, result.Evidence, nil)
+		if attErr != nil {
+			fmt.Printf("  [warn] Failed to build attestation: %s\n", attErr)
+		}
+	}
+
 	// Store evidence if enabled
 	var manifest *storage.Manifest
 	if cfg.Storage.Enabled {
@@ -228,7 +239,7 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 		fmt.Println("-------")
 
 		var storageErr error
-		manifest, storageErr = storeEvidence(ctx, cfg, checkResult, result.Evidence)
+		manifest, storageErr = storeEvidence(ctx, cfg, checkResult, result.Evidence, att)
 		if storageErr != nil {
 			fmt.Printf("  [warn] Failed to store evidence: %s\n", storageErr)
 		} else {
@@ -239,7 +250,7 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 
 	// Submit to SigComply Cloud if enabled
 	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) {
-		printCloudSubmission(ctx, cfg, checkResult, result.Evidence, manifest)
+		printCloudSubmission(ctx, cfg, checkResult, result.Evidence, manifest, att)
 	}
 
 	// Format and display results
@@ -316,11 +327,17 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 	}
 	checkResult.CalculateSummary()
 
+	// Build attestation before storage
+	var att *attestation.Attestation
+	if cfg.APIToken != "" {
+		att, _ = buildAttestation(cfg, checkResult, result.Evidence, nil)
+	}
+
 	// Store evidence if enabled
 	var manifest *storage.Manifest
 	if cfg.Storage.Enabled {
 		var storageErr error
-		manifest, storageErr = storeEvidence(ctx, cfg, checkResult, result.Evidence)
+		manifest, storageErr = storeEvidence(ctx, cfg, checkResult, result.Evidence, att)
 		if storageErr != nil {
 			// Log storage error but continue
 			_ = storageErr
@@ -330,7 +347,7 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 	// Submit to cloud if enabled
 	var cloudResponse *cloudSubmitResult
 	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) {
-		cloudResp, cloudErr := submitToCloud(ctx, cfg, checkResult, result.Evidence, manifest, "")
+		cloudResp, cloudErr := submitToCloudWithAttestation(ctx, cfg, checkResult, manifest, att, "")
 		if cloudErr == nil && cloudResp != nil {
 			cloudResponse = &cloudSubmitResult{
 				Success: cloudResp.Success(),
@@ -447,17 +464,23 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 	}
 	checkResult.CalculateSummary()
 
+	// Build attestation before storage
+	var att *attestation.Attestation
+	if cfg.APIToken != "" {
+		att, _ = buildAttestation(cfg, checkResult, result.Evidence, nil)
+	}
+
 	// Store evidence if enabled (silently, as JUnit output should be pure XML)
 	var manifest *storage.Manifest
 	if cfg.Storage.Enabled {
 		//nolint:errcheck // Intentionally ignoring storage errors in JUnit mode to preserve XML output
-		manifest, _ = storeEvidence(ctx, cfg, checkResult, result.Evidence)
+		manifest, _ = storeEvidence(ctx, cfg, checkResult, result.Evidence, att)
 	}
 
 	// Submit to cloud if enabled (silently, as JUnit output should be pure XML)
 	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) {
 		//nolint:errcheck // Intentionally ignoring cloud errors in JUnit mode to preserve XML output
-		submitToCloud(ctx, cfg, checkResult, result.Evidence, manifest, "")
+		submitToCloudWithAttestation(ctx, cfg, checkResult, manifest, att, "")
 	}
 
 	// Format as JUnit XML
@@ -523,12 +546,12 @@ func printEvidenceCollection(result *aws.CollectionResult) {
 }
 
 // printCloudSubmission handles cloud submission and prints the results for text output.
-func printCloudSubmission(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence, manifest *storage.Manifest) {
+func printCloudSubmission(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, _ []evidence.Evidence, manifest *storage.Manifest, att *attestation.Attestation) {
 	fmt.Println()
 	fmt.Println("Cloud Submission")
 	fmt.Println("----------------")
 
-	cloudResp, cloudErr := submitToCloud(ctx, cfg, checkResult, evidenceList, manifest, "")
+	cloudResp, cloudErr := submitToCloudWithAttestation(ctx, cfg, checkResult, manifest, att, "")
 	if cloudErr != nil {
 		fmt.Printf("  [warn] Failed to submit to cloud: %s\n", cloudErr)
 		return
@@ -557,7 +580,7 @@ func countByResourceType(evidenceList []evidence.Evidence) map[string]int {
 }
 
 // storeEvidence stores evidence and check results to the configured storage backend.
-func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence) (*storage.Manifest, error) {
+func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence, att *attestation.Attestation) (*storage.Manifest, error) {
 	// Build storage configuration
 	storageCfg := &storage.Config{
 		Backend: cfg.Storage.Backend,
@@ -591,7 +614,7 @@ func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidenc
 	}
 
 	// Store everything and get manifest
-	manifest, err := storage.StoreRun(ctx, backend, checkResult, evidenceList)
+	manifest, err := storage.StoreRun(ctx, backend, checkResult, evidenceList, att)
 	if err != nil {
 		return nil, fmt.Errorf("failed to store run: %w", err)
 	}

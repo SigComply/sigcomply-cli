@@ -4,14 +4,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 // LocalBackend implements storage using the local filesystem.
@@ -52,19 +49,9 @@ func (b *LocalBackend) Init(ctx context.Context) error {
 	return nil
 }
 
-// Store saves evidence to local storage.
-func (b *LocalBackend) Store(ctx context.Context, ev *evidence.Evidence) (*StoredItem, error) {
-	// Build path: evidence/<resource_type>/<resource_id>.json
-	resourcePath := strings.ReplaceAll(ev.ResourceType, ":", "/")
-	filename := sanitizeFilename(ev.ResourceID) + ".json"
-	relPath := filepath.Join("evidence", resourcePath, filename)
-	fullPath := filepath.Join(b.path, relPath)
-
-	// Marshal evidence to JSON
-	data, err := json.MarshalIndent(ev, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal evidence: %w", err)
-	}
+// StoreRaw saves raw data to local storage at the given path.
+func (b *LocalBackend) StoreRaw(_ context.Context, path string, data []byte, metadata map[string]string) (*StoredItem, error) {
+	fullPath := filepath.Join(b.path, path)
 
 	// Create parent directory
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0750); err != nil {
@@ -80,59 +67,12 @@ func (b *LocalBackend) Store(ctx context.Context, ev *evidence.Evidence) (*Store
 	hash := sha256.Sum256(data)
 
 	return &StoredItem{
-		Path:        relPath,
+		Path:        path,
 		Hash:        hex.EncodeToString(hash[:]),
 		Size:        int64(len(data)),
 		StoredAt:    time.Now().UTC(),
 		ContentType: "application/json",
-		Metadata: map[string]string{
-			"resource_type": ev.ResourceType,
-			"resource_id":   ev.ResourceID,
-			"collector":     ev.Collector,
-		},
-	}, nil
-}
-
-// StoreCheckResult saves a complete check result.
-func (b *LocalBackend) StoreCheckResult(ctx context.Context, result *evidence.CheckResult) (*StoredItem, error) {
-	// Build path: runs/<run_id>/check_result.json
-	runID := result.RunID
-	if runID == "" {
-		runID = time.Now().UTC().Format("20060102-150405")
-	}
-
-	relPath := filepath.Join("runs", runID, "check_result.json")
-	fullPath := filepath.Join(b.path, relPath)
-
-	// Marshal result to JSON
-	data, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal check result: %w", err)
-	}
-
-	// Create parent directory
-	if err := os.MkdirAll(filepath.Dir(fullPath), 0750); err != nil {
-		return nil, fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	// Write file
-	if err := os.WriteFile(fullPath, data, 0600); err != nil {
-		return nil, fmt.Errorf("failed to write file: %w", err)
-	}
-
-	// Compute hash
-	hash := sha256.Sum256(data)
-
-	return &StoredItem{
-		Path:        relPath,
-		Hash:        hex.EncodeToString(hash[:]),
-		Size:        int64(len(data)),
-		StoredAt:    time.Now().UTC(),
-		ContentType: "application/json",
-		Metadata: map[string]string{
-			"run_id":    runID,
-			"framework": result.Framework,
-		},
+		Metadata:    metadata,
 	}, nil
 }
 
@@ -241,19 +181,3 @@ func (e *NotFoundError) Error() string {
 	return "item not found: " + e.Path
 }
 
-// sanitizeFilename removes or replaces invalid filename characters.
-func sanitizeFilename(name string) string {
-	// Replace common problematic characters
-	replacer := strings.NewReplacer(
-		"/", "_",
-		"\\", "_",
-		":", "_",
-		"*", "_",
-		"?", "_",
-		"\"", "_",
-		"<", "_",
-		">", "_",
-		"|", "_",
-	)
-	return replacer.Replace(name)
-}

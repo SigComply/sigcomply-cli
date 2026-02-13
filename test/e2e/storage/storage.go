@@ -8,9 +8,6 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
-
-	"github.com/google/uuid"
 
 	"github.com/sigcomply/sigcomply-cli/test/e2e/config"
 )
@@ -61,10 +58,8 @@ func GetVerifier(backend string) (Verifier, error) {
 	return factory(), nil
 }
 
-// TestPrefix generates a unique S3/storage key prefix for a test scenario.
-// Format: e2e-test/<scenario>/<timestamp>-<uuid>/
-func TestPrefix(scenarioName string) string {
-	ts := time.Now().UTC().Format("20060102-150405")
-	id := uuid.New().String()[:8]
-	return fmt.Sprintf("e2e-test/%s/%s-%s/", scenarioName, ts, id)
+// TestPrefix generates an S3/storage key prefix for E2E tests.
+// All scenarios share the same prefix; isolation comes from the run path (framework/date).
+func TestPrefix(_ string) string {
+	return "e2e/"
 }

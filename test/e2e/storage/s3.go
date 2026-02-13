@@ -127,27 +127,36 @@ func ListS3Objects(t *testing.T, client *s3.Client, bucket, prefix string) []str
 	return keys
 }
 
-// VerifyS3Objects lists S3 objects under the prefix and asserts that evidence
-// and check_result.json files exist.
+// VerifyS3Objects lists S3 objects under the prefix and asserts that the
+// auditor-friendly structure exists: per-policy result.json files, evidence
+// inside policy folders, manifest.json, and check_result.json at run level.
 func VerifyS3Objects(t *testing.T, client *s3.Client, bucket, prefix string) {
 	t.Helper()
 
 	keys := ListS3Objects(t, client, bucket, prefix)
 	require.NotEmpty(t, keys, "No S3 objects found under prefix %s", prefix)
 
-	var hasEvidence, hasCheckResult bool
+	var hasEvidence, hasCheckResult, hasManifest, hasPolicyResult bool
 	for _, key := range keys {
 		relKey := strings.TrimPrefix(key, prefix)
-		if strings.HasPrefix(relKey, "evidence/") {
+		if strings.Contains(relKey, "/evidence/") {
 			hasEvidence = true
 		}
-		if strings.Contains(relKey, "check_result.json") {
+		if strings.HasSuffix(relKey, "check_result.json") {
 			hasCheckResult = true
+		}
+		if strings.HasSuffix(relKey, "manifest.json") {
+			hasManifest = true
+		}
+		if strings.HasSuffix(relKey, "/result.json") {
+			hasPolicyResult = true
 		}
 	}
 
 	assert.True(t, hasEvidence, "No evidence objects found under prefix")
 	assert.True(t, hasCheckResult, "No check_result.json found under prefix")
+	assert.True(t, hasManifest, "No manifest.json found under prefix")
+	assert.True(t, hasPolicyResult, "No per-policy result.json found under prefix")
 
 	t.Logf("Verified %d S3 objects under prefix", len(keys))
 	for _, key := range keys {

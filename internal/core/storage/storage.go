@@ -4,11 +4,10 @@ package storage
 import (
 	"context"
 	"time"
-
-	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 // Backend defines the interface for evidence storage backends.
+// Backends are pure key-value stores; path logic is handled by RunPath.
 type Backend interface {
 	// Name returns the backend identifier (e.g., "local", "s3").
 	Name() string
@@ -16,11 +15,8 @@ type Backend interface {
 	// Init initializes the storage backend.
 	Init(ctx context.Context) error
 
-	// Store saves evidence and returns the storage location.
-	Store(ctx context.Context, ev *evidence.Evidence) (*StoredItem, error)
-
-	// StoreCheckResult saves a complete check result.
-	StoreCheckResult(ctx context.Context, result *evidence.CheckResult) (*StoredItem, error)
+	// StoreRaw saves raw data at the given path with optional metadata.
+	StoreRaw(ctx context.Context, path string, data []byte, metadata map[string]string) (*StoredItem, error)
 
 	// List returns stored items matching the filter.
 	List(ctx context.Context, filter *ListFilter) ([]StoredItem, error)
@@ -93,6 +89,9 @@ type Manifest struct {
 
 	// CheckResult contains the path to the stored check result.
 	CheckResult string `json:"check_result,omitempty"`
+
+	// Attestation contains the path to the stored attestation.
+	Attestation string `json:"attestation,omitempty"`
 
 	// EvidenceCount is the total number of evidence items.
 	EvidenceCount int `json:"evidence_count"`
