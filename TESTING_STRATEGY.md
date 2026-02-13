@@ -375,70 +375,126 @@ func localstackResolver(endpoint string) aws.EndpointResolverWithOptionsFunc {
 
 ### 4. E2E Tests (Pre-Release)
 
-**Location**: `test/e2e/`
-**Run**: `make test-e2e` (requires real AWS account)
-**When**: Before each release, manual
+**Location**: `test/e2e/` (subpackage structure)
+**Run**: `make test-e2e` (requires real AWS credentials)
+**When**: Before each release, CI with secrets
+**Config**: `e2e/config.yaml` (YAML-driven scenarios)
 
-#### Example: E2E Test
+#### Architecture
 
-```go
-//go:build e2e
+The E2E suite is structured as extensible subpackages:
 
-// test/e2e/check_test.go
-package e2e
+```
+test/e2e/
+├── suite_test.go              # Entry point (package e2e_test)
+├── config/                    # Types, LoadConfig, credentials, cleanup
+│   ├── config.go
+│   ├── credentials.go
+│   └── cleanup.go
+├── collectors/                # Collector interface + init() registry
+│   ├── collector.go           # Interface, registry, FilterByServices
+│   ├── aws.go                 # AWS adapter
+│   └── github.go              # GitHub adapter
+├── storage/                   # Verifier interface + init() registry
+│   ├── storage.go
+│   └── s3.go
+├── frameworks/                # Framework resolution + policy filtering
+│   └── frameworks.go
+└── pipeline/                  # 6-phase scenario orchestration
+    └── pipeline.go
+```
 
-import (
-    "bytes"
-    "os/exec"
-    "testing"
+Adding a new provider = adding one file in `collectors/` with an `init()` call.
 
-    "github.com/stretchr/testify/assert"
-    "github.com/stretchr/testify/require"
-)
+#### Pipeline Phases
 
-func TestCheckCommand_RealAWS(t *testing.T) {
-    // This test runs against a real AWS account
-    // Requires: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+Each scenario runs 6 phases:
+1. **Collect Evidence** — provider adapters via registry, optional service filtering
+2. **Evaluate Policies** — OPA engine, optional policy include/exclude filtering
+3. **Hash Results** — SHA-256 evidence hashes
+4. **Sign Attestation** — HMAC-SHA256
+5. **Store to S3** — only if scenario has `storage` profile
+6. **Verify S3 Objects** — confirms evidence + check_result.json exist
 
-    cmd := exec.Command("sigcomply", "check", "--format", "json")
-    var stdout, stderr bytes.Buffer
-    cmd.Stdout = &stdout
-    cmd.Stderr = &stderr
+#### Config-Driven Scenarios
 
-    err := cmd.Run()
+Scenarios are defined in `e2e/config.yaml` with optional filtering:
 
-    // Should complete (pass or fail based on compliance)
-    assert.NotEqual(t, 2, cmd.ProcessState.ExitCode(),
-        "Exit code 2 indicates error, not compliance failure")
+```yaml
+scenarios:
+  # Full: no filters = collect everything, evaluate all policies
+  - name: soc2-aws-full
+    credentials: [aws-positive]
+    framework: soc2
+    storage: s3-evidence
 
-    // Should produce valid JSON
-    output := stdout.String()
-    assert.Contains(t, output, "framework")
-    assert.Contains(t, output, "controls")
-}
+  # Selective: only IAM evidence, only MFA policy
+  - name: soc2-mfa-only
+    credentials: [aws-positive]
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [iam]
+    policies:
+      include: ["soc2-cc6.1-mfa"]
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.1-mfa": fail
 
-func TestCheckCommand_JSONOutput(t *testing.T) {
-    cmd := exec.Command("sigcomply", "check", "--format", "json")
-    var stdout bytes.Buffer
-    cmd.Stdout = &stdout
+  # Negative: permission denied (graceful degradation)
+  - name: soc2-aws-negative
+    credentials: [aws-negative]
+    framework: soc2
+    assertions:
+      collection_errors_expected: true
+      expected_policy_results:
+        "soc2-cc6.1-mfa": skip
+```
 
-    cmd.Run()
+**Filtering rules:**
+- `collectors` omitted → collect from ALL credentialed providers, all services
+- `collectors[].services` omitted → all services for that provider
+- `policies` omitted → evaluate all framework policies
+- `policies.include` → only evaluate listed policy IDs
+- `policies.exclude` → remove listed policy IDs (applied after include)
 
-    // Parse JSON output
-    var result struct {
-        Framework string `json:"framework"`
-        Controls  []struct {
-            ID     string `json:"id"`
-            Status string `json:"status"`
-        } `json:"controls"`
-    }
+**Assertion rules:**
+- `expected_policy_results` maps policy IDs to expected status (`pass`, `fail`, `skip`)
+- The test passes when actual status matches expected — e.g. `fail` expected + `fail` actual = PASS
+- `collection_errors_expected: true` allows zero evidence (negative/permission-denied tests)
 
-    err := json.Unmarshal(stdout.Bytes(), &result)
-    require.NoError(t, err)
+#### Required Environment Variables
 
-    assert.Equal(t, "soc2", result.Framework)
-    assert.NotEmpty(t, result.Controls)
-}
+```bash
+# Positive AWS credentials (full access)
+export E2E_AWS_ACCESS_KEY_ID="..."
+export E2E_AWS_SECRET_ACCESS_KEY="..."
+export E2E_AWS_REGION="us-east-1"
+
+# Negative AWS credentials (STS-only, for graceful degradation tests)
+export E2E_AWS_NEGATIVE_ACCESS_KEY_ID="..."
+export E2E_AWS_NEGATIVE_SECRET_ACCESS_KEY="..."
+
+# S3 storage (for scenarios with storage: s3-evidence)
+export E2E_S3_BUCKET="sigcomply-e2e-tests"
+
+# HMAC signing
+export E2E_HMAC_SECRET="e2e-test-secret"
+```
+
+Missing credentials → scenario is skipped (not failed). Safe for local dev.
+
+#### Running
+
+```bash
+# All enabled scenarios
+make test-e2e
+
+# Single scenario
+E2E_SCENARIO=soc2-mfa-only make test-e2e
+
+# Skip cleanup (keep S3 artifacts for debugging)
+E2E_SKIP_CLEANUP=true make test-e2e
 ```
 
 ---
