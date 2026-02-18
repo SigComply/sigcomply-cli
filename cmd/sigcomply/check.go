@@ -37,6 +37,7 @@ var (
 	flagCloud          bool
 	flagNoCloud        bool
 	flagGitHubOrg      string
+	flagConfig         string
 )
 
 var checkCmd = newCheckCmd()
@@ -63,7 +64,10 @@ Examples:
   sigcomply check --output json
 
   # Output as JUnit XML (for CI/CD)
-  sigcomply check --output junit`,
+  sigcomply check --output junit
+
+  # Use a specific config file
+  sigcomply check --config /path/to/.sigcomply.yaml`,
 		RunE: runCheck,
 	}
 
@@ -77,6 +81,7 @@ Examples:
 	cmd.Flags().BoolVar(&flagCloud, "cloud", false, "Force submission to SigComply Cloud (requires SIGCOMPLY_API_TOKEN)")
 	cmd.Flags().BoolVar(&flagNoCloud, "no-cloud", false, "Disable submission to SigComply Cloud")
 	cmd.Flags().StringVar(&flagGitHubOrg, "github-org", "", "GitHub organization to collect evidence from (requires GITHUB_TOKEN)")
+	cmd.Flags().StringVar(&flagConfig, "config", "", "Path to config file (default: .sigcomply.yaml)")
 
 	return cmd
 }
@@ -85,13 +90,39 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	startTime := time.Now()
 
-	// Load configuration
-	cfg, err := config.Load()
+	cfg, err := loadConfig()
 	if err != nil {
 		return fmt.Errorf("configuration error: %w", err)
 	}
 
-	// Apply CLI flag overrides
+	applyFlagOverrides(cfg)
+
+	// Re-validate after overrides
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("configuration error: %w", err)
+	}
+
+	// Select output mode based on format
+	switch cfg.OutputFormat {
+	case "json":
+		return runCheckJSON(ctx, cfg)
+	case "junit":
+		return runCheckJUnit(ctx, cfg)
+	default:
+		return runCheckText(ctx, cfg, startTime)
+	}
+}
+
+// loadConfig loads configuration from file and env, using --config flag if set.
+func loadConfig() (*config.Config, error) {
+	if flagConfig != "" {
+		return config.LoadWithConfigPath(flagConfig)
+	}
+	return config.Load()
+}
+
+// applyFlagOverrides applies CLI flag values on top of the loaded config.
+func applyFlagOverrides(cfg *config.Config) {
 	if flagFramework != "" {
 		cfg.Framework = flagFramework
 	}
@@ -102,7 +133,7 @@ func runCheck(cmd *cobra.Command, args []string) error {
 		cfg.Verbose = true
 	}
 
-	// Apply storage flag overrides
+	// Storage flags
 	if flagStore {
 		cfg.Storage.Enabled = true
 	}
@@ -123,20 +154,61 @@ func runCheck(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Re-validate after overrides
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("configuration error: %w", err)
+	// --github-org flag overrides config file
+	if flagGitHubOrg != "" {
+		cfg.GitHub.Org = flagGitHubOrg
 	}
 
-	// Select output mode based on format
-	switch cfg.OutputFormat {
-	case "json":
-		return runCheckJSON(ctx, cfg)
-	case "junit":
-		return runCheckJUnit(ctx, cfg)
-	default:
-		return runCheckText(ctx, cfg, startTime)
+	// --region flag overrides config file
+	if flagRegion != "" {
+		cfg.AWS.Regions = []string{flagRegion}
 	}
+}
+
+// resolveAWSRegion returns the effective AWS region from config, or empty for auto-detect.
+func resolveAWSRegion(cfg *config.Config) string {
+	if len(cfg.AWS.Regions) > 0 {
+		return cfg.AWS.Regions[0]
+	}
+	return ""
+}
+
+// collectAWSEvidenceText initializes AWS collector, prints status, and collects evidence.
+func collectAWSEvidenceText(ctx context.Context, cfg *config.Config) (*aws.CollectionResult, error) {
+	collector := aws.New()
+	if region := resolveAWSRegion(cfg); region != "" {
+		collector.WithRegion(region)
+	}
+
+	if err := collector.Init(ctx); err != nil {
+		return nil, fmt.Errorf("failed to initialize AWS collector: %w", err)
+	}
+
+	status := collector.Status(ctx)
+	if !status.Connected {
+		fmt.Fprintf(os.Stderr, "Warning: AWS connection failed: %s\n", status.Error)
+		fmt.Println()
+		fmt.Println("No AWS credentials detected. Please configure credentials using:")
+		fmt.Println("  - Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)")
+		fmt.Println("  - AWS CLI (aws configure)")
+		fmt.Println("  - IAM role (when running in AWS)")
+		fmt.Println()
+		return nil, fmt.Errorf("no AWS credentials available")
+	}
+
+	fmt.Printf("AWS Account: %s\n", status.AccountID)
+	if status.Region != "" {
+		fmt.Printf("AWS Region:  %s\n", status.Region)
+	}
+	fmt.Println()
+
+	result, err := collector.Collect(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect evidence: %w", err)
+	}
+
+	printEvidenceCollection(result)
+	return result, nil
 }
 
 func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) error {
@@ -149,47 +221,15 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 	}
 	fmt.Println()
 
-	// Initialize AWS collector
-	collector := aws.New()
-	if flagRegion != "" {
-		collector.WithRegion(flagRegion)
-	}
-
-	if err := collector.Init(ctx); err != nil {
-		return fmt.Errorf("failed to initialize AWS collector: %w", err)
-	}
-
-	// Check connectivity
-	status := collector.Status(ctx)
-
-	if !status.Connected {
-		fmt.Fprintf(os.Stderr, "Warning: AWS connection failed: %s\n", status.Error)
-		fmt.Println()
-		fmt.Println("No AWS credentials detected. Please configure credentials using:")
-		fmt.Println("  - Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)")
-		fmt.Println("  - AWS CLI (aws configure)")
-		fmt.Println("  - IAM role (when running in AWS)")
-		fmt.Println()
-		return fmt.Errorf("no AWS credentials available")
-	}
-
-	fmt.Printf("AWS Account: %s\n", status.AccountID)
-	if status.Region != "" {
-		fmt.Printf("AWS Region:  %s\n", status.Region)
-	}
-	fmt.Println()
-
 	// Collect evidence from AWS
-	result, err := collector.Collect(ctx)
+	result, err := collectAWSEvidenceText(ctx, cfg)
 	if err != nil {
-		return fmt.Errorf("failed to collect evidence: %w", err)
+		return err
 	}
 
-	printEvidenceCollection(result)
-
-	// Collect evidence from GitHub if organization is specified
-	if flagGitHubOrg != "" {
-		ghResult, ghErr := collectGitHubEvidence(ctx, flagGitHubOrg)
+	// Collect evidence from GitHub if organization is configured
+	if cfg.GitHub.Org != "" {
+		ghResult, ghErr := collectGitHubEvidence(ctx, cfg.GitHub.Org)
 		if ghErr != nil {
 			fmt.Printf("  [warn] GitHub collection failed: %s\n", ghErr)
 		} else {
@@ -198,7 +238,7 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 		}
 	}
 
-	// Load framework and evaluate policies
+	// Load framework and evaluate ALL policies (framework drives what gets checked)
 	policyResults, err := evaluatePolicies(ctx, cfg.Framework, result.Evidence)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate policies: %w", err)
@@ -276,8 +316,8 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 	// Initialize AWS collector
 	collector := aws.New()
-	if flagRegion != "" {
-		collector.WithRegion(flagRegion)
+	if region := resolveAWSRegion(cfg); region != "" {
+		collector.WithRegion(region)
 	}
 
 	if err := collector.Init(ctx); err != nil {
@@ -296,15 +336,15 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 		return fmt.Errorf("failed to collect evidence: %w", err)
 	}
 
-	// Collect evidence from GitHub if organization is specified
-	if flagGitHubOrg != "" {
-		ghResult, ghErr := collectGitHubEvidence(ctx, flagGitHubOrg)
+	// Collect evidence from GitHub if organization is configured
+	if cfg.GitHub.Org != "" {
+		ghResult, ghErr := collectGitHubEvidence(ctx, cfg.GitHub.Org)
 		if ghErr == nil {
 			result.Evidence = append(result.Evidence, ghResult.Evidence...)
 		}
 	}
 
-	// Load framework and evaluate policies
+	// Load framework and evaluate ALL policies
 	policyResults, err := evaluatePolicies(ctx, cfg.Framework, result.Evidence)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate policies: %w", err)
@@ -330,7 +370,7 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 	// Build attestation before storage
 	var att *attestation.Attestation
 	if cfg.APIToken != "" {
-		att, _ = buildAttestation(cfg, checkResult, result.Evidence, nil)
+		att, _ = buildAttestation(cfg, checkResult, result.Evidence, nil) //nolint:errcheck // Attestation errors are non-critical
 	}
 
 	// Store evidence if enabled
@@ -413,8 +453,8 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 	// Initialize AWS collector
 	collector := aws.New()
-	if flagRegion != "" {
-		collector.WithRegion(flagRegion)
+	if region := resolveAWSRegion(cfg); region != "" {
+		collector.WithRegion(region)
 	}
 
 	if err := collector.Init(ctx); err != nil {
@@ -433,15 +473,15 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 		return fmt.Errorf("failed to collect evidence: %w", err)
 	}
 
-	// Collect evidence from GitHub if organization is specified
-	if flagGitHubOrg != "" {
-		ghResult, ghErr := collectGitHubEvidence(ctx, flagGitHubOrg)
+	// Collect evidence from GitHub if organization is configured
+	if cfg.GitHub.Org != "" {
+		ghResult, ghErr := collectGitHubEvidence(ctx, cfg.GitHub.Org)
 		if ghErr == nil {
 			result.Evidence = append(result.Evidence, ghResult.Evidence...)
 		}
 	}
 
-	// Load framework and evaluate policies
+	// Load framework and evaluate ALL policies
 	policyResults, err := evaluatePolicies(ctx, cfg.Framework, result.Evidence)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate policies: %w", err)
@@ -467,7 +507,7 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 	// Build attestation before storage
 	var att *attestation.Attestation
 	if cfg.APIToken != "" {
-		att, _ = buildAttestation(cfg, checkResult, result.Evidence, nil)
+		att, _ = buildAttestation(cfg, checkResult, result.Evidence, nil) //nolint:errcheck // Attestation errors are non-critical
 	}
 
 	// Store evidence if enabled (silently, as JUnit output should be pure XML)
@@ -497,7 +537,8 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-// evaluatePolicies loads the framework and evaluates all policies against evidence.
+// evaluatePolicies loads the framework and evaluates ALL policies against evidence.
+// The framework determines what gets checked — no policy filtering.
 func evaluatePolicies(ctx context.Context, frameworkName string, evidenceList []evidence.Evidence) ([]evidence.PolicyResult, error) {
 	// Get framework
 	var framework engine.Framework
@@ -510,7 +551,7 @@ func evaluatePolicies(ctx context.Context, frameworkName string, evidenceList []
 		return nil, fmt.Errorf("unsupported framework: %s (supported: 'soc2', 'iso27001')", frameworkName)
 	}
 
-	// Create engine and load policies
+	// Create engine and load ALL policies
 	eng := engine.New()
 	for _, policy := range framework.Policies() {
 		if err := eng.LoadPolicy(policy.Name, policy.Source); err != nil {
