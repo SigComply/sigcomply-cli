@@ -31,6 +31,8 @@ func (m *Member) ToEvidence() evidence.Evidence {
 	return ev
 }
 
+const filter2FADisabled = "2fa_disabled"
+
 // MemberCollector collects GitHub organization member data.
 type MemberCollector struct {
 	client Client
@@ -85,7 +87,7 @@ func (c *MemberCollector) CollectMembers(ctx context.Context, org string) ([]evi
 }
 
 // CollectMembersWithFilter collects members with a specific filter.
-// Filter can be "all", "2fa_disabled", or empty for default.
+// Filter can be "all", filter2FADisabled, or empty for default.
 func (c *MemberCollector) CollectMembersWithFilter(ctx context.Context, org, filter string) ([]evidence.Evidence, error) {
 	var allMembers []*gh.User
 	opts := &gh.ListMembersOptions{
@@ -109,7 +111,7 @@ func (c *MemberCollector) CollectMembersWithFilter(ctx context.Context, org, fil
 
 	// Determine 2FA status based on filter
 	var twoFactorEnabled *bool
-	if filter == "2fa_disabled" {
+	if filter == filter2FADisabled {
 		f := false
 		twoFactorEnabled = &f
 	}
@@ -141,7 +143,7 @@ func (c *MemberCollector) CollectMembersWithTwoFactorStatus(ctx context.Context,
 	has2FAVisibility := false
 
 	disabledOpts := &gh.ListMembersOptions{
-		Filter:      "2fa_disabled",
+		Filter:      filter2FADisabled,
 		ListOptions: gh.ListOptions{PerPage: 100},
 	}
 

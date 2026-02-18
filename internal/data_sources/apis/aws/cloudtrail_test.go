@@ -122,6 +122,56 @@ func TestCloudTrailCollector_CollectTrails_APIError(t *testing.T) {
 	assert.Contains(t, err.Error(), "access denied")
 }
 
+// --- Negative tests ---
+
+func TestCloudTrailCollector_CollectTrails_StatusError(t *testing.T) {
+	// GetTrailStatus fails for a trail — should default to IsLogging=false
+	mockCT := &MockCloudTrailClient{
+		DescribeTrailsFunc: func(ctx context.Context, params *cloudtrail.DescribeTrailsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.DescribeTrailsOutput, error) {
+			return &cloudtrail.DescribeTrailsOutput{
+				TrailList: []types.Trail{
+					{
+						Name:     aws.String("trail-ok"),
+						TrailARN: aws.String("arn:aws:cloudtrail:us-east-1:123:trail/trail-ok"),
+					},
+					{
+						Name:     aws.String("trail-err"),
+						TrailARN: aws.String("arn:aws:cloudtrail:us-east-1:123:trail/trail-err"),
+					},
+				},
+			}, nil
+		},
+		GetTrailStatusFunc: func(ctx context.Context, params *cloudtrail.GetTrailStatusInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.GetTrailStatusOutput, error) {
+			if *params.Name == "trail-err" {
+				return nil, errors.New("access denied")
+			}
+			return &cloudtrail.GetTrailStatusOutput{IsLogging: aws.Bool(true)}, nil
+		},
+	}
+
+	collector := &CloudTrailCollector{client: mockCT}
+	trails, err := collector.CollectTrails(context.Background())
+
+	require.NoError(t, err, "should not fail when GetTrailStatus fails for one trail")
+	require.Len(t, trails, 2)
+
+	var trailOK, trailErr *CloudTrailTrail
+	for i := range trails {
+		switch trails[i].Name {
+		case "trail-ok":
+			trailOK = &trails[i]
+		case "trail-err":
+			trailErr = &trails[i]
+		}
+	}
+
+	require.NotNil(t, trailOK)
+	assert.True(t, trailOK.IsLogging)
+
+	require.NotNil(t, trailErr)
+	assert.False(t, trailErr.IsLogging, "should default to false when GetTrailStatus fails")
+}
+
 func TestCloudTrailCollector_ToEvidence(t *testing.T) {
 	trail := CloudTrailTrail{
 		Name:               "my-trail",

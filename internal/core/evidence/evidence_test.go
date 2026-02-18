@@ -151,6 +151,108 @@ func TestCheckResult_CalculateSummary(t *testing.T) {
 	assert.InDelta(t, 0.667, result.Summary.ComplianceScore, 0.01)
 }
 
+// --- Negative tests ---
+
+func TestCheckResult_CalculateSummary_AllSkipped(t *testing.T) {
+	result := CheckResult{
+		PolicyResults: []PolicyResult{
+			{PolicyID: "p1", Status: StatusSkip},
+			{PolicyID: "p2", Status: StatusSkip},
+		},
+	}
+
+	result.CalculateSummary()
+
+	assert.Equal(t, 2, result.Summary.TotalPolicies)
+	assert.Equal(t, 0, result.Summary.PassedPolicies)
+	assert.Equal(t, 0, result.Summary.FailedPolicies)
+	assert.Equal(t, 2, result.Summary.SkippedPolicies)
+	// Score should be 0 when all skipped (evaluated = 0)
+	assert.Equal(t, 0.0, result.Summary.ComplianceScore)
+}
+
+func TestCheckResult_CalculateSummary_AllErrors(t *testing.T) {
+	result := CheckResult{
+		PolicyResults: []PolicyResult{
+			{PolicyID: "p1", Status: StatusError},
+			{PolicyID: "p2", Status: StatusError},
+		},
+	}
+
+	result.CalculateSummary()
+
+	assert.Equal(t, 2, result.Summary.TotalPolicies)
+	assert.Equal(t, 0, result.Summary.PassedPolicies)
+	assert.Equal(t, 0, result.Summary.FailedPolicies)
+	assert.Equal(t, 0, result.Summary.SkippedPolicies)
+	// Errors are not counted as pass, fail, or skip — score = 0/2 = 0
+	assert.Equal(t, 0.0, result.Summary.ComplianceScore)
+}
+
+func TestCheckResult_CalculateSummary_NoPolicies(t *testing.T) {
+	result := CheckResult{
+		PolicyResults: []PolicyResult{},
+	}
+
+	result.CalculateSummary()
+
+	assert.Equal(t, 0, result.Summary.TotalPolicies)
+	assert.Equal(t, 0.0, result.Summary.ComplianceScore)
+	assert.False(t, result.HasFailures())
+}
+
+func TestCheckResult_CalculateSummary_NilPolicies(t *testing.T) {
+	result := CheckResult{}
+
+	// Should not panic with nil PolicyResults
+	result.CalculateSummary()
+
+	assert.Equal(t, 0, result.Summary.TotalPolicies)
+	assert.Equal(t, 0.0, result.Summary.ComplianceScore)
+}
+
+func TestCheckResult_CalculateSummary_MixedWithErrors(t *testing.T) {
+	result := CheckResult{
+		PolicyResults: []PolicyResult{
+			{PolicyID: "p1", Status: StatusPass},
+			{PolicyID: "p2", Status: StatusFail},
+			{PolicyID: "p3", Status: StatusError},
+			{PolicyID: "p4", Status: StatusSkip},
+		},
+	}
+
+	result.CalculateSummary()
+
+	assert.Equal(t, 4, result.Summary.TotalPolicies)
+	assert.Equal(t, 1, result.Summary.PassedPolicies)
+	assert.Equal(t, 1, result.Summary.FailedPolicies)
+	assert.Equal(t, 1, result.Summary.SkippedPolicies)
+	// evaluated = 4 - 1(skipped) = 3, score = 1/3 ≈ 0.333
+	assert.InDelta(t, 0.333, result.Summary.ComplianceScore, 0.01)
+}
+
+func TestEvidence_New_NilData(t *testing.T) {
+	// Should not panic with nil data
+	ev := New("aws", "aws:iam:user", "user1", nil)
+	assert.NotEmpty(t, ev.ID)
+	assert.NotEmpty(t, ev.Hash)
+	assert.Equal(t, "aws", ev.Collector)
+}
+
+func TestEvidence_New_EmptyData(t *testing.T) {
+	ev := New("aws", "aws:iam:user", "user1", json.RawMessage{})
+	assert.NotEmpty(t, ev.Hash)
+}
+
+func TestEvidence_ComputeHash_NilVsEmpty(t *testing.T) {
+	// Nil and empty should produce different hashes (nil = hash of nil bytes, empty = hash of empty bytes)
+	ev1 := New("aws", "type", "id", nil)
+	ev2 := New("aws", "type", "id", json.RawMessage{})
+	// Both should be valid non-empty hashes
+	assert.NotEmpty(t, ev1.Hash)
+	assert.NotEmpty(t, ev2.Hash)
+}
+
 func TestCheckResult_HasFailures(t *testing.T) {
 	result := CheckResult{
 		PolicyResults: []PolicyResult{

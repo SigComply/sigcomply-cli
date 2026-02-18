@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 
@@ -219,6 +220,79 @@ func TestCollector_Collect_OrgRepos(t *testing.T) {
 	require.NotNil(t, result)
 	// Should have 1 repo + 1 member
 	assert.Len(t, result.Evidence, 2)
+}
+
+// --- Negative tests ---
+
+func TestCollector_Status_APIError(t *testing.T) {
+	mockClient := &MockClient{
+		GetAuthenticatedUserFunc: func(ctx context.Context) (*gh.User, *gh.Response, error) {
+			return nil, nil, errors.New("401 Unauthorized")
+		},
+	}
+
+	c := New()
+	c.InitWithClient(mockClient)
+
+	status := c.Status(context.Background())
+	assert.False(t, status.Connected)
+	assert.Contains(t, status.Error, "Unauthorized")
+}
+
+func TestCollector_Collect_ReposAndMembersFail(t *testing.T) {
+	// Both repos and members fail — fail-safe should return empty result with errors
+	mockClient := &MockClient{
+		GetAuthenticatedUserFunc: func(ctx context.Context) (*gh.User, *gh.Response, error) {
+			return &gh.User{Login: strPtr("testuser")}, nil, nil
+		},
+		ListOrgReposFunc: func(ctx context.Context, org string, opts *gh.RepositoryListByOrgOptions) ([]*gh.Repository, *gh.Response, error) {
+			return nil, nil, errors.New("repos API error")
+		},
+		ListOrgMembersFunc: func(ctx context.Context, org string, opts *gh.ListMembersOptions) ([]*gh.User, *gh.Response, error) {
+			return nil, nil, errors.New("members API error")
+		},
+	}
+
+	c := New().WithOrganization("testorg")
+	c.InitWithClient(mockClient)
+
+	result, err := c.Collect(context.Background())
+	require.NoError(t, err, "Collect should not error even when sub-collectors fail")
+	assert.Empty(t, result.Evidence, "should have no evidence when both fail")
+	assert.True(t, result.HasErrors())
+
+	// Should have errors for both resources
+	resourceErrors := make(map[string]bool)
+	for _, e := range result.Errors {
+		resourceErrors[e.Resource] = true
+	}
+	assert.True(t, resourceErrors["repositories"])
+	assert.True(t, resourceErrors["members"])
+}
+
+func TestCollector_Collect_ReposFailMembersSucceed(t *testing.T) {
+	// Repos fail but members succeed — partial result
+	mockClient := &MockClient{
+		GetAuthenticatedUserFunc: func(ctx context.Context) (*gh.User, *gh.Response, error) {
+			return &gh.User{Login: strPtr("testuser")}, nil, nil
+		},
+		ListOrgReposFunc: func(ctx context.Context, org string, opts *gh.RepositoryListByOrgOptions) ([]*gh.Repository, *gh.Response, error) {
+			return nil, nil, errors.New("repos API error")
+		},
+		ListOrgMembersFunc: func(ctx context.Context, org string, opts *gh.ListMembersOptions) ([]*gh.User, *gh.Response, error) {
+			return []*gh.User{
+				{Login: strPtr("member1"), ID: int64Ptr(1)},
+			}, &gh.Response{}, nil
+		},
+	}
+
+	c := New().WithOrganization("testorg")
+	c.InitWithClient(mockClient)
+
+	result, err := c.Collect(context.Background())
+	require.NoError(t, err)
+	assert.Len(t, result.Evidence, 1, "should have member evidence")
+	assert.True(t, result.HasErrors(), "should have repos error")
 }
 
 func TestCollectionResult_HasErrors(t *testing.T) {

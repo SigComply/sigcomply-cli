@@ -139,6 +139,98 @@ func TestS3Collector_CollectBuckets_APIError(t *testing.T) {
 	assert.Contains(t, err.Error(), "access denied")
 }
 
+// --- Negative tests ---
+
+func TestS3Collector_CollectBuckets_VersioningError(t *testing.T) {
+	// GetBucketVersioning fails for a bucket — should default to VersioningEnabled=false
+	mockS3 := &MockS3Client{
+		ListBucketsFunc: func(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
+			return &s3.ListBucketsOutput{
+				Buckets: []types.Bucket{
+					{Name: aws.String("my-bucket")},
+				},
+			}, nil
+		},
+		GetBucketEncryptionFunc: func(ctx context.Context, params *s3.GetBucketEncryptionInput, optFns ...func(*s3.Options)) (*s3.GetBucketEncryptionOutput, error) {
+			return nil, errors.New("no encryption")
+		},
+		GetBucketVersioningFunc: func(ctx context.Context, params *s3.GetBucketVersioningInput, optFns ...func(*s3.Options)) (*s3.GetBucketVersioningOutput, error) {
+			return nil, errors.New("access denied")
+		},
+		GetPublicAccessBlockFunc: func(ctx context.Context, params *s3.GetPublicAccessBlockInput, optFns ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error) {
+			return &s3.GetPublicAccessBlockOutput{}, nil
+		},
+	}
+
+	collector := &S3Collector{client: mockS3}
+	buckets, err := collector.CollectBuckets(context.Background())
+
+	require.NoError(t, err, "should not fail when versioning query fails")
+	require.Len(t, buckets, 1)
+	assert.False(t, buckets[0].VersioningEnabled, "should default to false on error")
+}
+
+func TestS3Collector_CollectBuckets_PublicAccessBlockError(t *testing.T) {
+	// GetPublicAccessBlock fails — should default to PublicAccessBlocked=false
+	mockS3 := &MockS3Client{
+		ListBucketsFunc: func(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
+			return &s3.ListBucketsOutput{
+				Buckets: []types.Bucket{
+					{Name: aws.String("my-bucket")},
+				},
+			}, nil
+		},
+		GetBucketEncryptionFunc: func(ctx context.Context, params *s3.GetBucketEncryptionInput, optFns ...func(*s3.Options)) (*s3.GetBucketEncryptionOutput, error) {
+			return nil, errors.New("no encryption")
+		},
+		GetBucketVersioningFunc: func(ctx context.Context, params *s3.GetBucketVersioningInput, optFns ...func(*s3.Options)) (*s3.GetBucketVersioningOutput, error) {
+			return &s3.GetBucketVersioningOutput{}, nil
+		},
+		GetPublicAccessBlockFunc: func(ctx context.Context, params *s3.GetPublicAccessBlockInput, optFns ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error) {
+			return nil, errors.New("access denied")
+		},
+	}
+
+	collector := &S3Collector{client: mockS3}
+	buckets, err := collector.CollectBuckets(context.Background())
+
+	require.NoError(t, err, "should not fail when public access block query fails")
+	require.Len(t, buckets, 1)
+	assert.False(t, buckets[0].PublicAccessBlocked, "should default to false on error")
+}
+
+func TestS3Collector_CollectBuckets_AllEnrichmentErrors(t *testing.T) {
+	// All enrichment calls fail — bucket should still be collected with safe defaults
+	mockS3 := &MockS3Client{
+		ListBucketsFunc: func(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
+			return &s3.ListBucketsOutput{
+				Buckets: []types.Bucket{
+					{Name: aws.String("my-bucket")},
+				},
+			}, nil
+		},
+		GetBucketEncryptionFunc: func(ctx context.Context, params *s3.GetBucketEncryptionInput, optFns ...func(*s3.Options)) (*s3.GetBucketEncryptionOutput, error) {
+			return nil, errors.New("denied")
+		},
+		GetBucketVersioningFunc: func(ctx context.Context, params *s3.GetBucketVersioningInput, optFns ...func(*s3.Options)) (*s3.GetBucketVersioningOutput, error) {
+			return nil, errors.New("denied")
+		},
+		GetPublicAccessBlockFunc: func(ctx context.Context, params *s3.GetPublicAccessBlockInput, optFns ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error) {
+			return nil, errors.New("denied")
+		},
+	}
+
+	collector := &S3Collector{client: mockS3}
+	buckets, err := collector.CollectBuckets(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, buckets, 1)
+	assert.Equal(t, "my-bucket", buckets[0].Name)
+	assert.False(t, buckets[0].EncryptionEnabled)
+	assert.False(t, buckets[0].VersioningEnabled)
+	assert.False(t, buckets[0].PublicAccessBlocked)
+}
+
 func TestS3Collector_ToEvidence(t *testing.T) {
 	bucket := S3Bucket{
 		Name:                "my-bucket",

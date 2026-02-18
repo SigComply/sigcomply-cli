@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	gh "github.com/google/go-github/v57/github"
@@ -215,6 +216,90 @@ func TestRepoCollector_WithBranchProtection(t *testing.T) {
 	assert.True(t, repo.BranchProtection.RequireCodeOwnerReviews)
 	assert.True(t, repo.BranchProtection.RequiredStatusChecks)
 	assert.True(t, repo.BranchProtection.EnforceAdmins)
+}
+
+// --- Negative tests ---
+
+func TestRepoCollector_CollectOrgRepos_APIError(t *testing.T) {
+	mockClient := &MockClient{
+		ListOrgReposFunc: func(ctx context.Context, org string, opts *gh.RepositoryListByOrgOptions) ([]*gh.Repository, *gh.Response, error) {
+			return nil, nil, errors.New("organization not found")
+		},
+	}
+
+	collector := NewRepoCollector(mockClient)
+	_, err := collector.CollectOrgRepos(context.Background(), "nonexistent-org")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "organization not found")
+}
+
+func TestRepoCollector_CollectUserRepos_APIError(t *testing.T) {
+	mockClient := &MockClient{
+		ListUserReposFunc: func(ctx context.Context, user string, opts *gh.RepositoryListByUserOptions) ([]*gh.Repository, *gh.Response, error) {
+			return nil, nil, errors.New("user not found")
+		},
+	}
+
+	collector := NewRepoCollector(mockClient)
+	_, err := collector.CollectUserRepos(context.Background(), "nonexistent-user")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "user not found")
+}
+
+func TestRepoCollector_CollectOrgRepos_BranchProtectionError(t *testing.T) {
+	// GetBranchProtection fails for a repo — should continue and leave BranchProtection nil
+	mockClient := &MockClient{
+		ListOrgReposFunc: func(ctx context.Context, org string, opts *gh.RepositoryListByOrgOptions) ([]*gh.Repository, *gh.Response, error) {
+			return []*gh.Repository{
+				{
+					Name:          strPtr("repo-no-protection-access"),
+					FullName:      strPtr("testorg/repo-no-protection-access"),
+					Owner:         &gh.User{Login: strPtr("testorg")},
+					DefaultBranch: strPtr("main"),
+					Archived:      gh.Bool(false),
+				},
+				{
+					Name:          strPtr("repo-with-protection"),
+					FullName:      strPtr("testorg/repo-with-protection"),
+					Owner:         &gh.User{Login: strPtr("testorg")},
+					DefaultBranch: strPtr("main"),
+					Archived:      gh.Bool(false),
+				},
+			}, &gh.Response{}, nil
+		},
+		GetBranchProtectionFunc: func(ctx context.Context, owner, repo, branch string) (*gh.Protection, *gh.Response, error) {
+			if repo == "repo-no-protection-access" {
+				return nil, nil, errors.New("403 Forbidden")
+			}
+			return &gh.Protection{
+				EnforceAdmins: &gh.AdminEnforcement{Enabled: true},
+			}, nil, nil
+		},
+	}
+
+	collector := NewRepoCollector(mockClient)
+	evidence, err := collector.CollectOrgRepos(context.Background(), "testorg")
+
+	require.NoError(t, err, "should not fail when branch protection query fails for one repo")
+	require.Len(t, evidence, 2)
+
+	// Verify one has protection and the other doesn't
+	var repoNoProt, repoWithProt Repository
+	for _, ev := range evidence {
+		var r Repository
+		require.NoError(t, json.Unmarshal(ev.Data, &r))
+		switch r.Name {
+		case "repo-no-protection-access":
+			repoNoProt = r
+		case "repo-with-protection":
+			repoWithProt = r
+		}
+	}
+
+	assert.Nil(t, repoNoProt.BranchProtection, "should be nil when protection query fails")
+	assert.NotNil(t, repoWithProt.BranchProtection, "should have protection when query succeeds")
 }
 
 func TestConvertBranchProtection(t *testing.T) {

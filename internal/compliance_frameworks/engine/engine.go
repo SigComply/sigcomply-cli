@@ -412,28 +412,6 @@ func findViolationsRecursive(obj map[string]interface{}) []interface{} {
 	return nil
 }
 
-// extractViolations extracts violations from OPA evaluation results.
-func (e *Engine) extractViolations(results rego.ResultSet) ([]evidence.Violation, error) {
-	violations := []evidence.Violation{}
-
-	for _, result := range results {
-		for _, expr := range result.Expressions {
-			// Handle set of violations
-			if set, ok := expr.Value.([]interface{}); ok {
-				for _, item := range set {
-					v, err := e.parseViolation(item)
-					if err != nil {
-						continue // Skip malformed violations
-					}
-					violations = append(violations, *v)
-				}
-			}
-		}
-	}
-
-	return violations, nil
-}
-
 // parseViolation parses a single violation from OPA output.
 func (e *Engine) parseViolation(item interface{}) (*evidence.Violation, error) {
 	m, ok := item.(map[string]interface{})

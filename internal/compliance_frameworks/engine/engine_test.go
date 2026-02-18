@@ -467,6 +467,219 @@ violations contains violation if {
 	}
 }
 
+// --- Negative tests ---
+
+func TestEngine_LoadPolicy_MissingMetadata(t *testing.T) {
+	eng := New()
+
+	// Valid Rego syntax but no metadata rule in sigcomply namespace
+	policy := `
+package sigcomply.test
+
+violations contains violation if {
+	input.data.fail == true
+	violation := {"resource_id": "x", "resource_type": "y", "reason": "failed"}
+}
+`
+	err := eng.LoadPolicy("no-metadata", policy)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "metadata")
+}
+
+func TestEngine_Evaluate_EmptyEvidenceList(t *testing.T) {
+	eng := New()
+
+	policy := `
+package sigcomply.test
+
+metadata := {
+	"id": "test-policy",
+	"name": "Test Policy",
+	"framework": "test",
+	"control": "TEST.1",
+	"severity": "high",
+	"evaluation_mode": "individual",
+	"resource_types": ["aws:iam:user"]
+}
+
+violations contains violation if {
+	input.data.fail == true
+	violation := {"resource_id": "x", "resource_type": "y", "reason": "failed"}
+}
+`
+	err := eng.LoadPolicy("test-policy", policy)
+	require.NoError(t, err)
+
+	// Empty evidence list — all policies should be skipped
+	results, err := eng.Evaluate(context.Background(), []evidence.Evidence{})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, evidence.StatusSkip, results[0].Status)
+	assert.Equal(t, 0, results[0].ResourcesEvaluated)
+}
+
+func TestEngine_Evaluate_NilEvidenceList(t *testing.T) {
+	eng := New()
+
+	policy := `
+package sigcomply.test
+
+metadata := {
+	"id": "test-policy",
+	"name": "Test Policy",
+	"framework": "test",
+	"control": "TEST.1",
+	"severity": "high",
+	"evaluation_mode": "individual",
+	"resource_types": ["aws:iam:user"]
+}
+
+violations contains violation if {
+	input.data.fail == true
+	violation := {"resource_id": "x", "resource_type": "y", "reason": "failed"}
+}
+`
+	err := eng.LoadPolicy("test-policy", policy)
+	require.NoError(t, err)
+
+	// Nil evidence list — should not panic
+	results, err := eng.Evaluate(context.Background(), nil)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, evidence.StatusSkip, results[0].Status)
+}
+
+func TestEngine_Evaluate_NoPoliciesLoaded(t *testing.T) {
+	eng := New()
+
+	data, _ := json.Marshal(map[string]interface{}{"user_name": "alice"})
+	evidenceList := []evidence.Evidence{
+		evidence.New("aws", "aws:iam:user", "arn:aws:iam::123:user/alice", data),
+	}
+
+	results, err := eng.Evaluate(context.Background(), evidenceList)
+	require.NoError(t, err)
+	assert.Empty(t, results)
+}
+
+func TestEngine_LoadPolicy_DuplicateID(t *testing.T) {
+	eng := New()
+
+	policy := `
+package sigcomply.test
+
+metadata := {
+	"id": "test-policy",
+	"name": "Test Policy",
+	"framework": "test",
+	"control": "TEST.1",
+	"severity": "high",
+	"evaluation_mode": "individual",
+	"resource_types": ["aws:iam:user"]
+}
+
+violations contains violation if {
+	input.data.fail == true
+	violation := {"resource_id": "x", "resource_type": "y", "reason": "failed"}
+}
+`
+	err := eng.LoadPolicy("test-policy", policy)
+	require.NoError(t, err)
+
+	// Load the same policy again — should not error (appends)
+	err = eng.LoadPolicy("test-policy", policy)
+	require.NoError(t, err)
+
+	policies := eng.GetPolicies()
+	assert.Len(t, policies, 2, "duplicate policies should both be loaded")
+}
+
+func TestEngine_Evaluate_CancelledContext(t *testing.T) {
+	eng := New()
+
+	policy := `
+package sigcomply.test
+
+metadata := {
+	"id": "test-policy",
+	"name": "Test Policy",
+	"framework": "test",
+	"control": "TEST.1",
+	"severity": "high",
+	"evaluation_mode": "individual",
+	"resource_types": ["aws:iam:user"]
+}
+
+violations contains violation if {
+	input.data.fail == true
+	violation := {"resource_id": "x", "resource_type": "y", "reason": "failed"}
+}
+`
+	err := eng.LoadPolicy("test-policy", policy)
+	require.NoError(t, err)
+
+	userData, _ := json.Marshal(map[string]interface{}{"fail": true})
+	evidenceList := []evidence.Evidence{
+		evidence.New("aws", "aws:iam:user", "arn:aws:iam::123:user/alice", userData),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	// With a canceled context, Evaluate should not panic and should return results.
+	// OPA may complete fast enough to succeed, or it may return an error —
+	// we just verify it doesn't crash and returns exactly 1 result.
+	results, err := eng.Evaluate(ctx, evidenceList)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	// Status could be error (context canceled) or fail (OPA completed fast enough)
+	assert.True(t, results[0].Status == evidence.StatusError || results[0].Status == evidence.StatusFail,
+		"status should be error or fail, got: %s", results[0].Status)
+}
+
+func TestEngine_Evaluate_InvalidEvidenceJSON(t *testing.T) {
+	eng := New()
+
+	policy := `
+package sigcomply.test
+
+metadata := {
+	"id": "test-policy",
+	"name": "Test Policy",
+	"framework": "test",
+	"control": "TEST.1",
+	"severity": "high",
+	"evaluation_mode": "individual",
+	"resource_types": ["aws:iam:user"]
+}
+
+violations contains violation if {
+	input.data.fail == true
+	violation := {"resource_id": "x", "resource_type": "y", "reason": "failed"}
+}
+`
+	err := eng.LoadPolicy("test-policy", policy)
+	require.NoError(t, err)
+
+	// Evidence with invalid JSON data
+	evidenceList := []evidence.Evidence{
+		evidence.New("aws", "aws:iam:user", "arn:aws:iam::123:user/alice", json.RawMessage(`{invalid json`)),
+	}
+
+	results, err := eng.Evaluate(context.Background(), evidenceList)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	// Should produce an error result for the policy
+	assert.Equal(t, evidence.StatusError, results[0].Status)
+}
+
+func TestEngine_GetPolicies_Empty(t *testing.T) {
+	eng := New()
+	policies := eng.GetPolicies()
+	assert.NotNil(t, policies, "GetPolicies should return empty slice, not nil")
+	assert.Empty(t, policies)
+}
+
 func TestEngine_Evaluate_NoMatchingResources(t *testing.T) {
 	eng := New()
 

@@ -206,6 +206,83 @@ func TestCollector_Collect_FailSafe(t *testing.T) {
 	assert.Len(t, result.Evidence, 2, "should have evidence from S3 and CloudTrail")
 }
 
+// --- Negative tests ---
+
+func TestCollector_Collect_AllServicesFail(t *testing.T) {
+	mockSTS := &MockSTSClient{
+		GetCallerIdentityFunc: func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
+			return &sts.GetCallerIdentityOutput{
+				Account: aws.String("123456789012"),
+			}, nil
+		},
+	}
+
+	// All services fail
+	mockIAM := &MockIAMClient{
+		ListUsersFunc: func(ctx context.Context, params *iam.ListUsersInput, optFns ...func(*iam.Options)) (*iam.ListUsersOutput, error) {
+			return nil, errors.New("IAM access denied")
+		},
+	}
+
+	mockS3 := &MockS3Client{
+		ListBucketsFunc: func(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
+			return nil, errors.New("S3 access denied")
+		},
+	}
+
+	mockCloudTrail := &MockCloudTrailClient{
+		DescribeTrailsFunc: func(ctx context.Context, params *cloudtrail.DescribeTrailsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.DescribeTrailsOutput, error) {
+			return nil, errors.New("CloudTrail access denied")
+		},
+	}
+
+	collector := &Collector{
+		stsClient:        mockSTS,
+		iamClient:        mockIAM,
+		s3Client:         mockS3,
+		cloudtrailClient: mockCloudTrail,
+	}
+
+	result, err := collector.Collect(context.Background())
+
+	require.NoError(t, err, "Collect should not error even when all services fail")
+	assert.Empty(t, result.Evidence, "should have no evidence when all services fail")
+	assert.Len(t, result.Errors, 3, "should have errors from all 3 services")
+
+	// Verify all services reported errors
+	serviceErrors := make(map[string]bool)
+	for _, e := range result.Errors {
+		serviceErrors[e.Service] = true
+	}
+	assert.True(t, serviceErrors["iam"])
+	assert.True(t, serviceErrors["s3"])
+	assert.True(t, serviceErrors["cloudtrail"])
+}
+
+func TestCollector_GetAccountID_NotInitialized(t *testing.T) {
+	collector := New()
+	_, err := collector.GetAccountID(context.Background())
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not initialized")
+}
+
+func TestCollector_Collect_AccountIDError(t *testing.T) {
+	mockSTS := &MockSTSClient{
+		GetCallerIdentityFunc: func(ctx context.Context, params *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
+			return nil, errors.New("STS unavailable")
+		},
+	}
+
+	collector := &Collector{
+		stsClient: mockSTS,
+	}
+
+	_, err := collector.Collect(context.Background())
+	require.Error(t, err, "should fail when account ID cannot be retrieved")
+	assert.Contains(t, err.Error(), "account ID")
+}
+
 func TestCollectionResult_HasErrors(t *testing.T) {
 	result := &CollectionResult{}
 	assert.False(t, result.HasErrors())
