@@ -5,8 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"sort"
-
-	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 // HashData computes the SHA-256 hash of arbitrary data.
@@ -29,67 +27,35 @@ func HashJSON(v interface{}) (string, error) {
 	return HashData(data), nil
 }
 
-// HashCheckResult computes the SHA-256 hash of a check result.
-// Uses canonical JSON serialization to ensure deterministic hashing,
-// since CheckResult contains Violations with map[string]interface{} Details.
-func HashCheckResult(result *evidence.CheckResult) (string, error) {
-	return HashCanonicalJSON(result)
-}
-
-// HashEvidence computes the SHA-256 hash of an evidence item.
-func HashEvidence(ev *evidence.Evidence) string {
-	// Evidence already has a hash computed at creation time
-	if ev.Hash != "" {
-		return ev.Hash
-	}
-	// Fallback to computing from data
-	return HashData(ev.Data)
-}
-
-// ComputeEvidenceHashes computes hashes for all evidence and the check result.
-func ComputeEvidenceHashes(result *evidence.CheckResult, evidenceList []evidence.Evidence) (*EvidenceHashes, error) {
+// ComputeStoredFileHashes builds EvidenceHashes from stored file hashes.
+// checkResultHash is the SHA-256 of the stored check_result.json file.
+// fileHashes maps relative file paths to their SHA-256 hashes.
+func ComputeStoredFileHashes(checkResultHash string, fileHashes map[string]string) *EvidenceHashes {
 	hashes := &EvidenceHashes{
-		Evidence: make(map[string]string),
+		CheckResult: checkResultHash,
+		StoredFiles: fileHashes,
 	}
 
-	// Hash each piece of evidence
-	for i := range evidenceList {
-		ev := &evidenceList[i]
-		hashes.Evidence[ev.ID] = HashEvidence(ev)
-	}
-
-	// Hash the check result
-	checkResultHash, err := HashCheckResult(result)
-	if err != nil {
-		return nil, err
-	}
-	hashes.CheckResult = checkResultHash
-
-	// Compute combined hash (deterministic ordering)
 	hashes.Combined = computeCombinedHash(hashes)
 
-	return hashes, nil
+	return hashes
 }
 
-// computeCombinedHash creates a single hash representing all evidence.
+// computeCombinedHash creates a single hash representing all stored files.
 func computeCombinedHash(hashes *EvidenceHashes) string {
-	// Sort evidence IDs for deterministic ordering
-	ids := make([]string, 0, len(hashes.Evidence))
-	for id := range hashes.Evidence {
-		ids = append(ids, id)
+	// Sort file paths for deterministic ordering
+	paths := make([]string, 0, len(hashes.StoredFiles))
+	for p := range hashes.StoredFiles {
+		paths = append(paths, p)
 	}
-	sort.Strings(ids)
+	sort.Strings(paths)
 
-	// Concatenate all hashes in order
+	// Concatenate all hashes in order: check_result hash first, then sorted file hashes
 	var combined []byte
 	combined = append(combined, []byte(hashes.CheckResult)...)
 
-	for _, id := range ids {
-		combined = append(combined, []byte(hashes.Evidence[id])...)
-	}
-
-	if hashes.Manifest != "" {
-		combined = append(combined, []byte(hashes.Manifest)...)
+	for _, p := range paths {
+		combined = append(combined, []byte(hashes.StoredFiles[p])...)
 	}
 
 	return HashData(combined)
@@ -99,10 +65,4 @@ func computeCombinedHash(hashes *EvidenceHashes) string {
 func VerifyHash(data []byte, expectedHash string) bool {
 	actualHash := HashData(data)
 	return actualHash == expectedHash
-}
-
-// VerifyEvidenceHash verifies that evidence data matches its hash.
-func VerifyEvidenceHash(ev *evidence.Evidence) bool {
-	expectedHash := HashData(ev.Data)
-	return ev.Hash == expectedHash
 }

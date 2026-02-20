@@ -174,7 +174,7 @@ func RunScenario(t *testing.T, cfg *config.E2EConfig, allCreds []*config.Resolve
 		policyResults = []evidence.PolicyResult{}
 	}
 
-	// ===== Phase 3: Hash Results =====
+	// ===== Phase 3-6: Store, Hash, Sign, Store Attestation (only if storage configured) =====
 	runID := uuid.New().String()
 	checkResult := &evidence.CheckResult{
 		RunID:         runID,
@@ -184,50 +184,8 @@ func RunScenario(t *testing.T, cfg *config.E2EConfig, allCreds []*config.Resolve
 	}
 	checkResult.CalculateSummary()
 
-	var hashes *attestation.EvidenceHashes
-
-	t.Run("hash-results", func(t *testing.T) {
-		var hashErr error
-		hashes, hashErr = attestation.ComputeEvidenceHashes(checkResult, evidenceList)
-		require.NoError(t, hashErr, "ComputeEvidenceHashes failed")
-		require.NotEmpty(t, hashes.CheckResult, "CheckResult hash is empty")
-		require.NotEmpty(t, hashes.Combined, "Combined hash is empty")
-
-		t.Logf("Combined hash: %s", hashes.Combined)
-		t.Logf("Evidence hashes: %d items", len(hashes.Evidence))
-	})
-
-	if hashes == nil {
-		t.Fatal("Hashing failed — aborting remaining phases")
-	}
-
-	// ===== Phase 4: Sign Attestation =====
-	att := &attestation.Attestation{
-		ID:        uuid.New().String(),
-		RunID:     runID,
-		Framework: scenario.Framework,
-		Timestamp: time.Now().UTC(),
-		Hashes:    *hashes,
-	}
-
-	t.Run("sign-attestation", func(t *testing.T) {
-		signer := attestation.NewHMACSigner(secret)
-		err := signer.Sign(att)
-		require.NoError(t, err, "HMAC signing failed")
-		require.NotEmpty(t, att.Signature.Value, "Signature value is empty")
-		assert.Equal(t, attestation.AlgorithmHMACSHA256, att.Signature.Algorithm)
-
-		// Round-trip verify
-		verifier := attestation.NewHMACVerifier(secret)
-		err = verifier.Verify(att)
-		require.NoError(t, err, "HMAC verification failed")
-
-		t.Logf("Attestation signed and verified (algorithm=%s)", att.Signature.Algorithm)
-	})
-
-	// ===== Phase 5 & 6: Store and Verify S3 (only if storage configured) =====
 	if scenario.Storage == "" {
-		t.Log("Skipping storage/S3 phases (no storage profile configured for this scenario)")
+		t.Log("Skipping storage/hash/sign phases (no storage profile configured for this scenario)")
 		return
 	}
 
@@ -253,6 +211,7 @@ func RunScenario(t *testing.T, cfg *config.E2EConfig, allCreds []*config.Resolve
 
 	var manifest *corestorage.Manifest
 
+	// Phase 3: Store evidence (no attestation yet)
 	t.Run("store-evidence-s3", func(t *testing.T) {
 		storageCfg := &corestorage.Config{
 			Backend: "s3",
@@ -270,19 +229,86 @@ func RunScenario(t *testing.T, cfg *config.E2EConfig, allCreds []*config.Resolve
 		require.NoError(t, storageErr, "Storage backend Init failed")
 		defer backend.Close() //nolint:errcheck
 
-		manifest, storageErr = corestorage.StoreRun(ctx, backend, checkResult, evidenceList, att)
+		manifest, storageErr = corestorage.StoreRun(ctx, backend, checkResult, evidenceList)
 		require.NoError(t, storageErr, "StoreRun failed")
 		require.NotNil(t, manifest, "Manifest is nil")
 
 		assert.Equal(t, runID, manifest.RunID)
 		assert.Equal(t, scenario.Framework, manifest.Framework)
-		// EvidenceCount reflects unique evidence items stored (only evidence matching a policy gets stored)
 		assert.Greater(t, manifest.EvidenceCount, 0, "No evidence items stored")
 
 		t.Logf("Stored %d evidence items, manifest run_id=%s", manifest.EvidenceCount, manifest.RunID)
 		for _, item := range manifest.Items {
 			t.Logf("  -> %s (%d bytes)", item.Path, item.Size)
 		}
+	})
+
+	if manifest == nil {
+		t.Fatal("Storage failed — aborting remaining phases")
+	}
+
+	// Phase 4: Hash stored files
+	var hashes *attestation.EvidenceHashes
+
+	t.Run("hash-stored-files", func(t *testing.T) {
+		runPath := corestorage.NewRunPath(checkResult.Framework, checkResult.Timestamp)
+		checkResultHash, fileHashes := manifest.FileHashes(runPath.BasePath())
+		hashes = attestation.ComputeStoredFileHashes(checkResultHash, fileHashes)
+		require.NotEmpty(t, hashes.CheckResult, "CheckResult hash is empty")
+		require.NotEmpty(t, hashes.Combined, "Combined hash is empty")
+
+		t.Logf("Combined hash: %s", hashes.Combined)
+		t.Logf("Stored file hashes: %d items", len(hashes.StoredFiles))
+	})
+
+	// Phase 5: Sign attestation
+	att := &attestation.Attestation{
+		ID:        uuid.New().String(),
+		RunID:     runID,
+		Framework: scenario.Framework,
+		Timestamp: time.Now().UTC(),
+		Hashes:    *hashes,
+	}
+
+	t.Run("sign-attestation", func(t *testing.T) {
+		signer := attestation.NewHMACSigner(secret)
+		err := signer.Sign(att)
+		require.NoError(t, err, "HMAC signing failed")
+		require.NotEmpty(t, att.Signature.Value, "Signature value is empty")
+		assert.Equal(t, attestation.AlgorithmHMACSHA256, att.Signature.Algorithm)
+
+		// Round-trip verify
+		verifier := attestation.NewHMACVerifier(secret)
+		err = verifier.Verify(att)
+		require.NoError(t, err, "HMAC verification failed")
+
+		t.Logf("Attestation signed and verified (algorithm=%s)", att.Signature.Algorithm)
+	})
+
+	// Phase 6: Store attestation separately
+	t.Run("store-attestation-s3", func(t *testing.T) {
+		storageCfg := &corestorage.Config{
+			Backend: "s3",
+			S3: &corestorage.S3Config{
+				Bucket: bucket,
+				Region: storageRegion,
+				Prefix: prefix,
+			},
+		}
+
+		backend, storageErr := corestorage.NewBackend(storageCfg)
+		require.NoError(t, storageErr, "NewBackend failed")
+
+		storageErr = backend.Init(ctx)
+		require.NoError(t, storageErr, "Storage backend Init failed")
+		defer backend.Close() //nolint:errcheck
+
+		runPath := corestorage.NewRunPath(checkResult.Framework, checkResult.Timestamp)
+		attItem, storageErr := corestorage.StoreAttestation(ctx, backend, *runPath, att)
+		require.NoError(t, storageErr, "StoreAttestation failed")
+		require.NotNil(t, attItem, "Attestation StoredItem is nil")
+
+		t.Logf("Stored attestation at %s (%d bytes)", attItem.Path, attItem.Size)
 	})
 
 	// ===== Phase 6: Verify S3 Objects =====

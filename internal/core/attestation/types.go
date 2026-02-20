@@ -45,18 +45,16 @@ type Attestation struct {
 	PolicyVersions map[string]string `json:"policy_versions,omitempty"`
 }
 
-// EvidenceHashes contains cryptographic hashes of evidence components.
+// EvidenceHashes contains cryptographic hashes of stored files.
 type EvidenceHashes struct {
-	// CheckResult is the SHA-256 hash of the check result JSON.
+	// CheckResult is the SHA-256 hash of the stored check_result.json file.
 	CheckResult string `json:"check_result"`
 
-	// Evidence maps evidence IDs to their SHA-256 hashes.
-	Evidence map[string]string `json:"evidence"`
+	// StoredFiles maps relative file paths (relative to run dir) to SHA-256 hashes.
+	// Keys: "cc6.1-mfa/result.json", "cc6.1-mfa/evidence/iam-users.json", "check_result.json"
+	StoredFiles map[string]string `json:"stored_files"`
 
-	// Manifest is the SHA-256 hash of the storage manifest.
-	Manifest string `json:"manifest,omitempty"`
-
-	// Combined is a single hash representing all evidence.
+	// Combined is SHA-256(CheckResult hash + sorted StoredFiles hashes).
 	Combined string `json:"combined"`
 }
 

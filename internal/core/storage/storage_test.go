@@ -11,11 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
-
-const testRunBasePath = "runs/soc2/2026-02-14"
 
 func TestNewBackend_Local(t *testing.T) {
 	cfg := &Config{
@@ -305,14 +302,14 @@ func TestStoreRun_PolicyCentricLayout(t *testing.T) {
 		evidence.New("aws", "aws:s3:bucket", "arn:aws:s3:::my-bucket", []byte(`{"name":"my-bucket","encrypted":true}`)),
 	}
 
-	manifest, err := StoreRun(context.Background(), backend, result, evidenceList, nil)
+	manifest, err := StoreRun(context.Background(), backend, result, evidenceList)
 	require.NoError(t, err)
 
 	assert.Equal(t, "test-run-123", manifest.RunID)
 	assert.Equal(t, "soc2", manifest.Framework)
 
 	// Verify policy-centric folder structure exists
-	basePath := testRunBasePath
+	basePath := "runs/soc2/2026-02-14/18-20-49"
 
 	// Check check_result.json at run level
 	assert.Equal(t, basePath+"/check_result.json", manifest.CheckResult)
@@ -365,48 +362,38 @@ func TestStoreRun_PolicyCentricLayout(t *testing.T) {
 	assert.Equal(t, 3, manifest.EvidenceCount)
 }
 
-func TestStoreRun_WithAttestation(t *testing.T) {
+func TestStoreAttestation(t *testing.T) {
 	tmpDir := t.TempDir()
 	backend := NewLocalBackend(&LocalConfig{Path: tmpDir})
 	err := backend.Init(context.Background())
 	require.NoError(t, err)
 
 	ts := time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC)
-	result := &evidence.CheckResult{
-		RunID:     "test-run-att",
-		Framework: "soc2",
-		Timestamp: ts,
-		PolicyResults: []evidence.PolicyResult{
-			{
-				PolicyID:      "soc2-cc6.1-mfa",
-				ControlID:     "CC6.1",
-				Status:        evidence.StatusPass,
-				ResourceTypes: []string{"aws:iam:user"},
-			},
-		},
-	}
-	result.CalculateSummary()
+	runPath := NewRunPath("soc2", ts)
 
-	att := &attestation.Attestation{
+	att := struct {
+		ID        string `json:"id"`
+		RunID     string `json:"run_id"`
+		Framework string `json:"framework"`
+	}{
 		ID:        "att-123",
 		RunID:     "test-run-att",
 		Framework: "soc2",
-		Timestamp: ts,
 	}
 
-	manifest, err := StoreRun(context.Background(), backend, result, nil, att)
+	item, err := StoreAttestation(context.Background(), backend, *runPath, att)
 	require.NoError(t, err)
 
-	basePath := testRunBasePath
-	assert.NotEmpty(t, manifest.Attestation)
-	assert.Equal(t, basePath+"/attestation.json", manifest.Attestation)
+	basePath := "runs/soc2/2026-02-14/18-20-49"
+	assert.Equal(t, basePath+"/attestation.json", item.Path)
+	assert.NotEmpty(t, item.Hash)
 
 	// Verify attestation file exists
 	_, err = os.Stat(filepath.Join(tmpDir, basePath, "attestation.json"))
 	require.NoError(t, err)
 }
 
-func TestStoreRun_NilAttestation(t *testing.T) {
+func TestStoreRun_NoAttestation(t *testing.T) {
 	tmpDir := t.TempDir()
 	backend := NewLocalBackend(&LocalConfig{Path: tmpDir})
 	err := backend.Init(context.Background())
@@ -420,13 +407,15 @@ func TestStoreRun_NilAttestation(t *testing.T) {
 	}
 	result.CalculateSummary()
 
-	manifest, err := StoreRun(context.Background(), backend, result, nil, nil)
+	manifest, err := StoreRun(context.Background(), backend, result, nil)
 	require.NoError(t, err)
 
-	// No attestation stored
-	assert.Empty(t, manifest.Attestation)
+	// StoreRun no longer stores attestation — verify it's not in the manifest items
+	for _, item := range manifest.Items {
+		assert.NotContains(t, item.Path, "attestation.json")
+	}
 
-	basePath := testRunBasePath
+	basePath := "runs/soc2/2026-02-14/18-20-49"
 	_, err = os.Stat(filepath.Join(tmpDir, basePath, "attestation.json"))
 	assert.True(t, os.IsNotExist(err))
 }
@@ -465,10 +454,10 @@ func TestStoreRun_EvidenceDeduplication(t *testing.T) {
 		evidence.New("aws", "aws:iam:user", "arn:aws:iam::123:user/alice", []byte(`{"name":"alice"}`)),
 	}
 
-	manifest, err := StoreRun(context.Background(), backend, result, evidenceList, nil)
+	manifest, err := StoreRun(context.Background(), backend, result, evidenceList)
 	require.NoError(t, err)
 
-	basePath := testRunBasePath
+	basePath := "runs/soc2/2026-02-14/18-20-49"
 
 	// Aggregated evidence should appear in both policy folders
 	_, err = os.Stat(filepath.Join(tmpDir, basePath, "policy-a", "evidence", "iam-users.json"))
@@ -494,11 +483,11 @@ func TestLoadManifest(t *testing.T) {
 	}
 	result.CalculateSummary()
 
-	_, err = StoreRun(context.Background(), backend, result, []evidence.Evidence{}, nil)
+	_, err = StoreRun(context.Background(), backend, result, []evidence.Evidence{})
 	require.NoError(t, err)
 
 	// Load it using the new path format
-	loaded, err := LoadManifest(context.Background(), backend, "runs/soc2/2026-02-14")
+	loaded, err := LoadManifest(context.Background(), backend, "runs/soc2/2026-02-14/18-20-49")
 	require.NoError(t, err)
 
 	assert.Equal(t, "load-test-run", loaded.RunID)
@@ -541,7 +530,7 @@ func TestStoreRun_NoUUIDsInPaths(t *testing.T) {
 		evidence.New("aws", "aws:iam:user", "arn:aws:iam::123:user/alice", []byte(`{"name":"alice"}`)),
 	}
 
-	manifest, err := StoreRun(context.Background(), backend, result, evidenceList, nil)
+	manifest, err := StoreRun(context.Background(), backend, result, evidenceList)
 	require.NoError(t, err)
 
 	// Verify no UUIDs in any stored paths
@@ -608,7 +597,7 @@ func TestStoreRun_HumanReadablePaths(t *testing.T) {
 		evidence.New("aws", "aws:iam:user", "arn:aws:iam::552644938807:user/alice", []byte(`{"user":"alice"}`)),
 	}
 
-	manifest, err := StoreRun(context.Background(), backend, result, evidenceList, nil)
+	manifest, err := StoreRun(context.Background(), backend, result, evidenceList)
 	require.NoError(t, err)
 
 	// Collect all paths
@@ -619,10 +608,10 @@ func TestStoreRun_HumanReadablePaths(t *testing.T) {
 
 	// Verify expected paths — aggregated evidence file
 	expectedPaths := []string{
-		"runs/soc2/2026-02-14/cc6.1-mfa/evidence/iam-users.json",
-		"runs/soc2/2026-02-14/cc6.1-mfa/result.json",
-		"runs/soc2/2026-02-14/check_result.json",
-		"runs/soc2/2026-02-14/manifest.json",
+		"runs/soc2/2026-02-14/18-20-49/cc6.1-mfa/evidence/iam-users.json",
+		"runs/soc2/2026-02-14/18-20-49/cc6.1-mfa/result.json",
+		"runs/soc2/2026-02-14/18-20-49/check_result.json",
+		"runs/soc2/2026-02-14/18-20-49/manifest.json",
 	}
 
 	for _, expected := range expectedPaths {
@@ -666,11 +655,11 @@ func TestStoreRun_AggregatedEvidenceContent(t *testing.T) {
 		evidence.New("aws", "aws:iam:user", "arn:aws:iam::123:user/charlie", []byte(`{"user_name":"charlie","mfa_enabled":true}`)),
 	}
 
-	_, err = StoreRun(context.Background(), backend, result, evidenceList, nil)
+	_, err = StoreRun(context.Background(), backend, result, evidenceList)
 	require.NoError(t, err)
 
 	// Read the aggregated evidence file
-	basePath := testRunBasePath
+	basePath := "runs/soc2/2026-02-14/18-20-49"
 	evData, err := os.ReadFile(filepath.Join(tmpDir, basePath, "cc6.1-mfa", "evidence", "iam-users.json"))
 	require.NoError(t, err)
 

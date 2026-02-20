@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
@@ -27,7 +26,7 @@ type StoredPolicyResult struct {
 //	    result.json
 //	    evidence/<descriptor>.json
 func StoreRun(ctx context.Context, backend Backend, result *evidence.CheckResult,
-	evidenceList []evidence.Evidence, att *attestation.Attestation) (*Manifest, error) {
+	evidenceList []evidence.Evidence) (*Manifest, error) {
 	runPath := NewRunPath(result.Framework, result.Timestamp)
 
 	manifest := &Manifest{
@@ -126,23 +125,6 @@ func StoreRun(ctx context.Context, backend Backend, result *evidence.CheckResult
 	manifest.Items = append(manifest.Items, *crItem)
 	manifest.TotalSize += crItem.Size
 	manifest.CheckResult = crItem.Path
-
-	// Store attestation.json at run level (if provided)
-	if att != nil {
-		attData, err := json.MarshalIndent(att, "", "  ")
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal attestation: %w", err)
-		}
-		attItem, err := backend.StoreRaw(ctx, runPath.AttestationPath(), attData, map[string]string{
-			"type": "attestation",
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to store attestation: %w", err)
-		}
-		manifest.Items = append(manifest.Items, *attItem)
-		manifest.TotalSize += attItem.Size
-		manifest.Attestation = attItem.Path
-	}
 
 	// Store manifest.json at run level
 	manifestData, err := json.MarshalIndent(manifest, "", "  ")
@@ -301,4 +283,52 @@ func (b *ManifestBuilder) SetEvidenceCount(count int) {
 // Build finalizes and returns the manifest.
 func (b *ManifestBuilder) Build() *Manifest {
 	return b.manifest
+}
+
+// FileHashes extracts file hashes from the manifest for attestation.
+// It strips basePath+"/" from each item's path to produce relative paths,
+// and skips items with metadata type "manifest" (not hashed — chicken-and-egg
+// with attestation stored in the same run).
+// Returns the check_result hash separately for convenience, plus a map of
+// relative path -> SHA-256 hash.
+func (m *Manifest) FileHashes(basePath string) (checkResultHash string, fileHashes map[string]string) {
+	fileHashes = make(map[string]string)
+	prefix := basePath + "/"
+
+	for _, item := range m.Items {
+		// Skip the manifest itself
+		if item.Metadata != nil && item.Metadata["type"] == "manifest" {
+			continue
+		}
+
+		// Strip basePath prefix to get relative path
+		relPath := strings.TrimPrefix(item.Path, prefix)
+
+		fileHashes[relPath] = item.Hash
+
+		// Extract check_result hash for convenience
+		if item.Metadata != nil && item.Metadata["type"] == "check_result" {
+			checkResultHash = item.Hash
+		}
+	}
+
+	return checkResultHash, fileHashes
+}
+
+// StoreAttestation stores an attestation.json file separately in the run directory.
+// This is called after StoreRun, once stored file hashes are known.
+func StoreAttestation(ctx context.Context, backend Backend, runPath RunPath, att interface{}) (*StoredItem, error) {
+	attData, err := json.MarshalIndent(att, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal attestation: %w", err)
+	}
+
+	item, err := backend.StoreRaw(ctx, runPath.AttestationPath(), attData, map[string]string{
+		"type": "attestation",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to store attestation: %w", err)
+	}
+
+	return item, nil
 }

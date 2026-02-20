@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 func TestHashData(t *testing.T) {
@@ -43,133 +42,55 @@ func TestHashJSON(t *testing.T) {
 	assert.Len(t, hash, 64) // SHA-256 produces 64 hex characters
 }
 
-func TestHashCheckResult(t *testing.T) {
-	result := &evidence.CheckResult{
-		RunID:     "run-123",
-		Framework: "soc2",
-		Timestamp: time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
-		PolicyResults: []evidence.PolicyResult{
-			{
-				PolicyID:  "soc2-cc6.1-mfa",
-				ControlID: "CC6.1",
-				Status:    evidence.StatusPass,
-			},
-		},
-	}
-	result.CalculateSummary()
-
-	hash, err := HashCheckResult(result)
-	require.NoError(t, err)
-	assert.Len(t, hash, 64)
-
-	// Should be deterministic
-	hash2, err := HashCheckResult(result)
-	require.NoError(t, err)
-	assert.Equal(t, hash, hash2)
-}
-
-func TestHashCheckResult_DeterministicWithMaps(t *testing.T) {
-	// This test ensures that CheckResult hashing is deterministic
-	// even when Violations contain map[string]interface{} Details
-	result := &evidence.CheckResult{
-		RunID:     "run-123",
-		Framework: "soc2",
-		Timestamp: time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
-		PolicyResults: []evidence.PolicyResult{
-			{
-				PolicyID:  "soc2-cc6.1-mfa",
-				ControlID: "CC6.1",
-				Status:    evidence.StatusFail,
-				Violations: []evidence.Violation{
-					{
-						ResourceID:   "user-alice",
-						ResourceType: "aws:iam:user",
-						Reason:       "MFA not enabled",
-						Details: map[string]interface{}{
-							"z_field": "last",
-							"a_field": "first",
-							"m_field": map[string]interface{}{
-								"nested_z": "z",
-								"nested_a": "a",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	result.CalculateSummary()
-
-	// Hash multiple times - should always be identical
-	var hashes []string
-	for i := 0; i < 100; i++ {
-		hash, err := HashCheckResult(result)
-		require.NoError(t, err)
-		hashes = append(hashes, hash)
+func TestComputeStoredFileHashes(t *testing.T) {
+	checkResultHash := "abc123def456"
+	fileHashes := map[string]string{
+		"cc6.1-mfa/evidence/iam-users.json": "hash1",
+		"cc6.1-mfa/result.json":             "hash2",
+		"check_result.json":                 "abc123def456",
 	}
 
-	for i := 1; i < len(hashes); i++ {
-		assert.Equal(t, hashes[0], hashes[i], "Hash iteration %d differs", i)
-	}
-}
+	hashes := ComputeStoredFileHashes(checkResultHash, fileHashes)
 
-func TestHashEvidence(t *testing.T) {
-	ev := evidence.New("aws", "aws:iam:user", "arn:aws:iam::123:user/alice", []byte(`{"user":"alice"}`))
-
-	hash := HashEvidence(&ev)
-	assert.NotEmpty(t, hash)
-	assert.Equal(t, ev.Hash, hash) // Should use pre-computed hash
-}
-
-func TestComputeEvidenceHashes(t *testing.T) {
-	result := &evidence.CheckResult{
-		RunID:     "run-123",
-		Framework: "soc2",
-		Timestamp: time.Now(),
-		PolicyResults: []evidence.PolicyResult{
-			{PolicyID: "policy1", Status: evidence.StatusPass},
-		},
-	}
-	result.CalculateSummary()
-
-	evidenceList := []evidence.Evidence{
-		evidence.New("aws", "aws:iam:user", "user1", []byte(`{"name":"alice"}`)),
-		evidence.New("aws", "aws:iam:user", "user2", []byte(`{"name":"bob"}`)),
-	}
-
-	hashes, err := ComputeEvidenceHashes(result, evidenceList)
-	require.NoError(t, err)
-
-	assert.NotEmpty(t, hashes.CheckResult)
-	assert.Len(t, hashes.Evidence, 2)
+	assert.Equal(t, checkResultHash, hashes.CheckResult)
+	assert.Len(t, hashes.StoredFiles, 3)
 	assert.NotEmpty(t, hashes.Combined)
 
-	// All evidence should be present
-	for _, ev := range evidenceList {
-		_, ok := hashes.Evidence[ev.ID]
-		assert.True(t, ok)
+	// All files should be present
+	for path := range fileHashes {
+		_, ok := hashes.StoredFiles[path]
+		assert.True(t, ok, "Expected file %s in StoredFiles", path)
 	}
 }
 
-func TestComputeEvidenceHashes_Deterministic(t *testing.T) {
-	result := &evidence.CheckResult{
-		RunID:     "run-123",
-		Framework: "soc2",
-		Timestamp: time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
+func TestComputeStoredFileHashes_Deterministic(t *testing.T) {
+	checkResultHash := "abc123def456"
+
+	// Same files, different insertion order
+	fileHashes1 := map[string]string{
+		"z-policy/result.json":     "hash_z",
+		"a-policy/result.json":     "hash_a",
+		"check_result.json":        checkResultHash,
+	}
+	fileHashes2 := map[string]string{
+		"a-policy/result.json":     "hash_a",
+		"check_result.json":        checkResultHash,
+		"z-policy/result.json":     "hash_z",
 	}
 
-	// Same evidence IDs but different order
-	ev1 := evidence.New("aws", "aws:iam:user", "user1", []byte(`{"name":"alice"}`))
-	ev2 := evidence.New("aws", "aws:iam:user", "user2", []byte(`{"name":"bob"}`))
+	hashes1 := ComputeStoredFileHashes(checkResultHash, fileHashes1)
+	hashes2 := ComputeStoredFileHashes(checkResultHash, fileHashes2)
 
-	hashes1, err := ComputeEvidenceHashes(result, []evidence.Evidence{ev1, ev2})
-	require.NoError(t, err)
-
-	hashes2, err := ComputeEvidenceHashes(result, []evidence.Evidence{ev2, ev1})
-	require.NoError(t, err)
-
-	// Combined hash should be the same regardless of order
+	// Combined hash should be the same regardless of map iteration order
 	assert.Equal(t, hashes1.Combined, hashes2.Combined)
+}
+
+func TestComputeStoredFileHashes_Empty(t *testing.T) {
+	hashes := ComputeStoredFileHashes("abc123", map[string]string{})
+
+	assert.Equal(t, "abc123", hashes.CheckResult)
+	assert.Empty(t, hashes.StoredFiles)
+	assert.NotEmpty(t, hashes.Combined)
 }
 
 func TestVerifyHash(t *testing.T) {
@@ -178,15 +99,6 @@ func TestVerifyHash(t *testing.T) {
 
 	assert.True(t, VerifyHash(data, hash))
 	assert.False(t, VerifyHash([]byte("different data"), hash))
-}
-
-func TestVerifyEvidenceHash(t *testing.T) {
-	ev := evidence.New("aws", "aws:iam:user", "user1", []byte(`{"name":"alice"}`))
-	assert.True(t, VerifyEvidenceHash(&ev))
-
-	// Tamper with the data
-	ev.Data = []byte(`{"name":"bob"}`)
-	assert.False(t, VerifyEvidenceHash(&ev))
 }
 
 func TestHMACSigner_Sign(t *testing.T) {
@@ -424,10 +336,10 @@ func TestAttestation_Payload_Deterministic(t *testing.T) {
 		Timestamp: time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
 		Hashes: EvidenceHashes{
 			CheckResult: "abc123",
-			Evidence: map[string]string{
-				"z_evidence": "hash_z",
-				"a_evidence": "hash_a",
-				"m_evidence": "hash_m",
+			StoredFiles: map[string]string{
+				"z-policy/result.json":              "hash_z",
+				"a-policy/result.json":              "hash_a",
+				"m-policy/evidence/iam-users.json":  "hash_m",
 			},
 			Combined: "def456",
 		},

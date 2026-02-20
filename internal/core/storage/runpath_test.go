@@ -13,26 +13,27 @@ func TestNewRunPath(t *testing.T) {
 
 	assert.Equal(t, "soc2", rp.Framework)
 	assert.Equal(t, "2026-02-14", rp.Date)
+	assert.Equal(t, "18-20-49", rp.Time)
 }
 
 func TestRunPath_BasePath(t *testing.T) {
-	rp := &RunPath{Framework: "soc2", Date: "2026-02-14"}
-	assert.Equal(t, "runs/soc2/2026-02-14", rp.BasePath())
+	rp := &RunPath{Framework: "soc2", Date: "2026-02-14", Time: "18-20-49"}
+	assert.Equal(t, "runs/soc2/2026-02-14/18-20-49", rp.BasePath())
 }
 
 func TestRunPath_PolicyDir(t *testing.T) {
-	rp := &RunPath{Framework: "soc2", Date: "2026-02-14"}
+	rp := &RunPath{Framework: "soc2", Date: "2026-02-14", Time: "18-20-49"}
 
 	tests := []struct {
 		policyID  string
 		framework string
 		expected  string
 	}{
-		{"soc2-cc6.1-mfa", "soc2", "runs/soc2/2026-02-14/cc6.1-mfa"},
-		{"soc2-cc6.2-encryption", "soc2", "runs/soc2/2026-02-14/cc6.2-encryption"},
-		{"soc2-cc7.1-logging", "soc2", "runs/soc2/2026-02-14/cc7.1-logging"},
-		{"iso27001-a9.2-access", "iso27001", "runs/soc2/2026-02-14/a9.2-access"},
-		{"custom-policy", "soc2", "runs/soc2/2026-02-14/custom-policy"},
+		{"soc2-cc6.1-mfa", "soc2", "runs/soc2/2026-02-14/18-20-49/cc6.1-mfa"},
+		{"soc2-cc6.2-encryption", "soc2", "runs/soc2/2026-02-14/18-20-49/cc6.2-encryption"},
+		{"soc2-cc7.1-logging", "soc2", "runs/soc2/2026-02-14/18-20-49/cc7.1-logging"},
+		{"iso27001-a9.2-access", "iso27001", "runs/soc2/2026-02-14/18-20-49/a9.2-access"},
+		{"custom-policy", "soc2", "runs/soc2/2026-02-14/18-20-49/custom-policy"},
 	}
 
 	for _, tt := range tests {
@@ -44,11 +45,11 @@ func TestRunPath_PolicyDir(t *testing.T) {
 }
 
 func TestRunPath_FilePaths(t *testing.T) {
-	rp := &RunPath{Framework: "soc2", Date: "2026-02-14"}
+	rp := &RunPath{Framework: "soc2", Date: "2026-02-14", Time: "18-20-49"}
 
-	assert.Equal(t, "runs/soc2/2026-02-14/manifest.json", rp.ManifestPath())
-	assert.Equal(t, "runs/soc2/2026-02-14/attestation.json", rp.AttestationPath())
-	assert.Equal(t, "runs/soc2/2026-02-14/check_result.json", rp.CheckResultPath())
+	assert.Equal(t, "runs/soc2/2026-02-14/18-20-49/manifest.json", rp.ManifestPath())
+	assert.Equal(t, "runs/soc2/2026-02-14/18-20-49/attestation.json", rp.AttestationPath())
+	assert.Equal(t, "runs/soc2/2026-02-14/18-20-49/check_result.json", rp.CheckResultPath())
 }
 
 func TestPolicySlug(t *testing.T) {
@@ -171,4 +172,5 @@ func TestNewRunPath_NonUTC(t *testing.T) {
 	rp := NewRunPath("soc2", ts)
 
 	assert.Equal(t, "2026-02-14", rp.Date)
+	assert.Equal(t, "18-20-49", rp.Time)
 }

@@ -11,20 +11,23 @@ import (
 type RunPath struct {
 	Framework string // e.g. "soc2"
 	Date      string // "2026-02-14"
+	Time      string // "18-20-49"
 }
 
 // NewRunPath creates a RunPath from a framework name and timestamp.
 func NewRunPath(framework string, timestamp time.Time) *RunPath {
+	t := timestamp.UTC()
 	return &RunPath{
 		Framework: framework,
-		Date:      timestamp.UTC().Format("2006-01-02"),
+		Date:      t.Format("2006-01-02"),
+		Time:      t.Format("15-04-05"),
 	}
 }
 
 // BasePath returns the run-level directory path.
-// Example: "runs/soc2/2026-02-14"
+// Example: "runs/soc2/2026-02-14/18-20-49"
 func (r *RunPath) BasePath() string {
-	return fmt.Sprintf("runs/%s/%s", r.Framework, r.Date)
+	return fmt.Sprintf("runs/%s/%s/%s", r.Framework, r.Date, r.Time)
 }
 
 // PolicyDir returns the directory path for a policy within the run.

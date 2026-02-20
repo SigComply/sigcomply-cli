@@ -72,24 +72,13 @@ func buildEvidenceURL(backend, bucket, path string) string {
 	return ""
 }
 
-// buildAttestation creates a signed attestation from check results and evidence.
-func buildAttestation(cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence, manifest *storage.Manifest) (*attestation.Attestation, error) {
-	// Compute evidence hashes
-	hashes, err := attestation.ComputeEvidenceHashes(checkResult, evidenceList)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compute evidence hashes: %w", err)
-	}
-
-	// Add manifest hash if available
-	if manifest != nil {
-		// Find manifest item in the stored items to get its hash
-		for _, item := range manifest.Items {
-			if item.Metadata != nil && item.Metadata["type"] == "manifest" {
-				hashes.Manifest = item.Hash
-				break
-			}
-		}
-	}
+// buildAttestation creates a signed attestation from check results and the storage manifest.
+// The manifest provides stored file hashes for attestation (hash of actual stored files).
+func buildAttestation(cfg *config.Config, checkResult *evidence.CheckResult, manifest *storage.Manifest) (*attestation.Attestation, error) {
+	// Compute hashes from stored files
+	runPath := storage.NewRunPath(checkResult.Framework, checkResult.Timestamp)
+	checkResultHash, fileHashes := manifest.FileHashes(runPath.BasePath())
+	hashes := attestation.ComputeStoredFileHashes(checkResultHash, fileHashes)
 
 	// Build attestation
 	att := &attestation.Attestation{
@@ -206,18 +195,22 @@ func computeManifestPath(cfg *config.Config, manifest *storage.Manifest) string 
 
 // submitToCloud submits check results to the SigComply Cloud API.
 // Returns nil, nil if OIDC authentication is not available.
-func submitToCloud(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence, baseURL string) (*cloud.SubmitResponse, error) {
+func submitToCloud(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, manifest *storage.Manifest, baseURL string) (*cloud.SubmitResponse, error) {
 	if !cloud.IsOIDCAvailable() {
 		return nil, nil
 	}
 
-	// Build attestation
-	att, err := buildAttestation(cfg, checkResult, evidenceList, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build attestation: %w", err)
+	// Build attestation from manifest if available
+	var att *attestation.Attestation
+	if manifest != nil {
+		var err error
+		att, err = buildAttestation(cfg, checkResult, manifest)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build attestation: %w", err)
+		}
 	}
 
-	return submitToCloudWithAttestation(ctx, cfg, checkResult, nil, att, baseURL)
+	return submitToCloudWithAttestation(ctx, cfg, checkResult, manifest, att, baseURL)
 }
 
 // submitToCloudWithAttestation submits check results with a pre-built attestation.

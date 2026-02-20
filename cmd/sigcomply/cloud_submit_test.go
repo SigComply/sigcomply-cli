@@ -29,11 +29,6 @@ func TestBuildAttestation(t *testing.T) {
 	}
 	checkResult.CalculateSummary()
 
-	evidenceList := []evidence.Evidence{
-		evidence.New("aws", "aws:iam:user", "user1", []byte(`{"name":"alice"}`)),
-		evidence.New("aws", "aws:s3:bucket", "bucket1", []byte(`{"name":"test-bucket"}`)),
-	}
-
 	cfg := &config.Config{
 		Framework:    "soc2",
 		CloudEnabled: true,
@@ -51,6 +46,28 @@ func TestBuildAttestation(t *testing.T) {
 		EvidenceCount: 2,
 		Items: []storage.StoredItem{
 			{
+				Path: "runs/soc2/2026-01-17/10-00-00/cc6.1-mfa/evidence/iam-users.json",
+				Hash: "evidencehash1",
+				Metadata: map[string]string{
+					"resource_type": "aws:iam:user",
+				},
+			},
+			{
+				Path: "runs/soc2/2026-01-17/10-00-00/cc6.1-mfa/result.json",
+				Hash: "resulthash1",
+				Metadata: map[string]string{
+					"type":      "policy_result",
+					"policy_id": "soc2-cc6.1-mfa",
+				},
+			},
+			{
+				Path: "runs/soc2/2026-01-17/10-00-00/check_result.json",
+				Hash: "checkresulthash1",
+				Metadata: map[string]string{
+					"type": "check_result",
+				},
+			},
+			{
 				Path: "runs/soc2/2026-01-17/10-00-00/manifest.json",
 				Hash: "abc123hash",
 				Metadata: map[string]string{
@@ -61,7 +78,7 @@ func TestBuildAttestation(t *testing.T) {
 		},
 	}
 
-	att, err := buildAttestation(cfg, checkResult, evidenceList, manifest)
+	att, err := buildAttestation(cfg, checkResult, manifest)
 	require.NoError(t, err)
 
 	assert.NotEmpty(t, att.ID)
@@ -69,7 +86,8 @@ func TestBuildAttestation(t *testing.T) {
 	assert.Equal(t, "soc2", att.Framework)
 	assert.NotEmpty(t, att.Hashes.CheckResult)
 	assert.NotEmpty(t, att.Hashes.Combined)
-	assert.Len(t, att.Hashes.Evidence, 2)
+	// 3 stored files (evidence, result, check_result) — manifest is excluded
+	assert.Len(t, att.Hashes.StoredFiles, 3)
 
 	// OIDC-only: no HMAC signature
 	assert.Empty(t, att.Signature.Algorithm)
@@ -77,10 +95,11 @@ func TestBuildAttestation(t *testing.T) {
 }
 
 func TestBuildAttestation_WithCIEnvironment(t *testing.T) {
+	ts := time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC)
 	checkResult := &evidence.CheckResult{
 		RunID:     "run-456",
 		Framework: "soc2",
-		Timestamp: time.Now(),
+		Timestamp: ts,
 	}
 
 	cfg := &config.Config{
@@ -93,7 +112,17 @@ func TestBuildAttestation_WithCIEnvironment(t *testing.T) {
 		CommitSHA:    "abc123def",
 	}
 
-	att, err := buildAttestation(cfg, checkResult, nil, nil)
+	manifest := &storage.Manifest{
+		RunID:     "run-456",
+		Framework: "soc2",
+		Timestamp: ts,
+		Items: []storage.StoredItem{
+			{Path: "runs/soc2/2026-02-14/18-20-49/check_result.json", Hash: "crhash", Metadata: map[string]string{"type": "check_result"}},
+			{Path: "runs/soc2/2026-02-14/18-20-49/manifest.json", Hash: "mhash", Metadata: map[string]string{"type": "manifest"}},
+		},
+	}
+
+	att, err := buildAttestation(cfg, checkResult, manifest)
 	require.NoError(t, err)
 
 	assert.True(t, att.Environment.CI)
@@ -104,10 +133,11 @@ func TestBuildAttestation_WithCIEnvironment(t *testing.T) {
 }
 
 func TestBuildAttestation_WithStorageLocation(t *testing.T) {
+	ts := time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC)
 	checkResult := &evidence.CheckResult{
 		RunID:     "run-789",
 		Framework: "soc2",
-		Timestamp: time.Now(),
+		Timestamp: ts,
 	}
 
 	cfg := &config.Config{
@@ -124,10 +154,17 @@ func TestBuildAttestation_WithStorageLocation(t *testing.T) {
 	manifest := &storage.Manifest{
 		RunID:     "run-789",
 		Framework: "soc2",
-		Timestamp: time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC),
+		Timestamp: ts,
 		Items: []storage.StoredItem{
 			{
-				Path: "compliance/runs/soc2/2026-02-14/manifest.json",
+				Path: "compliance/runs/soc2/2026-02-14/18-20-49/check_result.json",
+				Hash: "crhash789",
+				Metadata: map[string]string{
+					"type": "check_result",
+				},
+			},
+			{
+				Path: "compliance/runs/soc2/2026-02-14/18-20-49/manifest.json",
 				Hash: "manifesthash789",
 				Metadata: map[string]string{
 					"type":   "manifest",
@@ -137,13 +174,13 @@ func TestBuildAttestation_WithStorageLocation(t *testing.T) {
 		},
 	}
 
-	att, err := buildAttestation(cfg, checkResult, nil, manifest)
+	att, err := buildAttestation(cfg, checkResult, manifest)
 	require.NoError(t, err)
 
 	assert.Equal(t, "s3", att.StorageLocation.Backend)
 	assert.Equal(t, "my-evidence-bucket", att.StorageLocation.Bucket)
 	assert.Equal(t, "compliance/", att.StorageLocation.Path)
-	assert.Equal(t, "compliance/runs/soc2/2026-02-14/manifest.json", att.StorageLocation.ManifestPath)
+	assert.Equal(t, "compliance/runs/soc2/2026-02-14/18-20-49/manifest.json", att.StorageLocation.ManifestPath)
 }
 
 func TestBuildCloudSubmitRequest(t *testing.T) {
@@ -185,7 +222,7 @@ func TestBuildCloudSubmitRequest(t *testing.T) {
 		Timestamp: time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC),
 		Items: []storage.StoredItem{
 			{
-				Path: "evidence/runs/soc2/2026-02-14/manifest.json",
+				Path: "evidence/runs/soc2/2026-02-14/18-20-49/manifest.json",
 				Hash: "manifesthash",
 				Metadata: map[string]string{
 					"type":   "manifest",
@@ -207,7 +244,7 @@ func TestBuildCloudSubmitRequest(t *testing.T) {
 	assert.Equal(t, "my-bucket", req.EvidenceLocation.Bucket)
 	assert.Equal(t, "evidence/", req.EvidenceLocation.Path)
 	assert.Equal(t, "s3://my-bucket/evidence/", req.EvidenceLocation.URL)
-	assert.Equal(t, "evidence/runs/soc2/2026-02-14/manifest.json", req.EvidenceLocation.ManifestPath)
+	assert.Equal(t, "evidence/runs/soc2/2026-02-14/18-20-49/manifest.json", req.EvidenceLocation.ManifestPath)
 
 	assert.True(t, req.RunMetadata.CI)
 	assert.Equal(t, "github-actions", req.RunMetadata.CIProvider)
@@ -240,7 +277,7 @@ func TestBuildCloudSubmitRequest_LocalStorage(t *testing.T) {
 		Timestamp: time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC),
 		Items: []storage.StoredItem{
 			{
-				Path: "runs/soc2/2026-02-14/manifest.json",
+				Path: "runs/soc2/2026-02-14/18-20-49/manifest.json",
 				Hash: "manifesthashlocal",
 				Metadata: map[string]string{
 					"type":   "manifest",
@@ -255,7 +292,7 @@ func TestBuildCloudSubmitRequest_LocalStorage(t *testing.T) {
 	assert.Equal(t, "local", req.EvidenceLocation.Backend)
 	assert.Equal(t, "/var/sigcomply/evidence", req.EvidenceLocation.Path)
 	assert.Equal(t, "file:///var/sigcomply/evidence", req.EvidenceLocation.URL)
-	assert.Equal(t, "/var/sigcomply/evidence/runs/soc2/2026-02-14/manifest.json", req.EvidenceLocation.ManifestPath)
+	assert.Equal(t, "/var/sigcomply/evidence/runs/soc2/2026-02-14/18-20-49/manifest.json", req.EvidenceLocation.ManifestPath)
 }
 
 // setupOIDCEnv sets up OIDC environment for tests and returns cleanup function.
@@ -324,17 +361,24 @@ func TestSubmitToCloud_Success(t *testing.T) {
 		CloudEnabled: true,
 	}
 
+	ts := time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC)
 	checkResult := &evidence.CheckResult{
 		RunID:     "run-123",
 		Framework: "soc2",
-		Timestamp: time.Now(),
+		Timestamp: ts,
 	}
 
-	evidenceList := []evidence.Evidence{
-		evidence.New("aws", "aws:iam:user", "user1", []byte(`{"name":"alice"}`)),
+	manifest := &storage.Manifest{
+		RunID:     "run-123",
+		Framework: "soc2",
+		Timestamp: ts,
+		Items: []storage.StoredItem{
+			{Path: "runs/soc2/2026-02-14/18-20-49/check_result.json", Hash: "crhash", Metadata: map[string]string{"type": "check_result"}},
+			{Path: "runs/soc2/2026-02-14/18-20-49/manifest.json", Hash: "mhash", Metadata: map[string]string{"type": "manifest"}},
+		},
 	}
 
-	resp, err := submitToCloud(context.Background(), cfg, checkResult, evidenceList, server.URL)
+	resp, err := submitToCloud(context.Background(), cfg, checkResult, manifest, server.URL)
 	require.NoError(t, err)
 
 	// Use convenience methods to access the nested response
