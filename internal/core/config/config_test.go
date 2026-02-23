@@ -23,14 +23,12 @@ func TestConfig_Defaults(t *testing.T) {
 func TestConfig_LoadFromEnv(t *testing.T) {
 	t.Setenv("SIGCOMPLY_FRAMEWORK", "hipaa")
 	t.Setenv("SIGCOMPLY_OUTPUT_FORMAT", "json")
-	t.Setenv("SIGCOMPLY_API_TOKEN", "test-token")
 
 	cfg := New()
 	cfg.LoadFromEnv()
 
 	assert.Equal(t, "hipaa", cfg.Framework)
 	assert.Equal(t, "json", cfg.OutputFormat)
-	assert.True(t, cfg.CloudEnabled, "CloudEnabled should be true when API token is set")
 }
 
 func TestConfig_DetectCIEnvironment(t *testing.T) {
@@ -155,8 +153,6 @@ func TestConfig_AWSRegions(t *testing.T) {
 }
 
 func TestLoad_Integration(t *testing.T) {
-	os.Unsetenv("SIGCOMPLY_API_TOKEN") //nolint:errcheck // Best effort cleanup
-
 	cfg, err := Load()
 	require.NoError(t, err)
 
@@ -379,7 +375,6 @@ func TestConfig_FindConfigFile_CWD(t *testing.T) {
 func TestConfig_LoadWithConfigPath(t *testing.T) {
 	path := writeTestFile(t, testFrameworkISO)
 
-	os.Unsetenv("SIGCOMPLY_API_TOKEN")  //nolint:errcheck // Best effort cleanup in tests
 	os.Unsetenv("SIGCOMPLY_FRAMEWORK") //nolint:errcheck // Best effort cleanup in tests
 
 	cfg, err := LoadWithConfigPath(path)

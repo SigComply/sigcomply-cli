@@ -122,14 +122,6 @@ func buildAttestation(cfg *config.Config, checkResult *evidence.CheckResult, evi
 		}
 	}
 
-	// Sign the attestation using HMAC if API token is available
-	if cfg.APIToken != "" {
-		signer := attestation.NewHMACSigner([]byte(cfg.APIToken))
-		if err := signer.Sign(att); err != nil {
-			return nil, fmt.Errorf("failed to sign attestation: %w", err)
-		}
-	}
-
 	return att, nil
 }
 
@@ -213,10 +205,9 @@ func computeManifestPath(cfg *config.Config, manifest *storage.Manifest) string 
 }
 
 // submitToCloud submits check results to the SigComply Cloud API.
-// Returns nil, nil if cloud submission is not configured.
+// Returns nil, nil if OIDC authentication is not available.
 func submitToCloud(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence, manifest *storage.Manifest, baseURL string) (*cloud.SubmitResponse, error) {
-	// Skip if cloud is not enabled or no token
-	if !cfg.CloudEnabled || cfg.APIToken == "" {
+	if !cloud.IsOIDCAvailable() {
 		return nil, nil
 	}
 
@@ -230,13 +221,8 @@ func submitToCloud(ctx context.Context, cfg *config.Config, checkResult *evidenc
 }
 
 // submitToCloudWithAttestation submits check results with a pre-built attestation.
-// Returns nil, nil if cloud submission is not configured.
+// Returns nil, nil if no OIDC authentication is available.
 func submitToCloudWithAttestation(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, manifest *storage.Manifest, att *attestation.Attestation, baseURL string) (*cloud.SubmitResponse, error) {
-	// Skip if cloud is not enabled or no token
-	if !cfg.CloudEnabled || cfg.APIToken == "" {
-		return nil, nil
-	}
-
 	// Build submission request
 	req := buildCloudSubmitRequest(cfg, checkResult, att, manifest)
 
@@ -245,7 +231,11 @@ func submitToCloudWithAttestation(ctx context.Context, cfg *config.Config, check
 	if baseURL != "" {
 		client.WithBaseURL(baseURL)
 	}
-	client.WithAPIToken(cfg.APIToken)
+
+	// Configure OIDC authentication
+	if err := cloud.ConfigureClientAuth(ctx, client, nil); err != nil {
+		return nil, fmt.Errorf("cloud authentication failed: %w", err)
+	}
 
 	// Submit to cloud
 	resp, err := client.Submit(ctx, req)
@@ -256,15 +246,15 @@ func submitToCloudWithAttestation(ctx context.Context, cfg *config.Config, check
 	return resp, nil
 }
 
-// shouldSubmitToCloud determines whether to submit results to cloud based on config and flags.
-func shouldSubmitToCloud(cfg *config.Config, cloudFlag, noCloudFlag bool) bool {
+// shouldSubmitToCloud determines whether to submit results to cloud based on OIDC availability and flags.
+func shouldSubmitToCloud(_ *config.Config, cloudFlag, noCloudFlag bool) bool {
 	// --no-cloud always wins
 	if noCloudFlag {
 		return false
 	}
 
-	// Need a token to submit
-	if cfg.APIToken == "" {
+	// OIDC must be available (CLI only runs in CI with OIDC)
+	if !cloud.IsOIDCAvailable() {
 		return false
 	}
 
@@ -273,6 +263,6 @@ func shouldSubmitToCloud(cfg *config.Config, cloudFlag, noCloudFlag bool) bool {
 		return true
 	}
 
-	// Otherwise use config setting
-	return cfg.CloudEnabled
+	// Auto-enable cloud when OIDC is available (CI environment)
+	return true
 }

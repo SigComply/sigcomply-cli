@@ -401,11 +401,18 @@ storage:
 ### Key Environment Variables
 
 ```bash
-SIGCOMPLY_API_TOKEN        # Cloud API token (enables cloud mode)
 SIGCOMPLY_FRAMEWORK        # Default framework
 SIGCOMPLY_STORAGE_BACKEND  # local, s3, gcs
 SIGCOMPLY_STORAGE_BUCKET   # S3/GCS bucket name
 ```
+
+### Cloud Authentication
+
+Cloud submission uses OIDC authentication exclusively:
+
+- **OIDC tokens** are automatically detected in GitHub Actions and GitLab CI.
+- Cloud submission is auto-enabled when OIDC is available — no configuration needed.
+- The CLI is designed to run in CI/CD pipelines with OIDC support.
 
 ---
 

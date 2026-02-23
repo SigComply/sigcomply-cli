@@ -19,17 +19,13 @@ func unsetEnv(key string) {
 	_ = os.Unsetenv(key) //nolint:errcheck // Test helper, error not critical
 }
 
-func TestDetectAuth_NoAuth(t *testing.T) {
-	// Save and restore environment
-	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
+// saveAndClearOIDCEnv saves current OIDC env vars and clears them.
+// Returns a cleanup function to restore original values.
+func saveAndClearOIDCEnv(t *testing.T) {
+	t.Helper()
 	originalGHURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
 	originalGLJWT := os.Getenv("CI_JOB_JWT_V2")
 	t.Cleanup(func() {
-		if originalAPIToken != "" {
-			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
-		} else {
-			unsetEnv("SIGCOMPLY_API_TOKEN")
-		}
 		if originalGHURL != "" {
 			setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", originalGHURL)
 		} else {
@@ -41,11 +37,12 @@ func TestDetectAuth_NoAuth(t *testing.T) {
 			unsetEnv("CI_JOB_JWT_V2")
 		}
 	})
-
-	// Clear all auth sources
-	unsetEnv("SIGCOMPLY_API_TOKEN")
 	unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
 	unsetEnv("CI_JOB_JWT_V2")
+}
+
+func TestDetectAuth_NoAuth(t *testing.T) {
+	saveAndClearOIDCEnv(t)
 
 	ctx := context.Background()
 	result, err := DetectAuth(ctx, nil)
@@ -55,134 +52,8 @@ func TestDetectAuth_NoAuth(t *testing.T) {
 	assert.Empty(t, result.Token)
 }
 
-func TestDetectAuth_APIToken(t *testing.T) {
-	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
-	t.Cleanup(func() {
-		if originalAPIToken != "" {
-			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
-		} else {
-			unsetEnv("SIGCOMPLY_API_TOKEN")
-		}
-	})
-
-	setEnv("SIGCOMPLY_API_TOKEN", "test-api-token")
-
-	ctx := context.Background()
-	result, err := DetectAuth(ctx, nil)
-
-	require.NoError(t, err)
-	assert.Equal(t, AuthMethodAPIToken, result.Method)
-	assert.Equal(t, "test-api-token", result.Token)
-}
-
-func TestDetectAuth_ConfigAPIToken(t *testing.T) {
-	// Ensure no env token
-	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
-	t.Cleanup(func() {
-		if originalAPIToken != "" {
-			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
-		} else {
-			unsetEnv("SIGCOMPLY_API_TOKEN")
-		}
-	})
-	unsetEnv("SIGCOMPLY_API_TOKEN")
-
-	ctx := context.Background()
-	cfg := &AuthConfig{
-		APIToken: "config-api-token",
-	}
-	result, err := DetectAuth(ctx, cfg)
-
-	require.NoError(t, err)
-	assert.Equal(t, AuthMethodAPIToken, result.Method)
-	assert.Equal(t, "config-api-token", result.Token)
-}
-
-func TestDetectAuth_APITokenPrecedence(t *testing.T) {
-	// When both API token and OIDC are available, API token takes precedence by default
-	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
-	originalGLJWT := os.Getenv("CI_JOB_JWT_V2")
-	t.Cleanup(func() {
-		if originalAPIToken != "" {
-			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
-		} else {
-			unsetEnv("SIGCOMPLY_API_TOKEN")
-		}
-		if originalGLJWT != "" {
-			setEnv("CI_JOB_JWT_V2", originalGLJWT)
-		} else {
-			unsetEnv("CI_JOB_JWT_V2")
-		}
-	})
-
-	setEnv("SIGCOMPLY_API_TOKEN", "api-token")
-	setEnv("CI_JOB_JWT_V2", "gitlab-jwt")
-
-	ctx := context.Background()
-	result, err := DetectAuth(ctx, nil)
-
-	require.NoError(t, err)
-	assert.Equal(t, AuthMethodAPIToken, result.Method)
-	assert.Equal(t, "api-token", result.Token)
-}
-
-func TestDetectAuth_PreferOIDC(t *testing.T) {
-	// When PreferOIDC is set, OIDC takes precedence over API token
-	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
-	originalGLJWT := os.Getenv("CI_JOB_JWT_V2")
-	t.Cleanup(func() {
-		if originalAPIToken != "" {
-			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
-		} else {
-			unsetEnv("SIGCOMPLY_API_TOKEN")
-		}
-		if originalGLJWT != "" {
-			setEnv("CI_JOB_JWT_V2", originalGLJWT)
-		} else {
-			unsetEnv("CI_JOB_JWT_V2")
-		}
-	})
-
-	setEnv("SIGCOMPLY_API_TOKEN", "api-token")
-	setEnv("CI_JOB_JWT_V2", "gitlab-jwt")
-
-	ctx := context.Background()
-	cfg := &AuthConfig{
-		PreferOIDC: true,
-	}
-	result, err := DetectAuth(ctx, cfg)
-
-	require.NoError(t, err)
-	assert.Equal(t, AuthMethodOIDC, result.Method)
-	assert.Equal(t, "gitlab-jwt", result.Token)
-	assert.Equal(t, attestation.ProviderGitLabCI, result.OIDCProvider)
-}
-
 func TestDetectAuth_GitLabCI(t *testing.T) {
-	// Clear API token and GitHub Actions
-	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
-	originalGHURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
-	originalGLJWT := os.Getenv("CI_JOB_JWT_V2")
-	t.Cleanup(func() {
-		if originalAPIToken != "" {
-			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
-		} else {
-			unsetEnv("SIGCOMPLY_API_TOKEN")
-		}
-		if originalGHURL != "" {
-			setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", originalGHURL)
-		} else {
-			unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
-		}
-		if originalGLJWT != "" {
-			setEnv("CI_JOB_JWT_V2", originalGLJWT)
-		} else {
-			unsetEnv("CI_JOB_JWT_V2")
-		}
-	})
-
-	unsetEnv("SIGCOMPLY_API_TOKEN")
-	unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
+	saveAndClearOIDCEnv(t)
 	setEnv("CI_JOB_JWT_V2", "gitlab-jwt-token")
 
 	ctx := context.Background()
@@ -194,31 +65,32 @@ func TestDetectAuth_GitLabCI(t *testing.T) {
 	assert.Equal(t, attestation.ProviderGitLabCI, result.OIDCProvider)
 }
 
-func TestConfigureClientAuth_NoAuth(t *testing.T) {
-	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
-	originalGHURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
-	originalGLJWT := os.Getenv("CI_JOB_JWT_V2")
-	t.Cleanup(func() {
-		if originalAPIToken != "" {
-			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
-		} else {
-			unsetEnv("SIGCOMPLY_API_TOKEN")
-		}
-		if originalGHURL != "" {
-			setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", originalGHURL)
-		} else {
-			unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
-		}
-		if originalGLJWT != "" {
-			setEnv("CI_JOB_JWT_V2", originalGLJWT)
-		} else {
-			unsetEnv("CI_JOB_JWT_V2")
-		}
-	})
+func TestDetectAuth_DefaultAudience(t *testing.T) {
+	saveAndClearOIDCEnv(t)
+	setEnv("CI_JOB_JWT_V2", "gitlab-jwt-token")
 
-	unsetEnv("SIGCOMPLY_API_TOKEN")
-	unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
-	unsetEnv("CI_JOB_JWT_V2")
+	ctx := context.Background()
+	cfg := &AuthConfig{} // Empty audience should use default
+	result, err := DetectAuth(ctx, cfg)
+
+	require.NoError(t, err)
+	assert.Equal(t, AuthMethodOIDC, result.Method)
+}
+
+func TestDetectAuth_CustomAudience(t *testing.T) {
+	saveAndClearOIDCEnv(t)
+	setEnv("CI_JOB_JWT_V2", "gitlab-jwt-token")
+
+	ctx := context.Background()
+	cfg := &AuthConfig{OIDCAudience: "https://custom.api.com"}
+	result, err := DetectAuth(ctx, cfg)
+
+	require.NoError(t, err)
+	assert.Equal(t, AuthMethodOIDC, result.Method)
+}
+
+func TestConfigureClientAuth_NoAuth(t *testing.T) {
+	saveAndClearOIDCEnv(t)
 
 	ctx := context.Background()
 	client := NewClient(nil)
@@ -226,19 +98,12 @@ func TestConfigureClientAuth_NoAuth(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no authentication available")
+	assert.Contains(t, err.Error(), "OIDC support")
 }
 
-func TestConfigureClientAuth_WithAPIToken(t *testing.T) {
-	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
-	t.Cleanup(func() {
-		if originalAPIToken != "" {
-			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
-		} else {
-			unsetEnv("SIGCOMPLY_API_TOKEN")
-		}
-	})
-
-	setEnv("SIGCOMPLY_API_TOKEN", "test-api-token")
+func TestConfigureClientAuth_WithOIDC(t *testing.T) {
+	saveAndClearOIDCEnv(t)
+	setEnv("CI_JOB_JWT_V2", "gitlab-jwt-token")
 
 	ctx := context.Background()
 	client := NewClient(nil)
@@ -246,20 +111,12 @@ func TestConfigureClientAuth_WithAPIToken(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.True(t, client.IsConfigured())
-	assert.Equal(t, "test-api-token", client.config.APIToken)
+	assert.Equal(t, "gitlab-jwt-token", client.config.OIDCToken.Token)
 }
 
 func TestNewAuthenticatedClient_Success(t *testing.T) {
-	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
-	t.Cleanup(func() {
-		if originalAPIToken != "" {
-			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
-		} else {
-			unsetEnv("SIGCOMPLY_API_TOKEN")
-		}
-	})
-
-	setEnv("SIGCOMPLY_API_TOKEN", "test-api-token")
+	saveAndClearOIDCEnv(t)
+	setEnv("CI_JOB_JWT_V2", "gitlab-jwt-token")
 
 	ctx := context.Background()
 	client, err := NewAuthenticatedClient(ctx, nil)
@@ -270,30 +127,7 @@ func TestNewAuthenticatedClient_Success(t *testing.T) {
 }
 
 func TestNewAuthenticatedClient_NoAuth(t *testing.T) {
-	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
-	originalGHURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
-	originalGLJWT := os.Getenv("CI_JOB_JWT_V2")
-	t.Cleanup(func() {
-		if originalAPIToken != "" {
-			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
-		} else {
-			unsetEnv("SIGCOMPLY_API_TOKEN")
-		}
-		if originalGHURL != "" {
-			setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", originalGHURL)
-		} else {
-			unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
-		}
-		if originalGLJWT != "" {
-			setEnv("CI_JOB_JWT_V2", originalGLJWT)
-		} else {
-			unsetEnv("CI_JOB_JWT_V2")
-		}
-	})
-
-	unsetEnv("SIGCOMPLY_API_TOKEN")
-	unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
-	unsetEnv("CI_JOB_JWT_V2")
+	saveAndClearOIDCEnv(t)
 
 	ctx := context.Background()
 	client, err := NewAuthenticatedClient(ctx, nil)
@@ -303,30 +137,7 @@ func TestNewAuthenticatedClient_NoAuth(t *testing.T) {
 }
 
 func TestMustNewAuthenticatedClient_ReturnsUnconfiguredOnError(t *testing.T) {
-	originalAPIToken := os.Getenv("SIGCOMPLY_API_TOKEN")
-	originalGHURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
-	originalGLJWT := os.Getenv("CI_JOB_JWT_V2")
-	t.Cleanup(func() {
-		if originalAPIToken != "" {
-			setEnv("SIGCOMPLY_API_TOKEN", originalAPIToken)
-		} else {
-			unsetEnv("SIGCOMPLY_API_TOKEN")
-		}
-		if originalGHURL != "" {
-			setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", originalGHURL)
-		} else {
-			unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
-		}
-		if originalGLJWT != "" {
-			setEnv("CI_JOB_JWT_V2", originalGLJWT)
-		} else {
-			unsetEnv("CI_JOB_JWT_V2")
-		}
-	})
-
-	unsetEnv("SIGCOMPLY_API_TOKEN")
-	unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
-	unsetEnv("CI_JOB_JWT_V2")
+	saveAndClearOIDCEnv(t)
 
 	ctx := context.Background()
 	client := MustNewAuthenticatedClient(ctx, nil)
@@ -336,24 +147,9 @@ func TestMustNewAuthenticatedClient_ReturnsUnconfiguredOnError(t *testing.T) {
 }
 
 func TestIsOIDCAvailable(t *testing.T) {
-	originalGLJWT := os.Getenv("CI_JOB_JWT_V2")
-	originalGHURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
-	t.Cleanup(func() {
-		if originalGLJWT != "" {
-			setEnv("CI_JOB_JWT_V2", originalGLJWT)
-		} else {
-			unsetEnv("CI_JOB_JWT_V2")
-		}
-		if originalGHURL != "" {
-			setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", originalGHURL)
-		} else {
-			unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
-		}
-	})
+	saveAndClearOIDCEnv(t)
 
 	// Not available when no OIDC env vars
-	unsetEnv("CI_JOB_JWT_V2")
-	unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
 	assert.False(t, IsOIDCAvailable())
 
 	// Available when GitLab CI
@@ -362,23 +158,8 @@ func TestIsOIDCAvailable(t *testing.T) {
 }
 
 func TestGetOIDCProvider(t *testing.T) {
-	originalGLJWT := os.Getenv("CI_JOB_JWT_V2")
-	originalGHURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
-	t.Cleanup(func() {
-		if originalGLJWT != "" {
-			setEnv("CI_JOB_JWT_V2", originalGLJWT)
-		} else {
-			unsetEnv("CI_JOB_JWT_V2")
-		}
-		if originalGHURL != "" {
-			setEnv("ACTIONS_ID_TOKEN_REQUEST_URL", originalGHURL)
-		} else {
-			unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
-		}
-	})
+	saveAndClearOIDCEnv(t)
 
-	unsetEnv("CI_JOB_JWT_V2")
-	unsetEnv("ACTIONS_ID_TOKEN_REQUEST_URL")
 	assert.Equal(t, attestation.ProviderUnknown, GetOIDCProvider())
 
 	setEnv("CI_JOB_JWT_V2", "token")
@@ -414,13 +195,14 @@ func TestRefreshableAuth_NeedsRefresh(t *testing.T) {
 	// Needs refresh when result is nil
 	assert.True(t, auth.NeedsRefresh())
 
-	// Set a result
+	// Set a result with OIDC method
 	auth.result = &AuthResult{
-		Method: AuthMethodAPIToken,
+		Method: AuthMethodOIDC,
 		Token:  "token",
 	}
-	// API token doesn't need refresh
-	assert.False(t, auth.NeedsRefresh())
+	// Just set, so not yet expired
+	auth.obtained = auth.obtained // zero time — should trigger refresh
+	assert.True(t, auth.NeedsRefresh())
 }
 
 func TestRefreshableAuth_Method(t *testing.T) {
@@ -439,7 +221,6 @@ func TestRefreshableAuth_Method(t *testing.T) {
 
 func TestAuthMethodConstants(t *testing.T) {
 	assert.Equal(t, AuthMethod("none"), AuthMethodNone)
-	assert.Equal(t, AuthMethod("api-token"), AuthMethodAPIToken)
 	assert.Equal(t, AuthMethod("oidc"), AuthMethodOIDC)
 }
 

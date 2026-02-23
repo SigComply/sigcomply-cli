@@ -23,19 +23,12 @@ func TestNewClient_DefaultConfig(t *testing.T) {
 
 func TestNewClient_CustomConfig(t *testing.T) {
 	cfg := &ClientConfig{
-		BaseURL:  "https://custom.api.com",
-		APIToken: "test-token",
-		Timeout:  10 * time.Second,
+		BaseURL: "https://custom.api.com",
+		Timeout: 10 * time.Second,
 	}
 
 	client := NewClient(cfg)
 	assert.Equal(t, "https://custom.api.com", client.config.BaseURL)
-	assert.Equal(t, "test-token", client.config.APIToken)
-}
-
-func TestClient_WithAPIToken(t *testing.T) {
-	client := NewClient(nil).WithAPIToken("my-token")
-	assert.Equal(t, "my-token", client.config.APIToken)
 }
 
 func TestClient_WithOIDCToken(t *testing.T) {
@@ -65,13 +58,6 @@ func TestClient_IsConfigured(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "with API token",
-			setup: func(c *Client) {
-				c.config.APIToken = "token"
-			},
-			expected: true,
-		},
-		{
 			name: "with OIDC token",
 			setup: func(c *Client) {
 				c.config.OIDCToken = &TokenInfo{Token: "oidc-token"}
@@ -96,12 +82,26 @@ func TestClient_IsConfigured(t *testing.T) {
 	}
 }
 
+// newOIDCClient creates a client configured with an OIDC token for testing.
+func newOIDCClient(baseURL string, timeout time.Duration) *Client {
+	client := NewClient(&ClientConfig{
+		BaseURL: baseURL,
+		Timeout: timeout,
+	})
+	client.WithOIDCToken(&TokenInfo{
+		Token:    "test-oidc-token",
+		Provider: "github-actions",
+	})
+	return client
+}
+
 func TestClient_Submit_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/cli/runs", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
-		assert.Contains(t, r.Header.Get("Authorization"), "Bearer test-token")
+		assert.Contains(t, r.Header.Get("Authorization"), "Bearer test-oidc-token")
+		assert.Equal(t, "github-actions", r.Header.Get("X-OIDC-Provider"))
 
 		// Return response in the Rails API format (nested structure)
 		resp := SubmitResponse{
@@ -120,11 +120,7 @@ func TestClient_Submit_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(&ClientConfig{
-		BaseURL:  server.URL,
-		APIToken: "test-token",
-		Timeout:  5 * time.Second,
-	})
+	client := newOIDCClient(server.URL, 5*time.Second)
 
 	req := &SubmitRequest{
 		CheckResult: &evidence.CheckResult{
@@ -173,11 +169,7 @@ func TestClient_Submit_ServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(&ClientConfig{
-		BaseURL:  server.URL,
-		APIToken: "test-token",
-		Timeout:  1 * time.Second,
-	})
+	client := newOIDCClient(server.URL, 1*time.Second)
 
 	_, err := client.Submit(context.Background(), &SubmitRequest{
 		CheckResult: &evidence.CheckResult{},
@@ -200,11 +192,7 @@ func TestClient_Submit_ClientError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(&ClientConfig{
-		BaseURL:  server.URL,
-		APIToken: "test-token",
-		Timeout:  1 * time.Second,
-	})
+	client := newOIDCClient(server.URL, 1*time.Second)
 
 	_, err := client.Submit(context.Background(), &SubmitRequest{
 		CheckResult: &evidence.CheckResult{},
@@ -215,6 +203,93 @@ func TestClient_Submit_ClientError(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "invalid_request", apiErr.Code)
 	assert.Equal(t, "missing required field", apiErr.Message)
+}
+
+func TestClient_Submit_NestedErrorFormat(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		//nolint:errcheck // Test server
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": map[string]interface{}{
+				"code":    "authentication_failed",
+				"message": "Invalid or expired OIDC token",
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := newOIDCClient(server.URL, 1*time.Second)
+
+	_, err := client.Submit(context.Background(), &SubmitRequest{
+		CheckResult: &evidence.CheckResult{},
+	})
+	require.Error(t, err)
+
+	apiErr, ok := err.(*APIError)
+	require.True(t, ok)
+	assert.Equal(t, http.StatusUnauthorized, apiErr.HTTPStatus)
+	assert.Equal(t, "authentication_failed", apiErr.Code)
+	assert.Equal(t, "Invalid or expired OIDC token", apiErr.Message)
+}
+
+func TestClient_Submit_402SubscriptionRequired(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusPaymentRequired)
+		//nolint:errcheck // Test server
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": map[string]interface{}{
+				"code":        "subscription_required",
+				"message":     "Pro subscription required for cloud submission",
+				"upgrade_url": "https://sigcomply.com/customer/settings/subscription",
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := newOIDCClient(server.URL, 1*time.Second)
+
+	_, err := client.Submit(context.Background(), &SubmitRequest{
+		CheckResult: &evidence.CheckResult{},
+	})
+	require.Error(t, err)
+
+	apiErr, ok := err.(*APIError)
+	require.True(t, ok)
+	assert.Equal(t, http.StatusPaymentRequired, apiErr.HTTPStatus)
+	assert.Equal(t, "subscription_required", apiErr.Code)
+	assert.Equal(t, "Pro subscription required for cloud submission", apiErr.Message)
+	assert.True(t, apiErr.IsSubscriptionRequired())
+	assert.Equal(t, "https://sigcomply.com/customer/settings/subscription", apiErr.UpgradeURL())
+}
+
+func TestClient_Submit_NestedErrorWithDetails(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		//nolint:errcheck // Test server
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": map[string]interface{}{
+				"code":    "validation_error",
+				"message": "Invalid attestation format",
+				"details": map[string]interface{}{
+					"field": "attestation.hashes.combined",
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := newOIDCClient(server.URL, 1*time.Second)
+
+	_, err := client.Submit(context.Background(), &SubmitRequest{
+		CheckResult: &evidence.CheckResult{},
+	})
+	require.Error(t, err)
+
+	apiErr, ok := err.(*APIError)
+	require.True(t, ok)
+	assert.Equal(t, "validation_error", apiErr.Code)
+	assert.Equal(t, "Invalid attestation format", apiErr.Message)
+	assert.Equal(t, "attestation.hashes.combined", apiErr.Details["field"])
 }
 
 func TestClient_HealthCheck_Success(t *testing.T) {
@@ -285,6 +360,61 @@ func TestAPIError_Error(t *testing.T) {
 			assert.Equal(t, tt.expected, tt.err.Error())
 		})
 	}
+}
+
+func TestAPIError_IsSubscriptionRequired(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      *APIError
+		expected bool
+	}{
+		{
+			name:     "402 status",
+			err:      &APIError{HTTPStatus: 402, Code: "subscription_required"},
+			expected: true,
+		},
+		{
+			name:     "401 status",
+			err:      &APIError{HTTPStatus: 401, Code: "unauthorized"},
+			expected: false,
+		},
+		{
+			name:     "200 status",
+			err:      &APIError{HTTPStatus: 200},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.err.IsSubscriptionRequired())
+		})
+	}
+}
+
+func TestAPIError_UpgradeURL(t *testing.T) {
+	t.Run("with upgrade URL", func(t *testing.T) {
+		err := &APIError{
+			HTTPStatus: 402,
+			Details: map[string]interface{}{
+				"upgrade_url": "https://sigcomply.com/upgrade",
+			},
+		}
+		assert.Equal(t, "https://sigcomply.com/upgrade", err.UpgradeURL())
+	})
+
+	t.Run("without details", func(t *testing.T) {
+		err := &APIError{HTTPStatus: 402}
+		assert.Empty(t, err.UpgradeURL())
+	})
+
+	t.Run("without upgrade URL in details", func(t *testing.T) {
+		err := &APIError{
+			HTTPStatus: 402,
+			Details:    map[string]interface{}{"other": "value"},
+		}
+		assert.Empty(t, err.UpgradeURL())
+	})
 }
 
 func TestDefaultConfig(t *testing.T) {

@@ -15,7 +15,6 @@
 # 2. Configure AWS OIDC (see: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
 # 3. Add repository secrets:
 #    - AWS_ROLE_ARN: ARN of IAM role for SigComply (e.g., arn:aws:iam::123456789012:role/SigComplyComplianceRole)
-#    - SIGCOMPLY_API_TOKEN: Your SigComply Cloud API token (optional, for attestation submission)
 # 4. Commit and push to trigger the workflow
 
 name: Compliance Check
@@ -105,7 +104,6 @@ jobs:
         id: compliance
         continue-on-error: true  # Don't fail workflow yet, we want to post results first
         env:
-          SIGCOMPLY_API_TOKEN: ${{ secrets.SIGCOMPLY_API_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # For GitHub integration
         run: |
           # Determine framework (from workflow dispatch or default to soc2)
@@ -317,8 +315,6 @@ jobs:
 #           echo "$HOME/.sigcomply/bin" >> $GITHUB_PATH
 #
 #       - name: Run ${{ matrix.framework }} compliance check
-#         env:
-#           SIGCOMPLY_API_TOKEN: ${{ secrets.SIGCOMPLY_API_TOKEN }}
 #         run: |
 #           sigcomply check --framework ${{ matrix.framework }}
 

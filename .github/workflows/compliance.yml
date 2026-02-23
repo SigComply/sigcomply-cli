@@ -60,9 +60,6 @@ on:
       AWS_SECRET_ACCESS_KEY:
         description: 'AWS secret access key (fallback if OIDC not configured)'
         required: false
-      SIGCOMPLY_API_TOKEN:
-        description: 'SigComply Cloud API token for paid features'
-        required: false
     outputs:
       compliance-score:
         description: 'Overall compliance score (0-100)'
@@ -134,8 +131,6 @@ jobs:
       - name: Run compliance check
         id: compliance
         continue-on-error: ${{ !inputs.fail-on-violation }}
-        env:
-          SIGCOMPLY_API_TOKEN: ${{ secrets.SIGCOMPLY_API_TOKEN }}
         run: |
           # Create output directory
           mkdir -p .sigcomply/results

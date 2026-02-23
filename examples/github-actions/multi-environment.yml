@@ -37,7 +37,6 @@ jobs:
       fail-on-violation: ${{ matrix.environment == 'production' }}
     secrets:
       AWS_ROLE_ARN: ${{ secrets[matrix.role-secret] }}
-      SIGCOMPLY_API_TOKEN: ${{ secrets.SIGCOMPLY_API_TOKEN }}
 
   summary:
     name: Compliance Summary

@@ -147,7 +147,6 @@ Quick reference for key terms and concepts. For full context, see [CLAUDE.md](./
 
 | Method | Use Case |
 |--------|----------|
-| `hmac-sha256` | Shared secret signing (uses API token) |
 | `oidc-jwt` | CI/CD platform OIDC token (GitHub Actions, GitLab CI) |
 
 ### Attestation Payload (What's Signed)

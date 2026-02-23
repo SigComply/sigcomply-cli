@@ -38,17 +38,7 @@ func NewClientFromEnv() *Client {
 		cfg.BaseURL = url
 	}
 
-	if token := os.Getenv("SIGCOMPLY_API_TOKEN"); token != "" {
-		cfg.APIToken = token
-	}
-
 	return NewClient(cfg)
-}
-
-// WithAPIToken sets the API token for authentication.
-func (c *Client) WithAPIToken(token string) *Client {
-	c.config.APIToken = token
-	return c
 }
 
 // WithOIDCToken sets the OIDC token for authentication.
@@ -65,7 +55,7 @@ func (c *Client) WithBaseURL(url string) *Client {
 
 // IsConfigured returns true if the client has valid authentication.
 func (c *Client) IsConfigured() bool {
-	return c.config.APIToken != "" || (c.config.OIDCToken != nil && c.config.OIDCToken.Token != "")
+	return c.config.OIDCToken != nil && c.config.OIDCToken.Token != ""
 }
 
 // Submit sends compliance check results to the Cloud API.
@@ -135,10 +125,8 @@ func (c *Client) setHeaders(req *http.Request) {
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", c.config.UserAgent)
 
-	// Set authentication header
-	if c.config.APIToken != "" {
-		req.Header.Set("Authorization", "Bearer "+c.config.APIToken)
-	} else if c.config.OIDCToken != nil && c.config.OIDCToken.Token != "" {
+	// Set OIDC authentication header
+	if c.config.OIDCToken != nil && c.config.OIDCToken.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.config.OIDCToken.Token)
 		req.Header.Set("X-OIDC-Provider", c.config.OIDCToken.Provider)
 	}
@@ -166,23 +154,46 @@ func (c *Client) parseError(resp *http.Response) *APIError {
 		Message:    http.StatusText(resp.StatusCode),
 	}
 
-	// Try to parse as JSON error
-	var jsonErr struct {
+	// Try nested format first: {"error": {"code": ..., "message": ...}}
+	// This is the format returned by the Rails API.
+	var nested struct {
+		Error struct {
+			Code       string                 `json:"code"`
+			Message    string                 `json:"message"`
+			Details    map[string]interface{} `json:"details"`
+			UpgradeURL string                 `json:"upgrade_url"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(body, &nested); err == nil && nested.Error.Code != "" {
+		apiErr.Code = nested.Error.Code
+		apiErr.Message = nested.Error.Message
+		apiErr.Details = nested.Error.Details
+		if nested.Error.UpgradeURL != "" {
+			if apiErr.Details == nil {
+				apiErr.Details = make(map[string]interface{})
+			}
+			apiErr.Details["upgrade_url"] = nested.Error.UpgradeURL
+		}
+		return apiErr
+	}
+
+	// Fallback: flat format {"code": ..., "message": ..., "error": ...}
+	var flatErr struct {
 		Error   string                 `json:"error"`
 		Code    string                 `json:"code"`
 		Message string                 `json:"message"`
 		Details map[string]interface{} `json:"details"`
 	}
-	if err := json.Unmarshal(body, &jsonErr); err == nil {
-		if jsonErr.Code != "" {
-			apiErr.Code = jsonErr.Code
+	if err := json.Unmarshal(body, &flatErr); err == nil {
+		if flatErr.Code != "" {
+			apiErr.Code = flatErr.Code
 		}
-		if jsonErr.Message != "" {
-			apiErr.Message = jsonErr.Message
-		} else if jsonErr.Error != "" {
-			apiErr.Message = jsonErr.Error
+		if flatErr.Message != "" {
+			apiErr.Message = flatErr.Message
+		} else if flatErr.Error != "" {
+			apiErr.Message = flatErr.Error
 		}
-		apiErr.Details = jsonErr.Details
+		apiErr.Details = flatErr.Details
 	}
 
 	return apiErr

@@ -3,6 +3,7 @@ package sigcomply
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/iso27001"
 	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/soc2"
 	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
+	"github.com/sigcomply/sigcomply-cli/internal/core/cloud"
 	"github.com/sigcomply/sigcomply-cli/internal/core/config"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 	"github.com/sigcomply/sigcomply-cli/internal/core/output"
@@ -78,7 +80,7 @@ Examples:
 	cmd.Flags().BoolVar(&flagStore, "store", false, "Store evidence and results to configured storage")
 	cmd.Flags().StringVar(&flagStoragePath, "storage-path", "", "Local storage path (default: ./.sigcomply/evidence)")
 	cmd.Flags().StringVar(&flagStorageBackend, "storage-backend", "", "Storage backend (local, s3)")
-	cmd.Flags().BoolVar(&flagCloud, "cloud", false, "Force submission to SigComply Cloud (requires SIGCOMPLY_API_TOKEN)")
+	cmd.Flags().BoolVar(&flagCloud, "cloud", false, "Force submission to SigComply Cloud (requires OIDC in CI)")
 	cmd.Flags().BoolVar(&flagNoCloud, "no-cloud", false, "Disable submission to SigComply Cloud")
 	cmd.Flags().StringVar(&flagGitHubOrg, "github-org", "", "GitHub organization to collect evidence from (requires GITHUB_TOKEN)")
 	cmd.Flags().StringVar(&flagConfig, "config", "", "Path to config file (default: .sigcomply.yaml)")
@@ -263,7 +265,7 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 
 	// Build attestation before storage (so it can be stored alongside evidence)
 	var att *attestation.Attestation
-	if cfg.APIToken != "" {
+	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) {
 		var attErr error
 		att, attErr = buildAttestation(cfg, checkResult, result.Evidence, nil)
 		if attErr != nil {
@@ -369,7 +371,7 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 
 	// Build attestation before storage
 	var att *attestation.Attestation
-	if cfg.APIToken != "" {
+	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) {
 		att, _ = buildAttestation(cfg, checkResult, result.Evidence, nil) //nolint:errcheck // Attestation errors are non-critical
 	}
 
@@ -506,7 +508,7 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 
 	// Build attestation before storage
 	var att *attestation.Attestation
-	if cfg.APIToken != "" {
+	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) {
 		att, _ = buildAttestation(cfg, checkResult, result.Evidence, nil) //nolint:errcheck // Attestation errors are non-critical
 	}
 
@@ -594,7 +596,15 @@ func printCloudSubmission(ctx context.Context, cfg *config.Config, checkResult *
 
 	cloudResp, cloudErr := submitToCloudWithAttestation(ctx, cfg, checkResult, manifest, att, "")
 	if cloudErr != nil {
-		fmt.Printf("  [warn] Failed to submit to cloud: %s\n", cloudErr)
+		var apiErr *cloud.APIError
+		if errors.As(cloudErr, &apiErr) && apiErr.IsSubscriptionRequired() {
+			fmt.Printf("  [error] %s\n", apiErr.Message)
+			if url := apiErr.UpgradeURL(); url != "" {
+				fmt.Printf("  [info]  Upgrade at: %s\n", url)
+			}
+		} else {
+			fmt.Printf("  [warn] Failed to submit to cloud: %s\n", cloudErr)
+		}
 		return
 	}
 	if cloudResp == nil {

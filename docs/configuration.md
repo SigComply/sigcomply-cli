@@ -88,12 +88,9 @@ The token is read in the GitHub collector's `Init()` method. If `GITHUB_TOKEN` i
 
 ### SigComply Cloud (Paid Tier)
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `SIGCOMPLY_API_TOKEN` | No | Enables cloud submission when set |
-
-In CI/CD environments with OIDC support (GitHub Actions, GitLab CI), the CLI can authenticate
-to SigComply Cloud using ephemeral OIDC tokens instead of a static API token.
+The CLI authenticates to SigComply Cloud using ephemeral OIDC tokens, automatically detected
+in GitHub Actions and GitLab CI. No secrets or API tokens needed — just grant `id-token: write`
+permission in your workflow.
 
 ---
 
@@ -148,7 +145,7 @@ storage:
     region: us-east-1
     prefix: compliance/
 
-# SigComply Cloud (auto-enabled if SIGCOMPLY_API_TOKEN is set)
+# SigComply Cloud (auto-enabled when OIDC is available in CI)
 cloud:
   enabled: false
 ```
@@ -192,12 +189,6 @@ Everything else uses sensible defaults.
 | `SIGCOMPLY_STORAGE_REGION` | — | S3 bucket region |
 | `SIGCOMPLY_STORAGE_PREFIX` | — | S3 key prefix |
 
-### Cloud Settings
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SIGCOMPLY_API_TOKEN` | — | Cloud API token (auto-enables cloud submission) |
-
 ### Provider Credentials (Not SigComply-Specific)
 
 | Variable | Provider | Description |
@@ -228,7 +219,7 @@ Flags:
       --store                 Store evidence to configured storage
       --storage-path string   Local storage path
       --storage-backend string Storage backend (local, s3)
-      --cloud                 Force cloud submission (requires SIGCOMPLY_API_TOKEN)
+      --cloud                 Force cloud submission (requires OIDC in CI)
       --no-cloud              Disable cloud submission
 ```
 
@@ -261,8 +252,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SIGCOMPLY_GITHUB_ORG: my-org
-          SIGCOMPLY_API_TOKEN: ${{ secrets.SIGCOMPLY_API_TOKEN }}
         run: sigcomply check --output junit
+        # OIDC token is auto-detected from GitHub Actions environment
 ```
 
 ### GitLab CI
@@ -290,7 +281,6 @@ Store these as CI secrets (never in code):
 | `AWS_ACCESS_KEY_ID` | CI secret (or use OIDC role assumption) |
 | `AWS_SECRET_ACCESS_KEY` | CI secret (or use OIDC role assumption) |
 | `GITHUB_TOKEN` | CI secret (auto-provided in GitHub Actions) |
-| `SIGCOMPLY_API_TOKEN` | CI secret |
 
 Non-secrets can go in the workflow file or `.sigcomply.yaml`:
 

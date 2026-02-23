@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -36,7 +37,6 @@ func TestBuildAttestation(t *testing.T) {
 	cfg := &config.Config{
 		Framework:    "soc2",
 		CloudEnabled: true,
-		APIToken:     "test-token",
 		Storage: config.StorageConfig{
 			Enabled: true,
 			Backend: "local",
@@ -71,9 +71,9 @@ func TestBuildAttestation(t *testing.T) {
 	assert.NotEmpty(t, att.Hashes.Combined)
 	assert.Len(t, att.Hashes.Evidence, 2)
 
-	// Should have signature if API token is present
-	assert.Equal(t, attestation.AlgorithmHMACSHA256, att.Signature.Algorithm)
-	assert.NotEmpty(t, att.Signature.Value)
+	// OIDC-only: no HMAC signature
+	assert.Empty(t, att.Signature.Algorithm)
+	assert.Empty(t, att.Signature.Value)
 }
 
 func TestBuildAttestation_WithCIEnvironment(t *testing.T) {
@@ -86,7 +86,6 @@ func TestBuildAttestation_WithCIEnvironment(t *testing.T) {
 	cfg := &config.Config{
 		Framework:    "soc2",
 		CloudEnabled: true,
-		APIToken:     "test-token",
 		CI:           true,
 		CIProvider:   "github-actions",
 		Repository:   "owner/repo",
@@ -114,7 +113,6 @@ func TestBuildAttestation_WithStorageLocation(t *testing.T) {
 	cfg := &config.Config{
 		Framework:    "soc2",
 		CloudEnabled: true,
-		APIToken:     "test-token",
 		Storage: config.StorageConfig{
 			Enabled: true,
 			Backend: "s3",
@@ -260,11 +258,30 @@ func TestBuildCloudSubmitRequest_LocalStorage(t *testing.T) {
 	assert.Equal(t, "/var/sigcomply/evidence/runs/soc2/2026-02-14/manifest.json", req.EvidenceLocation.ManifestPath)
 }
 
+// setupOIDCEnv sets up OIDC environment for tests and returns cleanup function.
+func setupOIDCEnv(t *testing.T) {
+	t.Helper()
+	origGLJWT := os.Getenv("CI_JOB_JWT_V2")
+	origGHURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
+	t.Cleanup(func() {
+		if origGLJWT != "" {
+			os.Setenv("CI_JOB_JWT_V2", origGLJWT) //nolint:errcheck
+		} else {
+			os.Unsetenv("CI_JOB_JWT_V2") //nolint:errcheck
+		}
+		if origGHURL != "" {
+			os.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", origGHURL) //nolint:errcheck
+		} else {
+			os.Unsetenv("ACTIONS_ID_TOKEN_REQUEST_URL") //nolint:errcheck
+		}
+	})
+}
+
 func TestSubmitToCloud_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/cli/runs", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.Header.Get("Authorization"), "Bearer test-token")
+		assert.Contains(t, r.Header.Get("Authorization"), "Bearer ")
 
 		// Verify the request body has all required fields
 		var req cloud.SubmitRequest
@@ -298,10 +315,13 @@ func TestSubmitToCloud_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
+	// Set up OIDC environment
+	setupOIDCEnv(t)
+	os.Setenv("CI_JOB_JWT_V2", "test-oidc-token") //nolint:errcheck
+
 	cfg := &config.Config{
 		Framework:    "soc2",
 		CloudEnabled: true,
-		APIToken:     "test-token",
 	}
 
 	checkResult := &evidence.CheckResult{
@@ -339,10 +359,14 @@ func TestSubmitToCloud_Success(t *testing.T) {
 	assert.Equal(t, "new_violation", driftSummary.ChangedPolicies[0].Change)
 }
 
-func TestSubmitToCloud_NotConfigured(t *testing.T) {
+func TestSubmitToCloud_NoOIDC(t *testing.T) {
+	setupOIDCEnv(t)
+	os.Unsetenv("CI_JOB_JWT_V2")              //nolint:errcheck
+	os.Unsetenv("ACTIONS_ID_TOKEN_REQUEST_URL") //nolint:errcheck
+
 	cfg := &config.Config{
 		Framework:    "soc2",
-		CloudEnabled: false, // Cloud not enabled
+		CloudEnabled: true,
 	}
 
 	checkResult := &evidence.CheckResult{
@@ -360,17 +384,21 @@ func TestSubmitToCloud_APIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		//nolint:errcheck // Test server
-		json.NewEncoder(w).Encode(map[string]string{
-			"code":    "unauthorized",
-			"message": "invalid token",
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": map[string]interface{}{
+				"code":    "authentication_failed",
+				"message": "invalid token",
+			},
 		})
 	}))
 	defer server.Close()
 
+	setupOIDCEnv(t)
+	os.Setenv("CI_JOB_JWT_V2", "bad-oidc-token") //nolint:errcheck
+
 	cfg := &config.Config{
 		Framework:    "soc2",
 		CloudEnabled: true,
-		APIToken:     "bad-token",
 	}
 
 	checkResult := &evidence.CheckResult{
@@ -382,65 +410,108 @@ func TestSubmitToCloud_APIError(t *testing.T) {
 	resp, err := submitToCloud(context.Background(), cfg, checkResult, nil, nil, server.URL)
 	assert.Nil(t, resp)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unauthorized")
+	assert.Contains(t, err.Error(), "authentication_failed")
+}
+
+func TestSubmitToCloud_402SubscriptionRequired(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusPaymentRequired)
+		//nolint:errcheck // Test server
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": map[string]interface{}{
+				"code":        "subscription_required",
+				"message":     "Pro subscription required",
+				"upgrade_url": "https://sigcomply.com/customer/settings/subscription",
+			},
+		})
+	}))
+	defer server.Close()
+
+	setupOIDCEnv(t)
+	os.Setenv("CI_JOB_JWT_V2", "free-tier-oidc-token") //nolint:errcheck
+
+	cfg := &config.Config{
+		Framework:    "soc2",
+		CloudEnabled: true,
+	}
+
+	checkResult := &evidence.CheckResult{
+		RunID:     "run-123",
+		Framework: "soc2",
+		Timestamp: time.Now(),
+	}
+
+	resp, err := submitToCloud(context.Background(), cfg, checkResult, nil, nil, server.URL)
+	assert.Nil(t, resp)
+	require.Error(t, err)
+
+	var apiErr *cloud.APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.True(t, apiErr.IsSubscriptionRequired())
+	assert.Equal(t, "subscription_required", apiErr.Code)
+	assert.Equal(t, "https://sigcomply.com/customer/settings/subscription", apiErr.UpgradeURL())
 }
 
 func TestShouldSubmitToCloud(t *testing.T) {
-	tests := []struct {
-		name     string
-		cfg      *config.Config
-		cloud    bool
-		noCloud  bool
-		expected bool
-	}{
-		{
-			name:     "cloud enabled by config",
-			cfg:      &config.Config{CloudEnabled: true, APIToken: "token"},
-			expected: true,
-		},
-		{
-			name:     "cloud disabled by config",
-			cfg:      &config.Config{CloudEnabled: false},
-			expected: false,
-		},
-		{
-			name:     "force cloud via flag",
-			cfg:      &config.Config{CloudEnabled: false, APIToken: "token"},
-			cloud:    true,
-			expected: true,
-		},
-		{
-			name:     "disable cloud via flag",
-			cfg:      &config.Config{CloudEnabled: true, APIToken: "token"},
-			noCloud:  true,
-			expected: false,
-		},
-		{
-			name:     "no-cloud takes precedence over cloud",
-			cfg:      &config.Config{CloudEnabled: true, APIToken: "token"},
-			cloud:    true,
-			noCloud:  true,
-			expected: false,
-		},
-		{
-			name:     "cloud enabled but no token",
-			cfg:      &config.Config{CloudEnabled: true, APIToken: ""},
-			expected: false,
-		},
-		{
-			name:     "force cloud but no token",
-			cfg:      &config.Config{CloudEnabled: false, APIToken: ""},
-			cloud:    true,
-			expected: false,
-		},
-	}
+	// Save and restore OIDC env
+	origGLJWT := os.Getenv("CI_JOB_JWT_V2")
+	origGHURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
+	defer func() {
+		if origGLJWT != "" {
+			os.Setenv("CI_JOB_JWT_V2", origGLJWT) //nolint:errcheck
+		} else {
+			os.Unsetenv("CI_JOB_JWT_V2") //nolint:errcheck
+		}
+		if origGHURL != "" {
+			os.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", origGHURL) //nolint:errcheck
+		} else {
+			os.Unsetenv("ACTIONS_ID_TOKEN_REQUEST_URL") //nolint:errcheck
+		}
+	}()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := shouldSubmitToCloud(tt.cfg, tt.cloud, tt.noCloud)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
+	t.Run("no OIDC available returns false", func(t *testing.T) {
+		os.Unsetenv("CI_JOB_JWT_V2")              //nolint:errcheck
+		os.Unsetenv("ACTIONS_ID_TOKEN_REQUEST_URL") //nolint:errcheck
+
+		cfg := &config.Config{CloudEnabled: true}
+		assert.False(t, shouldSubmitToCloud(cfg, false, false))
+	})
+
+	t.Run("no OIDC with --cloud flag still returns false", func(t *testing.T) {
+		os.Unsetenv("CI_JOB_JWT_V2")              //nolint:errcheck
+		os.Unsetenv("ACTIONS_ID_TOKEN_REQUEST_URL") //nolint:errcheck
+
+		cfg := &config.Config{CloudEnabled: false}
+		assert.False(t, shouldSubmitToCloud(cfg, true, false))
+	})
+
+	t.Run("--no-cloud always wins", func(t *testing.T) {
+		os.Setenv("CI_JOB_JWT_V2", "token") //nolint:errcheck
+
+		cfg := &config.Config{CloudEnabled: true}
+		assert.False(t, shouldSubmitToCloud(cfg, false, true))
+	})
+
+	t.Run("--no-cloud beats --cloud", func(t *testing.T) {
+		os.Setenv("CI_JOB_JWT_V2", "token") //nolint:errcheck
+
+		cfg := &config.Config{CloudEnabled: true}
+		assert.False(t, shouldSubmitToCloud(cfg, true, true))
+	})
+
+	t.Run("OIDC available auto-enables cloud", func(t *testing.T) {
+		os.Setenv("CI_JOB_JWT_V2", "token") //nolint:errcheck
+
+		cfg := &config.Config{CloudEnabled: false}
+		assert.True(t, shouldSubmitToCloud(cfg, false, false))
+	})
+
+	t.Run("OIDC available with --cloud flag", func(t *testing.T) {
+		os.Setenv("CI_JOB_JWT_V2", "token") //nolint:errcheck
+
+		cfg := &config.Config{CloudEnabled: false}
+		assert.True(t, shouldSubmitToCloud(cfg, true, false))
+	})
 }
 
 func TestSanitizeCheckResultForCloud(t *testing.T) {

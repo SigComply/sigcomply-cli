@@ -4,7 +4,6 @@ package cloud
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
@@ -15,16 +14,9 @@ const DefaultAudience = "https://api.sigcomply.com"
 
 // AuthConfig holds authentication configuration options.
 type AuthConfig struct {
-	// APIToken is a static API token (takes precedence over OIDC).
-	APIToken string
-
 	// OIDCAudience is the audience to request for OIDC tokens.
 	// Defaults to DefaultAudience.
 	OIDCAudience string
-
-	// PreferOIDC indicates whether to prefer OIDC over API token.
-	// When false (default), API token takes precedence if both are available.
-	PreferOIDC bool
 }
 
 // AuthResult contains the result of authentication detection.
@@ -32,7 +24,7 @@ type AuthResult struct {
 	// Method is the authentication method detected.
 	Method AuthMethod
 
-	// Token is the authentication token (API token or OIDC JWT).
+	// Token is the OIDC JWT authentication token.
 	Token string
 
 	// OIDCProvider is the OIDC provider (if using OIDC).
@@ -48,14 +40,11 @@ type AuthMethod string
 const (
 	// AuthMethodNone indicates no authentication is configured.
 	AuthMethodNone AuthMethod = "none"
-	// AuthMethodAPIToken indicates static API token authentication.
-	AuthMethodAPIToken AuthMethod = "api-token"
 	// AuthMethodOIDC indicates OIDC token authentication.
 	AuthMethodOIDC AuthMethod = "oidc"
 )
 
-// DetectAuth detects available authentication methods and returns the best option.
-// Priority: API Token > OIDC (unless PreferOIDC is true)
+// DetectAuth detects OIDC authentication from the CI environment.
 func DetectAuth(ctx context.Context, cfg *AuthConfig) (*AuthResult, error) {
 	if cfg == nil {
 		cfg = &AuthConfig{}
@@ -66,42 +55,13 @@ func DetectAuth(ctx context.Context, cfg *AuthConfig) (*AuthResult, error) {
 		cfg.OIDCAudience = DefaultAudience
 	}
 
-	// Check for API token from config or environment
-	apiToken := cfg.APIToken
-	if apiToken == "" {
-		apiToken = os.Getenv("SIGCOMPLY_API_TOKEN")
-	}
-
 	// Check for OIDC token availability
 	oidcProvider := attestation.GetOIDCTokenProvider()
-
-	// Determine which auth method to use
-	hasAPIToken := apiToken != ""
-	hasOIDC := oidcProvider != nil
-
-	if !hasAPIToken && !hasOIDC {
+	if oidcProvider == nil {
 		return &AuthResult{Method: AuthMethodNone}, nil
 	}
 
-	// If preferring OIDC and it's available, use it
-	if cfg.PreferOIDC && hasOIDC {
-		return obtainOIDCAuth(ctx, oidcProvider, cfg.OIDCAudience)
-	}
-
-	// If API token is available, use it (default preference)
-	if hasAPIToken {
-		return &AuthResult{
-			Method: AuthMethodAPIToken,
-			Token:  apiToken,
-		}, nil
-	}
-
-	// Fall back to OIDC if available
-	if hasOIDC {
-		return obtainOIDCAuth(ctx, oidcProvider, cfg.OIDCAudience)
-	}
-
-	return &AuthResult{Method: AuthMethodNone}, nil
+	return obtainOIDCAuth(ctx, oidcProvider, cfg.OIDCAudience)
 }
 
 // obtainOIDCAuth obtains an OIDC token from the provider.
@@ -119,27 +79,22 @@ func obtainOIDCAuth(ctx context.Context, provider attestation.TokenProvider, aud
 	}, nil
 }
 
-// ConfigureClientAuth configures a Cloud client with the best available authentication.
-// Returns an error if no authentication is available.
+// ConfigureClientAuth configures a Cloud client with OIDC authentication.
+// Returns an error if no OIDC authentication is available.
 func ConfigureClientAuth(ctx context.Context, client *Client, cfg *AuthConfig) error {
 	result, err := DetectAuth(ctx, cfg)
 	if err != nil {
 		return err
 	}
 
-	switch result.Method {
-	case AuthMethodNone:
-		return fmt.Errorf("no authentication available: set SIGCOMPLY_API_TOKEN or run in a CI environment with OIDC support")
-
-	case AuthMethodAPIToken:
-		client.WithAPIToken(result.Token)
-
-	case AuthMethodOIDC:
-		client.WithOIDCToken(&TokenInfo{
-			Token:    result.Token,
-			Provider: string(result.OIDCProvider),
-		})
+	if result.Method == AuthMethodNone {
+		return fmt.Errorf("no authentication available: run in a CI environment with OIDC support (GitHub Actions or GitLab CI)")
 	}
+
+	client.WithOIDCToken(&TokenInfo{
+		Token:    result.Token,
+		Provider: string(result.OIDCProvider),
+	})
 
 	return nil
 }
@@ -247,12 +202,7 @@ func (r *RefreshableAuth) NeedsRefresh() bool {
 	}
 
 	// OIDC tokens typically expire quickly, refresh after 2 minutes
-	if r.result.Method == AuthMethodOIDC {
-		return time.Since(r.obtained) > 2*time.Minute
-	}
-
-	// API tokens don't need refresh
-	return false
+	return time.Since(r.obtained) > 2*time.Minute
 }
 
 // Method returns the current authentication method.

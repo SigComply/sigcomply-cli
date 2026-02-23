@@ -85,8 +85,7 @@ type Config struct {
 	Verbose         bool   `json:"verbose"`
 
 	// Cloud settings
-	CloudEnabled bool   `json:"cloud_enabled"`
-	APIToken     string `json:"-"` // Never serialize
+	CloudEnabled bool `json:"cloud_enabled"`
 
 	// Storage settings
 	Storage StorageConfig `json:"storage"`
@@ -282,11 +281,6 @@ func (c *Config) LoadFromEnv() {
 
 	if v := os.Getenv("SIGCOMPLY_OUTPUT_FORMAT"); v != "" {
 		c.OutputFormat = v
-	}
-
-	if v := os.Getenv("SIGCOMPLY_API_TOKEN"); v != "" {
-		c.APIToken = v
-		c.CloudEnabled = true
 	}
 
 	if os.Getenv("SIGCOMPLY_VERBOSE") == envTrue {

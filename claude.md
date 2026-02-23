@@ -108,6 +108,43 @@ Each feature or sub-component should result in small, working, tested commits:
 - Makes code review manageable
 - Prevents "big bang" integration failures
 
+### Rule 4: Never Break the Main Branch
+
+**The main branch must ALWAYS have a green CI pipeline. A broken main build is unacceptable.**
+
+Before every commit and push, follow this mandatory workflow:
+
+1. **Run all local checks before committing**:
+   ```bash
+   make test              # All unit tests must pass
+   make test-integration  # All integration tests must pass (if applicable)
+   make lint              # All linting checks must pass
+   ```
+   Do NOT commit if any of these fail. Fix the issue first.
+
+2. **After pushing, verify the GitHub Actions pipeline**:
+   - Push the commit to the remote
+   - Wait 2-3 minutes for the GitHub Actions pipeline to start and complete
+   - Use `gh run list --branch <branch> --limit 5` to check the pipeline status
+   - Use `gh run view <run-id>` to inspect details if needed
+
+3. **If the pipeline fails**:
+   - Immediately investigate the failure: `gh run view <run-id> --log-failed`
+   - Identify the root cause (test failure, lint error, build error, etc.)
+   - Fix the issue locally
+   - Run all local checks again (`make test && make lint`)
+   - Commit the fix and push
+   - Wait and verify the pipeline is green again
+   - Repeat until the pipeline is fully green
+
+4. **Do NOT move on to the next task until the pipeline is green**. The current unit of work is not complete until CI is passing.
+
+**Why this matters**:
+- A broken main branch blocks all other contributors
+- CI failures compound — fixing them later is harder than fixing them now
+- Green CI is the team's contract for code quality
+- Every commit on main should be deployable
+
 ### Summary Checklist
 
 Before implementing any feature, verify:
@@ -117,6 +154,9 @@ Before implementing any feature, verify:
 - [ ] The design doesn't feel overly complicated (if it does, STOP and ask)
 - [ ] I will write tests before implementation
 - [ ] I will make small, atomic commits
+- [ ] Before each commit: `make test && make lint` pass locally
+- [ ] After each push: GitHub Actions pipeline is green (verified via `gh run list`)
+- [ ] If CI fails: fix, push, and verify green before moving on
 - [ ] I will update documentation after completion
 
 ---
@@ -287,11 +327,12 @@ on: [push, pull_request]
 
 jobs:
   compliance:
+    permissions:
+      id-token: write  # Required for OIDC authentication
+      contents: read
     uses: sigcomply/sigcomply-cli/.github/workflows/compliance.yml@v1
     with:
       framework: soc2
-    secrets:
-      SIGCOMPLY_API_TOKEN: ${{ secrets.SIGCOMPLY_API_TOKEN }}
 ```
 
 **GitLab CI Example:**
@@ -405,7 +446,7 @@ sigcomply check --framework soc2
 # Fetches current infrastructure state
 # Evaluates OPA policies
 # Stores evidence in customer's vault
-# Generates OIDC token (or uses API token locally)
+# Authenticates via OIDC token in CI
 # Sends signed attestations to Cloud API
 # Outputs pass/fail results
 ```
@@ -554,7 +595,7 @@ sigcomply-cli/
 The CLI automatically detects:
 - **Collectors**: Based on available credentials (AWS_*, GITHUB_TOKEN, etc.)
 - **CI Environment**: GITHUB_ACTIONS, GITLAB_CI, CI environment variables
-- **Cloud Mode**: Enabled if SIGCOMPLY_API_TOKEN is set
+- **Cloud Mode**: Auto-enabled when OIDC is available in CI (GitHub Actions, GitLab CI)
 
 ---
 
@@ -581,9 +622,9 @@ storage:
   local:
     path: ./.sigcomply/evidence
 
-# Cloud settings (optional - for paid features)
+# Cloud settings (auto-enabled when OIDC is available in CI)
 cloud:
-  enabled: false  # Auto-enabled if SIGCOMPLY_API_TOKEN is set
+  enabled: false  # Auto-enabled when OIDC is available in CI
 ```
 
 ### Configuration Sources (Precedence)
@@ -596,7 +637,6 @@ cloud:
 ### Key Environment Variables
 
 ```bash
-SIGCOMPLY_API_TOKEN        # Cloud API token (enables cloud mode)
 SIGCOMPLY_FRAMEWORK        # Default framework
 SIGCOMPLY_STORAGE_BACKEND  # Storage backend: local, s3, gcs
 SIGCOMPLY_STORAGE_BUCKET   # S3/GCS bucket name

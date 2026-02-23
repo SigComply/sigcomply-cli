@@ -177,6 +177,21 @@ func (e *APIError) Error() string {
 	return e.Message
 }
 
+// IsSubscriptionRequired returns true if the error is a 402 subscription required response.
+func (e *APIError) IsSubscriptionRequired() bool {
+	return e.HTTPStatus == 402
+}
+
+// UpgradeURL returns the upgrade URL from error details, if present.
+func (e *APIError) UpgradeURL() string {
+	if e.Details != nil {
+		if url, ok := e.Details["upgrade_url"].(string); ok {
+			return url
+		}
+	}
+	return ""
+}
+
 // TokenInfo contains OIDC token information.
 type TokenInfo struct {
 	// Token is the raw OIDC token
@@ -202,9 +217,6 @@ type TokenInfo struct {
 type ClientConfig struct {
 	// BaseURL is the Cloud API base URL
 	BaseURL string
-
-	// APIToken is a static API token (alternative to OIDC)
-	APIToken string
 
 	// OIDCToken is an OIDC token for authentication
 	OIDCToken *TokenInfo

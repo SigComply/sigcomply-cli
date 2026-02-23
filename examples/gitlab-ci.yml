@@ -15,7 +15,6 @@
 # 2. Configure AWS OIDC trust (see: https://docs.gitlab.com/ee/ci/cloud_services/aws/)
 # 3. Add CI/CD variables in Settings → CI/CD → Variables:
 #    - AWS_ROLE_ARN: ARN of IAM role for SigComply (e.g., arn:aws:iam::123456789012:role/SigComplyComplianceRole)
-#    - SIGCOMPLY_API_TOKEN: Your SigComply Cloud API token (optional, masked)
 # 4. Commit and push to trigger the pipeline
 
 # Define stages
