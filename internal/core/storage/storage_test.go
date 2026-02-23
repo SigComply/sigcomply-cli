@@ -15,6 +15,8 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
+const testRunBasePath = "runs/soc2/2026-02-14"
+
 func TestNewBackend_Local(t *testing.T) {
 	cfg := &Config{
 		Backend: "local",
@@ -310,7 +312,7 @@ func TestStoreRun_PolicyCentricLayout(t *testing.T) {
 	assert.Equal(t, "soc2", manifest.Framework)
 
 	// Verify policy-centric folder structure exists
-	basePath := "runs/soc2/2026-02-14"
+	basePath := testRunBasePath
 
 	// Check check_result.json at run level
 	assert.Equal(t, basePath+"/check_result.json", manifest.CheckResult)
@@ -395,7 +397,7 @@ func TestStoreRun_WithAttestation(t *testing.T) {
 	manifest, err := StoreRun(context.Background(), backend, result, nil, att)
 	require.NoError(t, err)
 
-	basePath := "runs/soc2/2026-02-14"
+	basePath := testRunBasePath
 	assert.NotEmpty(t, manifest.Attestation)
 	assert.Equal(t, basePath+"/attestation.json", manifest.Attestation)
 
@@ -424,7 +426,7 @@ func TestStoreRun_NilAttestation(t *testing.T) {
 	// No attestation stored
 	assert.Empty(t, manifest.Attestation)
 
-	basePath := "runs/soc2/2026-02-14"
+	basePath := testRunBasePath
 	_, err = os.Stat(filepath.Join(tmpDir, basePath, "attestation.json"))
 	assert.True(t, os.IsNotExist(err))
 }
@@ -466,7 +468,7 @@ func TestStoreRun_EvidenceDeduplication(t *testing.T) {
 	manifest, err := StoreRun(context.Background(), backend, result, evidenceList, nil)
 	require.NoError(t, err)
 
-	basePath := "runs/soc2/2026-02-14"
+	basePath := testRunBasePath
 
 	// Aggregated evidence should appear in both policy folders
 	_, err = os.Stat(filepath.Join(tmpDir, basePath, "policy-a", "evidence", "iam-users.json"))
@@ -610,7 +612,7 @@ func TestStoreRun_HumanReadablePaths(t *testing.T) {
 	require.NoError(t, err)
 
 	// Collect all paths
-	var paths []string
+	paths := make([]string, 0, len(manifest.Items))
 	for _, item := range manifest.Items {
 		paths = append(paths, item.Path)
 	}
@@ -668,7 +670,7 @@ func TestStoreRun_AggregatedEvidenceContent(t *testing.T) {
 	require.NoError(t, err)
 
 	// Read the aggregated evidence file
-	basePath := "runs/soc2/2026-02-14"
+	basePath := testRunBasePath
 	evData, err := os.ReadFile(filepath.Join(tmpDir, basePath, "cc6.1-mfa", "evidence", "iam-users.json"))
 	require.NoError(t, err)
 

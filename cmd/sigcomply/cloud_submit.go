@@ -206,18 +206,18 @@ func computeManifestPath(cfg *config.Config, manifest *storage.Manifest) string 
 
 // submitToCloud submits check results to the SigComply Cloud API.
 // Returns nil, nil if OIDC authentication is not available.
-func submitToCloud(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence, manifest *storage.Manifest, baseURL string) (*cloud.SubmitResponse, error) {
+func submitToCloud(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence, baseURL string) (*cloud.SubmitResponse, error) {
 	if !cloud.IsOIDCAvailable() {
 		return nil, nil
 	}
 
 	// Build attestation
-	att, err := buildAttestation(cfg, checkResult, evidenceList, manifest)
+	att, err := buildAttestation(cfg, checkResult, evidenceList, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build attestation: %w", err)
 	}
 
-	return submitToCloudWithAttestation(ctx, cfg, checkResult, manifest, att, baseURL)
+	return submitToCloudWithAttestation(ctx, cfg, checkResult, nil, att, baseURL)
 }
 
 // submitToCloudWithAttestation submits check results with a pre-built attestation.

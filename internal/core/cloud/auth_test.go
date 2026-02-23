@@ -201,7 +201,7 @@ func TestRefreshableAuth_NeedsRefresh(t *testing.T) {
 		Token:  "token",
 	}
 	// Just set, so not yet expired
-	auth.obtained = auth.obtained // zero time — should trigger refresh
+	// obtained is zero time — should trigger refresh
 	assert.True(t, auth.NeedsRefresh())
 }
 

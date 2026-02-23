@@ -28,7 +28,6 @@ type StoredPolicyResult struct {
 //	    evidence/<descriptor>.json
 func StoreRun(ctx context.Context, backend Backend, result *evidence.CheckResult,
 	evidenceList []evidence.Evidence, att *attestation.Attestation) (*Manifest, error) {
-
 	runPath := NewRunPath(result.Framework, result.Timestamp)
 
 	manifest := &Manifest{
@@ -63,11 +62,11 @@ func StoreRun(ctx context.Context, backend Backend, result *evidence.CheckResult
 
 			// Build an array of evidence entries for this resource type
 			entries := make([]aggregatedEvidenceEntry, len(items))
-			for j, ev := range items {
+			for j := range items {
 				entries[j] = aggregatedEvidenceEntry{
-					ResourceID:  ev.ResourceID,
-					CollectedAt: ev.CollectedAt,
-					Data:        ev.Data,
+					ResourceID:  items[j].ResourceID,
+					CollectedAt: items[j].CollectedAt,
+					Data:        items[j].Data,
 				}
 			}
 
@@ -242,7 +241,7 @@ func LoadManifest(ctx context.Context, backend Backend, runPath string) (*Manife
 	// runPath should be the run base path (e.g. "runs/soc2/2026-02-14")
 	path := runPath
 	if !strings.HasSuffix(path, "/manifest.json") {
-		path = path + "/manifest.json"
+		path += "/manifest.json"
 	}
 
 	data, err := backend.Get(ctx, path)

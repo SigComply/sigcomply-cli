@@ -144,7 +144,7 @@ func EvidenceTypeFilename(resourceType string) string {
 
 	// Pluralize the last part (simple: append "s")
 	last := len(parts) - 1
-	parts[last] = parts[last] + "s"
+	parts[last] += "s"
 
 	return strings.Join(parts, "-") + ".json"
 }
