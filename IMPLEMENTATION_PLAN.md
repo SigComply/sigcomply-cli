@@ -1,6 +1,6 @@
 # SigComply CLI - Implementation Plan
 
-**Version**: 3.1 | **Date**: 2026-01-17
+**Version**: 3.2 | **Date**: 2026-02-23
 
 Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md) | Glossary: [GLOSSARY.md](./GLOSSARY.md)
 
@@ -117,7 +117,7 @@ require (
 
 ---
 
-## Phase 1: Launch (IN PROGRESS)
+## Phase 1: Launch (MOSTLY COMPLETE)
 
 **Goal**: Production-ready with storage, attestations, and cloud integration.
 
@@ -220,6 +220,11 @@ Use interface-based mocks for AWS SDK. See ARCHITECTURE.md for mock pattern.
 
 ## Current Status
 
+**Phase 0**: Completed (zero-config `sigcomply check` with AWS + SOC 2)
+**Phase 1**: Mostly complete — storage, attestation (HMAC + OIDC), and cloud integration all working. Remaining: GitHub collector policies, secret scanner, additional CLI commands (init, init-ci, collect, evaluate, report), SARIF formatter.
+
+**Cloud Integration**: CLI submits via unified `POST /api/v1/cli/runs` endpoint (not separate attestation/evaluation endpoints).
+
 **Tests**: 115 passing | **Linter**: 0 issues
 
-**Last Updated**: 2026-01-17
+**Last Updated**: 2026-02-23

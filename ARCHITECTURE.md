@@ -52,11 +52,12 @@ sigcomply check
 │   ATTESTATION   │  SHA-256 hashes + signature → Customer's storage
 └────────┬────────┘
          │
-    (paid tier)
+    (paid tier, auto in CI when OIDC available)
          ▼
 ┌─────────────────┐
-│   CLOUD API     │  CheckResult + Attestation → SigComply Cloud
-└─────────────────┘  (NOT raw evidence - stays with customer)
+│   CLOUD API     │  POST /api/v1/cli/runs (unified endpoint)
+└─────────────────┘  CheckResult + Attestation → SigComply Cloud
+                     (NOT raw evidence - stays with customer)
 ```
 
 ### What Goes Where
@@ -406,13 +407,15 @@ SIGCOMPLY_STORAGE_BACKEND  # local, s3, gcs
 SIGCOMPLY_STORAGE_BUCKET   # S3/GCS bucket name
 ```
 
-### Cloud Authentication
+### Cloud Authentication & Submission
 
 Cloud submission uses OIDC authentication exclusively:
 
 - **OIDC tokens** are automatically detected in GitHub Actions and GitLab CI.
-- Cloud submission is auto-enabled when OIDC is available — no configuration needed.
-- The CLI is designed to run in CI/CD pipelines with OIDC support.
+- Cloud submission is **auto-enabled** when OIDC is available — no configuration needed.
+- Use `--cloud` to force cloud submission, `--no-cloud` to disable it.
+- The CLI submits a single unified payload via `POST /api/v1/cli/runs` containing both the `CheckResult` and `Attestation`.
+- The Rails app extracts derived data (hashes, scores, individual policy results) and discards resource-specific details (ARNs, repo names).
 
 ---
 
