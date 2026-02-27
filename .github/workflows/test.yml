@@ -172,7 +172,7 @@ jobs:
 
       - name: Upload artifact
         if: steps.check-main.outputs.has_main == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sigcomply-${{ matrix.goos }}-${{ matrix.goarch }}
           path: bin/sigcomply-*
