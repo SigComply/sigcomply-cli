@@ -74,7 +74,7 @@ func buildEvidenceURL(backend, bucket, path string) string {
 
 // buildAttestation creates a signed attestation from check results and the storage manifest.
 // The manifest provides stored file hashes for attestation (hash of actual stored files).
-func buildAttestation(cfg *config.Config, checkResult *evidence.CheckResult, manifest *storage.Manifest) (*attestation.Attestation, error) {
+func buildAttestation(cfg *config.Config, checkResult *evidence.CheckResult, manifest *storage.Manifest) *attestation.Attestation {
 	// Compute hashes from stored files
 	runPath := storage.NewRunPath(checkResult.Framework, checkResult.Timestamp)
 	checkResultHash, fileHashes := manifest.FileHashes(runPath.BasePath())
@@ -111,7 +111,7 @@ func buildAttestation(cfg *config.Config, checkResult *evidence.CheckResult, man
 		}
 	}
 
-	return att, nil
+	return att
 }
 
 // buildCloudSubmitRequest creates a cloud API submission request.
@@ -203,11 +203,7 @@ func submitToCloud(ctx context.Context, cfg *config.Config, checkResult *evidenc
 	// Build attestation from manifest if available
 	var att *attestation.Attestation
 	if manifest != nil {
-		var err error
-		att, err = buildAttestation(cfg, checkResult, manifest)
-		if err != nil {
-			return nil, fmt.Errorf("failed to build attestation: %w", err)
-		}
+		att = buildAttestation(cfg, checkResult, manifest)
 	}
 
 	return submitToCloudWithAttestation(ctx, cfg, checkResult, manifest, att, baseURL)

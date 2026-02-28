@@ -51,7 +51,8 @@ func computeCombinedHash(hashes *EvidenceHashes) string {
 	sort.Strings(paths)
 
 	// Concatenate all hashes in order: check_result hash first, then sorted file hashes
-	var combined []byte
+	// Each SHA-256 hash is 64 hex chars
+	combined := make([]byte, 0, 64*(1+len(paths)))
 	combined = append(combined, []byte(hashes.CheckResult)...)
 
 	for _, p := range paths {

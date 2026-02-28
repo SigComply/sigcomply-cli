@@ -78,8 +78,8 @@ func TestBuildAttestation(t *testing.T) {
 		},
 	}
 
-	att, err := buildAttestation(cfg, checkResult, manifest)
-	require.NoError(t, err)
+	att := buildAttestation(cfg, checkResult, manifest)
+	require.NotNil(t, att)
 
 	assert.NotEmpty(t, att.ID)
 	assert.Equal(t, "run-123", att.RunID)
@@ -122,8 +122,8 @@ func TestBuildAttestation_WithCIEnvironment(t *testing.T) {
 		},
 	}
 
-	att, err := buildAttestation(cfg, checkResult, manifest)
-	require.NoError(t, err)
+	att := buildAttestation(cfg, checkResult, manifest)
+	require.NotNil(t, att)
 
 	assert.True(t, att.Environment.CI)
 	assert.Equal(t, "github-actions", att.Environment.Provider)
@@ -174,8 +174,8 @@ func TestBuildAttestation_WithStorageLocation(t *testing.T) {
 		},
 	}
 
-	att, err := buildAttestation(cfg, checkResult, manifest)
-	require.NoError(t, err)
+	att := buildAttestation(cfg, checkResult, manifest)
+	require.NotNil(t, att)
 
 	assert.Equal(t, "s3", att.StorageLocation.Backend)
 	assert.Equal(t, "my-evidence-bucket", att.StorageLocation.Bucket)

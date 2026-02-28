@@ -213,6 +213,7 @@ func collectAWSEvidenceText(ctx context.Context, cfg *config.Config) (*aws.Colle
 	return result, nil
 }
 
+//nolint:gocyclo // Complexity is acceptable for orchestration function with multiple data sources
 func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) error {
 	// Print header
 	fmt.Println("SigComply Compliance Check")
@@ -283,12 +284,9 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 	// Build attestation from stored file hashes (requires storage + cloud submission)
 	var att *attestation.Attestation
 	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) && cfg.Storage.Enabled && manifest != nil {
-		var attErr error
-		att, attErr = buildAttestation(cfg, checkResult, manifest)
-		if attErr != nil {
-			fmt.Printf("  [warn] Failed to build attestation: %s\n", attErr)
-		} else if att != nil {
-			if _, storeErr := storeAttestationFile(ctx, cfg, checkResult, att); storeErr != nil {
+		att = buildAttestation(cfg, checkResult, manifest)
+		if att != nil {
+			if storeErr := storeAttestationFile(ctx, cfg, checkResult, att); storeErr != nil {
 				fmt.Printf("  [warn] Failed to store attestation: %s\n", storeErr)
 			}
 		}
@@ -387,7 +385,7 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 	// Build attestation from stored file hashes (requires storage + cloud submission)
 	var att *attestation.Attestation
 	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) && cfg.Storage.Enabled && manifest != nil {
-		att, _ = buildAttestation(cfg, checkResult, manifest) //nolint:errcheck // Attestation errors are non-critical
+		att = buildAttestation(cfg, checkResult, manifest)
 		if att != nil {
 			storeAttestationFile(ctx, cfg, checkResult, att) //nolint:errcheck // Attestation storage errors are non-critical
 		}
@@ -459,6 +457,7 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
+//nolint:gocyclo // Complexity is acceptable for orchestration function with multiple data sources
 func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 	// Initialize AWS collector
 	collector := aws.New()
@@ -523,7 +522,7 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 	// Build attestation from stored file hashes (requires storage + cloud submission)
 	var att *attestation.Attestation
 	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) && cfg.Storage.Enabled && manifest != nil {
-		att, _ = buildAttestation(cfg, checkResult, manifest) //nolint:errcheck // Attestation errors are non-critical
+		att = buildAttestation(cfg, checkResult, manifest)
 		if att != nil {
 			storeAttestationFile(ctx, cfg, checkResult, att) //nolint:errcheck // Silently ignore in JUnit mode
 		}
@@ -684,7 +683,7 @@ func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidenc
 }
 
 // storeAttestationFile stores the attestation.json separately after evidence+hashes are computed.
-func storeAttestationFile(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, att *attestation.Attestation) (*storage.StoredItem, error) {
+func storeAttestationFile(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, att *attestation.Attestation) error {
 	// Build storage configuration
 	storageCfg := &storage.Config{
 		Backend: cfg.Storage.Backend,
@@ -705,18 +704,17 @@ func storeAttestationFile(ctx context.Context, cfg *config.Config, checkResult *
 
 	backend, err := storage.NewBackend(storageCfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create storage backend: %w", err)
+		return fmt.Errorf("failed to create storage backend: %w", err)
 	}
-	defer func() {
-		_ = backend.Close()
-	}()
+	defer backend.Close() //nolint:errcheck // Best-effort cleanup
 
 	if err := backend.Init(ctx); err != nil {
-		return nil, fmt.Errorf("failed to initialize storage: %w", err)
+		return fmt.Errorf("failed to initialize storage: %w", err)
 	}
 
 	runPath := storage.NewRunPath(checkResult.Framework, checkResult.Timestamp)
-	return storage.StoreAttestation(ctx, backend, *runPath, att)
+	_, err = storage.StoreAttestation(ctx, backend, *runPath, att)
+	return err
 }
 
 // cloudSubmitResult is used for JSON output of cloud submission results.
