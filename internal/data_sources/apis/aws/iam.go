@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -18,18 +19,43 @@ type IAMClient interface {
 	ListUsers(ctx context.Context, params *iam.ListUsersInput, optFns ...func(*iam.Options)) (*iam.ListUsersOutput, error)
 	ListMFADevices(ctx context.Context, params *iam.ListMFADevicesInput, optFns ...func(*iam.Options)) (*iam.ListMFADevicesOutput, error)
 	GetLoginProfile(ctx context.Context, params *iam.GetLoginProfileInput, optFns ...func(*iam.Options)) (*iam.GetLoginProfileOutput, error)
+	ListAccessKeys(ctx context.Context, params *iam.ListAccessKeysInput, optFns ...func(*iam.Options)) (*iam.ListAccessKeysOutput, error)
+	GetAccessKeyLastUsed(ctx context.Context, params *iam.GetAccessKeyLastUsedInput, optFns ...func(*iam.Options)) (*iam.GetAccessKeyLastUsedOutput, error)
+	ListAttachedUserPolicies(ctx context.Context, params *iam.ListAttachedUserPoliciesInput, optFns ...func(*iam.Options)) (*iam.ListAttachedUserPoliciesOutput, error)
+}
+
+// AccessKey represents an IAM access key with usage details.
+type AccessKey struct {
+	AccessKeyID     string    `json:"access_key_id"`
+	Status          string    `json:"status"`
+	CreateDate      time.Time `json:"create_date"`
+	AgeDays         int       `json:"age_days"`
+	LastUsedDays    int       `json:"last_used_days"`
+	LastUsedService string    `json:"last_used_service,omitempty"`
+}
+
+// AttachedPolicy represents a managed policy attached to a user.
+type AttachedPolicy struct {
+	PolicyName string `json:"policy_name"`
+	PolicyARN  string `json:"policy_arn"`
 }
 
 // IAMUser represents an IAM user with MFA status.
 type IAMUser struct {
-	UserName       string    `json:"user_name"`
-	ARN            string    `json:"arn"`
-	UserID         string    `json:"user_id"`
-	CreateDate     time.Time `json:"create_date"`
-	PasswordLastUsed *time.Time `json:"password_last_used,omitempty"`
-	MFAEnabled     bool      `json:"mfa_enabled"`
-	MFADevices      []string  `json:"mfa_devices,omitempty"`
-	HasLoginProfile bool      `json:"has_login_profile"`
+	UserName            string           `json:"user_name"`
+	ARN                 string           `json:"arn"`
+	UserID              string           `json:"user_id"`
+	CreateDate          time.Time        `json:"create_date"`
+	PasswordLastUsed    *time.Time       `json:"password_last_used,omitempty"`
+	MFAEnabled          bool             `json:"mfa_enabled"`
+	MFADevices          []string         `json:"mfa_devices,omitempty"`
+	HasLoginProfile     bool             `json:"has_login_profile"`
+	AccessKeys          []AccessKey      `json:"access_keys,omitempty"`
+	ActiveKeyCount      int              `json:"active_key_count"`
+	OldestKeyAgeDays    int              `json:"oldest_key_age_days"`
+	PasswordInactiveDays int             `json:"password_inactive_days"`
+	AttachedPolicies    []AttachedPolicy `json:"attached_policies,omitempty"`
+	HasAdminPolicy      bool             `json:"has_admin_policy"`
 }
 
 // ToEvidence converts an IAMUser to an Evidence struct.
@@ -57,6 +83,8 @@ func (c *IAMCollector) CollectUsers(ctx context.Context) ([]IAMUser, error) {
 	var users []IAMUser
 	var marker *string
 
+	now := time.Now().UTC()
+
 	for {
 		input := &iam.ListUsersInput{
 			Marker: marker,
@@ -69,9 +97,9 @@ func (c *IAMCollector) CollectUsers(ctx context.Context) ([]IAMUser, error) {
 
 		for _, u := range output.Users {
 			user := IAMUser{
-				UserName:   aws.ToString(u.UserName),
-				ARN:        aws.ToString(u.Arn),
-				UserID:     aws.ToString(u.UserId),
+				UserName: aws.ToString(u.UserName),
+				ARN:      aws.ToString(u.Arn),
+				UserID:   aws.ToString(u.UserId),
 			}
 
 			if u.CreateDate != nil {
@@ -94,6 +122,15 @@ func (c *IAMCollector) CollectUsers(ctx context.Context) ([]IAMUser, error) {
 
 			// Check login profile (console access)
 			user.HasLoginProfile = c.hasLoginProfile(ctx, user.UserName)
+
+			// Enrich access keys
+			c.enrichAccessKeys(ctx, &user, now)
+
+			// Compute password inactive days
+			c.computePasswordInactiveDays(&user, now)
+
+			// Enrich attached policies
+			c.enrichAttachedPolicies(ctx, &user)
 
 			users = append(users, user)
 		}
@@ -145,6 +182,104 @@ func (c *IAMCollector) hasLoginProfile(ctx context.Context, userName string) boo
 	}
 
 	return true
+}
+
+// enrichAccessKeys fetches access key details for a user.
+// Fail-safe: errors don't abort user collection.
+func (c *IAMCollector) enrichAccessKeys(ctx context.Context, user *IAMUser, now time.Time) {
+	output, err := c.client.ListAccessKeys(ctx, &iam.ListAccessKeysInput{
+		UserName: aws.String(user.UserName),
+	})
+	if err != nil {
+		// Fail-safe: can't list keys, leave defaults (empty keys, 0 counts)
+		return
+	}
+
+	activeCount := 0
+	oldestAge := 0
+
+	for _, k := range output.AccessKeyMetadata {
+		key := AccessKey{
+			AccessKeyID: aws.ToString(k.AccessKeyId),
+			Status:      string(k.Status),
+		}
+
+		if k.CreateDate != nil {
+			key.CreateDate = *k.CreateDate
+			key.AgeDays = daysBetween(*k.CreateDate, now)
+		}
+
+		// Get last used info
+		key.LastUsedDays = -1 // default: never used
+		lastUsedOutput, err := c.client.GetAccessKeyLastUsed(ctx, &iam.GetAccessKeyLastUsedInput{
+			AccessKeyId: k.AccessKeyId,
+		})
+		if err == nil && lastUsedOutput.AccessKeyLastUsed != nil {
+			if lastUsedOutput.AccessKeyLastUsed.LastUsedDate != nil {
+				key.LastUsedDays = daysBetween(*lastUsedOutput.AccessKeyLastUsed.LastUsedDate, now)
+				key.LastUsedService = aws.ToString(lastUsedOutput.AccessKeyLastUsed.ServiceName)
+			}
+		}
+
+		user.AccessKeys = append(user.AccessKeys, key)
+
+		if k.Status == types.StatusTypeActive {
+			activeCount++
+			if key.AgeDays > oldestAge {
+				oldestAge = key.AgeDays
+			}
+		}
+	}
+
+	user.ActiveKeyCount = activeCount
+	user.OldestKeyAgeDays = oldestAge
+}
+
+// computePasswordInactiveDays computes how many days since password was last used.
+// Returns -1 if user has no login profile or password was never used.
+func (c *IAMCollector) computePasswordInactiveDays(user *IAMUser, now time.Time) {
+	if !user.HasLoginProfile {
+		user.PasswordInactiveDays = -1
+		return
+	}
+
+	if user.PasswordLastUsed == nil {
+		// Has console access but never logged in
+		user.PasswordInactiveDays = -1
+		return
+	}
+
+	user.PasswordInactiveDays = daysBetween(*user.PasswordLastUsed, now)
+}
+
+// enrichAttachedPolicies fetches managed policies attached to a user.
+// Fail-safe: errors don't abort user collection.
+func (c *IAMCollector) enrichAttachedPolicies(ctx context.Context, user *IAMUser) {
+	output, err := c.client.ListAttachedUserPolicies(ctx, &iam.ListAttachedUserPoliciesInput{
+		UserName: aws.String(user.UserName),
+	})
+	if err != nil {
+		// Fail-safe: can't list policies, leave defaults
+		return
+	}
+
+	for _, p := range output.AttachedPolicies {
+		ap := AttachedPolicy{
+			PolicyName: aws.ToString(p.PolicyName),
+			PolicyARN:  aws.ToString(p.PolicyArn),
+		}
+		user.AttachedPolicies = append(user.AttachedPolicies, ap)
+
+		if ap.PolicyName == "AdministratorAccess" {
+			user.HasAdminPolicy = true
+		}
+	}
+}
+
+// daysBetween returns the number of whole days between two times.
+func daysBetween(from, to time.Time) int {
+	d := to.Sub(from).Hours() / 24
+	return int(math.Floor(d))
 }
 
 // CollectEvidence collects IAM users as evidence.

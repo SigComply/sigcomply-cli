@@ -169,9 +169,51 @@ scenarios:
       collection_errors_expected: true
       # All policies should skip (no evidence to evaluate)
       expected_policy_results:
+        # --- IAM policies ---
         "soc2-cc6.1-mfa": skip
+        "soc2-cc6.1-root-security": skip
+        "soc2-cc6.1-password-policy": fail  # account-level password policy still readable
+        # --- Encryption policies ---
         "soc2-cc6.2-encryption": skip
+        "soc2-cc6.2-ebs-encryption": skip
+        "soc2-cc6.2-rds-encryption": skip
+        "soc2-cc6.2-s3-public-access": skip
+        "soc2-cc6.1-kms-rotation": skip
+        # --- Network policies ---
+        "soc2-cc6.6-open-ports": skip
+        "soc2-cc6.6-db-public": skip
+        "soc2-cc6.6-flow-logs": skip
+        # --- Transport encryption ---
+        "soc2-cc6.7-s3-https": skip
+        "soc2-cc6.7-db-ssl": skip
+        # --- Container security ---
+        "soc2-cc6.8-container-scanning": skip
+        # --- Monitoring/detection ---
         "soc2-cc7.1-logging": skip
+        "soc2-cc7.1-log-retention": skip
+        "soc2-cc7.2-guardduty": fail       # empty detector list evaluates as "not enabled"
+        "soc2-cc8.1-config-enabled": fail  # empty recorder list evaluates as "not recording"
+        # --- Availability ---
+        "soc2-a1.2-db-backup": skip
+        "soc2-a1.2-storage-versioning": skip
+        # --- Confidentiality ---
+        "soc2-c1.1-encryption-coverage": skip
+        # --- GCP-only (no GCP evidence collected) ---
+        "soc2-cc6.1-key-rotation": skip
+        "soc2-cc6.2-gcp-storage-encryption": skip
+        "soc2-cc6.2-gcp-disk-encryption": skip
+        "soc2-cc6.2-gcp-sql-encryption": skip
+        "soc2-cc6.2-gcp-storage-public": skip
+        "soc2-cc6.3-unused-credentials": skip
+        "soc2-cc6.3-overly-permissive": skip
+        # --- New AWS policies ---
+        "soc2-cc6.2-cloudtrail-encryption": skip
+        "soc2-a1.2-rds-multi-az": skip
+        "soc2-cc6.1-access-key-rotation": skip
+        "soc2-cc6.3-unused-credentials-aws": skip
+        "soc2-cc6.3-overly-permissive-aws": skip
+        # --- GitHub-only (no GitHub evidence collected) ---
+        "soc2-cc6.1-github-mfa": skip
 
   - name: iso27001-aws-full
     description: "Full ISO27001 compliance check against AWS with S3 evidence storage"
@@ -198,6 +240,148 @@ scenarios:
     assertions:
       expected_policy_results:
         "soc2-cc6.1-mfa": fail
+
+  # ---- IAM policies: MFA, root security, password policy ----
+  - name: soc2-aws-iam-policies
+    description: "SOC2 IAM policies — MFA, root account security, password policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [iam]
+    policies:
+      include:
+        - "soc2-cc6.1-mfa"
+        - "soc2-cc6.1-root-security"
+        - "soc2-cc6.1-password-policy"
+        - "soc2-cc6.1-access-key-rotation"
+        - "soc2-cc6.3-unused-credentials-aws"
+        - "soc2-cc6.3-overly-permissive-aws"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.1-mfa": fail            # console-nomfa user triggers violation
+        "soc2-cc6.1-root-security": pass   # root account has MFA and no access keys
+        "soc2-cc6.1-password-policy": fail # default password policy is non-compliant
+        "soc2-cc6.1-access-key-rotation": pass   # e2e user keys are <90 days old
+        "soc2-cc6.3-unused-credentials-aws": pass # all credentials are actively used
+        "soc2-cc6.3-overly-permissive-aws": pass  # no users with AdministratorAccess
+
+  # ---- S3 policies: encryption, public access, HTTPS, versioning ----
+  - name: soc2-aws-s3-policies
+    description: "SOC2 S3 policies — encryption, public access, HTTPS enforcement, versioning"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [s3]
+    policies:
+      include:
+        - "soc2-cc6.2-encryption"
+        - "soc2-cc6.2-s3-public-access"
+        - "soc2-cc6.7-s3-https"
+        - "soc2-a1.2-storage-versioning"
+        - "soc2-c1.1-encryption-coverage"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.2-encryption": fail          # AES256 (not KMS) triggers warning
+        "soc2-cc6.2-s3-public-access": fail    # public access block not fully configured
+        "soc2-cc6.7-s3-https": fail            # e2e bucket lacks HTTPS-only policy
+        "soc2-a1.2-storage-versioning": fail   # e2e bucket lacks versioning
+        "soc2-c1.1-encryption-coverage": fail  # partial encryption coverage
+
+  # ---- Network/EC2 policies: security groups, VPC flow logs, EBS encryption ----
+  - name: soc2-aws-network-policies
+    description: "SOC2 network/EC2 policies — open ports, VPC flow logs, EBS encryption"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [ec2]
+    policies:
+      include:
+        - "soc2-cc6.6-open-ports"
+        - "soc2-cc6.6-flow-logs"
+        - "soc2-cc6.2-ebs-encryption"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.6-open-ports": pass       # no open security group rules
+        "soc2-cc6.6-flow-logs": fail        # VPC flow logs not enabled
+        "soc2-cc6.2-ebs-encryption": fail   # EBS default encryption not enabled
+
+  # ---- RDS policies: encryption, public access, SSL, backups ----
+  - name: soc2-aws-rds-policies
+    description: "SOC2 RDS policies — encryption, public access, SSL enforcement, backups"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [rds]
+    policies:
+      include:
+        - "soc2-cc6.2-rds-encryption"
+        - "soc2-cc6.6-db-public"
+        - "soc2-cc6.7-db-ssl"
+        - "soc2-a1.2-db-backup"
+        - "soc2-a1.2-rds-multi-az"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.2-rds-encryption": fail  # storage encryption disabled
+        "soc2-cc6.6-db-public": pass       # publicly accessible = false
+        "soc2-cc6.7-db-ssl": fail          # SSL not enforced by default
+        "soc2-a1.2-db-backup": fail        # backup retention = 0
+        "soc2-a1.2-rds-multi-az": fail     # Multi-AZ not enabled on e2e instance
+
+  # ---- Monitoring policies: GuardDuty, CloudTrail, CloudWatch, Config ----
+  - name: soc2-aws-monitoring-policies
+    description: "SOC2 monitoring/detection policies — GuardDuty, logging, log retention, Config"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [guardduty, cloudtrail, logs, config]
+    policies:
+      include:
+        - "soc2-cc7.2-guardduty"
+        - "soc2-cc7.1-logging"
+        - "soc2-cc7.1-log-retention"
+        - "soc2-cc8.1-config-enabled"
+        - "soc2-cc6.2-cloudtrail-encryption"
+    assertions:
+      expected_policy_results:
+        "soc2-cc7.2-guardduty": fail       # GuardDuty not enabled
+        "soc2-cc7.1-logging": pass         # CloudTrail trail active, multi-region, log validation
+        "soc2-cc7.1-log-retention": fail   # log group has no retention period set
+        "soc2-cc8.1-config-enabled": fail  # AWS Config not recording
+        "soc2-cc6.2-cloudtrail-encryption": pass  # CloudTrail trail has KMS encryption
+
+  # ---- KMS + ECR policies ----
+  - name: soc2-aws-kms-ecr-policies
+    description: "SOC2 KMS rotation and ECR scanning policies"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [kms, ecr]
+    policies:
+      include:
+        - "soc2-cc6.1-kms-rotation"
+        - "soc2-cc6.8-container-scanning"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.1-kms-rotation": fail       # rotation not enabled by default
+        "soc2-cc6.8-container-scanning": fail  # scan on push disabled
 
   # --- Future scenarios (multi-provider) ---
 

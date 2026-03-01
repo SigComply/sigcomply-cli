@@ -16,10 +16,11 @@ const testEncryptedBucket = "encrypted-bucket"
 
 // MockS3Client is a mock implementation of S3Client for testing.
 type MockS3Client struct {
-	ListBucketsFunc               func(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error)
-	GetBucketEncryptionFunc       func(ctx context.Context, params *s3.GetBucketEncryptionInput, optFns ...func(*s3.Options)) (*s3.GetBucketEncryptionOutput, error)
-	GetBucketVersioningFunc       func(ctx context.Context, params *s3.GetBucketVersioningInput, optFns ...func(*s3.Options)) (*s3.GetBucketVersioningOutput, error)
-	GetPublicAccessBlockFunc      func(ctx context.Context, params *s3.GetPublicAccessBlockInput, optFns ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error)
+	ListBucketsFunc          func(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error)
+	GetBucketEncryptionFunc  func(ctx context.Context, params *s3.GetBucketEncryptionInput, optFns ...func(*s3.Options)) (*s3.GetBucketEncryptionOutput, error)
+	GetBucketVersioningFunc  func(ctx context.Context, params *s3.GetBucketVersioningInput, optFns ...func(*s3.Options)) (*s3.GetBucketVersioningOutput, error)
+	GetPublicAccessBlockFunc func(ctx context.Context, params *s3.GetPublicAccessBlockInput, optFns ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error)
+	GetBucketPolicyFunc      func(ctx context.Context, params *s3.GetBucketPolicyInput, optFns ...func(*s3.Options)) (*s3.GetBucketPolicyOutput, error)
 }
 
 func (m *MockS3Client) ListBuckets(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
@@ -36,6 +37,14 @@ func (m *MockS3Client) GetBucketVersioning(ctx context.Context, params *s3.GetBu
 
 func (m *MockS3Client) GetPublicAccessBlock(ctx context.Context, params *s3.GetPublicAccessBlockInput, optFns ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error) {
 	return m.GetPublicAccessBlockFunc(ctx, params, optFns...)
+}
+
+func (m *MockS3Client) GetBucketPolicy(ctx context.Context, params *s3.GetBucketPolicyInput, optFns ...func(*s3.Options)) (*s3.GetBucketPolicyOutput, error) {
+	if m.GetBucketPolicyFunc != nil {
+		return m.GetBucketPolicyFunc(ctx, params, optFns...)
+	}
+	// Default: no bucket policy
+	return nil, errors.New("NoSuchBucketPolicy")
 }
 
 func TestS3Collector_CollectBuckets(t *testing.T) {
@@ -229,6 +238,8 @@ func TestS3Collector_CollectBuckets_AllEnrichmentErrors(t *testing.T) {
 	assert.False(t, buckets[0].EncryptionEnabled)
 	assert.False(t, buckets[0].VersioningEnabled)
 	assert.False(t, buckets[0].PublicAccessBlocked)
+	assert.False(t, buckets[0].HasSSLEnforcement)
+	assert.False(t, buckets[0].BucketPolicyExists)
 }
 
 func TestS3Collector_ToEvidence(t *testing.T) {
@@ -247,4 +258,145 @@ func TestS3Collector_ToEvidence(t *testing.T) {
 	assert.Equal(t, "aws:s3:bucket", evidence.ResourceType)
 	assert.Equal(t, "arn:aws:s3:::my-bucket", evidence.ResourceID)
 	assert.NotEmpty(t, evidence.Hash)
+}
+
+// --- Bucket policy / SSL enforcement tests ---
+
+func TestS3Collector_BucketPolicy_SSLEnforcement(t *testing.T) {
+	sslPolicy := `{
+		"Version": "2012-10-17",
+		"Statement": [{
+			"Sid": "DenyInsecureTransport",
+			"Effect": "Deny",
+			"Principal": "*",
+			"Action": "s3:*",
+			"Resource": "arn:aws:s3:::secure-bucket/*",
+			"Condition": {
+				"Bool": {"aws:SecureTransport": "false"}
+			}
+		}]
+	}`
+
+	mockS3 := &MockS3Client{
+		ListBucketsFunc: func(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
+			return &s3.ListBucketsOutput{
+				Buckets: []types.Bucket{
+					{Name: aws.String("secure-bucket")},
+					{Name: aws.String("no-policy-bucket")},
+				},
+			}, nil
+		},
+		GetBucketEncryptionFunc: func(ctx context.Context, params *s3.GetBucketEncryptionInput, optFns ...func(*s3.Options)) (*s3.GetBucketEncryptionOutput, error) {
+			return nil, errors.New("no encryption")
+		},
+		GetBucketVersioningFunc: func(ctx context.Context, params *s3.GetBucketVersioningInput, optFns ...func(*s3.Options)) (*s3.GetBucketVersioningOutput, error) {
+			return &s3.GetBucketVersioningOutput{}, nil
+		},
+		GetPublicAccessBlockFunc: func(ctx context.Context, params *s3.GetPublicAccessBlockInput, optFns ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error) {
+			return &s3.GetPublicAccessBlockOutput{}, nil
+		},
+		GetBucketPolicyFunc: func(ctx context.Context, params *s3.GetBucketPolicyInput, optFns ...func(*s3.Options)) (*s3.GetBucketPolicyOutput, error) {
+			if *params.Bucket == "secure-bucket" {
+				return &s3.GetBucketPolicyOutput{
+					Policy: aws.String(sslPolicy),
+				}, nil
+			}
+			return nil, errors.New("NoSuchBucketPolicy")
+		},
+	}
+
+	collector := &S3Collector{client: mockS3}
+	buckets, err := collector.CollectBuckets(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, buckets, 2)
+
+	var secureBucket, noPolicyBucket *S3Bucket
+	for i := range buckets {
+		if buckets[i].Name == "secure-bucket" {
+			secureBucket = &buckets[i]
+		}
+		if buckets[i].Name == "no-policy-bucket" {
+			noPolicyBucket = &buckets[i]
+		}
+	}
+
+	require.NotNil(t, secureBucket)
+	assert.True(t, secureBucket.BucketPolicyExists)
+	assert.True(t, secureBucket.HasSSLEnforcement)
+
+	require.NotNil(t, noPolicyBucket)
+	assert.False(t, noPolicyBucket.BucketPolicyExists)
+	assert.False(t, noPolicyBucket.HasSSLEnforcement)
+}
+
+func TestS3Collector_BucketPolicy_NonSSLPolicy(t *testing.T) {
+	// Policy exists but doesn't enforce SSL
+	nonSSLPolicy := `{
+		"Version": "2012-10-17",
+		"Statement": [{
+			"Effect": "Allow",
+			"Principal": "*",
+			"Action": "s3:GetObject",
+			"Resource": "arn:aws:s3:::public-bucket/*"
+		}]
+	}`
+
+	mockS3 := &MockS3Client{
+		ListBucketsFunc: func(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
+			return &s3.ListBucketsOutput{
+				Buckets: []types.Bucket{{Name: aws.String("public-bucket")}},
+			}, nil
+		},
+		GetBucketEncryptionFunc: func(ctx context.Context, params *s3.GetBucketEncryptionInput, optFns ...func(*s3.Options)) (*s3.GetBucketEncryptionOutput, error) {
+			return nil, errors.New("no encryption")
+		},
+		GetBucketVersioningFunc: func(ctx context.Context, params *s3.GetBucketVersioningInput, optFns ...func(*s3.Options)) (*s3.GetBucketVersioningOutput, error) {
+			return &s3.GetBucketVersioningOutput{}, nil
+		},
+		GetPublicAccessBlockFunc: func(ctx context.Context, params *s3.GetPublicAccessBlockInput, optFns ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error) {
+			return &s3.GetPublicAccessBlockOutput{}, nil
+		},
+		GetBucketPolicyFunc: func(ctx context.Context, params *s3.GetBucketPolicyInput, optFns ...func(*s3.Options)) (*s3.GetBucketPolicyOutput, error) {
+			return &s3.GetBucketPolicyOutput{Policy: aws.String(nonSSLPolicy)}, nil
+		},
+	}
+
+	collector := &S3Collector{client: mockS3}
+	buckets, err := collector.CollectBuckets(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, buckets, 1)
+	assert.True(t, buckets[0].BucketPolicyExists)
+	assert.False(t, buckets[0].HasSSLEnforcement, "policy without SecureTransport should not be detected as SSL enforcement")
+}
+
+func TestS3Collector_BucketPolicy_Error_FailSafe(t *testing.T) {
+	mockS3 := &MockS3Client{
+		ListBucketsFunc: func(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
+			return &s3.ListBucketsOutput{
+				Buckets: []types.Bucket{{Name: aws.String("my-bucket")}},
+			}, nil
+		},
+		GetBucketEncryptionFunc: func(ctx context.Context, params *s3.GetBucketEncryptionInput, optFns ...func(*s3.Options)) (*s3.GetBucketEncryptionOutput, error) {
+			return nil, errors.New("denied")
+		},
+		GetBucketVersioningFunc: func(ctx context.Context, params *s3.GetBucketVersioningInput, optFns ...func(*s3.Options)) (*s3.GetBucketVersioningOutput, error) {
+			return &s3.GetBucketVersioningOutput{}, nil
+		},
+		GetPublicAccessBlockFunc: func(ctx context.Context, params *s3.GetPublicAccessBlockInput, optFns ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error) {
+			return &s3.GetPublicAccessBlockOutput{}, nil
+		},
+		GetBucketPolicyFunc: func(ctx context.Context, params *s3.GetBucketPolicyInput, optFns ...func(*s3.Options)) (*s3.GetBucketPolicyOutput, error) {
+			return nil, errors.New("access denied")
+		},
+	}
+
+	collector := &S3Collector{client: mockS3}
+	buckets, err := collector.CollectBuckets(context.Background())
+
+	require.NoError(t, err, "should not fail when bucket policy query fails")
+	require.Len(t, buckets, 1)
+	assert.False(t, buckets[0].BucketPolicyExists)
+	assert.False(t, buckets[0].HasSSLEnforcement)
 }

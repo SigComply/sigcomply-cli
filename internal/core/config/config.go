@@ -68,6 +68,7 @@ type FileStorageConfig struct {
 type fileConfig struct {
 	Framework string             `yaml:"framework,omitempty"`
 	AWS       *AWSConfig         `yaml:"aws,omitempty"`
+	GCP       *GCPConfig         `yaml:"gcp,omitempty"`
 	GitHub    *GitHubConfig      `yaml:"github,omitempty"`
 	Output    *OutputConfig      `yaml:"output,omitempty"`
 	CI        *CIConfig          `yaml:"ci,omitempty"`
@@ -99,6 +100,7 @@ type Config struct {
 
 	// Provider settings (non-secret config only, credentials from environment)
 	AWS    AWSConfig    `json:"aws"`
+	GCP    GCPConfig    `json:"gcp"`
 	GitHub GitHubConfig `json:"github"`
 
 	// ConfigFile is the path to the config file that was loaded (empty if none).
@@ -119,6 +121,12 @@ type StorageConfig struct {
 // Credentials come from ambient sources (env vars, IAM role, OIDC).
 type AWSConfig struct {
 	Regions []string `yaml:"regions,omitempty" json:"regions,omitempty"`
+}
+
+// GCPConfig holds GCP-specific configuration (non-secret only).
+// Credentials come from GOOGLE_APPLICATION_CREDENTIALS or workload identity.
+type GCPConfig struct {
+	ProjectID string `yaml:"project_id,omitempty" json:"project_id,omitempty"`
 }
 
 // New creates a Config with default values.
@@ -216,6 +224,10 @@ func (c *Config) mergeFileConfig(fc *fileConfig) {
 
 	if fc.AWS != nil && len(fc.AWS.Regions) > 0 {
 		c.AWS.Regions = fc.AWS.Regions
+	}
+
+	if fc.GCP != nil && fc.GCP.ProjectID != "" {
+		c.GCP.ProjectID = fc.GCP.ProjectID
 	}
 
 	if fc.GitHub != nil && fc.GitHub.Org != "" {
@@ -323,6 +335,10 @@ func (c *Config) LoadFromEnv() {
 
 	if v := os.Getenv("SIGCOMPLY_AWS_REGION"); v != "" {
 		c.AWS.Regions = []string{v}
+	}
+
+	if v := os.Getenv("SIGCOMPLY_GCP_PROJECT"); v != "" {
+		c.GCP.ProjectID = v
 	}
 }
 

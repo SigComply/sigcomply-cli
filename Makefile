@@ -66,8 +66,8 @@ test-coverage: ## Run unit tests with coverage report
 
 .PHONY: test-policy
 test-policy: ## Run OPA policy tests
-	@if [ -d "internal/policy/policies" ]; then \
-		opa test internal/policy/policies/ -v; \
+	@if [ -d "internal/compliance_frameworks/soc2/policies" ]; then \
+		opa test internal/compliance_frameworks/soc2/policies/ -v; \
 	else \
 		echo "No policies directory found yet - skipping"; \
 	fi
@@ -90,6 +90,14 @@ test-integration: ## Run integration tests (requires LocalStack)
 .PHONY: test-e2e
 test-e2e: ## Run E2E tests (requires real AWS credentials)
 	$(GOTEST) -tags=e2e -v ./test/e2e/...
+
+.PHONY: e2e-setup
+e2e-setup: ## Provision AWS resources for E2E tests
+	./scripts/e2e/setup-aws.sh
+
+.PHONY: e2e-teardown
+e2e-teardown: ## Tear down AWS resources for E2E tests
+	./scripts/e2e/teardown-aws.sh
 
 .PHONY: test-all
 test-all: test-unit test-policy test-integration ## Run all tests including integration

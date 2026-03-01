@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -18,6 +19,7 @@ type S3Client interface {
 	GetBucketEncryption(ctx context.Context, params *s3.GetBucketEncryptionInput, optFns ...func(*s3.Options)) (*s3.GetBucketEncryptionOutput, error)
 	GetBucketVersioning(ctx context.Context, params *s3.GetBucketVersioningInput, optFns ...func(*s3.Options)) (*s3.GetBucketVersioningOutput, error)
 	GetPublicAccessBlock(ctx context.Context, params *s3.GetPublicAccessBlockInput, optFns ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error)
+	GetBucketPolicy(ctx context.Context, params *s3.GetBucketPolicyInput, optFns ...func(*s3.Options)) (*s3.GetBucketPolicyOutput, error)
 }
 
 // S3Bucket represents an S3 bucket with security configuration.
@@ -30,6 +32,8 @@ type S3Bucket struct {
 	EncryptionKeyID     string    `json:"encryption_key_id,omitempty"`
 	VersioningEnabled   bool      `json:"versioning_enabled"`
 	PublicAccessBlocked bool      `json:"public_access_blocked"`
+	BucketPolicyExists  bool      `json:"bucket_policy_exists"`
+	HasSSLEnforcement   bool      `json:"has_ssl_enforcement"`
 }
 
 // ToEvidence converts an S3Bucket to an Evidence struct.
@@ -79,6 +83,9 @@ func (c *S3Collector) CollectBuckets(ctx context.Context) ([]S3Bucket, error) {
 
 		// Get public access block
 		c.enrichPublicAccessBlock(ctx, &bucket)
+
+		// Get bucket policy for SSL enforcement
+		c.enrichBucketPolicy(ctx, &bucket)
 
 		buckets = append(buckets, bucket)
 	}
@@ -143,6 +150,31 @@ func (c *S3Collector) enrichPublicAccessBlock(ctx context.Context, bucket *S3Buc
 			aws.ToBool(cfg.IgnorePublicAcls) &&
 			aws.ToBool(cfg.RestrictPublicBuckets)
 	}
+}
+
+// enrichBucketPolicy checks if a bucket policy enforces SSL (HTTPS-only).
+// Looks for a Deny effect with aws:SecureTransport condition.
+func (c *S3Collector) enrichBucketPolicy(ctx context.Context, bucket *S3Bucket) {
+	output, err := c.client.GetBucketPolicy(ctx, &s3.GetBucketPolicyInput{
+		Bucket: aws.String(bucket.Name),
+	})
+	if err != nil {
+		// NoSuchBucketPolicy or access denied — no policy exists
+		bucket.BucketPolicyExists = false
+		bucket.HasSSLEnforcement = false
+		return
+	}
+
+	policy := aws.ToString(output.Policy)
+	if policy == "" {
+		bucket.BucketPolicyExists = false
+		bucket.HasSSLEnforcement = false
+		return
+	}
+
+	bucket.BucketPolicyExists = true
+	// Check for SSL enforcement: policy must contain both SecureTransport condition and Deny effect
+	bucket.HasSSLEnforcement = strings.Contains(policy, "aws:SecureTransport") && strings.Contains(policy, "\"Deny\"")
 }
 
 // CollectEvidence collects S3 buckets as evidence.

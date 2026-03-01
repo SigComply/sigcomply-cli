@@ -20,6 +20,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core/output"
 	"github.com/sigcomply/sigcomply-cli/internal/core/storage"
 	"github.com/sigcomply/sigcomply-cli/internal/data_sources/apis/aws"
+	"github.com/sigcomply/sigcomply-cli/internal/data_sources/apis/gcp"
 	"github.com/sigcomply/sigcomply-cli/internal/data_sources/apis/github"
 )
 
@@ -241,6 +242,17 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 		}
 	}
 
+	// Collect evidence from GCP if project is configured
+	if cfg.GCP.ProjectID != "" {
+		gcpResult, gcpErr := collectGCPEvidence(ctx, cfg.GCP.ProjectID)
+		if gcpErr != nil {
+			fmt.Printf("  [warn] GCP collection failed: %s\n", gcpErr)
+		} else {
+			result.Evidence = append(result.Evidence, gcpResult.Evidence...)
+			printGCPEvidenceCollection(gcpResult)
+		}
+	}
+
 	// Load framework and evaluate ALL policies (framework drives what gets checked)
 	policyResults, err := evaluatePolicies(ctx, cfg.Framework, result.Evidence)
 	if err != nil {
@@ -345,6 +357,14 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 		ghResult, ghErr := collectGitHubEvidence(ctx, cfg.GitHub.Org)
 		if ghErr == nil {
 			result.Evidence = append(result.Evidence, ghResult.Evidence...)
+		}
+	}
+
+	// Collect evidence from GCP if project is configured
+	if cfg.GCP.ProjectID != "" {
+		gcpResult, gcpErr := collectGCPEvidence(ctx, cfg.GCP.ProjectID)
+		if gcpErr == nil {
+			result.Evidence = append(result.Evidence, gcpResult.Evidence...)
 		}
 	}
 
@@ -486,6 +506,14 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 		ghResult, ghErr := collectGitHubEvidence(ctx, cfg.GitHub.Org)
 		if ghErr == nil {
 			result.Evidence = append(result.Evidence, ghResult.Evidence...)
+		}
+	}
+
+	// Collect evidence from GCP if project is configured
+	if cfg.GCP.ProjectID != "" {
+		gcpResult, gcpErr := collectGCPEvidence(ctx, cfg.GCP.ProjectID)
+		if gcpErr == nil {
+			result.Evidence = append(result.Evidence, gcpResult.Evidence...)
 		}
 	}
 
@@ -748,6 +776,46 @@ func collectGitHubEvidence(ctx context.Context, org string) (*github.CollectionR
 	}
 
 	return collector.Collect(ctx)
+}
+
+// collectGCPEvidence collects evidence from a GCP project.
+func collectGCPEvidence(ctx context.Context, projectID string) (*gcp.CollectionResult, error) {
+	collector := gcp.New().WithProjectID(projectID)
+
+	if err := collector.Init(ctx); err != nil {
+		return nil, fmt.Errorf("failed to initialize GCP collector: %w", err)
+	}
+
+	status := collector.Status(ctx)
+	if !status.Connected {
+		return nil, fmt.Errorf("GCP connection failed: %s", status.Error)
+	}
+
+	return collector.Collect(ctx)
+}
+
+// printGCPEvidenceCollection prints GCP evidence collection results.
+func printGCPEvidenceCollection(result *gcp.CollectionResult) {
+	fmt.Println()
+	fmt.Println("GCP Evidence Collection")
+	fmt.Println("-----------------------")
+
+	typeCounts := make(map[string]int)
+	for i := range result.Evidence {
+		typeCounts[result.Evidence[i].ResourceType]++
+	}
+
+	for resourceType, count := range typeCounts {
+		fmt.Printf("  [done] %s: %d resources\n", resourceType, count)
+	}
+
+	if result.HasErrors() {
+		fmt.Println()
+		fmt.Println("GCP Collection Warnings:")
+		for _, e := range result.Errors {
+			fmt.Printf("  [warn] %s: %s\n", e.Service, e.Error)
+		}
+	}
 }
 
 // printGitHubEvidenceCollection prints GitHub evidence collection results.

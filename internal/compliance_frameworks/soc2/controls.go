@@ -30,6 +30,30 @@ var controls = []Control{
 		Category:    "Logical and Physical Access Controls",
 		Severity:    evidence.SeverityMedium,
 	},
+	// CC6.6 - Network Security
+	{
+		ID:          "CC6.6",
+		Name:        "Network Security",
+		Description: "The entity implements logical access security measures to protect against threats from sources outside its system boundaries.",
+		Category:    "Logical and Physical Access Controls",
+		Severity:    evidence.SeverityHigh,
+	},
+	// CC6.7 - Data Transmission Security
+	{
+		ID:          "CC6.7",
+		Name:        "Data Transmission Security",
+		Description: "The entity restricts the transmission, movement, and removal of information to authorized internal and external users and processes, and protects it during transmission.",
+		Category:    "Logical and Physical Access Controls",
+		Severity:    evidence.SeverityHigh,
+	},
+	// CC6.8 - Malicious Software Prevention
+	{
+		ID:          "CC6.8",
+		Name:        "Malicious Software Prevention",
+		Description: "The entity implements controls to prevent or detect and act upon the introduction of unauthorized or malicious software.",
+		Category:    "Logical and Physical Access Controls",
+		Severity:    evidence.SeverityMedium,
+	},
 
 	// CC7 - System Operations
 	{
@@ -54,6 +78,24 @@ var controls = []Control{
 		Description: "The entity authorizes, designs, develops or acquires, configures, documents, tests, approves, and implements changes to infrastructure, data, software, and procedures to meet its objectives.",
 		Category:    "Change Management",
 		Severity:    evidence.SeverityMedium,
+	},
+
+	// A1 - Availability
+	{
+		ID:          "A1.2",
+		Name:        "Recovery and Continuity",
+		Description: "The entity authorizes, designs, develops or acquires, configures, documents, tests, approves, and implements changes to meet its availability objectives.",
+		Category:    "Availability",
+		Severity:    evidence.SeverityHigh,
+	},
+
+	// C1 - Confidentiality
+	{
+		ID:          "C1.1",
+		Name:        "Confidentiality Protection",
+		Description: "The entity identifies and maintains confidential information to meet the entity's objectives related to confidentiality.",
+		Category:    "Confidentiality",
+		Severity:    evidence.SeverityHigh,
 	},
 }
 
