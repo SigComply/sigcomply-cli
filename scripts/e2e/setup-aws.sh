@@ -48,6 +48,10 @@ ECR_REPO="sigcomply-e2e-test"
 RDS_INSTANCE="sigcomply-e2e-test"
 RDS_MASTER_USER="admin"
 RDS_MASTER_PASS="e2etestpass123"
+DYNAMODB_TABLE="sigcomply-e2e-test"
+LAMBDA_FUNCTION="sigcomply-e2e-test"
+LAMBDA_ROLE="sigcomply-e2e-lambda-role"
+SECRET_NAME="sigcomply-e2e-test-secret"
 
 # Helper functions
 info() {
@@ -253,6 +257,123 @@ create_iam_policies() {
                 "rds:DescribeDBSubnetGroups",
                 "rds:ListTagsForResource",
                 "rds:DescribeEventSubscriptions"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "SecurityHubReadAccess",
+            "Effect": "Allow",
+            "Action": [
+                "securityhub:DescribeHub",
+                "securityhub:GetFindings"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CloudWatchAlarmsReadAccess",
+            "Effect": "Allow",
+            "Action": [
+                "cloudwatch:DescribeAlarms"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "SecretsManagerReadAccess",
+            "Effect": "Allow",
+            "Action": [
+                "secretsmanager:ListSecrets",
+                "secretsmanager:DescribeSecret"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "LambdaReadAccess",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:ListFunctions",
+                "lambda:GetPolicy",
+                "lambda:GetFunction"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "S3ControlReadAccess",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetAccountPublicAccessBlock"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "DynamoDBReadAccess",
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:ListTables",
+                "dynamodb:DescribeTable",
+                "dynamodb:DescribeContinuousBackups"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "ECSReadAccess",
+            "Effect": "Allow",
+            "Action": [
+                "ecs:ListClusters",
+                "ecs:DescribeClusters"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "EKSReadAccess",
+            "Effect": "Allow",
+            "Action": [
+                "eks:ListClusters",
+                "eks:DescribeCluster"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "ACMReadAccess",
+            "Effect": "Allow",
+            "Action": [
+                "acm:ListCertificates",
+                "acm:DescribeCertificate"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CloudFrontReadAccess",
+            "Effect": "Allow",
+            "Action": [
+                "cloudfront:ListDistributions",
+                "cloudfront:GetDistribution"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "WAFReadAccess",
+            "Effect": "Allow",
+            "Action": [
+                "wafv2:ListWebACLs",
+                "wafv2:ListResourcesForWebACL",
+                "wafv2:GetWebACL"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "MacieReadAccess",
+            "Effect": "Allow",
+            "Action": [
+                "macie2:GetMacieSession"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "SSMReadAccess",
+            "Effect": "Allow",
+            "Action": [
+                "ssm:DescribeInstanceInformation",
+                "ssm:GetServiceSetting"
             ],
             "Resource": "*"
         },
@@ -605,6 +726,100 @@ wait_for_rds() {
     warn "RDS instance not yet available after ${timeout}s (status: $status). It will continue provisioning in the background."
 }
 
+# Provision DynamoDB table (intentionally non-compliant: default encryption, no PITR)
+provision_dynamodb() {
+    info "Provisioning DynamoDB table: $DYNAMODB_TABLE..."
+
+    if aws dynamodb describe-table --table-name "$DYNAMODB_TABLE" --region "$REGION" >/dev/null 2>&1; then
+        success "DynamoDB table already exists: $DYNAMODB_TABLE"
+        return
+    fi
+
+    aws dynamodb create-table \
+        --table-name "$DYNAMODB_TABLE" \
+        --attribute-definitions AttributeName=id,AttributeType=S \
+        --key-schema AttributeName=id,KeyType=HASH \
+        --billing-mode PAY_PER_REQUEST \
+        --region "$REGION" >/dev/null
+    success "Created DynamoDB table: $DYNAMODB_TABLE (default encryption, no PITR — intentionally non-compliant)"
+}
+
+# Provision Lambda function (intentionally non-compliant: deprecated runtime)
+provision_lambda() {
+    info "Provisioning Lambda function: $LAMBDA_FUNCTION..."
+
+    if aws lambda get-function --function-name "$LAMBDA_FUNCTION" --region "$REGION" >/dev/null 2>&1; then
+        success "Lambda function already exists: $LAMBDA_FUNCTION"
+        return
+    fi
+
+    # Create execution role if it doesn't exist
+    local role_arn
+    role_arn=$(aws iam get-role --role-name "$LAMBDA_ROLE" --query "Role.Arn" --output text 2>/dev/null) || true
+
+    if [ -z "$role_arn" ] || [ "$role_arn" = "None" ]; then
+        local assume_role_policy
+        assume_role_policy=$(cat <<'POLICY'
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "lambda.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}
+POLICY
+)
+        role_arn=$(aws iam create-role \
+            --role-name "$LAMBDA_ROLE" \
+            --assume-role-policy-document "$assume_role_policy" \
+            --query "Role.Arn" --output text)
+        success "Created Lambda execution role: $LAMBDA_ROLE"
+
+        # Wait for role to propagate
+        info "Waiting for IAM role to propagate..."
+        sleep 10
+    else
+        success "Lambda execution role already exists: $LAMBDA_ROLE"
+    fi
+
+    # Create minimal zip with a dummy handler
+    local zip_file="/tmp/sigcomply-e2e-lambda.zip"
+    echo 'def handler(event, context): return {"statusCode": 200}' > /tmp/handler.py
+    (cd /tmp && zip -q "$zip_file" handler.py)
+    rm -f /tmp/handler.py
+
+    aws lambda create-function \
+        --function-name "$LAMBDA_FUNCTION" \
+        --runtime python3.8 \
+        --handler handler.handler \
+        --role "$role_arn" \
+        --zip-file "fileb://$zip_file" \
+        --region "$REGION" >/dev/null
+    rm -f "$zip_file"
+    success "Created Lambda function: $LAMBDA_FUNCTION (python3.8 — intentionally non-compliant)"
+}
+
+# Provision Secrets Manager secret (intentionally non-compliant: no rotation)
+provision_secrets_manager() {
+    info "Provisioning Secrets Manager secret: $SECRET_NAME..."
+
+    if aws secretsmanager describe-secret --secret-id "$SECRET_NAME" --region "$REGION" >/dev/null 2>&1; then
+        success "Secrets Manager secret already exists: $SECRET_NAME"
+        return
+    fi
+
+    aws secretsmanager create-secret \
+        --name "$SECRET_NAME" \
+        --secret-string '{"username":"e2e","password":"test123"}' \
+        --region "$REGION" >/dev/null
+    success "Created Secrets Manager secret: $SECRET_NAME (no rotation — intentionally non-compliant)"
+}
+
 # Print summary
 print_summary() {
     echo ""
@@ -621,6 +836,9 @@ print_summary() {
     echo "    - KMS key: $KMS_ALIAS"
     echo "    - ECR repo: $ECR_REPO"
     echo "    - RDS instance: $RDS_INSTANCE"
+    echo "    - DynamoDB table: $DYNAMODB_TABLE"
+    echo "    - Lambda function: $LAMBDA_FUNCTION (role: $LAMBDA_ROLE)"
+    echo "    - Secrets Manager secret: $SECRET_NAME"
     echo ""
 
     if [ -n "${POSITIVE_ACCESS_KEY_ID:-}" ] || [ -n "${NEGATIVE_ACCESS_KEY_ID:-}" ]; then
@@ -674,6 +892,9 @@ main() {
     provision_ecr
     provision_rds
     wait_for_rds
+    provision_dynamodb
+    provision_lambda
+    provision_secrets_manager
     print_summary
 }
 

@@ -8,17 +8,30 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/acm"
+	"github.com/aws/aws-sdk-go-v2/service/cloudfront"
 	"github.com/aws/aws-sdk-go-v2/service/cloudtrail"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/configservice"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
+	"github.com/aws/aws-sdk-go-v2/service/lambda"
+	"github.com/aws/aws-sdk-go-v2/service/macie2"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3control"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	"github.com/aws/aws-sdk-go-v2/service/securityhub"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/aws/aws-sdk-go-v2/service/wafv2"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
@@ -66,6 +79,19 @@ type Collector struct {
 	cloudwatchClient   CloudWatchLogsClient
 	ecrClient          ECRClient
 	configClient       ConfigServiceClient
+	securityHubClient  SecurityHubClient
+	cwAlarmsClient     CloudWatchAlarmsClient
+	secretsMgrClient   SecretsManagerClient
+	lambdaClient       LambdaClient
+	s3ControlClient    S3ControlClient
+	dynamodbClient     DynamoDBClient
+	ecsClient          ECSClient
+	eksClient          EKSClient
+	acmClient          ACMClient
+	cloudfrontClient   CloudFrontClient
+	wafClient          WAFClient
+	macieClient        MacieClient
+	ssmClient          SSMClient
 	region             string
 	accountID          string // Cached after first retrieval
 	cfg                aws.Config
@@ -115,6 +141,19 @@ func (c *Collector) Init(ctx context.Context) error {
 	c.cloudwatchClient = cloudwatchlogs.NewFromConfig(cfg)
 	c.ecrClient = ecr.NewFromConfig(cfg)
 	c.configClient = configservice.NewFromConfig(cfg)
+	c.securityHubClient = securityhub.NewFromConfig(cfg)
+	c.cwAlarmsClient = cloudwatch.NewFromConfig(cfg)
+	c.secretsMgrClient = secretsmanager.NewFromConfig(cfg)
+	c.lambdaClient = lambda.NewFromConfig(cfg)
+	c.s3ControlClient = s3control.NewFromConfig(cfg)
+	c.dynamodbClient = dynamodb.NewFromConfig(cfg)
+	c.ecsClient = ecs.NewFromConfig(cfg)
+	c.eksClient = eks.NewFromConfig(cfg)
+	c.acmClient = acm.NewFromConfig(cfg)
+	c.cloudfrontClient = cloudfront.NewFromConfig(cfg)
+	c.wafClient = wafv2.NewFromConfig(cfg)
+	c.macieClient = macie2.NewFromConfig(cfg)
+	c.ssmClient = ssm.NewFromConfig(cfg)
 
 	return nil
 }
@@ -213,6 +252,45 @@ func (c *Collector) Collect(ctx context.Context) (*CollectionResult, error) {
 
 	// Collect AWS Config status
 	c.collectConfig(ctx, accountID, result)
+
+	// Collect Security Hub status
+	c.collectSecurityHub(ctx, accountID, result)
+
+	// Collect CloudWatch security alarms
+	c.collectCloudWatchAlarms(ctx, accountID, result)
+
+	// Collect Secrets Manager secrets
+	c.collectSecretsManager(ctx, accountID, result)
+
+	// Collect Lambda functions
+	c.collectLambda(ctx, accountID, result)
+
+	// Collect S3 account-level public access block
+	c.collectS3Control(ctx, accountID, result)
+
+	// Collect DynamoDB tables
+	c.collectDynamoDB(ctx, accountID, result)
+
+	// Collect ECS clusters
+	c.collectECS(ctx, accountID, result)
+
+	// Collect EKS clusters
+	c.collectEKS(ctx, accountID, result)
+
+	// Collect ACM certificates
+	c.collectACM(ctx, accountID, result)
+
+	// Collect CloudFront distributions
+	c.collectCloudFront(ctx, accountID, result)
+
+	// Collect WAF status
+	c.collectWAF(ctx, accountID, result)
+
+	// Collect Macie status
+	c.collectMacie(ctx, accountID, result)
+
+	// Collect SSM status
+	c.collectSSM(ctx, accountID, result)
 
 	return result, nil
 }
@@ -390,6 +468,188 @@ func (c *Collector) collectConfig(ctx context.Context, accountID string, result 
 			Service: "config",
 			Error:   err.Error(),
 		})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectSecurityHub collects Security Hub evidence with fail-safe pattern.
+func (c *Collector) collectSecurityHub(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.securityHubClient == nil {
+		return
+	}
+	collector := NewSecurityHubCollector(c.securityHubClient, c.region)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "securityhub", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectCloudWatchAlarms collects CloudWatch alarm evidence with fail-safe pattern.
+func (c *Collector) collectCloudWatchAlarms(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.cwAlarmsClient == nil {
+		return
+	}
+	collector := NewCloudWatchAlarmsCollector(c.cwAlarmsClient, c.region)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "cloudwatch-alarms", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectSecretsManager collects Secrets Manager evidence with fail-safe pattern.
+func (c *Collector) collectSecretsManager(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.secretsMgrClient == nil {
+		return
+	}
+	collector := NewSecretsManagerCollector(c.secretsMgrClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "secretsmanager", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectLambda collects Lambda evidence with fail-safe pattern.
+func (c *Collector) collectLambda(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.lambdaClient == nil {
+		return
+	}
+	collector := NewLambdaCollector(c.lambdaClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "lambda", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectS3Control collects S3 account-level public access block evidence with fail-safe pattern.
+func (c *Collector) collectS3Control(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.s3ControlClient == nil {
+		return
+	}
+	collector := NewS3ControlCollector(c.s3ControlClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "s3control", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectDynamoDB collects DynamoDB evidence with fail-safe pattern.
+func (c *Collector) collectDynamoDB(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.dynamodbClient == nil {
+		return
+	}
+	collector := NewDynamoDBCollector(c.dynamodbClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "dynamodb", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectECS collects ECS evidence with fail-safe pattern.
+func (c *Collector) collectECS(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.ecsClient == nil {
+		return
+	}
+	collector := NewECSCollector(c.ecsClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "ecs", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectEKS collects EKS evidence with fail-safe pattern.
+func (c *Collector) collectEKS(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.eksClient == nil {
+		return
+	}
+	collector := NewEKSCollector(c.eksClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "eks", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectACM collects ACM certificate evidence with fail-safe pattern.
+func (c *Collector) collectACM(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.acmClient == nil {
+		return
+	}
+	collector := NewACMCollector(c.acmClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "acm", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectCloudFront collects CloudFront evidence with fail-safe pattern.
+func (c *Collector) collectCloudFront(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.cloudfrontClient == nil {
+		return
+	}
+	collector := NewCloudFrontCollector(c.cloudfrontClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "cloudfront", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectWAF collects WAF evidence with fail-safe pattern.
+func (c *Collector) collectWAF(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.wafClient == nil {
+		return
+	}
+	collector := NewWAFCollector(c.wafClient, c.region)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "waf", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectMacie collects Macie evidence with fail-safe pattern.
+func (c *Collector) collectMacie(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.macieClient == nil {
+		return
+	}
+	collector := NewMacieCollector(c.macieClient, c.region)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "macie", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectSSM collects SSM evidence with fail-safe pattern.
+func (c *Collector) collectSSM(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.ssmClient == nil {
+		return
+	}
+	collector := NewSSMCollector(c.ssmClient, c.region)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "ssm", Error: err.Error()})
 		return
 	}
 	result.Evidence = append(result.Evidence, ev...)

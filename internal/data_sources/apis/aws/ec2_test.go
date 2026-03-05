@@ -19,6 +19,7 @@ type MockEC2Client struct {
 	DescribeFlowLogsFunc          func(ctx context.Context, params *ec2.DescribeFlowLogsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeFlowLogsOutput, error)
 	GetEbsDefaultKmsKeyIDFunc     func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) //nolint:revive // matches AWS SDK naming
 	GetEbsEncryptionByDefaultFunc func(ctx context.Context, params *ec2.GetEbsEncryptionByDefaultInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsEncryptionByDefaultOutput, error)
+	DescribeInstancesFunc         func(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
 }
 
 func (m *MockEC2Client) DescribeSecurityGroups(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSecurityGroupsOutput, error) {
@@ -39,6 +40,13 @@ func (m *MockEC2Client) GetEbsDefaultKmsKeyId(ctx context.Context, params *ec2.G
 
 func (m *MockEC2Client) GetEbsEncryptionByDefault(ctx context.Context, params *ec2.GetEbsEncryptionByDefaultInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsEncryptionByDefaultOutput, error) {
 	return m.GetEbsEncryptionByDefaultFunc(ctx, params, optFns...)
+}
+
+func (m *MockEC2Client) DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
+	if m.DescribeInstancesFunc != nil {
+		return m.DescribeInstancesFunc(ctx, params, optFns...)
+	}
+	return &ec2.DescribeInstancesOutput{}, nil
 }
 
 func TestEC2Collector_CollectSecurityGroups(t *testing.T) {
@@ -638,4 +646,94 @@ func TestPortInRange_EdgeCases(t *testing.T) {
 	assert.True(t, portInRange("0", 0))
 	assert.False(t, portInRange("", 22))
 	assert.False(t, portInRange("-1", 22))
+}
+
+// --- EC2 Instance / IMDSv2 tests ---
+
+func TestEC2Collector_CollectInstances(t *testing.T) {
+	mock := &MockEC2Client{
+		DescribeInstancesFunc: func(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
+			return &ec2.DescribeInstancesOutput{
+				Reservations: []ec2types.Reservation{
+					{
+						Instances: []ec2types.Instance{
+							{
+								InstanceId: awssdk.String("i-123"),
+								Tags: []ec2types.Tag{
+									{Key: awssdk.String("Name"), Value: awssdk.String("web-server")},
+								},
+								MetadataOptions: &ec2types.InstanceMetadataOptionsResponse{
+									HttpTokens:   ec2types.HttpTokensStateRequired,
+									HttpEndpoint: ec2types.InstanceMetadataEndpointStateEnabled,
+								},
+							},
+							{
+								InstanceId: awssdk.String("i-456"),
+								MetadataOptions: &ec2types.InstanceMetadataOptionsResponse{
+									HttpTokens:   ec2types.HttpTokensStateOptional,
+									HttpEndpoint: ec2types.InstanceMetadataEndpointStateEnabled,
+								},
+							},
+						},
+					},
+				},
+			}, nil
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	instances, err := collector.CollectInstances(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, instances, 2)
+
+	assert.Equal(t, "i-123", instances[0].InstanceID)
+	assert.Equal(t, "web-server", instances[0].Name)
+	assert.Equal(t, "required", instances[0].HttpTokens)
+
+	assert.Equal(t, "i-456", instances[1].InstanceID)
+	assert.Equal(t, "", instances[1].Name)
+	assert.Equal(t, "optional", instances[1].HttpTokens)
+}
+
+func TestEC2Collector_CollectInstances_Error(t *testing.T) {
+	mock := &MockEC2Client{
+		DescribeInstancesFunc: func(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
+			return nil, errors.New("access denied")
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	_, err := collector.CollectInstances(context.Background())
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to describe EC2 instances")
+}
+
+func TestEC2Collector_CollectInstances_NoInstances(t *testing.T) {
+	mock := &MockEC2Client{
+		DescribeInstancesFunc: func(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
+			return &ec2.DescribeInstancesOutput{}, nil
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	instances, err := collector.CollectInstances(context.Background())
+
+	require.NoError(t, err)
+	assert.Empty(t, instances)
+}
+
+func TestEC2Instance_ToEvidence(t *testing.T) {
+	instance := &EC2Instance{
+		InstanceID: "i-123",
+		Name:       "web-server",
+		HttpTokens: "required",
+	}
+
+	ev := instance.ToEvidence("123456789012")
+	assert.Equal(t, "aws", ev.Collector)
+	assert.Equal(t, "aws:ec2:instance", ev.ResourceType)
+	assert.Contains(t, ev.ResourceID, "i-123")
+	assert.NotEmpty(t, ev.Hash)
 }

@@ -21,6 +21,7 @@ type MockS3Client struct {
 	GetBucketVersioningFunc  func(ctx context.Context, params *s3.GetBucketVersioningInput, optFns ...func(*s3.Options)) (*s3.GetBucketVersioningOutput, error)
 	GetPublicAccessBlockFunc func(ctx context.Context, params *s3.GetPublicAccessBlockInput, optFns ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error)
 	GetBucketPolicyFunc      func(ctx context.Context, params *s3.GetBucketPolicyInput, optFns ...func(*s3.Options)) (*s3.GetBucketPolicyOutput, error)
+	GetBucketLoggingFunc     func(ctx context.Context, params *s3.GetBucketLoggingInput, optFns ...func(*s3.Options)) (*s3.GetBucketLoggingOutput, error)
 }
 
 func (m *MockS3Client) ListBuckets(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
@@ -45,6 +46,14 @@ func (m *MockS3Client) GetBucketPolicy(ctx context.Context, params *s3.GetBucket
 	}
 	// Default: no bucket policy
 	return nil, errors.New("NoSuchBucketPolicy")
+}
+
+func (m *MockS3Client) GetBucketLogging(ctx context.Context, params *s3.GetBucketLoggingInput, optFns ...func(*s3.Options)) (*s3.GetBucketLoggingOutput, error) {
+	if m.GetBucketLoggingFunc != nil {
+		return m.GetBucketLoggingFunc(ctx, params, optFns...)
+	}
+	// Default: no logging
+	return &s3.GetBucketLoggingOutput{}, nil
 }
 
 func TestS3Collector_CollectBuckets(t *testing.T) {
@@ -399,4 +408,58 @@ func TestS3Collector_BucketPolicy_Error_FailSafe(t *testing.T) {
 	require.Len(t, buckets, 1)
 	assert.False(t, buckets[0].BucketPolicyExists)
 	assert.False(t, buckets[0].HasSSLEnforcement)
+}
+
+// --- Access logging tests ---
+
+func TestS3Collector_enrichLogging(t *testing.T) {
+	tests := []struct {
+		name               string
+		loggingOutput      *s3.GetBucketLoggingOutput
+		loggingErr         error
+		wantEnabled        bool
+		wantTargetBucket   string
+	}{
+		{
+			name: "logging enabled with target bucket",
+			loggingOutput: &s3.GetBucketLoggingOutput{
+				LoggingEnabled: &types.LoggingEnabled{
+					TargetBucket: aws.String("log-bucket"),
+					TargetPrefix: aws.String("logs/"),
+				},
+			},
+			wantEnabled:      true,
+			wantTargetBucket: "log-bucket",
+		},
+		{
+			name:          "logging not configured",
+			loggingOutput: &s3.GetBucketLoggingOutput{},
+			wantEnabled:   false,
+		},
+		{
+			name:        "logging query fails (fail-safe)",
+			loggingErr:  errors.New("access denied"),
+			wantEnabled: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &MockS3Client{
+				GetBucketLoggingFunc: func(ctx context.Context, params *s3.GetBucketLoggingInput, optFns ...func(*s3.Options)) (*s3.GetBucketLoggingOutput, error) {
+					if tt.loggingErr != nil {
+						return nil, tt.loggingErr
+					}
+					return tt.loggingOutput, nil
+				},
+			}
+
+			collector := &S3Collector{client: mock}
+			bucket := &S3Bucket{Name: "test-bucket"}
+			collector.enrichLogging(context.Background(), bucket)
+
+			assert.Equal(t, tt.wantEnabled, bucket.LoggingEnabled)
+			assert.Equal(t, tt.wantTargetBucket, bucket.LoggingTargetBucket)
+		})
+	}
 }

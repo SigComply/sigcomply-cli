@@ -19,6 +19,7 @@ type EC2Client interface {
 	DescribeFlowLogs(ctx context.Context, params *ec2.DescribeFlowLogsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeFlowLogsOutput, error)
 	GetEbsDefaultKmsKeyId(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error)
 	GetEbsEncryptionByDefault(ctx context.Context, params *ec2.GetEbsEncryptionByDefaultInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsEncryptionByDefaultOutput, error)
+	DescribeInstances(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
 }
 
 // SecurityGroup represents an EC2 security group.
@@ -79,6 +80,23 @@ func (e *EBSEncryptionConfig) ToEvidence(accountID string) evidence.Evidence {
 	data, _ := json.Marshal(e) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	resourceID := fmt.Sprintf("arn:aws:ec2:%s:%s:ebs-encryption-by-default", e.Region, accountID)
 	ev := evidence.New("aws", "aws:ec2:ebs-encryption", resourceID, data)
+	ev.Metadata = evidence.Metadata{AccountID: accountID}
+	return ev
+}
+
+// EC2Instance represents an EC2 instance with metadata service configuration.
+type EC2Instance struct {
+	InstanceID   string `json:"instance_id"`
+	Name         string `json:"name,omitempty"`
+	HttpTokens   string `json:"http_tokens"`
+	HttpEndpoint string `json:"http_endpoint"`
+}
+
+// ToEvidence converts an EC2Instance to Evidence.
+func (i *EC2Instance) ToEvidence(accountID string) evidence.Evidence {
+	data, _ := json.Marshal(i) //nolint:errcheck
+	resourceID := fmt.Sprintf("arn:aws:ec2::%s:instance/%s", accountID, i.InstanceID)
+	ev := evidence.New("aws", "aws:ec2:instance", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
 }
@@ -207,6 +225,52 @@ func (c *EC2Collector) CollectEBSEncryption(ctx context.Context) (*EBSEncryption
 	return config, nil
 }
 
+// CollectInstances retrieves all EC2 instances with their IMDS configuration.
+func (c *EC2Collector) CollectInstances(ctx context.Context) ([]EC2Instance, error) {
+	var instances []EC2Instance
+	var nextToken *string
+
+	for {
+		output, err := c.client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+			NextToken: nextToken,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to describe EC2 instances: %w", err)
+		}
+
+		for _, reservation := range output.Reservations {
+			for _, inst := range reservation.Instances {
+				instance := EC2Instance{
+					InstanceID: awssdk.ToString(inst.InstanceId),
+				}
+
+				// Get Name tag
+				for _, tag := range inst.Tags {
+					if awssdk.ToString(tag.Key) == "Name" {
+						instance.Name = awssdk.ToString(tag.Value)
+						break
+					}
+				}
+
+				// Get IMDS configuration
+				if inst.MetadataOptions != nil {
+					instance.HttpTokens = string(inst.MetadataOptions.HttpTokens)
+					instance.HttpEndpoint = string(inst.MetadataOptions.HttpEndpoint)
+				}
+
+				instances = append(instances, instance)
+			}
+		}
+
+		if output.NextToken == nil {
+			break
+		}
+		nextToken = output.NextToken
+	}
+
+	return instances, nil
+}
+
 // CollectEvidence collects all EC2 evidence.
 func (c *EC2Collector) CollectEvidence(ctx context.Context, accountID string) ([]evidence.Evidence, error) {
 	var evidenceList []evidence.Evidence
@@ -237,6 +301,16 @@ func (c *EC2Collector) CollectEvidence(ctx context.Context, accountID string) ([
 		_ = err
 	} else {
 		evidenceList = append(evidenceList, ebsConfig.ToEvidence(accountID))
+	}
+
+	// EC2 instances (for IMDSv2)
+	instances, err := c.CollectInstances(ctx)
+	if err != nil {
+		_ = err
+	} else {
+		for i := range instances {
+			evidenceList = append(evidenceList, instances[i].ToEvidence(accountID))
+		}
 	}
 
 	return evidenceList, nil

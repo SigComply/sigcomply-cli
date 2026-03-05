@@ -32,6 +32,7 @@ type RDSInstance struct {
 	BackupEnabled       bool   `json:"backup_enabled"`
 	PITREnabled         bool   `json:"pitr_enabled"`
 	ForceSSL            bool   `json:"force_ssl"`
+	DeletionProtection  bool   `json:"deletion_protection"`
 	ParameterGroupName  string `json:"parameter_group_name,omitempty"`
 }
 
@@ -79,6 +80,8 @@ func (c *RDSCollector) CollectInstances(ctx context.Context) ([]RDSInstance, err
 				MultiAZ:            awssdk.ToBool(db.MultiAZ),
 				BackupRetentionPeriod: int(awssdk.ToInt32(db.BackupRetentionPeriod)),
 			}
+
+			instance.DeletionProtection = awssdk.ToBool(db.DeletionProtection)
 
 			if db.KmsKeyId != nil {
 				instance.KMSKeyID = awssdk.ToString(db.KmsKeyId)

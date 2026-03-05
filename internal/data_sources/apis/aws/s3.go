@@ -20,6 +20,7 @@ type S3Client interface {
 	GetBucketVersioning(ctx context.Context, params *s3.GetBucketVersioningInput, optFns ...func(*s3.Options)) (*s3.GetBucketVersioningOutput, error)
 	GetPublicAccessBlock(ctx context.Context, params *s3.GetPublicAccessBlockInput, optFns ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error)
 	GetBucketPolicy(ctx context.Context, params *s3.GetBucketPolicyInput, optFns ...func(*s3.Options)) (*s3.GetBucketPolicyOutput, error)
+	GetBucketLogging(ctx context.Context, params *s3.GetBucketLoggingInput, optFns ...func(*s3.Options)) (*s3.GetBucketLoggingOutput, error)
 }
 
 // S3Bucket represents an S3 bucket with security configuration.
@@ -34,6 +35,8 @@ type S3Bucket struct {
 	PublicAccessBlocked bool      `json:"public_access_blocked"`
 	BucketPolicyExists  bool      `json:"bucket_policy_exists"`
 	HasSSLEnforcement   bool      `json:"has_ssl_enforcement"`
+	LoggingEnabled      bool      `json:"logging_enabled"`
+	LoggingTargetBucket string    `json:"logging_target_bucket,omitempty"`
 }
 
 // ToEvidence converts an S3Bucket to an Evidence struct.
@@ -86,6 +89,9 @@ func (c *S3Collector) CollectBuckets(ctx context.Context) ([]S3Bucket, error) {
 
 		// Get bucket policy for SSL enforcement
 		c.enrichBucketPolicy(ctx, &bucket)
+
+		// Get logging configuration
+		c.enrichLogging(ctx, &bucket)
 
 		buckets = append(buckets, bucket)
 	}
@@ -175,6 +181,24 @@ func (c *S3Collector) enrichBucketPolicy(ctx context.Context, bucket *S3Bucket) 
 	bucket.BucketPolicyExists = true
 	// Check for SSL enforcement: policy must contain both SecureTransport condition and Deny effect
 	bucket.HasSSLEnforcement = strings.Contains(policy, "aws:SecureTransport") && strings.Contains(policy, "\"Deny\"")
+}
+
+// enrichLogging adds access logging information to a bucket.
+func (c *S3Collector) enrichLogging(ctx context.Context, bucket *S3Bucket) {
+	output, err := c.client.GetBucketLogging(ctx, &s3.GetBucketLoggingInput{
+		Bucket: aws.String(bucket.Name),
+	})
+	if err != nil {
+		bucket.LoggingEnabled = false
+		return
+	}
+
+	if output.LoggingEnabled != nil {
+		bucket.LoggingEnabled = true
+		if output.LoggingEnabled.TargetBucket != nil {
+			bucket.LoggingTargetBucket = aws.ToString(output.LoggingEnabled.TargetBucket)
+		}
+	}
 }
 
 // CollectEvidence collects S3 buckets as evidence.

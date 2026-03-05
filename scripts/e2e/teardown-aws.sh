@@ -36,6 +36,10 @@ LOG_GROUP_NAME="sigcomply-e2e-test-logs"
 KMS_ALIAS="alias/sigcomply-e2e-test"
 ECR_REPO="sigcomply-e2e-test"
 RDS_INSTANCE="sigcomply-e2e-test"
+DYNAMODB_TABLE="sigcomply-e2e-test"
+LAMBDA_FUNCTION="sigcomply-e2e-test"
+LAMBDA_ROLE="sigcomply-e2e-lambda-role"
+SECRET_NAME="sigcomply-e2e-test-secret"
 
 FORCE=false
 
@@ -116,6 +120,9 @@ confirm() {
     echo "    - ECR repository: $ECR_REPO"
     echo "    - KMS key: $KMS_ALIAS (scheduled for deletion)"
     echo "    - S3 bucket: $S3_BUCKET (emptied + deleted)"
+    echo "    - DynamoDB table: $DYNAMODB_TABLE"
+    echo "    - Lambda function: $LAMBDA_FUNCTION (+ role: $LAMBDA_ROLE)"
+    echo "    - Secrets Manager secret: $SECRET_NAME"
     echo ""
     warn "IAM users and policies will NOT be deleted."
     echo ""
@@ -275,6 +282,64 @@ delete_kms() {
     success "Scheduled KMS key deletion (7 days): $key_id"
 }
 
+# Delete DynamoDB table
+delete_dynamodb() {
+    info "Deleting DynamoDB table: $DYNAMODB_TABLE..."
+
+    if ! aws dynamodb describe-table --table-name "$DYNAMODB_TABLE" --region "$REGION" >/dev/null 2>&1; then
+        skip "DynamoDB table not found: $DYNAMODB_TABLE"
+        return
+    fi
+
+    aws dynamodb delete-table --table-name "$DYNAMODB_TABLE" --region "$REGION" >/dev/null
+    success "Deleted DynamoDB table: $DYNAMODB_TABLE"
+}
+
+# Delete Lambda function and execution role
+delete_lambda() {
+    info "Deleting Lambda function: $LAMBDA_FUNCTION..."
+
+    if aws lambda get-function --function-name "$LAMBDA_FUNCTION" --region "$REGION" >/dev/null 2>&1; then
+        aws lambda delete-function --function-name "$LAMBDA_FUNCTION" --region "$REGION" >/dev/null
+        success "Deleted Lambda function: $LAMBDA_FUNCTION"
+    else
+        skip "Lambda function not found: $LAMBDA_FUNCTION"
+    fi
+
+    info "Deleting Lambda execution role: $LAMBDA_ROLE..."
+    if aws iam get-role --role-name "$LAMBDA_ROLE" >/dev/null 2>&1; then
+        # Detach all managed policies before deleting the role
+        local policies
+        policies=$(aws iam list-attached-role-policies --role-name "$LAMBDA_ROLE" \
+            --query "AttachedPolicies[].PolicyArn" --output text 2>/dev/null) || true
+        for policy_arn in $policies; do
+            if [ -n "$policy_arn" ] && [ "$policy_arn" != "None" ]; then
+                aws iam detach-role-policy --role-name "$LAMBDA_ROLE" --policy-arn "$policy_arn" 2>/dev/null || true
+            fi
+        done
+        aws iam delete-role --role-name "$LAMBDA_ROLE" >/dev/null
+        success "Deleted Lambda execution role: $LAMBDA_ROLE"
+    else
+        skip "Lambda execution role not found: $LAMBDA_ROLE"
+    fi
+}
+
+# Delete Secrets Manager secret
+delete_secrets_manager() {
+    info "Deleting Secrets Manager secret: $SECRET_NAME..."
+
+    if ! aws secretsmanager describe-secret --secret-id "$SECRET_NAME" --region "$REGION" >/dev/null 2>&1; then
+        skip "Secrets Manager secret not found: $SECRET_NAME"
+        return
+    fi
+
+    aws secretsmanager delete-secret \
+        --secret-id "$SECRET_NAME" \
+        --force-delete-without-recovery \
+        --region "$REGION" >/dev/null
+    success "Deleted Secrets Manager secret: $SECRET_NAME"
+}
+
 # Wait for RDS deletion
 wait_for_rds_deletion() {
     local status
@@ -323,6 +388,9 @@ print_summary() {
     echo "    - CloudWatch log group: $LOG_GROUP_NAME"
     echo "    - ECR repository: $ECR_REPO"
     echo "    - KMS key: $KMS_ALIAS (scheduled, 7-day wait)"
+    echo "    - DynamoDB table: $DYNAMODB_TABLE"
+    echo "    - Lambda function: $LAMBDA_FUNCTION (+ role: $LAMBDA_ROLE)"
+    echo "    - Secrets Manager secret: $SECRET_NAME"
     echo "    - S3 bucket: $S3_BUCKET"
     echo ""
     echo "  NOT deleted (long-lived):"
@@ -349,6 +417,9 @@ main() {
     delete_cloudwatch
     delete_ecr
     delete_kms
+    delete_dynamodb
+    delete_lambda
+    delete_secrets_manager
     delete_s3_bucket "$S3_BUCKET"
     wait_for_rds_deletion
     print_summary

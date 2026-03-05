@@ -212,6 +212,24 @@ scenarios:
         "soc2-cc6.1-access-key-rotation": skip
         "soc2-cc6.3-unused-credentials-aws": skip
         "soc2-cc6.3-overly-permissive-aws": skip
+        # --- Phase 1-5 new policies ---
+        "soc2-cc7.1-s3-access-logging": skip
+        "soc2-a1.2-rds-deletion-protection": skip
+        "soc2-cc6.1-ec2-imdsv2": skip
+        "soc2-cc7.2-security-hub": fail         # fail-safe returns disabled
+        "soc2-cc7.1-security-alarms": fail      # fail-safe returns no alarms
+        "soc2-cc6.1-secrets-rotation": skip
+        "soc2-cc6.8-lambda-security": skip
+        "soc2-cc6.2-s3-account-public-access": fail  # fail-safe returns all-blocked=false
+        "soc2-cc6.2-dynamodb-encryption": skip
+        "soc2-a1.2-dynamodb-pitr": skip
+        "soc2-cc6.8-ecs-security": skip
+        "soc2-cc6.8-eks-security": skip
+        "soc2-cc6.7-acm-expiry": skip
+        "soc2-cc6.7-cloudfront-https": skip
+        "soc2-cc6.6-waf-enabled": fail          # fail-safe returns count=0
+        "soc2-c1.1-macie-enabled": fail         # fail-safe returns disabled
+        "soc2-cc6.1-ssm-session-manager": fail  # fail-safe returns disabled
         # --- GitHub-only (no GitHub evidence collected) ---
         "soc2-cc6.1-github-mfa": skip
 
@@ -382,6 +400,137 @@ scenarios:
       expected_policy_results:
         "soc2-cc6.1-kms-rotation": fail       # rotation not enabled by default
         "soc2-cc6.8-container-scanning": fail  # scan on push disabled
+
+  # ---- Serverless/data policies: Lambda, DynamoDB, Secrets Manager ----
+  - name: soc2-aws-serverless-policies
+    description: "SOC2 serverless/data policies — Lambda, DynamoDB, Secrets Manager"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    storage: s3-evidence
+    collectors:
+      - provider: aws
+        services: [lambda, dynamodb, secretsmanager]
+    policies:
+      include:
+        - "soc2-cc6.8-lambda-security"
+        - "soc2-cc6.2-dynamodb-encryption"
+        - "soc2-a1.2-dynamodb-pitr"
+        - "soc2-cc6.1-secrets-rotation"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.8-lambda-security": fail       # deprecated runtime (python3.8)
+        "soc2-cc6.2-dynamodb-encryption": pass    # default encryption is SSE (still encrypted)
+        "soc2-a1.2-dynamodb-pitr": fail           # PITR not enabled
+        "soc2-cc6.1-secrets-rotation": fail       # rotation not configured
+
+  # ---- Security services: SecurityHub, CloudWatch Alarms, Macie, WAF ----
+  - name: soc2-aws-security-services
+    description: "SOC2 security services — SecurityHub, CloudWatch Alarms, Macie, WAF"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    storage: s3-evidence
+    collectors:
+      - provider: aws
+        services: [securityhub, cloudwatch, macie2, wafv2]
+    policies:
+      include:
+        - "soc2-cc7.2-security-hub"
+        - "soc2-cc7.1-security-alarms"
+        - "soc2-c1.1-macie-enabled"
+        - "soc2-cc6.6-waf-enabled"
+    assertions:
+      expected_policy_results:
+        "soc2-cc7.2-security-hub": fail       # not enabled
+        "soc2-cc7.1-security-alarms": fail    # no security alarms configured
+        "soc2-c1.1-macie-enabled": fail       # not enabled
+        "soc2-cc6.6-waf-enabled": fail        # no WAF ACLs
+
+  # ---- Network/edge policies: ACM, CloudFront, S3 account access, IMDSv2, SSM ----
+  - name: soc2-aws-network-edge-policies
+    description: "SOC2 network/edge policies — ACM, CloudFront, S3 account access, IMDSv2, SSM"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    storage: s3-evidence
+    collectors:
+      - provider: aws
+        services: [acm, cloudfront, s3control, ec2, ssm]
+    policies:
+      include:
+        - "soc2-cc6.7-acm-expiry"
+        - "soc2-cc6.7-cloudfront-https"
+        - "soc2-cc6.2-s3-account-public-access"
+        - "soc2-cc6.1-ec2-imdsv2"
+        - "soc2-cc6.1-ssm-session-manager"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.7-acm-expiry": skip              # no certificates
+        "soc2-cc6.7-cloudfront-https": skip         # no distributions
+        "soc2-cc6.2-s3-account-public-access": fail # account public access block not fully set
+        "soc2-cc6.1-ec2-imdsv2": skip               # no EC2 instances provisioned
+        "soc2-cc6.1-ssm-session-manager": fail      # SSM not configured
+
+  # ---- Container policies: ECS, EKS (no clusters = skip) ----
+  - name: soc2-aws-container-policies
+    description: "SOC2 container policies — ECS, EKS (no clusters = skip)"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    # No storage — zero evidence collected (no clusters provisioned)
+    collectors:
+      - provider: aws
+        services: [ecs, eks]
+    policies:
+      include:
+        - "soc2-cc6.8-ecs-security"
+        - "soc2-cc6.8-eks-security"
+    assertions:
+      collection_errors_expected: true  # no clusters = no evidence (zero resources, not an error)
+      expected_policy_results:
+        "soc2-cc6.8-ecs-security": skip    # no ECS clusters
+        "soc2-cc6.8-eks-security": skip    # no EKS clusters
+
+  # ---- RDS extended: deletion protection ----
+  - name: soc2-aws-rds-extended
+    description: "SOC2 RDS extended policies — deletion protection"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    storage: s3-evidence
+    collectors:
+      - provider: aws
+        services: [rds]
+    policies:
+      include:
+        - "soc2-a1.2-rds-deletion-protection"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-rds-deletion-protection": fail  # deletion protection not enabled on e2e instance
+
+  # ---- S3 access logging ----
+  - name: soc2-aws-s3-logging
+    description: "SOC2 S3 access logging policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    storage: s3-evidence
+    collectors:
+      - provider: aws
+        services: [s3]
+    policies:
+      include:
+        - "soc2-cc7.1-s3-access-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-cc7.1-s3-access-logging": fail  # no access logging on e2e buckets
 
   # --- Future scenarios (multi-provider) ---
 
