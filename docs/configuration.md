@@ -124,6 +124,14 @@ aws:
 github:
   org: my-org
 
+# Policy filtering (optional — omit to run all policies)
+policies:                            # Run only these policies by name
+  - cc6_1_mfa
+  - cc6_1_github_mfa
+controls:                            # Or run only policies for these control IDs
+  - CC6.1
+  - CC7.1
+
 # Output settings
 output:
   format: text                     # Options: text, json, sarif, junit
@@ -167,6 +175,8 @@ Everything else uses sensible defaults.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SIGCOMPLY_FRAMEWORK` | `soc2` | Compliance framework |
+| `SIGCOMPLY_POLICIES` | — | Comma-separated policy names to run (e.g., `cc6_1_mfa,cc6_1_github_mfa`) |
+| `SIGCOMPLY_CONTROLS` | — | Comma-separated control IDs to run (e.g., `CC6.1,CC7.1`) |
 | `SIGCOMPLY_OUTPUT_FORMAT` | `text` | Output format: text, json, sarif, junit |
 | `SIGCOMPLY_VERBOSE` | `false` | Set to `true` for verbose output |
 | `SIGCOMPLY_FAIL_ON_VIOLATION` | `true` | Set to `false` to always exit 0 |
@@ -211,6 +221,8 @@ sigcomply check [flags]
 
 Flags:
   -f, --framework string      Compliance framework (soc2, hipaa, iso27001)
+      --policies string       Comma-separated policy names to run (e.g., cc6_1_mfa,cc6_1_github_mfa)
+      --controls string       Comma-separated control IDs to run (e.g., CC6.1,CC7.1)
   -o, --output string         Output format (text, json, junit)
   -v, --verbose               Verbose output
       --region string         AWS region
