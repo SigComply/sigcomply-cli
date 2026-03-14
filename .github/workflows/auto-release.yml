@@ -1,0 +1,102 @@
+# Auto-release workflow for SigComply CLI
+# Creates a new patch release on every push to main.
+# Uses conventional commit prefixes to determine version bump:
+#   feat: -> minor bump
+#   fix:, refactor:, perf:, etc. -> patch bump
+#   BREAKING CHANGE in body -> major bump
+
+name: Auto Release
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+
+permissions:
+  contents: write
+
+jobs:
+  auto-release:
+    name: Bump Version and Tag
+    runs-on: ubuntu-latest
+    # Skip if the commit was made by this workflow (tag push) or is a merge of a release PR
+    if: "!contains(github.event.head_commit.message, '[skip release]') && !contains(github.event.head_commit.message, 'chore(release)')"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version bump
+        id: bump
+        run: |
+          # Get the latest tag, default to v0.0.0 if none exists
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "latest_tag=${LATEST_TAG}" >> "$GITHUB_OUTPUT"
+
+          # Parse current version
+          VERSION="${LATEST_TAG#v}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+          # Analyze commits since last tag to determine bump type
+          COMMITS=$(git log "${LATEST_TAG}..HEAD" --pretty=format:"%s" 2>/dev/null || git log --pretty=format:"%s")
+
+          BUMP="patch"
+          if echo "$COMMITS" | grep -qiE "BREAKING CHANGE|^[a-z]+(\(.*\))?!:"; then
+            BUMP="major"
+          elif echo "$COMMITS" | grep -qE "^feat(\(.*\))?:"; then
+            BUMP="minor"
+          fi
+
+          # Calculate new version
+          case $BUMP in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "new_tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
+          echo "bump=${BUMP}" >> "$GITHUB_OUTPUT"
+          echo "Version bump: ${BUMP} (${LATEST_TAG} -> ${NEW_TAG})"
+
+      - name: Create and push tag
+        run: |
+          NEW_TAG="${{ steps.bump.outputs.new_tag }}"
+
+          # Check if tag already exists
+          if git rev-parse "$NEW_TAG" >/dev/null 2>&1; then
+            echo "Tag $NEW_TAG already exists, skipping"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
+          git push origin "$NEW_TAG"
+          echo "Created and pushed tag: $NEW_TAG"
+
+      - name: Summary
+        run: |
+          echo "## Auto Release" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Previous | ${{ steps.bump.outputs.latest_tag }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| New | ${{ steps.bump.outputs.new_tag }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Bump | ${{ steps.bump.outputs.bump }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The Release workflow will now build and publish binaries." >> $GITHUB_STEP_SUMMARY

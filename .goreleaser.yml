@@ -12,7 +12,7 @@ before:
 
 builds:
   - id: sigcomply
-    main: ./cmd/sigcomply
+    main: .
     binary: sigcomply
     env:
       - CGO_ENABLED=0
@@ -34,9 +34,9 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
-      - -X github.com/sigcomply/sigcomply-cli/internal/version.Version={{.Version}}
-      - -X github.com/sigcomply/sigcomply-cli/internal/version.Commit={{.Commit}}
-      - -X github.com/sigcomply/sigcomply-cli/internal/version.Date={{.Date}}
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.buildTime={{.Date}}
     mod_timestamp: '{{ .CommitTimestamp }}'
 
 archives:
@@ -138,47 +138,6 @@ brews:
       system "#{bin}/sigcomply", "version"
     install: |
       bin.install "sigcomply"
-
-dockers:
-  - image_templates:
-      - "ghcr.io/sigcomply/sigcomply-cli:{{ .Version }}-amd64"
-    use: buildx
-    dockerfile: Dockerfile
-    build_flag_templates:
-      - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-      - "--label=org.opencontainers.image.created={{ .Date }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.source=https://github.com/SigComply/sigcomply-cli"
-    skip_push: auto
-
-  - image_templates:
-      - "ghcr.io/sigcomply/sigcomply-cli:{{ .Version }}-arm64"
-    use: buildx
-    dockerfile: Dockerfile
-    build_flag_templates:
-      - "--platform=linux/arm64"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-      - "--label=org.opencontainers.image.created={{ .Date }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.source=https://github.com/SigComply/sigcomply-cli"
-    goarch: arm64
-    skip_push: auto
-
-docker_manifests:
-  - name_template: "ghcr.io/sigcomply/sigcomply-cli:{{ .Version }}"
-    image_templates:
-      - "ghcr.io/sigcomply/sigcomply-cli:{{ .Version }}-amd64"
-      - "ghcr.io/sigcomply/sigcomply-cli:{{ .Version }}-arm64"
-    skip_push: auto
-
-  - name_template: "ghcr.io/sigcomply/sigcomply-cli:latest"
-    image_templates:
-      - "ghcr.io/sigcomply/sigcomply-cli:{{ .Version }}-amd64"
-      - "ghcr.io/sigcomply/sigcomply-cli:{{ .Version }}-arm64"
-    skip_push: auto
 
 sboms:
   - artifacts: archive
