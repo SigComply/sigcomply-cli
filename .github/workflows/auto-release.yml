@@ -1,5 +1,5 @@
 # Auto-release workflow for SigComply CLI
-# Creates a new patch release on every push to main.
+# Bumps version, creates a tag, and runs GoReleaser on every push to main.
 # Uses conventional commit prefixes to determine version bump:
 #   feat: -> minor bump
 #   fix:, refactor:, perf:, etc. -> patch bump
@@ -18,12 +18,12 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   auto-release:
-    name: Bump Version and Tag
+    name: Release
     runs-on: ubuntu-latest
-    # Skip if the commit was made by this workflow (tag push) or is a merge of a release PR
     if: "!contains(github.event.head_commit.message, '[skip release]') && !contains(github.event.head_commit.message, 'chore(release)')"
     steps:
       - name: Checkout
@@ -74,12 +74,14 @@ jobs:
           echo "Version bump: ${BUMP} (${LATEST_TAG} -> ${NEW_TAG})"
 
       - name: Create and push tag
+        id: tag
         run: |
           NEW_TAG="${{ steps.bump.outputs.new_tag }}"
 
           # Check if tag already exists
           if git rev-parse "$NEW_TAG" >/dev/null 2>&1; then
-            echo "Tag $NEW_TAG already exists, skipping"
+            echo "Tag $NEW_TAG already exists, skipping release"
+            echo "created=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -87,9 +89,29 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
           git push origin "$NEW_TAG"
+          echo "created=true" >> "$GITHUB_OUTPUT"
           echo "Created and pushed tag: $NEW_TAG"
 
+      - name: Set up Go
+        if: steps.tag.outputs.created == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run GoReleaser
+        if: steps.tag.outputs.created == 'true'
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ steps.bump.outputs.new_tag }}
+
       - name: Summary
+        if: always()
         run: |
           echo "## Auto Release" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -98,5 +120,4 @@ jobs:
           echo "| Previous | ${{ steps.bump.outputs.latest_tag }} |" >> $GITHUB_STEP_SUMMARY
           echo "| New | ${{ steps.bump.outputs.new_tag }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Bump | ${{ steps.bump.outputs.bump }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "The Release workflow will now build and publish binaries." >> $GITHUB_STEP_SUMMARY
+          echo "| Tag Created | ${{ steps.tag.outputs.created }} |" >> $GITHUB_STEP_SUMMARY

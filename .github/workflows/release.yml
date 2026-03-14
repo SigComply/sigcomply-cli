@@ -1,17 +1,15 @@
-# Release workflow for SigComply CLI
-# Triggered automatically by tag pushes (from auto-release) or manually via workflow_dispatch.
+# Manual release workflow for SigComply CLI
+# Use this to cut a release manually via workflow_dispatch.
+# Auto-releases on merge are handled by auto-release.yml.
 
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., v0.2.0). Leave empty to use latest tag.'
-        required: false
+        description: 'Version to release (e.g., v0.2.0)'
+        required: true
         type: string
 
 permissions:
@@ -19,8 +17,8 @@ permissions:
   packages: write
 
 jobs:
-  test:
-    name: Test
+  release:
+    name: Release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,77 +26,26 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Run tests
-        run: make test
-
-      - name: Run linter
-        uses: golangci/golangci-lint-action@v7
-        with:
-          version: latest
-          args: --timeout=5m
-
-  resolve-version:
-    name: Resolve Version
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
-    outputs:
-      tag: ${{ steps.resolve.outputs.tag }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Resolve version tag
-        id: resolve
+      - name: Validate version format
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            TAG="${{ inputs.version }}"
-          else
-            # Get latest tag, or default to v0.1.0
-            TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
+          TAG="${{ inputs.version }}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "Error: Version must match semver format (e.g., v1.2.3 or v1.2.3-rc.1)"
+            exit 1
           fi
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "Resolved version: ${TAG}"
-
-  tag-and-release:
-    name: Create Tag
-    needs: [test, resolve-version]
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Create and push tag
         run: |
-          TAG="${{ needs.resolve-version.outputs.tag }}"
+          TAG="${{ inputs.version }}"
           if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists, skipping tag creation"
+            echo "Tag $TAG already exists"
           else
-            git tag "$TAG"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" -m "Release $TAG"
             git push origin "$TAG"
-            echo "Created and pushed tag: $TAG"
+            echo "Created tag: $TAG"
           fi
-
-  release:
-    name: Release
-    needs: test
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -114,7 +61,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ inputs.version }}
 
   verify:
     name: Verify Installation
@@ -129,13 +76,14 @@ jobs:
 
       - name: Install via script
         run: |
-          SIGCOMPLY_VERSION="${GITHUB_REF_NAME}" ./scripts/install.sh
+          SIGCOMPLY_VERSION="${{ inputs.version }}" ./scripts/install.sh
 
       - name: Verify version
         run: |
           sigcomply version
           VERSION_OUTPUT=$(sigcomply version)
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          TAG_VERSION="${{ inputs.version }}"
+          TAG_VERSION="${TAG_VERSION#v}"
           if echo "$VERSION_OUTPUT" | grep -q "$TAG_VERSION"; then
             echo "Version matches: $TAG_VERSION"
           else
@@ -148,26 +96,3 @@ jobs:
       - name: Verify check command
         run: |
           sigcomply check --help
-
-  notify:
-    name: Notify
-    needs: [release, verify]
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - name: Create release summary
-        run: |
-          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Version**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ needs.release.result }}" = "success" ] && [ "${{ needs.verify.result }}" = "success" ]; then
-            echo "**Status**: Release successful!" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Installation" >> $GITHUB_STEP_SUMMARY
-            echo '```bash' >> $GITHUB_STEP_SUMMARY
-            echo 'curl -fsSL https://raw.githubusercontent.com/SigComply/sigcomply-cli/main/scripts/install.sh | sh' >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-          else
-            echo "**Status**: Release failed or verification failed" >> $GITHUB_STEP_SUMMARY
-          fi
