@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"strings"
+
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/engine"
@@ -41,6 +43,8 @@ var (
 	flagNoCloud        bool
 	flagGitHubOrg      string
 	flagConfig         string
+	flagPolicies       string
+	flagControls       string
 )
 
 var checkCmd = newCheckCmd()
@@ -69,6 +73,12 @@ Examples:
   # Output as JUnit XML (for CI/CD)
   sigcomply check --output junit
 
+  # Run only specific policies
+  sigcomply check --policies cc6_1_mfa,cc6_1_github_mfa
+
+  # Run only policies for specific controls
+  sigcomply check --controls CC6.1,CC7.1
+
   # Use a specific config file
   sigcomply check --config /path/to/.sigcomply.yaml`,
 		RunE: runCheck,
@@ -84,6 +94,8 @@ Examples:
 	cmd.Flags().BoolVar(&flagCloud, "cloud", false, "Force submission to SigComply Cloud (requires OIDC in CI)")
 	cmd.Flags().BoolVar(&flagNoCloud, "no-cloud", false, "Disable submission to SigComply Cloud")
 	cmd.Flags().StringVar(&flagGitHubOrg, "github-org", "", "GitHub organization to collect evidence from (requires GITHUB_TOKEN)")
+	cmd.Flags().StringVar(&flagPolicies, "policies", "", "Comma-separated list of policy names to run (e.g., cc6_1_mfa,cc6_1_github_mfa)")
+	cmd.Flags().StringVar(&flagControls, "controls", "", "Comma-separated list of control IDs to run (e.g., CC6.1,CC7.1)")
 	cmd.Flags().StringVar(&flagConfig, "config", "", "Path to config file (default: .sigcomply.yaml)")
 
 	return cmd
@@ -155,6 +167,16 @@ func applyFlagOverrides(cfg *config.Config) {
 		if cfg.Storage.Backend == backendLocal && cfg.Storage.Path == "" {
 			cfg.Storage.Path = "./.sigcomply/evidence"
 		}
+	}
+
+	// --policies flag overrides config file
+	if flagPolicies != "" {
+		cfg.Policies = splitCommaSeparated(flagPolicies)
+	}
+
+	// --controls flag overrides config file
+	if flagControls != "" {
+		cfg.Controls = splitCommaSeparated(flagControls)
 	}
 
 	// --github-org flag overrides config file
@@ -254,7 +276,7 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 	}
 
 	// Load framework and evaluate ALL policies (framework drives what gets checked)
-	policyResults, err := evaluatePolicies(ctx, cfg.Framework, result.Evidence)
+	policyResults, err := evaluatePolicies(ctx, cfg, result.Evidence)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate policies: %w", err)
 	}
@@ -369,7 +391,7 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 	}
 
 	// Load framework and evaluate ALL policies
-	policyResults, err := evaluatePolicies(ctx, cfg.Framework, result.Evidence)
+	policyResults, err := evaluatePolicies(ctx, cfg, result.Evidence)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate policies: %w", err)
 	}
@@ -518,7 +540,7 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 	}
 
 	// Load framework and evaluate ALL policies
-	policyResults, err := evaluatePolicies(ctx, cfg.Framework, result.Evidence)
+	policyResults, err := evaluatePolicies(ctx, cfg, result.Evidence)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate policies: %w", err)
 	}
@@ -576,30 +598,108 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-// evaluatePolicies loads the framework and evaluates ALL policies against evidence.
-// The framework determines what gets checked — no policy filtering.
-func evaluatePolicies(ctx context.Context, frameworkName string, evidenceList []evidence.Evidence) ([]evidence.PolicyResult, error) {
+// evaluatePolicies loads the framework and evaluates policies against evidence.
+// If cfg.Policies or cfg.Controls are set, only matching policies are evaluated.
+func evaluatePolicies(ctx context.Context, cfg *config.Config, evidenceList []evidence.Evidence) ([]evidence.PolicyResult, error) {
 	// Get framework
 	var framework engine.Framework
-	switch frameworkName {
+	switch cfg.Framework {
 	case "soc2":
 		framework = soc2.New()
 	case "iso27001":
 		framework = iso27001.New()
 	default:
-		return nil, fmt.Errorf("unsupported framework: %s (supported: 'soc2', 'iso27001')", frameworkName)
+		return nil, fmt.Errorf("unsupported framework: %s (supported: 'soc2', 'iso27001')", cfg.Framework)
 	}
 
-	// Create engine and load ALL policies
+	policies := framework.Policies()
+
+	// Filter by policy names if specified
+	if len(cfg.Policies) > 0 {
+		policies = filterPoliciesByName(policies, cfg.Policies)
+	}
+
+	// Filter by control IDs if specified
+	if len(cfg.Controls) > 0 {
+		policies = filterPoliciesByControl(policies, cfg.Controls, framework)
+	}
+
+	if len(policies) == 0 {
+		return nil, fmt.Errorf("no policies matched the specified filters (policies: %v, controls: %v)", cfg.Policies, cfg.Controls)
+	}
+
+	// Create engine and load filtered policies
 	eng := engine.New()
-	for _, policy := range framework.Policies() {
+	for _, policy := range policies {
 		if err := eng.LoadPolicy(policy.Name, policy.Source); err != nil {
 			return nil, fmt.Errorf("failed to load policy %s: %w", policy.Name, err)
 		}
 	}
 
-	// Evaluate all policies
+	// Evaluate policies
 	return eng.Evaluate(ctx, evidenceList)
+}
+
+// filterPoliciesByName returns only policies whose Name matches one of the given names.
+func filterPoliciesByName(policies []engine.PolicySource, names []string) []engine.PolicySource {
+	nameSet := make(map[string]bool, len(names))
+	for _, n := range names {
+		nameSet[n] = true
+	}
+
+	filtered := make([]engine.PolicySource, 0, len(names))
+	for _, p := range policies {
+		if nameSet[p.Name] {
+			filtered = append(filtered, p)
+		}
+	}
+	return filtered
+}
+
+// filterPoliciesByControl returns only policies that belong to one of the given control IDs.
+// It uses the policy name prefix convention (e.g., "cc6_1_*" belongs to control "CC6.1").
+func filterPoliciesByControl(policies []engine.PolicySource, controlIDs []string, fw engine.Framework) []engine.PolicySource {
+	// Build a set of control prefixes from control IDs.
+	// CC6.1 -> "cc6_1_", A1.2 -> "a1_2_", C1.1 -> "c1_1_"
+	prefixSet := make(map[string]bool, len(controlIDs))
+	for _, id := range controlIDs {
+		prefix := controlIDToPrefix(id)
+		if prefix != "" {
+			prefixSet[prefix] = true
+		}
+	}
+
+	filtered := make([]engine.PolicySource, 0)
+	for _, p := range policies {
+		for prefix := range prefixSet {
+			if strings.HasPrefix(p.Name, prefix) {
+				filtered = append(filtered, p)
+				break
+			}
+		}
+	}
+	return filtered
+}
+
+// controlIDToPrefix converts a control ID like "CC6.1" to a policy name prefix like "cc6_1_".
+func controlIDToPrefix(controlID string) string {
+	// Lowercase and replace "." with "_", append "_"
+	s := strings.ToLower(controlID)
+	s = strings.ReplaceAll(s, ".", "_")
+	return s + "_"
+}
+
+// splitCommaSeparated splits a comma-separated string and trims whitespace.
+func splitCommaSeparated(s string) []string {
+	parts := strings.Split(s, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result
 }
 
 // printEvidenceCollection prints evidence collection results.

@@ -40,6 +40,16 @@ on:
         required: false
         type: boolean
         default: true
+      policies:
+        description: 'Comma-separated list of policy names to run (e.g., cc6_1_mfa,cc6_1_github_mfa). If empty, all policies run.'
+        required: false
+        type: string
+        default: ''
+      controls:
+        description: 'Comma-separated list of control IDs to run (e.g., CC6.1,CC7.1). If empty, all controls run.'
+        required: false
+        type: string
+        default: ''
       sigcomply-version:
         description: 'SigComply CLI version to use'
         required: false
@@ -135,11 +145,21 @@ jobs:
           # Create output directory
           mkdir -p .sigcomply/results
 
+          # Build optional filter flags
+          FILTER_FLAGS=""
+          if [ -n "${{ inputs.policies }}" ]; then
+            FILTER_FLAGS="$FILTER_FLAGS --policies ${{ inputs.policies }}"
+          fi
+          if [ -n "${{ inputs.controls }}" ]; then
+            FILTER_FLAGS="$FILTER_FLAGS --controls ${{ inputs.controls }}"
+          fi
+
           # Run the compliance check
           sigcomply check \
             --framework "${{ inputs.framework }}" \
             --output json \
             --region "${{ inputs.aws-region }}" \
+            $FILTER_FLAGS \
             > .sigcomply/results/compliance-results.json
 
           # Generate JUnit report for CI integration
@@ -147,6 +167,7 @@ jobs:
             --framework "${{ inputs.framework }}" \
             --output junit \
             --region "${{ inputs.aws-region }}" \
+            $FILTER_FLAGS \
             > .sigcomply/results/compliance-results.xml 2>/dev/null || true
 
       - name: Parse results

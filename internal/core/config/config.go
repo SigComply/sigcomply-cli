@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -67,6 +68,8 @@ type FileStorageConfig struct {
 // Provider sections hold non-secret config only. Credentials come from environment.
 type fileConfig struct {
 	Framework string             `yaml:"framework,omitempty"`
+	Policies  []string           `yaml:"policies,omitempty"`
+	Controls  []string           `yaml:"controls,omitempty"`
 	AWS       *AWSConfig         `yaml:"aws,omitempty"`
 	GCP       *GCPConfig         `yaml:"gcp,omitempty"`
 	GitHub    *GitHubConfig      `yaml:"github,omitempty"`
@@ -79,11 +82,13 @@ type fileConfig struct {
 // Config holds all configuration for a SigComply run.
 type Config struct {
 	// Core settings
-	Framework       string `json:"framework"`
-	OutputFormat    string `json:"output_format"`
-	FailOnViolation bool   `json:"fail_on_violation"`
-	FailSeverity    string `json:"fail_severity,omitempty"`
-	Verbose         bool   `json:"verbose"`
+	Framework       string   `json:"framework"`
+	Policies        []string `json:"policies,omitempty"`
+	Controls        []string `json:"controls,omitempty"`
+	OutputFormat    string   `json:"output_format"`
+	FailOnViolation bool     `json:"fail_on_violation"`
+	FailSeverity    string   `json:"fail_severity,omitempty"`
+	Verbose         bool     `json:"verbose"`
 
 	// Cloud settings
 	CloudEnabled bool `json:"cloud_enabled"`
@@ -222,6 +227,14 @@ func (c *Config) mergeFileConfig(fc *fileConfig) {
 		c.Framework = fc.Framework
 	}
 
+	if len(fc.Policies) > 0 {
+		c.Policies = fc.Policies
+	}
+
+	if len(fc.Controls) > 0 {
+		c.Controls = fc.Controls
+	}
+
 	if fc.AWS != nil && len(fc.AWS.Regions) > 0 {
 		c.AWS.Regions = fc.AWS.Regions
 	}
@@ -301,6 +314,14 @@ func (c *Config) LoadFromEnv() {
 
 	if os.Getenv("SIGCOMPLY_FAIL_ON_VIOLATION") == "false" {
 		c.FailOnViolation = false
+	}
+
+	if v := os.Getenv("SIGCOMPLY_POLICIES"); v != "" {
+		c.Policies = splitAndTrim(v)
+	}
+
+	if v := os.Getenv("SIGCOMPLY_CONTROLS"); v != "" {
+		c.Controls = splitAndTrim(v)
 	}
 
 	// Storage configuration
@@ -396,4 +417,17 @@ func contains(slice []string, value string) bool {
 		}
 	}
 	return false
+}
+
+// splitAndTrim splits a comma-separated string and trims whitespace from each element.
+func splitAndTrim(s string) []string {
+	parts := strings.Split(s, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result
 }

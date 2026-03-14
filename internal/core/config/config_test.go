@@ -461,6 +461,91 @@ aws:
 	assert.Equal(t, []string{"ap-southeast-1"}, cfg.AWS.Regions)
 }
 
+func TestConfig_LoadFromFile_Policies(t *testing.T) {
+	content := `
+framework: soc2
+policies:
+  - cc6_1_mfa
+  - cc6_1_github_mfa
+`
+	path := writeTestFile(t, content)
+
+	cfg := New()
+	cfg.LoadFromFile(path)
+
+	assert.Equal(t, []string{"cc6_1_mfa", "cc6_1_github_mfa"}, cfg.Policies)
+}
+
+func TestConfig_LoadFromFile_Controls(t *testing.T) {
+	content := `
+framework: soc2
+controls:
+  - CC6.1
+  - CC7.1
+`
+	path := writeTestFile(t, content)
+
+	cfg := New()
+	cfg.LoadFromFile(path)
+
+	assert.Equal(t, []string{"CC6.1", "CC7.1"}, cfg.Controls)
+}
+
+func TestConfig_LoadFromEnv_Policies(t *testing.T) {
+	t.Setenv("SIGCOMPLY_POLICIES", "cc6_1_mfa, cc6_1_github_mfa")
+
+	cfg := New()
+	cfg.LoadFromEnv()
+
+	assert.Equal(t, []string{"cc6_1_mfa", "cc6_1_github_mfa"}, cfg.Policies)
+}
+
+func TestConfig_LoadFromEnv_Controls(t *testing.T) {
+	t.Setenv("SIGCOMPLY_CONTROLS", "CC6.1,CC7.1")
+
+	cfg := New()
+	cfg.LoadFromEnv()
+
+	assert.Equal(t, []string{"CC6.1", "CC7.1"}, cfg.Controls)
+}
+
+func TestConfig_Precedence_EnvOverridesFile_Policies(t *testing.T) {
+	content := `
+policies:
+  - cc6_1_mfa
+`
+	path := writeTestFile(t, content)
+
+	t.Setenv("SIGCOMPLY_POLICIES", "cc7_1_logging")
+
+	cfg := New()
+	cfg.LoadFromFile(path)
+	assert.Equal(t, []string{"cc6_1_mfa"}, cfg.Policies)
+
+	cfg.LoadFromEnv()
+	assert.Equal(t, []string{"cc7_1_logging"}, cfg.Policies)
+}
+
+func TestSplitAndTrim(t *testing.T) {
+	tests := []struct {
+		input string
+		want  []string
+	}{
+		{"a,b,c", []string{"a", "b", "c"}},
+		{" a , b , c ", []string{"a", "b", "c"}},
+		{"a", []string{"a"}},
+		{"", []string{}},
+		{",,,", []string{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := splitAndTrim(tt.input)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 // writeTestFile creates a temporary YAML file and returns its path.
 func writeTestFile(t *testing.T, content string) string {
 	t.Helper()
