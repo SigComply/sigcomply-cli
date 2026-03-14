@@ -109,11 +109,6 @@ release:
     curl -fsSL https://raw.githubusercontent.com/sigcomply/sigcomply-cli/main/scripts/install.sh | sh
     ```
 
-    **Homebrew (coming soon):**
-    ```bash
-    brew install sigcomply/tap/sigcomply
-    ```
-
     **Manual Download:**
     Download the appropriate binary for your platform from the assets below.
 
@@ -122,22 +117,6 @@ release:
     **Full Changelog**: https://github.com/SigComply/sigcomply-cli/compare/{{ .PreviousTag }}...{{ .Tag }}
 
     For documentation, visit: https://github.com/SigComply/sigcomply-cli
-
-brews:
-  - name: sigcomply
-    repository:
-      owner: sigcomply
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    skip_upload: auto
-    folder: Formula
-    homepage: https://github.com/SigComply/sigcomply-cli
-    description: Compliance automation CLI - evidence without access
-    license: Apache-2.0
-    test: |
-      system "#{bin}/sigcomply", "version"
-    install: |
-      bin.install "sigcomply"
 
 sboms:
   - artifacts: archive
