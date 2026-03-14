@@ -534,7 +534,7 @@ sigcomply-cli/
 │
 ├── contracts/                           # Contract tests
 ├── examples/                            # CI/CD workflow examples
-├── .github/workflows/                   # GitHub Actions workflows
+├── .github/workflows/                   # GitHub Actions workflows (CI, release automation)
 ├── scripts/                             # Build and development scripts
 └── CLAUDE.md                            # This file - AI assistant context
 ```
@@ -572,6 +572,8 @@ sigcomply-cli/
 --framework string    # Compliance framework (default: "soc2")
 --collector strings   # Collectors to use (default: auto-detect)
 --service strings     # Limit to specific services
+--policies string     # Comma-separated policy names to run (e.g., cc6_1_mfa,cc6_1_github_mfa)
+--controls string     # Comma-separated control IDs to run (e.g., CC6.1,CC7.1)
 -o, --output string   # Output format: text, json, sarif
 -v, --verbose         # Verbose output
 -q, --quiet           # Minimal output
@@ -617,6 +619,13 @@ collectors:
     regions:
       - us-east-1
 
+# Policy filtering (optional — run all policies by default)
+policies:                        # Specific policy names to run
+  - cc6_1_mfa
+  - cc6_1_github_mfa
+controls:                        # Or filter by control IDs
+  - CC6.1
+
 storage:
   backend: local
   local:
@@ -638,6 +647,8 @@ cloud:
 
 ```bash
 SIGCOMPLY_FRAMEWORK        # Default framework
+SIGCOMPLY_POLICIES         # Comma-separated policy names to run
+SIGCOMPLY_CONTROLS         # Comma-separated control IDs to run
 SIGCOMPLY_STORAGE_BACKEND  # Storage backend: local, s3, gcs
 SIGCOMPLY_STORAGE_BUCKET   # S3/GCS bucket name
 SIGCOMPLY_OUTPUT_FORMAT    # Output format: text, json, sarif
@@ -649,7 +660,8 @@ SIGCOMPLY_OUTPUT_FORMAT    # Output format: text, json, sarif
 |---------|---------|
 | `collectors` | AWS, GitHub, GCP collector settings |
 | `frameworks` | Which compliance frameworks to evaluate |
-| `policies` | Policy exclusions, inclusions, custom paths |
+| `policies` | Filter to specific policy names (e.g., `cc6_1_mfa`) |
+| `controls` | Filter to specific control IDs (e.g., `CC6.1`) |
 | `storage` | Storage backend and artifact settings |
 | `cloud` | SigComply Cloud API settings |
 | `output` | Format, verbosity, color settings |
@@ -809,6 +821,8 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 - OIDC authentication (GitHub Actions, GitLab CI)
 - GitHub collector
 - Canonical JSON for deterministic hashing
+- Policy filtering (`--policies`, `--controls` flags, env vars, config file)
+- Release automation (auto-release on merge to main via conventional commits, manual release via workflow_dispatch, GoReleaser)
 
 **Remaining**:
 - Secret scanner
@@ -867,4 +881,4 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 
 ---
 
-Last Updated: 2026-01-24
+Last Updated: 2026-03-14

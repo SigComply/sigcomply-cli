@@ -356,6 +356,8 @@ violations[violation] if {
 ```
 --framework string    Compliance framework (default: soc2)
 --collector strings   Collectors to use (default: auto-detect)
+--policies string     Comma-separated policy names to run (e.g., cc6_1_mfa,cc6_1_github_mfa)
+--controls string     Comma-separated control IDs to run (e.g., CC6.1,CC7.1)
 -o, --output string   Output format: text, json, sarif
 --fail-on-violation   Exit 1 on violations (default in CI)
 --cloud / --no-cloud  Force/disable cloud submission
@@ -403,6 +405,8 @@ storage:
 
 ```bash
 SIGCOMPLY_FRAMEWORK        # Default framework
+SIGCOMPLY_POLICIES         # Comma-separated policy names to run
+SIGCOMPLY_CONTROLS         # Comma-separated control IDs to run
 SIGCOMPLY_STORAGE_BACKEND  # local, s3, gcs
 SIGCOMPLY_STORAGE_BUCKET   # S3/GCS bucket name
 ```
@@ -515,3 +519,9 @@ jobs:
 ```
 
 Uses OIDC for AWS authentication (no long-lived secrets).
+
+### Release Automation
+
+- **Auto-release** (`.github/workflows/auto-release.yml`): On every merge to main, analyzes conventional commit prefixes (`feat:` = minor, `fix:` = patch, `BREAKING CHANGE` = major), bumps the version tag, and runs GoReleaser.
+- **Manual release** (`.github/workflows/release.yml`): Triggered via `workflow_dispatch` with a version input (e.g., `v0.2.0`). Creates tag and runs GoReleaser, then verifies installation on Ubuntu and macOS.
+- **GoReleaser**: Builds cross-platform binaries. Uses `main.version`, `main.commit`, `main.buildTime` ldflags. Entry point is `.` (root `main.go`).

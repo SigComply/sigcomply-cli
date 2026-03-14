@@ -118,5 +118,3 @@ release:
 
     For documentation, visit: https://github.com/SigComply/sigcomply-cli
 
-sboms:
-  - artifacts: archive
