@@ -93,8 +93,8 @@ jobs:
 
       - name: Run policy tests
         run: |
-          if [ -d "internal/policy/policies" ]; then
-            opa test internal/policy/policies/ -v
+          if [ -d "internal/compliance_frameworks/soc2/policies" ]; then
+            opa test internal/compliance_frameworks/soc2/policies/ internal/compliance_frameworks/shared/ -v
           else
             echo "No policies directory found yet - skipping"
           fi
@@ -147,11 +147,11 @@ jobs:
       - name: Check for Go main package
         id: check-main
         run: |
-          if [ -d "cmd/sigcomply" ] && find cmd/sigcomply -name "*.go" -type f | grep -q .; then
+          if [ -f "main.go" ]; then
             echo "has_main=true" >> $GITHUB_OUTPUT
           else
             echo "has_main=false" >> $GITHUB_OUTPUT
-            echo "::notice::No cmd/sigcomply package found - skipping build"
+            echo "::notice::No main.go found - skipping build"
           fi
 
       - name: Set up Go
@@ -168,7 +168,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: |
           mkdir -p bin
-          go build -ldflags="-s -w" -o bin/sigcomply-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} ./cmd/sigcomply
+          go build -ldflags="-s -w" -o bin/sigcomply-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} .
 
       - name: Upload artifact
         if: steps.check-main.outputs.has_main == 'true'

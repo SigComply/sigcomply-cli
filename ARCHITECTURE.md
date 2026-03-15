@@ -1,8 +1,6 @@
 # SigComply CLI - Architecture
 
-**Version**: 2.0 | **Status**: Ready for Implementation
-
-For terminology, see [GLOSSARY.md](./GLOSSARY.md).
+**Version**: 2.1 | **Status**: Active Development
 
 ---
 
@@ -92,10 +90,14 @@ internal/
 │   └── apis/
 │       ├── aws/
 │       │   ├── collector.go    # Auth + orchestration
-│       │   ├── iam.go
-│       │   ├── s3.go
-│       │   └── cloudtrail.go
-│       └── github/             # Future
+│       │   ├── iam.go, s3.go, cloudtrail.go
+│       │   ├── ec2.go, ecr.go, rds.go, kms.go
+│       │   └── guardduty.go, configservice.go, cloudwatch.go
+│       ├── github/
+│       │   ├── collector.go, repos.go, members.go
+│       └── gcp/
+│           ├── collector.go, iam.go, storage.go
+│           ├── compute.go, sql.go
 │
 └── core/                       # Shared utilities
     ├── evidence/               # Evidence, Result, Violation types
