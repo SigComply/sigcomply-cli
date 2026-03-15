@@ -405,8 +405,10 @@ func TestIAMCollector_AccessKeys(t *testing.T) {
 	assert.Equal(t, -1, u.AccessKeys[1].LastUsedDays)
 }
 
-func TestIAMCollector_AccessKeys_Error_FailSafe(t *testing.T) {
-	mockIAM := &MockIAMClient{
+// newSingleUserMock creates a MockIAMClient with a single user "alice" and default no-op stubs
+// for MFA, login profile, access keys, and attached policies. Override specific funcs as needed.
+func newSingleUserMock() *MockIAMClient {
+	return &MockIAMClient{
 		ListUsersFunc: func(ctx context.Context, params *iam.ListUsersInput, optFns ...func(*iam.Options)) (*iam.ListUsersOutput, error) {
 			return &iam.ListUsersOutput{
 				Users: []types.User{
@@ -421,9 +423,13 @@ func TestIAMCollector_AccessKeys_Error_FailSafe(t *testing.T) {
 		GetLoginProfileFunc: func(ctx context.Context, params *iam.GetLoginProfileInput, optFns ...func(*iam.Options)) (*iam.GetLoginProfileOutput, error) {
 			return nil, &types.NoSuchEntityException{Message: aws.String("not found")}
 		},
-		ListAccessKeysFunc: func(ctx context.Context, params *iam.ListAccessKeysInput, optFns ...func(*iam.Options)) (*iam.ListAccessKeysOutput, error) {
-			return nil, errors.New("access denied")
-		},
+	}
+}
+
+func TestIAMCollector_AccessKeys_Error_FailSafe(t *testing.T) {
+	mockIAM := newSingleUserMock()
+	mockIAM.ListAccessKeysFunc = func(ctx context.Context, params *iam.ListAccessKeysInput, optFns ...func(*iam.Options)) (*iam.ListAccessKeysOutput, error) {
+		return nil, errors.New("access denied")
 	}
 
 	collector := &IAMCollector{client: mockIAM}
@@ -489,24 +495,9 @@ func TestIAMCollector_AttachedPolicies(t *testing.T) {
 }
 
 func TestIAMCollector_AttachedPolicies_Error_FailSafe(t *testing.T) {
-	mockIAM := &MockIAMClient{
-		ListUsersFunc: func(ctx context.Context, params *iam.ListUsersInput, optFns ...func(*iam.Options)) (*iam.ListUsersOutput, error) {
-			return &iam.ListUsersOutput{
-				Users: []types.User{
-					{UserName: aws.String("alice"), Arn: aws.String("arn:aws:iam::123456789012:user/alice")},
-				},
-				IsTruncated: false,
-			}, nil
-		},
-		ListMFADevicesFunc: func(ctx context.Context, params *iam.ListMFADevicesInput, optFns ...func(*iam.Options)) (*iam.ListMFADevicesOutput, error) {
-			return &iam.ListMFADevicesOutput{MFADevices: []types.MFADevice{}}, nil
-		},
-		GetLoginProfileFunc: func(ctx context.Context, params *iam.GetLoginProfileInput, optFns ...func(*iam.Options)) (*iam.GetLoginProfileOutput, error) {
-			return nil, &types.NoSuchEntityException{Message: aws.String("not found")}
-		},
-		ListAttachedUserPoliciesFunc: func(ctx context.Context, params *iam.ListAttachedUserPoliciesInput, optFns ...func(*iam.Options)) (*iam.ListAttachedUserPoliciesOutput, error) {
-			return nil, errors.New("access denied")
-		},
+	mockIAM := newSingleUserMock()
+	mockIAM.ListAttachedUserPoliciesFunc = func(ctx context.Context, params *iam.ListAttachedUserPoliciesInput, optFns ...func(*iam.Options)) (*iam.ListAttachedUserPoliciesOutput, error) {
+		return nil, errors.New("access denied")
 	}
 
 	collector := &IAMCollector{client: mockIAM}
