@@ -33,7 +33,7 @@ func (m *MockEC2Client) DescribeFlowLogs(ctx context.Context, params *ec2.Descri
 	return m.DescribeFlowLogsFunc(ctx, params, optFns...)
 }
 
-func (m *MockEC2Client) GetEbsDefaultKmsKeyId(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) { //nolint:revive,stylecheck // matches AWS SDK naming
+func (m *MockEC2Client) GetEbsDefaultKmsKeyId(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) { //nolint:revive // matches AWS SDK naming
 	return m.GetEbsDefaultKmsKeyIDFunc(ctx, params, optFns...)
 }
 

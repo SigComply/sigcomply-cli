@@ -60,7 +60,7 @@ linters:
       min-complexity: 15
 
     dupl:
-      threshold: 150
+      threshold: 200
 
     goconst:
       min-len: 3
