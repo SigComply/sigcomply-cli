@@ -26,7 +26,7 @@ type AccountPasswordPolicy struct {
 
 // ToEvidence converts an AccountPasswordPolicy to Evidence.
 func (p *AccountPasswordPolicy) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(p) //nolint:errcheck
+	data, _ := json.Marshal(p) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	resourceID := fmt.Sprintf("arn:aws:iam::%s:account-password-policy", accountID)
 	ev := evidence.New("aws", "aws:iam:password-policy", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -54,8 +54,8 @@ func NewAccountCollector(client AccountClient) *AccountCollector {
 func (c *AccountCollector) CollectPasswordPolicy(ctx context.Context) (*AccountPasswordPolicy, error) {
 	output, err := c.client.GetAccountPasswordPolicy(ctx, &iam.GetAccountPasswordPolicyInput{})
 	if err != nil {
-		// No password policy set
-		return &AccountPasswordPolicy{HasPolicy: false}, nil
+		// No password policy set — this is a valid state, not an error
+		return &AccountPasswordPolicy{HasPolicy: false}, nil //nolint:nilerr // no password policy is a valid state
 	}
 
 	pp := output.PasswordPolicy
@@ -81,7 +81,7 @@ type RootAccountSummary struct {
 
 // ToEvidence converts a RootAccountSummary to Evidence.
 func (r *RootAccountSummary) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(r) //nolint:errcheck
+	data, _ := json.Marshal(r) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	resourceID := fmt.Sprintf("arn:aws:iam::%s:root", accountID)
 	ev := evidence.New("aws", "aws:iam:root-account", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}

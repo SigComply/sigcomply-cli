@@ -31,7 +31,7 @@ type KMSKey struct {
 
 // ToEvidence converts a KMSKey to Evidence.
 func (k *KMSKey) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(k) //nolint:errcheck
+	data, _ := json.Marshal(k) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	ev := evidence.New("aws", "aws:kms:key", k.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

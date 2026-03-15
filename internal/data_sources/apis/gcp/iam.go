@@ -49,7 +49,7 @@ type ProjectIAMPolicy struct {
 
 // ToEvidence converts a ServiceAccount to Evidence.
 func (sa *ServiceAccount) ToEvidence(projectID string) evidence.Evidence {
-	data, _ := json.Marshal(sa) //nolint:errcheck
+	data, _ := json.Marshal(sa) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	ev := evidence.New("gcp", "gcp:iam:service-account", sa.Email, data)
 	ev.Metadata = evidence.Metadata{
 		AccountID: projectID,
@@ -59,7 +59,7 @@ func (sa *ServiceAccount) ToEvidence(projectID string) evidence.Evidence {
 
 // ToEvidence converts a ProjectIAMPolicy to Evidence.
 func (p *ProjectIAMPolicy) ToEvidence() evidence.Evidence {
-	data, _ := json.Marshal(p) //nolint:errcheck
+	data, _ := json.Marshal(p) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	ev := evidence.New("gcp", "gcp:iam:policy", p.ProjectID, data)
 	ev.Metadata = evidence.Metadata{
 		AccountID: p.ProjectID,

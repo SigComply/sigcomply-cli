@@ -37,7 +37,7 @@ type RDSInstance struct {
 
 // ToEvidence converts an RDSInstance to Evidence.
 func (r *RDSInstance) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(r) //nolint:errcheck
+	data, _ := json.Marshal(r) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	ev := evidence.New("aws", "aws:rds:instance", r.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -66,7 +66,8 @@ func (c *RDSCollector) CollectInstances(ctx context.Context) ([]RDSInstance, err
 			return nil, fmt.Errorf("failed to describe RDS instances: %w", err)
 		}
 
-		for _, db := range output.DBInstances {
+		for idx := range output.DBInstances {
+			db := &output.DBInstances[idx]
 			instance := RDSInstance{
 				DBInstanceID:        awssdk.ToString(db.DBInstanceIdentifier),
 				ARN:                 awssdk.ToString(db.DBInstanceArn),

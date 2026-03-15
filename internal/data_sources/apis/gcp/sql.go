@@ -28,7 +28,7 @@ type SQLInstance struct {
 
 // ToEvidence converts a SQLInstance to Evidence.
 func (s *SQLInstance) ToEvidence(projectID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	resourceID := fmt.Sprintf("projects/%s/instances/%s", projectID, s.Name)
 	ev := evidence.New("gcp", "gcp:sql:instance", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: projectID}

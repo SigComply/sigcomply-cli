@@ -621,7 +621,7 @@ func evaluatePolicies(ctx context.Context, cfg *config.Config, evidenceList []ev
 
 	// Filter by control IDs if specified
 	if len(cfg.Controls) > 0 {
-		policies = filterPoliciesByControl(policies, cfg.Controls, framework)
+		policies = filterPoliciesByControl(policies, cfg.Controls)
 	}
 
 	if len(policies) == 0 {
@@ -658,7 +658,7 @@ func filterPoliciesByName(policies []engine.PolicySource, names []string) []engi
 
 // filterPoliciesByControl returns only policies that belong to one of the given control IDs.
 // It uses the policy name prefix convention (e.g., "cc6_1_*" belongs to control "CC6.1").
-func filterPoliciesByControl(policies []engine.PolicySource, controlIDs []string, fw engine.Framework) []engine.PolicySource {
+func filterPoliciesByControl(policies []engine.PolicySource, controlIDs []string) []engine.PolicySource {
 	// Build a set of control prefixes from control IDs.
 	// CC6.1 -> "cc6_1_", A1.2 -> "a1_2_", C1.1 -> "c1_1_"
 	prefixSet := make(map[string]bool, len(controlIDs))

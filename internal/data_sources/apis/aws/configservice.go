@@ -33,7 +33,7 @@ type ConfigStatus struct {
 
 // ToEvidence converts a ConfigStatus to Evidence.
 func (c *ConfigStatus) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(c) //nolint:errcheck
+	data, _ := json.Marshal(c) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	resourceID := fmt.Sprintf("arn:aws:config:%s:%s:recorder", c.Region, accountID)
 	ev := evidence.New("aws", "aws:config:recorder", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -58,7 +58,7 @@ func (c *ConfigCollector) CollectStatus(ctx context.Context) (*ConfigStatus, err
 	// Get recorders
 	recOutput, err := c.client.DescribeConfigurationRecorders(ctx, &configservice.DescribeConfigurationRecordersInput{})
 	if err != nil {
-		return status, nil // No access or not configured
+		return status, nil //nolint:nilerr // no access or not configured is a valid state
 	}
 
 	if len(recOutput.ConfigurationRecorders) == 0 {
@@ -68,7 +68,7 @@ func (c *ConfigCollector) CollectStatus(ctx context.Context) (*ConfigStatus, err
 	// Get recorder status
 	statusOutput, err := c.client.DescribeConfigurationRecorderStatus(ctx, &configservice.DescribeConfigurationRecorderStatusInput{})
 	if err != nil {
-		return status, nil
+		return status, nil //nolint:nilerr // fail-safe: treat status query failure as unconfigured
 	}
 
 	recordingStatus := make(map[string]bool)

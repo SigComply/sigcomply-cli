@@ -222,7 +222,7 @@ func (c *Config) LoadFromFile(path string) {
 }
 
 // mergeFileConfig merges non-zero values from a parsed file config into this Config.
-func (c *Config) mergeFileConfig(fc *fileConfig) {
+func (c *Config) mergeFileConfig(fc *fileConfig) { //nolint:gocyclo // sequential field-by-field merge is inherently branchy
 	if fc.Framework != "" {
 		c.Framework = fc.Framework
 	}
@@ -299,7 +299,7 @@ func (c *Config) mergeStorageConfig(fs *FileStorageConfig) {
 }
 
 // LoadFromEnv loads configuration from environment variables.
-func (c *Config) LoadFromEnv() {
+func (c *Config) LoadFromEnv() { //nolint:gocyclo // sequential env var loading is inherently branchy
 	if v := os.Getenv("SIGCOMPLY_FRAMEWORK"); v != "" {
 		c.Framework = v
 	}

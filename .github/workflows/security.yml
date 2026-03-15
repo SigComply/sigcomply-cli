@@ -56,7 +56,7 @@ jobs:
         if: steps.check-packages.outputs.has_go_files == 'true'
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
           cache: true
 
       - name: Verify go.sum checksums
@@ -289,7 +289,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
           cache: true
 
       - name: Generate SBOM (SPDX)
@@ -335,7 +335,7 @@ jobs:
         if: steps.check-packages.outputs.has_go_files == 'true'
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
           cache: true
 
       - name: Check licenses

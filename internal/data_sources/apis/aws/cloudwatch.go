@@ -27,7 +27,7 @@ type LogGroup struct {
 
 // ToEvidence converts a LogGroup to Evidence.
 func (lg *LogGroup) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(lg) //nolint:errcheck
+	data, _ := json.Marshal(lg) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	ev := evidence.New("aws", "aws:logs:log-group", lg.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -56,7 +56,8 @@ func (c *CloudWatchCollector) CollectLogGroups(ctx context.Context) ([]LogGroup,
 			return nil, fmt.Errorf("failed to describe log groups: %w", err)
 		}
 
-		for _, lg := range output.LogGroups {
+		for i := range output.LogGroups {
+			lg := &output.LogGroups[i]
 			group := LogGroup{
 				Name:        awssdk.ToString(lg.LogGroupName),
 				ARN:         awssdk.ToString(lg.Arn),

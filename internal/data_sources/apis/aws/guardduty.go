@@ -27,7 +27,7 @@ type GuardDutyStatus struct {
 
 // ToEvidence converts a GuardDutyStatus to Evidence.
 func (g *GuardDutyStatus) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(g) //nolint:errcheck
+	data, _ := json.Marshal(g) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	resourceID := fmt.Sprintf("arn:aws:guardduty:%s:%s:detector", g.Region, accountID)
 	ev := evidence.New("aws", "aws:guardduty:detector", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -51,7 +51,7 @@ func (c *GuardDutyCollector) CollectStatus(ctx context.Context) (*GuardDutyStatu
 
 	output, err := c.client.ListDetectors(ctx, &guardduty.ListDetectorsInput{})
 	if err != nil {
-		return status, nil // No access or not available
+		return status, nil //nolint:nilerr // GuardDuty may not be available in all regions
 	}
 
 	status.DetectorCount = len(output.DetectorIds)
@@ -69,7 +69,7 @@ func (c *GuardDutyCollector) CollectStatus(ctx context.Context) (*GuardDutyStatu
 	})
 	if err != nil {
 		status.Enabled = false
-		return status, nil
+		return status, nil //nolint:nilerr // fail-safe: treat detector query failure as disabled
 	}
 
 	status.Status = string(det.Status)

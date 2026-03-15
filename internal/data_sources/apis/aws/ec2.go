@@ -58,7 +58,7 @@ type EBSEncryptionConfig struct {
 
 // ToEvidence converts a SecurityGroup to Evidence.
 func (sg *SecurityGroup) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(sg) //nolint:errcheck
+	data, _ := json.Marshal(sg) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	resourceID := fmt.Sprintf("arn:aws:ec2::%s:security-group/%s", accountID, sg.GroupID)
 	ev := evidence.New("aws", "aws:ec2:security-group", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -67,7 +67,7 @@ func (sg *SecurityGroup) ToEvidence(accountID string) evidence.Evidence {
 
 // ToEvidence converts a VPCInfo to Evidence.
 func (v *VPCInfo) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(v) //nolint:errcheck
+	data, _ := json.Marshal(v) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	resourceID := fmt.Sprintf("arn:aws:ec2::%s:vpc/%s", accountID, v.VPCID)
 	ev := evidence.New("aws", "aws:ec2:vpc", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -76,7 +76,7 @@ func (v *VPCInfo) ToEvidence(accountID string) evidence.Evidence {
 
 // ToEvidence converts an EBSEncryptionConfig to Evidence.
 func (e *EBSEncryptionConfig) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(e) //nolint:errcheck
+	data, _ := json.Marshal(e) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	resourceID := fmt.Sprintf("arn:aws:ec2:%s:%s:ebs-encryption-by-default", e.Region, accountID)
 	ev := evidence.New("aws", "aws:ec2:ebs-encryption", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -102,7 +102,8 @@ func (c *EC2Collector) CollectSecurityGroups(ctx context.Context) ([]SecurityGro
 	}
 
 	var groups []SecurityGroup
-	for _, sg := range output.SecurityGroups {
+	for i := range output.SecurityGroups {
+		sg := &output.SecurityGroups[i]
 		group := SecurityGroup{
 			GroupID:     awssdk.ToString(sg.GroupId),
 			GroupName:   awssdk.ToString(sg.GroupName),
@@ -110,7 +111,8 @@ func (c *EC2Collector) CollectSecurityGroups(ctx context.Context) ([]SecurityGro
 			VPCID:      awssdk.ToString(sg.VpcId),
 		}
 
-		for _, perm := range sg.IpPermissions {
+		for j := range sg.IpPermissions {
+			perm := &sg.IpPermissions[j]
 			protocol := awssdk.ToString(perm.IpProtocol)
 			fromPort := awssdk.ToInt32(perm.FromPort)
 			toPort := awssdk.ToInt32(perm.ToPort)
@@ -163,13 +165,14 @@ func (c *EC2Collector) CollectVPCs(ctx context.Context) ([]VPCInfo, error) {
 
 	flowLogVPCs := make(map[string]bool)
 	if err == nil {
-		for _, fl := range flowLogsOutput.FlowLogs {
-			flowLogVPCs[awssdk.ToString(fl.ResourceId)] = true
+		for i := range flowLogsOutput.FlowLogs {
+			flowLogVPCs[awssdk.ToString(flowLogsOutput.FlowLogs[i].ResourceId)] = true
 		}
 	}
 
 	var vpcs []VPCInfo
-	for _, vpc := range vpcsOutput.Vpcs {
+	for i := range vpcsOutput.Vpcs {
+		vpc := &vpcsOutput.Vpcs[i]
 		vpcID := awssdk.ToString(vpc.VpcId)
 		v := VPCInfo{
 			VPCID:          vpcID,
@@ -190,7 +193,7 @@ func (c *EC2Collector) CollectEBSEncryption(ctx context.Context) (*EBSEncryption
 	output, err := c.client.GetEbsEncryptionByDefault(ctx, &ec2.GetEbsEncryptionByDefaultInput{})
 	if err != nil {
 		config.EncryptionByDefault = false
-		return config, nil
+		return config, nil //nolint:nilerr // fail-safe: default to encryption disabled on error
 	}
 
 	config.EncryptionByDefault = awssdk.ToBool(output.EbsEncryptionByDefault)
@@ -243,7 +246,7 @@ func (c *EC2Collector) CollectEvidence(ctx context.Context, accountID string) ([
 func portInRange(portRange string, target int32) bool {
 	// Simple port range parsing
 	var start, end int64
-	n, _ := fmt.Sscanf(portRange, "%d-%d", &start, &end)
+	n, _ := fmt.Sscanf(portRange, "%d-%d", &start, &end) //nolint:errcheck // count n is the effective guard
 	if n == 2 {
 		return int64(target) >= start && int64(target) <= end
 	}
@@ -251,5 +254,5 @@ func portInRange(portRange string, target int32) bool {
 	if err != nil {
 		return false
 	}
-	return int32(p) == target
+	return p == int64(target)
 }

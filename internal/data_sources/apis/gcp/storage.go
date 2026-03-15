@@ -26,7 +26,7 @@ type GCSBucket struct {
 
 // ToEvidence converts a GCSBucket to Evidence.
 func (b *GCSBucket) ToEvidence(projectID string) evidence.Evidence {
-	data, _ := json.Marshal(b) //nolint:errcheck
+	data, _ := json.Marshal(b) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	resourceID := fmt.Sprintf("projects/%s/buckets/%s", projectID, b.Name)
 	ev := evidence.New("gcp", "gcp:storage:bucket", resourceID, data)
 	ev.Metadata = evidence.Metadata{

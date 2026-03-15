@@ -17,7 +17,7 @@ type MockEC2Client struct {
 	DescribeSecurityGroupsFunc    func(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSecurityGroupsOutput, error)
 	DescribeVpcsFunc              func(ctx context.Context, params *ec2.DescribeVpcsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeVpcsOutput, error)
 	DescribeFlowLogsFunc          func(ctx context.Context, params *ec2.DescribeFlowLogsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeFlowLogsOutput, error)
-	GetEbsDefaultKmsKeyIdFunc     func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error)
+	GetEbsDefaultKmsKeyIDFunc     func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) //nolint:revive // matches AWS SDK naming
 	GetEbsEncryptionByDefaultFunc func(ctx context.Context, params *ec2.GetEbsEncryptionByDefaultInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsEncryptionByDefaultOutput, error)
 }
 
@@ -33,8 +33,8 @@ func (m *MockEC2Client) DescribeFlowLogs(ctx context.Context, params *ec2.Descri
 	return m.DescribeFlowLogsFunc(ctx, params, optFns...)
 }
 
-func (m *MockEC2Client) GetEbsDefaultKmsKeyId(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) {
-	return m.GetEbsDefaultKmsKeyIdFunc(ctx, params, optFns...)
+func (m *MockEC2Client) GetEbsDefaultKmsKeyId(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) { //nolint:revive,stylecheck // matches AWS SDK naming
+	return m.GetEbsDefaultKmsKeyIDFunc(ctx, params, optFns...)
 }
 
 func (m *MockEC2Client) GetEbsEncryptionByDefault(ctx context.Context, params *ec2.GetEbsEncryptionByDefaultInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsEncryptionByDefaultOutput, error) {
@@ -295,7 +295,7 @@ func TestEC2Collector_CollectEBSEncryption(t *testing.T) {
 					}
 					return &ec2.GetEbsEncryptionByDefaultOutput{EbsEncryptionByDefault: tt.encEnabled}, nil
 				},
-				GetEbsDefaultKmsKeyIdFunc: func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) {
+				GetEbsDefaultKmsKeyIDFunc: func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) {
 					if tt.kmsErr != nil {
 						return nil, tt.kmsErr
 					}
@@ -338,7 +338,7 @@ func TestEC2Collector_CollectEvidence(t *testing.T) {
 		GetEbsEncryptionByDefaultFunc: func(ctx context.Context, params *ec2.GetEbsEncryptionByDefaultInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsEncryptionByDefaultOutput, error) {
 			return &ec2.GetEbsEncryptionByDefaultOutput{EbsEncryptionByDefault: awssdk.Bool(true)}, nil
 		},
-		GetEbsDefaultKmsKeyIdFunc: func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) {
+		GetEbsDefaultKmsKeyIDFunc: func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) {
 			return &ec2.GetEbsDefaultKmsKeyIdOutput{}, nil
 		},
 	}
@@ -390,7 +390,7 @@ func TestEC2Collector_CollectEvidence_SGFailsVPCAndEBSSucceed(t *testing.T) {
 		GetEbsEncryptionByDefaultFunc: func(ctx context.Context, params *ec2.GetEbsEncryptionByDefaultInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsEncryptionByDefaultOutput, error) {
 			return &ec2.GetEbsEncryptionByDefaultOutput{EbsEncryptionByDefault: awssdk.Bool(true)}, nil
 		},
-		GetEbsDefaultKmsKeyIdFunc: func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) {
+		GetEbsDefaultKmsKeyIDFunc: func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) {
 			return &ec2.GetEbsDefaultKmsKeyIdOutput{}, nil
 		},
 	}
@@ -420,7 +420,7 @@ func TestEC2Collector_CollectEvidence_VPCFailsOthersSucceed(t *testing.T) {
 		GetEbsEncryptionByDefaultFunc: func(ctx context.Context, params *ec2.GetEbsEncryptionByDefaultInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsEncryptionByDefaultOutput, error) {
 			return &ec2.GetEbsEncryptionByDefaultOutput{EbsEncryptionByDefault: awssdk.Bool(true)}, nil
 		},
-		GetEbsDefaultKmsKeyIdFunc: func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) {
+		GetEbsDefaultKmsKeyIDFunc: func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) {
 			return &ec2.GetEbsDefaultKmsKeyIdOutput{}, nil
 		},
 	}
@@ -453,7 +453,7 @@ func TestEC2Collector_CollectEvidence_EBSFailsOthersSucceed(t *testing.T) {
 			// EBS encryption check returns false on error (never errors)
 			return nil, errors.New("access denied")
 		},
-		GetEbsDefaultKmsKeyIdFunc: func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) {
+		GetEbsDefaultKmsKeyIDFunc: func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) {
 			return nil, errors.New("access denied")
 		},
 	}
@@ -479,7 +479,7 @@ func TestEC2Collector_CollectEvidence_AllFail(t *testing.T) {
 		GetEbsEncryptionByDefaultFunc: func(ctx context.Context, params *ec2.GetEbsEncryptionByDefaultInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsEncryptionByDefaultOutput, error) {
 			return nil, errors.New("EBS error")
 		},
-		GetEbsDefaultKmsKeyIdFunc: func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) {
+		GetEbsDefaultKmsKeyIDFunc: func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) {
 			return nil, errors.New("KMS key error")
 		},
 	}
@@ -567,7 +567,7 @@ func TestEC2Collector_CollectEBSEncryption_KMSKeyError(t *testing.T) {
 		GetEbsEncryptionByDefaultFunc: func(ctx context.Context, params *ec2.GetEbsEncryptionByDefaultInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsEncryptionByDefaultOutput, error) {
 			return &ec2.GetEbsEncryptionByDefaultOutput{EbsEncryptionByDefault: awssdk.Bool(true)}, nil
 		},
-		GetEbsDefaultKmsKeyIdFunc: func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) {
+		GetEbsDefaultKmsKeyIDFunc: func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) {
 			return nil, errors.New("access denied to KMS")
 		},
 	}

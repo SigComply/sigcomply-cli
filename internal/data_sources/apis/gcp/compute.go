@@ -61,7 +61,7 @@ type Network struct {
 
 // ToEvidence converts a FirewallRule to Evidence.
 func (f *FirewallRule) ToEvidence(projectID string) evidence.Evidence {
-	data, _ := json.Marshal(f) //nolint:errcheck
+	data, _ := json.Marshal(f) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	resourceID := fmt.Sprintf("projects/%s/global/firewalls/%s", projectID, f.Name)
 	ev := evidence.New("gcp", "gcp:compute:firewall", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: projectID}
@@ -70,7 +70,7 @@ func (f *FirewallRule) ToEvidence(projectID string) evidence.Evidence {
 
 // ToEvidence converts a Subnet to Evidence.
 func (s *Subnet) ToEvidence(projectID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	resourceID := fmt.Sprintf("projects/%s/regions/%s/subnetworks/%s", projectID, s.Region, s.Name)
 	ev := evidence.New("gcp", "gcp:compute:subnet", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: projectID}
@@ -79,7 +79,7 @@ func (s *Subnet) ToEvidence(projectID string) evidence.Evidence {
 
 // ToEvidence converts a Disk to Evidence.
 func (d *Disk) ToEvidence(projectID string) evidence.Evidence {
-	data, _ := json.Marshal(d) //nolint:errcheck
+	data, _ := json.Marshal(d) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	resourceID := fmt.Sprintf("projects/%s/zones/%s/disks/%s", projectID, d.Zone, d.Name)
 	ev := evidence.New("gcp", "gcp:compute:disk", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: projectID}
@@ -88,7 +88,7 @@ func (d *Disk) ToEvidence(projectID string) evidence.Evidence {
 
 // ToEvidence converts a Network to Evidence.
 func (n *Network) ToEvidence(projectID string) evidence.Evidence {
-	data, _ := json.Marshal(n) //nolint:errcheck
+	data, _ := json.Marshal(n) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	resourceID := fmt.Sprintf("projects/%s/global/networks/%s", projectID, n.Name)
 	ev := evidence.New("gcp", "gcp:compute:network", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: projectID}
@@ -106,7 +106,7 @@ func NewComputeCollector(service *compute.Service) *ComputeCollector {
 }
 
 // CollectFirewallRules retrieves all firewall rules.
-func (c *ComputeCollector) CollectFirewallRules(ctx context.Context, projectID string) ([]FirewallRule, error) {
+func (c *ComputeCollector) CollectFirewallRules(ctx context.Context, projectID string) ([]FirewallRule, error) { //nolint:gocyclo // firewall rule analysis requires nested protocol/port checks
 	resp, err := c.service.Firewalls.List(projectID).Context(ctx).Do()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list firewall rules: %w", err)

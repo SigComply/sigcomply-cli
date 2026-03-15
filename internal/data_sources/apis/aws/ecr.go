@@ -27,7 +27,7 @@ type ECRRepository struct {
 
 // ToEvidence converts an ECRRepository to Evidence.
 func (r *ECRRepository) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(r) //nolint:errcheck
+	data, _ := json.Marshal(r) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	ev := evidence.New("aws", "aws:ecr:repository", r.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
