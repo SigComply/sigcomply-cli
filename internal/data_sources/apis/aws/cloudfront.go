@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudfront"
@@ -12,14 +13,23 @@ import (
 // CloudFrontClient defines the interface for CloudFront operations.
 type CloudFrontClient interface {
 	ListDistributions(ctx context.Context, params *cloudfront.ListDistributionsInput, optFns ...func(*cloudfront.Options)) (*cloudfront.ListDistributionsOutput, error)
+	GetDistribution(ctx context.Context, params *cloudfront.GetDistributionInput, optFns ...func(*cloudfront.Options)) (*cloudfront.GetDistributionOutput, error)
 }
 
 // CloudFrontDistribution represents a CloudFront distribution.
 type CloudFrontDistribution struct {
-	ARN                  string `json:"arn"`
-	DomainName           string `json:"domain_name"`
-	ViewerProtocolPolicy string `json:"viewer_protocol_policy"`
-	HTTPSOnly            bool   `json:"https_only"`
+	ARN                     string `json:"arn"`
+	DomainName              string `json:"domain_name"`
+	ViewerProtocolPolicy    string `json:"viewer_protocol_policy"`
+	HTTPSOnly               bool   `json:"https_only"`
+	MinimumProtocolVersion  string `json:"minimum_protocol_version,omitempty"`
+	LoggingEnabled          bool   `json:"logging_enabled"`
+	WAFEnabled              bool   `json:"waf_enabled"`
+	OriginProtocolPolicy    string `json:"origin_protocol_policy,omitempty"`
+	DefaultRootObject      string `json:"default_root_object,omitempty"`
+	GeoRestrictionEnabled  bool   `json:"geo_restriction_enabled"`
+	HasOriginFailover      bool   `json:"has_origin_failover"`
+	UsesSNI                bool   `json:"uses_sni"`
 }
 
 // ToEvidence converts a CloudFrontDistribution to Evidence.
@@ -68,6 +78,32 @@ func (c *CloudFrontCollector) CollectDistributions(ctx context.Context) ([]Cloud
 				dist.HTTPSOnly = dist.ViewerProtocolPolicy == "https-only" || dist.ViewerProtocolPolicy == "redirect-to-https"
 			}
 
+			if item.ViewerCertificate != nil {
+				dist.MinimumProtocolVersion = string(item.ViewerCertificate.MinimumProtocolVersion)
+				dist.UsesSNI = string(item.ViewerCertificate.SSLSupportMethod) == "sni-only"
+			}
+
+			// WAF association
+			dist.WAFEnabled = awssdk.ToString(item.WebACLId) != ""
+
+			// Origin failover (origin groups)
+			if item.OriginGroups != nil && item.OriginGroups.Quantity != nil && *item.OriginGroups.Quantity > 0 {
+				dist.HasOriginFailover = true
+			}
+
+			// Origin protocol policy (from first custom origin)
+			if item.Origins != nil {
+				for _, origin := range item.Origins.Items {
+					if origin.CustomOriginConfig != nil {
+						dist.OriginProtocolPolicy = string(origin.CustomOriginConfig.OriginProtocolPolicy)
+						break
+					}
+				}
+			}
+
+			// Enrich with full distribution details for logging
+			c.enrichDistribution(ctx, &dist)
+
 			distributions = append(distributions, dist)
 		}
 
@@ -78,6 +114,36 @@ func (c *CloudFrontCollector) CollectDistributions(ctx context.Context) ([]Cloud
 	}
 
 	return distributions, nil
+}
+
+// enrichDistribution fetches full distribution details to populate fields not available in list output.
+func (c *CloudFrontCollector) enrichDistribution(ctx context.Context, dist *CloudFrontDistribution) {
+	// Extract distribution ID from ARN (last segment after /)
+	parts := strings.Split(dist.ARN, "/")
+	if len(parts) < 2 {
+		return
+	}
+	distID := parts[len(parts)-1]
+
+	output, err := c.client.GetDistribution(ctx, &cloudfront.GetDistributionInput{
+		Id: awssdk.String(distID),
+	})
+	if err != nil {
+		return // Fail-safe
+	}
+
+	if output.Distribution != nil && output.Distribution.DistributionConfig != nil {
+		cfg := output.Distribution.DistributionConfig
+		if cfg.Logging != nil {
+			dist.LoggingEnabled = awssdk.ToBool(cfg.Logging.Enabled)
+		}
+		if cfg.DefaultRootObject != nil {
+			dist.DefaultRootObject = awssdk.ToString(cfg.DefaultRootObject)
+		}
+		if cfg.Restrictions != nil && cfg.Restrictions.GeoRestriction != nil {
+			dist.GeoRestrictionEnabled = string(cfg.Restrictions.GeoRestriction.RestrictionType) != "none"
+		}
+	}
 }
 
 // CollectEvidence collects CloudFront distributions as evidence.

@@ -15,10 +15,18 @@ import (
 // MockECRClient implements ECRClient for testing.
 type MockECRClient struct {
 	DescribeRepositoriesFunc func(ctx context.Context, params *ecr.DescribeRepositoriesInput, optFns ...func(*ecr.Options)) (*ecr.DescribeRepositoriesOutput, error)
+	GetLifecyclePolicyFunc   func(ctx context.Context, params *ecr.GetLifecyclePolicyInput, optFns ...func(*ecr.Options)) (*ecr.GetLifecyclePolicyOutput, error)
 }
 
 func (m *MockECRClient) DescribeRepositories(ctx context.Context, params *ecr.DescribeRepositoriesInput, optFns ...func(*ecr.Options)) (*ecr.DescribeRepositoriesOutput, error) {
 	return m.DescribeRepositoriesFunc(ctx, params, optFns...)
+}
+
+func (m *MockECRClient) GetLifecyclePolicy(ctx context.Context, params *ecr.GetLifecyclePolicyInput, optFns ...func(*ecr.Options)) (*ecr.GetLifecyclePolicyOutput, error) {
+	if m.GetLifecyclePolicyFunc != nil {
+		return m.GetLifecyclePolicyFunc(ctx, params, optFns...)
+	}
+	return nil, errors.New("LifecyclePolicyNotFoundException: no lifecycle policy")
 }
 
 func TestECRCollector_CollectRepositories(t *testing.T) {

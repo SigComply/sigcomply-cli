@@ -21,8 +21,13 @@ type LambdaFunction struct {
 	Name               string `json:"name"`
 	ARN                string `json:"arn"`
 	Runtime            string `json:"runtime"`
-	RuntimeDeprecated  bool   `json:"runtime_deprecated"`
-	PubliclyAccessible bool   `json:"publicly_accessible"`
+	RuntimeDeprecated  bool `json:"runtime_deprecated"`
+	VPCConfigured      bool `json:"vpc_configured"`
+	HasDLQ               bool `json:"has_dlq"`
+	PubliclyAccessible   bool `json:"publicly_accessible"`
+	CodeSigningEnabled   bool `json:"code_signing_enabled"`
+	ReservedConcurrency  int  `json:"reserved_concurrency"`
+	TracingMode          string `json:"tracing_mode"`
 }
 
 // deprecatedRuntimes lists known deprecated Lambda runtimes.
@@ -81,6 +86,14 @@ func (c *LambdaCollector) CollectFunctions(ctx context.Context) ([]LambdaFunctio
 				Runtime: string(fn.Runtime),
 			}
 			f.RuntimeDeprecated = deprecatedRuntimes[f.Runtime]
+			f.VPCConfigured = fn.VpcConfig != nil && len(fn.VpcConfig.SubnetIds) > 0
+			f.HasDLQ = fn.DeadLetterConfig != nil && awssdk.ToString(fn.DeadLetterConfig.TargetArn) != ""
+			f.CodeSigningEnabled = false // Not available in ListFunctions, would need GetFunction
+			f.ReservedConcurrency = -1  // Not available in ListFunctions, would need GetFunctionConcurrency
+
+			if fn.TracingConfig != nil {
+				f.TracingMode = string(fn.TracingConfig.Mode)
+			}
 
 			// Check if publicly accessible via resource policy
 			c.enrichPublicAccess(ctx, &f)

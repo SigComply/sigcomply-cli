@@ -14,8 +14,9 @@ import (
 
 // MockCloudTrailClient is a mock implementation of CloudTrailClient for testing.
 type MockCloudTrailClient struct {
-	DescribeTrailsFunc   func(ctx context.Context, params *cloudtrail.DescribeTrailsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.DescribeTrailsOutput, error)
-	GetTrailStatusFunc   func(ctx context.Context, params *cloudtrail.GetTrailStatusInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.GetTrailStatusOutput, error)
+	DescribeTrailsFunc     func(ctx context.Context, params *cloudtrail.DescribeTrailsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.DescribeTrailsOutput, error)
+	GetTrailStatusFunc     func(ctx context.Context, params *cloudtrail.GetTrailStatusInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.GetTrailStatusOutput, error)
+	GetEventSelectorsFunc  func(ctx context.Context, params *cloudtrail.GetEventSelectorsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.GetEventSelectorsOutput, error)
 }
 
 func (m *MockCloudTrailClient) DescribeTrails(ctx context.Context, params *cloudtrail.DescribeTrailsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.DescribeTrailsOutput, error) {
@@ -24,6 +25,13 @@ func (m *MockCloudTrailClient) DescribeTrails(ctx context.Context, params *cloud
 
 func (m *MockCloudTrailClient) GetTrailStatus(ctx context.Context, params *cloudtrail.GetTrailStatusInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.GetTrailStatusOutput, error) {
 	return m.GetTrailStatusFunc(ctx, params, optFns...)
+}
+
+func (m *MockCloudTrailClient) GetEventSelectors(ctx context.Context, params *cloudtrail.GetEventSelectorsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.GetEventSelectorsOutput, error) {
+	if m.GetEventSelectorsFunc != nil {
+		return m.GetEventSelectorsFunc(ctx, params, optFns...)
+	}
+	return &cloudtrail.GetEventSelectorsOutput{}, nil
 }
 
 func TestCloudTrailCollector_CollectTrails(t *testing.T) {
@@ -170,6 +178,84 @@ func TestCloudTrailCollector_CollectTrails_StatusError(t *testing.T) {
 
 	require.NotNil(t, trailErr)
 	assert.False(t, trailErr.IsLogging, "should default to false when GetTrailStatus fails")
+}
+
+func TestCloudTrailCollector_DataEvents_Basic(t *testing.T) {
+	mockCT := &MockCloudTrailClient{
+		DescribeTrailsFunc: func(ctx context.Context, params *cloudtrail.DescribeTrailsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.DescribeTrailsOutput, error) {
+			return &cloudtrail.DescribeTrailsOutput{
+				TrailList: []types.Trail{
+					{
+						Name:     aws.String("data-trail"),
+						TrailARN: aws.String("arn:aws:cloudtrail:us-east-1:123:trail/data-trail"),
+					},
+				},
+			}, nil
+		},
+		GetTrailStatusFunc: func(ctx context.Context, params *cloudtrail.GetTrailStatusInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.GetTrailStatusOutput, error) {
+			return &cloudtrail.GetTrailStatusOutput{IsLogging: aws.Bool(true)}, nil
+		},
+		GetEventSelectorsFunc: func(ctx context.Context, params *cloudtrail.GetEventSelectorsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.GetEventSelectorsOutput, error) {
+			return &cloudtrail.GetEventSelectorsOutput{
+				EventSelectors: []types.EventSelector{
+					{
+						DataResources: []types.DataResource{
+							{Type: aws.String("AWS::S3::Object"), Values: []string{"arn:aws:s3"}},
+							{Type: aws.String("AWS::Lambda::Function"), Values: []string{"arn:aws:lambda"}},
+						},
+					},
+				},
+			}, nil
+		},
+	}
+
+	collector := &CloudTrailCollector{client: mockCT}
+	trails, err := collector.CollectTrails(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, trails, 1)
+	assert.True(t, trails[0].HasS3DataEvents, "should detect S3 data events")
+	assert.True(t, trails[0].HasLambdaDataEvents, "should detect Lambda data events")
+}
+
+func TestCloudTrailCollector_DataEvents_Advanced(t *testing.T) {
+	mockCT := &MockCloudTrailClient{
+		DescribeTrailsFunc: func(ctx context.Context, params *cloudtrail.DescribeTrailsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.DescribeTrailsOutput, error) {
+			return &cloudtrail.DescribeTrailsOutput{
+				TrailList: []types.Trail{
+					{
+						Name:     aws.String("advanced-trail"),
+						TrailARN: aws.String("arn:aws:cloudtrail:us-east-1:123:trail/advanced-trail"),
+					},
+				},
+			}, nil
+		},
+		GetTrailStatusFunc: func(ctx context.Context, params *cloudtrail.GetTrailStatusInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.GetTrailStatusOutput, error) {
+			return &cloudtrail.GetTrailStatusOutput{IsLogging: aws.Bool(true)}, nil
+		},
+		GetEventSelectorsFunc: func(ctx context.Context, params *cloudtrail.GetEventSelectorsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.GetEventSelectorsOutput, error) {
+			return &cloudtrail.GetEventSelectorsOutput{
+				AdvancedEventSelectors: []types.AdvancedEventSelector{
+					{
+						FieldSelectors: []types.AdvancedFieldSelector{
+							{
+								Field:  aws.String("resources.type"),
+								Equals: []string{"AWS::S3::Object"},
+							},
+						},
+					},
+				},
+			}, nil
+		},
+	}
+
+	collector := &CloudTrailCollector{client: mockCT}
+	trails, err := collector.CollectTrails(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, trails, 1)
+	assert.True(t, trails[0].HasS3DataEvents, "should detect S3 data events via advanced selectors")
+	assert.False(t, trails[0].HasLambdaDataEvents)
 }
 
 func TestCloudTrailCollector_ToEvidence(t *testing.T) {

@@ -59,3 +59,13 @@ test_wrong_resource_type if {
 	}
 	count(result) == 0
 }
+
+# Test: empty data should not trigger
+test_empty_data if {
+	result := cc6_1.violations with input as {
+		"resource_type": "aws:iam:user",
+		"resource_id": "arn:aws:iam::123:user/empty",
+		"data": {},
+	}
+	count(result) == 0
+}

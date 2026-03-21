@@ -14,6 +14,7 @@ import (
 type CloudTrailClient interface {
 	DescribeTrails(ctx context.Context, params *cloudtrail.DescribeTrailsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.DescribeTrailsOutput, error)
 	GetTrailStatus(ctx context.Context, params *cloudtrail.GetTrailStatusInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.GetTrailStatusOutput, error)
+	GetEventSelectors(ctx context.Context, params *cloudtrail.GetEventSelectorsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.GetEventSelectorsOutput, error)
 }
 
 // CloudTrailTrail represents a CloudTrail trail with its configuration.
@@ -26,8 +27,12 @@ type CloudTrailTrail struct {
 	IsLogging           bool   `json:"is_logging"`
 	LogFileValidation   bool   `json:"log_file_validation"`
 	IncludeGlobalEvents bool   `json:"include_global_events"`
-	S3BucketName        string `json:"s3_bucket_name"`
-	KMSKeyID            string `json:"kms_key_id,omitempty"`
+	S3BucketName         string `json:"s3_bucket_name"`
+	KMSKeyID                string `json:"kms_key_id,omitempty"`
+	CloudWatchLogsConfigured bool  `json:"cloudwatch_logs_configured"`
+	SNSTopicConfigured       bool  `json:"sns_topic_configured"`
+	HasS3DataEvents          bool  `json:"has_s3_data_events"`
+	HasLambdaDataEvents      bool  `json:"has_lambda_data_events"`
 }
 
 // ToEvidence converts a CloudTrailTrail to an Evidence struct.
@@ -69,11 +74,16 @@ func (c *CloudTrailCollector) CollectTrails(ctx context.Context) ([]CloudTrailTr
 			LogFileValidation:   aws.ToBool(t.LogFileValidationEnabled),
 			IncludeGlobalEvents: aws.ToBool(t.IncludeGlobalServiceEvents),
 			S3BucketName:        aws.ToString(t.S3BucketName),
-			KMSKeyID:            aws.ToString(t.KmsKeyId),
+			KMSKeyID:                aws.ToString(t.KmsKeyId),
+			CloudWatchLogsConfigured: aws.ToString(t.CloudWatchLogsLogGroupArn) != "",
+			SNSTopicConfigured:       aws.ToString(t.SnsTopicName) != "",
 		}
 
 		// Get logging status
 		c.enrichLoggingStatus(ctx, &trail)
+
+		// Get data event selectors
+		c.enrichDataEvents(ctx, &trail)
 
 		trails = append(trails, trail)
 	}
@@ -93,6 +103,44 @@ func (c *CloudTrailCollector) enrichLoggingStatus(ctx context.Context, trail *Cl
 	}
 
 	trail.IsLogging = aws.ToBool(output.IsLogging)
+}
+
+// enrichDataEvents checks if data events are configured for the trail.
+func (c *CloudTrailCollector) enrichDataEvents(ctx context.Context, trail *CloudTrailTrail) {
+	output, err := c.client.GetEventSelectors(ctx, &cloudtrail.GetEventSelectorsInput{
+		TrailName: aws.String(trail.Name),
+	})
+	if err != nil {
+		return
+	}
+
+	// Check basic event selectors
+	for _, es := range output.EventSelectors {
+		for _, dr := range es.DataResources {
+			if aws.ToString(dr.Type) == "AWS::S3::Object" {
+				trail.HasS3DataEvents = true
+			}
+			if aws.ToString(dr.Type) == "AWS::Lambda::Function" {
+				trail.HasLambdaDataEvents = true
+			}
+		}
+	}
+
+	// Check advanced event selectors
+	for _, aes := range output.AdvancedEventSelectors {
+		for _, fc := range aes.FieldSelectors {
+			if aws.ToString(fc.Field) == "resources.type" {
+				for _, v := range fc.Equals {
+					if v == "AWS::S3::Object" {
+						trail.HasS3DataEvents = true
+					}
+					if v == "AWS::Lambda::Function" {
+						trail.HasLambdaDataEvents = true
+					}
+				}
+			}
+		}
+	}
 }
 
 // CollectEvidence collects CloudTrail trails as evidence.

@@ -96,6 +96,7 @@ func TestCloudWatchAlarmsCollector_CollectEvidence(t *testing.T) {
 	ev, err := collector.CollectEvidence(context.Background(), "123456789012")
 
 	require.NoError(t, err)
-	assert.Len(t, ev, 1)
+	assert.Len(t, ev, 16) // 1 alarm config + 15 CIS metric filters
 	assert.Equal(t, "aws:cloudwatch:alarm-config", ev[0].ResourceType)
+	assert.Equal(t, "aws:cloudwatch:cis-metric-filter", ev[1].ResourceType)
 }

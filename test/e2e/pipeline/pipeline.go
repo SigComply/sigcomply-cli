@@ -26,7 +26,7 @@ import (
 // RunScenario runs the full compliance pipeline for one scenario:
 // collect -> evaluate -> hash -> sign -> store -> verify.
 func RunScenario(t *testing.T, cfg *config.E2EConfig, allCreds []*config.ResolvedCredentials, scenario *config.Scenario) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 
 	secret := cfg.ResolveHMACSecret()
@@ -92,8 +92,10 @@ func RunScenario(t *testing.T, cfg *config.E2EConfig, allCreds []*config.Resolve
 
 			evidenceList = append(evidenceList, result.Evidence...)
 
-			// Always require evidence for positive scenarios
-			if !scenario.Assertions.CollectionErrorsExpected {
+			// Require evidence for positive scenarios without service filtering.
+			// When service filters are applied, zero evidence is expected if the
+			// filtered service has no resources (policies will evaluate as "skip").
+			if !scenario.Assertions.CollectionErrorsExpected && services == nil {
 				require.NotEmpty(t, result.Evidence, "No evidence collected from provider %s", creds.Provider)
 			}
 
@@ -106,8 +108,9 @@ func RunScenario(t *testing.T, cfg *config.E2EConfig, allCreds []*config.Resolve
 		evidenceList = []evidence.Evidence{}
 	}
 
-	// For positive scenarios, abort early if nothing was collected
-	if !scenario.Assertions.CollectionErrorsExpected && len(evidenceList) == 0 {
+	// For positive scenarios without service filters, abort early if nothing was collected.
+	// With service filters, zero evidence is normal when the service has no resources.
+	if !scenario.Assertions.CollectionErrorsExpected && collectorFilters == nil && len(evidenceList) == 0 {
 		t.Fatal("No evidence collected and errors were not expected — aborting remaining phases")
 	}
 

@@ -13,8 +13,10 @@ import (
 )
 
 type MockWAFClient struct {
-	ListWebACLsFunc            func(ctx context.Context, params *wafv2.ListWebACLsInput, optFns ...func(*wafv2.Options)) (*wafv2.ListWebACLsOutput, error)
-	ListResourcesForWebACLFunc func(ctx context.Context, params *wafv2.ListResourcesForWebACLInput, optFns ...func(*wafv2.Options)) (*wafv2.ListResourcesForWebACLOutput, error)
+	ListWebACLsFunc              func(ctx context.Context, params *wafv2.ListWebACLsInput, optFns ...func(*wafv2.Options)) (*wafv2.ListWebACLsOutput, error)
+	ListResourcesForWebACLFunc   func(ctx context.Context, params *wafv2.ListResourcesForWebACLInput, optFns ...func(*wafv2.Options)) (*wafv2.ListResourcesForWebACLOutput, error)
+	GetWebACLFunc                func(ctx context.Context, params *wafv2.GetWebACLInput, optFns ...func(*wafv2.Options)) (*wafv2.GetWebACLOutput, error)
+	GetLoggingConfigurationFunc  func(ctx context.Context, params *wafv2.GetLoggingConfigurationInput, optFns ...func(*wafv2.Options)) (*wafv2.GetLoggingConfigurationOutput, error)
 }
 
 func (m *MockWAFClient) ListWebACLs(ctx context.Context, params *wafv2.ListWebACLsInput, optFns ...func(*wafv2.Options)) (*wafv2.ListWebACLsOutput, error) {
@@ -26,6 +28,20 @@ func (m *MockWAFClient) ListResourcesForWebACL(ctx context.Context, params *wafv
 		return m.ListResourcesForWebACLFunc(ctx, params, optFns...)
 	}
 	return &wafv2.ListResourcesForWebACLOutput{}, nil
+}
+
+func (m *MockWAFClient) GetWebACL(ctx context.Context, params *wafv2.GetWebACLInput, optFns ...func(*wafv2.Options)) (*wafv2.GetWebACLOutput, error) {
+	if m.GetWebACLFunc != nil {
+		return m.GetWebACLFunc(ctx, params, optFns...)
+	}
+	return &wafv2.GetWebACLOutput{}, nil
+}
+
+func (m *MockWAFClient) GetLoggingConfiguration(ctx context.Context, params *wafv2.GetLoggingConfigurationInput, optFns ...func(*wafv2.Options)) (*wafv2.GetLoggingConfigurationOutput, error) {
+	if m.GetLoggingConfigurationFunc != nil {
+		return m.GetLoggingConfigurationFunc(ctx, params, optFns...)
+	}
+	return nil, errors.New("no logging configuration")
 }
 
 func TestWAFCollector_CollectStatus(t *testing.T) {

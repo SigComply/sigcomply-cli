@@ -24,7 +24,9 @@ type ACMCertificate struct {
 	Status          string `json:"status"`
 	ExpiresAt       string `json:"expires_at,omitempty"`
 	DaysUntilExpiry int    `json:"days_until_expiry"`
-	InUse           bool   `json:"in_use"`
+	InUse                      bool   `json:"in_use"`
+	TransparencyLoggingEnabled bool   `json:"transparency_logging_enabled"`
+	RenewalStatus              string `json:"renewal_status"`
 }
 
 // ToEvidence converts an ACMCertificate to Evidence.
@@ -92,6 +94,10 @@ func (c *ACMCollector) enrichCertDetails(ctx context.Context, cert *ACMCertifica
 			cert.DaysUntilExpiry = int(math.Floor(time.Until(*output.Certificate.NotAfter).Hours() / 24))
 		}
 		cert.InUse = len(output.Certificate.InUseBy) > 0
+		if output.Certificate.Options != nil {
+			cert.TransparencyLoggingEnabled = string(output.Certificate.Options.CertificateTransparencyLoggingPreference) == "ENABLED"
+		}
+		cert.RenewalStatus = string(output.Certificate.RenewalEligibility)
 	}
 }
 

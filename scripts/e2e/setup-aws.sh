@@ -35,7 +35,11 @@ IAM_USERS=(
     "sigcomply-e2e-console-mfa"
     "sigcomply-e2e-console-nomfa"
 )
-POSITIVE_POLICY_NAME="sigcomply-e2e-positive-policy"
+POSITIVE_POLICY_NAMES=(
+    "sigcomply-e2e-positive-policy-core"
+    "sigcomply-e2e-positive-policy-extended"
+    "sigcomply-e2e-positive-policy-provisioning"
+)
 NEGATIVE_POLICY_NAME="sigcomply-e2e-negative-policy"
 
 # Resources
@@ -52,6 +56,13 @@ DYNAMODB_TABLE="sigcomply-e2e-test"
 LAMBDA_FUNCTION="sigcomply-e2e-test"
 LAMBDA_ROLE="sigcomply-e2e-lambda-role"
 SECRET_NAME="sigcomply-e2e-test-secret"
+ALB_NAME="sigcomply-e2e-test"
+ALB_TG_NAME="sigcomply-e2e-tg"
+ALB_SG_NAME="sigcomply-e2e-alb-sg"
+SNS_TOPIC_NAME="sigcomply-e2e-test"
+SQS_QUEUE_NAME="sigcomply-e2e-test"
+EFS_NAME="sigcomply-e2e-test"
+BACKUP_VAULT_NAME="sigcomply-e2e-test"
 
 # Helper functions
 info() {
@@ -137,13 +148,42 @@ create_iam_users() {
     fi
 }
 
+# Helper: create or update a managed IAM policy
+upsert_policy() {
+    local policy_name="$1"
+    local policy_document="$2"
+    local policy_arn="arn:aws:iam::${EXPECTED_ACCOUNT_ID}:policy/${policy_name}"
+
+    if aws iam get-policy --policy-arn "$policy_arn" >/dev/null 2>&1; then
+        local versions
+        versions=$(aws iam list-policy-versions --policy-arn "$policy_arn" --query "Versions[?!IsDefaultVersion].VersionId" --output text)
+        local version_count
+        version_count=$(echo "$versions" | wc -w | tr -d ' ')
+        if [ "$version_count" -ge 4 ]; then
+            local oldest
+            oldest=$(echo "$versions" | awk '{print $NF}')
+            aws iam delete-policy-version --policy-arn "$policy_arn" --version-id "$oldest"
+        fi
+        aws iam create-policy-version \
+            --policy-arn "$policy_arn" \
+            --policy-document "$policy_document" \
+            --set-as-default >/dev/null
+        success "Updated IAM policy: $policy_name"
+    else
+        aws iam create-policy \
+            --policy-name "$policy_name" \
+            --policy-document "$policy_document" >/dev/null
+        success "Created IAM policy: $policy_name"
+    fi
+}
+
 # Create IAM policies
 create_iam_policies() {
     info "Creating/updating IAM policies..."
 
-    # Positive policy: full read access for all collectors + S3 storage
-    local positive_policy
-    positive_policy=$(cat <<'POLICY'
+    # --- Positive policy 1: Core services (original collectors) ---
+    local positive_core
+    positive_core=$(cat <<'POLICY'
 {
     "Version": "2012-10-17",
     "Statement": [
@@ -151,20 +191,16 @@ create_iam_policies() {
             "Sid": "IAMReadAccess",
             "Effect": "Allow",
             "Action": [
-                "iam:GetAccountSummary",
-                "iam:GetAccountPasswordPolicy",
-                "iam:ListUsers",
-                "iam:GetUser",
-                "iam:ListMFADevices",
-                "iam:ListAccessKeys",
-                "iam:GetAccessKeyLastUsed",
-                "iam:ListUserPolicies",
-                "iam:ListAttachedUserPolicies",
-                "iam:GetLoginProfile",
-                "iam:ListGroupsForUser",
+                "iam:GetAccountSummary", "iam:GetAccountPasswordPolicy",
+                "iam:ListUsers", "iam:GetUser", "iam:ListMFADevices",
+                "iam:ListAccessKeys", "iam:GetAccessKeyLastUsed",
+                "iam:ListUserPolicies", "iam:ListAttachedUserPolicies",
+                "iam:GetLoginProfile", "iam:ListGroupsForUser",
                 "iam:GetAccountAuthorizationDetails",
-                "iam:GenerateCredentialReport",
-                "iam:GetCredentialReport"
+                "iam:GenerateCredentialReport", "iam:GetCredentialReport",
+                "iam:ListRoles", "iam:ListAttachedRolePolicies",
+                "iam:ListPolicies", "iam:GetPolicyVersion",
+                "iam:ListServerCertificates"
             ],
             "Resource": "*"
         },
@@ -172,42 +208,29 @@ create_iam_policies() {
             "Sid": "S3ReadAccess",
             "Effect": "Allow",
             "Action": [
-                "s3:ListAllMyBuckets",
-                "s3:GetBucketLocation",
-                "s3:GetBucketPolicy",
-                "s3:GetBucketPolicyStatus",
-                "s3:GetBucketAcl",
-                "s3:GetBucketVersioning",
-                "s3:GetBucketLogging",
-                "s3:GetEncryptionConfiguration",
-                "s3:GetBucketPublicAccessBlock",
-                "s3:GetAccountPublicAccessBlock",
-                "s3:GetBucketTagging",
-                "s3:ListBucket"
+                "s3:ListAllMyBuckets", "s3:GetBucketLocation",
+                "s3:GetBucketPolicy", "s3:GetBucketPolicyStatus",
+                "s3:GetBucketAcl", "s3:GetBucketVersioning",
+                "s3:GetBucketLogging", "s3:GetEncryptionConfiguration",
+                "s3:GetBucketPublicAccessBlock", "s3:GetAccountPublicAccessBlock",
+                "s3:GetBucketTagging", "s3:ListBucket",
+                "s3:GetBucketLifecycleConfiguration", "s3:GetObjectLockConfiguration",
+                "s3:GetBucketReplication", "s3:GetBucketNotificationConfiguration"
             ],
             "Resource": "*"
         },
         {
             "Sid": "S3EvidenceStorage",
             "Effect": "Allow",
-            "Action": [
-                "s3:PutObject",
-                "s3:GetObject",
-                "s3:ListBucket"
-            ],
-            "Resource": [
-                "arn:aws:s3:::sigcomply-e2e-tests",
-                "arn:aws:s3:::sigcomply-e2e-tests/*"
-            ]
+            "Action": ["s3:PutObject", "s3:GetObject", "s3:ListBucket"],
+            "Resource": ["arn:aws:s3:::sigcomply-e2e-tests", "arn:aws:s3:::sigcomply-e2e-tests/*"]
         },
         {
             "Sid": "CloudTrailReadAccess",
             "Effect": "Allow",
             "Action": [
-                "cloudtrail:DescribeTrails",
-                "cloudtrail:GetTrailStatus",
-                "cloudtrail:GetEventSelectors",
-                "cloudtrail:LookupEvents"
+                "cloudtrail:DescribeTrails", "cloudtrail:GetTrailStatus",
+                "cloudtrail:GetEventSelectors", "cloudtrail:LookupEvents"
             ],
             "Resource": "*"
         },
@@ -215,10 +238,8 @@ create_iam_policies() {
             "Sid": "CloudWatchLogsReadAccess",
             "Effect": "Allow",
             "Action": [
-                "logs:DescribeLogGroups",
-                "logs:DescribeLogStreams",
-                "logs:GetLogEvents",
-                "logs:DescribeMetricFilters"
+                "logs:DescribeLogGroups", "logs:DescribeLogStreams",
+                "logs:GetLogEvents", "logs:DescribeMetricFilters"
             ],
             "Resource": "*"
         },
@@ -226,11 +247,8 @@ create_iam_policies() {
             "Sid": "KMSReadAccess",
             "Effect": "Allow",
             "Action": [
-                "kms:ListKeys",
-                "kms:DescribeKey",
-                "kms:GetKeyPolicy",
-                "kms:GetKeyRotationStatus",
-                "kms:ListAliases"
+                "kms:ListKeys", "kms:DescribeKey", "kms:GetKeyPolicy",
+                "kms:GetKeyRotationStatus", "kms:ListAliases"
             ],
             "Resource": "*"
         },
@@ -238,12 +256,9 @@ create_iam_policies() {
             "Sid": "ECRReadAccess",
             "Effect": "Allow",
             "Action": [
-                "ecr:DescribeRepositories",
-                "ecr:GetRepositoryPolicy",
-                "ecr:DescribeImages",
-                "ecr:ListImages",
-                "ecr:GetLifecyclePolicy",
-                "ecr:DescribeImageScanFindings"
+                "ecr:DescribeRepositories", "ecr:GetRepositoryPolicy",
+                "ecr:DescribeImages", "ecr:ListImages",
+                "ecr:GetLifecyclePolicy", "ecr:DescribeImageScanFindings"
             ],
             "Resource": "*"
         },
@@ -251,137 +266,199 @@ create_iam_policies() {
             "Sid": "RDSReadAccess",
             "Effect": "Allow",
             "Action": [
-                "rds:DescribeDBInstances",
-                "rds:DescribeDBClusters",
-                "rds:DescribeDBSnapshots",
-                "rds:DescribeDBSubnetGroups",
-                "rds:ListTagsForResource",
-                "rds:DescribeEventSubscriptions"
+                "rds:DescribeDBInstances", "rds:DescribeDBClusters",
+                "rds:DescribeDBSnapshots", "rds:DescribeDBSubnetGroups",
+                "rds:ListTagsForResource", "rds:DescribeEventSubscriptions",
+                "rds:DescribeDBParameterGroups", "rds:DescribeDBParameters",
+                "rds:DescribeDBClusterSnapshots"
             ],
             "Resource": "*"
         },
         {
-            "Sid": "SecurityHubReadAccess",
+            "Sid": "MonitoringAndDataAccess",
             "Effect": "Allow",
             "Action": [
-                "securityhub:DescribeHub",
-                "securityhub:GetFindings"
+                "securityhub:DescribeHub", "securityhub:GetFindings", "securityhub:GetEnabledStandards",
+                "cloudwatch:DescribeAlarms",
+                "secretsmanager:ListSecrets", "secretsmanager:DescribeSecret",
+                "lambda:ListFunctions", "lambda:GetPolicy", "lambda:GetFunction",
+                "dynamodb:ListTables", "dynamodb:DescribeTable", "dynamodb:DescribeContinuousBackups",
+                "ecs:ListClusters", "ecs:DescribeClusters",
+                "ecs:ListTaskDefinitionFamilies", "ecs:DescribeTaskDefinition",
+                "eks:ListClusters", "eks:DescribeCluster",
+                "acm:ListCertificates", "acm:DescribeCertificate",
+                "cloudfront:ListDistributions", "cloudfront:GetDistribution",
+                "elasticloadbalancing:DescribeLoadBalancers",
+                "elasticloadbalancing:DescribeListeners",
+                "elasticloadbalancing:DescribeLoadBalancerAttributes",
+                "elasticloadbalancing:DescribeTargetGroups",
+                "elasticloadbalancing:DescribeTags",
+                "wafv2:ListWebACLs", "wafv2:ListResourcesForWebACL", "wafv2:GetWebACL",
+                "macie2:GetMacieSession",
+                "ssm:DescribeInstanceInformation", "ssm:GetServiceSetting",
+                "ssm:ListDocuments", "ssm:DescribeDocumentPermission",
+                "guardduty:ListDetectors", "guardduty:GetDetector",
+                "config:DescribeConfigurationRecorders",
+                "config:DescribeConfigurationRecorderStatus",
+                "config:DescribeConfigurationAggregators"
             ],
             "Resource": "*"
         },
         {
-            "Sid": "CloudWatchAlarmsReadAccess",
+            "Sid": "EC2ReadAccess",
             "Effect": "Allow",
             "Action": [
-                "cloudwatch:DescribeAlarms"
+                "ec2:DescribeSecurityGroups", "ec2:DescribeVpcs", "ec2:DescribeFlowLogs",
+                "ec2:GetEbsDefaultKmsKeyId", "ec2:GetEbsEncryptionByDefault",
+                "ec2:DescribeInstances", "ec2:DescribeSnapshots",
+                "ec2:DescribeSubnets", "ec2:DescribeNetworkAcls",
+                "ec2:DescribeLaunchTemplates", "ec2:DescribeLaunchTemplateVersions",
+                "ec2:DescribeVpcEndpoints", "ec2:DescribeClientVpnEndpoints",
+                "ec2:DescribeImages", "ec2:DescribeTransitGateways", "ec2:DescribeVolumes",
+                "ec2:CreateFlowLogs", "ec2:DeleteFlowLogs"
             ],
             "Resource": "*"
         },
         {
-            "Sid": "SecretsManagerReadAccess",
+            "Sid": "GovernanceAccess",
             "Effect": "Allow",
             "Action": [
-                "secretsmanager:ListSecrets",
-                "secretsmanager:DescribeSecret"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "LambdaReadAccess",
-            "Effect": "Allow",
-            "Action": [
-                "lambda:ListFunctions",
-                "lambda:GetPolicy",
-                "lambda:GetFunction"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "S3ControlReadAccess",
-            "Effect": "Allow",
-            "Action": [
-                "s3:GetAccountPublicAccessBlock"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "DynamoDBReadAccess",
-            "Effect": "Allow",
-            "Action": [
-                "dynamodb:ListTables",
-                "dynamodb:DescribeTable",
-                "dynamodb:DescribeContinuousBackups"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "ECSReadAccess",
-            "Effect": "Allow",
-            "Action": [
-                "ecs:ListClusters",
-                "ecs:DescribeClusters"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "EKSReadAccess",
-            "Effect": "Allow",
-            "Action": [
-                "eks:ListClusters",
-                "eks:DescribeCluster"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "ACMReadAccess",
-            "Effect": "Allow",
-            "Action": [
-                "acm:ListCertificates",
-                "acm:DescribeCertificate"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "CloudFrontReadAccess",
-            "Effect": "Allow",
-            "Action": [
-                "cloudfront:ListDistributions",
-                "cloudfront:GetDistribution"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "WAFReadAccess",
-            "Effect": "Allow",
-            "Action": [
-                "wafv2:ListWebACLs",
-                "wafv2:ListResourcesForWebACL",
-                "wafv2:GetWebACL"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "MacieReadAccess",
-            "Effect": "Allow",
-            "Action": [
-                "macie2:GetMacieSession"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "SSMReadAccess",
-            "Effect": "Allow",
-            "Action": [
-                "ssm:DescribeInstanceInformation",
-                "ssm:GetServiceSetting"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Sid": "STSAccess",
-            "Effect": "Allow",
-            "Action": [
+                "es:ListDomainNames", "es:DescribeDomains",
+                "backup:ListBackupPlans", "backup:GetBackupPlan",
+                "backup:ListBackupVaults", "backup:DescribeBackupVault",
+                "backup:ListRecoveryPointsByBackupVault",
+                "access-analyzer:ListAnalyzers",
+                "sso:ListInstances",
+                "elasticache:DescribeReplicationGroups",
                 "sts:GetCallerIdentity"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+POLICY
+)
+
+    # --- Positive policy 2: Extended services (new collectors) ---
+    local positive_extended
+    positive_extended=$(cat <<'POLICY'
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ComputeAndAnalyticsAccess",
+            "Effect": "Allow",
+            "Action": [
+                "autoscaling:DescribeAutoScalingGroups", "autoscaling:DescribeLaunchConfigurations",
+                "codebuild:ListProjects", "codebuild:BatchGetProjects",
+                "elasticmapreduce:ListClusters", "elasticmapreduce:DescribeCluster",
+                "elasticmapreduce:GetBlockPublicAccessConfiguration",
+                "states:ListStateMachines", "states:DescribeStateMachine",
+                "glue:GetJobs"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "DatabaseAndStreamingAccess",
+            "Effect": "Allow",
+            "Action": [
+                "dms:DescribeReplicationInstances", "dms:DescribeEndpoints", "dms:DescribeReplicationTasks",
+                "kinesis:ListStreams", "kinesis:DescribeStreamSummary",
+                "kafka:ListClustersV2",
+                "neptune:DescribeDBClusters", "neptune:DescribeDBClusterSnapshots",
+                "redshift-serverless:ListWorkgroups", "redshift-serverless:ListNamespaces",
+                "redshift:DescribeClusters", "redshift:DescribeLoggingStatus",
+                "redshift:DescribeClusterParameters",
+                "dax:DescribeClusters"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "NetworkAndSecurityAccess",
+            "Effect": "Allow",
+            "Action": [
+                "network-firewall:ListFirewalls", "network-firewall:DescribeFirewall",
+                "network-firewall:DescribeLoggingConfiguration",
+                "route53:ListHostedZones", "route53:ListQueryLoggingConfigs", "route53:GetDNSSEC",
+                "transfer:ListServers", "transfer:DescribeServer",
+                "inspector2:BatchGetAccountStatus",
+                "events:ListRules", "events:ListTargetsByRule",
+                "organizations:DescribeOrganization", "organizations:ListPolicies"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "AIAndAppServicesAccess",
+            "Effect": "Allow",
+            "Action": [
+                "sagemaker:ListNotebookInstances", "sagemaker:DescribeNotebookInstance",
+                "appsync:ListGraphqlApis",
+                "athena:ListWorkGroups", "athena:GetWorkGroup",
+                "datasync:ListTasks", "datasync:DescribeTask",
+                "bedrock:GetModelInvocationLoggingConfiguration",
+                "apigateway:GET"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "StorageAndMessagingAccess",
+            "Effect": "Allow",
+            "Action": [
+                "fsx:DescribeFileSystems",
+                "mq:ListBrokers", "mq:DescribeBroker",
+                "cognito-idp:ListUserPools", "cognito-idp:DescribeUserPool",
+                "elasticbeanstalk:DescribeEnvironments", "elasticbeanstalk:DescribeConfigurationSettings",
+                "account:GetAlternateContact"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+POLICY
+)
+
+    # --- Positive policy 3: Provisioning access (create/delete test resources) ---
+    local positive_provisioning
+    positive_provisioning=$(cat <<'POLICY'
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "SNSAccess",
+            "Effect": "Allow",
+            "Action": [
+                "sns:ListTopics", "sns:GetTopicAttributes",
+                "sns:ListSubscriptionsByTopic",
+                "sns:CreateTopic", "sns:DeleteTopic"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "SQSAccess",
+            "Effect": "Allow",
+            "Action": [
+                "sqs:ListQueues", "sqs:GetQueueAttributes", "sqs:GetQueueUrl",
+                "sqs:CreateQueue", "sqs:DeleteQueue"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "EFSAccess",
+            "Effect": "Allow",
+            "Action": [
+                "elasticfilesystem:DescribeFileSystems",
+                "elasticfilesystem:DescribeFileSystemPolicy",
+                "elasticfilesystem:DescribeBackupPolicy",
+                "elasticfilesystem:CreateFileSystem",
+                "elasticfilesystem:DeleteFileSystem"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "BackupProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "backup:CreateBackupVault", "backup:DeleteBackupVault"
             ],
             "Resource": "*"
         }
@@ -399,9 +476,7 @@ POLICY
         {
             "Sid": "STSOnly",
             "Effect": "Allow",
-            "Action": [
-                "sts:GetCallerIdentity"
-            ],
+            "Action": ["sts:GetCallerIdentity"],
             "Resource": "*"
         }
     ]
@@ -409,62 +484,37 @@ POLICY
 POLICY
 )
 
-    # Create or update positive policy
-    local positive_arn="arn:aws:iam::${EXPECTED_ACCOUNT_ID}:policy/${POSITIVE_POLICY_NAME}"
-    if aws iam get-policy --policy-arn "$positive_arn" >/dev/null 2>&1; then
-        # Policy exists, create new version (delete oldest non-default if at limit)
-        local versions
-        versions=$(aws iam list-policy-versions --policy-arn "$positive_arn" --query "Versions[?!IsDefaultVersion].VersionId" --output text)
-        local version_count
-        version_count=$(echo "$versions" | wc -w | tr -d ' ')
-        if [ "$version_count" -ge 4 ]; then
-            local oldest
-            oldest=$(echo "$versions" | awk '{print $NF}')
-            aws iam delete-policy-version --policy-arn "$positive_arn" --version-id "$oldest"
-        fi
-        aws iam create-policy-version \
-            --policy-arn "$positive_arn" \
-            --policy-document "$positive_policy" \
-            --set-as-default >/dev/null
-        success "Updated IAM policy: $POSITIVE_POLICY_NAME"
-    else
-        aws iam create-policy \
-            --policy-name "$POSITIVE_POLICY_NAME" \
-            --policy-document "$positive_policy" >/dev/null
-        success "Created IAM policy: $POSITIVE_POLICY_NAME"
-    fi
+    # Create or update all positive policies and attach to positive user
+    local policy_docs=("$positive_core" "$positive_extended" "$positive_provisioning")
+    for i in "${!POSITIVE_POLICY_NAMES[@]}"; do
+        local pname="${POSITIVE_POLICY_NAMES[$i]}"
+        local pdoc="${policy_docs[$i]}"
+        upsert_policy "$pname" "$pdoc"
+        aws iam attach-user-policy \
+            --user-name "sigcomply-e2e-positive" \
+            --policy-arn "arn:aws:iam::${EXPECTED_ACCOUNT_ID}:policy/${pname}" 2>/dev/null || true
+        success "Attached $pname to sigcomply-e2e-positive"
+    done
 
-    # Attach positive policy to positive user
-    aws iam attach-user-policy \
-        --user-name "sigcomply-e2e-positive" \
-        --policy-arn "arn:aws:iam::${EXPECTED_ACCOUNT_ID}:policy/${POSITIVE_POLICY_NAME}" 2>/dev/null || true
-    success "Attached $POSITIVE_POLICY_NAME to sigcomply-e2e-positive"
+    # Clean up old single positive policy if it exists
+    local old_policy_arn="arn:aws:iam::${EXPECTED_ACCOUNT_ID}:policy/sigcomply-e2e-positive-policy"
+    if aws iam get-policy --policy-arn "$old_policy_arn" >/dev/null 2>&1; then
+        aws iam detach-user-policy \
+            --user-name "sigcomply-e2e-positive" \
+            --policy-arn "$old_policy_arn" 2>/dev/null || true
+        # Delete all non-default versions first
+        local old_versions
+        old_versions=$(aws iam list-policy-versions --policy-arn "$old_policy_arn" \
+            --query "Versions[?!IsDefaultVersion].VersionId" --output text 2>/dev/null) || true
+        for ver in $old_versions; do
+            aws iam delete-policy-version --policy-arn "$old_policy_arn" --version-id "$ver" 2>/dev/null || true
+        done
+        aws iam delete-policy --policy-arn "$old_policy_arn" 2>/dev/null || true
+        success "Cleaned up old single positive policy"
+    fi
 
     # Create or update negative policy
-    local negative_arn="arn:aws:iam::${EXPECTED_ACCOUNT_ID}:policy/${NEGATIVE_POLICY_NAME}"
-    if aws iam get-policy --policy-arn "$negative_arn" >/dev/null 2>&1; then
-        local versions
-        versions=$(aws iam list-policy-versions --policy-arn "$negative_arn" --query "Versions[?!IsDefaultVersion].VersionId" --output text)
-        local version_count
-        version_count=$(echo "$versions" | wc -w | tr -d ' ')
-        if [ "$version_count" -ge 4 ]; then
-            local oldest
-            oldest=$(echo "$versions" | awk '{print $NF}')
-            aws iam delete-policy-version --policy-arn "$negative_arn" --version-id "$oldest"
-        fi
-        aws iam create-policy-version \
-            --policy-arn "$negative_arn" \
-            --policy-document "$negative_policy" \
-            --set-as-default >/dev/null
-        success "Updated IAM policy: $NEGATIVE_POLICY_NAME"
-    else
-        aws iam create-policy \
-            --policy-name "$NEGATIVE_POLICY_NAME" \
-            --policy-document "$negative_policy" >/dev/null
-        success "Created IAM policy: $NEGATIVE_POLICY_NAME"
-    fi
-
-    # Attach negative policy to negative user
+    upsert_policy "$NEGATIVE_POLICY_NAME" "$negative_policy"
     aws iam attach-user-policy \
         --user-name "sigcomply-e2e-negative" \
         --policy-arn "arn:aws:iam::${EXPECTED_ACCOUNT_ID}:policy/${NEGATIVE_POLICY_NAME}" 2>/dev/null || true
@@ -820,6 +870,284 @@ provision_secrets_manager() {
     success "Created Secrets Manager secret: $SECRET_NAME (no rotation — intentionally non-compliant)"
 }
 
+# Provision ELBv2 ALB (intentionally non-compliant: HTTP-only, no HTTPS)
+provision_elbv2() {
+    info "Provisioning ALB: $ALB_NAME..."
+
+    # Check if ALB already exists
+    local alb_arn
+    alb_arn=$(aws elbv2 describe-load-balancers --names "$ALB_NAME" \
+        --query "LoadBalancers[0].LoadBalancerArn" --output text 2>/dev/null) || true
+
+    if [ -n "$alb_arn" ] && [ "$alb_arn" != "None" ]; then
+        success "ALB already exists: $ALB_NAME"
+        return
+    fi
+
+    # Get default VPC
+    local vpc_id
+    vpc_id=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
+        --query "Vpcs[0].VpcId" --output text --region "$REGION")
+
+    if [ -z "$vpc_id" ] || [ "$vpc_id" = "None" ]; then
+        warn "No default VPC found in $REGION. Skipping ALB provisioning."
+        return
+    fi
+
+    # Get at least 2 subnets from the default VPC (ALB requires 2 AZs)
+    local subnet_ids
+    subnet_ids=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$vpc_id" \
+        --query "Subnets[?DefaultForAz==\`true\`].SubnetId | [:2]" --output text --region "$REGION")
+
+    local subnet_count
+    subnet_count=$(echo "$subnet_ids" | wc -w | tr -d ' ')
+    if [ "$subnet_count" -lt 2 ]; then
+        warn "Need at least 2 subnets for ALB, found $subnet_count. Skipping ALB provisioning."
+        return
+    fi
+
+    # Create security group for ALB (if not exists)
+    local sg_id
+    sg_id=$(aws ec2 describe-security-groups \
+        --filters "Name=group-name,Values=$ALB_SG_NAME" "Name=vpc-id,Values=$vpc_id" \
+        --query "SecurityGroups[0].GroupId" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -z "$sg_id" ] || [ "$sg_id" = "None" ]; then
+        sg_id=$(aws ec2 create-security-group \
+            --group-name "$ALB_SG_NAME" \
+            --description "SigComply E2E ALB security group" \
+            --vpc-id "$vpc_id" \
+            --query "GroupId" --output text --region "$REGION")
+
+        # Allow inbound HTTP (port 80) for testing
+        aws ec2 authorize-security-group-ingress \
+            --group-id "$sg_id" \
+            --protocol tcp --port 80 --cidr 0.0.0.0/0 \
+            --region "$REGION" >/dev/null 2>&1 || true
+
+        success "Created security group: $ALB_SG_NAME ($sg_id)"
+    else
+        success "Security group already exists: $ALB_SG_NAME ($sg_id)"
+    fi
+
+    # Create target group (required for forward action)
+    local tg_arn
+    tg_arn=$(aws elbv2 describe-target-groups --names "$ALB_TG_NAME" \
+        --query "TargetGroups[0].TargetGroupArn" --output text 2>/dev/null) || true
+
+    if [ -z "$tg_arn" ] || [ "$tg_arn" = "None" ]; then
+        tg_arn=$(aws elbv2 create-target-group \
+            --name "$ALB_TG_NAME" \
+            --protocol HTTP \
+            --port 80 \
+            --vpc-id "$vpc_id" \
+            --target-type ip \
+            --query "TargetGroups[0].TargetGroupArn" --output text --region "$REGION")
+        success "Created target group: $ALB_TG_NAME"
+    else
+        success "Target group already exists: $ALB_TG_NAME"
+    fi
+
+    # Create ALB
+    # shellcheck disable=SC2086
+    alb_arn=$(aws elbv2 create-load-balancer \
+        --name "$ALB_NAME" \
+        --subnets $subnet_ids \
+        --security-groups "$sg_id" \
+        --scheme internet-facing \
+        --type application \
+        --query "LoadBalancers[0].LoadBalancerArn" --output text --region "$REGION")
+    success "Created ALB: $ALB_NAME"
+
+    # Create HTTP-only listener (intentionally non-compliant — no HTTPS)
+    aws elbv2 create-listener \
+        --load-balancer-arn "$alb_arn" \
+        --protocol HTTP \
+        --port 80 \
+        --default-actions "Type=forward,TargetGroupArn=$tg_arn" \
+        --region "$REGION" >/dev/null
+    success "Created HTTP listener on port 80 (intentionally non-compliant — no HTTPS)"
+}
+
+# Provision SNS topic (intentionally non-compliant: no KMS encryption, no delivery logging)
+provision_sns() {
+    info "Provisioning SNS topic: $SNS_TOPIC_NAME..."
+
+    local topic_arn
+    topic_arn=$(aws sns list-topics --region "$REGION" --query "Topics[?ends_with(TopicArn, ':$SNS_TOPIC_NAME')].TopicArn | [0]" --output text 2>/dev/null) || true
+
+    if [ -n "$topic_arn" ] && [ "$topic_arn" != "None" ] && [ "$topic_arn" != "null" ]; then
+        success "SNS topic already exists: $SNS_TOPIC_NAME"
+        return
+    fi
+
+    aws sns create-topic \
+        --name "$SNS_TOPIC_NAME" \
+        --region "$REGION" >/dev/null
+    success "Created SNS topic: $SNS_TOPIC_NAME (no KMS encryption, no delivery logging — intentionally non-compliant)"
+}
+
+# Provision SQS queue (intentionally non-compliant: no encryption, no DLQ)
+provision_sqs() {
+    info "Provisioning SQS queue: $SQS_QUEUE_NAME..."
+
+    local queue_url
+    queue_url=$(aws sqs get-queue-url --queue-name "$SQS_QUEUE_NAME" --region "$REGION" --query "QueueUrl" --output text 2>/dev/null) || true
+
+    if [ -n "$queue_url" ] && [ "$queue_url" != "None" ] && [ "$queue_url" != "null" ]; then
+        success "SQS queue already exists: $SQS_QUEUE_NAME"
+        return
+    fi
+
+    aws sqs create-queue \
+        --queue-name "$SQS_QUEUE_NAME" \
+        --region "$REGION" >/dev/null
+    success "Created SQS queue: $SQS_QUEUE_NAME (no encryption, no DLQ — intentionally non-compliant)"
+}
+
+# Provision EFS filesystem (intentionally non-compliant: no backup configured)
+provision_efs() {
+    info "Provisioning EFS filesystem: $EFS_NAME..."
+
+    local fs_id
+    fs_id=$(aws efs describe-file-systems --region "$REGION" \
+        --query "FileSystems[?Name=='$EFS_NAME'].FileSystemId | [0]" --output text 2>/dev/null) || true
+
+    if [ -n "$fs_id" ] && [ "$fs_id" != "None" ] && [ "$fs_id" != "null" ]; then
+        success "EFS filesystem already exists: $EFS_NAME (id: $fs_id)"
+        return
+    fi
+
+    aws efs create-file-system \
+        --performance-mode generalPurpose \
+        --throughput-mode bursting \
+        --tags "Key=Name,Value=$EFS_NAME" \
+        --no-backup \
+        --region "$REGION" >/dev/null
+    success "Created EFS filesystem: $EFS_NAME (no backup — intentionally non-compliant)"
+}
+
+# Provision Backup vault (intentionally non-compliant: no vault lock, default encryption)
+provision_backup_vault() {
+    info "Provisioning Backup vault: $BACKUP_VAULT_NAME..."
+
+    if aws backup describe-backup-vault --backup-vault-name "$BACKUP_VAULT_NAME" --region "$REGION" >/dev/null 2>&1; then
+        success "Backup vault already exists: $BACKUP_VAULT_NAME"
+        return
+    fi
+
+    aws backup create-backup-vault \
+        --backup-vault-name "$BACKUP_VAULT_NAME" \
+        --region "$REGION" >/dev/null
+    success "Created Backup vault: $BACKUP_VAULT_NAME (no vault lock — intentionally non-compliant)"
+}
+
+# Provision VPC flow logs on default VPC
+provision_vpc_flow_logs() {
+    info "Provisioning VPC flow logs on default VPC..."
+
+    # Get default VPC
+    local vpc_id
+    vpc_id=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
+        --query "Vpcs[0].VpcId" --output text --region "$REGION")
+
+    if [ -z "$vpc_id" ] || [ "$vpc_id" = "None" ]; then
+        warn "No default VPC found in $REGION. Skipping VPC flow logs provisioning."
+        return
+    fi
+
+    # Check if flow logs already exist for this VPC
+    local existing_flow_logs
+    existing_flow_logs=$(aws ec2 describe-flow-logs \
+        --filter "Name=resource-id,Values=$vpc_id" \
+        --query "FlowLogs[0].FlowLogId" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -n "$existing_flow_logs" ] && [ "$existing_flow_logs" != "None" ] && [ "$existing_flow_logs" != "null" ]; then
+        success "VPC flow logs already exist for $vpc_id: $existing_flow_logs"
+        return
+    fi
+
+    # Create flow logs to CloudWatch Logs
+    local flow_log_group="sigcomply-e2e-vpc-flow-logs"
+
+    # Create log group for flow logs if it doesn't exist
+    if ! aws logs describe-log-groups --log-group-name-prefix "$flow_log_group" \
+        --query "logGroups[?logGroupName=='$flow_log_group'].logGroupName" --output text 2>/dev/null | grep -q "$flow_log_group"; then
+        aws logs create-log-group --log-group-name "$flow_log_group" --region "$REGION"
+        success "Created CloudWatch log group for flow logs: $flow_log_group"
+    fi
+
+    # Create IAM role for flow logs (if not exists)
+    local flow_log_role="sigcomply-e2e-flow-log-role"
+    local role_arn
+    role_arn=$(aws iam get-role --role-name "$flow_log_role" --query "Role.Arn" --output text 2>/dev/null) || true
+
+    if [ -z "$role_arn" ] || [ "$role_arn" = "None" ]; then
+        local assume_role_policy
+        assume_role_policy=$(cat <<'POLICY'
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "vpc-flow-logs.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}
+POLICY
+)
+        role_arn=$(aws iam create-role \
+            --role-name "$flow_log_role" \
+            --assume-role-policy-document "$assume_role_policy" \
+            --query "Role.Arn" --output text)
+
+        # Attach policy for CloudWatch Logs access
+        local log_policy
+        log_policy=$(cat <<'POLICY'
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+                "logs:DescribeLogGroups",
+                "logs:DescribeLogStreams"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+POLICY
+)
+        aws iam put-role-policy \
+            --role-name "$flow_log_role" \
+            --policy-name "flow-log-cloudwatch-access" \
+            --policy-document "$log_policy"
+
+        success "Created flow log IAM role: $flow_log_role"
+        info "Waiting for IAM role to propagate..."
+        sleep 10
+    else
+        success "Flow log IAM role already exists: $flow_log_role"
+    fi
+
+    aws ec2 create-flow-logs \
+        --resource-type VPC \
+        --resource-ids "$vpc_id" \
+        --traffic-type ALL \
+        --log-destination-type cloud-watch-logs \
+        --log-group-name "$flow_log_group" \
+        --deliver-logs-permission-arn "$role_arn" \
+        --region "$REGION" >/dev/null
+    success "Created VPC flow logs for $vpc_id → $flow_log_group"
+}
+
 # Print summary
 print_summary() {
     echo ""
@@ -829,7 +1157,7 @@ print_summary() {
     echo ""
     echo "  Resources provisioned:"
     echo "    - IAM users: ${IAM_USERS[*]}"
-    echo "    - IAM policies: $POSITIVE_POLICY_NAME, $NEGATIVE_POLICY_NAME"
+    echo "    - IAM policies: ${POSITIVE_POLICY_NAMES[*]}, $NEGATIVE_POLICY_NAME"
     echo "    - S3 bucket: $S3_BUCKET"
     echo "    - CloudTrail: $CLOUDTRAIL_NAME (bucket: $CLOUDTRAIL_BUCKET)"
     echo "    - CloudWatch log group: $LOG_GROUP_NAME"
@@ -839,6 +1167,12 @@ print_summary() {
     echo "    - DynamoDB table: $DYNAMODB_TABLE"
     echo "    - Lambda function: $LAMBDA_FUNCTION (role: $LAMBDA_ROLE)"
     echo "    - Secrets Manager secret: $SECRET_NAME"
+    echo "    - ALB: $ALB_NAME (HTTP-only — intentionally non-compliant)"
+    echo "    - SNS topic: $SNS_TOPIC_NAME (no KMS — intentionally non-compliant)"
+    echo "    - SQS queue: $SQS_QUEUE_NAME (no encryption, no DLQ — intentionally non-compliant)"
+    echo "    - EFS filesystem: $EFS_NAME (no backup — intentionally non-compliant)"
+    echo "    - Backup vault: $BACKUP_VAULT_NAME (no vault lock — intentionally non-compliant)"
+    echo "    - VPC flow logs: enabled on default VPC"
     echo ""
 
     if [ -n "${POSITIVE_ACCESS_KEY_ID:-}" ] || [ -n "${NEGATIVE_ACCESS_KEY_ID:-}" ]; then
@@ -895,6 +1229,12 @@ main() {
     provision_dynamodb
     provision_lambda
     provision_secrets_manager
+    provision_elbv2
+    provision_sns
+    provision_sqs
+    provision_efs
+    provision_backup_vault
+    provision_vpc_flow_logs
     print_summary
 }
 

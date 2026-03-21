@@ -40,6 +40,10 @@ DYNAMODB_TABLE="sigcomply-e2e-test"
 LAMBDA_FUNCTION="sigcomply-e2e-test"
 LAMBDA_ROLE="sigcomply-e2e-lambda-role"
 SECRET_NAME="sigcomply-e2e-test-secret"
+SNS_TOPIC_NAME="sigcomply-e2e-test"
+SQS_QUEUE_NAME="sigcomply-e2e-test"
+EFS_NAME="sigcomply-e2e-test"
+BACKUP_VAULT_NAME="sigcomply-e2e-test"
 
 FORCE=false
 
@@ -123,6 +127,11 @@ confirm() {
     echo "    - DynamoDB table: $DYNAMODB_TABLE"
     echo "    - Lambda function: $LAMBDA_FUNCTION (+ role: $LAMBDA_ROLE)"
     echo "    - Secrets Manager secret: $SECRET_NAME"
+    echo "    - SNS topic: $SNS_TOPIC_NAME"
+    echo "    - SQS queue: $SQS_QUEUE_NAME"
+    echo "    - EFS filesystem: $EFS_NAME"
+    echo "    - Backup vault: $BACKUP_VAULT_NAME"
+    echo "    - VPC flow logs (on default VPC)"
     echo ""
     warn "IAM users and policies will NOT be deleted."
     echo ""
@@ -340,6 +349,129 @@ delete_secrets_manager() {
     success "Deleted Secrets Manager secret: $SECRET_NAME"
 }
 
+# Delete SNS topic
+delete_sns() {
+    info "Deleting SNS topic: $SNS_TOPIC_NAME..."
+
+    local topic_arn
+    topic_arn=$(aws sns list-topics --region "$REGION" --query "Topics[?ends_with(TopicArn, ':$SNS_TOPIC_NAME')].TopicArn | [0]" --output text 2>/dev/null) || true
+
+    if [ -z "$topic_arn" ] || [ "$topic_arn" = "None" ] || [ "$topic_arn" = "null" ]; then
+        skip "SNS topic not found: $SNS_TOPIC_NAME"
+        return
+    fi
+
+    aws sns delete-topic --topic-arn "$topic_arn" --region "$REGION"
+    success "Deleted SNS topic: $SNS_TOPIC_NAME"
+}
+
+# Delete SQS queue
+delete_sqs() {
+    info "Deleting SQS queue: $SQS_QUEUE_NAME..."
+
+    local queue_url
+    queue_url=$(aws sqs get-queue-url --queue-name "$SQS_QUEUE_NAME" --region "$REGION" --query "QueueUrl" --output text 2>/dev/null) || true
+
+    if [ -z "$queue_url" ] || [ "$queue_url" = "None" ] || [ "$queue_url" = "null" ]; then
+        skip "SQS queue not found: $SQS_QUEUE_NAME"
+        return
+    fi
+
+    aws sqs delete-queue --queue-url "$queue_url" --region "$REGION"
+    success "Deleted SQS queue: $SQS_QUEUE_NAME"
+}
+
+# Delete EFS filesystem
+delete_efs() {
+    info "Deleting EFS filesystem: $EFS_NAME..."
+
+    local fs_id
+    fs_id=$(aws efs describe-file-systems --region "$REGION" \
+        --query "FileSystems[?Name=='$EFS_NAME'].FileSystemId | [0]" --output text 2>/dev/null) || true
+
+    if [ -z "$fs_id" ] || [ "$fs_id" = "None" ] || [ "$fs_id" = "null" ]; then
+        skip "EFS filesystem not found: $EFS_NAME"
+        return
+    fi
+
+    # Delete mount targets first (required before filesystem deletion)
+    local mount_targets
+    mount_targets=$(aws efs describe-mount-targets --file-system-id "$fs_id" --region "$REGION" \
+        --query "MountTargets[].MountTargetId" --output text 2>/dev/null) || true
+    for mt in $mount_targets; do
+        if [ -n "$mt" ] && [ "$mt" != "None" ]; then
+            aws efs delete-mount-target --mount-target-id "$mt" --region "$REGION" 2>/dev/null || true
+        fi
+    done
+
+    # Wait briefly for mount targets to be deleted
+    if [ -n "$mount_targets" ] && [ "$mount_targets" != "None" ]; then
+        sleep 5
+    fi
+
+    aws efs delete-file-system --file-system-id "$fs_id" --region "$REGION"
+    success "Deleted EFS filesystem: $EFS_NAME ($fs_id)"
+}
+
+# Delete Backup vault
+delete_backup_vault() {
+    info "Deleting Backup vault: $BACKUP_VAULT_NAME..."
+
+    if ! aws backup describe-backup-vault --backup-vault-name "$BACKUP_VAULT_NAME" --region "$REGION" >/dev/null 2>&1; then
+        skip "Backup vault not found: $BACKUP_VAULT_NAME"
+        return
+    fi
+
+    aws backup delete-backup-vault \
+        --backup-vault-name "$BACKUP_VAULT_NAME" \
+        --region "$REGION"
+    success "Deleted Backup vault: $BACKUP_VAULT_NAME"
+}
+
+# Delete VPC flow logs
+delete_vpc_flow_logs() {
+    info "Deleting VPC flow logs..."
+
+    local vpc_id
+    vpc_id=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
+        --query "Vpcs[0].VpcId" --output text --region "$REGION") || true
+
+    if [ -z "$vpc_id" ] || [ "$vpc_id" = "None" ]; then
+        skip "No default VPC found"
+        return
+    fi
+
+    local flow_log_ids
+    flow_log_ids=$(aws ec2 describe-flow-logs \
+        --filter "Name=resource-id,Values=$vpc_id" \
+        --query "FlowLogs[].FlowLogId" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -z "$flow_log_ids" ] || [ "$flow_log_ids" = "None" ]; then
+        skip "No VPC flow logs found for $vpc_id"
+        return
+    fi
+
+    # shellcheck disable=SC2086
+    aws ec2 delete-flow-logs --flow-log-ids $flow_log_ids --region "$REGION" >/dev/null
+    success "Deleted VPC flow logs for $vpc_id"
+
+    # Clean up log group
+    local flow_log_group="sigcomply-e2e-vpc-flow-logs"
+    if aws logs describe-log-groups --log-group-name-prefix "$flow_log_group" \
+        --query "logGroups[?logGroupName=='$flow_log_group'].logGroupName" --output text 2>/dev/null | grep -q "$flow_log_group"; then
+        aws logs delete-log-group --log-group-name "$flow_log_group" --region "$REGION"
+        success "Deleted flow logs log group: $flow_log_group"
+    fi
+
+    # Clean up flow log IAM role
+    local flow_log_role="sigcomply-e2e-flow-log-role"
+    if aws iam get-role --role-name "$flow_log_role" >/dev/null 2>&1; then
+        aws iam delete-role-policy --role-name "$flow_log_role" --policy-name "flow-log-cloudwatch-access" 2>/dev/null || true
+        aws iam delete-role --role-name "$flow_log_role" >/dev/null
+        success "Deleted flow log IAM role: $flow_log_role"
+    fi
+}
+
 # Wait for RDS deletion
 wait_for_rds_deletion() {
     local status
@@ -391,6 +523,11 @@ print_summary() {
     echo "    - DynamoDB table: $DYNAMODB_TABLE"
     echo "    - Lambda function: $LAMBDA_FUNCTION (+ role: $LAMBDA_ROLE)"
     echo "    - Secrets Manager secret: $SECRET_NAME"
+    echo "    - SNS topic: $SNS_TOPIC_NAME"
+    echo "    - SQS queue: $SQS_QUEUE_NAME"
+    echo "    - EFS filesystem: $EFS_NAME"
+    echo "    - Backup vault: $BACKUP_VAULT_NAME"
+    echo "    - VPC flow logs (+ log group + IAM role)"
     echo "    - S3 bucket: $S3_BUCKET"
     echo ""
     echo "  NOT deleted (long-lived):"
@@ -420,6 +557,11 @@ main() {
     delete_dynamodb
     delete_lambda
     delete_secrets_manager
+    delete_sns
+    delete_sqs
+    delete_efs
+    delete_backup_vault
+    delete_vpc_flow_logs
     delete_s3_bucket "$S3_BUCKET"
     wait_for_rds_deletion
     print_summary

@@ -21,7 +21,11 @@ type MockS3Client struct {
 	GetBucketVersioningFunc  func(ctx context.Context, params *s3.GetBucketVersioningInput, optFns ...func(*s3.Options)) (*s3.GetBucketVersioningOutput, error)
 	GetPublicAccessBlockFunc func(ctx context.Context, params *s3.GetPublicAccessBlockInput, optFns ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error)
 	GetBucketPolicyFunc      func(ctx context.Context, params *s3.GetBucketPolicyInput, optFns ...func(*s3.Options)) (*s3.GetBucketPolicyOutput, error)
-	GetBucketLoggingFunc     func(ctx context.Context, params *s3.GetBucketLoggingInput, optFns ...func(*s3.Options)) (*s3.GetBucketLoggingOutput, error)
+	GetBucketLoggingFunc                    func(ctx context.Context, params *s3.GetBucketLoggingInput, optFns ...func(*s3.Options)) (*s3.GetBucketLoggingOutput, error)
+	GetBucketLifecycleConfigurationFunc     func(ctx context.Context, params *s3.GetBucketLifecycleConfigurationInput, optFns ...func(*s3.Options)) (*s3.GetBucketLifecycleConfigurationOutput, error)
+	GetObjectLockConfigurationFunc          func(ctx context.Context, params *s3.GetObjectLockConfigurationInput, optFns ...func(*s3.Options)) (*s3.GetObjectLockConfigurationOutput, error)
+	GetBucketReplicationFunc                func(ctx context.Context, params *s3.GetBucketReplicationInput, optFns ...func(*s3.Options)) (*s3.GetBucketReplicationOutput, error)
+	GetBucketNotificationConfigurationFunc  func(ctx context.Context, params *s3.GetBucketNotificationConfigurationInput, optFns ...func(*s3.Options)) (*s3.GetBucketNotificationConfigurationOutput, error)
 }
 
 func (m *MockS3Client) ListBuckets(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
@@ -54,6 +58,36 @@ func (m *MockS3Client) GetBucketLogging(ctx context.Context, params *s3.GetBucke
 	}
 	// Default: no logging
 	return &s3.GetBucketLoggingOutput{}, nil
+}
+
+func (m *MockS3Client) GetBucketLifecycleConfiguration(ctx context.Context, params *s3.GetBucketLifecycleConfigurationInput, optFns ...func(*s3.Options)) (*s3.GetBucketLifecycleConfigurationOutput, error) {
+	if m.GetBucketLifecycleConfigurationFunc != nil {
+		return m.GetBucketLifecycleConfigurationFunc(ctx, params, optFns...)
+	}
+	// Default: no lifecycle configuration
+	return nil, errors.New("NoSuchLifecycleConfiguration")
+}
+
+func (m *MockS3Client) GetObjectLockConfiguration(ctx context.Context, params *s3.GetObjectLockConfigurationInput, optFns ...func(*s3.Options)) (*s3.GetObjectLockConfigurationOutput, error) {
+	if m.GetObjectLockConfigurationFunc != nil {
+		return m.GetObjectLockConfigurationFunc(ctx, params, optFns...)
+	}
+	// Default: no object lock
+	return nil, errors.New("ObjectLockConfigurationNotFoundError")
+}
+
+func (m *MockS3Client) GetBucketReplication(ctx context.Context, params *s3.GetBucketReplicationInput, optFns ...func(*s3.Options)) (*s3.GetBucketReplicationOutput, error) {
+	if m.GetBucketReplicationFunc != nil {
+		return m.GetBucketReplicationFunc(ctx, params, optFns...)
+	}
+	return nil, errors.New("ReplicationConfigurationNotFoundError")
+}
+
+func (m *MockS3Client) GetBucketNotificationConfiguration(ctx context.Context, params *s3.GetBucketNotificationConfigurationInput, optFns ...func(*s3.Options)) (*s3.GetBucketNotificationConfigurationOutput, error) {
+	if m.GetBucketNotificationConfigurationFunc != nil {
+		return m.GetBucketNotificationConfigurationFunc(ctx, params, optFns...)
+	}
+	return &s3.GetBucketNotificationConfigurationOutput{}, nil
 }
 
 func TestS3Collector_CollectBuckets(t *testing.T) {
@@ -460,6 +494,54 @@ func TestS3Collector_enrichLogging(t *testing.T) {
 
 			assert.Equal(t, tt.wantEnabled, bucket.LoggingEnabled)
 			assert.Equal(t, tt.wantTargetBucket, bucket.LoggingTargetBucket)
+		})
+	}
+}
+
+func TestS3Collector_enrichObjectLock(t *testing.T) {
+	tests := []struct {
+		name     string
+		output   *s3.GetObjectLockConfigurationOutput
+		err      error
+		wantLock bool
+	}{
+		{
+			name: "object lock enabled",
+			output: &s3.GetObjectLockConfigurationOutput{
+				ObjectLockConfiguration: &types.ObjectLockConfiguration{
+					ObjectLockEnabled: types.ObjectLockEnabledEnabled,
+				},
+			},
+			wantLock: true,
+		},
+		{
+			name:   "object lock not configured",
+			output: &s3.GetObjectLockConfigurationOutput{},
+			wantLock: false,
+		},
+		{
+			name:     "object lock query fails (fail-safe)",
+			err:      errors.New("ObjectLockConfigurationNotFoundError"),
+			wantLock: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &MockS3Client{
+				GetObjectLockConfigurationFunc: func(ctx context.Context, params *s3.GetObjectLockConfigurationInput, optFns ...func(*s3.Options)) (*s3.GetObjectLockConfigurationOutput, error) {
+					if tt.err != nil {
+						return nil, tt.err
+					}
+					return tt.output, nil
+				},
+			}
+
+			collector := &S3Collector{client: mock}
+			bucket := &S3Bucket{Name: "test-bucket"}
+			collector.enrichObjectLock(context.Background(), bucket)
+
+			assert.Equal(t, tt.wantLock, bucket.ObjectLockEnabled)
 		})
 	}
 }

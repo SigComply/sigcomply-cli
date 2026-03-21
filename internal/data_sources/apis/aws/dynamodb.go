@@ -23,6 +23,8 @@ type DynamoDBTable struct {
 	EncryptionType string `json:"encryption_type,omitempty"`
 	SSEEnabled     bool   `json:"sse_enabled"`
 	PITREnabled    bool   `json:"pitr_enabled"`
+	BillingMode        string `json:"billing_mode,omitempty"`
+	DeletionProtection bool   `json:"deletion_protection"`
 }
 
 // ToEvidence converts a DynamoDBTable to Evidence.
@@ -89,6 +91,12 @@ func (c *DynamoDBCollector) enrichTableDetails(ctx context.Context, table *Dynam
 			// Default encryption (AWS owned key) is always enabled
 			table.SSEEnabled = true
 			table.EncryptionType = "DEFAULT"
+		}
+		if output.Table.BillingModeSummary != nil {
+			table.BillingMode = string(output.Table.BillingModeSummary.BillingMode)
+		}
+		if output.Table.DeletionProtectionEnabled != nil {
+			table.DeletionProtection = *output.Table.DeletionProtectionEnabled
 		}
 	}
 }

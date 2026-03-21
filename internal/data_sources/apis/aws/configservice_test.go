@@ -16,6 +16,7 @@ import (
 type MockConfigServiceClient struct {
 	DescribeConfigurationRecordersFunc      func(ctx context.Context, params *configservice.DescribeConfigurationRecordersInput, optFns ...func(*configservice.Options)) (*configservice.DescribeConfigurationRecordersOutput, error)
 	DescribeConfigurationRecorderStatusFunc func(ctx context.Context, params *configservice.DescribeConfigurationRecorderStatusInput, optFns ...func(*configservice.Options)) (*configservice.DescribeConfigurationRecorderStatusOutput, error)
+	DescribeConfigurationAggregatorsFunc    func(ctx context.Context, params *configservice.DescribeConfigurationAggregatorsInput, optFns ...func(*configservice.Options)) (*configservice.DescribeConfigurationAggregatorsOutput, error)
 }
 
 func (m *MockConfigServiceClient) DescribeConfigurationRecorders(ctx context.Context, params *configservice.DescribeConfigurationRecordersInput, optFns ...func(*configservice.Options)) (*configservice.DescribeConfigurationRecordersOutput, error) {
@@ -24,6 +25,13 @@ func (m *MockConfigServiceClient) DescribeConfigurationRecorders(ctx context.Con
 
 func (m *MockConfigServiceClient) DescribeConfigurationRecorderStatus(ctx context.Context, params *configservice.DescribeConfigurationRecorderStatusInput, optFns ...func(*configservice.Options)) (*configservice.DescribeConfigurationRecorderStatusOutput, error) {
 	return m.DescribeConfigurationRecorderStatusFunc(ctx, params, optFns...)
+}
+
+func (m *MockConfigServiceClient) DescribeConfigurationAggregators(ctx context.Context, params *configservice.DescribeConfigurationAggregatorsInput, optFns ...func(*configservice.Options)) (*configservice.DescribeConfigurationAggregatorsOutput, error) {
+	if m.DescribeConfigurationAggregatorsFunc != nil {
+		return m.DescribeConfigurationAggregatorsFunc(ctx, params, optFns...)
+	}
+	return &configservice.DescribeConfigurationAggregatorsOutput{}, nil
 }
 
 func TestConfigCollector_CollectStatus(t *testing.T) {
@@ -141,8 +149,9 @@ func TestConfigCollector_CollectEvidence(t *testing.T) {
 	ev, err := collector.CollectEvidence(context.Background(), "123456789012")
 
 	require.NoError(t, err)
-	assert.Len(t, ev, 1)
+	assert.Len(t, ev, 2)
 	assert.Equal(t, "aws:config:recorder", ev[0].ResourceType)
+	assert.Equal(t, "aws:config:aggregator", ev[1].ResourceType)
 }
 
 func TestConfigStatus_ToEvidence(t *testing.T) {
@@ -264,6 +273,7 @@ func TestConfigCollector_CollectEvidence_FailSafe(t *testing.T) {
 	ev, err := collector.CollectEvidence(context.Background(), "123456789012")
 
 	require.NoError(t, err, "fail-safe should not return error")
-	require.Len(t, ev, 1)
+	require.Len(t, ev, 2)
 	assert.Equal(t, "aws:config:recorder", ev[0].ResourceType)
+	assert.Equal(t, "aws:config:aggregator", ev[1].ResourceType)
 }

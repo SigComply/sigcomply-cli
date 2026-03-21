@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/securityhub"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
@@ -12,6 +13,7 @@ import (
 // SecurityHubClient defines the interface for Security Hub operations.
 type SecurityHubClient interface {
 	DescribeHub(ctx context.Context, params *securityhub.DescribeHubInput, optFns ...func(*securityhub.Options)) (*securityhub.DescribeHubOutput, error)
+	GetEnabledStandards(ctx context.Context, params *securityhub.GetEnabledStandardsInput, optFns ...func(*securityhub.Options)) (*securityhub.GetEnabledStandardsOutput, error)
 }
 
 // SecurityHubStatus represents the Security Hub status.
@@ -19,6 +21,8 @@ type SecurityHubStatus struct {
 	Enabled bool   `json:"enabled"`
 	HubARN  string `json:"hub_arn,omitempty"`
 	Region  string `json:"region"`
+	HasFSBP bool   `json:"has_fsbp"`
+	HasCIS  bool   `json:"has_cis"`
 }
 
 // ToEvidence converts a SecurityHubStatus to Evidence.
@@ -56,7 +60,35 @@ func (c *SecurityHubCollector) CollectStatus(ctx context.Context) (*SecurityHubS
 		status.HubARN = *output.HubArn
 	}
 
+	// Enrich with enabled standards
+	c.enrichStandards(ctx, status)
+
 	return status, nil
+}
+
+// enrichStandards checks which security standards are enabled.
+func (c *SecurityHubCollector) enrichStandards(ctx context.Context, status *SecurityHubStatus) {
+	if !status.Enabled {
+		return
+	}
+
+	output, err := c.client.GetEnabledStandards(ctx, &securityhub.GetEnabledStandardsInput{})
+	if err != nil {
+		return
+	}
+
+	for _, std := range output.StandardsSubscriptions {
+		arn := ""
+		if std.StandardsArn != nil {
+			arn = *std.StandardsArn
+		}
+		if strings.Contains(arn, "aws-foundational-security-best-practices") || strings.Contains(arn, "standards/aws-foundational") {
+			status.HasFSBP = true
+		}
+		if strings.Contains(arn, "cis-aws-foundations-benchmark") || strings.Contains(arn, "standards/cis") {
+			status.HasCIS = true
+		}
+	}
 }
 
 // CollectEvidence collects Security Hub status as evidence.

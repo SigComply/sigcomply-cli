@@ -15,13 +15,17 @@ import (
 type WAFClient interface {
 	ListWebACLs(ctx context.Context, params *wafv2.ListWebACLsInput, optFns ...func(*wafv2.Options)) (*wafv2.ListWebACLsOutput, error)
 	ListResourcesForWebACL(ctx context.Context, params *wafv2.ListResourcesForWebACLInput, optFns ...func(*wafv2.Options)) (*wafv2.ListResourcesForWebACLOutput, error)
+	GetWebACL(ctx context.Context, params *wafv2.GetWebACLInput, optFns ...func(*wafv2.Options)) (*wafv2.GetWebACLOutput, error)
+	GetLoggingConfiguration(ctx context.Context, params *wafv2.GetLoggingConfigurationInput, optFns ...func(*wafv2.Options)) (*wafv2.GetLoggingConfigurationOutput, error)
 }
 
 // WAFStatus represents the WAF configuration status.
 type WAFStatus struct {
-	WebACLCount        int  `json:"web_acl_count"`
-	ResourcesProtected int  `json:"resources_protected"`
-	HasALBProtection   bool `json:"has_alb_protection"`
+	WebACLCount        int    `json:"web_acl_count"`
+	ResourcesProtected int    `json:"resources_protected"`
+	HasALBProtection   bool   `json:"has_alb_protection"`
+	LoggingEnabled     bool   `json:"logging_enabled"`
+	HasRules           bool   `json:"has_rules"`
 	Region             string `json:"region"`
 }
 
@@ -59,6 +63,24 @@ func (c *WAFCollector) CollectStatus(ctx context.Context) (*WAFStatus, error) {
 	status.WebACLCount = len(output.WebACLs)
 
 	for _, acl := range output.WebACLs {
+		// Check logging configuration
+		logOutput, logErr := c.client.GetLoggingConfiguration(ctx, &wafv2.GetLoggingConfigurationInput{
+			ResourceArn: acl.ARN,
+		})
+		if logErr == nil && logOutput.LoggingConfiguration != nil {
+			status.LoggingEnabled = true
+		}
+
+		// Check rules by getting full web ACL
+		aclOutput, aclErr := c.client.GetWebACL(ctx, &wafv2.GetWebACLInput{
+			Name:  acl.Name,
+			Id:    acl.Id,
+			Scope: waftypes.ScopeRegional,
+		})
+		if aclErr == nil && aclOutput.WebACL != nil && len(aclOutput.WebACL.Rules) > 0 {
+			status.HasRules = true
+		}
+
 		resOutput, err := c.client.ListResourcesForWebACL(ctx, &wafv2.ListResourcesForWebACLInput{
 			WebACLArn: acl.ARN,
 		})

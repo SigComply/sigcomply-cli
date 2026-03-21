@@ -23,6 +23,7 @@ type Secret struct {
 	RotationEnabled   bool   `json:"rotation_enabled"`
 	LastRotatedDate   string `json:"last_rotated_date,omitempty"`
 	DaysSinceRotation int    `json:"days_since_rotation"`
+	CMKEncrypted      bool   `json:"cmk_encrypted"`
 }
 
 // ToEvidence converts a Secret to Evidence.
@@ -61,6 +62,7 @@ func (c *SecretsManagerCollector) CollectSecrets(ctx context.Context) ([]Secret,
 				Name:            awssdk.ToString(s.Name),
 				ARN:             awssdk.ToString(s.ARN),
 				RotationEnabled: awssdk.ToBool(s.RotationEnabled),
+				CMKEncrypted:    awssdk.ToString(s.KmsKeyId) != "",
 			}
 
 			if s.LastRotatedDate != nil {

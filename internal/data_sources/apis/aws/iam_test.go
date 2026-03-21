@@ -21,6 +21,13 @@ type MockIAMClient struct {
 	ListAccessKeysFunc           func(ctx context.Context, params *iam.ListAccessKeysInput, optFns ...func(*iam.Options)) (*iam.ListAccessKeysOutput, error)
 	GetAccessKeyLastUsedFunc     func(ctx context.Context, params *iam.GetAccessKeyLastUsedInput, optFns ...func(*iam.Options)) (*iam.GetAccessKeyLastUsedOutput, error)
 	ListAttachedUserPoliciesFunc func(ctx context.Context, params *iam.ListAttachedUserPoliciesInput, optFns ...func(*iam.Options)) (*iam.ListAttachedUserPoliciesOutput, error)
+	ListUserPoliciesFunc         func(ctx context.Context, params *iam.ListUserPoliciesInput, optFns ...func(*iam.Options)) (*iam.ListUserPoliciesOutput, error)
+	ListGroupsForUserFunc        func(ctx context.Context, params *iam.ListGroupsForUserInput, optFns ...func(*iam.Options)) (*iam.ListGroupsForUserOutput, error)
+	ListRolesFunc                func(ctx context.Context, params *iam.ListRolesInput, optFns ...func(*iam.Options)) (*iam.ListRolesOutput, error)
+	ListAttachedRolePoliciesFunc func(ctx context.Context, params *iam.ListAttachedRolePoliciesInput, optFns ...func(*iam.Options)) (*iam.ListAttachedRolePoliciesOutput, error)
+	ListPoliciesFunc             func(ctx context.Context, params *iam.ListPoliciesInput, optFns ...func(*iam.Options)) (*iam.ListPoliciesOutput, error)
+	GetPolicyVersionFunc         func(ctx context.Context, params *iam.GetPolicyVersionInput, optFns ...func(*iam.Options)) (*iam.GetPolicyVersionOutput, error)
+	ListServerCertificatesFunc   func(ctx context.Context, params *iam.ListServerCertificatesInput, optFns ...func(*iam.Options)) (*iam.ListServerCertificatesOutput, error)
 }
 
 func (m *MockIAMClient) ListUsers(ctx context.Context, params *iam.ListUsersInput, optFns ...func(*iam.Options)) (*iam.ListUsersOutput, error) {
@@ -54,6 +61,55 @@ func (m *MockIAMClient) ListAttachedUserPolicies(ctx context.Context, params *ia
 		return m.ListAttachedUserPoliciesFunc(ctx, params, optFns...)
 	}
 	return &iam.ListAttachedUserPoliciesOutput{AttachedPolicies: []types.AttachedPolicy{}}, nil
+}
+
+func (m *MockIAMClient) ListUserPolicies(ctx context.Context, params *iam.ListUserPoliciesInput, optFns ...func(*iam.Options)) (*iam.ListUserPoliciesOutput, error) {
+	if m.ListUserPoliciesFunc != nil {
+		return m.ListUserPoliciesFunc(ctx, params, optFns...)
+	}
+	return &iam.ListUserPoliciesOutput{PolicyNames: []string{}}, nil
+}
+
+func (m *MockIAMClient) ListGroupsForUser(ctx context.Context, params *iam.ListGroupsForUserInput, optFns ...func(*iam.Options)) (*iam.ListGroupsForUserOutput, error) {
+	if m.ListGroupsForUserFunc != nil {
+		return m.ListGroupsForUserFunc(ctx, params, optFns...)
+	}
+	return &iam.ListGroupsForUserOutput{Groups: []types.Group{}}, nil
+}
+
+func (m *MockIAMClient) ListRoles(ctx context.Context, params *iam.ListRolesInput, optFns ...func(*iam.Options)) (*iam.ListRolesOutput, error) {
+	if m.ListRolesFunc != nil {
+		return m.ListRolesFunc(ctx, params, optFns...)
+	}
+	return &iam.ListRolesOutput{Roles: []types.Role{}}, nil
+}
+
+func (m *MockIAMClient) ListAttachedRolePolicies(ctx context.Context, params *iam.ListAttachedRolePoliciesInput, optFns ...func(*iam.Options)) (*iam.ListAttachedRolePoliciesOutput, error) {
+	if m.ListAttachedRolePoliciesFunc != nil {
+		return m.ListAttachedRolePoliciesFunc(ctx, params, optFns...)
+	}
+	return &iam.ListAttachedRolePoliciesOutput{AttachedPolicies: []types.AttachedPolicy{}}, nil
+}
+
+func (m *MockIAMClient) ListPolicies(ctx context.Context, params *iam.ListPoliciesInput, optFns ...func(*iam.Options)) (*iam.ListPoliciesOutput, error) {
+	if m.ListPoliciesFunc != nil {
+		return m.ListPoliciesFunc(ctx, params, optFns...)
+	}
+	return &iam.ListPoliciesOutput{Policies: []types.Policy{}}, nil
+}
+
+func (m *MockIAMClient) GetPolicyVersion(ctx context.Context, params *iam.GetPolicyVersionInput, optFns ...func(*iam.Options)) (*iam.GetPolicyVersionOutput, error) {
+	if m.GetPolicyVersionFunc != nil {
+		return m.GetPolicyVersionFunc(ctx, params, optFns...)
+	}
+	return &iam.GetPolicyVersionOutput{}, nil
+}
+
+func (m *MockIAMClient) ListServerCertificates(ctx context.Context, params *iam.ListServerCertificatesInput, optFns ...func(*iam.Options)) (*iam.ListServerCertificatesOutput, error) {
+	if m.ListServerCertificatesFunc != nil {
+		return m.ListServerCertificatesFunc(ctx, params, optFns...)
+	}
+	return &iam.ListServerCertificatesOutput{ServerCertificateMetadataList: []types.ServerCertificateMetadata{}}, nil
 }
 
 func TestIAMCollector_CollectUsers(t *testing.T) {
@@ -554,6 +610,73 @@ func TestIAMCollector_PasswordInactiveDays(t *testing.T) {
 
 	// Programmatic user (no login profile)
 	assert.Equal(t, -1, users[1].PasswordInactiveDays)
+}
+
+// --- Inline policy tests ---
+
+func TestIAMCollector_InlinePolicies(t *testing.T) {
+	mockIAM := &MockIAMClient{
+		ListUsersFunc: func(ctx context.Context, params *iam.ListUsersInput, optFns ...func(*iam.Options)) (*iam.ListUsersOutput, error) {
+			return &iam.ListUsersOutput{
+				Users: []types.User{
+					{UserName: aws.String("inline-user"), Arn: aws.String("arn:aws:iam::123456789012:user/inline-user")},
+					{UserName: aws.String("clean-user"), Arn: aws.String("arn:aws:iam::123456789012:user/clean-user")},
+				},
+				IsTruncated: false,
+			}, nil
+		},
+		ListMFADevicesFunc: func(ctx context.Context, params *iam.ListMFADevicesInput, optFns ...func(*iam.Options)) (*iam.ListMFADevicesOutput, error) {
+			return &iam.ListMFADevicesOutput{MFADevices: []types.MFADevice{}}, nil
+		},
+		GetLoginProfileFunc: func(ctx context.Context, params *iam.GetLoginProfileInput, optFns ...func(*iam.Options)) (*iam.GetLoginProfileOutput, error) {
+			return nil, &types.NoSuchEntityException{Message: aws.String("not found")}
+		},
+		ListUserPoliciesFunc: func(ctx context.Context, params *iam.ListUserPoliciesInput, optFns ...func(*iam.Options)) (*iam.ListUserPoliciesOutput, error) {
+			if *params.UserName == "inline-user" {
+				return &iam.ListUserPoliciesOutput{
+					PolicyNames: []string{"inline-policy-1", "inline-policy-2"},
+				}, nil
+			}
+			return &iam.ListUserPoliciesOutput{PolicyNames: []string{}}, nil
+		},
+	}
+
+	collector := &IAMCollector{client: mockIAM}
+	users, err := collector.CollectUsers(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, users, 2)
+	assert.Equal(t, 2, users[0].InlinePolicyCount, "inline-user should have 2 inline policies")
+	assert.Equal(t, 0, users[1].InlinePolicyCount, "clean-user should have 0 inline policies")
+}
+
+func TestIAMCollector_InlinePolicies_Error_FailSafe(t *testing.T) {
+	mockIAM := &MockIAMClient{
+		ListUsersFunc: func(ctx context.Context, params *iam.ListUsersInput, optFns ...func(*iam.Options)) (*iam.ListUsersOutput, error) {
+			return &iam.ListUsersOutput{
+				Users: []types.User{
+					{UserName: aws.String("alice"), Arn: aws.String("arn:aws:iam::123456789012:user/alice")},
+				},
+				IsTruncated: false,
+			}, nil
+		},
+		ListMFADevicesFunc: func(ctx context.Context, params *iam.ListMFADevicesInput, optFns ...func(*iam.Options)) (*iam.ListMFADevicesOutput, error) {
+			return &iam.ListMFADevicesOutput{MFADevices: []types.MFADevice{}}, nil
+		},
+		GetLoginProfileFunc: func(ctx context.Context, params *iam.GetLoginProfileInput, optFns ...func(*iam.Options)) (*iam.GetLoginProfileOutput, error) {
+			return nil, &types.NoSuchEntityException{Message: aws.String("not found")}
+		},
+		ListUserPoliciesFunc: func(ctx context.Context, params *iam.ListUserPoliciesInput, optFns ...func(*iam.Options)) (*iam.ListUserPoliciesOutput, error) {
+			return nil, errors.New("access denied")
+		},
+	}
+
+	collector := &IAMCollector{client: mockIAM}
+	users, err := collector.CollectUsers(context.Background())
+
+	require.NoError(t, err, "should not fail when inline policy query fails")
+	require.Len(t, users, 1)
+	assert.Equal(t, 0, users[0].InlinePolicyCount)
 }
 
 func TestDaysBetween(t *testing.T) {

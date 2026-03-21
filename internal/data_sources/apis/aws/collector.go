@@ -8,27 +8,67 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/account"
+	"github.com/aws/aws-sdk-go-v2/service/accessanalyzer"
 	"github.com/aws/aws-sdk-go-v2/service/acm"
+	"github.com/aws/aws-sdk-go-v2/service/backup"
 	"github.com/aws/aws-sdk-go-v2/service/cloudfront"
+	"github.com/aws/aws-sdk-go-v2/service/codebuild"
+	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
+	"github.com/aws/aws-sdk-go-v2/service/docdb"
+	"github.com/aws/aws-sdk-go-v2/service/kafka"
+	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	"github.com/aws/aws-sdk-go-v2/service/cloudtrail"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/configservice"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/elasticache"
+	"github.com/aws/aws-sdk-go-v2/service/emr"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
+	"github.com/aws/aws-sdk-go-v2/service/efs"
+	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/eventbridge"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/inspector2"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
+	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
+	"github.com/aws/aws-sdk-go-v2/service/appsync"
+	"github.com/aws/aws-sdk-go-v2/service/athena"
+	"github.com/aws/aws-sdk-go-v2/service/bedrock"
+	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
+	"github.com/aws/aws-sdk-go-v2/service/datasync"
+	"github.com/aws/aws-sdk-go-v2/service/dax"
+	"github.com/aws/aws-sdk-go-v2/service/neptune"
+	"github.com/aws/aws-sdk-go-v2/service/networkfirewall"
+	"github.com/aws/aws-sdk-go-v2/service/redshiftserverless"
+	"github.com/aws/aws-sdk-go-v2/service/transfer"
 	"github.com/aws/aws-sdk-go-v2/service/macie2"
+	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/apigateway"
+	"github.com/aws/aws-sdk-go-v2/service/elasticbeanstalk"
+	"github.com/aws/aws-sdk-go-v2/service/fsx"
+	"github.com/aws/aws-sdk-go-v2/service/glue"
+	"github.com/aws/aws-sdk-go-v2/service/mq"
+	"github.com/aws/aws-sdk-go-v2/service/opensearch"
+	"github.com/aws/aws-sdk-go-v2/service/organizations"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
+	"github.com/aws/aws-sdk-go-v2/service/redshift"
+	"github.com/aws/aws-sdk-go-v2/service/route53"
+	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/sagemaker"
 	"github.com/aws/aws-sdk-go-v2/service/s3control"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/securityhub"
+	"github.com/aws/aws-sdk-go-v2/service/sns"
+	"github.com/aws/aws-sdk-go-v2/service/ssoadmin"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/aws-sdk-go-v2/service/wafv2"
@@ -92,7 +132,47 @@ type Collector struct {
 	wafClient          WAFClient
 	macieClient        MacieClient
 	ssmClient          SSMClient
-	region             string
+	elbv2Client        ELBv2Client
+	inspectorClient    InspectorClient
+	backupClient       BackupClient
+	snsClient          SNSClient
+	sqsClient          SQSClient
+	eventbridgeClient  EventBridgeClient
+	orgsClient         OrganizationsClient
+	efsClient          EFSClient
+	redshiftClient     RedshiftClient
+	opensearchClient   OpenSearchClient
+	apigatewayClient       APIGatewayClient
+	accessAnalyzerClient   AccessAnalyzerClient
+	identityCenterClient   IdentityCenterClient
+	elasticacheClient      ElastiCacheClient
+	codebuildClient        CodeBuildClient
+	dmsClient              DMSClient
+	emrClient              EMRClient
+	sagemakerClient        SageMakerClient
+	accountServiceClient   AccountServiceClient
+	neptuneClient          NeptuneClient
+	documentdbClient       DocumentDBClient
+	mskClient              MSKClient
+	kinesisClient          KinesisClient
+	networkFirewallClient  NetworkFirewallClient
+	autoscalingClient      AutoScalingClient
+	glueClient             GlueClient
+	beanstalkClient        ElasticBeanstalkClient
+	stepFunctionsClient    StepFunctionsClient
+	mqClient               MQClient
+	route53Client          Route53Client
+	fsxClient              FSxClient
+	appsyncClient          AppSyncClient
+	athenaClient           AthenaClient
+	bedrockClient          BedrockClient
+	datasyncClient         DataSyncClient
+	transferClient         TransferClient
+	apigatewayV2Client     APIGatewayV2Client
+	cognitoClient          CognitoClient
+	redshiftServerlessClient RedshiftServerlessClient
+	daxClient              DAXClient
+	region                 string
 	accountID          string // Cached after first retrieval
 	cfg                aws.Config
 }
@@ -154,6 +234,46 @@ func (c *Collector) Init(ctx context.Context) error {
 	c.wafClient = wafv2.NewFromConfig(cfg)
 	c.macieClient = macie2.NewFromConfig(cfg)
 	c.ssmClient = ssm.NewFromConfig(cfg)
+	c.elbv2Client = elasticloadbalancingv2.NewFromConfig(cfg)
+	c.inspectorClient = inspector2.NewFromConfig(cfg)
+	c.backupClient = backup.NewFromConfig(cfg)
+	c.snsClient = sns.NewFromConfig(cfg)
+	c.sqsClient = sqs.NewFromConfig(cfg)
+	c.eventbridgeClient = eventbridge.NewFromConfig(cfg)
+	c.orgsClient = organizations.NewFromConfig(cfg)
+	c.efsClient = efs.NewFromConfig(cfg)
+	c.redshiftClient = redshift.NewFromConfig(cfg)
+	c.opensearchClient = opensearch.NewFromConfig(cfg)
+	c.apigatewayClient = apigateway.NewFromConfig(cfg)
+	c.accessAnalyzerClient = accessanalyzer.NewFromConfig(cfg)
+	c.identityCenterClient = ssoadmin.NewFromConfig(cfg)
+	c.elasticacheClient = elasticache.NewFromConfig(cfg)
+	c.codebuildClient = codebuild.NewFromConfig(cfg)
+	c.accountServiceClient = account.NewFromConfig(cfg)
+	c.dmsClient = databasemigrationservice.NewFromConfig(cfg)
+	c.sagemakerClient = sagemaker.NewFromConfig(cfg)
+	c.emrClient = emr.NewFromConfig(cfg)
+	c.neptuneClient = neptune.NewFromConfig(cfg)
+	c.documentdbClient = docdb.NewFromConfig(cfg)
+	c.mskClient = kafka.NewFromConfig(cfg)
+	c.kinesisClient = kinesis.NewFromConfig(cfg)
+	c.networkFirewallClient = networkfirewall.NewFromConfig(cfg)
+	c.autoscalingClient = autoscaling.NewFromConfig(cfg)
+	c.glueClient = glue.NewFromConfig(cfg)
+	c.beanstalkClient = elasticbeanstalk.NewFromConfig(cfg)
+	c.stepFunctionsClient = sfn.NewFromConfig(cfg)
+	c.mqClient = mq.NewFromConfig(cfg)
+	c.route53Client = route53.NewFromConfig(cfg)
+	c.fsxClient = fsx.NewFromConfig(cfg)
+	c.appsyncClient = appsync.NewFromConfig(cfg)
+	c.athenaClient = athena.NewFromConfig(cfg)
+	c.bedrockClient = bedrock.NewFromConfig(cfg)
+	c.datasyncClient = datasync.NewFromConfig(cfg)
+	c.transferClient = transfer.NewFromConfig(cfg)
+	c.apigatewayV2Client = apigatewayv2.NewFromConfig(cfg)
+	c.cognitoClient = cognitoidentityprovider.NewFromConfig(cfg)
+	c.redshiftServerlessClient = redshiftserverless.NewFromConfig(cfg)
+	c.daxClient = dax.NewFromConfig(cfg)
 
 	return nil
 }
@@ -207,12 +327,22 @@ func (c *Collector) Region() string {
 	return c.region
 }
 
-// Collect gathers evidence from all AWS services using fail-safe pattern.
+// Collect gathers evidence from AWS services using fail-safe pattern.
 // If one service fails, the others continue and partial results are returned.
-func (c *Collector) Collect(ctx context.Context) (*CollectionResult, error) {
+// When services are specified, only those services are collected. When no
+// services are specified, all services are collected (backward compatible).
+func (c *Collector) Collect(ctx context.Context, services ...string) (*CollectionResult, error) {
 	accountID, err := c.GetAccountID(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account ID: %w", err)
+	}
+
+	serviceFilter := make(map[string]bool, len(services))
+	for _, s := range services {
+		serviceFilter[s] = true
+	}
+	shouldCollect := func(svc string) bool {
+		return len(serviceFilter) == 0 || serviceFilter[svc]
 	}
 
 	result := &CollectionResult{
@@ -220,79 +350,316 @@ func (c *Collector) Collect(ctx context.Context) (*CollectionResult, error) {
 		Errors:   []CollectionError{},
 	}
 
-	// Collect IAM users
-	c.collectIAM(ctx, accountID, result)
+	if shouldCollect("iam") {
+		c.collectIAM(ctx, accountID, result)
+		c.collectAccount(ctx, accountID, result)
+	}
 
-	// Collect account-level IAM data (password policy, root account)
-	c.collectAccount(ctx, accountID, result)
+	if shouldCollect("s3") {
+		c.collectS3(ctx, accountID, result)
+	}
 
-	// Collect S3 buckets
-	c.collectS3(ctx, accountID, result)
+	if shouldCollect("cloudtrail") {
+		c.collectCloudTrail(ctx, accountID, result)
+	}
 
-	// Collect CloudTrail trails
-	c.collectCloudTrail(ctx, accountID, result)
+	if shouldCollect("ec2") {
+		c.collectEC2(ctx, accountID, result)
+	}
 
-	// Collect EC2 resources (security groups, VPCs, EBS encryption)
-	c.collectEC2(ctx, accountID, result)
+	if shouldCollect("rds") {
+		c.collectRDS(ctx, accountID, result)
+	}
 
-	// Collect RDS instances
-	c.collectRDS(ctx, accountID, result)
+	if shouldCollect("kms") {
+		c.collectKMS(ctx, accountID, result)
+	}
 
-	// Collect KMS keys
-	c.collectKMS(ctx, accountID, result)
+	if shouldCollect("guardduty") {
+		c.collectGuardDuty(ctx, accountID, result)
+	}
 
-	// Collect GuardDuty status
-	c.collectGuardDuty(ctx, accountID, result)
+	if shouldCollect("logs") {
+		c.collectCloudWatch(ctx, accountID, result)
+	}
 
-	// Collect CloudWatch log groups
-	c.collectCloudWatch(ctx, accountID, result)
+	if shouldCollect("ecr") {
+		c.collectECR(ctx, accountID, result)
+	}
 
-	// Collect ECR repositories
-	c.collectECR(ctx, accountID, result)
+	if shouldCollect("config") {
+		c.collectConfig(ctx, accountID, result)
+	}
 
-	// Collect AWS Config status
-	c.collectConfig(ctx, accountID, result)
+	if shouldCollect("securityhub") {
+		c.collectSecurityHub(ctx, accountID, result)
+	}
 
-	// Collect Security Hub status
-	c.collectSecurityHub(ctx, accountID, result)
+	if shouldCollect("cloudwatch") {
+		c.collectCloudWatchAlarms(ctx, accountID, result)
+	}
 
-	// Collect CloudWatch security alarms
-	c.collectCloudWatchAlarms(ctx, accountID, result)
+	if shouldCollect("secretsmanager") {
+		c.collectSecretsManager(ctx, accountID, result)
+	}
 
-	// Collect Secrets Manager secrets
-	c.collectSecretsManager(ctx, accountID, result)
+	if shouldCollect("lambda") {
+		c.collectLambda(ctx, accountID, result)
+	}
 
-	// Collect Lambda functions
-	c.collectLambda(ctx, accountID, result)
+	if shouldCollect("s3control") {
+		c.collectS3Control(ctx, accountID, result)
+	}
 
-	// Collect S3 account-level public access block
-	c.collectS3Control(ctx, accountID, result)
+	if shouldCollect("dynamodb") {
+		c.collectDynamoDB(ctx, accountID, result)
+	}
 
-	// Collect DynamoDB tables
-	c.collectDynamoDB(ctx, accountID, result)
+	if shouldCollect("ecs") {
+		c.collectECS(ctx, accountID, result)
+	}
 
-	// Collect ECS clusters
-	c.collectECS(ctx, accountID, result)
+	if shouldCollect("eks") {
+		c.collectEKS(ctx, accountID, result)
+	}
 
-	// Collect EKS clusters
-	c.collectEKS(ctx, accountID, result)
+	if shouldCollect("acm") {
+		c.collectACM(ctx, accountID, result)
+	}
 
-	// Collect ACM certificates
-	c.collectACM(ctx, accountID, result)
+	if shouldCollect("cloudfront") {
+		c.collectCloudFront(ctx, accountID, result)
+	}
 
-	// Collect CloudFront distributions
-	c.collectCloudFront(ctx, accountID, result)
+	if shouldCollect("wafv2") {
+		c.collectWAF(ctx, accountID, result)
+	}
 
-	// Collect WAF status
-	c.collectWAF(ctx, accountID, result)
+	if shouldCollect("macie2") {
+		c.collectMacie(ctx, accountID, result)
+	}
 
-	// Collect Macie status
-	c.collectMacie(ctx, accountID, result)
+	if shouldCollect("ssm") {
+		c.collectSSM(ctx, accountID, result)
+	}
 
-	// Collect SSM status
-	c.collectSSM(ctx, accountID, result)
+	if shouldCollect("elbv2") {
+		c.collectELBv2(ctx, accountID, result)
+	}
+
+	if shouldCollect("inspector") {
+		c.collectInspector(ctx, accountID, result)
+	}
+
+	if shouldCollect("backup") {
+		c.collectBackup(ctx, accountID, result)
+	}
+
+	if shouldCollect("eventbridge") {
+		c.collectEventBridge(ctx, accountID, result)
+	}
+
+	if shouldCollect("sns") {
+		c.collectSNS(ctx, accountID, result)
+	}
+
+	if shouldCollect("sqs") {
+		c.collectSQS(ctx, accountID, result)
+	}
+
+	if shouldCollect("organizations") {
+		c.collectOrganizations(ctx, accountID, result)
+	}
+
+	if shouldCollect("efs") {
+		c.collectEFS(ctx, accountID, result)
+	}
+
+	if shouldCollect("redshift") {
+		c.collectRedshift(ctx, accountID, result)
+	}
+
+	if shouldCollect("opensearch") {
+		c.collectOpenSearch(ctx, accountID, result)
+	}
+
+	if shouldCollect("apigateway") {
+		c.collectAPIGateway(ctx, accountID, result)
+	}
+
+	if shouldCollect("accessanalyzer") {
+		c.collectAccessAnalyzer(ctx, accountID, result)
+	}
+
+	if shouldCollect("identitycenter") {
+		c.collectIdentityCenter(ctx, accountID, result)
+	}
+
+	if shouldCollect("elasticache") {
+		c.collectElastiCache(ctx, accountID, result)
+	}
+
+	if shouldCollect("account") {
+		c.collectAccountService(ctx, accountID, result)
+	}
+
+	if shouldCollect("codebuild") {
+		c.collectCodeBuild(ctx, accountID, result)
+	}
+
+	if shouldCollect("dms") {
+		c.collectDMS(ctx, accountID, result)
+	}
+
+	if shouldCollect("sagemaker") {
+		c.collectSageMaker(ctx, accountID, result)
+	}
+
+	if shouldCollect("emr") {
+		c.collectEMR(ctx, accountID, result)
+	}
+
+	if shouldCollect("neptune") {
+		c.collectNeptune(ctx, accountID, result)
+	}
+
+	if shouldCollect("documentdb") {
+		c.collectDocumentDB(ctx, accountID, result)
+	}
+
+	if shouldCollect("msk") {
+		c.collectMSK(ctx, accountID, result)
+	}
+
+	if shouldCollect("kinesis") {
+		c.collectKinesis(ctx, accountID, result)
+	}
+
+	if shouldCollect("networkfirewall") {
+		c.collectNetworkFirewall(ctx, accountID, result)
+	}
+
+	if shouldCollect("autoscaling") {
+		c.collectAutoScaling(ctx, accountID, result)
+	}
+
+	if shouldCollect("glue") {
+		c.collectGlue(ctx, accountID, result)
+	}
+
+	if shouldCollect("elasticbeanstalk") {
+		c.collectBeanstalk(ctx, accountID, result)
+	}
+
+	if shouldCollect("stepfunctions") {
+		c.collectStepFunctions(ctx, accountID, result)
+	}
+
+	if shouldCollect("mq") {
+		c.collectMQ(ctx, accountID, result)
+	}
+
+	if shouldCollect("route53") {
+		c.collectRoute53(ctx, accountID, result)
+	}
+
+	if shouldCollect("fsx") {
+		c.collectFSx(ctx, accountID, result)
+	}
+
+	if shouldCollect("appsync") {
+		c.collectAppSync(ctx, accountID, result)
+	}
+
+	if shouldCollect("athena") {
+		c.collectAthena(ctx, accountID, result)
+	}
+
+	if shouldCollect("bedrock") {
+		c.collectBedrock(ctx, accountID, result)
+	}
+
+	if shouldCollect("datasync") {
+		c.collectDataSync(ctx, accountID, result)
+	}
+
+	if shouldCollect("transfer") {
+		c.collectTransfer(ctx, accountID, result)
+	}
+
+	if shouldCollect("apigatewayv2") {
+		c.collectAPIGatewayV2(ctx, accountID, result)
+	}
+
+	if shouldCollect("cognito") {
+		c.collectCognito(ctx, accountID, result)
+	}
+
+	if shouldCollect("redshiftserverless") {
+		c.collectRedshiftServerless(ctx, accountID, result)
+	}
+
+	if shouldCollect("dax") {
+		c.collectDAX(ctx, accountID, result)
+	}
 
 	return result, nil
+}
+
+// collectEFS collects EFS evidence with fail-safe pattern.
+func (c *Collector) collectEFS(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.efsClient == nil {
+		return
+	}
+	collector := NewEFSCollector(c.efsClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "efs", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectRedshift collects Redshift evidence with fail-safe pattern.
+func (c *Collector) collectRedshift(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.redshiftClient == nil {
+		return
+	}
+	collector := NewRedshiftCollector(c.redshiftClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "redshift", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectOpenSearch collects OpenSearch evidence with fail-safe pattern.
+func (c *Collector) collectOpenSearch(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.opensearchClient == nil {
+		return
+	}
+	collector := NewOpenSearchCollector(c.opensearchClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "opensearch", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectAPIGateway collects API Gateway evidence with fail-safe pattern.
+func (c *Collector) collectAPIGateway(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.apigatewayClient == nil {
+		return
+	}
+	collector := NewAPIGatewayCollector(c.apigatewayClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "apigateway", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
 }
 
 // collectIAM collects IAM user evidence with fail-safe pattern.
@@ -650,6 +1017,510 @@ func (c *Collector) collectSSM(ctx context.Context, accountID string, result *Co
 	ev, err := collector.CollectEvidence(ctx, accountID)
 	if err != nil {
 		result.Errors = append(result.Errors, CollectionError{Service: "ssm", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectELBv2 collects ELBv2 evidence with fail-safe pattern.
+func (c *Collector) collectELBv2(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.elbv2Client == nil {
+		return
+	}
+	elbCollector := NewELBv2Collector(c.elbv2Client)
+	ev, err := elbCollector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "elbv2", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectInspector collects Inspector evidence with fail-safe pattern.
+func (c *Collector) collectInspector(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.inspectorClient == nil {
+		return
+	}
+	collector := NewInspectorCollector(c.inspectorClient, c.region)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "inspector", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectBackup collects Backup evidence with fail-safe pattern.
+func (c *Collector) collectBackup(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.backupClient == nil {
+		return
+	}
+	collector := NewBackupCollector(c.backupClient, c.region)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "backup", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectEventBridge collects EventBridge evidence with fail-safe pattern.
+func (c *Collector) collectEventBridge(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.eventbridgeClient == nil {
+		return
+	}
+	collector := NewEventBridgeCollector(c.eventbridgeClient, c.region)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "eventbridge", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectSNS collects SNS topic evidence with fail-safe pattern.
+func (c *Collector) collectSNS(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.snsClient == nil {
+		return
+	}
+	collector := NewSNSCollector(c.snsClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "sns", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectSQS collects SQS queue evidence with fail-safe pattern.
+func (c *Collector) collectSQS(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.sqsClient == nil {
+		return
+	}
+	collector := NewSQSCollector(c.sqsClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "sqs", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectOrganizations collects Organizations evidence with fail-safe pattern.
+func (c *Collector) collectOrganizations(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.orgsClient == nil {
+		return
+	}
+	collector := NewOrganizationsCollector(c.orgsClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "organizations", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectAccessAnalyzer collects Access Analyzer evidence with fail-safe pattern.
+func (c *Collector) collectAccessAnalyzer(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.accessAnalyzerClient == nil {
+		return
+	}
+	collector := NewAccessAnalyzerCollector(c.accessAnalyzerClient, c.region)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "accessanalyzer", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectIdentityCenter collects Identity Center evidence with fail-safe pattern.
+func (c *Collector) collectIdentityCenter(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.identityCenterClient == nil {
+		return
+	}
+	collector := NewIdentityCenterCollector(c.identityCenterClient, c.region)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "identitycenter", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectAccountService collects Account service evidence with fail-safe pattern.
+func (c *Collector) collectAccountService(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.accountServiceClient == nil {
+		return
+	}
+	collector := NewAccountServiceCollector(c.accountServiceClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "account", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectElastiCache collects ElastiCache evidence with fail-safe pattern.
+func (c *Collector) collectElastiCache(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.elasticacheClient == nil {
+		return
+	}
+	collector := NewElastiCacheCollector(c.elasticacheClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "elasticache", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectDMS collects DMS evidence with fail-safe pattern.
+func (c *Collector) collectDMS(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.dmsClient == nil {
+		return
+	}
+	collector := NewDMSCollector(c.dmsClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "dms", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectSageMaker collects SageMaker evidence with fail-safe pattern.
+func (c *Collector) collectSageMaker(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.sagemakerClient == nil {
+		return
+	}
+	collector := NewSageMakerCollector(c.sagemakerClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "sagemaker", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectCodeBuild collects CodeBuild evidence with fail-safe pattern.
+func (c *Collector) collectCodeBuild(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.codebuildClient == nil {
+		return
+	}
+	collector := NewCodeBuildCollector(c.codebuildClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "codebuild", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectEMR collects EMR evidence with fail-safe pattern.
+func (c *Collector) collectEMR(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.emrClient == nil {
+		return
+	}
+	collector := NewEMRCollector(c.emrClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "emr", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectNeptune collects Neptune evidence with fail-safe pattern.
+func (c *Collector) collectNeptune(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.neptuneClient == nil {
+		return
+	}
+	collector := NewNeptuneCollector(c.neptuneClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "neptune", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectDocumentDB collects DocumentDB evidence with fail-safe pattern.
+func (c *Collector) collectDocumentDB(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.documentdbClient == nil {
+		return
+	}
+	collector := NewDocumentDBCollector(c.documentdbClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "documentdb", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectMSK collects MSK evidence with fail-safe pattern.
+func (c *Collector) collectMSK(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.mskClient == nil {
+		return
+	}
+	collector := NewMSKCollector(c.mskClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "msk", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectKinesis collects Kinesis evidence with fail-safe pattern.
+func (c *Collector) collectKinesis(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.kinesisClient == nil {
+		return
+	}
+	collector := NewKinesisCollector(c.kinesisClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "kinesis", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectNetworkFirewall collects Network Firewall evidence with fail-safe pattern.
+func (c *Collector) collectNetworkFirewall(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.networkFirewallClient == nil {
+		return
+	}
+	collector := NewNetworkFirewallCollector(c.networkFirewallClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "networkfirewall", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectAutoScaling collects Auto Scaling evidence with fail-safe pattern.
+func (c *Collector) collectAutoScaling(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.autoscalingClient == nil {
+		return
+	}
+	collector := NewAutoScalingCollector(c.autoscalingClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "autoscaling", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectGlue collects Glue evidence with fail-safe pattern.
+func (c *Collector) collectGlue(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.glueClient == nil {
+		return
+	}
+	collector := NewGlueCollector(c.glueClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "glue", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectBeanstalk collects Elastic Beanstalk evidence with fail-safe pattern.
+func (c *Collector) collectBeanstalk(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.beanstalkClient == nil {
+		return
+	}
+	collector := NewBeanstalkCollector(c.beanstalkClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "elasticbeanstalk", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectStepFunctions collects Step Functions evidence with fail-safe pattern.
+func (c *Collector) collectStepFunctions(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.stepFunctionsClient == nil {
+		return
+	}
+	collector := NewStepFunctionsCollector(c.stepFunctionsClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "stepfunctions", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectMQ collects MQ evidence with fail-safe pattern.
+func (c *Collector) collectMQ(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.mqClient == nil {
+		return
+	}
+	collector := NewMQCollector(c.mqClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "mq", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectRoute53 collects Route 53 evidence with fail-safe pattern.
+func (c *Collector) collectRoute53(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.route53Client == nil {
+		return
+	}
+	collector := NewRoute53Collector(c.route53Client)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "route53", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectFSx collects FSx evidence with fail-safe pattern.
+func (c *Collector) collectFSx(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.fsxClient == nil {
+		return
+	}
+	collector := NewFSxCollector(c.fsxClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "fsx", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectAppSync collects AppSync evidence with fail-safe pattern.
+func (c *Collector) collectAppSync(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.appsyncClient == nil {
+		return
+	}
+	collector := NewAppSyncCollector(c.appsyncClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "appsync", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectAthena collects Athena evidence with fail-safe pattern.
+func (c *Collector) collectAthena(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.athenaClient == nil {
+		return
+	}
+	collector := NewAthenaCollector(c.athenaClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "athena", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectBedrock collects Bedrock evidence with fail-safe pattern.
+func (c *Collector) collectBedrock(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.bedrockClient == nil {
+		return
+	}
+	collector := NewBedrockCollector(c.bedrockClient, c.region)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "bedrock", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectDataSync collects DataSync evidence with fail-safe pattern.
+func (c *Collector) collectDataSync(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.datasyncClient == nil {
+		return
+	}
+	collector := NewDataSyncCollector(c.datasyncClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "datasync", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectTransfer collects Transfer Family evidence with fail-safe pattern.
+func (c *Collector) collectTransfer(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.transferClient == nil {
+		return
+	}
+	collector := NewTransferCollector(c.transferClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "transfer", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectAPIGatewayV2 collects API Gateway V2 evidence with fail-safe pattern.
+func (c *Collector) collectAPIGatewayV2(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.apigatewayV2Client == nil {
+		return
+	}
+	collector := NewAPIGatewayV2Collector(c.apigatewayV2Client)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "apigatewayv2", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectCognito collects Cognito evidence with fail-safe pattern.
+func (c *Collector) collectCognito(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.cognitoClient == nil {
+		return
+	}
+	collector := NewCognitoCollector(c.cognitoClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "cognito", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectRedshiftServerless collects Redshift Serverless evidence with fail-safe pattern.
+func (c *Collector) collectRedshiftServerless(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.redshiftServerlessClient == nil {
+		return
+	}
+	collector := NewRedshiftServerlessCollector(c.redshiftServerlessClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "redshift-serverless", Error: err.Error()})
+		return
+	}
+	result.Evidence = append(result.Evidence, ev...)
+}
+
+// collectDAX collects DAX evidence with fail-safe pattern.
+func (c *Collector) collectDAX(ctx context.Context, accountID string, result *CollectionResult) {
+	if c.daxClient == nil {
+		return
+	}
+	collector := NewDAXCollector(c.daxClient)
+	ev, err := collector.CollectEvidence(ctx, accountID)
+	if err != nil {
+		result.Errors = append(result.Errors, CollectionError{Service: "dax", Error: err.Error()})
 		return
 	}
 	result.Evidence = append(result.Evidence, ev...)

@@ -138,7 +138,8 @@ scenarios:
     credentials:
       - aws-positive
     framework: soc2
-    storage: s3-evidence
+    # No storage — this scenario only validates policy assertions, not S3 pipeline.
+    # S3 storage is tested by soc2-aws-full scenario.
     assertions:
       expected_policy_results:
         "soc2-cc6.1-mfa": fail           # console-nomfa user triggers violation; programmatic-only users exempt
@@ -227,9 +228,51 @@ scenarios:
         "soc2-cc6.8-eks-security": skip
         "soc2-cc6.7-acm-expiry": skip
         "soc2-cc6.7-cloudfront-https": skip
+        "soc2-cc6.7-elbv2-https": skip
         "soc2-cc6.6-waf-enabled": fail          # fail-safe returns count=0
         "soc2-c1.1-macie-enabled": fail         # fail-safe returns disabled
         "soc2-cc6.1-ssm-session-manager": fail  # fail-safe returns disabled
+        # --- Phase 2 new policies (collectors without fail-safe evidence → skip) ---
+        "soc2-cc6.1-multiple-active-keys": skip
+        "soc2-cc5.1-iam-permission-boundary": skip
+        "soc2-cc6.1-iam-user-groups": skip
+        "soc2-cc6.3-inline-policies": skip
+        "soc2-a1.2-rds-backup-retention": skip
+        "soc2-a1.2-rds-auto-upgrade": skip
+        "soc2-cc7.1-cloudtrail-cloudwatch": skip
+        "soc2-cc7.2-cloudtrail-sns": skip
+        "soc2-cc7.1-cloudtrail-log-bucket": skip
+        "soc2-cc7.1-cloudtrail-log-validation": skip
+        "soc2-cc6.8-lambda-vpc": skip
+        "soc2-cc6.8-lambda-dlq": skip
+        "soc2-c1.2-s3-lifecycle": skip
+        "soc2-cc6.2-sns-encryption": skip
+        "soc2-cc6.2-sqs-encryption": skip
+        "soc2-cc6.6-default-vpc": skip
+        "soc2-cc6.7-tls-minimum": skip
+        # --- Phase 2 batched policies (CloudTrail batched → no evidence → skip) ---
+        "soc2-cc7.1-cloudtrail-multi-region": skip
+        "soc2-cc7.1-cloudtrail-data-events": skip
+        # --- Phase 2 fail-safe collectors (create default evidence → fail) ---
+        "soc2-cc3.2-inspector-enabled": fail       # fail-safe returns disabled
+        "soc2-cc3.3-security-hub-standards": fail   # fail-safe returns disabled
+        "soc2-cc4.1-config-multi-region": fail      # fail-safe returns not-recording
+        "soc2-cc4.2-guardduty-multi-region": fail   # fail-safe returns disabled
+        "soc2-cc7.2-guardduty-alerting": fail       # fail-safe returns no rule
+        "soc2-cc9.3-backup-configured": fail        # fail-safe returns no plans
+        "soc2-cc1.5-organizations-scps": pass       # fail-safe returns not-in-org, policy only fires when in org
+        # --- Phase 4 new policies ---
+        "soc2-cc6.6-opensearch-enforce-https": skip     # no OpenSearch domains
+        "soc2-cc6.7-secrets-manager-rotation": skip     # no secrets
+        "soc2-cc6.2-default-ebs-encryption": skip       # ec2 collector fails
+        "soc2-cc6.6-lambda-public-access": skip         # no lambda functions
+        "soc2-cc7.1-cloudtrail-s3-access-restricted": skip  # cloudtrail collector fails
+        "soc2-cc7.1-rds-enhanced-monitoring": skip      # no RDS instances
+        "soc2-a1.2-backup-cross-region": skip           # no backup plans
+        "soc2-cc6.3-iam-access-analyzer": fail          # fail-safe returns disabled
+        "soc2-cc6.1-iam-identity-center": fail          # fail-safe returns disabled
+        "soc2-cc6.2-elasticache-encryption": skip       # no replication groups
+        "soc2-cc6.6-elasticache-transit-encryption": skip  # no replication groups
         # --- GitHub-only (no GitHub evidence collected) ---
         "soc2-cc6.1-github-mfa": skip
 
@@ -257,7 +300,7 @@ scenarios:
       include: ["soc2-cc6.1-mfa"]
     assertions:
       expected_policy_results:
-        "soc2-cc6.1-mfa": fail
+        "soc2-cc6.1-mfa": fail              # console-nomfa user triggers violation
 
   # ---- IAM policies: MFA, root security, password policy ----
   - name: soc2-aws-iam-policies
@@ -306,10 +349,10 @@ scenarios:
     assertions:
       expected_policy_results:
         "soc2-cc6.2-encryption": fail          # AES256 (not KMS) triggers warning
-        "soc2-cc6.2-s3-public-access": fail    # public access block not fully configured
+        "soc2-cc6.2-s3-public-access": pass    # public access block is configured on e2e buckets
         "soc2-cc6.7-s3-https": fail            # e2e bucket lacks HTTPS-only policy
         "soc2-a1.2-storage-versioning": fail   # e2e bucket lacks versioning
-        "soc2-c1.1-encryption-coverage": fail  # partial encryption coverage
+        "soc2-c1.1-encryption-coverage": pass  # e2e buckets have encryption configured
 
   # ---- Network/EC2 policies: security groups, VPC flow logs, EBS encryption ----
   - name: soc2-aws-network-policies
@@ -329,7 +372,7 @@ scenarios:
     assertions:
       expected_policy_results:
         "soc2-cc6.6-open-ports": pass       # no open security group rules
-        "soc2-cc6.6-flow-logs": fail        # VPC flow logs not enabled
+        "soc2-cc6.6-flow-logs": pass        # VPC flow logs enabled on default VPC
         "soc2-cc6.2-ebs-encryption": fail   # EBS default encryption not enabled
 
   # ---- RDS policies: encryption, public access, SSL, backups ----
@@ -408,7 +451,6 @@ scenarios:
     credentials:
       - aws-positive
     framework: soc2
-    storage: s3-evidence
     collectors:
       - provider: aws
         services: [lambda, dynamodb, secretsmanager]
@@ -432,7 +474,6 @@ scenarios:
     credentials:
       - aws-positive
     framework: soc2
-    storage: s3-evidence
     collectors:
       - provider: aws
         services: [securityhub, cloudwatch, macie2, wafv2]
@@ -456,14 +497,14 @@ scenarios:
     credentials:
       - aws-positive
     framework: soc2
-    storage: s3-evidence
     collectors:
       - provider: aws
-        services: [acm, cloudfront, s3control, ec2, ssm]
+        services: [acm, cloudfront, s3control, ec2, ssm, elbv2]
     policies:
       include:
         - "soc2-cc6.7-acm-expiry"
         - "soc2-cc6.7-cloudfront-https"
+        - "soc2-cc6.7-elbv2-https"
         - "soc2-cc6.2-s3-account-public-access"
         - "soc2-cc6.1-ec2-imdsv2"
         - "soc2-cc6.1-ssm-session-manager"
@@ -471,9 +512,27 @@ scenarios:
       expected_policy_results:
         "soc2-cc6.7-acm-expiry": skip              # no certificates
         "soc2-cc6.7-cloudfront-https": skip         # no distributions
+        "soc2-cc6.7-elbv2-https": fail              # ALB has HTTP-only listener (no HTTPS)
         "soc2-cc6.2-s3-account-public-access": fail # account public access block not fully set
         "soc2-cc6.1-ec2-imdsv2": skip               # no EC2 instances provisioned
         "soc2-cc6.1-ssm-session-manager": fail      # SSM not configured
+
+  # ---- ELBv2 policies: HTTPS enforcement ----
+  - name: soc2-aws-elbv2-policies
+    description: "SOC2 ELBv2 policies — HTTPS enforcement on load balancers"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [elbv2]
+    policies:
+      include:
+        - "soc2-cc6.7-elbv2-https"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.7-elbv2-https": fail    # HTTP-only listener (no HTTPS)
 
   # ---- Container policies: ECS, EKS (no clusters = skip) ----
   - name: soc2-aws-container-policies
@@ -491,7 +550,6 @@ scenarios:
         - "soc2-cc6.8-ecs-security"
         - "soc2-cc6.8-eks-security"
     assertions:
-      collection_errors_expected: true  # no clusters = no evidence (zero resources, not an error)
       expected_policy_results:
         "soc2-cc6.8-ecs-security": skip    # no ECS clusters
         "soc2-cc6.8-eks-security": skip    # no EKS clusters
@@ -503,7 +561,6 @@ scenarios:
     credentials:
       - aws-positive
     framework: soc2
-    storage: s3-evidence
     collectors:
       - provider: aws
         services: [rds]
@@ -521,7 +578,6 @@ scenarios:
     credentials:
       - aws-positive
     framework: soc2
-    storage: s3-evidence
     collectors:
       - provider: aws
         services: [s3]
@@ -531,6 +587,2002 @@ scenarios:
     assertions:
       expected_policy_results:
         "soc2-cc7.1-s3-access-logging": fail  # no access logging on e2e buckets
+
+  # ---- IAM extended: permission boundary, user groups, inline policies, multiple keys ----
+  - name: soc2-aws-iam-extended
+    description: "SOC2 IAM extended policies — permission boundaries, user groups, inline policies, active keys"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [iam]
+    policies:
+      include:
+        - "soc2-cc6.1-multiple-active-keys"
+        - "soc2-cc5.1-iam-permission-boundary"
+        - "soc2-cc6.1-iam-user-groups"
+        - "soc2-cc6.3-inline-policies"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.1-multiple-active-keys": pass       # e2e users have 0-1 active keys
+        "soc2-cc5.1-iam-permission-boundary": fail     # no permission boundaries on e2e users
+        "soc2-cc6.1-iam-user-groups": fail             # users have policies but no groups
+        "soc2-cc6.3-inline-policies": pass             # e2e users use managed policies only
+
+  # ---- CloudTrail extended: log bucket, log validation, CloudWatch, SNS ----
+  - name: soc2-aws-cloudtrail-extended
+    description: "SOC2 CloudTrail extended policies — log bucket, validation, CloudWatch, SNS"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [cloudtrail]
+    policies:
+      include:
+        - "soc2-cc7.1-cloudtrail-log-bucket"
+        - "soc2-cc7.1-cloudtrail-log-validation"
+        - "soc2-cc7.1-cloudtrail-cloudwatch"
+        - "soc2-cc7.2-cloudtrail-sns"
+    assertions:
+      expected_policy_results:
+        "soc2-cc7.1-cloudtrail-log-bucket": pass       # trail stores logs in S3
+        "soc2-cc7.1-cloudtrail-log-validation": pass   # log validation enabled
+        "soc2-cc7.1-cloudtrail-cloudwatch": fail       # no CloudWatch log group configured
+        "soc2-cc7.2-cloudtrail-sns": fail              # no SNS topic configured
+
+  # ---- CloudTrail batched: multi-region, data events ----
+  - name: soc2-aws-cloudtrail-batched
+    description: "SOC2 CloudTrail batched policies — multi-region coverage, data events"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [cloudtrail]
+    policies:
+      include:
+        - "soc2-cc7.1-cloudtrail-multi-region"
+        - "soc2-cc7.1-cloudtrail-data-events"
+    assertions:
+      expected_policy_results:
+        "soc2-cc7.1-cloudtrail-multi-region": pass     # trail is multi-region
+        "soc2-cc7.1-cloudtrail-data-events": fail      # no data events configured
+
+  # ---- RDS extended v2: backup retention, auto upgrade ----
+  - name: soc2-aws-rds-extended-v2
+    description: "SOC2 RDS extended policies — backup retention period, auto minor version upgrade"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [rds]
+    policies:
+      include:
+        - "soc2-a1.2-rds-backup-retention"
+        - "soc2-a1.2-rds-auto-upgrade"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-rds-backup-retention": pass         # backup disabled, so retention policy doesn't fire
+        "soc2-a1.2-rds-auto-upgrade": pass             # auto upgrade enabled
+
+  # ---- Lambda extended: VPC, DLQ ----
+  - name: soc2-aws-lambda-extended
+    description: "SOC2 Lambda extended policies — VPC placement, dead letter queue"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [lambda]
+    policies:
+      include:
+        - "soc2-cc6.8-lambda-vpc"
+        - "soc2-cc6.8-lambda-dlq"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.8-lambda-vpc": fail                  # lambda not in VPC
+        "soc2-cc6.8-lambda-dlq": fail                  # no DLQ configured
+
+  # ---- S3 lifecycle ----
+  - name: soc2-aws-s3-lifecycle
+    description: "SOC2 S3 lifecycle policy — data retention rules"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [s3]
+    policies:
+      include:
+        - "soc2-c1.2-s3-lifecycle"
+    assertions:
+      expected_policy_results:
+        "soc2-c1.2-s3-lifecycle": fail                 # no lifecycle rules on e2e bucket
+
+  # ---- SNS/SQS encryption (new collectors) ----
+  - name: soc2-aws-messaging
+    description: "SOC2 messaging policies — SNS/SQS encryption"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [sns, sqs]
+    policies:
+      include:
+        - "soc2-cc6.2-sns-encryption"
+        - "soc2-cc6.2-sqs-encryption"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.2-sns-encryption": fail              # e2e SNS topic has no KMS encryption
+        "soc2-cc6.2-sqs-encryption": pass              # SQS queues have default SSE-SQS encryption
+
+  # ---- Monitoring extended: Inspector, SecurityHub standards, GuardDuty alerting, multi-region ----
+  - name: soc2-aws-monitoring-extended
+    description: "SOC2 monitoring extended — Inspector, SecurityHub standards, GuardDuty alerting/multi-region, Config multi-region"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [inspector, securityhub, guardduty, eventbridge, config]
+    policies:
+      include:
+        - "soc2-cc3.2-inspector-enabled"
+        - "soc2-cc3.3-security-hub-standards"
+        - "soc2-cc7.2-guardduty-alerting"
+        - "soc2-cc4.2-guardduty-multi-region"
+        - "soc2-cc4.1-config-multi-region"
+    assertions:
+      expected_policy_results:
+        "soc2-cc3.2-inspector-enabled": fail           # Inspector not enabled
+        "soc2-cc3.3-security-hub-standards": fail      # SecurityHub not enabled
+        "soc2-cc7.2-guardduty-alerting": fail          # no EventBridge rule for GuardDuty
+        "soc2-cc4.2-guardduty-multi-region": fail      # GuardDuty disabled
+        "soc2-cc4.1-config-multi-region": fail         # Config not recording
+
+  # ---- Network extended: default VPC, TLS minimum ----
+  - name: soc2-aws-network-extended
+    description: "SOC2 network extended — default VPC detection, TLS minimum version"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [ec2, elbv2]
+    policies:
+      include:
+        - "soc2-cc6.6-default-vpc"
+        - "soc2-cc6.7-tls-minimum"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.6-default-vpc": fail                 # default VPC exists
+        "soc2-cc6.7-tls-minimum": pass                 # HTTP-only listeners, no weak TLS policies
+
+  # ---- Organizations + Backup ----
+  - name: soc2-aws-org-backup
+    description: "SOC2 org governance and backup — Organizations SCPs, AWS Backup plans"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [organizations, backup]
+    policies:
+      include:
+        - "soc2-cc1.5-organizations-scps"
+        - "soc2-cc9.3-backup-configured"
+    assertions:
+      expected_policy_results:
+        "soc2-cc9.3-backup-configured": fail           # no backup plans configured
+
+  # ---- OpenSearch extended: enforce HTTPS ----
+  - name: soc2-aws-opensearch-extended
+    description: "SOC2 OpenSearch extended — HTTPS enforcement"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [opensearch]
+    policies:
+      include:
+        - "soc2-cc6.6-opensearch-enforce-https"
+    assertions:
+      collection_errors_expected: true  # OpenSearch requires subscription in e2e account
+      expected_policy_results:
+        "soc2-cc6.6-opensearch-enforce-https": skip  # no OpenSearch domains in e2e account
+
+  # ---- Secrets Manager rotation ----
+  - name: soc2-aws-secrets-rotation
+    description: "SOC2 Secrets Manager rotation policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [secretsmanager]
+    policies:
+      include:
+        - "soc2-cc6.7-secrets-manager-rotation"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.7-secrets-manager-rotation": fail  # rotation not configured on e2e secrets
+
+  # ---- EBS default encryption ----
+  - name: soc2-aws-ebs-default-encryption
+    description: "SOC2 EBS default encryption policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [ec2]
+    policies:
+      include:
+        - "soc2-cc6.2-default-ebs-encryption"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.2-default-ebs-encryption": fail  # EBS encryption by default not enabled
+
+  # ---- Lambda public access ----
+  - name: soc2-aws-lambda-public-access
+    description: "SOC2 Lambda public access policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [lambda]
+    policies:
+      include:
+        - "soc2-cc6.6-lambda-public-access"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.6-lambda-public-access": pass  # e2e lambda is not publicly accessible
+
+  # ---- CloudTrail S3 bucket configured ----
+  - name: soc2-aws-cloudtrail-s3
+    description: "SOC2 CloudTrail S3 bucket configuration"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [cloudtrail]
+    policies:
+      include:
+        - "soc2-cc7.1-cloudtrail-s3-access-restricted"
+    assertions:
+      expected_policy_results:
+        "soc2-cc7.1-cloudtrail-s3-access-restricted": pass  # trail has S3 bucket configured
+
+  # ---- RDS enhanced monitoring ----
+  - name: soc2-aws-rds-monitoring
+    description: "SOC2 RDS enhanced monitoring policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [rds]
+    policies:
+      include:
+        - "soc2-cc7.1-rds-enhanced-monitoring"
+    assertions:
+      expected_policy_results:
+        "soc2-cc7.1-rds-enhanced-monitoring": fail  # enhanced monitoring not enabled on e2e instance
+
+  # ---- Backup cross-region copy ----
+  - name: soc2-aws-backup-cross-region
+    description: "SOC2 Backup cross-region copy policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [backup]
+    policies:
+      include:
+        - "soc2-a1.2-backup-cross-region"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-backup-cross-region": skip  # no backup plans configured in e2e account
+
+  # ---- Access Analyzer ----
+  - name: soc2-aws-access-analyzer
+    description: "SOC2 IAM Access Analyzer policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [accessanalyzer]
+    policies:
+      include:
+        - "soc2-cc6.3-iam-access-analyzer"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.3-iam-access-analyzer": fail  # Access Analyzer not enabled
+
+  # ---- Identity Center ----
+  - name: soc2-aws-identity-center
+    description: "SOC2 IAM Identity Center (SSO) policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [identitycenter]
+    policies:
+      include:
+        - "soc2-cc6.1-iam-identity-center"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.1-iam-identity-center": fail  # Identity Center not enabled
+
+  # ---- ElastiCache encryption ----
+  - name: soc2-aws-elasticache
+    description: "SOC2 ElastiCache encryption policies — at-rest and in-transit"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [elasticache]
+    policies:
+      include:
+        - "soc2-cc6.2-elasticache-encryption"
+        - "soc2-cc6.6-elasticache-transit-encryption"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.2-elasticache-encryption": skip           # no replication groups
+        "soc2-cc6.6-elasticache-transit-encryption": skip   # no replication groups
+
+  # ---- Default security group restrictions ----
+  - name: soc2-aws-default-sg
+    description: "SOC2 default security group restrictions"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [ec2]
+    policies:
+      include:
+        - "soc2-cc6.6-default-sg-restrictions"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.6-default-sg-restrictions": pass  # default SG has no permissive rules
+
+  # ---- S3 Object Lock ----
+  - name: soc2-aws-s3-object-lock
+    description: "SOC2 S3 Object Lock policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [s3]
+    policies:
+      include:
+        - "soc2-a1.2-s3-object-lock"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-s3-object-lock": fail  # e2e buckets don't have object lock enabled
+
+  # ---- CloudWatch log encryption ----
+  - name: soc2-aws-cloudwatch-log-encryption
+    description: "SOC2 CloudWatch Logs encryption policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [logs]
+    policies:
+      include:
+        - "soc2-cc6.2-cloudwatch-log-encryption"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.2-cloudwatch-log-encryption": pass  # log groups have KMS encryption
+
+  # ---- EBS snapshot public access ----
+  - name: soc2-aws-ebs-snapshot-public
+    description: "SOC2 EBS snapshot public access policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [ec2]
+    policies:
+      include:
+        - "soc2-cc6.2-ebs-snapshot-public"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.2-ebs-snapshot-public": skip  # no EBS snapshots in e2e account
+
+  # ---- EFS encryption ----
+  - name: soc2-aws-efs-encryption
+    description: "SOC2 EFS encryption policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [efs]
+    policies:
+      include:
+        - "soc2-cc6.2-efs-encryption"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.2-efs-encryption": fail  # e2e EFS does not have encryption enabled
+
+  # ---- OpenSearch encryption ----
+  - name: soc2-aws-opensearch-encryption
+    description: "SOC2 OpenSearch encryption at rest policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [opensearch]
+    policies:
+      include:
+        - "soc2-cc6.2-opensearch-encryption"
+    assertions:
+      collection_errors_expected: true  # OpenSearch requires subscription
+      expected_policy_results:
+        "soc2-cc6.2-opensearch-encryption": skip  # no OpenSearch domains
+
+  # ---- RDS snapshot encryption ----
+  - name: soc2-aws-rds-snapshot-encryption
+    description: "SOC2 RDS snapshot encryption policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [rds]
+    policies:
+      include:
+        - "soc2-cc6.2-rds-snapshot-encryption"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.2-rds-snapshot-encryption": skip  # no RDS snapshots in e2e account
+
+  # ---- Redshift encryption ----
+  - name: soc2-aws-redshift-encryption
+    description: "SOC2 Redshift encryption policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [redshift]
+    policies:
+      include:
+        - "soc2-cc6.2-redshift-encryption"
+    assertions:
+      collection_errors_expected: true  # Redshift requires subscription
+      expected_policy_results:
+        "soc2-cc6.2-redshift-encryption": skip  # no Redshift clusters
+
+  # ---- EC2 public IP ----
+  - name: soc2-aws-ec2-public-ip
+    description: "SOC2 EC2 public IP restrictions policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [ec2]
+    policies:
+      include:
+        - "soc2-cc6.6-ec2-public-ip"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.6-ec2-public-ip": skip  # no EC2 instances in e2e account
+
+  # ---- OpenSearch VPC ----
+  - name: soc2-aws-opensearch-vpc
+    description: "SOC2 OpenSearch VPC configuration policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [opensearch]
+    policies:
+      include:
+        - "soc2-cc6.6-opensearch-vpc"
+    assertions:
+      collection_errors_expected: true  # OpenSearch requires subscription
+      expected_policy_results:
+        "soc2-cc6.6-opensearch-vpc": skip  # no OpenSearch domains
+
+  # ---- RDS snapshot public access ----
+  - name: soc2-aws-rds-snapshot-public
+    description: "SOC2 RDS snapshot public access policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [rds]
+    policies:
+      include:
+        - "soc2-cc6.6-rds-snapshot-public"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.6-rds-snapshot-public": skip  # no RDS snapshots in e2e account
+
+  # ---- Redshift public access ----
+  - name: soc2-aws-redshift-public
+    description: "SOC2 Redshift public access policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [redshift]
+    policies:
+      include:
+        - "soc2-cc6.6-redshift-public"
+    assertions:
+      collection_errors_expected: true  # Redshift requires subscription
+      expected_policy_results:
+        "soc2-cc6.6-redshift-public": skip  # no Redshift clusters
+
+  # ---- OpenSearch node-to-node TLS ----
+  - name: soc2-aws-opensearch-node-tls
+    description: "SOC2 OpenSearch node-to-node TLS policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [opensearch]
+    policies:
+      include:
+        - "soc2-cc6.7-opensearch-node-tls"
+    assertions:
+      collection_errors_expected: true  # OpenSearch requires subscription
+      expected_policy_results:
+        "soc2-cc6.7-opensearch-node-tls": skip  # no OpenSearch domains
+
+  # ---- API Gateway logging ----
+  - name: soc2-aws-apigateway-logging
+    description: "SOC2 API Gateway logging policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [apigateway]
+    policies:
+      include:
+        - "soc2-cc7.1-apigateway-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-cc7.1-apigateway-logging": skip  # no API Gateway REST APIs
+
+  # ---- Redshift audit logging ----
+  - name: soc2-aws-redshift-audit-logging
+    description: "SOC2 Redshift audit logging policy"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [redshift]
+    policies:
+      include:
+        - "soc2-cc7.1-redshift-audit-logging"
+    assertions:
+      collection_errors_expected: true  # Redshift requires subscription
+      expected_policy_results:
+        "soc2-cc7.1-redshift-audit-logging": skip  # no Redshift clusters
+
+  # ---- Auto Scaling Group policies ----
+  - name: soc2-aws-autoscaling
+    description: "SOC2 Auto Scaling Group policies — health checks, multi-AZ, IMDSv2, public IP, launch templates"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [autoscaling]
+    policies:
+      include:
+        - "soc2-a1.2-asg-elb-health-check"
+        - "soc2-a1.2-asg-multi-az"
+        - "soc2-cc6.1-asg-imdsv2"
+        - "soc2-cc6.6-asg-no-public-ip"
+        - "soc2-cc8.1-asg-launch-template"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-asg-elb-health-check": skip  # no ASGs in e2e account
+        "soc2-a1.2-asg-multi-az": skip
+        "soc2-cc6.1-asg-imdsv2": skip
+        "soc2-cc6.6-asg-no-public-ip": skip
+        "soc2-cc8.1-asg-launch-template": skip
+
+  # ---- CloudWatch CIS metric filter alarms ----
+  - name: soc2-aws-cloudwatch-cis
+    description: "SOC2 CloudWatch CIS metric filter alarms — unauthorized API calls, root usage, IAM changes, etc."
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [cloudwatch]
+    policies:
+      include:
+        - "soc2-cc7.2-cis-unauthorized-api-calls"
+        - "soc2-cc7.2-cis-console-auth-failures"
+        - "soc2-cc7.2-cis-root-account-usage"
+        - "soc2-cc7.2-cis-iam-policy-changes"
+        - "soc2-cc7.2-cis-cloudtrail-config-changes"
+        - "soc2-cc7.2-cis-console-signin-no-mfa"
+        - "soc2-cc7.2-cis-cmk-disable-deletion"
+        - "soc2-cc7.2-cis-s3-bucket-policy-changes"
+        - "soc2-cc7.2-cis-config-changes"
+        - "soc2-cc7.2-cis-security-group-changes"
+        - "soc2-cc7.2-cis-nacl-changes"
+        - "soc2-cc7.2-cis-network-gateway-changes"
+        - "soc2-cc7.2-cis-route-table-changes"
+        - "soc2-cc7.2-cis-vpc-changes"
+        - "soc2-cc7.2-cis-organizations-changes"
+    assertions:
+      expected_policy_results:
+        "soc2-cc7.2-cis-unauthorized-api-calls": fail    # no CIS metric filters configured
+        "soc2-cc7.2-cis-console-auth-failures": fail
+        "soc2-cc7.2-cis-root-account-usage": fail
+        "soc2-cc7.2-cis-iam-policy-changes": fail
+        "soc2-cc7.2-cis-cloudtrail-config-changes": fail
+        "soc2-cc7.2-cis-console-signin-no-mfa": fail
+        "soc2-cc7.2-cis-cmk-disable-deletion": fail
+        "soc2-cc7.2-cis-s3-bucket-policy-changes": fail
+        "soc2-cc7.2-cis-config-changes": fail
+        "soc2-cc7.2-cis-security-group-changes": fail
+        "soc2-cc7.2-cis-nacl-changes": fail
+        "soc2-cc7.2-cis-network-gateway-changes": fail
+        "soc2-cc7.2-cis-route-table-changes": fail
+        "soc2-cc7.2-cis-vpc-changes": fail
+        "soc2-cc7.2-cis-organizations-changes": fail
+
+  # ---- CodeBuild policies ----
+  - name: soc2-aws-codebuild
+    description: "SOC2 CodeBuild policies — credentials, encryption, logging, privileged mode"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [codebuild]
+    policies:
+      include:
+        - "soc2-cc6.1-codebuild-no-cleartext-credentials"
+        - "soc2-cc6.1-codebuild-no-source-credentials-url"
+        - "soc2-cc6.2-codebuild-s3-logs-encrypted"
+        - "soc2-cc6.8-codebuild-no-privileged-mode"
+        - "soc2-cc7.1-codebuild-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.1-codebuild-no-cleartext-credentials": skip  # no CodeBuild projects
+        "soc2-cc6.1-codebuild-no-source-credentials-url": skip
+        "soc2-cc6.2-codebuild-s3-logs-encrypted": skip
+        "soc2-cc6.8-codebuild-no-privileged-mode": skip
+        "soc2-cc7.1-codebuild-logging": skip
+
+  # ---- DMS policies ----
+  - name: soc2-aws-dms
+    description: "SOC2 DMS policies — multi-AZ, public access, auto-upgrade, SSL, logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [dms]
+    policies:
+      include:
+        - "soc2-a1.2-dms-multi-az"
+        - "soc2-cc6.6-dms-not-public"
+        - "soc2-cc6.8-dms-auto-upgrade"
+        - "soc2-cc6.7-dms-ssl-mode"
+        - "soc2-cc6.7-dms-redis-encryption"
+        - "soc2-cc7.1-dms-source-logging"
+        - "soc2-cc7.1-dms-target-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-dms-multi-az": skip
+        "soc2-cc6.6-dms-not-public": skip
+        "soc2-cc6.8-dms-auto-upgrade": skip
+        "soc2-cc6.7-dms-ssl-mode": skip
+        "soc2-cc6.7-dms-redis-encryption": skip
+        "soc2-cc7.1-dms-source-logging": skip
+        "soc2-cc7.1-dms-target-logging": skip
+
+  # ---- DocumentDB policies ----
+  - name: soc2-aws-documentdb
+    description: "SOC2 DocumentDB policies — backup, deletion protection, encryption, TLS, audit logs"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [documentdb]
+    policies:
+      include:
+        - "soc2-a1.2-documentdb-backup-retention"
+        - "soc2-a1.2-documentdb-deletion-protection"
+        - "soc2-cc6.2-documentdb-encryption"
+        - "soc2-cc6.6-documentdb-snapshot-not-public"
+        - "soc2-cc6.7-documentdb-tls"
+        - "soc2-cc7.1-documentdb-audit-logs"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-documentdb-backup-retention": skip
+        "soc2-a1.2-documentdb-deletion-protection": skip
+        "soc2-cc6.2-documentdb-encryption": skip
+        "soc2-cc6.6-documentdb-snapshot-not-public": skip
+        "soc2-cc6.7-documentdb-tls": skip
+        "soc2-cc7.1-documentdb-audit-logs": skip
+
+  # ---- EMR policies ----
+  - name: soc2-aws-emr
+    description: "SOC2 EMR policies — encryption at rest, in transit, block public access, logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [emr]
+    policies:
+      include:
+        - "soc2-cc6.2-emr-encryption-at-rest"
+        - "soc2-cc6.7-emr-encryption-in-transit"
+        - "soc2-cc6.6-emr-block-public-access"
+        - "soc2-cc7.1-emr-logging"
+    assertions:
+      collection_errors_expected: true  # EMR requires subscription in e2e account
+      expected_policy_results:
+        "soc2-cc6.2-emr-encryption-at-rest": skip
+        "soc2-cc6.7-emr-encryption-in-transit": skip
+        "soc2-cc6.6-emr-block-public-access": skip  # EMR subscription error means no data collected
+        "soc2-cc7.1-emr-logging": skip
+
+  # ---- Kinesis policies ----
+  - name: soc2-aws-kinesis
+    description: "SOC2 Kinesis policies — retention, encryption"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [kinesis]
+    policies:
+      include:
+        - "soc2-a1.2-kinesis-retention"
+        - "soc2-c1.2-kinesis-retention"
+        - "soc2-cc6.2-kinesis-encryption"
+        - "soc2-pi1.4-kinesis-encryption"
+    assertions:
+      collection_errors_expected: true  # Kinesis requires subscription in e2e account
+      expected_policy_results:
+        "soc2-a1.2-kinesis-retention": skip  # no Kinesis streams
+        "soc2-c1.2-kinesis-retention": skip
+        "soc2-cc6.2-kinesis-encryption": skip
+        "soc2-pi1.4-kinesis-encryption": skip
+
+  # ---- MSK policies ----
+  - name: soc2-aws-msk
+    description: "SOC2 MSK policies — authentication, public access, encryption in transit, logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [msk]
+    policies:
+      include:
+        - "soc2-cc6.1-msk-authentication"
+        - "soc2-cc6.6-msk-no-public-access"
+        - "soc2-cc6.7-msk-encryption-in-transit"
+        - "soc2-cc7.1-msk-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.1-msk-authentication": skip
+        "soc2-cc6.6-msk-no-public-access": skip
+        "soc2-cc6.7-msk-encryption-in-transit": skip
+        "soc2-cc7.1-msk-logging": skip
+
+  # ---- Neptune policies ----
+  - name: soc2-aws-neptune
+    description: "SOC2 Neptune policies — backup, deletion protection, encryption, IAM auth, audit logs, snapshots"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [neptune]
+    policies:
+      include:
+        - "soc2-a1.2-neptune-backup-retention"
+        - "soc2-a1.2-neptune-deletion-protection"
+        - "soc2-cc6.2-neptune-encryption"
+        - "soc2-cc6.1-neptune-iam-auth"
+        - "soc2-cc6.6-neptune-snapshot-not-public"
+        - "soc2-cc7.1-neptune-audit-logs"
+        - "soc2-cc7.5-neptune-copy-tags"
+        - "soc2-cc7.5-neptune-snapshot-encrypted"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-neptune-backup-retention": skip
+        "soc2-a1.2-neptune-deletion-protection": skip
+        "soc2-cc6.2-neptune-encryption": skip
+        "soc2-cc6.1-neptune-iam-auth": skip
+        "soc2-cc6.6-neptune-snapshot-not-public": skip
+        "soc2-cc7.1-neptune-audit-logs": skip
+        "soc2-cc7.5-neptune-copy-tags": skip
+        "soc2-cc7.5-neptune-snapshot-encrypted": skip
+
+  # ---- Network Firewall policies ----
+  - name: soc2-aws-networkfirewall
+    description: "SOC2 Network Firewall policies — deletion protection, firewall policy, logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [networkfirewall]
+    policies:
+      include:
+        - "soc2-a1.2-networkfirewall-deletion-protection"
+        - "soc2-cc6.6-networkfirewall-policy"
+        - "soc2-cc7.1-networkfirewall-logging"
+    assertions:
+      collection_errors_expected: true  # Network Firewall requires subscription in e2e account
+      expected_policy_results:
+        "soc2-a1.2-networkfirewall-deletion-protection": skip
+        "soc2-cc6.6-networkfirewall-policy": skip
+        "soc2-cc7.1-networkfirewall-logging": skip
+
+  # ---- Redshift Serverless policies ----
+  - name: soc2-aws-redshiftserverless
+    description: "SOC2 Redshift Serverless policies — encryption, public access"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [redshiftserverless]
+    policies:
+      include:
+        - "soc2-cc6.2-redshiftserverless-encryption"
+        - "soc2-cc6.6-redshiftserverless-not-public"
+    assertions:
+      collection_errors_expected: true  # Redshift Serverless times out in e2e account
+      expected_policy_results:
+        "soc2-cc6.2-redshiftserverless-encryption": skip
+        "soc2-cc6.6-redshiftserverless-not-public": skip
+
+  # ---- Route53 policies ----
+  - name: soc2-aws-route53
+    description: "SOC2 Route53 policies — DNSSEC, query logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [route53]
+    policies:
+      include:
+        - "soc2-cc6.2-route53-dnssec"
+        - "soc2-cc7.1-route53-query-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.2-route53-dnssec": skip  # no hosted zones in e2e account
+        "soc2-cc7.1-route53-query-logging": skip
+
+  # ---- SageMaker policies ----
+  - name: soc2-aws-sagemaker
+    description: "SOC2 SageMaker policies — direct internet access, custom VPC, root access"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [sagemaker]
+    policies:
+      include:
+        - "soc2-cc6.6-sagemaker-no-direct-internet"
+        - "soc2-cc6.6-sagemaker-custom-vpc"
+        - "soc2-cc6.8-sagemaker-no-root-access"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.6-sagemaker-no-direct-internet": skip
+        "soc2-cc6.6-sagemaker-custom-vpc": skip
+        "soc2-cc6.8-sagemaker-no-root-access": skip
+
+  # ---- Step Functions policies ----
+  - name: soc2-aws-stepfunctions
+    description: "SOC2 Step Functions policies — logging, X-Ray tracing"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [stepfunctions]
+    policies:
+      include:
+        - "soc2-cc7.1-stepfunctions-logging"
+        - "soc2-cc7.1-stepfunctions-tracing"
+    assertions:
+      expected_policy_results:
+        "soc2-cc7.1-stepfunctions-logging": skip
+        "soc2-cc7.1-stepfunctions-tracing": skip
+
+  # ---- Transfer Family policies ----
+  - name: soc2-aws-transfer
+    description: "SOC2 Transfer Family policies — in-transit encryption"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [transfer]
+    policies:
+      include:
+        - "soc2-cc7.1-transfer-encryption"
+    assertions:
+      expected_policy_results:
+        "soc2-cc7.1-transfer-encryption": skip
+
+  # ---- AppSync policies ----
+  - name: soc2-aws-appsync
+    description: "SOC2 AppSync policies — field-level logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [appsync]
+    policies:
+      include:
+        - "soc2-cc7.1-appsync-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-cc7.1-appsync-logging": skip
+
+  # ---- Athena policies ----
+  - name: soc2-aws-athena
+    description: "SOC2 Athena policies — workgroup logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [athena]
+    policies:
+      include:
+        - "soc2-cc7.1-athena-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-cc7.1-athena-logging": pass  # default workgroup has logging enabled
+
+  # ---- DataSync policies ----
+  - name: soc2-aws-datasync
+    description: "SOC2 DataSync policies — task logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [datasync]
+    policies:
+      include:
+        - "soc2-cc7.1-datasync-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-cc7.1-datasync-logging": skip
+
+  # ---- Bedrock policies ----
+  - name: soc2-aws-bedrock
+    description: "SOC2 Bedrock policies — model invocation logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [bedrock]
+    policies:
+      include:
+        - "soc2-cc7.1-bedrock-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-cc7.1-bedrock-logging": fail  # bedrock logging not configured
+
+  # ---- FSx policies ----
+  - name: soc2-aws-fsx
+    description: "SOC2 FSx policies — multi-AZ, encryption"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [fsx]
+    policies:
+      include:
+        - "soc2-a1.2-fsx-multi-az"
+        - "soc2-cc6.2-fsx-encryption"
+    assertions:
+      collection_errors_expected: true  # FSx requires subscription in e2e account
+      expected_policy_results:
+        "soc2-a1.2-fsx-multi-az": skip
+        "soc2-cc6.2-fsx-encryption": skip
+
+  # ---- MQ (Amazon MQ) policies ----
+  - name: soc2-aws-mq
+    description: "SOC2 Amazon MQ policies — multi-AZ, auto-upgrade, audit logs"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [mq]
+    policies:
+      include:
+        - "soc2-a1.2-mq-multi-az"
+        - "soc2-cc6.8-mq-auto-upgrade"
+        - "soc2-cc7.1-mq-audit-logs"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-mq-multi-az": skip
+        "soc2-cc6.8-mq-auto-upgrade": skip
+        "soc2-cc7.1-mq-audit-logs": skip
+
+  # ---- DAX policies ----
+  - name: soc2-aws-dax
+    description: "SOC2 DAX policies — encryption, TLS"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [dax]
+    policies:
+      include:
+        - "soc2-cc6.2-dax-encryption"
+        - "soc2-cc6.7-dax-tls"
+    assertions:
+      collection_errors_expected: true  # DAX times out in e2e account
+      expected_policy_results:
+        "soc2-cc6.2-dax-encryption": skip
+        "soc2-cc6.7-dax-tls": skip
+
+  # ---- Cognito policies ----
+  - name: soc2-aws-cognito
+    description: "SOC2 Cognito policies — password policy, MFA, advanced security"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [cognito]
+    policies:
+      include:
+        - "soc2-cc6.1-cognito-password-policy"
+        - "soc2-cc6.1-cognito-mfa"
+        - "soc2-cc6.8-cognito-advanced-security"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.1-cognito-password-policy": skip
+        "soc2-cc6.1-cognito-mfa": skip
+        "soc2-cc6.8-cognito-advanced-security": skip
+
+  # ---- Elastic Beanstalk policies ----
+  - name: soc2-aws-beanstalk
+    description: "SOC2 Elastic Beanstalk policies — managed updates, CloudWatch logs, health reporting"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [elasticbeanstalk]
+    policies:
+      include:
+        - "soc2-cc6.8-beanstalk-managed-updates"
+        - "soc2-cc7.1-beanstalk-cloudwatch-logs"
+        - "soc2-cc7.1-beanstalk-health-reporting"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.8-beanstalk-managed-updates": skip
+        "soc2-cc7.1-beanstalk-cloudwatch-logs": skip
+        "soc2-cc7.1-beanstalk-health-reporting": skip
+
+  # ---- Account-level policies ----
+  - name: soc2-aws-account
+    description: "SOC2 account-level policies — security contact"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [account]
+    policies:
+      include:
+        - "soc2-cc4.2-account-security-contact"
+    assertions:
+      expected_policy_results:
+        "soc2-cc4.2-account-security-contact": fail  # security contact likely not configured
+
+  # ---- Client VPN policies ----
+  - name: soc2-aws-clientvpn
+    description: "SOC2 Client VPN policies — split tunnel, connection logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [ec2]
+    policies:
+      include:
+        - "soc2-cc6.6-clientvpn-split-tunnel"
+        - "soc2-cc7.1-clientvpn-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.6-clientvpn-split-tunnel": skip  # no Client VPN endpoints in e2e account
+        "soc2-cc7.1-clientvpn-logging": skip
+
+  # ---- Glue policies ----
+  - name: soc2-aws-glue
+    description: "SOC2 Glue policies — encryption, supported version, logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [glue]
+    policies:
+      include:
+        - "soc2-cc6.2-glue-encryption"
+        - "soc2-cc6.8-glue-supported-version"
+        - "soc2-cc7.1-glue-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.2-glue-encryption": skip
+        "soc2-cc6.8-glue-supported-version": skip
+        "soc2-cc7.1-glue-logging": skip
+
+  # ---- API Gateway V2 policies ----
+  - name: soc2-aws-apigatewayv2
+    description: "SOC2 API Gateway V2 policies — HTTP/WebSocket API logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [apigatewayv2]
+    policies:
+      include:
+        - "soc2-cc7.1-apigatewayv2-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-cc7.1-apigatewayv2-logging": skip
+
+  # ===========================================================================
+  # Extended policy coverage scenarios
+  #
+  # These scenarios ensure ALL SOC 2 AWS policies have E2E coverage.
+  # Grouped by AWS service to maximize evidence reuse.
+  # ===========================================================================
+
+  # ---- IAM extended v2: additional access control policies ----
+  - name: soc2-aws-iam-extended-v2
+    description: "SOC2 IAM extended v2 — admin access, support role, CloudTrail policy, console unused, privilege escalation, server certs, hardware MFA"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [iam]
+    policies:
+      include:
+        - "soc2-cc5.1-no-admin-access-production"
+        - "soc2-cc6.1-iam-cloudtrail-policy"
+        - "soc2-cc6.1-iam-support-role"
+        - "soc2-cc6.1-kms-wildcard-decrypt"
+        - "soc2-cc6.1-root-hardware-mfa"
+        - "soc2-cc6.3-iam-policy-attached-to-groups-roles"
+        - "soc2-cc6.3-iam-privilege-escalation"
+        - "soc2-cc6.3-iam-user-console-unused"
+        - "soc2-cc6.7-iam-no-server-certificates"
+    assertions:
+      expected_policy_results:
+        "soc2-cc5.1-no-admin-access-production": pass     # e2e users don't have admin access
+        "soc2-cc6.1-iam-cloudtrail-policy": pass           # no full CloudTrail access policies
+        "soc2-cc6.1-iam-support-role": fail                # no AWS Support role configured
+        "soc2-cc6.1-kms-wildcard-decrypt": pass            # no wildcard KMS decrypt policies
+        "soc2-cc6.1-root-hardware-mfa": pass               # root has hardware MFA
+        "soc2-cc6.3-iam-policy-attached-to-groups-roles": pass  # policies attached to groups/roles
+        "soc2-cc6.3-iam-privilege-escalation": pass        # no privilege escalation paths
+        "soc2-cc6.3-iam-user-console-unused": pass         # console users are active
+        "soc2-cc6.7-iam-no-server-certificates": pass      # no server certificates
+
+  # ---- S3 extended: additional S3 policies ----
+  - name: soc2-aws-s3-extended
+    description: "SOC2 S3 extended — cross-region replication, MFA delete, ACLs, cross-account, event notifications, versioning, encryption"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [s3]
+    policies:
+      include:
+        - "soc2-a1.2-s3-cross-region-replication"
+        - "soc2-cc6.2-s3-mfa-delete"
+        - "soc2-cc6.2-s3-no-acl"
+        - "soc2-cc6.6-s3-cross-account"
+        - "soc2-cc7.1-s3-event-notifications"
+        - "soc2-cc7.2-cloudtrail-s3-access-logging"
+        - "soc2-cc7.4-s3-versioning"
+        - "soc2-pi1.4-s3-default-encryption"
+        - "soc2-pi1.4-s3-kms-encryption"
+        - "soc2-pi1.5-s3-object-lock"
+        - "soc2-pi1.5-s3-versioning"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-s3-cross-region-replication": fail      # no cross-region replication
+        "soc2-cc6.2-s3-mfa-delete": pass                   # MFA delete configured correctly
+        "soc2-cc6.2-s3-no-acl": pass                       # buckets use bucket-owner-enforced
+        "soc2-cc6.6-s3-cross-account": pass                # no cross-account access
+        "soc2-cc7.1-s3-event-notifications": fail          # no event notifications
+        "soc2-cc7.2-cloudtrail-s3-access-logging": fail    # CloudTrail S3 bucket lacks access logging
+        "soc2-cc7.4-s3-versioning": fail                   # versioning not enabled on all buckets
+        "soc2-pi1.4-s3-default-encryption": pass           # default encryption enabled
+        "soc2-pi1.4-s3-kms-encryption": fail               # using AES256, not KMS
+        "soc2-pi1.5-s3-object-lock": fail                  # object lock not enabled
+        "soc2-pi1.5-s3-versioning": fail                   # versioning not enabled on all buckets
+
+  # ---- EC2 extended: additional EC2 policies ----
+  - name: soc2-aws-ec2-extended
+    description: "SOC2 EC2 extended — launch templates, AMI public, EBS snapshots, transit gateways, NACLs, subnets, VPC endpoints, monitoring"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [ec2]
+    policies:
+      include:
+        - "soc2-cc6.1-ec2-imdsv2-launch-template"
+        - "soc2-cc6.6-ec2-ami-public"
+        - "soc2-cc6.6-ec2-ebs-snapshot-block-public"
+        - "soc2-cc6.6-ec2-launch-template-no-public-ip"
+        - "soc2-cc6.6-ec2-stopped-instances"
+        - "soc2-cc6.6-ec2-transit-gw-auto-accept"
+        - "soc2-cc6.6-nacl-unrestricted-ingress"
+        - "soc2-cc6.6-subnet-no-public-ip"
+        - "soc2-cc6.6-vpc-endpoint-s3"
+        - "soc2-cc6.8-ec2-managed-by-ssm"
+        - "soc2-cc7.1-ec2-detailed-monitoring"
+        - "soc2-cc7.3-vpc-flow-logs"
+        - "soc2-cc6.2-ebs-snapshot-encryption"
+        - "soc2-cc7.5-ebs-snapshots-encrypted"
+        - "soc2-cc7.5-ebs-snapshots-exist"
+        - "soc2-pi1.5-ebs-encryption"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.1-ec2-imdsv2-launch-template": skip     # no launch templates
+        "soc2-cc6.6-ec2-ami-public": skip                  # no custom AMIs
+        "soc2-cc6.6-ec2-ebs-snapshot-block-public": fail   # snapshot block public access not set to block-all-sharing
+        "soc2-cc6.6-ec2-launch-template-no-public-ip": skip
+        "soc2-cc6.6-ec2-stopped-instances": skip           # no EC2 instances
+        "soc2-cc6.6-ec2-transit-gw-auto-accept": skip      # no transit gateways
+        "soc2-cc6.6-nacl-unrestricted-ingress": pass       # default NACL has no unrestricted custom rules
+        "soc2-cc6.6-subnet-no-public-ip": fail             # default subnets have auto-assign public IP
+        "soc2-cc6.6-vpc-endpoint-s3": fail                 # no S3 VPC endpoint
+        "soc2-cc6.8-ec2-managed-by-ssm": skip              # no EC2 instances
+        "soc2-cc7.1-ec2-detailed-monitoring": skip         # no EC2 instances
+        "soc2-cc7.3-vpc-flow-logs": pass                   # VPC flow logs enabled on default VPC
+        "soc2-cc6.2-ebs-snapshot-encryption": skip          # no EBS snapshots
+        "soc2-cc7.5-ebs-snapshots-encrypted": skip         # no EBS snapshots
+        "soc2-cc7.5-ebs-snapshots-exist": skip             # no EBS volumes
+        "soc2-pi1.5-ebs-encryption": skip                  # no EBS volumes
+
+  # ---- CloudTrail extended v2: CC2.1 and PI1.3 policies ----
+  - name: soc2-aws-cloudtrail-extended-v2
+    description: "SOC2 CloudTrail extended v2 — CC2.1 and PI1.3 controls, Lambda data events"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [cloudtrail]
+    policies:
+      include:
+        - "soc2-cc2.1-cloudtrail-multiregion"
+        - "soc2-cc2.1-cloudtrail-s3-data-events-read"
+        - "soc2-cc2.1-cloudtrail-s3-data-events-write"
+        - "soc2-cc7.1-cloudtrail-lambda-data-events"
+        - "soc2-cc7.3-cloudtrail-cloudwatch"
+        - "soc2-cc7.3-cloudtrail-log-validation"
+        - "soc2-pi1.3-cloudtrail-cloudwatch"
+        - "soc2-pi1.3-cloudtrail-log-validation"
+        - "soc2-pi1.3-cloudtrail-multiregion"
+    assertions:
+      expected_policy_results:
+        "soc2-cc2.1-cloudtrail-multiregion": pass          # trail is multi-region
+        "soc2-cc2.1-cloudtrail-s3-data-events-read": fail  # S3 data events not configured
+        "soc2-cc2.1-cloudtrail-s3-data-events-write": fail
+        "soc2-cc7.1-cloudtrail-lambda-data-events": fail   # Lambda data events not configured
+        "soc2-cc7.3-cloudtrail-cloudwatch": fail           # CloudWatch integration not configured
+        "soc2-cc7.3-cloudtrail-log-validation": pass       # log validation enabled
+        "soc2-pi1.3-cloudtrail-cloudwatch": fail           # CloudWatch integration not configured
+        "soc2-pi1.3-cloudtrail-log-validation": pass
+        "soc2-pi1.3-cloudtrail-multiregion": pass
+
+  # ---- CloudWatch extended: CC7.3 and PI1.4 log group policies ----
+  - name: soc2-aws-cloudwatch-extended
+    description: "SOC2 CloudWatch extended — log group KMS, public access, cross-account, retention"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [logs]
+    policies:
+      include:
+        - "soc2-cc7.3-cloudwatch-log-kms"
+        - "soc2-cc7.3-cloudwatch-no-cross-account"
+        - "soc2-cc7.3-cloudwatch-not-public"
+        - "soc2-cc7.3-log-retention"
+        - "soc2-pi1.4-cloudwatch-log-kms"
+    assertions:
+      expected_policy_results:
+        "soc2-cc7.3-cloudwatch-log-kms": pass              # log groups have KMS encryption
+        "soc2-cc7.3-cloudwatch-no-cross-account": pass     # no cross-account sharing
+        "soc2-cc7.3-cloudwatch-not-public": pass           # log groups not publicly accessible
+        "soc2-cc7.3-log-retention": fail                   # retention not set on all log groups
+        "soc2-pi1.4-cloudwatch-log-kms": pass              # log groups have KMS encryption
+
+  # ---- Config extended: aggregator, recorder (CC2.1, PI1.3) ----
+  - name: soc2-aws-config-extended
+    description: "SOC2 Config extended — aggregator, recorder for CC2.1 and PI1.3"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [config]
+    policies:
+      include:
+        - "soc2-cc2.1-config-recorder"
+        - "soc2-cc4.1-config-aggregator"
+        - "soc2-pi1.3-config-recorder"
+    assertions:
+      expected_policy_results:
+        "soc2-cc2.1-config-recorder": pass                 # Config recorder is configured
+        "soc2-cc4.1-config-aggregator": fail               # no Config aggregator
+        "soc2-pi1.3-config-recorder": pass                 # Config recorder is configured
+
+  # ---- RDS extended v3: additional RDS policies ----
+  - name: soc2-aws-rds-extended-v3
+    description: "SOC2 RDS extended v3 — custom admin, IAM auth, PI encryption, ports, logging, backup, cluster"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [rds]
+    policies:
+      include:
+        - "soc2-cc6.1-rds-custom-admin"
+        - "soc2-cc6.1-rds-iam-auth"
+        - "soc2-cc6.2-rds-performance-insights-encryption"
+        - "soc2-cc6.6-open-db-ports"
+        - "soc2-cc6.6-rds-non-default-port"
+        - "soc2-cc6.6-rds-public-subnet"
+        - "soc2-cc7.1-rds-log-publishing"
+        - "soc2-cc7.2-rds-cluster-cloudwatch"
+        - "soc2-cc7.2-rds-event-subscription"
+        - "soc2-cc7.4-rds-backup"
+        - "soc2-cc7.4-rds-deletion-protection"
+        - "soc2-cc7.5-rds-cluster-encrypted"
+        - "soc2-cc7.5-rds-copy-tags"
+        - "soc2-pi1.3-rds-cloudwatch-logs"
+        - "soc2-pi1.5-rds-storage-encrypted"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.1-rds-custom-admin": fail                # using default admin username
+        "soc2-cc6.1-rds-iam-auth": fail                    # IAM auth not enabled
+        "soc2-cc6.2-rds-performance-insights-encryption": fail  # PI encryption not enabled
+        "soc2-cc6.6-open-db-ports": skip                   # no security group evidence for RDS-only filter
+        "soc2-cc6.6-rds-non-default-port": fail            # using default port
+        "soc2-cc6.6-rds-public-subnet": pass               # RDS instance not in public subnet
+        "soc2-cc7.1-rds-log-publishing": fail              # log publishing not configured
+        "soc2-cc7.2-rds-cluster-cloudwatch": skip          # no Aurora clusters
+        "soc2-cc7.2-rds-event-subscription": fail          # no event subscriptions
+        "soc2-cc7.4-rds-backup": fail                      # backup retention too low
+        "soc2-cc7.4-rds-deletion-protection": fail         # deletion protection not enabled
+        "soc2-cc7.5-rds-cluster-encrypted": skip           # no Aurora clusters
+        "soc2-cc7.5-rds-copy-tags": pass                   # copy tags enabled
+        "soc2-pi1.3-rds-cloudwatch-logs": fail             # CloudWatch logs not configured
+        "soc2-pi1.5-rds-storage-encrypted": fail           # storage encryption not enabled
+
+  # ---- ELBv2 extended: additional load balancer policies ----
+  - name: soc2-aws-elbv2-extended
+    description: "SOC2 ELBv2 extended — cross-zone, deletion protection, headers, HTTP redirect, SSL policy, access logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [elbv2]
+    policies:
+      include:
+        - "soc2-a1.2-elbv2-cross-zone"
+        - "soc2-a1.2-elbv2-deletion-protection"
+        - "soc2-cc6.7-elbv2-drop-invalid-headers"
+        - "soc2-cc6.7-elbv2-http-redirect"
+        - "soc2-cc6.7-elbv2-ssl-policy"
+        - "soc2-cc7.1-elbv2-access-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-elbv2-cross-zone": pass                 # cross-zone enabled on ALB
+        "soc2-a1.2-elbv2-deletion-protection": fail        # deletion protection not enabled
+        "soc2-cc6.7-elbv2-drop-invalid-headers": fail      # not configured
+        "soc2-cc6.7-elbv2-http-redirect": fail             # no HTTP to HTTPS redirect
+        "soc2-cc6.7-elbv2-ssl-policy": pass                # using valid SSL policy
+        "soc2-cc7.1-elbv2-access-logging": fail            # access logging not enabled
+
+  # ---- GuardDuty extended: protection features and findings ----
+  - name: soc2-aws-guardduty-extended
+    description: "SOC2 GuardDuty extended — malware, EKS, Lambda, RDS, S3, runtime protection, findings"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [guardduty]
+    policies:
+      include:
+        - "soc2-cc6.8-guardduty-malware-protection"
+        - "soc2-cc7.2-guardduty-eks-protection"
+        - "soc2-cc7.2-guardduty-lambda-protection"
+        - "soc2-cc7.2-guardduty-rds-protection"
+        - "soc2-cc7.2-guardduty-runtime-monitoring"
+        - "soc2-cc7.2-guardduty-s3-protection"
+        - "soc2-cc7.3-guardduty-enabled"
+        - "soc2-cc7.3-guardduty-no-high-findings"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.8-guardduty-malware-protection": pass    # malware protection enabled
+        "soc2-cc7.2-guardduty-eks-protection": pass        # EKS protection enabled
+        "soc2-cc7.2-guardduty-lambda-protection": pass     # Lambda protection enabled
+        "soc2-cc7.2-guardduty-rds-protection": pass        # RDS protection enabled
+        "soc2-cc7.2-guardduty-runtime-monitoring": pass    # runtime monitoring enabled
+        "soc2-cc7.2-guardduty-s3-protection": pass         # S3 protection enabled
+        "soc2-cc7.3-guardduty-enabled": fail               # GuardDuty not fully configured
+        "soc2-cc7.3-guardduty-no-high-findings": pass      # no high-severity findings
+
+  # ---- Lambda extended v2: concurrency, runtime, X-Ray, code signing, multi-AZ ----
+  - name: soc2-aws-lambda-extended-v2
+    description: "SOC2 Lambda extended v2 — concurrency, runtime, X-Ray, code signing, multi-AZ"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [lambda]
+    policies:
+      include:
+        - "soc2-a1.2-lambda-multi-az"
+        - "soc2-cc6.8-lambda-concurrency-limit"
+        - "soc2-cc6.8-lambda-runtime"
+        - "soc2-cc7.1-lambda-xray-tracing"
+        - "soc2-cc8.1-lambda-code-signing"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-lambda-multi-az": pass                  # Lambda functions have multi-AZ
+        "soc2-cc6.8-lambda-concurrency-limit": fail        # no concurrency limit set
+        "soc2-cc6.8-lambda-runtime": pass                  # supported runtime
+        "soc2-cc7.1-lambda-xray-tracing": fail             # X-Ray tracing not enabled
+        "soc2-cc8.1-lambda-code-signing": fail             # code signing not configured
+
+  # ---- CloudFront extended: origin failover, geo restriction, WAF, TLS, logging ----
+  - name: soc2-aws-cloudfront-extended
+    description: "SOC2 CloudFront extended — origin failover, default root, geo restriction, WAF, TLS, SNI, SSL, logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [cloudfront]
+    policies:
+      include:
+        - "soc2-a1.2-cloudfront-origin-failover"
+        - "soc2-cc6.6-cloudfront-default-root-object"
+        - "soc2-cc6.6-cloudfront-geo-restriction"
+        - "soc2-cc6.6-cloudfront-waf"
+        - "soc2-cc6.7-cloudfront-field-encryption"
+        - "soc2-cc6.7-cloudfront-origin-ssl"
+        - "soc2-cc6.7-cloudfront-sni"
+        - "soc2-cc6.7-cloudfront-tls"
+        - "soc2-cc7.1-cloudfront-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-cloudfront-origin-failover": skip       # no distributions
+        "soc2-cc6.6-cloudfront-default-root-object": skip
+        "soc2-cc6.6-cloudfront-geo-restriction": skip
+        "soc2-cc6.6-cloudfront-waf": skip
+        "soc2-cc6.7-cloudfront-field-encryption": skip
+        "soc2-cc6.7-cloudfront-origin-ssl": skip
+        "soc2-cc6.7-cloudfront-sni": skip
+        "soc2-cc6.7-cloudfront-tls": skip
+        "soc2-cc7.1-cloudfront-logging": skip
+
+  # ---- API Gateway extended: authorizer, cache encryption, throttling, WAF, TLS ----
+  - name: soc2-aws-apigateway-extended
+    description: "SOC2 API Gateway extended — authorizer, cache encryption, throttling, WAF, TLS"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [apigateway]
+    policies:
+      include:
+        - "soc2-cc6.1-apigateway-authorizer"
+        - "soc2-cc6.2-apigateway-cache-encryption"
+        - "soc2-cc6.6-apigateway-throttling"
+        - "soc2-cc6.6-apigateway-waf"
+        - "soc2-cc6.7-apigateway-tls"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.1-apigateway-authorizer": skip           # no API Gateway REST APIs
+        "soc2-cc6.2-apigateway-cache-encryption": skip
+        "soc2-cc6.6-apigateway-throttling": skip
+        "soc2-cc6.6-apigateway-waf": skip
+        "soc2-cc6.7-apigateway-tls": skip
+
+  # ---- ECS extended: all container security policies ----
+  - name: soc2-aws-ecs-extended
+    description: "SOC2 ECS extended — execute command, secrets, encryption, networking, namespaces, readonly root, privileged, root user, logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [ecs]
+    policies:
+      include:
+        - "soc2-cc6.1-ecs-no-execute-command"
+        - "soc2-cc6.1-ecs-no-secrets-env"
+        - "soc2-cc6.2-ecs-task-encryption"
+        - "soc2-cc6.6-ecs-task-networking"
+        - "soc2-cc6.8-ecs-no-host-namespace"
+        - "soc2-cc6.8-ecs-readonly-root-fs"
+        - "soc2-cc6.8-ecs-task-privileged"
+        - "soc2-cc6.8-ecs-task-root-user"
+        - "soc2-cc7.1-ecs-task-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.1-ecs-no-execute-command": skip          # no ECS services
+        "soc2-cc6.1-ecs-no-secrets-env": skip
+        "soc2-cc6.2-ecs-task-encryption": skip
+        "soc2-cc6.6-ecs-task-networking": skip
+        "soc2-cc6.8-ecs-no-host-namespace": skip
+        "soc2-cc6.8-ecs-readonly-root-fs": skip
+        "soc2-cc6.8-ecs-task-privileged": skip
+        "soc2-cc6.8-ecs-task-root-user": skip
+        "soc2-cc7.1-ecs-task-logging": skip
+
+  # ---- EKS extended: secrets encryption, endpoint, version, audit logging ----
+  - name: soc2-aws-eks-extended
+    description: "SOC2 EKS extended — secrets encryption, endpoint access, supported version, audit logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [eks]
+    policies:
+      include:
+        - "soc2-cc6.2-eks-secrets-encryption"
+        - "soc2-cc6.6-eks-endpoint-public"
+        - "soc2-cc6.8-eks-supported-version"
+        - "soc2-cc7.1-eks-audit-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.2-eks-secrets-encryption": skip          # no EKS clusters
+        "soc2-cc6.6-eks-endpoint-public": skip
+        "soc2-cc6.8-eks-supported-version": skip
+        "soc2-cc7.1-eks-audit-logging": skip
+
+  # ---- KMS extended: key policy public, scheduled deletion ----
+  - name: soc2-aws-kms-extended
+    description: "SOC2 KMS extended — key policy public access, scheduled deletion, rotation"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [kms]
+    policies:
+      include:
+        - "soc2-cc6.1-kms-key-policy-public"
+        - "soc2-cc6.1-kms-scheduled-deletion"
+        - "soc2-pi1.5-kms-rotation"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.1-kms-key-policy-public": pass           # no public KMS key policies
+        "soc2-cc6.1-kms-scheduled-deletion": fail          # key scheduled for deletion
+        "soc2-pi1.5-kms-rotation": fail                    # rotation not enabled on all CMKs
+
+  # ---- OpenSearch extended: zone awareness, fine-grained access, audit/slow logs ----
+  - name: soc2-aws-opensearch-extended-v2
+    description: "SOC2 OpenSearch extended v2 — zone awareness, fine-grained access, audit logging, slow logs"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [opensearch]
+    policies:
+      include:
+        - "soc2-a1.2-opensearch-zone-awareness"
+        - "soc2-cc6.1-opensearch-fine-grained-access"
+        - "soc2-cc7.1-opensearch-audit-logging"
+        - "soc2-cc7.1-opensearch-slow-logs"
+    assertions:
+      collection_errors_expected: true
+      expected_policy_results:
+        "soc2-a1.2-opensearch-zone-awareness": skip        # no OpenSearch domains
+        "soc2-cc6.1-opensearch-fine-grained-access": skip
+        "soc2-cc7.1-opensearch-audit-logging": skip
+        "soc2-cc7.1-opensearch-slow-logs": skip
+
+  # ---- Redshift extended: additional policies ----
+  - name: soc2-aws-redshift-extended
+    description: "SOC2 Redshift extended — automated snapshots, default admin, VPC routing, SSL, recovery"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [redshift]
+    policies:
+      include:
+        - "soc2-a1.2-redshift-automated-snapshots"
+        - "soc2-cc6.1-redshift-no-default-admin"
+        - "soc2-cc6.6-redshift-enhanced-vpc-routing"
+        - "soc2-cc6.7-redshift-ssl"
+        - "soc2-cc7.4-redshift-snapshot"
+        - "soc2-cc7.5-redshift-snapshot"
+    assertions:
+      collection_errors_expected: true
+      expected_policy_results:
+        "soc2-a1.2-redshift-automated-snapshots": skip     # no Redshift clusters
+        "soc2-cc6.1-redshift-no-default-admin": skip
+        "soc2-cc6.6-redshift-enhanced-vpc-routing": skip
+        "soc2-cc6.7-redshift-ssl": skip
+        "soc2-cc7.4-redshift-snapshot": skip
+        "soc2-cc7.5-redshift-snapshot": skip
+
+  # ---- ElastiCache extended: failover, multi-AZ, auth, auto-upgrade, backup ----
+  - name: soc2-aws-elasticache-extended
+    description: "SOC2 ElastiCache extended — failover, multi-AZ, auth, auto-upgrade, backup"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [elasticache]
+    policies:
+      include:
+        - "soc2-a1.2-elasticache-auto-failover"
+        - "soc2-a1.2-elasticache-multi-az"
+        - "soc2-cc6.1-elasticache-auth"
+        - "soc2-cc6.8-elasticache-auto-upgrade"
+        - "soc2-cc9.3-elasticache-backup"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-elasticache-auto-failover": skip        # no replication groups
+        "soc2-a1.2-elasticache-multi-az": skip
+        "soc2-cc6.1-elasticache-auth": skip
+        "soc2-cc6.8-elasticache-auto-upgrade": skip
+        "soc2-cc9.3-elasticache-backup": skip
+
+  # ---- DynamoDB extended: auto-scaling, deletion protection, PITR, KMS ----
+  - name: soc2-aws-dynamodb-extended
+    description: "SOC2 DynamoDB extended — auto-scaling, deletion protection, PITR, KMS encryption"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [dynamodb]
+    policies:
+      include:
+        - "soc2-a1.2-dynamodb-auto-scaling"
+        - "soc2-a1.2-dynamodb-deletion-protection"
+        - "soc2-cc7.4-dynamodb-pitr"
+        - "soc2-pi1.5-dynamodb-kms"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-dynamodb-auto-scaling": pass            # auto-scaling configured
+        "soc2-a1.2-dynamodb-deletion-protection": fail     # deletion protection not enabled
+        "soc2-cc7.4-dynamodb-pitr": fail                   # PITR not enabled
+        "soc2-pi1.5-dynamodb-kms": fail                    # using default encryption, not CMK
+
+  # ---- EFS extended: backup policies ----
+  - name: soc2-aws-efs-extended
+    description: "SOC2 EFS extended — backup configuration"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [efs]
+    policies:
+      include:
+        - "soc2-a1.2-efs-backup"
+        - "soc2-cc7.4-efs-backup"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-efs-backup": fail                       # no backup configured on e2e EFS
+        "soc2-cc7.4-efs-backup": fail                      # no backup configured on e2e EFS
+
+  # ---- Backup extended: vault lock, encryption ----
+  - name: soc2-aws-backup-extended
+    description: "SOC2 Backup extended — vault lock, encryption, recovery point encryption"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [backup]
+    policies:
+      include:
+        - "soc2-a1.2-backup-vault-lock"
+        - "soc2-pi1.5-backup-encrypted"
+        - "soc2-pi1.5-backup-recovery-encrypted"
+        - "soc2-pi1.5-backup-vault-encrypted"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-backup-vault-lock": fail                # vault lock not configured
+        "soc2-pi1.5-backup-encrypted": pass                # default vault has encryption enabled (AWS managed key)
+        "soc2-pi1.5-backup-recovery-encrypted": skip       # no recovery points (no backup plans configured)
+        "soc2-pi1.5-backup-vault-encrypted": pass          # default vault has KMS key configured
+
+  # ---- ECR extended: lifecycle, private, tag immutability ----
+  - name: soc2-aws-ecr-extended
+    description: "SOC2 ECR extended — lifecycle policy, private repository, tag immutability"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [ecr]
+    policies:
+      include:
+        - "soc2-c1.2-ecr-lifecycle-policy"
+        - "soc2-cc6.6-ecr-private-repository"
+        - "soc2-cc8.1-ecr-tag-immutability"
+    assertions:
+      expected_policy_results:
+        "soc2-c1.2-ecr-lifecycle-policy": fail             # no lifecycle policy
+        "soc2-cc6.6-ecr-private-repository": pass          # repositories are private
+        "soc2-cc8.1-ecr-tag-immutability": fail            # tag immutability not enabled
+
+  # ---- Secrets Manager extended: CMK, unused secrets ----
+  - name: soc2-aws-secrets-extended
+    description: "SOC2 Secrets Manager extended — CMK encryption, unused secrets"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [secretsmanager]
+    policies:
+      include:
+        - "soc2-cc6.2-secrets-manager-cmk"
+        - "soc2-cc6.3-unused-secrets"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.2-secrets-manager-cmk": fail             # not using CMK
+        "soc2-cc6.3-unused-secrets": pass                  # no unused secrets
+
+  # ---- SNS extended: public access, delivery logging, KMS ----
+  - name: soc2-aws-sns-extended
+    description: "SOC2 SNS extended — public access, delivery logging, KMS encryption"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [sns]
+    policies:
+      include:
+        - "soc2-cc6.6-sns-public-access"
+        - "soc2-cc7.1-sns-delivery-logging"
+        - "soc2-pi1.4-sns-kms-encryption"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.6-sns-public-access": pass               # e2e topic is not publicly accessible
+        "soc2-cc7.1-sns-delivery-logging": fail             # SNS topic has no delivery logging configured
+        "soc2-pi1.4-sns-kms-encryption": pass               # SNS encryption check passes (policy checks attribute existence)
+
+  # ---- SQS extended: DLQ, public access ----
+  - name: soc2-aws-sqs-extended
+    description: "SOC2 SQS extended — dead letter queue, public access"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [sqs]
+    policies:
+      include:
+        - "soc2-a1.2-sqs-dlq"
+        - "soc2-cc6.6-sqs-public-access"
+    assertions:
+      expected_policy_results:
+        "soc2-a1.2-sqs-dlq": fail                         # no DLQ configured on e2e queue
+        "soc2-cc6.6-sqs-public-access": pass               # e2e queue is not publicly accessible
+
+  # ---- SSM extended: documents public, patching ----
+  - name: soc2-aws-ssm-extended
+    description: "SOC2 SSM extended — documents not public, compliant patching"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [ssm]
+    policies:
+      include:
+        - "soc2-cc6.6-ssm-documents-not-public"
+        - "soc2-cc6.8-ssm-compliant-patching"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.6-ssm-documents-not-public": pass        # no public SSM documents
+        "soc2-cc6.8-ssm-compliant-patching": skip          # no managed instances
+
+  # ---- WAF extended: rule groups, logging ----
+  - name: soc2-aws-waf-extended
+    description: "SOC2 WAF extended — rule groups, logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [wafv2]
+    policies:
+      include:
+        - "soc2-cc6.6-waf-rule-groups"
+        - "soc2-cc7.1-waf-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.6-waf-rule-groups": pass                 # WAF rule groups configured
+        "soc2-cc7.1-waf-logging": pass                     # WAF logging configured
+
+  # ---- ACM extended: renewal status, transparency logging ----
+  - name: soc2-aws-acm-extended
+    description: "SOC2 ACM extended — renewal status, transparency logging"
+    enabled: true
+    credentials:
+      - aws-positive
+    framework: soc2
+    collectors:
+      - provider: aws
+        services: [acm]
+    policies:
+      include:
+        - "soc2-cc6.8-acm-renewal-status"
+        - "soc2-cc7.1-acm-transparency-logging"
+    assertions:
+      expected_policy_results:
+        "soc2-cc6.8-acm-renewal-status": skip              # no ACM certificates
+        "soc2-cc7.1-acm-transparency-logging": skip
 
   # --- Future scenarios (multi-provider) ---
 

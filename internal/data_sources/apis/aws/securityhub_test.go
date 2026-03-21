@@ -6,16 +6,25 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/securityhub"
+	shtypes "github.com/aws/aws-sdk-go-v2/service/securityhub/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type MockSecurityHubClient struct {
-	DescribeHubFunc func(ctx context.Context, params *securityhub.DescribeHubInput, optFns ...func(*securityhub.Options)) (*securityhub.DescribeHubOutput, error)
+	DescribeHubFunc         func(ctx context.Context, params *securityhub.DescribeHubInput, optFns ...func(*securityhub.Options)) (*securityhub.DescribeHubOutput, error)
+	GetEnabledStandardsFunc func(ctx context.Context, params *securityhub.GetEnabledStandardsInput, optFns ...func(*securityhub.Options)) (*securityhub.GetEnabledStandardsOutput, error)
 }
 
 func (m *MockSecurityHubClient) DescribeHub(ctx context.Context, params *securityhub.DescribeHubInput, optFns ...func(*securityhub.Options)) (*securityhub.DescribeHubOutput, error) {
 	return m.DescribeHubFunc(ctx, params, optFns...)
+}
+
+func (m *MockSecurityHubClient) GetEnabledStandards(ctx context.Context, params *securityhub.GetEnabledStandardsInput, optFns ...func(*securityhub.Options)) (*securityhub.GetEnabledStandardsOutput, error) {
+	if m.GetEnabledStandardsFunc != nil {
+		return m.GetEnabledStandardsFunc(ctx, params, optFns...)
+	}
+	return &securityhub.GetEnabledStandardsOutput{}, nil
 }
 
 func TestSecurityHubCollector_CollectStatus(t *testing.T) {
@@ -79,6 +88,51 @@ func TestSecurityHubStatus_ToEvidence(t *testing.T) {
 	assert.Equal(t, "aws", ev.Collector)
 	assert.Equal(t, "aws:securityhub:hub", ev.ResourceType)
 	assert.NotEmpty(t, ev.Hash)
+}
+
+func TestSecurityHubCollector_Standards(t *testing.T) {
+	mock := &MockSecurityHubClient{
+		DescribeHubFunc: func(ctx context.Context, params *securityhub.DescribeHubInput, optFns ...func(*securityhub.Options)) (*securityhub.DescribeHubOutput, error) {
+			return &securityhub.DescribeHubOutput{HubArn: strPtr("arn:aws:securityhub:us-east-1:123:hub/default")}, nil
+		},
+		GetEnabledStandardsFunc: func(ctx context.Context, params *securityhub.GetEnabledStandardsInput, optFns ...func(*securityhub.Options)) (*securityhub.GetEnabledStandardsOutput, error) {
+			return &securityhub.GetEnabledStandardsOutput{
+				StandardsSubscriptions: []shtypes.StandardsSubscription{
+					{StandardsArn: strPtr("arn:aws:securityhub:::standards/aws-foundational-security-best-practices/v/1.0.0")},
+					{StandardsArn: strPtr("arn:aws:securityhub:::standards/cis-aws-foundations-benchmark/v/1.2.0")},
+				},
+			}, nil
+		},
+	}
+
+	collector := NewSecurityHubCollector(mock, "us-east-1")
+	status, err := collector.CollectStatus(context.Background())
+
+	require.NoError(t, err)
+	assert.True(t, status.Enabled)
+	assert.True(t, status.HasFSBP, "should detect FSBP standard")
+	assert.True(t, status.HasCIS, "should detect CIS standard")
+}
+
+func TestSecurityHubCollector_Standards_None(t *testing.T) {
+	mock := &MockSecurityHubClient{
+		DescribeHubFunc: func(ctx context.Context, params *securityhub.DescribeHubInput, optFns ...func(*securityhub.Options)) (*securityhub.DescribeHubOutput, error) {
+			return &securityhub.DescribeHubOutput{HubArn: strPtr("arn:aws:securityhub:us-east-1:123:hub/default")}, nil
+		},
+		GetEnabledStandardsFunc: func(ctx context.Context, params *securityhub.GetEnabledStandardsInput, optFns ...func(*securityhub.Options)) (*securityhub.GetEnabledStandardsOutput, error) {
+			return &securityhub.GetEnabledStandardsOutput{
+				StandardsSubscriptions: []shtypes.StandardsSubscription{},
+			}, nil
+		},
+	}
+
+	collector := NewSecurityHubCollector(mock, "us-east-1")
+	status, err := collector.CollectStatus(context.Background())
+
+	require.NoError(t, err)
+	assert.True(t, status.Enabled)
+	assert.False(t, status.HasFSBP)
+	assert.False(t, status.HasCIS)
 }
 
 func strPtr(s string) *string { return &s }

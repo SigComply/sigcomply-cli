@@ -18,11 +18,17 @@ type GuardDutyClient interface {
 
 // GuardDutyStatus represents the GuardDuty detector status.
 type GuardDutyStatus struct {
-	Enabled      bool   `json:"enabled"`
-	DetectorID   string `json:"detector_id,omitempty"`
-	Status       string `json:"status,omitempty"`
-	DetectorCount int   `json:"detector_count"`
-	Region       string `json:"region"`
+	Enabled                bool   `json:"enabled"`
+	DetectorID             string `json:"detector_id,omitempty"`
+	Status                 string `json:"status,omitempty"`
+	DetectorCount          int    `json:"detector_count"`
+	Region                 string `json:"region"`
+	S3ProtectionEnabled    bool   `json:"s3_protection_enabled"`
+	EKSProtectionEnabled   bool   `json:"eks_protection_enabled"`
+	LambdaProtectionEnabled bool  `json:"lambda_protection_enabled"`
+	RDSProtectionEnabled   bool   `json:"rds_protection_enabled"`
+	RuntimeMonitoringEnabled bool `json:"runtime_monitoring_enabled"`
+	MalwareProtectionEnabled bool `json:"malware_protection_enabled"`
 }
 
 // ToEvidence converts a GuardDutyStatus to Evidence.
@@ -74,6 +80,24 @@ func (c *GuardDutyCollector) CollectStatus(ctx context.Context) (*GuardDutyStatu
 
 	status.Status = string(det.Status)
 	status.Enabled = det.Status == "ENABLED"
+
+	// Extract feature protection statuses
+	for _, feature := range det.Features {
+		switch feature.Name {
+		case "S3_DATA_EVENTS":
+			status.S3ProtectionEnabled = feature.Status == "ENABLED"
+		case "EKS_AUDIT_LOGS":
+			status.EKSProtectionEnabled = feature.Status == "ENABLED"
+		case "LAMBDA_NETWORK_LOGS":
+			status.LambdaProtectionEnabled = feature.Status == "ENABLED"
+		case "RDS_LOGIN_EVENTS":
+			status.RDSProtectionEnabled = feature.Status == "ENABLED"
+		case "RUNTIME_MONITORING":
+			status.RuntimeMonitoringEnabled = feature.Status == "ENABLED"
+		case "EBS_MALWARE_PROTECTION":
+			status.MalwareProtectionEnabled = feature.Status == "ENABLED"
+		}
+	}
 
 	return status, nil
 }

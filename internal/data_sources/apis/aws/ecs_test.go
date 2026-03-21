@@ -13,16 +13,38 @@ import (
 )
 
 type MockECSClient struct {
-	ListClustersFunc     func(ctx context.Context, params *ecs.ListClustersInput, optFns ...func(*ecs.Options)) (*ecs.ListClustersOutput, error)
-	DescribeClustersFunc func(ctx context.Context, params *ecs.DescribeClustersInput, optFns ...func(*ecs.Options)) (*ecs.DescribeClustersOutput, error)
+	ListClustersFunc              func(ctx context.Context, params *ecs.ListClustersInput, optFns ...func(*ecs.Options)) (*ecs.ListClustersOutput, error)
+	DescribeClustersFunc          func(ctx context.Context, params *ecs.DescribeClustersInput, optFns ...func(*ecs.Options)) (*ecs.DescribeClustersOutput, error)
+	ListTaskDefinitionFamiliesFunc func(ctx context.Context, params *ecs.ListTaskDefinitionFamiliesInput, optFns ...func(*ecs.Options)) (*ecs.ListTaskDefinitionFamiliesOutput, error)
+	DescribeTaskDefinitionFunc     func(ctx context.Context, params *ecs.DescribeTaskDefinitionInput, optFns ...func(*ecs.Options)) (*ecs.DescribeTaskDefinitionOutput, error)
 }
 
 func (m *MockECSClient) ListClusters(ctx context.Context, params *ecs.ListClustersInput, optFns ...func(*ecs.Options)) (*ecs.ListClustersOutput, error) {
-	return m.ListClustersFunc(ctx, params, optFns...)
+	if m.ListClustersFunc != nil {
+		return m.ListClustersFunc(ctx, params, optFns...)
+	}
+	return &ecs.ListClustersOutput{}, nil
 }
 
 func (m *MockECSClient) DescribeClusters(ctx context.Context, params *ecs.DescribeClustersInput, optFns ...func(*ecs.Options)) (*ecs.DescribeClustersOutput, error) {
-	return m.DescribeClustersFunc(ctx, params, optFns...)
+	if m.DescribeClustersFunc != nil {
+		return m.DescribeClustersFunc(ctx, params, optFns...)
+	}
+	return &ecs.DescribeClustersOutput{}, nil
+}
+
+func (m *MockECSClient) ListTaskDefinitionFamilies(ctx context.Context, params *ecs.ListTaskDefinitionFamiliesInput, optFns ...func(*ecs.Options)) (*ecs.ListTaskDefinitionFamiliesOutput, error) {
+	if m.ListTaskDefinitionFamiliesFunc != nil {
+		return m.ListTaskDefinitionFamiliesFunc(ctx, params, optFns...)
+	}
+	return &ecs.ListTaskDefinitionFamiliesOutput{}, nil
+}
+
+func (m *MockECSClient) DescribeTaskDefinition(ctx context.Context, params *ecs.DescribeTaskDefinitionInput, optFns ...func(*ecs.Options)) (*ecs.DescribeTaskDefinitionOutput, error) {
+	if m.DescribeTaskDefinitionFunc != nil {
+		return m.DescribeTaskDefinitionFunc(ctx, params, optFns...)
+	}
+	return &ecs.DescribeTaskDefinitionOutput{}, nil
 }
 
 func TestECSCollector_CollectClusters(t *testing.T) {

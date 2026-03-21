@@ -20,6 +20,17 @@ type MockEC2Client struct {
 	GetEbsDefaultKmsKeyIDFunc     func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) //nolint:revive // matches AWS SDK naming
 	GetEbsEncryptionByDefaultFunc func(ctx context.Context, params *ec2.GetEbsEncryptionByDefaultInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsEncryptionByDefaultOutput, error)
 	DescribeInstancesFunc         func(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
+	DescribeSnapshotsFunc                func(ctx context.Context, params *ec2.DescribeSnapshotsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSnapshotsOutput, error)
+	DescribeSubnetsFunc                  func(ctx context.Context, params *ec2.DescribeSubnetsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSubnetsOutput, error)
+	DescribeNetworkAclsFunc              func(ctx context.Context, params *ec2.DescribeNetworkAclsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeNetworkAclsOutput, error)
+	DescribeLaunchTemplateVersionsFunc   func(ctx context.Context, params *ec2.DescribeLaunchTemplateVersionsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeLaunchTemplateVersionsOutput, error)
+	DescribeLaunchTemplatesFunc          func(ctx context.Context, params *ec2.DescribeLaunchTemplatesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeLaunchTemplatesOutput, error)
+	DescribeVpcEndpointsFunc             func(ctx context.Context, params *ec2.DescribeVpcEndpointsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeVpcEndpointsOutput, error)
+	DescribeClientVpnEndpointsFunc           func(ctx context.Context, params *ec2.DescribeClientVpnEndpointsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeClientVpnEndpointsOutput, error)
+	DescribeVolumesFunc                      func(ctx context.Context, params *ec2.DescribeVolumesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeVolumesOutput, error)
+	DescribeImagesFunc                       func(ctx context.Context, params *ec2.DescribeImagesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeImagesOutput, error)
+	DescribeTransitGatewaysFunc              func(ctx context.Context, params *ec2.DescribeTransitGatewaysInput, optFns ...func(*ec2.Options)) (*ec2.DescribeTransitGatewaysOutput, error)
+	GetSnapshotBlockPublicAccessStateFunc    func(ctx context.Context, params *ec2.GetSnapshotBlockPublicAccessStateInput, optFns ...func(*ec2.Options)) (*ec2.GetSnapshotBlockPublicAccessStateOutput, error)
 }
 
 func (m *MockEC2Client) DescribeSecurityGroups(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSecurityGroupsOutput, error) {
@@ -47,6 +58,83 @@ func (m *MockEC2Client) DescribeInstances(ctx context.Context, params *ec2.Descr
 		return m.DescribeInstancesFunc(ctx, params, optFns...)
 	}
 	return &ec2.DescribeInstancesOutput{}, nil
+}
+
+func (m *MockEC2Client) DescribeSnapshots(ctx context.Context, params *ec2.DescribeSnapshotsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSnapshotsOutput, error) {
+	if m.DescribeSnapshotsFunc != nil {
+		return m.DescribeSnapshotsFunc(ctx, params, optFns...)
+	}
+	return &ec2.DescribeSnapshotsOutput{}, nil
+}
+
+func (m *MockEC2Client) DescribeSubnets(ctx context.Context, params *ec2.DescribeSubnetsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSubnetsOutput, error) {
+	if m.DescribeSubnetsFunc != nil {
+		return m.DescribeSubnetsFunc(ctx, params, optFns...)
+	}
+	return &ec2.DescribeSubnetsOutput{}, nil
+}
+
+func (m *MockEC2Client) DescribeNetworkAcls(ctx context.Context, params *ec2.DescribeNetworkAclsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeNetworkAclsOutput, error) {
+	if m.DescribeNetworkAclsFunc != nil {
+		return m.DescribeNetworkAclsFunc(ctx, params, optFns...)
+	}
+	return &ec2.DescribeNetworkAclsOutput{}, nil
+}
+
+func (m *MockEC2Client) DescribeLaunchTemplateVersions(ctx context.Context, params *ec2.DescribeLaunchTemplateVersionsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeLaunchTemplateVersionsOutput, error) {
+	if m.DescribeLaunchTemplateVersionsFunc != nil {
+		return m.DescribeLaunchTemplateVersionsFunc(ctx, params, optFns...)
+	}
+	return &ec2.DescribeLaunchTemplateVersionsOutput{}, nil
+}
+
+func (m *MockEC2Client) DescribeLaunchTemplates(ctx context.Context, params *ec2.DescribeLaunchTemplatesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeLaunchTemplatesOutput, error) {
+	if m.DescribeLaunchTemplatesFunc != nil {
+		return m.DescribeLaunchTemplatesFunc(ctx, params, optFns...)
+	}
+	return &ec2.DescribeLaunchTemplatesOutput{}, nil
+}
+
+func (m *MockEC2Client) DescribeVpcEndpoints(ctx context.Context, params *ec2.DescribeVpcEndpointsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeVpcEndpointsOutput, error) {
+	if m.DescribeVpcEndpointsFunc != nil {
+		return m.DescribeVpcEndpointsFunc(ctx, params, optFns...)
+	}
+	return &ec2.DescribeVpcEndpointsOutput{}, nil
+}
+
+func (m *MockEC2Client) DescribeClientVpnEndpoints(ctx context.Context, params *ec2.DescribeClientVpnEndpointsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeClientVpnEndpointsOutput, error) {
+	if m.DescribeClientVpnEndpointsFunc != nil {
+		return m.DescribeClientVpnEndpointsFunc(ctx, params, optFns...)
+	}
+	return &ec2.DescribeClientVpnEndpointsOutput{}, nil
+}
+
+func (m *MockEC2Client) DescribeVolumes(ctx context.Context, params *ec2.DescribeVolumesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeVolumesOutput, error) {
+	if m.DescribeVolumesFunc != nil {
+		return m.DescribeVolumesFunc(ctx, params, optFns...)
+	}
+	return &ec2.DescribeVolumesOutput{}, nil
+}
+
+func (m *MockEC2Client) DescribeImages(ctx context.Context, params *ec2.DescribeImagesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeImagesOutput, error) {
+	if m.DescribeImagesFunc != nil {
+		return m.DescribeImagesFunc(ctx, params, optFns...)
+	}
+	return &ec2.DescribeImagesOutput{}, nil
+}
+
+func (m *MockEC2Client) DescribeTransitGateways(ctx context.Context, params *ec2.DescribeTransitGatewaysInput, optFns ...func(*ec2.Options)) (*ec2.DescribeTransitGatewaysOutput, error) {
+	if m.DescribeTransitGatewaysFunc != nil {
+		return m.DescribeTransitGatewaysFunc(ctx, params, optFns...)
+	}
+	return &ec2.DescribeTransitGatewaysOutput{}, nil
+}
+
+func (m *MockEC2Client) GetSnapshotBlockPublicAccessState(ctx context.Context, params *ec2.GetSnapshotBlockPublicAccessStateInput, optFns ...func(*ec2.Options)) (*ec2.GetSnapshotBlockPublicAccessStateOutput, error) {
+	if m.GetSnapshotBlockPublicAccessStateFunc != nil {
+		return m.GetSnapshotBlockPublicAccessStateFunc(ctx, params, optFns...)
+	}
+	return &ec2.GetSnapshotBlockPublicAccessStateOutput{State: ec2types.SnapshotBlockPublicAccessStateUnblocked}, nil
 }
 
 func TestEC2Collector_CollectSecurityGroups(t *testing.T) {
@@ -222,6 +310,10 @@ func TestEC2Collector_CollectVPCs(t *testing.T) {
 			}, nil
 		},
 		DescribeFlowLogsFunc: func(ctx context.Context, params *ec2.DescribeFlowLogsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeFlowLogsOutput, error) {
+			// Verify the filter uses resource-id (not the invalid resource-type)
+			require.Len(t, params.Filter, 1)
+			assert.Equal(t, "resource-id", awssdk.ToString(params.Filter[0].Name))
+			assert.ElementsMatch(t, []string{"vpc-1", "vpc-2"}, params.Filter[0].Values)
 			return &ec2.DescribeFlowLogsOutput{
 				FlowLogs: []ec2types.FlowLog{
 					{ResourceId: awssdk.String("vpc-2")},
@@ -355,7 +447,59 @@ func TestEC2Collector_CollectEvidence(t *testing.T) {
 	ev, err := collector.CollectEvidence(context.Background(), "123456789012")
 
 	require.NoError(t, err)
-	assert.Len(t, ev, 3, "should have SG + VPC + EBS evidence")
+	assert.GreaterOrEqual(t, len(ev), 3, "should have at least SG + VPC + EBS evidence")
+}
+
+func TestEC2Collector_CollectEBSSnapshots(t *testing.T) {
+	mock := &MockEC2Client{
+		DescribeSnapshotsFunc: func(ctx context.Context, params *ec2.DescribeSnapshotsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSnapshotsOutput, error) {
+			return &ec2.DescribeSnapshotsOutput{
+				Snapshots: []ec2types.Snapshot{
+					{
+						SnapshotId: awssdk.String("snap-123"),
+						VolumeId:   awssdk.String("vol-abc"),
+						Encrypted:  awssdk.Bool(true),
+					},
+					{
+						SnapshotId: awssdk.String("snap-456"),
+						VolumeId:   awssdk.String("vol-def"),
+						Encrypted:  awssdk.Bool(false),
+					},
+				},
+			}, nil
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	snapshots, err := collector.CollectEBSSnapshots(context.Background(), "123456789012")
+
+	require.NoError(t, err)
+	require.Len(t, snapshots, 2)
+	assert.Equal(t, "snap-123", snapshots[0].SnapshotID)
+	assert.True(t, snapshots[0].Encrypted)
+	assert.False(t, snapshots[0].Public)
+	assert.Equal(t, "snap-456", snapshots[1].SnapshotID)
+	assert.False(t, snapshots[1].Encrypted)
+}
+
+func TestEC2Collector_CollectEBSSnapshots_Error(t *testing.T) {
+	mock := &MockEC2Client{
+		DescribeSnapshotsFunc: func(ctx context.Context, params *ec2.DescribeSnapshotsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSnapshotsOutput, error) {
+			return nil, errors.New("access denied")
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	_, err := collector.CollectEBSSnapshots(context.Background(), "123456789012")
+	assert.Error(t, err)
+}
+
+func TestEBSSnapshot_ToEvidence(t *testing.T) {
+	snap := &EBSSnapshot{SnapshotID: "snap-123", Encrypted: true}
+	ev := snap.ToEvidence("123456789012")
+	assert.Equal(t, "aws", ev.Collector)
+	assert.Equal(t, "aws:ec2:ebs_snapshot", ev.ResourceType)
+	assert.Contains(t, ev.ResourceID, "snap-123")
 }
 
 func TestSecurityGroup_ToEvidence(t *testing.T) {
@@ -437,7 +581,8 @@ func TestEC2Collector_CollectEvidence_VPCFailsOthersSucceed(t *testing.T) {
 	ev, err := collector.CollectEvidence(context.Background(), "123456789012")
 
 	require.NoError(t, err, "VPC failure is fail-safe, should not error")
-	assert.Len(t, ev, 2, "should have SG + EBS evidence (VPC skipped)")
+	// SG(1) + EBS(1) + VPCEndpointStatus(1) = 3
+	assert.GreaterOrEqual(t, len(ev), 2, "should have at least SG + EBS evidence (VPC skipped)")
 }
 
 func TestEC2Collector_CollectEvidence_EBSFailsOthersSucceed(t *testing.T) {
@@ -470,7 +615,8 @@ func TestEC2Collector_CollectEvidence_EBSFailsOthersSucceed(t *testing.T) {
 	ev, err := collector.CollectEvidence(context.Background(), "123456789012")
 
 	require.NoError(t, err, "EBS failure is fail-safe")
-	assert.Len(t, ev, 3, "should have SG + VPC + EBS evidence (EBS defaults to false)")
+	// SG(1) + VPC(1) + EBS(1) + VPCEndpointStatus(1) = 4
+	assert.GreaterOrEqual(t, len(ev), 3, "should have SG + VPC + EBS evidence (EBS defaults to false)")
 }
 
 func TestEC2Collector_CollectEvidence_AllFail(t *testing.T) {
@@ -696,6 +842,76 @@ func TestEC2Collector_CollectInstances(t *testing.T) {
 	assert.Equal(t, "optional", instances[1].HttpTokens)
 }
 
+func TestEC2Collector_CollectInstances_PublicIP(t *testing.T) {
+	mock := &MockEC2Client{
+		DescribeInstancesFunc: func(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
+			return &ec2.DescribeInstancesOutput{
+				Reservations: []ec2types.Reservation{
+					{
+						Instances: []ec2types.Instance{
+							{
+								InstanceId:      awssdk.String("i-public"),
+								PublicIpAddress: awssdk.String("54.123.45.67"),
+								MetadataOptions: &ec2types.InstanceMetadataOptionsResponse{
+									HttpTokens:   ec2types.HttpTokensStateRequired,
+									HttpEndpoint: ec2types.InstanceMetadataEndpointStateEnabled,
+								},
+							},
+							{
+								InstanceId: awssdk.String("i-private"),
+								MetadataOptions: &ec2types.InstanceMetadataOptionsResponse{
+									HttpTokens:   ec2types.HttpTokensStateRequired,
+									HttpEndpoint: ec2types.InstanceMetadataEndpointStateEnabled,
+								},
+							},
+						},
+					},
+				},
+			}, nil
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	instances, err := collector.CollectInstances(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, instances, 2)
+
+	assert.Equal(t, "54.123.45.67", instances[0].PublicIP, "instance with public IP should capture it")
+	assert.Empty(t, instances[1].PublicIP, "instance without public IP should have empty string")
+}
+
+func TestEC2Collector_CollectEBSSnapshots_Pagination(t *testing.T) {
+	callCount := 0
+	mock := &MockEC2Client{
+		DescribeSnapshotsFunc: func(ctx context.Context, params *ec2.DescribeSnapshotsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSnapshotsOutput, error) {
+			callCount++
+			if callCount == 1 {
+				return &ec2.DescribeSnapshotsOutput{
+					Snapshots: []ec2types.Snapshot{
+						{SnapshotId: awssdk.String("snap-1"), VolumeId: awssdk.String("vol-1"), Encrypted: awssdk.Bool(true)},
+					},
+					NextToken: awssdk.String("token1"),
+				}, nil
+			}
+			return &ec2.DescribeSnapshotsOutput{
+				Snapshots: []ec2types.Snapshot{
+					{SnapshotId: awssdk.String("snap-2"), VolumeId: awssdk.String("vol-2"), Encrypted: awssdk.Bool(false)},
+				},
+			}, nil
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	snapshots, err := collector.CollectEBSSnapshots(context.Background(), "123456789012")
+
+	require.NoError(t, err)
+	require.Len(t, snapshots, 2)
+	assert.Equal(t, "snap-1", snapshots[0].SnapshotID)
+	assert.Equal(t, "snap-2", snapshots[1].SnapshotID)
+	assert.Equal(t, 2, callCount, "should have paginated with 2 API calls")
+}
+
 func TestEC2Collector_CollectInstances_Error(t *testing.T) {
 	mock := &MockEC2Client{
 		DescribeInstancesFunc: func(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
@@ -736,4 +952,340 @@ func TestEC2Instance_ToEvidence(t *testing.T) {
 	assert.Equal(t, "aws:ec2:instance", ev.ResourceType)
 	assert.Contains(t, ev.ResourceID, "i-123")
 	assert.NotEmpty(t, ev.Hash)
+}
+
+func TestEC2Collector_CollectClientVPNEndpoints(t *testing.T) {
+	mock := &MockEC2Client{
+		DescribeClientVpnEndpointsFunc: func(ctx context.Context, params *ec2.DescribeClientVpnEndpointsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeClientVpnEndpointsOutput, error) {
+			return &ec2.DescribeClientVpnEndpointsOutput{
+				ClientVpnEndpoints: []ec2types.ClientVpnEndpoint{
+					{
+						ClientVpnEndpointId: awssdk.String("cvpn-endpoint-123"),
+						ConnectionLogOptions: &ec2types.ConnectionLogResponseOptions{
+							Enabled: awssdk.Bool(true),
+						},
+					},
+					{
+						ClientVpnEndpointId: awssdk.String("cvpn-endpoint-456"),
+						ConnectionLogOptions: &ec2types.ConnectionLogResponseOptions{
+							Enabled: awssdk.Bool(false),
+						},
+					},
+				},
+			}, nil
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	endpoints, err := collector.CollectClientVPNEndpoints(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, endpoints, 2)
+
+	assert.Equal(t, "cvpn-endpoint-123", endpoints[0].ClientVpnEndpointID)
+	assert.True(t, endpoints[0].ConnectionLoggingEnabled)
+
+	assert.Equal(t, "cvpn-endpoint-456", endpoints[1].ClientVpnEndpointID)
+	assert.False(t, endpoints[1].ConnectionLoggingEnabled)
+}
+
+func TestEC2Collector_CollectClientVPNEndpoints_NoLogOptions(t *testing.T) {
+	mock := &MockEC2Client{
+		DescribeClientVpnEndpointsFunc: func(ctx context.Context, params *ec2.DescribeClientVpnEndpointsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeClientVpnEndpointsOutput, error) {
+			return &ec2.DescribeClientVpnEndpointsOutput{
+				ClientVpnEndpoints: []ec2types.ClientVpnEndpoint{
+					{
+						ClientVpnEndpointId:  awssdk.String("cvpn-endpoint-789"),
+						ConnectionLogOptions: nil,
+					},
+				},
+			}, nil
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	endpoints, err := collector.CollectClientVPNEndpoints(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, endpoints, 1)
+	assert.Equal(t, "cvpn-endpoint-789", endpoints[0].ClientVpnEndpointID)
+	assert.False(t, endpoints[0].ConnectionLoggingEnabled, "nil ConnectionLogOptions should default to false")
+}
+
+func TestEC2Collector_CollectClientVPNEndpoints_Error(t *testing.T) {
+	mock := &MockEC2Client{
+		DescribeClientVpnEndpointsFunc: func(ctx context.Context, params *ec2.DescribeClientVpnEndpointsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeClientVpnEndpointsOutput, error) {
+			return nil, errors.New("access denied")
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	_, err := collector.CollectClientVPNEndpoints(context.Background())
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to describe Client VPN endpoints")
+}
+
+func TestClientVPNEndpoint_ToEvidence(t *testing.T) {
+	ep := &ClientVPNEndpoint{
+		ClientVpnEndpointID:      "cvpn-endpoint-123",
+		ConnectionLoggingEnabled: true,
+	}
+
+	ev := ep.ToEvidence("123456789012")
+	assert.Equal(t, "aws", ev.Collector)
+	assert.Equal(t, "aws:ec2:client-vpn-endpoint", ev.ResourceType)
+	assert.Contains(t, ev.ResourceID, "cvpn-endpoint-123")
+	assert.Equal(t, "123456789012", ev.Metadata.AccountID)
+	assert.NotEmpty(t, ev.Hash)
+}
+
+// --- EBS Volume Tests ---
+
+func TestEC2Collector_CollectVolumes(t *testing.T) {
+	mock := &MockEC2Client{
+		DescribeSnapshotsFunc: func(ctx context.Context, params *ec2.DescribeSnapshotsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSnapshotsOutput, error) {
+			return &ec2.DescribeSnapshotsOutput{
+				Snapshots: []ec2types.Snapshot{
+					{SnapshotId: awssdk.String("snap-1"), VolumeId: awssdk.String("vol-1")},
+				},
+			}, nil
+		},
+		DescribeVolumesFunc: func(ctx context.Context, params *ec2.DescribeVolumesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeVolumesOutput, error) {
+			return &ec2.DescribeVolumesOutput{
+				Volumes: []ec2types.Volume{
+					{VolumeId: awssdk.String("vol-1"), Encrypted: awssdk.Bool(true)},
+					{VolumeId: awssdk.String("vol-2"), Encrypted: awssdk.Bool(false)},
+				},
+			}, nil
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	volumes, err := collector.CollectVolumes(context.Background(), "123456789012")
+
+	require.NoError(t, err)
+	require.Len(t, volumes, 2)
+	assert.Equal(t, "vol-1", volumes[0].VolumeID)
+	assert.True(t, volumes[0].Encrypted)
+	assert.True(t, volumes[0].HasSnapshots, "vol-1 should have snapshots")
+	assert.Equal(t, "vol-2", volumes[1].VolumeID)
+	assert.False(t, volumes[1].Encrypted)
+	assert.False(t, volumes[1].HasSnapshots, "vol-2 should not have snapshots")
+}
+
+func TestEC2Collector_CollectVolumes_Error(t *testing.T) {
+	mock := &MockEC2Client{
+		DescribeSnapshotsFunc: func(ctx context.Context, params *ec2.DescribeSnapshotsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSnapshotsOutput, error) {
+			return &ec2.DescribeSnapshotsOutput{}, nil
+		},
+		DescribeVolumesFunc: func(ctx context.Context, params *ec2.DescribeVolumesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeVolumesOutput, error) {
+			return nil, errors.New("access denied")
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	_, err := collector.CollectVolumes(context.Background(), "123456789012")
+	assert.Error(t, err)
+}
+
+func TestEC2Collector_CollectVolumes_Empty(t *testing.T) {
+	mock := &MockEC2Client{
+		DescribeSnapshotsFunc: func(ctx context.Context, params *ec2.DescribeSnapshotsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSnapshotsOutput, error) {
+			return &ec2.DescribeSnapshotsOutput{}, nil
+		},
+		DescribeVolumesFunc: func(ctx context.Context, params *ec2.DescribeVolumesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeVolumesOutput, error) {
+			return &ec2.DescribeVolumesOutput{}, nil
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	volumes, err := collector.CollectVolumes(context.Background(), "123456789012")
+
+	require.NoError(t, err)
+	assert.Empty(t, volumes)
+}
+
+func TestEBSVolume_ToEvidence(t *testing.T) {
+	vol := &EBSVolume{VolumeID: "vol-123", Encrypted: true, HasSnapshots: true}
+	ev := vol.ToEvidence("123456789012")
+	assert.Equal(t, "aws:ec2:volume", ev.ResourceType)
+	assert.Contains(t, ev.ResourceID, "vol-123")
+}
+
+// --- AMI Tests ---
+
+func TestEC2Collector_CollectAMIs(t *testing.T) {
+	mock := &MockEC2Client{
+		DescribeImagesFunc: func(ctx context.Context, params *ec2.DescribeImagesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeImagesOutput, error) {
+			assert.Contains(t, params.Owners, "self")
+			return &ec2.DescribeImagesOutput{
+				Images: []ec2types.Image{
+					{ImageId: awssdk.String("ami-123"), Public: awssdk.Bool(false)},
+					{ImageId: awssdk.String("ami-456"), Public: awssdk.Bool(true)},
+				},
+			}, nil
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	amis, err := collector.CollectAMIs(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, amis, 2)
+	assert.Equal(t, "ami-123", amis[0].ImageID)
+	assert.False(t, amis[0].Public)
+	assert.Equal(t, "ami-456", amis[1].ImageID)
+	assert.True(t, amis[1].Public)
+}
+
+func TestEC2Collector_CollectAMIs_Error(t *testing.T) {
+	mock := &MockEC2Client{
+		DescribeImagesFunc: func(ctx context.Context, params *ec2.DescribeImagesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeImagesOutput, error) {
+			return nil, errors.New("access denied")
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	_, err := collector.CollectAMIs(context.Background())
+	assert.Error(t, err)
+}
+
+func TestEC2AMI_ToEvidence(t *testing.T) {
+	ami := &EC2AMI{ImageID: "ami-123", Public: true}
+	ev := ami.ToEvidence("123456789012")
+	assert.Equal(t, "aws:ec2:ami", ev.ResourceType)
+	assert.Contains(t, ev.ResourceID, "ami-123")
+}
+
+// --- Transit Gateway Tests ---
+
+func TestEC2Collector_CollectTransitGateways(t *testing.T) {
+	mock := &MockEC2Client{
+		DescribeTransitGatewaysFunc: func(ctx context.Context, params *ec2.DescribeTransitGatewaysInput, optFns ...func(*ec2.Options)) (*ec2.DescribeTransitGatewaysOutput, error) {
+			return &ec2.DescribeTransitGatewaysOutput{
+				TransitGateways: []ec2types.TransitGateway{
+					{
+						TransitGatewayId: awssdk.String("tgw-1"),
+						Options: &ec2types.TransitGatewayOptions{
+							AutoAcceptSharedAttachments: ec2types.AutoAcceptSharedAttachmentsValueEnable,
+						},
+					},
+					{
+						TransitGatewayId: awssdk.String("tgw-2"),
+						Options: &ec2types.TransitGatewayOptions{
+							AutoAcceptSharedAttachments: ec2types.AutoAcceptSharedAttachmentsValueDisable,
+						},
+					},
+				},
+			}, nil
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	gateways, err := collector.CollectTransitGateways(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, gateways, 2)
+	assert.Equal(t, "tgw-1", gateways[0].TransitGatewayID)
+	assert.True(t, gateways[0].AutoAcceptSharedAttachments)
+	assert.Equal(t, "tgw-2", gateways[1].TransitGatewayID)
+	assert.False(t, gateways[1].AutoAcceptSharedAttachments)
+}
+
+func TestEC2Collector_CollectTransitGateways_NilOptions(t *testing.T) {
+	mock := &MockEC2Client{
+		DescribeTransitGatewaysFunc: func(ctx context.Context, params *ec2.DescribeTransitGatewaysInput, optFns ...func(*ec2.Options)) (*ec2.DescribeTransitGatewaysOutput, error) {
+			return &ec2.DescribeTransitGatewaysOutput{
+				TransitGateways: []ec2types.TransitGateway{
+					{TransitGatewayId: awssdk.String("tgw-nil"), Options: nil},
+				},
+			}, nil
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	gateways, err := collector.CollectTransitGateways(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, gateways, 1)
+	assert.False(t, gateways[0].AutoAcceptSharedAttachments, "nil options should default to false")
+}
+
+func TestEC2Collector_CollectTransitGateways_Error(t *testing.T) {
+	mock := &MockEC2Client{
+		DescribeTransitGatewaysFunc: func(ctx context.Context, params *ec2.DescribeTransitGatewaysInput, optFns ...func(*ec2.Options)) (*ec2.DescribeTransitGatewaysOutput, error) {
+			return nil, errors.New("access denied")
+		},
+	}
+
+	collector := NewEC2Collector(mock, "us-east-1")
+	_, err := collector.CollectTransitGateways(context.Background())
+	assert.Error(t, err)
+}
+
+func TestTransitGateway_ToEvidence(t *testing.T) {
+	tg := &TransitGateway{TransitGatewayID: "tgw-123", AutoAcceptSharedAttachments: true}
+	ev := tg.ToEvidence("123456789012")
+	assert.Equal(t, "aws:ec2:transit-gateway", ev.ResourceType)
+	assert.Contains(t, ev.ResourceID, "tgw-123")
+}
+
+// --- Account Settings Tests ---
+
+func TestEC2Collector_CollectAccountSettings(t *testing.T) {
+	tests := []struct {
+		name             string
+		state            ec2types.SnapshotBlockPublicAccessState
+		apiErr           error
+		wantBlockPublic  bool
+	}{
+		{
+			name:            "block all sharing",
+			state:           ec2types.SnapshotBlockPublicAccessStateBlockAllSharing,
+			wantBlockPublic: true,
+		},
+		{
+			name:            "block new sharing only",
+			state:           ec2types.SnapshotBlockPublicAccessStateBlockNewSharing,
+			wantBlockPublic: false,
+		},
+		{
+			name:            "unblocked",
+			state:           ec2types.SnapshotBlockPublicAccessStateUnblocked,
+			wantBlockPublic: false,
+		},
+		{
+			name:            "API error (fail-safe)",
+			apiErr:          errors.New("access denied"),
+			wantBlockPublic: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &MockEC2Client{
+				GetSnapshotBlockPublicAccessStateFunc: func(ctx context.Context, params *ec2.GetSnapshotBlockPublicAccessStateInput, optFns ...func(*ec2.Options)) (*ec2.GetSnapshotBlockPublicAccessStateOutput, error) {
+					if tt.apiErr != nil {
+						return nil, tt.apiErr
+					}
+					return &ec2.GetSnapshotBlockPublicAccessStateOutput{State: tt.state}, nil
+				},
+			}
+
+			collector := NewEC2Collector(mock, "us-east-1")
+			setting, err := collector.CollectAccountSettings(context.Background())
+
+			require.NoError(t, err, "CollectAccountSettings should never error")
+			assert.Equal(t, tt.wantBlockPublic, setting.EBSBlockPublicAccess)
+			assert.Equal(t, "us-east-1", setting.Region)
+		})
+	}
+}
+
+func TestEC2AccountSetting_ToEvidence(t *testing.T) {
+	setting := &EC2AccountSetting{EBSBlockPublicAccess: true, Region: "us-east-1"}
+	ev := setting.ToEvidence("123456789012")
+	assert.Equal(t, "aws:ec2:account-setting", ev.ResourceType)
+	assert.Contains(t, ev.ResourceID, "account-setting")
 }

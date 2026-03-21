@@ -2,16 +2,16 @@
 package iso27001
 
 import (
-	_ "embed"
+	"embed"
+	"io/fs"
+	"path/filepath"
+	"strings"
 
 	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/engine"
 )
 
-//go:embed policies/a_9_2_1_access.rego
-var a921AccessPolicy string
-
-//go:embed policies/a_12_4_1_logging.rego
-var a1241LoggingPolicy string
+//go:embed policies/*/*.rego
+var policiesFS embed.FS
 
 // Framework implements the engine.Framework interface for ISO 27001.
 type Framework struct{}
@@ -74,10 +74,29 @@ func (f *Framework) GetControl(id string) *engine.Control {
 
 // Policies returns all Rego policy sources for this framework.
 func (f *Framework) Policies() []engine.PolicySource {
-	return []engine.PolicySource{
-		{Name: "a_9_2_1_access", Source: a921AccessPolicy},
-		{Name: "a_12_4_1_logging", Source: a1241LoggingPolicy},
-	}
+	var policies []engine.PolicySource
+	fs.WalkDir(policiesFS, "policies", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		if strings.HasSuffix(path, "_test.rego") {
+			return nil
+		}
+		if !strings.HasSuffix(path, ".rego") {
+			return nil
+		}
+		data, err := policiesFS.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		name := strings.TrimSuffix(filepath.Base(path), ".rego")
+		policies = append(policies, engine.PolicySource{
+			Name:   name,
+			Source: string(data),
+		})
+		return nil
+	})
+	return policies
 }
 
 // Register registers the ISO 27001 framework with the default registry.

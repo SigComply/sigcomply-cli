@@ -13,11 +13,19 @@ import (
 )
 
 type MockCloudFrontClient struct {
-	ListDistributionsFunc func(ctx context.Context, params *cloudfront.ListDistributionsInput, optFns ...func(*cloudfront.Options)) (*cloudfront.ListDistributionsOutput, error)
+	ListDistributionsFunc  func(ctx context.Context, params *cloudfront.ListDistributionsInput, optFns ...func(*cloudfront.Options)) (*cloudfront.ListDistributionsOutput, error)
+	GetDistributionFunc    func(ctx context.Context, params *cloudfront.GetDistributionInput, optFns ...func(*cloudfront.Options)) (*cloudfront.GetDistributionOutput, error)
 }
 
 func (m *MockCloudFrontClient) ListDistributions(ctx context.Context, params *cloudfront.ListDistributionsInput, optFns ...func(*cloudfront.Options)) (*cloudfront.ListDistributionsOutput, error) {
 	return m.ListDistributionsFunc(ctx, params, optFns...)
+}
+
+func (m *MockCloudFrontClient) GetDistribution(ctx context.Context, params *cloudfront.GetDistributionInput, optFns ...func(*cloudfront.Options)) (*cloudfront.GetDistributionOutput, error) {
+	if m.GetDistributionFunc != nil {
+		return m.GetDistributionFunc(ctx, params, optFns...)
+	}
+	return nil, errors.New("not implemented")
 }
 
 func TestCloudFrontCollector_CollectDistributions(t *testing.T) {

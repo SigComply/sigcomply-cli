@@ -14,6 +14,7 @@ import (
 type ConfigServiceClient interface {
 	DescribeConfigurationRecorders(ctx context.Context, params *configservice.DescribeConfigurationRecordersInput, optFns ...func(*configservice.Options)) (*configservice.DescribeConfigurationRecordersOutput, error)
 	DescribeConfigurationRecorderStatus(ctx context.Context, params *configservice.DescribeConfigurationRecorderStatusInput, optFns ...func(*configservice.Options)) (*configservice.DescribeConfigurationRecorderStatusOutput, error)
+	DescribeConfigurationAggregators(ctx context.Context, params *configservice.DescribeConfigurationAggregatorsInput, optFns ...func(*configservice.Options)) (*configservice.DescribeConfigurationAggregatorsOutput, error)
 }
 
 // ConfigRecorder represents an AWS Config recorder.
@@ -36,6 +37,21 @@ func (c *ConfigStatus) ToEvidence(accountID string) evidence.Evidence {
 	data, _ := json.Marshal(c) //nolint:errcheck // json.Marshal on a known-serializable struct will not error
 	resourceID := fmt.Sprintf("arn:aws:config:%s:%s:recorder", c.Region, accountID)
 	ev := evidence.New("aws", "aws:config:recorder", resourceID, data)
+	ev.Metadata = evidence.Metadata{AccountID: accountID}
+	return ev
+}
+
+// ConfigAggregatorStatus represents the Config aggregator status.
+type ConfigAggregatorStatus struct {
+	Configured bool   `json:"configured"`
+	Region     string `json:"region"`
+}
+
+// ToEvidence converts a ConfigAggregatorStatus to Evidence.
+func (a *ConfigAggregatorStatus) ToEvidence(accountID string) evidence.Evidence {
+	data, _ := json.Marshal(a) //nolint:errcheck
+	resourceID := fmt.Sprintf("arn:aws:config:%s:%s:aggregator", a.Region, accountID)
+	ev := evidence.New("aws", "aws:config:aggregator", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
 }
@@ -98,12 +114,34 @@ func (c *ConfigCollector) CollectStatus(ctx context.Context) (*ConfigStatus, err
 	return status, nil
 }
 
+// CollectAggregatorStatus retrieves AWS Config aggregator status.
+func (c *ConfigCollector) CollectAggregatorStatus(ctx context.Context) (*ConfigAggregatorStatus, error) {
+	status := &ConfigAggregatorStatus{Region: c.region}
+
+	output, err := c.client.DescribeConfigurationAggregators(ctx, &configservice.DescribeConfigurationAggregatorsInput{})
+	if err != nil {
+		return status, nil // No access or not configured
+	}
+
+	status.Configured = len(output.ConfigurationAggregators) > 0
+	return status, nil
+}
+
 // CollectEvidence collects AWS Config status as evidence.
 func (c *ConfigCollector) CollectEvidence(ctx context.Context, accountID string) ([]evidence.Evidence, error) {
+	var evidenceList []evidence.Evidence
+
 	status, err := c.CollectStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
+	evidenceList = append(evidenceList, status.ToEvidence(accountID))
 
-	return []evidence.Evidence{status.ToEvidence(accountID)}, nil
+	// Config aggregator
+	aggStatus, err := c.CollectAggregatorStatus(ctx)
+	if err == nil {
+		evidenceList = append(evidenceList, aggStatus.ToEvidence(accountID))
+	}
+
+	return evidenceList, nil
 }

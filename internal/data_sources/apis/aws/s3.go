@@ -21,6 +21,10 @@ type S3Client interface {
 	GetPublicAccessBlock(ctx context.Context, params *s3.GetPublicAccessBlockInput, optFns ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error)
 	GetBucketPolicy(ctx context.Context, params *s3.GetBucketPolicyInput, optFns ...func(*s3.Options)) (*s3.GetBucketPolicyOutput, error)
 	GetBucketLogging(ctx context.Context, params *s3.GetBucketLoggingInput, optFns ...func(*s3.Options)) (*s3.GetBucketLoggingOutput, error)
+	GetBucketLifecycleConfiguration(ctx context.Context, params *s3.GetBucketLifecycleConfigurationInput, optFns ...func(*s3.Options)) (*s3.GetBucketLifecycleConfigurationOutput, error)
+	GetObjectLockConfiguration(ctx context.Context, params *s3.GetObjectLockConfigurationInput, optFns ...func(*s3.Options)) (*s3.GetObjectLockConfigurationOutput, error)
+	GetBucketReplication(ctx context.Context, params *s3.GetBucketReplicationInput, optFns ...func(*s3.Options)) (*s3.GetBucketReplicationOutput, error)
+	GetBucketNotificationConfiguration(ctx context.Context, params *s3.GetBucketNotificationConfigurationInput, optFns ...func(*s3.Options)) (*s3.GetBucketNotificationConfigurationOutput, error)
 }
 
 // S3Bucket represents an S3 bucket with security configuration.
@@ -35,8 +39,14 @@ type S3Bucket struct {
 	PublicAccessBlocked bool      `json:"public_access_blocked"`
 	BucketPolicyExists  bool      `json:"bucket_policy_exists"`
 	HasSSLEnforcement   bool      `json:"has_ssl_enforcement"`
-	LoggingEnabled      bool      `json:"logging_enabled"`
-	LoggingTargetBucket string    `json:"logging_target_bucket,omitempty"`
+	LoggingEnabled      bool   `json:"logging_enabled"`
+	LoggingTargetBucket string `json:"logging_target_bucket,omitempty"`
+	HasLifecycleRules   bool   `json:"has_lifecycle_rules"`
+	LifecycleRuleCount  int    `json:"lifecycle_rule_count"`
+	ObjectLockEnabled           bool `json:"object_lock_enabled"`
+	MFADeleteEnabled            bool `json:"mfa_delete_enabled"`
+	ReplicationEnabled          bool `json:"replication_enabled"`
+	EventNotificationsConfigured bool `json:"event_notifications_configured"`
 }
 
 // ToEvidence converts an S3Bucket to an Evidence struct.
@@ -93,6 +103,18 @@ func (c *S3Collector) CollectBuckets(ctx context.Context) ([]S3Bucket, error) {
 		// Get logging configuration
 		c.enrichLogging(ctx, &bucket)
 
+		// Get lifecycle configuration
+		c.enrichLifecycle(ctx, &bucket)
+
+		// Get object lock configuration
+		c.enrichObjectLock(ctx, &bucket)
+
+		// Get replication configuration
+		c.enrichReplication(ctx, &bucket)
+
+		// Get event notifications configuration
+		c.enrichEventNotifications(ctx, &bucket)
+
 		buckets = append(buckets, bucket)
 	}
 
@@ -136,6 +158,7 @@ func (c *S3Collector) enrichVersioning(ctx context.Context, bucket *S3Bucket) {
 	}
 
 	bucket.VersioningEnabled = output.Status == types.BucketVersioningStatusEnabled
+	bucket.MFADeleteEnabled = output.MFADelete == types.MFADeleteStatusEnabled
 }
 
 // enrichPublicAccessBlock adds public access block information to a bucket.
@@ -199,6 +222,70 @@ func (c *S3Collector) enrichLogging(ctx context.Context, bucket *S3Bucket) {
 			bucket.LoggingTargetBucket = aws.ToString(output.LoggingEnabled.TargetBucket)
 		}
 	}
+}
+
+// enrichLifecycle adds lifecycle configuration information to a bucket.
+func (c *S3Collector) enrichLifecycle(ctx context.Context, bucket *S3Bucket) {
+	output, err := c.client.GetBucketLifecycleConfiguration(ctx, &s3.GetBucketLifecycleConfigurationInput{
+		Bucket: aws.String(bucket.Name),
+	})
+	if err != nil {
+		// NoSuchLifecycleConfiguration or access denied — no lifecycle rules
+		bucket.HasLifecycleRules = false
+		bucket.LifecycleRuleCount = 0
+		return
+	}
+
+	bucket.LifecycleRuleCount = len(output.Rules)
+	bucket.HasLifecycleRules = len(output.Rules) > 0
+}
+
+// enrichObjectLock checks if object lock is enabled for a bucket.
+func (c *S3Collector) enrichObjectLock(ctx context.Context, bucket *S3Bucket) {
+	output, err := c.client.GetObjectLockConfiguration(ctx, &s3.GetObjectLockConfigurationInput{
+		Bucket: aws.String(bucket.Name),
+	})
+	if err != nil {
+		// ObjectLockConfigurationNotFoundError or access denied — fail-safe
+		bucket.ObjectLockEnabled = false
+		return
+	}
+
+	if output.ObjectLockConfiguration != nil {
+		bucket.ObjectLockEnabled = output.ObjectLockConfiguration.ObjectLockEnabled == types.ObjectLockEnabledEnabled
+	}
+}
+
+// enrichReplication checks if cross-region replication is configured for a bucket.
+func (c *S3Collector) enrichReplication(ctx context.Context, bucket *S3Bucket) {
+	output, err := c.client.GetBucketReplication(ctx, &s3.GetBucketReplicationInput{
+		Bucket: aws.String(bucket.Name),
+	})
+	if err != nil {
+		// ReplicationConfigurationNotFoundError or access denied — fail-safe
+		bucket.ReplicationEnabled = false
+		return
+	}
+
+	if output.ReplicationConfiguration != nil && len(output.ReplicationConfiguration.Rules) > 0 {
+		bucket.ReplicationEnabled = true
+	}
+}
+
+// enrichEventNotifications checks if event notifications are configured for a bucket.
+func (c *S3Collector) enrichEventNotifications(ctx context.Context, bucket *S3Bucket) {
+	output, err := c.client.GetBucketNotificationConfiguration(ctx, &s3.GetBucketNotificationConfigurationInput{
+		Bucket: aws.String(bucket.Name),
+	})
+	if err != nil {
+		bucket.EventNotificationsConfigured = false
+		return
+	}
+
+	bucket.EventNotificationsConfigured = len(output.TopicConfigurations) > 0 ||
+		len(output.QueueConfigurations) > 0 ||
+		len(output.LambdaFunctionConfigurations) > 0 ||
+		output.EventBridgeConfiguration != nil
 }
 
 // CollectEvidence collects S3 buckets as evidence.

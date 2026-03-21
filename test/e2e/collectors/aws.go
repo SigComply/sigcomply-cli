@@ -49,7 +49,7 @@ func (c *AWSCollector) Init(ctx context.Context, t *testing.T, creds *config.Res
 func (c *AWSCollector) Collect(ctx context.Context, t *testing.T, services []string) (*CollectorResult, error) {
 	t.Helper()
 
-	result, err := c.collector.Collect(ctx)
+	result, err := c.collector.Collect(ctx, services...)
 	require.NoError(t, err, "AWS Collect failed")
 	require.NotNil(t, result, "Collection result is nil")
 
@@ -62,8 +62,7 @@ func (c *AWSCollector) Collect(ctx context.Context, t *testing.T, services []str
 		})
 	}
 
-	// Apply service filter
-	collectorResult.Evidence = FilterByServices("aws", services, result.Evidence)
+	collectorResult.Evidence = result.Evidence
 
 	return collectorResult, nil
 }

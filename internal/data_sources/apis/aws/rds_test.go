@@ -14,9 +14,12 @@ import (
 
 // MockRDSClient implements RDSClient for testing.
 type MockRDSClient struct {
-	DescribeDBInstancesFunc       func(ctx context.Context, params *rds.DescribeDBInstancesInput, optFns ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error)
-	DescribeDBParameterGroupsFunc func(ctx context.Context, params *rds.DescribeDBParameterGroupsInput, optFns ...func(*rds.Options)) (*rds.DescribeDBParameterGroupsOutput, error)
-	DescribeDBParametersFunc      func(ctx context.Context, params *rds.DescribeDBParametersInput, optFns ...func(*rds.Options)) (*rds.DescribeDBParametersOutput, error)
+	DescribeDBInstancesFunc        func(ctx context.Context, params *rds.DescribeDBInstancesInput, optFns ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error)
+	DescribeDBParameterGroupsFunc  func(ctx context.Context, params *rds.DescribeDBParameterGroupsInput, optFns ...func(*rds.Options)) (*rds.DescribeDBParameterGroupsOutput, error)
+	DescribeDBParametersFunc       func(ctx context.Context, params *rds.DescribeDBParametersInput, optFns ...func(*rds.Options)) (*rds.DescribeDBParametersOutput, error)
+	DescribeDBSnapshotsFunc        func(ctx context.Context, params *rds.DescribeDBSnapshotsInput, optFns ...func(*rds.Options)) (*rds.DescribeDBSnapshotsOutput, error)
+	DescribeEventSubscriptionsFunc func(ctx context.Context, params *rds.DescribeEventSubscriptionsInput, optFns ...func(*rds.Options)) (*rds.DescribeEventSubscriptionsOutput, error)
+	DescribeDBClustersFunc         func(ctx context.Context, params *rds.DescribeDBClustersInput, optFns ...func(*rds.Options)) (*rds.DescribeDBClustersOutput, error)
 }
 
 func (m *MockRDSClient) DescribeDBInstances(ctx context.Context, params *rds.DescribeDBInstancesInput, optFns ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
@@ -29,6 +32,27 @@ func (m *MockRDSClient) DescribeDBParameterGroups(ctx context.Context, params *r
 
 func (m *MockRDSClient) DescribeDBParameters(ctx context.Context, params *rds.DescribeDBParametersInput, optFns ...func(*rds.Options)) (*rds.DescribeDBParametersOutput, error) {
 	return m.DescribeDBParametersFunc(ctx, params, optFns...)
+}
+
+func (m *MockRDSClient) DescribeDBSnapshots(ctx context.Context, params *rds.DescribeDBSnapshotsInput, optFns ...func(*rds.Options)) (*rds.DescribeDBSnapshotsOutput, error) {
+	if m.DescribeDBSnapshotsFunc != nil {
+		return m.DescribeDBSnapshotsFunc(ctx, params, optFns...)
+	}
+	return &rds.DescribeDBSnapshotsOutput{}, nil
+}
+
+func (m *MockRDSClient) DescribeEventSubscriptions(ctx context.Context, params *rds.DescribeEventSubscriptionsInput, optFns ...func(*rds.Options)) (*rds.DescribeEventSubscriptionsOutput, error) {
+	if m.DescribeEventSubscriptionsFunc != nil {
+		return m.DescribeEventSubscriptionsFunc(ctx, params, optFns...)
+	}
+	return &rds.DescribeEventSubscriptionsOutput{}, nil
+}
+
+func (m *MockRDSClient) DescribeDBClusters(ctx context.Context, params *rds.DescribeDBClustersInput, optFns ...func(*rds.Options)) (*rds.DescribeDBClustersOutput, error) {
+	if m.DescribeDBClustersFunc != nil {
+		return m.DescribeDBClustersFunc(ctx, params, optFns...)
+	}
+	return &rds.DescribeDBClustersOutput{}, nil
 }
 
 func TestRDSCollector_CollectInstances(t *testing.T) {
@@ -53,6 +77,7 @@ func TestRDSCollector_CollectInstances(t *testing.T) {
 					PubliclyAccessible:  awssdk.Bool(false),
 					MultiAZ:            awssdk.Bool(true),
 					BackupRetentionPeriod: awssdk.Int32(7),
+					MonitoringInterval:    awssdk.Int32(60),
 					DBParameterGroups: []rdstypes.DBParameterGroupStatus{
 						{DBParameterGroupName: awssdk.String("default.postgres15")},
 					},
@@ -121,6 +146,7 @@ func TestRDSCollector_CollectInstances(t *testing.T) {
 				assert.True(t, inst.PITREnabled)
 				assert.Equal(t, 7, inst.BackupRetentionPeriod)
 				assert.Equal(t, "arn:aws:kms:us-east-1:123:key/abc", inst.KMSKeyID)
+				assert.True(t, inst.EnhancedMonitoringEnabled, "MonitoringInterval=60 should enable enhanced monitoring")
 			}
 
 			if tt.name == "unencrypted public instance without backups" {
@@ -129,6 +155,7 @@ func TestRDSCollector_CollectInstances(t *testing.T) {
 				assert.True(t, inst.PubliclyAccessible)
 				assert.False(t, inst.BackupEnabled)
 				assert.False(t, inst.PITREnabled)
+				assert.False(t, inst.EnhancedMonitoringEnabled, "nil MonitoringInterval should be false")
 			}
 		})
 	}
@@ -329,6 +356,7 @@ func TestRDSCollector_CollectInstances_NilOptionalFields(t *testing.T) {
 	assert.False(t, inst.PITREnabled, "should not be enabled with 0 retention")
 	assert.Empty(t, inst.ParameterGroupName, "nil param groups should be empty")
 	assert.False(t, inst.ForceSSL, "no param group means no SSL check")
+	assert.False(t, inst.EnhancedMonitoringEnabled, "nil MonitoringInterval should be false")
 }
 
 func TestRDSCollector_enrichSSLStatus_MultipleSslParams(t *testing.T) {
@@ -370,6 +398,162 @@ func TestRDSCollector_enrichSSLStatus_NilParameterValue(t *testing.T) {
 	assert.False(t, instance.ForceSSL, "nil parameter value should not enable SSL")
 }
 
+func TestRDSCollector_EnhancedMonitoring(t *testing.T) {
+	tests := []struct {
+		name               string
+		monitoringInterval *int32
+		wantEnabled        bool
+	}{
+		{
+			name:               "monitoring enabled (interval=60)",
+			monitoringInterval: awssdk.Int32(60),
+			wantEnabled:        true,
+		},
+		{
+			name:               "monitoring enabled (interval=1)",
+			monitoringInterval: awssdk.Int32(1),
+			wantEnabled:        true,
+		},
+		{
+			name:               "monitoring disabled (interval=0)",
+			monitoringInterval: awssdk.Int32(0),
+			wantEnabled:        false,
+		},
+		{
+			name:               "monitoring disabled (nil interval)",
+			monitoringInterval: nil,
+			wantEnabled:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &MockRDSClient{
+				DescribeDBInstancesFunc: func(ctx context.Context, params *rds.DescribeDBInstancesInput, optFns ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
+					return &rds.DescribeDBInstancesOutput{
+						DBInstances: []rdstypes.DBInstance{
+							{
+								DBInstanceIdentifier: awssdk.String("test-db"),
+								DBInstanceArn:        awssdk.String("arn:aws:rds:us-east-1:123:db:test-db"),
+								Engine:               awssdk.String("postgres"),
+								MonitoringInterval:   tt.monitoringInterval,
+							},
+						},
+					}, nil
+				},
+				DescribeDBParametersFunc: func(ctx context.Context, params *rds.DescribeDBParametersInput, optFns ...func(*rds.Options)) (*rds.DescribeDBParametersOutput, error) {
+					return &rds.DescribeDBParametersOutput{}, nil
+				},
+			}
+
+			collector := NewRDSCollector(mock)
+			instances, err := collector.CollectInstances(context.Background())
+
+			require.NoError(t, err)
+			require.Len(t, instances, 1)
+			assert.Equal(t, tt.wantEnabled, instances[0].EnhancedMonitoringEnabled)
+		})
+	}
+}
+
+func TestRDSCollector_CollectSnapshots(t *testing.T) {
+	mock := &MockRDSClient{
+		DescribeDBSnapshotsFunc: func(ctx context.Context, params *rds.DescribeDBSnapshotsInput, optFns ...func(*rds.Options)) (*rds.DescribeDBSnapshotsOutput, error) {
+			return &rds.DescribeDBSnapshotsOutput{
+				DBSnapshots: []rdstypes.DBSnapshot{
+					{
+						DBSnapshotIdentifier: awssdk.String("snap-1"),
+						DBInstanceIdentifier: awssdk.String("prod-db"),
+						DBSnapshotArn:        awssdk.String("arn:aws:rds:us-east-1:123:snapshot:snap-1"),
+						Encrypted:            awssdk.Bool(true),
+					},
+					{
+						DBSnapshotIdentifier: awssdk.String("snap-2"),
+						DBInstanceIdentifier: awssdk.String("dev-db"),
+						DBSnapshotArn:        awssdk.String("arn:aws:rds:us-east-1:123:snapshot:snap-2"),
+						Encrypted:            awssdk.Bool(false),
+					},
+				},
+			}, nil
+		},
+	}
+
+	collector := NewRDSCollector(mock)
+	snapshots, err := collector.CollectSnapshots(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, snapshots, 2)
+	assert.Equal(t, "snap-1", snapshots[0].SnapshotID)
+	assert.True(t, snapshots[0].Encrypted)
+	assert.Equal(t, "snap-2", snapshots[1].SnapshotID)
+	assert.False(t, snapshots[1].Encrypted)
+}
+
+func TestRDSCollector_CollectSnapshots_Pagination(t *testing.T) {
+	callCount := 0
+	mock := &MockRDSClient{
+		DescribeDBSnapshotsFunc: func(ctx context.Context, params *rds.DescribeDBSnapshotsInput, optFns ...func(*rds.Options)) (*rds.DescribeDBSnapshotsOutput, error) {
+			callCount++
+			if callCount == 1 {
+				return &rds.DescribeDBSnapshotsOutput{
+					DBSnapshots: []rdstypes.DBSnapshot{
+						{
+							DBSnapshotIdentifier: awssdk.String("snap-page1"),
+							DBInstanceIdentifier: awssdk.String("db-1"),
+							DBSnapshotArn:        awssdk.String("arn:aws:rds:us-east-1:123:snapshot:snap-page1"),
+							Encrypted:            awssdk.Bool(true),
+						},
+					},
+					Marker: awssdk.String("next"),
+				}, nil
+			}
+			return &rds.DescribeDBSnapshotsOutput{
+				DBSnapshots: []rdstypes.DBSnapshot{
+					{
+						DBSnapshotIdentifier: awssdk.String("snap-page2"),
+						DBInstanceIdentifier: awssdk.String("db-2"),
+						DBSnapshotArn:        awssdk.String("arn:aws:rds:us-east-1:123:snapshot:snap-page2"),
+						Encrypted:            awssdk.Bool(false),
+					},
+				},
+			}, nil
+		},
+	}
+
+	collector := NewRDSCollector(mock)
+	snapshots, err := collector.CollectSnapshots(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, snapshots, 2)
+	assert.Equal(t, "snap-page1", snapshots[0].SnapshotID)
+	assert.Equal(t, "snap-page2", snapshots[1].SnapshotID)
+	assert.Equal(t, 2, callCount, "should have paginated with 2 API calls")
+}
+
+func TestRDSCollector_CollectSnapshots_Error(t *testing.T) {
+	mock := &MockRDSClient{
+		DescribeDBSnapshotsFunc: func(ctx context.Context, params *rds.DescribeDBSnapshotsInput, optFns ...func(*rds.Options)) (*rds.DescribeDBSnapshotsOutput, error) {
+			return nil, errors.New("access denied")
+		},
+	}
+
+	collector := NewRDSCollector(mock)
+	_, err := collector.CollectSnapshots(context.Background())
+	assert.Error(t, err)
+}
+
+func TestRDSSnapshot_ToEvidence(t *testing.T) {
+	snap := &RDSSnapshot{
+		SnapshotID: "snap-1",
+		ARN:        "arn:aws:rds:us-east-1:123:snapshot:snap-1",
+		Encrypted:  true,
+	}
+	ev := snap.ToEvidence("123456789012")
+	assert.Equal(t, "aws", ev.Collector)
+	assert.Equal(t, "aws:rds:snapshot", ev.ResourceType)
+	assert.Equal(t, "arn:aws:rds:us-east-1:123:snapshot:snap-1", ev.ResourceID)
+}
+
 func TestRDSCollector_CollectEvidence_Error(t *testing.T) {
 	mock := &MockRDSClient{
 		DescribeDBInstancesFunc: func(ctx context.Context, params *rds.DescribeDBInstancesInput, optFns ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
@@ -384,4 +568,102 @@ func TestRDSCollector_CollectEvidence_Error(t *testing.T) {
 	_, err := collector.CollectEvidence(context.Background(), "123456789012")
 
 	assert.Error(t, err, "CollectEvidence should propagate CollectInstances error")
+}
+
+// --- RDS Cluster Tests ---
+
+func TestRDSCollector_CollectClusters(t *testing.T) {
+	tests := []struct {
+		name      string
+		clusters  []rdstypes.DBCluster
+		mockErr   error
+		wantCount int
+		wantError bool
+	}{
+		{
+			name: "encrypted cluster with cloudwatch logs",
+			clusters: []rdstypes.DBCluster{
+				{
+					DBClusterIdentifier:          awssdk.String("aurora-prod"),
+					DBClusterArn:                 awssdk.String("arn:aws:rds:us-east-1:123:cluster:aurora-prod"),
+					Engine:                       awssdk.String("aurora-mysql"),
+					StorageEncrypted:             awssdk.Bool(true),
+					EnabledCloudwatchLogsExports: []string{"audit", "error"},
+				},
+			},
+			wantCount: 1,
+		},
+		{
+			name: "unencrypted cluster without cloudwatch",
+			clusters: []rdstypes.DBCluster{
+				{
+					DBClusterIdentifier: awssdk.String("aurora-dev"),
+					DBClusterArn:        awssdk.String("arn:aws:rds:us-east-1:123:cluster:aurora-dev"),
+					Engine:              awssdk.String("aurora-postgresql"),
+					StorageEncrypted:    awssdk.Bool(false),
+				},
+			},
+			wantCount: 1,
+		},
+		{
+			name:      "no clusters",
+			clusters:  []rdstypes.DBCluster{},
+			wantCount: 0,
+		},
+		{
+			name:      "API error",
+			mockErr:   errors.New("access denied"),
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &MockRDSClient{
+				DescribeDBClustersFunc: func(ctx context.Context, params *rds.DescribeDBClustersInput, optFns ...func(*rds.Options)) (*rds.DescribeDBClustersOutput, error) {
+					if tt.mockErr != nil {
+						return nil, tt.mockErr
+					}
+					return &rds.DescribeDBClustersOutput{DBClusters: tt.clusters}, nil
+				},
+			}
+
+			collector := NewRDSCollector(mock)
+			clusters, err := collector.CollectClusters(context.Background())
+
+			if tt.wantError {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Len(t, clusters, tt.wantCount)
+
+			if tt.name == "encrypted cluster with cloudwatch logs" {
+				assert.Equal(t, "aurora-prod", clusters[0].ClusterID)
+				assert.True(t, clusters[0].StorageEncrypted)
+				assert.True(t, clusters[0].EnabledCloudwatchLogs)
+			}
+
+			if tt.name == "unencrypted cluster without cloudwatch" {
+				assert.False(t, clusters[0].StorageEncrypted)
+				assert.False(t, clusters[0].EnabledCloudwatchLogs)
+			}
+		})
+	}
+}
+
+func TestRDSCluster_ToEvidence(t *testing.T) {
+	cluster := &RDSCluster{
+		ClusterID:        "aurora-prod",
+		ARN:              "arn:aws:rds:us-east-1:123:cluster:aurora-prod",
+		Engine:           "aurora-mysql",
+		StorageEncrypted: true,
+	}
+
+	ev := cluster.ToEvidence("123456789012")
+	assert.Equal(t, "aws", ev.Collector)
+	assert.Equal(t, "aws:rds:cluster", ev.ResourceType)
+	assert.Equal(t, "arn:aws:rds:us-east-1:123:cluster:aurora-prod", ev.ResourceID)
+	assert.NotEmpty(t, ev.Hash)
 }
