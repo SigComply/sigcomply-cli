@@ -307,7 +307,7 @@ jobs:
           upload-artifact: false
 
       - name: Upload SBOMs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sbom
           path: |
