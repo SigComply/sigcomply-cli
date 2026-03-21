@@ -13,9 +13,7 @@ import (
 )
 
 // MockEC2Client implements EC2Client for testing.
-//
-//nolint:dupl // mock struct mirrors EC2Client interface in ec2.go by design
-type MockEC2Client struct {
+type MockEC2Client struct { //nolint:dupl // mock struct mirrors EC2Client interface by design
 	DescribeSecurityGroupsFunc    func(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSecurityGroupsOutput, error)
 	DescribeVpcsFunc              func(ctx context.Context, params *ec2.DescribeVpcsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeVpcsOutput, error)
 	DescribeFlowLogsFunc          func(ctx context.Context, params *ec2.DescribeFlowLogsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeFlowLogsOutput, error)
@@ -583,7 +581,6 @@ func TestEC2Collector_CollectEvidence_VPCFailsOthersSucceed(t *testing.T) {
 	ev, err := collector.CollectEvidence(context.Background(), "123456789012")
 
 	require.NoError(t, err, "VPC failure is fail-safe, should not error")
-	// should have at least SG, EBS, and VPC endpoint evidence
 	assert.GreaterOrEqual(t, len(ev), 2, "should have at least SG + EBS evidence (VPC skipped)")
 }
 
@@ -617,7 +614,6 @@ func TestEC2Collector_CollectEvidence_EBSFailsOthersSucceed(t *testing.T) {
 	ev, err := collector.CollectEvidence(context.Background(), "123456789012")
 
 	require.NoError(t, err, "EBS failure is fail-safe")
-	// should have SG, VPC, EBS, and VPC endpoint evidence
 	assert.GreaterOrEqual(t, len(ev), 3, "should have SG + VPC + EBS evidence (EBS defaults to false)")
 }
 

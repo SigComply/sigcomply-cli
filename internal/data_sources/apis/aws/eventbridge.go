@@ -66,8 +66,8 @@ func (c *EventBridgeCollector) CollectGuardDutyAlerts(ctx context.Context) (*Gua
 				Rule: rule.Name,
 			})
 			if err == nil {
-				for i := range targets.Targets {
-					target := &targets.Targets[i]
+				for j := range targets.Targets {
+					target := &targets.Targets[j]
 					arn := awssdk.ToString(target.Arn)
 					if strings.Contains(arn, ":sns:") {
 						status.TargetTypes = appendUnique(status.TargetTypes, "SNS")

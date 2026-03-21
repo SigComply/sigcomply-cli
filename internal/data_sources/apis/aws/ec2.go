@@ -14,9 +14,7 @@ import (
 )
 
 // EC2Client defines the interface for EC2 operations.
-//
-//nolint:dupl // interface mirrors MockEC2Client in ec2_test.go by design
-type EC2Client interface {
+type EC2Client interface { //nolint:dupl // interface definition, mock struct in test mirrors this by design
 	DescribeSecurityGroups(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSecurityGroupsOutput, error)
 	DescribeVpcs(ctx context.Context, params *ec2.DescribeVpcsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeVpcsOutput, error)
 	DescribeFlowLogs(ctx context.Context, params *ec2.DescribeFlowLogsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeFlowLogsOutput, error)

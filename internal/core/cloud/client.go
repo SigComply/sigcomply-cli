@@ -136,7 +136,7 @@ func (c *Client) setHeaders(req *http.Request) {
 // Note: This doesn't support retrying requests with bodies since the body is consumed.
 // For Submit requests, we recreate the request in the Submit method.
 func (c *Client) doWithRetry(req *http.Request) (*http.Response, error) {
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // URL constructed from configured API base URL
 	if err != nil {
 		return nil, err
 	}

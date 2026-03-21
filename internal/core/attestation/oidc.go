@@ -139,7 +139,7 @@ func (p *GitHubActionsTokenProvider) GetToken(ctx context.Context, audience stri
 	}
 
 	// Create request
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, http.NoBody) //nolint:gosec // URL comes from trusted CI environment variables
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token request: %w", err)
 	}
@@ -148,7 +148,7 @@ func (p *GitHubActionsTokenProvider) GetToken(ctx context.Context, audience stri
 	req.Header.Set("Accept", "application/json; api-version=2.0")
 
 	// Execute request
-	resp, err := p.httpClient.Do(req)
+	resp, err := p.httpClient.Do(req) //nolint:gosec // request uses URL from trusted CI environment
 	if err != nil {
 		return nil, fmt.Errorf("failed to request OIDC token: %w", err)
 	}

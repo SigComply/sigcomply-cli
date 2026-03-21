@@ -87,10 +87,7 @@ func (c *SSMCollector) CollectStatus(ctx context.Context) (*SSMStatus, error) {
 		status.ManagedInstanceCount = len(output.InstanceInformationList)
 	}
 
-	// Check Session Manager - availability is determined by managed instance count
-	_, _ = c.client.GetServiceSetting(ctx, &ssm.GetServiceSettingInput{ //nolint:errcheck // result not used; managed instance count is the deciding factor
-		SettingId: awssdk.String(fmt.Sprintf("arn:aws:ssm:%s:%s:servicesetting/ssm/managed-instance/activation-tier", c.region, "account")),
-	})
+	// Session Manager is available if there are managed instances
 	status.SessionManagerEnabled = status.ManagedInstanceCount > 0
 
 	return status, nil

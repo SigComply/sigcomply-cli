@@ -102,7 +102,7 @@ func (b *S3Backend) List(ctx context.Context, filter *ListFilter) ([]StoredItem,
 	}
 
 	if filter != nil && filter.Limit > 0 {
-		input.MaxKeys = aws.Int32(int32(filter.Limit))
+		input.MaxKeys = aws.Int32(int32(filter.Limit)) //nolint:gosec // filter.Limit is bounded by API design
 	}
 
 	paginator := s3.NewListObjectsV2Paginator(b.client, input)

@@ -157,7 +157,7 @@ func (f *JUnitFormatter) formatViolations(violations []evidence.Violation) strin
 		if i > 0 {
 			sb.WriteString("\n")
 		}
-		sb.WriteString(fmt.Sprintf("- %s (%s): %s", v.ResourceID, v.ResourceType, v.Reason))
+		fmt.Fprintf(&sb, "- %s (%s): %s", v.ResourceID, v.ResourceType, v.Reason)
 	}
 	return sb.String()
 }
