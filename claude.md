@@ -21,11 +21,10 @@ The local file is gitignored and will not be present in all environments.
 
 Key documents for development:
 
-1. **[ARCHITECTURE.md](./ARCHITECTURE.md)** - System architecture and design
-2. **[IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md)** - MVP implementation roadmap
-3. **[TESTING_STRATEGY.md](./TESTING_STRATEGY.md)** - Testing requirements
-4. **[QUICKSTART.md](./QUICKSTART.md)** - Developer onboarding
-5. **[GLOSSARY.md](./GLOSSARY.md)** - Key terms and concepts
+1. **[ARCHITECTURE.md](./ARCHITECTURE.md)** - System architecture, types, and design
+2. **[docs/configuration.md](./docs/configuration.md)** - Configuration guide (config file, env vars, CLI flags)
+3. **[docs/claude/auth.md](./docs/claude/auth.md)** - OIDC authentication details
+4. **[docs/claude/recipes.md](./docs/claude/recipes.md)** - Step-by-step guides for common tasks
 
 ---
 
@@ -60,7 +59,7 @@ For each new feature or sub-component:
 2. **Write a basic integration test** - Create the simplest possible integration test that verifies components connect correctly (happy path only, avoid complexity)
 3. **Implement the code** - Write the minimum code needed to make tests pass
 4. **Verify all tests pass** - Run the full test suite to ensure no regressions
-5. **Update documentation** - After the feature is complete, revise and update relevant documentation files (ARCHITECTURE.md, IMPLEMENTATION_PLAN.md, CLAUDE.md as needed)
+5. **Update documentation** - After the feature is complete, revise and update relevant documentation files (ARCHITECTURE.md, CLAUDE.md as needed)
 
 ```bash
 # TDD workflow
@@ -73,7 +72,7 @@ make lint          # Ensure code quality
 
 Before starting any implementation:
 
-1. **Read existing documentation** - Review ARCHITECTURE.md, IMPLEMENTATION_PLAN.md, and relevant sections of CLAUDE.md to understand the full context
+1. **Read existing documentation** - Review ARCHITECTURE.md and relevant sections of CLAUDE.md to understand the full context
 2. **Create an implementation plan** - Outline the specific files to create/modify, types needed, and how the feature fits into existing architecture
 3. **Evaluate complexity** - If the existing architecture makes implementation overly complicated or convoluted:
    - **STOP and ask the user** to explain the complexity
@@ -479,8 +478,8 @@ The codebase follows a domain-driven organization with three main areas:
 
 ```
 sigcomply-cli/
-├── cmd/sigcomply/                       # CLI entry point
-│   └── main.go
+├── main.go                              # CLI entry point
+├── cmd/sigcomply/                       # CLI commands
 │
 ├── internal/
 │   ├── compliance_frameworks/           # Everything about compliance
@@ -509,26 +508,27 @@ sigcomply-cli/
 │   │       └── policies/
 │   │
 │   ├── data_sources/                    # Evidence collection
-│   │   ├── apis/                        # API-based collectors
-│   │   │   ├── aws/
-│   │   │   │   ├── collector.go         # Auth, config, orchestration
-│   │   │   │   ├── iam.go               # IAM collection
-│   │   │   │   ├── s3.go                # S3 collection
-│   │   │   │   └── cloudtrail.go        # CloudTrail collection
-│   │   │   │
-│   │   │   ├── github/                  # GitHub collector (future)
-│   │   │   └── gcp/                     # GCP collector (future)
-│   │   │
-│   │   └── others/                      # Non-API data sources (future)
+│   │   └── apis/                        # API-based collectors
+│   │       ├── aws/
+│   │       │   ├── collector.go         # Auth, config, orchestration
+│   │       │   ├── iam.go, s3.go, cloudtrail.go
+│   │       │   ├── ec2.go, ecr.go, rds.go, kms.go
+│   │       │   └── guardduty.go, configservice.go, cloudwatch.go
+│   │       │
+│   │       ├── github/
+│   │       │   ├── collector.go, repos.go, members.go
+│   │       │
+│   │       └── gcp/
+│   │           ├── collector.go, iam.go, storage.go
+│   │           └── compute.go, sql.go
 │   │
 │   ├── core/                            # Shared types & utilities
 │   │   ├── evidence/                    # Evidence, Result, Violation types
 │   │   ├── config/                      # Configuration loading
 │   │   ├── output/                      # Output formatting
-│   │   ├── scanner/                     # Secret scanner
-│   │   ├── storage/                     # Evidence storage (future)
+│   │   ├── storage/                     # Evidence storage (S3, local)
 │   │   ├── attestation/                 # Attestation signing & hashing
-│   │   └── cloud/                       # SigComply Cloud client (future)
+│   │   └── cloud/                       # SigComply Cloud client
 │   │
 │   └── testutil/                        # Test helpers
 │
@@ -801,34 +801,34 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 
 ## Current Status
 
-**Project Stage**: Pre-implementation (Architecture finalized)
+**Project Stage**: Active development (Phase 1 mostly complete)
 
 **Architecture**: See [ARCHITECTURE.md](./ARCHITECTURE.md)
 
-**P0 MVP Priorities** (3-4 weeks):
-1. Zero-config `sigcomply check` command that works with AWS defaults
-2. AWS collector (IAM, S3, CloudTrail)
-3. OPA engine with embedded policies (go:embed)
-4. 3 SOC 2 policies (MFA, encryption, logging)
-5. Text and JSON output formatters
-6. GitHub Actions reusable workflow
-7. Unit tests (>80% coverage) and policy tests
-
-**Completed (post-P0)**:
+**Completed**:
+- Zero-config `sigcomply check` with AWS + SOC 2
+- AWS collector (IAM, S3, CloudTrail, EC2, ECR, RDS, KMS, GuardDuty, Config, CloudWatch)
+- GCP collector (IAM, Storage, Compute, SQL)
+- GitHub collector (repos, members)
+- OPA engine with 30+ embedded SOC 2 policies + ISO 27001 policies
+- Text, JSON, JUnit output formatters
 - Evidence storage (S3, local)
 - Attestation signing (HMAC, OIDC)
-- SigComply Cloud API client
+- SigComply Cloud API client (unified `POST /api/v1/cli/runs`)
 - OIDC authentication (GitHub Actions, GitLab CI)
-- GitHub collector
 - Canonical JSON for deterministic hashing
 - Policy filtering (`--policies`, `--controls` flags, env vars, config file)
-- Release automation (auto-release on merge to main via conventional commits, manual release via workflow_dispatch, GoReleaser)
+- Release automation (auto-release via conventional commits, manual release, GoReleaser)
+- GitHub Actions reusable workflow, GitLab CI component
+- E2E test framework (config-driven scenarios)
 
 **Remaining**:
 - Secret scanner
 - init and init-ci commands
+- SARIF output formatter
+- Public README
 
-**Key Design Decisions** (V3):
+**Key Design Decisions**:
 - Zero-config by default (auto-detect AWS)
 - Embedded policies (no filesystem dependency)
 - Domain-driven structure (compliance_frameworks/, data_sources/, core/)
@@ -881,4 +881,4 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 
 ---
 
-Last Updated: 2026-03-14
+Last Updated: 2026-03-15
