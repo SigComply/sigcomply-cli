@@ -24,7 +24,7 @@ type AppSyncAPI struct {
 
 // ToEvidence converts an AppSyncAPI to Evidence.
 func (a *AppSyncAPI) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(a) //nolint:errcheck
+	data, _ := json.Marshal(a) //nolint:errcheck // marshalling a known struct type will not fail
 	ev := evidence.New("aws", "aws:appsync:api", a.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -53,7 +53,8 @@ func (c *AppSyncCollector) CollectAPIs(ctx context.Context) ([]AppSyncAPI, error
 			return nil, fmt.Errorf("failed to list AppSync APIs: %w", err)
 		}
 
-		for _, api := range output.GraphqlApis {
+		for i := range output.GraphqlApis {
+			api := &output.GraphqlApis[i]
 			a := AppSyncAPI{
 				Name:           awssdk.ToString(api.Name),
 				ARN:            awssdk.ToString(api.Arn),

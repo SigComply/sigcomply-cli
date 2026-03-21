@@ -52,7 +52,7 @@ func (c *SecurityHubCollector) CollectStatus(ctx context.Context) (*SecurityHubS
 	output, err := c.client.DescribeHub(ctx, &securityhub.DescribeHubInput{})
 	if err != nil {
 		// Not enabled or no access
-		return status, nil
+		return status, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
 	if output.HubArn != nil {

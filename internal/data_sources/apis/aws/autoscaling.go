@@ -29,7 +29,7 @@ type AutoScalingGroup struct {
 
 // ToEvidence converts an AutoScalingGroup to Evidence.
 func (g *AutoScalingGroup) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(g) //nolint:errcheck
+	data, _ := json.Marshal(g) //nolint:errcheck // marshalling a known struct type will not fail
 	ev := evidence.New("aws", "aws:autoscaling:group", g.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -65,7 +65,8 @@ func (c *AutoScalingCollector) CollectGroups(ctx context.Context) ([]AutoScaling
 			return nil, fmt.Errorf("failed to describe Auto Scaling groups: %w", err)
 		}
 
-		for _, asg := range output.AutoScalingGroups {
+		for i := range output.AutoScalingGroups {
+			asg := &output.AutoScalingGroups[i]
 			usesLaunchTemplate := asg.LaunchTemplate != nil || asg.MixedInstancesPolicy != nil
 
 			associatePublicIP := false
@@ -110,7 +111,8 @@ func (c *AutoScalingCollector) collectLaunchConfigPublicIP(ctx context.Context) 
 			return nil, fmt.Errorf("failed to describe launch configurations: %w", err)
 		}
 
-		for _, lc := range output.LaunchConfigurations {
+		for i := range output.LaunchConfigurations {
+			lc := &output.LaunchConfigurations[i]
 			name := awssdk.ToString(lc.LaunchConfigurationName)
 			if name == "" {
 				continue

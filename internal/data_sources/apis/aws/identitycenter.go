@@ -48,7 +48,7 @@ func (c *IdentityCenterCollector) CollectStatus(ctx context.Context) (*IdentityC
 
 	output, err := c.client.ListInstances(ctx, &ssoadmin.ListInstancesInput{})
 	if err != nil {
-		return status, nil // Fail-safe
+		return status, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
 	if len(output.Instances) > 0 {

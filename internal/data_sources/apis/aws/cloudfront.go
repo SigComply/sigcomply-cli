@@ -51,6 +51,7 @@ func NewCloudFrontCollector(client CloudFrontClient) *CloudFrontCollector {
 }
 
 // CollectDistributions retrieves all CloudFront distributions.
+//nolint:gocyclo // AWS API response mapping requires sequential field extraction
 func (c *CloudFrontCollector) CollectDistributions(ctx context.Context) ([]CloudFrontDistribution, error) {
 	var distributions []CloudFrontDistribution
 	var marker *string
@@ -67,7 +68,8 @@ func (c *CloudFrontCollector) CollectDistributions(ctx context.Context) ([]Cloud
 			break
 		}
 
-		for _, item := range output.DistributionList.Items {
+		for i := range output.DistributionList.Items {
+			item := &output.DistributionList.Items[i]
 			dist := CloudFrontDistribution{
 				ARN:        awssdk.ToString(item.ARN),
 				DomainName: awssdk.ToString(item.DomainName),

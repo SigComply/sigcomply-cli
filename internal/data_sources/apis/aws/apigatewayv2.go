@@ -25,7 +25,7 @@ type APIGatewayV2API struct {
 
 // ToEvidence converts an APIGatewayV2API to Evidence.
 func (a *APIGatewayV2API) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(a) //nolint:errcheck
+	data, _ := json.Marshal(a) //nolint:errcheck // marshalling a known struct type will not fail
 	ev := evidence.New("aws", "aws:apigateway:v2-api", a.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -54,7 +54,8 @@ func (c *APIGatewayV2Collector) CollectAPIs(ctx context.Context) ([]APIGatewayV2
 			return nil, fmt.Errorf("failed to list API Gateway V2 APIs: %w", err)
 		}
 
-		for _, item := range output.Items {
+		for i := range output.Items {
+			item := &output.Items[i]
 			apiID := awssdk.ToString(item.ApiId)
 			api := APIGatewayV2API{
 				Name: awssdk.ToString(item.Name),

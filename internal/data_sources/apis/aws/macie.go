@@ -47,11 +47,11 @@ func (c *MacieCollector) CollectStatus(ctx context.Context) (*MacieStatus, error
 
 	output, err := c.client.GetMacieSession(ctx, &macie2.GetMacieSessionInput{})
 	if err != nil {
-		return status, nil // Not enabled or no access
+		return status, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
 	status.Status = string(output.Status)
-	status.Enabled = output.Status == "ENABLED"
+	status.Enabled = output.Status == statusEnabled
 
 	return status, nil
 }

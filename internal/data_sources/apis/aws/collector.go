@@ -327,6 +327,81 @@ func (c *Collector) Region() string {
 	return c.region
 }
 
+// serviceCollector maps a service name to one or more collector functions.
+type serviceCollector struct {
+	name    string
+	collect []func(ctx context.Context, accountID string, result *CollectionResult)
+}
+
+// serviceRegistry returns the ordered list of all service collectors.
+func (c *Collector) serviceRegistry() []serviceCollector {
+	return []serviceCollector{
+		{"iam", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectIAM, c.collectAccount}},
+		{"s3", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectS3}},
+		{"cloudtrail", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectCloudTrail}},
+		{"ec2", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectEC2}},
+		{"rds", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectRDS}},
+		{"kms", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectKMS}},
+		{"guardduty", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectGuardDuty}},
+		{"logs", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectCloudWatch}},
+		{"ecr", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectECR}},
+		{"config", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectConfig}},
+		{"securityhub", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectSecurityHub}},
+		{"cloudwatch", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectCloudWatchAlarms}},
+		{"secretsmanager", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectSecretsManager}},
+		{"lambda", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectLambda}},
+		{"s3control", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectS3Control}},
+		{"dynamodb", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectDynamoDB}},
+		{"ecs", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectECS}},
+		{"eks", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectEKS}},
+		{"acm", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectACM}},
+		{"cloudfront", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectCloudFront}},
+		{"wafv2", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectWAF}},
+		{"macie2", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectMacie}},
+		{"ssm", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectSSM}},
+		{"elbv2", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectELBv2}},
+		{"inspector", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectInspector}},
+		{"backup", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectBackup}},
+		{"eventbridge", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectEventBridge}},
+		{"sns", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectSNS}},
+		{"sqs", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectSQS}},
+		{"organizations", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectOrganizations}},
+		{"efs", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectEFS}},
+		{"redshift", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectRedshift}},
+		{"opensearch", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectOpenSearch}},
+		{"apigateway", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectAPIGateway}},
+		{"accessanalyzer", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectAccessAnalyzer}},
+		{"identitycenter", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectIdentityCenter}},
+		{"elasticache", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectElastiCache}},
+		{"account", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectAccountService}},
+		{"codebuild", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectCodeBuild}},
+		{"dms", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectDMS}},
+		{"sagemaker", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectSageMaker}},
+		{"emr", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectEMR}},
+		{"neptune", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectNeptune}},
+		{"documentdb", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectDocumentDB}},
+		{"msk", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectMSK}},
+		{"kinesis", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectKinesis}},
+		{"networkfirewall", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectNetworkFirewall}},
+		{"autoscaling", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectAutoScaling}},
+		{"glue", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectGlue}},
+		{"elasticbeanstalk", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectBeanstalk}},
+		{"stepfunctions", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectStepFunctions}},
+		{"mq", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectMQ}},
+		{"route53", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectRoute53}},
+		{"fsx", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectFSx}},
+		{"appsync", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectAppSync}},
+		{"athena", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectAthena}},
+		{"bedrock", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectBedrock}},
+		{"datasync", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectDataSync}},
+		{"transfer", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectTransfer}},
+		{"apigatewayv2", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectAPIGatewayV2}},
+		{"cognito", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectCognito}},
+		{"redshiftserverless", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectRedshiftServerless}},
+		{"dax", []func(ctx context.Context, accountID string, result *CollectionResult){c.collectDAX}},
+	}
+}
+
 // Collect gathers evidence from AWS services using fail-safe pattern.
 // If one service fails, the others continue and partial results are returned.
 // When services are specified, only those services are collected. When no
@@ -341,266 +416,19 @@ func (c *Collector) Collect(ctx context.Context, services ...string) (*Collectio
 	for _, s := range services {
 		serviceFilter[s] = true
 	}
-	shouldCollect := func(svc string) bool {
-		return len(serviceFilter) == 0 || serviceFilter[svc]
-	}
 
 	result := &CollectionResult{
 		Evidence: []evidence.Evidence{},
 		Errors:   []CollectionError{},
 	}
 
-	if shouldCollect("iam") {
-		c.collectIAM(ctx, accountID, result)
-		c.collectAccount(ctx, accountID, result)
-	}
-
-	if shouldCollect("s3") {
-		c.collectS3(ctx, accountID, result)
-	}
-
-	if shouldCollect("cloudtrail") {
-		c.collectCloudTrail(ctx, accountID, result)
-	}
-
-	if shouldCollect("ec2") {
-		c.collectEC2(ctx, accountID, result)
-	}
-
-	if shouldCollect("rds") {
-		c.collectRDS(ctx, accountID, result)
-	}
-
-	if shouldCollect("kms") {
-		c.collectKMS(ctx, accountID, result)
-	}
-
-	if shouldCollect("guardduty") {
-		c.collectGuardDuty(ctx, accountID, result)
-	}
-
-	if shouldCollect("logs") {
-		c.collectCloudWatch(ctx, accountID, result)
-	}
-
-	if shouldCollect("ecr") {
-		c.collectECR(ctx, accountID, result)
-	}
-
-	if shouldCollect("config") {
-		c.collectConfig(ctx, accountID, result)
-	}
-
-	if shouldCollect("securityhub") {
-		c.collectSecurityHub(ctx, accountID, result)
-	}
-
-	if shouldCollect("cloudwatch") {
-		c.collectCloudWatchAlarms(ctx, accountID, result)
-	}
-
-	if shouldCollect("secretsmanager") {
-		c.collectSecretsManager(ctx, accountID, result)
-	}
-
-	if shouldCollect("lambda") {
-		c.collectLambda(ctx, accountID, result)
-	}
-
-	if shouldCollect("s3control") {
-		c.collectS3Control(ctx, accountID, result)
-	}
-
-	if shouldCollect("dynamodb") {
-		c.collectDynamoDB(ctx, accountID, result)
-	}
-
-	if shouldCollect("ecs") {
-		c.collectECS(ctx, accountID, result)
-	}
-
-	if shouldCollect("eks") {
-		c.collectEKS(ctx, accountID, result)
-	}
-
-	if shouldCollect("acm") {
-		c.collectACM(ctx, accountID, result)
-	}
-
-	if shouldCollect("cloudfront") {
-		c.collectCloudFront(ctx, accountID, result)
-	}
-
-	if shouldCollect("wafv2") {
-		c.collectWAF(ctx, accountID, result)
-	}
-
-	if shouldCollect("macie2") {
-		c.collectMacie(ctx, accountID, result)
-	}
-
-	if shouldCollect("ssm") {
-		c.collectSSM(ctx, accountID, result)
-	}
-
-	if shouldCollect("elbv2") {
-		c.collectELBv2(ctx, accountID, result)
-	}
-
-	if shouldCollect("inspector") {
-		c.collectInspector(ctx, accountID, result)
-	}
-
-	if shouldCollect("backup") {
-		c.collectBackup(ctx, accountID, result)
-	}
-
-	if shouldCollect("eventbridge") {
-		c.collectEventBridge(ctx, accountID, result)
-	}
-
-	if shouldCollect("sns") {
-		c.collectSNS(ctx, accountID, result)
-	}
-
-	if shouldCollect("sqs") {
-		c.collectSQS(ctx, accountID, result)
-	}
-
-	if shouldCollect("organizations") {
-		c.collectOrganizations(ctx, accountID, result)
-	}
-
-	if shouldCollect("efs") {
-		c.collectEFS(ctx, accountID, result)
-	}
-
-	if shouldCollect("redshift") {
-		c.collectRedshift(ctx, accountID, result)
-	}
-
-	if shouldCollect("opensearch") {
-		c.collectOpenSearch(ctx, accountID, result)
-	}
-
-	if shouldCollect("apigateway") {
-		c.collectAPIGateway(ctx, accountID, result)
-	}
-
-	if shouldCollect("accessanalyzer") {
-		c.collectAccessAnalyzer(ctx, accountID, result)
-	}
-
-	if shouldCollect("identitycenter") {
-		c.collectIdentityCenter(ctx, accountID, result)
-	}
-
-	if shouldCollect("elasticache") {
-		c.collectElastiCache(ctx, accountID, result)
-	}
-
-	if shouldCollect("account") {
-		c.collectAccountService(ctx, accountID, result)
-	}
-
-	if shouldCollect("codebuild") {
-		c.collectCodeBuild(ctx, accountID, result)
-	}
-
-	if shouldCollect("dms") {
-		c.collectDMS(ctx, accountID, result)
-	}
-
-	if shouldCollect("sagemaker") {
-		c.collectSageMaker(ctx, accountID, result)
-	}
-
-	if shouldCollect("emr") {
-		c.collectEMR(ctx, accountID, result)
-	}
-
-	if shouldCollect("neptune") {
-		c.collectNeptune(ctx, accountID, result)
-	}
-
-	if shouldCollect("documentdb") {
-		c.collectDocumentDB(ctx, accountID, result)
-	}
-
-	if shouldCollect("msk") {
-		c.collectMSK(ctx, accountID, result)
-	}
-
-	if shouldCollect("kinesis") {
-		c.collectKinesis(ctx, accountID, result)
-	}
-
-	if shouldCollect("networkfirewall") {
-		c.collectNetworkFirewall(ctx, accountID, result)
-	}
-
-	if shouldCollect("autoscaling") {
-		c.collectAutoScaling(ctx, accountID, result)
-	}
-
-	if shouldCollect("glue") {
-		c.collectGlue(ctx, accountID, result)
-	}
-
-	if shouldCollect("elasticbeanstalk") {
-		c.collectBeanstalk(ctx, accountID, result)
-	}
-
-	if shouldCollect("stepfunctions") {
-		c.collectStepFunctions(ctx, accountID, result)
-	}
-
-	if shouldCollect("mq") {
-		c.collectMQ(ctx, accountID, result)
-	}
-
-	if shouldCollect("route53") {
-		c.collectRoute53(ctx, accountID, result)
-	}
-
-	if shouldCollect("fsx") {
-		c.collectFSx(ctx, accountID, result)
-	}
-
-	if shouldCollect("appsync") {
-		c.collectAppSync(ctx, accountID, result)
-	}
-
-	if shouldCollect("athena") {
-		c.collectAthena(ctx, accountID, result)
-	}
-
-	if shouldCollect("bedrock") {
-		c.collectBedrock(ctx, accountID, result)
-	}
-
-	if shouldCollect("datasync") {
-		c.collectDataSync(ctx, accountID, result)
-	}
-
-	if shouldCollect("transfer") {
-		c.collectTransfer(ctx, accountID, result)
-	}
-
-	if shouldCollect("apigatewayv2") {
-		c.collectAPIGatewayV2(ctx, accountID, result)
-	}
-
-	if shouldCollect("cognito") {
-		c.collectCognito(ctx, accountID, result)
-	}
-
-	if shouldCollect("redshiftserverless") {
-		c.collectRedshiftServerless(ctx, accountID, result)
-	}
-
-	if shouldCollect("dax") {
-		c.collectDAX(ctx, accountID, result)
+	for _, svc := range c.serviceRegistry() {
+		if len(serviceFilter) > 0 && !serviceFilter[svc.name] {
+			continue
+		}
+		for _, fn := range svc.collect {
+			fn(ctx, accountID, result)
+		}
 	}
 
 	return result, nil

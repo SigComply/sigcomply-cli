@@ -57,7 +57,7 @@ func (c *WAFCollector) CollectStatus(ctx context.Context) (*WAFStatus, error) {
 		Scope: waftypes.ScopeRegional,
 	})
 	if err != nil {
-		return status, nil // Fail-safe
+		return status, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
 	status.WebACLCount = len(output.WebACLs)

@@ -39,15 +39,15 @@ func TestSQSCollector_CollectQueues(t *testing.T) {
 			}, nil
 		},
 		GetQueueAttributesFunc: func(ctx context.Context, params *sqs.GetQueueAttributesInput, optFns ...func(*sqs.Options)) (*sqs.GetQueueAttributesOutput, error) {
-			switch {
-			case *params.QueueUrl == "https://sqs.us-east-1.amazonaws.com/123/kms-queue":
+			switch *params.QueueUrl {
+			case "https://sqs.us-east-1.amazonaws.com/123/kms-queue":
 				return &sqs.GetQueueAttributesOutput{
 					Attributes: map[string]string{
 						"QueueArn":       "arn:aws:sqs:us-east-1:123:kms-queue",
 						"KmsMasterKeyId": "arn:aws:kms:us-east-1:123:key/abc",
 					},
 				}, nil
-			case *params.QueueUrl == "https://sqs.us-east-1.amazonaws.com/123/sqs-managed-queue":
+			case "https://sqs.us-east-1.amazonaws.com/123/sqs-managed-queue":
 				return &sqs.GetQueueAttributesOutput{
 					Attributes: map[string]string{
 						"QueueArn":             "arn:aws:sqs:us-east-1:123:sqs-managed-queue",

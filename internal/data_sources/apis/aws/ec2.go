@@ -100,8 +100,8 @@ func (e *EBSEncryptionConfig) ToEvidence(accountID string) evidence.Evidence {
 type EC2Instance struct {
 	InstanceID                string `json:"instance_id"`
 	Name                      string `json:"name,omitempty"`
-	HttpTokens                string `json:"http_tokens"`
-	HttpEndpoint              string `json:"http_endpoint"`
+	HTTPTokens                string `json:"http_tokens"`
+	HTTPEndpoint              string `json:"http_endpoint"`
 	PublicIP                  string `json:"public_ip,omitempty"`
 	DetailedMonitoringEnabled bool   `json:"detailed_monitoring_enabled"`
 }
@@ -163,8 +163,8 @@ func (n *NetworkACL) ToEvidence(accountID string) evidence.Evidence {
 type LaunchTemplate struct {
 	LaunchTemplateID   string `json:"launch_template_id"`
 	LaunchTemplateName string `json:"launch_template_name"`
-	HttpTokens         string `json:"http_tokens"`
-	HttpEndpoint       string `json:"http_endpoint"`
+	HTTPTokens         string `json:"http_tokens"`
+	HTTPEndpoint       string `json:"http_endpoint"`
 }
 
 // ToEvidence converts a LaunchTemplate to Evidence.
@@ -349,8 +349,8 @@ func (c *EC2Collector) CollectVPCs(ctx context.Context) ([]VPCInfo, error) {
 
 	// Build list of VPC IDs to filter flow logs by resource-id
 	vpcIDs := make([]string, 0, len(vpcsOutput.Vpcs))
-	for _, vpc := range vpcsOutput.Vpcs {
-		vpcIDs = append(vpcIDs, awssdk.ToString(vpc.VpcId))
+	for i := range vpcsOutput.Vpcs {
+		vpcIDs = append(vpcIDs, awssdk.ToString(vpcsOutput.Vpcs[i].VpcId))
 	}
 
 	// Get flow logs for these VPCs (resource-type filter doesn't exist, use resource-id)
@@ -365,8 +365,8 @@ func (c *EC2Collector) CollectVPCs(ctx context.Context) ([]VPCInfo, error) {
 			},
 		})
 		if err == nil {
-			for _, fl := range flowLogsOutput.FlowLogs {
-				flowLogVPCs[awssdk.ToString(fl.ResourceId)] = true
+			for i := range flowLogsOutput.FlowLogs {
+				flowLogVPCs[awssdk.ToString(flowLogsOutput.FlowLogs[i].ResourceId)] = true
 			}
 		}
 	}
@@ -421,8 +421,10 @@ func (c *EC2Collector) CollectInstances(ctx context.Context) ([]EC2Instance, err
 			return nil, fmt.Errorf("failed to describe EC2 instances: %w", err)
 		}
 
-		for _, reservation := range output.Reservations {
-			for _, inst := range reservation.Instances {
+		for i := range output.Reservations {
+			reservation := &output.Reservations[i]
+			for j := range reservation.Instances {
+				inst := &reservation.Instances[j]
 				instance := EC2Instance{
 					InstanceID: awssdk.ToString(inst.InstanceId),
 				}
@@ -440,13 +442,13 @@ func (c *EC2Collector) CollectInstances(ctx context.Context) ([]EC2Instance, err
 
 				// Get IMDS configuration
 				if inst.MetadataOptions != nil {
-					instance.HttpTokens = string(inst.MetadataOptions.HttpTokens)
-					instance.HttpEndpoint = string(inst.MetadataOptions.HttpEndpoint)
+					instance.HTTPTokens = string(inst.MetadataOptions.HttpTokens)
+					instance.HTTPEndpoint = string(inst.MetadataOptions.HttpEndpoint)
 				}
 
 				// Detailed monitoring
 				if inst.Monitoring != nil {
-					instance.DetailedMonitoringEnabled = string(inst.Monitoring.State) == "enabled"
+					instance.DetailedMonitoringEnabled = string(inst.Monitoring.State) == statusEnabledLower
 				}
 
 				instances = append(instances, instance)
@@ -476,7 +478,8 @@ func (c *EC2Collector) CollectEBSSnapshots(ctx context.Context, accountID string
 			return nil, fmt.Errorf("failed to describe EBS snapshots: %w", err)
 		}
 
-		for _, snap := range output.Snapshots {
+		for i := range output.Snapshots {
+			snap := &output.Snapshots[i]
 			snapshots = append(snapshots, EBSSnapshot{
 				SnapshotID: awssdk.ToString(snap.SnapshotId),
 				VolumeID:   awssdk.ToString(snap.VolumeId),
@@ -507,7 +510,8 @@ func (c *EC2Collector) CollectSubnets(ctx context.Context) ([]Subnet, error) {
 			return nil, fmt.Errorf("failed to describe subnets: %w", err)
 		}
 
-		for _, subnet := range output.Subnets {
+		for i := range output.Subnets {
+			subnet := &output.Subnets[i]
 			subnets = append(subnets, Subnet{
 				SubnetID:            awssdk.ToString(subnet.SubnetId),
 				VPCID:               awssdk.ToString(subnet.VpcId),
@@ -539,7 +543,8 @@ func (c *EC2Collector) CollectNetworkACLs(ctx context.Context) ([]NetworkACL, er
 			return nil, fmt.Errorf("failed to describe network ACLs: %w", err)
 		}
 
-		for _, acl := range output.NetworkAcls {
+		for i := range output.NetworkAcls {
+			acl := &output.NetworkAcls[i]
 			nacl := NetworkACL{
 				NetworkACLID: awssdk.ToString(acl.NetworkAclId),
 				VPCID:        awssdk.ToString(acl.VpcId),
@@ -593,7 +598,8 @@ func (c *EC2Collector) CollectLaunchTemplates(ctx context.Context) ([]LaunchTemp
 			return nil, fmt.Errorf("failed to describe launch templates: %w", err)
 		}
 
-		for _, lt := range output.LaunchTemplates {
+		for i := range output.LaunchTemplates {
+			lt := &output.LaunchTemplates[i]
 			tmpl := LaunchTemplate{
 				LaunchTemplateID:   awssdk.ToString(lt.LaunchTemplateId),
 				LaunchTemplateName: awssdk.ToString(lt.LaunchTemplateName),
@@ -607,8 +613,8 @@ func (c *EC2Collector) CollectLaunchTemplates(ctx context.Context) ([]LaunchTemp
 			if err == nil && len(versOutput.LaunchTemplateVersions) > 0 {
 				ltData := versOutput.LaunchTemplateVersions[0].LaunchTemplateData
 				if ltData != nil && ltData.MetadataOptions != nil {
-					tmpl.HttpTokens = string(ltData.MetadataOptions.HttpTokens)
-					tmpl.HttpEndpoint = string(ltData.MetadataOptions.HttpEndpoint)
+					tmpl.HTTPTokens = string(ltData.MetadataOptions.HttpTokens)
+					tmpl.HTTPEndpoint = string(ltData.MetadataOptions.HttpEndpoint)
 				}
 			}
 
@@ -630,10 +636,11 @@ func (c *EC2Collector) CollectVPCEndpointStatus(ctx context.Context) (*VPCEndpoi
 
 	output, err := c.client.DescribeVpcEndpoints(ctx, &ec2.DescribeVpcEndpointsInput{})
 	if err != nil {
-		return status, nil // Fail-safe
+		return status, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
-	for _, ep := range output.VpcEndpoints {
+	for i := range output.VpcEndpoints {
+		ep := &output.VpcEndpoints[i]
 		serviceName := awssdk.ToString(ep.ServiceName)
 		if strings.Contains(serviceName, "s3") {
 			status.HasS3Endpoint = true
@@ -657,7 +664,8 @@ func (c *EC2Collector) CollectClientVPNEndpoints(ctx context.Context) ([]ClientV
 			return nil, fmt.Errorf("failed to describe Client VPN endpoints: %w", err)
 		}
 
-		for _, ep := range output.ClientVpnEndpoints {
+		for i := range output.ClientVpnEndpoints {
+			ep := &output.ClientVpnEndpoints[i]
 			endpoint := ClientVPNEndpoint{
 				ClientVpnEndpointID: awssdk.ToString(ep.ClientVpnEndpointId),
 			}
@@ -696,8 +704,8 @@ func (c *EC2Collector) CollectVolumes(ctx context.Context, accountID string) ([]
 		if err != nil {
 			break // Fail-safe: if we can't get snapshots, volumes will have has_snapshots=false
 		}
-		for _, snap := range snapOutput.Snapshots {
-			snapshotVolumeIDs[awssdk.ToString(snap.VolumeId)] = true
+		for i := range snapOutput.Snapshots {
+			snapshotVolumeIDs[awssdk.ToString(snapOutput.Snapshots[i].VolumeId)] = true
 		}
 		if snapOutput.NextToken == nil {
 			break
@@ -713,7 +721,8 @@ func (c *EC2Collector) CollectVolumes(ctx context.Context, accountID string) ([]
 			return nil, fmt.Errorf("failed to describe EBS volumes: %w", err)
 		}
 
-		for _, vol := range output.Volumes {
+		for i := range output.Volumes {
+			vol := &output.Volumes[i]
 			volID := awssdk.ToString(vol.VolumeId)
 			volumes = append(volumes, EBSVolume{
 				VolumeID:     volID,
@@ -741,7 +750,8 @@ func (c *EC2Collector) CollectAMIs(ctx context.Context) ([]EC2AMI, error) {
 	}
 
 	var amis []EC2AMI
-	for _, img := range output.Images {
+	for i := range output.Images {
+		img := &output.Images[i]
 		amis = append(amis, EC2AMI{
 			ImageID: awssdk.ToString(img.ImageId),
 			Public:  awssdk.ToBool(img.Public),
@@ -764,7 +774,8 @@ func (c *EC2Collector) CollectTransitGateways(ctx context.Context) ([]TransitGat
 			return nil, fmt.Errorf("failed to describe transit gateways: %w", err)
 		}
 
-		for _, tg := range output.TransitGateways {
+		for i := range output.TransitGateways {
+			tg := &output.TransitGateways[i]
 			gateway := TransitGateway{
 				TransitGatewayID: awssdk.ToString(tg.TransitGatewayId),
 			}
@@ -789,7 +800,7 @@ func (c *EC2Collector) CollectAccountSettings(ctx context.Context) (*EC2AccountS
 
 	output, err := c.client.GetSnapshotBlockPublicAccessState(ctx, &ec2.GetSnapshotBlockPublicAccessStateInput{})
 	if err != nil {
-		return setting, nil // Fail-safe
+		return setting, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
 	setting.EBSBlockPublicAccess = output.State == ec2types.SnapshotBlockPublicAccessStateBlockAllSharing
@@ -797,6 +808,7 @@ func (c *EC2Collector) CollectAccountSettings(ctx context.Context) (*EC2AccountS
 }
 
 // CollectEvidence collects all EC2 evidence.
+//nolint:gocyclo // AWS API response mapping requires sequential field extraction
 func (c *EC2Collector) CollectEvidence(ctx context.Context, accountID string) ([]evidence.Evidence, error) {
 	var evidenceList []evidence.Evidence
 

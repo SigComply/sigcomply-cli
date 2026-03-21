@@ -51,20 +51,20 @@ func (c *InspectorCollector) CollectStatus(ctx context.Context, accountID string
 		AccountIds: []string{accountID},
 	})
 	if err != nil {
-		return status, nil
+		return status, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
 	if len(output.Accounts) > 0 {
 		acct := output.Accounts[0]
 		if acct.ResourceState != nil {
 			if acct.ResourceState.Ec2 != nil {
-				status.EC2Scanning = string(acct.ResourceState.Ec2.Status) == "ENABLED"
+				status.EC2Scanning = string(acct.ResourceState.Ec2.Status) == statusEnabled
 			}
 			if acct.ResourceState.Ecr != nil {
-				status.ECRScanning = string(acct.ResourceState.Ecr.Status) == "ENABLED"
+				status.ECRScanning = string(acct.ResourceState.Ecr.Status) == statusEnabled
 			}
 			if acct.ResourceState.Lambda != nil {
-				status.LambdaScanning = string(acct.ResourceState.Lambda.Status) == "ENABLED"
+				status.LambdaScanning = string(acct.ResourceState.Lambda.Status) == statusEnabled
 			}
 		}
 		status.Enabled = status.EC2Scanning || status.ECRScanning || status.LambdaScanning

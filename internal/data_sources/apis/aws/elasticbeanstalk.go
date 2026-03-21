@@ -57,7 +57,8 @@ func (c *BeanstalkCollector) CollectEnvironments(ctx context.Context) ([]Beansta
 			return nil, fmt.Errorf("failed to describe Elastic Beanstalk environments: %w", err)
 		}
 
-		for _, env := range output.Environments {
+		for i := range output.Environments {
+			env := &output.Environments[i]
 			benv := BeanstalkEnvironment{
 				EnvironmentName: awssdk.ToString(env.EnvironmentName),
 				ARN:             awssdk.ToString(env.EnvironmentArn),

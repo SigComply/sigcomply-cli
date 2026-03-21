@@ -37,7 +37,7 @@ type APIGatewayAPI struct {
 
 // ToEvidence converts an APIGatewayAPI to Evidence.
 func (a *APIGatewayAPI) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(a) //nolint:errcheck
+	data, _ := json.Marshal(a) //nolint:errcheck // marshalling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:apigateway::%s::/restapis/%s", accountID, a.APIID)
 	ev := evidence.New("aws", "aws:apigateway:rest_api", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -67,7 +67,8 @@ func (c *APIGatewayCollector) CollectAPIs(ctx context.Context) ([]APIGatewayAPI,
 			return nil, fmt.Errorf("failed to get REST APIs: %w", err)
 		}
 
-		for _, item := range output.Items {
+		for i := range output.Items {
+			item := &output.Items[i]
 			api := APIGatewayAPI{
 				APIID: awssdk.ToString(item.Id),
 				Name:  awssdk.ToString(item.Name),
@@ -96,7 +97,8 @@ func (c *APIGatewayCollector) enrichStages(ctx context.Context, api *APIGatewayA
 		return // Fail-safe
 	}
 
-	for _, stage := range output.Item {
+	for i := range output.Item {
+		stage := &output.Item[i]
 		s := APIGatewayStage{
 			StageName: awssdk.ToString(stage.StageName),
 		}

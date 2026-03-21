@@ -120,7 +120,7 @@ func (c *ConfigCollector) CollectAggregatorStatus(ctx context.Context) (*ConfigA
 
 	output, err := c.client.DescribeConfigurationAggregators(ctx, &configservice.DescribeConfigurationAggregatorsInput{})
 	if err != nil {
-		return status, nil // No access or not configured
+		return status, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
 	status.Configured = len(output.ConfigurationAggregators) > 0

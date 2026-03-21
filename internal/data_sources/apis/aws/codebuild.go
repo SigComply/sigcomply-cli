@@ -47,6 +47,7 @@ func NewCodeBuildCollector(client CodeBuildClient) *CodeBuildCollector {
 }
 
 // CollectProjects retrieves all CodeBuild projects.
+//nolint:gocyclo // AWS API response mapping requires sequential field extraction
 func (c *CodeBuildCollector) CollectProjects(ctx context.Context) ([]CodeBuildProject, error) {
 	var projects []CodeBuildProject
 	var nextToken *string
@@ -70,7 +71,8 @@ func (c *CodeBuildCollector) CollectProjects(ctx context.Context) ([]CodeBuildPr
 			return nil, fmt.Errorf("failed to get CodeBuild project details: %w", err)
 		}
 
-		for _, proj := range batchOutput.Projects {
+		for i := range batchOutput.Projects {
+			proj := &batchOutput.Projects[i]
 			project := CodeBuildProject{
 				Name: awssdk.ToString(proj.Name),
 				ARN:  awssdk.ToString(proj.Arn),
@@ -106,11 +108,11 @@ func (c *CodeBuildCollector) CollectProjects(ctx context.Context) ([]CodeBuildPr
 
 			// Check logging configuration
 			if proj.LogsConfig != nil {
-				cwConfigured := proj.LogsConfig.CloudWatchLogs != nil && string(proj.LogsConfig.CloudWatchLogs.Status) == "ENABLED"
-				s3Configured := proj.LogsConfig.S3Logs != nil && string(proj.LogsConfig.S3Logs.Status) == "ENABLED"
+				cwConfigured := proj.LogsConfig.CloudWatchLogs != nil && string(proj.LogsConfig.CloudWatchLogs.Status) == statusEnabled
+				s3Configured := proj.LogsConfig.S3Logs != nil && string(proj.LogsConfig.S3Logs.Status) == statusEnabled
 				project.LoggingConfigured = cwConfigured || s3Configured
 
-				if proj.LogsConfig.S3Logs != nil && string(proj.LogsConfig.S3Logs.Status) == "ENABLED" {
+				if proj.LogsConfig.S3Logs != nil && string(proj.LogsConfig.S3Logs.Status) == statusEnabled {
 					project.S3LogsEncrypted = !awssdk.ToBool(proj.LogsConfig.S3Logs.EncryptionDisabled)
 				}
 			}

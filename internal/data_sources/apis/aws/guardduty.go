@@ -79,23 +79,23 @@ func (c *GuardDutyCollector) CollectStatus(ctx context.Context) (*GuardDutyStatu
 	}
 
 	status.Status = string(det.Status)
-	status.Enabled = det.Status == "ENABLED"
+	status.Enabled = det.Status == statusEnabled
 
 	// Extract feature protection statuses
 	for _, feature := range det.Features {
 		switch feature.Name {
 		case "S3_DATA_EVENTS":
-			status.S3ProtectionEnabled = feature.Status == "ENABLED"
+			status.S3ProtectionEnabled = feature.Status == statusEnabled
 		case "EKS_AUDIT_LOGS":
-			status.EKSProtectionEnabled = feature.Status == "ENABLED"
+			status.EKSProtectionEnabled = feature.Status == statusEnabled
 		case "LAMBDA_NETWORK_LOGS":
-			status.LambdaProtectionEnabled = feature.Status == "ENABLED"
+			status.LambdaProtectionEnabled = feature.Status == statusEnabled
 		case "RDS_LOGIN_EVENTS":
-			status.RDSProtectionEnabled = feature.Status == "ENABLED"
+			status.RDSProtectionEnabled = feature.Status == statusEnabled
 		case "RUNTIME_MONITORING":
-			status.RuntimeMonitoringEnabled = feature.Status == "ENABLED"
+			status.RuntimeMonitoringEnabled = feature.Status == statusEnabled
 		case "EBS_MALWARE_PROTECTION":
-			status.MalwareProtectionEnabled = feature.Status == "ENABLED"
+			status.MalwareProtectionEnabled = feature.Status == statusEnabled
 		}
 	}
 

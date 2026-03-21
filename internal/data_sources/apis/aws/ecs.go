@@ -93,7 +93,8 @@ func (c *ECSCollector) CollectClusters(ctx context.Context) ([]ECSCluster, error
 			return nil, err
 		}
 
-		for _, cl := range descOutput.Clusters {
+		for i := range descOutput.Clusters {
+			cl := &descOutput.Clusters[i]
 			cluster := ECSCluster{
 				Name: awssdk.ToString(cl.ClusterName),
 				ARN:  awssdk.ToString(cl.ClusterArn),
@@ -101,7 +102,7 @@ func (c *ECSCollector) CollectClusters(ctx context.Context) ([]ECSCluster, error
 
 			for _, setting := range cl.Settings {
 				if string(setting.Name) == "containerInsights" {
-					cluster.ContainerInsightsEnabled = awssdk.ToString(setting.Value) == "enabled"
+					cluster.ContainerInsightsEnabled = awssdk.ToString(setting.Value) == statusEnabledLower
 				}
 			}
 
@@ -123,6 +124,7 @@ func (c *ECSCollector) CollectClusters(ctx context.Context) ([]ECSCluster, error
 }
 
 // CollectTaskDefinitions retrieves active ECS task definitions with security details.
+//nolint:gocyclo // AWS API response mapping requires sequential field extraction
 func (c *ECSCollector) CollectTaskDefinitions(ctx context.Context) ([]ECSTaskDefinition, error) {
 	var taskDefs []ECSTaskDefinition
 	var nextToken *string
@@ -159,7 +161,8 @@ func (c *ECSCollector) CollectTaskDefinitions(ctx context.Context) ([]ECSTaskDef
 
 			allHaveLogging := true
 			allReadOnly := true
-			for _, container := range td.ContainerDefinitions {
+			for k := range td.ContainerDefinitions {
+				container := &td.ContainerDefinitions[k]
 				if container.Privileged != nil && *container.Privileged {
 					taskDef.HasPrivilegedContainer = true
 				}

@@ -30,7 +30,7 @@ type BackupStatus struct {
 
 // ToEvidence converts a BackupStatus to Evidence.
 func (s *BackupStatus) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // marshalling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:backup:%s:%s:status", s.Region, accountID)
 	ev := evidence.New("aws", "aws:backup:status", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -46,7 +46,7 @@ type BackupPlan struct {
 
 // ToEvidence converts a BackupPlan to Evidence.
 func (p *BackupPlan) ToEvidence(accountID, region string) evidence.Evidence {
-	data, _ := json.Marshal(p) //nolint:errcheck
+	data, _ := json.Marshal(p) //nolint:errcheck // marshalling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:backup:%s:%s:backup-plan:%s", region, accountID, p.PlanID)
 	ev := evidence.New("aws", "aws:backup:plan", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -101,7 +101,7 @@ func (c *BackupCollector) CollectStatus(ctx context.Context) (*BackupStatus, err
 
 	output, err := c.client.ListBackupPlans(ctx, &backup.ListBackupPlansInput{})
 	if err != nil {
-		return status, nil
+		return status, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
 	status.PlanCount = len(output.BackupPlansList)
@@ -119,7 +119,8 @@ func (c *BackupCollector) enrichVaultLock(ctx context.Context, status *BackupSta
 	if err != nil {
 		return
 	}
-	for _, vault := range output.BackupVaultList {
+	for i := range output.BackupVaultList {
+		vault := &output.BackupVaultList[i]
 		if vault.Locked != nil && *vault.Locked {
 			status.VaultLockEnabled = true
 			return
@@ -135,7 +136,8 @@ func (c *BackupCollector) CollectPlans(ctx context.Context) ([]BackupPlan, error
 	}
 
 	var plans []BackupPlan
-	for _, p := range output.BackupPlansList {
+	for i := range output.BackupPlansList {
+		p := &output.BackupPlansList[i]
 		plan := BackupPlan{
 			PlanID:   awssdk.ToString(p.BackupPlanId),
 			PlanName: awssdk.ToString(p.BackupPlanName),
@@ -170,7 +172,8 @@ func (c *BackupCollector) CollectVaults(ctx context.Context) ([]BackupVault, err
 	}
 
 	var vaults []BackupVault
-	for _, v := range output.BackupVaultList {
+	for i := range output.BackupVaultList {
+		v := &output.BackupVaultList[i]
 		vaultName := awssdk.ToString(v.BackupVaultName)
 		vault := BackupVault{
 			VaultName: vaultName,
@@ -201,7 +204,8 @@ func (c *BackupCollector) CollectRecoveryPoints(ctx context.Context) ([]BackupRe
 	}
 
 	var points []BackupRecoveryPoint
-	for _, v := range vaultsOutput.BackupVaultList {
+	for i := range vaultsOutput.BackupVaultList {
+		v := &vaultsOutput.BackupVaultList[i]
 		vaultName := awssdk.ToString(v.BackupVaultName)
 		rpOutput, err := c.client.ListRecoveryPointsByBackupVault(ctx, &backup.ListRecoveryPointsByBackupVaultInput{
 			BackupVaultName: awssdk.String(vaultName),
@@ -210,7 +214,8 @@ func (c *BackupCollector) CollectRecoveryPoints(ctx context.Context) ([]BackupRe
 			continue // Fail-safe per vault
 		}
 
-		for _, rp := range rpOutput.RecoveryPoints {
+		for j := range rpOutput.RecoveryPoints {
+			rp := &rpOutput.RecoveryPoints[j]
 			points = append(points, BackupRecoveryPoint{
 				RecoveryPointARN: awssdk.ToString(rp.RecoveryPointArn),
 				VaultName:        vaultName,

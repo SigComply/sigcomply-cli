@@ -107,7 +107,7 @@ func (c *SQSCollector) enrichAttributes(ctx context.Context, queue *SQSQueue) {
 		queue.SSEEnabled = true
 	}
 
-	if sqsManaged, ok := output.Attributes["SqsManagedSseEnabled"]; ok && sqsManaged == "true" {
+	if sqsManaged, ok := output.Attributes["SqsManagedSseEnabled"]; ok && sqsManaged == statusTrue {
 		queue.SQSManagedEncryption = true
 	}
 

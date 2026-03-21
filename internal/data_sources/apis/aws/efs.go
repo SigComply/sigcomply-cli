@@ -58,7 +58,8 @@ func (c *EFSCollector) CollectFileSystems(ctx context.Context) ([]EFSFileSystem,
 			return nil, fmt.Errorf("failed to describe EFS file systems: %w", err)
 		}
 
-		for _, fs := range output.FileSystems {
+		for i := range output.FileSystems {
+			fs := &output.FileSystems[i]
 			fileSystem := EFSFileSystem{
 				FileSystemID: awssdk.ToString(fs.FileSystemId),
 				ARN:          awssdk.ToString(fs.FileSystemArn),
@@ -95,7 +96,7 @@ func (c *EFSCollector) enrichBackupPolicy(ctx context.Context, fs *EFSFileSystem
 		return // Fail-safe
 	}
 	if output.BackupPolicy != nil {
-		fs.BackupPolicyEnabled = string(output.BackupPolicy.Status) == "ENABLED"
+		fs.BackupPolicyEnabled = string(output.BackupPolicy.Status) == statusEnabled
 	}
 }
 

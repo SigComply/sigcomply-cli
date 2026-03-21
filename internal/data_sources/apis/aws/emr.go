@@ -113,7 +113,7 @@ func (c *EMRCollector) CollectBlockPublicAccess(ctx context.Context) (*EMRBlockP
 
 	output, err := c.client.GetBlockPublicAccessConfiguration(ctx, &emr.GetBlockPublicAccessConfigurationInput{})
 	if err != nil {
-		return status, nil // Fail-safe
+		return status, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
 	if output.BlockPublicAccessConfiguration != nil {

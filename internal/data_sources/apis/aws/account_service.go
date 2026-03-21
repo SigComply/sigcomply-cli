@@ -23,7 +23,7 @@ type AccountSecurityContact struct {
 
 // ToEvidence converts an AccountSecurityContact to Evidence.
 func (a *AccountSecurityContact) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(a) //nolint:errcheck
+	data, _ := json.Marshal(a) //nolint:errcheck // marshalling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:account::%s:security-contact", accountID)
 	ev := evidence.New("aws", "aws:account:security-contact", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -48,7 +48,7 @@ func (c *AccountServiceCollector) CollectSecurityContact(ctx context.Context) (*
 		AlternateContactType: accounttypes.AlternateContactTypeSecurity,
 	})
 	if err != nil {
-		return contact, nil // Fail-safe: no security contact
+		return contact, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
 	contact.HasSecurityContact = output.AlternateContact != nil

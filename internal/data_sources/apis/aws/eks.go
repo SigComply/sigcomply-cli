@@ -44,6 +44,7 @@ func NewEKSCollector(client EKSClient) *EKSCollector {
 }
 
 // CollectClusters retrieves all EKS clusters with their configuration.
+//nolint:gocyclo // AWS API response mapping requires sequential field extraction
 func (c *EKSCollector) CollectClusters(ctx context.Context) ([]EKSCluster, error) {
 	var clusters []EKSCluster
 	var nextToken *string

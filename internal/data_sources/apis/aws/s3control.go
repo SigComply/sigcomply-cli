@@ -51,7 +51,7 @@ func (c *S3ControlCollector) CollectAccountPublicAccess(ctx context.Context, acc
 		AccountId: awssdk.String(accountID),
 	})
 	if err != nil {
-		return config, nil // Not configured
+		return config, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
 	if output.PublicAccessBlockConfiguration != nil {

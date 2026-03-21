@@ -89,7 +89,8 @@ func (c *DMSCollector) CollectReplicationInstances(ctx context.Context) ([]DMSRe
 			return nil, fmt.Errorf("failed to describe DMS replication instances: %w", err)
 		}
 
-		for _, ri := range output.ReplicationInstances {
+		for i := range output.ReplicationInstances {
+			ri := &output.ReplicationInstances[i]
 			instance := DMSReplicationInstance{
 				ID:                      awssdk.ToString(ri.ReplicationInstanceIdentifier),
 				ARN:                     awssdk.ToString(ri.ReplicationInstanceArn),
@@ -122,7 +123,8 @@ func (c *DMSCollector) CollectEndpoints(ctx context.Context) ([]DMSEndpoint, err
 			return nil, fmt.Errorf("failed to describe DMS endpoints: %w", err)
 		}
 
-		for _, ep := range output.Endpoints {
+		for i := range output.Endpoints {
+			ep := &output.Endpoints[i]
 			endpoint := DMSEndpoint{
 				ID:      awssdk.ToString(ep.EndpointIdentifier),
 				ARN:     awssdk.ToString(ep.EndpointArn),
@@ -153,7 +155,8 @@ func (c *DMSCollector) CollectReplicationTasks(ctx context.Context) ([]DMSReplic
 			return nil, fmt.Errorf("failed to describe DMS replication tasks: %w", err)
 		}
 
-		for _, rt := range output.ReplicationTasks {
+		for i := range output.ReplicationTasks {
+			rt := &output.ReplicationTasks[i]
 			task := DMSReplicationTask{
 				TaskID: awssdk.ToString(rt.ReplicationTaskIdentifier),
 				ARN:    awssdk.ToString(rt.ReplicationTaskArn),

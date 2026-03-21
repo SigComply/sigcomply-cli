@@ -50,7 +50,7 @@ func (c *OrganizationsCollector) CollectStatus(ctx context.Context) (*Organizati
 	_, err := c.client.DescribeOrganization(ctx, &organizations.DescribeOrganizationInput{})
 	if err != nil {
 		// Not in an organization or no access
-		return status, nil
+		return status, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
 	status.IsOrganizationMember = true
@@ -60,7 +60,7 @@ func (c *OrganizationsCollector) CollectStatus(ctx context.Context) (*Organizati
 		Filter: orgtypes.PolicyTypeServiceControlPolicy,
 	})
 	if err != nil {
-		return status, nil
+		return status, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
 	// Filter out the default FullAWSAccess policy

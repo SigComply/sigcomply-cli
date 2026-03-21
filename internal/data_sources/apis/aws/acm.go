@@ -31,7 +31,7 @@ type ACMCertificate struct {
 
 // ToEvidence converts an ACMCertificate to Evidence.
 func (c *ACMCertificate) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(c) //nolint:errcheck
+	data, _ := json.Marshal(c) //nolint:errcheck // marshalling a known struct type will not fail
 	ev := evidence.New("aws", "aws:acm:certificate", c.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -60,7 +60,8 @@ func (c *ACMCollector) CollectCertificates(ctx context.Context) ([]ACMCertificat
 			return nil, err
 		}
 
-		for _, summary := range output.CertificateSummaryList {
+		for i := range output.CertificateSummaryList {
+			summary := &output.CertificateSummaryList[i]
 			cert := ACMCertificate{
 				ARN:        awssdk.ToString(summary.CertificateArn),
 				DomainName: awssdk.ToString(summary.DomainName),
@@ -95,7 +96,7 @@ func (c *ACMCollector) enrichCertDetails(ctx context.Context, cert *ACMCertifica
 		}
 		cert.InUse = len(output.Certificate.InUseBy) > 0
 		if output.Certificate.Options != nil {
-			cert.TransparencyLoggingEnabled = string(output.Certificate.Options.CertificateTransparencyLoggingPreference) == "ENABLED"
+			cert.TransparencyLoggingEnabled = string(output.Certificate.Options.CertificateTransparencyLoggingPreference) == statusEnabled
 		}
 		cert.RenewalStatus = string(output.Certificate.RenewalEligibility)
 	}

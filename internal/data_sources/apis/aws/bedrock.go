@@ -46,7 +46,7 @@ func (c *BedrockCollector) CollectLoggingConfig(ctx context.Context) (*BedrockLo
 
 	output, err := c.client.GetModelInvocationLoggingConfiguration(ctx, &bedrock.GetModelInvocationLoggingConfigurationInput{})
 	if err != nil {
-		return config, nil // Fail-safe: no logging config means disabled
+		return config, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
 	if output.LoggingConfig != nil {

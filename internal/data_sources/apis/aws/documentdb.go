@@ -75,7 +75,8 @@ func (c *DocumentDBCollector) CollectClusters(ctx context.Context) ([]DocumentDB
 			return nil, fmt.Errorf("failed to describe DocumentDB clusters: %w", err)
 		}
 
-		for _, cl := range output.DBClusters {
+		for i := range output.DBClusters {
+			cl := &output.DBClusters[i]
 			cluster := DocumentDBCluster{
 				ClusterID:          awssdk.ToString(cl.DBClusterIdentifier),
 				ARN:                awssdk.ToString(cl.DBClusterArn),
@@ -125,7 +126,8 @@ func (c *DocumentDBCollector) CollectSnapshots(ctx context.Context) ([]DocumentD
 			return nil, fmt.Errorf("failed to describe DocumentDB snapshots: %w", err)
 		}
 
-		for _, snap := range output.DBClusterSnapshots {
+		for i := range output.DBClusterSnapshots {
+			snap := &output.DBClusterSnapshots[i]
 			snapshot := DocumentDBSnapshot{
 				SnapshotID: awssdk.ToString(snap.DBClusterSnapshotIdentifier),
 				ClusterID:  awssdk.ToString(snap.DBClusterIdentifier),

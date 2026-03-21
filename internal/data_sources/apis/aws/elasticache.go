@@ -63,15 +63,16 @@ func (c *ElastiCacheCollector) CollectReplicationGroups(ctx context.Context) ([]
 			return nil, fmt.Errorf("failed to describe ElastiCache replication groups: %w", err)
 		}
 
-		for _, rg := range output.ReplicationGroups {
+		for i := range output.ReplicationGroups {
+			rg := &output.ReplicationGroups[i]
 			cluster := ElastiCacheCluster{
 				ReplicationGroupID:       awssdk.ToString(rg.ReplicationGroupId),
 				ARN:                      awssdk.ToString(rg.ARN),
 				AtRestEncryption:         awssdk.ToBool(rg.AtRestEncryptionEnabled),
 				TransitEncryption:        awssdk.ToBool(rg.TransitEncryptionEnabled),
 				AuthTokenEnabled:         awssdk.ToBool(rg.AuthTokenEnabled),
-				AutomaticFailoverEnabled: string(rg.AutomaticFailover) == "enabled",
-				MultiAZEnabled:           string(rg.MultiAZ) == "enabled",
+				AutomaticFailoverEnabled: string(rg.AutomaticFailover) == statusEnabledLower,
+				MultiAZEnabled:           string(rg.MultiAZ) == statusEnabledLower,
 				SnapshotRetentionLimit:   int(awssdk.ToInt32(rg.SnapshotRetentionLimit)),
 			}
 			clusters = append(clusters, cluster)

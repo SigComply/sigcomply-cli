@@ -85,7 +85,8 @@ func (c *ELBv2Collector) CollectLoadBalancers(ctx context.Context) ([]LoadBalanc
 			return nil, err
 		}
 
-		for _, item := range output.LoadBalancers {
+		for i := range output.LoadBalancers {
+			item := &output.LoadBalancers[i]
 			lb := LoadBalancer{
 				ARN:    awssdk.ToString(item.LoadBalancerArn),
 				Name:   awssdk.ToString(item.LoadBalancerName),
@@ -142,7 +143,8 @@ func (c *ELBv2Collector) describeListeners(ctx context.Context, lbARN string) ([
 			return nil, err
 		}
 
-		for _, item := range output.Listeners {
+		for i := range output.Listeners {
+			item := &output.Listeners[i]
 			l := Listener{
 				Protocol:  string(item.Protocol),
 				Port:      awssdk.ToInt32(item.Port),
@@ -183,13 +185,13 @@ func (c *ELBv2Collector) enrichAccessLogs(ctx context.Context, lb *LoadBalancer)
 		val := awssdk.ToString(attr.Value)
 		switch key {
 		case "access_logs.s3.enabled":
-			lb.AccessLogsEnabled = val == "true"
+			lb.AccessLogsEnabled = val == statusTrue
 		case "deletion_protection.enabled":
-			lb.DeletionProtection = val == "true"
+			lb.DeletionProtection = val == statusTrue
 		case "load_balancing.cross_zone.enabled":
-			lb.CrossZoneEnabled = val == "true"
+			lb.CrossZoneEnabled = val == statusTrue
 		case "routing.http.drop_invalid_header_fields.enabled":
-			lb.DropInvalidHeaders = val == "true"
+			lb.DropInvalidHeaders = val == statusTrue
 		}
 	}
 }

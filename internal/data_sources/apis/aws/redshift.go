@@ -133,7 +133,7 @@ func (c *RedshiftCollector) enrichSSLRequirement(ctx context.Context, cluster *R
 
 		for _, param := range output.Parameters {
 			if awssdk.ToString(param.ParameterName) == "require_ssl" {
-				cluster.RequireSSL = awssdk.ToString(param.ParameterValue) == "true"
+				cluster.RequireSSL = awssdk.ToString(param.ParameterValue) == statusTrue
 				return
 			}
 		}

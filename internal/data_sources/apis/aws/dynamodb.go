@@ -85,7 +85,7 @@ func (c *DynamoDBCollector) enrichTableDetails(ctx context.Context, table *Dynam
 	if output.Table != nil {
 		table.ARN = awssdk.ToString(output.Table.TableArn)
 		if output.Table.SSEDescription != nil {
-			table.SSEEnabled = output.Table.SSEDescription.Status == "ENABLED"
+			table.SSEEnabled = output.Table.SSEDescription.Status == statusEnabled
 			table.EncryptionType = string(output.Table.SSEDescription.SSEType)
 		} else {
 			// Default encryption (AWS owned key) is always enabled
@@ -111,7 +111,7 @@ func (c *DynamoDBCollector) enrichPITR(ctx context.Context, table *DynamoDBTable
 
 	if output.ContinuousBackupsDescription != nil &&
 		output.ContinuousBackupsDescription.PointInTimeRecoveryDescription != nil {
-		table.PITREnabled = output.ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus == "ENABLED"
+		table.PITREnabled = output.ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus == statusEnabled
 	}
 }
 

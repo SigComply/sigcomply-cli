@@ -54,7 +54,8 @@ func (c *DAXCollector) CollectClusters(ctx context.Context) ([]DAXCluster, error
 			return nil, fmt.Errorf("failed to describe DAX clusters: %w", err)
 		}
 
-		for _, cl := range output.Clusters {
+		for i := range output.Clusters {
+			cl := &output.Clusters[i]
 			cluster := DAXCluster{
 				Name:                          awssdk.ToString(cl.ClusterName),
 				ARN:                           awssdk.ToString(cl.ClusterArn),
@@ -62,7 +63,7 @@ func (c *DAXCollector) CollectClusters(ctx context.Context) ([]DAXCluster, error
 			}
 
 			if cl.SSEDescription != nil {
-				cluster.SSEEnabled = string(cl.SSEDescription.Status) == "ENABLED"
+				cluster.SSEEnabled = string(cl.SSEDescription.Status) == statusEnabled
 			}
 
 			clusters = append(clusters, cluster)

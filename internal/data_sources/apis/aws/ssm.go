@@ -113,7 +113,7 @@ func (c *SSMCollector) CollectDocumentStatus(ctx context.Context) (*SSMDocumentS
 		},
 	})
 	if err != nil {
-		return status, nil // Fail-safe
+		return status, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
 	for _, doc := range output.DocumentIdentifiers {

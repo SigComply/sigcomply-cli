@@ -25,7 +25,7 @@ type AthenaWorkgroup struct {
 
 // ToEvidence converts an AthenaWorkgroup to Evidence.
 func (w *AthenaWorkgroup) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(w) //nolint:errcheck
+	data, _ := json.Marshal(w) //nolint:errcheck // marshalling a known struct type will not fail
 	ev := evidence.New("aws", "aws:athena:workgroup", w.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

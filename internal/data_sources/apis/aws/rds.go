@@ -263,7 +263,7 @@ func (c *RDSCollector) CollectEventSubscriptions(ctx context.Context) (*RDSEvent
 
 	output, err := c.client.DescribeEventSubscriptions(ctx, &rds.DescribeEventSubscriptionsInput{})
 	if err != nil {
-		return status, nil // Fail-safe
+		return status, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
 	status.Configured = len(output.EventSubscriptionsList) > 0

@@ -50,6 +50,7 @@ func NewOpenSearchCollector(client OpenSearchClient) *OpenSearchCollector {
 }
 
 // CollectDomains retrieves all OpenSearch domains.
+//nolint:gocyclo // AWS API response mapping requires sequential field extraction
 func (c *OpenSearchCollector) CollectDomains(ctx context.Context) ([]OpenSearchDomain, error) {
 	// List domain names first
 	listOutput, err := c.client.ListDomainNames(ctx, &opensearch.ListDomainNamesInput{})

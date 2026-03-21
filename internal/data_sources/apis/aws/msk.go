@@ -45,6 +45,7 @@ func NewMSKCollector(client MSKClient) *MSKCollector {
 }
 
 // CollectClusters retrieves all MSK clusters.
+//nolint:gocyclo // AWS API response mapping requires sequential field extraction
 func (c *MSKCollector) CollectClusters(ctx context.Context) ([]MSKCluster, error) {
 	var clusters []MSKCluster
 	var nextToken *string

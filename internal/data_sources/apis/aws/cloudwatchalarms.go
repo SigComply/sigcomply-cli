@@ -75,6 +75,7 @@ func NewCloudWatchAlarmsCollector(client CloudWatchAlarmsClient, region string) 
 }
 
 // CollectAlarmConfig retrieves and analyzes CloudWatch alarm configuration.
+//nolint:gocyclo // AWS API response mapping requires sequential field extraction
 func (c *CloudWatchAlarmsCollector) CollectAlarmConfig(ctx context.Context) (*CloudWatchAlarmConfig, error) {
 	config := &CloudWatchAlarmConfig{Region: c.region}
 
@@ -84,10 +85,11 @@ func (c *CloudWatchAlarmsCollector) CollectAlarmConfig(ctx context.Context) (*Cl
 			NextToken: nextToken,
 		})
 		if err != nil {
-			return config, nil // Fail-safe
+			return config, nil //nolint:nilerr // fail-safe: return partial results on error
 		}
 
-		for _, alarm := range output.MetricAlarms {
+		for i := range output.MetricAlarms {
+			alarm := &output.MetricAlarms[i]
 			config.AlarmCount++
 			name := strings.ToLower(awssdk.ToString(alarm.AlarmName))
 			desc := strings.ToLower(awssdk.ToString(alarm.AlarmDescription))

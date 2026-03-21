@@ -835,11 +835,11 @@ func TestEC2Collector_CollectInstances(t *testing.T) {
 
 	assert.Equal(t, "i-123", instances[0].InstanceID)
 	assert.Equal(t, "web-server", instances[0].Name)
-	assert.Equal(t, "required", instances[0].HttpTokens)
+	assert.Equal(t, "required", instances[0].HTTPTokens)
 
 	assert.Equal(t, "i-456", instances[1].InstanceID)
 	assert.Equal(t, "", instances[1].Name)
-	assert.Equal(t, "optional", instances[1].HttpTokens)
+	assert.Equal(t, "optional", instances[1].HTTPTokens)
 }
 
 func TestEC2Collector_CollectInstances_PublicIP(t *testing.T) {
@@ -944,7 +944,7 @@ func TestEC2Instance_ToEvidence(t *testing.T) {
 	instance := &EC2Instance{
 		InstanceID: "i-123",
 		Name:       "web-server",
-		HttpTokens: "required",
+		HTTPTokens: "required",
 	}
 
 	ev := instance.ToEvidence("123456789012")

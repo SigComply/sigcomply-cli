@@ -51,10 +51,11 @@ func (c *EventBridgeCollector) CollectGuardDutyAlerts(ctx context.Context) (*Gua
 
 	output, err := c.client.ListRules(ctx, &eventbridge.ListRulesInput{})
 	if err != nil {
-		return status, nil
+		return status, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
-	for _, rule := range output.Rules {
+	for i := range output.Rules {
+		rule := &output.Rules[i]
 		pattern := awssdk.ToString(rule.EventPattern)
 		if strings.Contains(pattern, "aws.guardduty") || strings.Contains(pattern, "GuardDuty Finding") {
 			status.HasGuardDutyRule = true

@@ -76,7 +76,7 @@ func (c *CloudTrailCollector) CollectTrails(ctx context.Context) ([]CloudTrailTr
 			S3BucketName:        aws.ToString(t.S3BucketName),
 			KMSKeyID:                aws.ToString(t.KmsKeyId),
 			CloudWatchLogsConfigured: aws.ToString(t.CloudWatchLogsLogGroupArn) != "",
-			SNSTopicConfigured:       aws.ToString(t.SnsTopicName) != "",
+			SNSTopicConfigured:       aws.ToString(t.SnsTopicARN) != "",
 		}
 
 		// Get logging status
@@ -127,7 +127,8 @@ func (c *CloudTrailCollector) enrichDataEvents(ctx context.Context, trail *Cloud
 	}
 
 	// Check advanced event selectors
-	for _, aes := range output.AdvancedEventSelectors {
+	for i := range output.AdvancedEventSelectors {
+		aes := &output.AdvancedEventSelectors[i]
 		for _, fc := range aes.FieldSelectors {
 			if aws.ToString(fc.Field) == "resources.type" {
 				for _, v := range fc.Equals {
