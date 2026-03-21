@@ -50,7 +50,7 @@ var deprecatedRuntimes = map[string]bool{
 
 // ToEvidence converts a LambdaFunction to Evidence.
 func (f *LambdaFunction) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(f) //nolint:errcheck
+	data, _ := json.Marshal(f) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:lambda:function", f.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -79,7 +79,8 @@ func (c *LambdaCollector) CollectFunctions(ctx context.Context) ([]LambdaFunctio
 			return nil, err
 		}
 
-		for _, fn := range output.Functions {
+		for i := range output.Functions {
+			fn := &output.Functions[i]
 			f := LambdaFunction{
 				Name:    awssdk.ToString(fn.FunctionName),
 				ARN:     awssdk.ToString(fn.FunctionArn),

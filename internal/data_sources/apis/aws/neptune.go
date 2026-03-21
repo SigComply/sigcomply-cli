@@ -29,7 +29,7 @@ type NeptuneCluster struct {
 
 // ToEvidence converts a NeptuneCluster to Evidence.
 func (c *NeptuneCluster) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(c) //nolint:errcheck
+	data, _ := json.Marshal(c) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:neptune:cluster", c.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -46,7 +46,7 @@ type NeptuneSnapshot struct {
 
 // ToEvidence converts a NeptuneSnapshot to Evidence.
 func (s *NeptuneSnapshot) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:neptune:snapshot", s.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -75,7 +75,8 @@ func (c *NeptuneCollector) CollectClusters(ctx context.Context) ([]NeptuneCluste
 			return nil, fmt.Errorf("failed to describe Neptune clusters: %w", err)
 		}
 
-		for _, cl := range output.DBClusters {
+		for i := range output.DBClusters {
+			cl := &output.DBClusters[i]
 			cluster := NeptuneCluster{
 				ClusterID:          awssdk.ToString(cl.DBClusterIdentifier),
 				ARN:                awssdk.ToString(cl.DBClusterArn),
@@ -121,7 +122,8 @@ func (c *NeptuneCollector) CollectSnapshots(ctx context.Context) ([]NeptuneSnaps
 			return nil, fmt.Errorf("failed to describe Neptune snapshots: %w", err)
 		}
 
-		for _, snap := range output.DBClusterSnapshots {
+		for i := range output.DBClusterSnapshots {
+			snap := &output.DBClusterSnapshots[i]
 			snapshot := NeptuneSnapshot{
 				SnapshotID: awssdk.ToString(snap.DBClusterSnapshotIdentifier),
 				ClusterID:  awssdk.ToString(snap.DBClusterIdentifier),

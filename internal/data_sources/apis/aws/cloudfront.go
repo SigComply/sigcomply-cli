@@ -34,7 +34,7 @@ type CloudFrontDistribution struct {
 
 // ToEvidence converts a CloudFrontDistribution to Evidence.
 func (d *CloudFrontDistribution) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(d) //nolint:errcheck
+	data, _ := json.Marshal(d) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:cloudfront:distribution", d.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

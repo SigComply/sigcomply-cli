@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/wafv2"
 	waftypes "github.com/aws/aws-sdk-go-v2/service/wafv2/types"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
@@ -31,7 +30,7 @@ type WAFStatus struct {
 
 // ToEvidence converts a WAFStatus to Evidence.
 func (w *WAFStatus) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(w) //nolint:errcheck
+	data, _ := json.Marshal(w) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:wafv2:%s:%s:waf-status", w.Region, accountID)
 	ev := evidence.New("aws", "aws:wafv2:status", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -103,7 +102,7 @@ func (c *WAFCollector) CollectStatus(ctx context.Context) (*WAFStatus, error) {
 }
 
 func contains(s, substr string) bool {
-	return awssdk.ToString(&s) != "" && len(s) > 0 && findSubstring(s, substr)
+	return s != "" && findSubstring(s, substr)
 }
 
 func findSubstring(s, substr string) bool {

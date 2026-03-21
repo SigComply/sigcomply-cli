@@ -49,7 +49,7 @@ type ConfigAggregatorStatus struct {
 
 // ToEvidence converts a ConfigAggregatorStatus to Evidence.
 func (a *ConfigAggregatorStatus) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(a) //nolint:errcheck
+	data, _ := json.Marshal(a) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:config:%s:%s:aggregator", a.Region, accountID)
 	ev := evidence.New("aws", "aws:config:aggregator", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}

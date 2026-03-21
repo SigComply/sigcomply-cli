@@ -27,7 +27,7 @@ type RedshiftServerlessWorkgroup struct {
 
 // ToEvidence converts a RedshiftServerlessWorkgroup to Evidence.
 func (w *RedshiftServerlessWorkgroup) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(w) //nolint:errcheck
+	data, _ := json.Marshal(w) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:redshift-serverless:workgroup", w.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -63,7 +63,8 @@ func (c *RedshiftServerlessCollector) CollectWorkgroups(ctx context.Context) ([]
 			return nil, fmt.Errorf("failed to list Redshift Serverless workgroups: %w", err)
 		}
 
-		for _, wg := range output.Workgroups {
+		for i := range output.Workgroups {
+			wg := &output.Workgroups[i]
 			workgroup := RedshiftServerlessWorkgroup{
 				Name:               awssdk.ToString(wg.WorkgroupName),
 				ARN:                awssdk.ToString(wg.WorkgroupArn),
@@ -104,7 +105,8 @@ func (c *RedshiftServerlessCollector) collectNamespaceEncryption(ctx context.Con
 			return // Fail-safe
 		}
 
-		for _, ns := range output.Namespaces {
+		for i := range output.Namespaces {
+			ns := &output.Namespaces[i]
 			name := awssdk.ToString(ns.NamespaceName)
 			kmsKeyID := awssdk.ToString(ns.KmsKeyId)
 			nsMap[name] = struct {

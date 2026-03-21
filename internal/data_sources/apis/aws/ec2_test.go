@@ -581,7 +581,7 @@ func TestEC2Collector_CollectEvidence_VPCFailsOthersSucceed(t *testing.T) {
 	ev, err := collector.CollectEvidence(context.Background(), "123456789012")
 
 	require.NoError(t, err, "VPC failure is fail-safe, should not error")
-	// SG(1) + EBS(1) + VPCEndpointStatus(1) = 3
+	// should have at least SG, EBS, and VPC endpoint evidence
 	assert.GreaterOrEqual(t, len(ev), 2, "should have at least SG + EBS evidence (VPC skipped)")
 }
 
@@ -615,7 +615,7 @@ func TestEC2Collector_CollectEvidence_EBSFailsOthersSucceed(t *testing.T) {
 	ev, err := collector.CollectEvidence(context.Background(), "123456789012")
 
 	require.NoError(t, err, "EBS failure is fail-safe")
-	// SG(1) + VPC(1) + EBS(1) + VPCEndpointStatus(1) = 4
+	// should have SG, VPC, EBS, and VPC endpoint evidence
 	assert.GreaterOrEqual(t, len(ev), 3, "should have SG + VPC + EBS evidence (EBS defaults to false)")
 }
 

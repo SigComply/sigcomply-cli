@@ -47,7 +47,7 @@ type CISMetricFilter struct {
 
 // ToEvidence converts a CISMetricFilter to Evidence.
 func (f *CISMetricFilter) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(f) //nolint:errcheck
+	data, _ := json.Marshal(f) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:cloudwatch:%s:%s:cis-metric-filter/%s", f.Region, accountID, f.FilterName)
 	ev := evidence.New("aws", "aws:cloudwatch:cis-metric-filter", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -56,7 +56,7 @@ func (f *CISMetricFilter) ToEvidence(accountID string) evidence.Evidence {
 
 // ToEvidence converts a CloudWatchAlarmConfig to Evidence.
 func (c *CloudWatchAlarmConfig) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(c) //nolint:errcheck
+	data, _ := json.Marshal(c) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:cloudwatch:%s:%s:alarm-config", c.Region, accountID)
 	ev := evidence.New("aws", "aws:cloudwatch:alarm-config", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}

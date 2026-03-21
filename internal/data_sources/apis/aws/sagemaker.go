@@ -27,7 +27,7 @@ type SageMakerNotebook struct {
 
 // ToEvidence converts a SageMakerNotebook to Evidence.
 func (n *SageMakerNotebook) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(n) //nolint:errcheck
+	data, _ := json.Marshal(n) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:sagemaker:notebook", n.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

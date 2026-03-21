@@ -26,7 +26,7 @@ type OrganizationStatus struct {
 
 // ToEvidence converts an OrganizationStatus to Evidence.
 func (s *OrganizationStatus) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:organizations::%s:status", accountID)
 	ev := evidence.New("aws", "aws:organizations:status", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}

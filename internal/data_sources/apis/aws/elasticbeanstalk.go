@@ -28,7 +28,7 @@ type BeanstalkEnvironment struct {
 
 // ToEvidence converts a BeanstalkEnvironment to Evidence.
 func (e *BeanstalkEnvironment) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(e) //nolint:errcheck
+	data, _ := json.Marshal(e) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:elasticbeanstalk:environment", e.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

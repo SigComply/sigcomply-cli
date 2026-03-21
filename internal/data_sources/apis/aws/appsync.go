@@ -24,7 +24,7 @@ type AppSyncAPI struct {
 
 // ToEvidence converts an AppSyncAPI to Evidence.
 func (a *AppSyncAPI) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(a) //nolint:errcheck // marshalling a known struct type will not fail
+	data, _ := json.Marshal(a) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:appsync:api", a.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

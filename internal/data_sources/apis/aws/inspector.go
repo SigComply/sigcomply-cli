@@ -25,7 +25,7 @@ type InspectorStatus struct {
 
 // ToEvidence converts an InspectorStatus to Evidence.
 func (s *InspectorStatus) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:inspector2:%s:%s:status", s.Region, accountID)
 	ev := evidence.New("aws", "aws:inspector:status", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}

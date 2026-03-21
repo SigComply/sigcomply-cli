@@ -28,7 +28,7 @@ type SNSTopic struct {
 
 // ToEvidence converts an SNSTopic to Evidence.
 func (t *SNSTopic) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(t) //nolint:errcheck
+	data, _ := json.Marshal(t) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:sns:topic", t.TopicARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

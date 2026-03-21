@@ -33,7 +33,7 @@ type OpenSearchDomain struct {
 
 // ToEvidence converts an OpenSearchDomain to Evidence.
 func (d *OpenSearchDomain) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(d) //nolint:errcheck
+	data, _ := json.Marshal(d) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:opensearch:domain", d.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -77,7 +77,8 @@ func (c *OpenSearchCollector) CollectDomains(ctx context.Context) ([]OpenSearchD
 	}
 
 	var domains []OpenSearchDomain
-	for _, status := range descOutput.DomainStatusList {
+	for i := range descOutput.DomainStatusList {
+		status := &descOutput.DomainStatusList[i]
 		domain := OpenSearchDomain{
 			DomainName: awssdk.ToString(status.DomainName),
 			DomainID:   awssdk.ToString(status.DomainId),

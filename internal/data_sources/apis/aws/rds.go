@@ -66,7 +66,7 @@ type RDSSnapshot struct {
 
 // ToEvidence converts an RDSSnapshot to Evidence.
 func (s *RDSSnapshot) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:rds:snapshot", s.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -80,7 +80,7 @@ type RDSEventSubscriptionStatus struct {
 
 // ToEvidence converts an RDSEventSubscriptionStatus to Evidence.
 func (s *RDSEventSubscriptionStatus) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:rds::%s:event-subscription-status", accountID)
 	ev := evidence.New("aws", "aws:rds:event-subscription", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -98,7 +98,7 @@ type RDSCluster struct {
 
 // ToEvidence converts an RDSCluster to Evidence.
 func (c *RDSCluster) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(c) //nolint:errcheck
+	data, _ := json.Marshal(c) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:rds:cluster", c.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -231,7 +231,8 @@ func (c *RDSCollector) CollectSnapshots(ctx context.Context) ([]RDSSnapshot, err
 			return nil, fmt.Errorf("failed to describe RDS snapshots: %w", err)
 		}
 
-		for _, snap := range output.DBSnapshots {
+		for i := range output.DBSnapshots {
+			snap := &output.DBSnapshots[i]
 			snapshot := RDSSnapshot{
 				SnapshotID:   awssdk.ToString(snap.DBSnapshotIdentifier),
 				DBInstanceID: awssdk.ToString(snap.DBInstanceIdentifier),
@@ -283,7 +284,8 @@ func (c *RDSCollector) CollectClusters(ctx context.Context) ([]RDSCluster, error
 			return nil, fmt.Errorf("failed to describe RDS clusters: %w", err)
 		}
 
-		for _, cl := range output.DBClusters {
+		for i := range output.DBClusters {
+			cl := &output.DBClusters[i]
 			clusters = append(clusters, RDSCluster{
 				ClusterID:             awssdk.ToString(cl.DBClusterIdentifier),
 				ARN:                   awssdk.ToString(cl.DBClusterArn),

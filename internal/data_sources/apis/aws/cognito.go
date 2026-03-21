@@ -32,7 +32,7 @@ type CognitoUserPool struct {
 
 // ToEvidence converts a CognitoUserPool to Evidence.
 func (p *CognitoUserPool) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(p) //nolint:errcheck
+	data, _ := json.Marshal(p) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:cognito:user-pool", p.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

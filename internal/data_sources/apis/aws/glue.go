@@ -25,7 +25,7 @@ type GlueJob struct {
 
 // ToEvidence converts a GlueJob to Evidence.
 func (j *GlueJob) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(j) //nolint:errcheck
+	data, _ := json.Marshal(j) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := j.ARN
 	if resourceID == "" {
 		resourceID = fmt.Sprintf("arn:aws:glue::%s:job/%s", accountID, j.JobName)
@@ -58,7 +58,8 @@ func (c *GlueCollector) CollectJobs(ctx context.Context, accountID string) ([]Gl
 			return nil, fmt.Errorf("failed to get Glue jobs: %w", err)
 		}
 
-		for _, job := range output.Jobs {
+		for i := range output.Jobs {
+			job := &output.Jobs[i]
 			gjob := GlueJob{
 				JobName:     awssdk.ToString(job.Name),
 				GlueVersion: awssdk.ToString(job.GlueVersion),

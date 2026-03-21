@@ -129,7 +129,8 @@ func (c *CloudTrailCollector) enrichDataEvents(ctx context.Context, trail *Cloud
 	// Check advanced event selectors
 	for i := range output.AdvancedEventSelectors {
 		aes := &output.AdvancedEventSelectors[i]
-		for _, fc := range aes.FieldSelectors {
+		for j := range aes.FieldSelectors {
+			fc := &aes.FieldSelectors[j]
 			if aws.ToString(fc.Field) == "resources.type" {
 				for _, v := range fc.Equals {
 					if v == "AWS::S3::Object" {

@@ -37,7 +37,7 @@ type APIGatewayAPI struct {
 
 // ToEvidence converts an APIGatewayAPI to Evidence.
 func (a *APIGatewayAPI) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(a) //nolint:errcheck // marshalling a known struct type will not fail
+	data, _ := json.Marshal(a) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:apigateway::%s::/restapis/%s", accountID, a.APIID)
 	ev := evidence.New("aws", "aws:apigateway:rest_api", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}

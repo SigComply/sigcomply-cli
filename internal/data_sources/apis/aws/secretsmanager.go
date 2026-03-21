@@ -28,7 +28,7 @@ type Secret struct {
 
 // ToEvidence converts a Secret to Evidence.
 func (s *Secret) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:secretsmanager:secret", s.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -57,7 +57,8 @@ func (c *SecretsManagerCollector) CollectSecrets(ctx context.Context) ([]Secret,
 			return nil, err
 		}
 
-		for _, s := range output.SecretList {
+		for i := range output.SecretList {
+			s := &output.SecretList[i]
 			secret := Secret{
 				Name:            awssdk.ToString(s.Name),
 				ARN:             awssdk.ToString(s.ARN),

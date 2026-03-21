@@ -27,7 +27,7 @@ type FSxFilesystem struct {
 
 // ToEvidence converts an FSxFilesystem to Evidence.
 func (f *FSxFilesystem) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(f) //nolint:errcheck
+	data, _ := json.Marshal(f) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:fsx:filesystem", f.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -56,7 +56,8 @@ func (c *FSxCollector) CollectFileSystems(ctx context.Context) ([]FSxFilesystem,
 			return nil, fmt.Errorf("failed to describe FSx file systems: %w", err)
 		}
 
-		for _, fs := range output.FileSystems {
+		for i := range output.FileSystems {
+			fs := &output.FileSystems[i]
 			filesystem := FSxFilesystem{
 				FileSystemID:   awssdk.ToString(fs.FileSystemId),
 				ARN:            awssdk.ToString(fs.ResourceARN),

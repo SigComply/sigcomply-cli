@@ -31,7 +31,7 @@ type ACMCertificate struct {
 
 // ToEvidence converts an ACMCertificate to Evidence.
 func (c *ACMCertificate) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(c) //nolint:errcheck // marshalling a known struct type will not fail
+	data, _ := json.Marshal(c) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:acm:certificate", c.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

@@ -30,7 +30,7 @@ type CodeBuildProject struct {
 
 // ToEvidence converts a CodeBuildProject to Evidence.
 func (p *CodeBuildProject) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(p) //nolint:errcheck
+	data, _ := json.Marshal(p) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:codebuild:project", p.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

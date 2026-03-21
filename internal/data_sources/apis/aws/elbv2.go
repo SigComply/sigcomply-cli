@@ -49,7 +49,7 @@ type LoadBalancer struct {
 
 // ToEvidence converts a LoadBalancer to Evidence.
 func (lb *LoadBalancer) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(lb) //nolint:errcheck
+	data, _ := json.Marshal(lb) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:elbv2:load-balancer", lb.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

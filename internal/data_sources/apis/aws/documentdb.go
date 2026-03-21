@@ -29,7 +29,7 @@ type DocumentDBCluster struct {
 
 // ToEvidence converts a DocumentDBCluster to Evidence.
 func (c *DocumentDBCluster) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(c) //nolint:errcheck
+	data, _ := json.Marshal(c) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:documentdb:cluster", c.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -46,7 +46,7 @@ type DocumentDBSnapshot struct {
 
 // ToEvidence converts a DocumentDBSnapshot to Evidence.
 func (s *DocumentDBSnapshot) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:documentdb:snapshot", s.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

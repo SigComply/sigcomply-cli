@@ -9,15 +9,22 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/account v1.30.4
 	github.com/aws/aws-sdk-go-v2/service/acm v1.37.21
 	github.com/aws/aws-sdk-go-v2/service/apigateway v1.38.6
+	github.com/aws/aws-sdk-go-v2/service/apigatewayv2 v1.33.8
+	github.com/aws/aws-sdk-go-v2/service/appsync v1.53.4
+	github.com/aws/aws-sdk-go-v2/service/athena v1.57.3
 	github.com/aws/aws-sdk-go-v2/service/autoscaling v1.64.3
 	github.com/aws/aws-sdk-go-v2/service/backup v1.54.8
+	github.com/aws/aws-sdk-go-v2/service/bedrock v1.56.1
 	github.com/aws/aws-sdk-go-v2/service/cloudfront v1.60.2
 	github.com/aws/aws-sdk-go-v2/service/cloudtrail v1.55.5
 	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.55.1
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.63.2
 	github.com/aws/aws-sdk-go-v2/service/codebuild v1.68.12
+	github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider v1.59.2
 	github.com/aws/aws-sdk-go-v2/service/configservice v1.61.1
 	github.com/aws/aws-sdk-go-v2/service/databasemigrationservice v1.61.9
+	github.com/aws/aws-sdk-go-v2/service/datasync v1.58.1
+	github.com/aws/aws-sdk-go-v2/service/dax v1.29.15
 	github.com/aws/aws-sdk-go-v2/service/docdb v1.48.12
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.56.1
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.293.0
@@ -47,6 +54,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/organizations v1.50.4
 	github.com/aws/aws-sdk-go-v2/service/rds v1.116.1
 	github.com/aws/aws-sdk-go-v2/service/redshift v1.62.3
+	github.com/aws/aws-sdk-go-v2/service/redshiftserverless v1.34.3
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.62.4
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.95.1
 	github.com/aws/aws-sdk-go-v2/service/s3control v1.68.2
@@ -59,6 +67,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.68.2
 	github.com/aws/aws-sdk-go-v2/service/ssoadmin v1.37.3
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.6
+	github.com/aws/aws-sdk-go-v2/service/transfer v1.69.4
 	github.com/aws/aws-sdk-go-v2/service/wafv2 v1.71.1
 	github.com/google/go-github/v57 v57.0.0
 	github.com/google/uuid v1.6.0
@@ -82,23 +91,14 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.20 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.4 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.20 // indirect
-	github.com/aws/aws-sdk-go-v2/service/apigatewayv2 v1.33.8 // indirect
-	github.com/aws/aws-sdk-go-v2/service/appsync v1.53.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/athena v1.57.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/bedrock v1.56.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider v1.59.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/datasync v1.58.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/dax v1.29.15 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.7 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.8 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.11.19 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.20 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.19 // indirect
-	github.com/aws/aws-sdk-go-v2/service/redshiftserverless v1.34.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/signin v1.0.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.30.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.13 // indirect
-	github.com/aws/aws-sdk-go-v2/service/transfer v1.69.4 // indirect
 	github.com/aws/smithy-go v1.24.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

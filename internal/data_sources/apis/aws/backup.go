@@ -30,7 +30,7 @@ type BackupStatus struct {
 
 // ToEvidence converts a BackupStatus to Evidence.
 func (s *BackupStatus) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck // marshalling a known struct type will not fail
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:backup:%s:%s:status", s.Region, accountID)
 	ev := evidence.New("aws", "aws:backup:status", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -46,7 +46,7 @@ type BackupPlan struct {
 
 // ToEvidence converts a BackupPlan to Evidence.
 func (p *BackupPlan) ToEvidence(accountID, region string) evidence.Evidence {
-	data, _ := json.Marshal(p) //nolint:errcheck // marshalling a known struct type will not fail
+	data, _ := json.Marshal(p) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:backup:%s:%s:backup-plan:%s", region, accountID, p.PlanID)
 	ev := evidence.New("aws", "aws:backup:plan", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -63,7 +63,7 @@ type BackupVault struct {
 
 // ToEvidence converts a BackupVault to Evidence.
 func (v *BackupVault) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(v) //nolint:errcheck
+	data, _ := json.Marshal(v) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:backup:vault", v.VaultARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -78,7 +78,7 @@ type BackupRecoveryPoint struct {
 
 // ToEvidence converts a BackupRecoveryPoint to Evidence.
 func (rp *BackupRecoveryPoint) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(rp) //nolint:errcheck
+	data, _ := json.Marshal(rp) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:backup:recovery-point", rp.RecoveryPointARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -149,7 +149,8 @@ func (c *BackupCollector) CollectPlans(ctx context.Context) ([]BackupPlan, error
 				BackupPlanId: p.BackupPlanId,
 			})
 			if err == nil && detail.BackupPlan != nil {
-				for _, rule := range detail.BackupPlan.Rules {
+				for i := range detail.BackupPlan.Rules {
+					rule := &detail.BackupPlan.Rules[i]
 					if len(rule.CopyActions) > 0 {
 						plan.HasCrossRegionCopy = true
 						break

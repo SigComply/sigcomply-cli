@@ -31,7 +31,7 @@ type SQSQueue struct {
 
 // ToEvidence converts an SQSQueue to Evidence.
 func (q *SQSQueue) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(q) //nolint:errcheck
+	data, _ := json.Marshal(q) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := q.QueueARN
 	if resourceID == "" {
 		resourceID = q.QueueURL

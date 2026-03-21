@@ -28,7 +28,7 @@ type MSKCluster struct {
 
 // ToEvidence converts an MSKCluster to Evidence.
 func (c *MSKCluster) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(c) //nolint:errcheck
+	data, _ := json.Marshal(c) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:msk:cluster", c.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

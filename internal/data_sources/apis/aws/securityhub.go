@@ -27,7 +27,7 @@ type SecurityHubStatus struct {
 
 // ToEvidence converts a SecurityHubStatus to Evidence.
 func (s *SecurityHubStatus) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:securityhub:%s:%s:hub/default", s.Region, accountID)
 	ev := evidence.New("aws", "aws:securityhub:hub", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}

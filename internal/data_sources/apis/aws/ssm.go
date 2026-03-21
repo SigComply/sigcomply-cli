@@ -29,7 +29,7 @@ type SSMStatus struct {
 
 // ToEvidence converts an SSMStatus to Evidence.
 func (s *SSMStatus) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:ssm:%s:%s:ssm-status", s.Region, accountID)
 	ev := evidence.New("aws", "aws:ssm:status", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -44,7 +44,7 @@ type SSMDocumentStatus struct {
 
 // ToEvidence converts an SSMDocumentStatus to Evidence.
 func (s *SSMDocumentStatus) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:ssm:%s:%s:document-status", s.Region, accountID)
 	ev := evidence.New("aws", "aws:ssm:document-status", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -59,7 +59,7 @@ type SSMManagedInstance struct {
 
 // ToEvidence converts an SSMManagedInstance to Evidence.
 func (i *SSMManagedInstance) ToEvidence(accountID, region string) evidence.Evidence {
-	data, _ := json.Marshal(i) //nolint:errcheck
+	data, _ := json.Marshal(i) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:ssm:%s:%s:managed-instance/%s", region, accountID, i.InstanceID)
 	ev := evidence.New("aws", "aws:ssm:managed-instance", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -87,17 +87,11 @@ func (c *SSMCollector) CollectStatus(ctx context.Context) (*SSMStatus, error) {
 		status.ManagedInstanceCount = len(output.InstanceInformationList)
 	}
 
-	// Check Session Manager
-	settingOutput, err := c.client.GetServiceSetting(ctx, &ssm.GetServiceSettingInput{
+	// Check Session Manager - availability is determined by managed instance count
+	_, _ = c.client.GetServiceSetting(ctx, &ssm.GetServiceSettingInput{ //nolint:errcheck // result not used; managed instance count is the deciding factor
 		SettingId: awssdk.String(fmt.Sprintf("arn:aws:ssm:%s:%s:servicesetting/ssm/managed-instance/activation-tier", c.region, "account")),
 	})
-	if err == nil && settingOutput.ServiceSetting != nil {
-		// Session Manager is available if there are managed instances
-		status.SessionManagerEnabled = status.ManagedInstanceCount > 0
-	} else {
-		// Fallback: if we have managed instances, Session Manager is likely enabled
-		status.SessionManagerEnabled = status.ManagedInstanceCount > 0
-	}
+	status.SessionManagerEnabled = status.ManagedInstanceCount > 0
 
 	return status, nil
 }
@@ -116,7 +110,8 @@ func (c *SSMCollector) CollectDocumentStatus(ctx context.Context) (*SSMDocumentS
 		return status, nil //nolint:nilerr // fail-safe: return partial results on error
 	}
 
-	for _, doc := range output.DocumentIdentifiers {
+	for i := range output.DocumentIdentifiers {
+		doc := &output.DocumentIdentifiers[i]
 		docName := awssdk.ToString(doc.Name)
 		if docName == "" {
 			continue
@@ -147,7 +142,8 @@ func (c *SSMCollector) CollectManagedInstances(ctx context.Context) ([]SSMManage
 	}
 
 	var instances []SSMManagedInstance
-	for _, inst := range output.InstanceInformationList {
+	for i := range output.InstanceInformationList {
+		inst := &output.InstanceInformationList[i]
 		instanceID := awssdk.ToString(inst.InstanceId)
 		managed := SSMManagedInstance{
 			InstanceID:     instanceID,

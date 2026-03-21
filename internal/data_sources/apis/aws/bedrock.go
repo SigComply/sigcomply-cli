@@ -22,7 +22,7 @@ type BedrockLoggingConfig struct {
 
 // ToEvidence converts a BedrockLoggingConfig to Evidence.
 func (b *BedrockLoggingConfig) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(b) //nolint:errcheck
+	data, _ := json.Marshal(b) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:bedrock:%s:%s:logging-config", b.Region, accountID)
 	ev := evidence.New("aws", "aws:bedrock:model", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}

@@ -34,7 +34,7 @@ type RedshiftCluster struct {
 
 // ToEvidence converts a RedshiftCluster to Evidence.
 func (c *RedshiftCluster) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(c) //nolint:errcheck
+	data, _ := json.Marshal(c) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:redshift:cluster", c.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -63,7 +63,8 @@ func (c *RedshiftCollector) CollectClusters(ctx context.Context) ([]RedshiftClus
 			return nil, fmt.Errorf("failed to describe Redshift clusters: %w", err)
 		}
 
-		for _, cl := range output.Clusters {
+		for i := range output.Clusters {
+			cl := &output.Clusters[i]
 			cluster := RedshiftCluster{
 				ClusterID:          awssdk.ToString(cl.ClusterIdentifier),
 				Encrypted:         awssdk.ToBool(cl.Encrypted),

@@ -23,7 +23,7 @@ type MacieStatus struct {
 
 // ToEvidence converts a MacieStatus to Evidence.
 func (m *MacieStatus) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(m) //nolint:errcheck
+	data, _ := json.Marshal(m) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:macie2:%s:%s:session", m.Region, accountID)
 	ev := evidence.New("aws", "aws:macie2:session", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}

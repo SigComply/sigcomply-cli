@@ -75,7 +75,7 @@ func (f *Framework) GetControl(id string) *engine.Control {
 // Policies returns all Rego policy sources for this framework.
 func (f *Framework) Policies() []engine.PolicySource {
 	var policies []engine.PolicySource
-	_ = fs.WalkDir(policiesFS, "policies", func(path string, d fs.DirEntry, err error) error {
+	if err := fs.WalkDir(policiesFS, "policies", func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
@@ -95,7 +95,9 @@ func (f *Framework) Policies() []engine.PolicySource {
 			Source: string(data),
 		})
 		return nil
-	})
+	}); err != nil {
+		return nil
+	}
 	return policies
 }
 

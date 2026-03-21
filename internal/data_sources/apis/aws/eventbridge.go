@@ -27,7 +27,7 @@ type GuardDutyAlertStatus struct {
 
 // ToEvidence converts a GuardDutyAlertStatus to Evidence.
 func (s *GuardDutyAlertStatus) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:events:%s:%s:guardduty-alert", s.Region, accountID)
 	ev := evidence.New("aws", "aws:eventbridge:guardduty-alert", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -66,7 +66,8 @@ func (c *EventBridgeCollector) CollectGuardDutyAlerts(ctx context.Context) (*Gua
 				Rule: rule.Name,
 			})
 			if err == nil {
-				for _, target := range targets.Targets {
+				for i := range targets.Targets {
+					target := &targets.Targets[i]
 					arn := awssdk.ToString(target.Arn)
 					if strings.Contains(arn, ":sns:") {
 						status.TargetTypes = appendUnique(status.TargetTypes, "SNS")

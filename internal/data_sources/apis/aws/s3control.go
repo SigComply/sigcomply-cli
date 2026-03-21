@@ -26,7 +26,7 @@ type AccountS3PublicAccess struct {
 
 // ToEvidence converts AccountS3PublicAccess to Evidence.
 func (a *AccountS3PublicAccess) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(a) //nolint:errcheck
+	data, _ := json.Marshal(a) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:s3control::%s:account-public-access", accountID)
 	ev := evidence.New("aws", "aws:s3control:account-public-access", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}

@@ -29,7 +29,7 @@ type EFSFileSystem struct {
 
 // ToEvidence converts an EFSFileSystem to Evidence.
 func (f *EFSFileSystem) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(f) //nolint:errcheck
+	data, _ := json.Marshal(f) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:efs:file_system", f.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

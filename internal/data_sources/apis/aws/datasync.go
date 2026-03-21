@@ -25,7 +25,7 @@ type DataSyncTask struct {
 
 // ToEvidence converts a DataSyncTask to Evidence.
 func (t *DataSyncTask) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(t) //nolint:errcheck
+	data, _ := json.Marshal(t) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:datasync:task", t.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

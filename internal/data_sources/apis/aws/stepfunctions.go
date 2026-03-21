@@ -27,7 +27,7 @@ type StepFunctionsStateMachine struct {
 
 // ToEvidence converts a StepFunctionsStateMachine to Evidence.
 func (sm *StepFunctionsStateMachine) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(sm) //nolint:errcheck
+	data, _ := json.Marshal(sm) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:stepfunctions:state-machine", sm.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

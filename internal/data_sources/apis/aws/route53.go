@@ -30,7 +30,7 @@ type Route53HostedZone struct {
 
 // ToEvidence converts a Route53HostedZone to Evidence.
 func (z *Route53HostedZone) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(z) //nolint:errcheck
+	data, _ := json.Marshal(z) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:route53:hosted-zone", z.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

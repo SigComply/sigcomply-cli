@@ -29,7 +29,7 @@ type AutoScalingGroup struct {
 
 // ToEvidence converts an AutoScalingGroup to Evidence.
 func (g *AutoScalingGroup) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(g) //nolint:errcheck // marshalling a known struct type will not fail
+	data, _ := json.Marshal(g) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:autoscaling:group", g.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

@@ -30,7 +30,7 @@ type ElastiCacheCluster struct {
 
 // ToEvidence converts an ElastiCacheCluster to Evidence.
 func (c *ElastiCacheCluster) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(c) //nolint:errcheck
+	data, _ := json.Marshal(c) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := c.ARN
 	if resourceID == "" {
 		resourceID = fmt.Sprintf("elasticache:%s", c.ReplicationGroupID)

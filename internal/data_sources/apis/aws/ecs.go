@@ -29,7 +29,7 @@ type ECSCluster struct {
 
 // ToEvidence converts an ECSCluster to Evidence.
 func (c *ECSCluster) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(c) //nolint:errcheck
+	data, _ := json.Marshal(c) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:ecs:cluster", c.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -52,7 +52,7 @@ type ECSTaskDefinition struct {
 
 // ToEvidence converts an ECSTaskDefinition to Evidence.
 func (t *ECSTaskDefinition) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(t) //nolint:errcheck
+	data, _ := json.Marshal(t) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:ecs:task-definition", t.TaskDefinitionARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

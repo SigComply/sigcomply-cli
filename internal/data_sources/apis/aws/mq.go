@@ -27,7 +27,7 @@ type MQBroker struct {
 
 // ToEvidence converts an MQBroker to Evidence.
 func (b *MQBroker) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(b) //nolint:errcheck
+	data, _ := json.Marshal(b) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:mq:broker", b.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

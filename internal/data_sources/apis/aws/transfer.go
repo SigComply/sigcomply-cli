@@ -25,7 +25,7 @@ type TransferServer struct {
 
 // ToEvidence converts a TransferServer to Evidence.
 func (s *TransferServer) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:transfer:server", s.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

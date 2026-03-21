@@ -24,7 +24,7 @@ type AccessAnalyzerStatus struct {
 
 // ToEvidence converts an AccessAnalyzerStatus to Evidence.
 func (s *AccessAnalyzerStatus) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck // marshalling a known struct type will not fail
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:access-analyzer:%s:%s:status", s.Region, accountID)
 	ev := evidence.New("aws", "aws:accessanalyzer:status", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}

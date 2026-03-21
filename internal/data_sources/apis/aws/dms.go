@@ -29,7 +29,7 @@ type DMSReplicationInstance struct {
 
 // ToEvidence converts a DMSReplicationInstance to Evidence.
 func (d *DMSReplicationInstance) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(d) //nolint:errcheck
+	data, _ := json.Marshal(d) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:dms:replication-instance", d.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -44,7 +44,7 @@ type DMSEndpoint struct {
 
 // ToEvidence converts a DMSEndpoint to Evidence.
 func (d *DMSEndpoint) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(d) //nolint:errcheck
+	data, _ := json.Marshal(d) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:dms:endpoint", d.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -60,7 +60,7 @@ type DMSReplicationTask struct {
 
 // ToEvidence converts a DMSReplicationTask to Evidence.
 func (t *DMSReplicationTask) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(t) //nolint:errcheck
+	data, _ := json.Marshal(t) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:dms:replication-task", t.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

@@ -27,7 +27,7 @@ type KinesisStream struct {
 
 // ToEvidence converts a KinesisStream to Evidence.
 func (s *KinesisStream) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:kinesis:stream", s.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

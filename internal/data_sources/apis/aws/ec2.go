@@ -116,7 +116,7 @@ type EBSSnapshot struct {
 
 // ToEvidence converts an EBSSnapshot to Evidence.
 func (s *EBSSnapshot) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:ec2::%s:snapshot/%s", accountID, s.SnapshotID)
 	ev := evidence.New("aws", "aws:ec2:ebs_snapshot", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -134,7 +134,7 @@ type Subnet struct {
 
 // ToEvidence converts a Subnet to Evidence.
 func (s *Subnet) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:ec2::%s:subnet/%s", accountID, s.SubnetID)
 	ev := evidence.New("aws", "aws:ec2:subnet", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -152,7 +152,7 @@ type NetworkACL struct {
 
 // ToEvidence converts a NetworkACL to Evidence.
 func (n *NetworkACL) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(n) //nolint:errcheck
+	data, _ := json.Marshal(n) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:ec2::%s:network-acl/%s", accountID, n.NetworkACLID)
 	ev := evidence.New("aws", "aws:ec2:network-acl", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -169,7 +169,7 @@ type LaunchTemplate struct {
 
 // ToEvidence converts a LaunchTemplate to Evidence.
 func (l *LaunchTemplate) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(l) //nolint:errcheck
+	data, _ := json.Marshal(l) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:ec2::%s:launch-template/%s", accountID, l.LaunchTemplateID)
 	ev := evidence.New("aws", "aws:ec2:launch-template", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -178,7 +178,7 @@ func (l *LaunchTemplate) ToEvidence(accountID string) evidence.Evidence {
 
 // ToEvidence converts an EC2Instance to Evidence.
 func (i *EC2Instance) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(i) //nolint:errcheck
+	data, _ := json.Marshal(i) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:ec2::%s:instance/%s", accountID, i.InstanceID)
 	ev := evidence.New("aws", "aws:ec2:instance", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -193,7 +193,7 @@ type VPCEndpointStatus struct {
 
 // ToEvidence converts a VPCEndpointStatus to Evidence.
 func (v *VPCEndpointStatus) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(v) //nolint:errcheck
+	data, _ := json.Marshal(v) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:ec2:%s:%s:vpc-endpoint-status", v.Region, accountID)
 	ev := evidence.New("aws", "aws:ec2:vpc-endpoint-status", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -209,7 +209,7 @@ type ClientVPNEndpoint struct {
 
 // ToEvidence converts a ClientVPNEndpoint to Evidence.
 func (e *ClientVPNEndpoint) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(e) //nolint:errcheck
+	data, _ := json.Marshal(e) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:ec2::%s:client-vpn-endpoint/%s", accountID, e.ClientVpnEndpointID)
 	ev := evidence.New("aws", "aws:ec2:client-vpn-endpoint", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -225,7 +225,7 @@ type EBSVolume struct {
 
 // ToEvidence converts an EBSVolume to Evidence.
 func (v *EBSVolume) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(v) //nolint:errcheck
+	data, _ := json.Marshal(v) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:ec2::%s:volume/%s", accountID, v.VolumeID)
 	ev := evidence.New("aws", "aws:ec2:volume", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -240,7 +240,7 @@ type EC2AMI struct {
 
 // ToEvidence converts an EC2AMI to Evidence.
 func (a *EC2AMI) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(a) //nolint:errcheck
+	data, _ := json.Marshal(a) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:ec2::%s:image/%s", accountID, a.ImageID)
 	ev := evidence.New("aws", "aws:ec2:ami", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -255,7 +255,7 @@ type TransitGateway struct {
 
 // ToEvidence converts a TransitGateway to Evidence.
 func (tg *TransitGateway) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(tg) //nolint:errcheck
+	data, _ := json.Marshal(tg) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:ec2::%s:transit-gateway/%s", accountID, tg.TransitGatewayID)
 	ev := evidence.New("aws", "aws:ec2:transit-gateway", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
@@ -270,7 +270,7 @@ type EC2AccountSetting struct {
 
 // ToEvidence converts an EC2AccountSetting to Evidence.
 func (s *EC2AccountSetting) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(s) //nolint:errcheck
+	data, _ := json.Marshal(s) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:ec2:%s:%s:account-setting", s.Region, accountID)
 	ev := evidence.New("aws", "aws:ec2:account-setting", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}

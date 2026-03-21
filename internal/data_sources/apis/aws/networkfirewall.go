@@ -28,7 +28,7 @@ type NetworkFirewallStatus struct {
 
 // ToEvidence converts a NetworkFirewallStatus to Evidence.
 func (f *NetworkFirewallStatus) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(f) //nolint:errcheck
+	data, _ := json.Marshal(f) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:networkfirewall:firewall", f.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev

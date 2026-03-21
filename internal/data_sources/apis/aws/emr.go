@@ -30,7 +30,7 @@ type EMRCluster struct {
 
 // ToEvidence converts an EMRCluster to Evidence.
 func (c *EMRCluster) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(c) //nolint:errcheck
+	data, _ := json.Marshal(c) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:emr:cluster", c.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
@@ -44,7 +44,7 @@ type EMRBlockPublicAccess struct {
 
 // ToEvidence converts EMRBlockPublicAccess to Evidence.
 func (b *EMRBlockPublicAccess) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(b) //nolint:errcheck
+	data, _ := json.Marshal(b) //nolint:errcheck // marshaling a known struct type will not fail
 	resourceID := fmt.Sprintf("arn:aws:emr::%s:block-public-access", accountID)
 	ev := evidence.New("aws", "aws:emr:block-public-access", resourceID, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}

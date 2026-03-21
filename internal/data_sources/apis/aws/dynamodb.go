@@ -29,7 +29,7 @@ type DynamoDBTable struct {
 
 // ToEvidence converts a DynamoDBTable to Evidence.
 func (d *DynamoDBTable) ToEvidence(accountID string) evidence.Evidence {
-	data, _ := json.Marshal(d) //nolint:errcheck
+	data, _ := json.Marshal(d) //nolint:errcheck // marshaling a known struct type will not fail
 	ev := evidence.New("aws", "aws:dynamodb:table", d.ARN, data)
 	ev.Metadata = evidence.Metadata{AccountID: accountID}
 	return ev
