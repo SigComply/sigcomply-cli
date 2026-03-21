@@ -13,6 +13,8 @@ import (
 )
 
 // MockEC2Client implements EC2Client for testing.
+//
+//nolint:dupl // mock struct mirrors EC2Client interface in ec2.go by design
 type MockEC2Client struct {
 	DescribeSecurityGroupsFunc    func(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSecurityGroupsOutput, error)
 	DescribeVpcsFunc              func(ctx context.Context, params *ec2.DescribeVpcsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeVpcsOutput, error)
