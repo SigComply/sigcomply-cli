@@ -60,7 +60,7 @@ type EvidenceHashes struct {
 
 // Signature contains cryptographic signature information.
 type Signature struct {
-	// Algorithm is the signing algorithm used (hmac-sha256, oidc-jwt).
+	// Algorithm is the signing algorithm used. Currently only "hmac-sha256" is supported.
 	Algorithm string `json:"algorithm"`
 
 	// Value is the base64-encoded signature value.
@@ -68,9 +68,6 @@ type Signature struct {
 
 	// KeyID identifies the key used for signing.
 	KeyID string `json:"key_id,omitempty"`
-
-	// Certificate contains the signing certificate (for OIDC).
-	Certificate string `json:"certificate,omitempty"`
 }
 
 // Environment captures context about the execution environment.
@@ -124,7 +121,6 @@ type StorageLocation struct {
 // SigningAlgorithm constants.
 const (
 	AlgorithmHMACSHA256 = "hmac-sha256"
-	AlgorithmOIDCJWT    = "oidc-jwt"
 )
 
 // MarshalJSON implements custom JSON marshaling.

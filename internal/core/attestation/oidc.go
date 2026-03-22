@@ -11,6 +11,10 @@ import (
 	"time"
 )
 
+// Note: OIDC tokens are used exclusively for authenticating the CLI with the SigComply
+// Cloud API (via HTTP Authorization header). They are NOT used for signing attestations.
+// Attestation signing uses HMAC-SHA256 with a shared secret (see hmac.go).
+
 // OIDCProvider represents a CI provider that supports OIDC tokens.
 type OIDCProvider string
 
@@ -42,44 +46,6 @@ type OIDCToken struct {
 
 	// ExpiresAt is when the token expires.
 	ExpiresAt time.Time `json:"expires_at,omitempty"`
-}
-
-// OIDCSigner signs attestations using OIDC tokens from CI providers.
-// The OIDC token itself serves as the signature, allowing the SigComply
-// Cloud API to verify the signature using the CI provider's public keys.
-type OIDCSigner struct {
-	token *OIDCToken
-}
-
-// NewOIDCSigner creates a new OIDC signer with the given token.
-func NewOIDCSigner(token *OIDCToken) *OIDCSigner {
-	return &OIDCSigner{
-		token: token,
-	}
-}
-
-// Algorithm returns the signing algorithm identifier.
-func (s *OIDCSigner) Algorithm() string {
-	return AlgorithmOIDCJWT
-}
-
-// Sign signs the attestation using the OIDC token.
-// The token itself is used as the signature value.
-func (s *OIDCSigner) Sign(attestation *Attestation) error {
-	if s.token == nil || s.token.Token == "" {
-		return fmt.Errorf("OIDC token is required for signing")
-	}
-
-	// Set signature on attestation
-	// The JWT token serves as the signature - the Cloud API can verify it
-	// using the CI provider's OIDC public keys (JWKS)
-	attestation.Signature = Signature{
-		Algorithm: AlgorithmOIDCJWT,
-		Value:     s.token.Token,
-		KeyID:     string(s.token.Provider),
-	}
-
-	return nil
 }
 
 // TokenProvider defines the interface for obtaining OIDC tokens.

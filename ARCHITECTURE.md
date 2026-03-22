@@ -236,10 +236,9 @@ type EvidenceHashes struct {
 }
 
 type Signature struct {
-    Algorithm   string `json:"algorithm"`   // hmac-sha256, oidc-jwt
-    Value       string `json:"value"`       // Base64-encoded signature
-    KeyID       string `json:"key_id,omitempty"`
-    Certificate string `json:"certificate,omitempty"` // For OIDC
+    Algorithm string `json:"algorithm"`        // hmac-sha256
+    Value     string `json:"value"`            // Base64-encoded HMAC-SHA256 signature
+    KeyID     string `json:"key_id,omitempty"` // Identifies which key was used
 }
 
 type Environment struct {
@@ -263,7 +262,6 @@ type StorageLocation struct {
 
 const (
     AlgorithmHMACSHA256 = "hmac-sha256"
-    AlgorithmOIDCJWT    = "oidc-jwt"
 )
 ```
 
@@ -440,14 +438,20 @@ Cloud submission uses OIDC authentication exclusively:
 
 ---
 
-## Signing Methods
+## Signing Method
 
-| Method | Environment | How |
-|--------|-------------|-----|
-| `none` | Local dev | No signature |
-| `hmac-sha256` | Local/CI | `SIGCOMPLY_SIGNING_SECRET` env var |
-| `oidc` | CI/CD | GitHub Actions / GitLab CI OIDC token |
-| `ecdsa-p256` | Enterprise | Customer private key |
+Attestations are signed using **HMAC-SHA256** in all environments. The signing key is a string provided via the `SIGCOMPLY_SIGNING_SECRET` environment variable.
+
+```
+Signature = HMAC-SHA256(CanonicalJSON(attestation payload), signing_secret)
+```
+
+**OIDC is authentication only** — the OIDC JWT token is sent in the `Authorization: Bearer` header to authenticate the CLI with the SigComply Cloud API. It is not used for signing attestations.
+
+| Concern | Mechanism |
+|---------|-----------|
+| Attestation signing | HMAC-SHA256 with `SIGCOMPLY_SIGNING_SECRET` |
+| Cloud API authentication | OIDC JWT in `Authorization: Bearer` header |
 
 ---
 

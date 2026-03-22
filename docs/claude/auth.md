@@ -6,7 +6,13 @@ SigComply uses **ephemeral OIDC tokens** for authentication in two critical area
 
 ## A. Authenticating CLI with SigComply Cloud API
 
-The CLI uses OIDC to authenticate with the SigComply Rails backend, eliminating the need for long-lived API keys.
+The CLI uses OIDC tokens **for authentication only** — to prove to the SigComply Rails backend which CI run is submitting results, without needing long-lived API keys.
+
+**Important distinction:**
+- **OIDC token** → HTTP `Authorization: Bearer` header (authentication)
+- **HMAC-SHA256 with `SIGCOMPLY_SIGNING_SECRET`** → attestation `Signature` field (payload integrity)
+
+These are two separate concerns. OIDC is never used to sign attestation payloads.
 
 **How it works:**
 
@@ -23,45 +29,42 @@ The CLI uses OIDC to authenticate with the SigComply Rails backend, eliminating 
    token := os.Getenv("CI_JOB_JWT_V2") // GitLab
    ```
 
-3. **CLI Sends Signed Attestation:**
+3. **CLI Signs Attestation with HMAC and Submits:**
    ```go
-   // Attestation includes:
-   // - Evidence hashes (CheckResult, individual evidence, combined)
-   // - Environment context (CI provider, repo, branch, commit)
-   // - Version info (CLIVersion, PolicyVersions)
-   // - Signature (HMAC or OIDC JWT)
+   // Build attestation
    // NOTE: StorageLocation is NOT signed (operational metadata)
-
-   attestation := &attestation.Attestation{
+   att := &attestation.Attestation{
        ID:        uuid.New().String(),
        RunID:     checkResult.RunID,
        Framework: "soc2",
        Timestamp: time.Now().UTC(),
        Hashes:    evidenceHashes, // Computed using canonical JSON
        Environment: attestation.Environment{
-           CI:        true,
-           Provider:  "github-actions",
+           CI:         true,
+           Provider:   "github-actions",
            Repository: "org/repo",
        },
        CLIVersion: "1.0.0",
    }
 
-   // Sign with OIDC token
-   signer := attestation.NewOIDCSigner(oidcToken)
-   signer.Sign(attestation)
+   // Sign attestation payload with HMAC-SHA256
+   secret := []byte(os.Getenv("SIGCOMPLY_SIGNING_SECRET"))
+   signer := attestation.NewHMACSigner(secret)
+   signer.Sign(att) // Sets att.Signature.Algorithm = "hmac-sha256"
 
-   // Send to Rails API
+   // Send to Rails API — OIDC token is used in the Authorization header,
+   // not in the attestation itself
    client.Submit(ctx, &cloud.SubmitRequest{
        CheckResult: checkResult,
-       Attestation: attestation,
+       Attestation: att,
    })
    ```
 
-4. **Rails API Verifies Token:**
-   - Validates OIDC token signature using GitHub/GitLab's public keys
-   - Extracts repository and organization information from token claims
-   - Ensures the token is valid and not expired
-   - Associates attestation with correct customer account
+4. **Rails API Verifies Both Separately:**
+   - Validates OIDC token (in `Authorization` header) using GitHub/GitLab's public JWKS
+   - Extracts repository and organization from OIDC claims to identify the customer account
+   - Verifies attestation HMAC signature using the customer's shared `SIGCOMPLY_SIGNING_SECRET`
+   - Ensures the evidence hashes in the attestation have not been tampered with
 
 ## B. Authenticating with Third-Party Services (Preferred)
 
