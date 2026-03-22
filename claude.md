@@ -172,10 +172,8 @@ SigComply CLI is an open-source compliance automation engine that enables organi
 
 - **Language**: Go (Golang)
 - **Policy Engine**: Open Policy Agent (OPA) with Rego policies
-- **Authentication**: Dual OIDC approach
-  - OIDC tokens for SigComply Cloud API authentication
-  - OIDC tokens for third-party service authentication (AWS, GCP, Azure, etc.)
-  - Fallback to traditional credentials when OIDC unavailable
+- **Authentication**: OIDC tokens for authenticating with the SigComply Cloud API and third-party services (AWS, GCP, Azure, etc.). Fallback to traditional credentials when OIDC unavailable.
+- **Attestation Signing**: HMAC-SHA256 with `SIGCOMPLY_SIGNING_SECRET`. OIDC is authentication-only — it is not used for signing attestation payloads.
 - **Cryptography**: SHA-256 hashing for evidence attestation
 - **Configuration**: YAML-based configuration files
 - **Distribution**: Single binary executable
@@ -813,7 +811,7 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 - OPA engine with 30+ embedded SOC 2 policies + ISO 27001 policies
 - Text, JSON, JUnit output formatters
 - Evidence storage (S3, local)
-- Attestation signing (HMAC, OIDC)
+- Attestation signing (HMAC-SHA256 via SIGCOMPLY_SIGNING_SECRET)
 - SigComply Cloud API client (unified `POST /api/v1/cli/runs`)
 - OIDC authentication (GitHub Actions, GitLab CI)
 - Canonical JSON for deterministic hashing
