@@ -2,6 +2,7 @@ package attestation
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"testing"
@@ -101,11 +102,23 @@ func TestVerifyHash(t *testing.T) {
 	assert.False(t, VerifyHash([]byte("different data"), hash))
 }
 
-func TestHMACSigner_Sign(t *testing.T) {
-	secret := []byte("test-secret-key")
-	signer := NewHMACSigner(secret)
+func TestNewEd25519Signer_Success(t *testing.T) {
+	signer, err := NewEd25519Signer()
+	require.NoError(t, err)
+	assert.NotNil(t, signer)
+}
 
-	attestation := &Attestation{
+func TestEd25519Signer_Algorithm(t *testing.T) {
+	signer, err := NewEd25519Signer()
+	require.NoError(t, err)
+	assert.Equal(t, AlgorithmEd25519, signer.Algorithm())
+}
+
+func TestEd25519Signer_Sign(t *testing.T) {
+	signer, err := NewEd25519Signer()
+	require.NoError(t, err)
+
+	att := &Attestation{
 		ID:        "attest-123",
 		RunID:     "run-123",
 		Framework: "soc2",
@@ -116,33 +129,50 @@ func TestHMACSigner_Sign(t *testing.T) {
 		},
 	}
 
-	err := signer.Sign(attestation)
+	err = signer.Sign(att)
 	require.NoError(t, err)
 
-	assert.Equal(t, AlgorithmHMACSHA256, attestation.Signature.Algorithm)
-	assert.NotEmpty(t, attestation.Signature.Value)
-	assert.Equal(t, "hmac-key", attestation.Signature.KeyID)
+	assert.Equal(t, AlgorithmEd25519, att.Signature.Algorithm)
+	assert.NotEmpty(t, att.Signature.Value)
+	assert.NotEmpty(t, att.PublicKey)
 }
 
-func TestHMACSigner_WithCustomKeyID(t *testing.T) {
-	signer := NewHMACSignerWithKeyID([]byte("secret"), "my-key-id")
-
-	attestation := &Attestation{
-		ID:        "attest-123",
-		Timestamp: time.Now(),
-	}
-
-	err := signer.Sign(attestation)
+func TestEd25519Signer_Sign_SetsPublicKey(t *testing.T) {
+	signer, err := NewEd25519Signer()
 	require.NoError(t, err)
-	assert.Equal(t, "my-key-id", attestation.Signature.KeyID)
+
+	att := &Attestation{ID: "attest-123", Timestamp: time.Now()}
+	err = signer.Sign(att)
+	require.NoError(t, err)
+
+	// PublicKey should be base64-encoded 32-byte Ed25519 public key
+	pubKeyBytes, decodeErr := base64.StdEncoding.DecodeString(att.PublicKey)
+	require.NoError(t, decodeErr)
+	assert.Len(t, pubKeyBytes, 32, "Ed25519 public key should be 32 bytes")
 }
 
-func TestHMACVerifier_Verify(t *testing.T) {
-	secret := []byte("test-secret-key")
-	signer := NewHMACSigner(secret)
-	verifier := NewHMACVerifier(secret)
+func TestEd25519Signer_Sign_UniqueKeysPerSigner(t *testing.T) {
+	signer1, err := NewEd25519Signer()
+	require.NoError(t, err)
+	signer2, err := NewEd25519Signer()
+	require.NoError(t, err)
 
-	attestation := &Attestation{
+	att1 := &Attestation{ID: "attest-1", Timestamp: time.Now()}
+	att2 := &Attestation{ID: "attest-2", Timestamp: time.Now()}
+
+	require.NoError(t, signer1.Sign(att1))
+	require.NoError(t, signer2.Sign(att2))
+
+	// Each signer generates a unique keypair
+	assert.NotEqual(t, att1.PublicKey, att2.PublicKey, "Each signer should have a unique public key")
+}
+
+func TestEd25519Verifier_Verify(t *testing.T) {
+	signer, err := NewEd25519Signer()
+	require.NoError(t, err)
+	verifier := NewEd25519Verifier()
+
+	att := &Attestation{
 		ID:        "attest-123",
 		RunID:     "run-123",
 		Framework: "soc2",
@@ -153,60 +183,42 @@ func TestHMACVerifier_Verify(t *testing.T) {
 		},
 	}
 
-	// Sign
-	err := signer.Sign(attestation)
+	err = signer.Sign(att)
 	require.NoError(t, err)
 
-	// Verify
-	err = verifier.Verify(attestation)
+	err = verifier.Verify(att)
 	assert.NoError(t, err)
 }
 
-func TestHMACVerifier_Verify_InvalidSignature(t *testing.T) {
-	signer := NewHMACSigner([]byte("secret1"))
-	verifier := NewHMACVerifier([]byte("secret2")) // Different secret
+func TestEd25519Verifier_Verify_TamperedData(t *testing.T) {
+	signer, err := NewEd25519Signer()
+	require.NoError(t, err)
+	verifier := NewEd25519Verifier()
 
-	attestation := &Attestation{
+	att := &Attestation{
 		ID:        "attest-123",
+		RunID:     "run-123",
+		Framework: "soc2",
 		Timestamp: time.Now(),
 	}
 
-	err := signer.Sign(attestation)
+	err = signer.Sign(att)
 	require.NoError(t, err)
 
-	err = verifier.Verify(attestation)
+	// Tamper with data after signing
+	att.Framework = "hipaa"
+
+	err = verifier.Verify(att)
 	require.Error(t, err)
 
 	var sigErr *SignatureError
 	assert.ErrorAs(t, err, &sigErr)
 }
 
-func TestHMACVerifier_Verify_TamperedData(t *testing.T) {
-	secret := []byte("test-secret")
-	signer := NewHMACSigner(secret)
-	verifier := NewHMACVerifier(secret)
+func TestEd25519Verifier_Verify_WrongAlgorithm(t *testing.T) {
+	verifier := NewEd25519Verifier()
 
-	attestation := &Attestation{
-		ID:        "attest-123",
-		RunID:     "run-123",
-		Framework: "soc2",
-		Timestamp: time.Now(),
-	}
-
-	err := signer.Sign(attestation)
-	require.NoError(t, err)
-
-	// Tamper with data
-	attestation.Framework = "hipaa"
-
-	err = verifier.Verify(attestation)
-	require.Error(t, err)
-}
-
-func TestHMACVerifier_Verify_WrongAlgorithm(t *testing.T) {
-	verifier := NewHMACVerifier([]byte("secret"))
-
-	attestation := &Attestation{
+	att := &Attestation{
 		ID:        "attest-123",
 		Timestamp: time.Now(),
 		Signature: Signature{
@@ -215,10 +227,29 @@ func TestHMACVerifier_Verify_WrongAlgorithm(t *testing.T) {
 		},
 	}
 
-	err := verifier.Verify(attestation)
+	err := verifier.Verify(att)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported signature algorithm")
 }
+
+func TestEd25519Verifier_Verify_InvalidPublicKey(t *testing.T) {
+	verifier := NewEd25519Verifier()
+
+	att := &Attestation{
+		ID:        "attest-123",
+		Timestamp: time.Now(),
+		PublicKey: "not-valid-base64!!!",
+		Signature: Signature{
+			Algorithm: AlgorithmEd25519,
+			Value:     "c29tZS12YWx1ZQ==",
+		},
+	}
+
+	err := verifier.Verify(att)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode public key")
+}
+
 
 func TestAttestation_Payload(t *testing.T) {
 	attestation := &Attestation{
@@ -377,10 +408,6 @@ func TestAttestation_MarshalJSON(t *testing.T) {
 	assert.Contains(t, string(data), "2026-01-17T10:00:00Z")
 }
 
-func TestSignerAlgorithm(t *testing.T) {
-	signer := NewHMACSigner([]byte("secret"))
-	assert.Equal(t, AlgorithmHMACSHA256, signer.Algorithm())
-}
 
 // Test helper functions for env var management
 // These suppress errcheck warnings as env var operations in tests are best-effort

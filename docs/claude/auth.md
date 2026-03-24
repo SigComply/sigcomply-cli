@@ -9,10 +9,10 @@ SigComply uses **ephemeral OIDC tokens** for authentication in two critical area
 The CLI uses OIDC tokens **for authentication only** — to prove to the SigComply Rails backend which CI run is submitting results, without needing long-lived API keys.
 
 **Important distinction:**
-- **OIDC token** → HTTP `Authorization: Bearer` header (authentication)
-- **HMAC-SHA256 with `SIGCOMPLY_SIGNING_SECRET`** → attestation `Signature` field (payload integrity)
+- **OIDC token** → HTTP `Authorization: Bearer` header (authentication with Cloud API)
+- **Ephemeral Ed25519 keypair** → attestation `Signature` field (evidence integrity, stored in customer S3)
 
-These are two separate concerns. OIDC is never used to sign attestation payloads.
+These are two entirely separate concerns. OIDC is never used to sign attestations.
 
 **How it works:**
 
@@ -29,10 +29,10 @@ These are two separate concerns. OIDC is never used to sign attestation payloads
    token := os.Getenv("CI_JOB_JWT_V2") // GitLab
    ```
 
-3. **CLI Signs Attestation with HMAC and Submits:**
+3. **CLI Signs Attestation with Ephemeral Ed25519 and Submits Aggregated Results:**
    ```go
-   // Build attestation
-   // NOTE: StorageLocation is NOT signed (operational metadata)
+   // Build attestation and sign with an ephemeral Ed25519 keypair.
+   // Private key is zeroed immediately after signing — never stored.
    att := &attestation.Attestation{
        ID:        uuid.New().String(),
        RunID:     checkResult.RunID,
@@ -47,24 +47,34 @@ These are two separate concerns. OIDC is never used to sign attestation payloads
        CLIVersion: "1.0.0",
    }
 
-   // Sign attestation payload with HMAC-SHA256
-   secret := []byte(os.Getenv("SIGCOMPLY_SIGNING_SECRET"))
-   signer := attestation.NewHMACSigner(secret)
-   signer.Sign(att) // Sets att.Signature.Algorithm = "hmac-sha256"
+   signer, _ := attestation.NewEd25519Signer()
+   signer.Sign(att) // Sets att.PublicKey + att.Signature.Algorithm = "ed25519"
+   // att now has PublicKey embedded; private key is already zeroed
 
-   // Send to Rails API — OIDC token is used in the Authorization header,
-   // not in the attestation itself
+   // Attestation goes to customer S3 — NOT to Rails
+   storage.StoreAttestation(ctx, backend, runPath, att)
+
+   // Only aggregated results (counts, not resource IDs) go to the Cloud API.
+   // OIDC token is used in the Authorization header for authentication.
    client.Submit(ctx, &cloud.SubmitRequest{
-       CheckResult: checkResult,
-       Attestation: att,
+       RunID:         checkResult.RunID,
+       Framework:     "soc2",
+       PolicyResults: aggregated, // counts only, no ARNs, no usernames
+       Summary:       summary,
    })
    ```
 
-4. **Rails API Verifies Both Separately:**
+4. **Rails API Validates the OIDC Token:**
    - Validates OIDC token (in `Authorization` header) using GitHub/GitLab's public JWKS
    - Extracts repository and organization from OIDC claims to identify the customer account
-   - Verifies attestation HMAC signature using the customer's shared `SIGCOMPLY_SIGNING_SECRET`
-   - Ensures the evidence hashes in the attestation have not been tampered with
+   - Stores only the aggregated policy counts (pass/fail + resource counts)
+   - Never receives the attestation or any resource identifiers
+
+5. **Auditor Verifies Attestation Out-of-Band:**
+   - Auditor requests raw evidence files directly from the customer
+   - Customer provides files + `attestation.json` from their S3 bucket
+   - Auditor hashes the evidence files and verifies the signature using the public key embedded in `attestation.json`
+   - No SigComply involvement needed for evidence verification
 
 ## B. Authenticating with Third-Party Services (Preferred)
 

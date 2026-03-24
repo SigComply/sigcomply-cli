@@ -13,7 +13,7 @@ import (
 
 // Note: OIDC tokens are used exclusively for authenticating the CLI with the SigComply
 // Cloud API (via HTTP Authorization header). They are NOT used for signing attestations.
-// Attestation signing uses HMAC-SHA256 with a shared secret (see hmac.go).
+// Attestation signing uses ephemeral Ed25519 keypairs (see ed25519.go).
 
 // OIDCProvider represents a CI provider that supports OIDC tokens.
 type OIDCProvider string

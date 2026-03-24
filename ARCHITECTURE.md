@@ -43,19 +43,26 @@ sigcomply check
     (if --store)
          ▼
 ┌─────────────────┐
-│     STORAGE     │  Raw evidence + results → Customer's S3/GCS/local
+│   ATTESTATION   │  Generate ephemeral Ed25519 keypair
+│                 │  Sign SHA-256 hashes of evidence
+│                 │  Discard private key immediately
 └────────┬────────┘
          ▼
 ┌─────────────────┐
-│   ATTESTATION   │  SHA-256 hashes + signature → Customer's storage
+│     STORAGE     │  Raw evidence + full results + public key + signature
+│                 │  → Customer's S3/GCS/local   [everything stays here]
 └────────┬────────┘
          │
     (paid tier, auto in CI when OIDC available)
          ▼
+┌─────────────────────────────────────────┐
+│   AGGREGATE     │  Reduce violations to counts (no resource IDs)
+└────────┬────────┘  Aggregation boundary: resource identifiers discarded here
+         ▼
 ┌─────────────────┐
 │   CLOUD API     │  POST /api/v1/cli/runs (unified endpoint)
-└─────────────────┘  CheckResult + Attestation → SigComply Cloud
-                     (NOT raw evidence - stays with customer)
+└─────────────────┘  Aggregated policy results → SigComply Cloud
+                     Per-policy: pass/fail + resource counts (no ARNs, no usernames)
 ```
 
 ### What Goes Where
@@ -64,9 +71,12 @@ sigcomply check
 |------|------------------|------------------|
 | Raw evidence (API responses) | ✓ | ✗ |
 | Policy inputs (OPA input) | ✓ | ✗ |
-| CheckResult (all violations) | ✓ | ✓ |
-| Attestation (hashes + signature) | ✓ | ✓ |
-| Evidence location reference | - | ✓ |
+| Full CheckResult with all violation details (resource IDs, ARNs) | ✓ | ✗ |
+| Ephemeral public key | ✓ | ✗ |
+| Attestation signature | ✓ | ✗ |
+| Per-policy results (pass/fail + severity + resource counts) | ✓ | ✓ |
+| Compliance scores (aggregated) | ✓ | ✓ |
+| Resource identifiers (ARNs, usernames, emails) | ✓ (S3 only) | ✗ (never) |
 
 ---
 
@@ -104,7 +114,7 @@ internal/
     ├── config/                 # Configuration loading
     ├── output/                 # Text, JSON, SARIF formatters
     ├── storage/                # S3, GCS, local backends
-    ├── attestation/            # Signing (HMAC, OIDC, ECDSA)
+    ├── attestation/            # Signing (ephemeral Ed25519), hashing, OIDC token providers
     └── cloud/                  # SigComply Cloud client
 ```
 
@@ -214,18 +224,20 @@ type RunEnvironment struct {
 
 ### Attestation
 
+The attestation is stored entirely in the customer's S3 bucket. It is never sent to the SigComply Cloud API.
+
 ```go
 type Attestation struct {
-    ID              string            `json:"id"`
-    RunID           string            `json:"run_id"`
-    Framework       string            `json:"framework"`
-    Timestamp       time.Time         `json:"timestamp"`
-    Hashes          EvidenceHashes    `json:"hashes"`
-    Signature       Signature         `json:"signature"`
-    Environment     Environment       `json:"environment"`
-    StorageLocation StorageLocation   `json:"storage_location"`  // NOT signed (see below)
-    CLIVersion      string            `json:"cli_version,omitempty"`
-    PolicyVersions  map[string]string `json:"policy_versions,omitempty"`
+    ID             string            `json:"id"`
+    RunID          string            `json:"run_id"`
+    Framework      string            `json:"framework"`
+    Timestamp      time.Time         `json:"timestamp"`
+    Hashes         EvidenceHashes    `json:"hashes"`
+    Signature      Signature         `json:"signature"`
+    PublicKey      string            `json:"public_key"`     // Base64-encoded Ed25519 public key
+    Environment    Environment       `json:"environment"`
+    CLIVersion     string            `json:"cli_version,omitempty"`
+    PolicyVersions map[string]string `json:"policy_versions,omitempty"`
 }
 
 type EvidenceHashes struct {
@@ -236,9 +248,8 @@ type EvidenceHashes struct {
 }
 
 type Signature struct {
-    Algorithm string `json:"algorithm"`        // hmac-sha256
-    Value     string `json:"value"`            // Base64-encoded HMAC-SHA256 signature
-    KeyID     string `json:"key_id,omitempty"` // Identifies which key was used
+    Algorithm string `json:"algorithm"`  // ed25519
+    Value     string `json:"value"`      // Base64-encoded Ed25519 signature over Combined hash
 }
 
 type Environment struct {
@@ -252,33 +263,29 @@ type Environment struct {
     Actor        string `json:"actor,omitempty"`
 }
 
-type StorageLocation struct {
-    Backend      string `json:"backend"`       // local, s3, gcs
-    Bucket       string `json:"bucket,omitempty"`
-    Path         string `json:"path,omitempty"`
-    ManifestPath string `json:"manifest_path,omitempty"`
-    Encrypted    bool   `json:"encrypted,omitempty"`
-}
-
 const (
-    AlgorithmHMACSHA256 = "hmac-sha256"
+    AlgorithmEd25519 = "ed25519"
 )
 ```
 
 #### Attestation Design Decisions
 
-**What's Signed vs What's Not:**
+**Ephemeral keypair — no key management:**
+- CLI generates a fresh Ed25519 keypair for every single run using Go stdlib (`crypto/ed25519`)
+- Private key signs the `Combined` hash (canonical JSON of all evidence hashes), then is immediately discarded
+- Public key is embedded in `attestation.json` stored in the customer's S3 bucket
+- No secrets to distribute, rotate, or manage
 
-The attestation signature covers these fields:
-- `ID`, `RunID`, `Framework`, `Timestamp`
-- `Hashes` (evidence integrity)
-- `Environment` (execution context)
-- `CLIVersion`, `PolicyVersions` (reproducibility)
+**Purpose — auditor spot-checks only:**
+- An auditor randomly selects a handful of evidence files to verify
+- Auditor requests those files directly from the customer (out of band)
+- Auditor verifies: hash the file → matches the hash in attestation → signature over hashes verifies with the embedded public key
+- Confirms the evidence was not accidentally modified since collection
+- This is not part of the core compliance workflow
 
-**`StorageLocation` is intentionally NOT signed** because:
-- It's operational metadata that may change (e.g., evidence migration to different bucket)
-- Changing storage location should not invalidate the cryptographic proof of evidence integrity
-- The evidence hashes themselves prove integrity, regardless of where evidence is stored
+**Threat model:**
+- Protects against accidental corruption and unintentional evidence drift
+- Does not attempt to prevent a determined customer from fabricating evidence (that is fraud — a legal matter, not a technical one, and out of scope for all compliance tools)
 
 **Canonical JSON Serialization:**
 
@@ -418,8 +425,9 @@ Cloud submission uses OIDC authentication exclusively:
 - **OIDC tokens** are automatically detected in GitHub Actions and GitLab CI.
 - Cloud submission is **auto-enabled** when OIDC is available — no configuration needed.
 - Use `--cloud` to force cloud submission, `--no-cloud` to disable it.
-- The CLI submits a single unified payload via `POST /api/v1/cli/runs` containing both the `CheckResult` and `Attestation`.
-- The Rails app extracts derived data (hashes, scores, individual policy results) and discards resource-specific details (ARNs, repo names).
+- The CLI submits a single unified payload via `POST /api/v1/cli/runs` containing aggregated policy results only.
+- No attestation or evidence location is sent to the Rails app — those stay entirely in customer S3.
+- The aggregation happens in the CLI before the API call: violations are reduced to counts, resource identifiers are discarded.
 
 ---
 
@@ -440,18 +448,23 @@ Cloud submission uses OIDC authentication exclusively:
 
 ## Signing Method
 
-Attestations are signed using **HMAC-SHA256** in all environments. The signing key is a string provided via the `SIGCOMPLY_SIGNING_SECRET` environment variable.
+Attestations are signed using **ephemeral Ed25519** keypairs. No pre-shared secrets or key management required.
 
 ```
-Signature = HMAC-SHA256(CanonicalJSON(attestation payload), signing_secret)
+keypair = ed25519.GenerateKey()               // fresh keypair every run
+payload = CanonicalJSON(evidence_hashes)      // deterministic serialization
+signature = ed25519.Sign(private_key, payload)
+private_key.Discard()                         // immediately, never stored
+attestation.json = { hashes, signature, public_key, ... }  → customer S3
 ```
 
 **OIDC is authentication only** — the OIDC JWT token is sent in the `Authorization: Bearer` header to authenticate the CLI with the SigComply Cloud API. It is not used for signing attestations.
 
 | Concern | Mechanism |
 |---------|-----------|
-| Attestation signing | HMAC-SHA256 with `SIGCOMPLY_SIGNING_SECRET` |
+| Attestation signing | Ephemeral Ed25519 keypair (private key discarded after signing) |
 | Cloud API authentication | OIDC JWT in `Authorization: Bearer` header |
+| Evidence privacy | Aggregation in CLI — counts sent to cloud, resource IDs stay in S3 |
 
 ---
 
@@ -462,11 +475,11 @@ Signature = HMAC-SHA256(CanonicalJSON(attestation payload), signing_secret)
 | Evidence collection | ✓ | ✓ |
 | Policy evaluation | ✓ | ✓ |
 | Local/S3/GCS storage | ✓ | ✓ |
-| Attestation generation | ✓ | ✓ |
-| Drift detection | - | ✓ |
-| Resource tracking | - | ✓ |
-| Compliance trends | - | ✓ |
-| Auditor portal | - | ✓ |
+| Attestation signing (ephemeral Ed25519) | ✓ | ✓ |
+| Compliance dashboard (cloud) | - | ✓ |
+| Drift detection (policy-level) | - | ✓ |
+| Compliance score trends | - | ✓ |
+| Auditor reports portal | - | ✓ |
 
 ---
 

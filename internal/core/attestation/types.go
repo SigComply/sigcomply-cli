@@ -26,6 +26,11 @@ type Attestation struct {
 	// Signature contains the cryptographic signature.
 	Signature Signature `json:"signature"`
 
+	// PublicKey is the base64-encoded Ed25519 public key used to sign this attestation.
+	// The corresponding private key was discarded immediately after signing.
+	// An auditor can use this key to verify the signature without contacting SigComply.
+	PublicKey string `json:"public_key,omitempty"`
+
 	// Environment captures context about where the check was executed.
 	Environment Environment `json:"environment"`
 
@@ -60,14 +65,11 @@ type EvidenceHashes struct {
 
 // Signature contains cryptographic signature information.
 type Signature struct {
-	// Algorithm is the signing algorithm used. Currently only "hmac-sha256" is supported.
+	// Algorithm is the signing algorithm used. Currently "ed25519".
 	Algorithm string `json:"algorithm"`
 
 	// Value is the base64-encoded signature value.
 	Value string `json:"value"`
-
-	// KeyID identifies the key used for signing.
-	KeyID string `json:"key_id,omitempty"`
 }
 
 // Environment captures context about the execution environment.
@@ -98,7 +100,8 @@ type Environment struct {
 }
 
 // StorageLocation describes where evidence is stored.
-// This structure is sent to the SigComply Cloud API as part of attestations.
+// This is stored inside attestation.json in the customer's S3 bucket alongside the evidence.
+// It is NOT sent to the SigComply Cloud API.
 type StorageLocation struct {
 	// Backend is the storage backend type (local, s3, gcs).
 	Backend string `json:"backend"`
@@ -120,7 +123,7 @@ type StorageLocation struct {
 
 // SigningAlgorithm constants.
 const (
-	AlgorithmHMACSHA256 = "hmac-sha256"
+	AlgorithmEd25519 = "ed25519"
 )
 
 // MarshalJSON implements custom JSON marshaling.

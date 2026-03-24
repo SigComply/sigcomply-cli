@@ -19,7 +19,6 @@ type E2EConfig struct {
 	Defaults        Defaults                     `yaml:"defaults"`
 	Credentials     map[string]CredentialProfile `yaml:"credentials"`
 	StorageProfiles map[string]StorageProfile    `yaml:"storage_profiles"`
-	Signing         SigningConfig                `yaml:"signing"`
 	Scenarios       []Scenario                   `yaml:"scenarios"`
 }
 
@@ -44,12 +43,6 @@ type StorageProfile struct {
 	Backend string            `yaml:"backend"`
 	EnvVars map[string]string `yaml:"env_vars"`
 	Config  map[string]string `yaml:"config"`
-}
-
-// SigningConfig holds signing-related configuration.
-type SigningConfig struct {
-	EnvVars       map[string]string `yaml:"env_vars"`
-	DefaultSecret string            `yaml:"default_secret"`
 }
 
 // CollectorFilter specifies which provider and services to collect from.
@@ -224,15 +217,3 @@ func (c *E2EConfig) ResolveStorage(profileName string) (*ResolvedStorage, error)
 	return resolved, nil
 }
 
-// ResolveHMACSecret resolves the HMAC signing secret from env var or default.
-func (c *E2EConfig) ResolveHMACSecret() []byte {
-	if envVar, ok := c.Signing.EnvVars["hmac_secret"]; ok {
-		if val := os.Getenv(envVar); val != "" {
-			return []byte(val)
-		}
-	}
-	if c.Signing.DefaultSecret != "" {
-		return []byte(c.Signing.DefaultSecret)
-	}
-	return []byte("e2e-test-hmac-secret-default")
-}

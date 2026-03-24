@@ -173,8 +173,8 @@ SigComply CLI is an open-source compliance automation engine that enables organi
 - **Language**: Go (Golang)
 - **Policy Engine**: Open Policy Agent (OPA) with Rego policies
 - **Authentication**: OIDC tokens for authenticating with the SigComply Cloud API and third-party services (AWS, GCP, Azure, etc.). Fallback to traditional credentials when OIDC unavailable.
-- **Attestation Signing**: HMAC-SHA256 with `SIGCOMPLY_SIGNING_SECRET`. OIDC is authentication-only — it is not used for signing attestation payloads.
-- **Cryptography**: SHA-256 hashing for evidence attestation
+- **Attestation Signing**: Ephemeral Ed25519 keypair generated per run. Private key is discarded immediately after signing. Public key + signature + raw evidence are all stored in the customer's S3 bucket. Purpose: auditor spot-checks (verify evidence not accidentally tampered with). Not part of the core workflow.
+- **Cryptography**: SHA-256 hashing for evidence integrity, Ed25519 for attestation signing
 - **Configuration**: YAML-based configuration files
 - **Distribution**: Single binary executable
 - **CI/CD**: GitHub Actions reusable workflows, GitLab CI components
@@ -197,12 +197,12 @@ SigComply uses a two-repository architecture that balances transparency with bus
 - Complete transparency for security-conscious teams
 
 **Repo 2: sigcomply-cloud (PRIVATE)**
-- The "Intelligence/Storage Layer" / Attestation Ledger
+- The "Compliance Dashboard" layer
 - Rails-based backend application
-- Stores attestation history and metadata
+- Stores only aggregated policy results (counts, scores, per-policy pass/fail)
 - Handles billing and subscription management
-- Manages proprietary verification workflows
-- Provides auditor portal and reporting
+- Provides auditor portal and compliance reporting
+- Never stores raw evidence, resource identifiers, or PII
 
 This separation ensures:
 - Compliance logic remains open and auditable
@@ -218,21 +218,25 @@ User Environment
 [SigComply CLI]
     ↓
     ├─> Fetch data from Service APIs (AWS, GitHub, etc.)
-    ├─> Execute OPA/Rego policies against fetched data
+    ├─> Execute OPA/Rego policies against fetched data locally
     ├─> Generate CheckResult with PolicyResults and Violations
-    ├─> Store to customer's storage (S3, GCS, local):
+    │
+    ├─> Store to customer's storage (S3, GCS, local):   [ALL stays with customer]
     │   ├─> Raw evidence (API responses)
     │   ├─> Policy inputs (what OPA evaluated)
-    │   ├─> Check results (evaluation outcomes)
-    │   └─> Signed attestation
+    │   ├─> Full check results (including violation details with resource IDs)
+    │   ├─> Ephemeral Ed25519 public key (private key discarded immediately)
+    │   └─> Signed attestation (signature over evidence hashes)
     │
-    └─> Send to SigComply Cloud API (paid tier):
-        ├─> Full CheckResult (all policy results with violations)
-        ├─> Signed attestation (hashes + signature)
-        └─> Evidence location reference (where raw evidence is stored)
+    └─> Send to SigComply Cloud API (paid tier):        [Aggregated only, no PII]
+        ├─> Per-policy results: policy_id + pass/fail + severity
+        ├─> Aggregated counts: resources_evaluated, resources_failed
+        └─> Compliance scores: overall + per-control (no individual resource details)
 ```
 
-**Important**: Raw evidence (API responses) and policy inputs stay in customer's storage. The Cloud API receives full compliance check results (including violation details) but never the underlying raw data.
+**Aggregation boundary**: The CLI aggregates raw results into counts before sending anything to the Cloud API. Resource identifiers (ARNs, usernames, email addresses, account IDs) never leave the customer's environment.
+
+**Example**: "3 users without MFA" is sent to Rails. The list of which users never leaves customer S3.
 
 ### 3. Key Components
 
@@ -254,43 +258,42 @@ User Environment
 - Customer maintains complete data sovereignty
 
 #### Attestation Generation
-- CLI generates SHA-256 hash of every piece of evidence
-- Hash acts as cryptographic proof of evidence
-- Hash + metadata (timestamp, status, control ID) form attestation
+- CLI generates an ephemeral Ed25519 keypair for each run
+- CLI computes SHA-256 hash of every piece of evidence
+- CLI signs the combined evidence hashes with the private key, then immediately discards the private key
+- Public key + signature + raw evidence are all stored together in the customer's S3 bucket
+- Purpose: auditor spot-checks — an auditor can randomly pick any evidence file, verify the hash matches the signature, and confirm it has not been tampered with
+- This is out-of-band verification, not part of the core compliance workflow
 
 #### Cloud Reporting (Paid Tier)
-- CLI sends **full compliance check results** to SigComply Cloud API:
-  1. **CheckResult**: Complete policy evaluation results including all violations with resource details
-  2. **Attestation**: Cryptographic proof with evidence hashes and signature
-  3. **Evidence Location**: Reference to where raw evidence is stored (not the evidence itself)
+- CLI sends **aggregated policy results** to SigComply Cloud API — no raw evidence, no resource identifiers, no PII:
+  1. **Per-policy results**: policy_id + pass/fail + severity + counts (resources_evaluated, resources_failed)
+  2. **Compliance scores**: overall framework score + per-control scores
+  3. No violations with resource IDs, no user names, no ARNs, no account IDs
 - This enables:
+  - **Compliance dashboards**: overall score and per-control status over time
   - **Drift detection**: "CC6.1 failed last week, passing now"
-  - **Resource tracking**: "User alice has had MFA violations 3 times"
-  - **Intelligent alerting**: "3 new violations since last check"
-  - **Historical compliance analysis** with full context
+  - **Trend analysis**: compliance score improving or degrading
+  - **Auditor reports**: framework readiness at a glance
 - Cloud API is a separate private Rails application
-- Creates immutable audit trail for compliance history
-- Enables auditor verification portal
-- **Raw evidence (API responses) stays with customer** - maintains non-custodial architecture
-- See [ARCHITECTURE.md - Free vs Paid Tier Data Flow](./ARCHITECTURE.md#free-vs-paid-tier-data-flow) for details
+- Raw evidence, full violation details, and all identifiers stay in customer S3
+- The aggregation happens client-side in the CLI before any data leaves the customer's environment
 
 ### 4. External Systems
 
 **SigComply Cloud API** (Separate Rails Application - Private Repository):
-- Receives compliance check results from CLI (paid tier):
-  - Full CheckResult with all PolicyResults and Violations
-  - Signed Attestation with evidence hashes
-  - Evidence storage location reference
-- Stores results in immutable ledger for audit trail
+- Receives aggregated policy results from CLI (paid tier):
+  - Per-policy: policy_id, pass/fail status, severity, resource counts
+  - Overall: compliance scores, framework summary
+- Stores results to power compliance dashboards and auditor reports
 - Enables:
-  - Drift detection (compare violations over time)
-  - Resource-level compliance tracking
-  - Compliance trend analysis and dashboards
-  - Intelligent alerting on compliance changes
+  - Drift detection (per-policy pass/fail changing over time)
+  - Compliance trend analysis and score history
   - Cross-environment comparison (staging vs production)
-- Provides web portal for audit reports
-- Enables auditor verification workflow
-- **Does NOT receive**: Raw evidence (API responses), policy inputs
+  - Auditor-ready reports and framework readiness views
+- Provides web portal for compliance dashboards and auditor reports
+- Auditor evidence verification is handled out-of-band: auditor requests raw evidence directly from customer, verifies signature using public key from customer's S3
+- **Does NOT receive**: Raw evidence, resource identifiers (ARNs, usernames, emails, account IDs), full violation details, or any PII
 
 ---
 
@@ -380,10 +383,12 @@ SigComply uses ephemeral OIDC tokens for dual-purpose authentication:
 ### Data Sovereignty
 - Customer owns all raw evidence
 - Customer controls storage location
-- SigComply never sees production data or raw evidence
-- Only derived compliance data leaves customer environment:
-  - Cryptographic proofs (SHA-256 hashes)
-  - Aggregated evaluation results (pass/fail counts, scores)
+- SigComply never sees production data, raw evidence, or resource-level details
+- Attestation signing artifacts (public key + signature) stay in customer's S3 alongside the evidence they protect
+- Only aggregated compliance data leaves customer environment:
+  - Per-policy pass/fail results with resource counts (not identities)
+  - Compliance scores (aggregated percentages)
+- Aggregation is the CLI's responsibility — it happens before any data leaves the customer environment
 
 ### Open Compliance
 - All policies written in open Rego language
@@ -441,10 +446,11 @@ include:
 ```bash
 sigcomply check --framework soc2
 # Fetches current infrastructure state
-# Evaluates OPA policies
-# Stores evidence in customer's vault
+# Evaluates OPA policies locally
+# Generates ephemeral Ed25519 keypair, signs evidence hashes, discards private key
+# Stores evidence + public key + signature in customer's vault (S3/local)
 # Authenticates via OIDC token in CI
-# Sends signed attestations to Cloud API
+# Sends aggregated policy results to Cloud API (counts only, no resource IDs)
 # Outputs pass/fail results
 ```
 
@@ -453,19 +459,27 @@ When the workflow runs:
 1. CI/CD platform generates ephemeral OIDC token
 2. SigComply CLI is installed via reusable workflow
 3. CLI fetches infrastructure data using repository secrets
-4. Policies are evaluated locally
-5. Evidence stored in customer's sovereign vault
-6. Derived compliance data sent to Rails API with OIDC token:
-   - Attestations (hashes + metadata)
-   - Evaluation summaries (pass/fail counts, compliance scores)
-7. Build passes/fails based on compliance status
+4. Policies are evaluated locally — full violations (with resource IDs) computed in memory
+5. CLI generates ephemeral Ed25519 keypair, signs evidence hashes, discards private key
+6. Raw evidence + full check results + public key + signature stored in customer's S3 vault
+7. CLI aggregates results (resource counts, policy-level pass/fail) — resource identifiers discarded
+8. Aggregated compliance data sent to Rails API with OIDC token (no resource IDs, no PII)
+9. Build passes/fails based on compliance status
 
 ### 5. Audit Preparation
 ```bash
 sigcomply report --framework soc2 --format pdf
-# Generates audit-ready report
-# Auditor can verify evidence via SigComply portal
-# Portal compares raw evidence against stored hashes
+# Generates audit-ready report from policy results stored in Cloud API
+# Auditor reviews compliance dashboard and framework readiness summary
+```
+
+**Evidence spot-check (out-of-band):**
+```
+Auditor selects a handful of evidence files to verify
+  → Requests the raw evidence files directly from the customer
+  → Customer provides the files and the corresponding attestation.json from their S3 bucket
+  → Auditor hashes the evidence files and verifies the signature using the public key in attestation.json
+  → Match confirms the evidence is intact and unmodified since collection
 ```
 
 ---
@@ -811,7 +825,7 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 - OPA engine with 30+ embedded SOC 2 policies + ISO 27001 policies
 - Text, JSON, JUnit output formatters
 - Evidence storage (S3, local)
-- Attestation signing (HMAC-SHA256 via SIGCOMPLY_SIGNING_SECRET)
+- Attestation signing (ephemeral Ed25519 keypair, public key + signature stored in customer S3)
 - SigComply Cloud API client (unified `POST /api/v1/cli/runs`)
 - OIDC authentication (GitHub Actions, GitLab CI)
 - Canonical JSON for deterministic hashing
@@ -847,25 +861,33 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 - When in doubt about design decisions, favor security over convenience
 - **Key architectural decision - What stays with customer vs goes to cloud**:
 
-  **Stays with Customer (in their storage)**:
+  **Stays with Customer (in their S3 vault)**:
   - Raw evidence (actual API responses)
   - Policy inputs (data sent to OPA)
-
-  **Goes to SigComply Cloud (paid tier)**:
   - Full `CheckResult` with all `PolicyResult` entries
-  - All `Violation` details (resource IDs, types, reasons)
-  - Signed `Attestation` with evidence hashes
-  - `EvidenceLocation` reference
+  - All `Violation` details (resource IDs, types, reasons) — full context for the customer
+  - Ephemeral Ed25519 public key
+  - Signed attestation (signature over evidence hashes)
 
-  This enables drift detection, resource tracking, and compliance trends while maintaining non-custodial architecture (no API credentials, no raw infrastructure data).
+  **Goes to SigComply Cloud (paid tier) — aggregated only, no PII**:
+  - Per-policy results: policy_id + pass/fail + severity + resource counts
+  - Compliance scores (aggregated percentages)
+  - No resource identifiers, no usernames, no ARNs, no email addresses
 
-- **Why this is still "Evidence without Access"**: SigComply never gets credentials to customer infrastructure and never receives raw API responses. We only see compliance evaluation results (which controls passed/failed and why).
+  This enables compliance dashboards and trend analysis while maintaining strict data privacy.
+
+- **Why this is "Evidence without Access"**: SigComply never receives credentials, raw API responses, or any data that would identify specific resources or people. We only receive aggregate counts ("3 resources failed this policy") not identities.
+
+- **The aggregation boundary is sacred**: The CLI is responsible for reducing violations to counts before sending anything to the Cloud API. This is a hard architectural boundary — never add code that would send resource identifiers to the cloud client.
+
 - **Attestation design decisions**:
-  - `StorageLocation` is NOT signed (operational metadata that may change)
-  - `CLIVersion` and `PolicyVersions` ARE signed (for reproducibility)
-  - All hashing uses canonical JSON (sorted map keys) for deterministic output
-  - This ensures customers can migrate evidence storage without invalidating attestations
-- Reference the comprehensive type definitions in [ARCHITECTURE.md - Post-Execution Architecture](./ARCHITECTURE.md#post-execution-architecture)
+  - Ephemeral Ed25519 keypair per run — private key discarded immediately after signing
+  - Public key + signature stay in customer S3 alongside the evidence
+  - Signing uses canonical JSON (sorted map keys) for deterministic, reproducible hashes
+  - Purpose is auditor spot-checks, not core workflow — auditor randomly verifies a handful of files
+  - No Rails involvement in attestation verification — entirely customer-side
+
+- **Threat model for attestation**: We protect against accidental corruption and unintentional evidence drift. We do not attempt to prevent a determined customer from fabricating evidence — that would be fraud, a legal matter, and is out of scope for all compliance tools.
 
 ---
 
@@ -879,4 +901,4 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 
 ---
 
-Last Updated: 2026-03-15
+Last Updated: 2026-03-24

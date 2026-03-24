@@ -13,74 +13,16 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core/storage"
 )
 
-// sanitizeCheckResultForCloud creates a copy of the check result with status values
-// compatible with the Rails API. The Rails API only accepts "pass", "fail", "skip"
-// but the CLI also has "error" status. This function maps "error" to "fail".
-func sanitizeCheckResultForCloud(result *evidence.CheckResult) *evidence.CheckResult {
-	if result == nil {
-		return nil
-	}
-
-	// Create a shallow copy
-	sanitized := *result
-
-	// Deep copy and sanitize policy results
-	sanitized.PolicyResults = make([]evidence.PolicyResult, len(result.PolicyResults))
-	for i := range result.PolicyResults {
-		sanitized.PolicyResults[i] = result.PolicyResults[i]
-		// Map "error" status to "fail" for Rails API compatibility
-		// Rails only accepts: pass, fail, skip
-		if result.PolicyResults[i].Status == evidence.StatusError {
-			sanitized.PolicyResults[i].Status = evidence.StatusFail
-			// Prepend error indicator to message if not already present
-			if result.PolicyResults[i].Message != "" {
-				sanitized.PolicyResults[i].Message = "[Error during evaluation] " + result.PolicyResults[i].Message
-			} else {
-				sanitized.PolicyResults[i].Message = "[Error during evaluation]"
-			}
-		}
-	}
-
-	// Recalculate summary with sanitized statuses
-	sanitized.CalculateSummary()
-
-	return &sanitized
-}
-
-// buildEvidenceURL constructs a URL for the evidence location.
-func buildEvidenceURL(backend, bucket, path string) string {
-	switch backend {
-	case backendS3:
-		if bucket != "" {
-			if path != "" {
-				return fmt.Sprintf("s3://%s/%s", bucket, path)
-			}
-			return fmt.Sprintf("s3://%s", bucket)
-		}
-	case "gcs":
-		if bucket != "" {
-			if path != "" {
-				return fmt.Sprintf("gs://%s/%s", bucket, path)
-			}
-			return fmt.Sprintf("gs://%s", bucket)
-		}
-	case backendLocal:
-		if path != "" {
-			return fmt.Sprintf("file://%s", path)
-		}
-	}
-	return ""
-}
-
 // buildAttestation creates a signed attestation from check results and the storage manifest.
-// The manifest provides stored file hashes for attestation (hash of actual stored files).
-func buildAttestation(cfg *config.Config, checkResult *evidence.CheckResult, manifest *storage.Manifest) *attestation.Attestation {
+// A fresh ephemeral Ed25519 keypair is generated for each call; the private key is discarded
+// immediately after signing. The public key and signature are embedded in the returned
+// attestation and stored alongside the evidence in the customer's S3 bucket.
+func buildAttestation(cfg *config.Config, checkResult *evidence.CheckResult, manifest *storage.Manifest) (*attestation.Attestation, error) {
 	// Compute hashes from stored files
 	runPath := storage.NewRunPath(checkResult.Framework, checkResult.Timestamp)
 	checkResultHash, fileHashes := manifest.FileHashes(runPath.BasePath())
 	hashes := attestation.ComputeStoredFileHashes(checkResultHash, fileHashes)
 
-	// Build attestation
 	att := &attestation.Attestation{
 		ID:        uuid.New().String(),
 		RunID:     checkResult.RunID,
@@ -99,31 +41,84 @@ func buildAttestation(cfg *config.Config, checkResult *evidence.CheckResult, man
 		// supports tracking policy versions/hashes
 	}
 
-	// Set storage location
+	// Set storage location (metadata only — not included in signed payload)
 	if cfg.Storage.Enabled {
 		att.StorageLocation = attestation.StorageLocation{
 			Backend: cfg.Storage.Backend,
 			Bucket:  cfg.Storage.Bucket,
-			Path:    cfg.Storage.Prefix, // cfg.Storage.Prefix maps to StorageLocation.Path
+			Path:    cfg.Storage.Prefix,
 		}
 		if manifest != nil {
 			att.StorageLocation.ManifestPath = computeManifestPath(cfg, manifest)
 		}
 	}
 
-	return att
+	// Sign with an ephemeral Ed25519 keypair. Private key is zeroed immediately after signing.
+	signer, err := attestation.NewEd25519Signer()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create attestation signer: %w", err)
+	}
+	if err := signer.Sign(att); err != nil {
+		return nil, fmt.Errorf("failed to sign attestation: %w", err)
+	}
+
+	return att, nil
 }
 
-// buildCloudSubmitRequest creates a cloud API submission request.
-// The check result is sanitized to ensure status values are compatible with Rails API.
-func buildCloudSubmitRequest(cfg *config.Config, checkResult *evidence.CheckResult, att *attestation.Attestation, manifest *storage.Manifest) *cloud.SubmitRequest {
-	// Sanitize check result for Rails API compatibility
-	// Rails only accepts pass/fail/skip, not error
-	sanitizedResult := sanitizeCheckResultForCloud(checkResult)
+// buildCloudSubmitRequest creates a cloud API submission request containing only aggregated
+// policy results. No resource identifiers (ARNs, usernames, emails) are included — only counts.
+// The attestation and raw evidence stay entirely in the customer's S3 bucket.
+func buildCloudSubmitRequest(cfg *config.Config, checkResult *evidence.CheckResult) *cloud.SubmitRequest {
+	// Aggregate policy results: strip violations, keep only counts.
+	// Map "error" status to "fail" for Rails API compatibility.
+	aggregated := make([]cloud.AggregatedPolicyResult, len(checkResult.PolicyResults))
+	for i, pr := range checkResult.PolicyResults {
+		status := string(pr.Status)
+		if pr.Status == evidence.StatusError {
+			// Rails only accepts: pass, fail, skip
+			status = string(evidence.StatusFail)
+		}
+		aggregated[i] = cloud.AggregatedPolicyResult{
+			PolicyID:           pr.PolicyID,
+			ControlID:          pr.ControlID,
+			Status:             status,
+			Severity:           string(pr.Severity),
+			ResourcesEvaluated: pr.ResourcesEvaluated,
+			ResourcesFailed:    pr.ResourcesFailed,
+			// NOTE: Violations intentionally excluded — no resource IDs reach the cloud.
+		}
+	}
 
-	req := &cloud.SubmitRequest{
-		CheckResult: sanitizedResult,
-		Attestation: att,
+	// Build summary, re-counting to reflect error→fail mapping.
+	passed, failed, skipped := 0, 0, 0
+	for _, r := range aggregated {
+		switch r.Status {
+		case string(evidence.StatusPass):
+			passed++
+		case string(evidence.StatusFail):
+			failed++
+		case string(evidence.StatusSkip):
+			skipped++
+		}
+	}
+	total := len(aggregated)
+	var score float64
+	if total > 0 {
+		score = float64(passed) / float64(total)
+	}
+
+	return &cloud.SubmitRequest{
+		RunID:         checkResult.RunID,
+		Framework:     checkResult.Framework,
+		Timestamp:     checkResult.Timestamp,
+		PolicyResults: aggregated,
+		Summary: cloud.AggregatedSummary{
+			TotalPolicies:   total,
+			PassedPolicies:  passed,
+			FailedPolicies:  failed,
+			SkippedPolicies: skipped,
+			ComplianceScore: score,
+		},
 		RunMetadata: &cloud.RunMetadata{
 			CI:         cfg.CI,
 			CIProvider: cfg.CIProvider,
@@ -133,42 +128,15 @@ func buildCloudSubmitRequest(cfg *config.Config, checkResult *evidence.CheckResu
 			CLIVersion: version,
 		},
 	}
-
-	// Set evidence location based on storage config
-	if cfg.Storage.Enabled {
-		req.EvidenceLocation = &cloud.EvidenceLocation{
-			Backend: cfg.Storage.Backend,
-		}
-
-		switch cfg.Storage.Backend {
-		case backendS3:
-			req.EvidenceLocation.Bucket = cfg.Storage.Bucket
-			req.EvidenceLocation.Path = cfg.Storage.Prefix
-			req.EvidenceLocation.URL = buildEvidenceURL(backendS3, cfg.Storage.Bucket, cfg.Storage.Prefix)
-		case backendLocal:
-			req.EvidenceLocation.Path = cfg.Storage.Path
-			req.EvidenceLocation.URL = buildEvidenceURL(backendLocal, "", cfg.Storage.Path)
-		default:
-			req.EvidenceLocation.Path = cfg.Storage.Path
-		}
-
-		if manifest != nil {
-			req.EvidenceLocation.ManifestPath = computeManifestPath(cfg, manifest)
-		}
-	}
-
-	return req
 }
 
 // computeManifestPath computes the manifest path from the manifest's stored items.
-// With the new auditor-friendly layout, the manifest path is stored in the manifest itself.
 func computeManifestPath(cfg *config.Config, manifest *storage.Manifest) string {
 	// Find the manifest item in stored items (it contains the actual path)
 	for _, item := range manifest.Items {
 		if item.Metadata != nil && item.Metadata["type"] == "manifest" {
 			switch cfg.Storage.Backend {
 			case backendS3:
-				// S3 paths already include the prefix
 				return item.Path
 			case backendLocal:
 				return cfg.Storage.Path + "/" + item.Path
@@ -193,40 +161,25 @@ func computeManifestPath(cfg *config.Config, manifest *storage.Manifest) string 
 	}
 }
 
-// submitToCloud submits check results to the SigComply Cloud API.
+// submitToCloud submits aggregated compliance check results to the SigComply Cloud API.
+// Only aggregated policy results are sent — no attestation, no evidence location, no resource IDs.
 // Returns nil, nil if OIDC authentication is not available.
-func submitToCloud(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, manifest *storage.Manifest, baseURL string) (*cloud.SubmitResponse, error) {
+func submitToCloud(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, baseURL string) (*cloud.SubmitResponse, error) {
 	if !cloud.IsOIDCAvailable() {
 		return nil, nil
 	}
 
-	// Build attestation from manifest if available
-	var att *attestation.Attestation
-	if manifest != nil {
-		att = buildAttestation(cfg, checkResult, manifest)
-	}
+	req := buildCloudSubmitRequest(cfg, checkResult)
 
-	return submitToCloudWithAttestation(ctx, cfg, checkResult, manifest, att, baseURL)
-}
-
-// submitToCloudWithAttestation submits check results with a pre-built attestation.
-// Returns nil, nil if no OIDC authentication is available.
-func submitToCloudWithAttestation(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, manifest *storage.Manifest, att *attestation.Attestation, baseURL string) (*cloud.SubmitResponse, error) {
-	// Build submission request
-	req := buildCloudSubmitRequest(cfg, checkResult, att, manifest)
-
-	// Create cloud client
 	client := cloud.NewClient(nil)
 	if baseURL != "" {
 		client.WithBaseURL(baseURL)
 	}
 
-	// Configure OIDC authentication
 	if err := cloud.ConfigureClientAuth(ctx, client, nil); err != nil {
 		return nil, fmt.Errorf("cloud authentication failed: %w", err)
 	}
 
-	// Submit to cloud
 	resp, err := client.Submit(ctx, req)
 	if err != nil {
 		return nil, err

@@ -29,8 +29,6 @@ func RunScenario(t *testing.T, cfg *config.E2EConfig, allCreds []*config.Resolve
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 
-	secret := cfg.ResolveHMACSecret()
-
 	providers := make([]string, len(allCreds))
 	for i, c := range allCreds {
 		providers[i] = c.Provider
@@ -274,16 +272,20 @@ func RunScenario(t *testing.T, cfg *config.E2EConfig, allCreds []*config.Resolve
 	}
 
 	t.Run("sign-attestation", func(t *testing.T) {
-		signer := attestation.NewHMACSigner(secret)
-		err := signer.Sign(att)
-		require.NoError(t, err, "HMAC signing failed")
-		require.NotEmpty(t, att.Signature.Value, "Signature value is empty")
-		assert.Equal(t, attestation.AlgorithmHMACSHA256, att.Signature.Algorithm)
+		// Generate ephemeral Ed25519 keypair — private key is discarded after signing.
+		signer, signerErr := attestation.NewEd25519Signer()
+		require.NoError(t, signerErr, "Ed25519 signer creation failed")
 
-		// Round-trip verify
-		verifier := attestation.NewHMACVerifier(secret)
+		err := signer.Sign(att)
+		require.NoError(t, err, "Ed25519 signing failed")
+		require.NotEmpty(t, att.Signature.Value, "Signature value is empty")
+		assert.Equal(t, attestation.AlgorithmEd25519, att.Signature.Algorithm)
+		assert.NotEmpty(t, att.PublicKey, "Public key should be embedded in attestation")
+
+		// Round-trip verify using the public key embedded in the attestation
+		verifier := attestation.NewEd25519Verifier()
 		err = verifier.Verify(att)
-		require.NoError(t, err, "HMAC verification failed")
+		require.NoError(t, err, "Ed25519 verification failed")
 
 		t.Logf("Attestation signed and verified (algorithm=%s)", att.Signature.Algorithm)
 	})

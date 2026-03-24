@@ -315,20 +315,22 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 		}
 	}
 
-	// Build attestation from stored file hashes (requires storage + cloud submission)
-	var att *attestation.Attestation
-	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) && cfg.Storage.Enabled && manifest != nil {
-		att = buildAttestation(cfg, checkResult, manifest)
-		if att != nil {
+	// Build and sign attestation from stored file hashes, then store in customer S3.
+	// The attestation stays entirely in customer storage — it is NOT sent to the cloud.
+	if cfg.Storage.Enabled && manifest != nil {
+		att, attErr := buildAttestation(cfg, checkResult, manifest)
+		if attErr != nil {
+			fmt.Printf("  [warn] Failed to build attestation: %s\n", attErr)
+		} else if att != nil {
 			if storeErr := storeAttestationFile(ctx, cfg, checkResult, att); storeErr != nil {
 				fmt.Printf("  [warn] Failed to store attestation: %s\n", storeErr)
 			}
 		}
 	}
 
-	// Submit to SigComply Cloud if enabled
+	// Submit aggregated results to SigComply Cloud if enabled
 	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) {
-		printCloudSubmission(ctx, cfg, checkResult, result.Evidence, manifest, att)
+		printCloudSubmission(ctx, cfg, checkResult)
 	}
 
 	// Format and display results
@@ -424,19 +426,18 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 		}
 	}
 
-	// Build attestation from stored file hashes (requires storage + cloud submission)
-	var att *attestation.Attestation
-	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) && cfg.Storage.Enabled && manifest != nil {
-		att = buildAttestation(cfg, checkResult, manifest)
-		if att != nil {
+	// Build and sign attestation, store in customer S3 (not sent to cloud).
+	if cfg.Storage.Enabled && manifest != nil {
+		att, attErr := buildAttestation(cfg, checkResult, manifest)
+		if attErr == nil && att != nil {
 			storeAttestationFile(ctx, cfg, checkResult, att) //nolint:errcheck // Attestation storage errors are non-critical
 		}
 	}
 
-	// Submit to cloud if enabled
+	// Submit aggregated results to cloud if enabled
 	var cloudResponse *cloudSubmitResult
 	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) {
-		cloudResp, cloudErr := submitToCloudWithAttestation(ctx, cfg, checkResult, manifest, att, "")
+		cloudResp, cloudErr := submitToCloud(ctx, cfg, checkResult, "")
 		if cloudErr == nil && cloudResp != nil {
 			cloudResponse = &cloudSubmitResult{
 				Success: cloudResp.Success(),
@@ -569,19 +570,18 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 		manifest, _ = storeEvidence(ctx, cfg, checkResult, result.Evidence)
 	}
 
-	// Build attestation from stored file hashes (requires storage + cloud submission)
-	var att *attestation.Attestation
-	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) && cfg.Storage.Enabled && manifest != nil {
-		att = buildAttestation(cfg, checkResult, manifest)
-		if att != nil {
+	// Build and sign attestation, store in customer S3 (not sent to cloud).
+	if cfg.Storage.Enabled && manifest != nil {
+		att, attErr := buildAttestation(cfg, checkResult, manifest)
+		if attErr == nil && att != nil {
 			storeAttestationFile(ctx, cfg, checkResult, att) //nolint:errcheck // Silently ignore in JUnit mode
 		}
 	}
 
-	// Submit to cloud if enabled (silently, as JUnit output should be pure XML)
+	// Submit aggregated results to cloud if enabled (silently, as JUnit output should be pure XML)
 	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) {
 		//nolint:errcheck // Intentionally ignoring cloud errors in JUnit mode to preserve XML output
-		submitToCloudWithAttestation(ctx, cfg, checkResult, manifest, att, "")
+		submitToCloud(ctx, cfg, checkResult, "")
 	}
 
 	// Format as JUnit XML
@@ -726,12 +726,12 @@ func printEvidenceCollection(result *aws.CollectionResult) {
 }
 
 // printCloudSubmission handles cloud submission and prints the results for text output.
-func printCloudSubmission(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, _ []evidence.Evidence, manifest *storage.Manifest, att *attestation.Attestation) {
+func printCloudSubmission(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult) {
 	fmt.Println()
 	fmt.Println("Cloud Submission")
 	fmt.Println("----------------")
 
-	cloudResp, cloudErr := submitToCloudWithAttestation(ctx, cfg, checkResult, manifest, att, "")
+	cloudResp, cloudErr := submitToCloud(ctx, cfg, checkResult, "")
 	if cloudErr != nil {
 		var apiErr *cloud.APIError
 		if errors.As(cloudErr, &apiErr) && apiErr.IsSubscriptionRequired() {

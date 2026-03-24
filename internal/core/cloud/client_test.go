@@ -10,8 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
-	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 func TestNewClient_DefaultConfig(t *testing.T) {
@@ -108,7 +106,6 @@ func TestClient_Submit_Success(t *testing.T) {
 			Data: &SubmitResponseData{
 				Run: &RunResponseData{
 					ID:                 "run-123",
-					AttestationID:      456,
 					PolicyEvaluationID: 789,
 					Status:             "accepted",
 				},
@@ -123,21 +120,16 @@ func TestClient_Submit_Success(t *testing.T) {
 	client := newOIDCClient(server.URL, 5*time.Second)
 
 	req := &SubmitRequest{
-		CheckResult: &evidence.CheckResult{
-			RunID:     "run-123",
-			Framework: "soc2",
-			Timestamp: time.Now(),
+		RunID:     "run-123",
+		Framework: "soc2",
+		Timestamp: time.Now(),
+		PolicyResults: []AggregatedPolicyResult{
+			{PolicyID: "soc2-cc6.1-mfa", ControlID: "CC6.1", Status: "pass", Severity: "high", ResourcesEvaluated: 10, ResourcesFailed: 0},
 		},
-		Attestation: &attestation.Attestation{
-			ID:        "attest-123",
-			RunID:     "run-123",
-			Framework: "soc2",
-		},
-		EvidenceLocation: &EvidenceLocation{
-			Backend: "s3",
-			Bucket:  "my-bucket",
-			Path:    "evidence",
-			URL:     "s3://my-bucket/evidence",
+		Summary: AggregatedSummary{
+			TotalPolicies:   1,
+			PassedPolicies:  1,
+			ComplianceScore: 1.0,
 		},
 	}
 
@@ -171,9 +163,7 @@ func TestClient_Submit_ServerError(t *testing.T) {
 
 	client := newOIDCClient(server.URL, 1*time.Second)
 
-	_, err := client.Submit(context.Background(), &SubmitRequest{
-		CheckResult: &evidence.CheckResult{},
-	})
+	_, err := client.Submit(context.Background(), &SubmitRequest{RunID: "test-run"})
 	require.Error(t, err)
 
 	apiErr, ok := err.(*APIError)
@@ -194,9 +184,7 @@ func TestClient_Submit_ClientError(t *testing.T) {
 
 	client := newOIDCClient(server.URL, 1*time.Second)
 
-	_, err := client.Submit(context.Background(), &SubmitRequest{
-		CheckResult: &evidence.CheckResult{},
-	})
+	_, err := client.Submit(context.Background(), &SubmitRequest{RunID: "test-run"})
 	require.Error(t, err)
 
 	apiErr, ok := err.(*APIError)
@@ -220,9 +208,7 @@ func TestClient_Submit_NestedErrorFormat(t *testing.T) {
 
 	client := newOIDCClient(server.URL, 1*time.Second)
 
-	_, err := client.Submit(context.Background(), &SubmitRequest{
-		CheckResult: &evidence.CheckResult{},
-	})
+	_, err := client.Submit(context.Background(), &SubmitRequest{RunID: "test-run"})
 	require.Error(t, err)
 
 	apiErr, ok := err.(*APIError)
@@ -248,9 +234,7 @@ func TestClient_Submit_402SubscriptionRequired(t *testing.T) {
 
 	client := newOIDCClient(server.URL, 1*time.Second)
 
-	_, err := client.Submit(context.Background(), &SubmitRequest{
-		CheckResult: &evidence.CheckResult{},
-	})
+	_, err := client.Submit(context.Background(), &SubmitRequest{RunID: "test-run"})
 	require.Error(t, err)
 
 	apiErr, ok := err.(*APIError)
@@ -280,9 +264,7 @@ func TestClient_Submit_NestedErrorWithDetails(t *testing.T) {
 
 	client := newOIDCClient(server.URL, 1*time.Second)
 
-	_, err := client.Submit(context.Background(), &SubmitRequest{
-		CheckResult: &evidence.CheckResult{},
-	})
+	_, err := client.Submit(context.Background(), &SubmitRequest{RunID: "test-run"})
 	require.Error(t, err)
 
 	apiErr, ok := err.(*APIError)
@@ -438,18 +420,18 @@ func TestDetectOIDCToken_NoCI(t *testing.T) {
 
 func TestSubmitRequest_JSON(t *testing.T) {
 	req := &SubmitRequest{
-		CheckResult: &evidence.CheckResult{
-			RunID:     "run-123",
-			Framework: "soc2",
+		RunID:     "run-123",
+		Framework: "soc2",
+		Timestamp: time.Now(),
+		PolicyResults: []AggregatedPolicyResult{
+			{PolicyID: "soc2-cc6.1-mfa", ControlID: "CC6.1", Status: "pass", Severity: "high", ResourcesEvaluated: 5, ResourcesFailed: 0},
+			{PolicyID: "soc2-cc6.2-encryption", ControlID: "CC6.2", Status: "fail", Severity: "critical", ResourcesEvaluated: 3, ResourcesFailed: 2},
 		},
-		Attestation: &attestation.Attestation{
-			ID:    "attest-123",
-			RunID: "run-123",
-		},
-		EvidenceLocation: &EvidenceLocation{
-			Backend:      "s3",
-			Path:         "s3://bucket/path",
-			ManifestPath: "manifest.json",
+		Summary: AggregatedSummary{
+			TotalPolicies:   2,
+			PassedPolicies:  1,
+			FailedPolicies:  1,
+			ComplianceScore: 0.5,
 		},
 		RunMetadata: &RunMetadata{
 			CI:         true,
@@ -467,8 +449,13 @@ func TestSubmitRequest_JSON(t *testing.T) {
 	err = json.Unmarshal(data, &parsed)
 	require.NoError(t, err)
 
-	assert.Equal(t, "run-123", parsed.CheckResult.RunID)
-	assert.Equal(t, "s3", parsed.EvidenceLocation.Backend)
+	assert.Equal(t, "run-123", parsed.RunID)
+	assert.Equal(t, "soc2", parsed.Framework)
+	assert.Len(t, parsed.PolicyResults, 2)
+	assert.Equal(t, "soc2-cc6.1-mfa", parsed.PolicyResults[0].PolicyID)
+	assert.Equal(t, 0, parsed.PolicyResults[0].ResourcesFailed)
+	assert.Equal(t, 2, parsed.PolicyResults[1].ResourcesFailed)
+	assert.Equal(t, 0.5, parsed.Summary.ComplianceScore)
 	assert.True(t, parsed.RunMetadata.CI)
 }
 
@@ -478,7 +465,6 @@ func TestSubmitResponse_WithDrift(t *testing.T) {
 		Data: &SubmitResponseData{
 			Run: &RunResponseData{
 				ID:                 "run-123",
-				AttestationID:      456,
 				PolicyEvaluationID: 789,
 				Status:             "accepted",
 				DriftSummary: &DriftSummary{
@@ -511,7 +497,7 @@ func TestSubmitResponse_WithDrift(t *testing.T) {
 	// Test direct access
 	require.NotNil(t, parsed.Data)
 	require.NotNil(t, parsed.Data.Run)
-	assert.Equal(t, int64(456), parsed.Data.Run.AttestationID)
+	assert.Equal(t, int64(789), parsed.Data.Run.PolicyEvaluationID)
 	assert.Equal(t, "accepted", parsed.Data.Run.Status)
 
 	// Test drift summary
