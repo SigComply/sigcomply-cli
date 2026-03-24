@@ -72,7 +72,8 @@ func buildCloudSubmitRequest(cfg *config.Config, checkResult *evidence.CheckResu
 	// Aggregate policy results: strip violations, keep only counts.
 	// Map "error" status to "fail" for Rails API compatibility.
 	aggregated := make([]cloud.AggregatedPolicyResult, len(checkResult.PolicyResults))
-	for i, pr := range checkResult.PolicyResults {
+	for i := range checkResult.PolicyResults {
+		pr := &checkResult.PolicyResults[i]
 		status := string(pr.Status)
 		if pr.Status == evidence.StatusError {
 			// Rails only accepts: pass, fail, skip
