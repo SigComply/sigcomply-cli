@@ -709,14 +709,13 @@ SIGCOMPLY_OUTPUT_FORMAT    # Output format: text, json, sarif
 ### Cloud API Client
 - HTTP client for SigComply Cloud API (paid tier)
 - Authenticates with OIDC tokens
-- Sends full compliance check results (no raw evidence):
-  - Full `CheckResult` with all `PolicyResult` entries and `Violations`
-  - Signed `Attestation` with evidence hashes
-  - `EvidenceLocation` reference (where raw evidence is stored)
-- Raw evidence (API responses) and policy inputs stay in customer storage
-- Receives audit report metadata
-- Enables drift detection, resource tracking, and compliance trends
-- See [ARCHITECTURE.md - Cloud API Payload](./ARCHITECTURE.md#cloud-api-payload-paid-tier) for schema
+- Sends **aggregated policy results only** via `POST /api/v1/cli/runs` — no raw evidence, no violations, no attestation, no resource identifiers:
+  - Per-policy: `policy_id`, `control_id`, pass/fail status, severity, `resources_evaluated`, `resources_failed` counts
+  - Overall: aggregated compliance scores and policy counts
+  - Run metadata: CI provider, repository, branch, CLI version (no resource IDs)
+- Raw evidence, full `CheckResult` with violation details, and attestation all stay in customer S3 — never sent to SigComply
+- The aggregation happens in the CLI before the API call: violations are reduced to counts, resource identifiers are discarded
+- Enables drift detection, compliance score trends, and auditor reports
 
 ---
 
