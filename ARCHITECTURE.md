@@ -37,7 +37,7 @@ sigcomply check
 └────────┬────────┘
          ▼
 ┌─────────────────┐
-│     OUTPUT      │  Text/JSON/SARIF → Exit code (0=pass, 1=fail)
+│     OUTPUT      │  Text/JSON/JUnit → Exit code (0=pass, 1=fail)
 └────────┬────────┘
          │
     (if --store)
@@ -112,7 +112,7 @@ internal/
 └── core/                       # Shared utilities
     ├── evidence/               # Evidence, Result, Violation types
     ├── config/                 # Configuration loading
-    ├── output/                 # Text, JSON, SARIF formatters
+    ├── output/                 # Text, JSON, JUnit formatters
     ├── storage/                # S3, GCS, local backends
     ├── attestation/            # Signing (ephemeral Ed25519), hashing, OIDC token providers
     └── cloud/                  # SigComply Cloud client
@@ -165,6 +165,7 @@ type Evidence struct {
 type Metadata struct {
     AccountID        string            `json:"account_id,omitempty"`
     Region           string            `json:"region,omitempty"`
+    Organization     string            `json:"organization,omitempty"`
     Tags             map[string]string `json:"tags,omitempty"`
     CollectorVersion string            `json:"collector_version,omitempty"`
 }
@@ -174,15 +175,17 @@ type Metadata struct {
 
 ```go
 type PolicyResult struct {
-    PolicyID           string       `json:"policy_id"`             // "soc2-cc6.1-mfa"
-    ControlID          string       `json:"control_id"`            // "CC6.1"
-    Status             ResultStatus `json:"status"`                // pass, fail, skip, error
-    Severity           Severity     `json:"severity"`              // critical, high, medium, low
-    Message            string       `json:"message"`               // Human-readable description
-    Remediation        string       `json:"remediation,omitempty"` // How to fix violations
+    PolicyID           string       `json:"policy_id"`              // "soc2-cc6.1-mfa"
+    ControlID          string       `json:"control_id"`             // "CC6.1"
+    Name               string       `json:"name"`                   // Human-readable policy name
+    Status             ResultStatus `json:"status"`                 // pass, fail, skip, error
+    Severity           Severity     `json:"severity"`               // critical, high, medium, low
+    Message            string       `json:"message"`                // Human-readable description
+    Remediation        string       `json:"remediation,omitempty"`  // How to fix violations
     ResourcesEvaluated int          `json:"resources_evaluated"`
     ResourcesFailed    int          `json:"resources_failed"`
     Violations         []Violation  `json:"violations,omitempty"`
+    ResourceTypes      []string     `json:"resource_types,omitempty"` // e.g. ["aws:iam:user"]
 }
 
 type Violation struct {
@@ -214,11 +217,12 @@ type CheckSummary struct {
 }
 
 type RunEnvironment struct {
-    CI         bool   `json:"ci"`                    // Running in CI/CD
-    CIProvider string `json:"ci_provider,omitempty"` // "github-actions", "gitlab-ci"
-    Repository string `json:"repository,omitempty"`  // "org/repo"
+    CI         bool   `json:"ci"`                     // Running in CI/CD
+    CIProvider string `json:"ci_provider,omitempty"`  // "github-actions", "gitlab-ci"
+    Repository string `json:"repository,omitempty"`   // "org/repo"
     Branch     string `json:"branch,omitempty"`
     CommitSHA  string `json:"commit_sha,omitempty"`
+    CLIVersion string `json:"cli_version,omitempty"`  // Version of the CLI
 }
 ```
 
@@ -228,23 +232,33 @@ The attestation is stored entirely in the customer's S3 bucket. It is never sent
 
 ```go
 type Attestation struct {
-    ID             string            `json:"id"`
-    RunID          string            `json:"run_id"`
-    Framework      string            `json:"framework"`
-    Timestamp      time.Time         `json:"timestamp"`
-    Hashes         EvidenceHashes    `json:"hashes"`
-    Signature      Signature         `json:"signature"`
-    PublicKey      string            `json:"public_key"`     // Base64-encoded Ed25519 public key
-    Environment    Environment       `json:"environment"`
-    CLIVersion     string            `json:"cli_version,omitempty"`
-    PolicyVersions map[string]string `json:"policy_versions,omitempty"`
+    ID              string            `json:"id"`
+    RunID           string            `json:"run_id"`
+    Framework       string            `json:"framework"`
+    Timestamp       time.Time         `json:"timestamp"`
+    Hashes          EvidenceHashes    `json:"hashes"`
+    Signature       Signature         `json:"signature"`
+    PublicKey       string            `json:"public_key"`           // Base64-encoded Ed25519 public key
+    Environment     Environment       `json:"environment"`
+    StorageLocation StorageLocation   `json:"storage_location"`     // NOT part of signed payload
+    CLIVersion      string            `json:"cli_version,omitempty"`
+    PolicyVersions  map[string]string `json:"policy_versions,omitempty"`
 }
 
 type EvidenceHashes struct {
-    CheckResult string            `json:"check_result"` // SHA-256 of CheckResult JSON
-    Evidence    map[string]string `json:"evidence"`     // Evidence ID → SHA-256 hash
-    Manifest    string            `json:"manifest,omitempty"`
-    Combined    string            `json:"combined"`     // Single hash of all above
+    CheckResult string            `json:"check_result"`  // SHA-256 of check_result.json
+    StoredFiles map[string]string `json:"stored_files"`  // relative path → SHA-256 hash
+    Combined    string            `json:"combined"`      // single hash of all above
+}
+
+// StorageLocation describes where evidence is stored.
+// Stored inside attestation.json in the customer's S3 bucket — NOT sent to SigComply Cloud.
+type StorageLocation struct {
+    Backend      string `json:"backend"`                 // local, s3, gcs
+    Bucket       string `json:"bucket,omitempty"`
+    Path         string `json:"path,omitempty"`
+    ManifestPath string `json:"manifest_path,omitempty"`
+    Encrypted    bool   `json:"encrypted,omitempty"`
 }
 
 type Signature struct {
@@ -349,14 +363,15 @@ violations[violation] if {
 
 ### Commands
 
-| Command | Description |
-|---------|-------------|
-| `sigcomply check` | Main: collect → evaluate → store → cloud submit |
-| `sigcomply init` | Initialize config file |
-| `sigcomply init-ci` | Generate CI/CD workflow files |
-| `sigcomply collect` | Collect evidence only |
-| `sigcomply evaluate` | Evaluate policies against stored evidence |
-| `sigcomply report` | Generate compliance reports |
+| Command | Description | Status |
+|---------|-------------|--------|
+| `sigcomply check` | Main: collect → evaluate → store → cloud submit | Implemented |
+| `sigcomply version` | Print version information | Implemented |
+| `sigcomply init` | Initialize config file | Planned |
+| `sigcomply init-ci` | Generate CI/CD workflow files | Planned |
+| `sigcomply collect` | Collect evidence only | Planned |
+| `sigcomply evaluate` | Evaluate policies against stored evidence | Planned |
+| `sigcomply report` | Generate compliance reports | Planned |
 
 ### Key Flags (check)
 
@@ -365,7 +380,7 @@ violations[violation] if {
 --collector strings   Collectors to use (default: auto-detect)
 --policies string     Comma-separated policy names to run (e.g., cc6_1_mfa,cc6_1_github_mfa)
 --controls string     Comma-separated control IDs to run (e.g., CC6.1,CC7.1)
--o, --output string   Output format: text, json, sarif
+-o, --output string   Output format: text, json, junit
 --fail-on-violation   Exit 1 on violations (default in CI)
 --cloud / --no-cloud  Force/disable cloud submission
 ```

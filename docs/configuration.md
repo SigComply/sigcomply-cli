@@ -134,7 +134,7 @@ controls:                            # Or run only policies for these control ID
 
 # Output settings
 output:
-  format: text                     # Options: text, json, sarif, junit
+  format: text                     # Options: text, json, junit
   verbose: false
 
 # CI/CD behavior
@@ -177,7 +177,7 @@ Everything else uses sensible defaults.
 | `SIGCOMPLY_FRAMEWORK` | `soc2` | Compliance framework |
 | `SIGCOMPLY_POLICIES` | — | Comma-separated policy names to run (e.g., `cc6_1_mfa,cc6_1_github_mfa`) |
 | `SIGCOMPLY_CONTROLS` | — | Comma-separated control IDs to run (e.g., `CC6.1,CC7.1`) |
-| `SIGCOMPLY_OUTPUT_FORMAT` | `text` | Output format: text, json, sarif, junit |
+| `SIGCOMPLY_OUTPUT_FORMAT` | `text` | Output format: text, json, junit |
 | `SIGCOMPLY_VERBOSE` | `false` | Set to `true` for verbose output |
 | `SIGCOMPLY_FAIL_ON_VIOLATION` | `true` | Set to `false` to always exit 0 |
 
