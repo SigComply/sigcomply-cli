@@ -1,4 +1,4 @@
-// Package attestation provides cryptographic attestation for compliance evidence.
+// Package attestation provides per-file signed envelopes for compliance evidence.
 package attestation
 
 import (
@@ -6,166 +6,57 @@ import (
 	"time"
 )
 
-// Attestation represents a cryptographic attestation of compliance evidence.
-type Attestation struct {
-	// ID is the unique identifier for this attestation.
-	ID string `json:"id"`
+// EvidenceEnvelope is the on-disk format for every evidence file stored in customer S3.
+// Each file is independently verifiable: an auditor can pick any single file and verify
+// its integrity without needing any other artifact or contacting SigComply.
+//
+// The Signed field contains the payload covered by the signature. PublicKey and Signature
+// are stored alongside it but are not included in the signed bytes.
+type EvidenceEnvelope struct {
+	// Signed is the payload covered by the cryptographic signature.
+	Signed SignedPayload `json:"signed"`
 
-	// RunID links this attestation to a specific compliance check run.
-	RunID string `json:"run_id"`
+	// PublicKey is the base64-encoded Ed25519 public key used to sign this file.
+	// The corresponding private key was discarded immediately after signing.
+	PublicKey string `json:"public_key"`
 
-	// Framework is the compliance framework used.
-	Framework string `json:"framework"`
+	// Signature contains the cryptographic signature over Signed.
+	Signature Signature `json:"signature"`
+}
 
-	// Timestamp is when the attestation was created.
+// SignedPayload is the tamper-evident core of an EvidenceEnvelope.
+// This is exactly what gets signed: canonical JSON of this struct.
+// Adding or removing fields here changes what is covered by the signature.
+type SignedPayload struct {
+	// Timestamp is when the evidence was collected.
+	// Proves the evidence falls within the audit period.
+	// S3 object mtimes can be modified; this timestamp cannot be changed
+	// without invalidating the signature.
 	Timestamp time.Time `json:"timestamp"`
 
-	// Hashes contains cryptographic hashes of all evidence.
-	Hashes EvidenceHashes `json:"hashes"`
-
-	// Signature contains the cryptographic signature.
-	Signature Signature `json:"signature"`
-
-	// PublicKey is the base64-encoded Ed25519 public key used to sign this attestation.
-	// The corresponding private key was discarded immediately after signing.
-	// An auditor can use this key to verify the signature without contacting SigComply.
-	PublicKey string `json:"public_key,omitempty"`
-
-	// Environment captures context about where the check was executed.
-	Environment Environment `json:"environment"`
-
-	// StorageLocation references where evidence is stored.
-	// NOTE: This field is NOT included in the signed payload.
-	// It is operational metadata that may change (e.g., evidence migration)
-	// without invalidating the attestation signature.
-	StorageLocation StorageLocation `json:"storage_location"`
-
-	// Version information for reproducibility.
-
-	// CLIVersion is the version of the CLI that created this attestation.
-	CLIVersion string `json:"cli_version,omitempty"`
-
-	// PolicyVersions maps policy IDs to their version hashes.
-	// This allows verification that the same policies were used.
-	PolicyVersions map[string]string `json:"policy_versions,omitempty"`
+	// Evidence is the raw API response data collected from the source service.
+	Evidence json.RawMessage `json:"evidence"`
 }
 
-// EvidenceHashes contains cryptographic hashes of stored files.
-type EvidenceHashes struct {
-	// CheckResult is the SHA-256 hash of the stored check_result.json file.
-	CheckResult string `json:"check_result"`
-
-	// StoredFiles maps relative file paths (relative to run dir) to SHA-256 hashes.
-	// Keys: "cc6.1-mfa/result.json", "cc6.1-mfa/evidence/iam-users.json", "check_result.json"
-	StoredFiles map[string]string `json:"stored_files"`
-
-	// Combined is SHA-256(CheckResult hash + sorted StoredFiles hashes).
-	Combined string `json:"combined"`
-}
-
-// Signature contains cryptographic signature information.
+// Signature contains the cryptographic signature value and algorithm identifier.
 type Signature struct {
-	// Algorithm is the signing algorithm used. Currently "ed25519".
+	// Algorithm is the signing algorithm. Currently "ed25519".
 	Algorithm string `json:"algorithm"`
 
-	// Value is the base64-encoded signature value.
+	// Value is the base64-encoded signature bytes.
 	Value string `json:"value"`
 }
 
-// Environment captures context about the execution environment.
-type Environment struct {
-	// CI indicates if running in a CI environment.
-	CI bool `json:"ci"`
+// AlgorithmEd25519 is the algorithm identifier for Ed25519 signatures.
+const AlgorithmEd25519 = "ed25519"
 
-	// Provider is the CI provider (github-actions, gitlab-ci).
-	Provider string `json:"provider,omitempty"`
-
-	// Repository is the source repository.
-	Repository string `json:"repository,omitempty"`
-
-	// Branch is the git branch.
-	Branch string `json:"branch,omitempty"`
-
-	// CommitSHA is the git commit hash.
-	CommitSHA string `json:"commit_sha,omitempty"`
-
-	// WorkflowName is the CI workflow name.
-	WorkflowName string `json:"workflow_name,omitempty"`
-
-	// RunID is the CI run identifier.
-	RunID string `json:"run_id,omitempty"`
-
-	// Actor is the user/entity that triggered the run.
-	Actor string `json:"actor,omitempty"`
-}
-
-// StorageLocation describes where evidence is stored.
-// This is stored inside attestation.json in the customer's S3 bucket alongside the evidence.
-// It is NOT sent to the SigComply Cloud API.
-type StorageLocation struct {
-	// Backend is the storage backend type (local, s3, gcs).
-	Backend string `json:"backend"`
-
-	// Bucket is the storage bucket (for cloud storage).
-	Bucket string `json:"bucket,omitempty"`
-
-	// Path is the key/path prefix where evidence is stored.
-	// For S3: this is the prefix within the bucket.
-	// For local: this is the directory path.
-	Path string `json:"path,omitempty"`
-
-	// ManifestPath is the path to the storage manifest.
-	ManifestPath string `json:"manifest_path,omitempty"`
-
-	// Encrypted indicates if the evidence is encrypted at rest.
-	Encrypted bool `json:"encrypted,omitempty"`
-}
-
-// SigningAlgorithm constants.
-const (
-	AlgorithmEd25519 = "ed25519"
-)
-
-// MarshalJSON implements custom JSON marshaling.
-func (a *Attestation) MarshalJSON() ([]byte, error) {
-	type Alias Attestation
-	return json.Marshal(&struct {
-		*Alias
-		Timestamp string `json:"timestamp"`
-	}{
-		Alias:     (*Alias)(a),
-		Timestamp: a.Timestamp.Format(time.RFC3339),
-	})
-}
-
-// Payload returns the data that should be signed.
-// NOTE: StorageLocation is intentionally excluded from the signed payload.
-// It is operational metadata that may change (e.g., evidence migration)
-// without invalidating the cryptographic proof of the evidence itself.
-func (a *Attestation) Payload() ([]byte, error) {
-	// Create a copy without the signature and storage location for signing.
-	// We use CanonicalJSON to ensure deterministic serialization,
-	// especially for maps like PolicyVersions.
-	payload := struct {
-		ID             string            `json:"id"`
-		RunID          string            `json:"run_id"`
-		Framework      string            `json:"framework"`
-		Timestamp      string            `json:"timestamp"`
-		Hashes         EvidenceHashes    `json:"hashes"`
-		Environment    Environment       `json:"environment"`
-		CLIVersion     string            `json:"cli_version,omitempty"`
-		PolicyVersions map[string]string `json:"policy_versions,omitempty"`
-	}{
-		ID:             a.ID,
-		RunID:          a.RunID,
-		Framework:      a.Framework,
-		Timestamp:      a.Timestamp.Format(time.RFC3339),
-		Hashes:         a.Hashes,
-		Environment:    a.Environment,
-		CLIVersion:     a.CLIVersion,
-		PolicyVersions: a.PolicyVersions,
+// NewEvidenceEnvelope creates a new EvidenceEnvelope with the signed payload populated.
+// Call Sign on the returned envelope to add PublicKey and Signature.
+func NewEvidenceEnvelope(timestamp time.Time, evidenceData json.RawMessage) *EvidenceEnvelope {
+	return &EvidenceEnvelope{
+		Signed: SignedPayload{
+			Timestamp: timestamp,
+			Evidence:  evidenceData,
+		},
 	}
-
-	// Use canonical JSON for deterministic serialization
-	return CanonicalJSON(payload)
 }

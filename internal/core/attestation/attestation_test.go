@@ -43,63 +43,25 @@ func TestHashJSON(t *testing.T) {
 	assert.Len(t, hash, 64) // SHA-256 produces 64 hex characters
 }
 
-func TestComputeStoredFileHashes(t *testing.T) {
-	checkResultHash := "abc123def456"
-	fileHashes := map[string]string{
-		"cc6.1-mfa/evidence/iam-users.json": "hash1",
-		"cc6.1-mfa/result.json":             "hash2",
-		"check_result.json":                 "abc123def456",
-	}
-
-	hashes := ComputeStoredFileHashes(checkResultHash, fileHashes)
-
-	assert.Equal(t, checkResultHash, hashes.CheckResult)
-	assert.Len(t, hashes.StoredFiles, 3)
-	assert.NotEmpty(t, hashes.Combined)
-
-	// All files should be present
-	for path := range fileHashes {
-		_, ok := hashes.StoredFiles[path]
-		assert.True(t, ok, "Expected file %s in StoredFiles", path)
-	}
-}
-
-func TestComputeStoredFileHashes_Deterministic(t *testing.T) {
-	checkResultHash := "abc123def456"
-
-	// Same files, different insertion order
-	fileHashes1 := map[string]string{
-		"z-policy/result.json":     "hash_z",
-		"a-policy/result.json":     "hash_a",
-		"check_result.json":        checkResultHash,
-	}
-	fileHashes2 := map[string]string{
-		"a-policy/result.json":     "hash_a",
-		"check_result.json":        checkResultHash,
-		"z-policy/result.json":     "hash_z",
-	}
-
-	hashes1 := ComputeStoredFileHashes(checkResultHash, fileHashes1)
-	hashes2 := ComputeStoredFileHashes(checkResultHash, fileHashes2)
-
-	// Combined hash should be the same regardless of map iteration order
-	assert.Equal(t, hashes1.Combined, hashes2.Combined)
-}
-
-func TestComputeStoredFileHashes_Empty(t *testing.T) {
-	hashes := ComputeStoredFileHashes("abc123", map[string]string{})
-
-	assert.Equal(t, "abc123", hashes.CheckResult)
-	assert.Empty(t, hashes.StoredFiles)
-	assert.NotEmpty(t, hashes.Combined)
-}
-
 func TestVerifyHash(t *testing.T) {
 	data := []byte("test data")
 	hash := HashData(data)
 
 	assert.True(t, VerifyHash(data, hash))
 	assert.False(t, VerifyHash([]byte("different data"), hash))
+}
+
+func TestNewEvidenceEnvelope(t *testing.T) {
+	ts := time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC)
+	evidenceData := json.RawMessage(`[{"resource_id":"alice","mfa":true}]`)
+
+	e := NewEvidenceEnvelope(ts, evidenceData)
+
+	require.NotNil(t, e)
+	assert.Equal(t, ts, e.Signed.Timestamp)
+	assert.Equal(t, string(evidenceData), string(e.Signed.Evidence))
+	assert.Empty(t, e.PublicKey, "PublicKey should be empty before signing")
+	assert.Empty(t, e.Signature.Value, "Signature should be empty before signing")
 }
 
 func TestNewEd25519Signer_Success(t *testing.T) {
@@ -118,35 +80,29 @@ func TestEd25519Signer_Sign(t *testing.T) {
 	signer, err := NewEd25519Signer()
 	require.NoError(t, err)
 
-	att := &Attestation{
-		ID:        "attest-123",
-		RunID:     "run-123",
-		Framework: "soc2",
-		Timestamp: time.Now(),
-		Hashes: EvidenceHashes{
-			CheckResult: "abc123",
-			Combined:    "def456",
-		},
-	}
+	e := NewEvidenceEnvelope(
+		time.Now(),
+		json.RawMessage(`[{"resource_id":"alice","mfa":true}]`),
+	)
 
-	err = signer.Sign(att)
+	err = signer.Sign(e)
 	require.NoError(t, err)
 
-	assert.Equal(t, AlgorithmEd25519, att.Signature.Algorithm)
-	assert.NotEmpty(t, att.Signature.Value)
-	assert.NotEmpty(t, att.PublicKey)
+	assert.Equal(t, AlgorithmEd25519, e.Signature.Algorithm)
+	assert.NotEmpty(t, e.Signature.Value)
+	assert.NotEmpty(t, e.PublicKey)
 }
 
 func TestEd25519Signer_Sign_SetsPublicKey(t *testing.T) {
 	signer, err := NewEd25519Signer()
 	require.NoError(t, err)
 
-	att := &Attestation{ID: "attest-123", Timestamp: time.Now()}
-	err = signer.Sign(att)
+	e := NewEvidenceEnvelope(time.Now(), json.RawMessage(`{}`))
+	err = signer.Sign(e)
 	require.NoError(t, err)
 
 	// PublicKey should be base64-encoded 32-byte Ed25519 public key
-	pubKeyBytes, decodeErr := base64.StdEncoding.DecodeString(att.PublicKey)
+	pubKeyBytes, decodeErr := base64.StdEncoding.DecodeString(e.PublicKey)
 	require.NoError(t, decodeErr)
 	assert.Len(t, pubKeyBytes, 32, "Ed25519 public key should be 32 bytes")
 }
@@ -157,14 +113,14 @@ func TestEd25519Signer_Sign_UniqueKeysPerSigner(t *testing.T) {
 	signer2, err := NewEd25519Signer()
 	require.NoError(t, err)
 
-	att1 := &Attestation{ID: "attest-1", Timestamp: time.Now()}
-	att2 := &Attestation{ID: "attest-2", Timestamp: time.Now()}
+	e1 := NewEvidenceEnvelope(time.Now(), json.RawMessage(`[{"id":"1"}]`))
+	e2 := NewEvidenceEnvelope(time.Now(), json.RawMessage(`[{"id":"2"}]`))
 
-	require.NoError(t, signer1.Sign(att1))
-	require.NoError(t, signer2.Sign(att2))
+	require.NoError(t, signer1.Sign(e1))
+	require.NoError(t, signer2.Sign(e2))
 
 	// Each signer generates a unique keypair
-	assert.NotEqual(t, att1.PublicKey, att2.PublicKey, "Each signer should have a unique public key")
+	assert.NotEqual(t, e1.PublicKey, e2.PublicKey, "Each signer should have a unique public key")
 }
 
 func TestEd25519Verifier_Verify(t *testing.T) {
@@ -172,43 +128,58 @@ func TestEd25519Verifier_Verify(t *testing.T) {
 	require.NoError(t, err)
 	verifier := NewEd25519Verifier()
 
-	att := &Attestation{
-		ID:        "attest-123",
-		RunID:     "run-123",
-		Framework: "soc2",
-		Timestamp: time.Now(),
-		Hashes: EvidenceHashes{
-			CheckResult: "abc123",
-			Combined:    "def456",
-		},
-	}
+	e := NewEvidenceEnvelope(
+		time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
+		json.RawMessage(`[{"resource_id":"alice","mfa":true}]`),
+	)
 
-	err = signer.Sign(att)
+	err = signer.Sign(e)
 	require.NoError(t, err)
 
-	err = verifier.Verify(att)
+	err = verifier.Verify(e)
 	assert.NoError(t, err)
 }
 
-func TestEd25519Verifier_Verify_TamperedData(t *testing.T) {
+func TestEd25519Verifier_Verify_TamperedEvidence(t *testing.T) {
 	signer, err := NewEd25519Signer()
 	require.NoError(t, err)
 	verifier := NewEd25519Verifier()
 
-	att := &Attestation{
-		ID:        "attest-123",
-		RunID:     "run-123",
-		Framework: "soc2",
-		Timestamp: time.Now(),
-	}
+	e := NewEvidenceEnvelope(
+		time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
+		json.RawMessage(`[{"resource_id":"alice","mfa":true}]`),
+	)
 
-	err = signer.Sign(att)
+	err = signer.Sign(e)
 	require.NoError(t, err)
 
-	// Tamper with data after signing
-	att.Framework = "hipaa"
+	// Tamper with evidence after signing
+	e.Signed.Evidence = json.RawMessage(`[{"resource_id":"alice","mfa":false}]`)
 
-	err = verifier.Verify(att)
+	err = verifier.Verify(e)
+	require.Error(t, err)
+
+	var sigErr *SignatureError
+	assert.ErrorAs(t, err, &sigErr)
+}
+
+func TestEd25519Verifier_Verify_TamperedTimestamp(t *testing.T) {
+	signer, err := NewEd25519Signer()
+	require.NoError(t, err)
+	verifier := NewEd25519Verifier()
+
+	e := NewEvidenceEnvelope(
+		time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
+		json.RawMessage(`[{"resource_id":"alice","mfa":true}]`),
+	)
+
+	err = signer.Sign(e)
+	require.NoError(t, err)
+
+	// Tamper with timestamp after signing
+	e.Signed.Timestamp = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	err = verifier.Verify(e)
 	require.Error(t, err)
 
 	var sigErr *SignatureError
@@ -218,16 +189,19 @@ func TestEd25519Verifier_Verify_TamperedData(t *testing.T) {
 func TestEd25519Verifier_Verify_WrongAlgorithm(t *testing.T) {
 	verifier := NewEd25519Verifier()
 
-	att := &Attestation{
-		ID:        "attest-123",
-		Timestamp: time.Now(),
+	e := &EvidenceEnvelope{
+		Signed: SignedPayload{
+			Timestamp: time.Now(),
+			Evidence:  json.RawMessage(`{}`),
+		},
+		PublicKey: "c29tZWtleQ==",
 		Signature: Signature{
 			Algorithm: "unknown-algo",
-			Value:     "some-value",
+			Value:     "c29tZS12YWx1ZQ==",
 		},
 	}
 
-	err := verifier.Verify(att)
+	err := verifier.Verify(e)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported signature algorithm")
 }
@@ -235,9 +209,11 @@ func TestEd25519Verifier_Verify_WrongAlgorithm(t *testing.T) {
 func TestEd25519Verifier_Verify_InvalidPublicKey(t *testing.T) {
 	verifier := NewEd25519Verifier()
 
-	att := &Attestation{
-		ID:        "attest-123",
-		Timestamp: time.Now(),
+	e := &EvidenceEnvelope{
+		Signed: SignedPayload{
+			Timestamp: time.Now(),
+			Evidence:  json.RawMessage(`{}`),
+		},
 		PublicKey: "not-valid-base64!!!",
 		Signature: Signature{
 			Algorithm: AlgorithmEd25519,
@@ -245,169 +221,31 @@ func TestEd25519Verifier_Verify_InvalidPublicKey(t *testing.T) {
 		},
 	}
 
-	err := verifier.Verify(att)
+	err := verifier.Verify(e)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to decode public key")
 }
 
+func TestSignedPayload_CanonicalJSON_Deterministic(t *testing.T) {
+	// Same payload marshaled 100 times should always produce identical bytes.
+	// This is critical for cryptographic signing.
+	e := NewEvidenceEnvelope(
+		time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
+		json.RawMessage(`{"z_key":"z_val","a_key":"a_val","m_key":{"nested_z":1,"nested_a":2}}`),
+	)
 
-func TestAttestation_Payload(t *testing.T) {
-	attestation := &Attestation{
-		ID:        "attest-123",
-		RunID:     "run-123",
-		Framework: "soc2",
-		Timestamp: time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
-		Hashes: EvidenceHashes{
-			CheckResult: "abc123",
-			Combined:    "def456",
-		},
-	}
-
-	payload, err := attestation.Payload()
-	require.NoError(t, err)
-
-	// Should be valid JSON
-	var parsed map[string]interface{}
-	err = json.Unmarshal(payload, &parsed)
-	require.NoError(t, err)
-
-	// Should not contain signature
-	_, hasSignature := parsed["signature"]
-	assert.False(t, hasSignature)
-
-	// Should contain other fields
-	assert.Equal(t, "attest-123", parsed["id"])
-	assert.Equal(t, "soc2", parsed["framework"])
-}
-
-func TestAttestation_Payload_ExcludesStorageLocation(t *testing.T) {
-	// StorageLocation should NOT be in the signed payload
-	// because it's operational metadata that may change
-	attestation := &Attestation{
-		ID:        "attest-123",
-		RunID:     "run-123",
-		Framework: "soc2",
-		Timestamp: time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
-		Hashes: EvidenceHashes{
-			CheckResult: "abc123",
-			Combined:    "def456",
-		},
-		StorageLocation: StorageLocation{
-			Backend: "s3",
-			Bucket:  "my-bucket",
-			Path:    "evidence/",
-		},
-	}
-
-	payload, err := attestation.Payload()
-	require.NoError(t, err)
-
-	var parsed map[string]interface{}
-	err = json.Unmarshal(payload, &parsed)
-	require.NoError(t, err)
-
-	// StorageLocation should NOT be in the payload
-	_, hasStorageLocation := parsed["storage_location"]
-	assert.False(t, hasStorageLocation, "storage_location should not be in signed payload")
-
-	// Verify that changing storage location doesn't change the payload
-	attestation2 := *attestation
-	attestation2.StorageLocation = StorageLocation{
-		Backend: "gcs",
-		Bucket:  "different-bucket",
-		Path:    "different/path/",
-	}
-
-	payload2, err := attestation2.Payload()
-	require.NoError(t, err)
-
-	assert.Equal(t, string(payload), string(payload2), "changing storage location should not change payload")
-}
-
-func TestAttestation_Payload_IncludesVersionInfo(t *testing.T) {
-	attestation := &Attestation{
-		ID:        "attest-123",
-		RunID:     "run-123",
-		Framework: "soc2",
-		Timestamp: time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
-		Hashes: EvidenceHashes{
-			CheckResult: "abc123",
-			Combined:    "def456",
-		},
-		CLIVersion: "1.2.3",
-		PolicyVersions: map[string]string{
-			"soc2-cc6.1-mfa":        "abc123",
-			"soc2-cc6.2-encryption": "def456",
-		},
-	}
-
-	payload, err := attestation.Payload()
-	require.NoError(t, err)
-
-	var parsed map[string]interface{}
-	err = json.Unmarshal(payload, &parsed)
-	require.NoError(t, err)
-
-	// CLIVersion should be in payload
-	assert.Equal(t, "1.2.3", parsed["cli_version"])
-
-	// PolicyVersions should be in payload
-	policyVersions, ok := parsed["policy_versions"].(map[string]interface{})
-	require.True(t, ok, "policy_versions should be a map")
-	assert.Equal(t, "abc123", policyVersions["soc2-cc6.1-mfa"])
-	assert.Equal(t, "def456", policyVersions["soc2-cc6.2-encryption"])
-}
-
-func TestAttestation_Payload_Deterministic(t *testing.T) {
-	// Payload should be deterministic even with maps
-	attestation := &Attestation{
-		ID:        "attest-123",
-		RunID:     "run-123",
-		Framework: "soc2",
-		Timestamp: time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
-		Hashes: EvidenceHashes{
-			CheckResult: "abc123",
-			StoredFiles: map[string]string{
-				"z-policy/result.json":              "hash_z",
-				"a-policy/result.json":              "hash_a",
-				"m-policy/evidence/iam-users.json":  "hash_m",
-			},
-			Combined: "def456",
-		},
-		PolicyVersions: map[string]string{
-			"z_policy": "version_z",
-			"a_policy": "version_a",
-			"m_policy": "version_m",
-		},
-	}
-
-	// Generate payload multiple times - should always be identical
-	var payloads []string
+	var payloads [][]byte
 	for i := 0; i < 100; i++ {
-		payload, err := attestation.Payload()
+		p, err := CanonicalJSON(e.Signed)
 		require.NoError(t, err)
-		payloads = append(payloads, string(payload))
+		payloads = append(payloads, p)
 	}
 
 	for i := 1; i < len(payloads); i++ {
-		assert.Equal(t, payloads[0], payloads[i], "Payload iteration %d differs", i)
+		assert.Equal(t, string(payloads[0]), string(payloads[i]),
+			"CanonicalJSON iteration %d differs from iteration 0", i)
 	}
 }
-
-func TestAttestation_MarshalJSON(t *testing.T) {
-	attestation := &Attestation{
-		ID:        "attest-123",
-		Framework: "soc2",
-		Timestamp: time.Date(2026, 1, 17, 10, 0, 0, 0, time.UTC),
-	}
-
-	data, err := json.Marshal(attestation)
-	require.NoError(t, err)
-
-	// Timestamp should be RFC3339 formatted
-	assert.Contains(t, string(data), "2026-01-17T10:00:00Z")
-}
-
 
 // Test helper functions for env var management
 // These suppress errcheck warnings as env var operations in tests are best-effort

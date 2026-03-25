@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"sort"
 )
 
 // HashData computes the SHA-256 hash of arbitrary data.
@@ -25,41 +24,6 @@ func HashJSON(v interface{}) (string, error) {
 		return "", err
 	}
 	return HashData(data), nil
-}
-
-// ComputeStoredFileHashes builds EvidenceHashes from stored file hashes.
-// checkResultHash is the SHA-256 of the stored check_result.json file.
-// fileHashes maps relative file paths to their SHA-256 hashes.
-func ComputeStoredFileHashes(checkResultHash string, fileHashes map[string]string) *EvidenceHashes {
-	hashes := &EvidenceHashes{
-		CheckResult: checkResultHash,
-		StoredFiles: fileHashes,
-	}
-
-	hashes.Combined = computeCombinedHash(hashes)
-
-	return hashes
-}
-
-// computeCombinedHash creates a single hash representing all stored files.
-func computeCombinedHash(hashes *EvidenceHashes) string {
-	// Sort file paths for deterministic ordering
-	paths := make([]string, 0, len(hashes.StoredFiles))
-	for p := range hashes.StoredFiles {
-		paths = append(paths, p)
-	}
-	sort.Strings(paths)
-
-	// Concatenate all hashes in order: check_result hash first, then sorted file hashes
-	// Each SHA-256 hash is 64 hex chars
-	combined := make([]byte, 0, 64*(1+len(paths)))
-	combined = append(combined, []byte(hashes.CheckResult)...)
-
-	for _, p := range paths {
-		combined = append(combined, []byte(hashes.StoredFiles[p])...)
-	}
-
-	return HashData(combined)
 }
 
 // VerifyHash verifies that data matches an expected hash.
