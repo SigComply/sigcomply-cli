@@ -199,27 +199,3 @@ func (c *Client) parseError(resp *http.Response) *APIError {
 	return apiErr
 }
 
-// DetectOIDCToken attempts to detect OIDC tokens from CI environment.
-func DetectOIDCToken() *TokenInfo {
-	// GitHub Actions OIDC
-	if os.Getenv("GITHUB_ACTIONS") == "true" {
-		if token := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN"); token != "" {
-			return &TokenInfo{
-				Token:    token,
-				Provider: "github-actions",
-			}
-		}
-	}
-
-	// GitLab CI OIDC
-	if os.Getenv("GITLAB_CI") == "true" {
-		if token := os.Getenv("CI_JOB_JWT_V2"); token != "" {
-			return &TokenInfo{
-				Token:    token,
-				Provider: "gitlab-ci",
-			}
-		}
-	}
-
-	return nil
-}

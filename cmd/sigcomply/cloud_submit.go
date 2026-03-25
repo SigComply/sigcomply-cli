@@ -53,24 +53,26 @@ func buildCloudSubmitRequest(cfg *config.Config, checkResult *evidence.CheckResu
 	}
 
 	return &cloud.SubmitRequest{
-		RunID:         checkResult.RunID,
-		Framework:     checkResult.Framework,
-		Timestamp:     checkResult.Timestamp,
-		PolicyResults: aggregated,
-		Summary: cloud.AggregatedSummary{
-			TotalPolicies:   total,
-			PassedPolicies:  passed,
-			FailedPolicies:  failed,
-			SkippedPolicies: skipped,
-			ComplianceScore: score,
-		},
-		RunMetadata: &cloud.RunMetadata{
-			CI:         cfg.CI,
-			CIProvider: cfg.CIProvider,
-			Repository: cfg.Repository,
-			Branch:     cfg.Branch,
-			CommitSHA:  cfg.CommitSHA,
-			CLIVersion: version,
+		CheckResult: cloud.CheckResultPayload{
+			RunID:         checkResult.RunID,
+			Framework:     checkResult.Framework,
+			Timestamp:     checkResult.Timestamp,
+			PolicyResults: aggregated,
+			Summary: cloud.AggregatedSummary{
+				TotalPolicies:   total,
+				PassedPolicies:  passed,
+				FailedPolicies:  failed,
+				SkippedPolicies: skipped,
+				ComplianceScore: score,
+			},
+			Environment: &cloud.EnvironmentInfo{
+				CI:         cfg.CI,
+				CIProvider: cfg.CIProvider,
+				Repository: cfg.Repository,
+				Branch:     cfg.Branch,
+				CommitSHA:  cfg.CommitSHA,
+				CLIVersion: version,
+			},
 		},
 	}
 }

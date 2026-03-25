@@ -49,11 +49,11 @@ func TestBuildCloudSubmitRequest(t *testing.T) {
 
 	req := buildCloudSubmitRequest(cfg, checkResult)
 
-	assert.Equal(t, "run-123", req.RunID)
-	assert.Equal(t, "soc2", req.Framework)
+	assert.Equal(t, "run-123", req.CheckResult.RunID)
+	assert.Equal(t, "soc2", req.CheckResult.Framework)
 
-	require.Len(t, req.PolicyResults, 1)
-	pr := req.PolicyResults[0]
+	require.Len(t, req.CheckResult.PolicyResults, 1)
+	pr := req.CheckResult.PolicyResults[0]
 	assert.Equal(t, "soc2-cc6.1-mfa", pr.PolicyID)
 	assert.Equal(t, "CC6.1", pr.ControlID)
 	assert.Equal(t, "fail", pr.Status)
@@ -62,9 +62,9 @@ func TestBuildCloudSubmitRequest(t *testing.T) {
 	assert.Equal(t, 2, pr.ResourcesFailed)
 
 	// No resource identifiers in the cloud payload
-	assert.True(t, req.RunMetadata.CI)
-	assert.Equal(t, "github-actions", req.RunMetadata.CIProvider)
-	assert.Equal(t, 0.0, req.Summary.ComplianceScore)
+	assert.True(t, req.CheckResult.Environment.CI)
+	assert.Equal(t, "github-actions", req.CheckResult.Environment.CIProvider)
+	assert.Equal(t, 0.0, req.CheckResult.Summary.ComplianceScore)
 }
 
 func TestBuildCloudSubmitRequest_NoViolationsInPayload(t *testing.T) {
@@ -118,14 +118,14 @@ func TestBuildCloudSubmitRequest_ErrorStatusMappedToFail(t *testing.T) {
 	cfg := &config.Config{Framework: "soc2"}
 	req := buildCloudSubmitRequest(cfg, checkResult)
 
-	require.Len(t, req.PolicyResults, 2)
-	assert.Equal(t, "pass", req.PolicyResults[0].Status)
-	assert.Equal(t, "fail", req.PolicyResults[1].Status, "error should be mapped to fail")
+	require.Len(t, req.CheckResult.PolicyResults, 2)
+	assert.Equal(t, "pass", req.CheckResult.PolicyResults[0].Status)
+	assert.Equal(t, "fail", req.CheckResult.PolicyResults[1].Status, "error should be mapped to fail")
 
 	// Summary should reflect the mapping
-	assert.Equal(t, 2, req.Summary.TotalPolicies)
-	assert.Equal(t, 1, req.Summary.PassedPolicies)
-	assert.Equal(t, 1, req.Summary.FailedPolicies)
+	assert.Equal(t, 2, req.CheckResult.Summary.TotalPolicies)
+	assert.Equal(t, 1, req.CheckResult.Summary.PassedPolicies)
+	assert.Equal(t, 1, req.CheckResult.Summary.FailedPolicies)
 }
 
 // setupOIDCEnv sets up OIDC environment for tests and returns cleanup function.
@@ -153,13 +153,13 @@ func TestSubmitToCloud_Success(t *testing.T) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Contains(t, r.Header.Get("Authorization"), "Bearer ")
 
-		// Verify the request body has aggregated structure (no CheckResult/Attestation fields)
+		// Verify the request body has the nested check_result structure Rails expects
 		var req cloud.SubmitRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
 		require.NoError(t, err)
-		assert.NotEmpty(t, req.RunID)
-		assert.NotEmpty(t, req.Framework)
-		assert.NotNil(t, req.RunMetadata)
+		assert.NotEmpty(t, req.CheckResult.RunID)
+		assert.NotEmpty(t, req.CheckResult.Framework)
+		assert.NotNil(t, req.CheckResult.Environment)
 
 		// Return response in the Rails API format (nested structure)
 		resp := cloud.SubmitResponse{

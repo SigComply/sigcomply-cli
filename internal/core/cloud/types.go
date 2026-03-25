@@ -5,13 +5,26 @@ import (
 	"time"
 )
 
-// SubmitRequest represents the aggregated compliance check results sent to the Cloud API.
+// SubmitRequest is the top-level payload sent to POST /api/v1/cli/runs.
+// It matches the Rails API contract: check_result is nested under the "check_result" key,
+// with optional run_metadata at the top level for supplementary context.
+type SubmitRequest struct {
+	// CheckResult contains the aggregated compliance check data.
+	// Rails reads this nested structure via strong params and RunSubmissionService.
+	CheckResult CheckResultPayload `json:"check_result"`
+
+	// RunMetadata contains optional supplementary run-level context (stored as-is in
+	// the Rails metadata JSONB column — not used for core DB columns).
+	RunMetadata map[string]interface{} `json:"run_metadata,omitempty"`
+}
+
+// CheckResultPayload is the check result payload nested inside SubmitRequest.
 //
 // Privacy invariant: this payload contains NO resource identifiers (no ARNs, usernames,
 // email addresses, or account IDs). Violations are reduced to counts before this struct
-// is populated. Raw evidence, full CheckResult with violation details, and the attestation
+// is populated. Raw evidence, full CheckResult with violation details, and attestations
 // all stay in the customer's S3 bucket — they are never sent to SigComply.
-type SubmitRequest struct {
+type CheckResultPayload struct {
 	// RunID is the unique identifier for this compliance check run.
 	RunID string `json:"run_id"`
 
@@ -27,8 +40,9 @@ type SubmitRequest struct {
 	// Summary contains overall aggregated compliance scores.
 	Summary AggregatedSummary `json:"summary"`
 
-	// RunMetadata contains additional run context.
-	RunMetadata *RunMetadata `json:"run_metadata,omitempty"`
+	// Environment contains CI/CD context. Rails stores these in
+	// policy_evaluations.cli_version, .runner, and .environment DB columns.
+	Environment *EnvironmentInfo `json:"environment,omitempty"`
 }
 
 // AggregatedPolicyResult contains aggregated compliance data for a single policy.
@@ -74,15 +88,19 @@ type AggregatedSummary struct {
 	ComplianceScore float64 `json:"compliance_score"`
 }
 
-// RunMetadata contains context about the compliance check run.
-type RunMetadata struct {
+// EnvironmentInfo contains CI/CD context about where the compliance check ran.
+// This maps to the "environment" field inside check_result. Rails stores these fields
+// in policy_evaluations.cli_version, .runner (from ci_provider), and .environment columns,
+// and in the ci_context key of the metadata JSONB column.
+type EnvironmentInfo struct {
 	// CI indicates if this was run in a CI/CD environment.
 	CI bool `json:"ci"`
 
-	// CIProvider is the CI/CD platform (github-actions, gitlab-ci).
+	// CIProvider is the CI/CD platform: "github-actions" or "gitlab-ci".
+	// Rails stores this in the policy_evaluations.runner column.
 	CIProvider string `json:"ci_provider,omitempty"`
 
-	// Repository is the source repository.
+	// Repository is the source repository (e.g., "owner/repo").
 	Repository string `json:"repository,omitempty"`
 
 	// Branch is the git branch.
@@ -91,10 +109,8 @@ type RunMetadata struct {
 	// CommitSHA is the git commit SHA.
 	CommitSHA string `json:"commit_sha,omitempty"`
 
-	// RunURL is a link to the CI/CD run.
-	RunURL string `json:"run_url,omitempty"`
-
 	// CLIVersion is the version of the CLI used.
+	// Rails stores this in the policy_evaluations.cli_version column.
 	CLIVersion string `json:"cli_version,omitempty"`
 }
 

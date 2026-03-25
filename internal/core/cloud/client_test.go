@@ -120,16 +120,18 @@ func TestClient_Submit_Success(t *testing.T) {
 	client := newOIDCClient(server.URL, 5*time.Second)
 
 	req := &SubmitRequest{
-		RunID:     "run-123",
-		Framework: "soc2",
-		Timestamp: time.Now(),
-		PolicyResults: []AggregatedPolicyResult{
-			{PolicyID: "soc2-cc6.1-mfa", ControlID: "CC6.1", Status: "pass", Severity: "high", ResourcesEvaluated: 10, ResourcesFailed: 0},
-		},
-		Summary: AggregatedSummary{
-			TotalPolicies:   1,
-			PassedPolicies:  1,
-			ComplianceScore: 1.0,
+		CheckResult: CheckResultPayload{
+			RunID:     "run-123",
+			Framework: "soc2",
+			Timestamp: time.Now(),
+			PolicyResults: []AggregatedPolicyResult{
+				{PolicyID: "soc2-cc6.1-mfa", ControlID: "CC6.1", Status: "pass", Severity: "high", ResourcesEvaluated: 10, ResourcesFailed: 0},
+			},
+			Summary: AggregatedSummary{
+				TotalPolicies:   1,
+				PassedPolicies:  1,
+				ComplianceScore: 1.0,
+			},
 		},
 	}
 
@@ -163,7 +165,7 @@ func TestClient_Submit_ServerError(t *testing.T) {
 
 	client := newOIDCClient(server.URL, 1*time.Second)
 
-	_, err := client.Submit(context.Background(), &SubmitRequest{RunID: "test-run"})
+	_, err := client.Submit(context.Background(), &SubmitRequest{CheckResult: CheckResultPayload{RunID: "test-run"}})
 	require.Error(t, err)
 
 	apiErr, ok := err.(*APIError)
@@ -184,7 +186,7 @@ func TestClient_Submit_ClientError(t *testing.T) {
 
 	client := newOIDCClient(server.URL, 1*time.Second)
 
-	_, err := client.Submit(context.Background(), &SubmitRequest{RunID: "test-run"})
+	_, err := client.Submit(context.Background(), &SubmitRequest{CheckResult: CheckResultPayload{RunID: "test-run"}})
 	require.Error(t, err)
 
 	apiErr, ok := err.(*APIError)
@@ -208,7 +210,7 @@ func TestClient_Submit_NestedErrorFormat(t *testing.T) {
 
 	client := newOIDCClient(server.URL, 1*time.Second)
 
-	_, err := client.Submit(context.Background(), &SubmitRequest{RunID: "test-run"})
+	_, err := client.Submit(context.Background(), &SubmitRequest{CheckResult: CheckResultPayload{RunID: "test-run"}})
 	require.Error(t, err)
 
 	apiErr, ok := err.(*APIError)
@@ -234,7 +236,7 @@ func TestClient_Submit_402SubscriptionRequired(t *testing.T) {
 
 	client := newOIDCClient(server.URL, 1*time.Second)
 
-	_, err := client.Submit(context.Background(), &SubmitRequest{RunID: "test-run"})
+	_, err := client.Submit(context.Background(), &SubmitRequest{CheckResult: CheckResultPayload{RunID: "test-run"}})
 	require.Error(t, err)
 
 	apiErr, ok := err.(*APIError)
@@ -264,7 +266,7 @@ func TestClient_Submit_NestedErrorWithDetails(t *testing.T) {
 
 	client := newOIDCClient(server.URL, 1*time.Second)
 
-	_, err := client.Submit(context.Background(), &SubmitRequest{RunID: "test-run"})
+	_, err := client.Submit(context.Background(), &SubmitRequest{CheckResult: CheckResultPayload{RunID: "test-run"}})
 	require.Error(t, err)
 
 	apiErr, ok := err.(*APIError)
@@ -407,56 +409,52 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, "sigcomply-cli/1.0", cfg.UserAgent)
 }
 
-func TestDetectOIDCToken_NoCI(t *testing.T) {
-	token := DetectOIDCToken()
-	// In a non-CI environment, this should return nil
-	// (unless tests are running in CI, in which case this test would need adjustment)
-	if token != nil {
-		// If running in CI, verify the token is valid
-		assert.NotEmpty(t, token.Token)
-		assert.NotEmpty(t, token.Provider)
-	}
-}
-
 func TestSubmitRequest_JSON(t *testing.T) {
 	req := &SubmitRequest{
-		RunID:     "run-123",
-		Framework: "soc2",
-		Timestamp: time.Now(),
-		PolicyResults: []AggregatedPolicyResult{
-			{PolicyID: "soc2-cc6.1-mfa", ControlID: "CC6.1", Status: "pass", Severity: "high", ResourcesEvaluated: 5, ResourcesFailed: 0},
-			{PolicyID: "soc2-cc6.2-encryption", ControlID: "CC6.2", Status: "fail", Severity: "critical", ResourcesEvaluated: 3, ResourcesFailed: 2},
-		},
-		Summary: AggregatedSummary{
-			TotalPolicies:   2,
-			PassedPolicies:  1,
-			FailedPolicies:  1,
-			ComplianceScore: 0.5,
-		},
-		RunMetadata: &RunMetadata{
-			CI:         true,
-			CIProvider: "github-actions",
-			Repository: "owner/repo",
-			Branch:     "main",
-			CommitSHA:  "abc123",
+		CheckResult: CheckResultPayload{
+			RunID:     "run-123",
+			Framework: "soc2",
+			Timestamp: time.Now(),
+			PolicyResults: []AggregatedPolicyResult{
+				{PolicyID: "soc2-cc6.1-mfa", ControlID: "CC6.1", Status: "pass", Severity: "high", ResourcesEvaluated: 5, ResourcesFailed: 0},
+				{PolicyID: "soc2-cc6.2-encryption", ControlID: "CC6.2", Status: "fail", Severity: "critical", ResourcesEvaluated: 3, ResourcesFailed: 2},
+			},
+			Summary: AggregatedSummary{
+				TotalPolicies:   2,
+				PassedPolicies:  1,
+				FailedPolicies:  1,
+				ComplianceScore: 0.5,
+			},
+			Environment: &EnvironmentInfo{
+				CI:         true,
+				CIProvider: "github-actions",
+				Repository: "owner/repo",
+				Branch:     "main",
+				CommitSHA:  "abc123",
+			},
 		},
 	}
 
 	data, err := json.Marshal(req)
 	require.NoError(t, err)
 
+	// Verify the JSON has the "check_result" wrapper Rails expects
+	var raw map[string]interface{}
+	require.NoError(t, json.Unmarshal(data, &raw))
+	assert.Contains(t, raw, "check_result", "payload must be nested under check_result")
+
 	var parsed SubmitRequest
 	err = json.Unmarshal(data, &parsed)
 	require.NoError(t, err)
 
-	assert.Equal(t, "run-123", parsed.RunID)
-	assert.Equal(t, "soc2", parsed.Framework)
-	assert.Len(t, parsed.PolicyResults, 2)
-	assert.Equal(t, "soc2-cc6.1-mfa", parsed.PolicyResults[0].PolicyID)
-	assert.Equal(t, 0, parsed.PolicyResults[0].ResourcesFailed)
-	assert.Equal(t, 2, parsed.PolicyResults[1].ResourcesFailed)
-	assert.Equal(t, 0.5, parsed.Summary.ComplianceScore)
-	assert.True(t, parsed.RunMetadata.CI)
+	assert.Equal(t, "run-123", parsed.CheckResult.RunID)
+	assert.Equal(t, "soc2", parsed.CheckResult.Framework)
+	assert.Len(t, parsed.CheckResult.PolicyResults, 2)
+	assert.Equal(t, "soc2-cc6.1-mfa", parsed.CheckResult.PolicyResults[0].PolicyID)
+	assert.Equal(t, 0, parsed.CheckResult.PolicyResults[0].ResourcesFailed)
+	assert.Equal(t, 2, parsed.CheckResult.PolicyResults[1].ResourcesFailed)
+	assert.Equal(t, 0.5, parsed.CheckResult.Summary.ComplianceScore)
+	assert.True(t, parsed.CheckResult.Environment.CI)
 }
 
 func TestSubmitResponse_WithDrift(t *testing.T) {
