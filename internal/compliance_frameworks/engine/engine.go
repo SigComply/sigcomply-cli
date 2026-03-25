@@ -22,13 +22,18 @@ const (
 
 // PolicyMetadata contains metadata extracted from a Rego policy.
 type PolicyMetadata struct {
-	ID             string         `json:"id"`
-	Name           string         `json:"name"`
-	Framework      string         `json:"framework"`
-	Control        string         `json:"control"`
+	ID             string            `json:"id"`
+	Name           string            `json:"name"`
+	Framework      string            `json:"framework"`
+	Control        string            `json:"control"`
 	Severity       evidence.Severity `json:"severity"`
-	EvaluationMode EvaluationMode `json:"evaluation_mode"`
-	ResourceTypes  []string       `json:"resource_types"`
+	EvaluationMode EvaluationMode    `json:"evaluation_mode"`
+	ResourceTypes  []string          `json:"resource_types"`
+	// Category is the dashboard grouping category. One of: access_control,
+	// data_protection, logging, network_security, vulnerability_management,
+	// configuration_management. Optional — set via the "category" key in
+	// Rego policy metadata.
+	Category string `json:"category,omitempty"`
 }
 
 // LoadedPolicy represents a policy loaded into the engine.
@@ -170,6 +175,9 @@ func (e *Engine) parseMetadata(metadata map[string]interface{}) *PolicyMetadata 
 			}
 		}
 	}
+	if cat, ok := metadata["category"].(string); ok {
+		pm.Category = cat
+	}
 
 	return pm
 }
@@ -215,6 +223,7 @@ func (e *Engine) evaluatePolicy(ctx context.Context, policy *LoadedPolicy, evide
 		ControlID:     policy.Control,
 		Name:          policy.Name,
 		Severity:      policy.Severity,
+		Category:      policy.Category,
 		ResourceTypes: policy.ResourceTypes,
 	}
 

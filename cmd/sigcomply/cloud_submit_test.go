@@ -27,6 +27,8 @@ func TestBuildCloudSubmitRequest(t *testing.T) {
 				ControlID:          "CC6.1",
 				Status:             evidence.StatusFail,
 				Severity:           evidence.SeverityHigh,
+				Message:            "2 out of 5 IAM users do not have MFA enabled",
+				Category:           "access_control",
 				ResourcesEvaluated: 5,
 				ResourcesFailed:    2,
 				Violations: []evidence.Violation{
@@ -60,11 +62,63 @@ func TestBuildCloudSubmitRequest(t *testing.T) {
 	assert.Equal(t, "high", pr.Severity)
 	assert.Equal(t, 5, pr.ResourcesEvaluated)
 	assert.Equal(t, 2, pr.ResourcesFailed)
+	assert.Equal(t, "2 out of 5 IAM users do not have MFA enabled", pr.Message)
+	assert.Equal(t, "access_control", pr.Category)
 
 	// No resource identifiers in the cloud payload
 	assert.True(t, req.CheckResult.Environment.CI)
 	assert.Equal(t, "github-actions", req.CheckResult.Environment.CIProvider)
 	assert.Equal(t, 0.0, req.CheckResult.Summary.ComplianceScore)
+}
+
+func TestBuildCloudSubmitRequest_CategoryFallback(t *testing.T) {
+	// When PolicyResult.Category is empty, buildCloudSubmitRequest derives it from control ID.
+	checkResult := &evidence.CheckResult{
+		RunID:     "run-fallback",
+		Framework: "soc2",
+		Timestamp: time.Now(),
+		PolicyResults: []evidence.PolicyResult{
+			{PolicyID: "soc2-cc6.1-mfa", ControlID: "CC6.1", Status: evidence.StatusPass, Message: "All compliant"},
+			{PolicyID: "soc2-cc6.6-sg", ControlID: "CC6.6", Status: evidence.StatusPass},
+			{PolicyID: "soc2-cc7.2-guard", ControlID: "CC7.2", Status: evidence.StatusPass},
+			{PolicyID: "soc2-cc3.2-insp", ControlID: "CC3.2", Status: evidence.StatusPass},
+			{PolicyID: "soc2-c1.1-enc", ControlID: "C1.1", Status: evidence.StatusPass},
+			{PolicyID: "soc2-cc8.1-chg", ControlID: "CC8.1", Status: evidence.StatusPass},
+		},
+	}
+	checkResult.CalculateSummary()
+
+	req := buildCloudSubmitRequest(&config.Config{}, checkResult)
+
+	require.Len(t, req.CheckResult.PolicyResults, 6)
+	assert.Equal(t, "access_control", req.CheckResult.PolicyResults[0].Category)
+	assert.Equal(t, "network_security", req.CheckResult.PolicyResults[1].Category)
+	assert.Equal(t, "logging", req.CheckResult.PolicyResults[2].Category)
+	assert.Equal(t, "vulnerability_management", req.CheckResult.PolicyResults[3].Category)
+	assert.Equal(t, "data_protection", req.CheckResult.PolicyResults[4].Category)
+	assert.Equal(t, "configuration_management", req.CheckResult.PolicyResults[5].Category)
+}
+
+func TestBuildCloudSubmitRequest_MessagePassedThrough(t *testing.T) {
+	// Message must NOT contain resource identifiers — only count-based summaries.
+	checkResult := &evidence.CheckResult{
+		RunID:     "run-msg",
+		Framework: "soc2",
+		Timestamp: time.Now(),
+		PolicyResults: []evidence.PolicyResult{
+			{
+				PolicyID: "soc2-cc6.1-mfa",
+				Status:   evidence.StatusFail,
+				Message:  "3 out of 10 IAM users do not have MFA enabled",
+			},
+		},
+	}
+	checkResult.CalculateSummary()
+
+	req := buildCloudSubmitRequest(&config.Config{}, checkResult)
+
+	require.Len(t, req.CheckResult.PolicyResults, 1)
+	assert.Equal(t, "3 out of 10 IAM users do not have MFA enabled", req.CheckResult.PolicyResults[0].Message)
 }
 
 func TestBuildCloudSubmitRequest_NoViolationsInPayload(t *testing.T) {

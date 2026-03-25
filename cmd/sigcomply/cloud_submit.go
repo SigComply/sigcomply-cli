@@ -3,6 +3,7 @@ package sigcomply
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core/cloud"
 	"github.com/sigcomply/sigcomply-cli/internal/core/config"
@@ -23,11 +24,17 @@ func buildCloudSubmitRequest(cfg *config.Config, checkResult *evidence.CheckResu
 			// Rails only accepts: pass, fail, skip
 			status = string(evidence.StatusFail)
 		}
+		category := pr.Category
+		if category == "" {
+			category = policyCategory(pr.ControlID)
+		}
 		aggregated[i] = cloud.AggregatedPolicyResult{
 			PolicyID:           pr.PolicyID,
 			ControlID:          pr.ControlID,
 			Status:             status,
 			Severity:           string(pr.Severity),
+			Message:            pr.Message,
+			Category:           category,
 			ResourcesEvaluated: pr.ResourcesEvaluated,
 			ResourcesFailed:    pr.ResourcesFailed,
 			// NOTE: Violations intentionally excluded — no resource IDs reach the cloud.
@@ -102,6 +109,30 @@ func submitToCloud(ctx context.Context, cfg *config.Config, checkResult *evidenc
 	}
 
 	return resp, nil
+}
+
+// policyCategory maps a control ID to a dashboard category for the cloud API.
+// This is a fallback used when the Rego policy metadata does not include an
+// explicit "category" field. SOC 2 control ID prefixes are mapped to the
+// six Rails dashboard categories. Unknown controls default to
+// "configuration_management". Other frameworks should include explicit
+// "category" metadata in their Rego policies.
+func policyCategory(controlID string) string {
+	switch {
+	case strings.HasPrefix(controlID, "CC6.6"), strings.HasPrefix(controlID, "CC6.7"):
+		return "network_security"
+	case strings.HasPrefix(controlID, "CC6"), strings.HasPrefix(controlID, "CC5"):
+		return "access_control"
+	case strings.HasPrefix(controlID, "CC2"), strings.HasPrefix(controlID, "CC4"),
+		strings.HasPrefix(controlID, "CC7"):
+		return "logging"
+	case strings.HasPrefix(controlID, "CC3"):
+		return "vulnerability_management"
+	case strings.HasPrefix(controlID, "C1"), strings.HasPrefix(controlID, "PI"):
+		return "data_protection"
+	default:
+		return "configuration_management"
+	}
 }
 
 // shouldSubmitToCloud determines whether to submit results to cloud based on OIDC availability and flags.

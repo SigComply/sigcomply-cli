@@ -62,6 +62,16 @@ type AggregatedPolicyResult struct {
 	// Severity is the policy severity: "critical", "high", "medium", or "low".
 	Severity string `json:"severity"`
 
+	// Message is a count-based human-readable summary of what the policy checked
+	// and what failed (e.g. "3 out of 10 IAM users do not have MFA enabled").
+	// Must NOT contain resource identifiers (no ARNs, usernames, or emails).
+	Message string `json:"message,omitempty"`
+
+	// Category is the dashboard grouping category for this policy.
+	// One of: access_control, data_protection, logging, network_security,
+	// vulnerability_management, configuration_management.
+	Category string `json:"category,omitempty"`
+
 	// ResourcesEvaluated is the total number of resources evaluated.
 	ResourcesEvaluated int `json:"resources_evaluated"`
 
