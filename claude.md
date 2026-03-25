@@ -482,9 +482,11 @@ sigcomply report --framework soc2 --format pdf
 **Evidence spot-check (out-of-band):**
 ```
 Auditor selects a handful of evidence files to verify
-  → Requests the raw evidence files directly from the customer
-  → Customer provides the files and the corresponding attestation.json from their S3 bucket
-  → Auditor hashes the evidence files and verifies the signature using the public key in attestation.json
+  → Requests the specific evidence files directly from the customer
+  → Each file is a self-contained EvidenceEnvelope (e.g. evidence/iam-users.json):
+      { signed: { timestamp, evidence }, public_key, signature }
+  → Auditor verifies the signature using the public_key embedded inside the same file
+  → No separate attestation.json or manifest needed
   → Match confirms the evidence is intact and unmodified since collection
 ```
 

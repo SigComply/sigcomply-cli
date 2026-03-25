@@ -29,30 +29,18 @@ These are two entirely separate concerns. OIDC is never used to sign attestation
    token := os.Getenv("CI_JOB_JWT_V2") // GitLab
    ```
 
-3. **CLI Signs Attestation with Ephemeral Ed25519 and Submits Aggregated Results:**
+3. **CLI Signs Each Evidence File with Ephemeral Ed25519 and Submits Aggregated Results:**
    ```go
-   // Build attestation and sign with an ephemeral Ed25519 keypair.
-   // Private key is zeroed immediately after signing — never stored.
-   att := &attestation.Attestation{
-       ID:        uuid.New().String(),
-       RunID:     checkResult.RunID,
-       Framework: "soc2",
-       Timestamp: time.Now().UTC(),
-       Hashes:    evidenceHashes, // Computed using canonical JSON
-       Environment: attestation.Environment{
-           CI:         true,
-           Provider:   "github-actions",
-           Repository: "org/repo",
-       },
-       CLIVersion: "1.0.0",
-   }
+   // For each evidence file, a fresh EvidenceEnvelope is created and signed.
+   // A new ephemeral Ed25519 keypair is generated per file — private key is
+   // discarded immediately after signing. The public key and signature travel
+   // inside the file itself (EvidenceEnvelope), so each file is independently
+   // verifiable without any other artifact.
+   envelope := attestation.NewEvidenceEnvelope(collectionTimestamp, rawEvidenceJSON)
 
    signer, _ := attestation.NewEd25519Signer()
-   signer.Sign(att) // Sets att.PublicKey + att.Signature.Algorithm = "ed25519"
-   // att now has PublicKey embedded; private key is already zeroed
-
-   // Attestation goes to customer S3 — NOT to Rails
-   storage.StoreAttestation(ctx, backend, runPath, att)
+   signer.Sign(envelope) // Sets envelope.PublicKey + envelope.Signature; private key zeroed
+   // envelope is written to: {framework}/{policy_slug}/{timestamp}_{run_id}/evidence/{type}.json
 
    // Only aggregated results (counts, not resource IDs) go to the Cloud API.
    // OIDC token is used in the Authorization header for authentication.
@@ -70,11 +58,12 @@ These are two entirely separate concerns. OIDC is never used to sign attestation
    - Stores only the aggregated policy counts (pass/fail + resource counts)
    - Never receives the attestation or any resource identifiers
 
-5. **Auditor Verifies Attestation Out-of-Band:**
-   - Auditor requests raw evidence files directly from the customer
-   - Customer provides files + `attestation.json` from their S3 bucket
-   - Auditor hashes the evidence files and verifies the signature using the public key embedded in `attestation.json`
-   - No SigComply involvement needed for evidence verification
+5. **Auditor Verifies Evidence Out-of-Band:**
+   - Auditor requests specific evidence files directly from the customer
+   - Each evidence file is a self-contained `EvidenceEnvelope` — it contains the raw evidence,
+     a timestamp, the Ed25519 public key, and the signature, all in one JSON file
+   - Auditor verifies the signature using the public key embedded inside the same file
+   - No separate `attestation.json` or manifest needed; no SigComply involvement required
 
 ## B. Authenticating with Third-Party Services (Preferred)
 
