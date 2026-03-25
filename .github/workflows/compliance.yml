@@ -1,10 +1,5 @@
 # Reusable workflow for SigComply compliance checks
-# This workflow can be called from other repositories to run compliance checks
-#
-# NOTE: This workflow only triggers via workflow_call. GitHub may show it as
-# a "failed" check on direct pushes - this is a known display quirk with
-# reusable workflows and can be safely ignored. The actual Test and Security
-# workflows are the source of truth for CI status.
+# This workflow is designed to be called from other repositories.
 #
 # Usage:
 #   jobs:
@@ -18,6 +13,14 @@
 name: Compliance Check
 
 on:
+  # Triggered by external repositories via:
+  #   uses: SigComply/sigcomply-cli/.github/workflows/compliance.yml@v1
+  # The push trigger below is required to prevent GitHub from creating an
+  # instant-fail check run on every push (GitHub's behavior for workflow_call-
+  # only workflows). The "check" job is guarded with
+  # `if: github.event_name == 'workflow_call'` so it only runs when called.
+  push:
+    branches: [main]
   workflow_call:
     inputs:
       framework:
@@ -85,8 +88,19 @@ on:
         value: ${{ jobs.check.outputs.result }}
 
 jobs:
+  # Runs on direct push to main to satisfy GitHub's check-run requirement.
+  # The compliance workflow is designed for external callers (workflow_call)
+  # and has no meaningful work to do on a push to this repo itself.
+  noop:
+    name: Reusable Workflow (External Callers Only)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - run: echo "This workflow is a reusable workflow for external callers. See usage instructions at the top of this file."
+
   check:
     name: Run Compliance Check
+    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     permissions:
       id-token: write  # Required for OIDC authentication
