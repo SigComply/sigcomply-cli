@@ -15,7 +15,6 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/engine"
 	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/iso27001"
 	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/soc2"
-	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
 	"github.com/sigcomply/sigcomply-cli/internal/core/cloud"
 	"github.com/sigcomply/sigcomply-cli/internal/core/config"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
@@ -299,32 +298,16 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 	checkResult.CalculateSummary()
 
 	// Store evidence if enabled
-	var manifest *storage.Manifest
 	if cfg.Storage.Enabled {
 		fmt.Println()
 		fmt.Println("Storage")
 		fmt.Println("-------")
 
-		var storageErr error
-		manifest, storageErr = storeEvidence(ctx, cfg, checkResult, result.Evidence)
-		if storageErr != nil {
+		if storageErr := storeEvidence(ctx, cfg, checkResult, result.Evidence); storageErr != nil {
 			fmt.Printf("  [warn] Failed to store evidence: %s\n", storageErr)
 		} else {
-			fmt.Printf("  [done] Stored %d evidence items\n", manifest.EvidenceCount)
-			fmt.Printf("  [done] Manifest: %s\n", manifest.RunID)
-		}
-	}
-
-	// Build and sign attestation from stored file hashes, then store in customer S3.
-	// The attestation stays entirely in customer storage — it is NOT sent to the cloud.
-	if cfg.Storage.Enabled && manifest != nil {
-		att, attErr := buildAttestation(cfg, checkResult, manifest)
-		if attErr != nil {
-			fmt.Printf("  [warn] Failed to build attestation: %s\n", attErr)
-		} else if att != nil {
-			if storeErr := storeAttestationFile(ctx, cfg, checkResult, att); storeErr != nil {
-				fmt.Printf("  [warn] Failed to store attestation: %s\n", storeErr)
-			}
+			fmt.Printf("  [done] Stored %d evidence items\n", len(result.Evidence))
+			fmt.Printf("  [done] Run ID: %s\n", checkResult.RunID)
 		}
 	}
 
@@ -416,21 +399,10 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 	checkResult.CalculateSummary()
 
 	// Store evidence if enabled
-	var manifest *storage.Manifest
 	if cfg.Storage.Enabled {
-		var storageErr error
-		manifest, storageErr = storeEvidence(ctx, cfg, checkResult, result.Evidence)
-		if storageErr != nil {
+		if storageErr := storeEvidence(ctx, cfg, checkResult, result.Evidence); storageErr != nil {
 			// Log storage error but continue
 			_ = storageErr
-		}
-	}
-
-	// Build and sign attestation, store in customer S3 (not sent to cloud).
-	if cfg.Storage.Enabled && manifest != nil {
-		att, attErr := buildAttestation(cfg, checkResult, manifest)
-		if attErr == nil && att != nil {
-			storeAttestationFile(ctx, cfg, checkResult, att) //nolint:errcheck // Attestation storage errors are non-critical
 		}
 	}
 
@@ -455,11 +427,6 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 	}
 
 	// Build JSON output
-	var manifestID string
-	if manifest != nil {
-		manifestID = manifest.RunID
-	}
-
 	jsonOutput := struct {
 		Framework     string                  `json:"framework"`
 		RunID         string                  `json:"run_id"`
@@ -470,7 +437,6 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 		Summary       evidence.CheckSummary   `json:"summary"`
 		Evidence      []evidence.Evidence     `json:"evidence,omitempty"`
 		Errors        []aws.CollectionError   `json:"errors,omitempty"`
-		ManifestID    string                  `json:"manifest_id,omitempty"`
 		Cloud         *cloudSubmitResult      `json:"cloud,omitempty"`
 	}{
 		Framework:     cfg.Framework,
@@ -482,7 +448,6 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 		Summary:       checkResult.Summary,
 		Evidence:      result.Evidence,
 		Errors:        result.Errors,
-		ManifestID:    manifestID,
 		Cloud:         cloudResponse,
 	}
 
@@ -564,18 +529,9 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 	checkResult.CalculateSummary()
 
 	// Store evidence if enabled (silently, as JUnit output should be pure XML)
-	var manifest *storage.Manifest
 	if cfg.Storage.Enabled {
 		//nolint:errcheck // Intentionally ignoring storage errors in JUnit mode to preserve XML output
-		manifest, _ = storeEvidence(ctx, cfg, checkResult, result.Evidence)
-	}
-
-	// Build and sign attestation, store in customer S3 (not sent to cloud).
-	if cfg.Storage.Enabled && manifest != nil {
-		att, attErr := buildAttestation(cfg, checkResult, manifest)
-		if attErr == nil && att != nil {
-			storeAttestationFile(ctx, cfg, checkResult, att) //nolint:errcheck // Silently ignore in JUnit mode
-		}
+		_ = storeEvidence(ctx, cfg, checkResult, result.Evidence)
 	}
 
 	// Submit aggregated results to cloud if enabled (silently, as JUnit output should be pure XML)
@@ -767,8 +723,9 @@ func countByResourceType(evidenceList []evidence.Evidence) map[string]int {
 	return counts
 }
 
-// storeEvidence stores evidence and check results to the configured storage backend.
-func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence) (*storage.Manifest, error) {
+// storeEvidence stores evidence and policy results to the configured storage backend.
+// Evidence files are stored as signed EvidenceEnvelopes; result.json contains full violations.
+func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence) error {
 	// Build storage configuration
 	storageCfg := &storage.Config{
 		Backend: cfg.Storage.Backend,
@@ -790,7 +747,7 @@ func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidenc
 	// Create backend
 	backend, err := storage.NewBackend(storageCfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create storage backend: %w", err)
+		return fmt.Errorf("failed to create storage backend: %w", err)
 	}
 	defer func() {
 		_ = backend.Close() //nolint:errcheck // Close errors are not critical for storage cleanup
@@ -798,51 +755,15 @@ func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidenc
 
 	// Initialize backend
 	if err := backend.Init(ctx); err != nil {
-		return nil, fmt.Errorf("failed to initialize storage: %w", err)
-	}
-
-	// Store everything and get manifest
-	manifest, err := storage.StoreRun(ctx, backend, checkResult, evidenceList)
-	if err != nil {
-		return nil, fmt.Errorf("failed to store run: %w", err)
-	}
-
-	return manifest, nil
-}
-
-// storeAttestationFile stores the attestation.json separately after evidence+hashes are computed.
-func storeAttestationFile(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, att *attestation.Attestation) error {
-	// Build storage configuration
-	storageCfg := &storage.Config{
-		Backend: cfg.Storage.Backend,
-	}
-
-	switch cfg.Storage.Backend {
-	case backendLocal:
-		storageCfg.Local = &storage.LocalConfig{
-			Path: cfg.Storage.Path,
-		}
-	case backendS3:
-		storageCfg.S3 = &storage.S3Config{
-			Bucket: cfg.Storage.Bucket,
-			Region: cfg.Storage.Region,
-			Prefix: cfg.Storage.Prefix,
-		}
-	}
-
-	backend, err := storage.NewBackend(storageCfg)
-	if err != nil {
-		return fmt.Errorf("failed to create storage backend: %w", err)
-	}
-	defer backend.Close() //nolint:errcheck // Best-effort cleanup
-
-	if err := backend.Init(ctx); err != nil {
 		return fmt.Errorf("failed to initialize storage: %w", err)
 	}
 
-	runPath := storage.NewRunPath(checkResult.Framework, checkResult.Timestamp)
-	_, err = storage.StoreAttestation(ctx, backend, *runPath, att)
-	return err
+	// Store per-policy folders with signed evidence envelopes
+	if err := storage.StoreRun(ctx, backend, checkResult, evidenceList, version, commit, cfg.CommitSHA); err != nil {
+		return fmt.Errorf("failed to store run: %w", err)
+	}
+
+	return nil
 }
 
 // cloudSubmitResult is used for JSON output of cloud submission results.

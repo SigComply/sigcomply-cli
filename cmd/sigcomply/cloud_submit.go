@@ -3,67 +3,11 @@ package sigcomply
 import (
 	"context"
 	"fmt"
-	"time"
 
-	"github.com/google/uuid"
-	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
 	"github.com/sigcomply/sigcomply-cli/internal/core/cloud"
 	"github.com/sigcomply/sigcomply-cli/internal/core/config"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
-	"github.com/sigcomply/sigcomply-cli/internal/core/storage"
 )
-
-// buildAttestation creates a signed attestation from check results and the storage manifest.
-// A fresh ephemeral Ed25519 keypair is generated for each call; the private key is discarded
-// immediately after signing. The public key and signature are embedded in the returned
-// attestation and stored alongside the evidence in the customer's S3 bucket.
-func buildAttestation(cfg *config.Config, checkResult *evidence.CheckResult, manifest *storage.Manifest) (*attestation.Attestation, error) {
-	// Compute hashes from stored files
-	runPath := storage.NewRunPath(checkResult.Framework, checkResult.Timestamp)
-	checkResultHash, fileHashes := manifest.FileHashes(runPath.BasePath())
-	hashes := attestation.ComputeStoredFileHashes(checkResultHash, fileHashes)
-
-	att := &attestation.Attestation{
-		ID:        uuid.New().String(),
-		RunID:     checkResult.RunID,
-		Framework: cfg.Framework,
-		Timestamp: time.Now(),
-		Hashes:    *hashes,
-		Environment: attestation.Environment{
-			CI:         cfg.CI,
-			Provider:   cfg.CIProvider,
-			Repository: cfg.Repository,
-			Branch:     cfg.Branch,
-			CommitSHA:  cfg.CommitSHA,
-		},
-		CLIVersion: version,
-		// PolicyVersions would be populated here once the policy engine
-		// supports tracking policy versions/hashes
-	}
-
-	// Set storage location (metadata only — not included in signed payload)
-	if cfg.Storage.Enabled {
-		att.StorageLocation = attestation.StorageLocation{
-			Backend: cfg.Storage.Backend,
-			Bucket:  cfg.Storage.Bucket,
-			Path:    cfg.Storage.Prefix,
-		}
-		if manifest != nil {
-			att.StorageLocation.ManifestPath = computeManifestPath(cfg, manifest)
-		}
-	}
-
-	// Sign with an ephemeral Ed25519 keypair. Private key is zeroed immediately after signing.
-	signer, err := attestation.NewEd25519Signer()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create attestation signer: %w", err)
-	}
-	if err := signer.Sign(att); err != nil {
-		return nil, fmt.Errorf("failed to sign attestation: %w", err)
-	}
-
-	return att, nil
-}
 
 // buildCloudSubmitRequest creates a cloud API submission request containing only aggregated
 // policy results. No resource identifiers (ARNs, usernames, emails) are included — only counts.
@@ -128,37 +72,6 @@ func buildCloudSubmitRequest(cfg *config.Config, checkResult *evidence.CheckResu
 			CommitSHA:  cfg.CommitSHA,
 			CLIVersion: version,
 		},
-	}
-}
-
-// computeManifestPath computes the manifest path from the manifest's stored items.
-func computeManifestPath(cfg *config.Config, manifest *storage.Manifest) string {
-	// Find the manifest item in stored items (it contains the actual path)
-	for _, item := range manifest.Items {
-		if item.Metadata != nil && item.Metadata["type"] == "manifest" {
-			switch cfg.Storage.Backend {
-			case backendS3:
-				return item.Path
-			case backendLocal:
-				return cfg.Storage.Path + "/" + item.Path
-			default:
-				return item.Path
-			}
-		}
-	}
-
-	// Fallback: compute from RunPath
-	rp := storage.NewRunPath(manifest.Framework, manifest.Timestamp)
-	switch cfg.Storage.Backend {
-	case backendS3:
-		if cfg.Storage.Prefix != "" {
-			return cfg.Storage.Prefix + rp.ManifestPath()
-		}
-		return rp.ManifestPath()
-	case backendLocal:
-		return cfg.Storage.Path + "/" + rp.ManifestPath()
-	default:
-		return rp.ManifestPath()
 	}
 }
 
