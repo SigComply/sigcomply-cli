@@ -51,6 +51,17 @@ Each policy lives within its framework directory. Simplicity and readability ove
 3. Write integration tests
 4. Update storage documentation
 
+**Required storage layout**: Any new backend must write evidence using the policy-first folder structure:
+
+```
+{framework}/{policy_id}/{timestamp}_{run_id_8chars}/
+├── evidence/
+│   └── {collector}-{resource_type}.json   # EvidenceEnvelope (self-contained, signed)
+└── result.json                             # PolicyRunResult (full violations)
+```
+
+Where `timestamp` uses ISO 8601 basic format with no colons (e.g., `20260325T100000Z`) and `run_id_8chars` is the first 8 characters of the run UUID. See `ARCHITECTURE.md` Storage Layout for the full spec.
+
 ## Creating CI/CD Reusable Workflows
 
 ### GitHub Actions Workflow (`.github/workflows/compliance.yml`)

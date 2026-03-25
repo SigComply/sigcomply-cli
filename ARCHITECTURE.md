@@ -226,95 +226,134 @@ type RunEnvironment struct {
 }
 ```
 
-### Attestation
+### EvidenceEnvelope
 
-The attestation is stored entirely in the customer's S3 bucket. It is never sent to the SigComply Cloud API.
+Each evidence file stored in the customer's S3 bucket is a self-contained signed envelope. It is never sent to the SigComply Cloud API.
 
 ```go
-type Attestation struct {
-    ID              string            `json:"id"`
-    RunID           string            `json:"run_id"`
-    Framework       string            `json:"framework"`
-    Timestamp       time.Time         `json:"timestamp"`
-    Hashes          EvidenceHashes    `json:"hashes"`
-    Signature       Signature         `json:"signature"`
-    PublicKey       string            `json:"public_key"`           // Base64-encoded Ed25519 public key
-    Environment     Environment       `json:"environment"`
-    StorageLocation StorageLocation   `json:"storage_location"`     // NOT part of signed payload
-    CLIVersion      string            `json:"cli_version,omitempty"`
-    PolicyVersions  map[string]string `json:"policy_versions,omitempty"`
+// EvidenceEnvelope is the file format for every evidence file stored in S3.
+// Each file is independently verifiable — an auditor can pick any single file
+// and verify its integrity without needing any other file or contacting SigComply.
+type EvidenceEnvelope struct {
+    // Signed is the payload covered by the cryptographic signature.
+    // Only this field is included when computing the signature.
+    Signed SignedPayload `json:"signed"`
+
+    // PublicKey is the base64-encoded Ed25519 public key used to sign this file.
+    // The corresponding private key was discarded immediately after signing.
+    PublicKey string `json:"public_key"`
+
+    // Signature contains the cryptographic signature over Signed.
+    Signature Signature `json:"signature"`
 }
 
-type EvidenceHashes struct {
-    CheckResult string            `json:"check_result"`  // SHA-256 of check_result.json
-    StoredFiles map[string]string `json:"stored_files"`  // relative path → SHA-256 hash
-    Combined    string            `json:"combined"`      // single hash of all above
-}
+// SignedPayload is the tamper-evident core of an EvidenceEnvelope.
+// Adding or removing fields here changes what is covered by the signature.
+type SignedPayload struct {
+    // Timestamp is when the evidence was collected.
+    // Enables an auditor to confirm the evidence falls within the audit period.
+    // S3 object mtimes can be modified; this field cannot be changed without
+    // invalidating the signature.
+    Timestamp time.Time       `json:"timestamp"`
 
-// StorageLocation describes where evidence is stored.
-// Stored inside attestation.json in the customer's S3 bucket — NOT sent to SigComply Cloud.
-type StorageLocation struct {
-    Backend      string `json:"backend"`                 // local, s3, gcs
-    Bucket       string `json:"bucket,omitempty"`
-    Path         string `json:"path,omitempty"`
-    ManifestPath string `json:"manifest_path,omitempty"`
-    Encrypted    bool   `json:"encrypted,omitempty"`
+    // Evidence is the raw API response data collected from the source service.
+    Evidence  json.RawMessage `json:"evidence"`
 }
 
 type Signature struct {
-    Algorithm string `json:"algorithm"`  // ed25519
-    Value     string `json:"value"`      // Base64-encoded Ed25519 signature over Combined hash
+    Algorithm string `json:"algorithm"` // "ed25519"
+    Value     string `json:"value"`     // Base64-encoded Ed25519 signature
 }
 
-type Environment struct {
-    CI           bool   `json:"ci"`
-    Provider     string `json:"provider,omitempty"`     // github-actions, gitlab-ci
-    Repository   string `json:"repository,omitempty"`
-    Branch       string `json:"branch,omitempty"`
-    CommitSHA    string `json:"commit_sha,omitempty"`
-    WorkflowName string `json:"workflow_name,omitempty"`
-    RunID        string `json:"run_id,omitempty"`
-    Actor        string `json:"actor,omitempty"`
-}
+const AlgorithmEd25519 = "ed25519"
+```
 
-const (
-    AlgorithmEd25519 = "ed25519"
-)
+**On-disk format example** (`evidence/aws-iam-users.json`):
+
+```json
+{
+  "signed": {
+    "timestamp": "2026-03-25T10:00:00Z",
+    "evidence": { "users": [...], "mfa_devices": [...] }
+  },
+  "public_key": "base64encodedEd25519PublicKey==",
+  "signature": {
+    "algorithm": "ed25519",
+    "value": "base64encodedSignatureBytes=="
+  }
+}
+```
+
+### PolicyRunResult
+
+Stored as `result.json` in each policy run folder. Contains the full policy evaluation output including violation details with resource identifiers. Never sent to the SigComply Cloud API — stays entirely in customer storage.
+
+```go
+// PolicyRunResult is stored as result.json for each policy run in customer S3.
+// It contains the complete evaluation output. The cloud API receives only the
+// aggregated counts (resources_evaluated, resources_failed) — never the violations.
+type PolicyRunResult struct {
+    PolicyID           string       `json:"policy_id"`           // "cc6_1_mfa"
+    ControlID          string       `json:"control_id"`          // "CC6.1"
+    Framework          string       `json:"framework"`           // "soc2"
+    RunID              string       `json:"run_id"`              // UUID shared across all policies in one run
+    Timestamp          time.Time    `json:"timestamp"`
+    Status             ResultStatus `json:"status"`              // pass, fail, skip, error
+    Severity           Severity     `json:"severity"`
+    ResourcesEvaluated int          `json:"resources_evaluated"`
+    ResourcesFailed    int          `json:"resources_failed"`
+    Violations         []Violation  `json:"violations,omitempty"` // Full resource IDs — never leave S3
+    EvidenceFiles      []string     `json:"evidence_files"`       // Relative paths: ["evidence/aws-iam-users.json"]
+    CLIVersion         string       `json:"cli_version"`          // e.g., "1.2.3"
+    CLISHA             string       `json:"cli_sha"`              // Git SHA of the CLI binary
+    RepoSHA            string       `json:"repo_sha"`             // Git SHA of the customer's repository
+}
+```
+
+**On-disk format example** (`result.json`):
+
+```json
+{
+  "policy_id": "cc6_1_mfa",
+  "control_id": "CC6.1",
+  "framework": "soc2",
+  "run_id": "a3f8b2c1-...",
+  "timestamp": "2026-03-25T10:00:00Z",
+  "status": "fail",
+  "severity": "high",
+  "resources_evaluated": 42,
+  "resources_failed": 3,
+  "violations": [
+    { "resource_id": "arn:aws:iam::123456789:user/alice", "resource_type": "aws:iam:user", "reason": "MFA not enabled" },
+    { "resource_id": "arn:aws:iam::123456789:user/bob",   "resource_type": "aws:iam:user", "reason": "MFA not enabled" }
+  ],
+  "evidence_files": ["evidence/aws-iam-users.json", "evidence/github-members.json"],
+  "cli_version": "1.2.3",
+  "cli_sha": "abc123def456",
+  "repo_sha": "789abc012def"
+}
 ```
 
 #### Attestation Design Decisions
 
-**Ephemeral keypair — no key management:**
-- CLI generates a fresh Ed25519 keypair for every single run using Go stdlib (`crypto/ed25519`)
-- Private key signs the `Combined` hash (canonical JSON of all evidence hashes), then is immediately discarded
-- Public key is embedded in `attestation.json` stored in the customer's S3 bucket
-- No secrets to distribute, rotate, or manage
+**Per-file envelope signing — not a single run-level attestation:**
+- Each evidence file is independently wrapped in a signed envelope (`EvidenceEnvelope`)
+- A fresh ephemeral Ed25519 keypair is generated per evidence file; private key discarded immediately after signing
+- The public key and signature travel with the file — no separate `attestation.json` manifest needed
+- An auditor can pick any single evidence file and verify it independently without needing any other artifact
 
-**Purpose — auditor spot-checks only:**
-- An auditor randomly selects a handful of evidence files to verify
-- Auditor requests those files directly from the customer (out of band)
-- Auditor verifies: hash the file → matches the hash in attestation → signature over hashes verifies with the embedded public key
-- Confirms the evidence was not accidentally modified since collection
-- This is not part of the core compliance workflow
+**Why not one signature over all files combined:**
+- A combined hash would require a separate manifest listing all files in the run
+- It would also require the auditor to obtain the full manifest to verify a single file
+- Per-file signing is simpler, self-contained, and maps naturally to the policy-first folder structure where each policy folder is independently auditable
 
 **Threat model:**
 - Protects against accidental corruption and unintentional evidence drift
+- The `timestamp` in `SignedPayload` proves when evidence was collected — S3 object mtimes can be modified, but the signed timestamp cannot be changed without invalidating the signature
 - Does not attempt to prevent a determined customer from fabricating evidence (that is fraud — a legal matter, not a technical one, and out of scope for all compliance tools)
 
-**Canonical JSON Serialization:**
-
-All hashing uses canonical JSON serialization (sorted map keys) to ensure deterministic output. This is critical because:
-- Go's `map` iteration order is randomized
-- `Violation.Details` is `map[string]interface{}`
-- `Evidence.Metadata.Tags` is `map[string]string`
-- Without canonical serialization, identical data could produce different hashes
-
-**Version Information:**
-
-`CLIVersion` and `PolicyVersions` enable:
-- Reproducibility: auditors can verify which tools/policies were used
-- Debugging: identify behavior differences between versions
-- Compliance: prove consistent policy application over time
+**Canonical JSON for deterministic signing:**
+The `evidence` field is `json.RawMessage` (raw API response). When serializing `SignedPayload` for signing, canonical JSON (sorted map keys) is used to ensure the same data always produces the same bytes regardless of Go map iteration order. This is required for the verifier to reproduce the same bytes and confirm the signature.
 
 ---
 
@@ -448,36 +487,68 @@ Cloud submission uses OIDC authentication exclusively:
 
 ## Storage Layout
 
+Evidence is organized **policy-first**: each policy has its own folder with a chronological history of runs. This maps directly to how auditors work — they review one policy at a time across the audit period.
+
 ```
-{bucket}/{prefix}/{framework}/{year}/{month}/{day}/{run_id}/
-├── manifest.json           # Index with all file hashes
-├── evidence/               # Raw API responses
-│   ├── aws_iam_users.json
-│   └── aws_s3_buckets.json
-├── results/
-│   └── check_result.json   # Full CheckResult
-└── attestation.json        # Signed attestation
+{bucket}/
+└── {framework}/                                      # e.g., soc2
+    └── {policy_id}/                                  # e.g., cc6_1_mfa
+        └── {timestamp}_{run_id_8chars}/              # e.g., 20260325T100000Z_a3f8b2c1
+            ├── evidence/
+            │   ├── aws-iam-users.json                # EvidenceEnvelope (signed, self-contained)
+            │   └── github-members.json               # EvidenceEnvelope (signed, self-contained)
+            └── result.json                           # PolicyRunResult (full violations — stays in S3)
 ```
+
+### Key Design Decisions
+
+**Policy-first hierarchy** — navigating to `soc2/cc6_1_mfa/` gives a chronological history of every MFA check run. An auditor can inspect all evidence and results for a policy across the entire audit period without any cross-referencing.
+
+**Run folder naming** — `{ISO8601_basic_timestamp}_{first_8_chars_of_run_uuid}`. Basic ISO 8601 (no colons, e.g. `20260325T100000Z`) is used instead of extended format to avoid path issues in some S3-compatible tools. The run UUID suffix eliminates collision risk if the check runs twice in the same second.
+
+**Evidence duplication** — The same raw evidence (e.g., IAM users) is stored independently in every policy folder that uses it, each with its own signed envelope and ephemeral keypair. The API call to collect the data happens once per run; the data is then written to each relevant policy folder. This makes each policy folder fully self-contained: an auditor verifying CC6.1 has everything they need without cross-referencing other policy folders.
+
+**No manifest file** — There is no top-level `manifest.json`. Each evidence file carries its own cryptographic proof (see `EvidenceEnvelope`). The `result.json` lists which evidence files were used for the policy evaluation via `evidence_files`.
+
+> **TODO**: Add a `check_runs_history/` root folder inside each framework folder containing:
+> - A `run_history.json` tracking all historical runs (run_id, timestamp, policies evaluated, overall status)
+> - A `policy_frequency.json` defining how often each policy should run (e.g., daily, weekly, monthly)
+> The CLI will read `policy_frequency.json` and `run_history.json` to skip policies that have already run within their configured frequency window. This enables mixed-cadence compliance checks where some policies run daily and others monthly, all within a single `sigcomply check` invocation.
 
 ---
 
 ## Signing Method
 
-Attestations are signed using **ephemeral Ed25519** keypairs. No pre-shared secrets or key management required.
+Evidence files are signed using **ephemeral Ed25519** keypairs — one fresh keypair per evidence file. No pre-shared secrets or key management required.
 
 ```
-keypair = ed25519.GenerateKey()               // fresh keypair every run
-payload = CanonicalJSON(evidence_hashes)      // deterministic serialization
+// For each evidence file collected:
+keypair = ed25519.GenerateKey()                    // fresh keypair, never reused
+payload = CanonicalJSON({ timestamp, evidence })   // deterministic serialization
 signature = ed25519.Sign(private_key, payload)
-private_key.Discard()                         // immediately, never stored
-attestation.json = { hashes, signature, public_key, ... }  → customer S3
+private_key.Discard()                              // immediately, never stored
+
+evidence_file.json = {
+    signed:     { timestamp, evidence },           // the signed payload
+    public_key: base64(public_key),               // stays with the file
+    signature:  { algorithm: "ed25519",
+                  value: base64(signature) },
+} → customer S3
 ```
 
-**OIDC is authentication only** — the OIDC JWT token is sent in the `Authorization: Bearer` header to authenticate the CLI with the SigComply Cloud API. It is not used for signing attestations.
+**Verification** (auditor, out of band):
+```
+envelope = read(evidence_file.json)
+payload  = CanonicalJSON(envelope.signed)
+ed25519.Verify(decode(envelope.public_key), payload, decode(envelope.signature.value))
+// → true: file is intact since collection
+```
+
+**OIDC is authentication only** — the OIDC JWT token is sent in the `Authorization: Bearer` header to authenticate the CLI with the SigComply Cloud API. It is not used for signing evidence files.
 
 | Concern | Mechanism |
 |---------|-----------|
-| Attestation signing | Ephemeral Ed25519 keypair (private key discarded after signing) |
+| Evidence signing | Ephemeral Ed25519 keypair per file (private key discarded after signing) |
 | Cloud API authentication | OIDC JWT in `Authorization: Bearer` header |
 | Evidence privacy | Aggregation in CLI — counts sent to cloud, resource IDs stay in S3 |
 
@@ -490,7 +561,7 @@ attestation.json = { hashes, signature, public_key, ... }  → customer S3
 | Evidence collection | ✓ | ✓ |
 | Policy evaluation | ✓ | ✓ |
 | Local/S3/GCS storage | ✓ | ✓ |
-| Attestation signing (ephemeral Ed25519) | ✓ | ✓ |
+| Evidence signing (ephemeral Ed25519 per file) | ✓ | ✓ |
 | Compliance dashboard (cloud) | - | ✓ |
 | Drift detection (policy-level) | - | ✓ |
 | Compliance score trends | - | ✓ |

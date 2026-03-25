@@ -218,15 +218,18 @@ User Environment
 [SigComply CLI]
     ↓
     ├─> Fetch data from Service APIs (AWS, GitHub, etc.)
-    ├─> Execute OPA/Rego policies against fetched data locally
-    ├─> Generate CheckResult with PolicyResults and Violations
+    │   Each evidence file collected is immediately wrapped in a signed envelope:
+    │   { signed: { timestamp, evidence }, public_key, signature }
+    │   Private key discarded immediately after signing.
+    │
+    ├─> Execute OPA/Rego policies against collected evidence locally
+    ├─> Generate PolicyRunResult per policy (with full violations + resource IDs)
     │
     ├─> Store to customer's storage (S3, GCS, local):   [ALL stays with customer]
-    │   ├─> Raw evidence (API responses)
-    │   ├─> Policy inputs (what OPA evaluated)
-    │   ├─> Full check results (including violation details with resource IDs)
-    │   ├─> Ephemeral Ed25519 public key (private key discarded immediately)
-    │   └─> Signed attestation (signature over evidence hashes)
+    │   Per policy, per run:
+    │   ├─> evidence/aws-iam-users.json    (EvidenceEnvelope — signed, self-contained)
+    │   ├─> evidence/github-members.json  (EvidenceEnvelope — signed, self-contained)
+    │   └─> result.json                   (PolicyRunResult — full violations + cli_sha + repo_sha)
     │
     └─> Send to SigComply Cloud API (paid tier):        [Aggregated only, no PII]
         ├─> Per-policy results: policy_id + pass/fail + severity
@@ -243,6 +246,7 @@ User Environment
 #### Evidence Collection
 - CLI connects to various service APIs using customer's local credentials
 - Fetches infrastructure state, configuration, logs, user data, etc.
+- Each collected evidence file is immediately wrapped in a signed `EvidenceEnvelope`
 - No credentials are sent to SigComply servers
 
 #### Policy Evaluation
@@ -252,17 +256,19 @@ User Environment
 - Results indicate pass/fail for each control
 
 #### Evidence Storage (Sovereign Vault)
-- Raw evidence sent to customer-controlled storage
-- Customer chooses: S3 bucket, Google Drive, Azure Blob, etc.
-- SigComply never has access to raw evidence
+- Evidence stored in a policy-first folder structure: `{framework}/{policy_id}/{timestamp}_{run_id}/`
+- Each evidence file is a self-contained signed envelope with its own ephemeral keypair
+- Each policy run produces a `result.json` with full violation details (resource IDs stay in S3)
+- Customer chooses: S3 bucket, GCS, local
+- SigComply never has access to raw evidence or violation details
 - Customer maintains complete data sovereignty
 
-#### Attestation Generation
-- CLI generates an ephemeral Ed25519 keypair for each run
-- CLI computes SHA-256 hash of every piece of evidence
-- CLI signs the combined evidence hashes with the private key, then immediately discards the private key
-- Public key + signature + raw evidence are all stored together in the customer's S3 bucket
-- Purpose: auditor spot-checks — an auditor can randomly pick any evidence file, verify the hash matches the signature, and confirm it has not been tampered with
+#### Evidence Signing (per file)
+- A fresh ephemeral Ed25519 keypair is generated per evidence file — never reused across files
+- The signed payload is `{ timestamp, evidence }` serialized as canonical JSON
+- Private key is discarded immediately after signing — never stored anywhere
+- Public key + signature are embedded inside the evidence file itself (`EvidenceEnvelope`)
+- Purpose: auditor spot-checks — pick any evidence file, verify it independently without contacting SigComply
 - This is out-of-band verification, not part of the core compliance workflow
 
 #### Cloud Reporting (Paid Tier)
@@ -447,8 +453,8 @@ include:
 sigcomply check --framework soc2
 # Fetches current infrastructure state
 # Evaluates OPA policies locally
-# Generates ephemeral Ed25519 keypair, signs evidence hashes, discards private key
-# Stores evidence + public key + signature in customer's vault (S3/local)
+# Wraps each evidence file in a signed envelope (ephemeral Ed25519 keypair per file, private key discarded immediately)
+# Stores signed evidence envelopes + policy result files in customer's vault (S3/local)
 # Authenticates via OIDC token in CI
 # Sends aggregated policy results to Cloud API (counts only, no resource IDs)
 # Outputs pass/fail results
@@ -460,8 +466,8 @@ When the workflow runs:
 2. SigComply CLI is installed via reusable workflow
 3. CLI fetches infrastructure data using repository secrets
 4. Policies are evaluated locally — full violations (with resource IDs) computed in memory
-5. CLI generates ephemeral Ed25519 keypair, signs evidence hashes, discards private key
-6. Raw evidence + full check results + public key + signature stored in customer's S3 vault
+5. Each collected evidence file is wrapped in a signed EvidenceEnvelope (fresh ephemeral Ed25519 keypair per file, private key discarded immediately)
+6. Signed evidence envelopes + PolicyRunResult files stored in customer's S3 vault under policy-first folder structure
 7. CLI aggregates results (resource counts, policy-level pass/fail) — resource identifiers discarded
 8. Aggregated compliance data sent to Rails API with OIDC token (no resource IDs, no PII)
 9. Build passes/fails based on compliance status
@@ -861,12 +867,10 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 - **Key architectural decision - What stays with customer vs goes to cloud**:
 
   **Stays with Customer (in their S3 vault)**:
-  - Raw evidence (actual API responses)
-  - Policy inputs (data sent to OPA)
-  - Full `CheckResult` with all `PolicyResult` entries
-  - All `Violation` details (resource IDs, types, reasons) — full context for the customer
-  - Ephemeral Ed25519 public key
-  - Signed attestation (signature over evidence hashes)
+  - Raw evidence (actual API responses) — wrapped in signed `EvidenceEnvelope` files
+  - Full `PolicyRunResult` per policy per run — includes all `Violation` details with resource IDs, ARNs, etc.
+  - Ephemeral Ed25519 public key — embedded inside each `EvidenceEnvelope` file
+  - Cryptographic signature — embedded inside each `EvidenceEnvelope` file
 
   **Goes to SigComply Cloud (paid tier) — aggregated only, no PII**:
   - Per-policy results: policy_id + pass/fail + severity + resource counts
@@ -879,14 +883,16 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 
 - **The aggregation boundary is sacred**: The CLI is responsible for reducing violations to counts before sending anything to the Cloud API. This is a hard architectural boundary — never add code that would send resource identifiers to the cloud client.
 
-- **Attestation design decisions**:
-  - Ephemeral Ed25519 keypair per run — private key discarded immediately after signing
-  - Public key + signature stay in customer S3 alongside the evidence
-  - Signing uses canonical JSON (sorted map keys) for deterministic, reproducible hashes
-  - Purpose is auditor spot-checks, not core workflow — auditor randomly verifies a handful of files
-  - No Rails involvement in attestation verification — entirely customer-side
+- **Evidence signing design (EvidenceEnvelope)**:
+  - Each evidence file is independently wrapped in a signed envelope: `{signed: {timestamp, evidence}, public_key, signature}`
+  - A fresh ephemeral Ed25519 keypair is generated per evidence file — private key discarded immediately after signing
+  - The same raw evidence data (e.g., IAM users) may appear in multiple policy folders — each copy has its own independent keypair and signature
+  - Signing uses canonical JSON (sorted map keys) so the same data always produces the same bytes for signing/verification
+  - Purpose: auditor spot-checks — pick any evidence file, verify its signature independently without contacting SigComply
+  - No separate `attestation.json` manifest — proof travels with each individual file
+  - No Rails involvement in verification — entirely customer-side
 
-- **Threat model for attestation**: We protect against accidental corruption and unintentional evidence drift. We do not attempt to prevent a determined customer from fabricating evidence — that would be fraud, a legal matter, and is out of scope for all compliance tools.
+- **Threat model for evidence signing**: We protect against accidental corruption and unintentional evidence drift. The `timestamp` inside the signed payload proves when evidence was collected (S3 mtimes can be modified; the signed timestamp cannot). We do not attempt to prevent a determined customer from fabricating evidence — that would be fraud, a legal matter, and is out of scope for all compliance tools.
 
 ---
 
