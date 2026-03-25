@@ -154,21 +154,14 @@ jobs:
             FILTER_FLAGS="$FILTER_FLAGS --controls ${{ inputs.controls }}"
           fi
 
-          # Run the compliance check
-          sigcomply check \
-            --framework "${{ inputs.framework }}" \
-            --output json \
-            --region "${{ inputs.aws-region }}" \
-            $FILTER_FLAGS \
-            > .sigcomply/results/compliance-results.json
-
-          # Generate JUnit report for CI integration
+          # Run the compliance check once, producing both JUnit (stdout) and JSON (file)
           sigcomply check \
             --framework "${{ inputs.framework }}" \
             --output junit \
+            --json-output .sigcomply/results/compliance-results.json \
             --region "${{ inputs.aws-region }}" \
             $FILTER_FLAGS \
-            > .sigcomply/results/compliance-results.xml 2>/dev/null || true
+            > .sigcomply/results/compliance-results.xml
 
       - name: Parse results
         id: parse-results

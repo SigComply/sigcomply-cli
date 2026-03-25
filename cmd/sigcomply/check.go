@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"strings"
@@ -33,6 +34,7 @@ const (
 var (
 	flagFramework      string
 	flagOutput         string
+	flagJSONOutput     string
 	flagVerbose        bool
 	flagRegion         string
 	flagStore          bool
@@ -85,6 +87,7 @@ Examples:
 
 	cmd.Flags().StringVarP(&flagFramework, "framework", "f", "", "Compliance framework (soc2, hipaa, iso27001)")
 	cmd.Flags().StringVarP(&flagOutput, "output", "o", "", "Output format (text, json, junit)")
+	cmd.Flags().StringVar(&flagJSONOutput, "json-output", "", "Write JSON results to this file in addition to --output format")
 	cmd.Flags().BoolVarP(&flagVerbose, "verbose", "v", false, "Verbose output")
 	cmd.Flags().StringVar(&flagRegion, "region", "", "AWS region")
 	cmd.Flags().BoolVar(&flagStore, "store", false, "Store evidence and results to configured storage")
@@ -316,6 +319,13 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 		printCloudSubmission(ctx, cfg, checkResult)
 	}
 
+	// Write JSON output file if requested (no second cloud submission or evidence collection)
+	if flagJSONOutput != "" {
+		if err := writeJSONOutputFile(flagJSONOutput, checkResult); err != nil {
+			fmt.Fprintf(os.Stderr, "  [warn] Failed to write JSON output file: %s\n", err)
+		}
+	}
+
 	// Format and display results
 	fmt.Println()
 	formatter := output.NewTextFormatter(os.Stdout)
@@ -457,6 +467,13 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 		return fmt.Errorf("failed to encode JSON: %w", err)
 	}
 
+	// Write JSON output file if requested (no second cloud submission or evidence collection)
+	if flagJSONOutput != "" {
+		if err := writeJSONOutputFile(flagJSONOutput, checkResult); err != nil {
+			fmt.Fprintf(os.Stderr, "[warn] Failed to write JSON output file: %s\n", err)
+		}
+	}
+
 	// Return error if there are failures (for CI/CD exit code)
 	if checkResult.HasFailures() {
 		return fmt.Errorf("compliance check failed: %d policy violations", checkResult.Summary.FailedPolicies)
@@ -538,6 +555,14 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 	if shouldSubmitToCloud(cfg, flagCloud, flagNoCloud) {
 		//nolint:errcheck // Intentionally ignoring cloud errors in JUnit mode to preserve XML output
 		submitToCloud(ctx, cfg, checkResult, "")
+	}
+
+	// Write JSON output file if requested (no second cloud submission or evidence collection)
+	// Done before JUnit formatting so stdout remains pure XML.
+	if flagJSONOutput != "" {
+		if err := writeJSONOutputFile(flagJSONOutput, checkResult); err != nil {
+			fmt.Fprintf(os.Stderr, "[warn] Failed to write JSON output file: %s\n", err)
+		}
 	}
 
 	// Format as JUnit XML
@@ -780,6 +805,23 @@ type driftInfo struct {
 	NewViolations      int     `json:"new_violations"`
 	ResolvedViolations int     `json:"resolved_violations"`
 	ScoreChange        float64 `json:"score_change,omitempty"`
+}
+
+// writeJSONOutputFile writes the check result as JSON to the given file path.
+// It creates any missing parent directories. It is a pure file write — it
+// never triggers a second cloud submission, S3 store, or evidence collection.
+func writeJSONOutputFile(path string, checkResult *evidence.CheckResult) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return fmt.Errorf("failed to create directory for JSON output: %w", err)
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("failed to create JSON output file: %w", err)
+	}
+	defer f.Close() //nolint:errcheck // file close errors are not critical for output files
+
+	return output.NewJSONFormatter(f).FormatCheckResult(checkResult)
 }
 
 // collectGitHubEvidence collects evidence from a GitHub organization.
