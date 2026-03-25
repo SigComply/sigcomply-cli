@@ -5,6 +5,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -24,7 +25,7 @@ import (
 )
 
 // RunScenario runs the full compliance pipeline for one scenario:
-// collect -> evaluate -> hash -> sign -> store -> verify.
+// collect -> evaluate -> store -> verify signed envelopes.
 func RunScenario(t *testing.T, cfg *config.E2EConfig, allCreds []*config.ResolvedCredentials, scenario *config.Scenario) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
@@ -175,7 +176,7 @@ func RunScenario(t *testing.T, cfg *config.E2EConfig, allCreds []*config.Resolve
 		policyResults = []evidence.PolicyResult{}
 	}
 
-	// ===== Phase 3-6: Store, Hash, Sign, Store Attestation (only if storage configured) =====
+	// ===== Phase 3-4: Store and Verify (only if storage configured) =====
 	runID := uuid.New().String()
 	checkResult := &evidence.CheckResult{
 		RunID:         runID,
@@ -186,7 +187,7 @@ func RunScenario(t *testing.T, cfg *config.E2EConfig, allCreds []*config.Resolve
 	checkResult.CalculateSummary()
 
 	if scenario.Storage == "" {
-		t.Log("Skipping storage/hash/sign phases (no storage profile configured for this scenario)")
+		t.Log("Skipping storage/verify phases (no storage profile configured for this scenario)")
 		return
 	}
 
@@ -210,9 +211,7 @@ func RunScenario(t *testing.T, cfg *config.E2EConfig, allCreds []*config.Resolve
 		e2estorage.CleanupS3Prefix(t, s3Client, bucket, prefix)
 	})
 
-	var manifest *corestorage.Manifest
-
-	// Phase 3: Store evidence (no attestation yet)
+	// Phase 3: Store evidence as signed envelopes in policy-first layout
 	t.Run("store-evidence-s3", func(t *testing.T) {
 		storageCfg := &corestorage.Config{
 			Backend: "s3",
@@ -230,68 +229,22 @@ func RunScenario(t *testing.T, cfg *config.E2EConfig, allCreds []*config.Resolve
 		require.NoError(t, storageErr, "Storage backend Init failed")
 		defer backend.Close() //nolint:errcheck
 
-		manifest, storageErr = corestorage.StoreRun(ctx, backend, checkResult, evidenceList)
+		storageErr = corestorage.StoreRun(ctx, backend, checkResult, evidenceList, "e2e", "", "")
 		require.NoError(t, storageErr, "StoreRun failed")
-		require.NotNil(t, manifest, "Manifest is nil")
 
-		assert.Equal(t, runID, manifest.RunID)
-		assert.Equal(t, scenario.Framework, manifest.Framework)
-		assert.Greater(t, manifest.EvidenceCount, 0, "No evidence items stored")
+		// Verify at least one policy folder was written
+		items, listErr := backend.List(ctx, nil)
+		require.NoError(t, listErr)
+		assert.Greater(t, len(items), 0, "No items stored")
 
-		t.Logf("Stored %d evidence items, manifest run_id=%s", manifest.EvidenceCount, manifest.RunID)
-		for _, item := range manifest.Items {
+		t.Logf("Stored %d items for run_id=%s", len(items), runID)
+		for _, item := range items {
 			t.Logf("  -> %s (%d bytes)", item.Path, item.Size)
 		}
 	})
 
-	if manifest == nil {
-		t.Fatal("Storage failed — aborting remaining phases")
-	}
-
-	// Phase 4: Hash stored files
-	var hashes *attestation.EvidenceHashes
-
-	t.Run("hash-stored-files", func(t *testing.T) {
-		runPath := corestorage.NewRunPath(checkResult.Framework, checkResult.Timestamp)
-		checkResultHash, fileHashes := manifest.FileHashes(runPath.BasePath())
-		hashes = attestation.ComputeStoredFileHashes(checkResultHash, fileHashes)
-		require.NotEmpty(t, hashes.CheckResult, "CheckResult hash is empty")
-		require.NotEmpty(t, hashes.Combined, "Combined hash is empty")
-
-		t.Logf("Combined hash: %s", hashes.Combined)
-		t.Logf("Stored file hashes: %d items", len(hashes.StoredFiles))
-	})
-
-	// Phase 5: Sign attestation
-	att := &attestation.Attestation{
-		ID:        uuid.New().String(),
-		RunID:     runID,
-		Framework: scenario.Framework,
-		Timestamp: time.Now().UTC(),
-		Hashes:    *hashes,
-	}
-
-	t.Run("sign-attestation", func(t *testing.T) {
-		// Generate ephemeral Ed25519 keypair — private key is discarded after signing.
-		signer, signerErr := attestation.NewEd25519Signer()
-		require.NoError(t, signerErr, "Ed25519 signer creation failed")
-
-		err := signer.Sign(att)
-		require.NoError(t, err, "Ed25519 signing failed")
-		require.NotEmpty(t, att.Signature.Value, "Signature value is empty")
-		assert.Equal(t, attestation.AlgorithmEd25519, att.Signature.Algorithm)
-		assert.NotEmpty(t, att.PublicKey, "Public key should be embedded in attestation")
-
-		// Round-trip verify using the public key embedded in the attestation
-		verifier := attestation.NewEd25519Verifier()
-		err = verifier.Verify(att)
-		require.NoError(t, err, "Ed25519 verification failed")
-
-		t.Logf("Attestation signed and verified (algorithm=%s)", att.Signature.Algorithm)
-	})
-
-	// Phase 6: Store attestation separately
-	t.Run("store-attestation-s3", func(t *testing.T) {
+	// Phase 4: Verify evidence envelopes are valid signed artifacts
+	t.Run("verify-signed-envelopes", func(t *testing.T) {
 		storageCfg := &corestorage.Config{
 			Backend: "s3",
 			S3: &corestorage.S3Config{
@@ -308,15 +261,43 @@ func RunScenario(t *testing.T, cfg *config.E2EConfig, allCreds []*config.Resolve
 		require.NoError(t, storageErr, "Storage backend Init failed")
 		defer backend.Close() //nolint:errcheck
 
-		runPath := corestorage.NewRunPath(checkResult.Framework, checkResult.Timestamp)
-		attItem, storageErr := corestorage.StoreAttestation(ctx, backend, *runPath, att)
-		require.NoError(t, storageErr, "StoreAttestation failed")
-		require.NotNil(t, attItem, "Attestation StoredItem is nil")
+		items, listErr := backend.List(ctx, nil)
+		require.NoError(t, listErr)
 
-		t.Logf("Stored attestation at %s (%d bytes)", attItem.Path, attItem.Size)
+		verifier := attestation.NewEd25519Verifier()
+		verified := 0
+
+		for _, item := range items {
+			// Only verify evidence files (not result.json)
+			if !strings.Contains(item.Path, "/evidence/") {
+				continue
+			}
+
+			data, getErr := backend.Get(ctx, item.Path)
+			require.NoError(t, getErr, "Failed to get %s", item.Path)
+
+			var envelope attestation.EvidenceEnvelope
+			parseErr := json.Unmarshal(data, &envelope)
+			require.NoError(t, parseErr, "Evidence file %s is not a valid EvidenceEnvelope", item.Path)
+
+			assert.Equal(t, attestation.AlgorithmEd25519, envelope.Signature.Algorithm,
+				"Evidence file %s has wrong algorithm", item.Path)
+			assert.NotEmpty(t, envelope.PublicKey, "Evidence file %s missing public key", item.Path)
+			assert.False(t, envelope.Signed.Timestamp.IsZero(), "Evidence file %s missing timestamp", item.Path)
+
+			verifyErr := verifier.Verify(&envelope)
+			require.NoError(t, verifyErr,
+				"Ed25519 signature verification failed for %s", item.Path)
+
+			t.Logf("Verified signed envelope: %s (algorithm=%s)", item.Path, envelope.Signature.Algorithm)
+			verified++
+		}
+
+		assert.Greater(t, verified, 0, "No evidence envelopes were verified")
+		t.Logf("Verified %d evidence envelopes", verified)
 	})
 
-	// ===== Phase 6: Verify S3 Objects =====
+	// ===== Phase 5: Verify S3 Objects =====
 	t.Run("verify-s3-objects", func(t *testing.T) {
 		e2estorage.VerifyS3Objects(t, s3Client, bucket, prefix)
 	})
