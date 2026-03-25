@@ -70,36 +70,6 @@ type ListFilter struct {
 	RunID string
 }
 
-// Manifest represents a collection of stored items for a run.
-type Manifest struct {
-	// RunID is the unique identifier for this run.
-	RunID string `json:"run_id"`
-
-	// Framework is the compliance framework used.
-	Framework string `json:"framework"`
-
-	// Timestamp is when the run was executed.
-	Timestamp time.Time `json:"timestamp"`
-
-	// Backend is the storage backend name.
-	Backend string `json:"backend"`
-
-	// Items lists all stored items in this run.
-	Items []StoredItem `json:"items"`
-
-	// CheckResult contains the path to the stored check result.
-	CheckResult string `json:"check_result,omitempty"`
-
-	// Attestation contains the path to the stored attestation.
-	Attestation string `json:"attestation,omitempty"`
-
-	// EvidenceCount is the total number of evidence items.
-	EvidenceCount int `json:"evidence_count"`
-
-	// TotalSize is the total size of all stored items.
-	TotalSize int64 `json:"total_size"`
-}
-
 // Config holds storage configuration.
 type Config struct {
 	// Backend is the storage backend type (local, s3, gcs).

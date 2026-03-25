@@ -6,51 +6,58 @@ import (
 	"time"
 )
 
-// RunPath centralizes all path computation for a compliance run.
-// It produces human-readable, auditor-friendly paths with no UUIDs.
+// RunPath centralizes all path computation for a single policy's compliance run folder.
+// The policy-first layout groups all artifacts for auditor self-containment:
+// each policy folder holds its own evidence (signed envelopes) and result.json.
 type RunPath struct {
-	Framework string // e.g. "soc2"
-	Date      string // "2026-02-14"
-	Time      string // "18-20-49"
+	framework  string // e.g. "soc2"
+	policySlug string // e.g. "cc6.1-mfa"
+	timestamp  string // ISO 8601 basic, e.g. "20260214T182049Z"
+	runIDShort string // first 8 chars of the run UUID
 }
 
-// NewRunPath creates a RunPath from a framework name and timestamp.
-func NewRunPath(framework string, timestamp time.Time) *RunPath {
-	t := timestamp.UTC()
+// NewRunPath creates a RunPath for a specific policy within a run.
+// policyID is the full policy identifier (e.g. "soc2-cc6.1-mfa"); the framework prefix is stripped.
+// runID is the full run UUID; only the first 8 characters are used in the path.
+func NewRunPath(framework, policyID, runID string, ts time.Time) *RunPath {
+	slug := PolicySlug(policyID, framework)
+	t := ts.UTC()
+
+	short := runID
+	if len(runID) > 8 {
+		short = runID[:8]
+	}
+
 	return &RunPath{
-		Framework: framework,
-		Date:      t.Format("2006-01-02"),
-		Time:      t.Format("15-04-05"),
+		framework:  framework,
+		policySlug: slug,
+		timestamp:  t.Format("20060102T150405Z"),
+		runIDShort: short,
 	}
 }
 
-// BasePath returns the run-level directory path.
-// Example: "runs/soc2/2026-02-14/18-20-49"
-func (r *RunPath) BasePath() string {
-	return fmt.Sprintf("runs/%s/%s/%s", r.Framework, r.Date, r.Time)
+// PolicyDir returns the base directory for this policy run.
+// Example: "soc2/cc6.1-mfa/20260214T182049Z_a3f8b2c1"
+func (r *RunPath) PolicyDir() string {
+	return fmt.Sprintf("%s/%s/%s_%s", r.framework, r.policySlug, r.timestamp, r.runIDShort)
 }
 
-// PolicyDir returns the directory path for a policy within the run.
-// It strips the framework prefix from the policy ID to produce a clean slug.
-// Example: PolicyDir("soc2-cc6.1-mfa", "soc2") -> "runs/soc2/2026-02-14/cc6.1-mfa"
-func (r *RunPath) PolicyDir(policyID, framework string) string {
-	slug := PolicySlug(policyID, framework)
-	return r.BasePath() + "/" + slug
+// EvidenceDir returns the directory where evidence envelope files are stored.
+// Example: "soc2/cc6.1-mfa/20260214T182049Z_a3f8b2c1/evidence"
+func (r *RunPath) EvidenceDir() string {
+	return r.PolicyDir() + "/evidence"
 }
 
-// ManifestPath returns the path to the manifest file.
-func (r *RunPath) ManifestPath() string {
-	return r.BasePath() + "/manifest.json"
+// EvidencePath returns the full path to a named evidence file.
+// Example: EvidencePath("iam-users.json") -> "soc2/cc6.1-mfa/20260214T182049Z_a3f8b2c1/evidence/iam-users.json"
+func (r *RunPath) EvidencePath(filename string) string {
+	return r.EvidenceDir() + "/" + filename
 }
 
-// AttestationPath returns the path to the attestation file.
-func (r *RunPath) AttestationPath() string {
-	return r.BasePath() + "/attestation.json"
-}
-
-// CheckResultPath returns the path to the aggregate check result file.
-func (r *RunPath) CheckResultPath() string {
-	return r.BasePath() + "/check_result.json"
+// ResultPath returns the path to the per-policy result.json file.
+// Example: "soc2/cc6.1-mfa/20260214T182049Z_a3f8b2c1/result.json"
+func (r *RunPath) ResultPath() string {
+	return r.PolicyDir() + "/result.json"
 }
 
 // PolicySlug strips the framework prefix from a policy ID to produce a clean folder name.

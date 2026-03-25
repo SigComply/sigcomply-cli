@@ -7,49 +7,75 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewRunPath(t *testing.T) {
+func TestNewRunPath_PolicyDir(t *testing.T) {
 	ts := time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC)
-	rp := NewRunPath("soc2", ts)
+	rp := NewRunPath("soc2", "soc2-cc6.1-mfa", "a3f8b2c1-dead-beef-1234-567890abcdef", ts)
 
-	assert.Equal(t, "soc2", rp.Framework)
-	assert.Equal(t, "2026-02-14", rp.Date)
-	assert.Equal(t, "18-20-49", rp.Time)
+	assert.Equal(t, "soc2/cc6.1-mfa/20260214T182049Z_a3f8b2c1", rp.PolicyDir())
 }
 
-func TestRunPath_BasePath(t *testing.T) {
-	rp := &RunPath{Framework: "soc2", Date: "2026-02-14", Time: "18-20-49"}
-	assert.Equal(t, "runs/soc2/2026-02-14/18-20-49", rp.BasePath())
+func TestRunPath_EvidenceDir(t *testing.T) {
+	ts := time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC)
+	rp := NewRunPath("soc2", "soc2-cc6.1-mfa", "a3f8b2c1-dead-beef-1234-567890abcdef", ts)
+
+	assert.Equal(t, "soc2/cc6.1-mfa/20260214T182049Z_a3f8b2c1/evidence", rp.EvidenceDir())
 }
 
-func TestRunPath_PolicyDir(t *testing.T) {
-	rp := &RunPath{Framework: "soc2", Date: "2026-02-14", Time: "18-20-49"}
+func TestRunPath_EvidencePath(t *testing.T) {
+	ts := time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC)
+	rp := NewRunPath("soc2", "soc2-cc6.1-mfa", "a3f8b2c1-dead-beef-1234-567890abcdef", ts)
 
-	tests := []struct {
-		policyID  string
-		framework string
-		expected  string
-	}{
-		{"soc2-cc6.1-mfa", "soc2", "runs/soc2/2026-02-14/18-20-49/cc6.1-mfa"},
-		{"soc2-cc6.2-encryption", "soc2", "runs/soc2/2026-02-14/18-20-49/cc6.2-encryption"},
-		{"soc2-cc7.1-logging", "soc2", "runs/soc2/2026-02-14/18-20-49/cc7.1-logging"},
-		{"iso27001-a9.2-access", "iso27001", "runs/soc2/2026-02-14/18-20-49/a9.2-access"},
-		{"custom-policy", "soc2", "runs/soc2/2026-02-14/18-20-49/custom-policy"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.policyID, func(t *testing.T) {
-			result := rp.PolicyDir(tt.policyID, tt.framework)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
+	assert.Equal(t,
+		"soc2/cc6.1-mfa/20260214T182049Z_a3f8b2c1/evidence/iam-users.json",
+		rp.EvidencePath("iam-users.json"),
+	)
 }
 
-func TestRunPath_FilePaths(t *testing.T) {
-	rp := &RunPath{Framework: "soc2", Date: "2026-02-14", Time: "18-20-49"}
+func TestRunPath_ResultPath(t *testing.T) {
+	ts := time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC)
+	rp := NewRunPath("soc2", "soc2-cc6.1-mfa", "a3f8b2c1-dead-beef-1234-567890abcdef", ts)
 
-	assert.Equal(t, "runs/soc2/2026-02-14/18-20-49/manifest.json", rp.ManifestPath())
-	assert.Equal(t, "runs/soc2/2026-02-14/18-20-49/attestation.json", rp.AttestationPath())
-	assert.Equal(t, "runs/soc2/2026-02-14/18-20-49/check_result.json", rp.CheckResultPath())
+	assert.Equal(t,
+		"soc2/cc6.1-mfa/20260214T182049Z_a3f8b2c1/result.json",
+		rp.ResultPath(),
+	)
+}
+
+func TestNewRunPath_RunIDTruncated(t *testing.T) {
+	ts := time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC)
+
+	// Long run ID: only first 8 chars used
+	rp := NewRunPath("soc2", "soc2-cc6.1-mfa", "abcdef12-xxxx-xxxx-xxxx-xxxxxxxxxxxx", ts)
+	assert.Equal(t, "soc2/cc6.1-mfa/20260214T182049Z_abcdef12", rp.PolicyDir())
+}
+
+func TestNewRunPath_ShortRunID(t *testing.T) {
+	ts := time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC)
+
+	// Short run ID: use as-is
+	rp := NewRunPath("soc2", "soc2-cc6.1-mfa", "run-123", ts)
+	assert.Equal(t, "soc2/cc6.1-mfa/20260214T182049Z_run-123", rp.PolicyDir())
+}
+
+func TestNewRunPath_NonUTC(t *testing.T) {
+	// Ensure non-UTC times are converted to UTC
+	loc := time.FixedZone("EST", -5*3600)
+	ts := time.Date(2026, 2, 14, 13, 20, 49, 0, loc) // 13:20 EST = 18:20 UTC
+	rp := NewRunPath("soc2", "soc2-cc6.1-mfa", "a3f8b2c1-xxxx", ts)
+
+	assert.Equal(t, "soc2/cc6.1-mfa/20260214T182049Z_a3f8b2c1", rp.PolicyDir())
+}
+
+func TestNewRunPath_MultiplePolicies(t *testing.T) {
+	ts := time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC)
+	runID := "a3f8b2c1-dead-beef-1234-567890abcdef"
+
+	rp1 := NewRunPath("soc2", "soc2-cc6.1-mfa", runID, ts)
+	rp2 := NewRunPath("soc2", "soc2-cc6.2-encryption", runID, ts)
+
+	// Same run ID and timestamp, different policy slugs
+	assert.Equal(t, "soc2/cc6.1-mfa/20260214T182049Z_a3f8b2c1", rp1.PolicyDir())
+	assert.Equal(t, "soc2/cc6.2-encryption/20260214T182049Z_a3f8b2c1", rp2.PolicyDir())
 }
 
 func TestPolicySlug(t *testing.T) {
@@ -163,14 +189,4 @@ func TestEvidenceTypeFilename(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
-}
-
-func TestNewRunPath_NonUTC(t *testing.T) {
-	// Ensure non-UTC times are converted to UTC
-	loc := time.FixedZone("EST", -5*3600)
-	ts := time.Date(2026, 2, 14, 13, 20, 49, 0, loc) // 13:20 EST = 18:20 UTC
-	rp := NewRunPath("soc2", ts)
-
-	assert.Equal(t, "2026-02-14", rp.Date)
-	assert.Equal(t, "18-20-49", rp.Time)
 }
