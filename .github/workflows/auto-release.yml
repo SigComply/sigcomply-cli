@@ -4,6 +4,9 @@
 #   feat: -> minor bump
 #   fix:, refactor:, perf:, etc. -> patch bump
 #   BREAKING CHANGE in body -> major bump
+#
+# SLSA L3 provenance is generated for all release artifacts.
+# Customers can verify with: gh attestation verify <binary> --repo SigComply/sigcomply-cli
 
 name: Auto Release
 
@@ -17,17 +20,29 @@ on:
       - '.gitignore'
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 jobs:
   auto-release:
-    name: Release
+    name: Version Bump and Build
     runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, '[skip release]') && !contains(github.event.head_commit.message, 'chore(release)')"
+    permissions:
+      contents: write
+    outputs:
+      new_tag: ${{ steps.bump.outputs.new_tag }}
+      latest_tag: ${{ steps.bump.outputs.latest_tag }}
+      bump: ${{ steps.bump.outputs.bump }}
+      created: ${{ steps.tag.outputs.created }}
+      hashes: ${{ steps.hash.outputs.hashes }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+        with:
+          egress-policy: audit
+
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
@@ -94,30 +109,107 @@ jobs:
 
       - name: Set up Go
         if: steps.tag.outputs.created == 'true'
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6
         with:
           go-version-file: go.mod
           cache: true
 
-      - name: Run GoReleaser
+      - name: Run GoReleaser (build only, skip publish)
         if: steps.tag.outputs.created == 'true'
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
         with:
           distribution: goreleaser
           version: latest
-          args: release --clean
+          args: release --clean --skip=publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ steps.bump.outputs.new_tag }}
 
-      - name: Summary
-        if: always()
+      - name: Generate artifact hashes
+        id: hash
+        if: steps.tag.outputs.created == 'true'
+        run: |
+          echo "hashes=$(cat dist/checksums.txt | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifacts
+        if: steps.tag.outputs.created == 'true'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: artifacts
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1
+
+  provenance:
+    needs: auto-release
+    if: needs.auto-release.outputs.created == 'true'
+    permissions:
+      actions: read
+      id-token: write   # required to sign provenance with OIDC
+      contents: write   # required to upload provenance artifact
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
+    with:
+      base64-subjects: ${{ needs.auto-release.outputs.hashes }}
+      upload-assets: false  # publish job uploads everything together
+
+  publish:
+    name: Publish Release
+    needs: [auto-release, provenance]
+    if: needs.auto-release.outputs.created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+        with:
+          egress-policy: audit
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: artifacts
+          path: dist/
+
+      - name: Download SLSA provenance
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ needs.provenance.outputs.provenance-name }}
+          path: provenance/
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.auto-release.outputs.new_tag }}
+        run: |
+          gh release create "$TAG" \
+            --title "SigComply CLI $TAG" \
+            --generate-notes \
+            dist/* \
+            provenance/*
+
+  summary:
+    name: Release Summary
+    needs: [auto-release, provenance, publish]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+        with:
+          egress-policy: audit
+
+      - name: Write summary
         run: |
           echo "## Auto Release" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| | |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| Previous | ${{ steps.bump.outputs.latest_tag }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| New | ${{ steps.bump.outputs.new_tag }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Bump | ${{ steps.bump.outputs.bump }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Tag Created | ${{ steps.tag.outputs.created }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Previous | ${{ needs.auto-release.outputs.latest_tag }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| New | ${{ needs.auto-release.outputs.new_tag }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Bump | ${{ needs.auto-release.outputs.bump }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tag Created | ${{ needs.auto-release.outputs.created }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| SLSA Provenance | ${{ needs.provenance.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Published | ${{ needs.publish.result }} |" >> $GITHUB_STEP_SUMMARY
