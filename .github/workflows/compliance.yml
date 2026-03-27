@@ -87,6 +87,9 @@ on:
         description: 'Overall result (pass/fail)'
         value: ${{ jobs.check.outputs.result }}
 
+permissions:
+  contents: read
+
 jobs:
   # Runs on direct push to main to satisfy GitHub's check-run requirement.
   # The compliance workflow is designed for external callers (workflow_call)
@@ -118,7 +121,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Install SigComply CLI
         run: |
@@ -144,14 +147,14 @@ jobs:
 
       - name: Configure AWS credentials (OIDC)
         if: ${{ env.AWS_ROLE_ARN != '' }}
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ inputs.aws-region }}
 
       - name: Configure AWS credentials (Static)
         if: ${{ env.AWS_ROLE_ARN == '' && env.AWS_ACCESS_KEY_ID_SECRET != '' }}
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -229,7 +232,7 @@ jobs:
 
       - name: Upload results artifact
         if: ${{ always() && inputs.upload-results }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: sigcomply-compliance-results
           path: .sigcomply/results/
@@ -237,7 +240,7 @@ jobs:
 
       - name: Publish JUnit test results
         if: always()
-        uses: mikepenz/action-junit-report@v6
+        uses: mikepenz/action-junit-report@49b2ca06f62aa7ef83ae6769a2179271e160d8e4 # v6
         with:
           report_paths: '.sigcomply/results/compliance-results.xml'
           fail_on_failure: ${{ inputs.fail-on-violation }}
