@@ -6,16 +6,15 @@ import (
 )
 
 // SubmitRequest is the top-level payload sent to POST /api/v1/cli/runs.
-// It matches the Rails API contract: check_result is nested under the "check_result" key,
-// with optional run_metadata at the top level for supplementary context.
+// It matches the Rails API contract: check_result is nested under the "check_result" key.
+//
+// Privacy invariant: this struct must never gain a freeform metadata field (e.g.
+// run_metadata map[string]interface{}). Such a field would be an open door for
+// resource identifiers to reach the cloud API if populated carelessly.
 type SubmitRequest struct {
 	// CheckResult contains the aggregated compliance check data.
 	// Rails reads this nested structure via strong params and RunSubmissionService.
 	CheckResult CheckResultPayload `json:"check_result"`
-
-	// RunMetadata contains optional supplementary run-level context (stored as-is in
-	// the Rails metadata JSONB column — not used for core DB columns).
-	RunMetadata map[string]interface{} `json:"run_metadata,omitempty"`
 }
 
 // CheckResultPayload is the check result payload nested inside SubmitRequest.

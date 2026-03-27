@@ -33,7 +33,7 @@ func buildCloudSubmitRequest(cfg *config.Config, checkResult *evidence.CheckResu
 			ControlID:          pr.ControlID,
 			Status:             status,
 			Severity:           string(pr.Severity),
-			Message:            pr.Message,
+			Message:            aggregatedMessage(pr.Status, pr.ResourcesEvaluated, pr.ResourcesFailed),
 			Category:           category,
 			ResourcesEvaluated: pr.ResourcesEvaluated,
 			ResourcesFailed:    pr.ResourcesFailed,
@@ -132,6 +132,23 @@ func policyCategory(controlID string) string {
 		return "data_protection"
 	default:
 		return "configuration_management"
+	}
+}
+
+// aggregatedMessage returns a safe, count-based message for the cloud payload.
+// It is generated from counts rather than forwarding pr.Message, so the privacy
+// guarantee is structural: even if the engine's message format ever changes, no
+// resource identifier (ARN, username, email) can reach the cloud API via this field.
+func aggregatedMessage(status evidence.ResultStatus, resourcesEvaluated, resourcesFailed int) string {
+	switch status {
+	case evidence.StatusPass:
+		return "All resources compliant"
+	case evidence.StatusSkip:
+		return "No matching resources to evaluate"
+	case evidence.StatusError:
+		return "Policy evaluation error"
+	default: // StatusFail
+		return fmt.Sprintf("%d of %d resources failed", resourcesFailed, resourcesEvaluated)
 	}
 }
 

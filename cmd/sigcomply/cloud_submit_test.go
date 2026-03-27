@@ -62,7 +62,7 @@ func TestBuildCloudSubmitRequest(t *testing.T) {
 	assert.Equal(t, "high", pr.Severity)
 	assert.Equal(t, 5, pr.ResourcesEvaluated)
 	assert.Equal(t, 2, pr.ResourcesFailed)
-	assert.Equal(t, "2 out of 5 IAM users do not have MFA enabled", pr.Message)
+	assert.Equal(t, "2 of 5 resources failed", pr.Message)
 	assert.Equal(t, "access_control", pr.Category)
 
 	// No resource identifiers in the cloud payload
@@ -99,26 +99,50 @@ func TestBuildCloudSubmitRequest_CategoryFallback(t *testing.T) {
 	assert.Equal(t, "configuration_management", req.CheckResult.PolicyResults[5].Category)
 }
 
-func TestBuildCloudSubmitRequest_MessagePassedThrough(t *testing.T) {
-	// Message must NOT contain resource identifiers — only count-based summaries.
-	checkResult := &evidence.CheckResult{
-		RunID:     "run-msg",
-		Framework: "soc2",
-		Timestamp: time.Now(),
-		PolicyResults: []evidence.PolicyResult{
-			{
-				PolicyID: "soc2-cc6.1-mfa",
-				Status:   evidence.StatusFail,
-				Message:  "3 out of 10 IAM users do not have MFA enabled",
-			},
-		},
+func TestBuildCloudSubmitRequest_MessageGeneratedFromCounts(t *testing.T) {
+	// Message in the cloud payload is always generated from counts — never forwarded
+	// from pr.Message. This is a structural privacy guarantee: even if the engine
+	// message were to contain resource identifiers, they cannot reach the cloud API.
+	tests := []struct {
+		name               string
+		status             evidence.ResultStatus
+		resourcesEvaluated int
+		resourcesFailed    int
+		wantMessage        string
+	}{
+		{"pass", evidence.StatusPass, 10, 0, "All resources compliant"},
+		{"fail", evidence.StatusFail, 10, 3, "3 of 10 resources failed"},
+		{"skip", evidence.StatusSkip, 0, 0, "No matching resources to evaluate"},
+		{"error", evidence.StatusError, 0, 0, "Policy evaluation error"},
 	}
-	checkResult.CalculateSummary()
 
-	req := buildCloudSubmitRequest(&config.Config{}, checkResult)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			checkResult := &evidence.CheckResult{
+				RunID:     "run-msg",
+				Framework: "soc2",
+				Timestamp: time.Now(),
+				PolicyResults: []evidence.PolicyResult{
+					{
+						PolicyID:           "soc2-cc6.1-mfa",
+						Status:             tt.status,
+						Message:            "arn:aws:iam::123:user/alice should never reach the cloud",
+						ResourcesEvaluated: tt.resourcesEvaluated,
+						ResourcesFailed:    tt.resourcesFailed,
+					},
+				},
+			}
+			checkResult.CalculateSummary()
 
-	require.Len(t, req.CheckResult.PolicyResults, 1)
-	assert.Equal(t, "3 out of 10 IAM users do not have MFA enabled", req.CheckResult.PolicyResults[0].Message)
+			req := buildCloudSubmitRequest(&config.Config{}, checkResult)
+
+			require.Len(t, req.CheckResult.PolicyResults, 1)
+			got := req.CheckResult.PolicyResults[0].Message
+			assert.Equal(t, tt.wantMessage, got)
+			assert.NotContains(t, got, "arn:", "engine message must not leak into cloud payload")
+			assert.NotContains(t, got, "alice", "engine message must not leak into cloud payload")
+		})
+	}
 }
 
 func TestBuildCloudSubmitRequest_NoViolationsInPayload(t *testing.T) {
