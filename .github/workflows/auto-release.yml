@@ -186,6 +186,7 @@ jobs:
           TAG: ${{ needs.auto-release.outputs.new_tag }}
         run: |
           gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
             --title "SigComply CLI $TAG" \
             --generate-notes \
             dist/*
