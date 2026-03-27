@@ -5,7 +5,7 @@
 #   fix:, refactor:, perf:, etc. -> patch bump
 #   BREAKING CHANGE in body -> major bump
 #
-# SLSA L3 provenance is generated for all release artifacts.
+# Build provenance attestations are generated for all release artifacts.
 # Customers can verify with: gh attestation verify <binary> --repo SigComply/sigcomply-cli
 
 name: Auto Release
@@ -34,7 +34,6 @@ jobs:
       latest_tag: ${{ steps.bump.outputs.latest_tag }}
       bump: ${{ steps.bump.outputs.bump }}
       created: ${{ steps.tag.outputs.created }}
-      hashes: ${{ steps.hash.outputs.hashes }}
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
@@ -125,12 +124,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ steps.bump.outputs.new_tag }}
 
-      - name: Generate artifact hashes
-        id: hash
-        if: steps.tag.outputs.created == 'true'
-        run: |
-          echo "hashes=$(cat dist/checksums.txt | base64 -w0)" >> "$GITHUB_OUTPUT"
-
       - name: Upload build artifacts
         if: steps.tag.outputs.created == 'true'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -140,22 +133,37 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  provenance:
+  attest:
+    name: Attest Artifacts
     needs: auto-release
     if: needs.auto-release.outputs.created == 'true'
+    runs-on: ubuntu-latest
     permissions:
-      actions: read
-      id-token: write   # required to sign provenance with OIDC
-      contents: write   # required to upload provenance artifact
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
-    with:
-      base64-subjects: ${{ needs.auto-release.outputs.hashes }}
-      upload-assets: false  # publish job uploads everything together
-      private-repository: true  # workaround: generator incorrectly detects public repo as private
+      id-token: write      # required to sign attestations with OIDC
+      attestations: write  # required to store attestations
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+        with:
+          egress-policy: audit
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: artifacts
+          path: dist/
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
 
   publish:
     name: Publish Release
-    needs: [auto-release, provenance]
+    needs: [auto-release, attest]
     if: needs.auto-release.outputs.created == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -172,12 +180,6 @@ jobs:
           name: artifacts
           path: dist/
 
-      - name: Download SLSA provenance
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: ${{ needs.provenance.outputs.provenance-name }}
-          path: provenance/
-
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -186,12 +188,11 @@ jobs:
           gh release create "$TAG" \
             --title "SigComply CLI $TAG" \
             --generate-notes \
-            dist/* \
-            provenance/*
+            dist/*
 
   summary:
     name: Release Summary
-    needs: [auto-release, provenance, publish]
+    needs: [auto-release, attest, publish]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -212,5 +213,5 @@ jobs:
           echo "| New | ${{ needs.auto-release.outputs.new_tag }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Bump | ${{ needs.auto-release.outputs.bump }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Tag Created | ${{ needs.auto-release.outputs.created }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| SLSA Provenance | ${{ needs.provenance.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Attestation | ${{ needs.attest.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Published | ${{ needs.publish.result }} |" >> $GITHUB_STEP_SUMMARY
