@@ -151,6 +151,7 @@ jobs:
     with:
       base64-subjects: ${{ needs.auto-release.outputs.hashes }}
       upload-assets: false  # publish job uploads everything together
+      private-repository: true  # workaround: generator incorrectly detects public repo as private
 
   publish:
     name: Publish Release
