@@ -94,7 +94,7 @@ func submitToCloud(ctx context.Context, cfg *config.Config, checkResult *evidenc
 
 	req := buildCloudSubmitRequest(cfg, checkResult)
 
-	client := cloud.NewClient(nil)
+	client := cloud.NewClientFromEnv()
 	if baseURL != "" {
 		client.WithBaseURL(baseURL)
 	}
