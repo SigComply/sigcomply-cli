@@ -39,6 +39,9 @@ POSITIVE_POLICY_NAMES=(
     "sigcomply-e2e-positive-policy-core"
     "sigcomply-e2e-positive-policy-extended"
     "sigcomply-e2e-positive-policy-provisioning"
+    "sigcomply-e2e-positive-policy-provisioning-2"
+    "sigcomply-e2e-positive-policy-provisioning-3"
+    "sigcomply-e2e-positive-policy-provisioning-4"
 )
 NEGATIVE_POLICY_NAME="sigcomply-e2e-negative-policy"
 
@@ -63,6 +66,75 @@ SNS_TOPIC_NAME="sigcomply-e2e-test"
 SQS_QUEUE_NAME="sigcomply-e2e-test"
 EFS_NAME="sigcomply-e2e-test"
 BACKUP_VAULT_NAME="sigcomply-e2e-test"
+
+# New resources (Group 1: EC2)
+LAUNCH_TEMPLATE_NAME="sigcomply-e2e-test"
+EC2_INSTANCE_NAME="sigcomply-e2e-test"
+EBS_VOLUME_NAME="sigcomply-e2e-test"
+VPC_ENDPOINT_NAME="sigcomply-e2e-s3-endpoint"
+
+# New resources (Group 2: Container & Compute)
+ECS_CLUSTER_NAME="sigcomply-e2e-test"
+ECS_TASK_FAMILY="sigcomply-e2e-test"
+ASG_NAME="sigcomply-e2e-test"
+
+# New resources (Group 3: Networking & CDN)
+CLOUDFRONT_COMMENT="sigcomply-e2e-test"
+APIGATEWAY_REST_NAME="sigcomply-e2e-test"
+APIGATEWAY_V2_NAME="sigcomply-e2e-test"
+ROUTE53_ZONE_NAME="sigcomply-e2e-test.internal"
+
+# New resources (Group 4: Application Services)
+CODEBUILD_PROJECT="sigcomply-e2e-test"
+CODEBUILD_ROLE="sigcomply-e2e-codebuild-role"
+KINESIS_STREAM="sigcomply-e2e-test"
+COGNITO_POOL_NAME="sigcomply-e2e-test"
+SFN_STATE_MACHINE="sigcomply-e2e-test"
+SFN_ROLE="sigcomply-e2e-sfn-role"
+APPSYNC_API_NAME="sigcomply-e2e-test"
+
+# New resources (Group 5: Analytics & Security)
+ATHENA_WORKGROUP="sigcomply-e2e-test"
+ACM_CERT_NAME="sigcomply-e2e-test"
+GLUE_JOB_NAME="sigcomply-e2e-test"
+GLUE_ROLE="sigcomply-e2e-glue-role"
+
+# Expensive resources (spin up/down per test run)
+EKS_CLUSTER_NAME="sigcomply-e2e-test"
+EKS_ROLE="sigcomply-e2e-eks-role"
+MSK_CLUSTER_NAME="sigcomply-e2e-test"
+NEPTUNE_CLUSTER="sigcomply-e2e-test"
+NEPTUNE_INSTANCE="sigcomply-e2e-test"
+NEPTUNE_SUBNET_GROUP="sigcomply-e2e-test"
+OPENSEARCH_DOMAIN="sigcomply-e2e"
+REDSHIFT_CLUSTER="sigcomply-e2e-test"
+REDSHIFT_SUBNET_GROUP="sigcomply-e2e-test"
+REDSHIFT_SL_NAMESPACE="sigcomply-e2e-test"
+REDSHIFT_SL_WORKGROUP="sigcomply-e2e-test"
+EMR_CLUSTER_NAME="sigcomply-e2e-test"
+EMR_ROLE="sigcomply-e2e-emr-role"
+EMR_EC2_ROLE="sigcomply-e2e-emr-ec2-role"
+EMR_INSTANCE_PROFILE="sigcomply-e2e-emr-ec2-profile"
+DOCDB_CLUSTER="sigcomply-e2e-test"
+DOCDB_INSTANCE="sigcomply-e2e-test"
+DOCDB_SUBNET_GROUP="sigcomply-e2e-docdb"
+MQ_BROKER_NAME="sigcomply-e2e-test"
+DMS_INSTANCE="sigcomply-e2e-test"
+DMS_SUBNET_GROUP="sigcomply-e2e-test"
+DMS_ROLE="sigcomply-e2e-dms-vpc-role"
+NFW_FIREWALL="sigcomply-e2e-test"
+NFW_POLICY="sigcomply-e2e-test"
+FSX_NAME="sigcomply-e2e-test"
+TRANSFER_SERVER="sigcomply-e2e-test"
+SAGEMAKER_NOTEBOOK="sigcomply-e2e-test"
+SAGEMAKER_ROLE="sigcomply-e2e-sagemaker-role"
+DAX_CLUSTER="sigcomply-e2e-test"
+DAX_SUBNET_GROUP="sigcomply-e2e-test"
+DAX_ROLE="sigcomply-e2e-dax-role"
+EB_APP_NAME="sigcomply-e2e-test"
+EB_ENV_NAME="sigcomply-e2e-test"
+DATASYNC_TASK_NAME="sigcomply-e2e-test"
+DB_SUBNET_GROUP="sigcomply-e2e-test"
 
 # Helper functions
 info() {
@@ -95,6 +167,7 @@ validate_prerequisites() {
 
     require_cmd aws
     require_cmd jq
+    require_cmd openssl
 
     # Check AWS authentication
     local account_id
@@ -396,7 +469,8 @@ POLICY
                 "athena:ListWorkGroups", "athena:GetWorkGroup",
                 "datasync:ListTasks", "datasync:DescribeTask",
                 "bedrock:GetModelInvocationLoggingConfiguration",
-                "apigateway:GET"
+                "apigateway:GET",
+                "apigatewayv2:GetApis", "apigatewayv2:GetStages"
             ],
             "Resource": "*"
         },
@@ -461,6 +535,348 @@ POLICY
                 "backup:CreateBackupVault", "backup:DeleteBackupVault"
             ],
             "Resource": "*"
+        },
+        {
+            "Sid": "EC2ProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:RunInstances", "ec2:TerminateInstances",
+                "ec2:CreateLaunchTemplate", "ec2:DeleteLaunchTemplate",
+                "ec2:CreateVolume", "ec2:DeleteVolume",
+                "ec2:CreateSnapshot", "ec2:DeleteSnapshot",
+                "ec2:CreateVpcEndpoint", "ec2:DeleteVpcEndpoints",
+                "ec2:CreateTags"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "ECSProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "ecs:CreateCluster", "ecs:DeleteCluster",
+                "ecs:RegisterTaskDefinition", "ecs:DeregisterTaskDefinition",
+                "ecs:ListTaskDefinitions"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CloudFrontProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "cloudfront:CreateDistribution", "cloudfront:DeleteDistribution",
+                "cloudfront:UpdateDistribution", "cloudfront:GetDistributionConfig",
+                "cloudfront:GetDistribution", "cloudfront:TagResource"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+POLICY
+)
+
+    # --- Positive policy 4: Provisioning access part 2 (remaining services) ---
+    local positive_provisioning_2
+    positive_provisioning_2=$(cat <<'POLICY'
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "APIGatewayProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "apigateway:POST", "apigateway:DELETE", "apigateway:PUT", "apigateway:PATCH",
+                "apigatewayv2:CreateApi", "apigatewayv2:DeleteApi",
+                "apigatewayv2:CreateStage", "apigatewayv2:DeleteStage"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CodeBuildProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "codebuild:CreateProject", "codebuild:DeleteProject"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "KinesisProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "kinesis:CreateStream", "kinesis:DeleteStream"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CognitoProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "cognito-idp:CreateUserPool", "cognito-idp:DeleteUserPool"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "ACMProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "acm:ImportCertificate", "acm:DeleteCertificate",
+                "acm:AddTagsToCertificate"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "GlueProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "glue:CreateJob", "glue:DeleteJob"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "StepFunctionsProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "states:CreateStateMachine", "states:DeleteStateMachine"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "Route53ProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "route53:CreateHostedZone", "route53:DeleteHostedZone",
+                "route53:ListResourceRecordSets", "route53:ChangeResourceRecordSets"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "AppSyncProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "appsync:CreateGraphqlApi", "appsync:DeleteGraphqlApi"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "AthenaProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "athena:CreateWorkGroup", "athena:DeleteWorkGroup"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "AutoScalingProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "autoscaling:CreateAutoScalingGroup", "autoscaling:DeleteAutoScalingGroup",
+                "autoscaling:UpdateAutoScalingGroup"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "IAMRoleProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "iam:CreateRole", "iam:DeleteRole",
+                "iam:AttachRolePolicy", "iam:DetachRolePolicy",
+                "iam:PutRolePolicy", "iam:DeleteRolePolicy",
+                "iam:PassRole", "iam:GetRole",
+                "iam:ListAttachedRolePolicies", "iam:ListRolePolicies"
+            ],
+            "Resource": [
+                "arn:aws:iam::*:role/sigcomply-e2e-*",
+                "arn:aws:iam::*:instance-profile/sigcomply-e2e-*"
+            ]
+        },
+        {
+            "Sid": "IAMInstanceProfileAccess",
+            "Effect": "Allow",
+            "Action": [
+                "iam:CreateInstanceProfile", "iam:DeleteInstanceProfile",
+                "iam:AddRoleToInstanceProfile", "iam:RemoveRoleFromInstanceProfile",
+                "iam:GetInstanceProfile"
+            ],
+            "Resource": "arn:aws:iam::*:instance-profile/sigcomply-e2e-*"
+        }
+    ]
+}
+POLICY
+)
+
+    # --- Positive policy 5: Provisioning access part 3 (expensive services group 1) ---
+    local positive_provisioning_3
+    positive_provisioning_3=$(cat <<'POLICY'
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "EKSProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "eks:CreateCluster", "eks:DeleteCluster", "eks:TagResource"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "MSKProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "kafka:CreateClusterV2", "kafka:DeleteCluster", "kafka:TagResource"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "NeptuneProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "neptune:CreateDBCluster", "neptune:DeleteDBCluster",
+                "neptune:CreateDBInstance", "neptune:DeleteDBInstance",
+                "neptune:CreateDBSubnetGroup", "neptune:DeleteDBSubnetGroup"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "OpenSearchProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "es:CreateDomain", "es:DeleteDomain", "es:AddTags"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "RedshiftProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "redshift:CreateCluster", "redshift:DeleteCluster",
+                "redshift:CreateClusterSubnetGroup", "redshift:DeleteClusterSubnetGroup",
+                "redshift-serverless:CreateNamespace", "redshift-serverless:DeleteNamespace",
+                "redshift-serverless:CreateWorkgroup", "redshift-serverless:DeleteWorkgroup"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "EMRProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "elasticmapreduce:RunJobFlow", "elasticmapreduce:TerminateJobFlows",
+                "elasticmapreduce:AddTags"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "DocumentDBProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "rds:CreateDBCluster", "rds:DeleteDBCluster",
+                "rds:CreateDBInstance", "rds:DeleteDBInstance",
+                "rds:CreateDBSubnetGroup", "rds:DeleteDBSubnetGroup",
+                "rds:AddTagsToResource"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "MQProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "mq:CreateBroker", "mq:DeleteBroker", "mq:CreateTags"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+POLICY
+)
+
+    # --- Positive policy 6: Provisioning access part 4 (expensive services group 2) ---
+    local positive_provisioning_4
+    positive_provisioning_4=$(cat <<'POLICY'
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "DMSProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "dms:CreateReplicationInstance", "dms:DeleteReplicationInstance",
+                "dms:CreateReplicationSubnetGroup", "dms:DeleteReplicationSubnetGroup",
+                "dms:AddTagsToResource"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "NetworkFirewallProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "network-firewall:CreateFirewall", "network-firewall:DeleteFirewall",
+                "network-firewall:CreateFirewallPolicy", "network-firewall:DeleteFirewallPolicy",
+                "network-firewall:DescribeFirewall"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "FSxProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "fsx:CreateFileSystem", "fsx:DeleteFileSystem", "fsx:TagResource"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "TransferProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "transfer:CreateServer", "transfer:DeleteServer", "transfer:TagResource"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "SageMakerProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "sagemaker:CreateNotebookInstance", "sagemaker:DeleteNotebookInstance",
+                "sagemaker:StopNotebookInstance", "sagemaker:DescribeNotebookInstance",
+                "sagemaker:AddTags"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "DAXProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "dax:CreateCluster", "dax:DeleteCluster",
+                "dax:CreateSubnetGroup", "dax:DeleteSubnetGroup"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "ElasticBeanstalkProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "elasticbeanstalk:CreateApplication", "elasticbeanstalk:DeleteApplication",
+                "elasticbeanstalk:CreateEnvironment", "elasticbeanstalk:TerminateEnvironment",
+                "elasticbeanstalk:DescribeEnvironments", "elasticbeanstalk:CreateStorageLocation"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "DataSyncProvisionAccess",
+            "Effect": "Allow",
+            "Action": [
+                "datasync:CreateLocationS3", "datasync:DeleteLocation",
+                "datasync:CreateTask", "datasync:DeleteTask"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "SubnetGroupAndSecurityAccess",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:CreateSecurityGroup", "ec2:DeleteSecurityGroup",
+                "ec2:AuthorizeSecurityGroupIngress", "ec2:RevokeSecurityGroupIngress",
+                "ec2:DescribeSecurityGroups", "ec2:DescribeSubnets",
+                "ec2:DescribeVpcs", "ec2:DescribeAvailabilityZones"
+            ],
+            "Resource": "*"
         }
     ]
 }
@@ -485,7 +901,7 @@ POLICY
 )
 
     # Create or update all positive policies and attach to positive user
-    local policy_docs=("$positive_core" "$positive_extended" "$positive_provisioning")
+    local policy_docs=("$positive_core" "$positive_extended" "$positive_provisioning" "$positive_provisioning_2" "$positive_provisioning_3" "$positive_provisioning_4")
     for i in "${!POSITIVE_POLICY_NAMES[@]}"; do
         local pname="${POSITIVE_POLICY_NAMES[$i]}"
         local pdoc="${policy_docs[$i]}"
@@ -569,7 +985,7 @@ create_s3_bucket() {
     local bucket="$1"
     info "Creating S3 bucket: $bucket..."
 
-    if aws s3api head-bucket --bucket "$bucket" 2>/dev/null; then
+    if aws s3api head-bucket --bucket "$bucket" >/dev/null 2>&1; then
         success "S3 bucket already exists: $bucket"
         return
     fi
@@ -1148,6 +1564,1416 @@ POLICY
     success "Created VPC flow logs for $vpc_id → $flow_log_group"
 }
 
+# Helper: create IAM service role if it doesn't exist
+create_service_role() {
+    local role_name="$1"
+    local service="$2"
+    local role_arn
+
+    role_arn=$(aws iam get-role --role-name "$role_name" --query "Role.Arn" --output text 2>/dev/null) || true
+
+    if [ -n "$role_arn" ] && [ "$role_arn" != "None" ]; then
+        success "IAM role already exists: $role_name" >&2
+        echo "$role_arn"
+        return
+    fi
+
+    local assume_role_policy
+    assume_role_policy=$(cat <<POLICY
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": { "Service": "${service}" },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}
+POLICY
+)
+    role_arn=$(aws iam create-role \
+        --role-name "$role_name" \
+        --assume-role-policy-document "$assume_role_policy" \
+        --query "Role.Arn" --output text)
+    success "Created IAM role: $role_name" >&2
+    echo "$role_arn"
+}
+
+# Provision EC2 Launch Template (intentionally non-compliant: IMDSv1 allowed)
+provision_launch_template() {
+    info "Provisioning EC2 Launch Template: $LAUNCH_TEMPLATE_NAME..."
+
+    if aws ec2 describe-launch-templates --launch-template-names "$LAUNCH_TEMPLATE_NAME" \
+        --region "$REGION" >/dev/null 2>&1; then
+        success "Launch Template already exists: $LAUNCH_TEMPLATE_NAME"
+        return
+    fi
+
+    aws ec2 create-launch-template \
+        --launch-template-name "$LAUNCH_TEMPLATE_NAME" \
+        --launch-template-data '{
+            "ImageId": "resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64",
+            "InstanceType": "t3.micro",
+            "MetadataOptions": {
+                "HttpTokens": "optional",
+                "HttpEndpoint": "enabled"
+            },
+            "NetworkInterfaces": [{
+                "DeviceIndex": 0,
+                "AssociatePublicIpAddress": true
+            }]
+        }' \
+        --region "$REGION" >/dev/null
+    success "Created Launch Template: $LAUNCH_TEMPLATE_NAME (IMDSv1 allowed — intentionally non-compliant)"
+}
+
+# Provision EC2 Instance (intentionally non-compliant: IMDSv1, public IP, no monitoring)
+provision_ec2_instance() {
+    info "Provisioning EC2 instance: $EC2_INSTANCE_NAME..."
+
+    # Check if instance already exists (by Name tag, running/pending state)
+    local instance_id
+    instance_id=$(aws ec2 describe-instances \
+        --filters "Name=tag:Name,Values=$EC2_INSTANCE_NAME" "Name=instance-state-name,Values=running,pending,stopped" \
+        --query "Reservations[0].Instances[0].InstanceId" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -n "$instance_id" ] && [ "$instance_id" != "None" ]; then
+        success "EC2 instance already exists: $EC2_INSTANCE_NAME ($instance_id)"
+        return
+    fi
+
+    instance_id=$(aws ec2 run-instances \
+        --launch-template "LaunchTemplateName=$LAUNCH_TEMPLATE_NAME" \
+        --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$EC2_INSTANCE_NAME}]" \
+        --query "Instances[0].InstanceId" --output text --region "$REGION")
+    success "Created EC2 instance: $EC2_INSTANCE_NAME ($instance_id) — intentionally non-compliant"
+}
+
+# Provision EBS Volume (intentionally non-compliant: not encrypted)
+provision_ebs_volume() {
+    info "Provisioning EBS volume: $EBS_VOLUME_NAME..."
+
+    local volume_id
+    volume_id=$(aws ec2 describe-volumes \
+        --filters "Name=tag:Name,Values=$EBS_VOLUME_NAME" "Name=status,Values=available,in-use" \
+        --query "Volumes[0].VolumeId" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -n "$volume_id" ] && [ "$volume_id" != "None" ]; then
+        success "EBS volume already exists: $EBS_VOLUME_NAME ($volume_id)"
+        return
+    fi
+
+    # Get first AZ in the region
+    local az
+    az=$(aws ec2 describe-availability-zones --region "$REGION" \
+        --query "AvailabilityZones[0].ZoneName" --output text)
+
+    volume_id=$(aws ec2 create-volume \
+        --volume-type gp3 \
+        --size 1 \
+        --availability-zone "$az" \
+        --no-encrypted \
+        --tag-specifications "ResourceType=volume,Tags=[{Key=Name,Value=$EBS_VOLUME_NAME}]" \
+        --query "VolumeId" --output text --region "$REGION")
+    success "Created EBS volume: $EBS_VOLUME_NAME ($volume_id) — unencrypted, intentionally non-compliant"
+}
+
+# Provision EBS Snapshot (intentionally non-compliant: unencrypted)
+provision_ebs_snapshot() {
+    info "Provisioning EBS snapshot..."
+
+    # Check if snapshot already exists
+    local snapshot_id
+    snapshot_id=$(aws ec2 describe-snapshots --owner-ids self \
+        --filters "Name=tag:Name,Values=$EBS_VOLUME_NAME-snapshot" \
+        --query "Snapshots[0].SnapshotId" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -n "$snapshot_id" ] && [ "$snapshot_id" != "None" ]; then
+        success "EBS snapshot already exists: $snapshot_id"
+        return
+    fi
+
+    # Get the volume ID
+    local volume_id
+    volume_id=$(aws ec2 describe-volumes \
+        --filters "Name=tag:Name,Values=$EBS_VOLUME_NAME" "Name=status,Values=available,in-use" \
+        --query "Volumes[0].VolumeId" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -z "$volume_id" ] || [ "$volume_id" = "None" ]; then
+        warn "EBS volume not found for snapshot. Skipping."
+        return
+    fi
+
+    snapshot_id=$(aws ec2 create-snapshot \
+        --volume-id "$volume_id" \
+        --description "SigComply E2E test snapshot" \
+        --tag-specifications "ResourceType=snapshot,Tags=[{Key=Name,Value=$EBS_VOLUME_NAME-snapshot}]" \
+        --query "SnapshotId" --output text --region "$REGION")
+    success "Created EBS snapshot: $snapshot_id — unencrypted, intentionally non-compliant"
+}
+
+# Provision VPC Endpoint (S3 gateway — compliant resource)
+provision_vpc_endpoint() {
+    info "Provisioning VPC endpoint for S3..."
+
+    local vpc_id
+    vpc_id=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
+        --query "Vpcs[0].VpcId" --output text --region "$REGION")
+
+    if [ -z "$vpc_id" ] || [ "$vpc_id" = "None" ]; then
+        warn "No default VPC found. Skipping VPC endpoint."
+        return
+    fi
+
+    # Check if S3 gateway endpoint already exists
+    local endpoint_id
+    endpoint_id=$(aws ec2 describe-vpc-endpoints \
+        --filters "Name=vpc-id,Values=$vpc_id" "Name=service-name,Values=com.amazonaws.$REGION.s3" "Name=vpc-endpoint-type,Values=Gateway" \
+        --query "VpcEndpoints[0].VpcEndpointId" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -n "$endpoint_id" ] && [ "$endpoint_id" != "None" ]; then
+        success "VPC S3 gateway endpoint already exists: $endpoint_id"
+        return
+    fi
+
+    # Get route table for default VPC
+    local rtb_id
+    rtb_id=$(aws ec2 describe-route-tables --filters "Name=vpc-id,Values=$vpc_id" "Name=association.main,Values=true" \
+        --query "RouteTables[0].RouteTableId" --output text --region "$REGION")
+
+    endpoint_id=$(aws ec2 create-vpc-endpoint \
+        --vpc-id "$vpc_id" \
+        --service-name "com.amazonaws.$REGION.s3" \
+        --route-table-ids "$rtb_id" \
+        --vpc-endpoint-type Gateway \
+        --query "VpcEndpoint.VpcEndpointId" --output text --region "$REGION")
+    success "Created VPC S3 gateway endpoint: $endpoint_id"
+}
+
+# Provision ECS Cluster + Task Definition (intentionally non-compliant)
+provision_ecs() {
+    info "Provisioning ECS cluster: $ECS_CLUSTER_NAME..."
+
+    # Create cluster (no container insights — non-compliant)
+    if aws ecs describe-clusters --clusters "$ECS_CLUSTER_NAME" --region "$REGION" \
+        --query "clusters[?status=='ACTIVE'].clusterName" --output text 2>/dev/null | grep -q "$ECS_CLUSTER_NAME"; then
+        success "ECS cluster already exists: $ECS_CLUSTER_NAME"
+    else
+        aws ecs create-cluster --cluster-name "$ECS_CLUSTER_NAME" --region "$REGION" >/dev/null
+        success "Created ECS cluster: $ECS_CLUSTER_NAME (no container insights — intentionally non-compliant)"
+    fi
+
+    # Register task definition (privileged, root, no logging — non-compliant)
+    info "Registering ECS task definition: $ECS_TASK_FAMILY..."
+    aws ecs register-task-definition \
+        --family "$ECS_TASK_FAMILY" \
+        --requires-compatibilities EC2 \
+        --network-mode bridge \
+        --container-definitions '[{
+            "name": "sigcomply-e2e-test",
+            "image": "alpine:latest",
+            "essential": true,
+            "memory": 128,
+            "privileged": true,
+            "user": "root",
+            "readonlyRootFilesystem": false
+        }]' \
+        --region "$REGION" >/dev/null
+    success "Registered ECS task definition: $ECS_TASK_FAMILY (privileged, root, no logging — intentionally non-compliant)"
+}
+
+# Provision Auto Scaling Group (intentionally non-compliant: EC2 health check, single AZ)
+provision_asg() {
+    info "Provisioning Auto Scaling Group: $ASG_NAME..."
+
+    if aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names "$ASG_NAME" \
+        --query "AutoScalingGroups[0].AutoScalingGroupName" --output text --region "$REGION" 2>/dev/null | grep -q "$ASG_NAME"; then
+        success "ASG already exists: $ASG_NAME"
+        return
+    fi
+
+    # Get first subnet from default VPC
+    local vpc_id
+    vpc_id=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
+        --query "Vpcs[0].VpcId" --output text --region "$REGION")
+
+    local subnet_id
+    subnet_id=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$vpc_id" \
+        --query "Subnets[?DefaultForAz==\`true\`].SubnetId | [0]" --output text --region "$REGION")
+
+    # Get launch template ID
+    local lt_id
+    lt_id=$(aws ec2 describe-launch-templates --launch-template-names "$LAUNCH_TEMPLATE_NAME" \
+        --query "LaunchTemplates[0].LaunchTemplateId" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -z "$lt_id" ] || [ "$lt_id" = "None" ]; then
+        warn "Launch template not found. Skipping ASG."
+        return
+    fi
+
+    aws autoscaling create-auto-scaling-group \
+        --auto-scaling-group-name "$ASG_NAME" \
+        --launch-template "LaunchTemplateId=$lt_id,Version=\$Latest" \
+        --min-size 0 --max-size 0 --desired-capacity 0 \
+        --vpc-zone-identifier "$subnet_id" \
+        --health-check-type EC2 \
+        --region "$REGION"
+    success "Created ASG: $ASG_NAME (desired=0, EC2 health check, single AZ — intentionally non-compliant)"
+}
+
+# Provision CloudFront Distribution (intentionally non-compliant: allow-all protocol, no WAF, no logging)
+provision_cloudfront() {
+    info "Provisioning CloudFront distribution..."
+
+    # Check if distribution with our comment already exists
+    local dist_id
+    dist_id=$(aws cloudfront list-distributions \
+        --query "DistributionList.Items[?Comment=='$CLOUDFRONT_COMMENT'].Id | [0]" --output text 2>/dev/null) || true
+
+    if [ -n "$dist_id" ] && [ "$dist_id" != "None" ] && [ "$dist_id" != "null" ]; then
+        success "CloudFront distribution already exists: $dist_id"
+        return
+    fi
+
+    local dist_config
+    dist_config=$(cat <<'DISTCFG'
+{
+    "CallerReference": "sigcomply-e2e-TIMESTAMP",
+    "Comment": "sigcomply-e2e-test",
+    "Enabled": true,
+    "Origins": {
+        "Quantity": 1,
+        "Items": [
+            {
+                "Id": "sigcomply-e2e-origin",
+                "DomainName": "sigcomply-e2e-tests.s3.amazonaws.com",
+                "S3OriginConfig": {
+                    "OriginAccessIdentity": ""
+                }
+            }
+        ]
+    },
+    "DefaultCacheBehavior": {
+        "TargetOriginId": "sigcomply-e2e-origin",
+        "ViewerProtocolPolicy": "allow-all",
+        "AllowedMethods": {
+            "Quantity": 2,
+            "Items": ["HEAD", "GET"],
+            "CachedMethods": {
+                "Quantity": 2,
+                "Items": ["HEAD", "GET"]
+            }
+        },
+        "ForwardedValues": {
+            "QueryString": false,
+            "Cookies": { "Forward": "none" }
+        },
+        "MinTTL": 0,
+        "DefaultTTL": 86400,
+        "MaxTTL": 31536000,
+        "Compress": false
+    }
+}
+DISTCFG
+)
+    # Replace timestamp for unique caller reference
+    dist_config=$(echo "$dist_config" | sed "s/TIMESTAMP/$(date +%s)/")
+
+    dist_id=$(aws cloudfront create-distribution \
+        --distribution-config "$dist_config" \
+        --query "Distribution.Id" --output text)
+    success "Created CloudFront distribution: $dist_id (allow-all, no WAF, no logging — intentionally non-compliant)"
+}
+
+# Provision API Gateway REST API (intentionally non-compliant: no authorizer, no WAF, no logging)
+provision_apigateway_rest() {
+    info "Provisioning API Gateway REST API: $APIGATEWAY_REST_NAME..."
+
+    local api_id
+    api_id=$(aws apigateway get-rest-apis \
+        --query "items[?name=='$APIGATEWAY_REST_NAME'].id | [0]" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -n "$api_id" ] && [ "$api_id" != "None" ] && [ "$api_id" != "null" ]; then
+        success "API Gateway REST API already exists: $APIGATEWAY_REST_NAME ($api_id)"
+        return
+    fi
+
+    api_id=$(aws apigateway create-rest-api \
+        --name "$APIGATEWAY_REST_NAME" \
+        --description "SigComply E2E test REST API" \
+        --endpoint-configuration "types=REGIONAL" \
+        --query "id" --output text --region "$REGION")
+
+    # Create a deployment + stage so it shows up in policy checks
+    local root_id
+    root_id=$(aws apigateway get-resources --rest-api-id "$api_id" \
+        --query "items[?path=='/'].id" --output text --region "$REGION")
+
+    aws apigateway put-method \
+        --rest-api-id "$api_id" \
+        --resource-id "$root_id" \
+        --http-method GET \
+        --authorization-type NONE \
+        --region "$REGION" >/dev/null
+
+    aws apigateway put-integration \
+        --rest-api-id "$api_id" \
+        --resource-id "$root_id" \
+        --http-method GET \
+        --type MOCK \
+        --request-templates '{"application/json": "{\"statusCode\": 200}"}' \
+        --region "$REGION" >/dev/null
+
+    aws apigateway create-deployment \
+        --rest-api-id "$api_id" \
+        --stage-name "e2e" \
+        --region "$REGION" >/dev/null
+
+    success "Created API Gateway REST API: $APIGATEWAY_REST_NAME ($api_id) with stage 'e2e' — intentionally non-compliant"
+}
+
+# Provision API Gateway V2 HTTP API (intentionally non-compliant: no access logging)
+provision_apigateway_v2() {
+    info "Provisioning API Gateway V2 HTTP API: $APIGATEWAY_V2_NAME..."
+
+    local api_id
+    api_id=$(aws apigatewayv2 get-apis \
+        --query "Items[?Name=='$APIGATEWAY_V2_NAME'].ApiId | [0]" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -n "$api_id" ] && [ "$api_id" != "None" ] && [ "$api_id" != "null" ]; then
+        success "API Gateway V2 HTTP API already exists: $APIGATEWAY_V2_NAME ($api_id)"
+        return
+    fi
+
+    api_id=$(aws apigatewayv2 create-api \
+        --name "$APIGATEWAY_V2_NAME" \
+        --protocol-type HTTP \
+        --description "SigComply E2E test HTTP API" \
+        --query "ApiId" --output text --region "$REGION")
+
+    # Create a stage (no access logging — non-compliant)
+    aws apigatewayv2 create-stage \
+        --api-id "$api_id" \
+        --stage-name "e2e" \
+        --auto-deploy \
+        --region "$REGION" >/dev/null
+
+    success "Created API Gateway V2 HTTP API: $APIGATEWAY_V2_NAME ($api_id) — no access logging, intentionally non-compliant"
+}
+
+# Provision Route53 private hosted zone (intentionally non-compliant: no query logging, no DNSSEC)
+provision_route53() {
+    info "Provisioning Route53 private hosted zone: $ROUTE53_ZONE_NAME..."
+
+    local zone_id
+    zone_id=$(aws route53 list-hosted-zones-by-name --dns-name "$ROUTE53_ZONE_NAME" \
+        --query "HostedZones[?Name=='${ROUTE53_ZONE_NAME}.'].Id | [0]" --output text 2>/dev/null) || true
+
+    if [ -n "$zone_id" ] && [ "$zone_id" != "None" ] && [ "$zone_id" != "null" ]; then
+        success "Route53 zone already exists: $ROUTE53_ZONE_NAME ($zone_id)"
+        return
+    fi
+
+    local vpc_id
+    vpc_id=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
+        --query "Vpcs[0].VpcId" --output text --region "$REGION")
+
+    zone_id=$(aws route53 create-hosted-zone \
+        --name "$ROUTE53_ZONE_NAME" \
+        --caller-reference "sigcomply-e2e-$(date +%s)" \
+        --vpc "VPCRegion=$REGION,VPCId=$vpc_id" \
+        --hosted-zone-config "Comment=SigComply E2E test zone,PrivateZone=true" \
+        --query "HostedZone.Id" --output text)
+    success "Created Route53 private zone: $ROUTE53_ZONE_NAME ($zone_id) — no query logging, no DNSSEC — intentionally non-compliant"
+}
+
+# Provision CodeBuild project (intentionally non-compliant: privileged mode, no log encryption)
+provision_codebuild() {
+    info "Provisioning CodeBuild project: $CODEBUILD_PROJECT..."
+
+    if aws codebuild batch-get-projects --names "$CODEBUILD_PROJECT" \
+        --query "projects[0].name" --output text --region "$REGION" 2>/dev/null | grep -q "$CODEBUILD_PROJECT"; then
+        success "CodeBuild project already exists: $CODEBUILD_PROJECT"
+        return
+    fi
+
+    local role_arn
+    role_arn=$(create_service_role "$CODEBUILD_ROLE" "codebuild.amazonaws.com")
+
+    # CodeBuild service role needs at minimum CloudWatch Logs permissions
+    aws iam put-role-policy --role-name "$CODEBUILD_ROLE" --policy-name codebuild-base \
+        --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents","s3:GetObject","s3:PutObject","s3:GetBucketAcl","s3:GetBucketLocation"],"Resource":"*"}]}' 2>/dev/null || true
+
+    # Wait for role propagation
+    info "Waiting for IAM role to propagate..."
+    sleep 15
+
+    aws codebuild create-project \
+        --name "$CODEBUILD_PROJECT" \
+        --source '{"type":"NO_SOURCE","buildspec":"version: 0.2\nphases:\n  build:\n    commands:\n      - echo hello"}' \
+        --artifacts '{"type":"NO_ARTIFACTS"}' \
+        --environment "{
+            \"type\": \"LINUX_CONTAINER\",
+            \"image\": \"aws/codebuild/standard:5.0\",
+            \"computeType\": \"BUILD_GENERAL1_SMALL\",
+            \"privilegedMode\": true
+        }" \
+        --service-role "$role_arn" \
+        --region "$REGION" >/dev/null
+    success "Created CodeBuild project: $CODEBUILD_PROJECT (privileged mode — intentionally non-compliant)"
+}
+
+# Provision Kinesis stream (intentionally non-compliant: no KMS encryption)
+provision_kinesis() {
+    info "Provisioning Kinesis stream: $KINESIS_STREAM..."
+
+    if aws kinesis describe-stream-summary --stream-name "$KINESIS_STREAM" \
+        --region "$REGION" >/dev/null 2>&1; then
+        success "Kinesis stream already exists: $KINESIS_STREAM"
+        return
+    fi
+
+    aws kinesis create-stream \
+        --stream-name "$KINESIS_STREAM" \
+        --stream-mode-details "StreamMode=ON_DEMAND" \
+        --region "$REGION"
+    success "Created Kinesis stream: $KINESIS_STREAM (no KMS encryption — intentionally non-compliant)"
+}
+
+# Provision Cognito User Pool (intentionally non-compliant: MFA off, weak password)
+provision_cognito() {
+    info "Provisioning Cognito User Pool: $COGNITO_POOL_NAME..."
+
+    local pool_id
+    pool_id=$(aws cognito-idp list-user-pools --max-results 60 --region "$REGION" \
+        --query "UserPools[?Name=='$COGNITO_POOL_NAME'].Id | [0]" --output text 2>/dev/null) || true
+
+    if [ -n "$pool_id" ] && [ "$pool_id" != "None" ] && [ "$pool_id" != "null" ]; then
+        success "Cognito User Pool already exists: $COGNITO_POOL_NAME ($pool_id)"
+        return
+    fi
+
+    aws cognito-idp create-user-pool \
+        --pool-name "$COGNITO_POOL_NAME" \
+        --mfa-configuration OFF \
+        --policies '{"PasswordPolicy":{"MinimumLength":6,"RequireUppercase":false,"RequireLowercase":false,"RequireNumbers":false,"RequireSymbols":false}}' \
+        --region "$REGION" >/dev/null
+    success "Created Cognito User Pool: $COGNITO_POOL_NAME (MFA off, weak password — intentionally non-compliant)"
+}
+
+# Provision ACM certificate (self-signed import — intentionally non-compliant: no CT logging)
+provision_acm() {
+    info "Provisioning ACM certificate (self-signed)..."
+
+    # Check if cert with our tag already exists
+    local cert_arn
+    cert_arn=$(aws acm list-certificates --region "$REGION" \
+        --query "CertificateSummaryList[?DomainName=='sigcomply-e2e-test.example.com'].CertificateArn | [0]" --output text 2>/dev/null) || true
+
+    if [ -n "$cert_arn" ] && [ "$cert_arn" != "None" ] && [ "$cert_arn" != "null" ]; then
+        success "ACM certificate already exists: $cert_arn"
+        return
+    fi
+
+    # Generate self-signed cert
+    local tmp_dir="/tmp/sigcomply-e2e-cert"
+    mkdir -p "$tmp_dir"
+
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout "$tmp_dir/key.pem" \
+        -out "$tmp_dir/cert.pem" \
+        -subj "/CN=sigcomply-e2e-test.example.com" 2>/dev/null
+
+    cert_arn=$(aws acm import-certificate \
+        --certificate "fileb://$tmp_dir/cert.pem" \
+        --private-key "fileb://$tmp_dir/key.pem" \
+        --query "CertificateArn" --output text --region "$REGION")
+
+    aws acm add-tags-to-certificate \
+        --certificate-arn "$cert_arn" \
+        --tags "Key=Name,Value=$ACM_CERT_NAME" \
+        --region "$REGION"
+
+    rm -rf "$tmp_dir"
+    success "Imported self-signed ACM certificate: $cert_arn — intentionally non-compliant"
+}
+
+# Provision Glue job (intentionally non-compliant: no encryption, old version)
+provision_glue() {
+    info "Provisioning Glue job: $GLUE_JOB_NAME..."
+
+    if aws glue get-jobs --region "$REGION" \
+        --query "Jobs[?Name=='$GLUE_JOB_NAME'].Name | [0]" --output text 2>/dev/null | grep -q "$GLUE_JOB_NAME"; then
+        success "Glue job already exists: $GLUE_JOB_NAME"
+        return
+    fi
+
+    local role_arn
+    role_arn=$(create_service_role "$GLUE_ROLE" "glue.amazonaws.com")
+
+    aws glue create-job \
+        --name "$GLUE_JOB_NAME" \
+        --role "$role_arn" \
+        --command '{"Name":"glueetl","ScriptLocation":"s3://sigcomply-e2e-tests/glue/script.py","PythonVersion":"3"}' \
+        --glue-version "2.0" \
+        --region "$REGION" >/dev/null
+    success "Created Glue job: $GLUE_JOB_NAME (no encryption, version 2.0 — intentionally non-compliant)"
+}
+
+# Provision Step Functions state machine (intentionally non-compliant: no logging, no tracing)
+provision_stepfunctions() {
+    info "Provisioning Step Functions state machine: $SFN_STATE_MACHINE..."
+
+    local sm_arn
+    sm_arn=$(aws stepfunctions list-state-machines --region "$REGION" \
+        --query "stateMachines[?name=='$SFN_STATE_MACHINE'].stateMachineArn | [0]" --output text 2>/dev/null) || true
+
+    if [ -n "$sm_arn" ] && [ "$sm_arn" != "None" ] && [ "$sm_arn" != "null" ]; then
+        success "Step Functions state machine already exists: $SFN_STATE_MACHINE ($sm_arn)"
+        return
+    fi
+
+    local role_arn
+    role_arn=$(create_service_role "$SFN_ROLE" "states.amazonaws.com")
+
+    aws stepfunctions create-state-machine \
+        --name "$SFN_STATE_MACHINE" \
+        --definition '{"Comment":"SigComply E2E test","StartAt":"Pass","States":{"Pass":{"Type":"Pass","End":true}}}' \
+        --role-arn "$role_arn" \
+        --type STANDARD \
+        --region "$REGION" >/dev/null
+    success "Created Step Functions state machine: $SFN_STATE_MACHINE (no logging, no tracing — intentionally non-compliant)"
+}
+
+# Provision AppSync GraphQL API (intentionally non-compliant: no logging)
+provision_appsync() {
+    info "Provisioning AppSync API: $APPSYNC_API_NAME..."
+
+    local api_id
+    api_id=$(aws appsync list-graphql-apis --region "$REGION" \
+        --query "graphqlApis[?name=='$APPSYNC_API_NAME'].apiId | [0]" --output text 2>/dev/null) || true
+
+    if [ -n "$api_id" ] && [ "$api_id" != "None" ] && [ "$api_id" != "null" ]; then
+        success "AppSync API already exists: $APPSYNC_API_NAME ($api_id)"
+        return
+    fi
+
+    aws appsync create-graphql-api \
+        --name "$APPSYNC_API_NAME" \
+        --authentication-type API_KEY \
+        --region "$REGION" >/dev/null
+    success "Created AppSync API: $APPSYNC_API_NAME (no logging — intentionally non-compliant)"
+}
+
+# Provision Athena workgroup (intentionally non-compliant: no CloudWatch metrics)
+provision_athena() {
+    info "Provisioning Athena workgroup: $ATHENA_WORKGROUP..."
+
+    if aws athena get-work-group --work-group "$ATHENA_WORKGROUP" \
+        --region "$REGION" >/dev/null 2>&1; then
+        success "Athena workgroup already exists: $ATHENA_WORKGROUP"
+        return
+    fi
+
+    aws athena create-work-group \
+        --name "$ATHENA_WORKGROUP" \
+        --configuration '{"ResultConfiguration":{"OutputLocation":"s3://sigcomply-e2e-tests/athena-results/"},"PublishCloudWatchMetricsEnabled":false}' \
+        --region "$REGION" >/dev/null
+    success "Created Athena workgroup: $ATHENA_WORKGROUP (no CloudWatch metrics — intentionally non-compliant)"
+}
+
+# =============================================================================
+# Expensive services (billed per-hour, spin up/down per test run)
+# =============================================================================
+
+# Helper: create a shared DB subnet group (used by Neptune, DocumentDB, DAX, Redshift, DMS)
+provision_db_subnet_group() {
+    info "Provisioning shared DB subnet group: $DB_SUBNET_GROUP..."
+
+    if aws rds describe-db-subnet-groups --db-subnet-group-name "$DB_SUBNET_GROUP" \
+        --region "$REGION" >/dev/null 2>&1; then
+        success "DB subnet group already exists: $DB_SUBNET_GROUP"
+        return
+    fi
+
+    local vpc_id
+    vpc_id=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
+        --query "Vpcs[0].VpcId" --output text --region "$REGION")
+
+    local subnet_ids
+    subnet_ids=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$vpc_id" \
+        --query "Subnets[?DefaultForAz==\`true\`].SubnetId" --output text --region "$REGION")
+
+    # shellcheck disable=SC2086
+    aws rds create-db-subnet-group \
+        --db-subnet-group-name "$DB_SUBNET_GROUP" \
+        --db-subnet-group-description "SigComply E2E test subnet group" \
+        --subnet-ids $subnet_ids \
+        --region "$REGION" >/dev/null
+    success "Created DB subnet group: $DB_SUBNET_GROUP"
+}
+
+# Provision EKS cluster (intentionally non-compliant: no encryption, public endpoint, no logging)
+provision_eks() {
+    info "Provisioning EKS cluster: $EKS_CLUSTER_NAME..."
+
+    if aws eks describe-cluster --name "$EKS_CLUSTER_NAME" --region "$REGION" >/dev/null 2>&1; then
+        success "EKS cluster already exists: $EKS_CLUSTER_NAME"
+        return
+    fi
+
+    # Create EKS service role
+    local role_arn
+    role_arn=$(aws iam get-role --role-name "$EKS_ROLE" --query "Role.Arn" --output text 2>/dev/null) || true
+
+    if [ -z "$role_arn" ] || [ "$role_arn" = "None" ]; then
+        local assume_role_policy
+        assume_role_policy=$(cat <<'POLICY'
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": { "Service": "eks.amazonaws.com" },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}
+POLICY
+)
+        role_arn=$(aws iam create-role \
+            --role-name "$EKS_ROLE" \
+            --assume-role-policy-document "$assume_role_policy" \
+            --query "Role.Arn" --output text)
+        aws iam attach-role-policy --role-name "$EKS_ROLE" \
+            --policy-arn "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+        success "Created EKS role: $EKS_ROLE"
+        sleep 10
+    fi
+
+    # Get subnets for EKS
+    local vpc_id
+    vpc_id=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
+        --query "Vpcs[0].VpcId" --output text --region "$REGION")
+
+    local subnet_ids
+    subnet_ids=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$vpc_id" \
+        --query "Subnets[?DefaultForAz==\`true\`].SubnetId | [:2]" --output json --region "$REGION")
+
+    aws eks create-cluster \
+        --name "$EKS_CLUSTER_NAME" \
+        --role-arn "$role_arn" \
+        --resources-vpc-config "subnetIds=$(echo "$subnet_ids" | jq -r 'join(",")'),endpointPublicAccess=true,endpointPrivateAccess=false" \
+        --region "$REGION" >/dev/null
+    success "Created EKS cluster: $EKS_CLUSTER_NAME (no encryption, public endpoint, no logging — intentionally non-compliant)"
+    info "EKS cluster creation takes ~15 minutes. Continuing with other resources..."
+}
+
+# Provision MSK Serverless cluster (intentionally non-compliant: minimal config)
+provision_msk() {
+    info "Provisioning MSK Serverless cluster: $MSK_CLUSTER_NAME..."
+
+    local cluster_arn
+    cluster_arn=$(aws kafka list-clusters-v2 --region "$REGION" \
+        --query "ClusterInfoList[?ClusterName=='$MSK_CLUSTER_NAME'].ClusterArn | [0]" --output text 2>/dev/null) || true
+
+    if [ -n "$cluster_arn" ] && [ "$cluster_arn" != "None" ] && [ "$cluster_arn" != "null" ]; then
+        success "MSK cluster already exists: $MSK_CLUSTER_NAME"
+        return
+    fi
+
+    local vpc_id
+    vpc_id=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
+        --query "Vpcs[0].VpcId" --output text --region "$REGION")
+
+    local subnet_ids
+    subnet_ids=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$vpc_id" \
+        --query "Subnets[?DefaultForAz==\`true\`].SubnetId | [:2]" --output json --region "$REGION")
+
+    local sg_id
+    sg_id=$(aws ec2 describe-security-groups \
+        --filters "Name=vpc-id,Values=$vpc_id" "Name=group-name,Values=default" \
+        --query "SecurityGroups[0].GroupId" --output text --region "$REGION")
+
+    local serverless_config
+    serverless_config=$(cat <<MSKCONFIG
+{
+    "ClusterName": "${MSK_CLUSTER_NAME}",
+    "Serverless": {
+        "VpcConfigs": [
+            {
+                "SubnetIds": $(echo "$subnet_ids" | jq -c '.'),
+                "SecurityGroupIds": ["${sg_id}"]
+            }
+        ],
+        "ClientAuthentication": {
+            "Sasl": {
+                "Iam": { "Enabled": true }
+            }
+        }
+    }
+}
+MSKCONFIG
+)
+
+    aws kafka create-cluster-v2 \
+        --cli-input-json "$serverless_config" \
+        --region "$REGION" >/dev/null
+    success "Created MSK Serverless cluster: $MSK_CLUSTER_NAME — intentionally non-compliant"
+}
+
+# Provision Neptune cluster (intentionally non-compliant: no encryption, no audit logging)
+provision_neptune() {
+    info "Provisioning Neptune cluster: $NEPTUNE_CLUSTER..."
+
+    if aws neptune describe-db-clusters --db-cluster-identifier "$NEPTUNE_CLUSTER" \
+        --region "$REGION" >/dev/null 2>&1; then
+        success "Neptune cluster already exists: $NEPTUNE_CLUSTER"
+        return
+    fi
+
+    # Create Neptune subnet group
+    if ! aws neptune describe-db-subnet-groups --db-subnet-group-name "$NEPTUNE_SUBNET_GROUP" \
+        --region "$REGION" >/dev/null 2>&1; then
+        local vpc_id
+        vpc_id=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
+            --query "Vpcs[0].VpcId" --output text --region "$REGION")
+        local subnet_ids
+        subnet_ids=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$vpc_id" \
+            --query "Subnets[?DefaultForAz==\`true\`].SubnetId" --output text --region "$REGION")
+        # shellcheck disable=SC2086
+        aws neptune create-db-subnet-group \
+            --db-subnet-group-name "$NEPTUNE_SUBNET_GROUP" \
+            --db-subnet-group-description "SigComply E2E Neptune subnet group" \
+            --subnet-ids $subnet_ids \
+            --region "$REGION" >/dev/null
+        success "Created Neptune subnet group: $NEPTUNE_SUBNET_GROUP"
+    fi
+
+    aws neptune create-db-cluster \
+        --db-cluster-identifier "$NEPTUNE_CLUSTER" \
+        --engine neptune \
+        --no-storage-encrypted \
+        --db-subnet-group-name "$NEPTUNE_SUBNET_GROUP" \
+        --region "$REGION" >/dev/null
+
+    aws neptune create-db-instance \
+        --db-instance-identifier "$NEPTUNE_INSTANCE" \
+        --db-cluster-identifier "$NEPTUNE_CLUSTER" \
+        --db-instance-class db.t3.medium \
+        --engine neptune \
+        --region "$REGION" >/dev/null
+    success "Created Neptune cluster: $NEPTUNE_CLUSTER (no encryption, no audit logging — intentionally non-compliant)"
+    info "Neptune cluster creation takes ~10-15 minutes. Continuing..."
+}
+
+# Provision OpenSearch domain (intentionally non-compliant: no encryption, no fine-grained access)
+provision_opensearch() {
+    info "Provisioning OpenSearch domain: $OPENSEARCH_DOMAIN..."
+
+    if aws opensearch describe-domain --domain-name "$OPENSEARCH_DOMAIN" \
+        --region "$REGION" >/dev/null 2>&1; then
+        success "OpenSearch domain already exists: $OPENSEARCH_DOMAIN"
+        return
+    fi
+
+    aws opensearch create-domain \
+        --domain-name "$OPENSEARCH_DOMAIN" \
+        --engine-version "OpenSearch_2.11" \
+        --cluster-config "InstanceType=t3.small.search,InstanceCount=1" \
+        --ebs-options "EBSEnabled=true,VolumeType=gp3,VolumeSize=10" \
+        --no-node-to-node-encryption-options \
+        --no-encrypt-at-rest-options \
+        --domain-endpoint-options "EnforceHTTPS=false" \
+        --access-policies "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"es:*\",\"Resource\":\"arn:aws:es:${REGION}:${EXPECTED_ACCOUNT_ID}:domain/${OPENSEARCH_DOMAIN}/*\"}]}" \
+        --region "$REGION" >/dev/null
+    success "Created OpenSearch domain: $OPENSEARCH_DOMAIN (no encryption, open access — intentionally non-compliant)"
+    info "OpenSearch domain creation takes ~10-15 minutes. Continuing..."
+}
+
+# Provision Redshift cluster (intentionally non-compliant: no encryption, no audit logging, public)
+provision_redshift() {
+    info "Provisioning Redshift cluster: $REDSHIFT_CLUSTER..."
+
+    if aws redshift describe-clusters --cluster-identifier "$REDSHIFT_CLUSTER" \
+        --region "$REGION" >/dev/null 2>&1; then
+        success "Redshift cluster already exists: $REDSHIFT_CLUSTER"
+        return
+    fi
+
+    # Create Redshift subnet group
+    if ! aws redshift describe-cluster-subnet-groups --cluster-subnet-group-name "$REDSHIFT_SUBNET_GROUP" \
+        --region "$REGION" >/dev/null 2>&1; then
+        local vpc_id
+        vpc_id=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
+            --query "Vpcs[0].VpcId" --output text --region "$REGION")
+        local subnet_ids
+        subnet_ids=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$vpc_id" \
+            --query "Subnets[?DefaultForAz==\`true\`].SubnetId" --output text --region "$REGION")
+        # shellcheck disable=SC2086
+        aws redshift create-cluster-subnet-group \
+            --cluster-subnet-group-name "$REDSHIFT_SUBNET_GROUP" \
+            --description "SigComply E2E Redshift subnet group" \
+            --subnet-ids $subnet_ids \
+            --region "$REGION" >/dev/null
+        success "Created Redshift subnet group: $REDSHIFT_SUBNET_GROUP"
+    fi
+
+    aws redshift create-cluster \
+        --cluster-identifier "$REDSHIFT_CLUSTER" \
+        --node-type dc2.large \
+        --number-of-nodes 1 \
+        --master-username admin \
+        --master-user-password "E2eTestPass123!" \
+        --cluster-subnet-group-name "$REDSHIFT_SUBNET_GROUP" \
+        --no-encrypted \
+        --publicly-accessible \
+        --region "$REGION" >/dev/null
+    success "Created Redshift cluster: $REDSHIFT_CLUSTER (no encryption, public — intentionally non-compliant)"
+    info "Redshift cluster creation takes ~10 minutes. Continuing..."
+}
+
+# Provision Redshift Serverless (intentionally non-compliant: no encryption)
+provision_redshift_serverless() {
+    info "Provisioning Redshift Serverless: $REDSHIFT_SL_NAMESPACE..."
+
+    local ns_status
+    ns_status=$(aws redshift-serverless get-namespace --namespace-name "$REDSHIFT_SL_NAMESPACE" \
+        --query "namespace.status" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -n "$ns_status" ] && [ "$ns_status" != "None" ]; then
+        success "Redshift Serverless namespace already exists: $REDSHIFT_SL_NAMESPACE"
+        return
+    fi
+
+    aws redshift-serverless create-namespace \
+        --namespace-name "$REDSHIFT_SL_NAMESPACE" \
+        --admin-username admin \
+        --admin-user-password "E2eTestPass123!" \
+        --region "$REGION" >/dev/null
+    success "Created Redshift Serverless namespace: $REDSHIFT_SL_NAMESPACE"
+
+    # Create workgroup
+    local wg_status
+    wg_status=$(aws redshift-serverless get-workgroup --workgroup-name "$REDSHIFT_SL_WORKGROUP" \
+        --query "workgroup.status" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -n "$wg_status" ] && [ "$wg_status" != "None" ]; then
+        success "Redshift Serverless workgroup already exists: $REDSHIFT_SL_WORKGROUP"
+        return
+    fi
+
+    local vpc_id
+    vpc_id=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
+        --query "Vpcs[0].VpcId" --output text --region "$REGION")
+    local subnet_ids
+    subnet_ids=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$vpc_id" \
+        --query "Subnets[?DefaultForAz==\`true\`].SubnetId" --output json --region "$REGION")
+    local sg_id
+    sg_id=$(aws ec2 describe-security-groups \
+        --filters "Name=vpc-id,Values=$vpc_id" "Name=group-name,Values=default" \
+        --query "SecurityGroups[0].GroupId" --output text --region "$REGION")
+
+    aws redshift-serverless create-workgroup \
+        --workgroup-name "$REDSHIFT_SL_WORKGROUP" \
+        --namespace-name "$REDSHIFT_SL_NAMESPACE" \
+        --base-capacity 8 \
+        --subnet-ids $(echo "$subnet_ids" | jq -r '.[]') \
+        --security-group-ids "$sg_id" \
+        --publicly-accessible \
+        --region "$REGION" >/dev/null
+    success "Created Redshift Serverless workgroup: $REDSHIFT_SL_WORKGROUP (publicly accessible — intentionally non-compliant)"
+}
+
+# Provision EMR cluster (intentionally non-compliant: no encryption, no logging)
+provision_emr() {
+    info "Provisioning EMR cluster: $EMR_CLUSTER_NAME..."
+
+    # Check if cluster already exists (running/waiting state)
+    local cluster_id
+    cluster_id=$(aws emr list-clusters --active --region "$REGION" \
+        --query "Clusters[?Name=='$EMR_CLUSTER_NAME'].Id | [0]" --output text 2>/dev/null) || true
+
+    if [ -n "$cluster_id" ] && [ "$cluster_id" != "None" ] && [ "$cluster_id" != "null" ]; then
+        success "EMR cluster already exists: $EMR_CLUSTER_NAME ($cluster_id)"
+        return
+    fi
+
+    # Create EMR service role
+    local emr_role_arn
+    emr_role_arn=$(aws iam get-role --role-name "$EMR_ROLE" --query "Role.Arn" --output text 2>/dev/null) || true
+
+    if [ -z "$emr_role_arn" ] || [ "$emr_role_arn" = "None" ]; then
+        local assume_role_policy
+        assume_role_policy=$(cat <<'POLICY'
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": { "Service": "elasticmapreduce.amazonaws.com" },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}
+POLICY
+)
+        emr_role_arn=$(aws iam create-role \
+            --role-name "$EMR_ROLE" \
+            --assume-role-policy-document "$assume_role_policy" \
+            --query "Role.Arn" --output text)
+        aws iam attach-role-policy --role-name "$EMR_ROLE" \
+            --policy-arn "arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceRole"
+        success "Created EMR role: $EMR_ROLE"
+    fi
+
+    # Create EMR EC2 role + instance profile
+    local ec2_role_arn
+    ec2_role_arn=$(aws iam get-role --role-name "$EMR_EC2_ROLE" --query "Role.Arn" --output text 2>/dev/null) || true
+
+    if [ -z "$ec2_role_arn" ] || [ "$ec2_role_arn" = "None" ]; then
+        local ec2_assume_policy
+        ec2_assume_policy=$(cat <<'POLICY'
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": { "Service": "ec2.amazonaws.com" },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}
+POLICY
+)
+        aws iam create-role \
+            --role-name "$EMR_EC2_ROLE" \
+            --assume-role-policy-document "$ec2_assume_policy" >/dev/null
+        aws iam attach-role-policy --role-name "$EMR_EC2_ROLE" \
+            --policy-arn "arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceforEC2Role"
+        success "Created EMR EC2 role: $EMR_EC2_ROLE"
+    fi
+
+    # Create instance profile if not exists
+    if ! aws iam get-instance-profile --instance-profile-name "$EMR_INSTANCE_PROFILE" >/dev/null 2>&1; then
+        aws iam create-instance-profile --instance-profile-name "$EMR_INSTANCE_PROFILE" >/dev/null
+        aws iam add-role-to-instance-profile \
+            --instance-profile-name "$EMR_INSTANCE_PROFILE" \
+            --role-name "$EMR_EC2_ROLE"
+        success "Created EMR instance profile: $EMR_INSTANCE_PROFILE"
+        sleep 10
+    fi
+
+    aws emr create-cluster \
+        --name "$EMR_CLUSTER_NAME" \
+        --release-label emr-6.15.0 \
+        --applications Name=Spark \
+        --instance-groups '[{"InstanceGroupType":"MASTER","InstanceCount":1,"InstanceType":"m5.xlarge"}]' \
+        --service-role "$EMR_ROLE" \
+        --ec2-attributes "InstanceProfile=$EMR_INSTANCE_PROFILE" \
+        --auto-terminate \
+        --step-concurrency-level 1 \
+        --region "$REGION" >/dev/null
+    success "Created EMR cluster: $EMR_CLUSTER_NAME (no encryption, no logging — intentionally non-compliant)"
+}
+
+# Provision DocumentDB cluster (intentionally non-compliant: no encryption, no audit logging)
+provision_docdb() {
+    info "Provisioning DocumentDB cluster: $DOCDB_CLUSTER..."
+
+    if aws docdb describe-db-clusters --db-cluster-identifier "$DOCDB_CLUSTER" \
+        --region "$REGION" >/dev/null 2>&1; then
+        success "DocumentDB cluster already exists: $DOCDB_CLUSTER"
+        return
+    fi
+
+    # Create DocumentDB subnet group
+    if ! aws docdb describe-db-subnet-groups --db-subnet-group-name "$DOCDB_SUBNET_GROUP" \
+        --region "$REGION" >/dev/null 2>&1; then
+        local vpc_id
+        vpc_id=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
+            --query "Vpcs[0].VpcId" --output text --region "$REGION")
+        local subnet_ids
+        subnet_ids=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$vpc_id" \
+            --query "Subnets[?DefaultForAz==\`true\`].SubnetId" --output text --region "$REGION")
+        # shellcheck disable=SC2086
+        aws docdb create-db-subnet-group \
+            --db-subnet-group-name "$DOCDB_SUBNET_GROUP" \
+            --db-subnet-group-description "SigComply E2E DocumentDB subnet group" \
+            --subnet-ids $subnet_ids \
+            --region "$REGION" >/dev/null
+        success "Created DocumentDB subnet group: $DOCDB_SUBNET_GROUP"
+    fi
+
+    aws docdb create-db-cluster \
+        --db-cluster-identifier "$DOCDB_CLUSTER" \
+        --engine docdb \
+        --master-username admin \
+        --master-user-password "E2eTestPass123!" \
+        --no-storage-encrypted \
+        --db-subnet-group-name "$DOCDB_SUBNET_GROUP" \
+        --region "$REGION" >/dev/null
+
+    aws docdb create-db-instance \
+        --db-instance-identifier "$DOCDB_INSTANCE" \
+        --db-cluster-identifier "$DOCDB_CLUSTER" \
+        --db-instance-class db.t3.medium \
+        --engine docdb \
+        --region "$REGION" >/dev/null
+    success "Created DocumentDB cluster: $DOCDB_CLUSTER (no encryption, no audit logging — intentionally non-compliant)"
+    info "DocumentDB cluster creation takes ~10-15 minutes. Continuing..."
+}
+
+# Provision Amazon MQ broker (intentionally non-compliant: no encryption, no audit logging)
+provision_mq() {
+    info "Provisioning Amazon MQ broker: $MQ_BROKER_NAME..."
+
+    local broker_id
+    broker_id=$(aws mq list-brokers --region "$REGION" \
+        --query "BrokerSummaries[?BrokerName=='$MQ_BROKER_NAME'].BrokerId | [0]" --output text 2>/dev/null) || true
+
+    if [ -n "$broker_id" ] && [ "$broker_id" != "None" ] && [ "$broker_id" != "null" ]; then
+        success "MQ broker already exists: $MQ_BROKER_NAME ($broker_id)"
+        return
+    fi
+
+    aws mq create-broker \
+        --broker-name "$MQ_BROKER_NAME" \
+        --engine-type ACTIVEMQ \
+        --engine-version "5.18" \
+        --host-instance-type "mq.t3.micro" \
+        --deployment-mode SINGLE_INSTANCE \
+        --publicly-accessible \
+        --no-auto-minor-version-upgrade \
+        --users '[{"ConsoleAccess":true,"Username":"admin","Password":"E2eTestPass123!"}]' \
+        --region "$REGION" >/dev/null
+    success "Created MQ broker: $MQ_BROKER_NAME (public, no encryption — intentionally non-compliant)"
+}
+
+# Provision DMS replication instance (intentionally non-compliant: public, no encryption)
+provision_dms() {
+    info "Provisioning DMS replication instance: $DMS_INSTANCE..."
+
+    if aws dms describe-replication-instances --region "$REGION" \
+        --filters "Name=replication-instance-id,Values=$DMS_INSTANCE" \
+        --query "ReplicationInstances[0].ReplicationInstanceIdentifier" --output text 2>/dev/null | grep -q "$DMS_INSTANCE"; then
+        success "DMS replication instance already exists: $DMS_INSTANCE"
+        return
+    fi
+
+    # Create DMS subnet group
+    if ! aws dms describe-replication-subnet-groups --region "$REGION" \
+        --filters "Name=replication-subnet-group-id,Values=$DMS_SUBNET_GROUP" \
+        --query "ReplicationSubnetGroups[0]" --output text 2>/dev/null | grep -q "$DMS_SUBNET_GROUP"; then
+        local vpc_id
+        vpc_id=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
+            --query "Vpcs[0].VpcId" --output text --region "$REGION")
+        local subnet_ids
+        subnet_ids=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$vpc_id" \
+            --query "Subnets[?DefaultForAz==\`true\`].SubnetId" --output text --region "$REGION")
+        # shellcheck disable=SC2086
+        aws dms create-replication-subnet-group \
+            --replication-subnet-group-identifier "$DMS_SUBNET_GROUP" \
+            --replication-subnet-group-description "SigComply E2E DMS subnet group" \
+            --subnet-ids $subnet_ids \
+            --region "$REGION" >/dev/null
+        success "Created DMS subnet group: $DMS_SUBNET_GROUP"
+    fi
+
+    aws dms create-replication-instance \
+        --replication-instance-identifier "$DMS_INSTANCE" \
+        --replication-instance-class dms.t3.micro \
+        --no-multi-az \
+        --publicly-accessible \
+        --replication-subnet-group-identifier "$DMS_SUBNET_GROUP" \
+        --region "$REGION" >/dev/null
+    success "Created DMS replication instance: $DMS_INSTANCE (public, no encryption — intentionally non-compliant)"
+}
+
+# Provision Network Firewall (intentionally non-compliant: no logging)
+provision_network_firewall() {
+    info "Provisioning Network Firewall: $NFW_FIREWALL..."
+
+    if aws network-firewall describe-firewall --firewall-name "$NFW_FIREWALL" \
+        --region "$REGION" >/dev/null 2>&1; then
+        success "Network Firewall already exists: $NFW_FIREWALL"
+        return
+    fi
+
+    # Create firewall policy first
+    local policy_arn
+    policy_arn=$(aws network-firewall describe-firewall-policy \
+        --firewall-policy-name "$NFW_POLICY" \
+        --query "FirewallPolicyResponse.FirewallPolicyArn" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -z "$policy_arn" ] || [ "$policy_arn" = "None" ]; then
+        policy_arn=$(aws network-firewall create-firewall-policy \
+            --firewall-policy-name "$NFW_POLICY" \
+            --firewall-policy '{"StatelessDefaultActions":["aws:pass"],"StatelessFragmentDefaultActions":["aws:pass"]}' \
+            --query "FirewallPolicyResponse.FirewallPolicyArn" --output text --region "$REGION")
+        success "Created Network Firewall policy: $NFW_POLICY"
+    fi
+
+    local vpc_id
+    vpc_id=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
+        --query "Vpcs[0].VpcId" --output text --region "$REGION")
+
+    local subnet_id
+    subnet_id=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$vpc_id" \
+        --query "Subnets[?DefaultForAz==\`true\`].SubnetId | [0]" --output text --region "$REGION")
+
+    aws network-firewall create-firewall \
+        --firewall-name "$NFW_FIREWALL" \
+        --firewall-policy-arn "$policy_arn" \
+        --vpc-id "$vpc_id" \
+        --subnet-mappings "SubnetId=$subnet_id" \
+        --region "$REGION" >/dev/null
+    success "Created Network Firewall: $NFW_FIREWALL (no logging — intentionally non-compliant)"
+}
+
+# Provision FSx for Lustre (intentionally non-compliant: no encryption)
+provision_fsx() {
+    info "Provisioning FSx filesystem: $FSX_NAME..."
+
+    local fs_id
+    fs_id=$(aws fsx describe-file-systems --region "$REGION" \
+        --query "FileSystems[?tags[?Key=='Name' && Value=='$FSX_NAME']].FileSystemId | [0]" --output text 2>/dev/null) || true
+
+    if [ -n "$fs_id" ] && [ "$fs_id" != "None" ] && [ "$fs_id" != "null" ]; then
+        success "FSx filesystem already exists: $FSX_NAME ($fs_id)"
+        return
+    fi
+
+    local vpc_id
+    vpc_id=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
+        --query "Vpcs[0].VpcId" --output text --region "$REGION")
+
+    local subnet_id
+    subnet_id=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$vpc_id" \
+        --query "Subnets[?DefaultForAz==\`true\`].SubnetId | [0]" --output text --region "$REGION")
+
+    aws fsx create-file-system \
+        --file-system-type LUSTRE \
+        --storage-capacity 1200 \
+        --storage-type SSD \
+        --lustre-configuration "DeploymentType=SCRATCH_1" \
+        --subnet-ids "$subnet_id" \
+        --tags "Key=Name,Value=$FSX_NAME" \
+        --region "$REGION" >/dev/null
+    success "Created FSx Lustre filesystem: $FSX_NAME (SCRATCH_1, no encryption — intentionally non-compliant)"
+}
+
+# Provision Transfer Family server (intentionally non-compliant: FTP, no logging)
+provision_transfer() {
+    info "Provisioning Transfer Family server: $TRANSFER_SERVER..."
+
+    local server_id
+    server_id=$(aws transfer list-servers --region "$REGION" \
+        --query "Servers[?Tags[?Key=='Name' && Value=='$TRANSFER_SERVER']].ServerId | [0]" --output text 2>/dev/null) || true
+
+    if [ -n "$server_id" ] && [ "$server_id" != "None" ] && [ "$server_id" != "null" ]; then
+        success "Transfer server already exists: $TRANSFER_SERVER ($server_id)"
+        return
+    fi
+
+    server_id=$(aws transfer create-server \
+        --protocols SFTP \
+        --endpoint-type PUBLIC \
+        --tags "Key=Name,Value=$TRANSFER_SERVER" \
+        --query "ServerId" --output text --region "$REGION")
+    success "Created Transfer server: $TRANSFER_SERVER ($server_id) (public, no logging — intentionally non-compliant)"
+}
+
+# Provision SageMaker notebook instance (intentionally non-compliant: no encryption, root access, direct internet)
+provision_sagemaker() {
+    info "Provisioning SageMaker notebook: $SAGEMAKER_NOTEBOOK..."
+
+    local status
+    status=$(aws sagemaker describe-notebook-instance --notebook-instance-name "$SAGEMAKER_NOTEBOOK" \
+        --query "NotebookInstanceStatus" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -n "$status" ] && [ "$status" != "None" ]; then
+        success "SageMaker notebook already exists: $SAGEMAKER_NOTEBOOK (status: $status)"
+        return
+    fi
+
+    local role_arn
+    role_arn=$(create_service_role "$SAGEMAKER_ROLE" "sagemaker.amazonaws.com")
+
+    aws sagemaker create-notebook-instance \
+        --notebook-instance-name "$SAGEMAKER_NOTEBOOK" \
+        --instance-type ml.t3.medium \
+        --role-arn "$role_arn" \
+        --direct-internet-access Enabled \
+        --root-access Enabled \
+        --region "$REGION" >/dev/null
+    success "Created SageMaker notebook: $SAGEMAKER_NOTEBOOK (root access, direct internet — intentionally non-compliant)"
+}
+
+# Provision DAX cluster (intentionally non-compliant: no encryption)
+provision_dax() {
+    info "Provisioning DAX cluster: $DAX_CLUSTER..."
+
+    if aws dax describe-clusters --cluster-names "$DAX_CLUSTER" \
+        --region "$REGION" >/dev/null 2>&1; then
+        success "DAX cluster already exists: $DAX_CLUSTER"
+        return
+    fi
+
+    # Create DAX subnet group
+    if ! aws dax describe-subnet-groups --subnet-group-names "$DAX_SUBNET_GROUP" \
+        --region "$REGION" >/dev/null 2>&1; then
+        local vpc_id
+        vpc_id=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
+            --query "Vpcs[0].VpcId" --output text --region "$REGION")
+        local subnet_ids
+        subnet_ids=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$vpc_id" \
+            --query "Subnets[?DefaultForAz==\`true\`].SubnetId" --output text --region "$REGION")
+        # shellcheck disable=SC2086
+        aws dax create-subnet-group \
+            --subnet-group-name "$DAX_SUBNET_GROUP" \
+            --description "SigComply E2E DAX subnet group" \
+            --subnet-ids $subnet_ids \
+            --region "$REGION" >/dev/null
+        success "Created DAX subnet group: $DAX_SUBNET_GROUP"
+    fi
+
+    # Create DAX role
+    local role_arn
+    role_arn=$(aws iam get-role --role-name "$DAX_ROLE" --query "Role.Arn" --output text 2>/dev/null) || true
+
+    if [ -z "$role_arn" ] || [ "$role_arn" = "None" ]; then
+        local assume_role_policy
+        assume_role_policy=$(cat <<'POLICY'
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": { "Service": "dax.amazonaws.com" },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}
+POLICY
+)
+        role_arn=$(aws iam create-role \
+            --role-name "$DAX_ROLE" \
+            --assume-role-policy-document "$assume_role_policy" \
+            --query "Role.Arn" --output text)
+        aws iam attach-role-policy --role-name "$DAX_ROLE" \
+            --policy-arn "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+        success "Created DAX role: $DAX_ROLE"
+        sleep 10
+    fi
+
+    aws dax create-cluster \
+        --cluster-name "$DAX_CLUSTER" \
+        --node-type dax.t3.small \
+        --replication-factor 1 \
+        --iam-role-arn "$role_arn" \
+        --subnet-group "$DAX_SUBNET_GROUP" \
+        --region "$REGION" >/dev/null
+    success "Created DAX cluster: $DAX_CLUSTER (no encryption — intentionally non-compliant)"
+}
+
+# Provision Elastic Beanstalk (intentionally non-compliant: no HTTPS, basic health)
+provision_elasticbeanstalk() {
+    info "Provisioning Elastic Beanstalk: $EB_APP_NAME..."
+
+    # Create application
+    if aws elasticbeanstalk describe-applications --application-names "$EB_APP_NAME" \
+        --query "Applications[0].ApplicationName" --output text --region "$REGION" 2>/dev/null | grep -q "$EB_APP_NAME"; then
+        success "Elastic Beanstalk app already exists: $EB_APP_NAME"
+    else
+        aws elasticbeanstalk create-application \
+            --application-name "$EB_APP_NAME" \
+            --description "SigComply E2E test application" \
+            --region "$REGION" >/dev/null
+        success "Created Elastic Beanstalk app: $EB_APP_NAME"
+    fi
+
+    # Check if environment exists
+    local env_status
+    env_status=$(aws elasticbeanstalk describe-environments \
+        --application-name "$EB_APP_NAME" \
+        --environment-names "$EB_ENV_NAME" \
+        --query "Environments[?Status!='Terminated'].Status | [0]" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -n "$env_status" ] && [ "$env_status" != "None" ] && [ "$env_status" != "null" ]; then
+        success "Elastic Beanstalk environment already exists: $EB_ENV_NAME (status: $env_status)"
+        return
+    fi
+
+    # Get latest Docker solution stack
+    local solution_stack
+    solution_stack=$(aws elasticbeanstalk list-available-solution-stacks \
+        --query "SolutionStacks[?contains(@, 'Docker') && contains(@, 'Amazon Linux 2023')] | [0]" \
+        --output text --region "$REGION")
+
+    aws elasticbeanstalk create-environment \
+        --application-name "$EB_APP_NAME" \
+        --environment-name "$EB_ENV_NAME" \
+        --solution-stack-name "$solution_stack" \
+        --option-settings \
+            "Namespace=aws:autoscaling:launchconfiguration,OptionName=InstanceType,Value=t3.micro" \
+            "Namespace=aws:elasticbeanstalk:environment,OptionName=EnvironmentType,Value=SingleInstance" \
+            "Namespace=aws:elasticbeanstalk:healthreporting:system,OptionName=SystemType,Value=basic" \
+        --region "$REGION" >/dev/null
+    success "Created Elastic Beanstalk environment: $EB_ENV_NAME (basic health, no HTTPS — intentionally non-compliant)"
+}
+
+# Provision DataSync task (intentionally non-compliant: no encryption)
+provision_datasync() {
+    info "Provisioning DataSync task: $DATASYNC_TASK_NAME..."
+
+    local task_arn
+    task_arn=$(aws datasync list-tasks --region "$REGION" \
+        --query "Tasks[?Tags[?Key=='Name' && Value=='$DATASYNC_TASK_NAME']].TaskArn | [0]" --output text 2>/dev/null) || true
+
+    if [ -n "$task_arn" ] && [ "$task_arn" != "None" ] && [ "$task_arn" != "null" ]; then
+        success "DataSync task already exists: $DATASYNC_TASK_NAME"
+        return
+    fi
+
+    # Create source S3 location
+    local src_arn
+    src_arn=$(aws datasync create-location-s3 \
+        --s3-bucket-arn "arn:aws:s3:::$S3_BUCKET" \
+        --s3-config "BucketAccessRoleArn=$(aws iam get-role --role-name "$LAMBDA_ROLE" --query "Role.Arn" --output text 2>/dev/null)" \
+        --subdirectory "/datasync-src" \
+        --tags "Key=Name,Value=${DATASYNC_TASK_NAME}-src" \
+        --query "LocationArn" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -z "$src_arn" ] || [ "$src_arn" = "None" ]; then
+        warn "Failed to create DataSync source location. Skipping DataSync."
+        return
+    fi
+
+    # Create destination S3 location
+    local dst_arn
+    dst_arn=$(aws datasync create-location-s3 \
+        --s3-bucket-arn "arn:aws:s3:::$S3_BUCKET" \
+        --s3-config "BucketAccessRoleArn=$(aws iam get-role --role-name "$LAMBDA_ROLE" --query "Role.Arn" --output text 2>/dev/null)" \
+        --subdirectory "/datasync-dst" \
+        --tags "Key=Name,Value=${DATASYNC_TASK_NAME}-dst" \
+        --query "LocationArn" --output text --region "$REGION" 2>/dev/null) || true
+
+    if [ -z "$dst_arn" ] || [ "$dst_arn" = "None" ]; then
+        warn "Failed to create DataSync destination location. Skipping DataSync."
+        return
+    fi
+
+    aws datasync create-task \
+        --source-location-arn "$src_arn" \
+        --destination-location-arn "$dst_arn" \
+        --name "$DATASYNC_TASK_NAME" \
+        --tags "Key=Name,Value=$DATASYNC_TASK_NAME" \
+        --region "$REGION" >/dev/null
+    success "Created DataSync task: $DATASYNC_TASK_NAME — intentionally non-compliant"
+}
+
 # Print summary
 print_summary() {
     echo ""
@@ -1173,6 +2999,47 @@ print_summary() {
     echo "    - EFS filesystem: $EFS_NAME (no backup — intentionally non-compliant)"
     echo "    - Backup vault: $BACKUP_VAULT_NAME (no vault lock — intentionally non-compliant)"
     echo "    - VPC flow logs: enabled on default VPC"
+    echo "    - Launch Template: $LAUNCH_TEMPLATE_NAME (IMDSv1 — intentionally non-compliant)"
+    echo "    - EC2 Instance: $EC2_INSTANCE_NAME (public IP, no monitoring — intentionally non-compliant)"
+    echo "    - EBS Volume: $EBS_VOLUME_NAME (unencrypted — intentionally non-compliant)"
+    echo "    - EBS Snapshot: from $EBS_VOLUME_NAME (unencrypted — intentionally non-compliant)"
+    echo "    - VPC Endpoint: S3 gateway endpoint"
+    echo "    - ECS Cluster: $ECS_CLUSTER_NAME (no insights — intentionally non-compliant)"
+    echo "    - ECS Task Def: $ECS_TASK_FAMILY (privileged, root — intentionally non-compliant)"
+    echo "    - CloudFront: distribution (allow-all, no WAF — intentionally non-compliant)"
+    echo "    - API Gateway REST: $APIGATEWAY_REST_NAME (no auth — intentionally non-compliant)"
+    echo "    - API Gateway V2: $APIGATEWAY_V2_NAME (no logging — intentionally non-compliant)"
+    echo "    - Route53: $ROUTE53_ZONE_NAME (no query logging — intentionally non-compliant)"
+    echo "    - CodeBuild: $CODEBUILD_PROJECT (privileged — intentionally non-compliant)"
+    echo "    - Kinesis: $KINESIS_STREAM (no encryption — intentionally non-compliant)"
+    echo "    - Cognito: $COGNITO_POOL_NAME (MFA off — intentionally non-compliant)"
+    echo "    - ACM: self-signed cert (intentionally non-compliant)"
+    echo "    - Glue: $GLUE_JOB_NAME (no encryption, v2.0 — intentionally non-compliant)"
+    echo "    - Step Functions: $SFN_STATE_MACHINE (no logging — intentionally non-compliant)"
+    echo "    - AppSync: $APPSYNC_API_NAME (no logging — intentionally non-compliant)"
+    echo "    - Athena: $ATHENA_WORKGROUP (no metrics — intentionally non-compliant)"
+    echo "    - ASG: $ASG_NAME (desired=0, EC2 health — intentionally non-compliant)"
+    echo ""
+    echo "  Expensive resources (billed per-hour):"
+    echo "    - EKS: $EKS_CLUSTER_NAME (no encryption, public — intentionally non-compliant)"
+    echo "    - MSK Serverless: $MSK_CLUSTER_NAME"
+    echo "    - Neptune: $NEPTUNE_CLUSTER (no encryption — intentionally non-compliant)"
+    echo "    - OpenSearch: $OPENSEARCH_DOMAIN (no encryption — intentionally non-compliant)"
+    echo "    - Redshift: $REDSHIFT_CLUSTER (no encryption, public — intentionally non-compliant)"
+    echo "    - Redshift Serverless: $REDSHIFT_SL_NAMESPACE"
+    echo "    - EMR: $EMR_CLUSTER_NAME (no encryption — intentionally non-compliant)"
+    echo "    - DocumentDB: $DOCDB_CLUSTER (no encryption — intentionally non-compliant)"
+    echo "    - Amazon MQ: $MQ_BROKER_NAME (public — intentionally non-compliant)"
+    echo "    - DMS: $DMS_INSTANCE (public — intentionally non-compliant)"
+    echo "    - Network Firewall: $NFW_FIREWALL (no logging — intentionally non-compliant)"
+    echo "    - FSx Lustre: $FSX_NAME (SCRATCH_1 — intentionally non-compliant)"
+    echo "    - Transfer Family: $TRANSFER_SERVER (FTP only — intentionally non-compliant)"
+    echo "    - SageMaker: $SAGEMAKER_NOTEBOOK (root access — intentionally non-compliant)"
+    echo "    - DAX: $DAX_CLUSTER (no encryption — intentionally non-compliant)"
+    echo "    - Elastic Beanstalk: $EB_APP_NAME/$EB_ENV_NAME (basic health — intentionally non-compliant)"
+    echo "    - DataSync: $DATASYNC_TASK_NAME"
+    echo ""
+    warn "Remember to run teardown-aws.sh after testing to stop per-hour billing!"
     echo ""
 
     if [ -n "${POSITIVE_ACCESS_KEY_ID:-}" ] || [ -n "${NEGATIVE_ACCESS_KEY_ID:-}" ]; then
@@ -1235,6 +3102,48 @@ main() {
     provision_efs
     provision_backup_vault
     provision_vpc_flow_logs
+
+    # New resources — each wrapped with || warn so one failure doesn't abort the rest
+    provision_launch_template || warn "Launch template provisioning failed, continuing..."
+    provision_ec2_instance || warn "EC2 instance provisioning failed, continuing..."
+    provision_ebs_volume || warn "EBS volume provisioning failed, continuing..."
+    provision_ebs_snapshot || warn "EBS snapshot provisioning failed, continuing..."
+    provision_vpc_endpoint || warn "VPC endpoint provisioning failed, continuing..."
+    provision_ecs || warn "ECS provisioning failed, continuing..."
+    provision_cloudfront || warn "CloudFront provisioning failed, continuing..."
+    provision_apigateway_rest || warn "API Gateway REST provisioning failed, continuing..."
+    provision_apigateway_v2 || warn "API Gateway V2 provisioning failed, continuing..."
+    provision_route53 || warn "Route53 provisioning failed, continuing..."
+    provision_codebuild || warn "CodeBuild provisioning failed, continuing..."
+    provision_kinesis || warn "Kinesis provisioning failed, continuing..."
+    provision_cognito || warn "Cognito provisioning failed, continuing..."
+    provision_acm || warn "ACM provisioning failed, continuing..."
+    provision_glue || warn "Glue provisioning failed, continuing..."
+    provision_stepfunctions || warn "Step Functions provisioning failed, continuing..."
+    provision_appsync || warn "AppSync provisioning failed, continuing..."
+    provision_athena || warn "Athena provisioning failed, continuing..."
+    provision_asg || warn "ASG provisioning failed, continuing..."
+
+    # Expensive services (billed per-hour — spin up/down per test run)
+    provision_db_subnet_group || warn "DB subnet group provisioning failed, continuing..."
+    provision_eks || warn "EKS provisioning failed, continuing..."
+    provision_msk || warn "MSK provisioning failed, continuing..."
+    provision_neptune || warn "Neptune provisioning failed, continuing..."
+    provision_opensearch || warn "OpenSearch provisioning failed, continuing..."
+    provision_redshift || warn "Redshift provisioning failed, continuing..."
+    provision_redshift_serverless || warn "Redshift Serverless provisioning failed, continuing..."
+    provision_emr || warn "EMR provisioning failed, continuing..."
+    provision_docdb || warn "DocumentDB provisioning failed, continuing..."
+    provision_mq || warn "MQ provisioning failed, continuing..."
+    provision_dms || warn "DMS provisioning failed, continuing..."
+    provision_network_firewall || warn "Network Firewall provisioning failed, continuing..."
+    provision_fsx || warn "FSx provisioning failed, continuing..."
+    provision_transfer || warn "Transfer provisioning failed, continuing..."
+    provision_sagemaker || warn "SageMaker provisioning failed, continuing..."
+    provision_dax || warn "DAX provisioning failed, continuing..."
+    provision_elasticbeanstalk || warn "Elastic Beanstalk provisioning failed, continuing..."
+    provision_datasync || warn "DataSync provisioning failed, continuing..."
+
     print_summary
 }
 
