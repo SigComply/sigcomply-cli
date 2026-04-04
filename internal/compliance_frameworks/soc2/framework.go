@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/engine"
+	"github.com/sigcomply/sigcomply-cli/internal/core/manual"
 )
 
 //go:embed policies/*/*.rego
@@ -74,29 +75,45 @@ func (f *Framework) GetControl(id string) *engine.Control {
 
 // Policies returns all Rego policy sources for this framework.
 func (f *Framework) Policies() []engine.PolicySource {
-	var policies []engine.PolicySource
-	if err := fs.WalkDir(policiesFS, "policies", func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+	// Two-pass approach: first collect all .rego file paths, then filter.
+	// A file ending in _test.rego is only a test file if a corresponding
+	// policy file exists (e.g., skip foo_test.rego only if foo.rego exists).
+	// This avoids incorrectly filtering policies whose names contain "test"
+	// (e.g., cc7_2_incident_response_test.rego).
+	var allPaths []string
+	allFiles := make(map[string]bool) // set of all .rego base names
+
+	_ = fs.WalkDir(policiesFS, "policies", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".rego") {
 			return err
 		}
-		if strings.HasSuffix(path, "_test.rego") {
-			return nil
-		}
-		if !strings.HasSuffix(path, ".rego") {
-			return nil
+		allPaths = append(allPaths, path)
+		allFiles[filepath.Base(path)] = true
+		return nil
+	})
+
+	var policies []engine.PolicySource
+	for _, path := range allPaths {
+		base := filepath.Base(path)
+		// A _test.rego file is a test file only if its corresponding policy
+		// file exists (e.g., skip foo_test.rego if foo.rego is present).
+		// This avoids filtering out policies whose names contain "test"
+		// (e.g., cc7_2_incident_response_test.rego).
+		if strings.HasSuffix(base, "_test.rego") {
+			nonTestBase := strings.TrimSuffix(base, "_test.rego") + ".rego"
+			if allFiles[nonTestBase] {
+				continue
+			}
 		}
 		data, err := policiesFS.ReadFile(path)
 		if err != nil {
-			return err
+			continue
 		}
-		name := strings.TrimSuffix(filepath.Base(path), ".rego")
+		name := strings.TrimSuffix(base, ".rego")
 		policies = append(policies, engine.PolicySource{
 			Name:   name,
 			Source: string(data),
 		})
-		return nil
-	}); err != nil {
-		return nil
 	}
 	return policies
 }
@@ -106,5 +123,13 @@ func Register() error {
 	return engine.RegisterFramework(New())
 }
 
+// ManualCatalog returns the manual evidence catalog for SOC 2.
+func (f *Framework) ManualCatalog() (*manual.Catalog, error) {
+	return manual.LoadCatalog("soc2")
+}
+
 // Ensure Framework implements the Framework interface.
 var _ engine.Framework = (*Framework)(nil)
+
+// Ensure Framework implements ManualEvidenceProvider.
+var _ engine.ManualEvidenceProvider = (*Framework)(nil)

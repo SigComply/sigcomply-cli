@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -158,11 +159,21 @@ func (b *S3Backend) convertS3Object(obj *types.Object, filter *ListFilter) *Stor
 
 // Get retrieves a stored item by path.
 func (b *S3Backend) Get(ctx context.Context, path string) ([]byte, error) {
+	key := buildS3Key(b.cfg.Prefix, path)
 	result, err := b.client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(b.cfg.Bucket),
-		Key:    aws.String(path),
+		Key:    aws.String(key),
 	})
 	if err != nil {
+		// Return NotFoundError for missing keys so callers can use errors.As
+		var noSuchKey *types.NoSuchKey
+		if errors.As(err, &noSuchKey) {
+			return nil, &NotFoundError{Path: path}
+		}
+		// Also handle the case where S3 returns a generic 404 (some operations)
+		if strings.Contains(err.Error(), "NoSuchKey") || strings.Contains(err.Error(), "StatusCode: 404") {
+			return nil, &NotFoundError{Path: path}
+		}
 		return nil, fmt.Errorf("failed to get S3 object: %w", err)
 	}
 	defer result.Body.Close() //nolint:errcheck // closing response body, error is not actionable

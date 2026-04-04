@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/manual"
 )
 
 // Framework defines the interface for compliance frameworks.
@@ -46,6 +47,11 @@ type Control struct {
 type PolicySource struct {
 	Name   string // Policy name (used for error messages)
 	Source string // Rego source code
+}
+
+// ManualEvidenceProvider is optionally implemented by frameworks that support manual evidence.
+type ManualEvidenceProvider interface {
+	ManualCatalog() (*manual.Catalog, error)
 }
 
 // Registry manages registered compliance frameworks.

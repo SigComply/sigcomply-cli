@@ -546,6 +546,57 @@ func TestSplitAndTrim(t *testing.T) {
 	}
 }
 
+func TestConfig_ManualEvidence_Defaults(t *testing.T) {
+	cfg := New()
+
+	assert.False(t, cfg.ManualEvidence.Enabled)
+	assert.Equal(t, "manual-evidence/", cfg.ManualEvidence.Prefix)
+}
+
+func TestConfig_ManualEvidence_FromFile(t *testing.T) {
+	content := `
+manual_evidence:
+  enabled: true
+  prefix: custom-manual/
+`
+	path := writeTestFile(t, content)
+
+	cfg := New()
+	cfg.LoadFromFile(path)
+
+	assert.True(t, cfg.ManualEvidence.Enabled)
+	assert.Equal(t, "custom-manual/", cfg.ManualEvidence.Prefix)
+}
+
+func TestConfig_ManualEvidence_FromEnv(t *testing.T) {
+	t.Setenv("SIGCOMPLY_MANUAL_EVIDENCE_ENABLED", "true")
+	t.Setenv("SIGCOMPLY_MANUAL_EVIDENCE_PREFIX", "env-manual/")
+
+	cfg := New()
+	cfg.LoadFromEnv()
+
+	assert.True(t, cfg.ManualEvidence.Enabled)
+	assert.Equal(t, "env-manual/", cfg.ManualEvidence.Prefix)
+}
+
+func TestConfig_ManualEvidence_EnvOverridesFile(t *testing.T) {
+	content := `
+manual_evidence:
+  enabled: true
+  prefix: file-manual/
+`
+	path := writeTestFile(t, content)
+
+	t.Setenv("SIGCOMPLY_MANUAL_EVIDENCE_PREFIX", "env-manual/")
+
+	cfg := New()
+	cfg.LoadFromFile(path)
+	assert.Equal(t, "file-manual/", cfg.ManualEvidence.Prefix)
+
+	cfg.LoadFromEnv()
+	assert.Equal(t, "env-manual/", cfg.ManualEvidence.Prefix)
+}
+
 // writeTestFile creates a temporary YAML file and returns its path.
 func writeTestFile(t *testing.T, content string) string {
 	t.Helper()

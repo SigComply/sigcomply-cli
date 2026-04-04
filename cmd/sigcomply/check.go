@@ -19,11 +19,13 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core/cloud"
 	"github.com/sigcomply/sigcomply-cli/internal/core/config"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
+	"github.com/sigcomply/sigcomply-cli/internal/core/manual"
 	"github.com/sigcomply/sigcomply-cli/internal/core/output"
 	"github.com/sigcomply/sigcomply-cli/internal/core/storage"
 	"github.com/sigcomply/sigcomply-cli/internal/data_sources/apis/aws"
 	"github.com/sigcomply/sigcomply-cli/internal/data_sources/apis/gcp"
 	"github.com/sigcomply/sigcomply-cli/internal/data_sources/apis/github"
+	manualReader "github.com/sigcomply/sigcomply-cli/internal/data_sources/manual"
 )
 
 const (
@@ -277,6 +279,23 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 		}
 	}
 
+	// Collect manual evidence if enabled
+	framework, fwErr := getFramework(cfg)
+	if fwErr != nil {
+		return fwErr
+	}
+	if cfg.ManualEvidence.Enabled {
+		manualEvidence, manualErr := collectManualEvidence(ctx, cfg, framework)
+		if manualErr != nil {
+			fmt.Printf("  [warn] Manual evidence: %s\n", manualErr)
+		} else if len(manualEvidence) > 0 {
+			fmt.Printf("\nManual Evidence\n")
+			fmt.Printf("---------------\n")
+			fmt.Printf("  [done] %d manual evidence items collected\n", len(manualEvidence))
+			result.Evidence = append(result.Evidence, manualEvidence...)
+		}
+	}
+
 	// Load framework and evaluate ALL policies (framework drives what gets checked)
 	policyResults, err := evaluatePolicies(ctx, cfg, result.Evidence)
 	if err != nil {
@@ -299,6 +318,11 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 		},
 	}
 	checkResult.CalculateSummary()
+
+	// Update manual evidence execution state
+	if cfg.ManualEvidence.Enabled {
+		updateManualExecutionState(ctx, cfg, framework, checkResult)
+	}
 
 	// Store evidence if enabled
 	if cfg.Storage.Enabled {
@@ -385,6 +409,18 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 		}
 	}
 
+	// Collect manual evidence if enabled
+	jsonFramework, jsonFwErr := getFramework(cfg)
+	if jsonFwErr != nil {
+		return jsonFwErr
+	}
+	if cfg.ManualEvidence.Enabled {
+		manualEvidence, manualErr := collectManualEvidence(ctx, cfg, jsonFramework)
+		if manualErr == nil && len(manualEvidence) > 0 {
+			result.Evidence = append(result.Evidence, manualEvidence...)
+		}
+	}
+
 	// Load framework and evaluate ALL policies
 	policyResults, err := evaluatePolicies(ctx, cfg, result.Evidence)
 	if err != nil {
@@ -407,6 +443,11 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 		},
 	}
 	checkResult.CalculateSummary()
+
+	// Update manual evidence execution state
+	if cfg.ManualEvidence.Enabled {
+		updateManualExecutionState(ctx, cfg, jsonFramework, checkResult)
+	}
 
 	// Store evidence if enabled
 	if cfg.Storage.Enabled {
@@ -522,6 +563,18 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 		}
 	}
 
+	// Collect manual evidence if enabled (silently, as JUnit output should be pure XML)
+	junitFramework, junitFwErr := getFramework(cfg)
+	if junitFwErr != nil {
+		return junitFwErr
+	}
+	if cfg.ManualEvidence.Enabled {
+		manualEvidence, manualErr := collectManualEvidence(ctx, cfg, junitFramework)
+		if manualErr == nil && len(manualEvidence) > 0 {
+			result.Evidence = append(result.Evidence, manualEvidence...)
+		}
+	}
+
 	// Load framework and evaluate ALL policies
 	policyResults, err := evaluatePolicies(ctx, cfg, result.Evidence)
 	if err != nil {
@@ -544,6 +597,11 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 		},
 	}
 	checkResult.CalculateSummary()
+
+	// Update manual evidence execution state (silently)
+	if cfg.ManualEvidence.Enabled {
+		updateManualExecutionState(ctx, cfg, junitFramework, checkResult)
+	}
 
 	// Store evidence if enabled (silently, as JUnit output should be pure XML)
 	if cfg.Storage.Enabled {
@@ -579,18 +637,24 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
+// getFramework returns the framework instance for the given config.
+func getFramework(cfg *config.Config) (engine.Framework, error) {
+	switch cfg.Framework {
+	case "soc2":
+		return soc2.New(), nil
+	case "iso27001":
+		return iso27001.New(), nil
+	default:
+		return nil, fmt.Errorf("unsupported framework: %s (supported: 'soc2', 'iso27001')", cfg.Framework)
+	}
+}
+
 // evaluatePolicies loads the framework and evaluates policies against evidence.
 // If cfg.Policies or cfg.Controls are set, only matching policies are evaluated.
 func evaluatePolicies(ctx context.Context, cfg *config.Config, evidenceList []evidence.Evidence) ([]evidence.PolicyResult, error) {
-	// Get framework
-	var framework engine.Framework
-	switch cfg.Framework {
-	case "soc2":
-		framework = soc2.New()
-	case "iso27001":
-		framework = iso27001.New()
-	default:
-		return nil, fmt.Errorf("unsupported framework: %s (supported: 'soc2', 'iso27001')", cfg.Framework)
+	framework, err := getFramework(cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	policies := framework.Policies()
@@ -748,10 +812,8 @@ func countByResourceType(evidenceList []evidence.Evidence) map[string]int {
 	return counts
 }
 
-// storeEvidence stores evidence and policy results to the configured storage backend.
-// Evidence files are stored as signed EvidenceEnvelopes; result.json contains full violations.
-func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence) error {
-	// Build storage configuration
+// buildStorageConfig creates a storage.Config from the application config.
+func buildStorageConfig(cfg *config.Config) *storage.Config {
 	storageCfg := &storage.Config{
 		Backend: cfg.Storage.Backend,
 	}
@@ -768,6 +830,41 @@ func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidenc
 			Prefix: cfg.Storage.Prefix,
 		}
 	}
+
+	return storageCfg
+}
+
+// buildManualStorageConfig creates a storage.Config for reading manual evidence input.
+func buildManualStorageConfig(cfg *config.Config) *storage.Config {
+	storageCfg := &storage.Config{
+		Backend: cfg.Storage.Backend,
+	}
+
+	switch cfg.Storage.Backend {
+	case backendLocal:
+		localPath := cfg.Storage.Path
+		if localPath == "" {
+			localPath = "./.sigcomply/evidence"
+		}
+		storageCfg.Local = &storage.LocalConfig{
+			Path: filepath.Join(localPath, cfg.ManualEvidence.Prefix),
+		}
+	case backendS3:
+		prefix := cfg.Storage.Prefix + cfg.ManualEvidence.Prefix
+		storageCfg.S3 = &storage.S3Config{
+			Bucket: cfg.Storage.Bucket,
+			Region: cfg.Storage.Region,
+			Prefix: prefix,
+		}
+	}
+
+	return storageCfg
+}
+
+// storeEvidence stores evidence and policy results to the configured storage backend.
+// Evidence files are stored as signed EvidenceEnvelopes; result.json contains full violations.
+func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence) error {
+	storageCfg := buildStorageConfig(cfg)
 
 	// Create backend
 	backend, err := storage.NewBackend(storageCfg)
@@ -789,6 +886,113 @@ func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidenc
 	}
 
 	return nil
+}
+
+// collectManualEvidence reads manual evidence from storage and returns evidence items for OPA.
+func collectManualEvidence(ctx context.Context, cfg *config.Config, framework engine.Framework) ([]evidence.Evidence, error) {
+	if !cfg.ManualEvidence.Enabled {
+		return nil, nil
+	}
+
+	mep, ok := framework.(engine.ManualEvidenceProvider)
+	if !ok {
+		return nil, nil
+	}
+
+	catalog, err := mep.ManualCatalog()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load manual catalog: %w", err)
+	}
+
+	storageCfg := buildManualStorageConfig(cfg)
+	backend, err := storage.NewBackend(storageCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create manual evidence storage backend: %w", err)
+	}
+	defer func() {
+		_ = backend.Close()
+	}()
+
+	if err := backend.Init(ctx); err != nil {
+		return nil, fmt.Errorf("failed to initialize manual evidence storage: %w", err)
+	}
+
+	statePath := filepath.Join(cfg.Framework, "execution-state.json")
+	state, err := manual.LoadState(ctx, backend, statePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load execution state: %w", err)
+	}
+
+	reader := manualReader.NewReader(backend, catalog, cfg.Framework)
+	result, err := reader.Read(ctx, state, time.Now())
+	if err != nil {
+		return nil, err
+	}
+
+	return result.Evidence, nil
+}
+
+// updateManualExecutionState updates the execution state after a check run.
+func updateManualExecutionState(ctx context.Context, cfg *config.Config, framework engine.Framework, checkResult *evidence.CheckResult) {
+	mep, ok := framework.(engine.ManualEvidenceProvider)
+	if !ok {
+		return
+	}
+
+	catalog, err := mep.ManualCatalog()
+	if err != nil {
+		return
+	}
+
+	storageCfg := buildManualStorageConfig(cfg)
+	backend, err := storage.NewBackend(storageCfg)
+	if err != nil {
+		return
+	}
+	defer func() {
+		_ = backend.Close()
+	}()
+
+	if err := backend.Init(ctx); err != nil {
+		return
+	}
+
+	statePath := filepath.Join(cfg.Framework, "execution-state.json")
+	state, err := manual.LoadState(ctx, backend, statePath)
+	if err != nil {
+		return
+	}
+
+	state.Framework = cfg.Framework
+
+	// Record attestation for manual policy results
+	for i := range checkResult.PolicyResults {
+		pr := &checkResult.PolicyResults[i]
+		if len(pr.ResourceTypes) == 0 {
+			continue
+		}
+		for _, rt := range pr.ResourceTypes {
+			if len(rt) <= 7 || rt[:7] != "manual:" {
+				continue
+			}
+			evidenceID := rt[7:]
+			entry := catalog.GetEntry(evidenceID)
+			if entry == nil {
+				continue
+			}
+			period, err := manual.CurrentPeriod(entry.Frequency, time.Now(), entry.GracePeriod)
+			if err != nil {
+				continue
+			}
+			status := "attested"
+			if pr.Status == evidence.StatusFail {
+				status = "uploaded"
+			}
+			state.RecordAttestation(evidenceID, period.Key, checkResult.RunID, status, nil)
+		}
+	}
+
+	_ = state.Save(ctx, backend, statePath)
 }
 
 // cloudSubmitResult is used for JSON output of cloud submission results.

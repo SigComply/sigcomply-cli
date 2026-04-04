@@ -11,6 +11,7 @@ import (
 	_ "github.com/sigcomply/sigcomply-cli/test/e2e/collectors"
 
 	"github.com/sigcomply/sigcomply-cli/test/e2e/config"
+	"github.com/sigcomply/sigcomply-cli/test/e2e/manual"
 	"github.com/sigcomply/sigcomply-cli/test/e2e/pipeline"
 )
 
@@ -50,4 +51,21 @@ func TestE2EFullFlow(t *testing.T) {
 			pipeline.RunScenario(t, cfg, allCreds, &scenario)
 		})
 	}
+}
+
+// TestE2EManualEvidence validates the manual evidence pipeline end-to-end:
+// evidence file creation -> CLI reader -> OPA evaluation -> execution state recording.
+//
+// These tests are fully self-contained (local storage only, no cloud credentials needed)
+// and can run anywhere without external dependencies.
+func TestE2EManualEvidence(t *testing.T) {
+	t.Run("positive", func(t *testing.T) {
+		manual.RunPositiveScenario(t)
+	})
+	t.Run("negative", func(t *testing.T) {
+		manual.RunNegativeScenario(t)
+	})
+	t.Run("missing", func(t *testing.T) {
+		manual.RunMissingScenario(t)
+	})
 }

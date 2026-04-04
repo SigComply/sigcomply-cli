@@ -44,6 +44,11 @@ var versionCmd = &cobra.Command{
 func setupCommands() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(checkCmd)
+
+	evidenceCmd.AddCommand(evidenceInitCmd)
+	evidenceCmd.AddCommand(evidenceCatalogCmd)
+	evidenceCmd.AddCommand(evidenceSchemaCmd)
+	rootCmd.AddCommand(evidenceCmd)
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

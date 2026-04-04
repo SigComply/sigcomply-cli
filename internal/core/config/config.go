@@ -75,8 +75,21 @@ type fileConfig struct {
 	GitHub    *GitHubConfig      `yaml:"github,omitempty"`
 	Output    *OutputConfig      `yaml:"output,omitempty"`
 	CI        *CIConfig          `yaml:"ci,omitempty"`
-	Storage   *FileStorageConfig `yaml:"storage,omitempty"`
-	Cloud     *CloudConfig       `yaml:"cloud,omitempty"`
+	Storage        *FileStorageConfig        `yaml:"storage,omitempty"`
+	Cloud          *CloudConfig              `yaml:"cloud,omitempty"`
+	ManualEvidence *FileManualEvidenceConfig `yaml:"manual_evidence,omitempty"`
+}
+
+// ManualEvidenceConfig holds manual evidence collection settings.
+type ManualEvidenceConfig struct {
+	Enabled bool   `json:"enabled"`
+	Prefix  string `json:"prefix,omitempty"` // defaults to "manual-evidence/"
+}
+
+// FileManualEvidenceConfig holds manual evidence settings as they appear in the YAML file.
+type FileManualEvidenceConfig struct {
+	Enabled *bool  `yaml:"enabled,omitempty"`
+	Prefix  string `yaml:"prefix,omitempty"`
 }
 
 // Config holds all configuration for a SigComply run.
@@ -95,6 +108,9 @@ type Config struct {
 
 	// Storage settings
 	Storage StorageConfig `json:"storage"`
+
+	// Manual evidence settings
+	ManualEvidence ManualEvidenceConfig `json:"manual_evidence"`
 
 	// CI/CD environment (detected at runtime, not from file)
 	CI         bool   `json:"ci"`
@@ -141,6 +157,9 @@ func New() *Config {
 		OutputFormat:    "text",
 		FailOnViolation: true,
 		CloudEnabled:    false,
+		ManualEvidence: ManualEvidenceConfig{
+			Prefix: "manual-evidence/",
+		},
 	}
 }
 
@@ -272,6 +291,15 @@ func (c *Config) mergeFileConfig(fc *fileConfig) { //nolint:gocyclo // sequentia
 	if fc.Storage != nil {
 		c.mergeStorageConfig(fc.Storage)
 	}
+
+	if fc.ManualEvidence != nil {
+		if fc.ManualEvidence.Enabled != nil {
+			c.ManualEvidence.Enabled = *fc.ManualEvidence.Enabled
+		}
+		if fc.ManualEvidence.Prefix != "" {
+			c.ManualEvidence.Prefix = fc.ManualEvidence.Prefix
+		}
+	}
 }
 
 // mergeStorageConfig merges file-based storage settings into the flat StorageConfig.
@@ -360,6 +388,15 @@ func (c *Config) LoadFromEnv() { //nolint:gocyclo // sequential env var loading 
 
 	if v := os.Getenv("SIGCOMPLY_GCP_PROJECT"); v != "" {
 		c.GCP.ProjectID = v
+	}
+
+	// Manual evidence configuration
+	if os.Getenv("SIGCOMPLY_MANUAL_EVIDENCE_ENABLED") == envTrue {
+		c.ManualEvidence.Enabled = true
+	}
+
+	if v := os.Getenv("SIGCOMPLY_MANUAL_EVIDENCE_PREFIX"); v != "" {
+		c.ManualEvidence.Prefix = v
 	}
 }
 

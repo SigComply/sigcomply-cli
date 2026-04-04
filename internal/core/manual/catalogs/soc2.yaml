@@ -1,0 +1,62 @@
+framework: soc2
+version: "1.0"
+entries:
+  - id: quarterly_access_review
+    control: CC6.1
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Quarterly Access Review
+    description: Upload evidence of quarterly user access review including reviewer sign-off
+    severity: high
+    accepted_formats: [pdf, xlsx, csv]
+    category: access_control
+
+  - id: security_awareness_training
+    control: CC1.4
+    type: document_upload
+    frequency: yearly
+    temporal_rule: anytime
+    grace_period: "30d"
+    name: Security Awareness Training
+    description: Upload evidence of annual security awareness training completion for all employees
+    severity: high
+    accepted_formats: [pdf, xlsx, csv]
+    category: configuration_management
+
+  - id: incident_response_test
+    control: CC7.2
+    type: checklist
+    frequency: yearly
+    temporal_rule: retrospective
+    grace_period: "30d"
+    name: Incident Response Plan Test
+    description: Complete checklist confirming annual incident response plan testing
+    severity: high
+    category: logging
+    items:
+      - id: plan_tested
+        text: Incident response plan was tested via tabletop exercise or simulation
+        required: true
+      - id: roles_verified
+        text: All incident response roles and responsibilities were verified
+        required: true
+      - id: communication_tested
+        text: Communication channels and escalation paths were tested
+        required: true
+      - id: lessons_documented
+        text: Lessons learned were documented and plan updated accordingly
+        required: false
+
+  - id: risk_acceptance_signoff
+    control: CC3.1
+    type: declaration
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Risk Acceptance Sign-off
+    description: Declare that quarterly risk assessment has been reviewed and accepted by management
+    severity: high
+    declaration_text: "I confirm that the quarterly risk assessment has been reviewed, all identified risks have been evaluated, and appropriate risk treatment decisions have been made and approved by management."
+    category: vulnerability_management
