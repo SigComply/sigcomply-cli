@@ -220,3 +220,55 @@ entries:
       - id: no_violations
         text: No physical security violations were observed
         required: true
+
+  - id: incident_post_mortem
+    control: CC7.4
+    type: declaration
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Incident Post-Mortem Summary
+    description: Declare that all security incidents this period have post-mortem documentation, or that none occurred
+    severity: high
+    category: system_ops_bcdr
+    tsc: security
+    declaration_text: "I confirm that all security incidents that occurred during this period have documented post-mortem summaries, or that no security incidents occurred during this period."
+
+  - id: dr_test_report
+    control: A1.3
+    type: document_upload
+    frequency: yearly
+    temporal_rule: retrospective
+    grace_period: "30d"
+    name: Disaster Recovery Test Report
+    description: Upload the annual disaster recovery test report
+    severity: high
+    accepted_formats: [pdf, docx]
+    category: system_ops_bcdr
+    tsc: availability
+
+  - id: backup_restoration_log
+    control: A1.2
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Backup Restoration Log
+    description: Upload the quarterly backup restoration test log
+    severity: high
+    accepted_formats: [pdf, xlsx, csv]
+    category: system_ops_bcdr
+    tsc: availability
+
+  - id: capacity_review
+    control: A1.1
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Quarterly Capacity Review
+    description: Upload the quarterly capacity review report
+    severity: medium
+    accepted_formats: [pdf, xlsx]
+    category: system_ops_bcdr
+    tsc: availability

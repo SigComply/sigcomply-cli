@@ -223,9 +223,23 @@ var controls = []Control{
 
 	// A1 - Availability
 	{
+		ID:          "A1.1",
+		Name:        "Capacity Planning",
+		Description: "The entity maintains, monitors, and evaluates current processing capacity and use of system components to manage capacity demand and to enable the implementation of additional capacity to meet its availability objectives.",
+		Category:    "Availability",
+		Severity:    evidence.SeverityHigh,
+	},
+	{
 		ID:          "A1.2",
 		Name:        "Recovery and Continuity",
 		Description: "The entity authorizes, designs, develops or acquires, configures, documents, tests, approves, and implements changes to meet its availability objectives.",
+		Category:    "Availability",
+		Severity:    evidence.SeverityHigh,
+	},
+	{
+		ID:          "A1.3",
+		Name:        "Recovery Plan Testing",
+		Description: "The entity tests recovery plan procedures supporting system recovery to meet its availability objectives.",
 		Category:    "Availability",
 		Severity:    evidence.SeverityHigh,
 	},
