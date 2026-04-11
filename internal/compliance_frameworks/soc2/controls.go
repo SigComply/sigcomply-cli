@@ -37,6 +37,13 @@ var controls = []Control{
 		Category:    "Logical and Physical Access Controls",
 		Severity:    evidence.SeverityHigh,
 	},
+	{
+		ID:          "CC6.5",
+		Name:        "Media Disposal",
+		Description: "The entity discontinues logical and physical protections over physical assets only after the ability to read or recover data and software from those assets has been diminished and is no longer required to meet the entity's objectives.",
+		Category:    "Logical and Physical Access Controls",
+		Severity:    evidence.SeverityHigh,
+	},
 	// CC1 - Control Environment
 	{
 		ID:          "CC1.2",

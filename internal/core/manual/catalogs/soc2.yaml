@@ -272,3 +272,29 @@ entries:
     accepted_formats: [pdf, xlsx]
     category: system_ops_bcdr
     tsc: availability
+
+  - id: data_classification_registry
+    control: C1.1
+    type: document_upload
+    frequency: yearly
+    temporal_rule: retrospective
+    grace_period: "30d"
+    name: Data Classification Registry
+    description: Upload the annual data classification registry listing data assets and their confidentiality levels
+    severity: high
+    accepted_formats: [pdf, xlsx, csv]
+    category: data_protection
+    tsc: confidentiality
+
+  - id: media_sanitization
+    control: CC6.5
+    type: declaration
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Media Sanitization Certificate
+    description: Declare that all decommissioned media was sanitized or destroyed this period, with certificates attached for any such events
+    severity: high
+    category: data_protection
+    tsc: security
+    declaration_text: "I confirm that no media decommissioning events occurred this period, or that all such events that did occur have sanitization/destruction certificates attached."
