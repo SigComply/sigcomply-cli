@@ -41,6 +41,13 @@ var controls = []Control{
 
 	// CC3 - Risk Assessment
 	{
+		ID:          "CC3.1",
+		Name:        "Risk Assessment Objectives",
+		Description: "The entity specifies objectives with sufficient clarity to enable the identification and assessment of risks relating to objectives.",
+		Category:    "Risk Assessment",
+		Severity:    evidence.SeverityHigh,
+	},
+	{
 		ID:          "CC3.2",
 		Name:        "Risk Identification",
 		Description: "The entity identifies risks to the achievement of its objectives across the entity and analyzes risks as a basis for determining how the risks should be managed.",

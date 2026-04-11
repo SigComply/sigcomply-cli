@@ -1,14 +1,14 @@
 # METADATA
-# title: CC6.1 - Quarterly Access Review
+# title: CC6.3 - Quarterly Access Review
 # description: Quarterly user access review must be completed with valid documentation
 # scope: package
-package sigcomply.soc2.cc6_1_quarterly_access_review
+package sigcomply.soc2.cc6_3_quarterly_access_review
 
 metadata := {
-	"id": "soc2-cc6.1-quarterly-access-review",
+	"id": "soc2-cc6.3-quarterly-access-review",
 	"name": "Quarterly Access Review",
 	"framework": "soc2",
-	"control": "CC6.1",
+	"control": "CC6.3",
 	"severity": "high",
 	"evaluation_mode": "individual",
 	"resource_types": ["manual:quarterly_access_review"],

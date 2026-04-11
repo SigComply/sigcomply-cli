@@ -2,7 +2,7 @@ framework: soc2
 version: "1.0"
 entries:
   - id: quarterly_access_review
-    control: CC6.1
+    control: CC6.3
     type: document_upload
     frequency: quarterly
     temporal_rule: retrospective
@@ -12,6 +12,7 @@ entries:
     severity: high
     accepted_formats: [pdf, xlsx, csv]
     category: access_control
+    tsc: security
 
   - id: security_awareness_training
     control: CC1.4
@@ -24,9 +25,10 @@ entries:
     severity: high
     accepted_formats: [pdf, xlsx, csv]
     category: configuration_management
+    tsc: security
 
   - id: incident_response_test
-    control: CC7.2
+    control: CC7.4
     type: checklist
     frequency: yearly
     temporal_rule: retrospective
@@ -35,6 +37,7 @@ entries:
     description: Complete checklist confirming annual incident response plan testing
     severity: high
     category: logging
+    tsc: security
     items:
       - id: plan_tested
         text: Incident response plan was tested via tabletop exercise or simulation
@@ -58,5 +61,6 @@ entries:
     name: Risk Acceptance Sign-off
     description: Declare that quarterly risk assessment has been reviewed and accepted by management
     severity: high
-    declaration_text: "I confirm that the quarterly risk assessment has been reviewed, all identified risks have been evaluated, and appropriate risk treatment decisions have been made and approved by management."
     category: vulnerability_management
+    tsc: security
+    declaration_text: "I confirm that the quarterly risk assessment has been reviewed, all identified risks have been evaluated, and appropriate risk treatment decisions have been made and approved by management."

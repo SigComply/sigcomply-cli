@@ -44,6 +44,8 @@ type CatalogEntry struct {
 	Items           []ChecklistItem `yaml:"items,omitempty" json:"items,omitempty"`
 	DeclarationText string        `yaml:"declaration_text,omitempty" json:"declaration_text,omitempty"`
 	Category        string        `yaml:"category,omitempty" json:"category,omitempty"`
+	TSC             string        `yaml:"tsc,omitempty" json:"tsc,omitempty"`
+	Optional        bool          `yaml:"optional,omitempty" json:"optional,omitempty"`
 }
 
 // ChecklistItem defines a single item in a checklist-type evidence entry.

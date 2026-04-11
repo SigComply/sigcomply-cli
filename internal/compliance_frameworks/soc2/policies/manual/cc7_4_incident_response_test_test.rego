@@ -1,10 +1,10 @@
-package sigcomply.soc2.cc7_2_incident_response_test_test
+package sigcomply.soc2.cc7_4_incident_response_test_test
 
-import data.sigcomply.soc2.cc7_2_incident_response_test
+import data.sigcomply.soc2.cc7_4_incident_response_test
 
 # Test: overdue not uploaded
 test_overdue if {
-	result := cc7_2_incident_response_test.violations with input as {
+	result := cc7_4_incident_response_test.violations with input as {
 		"resource_type": "manual:incident_response_test",
 		"resource_id": "incident_response_test/2026",
 		"data": {
@@ -20,7 +20,7 @@ test_overdue if {
 
 # Test: all required items checked should pass
 test_all_checked if {
-	result := cc7_2_incident_response_test.violations with input as {
+	result := cc7_4_incident_response_test.violations with input as {
 		"resource_type": "manual:incident_response_test",
 		"resource_id": "incident_response_test/2026",
 		"data": {
@@ -42,7 +42,7 @@ test_all_checked if {
 
 # Test: required item unchecked should violate
 test_required_unchecked if {
-	result := cc7_2_incident_response_test.violations with input as {
+	result := cc7_4_incident_response_test.violations with input as {
 		"resource_type": "manual:incident_response_test",
 		"resource_id": "incident_response_test/2026",
 		"data": {
@@ -62,7 +62,7 @@ test_required_unchecked if {
 
 # Test: multiple required items unchecked
 test_multiple_required_unchecked if {
-	result := cc7_2_incident_response_test.violations with input as {
+	result := cc7_4_incident_response_test.violations with input as {
 		"resource_type": "manual:incident_response_test",
 		"resource_id": "incident_response_test/2026",
 		"data": {
@@ -82,7 +82,7 @@ test_multiple_required_unchecked if {
 
 # Test: wrong resource type
 test_wrong_resource_type if {
-	result := cc7_2_incident_response_test.violations with input as {
+	result := cc7_4_incident_response_test.violations with input as {
 		"resource_type": "aws:iam:user",
 		"resource_id": "some-arn",
 		"data": {"status": "not_uploaded", "temporal_status": "overdue"},

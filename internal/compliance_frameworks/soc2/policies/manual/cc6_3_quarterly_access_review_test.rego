@@ -1,10 +1,10 @@
-package sigcomply.soc2.cc6_1_quarterly_access_review_test
+package sigcomply.soc2.cc6_3_quarterly_access_review_test
 
-import data.sigcomply.soc2.cc6_1_quarterly_access_review
+import data.sigcomply.soc2.cc6_3_quarterly_access_review
 
 # Test: overdue and not uploaded should violate
 test_overdue_not_uploaded if {
-	result := cc6_1_quarterly_access_review.violations with input as {
+	result := cc6_3_quarterly_access_review.violations with input as {
 		"resource_type": "manual:quarterly_access_review",
 		"resource_id": "quarterly_access_review/2026-Q1",
 		"data": {
@@ -20,7 +20,7 @@ test_overdue_not_uploaded if {
 
 # Test: not uploaded but within window should pass
 test_within_window_not_uploaded if {
-	result := cc6_1_quarterly_access_review.violations with input as {
+	result := cc6_3_quarterly_access_review.violations with input as {
 		"resource_type": "manual:quarterly_access_review",
 		"resource_id": "quarterly_access_review/2026-Q1",
 		"data": {
@@ -36,7 +36,7 @@ test_within_window_not_uploaded if {
 
 # Test: uploaded and verified should pass
 test_uploaded_verified if {
-	result := cc6_1_quarterly_access_review.violations with input as {
+	result := cc6_3_quarterly_access_review.violations with input as {
 		"resource_type": "manual:quarterly_access_review",
 		"resource_id": "quarterly_access_review/2026-Q1",
 		"data": {
@@ -54,7 +54,7 @@ test_uploaded_verified if {
 
 # Test: uploaded but hash verification failed should violate
 test_hash_failed if {
-	result := cc6_1_quarterly_access_review.violations with input as {
+	result := cc6_3_quarterly_access_review.violations with input as {
 		"resource_type": "manual:quarterly_access_review",
 		"resource_id": "quarterly_access_review/2026-Q1",
 		"data": {
@@ -72,7 +72,7 @@ test_hash_failed if {
 
 # Test: wrong resource type should not match
 test_wrong_resource_type if {
-	result := cc6_1_quarterly_access_review.violations with input as {
+	result := cc6_3_quarterly_access_review.violations with input as {
 		"resource_type": "aws:iam:user",
 		"resource_id": "arn:aws:iam::123:user/bob",
 		"data": {"status": "not_uploaded", "temporal_status": "overdue"},
@@ -82,7 +82,7 @@ test_wrong_resource_type if {
 
 # Test: missing attachment should violate
 test_missing_attachment if {
-	result := cc6_1_quarterly_access_review.violations with input as {
+	result := cc6_3_quarterly_access_review.violations with input as {
 		"resource_type": "manual:quarterly_access_review",
 		"resource_id": "quarterly_access_review/2026-Q1",
 		"data": {

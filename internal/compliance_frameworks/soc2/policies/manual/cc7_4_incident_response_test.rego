@@ -1,14 +1,14 @@
 # METADATA
-# title: CC7.2 - Incident Response Plan Test
+# title: CC7.4 - Incident Response Plan Test
 # description: Annual incident response plan testing must be completed with all required checklist items
 # scope: package
-package sigcomply.soc2.cc7_2_incident_response_test
+package sigcomply.soc2.cc7_4_incident_response_test
 
 metadata := {
-	"id": "soc2-cc7.2-incident-response-test",
+	"id": "soc2-cc7.4-incident-response-test",
 	"name": "Incident Response Plan Test",
 	"framework": "soc2",
-	"control": "CC7.2",
+	"control": "CC7.4",
 	"severity": "high",
 	"evaluation_mode": "individual",
 	"resource_types": ["manual:incident_response_test"],

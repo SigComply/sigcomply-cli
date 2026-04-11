@@ -28,10 +28,11 @@ func TestCatalog_GetEntry(t *testing.T) {
 
 	entry := catalog.GetEntry("quarterly_access_review")
 	require.NotNil(t, entry)
-	assert.Equal(t, "CC6.1", entry.Control)
+	assert.Equal(t, "CC6.3", entry.Control)
 	assert.Equal(t, EvidenceTypeDocumentUpload, entry.Type)
 	assert.Equal(t, FrequencyQuarterly, entry.Frequency)
 	assert.Equal(t, "high", entry.Severity)
+	assert.Equal(t, "security", entry.TSC)
 }
 
 func TestCatalog_GetEntry_NotFound(t *testing.T) {
@@ -46,9 +47,16 @@ func TestCatalog_EntriesForControl(t *testing.T) {
 	catalog, err := LoadCatalog("soc2")
 	require.NoError(t, err)
 
-	entries := catalog.EntriesForControl("CC6.1")
-	assert.Len(t, entries, 1)
-	assert.Equal(t, "quarterly_access_review", entries[0].ID)
+	entries := catalog.EntriesForControl("CC6.3")
+	assert.GreaterOrEqual(t, len(entries), 1)
+	var found bool
+	for _, e := range entries {
+		if e.ID == "quarterly_access_review" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found)
 }
 
 func TestCatalog_EntriesForControl_None(t *testing.T) {
