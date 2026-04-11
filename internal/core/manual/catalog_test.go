@@ -99,7 +99,7 @@ func TestCatalog_SOC2_Shape(t *testing.T) {
 	// Every entry must have a non-empty TSC.
 	for _, e := range catalog.Entries {
 		assert.NotEmpty(t, e.TSC, "entry %s must have tsc set", e.ID)
-		assert.Contains(t, []string{"security", "availability", "confidentiality"}, e.TSC,
+		assert.Contains(t, []string{"security", "availability", "confidentiality", "privacy"}, e.TSC,
 			"entry %s has unexpected tsc %q", e.ID, e.TSC)
 	}
 

@@ -289,6 +289,69 @@ var controls = []Control{
 		Category:    "Confidentiality",
 		Severity:    evidence.SeverityHigh,
 	},
+
+	// CC1.1 - Commitment to Integrity and Ethics
+	{
+		ID:          "CC1.1",
+		Name:        "Commitment to Integrity and Ethics",
+		Description: "The entity demonstrates a commitment to integrity and ethical values through its code of conduct and related acknowledgments.",
+		Category:    "Control Environment",
+		Severity:    evidence.SeverityHigh,
+	},
+
+	// CC2.2 - Internal Communication
+	{
+		ID:          "CC2.2",
+		Name:        "Internal Communication",
+		Description: "The entity internally communicates information, including objectives and responsibilities for internal control, necessary to support the functioning of internal control.",
+		Category:    "Communication and Information",
+		Severity:    evidence.SeverityMedium,
+	},
+
+	// CC5.3 - Policies and Procedures
+	{
+		ID:          "CC5.3",
+		Name:        "Policies and Procedures",
+		Description: "The entity deploys control activities through policies that establish what is expected and in procedures that put policies into action, including periodic review of those policies.",
+		Category:    "Control Activities",
+		Severity:    evidence.SeverityMedium,
+	},
+
+	// P1 - Privacy Notice
+	{
+		ID:          "P1.1",
+		Name:        "Privacy Notice",
+		Description: "The entity provides notice to data subjects about its privacy practices to meet the entity's privacy-related objectives.",
+		Category:    "Privacy",
+		Severity:    evidence.SeverityHigh,
+	},
+
+	// P2 - Choice and Consent
+	{
+		ID:          "P2.1",
+		Name:        "Privacy Consent and Choice",
+		Description: "The entity communicates choices available regarding the collection, use, retention, disclosure, and disposal of personal information to data subjects and obtains consent as required.",
+		Category:    "Privacy",
+		Severity:    evidence.SeverityHigh,
+	},
+
+	// P3 - Collection
+	{
+		ID:          "P3.1",
+		Name:        "Collection of Personal Information",
+		Description: "The entity limits the collection of personal information to that which is necessary for the purposes identified in the privacy notice (data minimization).",
+		Category:    "Privacy",
+		Severity:    evidence.SeverityMedium,
+	},
+
+	// P5 - Access
+	{
+		ID:          "P5.2",
+		Name:        "Data Subject Access and Requests",
+		Description: "The entity provides data subjects the ability to access, update, correct, and request deletion of their personal information, and responds to requests in a timely manner.",
+		Category:    "Privacy",
+		Severity:    evidence.SeverityHigh,
+	},
 }
 
 // Control is an alias for the engine.Control type for convenience.
