@@ -30,6 +30,13 @@ var controls = []Control{
 		Category:    "Logical and Physical Access Controls",
 		Severity:    evidence.SeverityMedium,
 	},
+	{
+		ID:          "CC6.4",
+		Name:        "Physical Access Restriction",
+		Description: "The entity restricts physical access to facilities and protected information assets to authorized personnel.",
+		Category:    "Logical and Physical Access Controls",
+		Severity:    evidence.SeverityHigh,
+	},
 	// CC1 - Control Environment
 	{
 		ID:          "CC1.2",

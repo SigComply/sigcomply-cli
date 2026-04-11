@@ -169,3 +169,54 @@ entries:
     category: risk_compliance
     tsc: security
     optional: true
+
+  - id: privileged_access_log
+    control: CC6.1
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Privileged Access Justification Log
+    description: Upload quarterly log of privileged access grants with business justifications
+    severity: high
+    accepted_formats: [pdf, xlsx, csv]
+    category: access_physical
+    tsc: security
+
+  - id: visitor_log
+    control: CC6.4
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Physical Office Visitor Log
+    description: Upload the quarterly physical office visitor log snapshot
+    severity: medium
+    accepted_formats: [pdf, xlsx, csv]
+    category: access_physical
+    tsc: security
+
+  - id: office_walkthrough
+    control: CC6.4
+    type: checklist
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Office Security Walkthrough
+    description: Complete quarterly office security walkthrough checklist
+    severity: medium
+    category: access_physical
+    tsc: security
+    items:
+      - id: it_closet_locked
+        text: IT/server closet was locked and access-restricted
+        required: true
+      - id: clean_desk
+        text: Clean-desk policy was observed across the office
+        required: true
+      - id: cctv_functioning
+        text: CCTV cameras were functioning and recording
+        required: true
+      - id: no_violations
+        text: No physical security violations were observed
+        required: true
