@@ -76,6 +76,13 @@ var controls = []Control{
 		Category:    "Risk Assessment",
 		Severity:    evidence.SeverityMedium,
 	},
+	{
+		ID:          "CC3.4",
+		Name:        "Changes That Impact Internal Control",
+		Description: "The entity identifies and assesses changes that could significantly impact the system of internal control.",
+		Category:    "Risk Assessment",
+		Severity:    evidence.SeverityHigh,
+	},
 
 	// CC4 - Monitoring Activities
 	{
@@ -185,6 +192,20 @@ var controls = []Control{
 	},
 
 	// CC9 - Risk Mitigation
+	{
+		ID:          "CC9.1",
+		Name:        "Business Disruption Risk Mitigation",
+		Description: "The entity identifies, selects, and develops risk mitigation activities for risks arising from potential business disruptions, including the use of insurance.",
+		Category:    "Risk Mitigation",
+		Severity:    evidence.SeverityHigh,
+	},
+	{
+		ID:          "CC9.2",
+		Name:        "Vendor and Business Partner Risk Management",
+		Description: "The entity assesses and manages risks associated with vendors and business partners.",
+		Category:    "Risk Mitigation",
+		Severity:    evidence.SeverityHigh,
+	},
 	{
 		ID:          "CC9.3",
 		Name:        "Risk Mitigation Activities",

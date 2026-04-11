@@ -104,3 +104,68 @@ entries:
     accepted_formats: [pdf, docx]
     category: hr_governance
     tsc: security
+
+  - id: annual_risk_assessment
+    control: CC3.2
+    type: document_upload
+    frequency: yearly
+    temporal_rule: retrospective
+    grace_period: "30d"
+    name: Annual Risk Assessment Report
+    description: Upload the annual enterprise risk assessment report
+    severity: high
+    accepted_formats: [pdf, xlsx, docx]
+    category: risk_compliance
+    tsc: security
+
+  - id: significant_change_analysis
+    control: CC3.4
+    type: declaration
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Significant Change Impact Analysis
+    description: Declare that significant changes affecting internal controls were analyzed this period, or that none occurred
+    severity: high
+    category: risk_compliance
+    tsc: security
+    declaration_text: "I confirm that any significant changes affecting the system of internal controls during this period have been analyzed and documented, or that no such significant changes occurred."
+
+  - id: vendor_soc2_review
+    control: CC9.2
+    type: checklist
+    frequency: yearly
+    temporal_rule: retrospective
+    grace_period: "30d"
+    name: Vendor SOC 2 Report Review
+    description: Complete checklist confirming annual review of critical vendor SOC 2 reports
+    severity: high
+    category: risk_compliance
+    tsc: security
+    items:
+      - id: all_vendors_reviewed
+        text: SOC 2 (or equivalent) reports for all critical vendors have been reviewed
+        required: true
+      - id: exceptions_documented
+        text: Any exceptions or qualifications noted in vendor reports were documented
+        required: true
+      - id: cuecs_addressed
+        text: Complementary User Entity Controls (CUECs) have been identified and addressed
+        required: true
+      - id: remediation_tracked
+        text: Remediation items for vendor issues are being tracked
+        required: false
+
+  - id: cyber_liability_insurance
+    control: CC9.1
+    type: document_upload
+    frequency: yearly
+    temporal_rule: anytime
+    grace_period: "30d"
+    name: Cyber Liability Insurance Certificate
+    description: Upload current cyber liability insurance certificate
+    severity: medium
+    accepted_formats: [pdf]
+    category: risk_compliance
+    tsc: security
+    optional: true
