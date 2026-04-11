@@ -64,3 +64,43 @@ entries:
     category: vulnerability_management
     tsc: security
     declaration_text: "I confirm that the quarterly risk assessment has been reviewed, all identified risks have been evaluated, and appropriate risk treatment decisions have been made and approved by management."
+
+  - id: background_check
+    control: CC1.4
+    type: declaration
+    frequency: yearly
+    temporal_rule: retrospective
+    grace_period: "30d"
+    name: Background Check Summary
+    description: Declare that background checks were completed for all new hires in this period, or that no new hires joined
+    severity: high
+    category: hr_governance
+    tsc: security
+    declaration_text: "I confirm that background checks have been completed for all new hires during this period, or that no new hires joined the organization during this period."
+
+  - id: performance_review_security
+    control: CC1.5
+    type: document_upload
+    frequency: yearly
+    temporal_rule: retrospective
+    grace_period: "30d"
+    name: Performance Review (Security Adherence)
+    description: Upload summary of annual performance reviews covering security policy adherence
+    severity: medium
+    accepted_formats: [pdf, xlsx, csv]
+    category: hr_governance
+    tsc: security
+    optional: true
+
+  - id: board_security_review
+    control: CC1.2
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Board Security Review Minutes
+    description: Upload minutes of quarterly board review of information security posture
+    severity: high
+    accepted_formats: [pdf, docx]
+    category: hr_governance
+    tsc: security

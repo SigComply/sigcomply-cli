@@ -30,6 +30,21 @@ var controls = []Control{
 		Category:    "Logical and Physical Access Controls",
 		Severity:    evidence.SeverityMedium,
 	},
+	// CC1 - Control Environment
+	{
+		ID:          "CC1.2",
+		Name:        "Board Oversight",
+		Description: "The board of directors demonstrates independence from management and exercises oversight of the development and performance of internal control.",
+		Category:    "Control Environment",
+		Severity:    evidence.SeverityHigh,
+	},
+	{
+		ID:          "CC1.4",
+		Name:        "Competence",
+		Description: "The entity demonstrates a commitment to attract, develop, and retain competent individuals in alignment with objectives.",
+		Category:    "Control Environment",
+		Severity:    evidence.SeverityHigh,
+	},
 	// CC1.5 - Service Control Policies
 	{
 		ID:          "CC1.5",

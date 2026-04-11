@@ -42,8 +42,8 @@ func TestReader_MissingEvidence(t *testing.T) {
 	result, err := reader.Read(ctx, state, now)
 	require.NoError(t, err)
 
-	// All 4 entries should produce evidence (missing = not_uploaded)
-	assert.Len(t, result.Evidence, 4)
+	// All catalog entries should produce evidence (missing = not_uploaded)
+	assert.Len(t, result.Evidence, len(catalog.Entries))
 
 	for _, ev := range result.Evidence {
 		assert.Equal(t, "manual", ev.Collector)
@@ -186,8 +186,8 @@ func TestReader_AlreadyAttested(t *testing.T) {
 	result, err := reader.Read(ctx, state, now)
 	require.NoError(t, err)
 
-	// Should have 3 evidence items (the attested one is skipped)
-	assert.Len(t, result.Evidence, 3)
+	// The attested one is skipped; the rest should produce evidence
+	assert.Len(t, result.Evidence, len(catalog.Entries)-1)
 
 	for _, ev := range result.Evidence {
 		assert.NotEqual(t, "manual:quarterly_access_review", ev.ResourceType)
