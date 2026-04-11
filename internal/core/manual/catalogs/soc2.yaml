@@ -298,3 +298,42 @@ entries:
     category: data_protection
     tsc: security
     declaration_text: "I confirm that no media decommissioning events occurred this period, or that all such events that did occur have sanitization/destruction certificates attached."
+
+  - id: employee_nda
+    control: CC1.1
+    type: declaration
+    frequency: yearly
+    temporal_rule: retrospective
+    grace_period: "30d"
+    name: Employee NDA Acknowledgment
+    description: Declare that all employees have acknowledged the current NDA and code-of-conduct during this period
+    severity: high
+    category: hr_governance
+    tsc: security
+    declaration_text: "I confirm that all current employees have signed or re-acknowledged the organization's NDA and code-of-conduct during this period."
+
+  - id: user_onboarding_log
+    control: CC6.2
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: User Onboarding Access Grants Log
+    description: Upload the quarterly log of user onboarding access grants, including approver and role assignments
+    severity: high
+    accepted_formats: [pdf, xlsx, csv]
+    category: hr_governance
+    tsc: security
+
+  - id: user_termination_log
+    control: CC6.3
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: User Termination Access Revocation Log
+    description: Upload the quarterly log of user terminations showing timely revocation of access across systems
+    severity: high
+    accepted_formats: [pdf, xlsx, csv]
+    category: hr_governance
+    tsc: security
