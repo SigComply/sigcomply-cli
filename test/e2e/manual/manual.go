@@ -620,6 +620,26 @@ func RunNegativeScenario(t *testing.T) {
 	}
 	placeEvidence(t, backends.manual, "risk_acceptance_signoff", raPeriod.Key, raSubmitted)
 
+	// Place invalid declaration from the new data-protection set: media_sanitization, accepted=false
+	msEntry := catalog.GetEntry("media_sanitization")
+	require.NotNil(t, msEntry, "media_sanitization entry should exist in catalog")
+	msPeriod, err := manualPkg.CurrentPeriod(msEntry.Frequency, now, msEntry.GracePeriod)
+	require.NoError(t, err)
+
+	msSubmitted := manualPkg.SubmittedEvidence{
+		SchemaVersion:   "1.0",
+		EvidenceID:      "media_sanitization",
+		Type:            manualPkg.EvidenceTypeDeclaration,
+		Framework:       frameworkName,
+		Control:         msEntry.Control,
+		Period:          msPeriod.Key,
+		CompletedBy:     "test@e2e.sigcomply.dev",
+		CompletedAt:     now,
+		DeclarationText: msEntry.DeclarationText,
+		Accepted:        &notAccepted,
+	}
+	placeEvidence(t, backends.manual, "media_sanitization", msPeriod.Key, msSubmitted)
+
 	// Don't upload anything for document_upload entries — they'll be "not_uploaded"
 
 	keys := listS3Objects(t, region, bucket, basePrefix)
@@ -636,7 +656,7 @@ func RunNegativeScenario(t *testing.T) {
 	}
 
 	// Incident response test should FAIL (required items unchecked)
-	irResult, ok := resultMap["soc2-cc7.2-incident-response-test"]
+	irResult, ok := resultMap["soc2-cc7.4-incident-response-test"]
 	require.True(t, ok, "Incident response test policy result must exist")
 	assert.Equal(t, evidence.StatusFail, irResult.Status,
 		"Incident response test should fail with unchecked required items")
@@ -649,6 +669,13 @@ func RunNegativeScenario(t *testing.T) {
 	assert.Equal(t, evidence.StatusFail, raResult.Status,
 		"Risk acceptance should fail when not accepted")
 	assert.NotEmpty(t, raResult.Violations)
+
+	// Media sanitization (new data-protection entry) should FAIL (not accepted)
+	msResult, ok := resultMap["soc2-cc6.5-media-sanitization"]
+	require.True(t, ok, "Media sanitization policy result must exist")
+	assert.Equal(t, evidence.StatusFail, msResult.Status,
+		"Media sanitization should fail when not accepted")
+	assert.NotEmpty(t, msResult.Violations)
 
 	t.Logf("=== Phase 3: Verify execution state — failed entries not attested ===")
 	if irPeriods, ok := pr.state.Manual["incident_response_test"]; ok {
@@ -663,13 +690,19 @@ func RunNegativeScenario(t *testing.T) {
 				"Failed declaration should have 'uploaded' status, not 'attested'")
 		}
 	}
+	if msPeriods, ok := pr.state.Manual["media_sanitization"]; ok {
+		if entry, ok := msPeriods[msPeriod.Key]; ok {
+			assert.Equal(t, "uploaded", entry.Status,
+				"Failed media_sanitization declaration should have 'uploaded' status, not 'attested'")
+		}
+	}
 
 	t.Logf("=== Phase 4: Verify failed policy results stored in S3 ===")
 	finalKeys := listS3Objects(t, region, bucket, basePrefix)
 	t.Logf("Final S3 state: %d objects total", len(finalKeys))
 
 	// Verify result.json for failed policies contains violations
-	for _, policyID := range []string{"soc2-cc7.2-incident-response-test", "soc2-cc3.1-risk-acceptance"} {
+	for _, policyID := range []string{"soc2-cc7.4-incident-response-test", "soc2-cc3.1-risk-acceptance", "soc2-cc6.5-media-sanitization"} {
 		slug := storage.PolicySlug(policyID, frameworkName)
 		for _, key := range finalKeys {
 			if strings.Contains(key, slug+"/") && strings.HasSuffix(key, "/result.json") {

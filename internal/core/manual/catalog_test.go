@@ -87,3 +87,52 @@ func TestCatalog_DeclarationEntry(t *testing.T) {
 	assert.Equal(t, EvidenceTypeDeclaration, entry.Type)
 	assert.NotEmpty(t, entry.DeclarationText)
 }
+
+func TestCatalog_SOC2_Shape(t *testing.T) {
+	catalog, err := LoadCatalog("soc2")
+	require.NoError(t, err)
+
+	// Expect exactly 20 entries: 4 original + 16 new (HR/governance, risk, access/physical,
+	// system ops/BCDR, data protection). Excludes Privacy-only DSAR entry.
+	assert.Equal(t, 20, len(catalog.Entries), "SOC 2 catalog should have 20 entries")
+
+	// Every entry must have a non-empty TSC.
+	for _, e := range catalog.Entries {
+		assert.NotEmpty(t, e.TSC, "entry %s must have tsc set", e.ID)
+		assert.Contains(t, []string{"security", "availability", "confidentiality"}, e.TSC,
+			"entry %s has unexpected tsc %q", e.ID, e.TSC)
+	}
+
+	// TSC distribution: 16 security + 3 availability + 1 confidentiality.
+	tscCounts := map[string]int{}
+	for _, e := range catalog.Entries {
+		tscCounts[e.TSC]++
+	}
+	assert.Equal(t, 16, tscCounts["security"], "expected 16 security entries")
+	assert.Equal(t, 3, tscCounts["availability"], "expected 3 availability entries")
+	assert.Equal(t, 1, tscCounts["confidentiality"], "expected 1 confidentiality entry")
+
+	// Exactly 2 entries should be marked optional: performance_review_security, cyber_liability_insurance.
+	var optionalIDs []string
+	for _, e := range catalog.Entries {
+		if e.Optional {
+			optionalIDs = append(optionalIDs, e.ID)
+		}
+	}
+	assert.ElementsMatch(t,
+		[]string{"performance_review_security", "cyber_liability_insurance"},
+		optionalIDs,
+		"unexpected set of optional entries")
+
+	// All entries must have a category.
+	for _, e := range catalog.Entries {
+		assert.NotEmpty(t, e.Category, "entry %s must have category set", e.ID)
+	}
+
+	// Entry IDs must be unique.
+	seen := map[string]bool{}
+	for _, e := range catalog.Entries {
+		assert.False(t, seen[e.ID], "duplicate entry id %s", e.ID)
+		seen[e.ID] = true
+	}
+}
