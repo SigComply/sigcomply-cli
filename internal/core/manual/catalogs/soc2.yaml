@@ -337,3 +337,55 @@ entries:
     accepted_formats: [pdf, xlsx, csv]
     category: hr_governance
     tsc: security
+
+  - id: policy_review_log
+    control: CC5.3
+    type: document_upload
+    frequency: yearly
+    temporal_rule: retrospective
+    grace_period: "30d"
+    name: Annual Policy Review Log
+    description: Upload the annual log documenting review (and any updates) of all information security policies
+    severity: medium
+    accepted_formats: [pdf, xlsx, docx]
+    category: risk_compliance
+    tsc: security
+
+  - id: fraud_risk_assessment
+    control: CC3.3
+    type: document_upload
+    frequency: yearly
+    temporal_rule: retrospective
+    grace_period: "30d"
+    name: Fraud Risk Assessment
+    description: Upload the annual fraud risk assessment identifying potential fraud scenarios and mitigating controls
+    severity: medium
+    accepted_formats: [pdf, docx]
+    category: risk_compliance
+    tsc: security
+
+  - id: security_comm_channel
+    control: CC2.2
+    type: declaration
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Security Communication Channel Evidence
+    description: Declare that a security communication channel is active and has been used this period to communicate security updates
+    severity: medium
+    category: risk_compliance
+    tsc: security
+    declaration_text: "I confirm that a dedicated security communication channel (Slack channel, mailing list, or intranet page) exists and has been used this period to communicate security updates and alerts to employees."
+
+  - id: vendor_risk_directory
+    control: CC9.2
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Vendor Risk Directory Snapshot
+    description: Upload the quarterly vendor risk directory snapshot listing all active vendors with data classification and risk tier
+    severity: high
+    accepted_formats: [pdf, xlsx, csv]
+    category: risk_compliance
+    tsc: security
