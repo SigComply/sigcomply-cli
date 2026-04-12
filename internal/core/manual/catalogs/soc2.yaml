@@ -506,3 +506,80 @@ entries:
     accepted_formats: [pdf, docx]
     category: vulnerability_management
     tsc: security
+
+  - id: privacy_notice_proof
+    control: P1.1
+    type: document_upload
+    frequency: yearly
+    temporal_rule: retrospective
+    grace_period: "30d"
+    name: Privacy Notice Publication Proof
+    description: Upload proof that the privacy notice is published and accessible (screenshot, URL, or archived copy)
+    severity: high
+    accepted_formats: [pdf, png, jpg]
+    category: privacy
+    tsc: privacy
+
+  - id: dsar_fulfillment_log
+    control: P5.2
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: DSAR Fulfillment Log
+    description: Upload the quarterly DSAR fulfillment log showing all data subject requests received and their resolution status
+    severity: high
+    accepted_formats: [pdf, xlsx, csv]
+    category: privacy
+    tsc: privacy
+
+  - id: marketing_optin_proof
+    control: P2.1
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Marketing Opt-In Consent Proof
+    description: Upload proof that marketing communications only go to users who have given explicit opt-in consent
+    severity: high
+    accepted_formats: [pdf, png, xlsx]
+    category: privacy
+    tsc: privacy
+
+  - id: quarterly_privacy_review
+    control: P1.1
+    type: checklist
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Quarterly Privacy Program Review
+    description: Complete the quarterly privacy program review checklist
+    severity: high
+    category: privacy
+    tsc: privacy
+    items:
+      - id: notice_reviewed
+        text: Privacy notice reviewed and confirmed current
+        required: true
+      - id: dsar_log_reviewed
+        text: DSAR log reviewed and all requests resolved or in progress
+        required: true
+      - id: consent_audited
+        text: Consent records audited for completeness
+        required: true
+      - id: minimization_reviewed
+        text: Data minimization practices reviewed
+        required: true
+
+  - id: data_minimization_proof
+    control: P3.1
+    type: declaration
+    frequency: yearly
+    temporal_rule: retrospective
+    grace_period: "30d"
+    name: Data Minimization Proof
+    description: Declare that personal data collection is limited to what is necessary as described in the privacy notice
+    severity: medium
+    category: privacy
+    tsc: privacy
+    declaration_text: "I confirm that the organization collects only the personal information necessary for the purposes identified in the privacy notice, and that a review of data collection practices has been completed for this period."

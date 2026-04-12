@@ -640,6 +640,28 @@ func RunNegativeScenario(t *testing.T) {
 	}
 	placeEvidence(t, backends.manual, "media_sanitization", msPeriod.Key, msSubmitted)
 
+	// Place document_upload for DSAR fulfillment log WITH a referenced attachment
+	// that is NOT uploaded to S3 — this triggers a "file not found" violation,
+	// exercising a privacy (P5.2) entry in the negative scenario.
+	dsarEntry := catalog.GetEntry("dsar_fulfillment_log")
+	require.NotNil(t, dsarEntry, "dsar_fulfillment_log entry should exist in catalog")
+	dsarPeriod, err := manualPkg.CurrentPeriod(dsarEntry.Frequency, now, dsarEntry.GracePeriod)
+	require.NoError(t, err)
+
+	dsarSubmitted := manualPkg.SubmittedEvidence{
+		SchemaVersion: "1.0",
+		EvidenceID:    "dsar_fulfillment_log",
+		Type:          manualPkg.EvidenceTypeDocumentUpload,
+		Framework:     frameworkName,
+		Control:       dsarEntry.Control,
+		Period:        dsarPeriod.Key,
+		CompletedBy:   "test@e2e.sigcomply.dev",
+		CompletedAt:   now,
+		Attachments:   []string{"dsar-report.pdf"}, // NOT uploaded to S3
+	}
+	placeEvidence(t, backends.manual, "dsar_fulfillment_log", dsarPeriod.Key, dsarSubmitted)
+	// Deliberately NOT uploading the actual dsar-report.pdf attachment
+
 	// Don't upload anything for document_upload entries — they'll be "not_uploaded"
 
 	keys := listS3Objects(t, region, bucket, basePrefix)
@@ -677,6 +699,13 @@ func RunNegativeScenario(t *testing.T) {
 		"Media sanitization should fail when not accepted")
 	assert.NotEmpty(t, msResult.Violations)
 
+	// DSAR fulfillment log (privacy P5.2) should FAIL (missing attachment)
+	dsarResult, ok := resultMap["soc2-p5.2-dsar-fulfillment-log"]
+	require.True(t, ok, "DSAR fulfillment log policy result must exist")
+	assert.Equal(t, evidence.StatusFail, dsarResult.Status,
+		"DSAR fulfillment log should fail when attachment is missing from S3")
+	assert.NotEmpty(t, dsarResult.Violations)
+
 	t.Logf("=== Phase 3: Verify execution state — failed entries not attested ===")
 	if irPeriods, ok := pr.state.Manual["incident_response_test"]; ok {
 		if entry, ok := irPeriods[irPeriod.Key]; ok {
@@ -696,13 +725,19 @@ func RunNegativeScenario(t *testing.T) {
 				"Failed media_sanitization declaration should have 'uploaded' status, not 'attested'")
 		}
 	}
+	if dsarPeriods, ok := pr.state.Manual["dsar_fulfillment_log"]; ok {
+		if entry, ok := dsarPeriods[dsarPeriod.Key]; ok {
+			assert.Equal(t, "uploaded", entry.Status,
+				"Failed dsar_fulfillment_log should have 'uploaded' status, not 'attested'")
+		}
+	}
 
 	t.Logf("=== Phase 4: Verify failed policy results stored in S3 ===")
 	finalKeys := listS3Objects(t, region, bucket, basePrefix)
 	t.Logf("Final S3 state: %d objects total", len(finalKeys))
 
 	// Verify result.json for failed policies contains violations
-	for _, policyID := range []string{"soc2-cc7.4-incident-response-test", "soc2-cc3.1-risk-acceptance", "soc2-cc6.5-media-sanitization"} {
+	for _, policyID := range []string{"soc2-cc7.4-incident-response-test", "soc2-cc3.1-risk-acceptance", "soc2-cc6.5-media-sanitization", "soc2-p5.2-dsar-fulfillment-log"} {
 		slug := storage.PolicySlug(policyID, frameworkName)
 		for _, key := range finalKeys {
 			if strings.Contains(key, slug+"/") && strings.HasSuffix(key, "/result.json") {
