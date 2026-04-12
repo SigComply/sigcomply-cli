@@ -583,3 +583,68 @@ entries:
     category: privacy
     tsc: privacy
     declaration_text: "I confirm that the organization collects only the personal information necessary for the purposes identified in the privacy notice, and that a review of data collection practices has been completed for this period."
+
+  - id: business_continuity_plan
+    control: A1.2
+    type: document_upload
+    frequency: yearly
+    temporal_rule: retrospective
+    grace_period: "30d"
+    name: Business Continuity Plan
+    description: Upload the current business continuity plan documenting recovery procedures and business impact analysis
+    severity: high
+    accepted_formats: [pdf, docx]
+    category: system_ops_bcdr
+    tsc: availability
+
+  - id: data_retention_disposal_log
+    control: C1.2
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Data Retention & Disposal Log
+    description: Upload the quarterly data retention and disposal log showing data disposed per the retention schedule
+    severity: medium
+    accepted_formats: [pdf, xlsx, csv]
+    category: data_protection
+    tsc: confidentiality
+
+  - id: crypto_key_log
+    control: CC6.7
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Cryptographic Key Management Log
+    description: Upload the quarterly cryptographic key management log covering key generation, rotation, and retirement
+    severity: high
+    accepted_formats: [pdf, xlsx, csv]
+    category: data_protection
+    tsc: security
+
+  - id: architecture_diagram
+    control: CC2.1
+    type: document_upload
+    frequency: yearly
+    temporal_rule: retrospective
+    grace_period: "30d"
+    name: System Architecture Diagram
+    description: Upload the current system architecture diagram showing major components, data flows, and trust boundaries
+    severity: medium
+    accepted_formats: [pdf, png, jpg]
+    category: configuration_management
+    tsc: security
+
+  - id: customer_data_segregation
+    control: C1.1
+    type: declaration
+    frequency: yearly
+    temporal_rule: retrospective
+    grace_period: "30d"
+    name: Customer Data Segregation Attestation
+    description: Declare that customer data is logically or physically segregated and that controls prevent cross-tenant access
+    severity: high
+    category: data_protection
+    tsc: confidentiality
+    declaration_text: "I confirm that customer data is logically or physically segregated, and that access controls are in place to prevent unauthorized cross-tenant data access."

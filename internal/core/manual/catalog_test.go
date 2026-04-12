@@ -92,8 +92,8 @@ func TestCatalog_SOC2_Shape(t *testing.T) {
 	catalog, err := LoadCatalog("soc2")
 	require.NoError(t, err)
 
-	// Expect 41 entries: 36 after vuln management + 5 privacy.
-	assert.Equal(t, 41, len(catalog.Entries), "SOC 2 catalog should have 41 entries")
+	// Final shape: 46 entries (41 after privacy + 5 data protection/availability/architecture).
+	assert.Equal(t, 46, len(catalog.Entries), "SOC 2 catalog should have 46 entries")
 
 	// Every entry must have a non-empty TSC.
 	for _, e := range catalog.Entries {
@@ -107,9 +107,9 @@ func TestCatalog_SOC2_Shape(t *testing.T) {
 	for _, e := range catalog.Entries {
 		tscCounts[e.TSC]++
 	}
-	assert.Equal(t, 32, tscCounts["security"], "expected 32 security entries")
-	assert.Equal(t, 3, tscCounts["availability"], "expected 3 availability entries")
-	assert.Equal(t, 1, tscCounts["confidentiality"], "expected 1 confidentiality entry")
+	assert.Equal(t, 34, tscCounts["security"], "expected 34 security entries")
+	assert.Equal(t, 4, tscCounts["availability"], "expected 4 availability entries")
+	assert.Equal(t, 3, tscCounts["confidentiality"], "expected 3 confidentiality entries")
 	assert.Equal(t, 5, tscCounts["privacy"], "expected 5 privacy entries")
 
 	// Exactly 2 entries should be marked optional: performance_review_security, cyber_liability_insurance.
