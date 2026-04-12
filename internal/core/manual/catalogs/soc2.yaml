@@ -454,3 +454,55 @@ entries:
     category: change_management
     tsc: security
     declaration_text: "I confirm that documented emergency change procedures exist and were followed for all emergency changes this period, or that no emergency changes occurred."
+
+  - id: vuln_remediation_tracker
+    control: CC7.1
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Vulnerability Remediation Tracker
+    description: Upload the quarterly vulnerability remediation tracker showing open/closed vulnerabilities and remediation timelines
+    severity: high
+    accepted_formats: [pdf, xlsx, csv]
+    category: vulnerability_management
+    tsc: security
+
+  - id: hardening_standards_doc
+    control: CC6.8
+    type: document_upload
+    frequency: yearly
+    temporal_rule: retrospective
+    grace_period: "30d"
+    name: Hardening Standards Document
+    description: Upload the current hardening standards document covering OS, database, and application baseline configurations
+    severity: high
+    accepted_formats: [pdf, docx]
+    category: vulnerability_management
+    tsc: security
+
+  - id: vuln_scan_results
+    control: CC7.1
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Vulnerability Scan Results
+    description: Upload the quarterly vulnerability scan results from internal or external scanning tools
+    severity: high
+    accepted_formats: [pdf, xlsx, csv]
+    category: vulnerability_management
+    tsc: security
+
+  - id: fim_configuration
+    control: CC7.1
+    type: document_upload
+    frequency: yearly
+    temporal_rule: retrospective
+    grace_period: "30d"
+    name: File Integrity Monitoring Configuration
+    description: Upload the current file integrity monitoring (FIM) configuration showing monitored paths and alerting rules
+    severity: high
+    accepted_formats: [pdf, docx]
+    category: vulnerability_management
+    tsc: security
