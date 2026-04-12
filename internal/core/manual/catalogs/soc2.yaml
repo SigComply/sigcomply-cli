@@ -389,3 +389,42 @@ entries:
     accepted_formats: [pdf, xlsx, csv]
     category: risk_compliance
     tsc: security
+
+  - id: office_badge_access_review
+    control: CC6.4
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Office Badge Access Review
+    description: Upload the quarterly office badge access review listing active badge holders and access levels
+    severity: high
+    accepted_formats: [pdf, xlsx, csv]
+    category: access_physical
+    tsc: security
+
+  - id: secure_hardware_storage_log
+    control: CC6.5
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Secure Hardware Storage Log
+    description: Upload the quarterly log of hardware assets stored in secure locations including check-in/check-out records
+    severity: high
+    accepted_formats: [pdf, xlsx, csv]
+    category: access_physical
+    tsc: security
+
+  - id: asset_inventory_hardware
+    control: CC6.1
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Hardware Asset Inventory
+    description: Upload the quarterly hardware asset inventory listing all company-owned devices with assigned owners and locations
+    severity: high
+    accepted_formats: [pdf, xlsx, csv]
+    category: access_physical
+    tsc: security
