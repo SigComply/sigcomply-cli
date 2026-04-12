@@ -428,3 +428,29 @@ entries:
     accepted_formats: [pdf, xlsx, csv]
     category: access_physical
     tsc: security
+
+  - id: change_approval_log
+    control: CC8.1
+    type: document_upload
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Change Approval Log
+    description: Upload the quarterly change approval log showing all production changes with approver sign-off
+    severity: high
+    accepted_formats: [pdf, xlsx, csv]
+    category: change_management
+    tsc: security
+
+  - id: emergency_change_procedure
+    control: CC8.1
+    type: declaration
+    frequency: quarterly
+    temporal_rule: retrospective
+    grace_period: "15d"
+    name: Emergency Change Procedure Declaration
+    description: Declare that emergency change procedures are documented and were followed for any emergency changes this period
+    severity: high
+    category: change_management
+    tsc: security
+    declaration_text: "I confirm that documented emergency change procedures exist and were followed for all emergency changes this period, or that no emergency changes occurred."
