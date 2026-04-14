@@ -36,7 +36,7 @@ func TestGetFramework(t *testing.T) {
 		framework string
 		valid     bool
 	}{
-		{"soc2", true},
+		{frameworkSOC2, true},
 		{"iso27001", true},
 		{"invalid", false},
 	}

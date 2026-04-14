@@ -48,14 +48,8 @@ Use this during SPA build to keep frontend types in sync with what the CLI expec
 	RunE: runEvidenceSchema,
 }
 
-func init() {
-	evidenceInitCmd.Flags().StringVar(&flagEvidenceConfig, "config", "", "Path to config file")
-	evidenceCatalogCmd.Flags().StringVar(&flagEvidenceConfig, "config", "", "Path to config file")
-	evidenceCatalogCmd.Flags().StringVarP(&flagEvidenceOutput, "output", "o", "text", "Output format (text, json)")
-	evidenceSchemaCmd.Flags().StringVar(&flagEvidenceConfig, "config", "", "Path to config file")
-}
 
-func runEvidenceInit(cmd *cobra.Command, args []string) error {
+func runEvidenceInit(cmd *cobra.Command, args []string) (err error) {
 	ctx := cmd.Context()
 
 	cfg, err := loadEvidenceConfig()
@@ -84,7 +78,9 @@ func runEvidenceInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create storage backend: %w", err)
 	}
 	defer func() {
-		_ = backend.Close()
+		if closeErr := backend.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
 	}()
 
 	if err := backend.Init(ctx); err != nil {
@@ -94,10 +90,11 @@ func runEvidenceInit(cmd *cobra.Command, args []string) error {
 	now := time.Now()
 	created := 0
 
-	for _, entry := range catalog.Entries {
-		period, err := manual.CurrentPeriod(entry.Frequency, now, entry.GracePeriod)
-		if err != nil {
-			fmt.Printf("  [warn] %s: %s\n", entry.ID, err)
+	for i := range catalog.Entries {
+		entry := &catalog.Entries[i]
+		period, periodErr := manual.CurrentPeriod(entry.Frequency, now, entry.GracePeriod)
+		if periodErr != nil {
+			fmt.Printf("  [warn] %s: %s\n", entry.ID, periodErr)
 			continue
 		}
 
@@ -163,7 +160,8 @@ func runEvidenceCatalog(cmd *cobra.Command, args []string) error {
 	fmt.Println("=" + repeatChar('=', 50))
 	fmt.Println()
 
-	for _, entry := range catalog.Entries {
+	for i := range catalog.Entries {
+		entry := &catalog.Entries[i]
 		fmt.Printf("%-35s %s\n", entry.ID, entry.Name)
 		fmt.Printf("  Control:    %s\n", entry.Control)
 		fmt.Printf("  Type:       %s\n", entry.Type)

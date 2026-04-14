@@ -56,7 +56,7 @@ func TestState_SaveAndLoad(t *testing.T) {
 
 func TestState_IsAttested_UploadedNotAttested(t *testing.T) {
 	state := NewExecutionState("soc2")
-	state.Manual["test_evidence"] = map[string]ManualEntry{
+	state.Manual["test_evidence"] = map[string]Entry{
 		"2026-Q1": {Status: "uploaded"},
 	}
 

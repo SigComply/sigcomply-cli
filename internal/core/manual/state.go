@@ -15,11 +15,11 @@ type ExecutionState struct {
 	SchemaVersion string                             `json:"schema_version"`
 	Framework     string                             `json:"framework"`
 	LastUpdated   time.Time                          `json:"last_updated"`
-	Manual        map[string]map[string]ManualEntry `json:"manual"` // evidence_id → period → entry
+	Manual        map[string]map[string]Entry `json:"manual"` // evidence_id → period → entry
 }
 
-// ManualEntry records the status of a single piece of manual evidence.
-type ManualEntry struct {
+// Entry records the status of a single piece of manual evidence.
+type Entry struct {
 	Status       string            `json:"status"`                  // "uploaded", "attested"
 	Files        []string          `json:"files"`
 	FileHashes   map[string]string `json:"file_hashes"`
@@ -34,7 +34,7 @@ func NewExecutionState(framework string) *ExecutionState {
 		SchemaVersion: "1.0",
 		Framework:     framework,
 		LastUpdated:   time.Now().UTC(),
-		Manual:        make(map[string]map[string]ManualEntry),
+		Manual:        make(map[string]map[string]Entry),
 	}
 }
 
@@ -46,7 +46,7 @@ func LoadState(ctx context.Context, backend storage.Backend, path string) (*Exec
 		if errors.As(err, &notFound) {
 			return &ExecutionState{
 				SchemaVersion: "1.0",
-				Manual:        make(map[string]map[string]ManualEntry),
+				Manual:        make(map[string]map[string]Entry),
 			}, nil
 		}
 		return nil, fmt.Errorf("failed to load execution state: %w", err)
@@ -58,7 +58,7 @@ func LoadState(ctx context.Context, backend storage.Backend, path string) (*Exec
 	}
 
 	if state.Manual == nil {
-		state.Manual = make(map[string]map[string]ManualEntry)
+		state.Manual = make(map[string]map[string]Entry)
 	}
 
 	return &state, nil
@@ -97,10 +97,10 @@ func (s *ExecutionState) IsAttested(evidenceID, period string) bool {
 // RecordAttestation records that a piece of manual evidence has been processed.
 func (s *ExecutionState) RecordAttestation(evidenceID, period, runID, status string, fileHashes map[string]string) {
 	if s.Manual == nil {
-		s.Manual = make(map[string]map[string]ManualEntry)
+		s.Manual = make(map[string]map[string]Entry)
 	}
 	if s.Manual[evidenceID] == nil {
-		s.Manual[evidenceID] = make(map[string]ManualEntry)
+		s.Manual[evidenceID] = make(map[string]Entry)
 	}
 
 	now := time.Now().UTC()
@@ -109,7 +109,7 @@ func (s *ExecutionState) RecordAttestation(evidenceID, period, runID, status str
 		files = append(files, f)
 	}
 
-	s.Manual[evidenceID][period] = ManualEntry{
+	s.Manual[evidenceID][period] = Entry{
 		Status:       status,
 		Files:        files,
 		FileHashes:   fileHashes,

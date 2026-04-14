@@ -12,11 +12,11 @@ import (
 
 func TestBuildCloudSubmitRequest_IncludesManualPolicies(t *testing.T) {
 	cfg := config.New()
-	cfg.Framework = "soc2"
+	cfg.Framework = frameworkSOC2
 
 	checkResult := &evidence.CheckResult{
 		RunID:     "run-123",
-		Framework: "soc2",
+		Framework: frameworkSOC2,
 		Timestamp: time.Now(),
 		PolicyResults: []evidence.PolicyResult{
 			{

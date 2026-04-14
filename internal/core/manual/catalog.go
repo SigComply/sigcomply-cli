@@ -4,6 +4,7 @@ package manual
 // EvidenceType represents the kind of manual evidence.
 type EvidenceType string
 
+// Evidence type constants define the supported manual evidence submission formats.
 const (
 	EvidenceTypeDocumentUpload EvidenceType = "document_upload"
 	EvidenceTypeChecklist      EvidenceType = "checklist"
@@ -13,6 +14,7 @@ const (
 // Frequency represents how often manual evidence must be provided.
 type Frequency string
 
+// Frequency constants define how often manual evidence must be collected.
 const (
 	FrequencyDaily     Frequency = "daily"
 	FrequencyWeekly    Frequency = "weekly"
@@ -24,6 +26,7 @@ const (
 // TemporalRule controls when evidence can be uploaded relative to the period.
 type TemporalRule string
 
+// TemporalRule constants control when evidence may be uploaded relative to the collection period.
 const (
 	TemporalRuleRetrospective TemporalRule = "retrospective"
 	TemporalRuleAnytime       TemporalRule = "anytime"
@@ -75,9 +78,9 @@ func (c *Catalog) GetEntry(id string) *CatalogEntry {
 // EntriesForControl returns all catalog entries for a given control ID.
 func (c *Catalog) EntriesForControl(controlID string) []CatalogEntry {
 	var result []CatalogEntry
-	for _, e := range c.Entries {
-		if e.Control == controlID {
-			result = append(result, e)
+	for i := range c.Entries {
+		if c.Entries[i].Control == controlID {
+			result = append(result, c.Entries[i])
 		}
 	}
 	return result

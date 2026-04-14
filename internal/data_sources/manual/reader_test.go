@@ -26,7 +26,7 @@ func setupTest(t *testing.T) (context.Context, storage.Backend, *manualPkg.Catal
 	return ctx, backend, catalog, state
 }
 
-func storeJSON(t *testing.T, ctx context.Context, backend storage.Backend, path string, data interface{}) {
+func storeJSON(ctx context.Context, t *testing.T, backend storage.Backend, path string, data interface{}) {
 	t.Helper()
 	jsonData, err := json.Marshal(data)
 	require.NoError(t, err)
@@ -69,7 +69,7 @@ func TestReader_DocumentUpload(t *testing.T) {
 		CompletedAt:   time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC),
 		Attachments:   []string{"report.pdf"},
 	}
-	storeJSON(t, ctx, backend, "soc2/quarterly_access_review/2026-Q1/evidence.json", submitted)
+	storeJSON(ctx, t, backend, "soc2/quarterly_access_review/2026-Q1/evidence.json", submitted)
 
 	// Also store the attachment
 	_, err := backend.StoreRaw(ctx, "soc2/quarterly_access_review/2026-Q1/report.pdf", []byte("PDF content"), nil)
@@ -82,18 +82,19 @@ func TestReader_DocumentUpload(t *testing.T) {
 	// Find the quarterly_access_review evidence
 	var found bool
 	for _, ev := range result.Evidence {
-		if ev.ResourceType == "manual:quarterly_access_review" {
-			found = true
-			var data map[string]interface{}
-			require.NoError(t, json.Unmarshal(ev.Data, &data))
-			assert.Equal(t, "uploaded", data["status"])
-			assert.Equal(t, true, data["hash_verified"])
-			assert.Equal(t, "admin@company.com", data["completed_by"])
-
-			files, ok := data["files"].([]interface{})
-			require.True(t, ok)
-			assert.Len(t, files, 1)
+		if ev.ResourceType != "manual:quarterly_access_review" {
+			continue
 		}
+		found = true
+		var data map[string]interface{}
+		require.NoError(t, json.Unmarshal(ev.Data, &data))
+		assert.Equal(t, "uploaded", data["status"])
+		assert.Equal(t, true, data["hash_verified"])
+		assert.Equal(t, "admin@company.com", data["completed_by"])
+
+		files, ok := data["files"].([]interface{})
+		require.True(t, ok)
+		assert.Len(t, files, 1)
 	}
 	assert.True(t, found)
 }
@@ -118,7 +119,7 @@ func TestReader_Checklist(t *testing.T) {
 			{ID: "lessons_documented", Checked: false, Notes: "Pending follow-up"},
 		},
 	}
-	storeJSON(t, ctx, backend, "soc2/incident_response_test/2026/evidence.json", submitted)
+	storeJSON(ctx, t, backend, "soc2/incident_response_test/2026/evidence.json", submitted)
 
 	reader := NewReader(backend, catalog, "soc2")
 	result, err := reader.Read(ctx, state, now)
@@ -126,15 +127,16 @@ func TestReader_Checklist(t *testing.T) {
 
 	var found bool
 	for _, ev := range result.Evidence {
-		if ev.ResourceType == "manual:incident_response_test" {
-			found = true
-			var data map[string]interface{}
-			require.NoError(t, json.Unmarshal(ev.Data, &data))
-			assert.Equal(t, "uploaded", data["status"])
-			items, ok := data["items"].([]interface{})
-			require.True(t, ok)
-			assert.Len(t, items, 4)
+		if ev.ResourceType != "manual:incident_response_test" {
+			continue
 		}
+		found = true
+		var data map[string]interface{}
+		require.NoError(t, json.Unmarshal(ev.Data, &data))
+		assert.Equal(t, "uploaded", data["status"])
+		items, ok := data["items"].([]interface{})
+		require.True(t, ok)
+		assert.Len(t, items, 4)
 	}
 	assert.True(t, found)
 }
@@ -156,7 +158,7 @@ func TestReader_Declaration(t *testing.T) {
 		DeclarationText: "I confirm the risk assessment is complete.",
 		Accepted:        &accepted,
 	}
-	storeJSON(t, ctx, backend, "soc2/risk_acceptance_signoff/2026-Q1/evidence.json", submitted)
+	storeJSON(ctx, t, backend, "soc2/risk_acceptance_signoff/2026-Q1/evidence.json", submitted)
 
 	reader := NewReader(backend, catalog, "soc2")
 	result, err := reader.Read(ctx, state, now)
@@ -164,13 +166,14 @@ func TestReader_Declaration(t *testing.T) {
 
 	var found bool
 	for _, ev := range result.Evidence {
-		if ev.ResourceType == "manual:risk_acceptance_signoff" {
-			found = true
-			var data map[string]interface{}
-			require.NoError(t, json.Unmarshal(ev.Data, &data))
-			assert.Equal(t, "uploaded", data["status"])
-			assert.Equal(t, true, data["accepted"])
+		if ev.ResourceType != "manual:risk_acceptance_signoff" {
+			continue
 		}
+		found = true
+		var data map[string]interface{}
+		require.NoError(t, json.Unmarshal(ev.Data, &data))
+		assert.Equal(t, "uploaded", data["status"])
+		assert.Equal(t, true, data["accepted"])
 	}
 	assert.True(t, found)
 }

@@ -154,7 +154,7 @@ func TestComputeTemporalStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ComputeTemporalStatus(period, tt.now, tt.hasEvidence)
+			got := ComputeTemporalStatus(&period, tt.now, tt.hasEvidence)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -168,13 +168,13 @@ func TestValidateUploadTime(t *testing.T) {
 	}
 
 	// Retrospective: must be within [start, graceEnd]
-	assert.NoError(t, ValidateUploadTime(period, time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC), TemporalRuleRetrospective))
-	assert.NoError(t, ValidateUploadTime(period, time.Date(2026, 4, 10, 0, 0, 0, 0, time.UTC), TemporalRuleRetrospective))
-	assert.Error(t, ValidateUploadTime(period, time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC), TemporalRuleRetrospective))
-	assert.Error(t, ValidateUploadTime(period, time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC), TemporalRuleRetrospective))
+	assert.NoError(t, ValidateUploadTime(&period, time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC), TemporalRuleRetrospective))
+	assert.NoError(t, ValidateUploadTime(&period, time.Date(2026, 4, 10, 0, 0, 0, 0, time.UTC), TemporalRuleRetrospective))
+	assert.Error(t, ValidateUploadTime(&period, time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC), TemporalRuleRetrospective))
+	assert.Error(t, ValidateUploadTime(&period, time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC), TemporalRuleRetrospective))
 
 	// Anytime: must be before graceEnd
-	assert.NoError(t, ValidateUploadTime(period, time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC), TemporalRuleAnytime))
-	assert.NoError(t, ValidateUploadTime(period, time.Date(2026, 4, 10, 0, 0, 0, 0, time.UTC), TemporalRuleAnytime))
-	assert.Error(t, ValidateUploadTime(period, time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC), TemporalRuleAnytime))
+	assert.NoError(t, ValidateUploadTime(&period, time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC), TemporalRuleAnytime))
+	assert.NoError(t, ValidateUploadTime(&period, time.Date(2026, 4, 10, 0, 0, 0, 0, time.UTC), TemporalRuleAnytime))
+	assert.Error(t, ValidateUploadTime(&period, time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC), TemporalRuleAnytime))
 }

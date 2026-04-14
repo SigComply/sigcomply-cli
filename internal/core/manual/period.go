@@ -18,6 +18,7 @@ type Period struct {
 // TemporalStatus indicates whether evidence is due, overdue, or not yet required.
 type TemporalStatus string
 
+// TemporalStatus constants describe whether evidence is due, within window, or overdue.
 const (
 	TemporalStatusNotYetDue    TemporalStatus = "not_yet_due"
 	TemporalStatusWithinWindow TemporalStatus = "within_window"
@@ -103,7 +104,7 @@ func ParseGracePeriod(s string) (time.Duration, error) {
 }
 
 // ComputeTemporalStatus determines whether evidence is due, overdue, or not yet required.
-func ComputeTemporalStatus(period Period, now time.Time, hasEvidence bool) TemporalStatus {
+func ComputeTemporalStatus(period *Period, now time.Time, hasEvidence bool) TemporalStatus {
 	if hasEvidence {
 		return TemporalStatusWithinWindow
 	}
@@ -120,7 +121,7 @@ func ComputeTemporalStatus(period Period, now time.Time, hasEvidence bool) Tempo
 }
 
 // ValidateUploadTime checks if evidence was uploaded within a valid time for the period.
-func ValidateUploadTime(period Period, uploadedAt time.Time, rule TemporalRule) error {
+func ValidateUploadTime(period *Period, uploadedAt time.Time, rule TemporalRule) error {
 	switch rule {
 	case TemporalRuleAnytime:
 		// Evidence can be uploaded at any time, as long as it's not after grace period ends

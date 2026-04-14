@@ -29,8 +29,9 @@ import (
 )
 
 const (
-	backendLocal = "local"
-	backendS3    = "s3"
+	backendLocal  = "local"
+	backendS3     = "s3"
+	frameworkSOC2 = "soc2"
 )
 
 var (
@@ -640,7 +641,7 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 // getFramework returns the framework instance for the given config.
 func getFramework(cfg *config.Config) (engine.Framework, error) {
 	switch cfg.Framework {
-	case "soc2":
+	case frameworkSOC2:
 		return soc2.New(), nil
 	case "iso27001":
 		return iso27001.New(), nil
@@ -889,7 +890,7 @@ func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidenc
 }
 
 // collectManualEvidence reads manual evidence from storage and returns evidence items for OPA.
-func collectManualEvidence(ctx context.Context, cfg *config.Config, framework engine.Framework) ([]evidence.Evidence, error) {
+func collectManualEvidence(ctx context.Context, cfg *config.Config, framework engine.Framework) (evs []evidence.Evidence, err error) {
 	if !cfg.ManualEvidence.Enabled {
 		return nil, nil
 	}
@@ -910,10 +911,12 @@ func collectManualEvidence(ctx context.Context, cfg *config.Config, framework en
 		return nil, fmt.Errorf("failed to create manual evidence storage backend: %w", err)
 	}
 	defer func() {
-		_ = backend.Close()
+		if closeErr := backend.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
 	}()
 
-	if err := backend.Init(ctx); err != nil {
+	if err = backend.Init(ctx); err != nil {
 		return nil, fmt.Errorf("failed to initialize manual evidence storage: %w", err)
 	}
 
@@ -950,7 +953,9 @@ func updateManualExecutionState(ctx context.Context, cfg *config.Config, framewo
 		return
 	}
 	defer func() {
-		_ = backend.Close()
+		if closeErr := backend.Close(); closeErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to close manual evidence backend: %v\n", closeErr)
+		}
 	}()
 
 	if err := backend.Init(ctx); err != nil {
@@ -964,8 +969,15 @@ func updateManualExecutionState(ctx context.Context, cfg *config.Config, framewo
 	}
 
 	state.Framework = cfg.Framework
+	recordManualAttestations(state, catalog, checkResult)
 
-	// Record attestation for manual policy results
+	if saveErr := state.Save(ctx, backend, statePath); saveErr != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to save execution state: %v\n", saveErr)
+	}
+}
+
+// recordManualAttestations records attestation status for manual policy results into state.
+func recordManualAttestations(state *manual.ExecutionState, catalog *manual.Catalog, checkResult *evidence.CheckResult) {
 	for i := range checkResult.PolicyResults {
 		pr := &checkResult.PolicyResults[i]
 		if len(pr.ResourceTypes) == 0 {
@@ -980,8 +992,8 @@ func updateManualExecutionState(ctx context.Context, cfg *config.Config, framewo
 			if entry == nil {
 				continue
 			}
-			period, err := manual.CurrentPeriod(entry.Frequency, time.Now(), entry.GracePeriod)
-			if err != nil {
+			period, periodErr := manual.CurrentPeriod(entry.Frequency, time.Now(), entry.GracePeriod)
+			if periodErr != nil {
 				continue
 			}
 			status := "attested"
@@ -991,8 +1003,6 @@ func updateManualExecutionState(ctx context.Context, cfg *config.Config, framewo
 			state.RecordAttestation(evidenceID, period.Key, checkResult.RunID, status, nil)
 		}
 	}
-
-	_ = state.Save(ctx, backend, statePath)
 }
 
 // cloudSubmitResult is used for JSON output of cloud submission results.

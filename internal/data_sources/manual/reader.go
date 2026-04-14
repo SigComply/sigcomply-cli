@@ -58,12 +58,12 @@ func NewReader(backend storage.Backend, catalog *manualPkg.Catalog, framework st
 func (r *Reader) Read(ctx context.Context, state *manualPkg.ExecutionState, now time.Time) (*ReadResult, error) {
 	result := &ReadResult{}
 
-	for _, entry := range r.catalog.Entries {
-		ev, entryStatus, readErr := r.readEntry(ctx, entry, state, now)
+	for i := range r.catalog.Entries {
+		ev, entryStatus, readErr := r.readEntry(ctx, &r.catalog.Entries[i], state, now)
 		result.Status = append(result.Status, entryStatus)
 		if readErr != nil {
 			result.Errors = append(result.Errors, ReadError{
-				EvidenceID: entry.ID,
+				EvidenceID: r.catalog.Entries[i].ID,
 				Err:        readErr.Error(),
 			})
 			continue
@@ -74,7 +74,7 @@ func (r *Reader) Read(ctx context.Context, state *manualPkg.ExecutionState, now 
 	return result, nil
 }
 
-func (r *Reader) readEntry(ctx context.Context, entry manualPkg.CatalogEntry, state *manualPkg.ExecutionState, now time.Time) (evidence.Evidence, EntryStatus, error) {
+func (r *Reader) readEntry(ctx context.Context, entry *manualPkg.CatalogEntry, state *manualPkg.ExecutionState, now time.Time) (evidence.Evidence, EntryStatus, error) {
 	period, err := manualPkg.CurrentPeriod(entry.Frequency, now, entry.GracePeriod)
 	if err != nil {
 		return evidence.Evidence{}, EntryStatus{EvidenceID: entry.ID}, fmt.Errorf("period computation: %w", err)
@@ -104,7 +104,7 @@ func (r *Reader) readEntry(ctx context.Context, entry manualPkg.CatalogEntry, st
 			return evidence.Evidence{}, status, fmt.Errorf("storage error: %w", getErr)
 		}
 
-		temporalStatus := manualPkg.ComputeTemporalStatus(period, now, false)
+		temporalStatus := manualPkg.ComputeTemporalStatus(&period, now, false)
 		status.TemporalStatus = string(temporalStatus)
 		status.HasEvidence = false
 
@@ -115,7 +115,10 @@ func (r *Reader) readEntry(ctx context.Context, entry manualPkg.CatalogEntry, st
 			"period":          period.Key,
 			"temporal_status": string(temporalStatus),
 		}
-		jsonData, _ := json.Marshal(opaData)
+		jsonData, marshalErr := json.Marshal(opaData)
+		if marshalErr != nil {
+			return evidence.Evidence{}, status, fmt.Errorf("marshal OPA data: %w", marshalErr)
+		}
 
 		ev := evidence.New("manual", "manual:"+entry.ID, entry.ID+"/"+period.Key, jsonData)
 		return ev, status, nil
@@ -128,21 +131,21 @@ func (r *Reader) readEntry(ctx context.Context, entry manualPkg.CatalogEntry, st
 	}
 
 	status.HasEvidence = true
-	temporalStatus := manualPkg.ComputeTemporalStatus(period, now, true)
+	temporalStatus := manualPkg.ComputeTemporalStatus(&period, now, true)
 	status.TemporalStatus = string(temporalStatus)
 
 	// Build OPA evidence data based on type
-	opaData, err := r.buildOPAData(ctx, entry, submitted, period, temporalStatus)
-	if err != nil {
-		return evidence.Evidence{}, status, err
-	}
+	opaData := r.buildOPAData(ctx, entry, &submitted, &period, temporalStatus)
 
-	jsonData, _ := json.Marshal(opaData)
+	jsonData, marshalErr := json.Marshal(opaData)
+	if marshalErr != nil {
+		return evidence.Evidence{}, status, fmt.Errorf("marshal OPA data: %w", marshalErr)
+	}
 	ev := evidence.New("manual", "manual:"+entry.ID, entry.ID+"/"+period.Key, jsonData)
 	return ev, status, nil
 }
 
-func (r *Reader) buildOPAData(ctx context.Context, entry manualPkg.CatalogEntry, submitted manualPkg.SubmittedEvidence, period manualPkg.Period, temporalStatus manualPkg.TemporalStatus) (map[string]interface{}, error) {
+func (r *Reader) buildOPAData(ctx context.Context, entry *manualPkg.CatalogEntry, submitted *manualPkg.SubmittedEvidence, period *manualPkg.Period, temporalStatus manualPkg.TemporalStatus) map[string]interface{} {
 	opaData := map[string]interface{}{
 		"evidence_id":     entry.ID,
 		"type":            string(entry.Type),
@@ -188,11 +191,11 @@ func (r *Reader) buildOPAData(ctx context.Context, entry manualPkg.CatalogEntry,
 		}
 	}
 
-	return opaData, nil
+	return opaData
 }
 
-func (r *Reader) verifyAttachments(ctx context.Context, entry manualPkg.CatalogEntry, submitted manualPkg.SubmittedEvidence, period manualPkg.Period) ([]map[string]interface{}, error) {
-	var files []map[string]interface{}
+func (r *Reader) verifyAttachments(ctx context.Context, entry *manualPkg.CatalogEntry, submitted *manualPkg.SubmittedEvidence, period *manualPkg.Period) ([]map[string]interface{}, error) {
+	files := make([]map[string]interface{}, 0, len(submitted.Attachments))
 	var verifyErr error
 
 	for _, attachment := range submitted.Attachments {

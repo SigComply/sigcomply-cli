@@ -19,7 +19,7 @@ import (
 func TestEvidenceInit_CreatesFolders(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfg := config.New()
-	cfg.Framework = "soc2"
+	cfg.Framework = frameworkSOC2
 	cfg.Storage.Backend = "local"
 	cfg.Storage.Path = tmpDir
 	cfg.ManualEvidence.Enabled = true
@@ -42,18 +42,18 @@ func TestEvidenceInit_CreatesExecutionState(t *testing.T) {
 	backend := storage.NewLocalBackend(&storage.LocalConfig{Path: manualDir})
 	require.NoError(t, backend.Init(context.Background()))
 
-	state := manual.NewExecutionState("soc2")
-	statePath := filepath.Join("soc2", "execution-state.json")
+	state := manual.NewExecutionState(frameworkSOC2)
+	statePath := filepath.Join(frameworkSOC2, "execution-state.json")
 	require.NoError(t, state.Save(context.Background(), backend, statePath))
 
 	// Load it back
 	loaded, err := manual.LoadState(context.Background(), backend, statePath)
 	require.NoError(t, err)
-	assert.Equal(t, "soc2", loaded.Framework)
+	assert.Equal(t, frameworkSOC2, loaded.Framework)
 }
 
 func TestEvidenceCatalog_JSONOutput(t *testing.T) {
-	catalog, err := manual.LoadCatalog("soc2")
+	catalog, err := manual.LoadCatalog(frameworkSOC2)
 	require.NoError(t, err)
 
 	var buf bytes.Buffer
@@ -64,7 +64,7 @@ func TestEvidenceCatalog_JSONOutput(t *testing.T) {
 	var decoded manual.Catalog
 	require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
 
-	assert.Equal(t, "soc2", decoded.Framework)
+	assert.Equal(t, frameworkSOC2, decoded.Framework)
 	assert.GreaterOrEqual(t, len(decoded.Entries), 4)
 }
 
@@ -76,7 +76,7 @@ func TestBuildManualStorageConfig_Local(t *testing.T) {
 
 	storageCfg := buildManualStorageConfig(cfg)
 	assert.Equal(t, "local", storageCfg.Backend)
-	assert.Equal(t, filepath.Join("/tmp/evidence", "manual-evidence"), storageCfg.Local.Path)
+	assert.Equal(t, "/tmp/evidence/manual-evidence", storageCfg.Local.Path)
 }
 
 func TestEvidenceSchema_ValidJSONSchema(t *testing.T) {

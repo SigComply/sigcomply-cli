@@ -45,6 +45,11 @@ func setupCommands() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(checkCmd)
 
+	evidenceInitCmd.Flags().StringVar(&flagEvidenceConfig, "config", "", "Path to config file")
+	evidenceCatalogCmd.Flags().StringVar(&flagEvidenceConfig, "config", "", "Path to config file")
+	evidenceCatalogCmd.Flags().StringVarP(&flagEvidenceOutput, "output", "o", "text", "Output format (text, json)")
+	evidenceSchemaCmd.Flags().StringVar(&flagEvidenceConfig, "config", "", "Path to config file")
+
 	evidenceCmd.AddCommand(evidenceInitCmd)
 	evidenceCmd.AddCommand(evidenceCatalogCmd)
 	evidenceCmd.AddCommand(evidenceSchemaCmd)

@@ -83,14 +83,16 @@ func (f *Framework) Policies() []engine.PolicySource {
 	var allPaths []string
 	allFiles := make(map[string]bool) // set of all .rego base names
 
-	_ = fs.WalkDir(policiesFS, "policies", func(path string, d fs.DirEntry, err error) error {
+	if walkErr := fs.WalkDir(policiesFS, "policies", func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".rego") {
 			return err
 		}
 		allPaths = append(allPaths, path)
 		allFiles[filepath.Base(path)] = true
 		return nil
-	})
+	}); walkErr != nil {
+		return nil
+	}
 
 	var policies []engine.PolicySource
 	for _, path := range allPaths {
