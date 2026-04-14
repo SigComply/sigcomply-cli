@@ -1,0 +1,54 @@
+# lefthook.yml
+# Git hooks for SigComply CLI
+#
+# Install:   lefthook install
+#   (brew install lefthook  or  go install github.com/evilmartians/lefthook@latest)
+#
+# Skip all hooks for one command:
+#   LEFTHOOK=0 git commit
+#   LEFTHOOK=0 git push
+#
+# Skip a specific hook by name:
+#   LEFTHOOK_EXCLUDE=lint git push
+
+# ── Pre-commit ──────────────────────────────────────────────────────────────
+# Fast checks on staged files only. Keeps commits quick.
+pre-commit:
+  parallel: true
+  commands:
+    fmt:
+      name: Go format check
+      glob: "*.go"
+      run: |
+        bad=$(gofmt -l {staged_files})
+        test -z "$bad" || { echo "Unformatted files -- run 'make fmt'"; echo "$bad"; exit 1; }
+
+    vet:
+      name: Go vet
+      glob: "*.go"
+      run: go vet ./...
+
+    secrets:
+      name: Gitleaks (staged changes)
+      run: gitleaks protect --staged --config .gitleaks.toml --redact
+
+# ── Pre-push ─────────────────────────────────────────────────────────────────
+# Heavier checks before pushing. Runs in parallel to keep wall-clock time low.
+pre-push:
+  parallel: true
+  commands:
+    lint:
+      name: golangci-lint
+      run: golangci-lint run ./...
+
+    test:
+      name: Unit tests
+      run: go test -short -race ./...
+
+    test-policy:
+      name: OPA policy tests
+      run: make test-policy
+
+    secrets:
+      name: Gitleaks (full scan)
+      run: gitleaks detect --config .gitleaks.toml --source . --redact

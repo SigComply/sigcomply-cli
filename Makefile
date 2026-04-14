@@ -41,6 +41,10 @@ build-all: ## Build for all platforms
 install: build ## Install binary to GOPATH/bin
 	cp $(BUILD_DIR)/$(BINARY_NAME) $(GOPATH)/bin/
 
+.PHONY: hooks-install
+hooks-install: ## Install git hooks via lefthook
+	lefthook install
+
 .PHONY: clean
 clean: ## Clean build artifacts
 	rm -rf $(BUILD_DIR)
@@ -66,7 +70,9 @@ test-coverage: ## Run unit tests with coverage report
 
 .PHONY: test-policy
 test-policy: ## Run OPA policy tests
-	@if [ -d "internal/compliance_frameworks/soc2/policies" ]; then \
+	@if ! command -v opa > /dev/null 2>&1; then \
+		echo "opa not installed - skipping policy tests"; \
+	elif [ -d "internal/compliance_frameworks/soc2/policies" ]; then \
 		opa test internal/compliance_frameworks/soc2/policies/ -v; \
 	else \
 		echo "No policies directory found yet - skipping"; \
@@ -173,6 +179,7 @@ tools: ## Install development tools
 	go install github.com/sonatype-nexus-community/nancy@latest
 	go install github.com/securego/gosec/v2/cmd/gosec@latest
 	go install github.com/anchore/syft/cmd/syft@latest
+	go install github.com/evilmartians/lefthook@latest
 
 ##@ CI/CD
 
