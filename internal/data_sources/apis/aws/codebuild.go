@@ -47,6 +47,7 @@ func NewCodeBuildCollector(client CodeBuildClient) *CodeBuildCollector {
 }
 
 // CollectProjects retrieves all CodeBuild projects.
+//
 //nolint:gocyclo // AWS API response mapping requires sequential field extraction
 func (c *CodeBuildCollector) CollectProjects(ctx context.Context) ([]CodeBuildProject, error) {
 	var projects []CodeBuildProject

@@ -18,27 +18,27 @@ type LambdaClient interface {
 
 // LambdaFunction represents a Lambda function with security configuration.
 type LambdaFunction struct {
-	Name               string `json:"name"`
-	ARN                string `json:"arn"`
-	Runtime            string `json:"runtime"`
-	RuntimeDeprecated  bool `json:"runtime_deprecated"`
-	VPCConfigured      bool `json:"vpc_configured"`
-	HasDLQ               bool `json:"has_dlq"`
-	PubliclyAccessible   bool `json:"publicly_accessible"`
-	CodeSigningEnabled   bool `json:"code_signing_enabled"`
-	ReservedConcurrency  int  `json:"reserved_concurrency"`
-	TracingMode          string `json:"tracing_mode"`
+	Name                string `json:"name"`
+	ARN                 string `json:"arn"`
+	Runtime             string `json:"runtime"`
+	RuntimeDeprecated   bool   `json:"runtime_deprecated"`
+	VPCConfigured       bool   `json:"vpc_configured"`
+	HasDLQ              bool   `json:"has_dlq"`
+	PubliclyAccessible  bool   `json:"publicly_accessible"`
+	CodeSigningEnabled  bool   `json:"code_signing_enabled"`
+	ReservedConcurrency int    `json:"reserved_concurrency"`
+	TracingMode         string `json:"tracing_mode"`
 }
 
 // deprecatedRuntimes lists known deprecated Lambda runtimes.
 var deprecatedRuntimes = map[string]bool{
-	"python2.7":    true,
-	"python3.6":    true,
-	"python3.7":    true,
-	"python3.8":    true,
-	"nodejs10.x":   true,
-	"nodejs12.x":   true,
-	"nodejs14.x":   true,
+	"python2.7":     true,
+	"python3.6":     true,
+	"python3.7":     true,
+	"python3.8":     true,
+	"nodejs10.x":    true,
+	"nodejs12.x":    true,
+	"nodejs14.x":    true,
 	"dotnetcore2.1": true,
 	"dotnetcore3.1": true,
 	"dotnet5.0":     true,
@@ -90,7 +90,7 @@ func (c *LambdaCollector) CollectFunctions(ctx context.Context) ([]LambdaFunctio
 			f.VPCConfigured = fn.VpcConfig != nil && len(fn.VpcConfig.SubnetIds) > 0
 			f.HasDLQ = fn.DeadLetterConfig != nil && awssdk.ToString(fn.DeadLetterConfig.TargetArn) != ""
 			f.CodeSigningEnabled = false // Not available in ListFunctions, would need GetFunction
-			f.ReservedConcurrency = -1  // Not available in ListFunctions, would need GetFunctionConcurrency
+			f.ReservedConcurrency = -1   // Not available in ListFunctions, would need GetFunctionConcurrency
 
 			if fn.TracingConfig != nil {
 				f.TracingMode = string(fn.TracingConfig.Mode)

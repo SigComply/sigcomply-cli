@@ -56,10 +56,10 @@ func TestAutoScalingCollector_CollectGroups(t *testing.T) {
 			return &autoscaling.DescribeLaunchConfigurationsOutput{
 				LaunchConfigurations: []autoscalingtypes.LaunchConfiguration{
 					{
-						LaunchConfigurationName: awssdk.String("dev-lc"),
+						LaunchConfigurationName:  awssdk.String("dev-lc"),
 						AssociatePublicIpAddress: awssdk.Bool(true),
-						ImageId:      awssdk.String("ami-12345"),
-						InstanceType: awssdk.String("t3.micro"),
+						ImageId:                  awssdk.String("ami-12345"),
+						InstanceType:             awssdk.String("t3.micro"),
 					},
 				},
 			}, nil

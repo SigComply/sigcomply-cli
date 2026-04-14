@@ -18,17 +18,17 @@ type GuardDutyClient interface {
 
 // GuardDutyStatus represents the GuardDuty detector status.
 type GuardDutyStatus struct {
-	Enabled                bool   `json:"enabled"`
-	DetectorID             string `json:"detector_id,omitempty"`
-	Status                 string `json:"status,omitempty"`
-	DetectorCount          int    `json:"detector_count"`
-	Region                 string `json:"region"`
-	S3ProtectionEnabled    bool   `json:"s3_protection_enabled"`
-	EKSProtectionEnabled   bool   `json:"eks_protection_enabled"`
-	LambdaProtectionEnabled bool  `json:"lambda_protection_enabled"`
-	RDSProtectionEnabled   bool   `json:"rds_protection_enabled"`
-	RuntimeMonitoringEnabled bool `json:"runtime_monitoring_enabled"`
-	MalwareProtectionEnabled bool `json:"malware_protection_enabled"`
+	Enabled                  bool   `json:"enabled"`
+	DetectorID               string `json:"detector_id,omitempty"`
+	Status                   string `json:"status,omitempty"`
+	DetectorCount            int    `json:"detector_count"`
+	Region                   string `json:"region"`
+	S3ProtectionEnabled      bool   `json:"s3_protection_enabled"`
+	EKSProtectionEnabled     bool   `json:"eks_protection_enabled"`
+	LambdaProtectionEnabled  bool   `json:"lambda_protection_enabled"`
+	RDSProtectionEnabled     bool   `json:"rds_protection_enabled"`
+	RuntimeMonitoringEnabled bool   `json:"runtime_monitoring_enabled"`
+	MalwareProtectionEnabled bool   `json:"malware_protection_enabled"`
 }
 
 // ToEvidence converts a GuardDutyStatus to Evidence.

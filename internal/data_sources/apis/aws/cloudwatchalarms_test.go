@@ -22,13 +22,13 @@ func (m *MockCloudWatchAlarmsClient) DescribeAlarms(ctx context.Context, params 
 
 func TestCloudWatchAlarmsCollector_CollectAlarmConfig(t *testing.T) {
 	tests := []struct {
-		name                string
-		alarms              []cwtypes.MetricAlarm
-		err                 error
-		wantAllConfigured   bool
-		wantUnauthorized    bool
-		wantRoot            bool
-		wantSignIn          bool
+		name              string
+		alarms            []cwtypes.MetricAlarm
+		err               error
+		wantAllConfigured bool
+		wantUnauthorized  bool
+		wantRoot          bool
+		wantSignIn        bool
 	}{
 		{
 			name: "all critical alarms configured",

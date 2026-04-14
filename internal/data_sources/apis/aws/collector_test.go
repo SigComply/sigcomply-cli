@@ -26,9 +26,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/macie2"
 	macietypes "github.com/aws/aws-sdk-go-v2/service/macie2/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3control"
 	s3controltypes "github.com/aws/aws-sdk-go-v2/service/s3control/types"
-	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	smtypes "github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/aws/aws-sdk-go-v2/service/securityhub"
@@ -553,7 +553,7 @@ func TestCollector_collectDynamoDB(t *testing.T) {
 							TableName: aws.String("my-table"),
 							TableArn:  aws.String("arn:aws:dynamodb:us-east-1:123:table/my-table"),
 							SSEDescription: &dbtypes.SSEDescription{
-								Status: dbtypes.SSEStatusEnabled,
+								Status:  dbtypes.SSEStatusEnabled,
 								SSEType: dbtypes.SSETypeKms,
 							},
 						},

@@ -18,20 +18,20 @@ type CloudWatchAlarmsClient interface {
 
 // CloudWatchAlarmConfig represents the security alarm configuration.
 type CloudWatchAlarmConfig struct {
-	AlarmCount                  int  `json:"alarm_count"`
-	HasUnauthorizedAPICalls     bool `json:"has_unauthorized_api_calls"`
-	HasRootUsage                bool `json:"has_root_usage"`
-	HasConsoleSignInFailures    bool `json:"has_console_sign_in_failures"`
-	HasConsoleSignInNoMFA       bool `json:"has_console_signin_no_mfa"`
-	HasIAMPolicyChanges         bool `json:"has_iam_policy_changes"`
-	HasCloudTrailConfigChanges  bool `json:"has_cloudtrail_config_changes"`
-	HasCMKDisableDeletion       bool `json:"has_cmk_disable_deletion"`
-	HasS3BucketPolicyChanges    bool `json:"has_s3_bucket_policy_changes"`
-	HasConfigChanges            bool `json:"has_config_changes"`
-	HasSecurityGroupChanges     bool `json:"has_security_group_changes"`
-	HasNACLChanges              bool `json:"has_nacl_changes"`
-	HasNetworkGatewayChanges    bool `json:"has_network_gateway_changes"`
-	HasRouteTableChanges        bool `json:"has_route_table_changes"`
+	AlarmCount                  int    `json:"alarm_count"`
+	HasUnauthorizedAPICalls     bool   `json:"has_unauthorized_api_calls"`
+	HasRootUsage                bool   `json:"has_root_usage"`
+	HasConsoleSignInFailures    bool   `json:"has_console_sign_in_failures"`
+	HasConsoleSignInNoMFA       bool   `json:"has_console_signin_no_mfa"`
+	HasIAMPolicyChanges         bool   `json:"has_iam_policy_changes"`
+	HasCloudTrailConfigChanges  bool   `json:"has_cloudtrail_config_changes"`
+	HasCMKDisableDeletion       bool   `json:"has_cmk_disable_deletion"`
+	HasS3BucketPolicyChanges    bool   `json:"has_s3_bucket_policy_changes"`
+	HasConfigChanges            bool   `json:"has_config_changes"`
+	HasSecurityGroupChanges     bool   `json:"has_security_group_changes"`
+	HasNACLChanges              bool   `json:"has_nacl_changes"`
+	HasNetworkGatewayChanges    bool   `json:"has_network_gateway_changes"`
+	HasRouteTableChanges        bool   `json:"has_route_table_changes"`
 	HasVPCChanges               bool   `json:"has_vpc_changes"`
 	HasOrganizationsChanges     bool   `json:"has_organizations_changes"`
 	AllCriticalAlarmsConfigured bool   `json:"all_critical_alarms_configured"`
@@ -75,6 +75,7 @@ func NewCloudWatchAlarmsCollector(client CloudWatchAlarmsClient, region string) 
 }
 
 // CollectAlarmConfig retrieves and analyzes CloudWatch alarm configuration.
+//
 //nolint:gocyclo // AWS API response mapping requires sequential field extraction
 func (c *CloudWatchAlarmsCollector) CollectAlarmConfig(ctx context.Context) (*CloudWatchAlarmConfig, error) {
 	config := &CloudWatchAlarmConfig{Region: c.region}

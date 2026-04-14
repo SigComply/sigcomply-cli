@@ -12,31 +12,31 @@ import (
 
 // Repository represents a GitHub repository with its security settings.
 type Repository struct {
-	Name              string               `json:"name"`
-	FullName          string               `json:"full_name"`
-	Owner             string               `json:"owner"`
-	Private           bool                 `json:"private"`
-	DefaultBranch     string               `json:"default_branch"`
-	CreatedAt         time.Time            `json:"created_at"`
-	UpdatedAt         time.Time            `json:"updated_at"`
-	BranchProtection  *BranchProtection    `json:"branch_protection,omitempty"`
-	Archived          bool                 `json:"archived"`
-	Visibility        string               `json:"visibility"`
+	Name             string            `json:"name"`
+	FullName         string            `json:"full_name"`
+	Owner            string            `json:"owner"`
+	Private          bool              `json:"private"`
+	DefaultBranch    string            `json:"default_branch"`
+	CreatedAt        time.Time         `json:"created_at"`
+	UpdatedAt        time.Time         `json:"updated_at"`
+	BranchProtection *BranchProtection `json:"branch_protection,omitempty"`
+	Archived         bool              `json:"archived"`
+	Visibility       string            `json:"visibility"`
 }
 
 // BranchProtection represents branch protection settings.
 type BranchProtection struct {
-	Enabled                     bool `json:"enabled"`
-	RequirePullRequest          bool `json:"require_pull_request"`
-	RequiredReviewers           int  `json:"required_reviewers"`
-	DismissStaleReviews         bool `json:"dismiss_stale_reviews"`
-	RequireCodeOwnerReviews     bool `json:"require_code_owner_reviews"`
-	RequiredStatusChecks        bool `json:"required_status_checks"`
-	RequireLinearHistory        bool `json:"require_linear_history"`
-	AllowForcePushes            bool `json:"allow_force_pushes"`
-	AllowDeletions              bool `json:"allow_deletions"`
-	EnforceAdmins               bool `json:"enforce_admins"`
-	RequireSignedCommits        bool `json:"require_signed_commits"`
+	Enabled                       bool `json:"enabled"`
+	RequirePullRequest            bool `json:"require_pull_request"`
+	RequiredReviewers             int  `json:"required_reviewers"`
+	DismissStaleReviews           bool `json:"dismiss_stale_reviews"`
+	RequireCodeOwnerReviews       bool `json:"require_code_owner_reviews"`
+	RequiredStatusChecks          bool `json:"required_status_checks"`
+	RequireLinearHistory          bool `json:"require_linear_history"`
+	AllowForcePushes              bool `json:"allow_force_pushes"`
+	AllowDeletions                bool `json:"allow_deletions"`
+	EnforceAdmins                 bool `json:"enforce_admins"`
+	RequireSignedCommits          bool `json:"require_signed_commits"`
 	RequireConversationResolution bool `json:"require_conversation_resolution"`
 }
 

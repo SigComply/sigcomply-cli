@@ -18,11 +18,11 @@ type DynamoDBClient interface {
 
 // DynamoDBTable represents a DynamoDB table with security configuration.
 type DynamoDBTable struct {
-	Name           string `json:"name"`
-	ARN            string `json:"arn"`
-	EncryptionType string `json:"encryption_type,omitempty"`
-	SSEEnabled     bool   `json:"sse_enabled"`
-	PITREnabled    bool   `json:"pitr_enabled"`
+	Name               string `json:"name"`
+	ARN                string `json:"arn"`
+	EncryptionType     string `json:"encryption_type,omitempty"`
+	SSEEnabled         bool   `json:"sse_enabled"`
+	PITREnabled        bool   `json:"pitr_enabled"`
 	BillingMode        string `json:"billing_mode,omitempty"`
 	DeletionProtection bool   `json:"deletion_protection"`
 }

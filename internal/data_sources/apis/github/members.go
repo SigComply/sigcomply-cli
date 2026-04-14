@@ -11,13 +11,13 @@ import (
 
 // Member represents a GitHub organization member.
 type Member struct {
-	Login             string `json:"login"`
-	ID                int64  `json:"id"`
-	Type              string `json:"type"`
-	SiteAdmin         bool   `json:"site_admin"`
-	Organization      string `json:"organization"`
-	Role              string `json:"role,omitempty"`
-	TwoFactorEnabled  *bool  `json:"two_factor_enabled,omitempty"`
+	Login            string `json:"login"`
+	ID               int64  `json:"id"`
+	Type             string `json:"type"`
+	SiteAdmin        bool   `json:"site_admin"`
+	Organization     string `json:"organization"`
+	Role             string `json:"role,omitempty"`
+	TwoFactorEnabled *bool  `json:"two_factor_enabled,omitempty"`
 }
 
 // ToEvidence converts a Member to an Evidence struct.

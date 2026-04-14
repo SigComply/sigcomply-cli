@@ -316,7 +316,7 @@ func TestConvertBranchProtection(t *testing.T) {
 				},
 			},
 			expected: &BranchProtection{
-				Enabled:      true,
+				Enabled:       true,
 				EnforceAdmins: false,
 			},
 		},
@@ -328,9 +328,9 @@ func TestConvertBranchProtection(t *testing.T) {
 				},
 			},
 			expected: &BranchProtection{
-				Enabled:           true,
+				Enabled:            true,
 				RequirePullRequest: true,
-				RequiredReviewers: 1,
+				RequiredReviewers:  1,
 			},
 		},
 	}

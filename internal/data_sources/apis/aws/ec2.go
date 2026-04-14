@@ -36,14 +36,14 @@ type EC2Client interface { //nolint:dupl // interface definition, mock struct in
 
 // SecurityGroup represents an EC2 security group.
 type SecurityGroup struct {
-	GroupID      string           `json:"group_id"`
-	GroupName    string           `json:"group_name"`
-	Description  string           `json:"description"`
-	VPCID       string           `json:"vpc_id"`
-	IngressRules []SGRule         `json:"ingress_rules,omitempty"`
-	OpenSSH      bool             `json:"open_ssh"`
-	OpenRDP      bool             `json:"open_rdp"`
-	OpenToAll    bool             `json:"open_to_all"`
+	GroupID      string   `json:"group_id"`
+	GroupName    string   `json:"group_name"`
+	Description  string   `json:"description"`
+	VPCID        string   `json:"vpc_id"`
+	IngressRules []SGRule `json:"ingress_rules,omitempty"`
+	OpenSSH      bool     `json:"open_ssh"`
+	OpenRDP      bool     `json:"open_rdp"`
+	OpenToAll    bool     `json:"open_to_all"`
 }
 
 // SGRule represents a security group ingress rule.
@@ -56,10 +56,10 @@ type SGRule struct {
 
 // VPCInfo represents a VPC with flow log status.
 type VPCInfo struct {
-	VPCID          string `json:"vpc_id"`
-	IsDefault      bool   `json:"is_default"`
-	CIDRBlock      string `json:"cidr_block"`
-	FlowLogsEnabled bool  `json:"flow_logs_enabled"`
+	VPCID           string `json:"vpc_id"`
+	IsDefault       bool   `json:"is_default"`
+	CIDRBlock       string `json:"cidr_block"`
+	FlowLogsEnabled bool   `json:"flow_logs_enabled"`
 }
 
 // EBSEncryptionConfig represents the EBS default encryption configuration.
@@ -302,7 +302,7 @@ func (c *EC2Collector) CollectSecurityGroups(ctx context.Context) ([]SecurityGro
 			GroupID:     awssdk.ToString(sg.GroupId),
 			GroupName:   awssdk.ToString(sg.GroupName),
 			Description: awssdk.ToString(sg.Description),
-			VPCID:      awssdk.ToString(sg.VpcId),
+			VPCID:       awssdk.ToString(sg.VpcId),
 		}
 
 		for j := range sg.IpPermissions {
@@ -376,9 +376,9 @@ func (c *EC2Collector) CollectVPCs(ctx context.Context) ([]VPCInfo, error) {
 		vpc := &vpcsOutput.Vpcs[i]
 		vpcID := awssdk.ToString(vpc.VpcId)
 		v := VPCInfo{
-			VPCID:          vpcID,
-			IsDefault:      awssdk.ToBool(vpc.IsDefault),
-			CIDRBlock:      awssdk.ToString(vpc.CidrBlock),
+			VPCID:           vpcID,
+			IsDefault:       awssdk.ToBool(vpc.IsDefault),
+			CIDRBlock:       awssdk.ToString(vpc.CidrBlock),
 			FlowLogsEnabled: flowLogVPCs[vpcID],
 		}
 		vpcs = append(vpcs, v)
@@ -808,6 +808,7 @@ func (c *EC2Collector) CollectAccountSettings(ctx context.Context) (*EC2AccountS
 }
 
 // CollectEvidence collects all EC2 evidence.
+//
 //nolint:gocyclo // AWS API response mapping requires sequential field extraction
 func (c *EC2Collector) CollectEvidence(ctx context.Context, accountID string) ([]evidence.Evidence, error) {
 	var evidenceList []evidence.Evidence

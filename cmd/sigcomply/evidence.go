@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/engine"
 	"github.com/sigcomply/sigcomply-cli/internal/core/config"
 	"github.com/sigcomply/sigcomply-cli/internal/core/manual"
 	"github.com/sigcomply/sigcomply-cli/internal/core/storage"
+	"github.com/spf13/cobra"
 )
 
 var flagEvidenceConfig string
@@ -47,7 +47,6 @@ Use this during SPA build to keep frontend types in sync with what the CLI expec
   sigcomply evidence schema > src/schemas/submitted-evidence.schema.json`,
 	RunE: runEvidenceSchema,
 }
-
 
 func runEvidenceInit(cmd *cobra.Command, args []string) (err error) {
 	ctx := cmd.Context()

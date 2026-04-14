@@ -100,22 +100,22 @@ type Violation struct {
 
 // PolicyResult represents the outcome of evaluating a single policy.
 type PolicyResult struct {
-	PolicyID           string       `json:"policy_id"`
-	ControlID          string       `json:"control_id"`
-	Name               string       `json:"name"`
-	Status             ResultStatus `json:"status"`
-	Severity           Severity     `json:"severity"`
-	Message            string       `json:"message"`
-	Remediation        string       `json:"remediation,omitempty"`
+	PolicyID    string       `json:"policy_id"`
+	ControlID   string       `json:"control_id"`
+	Name        string       `json:"name"`
+	Status      ResultStatus `json:"status"`
+	Severity    Severity     `json:"severity"`
+	Message     string       `json:"message"`
+	Remediation string       `json:"remediation,omitempty"`
 	// Category is the dashboard grouping category for this policy.
 	// One of: access_control, data_protection, logging, network_security,
 	// vulnerability_management, configuration_management.
 	// Populated from Rego policy metadata when present; otherwise derived from ControlID.
-	Category           string       `json:"category,omitempty"`
-	ResourcesEvaluated int          `json:"resources_evaluated"`
-	ResourcesFailed    int          `json:"resources_failed"`
-	Violations         []Violation  `json:"violations,omitempty"`
-	ResourceTypes      []string     `json:"resource_types,omitempty"`
+	Category           string      `json:"category,omitempty"`
+	ResourcesEvaluated int         `json:"resources_evaluated"`
+	ResourcesFailed    int         `json:"resources_failed"`
+	Violations         []Violation `json:"violations,omitempty"`
+	ResourceTypes      []string    `json:"resource_types,omitempty"`
 }
 
 // HasViolations returns true if there are any violations.

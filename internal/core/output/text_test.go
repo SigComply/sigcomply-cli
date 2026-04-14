@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
 func TestTextFormatter_FormatPolicyResult_Pass(t *testing.T) {

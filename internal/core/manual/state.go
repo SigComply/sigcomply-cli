@@ -12,15 +12,15 @@ import (
 
 // ExecutionState tracks what manual evidence has been attested across runs.
 type ExecutionState struct {
-	SchemaVersion string                             `json:"schema_version"`
-	Framework     string                             `json:"framework"`
-	LastUpdated   time.Time                          `json:"last_updated"`
+	SchemaVersion string                      `json:"schema_version"`
+	Framework     string                      `json:"framework"`
+	LastUpdated   time.Time                   `json:"last_updated"`
 	Manual        map[string]map[string]Entry `json:"manual"` // evidence_id → period → entry
 }
 
 // Entry records the status of a single piece of manual evidence.
 type Entry struct {
-	Status       string            `json:"status"`                  // "uploaded", "attested"
+	Status       string            `json:"status"` // "uploaded", "attested"
 	Files        []string          `json:"files"`
 	FileHashes   map[string]string `json:"file_hashes"`
 	AttestedAt   *time.Time        `json:"attested_at,omitempty"`

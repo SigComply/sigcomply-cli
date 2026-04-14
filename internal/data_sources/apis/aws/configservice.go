@@ -19,10 +19,10 @@ type ConfigServiceClient interface {
 
 // ConfigRecorder represents an AWS Config recorder.
 type ConfigRecorder struct {
-	Name       string `json:"name"`
-	Recording  bool   `json:"recording"`
-	AllSupported bool `json:"all_supported"`
-	Region     string `json:"region"`
+	Name         string `json:"name"`
+	Recording    bool   `json:"recording"`
+	AllSupported bool   `json:"all_supported"`
+	Region       string `json:"region"`
 }
 
 // ConfigStatus represents the overall AWS Config status.

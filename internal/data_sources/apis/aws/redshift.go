@@ -20,16 +20,16 @@ type RedshiftClient interface {
 
 // RedshiftCluster represents a Redshift cluster.
 type RedshiftCluster struct {
-	ClusterID           string `json:"cluster_id"`
-	ARN                 string `json:"arn"`
-	Encrypted           bool   `json:"encrypted"`
-	PubliclyAccessible  bool   `json:"publicly_accessible"`
-	LoggingEnabled               bool   `json:"logging_enabled"`
-	KMSKeyID                     string `json:"kms_key_id,omitempty"`
-	RequireSSL                   bool   `json:"require_ssl"`
-	AutomatedSnapshotRetention   int    `json:"automated_snapshot_retention"`
-	MasterUsername               string `json:"master_username,omitempty"`
-	EnhancedVPCRouting           bool   `json:"enhanced_vpc_routing"`
+	ClusterID                  string `json:"cluster_id"`
+	ARN                        string `json:"arn"`
+	Encrypted                  bool   `json:"encrypted"`
+	PubliclyAccessible         bool   `json:"publicly_accessible"`
+	LoggingEnabled             bool   `json:"logging_enabled"`
+	KMSKeyID                   string `json:"kms_key_id,omitempty"`
+	RequireSSL                 bool   `json:"require_ssl"`
+	AutomatedSnapshotRetention int    `json:"automated_snapshot_retention"`
+	MasterUsername             string `json:"master_username,omitempty"`
+	EnhancedVPCRouting         bool   `json:"enhanced_vpc_routing"`
 }
 
 // ToEvidence converts a RedshiftCluster to Evidence.
@@ -67,7 +67,7 @@ func (c *RedshiftCollector) CollectClusters(ctx context.Context) ([]RedshiftClus
 			cl := &output.Clusters[i]
 			cluster := RedshiftCluster{
 				ClusterID:          awssdk.ToString(cl.ClusterIdentifier),
-				Encrypted:         awssdk.ToBool(cl.Encrypted),
+				Encrypted:          awssdk.ToBool(cl.Encrypted),
 				PubliclyAccessible: awssdk.ToBool(cl.PubliclyAccessible),
 			}
 

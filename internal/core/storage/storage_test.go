@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewBackend_Local(t *testing.T) {

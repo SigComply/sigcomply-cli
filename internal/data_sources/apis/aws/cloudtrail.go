@@ -19,20 +19,20 @@ type CloudTrailClient interface {
 
 // CloudTrailTrail represents a CloudTrail trail with its configuration.
 type CloudTrailTrail struct {
-	Name                string `json:"name"`
-	ARN                 string `json:"arn"`
-	HomeRegion          string `json:"home_region,omitempty"`
-	IsMultiRegion       bool   `json:"is_multi_region"`
-	IsOrganizationTrail bool   `json:"is_organization_trail"`
-	IsLogging           bool   `json:"is_logging"`
-	LogFileValidation   bool   `json:"log_file_validation"`
-	IncludeGlobalEvents bool   `json:"include_global_events"`
-	S3BucketName         string `json:"s3_bucket_name"`
-	KMSKeyID                string `json:"kms_key_id,omitempty"`
-	CloudWatchLogsConfigured bool  `json:"cloudwatch_logs_configured"`
-	SNSTopicConfigured       bool  `json:"sns_topic_configured"`
-	HasS3DataEvents          bool  `json:"has_s3_data_events"`
-	HasLambdaDataEvents      bool  `json:"has_lambda_data_events"`
+	Name                     string `json:"name"`
+	ARN                      string `json:"arn"`
+	HomeRegion               string `json:"home_region,omitempty"`
+	IsMultiRegion            bool   `json:"is_multi_region"`
+	IsOrganizationTrail      bool   `json:"is_organization_trail"`
+	IsLogging                bool   `json:"is_logging"`
+	LogFileValidation        bool   `json:"log_file_validation"`
+	IncludeGlobalEvents      bool   `json:"include_global_events"`
+	S3BucketName             string `json:"s3_bucket_name"`
+	KMSKeyID                 string `json:"kms_key_id,omitempty"`
+	CloudWatchLogsConfigured bool   `json:"cloudwatch_logs_configured"`
+	SNSTopicConfigured       bool   `json:"sns_topic_configured"`
+	HasS3DataEvents          bool   `json:"has_s3_data_events"`
+	HasLambdaDataEvents      bool   `json:"has_lambda_data_events"`
 }
 
 // ToEvidence converts a CloudTrailTrail to an Evidence struct.
@@ -66,15 +66,15 @@ func (c *CloudTrailCollector) CollectTrails(ctx context.Context) ([]CloudTrailTr
 	for i := range output.TrailList {
 		t := &output.TrailList[i]
 		trail := CloudTrailTrail{
-			Name:                aws.ToString(t.Name),
-			ARN:                 aws.ToString(t.TrailARN),
-			HomeRegion:          aws.ToString(t.HomeRegion),
-			IsMultiRegion:       aws.ToBool(t.IsMultiRegionTrail),
-			IsOrganizationTrail: aws.ToBool(t.IsOrganizationTrail),
-			LogFileValidation:   aws.ToBool(t.LogFileValidationEnabled),
-			IncludeGlobalEvents: aws.ToBool(t.IncludeGlobalServiceEvents),
-			S3BucketName:        aws.ToString(t.S3BucketName),
-			KMSKeyID:                aws.ToString(t.KmsKeyId),
+			Name:                     aws.ToString(t.Name),
+			ARN:                      aws.ToString(t.TrailARN),
+			HomeRegion:               aws.ToString(t.HomeRegion),
+			IsMultiRegion:            aws.ToBool(t.IsMultiRegionTrail),
+			IsOrganizationTrail:      aws.ToBool(t.IsOrganizationTrail),
+			LogFileValidation:        aws.ToBool(t.LogFileValidationEnabled),
+			IncludeGlobalEvents:      aws.ToBool(t.IncludeGlobalServiceEvents),
+			S3BucketName:             aws.ToString(t.S3BucketName),
+			KMSKeyID:                 aws.ToString(t.KmsKeyId),
 			CloudWatchLogsConfigured: aws.ToString(t.CloudWatchLogsLogGroupArn) != "",
 			SNSTopicConfigured:       aws.ToString(t.SnsTopicARN) != "",
 		}

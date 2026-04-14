@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/sigcomply/sigcomply-cli/internal/core/cloud"
 	"github.com/sigcomply/sigcomply-cli/internal/core/config"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBuildCloudSubmitRequest(t *testing.T) {
@@ -306,7 +306,7 @@ func TestSubmitToCloud_Success(t *testing.T) {
 
 func TestSubmitToCloud_NoOIDC(t *testing.T) {
 	setupOIDCEnv(t)
-	os.Unsetenv("CI_JOB_JWT_V2")               //nolint:errcheck // test env setup
+	os.Unsetenv("CI_JOB_JWT_V2")                //nolint:errcheck // test env setup
 	os.Unsetenv("ACTIONS_ID_TOKEN_REQUEST_URL") //nolint:errcheck // test env setup
 
 	cfg := &config.Config{
@@ -418,7 +418,7 @@ func TestShouldSubmitToCloud(t *testing.T) {
 	}()
 
 	t.Run("no OIDC available returns false", func(t *testing.T) {
-		os.Unsetenv("CI_JOB_JWT_V2")               //nolint:errcheck // test env setup
+		os.Unsetenv("CI_JOB_JWT_V2")                //nolint:errcheck // test env setup
 		os.Unsetenv("ACTIONS_ID_TOKEN_REQUEST_URL") //nolint:errcheck // test env setup
 
 		cfg := &config.Config{CloudEnabled: true}
@@ -426,7 +426,7 @@ func TestShouldSubmitToCloud(t *testing.T) {
 	})
 
 	t.Run("no OIDC with --cloud flag still returns false", func(t *testing.T) {
-		os.Unsetenv("CI_JOB_JWT_V2")               //nolint:errcheck // test env setup
+		os.Unsetenv("CI_JOB_JWT_V2")                //nolint:errcheck // test env setup
 		os.Unsetenv("ACTIONS_ID_TOKEN_REQUEST_URL") //nolint:errcheck // test env setup
 
 		cfg := &config.Config{CloudEnabled: false}

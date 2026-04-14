@@ -18,14 +18,14 @@ type CloudFrontClient interface {
 
 // CloudFrontDistribution represents a CloudFront distribution.
 type CloudFrontDistribution struct {
-	ARN                     string `json:"arn"`
-	DomainName              string `json:"domain_name"`
-	ViewerProtocolPolicy    string `json:"viewer_protocol_policy"`
-	HTTPSOnly               bool   `json:"https_only"`
-	MinimumProtocolVersion  string `json:"minimum_protocol_version,omitempty"`
-	LoggingEnabled          bool   `json:"logging_enabled"`
-	WAFEnabled              bool   `json:"waf_enabled"`
-	OriginProtocolPolicy    string `json:"origin_protocol_policy,omitempty"`
+	ARN                    string `json:"arn"`
+	DomainName             string `json:"domain_name"`
+	ViewerProtocolPolicy   string `json:"viewer_protocol_policy"`
+	HTTPSOnly              bool   `json:"https_only"`
+	MinimumProtocolVersion string `json:"minimum_protocol_version,omitempty"`
+	LoggingEnabled         bool   `json:"logging_enabled"`
+	WAFEnabled             bool   `json:"waf_enabled"`
+	OriginProtocolPolicy   string `json:"origin_protocol_policy,omitempty"`
 	DefaultRootObject      string `json:"default_root_object,omitempty"`
 	GeoRestrictionEnabled  bool   `json:"geo_restriction_enabled"`
 	HasOriginFailover      bool   `json:"has_origin_failover"`
@@ -51,6 +51,7 @@ func NewCloudFrontCollector(client CloudFrontClient) *CloudFrontCollector {
 }
 
 // CollectDistributions retrieves all CloudFront distributions.
+//
 //nolint:gocyclo // AWS API response mapping requires sequential field extraction
 func (c *CloudFrontCollector) CollectDistributions(ctx context.Context) ([]CloudFrontDistribution, error) {
 	var distributions []CloudFrontDistribution

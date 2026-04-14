@@ -64,8 +64,8 @@ type Scenario struct {
 	Enabled     bool              `yaml:"enabled"`
 	Credentials []string          `yaml:"credentials"` // references credential profile names (multi-provider)
 	Framework   string            `yaml:"framework"`
-	Storage     string            `yaml:"storage"`  // references a storage profile name (optional)
-	Cleanup     *bool             `yaml:"cleanup"`  // nil = inherit from defaults, false = skip, true = force
+	Storage     string            `yaml:"storage"` // references a storage profile name (optional)
+	Cleanup     *bool             `yaml:"cleanup"` // nil = inherit from defaults, false = skip, true = force
 	Collectors  []CollectorFilter `yaml:"collectors,omitempty"`
 	Policies    *PolicyFilter     `yaml:"policies,omitempty"`
 	Assertions  ScenarioAssertion `yaml:"assertions"`
@@ -216,4 +216,3 @@ func (c *E2EConfig) ResolveStorage(profileName string) (*ResolvedStorage, error)
 
 	return resolved, nil
 }
-

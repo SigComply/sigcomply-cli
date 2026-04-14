@@ -75,8 +75,8 @@ func (c *AccountCollector) CollectPasswordPolicy(ctx context.Context) (*AccountP
 
 // RootAccountSummary represents root account security settings.
 type RootAccountSummary struct {
-	AccountMFAEnabled    bool `json:"account_mfa_enabled"`
-	AccountAccessKeysPresent int `json:"account_access_keys_present"`
+	AccountMFAEnabled        bool `json:"account_mfa_enabled"`
+	AccountAccessKeysPresent int  `json:"account_access_keys_present"`
 }
 
 // ToEvidence converts a RootAccountSummary to Evidence.

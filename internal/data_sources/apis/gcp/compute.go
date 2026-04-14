@@ -13,16 +13,16 @@ import (
 
 // FirewallRule represents a GCP firewall rule.
 type FirewallRule struct {
-	Name          string   `json:"name"`
-	Network       string   `json:"network"`
-	Direction     string   `json:"direction"`
-	Priority      int64    `json:"priority"`
-	SourceRanges  []string `json:"source_ranges,omitempty"`
-	Allowed       []Allow  `json:"allowed,omitempty"`
-	Disabled      bool     `json:"disabled"`
-	OpenSSH       bool     `json:"open_ssh"`
-	OpenRDP       bool     `json:"open_rdp"`
-	OpenToInternet bool    `json:"open_to_internet"`
+	Name           string   `json:"name"`
+	Network        string   `json:"network"`
+	Direction      string   `json:"direction"`
+	Priority       int64    `json:"priority"`
+	SourceRanges   []string `json:"source_ranges,omitempty"`
+	Allowed        []Allow  `json:"allowed,omitempty"`
+	Disabled       bool     `json:"disabled"`
+	OpenSSH        bool     `json:"open_ssh"`
+	OpenRDP        bool     `json:"open_rdp"`
+	OpenToInternet bool     `json:"open_to_internet"`
 }
 
 // Allow represents an allowed protocol/port combination.

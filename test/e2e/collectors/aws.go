@@ -66,4 +66,3 @@ func (c *AWSCollector) Collect(ctx context.Context, t *testing.T, services []str
 
 	return collectorResult, nil
 }
-

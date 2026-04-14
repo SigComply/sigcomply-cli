@@ -23,11 +23,11 @@ func (m *MockCloudWatchLogsClient) DescribeLogGroups(ctx context.Context, params
 
 func TestCloudWatchCollector_CollectLogGroups(t *testing.T) {
 	tests := []struct {
-		name      string
+		name       string
 		mockGroups []cwltypes.LogGroup
-		mockErr   error
-		wantCount int
-		wantError bool
+		mockErr    error
+		wantCount  int
+		wantError  bool
 	}{
 		{
 			name: "log group with retention",
@@ -132,10 +132,10 @@ func TestCloudWatchCollector_CollectLogGroups_Pagination(t *testing.T) {
 
 func TestLogGroup_ToEvidence(t *testing.T) {
 	lg := &LogGroup{
-		Name:         "/aws/lambda/test",
-		ARN:          "arn:aws:logs:us-east-1:123:log-group:/aws/lambda/test",
+		Name:          "/aws/lambda/test",
+		ARN:           "arn:aws:logs:us-east-1:123:log-group:/aws/lambda/test",
 		RetentionDays: 90,
-		HasRetention: true,
+		HasRetention:  true,
 	}
 
 	ev := lg.ToEvidence("123456789012")

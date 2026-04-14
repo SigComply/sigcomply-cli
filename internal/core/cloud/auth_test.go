@@ -5,9 +5,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/sigcomply/sigcomply-cli/internal/core/attestation"
 )
 
 // Test helper functions for env var management

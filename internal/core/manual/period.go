@@ -9,7 +9,7 @@ import (
 
 // Period represents a time window for manual evidence collection.
 type Period struct {
-	Key      string    // "2026-Q1", "2026", "2026-03"
+	Key      string // "2026-Q1", "2026", "2026-03"
 	Start    time.Time
 	End      time.Time
 	GraceEnd time.Time

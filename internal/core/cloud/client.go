@@ -198,4 +198,3 @@ func (c *Client) parseError(resp *http.Response) *APIError {
 
 	return apiErr
 }
-

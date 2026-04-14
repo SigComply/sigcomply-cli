@@ -9,11 +9,11 @@ import (
 
 func TestServiceAccount_ToEvidence(t *testing.T) {
 	sa := &ServiceAccount{
-		Email:       "test@project.iam.gserviceaccount.com",
-		Name:        "projects/project/serviceAccounts/test@project.iam.gserviceaccount.com",
-		DisplayName: "Test SA",
-		UniqueID:    "12345",
-		KeyCount:    2,
+		Email:        "test@project.iam.gserviceaccount.com",
+		Name:         "projects/project/serviceAccounts/test@project.iam.gserviceaccount.com",
+		DisplayName:  "Test SA",
+		UniqueID:     "12345",
+		KeyCount:     2,
 		OldestKeyAge: 120,
 	}
 
@@ -162,11 +162,11 @@ func TestCollector_WithProjectID(t *testing.T) {
 
 func TestServiceAccount_ToEvidence_EmptyFields(t *testing.T) {
 	sa := &ServiceAccount{
-		Email:       "",
-		Name:        "",
-		DisplayName: "",
-		UniqueID:    "",
-		KeyCount:    0,
+		Email:        "",
+		Name:         "",
+		DisplayName:  "",
+		UniqueID:     "",
+		KeyCount:     0,
 		OldestKeyAge: 0,
 	}
 

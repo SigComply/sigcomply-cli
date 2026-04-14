@@ -37,17 +37,17 @@ func (c *ECSCluster) ToEvidence(accountID string) evidence.Evidence {
 
 // ECSTaskDefinition represents an ECS task definition with security configuration.
 type ECSTaskDefinition struct {
-	TaskDefinitionARN          string `json:"task_definition_arn"`
-	Family                     string `json:"family"`
-	NetworkMode                string `json:"network_mode"`
-	HasPrivilegedContainer     bool   `json:"has_privileged_container"`
-	RunsAsRoot                 bool   `json:"runs_as_root"`
-	LoggingConfigured          bool   `json:"logging_configured"`
-	HasEFSVolumes              bool   `json:"has_efs_volumes"`
-	EFSTransitEncryptionEnabled bool  `json:"efs_transit_encryption_enabled"`
-	HasHostPIDMode              bool  `json:"has_host_pid_mode"`
-	HasReadOnlyRootFilesystem   bool  `json:"has_readonly_root_filesystem"`
-	HasSecretsInEnvVars         bool  `json:"has_secrets_in_env_vars"`
+	TaskDefinitionARN           string `json:"task_definition_arn"`
+	Family                      string `json:"family"`
+	NetworkMode                 string `json:"network_mode"`
+	HasPrivilegedContainer      bool   `json:"has_privileged_container"`
+	RunsAsRoot                  bool   `json:"runs_as_root"`
+	LoggingConfigured           bool   `json:"logging_configured"`
+	HasEFSVolumes               bool   `json:"has_efs_volumes"`
+	EFSTransitEncryptionEnabled bool   `json:"efs_transit_encryption_enabled"`
+	HasHostPIDMode              bool   `json:"has_host_pid_mode"`
+	HasReadOnlyRootFilesystem   bool   `json:"has_readonly_root_filesystem"`
+	HasSecretsInEnvVars         bool   `json:"has_secrets_in_env_vars"`
 }
 
 // ToEvidence converts an ECSTaskDefinition to Evidence.
@@ -124,6 +124,7 @@ func (c *ECSCollector) CollectClusters(ctx context.Context) ([]ECSCluster, error
 }
 
 // CollectTaskDefinitions retrieves active ECS task definitions with security details.
+//
 //nolint:gocyclo // AWS API response mapping requires sequential field extraction
 func (c *ECSCollector) CollectTaskDefinitions(ctx context.Context) ([]ECSTaskDefinition, error) {
 	var taskDefs []ECSTaskDefinition

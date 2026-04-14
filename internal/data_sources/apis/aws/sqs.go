@@ -20,13 +20,13 @@ type SQSClient interface {
 
 // SQSQueue represents an SQS queue with its encryption configuration.
 type SQSQueue struct {
-	QueueURL              string `json:"queue_url"`
-	QueueARN              string `json:"queue_arn"`
-	Name                  string `json:"name"`
-	KMSKeyID              string `json:"kms_key_id,omitempty"`
-	SSEEnabled            bool   `json:"sse_enabled"`
-	SQSManagedEncryption  bool   `json:"sqs_managed_encryption"`
-	HasDLQ                bool   `json:"has_dlq"`
+	QueueURL             string `json:"queue_url"`
+	QueueARN             string `json:"queue_arn"`
+	Name                 string `json:"name"`
+	KMSKeyID             string `json:"kms_key_id,omitempty"`
+	SSEEnabled           bool   `json:"sse_enabled"`
+	SQSManagedEncryption bool   `json:"sqs_managed_encryption"`
+	HasDLQ               bool   `json:"has_dlq"`
 }
 
 // ToEvidence converts an SQSQueue to Evidence.

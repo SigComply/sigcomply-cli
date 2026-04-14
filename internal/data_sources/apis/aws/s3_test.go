@@ -16,16 +16,16 @@ const testEncryptedBucket = "encrypted-bucket"
 
 // MockS3Client is a mock implementation of S3Client for testing.
 type MockS3Client struct {
-	ListBucketsFunc          func(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error)
-	GetBucketEncryptionFunc  func(ctx context.Context, params *s3.GetBucketEncryptionInput, optFns ...func(*s3.Options)) (*s3.GetBucketEncryptionOutput, error)
-	GetBucketVersioningFunc  func(ctx context.Context, params *s3.GetBucketVersioningInput, optFns ...func(*s3.Options)) (*s3.GetBucketVersioningOutput, error)
-	GetPublicAccessBlockFunc func(ctx context.Context, params *s3.GetPublicAccessBlockInput, optFns ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error)
-	GetBucketPolicyFunc      func(ctx context.Context, params *s3.GetBucketPolicyInput, optFns ...func(*s3.Options)) (*s3.GetBucketPolicyOutput, error)
-	GetBucketLoggingFunc                    func(ctx context.Context, params *s3.GetBucketLoggingInput, optFns ...func(*s3.Options)) (*s3.GetBucketLoggingOutput, error)
-	GetBucketLifecycleConfigurationFunc     func(ctx context.Context, params *s3.GetBucketLifecycleConfigurationInput, optFns ...func(*s3.Options)) (*s3.GetBucketLifecycleConfigurationOutput, error)
-	GetObjectLockConfigurationFunc          func(ctx context.Context, params *s3.GetObjectLockConfigurationInput, optFns ...func(*s3.Options)) (*s3.GetObjectLockConfigurationOutput, error)
-	GetBucketReplicationFunc                func(ctx context.Context, params *s3.GetBucketReplicationInput, optFns ...func(*s3.Options)) (*s3.GetBucketReplicationOutput, error)
-	GetBucketNotificationConfigurationFunc  func(ctx context.Context, params *s3.GetBucketNotificationConfigurationInput, optFns ...func(*s3.Options)) (*s3.GetBucketNotificationConfigurationOutput, error)
+	ListBucketsFunc                        func(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error)
+	GetBucketEncryptionFunc                func(ctx context.Context, params *s3.GetBucketEncryptionInput, optFns ...func(*s3.Options)) (*s3.GetBucketEncryptionOutput, error)
+	GetBucketVersioningFunc                func(ctx context.Context, params *s3.GetBucketVersioningInput, optFns ...func(*s3.Options)) (*s3.GetBucketVersioningOutput, error)
+	GetPublicAccessBlockFunc               func(ctx context.Context, params *s3.GetPublicAccessBlockInput, optFns ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error)
+	GetBucketPolicyFunc                    func(ctx context.Context, params *s3.GetBucketPolicyInput, optFns ...func(*s3.Options)) (*s3.GetBucketPolicyOutput, error)
+	GetBucketLoggingFunc                   func(ctx context.Context, params *s3.GetBucketLoggingInput, optFns ...func(*s3.Options)) (*s3.GetBucketLoggingOutput, error)
+	GetBucketLifecycleConfigurationFunc    func(ctx context.Context, params *s3.GetBucketLifecycleConfigurationInput, optFns ...func(*s3.Options)) (*s3.GetBucketLifecycleConfigurationOutput, error)
+	GetObjectLockConfigurationFunc         func(ctx context.Context, params *s3.GetObjectLockConfigurationInput, optFns ...func(*s3.Options)) (*s3.GetObjectLockConfigurationOutput, error)
+	GetBucketReplicationFunc               func(ctx context.Context, params *s3.GetBucketReplicationInput, optFns ...func(*s3.Options)) (*s3.GetBucketReplicationOutput, error)
+	GetBucketNotificationConfigurationFunc func(ctx context.Context, params *s3.GetBucketNotificationConfigurationInput, optFns ...func(*s3.Options)) (*s3.GetBucketNotificationConfigurationOutput, error)
 }
 
 func (m *MockS3Client) ListBuckets(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
@@ -448,11 +448,11 @@ func TestS3Collector_BucketPolicy_Error_FailSafe(t *testing.T) {
 
 func TestS3Collector_enrichLogging(t *testing.T) {
 	tests := []struct {
-		name               string
-		loggingOutput      *s3.GetBucketLoggingOutput
-		loggingErr         error
-		wantEnabled        bool
-		wantTargetBucket   string
+		name             string
+		loggingOutput    *s3.GetBucketLoggingOutput
+		loggingErr       error
+		wantEnabled      bool
+		wantTargetBucket string
 	}{
 		{
 			name: "logging enabled with target bucket",
@@ -515,8 +515,8 @@ func TestS3Collector_enrichObjectLock(t *testing.T) {
 			wantLock: true,
 		},
 		{
-			name:   "object lock not configured",
-			output: &s3.GetObjectLockConfigurationOutput{},
+			name:     "object lock not configured",
+			output:   &s3.GetObjectLockConfigurationOutput{},
 			wantLock: false,
 		},
 		{

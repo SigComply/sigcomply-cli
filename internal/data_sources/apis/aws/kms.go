@@ -77,13 +77,13 @@ func (c *KMSCollector) CollectKeys(ctx context.Context) ([]KMSKey, error) {
 			}
 
 			key := KMSKey{
-				KeyID:      keyID,
-				ARN:        keyARN,
+				KeyID:       keyID,
+				ARN:         keyARN,
 				Description: awssdk.ToString(km.Description),
-				KeyState:   string(km.KeyState),
-				KeyManager: string(km.KeyManager),
-				KeySpec:    string(km.KeySpec),
-				Enabled:    km.Enabled,
+				KeyState:    string(km.KeyState),
+				KeyManager:  string(km.KeyManager),
+				KeySpec:     string(km.KeySpec),
+				Enabled:     km.Enabled,
 			}
 
 			// Check rotation status

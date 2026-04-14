@@ -13,10 +13,10 @@ import (
 )
 
 type MockWAFClient struct {
-	ListWebACLsFunc              func(ctx context.Context, params *wafv2.ListWebACLsInput, optFns ...func(*wafv2.Options)) (*wafv2.ListWebACLsOutput, error)
-	ListResourcesForWebACLFunc   func(ctx context.Context, params *wafv2.ListResourcesForWebACLInput, optFns ...func(*wafv2.Options)) (*wafv2.ListResourcesForWebACLOutput, error)
-	GetWebACLFunc                func(ctx context.Context, params *wafv2.GetWebACLInput, optFns ...func(*wafv2.Options)) (*wafv2.GetWebACLOutput, error)
-	GetLoggingConfigurationFunc  func(ctx context.Context, params *wafv2.GetLoggingConfigurationInput, optFns ...func(*wafv2.Options)) (*wafv2.GetLoggingConfigurationOutput, error)
+	ListWebACLsFunc             func(ctx context.Context, params *wafv2.ListWebACLsInput, optFns ...func(*wafv2.Options)) (*wafv2.ListWebACLsOutput, error)
+	ListResourcesForWebACLFunc  func(ctx context.Context, params *wafv2.ListResourcesForWebACLInput, optFns ...func(*wafv2.Options)) (*wafv2.ListResourcesForWebACLOutput, error)
+	GetWebACLFunc               func(ctx context.Context, params *wafv2.GetWebACLInput, optFns ...func(*wafv2.Options)) (*wafv2.GetWebACLOutput, error)
+	GetLoggingConfigurationFunc func(ctx context.Context, params *wafv2.GetLoggingConfigurationInput, optFns ...func(*wafv2.Options)) (*wafv2.GetLoggingConfigurationOutput, error)
 }
 
 func (m *MockWAFClient) ListWebACLs(ctx context.Context, params *wafv2.ListWebACLsInput, optFns ...func(*wafv2.Options)) (*wafv2.ListWebACLsOutput, error) {
@@ -46,12 +46,12 @@ func (m *MockWAFClient) GetLoggingConfiguration(ctx context.Context, params *waf
 
 func TestWAFCollector_CollectStatus(t *testing.T) {
 	tests := []struct {
-		name        string
-		acls        []waftypes.WebACLSummary
-		resources   []string
-		err         error
-		wantCount   int
-		wantALB     bool
+		name      string
+		acls      []waftypes.WebACLSummary
+		resources []string
+		err       error
+		wantCount int
+		wantALB   bool
 	}{
 		{
 			name: "WAF with ALB protection",

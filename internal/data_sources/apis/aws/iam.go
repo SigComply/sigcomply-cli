@@ -51,23 +51,23 @@ type AttachedPolicy struct {
 
 // IAMUser represents an IAM user with MFA status.
 type IAMUser struct {
-	UserName            string           `json:"user_name"`
-	ARN                 string           `json:"arn"`
-	UserID              string           `json:"user_id"`
-	CreateDate          time.Time        `json:"create_date"`
-	PasswordLastUsed    *time.Time       `json:"password_last_used,omitempty"`
-	MFAEnabled          bool             `json:"mfa_enabled"`
-	MFADevices          []string         `json:"mfa_devices,omitempty"`
-	HasLoginProfile     bool             `json:"has_login_profile"`
-	AccessKeys          []AccessKey      `json:"access_keys,omitempty"`
-	ActiveKeyCount      int              `json:"active_key_count"`
-	OldestKeyAgeDays    int              `json:"oldest_key_age_days"`
-	PasswordInactiveDays int             `json:"password_inactive_days"`
-	AttachedPolicies    []AttachedPolicy `json:"attached_policies,omitempty"`
-	HasAdminPolicy       bool             `json:"has_admin_policy"`
-	InlinePolicyCount    int              `json:"inline_policy_count"`
-	HasPermissionBoundary bool            `json:"has_permission_boundary"`
-	GroupCount            int             `json:"group_count"`
+	UserName              string           `json:"user_name"`
+	ARN                   string           `json:"arn"`
+	UserID                string           `json:"user_id"`
+	CreateDate            time.Time        `json:"create_date"`
+	PasswordLastUsed      *time.Time       `json:"password_last_used,omitempty"`
+	MFAEnabled            bool             `json:"mfa_enabled"`
+	MFADevices            []string         `json:"mfa_devices,omitempty"`
+	HasLoginProfile       bool             `json:"has_login_profile"`
+	AccessKeys            []AccessKey      `json:"access_keys,omitempty"`
+	ActiveKeyCount        int              `json:"active_key_count"`
+	OldestKeyAgeDays      int              `json:"oldest_key_age_days"`
+	PasswordInactiveDays  int              `json:"password_inactive_days"`
+	AttachedPolicies      []AttachedPolicy `json:"attached_policies,omitempty"`
+	HasAdminPolicy        bool             `json:"has_admin_policy"`
+	InlinePolicyCount     int              `json:"inline_policy_count"`
+	HasPermissionBoundary bool             `json:"has_permission_boundary"`
+	GroupCount            int              `json:"group_count"`
 }
 
 // ToEvidence converts an IAMUser to an Evidence struct.

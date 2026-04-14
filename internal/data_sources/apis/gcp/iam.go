@@ -14,25 +14,25 @@ import (
 
 // ServiceAccount represents a GCP service account with key metadata.
 type ServiceAccount struct {
-	Email       string    `json:"email"`
-	Name        string    `json:"name"`
-	DisplayName string    `json:"display_name,omitempty"`
-	UniqueID    string    `json:"unique_id"`
-	Disabled    bool      `json:"disabled"`
-	Keys        []SAKey   `json:"keys,omitempty"`
-	KeyCount    int       `json:"key_count"`
-	OldestKeyAge int      `json:"oldest_key_age_days"`
+	Email        string  `json:"email"`
+	Name         string  `json:"name"`
+	DisplayName  string  `json:"display_name,omitempty"`
+	UniqueID     string  `json:"unique_id"`
+	Disabled     bool    `json:"disabled"`
+	Keys         []SAKey `json:"keys,omitempty"`
+	KeyCount     int     `json:"key_count"`
+	OldestKeyAge int     `json:"oldest_key_age_days"`
 }
 
 // SAKey represents a service account key.
 type SAKey struct {
-	Name           string    `json:"name"`
-	KeyAlgorithm   string    `json:"key_algorithm"`
-	KeyOrigin      string    `json:"key_origin"`
-	KeyType        string    `json:"key_type"`
-	ValidAfterTime time.Time `json:"valid_after_time"`
+	Name            string    `json:"name"`
+	KeyAlgorithm    string    `json:"key_algorithm"`
+	KeyOrigin       string    `json:"key_origin"`
+	KeyType         string    `json:"key_type"`
+	ValidAfterTime  time.Time `json:"valid_after_time"`
 	ValidBeforeTime time.Time `json:"valid_before_time"`
-	AgeDays        int       `json:"age_days"`
+	AgeDays         int       `json:"age_days"`
 }
 
 // IAMBinding represents an IAM policy binding on the project.

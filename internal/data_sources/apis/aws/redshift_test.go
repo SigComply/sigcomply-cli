@@ -42,17 +42,17 @@ func TestRedshiftCollector_CollectClusters(t *testing.T) {
 			return &redshift.DescribeClustersOutput{
 				Clusters: []redshifttypes.Cluster{
 					{
-						ClusterIdentifier: awssdk.String("prod-cluster"),
+						ClusterIdentifier:   awssdk.String("prod-cluster"),
 						ClusterNamespaceArn: awssdk.String("arn:aws:redshift:us-east-1:123:namespace:prod-cluster"),
-						Encrypted:         awssdk.Bool(true),
-						PubliclyAccessible: awssdk.Bool(false),
-						KmsKeyId:          awssdk.String("arn:aws:kms:us-east-1:123:key/abc"),
+						Encrypted:           awssdk.Bool(true),
+						PubliclyAccessible:  awssdk.Bool(false),
+						KmsKeyId:            awssdk.String("arn:aws:kms:us-east-1:123:key/abc"),
 					},
 					{
-						ClusterIdentifier: awssdk.String("dev-cluster"),
+						ClusterIdentifier:   awssdk.String("dev-cluster"),
 						ClusterNamespaceArn: awssdk.String("arn:aws:redshift:us-east-1:123:namespace:dev-cluster"),
-						Encrypted:         awssdk.Bool(false),
-						PubliclyAccessible: awssdk.Bool(true),
+						Encrypted:           awssdk.Bool(false),
+						PubliclyAccessible:  awssdk.Bool(true),
 					},
 				},
 			}, nil

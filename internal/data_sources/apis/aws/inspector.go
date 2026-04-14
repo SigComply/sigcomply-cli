@@ -16,11 +16,11 @@ type InspectorClient interface {
 
 // InspectorStatus represents the Inspector status.
 type InspectorStatus struct {
-	Enabled      bool   `json:"enabled"`
-	EC2Scanning  bool   `json:"ec2_scanning"`
-	ECRScanning  bool   `json:"ecr_scanning"`
-	LambdaScanning bool `json:"lambda_scanning"`
-	Region       string `json:"region"`
+	Enabled        bool   `json:"enabled"`
+	EC2Scanning    bool   `json:"ec2_scanning"`
+	ECRScanning    bool   `json:"ecr_scanning"`
+	LambdaScanning bool   `json:"lambda_scanning"`
+	Region         string `json:"region"`
 }
 
 // ToEvidence converts an InspectorStatus to Evidence.

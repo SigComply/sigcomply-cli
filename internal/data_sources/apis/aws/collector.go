@@ -8,69 +8,69 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/account"
 	"github.com/aws/aws-sdk-go-v2/service/accessanalyzer"
+	"github.com/aws/aws-sdk-go-v2/service/account"
 	"github.com/aws/aws-sdk-go-v2/service/acm"
-	"github.com/aws/aws-sdk-go-v2/service/backup"
-	"github.com/aws/aws-sdk-go-v2/service/cloudfront"
-	"github.com/aws/aws-sdk-go-v2/service/codebuild"
-	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
-	"github.com/aws/aws-sdk-go-v2/service/docdb"
-	"github.com/aws/aws-sdk-go-v2/service/kafka"
-	"github.com/aws/aws-sdk-go-v2/service/kinesis"
-	"github.com/aws/aws-sdk-go-v2/service/cloudtrail"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
-	"github.com/aws/aws-sdk-go-v2/service/configservice"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/aws/aws-sdk-go-v2/service/elasticache"
-	"github.com/aws/aws-sdk-go-v2/service/emr"
-	"github.com/aws/aws-sdk-go-v2/service/ecr"
-	"github.com/aws/aws-sdk-go-v2/service/efs"
-	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
-	"github.com/aws/aws-sdk-go-v2/service/ecs"
-	"github.com/aws/aws-sdk-go-v2/service/eventbridge"
-	"github.com/aws/aws-sdk-go-v2/service/eks"
-	"github.com/aws/aws-sdk-go-v2/service/guardduty"
-	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/inspector2"
-	"github.com/aws/aws-sdk-go-v2/service/kms"
-	"github.com/aws/aws-sdk-go-v2/service/lambda"
+	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
 	"github.com/aws/aws-sdk-go-v2/service/appsync"
 	"github.com/aws/aws-sdk-go-v2/service/athena"
+	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/backup"
 	"github.com/aws/aws-sdk-go-v2/service/bedrock"
+	"github.com/aws/aws-sdk-go-v2/service/cloudfront"
+	"github.com/aws/aws-sdk-go-v2/service/cloudtrail"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go-v2/service/codebuild"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
+	"github.com/aws/aws-sdk-go-v2/service/configservice"
+	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
 	"github.com/aws/aws-sdk-go-v2/service/datasync"
 	"github.com/aws/aws-sdk-go-v2/service/dax"
-	"github.com/aws/aws-sdk-go-v2/service/neptune"
-	"github.com/aws/aws-sdk-go-v2/service/networkfirewall"
-	"github.com/aws/aws-sdk-go-v2/service/redshiftserverless"
-	"github.com/aws/aws-sdk-go-v2/service/transfer"
-	"github.com/aws/aws-sdk-go-v2/service/macie2"
-	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
-	"github.com/aws/aws-sdk-go-v2/service/apigateway"
+	"github.com/aws/aws-sdk-go-v2/service/docdb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ecr"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/efs"
+	"github.com/aws/aws-sdk-go-v2/service/eks"
+	"github.com/aws/aws-sdk-go-v2/service/elasticache"
 	"github.com/aws/aws-sdk-go-v2/service/elasticbeanstalk"
+	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	"github.com/aws/aws-sdk-go-v2/service/emr"
+	"github.com/aws/aws-sdk-go-v2/service/eventbridge"
 	"github.com/aws/aws-sdk-go-v2/service/fsx"
 	"github.com/aws/aws-sdk-go-v2/service/glue"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/inspector2"
+	"github.com/aws/aws-sdk-go-v2/service/kafka"
+	"github.com/aws/aws-sdk-go-v2/service/kinesis"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
+	"github.com/aws/aws-sdk-go-v2/service/lambda"
+	"github.com/aws/aws-sdk-go-v2/service/macie2"
 	"github.com/aws/aws-sdk-go-v2/service/mq"
+	"github.com/aws/aws-sdk-go-v2/service/neptune"
+	"github.com/aws/aws-sdk-go-v2/service/networkfirewall"
 	"github.com/aws/aws-sdk-go-v2/service/opensearch"
 	"github.com/aws/aws-sdk-go-v2/service/organizations"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/aws/aws-sdk-go-v2/service/redshift"
+	"github.com/aws/aws-sdk-go-v2/service/redshiftserverless"
 	"github.com/aws/aws-sdk-go-v2/service/route53"
-	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/sagemaker"
 	"github.com/aws/aws-sdk-go-v2/service/s3control"
+	"github.com/aws/aws-sdk-go-v2/service/sagemaker"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/securityhub"
+	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
-	"github.com/aws/aws-sdk-go-v2/service/ssoadmin"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	"github.com/aws/aws-sdk-go-v2/service/ssoadmin"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/aws/aws-sdk-go-v2/service/transfer"
 	"github.com/aws/aws-sdk-go-v2/service/wafv2"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
@@ -107,74 +107,74 @@ func (r *CollectionResult) HasErrors() bool {
 
 // Collector gathers evidence from AWS services.
 type Collector struct {
-	stsClient          STSClient
-	iamClient          IAMClient
-	accountClient      AccountClient
-	s3Client           S3Client
-	cloudtrailClient   CloudTrailClient
-	ec2Client          EC2Client
-	rdsClient          RDSClient
-	kmsClient          KMSClient
-	guarddutyClient    GuardDutyClient
-	cloudwatchClient   CloudWatchLogsClient
-	ecrClient          ECRClient
-	configClient       ConfigServiceClient
-	securityHubClient  SecurityHubClient
-	cwAlarmsClient     CloudWatchAlarmsClient
-	secretsMgrClient   SecretsManagerClient
-	lambdaClient       LambdaClient
-	s3ControlClient    S3ControlClient
-	dynamodbClient     DynamoDBClient
-	ecsClient          ECSClient
-	eksClient          EKSClient
-	acmClient          ACMClient
-	cloudfrontClient   CloudFrontClient
-	wafClient          WAFClient
-	macieClient        MacieClient
-	ssmClient          SSMClient
-	elbv2Client        ELBv2Client
-	inspectorClient    InspectorClient
-	backupClient       BackupClient
-	snsClient          SNSClient
-	sqsClient          SQSClient
-	eventbridgeClient  EventBridgeClient
-	orgsClient         OrganizationsClient
-	efsClient          EFSClient
-	redshiftClient     RedshiftClient
-	opensearchClient   OpenSearchClient
-	apigatewayClient       APIGatewayClient
-	accessAnalyzerClient   AccessAnalyzerClient
-	identityCenterClient   IdentityCenterClient
-	elasticacheClient      ElastiCacheClient
-	codebuildClient        CodeBuildClient
-	dmsClient              DMSClient
-	emrClient              EMRClient
-	sagemakerClient        SageMakerClient
-	accountServiceClient   AccountServiceClient
-	neptuneClient          NeptuneClient
-	documentdbClient       DocumentDBClient
-	mskClient              MSKClient
-	kinesisClient          KinesisClient
-	networkFirewallClient  NetworkFirewallClient
-	autoscalingClient      AutoScalingClient
-	glueClient             GlueClient
-	beanstalkClient        ElasticBeanstalkClient
-	stepFunctionsClient    StepFunctionsClient
-	mqClient               MQClient
-	route53Client          Route53Client
-	fsxClient              FSxClient
-	appsyncClient          AppSyncClient
-	athenaClient           AthenaClient
-	bedrockClient          BedrockClient
-	datasyncClient         DataSyncClient
-	transferClient         TransferClient
-	apigatewayV2Client     APIGatewayV2Client
-	cognitoClient          CognitoClient
+	stsClient                STSClient
+	iamClient                IAMClient
+	accountClient            AccountClient
+	s3Client                 S3Client
+	cloudtrailClient         CloudTrailClient
+	ec2Client                EC2Client
+	rdsClient                RDSClient
+	kmsClient                KMSClient
+	guarddutyClient          GuardDutyClient
+	cloudwatchClient         CloudWatchLogsClient
+	ecrClient                ECRClient
+	configClient             ConfigServiceClient
+	securityHubClient        SecurityHubClient
+	cwAlarmsClient           CloudWatchAlarmsClient
+	secretsMgrClient         SecretsManagerClient
+	lambdaClient             LambdaClient
+	s3ControlClient          S3ControlClient
+	dynamodbClient           DynamoDBClient
+	ecsClient                ECSClient
+	eksClient                EKSClient
+	acmClient                ACMClient
+	cloudfrontClient         CloudFrontClient
+	wafClient                WAFClient
+	macieClient              MacieClient
+	ssmClient                SSMClient
+	elbv2Client              ELBv2Client
+	inspectorClient          InspectorClient
+	backupClient             BackupClient
+	snsClient                SNSClient
+	sqsClient                SQSClient
+	eventbridgeClient        EventBridgeClient
+	orgsClient               OrganizationsClient
+	efsClient                EFSClient
+	redshiftClient           RedshiftClient
+	opensearchClient         OpenSearchClient
+	apigatewayClient         APIGatewayClient
+	accessAnalyzerClient     AccessAnalyzerClient
+	identityCenterClient     IdentityCenterClient
+	elasticacheClient        ElastiCacheClient
+	codebuildClient          CodeBuildClient
+	dmsClient                DMSClient
+	emrClient                EMRClient
+	sagemakerClient          SageMakerClient
+	accountServiceClient     AccountServiceClient
+	neptuneClient            NeptuneClient
+	documentdbClient         DocumentDBClient
+	mskClient                MSKClient
+	kinesisClient            KinesisClient
+	networkFirewallClient    NetworkFirewallClient
+	autoscalingClient        AutoScalingClient
+	glueClient               GlueClient
+	beanstalkClient          ElasticBeanstalkClient
+	stepFunctionsClient      StepFunctionsClient
+	mqClient                 MQClient
+	route53Client            Route53Client
+	fsxClient                FSxClient
+	appsyncClient            AppSyncClient
+	athenaClient             AthenaClient
+	bedrockClient            BedrockClient
+	datasyncClient           DataSyncClient
+	transferClient           TransferClient
+	apigatewayV2Client       APIGatewayV2Client
+	cognitoClient            CognitoClient
 	redshiftServerlessClient RedshiftServerlessClient
-	daxClient              DAXClient
-	region                 string
-	accountID          string // Cached after first retrieval
-	cfg                aws.Config
+	daxClient                DAXClient
+	region                   string
+	accountID                string // Cached after first retrieval
+	cfg                      aws.Config
 }
 
 // New creates a new AWS Collector with auto-detected credentials.

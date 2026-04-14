@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/spf13/cobra"
 	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/engine"
 	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/iso27001"
 	"github.com/sigcomply/sigcomply-cli/internal/compliance_frameworks/soc2"
@@ -26,6 +25,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/data_sources/apis/gcp"
 	"github.com/sigcomply/sigcomply-cli/internal/data_sources/apis/github"
 	manualReader "github.com/sigcomply/sigcomply-cli/internal/data_sources/manual"
+	"github.com/spf13/cobra"
 )
 
 const (

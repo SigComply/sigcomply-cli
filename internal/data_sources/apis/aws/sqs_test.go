@@ -12,7 +12,7 @@ import (
 )
 
 type MockSQSClient struct {
-	ListQueuesFunc        func(ctx context.Context, params *sqs.ListQueuesInput, optFns ...func(*sqs.Options)) (*sqs.ListQueuesOutput, error)
+	ListQueuesFunc         func(ctx context.Context, params *sqs.ListQueuesInput, optFns ...func(*sqs.Options)) (*sqs.ListQueuesOutput, error)
 	GetQueueAttributesFunc func(ctx context.Context, params *sqs.GetQueueAttributesInput, optFns ...func(*sqs.Options)) (*sqs.GetQueueAttributesOutput, error)
 }
 
@@ -122,11 +122,11 @@ func TestSQSCollector_EnrichAttributes_Error_FailSafe(t *testing.T) {
 
 func TestSQSQueue_ToEvidence(t *testing.T) {
 	queue := SQSQueue{
-		QueueURL:  "https://sqs.us-east-1.amazonaws.com/123/my-queue",
-		QueueARN:  "arn:aws:sqs:us-east-1:123:my-queue",
-		Name:      "my-queue",
+		QueueURL:   "https://sqs.us-east-1.amazonaws.com/123/my-queue",
+		QueueARN:   "arn:aws:sqs:us-east-1:123:my-queue",
+		Name:       "my-queue",
 		SSEEnabled: true,
-		KMSKeyID:  "key-123",
+		KMSKeyID:   "key-123",
 	}
 
 	ev := queue.ToEvidence("123")

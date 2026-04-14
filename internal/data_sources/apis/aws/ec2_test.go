@@ -14,23 +14,23 @@ import (
 
 // MockEC2Client implements EC2Client for testing.
 type MockEC2Client struct { //nolint:dupl // mock struct mirrors EC2Client interface by design
-	DescribeSecurityGroupsFunc    func(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSecurityGroupsOutput, error)
-	DescribeVpcsFunc              func(ctx context.Context, params *ec2.DescribeVpcsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeVpcsOutput, error)
-	DescribeFlowLogsFunc          func(ctx context.Context, params *ec2.DescribeFlowLogsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeFlowLogsOutput, error)
-	GetEbsDefaultKmsKeyIDFunc     func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) //nolint:revive // matches AWS SDK naming
-	GetEbsEncryptionByDefaultFunc func(ctx context.Context, params *ec2.GetEbsEncryptionByDefaultInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsEncryptionByDefaultOutput, error)
-	DescribeInstancesFunc         func(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
-	DescribeSnapshotsFunc                func(ctx context.Context, params *ec2.DescribeSnapshotsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSnapshotsOutput, error)
-	DescribeSubnetsFunc                  func(ctx context.Context, params *ec2.DescribeSubnetsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSubnetsOutput, error)
-	DescribeNetworkAclsFunc              func(ctx context.Context, params *ec2.DescribeNetworkAclsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeNetworkAclsOutput, error)
-	DescribeLaunchTemplateVersionsFunc   func(ctx context.Context, params *ec2.DescribeLaunchTemplateVersionsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeLaunchTemplateVersionsOutput, error)
-	DescribeLaunchTemplatesFunc          func(ctx context.Context, params *ec2.DescribeLaunchTemplatesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeLaunchTemplatesOutput, error)
-	DescribeVpcEndpointsFunc             func(ctx context.Context, params *ec2.DescribeVpcEndpointsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeVpcEndpointsOutput, error)
-	DescribeClientVpnEndpointsFunc           func(ctx context.Context, params *ec2.DescribeClientVpnEndpointsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeClientVpnEndpointsOutput, error)
-	DescribeVolumesFunc                      func(ctx context.Context, params *ec2.DescribeVolumesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeVolumesOutput, error)
-	DescribeImagesFunc                       func(ctx context.Context, params *ec2.DescribeImagesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeImagesOutput, error)
-	DescribeTransitGatewaysFunc              func(ctx context.Context, params *ec2.DescribeTransitGatewaysInput, optFns ...func(*ec2.Options)) (*ec2.DescribeTransitGatewaysOutput, error)
-	GetSnapshotBlockPublicAccessStateFunc    func(ctx context.Context, params *ec2.GetSnapshotBlockPublicAccessStateInput, optFns ...func(*ec2.Options)) (*ec2.GetSnapshotBlockPublicAccessStateOutput, error)
+	DescribeSecurityGroupsFunc            func(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSecurityGroupsOutput, error)
+	DescribeVpcsFunc                      func(ctx context.Context, params *ec2.DescribeVpcsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeVpcsOutput, error)
+	DescribeFlowLogsFunc                  func(ctx context.Context, params *ec2.DescribeFlowLogsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeFlowLogsOutput, error)
+	GetEbsDefaultKmsKeyIDFunc             func(ctx context.Context, params *ec2.GetEbsDefaultKmsKeyIdInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsDefaultKmsKeyIdOutput, error) //nolint:revive // matches AWS SDK naming
+	GetEbsEncryptionByDefaultFunc         func(ctx context.Context, params *ec2.GetEbsEncryptionByDefaultInput, optFns ...func(*ec2.Options)) (*ec2.GetEbsEncryptionByDefaultOutput, error)
+	DescribeInstancesFunc                 func(ctx context.Context, params *ec2.DescribeInstancesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
+	DescribeSnapshotsFunc                 func(ctx context.Context, params *ec2.DescribeSnapshotsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSnapshotsOutput, error)
+	DescribeSubnetsFunc                   func(ctx context.Context, params *ec2.DescribeSubnetsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSubnetsOutput, error)
+	DescribeNetworkAclsFunc               func(ctx context.Context, params *ec2.DescribeNetworkAclsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeNetworkAclsOutput, error)
+	DescribeLaunchTemplateVersionsFunc    func(ctx context.Context, params *ec2.DescribeLaunchTemplateVersionsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeLaunchTemplateVersionsOutput, error)
+	DescribeLaunchTemplatesFunc           func(ctx context.Context, params *ec2.DescribeLaunchTemplatesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeLaunchTemplatesOutput, error)
+	DescribeVpcEndpointsFunc              func(ctx context.Context, params *ec2.DescribeVpcEndpointsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeVpcEndpointsOutput, error)
+	DescribeClientVpnEndpointsFunc        func(ctx context.Context, params *ec2.DescribeClientVpnEndpointsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeClientVpnEndpointsOutput, error)
+	DescribeVolumesFunc                   func(ctx context.Context, params *ec2.DescribeVolumesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeVolumesOutput, error)
+	DescribeImagesFunc                    func(ctx context.Context, params *ec2.DescribeImagesInput, optFns ...func(*ec2.Options)) (*ec2.DescribeImagesOutput, error)
+	DescribeTransitGatewaysFunc           func(ctx context.Context, params *ec2.DescribeTransitGatewaysInput, optFns ...func(*ec2.Options)) (*ec2.DescribeTransitGatewaysOutput, error)
+	GetSnapshotBlockPublicAccessStateFunc func(ctx context.Context, params *ec2.GetSnapshotBlockPublicAccessStateInput, optFns ...func(*ec2.Options)) (*ec2.GetSnapshotBlockPublicAccessStateOutput, error)
 }
 
 func (m *MockEC2Client) DescribeSecurityGroups(ctx context.Context, params *ec2.DescribeSecurityGroupsInput, optFns ...func(*ec2.Options)) (*ec2.DescribeSecurityGroupsOutput, error) {
@@ -151,7 +151,7 @@ func TestEC2Collector_CollectSecurityGroups(t *testing.T) {
 				{
 					GroupId:   awssdk.String("sg-123"),
 					GroupName: awssdk.String("open-ssh"),
-					VpcId:    awssdk.String("vpc-abc"),
+					VpcId:     awssdk.String("vpc-abc"),
 					IpPermissions: []ec2types.IpPermission{
 						{
 							IpProtocol: awssdk.String("tcp"),
@@ -172,7 +172,7 @@ func TestEC2Collector_CollectSecurityGroups(t *testing.T) {
 				{
 					GroupId:   awssdk.String("sg-456"),
 					GroupName: awssdk.String("restricted"),
-					VpcId:    awssdk.String("vpc-abc"),
+					VpcId:     awssdk.String("vpc-abc"),
 					IpPermissions: []ec2types.IpPermission{
 						{
 							IpProtocol: awssdk.String("tcp"),
@@ -652,7 +652,7 @@ func TestEC2Collector_CollectSecurityGroups_NilFields(t *testing.T) {
 						// All pointer fields nil
 						GroupId:   nil,
 						GroupName: nil,
-						VpcId:    nil,
+						VpcId:     nil,
 						IpPermissions: []ec2types.IpPermission{
 							{
 								IpProtocol: nil,
@@ -1233,10 +1233,10 @@ func TestTransitGateway_ToEvidence(t *testing.T) {
 
 func TestEC2Collector_CollectAccountSettings(t *testing.T) {
 	tests := []struct {
-		name             string
-		state            ec2types.SnapshotBlockPublicAccessState
-		apiErr           error
-		wantBlockPublic  bool
+		name            string
+		state           ec2types.SnapshotBlockPublicAccessState
+		apiErr          error
+		wantBlockPublic bool
 	}{
 		{
 			name:            "block all sharing",

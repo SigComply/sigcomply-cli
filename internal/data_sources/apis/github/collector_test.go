@@ -15,13 +15,13 @@ import (
 //
 //nolint:dupl // Mock intentionally mirrors Client interface
 type MockClient struct {
-	GetAuthenticatedUserFunc  func(ctx context.Context) (*gh.User, *gh.Response, error)
-	ListOrganizationsFunc     func(ctx context.Context, user string, opts *gh.ListOptions) ([]*gh.Organization, *gh.Response, error)
-	ListOrgReposFunc          func(ctx context.Context, org string, opts *gh.RepositoryListByOrgOptions) ([]*gh.Repository, *gh.Response, error)
-	ListUserReposFunc         func(ctx context.Context, user string, opts *gh.RepositoryListByUserOptions) ([]*gh.Repository, *gh.Response, error)
-	GetBranchProtectionFunc   func(ctx context.Context, owner, repo, branch string) (*gh.Protection, *gh.Response, error)
-	ListOrgMembersFunc        func(ctx context.Context, org string, opts *gh.ListMembersOptions) ([]*gh.User, *gh.Response, error)
-	GetRepositoryFunc         func(ctx context.Context, owner, repo string) (*gh.Repository, *gh.Response, error)
+	GetAuthenticatedUserFunc func(ctx context.Context) (*gh.User, *gh.Response, error)
+	ListOrganizationsFunc    func(ctx context.Context, user string, opts *gh.ListOptions) ([]*gh.Organization, *gh.Response, error)
+	ListOrgReposFunc         func(ctx context.Context, org string, opts *gh.RepositoryListByOrgOptions) ([]*gh.Repository, *gh.Response, error)
+	ListUserReposFunc        func(ctx context.Context, user string, opts *gh.RepositoryListByUserOptions) ([]*gh.Repository, *gh.Response, error)
+	GetBranchProtectionFunc  func(ctx context.Context, owner, repo, branch string) (*gh.Protection, *gh.Response, error)
+	ListOrgMembersFunc       func(ctx context.Context, org string, opts *gh.ListMembersOptions) ([]*gh.User, *gh.Response, error)
+	GetRepositoryFunc        func(ctx context.Context, owner, repo string) (*gh.Repository, *gh.Response, error)
 }
 
 func (m *MockClient) GetAuthenticatedUser(ctx context.Context) (*gh.User, *gh.Response, error) {

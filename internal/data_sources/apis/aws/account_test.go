@@ -116,12 +116,12 @@ func TestAccountCollector_CollectPasswordPolicy(t *testing.T) {
 
 func TestAccountCollector_CollectRootAccountSummary(t *testing.T) {
 	tests := []struct {
-		name        string
-		summaryMap  map[string]int32
-		mockErr     error
-		wantMFA     bool
-		wantKeys    int
-		wantError   bool
+		name       string
+		summaryMap map[string]int32
+		mockErr    error
+		wantMFA    bool
+		wantKeys   int
+		wantError  bool
 	}{
 		{
 			name: "root with MFA and no access keys",

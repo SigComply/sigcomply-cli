@@ -12,15 +12,15 @@ import (
 func TestSubmittedEvidence_JSONRoundTrip(t *testing.T) {
 	accepted := true
 	original := SubmittedEvidence{
-		SchemaVersion:   "1.0",
-		EvidenceID:      "quarterly_access_review",
-		Type:            EvidenceTypeDocumentUpload,
-		Framework:       "soc2",
-		Control:         "CC6.1",
-		Period:          "2026-Q1",
-		CompletedBy:     "admin@company.com",
-		CompletedAt:     time.Date(2026, 3, 15, 10, 0, 0, 0, time.UTC),
-		Attachments:     []string{"report.pdf"},
+		SchemaVersion: "1.0",
+		EvidenceID:    "quarterly_access_review",
+		Type:          EvidenceTypeDocumentUpload,
+		Framework:     "soc2",
+		Control:       "CC6.1",
+		Period:        "2026-Q1",
+		CompletedBy:   "admin@company.com",
+		CompletedAt:   time.Date(2026, 3, 15, 10, 0, 0, 0, time.UTC),
+		Attachments:   []string{"report.pdf"},
 	}
 
 	data, err := json.Marshal(original)

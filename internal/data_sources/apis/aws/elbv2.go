@@ -33,18 +33,18 @@ type Listener struct {
 
 // LoadBalancer represents an ELBv2 load balancer with its listeners.
 type LoadBalancer struct {
-	ARN               string     `json:"arn"`
-	Name              string     `json:"name"`
-	Type              string     `json:"type"`
-	Scheme            string     `json:"scheme"`
-	Listeners         []Listener `json:"listeners"`
-	HTTPSEnforced      bool       `json:"https_enforced"`
-	AccessLogsEnabled  bool       `json:"access_logs_enabled"`
-	DeletionProtection bool       `json:"deletion_protection"`
-	CrossZoneEnabled   bool       `json:"cross_zone_enabled"`
-	HasInsecureSSLPolicy    bool `json:"has_insecure_ssl_policy"`
-	DropInvalidHeaders      bool `json:"drop_invalid_headers"`
-	HasHTTPToHTTPSRedirect  bool `json:"has_http_to_https_redirect"`
+	ARN                    string     `json:"arn"`
+	Name                   string     `json:"name"`
+	Type                   string     `json:"type"`
+	Scheme                 string     `json:"scheme"`
+	Listeners              []Listener `json:"listeners"`
+	HTTPSEnforced          bool       `json:"https_enforced"`
+	AccessLogsEnabled      bool       `json:"access_logs_enabled"`
+	DeletionProtection     bool       `json:"deletion_protection"`
+	CrossZoneEnabled       bool       `json:"cross_zone_enabled"`
+	HasInsecureSSLPolicy   bool       `json:"has_insecure_ssl_policy"`
+	DropInvalidHeaders     bool       `json:"drop_invalid_headers"`
+	HasHTTPToHTTPSRedirect bool       `json:"has_http_to_https_redirect"`
 }
 
 // ToEvidence converts a LoadBalancer to Evidence.
@@ -57,9 +57,9 @@ func (lb *LoadBalancer) ToEvidence(accountID string) evidence.Evidence {
 
 // insecureSSLPolicies contains ELB SSL policies considered insecure.
 var insecureSSLPolicies = map[string]bool{
-	"ELBSecurityPolicy-2016-08":           true,
-	"ELBSecurityPolicy-TLS-1-0-2015-04":  true,
-	"ELBSecurityPolicy-TLS-1-1-2017-01":  true,
+	"ELBSecurityPolicy-2016-08":         true,
+	"ELBSecurityPolicy-TLS-1-0-2015-04": true,
+	"ELBSecurityPolicy-TLS-1-1-2017-01": true,
 }
 
 // ELBv2Collector collects ELBv2 load balancer data.

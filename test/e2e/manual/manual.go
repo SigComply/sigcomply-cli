@@ -591,7 +591,7 @@ func RunNegativeScenario(t *testing.T) {
 		CompletedBy:   "test@e2e.sigcomply.dev",
 		CompletedAt:   now,
 		Items: []manualPkg.SubmittedChecklistItem{
-			{ID: "plan_tested", Checked: false},        // required — NOT checked
+			{ID: "plan_tested", Checked: false},         // required — NOT checked
 			{ID: "roles_verified", Checked: false},      // required — NOT checked
 			{ID: "communication_tested", Checked: true}, // required — checked
 			{ID: "lessons_documented", Checked: true},   // optional — checked

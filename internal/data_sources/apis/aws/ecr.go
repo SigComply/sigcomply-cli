@@ -19,15 +19,15 @@ type ECRClient interface {
 
 // ECRRepository represents an ECR repository.
 type ECRRepository struct {
-	Name            string `json:"name"`
-	ARN             string `json:"arn"`
-	RegistryID      string `json:"registry_id"`
+	Name               string `json:"name"`
+	ARN                string `json:"arn"`
+	RegistryID         string `json:"registry_id"`
 	ScanOnPush         bool   `json:"scan_on_push"`
 	EncryptionType     string `json:"encryption_type"`
 	EncryptionKeyID    string `json:"encryption_key_id,omitempty"`
-	TagImmutable       bool `json:"tag_immutable"`
-	IsPublic           bool `json:"is_public"`
-	HasLifecyclePolicy bool `json:"has_lifecycle_policy"`
+	TagImmutable       bool   `json:"tag_immutable"`
+	IsPublic           bool   `json:"is_public"`
+	HasLifecyclePolicy bool   `json:"has_lifecycle_policy"`
 }
 
 // ToEvidence converts an ECRRepository to Evidence.

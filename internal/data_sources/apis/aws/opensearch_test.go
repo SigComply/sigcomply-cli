@@ -39,19 +39,19 @@ func TestOpenSearchCollector_CollectDomains(t *testing.T) {
 			return &opensearch.DescribeDomainsOutput{
 				DomainStatusList: []ostypes.DomainStatus{
 					{
-						DomainName: awssdk.String("prod-search"),
-						DomainId:   awssdk.String("123/prod-search"),
-						ARN:        awssdk.String("arn:aws:es:us-east-1:123:domain/prod-search"),
-						EncryptionAtRestOptions:    &ostypes.EncryptionAtRestOptions{Enabled: awssdk.Bool(true)},
+						DomainName:                  awssdk.String("prod-search"),
+						DomainId:                    awssdk.String("123/prod-search"),
+						ARN:                         awssdk.String("arn:aws:es:us-east-1:123:domain/prod-search"),
+						EncryptionAtRestOptions:     &ostypes.EncryptionAtRestOptions{Enabled: awssdk.Bool(true)},
 						NodeToNodeEncryptionOptions: &ostypes.NodeToNodeEncryptionOptions{Enabled: awssdk.Bool(true)},
-						VPCOptions:                 &ostypes.VPCDerivedInfo{VPCId: awssdk.String("vpc-123")},
-						DomainEndpointOptions:      &ostypes.DomainEndpointOptions{EnforceHTTPS: awssdk.Bool(true)},
+						VPCOptions:                  &ostypes.VPCDerivedInfo{VPCId: awssdk.String("vpc-123")},
+						DomainEndpointOptions:       &ostypes.DomainEndpointOptions{EnforceHTTPS: awssdk.Bool(true)},
 					},
 					{
-						DomainName: awssdk.String("dev-search"),
-						DomainId:   awssdk.String("123/dev-search"),
-						ARN:        awssdk.String("arn:aws:es:us-east-1:123:domain/dev-search"),
-						EncryptionAtRestOptions:    &ostypes.EncryptionAtRestOptions{Enabled: awssdk.Bool(false)},
+						DomainName:                  awssdk.String("dev-search"),
+						DomainId:                    awssdk.String("123/dev-search"),
+						ARN:                         awssdk.String("arn:aws:es:us-east-1:123:domain/dev-search"),
+						EncryptionAtRestOptions:     &ostypes.EncryptionAtRestOptions{Enabled: awssdk.Bool(false)},
 						NodeToNodeEncryptionOptions: &ostypes.NodeToNodeEncryptionOptions{Enabled: awssdk.Bool(false)},
 					},
 				},
@@ -205,8 +205,8 @@ func TestOpenSearchCollector_CollectEvidence_Error(t *testing.T) {
 
 func TestOpenSearchDomain_ToEvidence(t *testing.T) {
 	domain := &OpenSearchDomain{
-		DomainName:  "prod-search",
-		ARN:         "arn:aws:es:us-east-1:123:domain/prod-search",
+		DomainName:      "prod-search",
+		ARN:             "arn:aws:es:us-east-1:123:domain/prod-search",
 		EncryptedAtRest: true,
 	}
 	ev := domain.ToEvidence("123456789012")

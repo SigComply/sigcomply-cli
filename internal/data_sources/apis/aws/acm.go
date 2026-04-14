@@ -19,11 +19,11 @@ type ACMClient interface {
 
 // ACMCertificate represents an ACM certificate.
 type ACMCertificate struct {
-	ARN             string `json:"arn"`
-	DomainName      string `json:"domain_name"`
-	Status          string `json:"status"`
-	ExpiresAt       string `json:"expires_at,omitempty"`
-	DaysUntilExpiry int    `json:"days_until_expiry"`
+	ARN                        string `json:"arn"`
+	DomainName                 string `json:"domain_name"`
+	Status                     string `json:"status"`
+	ExpiresAt                  string `json:"expires_at,omitempty"`
+	DaysUntilExpiry            int    `json:"days_until_expiry"`
 	InUse                      bool   `json:"in_use"`
 	TransparencyLoggingEnabled bool   `json:"transparency_logging_enabled"`
 	RenewalStatus              string `json:"renewal_status"`

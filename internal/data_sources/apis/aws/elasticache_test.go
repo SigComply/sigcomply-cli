@@ -26,18 +26,18 @@ func TestElastiCacheCollector_CollectReplicationGroups(t *testing.T) {
 			return &elasticache.DescribeReplicationGroupsOutput{
 				ReplicationGroups: []ectypes.ReplicationGroup{
 					{
-						ReplicationGroupId:     awssdk.String("prod-redis"),
-						ARN:                    awssdk.String("arn:aws:elasticache:us-east-1:123:replicationgroup:prod-redis"),
-						AtRestEncryptionEnabled: awssdk.Bool(true),
+						ReplicationGroupId:       awssdk.String("prod-redis"),
+						ARN:                      awssdk.String("arn:aws:elasticache:us-east-1:123:replicationgroup:prod-redis"),
+						AtRestEncryptionEnabled:  awssdk.Bool(true),
 						TransitEncryptionEnabled: awssdk.Bool(true),
-						AuthTokenEnabled:        awssdk.Bool(true),
+						AuthTokenEnabled:         awssdk.Bool(true),
 					},
 					{
-						ReplicationGroupId:     awssdk.String("dev-redis"),
-						ARN:                    awssdk.String("arn:aws:elasticache:us-east-1:123:replicationgroup:dev-redis"),
-						AtRestEncryptionEnabled: awssdk.Bool(false),
+						ReplicationGroupId:       awssdk.String("dev-redis"),
+						ARN:                      awssdk.String("arn:aws:elasticache:us-east-1:123:replicationgroup:dev-redis"),
+						AtRestEncryptionEnabled:  awssdk.Bool(false),
 						TransitEncryptionEnabled: awssdk.Bool(false),
-						AuthTokenEnabled:        awssdk.Bool(false),
+						AuthTokenEnabled:         awssdk.Bool(false),
 					},
 				},
 			}, nil
@@ -129,9 +129,9 @@ func TestElastiCacheCollector_NilFields(t *testing.T) {
 			return &elasticache.DescribeReplicationGroupsOutput{
 				ReplicationGroups: []ectypes.ReplicationGroup{
 					{
-						ReplicationGroupId:      awssdk.String("minimal"),
-						ARN:                     awssdk.String("arn:aws:elasticache:us-east-1:123:replicationgroup:minimal"),
-						AtRestEncryptionEnabled: nil,
+						ReplicationGroupId:       awssdk.String("minimal"),
+						ARN:                      awssdk.String("arn:aws:elasticache:us-east-1:123:replicationgroup:minimal"),
+						AtRestEncryptionEnabled:  nil,
 						TransitEncryptionEnabled: nil,
 						AuthTokenEnabled:         nil,
 					},

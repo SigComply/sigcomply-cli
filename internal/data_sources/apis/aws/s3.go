@@ -29,24 +29,24 @@ type S3Client interface {
 
 // S3Bucket represents an S3 bucket with security configuration.
 type S3Bucket struct {
-	Name                string    `json:"name"`
-	ARN                 string    `json:"arn"`
-	CreationDate        time.Time `json:"creation_date,omitempty"`
-	EncryptionEnabled   bool      `json:"encryption_enabled"`
-	EncryptionAlgorithm string    `json:"encryption_algorithm,omitempty"`
-	EncryptionKeyID     string    `json:"encryption_key_id,omitempty"`
-	VersioningEnabled   bool      `json:"versioning_enabled"`
-	PublicAccessBlocked bool      `json:"public_access_blocked"`
-	BucketPolicyExists  bool      `json:"bucket_policy_exists"`
-	HasSSLEnforcement   bool      `json:"has_ssl_enforcement"`
-	LoggingEnabled      bool   `json:"logging_enabled"`
-	LoggingTargetBucket string `json:"logging_target_bucket,omitempty"`
-	HasLifecycleRules   bool   `json:"has_lifecycle_rules"`
-	LifecycleRuleCount  int    `json:"lifecycle_rule_count"`
-	ObjectLockEnabled           bool `json:"object_lock_enabled"`
-	MFADeleteEnabled            bool `json:"mfa_delete_enabled"`
-	ReplicationEnabled          bool `json:"replication_enabled"`
-	EventNotificationsConfigured bool `json:"event_notifications_configured"`
+	Name                         string    `json:"name"`
+	ARN                          string    `json:"arn"`
+	CreationDate                 time.Time `json:"creation_date,omitempty"`
+	EncryptionEnabled            bool      `json:"encryption_enabled"`
+	EncryptionAlgorithm          string    `json:"encryption_algorithm,omitempty"`
+	EncryptionKeyID              string    `json:"encryption_key_id,omitempty"`
+	VersioningEnabled            bool      `json:"versioning_enabled"`
+	PublicAccessBlocked          bool      `json:"public_access_blocked"`
+	BucketPolicyExists           bool      `json:"bucket_policy_exists"`
+	HasSSLEnforcement            bool      `json:"has_ssl_enforcement"`
+	LoggingEnabled               bool      `json:"logging_enabled"`
+	LoggingTargetBucket          string    `json:"logging_target_bucket,omitempty"`
+	HasLifecycleRules            bool      `json:"has_lifecycle_rules"`
+	LifecycleRuleCount           int       `json:"lifecycle_rule_count"`
+	ObjectLockEnabled            bool      `json:"object_lock_enabled"`
+	MFADeleteEnabled             bool      `json:"mfa_delete_enabled"`
+	ReplicationEnabled           bool      `json:"replication_enabled"`
+	EventNotificationsConfigured bool      `json:"event_notifications_configured"`
 }
 
 // ToEvidence converts an S3Bucket to an Evidence struct.

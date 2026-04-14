@@ -73,10 +73,10 @@ func (c *APIClient) GetRepository(ctx context.Context, owner, repo string) (*gh.
 
 // CollectorStatus represents the current state of the GitHub collector.
 type CollectorStatus struct {
-	Connected    bool     `json:"connected"`
-	Username     string   `json:"username,omitempty"`
-	Organization string   `json:"organization,omitempty"`
-	Error        string   `json:"error,omitempty"`
+	Connected    bool   `json:"connected"`
+	Username     string `json:"username,omitempty"`
+	Organization string `json:"organization,omitempty"`
+	Error        string `json:"error,omitempty"`
 }
 
 // CollectionResult represents the result of collecting evidence from GitHub.

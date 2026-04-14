@@ -39,9 +39,9 @@ func (s *BackupStatus) ToEvidence(accountID string) evidence.Evidence {
 
 // BackupPlan represents an AWS Backup plan with cross-region copy info.
 type BackupPlan struct {
-	PlanID           string `json:"plan_id"`
-	PlanName         string `json:"plan_name"`
-	HasCrossRegionCopy bool `json:"has_cross_region_copy"`
+	PlanID             string `json:"plan_id"`
+	PlanName           string `json:"plan_name"`
+	HasCrossRegionCopy bool   `json:"has_cross_region_copy"`
 }
 
 // ToEvidence converts a BackupPlan to Evidence.
@@ -55,10 +55,10 @@ func (p *BackupPlan) ToEvidence(accountID, region string) evidence.Evidence {
 
 // BackupVault represents an AWS Backup vault with encryption info.
 type BackupVault struct {
-	VaultName        string `json:"vault_name"`
-	VaultARN         string `json:"vault_arn"`
-	EncryptionEnabled bool  `json:"encryption_enabled"`
-	KMSKeyConfigured bool   `json:"kms_key_configured"`
+	VaultName         string `json:"vault_name"`
+	VaultARN          string `json:"vault_arn"`
+	EncryptionEnabled bool   `json:"encryption_enabled"`
+	KMSKeyConfigured  bool   `json:"kms_key_configured"`
 }
 
 // ToEvidence converts a BackupVault to Evidence.

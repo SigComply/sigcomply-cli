@@ -13,7 +13,7 @@ import (
 )
 
 type MockSNSClient struct {
-	ListTopicsFunc        func(ctx context.Context, params *sns.ListTopicsInput, optFns ...func(*sns.Options)) (*sns.ListTopicsOutput, error)
+	ListTopicsFunc         func(ctx context.Context, params *sns.ListTopicsInput, optFns ...func(*sns.Options)) (*sns.ListTopicsOutput, error)
 	GetTopicAttributesFunc func(ctx context.Context, params *sns.GetTopicAttributesInput, optFns ...func(*sns.Options)) (*sns.GetTopicAttributesOutput, error)
 }
 

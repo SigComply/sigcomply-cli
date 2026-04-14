@@ -67,14 +67,14 @@ type FileStorageConfig struct {
 // fileConfig mirrors Config with YAML-friendly structure for file parsing.
 // Provider sections hold non-secret config only. Credentials come from environment.
 type fileConfig struct {
-	Framework string             `yaml:"framework,omitempty"`
-	Policies  []string           `yaml:"policies,omitempty"`
-	Controls  []string           `yaml:"controls,omitempty"`
-	AWS       *AWSConfig         `yaml:"aws,omitempty"`
-	GCP       *GCPConfig         `yaml:"gcp,omitempty"`
-	GitHub    *GitHubConfig      `yaml:"github,omitempty"`
-	Output    *OutputConfig      `yaml:"output,omitempty"`
-	CI        *CIConfig          `yaml:"ci,omitempty"`
+	Framework      string                    `yaml:"framework,omitempty"`
+	Policies       []string                  `yaml:"policies,omitempty"`
+	Controls       []string                  `yaml:"controls,omitempty"`
+	AWS            *AWSConfig                `yaml:"aws,omitempty"`
+	GCP            *GCPConfig                `yaml:"gcp,omitempty"`
+	GitHub         *GitHubConfig             `yaml:"github,omitempty"`
+	Output         *OutputConfig             `yaml:"output,omitempty"`
+	CI             *CIConfig                 `yaml:"ci,omitempty"`
 	Storage        *FileStorageConfig        `yaml:"storage,omitempty"`
 	Cloud          *CloudConfig              `yaml:"cloud,omitempty"`
 	ManualEvidence *FileManualEvidenceConfig `yaml:"manual_evidence,omitempty"`

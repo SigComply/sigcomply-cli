@@ -19,9 +19,9 @@ type OrganizationsClient interface {
 
 // OrganizationStatus represents the Organizations status.
 type OrganizationStatus struct {
-	IsOrganizationMember bool   `json:"is_organization_member"`
-	SCPEnabled           bool   `json:"scp_enabled"`
-	SCPCount             int    `json:"scp_count"`
+	IsOrganizationMember bool `json:"is_organization_member"`
+	SCPEnabled           bool `json:"scp_enabled"`
+	SCPCount             int  `json:"scp_count"`
 }
 
 // ToEvidence converts an OrganizationStatus to Evidence.

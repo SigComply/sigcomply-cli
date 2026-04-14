@@ -14,9 +14,9 @@ import (
 
 // MockCloudTrailClient is a mock implementation of CloudTrailClient for testing.
 type MockCloudTrailClient struct {
-	DescribeTrailsFunc     func(ctx context.Context, params *cloudtrail.DescribeTrailsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.DescribeTrailsOutput, error)
-	GetTrailStatusFunc     func(ctx context.Context, params *cloudtrail.GetTrailStatusInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.GetTrailStatusOutput, error)
-	GetEventSelectorsFunc  func(ctx context.Context, params *cloudtrail.GetEventSelectorsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.GetEventSelectorsOutput, error)
+	DescribeTrailsFunc    func(ctx context.Context, params *cloudtrail.DescribeTrailsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.DescribeTrailsOutput, error)
+	GetTrailStatusFunc    func(ctx context.Context, params *cloudtrail.GetTrailStatusInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.GetTrailStatusOutput, error)
+	GetEventSelectorsFunc func(ctx context.Context, params *cloudtrail.GetEventSelectorsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.GetEventSelectorsOutput, error)
 }
 
 func (m *MockCloudTrailClient) DescribeTrails(ctx context.Context, params *cloudtrail.DescribeTrailsInput, optFns ...func(*cloudtrail.Options)) (*cloudtrail.DescribeTrailsOutput, error) {
@@ -260,12 +260,12 @@ func TestCloudTrailCollector_DataEvents_Advanced(t *testing.T) {
 
 func TestCloudTrailCollector_ToEvidence(t *testing.T) {
 	trail := CloudTrailTrail{
-		Name:               "my-trail",
-		ARN:                "arn:aws:cloudtrail:us-east-1:123456789012:trail/my-trail",
-		IsMultiRegion:      true,
-		IsLogging:          true,
-		LogFileValidation:  true,
-		S3BucketName:       "my-bucket",
+		Name:              "my-trail",
+		ARN:               "arn:aws:cloudtrail:us-east-1:123456789012:trail/my-trail",
+		IsMultiRegion:     true,
+		IsLogging:         true,
+		LogFileValidation: true,
+		S3BucketName:      "my-bucket",
 	}
 
 	evidence := trail.ToEvidence("123456789012")

@@ -57,25 +57,25 @@ func (m *MockRDSClient) DescribeDBClusters(ctx context.Context, params *rds.Desc
 
 func TestRDSCollector_CollectInstances(t *testing.T) {
 	tests := []struct {
-		name           string
-		mockInstances  []rdstypes.DBInstance
-		mockErr        error
-		wantCount      int
-		wantError      bool
+		name          string
+		mockInstances []rdstypes.DBInstance
+		mockErr       error
+		wantCount     int
+		wantError     bool
 	}{
 		{
 			name: "encrypted instance with backups",
 			mockInstances: []rdstypes.DBInstance{
 				{
-					DBInstanceIdentifier: awssdk.String("prod-db"),
-					DBInstanceArn:       awssdk.String("arn:aws:rds:us-east-1:123:db:prod-db"),
-					Engine:              awssdk.String("postgres"),
-					EngineVersion:       awssdk.String("15.3"),
-					DBInstanceClass:     awssdk.String("db.r5.large"),
-					StorageEncrypted:    awssdk.Bool(true),
-					KmsKeyId:            awssdk.String("arn:aws:kms:us-east-1:123:key/abc"),
-					PubliclyAccessible:  awssdk.Bool(false),
-					MultiAZ:            awssdk.Bool(true),
+					DBInstanceIdentifier:  awssdk.String("prod-db"),
+					DBInstanceArn:         awssdk.String("arn:aws:rds:us-east-1:123:db:prod-db"),
+					Engine:                awssdk.String("postgres"),
+					EngineVersion:         awssdk.String("15.3"),
+					DBInstanceClass:       awssdk.String("db.r5.large"),
+					StorageEncrypted:      awssdk.Bool(true),
+					KmsKeyId:              awssdk.String("arn:aws:kms:us-east-1:123:key/abc"),
+					PubliclyAccessible:    awssdk.Bool(false),
+					MultiAZ:               awssdk.Bool(true),
 					BackupRetentionPeriod: awssdk.Int32(7),
 					MonitoringInterval:    awssdk.Int32(60),
 					DBParameterGroups: []rdstypes.DBParameterGroupStatus{
@@ -90,12 +90,12 @@ func TestRDSCollector_CollectInstances(t *testing.T) {
 			mockInstances: []rdstypes.DBInstance{
 				{
 					DBInstanceIdentifier:  awssdk.String("dev-db"),
-					DBInstanceArn:        awssdk.String("arn:aws:rds:us-east-1:123:db:dev-db"),
-					Engine:               awssdk.String("mysql"),
-					DBInstanceClass:      awssdk.String("db.t3.micro"),
-					StorageEncrypted:     awssdk.Bool(false),
-					PubliclyAccessible:   awssdk.Bool(true),
-					MultiAZ:             awssdk.Bool(false),
+					DBInstanceArn:         awssdk.String("arn:aws:rds:us-east-1:123:db:dev-db"),
+					Engine:                awssdk.String("mysql"),
+					DBInstanceClass:       awssdk.String("db.t3.micro"),
+					StorageEncrypted:      awssdk.Bool(false),
+					PubliclyAccessible:    awssdk.Bool(true),
+					MultiAZ:               awssdk.Bool(false),
 					BackupRetentionPeriod: awssdk.Int32(0),
 				},
 			},
@@ -171,8 +171,8 @@ func TestRDSCollector_CollectInstances_Pagination(t *testing.T) {
 					DBInstances: []rdstypes.DBInstance{
 						{
 							DBInstanceIdentifier: awssdk.String("db-1"),
-							DBInstanceArn:       awssdk.String("arn:aws:rds:us-east-1:123:db:db-1"),
-							Engine:              awssdk.String("postgres"),
+							DBInstanceArn:        awssdk.String("arn:aws:rds:us-east-1:123:db:db-1"),
+							Engine:               awssdk.String("postgres"),
 						},
 					},
 					Marker: awssdk.String("page2"),
@@ -182,8 +182,8 @@ func TestRDSCollector_CollectInstances_Pagination(t *testing.T) {
 				DBInstances: []rdstypes.DBInstance{
 					{
 						DBInstanceIdentifier: awssdk.String("db-2"),
-						DBInstanceArn:       awssdk.String("arn:aws:rds:us-east-1:123:db:db-2"),
-						Engine:              awssdk.String("mysql"),
+						DBInstanceArn:        awssdk.String("arn:aws:rds:us-east-1:123:db:db-2"),
+						Engine:               awssdk.String("mysql"),
 					},
 				},
 			}, nil
@@ -293,8 +293,8 @@ func TestRDSCollector_CollectInstances_PaginationErrorMidStream(t *testing.T) {
 					DBInstances: []rdstypes.DBInstance{
 						{
 							DBInstanceIdentifier: awssdk.String("db-1"),
-							DBInstanceArn:       awssdk.String("arn:aws:rds:us-east-1:123:db:db-1"),
-							Engine:              awssdk.String("postgres"),
+							DBInstanceArn:        awssdk.String("arn:aws:rds:us-east-1:123:db:db-1"),
+							Engine:               awssdk.String("postgres"),
 						},
 					},
 					Marker: awssdk.String("page2"),
@@ -322,15 +322,15 @@ func TestRDSCollector_CollectInstances_NilOptionalFields(t *testing.T) {
 					{
 						// Minimal fields, everything else nil
 						DBInstanceIdentifier:  awssdk.String("minimal-db"),
-						DBInstanceArn:        awssdk.String("arn:aws:rds:us-east-1:123:db:minimal-db"),
-						Engine:               awssdk.String("mysql"),
-						DBInstanceClass:      awssdk.String("db.t3.micro"),
-						StorageEncrypted:     nil,
-						KmsKeyId:             nil,
-						PubliclyAccessible:   nil,
-						MultiAZ:             nil,
+						DBInstanceArn:         awssdk.String("arn:aws:rds:us-east-1:123:db:minimal-db"),
+						Engine:                awssdk.String("mysql"),
+						DBInstanceClass:       awssdk.String("db.t3.micro"),
+						StorageEncrypted:      nil,
+						KmsKeyId:              nil,
+						PubliclyAccessible:    nil,
+						MultiAZ:               nil,
 						BackupRetentionPeriod: nil,
-						DBParameterGroups:    nil,
+						DBParameterGroups:     nil,
 					},
 				},
 			}, nil

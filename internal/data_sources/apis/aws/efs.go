@@ -18,13 +18,13 @@ type EFSClient interface {
 
 // EFSFileSystem represents an EFS file system.
 type EFSFileSystem struct {
-	FileSystemID             string `json:"file_system_id"`
-	Name                     string `json:"name,omitempty"`
-	ARN                      string `json:"arn"`
-	Encrypted                bool   `json:"encrypted"`
-	KMSKeyID                 string `json:"kms_key_id,omitempty"`
-	LifecyclePolicyConfigured bool  `json:"lifecycle_policy_configured"`
-	BackupPolicyEnabled       bool  `json:"backup_policy_enabled"`
+	FileSystemID              string `json:"file_system_id"`
+	Name                      string `json:"name,omitempty"`
+	ARN                       string `json:"arn"`
+	Encrypted                 bool   `json:"encrypted"`
+	KMSKeyID                  string `json:"kms_key_id,omitempty"`
+	LifecyclePolicyConfigured bool   `json:"lifecycle_policy_configured"`
+	BackupPolicyEnabled       bool   `json:"backup_policy_enabled"`
 }
 
 // ToEvidence converts an EFSFileSystem to Evidence.

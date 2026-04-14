@@ -87,9 +87,9 @@ func TestPolicySlug(t *testing.T) {
 		{"soc2-cc6.1-mfa", "soc2", "cc6.1-mfa"},
 		{"soc2-cc6.2-encryption", "soc2", "cc6.2-encryption"},
 		{"iso27001-a9.2-access", "iso27001", "a9.2-access"},
-		{"custom-policy", "soc2", "custom-policy"},               // no prefix match
-		{"soc2", "soc2", "soc2"},                                 // exact match, no dash after
-		{"soc2-", "soc2", ""},                                    // edge case: just prefix
+		{"custom-policy", "soc2", "custom-policy"}, // no prefix match
+		{"soc2", "soc2", "soc2"},                   // exact match, no dash after
+		{"soc2-", "soc2", ""},                      // edge case: just prefix
 	}
 
 	for _, tt := range tests {

@@ -34,21 +34,21 @@ const (
 
 // CatalogEntry defines a single manual evidence requirement.
 type CatalogEntry struct {
-	ID              string        `yaml:"id" json:"id"`
-	Control         string        `yaml:"control" json:"control"`
-	Type            EvidenceType  `yaml:"type" json:"type"`
-	Frequency       Frequency     `yaml:"frequency" json:"frequency"`
-	TemporalRule    TemporalRule  `yaml:"temporal_rule" json:"temporal_rule"`
-	GracePeriod     string        `yaml:"grace_period" json:"grace_period"` // "15d", "30d"
-	Name            string        `yaml:"name" json:"name"`
-	Description     string        `yaml:"description" json:"description"`
-	Severity        string        `yaml:"severity" json:"severity"`
-	AcceptedFormats []string      `yaml:"accepted_formats,omitempty" json:"accepted_formats,omitempty"`
+	ID              string          `yaml:"id" json:"id"`
+	Control         string          `yaml:"control" json:"control"`
+	Type            EvidenceType    `yaml:"type" json:"type"`
+	Frequency       Frequency       `yaml:"frequency" json:"frequency"`
+	TemporalRule    TemporalRule    `yaml:"temporal_rule" json:"temporal_rule"`
+	GracePeriod     string          `yaml:"grace_period" json:"grace_period"` // "15d", "30d"
+	Name            string          `yaml:"name" json:"name"`
+	Description     string          `yaml:"description" json:"description"`
+	Severity        string          `yaml:"severity" json:"severity"`
+	AcceptedFormats []string        `yaml:"accepted_formats,omitempty" json:"accepted_formats,omitempty"`
 	Items           []ChecklistItem `yaml:"items,omitempty" json:"items,omitempty"`
-	DeclarationText string        `yaml:"declaration_text,omitempty" json:"declaration_text,omitempty"`
-	Category        string        `yaml:"category,omitempty" json:"category,omitempty"`
-	TSC             string        `yaml:"tsc,omitempty" json:"tsc,omitempty"`
-	Optional        bool          `yaml:"optional,omitempty" json:"optional,omitempty"`
+	DeclarationText string          `yaml:"declaration_text,omitempty" json:"declaration_text,omitempty"`
+	Category        string          `yaml:"category,omitempty" json:"category,omitempty"`
+	TSC             string          `yaml:"tsc,omitempty" json:"tsc,omitempty"`
+	Optional        bool            `yaml:"optional,omitempty" json:"optional,omitempty"`
 }
 
 // ChecklistItem defines a single item in a checklist-type evidence entry.

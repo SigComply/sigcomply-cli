@@ -22,29 +22,29 @@ type RDSClient interface {
 
 // RDSInstance represents an RDS database instance.
 type RDSInstance struct {
-	DBInstanceID        string `json:"db_instance_id"`
-	ARN                 string `json:"arn"`
-	Engine              string `json:"engine"`
-	EngineVersion       string `json:"engine_version,omitempty"`
-	DBInstanceClass     string `json:"db_instance_class"`
-	StorageEncrypted    bool   `json:"storage_encrypted"`
-	KMSKeyID            string `json:"kms_key_id,omitempty"`
-	PubliclyAccessible  bool   `json:"publicly_accessible"`
-	MultiAZ             bool   `json:"multi_az"`
-	BackupRetentionPeriod int  `json:"backup_retention_period"`
-	BackupEnabled       bool   `json:"backup_enabled"`
-	PITREnabled         bool   `json:"pitr_enabled"`
-	ForceSSL               bool `json:"force_ssl"`
-	AutoMinorVersionUpgrade bool `json:"auto_minor_version_upgrade"`
-	DeletionProtection     bool `json:"deletion_protection"`
-	ParameterGroupName         string `json:"parameter_group_name,omitempty"`
-	EnhancedMonitoringEnabled      bool   `json:"enhanced_monitoring_enabled"`
-	PerformanceInsightsEncrypted   bool   `json:"performance_insights_encrypted"`
-	MasterUsername                 string `json:"master_username,omitempty"`
-	IAMDatabaseAuthEnabled         bool   `json:"iam_database_authentication_enabled"`
-	EnabledCloudwatchLogs          bool   `json:"enabled_cloudwatch_logs"`
-	Port                           int32  `json:"port"`
-	DBSubnetGroupName              string `json:"db_subnet_group_name,omitempty"`
+	DBInstanceID                 string `json:"db_instance_id"`
+	ARN                          string `json:"arn"`
+	Engine                       string `json:"engine"`
+	EngineVersion                string `json:"engine_version,omitempty"`
+	DBInstanceClass              string `json:"db_instance_class"`
+	StorageEncrypted             bool   `json:"storage_encrypted"`
+	KMSKeyID                     string `json:"kms_key_id,omitempty"`
+	PubliclyAccessible           bool   `json:"publicly_accessible"`
+	MultiAZ                      bool   `json:"multi_az"`
+	BackupRetentionPeriod        int    `json:"backup_retention_period"`
+	BackupEnabled                bool   `json:"backup_enabled"`
+	PITREnabled                  bool   `json:"pitr_enabled"`
+	ForceSSL                     bool   `json:"force_ssl"`
+	AutoMinorVersionUpgrade      bool   `json:"auto_minor_version_upgrade"`
+	DeletionProtection           bool   `json:"deletion_protection"`
+	ParameterGroupName           string `json:"parameter_group_name,omitempty"`
+	EnhancedMonitoringEnabled    bool   `json:"enhanced_monitoring_enabled"`
+	PerformanceInsightsEncrypted bool   `json:"performance_insights_encrypted"`
+	MasterUsername               string `json:"master_username,omitempty"`
+	IAMDatabaseAuthEnabled       bool   `json:"iam_database_authentication_enabled"`
+	EnabledCloudwatchLogs        bool   `json:"enabled_cloudwatch_logs"`
+	Port                         int32  `json:"port"`
+	DBSubnetGroupName            string `json:"db_subnet_group_name,omitempty"`
 }
 
 // ToEvidence converts an RDSInstance to Evidence.
@@ -130,14 +130,14 @@ func (c *RDSCollector) CollectInstances(ctx context.Context) ([]RDSInstance, err
 		for idx := range output.DBInstances {
 			db := &output.DBInstances[idx]
 			instance := RDSInstance{
-				DBInstanceID:        awssdk.ToString(db.DBInstanceIdentifier),
-				ARN:                 awssdk.ToString(db.DBInstanceArn),
-				Engine:              awssdk.ToString(db.Engine),
-				EngineVersion:       awssdk.ToString(db.EngineVersion),
-				DBInstanceClass:     awssdk.ToString(db.DBInstanceClass),
-				StorageEncrypted:    awssdk.ToBool(db.StorageEncrypted),
-				PubliclyAccessible:  awssdk.ToBool(db.PubliclyAccessible),
-				MultiAZ:            awssdk.ToBool(db.MultiAZ),
+				DBInstanceID:          awssdk.ToString(db.DBInstanceIdentifier),
+				ARN:                   awssdk.ToString(db.DBInstanceArn),
+				Engine:                awssdk.ToString(db.Engine),
+				EngineVersion:         awssdk.ToString(db.EngineVersion),
+				DBInstanceClass:       awssdk.ToString(db.DBInstanceClass),
+				StorageEncrypted:      awssdk.ToBool(db.StorageEncrypted),
+				PubliclyAccessible:    awssdk.ToBool(db.PubliclyAccessible),
+				MultiAZ:               awssdk.ToBool(db.MultiAZ),
 				BackupRetentionPeriod: int(awssdk.ToInt32(db.BackupRetentionPeriod)),
 			}
 
@@ -195,7 +195,7 @@ func (c *RDSCollector) enrichSSLStatus(ctx context.Context, instance *RDSInstanc
 
 	// Look for SSL-related parameters
 	sslParamNames := map[string]bool{
-		"rds.force_ssl":   true,
+		"rds.force_ssl":            true,
 		"require_secure_transport": true,
 	}
 

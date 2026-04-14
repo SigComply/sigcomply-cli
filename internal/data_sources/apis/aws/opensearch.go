@@ -18,12 +18,12 @@ type OpenSearchClient interface {
 
 // OpenSearchDomain represents an OpenSearch domain.
 type OpenSearchDomain struct {
-	DomainName             string `json:"domain_name"`
-	DomainID               string `json:"domain_id,omitempty"`
-	ARN                    string `json:"arn"`
-	EncryptedAtRest        bool   `json:"encrypted_at_rest"`
-	NodeToNodeEncryption   bool   `json:"node_to_node_encryption"`
-	VPCConfigured          bool   `json:"vpc_configured"`
+	DomainName               string `json:"domain_name"`
+	DomainID                 string `json:"domain_id,omitempty"`
+	ARN                      string `json:"arn"`
+	EncryptedAtRest          bool   `json:"encrypted_at_rest"`
+	NodeToNodeEncryption     bool   `json:"node_to_node_encryption"`
+	VPCConfigured            bool   `json:"vpc_configured"`
 	EnforceHTTPS             bool   `json:"enforce_https"`
 	AuditLoggingEnabled      bool   `json:"audit_logging_enabled"`
 	FineGrainedAccessEnabled bool   `json:"fine_grained_access_enabled"`
@@ -50,6 +50,7 @@ func NewOpenSearchCollector(client OpenSearchClient) *OpenSearchCollector {
 }
 
 // CollectDomains retrieves all OpenSearch domains.
+//
 //nolint:gocyclo // AWS API response mapping requires sequential field extraction
 func (c *OpenSearchCollector) CollectDomains(ctx context.Context) ([]OpenSearchDomain, error) {
 	// List domain names first
