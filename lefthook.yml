@@ -28,6 +28,13 @@ pre-commit:
       glob: "*.go"
       run: go vet ./...
 
+    mod-tidy:
+      name: go mod tidy check
+      glob: "{go.mod,go.sum}"
+      run: |
+        go mod tidy
+        git diff --exit-code go.mod go.sum || { echo "go.mod/go.sum changed -- stage and commit the tidy result"; exit 1; }
+
     secrets:
       name: Gitleaks (staged changes)
       run: gitleaks protect --staged --config .gitleaks.toml --redact
