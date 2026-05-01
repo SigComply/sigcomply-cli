@@ -285,8 +285,9 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 	if fwErr != nil {
 		return fwErr
 	}
+	var manualSidecars []storage.ManualSidecar
 	if cfg.ManualEvidence.Enabled {
-		manualEvidence, manualErr := collectManualEvidence(ctx, cfg, framework)
+		manualEvidence, sidecars, manualErr := collectManualEvidence(ctx, cfg, framework)
 		if manualErr != nil {
 			fmt.Printf("  [warn] Manual evidence: %s\n", manualErr)
 		} else if len(manualEvidence) > 0 {
@@ -294,6 +295,7 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 			fmt.Printf("---------------\n")
 			fmt.Printf("  [done] %d manual evidence items collected\n", len(manualEvidence))
 			result.Evidence = append(result.Evidence, manualEvidence...)
+			manualSidecars = sidecars
 		}
 	}
 
@@ -331,7 +333,7 @@ func runCheckText(ctx context.Context, cfg *config.Config, startTime time.Time) 
 		fmt.Println("Storage")
 		fmt.Println("-------")
 
-		if storageErr := storeEvidence(ctx, cfg, checkResult, result.Evidence); storageErr != nil {
+		if storageErr := storeEvidence(ctx, cfg, checkResult, result.Evidence, manualSidecars); storageErr != nil {
 			fmt.Printf("  [warn] Failed to store evidence: %s\n", storageErr)
 		} else {
 			fmt.Printf("  [done] Stored %d evidence items\n", len(result.Evidence))
@@ -415,10 +417,12 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 	if jsonFwErr != nil {
 		return jsonFwErr
 	}
+	var jsonManualSidecars []storage.ManualSidecar
 	if cfg.ManualEvidence.Enabled {
-		manualEvidence, manualErr := collectManualEvidence(ctx, cfg, jsonFramework)
+		manualEvidence, sidecars, manualErr := collectManualEvidence(ctx, cfg, jsonFramework)
 		if manualErr == nil && len(manualEvidence) > 0 {
 			result.Evidence = append(result.Evidence, manualEvidence...)
+			jsonManualSidecars = sidecars
 		}
 	}
 
@@ -452,7 +456,7 @@ func runCheckJSON(ctx context.Context, cfg *config.Config) error {
 
 	// Store evidence if enabled
 	if cfg.Storage.Enabled {
-		if storageErr := storeEvidence(ctx, cfg, checkResult, result.Evidence); storageErr != nil {
+		if storageErr := storeEvidence(ctx, cfg, checkResult, result.Evidence, jsonManualSidecars); storageErr != nil {
 			// Log storage error but continue
 			_ = storageErr
 		}
@@ -569,10 +573,12 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 	if junitFwErr != nil {
 		return junitFwErr
 	}
+	var junitManualSidecars []storage.ManualSidecar
 	if cfg.ManualEvidence.Enabled {
-		manualEvidence, manualErr := collectManualEvidence(ctx, cfg, junitFramework)
+		manualEvidence, sidecars, manualErr := collectManualEvidence(ctx, cfg, junitFramework)
 		if manualErr == nil && len(manualEvidence) > 0 {
 			result.Evidence = append(result.Evidence, manualEvidence...)
+			junitManualSidecars = sidecars
 		}
 	}
 
@@ -607,7 +613,7 @@ func runCheckJUnit(ctx context.Context, cfg *config.Config) error {
 	// Store evidence if enabled (silently, as JUnit output should be pure XML)
 	if cfg.Storage.Enabled {
 		//nolint:errcheck // Intentionally ignoring storage errors in JUnit mode to preserve XML output
-		_ = storeEvidence(ctx, cfg, checkResult, result.Evidence)
+		_ = storeEvidence(ctx, cfg, checkResult, result.Evidence, junitManualSidecars)
 	}
 
 	// Submit aggregated results to cloud if enabled (silently, as JUnit output should be pure XML)
@@ -864,7 +870,8 @@ func buildManualStorageConfig(cfg *config.Config) *storage.Config {
 
 // storeEvidence stores evidence and policy results to the configured storage backend.
 // Evidence files are stored as signed EvidenceEnvelopes; result.json contains full violations.
-func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence) error {
+// manualSidecars are mirrored into each policy folder that references the matching manual entry.
+func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidence.CheckResult, evidenceList []evidence.Evidence, manualSidecars []storage.ManualSidecar) error {
 	storageCfg := buildStorageConfig(cfg)
 
 	// Create backend
@@ -882,33 +889,35 @@ func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidenc
 	}
 
 	// Store per-policy folders with signed evidence envelopes
-	if err := storage.StoreRun(ctx, backend, checkResult, evidenceList, version, commit, cfg.CommitSHA); err != nil {
+	if err := storage.StoreRun(ctx, backend, checkResult, evidenceList, manualSidecars, version, commit, cfg.CommitSHA); err != nil {
 		return fmt.Errorf("failed to store run: %w", err)
 	}
 
 	return nil
 }
 
-// collectManualEvidence reads manual evidence from storage and returns evidence items for OPA.
-func collectManualEvidence(ctx context.Context, cfg *config.Config, framework engine.Framework) (evs []evidence.Evidence, err error) {
+// collectManualEvidence reads manual evidence from storage and returns evidence
+// items for OPA along with sidecars (raw evidence.json + supporting files) so
+// the storage layer can mirror them into the policy result bucket.
+func collectManualEvidence(ctx context.Context, cfg *config.Config, framework engine.Framework) (evs []evidence.Evidence, sidecars []storage.ManualSidecar, err error) {
 	if !cfg.ManualEvidence.Enabled {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	mep, ok := framework.(engine.ManualEvidenceProvider)
 	if !ok {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	catalog, err := mep.ManualCatalog()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load manual catalog: %w", err)
+		return nil, nil, fmt.Errorf("failed to load manual catalog: %w", err)
 	}
 
 	storageCfg := buildManualStorageConfig(cfg)
 	backend, err := storage.NewBackend(storageCfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create manual evidence storage backend: %w", err)
+		return nil, nil, fmt.Errorf("failed to create manual evidence storage backend: %w", err)
 	}
 	defer func() {
 		if closeErr := backend.Close(); closeErr != nil && err == nil {
@@ -917,22 +926,22 @@ func collectManualEvidence(ctx context.Context, cfg *config.Config, framework en
 	}()
 
 	if err = backend.Init(ctx); err != nil {
-		return nil, fmt.Errorf("failed to initialize manual evidence storage: %w", err)
+		return nil, nil, fmt.Errorf("failed to initialize manual evidence storage: %w", err)
 	}
 
 	statePath := filepath.Join(cfg.Framework, "execution-state.json")
 	state, err := manual.LoadState(ctx, backend, statePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load execution state: %w", err)
+		return nil, nil, fmt.Errorf("failed to load execution state: %w", err)
 	}
 
 	reader := manualReader.NewReader(backend, catalog, cfg.Framework)
 	result, err := reader.Read(ctx, state, time.Now())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return result.Evidence, nil
+	return result.Evidence, result.Sidecars, nil
 }
 
 // updateManualExecutionState updates the execution state after a check run.

@@ -60,6 +60,14 @@ func (r *RunPath) ResultPath() string {
 	return r.PolicyDir() + "/result.json"
 }
 
+// ManualAttachmentPath returns the path for a manual evidence sidecar file
+// (the user-submitted evidence.json or one of its supporting attachments).
+// Example: ManualAttachmentPath("cc6.1_security_training", "report.pdf")
+//   -> "soc2/cc6.1-mfa/20260214T182049Z_a3f8b2c1/manual_attachments/cc6.1_security_training/report.pdf"
+func (r *RunPath) ManualAttachmentPath(evidenceID, filename string) string {
+	return r.PolicyDir() + "/manual_attachments/" + evidenceID + "/" + filename
+}
+
 // PolicySlug strips the framework prefix from a policy ID to produce a clean folder name.
 // Example: "soc2-cc6.1-mfa" with framework "soc2" -> "cc6.1-mfa"
 // If the policy ID doesn't start with the framework prefix, it is returned as-is.

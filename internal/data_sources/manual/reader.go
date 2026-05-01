@@ -28,6 +28,10 @@ type ReadResult struct {
 	Evidence []evidence.Evidence
 	Errors   []ReadError
 	Status   []EntryStatus
+	// Sidecars carries the raw evidence.json + supporting files for each manual
+	// entry that had user-uploaded data, so the storage layer can mirror them
+	// into the policy result bucket alongside the OPA-derived envelope.
+	Sidecars []storage.ManualSidecar
 }
 
 // ReadError records an error for a specific evidence entry.
@@ -59,7 +63,7 @@ func (r *Reader) Read(ctx context.Context, state *manualPkg.ExecutionState, now 
 	result := &ReadResult{}
 
 	for i := range r.catalog.Entries {
-		ev, entryStatus, readErr := r.readEntry(ctx, &r.catalog.Entries[i], state, now)
+		ev, entryStatus, sidecar, readErr := r.readEntry(ctx, &r.catalog.Entries[i], state, now)
 		result.Status = append(result.Status, entryStatus)
 		if readErr != nil {
 			result.Errors = append(result.Errors, ReadError{
@@ -69,15 +73,18 @@ func (r *Reader) Read(ctx context.Context, state *manualPkg.ExecutionState, now 
 			continue
 		}
 		result.Evidence = append(result.Evidence, ev)
+		if sidecar != nil {
+			result.Sidecars = append(result.Sidecars, *sidecar)
+		}
 	}
 
 	return result, nil
 }
 
-func (r *Reader) readEntry(ctx context.Context, entry *manualPkg.CatalogEntry, state *manualPkg.ExecutionState, now time.Time) (evidence.Evidence, EntryStatus, error) {
+func (r *Reader) readEntry(ctx context.Context, entry *manualPkg.CatalogEntry, state *manualPkg.ExecutionState, now time.Time) (evidence.Evidence, EntryStatus, *storage.ManualSidecar, error) {
 	period, err := manualPkg.CurrentPeriod(entry.Frequency, now, entry.GracePeriod)
 	if err != nil {
-		return evidence.Evidence{}, EntryStatus{EvidenceID: entry.ID}, fmt.Errorf("period computation: %w", err)
+		return evidence.Evidence{}, EntryStatus{EvidenceID: entry.ID}, nil, fmt.Errorf("period computation: %w", err)
 	}
 
 	status := EntryStatus{
@@ -90,7 +97,7 @@ func (r *Reader) readEntry(ctx context.Context, entry *manualPkg.CatalogEntry, s
 	if status.Attested {
 		status.TemporalStatus = string(manualPkg.TemporalStatusWithinWindow)
 		status.HasEvidence = true
-		return evidence.Evidence{}, status, fmt.Errorf("already attested")
+		return evidence.Evidence{}, status, nil, fmt.Errorf("already attested")
 	}
 
 	// Try to read submitted evidence from storage
@@ -101,7 +108,7 @@ func (r *Reader) readEntry(ctx context.Context, entry *manualPkg.CatalogEntry, s
 		// Not found — build "not_uploaded" evidence for OPA
 		var notFound *storage.NotFoundError
 		if !errors.As(getErr, &notFound) {
-			return evidence.Evidence{}, status, fmt.Errorf("storage error: %w", getErr)
+			return evidence.Evidence{}, status, nil, fmt.Errorf("storage error: %w", getErr)
 		}
 
 		temporalStatus := manualPkg.ComputeTemporalStatus(&period, now, false)
@@ -117,41 +124,51 @@ func (r *Reader) readEntry(ctx context.Context, entry *manualPkg.CatalogEntry, s
 		}
 		jsonData, marshalErr := json.Marshal(opaData)
 		if marshalErr != nil {
-			return evidence.Evidence{}, status, fmt.Errorf("marshal OPA data: %w", marshalErr)
+			return evidence.Evidence{}, status, nil, fmt.Errorf("marshal OPA data: %w", marshalErr)
 		}
 
 		ev := evidence.New("manual", "manual:"+entry.ID, entry.ID+"/"+period.Key, jsonData)
-		return ev, status, nil
+		return ev, status, nil, nil
 	}
 
 	// Validate against JSON Schema first, so structurally broken submissions produce
 	// a clear "missing required field" error instead of silently feeding empty data to OPA.
 	if err := manualPkg.ValidateSubmittedEvidence(data); err != nil {
-		return evidence.Evidence{}, status, fmt.Errorf("invalid evidence submission: %w", err)
+		return evidence.Evidence{}, status, nil, fmt.Errorf("invalid evidence submission: %w", err)
 	}
 
 	// Parse submitted evidence
 	var submitted manualPkg.SubmittedEvidence
 	if err := json.Unmarshal(data, &submitted); err != nil {
-		return evidence.Evidence{}, status, fmt.Errorf("invalid evidence JSON: %w", err)
+		return evidence.Evidence{}, status, nil, fmt.Errorf("invalid evidence JSON: %w", err)
 	}
 
 	status.HasEvidence = true
 	temporalStatus := manualPkg.ComputeTemporalStatus(&period, now, true)
 	status.TemporalStatus = string(temporalStatus)
 
-	// Build OPA evidence data based on type
-	opaData := r.buildOPAData(ctx, entry, &submitted, &period, temporalStatus)
+	// Build OPA evidence data based on type. attachmentBytes captures supporting
+	// file contents (PDFs, screenshots) so we can mirror them into the policy
+	// result bucket; nil for non-document types.
+	opaData, attachmentBytes := r.buildOPAData(ctx, entry, &submitted, &period, temporalStatus)
 
 	jsonData, marshalErr := json.Marshal(opaData)
 	if marshalErr != nil {
-		return evidence.Evidence{}, status, fmt.Errorf("marshal OPA data: %w", marshalErr)
+		return evidence.Evidence{}, status, nil, fmt.Errorf("marshal OPA data: %w", marshalErr)
 	}
 	ev := evidence.New("manual", "manual:"+entry.ID, entry.ID+"/"+period.Key, jsonData)
-	return ev, status, nil
+
+	sidecar := &storage.ManualSidecar{
+		EvidenceID:   entry.ID,
+		Period:       period.Key,
+		ResourceType: "manual:" + entry.ID,
+		EvidenceJSON: data,
+		Attachments:  attachmentBytes,
+	}
+	return ev, status, sidecar, nil
 }
 
-func (r *Reader) buildOPAData(ctx context.Context, entry *manualPkg.CatalogEntry, submitted *manualPkg.SubmittedEvidence, period *manualPkg.Period, temporalStatus manualPkg.TemporalStatus) map[string]interface{} {
+func (r *Reader) buildOPAData(ctx context.Context, entry *manualPkg.CatalogEntry, submitted *manualPkg.SubmittedEvidence, period *manualPkg.Period, temporalStatus manualPkg.TemporalStatus) (map[string]interface{}, map[string][]byte) {
 	opaData := map[string]interface{}{
 		"evidence_id":     entry.ID,
 		"type":            string(entry.Type),
@@ -162,13 +179,16 @@ func (r *Reader) buildOPAData(ctx context.Context, entry *manualPkg.CatalogEntry
 		"completed_by":    submitted.CompletedBy,
 	}
 
+	var attachmentBytes map[string][]byte
+
 	switch entry.Type {
 	case manualPkg.EvidenceTypeDocumentUpload:
-		files, err := r.verifyAttachments(ctx, entry, submitted, period)
+		files, bytes, err := r.verifyAttachments(ctx, entry, submitted, period)
 		if err != nil {
 			opaData["hash_verified"] = false
 		}
 		opaData["files"] = files
+		attachmentBytes = bytes
 
 	case manualPkg.EvidenceTypeChecklist:
 		items := make([]map[string]interface{}, len(submitted.Items))
@@ -197,12 +217,13 @@ func (r *Reader) buildOPAData(ctx context.Context, entry *manualPkg.CatalogEntry
 		}
 	}
 
-	return opaData
+	return opaData, attachmentBytes
 }
 
-func (r *Reader) verifyAttachments(ctx context.Context, entry *manualPkg.CatalogEntry, submitted *manualPkg.SubmittedEvidence, period *manualPkg.Period) ([]map[string]interface{}, error) {
+func (r *Reader) verifyAttachments(ctx context.Context, entry *manualPkg.CatalogEntry, submitted *manualPkg.SubmittedEvidence, period *manualPkg.Period) ([]map[string]interface{}, map[string][]byte, error) {
 	files := make([]map[string]interface{}, 0, len(submitted.Attachments))
 	var verifyErr error
+	bytesByName := make(map[string][]byte, len(submitted.Attachments))
 
 	for _, attachment := range submitted.Attachments {
 		attachPath := filepath.Join(r.framework, entry.ID, period.Key, attachment)
@@ -220,12 +241,13 @@ func (r *Reader) verifyAttachments(ctx context.Context, entry *manualPkg.Catalog
 			fileInfo["sha256"] = hex.EncodeToString(hash[:])
 			fileInfo["size_bytes"] = len(attachData)
 			fileInfo["format"] = filepath.Ext(attachment)
+			bytesByName[attachment] = attachData
 		}
 
 		files = append(files, fileInfo)
 	}
 
-	return files, verifyErr
+	return files, bytesByName, verifyErr
 }
 
 func findChecklistItem(items []manualPkg.ChecklistItem, id string) *manualPkg.ChecklistItem {

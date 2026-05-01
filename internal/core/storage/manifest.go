@@ -24,14 +24,22 @@ type StoredPolicyResult struct {
 //
 //	{framework}/{policy_slug}/{timestamp}_{run_id_short}/
 //	  evidence/{resource_type_plural}.json   (EvidenceEnvelope — self-contained, signed)
+//	  manual_attachments/{evidence_id}/...   (raw evidence.json + supporting files, when applicable)
 //	  result.json                            (StoredPolicyResult — full violations)
 //
 // Each evidence file is an independently verifiable EvidenceEnvelope: it contains the
 // raw evidence, a timestamp, and an Ed25519 signature over the signed payload. The
 // private key is discarded immediately after signing.
+//
+// manualSidecars carries the raw evidence.json and supporting files (PDFs, screenshots)
+// for any manual evidence entries referenced by this run. Sidecars are mirrored into
+// every policy folder whose evidence list includes the matching "manual:<id>" resource
+// type, so auditors verify each policy from a single self-contained folder.
 func StoreRun(ctx context.Context, backend Backend, result *evidence.CheckResult,
-	evidenceList []evidence.Evidence, cliVersion, cliSHA, repoSHA string) error {
+	evidenceList []evidence.Evidence, manualSidecars []ManualSidecar,
+	cliVersion, cliSHA, repoSHA string) error {
 	typeToEvidence := buildEvidenceIndex(evidenceList)
+	sidecarByType := indexSidecarsByResourceType(manualSidecars)
 
 	for i := range result.PolicyResults {
 		pr := &result.PolicyResults[i]
@@ -87,6 +95,12 @@ func StoreRun(ctx context.Context, backend Backend, result *evidence.CheckResult
 			}
 
 			evidenceFiles = append(evidenceFiles, "evidence/"+filename)
+		}
+
+		// Mirror manual evidence sidecars (raw evidence.json + supporting files) into
+		// this policy's folder for any "manual:<id>" resource types it references.
+		if err := writeManualSidecars(ctx, backend, rp, pr.ResourceTypes, sidecarByType); err != nil {
+			return err
 		}
 
 		// Build per-policy result.json
@@ -183,4 +197,45 @@ func buildStoredPolicyResult(pr *evidence.PolicyResult, evidenceFiles []string, 
 	}
 
 	return stored
+}
+
+func indexSidecarsByResourceType(sidecars []ManualSidecar) map[string]ManualSidecar {
+	out := make(map[string]ManualSidecar, len(sidecars))
+	for _, s := range sidecars {
+		out[s.ResourceType] = s
+	}
+	return out
+}
+
+func writeManualSidecars(ctx context.Context, backend Backend, rp *RunPath,
+	resourceTypes []string, sidecarByType map[string]ManualSidecar) error {
+	for _, rt := range resourceTypes {
+		sidecar, ok := sidecarByType[rt]
+		if !ok {
+			continue
+		}
+
+		if len(sidecar.EvidenceJSON) > 0 {
+			path := rp.ManualAttachmentPath(sidecar.EvidenceID, "evidence.json")
+			if _, err := backend.StoreRaw(ctx, path, sidecar.EvidenceJSON, map[string]string{
+				"type":        "manual_evidence_json",
+				"evidence_id": sidecar.EvidenceID,
+				"period":      sidecar.Period,
+			}); err != nil {
+				return fmt.Errorf("failed to store manual evidence.json for %s: %w", sidecar.EvidenceID, err)
+			}
+		}
+
+		for filename, data := range sidecar.Attachments {
+			path := rp.ManualAttachmentPath(sidecar.EvidenceID, filename)
+			if _, err := backend.StoreRaw(ctx, path, data, map[string]string{
+				"type":        "manual_attachment",
+				"evidence_id": sidecar.EvidenceID,
+				"period":      sidecar.Period,
+			}); err != nil {
+				return fmt.Errorf("failed to store manual attachment %s for %s: %w", filename, sidecar.EvidenceID, err)
+			}
+		}
+	}
+	return nil
 }

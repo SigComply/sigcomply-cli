@@ -16,9 +16,10 @@ func TestCollectManualEvidence_Disabled(t *testing.T) {
 	cfg.ManualEvidence.Enabled = false
 
 	framework := soc2.New()
-	ev, err := collectManualEvidence(context.Background(), cfg, framework)
+	ev, sidecars, err := collectManualEvidence(context.Background(), cfg, framework)
 	assert.NoError(t, err)
 	assert.Nil(t, ev)
+	assert.Nil(t, sidecars)
 }
 
 func TestCollectManualEvidence_NoManualProvider(t *testing.T) {
@@ -26,9 +27,10 @@ func TestCollectManualEvidence_NoManualProvider(t *testing.T) {
 	cfg.ManualEvidence.Enabled = true
 
 	framework := iso27001.New()
-	ev, err := collectManualEvidence(context.Background(), cfg, framework)
+	ev, sidecars, err := collectManualEvidence(context.Background(), cfg, framework)
 	assert.NoError(t, err)
 	assert.Nil(t, ev)
+	assert.Nil(t, sidecars)
 }
 
 func TestGetFramework(t *testing.T) {

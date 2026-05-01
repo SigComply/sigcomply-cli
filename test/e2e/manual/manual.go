@@ -327,7 +327,7 @@ func runPipeline(t *testing.T, backends *testBackends, fw engine.Framework, cata
 	checkResult.CalculateSummary()
 
 	// 4. Store policy results + signed evidence envelopes via StoreRun (results backend)
-	err = storage.StoreRun(ctx, backends.results, checkResult, result.Evidence, "e2e-test", "", "")
+	err = storage.StoreRun(ctx, backends.results, checkResult, result.Evidence, result.Sidecars, "e2e-test", "", "")
 	require.NoError(t, err, "StoreRun should persist policy results and evidence envelopes to S3")
 	t.Logf("StoreRun complete: stored %d policy results to S3", len(manualResults))
 

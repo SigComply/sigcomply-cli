@@ -283,7 +283,7 @@ func TestStoreRun_PolicyCentricLayout(t *testing.T) {
 		evidence.New("aws", "aws:s3:bucket", "arn:aws:s3:::my-bucket", []byte(`{"name":"my-bucket","encrypted":true}`)),
 	}
 
-	err = StoreRun(context.Background(), backend, result, evidenceList, "1.0.0", "abc123", "def456")
+	err = StoreRun(context.Background(), backend, result, evidenceList, nil, "1.0.0", "abc123", "def456")
 	require.NoError(t, err)
 
 	// Compute expected paths
@@ -364,7 +364,7 @@ func TestStoreRun_EvidenceEnvelopeVerifies(t *testing.T) {
 		evidence.New("aws", "aws:iam:user", "arn:aws:iam::123:user/alice", []byte(`{"mfa":true}`)),
 	}
 
-	err = StoreRun(context.Background(), backend, result, evidenceList, "", "", "")
+	err = StoreRun(context.Background(), backend, result, evidenceList, nil, "", "", "")
 	require.NoError(t, err)
 
 	rp := NewRunPath("soc2", "soc2-cc6.1-mfa", runID, ts)
@@ -429,7 +429,7 @@ func TestStoreRun_EvidenceDuplicatedPerPolicy(t *testing.T) {
 		evidence.New("aws", "aws:iam:user", "arn:aws:iam::123:user/alice", []byte(`{"name":"alice"}`)),
 	}
 
-	err = StoreRun(context.Background(), backend, result, evidenceList, "", "", "")
+	err = StoreRun(context.Background(), backend, result, evidenceList, nil, "", "", "")
 	require.NoError(t, err)
 
 	rp1 := NewRunPath("soc2", "soc2-policy-a", runID, ts)
@@ -471,7 +471,7 @@ func TestStoreRun_NoUUIDsInPaths(t *testing.T) {
 		evidence.New("aws", "aws:iam:user", "arn:aws:iam::123:user/alice", []byte(`{"name":"alice"}`)),
 	}
 
-	err = StoreRun(context.Background(), backend, result, evidenceList, "", "", "")
+	err = StoreRun(context.Background(), backend, result, evidenceList, nil, "", "", "")
 	require.NoError(t, err)
 
 	items, err := backend.List(context.Background(), nil)
@@ -514,7 +514,7 @@ func TestStoreRun_HumanReadablePaths(t *testing.T) {
 		evidence.New("aws", "aws:iam:user", "arn:aws:iam::552644938807:user/alice", []byte(`{"user":"alice"}`)),
 	}
 
-	err = StoreRun(context.Background(), backend, result, evidenceList, "", "", "")
+	err = StoreRun(context.Background(), backend, result, evidenceList, nil, "", "", "")
 	require.NoError(t, err)
 
 	items, err := backend.List(context.Background(), nil)
@@ -572,7 +572,7 @@ func TestStoreRun_AggregatedEvidenceContent(t *testing.T) {
 		evidence.New("aws", "aws:iam:user", "arn:aws:iam::123:user/charlie", []byte(`{"user_name":"charlie","mfa_enabled":true}`)),
 	}
 
-	err = StoreRun(context.Background(), backend, result, evidenceList, "", "", "")
+	err = StoreRun(context.Background(), backend, result, evidenceList, nil, "", "", "")
 	require.NoError(t, err)
 
 	rp := NewRunPath("soc2", "soc2-cc6.1-mfa", runID, ts)
@@ -618,6 +618,96 @@ func TestStoreRun_EmptyEvidenceList(t *testing.T) {
 	result.CalculateSummary()
 
 	// No evidence, no policy results — should succeed silently
-	err = StoreRun(context.Background(), backend, result, nil, "", "", "")
+	err = StoreRun(context.Background(), backend, result, nil, nil, "", "", "")
 	require.NoError(t, err)
+}
+
+func TestStoreRun_MirrorsManualSidecarsIntoPolicyFolder(t *testing.T) {
+	tmpDir := t.TempDir()
+	backend := NewLocalBackend(&LocalConfig{Path: tmpDir})
+	err := backend.Init(context.Background())
+	require.NoError(t, err)
+
+	ts := time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC)
+	runID := "manual-run-xxxx"
+	const evidenceID = "cc6_1_security_training"
+	resourceType := "manual:" + evidenceID
+
+	result := &evidence.CheckResult{
+		RunID:     runID,
+		Framework: "soc2",
+		Timestamp: ts,
+		PolicyResults: []evidence.PolicyResult{{
+			PolicyID:      "soc2-cc6.1-security-training",
+			ControlID:     "CC6.1",
+			Name:          "Security Training",
+			Status:        evidence.StatusPass,
+			Severity:      evidence.SeverityMedium,
+			ResourceTypes: []string{resourceType},
+		}},
+	}
+	result.CalculateSummary()
+
+	evidenceList := []evidence.Evidence{
+		evidence.New("manual", resourceType, evidenceID+"/2026-Q1", []byte(`{"status":"uploaded"}`)),
+	}
+
+	rawJSON := []byte(`{"schema_version":"1.0","evidence_id":"cc6_1_security_training","accepted":true}`)
+	pdfBytes := []byte("%PDF-1.4 fake")
+	sidecars := []ManualSidecar{{
+		EvidenceID:   evidenceID,
+		Period:       "2026-Q1",
+		ResourceType: resourceType,
+		EvidenceJSON: rawJSON,
+		Attachments:  map[string][]byte{"training-completion.pdf": pdfBytes},
+	}}
+
+	err = StoreRun(context.Background(), backend, result, evidenceList, sidecars, "", "", "")
+	require.NoError(t, err)
+
+	rp := NewRunPath("soc2", "soc2-cc6.1-security-training", runID, ts)
+
+	gotJSON, err := backend.Get(context.Background(), rp.ManualAttachmentPath(evidenceID, "evidence.json"))
+	require.NoError(t, err, "manual evidence.json should be mirrored into policy folder")
+	assert.Equal(t, rawJSON, gotJSON)
+
+	gotPDF, err := backend.Get(context.Background(), rp.ManualAttachmentPath(evidenceID, "training-completion.pdf"))
+	require.NoError(t, err, "manual attachment should be mirrored into policy folder")
+	assert.Equal(t, pdfBytes, gotPDF)
+}
+
+func TestStoreRun_SkipsSidecarsWhenPolicyDoesNotReferenceThem(t *testing.T) {
+	tmpDir := t.TempDir()
+	backend := NewLocalBackend(&LocalConfig{Path: tmpDir})
+	err := backend.Init(context.Background())
+	require.NoError(t, err)
+
+	ts := time.Date(2026, 2, 14, 18, 20, 49, 0, time.UTC)
+	result := &evidence.CheckResult{
+		RunID:     "skip-run-xxxx",
+		Framework: "soc2",
+		Timestamp: ts,
+		PolicyResults: []evidence.PolicyResult{{
+			PolicyID:      "soc2-cc6.1-mfa",
+			ControlID:     "CC6.1",
+			Name:          "MFA",
+			Status:        evidence.StatusPass,
+			ResourceTypes: []string{"aws:iam:user"},
+		}},
+	}
+	result.CalculateSummary()
+
+	// Sidecar exists but no policy references manual:<id> — must not be written.
+	sidecars := []ManualSidecar{{
+		EvidenceID:   "cc6_1_security_training",
+		ResourceType: "manual:cc6_1_security_training",
+		EvidenceJSON: []byte(`{"x":1}`),
+	}}
+
+	err = StoreRun(context.Background(), backend, result, nil, sidecars, "", "", "")
+	require.NoError(t, err)
+
+	rp := NewRunPath("soc2", "soc2-cc6.1-mfa", "skip-run-xxxx", ts)
+	_, err = backend.Get(context.Background(), rp.ManualAttachmentPath("cc6_1_security_training", "evidence.json"))
+	require.Error(t, err, "sidecar must not be written for unrelated policies")
 }

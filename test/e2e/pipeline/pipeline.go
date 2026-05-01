@@ -229,7 +229,7 @@ func RunScenario(t *testing.T, cfg *config.E2EConfig, allCreds []*config.Resolve
 		require.NoError(t, storageErr, "Storage backend Init failed")
 		defer backend.Close() //nolint:errcheck
 
-		storageErr = corestorage.StoreRun(ctx, backend, checkResult, evidenceList, "e2e", "", "")
+		storageErr = corestorage.StoreRun(ctx, backend, checkResult, evidenceList, nil, "e2e", "", "")
 		require.NoError(t, storageErr, "StoreRun failed")
 
 		// Verify at least one policy folder was written
