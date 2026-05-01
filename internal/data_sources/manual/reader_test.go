@@ -213,3 +213,36 @@ func TestReader_InvalidJSON(t *testing.T) {
 	assert.GreaterOrEqual(t, len(result.Errors), 1)
 	assert.Equal(t, "quarterly_access_review", result.Errors[0].EvidenceID)
 }
+
+func TestReader_SchemaViolation_ChecklistMissingItems(t *testing.T) {
+	ctx, backend, catalog, state := setupTest(t)
+	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
+
+	// type=checklist but no items[] — passes json.Unmarshal, fails JSON Schema
+	raw := []byte(`{
+		"schema_version": "1.0",
+		"evidence_id": "incident_response_test",
+		"type": "checklist",
+		"framework": "soc2",
+		"control": "CC7.2",
+		"period": "2026",
+		"completed_by": "sec@example.com",
+		"completed_at": "2026-03-10T00:00:00Z"
+	}`)
+	_, err := backend.StoreRaw(ctx, "soc2/incident_response_test/2026/evidence.json", raw, nil)
+	require.NoError(t, err)
+
+	reader := NewReader(backend, catalog, "soc2")
+	result, readErr := reader.Read(ctx, state, now)
+	require.NoError(t, readErr)
+
+	var found bool
+	for _, e := range result.Errors {
+		if e.EvidenceID == "incident_response_test" {
+			found = true
+			assert.Contains(t, e.Err, "invalid evidence submission")
+			assert.Contains(t, e.Err, "items")
+		}
+	}
+	assert.True(t, found, "expected schema violation error for incident_response_test")
+}

@@ -124,6 +124,12 @@ func (r *Reader) readEntry(ctx context.Context, entry *manualPkg.CatalogEntry, s
 		return ev, status, nil
 	}
 
+	// Validate against JSON Schema first, so structurally broken submissions produce
+	// a clear "missing required field" error instead of silently feeding empty data to OPA.
+	if err := manualPkg.ValidateSubmittedEvidence(data); err != nil {
+		return evidence.Evidence{}, status, fmt.Errorf("invalid evidence submission: %w", err)
+	}
+
 	// Parse submitted evidence
 	var submitted manualPkg.SubmittedEvidence
 	if err := json.Unmarshal(data, &submitted); err != nil {
