@@ -893,6 +893,13 @@ func storeEvidence(ctx context.Context, cfg *config.Config, checkResult *evidenc
 		return fmt.Errorf("failed to store run: %w", err)
 	}
 
+	// Refresh the framework-level summary.json with this run's per-policy outcomes.
+	// Merges with any existing summary so policies not in this run keep their last-known state.
+	summary := storage.BuildSummary(checkResult, evidenceList, manualSidecars)
+	if err := storage.WriteSummary(ctx, backend, summary); err != nil {
+		return fmt.Errorf("failed to write summary: %w", err)
+	}
+
 	return nil
 }
 
