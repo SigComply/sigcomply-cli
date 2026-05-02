@@ -492,11 +492,17 @@ Evidence is organized **policy-first**: each policy has its own folder with a ch
 ```
 {bucket}/
 └── {framework}/                                      # e.g., soc2
+    ├── summary.json                                  # framework snapshot — last run, totals, per-policy state
+    ├── execution-state.json                          # manual evidence attestation ledger
     └── {policy_id}/                                  # e.g., cc6_1_mfa
         └── {timestamp}_{run_id_8chars}/              # e.g., 20260325T100000Z_a3f8b2c1
             ├── evidence/
             │   ├── aws-iam-users.json                # EvidenceEnvelope (signed, self-contained)
             │   └── github-members.json               # EvidenceEnvelope (signed, self-contained)
+            ├── manual_attachments/                   # only for policies referencing manual evidence
+            │   └── {evidence_id}/
+            │       ├── evidence.json                 # raw user-submitted JSON
+            │       └── *.pdf | *.png                 # supporting documents
             └── result.json                           # PolicyRunResult (full violations — stays in S3)
 ```
 
@@ -509,6 +515,10 @@ Evidence is organized **policy-first**: each policy has its own folder with a ch
 **Evidence duplication** — The same raw evidence (e.g., IAM users) is stored independently in every policy folder that uses it, each with its own signed envelope and ephemeral keypair. The API call to collect the data happens once per run; the data is then written to each relevant policy folder. This makes each policy folder fully self-contained: an auditor verifying CC6.1 has everything they need without cross-referencing other policy folders.
 
 **No manifest file** — There is no top-level `manifest.json`. Each evidence file carries its own cryptographic proof (see `EvidenceEnvelope`). The `result.json` lists which evidence files were used for the policy evaluation via `evidence_files`.
+
+**Manual evidence sidecars** — When a policy references a manual evidence entry (resource type `manual:<id>`), the user-submitted `evidence.json` and any supporting files (PDFs, screenshots) are mirrored from the manual evidence bucket into the policy's run folder under `manual_attachments/{evidence_id}/`. The same files may be duplicated across policy folders — auditors verify each policy from a single self-contained folder rather than cross-referencing the manual bucket.
+
+**Framework summary** — `{framework}/summary.json` is a per-policy snapshot showing, in one file, which policies passed and what evidence backed each result. Built after every `StoreRun`. Policies are split into `automated` (API-collected resource types) and `manual` (any `manual:*` resource type). Writes merge with the existing summary so policies skipped by `--policies` / `--controls` filters keep their last-known state instead of being erased.
 
 > **TODO**: Add a `check_runs_history/` root folder inside each framework folder containing:
 > - A `run_history.json` tracking all historical runs (run_id, timestamp, policies evaluated, overall status)
