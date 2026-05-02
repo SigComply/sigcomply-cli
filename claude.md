@@ -259,6 +259,8 @@ User Environment
 - Evidence stored in a policy-first folder structure: `{framework}/{policy_id}/{timestamp}_{run_id}/`
 - Each evidence file is a self-contained signed envelope with its own ephemeral keypair
 - Each policy run produces a `result.json` with full violation details (resource IDs stay in S3)
+- Policies that reference manual evidence also get the user's raw `evidence.json` plus any supporting files (PDFs, screenshots) mirrored under `manual_attachments/{evidence_id}/` so each policy folder is self-contained
+- A framework-level `{framework}/summary.json` is refreshed after every run with per-policy pass/fail and last-run state, split into `automated` and `manual` policies. Writes merge with the prior summary so filtered runs preserve last-known state.
 - Customer chooses: S3 bucket, GCS, local
 - SigComply never has access to raw evidence or violation details
 - Customer maintains complete data sovereignty
