@@ -57,6 +57,15 @@ func TestReader_MissingEvidence(t *testing.T) {
 		assert.Equal(t, "not_uploaded", data["status"])
 		assert.NotContains(t, data, "file_hash")
 		assert.NotContains(t, data, "file_path")
+
+		// Missing-evidence records carry an expected_path (storage key)
+		// and expected_uri (fully-qualified URI for the configured backend)
+		// so policies and the CLI can show users exactly where to upload.
+		assert.NotEmpty(t, data["expected_path"], "missing-evidence record must carry expected_path")
+		uri, ok := data["expected_uri"].(string)
+		require.True(t, ok, "expected_uri must be a string")
+		assert.NotEmpty(t, uri, "missing-evidence record must carry expected_uri")
+		assert.Contains(t, uri, "file://", "local backend should produce file:// URIs")
 	}
 }
 

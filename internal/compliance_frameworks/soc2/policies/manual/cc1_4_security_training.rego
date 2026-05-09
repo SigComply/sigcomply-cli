@@ -24,7 +24,7 @@ violations contains violation if {
 	violation := {
 		"resource_id": input.resource_id,
 		"resource_type": input.resource_type,
-		"reason": sprintf("Security Awareness Training for period %s is overdue and not uploaded", [input.data.period]),
+		"reason": sprintf("Security Awareness Training for period %s is overdue and not uploaded. Expected at: %s", [input.data.period, input.data.expected_uri]),
 		"details": {
 			"evidence_id": input.data.evidence_id,
 			"period": input.data.period,

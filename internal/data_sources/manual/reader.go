@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
@@ -57,6 +56,11 @@ type EntryStatus struct {
 	TemporalStatus string
 	HasEvidence    bool
 	Attested       bool
+	// ExpectedURI is the fully-qualified URI where the user is expected to
+	// upload evidence.pdf (e.g. s3://bucket/key, gs://bucket/key,
+	// https://account.blob.core.windows.net/container/key, file:///abs/path).
+	// Surfaced in CLI output and OPA violation messages.
+	ExpectedURI string
 }
 
 // NewReader creates a new manual evidence reader.
@@ -97,10 +101,17 @@ func (r *Reader) readEntry(ctx context.Context, entry *manualPkg.CatalogEntry, s
 		return evidence.Evidence{}, EntryStatus{EvidenceID: entry.ID}, nil, fmt.Errorf("period computation: %w", err)
 	}
 
+	pdfPath, err := manualPkg.ResolvePath(entry, r.framework, &period)
+	if err != nil {
+		return evidence.Evidence{}, EntryStatus{EvidenceID: entry.ID}, nil, fmt.Errorf("resolve path: %w", err)
+	}
+	expectedURI := r.backend.URIFor(pdfPath)
+
 	status := EntryStatus{
-		EvidenceID: entry.ID,
-		Period:     period.Key,
-		Attested:   state.IsAttested(entry.ID, period.Key),
+		EvidenceID:  entry.ID,
+		Period:      period.Key,
+		Attested:    state.IsAttested(entry.ID, period.Key),
+		ExpectedURI: expectedURI,
 	}
 
 	// Skip entries that are already attested for this period (idempotent reruns).
@@ -110,7 +121,6 @@ func (r *Reader) readEntry(ctx context.Context, entry *manualPkg.CatalogEntry, s
 		return evidence.Evidence{}, status, nil, fmt.Errorf("already attested")
 	}
 
-	pdfPath := filepath.Join(r.framework, entry.ID, period.Key, manualPkg.EvidencePDFFilename)
 	pdfBytes, getErr := r.backend.Get(ctx, pdfPath)
 
 	if getErr != nil {
@@ -128,6 +138,8 @@ func (r *Reader) readEntry(ctx context.Context, entry *manualPkg.CatalogEntry, s
 			"status":          "not_uploaded",
 			"period":          period.Key,
 			"temporal_status": string(temporalStatus),
+			"expected_path":   pdfPath,
+			"expected_uri":    expectedURI,
 		}
 		jsonData, marshalErr := json.Marshal(opaData)
 		if marshalErr != nil {
@@ -153,6 +165,7 @@ func (r *Reader) readEntry(ctx context.Context, entry *manualPkg.CatalogEntry, s
 		"temporal_status": string(temporalStatus),
 		"file_hash":       fileHash,
 		"file_path":       pdfPath,
+		"expected_uri":    expectedURI,
 	}
 	jsonData, marshalErr := json.Marshal(opaData)
 	if marshalErr != nil {

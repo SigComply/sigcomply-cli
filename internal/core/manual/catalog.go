@@ -65,6 +65,17 @@ type CatalogEntry struct {
 	Category        string          `yaml:"category,omitempty" json:"category,omitempty"`
 	TSC             string          `yaml:"tsc,omitempty" json:"tsc,omitempty"`
 	Optional        bool            `yaml:"optional,omitempty" json:"optional,omitempty"`
+
+	// PathTemplate optionally overrides where the CLI looks for the
+	// evidence PDF. Defaults to "{framework}/{evidence_id}/{period}/{filename}".
+	// Supported placeholders: {framework}, {evidence_id}, {period}, {year},
+	// {quarter}, {month}, {filename}. {quarter} and {month} are only valid
+	// for the matching frequency.
+	PathTemplate string `yaml:"path_template,omitempty" json:"path_template,omitempty"`
+
+	// Filename overrides the expected PDF filename. Defaults to "evidence.pdf".
+	// Must end in ".pdf" in v1.
+	Filename string `yaml:"filename,omitempty" json:"filename,omitempty"`
 }
 
 // ChecklistItem defines a single item in a checklist-type evidence entry.
