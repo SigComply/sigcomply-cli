@@ -2,65 +2,58 @@ package sigcomply.soc2.cc9_2_vendor_soc2_review_test
 
 import data.sigcomply.soc2.cc9_2_vendor_soc2_review
 
-test_overdue if {
+# Overdue + not_uploaded → one violation
+test_overdue_not_uploaded if {
 	result := cc9_2_vendor_soc2_review.violations with input as {
 		"resource_type": "manual:vendor_soc2_review",
-		"resource_id": "vendor_soc2_review/2026",
+		"resource_id": "vendor_soc2_review/2026-Q1",
 		"data": {
 			"evidence_id": "vendor_soc2_review",
-			"type": "checklist",
 			"status": "not_uploaded",
-			"period": "2026",
+			"period": "2026-Q1",
 			"temporal_status": "overdue",
 		},
 	}
 	count(result) == 1
 }
 
-test_all_checked if {
+# Uploaded within window → no violation
+test_uploaded_within_window if {
 	result := cc9_2_vendor_soc2_review.violations with input as {
 		"resource_type": "manual:vendor_soc2_review",
-		"resource_id": "vendor_soc2_review/2026",
+		"resource_id": "vendor_soc2_review/2026-Q1",
 		"data": {
 			"evidence_id": "vendor_soc2_review",
 			"status": "uploaded",
-			"period": "2026",
+			"period": "2026-Q1",
 			"temporal_status": "within_window",
-			"hash_verified": true,
-			"items": [
-				{"id": "all_vendors_reviewed", "text": "all reviewed", "required": true, "checked": true},
-				{"id": "exceptions_documented", "text": "exceptions", "required": true, "checked": true},
-				{"id": "cuecs_addressed", "text": "cuecs", "required": true, "checked": true},
-			],
+			"file_hash": "abc123",
+			"file_path": "soc2/vendor_soc2_review/2026-Q1/evidence.pdf",
 		},
 	}
 	count(result) == 0
 }
 
-test_required_unchecked if {
+# Not-uploaded but within window → no violation (still in grace)
+test_within_window_not_uploaded if {
 	result := cc9_2_vendor_soc2_review.violations with input as {
 		"resource_type": "manual:vendor_soc2_review",
-		"resource_id": "vendor_soc2_review/2026",
+		"resource_id": "vendor_soc2_review/2026-Q1",
 		"data": {
 			"evidence_id": "vendor_soc2_review",
-			"status": "uploaded",
-			"period": "2026",
+			"status": "not_uploaded",
+			"period": "2026-Q1",
 			"temporal_status": "within_window",
-			"hash_verified": true,
-			"items": [
-				{"id": "all_vendors_reviewed", "text": "all reviewed", "required": true, "checked": false},
-				{"id": "exceptions_documented", "text": "exceptions", "required": true, "checked": true},
-				{"id": "cuecs_addressed", "text": "cuecs", "required": true, "checked": true},
-			],
 		},
 	}
-	count(result) == 1
+	count(result) == 0
 }
 
+# Wrong resource_type → no violation
 test_wrong_resource_type if {
 	result := cc9_2_vendor_soc2_review.violations with input as {
 		"resource_type": "aws:iam:user",
-		"resource_id": "arn",
+		"resource_id": "arn:aws:iam::123:user/x",
 		"data": {"status": "not_uploaded", "temporal_status": "overdue"},
 	}
 	count(result) == 0

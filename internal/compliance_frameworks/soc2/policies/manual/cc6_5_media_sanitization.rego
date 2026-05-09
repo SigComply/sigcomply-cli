@@ -24,41 +24,11 @@ violations contains violation if {
 	violation := {
 		"resource_id": input.resource_id,
 		"resource_type": input.resource_type,
-		"reason": sprintf("Media sanitization declaration for period %s is overdue and not completed", [input.data.period]),
+		"reason": sprintf("Media Sanitization Certificate for period %s is overdue and not uploaded", [input.data.period]),
 		"details": {
 			"evidence_id": input.data.evidence_id,
 			"period": input.data.period,
 			"temporal_status": input.data.temporal_status,
-		},
-	}
-}
-
-violations contains violation if {
-	input.resource_type == "manual:media_sanitization"
-	input.data.status == "uploaded"
-	input.data.accepted != true
-	violation := {
-		"resource_id": input.resource_id,
-		"resource_type": input.resource_type,
-		"reason": "Media sanitization declaration was not accepted",
-		"details": {
-			"evidence_id": input.data.evidence_id,
-			"period": input.data.period,
-		},
-	}
-}
-
-violations contains violation if {
-	input.resource_type == "manual:media_sanitization"
-	input.data.status == "uploaded"
-	input.data.hash_verified == false
-	violation := {
-		"resource_id": input.resource_id,
-		"resource_type": input.resource_type,
-		"reason": "Media sanitization evidence failed integrity verification",
-		"details": {
-			"evidence_id": input.data.evidence_id,
-			"period": input.data.period,
 		},
 	}
 }

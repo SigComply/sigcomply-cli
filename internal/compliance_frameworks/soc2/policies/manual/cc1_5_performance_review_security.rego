@@ -17,7 +17,6 @@ metadata := {
 	"evidence_type": "manual",
 }
 
-# Violation: not uploaded and overdue
 violations contains violation if {
 	input.resource_type == "manual:performance_review_security"
 	input.data.status == "not_uploaded"
@@ -25,43 +24,11 @@ violations contains violation if {
 	violation := {
 		"resource_id": input.resource_id,
 		"resource_type": input.resource_type,
-		"reason": sprintf("Performance review (security adherence) for period %s is overdue and not uploaded", [input.data.period]),
+		"reason": sprintf("Performance Review (Security Adherence) for period %s is overdue and not uploaded", [input.data.period]),
 		"details": {
 			"evidence_id": input.data.evidence_id,
 			"period": input.data.period,
 			"temporal_status": input.data.temporal_status,
-		},
-	}
-}
-
-# Violation: hash verification failed
-violations contains violation if {
-	input.resource_type == "manual:performance_review_security"
-	input.data.status == "uploaded"
-	input.data.hash_verified == false
-	violation := {
-		"resource_id": input.resource_id,
-		"resource_type": input.resource_type,
-		"reason": "Performance review evidence failed integrity verification",
-		"details": {
-			"evidence_id": input.data.evidence_id,
-			"period": input.data.period,
-		},
-	}
-}
-
-# Violation: attachment not found
-violations contains violation if {
-	input.resource_type == "manual:performance_review_security"
-	input.data.status == "uploaded"
-	input.data.files[i].error
-	violation := {
-		"resource_id": input.resource_id,
-		"resource_type": input.resource_type,
-		"reason": sprintf("Attachment '%s' not found in storage", [input.data.files[i].name]),
-		"details": {
-			"evidence_id": input.data.evidence_id,
-			"file": input.data.files[i].name,
 		},
 	}
 }

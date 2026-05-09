@@ -24,41 +24,11 @@ violations contains violation if {
 	violation := {
 		"resource_id": input.resource_id,
 		"resource_type": input.resource_type,
-		"reason": sprintf("Customer data segregation attestation for period %s is overdue and not completed", [input.data.period]),
+		"reason": sprintf("Customer Data Segregation Attestation for period %s is overdue and not uploaded", [input.data.period]),
 		"details": {
 			"evidence_id": input.data.evidence_id,
 			"period": input.data.period,
 			"temporal_status": input.data.temporal_status,
-		},
-	}
-}
-
-violations contains violation if {
-	input.resource_type == "manual:customer_data_segregation"
-	input.data.status == "uploaded"
-	input.data.accepted != true
-	violation := {
-		"resource_id": input.resource_id,
-		"resource_type": input.resource_type,
-		"reason": "Customer data segregation declaration was not accepted",
-		"details": {
-			"evidence_id": input.data.evidence_id,
-			"period": input.data.period,
-		},
-	}
-}
-
-violations contains violation if {
-	input.resource_type == "manual:customer_data_segregation"
-	input.data.status == "uploaded"
-	input.data.hash_verified == false
-	violation := {
-		"resource_id": input.resource_id,
-		"resource_type": input.resource_type,
-		"reason": "Customer data segregation evidence failed integrity verification",
-		"details": {
-			"evidence_id": input.data.evidence_id,
-			"period": input.data.period,
 		},
 	}
 }

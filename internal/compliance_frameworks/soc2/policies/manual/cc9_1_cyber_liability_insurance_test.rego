@@ -2,59 +2,58 @@ package sigcomply.soc2.cc9_1_cyber_liability_insurance_test
 
 import data.sigcomply.soc2.cc9_1_cyber_liability_insurance
 
-test_overdue if {
+# Overdue + not_uploaded → one violation
+test_overdue_not_uploaded if {
 	result := cc9_1_cyber_liability_insurance.violations with input as {
 		"resource_type": "manual:cyber_liability_insurance",
-		"resource_id": "cyber_liability_insurance/2026",
+		"resource_id": "cyber_liability_insurance/2026-Q1",
 		"data": {
 			"evidence_id": "cyber_liability_insurance",
-			"type": "document_upload",
 			"status": "not_uploaded",
-			"period": "2026",
+			"period": "2026-Q1",
 			"temporal_status": "overdue",
 		},
 	}
 	count(result) == 1
 }
 
-test_uploaded_verified if {
+# Uploaded within window → no violation
+test_uploaded_within_window if {
 	result := cc9_1_cyber_liability_insurance.violations with input as {
 		"resource_type": "manual:cyber_liability_insurance",
-		"resource_id": "cyber_liability_insurance/2026",
+		"resource_id": "cyber_liability_insurance/2026-Q1",
 		"data": {
 			"evidence_id": "cyber_liability_insurance",
-			"type": "document_upload",
 			"status": "uploaded",
-			"period": "2026",
+			"period": "2026-Q1",
 			"temporal_status": "within_window",
-			"hash_verified": true,
-			"files": [{"name": "insurance.pdf", "sha256": "abc", "size_bytes": 1024}],
+			"file_hash": "abc123",
+			"file_path": "soc2/cyber_liability_insurance/2026-Q1/evidence.pdf",
 		},
 	}
 	count(result) == 0
 }
 
-test_missing_attachment if {
+# Not-uploaded but within window → no violation (still in grace)
+test_within_window_not_uploaded if {
 	result := cc9_1_cyber_liability_insurance.violations with input as {
 		"resource_type": "manual:cyber_liability_insurance",
-		"resource_id": "cyber_liability_insurance/2026",
+		"resource_id": "cyber_liability_insurance/2026-Q1",
 		"data": {
 			"evidence_id": "cyber_liability_insurance",
-			"type": "document_upload",
-			"status": "uploaded",
-			"period": "2026",
+			"status": "not_uploaded",
+			"period": "2026-Q1",
 			"temporal_status": "within_window",
-			"hash_verified": true,
-			"files": [{"name": "insurance.pdf", "error": "not_found"}],
 		},
 	}
-	count(result) == 1
+	count(result) == 0
 }
 
+# Wrong resource_type → no violation
 test_wrong_resource_type if {
 	result := cc9_1_cyber_liability_insurance.violations with input as {
 		"resource_type": "aws:iam:user",
-		"resource_id": "arn",
+		"resource_id": "arn:aws:iam::123:user/x",
 		"data": {"status": "not_uploaded", "temporal_status": "overdue"},
 	}
 	count(result) == 0

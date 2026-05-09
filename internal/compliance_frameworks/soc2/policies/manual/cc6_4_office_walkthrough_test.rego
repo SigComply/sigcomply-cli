@@ -2,13 +2,13 @@ package sigcomply.soc2.cc6_4_office_walkthrough_test
 
 import data.sigcomply.soc2.cc6_4_office_walkthrough
 
-test_overdue if {
+# Overdue + not_uploaded → one violation
+test_overdue_not_uploaded if {
 	result := cc6_4_office_walkthrough.violations with input as {
 		"resource_type": "manual:office_walkthrough",
 		"resource_id": "office_walkthrough/2026-Q1",
 		"data": {
 			"evidence_id": "office_walkthrough",
-			"type": "checklist",
 			"status": "not_uploaded",
 			"period": "2026-Q1",
 			"temporal_status": "overdue",
@@ -17,7 +17,8 @@ test_overdue if {
 	count(result) == 1
 }
 
-test_all_checked if {
+# Uploaded within window → no violation
+test_uploaded_within_window if {
 	result := cc6_4_office_walkthrough.violations with input as {
 		"resource_type": "manual:office_walkthrough",
 		"resource_id": "office_walkthrough/2026-Q1",
@@ -26,43 +27,33 @@ test_all_checked if {
 			"status": "uploaded",
 			"period": "2026-Q1",
 			"temporal_status": "within_window",
-			"hash_verified": true,
-			"items": [
-				{"id": "it_closet_locked", "text": "locked", "required": true, "checked": true},
-				{"id": "clean_desk", "text": "desk", "required": true, "checked": true},
-				{"id": "cctv_functioning", "text": "cctv", "required": true, "checked": true},
-				{"id": "no_violations", "text": "none", "required": true, "checked": true},
-			],
+			"file_hash": "abc123",
+			"file_path": "soc2/office_walkthrough/2026-Q1/evidence.pdf",
 		},
 	}
 	count(result) == 0
 }
 
-test_required_unchecked if {
+# Not-uploaded but within window → no violation (still in grace)
+test_within_window_not_uploaded if {
 	result := cc6_4_office_walkthrough.violations with input as {
 		"resource_type": "manual:office_walkthrough",
 		"resource_id": "office_walkthrough/2026-Q1",
 		"data": {
 			"evidence_id": "office_walkthrough",
-			"status": "uploaded",
+			"status": "not_uploaded",
 			"period": "2026-Q1",
 			"temporal_status": "within_window",
-			"hash_verified": true,
-			"items": [
-				{"id": "it_closet_locked", "text": "locked", "required": true, "checked": false},
-				{"id": "clean_desk", "text": "desk", "required": true, "checked": true},
-				{"id": "cctv_functioning", "text": "cctv", "required": true, "checked": true},
-				{"id": "no_violations", "text": "none", "required": true, "checked": true},
-			],
 		},
 	}
-	count(result) == 1
+	count(result) == 0
 }
 
+# Wrong resource_type → no violation
 test_wrong_resource_type if {
 	result := cc6_4_office_walkthrough.violations with input as {
 		"resource_type": "aws:iam:user",
-		"resource_id": "arn",
+		"resource_id": "arn:aws:iam::123:user/x",
 		"data": {"status": "not_uploaded", "temporal_status": "overdue"},
 	}
 	count(result) == 0

@@ -2,58 +2,58 @@ package sigcomply.soc2.a1_2_business_continuity_plan_test
 
 import data.sigcomply.soc2.a1_2_business_continuity_plan
 
-test_overdue if {
+# Overdue + not_uploaded → one violation
+test_overdue_not_uploaded if {
 	result := a1_2_business_continuity_plan.violations with input as {
 		"resource_type": "manual:business_continuity_plan",
-		"resource_id": "business_continuity_plan/2026",
+		"resource_id": "business_continuity_plan/2026-Q1",
 		"data": {
 			"evidence_id": "business_continuity_plan",
-			"type": "document_upload",
 			"status": "not_uploaded",
-			"period": "2026",
+			"period": "2026-Q1",
 			"temporal_status": "overdue",
 		},
 	}
 	count(result) == 1
 }
 
-test_uploaded_verified if {
+# Uploaded within window → no violation
+test_uploaded_within_window if {
 	result := a1_2_business_continuity_plan.violations with input as {
 		"resource_type": "manual:business_continuity_plan",
-		"resource_id": "business_continuity_plan/2026",
+		"resource_id": "business_continuity_plan/2026-Q1",
 		"data": {
 			"evidence_id": "business_continuity_plan",
-			"type": "document_upload",
 			"status": "uploaded",
-			"period": "2026",
+			"period": "2026-Q1",
 			"temporal_status": "within_window",
-			"hash_verified": true,
-			"files": [{"name": "bcp.pdf", "sha256": "abc", "size_bytes": 2048}],
+			"file_hash": "abc123",
+			"file_path": "soc2/business_continuity_plan/2026-Q1/evidence.pdf",
 		},
 	}
 	count(result) == 0
 }
 
-test_hash_failure if {
+# Not-uploaded but within window → no violation (still in grace)
+test_within_window_not_uploaded if {
 	result := a1_2_business_continuity_plan.violations with input as {
 		"resource_type": "manual:business_continuity_plan",
-		"resource_id": "business_continuity_plan/2026",
+		"resource_id": "business_continuity_plan/2026-Q1",
 		"data": {
 			"evidence_id": "business_continuity_plan",
-			"type": "document_upload",
-			"status": "uploaded",
-			"period": "2026",
+			"status": "not_uploaded",
+			"period": "2026-Q1",
 			"temporal_status": "within_window",
-			"hash_verified": false,
 		},
 	}
-	count(result) == 1
+	count(result) == 0
 }
 
+# Wrong resource_type → no violation
 test_wrong_resource_type if {
 	result := a1_2_business_continuity_plan.violations with input as {
 		"resource_type": "aws:iam:user",
-		"resource_id": "arn",
+		"resource_id": "arn:aws:iam::123:user/x",
 		"data": {"status": "not_uploaded", "temporal_status": "overdue"},
 	}
 	count(result) == 0

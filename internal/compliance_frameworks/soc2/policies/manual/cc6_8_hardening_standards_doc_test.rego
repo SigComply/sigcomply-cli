@@ -2,58 +2,58 @@ package sigcomply.soc2.cc6_8_hardening_standards_doc_test
 
 import data.sigcomply.soc2.cc6_8_hardening_standards_doc
 
-test_overdue if {
+# Overdue + not_uploaded → one violation
+test_overdue_not_uploaded if {
 	result := cc6_8_hardening_standards_doc.violations with input as {
 		"resource_type": "manual:hardening_standards_doc",
-		"resource_id": "hardening_standards_doc/2026",
+		"resource_id": "hardening_standards_doc/2026-Q1",
 		"data": {
 			"evidence_id": "hardening_standards_doc",
-			"type": "document_upload",
 			"status": "not_uploaded",
-			"period": "2026",
+			"period": "2026-Q1",
 			"temporal_status": "overdue",
 		},
 	}
 	count(result) == 1
 }
 
-test_uploaded_verified if {
+# Uploaded within window → no violation
+test_uploaded_within_window if {
 	result := cc6_8_hardening_standards_doc.violations with input as {
 		"resource_type": "manual:hardening_standards_doc",
-		"resource_id": "hardening_standards_doc/2026",
+		"resource_id": "hardening_standards_doc/2026-Q1",
 		"data": {
 			"evidence_id": "hardening_standards_doc",
-			"type": "document_upload",
 			"status": "uploaded",
-			"period": "2026",
+			"period": "2026-Q1",
 			"temporal_status": "within_window",
-			"hash_verified": true,
-			"files": [{"name": "hardening.pdf", "sha256": "abc", "size_bytes": 2048}],
+			"file_hash": "abc123",
+			"file_path": "soc2/hardening_standards_doc/2026-Q1/evidence.pdf",
 		},
 	}
 	count(result) == 0
 }
 
-test_hash_failure if {
+# Not-uploaded but within window → no violation (still in grace)
+test_within_window_not_uploaded if {
 	result := cc6_8_hardening_standards_doc.violations with input as {
 		"resource_type": "manual:hardening_standards_doc",
-		"resource_id": "hardening_standards_doc/2026",
+		"resource_id": "hardening_standards_doc/2026-Q1",
 		"data": {
 			"evidence_id": "hardening_standards_doc",
-			"type": "document_upload",
-			"status": "uploaded",
-			"period": "2026",
+			"status": "not_uploaded",
+			"period": "2026-Q1",
 			"temporal_status": "within_window",
-			"hash_verified": false,
 		},
 	}
-	count(result) == 1
+	count(result) == 0
 }
 
+# Wrong resource_type → no violation
 test_wrong_resource_type if {
 	result := cc6_8_hardening_standards_doc.violations with input as {
 		"resource_type": "aws:iam:user",
-		"resource_id": "arn",
+		"resource_id": "arn:aws:iam::123:user/x",
 		"data": {"status": "not_uploaded", "temporal_status": "overdue"},
 	}
 	count(result) == 0

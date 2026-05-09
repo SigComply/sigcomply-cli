@@ -24,44 +24,11 @@ violations contains violation if {
 	violation := {
 		"resource_id": input.resource_id,
 		"resource_type": input.resource_type,
-		"reason": sprintf("Vendor SOC 2 review for period %s is overdue and not completed", [input.data.period]),
+		"reason": sprintf("Vendor SOC 2 Report Review for period %s is overdue and not uploaded", [input.data.period]),
 		"details": {
 			"evidence_id": input.data.evidence_id,
 			"period": input.data.period,
 			"temporal_status": input.data.temporal_status,
-		},
-	}
-}
-
-violations contains violation if {
-	input.resource_type == "manual:vendor_soc2_review"
-	input.data.status == "uploaded"
-	item := input.data.items[_]
-	item.required == true
-	item.checked == false
-	violation := {
-		"resource_id": input.resource_id,
-		"resource_type": input.resource_type,
-		"reason": sprintf("Required checklist item '%s' is not checked", [item.text]),
-		"details": {
-			"evidence_id": input.data.evidence_id,
-			"item_id": item.id,
-			"item_text": item.text,
-		},
-	}
-}
-
-violations contains violation if {
-	input.resource_type == "manual:vendor_soc2_review"
-	input.data.status == "uploaded"
-	input.data.hash_verified == false
-	violation := {
-		"resource_id": input.resource_id,
-		"resource_type": input.resource_type,
-		"reason": "Vendor SOC 2 review evidence failed integrity verification",
-		"details": {
-			"evidence_id": input.data.evidence_id,
-			"period": input.data.period,
 		},
 	}
 }
