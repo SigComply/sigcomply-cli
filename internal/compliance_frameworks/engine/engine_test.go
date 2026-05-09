@@ -726,3 +726,105 @@ violations contains violation if {
 	assert.Equal(t, evidence.StatusSkip, result.Status)
 	assert.Equal(t, 0, result.ResourcesEvaluated)
 }
+
+func TestEngine_LoadPolicy_EvidenceTypeAutomated_Explicit(t *testing.T) {
+	eng := New()
+
+	policy := `
+package sigcomply.test
+
+metadata := {
+	"id": "automated-explicit",
+	"name": "Automated Explicit",
+	"framework": "test",
+	"control": "TEST.1",
+	"severity": "high",
+	"evaluation_mode": "individual",
+	"resource_types": ["aws:iam:user"],
+	"evidence_type": "automated"
+}
+
+violations contains v if { false; v := {} }
+`
+	require.NoError(t, eng.LoadPolicy("automated-explicit", policy))
+	policies := eng.GetPolicies()
+	require.Len(t, policies, 1)
+	assert.Equal(t, EvidenceTypeAutomated, policies[0].EvidenceType)
+}
+
+func TestEngine_LoadPolicy_EvidenceTypeManual_Explicit(t *testing.T) {
+	eng := New()
+
+	policy := `
+package sigcomply.test
+
+metadata := {
+	"id": "manual-explicit",
+	"name": "Manual Explicit",
+	"framework": "test",
+	"control": "TEST.1",
+	"severity": "high",
+	"evaluation_mode": "individual",
+	"resource_types": ["manual:nda"],
+	"evidence_type": "manual"
+}
+
+violations contains v if { false; v := {} }
+`
+	require.NoError(t, eng.LoadPolicy("manual-explicit", policy))
+	policies := eng.GetPolicies()
+	require.Len(t, policies, 1)
+	assert.Equal(t, EvidenceTypeManual, policies[0].EvidenceType)
+}
+
+func TestEngine_LoadPolicy_EvidenceTypeInferredManual(t *testing.T) {
+	// Migration fallback: a policy with a manual:* resource type but no
+	// explicit evidence_type key should be inferred as manual.
+	eng := New()
+
+	policy := `
+package sigcomply.test
+
+metadata := {
+	"id": "manual-inferred",
+	"name": "Manual Inferred",
+	"framework": "test",
+	"control": "TEST.1",
+	"severity": "high",
+	"evaluation_mode": "individual",
+	"resource_types": ["manual:nda"]
+}
+
+violations contains v if { false; v := {} }
+`
+	require.NoError(t, eng.LoadPolicy("manual-inferred", policy))
+	policies := eng.GetPolicies()
+	require.Len(t, policies, 1)
+	assert.Equal(t, EvidenceTypeManual, policies[0].EvidenceType)
+}
+
+func TestEngine_LoadPolicy_EvidenceTypeInferredAutomated(t *testing.T) {
+	// Migration fallback: a policy with no manual:* resource type and no
+	// explicit evidence_type key defaults to automated.
+	eng := New()
+
+	policy := `
+package sigcomply.test
+
+metadata := {
+	"id": "automated-inferred",
+	"name": "Automated Inferred",
+	"framework": "test",
+	"control": "TEST.1",
+	"severity": "high",
+	"evaluation_mode": "individual",
+	"resource_types": ["aws:iam:user"]
+}
+
+violations contains v if { false; v := {} }
+`
+	require.NoError(t, eng.LoadPolicy("automated-inferred", policy))
+	policies := eng.GetPolicies()
+	require.Len(t, policies, 1)
+	assert.Equal(t, EvidenceTypeAutomated, policies[0].EvidenceType)
+}

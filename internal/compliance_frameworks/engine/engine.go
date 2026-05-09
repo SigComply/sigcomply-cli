@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/open-policy-agent/opa/v1/rego"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
@@ -18,6 +19,24 @@ const (
 	EvalModeIndividual EvaluationMode = "individual"
 	// EvalModeBatched evaluates all resources of matching type together.
 	EvalModeBatched EvaluationMode = "batched"
+)
+
+// EvidenceType declares which evidence flow a policy consumes.
+//
+// Every policy is one of exactly two flows:
+//   - automated: structured JSON from API collectors (AWS, GitHub, GCP, …)
+//   - manual:    a customer-supplied PDF at a deterministic storage path,
+//     consumed via internal/data_sources/manual/reader.go
+//
+// Set via the "evidence_type" key in Rego policy metadata.
+type EvidenceType string
+
+const (
+	// EvidenceTypeAutomated indicates the policy consumes API-collected JSON.
+	EvidenceTypeAutomated EvidenceType = "automated"
+	// EvidenceTypeManual indicates the policy consumes a manual PDF
+	// referenced by a "manual:<id>" resource type.
+	EvidenceTypeManual EvidenceType = "manual"
 )
 
 // PolicyMetadata contains metadata extracted from a Rego policy.
@@ -34,6 +53,13 @@ type PolicyMetadata struct {
 	// configuration_management. Optional — set via the "category" key in
 	// Rego policy metadata.
 	Category string `json:"category,omitempty"`
+	// EvidenceType is the evidence flow this policy consumes (automated or
+	// manual). Set via the "evidence_type" key in Rego policy metadata.
+	// During the migration to explicit annotations, a missing value is
+	// inferred from resource_types[0]: a "manual:" prefix → manual; otherwise
+	// → automated. Once all policies are tagged this fallback will be removed
+	// and a missing evidence_type will become a load-time error.
+	EvidenceType EvidenceType `json:"evidence_type"`
 }
 
 // LoadedPolicy represents a policy loaded into the engine.
@@ -178,8 +204,28 @@ func (e *Engine) parseMetadata(metadata map[string]interface{}) *PolicyMetadata 
 	if cat, ok := metadata["category"].(string); ok {
 		pm.Category = cat
 	}
+	if et, ok := metadata["evidence_type"].(string); ok {
+		pm.EvidenceType = EvidenceType(et)
+	} else {
+		pm.EvidenceType = inferEvidenceType(pm.ResourceTypes)
+	}
 
 	return pm
+}
+
+// inferEvidenceType is the migration fallback for policies that have not yet
+// added an explicit evidence_type metadata key. It infers manual when any
+// resource type carries the "manual:" prefix; otherwise automated.
+//
+// Once every policy declares evidence_type explicitly, this function and the
+// fallback in parseMetadata will be removed in favor of a load-time error.
+func inferEvidenceType(resourceTypes []string) EvidenceType {
+	for _, rt := range resourceTypes {
+		if strings.HasPrefix(rt, "manual:") {
+			return EvidenceTypeManual
+		}
+	}
+	return EvidenceTypeAutomated
 }
 
 // GetPolicies returns all loaded policies.
