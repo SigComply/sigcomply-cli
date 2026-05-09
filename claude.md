@@ -262,7 +262,7 @@ User Environment
 #### Evidence Collection
 - Two and only two evidence flows. Every policy declares which it consumes via `evidence_type` metadata: `automated` or `manual`.
 - **Automated** (`evidence_type: automated`): the CLI calls service APIs (AWS, GitHub, GCP, …) using the customer's local credentials and gets structured JSON back. Each collected JSON evidence file is immediately wrapped in a signed `EvidenceEnvelope`.
-- **Manual** (`evidence_type: manual`): the customer (or the SigComply Evidence SPA, optionally) places `evidence.pdf` at `{framework}/{evidence_id}/{period}/evidence.pdf` in the configured manual-evidence storage prefix. The CLI reads the PDF, hashes it, and emits an OPA record `{evidence_id, status, period, temporal_status, file_hash, file_path}`. That record (not the PDF bytes) is wrapped in the EvidenceEnvelope; the PDF is mirrored as a sibling file (see Evidence Storage below).
+- **Manual** (`evidence_type: manual`): the customer (or the SigComply Evidence SPA, optionally) places `evidence.pdf` at the path resolved by `manual.ResolvePath(entry, framework, period)`. The default template `{framework}/{evidence_id}/{period}/{filename}` matches the original convention; catalog entries can override via `path_template` and `filename`. Manual evidence has its own per-framework backend selection under `manual_evidence.frameworks` (separate from the main automated-evidence vault) — a customer can keep SOC 2 PDFs in S3 and ISO 27001 PDFs in GCS, for instance. The CLI reads the PDF, hashes it, and emits an OPA record `{evidence_id, status, period, temporal_status, file_hash, file_path, expected_path, expected_uri}`. That record (not the PDF bytes) is wrapped in the EvidenceEnvelope; the PDF is mirrored as a sibling file (see Evidence Storage below).
 - No credentials are sent to SigComply servers.
 
 #### Policy Evaluation
@@ -714,8 +714,8 @@ cloud:
 SIGCOMPLY_FRAMEWORK        # Default framework
 SIGCOMPLY_POLICIES         # Comma-separated policy names to run
 SIGCOMPLY_CONTROLS         # Comma-separated control IDs to run
-SIGCOMPLY_STORAGE_BACKEND  # Storage backend: local, s3, gcs
-SIGCOMPLY_STORAGE_BUCKET   # S3/GCS bucket name
+SIGCOMPLY_STORAGE_BACKEND  # Storage backend: local, s3, gcs, azure_blob
+SIGCOMPLY_STORAGE_BUCKET   # S3 / GCS bucket name (Azure uses _AZURE_CONTAINER)
 SIGCOMPLY_OUTPUT_FORMAT    # Output format: text, json, sarif
 ```
 
