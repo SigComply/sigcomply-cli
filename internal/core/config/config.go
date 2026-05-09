@@ -84,13 +84,23 @@ type GCSStorageConfig struct {
 	Auth      *StorageAuthFileConfig `yaml:"auth,omitempty" json:"auth,omitempty"`
 }
 
+// AzureBlobStorageConfig holds Azure Blob Storage settings from the config file.
+type AzureBlobStorageConfig struct {
+	Account   string                 `yaml:"account,omitempty" json:"account,omitempty"`
+	Container string                 `yaml:"container,omitempty" json:"container,omitempty"`
+	Prefix    string                 `yaml:"prefix,omitempty" json:"prefix,omitempty"`
+	Endpoint  string                 `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
+	Auth      *StorageAuthFileConfig `yaml:"auth,omitempty" json:"auth,omitempty"`
+}
+
 // FileStorageConfig holds storage settings as they appear in the YAML file.
 type FileStorageConfig struct {
-	Enabled *bool               `yaml:"enabled,omitempty" json:"enabled,omitempty"`
-	Backend string              `yaml:"backend,omitempty" json:"backend,omitempty"`
-	Local   *LocalStorageConfig `yaml:"local,omitempty" json:"local,omitempty"`
-	S3      *S3StorageConfig    `yaml:"s3,omitempty" json:"s3,omitempty"`
-	GCS     *GCSStorageConfig   `yaml:"gcs,omitempty" json:"gcs,omitempty"`
+	Enabled   *bool                   `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	Backend   string                  `yaml:"backend,omitempty" json:"backend,omitempty"`
+	Local     *LocalStorageConfig     `yaml:"local,omitempty" json:"local,omitempty"`
+	S3        *S3StorageConfig        `yaml:"s3,omitempty" json:"s3,omitempty"`
+	GCS       *GCSStorageConfig       `yaml:"gcs,omitempty" json:"gcs,omitempty"`
+	AzureBlob *AzureBlobStorageConfig `yaml:"azure_blob,omitempty" json:"azure_blob,omitempty"`
 }
 
 // fileConfig mirrors Config with YAML-friendly structure for file parsing.
@@ -175,6 +185,12 @@ type StorageConfig struct {
 	// ProjectID is GCS-only. Optional — most operations don't require it
 	// because bucket names are globally unique on GCS.
 	ProjectID string `json:"project_id,omitempty"`
+
+	// Account and Container are Azure-only. Account is the storage
+	// account name; Container is the blob container ("bucket"
+	// equivalent).
+	Account   string `json:"account,omitempty"`
+	Container string `json:"container,omitempty"`
 
 	// Auth optionally configures an explicit credential strategy. When
 	// Mode is empty/"ambient", the SDK default credential chain is used.
@@ -380,6 +396,7 @@ func (c *Config) mergeStorageConfig(fs *FileStorageConfig) {
 	}
 	c.mergeS3FileConfig(fs.S3)
 	c.mergeGCSFileConfig(fs.GCS)
+	c.mergeAzureBlobFileConfig(fs.AzureBlob)
 }
 
 // mergeS3FileConfig merges file-based S3 settings into the flat StorageConfig.
@@ -423,6 +440,29 @@ func (c *Config) mergeGCSFileConfig(gcs *GCSStorageConfig) {
 	}
 	if gcs.Auth != nil {
 		c.Storage.Auth = storageAuthFromFile(gcs.Auth)
+	}
+}
+
+// mergeAzureBlobFileConfig merges file-based Azure Blob settings into the
+// flat StorageConfig.
+func (c *Config) mergeAzureBlobFileConfig(az *AzureBlobStorageConfig) {
+	if az == nil {
+		return
+	}
+	if az.Account != "" {
+		c.Storage.Account = az.Account
+	}
+	if az.Container != "" {
+		c.Storage.Container = az.Container
+	}
+	if az.Prefix != "" {
+		c.Storage.Prefix = az.Prefix
+	}
+	if az.Endpoint != "" {
+		c.Storage.Endpoint = az.Endpoint
+	}
+	if az.Auth != nil {
+		c.Storage.Auth = storageAuthFromFile(az.Auth)
 	}
 }
 
@@ -530,6 +570,29 @@ func (c *Config) LoadFromEnv() { //nolint:gocyclo // sequential env var loading 
 	}
 	if v := os.Getenv("SIGCOMPLY_STORAGE_GCS_AUTH_SERVICE_ACCOUNT"); v != "" {
 		c.Storage.Auth.ServiceAccount = v
+	}
+
+	// Azure-specific knobs.
+	if v := os.Getenv("SIGCOMPLY_STORAGE_AZURE_ACCOUNT"); v != "" {
+		c.Storage.Account = v
+	}
+	if v := os.Getenv("SIGCOMPLY_STORAGE_AZURE_CONTAINER"); v != "" {
+		c.Storage.Container = v
+	}
+	if v := os.Getenv("SIGCOMPLY_STORAGE_AZURE_ENDPOINT"); v != "" {
+		c.Storage.Endpoint = v
+	}
+	if v := os.Getenv("SIGCOMPLY_STORAGE_AZURE_AUTH_MODE"); v != "" {
+		c.Storage.Auth.Mode = v
+	}
+	if v := os.Getenv("SIGCOMPLY_STORAGE_AZURE_AUTH_AUDIENCE"); v != "" {
+		c.Storage.Auth.Audience = v
+	}
+	if v := os.Getenv("SIGCOMPLY_STORAGE_AZURE_AUTH_TENANT_ID"); v != "" {
+		c.Storage.Auth.TenantID = v
+	}
+	if v := os.Getenv("SIGCOMPLY_STORAGE_AZURE_AUTH_CLIENT_ID"); v != "" {
+		c.Storage.Auth.ClientID = v
 	}
 
 	// Provider settings

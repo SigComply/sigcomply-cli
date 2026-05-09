@@ -89,6 +89,9 @@ type Config struct {
 
 	// GCS contains Google Cloud Storage configuration.
 	GCS *GCSConfig `yaml:"gcs,omitempty" json:"gcs,omitempty"`
+
+	// AzureBlob contains Azure Blob Storage configuration.
+	AzureBlob *AzureBlobConfig `yaml:"azure_blob,omitempty" json:"azure_blob,omitempty"`
 }
 
 // GCSConfig holds Google Cloud Storage configuration.
@@ -108,6 +111,32 @@ type GCSConfig struct {
 	// operations don't require it because the bucket name is globally
 	// unique.
 	ProjectID string `yaml:"project_id,omitempty" json:"project_id,omitempty"`
+
+	// Auth optionally specifies an explicit auth strategy.
+	Auth *AuthConfig `yaml:"auth,omitempty" json:"auth,omitempty"`
+}
+
+// AzureBlobConfig holds Azure Blob Storage configuration.
+//
+// Auth mirrors the S3 / GCS pattern: when Auth is nil or Mode is "ambient",
+// azidentity.DefaultAzureCredential is used (env vars, managed identity,
+// workload identity, az CLI, etc.). When Mode is "oidc", the CLI presents
+// its CI OIDC token to Azure AD as a federated client assertion.
+type AzureBlobConfig struct {
+	// Account is the Azure storage account name (e.g., "acmeevidence").
+	Account string `yaml:"account" json:"account"`
+
+	// Container is the blob container name (the Azure equivalent of an
+	// S3 bucket).
+	Container string `yaml:"container" json:"container"`
+
+	// Prefix is the blob name prefix for all stored items.
+	Prefix string `yaml:"prefix,omitempty" json:"prefix,omitempty"`
+
+	// Endpoint overrides the default service URL
+	// (https://{account}.blob.core.windows.net). Use this for sovereign
+	// clouds (e.g., Azure Government) or Azurite emulators.
+	Endpoint string `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
 
 	// Auth optionally specifies an explicit auth strategy.
 	Auth *AuthConfig `yaml:"auth,omitempty" json:"auth,omitempty"`
@@ -217,6 +246,11 @@ func NewBackend(cfg *Config) (Backend, error) {
 			return nil, &ConfigError{Message: "GCS configuration required"}
 		}
 		return NewGCSBackend(cfg.GCS), nil
+	case "azure_blob":
+		if cfg.AzureBlob == nil {
+			return nil, &ConfigError{Message: "Azure Blob configuration required"}
+		}
+		return NewAzureBlobBackend(cfg.AzureBlob), nil
 	default:
 		return nil, &ConfigError{Message: "unsupported storage backend: " + cfg.Backend}
 	}

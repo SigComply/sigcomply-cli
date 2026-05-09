@@ -29,10 +29,11 @@ import (
 )
 
 const (
-	backendLocal  = "local"
-	backendS3     = "s3"
-	backendGCS    = "gcs"
-	frameworkSOC2 = "soc2"
+	backendLocal     = "local"
+	backendS3        = "s3"
+	backendGCS       = "gcs"
+	backendAzureBlob = "azure_blob"
+	frameworkSOC2    = "soc2"
 )
 
 var (
@@ -847,6 +848,14 @@ func buildStorageConfig(cfg *config.Config) *storage.Config {
 			ProjectID: cfg.Storage.ProjectID,
 			Auth:      buildStorageAuthConfig(&cfg.Storage.Auth),
 		}
+	case backendAzureBlob:
+		storageCfg.AzureBlob = &storage.AzureBlobConfig{
+			Account:   cfg.Storage.Account,
+			Container: cfg.Storage.Container,
+			Prefix:    cfg.Storage.Prefix,
+			Endpoint:  cfg.Storage.Endpoint,
+			Auth:      buildStorageAuthConfig(&cfg.Storage.Auth),
+		}
 	}
 
 	return storageCfg
@@ -883,6 +892,15 @@ func buildManualStorageConfig(cfg *config.Config) *storage.Config {
 			Bucket:    cfg.Storage.Bucket,
 			Prefix:    prefix,
 			ProjectID: cfg.Storage.ProjectID,
+			Auth:      buildStorageAuthConfig(&cfg.Storage.Auth),
+		}
+	case backendAzureBlob:
+		prefix := cfg.Storage.Prefix + cfg.ManualEvidence.Prefix
+		storageCfg.AzureBlob = &storage.AzureBlobConfig{
+			Account:   cfg.Storage.Account,
+			Container: cfg.Storage.Container,
+			Prefix:    prefix,
+			Endpoint:  cfg.Storage.Endpoint,
 			Auth:      buildStorageAuthConfig(&cfg.Storage.Auth),
 		}
 	}

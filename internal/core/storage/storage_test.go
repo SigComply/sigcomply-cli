@@ -232,6 +232,93 @@ func TestGCSBackend_RejectsUnknownAuthMode(t *testing.T) {
 	assert.Contains(t, err.Error(), "unsupported auth mode")
 }
 
+func TestNewBackend_AzureBlobMissingConfig(t *testing.T) {
+	cfg := &Config{Backend: "azure_blob"}
+	_, err := NewBackend(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Azure Blob configuration required")
+}
+
+func TestNewBackend_AzureBlob(t *testing.T) {
+	cfg := &Config{
+		Backend: "azure_blob",
+		AzureBlob: &AzureBlobConfig{
+			Account:   "acmeevidence",
+			Container: "manual",
+		},
+	}
+	backend, err := NewBackend(cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "azure_blob", backend.Name())
+}
+
+func TestAzureBlobBackend_URIFor_Default(t *testing.T) {
+	backend := NewAzureBlobBackend(&AzureBlobConfig{
+		Account:   "acmeevidence",
+		Container: "manual",
+		Prefix:    "soc2/",
+	})
+
+	uri := backend.URIFor("access_review/2026-Q1/evidence.pdf")
+	assert.Equal(t, "https://acmeevidence.blob.core.windows.net/manual/soc2/access_review/2026-Q1/evidence.pdf", uri)
+}
+
+func TestAzureBlobBackend_URIFor_CustomEndpoint(t *testing.T) {
+	backend := NewAzureBlobBackend(&AzureBlobConfig{
+		Account:   "acmeevidence",
+		Container: "manual",
+		Prefix:    "",
+		Endpoint:  "https://acmeevidence.blob.core.usgovcloudapi.net",
+	})
+
+	uri := backend.URIFor("foo.pdf")
+	assert.Equal(t, "https://acmeevidence.blob.core.usgovcloudapi.net/manual/foo.pdf", uri)
+}
+
+func TestAzureBlobBackend_OIDC_RequiresTenantID(t *testing.T) {
+	backend := NewAzureBlobBackend(&AzureBlobConfig{
+		Account:   "a",
+		Container: "c",
+		Auth: &AuthConfig{
+			Mode:     AuthModeOIDC,
+			ClientID: "11111111-1111-1111-1111-111111111111",
+			// TenantID intentionally omitted.
+		},
+	})
+
+	_, err := backend.credential(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tenant_id")
+}
+
+func TestAzureBlobBackend_OIDC_RequiresClientID(t *testing.T) {
+	backend := NewAzureBlobBackend(&AzureBlobConfig{
+		Account:   "a",
+		Container: "c",
+		Auth: &AuthConfig{
+			Mode:     AuthModeOIDC,
+			TenantID: "00000000-0000-0000-0000-000000000000",
+			// ClientID intentionally omitted.
+		},
+	})
+
+	_, err := backend.credential(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "client_id")
+}
+
+func TestAzureBlobBackend_RejectsUnknownAuthMode(t *testing.T) {
+	backend := NewAzureBlobBackend(&AzureBlobConfig{
+		Account:   "a",
+		Container: "c",
+		Auth:      &AuthConfig{Mode: "saml"},
+	})
+
+	_, err := backend.credential(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported auth mode")
+}
+
 func TestLocalBackend_Init(t *testing.T) {
 	tmpDir := t.TempDir()
 	storagePath := filepath.Join(tmpDir, "evidence")
