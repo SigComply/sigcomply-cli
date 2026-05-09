@@ -1,6 +1,28 @@
-# SigComply CLI - Claude Context
+# SigComply CLI — Claude Context
 
-This document provides context for AI assistants (like Claude) working on the SigComply CLI project.
+## Product Overview
+
+**SigComply** is an open-source, zero-trust, non-custodial compliance engine — "Evidence without Access." It enables SOC 2 / ISO 27001 / HIPAA readiness without granting third-party vendors access to production data or infrastructure.
+
+The product spans **4 logical components across 5 repositories**, all cloned as siblings under the same parent directory. Full architecture: [parent CLAUDE.md](../CLAUDE.md).
+
+1. **The Engine (CLI)** — Go binary that runs in customer CI/CD; executes OPA/Rego policies; collects and signs evidence locally. **(this repo)**
+   - Local: `./` (this repo)
+   - Origin: `git@github.com:SigComply/sigcomply-cli.git`
+
+2. **The Compliance Dashboard (Web App)** — Rails 8.1.1 / Ruby 3.3.6. Stores only aggregated policy results (counts, scores). Never raw evidence, never PII. Private repo.
+   - Local: `../sigcomply/`
+   - Origin: `git@github.com:SigComply/sigcomply.git`
+
+3. **Manual Evidence SPA** — React 19 + TypeScript + Vite. Static helper that lets users produce PDFs for declaration/checklist forms. No backend.
+   - Local: `../sigcomply-evidence-spa/`
+   - Origin: `git@github.com:SigComply/sigcomply-evidence-spa.git`
+
+4. **CLI E2E Testing** — Two repos that simulate real customers running this CLI in CI against test-org credentials.
+   - GitHub Actions: `../sigcomply-cli-testing-project-github/` · `git@github.com:SigComply/sigcomply-cli-testing-project-github.git`
+   - GitLab CI: `../sigcomply-cli-testing-project-gitlab/` · `git@gitlab-personal:sigcomply/sigcomply-cli-testing-project-gitlab.git`
+
+**The aggregation boundary is sacred**: this CLI is the only place where raw evidence (resource IDs, ARNs, usernames, emails, PDF bytes) is reduced to counts. Anything that would send those identifiers to the Rails app is a hard architectural violation.
 
 ---
 
@@ -28,143 +50,33 @@ Key documents for development:
 
 ---
 
-## CRITICAL: Development Rules for AI Agents
+## Development Rules
 
-**These rules MUST be followed when implementing any feature or sub-component.**
+### Ship Working Code
 
-### Guiding Principle: Ship Working Code
+Working, tested code is the primary measure of progress. Don't over-document — only update docs when architecture changes. Code with clear names and tests often needs no additional docs.
 
-**Working, tested code is the primary measure of progress.**
+### Test-Driven Development
 
-Documentation exists to enable shipping, not as an end in itself. Apply these guidelines:
+1. Write unit tests first
+2. Write a basic happy-path integration test
+3. Implement minimum code to pass
+4. Verify full suite passes (`make test && make lint`)
+5. Update docs only if architecture changed
 
-1. **Don't over-document** - Docs should be minimal viable, not comprehensive. Ask: "Would another AI session actually need this information?"
+### Architecture-First
 
-2. **Only update docs when architecture changes** - Bug fixes, small features, and refactors rarely need doc updates. Only update when:
-   - New components/patterns are introduced
-   - Existing design decisions change
-   - The implementation deviates from documented architecture
+Before implementing: read relevant docs, plan the approach. If the design feels overly complex, **stop and ask** — difficulty is a signal to pause, not push through.
 
-3. **Time check** - If you're spending more than 10-15% of a session on documentation, something is wrong. Pause and ask.
+### Small, Atomic Commits
 
-4. **"Good enough" over "perfect"** - A working feature with minimal docs beats a documented feature that doesn't exist.
+- One logical change per commit, all tests passing
+- Format: `<type>: <description>` (types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`)
+- Include `Co-Authored-By: Claude <model> <noreply@anthropic.com>`
 
-5. **Code is documentation** - Well-written code with clear names and simple tests often needs no additional docs.
+### Never Break Main
 
-### Rule 1: Test-Driven Development (TDD)
-
-For each new feature or sub-component:
-
-1. **Write unit tests first** - Define expected behavior through tests before writing implementation
-2. **Write a basic integration test** - Create the simplest possible integration test that verifies components connect correctly (happy path only, avoid complexity)
-3. **Implement the code** - Write the minimum code needed to make tests pass
-4. **Verify all tests pass** - Run the full test suite to ensure no regressions
-5. **Update documentation** - After the feature is complete, revise and update relevant documentation files (ARCHITECTURE.md, CLAUDE.md as needed)
-
-```bash
-# TDD workflow
-make test          # Run unit tests
-make test-integration  # Run integration tests (if applicable)
-make lint          # Ensure code quality
-```
-
-### Rule 2: Architecture-First Implementation
-
-Before starting any implementation:
-
-1. **Read existing documentation** - Review ARCHITECTURE.md and relevant sections of CLAUDE.md to understand the full context
-2. **Create an implementation plan** - Outline the specific files to create/modify, types needed, and how the feature fits into existing architecture
-3. **Evaluate complexity** - If the existing architecture makes implementation overly complicated or convoluted:
-   - **STOP and ask the user** to explain the complexity
-   - Present your concerns clearly: "The current design requires X, Y, Z which seems overly complex because..."
-   - Wait for guidance before proceeding—the design may need to be re-evaluated
-4. **Proceed only when the path is clear** - Implementation should feel straightforward given good architecture. Difficulty is a signal to pause.
-
-**Why this matters**: Detailed architecture documentation exists so you have full end-to-end context. If that context makes things harder rather than easier, something is wrong.
-
-### Rule 3: Small, Atomic Commits
-
-Each feature or sub-component should result in small, working, tested commits:
-
-1. **One logical change per commit** - Don't bundle unrelated changes
-2. **Each commit should pass all tests** - Never commit broken code
-3. **Commit message format**:
-   ```
-   <type>: <short description>
-
-   <detailed explanation if needed>
-
-   Co-Authored-By: Claude <model> <noreply@anthropic.com>
-   ```
-   Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
-
-4. **Commit frequently** - Don't build large features in one go without intermediate checkpoints
-5. **Push after completing each feature** - Keep remote in sync
-
-**Why this matters**:
-- Creates natural rollback points if something goes wrong
-- Forces incremental verification
-- Makes code review manageable
-- Prevents "big bang" integration failures
-
-### Rule 4: Never Break the Main Branch
-
-**The main branch must ALWAYS have a green CI pipeline. A broken main build is unacceptable.**
-
-Before every commit and push, follow this mandatory workflow:
-
-1. **Run all local checks before committing**:
-   ```bash
-   make test              # All unit tests must pass
-   make test-integration  # All integration tests must pass (if applicable)
-   make lint              # All linting checks must pass
-   ```
-   Do NOT commit if any of these fail. Fix the issue first.
-
-2. **After pushing, verify the GitHub Actions pipeline**:
-   - Push the commit to the remote
-   - Wait 2-3 minutes for the GitHub Actions pipeline to start and complete
-   - Use `gh run list --branch <branch> --limit 5` to check the pipeline status
-   - Use `gh run view <run-id>` to inspect details if needed
-
-3. **If the pipeline fails**:
-   - Immediately investigate the failure: `gh run view <run-id> --log-failed`
-   - Identify the root cause (test failure, lint error, build error, etc.)
-   - Fix the issue locally
-   - Run all local checks again (`make test && make lint`)
-   - Commit the fix and push
-   - Wait and verify the pipeline is green again
-   - Repeat until the pipeline is fully green
-
-4. **Do NOT move on to the next task until the pipeline is green**. The current unit of work is not complete until CI is passing.
-
-**Why this matters**:
-- A broken main branch blocks all other contributors
-- CI failures compound — fixing them later is harder than fixing them now
-- Green CI is the team's contract for code quality
-- Every commit on main should be deployable
-
-### Summary Checklist
-
-Before implementing any feature, verify:
-
-- [ ] I have read the relevant architecture documentation
-- [ ] I have a clear implementation plan
-- [ ] The design doesn't feel overly complicated (if it does, STOP and ask)
-- [ ] I will write tests before implementation
-- [ ] I will make small, atomic commits
-- [ ] Before each commit: `make test && make lint` pass locally
-- [ ] After each push: GitHub Actions pipeline is green (verified via `gh run list`)
-- [ ] If CI fails: fix, push, and verify green before moving on
-- [ ] I will update documentation after completion
-
----
-
-## Project Purpose
-
-SigComply CLI is an open-source compliance automation engine that enables organizations to achieve SOC 2, ISO 27001, and HIPAA readiness without granting third-party vendors access to their production infrastructure.
-
-**Core Philosophy**: "Evidence without Access" - a non-custodial approach to compliance automation.
+Run `make test && make lint` before every commit. After pushing to main, verify the GitHub Actions pipeline is green via `gh run list` / `gh run view`. Don't move on while CI is red.
 
 ---
 
@@ -183,34 +95,9 @@ SigComply CLI is an open-source compliance automation engine that enables organi
 
 ## Architecture Overview
 
-### 1. The 2-Repo Architecture
+> See [Product Overview](#product-overview) at the top of this file for the 4-component / 5-repo structure. This section drills into the CLI's runtime behaviour.
 
-SigComply uses a two-repository architecture that balances transparency with business security:
-
-**Repo 1: sigcomply-cli (This Repository - PUBLIC)**
-- The "Front-of-House" / Distribution Layer
-- Contains the Go CLI source code
-- Open-source compliance policies (YAML/Rego)
-- GitHub Reusable Workflows (`.github/workflows/`)
-- GitLab CI/CD Components (using `spec:inputs`)
-- Installation scripts (`curl | sh` setup)
-- Complete transparency for security-conscious teams
-
-**Repo 2: sigcomply-cloud (PRIVATE)**
-- The "Compliance Dashboard" layer
-- Rails-based backend application
-- Stores only aggregated policy results (counts, scores, per-policy pass/fail)
-- Handles billing and subscription management
-- Provides auditor portal and compliance reporting
-- Never stores raw evidence, resource identifiers, or PII
-
-This separation ensures:
-- Compliance logic remains open and auditable
-- Business logic and customer data remain secure
-- Customers can inspect exactly what runs in their environment
-- SigComply can iterate on backend features independently
-
-### 2. CLI Execution Flow
+### 1. CLI Execution Flow
 
 ```
 User Environment
@@ -257,7 +144,7 @@ User Environment
 
 **Example**: "3 users without MFA" is sent to Rails. The list of which users never leaves customer S3.
 
-### 3. Key Components
+### 2. Key Components
 
 #### Evidence Collection
 - Two and only two evidence flows. Every policy declares which it consumes via `evidence_type` metadata: `automated` or `manual`.
@@ -308,7 +195,7 @@ User Environment
 - Raw evidence, full violation details, and all identifiers stay in customer S3
 - The aggregation happens client-side in the CLI before any data leaves the customer's environment
 
-### 4. External Systems
+### 3. External Systems
 
 **SigComply Cloud API** (Separate Rails Application - Private Repository):
 - Receives aggregated policy results from CLI (paid tier):
@@ -888,9 +775,8 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 
 **Remaining**:
 - Secret scanner
-- init and init-ci commands
+- `init` and `init-ci` commands (root-level config init / CI scaffolding — listed in the canonical command table but not yet wired in `cmd/sigcomply/root.go`)
 - SARIF output formatter
-- Public README
 
 **Key Design Decisions**:
 - Zero-config by default (auto-detect AWS)

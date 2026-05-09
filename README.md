@@ -1,3 +1,77 @@
-# SigComply CLI
+# sigcomply
 
-TODO: Write README after MVP is ready.
+> Zero-trust, non-custodial compliance engine — **"Evidence without Access."**
+
+The `sigcomply` CLI runs locally in your CI/CD and turns infrastructure state
+into signed compliance evidence — without giving any third party access to
+your data, credentials, or production environment. Raw evidence stays in
+your own storage; only aggregated counts and pass/fail scores are submitted
+to the optional Compliance Dashboard.
+
+Currently supports SOC 2 (Type II), ISO 27001, and HIPAA. Policies are open
+OPA/Rego — inspect, fork, and contribute.
+
+## Install
+
+```sh
+go install github.com/SigComply/sigcomply-cli@latest
+```
+
+Pre-built binaries are published with each release on GitHub.
+
+## Quick start
+
+```sh
+sigcomply check --framework soc2
+```
+
+Auto-detects collectors based on available credentials (`AWS_*`,
+`GITHUB_TOKEN`, GCP ADC, …), evaluates the framework's policies locally,
+writes signed `EvidenceEnvelope` files to your storage backend, and (in
+CI with OIDC) submits aggregated results to the SigComply Cloud API.
+
+## Manual evidence
+
+For evidence that isn't an API call (declarations, training certificates,
+HR exports), the CLI looks for a single PDF at
+`{framework}/{evidence_id}/{period}/evidence.pdf` in your storage:
+
+```sh
+sigcomply evidence catalog --framework soc2   # list manual entries
+sigcomply evidence init --framework soc2      # scaffold the period folders
+sigcomply evidence path --framework soc2 \    # print where to upload a PDF
+  --evidence-id security_awareness_training
+```
+
+The companion [Evidence SPA](https://github.com/SigComply/sigcomply-evidence-spa)
+helps users produce PDFs for declaration- and checklist-style entries.
+
+## CI/CD
+
+Reusable workflow / CI component:
+
+```yaml
+# GitHub Actions
+jobs:
+  compliance:
+    permissions: { id-token: write, contents: read }
+    uses: SigComply/sigcomply-cli/.github/workflows/compliance.yml@v1
+    with: { framework: soc2 }
+```
+
+```yaml
+# GitLab CI
+include:
+  - component: gitlab.com/sigcomply/sigcomply-cli/compliance@v1
+    inputs: { framework: soc2 }
+```
+
+## Documentation
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — system design, evidence flows, signing
+- [docs/configuration.md](docs/configuration.md) — config file, env vars, flags
+- [CLAUDE.md](CLAUDE.md) — context for AI coding assistants
+
+## License
+
+Apache-2.0 (license file pending).

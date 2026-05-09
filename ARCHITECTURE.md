@@ -460,6 +460,9 @@ violations contains v if {
 |---------|-------------|--------|
 | `sigcomply check` | Main: collect → evaluate → store → cloud submit | Implemented |
 | `sigcomply version` | Print version information | Implemented |
+| `sigcomply evidence init` | Scaffold per-period folders for manual evidence | Implemented |
+| `sigcomply evidence catalog` | Print the manual-evidence catalog (text or JSON; consumed by the SPA) | Implemented |
+| `sigcomply evidence path` | Print the upload path for a specific manual-evidence entry | Implemented |
 | `sigcomply init` | Initialize config file | Planned |
 | `sigcomply init-ci` | Generate CI/CD workflow files | Planned |
 | `sigcomply collect` | Collect evidence only | Planned |
