@@ -550,14 +550,20 @@ func TestConfig_ManualEvidence_Defaults(t *testing.T) {
 	cfg := New()
 
 	assert.False(t, cfg.ManualEvidence.Enabled)
-	assert.Equal(t, "manual-evidence/", cfg.ManualEvidence.Prefix)
+	assert.Nil(t, cfg.ManualEvidence.Default)
+	assert.Empty(t, cfg.ManualEvidence.Frameworks)
 }
 
-func TestConfig_ManualEvidence_FromFile(t *testing.T) {
+func TestConfig_ManualEvidence_DefaultFromFile(t *testing.T) {
 	content := `
 manual_evidence:
   enabled: true
-  prefix: custom-manual/
+  default:
+    backend: s3
+    s3:
+      bucket: shared-evidence
+      region: us-east-1
+      prefix: manual/
 `
 	path := writeTestFile(t, content)
 
@@ -565,36 +571,89 @@ manual_evidence:
 	cfg.LoadFromFile(path)
 
 	assert.True(t, cfg.ManualEvidence.Enabled)
-	assert.Equal(t, "custom-manual/", cfg.ManualEvidence.Prefix)
+	require.NotNil(t, cfg.ManualEvidence.Default)
+	assert.Equal(t, "s3", cfg.ManualEvidence.Default.Backend)
+	assert.Equal(t, "shared-evidence", cfg.ManualEvidence.Default.Bucket)
+	assert.Equal(t, "us-east-1", cfg.ManualEvidence.Default.Region)
+	assert.Equal(t, "manual/", cfg.ManualEvidence.Default.Prefix)
 }
 
-func TestConfig_ManualEvidence_FromEnv(t *testing.T) {
+func TestConfig_ManualEvidence_PerFrameworkFromFile(t *testing.T) {
+	content := `
+manual_evidence:
+  enabled: true
+  frameworks:
+    soc2:
+      backend: s3
+      s3:
+        bucket: soc2-evidence
+        region: us-east-1
+    iso27001:
+      backend: gcs
+      gcs:
+        bucket: iso27001-evidence
+        prefix: manual/
+    hipaa:
+      backend: azure_blob
+      azure_blob:
+        account: hipaaev
+        container: evidence
+`
+	path := writeTestFile(t, content)
+
+	cfg := New()
+	cfg.LoadFromFile(path)
+
+	require.NotNil(t, cfg.ManualEvidence.Frameworks["soc2"])
+	assert.Equal(t, "s3", cfg.ManualEvidence.Frameworks["soc2"].Backend)
+	assert.Equal(t, "soc2-evidence", cfg.ManualEvidence.Frameworks["soc2"].Bucket)
+
+	require.NotNil(t, cfg.ManualEvidence.Frameworks["iso27001"])
+	assert.Equal(t, "gcs", cfg.ManualEvidence.Frameworks["iso27001"].Backend)
+	assert.Equal(t, "iso27001-evidence", cfg.ManualEvidence.Frameworks["iso27001"].Bucket)
+	assert.Equal(t, "manual/", cfg.ManualEvidence.Frameworks["iso27001"].Prefix)
+
+	require.NotNil(t, cfg.ManualEvidence.Frameworks["hipaa"])
+	assert.Equal(t, "azure_blob", cfg.ManualEvidence.Frameworks["hipaa"].Backend)
+	assert.Equal(t, "hipaaev", cfg.ManualEvidence.Frameworks["hipaa"].Account)
+	assert.Equal(t, "evidence", cfg.ManualEvidence.Frameworks["hipaa"].Container)
+}
+
+func TestConfig_ManualEvidence_For_PrefersFramework(t *testing.T) {
+	cfg := &ManualEvidenceConfig{
+		Enabled: true,
+		Default: &StorageConfig{Backend: "s3", Bucket: "default-bucket"},
+		Frameworks: map[string]*StorageConfig{
+			"soc2": {Backend: "gcs", Bucket: "soc2-bucket"},
+		},
+	}
+
+	soc2Cfg, err := cfg.For("soc2")
+	require.NoError(t, err)
+	assert.Equal(t, "gcs", soc2Cfg.Backend)
+	assert.Equal(t, "soc2-bucket", soc2Cfg.Bucket)
+
+	hipaaCfg, err := cfg.For("hipaa")
+	require.NoError(t, err)
+	assert.Equal(t, "s3", hipaaCfg.Backend, "frameworks without explicit config should fall back to Default")
+	assert.Equal(t, "default-bucket", hipaaCfg.Bucket)
+}
+
+func TestConfig_ManualEvidence_For_ErrorsWhenNoSource(t *testing.T) {
+	cfg := &ManualEvidenceConfig{Enabled: true}
+	_, err := cfg.For("soc2")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "soc2")
+	assert.Contains(t, err.Error(), "no source configured")
+}
+
+func TestConfig_ManualEvidence_EnabledFromEnv(t *testing.T) {
 	t.Setenv("SIGCOMPLY_MANUAL_EVIDENCE_ENABLED", "true")
-	t.Setenv("SIGCOMPLY_MANUAL_EVIDENCE_PREFIX", "env-manual/")
 
 	cfg := New()
 	cfg.LoadFromEnv()
 
 	assert.True(t, cfg.ManualEvidence.Enabled)
-	assert.Equal(t, "env-manual/", cfg.ManualEvidence.Prefix)
-}
-
-func TestConfig_ManualEvidence_EnvOverridesFile(t *testing.T) {
-	content := `
-manual_evidence:
-  enabled: true
-  prefix: file-manual/
-`
-	path := writeTestFile(t, content)
-
-	t.Setenv("SIGCOMPLY_MANUAL_EVIDENCE_PREFIX", "env-manual/")
-
-	cfg := New()
-	cfg.LoadFromFile(path)
-	assert.Equal(t, "file-manual/", cfg.ManualEvidence.Prefix)
-
-	cfg.LoadFromEnv()
-	assert.Equal(t, "env-manual/", cfg.ManualEvidence.Prefix)
 }
 
 // writeTestFile creates a temporary YAML file and returns its path.

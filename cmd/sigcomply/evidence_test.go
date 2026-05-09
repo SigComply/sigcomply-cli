@@ -18,19 +18,22 @@ import (
 
 func TestEvidenceInit_CreatesFolders(t *testing.T) {
 	tmpDir := t.TempDir()
+	manualDir := filepath.Join(tmpDir, "manual-evidence")
+
 	cfg := config.New()
 	cfg.Framework = frameworkSOC2
-	cfg.Storage.Backend = "local"
-	cfg.Storage.Path = tmpDir
 	cfg.ManualEvidence.Enabled = true
+	cfg.ManualEvidence.Default = &config.StorageConfig{
+		Backend: "local",
+		Path:    manualDir,
+	}
 
-	storageCfg := buildManualStorageConfig(cfg)
+	storageCfg, err := buildManualStorageConfig(cfg)
+	require.NoError(t, err)
 	backend, err := storage.NewBackend(storageCfg)
 	require.NoError(t, err)
 	require.NoError(t, backend.Init(context.Background()))
 
-	// Verify the manual evidence prefix directory exists
-	manualDir := filepath.Join(tmpDir, "manual-evidence")
 	_, err = os.Stat(manualDir)
 	require.NoError(t, err)
 }
@@ -68,27 +71,45 @@ func TestEvidenceCatalog_JSONOutput(t *testing.T) {
 	assert.GreaterOrEqual(t, len(decoded.Entries), 4)
 }
 
-func TestBuildManualStorageConfig_Local(t *testing.T) {
+func TestBuildManualStorageConfig_DefaultLocal(t *testing.T) {
 	cfg := config.New()
-	cfg.Storage.Backend = "local"
-	cfg.Storage.Path = "/tmp/evidence"
-	cfg.ManualEvidence.Prefix = "manual-evidence/"
+	cfg.Framework = frameworkSOC2
+	cfg.ManualEvidence.Default = &config.StorageConfig{
+		Backend: "local",
+		Path:    "/tmp/manual-evidence",
+	}
 
-	storageCfg := buildManualStorageConfig(cfg)
+	storageCfg, err := buildManualStorageConfig(cfg)
+	require.NoError(t, err)
 	assert.Equal(t, "local", storageCfg.Backend)
-	assert.Equal(t, "/tmp/evidence/manual-evidence", storageCfg.Local.Path)
+	assert.Equal(t, "/tmp/manual-evidence", storageCfg.Local.Path)
 }
 
-func TestBuildManualStorageConfig_S3(t *testing.T) {
+func TestBuildManualStorageConfig_PerFrameworkS3(t *testing.T) {
 	cfg := config.New()
-	cfg.Storage.Backend = "s3"
-	cfg.Storage.Bucket = "my-bucket"
-	cfg.Storage.Region = "us-east-1"
-	cfg.Storage.Prefix = "compliance/"
-	cfg.ManualEvidence.Prefix = "manual-evidence/"
+	cfg.Framework = frameworkSOC2
+	cfg.ManualEvidence.Frameworks = map[string]*config.StorageConfig{
+		frameworkSOC2: {
+			Backend: "s3",
+			Bucket:  "soc2-evidence",
+			Region:  "us-east-1",
+			Prefix:  "manual/",
+		},
+	}
 
-	storageCfg := buildManualStorageConfig(cfg)
+	storageCfg, err := buildManualStorageConfig(cfg)
+	require.NoError(t, err)
 	assert.Equal(t, "s3", storageCfg.Backend)
-	assert.Equal(t, "my-bucket", storageCfg.S3.Bucket)
-	assert.Equal(t, "compliance/manual-evidence/", storageCfg.S3.Prefix)
+	assert.Equal(t, "soc2-evidence", storageCfg.S3.Bucket)
+	assert.Equal(t, "manual/", storageCfg.S3.Prefix)
+}
+
+func TestBuildManualStorageConfig_NoSourceErrors(t *testing.T) {
+	cfg := config.New()
+	cfg.Framework = frameworkSOC2
+	// Neither Default nor Frameworks[soc2] set.
+
+	_, err := buildManualStorageConfig(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "soc2")
 }

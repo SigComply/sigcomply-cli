@@ -821,91 +821,58 @@ func countByResourceType(evidenceList []evidence.Evidence) map[string]int {
 	return counts
 }
 
-// buildStorageConfig creates a storage.Config from the application config.
+// buildStorageConfig creates a storage.Config from the application config's
+// main storage block (used for automated evidence + signed envelopes).
 func buildStorageConfig(cfg *config.Config) *storage.Config {
-	storageCfg := &storage.Config{
-		Backend: cfg.Storage.Backend,
-	}
-
-	switch cfg.Storage.Backend {
-	case backendLocal:
-		storageCfg.Local = &storage.LocalConfig{
-			Path: cfg.Storage.Path,
-		}
-	case backendS3:
-		storageCfg.S3 = &storage.S3Config{
-			Bucket:         cfg.Storage.Bucket,
-			Region:         cfg.Storage.Region,
-			Prefix:         cfg.Storage.Prefix,
-			Endpoint:       cfg.Storage.Endpoint,
-			ForcePathStyle: cfg.Storage.ForcePathStyle,
-			Auth:           buildStorageAuthConfig(&cfg.Storage.Auth),
-		}
-	case backendGCS:
-		storageCfg.GCS = &storage.GCSConfig{
-			Bucket:    cfg.Storage.Bucket,
-			Prefix:    cfg.Storage.Prefix,
-			ProjectID: cfg.Storage.ProjectID,
-			Auth:      buildStorageAuthConfig(&cfg.Storage.Auth),
-		}
-	case backendAzureBlob:
-		storageCfg.AzureBlob = &storage.AzureBlobConfig{
-			Account:   cfg.Storage.Account,
-			Container: cfg.Storage.Container,
-			Prefix:    cfg.Storage.Prefix,
-			Endpoint:  cfg.Storage.Endpoint,
-			Auth:      buildStorageAuthConfig(&cfg.Storage.Auth),
-		}
-	}
-
-	return storageCfg
+	return storageConfigFromRuntime(&cfg.Storage)
 }
 
-// buildManualStorageConfig creates a storage.Config for reading manual evidence input.
-func buildManualStorageConfig(cfg *config.Config) *storage.Config {
-	storageCfg := &storage.Config{
-		Backend: cfg.Storage.Backend,
+// buildManualStorageConfig resolves the manual-evidence storage backend for
+// the active framework and translates it into a storage.Config. Returns an
+// error if manual evidence is enabled but no source is configured for the
+// framework (and no default fallback is set).
+func buildManualStorageConfig(cfg *config.Config) (*storage.Config, error) {
+	src, err := cfg.ManualEvidence.For(cfg.Framework)
+	if err != nil {
+		return nil, err
 	}
+	return storageConfigFromRuntime(src), nil
+}
 
-	switch cfg.Storage.Backend {
+// storageConfigFromRuntime translates a runtime config.StorageConfig into the
+// storage package's typed Config. Centralized so the main vault and the
+// manual-evidence resolver share one translator.
+func storageConfigFromRuntime(rt *config.StorageConfig) *storage.Config {
+	out := &storage.Config{Backend: rt.Backend}
+	switch rt.Backend {
 	case backendLocal:
-		localPath := cfg.Storage.Path
-		if localPath == "" {
-			localPath = "./.sigcomply/evidence"
-		}
-		storageCfg.Local = &storage.LocalConfig{
-			Path: filepath.Join(localPath, cfg.ManualEvidence.Prefix),
-		}
+		out.Local = &storage.LocalConfig{Path: rt.Path}
 	case backendS3:
-		prefix := cfg.Storage.Prefix + cfg.ManualEvidence.Prefix
-		storageCfg.S3 = &storage.S3Config{
-			Bucket:         cfg.Storage.Bucket,
-			Region:         cfg.Storage.Region,
-			Prefix:         prefix,
-			Endpoint:       cfg.Storage.Endpoint,
-			ForcePathStyle: cfg.Storage.ForcePathStyle,
-			Auth:           buildStorageAuthConfig(&cfg.Storage.Auth),
+		out.S3 = &storage.S3Config{
+			Bucket:         rt.Bucket,
+			Region:         rt.Region,
+			Prefix:         rt.Prefix,
+			Endpoint:       rt.Endpoint,
+			ForcePathStyle: rt.ForcePathStyle,
+			Auth:           buildStorageAuthConfig(&rt.Auth),
 		}
 	case backendGCS:
-		prefix := cfg.Storage.Prefix + cfg.ManualEvidence.Prefix
-		storageCfg.GCS = &storage.GCSConfig{
-			Bucket:    cfg.Storage.Bucket,
-			Prefix:    prefix,
-			ProjectID: cfg.Storage.ProjectID,
-			Auth:      buildStorageAuthConfig(&cfg.Storage.Auth),
+		out.GCS = &storage.GCSConfig{
+			Bucket:    rt.Bucket,
+			Prefix:    rt.Prefix,
+			ProjectID: rt.ProjectID,
+			Auth:      buildStorageAuthConfig(&rt.Auth),
 		}
 	case backendAzureBlob:
-		prefix := cfg.Storage.Prefix + cfg.ManualEvidence.Prefix
-		storageCfg.AzureBlob = &storage.AzureBlobConfig{
-			Account:   cfg.Storage.Account,
-			Container: cfg.Storage.Container,
-			Prefix:    prefix,
-			Endpoint:  cfg.Storage.Endpoint,
-			Auth:      buildStorageAuthConfig(&cfg.Storage.Auth),
+		out.AzureBlob = &storage.AzureBlobConfig{
+			Account:   rt.Account,
+			Container: rt.Container,
+			Prefix:    rt.Prefix,
+			Endpoint:  rt.Endpoint,
+			Auth:      buildStorageAuthConfig(&rt.Auth),
 		}
 	}
-
-	return storageCfg
+	return out
 }
 
 // buildStorageAuthConfig converts the runtime config auth stanza into the
@@ -983,7 +950,10 @@ func collectManualEvidence(ctx context.Context, cfg *config.Config, framework en
 		return nil, nil, fmt.Errorf("failed to load manual catalog: %w", err)
 	}
 
-	storageCfg := buildManualStorageConfig(cfg)
+	storageCfg, err := buildManualStorageConfig(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
 	backend, err := storage.NewBackend(storageCfg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create manual evidence storage backend: %w", err)
@@ -1025,7 +995,11 @@ func updateManualExecutionState(ctx context.Context, cfg *config.Config, framewo
 		return
 	}
 
-	storageCfg := buildManualStorageConfig(cfg)
+	storageCfg, err := buildManualStorageConfig(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+		return
+	}
 	backend, err := storage.NewBackend(storageCfg)
 	if err != nil {
 		return

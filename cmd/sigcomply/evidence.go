@@ -61,7 +61,10 @@ func runEvidenceInit(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("failed to load manual catalog: %w", err)
 	}
 
-	storageCfg := buildManualStorageConfig(cfg)
+	storageCfg, err := buildManualStorageConfig(cfg)
+	if err != nil {
+		return err
+	}
 	backend, err := storage.NewBackend(storageCfg)
 	if err != nil {
 		return fmt.Errorf("failed to create storage backend: %w", err)

@@ -120,15 +120,49 @@ type fileConfig struct {
 }
 
 // ManualEvidenceConfig holds manual evidence collection settings.
+//
+// Manual evidence has its own storage backend selection per compliance
+// framework — separate from the main evidence vault that holds automated
+// evidence and signed envelopes. A customer might keep SOC 2 manual
+// evidence in one S3 bucket and ISO 27001 manual evidence in a GCS
+// bucket, for example.
+//
+// Resolution at run time for framework F:
+//
+//	Frameworks[F]  →  Default  →  validation error
 type ManualEvidenceConfig struct {
-	Enabled bool   `json:"enabled"`
-	Prefix  string `json:"prefix,omitempty"` // defaults to "manual-evidence/"
+	Enabled bool `json:"enabled"`
+
+	// Default is the fallback storage backend used for any framework
+	// that does not appear in Frameworks. Optional — if nil, every
+	// framework must have an explicit Frameworks[F] entry.
+	Default *StorageConfig `json:"default,omitempty"`
+
+	// Frameworks holds per-framework storage backend overrides. Keys
+	// are lowercase framework identifiers (e.g., "soc2", "iso27001",
+	// "hipaa").
+	Frameworks map[string]*StorageConfig `json:"frameworks,omitempty"`
 }
 
-// FileManualEvidenceConfig holds manual evidence settings as they appear in the YAML file.
+// For returns the storage backend configured for the given framework,
+// falling back to Default. Returns an error if the framework has no
+// explicit configuration and no Default is set.
+func (m *ManualEvidenceConfig) For(framework string) (*StorageConfig, error) {
+	if cfg, ok := m.Frameworks[framework]; ok && cfg != nil {
+		return cfg, nil
+	}
+	if m.Default != nil {
+		return m.Default, nil
+	}
+	return nil, fmt.Errorf("manual evidence is enabled but framework %q has no source configured (set manual_evidence.frameworks.%s or manual_evidence.default)", framework, framework)
+}
+
+// FileManualEvidenceConfig holds manual evidence settings as they appear in
+// the YAML config file.
 type FileManualEvidenceConfig struct {
-	Enabled *bool  `yaml:"enabled,omitempty"`
-	Prefix  string `yaml:"prefix,omitempty"`
+	Enabled    *bool                         `yaml:"enabled,omitempty"`
+	Default    *FileStorageConfig            `yaml:"default,omitempty"`
+	Frameworks map[string]*FileStorageConfig `yaml:"frameworks,omitempty"`
 }
 
 // Config holds all configuration for a SigComply run.
@@ -238,9 +272,6 @@ func New() *Config {
 		OutputFormat:    "text",
 		FailOnViolation: true,
 		CloudEnabled:    false,
-		ManualEvidence: ManualEvidenceConfig{
-			Prefix: "manual-evidence/",
-		},
 	}
 }
 
@@ -374,12 +405,84 @@ func (c *Config) mergeFileConfig(fc *fileConfig) { //nolint:gocyclo // sequentia
 	}
 
 	if fc.ManualEvidence != nil {
-		if fc.ManualEvidence.Enabled != nil {
-			c.ManualEvidence.Enabled = *fc.ManualEvidence.Enabled
+		c.applyManualEvidenceFile(fc.ManualEvidence)
+	}
+}
+
+// applyManualEvidenceFile populates c.ManualEvidence from the file form,
+// translating any nested FileStorageConfig into a runtime StorageConfig.
+func (c *Config) applyManualEvidenceFile(fc *FileManualEvidenceConfig) {
+	if fc.Enabled != nil {
+		c.ManualEvidence.Enabled = *fc.Enabled
+	}
+	if fc.Default != nil {
+		c.ManualEvidence.Default = storageConfigFromFile(fc.Default)
+	}
+	if len(fc.Frameworks) > 0 {
+		if c.ManualEvidence.Frameworks == nil {
+			c.ManualEvidence.Frameworks = make(map[string]*StorageConfig, len(fc.Frameworks))
 		}
-		if fc.ManualEvidence.Prefix != "" {
-			c.ManualEvidence.Prefix = fc.ManualEvidence.Prefix
+		for name, fs := range fc.Frameworks {
+			c.ManualEvidence.Frameworks[name] = storageConfigFromFile(fs)
 		}
+	}
+}
+
+// storageConfigFromFile builds a fresh StorageConfig from a FileStorageConfig.
+// Returns nil when fs is nil.
+func storageConfigFromFile(fs *FileStorageConfig) *StorageConfig {
+	if fs == nil {
+		return nil
+	}
+	out := &StorageConfig{Backend: fs.Backend}
+	if fs.Enabled != nil {
+		out.Enabled = *fs.Enabled
+	}
+	if fs.Local != nil {
+		out.Path = fs.Local.Path
+	}
+	applyS3FileToStorage(out, fs.S3)
+	applyGCSFileToStorage(out, fs.GCS)
+	applyAzureBlobFileToStorage(out, fs.AzureBlob)
+	return out
+}
+
+func applyS3FileToStorage(out *StorageConfig, s3 *S3StorageConfig) {
+	if s3 == nil {
+		return
+	}
+	out.Bucket = s3.Bucket
+	out.Region = s3.Region
+	out.Prefix = s3.Prefix
+	out.Endpoint = s3.Endpoint
+	out.ForcePathStyle = s3.ForcePathStyle
+	if s3.Auth != nil {
+		out.Auth = storageAuthFromFile(s3.Auth)
+	}
+}
+
+func applyGCSFileToStorage(out *StorageConfig, gcs *GCSStorageConfig) {
+	if gcs == nil {
+		return
+	}
+	out.Bucket = gcs.Bucket
+	out.Prefix = gcs.Prefix
+	out.ProjectID = gcs.ProjectID
+	if gcs.Auth != nil {
+		out.Auth = storageAuthFromFile(gcs.Auth)
+	}
+}
+
+func applyAzureBlobFileToStorage(out *StorageConfig, az *AzureBlobStorageConfig) {
+	if az == nil {
+		return
+	}
+	out.Account = az.Account
+	out.Container = az.Container
+	out.Prefix = az.Prefix
+	out.Endpoint = az.Endpoint
+	if az.Auth != nil {
+		out.Auth = storageAuthFromFile(az.Auth)
 	}
 }
 
@@ -608,13 +711,11 @@ func (c *Config) LoadFromEnv() { //nolint:gocyclo // sequential env var loading 
 		c.GCP.ProjectID = v
 	}
 
-	// Manual evidence configuration
+	// Manual evidence configuration. Per-framework backend selection lives
+	// in the YAML file (manual_evidence.frameworks.X) — env vars only
+	// toggle the feature on/off.
 	if os.Getenv("SIGCOMPLY_MANUAL_EVIDENCE_ENABLED") == envTrue {
 		c.ManualEvidence.Enabled = true
-	}
-
-	if v := os.Getenv("SIGCOMPLY_MANUAL_EVIDENCE_PREFIX"); v != "" {
-		c.ManualEvidence.Prefix = v
 	}
 }
 
