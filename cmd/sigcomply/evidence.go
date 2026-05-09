@@ -1,6 +1,7 @@
 package sigcomply
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -16,6 +17,8 @@ import (
 
 var flagEvidenceConfig string
 var flagEvidenceOutput string
+
+const outputFormatJSON = "json"
 
 var evidenceCmd = &cobra.Command{
 	Use:   "evidence",
@@ -36,6 +39,18 @@ var evidenceCatalogCmd = &cobra.Command{
 	Short: "Show manual evidence requirements",
 	Long:  "Displays the manual evidence catalog for the configured framework.",
 	RunE:  runEvidenceCatalog,
+}
+
+var evidencePathCmd = &cobra.Command{
+	Use:   "path <evidence_id>",
+	Short: "Print the upload URI for a manual evidence entry",
+	Long: `Resolves the fully-qualified storage URI where a manual evidence PDF is
+expected for the active framework's current period.
+
+This is the same URI surfaced in violation messages when a PDF is missing,
+exposed as a standalone command for "where do I upload this?" workflows.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runEvidencePath,
 }
 
 func runEvidenceInit(cmd *cobra.Command, args []string) (err error) {
@@ -81,29 +96,10 @@ func runEvidenceInit(cmd *cobra.Command, args []string) (err error) {
 
 	now := time.Now()
 	created := 0
-
 	for i := range catalog.Entries {
-		entry := &catalog.Entries[i]
-		period, periodErr := manual.CurrentPeriod(entry.Frequency, now, entry.GracePeriod)
-		if periodErr != nil {
-			fmt.Printf("  [warn] %s: %s\n", entry.ID, periodErr)
-			continue
+		if scaffoldEvidenceFolder(ctx, backend, cfg.Framework, &catalog.Entries[i], now) {
+			created++
 		}
-
-		folderPath := filepath.Join(cfg.Framework, entry.ID, period.Key)
-		readme := fmt.Sprintf("# %s\n\n%s\n\nEvidence ID: %s\nControl: %s\nFrequency: %s\nPeriod: %s\n\n"+
-			"Upload a single PDF as `%s` to this folder.\n",
-			entry.Name, entry.Description, entry.ID, entry.Control, entry.Frequency, period.Key,
-			manual.EvidencePDFFilename)
-
-		readmePath := filepath.Join(folderPath, "README.md")
-		if _, storeErr := backend.StoreRaw(ctx, readmePath, []byte(readme), nil); storeErr != nil {
-			fmt.Printf("  [warn] Failed to create %s: %s\n", readmePath, storeErr)
-			continue
-		}
-
-		fmt.Printf("  [done] %s (%s)\n", folderPath, entry.Name)
-		created++
 	}
 
 	// Create execution state if it doesn't exist
@@ -119,6 +115,46 @@ func runEvidenceInit(cmd *cobra.Command, args []string) (err error) {
 
 	fmt.Printf("\nCreated %d evidence folders for %s\n", created, cfg.Framework)
 	return nil
+}
+
+// scaffoldEvidenceFolder creates the README placeholder for one catalog
+// entry's current period. Returns true on success. Logs warnings on
+// recoverable failures so init keeps going for the rest of the catalog.
+func scaffoldEvidenceFolder(ctx context.Context, backend storage.Backend, framework string, entry *manual.CatalogEntry, now time.Time) bool {
+	period, err := manual.CurrentPeriod(entry.Frequency, now, entry.GracePeriod)
+	if err != nil {
+		fmt.Printf("  [warn] %s: %s\n", entry.ID, err)
+		return false
+	}
+
+	pdfPath, err := manual.ResolvePath(entry, framework, &period)
+	if err != nil {
+		fmt.Printf("  [warn] %s: %s\n", entry.ID, err)
+		return false
+	}
+	folderPath := filepath.Dir(pdfPath)
+	filename := filepath.Base(pdfPath)
+	expectedURI := backend.URIFor(pdfPath)
+
+	readme := fmt.Sprintf(
+		"# %s\n\n%s\n\n"+
+			"Evidence ID: %s\nControl: %s\nFrequency: %s\nPeriod: %s\n\n"+
+			"Upload a single PDF as `%s` to this folder.\n\n"+
+			"Full upload location:\n  %s\n",
+		entry.Name, entry.Description,
+		entry.ID, entry.Control, entry.Frequency, period.Key,
+		filename,
+		expectedURI,
+	)
+
+	readmePath := filepath.Join(folderPath, "README.md")
+	if _, err := backend.StoreRaw(ctx, readmePath, []byte(readme), nil); err != nil {
+		fmt.Printf("  [warn] Failed to create %s: %s\n", readmePath, err)
+		return false
+	}
+
+	fmt.Printf("  [done] %s (%s)\n", folderPath, entry.Name)
+	return true
 }
 
 func runEvidenceCatalog(cmd *cobra.Command, args []string) error {
@@ -142,7 +178,7 @@ func runEvidenceCatalog(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load manual catalog: %w", err)
 	}
 
-	if flagEvidenceOutput == "json" {
+	if flagEvidenceOutput == outputFormatJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		return enc.Encode(catalog)
@@ -173,6 +209,73 @@ func runEvidenceCatalog(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Total: %d evidence requirements\n", len(catalog.Entries))
+	return nil
+}
+
+func runEvidencePath(cmd *cobra.Command, args []string) error {
+	evidenceID := args[0]
+
+	cfg, err := loadEvidenceConfig()
+	if err != nil {
+		return fmt.Errorf("configuration error: %w", err)
+	}
+
+	framework, err := getFramework(cfg)
+	if err != nil {
+		return err
+	}
+
+	mep, ok := framework.(engine.ManualEvidenceProvider)
+	if !ok {
+		return fmt.Errorf("framework %q does not support manual evidence", cfg.Framework)
+	}
+
+	catalog, err := mep.ManualCatalog()
+	if err != nil {
+		return fmt.Errorf("failed to load manual catalog: %w", err)
+	}
+
+	entry := catalog.GetEntry(evidenceID)
+	if entry == nil {
+		return fmt.Errorf("evidence ID %q not found in %s catalog", evidenceID, cfg.Framework)
+	}
+
+	period, err := manual.CurrentPeriod(entry.Frequency, time.Now(), entry.GracePeriod)
+	if err != nil {
+		return fmt.Errorf("period computation: %w", err)
+	}
+
+	pdfPath, err := manual.ResolvePath(entry, cfg.Framework, &period)
+	if err != nil {
+		return fmt.Errorf("resolve path: %w", err)
+	}
+
+	storageCfg, err := buildManualStorageConfig(cfg)
+	if err != nil {
+		return err
+	}
+	backend, err := storage.NewBackend(storageCfg)
+	if err != nil {
+		return fmt.Errorf("failed to create storage backend: %w", err)
+	}
+	defer func() {
+		_ = backend.Close() //nolint:errcheck // close is best-effort here
+	}()
+
+	if flagEvidenceOutput == outputFormatJSON {
+		out := map[string]string{
+			"evidence_id":   entry.ID,
+			"framework":     cfg.Framework,
+			"period":        period.Key,
+			"expected_path": pdfPath,
+			"expected_uri":  backend.URIFor(pdfPath),
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(out)
+	}
+
+	fmt.Println(backend.URIFor(pdfPath))
 	return nil
 }
 
