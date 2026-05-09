@@ -36,7 +36,12 @@ Each policy lives within its framework directory. Simplicity and readability ove
 
 ## Adding a New Manual Evidence Policy
 
-Manual policies check that a customer-supplied PDF exists at `{framework}/{evidence_id}/{period}/evidence.pdf` within the temporal window. The CLI does not read or parse the PDF in v1 — only its presence and hash matter. Future PDF text-extraction policies layer on top of the presence check.
+Manual policies check that a customer-supplied PDF exists within the temporal
+window. By default the CLI looks at `{framework}/{evidence_id}/{period}/evidence.pdf`
+under the framework's configured manual-evidence backend, but a catalog entry
+can override the path via `path_template` and `filename`. The CLI does not
+read or parse the PDF in v1 — only its presence and hash matter. Future PDF
+text-extraction policies layer on top of the presence check.
 
 1. **Add a catalog entry** in `internal/core/manual/catalogs/<framework>.yaml`:
    ```yaml
@@ -52,6 +57,25 @@ Manual policies check that a customer-supplied PDF exists at `{framework}/{evide
      declaration_text: "I confirm…"  # SPA-rendering hint
    ```
    Render hints (`type`, `items`, `declaration_text`, `accepted_formats`) tell the SPA whether and how to render a clickable form. The CLI never branches on them.
+
+   **Optional path override.** For evidence stored under a different layout (e.g.
+   one shared annual training cert filed by year, not by framework):
+   ```yaml
+   - id: security_awareness_training
+     control: CC1.4
+     frequency: yearly
+     grace_period: "30d"
+     name: Annual Security Awareness Training
+     description: All staff complete annual security awareness training
+     severity: medium
+     # Looks up:  shared/security_awareness_training/2026/training-cert.pdf
+     path_template: "shared/{evidence_id}/{year}/{filename}"
+     filename: training-cert.pdf
+   ```
+   Supported placeholders: `{framework}`, `{evidence_id}`, `{period}`, `{year}`,
+   `{quarter}` (quarterly only), `{month}` (monthly/daily only), `{day}` (daily
+   only), `{filename}`. The resolver rejects `..`, leading `/`, and non-PDF
+   endings.
 
 2. **Create the Rego policy** in `internal/compliance_frameworks/<framework>/policies/manual/<id>.rego`:
    ```rego

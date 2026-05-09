@@ -142,16 +142,43 @@ ci:
   fail_on_violation: true          # Exit code 1 on violations
   fail_severity: low               # Minimum severity to fail: low, medium, high, critical
 
-# Evidence storage
+# Evidence storage (used for automated evidence + signed envelopes)
 storage:
   enabled: false
-  backend: local                   # Options: local, s3
+  backend: local                   # Options: local, s3, gcs, azure_blob
   local:
     path: ./.sigcomply/evidence
   s3:
     bucket: my-bucket
     region: us-east-1
     prefix: compliance/
+    # On-prem S3-compatible (MinIO, Ceph, ECS, StorageGRID) — optional:
+    # endpoint: https://minio.internal.corp:9000
+    # force_path_style: true
+    # auth:                        # Optional; defaults to ambient creds
+    #   mode: oidc                 # ambient | oidc
+    #   role_arn: arn:aws:iam::123:role/sigcomply-evidence
+
+# Manual evidence (PDFs uploaded by users to a known path).
+# Each framework can read from its own backend.
+manual_evidence:
+  enabled: true
+  default:                         # Fallback for any framework not listed below
+    backend: s3
+    s3:
+      bucket: shared-evidence
+      region: us-east-1
+      prefix: manual/
+  frameworks:
+    soc2:
+      backend: s3
+      s3: { bucket: soc2-evidence, region: us-east-1 }
+    iso27001:
+      backend: gcs
+      gcs: { bucket: iso27001-evidence, prefix: manual/ }
+    hipaa:
+      backend: azure_blob
+      azure_blob: { account: hipaaev, container: evidence }
 
 # SigComply Cloud (auto-enabled when OIDC is available in CI)
 cloud:
@@ -190,14 +217,41 @@ Everything else uses sensible defaults.
 
 ### Storage Settings
 
+The `storage` block configures the **automated evidence vault**. Manual
+evidence has its own per-framework configuration under `manual_evidence`
+(see below).
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SIGCOMPLY_STORAGE_ENABLED` | `false` | Set to `true` to enable evidence storage |
-| `SIGCOMPLY_STORAGE_BACKEND` | `local` | Storage backend: `local`, `s3` |
+| `SIGCOMPLY_STORAGE_BACKEND` | `local` | Storage backend: `local`, `s3`, `gcs`, `azure_blob` |
 | `SIGCOMPLY_STORAGE_PATH` | `./.sigcomply/evidence` | Local storage directory |
-| `SIGCOMPLY_STORAGE_BUCKET` | — | S3 bucket name |
-| `SIGCOMPLY_STORAGE_REGION` | — | S3 bucket region |
-| `SIGCOMPLY_STORAGE_PREFIX` | — | S3 key prefix |
+| `SIGCOMPLY_STORAGE_BUCKET` | — | Bucket / container name (S3, GCS) |
+| `SIGCOMPLY_STORAGE_REGION` | — | AWS region (S3 only) |
+| `SIGCOMPLY_STORAGE_PREFIX` | — | Object name prefix |
+| `SIGCOMPLY_STORAGE_S3_ENDPOINT` | — | Custom S3 endpoint URL for on-prem (MinIO, Ceph, ECS) |
+| `SIGCOMPLY_STORAGE_S3_FORCE_PATH_STYLE` | `false` | Use path-style addressing (required by most on-prem stores) |
+| `SIGCOMPLY_STORAGE_S3_AUTH_MODE` | `ambient` | `ambient` or `oidc` |
+| `SIGCOMPLY_STORAGE_S3_AUTH_ROLE_ARN` | — | IAM role to assume via STS AssumeRoleWithWebIdentity (when `oidc`) |
+| `SIGCOMPLY_STORAGE_GCS_PROJECT_ID` | — | GCP project ID (optional) |
+| `SIGCOMPLY_STORAGE_GCS_AUTH_MODE` | `ambient` | `ambient` or `oidc` |
+| `SIGCOMPLY_STORAGE_GCS_AUTH_WORKLOAD_IDENTITY_PROVIDER` | — | Full WIF provider resource name |
+| `SIGCOMPLY_STORAGE_GCS_AUTH_SERVICE_ACCOUNT` | — | Service account email to impersonate |
+| `SIGCOMPLY_STORAGE_AZURE_ACCOUNT` | — | Azure storage account name |
+| `SIGCOMPLY_STORAGE_AZURE_CONTAINER` | — | Azure blob container |
+| `SIGCOMPLY_STORAGE_AZURE_AUTH_MODE` | `ambient` | `ambient` or `oidc` |
+| `SIGCOMPLY_STORAGE_AZURE_AUTH_TENANT_ID` | — | Azure AD tenant ID (when `oidc`) |
+| `SIGCOMPLY_STORAGE_AZURE_AUTH_CLIENT_ID` | — | Azure AD app registration client ID (when `oidc`) |
+
+### Manual Evidence Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SIGCOMPLY_MANUAL_EVIDENCE_ENABLED` | `false` | Set to `true` to enable manual evidence collection |
+
+Per-framework backend selection lives in the YAML file under
+`manual_evidence.frameworks.<framework>`. Env vars only toggle the
+feature on/off.
 
 ### Provider Credentials (Not SigComply-Specific)
 
@@ -209,6 +263,173 @@ Everything else uses sensible defaults.
 | `AWS_PROFILE` | AWS | Named profile from `~/.aws/credentials` |
 | `AWS_REGION` / `AWS_DEFAULT_REGION` | AWS | Default region (used by SDK auto-detect) |
 | `GITHUB_TOKEN` | GitHub | Personal access token or app token |
+
+---
+
+## Storage Backends
+
+The CLI supports four backend types. The same shape is used for both the
+main `storage` block (automated evidence vault) and the per-framework
+`manual_evidence` blocks.
+
+### `local` — filesystem
+
+```yaml
+backend: local
+local:
+  path: ./.sigcomply/evidence
+```
+
+### `s3` — AWS S3 (and on-prem S3-compatible)
+
+```yaml
+backend: s3
+s3:
+  bucket: my-evidence
+  region: us-east-1
+  prefix: sigcomply/
+
+  # On-prem (MinIO, Ceph, Dell ECS, NetApp StorageGRID) — optional:
+  endpoint: https://minio.internal.corp:9000
+  force_path_style: true
+
+  # Auth — defaults to ambient (env vars / IAM role / instance metadata):
+  auth:
+    mode: oidc                          # ambient | oidc
+    role_arn: arn:aws:iam::123:role/sigcomply-evidence
+    audience: sts.amazonaws.com         # default; override for sovereign clouds
+```
+
+In `oidc` mode the CLI exchanges its CI OIDC token (GitHub Actions /
+GitLab CI) for AWS credentials via STS `AssumeRoleWithWebIdentity`.
+
+### `gcs` — Google Cloud Storage
+
+```yaml
+backend: gcs
+gcs:
+  bucket: my-evidence
+  prefix: sigcomply/
+  project_id: my-gcp-project          # optional
+
+  auth:
+    mode: oidc                        # ambient | oidc
+    workload_identity_provider: projects/123/locations/global/workloadIdentityPools/sigcomply/providers/github
+    service_account: sigcomply@my-gcp-project.iam.gserviceaccount.com
+```
+
+In `oidc` mode the CLI exchanges its CI OIDC token via Workload
+Identity Federation, then impersonates the configured service account.
+
+### `azure_blob` — Azure Blob Storage
+
+```yaml
+backend: azure_blob
+azure_blob:
+  account: acmeevidence
+  container: sigcomply
+  prefix: ""
+  endpoint: ""                        # optional; defaults to https://{account}.blob.core.windows.net
+
+  auth:
+    mode: oidc                        # ambient | oidc
+    tenant_id: 00000000-0000-0000-0000-000000000000
+    client_id: 11111111-1111-1111-1111-111111111111
+    audience: api://AzureADTokenExchange    # default
+```
+
+In `oidc` mode the CLI presents its CI OIDC token to Azure AD as a
+federated client assertion via `ClientAssertionCredential`.
+
+### Auth modes summary
+
+| Mode | What it does |
+|------|--------------|
+| `ambient` (default) | Lets the SDK discover credentials: env vars, IAM roles, GCP ADC, Azure DefaultAzureCredential chain. Works seamlessly with `aws-actions/configure-aws-credentials`, `google-github-actions/auth`, `azure/login` action wrappers. |
+| `oidc` | The CLI fetches its CI OIDC token (GitHub Actions or GitLab CI) and exchanges it directly with the cloud provider — no separate "configure credentials" action needed in the workflow. |
+
+---
+
+## Manual Evidence Sources
+
+Manual evidence — the user-supplied PDFs that prove non-automatable
+controls (signed NDAs, training certs, access reviews, …) — has its
+own backend selection per framework. A typical setup keeps SOC 2
+evidence in one bucket and ISO 27001 evidence in another, possibly on
+a different cloud.
+
+```yaml
+manual_evidence:
+  enabled: true
+
+  # Fallback for any framework not listed below.
+  default:
+    backend: s3
+    s3:
+      bucket: shared-manual-evidence
+      region: us-east-1
+      prefix: manual/
+
+  # Per-framework overrides.
+  frameworks:
+    soc2:
+      backend: s3
+      s3:
+        bucket: soc2-manual-evidence
+        region: us-east-1
+        prefix: ""
+    iso27001:
+      backend: gcs
+      gcs:
+        bucket: iso27001-manual-evidence
+        prefix: manual/
+        auth:
+          mode: oidc
+          workload_identity_provider: projects/123/locations/global/workloadIdentityPools/sigcomply/providers/github
+          service_account: iso27001-evidence@my-project.iam.gserviceaccount.com
+    hipaa:
+      backend: azure_blob
+      azure_blob:
+        account: hipaaevidence
+        container: manual
+```
+
+Resolution at run time for framework `F`:
+`frameworks[F]` → `default` → validation error.
+
+### Path layout per evidence ID
+
+For each `evidence_id` in the framework catalog, the CLI looks for
+`evidence.pdf` at:
+
+```
+{framework}/{evidence_id}/{period}/evidence.pdf
+```
+
+(under whatever `prefix` is configured for the framework's backend).
+Where `{period}` matches the entry's frequency:
+
+| Frequency | `{period}` example |
+|-----------|--------------------|
+| daily | `2026-01-15` |
+| weekly | `2026-W03` |
+| monthly | `2026-01` |
+| quarterly | `2026-Q1` |
+| yearly | `2026` |
+
+A catalog entry can override this layout with `path_template` and
+`filename` — see [Adding a new manual evidence policy](claude/recipes.md).
+
+### Where do I upload?
+
+When evidence is missing, the CLI surfaces the exact upload URI in
+the violation message (e.g.
+`s3://soc2-manual-evidence/quarterly_access_review/2026-Q1/evidence.pdf`).
+You can also query it directly:
+
+```bash
+sigcomply evidence path quarterly_access_review
+```
 
 ---
 
