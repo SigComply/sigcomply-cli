@@ -24,14 +24,14 @@ const (
 // run are preserved from the previous summary so a filtered re-run does not
 // erase known state.
 type Summary struct {
-	SchemaVersion string             `json:"schema_version"`
-	Framework     string             `json:"framework"`
-	LastRun       time.Time          `json:"last_run"`
-	LastRunID     string             `json:"last_run_id"`
-	LastUpdated   time.Time          `json:"last_updated"`
-	Totals        SummaryTotals      `json:"totals"`
-	Automated     []AutomatedPolicy  `json:"automated"`
-	Manual        []ManualPolicy     `json:"manual"`
+	SchemaVersion string            `json:"schema_version"`
+	Framework     string            `json:"framework"`
+	LastRun       time.Time         `json:"last_run"`
+	LastRunID     string            `json:"last_run_id"`
+	LastUpdated   time.Time         `json:"last_updated"`
+	Totals        SummaryTotals     `json:"totals"`
+	Automated     []AutomatedPolicy `json:"automated"`
+	Manual        []ManualPolicy    `json:"manual"`
 }
 
 // SummaryTotals aggregates policy outcomes across both automated and manual.
@@ -125,22 +125,22 @@ func MergeSummary(existing, current *Summary) *Summary {
 	merged := *current
 
 	currentManual := make(map[string]bool, len(current.Manual))
-	for _, p := range current.Manual {
-		currentManual[p.PolicyID] = true
+	for i := range current.Manual {
+		currentManual[current.Manual[i].PolicyID] = true
 	}
-	for _, p := range existing.Manual {
-		if !currentManual[p.PolicyID] {
-			merged.Manual = append(merged.Manual, p)
+	for i := range existing.Manual {
+		if !currentManual[existing.Manual[i].PolicyID] {
+			merged.Manual = append(merged.Manual, existing.Manual[i])
 		}
 	}
 
 	currentAuto := make(map[string]bool, len(current.Automated))
-	for _, p := range current.Automated {
-		currentAuto[p.PolicyID] = true
+	for i := range current.Automated {
+		currentAuto[current.Automated[i].PolicyID] = true
 	}
-	for _, p := range existing.Automated {
-		if !currentAuto[p.PolicyID] {
-			merged.Automated = append(merged.Automated, p)
+	for i := range existing.Automated {
+		if !currentAuto[existing.Automated[i].PolicyID] {
+			merged.Automated = append(merged.Automated, existing.Automated[i])
 		}
 	}
 
@@ -223,7 +223,9 @@ func indexManualMetadata(evidenceList []evidence.Evidence, sidecars []ManualSide
 			Period     string `json:"period"`
 			Status     string `json:"status"`
 		}
-		_ = json.Unmarshal(ev.Data, &payload)
+		if err := json.Unmarshal(ev.Data, &payload); err != nil {
+			continue
+		}
 		out[ev.ResourceType] = manualMetadataEntry{
 			EvidenceID: payload.EvidenceID,
 			Period:     payload.Period,
@@ -231,12 +233,15 @@ func indexManualMetadata(evidenceList []evidence.Evidence, sidecars []ManualSide
 		}
 	}
 
-	for _, sc := range sidecars {
+	for i := range sidecars {
+		sc := &sidecars[i]
 		var submitted struct {
 			CompletedBy string    `json:"completed_by"`
 			CompletedAt time.Time `json:"completed_at"`
 		}
-		_ = json.Unmarshal(sc.EvidenceJSON, &submitted)
+		if err := json.Unmarshal(sc.EvidenceJSON, &submitted); err != nil {
+			continue
+		}
 		entry := out[sc.ResourceType]
 		if entry.EvidenceID == "" {
 			entry.EvidenceID = sc.EvidenceID

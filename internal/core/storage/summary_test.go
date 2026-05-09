@@ -41,11 +41,12 @@ func TestBuildSummary_SplitsManualAndAutomated(t *testing.T) {
 	}
 	result.CalculateSummary()
 
-	manualPayload, _ := json.Marshal(map[string]interface{}{
+	manualPayload, err := json.Marshal(map[string]interface{}{
 		"evidence_id": "cc6_1_training",
 		"period":      "2026-Q2",
 		"status":      "uploaded",
 	})
+	require.NoError(t, err)
 
 	evidenceList := []evidence.Evidence{
 		evidence.New("aws", "aws:iam:user", "arn:aws:iam::1:user/alice", []byte(`{}`)),
@@ -111,11 +112,12 @@ func TestBuildSummary_AutomatedEvidenceMissing(t *testing.T) {
 
 func TestBuildSummary_ManualEvidenceNotUploaded(t *testing.T) {
 	ts := time.Date(2026, 5, 1, 10, 0, 0, 0, time.UTC)
-	notUploadedPayload, _ := json.Marshal(map[string]interface{}{
+	notUploadedPayload, err := json.Marshal(map[string]interface{}{
 		"evidence_id": "cc6_1_training",
 		"period":      "2026-Q2",
 		"status":      "not_uploaded",
 	})
+	require.NoError(t, err)
 
 	result := &evidence.CheckResult{
 		RunID:     "run-x",

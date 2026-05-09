@@ -168,8 +168,8 @@ func (r *Reader) readEntry(ctx context.Context, entry *manualPkg.CatalogEntry, s
 	return ev, status, sidecar, nil
 }
 
-func (r *Reader) buildOPAData(ctx context.Context, entry *manualPkg.CatalogEntry, submitted *manualPkg.SubmittedEvidence, period *manualPkg.Period, temporalStatus manualPkg.TemporalStatus) (map[string]interface{}, map[string][]byte) {
-	opaData := map[string]interface{}{
+func (r *Reader) buildOPAData(ctx context.Context, entry *manualPkg.CatalogEntry, submitted *manualPkg.SubmittedEvidence, period *manualPkg.Period, temporalStatus manualPkg.TemporalStatus) (opaData map[string]interface{}, attachmentBytes map[string][]byte) {
+	opaData = map[string]interface{}{
 		"evidence_id":     entry.ID,
 		"type":            string(entry.Type),
 		"status":          "uploaded",
@@ -178,8 +178,6 @@ func (r *Reader) buildOPAData(ctx context.Context, entry *manualPkg.CatalogEntry
 		"hash_verified":   true,
 		"completed_by":    submitted.CompletedBy,
 	}
-
-	var attachmentBytes map[string][]byte
 
 	switch entry.Type {
 	case manualPkg.EvidenceTypeDocumentUpload:
@@ -220,10 +218,9 @@ func (r *Reader) buildOPAData(ctx context.Context, entry *manualPkg.CatalogEntry
 	return opaData, attachmentBytes
 }
 
-func (r *Reader) verifyAttachments(ctx context.Context, entry *manualPkg.CatalogEntry, submitted *manualPkg.SubmittedEvidence, period *manualPkg.Period) ([]map[string]interface{}, map[string][]byte, error) {
-	files := make([]map[string]interface{}, 0, len(submitted.Attachments))
-	var verifyErr error
-	bytesByName := make(map[string][]byte, len(submitted.Attachments))
+func (r *Reader) verifyAttachments(ctx context.Context, entry *manualPkg.CatalogEntry, submitted *manualPkg.SubmittedEvidence, period *manualPkg.Period) (files []map[string]interface{}, bytesByName map[string][]byte, verifyErr error) {
+	files = make([]map[string]interface{}, 0, len(submitted.Attachments))
+	bytesByName = make(map[string][]byte, len(submitted.Attachments))
 
 	for _, attachment := range submitted.Attachments {
 		attachPath := filepath.Join(r.framework, entry.ID, period.Key, attachment)
