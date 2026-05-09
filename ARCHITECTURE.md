@@ -448,7 +448,7 @@ violations contains v if {
 }
 ```
 
-**`evidence_type`**: every policy declares this (`automated` or `manual`). The engine extracts the value from `metadata` at load time and uses it to route the right evidence flow. During the migration, missing values default to `automated` with a one-time warning; once all policies are tagged, the default is removed and a missing `evidence_type` becomes a load-time error.
+**`evidence_type`**: every policy declares this (`automated` or `manual`). The engine extracts the value from `metadata` at load time and uses it to route the right evidence flow. The key is required — a policy that omits it (or supplies a value outside `{automated, manual}`) fails to load with a descriptive error.
 
 ---
 

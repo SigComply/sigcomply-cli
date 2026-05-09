@@ -29,7 +29,8 @@ metadata := {
 	"control": "TEST.1",
 	"severity": "high",
 	"evaluation_mode": "individual",
-	"resource_types": ["test:resource"]
+	"resource_types": ["test:resource"],
+	"evidence_type": "automated"
 }
 
 violations contains violation if {
@@ -74,7 +75,8 @@ metadata := {
 	"control": "TEST.1",
 	"severity": "high",
 	"evaluation_mode": "individual",
-	"resource_types": ["aws:iam:user"]
+	"resource_types": ["aws:iam:user"],
+	"evidence_type": "automated"
 }
 
 violations contains violation if {
@@ -130,7 +132,8 @@ metadata := {
 	"control": "TEST.1",
 	"severity": "high",
 	"evaluation_mode": "individual",
-	"resource_types": ["aws:iam:user"]
+	"resource_types": ["aws:iam:user"],
+	"evidence_type": "automated"
 }
 
 violations contains violation if {
@@ -181,7 +184,8 @@ metadata := {
 	"control": "TEST.1",
 	"severity": "high",
 	"evaluation_mode": "individual",
-	"resource_types": ["aws:iam:user"]
+	"resource_types": ["aws:iam:user"],
+	"evidence_type": "automated"
 }
 
 violations contains violation if {
@@ -236,7 +240,8 @@ metadata := {
 	"control": "TEST.1",
 	"severity": "high",
 	"evaluation_mode": "individual",
-	"resource_types": ["aws:iam:user"]
+	"resource_types": ["aws:iam:user"],
+	"evidence_type": "automated"
 }
 
 violations contains violation if {
@@ -288,7 +293,8 @@ metadata := {
 	"control": "TEST.2",
 	"severity": "critical",
 	"evaluation_mode": "batched",
-	"resource_types": ["aws:cloudtrail:trail"]
+	"resource_types": ["aws:cloudtrail:trail"],
+	"evidence_type": "automated"
 }
 
 default any_logging := false
@@ -345,7 +351,8 @@ metadata := {
 	"control": "TEST.2",
 	"severity": "critical",
 	"evaluation_mode": "batched",
-	"resource_types": ["aws:cloudtrail:trail"]
+	"resource_types": ["aws:cloudtrail:trail"],
+	"evidence_type": "automated"
 }
 
 default any_logging := false
@@ -401,7 +408,8 @@ metadata := {
 	"control": "TEST.1",
 	"severity": "high",
 	"evaluation_mode": "individual",
-	"resource_types": ["aws:iam:user"]
+	"resource_types": ["aws:iam:user"],
+	"evidence_type": "automated"
 }
 
 violations contains violation if {
@@ -425,7 +433,8 @@ metadata := {
 	"control": "TEST.2",
 	"severity": "medium",
 	"evaluation_mode": "individual",
-	"resource_types": ["aws:s3:bucket"]
+	"resource_types": ["aws:s3:bucket"],
+	"evidence_type": "automated"
 }
 
 violations contains violation if {
@@ -499,7 +508,8 @@ metadata := {
 	"control": "TEST.1",
 	"severity": "high",
 	"evaluation_mode": "individual",
-	"resource_types": ["aws:iam:user"]
+	"resource_types": ["aws:iam:user"],
+	"evidence_type": "automated"
 }
 
 violations contains violation if {
@@ -531,7 +541,8 @@ metadata := {
 	"control": "TEST.1",
 	"severity": "high",
 	"evaluation_mode": "individual",
-	"resource_types": ["aws:iam:user"]
+	"resource_types": ["aws:iam:user"],
+	"evidence_type": "automated"
 }
 
 violations contains violation if {
@@ -575,7 +586,8 @@ metadata := {
 	"control": "TEST.1",
 	"severity": "high",
 	"evaluation_mode": "individual",
-	"resource_types": ["aws:iam:user"]
+	"resource_types": ["aws:iam:user"],
+	"evidence_type": "automated"
 }
 
 violations contains violation if {
@@ -607,7 +619,8 @@ metadata := {
 	"control": "TEST.1",
 	"severity": "high",
 	"evaluation_mode": "individual",
-	"resource_types": ["aws:iam:user"]
+	"resource_types": ["aws:iam:user"],
+	"evidence_type": "automated"
 }
 
 violations contains violation if {
@@ -650,7 +663,8 @@ metadata := {
 	"control": "TEST.1",
 	"severity": "high",
 	"evaluation_mode": "individual",
-	"resource_types": ["aws:iam:user"]
+	"resource_types": ["aws:iam:user"],
+	"evidence_type": "automated"
 }
 
 violations contains violation if {
@@ -693,7 +707,8 @@ metadata := {
 	"control": "TEST.1",
 	"severity": "high",
 	"evaluation_mode": "individual",
-	"resource_types": ["aws:iam:user"]
+	"resource_types": ["aws:iam:user"],
+	"evidence_type": "automated"
 }
 
 violations contains violation if {
@@ -777,43 +792,18 @@ violations contains v if { false; v := {} }
 	assert.Equal(t, EvidenceTypeManual, policies[0].EvidenceType)
 }
 
-func TestEngine_LoadPolicy_EvidenceTypeInferredManual(t *testing.T) {
-	// Migration fallback: a policy with a manual:* resource type but no
-	// explicit evidence_type key should be inferred as manual.
+func TestEngine_LoadPolicy_EvidenceTypeMissing(t *testing.T) {
+	// Every policy must declare evidence_type explicitly. Loading a policy
+	// without the key is a hard error — the inference fallback that allowed
+	// gradual migration was removed once all in-tree policies were tagged.
 	eng := New()
 
 	policy := `
 package sigcomply.test
 
 metadata := {
-	"id": "manual-inferred",
-	"name": "Manual Inferred",
-	"framework": "test",
-	"control": "TEST.1",
-	"severity": "high",
-	"evaluation_mode": "individual",
-	"resource_types": ["manual:nda"]
-}
-
-violations contains v if { false; v := {} }
-`
-	require.NoError(t, eng.LoadPolicy("manual-inferred", policy))
-	policies := eng.GetPolicies()
-	require.Len(t, policies, 1)
-	assert.Equal(t, EvidenceTypeManual, policies[0].EvidenceType)
-}
-
-func TestEngine_LoadPolicy_EvidenceTypeInferredAutomated(t *testing.T) {
-	// Migration fallback: a policy with no manual:* resource type and no
-	// explicit evidence_type key defaults to automated.
-	eng := New()
-
-	policy := `
-package sigcomply.test
-
-metadata := {
-	"id": "automated-inferred",
-	"name": "Automated Inferred",
+	"id": "missing-evidence-type",
+	"name": "Missing Evidence Type",
 	"framework": "test",
 	"control": "TEST.1",
 	"severity": "high",
@@ -823,8 +813,34 @@ metadata := {
 
 violations contains v if { false; v := {} }
 `
-	require.NoError(t, eng.LoadPolicy("automated-inferred", policy))
-	policies := eng.GetPolicies()
-	require.Len(t, policies, 1)
-	assert.Equal(t, EvidenceTypeAutomated, policies[0].EvidenceType)
+	err := eng.LoadPolicy("missing-evidence-type", policy)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "evidence_type")
+	assert.Contains(t, err.Error(), "missing")
+}
+
+func TestEngine_LoadPolicy_EvidenceTypeInvalidValue(t *testing.T) {
+	// Values outside {"automated", "manual"} are also a hard error.
+	eng := New()
+
+	policy := `
+package sigcomply.test
+
+metadata := {
+	"id": "bad-evidence-type",
+	"name": "Bad Evidence Type",
+	"framework": "test",
+	"control": "TEST.1",
+	"severity": "high",
+	"evaluation_mode": "individual",
+	"resource_types": ["aws:iam:user"],
+	"evidence_type": "semi-automated"
+}
+
+violations contains v if { false; v := {} }
+`
+	err := eng.LoadPolicy("bad-evidence-type", policy)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "evidence_type")
+	assert.Contains(t, err.Error(), "invalid")
 }

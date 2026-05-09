@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/open-policy-agent/opa/v1/rego"
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
@@ -54,11 +53,9 @@ type PolicyMetadata struct {
 	// Rego policy metadata.
 	Category string `json:"category,omitempty"`
 	// EvidenceType is the evidence flow this policy consumes (automated or
-	// manual). Set via the "evidence_type" key in Rego policy metadata.
-	// During the migration to explicit annotations, a missing value is
-	// inferred from resource_types[0]: a "manual:" prefix → manual; otherwise
-	// → automated. Once all policies are tagged this fallback will be removed
-	// and a missing evidence_type will become a load-time error.
+	// manual). Set via the "evidence_type" key in Rego policy metadata —
+	// every policy must declare it explicitly. Missing or invalid values
+	// are a load-time error.
 	EvidenceType EvidenceType `json:"evidence_type"`
 }
 
@@ -129,7 +126,7 @@ func (e *Engine) extractMetadata(ctx context.Context, name, regoSource string) (
 		return nil, err
 	}
 
-	return e.parseMetadata(metadata), nil
+	return e.parseMetadata(metadata)
 }
 
 // findMetadataInResults navigates OPA results to find the metadata object.
@@ -172,8 +169,10 @@ func findMetadataRecursive(obj map[string]interface{}) map[string]interface{} {
 	return nil
 }
 
-// parseMetadata converts a metadata map to PolicyMetadata struct.
-func (e *Engine) parseMetadata(metadata map[string]interface{}) *PolicyMetadata {
+// parseMetadata converts a metadata map to PolicyMetadata struct. Returns
+// an error if a required field is missing or invalid — the engine refuses
+// to load a policy that does not declare the fields it needs.
+func (e *Engine) parseMetadata(metadata map[string]interface{}) (*PolicyMetadata, error) {
 	pm := &PolicyMetadata{}
 
 	if id, ok := metadata["id"].(string); ok {
@@ -204,28 +203,21 @@ func (e *Engine) parseMetadata(metadata map[string]interface{}) *PolicyMetadata 
 	if cat, ok := metadata["category"].(string); ok {
 		pm.Category = cat
 	}
-	if et, ok := metadata["evidence_type"].(string); ok {
+
+	et, ok := metadata["evidence_type"].(string)
+	if !ok {
+		return nil, fmt.Errorf("policy %q is missing required metadata key %q (must be %q or %q)",
+			pm.ID, "evidence_type", EvidenceTypeAutomated, EvidenceTypeManual)
+	}
+	switch EvidenceType(et) {
+	case EvidenceTypeAutomated, EvidenceTypeManual:
 		pm.EvidenceType = EvidenceType(et)
-	} else {
-		pm.EvidenceType = inferEvidenceType(pm.ResourceTypes)
+	default:
+		return nil, fmt.Errorf("policy %q has invalid metadata %q=%q (must be %q or %q)",
+			pm.ID, "evidence_type", et, EvidenceTypeAutomated, EvidenceTypeManual)
 	}
 
-	return pm
-}
-
-// inferEvidenceType is the migration fallback for policies that have not yet
-// added an explicit evidence_type metadata key. It infers manual when any
-// resource type carries the "manual:" prefix; otherwise automated.
-//
-// Once every policy declares evidence_type explicitly, this function and the
-// fallback in parseMetadata will be removed in favor of a load-time error.
-func inferEvidenceType(resourceTypes []string) EvidenceType {
-	for _, rt := range resourceTypes {
-		if strings.HasPrefix(rt, "manual:") {
-			return EvidenceTypeManual
-		}
-	}
-	return EvidenceTypeAutomated
+	return pm, nil
 }
 
 // GetPolicies returns all loaded policies.
