@@ -45,6 +45,8 @@ func TestBuildSummary_SplitsManualAndAutomated(t *testing.T) {
 		"evidence_id": "cc6_1_training",
 		"period":      "2026-Q2",
 		"status":      "uploaded",
+		"file_hash":   "abc123",
+		"file_path":   "soc2/cc6_1_training/2026-Q2/evidence.pdf",
 	})
 	require.NoError(t, err)
 
@@ -58,7 +60,8 @@ func TestBuildSummary_SplitsManualAndAutomated(t *testing.T) {
 		EvidenceID:   "cc6_1_training",
 		Period:       "2026-Q2",
 		ResourceType: "manual:cc6_1_training",
-		EvidenceJSON: []byte(`{"completed_by":"alice@example.com","completed_at":"2026-04-15T09:00:00Z"}`),
+		PDF:          []byte("%PDF-1.4 fixture"),
+		FileHash:     "abc123",
 	}}
 
 	s := BuildSummary(result, evidenceList, sidecars)
@@ -84,7 +87,8 @@ func TestBuildSummary_SplitsManualAndAutomated(t *testing.T) {
 	assert.Equal(t, "uploaded", man.Evidence.Status)
 	assert.Equal(t, "cc6_1_training", man.Evidence.EvidenceID)
 	assert.Equal(t, "2026-Q2", man.Evidence.Period)
-	assert.Equal(t, "alice@example.com", man.Evidence.CompletedBy)
+	assert.Equal(t, "abc123", man.Evidence.FileHash)
+	assert.Equal(t, "soc2/cc6_1_training/2026-Q2/evidence.pdf", man.Evidence.FilePath)
 }
 
 func TestBuildSummary_AutomatedEvidenceMissing(t *testing.T) {

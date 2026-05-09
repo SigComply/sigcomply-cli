@@ -1,4 +1,14 @@
-// Package manual reads manually uploaded evidence from storage and produces evidence items for OPA evaluation.
+// Package manual reads user-supplied evidence.pdf files from storage and
+// produces evidence items for OPA evaluation.
+//
+// The reader does not parse PDF contents in v1 — it only checks presence and
+// hashes the bytes. The OPA evidence record it emits is small and uniform:
+//
+//	{evidence_id, status, period, temporal_status, file_hash, file_path}
+//
+// Manual policies (those with evidence_type: "manual" metadata) consume this
+// record. Future text-extraction policies will layer on top of the same record
+// without changing the contract.
 package manual
 
 import (
@@ -16,7 +26,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core/storage"
 )
 
-// Reader reads manual evidence from storage and produces evidence items.
+// Reader reads manual evidence PDFs from storage and produces evidence items.
 type Reader struct {
 	backend   storage.Backend
 	catalog   *manualPkg.Catalog
@@ -28,9 +38,9 @@ type ReadResult struct {
 	Evidence []evidence.Evidence
 	Errors   []ReadError
 	Status   []EntryStatus
-	// Sidecars carries the raw evidence.json + supporting files for each manual
-	// entry that had user-uploaded data, so the storage layer can mirror them
-	// into the policy result bucket alongside the OPA-derived envelope.
+	// Sidecars carries the raw PDF bytes for each manual entry that had a
+	// user-uploaded file, so the storage layer can mirror them into the policy
+	// result bucket alongside the signed envelope.
 	Sidecars []storage.ManualSidecar
 }
 
@@ -93,19 +103,17 @@ func (r *Reader) readEntry(ctx context.Context, entry *manualPkg.CatalogEntry, s
 		Attested:   state.IsAttested(entry.ID, period.Key),
 	}
 
-	// Skip if already attested
+	// Skip entries that are already attested for this period (idempotent reruns).
 	if status.Attested {
 		status.TemporalStatus = string(manualPkg.TemporalStatusWithinWindow)
 		status.HasEvidence = true
 		return evidence.Evidence{}, status, nil, fmt.Errorf("already attested")
 	}
 
-	// Try to read submitted evidence from storage
-	evidencePath := filepath.Join(r.framework, entry.ID, period.Key, "evidence.json")
-	data, getErr := r.backend.Get(ctx, evidencePath)
+	pdfPath := filepath.Join(r.framework, entry.ID, period.Key, manualPkg.EvidencePDFFilename)
+	pdfBytes, getErr := r.backend.Get(ctx, pdfPath)
 
 	if getErr != nil {
-		// Not found — build "not_uploaded" evidence for OPA
 		var notFound *storage.NotFoundError
 		if !errors.As(getErr, &notFound) {
 			return evidence.Evidence{}, status, nil, fmt.Errorf("storage error: %w", getErr)
@@ -117,7 +125,6 @@ func (r *Reader) readEntry(ctx context.Context, entry *manualPkg.CatalogEntry, s
 
 		opaData := map[string]interface{}{
 			"evidence_id":     entry.ID,
-			"type":            string(entry.Type),
 			"status":          "not_uploaded",
 			"period":          period.Key,
 			"temporal_status": string(temporalStatus),
@@ -131,27 +138,22 @@ func (r *Reader) readEntry(ctx context.Context, entry *manualPkg.CatalogEntry, s
 		return ev, status, nil, nil
 	}
 
-	// Validate against JSON Schema first, so structurally broken submissions produce
-	// a clear "missing required field" error instead of silently feeding empty data to OPA.
-	if err := manualPkg.ValidateSubmittedEvidence(data); err != nil {
-		return evidence.Evidence{}, status, nil, fmt.Errorf("invalid evidence submission: %w", err)
-	}
-
-	// Parse submitted evidence
-	var submitted manualPkg.SubmittedEvidence
-	if err := json.Unmarshal(data, &submitted); err != nil {
-		return evidence.Evidence{}, status, nil, fmt.Errorf("invalid evidence JSON: %w", err)
-	}
+	// PDF is present. Hash the bytes and emit an OPA record referencing them.
+	hash := sha256.Sum256(pdfBytes)
+	fileHash := hex.EncodeToString(hash[:])
 
 	status.HasEvidence = true
 	temporalStatus := manualPkg.ComputeTemporalStatus(&period, now, true)
 	status.TemporalStatus = string(temporalStatus)
 
-	// Build OPA evidence data based on type. attachmentBytes captures supporting
-	// file contents (PDFs, screenshots) so we can mirror them into the policy
-	// result bucket; nil for non-document types.
-	opaData, attachmentBytes := r.buildOPAData(ctx, entry, &submitted, &period, temporalStatus)
-
+	opaData := map[string]interface{}{
+		"evidence_id":     entry.ID,
+		"status":          "uploaded",
+		"period":          period.Key,
+		"temporal_status": string(temporalStatus),
+		"file_hash":       fileHash,
+		"file_path":       pdfPath,
+	}
 	jsonData, marshalErr := json.Marshal(opaData)
 	if marshalErr != nil {
 		return evidence.Evidence{}, status, nil, fmt.Errorf("marshal OPA data: %w", marshalErr)
@@ -162,96 +164,8 @@ func (r *Reader) readEntry(ctx context.Context, entry *manualPkg.CatalogEntry, s
 		EvidenceID:   entry.ID,
 		Period:       period.Key,
 		ResourceType: "manual:" + entry.ID,
-		EvidenceJSON: data,
-		Attachments:  attachmentBytes,
+		PDF:          pdfBytes,
+		FileHash:     fileHash,
 	}
 	return ev, status, sidecar, nil
-}
-
-func (r *Reader) buildOPAData(ctx context.Context, entry *manualPkg.CatalogEntry, submitted *manualPkg.SubmittedEvidence, period *manualPkg.Period, temporalStatus manualPkg.TemporalStatus) (opaData map[string]interface{}, attachmentBytes map[string][]byte) {
-	opaData = map[string]interface{}{
-		"evidence_id":     entry.ID,
-		"type":            string(entry.Type),
-		"status":          "uploaded",
-		"period":          period.Key,
-		"temporal_status": string(temporalStatus),
-		"hash_verified":   true,
-		"completed_by":    submitted.CompletedBy,
-	}
-
-	switch entry.Type {
-	case manualPkg.EvidenceTypeDocumentUpload:
-		files, bytes, err := r.verifyAttachments(ctx, entry, submitted, period)
-		if err != nil {
-			opaData["hash_verified"] = false
-		}
-		opaData["files"] = files
-		attachmentBytes = bytes
-
-	case manualPkg.EvidenceTypeChecklist:
-		items := make([]map[string]interface{}, len(submitted.Items))
-		for i, item := range submitted.Items {
-			// Enrich with catalog info
-			catalogItem := findChecklistItem(entry.Items, item.ID)
-			itemData := map[string]interface{}{
-				"id":      item.ID,
-				"checked": item.Checked,
-			}
-			if catalogItem != nil {
-				itemData["text"] = catalogItem.Text
-				itemData["required"] = catalogItem.Required
-			}
-			if item.Notes != "" {
-				itemData["notes"] = item.Notes
-			}
-			items[i] = itemData
-		}
-		opaData["items"] = items
-
-	case manualPkg.EvidenceTypeDeclaration:
-		opaData["declaration_text"] = submitted.DeclarationText
-		if submitted.Accepted != nil {
-			opaData["accepted"] = *submitted.Accepted
-		}
-	}
-
-	return opaData, attachmentBytes
-}
-
-func (r *Reader) verifyAttachments(ctx context.Context, entry *manualPkg.CatalogEntry, submitted *manualPkg.SubmittedEvidence, period *manualPkg.Period) (files []map[string]interface{}, bytesByName map[string][]byte, verifyErr error) {
-	files = make([]map[string]interface{}, 0, len(submitted.Attachments))
-	bytesByName = make(map[string][]byte, len(submitted.Attachments))
-
-	for _, attachment := range submitted.Attachments {
-		attachPath := filepath.Join(r.framework, entry.ID, period.Key, attachment)
-		attachData, err := r.backend.Get(ctx, attachPath)
-
-		fileInfo := map[string]interface{}{
-			"name": attachment,
-		}
-
-		if err != nil {
-			fileInfo["error"] = "not_found"
-			verifyErr = fmt.Errorf("attachment not found: %s", attachment)
-		} else {
-			hash := sha256.Sum256(attachData)
-			fileInfo["sha256"] = hex.EncodeToString(hash[:])
-			fileInfo["size_bytes"] = len(attachData)
-			fileInfo["format"] = filepath.Ext(attachment)
-			bytesByName[attachment] = attachData
-		}
-
-		files = append(files, fileInfo)
-	}
-
-	return files, bytesByName, verifyErr
-}
-
-func findChecklistItem(items []manualPkg.ChecklistItem, id string) *manualPkg.ChecklistItem {
-	for i := range items {
-		if items[i].ID == id {
-			return &items[i]
-		}
-	}
-	return nil
 }

@@ -79,44 +79,6 @@ func TestBuildManualStorageConfig_Local(t *testing.T) {
 	assert.Equal(t, "/tmp/evidence/manual-evidence", storageCfg.Local.Path)
 }
 
-func TestEvidenceSchema_ValidJSONSchema(t *testing.T) {
-	schema := manual.SubmittedEvidenceSchema()
-
-	// Should be valid JSON (marshal + unmarshal round-trip)
-	data, err := json.Marshal(schema)
-	require.NoError(t, err)
-
-	var decoded map[string]interface{}
-	require.NoError(t, json.Unmarshal(data, &decoded))
-
-	// Verify key JSON Schema fields
-	assert.Equal(t, "https://json-schema.org/draft/2020-12/schema", decoded["$schema"])
-	assert.Equal(t, "SubmittedEvidence", decoded["title"])
-	assert.Equal(t, "object", decoded["type"])
-
-	// Verify required fields exist
-	required, ok := decoded["required"].([]interface{})
-	require.True(t, ok)
-	assert.Contains(t, required, "schema_version")
-	assert.Contains(t, required, "evidence_id")
-	assert.Contains(t, required, "type")
-
-	// Verify properties exist
-	props, ok := decoded["properties"].(map[string]interface{})
-	require.True(t, ok)
-	assert.Contains(t, props, "schema_version")
-	assert.Contains(t, props, "evidence_id")
-	assert.Contains(t, props, "items")
-	assert.Contains(t, props, "attachments")
-	assert.Contains(t, props, "declaration_text")
-	assert.Contains(t, props, "accepted")
-
-	// Verify conditional required (allOf)
-	allOf, ok := decoded["allOf"].([]interface{})
-	require.True(t, ok)
-	assert.Len(t, allOf, 3) // document_upload, checklist, declaration
-}
-
 func TestBuildManualStorageConfig_S3(t *testing.T) {
 	cfg := config.New()
 	cfg.Storage.Backend = "s3"

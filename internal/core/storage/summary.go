@@ -73,13 +73,18 @@ type ManualPolicy struct {
 	Evidence  ManualEvidenceState `json:"evidence"`
 }
 
-// ManualEvidenceState describes the user-uploaded evidence backing a manual policy.
+// ManualEvidenceState describes the user-uploaded PDF backing a manual policy.
+//
+// FileHash is the SHA-256 (hex) of the mirrored evidence.pdf bytes; FilePath
+// is the storage-relative location of the mirrored sibling file inside the
+// policy's run folder. Together they let an auditor pick this summary entry
+// and verify the corresponding PDF is intact.
 type ManualEvidenceState struct {
-	Status      string    `json:"status"` // "uploaded" | "not_uploaded"
-	EvidenceID  string    `json:"evidence_id,omitempty"`
-	Period      string    `json:"period,omitempty"`
-	CompletedBy string    `json:"completed_by,omitempty"`
-	CompletedAt time.Time `json:"completed_at,omitempty"`
+	Status     string `json:"status"` // "uploaded" | "not_uploaded"
+	EvidenceID string `json:"evidence_id,omitempty"`
+	Period     string `json:"period,omitempty"`
+	FileHash   string `json:"file_hash,omitempty"`
+	FilePath   string `json:"file_path,omitempty"`
 }
 
 // BuildSummary computes a Summary from the just-completed run. It does not
@@ -199,17 +204,19 @@ func isManualPolicy(resourceTypes []string) bool {
 	return false
 }
 
-// manualMetadataEntry caches the user-submitted fields we surface in the summary.
+// manualMetadataEntry caches the per-policy fields we surface in the summary.
 type manualMetadataEntry struct {
-	EvidenceID  string
-	Period      string
-	Uploaded    bool
-	CompletedBy string
-	CompletedAt time.Time
+	EvidenceID string
+	Period     string
+	Uploaded   bool
+	FileHash   string
+	FilePath   string
 }
 
 // indexManualMetadata maps "manual:<id>" → metadata pulled from the OPA evidence
-// payload (status, period) and the sidecar (completed_by, completed_at).
+// payload (status, period, file_hash, file_path). The sidecar is the
+// authoritative source for FileHash; the OPA payload also carries it for
+// consistency, and we prefer the sidecar when both are available.
 func indexManualMetadata(evidenceList []evidence.Evidence, sidecars []ManualSidecar) map[string]manualMetadataEntry {
 	out := make(map[string]manualMetadataEntry)
 
@@ -222,6 +229,8 @@ func indexManualMetadata(evidenceList []evidence.Evidence, sidecars []ManualSide
 			EvidenceID string `json:"evidence_id"`
 			Period     string `json:"period"`
 			Status     string `json:"status"`
+			FileHash   string `json:"file_hash"`
+			FilePath   string `json:"file_path"`
 		}
 		if err := json.Unmarshal(ev.Data, &payload); err != nil {
 			continue
@@ -230,18 +239,13 @@ func indexManualMetadata(evidenceList []evidence.Evidence, sidecars []ManualSide
 			EvidenceID: payload.EvidenceID,
 			Period:     payload.Period,
 			Uploaded:   payload.Status == "uploaded",
+			FileHash:   payload.FileHash,
+			FilePath:   payload.FilePath,
 		}
 	}
 
 	for i := range sidecars {
 		sc := &sidecars[i]
-		var submitted struct {
-			CompletedBy string    `json:"completed_by"`
-			CompletedAt time.Time `json:"completed_at"`
-		}
-		if err := json.Unmarshal(sc.EvidenceJSON, &submitted); err != nil {
-			continue
-		}
 		entry := out[sc.ResourceType]
 		if entry.EvidenceID == "" {
 			entry.EvidenceID = sc.EvidenceID
@@ -249,9 +253,12 @@ func indexManualMetadata(evidenceList []evidence.Evidence, sidecars []ManualSide
 		if entry.Period == "" {
 			entry.Period = sc.Period
 		}
-		entry.Uploaded = true
-		entry.CompletedBy = submitted.CompletedBy
-		entry.CompletedAt = submitted.CompletedAt
+		if len(sc.PDF) > 0 {
+			entry.Uploaded = true
+		}
+		if sc.FileHash != "" {
+			entry.FileHash = sc.FileHash
+		}
 		out[sc.ResourceType] = entry
 	}
 
@@ -274,10 +281,10 @@ func buildManualPolicy(pr *evidence.PolicyResult, manualMeta map[string]manualMe
 		}
 		meta := manualMeta[rt]
 		mp.Evidence = ManualEvidenceState{
-			EvidenceID:  meta.EvidenceID,
-			Period:      meta.Period,
-			CompletedBy: meta.CompletedBy,
-			CompletedAt: meta.CompletedAt,
+			EvidenceID: meta.EvidenceID,
+			Period:     meta.Period,
+			FileHash:   meta.FileHash,
+			FilePath:   meta.FilePath,
 		}
 		if meta.Uploaded {
 			mp.Evidence.Status = "uploaded"

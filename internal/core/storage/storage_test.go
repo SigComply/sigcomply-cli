@@ -652,14 +652,13 @@ func TestStoreRun_MirrorsManualSidecarsIntoPolicyFolder(t *testing.T) {
 		evidence.New("manual", resourceType, evidenceID+"/2026-Q1", []byte(`{"status":"uploaded"}`)),
 	}
 
-	rawJSON := []byte(`{"schema_version":"1.0","evidence_id":"cc6_1_security_training","accepted":true}`)
 	pdfBytes := []byte("%PDF-1.4 fake")
 	sidecars := []ManualSidecar{{
 		EvidenceID:   evidenceID,
 		Period:       "2026-Q1",
 		ResourceType: resourceType,
-		EvidenceJSON: rawJSON,
-		Attachments:  map[string][]byte{"training-completion.pdf": pdfBytes},
+		PDF:          pdfBytes,
+		FileHash:     "sha256-of-fake-pdf",
 	}}
 
 	err = StoreRun(context.Background(), backend, result, evidenceList, sidecars, "", "", "")
@@ -667,12 +666,8 @@ func TestStoreRun_MirrorsManualSidecarsIntoPolicyFolder(t *testing.T) {
 
 	rp := NewRunPath("soc2", "soc2-cc6.1-security-training", runID, ts)
 
-	gotJSON, err := backend.Get(context.Background(), rp.ManualAttachmentPath(evidenceID, "evidence.json"))
-	require.NoError(t, err, "manual evidence.json should be mirrored into policy folder")
-	assert.Equal(t, rawJSON, gotJSON)
-
-	gotPDF, err := backend.Get(context.Background(), rp.ManualAttachmentPath(evidenceID, "training-completion.pdf"))
-	require.NoError(t, err, "manual attachment should be mirrored into policy folder")
+	gotPDF, err := backend.Get(context.Background(), rp.ManualAttachmentPath(evidenceID, "evidence.pdf"))
+	require.NoError(t, err, "manual evidence.pdf should be mirrored into policy folder")
 	assert.Equal(t, pdfBytes, gotPDF)
 }
 
@@ -701,13 +696,14 @@ func TestStoreRun_SkipsSidecarsWhenPolicyDoesNotReferenceThem(t *testing.T) {
 	sidecars := []ManualSidecar{{
 		EvidenceID:   "cc6_1_security_training",
 		ResourceType: "manual:cc6_1_security_training",
-		EvidenceJSON: []byte(`{"x":1}`),
+		PDF:          []byte("%PDF-1.4 unused"),
+		FileHash:     "abc",
 	}}
 
 	err = StoreRun(context.Background(), backend, result, nil, sidecars, "", "", "")
 	require.NoError(t, err)
 
 	rp := NewRunPath("soc2", "soc2-cc6.1-mfa", "skip-run-xxxx", ts)
-	_, err = backend.Get(context.Background(), rp.ManualAttachmentPath("cc6_1_security_training", "evidence.json"))
+	_, err = backend.Get(context.Background(), rp.ManualAttachmentPath("cc6_1_security_training", "evidence.pdf"))
 	require.Error(t, err, "sidecar must not be written for unrelated policies")
 }

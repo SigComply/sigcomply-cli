@@ -2,7 +2,10 @@ package manual
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -26,12 +29,12 @@ func setupTest(t *testing.T) (context.Context, storage.Backend, *manualPkg.Catal
 	return ctx, backend, catalog, state
 }
 
-func storeJSON(ctx context.Context, t *testing.T, backend storage.Backend, path string, data interface{}) {
+func storePDF(ctx context.Context, t *testing.T, backend storage.Backend, evidenceID, period string, body []byte) string {
 	t.Helper()
-	jsonData, err := json.Marshal(data)
+	path := filepath.Join("soc2", evidenceID, period, manualPkg.EvidencePDFFilename)
+	_, err := backend.StoreRaw(ctx, path, body, nil)
 	require.NoError(t, err)
-	_, err = backend.StoreRaw(ctx, path, jsonData, nil)
-	require.NoError(t, err)
+	return path
 }
 
 func TestReader_MissingEvidence(t *testing.T) {
@@ -42,44 +45,34 @@ func TestReader_MissingEvidence(t *testing.T) {
 	result, err := reader.Read(ctx, state, now)
 	require.NoError(t, err)
 
-	// All catalog entries should produce evidence (missing = not_uploaded)
+	// Every catalog entry produces an evidence record (status = not_uploaded
+	// when no PDF is present).
 	assert.Len(t, result.Evidence, len(catalog.Entries))
+	assert.Empty(t, result.Sidecars, "no PDFs uploaded → no sidecars")
 
 	for _, ev := range result.Evidence {
 		assert.Equal(t, "manual", ev.Collector)
 		var data map[string]interface{}
 		require.NoError(t, json.Unmarshal(ev.Data, &data))
 		assert.Equal(t, "not_uploaded", data["status"])
+		assert.NotContains(t, data, "file_hash")
+		assert.NotContains(t, data, "file_path")
 	}
 }
 
-func TestReader_DocumentUpload(t *testing.T) {
+func TestReader_PDFPresent(t *testing.T) {
 	ctx, backend, catalog, state := setupTest(t)
 	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
 
-	// Store submitted evidence
-	submitted := manualPkg.SubmittedEvidence{
-		SchemaVersion: "1.0",
-		EvidenceID:    "quarterly_access_review",
-		Type:          manualPkg.EvidenceTypeDocumentUpload,
-		Framework:     "soc2",
-		Control:       "CC6.1",
-		Period:        "2026-Q1",
-		CompletedBy:   "admin@company.com",
-		CompletedAt:   time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC),
-		Attachments:   []string{"report.pdf"},
-	}
-	storeJSON(ctx, t, backend, "soc2/quarterly_access_review/2026-Q1/evidence.json", submitted)
-
-	// Also store the attachment
-	_, err := backend.StoreRaw(ctx, "soc2/quarterly_access_review/2026-Q1/report.pdf", []byte("PDF content"), nil)
-	require.NoError(t, err)
+	pdfBody := []byte("%PDF-1.4 test contents")
+	expectedHashBytes := sha256.Sum256(pdfBody)
+	expectedHash := hex.EncodeToString(expectedHashBytes[:])
+	expectedPath := storePDF(ctx, t, backend, "quarterly_access_review", "2026-Q1", pdfBody)
 
 	reader := NewReader(backend, catalog, "soc2")
 	result, err := reader.Read(ctx, state, now)
 	require.NoError(t, err)
 
-	// Find the quarterly_access_review evidence
 	var found bool
 	for _, ev := range result.Evidence {
 		if ev.ResourceType != "manual:quarterly_access_review" {
@@ -89,160 +82,67 @@ func TestReader_DocumentUpload(t *testing.T) {
 		var data map[string]interface{}
 		require.NoError(t, json.Unmarshal(ev.Data, &data))
 		assert.Equal(t, "uploaded", data["status"])
-		assert.Equal(t, true, data["hash_verified"])
-		assert.Equal(t, "admin@company.com", data["completed_by"])
-
-		files, ok := data["files"].([]interface{})
-		require.True(t, ok)
-		assert.Len(t, files, 1)
+		assert.Equal(t, expectedHash, data["file_hash"])
+		assert.Equal(t, expectedPath, data["file_path"])
 	}
-	assert.True(t, found)
-}
+	require.True(t, found, "expected manual:quarterly_access_review in evidence list")
 
-func TestReader_Checklist(t *testing.T) {
-	ctx, backend, catalog, state := setupTest(t)
-	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
-
-	submitted := manualPkg.SubmittedEvidence{
-		SchemaVersion: "1.0",
-		EvidenceID:    "incident_response_test",
-		Type:          manualPkg.EvidenceTypeChecklist,
-		Framework:     "soc2",
-		Control:       "CC7.2",
-		Period:        "2026",
-		CompletedBy:   "security@company.com",
-		CompletedAt:   time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC),
-		Items: []manualPkg.SubmittedChecklistItem{
-			{ID: "plan_tested", Checked: true},
-			{ID: "roles_verified", Checked: true},
-			{ID: "communication_tested", Checked: true},
-			{ID: "lessons_documented", Checked: false, Notes: "Pending follow-up"},
-		},
-	}
-	storeJSON(ctx, t, backend, "soc2/incident_response_test/2026/evidence.json", submitted)
-
-	reader := NewReader(backend, catalog, "soc2")
-	result, err := reader.Read(ctx, state, now)
-	require.NoError(t, err)
-
-	var found bool
-	for _, ev := range result.Evidence {
-		if ev.ResourceType != "manual:incident_response_test" {
-			continue
+	// Sidecar carries the raw PDF bytes + hash for the storage layer to mirror.
+	var sidecar *storage.ManualSidecar
+	for i := range result.Sidecars {
+		if result.Sidecars[i].EvidenceID == "quarterly_access_review" {
+			sidecar = &result.Sidecars[i]
+			break
 		}
-		found = true
-		var data map[string]interface{}
-		require.NoError(t, json.Unmarshal(ev.Data, &data))
-		assert.Equal(t, "uploaded", data["status"])
-		items, ok := data["items"].([]interface{})
-		require.True(t, ok)
-		assert.Len(t, items, 4)
 	}
-	assert.True(t, found)
-}
-
-func TestReader_Declaration(t *testing.T) {
-	ctx, backend, catalog, state := setupTest(t)
-	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
-
-	accepted := true
-	submitted := manualPkg.SubmittedEvidence{
-		SchemaVersion:   "1.0",
-		EvidenceID:      "risk_acceptance_signoff",
-		Type:            manualPkg.EvidenceTypeDeclaration,
-		Framework:       "soc2",
-		Control:         "CC3.1",
-		Period:          "2026-Q1",
-		CompletedBy:     "ciso@company.com",
-		CompletedAt:     time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC),
-		DeclarationText: "I confirm the risk assessment is complete.",
-		Accepted:        &accepted,
-	}
-	storeJSON(ctx, t, backend, "soc2/risk_acceptance_signoff/2026-Q1/evidence.json", submitted)
-
-	reader := NewReader(backend, catalog, "soc2")
-	result, err := reader.Read(ctx, state, now)
-	require.NoError(t, err)
-
-	var found bool
-	for _, ev := range result.Evidence {
-		if ev.ResourceType != "manual:risk_acceptance_signoff" {
-			continue
-		}
-		found = true
-		var data map[string]interface{}
-		require.NoError(t, json.Unmarshal(ev.Data, &data))
-		assert.Equal(t, "uploaded", data["status"])
-		assert.Equal(t, true, data["accepted"])
-	}
-	assert.True(t, found)
+	require.NotNil(t, sidecar, "expected sidecar for quarterly_access_review")
+	assert.Equal(t, "manual:quarterly_access_review", sidecar.ResourceType)
+	assert.Equal(t, "2026-Q1", sidecar.Period)
+	assert.Equal(t, pdfBody, sidecar.PDF)
+	assert.Equal(t, expectedHash, sidecar.FileHash)
 }
 
 func TestReader_AlreadyAttested(t *testing.T) {
 	ctx, backend, catalog, state := setupTest(t)
 	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
 
-	// Mark one entry as attested
-	state.RecordAttestation("quarterly_access_review", "2026-Q1", "run-1", "attested", map[string]string{})
+	// Mark one entry as attested for the current period — reader should skip it.
+	state.RecordAttestation("quarterly_access_review", "2026-Q1", "run-1", "attested", map[string]string{
+		manualPkg.EvidencePDFFilename: "abc",
+	})
 
 	reader := NewReader(backend, catalog, "soc2")
 	result, err := reader.Read(ctx, state, now)
 	require.NoError(t, err)
 
-	// The attested one is skipped; the rest should produce evidence
 	assert.Len(t, result.Evidence, len(catalog.Entries)-1)
-
 	for _, ev := range result.Evidence {
 		assert.NotEqual(t, "manual:quarterly_access_review", ev.ResourceType)
 	}
 }
 
-func TestReader_InvalidJSON(t *testing.T) {
+func TestReader_OpaquePDF(t *testing.T) {
+	// The CLI does not parse the PDF in v1 — any byte payload at the right path
+	// is treated as "uploaded". This guards against accidentally adding format
+	// validation here in the future.
 	ctx, backend, catalog, state := setupTest(t)
 	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
 
-	// Store invalid JSON
-	_, err := backend.StoreRaw(ctx, "soc2/quarterly_access_review/2026-Q1/evidence.json", []byte("{invalid"), nil)
-	require.NoError(t, err)
+	storePDF(ctx, t, backend, "quarterly_access_review", "2026-Q1", []byte("not really a PDF"))
 
 	reader := NewReader(backend, catalog, "soc2")
-	result, readErr := reader.Read(ctx, state, now)
-	require.NoError(t, readErr)
-
-	// Should have error for the invalid entry
-	assert.GreaterOrEqual(t, len(result.Errors), 1)
-	assert.Equal(t, "quarterly_access_review", result.Errors[0].EvidenceID)
-}
-
-func TestReader_SchemaViolation_ChecklistMissingItems(t *testing.T) {
-	ctx, backend, catalog, state := setupTest(t)
-	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
-
-	// type=checklist but no items[] — passes json.Unmarshal, fails JSON Schema
-	raw := []byte(`{
-		"schema_version": "1.0",
-		"evidence_id": "incident_response_test",
-		"type": "checklist",
-		"framework": "soc2",
-		"control": "CC7.2",
-		"period": "2026",
-		"completed_by": "sec@example.com",
-		"completed_at": "2026-03-10T00:00:00Z"
-	}`)
-	_, err := backend.StoreRaw(ctx, "soc2/incident_response_test/2026/evidence.json", raw, nil)
+	result, err := reader.Read(ctx, state, now)
 	require.NoError(t, err)
-
-	reader := NewReader(backend, catalog, "soc2")
-	result, readErr := reader.Read(ctx, state, now)
-	require.NoError(t, readErr)
+	assert.Empty(t, result.Errors)
 
 	var found bool
-	for _, e := range result.Errors {
-		if e.EvidenceID == "incident_response_test" {
+	for _, ev := range result.Evidence {
+		if ev.ResourceType == "manual:quarterly_access_review" {
 			found = true
-			assert.Contains(t, e.Err, "invalid evidence submission")
-			assert.Contains(t, e.Err, "items")
+			var data map[string]interface{}
+			require.NoError(t, json.Unmarshal(ev.Data, &data))
+			assert.Equal(t, "uploaded", data["status"])
 		}
 	}
-	assert.True(t, found, "expected schema violation error for incident_response_test")
+	assert.True(t, found)
 }

@@ -1,10 +1,10 @@
 //go:build e2e
 
 // Package manual provides E2E test functions for the manual evidence pipeline
-// using real S3 storage. Tests create folder structure in S3, upload evidence.json
-// files (same format the SPA produces), upload sample attachments (PDFs), then
-// run OPA policy evaluation, store policy results via StoreRun, and verify
-// execution-state attestations — all in S3.
+// using real S3 storage. Tests upload evidence.pdf files to the deterministic
+// path the manual reader looks for, run OPA policy evaluation, store policy
+// results via StoreRun, and verify execution-state attestations + mirrored
+// PDFs — all in S3.
 //
 // The test mirrors the production dual-backend architecture from check.go:
 //   - manualBackend: reads/writes manual evidence + execution state (Storage.Prefix + ManualEvidence.Prefix)
@@ -239,24 +239,16 @@ func loadFramework(t *testing.T) (engine.Framework, *manualPkg.Catalog) {
 	return fw, catalog
 }
 
-// placeEvidence writes a SubmittedEvidence JSON to S3 at the correct path.
-func placeEvidence(t *testing.T, backend storage.Backend, evidenceID, period string, submitted manualPkg.SubmittedEvidence) {
+// placePDF writes the user-supplied evidence.pdf to S3 at the deterministic
+// path the manual reader looks for: {framework}/{evidence_id}/{period}/evidence.pdf.
+// Returns the storage path so callers can assert against it.
+func placePDF(t *testing.T, backend storage.Backend, evidenceID, period string, body []byte) string {
 	t.Helper()
-	data, err := json.MarshalIndent(submitted, "", "  ")
+	path := filepath.Join(frameworkName, evidenceID, period, manualPkg.EvidencePDFFilename)
+	_, err := backend.StoreRaw(context.Background(), path, body, nil)
 	require.NoError(t, err)
-	path := filepath.Join(frameworkName, evidenceID, period, "evidence.json")
-	_, err = backend.StoreRaw(context.Background(), path, data, nil)
-	require.NoError(t, err)
-	t.Logf("Uploaded evidence.json -> %s", path)
-}
-
-// placeAttachment writes a file alongside evidence.json in S3 storage.
-func placeAttachment(t *testing.T, backend storage.Backend, evidenceID, period, filename string, content []byte) {
-	t.Helper()
-	path := filepath.Join(frameworkName, evidenceID, period, filename)
-	_, err := backend.StoreRaw(context.Background(), path, content, nil)
-	require.NoError(t, err)
-	t.Logf("Uploaded attachment -> %s (%d bytes)", path, len(content))
+	t.Logf("Uploaded %s -> %s (%d bytes)", manualPkg.EvidencePDFFilename, path, len(body))
+	return path
 }
 
 // pipelineResult holds everything produced by runPipeline for verification.
@@ -366,61 +358,31 @@ func runPipeline(t *testing.T, backends *testBackends, fw engine.Framework, cata
 	}
 }
 
-// buildValidEvidence returns valid SubmittedEvidence for each SOC2 catalog entry.
-func buildValidEvidence(catalog *manualPkg.Catalog, now time.Time) map[string]manualPkg.SubmittedEvidence {
-	accepted := true
-	result := make(map[string]manualPkg.SubmittedEvidence)
-
+// placeValidPDFs writes an evidence.pdf for every catalog entry at its current
+// period. The CLI does not parse PDF contents in v1 — any byte payload is
+// treated as "uploaded". Returns the count of PDFs placed.
+func placeValidPDFs(t *testing.T, backend storage.Backend, catalog *manualPkg.Catalog, now time.Time) int {
+	t.Helper()
+	count := 0
 	for _, entry := range catalog.Entries {
-		period, _ := manualPkg.CurrentPeriod(entry.Frequency, now, entry.GracePeriod)
-
-		base := manualPkg.SubmittedEvidence{
-			SchemaVersion: "1.0",
-			EvidenceID:    entry.ID,
-			Type:          entry.Type,
-			Framework:     frameworkName,
-			Control:       entry.Control,
-			Period:        period.Key,
-			CompletedBy:   "test@e2e.sigcomply.dev",
-			CompletedAt:   now,
-		}
-
-		switch entry.Type {
-		case manualPkg.EvidenceTypeDocumentUpload:
-			base.Attachments = []string{"review.pdf"}
-		case manualPkg.EvidenceTypeChecklist:
-			for _, item := range entry.Items {
-				base.Items = append(base.Items, manualPkg.SubmittedChecklistItem{
-					ID:      item.ID,
-					Checked: true,
-				})
-			}
-		case manualPkg.EvidenceTypeDeclaration:
-			base.DeclarationText = entry.DeclarationText
-			base.Accepted = &accepted
-		}
-
-		result[entry.ID] = base
+		period, err := manualPkg.CurrentPeriod(entry.Frequency, now, entry.GracePeriod)
+		require.NoError(t, err)
+		placePDF(t, backend, entry.ID, period.Key, samplePDF)
+		count++
 	}
-
-	return result
+	return count
 }
 
-// RunPositiveScenario creates the full S3 folder structure with valid evidence
-// for all SOC2 manual entries, runs OPA evaluation, stores policy results, and
-// verifies all policies pass.
+// RunPositiveScenario uploads evidence.pdf for every SOC2 manual entry, runs
+// OPA evaluation, stores policy results, and verifies all policies pass.
 //
 // S3 structure created (mirrors production layout):
 //
-//	{basePrefix}/manual-evidence/soc2/quarterly_access_review/2026-Q2/evidence.json
-//	{basePrefix}/manual-evidence/soc2/quarterly_access_review/2026-Q2/review.pdf
-//	{basePrefix}/manual-evidence/soc2/security_awareness_training/2026/evidence.json
-//	{basePrefix}/manual-evidence/soc2/security_awareness_training/2026/review.pdf
-//	{basePrefix}/manual-evidence/soc2/incident_response_test/2026/evidence.json       (checklist)
-//	{basePrefix}/manual-evidence/soc2/risk_acceptance_signoff/2026-Q2/evidence.json   (declaration)
-//	{basePrefix}/manual-evidence/soc2/execution-state.json                            (after eval)
-//	{basePrefix}/soc2/{policy_slug}/{timestamp}_{run_id}/result.json                  (per policy)
-//	{basePrefix}/soc2/{policy_slug}/{timestamp}_{run_id}/evidence/manuals.json        (signed envelope)
+//	{basePrefix}/manual-evidence/soc2/{evidence_id}/{period}/evidence.pdf            (per entry)
+//	{basePrefix}/manual-evidence/soc2/execution-state.json                           (after eval)
+//	{basePrefix}/soc2/{policy_slug}/{timestamp}_{run_id}/result.json                 (per policy)
+//	{basePrefix}/soc2/{policy_slug}/{timestamp}_{run_id}/evidence/manual-*.json      (signed envelope)
+//	{basePrefix}/soc2/{policy_slug}/{timestamp}_{run_id}/manual_attachments/{evidence_id}/evidence.pdf
 func RunPositiveScenario(t *testing.T) {
 	t.Helper()
 	bucket, region := resolveS3Config(t)
@@ -429,28 +391,13 @@ func RunPositiveScenario(t *testing.T) {
 	fw, catalog := loadFramework(t)
 	now := time.Now().UTC()
 
-	t.Logf("=== Phase 1: Create S3 folder structure with valid evidence ===")
+	t.Logf("=== Phase 1: Upload evidence.pdf for every catalog entry ===")
 	t.Logf("S3 base prefix: s3://%s/%s", bucket, basePrefix)
 	t.Logf("Manual evidence: s3://%s/%s%s", bucket, basePrefix, manualSubPrefix)
 
-	// Place valid evidence for all catalog entries
-	validEvidence := buildValidEvidence(catalog, now)
-	for evidenceID, submitted := range validEvidence {
-		entry := catalog.GetEntry(evidenceID)
-		period, err := manualPkg.CurrentPeriod(entry.Frequency, now, entry.GracePeriod)
-		require.NoError(t, err)
+	placedCount := placeValidPDFs(t, backends.manual, catalog, now)
+	t.Logf("Placed %d PDFs", placedCount)
 
-		placeEvidence(t, backends.manual, evidenceID, period.Key, submitted)
-
-		// Upload sample PDF attachments for document_upload types
-		if submitted.Type == manualPkg.EvidenceTypeDocumentUpload {
-			for _, attachment := range submitted.Attachments {
-				placeAttachment(t, backends.manual, evidenceID, period.Key, attachment, samplePDF)
-			}
-		}
-	}
-
-	// Verify S3 objects were created
 	keys := listS3Objects(t, region, bucket, basePrefix)
 	t.Logf("Phase 1 complete: %d objects in S3", len(keys))
 	for _, key := range keys {
@@ -555,208 +502,110 @@ func RunPositiveScenario(t *testing.T) {
 	assert.Greater(t, envelopeCount, 0, "Should have evidence envelope files stored by StoreRun")
 	t.Logf("Verified %d signed evidence envelopes with valid Ed25519 signatures", envelopeCount)
 
-	t.Logf("Positive scenario: %d policies passed, all entries attested, results + attestations stored in S3", len(pr.manualResults))
+	// Verify the user-supplied PDF was mirrored under each referencing policy's
+	// run folder at manual_attachments/{evidence_id}/evidence.pdf.
+	mirroredCount := 0
+	for _, key := range finalKeys {
+		if !strings.Contains(key, "/manual_attachments/") {
+			continue
+		}
+		if !strings.HasSuffix(key, "/"+manualPkg.EvidencePDFFilename) {
+			continue
+		}
+		mirroredCount++
+		got, err := backends.results.Get(context.Background(), strings.TrimPrefix(key, basePrefix))
+		require.NoError(t, err)
+		assert.Equal(t, samplePDF, got, "mirrored PDF bytes should match the source: %s", key)
+	}
+	assert.Greater(t, mirroredCount, 0, "expected mirrored evidence.pdf files under manual_attachments/")
+	t.Logf("Verified %d mirrored evidence.pdf files in policy folders", mirroredCount)
+
+	t.Logf("Positive scenario: %d policies passed, all entries attested, results + attestations + mirrored PDFs stored in S3", len(pr.manualResults))
 }
 
-// RunNegativeScenario uploads invalid evidence to S3 and verifies policies fail.
+// RunNegativeScenario backdates the evaluation clock far enough that every
+// catalog entry's current period is past its grace window. With no PDFs
+// uploaded, every manual policy fires its "overdue + not_uploaded" rule and
+// returns one violation. Verifies signed envelopes are still produced for
+// failures and result.json carries the violations.
 //
-// Invalid evidence:
-//   - Checklist with required items NOT checked -> policy violation
-//   - Declaration with accepted=false -> policy violation
-//   - Document upload entries have no evidence -> "not_uploaded" (within_window = pass)
+// In v1 the only manual policy violation is presence + temporal-window. The
+// previous per-type assertions (checklist items unchecked, declaration not
+// accepted, document_upload missing attachment) no longer exist — those checks
+// were dropped when the architecture pivoted to PDF-only manual evidence.
 func RunNegativeScenario(t *testing.T) {
 	t.Helper()
 	bucket, region := resolveS3Config(t)
 	basePrefix := s3TestPrefix()
 	backends := setupTestBackends(t, bucket, region, basePrefix)
 	fw, catalog := loadFramework(t)
-	now := time.Now().UTC()
 
-	t.Logf("=== Phase 1: Upload invalid evidence to S3 ===")
+	// Backdate "now" enough that every entry's period — even yearly — is
+	// firmly past its grace window. The Q1 of `pastEval - 1 year` is overdue
+	// by definition; pushing back by ~3 years is conservative for all
+	// frequencies in the catalog.
+	pastEval := time.Now().UTC().AddDate(-3, 0, 0)
+
+	t.Logf("=== Phase 1: empty manual-evidence prefix — no PDFs uploaded ===")
 	t.Logf("S3 base prefix: s3://%s/%s", bucket, basePrefix)
+	t.Logf("Backdated evaluation clock: %s (every entry should be overdue)", pastEval.Format(time.RFC3339))
 
-	// Place invalid checklist evidence: required items NOT checked
-	irEntry := catalog.GetEntry("incident_response_test")
-	require.NotNil(t, irEntry)
-	irPeriod, err := manualPkg.CurrentPeriod(irEntry.Frequency, now, irEntry.GracePeriod)
-	require.NoError(t, err)
-
-	irSubmitted := manualPkg.SubmittedEvidence{
-		SchemaVersion: "1.0",
-		EvidenceID:    "incident_response_test",
-		Type:          manualPkg.EvidenceTypeChecklist,
-		Framework:     frameworkName,
-		Control:       irEntry.Control,
-		Period:        irPeriod.Key,
-		CompletedBy:   "test@e2e.sigcomply.dev",
-		CompletedAt:   now,
-		Items: []manualPkg.SubmittedChecklistItem{
-			{ID: "plan_tested", Checked: false},         // required — NOT checked
-			{ID: "roles_verified", Checked: false},      // required — NOT checked
-			{ID: "communication_tested", Checked: true}, // required — checked
-			{ID: "lessons_documented", Checked: true},   // optional — checked
-		},
-	}
-	placeEvidence(t, backends.manual, "incident_response_test", irPeriod.Key, irSubmitted)
-
-	// Place invalid declaration: accepted = false
-	raEntry := catalog.GetEntry("risk_acceptance_signoff")
-	require.NotNil(t, raEntry)
-	raPeriod, err := manualPkg.CurrentPeriod(raEntry.Frequency, now, raEntry.GracePeriod)
-	require.NoError(t, err)
-
-	notAccepted := false
-	raSubmitted := manualPkg.SubmittedEvidence{
-		SchemaVersion:   "1.0",
-		EvidenceID:      "risk_acceptance_signoff",
-		Type:            manualPkg.EvidenceTypeDeclaration,
-		Framework:       frameworkName,
-		Control:         raEntry.Control,
-		Period:          raPeriod.Key,
-		CompletedBy:     "test@e2e.sigcomply.dev",
-		CompletedAt:     now,
-		DeclarationText: raEntry.DeclarationText,
-		Accepted:        &notAccepted,
-	}
-	placeEvidence(t, backends.manual, "risk_acceptance_signoff", raPeriod.Key, raSubmitted)
-
-	// Place invalid declaration from the new data-protection set: media_sanitization, accepted=false
-	msEntry := catalog.GetEntry("media_sanitization")
-	require.NotNil(t, msEntry, "media_sanitization entry should exist in catalog")
-	msPeriod, err := manualPkg.CurrentPeriod(msEntry.Frequency, now, msEntry.GracePeriod)
-	require.NoError(t, err)
-
-	msSubmitted := manualPkg.SubmittedEvidence{
-		SchemaVersion:   "1.0",
-		EvidenceID:      "media_sanitization",
-		Type:            manualPkg.EvidenceTypeDeclaration,
-		Framework:       frameworkName,
-		Control:         msEntry.Control,
-		Period:          msPeriod.Key,
-		CompletedBy:     "test@e2e.sigcomply.dev",
-		CompletedAt:     now,
-		DeclarationText: msEntry.DeclarationText,
-		Accepted:        &notAccepted,
-	}
-	placeEvidence(t, backends.manual, "media_sanitization", msPeriod.Key, msSubmitted)
-
-	// Place document_upload for DSAR fulfillment log WITH a referenced attachment
-	// that is NOT uploaded to S3 — this triggers a "file not found" violation,
-	// exercising a privacy (P5.2) entry in the negative scenario.
-	dsarEntry := catalog.GetEntry("dsar_fulfillment_log")
-	require.NotNil(t, dsarEntry, "dsar_fulfillment_log entry should exist in catalog")
-	dsarPeriod, err := manualPkg.CurrentPeriod(dsarEntry.Frequency, now, dsarEntry.GracePeriod)
-	require.NoError(t, err)
-
-	dsarSubmitted := manualPkg.SubmittedEvidence{
-		SchemaVersion: "1.0",
-		EvidenceID:    "dsar_fulfillment_log",
-		Type:          manualPkg.EvidenceTypeDocumentUpload,
-		Framework:     frameworkName,
-		Control:       dsarEntry.Control,
-		Period:        dsarPeriod.Key,
-		CompletedBy:   "test@e2e.sigcomply.dev",
-		CompletedAt:   now,
-		Attachments:   []string{"dsar-report.pdf"}, // NOT uploaded to S3
-	}
-	placeEvidence(t, backends.manual, "dsar_fulfillment_log", dsarPeriod.Key, dsarSubmitted)
-	// Deliberately NOT uploading the actual dsar-report.pdf attachment
-
-	// Don't upload anything for document_upload entries — they'll be "not_uploaded"
-
-	keys := listS3Objects(t, region, bucket, basePrefix)
-	t.Logf("Phase 1 complete: %d objects in S3", len(keys))
-
-	t.Logf("=== Phase 2: Run OPA evaluation + StoreRun — expect failures ===")
-	pr := runPipeline(t, backends, fw, catalog, now)
+	t.Logf("=== Phase 2: Run OPA evaluation + StoreRun — expect overdue violations ===")
+	pr := runPipeline(t, backends, fw, catalog, pastEval)
 	require.NotEmpty(t, pr.manualResults)
 
-	resultMap := make(map[string]evidence.PolicyResult)
+	failedCount := 0
 	for _, result := range pr.manualResults {
-		resultMap[result.PolicyID] = result
 		t.Logf("Result: %s status=%s violations=%d", result.PolicyID, result.Status, len(result.Violations))
-	}
-
-	// Incident response test should FAIL (required items unchecked)
-	irResult, ok := resultMap["soc2-cc7.4-incident-response-test"]
-	require.True(t, ok, "Incident response test policy result must exist")
-	assert.Equal(t, evidence.StatusFail, irResult.Status,
-		"Incident response test should fail with unchecked required items")
-	assert.GreaterOrEqual(t, len(irResult.Violations), 2,
-		"Should have at least 2 violations (plan_tested and roles_verified unchecked)")
-
-	// Risk acceptance should FAIL (not accepted)
-	raResult, ok := resultMap["soc2-cc3.1-risk-acceptance"]
-	require.True(t, ok, "Risk acceptance policy result must exist")
-	assert.Equal(t, evidence.StatusFail, raResult.Status,
-		"Risk acceptance should fail when not accepted")
-	assert.NotEmpty(t, raResult.Violations)
-
-	// Media sanitization (new data-protection entry) should FAIL (not accepted)
-	msResult, ok := resultMap["soc2-cc6.5-media-sanitization"]
-	require.True(t, ok, "Media sanitization policy result must exist")
-	assert.Equal(t, evidence.StatusFail, msResult.Status,
-		"Media sanitization should fail when not accepted")
-	assert.NotEmpty(t, msResult.Violations)
-
-	// DSAR fulfillment log (privacy P5.2) should FAIL (missing attachment)
-	dsarResult, ok := resultMap["soc2-p5.2-dsar-fulfillment-log"]
-	require.True(t, ok, "DSAR fulfillment log policy result must exist")
-	assert.Equal(t, evidence.StatusFail, dsarResult.Status,
-		"DSAR fulfillment log should fail when attachment is missing from S3")
-	assert.NotEmpty(t, dsarResult.Violations)
-
-	t.Logf("=== Phase 3: Verify execution state — failed entries not attested ===")
-	if irPeriods, ok := pr.state.Manual["incident_response_test"]; ok {
-		if entry, ok := irPeriods[irPeriod.Key]; ok {
-			assert.Equal(t, "uploaded", entry.Status,
-				"Failed checklist should have 'uploaded' status, not 'attested'")
+		assert.Equal(t, evidence.StatusFail, result.Status,
+			"With backdated clock + no PDFs, %s should fail (overdue + not_uploaded)", result.PolicyID)
+		assert.Len(t, result.Violations, 1,
+			"Each manual policy emits exactly one overdue violation in v1")
+		if result.Status == evidence.StatusFail {
+			failedCount++
 		}
 	}
-	if raPeriods, ok := pr.state.Manual["risk_acceptance_signoff"]; ok {
-		if entry, ok := raPeriods[raPeriod.Key]; ok {
-			assert.Equal(t, "uploaded", entry.Status,
-				"Failed declaration should have 'uploaded' status, not 'attested'")
+	assert.Equal(t, len(pr.manualResults), failedCount,
+		"every manual policy should fail when its period is overdue and no PDF is present")
+
+	t.Logf("=== Phase 3: Verify execution state — failed entries marked 'uploaded' (not 'attested') ===")
+	for _, entry := range catalog.Entries {
+		period, err := manualPkg.CurrentPeriod(entry.Frequency, pastEval, entry.GracePeriod)
+		require.NoError(t, err)
+		periods, ok := pr.state.Manual[entry.ID]
+		if !ok {
+			continue
 		}
-	}
-	if msPeriods, ok := pr.state.Manual["media_sanitization"]; ok {
-		if entry, ok := msPeriods[msPeriod.Key]; ok {
-			assert.Equal(t, "uploaded", entry.Status,
-				"Failed media_sanitization declaration should have 'uploaded' status, not 'attested'")
+		stateEntry, ok := periods[period.Key]
+		if !ok {
+			continue
 		}
-	}
-	if dsarPeriods, ok := pr.state.Manual["dsar_fulfillment_log"]; ok {
-		if entry, ok := dsarPeriods[dsarPeriod.Key]; ok {
-			assert.Equal(t, "uploaded", entry.Status,
-				"Failed dsar_fulfillment_log should have 'uploaded' status, not 'attested'")
-		}
+		assert.Equal(t, "uploaded", stateEntry.Status,
+			"failed entry %s should have 'uploaded' status (not 'attested')", entry.ID)
 	}
 
-	t.Logf("=== Phase 4: Verify failed policy results stored in S3 ===")
+	t.Logf("=== Phase 4: Verify failed result.json + signed envelopes in S3 ===")
 	finalKeys := listS3Objects(t, region, bucket, basePrefix)
 	t.Logf("Final S3 state: %d objects total", len(finalKeys))
 
-	// Verify result.json for failed policies contains violations
-	for _, policyID := range []string{"soc2-cc7.4-incident-response-test", "soc2-cc3.1-risk-acceptance", "soc2-cc6.5-media-sanitization", "soc2-p5.2-dsar-fulfillment-log"} {
-		slug := storage.PolicySlug(policyID, frameworkName)
-		for _, key := range finalKeys {
-			if strings.Contains(key, slug+"/") && strings.HasSuffix(key, "/result.json") {
-				resultData, err := backends.results.Get(context.Background(), strings.TrimPrefix(key, basePrefix))
-				require.NoError(t, err)
-
-				var stored storage.StoredPolicyResult
-				require.NoError(t, json.Unmarshal(resultData, &stored))
-				assert.Equal(t, evidence.StatusFail, stored.Status,
-					"Stored result for %s should be fail", policyID)
-				assert.NotEmpty(t, stored.Violations,
-					"Stored result for %s should have violations", policyID)
-				t.Logf("Verified stored failure: %s violations=%d", policyID, len(stored.Violations))
-				break
-			}
+	// Each failed result.json must carry the violation.
+	resultJSONs := 0
+	for _, key := range finalKeys {
+		if !strings.HasSuffix(key, "/result.json") {
+			continue
 		}
+		resultJSONs++
+		resultData, err := backends.results.Get(context.Background(), strings.TrimPrefix(key, basePrefix))
+		require.NoError(t, err)
+		var stored storage.StoredPolicyResult
+		require.NoError(t, json.Unmarshal(resultData, &stored))
+		assert.Equal(t, evidence.StatusFail, stored.Status, "stored result for %s should be fail", stored.PolicyID)
+		assert.Len(t, stored.Violations, 1, "stored result for %s should carry the overdue violation", stored.PolicyID)
 	}
+	assert.Greater(t, resultJSONs, 0, "expected at least one result.json under the run folders")
 
-	// Verify signed evidence envelopes have valid attestations even for failed policies
+	// Signed envelopes still produced for failed policies. Each signs the
+	// "not_uploaded" manifest, not a missing PDF — that's by design.
 	verifier := attestation.NewEd25519Verifier()
 	envelopeCount := 0
 	for _, key := range finalKeys {
@@ -770,16 +619,13 @@ func RunNegativeScenario(t *testing.T) {
 
 		var envelope attestation.EvidenceEnvelope
 		require.NoError(t, json.Unmarshal(envelopeData, &envelope))
-		assert.NotEmpty(t, envelope.PublicKey, "Envelope should have public_key: %s", key)
+		assert.NotEmpty(t, envelope.PublicKey, "envelope should have public_key: %s", key)
 		assert.Equal(t, attestation.AlgorithmEd25519, envelope.Signature.Algorithm)
 		assert.NoError(t, verifier.Verify(&envelope),
 			"Ed25519 signature should be valid even for failed policies: %s", key)
-		t.Logf("Verified signed envelope: %s", key)
 	}
-	assert.Greater(t, envelopeCount, 0, "Should have evidence envelope files")
-	t.Logf("Verified %d signed evidence envelopes with valid Ed25519 signatures", envelopeCount)
-
-	t.Logf("Negative scenario: verified expected failures + valid attestations")
+	assert.Greater(t, envelopeCount, 0, "expected signed envelope files even on failure")
+	t.Logf("Verified %d signed envelopes; %d failing result.json files; %d failed policies", envelopeCount, resultJSONs, failedCount)
 }
 
 // RunMissingScenario runs with no evidence in S3 — verifies "not_uploaded" handling.

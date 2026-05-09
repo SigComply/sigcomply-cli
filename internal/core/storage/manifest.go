@@ -10,6 +10,13 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core/evidence"
 )
 
+// manualEvidencePDFFilename is the fixed name we mirror manual evidence under
+// inside each policy's run folder. The canonical declaration lives at
+// internal/core/manual.EvidencePDFFilename; we duplicate the literal here to
+// avoid an import cycle (the manual package depends on storage). Keep the two
+// in lockstep — a CI check or grep on rename is sufficient.
+const manualEvidencePDFFilename = "evidence.pdf"
+
 // StoredPolicyResult is the on-disk format for result.json in each policy folder.
 // It embeds PolicyResult (full violations included) and adds storage-specific metadata.
 type StoredPolicyResult struct {
@@ -23,16 +30,17 @@ type StoredPolicyResult struct {
 // StoreRun stores all evidence and policy results using a policy-first folder layout:
 //
 //	{framework}/{policy_slug}/{timestamp}_{run_id_short}/
-//	  evidence/{resource_type_plural}.json   (EvidenceEnvelope — self-contained, signed)
-//	  manual_attachments/{evidence_id}/...   (raw evidence.json + supporting files, when applicable)
-//	  result.json                            (StoredPolicyResult — full violations)
+//	  evidence/{resource_type_plural}.json    (EvidenceEnvelope — self-contained, signed)
+//	  manual_attachments/{evidence_id}/evidence.pdf  (manual PDF mirrored as sibling, when applicable)
+//	  result.json                             (StoredPolicyResult — full violations)
 //
 // Each evidence file is an independently verifiable EvidenceEnvelope: it contains the
-// raw evidence, a timestamp, and an Ed25519 signature over the signed payload. The
-// private key is discarded immediately after signing.
+// raw evidence (or, for manual policies, a small {evidence_id, file_hash, file_path,
+// period, framework} manifest), a timestamp, and an Ed25519 signature over the signed
+// payload. The private key is discarded immediately after signing.
 //
-// manualSidecars carries the raw evidence.json and supporting files (PDFs, screenshots)
-// for any manual evidence entries referenced by this run. Sidecars are mirrored into
+// manualSidecars carries the user-supplied PDF for each manual evidence entry
+// referenced by this run. Sidecars are mirrored into
 // every policy folder whose evidence list includes the matching "manual:<id>" resource
 // type, so auditors verify each policy from a single self-contained folder.
 func StoreRun(ctx context.Context, backend Backend, result *evidence.CheckResult,
@@ -207,6 +215,11 @@ func indexSidecarsByResourceType(sidecars []ManualSidecar) map[string]ManualSide
 	return out
 }
 
+// writeManualSidecars mirrors the user-supplied PDF for each referenced manual
+// evidence entry into this policy's run folder under
+// manual_attachments/{evidence_id}/evidence.pdf. The same PDF is duplicated
+// across every policy folder that references the entry, so each policy folder
+// is fully self-contained for auditor review.
 func writeManualSidecars(ctx context.Context, backend Backend, rp *RunPath,
 	resourceTypes []string, sidecarByType map[string]ManualSidecar) error {
 	for _, rt := range resourceTypes {
@@ -214,27 +227,18 @@ func writeManualSidecars(ctx context.Context, backend Backend, rp *RunPath,
 		if !ok {
 			continue
 		}
-
-		if len(sidecar.EvidenceJSON) > 0 {
-			path := rp.ManualAttachmentPath(sidecar.EvidenceID, "evidence.json")
-			if _, err := backend.StoreRaw(ctx, path, sidecar.EvidenceJSON, map[string]string{
-				"type":        "manual_evidence_json",
-				"evidence_id": sidecar.EvidenceID,
-				"period":      sidecar.Period,
-			}); err != nil {
-				return fmt.Errorf("failed to store manual evidence.json for %s: %w", sidecar.EvidenceID, err)
-			}
+		if len(sidecar.PDF) == 0 {
+			continue
 		}
 
-		for filename, data := range sidecar.Attachments {
-			path := rp.ManualAttachmentPath(sidecar.EvidenceID, filename)
-			if _, err := backend.StoreRaw(ctx, path, data, map[string]string{
-				"type":        "manual_attachment",
-				"evidence_id": sidecar.EvidenceID,
-				"period":      sidecar.Period,
-			}); err != nil {
-				return fmt.Errorf("failed to store manual attachment %s for %s: %w", filename, sidecar.EvidenceID, err)
-			}
+		path := rp.ManualAttachmentPath(sidecar.EvidenceID, manualEvidencePDFFilename)
+		if _, err := backend.StoreRaw(ctx, path, sidecar.PDF, map[string]string{
+			"type":        "manual_evidence_pdf",
+			"evidence_id": sidecar.EvidenceID,
+			"period":      sidecar.Period,
+			"sha256":      sidecar.FileHash,
+		}); err != nil {
+			return fmt.Errorf("failed to store manual %s for %s: %w", manualEvidencePDFFilename, sidecar.EvidenceID, err)
 		}
 	}
 	return nil

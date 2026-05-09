@@ -1,10 +1,26 @@
 // Package manual provides types and logic for manual evidence collection.
+//
+// Architectural note — manual evidence is exactly one PDF per (evidence_id,
+// period) at {framework}/{evidence_id}/{period}/{EvidencePDFFilename} in the
+// configured manual-evidence storage prefix. The CLI reads the PDF, hashes
+// the bytes, and runs the policy. It does not parse the PDF in v1.
+//
+// The catalog YAML still carries Type, Items, DeclarationText, and
+// AcceptedFormats — those are RENDER HINTS for the SigComply Evidence SPA
+// when it presents a clickable form. The CLI never branches on them at
+// evaluation time.
 package manual
 
-// EvidenceType represents the kind of manual evidence.
+// EvidenceType is a render hint for the SPA, not a CLI evaluation discriminator.
+//
+// Catalog entries use one of the constants below to tell the SPA whether
+// (and how) to render an interactive form for the entry. The CLI ignores
+// this field — every manual evidence is the same PDF flow regardless of type.
 type EvidenceType string
 
-// Evidence type constants define the supported manual evidence submission formats.
+// Evidence type constants define how the SPA should render the form for an
+// entry. document_upload entries are typically not rendered by the SPA at
+// all (the user produces the PDF externally and uploads it directly).
 const (
 	EvidenceTypeDocumentUpload EvidenceType = "document_upload"
 	EvidenceTypeChecklist      EvidenceType = "checklist"

@@ -38,16 +38,6 @@ var evidenceCatalogCmd = &cobra.Command{
 	RunE:  runEvidenceCatalog,
 }
 
-var evidenceSchemaCmd = &cobra.Command{
-	Use:   "schema",
-	Short: "Output the submitted evidence JSON schema",
-	Long: `Outputs the JSON Schema that defines the structure of submitted evidence files.
-
-Use this during SPA build to keep frontend types in sync with what the CLI expects:
-  sigcomply evidence schema > src/schemas/submitted-evidence.schema.json`,
-	RunE: runEvidenceSchema,
-}
-
 func runEvidenceInit(cmd *cobra.Command, args []string) (err error) {
 	ctx := cmd.Context()
 
@@ -98,9 +88,10 @@ func runEvidenceInit(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		folderPath := filepath.Join(cfg.Framework, entry.ID, period.Key)
-		readme := fmt.Sprintf("# %s\n\n%s\n\nEvidence ID: %s\nControl: %s\nType: %s\nFrequency: %s\nPeriod: %s\n\n"+
-			"Upload your evidence.json file (and any attachments) to this folder.\n",
-			entry.Name, entry.Description, entry.ID, entry.Control, entry.Type, entry.Frequency, period.Key)
+		readme := fmt.Sprintf("# %s\n\n%s\n\nEvidence ID: %s\nControl: %s\nFrequency: %s\nPeriod: %s\n\n"+
+			"Upload a single PDF as `%s` to this folder.\n",
+			entry.Name, entry.Description, entry.ID, entry.Control, entry.Frequency, period.Key,
+			manual.EvidencePDFFilename)
 
 		readmePath := filepath.Join(folderPath, "README.md")
 		if _, storeErr := backend.StoreRaw(ctx, readmePath, []byte(readme), nil); storeErr != nil {
@@ -180,14 +171,6 @@ func runEvidenceCatalog(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Total: %d evidence requirements\n", len(catalog.Entries))
 	return nil
-}
-
-func runEvidenceSchema(cmd *cobra.Command, args []string) error {
-	schema := manual.SubmittedEvidenceSchema()
-
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	return enc.Encode(schema)
 }
 
 func loadEvidenceConfig() (*config.Config, error) {
