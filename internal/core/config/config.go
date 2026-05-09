@@ -76,12 +76,21 @@ type StorageAuthFileConfig struct {
 	ClientID                 string `yaml:"client_id,omitempty" json:"client_id,omitempty"`
 }
 
+// GCSStorageConfig holds Google Cloud Storage settings from the config file.
+type GCSStorageConfig struct {
+	Bucket    string                 `yaml:"bucket,omitempty" json:"bucket,omitempty"`
+	Prefix    string                 `yaml:"prefix,omitempty" json:"prefix,omitempty"`
+	ProjectID string                 `yaml:"project_id,omitempty" json:"project_id,omitempty"`
+	Auth      *StorageAuthFileConfig `yaml:"auth,omitempty" json:"auth,omitempty"`
+}
+
 // FileStorageConfig holds storage settings as they appear in the YAML file.
 type FileStorageConfig struct {
 	Enabled *bool               `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 	Backend string              `yaml:"backend,omitempty" json:"backend,omitempty"`
 	Local   *LocalStorageConfig `yaml:"local,omitempty" json:"local,omitempty"`
 	S3      *S3StorageConfig    `yaml:"s3,omitempty" json:"s3,omitempty"`
+	GCS     *GCSStorageConfig   `yaml:"gcs,omitempty" json:"gcs,omitempty"`
 }
 
 // fileConfig mirrors Config with YAML-friendly structure for file parsing.
@@ -151,17 +160,21 @@ type Config struct {
 // StorageConfig holds evidence storage settings.
 type StorageConfig struct {
 	Enabled bool   `json:"enabled"`
-	Backend string `json:"backend"` // local, s3
+	Backend string `json:"backend"` // local, s3, gcs
 	Path    string `json:"path"`    // For local backend
-	Bucket  string `json:"bucket"`  // For S3 backend
+	Bucket  string `json:"bucket"`  // For S3 / GCS backend (object container)
 	Region  string `json:"region"`  // For S3 backend
-	Prefix  string `json:"prefix"`  // For S3 backend
+	Prefix  string `json:"prefix"`  // For S3 / GCS backend
 
 	// Endpoint and ForcePathStyle are S3-only. Set Endpoint to an HTTPS URL
 	// for on-prem S3-compatible stores (MinIO, Ceph, ECS, StorageGRID);
 	// most of those also need ForcePathStyle=true.
 	Endpoint       string `json:"endpoint,omitempty"`
 	ForcePathStyle bool   `json:"force_path_style,omitempty"`
+
+	// ProjectID is GCS-only. Optional — most operations don't require it
+	// because bucket names are globally unique on GCS.
+	ProjectID string `json:"project_id,omitempty"`
 
 	// Auth optionally configures an explicit credential strategy. When
 	// Mode is empty/"ambient", the SDK default credential chain is used.
@@ -365,34 +378,67 @@ func (c *Config) mergeStorageConfig(fs *FileStorageConfig) {
 	if fs.Local != nil && fs.Local.Path != "" {
 		c.Storage.Path = fs.Local.Path
 	}
-	if fs.S3 != nil {
-		if fs.S3.Bucket != "" {
-			c.Storage.Bucket = fs.S3.Bucket
-		}
-		if fs.S3.Region != "" {
-			c.Storage.Region = fs.S3.Region
-		}
-		if fs.S3.Prefix != "" {
-			c.Storage.Prefix = fs.S3.Prefix
-		}
-		if fs.S3.Endpoint != "" {
-			c.Storage.Endpoint = fs.S3.Endpoint
-		}
-		if fs.S3.ForcePathStyle {
-			c.Storage.ForcePathStyle = true
-		}
-		if fs.S3.Auth != nil {
-			c.Storage.Auth = StorageAuthConfig{
-				Mode:                     fs.S3.Auth.Mode,
-				Audience:                 fs.S3.Auth.Audience,
-				RoleARN:                  fs.S3.Auth.RoleARN,
-				SessionName:              fs.S3.Auth.SessionName,
-				WorkloadIdentityProvider: fs.S3.Auth.WorkloadIdentityProvider,
-				ServiceAccount:           fs.S3.Auth.ServiceAccount,
-				TenantID:                 fs.S3.Auth.TenantID,
-				ClientID:                 fs.S3.Auth.ClientID,
-			}
-		}
+	c.mergeS3FileConfig(fs.S3)
+	c.mergeGCSFileConfig(fs.GCS)
+}
+
+// mergeS3FileConfig merges file-based S3 settings into the flat StorageConfig.
+func (c *Config) mergeS3FileConfig(s3 *S3StorageConfig) {
+	if s3 == nil {
+		return
+	}
+	if s3.Bucket != "" {
+		c.Storage.Bucket = s3.Bucket
+	}
+	if s3.Region != "" {
+		c.Storage.Region = s3.Region
+	}
+	if s3.Prefix != "" {
+		c.Storage.Prefix = s3.Prefix
+	}
+	if s3.Endpoint != "" {
+		c.Storage.Endpoint = s3.Endpoint
+	}
+	if s3.ForcePathStyle {
+		c.Storage.ForcePathStyle = true
+	}
+	if s3.Auth != nil {
+		c.Storage.Auth = storageAuthFromFile(s3.Auth)
+	}
+}
+
+// mergeGCSFileConfig merges file-based GCS settings into the flat StorageConfig.
+func (c *Config) mergeGCSFileConfig(gcs *GCSStorageConfig) {
+	if gcs == nil {
+		return
+	}
+	if gcs.Bucket != "" {
+		c.Storage.Bucket = gcs.Bucket
+	}
+	if gcs.Prefix != "" {
+		c.Storage.Prefix = gcs.Prefix
+	}
+	if gcs.ProjectID != "" {
+		c.Storage.ProjectID = gcs.ProjectID
+	}
+	if gcs.Auth != nil {
+		c.Storage.Auth = storageAuthFromFile(gcs.Auth)
+	}
+}
+
+// storageAuthFromFile converts the file-form auth stanza into the runtime
+// shape. Centralized so S3 and GCS (and Azure later) all share the same
+// translation.
+func storageAuthFromFile(a *StorageAuthFileConfig) StorageAuthConfig {
+	return StorageAuthConfig{
+		Mode:                     a.Mode,
+		Audience:                 a.Audience,
+		RoleARN:                  a.RoleARN,
+		SessionName:              a.SessionName,
+		WorkloadIdentityProvider: a.WorkloadIdentityProvider,
+		ServiceAccount:           a.ServiceAccount,
+		TenantID:                 a.TenantID,
+		ClientID:                 a.ClientID,
 	}
 }
 
@@ -466,6 +512,24 @@ func (c *Config) LoadFromEnv() { //nolint:gocyclo // sequential env var loading 
 	}
 	if v := os.Getenv("SIGCOMPLY_STORAGE_S3_AUTH_SESSION_NAME"); v != "" {
 		c.Storage.Auth.SessionName = v
+	}
+
+	// GCS-specific knobs. Bucket/Prefix re-use the generic SIGCOMPLY_STORAGE_*
+	// env vars above; only GCS-only fields and the OIDC fields live here.
+	if v := os.Getenv("SIGCOMPLY_STORAGE_GCS_PROJECT_ID"); v != "" {
+		c.Storage.ProjectID = v
+	}
+	if v := os.Getenv("SIGCOMPLY_STORAGE_GCS_AUTH_MODE"); v != "" {
+		c.Storage.Auth.Mode = v
+	}
+	if v := os.Getenv("SIGCOMPLY_STORAGE_GCS_AUTH_AUDIENCE"); v != "" {
+		c.Storage.Auth.Audience = v
+	}
+	if v := os.Getenv("SIGCOMPLY_STORAGE_GCS_AUTH_WORKLOAD_IDENTITY_PROVIDER"); v != "" {
+		c.Storage.Auth.WorkloadIdentityProvider = v
+	}
+	if v := os.Getenv("SIGCOMPLY_STORAGE_GCS_AUTH_SERVICE_ACCOUNT"); v != "" {
+		c.Storage.Auth.ServiceAccount = v
 	}
 
 	// Provider settings

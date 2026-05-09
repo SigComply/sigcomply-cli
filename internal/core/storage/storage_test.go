@@ -149,6 +149,89 @@ func TestS3Backend_RejectsUnknownAuthMode(t *testing.T) {
 	assert.Contains(t, err.Error(), "unsupported auth mode")
 }
 
+func TestNewBackend_GCSMissingConfig(t *testing.T) {
+	cfg := &Config{Backend: "gcs"}
+	_, err := NewBackend(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "GCS configuration required")
+}
+
+func TestNewBackend_GCS(t *testing.T) {
+	cfg := &Config{
+		Backend: "gcs",
+		GCS: &GCSConfig{
+			Bucket: "evidence",
+			Prefix: "manual/",
+		},
+	}
+	backend, err := NewBackend(cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "gcs", backend.Name())
+}
+
+func TestGCSBackend_URIFor(t *testing.T) {
+	backend := NewGCSBackend(&GCSConfig{
+		Bucket: "soc2-evidence",
+		Prefix: "manual/",
+	})
+
+	uri := backend.URIFor("soc2/access_review/2026-Q1/evidence.pdf")
+	assert.Equal(t, "gs://soc2-evidence/manual/soc2/access_review/2026-Q1/evidence.pdf", uri)
+}
+
+func TestGCSBackend_OIDC_RequiresWIFProvider(t *testing.T) {
+	backend := NewGCSBackend(&GCSConfig{
+		Bucket: "evidence",
+		Auth: &AuthConfig{
+			Mode:           AuthModeOIDC,
+			ServiceAccount: "sa@my-project.iam.gserviceaccount.com",
+			// WorkloadIdentityProvider intentionally omitted.
+		},
+	})
+
+	_, err := backend.clientOptions(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "workload_identity_provider")
+}
+
+func TestGCSBackend_OIDC_RequiresServiceAccount(t *testing.T) {
+	backend := NewGCSBackend(&GCSConfig{
+		Bucket: "evidence",
+		Auth: &AuthConfig{
+			Mode:                     AuthModeOIDC,
+			WorkloadIdentityProvider: "projects/123/locations/global/workloadIdentityPools/p/providers/x",
+			// ServiceAccount intentionally omitted.
+		},
+	})
+
+	_, err := backend.clientOptions(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "service_account")
+}
+
+func TestGCSBackend_AmbientIsDefault(t *testing.T) {
+	for _, cfg := range []*GCSConfig{
+		{Bucket: "b"},
+		{Bucket: "b", Auth: &AuthConfig{}},
+	} {
+		backend := NewGCSBackend(cfg)
+		opts, err := backend.clientOptions(context.Background())
+		assert.NoError(t, err)
+		assert.Nil(t, opts, "ambient mode should produce no client options")
+	}
+}
+
+func TestGCSBackend_RejectsUnknownAuthMode(t *testing.T) {
+	backend := NewGCSBackend(&GCSConfig{
+		Bucket: "b",
+		Auth:   &AuthConfig{Mode: "saml"},
+	})
+
+	_, err := backend.clientOptions(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported auth mode")
+}
+
 func TestLocalBackend_Init(t *testing.T) {
 	tmpDir := t.TempDir()
 	storagePath := filepath.Join(tmpDir, "evidence")

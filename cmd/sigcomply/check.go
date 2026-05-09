@@ -31,6 +31,7 @@ import (
 const (
 	backendLocal  = "local"
 	backendS3     = "s3"
+	backendGCS    = "gcs"
 	frameworkSOC2 = "soc2"
 )
 
@@ -839,6 +840,13 @@ func buildStorageConfig(cfg *config.Config) *storage.Config {
 			ForcePathStyle: cfg.Storage.ForcePathStyle,
 			Auth:           buildStorageAuthConfig(&cfg.Storage.Auth),
 		}
+	case backendGCS:
+		storageCfg.GCS = &storage.GCSConfig{
+			Bucket:    cfg.Storage.Bucket,
+			Prefix:    cfg.Storage.Prefix,
+			ProjectID: cfg.Storage.ProjectID,
+			Auth:      buildStorageAuthConfig(&cfg.Storage.Auth),
+		}
 	}
 
 	return storageCfg
@@ -868,6 +876,14 @@ func buildManualStorageConfig(cfg *config.Config) *storage.Config {
 			Endpoint:       cfg.Storage.Endpoint,
 			ForcePathStyle: cfg.Storage.ForcePathStyle,
 			Auth:           buildStorageAuthConfig(&cfg.Storage.Auth),
+		}
+	case backendGCS:
+		prefix := cfg.Storage.Prefix + cfg.ManualEvidence.Prefix
+		storageCfg.GCS = &storage.GCSConfig{
+			Bucket:    cfg.Storage.Bucket,
+			Prefix:    prefix,
+			ProjectID: cfg.Storage.ProjectID,
+			Auth:      buildStorageAuthConfig(&cfg.Storage.Auth),
 		}
 	}
 

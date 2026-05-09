@@ -77,14 +77,40 @@ type ListFilter struct {
 
 // Config holds storage configuration.
 type Config struct {
-	// Backend is the storage backend type (local, s3, gcs).
+	// Backend is the storage backend type ("local", "s3", "gcs", "azure_blob").
 	Backend string `yaml:"backend" json:"backend"`
 
 	// Local contains local storage configuration.
 	Local *LocalConfig `yaml:"local,omitempty" json:"local,omitempty"`
 
-	// S3 contains S3 storage configuration.
+	// S3 contains S3 storage configuration. Also covers S3-compatible
+	// on-prem stores when Endpoint is set.
 	S3 *S3Config `yaml:"s3,omitempty" json:"s3,omitempty"`
+
+	// GCS contains Google Cloud Storage configuration.
+	GCS *GCSConfig `yaml:"gcs,omitempty" json:"gcs,omitempty"`
+}
+
+// GCSConfig holds Google Cloud Storage configuration.
+//
+// Auth mirrors the S3 model: when Auth is nil or Mode is "ambient", the
+// google.golang.org/cloud SDK uses Application Default Credentials. When
+// Mode is "oidc", the CLI exchanges its CI OIDC token for a federated
+// access token via Workload Identity Federation.
+type GCSConfig struct {
+	// Bucket is the GCS bucket name.
+	Bucket string `yaml:"bucket" json:"bucket"`
+
+	// Prefix is the object name prefix for all stored items.
+	Prefix string `yaml:"prefix,omitempty" json:"prefix,omitempty"`
+
+	// ProjectID is the GCP project owning the bucket. Optional — most
+	// operations don't require it because the bucket name is globally
+	// unique.
+	ProjectID string `yaml:"project_id,omitempty" json:"project_id,omitempty"`
+
+	// Auth optionally specifies an explicit auth strategy.
+	Auth *AuthConfig `yaml:"auth,omitempty" json:"auth,omitempty"`
 }
 
 // LocalConfig holds local storage configuration.
@@ -186,6 +212,11 @@ func NewBackend(cfg *Config) (Backend, error) {
 			return nil, &ConfigError{Message: "S3 configuration required"}
 		}
 		return NewS3Backend(cfg.S3), nil
+	case "gcs":
+		if cfg.GCS == nil {
+			return nil, &ConfigError{Message: "GCS configuration required"}
+		}
+		return NewGCSBackend(cfg.GCS), nil
 	default:
 		return nil, &ConfigError{Message: "unsupported storage backend: " + cfg.Backend}
 	}
