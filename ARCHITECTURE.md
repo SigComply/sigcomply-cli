@@ -268,13 +268,37 @@ type Signature struct {
 const AlgorithmEd25519 = "ed25519"
 ```
 
-**On-disk format example** (`evidence/aws-iam-users.json`):
+**On-disk format examples**:
+
+`evidence/aws-iam-users.json` (automated — `evidence` is the raw API response):
 
 ```json
 {
   "signed": {
     "timestamp": "2026-03-25T10:00:00Z",
     "evidence": { "users": [...], "mfa_devices": [...] }
+  },
+  "public_key": "base64encodedEd25519PublicKey==",
+  "signature": {
+    "algorithm": "ed25519",
+    "value": "base64encodedSignatureBytes=="
+  }
+}
+```
+
+`evidence/manual-employee_nda.json` (manual — `evidence` is the manifest; the PDF is the sibling file at `file_path`):
+
+```json
+{
+  "signed": {
+    "timestamp": "2026-03-25T10:00:00Z",
+    "evidence": {
+      "evidence_id": "employee_nda",
+      "framework":   "soc2",
+      "period":      "2026",
+      "file_path":   "manual_attachments/employee_nda/evidence.pdf",
+      "file_hash":   "9a1b2c3d4e5f...sha256hex"
+    }
   },
   "public_key": "base64encodedEd25519PublicKey==",
   "signature": {
@@ -371,6 +395,8 @@ The `evidence` field is `json.RawMessage` (raw API response). When serializing `
 
 ### Policy Structure
 
+**Automated policy** — consumes structured JSON from an API collector:
+
 ```rego
 # internal/compliance_frameworks/soc2/policies/cc6_1_mfa.rego
 package sigcomply.soc2.cc6_1
@@ -383,6 +409,7 @@ metadata := {
     "severity": "high",
     "evaluation_mode": "individual",
     "resource_types": ["aws:iam:user"],
+    "evidence_type": "automated",
 }
 
 violations[violation] if {
@@ -395,6 +422,33 @@ violations[violation] if {
     }
 }
 ```
+
+**Manual policy** — checks PDF presence within the temporal window. The body delegates to the shared `manual.presence_violation` helper; per-policy text-extraction rules layer on top in the future.
+
+```rego
+# internal/compliance_frameworks/soc2/policies/manual/cc1_1_employee_nda.rego
+package sigcomply.soc2.cc1_1_employee_nda
+
+import data.sigcomply.lib.manual
+
+metadata := {
+    "id":              "soc2-cc1.1-employee-nda",
+    "name":            "Employee NDA Acknowledgment",
+    "framework":       "soc2",
+    "control":         "CC1.1",
+    "severity":        "high",
+    "evaluation_mode": "individual",
+    "resource_types":  ["manual:employee_nda"],
+    "evidence_type":   "manual",
+}
+
+violations contains v if {
+    input.resource_type == "manual:employee_nda"
+    v := manual.presence_violation(input)
+}
+```
+
+**`evidence_type`**: every policy declares this (`automated` or `manual`). The engine extracts the value from `metadata` at load time and uses it to route the right evidence flow. During the migration, missing values default to `automated` with a one-time warning; once all policies are tagged, the default is removed and a missing `evidence_type` becomes a load-time error.
 
 ---
 
@@ -493,16 +547,16 @@ Evidence is organized **policy-first**: each policy has its own folder with a ch
 {bucket}/
 └── {framework}/                                      # e.g., soc2
     ├── summary.json                                  # framework snapshot — last run, totals, per-policy state
-    ├── execution-state.json                          # manual evidence attestation ledger
+    ├── execution-state.json                          # manual evidence ledger (per-period status, file_hash)
     └── {policy_id}/                                  # e.g., cc6_1_mfa
         └── {timestamp}_{run_id_8chars}/              # e.g., 20260325T100000Z_a3f8b2c1
             ├── evidence/
-            │   ├── aws-iam-users.json                # EvidenceEnvelope (signed, self-contained)
-            │   └── github-members.json               # EvidenceEnvelope (signed, self-contained)
-            ├── manual_attachments/                   # only for policies referencing manual evidence
+            │   ├── aws-iam-users.json                # EvidenceEnvelope (signed, automated)
+            │   ├── github-members.json               # EvidenceEnvelope (signed, automated)
+            │   └── manual-{evidence_id}.json         # EvidenceEnvelope wrapping the manual manifest
+            ├── manual_attachments/                   # only for policies with evidence_type: manual
             │   └── {evidence_id}/
-            │       ├── evidence.json                 # raw user-submitted JSON
-            │       └── *.pdf | *.png                 # supporting documents
+            │       └── evidence.pdf                  # SPA-generated or user-supplied PDF (sole evidence artifact)
             └── result.json                           # PolicyRunResult (full violations — stays in S3)
 ```
 
@@ -516,9 +570,9 @@ Evidence is organized **policy-first**: each policy has its own folder with a ch
 
 **No manifest file** — There is no top-level `manifest.json`. Each evidence file carries its own cryptographic proof (see `EvidenceEnvelope`). The `result.json` lists which evidence files were used for the policy evaluation via `evidence_files`.
 
-**Manual evidence sidecars** — When a policy references a manual evidence entry (resource type `manual:<id>`), the user-submitted `evidence.json` and any supporting files (PDFs, screenshots) are mirrored from the manual evidence bucket into the policy's run folder under `manual_attachments/{evidence_id}/`. The same files may be duplicated across policy folders — auditors verify each policy from a single self-contained folder rather than cross-referencing the manual bucket.
+**Manual evidence sidecars** — When a policy with `evidence_type: manual` runs, the user-supplied `evidence.pdf` is mirrored from the manual-evidence bucket into the policy's run folder under `manual_attachments/{evidence_id}/evidence.pdf`. The matching `EvidenceEnvelope` inside `evidence/` (named `manual-{evidence_id}.json`) wraps a small manifest `{evidence_id, file_hash, file_path, period, framework}` — the PDF is the sibling, never base64-embedded inside the envelope. The same PDF may be duplicated across policy folders — auditors verify each policy from a single self-contained folder rather than cross-referencing the manual bucket.
 
-**Framework summary** — `{framework}/summary.json` is a per-policy snapshot showing, in one file, which policies passed and what evidence backed each result. Built after every `StoreRun`. Policies are split into `automated` (API-collected resource types) and `manual` (any `manual:*` resource type). Writes merge with the existing summary so policies skipped by `--policies` / `--controls` filters keep their last-known state instead of being erased.
+**Framework summary** — `{framework}/summary.json` is a per-policy snapshot showing, in one file, which policies passed and what evidence backed each result. Built after every `StoreRun`. Policies are split into `automated` and `manual` based on the policy's `evidence_type` metadata. For manual policies the snapshot records `file_hash` and `file_path` of the PDF that backed the result. Writes merge with the existing summary so policies skipped by `--policies` / `--controls` filters keep their last-known state instead of being erased.
 
 > **TODO**: Add a `check_runs_history/` root folder inside each framework folder containing:
 > - A `run_history.json` tracking all historical runs (run_id, timestamp, policies evaluated, overall status)
@@ -532,9 +586,13 @@ Evidence is organized **policy-first**: each policy has its own folder with a ch
 Evidence files are signed using **ephemeral Ed25519** keypairs — one fresh keypair per evidence file. No pre-shared secrets or key management required.
 
 ```
-// For each evidence file collected:
+// For each evidence file collected (automated or manual):
 keypair = ed25519.GenerateKey()                    // fresh keypair, never reused
 payload = CanonicalJSON({ timestamp, evidence })   // deterministic serialization
+                                                    // automated → evidence is the API response
+                                                    // manual    → evidence is { evidence_id,
+                                                    //             file_hash, file_path,
+                                                    //             period, framework }
 signature = ed25519.Sign(private_key, payload)
 private_key.Discard()                              // immediately, never stored
 
@@ -544,6 +602,10 @@ evidence_file.json = {
     signature:  { algorithm: "ed25519",
                   value: base64(signature) },
 } → customer S3
+
+// For manual evidence, the PDF lives as a sibling file at
+// manual_attachments/{evidence_id}/evidence.pdf. The envelope's `file_hash`
+// is sha256(PDF bytes); the auditor recomputes that hash and compares.
 ```
 
 **Verification** (auditor, out of band):
@@ -552,6 +614,11 @@ envelope = read(evidence_file.json)
 payload  = CanonicalJSON(envelope.signed)
 ed25519.Verify(decode(envelope.public_key), payload, decode(envelope.signature.value))
 // → true: file is intact since collection
+
+// For manual evidence, additionally:
+pdf_bytes = read(envelope.signed.evidence.file_path)
+sha256(pdf_bytes) == envelope.signed.evidence.file_hash
+// → true: PDF is the one this envelope references
 ```
 
 **OIDC is authentication only** — the OIDC JWT token is sent in the `Authorization: Bearer` header to authenticate the CLI with the SigComply Cloud API. It is not used for signing evidence files.
@@ -590,10 +657,11 @@ ed25519.Verify(decode(envelope.public_key), payload, decode(envelope.signature.v
 
 ### New Policy
 
-1. Create `internal/compliance_frameworks/<framework>/policies/<control>.rego`
-2. Include metadata with id, framework, control, severity, evaluation_mode
-3. Create `_test.rego` file
-4. Policy auto-embedded on build
+1. **Automated**: create `internal/compliance_frameworks/<framework>/policies/<control>.rego`. Set `"evidence_type": "automated"` in `metadata`. Body reads `input.data.*` fields from the collector's JSON.
+2. **Manual**: create `internal/compliance_frameworks/<framework>/policies/manual/<control>.rego`. Set `"evidence_type": "manual"` in `metadata`, with `"resource_types": ["manual:<evidence_id>"]`. Body delegates to `data.sigcomply.lib.manual.presence_violation(input)` (presence + temporal-window check). Add a corresponding catalog entry in `internal/core/manual/catalogs/<framework>.yaml`.
+3. Always include in `metadata`: `id`, `name`, `framework`, `control`, `severity`, `evaluation_mode`, `resource_types`, `evidence_type`.
+4. Create a `_test.rego` file. Manual tests cover three cases: overdue+not_uploaded, uploaded, and wrong-resource-type.
+5. Policy auto-embedded on build.
 
 ### New Framework
 

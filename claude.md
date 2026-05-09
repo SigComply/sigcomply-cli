@@ -217,19 +217,35 @@ User Environment
     ↓
 [SigComply CLI]
     ↓
-    ├─> Fetch data from Service APIs (AWS, GitHub, etc.)
-    │   Each evidence file collected is immediately wrapped in a signed envelope:
-    │   { signed: { timestamp, evidence }, public_key, signature }
-    │   Private key discarded immediately after signing.
+    ├─> Two evidence flows feed OPA — and only two:
+    │
+    │   1. AUTOMATED: Fetch data from service APIs (AWS, GitHub, GCP, …)
+    │      Each evidence file is immediately wrapped in a signed envelope:
+    │      { signed: { timestamp, evidence }, public_key, signature }
+    │      Private key discarded immediately after signing.
+    │
+    │   2. MANUAL: Read evidence.pdf from the customer's storage bucket at
+    │      {framework}/{evidence_id}/{period}/evidence.pdf
+    │      The CLI hashes the bytes, mirrors the PDF into the policy result folder,
+    │      and feeds OPA a small record { evidence_id, status, period,
+    │      temporal_status, file_hash, file_path }. That record (not the PDF bytes)
+    │      is wrapped in the signed EvidenceEnvelope.
+    │
+    │   Every policy declares evidence_type: automated | manual to indicate
+    │   which flow it consumes.
     │
     ├─> Execute OPA/Rego policies against collected evidence locally
+    │   Manual policies (v1): presence + temporal-window check.
+    │   Future text-extraction inside the PDF is anticipated but additive.
     ├─> Generate PolicyRunResult per policy (with full violations + resource IDs)
     │
     ├─> Store to customer's storage (S3, GCS, local):   [ALL stays with customer]
     │   Per policy, per run:
-    │   ├─> evidence/aws-iam-users.json    (EvidenceEnvelope — signed, self-contained)
-    │   ├─> evidence/github-members.json  (EvidenceEnvelope — signed, self-contained)
-    │   └─> result.json                   (PolicyRunResult — full violations + cli_sha + repo_sha)
+    │   ├─> evidence/aws-iam-users.json                (EvidenceEnvelope — signed, self-contained)
+    │   ├─> evidence/github-members.json               (EvidenceEnvelope — signed, self-contained)
+    │   ├─> evidence/manual-{evidence_id}.json         (EvidenceEnvelope wrapping the PDF manifest)
+    │   ├─> manual_attachments/{evidence_id}/evidence.pdf  (the PDF itself, mirrored sibling)
+    │   └─> result.json                                (PolicyRunResult — full violations + cli_sha + repo_sha)
     │
     └─> Send to SigComply Cloud API (paid tier):        [Aggregated only, no PII]
         ├─> Per-policy results: policy_id + pass/fail + severity
@@ -244,22 +260,23 @@ User Environment
 ### 3. Key Components
 
 #### Evidence Collection
-- CLI connects to various service APIs using customer's local credentials
-- Fetches infrastructure state, configuration, logs, user data, etc.
-- Each collected evidence file is immediately wrapped in a signed `EvidenceEnvelope`
-- No credentials are sent to SigComply servers
+- Two and only two evidence flows. Every policy declares which it consumes via `evidence_type` metadata: `automated` or `manual`.
+- **Automated** (`evidence_type: automated`): the CLI calls service APIs (AWS, GitHub, GCP, …) using the customer's local credentials and gets structured JSON back. Each collected JSON evidence file is immediately wrapped in a signed `EvidenceEnvelope`.
+- **Manual** (`evidence_type: manual`): the customer (or the SigComply Evidence SPA, optionally) places `evidence.pdf` at `{framework}/{evidence_id}/{period}/evidence.pdf` in the configured manual-evidence storage prefix. The CLI reads the PDF, hashes it, and emits an OPA record `{evidence_id, status, period, temporal_status, file_hash, file_path}`. That record (not the PDF bytes) is wrapped in the EvidenceEnvelope; the PDF is mirrored as a sibling file (see Evidence Storage below).
+- No credentials are sent to SigComply servers.
 
 #### Policy Evaluation
-- OPA/Rego policies define compliance rules
-- Policies are open-source and inspectable
-- Policies evaluate fetched data locally
-- Results indicate pass/fail for each control
+- OPA/Rego policies define compliance rules.
+- Each policy declares `evidence_type: automated | manual` in its `metadata` rule.
+- For manual policies in v1, the evaluator only checks **presence within the temporal window** (status `uploaded` and within grace). Future text-extraction inside the PDF is anticipated but additive — a policy that needs it just adds a second violation rule on top of the presence check.
+- Policies are open-source and inspectable.
+- Results indicate pass/fail for each control.
 
 #### Evidence Storage (Sovereign Vault)
 - Evidence stored in a policy-first folder structure: `{framework}/{policy_id}/{timestamp}_{run_id}/`
 - Each evidence file is a self-contained signed envelope with its own ephemeral keypair
 - Each policy run produces a `result.json` with full violation details (resource IDs stay in S3)
-- Policies that reference manual evidence also get the user's raw `evidence.json` plus any supporting files (PDFs, screenshots) mirrored under `manual_attachments/{evidence_id}/` so each policy folder is self-contained
+- Manual policies (those with `evidence_type: manual`) also get the user-supplied PDF mirrored as a sibling at `manual_attachments/{evidence_id}/evidence.pdf`, so each policy folder is self-contained. The corresponding signed envelope inside `evidence/` carries a small JSON manifest `{evidence_id, file_hash, file_path, period, framework}` — the PDF lives only as the mirrored sibling, not base64-embedded inside the envelope.
 - A framework-level `{framework}/summary.json` is refreshed after every run with per-policy pass/fail and last-run state, split into `automated` and `manual` policies. Writes merge with the prior summary so filtered runs preserve last-known state.
 - Customer chooses: S3 bucket, GCS, local
 - SigComply never has access to raw evidence or violation details
@@ -268,9 +285,13 @@ User Environment
 #### Evidence Signing (per file)
 - A fresh ephemeral Ed25519 keypair is generated per evidence file — never reused across files
 - The signed payload is `{ timestamp, evidence }` serialized as canonical JSON
+- For **automated** evidence, `evidence` is the structured API response itself
+- For **manual** evidence, `evidence` is the small manifest `{ evidence_id, file_hash, file_path, period, framework }` — the PDF stays as a sibling file at the referenced `file_path`, never base64-embedded
 - Private key is discarded immediately after signing — never stored anywhere
 - Public key + signature are embedded inside the evidence file itself (`EvidenceEnvelope`)
-- Purpose: auditor spot-checks — pick any evidence file, verify it independently without contacting SigComply
+- Auditor spot-check workflow:
+  - Automated: verify envelope signature → done
+  - Manual: verify envelope signature → re-hash the sibling PDF → compare to `file_hash`
 - This is out-of-band verification, not part of the core compliance workflow
 
 #### Cloud Reporting (Paid Tier)
@@ -453,28 +474,41 @@ include:
 ### 3. Running Compliance Checks (Local)
 ```bash
 sigcomply check --framework soc2
-# Fetches current infrastructure state
-# Evaluates OPA policies locally
-# Wraps each evidence file in a signed envelope (ephemeral Ed25519 keypair per file, private key discarded immediately)
-# Stores signed evidence envelopes + policy result files in customer's vault (S3/local)
+# Fetches current infrastructure state from APIs (automated evidence)
+# Reads any uploaded evidence.pdf files for manual policies (manual evidence)
+# Evaluates OPA policies locally — automated and manual share the same evaluator
+# Wraps each evidence file in a signed envelope (ephemeral Ed25519 keypair per file)
+# Stores signed evidence envelopes + mirrored manual PDFs + policy result files in customer's vault (S3/local)
 # Authenticates via OIDC token in CI
 # Sends aggregated policy results to Cloud API (counts only, no resource IDs)
 # Outputs pass/fail results
 ```
 
-### 4. CI/CD Execution (Automatic)
+### 4. Manual Evidence Workflow
+Manual evidence is always exactly one PDF per evidence_id per period at:
+
+    {manual_evidence_prefix}/{framework}/{evidence_id}/{period}/evidence.pdf
+
+How that PDF gets there is up to the customer. Two common paths:
+
+1. **External source** (HR exports, training certificates, scanned documents): the customer produces the PDF themselves and uploads it to the path above. The SPA is not involved.
+2. **SigComply Evidence SPA** (declarations and checklists): the customer opens the static SPA, fills in the catalog form for that entry, downloads the generated `evidence.pdf`, and uploads it to the same path.
+
+From the CLI's perspective there is no difference between (1) and (2). It reads the PDF, hashes it, and runs the policy. Catalog entries carry SPA-rendering hints (`type`, `items`, `declaration_text`) so the SPA knows whether and how to render a form — the CLI ignores those fields at evaluation time.
+
+### 5. CI/CD Execution (Automatic)
 When the workflow runs:
 1. CI/CD platform generates ephemeral OIDC token
 2. SigComply CLI is installed via reusable workflow
-3. CLI fetches infrastructure data using repository secrets
+3. CLI fetches automated evidence from APIs using repository secrets, and reads any manual evidence PDFs from the configured manual-evidence storage prefix
 4. Policies are evaluated locally — full violations (with resource IDs) computed in memory
-5. Each collected evidence file is wrapped in a signed EvidenceEnvelope (fresh ephemeral Ed25519 keypair per file, private key discarded immediately)
-6. Signed evidence envelopes + PolicyRunResult files stored in customer's S3 vault under policy-first folder structure
+5. Each collected automated evidence file is wrapped in a signed EvidenceEnvelope; for manual evidence the small `{evidence_id, file_hash, file_path, ...}` manifest is wrapped, and the PDF is mirrored as a sibling under `manual_attachments/{evidence_id}/evidence.pdf`
+6. Signed envelopes + mirrored PDFs + PolicyRunResult files stored in customer's S3 vault under policy-first folder structure
 7. CLI aggregates results (resource counts, policy-level pass/fail) — resource identifiers discarded
 8. Aggregated compliance data sent to Rails API with OIDC token (no resource IDs, no PII)
 9. Build passes/fails based on compliance status
 
-### 5. Audit Preparation
+### 6. Audit Preparation
 ```bash
 sigcomply report --framework soc2 --format pdf
 # Generates audit-ready report from policy results stored in Cloud API
@@ -488,6 +522,8 @@ Auditor selects a handful of evidence files to verify
   → Each file is a self-contained EvidenceEnvelope (e.g. evidence/iam-users.json):
       { signed: { timestamp, evidence }, public_key, signature }
   → Auditor verifies the signature using the public_key embedded inside the same file
+  → For manual evidence: also re-hashes the sibling PDF at the path inside `evidence`
+    and compares to `file_hash`. Two-step verification, both steps mechanical.
   → No separate attestation.json or manifest needed
   → Match confirms the evidence is intact and unmodified since collection
 ```
@@ -530,26 +566,31 @@ sigcomply-cli/
 │   │       └── policies/
 │   │
 │   ├── data_sources/                    # Evidence collection
-│   │   └── apis/                        # API-based collectors
-│   │       ├── aws/
-│   │       │   ├── collector.go         # Auth, config, orchestration
-│   │       │   ├── iam.go, s3.go, cloudtrail.go
-│   │       │   ├── ec2.go, ecr.go, rds.go, kms.go
-│   │       │   └── guardduty.go, configservice.go, cloudwatch.go
-│   │       │
-│   │       ├── github/
-│   │       │   ├── collector.go, repos.go, members.go
-│   │       │
-│   │       └── gcp/
-│   │           ├── collector.go, iam.go, storage.go
-│   │           └── compute.go, sql.go
+│   │   ├── apis/                        # Automated flow — API-based collectors
+│   │   │   ├── aws/
+│   │   │   │   ├── collector.go         # Auth, config, orchestration
+│   │   │   │   ├── iam.go, s3.go, cloudtrail.go
+│   │   │   │   ├── ec2.go, ecr.go, rds.go, kms.go
+│   │   │   │   └── guardduty.go, configservice.go, cloudwatch.go
+│   │   │   │
+│   │   │   ├── github/
+│   │   │   │   ├── collector.go, repos.go, members.go
+│   │   │   │
+│   │   │   └── gcp/
+│   │   │       ├── collector.go, iam.go, storage.go
+│   │   │       └── compute.go, sql.go
+│   │   │
+│   │   └── manual/                      # Manual flow — reads evidence.pdf from storage
+│   │       └── reader.go
 │   │
 │   ├── core/                            # Shared types & utilities
 │   │   ├── evidence/                    # Evidence, Result, Violation types
 │   │   ├── config/                      # Configuration loading
 │   │   ├── output/                      # Output formatting
-│   │   ├── storage/                     # Evidence storage (S3, local)
+│   │   ├── storage/                     # Evidence storage (S3, local) + manual sidecar mirroring
 │   │   ├── attestation/                 # Attestation signing & hashing
+│   │   ├── manual/                      # Manual evidence catalog, period/grace logic, execution state
+│   │   │   └── catalogs/                # Embedded YAML catalogs (soc2.yaml, ...)
 │   │   └── cloud/                       # SigComply Cloud client
 │   │
 │   └── testutil/                        # Test helpers
@@ -584,6 +625,8 @@ sigcomply-cli/
 | `sigcomply init-ci` | Generate CI/CD workflow files |
 | `sigcomply collect` | Collect evidence only (no evaluation) |
 | `sigcomply evaluate` | Evaluate policies against stored evidence |
+| `sigcomply evidence init` | Scaffold per-period folders for manual evidence (one folder per catalog entry) |
+| `sigcomply evidence catalog` | Print the manual-evidence catalog (text or JSON; consumed by the SPA) |
 | `sigcomply report` | Generate compliance reports |
 | `sigcomply config` | View/validate/set configuration |
 | `sigcomply version` | Show version information |
@@ -868,18 +911,24 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 - Keep the CLI simple and developer-friendly
 - Think "compliance as code" - make it feel like testing
 - When in doubt about design decisions, favor security over convenience
+- **Key architectural decision — Two and only two evidence flows**:
+
+  Every policy declares `evidence_type: automated | manual` in its `metadata` rule. The CLI has exactly two evidence pipelines and the OPA evaluator never branches on anything else.
+  - **Automated**: API collectors → structured JSON → wrapped in EvidenceEnvelope → policy reads JSON values.
+  - **Manual**: customer-supplied PDF at a deterministic path → CLI hashes bytes → small JSON manifest wrapped in EvidenceEnvelope, PDF mirrored as sibling → policy (v1) checks presence within window. No `checklist` / `declaration` / `document_upload` sub-types in the evaluator. The catalog YAML keeps `type`, `items`, `declaration_text` as render hints for the SPA, but the CLI ignores them.
+
 - **Key architectural decision - What stays with customer vs goes to cloud**:
 
   **Stays with Customer (in their S3 vault)**:
-  - Raw evidence (actual API responses) — wrapped in signed `EvidenceEnvelope` files
+  - Raw automated evidence (API responses) — wrapped in signed `EvidenceEnvelope` files
+  - Raw manual evidence (`evidence.pdf`) — mirrored as a sibling at `manual_attachments/{evidence_id}/evidence.pdf`; the matching EvidenceEnvelope wraps a small `{evidence_id, file_hash, file_path, ...}` manifest
   - Full `PolicyRunResult` per policy per run — includes all `Violation` details with resource IDs, ARNs, etc.
-  - Ephemeral Ed25519 public key — embedded inside each `EvidenceEnvelope` file
-  - Cryptographic signature — embedded inside each `EvidenceEnvelope` file
+  - Ephemeral Ed25519 public key + cryptographic signature — embedded inside each `EvidenceEnvelope` file
 
   **Goes to SigComply Cloud (paid tier) — aggregated only, no PII**:
   - Per-policy results: policy_id + pass/fail + severity + resource counts
   - Compliance scores (aggregated percentages)
-  - No resource identifiers, no usernames, no ARNs, no email addresses
+  - No resource identifiers, no usernames, no ARNs, no email addresses, no PDF bytes, no PDF hashes
 
   This enables compliance dashboards and trend analysis while maintaining strict data privacy.
 
@@ -889,10 +938,12 @@ Each framework is a self-contained package in `internal/compliance_frameworks/`:
 
 - **Evidence signing design (EvidenceEnvelope)**:
   - Each evidence file is independently wrapped in a signed envelope: `{signed: {timestamp, evidence}, public_key, signature}`
+  - For automated evidence, `evidence` is the raw API response itself
+  - For manual evidence, `evidence` is the manifest `{evidence_id, file_hash, file_path, period, framework}` — the PDF lives only as the sibling file at `file_path` (never base64-embedded in the envelope)
   - A fresh ephemeral Ed25519 keypair is generated per evidence file — private key discarded immediately after signing
-  - The same raw evidence data (e.g., IAM users) may appear in multiple policy folders — each copy has its own independent keypair and signature
+  - The same raw evidence data may appear in multiple policy folders — each copy has its own independent keypair and signature
   - Signing uses canonical JSON (sorted map keys) so the same data always produces the same bytes for signing/verification
-  - Purpose: auditor spot-checks — pick any evidence file, verify its signature independently without contacting SigComply
+  - Purpose: auditor spot-checks — pick any evidence file, verify its signature independently without contacting SigComply. For manual evidence, the auditor additionally re-hashes the sibling PDF and compares to `file_hash`.
   - No separate `attestation.json` manifest — proof travels with each individual file
   - No Rails involvement in verification — entirely customer-side
 

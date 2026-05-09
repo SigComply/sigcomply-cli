@@ -20,7 +20,7 @@
 7. Document OIDC setup steps for users
 8. Update reusable workflows to support new integration
 
-## Adding a New Compliance Policy
+## Adding a New Automated Compliance Policy
 
 **Design Guideline: Framework-Specific Policies**
 Each policy lives within its framework directory. Simplicity and readability over DRY abstraction.
@@ -29,10 +29,57 @@ Each policy lives within its framework directory. Simplicity and readability ove
    - Example: `internal/compliance_frameworks/soc2/policies/cc6_1_mfa.rego`
    - Example: `internal/compliance_frameworks/hipaa/policies/164_312_access.rego`
 2. Use package naming: `package sigcomply.<framework>.<control>`
-3. Include metadata with id, name, framework, control, severity
+3. Include `metadata` with `id`, `name`, `framework`, `control`, `severity`, `evaluation_mode`, `resource_types`, and **`evidence_type: "automated"`** (required — the engine routes evaluation by this).
 4. Define `violations` rule for policy checks
 5. Write policy tests in `<policy>_test.rego`
 6. Policy automatically embedded via framework's `go:embed` on next build
+
+## Adding a New Manual Evidence Policy
+
+Manual policies check that a customer-supplied PDF exists at `{framework}/{evidence_id}/{period}/evidence.pdf` within the temporal window. The CLI does not read or parse the PDF in v1 — only its presence and hash matter. Future PDF text-extraction policies layer on top of the presence check.
+
+1. **Add a catalog entry** in `internal/core/manual/catalogs/<framework>.yaml`:
+   ```yaml
+   - id: employee_nda
+     control: CC1.1
+     type: declaration              # SPA-rendering hint only — CLI ignores this
+     frequency: yearly
+     temporal_rule: anytime         # or 'retrospective'
+     grace_period: "30d"
+     name: Employee NDA Acknowledgment
+     description: Each employee acknowledges the NDA on hire and annually
+     severity: high
+     declaration_text: "I confirm…"  # SPA-rendering hint
+   ```
+   Render hints (`type`, `items`, `declaration_text`, `accepted_formats`) tell the SPA whether and how to render a clickable form. The CLI never branches on them.
+
+2. **Create the Rego policy** in `internal/compliance_frameworks/<framework>/policies/manual/<id>.rego`:
+   ```rego
+   package sigcomply.soc2.cc1_1_employee_nda
+
+   import data.sigcomply.lib.manual
+
+   metadata := {
+       "id":              "soc2-cc1.1-employee-nda",
+       "name":            "Employee NDA Acknowledgment",
+       "framework":       "soc2",
+       "control":         "CC1.1",
+       "severity":        "high",
+       "evaluation_mode": "individual",
+       "resource_types":  ["manual:employee_nda"],
+       "evidence_type":   "manual",
+   }
+
+   violations contains v if {
+       input.resource_type == "manual:employee_nda"
+       v := manual.presence_violation(input)
+   }
+   ```
+   The `manual:` prefix on the resource type and the `evidence_type: "manual"` metadata key both tell the engine this is a manual policy.
+
+3. **Write the test** at `<id>_test.rego` covering three cases: overdue+not_uploaded (→ one violation), uploaded+within_window (→ no violations), and wrong-resource-type (→ no violations).
+
+4. The CLI's manual reader (`internal/data_sources/manual/reader.go`) automatically picks up new catalog entries — no further wiring needed.
 
 ## Adding a New Compliance Framework
 
