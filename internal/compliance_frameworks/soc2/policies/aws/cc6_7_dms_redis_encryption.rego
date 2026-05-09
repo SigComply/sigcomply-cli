@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:dms:endpoint"],
 	"remediation": "Enable SSL/TLS encryption on the DMS Redis endpoint.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

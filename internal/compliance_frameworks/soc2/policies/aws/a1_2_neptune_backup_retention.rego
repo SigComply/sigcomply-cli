@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:neptune:cluster"],
 	"remediation": "Increase backup retention period: aws neptune modify-db-cluster --db-cluster-identifier <id> --backup-retention-period 7",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:s3:bucket"],
 	"remediation": "Enable S3 Block Public Access at the bucket level: aws s3api put-public-access-block",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

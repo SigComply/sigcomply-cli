@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:ebs-encryption"],
 	"remediation": "Enable EBS encryption by default in the EC2 console or via the AWS CLI to ensure all new EBS volumes are automatically encrypted.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

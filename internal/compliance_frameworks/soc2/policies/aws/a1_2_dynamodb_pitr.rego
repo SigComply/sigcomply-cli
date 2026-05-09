@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:dynamodb:table"],
 	"remediation": "Enable PITR: aws dynamodb update-continuous-backups --table-name TABLE --point-in-time-recovery-specification PointInTimeRecoveryEnabled=true",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

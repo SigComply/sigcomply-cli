@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:ebs_snapshot"],
 	"remediation": "Modify the EBS snapshot permissions to remove public access. Share snapshots only with specific AWS accounts that require access.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

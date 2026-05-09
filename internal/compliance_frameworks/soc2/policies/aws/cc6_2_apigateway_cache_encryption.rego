@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:apigateway:rest_api"],
 	"remediation": "Enable cache data encryption for API Gateway stages via method settings",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

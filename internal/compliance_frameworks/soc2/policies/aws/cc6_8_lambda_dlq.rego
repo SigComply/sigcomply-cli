@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:lambda:function"],
 	"remediation": "Configure a dead letter queue (SQS or SNS) for the Lambda function to capture failed invocations.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

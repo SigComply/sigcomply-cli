@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:media_sanitization"],
 	"category": "data_protection",
 	"remediation": "Declare that media was sanitized or destroyed (or that no such events occurred) this period.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

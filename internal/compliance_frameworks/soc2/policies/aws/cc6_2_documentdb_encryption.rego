@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:documentdb:cluster"],
 	"remediation": "Enable encryption at rest when creating DocumentDB clusters. Existing unencrypted clusters must be migrated by creating an encrypted snapshot and restoring from it.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

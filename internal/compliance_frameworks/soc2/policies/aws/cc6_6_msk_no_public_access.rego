@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:msk:cluster"],
 	"remediation": "Disable public access on the MSK cluster by setting ConnectivityInfo.PublicAccess.Type to DISABLED. Ensure the cluster is only accessible within the VPC.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:client-vpn-endpoint"],
 	"remediation": "Enable connection logging on the Client VPN endpoint.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

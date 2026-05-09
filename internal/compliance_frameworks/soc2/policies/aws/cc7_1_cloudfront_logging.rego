@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudfront:distribution"],
 	"remediation": "Enable access logging for CloudFront distribution to an S3 bucket.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

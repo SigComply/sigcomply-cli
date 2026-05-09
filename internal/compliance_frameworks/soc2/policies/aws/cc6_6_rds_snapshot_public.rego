@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:snapshot"],
 	"remediation": "Modify the RDS snapshot to remove public access. Share snapshots only with specific AWS accounts.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

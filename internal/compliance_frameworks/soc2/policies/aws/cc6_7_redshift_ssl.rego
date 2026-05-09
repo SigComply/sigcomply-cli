@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:redshift:cluster"],
 	"remediation": "Enable require_ssl parameter in the Redshift parameter group: aws redshift modify-cluster-parameter-group --parameter-group-name <name> --parameters ParameterName=require_ssl,ParameterValue=true,ApplyType=static",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

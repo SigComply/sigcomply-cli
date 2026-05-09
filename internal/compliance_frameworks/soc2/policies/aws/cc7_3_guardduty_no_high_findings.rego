@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:guardduty:detector"],
 	"remediation": "Review and remediate all high-severity GuardDuty findings.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

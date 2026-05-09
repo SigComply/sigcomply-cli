@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:risk_acceptance_signoff"],
 	"category": "vulnerability_management",
 	"remediation": "Complete the risk acceptance declaration and confirm acceptance.",
+	"evidence_type": "manual",
 }
 
 # Violation: not uploaded and overdue

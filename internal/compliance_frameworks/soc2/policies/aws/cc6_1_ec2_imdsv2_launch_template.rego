@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:launch-template"],
 	"remediation": "Update the launch template to require IMDSv2: set HttpTokens to 'required' in the metadata options.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

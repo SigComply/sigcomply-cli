@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:backup_restoration_log"],
 	"category": "system_ops_bcdr",
 	"remediation": "Upload the quarterly backup restoration test log.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

@@ -15,6 +15,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:s3:bucket"],
 	"remediation": "Enable default encryption on the S3 bucket using AWS Console or CLI: aws s3api put-bucket-encryption",
+	"evidence_type": "automated",
 }
 
 # violations contains a violation if the S3 bucket does not have encryption enabled

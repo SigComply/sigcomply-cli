@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:crypto_key_log"],
 	"category": "data_protection",
 	"remediation": "Upload the quarterly cryptographic key management log covering key generation, rotation, and retirement.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

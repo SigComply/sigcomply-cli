@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:redshift:cluster"],
 	"remediation": "Enable enhanced VPC routing on the Redshift cluster: aws redshift modify-cluster --cluster-identifier <id> --enhanced-vpc-routing",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:kinesis:stream"],
 	"remediation": "Configure Kinesis stream retention period to at least 168 hours (7 days).",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

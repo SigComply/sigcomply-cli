@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:backup:recovery-point"],
 	"remediation": "Ensure backup recovery points are encrypted with KMS.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

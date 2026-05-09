@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:data_classification_registry"],
 	"category": "data_protection",
 	"remediation": "Upload the annual data classification registry listing data assets and their confidentiality levels.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

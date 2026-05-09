@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:guardduty:detector"],
 	"remediation": "Enable GuardDuty RDS Protection: aws guardduty update-detector --detector-id <id> --features [{Name=RDS_LOGIN_EVENTS,Status=ENABLED}]",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

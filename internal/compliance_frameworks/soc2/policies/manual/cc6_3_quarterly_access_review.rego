@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:quarterly_access_review"],
 	"category": "access_control",
 	"remediation": "Complete the quarterly access review by uploading a signed access review document.",
+	"evidence_type": "manual",
 }
 
 # Violation: evidence not uploaded and overdue

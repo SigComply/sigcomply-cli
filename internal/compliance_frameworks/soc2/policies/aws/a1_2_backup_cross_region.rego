@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:backup:plan"],
 	"remediation": "Add a cross-region copy rule to the backup plan to ensure backups are replicated to a secondary region for disaster recovery.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

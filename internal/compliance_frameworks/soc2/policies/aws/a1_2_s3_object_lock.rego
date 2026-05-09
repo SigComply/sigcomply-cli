@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:s3:bucket"],
 	"remediation": "Enable Object Lock when creating the S3 bucket. Object Lock cannot be enabled on existing buckets without recreation.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

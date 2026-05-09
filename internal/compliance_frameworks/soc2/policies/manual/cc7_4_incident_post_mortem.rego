@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:incident_post_mortem"],
 	"category": "system_ops_bcdr",
 	"remediation": "Declare that all security incidents have post-mortem documentation (or that none occurred) this period.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

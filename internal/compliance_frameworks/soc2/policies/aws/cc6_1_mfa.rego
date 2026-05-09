@@ -15,6 +15,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:user"],
 	"remediation": "Enable MFA for the user via the AWS Console or CLI: aws iam enable-mfa-device. Programmatic-only users (no console access) are exempt from this policy.",
+	"evidence_type": "automated",
 }
 
 # violations contains a violation if a console user does not have MFA enabled

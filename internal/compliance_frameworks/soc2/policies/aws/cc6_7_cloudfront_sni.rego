@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudfront:distribution"],
 	"remediation": "Configure the CloudFront distribution to use SNI (sni-only) for SSL certificate serving instead of dedicated IP.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

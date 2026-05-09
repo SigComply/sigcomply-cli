@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:kinesis:stream"],
 	"remediation": "Enable server-side encryption on the Kinesis stream.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

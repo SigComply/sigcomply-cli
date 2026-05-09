@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:emr:block-public-access"],
 	"remediation": "Enable EMR block public access: aws emr put-block-public-access-configuration --block-public-access-configuration BlockPublicSecurityGroupRules=true",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:eks:cluster"],
 	"remediation": "Disable public access to the EKS API server endpoint or restrict to specific CIDR blocks.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

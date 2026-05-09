@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:policy"],
 	"remediation": "Review and restrict IAM policy permissions to prevent privilege escalation.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

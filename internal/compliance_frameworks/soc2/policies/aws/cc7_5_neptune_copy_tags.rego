@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:neptune:cluster"],
 	"remediation": "Enable copy tags to snapshots on the Neptune cluster.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

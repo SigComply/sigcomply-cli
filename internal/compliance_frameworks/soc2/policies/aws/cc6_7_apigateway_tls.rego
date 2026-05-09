@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:apigateway:rest_api"],
 	"remediation": "Configure API Gateway to use a security policy that enforces TLS 1.2 minimum.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

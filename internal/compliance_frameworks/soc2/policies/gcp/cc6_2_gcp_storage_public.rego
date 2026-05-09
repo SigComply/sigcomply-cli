@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["gcp:storage:bucket"],
 	"remediation": "Enable uniform bucket-level access and remove allUsers/allAuthenticatedUsers bindings.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

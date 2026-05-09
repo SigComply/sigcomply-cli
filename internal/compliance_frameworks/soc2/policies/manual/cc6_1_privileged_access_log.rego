@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:privileged_access_log"],
 	"category": "access_physical",
 	"remediation": "Upload the quarterly privileged access log with business justifications.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

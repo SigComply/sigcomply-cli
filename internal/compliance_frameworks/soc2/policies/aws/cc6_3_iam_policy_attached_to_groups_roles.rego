@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:user"],
 	"remediation": "Remove policies directly attached to users and use groups or roles instead.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

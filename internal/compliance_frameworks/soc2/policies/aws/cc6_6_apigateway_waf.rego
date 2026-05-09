@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:apigateway:rest_api"],
 	"remediation": "Associate an AWS WAF web ACL with the API Gateway stage for additional protection.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudfront:distribution"],
 	"remediation": "Set ViewerProtocolPolicy to https-only or redirect-to-https",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

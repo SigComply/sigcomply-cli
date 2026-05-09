@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:dynamodb:table"],
 	"remediation": "Enable deletion protection on the DynamoDB table: aws dynamodb update-table --table-name <name> --deletion-protection-enabled",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

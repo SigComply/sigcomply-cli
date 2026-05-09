@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:elbv2:load-balancer"],
 	"remediation": "Configure HTTP listener to redirect to HTTPS: aws elbv2 create-listener --load-balancer-arn <arn> --protocol HTTP --port 80 --default-actions Type=redirect,RedirectConfig='{Protocol=HTTPS,Port=443,StatusCode=HTTP_301}'",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

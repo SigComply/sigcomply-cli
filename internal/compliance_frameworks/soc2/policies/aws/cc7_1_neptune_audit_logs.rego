@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:neptune:cluster"],
 	"remediation": "Enable audit logging for your Neptune cluster: aws neptune modify-db-cluster --db-cluster-identifier <id> --cloudwatch-logs-export-configuration EnableLogTypes=[audit]",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

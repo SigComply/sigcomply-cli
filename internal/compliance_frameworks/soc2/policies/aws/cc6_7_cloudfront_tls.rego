@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudfront:distribution"],
 	"remediation": "Update CloudFront distribution to use TLSv1.2_2018 or higher as minimum protocol version.",
+	"evidence_type": "automated",
 }
 
 outdated_tls := {"SSLv3", "TLSv1", "TLSv1_2016", "TLSv1.1_2016"}

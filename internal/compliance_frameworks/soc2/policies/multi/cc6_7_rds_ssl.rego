@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:instance", "gcp:sql:instance"],
 	"remediation": "Enable force_ssl parameter for RDS or require_ssl for Cloud SQL instances.",
+	"evidence_type": "automated",
 }
 
 # AWS RDS

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:cluster"],
 	"remediation": "Enable CloudWatch log publishing for the Aurora cluster.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

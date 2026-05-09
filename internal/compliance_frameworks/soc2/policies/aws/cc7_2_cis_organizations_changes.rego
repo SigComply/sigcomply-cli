@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudwatch:cis-metric-filter"],
 	"remediation": "Create a CloudWatch metric filter and alarm for Organizations changes: aws logs put-metric-filter --log-group-name <cloudtrail-log-group> --filter-name OrganizationsChanges --filter-pattern '{ ($.eventSource = organizations.amazonaws.com) }'",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

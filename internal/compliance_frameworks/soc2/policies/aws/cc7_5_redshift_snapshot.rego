@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:redshift:cluster"],
 	"remediation": "Enable automated snapshots with appropriate retention period.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

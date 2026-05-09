@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:elasticache:replication_group"],
 	"remediation": "Enable automatic minor version upgrades for ElastiCache clusters to receive security patches automatically.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

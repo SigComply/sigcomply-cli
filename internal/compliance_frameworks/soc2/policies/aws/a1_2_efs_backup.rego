@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:efs:file_system"],
 	"remediation": "Enable backup policy: aws efs put-backup-policy --file-system-id FS_ID --backup-policy Status=ENABLED",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

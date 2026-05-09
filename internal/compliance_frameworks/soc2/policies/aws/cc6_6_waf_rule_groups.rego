@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:wafv2:status"],
 	"remediation": "Add managed or custom rule groups to WAF web ACLs to actively protect resources.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

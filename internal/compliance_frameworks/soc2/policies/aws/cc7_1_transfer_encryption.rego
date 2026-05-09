@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:transfer:server"],
 	"remediation": "Configure SFTP/FTPS protocol on the Transfer Family server instead of FTP.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

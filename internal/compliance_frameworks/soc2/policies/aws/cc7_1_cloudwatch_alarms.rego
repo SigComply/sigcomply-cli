@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudwatch:alarm-config"],
 	"remediation": "Configure CloudWatch alarms for unauthorized API calls, root account usage, and console sign-in failures",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

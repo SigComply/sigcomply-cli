@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:organizations:status"],
 	"remediation": "Enable and configure Service Control Policies in AWS Organizations for centralized access governance.",
+	"evidence_type": "automated",
 }
 
 # Violation: in org but SCPs not enabled

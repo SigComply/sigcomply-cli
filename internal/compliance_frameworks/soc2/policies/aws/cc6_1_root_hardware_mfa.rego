@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:root-account"],
 	"remediation": "Configure a hardware MFA device for the root account. Hardware MFA (YubiKey, Gemalto) provides stronger security than virtual MFA.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

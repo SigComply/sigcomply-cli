@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:dms:replication-task"],
 	"remediation": "Enable target component logging for the DMS replication task.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

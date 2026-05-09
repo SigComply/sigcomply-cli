@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudwatch:cis-metric-filter"],
 	"remediation": "Create a CloudWatch metric filter for IAM policy changes (CreatePolicy, DeletePolicy, AttachRolePolicy, etc.) and associate an SNS alarm.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

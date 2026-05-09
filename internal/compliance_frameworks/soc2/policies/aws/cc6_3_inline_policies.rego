@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:user"],
 	"remediation": "Remove inline policies and use managed policies instead: aws iam delete-user-policy --user-name <user> --policy-name <policy>",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

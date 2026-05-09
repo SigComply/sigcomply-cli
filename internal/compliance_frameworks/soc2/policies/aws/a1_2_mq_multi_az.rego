@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:mq:broker"],
 	"remediation": "Configure the MQ broker with ACTIVE_STANDBY_MULTI_AZ deployment mode.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

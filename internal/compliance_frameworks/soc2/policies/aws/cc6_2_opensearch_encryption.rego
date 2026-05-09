@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:opensearch:domain"],
 	"remediation": "Enable encryption at rest for the OpenSearch domain. This can be configured during domain creation or by modifying the domain configuration.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

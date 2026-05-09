@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:instance"],
 	"remediation": "Launch EC2 instances in private subnets without public IP addresses. Use NAT gateways or VPC endpoints for outbound connectivity.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

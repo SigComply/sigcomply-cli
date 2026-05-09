@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:vuln_scan_results"],
 	"category": "vulnerability_management",
 	"remediation": "Upload the quarterly vulnerability scan results from internal or external scanning tools.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

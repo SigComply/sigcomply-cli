@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:business_continuity_plan"],
 	"category": "system_ops_bcdr",
 	"remediation": "Upload the current business continuity plan documenting recovery procedures and business impact analysis.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

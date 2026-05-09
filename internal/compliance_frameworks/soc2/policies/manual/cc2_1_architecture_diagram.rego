@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:architecture_diagram"],
 	"category": "configuration_management",
 	"remediation": "Upload the current system architecture diagram showing major components, data flows, and trust boundaries.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

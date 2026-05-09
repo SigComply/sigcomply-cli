@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:autoscaling:group"],
 	"remediation": "Use a launch template with HttpTokens=required to enforce IMDSv2 on all instances in the Auto Scaling group.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

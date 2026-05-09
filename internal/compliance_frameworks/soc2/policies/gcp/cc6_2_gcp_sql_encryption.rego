@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["gcp:sql:instance"],
 	"remediation": "Configure CMEK encryption for Cloud SQL instances using Cloud KMS keys.",
+	"evidence_type": "automated",
 }
 
 # Cloud SQL instances are always encrypted. This recommends CMEK.

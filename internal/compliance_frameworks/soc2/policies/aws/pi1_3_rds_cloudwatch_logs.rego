@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:instance"],
 	"remediation": "Enable CloudWatch log publishing for the RDS instance.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:redshift:cluster"],
 	"remediation": "Create a new Redshift cluster with a custom master username. Default usernames like 'admin', 'awsuser', 'master', or 'root' are easily guessable.",
+	"evidence_type": "automated",
 }
 
 default_usernames := {"admin", "awsuser", "master", "root"}

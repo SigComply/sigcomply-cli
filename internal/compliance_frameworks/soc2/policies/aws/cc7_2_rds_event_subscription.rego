@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:event-subscription"],
 	"remediation": "Create an RDS event subscription for critical events: aws rds create-event-subscription --subscription-name <name> --sns-topic-arn <arn> --source-type db-instance --event-categories failure,maintenance,notification",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

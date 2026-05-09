@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:eks:cluster"],
 	"remediation": "Enable EKS control plane logging for audit, api, authenticator, controllerManager, and scheduler log types.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

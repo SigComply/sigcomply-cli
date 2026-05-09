@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:logs:log-group"],
 	"remediation": "Set a retention policy on the CloudWatch Log Group to ensure security event logs are retained.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

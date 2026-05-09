@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:efs:file_system"],
 	"remediation": "Enable automatic backup for the EFS file system.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

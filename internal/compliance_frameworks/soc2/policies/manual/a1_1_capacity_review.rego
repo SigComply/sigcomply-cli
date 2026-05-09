@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:capacity_review"],
 	"category": "system_ops_bcdr",
 	"remediation": "Upload the quarterly capacity review report.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

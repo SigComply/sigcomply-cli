@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:elasticache:replication_group"],
 	"remediation": "Enable AUTH token (password) for the ElastiCache replication group to require authentication.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

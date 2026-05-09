@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudtrail:trail"],
 	"remediation": "Configure an S3 bucket with KMS encryption for CloudTrail logs: aws cloudtrail update-trail --name <trail> --s3-bucket-name <bucket> --kms-key-id <key-arn>",
+	"evidence_type": "automated",
 }
 
 # Violation: no S3 bucket configured

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:support-role-status"],
 	"remediation": "Create an IAM role with the AWSSupportAccess managed policy attached to enable AWS Support access.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

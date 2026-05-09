@@ -15,6 +15,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:user", "github:member"],
 	"remediation": "Review and document user access provisioning. Ensure all users have appropriate access rights and MFA enabled.",
+	"evidence_type": "automated",
 }
 
 # AWS IAM User - Check for MFA as part of access provisioning security

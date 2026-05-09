@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:codebuild:project"],
 	"remediation": "Use AWS Systems Manager Parameter Store or AWS Secrets Manager to store sensitive credentials instead of plaintext environment variables.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

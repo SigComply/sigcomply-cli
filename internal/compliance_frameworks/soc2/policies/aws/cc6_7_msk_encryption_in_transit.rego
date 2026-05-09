@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:msk:cluster"],
 	"remediation": "Enable TLS encryption for client-broker communication: set EncryptionInTransit.ClientBroker to TLS when creating or updating the MSK cluster.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

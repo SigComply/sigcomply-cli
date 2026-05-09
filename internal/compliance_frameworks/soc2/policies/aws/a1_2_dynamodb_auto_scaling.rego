@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:dynamodb:table"],
 	"remediation": "Switch to on-demand billing: aws dynamodb update-table --table-name TABLE --billing-mode PAY_PER_REQUEST",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

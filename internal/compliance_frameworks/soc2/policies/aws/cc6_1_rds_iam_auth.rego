@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:instance"],
 	"remediation": "Enable IAM database authentication: aws rds modify-db-instance --db-instance-identifier <id> --enable-iam-database-authentication",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

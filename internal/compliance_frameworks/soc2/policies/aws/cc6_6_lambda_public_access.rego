@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:lambda:function"],
 	"remediation": "Remove public access from the Lambda function's resource-based policy. Restrict invocation to specific AWS accounts, services, or IAM principals.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cognito:user-pool"],
 	"remediation": "Enable advanced security (ENFORCED or AUDIT mode) on the Cognito User Pool.",
+	"evidence_type": "automated",
 }
 
 allowed_security_modes := {"ENFORCED", "AUDIT"}

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudtrail:trail"],
 	"remediation": "Enable multi-region on CloudTrail trail for comprehensive event logging.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

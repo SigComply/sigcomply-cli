@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:appsync:api"],
 	"remediation": "Enable field-level logging on the AppSync API.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

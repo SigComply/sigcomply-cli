@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:logs:log-group"],
 	"remediation": "Remove public access from the CloudWatch Log Group resource policy.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:user"],
 	"remediation": "Remove console access for users who have not logged in recently.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

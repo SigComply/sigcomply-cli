@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudfront:distribution"],
 	"remediation": "Enable geo restriction on the CloudFront distribution to limit access by geography.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

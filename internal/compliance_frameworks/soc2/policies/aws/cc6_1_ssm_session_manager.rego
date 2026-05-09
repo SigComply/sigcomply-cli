@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ssm:status"],
 	"remediation": "Install SSM Agent on instances and configure Session Manager",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

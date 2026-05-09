@@ -15,6 +15,7 @@ metadata := {
 	"evaluation_mode": "batched",
 	"resource_types": ["aws:cloudtrail:trail"],
 	"remediation": "Enable CloudTrail logging: aws cloudtrail start-logging --name <trail-name>",
+	"evidence_type": "automated",
 }
 
 # Check if any trail is actively logging

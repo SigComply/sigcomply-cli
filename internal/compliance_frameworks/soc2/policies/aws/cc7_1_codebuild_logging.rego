@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:codebuild:project"],
 	"remediation": "Enable CloudWatch Logs or S3 logging for CodeBuild projects to ensure build activity is monitored and auditable.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

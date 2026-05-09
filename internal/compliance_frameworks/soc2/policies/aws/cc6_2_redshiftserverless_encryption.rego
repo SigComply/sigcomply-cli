@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:redshift-serverless:workgroup"],
 	"remediation": "Enable encryption with a KMS key for the Redshift Serverless namespace.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

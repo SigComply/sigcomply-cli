@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudfront:distribution"],
 	"remediation": "Associate an AWS WAF web ACL with the CloudFront distribution.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

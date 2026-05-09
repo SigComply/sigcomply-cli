@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:guardduty:detector"],
 	"remediation": "Enable GuardDuty Lambda Protection: aws guardduty update-detector --detector-id <id> --features [{Name=LAMBDA_NETWORK_LOGS,Status=ENABLED}]",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

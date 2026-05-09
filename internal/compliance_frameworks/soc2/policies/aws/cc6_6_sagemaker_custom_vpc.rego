@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:sagemaker:notebook"],
 	"remediation": "Deploy SageMaker notebook instances in a custom VPC by specifying a subnet ID.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

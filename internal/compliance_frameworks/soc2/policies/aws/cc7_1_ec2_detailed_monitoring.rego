@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:instance"],
 	"remediation": "Enable detailed monitoring: aws ec2 monitor-instances --instance-ids INSTANCE_ID",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

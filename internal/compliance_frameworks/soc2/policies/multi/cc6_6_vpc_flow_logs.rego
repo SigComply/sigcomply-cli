@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:vpc", "gcp:compute:subnet"],
 	"remediation": "Enable flow logs on VPCs (AWS) or subnets (GCP) for network traffic monitoring.",
+	"evidence_type": "automated",
 }
 
 # AWS VPC

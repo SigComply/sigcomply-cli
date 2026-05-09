@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:eks:cluster"],
 	"remediation": "Enable secrets encryption when creating an EKS cluster: aws eks create-cluster --encryption-config '[{\"resources\":[\"secrets\"],\"provider\":{\"keyArn\":\"<kms-key-arn>\"}}]'",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

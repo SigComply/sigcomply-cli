@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:networkfirewall:firewall"],
 	"remediation": "Enable deletion protection on the Network Firewall to prevent accidental or unauthorized deletion",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

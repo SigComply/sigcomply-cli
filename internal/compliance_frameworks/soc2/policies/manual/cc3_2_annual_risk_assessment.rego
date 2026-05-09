@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:annual_risk_assessment"],
 	"category": "risk_compliance",
 	"remediation": "Upload the annual enterprise risk assessment report.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

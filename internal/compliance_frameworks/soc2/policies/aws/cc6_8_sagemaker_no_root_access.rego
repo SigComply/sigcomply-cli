@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:sagemaker:notebook"],
 	"remediation": "Disable root access on SageMaker notebook instances to follow least-privilege principles.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:security-group"],
 	"remediation": "Remove all inbound and outbound rules from the default security group. Use custom security groups for resource access instead.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

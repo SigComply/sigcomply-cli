@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:fsx:filesystem"],
 	"remediation": "Enable encryption at rest with a KMS key for the FSx file system.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:user"],
 	"remediation": "Attach a permission boundary to the IAM user to enforce maximum permissions limits.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

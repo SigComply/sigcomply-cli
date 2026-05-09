@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:transit-gateway"],
 	"remediation": "Disable auto-accept shared attachments on the transit gateway.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

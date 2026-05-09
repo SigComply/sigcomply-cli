@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:vpc"],
 	"remediation": "Delete the default VPC or ensure it is not used for production workloads. Create custom VPCs with appropriate security controls.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

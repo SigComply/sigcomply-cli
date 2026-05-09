@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:backup:status"],
 	"remediation": "Enable vault lock on at least one AWS Backup vault to ensure backup immutability",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

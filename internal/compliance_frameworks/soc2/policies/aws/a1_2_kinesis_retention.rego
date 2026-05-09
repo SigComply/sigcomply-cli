@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:kinesis:stream"],
 	"remediation": "Increase retention: aws kinesis increase-stream-retention-period --stream-name STREAM --retention-period-hours 168",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

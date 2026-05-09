@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ecs:task-definition"],
 	"remediation": "Remove privileged mode from ECS task definition containers. Use specific Linux capabilities instead.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

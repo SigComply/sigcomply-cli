@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:sqs:queue"],
 	"remediation": "Update the SQS queue policy to remove wildcard principal (*) access. Restrict to specific AWS accounts or IAM roles.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

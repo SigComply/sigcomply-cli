@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:elbv2:load-balancer"],
 	"remediation": "Configure all listeners to use HTTPS/TLS or redirect HTTP to HTTPS",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

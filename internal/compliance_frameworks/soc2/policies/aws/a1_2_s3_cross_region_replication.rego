@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:s3:bucket"],
 	"remediation": "Enable cross-region replication: aws s3api put-bucket-replication --bucket <bucket> --replication-configuration file://replication.json",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

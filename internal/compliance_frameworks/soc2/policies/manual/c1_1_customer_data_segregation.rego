@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:customer_data_segregation"],
 	"category": "data_protection",
 	"remediation": "Declare that customer data is logically or physically segregated and that controls prevent cross-tenant access.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

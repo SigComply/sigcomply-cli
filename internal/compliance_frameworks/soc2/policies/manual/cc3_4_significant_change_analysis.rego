@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:significant_change_analysis"],
 	"category": "risk_compliance",
 	"remediation": "Declare that significant changes were analyzed (or that none occurred) this period.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

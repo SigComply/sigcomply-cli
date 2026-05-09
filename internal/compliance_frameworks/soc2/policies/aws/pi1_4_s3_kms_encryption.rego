@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:s3:bucket"],
 	"remediation": "Configure S3 bucket to use aws:kms encryption instead of AES256.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

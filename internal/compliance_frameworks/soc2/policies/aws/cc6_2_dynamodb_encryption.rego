@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:dynamodb:table"],
 	"remediation": "Enable SSE with KMS: aws dynamodb update-table --table-name TABLE --sse-specification Enabled=true,SSEType=KMS",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

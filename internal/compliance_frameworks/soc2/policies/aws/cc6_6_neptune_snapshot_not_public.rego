@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:neptune:snapshot"],
 	"remediation": "Modify the Neptune snapshot to remove public access: aws neptune modify-db-cluster-snapshot-attribute --db-cluster-snapshot-identifier <id> --attribute-name restore --values-to-remove all",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

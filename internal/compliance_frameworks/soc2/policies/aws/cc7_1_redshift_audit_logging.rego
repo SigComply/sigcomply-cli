@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:redshift:cluster"],
 	"remediation": "Enable audit logging for the Redshift cluster to capture connection, user activity, and query logs.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

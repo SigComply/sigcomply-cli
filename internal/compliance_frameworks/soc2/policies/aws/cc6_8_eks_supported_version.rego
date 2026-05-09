@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:eks:cluster"],
 	"remediation": "Upgrade the EKS cluster to a supported Kubernetes version (1.28 or later).",
+	"evidence_type": "automated",
 }
 
 eol_versions := {"1.21", "1.22", "1.23", "1.24", "1.25", "1.26", "1.27"}

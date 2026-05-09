@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:security_comm_channel"],
 	"category": "risk_compliance",
 	"remediation": "Declare that a security communication channel (Slack, email, intranet) has been used to communicate security updates to employees this period.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

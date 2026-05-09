@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:background_check"],
 	"category": "hr_governance",
 	"remediation": "Declare that background checks were completed for all new hires (or that no new hires joined) in this period.",
+	"evidence_type": "manual",
 }
 
 # Violation: not uploaded and overdue

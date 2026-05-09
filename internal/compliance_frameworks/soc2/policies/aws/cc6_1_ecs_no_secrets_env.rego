@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ecs:task-definition"],
 	"remediation": "Use AWS Secrets Manager or SSM Parameter Store to inject secrets instead of environment variables.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

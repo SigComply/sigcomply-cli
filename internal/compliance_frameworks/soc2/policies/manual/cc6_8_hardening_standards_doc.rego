@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:hardening_standards_doc"],
 	"category": "vulnerability_management",
 	"remediation": "Upload the current hardening standards document covering OS, database, and application baseline configurations.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

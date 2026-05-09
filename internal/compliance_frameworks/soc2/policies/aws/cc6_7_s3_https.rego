@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:s3:bucket"],
 	"remediation": "Add a bucket policy that denies requests where aws:SecureTransport is false.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:ebs_snapshot"],
 	"remediation": "Create encrypted copies of unencrypted snapshots: aws ec2 copy-snapshot --source-snapshot-id <id> --encrypted. Delete the unencrypted originals after verification.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

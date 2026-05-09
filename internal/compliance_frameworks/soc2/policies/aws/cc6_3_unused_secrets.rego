@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:secretsmanager:secret"],
 	"remediation": "Review and remove secrets that have not been accessed in over 90 days. If still needed, document the reason for retention.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

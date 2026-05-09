@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:dms:replication-instance"],
 	"remediation": "Enable auto minor version upgrade on the DMS replication instance to receive security patches automatically.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

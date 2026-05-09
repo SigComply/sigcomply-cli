@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:instance"],
 	"remediation": "Enable automatic minor version upgrades for the RDS instance to receive security patches automatically.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

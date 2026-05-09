@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:datasync:task"],
 	"remediation": "Configure CloudWatch log group for the DataSync task.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

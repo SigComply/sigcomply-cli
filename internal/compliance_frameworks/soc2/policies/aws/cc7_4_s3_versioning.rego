@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:s3:bucket"],
 	"remediation": "Enable versioning on the S3 bucket for data recovery capabilities.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:emr:cluster"],
 	"remediation": "Enable encryption at rest in the EMR security configuration. Create a security configuration with at-rest encryption enabled and associate it with the cluster.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

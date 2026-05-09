@@ -15,6 +15,7 @@ metadata := {
 	"evaluation_mode": "batched",
 	"resource_types": ["aws:cloudtrail:trail"],
 	"remediation": "Enable CloudTrail logging with log file validation. Ensure trails cover all regions and have proper retention.",
+	"evidence_type": "automated",
 }
 
 # Check if any trail is actively logging

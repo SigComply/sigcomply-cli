@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:instance"],
 	"remediation": "Enable deletion protection: aws rds modify-db-instance --db-instance-identifier INSTANCE_ID --deletion-protection --apply-immediately",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

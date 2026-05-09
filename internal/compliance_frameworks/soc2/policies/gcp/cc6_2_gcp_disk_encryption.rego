@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["gcp:compute:disk"],
 	"remediation": "Use CMEK encryption for Compute Engine disks. Create disks with --kms-key flag.",
+	"evidence_type": "automated",
 }
 
 # GCP disks are always encrypted. This recommends CMEK over Google-managed.

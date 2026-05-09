@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:ami"],
 	"remediation": "Modify AMI permissions to remove public access.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

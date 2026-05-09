@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:ebs-encryption"],
 	"remediation": "Enable EBS default encryption: aws ec2 enable-ebs-encryption-by-default --region <region>",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

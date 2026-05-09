@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:account:security-contact"],
 	"remediation": "Configure a security contact in the AWS Account settings: aws account put-alternate-contact --alternate-contact-type SECURITY --name ... --email-address ... --phone-number ...",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["gcp:iam:policy"],
 	"remediation": "Replace primitive roles (roles/owner, roles/editor) with more granular predefined or custom roles.",
+	"evidence_type": "automated",
 }
 
 primitive_roles := {"roles/owner", "roles/editor"}

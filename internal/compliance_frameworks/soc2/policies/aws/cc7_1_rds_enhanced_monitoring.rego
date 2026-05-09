@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:instance"],
 	"remediation": "Enable Enhanced Monitoring on the RDS instance to collect OS-level metrics at granular intervals.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

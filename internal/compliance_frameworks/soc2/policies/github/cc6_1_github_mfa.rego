@@ -15,6 +15,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["github:member"],
 	"remediation": "Enable two-factor authentication for the GitHub organization member. Go to Settings > Password and authentication > Enable two-factor authentication.",
+	"evidence_type": "automated",
 }
 
 # violations contains a violation if the member does not have 2FA enabled

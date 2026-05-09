@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ecs:cluster"],
 	"remediation": "Disable Execute Command on the ECS cluster to prevent interactive shell access.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

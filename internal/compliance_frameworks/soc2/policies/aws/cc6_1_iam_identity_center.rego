@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:identitycenter:status"],
 	"remediation": "Enable IAM Identity Center (AWS SSO) to provide centralized access management with single sign-on capabilities.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

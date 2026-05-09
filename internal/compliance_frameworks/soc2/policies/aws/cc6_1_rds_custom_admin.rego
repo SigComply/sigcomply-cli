@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:instance"],
 	"remediation": "When creating RDS instances, use a custom master username instead of default values like 'admin', 'postgres', 'root', or 'sa'.",
+	"evidence_type": "automated",
 }
 
 default_usernames := {"admin", "postgres", "root", "sa", "master", "administrator"}

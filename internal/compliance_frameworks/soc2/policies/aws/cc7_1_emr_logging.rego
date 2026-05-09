@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:emr:cluster"],
 	"remediation": "Enable logging when creating EMR clusters by specifying a log URI (S3 bucket) in the cluster configuration.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

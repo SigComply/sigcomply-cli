@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:ebs_snapshot"],
 	"remediation": "Ensure EBS snapshots are created from encrypted volumes or copy with encryption enabled.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

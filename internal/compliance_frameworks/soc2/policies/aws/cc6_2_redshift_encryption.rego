@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:redshift:cluster"],
 	"remediation": "Enable encryption at rest for the Redshift cluster. Modify the cluster to use KMS encryption.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

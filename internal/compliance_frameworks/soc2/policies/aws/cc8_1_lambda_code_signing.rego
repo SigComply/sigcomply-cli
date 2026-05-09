@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:lambda:function"],
 	"remediation": "Configure a code signing configuration for the Lambda function to ensure only trusted code is deployed",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

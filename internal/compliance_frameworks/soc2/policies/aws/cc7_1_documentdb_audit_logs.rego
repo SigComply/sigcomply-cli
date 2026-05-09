@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:documentdb:cluster"],
 	"remediation": "Enable audit log exports to CloudWatch Logs on the DocumentDB cluster by adding 'audit' to the EnableCloudwatchLogsExports parameter.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

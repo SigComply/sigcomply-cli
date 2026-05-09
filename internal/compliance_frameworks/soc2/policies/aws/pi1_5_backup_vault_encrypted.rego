@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:backup:vault"],
 	"remediation": "Configure KMS encryption on the backup vault.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

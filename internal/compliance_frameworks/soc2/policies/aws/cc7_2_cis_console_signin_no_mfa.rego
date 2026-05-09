@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudwatch:cis-metric-filter"],
 	"remediation": "Create a CloudWatch metric filter for console sign-in events where MFA is not used and associate an SNS alarm.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:opensearch:domain"],
 	"remediation": "Enable slow log publishing to CloudWatch Logs for the OpenSearch domain.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

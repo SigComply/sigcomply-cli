@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:fim_configuration"],
 	"category": "vulnerability_management",
 	"remediation": "Upload the current file integrity monitoring (FIM) configuration showing monitored paths and alerting rules.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

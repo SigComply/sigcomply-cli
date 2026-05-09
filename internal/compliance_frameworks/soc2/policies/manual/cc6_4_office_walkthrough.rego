@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:office_walkthrough"],
 	"category": "access_physical",
 	"remediation": "Complete the office security walkthrough checklist with all required items.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

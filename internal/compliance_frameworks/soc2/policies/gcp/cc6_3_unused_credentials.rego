@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["gcp:iam:service-account"],
 	"remediation": "Disable or delete service accounts that have been inactive for more than 90 days.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

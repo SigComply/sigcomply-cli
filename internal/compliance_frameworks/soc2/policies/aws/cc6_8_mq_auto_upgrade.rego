@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:mq:broker"],
 	"remediation": "Enable automatic minor version upgrades for Amazon MQ brokers via the AWS Console or CLI: aws mq update-broker --broker-id <id> --auto-minor-version-upgrade",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

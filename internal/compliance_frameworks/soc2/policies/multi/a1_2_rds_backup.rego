@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:instance", "gcp:sql:instance"],
 	"remediation": "Enable automated backups with point-in-time recovery for all database instances.",
+	"evidence_type": "automated",
 }
 
 # AWS RDS

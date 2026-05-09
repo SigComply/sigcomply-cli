@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:redshift:cluster"],
 	"remediation": "Enable automated snapshots: aws redshift modify-cluster --cluster-identifier <id> --automated-snapshot-retention-period 7",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:policy_review_log"],
 	"category": "risk_compliance",
 	"remediation": "Upload the annual policy review log showing each information security policy was reviewed and (if needed) updated.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

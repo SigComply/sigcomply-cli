@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:vendor_risk_directory"],
 	"category": "risk_compliance",
 	"remediation": "Upload the quarterly vendor risk directory snapshot listing all active vendors, data classification, and risk tier.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

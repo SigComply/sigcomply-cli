@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:security_awareness_training"],
 	"category": "configuration_management",
 	"remediation": "Upload evidence of annual security awareness training completion.",
+	"evidence_type": "manual",
 }
 
 # Violation: not uploaded and overdue

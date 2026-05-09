@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["gcp:storage:bucket"],
 	"remediation": "Configure CMEK encryption for Cloud Storage buckets using Cloud KMS keys.",
+	"evidence_type": "automated",
 }
 
 # GCS buckets are always encrypted (Google-managed). This check recommends CMEK.

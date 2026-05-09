@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:user_onboarding_log"],
 	"category": "hr_governance",
 	"remediation": "Upload the quarterly user onboarding log detailing access grants for new users.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

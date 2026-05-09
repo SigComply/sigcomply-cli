@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:codebuild:project"],
 	"remediation": "Disable privileged mode in CodeBuild projects unless specifically required for building Docker images.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

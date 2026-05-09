@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:logs:log-group"],
 	"remediation": "Set a retention period on CloudWatch log groups: aws logs put-retention-policy --log-group-name <name> --retention-in-days 365",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

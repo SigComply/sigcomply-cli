@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:config:recorder"],
 	"remediation": "Enable AWS Config recorder: aws configservice put-configuration-recorder",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

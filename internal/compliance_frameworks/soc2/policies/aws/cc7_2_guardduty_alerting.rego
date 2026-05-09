@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:eventbridge:guardduty-alert"],
 	"remediation": "Create an EventBridge rule for GuardDuty findings with an SNS target for alerting.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

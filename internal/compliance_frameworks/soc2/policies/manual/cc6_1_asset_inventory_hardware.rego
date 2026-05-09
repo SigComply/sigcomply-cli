@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:asset_inventory_hardware"],
 	"category": "access_physical",
 	"remediation": "Upload the quarterly hardware asset inventory listing all company-owned devices with assigned owners and locations.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:instance"],
 	"remediation": "Move the RDS instance to a private subnet without an internet gateway route. Use VPC endpoints or NAT gateway for outbound access if needed.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

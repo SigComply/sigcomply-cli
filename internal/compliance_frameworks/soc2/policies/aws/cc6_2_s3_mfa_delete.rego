@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:s3:bucket"],
 	"remediation": "Enable MFA Delete on versioned S3 buckets: aws s3api put-bucket-versioning --bucket <bucket> --versioning-configuration Status=Enabled,MFADelete=Enabled --mfa '<serial> <code>'",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

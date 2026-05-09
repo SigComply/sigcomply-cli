@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:glue:job"],
 	"remediation": "Enable continuous CloudWatch logging for the Glue job.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

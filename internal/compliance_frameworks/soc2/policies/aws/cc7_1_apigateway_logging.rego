@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:apigateway:rest_api"],
 	"remediation": "Enable execution logging for all API Gateway stages. Configure CloudWatch Logs with an appropriate logging level (INFO or ERROR).",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

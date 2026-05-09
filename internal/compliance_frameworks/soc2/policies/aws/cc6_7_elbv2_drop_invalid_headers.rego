@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:elbv2:load-balancer"],
 	"remediation": "Enable drop invalid headers: aws elbv2 modify-load-balancer-attributes --load-balancer-arn <arn> --attributes Key=routing.http.drop_invalid_header_fields.enabled,Value=true",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:instance"],
 	"remediation": "Enable storage encryption on the RDS instance (requires recreation for existing instances).",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

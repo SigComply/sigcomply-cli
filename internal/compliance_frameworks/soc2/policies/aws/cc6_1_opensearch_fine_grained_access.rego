@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:opensearch:domain"],
 	"remediation": "Enable fine-grained access control on the OpenSearch domain for IAM-based or internal database authentication.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:kinesis:stream"],
 	"remediation": "Enable KMS encryption: aws kinesis start-stream-encryption --stream-name STREAM --encryption-type KMS --key-id alias/aws/kinesis",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

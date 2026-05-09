@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:apigateway:rest_api"],
 	"remediation": "Configure an authorizer (Lambda, Cognito, or IAM) for the API Gateway REST API",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:vendor_soc2_review"],
 	"category": "risk_compliance",
 	"remediation": "Complete the vendor SOC 2 review checklist with all required items.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

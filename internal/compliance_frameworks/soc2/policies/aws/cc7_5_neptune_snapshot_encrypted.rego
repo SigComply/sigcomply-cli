@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:neptune:cluster"],
 	"remediation": "Enable storage encryption on Neptune cluster (requires recreation).",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

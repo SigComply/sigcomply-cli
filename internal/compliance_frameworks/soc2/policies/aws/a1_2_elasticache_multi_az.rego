@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:elasticache:replication_group"],
 	"remediation": "Enable Multi-AZ for the ElastiCache replication group.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

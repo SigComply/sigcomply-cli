@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudtrail:trail"],
 	"remediation": "Configure CloudWatch Logs delivery for the CloudTrail trail to enable real-time monitoring and alerting.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

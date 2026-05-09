@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:opensearch:domain"],
 	"remediation": "Enable audit logging for the OpenSearch domain to track user activity and access patterns.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

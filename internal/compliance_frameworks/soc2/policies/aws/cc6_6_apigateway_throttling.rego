@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:apigateway:rest_api"],
 	"remediation": "Enable throttling on API Gateway stages via method settings",
+	"evidence_type": "automated",
 }
 
 # Violation if stages exist but none have throttling enabled

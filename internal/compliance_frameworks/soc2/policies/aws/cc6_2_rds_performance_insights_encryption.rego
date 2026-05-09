@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:instance"],
 	"remediation": "Enable Performance Insights with a CMK: aws rds modify-db-instance --db-instance-identifier INSTANCE --enable-performance-insights --performance-insights-kms-key-id KEY_ARN",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

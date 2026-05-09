@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:elbv2:load-balancer"],
 	"remediation": "Enable deletion protection on the load balancer to prevent accidental deletion.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

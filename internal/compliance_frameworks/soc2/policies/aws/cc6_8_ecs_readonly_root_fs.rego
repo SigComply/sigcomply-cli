@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ecs:task-definition"],
 	"remediation": "Set readonlyRootFilesystem to true for all containers in the task definition.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

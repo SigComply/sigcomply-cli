@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:s3:bucket"],
 	"remediation": "Review S3 bucket policies granting cross-account access. Ensure access is restricted to known, authorized AWS accounts only.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

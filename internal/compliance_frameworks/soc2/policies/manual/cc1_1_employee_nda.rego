@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:employee_nda"],
 	"category": "hr_governance",
 	"remediation": "Declare that all employees have acknowledged the current NDA and code-of-conduct in this period.",
+	"evidence_type": "manual",
 }
 
 # Violation: not uploaded and overdue

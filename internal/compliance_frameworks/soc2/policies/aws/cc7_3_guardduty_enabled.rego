@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:guardduty:detector"],
 	"remediation": "Enable GuardDuty in the AWS account for threat detection.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

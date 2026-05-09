@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:route53:hosted-zone"],
 	"remediation": "Enable query logging for public Route53 hosted zones: aws route53 create-query-logging-config --hosted-zone-id ZONE_ID --cloud-watch-logs-log-group-arn LOG_GROUP_ARN",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

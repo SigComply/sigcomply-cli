@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:volume"],
 	"remediation": "Enable encryption on EBS volumes. Use account-level default encryption for new volumes.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

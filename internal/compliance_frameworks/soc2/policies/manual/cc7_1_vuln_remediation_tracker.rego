@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:vuln_remediation_tracker"],
 	"category": "vulnerability_management",
 	"remediation": "Upload the quarterly vulnerability remediation tracker showing open/closed vulnerabilities and remediation timelines.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

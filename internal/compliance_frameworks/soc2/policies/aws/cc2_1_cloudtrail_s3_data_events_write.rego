@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudtrail:trail"],
 	"remediation": "Configure CloudTrail to record S3 data events including write operations.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

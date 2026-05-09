@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:snapshot"],
 	"remediation": "Create encrypted snapshots from encrypted RDS instances. Copy unencrypted snapshots to encrypted ones using a KMS key.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

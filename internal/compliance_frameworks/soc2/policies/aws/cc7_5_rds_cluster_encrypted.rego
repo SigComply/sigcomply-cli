@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:cluster"],
 	"remediation": "Enable storage encryption on the Aurora cluster (requires recreation).",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ssm:managed-instance"],
 	"remediation": "Apply missing patches using AWS Systems Manager Patch Manager.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

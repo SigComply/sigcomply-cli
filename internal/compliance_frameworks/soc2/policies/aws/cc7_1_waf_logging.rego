@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:wafv2:status"],
 	"remediation": "Enable WAF logging to Amazon S3, CloudWatch Logs, or Kinesis Data Firehose.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

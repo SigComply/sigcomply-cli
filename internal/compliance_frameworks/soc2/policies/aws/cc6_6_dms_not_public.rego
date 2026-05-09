@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:dms:replication-instance"],
 	"remediation": "Modify the DMS replication instance to disable public accessibility. Use VPC networking for replication traffic.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

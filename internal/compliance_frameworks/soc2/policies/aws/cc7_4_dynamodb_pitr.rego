@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:dynamodb:table"],
 	"remediation": "Enable point-in-time recovery on the DynamoDB table.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

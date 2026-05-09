@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:dax:cluster"],
 	"remediation": "Enable TLS endpoint encryption for the DAX cluster.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

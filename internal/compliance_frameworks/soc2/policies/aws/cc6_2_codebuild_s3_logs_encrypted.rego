@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:codebuild:project"],
 	"remediation": "Enable encryption for S3 log storage in CodeBuild projects to protect build logs at rest.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

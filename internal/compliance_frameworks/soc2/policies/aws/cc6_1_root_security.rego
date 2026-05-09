@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:root-account"],
 	"remediation": "Enable MFA on the root account and delete all root access keys. Use IAM users for daily operations.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

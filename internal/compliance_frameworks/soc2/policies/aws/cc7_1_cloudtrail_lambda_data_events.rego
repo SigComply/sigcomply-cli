@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "batched",
 	"resource_types": ["aws:cloudtrail:trail"],
 	"remediation": "Enable Lambda data events on a trail: aws cloudtrail put-event-selectors --trail-name <trail> --event-selectors '[{\"DataResources\":[{\"Type\":\"AWS::Lambda::Function\",\"Values\":[\"arn:aws:lambda\"]}]}]'",
+	"evidence_type": "automated",
 }
 
 default any_lambda_data_events := false

@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:marketing_optin_proof"],
 	"category": "privacy",
 	"remediation": "Upload proof that marketing communications only go to users who have given explicit opt-in consent.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

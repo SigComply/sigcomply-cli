@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:s3:bucket", "aws:rds:instance", "aws:ec2:ebs-encryption", "gcp:storage:bucket", "gcp:sql:instance", "gcp:compute:disk"],
 	"remediation": "Ensure all data storage resources have encryption at rest enabled.",
+	"evidence_type": "automated",
 }
 
 # AWS S3

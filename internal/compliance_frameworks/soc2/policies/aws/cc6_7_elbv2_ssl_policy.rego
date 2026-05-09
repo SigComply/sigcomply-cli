@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:elbv2:load-balancer"],
 	"remediation": "Update HTTPS listeners to use a secure SSL policy (ELBSecurityPolicy-TLS13-1-2-2021-06 or newer).",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

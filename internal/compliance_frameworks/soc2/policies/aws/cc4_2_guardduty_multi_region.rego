@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "batched",
 	"resource_types": ["aws:guardduty:detector"],
 	"remediation": "Enable GuardDuty in all regions: aws guardduty create-detector --enable --region <region>",
+	"evidence_type": "automated",
 }
 
 # Find regions where GuardDuty is disabled

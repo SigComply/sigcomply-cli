@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:s3:bucket"],
 	"remediation": "Configure event notifications: aws s3api put-bucket-notification-configuration --bucket <bucket> --notification-configuration file://notification.json",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

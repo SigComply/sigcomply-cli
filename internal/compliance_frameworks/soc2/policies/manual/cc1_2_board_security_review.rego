@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:board_security_review"],
 	"category": "hr_governance",
 	"remediation": "Upload minutes of the quarterly board review of information security posture.",
+	"evidence_type": "manual",
 }
 
 # Violation: not uploaded and overdue

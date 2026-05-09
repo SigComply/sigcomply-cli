@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:lambda:function"],
 	"remediation": "Update the Lambda function to use a supported runtime version. Deprecated runtimes no longer receive security patches.",
+	"evidence_type": "automated",
 }
 
 deprecated_runtimes := {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:redshift:cluster"],
 	"remediation": "Modify the Redshift cluster to disable public accessibility. Use VPC endpoints or private subnets for access.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

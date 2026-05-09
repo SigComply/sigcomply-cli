@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:user"],
 	"remediation": "Rotate IAM access keys that are older than 90 days. Disable or delete unused keys.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

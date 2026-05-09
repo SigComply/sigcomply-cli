@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:instance"],
 	"remediation": "Enable CloudWatch Logs publishing for your RDS instance: aws rds modify-db-instance --db-instance-identifier <id> --cloudwatch-logs-export-configuration EnableLogTypes=[audit,error,general,slowquery]",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

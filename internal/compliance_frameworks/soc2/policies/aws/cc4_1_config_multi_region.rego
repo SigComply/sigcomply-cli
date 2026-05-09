@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "batched",
 	"resource_types": ["aws:config:recorder"],
 	"remediation": "Enable AWS Config in all regions: aws configservice start-configuration-recorder --region <region>",
+	"evidence_type": "automated",
 }
 
 # Find regions where Config is not recording

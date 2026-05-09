@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:wafv2:status"],
 	"remediation": "Create a WAF Web ACL and associate it with your resources",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

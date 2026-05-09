@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:user"],
 	"remediation": "Deactivate or delete unused access keys. Each IAM user should have at most one active access key to reduce credential exposure.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

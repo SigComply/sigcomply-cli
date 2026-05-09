@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:data_minimization_proof"],
 	"category": "privacy",
 	"remediation": "Declare that personal data collection is limited to what is necessary as described in the privacy notice.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

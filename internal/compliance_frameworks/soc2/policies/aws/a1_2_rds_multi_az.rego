@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:instance"],
 	"remediation": "Enable Multi-AZ deployment for RDS instances to ensure high availability and automatic failover.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

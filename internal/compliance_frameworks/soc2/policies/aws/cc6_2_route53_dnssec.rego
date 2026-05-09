@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:route53:hosted-zone"],
 	"remediation": "Enable DNSSEC signing for the Route 53 hosted zone.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

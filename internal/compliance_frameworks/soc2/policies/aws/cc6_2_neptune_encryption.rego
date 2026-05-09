@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:neptune:cluster"],
 	"remediation": "Create a new Neptune cluster with encryption enabled. Encryption cannot be enabled on existing clusters.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

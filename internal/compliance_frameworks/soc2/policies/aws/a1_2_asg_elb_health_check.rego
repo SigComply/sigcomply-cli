@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:autoscaling:group"],
 	"remediation": "Enable ELB health checks on the Auto Scaling group: aws autoscaling update-auto-scaling-group --auto-scaling-group-name NAME --health-check-type ELB --health-check-grace-period 300",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

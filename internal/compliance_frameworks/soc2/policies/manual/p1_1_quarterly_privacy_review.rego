@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:quarterly_privacy_review"],
 	"category": "privacy",
 	"remediation": "Complete the quarterly privacy program review checklist covering notice, DSARs, consent, and data minimization.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

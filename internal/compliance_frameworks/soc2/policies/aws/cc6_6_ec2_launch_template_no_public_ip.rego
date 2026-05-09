@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:launch-template"],
 	"remediation": "Configure launch template to not auto-assign public IP addresses.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:guardduty:detector"],
 	"remediation": "Enable GuardDuty S3 Protection: aws guardduty update-detector --detector-id <id> --data-sources S3Logs={Enable=true}",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

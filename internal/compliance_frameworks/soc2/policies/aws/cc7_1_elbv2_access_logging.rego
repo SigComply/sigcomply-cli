@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:elbv2:load-balancer"],
 	"remediation": "Enable access logging for the load balancer by configuring an S3 bucket to receive access logs.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:lambda:function"],
 	"remediation": "Configure the Lambda function to run within a VPC by specifying subnet IDs and security groups.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

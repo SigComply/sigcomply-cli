@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:autoscaling:group"],
 	"remediation": "Update the launch configuration or launch template to set AssociatePublicIpAddress=false and place instances behind a load balancer in a private subnet.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

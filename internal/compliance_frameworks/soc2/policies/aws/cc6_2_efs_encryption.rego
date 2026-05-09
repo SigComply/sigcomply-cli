@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:efs:file_system"],
 	"remediation": "Enable encryption at rest when creating EFS file systems. Existing unencrypted file systems must be recreated with encryption enabled.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

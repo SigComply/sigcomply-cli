@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ecs:cluster"],
 	"remediation": "Enable Container Insights: aws ecs update-cluster-settings --cluster CLUSTER --settings name=containerInsights,value=enabled",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

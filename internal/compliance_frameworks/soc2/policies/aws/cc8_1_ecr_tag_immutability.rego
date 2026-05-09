@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ecr:repository"],
 	"remediation": "Enable image tag immutability for ECR repositories: aws ecr put-image-tag-mutability --repository-name <name> --image-tag-mutability IMMUTABLE",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

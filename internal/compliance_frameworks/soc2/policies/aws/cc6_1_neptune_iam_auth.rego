@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:neptune:cluster"],
 	"remediation": "Enable IAM authentication: aws neptune modify-db-cluster --db-cluster-identifier <id> --enable-iam-database-authentication",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

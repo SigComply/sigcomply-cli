@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:kms:key"],
 	"remediation": "Enable automatic key rotation for KMS keys: aws kms enable-key-rotation --key-id <key-id>",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

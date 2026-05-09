@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:documentdb:cluster"],
 	"remediation": "Ensure TLS is enabled on the DocumentDB cluster parameter group. Set the tls parameter to 'enabled' in the cluster parameter group.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

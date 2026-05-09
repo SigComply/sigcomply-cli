@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:elbv2:load-balancer"],
 	"remediation": "Enable cross-zone load balancing to distribute traffic evenly across all registered targets in all enabled Availability Zones.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

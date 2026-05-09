@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ecs:task-definition"],
 	"remediation": "Remove pidMode: host from the task definition to prevent containers from accessing host processes.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

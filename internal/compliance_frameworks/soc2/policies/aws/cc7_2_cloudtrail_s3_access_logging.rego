@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:s3:bucket"],
 	"remediation": "Enable access logging on the S3 bucket used by CloudTrail.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

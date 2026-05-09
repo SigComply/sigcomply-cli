@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:security-group"],
 	"remediation": "Restrict database ports (3306, 5432, 1433, 6379, 27017) access to specific IP ranges or security groups. Never allow 0.0.0.0/0.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

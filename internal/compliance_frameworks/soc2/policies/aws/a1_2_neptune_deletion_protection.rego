@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:neptune:cluster"],
 	"remediation": "Enable deletion protection: aws neptune modify-db-cluster --db-cluster-identifier <id> --deletion-protection",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

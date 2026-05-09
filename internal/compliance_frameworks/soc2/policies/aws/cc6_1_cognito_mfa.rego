@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cognito:user-pool"],
 	"remediation": "Enable MFA (ON or OPTIONAL) for the Cognito User Pool.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

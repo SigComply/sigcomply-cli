@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:change_approval_log"],
 	"category": "change_management",
 	"remediation": "Upload the quarterly change approval log showing all production changes with approver sign-off.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

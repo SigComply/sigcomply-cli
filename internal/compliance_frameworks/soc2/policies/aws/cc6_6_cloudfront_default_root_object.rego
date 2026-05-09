@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudfront:distribution"],
 	"remediation": "Configure a default root object for the CloudFront distribution to prevent directory listing exposure.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

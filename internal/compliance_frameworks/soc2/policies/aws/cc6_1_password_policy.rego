@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:password-policy"],
 	"remediation": "Configure a strong password policy: minimum 14 characters, require complexity, 90-day expiration, prevent reuse.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

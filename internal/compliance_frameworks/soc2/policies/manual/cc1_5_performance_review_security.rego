@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:performance_review_security"],
 	"category": "hr_governance",
 	"remediation": "Upload evidence of annual performance reviews covering security policy adherence.",
+	"evidence_type": "manual",
 }
 
 # Violation: not uploaded and overdue

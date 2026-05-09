@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:acm:certificate"],
 	"remediation": "Ensure the certificate is eligible for automatic renewal or replace it.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

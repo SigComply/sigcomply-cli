@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:config:aggregator"],
 	"remediation": "Create an AWS Config aggregator to centralize configuration data across accounts and regions: aws configservice put-configuration-aggregator",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

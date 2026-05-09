@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:s3:bucket"],
 	"remediation": "Enable S3 Object Ownership with BucketOwnerEnforced to disable ACLs: aws s3api put-bucket-ownership-controls --bucket <name> --ownership-controls Rules=[{ObjectOwnership=BucketOwnerEnforced}]",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:instance"],
 	"remediation": "When creating RDS instances, specify a non-default port to reduce exposure to automated scanning attacks.",
+	"evidence_type": "automated",
 }
 
 default_ports := {

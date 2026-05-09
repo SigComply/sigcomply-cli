@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:bedrock:model"],
 	"remediation": "Enable model invocation logging in Amazon Bedrock settings.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:dynamodb:table"],
 	"remediation": "Configure DynamoDB table to use a customer-managed KMS key (CMK) for encryption.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:elasticbeanstalk:environment"],
 	"remediation": "Enable enhanced health reporting on the Elastic Beanstalk environment by setting the SystemType option in the aws:elasticbeanstalk:healthreporting:system namespace to 'enhanced'.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

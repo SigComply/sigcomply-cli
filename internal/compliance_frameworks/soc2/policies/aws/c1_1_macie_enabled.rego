@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:macie2:session"],
 	"remediation": "Enable Macie: aws macie2 enable-macie",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

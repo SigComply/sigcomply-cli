@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ecr:repository"],
 	"remediation": "Enable scan-on-push for ECR repositories: aws ecr put-image-scanning-configuration --repository-name <name> --image-scanning-configuration scanOnPush=true",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

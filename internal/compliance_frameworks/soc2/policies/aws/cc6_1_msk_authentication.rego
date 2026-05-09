@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:msk:cluster"],
 	"remediation": "Enable client authentication on the MSK cluster using IAM, SASL/SCRAM, or mutual TLS. Configure ClientAuthentication when creating or updating the cluster.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:visitor_log"],
 	"category": "access_physical",
 	"remediation": "Upload the quarterly physical office visitor log snapshot.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

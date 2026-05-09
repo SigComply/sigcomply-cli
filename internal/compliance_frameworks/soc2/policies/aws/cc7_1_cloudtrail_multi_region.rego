@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "batched",
 	"resource_types": ["aws:cloudtrail:trail"],
 	"remediation": "Enable multi-region on a trail: aws cloudtrail update-trail --name <trail> --is-multi-region-trail",
+	"evidence_type": "automated",
 }
 
 default any_multi_region := false

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ecs:task-definition"],
 	"remediation": "Configure log drivers (e.g., awslogs) for all containers in the ECS task definition.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

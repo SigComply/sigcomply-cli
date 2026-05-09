@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:athena:workgroup"],
 	"remediation": "Configure query result output location and encryption for the Athena workgroup.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

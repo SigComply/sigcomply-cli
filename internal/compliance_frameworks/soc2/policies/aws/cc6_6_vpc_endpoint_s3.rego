@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:vpc-endpoint-status"],
 	"remediation": "Create a VPC endpoint for S3 to keep traffic within the AWS network.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

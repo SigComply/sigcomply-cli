@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:cyber_liability_insurance"],
 	"category": "risk_compliance",
 	"remediation": "Upload the current cyber liability insurance certificate.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

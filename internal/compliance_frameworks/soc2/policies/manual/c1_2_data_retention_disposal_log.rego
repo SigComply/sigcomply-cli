@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:data_retention_disposal_log"],
 	"category": "data_protection",
 	"remediation": "Upload the quarterly data retention and disposal log showing data disposed per the retention schedule.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

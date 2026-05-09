@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:opensearch:domain"],
 	"remediation": "Enable zone awareness for the OpenSearch domain to deploy data nodes across multiple Availability Zones.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

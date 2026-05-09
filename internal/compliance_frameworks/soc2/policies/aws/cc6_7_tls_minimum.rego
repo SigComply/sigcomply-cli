@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:elbv2:load-balancer", "aws:cloudfront:distribution"],
 	"remediation": "Update SSL/TLS policy to use TLS 1.2+: For ELB, use ELBSecurityPolicy-TLS13-1-2-2021-06 or similar. For CloudFront, set minimum protocol version to TLSv1.2_2021.",
+	"evidence_type": "automated",
 }
 
 # TLS 1.2+ compatible ELB security policies

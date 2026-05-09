@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:secretsmanager:secret"],
 	"remediation": "Update the secret to use a CMK: aws secretsmanager update-secret --secret-id SECRET --kms-key-id KEY_ARN",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

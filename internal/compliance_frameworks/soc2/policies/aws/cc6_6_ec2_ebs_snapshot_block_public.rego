@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:account-setting"],
 	"remediation": "Enable account-level block public access for EBS snapshots.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

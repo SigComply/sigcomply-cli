@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:security-group", "gcp:compute:firewall"],
 	"remediation": "Restrict SSH (port 22) and RDP (port 3389) access to specific IP ranges. Never allow 0.0.0.0/0.",
+	"evidence_type": "automated",
 }
 
 # AWS Security Groups

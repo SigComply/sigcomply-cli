@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cognito:user-pool"],
 	"remediation": "Set minimum password length to 12+ and enable all complexity requirements.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

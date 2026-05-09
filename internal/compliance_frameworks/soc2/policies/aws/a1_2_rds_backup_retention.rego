@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:instance"],
 	"remediation": "Increase the backup retention period to at least 7 days for all RDS instances with automated backups enabled.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

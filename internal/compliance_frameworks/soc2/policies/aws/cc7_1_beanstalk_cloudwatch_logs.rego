@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:elasticbeanstalk:environment"],
 	"remediation": "Enable CloudWatch log streaming on the Elastic Beanstalk environment by setting StreamLogs to true in the aws:elasticbeanstalk:cloudwatch:logs namespace.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

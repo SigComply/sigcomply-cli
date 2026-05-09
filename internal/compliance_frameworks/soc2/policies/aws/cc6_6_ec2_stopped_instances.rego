@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:instance"],
 	"remediation": "Review stopped EC2 instances and terminate those no longer needed. Create AMIs for instances that may need to be relaunched later.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

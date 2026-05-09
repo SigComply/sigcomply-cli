@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudtrail:trail"],
 	"remediation": "Configure an SNS topic for the CloudTrail trail to receive notifications for API activity.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

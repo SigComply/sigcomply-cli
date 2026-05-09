@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:dr_test_report"],
 	"category": "system_ops_bcdr",
 	"remediation": "Upload the annual disaster recovery test report.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

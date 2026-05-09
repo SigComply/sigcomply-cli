@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:volume"],
 	"remediation": "Create EBS snapshots for the volume to enable recovery.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

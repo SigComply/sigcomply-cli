@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ecs:task-definition"],
 	"remediation": "Use 'awsvpc' or 'bridge' network mode instead of 'host' to isolate container networking.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

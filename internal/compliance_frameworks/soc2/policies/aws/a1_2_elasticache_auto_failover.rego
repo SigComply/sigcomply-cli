@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:elasticache:replication_group"],
 	"remediation": "Enable automatic failover for the ElastiCache replication group for high availability.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

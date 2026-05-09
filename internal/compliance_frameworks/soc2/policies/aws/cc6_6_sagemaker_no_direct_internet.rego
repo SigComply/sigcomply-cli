@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:sagemaker:notebook"],
 	"remediation": "Disable direct internet access on SageMaker notebook instances and use VPC networking instead.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:server-certificate-status"],
 	"remediation": "Migrate IAM server certificates to AWS Certificate Manager (ACM) for automated renewal and better security.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:subnet"],
 	"remediation": "Disable auto-assign public IP for the subnet: aws ec2 modify-subnet-attribute --subnet-id <id> --no-map-public-ip-on-launch",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

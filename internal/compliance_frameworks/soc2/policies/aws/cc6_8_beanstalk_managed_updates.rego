@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:elasticbeanstalk:environment"],
 	"remediation": "Enable managed platform updates on the Elastic Beanstalk environment by setting ManagedActionsEnabled to true in the aws:elasticbeanstalk:managedactions namespace.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

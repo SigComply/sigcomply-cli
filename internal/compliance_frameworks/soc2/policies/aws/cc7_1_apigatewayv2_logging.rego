@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:apigateway:v2-api"],
 	"remediation": "Enable access logging on the API Gateway V2 stage.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

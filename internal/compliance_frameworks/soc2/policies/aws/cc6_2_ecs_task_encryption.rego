@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ecs:task-definition"],
 	"remediation": "Enable transit encryption for EFS volumes in ECS task definitions.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

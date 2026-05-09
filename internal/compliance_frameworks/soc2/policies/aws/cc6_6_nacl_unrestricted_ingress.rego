@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:network-acl"],
 	"remediation": "Update Network ACL entries to restrict inbound access on admin ports (22, 3389) to specific CIDR ranges instead of 0.0.0.0/0.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

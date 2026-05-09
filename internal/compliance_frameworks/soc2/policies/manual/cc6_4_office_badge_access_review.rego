@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:office_badge_access_review"],
 	"category": "access_physical",
 	"remediation": "Upload the quarterly office badge access review showing active badge holders and access levels.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

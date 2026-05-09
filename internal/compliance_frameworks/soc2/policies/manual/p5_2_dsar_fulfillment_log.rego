@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:dsar_fulfillment_log"],
 	"category": "privacy",
 	"remediation": "Upload the quarterly DSAR fulfillment log showing all data subject requests received and their resolution status.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

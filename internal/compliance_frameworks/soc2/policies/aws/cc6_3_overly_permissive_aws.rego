@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:user"],
 	"remediation": "Replace AdministratorAccess with more granular IAM policies following the principle of least privilege.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:sqs:queue"],
 	"remediation": "Configure a dead letter queue (redrive policy) for the SQS queue.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

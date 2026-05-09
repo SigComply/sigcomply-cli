@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:securityhub:hub"],
 	"remediation": "Enable security standards in Security Hub: aws securityhub batch-enable-standards --standards-subscription-requests",
+	"evidence_type": "automated",
 }
 
 # Violation: Security Hub disabled

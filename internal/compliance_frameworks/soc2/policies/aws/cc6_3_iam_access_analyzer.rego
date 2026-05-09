@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:accessanalyzer:status"],
 	"remediation": "Enable IAM Access Analyzer to continuously analyze resource policies and identify resources shared with external entities.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

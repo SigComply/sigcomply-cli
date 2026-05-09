@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:kms:key"],
 	"remediation": "Update the KMS key policy to remove wildcard principal (*) access. Restrict to specific AWS accounts, IAM users, or roles.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

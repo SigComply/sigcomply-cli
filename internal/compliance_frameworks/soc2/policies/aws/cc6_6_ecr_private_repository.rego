@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ecr:repository"],
 	"remediation": "Use private ECR repositories instead of public ones. Migrate images to private repositories and update references.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

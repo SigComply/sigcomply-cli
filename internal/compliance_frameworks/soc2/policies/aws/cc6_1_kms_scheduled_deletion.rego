@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:kms:key"],
 	"remediation": "Cancel the key deletion if unintended: aws kms cancel-key-deletion --key-id <key-id>. Review key usage before allowing deletion to proceed.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

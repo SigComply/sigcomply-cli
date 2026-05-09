@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:lambda:function"],
 	"remediation": "Enable X-Ray active tracing for the Lambda function.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

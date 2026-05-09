@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudtrail:trail"],
 	"remediation": "Enable log file validation: aws cloudtrail update-trail --name <trail> --enable-log-file-validation",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

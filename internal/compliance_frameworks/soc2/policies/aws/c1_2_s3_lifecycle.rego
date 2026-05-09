@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:s3:bucket"],
 	"remediation": "Configure lifecycle rules for the S3 bucket to manage data retention, transitions, and expiration.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

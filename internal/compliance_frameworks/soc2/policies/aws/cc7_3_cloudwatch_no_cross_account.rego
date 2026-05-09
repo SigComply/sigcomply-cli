@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:logs:log-group"],
 	"remediation": "Review and restrict cross-account sharing on the CloudWatch Log Group.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

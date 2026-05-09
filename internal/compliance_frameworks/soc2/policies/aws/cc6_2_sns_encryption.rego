@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:sns:topic"],
 	"remediation": "Enable server-side encryption with KMS for the SNS topic.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

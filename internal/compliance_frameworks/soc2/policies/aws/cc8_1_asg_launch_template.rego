@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:autoscaling:group"],
 	"remediation": "Migrate from launch configurations to launch templates: aws autoscaling update-auto-scaling-group --auto-scaling-group-name NAME --launch-template LaunchTemplateId=lt-XXXXX,Version='$Latest'",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

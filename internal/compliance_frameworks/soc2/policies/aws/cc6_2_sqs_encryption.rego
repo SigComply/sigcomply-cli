@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:sqs:queue"],
 	"remediation": "Enable server-side encryption for the SQS queue using KMS or SQS-managed encryption.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

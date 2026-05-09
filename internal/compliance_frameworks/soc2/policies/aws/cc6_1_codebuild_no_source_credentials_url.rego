@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:codebuild:project"],
 	"remediation": "Use AWS CodeBuild source credentials or AWS Secrets Manager instead of embedding credentials in source URLs.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

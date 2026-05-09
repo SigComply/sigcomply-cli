@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:documentdb:cluster"],
 	"remediation": "Set the backup retention period to at least 7 days on the DocumentDB cluster to ensure sufficient recovery window.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

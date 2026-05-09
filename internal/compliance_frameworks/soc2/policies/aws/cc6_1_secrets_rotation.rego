@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:secretsmanager:secret"],
 	"remediation": "Enable rotation: aws secretsmanager rotate-secret --secret-id SECRET_NAME --rotation-rules AutomaticallyAfterDays=90",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

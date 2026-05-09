@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:guardduty:detector"],
 	"remediation": "Enable GuardDuty Runtime Monitoring: aws guardduty update-detector --detector-id <id> --features [{Name=RUNTIME_MONITORING,Status=ENABLED}]",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

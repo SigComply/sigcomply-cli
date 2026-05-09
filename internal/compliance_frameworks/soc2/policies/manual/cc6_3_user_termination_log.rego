@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:user_termination_log"],
 	"category": "hr_governance",
 	"remediation": "Upload the quarterly user termination log showing timely access revocation for departed users.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:client-vpn-endpoint"],
 	"remediation": "Disable split tunnel on the Client VPN endpoint to route all traffic through the VPN.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

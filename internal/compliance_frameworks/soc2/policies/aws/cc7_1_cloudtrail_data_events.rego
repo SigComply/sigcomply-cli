@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "batched",
 	"resource_types": ["aws:cloudtrail:trail"],
 	"remediation": "Enable S3 data events on a trail: aws cloudtrail put-event-selectors --trail-name <trail> --event-selectors '[{\"DataResources\":[{\"Type\":\"AWS::S3::Object\",\"Values\":[\"arn:aws:s3\"]}]}]'",
+	"evidence_type": "automated",
 }
 
 default any_s3_data_events := false

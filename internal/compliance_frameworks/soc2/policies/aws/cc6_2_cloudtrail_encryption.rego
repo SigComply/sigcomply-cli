@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudtrail:trail"],
 	"remediation": "Enable KMS encryption on CloudTrail trails to protect log file integrity and confidentiality.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:securityhub:hub"],
 	"remediation": "Enable Security Hub: aws securityhub enable-security-hub",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

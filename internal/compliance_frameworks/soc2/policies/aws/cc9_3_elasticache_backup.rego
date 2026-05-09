@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:elasticache:replication_group"],
 	"remediation": "Enable automatic backups for the ElastiCache replication group with an appropriate retention period.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

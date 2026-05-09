@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:secure_hardware_storage_log"],
 	"category": "access_physical",
 	"remediation": "Upload the quarterly log of hardware assets stored in secure locations, including check-in/check-out records.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

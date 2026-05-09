@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:redshift-serverless:workgroup"],
 	"remediation": "Disable public access on the Redshift Serverless workgroup.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

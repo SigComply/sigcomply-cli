@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:s3:bucket"],
 	"remediation": "Enable Object Lock on the S3 bucket (must be set at bucket creation).",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

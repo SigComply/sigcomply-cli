@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudfront:distribution"],
 	"remediation": "Configure CloudFront origins to use HTTPS-only protocol policy.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

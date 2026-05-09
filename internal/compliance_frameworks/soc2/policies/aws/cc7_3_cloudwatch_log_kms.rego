@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:logs:log-group"],
 	"remediation": "Associate a KMS key with the CloudWatch Log Group for encryption.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

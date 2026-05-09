@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:msk:cluster"],
 	"remediation": "Enable broker log delivery for the MSK cluster to at least one destination: CloudWatch Logs, Amazon S3, or Amazon Kinesis Data Firehose. Configure LoggingInfo.BrokerLogs when creating or updating the cluster.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

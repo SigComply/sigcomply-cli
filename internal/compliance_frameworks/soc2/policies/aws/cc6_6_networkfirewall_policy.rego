@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:networkfirewall:firewall"],
 	"remediation": "Attach a firewall policy to the Network Firewall to define stateless and stateful traffic inspection rules",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

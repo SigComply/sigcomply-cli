@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:opensearch:domain"],
 	"remediation": "Deploy the OpenSearch domain within a VPC to restrict network access. Public domains are accessible from the internet.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

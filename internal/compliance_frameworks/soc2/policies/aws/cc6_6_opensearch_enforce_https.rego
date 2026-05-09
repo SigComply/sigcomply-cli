@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:opensearch:domain"],
 	"remediation": "Enable 'Require HTTPS' in the OpenSearch domain endpoint options to enforce encrypted connections.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

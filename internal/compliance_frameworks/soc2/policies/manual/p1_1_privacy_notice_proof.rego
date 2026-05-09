@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:privacy_notice_proof"],
 	"category": "privacy",
 	"remediation": "Upload proof that the privacy notice is published and accessible (screenshot, URL, or archived copy).",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

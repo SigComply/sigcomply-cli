@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:opensearch:domain"],
 	"remediation": "Enable node-to-node encryption for the OpenSearch domain to encrypt traffic between nodes within the cluster.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

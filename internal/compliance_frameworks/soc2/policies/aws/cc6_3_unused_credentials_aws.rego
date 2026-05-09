@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:user"],
 	"remediation": "Disable or delete AWS IAM credentials that have been inactive for more than 90 days.",
+	"evidence_type": "automated",
 }
 
 # Console user with password inactive for more than 90 days

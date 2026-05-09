@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["gcp:iam:service-account"],
 	"remediation": "Rotate service account keys older than 90 days. Create a new key and delete the old one.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

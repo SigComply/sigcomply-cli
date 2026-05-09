@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:backup:status"],
 	"remediation": "Create an AWS Backup plan: aws backup create-backup-plan --backup-plan '...'",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

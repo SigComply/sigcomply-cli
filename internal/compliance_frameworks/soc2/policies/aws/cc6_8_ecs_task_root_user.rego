@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ecs:task-definition"],
 	"remediation": "Configure ECS task definitions to run as a non-root user by setting the 'user' parameter.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

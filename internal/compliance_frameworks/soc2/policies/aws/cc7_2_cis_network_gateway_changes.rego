@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudwatch:cis-metric-filter"],
 	"remediation": "Create a CloudWatch metric filter for network gateway changes (CreateCustomerGateway, DeleteCustomerGateway, AttachInternetGateway, etc.) and associate an SNS alarm.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:mq:broker"],
 	"remediation": "Enable audit logging for Amazon MQ brokers via the AWS Console or CLI: aws mq update-broker --broker-id <id> --logs Audit=true",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

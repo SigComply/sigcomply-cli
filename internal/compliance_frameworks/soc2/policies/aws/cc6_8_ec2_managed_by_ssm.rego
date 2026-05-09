@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:instance"],
 	"remediation": "Install SSM Agent and ensure the instance has the required IAM role for SSM.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

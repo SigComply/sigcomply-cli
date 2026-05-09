@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:s3:bucket", "gcp:storage:bucket"],
 	"remediation": "Enable versioning on storage buckets for data protection and recovery.",
+	"evidence_type": "automated",
 }
 
 # AWS S3

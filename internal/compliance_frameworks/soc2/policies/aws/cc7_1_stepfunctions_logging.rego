@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:stepfunctions:state-machine"],
 	"remediation": "Enable CloudWatch logging for Step Functions state machines: aws stepfunctions update-state-machine --state-machine-arn <arn> --logging-configuration level=ALL,includeExecutionData=true,destinations=[{cloudWatchLogsLogGroup:{logGroupArn=<log-group-arn>}}]",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

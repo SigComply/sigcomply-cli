@@ -14,6 +14,7 @@ metadata := {
 	"resource_types": ["manual:fraud_risk_assessment"],
 	"category": "risk_compliance",
 	"remediation": "Upload the annual fraud risk assessment covering potential fraud scenarios and mitigating controls.",
+	"evidence_type": "manual",
 }
 
 violations contains violation if {

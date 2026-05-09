@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:user"],
 	"remediation": "Add the IAM user to appropriate groups and manage permissions through group policies instead of direct policy attachments.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

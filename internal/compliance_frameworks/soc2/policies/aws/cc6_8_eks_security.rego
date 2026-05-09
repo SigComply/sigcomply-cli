@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:eks:cluster"],
 	"remediation": "Restrict endpoint access, enable logging, and enable secrets encryption for EKS cluster",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

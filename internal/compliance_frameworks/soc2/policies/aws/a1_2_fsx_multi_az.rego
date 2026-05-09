@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:fsx:filesystem"],
 	"remediation": "Deploy FSx file systems with Multi-AZ configuration by selecting a deployment type that spans multiple Availability Zones (e.g., MULTI_AZ_1 for Windows or ONTAP file systems).",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

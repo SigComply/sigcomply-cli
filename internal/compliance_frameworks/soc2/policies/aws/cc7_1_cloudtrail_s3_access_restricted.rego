@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:cloudtrail:trail"],
 	"remediation": "Configure a dedicated S3 bucket for the CloudTrail trail to ensure audit logs are stored securely.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

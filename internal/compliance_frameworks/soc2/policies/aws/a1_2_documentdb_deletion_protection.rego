@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:documentdb:cluster"],
 	"remediation": "Enable deletion protection on the DocumentDB cluster to prevent accidental deletion. Use the AWS console or CLI: aws docdb modify-db-cluster --db-cluster-identifier CLUSTER_ID --deletion-protection.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

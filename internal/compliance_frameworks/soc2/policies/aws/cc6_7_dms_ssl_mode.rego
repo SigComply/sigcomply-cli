@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:dms:endpoint"],
 	"remediation": "Modify the DMS endpoint to use an SSL mode other than 'none' (e.g., 'require', 'verify-ca', or 'verify-full').",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

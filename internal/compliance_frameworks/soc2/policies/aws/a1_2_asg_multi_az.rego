@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:autoscaling:group"],
 	"remediation": "Configure the Auto Scaling group to use multiple Availability Zones for fault tolerance and high availability.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

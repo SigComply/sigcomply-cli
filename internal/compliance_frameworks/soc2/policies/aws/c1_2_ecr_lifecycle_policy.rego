@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ecr:repository"],
 	"remediation": "Configure a lifecycle policy for the ECR repository to automatically clean up old or untagged images: aws ecr put-lifecycle-policy --repository-name <name> --lifecycle-policy-text <policy>",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

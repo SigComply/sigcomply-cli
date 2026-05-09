@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:lambda:function"],
 	"remediation": "Update Lambda runtime and restrict resource policy",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

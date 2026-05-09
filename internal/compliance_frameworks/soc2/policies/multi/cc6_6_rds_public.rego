@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:rds:instance", "gcp:sql:instance"],
 	"remediation": "Disable public accessibility on database instances. Use VPC/private networking for database access.",
+	"evidence_type": "automated",
 }
 
 # AWS RDS

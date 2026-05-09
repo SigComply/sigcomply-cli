@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:policy"],
 	"remediation": "Restrict CloudTrail permissions to read-only access where possible.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

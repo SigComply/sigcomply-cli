@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ssm:document-status"],
 	"remediation": "Review and remove public sharing from SSM documents using: aws ssm modify-document-permission --name <doc-name> --permission-type Share --account-ids-to-remove all",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:acm:certificate"],
 	"remediation": "Enable certificate transparency logging when requesting or importing a certificate",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

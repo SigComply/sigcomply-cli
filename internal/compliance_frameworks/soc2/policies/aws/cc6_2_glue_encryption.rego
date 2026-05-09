@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:glue:job"],
 	"remediation": "Attach a SecurityConfiguration to the Glue job that enables encryption for data at rest (S3, CloudWatch logs) and data in transit.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

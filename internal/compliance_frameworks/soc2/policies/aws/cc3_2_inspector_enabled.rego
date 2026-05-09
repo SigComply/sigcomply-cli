@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:inspector:status"],
 	"remediation": "Enable AWS Inspector: aws inspector2 enable --resource-types EC2 ECR LAMBDA",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

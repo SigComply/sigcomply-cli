@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:documentdb:snapshot"],
 	"remediation": "Remove public access from DocumentDB snapshots. Use aws rds modify-db-cluster-snapshot-attribute to revoke public access.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

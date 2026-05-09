@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:elasticache:replication_group"],
 	"remediation": "Enable in-transit encryption for the ElastiCache replication group to protect data during transmission.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

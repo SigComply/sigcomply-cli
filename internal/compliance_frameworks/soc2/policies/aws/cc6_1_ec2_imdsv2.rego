@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:instance"],
 	"remediation": "Require IMDSv2: aws ec2 modify-instance-metadata-options --instance-id INSTANCE_ID --http-tokens required --http-endpoint enabled",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

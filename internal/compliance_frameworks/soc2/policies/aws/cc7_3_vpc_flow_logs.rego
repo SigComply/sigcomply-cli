@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:ec2:vpc"],
 	"remediation": "Enable VPC flow logs for network traffic analysis.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

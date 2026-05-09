@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:lambda:function"],
 	"remediation": "Configure the Lambda function's VPC settings to include subnets across multiple availability zones for high availability.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

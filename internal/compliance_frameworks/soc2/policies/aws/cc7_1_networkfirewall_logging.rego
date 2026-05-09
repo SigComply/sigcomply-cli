@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:networkfirewall:firewall"],
 	"remediation": "Enable logging on the Network Firewall by configuring log destinations for alert and flow logs",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:iam:policy"],
 	"remediation": "Update IAM policies to scope kms:Decrypt and kms:* actions to specific KMS key ARNs rather than using Resource: *.",
+	"evidence_type": "automated",
 }
 
 violations contains violation if {

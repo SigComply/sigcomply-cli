@@ -13,6 +13,7 @@ metadata := {
 	"evaluation_mode": "individual",
 	"resource_types": ["aws:glue:job"],
 	"remediation": "Upgrade the Glue job to use Glue version 3.0 or higher to ensure access to the latest security patches and features.",
+	"evidence_type": "automated",
 }
 
 supported_versions := {"3.0", "4.0"}
