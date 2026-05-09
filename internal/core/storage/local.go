@@ -172,6 +172,17 @@ func (b *LocalBackend) GetPath() string {
 	return b.path
 }
 
+// URIFor returns a file:// URI for a relative path under the backend root.
+// If the base path cannot be resolved to absolute, the URI is built from the
+// raw path so the result remains a usable diagnostic.
+func (b *LocalBackend) URIFor(path string) string {
+	full := filepath.Join(b.path, path)
+	if abs, err := filepath.Abs(full); err == nil {
+		full = abs
+	}
+	return "file://" + filepath.ToSlash(full)
+}
+
 // NotFoundError is returned when a stored item is not found.
 type NotFoundError struct {
 	Path string

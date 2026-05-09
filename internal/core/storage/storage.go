@@ -24,6 +24,11 @@ type Backend interface {
 	// Get retrieves a stored item by path.
 	Get(ctx context.Context, path string) ([]byte, error)
 
+	// URIFor returns a human-readable, fully-qualified URI for a relative
+	// storage path so error messages can tell users exactly where a file
+	// is expected (e.g. "s3://bucket/key", "gs://bucket/object", "file:///abs/path").
+	URIFor(path string) string
+
 	// Close closes the storage backend.
 	Close() error
 }
@@ -89,6 +94,10 @@ type LocalConfig struct {
 }
 
 // S3Config holds S3 storage configuration.
+//
+// The same struct covers AWS S3 and S3-compatible on-prem stores
+// (MinIO, Ceph RadosGW, Dell ECS, NetApp StorageGRID, Pure FlashBlade).
+// On-prem stores typically need Endpoint and ForcePathStyle set.
 type S3Config struct {
 	// Bucket is the S3 bucket name.
 	Bucket string `yaml:"bucket" json:"bucket"`
@@ -96,8 +105,71 @@ type S3Config struct {
 	// Prefix is the key prefix for all stored items.
 	Prefix string `yaml:"prefix" json:"prefix"`
 
-	// Region is the AWS region.
+	// Region is the AWS region. Required by the SDK even for on-prem stores
+	// that ignore it; supply any non-empty value (e.g., "us-east-1").
 	Region string `yaml:"region" json:"region"`
+
+	// Endpoint overrides the default S3 endpoint URL. Set this for on-prem
+	// S3-compatible stores (e.g., "https://minio.internal.corp:9000").
+	// Leave empty for AWS S3.
+	Endpoint string `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
+
+	// ForcePathStyle forces path-style addressing (bucket as URL path)
+	// instead of virtual-hosted-style (bucket as subdomain). Required for
+	// most on-prem S3-compatible stores.
+	ForcePathStyle bool `yaml:"force_path_style,omitempty" json:"force_path_style,omitempty"`
+
+	// Auth optionally specifies an explicit auth strategy. When nil or
+	// when Mode is empty/"ambient", the AWS SDK default credential chain
+	// is used (env vars, IAM role, EC2 instance metadata, etc.). When
+	// Mode is "oidc", the CLI exchanges its CI OIDC token for temporary
+	// AWS credentials via STS AssumeRoleWithWebIdentity.
+	Auth *AuthConfig `yaml:"auth,omitempty" json:"auth,omitempty"`
+}
+
+// AuthMode selects the authentication strategy for a cloud storage backend.
+type AuthMode string
+
+const (
+	// AuthModeAmbient (the default) lets the underlying SDK discover
+	// credentials from its standard sources: environment variables, IAM
+	// roles, instance metadata, GOOGLE_APPLICATION_CREDENTIALS, Azure
+	// DefaultAzureCredential chain, etc.
+	AuthModeAmbient AuthMode = "ambient"
+
+	// AuthModeOIDC instructs the CLI to obtain its CI OIDC token (GitHub
+	// Actions or GitLab CI) and exchange it for cloud credentials. The
+	// exchange is provider-specific: STS AssumeRoleWithWebIdentity on AWS,
+	// Workload Identity Federation on GCP, Azure AD federated credentials
+	// on Azure.
+	AuthModeOIDC AuthMode = "oidc"
+)
+
+// AuthConfig configures how a cloud storage backend authenticates.
+// All cloud-specific fields live on the same struct; only those relevant
+// to the backend in question are read.
+type AuthConfig struct {
+	// Mode selects the auth strategy. Empty defaults to AuthModeAmbient.
+	Mode AuthMode `yaml:"mode,omitempty" json:"mode,omitempty"`
+
+	// Audience is the audience claim requested when fetching the CI OIDC
+	// token. Defaults are backend-specific:
+	//   AWS:   "sts.amazonaws.com"
+	//   GCP:   "//iam.googleapis.com/<workload_identity_provider>"
+	//   Azure: "api://AzureADTokenExchange"
+	Audience string `yaml:"audience,omitempty" json:"audience,omitempty"`
+
+	// AWS-only fields (used when Mode is "oidc" and the backend is S3).
+	RoleARN     string `yaml:"role_arn,omitempty" json:"role_arn,omitempty"`
+	SessionName string `yaml:"session_name,omitempty" json:"session_name,omitempty"`
+
+	// GCP-only fields.
+	WorkloadIdentityProvider string `yaml:"workload_identity_provider,omitempty" json:"workload_identity_provider,omitempty"`
+	ServiceAccount           string `yaml:"service_account,omitempty" json:"service_account,omitempty"`
+
+	// Azure-only fields.
+	TenantID string `yaml:"tenant_id,omitempty" json:"tenant_id,omitempty"`
+	ClientID string `yaml:"client_id,omitempty" json:"client_id,omitempty"`
 }
 
 // NewBackend creates a new storage backend based on configuration.

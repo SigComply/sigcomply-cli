@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -55,6 +56,97 @@ func TestNewBackend_UnsupportedBackend(t *testing.T) {
 	_, err := NewBackend(cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported storage backend")
+}
+
+func TestLocalBackend_URIFor(t *testing.T) {
+	tmpDir := t.TempDir()
+	backend := NewLocalBackend(&LocalConfig{Path: tmpDir})
+
+	uri := backend.URIFor("soc2/access_review/2026-Q1/evidence.pdf")
+	assert.True(t, strings.HasPrefix(uri, "file://"), "expected file:// URI, got %q", uri)
+	assert.True(t, strings.HasSuffix(uri, "/soc2/access_review/2026-Q1/evidence.pdf"),
+		"expected URI to end with the relative path, got %q", uri)
+}
+
+func TestS3Backend_URIFor_AWSDefault(t *testing.T) {
+	backend := NewS3Backend(&S3Config{
+		Bucket: "my-evidence-bucket",
+		Prefix: "manual/",
+		Region: "us-east-1",
+	})
+
+	uri := backend.URIFor("soc2/access_review/2026-Q1/evidence.pdf")
+	assert.Equal(t, "s3://my-evidence-bucket/manual/soc2/access_review/2026-Q1/evidence.pdf", uri)
+}
+
+func TestS3Backend_URIFor_OnPremEndpoint(t *testing.T) {
+	backend := NewS3Backend(&S3Config{
+		Bucket:         "evidence",
+		Prefix:         "manual/",
+		Region:         "us-east-1",
+		Endpoint:       "https://minio.internal.corp:9000",
+		ForcePathStyle: true,
+	})
+
+	uri := backend.URIFor("soc2/access_review/2026-Q1/evidence.pdf")
+	assert.Equal(t, "https://minio.internal.corp:9000/evidence/manual/soc2/access_review/2026-Q1/evidence.pdf", uri)
+}
+
+func TestS3Backend_URIFor_MalformedEndpointFallback(t *testing.T) {
+	backend := NewS3Backend(&S3Config{
+		Bucket:   "evidence",
+		Prefix:   "manual/",
+		Endpoint: "not-a-url",
+	})
+
+	uri := backend.URIFor("foo.pdf")
+	assert.Equal(t, "s3://evidence/manual/foo.pdf", uri,
+		"malformed endpoint should fall back to s3:// scheme")
+}
+
+func TestS3Backend_OIDC_RequiresRoleARN(t *testing.T) {
+	// Without a role ARN, OIDC mode must fail fast at Init time before any
+	// network call is attempted. We assert this by checking the auth-mode
+	// branch of loadAWSConfig directly.
+	backend := NewS3Backend(&S3Config{
+		Bucket: "evidence",
+		Region: "us-east-1",
+		Auth: &AuthConfig{
+			Mode: AuthModeOIDC,
+			// RoleARN intentionally omitted.
+		},
+	})
+
+	_, err := backend.loadAWSConfig(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "auth.role_arn")
+}
+
+func TestS3Backend_AmbientIsDefault(t *testing.T) {
+	// A nil Auth or empty Mode must use the ambient credential chain.
+	for _, cfg := range []*S3Config{
+		{Bucket: "b", Region: "us-east-1"},
+		{Bucket: "b", Region: "us-east-1", Auth: &AuthConfig{}},
+	} {
+		backend := NewS3Backend(cfg)
+		// Should not error before attempting any network call: the SDK
+		// only resolves credentials lazily, so LoadDefaultConfig succeeds
+		// even on a machine with no AWS credentials present.
+		_, err := backend.loadAWSConfig(context.Background())
+		assert.NoError(t, err)
+	}
+}
+
+func TestS3Backend_RejectsUnknownAuthMode(t *testing.T) {
+	backend := NewS3Backend(&S3Config{
+		Bucket: "b",
+		Region: "us-east-1",
+		Auth:   &AuthConfig{Mode: "saml"},
+	})
+
+	_, err := backend.loadAWSConfig(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported auth mode")
 }
 
 func TestLocalBackend_Init(t *testing.T) {

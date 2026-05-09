@@ -50,10 +50,30 @@ type LocalStorageConfig struct {
 }
 
 // S3StorageConfig holds S3 storage settings from the config file.
+//
+// Endpoint and ForcePathStyle are used for S3-compatible on-prem stores
+// (MinIO, Ceph, Dell ECS, NetApp StorageGRID). Auth optionally selects an
+// explicit credential strategy (ambient or oidc).
 type S3StorageConfig struct {
-	Bucket string `yaml:"bucket,omitempty" json:"bucket,omitempty"`
-	Region string `yaml:"region,omitempty" json:"region,omitempty"`
-	Prefix string `yaml:"prefix,omitempty" json:"prefix,omitempty"`
+	Bucket         string                 `yaml:"bucket,omitempty" json:"bucket,omitempty"`
+	Region         string                 `yaml:"region,omitempty" json:"region,omitempty"`
+	Prefix         string                 `yaml:"prefix,omitempty" json:"prefix,omitempty"`
+	Endpoint       string                 `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
+	ForcePathStyle bool                   `yaml:"force_path_style,omitempty" json:"force_path_style,omitempty"`
+	Auth           *StorageAuthFileConfig `yaml:"auth,omitempty" json:"auth,omitempty"`
+}
+
+// StorageAuthFileConfig holds the auth stanza for cloud storage backends as
+// it appears in the YAML config file. Mirrors storage.AuthConfig.
+type StorageAuthFileConfig struct {
+	Mode                     string `yaml:"mode,omitempty" json:"mode,omitempty"`
+	Audience                 string `yaml:"audience,omitempty" json:"audience,omitempty"`
+	RoleARN                  string `yaml:"role_arn,omitempty" json:"role_arn,omitempty"`
+	SessionName              string `yaml:"session_name,omitempty" json:"session_name,omitempty"`
+	WorkloadIdentityProvider string `yaml:"workload_identity_provider,omitempty" json:"workload_identity_provider,omitempty"`
+	ServiceAccount           string `yaml:"service_account,omitempty" json:"service_account,omitempty"`
+	TenantID                 string `yaml:"tenant_id,omitempty" json:"tenant_id,omitempty"`
+	ClientID                 string `yaml:"client_id,omitempty" json:"client_id,omitempty"`
 }
 
 // FileStorageConfig holds storage settings as they appear in the YAML file.
@@ -136,6 +156,38 @@ type StorageConfig struct {
 	Bucket  string `json:"bucket"`  // For S3 backend
 	Region  string `json:"region"`  // For S3 backend
 	Prefix  string `json:"prefix"`  // For S3 backend
+
+	// Endpoint and ForcePathStyle are S3-only. Set Endpoint to an HTTPS URL
+	// for on-prem S3-compatible stores (MinIO, Ceph, ECS, StorageGRID);
+	// most of those also need ForcePathStyle=true.
+	Endpoint       string `json:"endpoint,omitempty"`
+	ForcePathStyle bool   `json:"force_path_style,omitempty"`
+
+	// Auth optionally configures an explicit credential strategy. When
+	// Mode is empty/"ambient", the SDK default credential chain is used.
+	// When Mode is "oidc", the CLI exchanges its CI OIDC token for cloud
+	// credentials (AWS STS / GCP WIF / Azure federated credentials).
+	Auth StorageAuthConfig `json:"auth,omitempty"`
+}
+
+// StorageAuthConfig is the runtime form of the storage auth stanza.
+// All cloud-specific fields live on the same struct; only the ones relevant
+// to the active backend are read.
+type StorageAuthConfig struct {
+	Mode     string `json:"mode,omitempty"`
+	Audience string `json:"audience,omitempty"`
+
+	// AWS-only
+	RoleARN     string `json:"role_arn,omitempty"`
+	SessionName string `json:"session_name,omitempty"`
+
+	// GCP-only
+	WorkloadIdentityProvider string `json:"workload_identity_provider,omitempty"`
+	ServiceAccount           string `json:"service_account,omitempty"`
+
+	// Azure-only
+	TenantID string `json:"tenant_id,omitempty"`
+	ClientID string `json:"client_id,omitempty"`
 }
 
 // AWSConfig holds AWS-specific configuration (non-secret only).
@@ -323,6 +375,24 @@ func (c *Config) mergeStorageConfig(fs *FileStorageConfig) {
 		if fs.S3.Prefix != "" {
 			c.Storage.Prefix = fs.S3.Prefix
 		}
+		if fs.S3.Endpoint != "" {
+			c.Storage.Endpoint = fs.S3.Endpoint
+		}
+		if fs.S3.ForcePathStyle {
+			c.Storage.ForcePathStyle = true
+		}
+		if fs.S3.Auth != nil {
+			c.Storage.Auth = StorageAuthConfig{
+				Mode:                     fs.S3.Auth.Mode,
+				Audience:                 fs.S3.Auth.Audience,
+				RoleARN:                  fs.S3.Auth.RoleARN,
+				SessionName:              fs.S3.Auth.SessionName,
+				WorkloadIdentityProvider: fs.S3.Auth.WorkloadIdentityProvider,
+				ServiceAccount:           fs.S3.Auth.ServiceAccount,
+				TenantID:                 fs.S3.Auth.TenantID,
+				ClientID:                 fs.S3.Auth.ClientID,
+			}
+		}
 	}
 }
 
@@ -375,6 +445,27 @@ func (c *Config) LoadFromEnv() { //nolint:gocyclo // sequential env var loading 
 
 	if v := os.Getenv("SIGCOMPLY_STORAGE_PREFIX"); v != "" {
 		c.Storage.Prefix = v
+	}
+
+	if v := os.Getenv("SIGCOMPLY_STORAGE_S3_ENDPOINT"); v != "" {
+		c.Storage.Endpoint = v
+	}
+
+	if os.Getenv("SIGCOMPLY_STORAGE_S3_FORCE_PATH_STYLE") == envTrue {
+		c.Storage.ForcePathStyle = true
+	}
+
+	if v := os.Getenv("SIGCOMPLY_STORAGE_S3_AUTH_MODE"); v != "" {
+		c.Storage.Auth.Mode = v
+	}
+	if v := os.Getenv("SIGCOMPLY_STORAGE_S3_AUTH_AUDIENCE"); v != "" {
+		c.Storage.Auth.Audience = v
+	}
+	if v := os.Getenv("SIGCOMPLY_STORAGE_S3_AUTH_ROLE_ARN"); v != "" {
+		c.Storage.Auth.RoleARN = v
+	}
+	if v := os.Getenv("SIGCOMPLY_STORAGE_S3_AUTH_SESSION_NAME"); v != "" {
+		c.Storage.Auth.SessionName = v
 	}
 
 	// Provider settings

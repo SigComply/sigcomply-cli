@@ -832,9 +832,12 @@ func buildStorageConfig(cfg *config.Config) *storage.Config {
 		}
 	case backendS3:
 		storageCfg.S3 = &storage.S3Config{
-			Bucket: cfg.Storage.Bucket,
-			Region: cfg.Storage.Region,
-			Prefix: cfg.Storage.Prefix,
+			Bucket:         cfg.Storage.Bucket,
+			Region:         cfg.Storage.Region,
+			Prefix:         cfg.Storage.Prefix,
+			Endpoint:       cfg.Storage.Endpoint,
+			ForcePathStyle: cfg.Storage.ForcePathStyle,
+			Auth:           buildStorageAuthConfig(&cfg.Storage.Auth),
 		}
 	}
 
@@ -859,13 +862,38 @@ func buildManualStorageConfig(cfg *config.Config) *storage.Config {
 	case backendS3:
 		prefix := cfg.Storage.Prefix + cfg.ManualEvidence.Prefix
 		storageCfg.S3 = &storage.S3Config{
-			Bucket: cfg.Storage.Bucket,
-			Region: cfg.Storage.Region,
-			Prefix: prefix,
+			Bucket:         cfg.Storage.Bucket,
+			Region:         cfg.Storage.Region,
+			Prefix:         prefix,
+			Endpoint:       cfg.Storage.Endpoint,
+			ForcePathStyle: cfg.Storage.ForcePathStyle,
+			Auth:           buildStorageAuthConfig(&cfg.Storage.Auth),
 		}
 	}
 
 	return storageCfg
+}
+
+// buildStorageAuthConfig converts the runtime config auth stanza into the
+// storage package's AuthConfig. Returns nil when no auth strategy is set,
+// so the storage layer falls back to its ambient default.
+func buildStorageAuthConfig(a *config.StorageAuthConfig) *storage.AuthConfig {
+	if a == nil {
+		return nil
+	}
+	if a.Mode == "" && a.RoleARN == "" && a.WorkloadIdentityProvider == "" && a.ClientID == "" {
+		return nil
+	}
+	return &storage.AuthConfig{
+		Mode:                     storage.AuthMode(a.Mode),
+		Audience:                 a.Audience,
+		RoleARN:                  a.RoleARN,
+		SessionName:              a.SessionName,
+		WorkloadIdentityProvider: a.WorkloadIdentityProvider,
+		ServiceAccount:           a.ServiceAccount,
+		TenantID:                 a.TenantID,
+		ClientID:                 a.ClientID,
+	}
 }
 
 // storeEvidence stores evidence and policy results to the configured storage backend.
