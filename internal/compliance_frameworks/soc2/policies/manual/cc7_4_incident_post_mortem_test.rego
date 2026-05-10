@@ -12,6 +12,7 @@ test_overdue_not_uploaded if {
 			"status": "not_uploaded",
 			"period": "2026-Q1",
 			"temporal_status": "overdue",
+			"expected_uri": "s3://test-bucket/manual/evidence.pdf",
 		},
 	}
 	count(result) == 1
