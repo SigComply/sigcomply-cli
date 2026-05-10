@@ -8,8 +8,8 @@ your data, credentials, or production environment. Raw evidence stays in
 your own storage; only aggregated counts and pass/fail scores are submitted
 to the optional Compliance Dashboard.
 
-Currently supports SOC 2 (Type II), ISO 27001, and HIPAA. Policies are open
-OPA/Rego — inspect, fork, and contribute.
+Currently ships SOC 2 (Type II) policies; ISO 27001 is in early development.
+Policies are open OPA/Rego — inspect, fork, and contribute.
 
 ## Install
 
@@ -37,11 +37,13 @@ HR exports), the CLI looks for a single PDF at
 `{framework}/{evidence_id}/{period}/evidence.pdf` in your storage:
 
 ```sh
-sigcomply evidence catalog --framework soc2   # list manual entries
-sigcomply evidence init --framework soc2      # scaffold the period folders
-sigcomply evidence path --framework soc2 \    # print where to upload a PDF
-  --evidence-id security_awareness_training
+sigcomply evidence catalog                    # list manual entries
+sigcomply evidence init                       # scaffold the period folders
+sigcomply evidence path security_awareness_training   # print where to upload a PDF
 ```
+
+Set the framework via `SIGCOMPLY_FRAMEWORK` or `framework:` in your config file
+(default: `soc2`). The evidence subcommands take no `--framework` flag.
 
 The companion [Evidence SPA](https://github.com/SigComply/sigcomply-evidence-spa)
 helps users produce PDFs for declaration- and checklist-style entries.
@@ -74,4 +76,4 @@ include:
 
 ## License
 
-Apache-2.0 (license file pending).
+Apache-2.0 — see [LICENSE](LICENSE).

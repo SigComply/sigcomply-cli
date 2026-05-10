@@ -44,7 +44,7 @@ sigcomply check
          ▼
 ┌─────────────────┐
 │   ATTESTATION   │  Generate ephemeral Ed25519 keypair
-│                 │  Sign SHA-256 hashes of evidence
+│                 │  Sign canonical JSON of {timestamp, evidence}
 │                 │  Discard private key immediately
 └────────┬────────┘
          ▼
@@ -85,37 +85,37 @@ sigcomply check
 ```
 internal/
 ├── compliance_frameworks/      # Compliance logic
-│   ├── engine/                 # OPA evaluation
-│   │   ├── engine.go
-│   │   └── registry.go
+│   ├── engine/                 # OPA evaluation, registry, manual-evidence helpers
 │   ├── shared/lib.rego         # Shared Rego helpers
-│   ├── soc2/
-│   │   ├── framework.go        # Framework interface
+│   ├── soc2/                   # SOC 2 — production-ready
+│   │   ├── framework.go        # Framework interface impl
 │   │   ├── controls.go         # Control mappings
-│   │   └── policies/*.rego     # Embedded policies
-│   ├── hipaa/
-│   └── iso27001/
+│   │   └── policies/           # Policies, grouped by collector
+│   │       ├── aws/            # AWS policies (the bulk)
+│   │       ├── gcp/            # GCP policies
+│   │       ├── github/         # GitHub policies
+│   │       ├── multi/          # Cross-collector policies
+│   │       └── manual/         # Manual-evidence policies
+│   └── iso27001/               # ISO 27001 — early stage (handful of policies)
 │
 ├── data_sources/               # Evidence collection
-│   └── apis/
-│       ├── aws/
-│       │   ├── collector.go    # Auth + orchestration
-│       │   ├── iam.go, s3.go, cloudtrail.go
-│       │   ├── ec2.go, ecr.go, rds.go, kms.go
-│       │   └── guardduty.go, configservice.go, cloudwatch.go
-│       ├── github/
-│       │   ├── collector.go, repos.go, members.go
-│       └── gcp/
-│           ├── collector.go, iam.go, storage.go
-│           ├── compute.go, sql.go
+│   ├── apis/                   # Automated collectors
+│   │   ├── aws/                # 60+ services (iam, s3, cloudtrail, ec2, rds, kms,
+│   │   │                       #   guardduty, configservice, cloudwatch, eks, ecs,
+│   │   │                       #   lambda, dynamodb, securityhub, …)
+│   │   ├── github/             # collector.go, repos.go, members.go
+│   │   └── gcp/                # collector.go, iam.go, storage.go, compute.go, sql.go
+│   └── manual/                 # Manual-flow PDF reader
 │
 └── core/                       # Shared utilities
-    ├── evidence/               # Evidence, Result, Violation types
+    ├── evidence/               # Evidence, PolicyResult, Violation, CheckResult types
     ├── config/                 # Configuration loading
     ├── output/                 # Text, JSON, JUnit formatters
-    ├── storage/                # S3, GCS, local backends
-    ├── attestation/            # Signing (ephemeral Ed25519), hashing, OIDC token providers
-    └── cloud/                  # SigComply Cloud client
+    ├── storage/                # local, s3, gcs, azure_blob backends + run paths + summary
+    ├── manual/                 # Manual-evidence catalog, period/grace logic, execution state
+    │   └── catalogs/           # Embedded YAML catalogs (soc2.yaml today)
+    ├── attestation/            # Ephemeral Ed25519 signing, canonical JSON, OIDC token helpers
+    └── cloud/                  # SigComply Cloud client (POST /api/v1/cli/runs)
 ```
 
 ---
@@ -182,6 +182,7 @@ type PolicyResult struct {
     Severity           Severity     `json:"severity"`               // critical, high, medium, low
     Message            string       `json:"message"`                // Human-readable description
     Remediation        string       `json:"remediation,omitempty"`  // How to fix violations
+    Category           string       `json:"category,omitempty"`     // Dashboard grouping (access_control, data_protection, …)
     ResourcesEvaluated int          `json:"resources_evaluated"`
     ResourcesFailed    int          `json:"resources_failed"`
     Violations         []Violation  `json:"violations,omitempty"`
@@ -308,29 +309,22 @@ const AlgorithmEd25519 = "ed25519"
 }
 ```
 
-### PolicyRunResult
+### StoredPolicyResult (`result.json`)
 
-Stored as `result.json` in each policy run folder. Contains the full policy evaluation output including violation details with resource identifiers. Never sent to the SigComply Cloud API — stays entirely in customer storage.
+Stored as `result.json` in each policy run folder. Embeds `PolicyResult` (with full violation details) and adds storage-specific provenance. Never sent to the SigComply Cloud API — stays entirely in customer storage. The framework, run ID, and timestamp aren't repeated in the file because they're already encoded in the path (`{framework}/{policy_id}/{timestamp}_{run_id_short}/`).
 
 ```go
-// PolicyRunResult is stored as result.json for each policy run in customer S3.
-// It contains the complete evaluation output. The cloud API receives only the
-// aggregated counts (resources_evaluated, resources_failed) — never the violations.
-type PolicyRunResult struct {
-    PolicyID           string       `json:"policy_id"`           // "cc6_1_mfa"
-    ControlID          string       `json:"control_id"`          // "CC6.1"
-    Framework          string       `json:"framework"`           // "soc2"
-    RunID              string       `json:"run_id"`              // UUID shared across all policies in one run
-    Timestamp          time.Time    `json:"timestamp"`
-    Status             ResultStatus `json:"status"`              // pass, fail, skip, error
-    Severity           Severity     `json:"severity"`
-    ResourcesEvaluated int          `json:"resources_evaluated"`
-    ResourcesFailed    int          `json:"resources_failed"`
-    Violations         []Violation  `json:"violations,omitempty"` // Full resource IDs — never leave S3
-    EvidenceFiles      []string     `json:"evidence_files"`       // Relative paths: ["evidence/aws-iam-users.json"]
-    CLIVersion         string       `json:"cli_version"`          // e.g., "1.2.3"
-    CLISHA             string       `json:"cli_sha"`              // Git SHA of the CLI binary
-    RepoSHA            string       `json:"repo_sha"`             // Git SHA of the customer's repository
+// StoredPolicyResult is the on-disk format for result.json.
+// It embeds PolicyResult and adds storage-specific metadata.
+type StoredPolicyResult struct {
+    evidence.PolicyResult                 // PolicyID, ControlID, Status, Severity,
+                                          // Message, Remediation, Category,
+                                          // ResourcesEvaluated, ResourcesFailed,
+                                          // Violations, ResourceTypes
+    EvidenceFiles []string `json:"evidence_files"`      // Relative paths: ["evidence/aws-iam-users.json"]
+    CLIVersion    string   `json:"cli_version,omitempty"`
+    CLISHA        string   `json:"cli_sha,omitempty"`   // Git SHA of the CLI binary
+    RepoSHA       string   `json:"repo_sha,omitempty"`  // Git SHA of the customer's repository
 }
 ```
 
@@ -340,18 +334,16 @@ type PolicyRunResult struct {
 {
   "policy_id": "cc6_1_mfa",
   "control_id": "CC6.1",
-  "framework": "soc2",
-  "run_id": "a3f8b2c1-...",
-  "timestamp": "2026-03-25T10:00:00Z",
   "status": "fail",
   "severity": "high",
+  "category": "access_control",
   "resources_evaluated": 42,
   "resources_failed": 3,
   "violations": [
-    { "resource_id": "arn:aws:iam::123456789:user/alice", "resource_type": "aws:iam:user", "reason": "MFA not enabled" },
-    { "resource_id": "arn:aws:iam::123456789:user/bob",   "resource_type": "aws:iam:user", "reason": "MFA not enabled" }
+    { "resource_id": "arn:aws:iam::123456789:user/alice", "resource_type": "aws:iam:user", "reason": "MFA not enabled",
+      "details": { "evidence_file": "evidence/aws-iam-users.json" } }
   ],
-  "evidence_files": ["evidence/aws-iam-users.json", "evidence/github-members.json"],
+  "evidence_files": ["evidence/aws-iam-users.json"],
   "cli_version": "1.2.3",
   "cli_sha": "abc123def456",
   "repo_sha": "789abc012def"
@@ -398,8 +390,8 @@ The `evidence` field is `json.RawMessage` (raw API response). When serializing `
 **Automated policy** — consumes structured JSON from an API collector:
 
 ```rego
-# internal/compliance_frameworks/soc2/policies/cc6_1_mfa.rego
-package sigcomply.soc2.cc6_1
+# internal/compliance_frameworks/soc2/policies/aws/cc6_1_mfa.rego
+package sigcomply.soc2.cc6_1_mfa
 
 metadata := {
     "id": "soc2-cc6.1-mfa",
@@ -505,13 +497,11 @@ violations contains v if {
 
 ```yaml
 # .sigcomply.yaml - all settings optional
-frameworks:
-  - soc2
+framework: soc2
 
-collectors:
-  aws:
-    regions:
-      - us-east-1
+aws:
+  regions:
+    - us-east-1
 
 storage:
   backend: local
@@ -525,8 +515,8 @@ storage:
 SIGCOMPLY_FRAMEWORK        # Default framework
 SIGCOMPLY_POLICIES         # Comma-separated policy names to run
 SIGCOMPLY_CONTROLS         # Comma-separated control IDs to run
-SIGCOMPLY_STORAGE_BACKEND  # local, s3, gcs
-SIGCOMPLY_STORAGE_BUCKET   # S3/GCS bucket name
+SIGCOMPLY_STORAGE_BACKEND  # local, s3, gcs, azure_blob
+SIGCOMPLY_STORAGE_BUCKET   # S3 / GCS bucket name (Azure uses _AZURE_CONTAINER)
 ```
 
 ### Cloud Authentication & Submission

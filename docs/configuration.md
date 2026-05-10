@@ -7,7 +7,7 @@ SigComply CLI can be configured through three sources, listed from lowest to hig
 3. **CLI flags** (`--framework`, `--region`, etc.)
 
 Higher-priority sources override lower ones. For example, `--framework iso27001` beats
-`SIGCOMPLY_FRAMEWORK=soc2` which beats `framework: hipaa` in the config file.
+`SIGCOMPLY_FRAMEWORK=soc2` which beats `framework: soc2` in the config file.
 
 ---
 
@@ -112,7 +112,7 @@ If no file is found, the CLI uses defaults. This is not an error.
 
 ```yaml
 # Compliance framework to evaluate
-framework: soc2                    # Options: soc2, iso27001, hipaa
+framework: soc2                    # Options: soc2, iso27001 (iso27001 is early-stage)
 
 # AWS settings (credentials come from environment / IAM, not here)
 aws:
@@ -123,6 +123,10 @@ aws:
 # GitHub settings (token comes from GITHUB_TOKEN env var, not here)
 github:
   org: my-org
+
+# GCP settings (credentials come from ADC / Workload Identity, not here)
+gcp:
+  project_id: my-gcp-project
 
 # Policy filtering (optional — omit to run all policies)
 policies:                            # Run only these policies by name
@@ -174,11 +178,8 @@ manual_evidence:
       backend: s3
       s3: { bucket: soc2-evidence, region: us-east-1 }
     iso27001:
-      backend: gcs
-      gcs: { bucket: iso27001-evidence, prefix: manual/ }
-    hipaa:
       backend: azure_blob
-      azure_blob: { account: hipaaev, container: evidence }
+      azure_blob: { account: iso27001ev, container: evidence }
 
 # SigComply Cloud (auto-enabled when OIDC is available in CI)
 cloud:
@@ -213,6 +214,7 @@ Everything else uses sensible defaults.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SIGCOMPLY_AWS_REGION` | Auto-detect | AWS region (single region) |
+| `SIGCOMPLY_GCP_PROJECT` | — | GCP project ID (used by the GCP collector) |
 | `SIGCOMPLY_GITHUB_ORG` | — | GitHub organization to collect from |
 
 ### Storage Settings
@@ -233,13 +235,18 @@ evidence has its own per-framework configuration under `manual_evidence`
 | `SIGCOMPLY_STORAGE_S3_FORCE_PATH_STYLE` | `false` | Use path-style addressing (required by most on-prem stores) |
 | `SIGCOMPLY_STORAGE_S3_AUTH_MODE` | `ambient` | `ambient` or `oidc` |
 | `SIGCOMPLY_STORAGE_S3_AUTH_ROLE_ARN` | — | IAM role to assume via STS AssumeRoleWithWebIdentity (when `oidc`) |
+| `SIGCOMPLY_STORAGE_S3_AUTH_AUDIENCE` | `sts.amazonaws.com` | Audience claim sent to STS (override for sovereign clouds) |
+| `SIGCOMPLY_STORAGE_S3_AUTH_SESSION_NAME` | `sigcomply-cli` | STS session name used in CloudTrail / IAM logs |
 | `SIGCOMPLY_STORAGE_GCS_PROJECT_ID` | — | GCP project ID (optional) |
 | `SIGCOMPLY_STORAGE_GCS_AUTH_MODE` | `ambient` | `ambient` or `oidc` |
+| `SIGCOMPLY_STORAGE_GCS_AUTH_AUDIENCE` | provider default | Audience claim sent to the WIF provider |
 | `SIGCOMPLY_STORAGE_GCS_AUTH_WORKLOAD_IDENTITY_PROVIDER` | — | Full WIF provider resource name |
 | `SIGCOMPLY_STORAGE_GCS_AUTH_SERVICE_ACCOUNT` | — | Service account email to impersonate |
 | `SIGCOMPLY_STORAGE_AZURE_ACCOUNT` | — | Azure storage account name |
 | `SIGCOMPLY_STORAGE_AZURE_CONTAINER` | — | Azure blob container |
+| `SIGCOMPLY_STORAGE_AZURE_ENDPOINT` | `https://{account}.blob.core.windows.net` | Custom blob endpoint (sovereign clouds, Azurite) |
 | `SIGCOMPLY_STORAGE_AZURE_AUTH_MODE` | `ambient` | `ambient` or `oidc` |
+| `SIGCOMPLY_STORAGE_AZURE_AUTH_AUDIENCE` | `api://AzureADTokenExchange` | Audience claim for the federated client assertion |
 | `SIGCOMPLY_STORAGE_AZURE_AUTH_TENANT_ID` | — | Azure AD tenant ID (when `oidc`) |
 | `SIGCOMPLY_STORAGE_AZURE_AUTH_CLIENT_ID` | — | Azure AD app registration client ID (when `oidc`) |
 
@@ -387,11 +394,6 @@ manual_evidence:
           mode: oidc
           workload_identity_provider: projects/123/locations/global/workloadIdentityPools/sigcomply/providers/github
           service_account: iso27001-evidence@my-project.iam.gserviceaccount.com
-    hipaa:
-      backend: azure_blob
-      azure_blob:
-        account: hipaaevidence
-        container: manual
 ```
 
 Resolution at run time for framework `F`:
@@ -441,7 +443,7 @@ Flags have the highest precedence and override both config file and env vars.
 sigcomply check [flags]
 
 Flags:
-  -f, --framework string      Compliance framework (soc2, hipaa, iso27001)
+  -f, --framework string      Compliance framework (soc2, iso27001)
       --policies string       Comma-separated policy names to run (e.g., cc6_1_mfa,cc6_1_github_mfa)
       --controls string       Comma-separated control IDs to run (e.g., CC6.1,CC7.1)
   -o, --output string         Output format (text, json, junit)
@@ -451,7 +453,7 @@ Flags:
       --config string         Path to config file (default: .sigcomply.yaml)
       --store                 Store evidence to configured storage
       --storage-path string   Local storage path
-      --storage-backend string Storage backend (local, s3)
+      --storage-backend string Storage backend (local, s3, gcs, azure_blob)
       --cloud                 Force cloud submission (requires OIDC in CI)
       --no-cloud              Disable cloud submission
 ```
@@ -528,13 +530,13 @@ Non-secrets can go in the workflow file or `.sigcomply.yaml`:
 ## Precedence Examples
 
 ```bash
-# Config file says iso27001, env says hipaa, flag says soc2
-# Result: soc2 (flag wins)
-SIGCOMPLY_FRAMEWORK=hipaa sigcomply check --framework soc2
+# Config file says iso27001, env says soc2, flag says iso27001
+# Result: iso27001 (flag wins)
+SIGCOMPLY_FRAMEWORK=soc2 sigcomply check --framework iso27001
 
-# Config file says iso27001, env says hipaa, no flag
-# Result: hipaa (env wins over file)
-SIGCOMPLY_FRAMEWORK=hipaa sigcomply check
+# Config file says iso27001, env says soc2, no flag
+# Result: soc2 (env wins over file)
+SIGCOMPLY_FRAMEWORK=soc2 sigcomply check
 
 # Config file says iso27001, no env, no flag
 # Result: iso27001 (file wins over default)

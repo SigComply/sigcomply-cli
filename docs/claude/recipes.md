@@ -25,10 +25,10 @@
 **Design Guideline: Framework-Specific Policies**
 Each policy lives within its framework directory. Simplicity and readability over DRY abstraction.
 
-1. Create Rego file in `internal/compliance_frameworks/<framework>/policies/<control>_<name>.rego`
-   - Example: `internal/compliance_frameworks/soc2/policies/cc6_1_mfa.rego`
-   - Example: `internal/compliance_frameworks/hipaa/policies/164_312_access.rego`
-2. Use package naming: `package sigcomply.<framework>.<control>`
+1. Create Rego file in `internal/compliance_frameworks/<framework>/policies/<collector>/<control>_<name>.rego`. Policies are grouped by collector (`aws/`, `gcp/`, `github/`, `multi/`, `manual/`) — pick the one whose evidence the policy reads. Use `multi/` when the policy needs evidence from more than one collector.
+   - Example: `internal/compliance_frameworks/soc2/policies/aws/cc6_1_mfa.rego`
+   - Example: `internal/compliance_frameworks/soc2/policies/multi/cc6_6_open_ports.rego`
+2. Use package naming: `package sigcomply.<framework>.<control>_<name>`
 3. Include `metadata` with `id`, `name`, `framework`, `control`, `severity`, `evaluation_mode`, `resource_types`, and **`evidence_type: "automated"`** (required — the engine routes evaluation by this).
 4. Define `violations` rule for policy checks
 5. Write policy tests in `<policy>_test.rego`
@@ -108,12 +108,12 @@ text-extraction policies layer on top of the presence check.
 ## Adding a New Compliance Framework
 
 1. Create framework directory: `internal/compliance_frameworks/<framework>/`
-2. Create `framework.go` implementing the Framework interface
+2. Create `framework.go` implementing the `engine.Framework` interface (and `engine.ManualEvidenceProvider` if the framework supports manual evidence). Call `engine.RegisterFramework(New())` in an `init()` so the framework auto-registers when its package is imported.
 3. Create `controls.go` with control hierarchy and mappings
-4. Create `policies/` directory with at least one policy
-5. Register framework in `internal/compliance_frameworks/engine/registry.go`
-6. Add framework to CLI `--framework` flag options
-7. Add documentation
+4. Create `policies/<collector>/` subdirectories with at least one policy each (matches the SOC 2 / ISO 27001 layout)
+5. Add `<framework>` to `SupportedFrameworks` in `internal/core/config/config.go`
+6. (Optional) Add a manual catalog at `internal/core/manual/catalogs/<framework>.yaml`
+7. Update README + docs/configuration.md framework lists
 
 ## Adding a New Storage Backend
 
@@ -128,7 +128,8 @@ text-extraction policies layer on top of the presence check.
 {framework}/{policy_id}/{timestamp}_{run_id_8chars}/
 ├── evidence/
 │   └── {collector}-{resource_type}.json   # EvidenceEnvelope (self-contained, signed)
-└── result.json                             # PolicyRunResult (full violations)
+├── manual_attachments/{evidence_id}/evidence.pdf   # only for manual policies
+└── result.json                             # StoredPolicyResult (full violations)
 ```
 
 Where `timestamp` uses ISO 8601 basic format with no colons (e.g., `20260325T100000Z`) and `run_id_8chars` is the first 8 characters of the run UUID. See `ARCHITECTURE.md` Storage Layout for the full spec.
@@ -151,9 +152,14 @@ Where `timestamp` uses ISO 8601 basic format with no colons (e.g., `20260325T100
 - Install CLI and execute checks
 - Handle exit codes for pipeline pass/fail
 
-### init-ci Command Implementation
+### init-ci Command (Planned, Not Yet Wired)
+
+When `sigcomply init-ci` is implemented, it should:
 
 - Detect CI/CD platform (check for `$GITHUB_ACTIONS` or `$GITLAB_CI`)
 - Generate minimal caller YAML in correct location
 - Validate required secrets are configured
 - Provide copy-paste setup instructions
+
+The command isn't registered in `cmd/sigcomply/root.go` yet — see the
+"Remaining" list in `CLAUDE.md` for the full set of unwired commands.
