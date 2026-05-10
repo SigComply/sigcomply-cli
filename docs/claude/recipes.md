@@ -47,16 +47,16 @@ text-extraction policies layer on top of the presence check.
    ```yaml
    - id: employee_nda
      control: CC1.1
-     type: declaration              # SPA-rendering hint only — CLI ignores this
+     type: declaration              # descriptive hint only — CLI ignores this
      frequency: yearly
      temporal_rule: anytime         # or 'retrospective'
      grace_period: "30d"
      name: Employee NDA Acknowledgment
      description: Each employee acknowledges the NDA on hire and annually
      severity: high
-     declaration_text: "I confirm…"  # SPA-rendering hint
+     declaration_text: "I confirm…"  # descriptive hint
    ```
-   Render hints (`type`, `items`, `declaration_text`, `accepted_formats`) tell the SPA whether and how to render a clickable form. The CLI never branches on them.
+   `type`, `items`, `declaration_text`, and `accepted_formats` are descriptive hints — the CLI never branches on them. The optional Evidence SPA helper uses them to render a clickable form for declaration- and checklist-style entries; for evidence sourced externally (training certs, HR exports, scanned docs) the user produces the PDF themselves and the hints are ignored.
 
    **Optional path override.** For evidence stored under a different layout (e.g.
    one shared annual training cert filed by year, not by framework):

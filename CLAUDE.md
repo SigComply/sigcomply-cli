@@ -136,7 +136,10 @@ rule. The OPA evaluator never branches on anything else.
 
 There are no `checklist` / `declaration` / `document_upload` sub-types in
 the evaluator. The catalog YAML keeps `type`, `items`, `declaration_text`
-as render hints **for the SPA** — the CLI ignores them.
+as **descriptive hints** — the optional Evidence SPA helper uses them to
+render a clickable form for declaration/checklist entries; the CLI ignores
+them entirely. Externally-sourced PDFs (HR exports, scanned documents,
+third-party reports) are consumed the same way regardless of the hints.
 
 ### 3. Per-file ephemeral signing
 
@@ -247,7 +250,7 @@ sigcomply-cli/
 |---------|--------|-------|
 | `sigcomply check` | Wired | Main entry — collect → evaluate → store → submit |
 | `sigcomply evidence init` | Wired | Scaffold per-period folders for manual evidence |
-| `sigcomply evidence catalog` | Wired | Print manual catalog; consumed by SPA at build time |
+| `sigcomply evidence catalog` | Wired | Print manual catalog (text or JSON); the SPA also consumes the JSON form at build time |
 | `sigcomply evidence path <evidence_id>` | Wired | Print upload URI for a specific manual entry |
 | `sigcomply version` | Wired | Print CLI version + commit + build time |
 | `sigcomply init` | Planned | Not yet in `cmd/sigcomply/root.go` |
@@ -376,7 +379,9 @@ Other Rails CLI endpoints exist (`policy_evaluations`, `compliance_status`,
   explicit warning against adding a freeform metadata field. Respect it.
 - **Don't invent evidence types.** The OPA evaluator only knows
   `automated` and `manual`. Catalog `type` values like `declaration`,
-  `checklist`, `document_upload` are SPA render hints — the CLI ignores them.
+  `checklist`, `document_upload` are descriptive hints (used by the optional
+  Evidence SPA helper to decide whether to render a clickable form) — the
+  CLI ignores them.
 - **Don't sign hashes.** Signing covers canonical JSON of
   `{timestamp, evidence}`. SHA-256 is used only to identify the manual
   PDF inside the manifest, not as the signing input.

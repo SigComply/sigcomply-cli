@@ -45,8 +45,11 @@ sigcomply evidence path security_awareness_training   # print where to upload a 
 Set the framework via `SIGCOMPLY_FRAMEWORK` or `framework:` in your config file
 (default: `soc2`). The evidence subcommands take no `--framework` flag.
 
-The companion [Evidence SPA](https://github.com/SigComply/sigcomply-evidence-spa)
-helps users produce PDFs for declaration- and checklist-style entries.
+The optional [Evidence SPA](https://github.com/SigComply/sigcomply-evidence-spa)
+is a standalone helper that generates PDFs for declaration- and checklist-style
+entries — the CLI never talks to it. For all other manual evidence (HR exports,
+training certificates, scanned documents) you produce the PDF yourself and
+upload it to the same path.
 
 ## CI/CD
 

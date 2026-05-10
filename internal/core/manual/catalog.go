@@ -6,21 +6,26 @@
 // the bytes, and runs the policy. It does not parse the PDF in v1.
 //
 // The catalog YAML still carries Type, Items, DeclarationText, and
-// AcceptedFormats — those are RENDER HINTS for the SigComply Evidence SPA
-// when it presents a clickable form. The CLI never branches on them at
-// evaluation time.
+// AcceptedFormats. These are descriptive hints — most useful to the optional
+// Evidence SPA helper when it renders a clickable form for declaration- or
+// checklist-style entries. The CLI never branches on them at evaluation time,
+// and they are irrelevant for evidence the user produces outside the SPA
+// (HR exports, scanned documents, training certificates, etc.).
 package manual
 
-// EvidenceType is a render hint for the SPA, not a CLI evaluation discriminator.
+// EvidenceType is a descriptive hint, not a CLI evaluation discriminator.
 //
-// Catalog entries use one of the constants below to tell the SPA whether
-// (and how) to render an interactive form for the entry. The CLI ignores
-// this field — every manual evidence is the same PDF flow regardless of type.
+// It describes the shape of the evidence (free-form upload vs. declaration vs.
+// checklist) and is most useful to the optional Evidence SPA helper when it
+// decides whether to render an interactive form. The CLI ignores this field —
+// every manual evidence flows through the same PDF presence + temporal-window
+// check regardless of type.
 type EvidenceType string
 
-// Evidence type constants define how the SPA should render the form for an
-// entry. document_upload entries are typically not rendered by the SPA at
-// all (the user produces the PDF externally and uploads it directly).
+// Evidence type constants describe the shape of a manual evidence entry.
+// document_upload entries have no clickable form (the user produces the PDF
+// externally — e.g. exported from an HR system, scanned, or downloaded from
+// a third-party tool — and uploads it directly to the storage path).
 const (
 	EvidenceTypeDocumentUpload EvidenceType = "document_upload"
 	EvidenceTypeChecklist      EvidenceType = "checklist"
