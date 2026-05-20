@@ -464,14 +464,24 @@ violations contains v if {
 ### Key Flags (check)
 
 ```
---framework string    Compliance framework (default: soc2)
---collector strings   Collectors to use (default: auto-detect)
---policies string     Comma-separated policy names to run (e.g., cc6_1_mfa,cc6_1_github_mfa)
---controls string     Comma-separated control IDs to run (e.g., CC6.1,CC7.1)
--o, --output string   Output format: text, json, junit
---fail-on-violation   Exit 1 on violations (default in CI)
---cloud / --no-cloud  Force/disable cloud submission
+-f, --framework string       Compliance framework (soc2, hipaa, iso27001)
+-o, --output string          Output format (text, json, junit)
+    --json-output string     Write JSON results to this file in addition to --output format
+-v, --verbose                Verbose output
+    --region string          AWS region
+    --store                  Store evidence and results to configured storage
+    --storage-path string    Local storage path (default: ./.sigcomply/evidence)
+    --storage-backend string Storage backend (local, s3, gcs, azure_blob)
+    --cloud                  Force submission to SigComply Cloud (requires OIDC in CI)
+    --no-cloud               Disable submission to SigComply Cloud
+    --github-org string      GitHub organization to collect evidence from (requires GITHUB_TOKEN)
+    --policies string        Comma-separated policy names to run (e.g., cc6_1_mfa,cc6_1_github_mfa)
+    --controls string        Comma-separated control IDs to run (e.g., CC6.1,CC7.1)
+    --config string          Path to config file (default: .sigcomply.yaml)
 ```
+
+There is no `--collector` or `--fail-on-violation` flag — `fail_on_violation`
+and `fail_severity` live under `ci:` in the config file only.
 
 ### Exit Codes
 
@@ -567,7 +577,13 @@ Evidence is organized **policy-first**: each policy has its own folder with a ch
 
 **Framework summary** — `{framework}/summary.json` is a per-policy snapshot showing, in one file, which policies passed and what evidence backed each result. Built after every `StoreRun`. Policies are split into `automated` and `manual` based on the policy's `evidence_type` metadata. For manual policies the snapshot records `file_hash` and `file_path` of the PDF that backed the result. Writes merge with the existing summary so policies skipped by `--policies` / `--controls` filters keep their last-known state instead of being erased.
 
-> **TODO**: Add a `check_runs_history/` root folder inside each framework folder containing:
+> **TODO — Status: not yet implemented.** The behavior described below is a
+> planned design, not present in the current codebase. The CLI does not yet
+> write `check_runs_history/`, does not read a `policy_frequency.json`, and
+> does not skip policies based on prior run cadence. Treat this block as a
+> design sketch only.
+>
+> Add a `check_runs_history/` root folder inside each framework folder containing:
 > - A `run_history.json` tracking all historical runs (run_id, timestamp, policies evaluated, overall status)
 > - A `policy_frequency.json` defining how often each policy should run (e.g., daily, weekly, monthly)
 > The CLI will read `policy_frequency.json` and `run_history.json` to skip policies that have already run within their configured frequency window. This enables mixed-cadence compliance checks where some policies run daily and others monthly, all within a single `sigcomply check` invocation.

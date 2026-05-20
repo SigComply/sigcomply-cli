@@ -41,7 +41,7 @@ or ambient credential sources (IAM roles, OIDC).
 
 ### AWS
 
-The CLI uses the standard [AWS SDK credential chain](https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials). No SigComply-specific configuration needed.
+The CLI uses the standard [AWS SDK credential chain](https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/). No SigComply-specific configuration needed.
 
 | Method | When to Use | Setup |
 |--------|-------------|-------|
@@ -443,20 +443,24 @@ Flags have the highest precedence and override both config file and env vars.
 sigcomply check [flags]
 
 Flags:
-  -f, --framework string      Compliance framework (soc2, iso27001)
-      --policies string       Comma-separated policy names to run (e.g., cc6_1_mfa,cc6_1_github_mfa)
-      --controls string       Comma-separated control IDs to run (e.g., CC6.1,CC7.1)
-  -o, --output string         Output format (text, json, junit)
-  -v, --verbose               Verbose output
-      --region string         AWS region
-      --github-org string     GitHub organization (requires GITHUB_TOKEN)
-      --config string         Path to config file (default: .sigcomply.yaml)
-      --store                 Store evidence to configured storage
-      --storage-path string   Local storage path
+  -f, --framework string       Compliance framework (soc2, hipaa, iso27001)
+  -o, --output string          Output format (text, json, junit)
+      --json-output string     Write JSON results to this file in addition to --output format
+  -v, --verbose                Verbose output
+      --region string          AWS region
+      --store                  Store evidence and results to configured storage
+      --storage-path string    Local storage path (default: ./.sigcomply/evidence)
       --storage-backend string Storage backend (local, s3, gcs, azure_blob)
-      --cloud                 Force cloud submission (requires OIDC in CI)
-      --no-cloud              Disable cloud submission
+      --cloud                  Force submission to SigComply Cloud (requires OIDC in CI)
+      --no-cloud               Disable submission to SigComply Cloud
+      --github-org string      GitHub organization to collect evidence from (requires GITHUB_TOKEN)
+      --policies string        Comma-separated policy names to run (e.g., cc6_1_mfa,cc6_1_github_mfa)
+      --controls string        Comma-separated control IDs to run (e.g., CC6.1,CC7.1)
+      --config string          Path to config file (default: .sigcomply.yaml)
 ```
+
+There is no `--collector` or `--fail-on-violation` flag — `fail_on_violation`
+and `fail_severity` live under `ci:` in the config file only.
 
 ---
 
@@ -495,7 +499,7 @@ jobs:
 
 ```yaml
 compliance:
-  image: golang:1.24
+  image: golang:1.25
   variables:
     SIGCOMPLY_FRAMEWORK: soc2
     SIGCOMPLY_GITHUB_ORG: my-org

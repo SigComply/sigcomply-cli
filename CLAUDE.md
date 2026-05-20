@@ -359,7 +359,8 @@ Other Rails CLI endpoints exist (`policy_evaluations`, `compliance_status`,
 - OIDC auth (GitHub Actions + GitLab CI)
 - Policy filtering (`--policies`, `--controls`)
 - Release automation (auto-release via conventional commits, manual release, GoReleaser)
-- GitHub Actions reusable workflow + GitLab CI component
+- GitHub Actions reusable workflow
+- GitLab CI: an example pipeline at `examples/gitlab-ci.yml` users can copy. (A first-class GitLab CI component is not yet packaged.)
 - E2E test framework
 
 **Remaining**:

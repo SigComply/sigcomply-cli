@@ -72,10 +72,25 @@ text-extraction policies layer on top of the presence check.
      path_template: "shared/{evidence_id}/{year}/{filename}"
      filename: training-cert.pdf
    ```
-   Supported placeholders: `{framework}`, `{evidence_id}`, `{period}`, `{year}`,
-   `{quarter}` (quarterly only), `{month}` (monthly/daily only), `{day}` (daily
-   only), `{filename}`. The resolver rejects `..`, leading `/`, and non-PDF
-   endings.
+   Supported placeholders (see `internal/core/manual/path.go:buildPlaceholderValues`):
+
+   | Placeholder | Available for | Example |
+   |-------------|---------------|---------|
+   | `{framework}` | every frequency | `soc2` |
+   | `{evidence_id}` | every frequency | `employee_nda` |
+   | `{period}` | every frequency (frequency-shaped) | `2026`, `2026-Q1`, `2026-01`, `2026-W03`, `2026-01-15` |
+   | `{year}` | every frequency | `2026` |
+   | `{quarter}` | `quarterly` only | `Q1` |
+   | `{month}` | `monthly` and `daily` | `01` |
+   | `{day}` | `daily` only | `15` |
+   | `{filename}` | every frequency | `evidence.pdf` |
+
+   `{period}` carries the week designator for `weekly` policies
+   (`2026-W03`) — there is no separate `{week}` placeholder. Referencing
+   a placeholder outside its supported frequency (e.g. `{quarter}` on a
+   yearly policy) is a hard error at resolve time rather than a silent
+   empty substitution. The resolver also rejects `..`, leading `/`, and
+   non-PDF endings.
 
 2. **Create the Rego policy** in `internal/compliance_frameworks/<framework>/policies/manual/<id>.rego`:
    ```rego

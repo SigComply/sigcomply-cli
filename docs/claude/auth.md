@@ -23,10 +23,27 @@ These are two entirely separate concerns. OIDC is never used to sign attestation
 
 2. **CLI Obtains Token:**
    ```go
-   // The CLI retrieves the OIDC token from the CI environment
-   token := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN") // GitHub
-   // OR
-   token := os.Getenv("CI_JOB_JWT_V2") // GitLab
+   // GitHub Actions: the two ACTIONS_ID_TOKEN_REQUEST_* env vars are NOT
+   // the OIDC token themselves — they are the URL + bearer token used to
+   // fetch the real OIDC JWT from GitHub's token service. See
+   // internal/core/attestation/oidc.go (GitHubActionsTokenProvider.GetToken).
+   requestURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
+   requestToken := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN")
+
+   req, _ := http.NewRequestWithContext(ctx, http.MethodGet,
+       requestURL+"?audience="+audience, http.NoBody)
+   req.Header.Set("Authorization", "Bearer "+requestToken)
+   req.Header.Set("Accept", "application/json; api-version=2.0")
+   resp, _ := httpClient.Do(req)
+   // resp body is { "value": "<the actual OIDC JWT>" }
+   var parsed struct{ Value string `json:"value"` }
+   _ = json.NewDecoder(resp.Body).Decode(&parsed)
+   token := parsed.Value // GitHub
+
+   // GitLab CI: the OIDC JWT is provided directly as an env var,
+   // no HTTP fetch required. See
+   // internal/core/attestation/oidc.go (GitLabCITokenProvider.GetToken).
+   token = os.Getenv("CI_JOB_JWT_V2") // GitLab
    ```
 
 3. **CLI Signs Each Evidence File with Ephemeral Ed25519 and Submits Aggregated Results:**
@@ -40,7 +57,7 @@ These are two entirely separate concerns. OIDC is never used to sign attestation
 
    signer, _ := attestation.NewEd25519Signer()
    signer.Sign(envelope) // Sets envelope.PublicKey + envelope.Signature; private key zeroed
-   // envelope is written to: {framework}/{policy_slug}/{timestamp}_{run_id}/evidence/{type}.json
+   // envelope is written to: {framework}/{policy_id}/{timestamp}_{run_id_short}/evidence/{type}.json
 
    // Only aggregated results (counts, not resource IDs) go to the Cloud API.
    // OIDC token is used in the Authorization header for authentication.
@@ -108,7 +125,7 @@ These are two entirely separate concerns. OIDC is never used to sign attestation
    - name: Fetch GitHub Data
      env:
        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-     run: sigcomply check --integration github
+     run: sigcomply check --github-org my-org
    ```
 
 ### Fallback Strategy
