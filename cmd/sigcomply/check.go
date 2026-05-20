@@ -90,14 +90,14 @@ Examples:
 		RunE: runCheck,
 	}
 
-	cmd.Flags().StringVarP(&flagFramework, "framework", "f", "", "Compliance framework (soc2, hipaa, iso27001)")
+	cmd.Flags().StringVarP(&flagFramework, "framework", "f", "", "Compliance framework (soc2, iso27001)")
 	cmd.Flags().StringVarP(&flagOutput, "output", "o", "", "Output format (text, json, junit)")
 	cmd.Flags().StringVar(&flagJSONOutput, "json-output", "", "Write JSON results to this file in addition to --output format")
 	cmd.Flags().BoolVarP(&flagVerbose, "verbose", "v", false, "Verbose output")
 	cmd.Flags().StringVar(&flagRegion, "region", "", "AWS region")
 	cmd.Flags().BoolVar(&flagStore, "store", false, "Store evidence and results to configured storage")
 	cmd.Flags().StringVar(&flagStoragePath, "storage-path", "", "Local storage path (default: ./.sigcomply/evidence)")
-	cmd.Flags().StringVar(&flagStorageBackend, "storage-backend", "", "Storage backend (local, s3)")
+	cmd.Flags().StringVar(&flagStorageBackend, "storage-backend", "", "Storage backend (local, s3, gcs, azure_blob)")
 	cmd.Flags().BoolVar(&flagCloud, "cloud", false, "Force submission to SigComply Cloud (requires OIDC in CI)")
 	cmd.Flags().BoolVar(&flagNoCloud, "no-cloud", false, "Disable submission to SigComply Cloud")
 	cmd.Flags().StringVar(&flagGitHubOrg, "github-org", "", "GitHub organization to collect evidence from (requires GITHUB_TOKEN)")

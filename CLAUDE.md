@@ -404,8 +404,9 @@ Other Rails CLI endpoints exist (`policy_evaluations`, `compliance_status`,
   policies, so naive globs over-count.
 - **Avoid editing `cmd/sigcomply/check.go` flag descriptions** without
   reflecting the change in `docs/configuration.md` and the table above.
-  The `--framework` description still mentions `hipaa` — leave it for a
-  separate cleanup; it's a tracked stale string, not load-bearing.
+  `hipaa` is omitted from `--framework`'s public help text since there
+  is no `hipaa/` package yet, but `SupportedFrameworks` in `config.go`
+  still accepts it as a stub value.
 
 ---
 

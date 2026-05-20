@@ -464,7 +464,7 @@ violations contains v if {
 ### Key Flags (check)
 
 ```
--f, --framework string       Compliance framework (soc2, hipaa, iso27001)
+-f, --framework string       Compliance framework (soc2, iso27001)
 -o, --output string          Output format (text, json, junit)
     --json-output string     Write JSON results to this file in addition to --output format
 -v, --verbose                Verbose output
