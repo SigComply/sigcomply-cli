@@ -34,10 +34,13 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Dependency Review
-        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
           deny-licenses: GPL-3.0, AGPL-3.0
+          # trufflehog is a CI-only secret scanner; its AGPL-3.0 license does
+          # not propagate to the product we ship.
+          allow-dependencies-licenses: 'pkg:githubactions/trufflesecurity/trufflehog'
           comment-summary-in-pr: always
 
   supply-chain:
@@ -153,7 +156,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Run gosec
-        uses: securego/gosec@424fc4cd9c82ea0fd6bee9cd49c2db2c3cc0c93f # v2.22.11
+        uses: securego/gosec@4a3bd8af174872c778439083ded7adbf3747e770 # v2.26.1
         with:
           args: '-fmt sarif -out gosec.sarif -severity high ./...'
         continue-on-error: true  # SARIF upload handles findings
@@ -269,7 +272,7 @@ jobs:
           fetch-depth: 0
 
       - name: TruffleHog Secret Scan
-        uses: trufflesecurity/trufflehog@a22874f9f05cdf526357a7b1d921daa7de03e2fa # v3.67.1
+        uses: trufflesecurity/trufflehog@17456f8c7d042d8c82c9a8ca9e937231f9f42e26 # v3.95.2
         with:
           extra_args: --only-verified
 
@@ -323,7 +326,7 @@ jobs:
           upload-artifact: false
 
       - name: Upload SBOMs
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sbom
           path: |
