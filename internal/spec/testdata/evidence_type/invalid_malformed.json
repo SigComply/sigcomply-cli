@@ -1,0 +1,6 @@
+{
+  "title": "user_record",
+  "version": 1,
+  "type": "object"
+  "properties": { "id": { "type": "string" } }
+}
