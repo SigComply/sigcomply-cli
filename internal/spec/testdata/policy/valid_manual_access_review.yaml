@@ -1,0 +1,28 @@
+schema_version: policy.v1
+
+id: soc2.cc1.4.quarterly_access_review
+control: SOC2.CC1.4
+severity: medium
+category: governance
+
+cadence: quarterly
+# on_push omitted — should default to false because the slot is manual.
+
+description: |
+  An access review of all privileged users must be completed and
+  signed off each quarter.
+
+slots:
+  access_review_document:
+    type: signed_document
+    cardinality: exactly-one
+    required: true
+
+parameters:
+  grace_period_days:
+    type: int
+    default: 30
+    min: 0
+    max: 90
+
+rule: rules.manual_presence_in_period.v1

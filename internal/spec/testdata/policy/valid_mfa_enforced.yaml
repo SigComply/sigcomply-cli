@@ -1,0 +1,38 @@
+schema_version: policy.v1
+
+id: soc2.cc6.1.mfa_enforced
+
+control: SOC2.CC6.1
+severity: high
+category: access_control
+
+cadence: daily
+on_push: true
+
+description: |
+  All users in the configured user directory must have multi-factor
+  authentication enabled.
+
+remediation: |
+  Enable MFA via the relevant identity provider for affected users.
+
+slots:
+  user_directory:
+    type: user_record
+    cardinality: one-or-more
+    required: true
+    description: "Source(s) of users to evaluate for MFA."
+
+parameters:
+  exempt_service_accounts:
+    type: bool
+    default: true
+    description: |
+      If true, records where payload.is_service_account == true are
+      skipped.
+
+rule: rules.mfa_enforced.v1
+
+tags:
+  - aws-soc2
+  - identity

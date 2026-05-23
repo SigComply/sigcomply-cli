@@ -1,0 +1,12 @@
+schema_version: policy.v1
+id: soc2.cc6.1.mfa_enforced
+control: SOC2.CC6.1
+severity: catastrophic
+cadence: daily
+description: "All users must have MFA enabled."
+slots:
+  user_directory:
+    type: user_record
+    cardinality: one-or-more
+    required: true
+rule: rules.mfa_enforced.v1
