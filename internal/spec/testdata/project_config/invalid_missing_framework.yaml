@@ -1,0 +1,4 @@
+schema_version: project.v1
+vault:
+  backend: local
+  path: ./vault

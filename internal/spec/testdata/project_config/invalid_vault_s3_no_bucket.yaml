@@ -1,0 +1,5 @@
+schema_version: project.v1
+framework: soc2
+vault:
+  backend: s3
+  region: us-east-1

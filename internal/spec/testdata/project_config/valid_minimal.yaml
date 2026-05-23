@@ -1,0 +1,15 @@
+schema_version: project.v1
+
+framework: soc2
+
+vault:
+  backend: local
+  path: ./vault
+
+sources:
+  aws.iam:
+    region: us-east-1
+
+bindings:
+  soc2.cc6.1.mfa_enforced:
+    user_directory: [aws.iam]

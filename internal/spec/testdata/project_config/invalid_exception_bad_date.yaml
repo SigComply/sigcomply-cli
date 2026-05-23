@@ -1,0 +1,10 @@
+schema_version: project.v1
+framework: soc2
+vault:
+  backend: local
+  path: ./vault
+exceptions:
+  - policy: soc2.cc6.1.mfa_enforced
+    state: waived
+    reason: "Legacy account."
+    approved_at: "01/15/2026"

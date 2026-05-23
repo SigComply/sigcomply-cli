@@ -1,0 +1,7 @@
+schema_version: project.v1
+framework: soc2
+vault:
+  backend: local
+  path: ./vault
+output:
+  format: xml

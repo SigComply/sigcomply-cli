@@ -1,0 +1,12 @@
+schema_version: project.v1
+framework: soc2
+vault:
+  backend: local
+  path: ./vault
+sources:
+  manual.pdf:
+    backend: s3
+    bucket: acme-evidence
+  "manual.pdf[secondary]":
+    backend: s3
+    bucket: acme-other
