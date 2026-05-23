@@ -1,0 +1,6 @@
+schema_version: framework.v1
+id: soc2
+version: "2017"
+controls: []
+policies:
+  - id: soc2.cc6.1.mfa_enforced

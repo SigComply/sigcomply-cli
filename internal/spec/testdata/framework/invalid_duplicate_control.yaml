@@ -1,0 +1,10 @@
+schema_version: framework.v1
+id: soc2
+version: "2017"
+controls:
+  - id: SOC2.CC6.1
+    name: "First definition"
+  - id: SOC2.CC6.1
+    name: "Duplicate definition"
+policies:
+  - id: soc2.cc6.1.mfa_enforced

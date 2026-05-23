@@ -1,0 +1,7 @@
+schema_version: framework.v1
+version: "2017"
+controls:
+  - id: SOC2.CC6.1
+    name: "Logical Access Controls"
+policies:
+  - id: soc2.cc6.1.mfa_enforced

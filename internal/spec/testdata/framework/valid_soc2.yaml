@@ -1,0 +1,30 @@
+schema_version: framework.v1
+
+id: soc2
+version: "2017"
+display_name: "SOC 2 Type II"
+description: |
+  AICPA Trust Services Criteria — Type II report.
+
+controls:
+  - id: SOC2.CC1.1
+    name: "Commitment to Integrity and Ethical Values"
+    description: "Board oversight of integrity and ethical values."
+    category: governance
+    baseline_severity: medium
+  - id: SOC2.CC6.1
+    name: "Logical Access Controls"
+    description: "Logical access security software and infrastructure."
+    category: access_control
+    baseline_severity: high
+  - id: SOC2.CC6.6
+    name: "Logical Access — Boundary Protection"
+    description: "Restrict logical access to the boundaries of the system."
+    category: access_control
+    baseline_severity: high
+
+policies:
+  - id: soc2.cc1.1.board_review
+  - id: soc2.cc6.1.mfa_enforced
+  - id: soc2.cc6.1.access_key_rotation
+  - id: soc2.cc6.6.public_access_blocked
