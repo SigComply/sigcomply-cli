@@ -9,9 +9,9 @@ import (
 // JSON Schema document; collected records are validated against it
 // before being wrapped in an Envelope.
 type EvidenceType struct {
-	ID      string
-	Version int
-	Schema  json.RawMessage
+	ID      string          `json:"id"`
+	Version int             `json:"version"`
+	Schema  json.RawMessage `json:"schema"`
 }
 
 // EvidenceRecord is one observation produced by a source plugin.
@@ -19,10 +19,10 @@ type EvidenceType struct {
 // cross-source identity (e.g. an email for user_record across
 // aws.iam and okta); leaving it empty disables cross-source dedup.
 type EvidenceRecord struct {
-	Type        string
-	ID          string
-	IdentityKey string
-	Payload     json.RawMessage
-	SourceID    string
-	CollectedAt time.Time
+	Type        string          `json:"type"`
+	ID          string          `json:"id"`
+	IdentityKey string          `json:"identity_key,omitempty"`
+	Payload     json.RawMessage `json:"payload"`
+	SourceID    string          `json:"source_id"`
+	CollectedAt time.Time       `json:"collected_at"`
 }

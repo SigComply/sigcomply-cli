@@ -13,6 +13,7 @@ import (
 	"google.golang.org/api/iterator"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/sign"
 )
 
 // API is the package-internal interface the Vault drives. The real
@@ -62,11 +63,13 @@ func (v *Vault) Init(ctx context.Context) error {
 	return nil
 }
 
-// PutEnvelope marshals e to JSON and writes it.
+// PutEnvelope writes the envelope as canonical JSON. The on-disk
+// bytes are byte-identical to the bytes fed into the signer. The
+// envelope must already be signed.
 func (v *Vault) PutEnvelope(ctx context.Context, key string, e *core.Envelope) error {
-	body, err := json.Marshal(e)
+	body, err := sign.EncodeEnvelope(e)
 	if err != nil {
-		return fmt.Errorf("gcs vault: marshal envelope: %w", err)
+		return fmt.Errorf("gcs vault: encode envelope: %w", err)
 	}
 	return v.Client.Put(ctx, v.fullKey(key), body, "application/json", nil)
 }

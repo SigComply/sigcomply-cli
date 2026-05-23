@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/sign"
 )
 
 // Factory constructs a fresh, isolated Vault for one sub-test. The
@@ -30,6 +31,7 @@ func RunContractSuite(t *testing.T, factory Factory) {
 	t.Run("PutBinary_GetBinary_RoundTrip", func(t *testing.T) { testPutBinaryRoundTrip(t, factory) })
 	t.Run("PutBinary_WithMetadata", func(t *testing.T) { testPutBinaryMetadata(t, factory) })
 	t.Run("PutEnvelope_GetBinary_RoundTrip", func(t *testing.T) { testPutEnvelopeRoundTrip(t, factory) })
+	t.Run("PutEnvelope_SignedRoundTrip_Verifies", func(t *testing.T) { testPutEnvelopeSignedRoundTrip(t, factory) })
 	t.Run("List_ReturnsKeysUnderPrefix", func(t *testing.T) { testListPrefix(t, factory) })
 	t.Run("GetBinary_MissingKey_Errors", func(t *testing.T) { testGetMissing(t, factory) })
 }
@@ -110,6 +112,34 @@ func testPutEnvelopeRoundTrip(t *testing.T, factory Factory) {
 	}
 }
 
+// testPutEnvelopeSignedRoundTrip is the M5 end-to-end check: a real
+// signed envelope round-trips through the backend and verifies after
+// re-parse. This catches backends that mangle bytes in transit (e.g.
+// content-type-driven re-encoding) which would silently invalidate
+// signatures.
+func testPutEnvelopeSignedRoundTrip(t *testing.T, factory Factory) {
+	v := factory(t)
+	ctx := context.Background()
+	env := sampleUnsignedEnvelope()
+	if err := sign.Envelope(&env); err != nil {
+		t.Fatalf("Envelope: %v", err)
+	}
+	if err := v.PutEnvelope(ctx, "envelopes/signed.json", &env); err != nil {
+		t.Fatalf("PutEnvelope: %v", err)
+	}
+	body, err := v.GetBinary(ctx, "envelopes/signed.json")
+	if err != nil {
+		t.Fatalf("GetBinary: %v", err)
+	}
+	var back core.Envelope
+	if err := json.Unmarshal(body, &back); err != nil {
+		t.Fatalf("Unmarshal: %v (raw %q)", err, body)
+	}
+	if err := sign.VerifyEnvelope(&back); err != nil {
+		t.Fatalf("VerifyEnvelope after backend round-trip: %v", err)
+	}
+}
+
 func testListPrefix(t *testing.T, factory Factory) {
 	v := factory(t)
 	ctx := context.Background()
@@ -186,6 +216,25 @@ func sampleEnvelope() core.Envelope {
 			Algorithm: "ed25519",
 			PublicKey: []byte{0x01, 0x02, 0x03, 0x04},
 			Value:     []byte{0xAA, 0xBB, 0xCC, 0xDD},
+		},
+	}
+}
+
+// sampleUnsignedEnvelope returns a fresh envelope with no signature
+// populated, suitable for handing to sign.Envelope.
+func sampleUnsignedEnvelope() core.Envelope {
+	return core.Envelope{
+		FormatVersion: "envelope.v1",
+		ProducedAt:    time.Date(2026, 5, 23, 14, 0, 0, 0, time.UTC),
+		Records: []core.EvidenceRecord{
+			{
+				Type:        "user_record",
+				ID:          "alice",
+				IdentityKey: "alice@acme.com",
+				Payload:     json.RawMessage(`{"mfa_enabled":true}`),
+				SourceID:    "aws.iam",
+				CollectedAt: time.Date(2026, 5, 23, 14, 0, 0, 0, time.UTC),
+			},
 		},
 	}
 }

@@ -18,7 +18,7 @@ deliverables at each milestone.
 | M | Name | Scope | Verification |
 |---|---|---|---|
 | **M0** | Repo reset | Remove old `internal/`, set up new package skeleton matching the layer model. | `go build ./...` succeeds; no symbols from old code remain. |
-| **M1** | L1 + L2 — Core types and registries | Stable Go interfaces and the four registries; empty registrations. | Unit tests for each interface; reflection test for `SubmissionPayload`. |
+| **M1** | L1 + L2 — Core types and registries | Stable Go interfaces and the five registries; empty registrations. | Unit tests for each interface; reflection test for `SubmissionPayload`. |
 | **M2** | L0 — Spec parsers and validators | YAML/JSON parsers for framework, policy, evidence type, plugin manifest, project config. | Round-trip tests; validation rejects malformed specs. |
 | **M3** | L7 — Vault | All four backends (local, S3, GCS, Azure Blob) behind the `Vault` interface. | Integration tests against in-memory + real backends (localstack, fake-gcs-server). |
 | **M4** | L3 — Planner | Plan production: bindings resolution, parameter merge, exception resolution, period derivation. | Golden-file tests over a curated set of project configs. |

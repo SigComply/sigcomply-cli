@@ -19,6 +19,7 @@ import (
 	"github.com/aws/smithy-go"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/sign"
 )
 
 // API is the subset of the S3 client we use. Defining it as an
@@ -91,11 +92,14 @@ func (v *Vault) Init(ctx context.Context) error {
 	return nil
 }
 
-// PutEnvelope JSON-marshals e and writes it.
+// PutEnvelope writes the envelope as canonical JSON. The on-disk
+// bytes are byte-identical to the bytes fed into the signer. The
+// envelope must already be signed; PutEnvelope returns an error if
+// not.
 func (v *Vault) PutEnvelope(ctx context.Context, key string, e *core.Envelope) error {
-	body, err := json.Marshal(e)
+	body, err := sign.EncodeEnvelope(e)
 	if err != nil {
-		return fmt.Errorf("s3 vault: marshal envelope: %w", err)
+		return fmt.Errorf("s3 vault: encode envelope: %w", err)
 	}
 	return v.put(ctx, key, body, "application/json", nil)
 }

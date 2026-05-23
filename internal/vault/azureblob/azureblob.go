@@ -15,6 +15,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/sign"
 )
 
 // API is the package-internal interface the Vault drives. Tests
@@ -71,11 +72,13 @@ func (v *Vault) Init(ctx context.Context) error {
 	return nil
 }
 
-// PutEnvelope marshals e and writes it.
+// PutEnvelope writes the envelope as canonical JSON. The on-disk
+// bytes are byte-identical to the bytes fed into the signer. The
+// envelope must already be signed.
 func (v *Vault) PutEnvelope(ctx context.Context, key string, e *core.Envelope) error {
-	body, err := json.Marshal(e)
+	body, err := sign.EncodeEnvelope(e)
 	if err != nil {
-		return fmt.Errorf("azure blob vault: marshal envelope: %w", err)
+		return fmt.Errorf("azure blob vault: encode envelope: %w", err)
 	}
 	return v.Client.Put(ctx, v.fullKey(key), body, nil)
 }

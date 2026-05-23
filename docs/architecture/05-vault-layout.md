@@ -335,14 +335,6 @@ one fresh keypair.
   "format_version": "envelope.v1",
   "produced_at":    "2026-02-15T14:00:42Z",
 
-  "context": {
-    "policy_id":     "soc2.cc6.1.mfa_enforced",
-    "slot":          "user_directory",
-    "evidence_type": "user_record",
-    "source_id":     "aws.iam",
-    "run_id":        "a3f8b2c1-..."
-  },
-
   "records": [
     {
       "type":         "user_record",
@@ -360,14 +352,6 @@ one fresh keypair.
     /* ... */
   ],
 
-  "attachments": [
-    {
-      "path":      "attachments/access_review_quarterly/evidence.pdf",
-      "size":      194523,
-      "sha256":    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    }
-  ],
-
   "signature": {
     "algorithm":  "ed25519",
     "public_key": "MCowBQYDK2VwAyEA1lzN6...",
@@ -376,22 +360,33 @@ one fresh keypair.
 }
 ```
 
+The envelope has four fields — `format_version`, `produced_at`,
+`records`, `signature`. Context that earlier drafts carried inside the
+envelope (policy_id, slot, evidence_type, source_id, run_id) is
+expressed structurally: it lives in the envelope's file path
+(`policies/{policy_id}/envelopes/{evidence_type}__{source_id}.json`)
+and is bound to the run by the per-run `manifest.json` (whose
+`file_hashes` table covers every envelope file). Attachments are
+referenced by the relevant record's payload — for example, the
+`manual.pdf` plugin emits a record whose payload is `{evidence_id,
+file_hash, file_path, period, framework}`, and the PDF itself is
+mirrored at the referenced path and hashed in the run manifest.
+
 ### Signed payload
 
 The signature covers the **canonical JSON serialization** of the
-envelope with the `signature` field removed and replaced with the
-sentinel value `null`:
+envelope's three content fields, in this exact shape:
 
 ```
 canonical_json({
   format_version: ...,
   produced_at:    ...,
-  context:        {...},
-  records:        [...],
-  attachments:    [...],
-  signature:      null
+  records:        [...]
 })
 ```
+
+The signature field is not part of the signed payload; a verifier
+reconstructs the three-field object from the parsed envelope.
 
 **Canonical JSON rules** (RFC 8785-style, sufficient subset):
 
@@ -404,7 +399,8 @@ canonical_json({
    round-trippable decimal
 6. Arrays preserve their existing order
 
-The signing function is implemented once in `internal/core/canonical`
+The signing function is implemented once in `internal/sign`
+(`Encode`, `Sign`, `Verify`, plus the envelope and manifest wrappers)
 and reused everywhere — every envelope, every signature, every
 verification.
 

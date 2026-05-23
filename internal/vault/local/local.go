@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/sign"
 )
 
 // Vault is a filesystem-backed core.Vault. Every Put writes to
@@ -43,13 +44,15 @@ func (v *Vault) Init(_ context.Context) error {
 	return nil
 }
 
-// PutEnvelope serializes the envelope to JSON and writes it. Canonical
-// JSON encoding (the form fed into the signer) is the signer's
-// responsibility upstream — this layer is pure storage.
+// PutEnvelope writes the envelope as canonical JSON. The on-disk
+// bytes are byte-identical to the bytes fed into the signer, so a
+// reader can either re-canonicalize on parse or check the file's
+// SHA-256 against a recorded hash. The envelope must already be
+// signed; PutEnvelope returns an error if not.
 func (v *Vault) PutEnvelope(_ context.Context, key string, e *core.Envelope) error {
-	body, err := json.Marshal(e)
+	body, err := sign.EncodeEnvelope(e)
 	if err != nil {
-		return fmt.Errorf("local vault: marshal envelope: %w", err)
+		return fmt.Errorf("local vault: encode envelope: %w", err)
 	}
 	return v.write(key, body)
 }
