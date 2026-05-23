@@ -1,73 +1,31 @@
-// Package sigcomply provides the CLI commands for SigComply.
-package sigcomply
+// Package cmd is the CLI entry. At M0 it is a placeholder: subcommands
+// (check, evidence, report, init-ci, …) are wired in later milestones
+// per docs/architecture/09-implementation-roadmap.md.
+package cmd
 
 import (
 	"fmt"
 	"os"
-
-	"github.com/spf13/cobra"
 )
 
 var (
-	// Set via ldflags
-	version   = "dev"
-	commit    = "unknown"
-	buildTime = "unknown"
+	cliVersion   = "dev"
+	cliCommit    = "unknown"
+	cliBuildTime = "unknown"
 )
 
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   "sigcomply",
-	Short: "Compliance automation without infrastructure access",
-	Long: `SigComply CLI - Evidence without Access
-
-SigComply enables organizations to achieve SOC 2, ISO 27001, and HIPAA
-readiness without granting third-party vendors access to their production
-infrastructure.
-
-Run 'sigcomply check' to evaluate your infrastructure against compliance
-policies and generate evidence.`,
+// SetVersionInfo stores ldflag-injected build identity for later display.
+func SetVersionInfo(version, commit, buildTime string) {
+	cliVersion = version
+	cliCommit = commit
+	cliBuildTime = buildTime
 }
 
-// versionCmd represents the version command
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print version information",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("sigcomply %s\n", version)
-		fmt.Printf("  commit:  %s\n", commit)
-		fmt.Printf("  built:   %s\n", buildTime)
-	},
-}
-
-// setupCommands registers all commands with the root command.
-func setupCommands() {
-	rootCmd.AddCommand(versionCmd)
-	rootCmd.AddCommand(checkCmd)
-
-	evidenceInitCmd.Flags().StringVar(&flagEvidenceConfig, "config", "", "Path to config file")
-	evidenceCatalogCmd.Flags().StringVar(&flagEvidenceConfig, "config", "", "Path to config file")
-	evidenceCatalogCmd.Flags().StringVarP(&flagEvidenceOutput, "output", "o", "text", "Output format (text, json)")
-	evidencePathCmd.Flags().StringVar(&flagEvidenceConfig, "config", "", "Path to config file")
-	evidencePathCmd.Flags().StringVarP(&flagEvidenceOutput, "output", "o", "text", "Output format (text, json)")
-
-	evidenceCmd.AddCommand(evidenceInitCmd)
-	evidenceCmd.AddCommand(evidenceCatalogCmd)
-	evidenceCmd.AddCommand(evidencePathCmd)
-	rootCmd.AddCommand(evidenceCmd)
-}
-
-// Execute adds all child commands to the root command and sets flags appropriately.
+// Execute is the CLI entrypoint. At M0 it prints version info and exits;
+// command wiring arrives at M12 (orchestrator).
 func Execute() {
-	setupCommands()
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
-}
-
-// SetVersionInfo sets version info from main package ldflags
-func SetVersionInfo(v, c, b string) {
-	version = v
-	commit = c
-	buildTime = b
+	fmt.Fprintf(os.Stderr,
+		"sigcomply %s (commit %s, built %s)\n"+
+			"M0 skeleton — commands not yet wired (see docs/architecture/09-implementation-roadmap.md).\n",
+		cliVersion, cliCommit, cliBuildTime)
 }
