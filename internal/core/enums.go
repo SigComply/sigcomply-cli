@@ -5,6 +5,7 @@ package core
 // severity, split it into multiple policies.
 type Severity string
 
+// Severity values, in ascending order of urgency.
 const (
 	SeverityInfo     Severity = "info"
 	SeverityLow      Severity = "low"
@@ -16,6 +17,8 @@ const (
 // PolicyStatus is the per-policy outcome of a run.
 type PolicyStatus string
 
+// PolicyStatus values. `pass`/`fail` are the rule outcomes; `skip` /
+// `error` / `na` / `waived` are evaluator/exception-driven states.
 const (
 	StatusPass   PolicyStatus = "pass"
 	StatusFail   PolicyStatus = "fail"
@@ -28,6 +31,8 @@ const (
 // SlotCardinality declares how many sources a slot may bind.
 type SlotCardinality string
 
+// SlotCardinality values. See 03-policy-spec.md §Slots for the
+// project-binding rules each cardinality imposes.
 const (
 	SlotExactlyOne SlotCardinality = "exactly-one"
 	SlotAtMostOne  SlotCardinality = "at-most-one"
