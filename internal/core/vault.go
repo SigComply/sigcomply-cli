@@ -11,7 +11,7 @@ import "context"
 // one-way for write-side flows.
 type Vault interface {
 	Init(ctx context.Context) error
-	PutEnvelope(ctx context.Context, path string, e Envelope) error
+	PutEnvelope(ctx context.Context, path string, e *Envelope) error
 	PutJSON(ctx context.Context, path string, body any) error
 	PutBinary(ctx context.Context, path string, body []byte, meta map[string]string) error
 	GetBinary(ctx context.Context, path string) ([]byte, error)

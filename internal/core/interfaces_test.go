@@ -43,7 +43,7 @@ func (*fakeRule) Evaluate(context.Context, RuleInput) (RuleResult, error) {
 type fakeVault struct{}
 
 func (*fakeVault) Init(context.Context) error                                         { return nil }
-func (*fakeVault) PutEnvelope(context.Context, string, Envelope) error                { return nil }
+func (*fakeVault) PutEnvelope(context.Context, string, *Envelope) error               { return nil }
 func (*fakeVault) PutJSON(context.Context, string, any) error                         { return nil }
 func (*fakeVault) PutBinary(context.Context, string, []byte, map[string]string) error { return nil }
 func (*fakeVault) GetBinary(context.Context, string) ([]byte, error)                  { return nil, nil }
