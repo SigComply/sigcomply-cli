@@ -23,21 +23,7 @@ deliverables at each milestone.
 | **M3** | L7 — Vault | All four backends (local, S3, GCS, Azure Blob) behind the `Vault` interface. | Integration tests against in-memory + real backends (localstack, fake-gcs-server). |
 | **M4** | L3 — Planner | Plan production: bindings resolution, parameter merge, exception resolution, period derivation. | Golden-file tests over a curated set of project configs. |
 | **M5** | Envelope + signing | `Envelope` write/read; Ed25519 signing; canonical JSON; verifier. | Sign/verify round-trip; cross-language verification (the SPA's WebCrypto verifier reads CLI-written envelopes). |
-| **M6** | L4 — Collector skeleton | Per-policy fetch loop; envelope assembly; schema validation; error routing. | Tests with a stub plugin that emits canned records. |
-| **M7** | First plugin: `manual.pdf` | Full implementation including catalog reading, path resolution, PDF mirroring, manifest emission. | Integration test with files in a local backend; manifest verifies. |
-| **M8** | First plugin: `aws.iam` | Full IAM coverage (users, roles, policies, access keys); `user_record` emission. | Live test against an AWS test account; records pass schema validation. |
-| **M9** | L5 — Evaluator | Rule registry; Rego runner; Go rule runner; YAML DSL transpiler. | One end-to-end policy (`soc2.cc6.1.mfa_enforced`) evaluates correctly. |
-| **M10** | L6 — Aggregator | `SubmissionPayload` construction; message generation; structural privacy test. | Reflection-based privacy test passes; payload diff vs vault summary shows correct information loss. |
-| **M11** | L8 — Submitter | OIDC token acquisition (GitHub + GitLab); HTTP POST; failure handling. | Live test against a stub cloud receiver. |
-| **M12** | L9 — Orchestrator | The `sigcomply check` command; flag parsing; CI auto-detection; output formatters. | `sigcomply check --dry-run` works end-to-end against a fixture project. |
-| **M13** | SOC 2 framework — automated policies | Port the curated SOC 2 policy set against the new types. ~300 policies. | All policies have rules and tests; tests pass. |
-| **M14** | SOC 2 framework — manual catalog | Manual catalog entries; bindings; tests for the `manual.pdf` integration with each entry. | End-to-end run against a fixture vault. |
-| **M15** | Plugin set v1 | Remaining plugins for v1 launch: `aws.s3`, `aws.cloudtrail`, `aws.kms`, `aws.rds`, `aws.ec2`, `aws.cloudwatch`, `aws.guardduty`, `aws.config`, `aws.eks`, `gcp.iam`, `gcp.storage`, `gcp.compute`, `gcp.sql`, `github`, `okta`. | Each plugin has manifest, tests, at least one shipped policy consuming it. |
-| **M16** | `sigcomply build` for project-local Go extensions | The build wrapper; smoke test with a custom plugin + custom policy. | A fixture project's custom plugin compiles and runs end-to-end. |
-| **M17** | ISO 27001 framework skeleton | Framework spec + control catalog + a representative ~30 policies. | One full audit period's worth of policies pass tests. |
-| **M18** | Auditor verification tooling | Reference verifier (Go and SPA); `sigcomply report` command (see §sigcomply report below) for snapshot views of the vault: latest-wins period roll-up, exception register, integrity verification, audit-ready PDF/CSV exports of those snapshots. **Time-series analytics (drift detection, deviation timelines, continuous-monitoring alerts) are explicitly out of scope for the free CLI — they live in the paid SigComply Cloud / Rails app.** | Fresh checkout + only the vault + the verifier can reproduce a policy's result. `sigcomply report --period 2026-Q1 --format pdf` produces a deterministic audit-ready snapshot. |
-| **M19** | CI integration & scaffolding | `sigcomply init-ci --framework <fw> --ci <github|gitlab>` scaffolds the cadence-aligned workflow set (`compliance-on-push.yml`, `compliance-daily.yml`, `compliance-weekly.yml`, `compliance-monthly.yml`, `compliance-quarterly.yml`, `compliance-annual.yml`). Reusable composite action (`SigComply/sigcomply-cli/.github/actions/check@v1`). GitLab CI include template. The `--cadence` and `--on-push` filter flags on `sigcomply check`. | E2E test repos: one GitHub-Actions project + one GitLab-CI project each scaffolded via `init-ci`; nightly + on-push workflows produce expected vault contents. |
-| **M20** | v1 release | Tagged release; release notes; install docs; auditor-facing FAQ. | Public install + first community contribution merged. |
+| **M6** | v1-alpha walking skeleton | The remaining layers wired end-to-end in a single milestone, narrowed to the minimum that demonstrates the architecture works: L4 collector + L5 evaluator (Rego + Go rule runners; YAML DSL deferred) + L6 aggregator (with privacy reflection test) + L8 submitter (OIDC + `POST /api/v1/runs`) + L9 orchestrator (`sigcomply check`, manifest emission with `file_hashes`); plus the two seed plugins `manual.pdf` and `aws.iam` (with an `API` interface for in-memory test fakes, matching the vault backend pattern); plus a SOC 2 framework skeleton (`framework.go` + `controls.go`) carrying 3 representative policies (one automated consuming `user_record`, one manual consuming a manual-catalog entry, one cross-source unioning multiple slots). | `make test && make lint` green; coverage ≥ 80% per new package; aggregator privacy reflection test passes; `sigcomply check --config testdata/fixture.yaml` runs to completion against a stubbed AWS + local vault, producing a signed `manifest.json` with `file_hashes` that `sign.VerifyManifest` accepts and per-policy `result.json` files matching the 3 sample policies. |
 
 ---
 
@@ -49,26 +35,17 @@ M0 (reset)
                        ├─ M3 (vault) ──── M5 (envelopes)
                        └─ M4 (planner)
 
-M2 + M3 + M4 + M5 → M6 (collector)
-M6 → M7 (manual.pdf) → M14 (SOC 2 manual)
-M6 → M8 (aws.iam)   → M13 (SOC 2 automated)
-M6 → M15 (other plugins)
-
-M2 → M9 (evaluator) ────┐
-                        ├─ depends on M6 + M9
-                        ▼
-M10 (aggregator) ─→ M11 (submitter) ─→ M12 (orchestrator)
-                                          ▼
-                                    M16 (build wrapper)
-                                          ▼
-                                    M17 (ISO 27001)
-                                          ▼
-                                    M18 (verifier)
-                                          ▼
-                                    M19 (CI integration)
-                                          ▼
-                                    M20 (release)
+M2 + M3 + M4 + M5 → M6 (v1-alpha walking skeleton, single commit)
 ```
+
+M6 closes the rewrite arc with the smallest end-to-end implementation
+that demonstrates every layer works together. The earlier draft of
+this roadmap had a finer-grained M6–M20 (one milestone per layer, one
+per plugin, one per framework, plus reporting/init-ci/release
+tooling). That finer breakdown is preserved below as the
+[**post-M6 work plan**](#post-m6-work-plan); items there are not
+required to land before M6 ships but are tracked so contributors
+know what's intentionally deferred.
 
 ---
 
@@ -95,48 +72,112 @@ with auditors. Subsequent milestones add data flowing through the
 format but never modify it. If the format must change, a major
 version bump is required.
 
-### Aggregation last among the core layers
+### M6 is the end-to-end walking skeleton
 
-L6 (M10) is the most consequential boundary and should be implemented
-when L5 (M9) produces real `PolicyResult`s. Implementing the
-aggregator early risks shaping the privacy contract around toy inputs.
+M6 deliberately bundles every remaining layer (L4 collector, L5
+evaluator, L6 aggregator, L8 submitter, L9 orchestrator), two seed
+plugins (`manual.pdf` and `aws.iam`), and a tiny SOC 2 policy sample
+into a single milestone. The reason: layers below L4 are now stable,
+so the *only* risk left is at the seams between layers — and that
+risk is best discovered by wiring all of them together against one
+real end-to-end fixture rather than landing each layer alone behind
+mocks.
 
-### Plugins parallelize after M6
+Implementation order inside M6 (each step builds on the previous):
 
-Once the collector skeleton (M6) is done, plugins can be built in
-parallel. Manual evidence and AWS IAM go first because the SOC 2
-framework's most foundational policies depend on them; remaining
-plugins arrive in priority order driven by shipped policy coverage.
+1. **L4 collector** with stub plugin emitting canned records.
+2. **L5 evaluator** running one trivial Rego rule against those
+   records.
+3. **L6 aggregator** producing a `SubmissionPayload` from a
+   `CheckResult`; privacy reflection test goes live here and must
+   pass before M6 can ship.
+4. **manual.pdf plugin** with full catalog + path + PDF-mirroring
+   flow.
+5. **aws.iam plugin** with an `API` interface for in-memory fakes,
+   matching the vault backend pattern.
+6. **SOC 2 framework skeleton** with `framework.go` + `controls.go`
+   + 3 representative policies (one automated, one manual, one
+   cross-source).
+7. **L8 submitter** with OIDC + `POST /api/v1/runs`; check Rails
+   strong params at `../sigcomply/app/controllers/api/v1/runs_controller.rb`.
+8. **L9 orchestrator** (`sigcomply check`) wiring it all together,
+   including manifest emission (filling `file_hashes` after the run
+   completes, signing the manifest, writing it to the vault).
+9. **End-to-end test**: `sigcomply check --config testdata/fixture.yaml`
+   against a stubbed AWS + local vault produces a signed
+   `manifest.json` that `sign.VerifyManifest` accepts and per-policy
+   `result.json` files matching the sample policies.
 
-### Don't ship the framework before the engine
-
-M13 (SOC 2 policies) cannot ship before M9 (evaluator) is solid. Each
-policy needs its rule tested end-to-end. Shipping policies that depend
-on yet-unbuilt rule features creates phantom coverage.
-
-### Auditor tooling late but before release
-
-M18 must be done before M20. Selling "evidence without access" without
-the verifier is selling a half-finished promise. The verifier is part
-of the product, not an afterthought.
+Don't ship in pieces. The single-commit constraint forces an honest
+assessment of whether the whole thing actually works — and is how
+this rewrite arc ends.
 
 ---
 
-## What's in v1 (the release at M20)
+## What's in v1-alpha (the artifact at M6)
 
-- One framework production-ready: **SOC 2 Type II**
-  - ~300 automated policies across AWS, GCP, GitHub
-  - ~50 manual catalog entries
-  - Full control coverage
-- One framework as proof of concept: **ISO 27001**
-  - ~30 policies (a representative subset)
-- 14 shipped source plugins
-- All four vault backends
-- GitHub Actions and GitLab CI integrations
-- Reference verifier (Go + browser)
-- Project-local extensions (custom policies, plugins, evidence types)
-- Cloud submission to SigComply Cloud
-- Self-hosted dashboard support (via `cloud.base_url` override)
+The closing milestone of this rewrite arc ships a **walking
+skeleton**, not a feature-complete v1. The point is to prove every
+layer is wired correctly end-to-end against one real fixture; volume
+(more policies, more plugins, more frameworks) is additive after that.
+
+In v1-alpha:
+
+- **One framework, demonstration scope: SOC 2 Type II**
+  - 3 representative policies (one automated `aws.iam`-consuming,
+    one manual catalog entry, one cross-source unioning multiple
+    slots)
+  - Framework skeleton (`framework.go` + `controls.go`) ready to
+    absorb the full policy catalog later
+- **Two source plugins**: `manual.pdf` and `aws.iam`
+- **All four vault backends** (shipped at M3)
+- **Cloud submission** to SigComply Cloud via `POST /api/v1/runs`
+- **Reference Go verifier** (the `sign.VerifyEnvelope` /
+  `sign.VerifyManifest` primitives shipped at M5)
+- **OIDC auth** for GitHub Actions + GitLab CI
+
+What is **explicitly not** in v1-alpha (tracked in the
+[post-M6 work plan](#post-m6-work-plan) below):
+
+- The ~300-policy SOC 2 catalog
+- ISO 27001 framework
+- Plugins beyond `manual.pdf` + `aws.iam`
+- `sigcomply build`, `sigcomply report`, `sigcomply init-ci`
+- SPA `/verify` rewrite to envelope.v1
+- Release automation, install docs, auditor FAQ
+
+v1.0 (feature-complete) is a multi-milestone release stream that
+begins after v1-alpha. Patch and minor releases — driven by the
+post-M6 work plan — converge on the original v1 vision over time.
+
+---
+
+## Post-M6 work plan
+
+These items were the originally planned M7–M20 of this roadmap.
+They are **not** required to land before M6 ships, but they are the
+backlog that takes v1-alpha to feature-complete v1. Pull from this
+list in priority order driven by user demand and policy coverage
+needs; they parallelize once M6's walking skeleton is in place.
+
+| Item | Scope | Verification |
+|---|---|---|
+| **Full SOC 2 policy catalog** | Port the curated SOC 2 policy set against the new types. ~300 automated policies + ~50 manual catalog entries. | All policies have rules and tests; tests pass. End-to-end run against a fixture vault. |
+| **Plugin set v1** | `aws.s3`, `aws.cloudtrail`, `aws.kms`, `aws.rds`, `aws.ec2`, `aws.cloudwatch`, `aws.guardduty`, `aws.config`, `aws.eks`, `gcp.iam`, `gcp.storage`, `gcp.compute`, `gcp.sql`, `github`, `okta`. | Each plugin has manifest, tests, at least one shipped policy consuming it. |
+| **YAML DSL transpiler** | The third rule runner alongside Rego and Go. | Round-trip tests; one policy authored in YAML DSL evaluates correctly. |
+| **`sigcomply build`** | Project-local Go-extension build wrapper. | Fixture project's custom plugin compiles and runs end-to-end. |
+| **ISO 27001 framework skeleton** | Framework spec + control catalog + representative ~30 policies. | One audit period's worth of policies pass tests. |
+| **Auditor verification tooling** | Reference verifier (Go + SPA — this is where the SPA's `/verify` finally moves to envelope.v1); `sigcomply report` command (see §`sigcomply report` below) for snapshot views of the vault: latest-wins period roll-up, exception register, integrity verification, audit-ready PDF/CSV exports. **Time-series analytics (drift detection, deviation timelines, continuous-monitoring alerts) are explicitly out of scope for the free CLI — they live in the paid SigComply Cloud / Rails app.** | Fresh checkout + only the vault + the verifier can reproduce a policy's result. `sigcomply report --period 2026-Q1 --format pdf` produces a deterministic audit-ready snapshot. |
+| **CI integration & scaffolding** | `sigcomply init-ci --framework <fw> --ci <github\|gitlab>` scaffolds the cadence-aligned workflow set (`compliance-on-push.yml`, `compliance-daily.yml`, `compliance-weekly.yml`, `compliance-monthly.yml`, `compliance-quarterly.yml`, `compliance-annual.yml`). Reusable composite action (`SigComply/sigcomply-cli/.github/actions/check@v1`). GitLab CI include template. The `--cadence` and `--on-push` filter flags on `sigcomply check`. | E2E test repos: one GitHub-Actions project + one GitLab-CI project each scaffolded via `init-ci`; nightly + on-push workflows produce expected vault contents. |
+| **v1 release** | Tagged release; release notes; install docs; auditor-facing FAQ. | Public install + first community contribution merged. |
+
+The dependency edges that mattered in the finer-grained plan still
+apply: plugins block their consuming policies; the SPA verifier
+rewrite blocks public-facing auditor messaging; `sigcomply build`
+unblocks community-contributed custom plugins. They just don't all
+need to land before M6 ships.
+
+---
 
 ## What's deferred to v2
 
@@ -183,7 +224,7 @@ A milestone is complete when:
 1. **All unit tests pass.** Coverage for new code ≥ 80% lines.
 2. **Integration tests pass.** Each new component has at least one
    integration test against a real backend or stub.
-3. **The privacy reflection test passes** (after M10).
+3. **The privacy reflection test passes** (after M6, when the aggregator goes live).
 4. **The verifier round-trip works** (after M5).
 5. **Documentation is updated.** Specifically: `ARCHITECTURE.md` map,
    the relevant doc in `docs/architecture/`, and any user-facing
@@ -196,7 +237,7 @@ hand-run command produces the expected output.
 
 ---
 
-## `sigcomply report` (M18 detail)
+## `sigcomply report` (post-M6 design detail)
 
 The `report` subcommand produces **snapshot views** of the vault. It
 reads only — no collection, no evaluation, no cloud submission, no
