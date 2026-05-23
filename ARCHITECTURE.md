@@ -1,719 +1,186 @@
-# SigComply CLI - Architecture
+# SigComply CLI — Architecture
 
-**Version**: 2.1 | **Status**: Active Development
+> **Status**: design specification for the v1 rewrite. The repository will be
+> rebuilt against this document. Implementation work has not started.
 
----
+SigComply is a zero-trust, non-custodial compliance engine. The CLI runs
+inside the customer's own CI/CD environment, evaluates compliance policies
+against their infrastructure, signs every piece of evidence locally, and —
+only when the customer opts in — sends *aggregated counts* (never raw
+evidence) to a hosted dashboard. The product positioning is "evidence
+without access."
 
-## Design Principles
+This document is the top-level map. Detailed design lives in the
+[`docs/architecture/`](docs/architecture/) tree.
 
-| Principle | Implementation |
-|-----------|----------------|
-| Zero-config | `sigcomply check` works immediately with AWS defaults |
-| Fail-safe | Partial success OK; missing permissions show warnings, not errors |
-| Embedded policies | Rego policies compiled into binary via `go:embed` |
-| Framework-specific | Each framework has its own policies (no shared abstractions) |
-| Minimal abstractions | No interfaces until 2+ implementations needed |
+## Free CLI / paid cloud — the product split
 
----
+The product ships as two intentionally decoupled pieces:
 
-## Architecture Overview
+- **The CLI (open source, free)** — what this document specifies. Runs
+  per-invocation: collect → check → write vault → submit counts. Stateless;
+  no DB; no shared state across runs. Snapshot reporting against the vault
+  (`sigcomply report --view latest|exceptions|integrity`).
+- **SigComply Cloud / Rails app (paid)** — receives per-run aggregated
+  counts via the privacy-preserving `SubmissionPayload`, stores them over
+  time in a Rails-backed DB (stripped of all sensitive information per the
+  aggregation contract), and provides the **longitudinal analytical layer**:
+  deviation timelines, drift detection, continuous-monitoring alerts,
+  auditor-ready Type II reports, multi-project rollups, auditor seats.
 
-### Execution Flow
+The vault is the customer's data layer for both. The CLI is the writer.
+The paid Rails app is the index + analytics layer over the time-series of
+submissions; it never holds raw evidence or identifiers — those stay in
+the vault on the customer's side of the privacy boundary.
 
-```
-sigcomply check
-       │
-       ▼
-┌─────────────────┐
-│  CONFIGURATION  │  Auto-detect AWS, region, framework (SOC 2 default)
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│    COLLECT      │  AWS Collector → []Evidence (IAM, S3, CloudTrail)
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│    EVALUATE     │  OPA engine evaluates embedded Rego policies
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│     OUTPUT      │  Text/JSON/JUnit → Exit code (0=pass, 1=fail)
-└────────┬────────┘
-         │
-    (if --store)
-         ▼
-┌─────────────────┐
-│   ATTESTATION   │  Generate ephemeral Ed25519 keypair
-│                 │  Sign canonical JSON of {timestamp, evidence}
-│                 │  Discard private key immediately
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│     STORAGE     │  Raw evidence + full results + public key + signature
-│                 │  → Customer's S3/GCS/local   [everything stays here]
-└────────┬────────┘
-         │
-    (paid tier, auto in CI when OIDC available)
-         ▼
-┌─────────────────────────────────────────┐
-│   AGGREGATE     │  Reduce violations to counts (no resource IDs)
-└────────┬────────┘  Aggregation boundary: resource identifiers discarded here
-         ▼
-┌─────────────────┐
-│   CLOUD API     │  POST /api/v1/cli/runs (unified endpoint)
-└─────────────────┘  Aggregated policy results → SigComply Cloud
-                     Per-policy: pass/fail + resource counts (no ARNs, no usernames)
-```
+A customer who declines the paid cloud still has a fully functional
+compliance system: the CLI writes evidence to their vault, `sigcomply
+report` produces snapshot views, the reference verifier proves
+integrity. What they don't have is the throughout-period narrative
+(Type II "operated effectively throughout") or alerts — those require
+either a paid Rails subscription, a self-hosted Rails (if offered), or
+custom analytics against the vault.
 
-### What Goes Where
-
-| Data | Customer Storage | SigComply Cloud |
-|------|------------------|------------------|
-| Raw evidence (API responses) | ✓ | ✗ |
-| Policy inputs (OPA input) | ✓ | ✗ |
-| Full CheckResult with all violation details (resource IDs, ARNs) | ✓ | ✗ |
-| Ephemeral public key | ✓ | ✗ |
-| Attestation signature | ✓ | ✗ |
-| Per-policy results (pass/fail + severity + resource counts) | ✓ | ✓ |
-| Compliance scores (aggregated) | ✓ | ✓ |
-| Resource identifiers (ARNs, usernames, emails) | ✓ (S3 only) | ✗ (never) |
+See [`docs/architecture/06-aggregation.md`](docs/architecture/06-aggregation.md)
+§What the paid Rails app does with the submitted data.
 
 ---
 
-## Directory Structure
+## Core principles (non-negotiable)
 
-```
-internal/
-├── compliance_frameworks/      # Compliance logic
-│   ├── engine/                 # OPA evaluation, registry, manual-evidence helpers
-│   ├── shared/lib.rego         # Shared Rego helpers
-│   ├── soc2/                   # SOC 2 — production-ready
-│   │   ├── framework.go        # Framework interface impl
-│   │   ├── controls.go         # Control mappings
-│   │   └── policies/           # Policies, grouped by collector
-│   │       ├── aws/            # AWS policies (the bulk)
-│   │       ├── gcp/            # GCP policies
-│   │       ├── github/         # GitHub policies
-│   │       ├── multi/          # Cross-collector policies
-│   │       └── manual/         # Manual-evidence policies
-│   └── iso27001/               # ISO 27001 — early stage (handful of policies)
-│
-├── data_sources/               # Evidence collection
-│   ├── apis/                   # Automated collectors
-│   │   ├── aws/                # 60+ services (iam, s3, cloudtrail, ec2, rds, kms,
-│   │   │                       #   guardduty, configservice, cloudwatch, eks, ecs,
-│   │   │                       #   lambda, dynamodb, securityhub, …)
-│   │   ├── github/             # collector.go, repos.go, members.go
-│   │   └── gcp/                # collector.go, iam.go, storage.go, compute.go, sql.go
-│   └── manual/                 # Manual-flow PDF reader
-│
-└── core/                       # Shared utilities
-    ├── evidence/               # Evidence, PolicyResult, Violation, CheckResult types
-    ├── config/                 # Configuration loading
-    ├── output/                 # Text, JSON, JUnit formatters
-    ├── storage/                # local, s3, gcs, azure_blob backends + run paths + summary
-    ├── manual/                 # Manual-evidence catalog, period/grace logic, execution state
-    │   └── catalogs/           # Embedded YAML catalogs (soc2.yaml today)
-    ├── attestation/            # Ephemeral Ed25519 signing, canonical JSON, OIDC token helpers
-    └── cloud/                  # SigComply Cloud client (POST /api/v1/cli/runs)
-```
+These hold across every layer. Any change that violates one of them
+requires going back to the drawing board.
 
----
-
-## Core Types
-
-### Type Safety
-
-Status and severity use typed constants to prevent invalid values:
-
-```go
-// ResultStatus represents the outcome of a policy evaluation.
-type ResultStatus string
-
-const (
-    StatusPass  ResultStatus = "pass"
-    StatusFail  ResultStatus = "fail"
-    StatusSkip  ResultStatus = "skip"
-    StatusError ResultStatus = "error"
-)
-
-// Severity indicates the importance of a policy or violation.
-type Severity string
-
-const (
-    SeverityCritical Severity = "critical"
-    SeverityHigh     Severity = "high"
-    SeverityMedium   Severity = "medium"
-    SeverityLow      Severity = "low"
-)
-```
-
-### Evidence (Raw API Data)
-
-```go
-type Evidence struct {
-    ID           string          `json:"id"`            // UUID
-    Collector    string          `json:"collector"`     // "aws", "github"
-    ResourceType string          `json:"resource_type"` // "aws:iam:user"
-    ResourceID   string          `json:"resource_id"`   // ARN or unique ID
-    Data         json.RawMessage `json:"data"`          // Raw API response
-    Hash         string          `json:"hash"`          // SHA-256 of Data
-    CollectedAt  time.Time       `json:"collected_at"`
-    Metadata     Metadata        `json:"metadata"`
-}
-
-type Metadata struct {
-    AccountID        string            `json:"account_id,omitempty"`
-    Region           string            `json:"region,omitempty"`
-    Organization     string            `json:"organization,omitempty"`
-    Tags             map[string]string `json:"tags,omitempty"`
-    CollectorVersion string            `json:"collector_version,omitempty"`
-}
-```
-
-### PolicyResult
-
-```go
-type PolicyResult struct {
-    PolicyID           string       `json:"policy_id"`              // "soc2-cc6.1-mfa"
-    ControlID          string       `json:"control_id"`             // "CC6.1"
-    Name               string       `json:"name"`                   // Human-readable policy name
-    Status             ResultStatus `json:"status"`                 // pass, fail, skip, error
-    Severity           Severity     `json:"severity"`               // critical, high, medium, low
-    Message            string       `json:"message"`                // Human-readable description
-    Remediation        string       `json:"remediation,omitempty"`  // How to fix violations
-    Category           string       `json:"category,omitempty"`     // Dashboard grouping (access_control, data_protection, …)
-    ResourcesEvaluated int          `json:"resources_evaluated"`
-    ResourcesFailed    int          `json:"resources_failed"`
-    Violations         []Violation  `json:"violations,omitempty"`
-    ResourceTypes      []string     `json:"resource_types,omitempty"` // e.g. ["aws:iam:user"]
-}
-
-type Violation struct {
-    ResourceID   string                 `json:"resource_id"`             // "arn:aws:iam::123:user/alice"
-    ResourceType string                 `json:"resource_type"`           // "aws:iam:user"
-    Reason       string                 `json:"reason"`                  // "MFA is not enabled"
-    Details      map[string]interface{} `json:"details,omitempty"`       // Additional context
-}
-```
-
-### CheckResult (Complete Run Output)
-
-```go
-type CheckResult struct {
-    RunID         string          `json:"run_id"`
-    Framework     string          `json:"framework"`
-    Timestamp     time.Time       `json:"timestamp"`
-    PolicyResults []PolicyResult  `json:"policy_results"`
-    Summary       CheckSummary    `json:"summary"`
-    Environment   RunEnvironment  `json:"environment"`
-}
-
-type CheckSummary struct {
-    TotalPolicies   int     `json:"total_policies"`
-    PassedPolicies  int     `json:"passed_policies"`
-    FailedPolicies  int     `json:"failed_policies"`
-    SkippedPolicies int     `json:"skipped_policies"`
-    ComplianceScore float64 `json:"compliance_score"` // 0.0 to 1.0
-}
-
-type RunEnvironment struct {
-    CI         bool   `json:"ci"`                     // Running in CI/CD
-    CIProvider string `json:"ci_provider,omitempty"`  // "github-actions", "gitlab-ci"
-    Repository string `json:"repository,omitempty"`   // "org/repo"
-    Branch     string `json:"branch,omitempty"`
-    CommitSHA  string `json:"commit_sha,omitempty"`
-    CLIVersion string `json:"cli_version,omitempty"`  // Version of the CLI
-}
-```
-
-### EvidenceEnvelope
-
-Each evidence file stored in the customer's S3 bucket is a self-contained signed envelope. It is never sent to the SigComply Cloud API.
-
-```go
-// EvidenceEnvelope is the file format for every evidence file stored in S3.
-// Each file is independently verifiable — an auditor can pick any single file
-// and verify its integrity without needing any other file or contacting SigComply.
-type EvidenceEnvelope struct {
-    // Signed is the payload covered by the cryptographic signature.
-    // Only this field is included when computing the signature.
-    Signed SignedPayload `json:"signed"`
-
-    // PublicKey is the base64-encoded Ed25519 public key used to sign this file.
-    // The corresponding private key was discarded immediately after signing.
-    PublicKey string `json:"public_key"`
-
-    // Signature contains the cryptographic signature over Signed.
-    Signature Signature `json:"signature"`
-}
-
-// SignedPayload is the tamper-evident core of an EvidenceEnvelope.
-// Adding or removing fields here changes what is covered by the signature.
-type SignedPayload struct {
-    // Timestamp is when the evidence was collected.
-    // Enables an auditor to confirm the evidence falls within the audit period.
-    // S3 object mtimes can be modified; this field cannot be changed without
-    // invalidating the signature.
-    Timestamp time.Time       `json:"timestamp"`
-
-    // Evidence is the raw API response data collected from the source service.
-    Evidence  json.RawMessage `json:"evidence"`
-}
-
-type Signature struct {
-    Algorithm string `json:"algorithm"` // "ed25519"
-    Value     string `json:"value"`     // Base64-encoded Ed25519 signature
-}
-
-const AlgorithmEd25519 = "ed25519"
-```
-
-**On-disk format examples**:
-
-`evidence/aws-iam-users.json` (automated — `evidence` is the raw API response):
-
-```json
-{
-  "signed": {
-    "timestamp": "2026-03-25T10:00:00Z",
-    "evidence": { "users": [...], "mfa_devices": [...] }
-  },
-  "public_key": "base64encodedEd25519PublicKey==",
-  "signature": {
-    "algorithm": "ed25519",
-    "value": "base64encodedSignatureBytes=="
-  }
-}
-```
-
-`evidence/manual-employee_nda.json` (manual — `evidence` is the manifest; the PDF is the sibling file at `file_path`):
-
-```json
-{
-  "signed": {
-    "timestamp": "2026-03-25T10:00:00Z",
-    "evidence": {
-      "evidence_id": "employee_nda",
-      "framework":   "soc2",
-      "period":      "2026",
-      "file_path":   "manual_attachments/employee_nda/evidence.pdf",
-      "file_hash":   "9a1b2c3d4e5f...sha256hex"
-    }
-  },
-  "public_key": "base64encodedEd25519PublicKey==",
-  "signature": {
-    "algorithm": "ed25519",
-    "value": "base64encodedSignatureBytes=="
-  }
-}
-```
-
-### StoredPolicyResult (`result.json`)
-
-Stored as `result.json` in each policy run folder. Embeds `PolicyResult` (with full violation details) and adds storage-specific provenance. Never sent to the SigComply Cloud API — stays entirely in customer storage. The framework, run ID, and timestamp aren't repeated in the file because they're already encoded in the path (`{framework}/{policy_id}/{timestamp}_{run_id_short}/`).
-
-```go
-// StoredPolicyResult is the on-disk format for result.json.
-// It embeds PolicyResult and adds storage-specific metadata.
-type StoredPolicyResult struct {
-    evidence.PolicyResult                 // PolicyID, ControlID, Status, Severity,
-                                          // Message, Remediation, Category,
-                                          // ResourcesEvaluated, ResourcesFailed,
-                                          // Violations, ResourceTypes
-    EvidenceFiles []string `json:"evidence_files"`      // Relative paths: ["evidence/aws-iam-users.json"]
-    CLIVersion    string   `json:"cli_version,omitempty"`
-    CLISHA        string   `json:"cli_sha,omitempty"`   // Git SHA of the CLI binary
-    RepoSHA       string   `json:"repo_sha,omitempty"`  // Git SHA of the customer's repository
-}
-```
-
-**On-disk format example** (`result.json`):
-
-```json
-{
-  "policy_id": "cc6_1_mfa",
-  "control_id": "CC6.1",
-  "status": "fail",
-  "severity": "high",
-  "category": "access_control",
-  "resources_evaluated": 42,
-  "resources_failed": 3,
-  "violations": [
-    { "resource_id": "arn:aws:iam::123456789:user/alice", "resource_type": "aws:iam:user", "reason": "MFA not enabled",
-      "details": { "evidence_file": "evidence/aws-iam-users.json" } }
-  ],
-  "evidence_files": ["evidence/aws-iam-users.json"],
-  "cli_version": "1.2.3",
-  "cli_sha": "abc123def456",
-  "repo_sha": "789abc012def"
-}
-```
-
-#### Attestation Design Decisions
-
-**Per-file envelope signing — not a single run-level attestation:**
-- Each evidence file is independently wrapped in a signed envelope (`EvidenceEnvelope`)
-- A fresh ephemeral Ed25519 keypair is generated per evidence file; private key discarded immediately after signing
-- The public key and signature travel with the file — no separate `attestation.json` manifest needed
-- An auditor can pick any single evidence file and verify it independently without needing any other artifact
-
-**Why not one signature over all files combined:**
-- A combined hash would require a separate manifest listing all files in the run
-- It would also require the auditor to obtain the full manifest to verify a single file
-- Per-file signing is simpler, self-contained, and maps naturally to the policy-first folder structure where each policy folder is independently auditable
-
-**Threat model:**
-- Protects against accidental corruption and unintentional evidence drift
-- The `timestamp` in `SignedPayload` proves when evidence was collected — S3 object mtimes can be modified, but the signed timestamp cannot be changed without invalidating the signature
-- Does not attempt to prevent a determined customer from fabricating evidence (that is fraud — a legal matter, not a technical one, and out of scope for all compliance tools)
-
-**Canonical JSON for deterministic signing:**
-The `evidence` field is `json.RawMessage` (raw API response). When serializing `SignedPayload` for signing, canonical JSON (sorted map keys) is used to ensure the same data always produces the same bytes regardless of Go map iteration order. This is required for the verifier to reproduce the same bytes and confirm the signature.
+1. **The aggregation boundary is sacred.** No resource identifier ever
+   leaves the customer environment. The cloud submission struct is
+   *physically incapable* of carrying ARNs, emails, usernames, file
+   hashes, or any other identity — only counts, statuses, and policy IDs.
+2. **The CLI is stateless across runs.** Every `sigcomply check`
+   invocation reads the project config and the external sources it's
+   bound to. It never reads prior runs from the vault, never consults
+   a database, never carries in-memory state from a prior invocation.
+   Cadence enforcement ("did the quarterly policy already run?") is the
+   CI scheduler's job, not the CLI's — see
+   [`docs/architecture/10-ci-execution-model.md`](docs/architecture/10-ci-execution-model.md).
+3. **The vault is append-only.** Each run writes its own immutable
+   folder. Period-level state is *derived* from the union of runs in a
+   period, not stored as an authoritative mutable file. There is no
+   read-modify-write on shared state.
+4. **Every evidence file is independently verifiable.** Per-file
+   ephemeral Ed25519 signing. Private key generated at write time,
+   discarded immediately. An auditor with a single envelope file and the
+   public key embedded in it can verify the file offline, with no access
+   to the CLI, the cloud, or any other piece of state.
+5. **Evidence type ≠ source plugin.** A policy depends on an evidence
+   *shape* (`user_record`, `firewall_rule`). Many source plugins can
+   produce the same shape. Policies never reach behind the type to ask
+   which plugin produced it; this is what makes sources interchangeable
+   per project.
+6. **Each policy fetches its own data.** No shared collection layer
+   across policies. If ten policies all need AWS IAM users, that's ten
+   independent fetches. Maximally self-contained policies; runtime cost
+   is the explicit trade-off.
+7. **Determinism wherever possible.** Given the same inputs (sources'
+   responses + config + timestamp), a run produces byte-identical
+   outputs modulo explicit timestamps. Auditors diff runs.
+8. **Project config is the customer's source of truth.** Framework
+   selection, source bindings, exceptions, parameter overrides, fiscal
+   calendar, cadence overrides — all live in `.sigcomply.yaml`,
+   versioned in git. The vault carries evidence; git carries decisions.
+9. **One project = one source-control repository = one framework.** A
+   project corresponds to exactly one repo (GitHub or GitLab) and that
+   project pursues exactly one compliance framework. Customers pursuing
+   multiple frameworks typically use multiple repos. The CI workflow
+   files live in the repo and are part of the audit trail.
 
 ---
 
-## Policy Evaluation
+## The layered architecture at a glance
 
-### Two Modes
-
-| Mode | Use When | Input |
-|------|----------|-------|
-| **Individual** (default) | Check applies to each resource independently | Single resource |
-| **Batched** | Check needs aggregate view | All matching resources |
-
-**Individual**: "Does this user have MFA?" - evaluate per user
-**Batched**: "At least one trail must be multi-region" - need all trails
-
-### Policy Structure
-
-**Automated policy** — consumes structured JSON from an API collector:
-
-```rego
-# internal/compliance_frameworks/soc2/policies/aws/cc6_1_mfa.rego
-package sigcomply.soc2.cc6_1_mfa
-
-metadata := {
-    "id": "soc2-cc6.1-mfa",
-    "name": "MFA Required for All Users",
-    "framework": "soc2",
-    "control": "CC6.1",
-    "severity": "high",
-    "evaluation_mode": "individual",
-    "resource_types": ["aws:iam:user"],
-    "evidence_type": "automated",
-}
-
-violations[violation] if {
-    input.resource_type == "aws:iam:user"
-    not input.data.mfa_enabled
-    violation := {
-        "resource_id": input.resource_id,
-        "resource_type": input.resource_type,
-        "reason": sprintf("User %s does not have MFA enabled", [input.data.user_name]),
-    }
-}
+```
+┌────────────────────────────────────────────────────────────────────┐
+│  L9  Orchestrator     CLI entry point; CI integration; exit codes  │
+├────────────────────────────────────────────────────────────────────┤
+│  L8  Submitter        Optional cloud submission (counts only)      │
+├────────────────────────────────────────────────────────────────────┤
+│  L7  Persistence      Vault writes (envelopes, results, summaries) │
+├────────────────────────────────────────────────────────────────────┤
+│  L6  Aggregator       Privacy boundary; counts-only schema         │
+├────────────────────────────────────────────────────────────────────┤
+│  L5  Evaluator        Run each policy's rule with its evidence     │
+├────────────────────────────────────────────────────────────────────┤
+│  L4  Collector        Per-policy fetches; envelope signing         │
+├────────────────────────────────────────────────────────────────────┤
+│  L3  Planner          Resolve bindings; ordered policy list        │
+├────────────────────────────────────────────────────────────────────┤
+│  L2  Registries       Framework, Source, Rule, EvidenceType lookups│
+├────────────────────────────────────────────────────────────────────┤
+│  L1  Core domain      Stable Go types and interfaces               │
+├────────────────────────────────────────────────────────────────────┤
+│  L0  Specifications   Framework specs, policy specs, ET schemas,   │
+│                       project config (data-as-code, all versioned) │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
-**Manual policy** — checks PDF presence within the temporal window. The body delegates to the shared `manual.presence_violation` helper; per-policy text-extraction rules layer on top in the future.
-
-```rego
-# internal/compliance_frameworks/soc2/policies/manual/cc1_1_employee_nda.rego
-package sigcomply.soc2.cc1_1_employee_nda
-
-import data.sigcomply.lib.manual
-
-metadata := {
-    "id":              "soc2-cc1.1-employee-nda",
-    "name":            "Employee NDA Acknowledgment",
-    "framework":       "soc2",
-    "control":         "CC1.1",
-    "severity":        "high",
-    "evaluation_mode": "individual",
-    "resource_types":  ["manual:employee_nda"],
-    "evidence_type":   "manual",
-}
-
-violations contains v if {
-    input.resource_type == "manual:employee_nda"
-    v := manual.presence_violation(input)
-}
-```
-
-**`evidence_type`**: every policy declares this (`automated` or `manual`). The engine extracts the value from `metadata` at load time and uses it to route the right evidence flow. The key is required — a policy that omits it (or supplies a value outside `{automated, manual}`) fails to load with a descriptive error.
+Detailed layer responsibilities: [`02-layers.md`](docs/architecture/02-layers.md).
 
 ---
 
-## CLI Interface
+## Vocabulary
 
-### Commands
+Used consistently across every doc and every line of code. Full
+definitions in [`01-conceptual-model.md`](docs/architecture/01-conceptual-model.md).
 
-| Command | Description | Status |
-|---------|-------------|--------|
-| `sigcomply check` | Main: collect → evaluate → store → cloud submit | Implemented |
-| `sigcomply version` | Print version information | Implemented |
-| `sigcomply evidence init` | Scaffold per-period folders for manual evidence | Implemented |
-| `sigcomply evidence catalog` | Print the manual-evidence catalog (text or JSON) | Implemented |
-| `sigcomply evidence path` | Print the upload path for a specific manual-evidence entry | Implemented |
-| `sigcomply init` | Initialize config file | Planned |
-| `sigcomply init-ci` | Generate CI/CD workflow files | Planned |
-| `sigcomply collect` | Collect evidence only | Planned |
-| `sigcomply evaluate` | Evaluate policies against stored evidence | Planned |
-| `sigcomply report` | Generate compliance reports | Planned |
-
-### Key Flags (check)
-
-```
--f, --framework string       Compliance framework (soc2, iso27001)
--o, --output string          Output format (text, json, junit)
-    --json-output string     Write JSON results to this file in addition to --output format
--v, --verbose                Verbose output
-    --region string          AWS region
-    --store                  Store evidence and results to configured storage
-    --storage-path string    Local storage path (default: ./.sigcomply/evidence)
-    --storage-backend string Storage backend (local, s3, gcs, azure_blob)
-    --cloud                  Force submission to SigComply Cloud (requires OIDC in CI)
-    --no-cloud               Disable submission to SigComply Cloud
-    --github-org string      GitHub organization to collect evidence from (requires GITHUB_TOKEN)
-    --policies string        Comma-separated policy names to run (e.g., cc6_1_mfa,cc6_1_github_mfa)
-    --controls string        Comma-separated control IDs to run (e.g., CC6.1,CC7.1)
-    --config string          Path to config file (default: .sigcomply.yaml)
-```
-
-There is no `--collector` or `--fail-on-violation` flag — `fail_on_violation`
-and `fail_severity` live under `ci:` in the config file only.
-
-### Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | All checks passed |
-| 1 | Violations found |
-| 2 | Execution error |
-| 3 | Configuration error |
+| Term | One-line meaning |
+|---|---|
+| **Framework** | A published compliance regime (SOC 2, ISO 27001, HIPAA). |
+| **Control** | A single requirement in a framework, e.g. `SOC2.CC6.1`. |
+| **Policy** | A verifiable assertion contributing to a control. |
+| **Policy cadence** | How often a policy must be evaluated (`continuous` … `annual`); drives CI scheduling. |
+| **Rule** | The logic deciding a policy's outcome from its evidence inputs. |
+| **Source** | Something producing evidence (`aws.iam`, `okta`, `manual.pdf`). |
+| **Evidence type** | The *shape* of a piece of evidence; a versioned schema. |
+| **Slot** | A named, typed input on a policy. |
+| **Binding** | Project-level mapping of slot → source(s). |
+| **Evidence record** | One fulfilled piece of data. |
+| **Envelope** | Signed wrapper around a batch of evidence records. |
+| **Period** | A first-class audit window (e.g. `2026-Q1`). |
+| **Run** | One CLI invocation. Owns a run ID, stamped period, commit. |
+| **Vault** | Customer-owned storage receiving envelopes, results, summaries. |
+| **Project** | The customer's deployment (config + vault + bindings). |
 
 ---
 
-## Configuration
+## Document map
 
-### Precedence (highest to lowest)
-
-1. CLI flags
-2. Environment variables (`SIGCOMPLY_*`)
-3. Config file (`.sigcomply.yaml`)
-4. Built-in defaults
-
-### Minimal Config
-
-```yaml
-# .sigcomply.yaml - all settings optional
-framework: soc2
-
-aws:
-  regions:
-    - us-east-1
-
-storage:
-  backend: local
-  local:
-    path: ./.sigcomply/evidence
-```
-
-### Key Environment Variables
-
-```bash
-SIGCOMPLY_FRAMEWORK        # Default framework
-SIGCOMPLY_POLICIES         # Comma-separated policy names to run
-SIGCOMPLY_CONTROLS         # Comma-separated control IDs to run
-SIGCOMPLY_STORAGE_BACKEND  # local, s3, gcs, azure_blob
-SIGCOMPLY_STORAGE_BUCKET   # S3 / GCS bucket name (Azure uses _AZURE_CONTAINER)
-```
-
-### Cloud Authentication & Submission
-
-Cloud submission uses OIDC authentication exclusively:
-
-- **OIDC tokens** are automatically detected in GitHub Actions and GitLab CI.
-- Cloud submission is **auto-enabled** when OIDC is available — no configuration needed.
-- Use `--cloud` to force cloud submission, `--no-cloud` to disable it.
-- The CLI submits a single unified payload via `POST /api/v1/cli/runs` containing aggregated policy results only.
-- No attestation or evidence location is sent to the Rails app — those stay entirely in customer S3.
-- The aggregation happens in the CLI before the API call: violations are reduced to counts, resource identifiers are discarded.
+| Doc | What it covers |
+|---|---|
+| [`01-conceptual-model.md`](docs/architecture/01-conceptual-model.md) | The sixteen abstractions, their relationships, and the substitutability axioms that make the design extensible. |
+| [`02-layers.md`](docs/architecture/02-layers.md) | Each layer's responsibilities, interfaces, and the contracts between them. |
+| [`03-policy-spec.md`](docs/architecture/03-policy-spec.md) | Format of a policy spec; slots, parameters, rule references; examples in Rego, Go, and YAML DSL. |
+| [`04-source-plugins.md`](docs/architecture/04-source-plugins.md) | Source plugin contract; how to author one; how evidence types are declared and consumed. |
+| [`05-vault-layout.md`](docs/architecture/05-vault-layout.md) | Vault directory structure; envelope format; signing; versioning. |
+| [`06-aggregation.md`](docs/architecture/06-aggregation.md) | The privacy boundary in detail; the exact wire format; structural enforcement. |
+| [`07-extensibility.md`](docs/architecture/07-extensibility.md) | How customers add custom policies and custom source plugins; how the community contributes upstream. |
+| [`08-project-config.md`](docs/architecture/08-project-config.md) | Full `.sigcomply.yaml` schema reference. |
+| [`09-implementation-roadmap.md`](docs/architecture/09-implementation-roadmap.md) | Order of work, milestones, what ships when. |
+| [`10-ci-execution-model.md`](docs/architecture/10-ci-execution-model.md) | How the CLI fits into a CI pipeline; cadence-driven workflow scheduling; `sigcomply init-ci` scaffolding; how statelessness survives variable run frequencies. |
+| [`examples/acmecorp-walkthrough.md`](docs/architecture/examples/acmecorp-walkthrough.md) | End-to-end worked example: AcmeCorp pursuing SOC 2 with AWS + Okta + manual evidence. Reads alongside [`examples/acmecorp.sigcomply.yaml`](docs/architecture/examples/acmecorp.sigcomply.yaml). |
 
 ---
 
-## Storage Layout
+## Reading order
 
-Evidence is organized **policy-first**: each policy has its own folder with a chronological history of runs. This maps directly to how auditors work — they review one policy at a time across the audit period.
-
-```
-{bucket}/
-└── {framework}/                                      # e.g., soc2
-    ├── summary.json                                  # framework snapshot — last run, totals, per-policy state
-    ├── execution-state.json                          # manual evidence ledger (per-period status, file_hash)
-    └── {policy_id}/                                  # e.g., cc6_1_mfa
-        └── {timestamp}_{run_id_8chars}/              # e.g., 20260325T100000Z_a3f8b2c1
-            ├── evidence/
-            │   ├── aws-iam-users.json                # EvidenceEnvelope (signed, automated)
-            │   ├── github-members.json               # EvidenceEnvelope (signed, automated)
-            │   └── manual-{evidence_id}.json         # EvidenceEnvelope wrapping the manual manifest
-            ├── manual_attachments/                   # only for policies with evidence_type: manual
-            │   └── {evidence_id}/
-            │       └── evidence.pdf                  # user-supplied PDF (sole evidence artifact)
-            └── result.json                           # PolicyRunResult (full violations — stays in S3)
-```
-
-### Key Design Decisions
-
-**Policy-first hierarchy** — navigating to `soc2/cc6_1_mfa/` gives a chronological history of every MFA check run. An auditor can inspect all evidence and results for a policy across the entire audit period without any cross-referencing.
-
-**Run folder naming** — `{ISO8601_basic_timestamp}_{first_8_chars_of_run_uuid}`. Basic ISO 8601 (no colons, e.g. `20260325T100000Z`) is used instead of extended format to avoid path issues in some S3-compatible tools. The run UUID suffix eliminates collision risk if the check runs twice in the same second.
-
-**Evidence duplication** — The same raw evidence (e.g., IAM users) is stored independently in every policy folder that uses it, each with its own signed envelope and ephemeral keypair. The API call to collect the data happens once per run; the data is then written to each relevant policy folder. This makes each policy folder fully self-contained: an auditor verifying CC6.1 has everything they need without cross-referencing other policy folders.
-
-**No manifest file** — There is no top-level `manifest.json`. Each evidence file carries its own cryptographic proof (see `EvidenceEnvelope`). The `result.json` lists which evidence files were used for the policy evaluation via `evidence_files`.
-
-**Manual evidence sidecars** — When a policy with `evidence_type: manual` runs, the user-supplied `evidence.pdf` is mirrored from the manual-evidence bucket into the policy's run folder under `manual_attachments/{evidence_id}/evidence.pdf`. The matching `EvidenceEnvelope` inside `evidence/` (named `manual-{evidence_id}.json`) wraps a small manifest `{evidence_id, file_hash, file_path, period, framework}` — the PDF is the sibling, never base64-embedded inside the envelope. The same PDF may be duplicated across policy folders — auditors verify each policy from a single self-contained folder rather than cross-referencing the manual bucket.
-
-**Framework summary** — `{framework}/summary.json` is a per-policy snapshot showing, in one file, which policies passed and what evidence backed each result. Built after every `StoreRun`. Policies are split into `automated` and `manual` based on the policy's `evidence_type` metadata. For manual policies the snapshot records `file_hash` and `file_path` of the PDF that backed the result. Writes merge with the existing summary so policies skipped by `--policies` / `--controls` filters keep their last-known state instead of being erased.
-
-> **TODO — Status: not yet implemented.** The behavior described below is a
-> planned design, not present in the current codebase. The CLI does not yet
-> write `check_runs_history/`, does not read a `policy_frequency.json`, and
-> does not skip policies based on prior run cadence. Treat this block as a
-> design sketch only.
->
-> Add a `check_runs_history/` root folder inside each framework folder containing:
-> - A `run_history.json` tracking all historical runs (run_id, timestamp, policies evaluated, overall status)
-> - A `policy_frequency.json` defining how often each policy should run (e.g., daily, weekly, monthly)
-> The CLI will read `policy_frequency.json` and `run_history.json` to skip policies that have already run within their configured frequency window. This enables mixed-cadence compliance checks where some policies run daily and others monthly, all within a single `sigcomply check` invocation.
-
----
-
-## Signing Method
-
-Evidence files are signed using **ephemeral Ed25519** keypairs — one fresh keypair per evidence file. No pre-shared secrets or key management required.
-
-```
-// For each evidence file collected (automated or manual):
-keypair = ed25519.GenerateKey()                    // fresh keypair, never reused
-payload = CanonicalJSON({ timestamp, evidence })   // deterministic serialization
-                                                    // automated → evidence is the API response
-                                                    // manual    → evidence is { evidence_id,
-                                                    //             file_hash, file_path,
-                                                    //             period, framework }
-signature = ed25519.Sign(private_key, payload)
-private_key.Discard()                              // immediately, never stored
-
-evidence_file.json = {
-    signed:     { timestamp, evidence },           // the signed payload
-    public_key: base64(public_key),               // stays with the file
-    signature:  { algorithm: "ed25519",
-                  value: base64(signature) },
-} → customer S3
-
-// For manual evidence, the PDF lives as a sibling file at
-// manual_attachments/{evidence_id}/evidence.pdf. The envelope's `file_hash`
-// is sha256(PDF bytes); the auditor recomputes that hash and compares.
-```
-
-**Verification** (auditor, out of band):
-```
-envelope = read(evidence_file.json)
-payload  = CanonicalJSON(envelope.signed)
-ed25519.Verify(decode(envelope.public_key), payload, decode(envelope.signature.value))
-// → true: file is intact since collection
-
-// For manual evidence, additionally:
-pdf_bytes = read(envelope.signed.evidence.file_path)
-sha256(pdf_bytes) == envelope.signed.evidence.file_hash
-// → true: PDF is the one this envelope references
-```
-
-**OIDC is authentication only** — the OIDC JWT token is sent in the `Authorization: Bearer` header to authenticate the CLI with the SigComply Cloud API. It is not used for signing evidence files.
-
-| Concern | Mechanism |
-|---------|-----------|
-| Evidence signing | Ephemeral Ed25519 keypair per file (private key discarded after signing) |
-| Cloud API authentication | OIDC JWT in `Authorization: Bearer` header |
-| Evidence privacy | Aggregation in CLI — counts sent to cloud, resource IDs stay in S3 |
-
----
-
-## Free vs Paid Features
-
-| Feature | Free | Paid |
-|---------|------|------|
-| Evidence collection | ✓ | ✓ |
-| Policy evaluation | ✓ | ✓ |
-| Local/S3/GCS storage | ✓ | ✓ |
-| Evidence signing (ephemeral Ed25519 per file) | ✓ | ✓ |
-| Compliance dashboard (cloud) | - | ✓ |
-| Drift detection (policy-level) | - | ✓ |
-| Compliance score trends | - | ✓ |
-| Auditor reports portal | - | ✓ |
-
----
-
-## Adding Components
-
-### New Collector
-
-1. Create `internal/data_sources/apis/<service>/`
-2. Implement `Collect(ctx) ([]evidence.Evidence, error)`
-3. Use fail-safe pattern (partial success OK)
-4. Add unit tests with mocked client
-
-### New Policy
-
-1. **Automated**: create `internal/compliance_frameworks/<framework>/policies/<control>.rego`. Set `"evidence_type": "automated"` in `metadata`. Body reads `input.data.*` fields from the collector's JSON.
-2. **Manual**: create `internal/compliance_frameworks/<framework>/policies/manual/<control>.rego`. Set `"evidence_type": "manual"` in `metadata`, with `"resource_types": ["manual:<evidence_id>"]`. Body delegates to `data.sigcomply.lib.manual.presence_violation(input)` (presence + temporal-window check). Add a corresponding catalog entry in `internal/core/manual/catalogs/<framework>.yaml`.
-3. Always include in `metadata`: `id`, `name`, `framework`, `control`, `severity`, `evaluation_mode`, `resource_types`, `evidence_type`.
-4. Create a `_test.rego` file. Manual tests cover three cases: overdue+not_uploaded, uploaded, and wrong-resource-type.
-5. Policy auto-embedded on build.
-
-### New Framework
-
-1. Create `internal/compliance_frameworks/<framework>/`
-2. Implement `framework.go` with Framework interface
-3. Create `controls.go` with control mappings
-4. Create `policies/` with at least one policy
-5. Register in `engine/registry.go`
-
----
-
-## Testing
-
-```bash
-make test           # Unit tests + policy tests
-make test-policy    # OPA policy tests only
-make test-integration  # Requires LocalStack
-```
-
-**Mock pattern**: Define interface for AWS SDK methods you use, inject mock in tests.
-
----
-
-## CI/CD Integration
-
-### GitHub Actions (Customer Usage)
-
-```yaml
-# .github/workflows/compliance.yml
-name: Compliance
-on: [push, pull_request]
-
-jobs:
-  check:
-    uses: sigcomply/sigcomply-cli/.github/workflows/compliance.yml@v1
-    secrets:
-      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
-```
-
-Uses OIDC for AWS authentication (no long-lived secrets).
-
-### Release Automation
-
-- **Auto-release** (`.github/workflows/auto-release.yml`): On every merge to main, analyzes conventional commit prefixes (`feat:` = minor, `fix:` = patch, `BREAKING CHANGE` = major), bumps the version tag, and runs GoReleaser.
-- **Manual release** (`.github/workflows/release.yml`): Triggered via `workflow_dispatch` with a version input (e.g., `v0.2.0`). Creates tag and runs GoReleaser, then verifies installation on Ubuntu and macOS.
-- **GoReleaser**: Builds cross-platform binaries. Uses `main.version`, `main.commit`, `main.buildTime` ldflags. Entry point is `.` (root `main.go`).
+- **First pass (1 hour)**: this file → `01-conceptual-model.md` →
+  `examples/acmecorp-walkthrough.md`. You'll understand the model and
+  see it applied end to end.
+- **Implementing a layer**: this file → `02-layers.md` → the spec for
+  the layer's inputs/outputs (e.g. `03-policy-spec.md` if you're
+  implementing the planner).
+- **Adding a source plugin**: `04-source-plugins.md` →
+  `07-extensibility.md`.
+- **Defining a custom policy**: `03-policy-spec.md` →
+  `08-project-config.md`.
+- **Auditor / compliance reviewer**: this file → `06-aggregation.md`
+  (proves the privacy story) → `05-vault-layout.md` (proves the
+  verification story).

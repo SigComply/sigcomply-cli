@@ -105,7 +105,8 @@ usernames, emails, PDF bytes, file hashes) is reduced to counts. Any
 change that would cause an identifier to appear in a Cloud API request
 breaks the non-custodial model.
 
-What goes to the Cloud API (paid tier, `POST /api/v1/cli/runs`):
+What goes to the Cloud API (paid tier, `POST /api/v1/runs`) — the
+`SubmissionPayload`:
 - Per-policy: `policy_id`, `control_id`, pass/fail, severity,
   `resources_evaluated`, `resources_failed`, `message` (count-based,
   no IDs), `category`, `remediation`
@@ -113,13 +114,17 @@ What goes to the Cloud API (paid tier, `POST /api/v1/cli/runs`):
 - Environment: `ci`, `ci_provider`, `repository`, `branch`,
   `commit_sha`, `cli_version`
 
+The submission type is **structurally** counts-only — no `map[string]any`,
+no `Violations` slice. The wire format is physically incapable of
+carrying ARNs, emails, file hashes, or any identity.
+
 What stays in customer storage (always):
 - Raw API responses, PDF bytes, full violation lists with resource
-  identifiers, ephemeral public key + signature.
+  identifiers, ephemeral public key + signature, per-run `manifest.json`.
 
-The contract is encoded in `internal/core/cloud/types.go`. Rails
-strong-params live in `../sigcomply/app/controllers/api/v1/cli/runs_controller.rb`.
-If you touch one side, check the other.
+The aggregator/submitter is where this contract lives. Rails strong-params
+live under `Api::V1::RunsController` in `../sigcomply/`. If you touch one
+side, check the other.
 
 ### 2. Two — and only two — evidence flows
 
@@ -141,7 +146,7 @@ render a clickable form for declaration/checklist entries; the CLI ignores
 them entirely. Externally-sourced PDFs (HR exports, scanned documents,
 third-party reports) are consumed the same way regardless of the hints.
 
-### 3. Per-file ephemeral signing
+### 3. Per-file ephemeral signing + signed run manifest
 
 A fresh Ed25519 keypair is generated **per evidence file**, never per run.
 Private key is discarded the instant the signature is computed; public key
@@ -149,6 +154,13 @@ Private key is discarded the instant the signature is computed; public key
 canonical JSON of `{timestamp, evidence}` — not a SHA-256 hash. The PDF
 itself is hashed (SHA-256) only because the manual manifest references the
 hash; the envelope still signs the manifest, not the hash.
+
+In addition, each run writes a `manifest.json` carrying `file_hashes` for
+every file in the run folder (a single-level Merkle table). That manifest
+is itself signed with its own ephemeral keypair, so a single signature
+covers the integrity of the entire run. Per-file signatures still allow
+spot-checking any one envelope offline; the run manifest lets an auditor
+verify the run as a whole.
 
 Threat model: protects against accidental corruption and unintentional
 drift. Does **not** attempt to prevent a determined customer from
@@ -169,16 +181,19 @@ sigcomply check
   ├─ evaluate:            OPA engine evaluates all policies → CheckResult
   ├─ store (--store / auto in CI): per-policy folders with signed envelopes
   │                       + sibling PDFs + result.json + framework summary.json
-  └─ submit (paid tier):  POST aggregated counts to /api/v1/cli/runs
+  └─ submit (paid tier):  POST aggregated counts to /api/v1/runs
 ```
 
 **Storage layout** (policy-first):
 `{framework}/{policy_id}/{timestamp}_{run_id_short}/{evidence,manual_attachments,result.json}`
 plus `{framework}/summary.json` and `{framework}/execution-state.json`.
 
-**Manual evidence has its own per-framework backend** under
-`manual_evidence.frameworks.<framework>` — a customer can keep SOC 2 PDFs
-in S3 and ISO 27001 PDFs in GCS or Azure Blob.
+**Manual evidence is a project-level singleton.** One project = one repo =
+one framework, so there is exactly one `manual.pdf` source per project and
+one bucket per project for manual uploads — never per-framework. Path
+scheme: `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/{filename}`.
+Customers pursuing multiple frameworks (SOC 2 + ISO 27001) typically use
+multiple repos.
 
 ---
 
@@ -223,7 +238,7 @@ sigcomply-cli/
 │       ├── manual/                    # Manual catalog, period/grace logic, execution state
 │       │   └── catalogs/              # Embedded YAML catalogs (soc2.yaml today)
 │       ├── attestation/               # Ephemeral Ed25519 signing, canonical JSON, OIDC helpers
-│       └── cloud/                     # SigComply Cloud client (POST /api/v1/cli/runs)
+│       └── cloud/                     # SigComply Cloud client (POST /api/v1/runs)
 │
 ├── examples/                          # CI/CD workflow examples
 ├── .github/workflows/                 # CI + release automation
@@ -316,8 +331,8 @@ Quick rules:
 - Storage backends: `local`, `s3`, `gcs`, `azure_blob`. The `s3` backend
   also supports on-prem S3-compatible stores via `endpoint` +
   `force_path_style`.
-- Manual evidence has its own per-framework backend selection under
-  `manual_evidence.frameworks.<framework>`.
+- Manual evidence is a project-level singleton: one bucket per project
+  (not per-framework), configured once under `sources.manual.pdf`.
 - Cloud submission is OIDC-only (no API keys) and auto-enables in CI.
 
 ---
@@ -329,13 +344,13 @@ the Rails app at `../sigcomply/`:
 
 | CLI side | Rails side | Contract |
 |----------|------------|----------|
-| `internal/core/cloud/types.go` | `app/controllers/api/v1/cli/runs_controller.rb` (strong params) | Aggregated run payload |
-| OIDC token helpers in `internal/core/attestation/oidc.go` | `app/services/oidc/token_validator.rb` | Token format, claim names (`repository`, `namespace_path`/`project_path`) |
-| Manual evidence catalog (`internal/core/manual/catalogs/*.yaml`) | SPA `scripts/fetch-catalogs.ts` (in `../sigcomply-evidence-spa/`) | The SPA pre-builds catalogs via `sigcomply evidence catalog -o json` |
+| Aggregator / Submitter (`SubmissionPayload`) | `Api::V1::RunsController` (`POST /api/v1/runs`, strong params) | Counts-only run payload |
+| OIDC token helpers | Rails OIDC token validator | Token format, claim names (`repository`, `namespace_path`/`project_path`) |
+| Manual evidence catalog | SPA `scripts/fetch-catalogs.ts` (in `../sigcomply-evidence-spa/`) | The SPA pre-builds catalogs via `sigcomply evidence catalog -o json` |
 
-Other Rails CLI endpoints exist (`policy_evaluations`, `compliance_status`,
-`heartbeat`, `health`) — `policy_evaluations` is the legacy precursor of
-`runs`. New work goes through `runs`.
+Older Rails CLI endpoints (`/api/v1/cli/policy_evaluations`,
+`compliance_status`, `heartbeat`, `health`) are legacy. New work goes
+through `POST /api/v1/runs`.
 
 ---
 
@@ -355,7 +370,7 @@ Other Rails CLI endpoints exist (`policy_evaluations`, `compliance_status`,
 - Per-file ephemeral Ed25519 signing + canonical JSON
 - Manual evidence flow: catalog, period/grace logic, execution state, sidecar mirroring
 - Framework `summary.json` (per-policy snapshot, automated/manual split, merge-with-prior)
-- SigComply Cloud client (`POST /api/v1/cli/runs`)
+- SigComply Cloud client (`POST /api/v1/runs`)
 - OIDC auth (GitHub Actions + GitLab CI)
 - Policy filtering (`--policies`, `--controls`)
 - Release automation (auto-release via conventional commits, manual release, GoReleaser)
@@ -388,7 +403,9 @@ Other Rails CLI endpoints exist (`policy_evaluations`, `compliance_status`,
   PDF inside the manifest, not as the signing input.
 - **Per-file keypair, never per-run.** A run can collect dozens of evidence
   files — each gets its own Ed25519 keypair, and the private key is
-  discarded immediately.
+  discarded immediately. The per-run `manifest.json` is also signed (with
+  its own ephemeral keypair) and covers `file_hashes` for the whole run —
+  but each envelope is still independently verifiable on its own.
 - **HIPAA isn't a thing yet.** Don't add HIPAA examples to docs. Don't
   put HIPAA defaults into code paths. The string lives in `config.go`'s
   supported list as a stub; selecting it currently fails at runtime.
