@@ -1,0 +1,7 @@
+schema_version: plugin.v1
+id: aws.iam
+emits: [user_record]
+config_schema:
+  region:
+    type: string
+random_unknown_top_level_field: oops

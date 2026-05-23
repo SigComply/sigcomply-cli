@@ -1,0 +1,28 @@
+schema_version: plugin.v1
+id: manual.pdf
+display_name: "Manual PDF Evidence"
+description: |
+  Reads customer-uploaded PDFs from the project's configured manual-
+  evidence bucket and emits a small JSON manifest record for each.
+  Singleton: exactly one instance per project.
+
+emits: [signed_document]
+
+singleton: true
+
+config_schema:
+  backend:
+    type: string
+    enum: [local, s3, gcs, azure_blob]
+    required: true
+  bucket:
+    type: string
+    required: true
+  prefix:
+    type: string
+    default: "manual/"
+  region:
+    type: string
+  endpoint:
+    type: string
+    description: "For S3-compatible endpoints (on-prem MinIO, etc.)."

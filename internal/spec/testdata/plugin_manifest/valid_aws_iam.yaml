@@ -1,0 +1,28 @@
+schema_version: plugin.v1
+id: aws.iam
+display_name: "AWS IAM"
+version: "1.0.0"
+description: |
+  Fetches IAM users, roles, policies, and access keys from a single
+  AWS account using SDK default credentials.
+
+emits:
+  - user_record
+  - iam_role
+  - iam_policy
+  - access_key
+
+config_schema:
+  region:
+    type: string
+    required: true
+    description: "AWS region for STS and IAM API calls."
+  profile:
+    type: string
+    description: "AWS named profile (~/.aws/credentials). Optional."
+  role_arn:
+    type: string
+    description: "Role to assume after initial auth. Optional."
+
+requires_credentials:
+  - source: env_or_default_chain

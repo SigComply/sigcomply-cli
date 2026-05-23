@@ -1,0 +1,6 @@
+schema_version: plugin.v1
+id: aws.iam
+emits: []
+config_schema:
+  region:
+    type: string

@@ -1,0 +1,6 @@
+schema_version: plugin.v1
+display_name: "Missing the id field"
+emits: [user_record]
+config_schema:
+  region:
+    type: string
