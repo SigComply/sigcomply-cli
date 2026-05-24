@@ -163,7 +163,7 @@ func TestGitContext_GitLabSHA(t *testing.T) {
 }
 
 func TestRunCheck_MissingConfigFile(t *testing.T) {
-	err := runCheck(context.Background(), &bytes.Buffer{}, checkFlags{
+	err := runCheck(context.Background(), &bytes.Buffer{}, &checkFlags{
 		config:   filepath.Join(t.TempDir(), "nope.yaml"),
 		cloudOff: true,
 	})
@@ -180,7 +180,7 @@ func TestRunCheck_RejectsUnsupportedFramework(t *testing.T) {
 	tmp := t.TempDir()
 	configPath := filepath.Join(tmp, "cfg.yaml")
 	writeMinimalConfig(t, configPath, "iso27001", tmp)
-	err := runCheck(context.Background(), &bytes.Buffer{}, checkFlags{
+	err := runCheck(context.Background(), &bytes.Buffer{}, &checkFlags{
 		config:   configPath,
 		cloudOff: true,
 	})
@@ -201,7 +201,7 @@ func TestRunCheck_EndToEndWithManualOnly(t *testing.T) {
 	}
 	configPath := filepath.Join(tmp, "cfg.yaml")
 	writeManualOnlyConfig(t, configPath, vaultDir, manualDir)
-	err := runCheck(context.Background(), &bytes.Buffer{}, checkFlags{
+	err := runCheck(context.Background(), &bytes.Buffer{}, &checkFlags{
 		config:   configPath,
 		cloudOff: true,
 	})
