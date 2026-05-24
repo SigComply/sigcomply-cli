@@ -112,8 +112,8 @@ type instancePayload struct {
 // by ID (instance name) before return so envelope bytes are stable
 // across runs against stable project state.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	if req.EvidenceType != EvidenceTypeID {
-		return nil, fmt.Errorf("gcp.sql: unsupported evidence type %q (only %q)", req.EvidenceType, EvidenceTypeID)
+	if !req.Accepts(EvidenceTypeID) {
+		return nil, fmt.Errorf("gcp.sql: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
 	}
 	instances, err := p.api.ListInstances(ctx, p.projectID)
 	if err != nil {

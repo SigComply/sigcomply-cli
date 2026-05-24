@@ -70,7 +70,7 @@ func TestCollectRepos_HappyPath_SortsByID(t *testing.T) {
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return now }})
 	records, err := p.Collect(context.Background(),
-		core.SlotRequest{EvidenceType: EvidenceTypeRepository, PolicyID: "p1"})
+		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeRepository}, PolicyID: "p1"})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestCollectMembers_HappyPath_SortsByID(t *testing.T) {
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return now }})
 	records, err := p.Collect(context.Background(),
-		core.SlotRequest{EvidenceType: EvidenceTypeOrgMember, PolicyID: "p2"})
+		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeOrgMember}, PolicyID: "p2"})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestCollectMembers_HappyPath_SortsByID(t *testing.T) {
 func TestCollect_NoData(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}, Org: "acme"})
 	for _, et := range []string{EvidenceTypeRepository, EvidenceTypeOrgMember} {
-		recs, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: et})
+		recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{et}})
 		if err != nil {
 			t.Fatalf("Collect %s: %v", et, err)
 		}
@@ -150,15 +150,15 @@ func TestCollect_NoData(t *testing.T) {
 
 func TestCollect_RejectsUnknownEvidenceType(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}, Org: "acme"})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: "s3_bucket"})
-	if err == nil || !strings.Contains(err.Error(), "unsupported evidence type") {
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{"s3_bucket"}})
+	if err == nil || !strings.Contains(err.Error(), "does not include") {
 		t.Errorf("want error; got %v", err)
 	}
 }
 
 func TestCollectRepos_ErrorPropagates(t *testing.T) {
 	p := New(Options{API: &fakeAPI{repoErr: errors.New("rate limit")}, Org: "acme"})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeRepository})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeRepository}})
 	if err == nil || !strings.Contains(err.Error(), "list repos") {
 		t.Errorf("want list repos error; got %v", err)
 	}
@@ -166,7 +166,7 @@ func TestCollectRepos_ErrorPropagates(t *testing.T) {
 
 func TestCollectMembers_ErrorPropagates(t *testing.T) {
 	p := New(Options{API: &fakeAPI{memErr: errors.New("forbidden")}, Org: "acme"})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeOrgMember})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeOrgMember}})
 	if err == nil || !strings.Contains(err.Error(), "list org members") {
 		t.Errorf("want list org members error; got %v", err)
 	}
@@ -175,7 +175,7 @@ func TestCollectMembers_ErrorPropagates(t *testing.T) {
 func TestCollect_DefaultNowIsInjected(t *testing.T) {
 	fake := &fakeAPI{repos: []Repo{{Name: "r1", DefaultBranch: "main"}}}
 	p := New(Options{API: fake, Org: "acme"})
-	recs, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeRepository})
+	recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeRepository}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -192,11 +192,11 @@ func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 	p := New(Options{API: fake, Org: "acme"})
 	for range 3 {
 		if _, err := p.Collect(context.Background(),
-			core.SlotRequest{EvidenceType: EvidenceTypeRepository}); err != nil {
+			core.SlotRequest{AcceptedTypes: []string{EvidenceTypeRepository}}); err != nil {
 			t.Fatalf("Collect repos: %v", err)
 		}
 		if _, err := p.Collect(context.Background(),
-			core.SlotRequest{EvidenceType: EvidenceTypeOrgMember}); err != nil {
+			core.SlotRequest{AcceptedTypes: []string{EvidenceTypeOrgMember}}); err != nil {
 			t.Fatalf("Collect members: %v", err)
 		}
 	}

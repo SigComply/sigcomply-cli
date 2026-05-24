@@ -69,7 +69,7 @@ func TestCollectUsers_HappyPath_SortsByID(t *testing.T) {
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	p := New(Options{API: fake, Now: func() time.Time { return now }})
 	records, err := p.Collect(context.Background(),
-		core.SlotRequest{EvidenceType: EvidenceTypeUser, PolicyID: "p1"})
+		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeUser}, PolicyID: "p1"})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestCollectApps_HappyPath_SortsByID(t *testing.T) {
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	p := New(Options{API: fake, Now: func() time.Time { return now }})
 	records, err := p.Collect(context.Background(),
-		core.SlotRequest{EvidenceType: EvidenceTypeApp, PolicyID: "p2"})
+		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeApp}, PolicyID: "p2"})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestCollectApps_HappyPath_SortsByID(t *testing.T) {
 func TestCollect_NoData(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
 	for _, et := range []string{EvidenceTypeUser, EvidenceTypeApp} {
-		recs, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: et})
+		recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{et}})
 		if err != nil {
 			t.Fatalf("Collect %s: %v", et, err)
 		}
@@ -143,15 +143,15 @@ func TestCollect_NoData(t *testing.T) {
 
 func TestCollect_RejectsUnknownEvidenceType(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: "github_repository"})
-	if err == nil || !strings.Contains(err.Error(), "unsupported evidence type") {
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{"github_repository"}})
+	if err == nil || !strings.Contains(err.Error(), "does not include") {
 		t.Errorf("want error; got %v", err)
 	}
 }
 
 func TestCollectUsers_ErrorPropagates(t *testing.T) {
 	p := New(Options{API: &fakeAPI{userErr: errors.New("rate limit")}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeUser})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeUser}})
 	if err == nil || !strings.Contains(err.Error(), "list users") {
 		t.Errorf("want list users error; got %v", err)
 	}
@@ -159,7 +159,7 @@ func TestCollectUsers_ErrorPropagates(t *testing.T) {
 
 func TestCollectApps_ErrorPropagates(t *testing.T) {
 	p := New(Options{API: &fakeAPI{appErr: errors.New("forbidden")}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeApp})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeApp}})
 	if err == nil || !strings.Contains(err.Error(), "list apps") {
 		t.Errorf("want list apps error; got %v", err)
 	}
@@ -168,7 +168,7 @@ func TestCollectApps_ErrorPropagates(t *testing.T) {
 func TestCollect_DefaultNowIsInjected(t *testing.T) {
 	fake := &fakeAPI{users: []User{{ID: "u1", Email: "u@acme.com", Status: "ACTIVE"}}}
 	p := New(Options{API: fake})
-	recs, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeUser})
+	recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeUser}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -185,11 +185,11 @@ func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 	p := New(Options{API: fake})
 	for range 3 {
 		if _, err := p.Collect(context.Background(),
-			core.SlotRequest{EvidenceType: EvidenceTypeUser}); err != nil {
+			core.SlotRequest{AcceptedTypes: []string{EvidenceTypeUser}}); err != nil {
 			t.Fatalf("Collect users: %v", err)
 		}
 		if _, err := p.Collect(context.Background(),
-			core.SlotRequest{EvidenceType: EvidenceTypeApp}); err != nil {
+			core.SlotRequest{AcceptedTypes: []string{EvidenceTypeApp}}); err != nil {
 			t.Fatalf("Collect apps: %v", err)
 		}
 	}

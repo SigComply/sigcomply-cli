@@ -18,7 +18,7 @@ remediation: |
 
 slots:
   user_directory:
-    type: user_record
+    accepts: [user_record]
     cardinality: one-or-more
     required: true
     description: "Source(s) of users to evaluate for MFA."

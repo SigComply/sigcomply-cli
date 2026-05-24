@@ -35,7 +35,7 @@ func TestResolveBindings_ExactlyOne_RequiresOne(t *testing.T) {
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Type: "user_record", Cardinality: core.SlotExactlyOne, Required: true},
+			"u": {Accepts: []string{"user_record"}, Cardinality: core.SlotExactlyOne, Required: true},
 		},
 	}
 	cases := []struct {
@@ -62,7 +62,7 @@ func TestResolveBindings_AtMostOne(t *testing.T) {
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Type: "user_record", Cardinality: core.SlotAtMostOne, Required: false},
+			"u": {Accepts: []string{"user_record"}, Cardinality: core.SlotAtMostOne, Required: false},
 		},
 	}
 	// Zero is fine.
@@ -83,7 +83,7 @@ func TestResolveBindings_Optional(t *testing.T) {
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Type: "user_record", Cardinality: core.SlotOptional, Required: false},
+			"u": {Accepts: []string{"user_record"}, Cardinality: core.SlotOptional, Required: false},
 		},
 	}
 	bindings, err := resolveBindings(policy, nil, set.Sources)
@@ -101,7 +101,7 @@ func TestResolveBindings_ManualColonSuffixParsed(t *testing.T) {
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"doc": {Type: "signed_document", Cardinality: core.SlotExactlyOne, Required: true},
+			"doc": {Accepts: []string{"signed_document"}, Cardinality: core.SlotExactlyOne, Required: true},
 		},
 	}
 	bindings, err := resolveBindings(policy, map[string][]spec.BindingEntry{
@@ -124,7 +124,7 @@ func TestResolveBindings_RejectsBindingForUndeclaredSlot(t *testing.T) {
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Type: "user_record", Cardinality: core.SlotOneOrMore, Required: true},
+			"u": {Accepts: []string{"user_record"}, Cardinality: core.SlotOneOrMore, Required: true},
 		},
 	}
 	_, err := resolveBindings(policy, map[string][]spec.BindingEntry{

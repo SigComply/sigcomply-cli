@@ -105,6 +105,25 @@ linters:
         - ifElseChain  # Sometimes clearer than switch
         - octalLiteral # Not common in Go
 
+  exclusions:
+    rules:
+      # Source-plugin factories register themselves into the
+      # process-global sources registry via init() — that's the
+      # entire point of the self-registering factory pattern. See
+      # internal/sources/factory.go and
+      # docs/architecture/04-source-plugins.md §The factory contract.
+      - path: internal/sources/.*factory\.go
+        linters:
+          - gochecknoinits
+      # internal/sources/builtin imports every in-tree plugin as a
+      # blank import for the side effect of running each package's
+      # init(). The package-level doc comment justifies this; the
+      # rule wants a per-line justification we won't repeat for
+      # every plugin.
+      - path: internal/sources/builtin/builtin\.go
+        linters:
+          - revive
+
 issues:
   max-issues-per-linter: 50
   max-same-issues: 10

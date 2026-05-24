@@ -101,8 +101,8 @@ type instancePayload struct {
 // Collect lists EC2 instances across all reservations in the configured
 // region and returns one ec2_instance record per instance.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	if req.EvidenceType != EvidenceTypeID {
-		return nil, fmt.Errorf("aws.ec2: unsupported evidence type %q (only %q)", req.EvidenceType, EvidenceTypeID)
+	if !req.Accepts(EvidenceTypeID) {
+		return nil, fmt.Errorf("aws.ec2: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
 	}
 	instances, err := p.listAllInstances(ctx)
 	if err != nil {

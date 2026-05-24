@@ -39,10 +39,18 @@ type PlannedPolicy struct {
 // Binding is one resolved (source instance, optional slot params)
 // pair. Multiple bindings on one slot mean "union the records from
 // all of them" — the evaluator merges them per slot.
+//
+// AcceptedTypes is the intersection of the slot's Accepts list and
+// the source's Emits() list, computed at plan time. The collector
+// passes it through SlotRequest.AcceptedTypes so the plugin knows
+// which of its emitted types the slot will accept. A binding always
+// has at least one AcceptedTypes entry (the planner rejects a
+// binding whose intersection is empty).
 type Binding struct {
-	SourceID   string
-	CatalogID  string // non-empty only for manual sources (e.g. manual.pdf:access_review_quarterly)
-	SlotParams map[string]any
+	SourceID      string
+	AcceptedTypes []string
+	CatalogID     string // non-empty only for manual sources (e.g. manual.pdf:access_review_quarterly)
+	SlotParams    map[string]any
 }
 
 // Exception is the resolved waiver / N/A declaration applied to a

@@ -135,7 +135,7 @@ func corePolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"user_directory": {Type: "user_record", Cardinality: core.SlotExactlyOne, Required: true, Description: "IAM users"},
+				"user_directory": {Accepts: []string{"user_record"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "IAM users"},
 			},
 			RuleRef: ruleIDMFAEnforced,
 		},
@@ -149,7 +149,7 @@ func corePolicies() []core.Policy {
 			Cadence:     "quarterly",
 			OnPush:      false,
 			Slots: map[string]core.Slot{
-				"review_document": {Type: "signed_document", Cardinality: core.SlotExactlyOne, Required: true},
+				"review_document": {Accepts: []string{"signed_document"}, Cardinality: core.SlotExactlyOne, Required: true},
 			},
 			RuleRef: ruleIDManualPresence,
 		},
@@ -163,7 +163,7 @@ func corePolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"user_directory": {Type: "user_record", Cardinality: core.SlotOneOrMore, Required: true},
+				"user_directory": {Accepts: []string{"user_record"}, Cardinality: core.SlotOneOrMore, Required: true},
 			},
 			RuleRef: ruleIDMFAEnforced,
 		},

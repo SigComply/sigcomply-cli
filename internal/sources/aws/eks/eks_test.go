@@ -87,7 +87,7 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	}
 	now := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
 	p := New(Options{API: fake, Now: func() time.Time { return now }})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestCollect_EncryptionConfigWithoutSecretsResource_TreatedAsDisabled(t *tes
 		},
 	}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -155,7 +155,7 @@ func TestCollect_EncryptionConfigWithSecretsButMissingProvider_TreatedAsDisabled
 		},
 	}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -170,15 +170,15 @@ func TestCollect_EncryptionConfigWithSecretsButMissingProvider_TreatedAsDisabled
 
 func TestCollect_RejectsWrongEvidenceType(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: "user_record"})
-	if err == nil || !strings.Contains(err.Error(), "unsupported evidence type") {
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{"user_record"}})
+	if err == nil || !strings.Contains(err.Error(), "does not include") {
 		t.Errorf("want error; got %v", err)
 	}
 }
 
 func TestCollect_ListError(t *testing.T) {
 	p := New(Options{API: &fakeAPI{listErr: errors.New("kaboom")}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err == nil || !strings.Contains(err.Error(), "list clusters") {
 		t.Errorf("want list error; got %v", err)
 	}
@@ -190,7 +190,7 @@ func TestCollect_DescribeError(t *testing.T) {
 		descErrByID: map[string]error{"c1": errors.New("denied")},
 	}
 	p := New(Options{API: fake})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err == nil || !strings.Contains(err.Error(), "describe cluster c1") {
 		t.Errorf("want describe error; got %v", err)
 	}
@@ -199,7 +199,7 @@ func TestCollect_DescribeError(t *testing.T) {
 func TestCollect_DefaultNowIsUsed(t *testing.T) {
 	fake := &fakeAPI{clusters: []string{"c1"}, descByName: map[string]*ekstypes.Cluster{"c1": {}}}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestCollect_DefaultNowIsUsed(t *testing.T) {
 func TestCollect_SkipsEmptyClusterName(t *testing.T) {
 	fake := &fakeAPI{clusters: []string{"", "ok"}, descByName: map[string]*ekstypes.Cluster{"ok": {}}}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestCollect_KISSNoDRY_EachCallReLists(t *testing.T) {
 	fake := &fakeAPI{clusters: []string{"c1"}, descByName: map[string]*ekstypes.Cluster{"c1": {}}}
 	p := New(Options{API: fake})
 	for range 3 {
-		if _, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID}); err != nil {
+		if _, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}}); err != nil {
 			t.Fatalf("Collect: %v", err)
 		}
 	}

@@ -33,10 +33,16 @@ type policySpecRaw struct {
 }
 
 type slotSpecRaw struct {
-	Type        string `yaml:"type"`
-	Cardinality string `yaml:"cardinality"`
-	Required    bool   `yaml:"required"`
-	Description string `yaml:"description"`
+	// Accepts lists every evidence type that satisfies this slot. A
+	// single-element list is the common case (a slot specific to one
+	// evidence shape); multiple elements declare cross-source
+	// substitutability — any source whose Emits() shares at least one
+	// type with Accepts can bind here. See
+	// docs/architecture/03-policy-spec.md §Slots.
+	Accepts     []string `yaml:"accepts"`
+	Cardinality string   `yaml:"cardinality"`
+	Required    bool     `yaml:"required"`
+	Description string   `yaml:"description"`
 }
 
 type paramSpecRaw struct {
@@ -79,8 +85,10 @@ func policyFromRaw(raw *policySpecRaw) core.Policy {
 
 	slots := make(map[string]core.Slot, len(raw.Slots))
 	for name, s := range raw.Slots {
+		accepts := make([]string, len(s.Accepts))
+		copy(accepts, s.Accepts)
 		slots[name] = core.Slot{
-			Type:        s.Type,
+			Accepts:     accepts,
 			Cardinality: core.SlotCardinality(s.Cardinality),
 			Required:    s.Required,
 			Description: s.Description,
@@ -117,7 +125,7 @@ func policyFromRaw(raw *policySpecRaw) core.Policy {
 
 // defaultOnPush returns OnPush honoring an explicit YAML value when
 // present, falling back to the framework convention: automated
-// policies default true, manual policies (any slot referencing
+// policies default true, manual policies (any slot accepting
 // signed_document) default false. The check is shape-based — the
 // planner has the authoritative view, but the policy loader's defaults
 // match the convention documented in 03-policy-spec.md §Custom
@@ -127,8 +135,10 @@ func defaultOnPush(raw *policySpecRaw) bool {
 		return *raw.OnPush
 	}
 	for _, s := range raw.Slots {
-		if s.Type == "signed_document" {
-			return false
+		for _, t := range s.Accepts {
+			if t == "signed_document" {
+				return false
+			}
 		}
 	}
 	return true
@@ -187,8 +197,13 @@ func validatePolicySlots(raw *policySpecRaw) error {
 		return fmt.Errorf("policy spec %q: \"slots\" must declare at least one slot", raw.ID)
 	}
 	for name, s := range raw.Slots {
-		if s.Type == "" {
-			return fmt.Errorf("policy spec %q: slot %q missing required field \"type\"", raw.ID, name)
+		if len(s.Accepts) == 0 {
+			return fmt.Errorf("policy spec %q: slot %q missing required field \"accepts\" (list at least one evidence type)", raw.ID, name)
+		}
+		for i, t := range s.Accepts {
+			if t == "" {
+				return fmt.Errorf("policy spec %q: slot %q accepts[%d] is empty", raw.ID, name, i)
+			}
 		}
 		if s.Cardinality == "" {
 			return fmt.Errorf("policy spec %q: slot %q missing required field \"cardinality\"", raw.ID, name)

@@ -1,0 +1,35 @@
+// Package builtin imports every in-tree source plugin for the side
+// effect of running its init() — which registers a factory under the
+// sources.Register registry. Anyone wanting all shipped sources
+// available simply blank-imports this package; nothing else needs to
+// be touched.
+//
+// Adding a new in-tree source plugin: drop its package under
+// internal/sources/, give it an init() that calls sources.Register,
+// then add one line below. cmd/sigcomply does not need to know about
+// it.
+//
+// Project-local plugins under .sigcomply/plugins/ are wired in by
+// `sigcomply build` (M16) — that command generates a similar import
+// list into the project-specific binary.
+package builtin
+
+import (
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/cloudtrail"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/cloudwatch"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/config"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/ec2"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/eks"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/guardduty"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/iam"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/kms"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/rds"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/s3"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/compute"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/iam"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/sql"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/storage"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/github"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/manual"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/okta"
+)

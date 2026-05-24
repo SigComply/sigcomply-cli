@@ -9,6 +9,13 @@ This document specifies what can be customized, how to author each
 artifact, the compilation/loading mechanism, and the path from a
 project-local extension to an upstream contribution.
 
+> **Status**: project-local Go extensions (custom policies with Go
+> rules, custom source plugins) and project-local evidence types both
+> require `sigcomply build` — roadmap milestone **M16**. The in-tree
+> patterns (self-registering factories, embedded schema loading) are
+> wired and used today; the project-local discovery and build-wrapper
+> pieces are planned. Read this doc as the target design.
+
 ---
 
 ## What can be customized
@@ -18,8 +25,8 @@ project-local extension to an upstream contribution.
 | Framework spec | ❌ (frameworks are curated) | ✅ |
 | Policy | ✅ under `.sigcomply/policies/` | ✅ in `internal/compliance_frameworks/<fw>/policies/` |
 | Rule | ✅ as `rule.rego` or `rule.go` inside a custom policy dir | ✅ inside a shipped policy dir |
-| Source plugin | ✅ under `.sigcomply/plugins/` | ✅ in `internal/plugins/` |
-| Evidence type | ✅ under `.sigcomply/evidence_types/` | ✅ in `internal/evidence_types/` |
+| Source plugin | ✅ under `.sigcomply/plugins/` (registered via `init()` factory; compiled in by `sigcomply build`) | ✅ in `internal/sources/` (same self-registration pattern) |
+| Evidence type | ✅ under `.sigcomply/evidence_types/<id>.v<n>.json` (planned — M16) | ✅ in `internal/evidence_types/schemas/<id>.v<n>.json`, embedded via `go:embed` (see [`04a`](04a-evidence-type-registry.md)) |
 | Manual catalog entries | ✅ under `.sigcomply/manual_catalog/` | ✅ in shipped framework's catalog |
 | Project config (`.sigcomply.yaml`) | ✅ | n/a |
 | Aggregation contract | ❌ (frozen schema) | ✅ (requires bump + security review) |
@@ -57,7 +64,7 @@ artifacts.
         plugin_test.go
         README.md
     evidence_types/
-      acme_internal_user.json              # JSON Schema
+      acme_principal.v1.json               # JSON Schema document
     manual_catalog/
       contractor_review.yaml
 ```
@@ -67,30 +74,51 @@ it into the registries (L2) alongside in-binary artifacts.
 
 ---
 
+## `.sigcomply/` is the only extension surface
+
+Three things and only three things make a customer extension visible
+to the CLI:
+
+| What | Where | When it's compiled in |
+|---|---|---|
+| **Policy** (Rego or Go rule + spec) | `.sigcomply/policies/<id>/` | Rego rules: at orchestrator bootstrap. Go rules: by `sigcomply build`. |
+| **Source plugin** | `.sigcomply/plugins/<id>/` | By `sigcomply build`. |
+| **Evidence type** | `.sigcomply/evidence_types/<id>.v<n>.json` | At orchestrator bootstrap (JSON Schema document; no Go). |
+
+That's the entire third-party extensibility surface. There is no
+runtime plugin loading, no shared library, no plugin DSL beyond the
+existing rule DSLs, no IPC, no WASM. Customers extend SigComply by
+dropping files in three known directories and running one build
+command.
+
 ## Loading mechanism for project-local Go code
 
-Custom policies and plugins authored in Go need to be compiled. The
-CLI does not load Go plugins at runtime (Go's `plugin` package is
-fragile across versions and locked to Linux). Instead, the CLI ships
-a **build wrapper**:
+Custom policies (Go rules) and source plugins need to be compiled.
+The CLI does not load Go plugins at runtime — Go's `plugin` package is
+fragile across versions and Linux-only. Instead, the CLI ships a
+**build wrapper**:
 
 ```bash
 sigcomply build
 ```
 
-This command:
+This command (M16):
 
 1. Scans `.sigcomply/policies/*/rule.go` and `.sigcomply/plugins/*/plugin.go`.
 2. Generates a `cmd/sigcomply-custom/main.go` that imports the in-tree
-   `sigcomply` library and the project-local Go packages.
+   `sigcomply` library plus a **blank-import block** of every
+   project-local Go package. The blank imports trigger each package's
+   `init()`, which calls `sources.RegisterFactory(...)` (for plugins)
+   or `rules.Register(...)` (for rules) into the same registries the
+   in-tree code uses.
 3. Invokes `go build` to produce `./bin/sigcomply` — a binary tailored
    to this project, with project-local code compiled in.
 4. From this point, `./bin/sigcomply check` runs the project-tailored
    binary.
 
 For projects with no Go-based extensions (only Rego rules, only YAML
-DSL rules, only YAML manifests), no build step is required; the
-shipped `sigcomply` binary suffices.
+DSL rules, only YAML evidence-type schemas), no build step is
+required; the shipped `sigcomply` binary suffices.
 
 CI integration: customers with Go extensions add a `sigcomply build`
 step to their workflow before the `sigcomply check` step. The shipped
@@ -138,7 +166,7 @@ remediation: |
   Upload the signed PDF to the configured manual evidence bucket.
 slots:
   review_document:
-    type: signed_document
+    accepts: [signed_document]
     cardinality: exactly-one
     required: true
 parameters: {}
@@ -275,11 +303,27 @@ sigcomply build      # compiles project-tailored binary
 
 ## Authoring a custom source plugin
 
-Worked example: AcmeCorp has an internal IAM system (`auth.acme-internal.com`)
-emitting user data over a private API. No shipped plugin covers it.
-AcmeCorp authors one.
+Worked example: AcmeCorp has an internal IAM system
+(`auth.acme-internal.com`) emitting user data over a private API. No
+shipped plugin covers it. AcmeCorp authors one.
 
-### Step 1 — Manifest
+There are two paths depending on whether the data fits an existing
+evidence type:
+
+- **Path A (reuse `user_record`).** AcmeCorp's internal IAM records
+  are functionally identical to AWS IAM and Okta users — same fields,
+  same semantics. The plugin emits the shipped `user_record` type and
+  becomes immediately consumable by every existing policy with
+  `accepts: [user_record]`. **No policy changes needed anywhere.**
+- **Path B (coin a new `acme_principal` type).** AcmeCorp's records
+  carry extra fields (department, security clearance, manager_id)
+  that they want their custom policies to consume. They register a
+  new evidence type and add it to the relevant slots' `accepts:`
+  lists.
+
+We show both.
+
+### Step 1 — Plugin manifest (shared between A and B)
 
 ```yaml
 # .sigcomply/plugins/acme.internal_iam/plugin.yaml
@@ -288,7 +332,7 @@ id: acme.internal_iam
 display_name: "Acme Internal IAM"
 version: "0.1.0"
 description: "Reads user records from Acme's internal IAM service."
-emits: [user_record]
+emits: [user_record]                  # Path A; Path B adds acme_principal
 config_schema:
   endpoint:
     type: string
@@ -298,7 +342,7 @@ config_schema:
     default: "ACME_IAM_TOKEN"
 ```
 
-### Step 2 — Implementation
+### Step 2 — Plugin implementation with a registered factory
 
 ```go
 // .sigcomply/plugins/acme.internal_iam/plugin.go
@@ -311,22 +355,24 @@ import (
     "net/http"
     "os"
 
-    "github.com/sigcomply/sigcomply-cli/internal/core/source"
-    "github.com/sigcomply/sigcomply-cli/internal/core/evidence"
+    "github.com/sigcomply/sigcomply-cli/internal/core"
+    "github.com/sigcomply/sigcomply-cli/internal/sources"
 )
+
+const SourceID = "acme.internal_iam"
 
 type Plugin struct {
     endpoint string
     token    string
 }
 
-func (p *Plugin) ID() string       { return "acme.internal_iam" }
-func (p *Plugin) Emits() []string  { return []string{"user_record"} }
+func (p *Plugin) ID() string      { return SourceID }
+func (p *Plugin) Emits() []string { return []string{"user_record"} }
 
 func (p *Plugin) Init(ctx context.Context, cfg map[string]any) error {
     p.endpoint, _ = cfg["endpoint"].(string)
     if p.endpoint == "" {
-        return fmt.Errorf("acme.internal_iam: endpoint is required")
+        return fmt.Errorf("%s: endpoint is required", SourceID)
     }
     envName, _ := cfg["token_env"].(string)
     if envName == "" {
@@ -334,15 +380,14 @@ func (p *Plugin) Init(ctx context.Context, cfg map[string]any) error {
     }
     p.token = os.Getenv(envName)
     if p.token == "" {
-        return fmt.Errorf("acme.internal_iam: %s not set", envName)
+        return fmt.Errorf("%s: %s not set", SourceID, envName)
     }
     return nil
 }
 
-func (p *Plugin) Collect(ctx context.Context, req source.SlotRequest) ([]evidence.Record, error) {
+func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
     httpReq, _ := http.NewRequestWithContext(ctx, "GET", p.endpoint+"/users", nil)
     httpReq.Header.Set("Authorization", "Bearer "+p.token)
-
     resp, err := http.DefaultClient.Do(httpReq)
     if err != nil {
         return nil, err
@@ -357,7 +402,7 @@ func (p *Plugin) Collect(ctx context.Context, req source.SlotRequest) ([]evidenc
         return nil, err
     }
 
-    out := make([]evidence.Record, 0, len(users))
+    out := make([]core.EvidenceRecord, 0, len(users))
     for _, u := range users {
         payload, _ := json.Marshal(map[string]any{
             "id":          u.ID,
@@ -365,17 +410,30 @@ func (p *Plugin) Collect(ctx context.Context, req source.SlotRequest) ([]evidenc
             "mfa_enabled": u.MFA,
             "is_admin":    u.Admin,
         })
-        out = append(out, evidence.Record{
-            Type:     "user_record",
-            ID:       u.ID,
-            SourceID: "acme.internal_iam",
-            Payload:  payload,
+        out = append(out, core.EvidenceRecord{
+            Type:        "user_record",
+            ID:          u.ID,
+            IdentityKey: u.Email,           // cross-source dedup with aws.iam, okta
+            SourceID:    SourceID,
+            Payload:     payload,
         })
     }
     return out, nil
 }
 
-func init() { source.Register(&Plugin{}) }
+// init registers this plugin's factory with the global SourceRegistry.
+// This is the same pattern every in-tree plugin uses. The factory is
+// what the orchestrator calls (with the YAML-unmarshalled config block)
+// to produce a configured plugin instance per run.
+func init() {
+    sources.RegisterFactory(SourceID, func(ctx context.Context, cfg map[string]any) (core.SourcePlugin, error) {
+        p := &Plugin{}
+        if err := p.Init(ctx, cfg); err != nil {
+            return nil, err
+        }
+        return p, nil
+    })
+}
 ```
 
 ### Step 3 — Configure the project
@@ -390,70 +448,117 @@ sources:
 bindings:
   soc2.cc6.1.mfa_enforced:
     user_directory: [acme.internal_iam]
+  soc2.cc6.1.admin_mfa_enforced:
+    user_directory: [acme.internal_iam, aws.iam]    # mix and match
 ```
 
 ### Step 4 — Build and run
 
 ```bash
-sigcomply build
+sigcomply build              # generates the wrapper, blank-imports
+                             # acme.internal_iam, runs `go build`
 ./bin/sigcomply check
 ```
 
 The `acme.internal_iam` plugin now satisfies any policy whose slots
-require `user_record`. AcmeCorp can mix and match across the same
-binding (`[acme.internal_iam, aws.iam]`) if they want.
+have `accepts: [user_record]`. AcmeCorp can mix and match across the
+same binding (`[acme.internal_iam, aws.iam]`) if they want. **No
+policy changes happened — only configuration.**
 
 ---
 
-## Authoring a custom evidence type
+### Path B — Coining a new evidence type
 
-Required only when no shipped type fits. Worked example: AcmeCorp
-emits a custom `acme_internal_user` shape that has fields the standard
-`user_record` doesn't capture.
+If AcmeCorp wants their custom policies to consume fields beyond what
+`user_record` carries (department, security clearance, manager_id),
+they register a new evidence type.
 
-### Step 1 — Schema
+#### B1 — Author the schema
 
 ```json
-// .sigcomply/evidence_types/acme_internal_user.json
+// .sigcomply/evidence_types/acme_principal.v1.json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://acme-internal.com/schemas/acme_internal_user/v1.json",
-  "title": "acme_internal_user",
+  "$id": "https://schemas.acme.com/evidence_types/acme_principal/v1.json",
+  "title": "acme_principal",
   "version": 1,
+  "description": "An Acme Corp user with internal-only fields (department, security clearance, manager_id) not present in the shipped user_record type. Cross-source identity convention: populate EvidenceRecord.IdentityKey with the user's primary email.",
   "type": "object",
   "required": ["id", "mfa_enabled", "department"],
   "properties": {
-    "id":           { "type": "string" },
-    "email":        { "type": "string" },
-    "mfa_enabled":  { "type": "boolean" },
-    "department":   { "type": "string" },
-    "manager_id":   { "type": "string" }
-  }
+    "id":                 { "type": "string" },
+    "email":              { "type": "string", "format": "email" },
+    "mfa_enabled":        { "type": "boolean" },
+    "department":         { "type": "string" },
+    "security_clearance": { "type": "string", "enum": ["public", "internal", "confidential", "secret"] },
+    "manager_id":         { "type": "string" }
+  },
+  "additionalProperties": true
 }
 ```
 
-### Step 2 — Plugins emit it
+Cross-source identity convention is documented in the schema's
+`description` (plugin authors read it to know what to populate
+`EvidenceRecord.IdentityKey` with). The constraints `format: email`
+and `enum: [...]` are honored by future, richer validators — today's
+validator enforces only top-level `type: object`, `required`, and
+per-property scalar `type` (see
+[`04a-evidence-type-registry.md`](04a-evidence-type-registry.md)
+§Current implementation status).
+
+#### B2 — Plugin emits both types
 
 ```yaml
 # .sigcomply/plugins/acme.internal_iam/plugin.yaml
-emits: [acme_internal_user, user_record]
+emits: [user_record, acme_principal]
 ```
 
-The plugin can emit *both* types — one record per user, two evidence
-types — by calling `evidence.Record{Type: "user_record", ...}` and
-`evidence.Record{Type: "acme_internal_user", ...}` in `Collect`. The
-shipped policy that needs `user_record` works; AcmeCorp's custom
-policies needing `acme_internal_user` also work.
+```go
+// Inside Collect — emit two records per user, one of each type:
+out = append(out, core.EvidenceRecord{
+    Type:        "user_record",            // for shipped policies
+    ID:          u.ID,
+    IdentityKey: u.Email,
+    SourceID:    SourceID,
+    Payload:     userRecordPayload,
+})
+out = append(out, core.EvidenceRecord{
+    Type:        "acme_principal",          // for AcmeCorp policies
+    ID:          u.ID,
+    IdentityKey: u.Email,
+    SourceID:    SourceID,
+    Payload:     acmePrincipalPayload,
+})
+```
 
-### Step 3 — Custom policies reference it
+The shipped policies bind to slots with `accepts: [user_record]` and
+ignore the `acme_principal` records. AcmeCorp's custom policies bind
+to slots with `accepts: [acme_principal]` and ignore the
+`user_record` records.
+
+#### B3 — Custom policy references the new type
 
 ```yaml
-# .sigcomply/policies/acme.custom.dept_review/policy.yaml
+# .sigcomply/policies/acme.custom.cc6.1.confidential_clearance_review/policy.yaml
+schema_version: policy.v1
+id: acme.custom.cc6.1.confidential_clearance_review
+control: SOC2.CC6.1
+severity: high
+category: access_control
+description: |
+  Every user with access to confidential data must have an active
+  security clearance recorded in Acme's internal IAM.
 slots:
-  users:
-    type: acme_internal_user
-    ...
+  principals:
+    accepts: [acme_principal]
+    cardinality: one-or-more
+    required: true
+rule: rules.acme.confidential_clearance.v1
 ```
+
+The custom rule reads `record.payload.security_clearance` and
+`record.payload.department`, which `user_record` doesn't expose but
+`acme_principal` guarantees.
 
 ---
 
@@ -467,11 +572,11 @@ The contribution path:
 
 1. **Fork** the public `sigcomply-cli` repo.
 2. **Move** the project-local files into the in-tree locations:
-   - `internal/plugins/<id>/` for plugins
+   - `internal/sources/<id>/` for plugins
    - `internal/compliance_frameworks/<fw>/policies/<id>/` for policies
-   - `internal/evidence_types/<id>/` for evidence types
+   - `internal/evidence_types/<id>.v<n>.yaml` for evidence types
 3. **Adapt** import paths from the project-local package names to the
-   in-tree ones (`internal/plugins/...`).
+   in-tree ones (`internal/sources/...`).
 4. **Add** in-tree tests under the same directory.
 5. **Update** the relevant framework's `policies/` index if adding a
    shipped policy.

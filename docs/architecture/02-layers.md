@@ -93,7 +93,8 @@ type Policy struct {
 }
 
 type Slot struct {
-    Type        string          // evidence type ID
+    Accepts     []string        // evidence type IDs the slot will consume;
+                                // a source matches when source.Emits() ∩ Accepts ≠ ∅
     Cardinality SlotCardinality // exactly-one|one-or-more|optional|at-most-one
     Required    bool
 }
@@ -189,18 +190,38 @@ ID. Populated at process startup; immutable thereafter.
 | Registry | Populated from | Lookup key |
 |---|---|---|
 | `FrameworkRegistry` | In-binary framework specs (shipped) | `framework_id` |
-| `SourceRegistry` | In-binary plugins + project-local plugins under `.sigcomply/plugins/` | `source_id` |
+| `SourceRegistry` | Source-plugin factories registered via `init()` from in-binary `internal/sources/...` packages and from project-local `.sigcomply/plugins/...` packages compiled in by `sigcomply build` | `source_id` |
 | `RuleRegistry` | In-binary rules + project-local rules under `.sigcomply/policies/.../rules/` | `rule_ref` |
-| `EvidenceTypeRegistry` | In-binary type schemas + project-local under `.sigcomply/evidence_types/` | `evidence_type_id` |
+| `EvidenceTypeRegistry` | In-binary type schemas (embedded via `go:embed` from `internal/evidence_types/*.yaml`) + project-local under `.sigcomply/evidence_types/` | `evidence_type_id` |
 | `PolicyRegistry` | Framework-shipped policy specs + project-local policies under `.sigcomply/policies/` | `policy_id` |
+
+**Self-registering sources.** The `SourceRegistry` is populated by each
+source package's `init()` function calling
+`sources.RegisterFactory(id, factoryFn)`. The orchestrator imports the
+in-tree source packages purely for their side effect of registration;
+it has no `switch sourceID { case "aws.iam": ... }` and is generic
+over the registered set. Third-party project-local plugins follow the
+exact same pattern under `.sigcomply/plugins/`. Detail: see
+[`04-source-plugins.md`](04-source-plugins.md) §The factory contract.
+
+**Embedded evidence-type schemas.** Each `internal/evidence_types/<id>.yaml`
+is compiled into the binary via `go:embed`. The
+`EvidenceTypeRegistry` is loaded at orchestrator bootstrap; the
+collector validates every emitted `EvidenceRecord.Payload` against the
+registered schema before signing. A schema-conformance failure is a
+configuration error (exit code 3). Detail: see
+[`04a-evidence-type-registry.md`](04a-evidence-type-registry.md).
 
 **Loading sequence.**
 
-1. Load in-binary registries (compiled-in via `embed.FS`).
+1. Load in-binary registries (compiled-in via `embed.FS` and `init()`
+   side effects).
 2. Discover and load `.sigcomply/` extensions.
 3. Validate: every `policy.rule` resolves to a registered rule; every
-   `policy.slot.type` resolves to a registered evidence type; every
-   `binding.source` resolves to a registered plugin.
+   `policy.slot.accepts[*]` resolves to a registered evidence type;
+   every `binding.source` resolves to a registered plugin; every bound
+   source emits at least one of its slot's accepted types
+   (`source.Emits() ∩ slot.Accepts ≠ ∅`).
 4. If any validation fails, exit with config error (exit code 3).
 
 **Invariant.** Registries are read-only after startup. No runtime
@@ -239,8 +260,8 @@ producing an ordered, fully-resolved execution plan.
   `01-conceptual-model.md` §12).
 - Validates that every policy's required slots have at least one
   binding.
-- Validates that every binding's source emits records of the slot's
-  type.
+- Validates that every binding's source emits at least one of the
+  slot's accepted types (`source.Emits() ∩ slot.Accepts ≠ ∅`).
 - Resolves exception matchers against policy IDs.
 - Fails fast: any unresolved binding, missing required slot, or
   parameter out-of-bounds value is a planning error (exit 3), not a
@@ -263,7 +284,11 @@ envelopes. Each policy in the plan is processed independently.
    a. For each source bound to the slot:
       - Initialize the source plugin instance (if not yet for this run)
       - Invoke `plugin.Collect(ctx, slot)` to fetch records
-      - Validate each record against its evidence type schema
+      - Validate each record's `Payload` against the JSON Schema
+        registered for `record.Type` in `EvidenceTypeRegistry`. Records
+        from a source for evidence types not in the slot's `Accepts`
+        list are rejected at planning time, so the collector only
+        validates against the schemas of accepted types.
    b. Aggregate all records for the slot.
 2. For each (slot, source) pair, write one envelope:
    - Generate a fresh Ed25519 keypair

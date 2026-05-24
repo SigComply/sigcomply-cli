@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/gcs_bucket/v1.json",
+  "title": "gcs_bucket",
+  "version": 1,
+  "description": "One GCS bucket, with the security-relevant flags policies check today. Parallel to s3_bucket; the two are listed together in `accepts:` for any policy that wants cross-cloud substitutability over object storage.",
+  "type": "object",
+  "required": ["name", "uniform_bucket_level_access"],
+  "properties": {
+    "name":                          { "type": "string" },
+    "location":                      { "type": "string" },
+    "created_at":                    { "type": "string", "format": "date-time" },
+    "uniform_bucket_level_access":   { "type": "boolean" },
+    "default_kms_key":               { "type": "string" }
+  },
+  "additionalProperties": true
+}

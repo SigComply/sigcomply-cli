@@ -26,6 +26,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/collector"
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/evaluator"
+	evidencetypes "github.com/sigcomply/sigcomply-cli/internal/evidence_types"
 	"github.com/sigcomply/sigcomply-cli/internal/log"
 	"github.com/sigcomply/sigcomply-cli/internal/planner"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
@@ -187,10 +188,11 @@ func nowOrFallback(now func() time.Time) time.Time {
 
 func runCollect(ctx context.Context, opts *Options, plan *planner.RunPlan, rec *recordingVault, runRoot string, now time.Time) (*collector.Output, error) {
 	out, err := collector.Collect(ctx, &collector.Input{
-		Plan:    plan,
-		Sources: opts.Registries.Sources,
-		Vault:   rec,
-		RunRoot: runRoot,
+		Plan:          plan,
+		Sources:       opts.Registries.Sources,
+		EvidenceTypes: opts.Registries.EvidenceTypes,
+		Vault:         rec,
+		RunRoot:       runRoot,
 		SlotParamsExtras: map[string]any{
 			"period_id":    plan.Period.ID,
 			"period_start": plan.Period.Start,
@@ -487,7 +489,15 @@ func Bootstrap(configPath string) (*spec.ProjectConfig, *registry.Set, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("bootstrap: parse config: %w", err)
 	}
-	return &cfg, registry.NewSet(), nil
+	set := registry.NewSet()
+	// Evidence-type schemas are loaded before frameworks so policies
+	// (which declare slot.Accepts of type IDs) and source plugins
+	// (which declare Emits of type IDs) can be checked against the
+	// authoritative registry as they register.
+	if err := evidencetypes.Register(set); err != nil {
+		return nil, nil, fmt.Errorf("bootstrap: register evidence types: %w", err)
+	}
+	return &cfg, set, nil
 }
 
 // ErrBootstrapAlreadyInitialized is reserved for future use.

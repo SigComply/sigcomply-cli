@@ -114,8 +114,8 @@ type recorderPayload struct {
 // before return so envelope bytes are stable across runs against
 // stable account state.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	if req.EvidenceType != EvidenceTypeID {
-		return nil, fmt.Errorf("aws.config: unsupported evidence type %q (only %q)", req.EvidenceType, EvidenceTypeID)
+	if !req.Accepts(EvidenceTypeID) {
+		return nil, fmt.Errorf("aws.config: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
 	}
 	descOut, err := p.api.DescribeConfigurationRecorders(ctx, &cfgsvc.DescribeConfigurationRecordersInput{})
 	if err != nil {

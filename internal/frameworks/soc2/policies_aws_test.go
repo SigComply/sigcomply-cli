@@ -51,12 +51,14 @@ func TestAWSPolicies_AllConsumeDistinctSlots(t *testing.T) {
 		}
 		found := false
 		for _, s := range p.Slots {
-			if s.Type == wantType {
-				found = true
+			for _, et := range s.Accepts {
+				if et == wantType {
+					found = true
+				}
 			}
 		}
 		if !found {
-			t.Errorf("%s slot type != %q", p.ID, wantType)
+			t.Errorf("%s slot Accepts does not include %q", p.ID, wantType)
 		}
 		if p.RuleRef == "" {
 			t.Errorf("%s RuleRef empty", p.ID)

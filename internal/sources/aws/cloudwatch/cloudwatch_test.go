@@ -98,7 +98,7 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	p := New(Options{API: fake, Now: func() time.Time { return now }})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID, PolicyID: "p1", SlotName: "logs"})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}, PolicyID: "p1", SlotName: "logs"})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestCollect_PaginationFetchesAllPages(t *testing.T) {
 		},
 	}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestCollect_PaginationFetchesAllPages(t *testing.T) {
 
 func TestCollect_NoGroups(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -179,15 +179,15 @@ func TestCollect_NoGroups(t *testing.T) {
 
 func TestCollect_RejectsWrongEvidenceType(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: "s3_bucket"})
-	if err == nil || !strings.Contains(err.Error(), "unsupported evidence type") {
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{"s3_bucket"}})
+	if err == nil || !strings.Contains(err.Error(), "does not include") {
 		t.Errorf("want error; got %v", err)
 	}
 }
 
 func TestCollect_DescribeError(t *testing.T) {
 	p := New(Options{API: &fakeAPI{err: errors.New("kaboom")}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err == nil || !strings.Contains(err.Error(), "describe log groups") {
 		t.Errorf("want describe log groups error; got %v", err)
 	}
@@ -196,7 +196,7 @@ func TestCollect_DescribeError(t *testing.T) {
 func TestCollect_DefaultNowIsUsedWhenNotInjected(t *testing.T) {
 	fake := &fakeAPI{pages: [][]cwltypes.LogGroup{{{LogGroupName: ptr("g"), Arn: ptr("arn:g")}}}}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -239,7 +239,7 @@ func TestCollect_KISSNoDRY_EachCallReListsGroups(t *testing.T) {
 	fake := &fakeAPI{pages: [][]cwltypes.LogGroup{{{LogGroupName: ptr("g"), Arn: ptr("arn:g")}}}}
 	p := New(Options{API: fake})
 	for range 3 {
-		if _, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID}); err != nil {
+		if _, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}}); err != nil {
 			t.Fatalf("Collect: %v", err)
 		}
 	}
@@ -251,7 +251,7 @@ func TestCollect_KISSNoDRY_EachCallReListsGroups(t *testing.T) {
 func TestCollect_LogGroupWithoutARNFallsBackToName(t *testing.T) {
 	fake := &fakeAPI{pages: [][]cwltypes.LogGroup{{{LogGroupName: ptr("only-name")}}}}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}

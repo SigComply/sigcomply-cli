@@ -140,29 +140,53 @@ legal and the CLI will execute it.
 
 ### 5. Slot
 
-**Definition.** A named, typed input on a policy. A slot declares: a
-name (`user_directory`), an evidence type (`user_record`), a cardinality
+**Definition.** A named, multi-typed input on a policy. A slot declares:
+a name (`user_directory`), the **set** of evidence types it accepts
+(`accepts: [user_record]`, or for a cross-cloud policy
+`accepts: [s3_bucket, gcs_bucket, azure_blob_container]`), a cardinality
 (`exactly-one` | `one-or-more` | `optional` | `at-most-one`), and
 whether it's required. Slots are the interface between a policy and the
-data it needs.
+data it needs, and the only abstraction that knows about evidence
+types — neither policies nor sources mention each other by ID.
 
 **Example.** `soc2.cc6.1.mfa_enforced` declares:
 
 ```yaml
 slots:
   user_directory:
-    type: user_record
+    accepts: [user_record]
     cardinality: one-or-more
     required: true
 ```
 
-A project binds one or more sources to that slot. The rule receives all
-records produced by all bound sources, unioned, under
-`input.slots.user_directory`.
+A cross-cloud "object storage encrypted at rest" policy declares:
 
-**What it is *not*.** A slot is not a source. A slot says "I need
-records of type X"; the project's binding decides which source(s)
-provide them. Slots are the abstraction that makes sources
+```yaml
+slots:
+  buckets:
+    accepts: [s3_bucket, gcs_bucket, azure_blob_container]
+    cardinality: one-or-more
+    required: true
+```
+
+A project binds one or more sources to a slot. A source matches a slot
+when **`source.Emits() ∩ slot.Accepts ≠ ∅`**. The rule receives all
+records produced by all bound sources, unioned, under
+`input.slots.<slot_name>`. Records carry their `Type`, so a rule that
+must behave differently per evidence type switches on `record.Type`;
+most rules just iterate the union.
+
+**Slots are the contract.** Policies declare what shapes they accept;
+sources declare what shapes they emit; the planner verifies the
+intersection at plan time. Adding a fourth blob backend (`azure_blob`,
+`r2`, `b2`) to the cross-cloud policy above is one line in `accepts:`,
+zero policy logic changes, zero source-side translation. This is what
+makes the architecture cross-vendor without polluting either side with
+knowledge of the other.
+
+**What it is *not*.** A slot is not a source. A slot says "I accept
+records of types X, Y, or Z"; the project's binding decides which
+source(s) provide them. Slots are the abstraction that makes sources
 interchangeable per project.
 
 ---
@@ -194,13 +218,18 @@ schema:
 This shape can be emitted by `aws.iam` (transformed from the AWS IAM
 API response), by `okta` (transformed from the Okta Users API), by
 `bamboohr` (transformed from BambooHR's employees endpoint), or by a
-customer's `internal.ldap` plugin. Any policy that declares
-`type: user_record` can consume any of them.
+customer's `internal.ldap` plugin. Any policy whose slot declares
+`accepts: [user_record]` can consume any of them, alone or in
+combination.
 
 **What it is *not*.** An evidence type is not a source plugin. Source
 plugins know about specific APIs; evidence types know nothing about
-where data comes from. This separation is the substitutability axiom
-(see below).
+where data comes from. The full registry semantics — embedding,
+schema-conformance validation at collection time, append-only
+versioning, and the project-local extension path under
+`.sigcomply/evidence_types/` — live in
+[`04a-evidence-type-registry.md`](04a-evidence-type-registry.md). This
+separation is the substitutability axiom (see below).
 
 ---
 
@@ -545,18 +574,54 @@ information loss step at the boundary.
 These three statements are the load-bearing claims of the design.
 Everything else follows from them.
 
-### Axiom 1 — Evidence type is the join key, not source plugin
+### Axiom 1 — Evidence type is the join key, not the source plugin
 
-A policy declares `slots → evidence types`. A source plugin declares
-`source ID → evidence types emitted`. A project binding declares
-`policy slot → source plugin IDs`. The rule only sees evidence
-records grouped by slot; it has no API to ask "which plugin produced
-this?"
+A policy declares `slots → accepts: [evidence types]`. A source plugin
+declares `source ID → emits: [evidence types]`. A project binding
+declares `policy slot → [source plugin IDs]`. The planner matches a
+source to a slot whenever `source.Emits() ∩ slot.Accepts ≠ ∅`. The
+rule only sees evidence records grouped by slot, each tagged with its
+`Type` and `SourceID` — but rules have no API to special-case "which
+plugin produced this?", and policies have no syntax to name a source.
+
+**The canonical example: MFA enforced on admin users.** SigComply
+ships one policy: `soc2.cc6.1.admin_mfa_enforced`, declaring a single
+slot `user_directory` with `accepts: [user_record]`. AcmeCorp uses AWS
+IAM; their `.sigcomply.yaml` binds `aws.iam` to that slot. BetaCorp
+uses Okta; their config binds `okta`. GammaCorp uses both; theirs
+binds `[aws.iam, okta]`. DeltaCorp uses an internal LDAP and writes a
+project-local plugin emitting `user_record`; theirs binds
+`acme.internal_iam`. **There is one policy in the binary, four
+different bindings in four different projects, zero forks.**
 
 **Consequence.** Two customers can satisfy the same policy with
 different sources. Adding a new source plugin that emits an existing
 evidence type immediately makes that plugin usable by every policy
-already consuming that type — no policy change.
+already accepting that type — no policy change, no source-side
+normalization to a lowest-common-denominator schema. Adding a new
+evidence type to an existing slot's `accepts:` list (e.g., extending a
+storage-encryption policy from AWS-only to AWS+GCP) is one line of
+YAML.
+
+**Non-goal — and how the design enforces it.** Policies must not name
+sources by ID; sources must not know which policies consume them.
+This is structural, not stylistic:
+
+- A policy spec has no `source:` field anywhere — only `slots.*.accepts:`.
+- A source plugin's `SourcePlugin` interface has no `PolicyID` input
+  beyond a diagnostic-only tag (the `SlotRequest.PolicyID` field is
+  documented as "for logging, never for behavior branching"; the same
+  rule applies in reverse — policies never get a source ID at evaluation
+  time except as a record-level tag for diagnostics).
+- The binding lives in `.sigcomply.yaml` — the project's config, not
+  the framework's policies and not the source's manifest. The
+  evidence-type registry (see [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md))
+  is the *only* point of contact between the policy world and the
+  source world.
+
+If you ever feel the urge to add a "this policy only works with AWS"
+escape hatch, that's the signal that an evidence-type contract is
+missing. Add the type, not the special case.
 
 ### Axiom 2 — Slot cardinality is a property of the policy, not the project
 
@@ -622,7 +687,7 @@ severity: high
 description: "All admin users must have MFA enabled."
 slots:
   user_directory:
-    type: user_record
+    accepts: [user_record]
     cardinality: one-or-more
     required: true
 parameters: {}

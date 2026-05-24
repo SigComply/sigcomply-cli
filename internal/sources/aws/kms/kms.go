@@ -103,8 +103,8 @@ type keyPayload struct {
 // Collect lists KMS keys in the configured account and returns one
 // kms_key record per key.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	if req.EvidenceType != EvidenceTypeID {
-		return nil, fmt.Errorf("aws.kms: unsupported evidence type %q (only %q)", req.EvidenceType, EvidenceTypeID)
+	if !req.Accepts(EvidenceTypeID) {
+		return nil, fmt.Errorf("aws.kms: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
 	}
 	keys, err := p.listAllKeys(ctx)
 	if err != nil {

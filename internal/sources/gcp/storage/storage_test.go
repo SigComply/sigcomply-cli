@@ -57,7 +57,7 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	}}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	p := New(Options{API: fake, ProjectID: "p1", Now: func() time.Time { return now }})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID, PolicyID: "p1", SlotName: "buckets"})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}, PolicyID: "p1", SlotName: "buckets"})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 
 func TestCollect_NoBuckets(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestCollect_NoBuckets(t *testing.T) {
 func TestCollect_NilBucketsSkipped(t *testing.T) {
 	fake := &fakeAPI{buckets: []*gcs.BucketAttrs{nil, {Name: "a"}}}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -125,15 +125,15 @@ func TestCollect_NilBucketsSkipped(t *testing.T) {
 
 func TestCollect_RejectsWrongEvidenceType(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: "s3_bucket"})
-	if err == nil || !strings.Contains(err.Error(), "unsupported evidence type") {
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{"s3_bucket"}})
+	if err == nil || !strings.Contains(err.Error(), "does not include") {
 		t.Errorf("want error; got %v", err)
 	}
 }
 
 func TestCollect_ListBucketsError(t *testing.T) {
 	p := New(Options{API: &fakeAPI{err: errors.New("kaboom")}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err == nil || !strings.Contains(err.Error(), "list buckets") {
 		t.Errorf("want list buckets error; got %v", err)
 	}
@@ -142,7 +142,7 @@ func TestCollect_ListBucketsError(t *testing.T) {
 func TestCollect_DefaultNowIsUsedWhenNotInjected(t *testing.T) {
 	fake := &fakeAPI{buckets: []*gcs.BucketAttrs{{Name: "a"}}}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 	fake := &fakeAPI{buckets: []*gcs.BucketAttrs{{Name: "a"}}}
 	p := New(Options{API: fake})
 	for range 3 {
-		if _, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID}); err != nil {
+		if _, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}}); err != nil {
 			t.Fatalf("Collect: %v", err)
 		}
 	}

@@ -167,6 +167,39 @@ drift. Does **not** attempt to prevent a determined customer from
 fabricating evidence (that's fraud — out of scope for all compliance
 tools).
 
+### 4. Source-agnostic policies via evidence-type contracts
+
+Policies and source plugins never reference each other directly. The
+evidence-type registry is the **sole** mediator between the two.
+
+- **Policies declare `slots.<name>.accepts: [<type_id>, ...]`** — the
+  set of evidence type IDs the slot consumes. There is no `source:`
+  field anywhere in a policy spec.
+- **Source plugins declare `Emits() []string`** — the set of types
+  they can produce. They never know which policies (if any) consume
+  their records; `SlotRequest.PolicyID` is a diagnostic-only tag.
+- **The planner matches sources to slots by intersection:**
+  `source.Emits() ∩ slot.Accepts ≠ ∅`. An empty intersection is a
+  plan-time error (exit 3).
+- **The collector validates every emitted payload** against the
+  registered JSON Schema for `record.Type` before signing. A
+  schema-conformance failure is a configuration error
+  (>5% in one call → exit 3 for that policy), not a silent pass.
+
+**Consequence (the substitutability property).** Adding a new source
+for an existing evidence type requires **zero policy changes** —
+write the plugin, drop a config block in `.sigcomply.yaml`, done.
+Adding a new evidence type to an existing slot's `Accepts` list (e.g.
+extending a storage-encryption policy from AWS-only to AWS+GCP) is
+one line of YAML. The canonical worked example: MFA enforced on admin
+users, satisfied by AWS IAM, Okta, Azure AD, or a customer's internal
+LDAP — one policy spec, four different bindings in four different
+projects, zero forks.
+
+Full design: [`docs/architecture/04a-evidence-type-registry.md`](./docs/architecture/04a-evidence-type-registry.md)
+and [`docs/architecture/01-conceptual-model.md`](./docs/architecture/01-conceptual-model.md)
+§Axiom 1.
+
 ---
 
 ## CLI runtime architecture (summary)
@@ -393,11 +426,29 @@ through `POST /api/v1/runs`.
 - **Don't undo the aggregation boundary.** The Cloud client must never
   send resource identifiers. `internal/core/cloud.go` carries an
   explicit warning against adding a freeform metadata field. Respect it.
-- **Don't invent evidence types.** The OPA evaluator only knows
-  `automated` and `manual`. Catalog `type` values like `declaration`,
-  `checklist`, `document_upload` are descriptive hints (used by the optional
-  Evidence SPA helper to decide whether to render a clickable form) — the
-  CLI ignores them.
+- **Don't put source IDs inside policy code.** Policies declare
+  `slots.<name>.accepts: [...]`; they never name a plugin. A rule that
+  branches on `record.SourceID` to behave differently per plugin is a
+  code smell — it ties the policy to a specific source ID and breaks
+  Invariant #4. Legitimate per-vendor branching uses `record.Type`,
+  which the evidence-type registry guarantees.
+- **Don't put policy IDs inside source plugins.** A plugin's `Collect`
+  receives `SlotRequest.PolicyID` for diagnostics only; using it for
+  behavior branching breaks Invariant #4. Plugins emit records of
+  their declared types and stop there; what consumes them is not their
+  concern.
+- **The evidence-type registry is the sole coupling point.** If you
+  ever feel the urge to add a "this policy only works with AWS" or
+  "this plugin behaves differently for SOC 2" escape hatch, that's the
+  signal an evidence-type contract is missing. Add the type (see
+  [`docs/architecture/04a-evidence-type-registry.md`](./docs/architecture/04a-evidence-type-registry.md))
+  or extend an existing slot's `accepts:` list — not the special case.
+- **Don't invent evidence sub-types in the evaluator.** The OPA
+  evaluator only knows `automated` and `manual` as the *flow* dimension.
+  Catalog `type` values like `declaration`, `checklist`,
+  `document_upload` are descriptive hints (used by the optional
+  Evidence SPA helper to decide whether to render a clickable form) —
+  the CLI ignores them.
 - **Don't sign hashes.** Signing covers canonical JSON of
   `{timestamp, evidence}`. SHA-256 is used only to identify the manual
   PDF inside the manifest, not as the signing input.

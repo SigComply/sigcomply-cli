@@ -17,7 +17,8 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/orchestrator"
 	"github.com/sigcomply/sigcomply-cli/internal/planner"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
-	"github.com/sigcomply/sigcomply-cli/internal/sources/aws/iam"
+	"github.com/sigcomply/sigcomply-cli/internal/sources"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/builtin" // side-effect: registers every in-tree source factory
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 	"github.com/sigcomply/sigcomply-cli/internal/submitter"
@@ -134,109 +135,52 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 	return nil
 }
 
-// registerProductionSources binds the in-tree plugins declared by
-// cfg.Sources to the registry. M6 supports aws.iam (real AWS) and
-// manual.pdf (backed by the local filesystem under a configured
-// directory). Wider plugin support is the post-M6 plugin-set work.
+// registerProductionSources iterates cfg.Sources and dispatches each
+// entry through the process-global sources.RegisterFactory registry
+// (populated by package init() of every in-tree plugin and any
+// project-local plugin compiled in via `sigcomply build`). The check
+// command has no per-source knowledge — adding a new source is a
+// matter of dropping a package under internal/sources/<id>/ (or
+// .sigcomply/plugins/<id>/) with an init() that calls
+// sources.RegisterFactory.
+//
+// See docs/architecture/04-source-plugins.md §The factory contract.
 func registerProductionSources(ctx context.Context, registries *registry.Set, cfg *spec.ProjectConfig, catalog map[string]manual.CatalogEntry) error {
+	extras := map[string]any{
+		manual.FrameworkCatalogKey: catalog,
+	}
 	for id, raw := range cfg.Sources {
-		switch id {
-		case iam.SourceID:
-			region := stringOpt(raw, "region")
-			if region == "" {
-				region = cfg.Vault.Region
-			}
-			plugin, err := iam.NewFromAWS(ctx, region)
-			if err != nil {
-				return fmt.Errorf("aws.iam: %w", err)
-			}
-			if err := registries.Sources.Register(plugin); err != nil {
-				return fmt.Errorf("register aws.iam: %w", err)
-			}
-		case manual.SourceID:
-			reader, scheme, bucket, prefix, err := buildManualReader(raw)
-			if err != nil {
-				return fmt.Errorf("manual.pdf: %w", err)
-			}
-			plugin := manual.New(manual.Options{
-				Reader:  reader,
-				Bucket:  bucket,
-				Prefix:  prefix,
-				Scheme:  scheme,
-				Catalog: catalog,
-			})
-			if err := registries.Sources.Register(plugin); err != nil {
-				return fmt.Errorf("register manual.pdf: %w", err)
-			}
-		default:
-			return fmt.Errorf("source %q is not supported in v1-alpha (see post-M6 plugin-set work)", id)
+		env := sources.Env{
+			Config:          withRegionDefault(raw, cfg.Vault.Region),
+			FrameworkExtras: extras,
+		}
+		plugin, err := sources.Build(ctx, id, env)
+		if err != nil {
+			return fmt.Errorf("source %q: %w", id, err)
+		}
+		if err := registries.Sources.Register(plugin); err != nil {
+			return fmt.Errorf("register source %q: %w", id, err)
 		}
 	}
 	return nil
 }
 
-// stringOpt reads a string-valued entry from a YAML-unmarshaled map,
-// returning "" when missing or the wrong type. The map values come
-// from spec.ProjectConfig.Sources which is map[string]any by design.
-func stringOpt(m map[string]any, key string) string {
-	if v, ok := m[key].(string); ok {
-		return v
+// withRegionDefault preserves the legacy convenience that AWS source
+// plugins fall back to the vault's region when their own config omits
+// it. Other sources ignore the region key.
+func withRegionDefault(raw map[string]any, vaultRegion string) map[string]any {
+	if vaultRegion == "" {
+		return raw
 	}
-	return ""
-}
-
-// buildManualReader constructs the Reader backing the manual.pdf
-// plugin. M6 ships only a local-filesystem reader; cloud-backed
-// readers (S3 / GCS / Azure Blob) are part of the post-M6 plugin
-// work, since the manual.pdf reader is a separate concern from the
-// general-purpose vault backends.
-func buildManualReader(raw map[string]any) (reader manual.Reader, scheme, bucket, prefix string, err error) {
-	backend := stringOpt(raw, "backend")
-	if backend == "" {
-		backend = "local"
+	if _, hasRegion := raw["region"]; hasRegion {
+		return raw
 	}
-	switch backend {
-	case "local":
-		root := stringOpt(raw, "path")
-		if root == "" {
-			return nil, "", "", "", fmt.Errorf("manual.pdf.local: path required")
-		}
-		bucket = stringOpt(raw, "bucket")
-		if bucket == "" {
-			bucket = root
-		}
-		prefix = stringOpt(raw, "prefix")
-		if prefix == "" {
-			prefix = "manual/"
-		}
-		return &localManualReader{root: root}, "file", bucket, prefix, nil
-	default:
-		// Cloud-backed manual.pdf readers are part of the post-M6
-		// plugin-set work (see docs/architecture/09-implementation-
-		// roadmap.md §Post-M6 work plan).
-		return nil, "", "", "", fmt.Errorf("manual.pdf backend %q not supported in v1-alpha (use \"local\")", backend)
+	out := make(map[string]any, len(raw)+1)
+	for k, v := range raw {
+		out[k] = v
 	}
-}
-
-// localManualReader satisfies manual.Reader against a local directory.
-type localManualReader struct {
-	root string
-}
-
-func (r *localManualReader) Get(_ context.Context, uri string) ([]byte, time.Time, error) {
-	full := strings.TrimRight(r.root, "/") + "/" + uri
-	info, err := os.Stat(full)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, time.Time{}, manual.ErrNotFound
-		}
-		return nil, time.Time{}, err
-	}
-	data, err := os.ReadFile(full)
-	if err != nil {
-		return nil, time.Time{}, err
-	}
-	return data, info.ModTime().UTC(), nil
+	out["region"] = vaultRegion
+	return out
 }
 
 func detectBranch() string {

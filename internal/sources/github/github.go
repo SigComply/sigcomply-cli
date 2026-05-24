@@ -147,20 +147,34 @@ type memberPayload struct {
 	Role         string `json:"role"`
 }
 
-// Collect dispatches by req.EvidenceType — a plugin emits multiple
-// evidence types and returns records of the type the SlotRequest asks
-// for. Records are sorted by ID before return so envelope bytes are
-// stable across runs against stable org state.
+// Collect returns records for every evidence type in req.AcceptedTypes
+// that this plugin emits. A slot whose Accepts list includes both
+// github types gets records for both in a single call. Records are
+// sorted by ID within each type group; the collector splits them by
+// Type for envelope writing.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	switch req.EvidenceType {
-	case EvidenceTypeRepository:
-		return p.collectRepos(ctx)
-	case EvidenceTypeOrgMember:
-		return p.collectMembers(ctx)
-	default:
-		return nil, fmt.Errorf("github: unsupported evidence type %q (only %q, %q)",
-			req.EvidenceType, EvidenceTypeRepository, EvidenceTypeOrgMember)
+	wantRepos := req.Accepts(EvidenceTypeRepository)
+	wantMembers := req.Accepts(EvidenceTypeOrgMember)
+	if !wantRepos && !wantMembers {
+		return nil, fmt.Errorf("github: AcceptedTypes %v does not include emitted types %q,%q",
+			req.AcceptedTypes, EvidenceTypeRepository, EvidenceTypeOrgMember)
 	}
+	var out []core.EvidenceRecord
+	if wantRepos {
+		rs, err := p.collectRepos(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rs...)
+	}
+	if wantMembers {
+		rs, err := p.collectMembers(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rs...)
+	}
+	return out, nil
 }
 
 func (p *Plugin) collectRepos(ctx context.Context) ([]core.EvidenceRecord, error) {

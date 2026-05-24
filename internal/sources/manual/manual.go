@@ -115,8 +115,8 @@ func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 // record in an envelope; the PDF mirroring is handled by L4 alongside
 // the envelope write.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	if req.EvidenceType != EvidenceTypeID {
-		return nil, fmt.Errorf("manual.pdf: unsupported evidence type %q (only %q)", req.EvidenceType, EvidenceTypeID)
+	if !req.Accepts(EvidenceTypeID) {
+		return nil, fmt.Errorf("manual.pdf: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
 	}
 	catalogID := stringParam(req.Params, "catalog_id")
 	if catalogID == "" {

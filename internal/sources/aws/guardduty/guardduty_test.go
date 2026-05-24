@@ -111,7 +111,7 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	p := New(Options{API: fake, Now: func() time.Time { return now }})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID, PolicyID: "p1", SlotName: "detectors"})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}, PolicyID: "p1", SlotName: "detectors"})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestCollect_PaginationFetchesAllPages(t *testing.T) {
 		},
 	}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestCollect_PaginationFetchesAllPages(t *testing.T) {
 
 func TestCollect_NoDetectors(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -183,15 +183,15 @@ func TestCollect_NoDetectors(t *testing.T) {
 
 func TestCollect_RejectsWrongEvidenceType(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: "s3_bucket"})
-	if err == nil || !strings.Contains(err.Error(), "unsupported evidence type") {
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{"s3_bucket"}})
+	if err == nil || !strings.Contains(err.Error(), "does not include") {
 		t.Errorf("want error; got %v", err)
 	}
 }
 
 func TestCollect_ListError(t *testing.T) {
 	p := New(Options{API: &fakeAPI{listErr: errors.New("kaboom")}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err == nil || !strings.Contains(err.Error(), "list detectors") {
 		t.Errorf("want list detectors error; got %v", err)
 	}
@@ -199,7 +199,7 @@ func TestCollect_ListError(t *testing.T) {
 
 func TestCollect_GetError(t *testing.T) {
 	p := New(Options{API: &fakeAPI{listPages: [][]string{{"d1"}}, getErr: errors.New("forbidden")}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err == nil || !strings.Contains(err.Error(), "get detector d1") {
 		t.Errorf("want get detector error; got %v", err)
 	}
@@ -211,7 +211,7 @@ func TestCollect_DefaultNowIsUsedWhenNotInjected(t *testing.T) {
 		detectors: map[string]*gd.GetDetectorOutput{"d1": {Status: gdtypes.DetectorStatusEnabled}},
 	}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestCollect_KISSNoDRY_EachCallReListsDetectors(t *testing.T) {
 	}
 	p := New(Options{API: fake})
 	for range 3 {
-		if _, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID}); err != nil {
+		if _, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}}); err != nil {
 			t.Fatalf("Collect: %v", err)
 		}
 	}

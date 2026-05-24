@@ -61,7 +61,7 @@ func setUp(t *testing.T) *registry.Set {
 		RuleRef:     "rules.mfa_enforced.v1",
 		Slots: map[string]core.Slot{
 			"user_directory": {
-				Type:        "user_record",
+				Accepts:     []string{"user_record"},
 				Cardinality: core.SlotOneOrMore,
 				Required:    true,
 			},
@@ -179,8 +179,8 @@ func TestPlan_RejectsSourceWrongEvidenceType(t *testing.T) {
 	_, err := planner.Plan(&planner.Input{
 		Config: cfg, Registries: set, CommitTime: time.Now(), Now: time.Now(),
 	})
-	if err == nil || !strings.Contains(err.Error(), "does not emit") {
-		t.Errorf("expected evidence-type mismatch error; got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "none of which is in slot Accepts") {
+		t.Errorf("expected slot/source evidence-type mismatch error; got %v", err)
 	}
 }
 

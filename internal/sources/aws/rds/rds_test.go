@@ -58,7 +58,7 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	}
 	now := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
 	p := New(Options{API: fake, Now: func() time.Time { return now }})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -100,15 +100,15 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 
 func TestCollect_RejectsWrongEvidenceType(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: "user_record"})
-	if err == nil || !strings.Contains(err.Error(), "unsupported evidence type") {
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{"user_record"}})
+	if err == nil || !strings.Contains(err.Error(), "does not include") {
 		t.Errorf("want error; got %v", err)
 	}
 }
 
 func TestCollect_DescribeError(t *testing.T) {
 	p := New(Options{API: &fakeAPI{err: errors.New("kaboom")}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err == nil || !strings.Contains(err.Error(), "describe db instances") {
 		t.Errorf("want describe error; got %v", err)
 	}
@@ -117,7 +117,7 @@ func TestCollect_DescribeError(t *testing.T) {
 func TestCollect_DefaultNowIsUsed(t *testing.T) {
 	fake := &fakeAPI{instances: []rdstypes.DBInstance{{DBInstanceIdentifier: ptr("a")}}}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestCollect_SkipsInstanceWithEmptyID(t *testing.T) {
 		{DBInstanceIdentifier: ptr("ok")},
 	}}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 	fake := &fakeAPI{instances: []rdstypes.DBInstance{{DBInstanceIdentifier: ptr("a")}}}
 	p := New(Options{API: fake})
 	for range 3 {
-		if _, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID}); err != nil {
+		if _, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}}); err != nil {
 			t.Fatalf("Collect: %v", err)
 		}
 	}

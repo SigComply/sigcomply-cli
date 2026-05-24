@@ -35,6 +35,9 @@ func resolveBindings(policy *core.Policy, projectBindings map[string][]spec.Bind
 }
 
 func resolveSlot(policyID, slotName string, slot *core.Slot, entries []spec.BindingEntry, sources *registry.Registry[core.SourcePlugin]) ([]Binding, error) {
+	if len(slot.Accepts) == 0 {
+		return nil, fmt.Errorf("planner: policy %q slot %q: slot.Accepts is empty (must list at least one evidence type)", policyID, slotName)
+	}
 	bindings := make([]Binding, 0, len(entries))
 	for i, e := range entries {
 		sourceID, catalogID := parseBindingSource(e.Source)
@@ -42,13 +45,16 @@ func resolveSlot(policyID, slotName string, slot *core.Slot, entries []spec.Bind
 		if !ok {
 			return nil, fmt.Errorf("planner: policy %q slot %q binding[%d]: unknown source %q", policyID, slotName, i, sourceID)
 		}
-		if !sourceEmitsType(plugin, slot.Type) {
-			return nil, fmt.Errorf("planner: policy %q slot %q binding[%d]: source %q does not emit evidence type %q (emits %v)", policyID, slotName, i, sourceID, slot.Type, plugin.Emits())
+		accepted := intersect(slot.Accepts, plugin.Emits())
+		if len(accepted) == 0 {
+			return nil, fmt.Errorf("planner: policy %q slot %q binding[%d]: source %q emits %v, none of which is in slot Accepts %v",
+				policyID, slotName, i, sourceID, plugin.Emits(), slot.Accepts)
 		}
 		bindings = append(bindings, Binding{
-			SourceID:   sourceID,
-			CatalogID:  catalogID,
-			SlotParams: e.SlotParams,
+			SourceID:      sourceID,
+			AcceptedTypes: accepted,
+			CatalogID:     catalogID,
+			SlotParams:    e.SlotParams,
 		})
 	}
 	if err := enforceCardinality(policyID, slotName, slot, len(bindings)); err != nil {
@@ -64,13 +70,23 @@ func parseBindingSource(s string) (sourceID, catalogID string) {
 	return s, ""
 }
 
-func sourceEmitsType(plugin core.SourcePlugin, evidenceType string) bool {
-	for _, e := range plugin.Emits() {
-		if e == evidenceType {
-			return true
+// intersect returns the elements of accepts that also appear in emits,
+// preserving accepts-order. Order is the policy author's priority
+// statement: when a plugin emits multiple matching types, the slot's
+// declared order is what callers (e.g. envelope-grouping in the
+// collector) honor.
+func intersect(accepts, emits []string) []string {
+	emitSet := make(map[string]struct{}, len(emits))
+	for _, e := range emits {
+		emitSet[e] = struct{}{}
+	}
+	out := make([]string, 0, len(accepts))
+	for _, a := range accepts {
+		if _, ok := emitSet[a]; ok {
+			out = append(out, a)
 		}
 	}
-	return false
+	return out
 }
 
 func enforceCardinality(policyID, slotName string, slot *core.Slot, n int) error {

@@ -21,8 +21,22 @@ type Policy struct {
 
 // Slot is a named typed input on a policy — the interface between the
 // policy and the source plugins that fulfill it.
+//
+// Accepts lists every evidence type that satisfies this slot. The
+// planner binds a source to the slot when source.Emits() shares at
+// least one type with Accepts; multiple bindings can target the same
+// slot (subject to Cardinality) and may emit different types from the
+// Accepts list. Rules receive evidence grouped by slot name and may
+// switch on record.Type when behavior differs per type.
+//
+// A slot listing more than one type is how cross-cloud /
+// cross-source substitutability is expressed: an "object storage
+// encrypted at rest" policy lists {s3_bucket, gcs_bucket,
+// azure_blob_container} and is satisfied by any source that emits
+// any of them — no policy fork, no source-side LCD payload, no
+// normalization step. See docs/architecture/03-policy-spec.md §Slots.
 type Slot struct {
-	Type        string
+	Accepts     []string
 	Cardinality SlotCardinality
 	Required    bool
 	Description string

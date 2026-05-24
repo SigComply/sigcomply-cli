@@ -109,8 +109,8 @@ type bucketPayload struct {
 // so envelope bytes are stable across runs against stable account
 // state.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	if req.EvidenceType != EvidenceTypeID {
-		return nil, fmt.Errorf("aws.s3: unsupported evidence type %q (only %q)", req.EvidenceType, EvidenceTypeID)
+	if !req.Accepts(EvidenceTypeID) {
+		return nil, fmt.Errorf("aws.s3: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
 	}
 	out, err := p.api.ListBuckets(ctx, &awss3.ListBucketsInput{})
 	if err != nil {

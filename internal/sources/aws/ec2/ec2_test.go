@@ -63,7 +63,7 @@ func TestCollect_HappyPath_FlattensReservationsAndSorts(t *testing.T) {
 	}
 	now := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
 	p := New(Options{API: fake, Now: func() time.Time { return now }})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -102,15 +102,15 @@ func TestCollect_HappyPath_FlattensReservationsAndSorts(t *testing.T) {
 
 func TestCollect_RejectsWrongEvidenceType(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: "kms_key"})
-	if err == nil || !strings.Contains(err.Error(), "unsupported evidence type") {
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{"kms_key"}})
+	if err == nil || !strings.Contains(err.Error(), "does not include") {
 		t.Errorf("want error; got %v", err)
 	}
 }
 
 func TestCollect_DescribeError(t *testing.T) {
 	p := New(Options{API: &fakeAPI{err: errors.New("kaboom")}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err == nil || !strings.Contains(err.Error(), "describe instances") {
 		t.Errorf("want describe error; got %v", err)
 	}
@@ -119,7 +119,7 @@ func TestCollect_DescribeError(t *testing.T) {
 func TestCollect_DefaultNowIsUsed(t *testing.T) {
 	fake := &fakeAPI{reservations: []ec2types.Reservation{{Instances: []ec2types.Instance{{InstanceId: ptr("i-1")}}}}}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestCollect_SkipsInstanceWithEmptyID(t *testing.T) {
 		{InstanceId: ptr("i-ok")},
 	}}}}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 	fake := &fakeAPI{reservations: []ec2types.Reservation{{Instances: []ec2types.Instance{{InstanceId: ptr("i-1")}}}}}
 	p := New(Options{API: fake})
 	for range 3 {
-		if _, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID}); err != nil {
+		if _, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}}); err != nil {
 			t.Fatalf("Collect: %v", err)
 		}
 	}

@@ -95,7 +95,7 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	p := New(Options{API: fake, Now: func() time.Time { return now }})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID, PolicyID: "p1", SlotName: "trails"})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}, PolicyID: "p1", SlotName: "trails"})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 
 func TestCollect_NoTrails(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -144,15 +144,15 @@ func TestCollect_NoTrails(t *testing.T) {
 
 func TestCollect_RejectsWrongEvidenceType(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: "s3_bucket"})
-	if err == nil || !strings.Contains(err.Error(), "unsupported evidence type") {
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{"s3_bucket"}})
+	if err == nil || !strings.Contains(err.Error(), "does not include") {
 		t.Errorf("want error; got %v", err)
 	}
 }
 
 func TestCollect_DescribeError(t *testing.T) {
 	p := New(Options{API: &fakeAPI{err: errors.New("kaboom")}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err == nil || !strings.Contains(err.Error(), "describe trails") {
 		t.Errorf("want describe trails error; got %v", err)
 	}
@@ -161,7 +161,7 @@ func TestCollect_DescribeError(t *testing.T) {
 func TestCollect_DefaultNowIsUsedWhenNotInjected(t *testing.T) {
 	fake := &fakeAPI{trails: []cttypes.Trail{{Name: ptr("t1"), TrailARN: ptr("arn:1")}}}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -173,7 +173,7 @@ func TestCollect_DefaultNowIsUsedWhenNotInjected(t *testing.T) {
 func TestCollect_StatusErrorIsReturned(t *testing.T) {
 	fake := &statusErrAPI{trails: []cttypes.Trail{{Name: ptr("t1"), TrailARN: ptr("arn:1")}}}
 	p := New(Options{API: fake})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err == nil || !strings.Contains(err.Error(), "status for trail t1") {
 		t.Errorf("want status error; got %v", err)
 	}
@@ -185,7 +185,7 @@ func TestCollect_TrailWithoutARNFallsBackToName(t *testing.T) {
 		loggingByName: map[string]bool{"only-name": true},
 	}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -249,7 +249,7 @@ func TestCollect_KISSNoDRY_EachCallReListsTrails(t *testing.T) {
 	}
 	p := New(Options{API: fake})
 	for range 3 {
-		if _, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID}); err != nil {
+		if _, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}}); err != nil {
 			t.Fatalf("Collect: %v", err)
 		}
 	}

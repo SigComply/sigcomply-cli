@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/signed_document/v1.json",
+  "title": "signed_document",
+  "version": 1,
+  "description": "Manifest emitted by the manual.pdf plugin for a PDF the customer placed at the catalog-resolved path. The PDF itself sidecars the envelope; this record carries only metadata.",
+  "type": "object",
+  "required": ["evidence_id", "file_present", "expected_uri"],
+  "properties": {
+    "evidence_id":         { "type": "string", "description": "Catalog entry ID (e.g. access_review_quarterly)." },
+    "file_present":        { "type": "boolean" },
+    "file_hash":           { "type": "string", "description": "SHA-256 hex of the PDF bytes when present." },
+    "uploaded_at":         { "type": "string", "format": "date-time" },
+    "expected_uri":        { "type": "string", "description": "Resolved {scheme}://{bucket}/{prefix}/{evidence_id}/{period}/{filename}." },
+    "period_id":           { "type": "string" },
+    "in_temporal_window":  { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

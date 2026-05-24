@@ -57,9 +57,9 @@ func TestCollect_PresentInWindow(t *testing.T) {
 		},
 	})
 	req := core.SlotRequest{
-		PolicyID:     "soc2.cc6.3.access_review",
-		EvidenceType: EvidenceTypeID,
-		SlotName:     "review_document",
+		PolicyID:      "soc2.cc6.3.access_review",
+		AcceptedTypes: []string{EvidenceTypeID},
+		SlotName:      "review_document",
 		Params: map[string]any{
 			"catalog_id":   "access_review_quarterly",
 			"period_id":    "2026-Q1",
@@ -96,9 +96,9 @@ func TestCollect_PresentInWindow(t *testing.T) {
 func TestCollect_Missing(t *testing.T) {
 	p := newTestPlugin(map[string]InMemoryFile{})
 	req := core.SlotRequest{
-		PolicyID:     "soc2.cc6.3.access_review",
-		EvidenceType: EvidenceTypeID,
-		SlotName:     "review_document",
+		PolicyID:      "soc2.cc6.3.access_review",
+		AcceptedTypes: []string{EvidenceTypeID},
+		SlotName:      "review_document",
 		Params: map[string]any{
 			"catalog_id":   "access_review_quarterly",
 			"period_id":    "2026-Q1",
@@ -134,9 +134,9 @@ func TestCollect_PresentOutsideWindow(t *testing.T) {
 		},
 	})
 	req := core.SlotRequest{
-		PolicyID:     "soc2.cc6.3.access_review",
-		EvidenceType: EvidenceTypeID,
-		SlotName:     "review_document",
+		PolicyID:      "soc2.cc6.3.access_review",
+		AcceptedTypes: []string{EvidenceTypeID},
+		SlotName:      "review_document",
 		Params: map[string]any{
 			"catalog_id":   "access_review_quarterly",
 			"period_id":    "2026-Q1",
@@ -162,8 +162,8 @@ func TestCollect_PresentOutsideWindow(t *testing.T) {
 
 func TestCollect_RejectsBadEvidenceType(t *testing.T) {
 	p := newTestPlugin(nil)
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: "user_record"})
-	if err == nil || !strings.Contains(err.Error(), "unsupported evidence type") {
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{"user_record"}})
+	if err == nil || !strings.Contains(err.Error(), "does not include") {
 		t.Errorf("want error; got %v", err)
 	}
 }
@@ -171,8 +171,8 @@ func TestCollect_RejectsBadEvidenceType(t *testing.T) {
 func TestCollect_MissingCatalogID(t *testing.T) {
 	p := newTestPlugin(nil)
 	_, err := p.Collect(context.Background(), core.SlotRequest{
-		EvidenceType: EvidenceTypeID,
-		Params:       map[string]any{"period_id": "2026-Q1"},
+		AcceptedTypes: []string{EvidenceTypeID},
+		Params:        map[string]any{"period_id": "2026-Q1"},
 	})
 	if err == nil || !strings.Contains(err.Error(), "catalog_id missing") {
 		t.Errorf("want catalog_id missing error; got %v", err)
@@ -182,7 +182,7 @@ func TestCollect_MissingCatalogID(t *testing.T) {
 func TestCollect_UnknownCatalogEntry(t *testing.T) {
 	p := newTestPlugin(nil)
 	_, err := p.Collect(context.Background(), core.SlotRequest{
-		EvidenceType: EvidenceTypeID,
+		AcceptedTypes: []string{EvidenceTypeID},
 		Params: map[string]any{
 			"catalog_id": "does_not_exist",
 			"period_id":  "2026-Q1",
@@ -196,8 +196,8 @@ func TestCollect_UnknownCatalogEntry(t *testing.T) {
 func TestCollect_MissingPeriodID(t *testing.T) {
 	p := newTestPlugin(nil)
 	_, err := p.Collect(context.Background(), core.SlotRequest{
-		EvidenceType: EvidenceTypeID,
-		Params:       map[string]any{"catalog_id": "access_review_quarterly"},
+		AcceptedTypes: []string{EvidenceTypeID},
+		Params:        map[string]any{"catalog_id": "access_review_quarterly"},
 	})
 	if err == nil || !strings.Contains(err.Error(), "period_id missing") {
 		t.Errorf("want period_id missing error; got %v", err)

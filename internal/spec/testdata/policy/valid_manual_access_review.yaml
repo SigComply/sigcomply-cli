@@ -14,7 +14,7 @@ description: |
 
 slots:
   access_review_document:
-    type: signed_document
+    accepts: [signed_document]
     cardinality: exactly-one
     required: true
 

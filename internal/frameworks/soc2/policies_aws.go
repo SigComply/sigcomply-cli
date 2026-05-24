@@ -58,7 +58,7 @@ func awsPolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"buckets": {Type: "s3_bucket", Cardinality: core.SlotExactlyOne, Required: true, Description: "S3 buckets in the configured account"},
+				"buckets": {Accepts: []string{"s3_bucket"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "S3 buckets in the configured account"},
 			},
 			RuleRef: ruleIDS3BucketEncrypted,
 		},
@@ -72,7 +72,7 @@ func awsPolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"keys": {Type: "kms_key", Cardinality: core.SlotExactlyOne, Required: true, Description: "KMS keys in the configured region"},
+				"keys": {Accepts: []string{"kms_key"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "KMS keys in the configured region"},
 			},
 			RuleRef: ruleIDKMSKeyRotation,
 		},
@@ -86,7 +86,7 @@ func awsPolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"db_instances": {Type: "rds_instance", Cardinality: core.SlotExactlyOne, Required: true, Description: "RDS DB instances"},
+				"db_instances": {Accepts: []string{"rds_instance"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "RDS DB instances"},
 			},
 			RuleRef: ruleIDRDSEncryptionAtRest,
 		},
@@ -100,7 +100,7 @@ func awsPolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"instances": {Type: "ec2_instance", Cardinality: core.SlotExactlyOne, Required: true, Description: "EC2 instances"},
+				"instances": {Accepts: []string{"ec2_instance"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "EC2 instances"},
 			},
 			RuleRef: ruleIDEC2NoPublicIP,
 		},
@@ -114,7 +114,7 @@ func awsPolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"clusters": {Type: "eks_cluster", Cardinality: core.SlotExactlyOne, Required: true, Description: "EKS clusters"},
+				"clusters": {Accepts: []string{"eks_cluster"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "EKS clusters"},
 			},
 			RuleRef: ruleIDEKSSecretsEncryption,
 		},

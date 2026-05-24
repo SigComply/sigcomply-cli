@@ -87,12 +87,12 @@ func TestCollect_NilInputErrors(t *testing.T) {
 func makePolicy(id, slot, evType string, sourceIDs ...string) planner.PlannedPolicy { //nolint:unparam // slot is fixed by callers today but kept for symmetry with the planner.PlannedPolicy shape
 	bindings := make([]planner.Binding, 0, len(sourceIDs))
 	for _, s := range sourceIDs {
-		bindings = append(bindings, planner.Binding{SourceID: s})
+		bindings = append(bindings, planner.Binding{SourceID: s, AcceptedTypes: []string{evType}})
 	}
 	return planner.PlannedPolicy{
 		Spec: core.Policy{
 			ID:    id,
-			Slots: map[string]core.Slot{slot: {Type: evType, Cardinality: core.SlotOneOrMore, Required: true}},
+			Slots: map[string]core.Slot{slot: {Accepts: []string{evType}, Cardinality: core.SlotOneOrMore, Required: true}},
 		},
 		Bindings: map[string][]planner.Binding{slot: bindings},
 	}
@@ -243,11 +243,11 @@ func TestCollect_PassesSlotParamsAndExtras(t *testing.T) {
 		Spec: core.Policy{
 			ID: "p1",
 			Slots: map[string]core.Slot{
-				"doc": {Type: "signed_document", Cardinality: core.SlotExactlyOne, Required: true},
+				"doc": {Accepts: []string{"signed_document"}, Cardinality: core.SlotExactlyOne, Required: true},
 			},
 		},
 		Bindings: map[string][]planner.Binding{
-			"doc": {{SourceID: "manual.pdf", CatalogID: "access_review_quarterly", SlotParams: map[string]any{"custom": 42}}},
+			"doc": {{SourceID: "manual.pdf", AcceptedTypes: []string{"signed_document"}, CatalogID: "access_review_quarterly", SlotParams: map[string]any{"custom": 42}}},
 		},
 	}
 	_, err := Collect(context.Background(), &Input{
@@ -270,8 +270,8 @@ func TestCollect_PassesSlotParamsAndExtras(t *testing.T) {
 	if got["custom"] != 42 {
 		t.Errorf("custom slot param dropped: %v", got)
 	}
-	if src.lastReq.EvidenceType != "signed_document" {
-		t.Errorf("EvidenceType = %q", src.lastReq.EvidenceType)
+	if !src.lastReq.Accepts("signed_document") {
+		t.Errorf("AcceptedTypes = %v; want to include signed_document", src.lastReq.AcceptedTypes)
 	}
 }
 

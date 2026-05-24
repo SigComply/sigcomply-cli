@@ -40,9 +40,11 @@ type SlotRequest struct {
     // diagnostics, never for behavior branching.
     PolicyID string
 
-    // EvidenceType is the slot's declared type. The plugin must return
-    // records of this type, validated against its schema.
-    EvidenceType string
+    // AcceptedTypes is the slot's declared evidence-type set
+    // (slot.Accepts). The plugin must return records whose Type is
+    // in this set; the collector validates payloads against the
+    // schemas registered for those types.
+    AcceptedTypes []string
 
     // SlotName is the slot's name on the policy.
     SlotName string
@@ -70,13 +72,112 @@ single run for efficiency — but it must remain correct without them.)
 
 ---
 
+## The factory contract
+
+Every source plugin package self-registers a **factory** with the
+process-global `SourceRegistry` via an `init()` function. There is no
+hardcoded switch on source ID anywhere in the orchestrator; the check
+command iterates `cfg.Sources` and dispatches generically through the
+registry.
+
+```go
+// internal/sources/aws/iam/factory.go
+package iam
+
+import (
+    "context"
+
+    "github.com/sigcomply/sigcomply-cli/internal/core"
+    "github.com/sigcomply/sigcomply-cli/internal/sources"
+)
+
+const SourceID = "aws.iam"
+
+// factory builds a configured aws.iam plugin instance from the
+// project config's `sources.aws.iam:` block.
+func factory(ctx context.Context, cfg map[string]any) (core.SourcePlugin, error) {
+    region, _ := cfg["region"].(string)
+    profile, _ := cfg["profile"].(string)
+    roleARN, _ := cfg["role_arn"].(string)
+    return New(ctx, Options{
+        Region:  region,
+        Profile: profile,
+        RoleARN: roleARN,
+    })
+}
+
+func init() {
+    sources.RegisterFactory(SourceID, factory)
+}
+```
+
+The factory signature is fixed:
+
+```go
+type Factory func(ctx context.Context, cfg map[string]any) (core.SourcePlugin, error)
+
+// In the sources package:
+func RegisterFactory(id string, f Factory)
+```
+
+`cfg` is the YAML-unmarshalled map under `sources.<id>:` in
+`.sigcomply.yaml`. The factory is responsible for translating the
+generic map into the plugin's typed options. If config is missing
+required fields or has invalid values, the factory returns an error
+and the orchestrator exits with code 3.
+
+**Why factories rather than constructors.** A factory takes the
+generic `map[string]any` from project config and produces a configured
+plugin instance. This is the only way to keep the orchestrator
+generic: the orchestrator never imports `iam.New`, never knows that
+`aws.iam` needs a region. It just calls `sources.NewByID(ctx,
+"aws.iam", cfg)`, which delegates to the registered factory.
+
+**Bootstrap-time registration.** The orchestrator imports each in-tree
+source package purely for its side effect of calling
+`sources.RegisterFactory` from `init()`. A typical bootstrap import
+block:
+
+```go
+// internal/orchestrator/registrations.go
+package orchestrator
+
+import (
+    // Each blank-import causes the package's init() to run, which
+    // registers the source's factory with the global registry.
+    _ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/iam"
+    _ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/s3"
+    _ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/cloudtrail"
+    _ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/iam"
+    _ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/storage"
+    _ "github.com/sigcomply/sigcomply-cli/internal/sources/github"
+    _ "github.com/sigcomply/sigcomply-cli/internal/sources/okta"
+    _ "github.com/sigcomply/sigcomply-cli/internal/sources/manual"
+    // …project-local plugins compiled in via `sigcomply build` are
+    // appended here by the generated wrapper.
+)
+```
+
+Adding a new in-tree source is a two-line change: write the package,
+add a blank-import line. There is no central case statement to keep in
+sync. Adding a project-local plugin is the same pattern, applied
+through `sigcomply build` (M16).
+
+**No runtime plugin loading.** Go's `plugin` package is fragile across
+versions and Linux-only; we don't use it. Every source — in-tree or
+third-party — is compiled in. `sigcomply build` is the build wrapper
+that includes project-local plugins; see
+[`07-extensibility.md`](07-extensibility.md).
+
+---
+
 ## Plugin manifest
 
 Each plugin ships with a manifest declaring its identity, the
 evidence types it emits, and its configuration schema:
 
 ```yaml
-# internal/plugins/aws.iam/plugin.yaml (in-tree)
+# internal/sources/aws/iam/plugin.yaml (in-tree)
 schema_version: plugin.v1
 id: aws.iam
 display_name: "AWS IAM"
@@ -112,80 +213,40 @@ manifest fails validation aborts CLI startup with exit 3.
 
 ---
 
-## Evidence types — first-class, registered separately
+## Evidence types — registered separately, validated by the collector
 
-Evidence types live alongside plugins under
-`internal/evidence_types/<id>/schema.json` (in-tree). Each is a JSON
-Schema document:
+A plugin declares the set of evidence types it emits via `Emits()` and
+in its manifest. A policy declares the types it accepts on each slot
+(`accepts: [...]`). The `EvidenceTypeRegistry` mediates: every type ID
+named on either side must be a registered schema, and the collector
+validates every record's payload against the registered schema before
+signing.
 
-```json
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.sigcomply.io/evidence_types/user_record/v1.json",
-  "title": "user_record",
-  "version": 1,
-  "type": "object",
-  "required": ["id", "mfa_enabled"],
-  "properties": {
-    "id":                 { "type": "string", "description": "Stable ID within the source." },
-    "email":              { "type": "string", "format": "email" },
-    "display_name":       { "type": "string" },
-    "mfa_enabled":        { "type": "boolean" },
-    "is_service_account": { "type": "boolean" },
-    "is_admin":           { "type": "boolean" },
-    "last_used_at":       { "type": "string", "format": "date-time" },
-    "created_at":         { "type": "string", "format": "date-time" }
-  },
-  "additionalProperties": true
-}
-```
+The full design — file format, embedding via `go:embed`, schema
+versioning, the cross-source `IdentityKey` field, the rubric for "new
+type vs. extend `accepts:`," and the project-local extension path
+under `.sigcomply/evidence_types/` — lives in
+[`04a-evidence-type-registry.md`](04a-evidence-type-registry.md).
+Read that document before authoring a plugin or a policy that needs
+a new evidence shape.
 
-**Why types are separate from plugins.** A plugin declares "I emit
-records conforming to `user_record.v1`." A policy declares "I consume
-records conforming to `user_record.v1`." The registry mediates. Adding
-a new plugin that emits an existing type makes that plugin
-immediately consumable by every policy already using that type — no
-policy change.
+The short version a plugin author needs:
 
-**Identity keys across sources.** When an evidence type represents an
-entity that exists in multiple source systems (a `user_record` of
-"alice@acme.com" exists in both AWS IAM and Okta), the plugin should
-populate `EvidenceRecord.IdentityKey` with a cross-source-stable value
-(typically email, employee_id). This lets rules dedupe across sources
-bound to the same slot — see
-[`03-policy-spec.md`](03-policy-spec.md) §Cross-source dedup.
-For evidence types without a meaningful cross-source identity (e.g.
-`firewall_rule`, `s3_bucket`), `IdentityKey` is omitted.
-
-**Schema evolution.** Adding optional fields → same version. Removing
-fields, changing field types, renaming → new version (`user_record.v2`).
-Plugins emit one specific version per record; policies pin to one
-version. A coexistence period (`user_record.v1` + `user_record.v2`)
-gives plugins and policies time to migrate.
-
----
-
-## Schema validation
-
-The collector validates every record against the declared evidence
-type schema before persisting it. Validation results:
-
-| Outcome | Action |
-|---|---|
-| Record passes schema | Included in the envelope. |
-| Record fails schema | Dropped; logged in envelope diagnostics. |
-| >5% of records from a (plugin, slot) call fail | The whole call is marked `error`; policies depending on it become `error` status. |
-
-This is what makes substitutability safe: a policy can rely on the
-fields its evidence type declares, because the collector refuses to
-pass through malformed records.
+- Emit records with `Type` set to a registered type ID.
+- Set `IdentityKey` when the type has a meaningful cross-source
+  identity; see
+  [`03-policy-spec.md`](03-policy-spec.md) §Cross-source dedup.
+- Trust the collector to validate payloads; do not invent local
+  schema enforcement. If the validation fails, that's a bug in the
+  emitted payload, not in the schema.
 
 ---
 
 ## Built-in plugin set (v1)
 
 The CLI ships with these plugins compiled in. Each lives under
-`internal/plugins/<id>/`.
+`internal/sources/<id>/` and self-registers a factory via `init()` (see
+§The factory contract).
 
 | Plugin ID | Emits | Notes |
 |---|---|---|
@@ -439,25 +500,35 @@ materially reduces fetch cost.
 
 ---
 
-## Writing a custom plugin
+## How third parties contribute a source
 
-Customers needing a plugin for an internal system can author one
-project-locally under `.sigcomply/plugins/<id>/`. The full extension
-workflow is documented in [`07-extensibility.md`](07-extensibility.md);
-the short version:
+Customers needing a plugin for an internal system author one
+project-locally under `.sigcomply/plugins/<id>/`. The same factory
+pattern that the in-tree plugins use applies verbatim — the only
+difference is *when* the package gets compiled in.
+
+The short version:
 
 1. Create the directory `.sigcomply/plugins/acme.internal_iam/`.
 2. Author the manifest `plugin.yaml` declaring `id`, `emits`, and
    `config_schema`.
-3. Author the implementation `plugin.go` implementing `SourcePlugin`.
-4. Register evidence types under `.sigcomply/evidence_types/` if the
-   plugin emits a type not already shipped.
-5. The CLI loads `.sigcomply/plugins/` at startup and merges them into
-   `SourceRegistry`.
+3. Author `plugin.go` implementing `SourcePlugin` and calling
+   `sources.RegisterFactory(...)` in `init()` — same signature, same
+   registry as the in-tree plugins.
+4. If the plugin needs an evidence shape not already shipped, drop a
+   schema YAML under `.sigcomply/evidence_types/<id>.yaml`
+   (see [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md)).
+5. Run `sigcomply build` (M16) — this scans `.sigcomply/plugins/`,
+   generates a wrapper that blank-imports each project-local package
+   (so their `init()` factories register at startup), and compiles a
+   project-tailored binary `./bin/sigcomply`.
+6. From that point, `./bin/sigcomply check` is the same as the shipped
+   `sigcomply check` but with the project-local plugins available.
 
-There is no separate compilation step. Project-local plugins are
-loaded as Go source via a build step the CLI orchestrates — see
-[`07-extensibility.md`](07-extensibility.md) for the mechanism.
+There is no runtime plugin loading, no shared library, no plugin DSL,
+and no API surface beyond the `SourcePlugin` interface and the
+`sources.RegisterFactory` registration call. Full walkthrough in
+[`07-extensibility.md`](07-extensibility.md).
 
 ---
 

@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/user_record/v1.json",
+  "title": "user_record",
+  "version": 1,
+  "description": "One identity in a user directory. Cross-source: aws.iam, okta, github (members), Azure AD (future). Sources that emit this type must populate the required fields; optional fields document semantics across implementations.",
+  "type": "object",
+  "required": ["id", "mfa_enabled"],
+  "properties": {
+    "id":                 { "type": "string", "description": "Unique within the emitting source (e.g. AWS IAM UserId, Okta user id, GitHub user id)." },
+    "user_name":          { "type": "string" },
+    "email":              { "type": "string", "format": "email" },
+    "display_name":       { "type": "string" },
+    "mfa_enabled":        { "type": "boolean", "description": "True iff at least one MFA factor is enrolled and required at sign-on." },
+    "is_admin":           { "type": "boolean" },
+    "is_service_account": { "type": "boolean" },
+    "last_used_at":       { "type": "string", "format": "date-time" },
+    "created_at":         { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": true
+}

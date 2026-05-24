@@ -107,8 +107,8 @@ type bindingPayload struct {
 // (role, member) pair. Records are sorted by ID before return so
 // envelope bytes are stable across runs against stable project state.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	if req.EvidenceType != EvidenceTypeID {
-		return nil, fmt.Errorf("gcp.iam: unsupported evidence type %q (only %q)", req.EvidenceType, EvidenceTypeID)
+	if !req.Accepts(EvidenceTypeID) {
+		return nil, fmt.Errorf("gcp.iam: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
 	}
 	policy, err := p.api.GetIamPolicy(ctx, p.projectID)
 	if err != nil {

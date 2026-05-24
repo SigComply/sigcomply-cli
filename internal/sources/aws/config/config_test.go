@@ -74,7 +74,7 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	p := New(Options{API: fake, Now: func() time.Time { return now }})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID, PolicyID: "p1", SlotName: "recorders"})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}, PolicyID: "p1", SlotName: "recorders"})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestCollect_RecorderWithoutStatus(t *testing.T) {
 		recorders: []cfgtypes.ConfigurationRecorder{{Name: ptr("orphan"), Arn: ptr("arn:o")}},
 	}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestCollect_StatusWithNilNameIsSkipped(t *testing.T) {
 		statuses:  []cfgtypes.ConfigurationRecorderStatus{{Name: nil, Recording: true}},
 	}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestCollect_StatusWithNilNameIsSkipped(t *testing.T) {
 
 func TestCollect_NoRecorders(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -162,15 +162,15 @@ func TestCollect_NoRecorders(t *testing.T) {
 
 func TestCollect_RejectsWrongEvidenceType(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: "s3_bucket"})
-	if err == nil || !strings.Contains(err.Error(), "unsupported evidence type") {
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{"s3_bucket"}})
+	if err == nil || !strings.Contains(err.Error(), "does not include") {
 		t.Errorf("want error; got %v", err)
 	}
 }
 
 func TestCollect_DescribeError(t *testing.T) {
 	p := New(Options{API: &fakeAPI{descErr: errors.New("kaboom")}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err == nil || !strings.Contains(err.Error(), "describe recorders") {
 		t.Errorf("want describe recorders error; got %v", err)
 	}
@@ -178,7 +178,7 @@ func TestCollect_DescribeError(t *testing.T) {
 
 func TestCollect_StatusError(t *testing.T) {
 	p := New(Options{API: &fakeAPI{statusErr: errors.New("forbidden")}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err == nil || !strings.Contains(err.Error(), "describe recorder status") {
 		t.Errorf("want status error; got %v", err)
 	}
@@ -187,7 +187,7 @@ func TestCollect_StatusError(t *testing.T) {
 func TestCollect_DefaultNowIsUsedWhenNotInjected(t *testing.T) {
 	fake := &fakeAPI{recorders: []cfgtypes.ConfigurationRecorder{{Name: ptr("r"), Arn: ptr("arn:r")}}}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -199,7 +199,7 @@ func TestCollect_DefaultNowIsUsedWhenNotInjected(t *testing.T) {
 func TestCollect_RecorderWithoutARNFallsBackToName(t *testing.T) {
 	fake := &fakeAPI{recorders: []cfgtypes.ConfigurationRecorder{{Name: ptr("only-name")}}}
 	p := New(Options{API: fake})
-	records, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -233,7 +233,7 @@ func TestCollect_KISSNoDRY_EachCallReListsRecorders(t *testing.T) {
 	fake := &fakeAPI{recorders: []cfgtypes.ConfigurationRecorder{{Name: ptr("r"), Arn: ptr("arn:r")}}}
 	p := New(Options{API: fake})
 	for range 3 {
-		if _, err := p.Collect(context.Background(), core.SlotRequest{EvidenceType: EvidenceTypeID}); err != nil {
+		if _, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}}); err != nil {
 			t.Fatalf("Collect: %v", err)
 		}
 	}

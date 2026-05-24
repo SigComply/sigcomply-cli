@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/s3_bucket/v1.json",
+  "title": "s3_bucket",
+  "version": 1,
+  "description": "One AWS S3 bucket, with the security-relevant flags policies check today. A future cross-cloud `object_storage_bucket` type (with `cloud_provider` discriminator) may be coined; until then, policies that want cross-cloud substitutability list multiple cloud-specific types in slot.Accepts.",
+  "type": "object",
+  "required": ["name", "encryption_enabled"],
+  "properties": {
+    "name":               { "type": "string" },
+    "region":             { "type": "string" },
+    "created_at":         { "type": "string", "format": "date-time" },
+    "encryption_enabled": { "type": "boolean" },
+    "sse_algorithm":      { "type": "string" },
+    "kms_key_id":         { "type": "string" }
+  },
+  "additionalProperties": true
+}

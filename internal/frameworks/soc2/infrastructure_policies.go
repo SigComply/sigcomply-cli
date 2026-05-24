@@ -48,7 +48,7 @@ func infrastructurePolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"trails": {Type: "cloudtrail_trail", Cardinality: core.SlotExactlyOne, Required: true, Description: "CloudTrail trails in the account"},
+				"trails": {Accepts: []string{"cloudtrail_trail"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "CloudTrail trails in the account"},
 			},
 			RuleRef: ruleIDCloudTrailMultiRegionEnabled,
 		},
@@ -62,7 +62,7 @@ func infrastructurePolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"log_groups": {Type: "cloudwatch_log_group", Cardinality: core.SlotExactlyOne, Required: true, Description: "CloudWatch log groups"},
+				"log_groups": {Accepts: []string{"cloudwatch_log_group"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "CloudWatch log groups"},
 			},
 			RuleRef: ruleIDCloudWatchLogsRetentionSet,
 		},
@@ -76,7 +76,7 @@ func infrastructurePolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"detectors": {Type: "guardduty_detector", Cardinality: core.SlotExactlyOne, Required: true, Description: "GuardDuty detectors"},
+				"detectors": {Accepts: []string{"guardduty_detector"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "GuardDuty detectors"},
 			},
 			RuleRef: ruleIDGuardDutyEnabled,
 		},
@@ -90,7 +90,7 @@ func infrastructurePolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"recorders": {Type: "config_recorder", Cardinality: core.SlotExactlyOne, Required: true, Description: "AWS Config configuration recorders"},
+				"recorders": {Accepts: []string{"config_recorder"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "AWS Config configuration recorders"},
 			},
 			RuleRef: ruleIDConfigRecorderEnabled,
 		},

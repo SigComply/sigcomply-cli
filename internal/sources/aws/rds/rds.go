@@ -103,8 +103,8 @@ type instancePayload struct {
 // Collect lists DB instances in the configured account and returns one
 // rds_instance record per instance.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	if req.EvidenceType != EvidenceTypeID {
-		return nil, fmt.Errorf("aws.rds: unsupported evidence type %q (only %q)", req.EvidenceType, EvidenceTypeID)
+	if !req.Accepts(EvidenceTypeID) {
+		return nil, fmt.Errorf("aws.rds: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
 	}
 	instances, err := p.listAllInstances(ctx)
 	if err != nil {

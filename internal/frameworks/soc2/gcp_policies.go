@@ -52,7 +52,7 @@ func gcpPolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"iam_bindings": {Type: "gcp_iam_binding", Cardinality: core.SlotExactlyOne, Required: true, Description: "Project IAM policy bindings"},
+				"iam_bindings": {Accepts: []string{"gcp_iam_binding"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "Project IAM policy bindings"},
 			},
 			RuleRef: ruleIDGCPIAMNoOwnerRoleForUsers,
 		},
@@ -66,7 +66,7 @@ func gcpPolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"buckets": {Type: "gcs_bucket", Cardinality: core.SlotExactlyOne, Required: true, Description: "GCS buckets in the project"},
+				"buckets": {Accepts: []string{"gcs_bucket"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "GCS buckets in the project"},
 			},
 			RuleRef: ruleIDGCSBucketUniformAccess,
 		},
@@ -80,7 +80,7 @@ func gcpPolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"instances": {Type: "compute_instance", Cardinality: core.SlotExactlyOne, Required: true, Description: "Compute Engine instances"},
+				"instances": {Accepts: []string{"compute_instance"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "Compute Engine instances"},
 			},
 			RuleRef: ruleIDComputeNoDefaultServiceAccount,
 		},
@@ -94,7 +94,7 @@ func gcpPolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"instances": {Type: "cloudsql_instance", Cardinality: core.SlotExactlyOne, Required: true, Description: "Cloud SQL instances"},
+				"instances": {Accepts: []string{"cloudsql_instance"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "Cloud SQL instances"},
 			},
 			RuleRef: ruleIDCloudSQLRequireSSL,
 		},

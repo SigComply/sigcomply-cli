@@ -40,7 +40,7 @@ func identityPolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"repositories": {Type: "github_repository", Cardinality: core.SlotExactlyOne, Required: true, Description: "GitHub repos in the configured org"},
+				"repositories": {Accepts: []string{"github_repository"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "GitHub repos in the configured org"},
 			},
 			RuleRef: ruleIDGitHubBranchProtection,
 		},
@@ -54,7 +54,7 @@ func identityPolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"members": {Type: "github_org_member", Cardinality: core.SlotExactlyOne, Required: true, Description: "GitHub org members"},
+				"members": {Accepts: []string{"github_org_member"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "GitHub org members"},
 			},
 			RuleRef: ruleIDGitHubMembers2FA,
 		},
@@ -68,7 +68,7 @@ func identityPolicies() []core.Policy {
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"directory": {Type: "okta_user", Cardinality: core.SlotExactlyOne, Required: true, Description: "Okta users"},
+				"directory": {Accepts: []string{"okta_user"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "Okta users"},
 			},
 			RuleRef: ruleIDOktaUsersMFA,
 		},
@@ -82,7 +82,7 @@ func identityPolicies() []core.Policy {
 			Cadence:     "weekly",
 			OnPush:      false,
 			Slots: map[string]core.Slot{
-				"applications": {Type: "okta_app", Cardinality: core.SlotExactlyOne, Required: true, Description: "Okta applications"},
+				"applications": {Accepts: []string{"okta_app"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "Okta applications"},
 			},
 			RuleRef: ruleIDOktaAppsMFA,
 		},

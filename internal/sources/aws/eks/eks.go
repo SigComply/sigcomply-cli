@@ -106,8 +106,8 @@ type clusterPayload struct {
 // Collect lists EKS clusters in the configured region and returns one
 // eks_cluster record per cluster.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	if req.EvidenceType != EvidenceTypeID {
-		return nil, fmt.Errorf("aws.eks: unsupported evidence type %q (only %q)", req.EvidenceType, EvidenceTypeID)
+	if !req.Accepts(EvidenceTypeID) {
+		return nil, fmt.Errorf("aws.eks: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
 	}
 	names, err := p.listAllClusterNames(ctx)
 	if err != nil {

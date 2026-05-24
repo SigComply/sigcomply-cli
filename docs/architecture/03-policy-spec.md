@@ -59,7 +59,7 @@ remediation: |
 
 slots:
   user_directory:
-    type: user_record
+    accepts: [user_record]       # set of evidence type IDs this slot consumes
     cardinality: one-or-more
     required: true
     description: "Source(s) of users to evaluate for MFA."
@@ -101,8 +101,34 @@ tags:
 
 ## Slots
 
-A slot is a named, typed input on a policy. It is the interface between
-the policy and the source plugins that fulfill it.
+A slot is a named, multi-typed input on a policy. It is the interface
+between the policy and the source plugins that fulfill it — and the
+only place where a policy names evidence shapes. Slots are the contract
+that makes a single policy spec satisfiable by any number of sources
+across any number of vendor backends.
+
+### The `accepts:` list
+
+Every slot declares an `accepts:` list — the set of evidence type IDs
+this slot will consume. The in-memory shape is
+`Slot.Accepts []string`. There is no singular `type:` field.
+
+```yaml
+slots:
+  user_directory:
+    accepts: [user_record]                                       # single-type slot
+  buckets:
+    accepts: [s3_bucket, gcs_bucket, azure_blob_container]       # multi-type slot
+```
+
+A source matches a slot when **`source.Emits() ∩ slot.Accepts ≠ ∅`**.
+The planner verifies this intersection at plan time; an empty
+intersection fails with exit code 3.
+
+A single-element `accepts:` list is the common case (most slots consume
+exactly one evidence type). A multi-element list expresses a slot that
+is genuinely backend-agnostic — see the decision rubric at the end of
+this section for when to use it.
 
 ### Cardinality
 
@@ -121,21 +147,85 @@ If `required: false` and the slot has no records, the rule sees an
 empty `input.slots.<name>` array; it is the rule's responsibility to
 handle the absence.
 
-### Type matching
-
-A slot's `type` field names an evidence type ID registered in
-`EvidenceTypeRegistry`. The planner verifies that every source bound
-to this slot declares the same type in its `emits` list. Mismatches
-fail at plan time with exit code 3.
-
 ### Multiple bound sources
 
 When `cardinality: one-or-more` or `optional` allows multiple sources,
 the rule receives the **union** of all bound sources' records under
 `input.slots.<slot_name>`. The records remain tagged with their
-`SourceID`, so a rule that wants to know the origin (rarely needed)
-can inspect it. Most rules ignore `SourceID` and treat the union as a
-flat set.
+`Type` and `SourceID`. Most rules ignore both and treat the union as a
+flat set; rules that legitimately need to behave differently per
+evidence type (because, say, an S3 bucket's encryption configuration
+is structurally different from a GCS bucket's) switch on `record.Type`:
+
+```rego
+package rules.object_storage_encrypted.v1
+
+violation contains v if {
+    record := input.slots.buckets[_]
+    record.Type == "s3_bucket"
+    not record.payload.encryption.sse_enabled
+    v := {"resource_id": record.id, "reason": "S3 bucket not encrypted"}
+}
+
+violation contains v if {
+    record := input.slots.buckets[_]
+    record.Type == "gcs_bucket"
+    not record.payload.default_kms_key_name
+    v := {"resource_id": record.id, "reason": "GCS bucket lacks default KMS key"}
+}
+```
+
+In Go:
+
+```go
+for _, rec := range in.Records("buckets") {
+    switch rec.Type {
+    case "s3_bucket":     // ...
+    case "gcs_bucket":    // ...
+    }
+}
+```
+
+Switching on `record.Type` is the **only** legitimate per-source
+branch in rule logic. Branching on `record.SourceID` is a code smell —
+it ties the rule to a specific plugin ID and breaks substitutability.
+If a rule needs to know "this came from AWS rather than GCP," the
+information is already encoded in `Type`.
+
+### When to add a new evidence type vs. extend an existing slot's `accepts:`
+
+This decision comes up whenever a new backend appears for a check that
+SigComply already supports.
+
+- **Same logical entity, same fields → reuse the existing type.** If
+  AWS IAM, Okta, and BambooHR all represent "a human user with an MFA
+  setting," they emit `user_record`. The slot keeps `accepts: [user_record]`
+  and the new plugin just adds itself to the bindings. This is the
+  default path.
+- **Same logical entity, structurally divergent fields → new type, add
+  to `accepts:`.** S3 buckets and GCS buckets are both "an object
+  storage container," but their encryption configuration, IAM model,
+  and lifecycle settings are structurally different. Forcing a shared
+  schema would either lose fidelity (lowest-common-denominator) or
+  bloat both schemas with each other's irrelevant fields. The right
+  move is: define `s3_bucket` and `gcs_bucket` as separate types,
+  declare `accepts: [s3_bucket, gcs_bucket]` on the slot, and let the
+  rule switch on `record.Type`.
+- **Different logical entity → keep slots separate.** A firewall rule
+  in AWS is not the same entity as a GitHub branch protection rule.
+  They go in different slots, not into one slot's `accepts:` list.
+
+A useful test: if the rule would benefit from iterating "all the
+buckets, regardless of cloud" (e.g., "count how many buckets are
+unencrypted across all clouds"), the multi-type slot is correct. If
+the rule would always handle each source's data in a fundamentally
+different way, those are separate slots.
+
+**Rule-of-thumb consequence.** Most slots have a single-element
+`accepts:` list. Multi-element lists appear primarily in policies that
+verify cloud-agnostic invariants (encryption at rest, network egress,
+audit logging) where the same control applies across vendors with
+different on-the-wire shapes.
 
 ### Cross-source dedup (read this if your slot has cardinality `one-or-more`)
 
@@ -412,7 +502,7 @@ description: |
 
 slots:
   access_review_document:
-    type: signed_document
+    accepts: [signed_document]
     cardinality: exactly-one
     required: true
 

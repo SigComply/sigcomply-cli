@@ -50,8 +50,8 @@ func assertMFASlot(t *testing.T, p *core.Policy) {
 	if !ok {
 		t.Fatal("missing slot user_directory")
 	}
-	if slot.Type != "user_record" {
-		t.Errorf("slot.Type = %q; want user_record", slot.Type)
+	if len(slot.Accepts) != 1 || slot.Accepts[0] != "user_record" {
+		t.Errorf("slot.Accepts = %v; want [user_record]", slot.Accepts)
 	}
 	if slot.Cardinality != core.SlotOneOrMore {
 		t.Errorf("slot.Cardinality = %q; want one-or-more", slot.Cardinality)

@@ -111,8 +111,8 @@ type userPayload struct {
 // user_record per user. Records are sorted by ID before return so
 // envelope bytes are stable across runs against stable account state.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	if req.EvidenceType != EvidenceTypeID {
-		return nil, fmt.Errorf("aws.iam: unsupported evidence type %q (only %q)", req.EvidenceType, EvidenceTypeID)
+	if !req.Accepts(EvidenceTypeID) {
+		return nil, fmt.Errorf("aws.iam: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
 	}
 	users, err := p.listAllUsers(ctx)
 	if err != nil {

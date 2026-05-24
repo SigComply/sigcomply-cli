@@ -142,20 +142,34 @@ type appPayload struct {
 	MFARequired bool   `json:"mfa_required"`
 }
 
-// Collect dispatches by req.EvidenceType — a plugin emits multiple
-// evidence types and returns records of the type the SlotRequest asks
-// for. Records are sorted by ID before return so envelope bytes are
-// stable across runs against stable tenant state.
+// Collect returns records for every evidence type in req.AcceptedTypes
+// that this plugin emits. A slot whose Accepts list includes both
+// okta types gets records for both in a single call. Records are
+// sorted by ID within each type group; the collector splits them by
+// Type for envelope writing.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	switch req.EvidenceType {
-	case EvidenceTypeUser:
-		return p.collectUsers(ctx)
-	case EvidenceTypeApp:
-		return p.collectApps(ctx)
-	default:
-		return nil, fmt.Errorf("okta: unsupported evidence type %q (only %q, %q)",
-			req.EvidenceType, EvidenceTypeUser, EvidenceTypeApp)
+	wantUsers := req.Accepts(EvidenceTypeUser)
+	wantApps := req.Accepts(EvidenceTypeApp)
+	if !wantUsers && !wantApps {
+		return nil, fmt.Errorf("okta: AcceptedTypes %v does not include emitted types %q,%q",
+			req.AcceptedTypes, EvidenceTypeUser, EvidenceTypeApp)
 	}
+	var out []core.EvidenceRecord
+	if wantUsers {
+		rs, err := p.collectUsers(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rs...)
+	}
+	if wantApps {
+		rs, err := p.collectApps(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rs...)
+	}
+	return out, nil
 }
 
 func (p *Plugin) collectUsers(ctx context.Context) ([]core.EvidenceRecord, error) {
