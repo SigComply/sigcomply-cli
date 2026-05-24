@@ -57,15 +57,12 @@ func (*Framework) Controls() []core.Control { return Controls() }
 
 // Policies implements core.Framework.
 func (*Framework) Policies() []core.PolicyRef {
-	return []core.PolicyRef{
-		{PolicyID: PolicyMFAEnforced},
-		{PolicyID: PolicyAccessReview},
-		{PolicyID: PolicyMFAUnion},
-		{PolicyID: PolicyCloudTrailMultiRegionEnabled},
-		{PolicyID: PolicyCloudWatchLogsRetentionSet},
-		{PolicyID: PolicyGuardDutyEnabled},
-		{PolicyID: PolicyConfigRecorderEnabled},
+	policies := Policies()
+	refs := make([]core.PolicyRef, len(policies))
+	for i := range policies {
+		refs[i] = core.PolicyRef{PolicyID: policies[i].ID}
 	}
+	return refs
 }
 
 // Register populates the rule and policy registries with the SOC 2
@@ -110,7 +107,14 @@ func ManualCatalog() map[string]manual.CatalogEntry {
 // (rather than embedded YAML) keeps the walking skeleton legible; the
 // L0 YAML loader is exercised in internal/spec's own tests.
 func Policies() []core.Policy {
-	return append(corePolicies(), infrastructurePolicies()...)
+	seed := corePolicies()
+	gcps := gcpPolicies()
+	infras := infrastructurePolicies()
+	out := make([]core.Policy, 0, len(seed)+len(gcps)+len(infras))
+	out = append(out, seed...)
+	out = append(out, infras...)
+	out = append(out, gcps...)
+	return out
 }
 
 // corePolicies are the three walking-skeleton seed policies that
@@ -162,14 +166,22 @@ func corePolicies() []core.Policy {
 	}
 }
 
-// Rules returns the rule implementations. Two rules cover the three
-// walking-skeleton policies (the two MFA policies share a rule); four
-// additional rules back the infrastructure-source policies.
+// Rules returns every rule the SOC 2 framework registers: seed (MFA
+// + manual presence), infrastructure-source (CloudTrail / CloudWatch /
+// GuardDuty / Config), and GCP. Each rule is referenced by at least
+// one policy in Policies().
 func Rules() []core.Rule {
-	return append([]core.Rule{
+	seed := []core.Rule{
 		mfaEnforcedRule(),
 		manualPresenceRule(),
-	}, infrastructureRules()...)
+	}
+	infras := infrastructureRules()
+	gcps := gcpRules()
+	out := make([]core.Rule, 0, len(seed)+len(infras)+len(gcps))
+	out = append(out, seed...)
+	out = append(out, infras...)
+	out = append(out, gcps...)
+	return out
 }
 
 const (

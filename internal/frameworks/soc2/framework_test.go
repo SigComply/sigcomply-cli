@@ -18,11 +18,11 @@ func TestFramework_BasicMetadata(t *testing.T) {
 	if fw.Version() != FrameworkVersion {
 		t.Errorf("Version = %q; want %q", fw.Version(), FrameworkVersion)
 	}
-	if len(fw.Controls()) < 2 {
-		t.Errorf("want at least 2 controls; got %d", len(fw.Controls()))
+	if len(fw.Controls()) < 4 {
+		t.Errorf("want at least 4 controls; got %d", len(fw.Controls()))
 	}
-	if len(fw.Policies()) != 7 {
-		t.Errorf("want 7 policies (3 core + 4 infrastructure); got %d", len(fw.Policies()))
+	if len(fw.Policies()) != 11 {
+		t.Errorf("want 11 policies (3 seed + 4 infrastructure + 4 gcp); got %d", len(fw.Policies()))
 	}
 }
 

@@ -2,10 +2,11 @@ package soc2
 
 import "github.com/sigcomply/sigcomply-cli/internal/core"
 
-// Controls returns the SOC 2 control catalog used by the M6 walking
-// skeleton plus the additional Common Criteria controls referenced by
-// the infrastructure-source policies (CC7.1 monitoring, CC7.2 system
-// operations / log capture). The full TSC 2017 catalog is post-M6 work.
+// Controls returns the SOC 2 control catalog used by the shipped
+// policy set: the M6 walking-skeleton CC6.1 / CC6.3 plus the access /
+// data-protection / monitoring / logging controls referenced by the
+// post-M6 plugin-set policies. The full TSC 2017 catalog is still
+// post-M6 work.
 func Controls() []core.Control {
 	return []core.Control{
 		{
@@ -20,6 +21,20 @@ func Controls() []core.Control {
 			Name:             "Periodic Access Reviews",
 			Description:      "The entity authorizes, modifies, or removes access to data, software, functions, and other protected information assets based on roles, responsibilities, and authority.",
 			Category:         "access",
+			BaselineSeverity: core.SeverityMedium,
+		},
+		{
+			ID:               "SOC2.CC6.6",
+			Name:             "Logical Access to System Components",
+			Description:      "The entity implements logical access security measures to protect against threats from sources outside its system boundaries.",
+			Category:         "access",
+			BaselineSeverity: core.SeverityHigh,
+		},
+		{
+			ID:               "SOC2.CC6.7",
+			Name:             "Transmission and Movement of Information",
+			Description:      "The entity restricts the transmission, movement, and removal of information to authorized internal and external users and processes, and protects it during transmission, movement, or removal.",
+			Category:         "data-protection",
 			BaselineSeverity: core.SeverityMedium,
 		},
 		{
