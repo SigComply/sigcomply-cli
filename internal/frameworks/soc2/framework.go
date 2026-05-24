@@ -61,6 +61,10 @@ func (*Framework) Policies() []core.PolicyRef {
 		{PolicyID: PolicyMFAEnforced},
 		{PolicyID: PolicyAccessReview},
 		{PolicyID: PolicyMFAUnion},
+		{PolicyID: PolicyGitHubBranchProtection},
+		{PolicyID: PolicyGitHubMembers2FA},
+		{PolicyID: PolicyOktaUsersMFA},
+		{PolicyID: PolicyOktaAppsMFA},
 	}
 }
 
@@ -106,6 +110,12 @@ func ManualCatalog() map[string]manual.CatalogEntry {
 // (rather than embedded YAML) keeps the walking skeleton legible; the
 // L0 YAML loader is exercised in internal/spec's own tests.
 func Policies() []core.Policy {
+	return append(corePolicies(), identityPolicies()...)
+}
+
+// corePolicies are the three walking-skeleton seed policies that
+// landed with M6.
+func corePolicies() []core.Policy {
 	return []core.Policy{
 		{
 			ID:          PolicyMFAEnforced,
@@ -153,12 +163,13 @@ func Policies() []core.Policy {
 }
 
 // Rules returns the rule implementations. Two rules cover the three
-// policies (the two MFA policies share a rule).
+// walking-skeleton policies (the two MFA policies share a rule); four
+// additional rules back the identity-source policies.
 func Rules() []core.Rule {
-	return []core.Rule{
+	return append([]core.Rule{
 		mfaEnforcedRule(),
 		manualPresenceRule(),
-	}
+	}, identityRules()...)
 }
 
 const (
@@ -272,4 +283,25 @@ func payloadString(payload json.RawMessage, key string) (string, error) {
 		return v, nil
 	}
 	return "", nil
+}
+
+// payloadInt reads an integer field from a JSON payload. JSON
+// unmarshalling into map[string]any produces float64 for numbers;
+// this helper truncates to int after the type assertion.
+func payloadInt(payload json.RawMessage, key string) (int, error) {
+	if len(payload) == 0 {
+		return 0, nil
+	}
+	var m map[string]any
+	if err := json.Unmarshal(payload, &m); err != nil {
+		return 0, err
+	}
+	switch v := m[key].(type) {
+	case float64:
+		return int(v), nil
+	case int:
+		return v, nil
+	default:
+		return 0, nil
+	}
 }

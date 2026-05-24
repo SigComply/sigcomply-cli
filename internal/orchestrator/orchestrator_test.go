@@ -19,7 +19,9 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 	"github.com/sigcomply/sigcomply-cli/internal/sign"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/aws/iam"
+	ghsource "github.com/sigcomply/sigcomply-cli/internal/sources/github"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
+	oktasource "github.com/sigcomply/sigcomply-cli/internal/sources/okta"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 	"github.com/sigcomply/sigcomply-cli/internal/submitter"
 	"github.com/sigcomply/sigcomply-cli/internal/vault/local"
@@ -89,9 +91,13 @@ func TestE2E_WalkingSkeleton(t *testing.T) {
 	assertRunCounts(t, &res)
 	assertManifestVerifies(t, v, res.RunRoot)
 	assertResultStatuses(t, v, res.RunRoot, map[string]core.PolicyStatus{
-		soc2.PolicyMFAEnforced:  core.StatusFail,
-		soc2.PolicyMFAUnion:     core.StatusFail,
-		soc2.PolicyAccessReview: core.StatusPass,
+		soc2.PolicyMFAEnforced:           core.StatusFail,
+		soc2.PolicyMFAUnion:              core.StatusFail,
+		soc2.PolicyAccessReview:          core.StatusPass,
+		soc2.PolicyGitHubBranchProtection: core.StatusFail,
+		soc2.PolicyGitHubMembers2FA:      core.StatusFail,
+		soc2.PolicyOktaUsersMFA:          core.StatusFail,
+		soc2.PolicyOktaAppsMFA:           core.StatusFail,
 	})
 	assertEnvelopesVerify(t, v, res.RunRoot, soc2.PolicyMFAEnforced, soc2.PolicyAccessReview)
 	assertCapturedPayloadPrivacy(t, capturePath)
@@ -157,7 +163,69 @@ func buildE2ERegistries(t *testing.T, cfg *spec.ProjectConfig, manualDir string,
 	})); err != nil {
 		t.Fatalf("register manual.pdf: %v", err)
 	}
+	if err := regs.Sources.Register(ghsource.New(ghsource.Options{
+		API: &stubGitHubAPI{
+			repos: []ghsource.Repo{
+				{Name: "web", DefaultBranch: "main", ProtectionOn: true, RequiredReviews: 2},
+				{Name: "legacy", DefaultBranch: "master", ProtectionOn: false},
+			},
+			members: []ghsource.Member{
+				{Login: "alice", TwoFactorOn: true, Role: "admin"},
+				{Login: "bob", TwoFactorOn: false, Role: "member"},
+			},
+		},
+		Org: "acme",
+		Now: func() time.Time { return now },
+	})); err != nil {
+		t.Fatalf("register github: %v", err)
+	}
+	if err := regs.Sources.Register(oktasource.New(oktasource.Options{
+		API: &stubOktaAPI{
+			users: []oktasource.User{
+				{ID: "u_alice", Email: "alice@acme.com", Status: "ACTIVE", MFAFactorCount: 2},
+				{ID: "u_bob", Email: "bob@acme.com", Status: "ACTIVE", MFAFactorCount: 0},
+			},
+			apps: []oktasource.App{
+				{ID: "0oa1", Label: "Slack", SignOnMode: "SAML_2_0", MFARequired: true},
+				{ID: "0oa2", Label: "Legacy", SignOnMode: "AUTO_LOGIN", MFARequired: false},
+			},
+		},
+		Org: "https://acme.okta.com",
+		Now: func() time.Time { return now },
+	})); err != nil {
+		t.Fatalf("register okta: %v", err)
+	}
 	return regs
+}
+
+// stubGitHubAPI satisfies the github source plugin's API interface
+// without touching the network.
+type stubGitHubAPI struct {
+	repos   []ghsource.Repo
+	members []ghsource.Member
+}
+
+func (s *stubGitHubAPI) ListRepos(context.Context) ([]ghsource.Repo, error) {
+	return s.repos, nil
+}
+
+func (s *stubGitHubAPI) ListOrgMembers(context.Context) ([]ghsource.Member, error) {
+	return s.members, nil
+}
+
+// stubOktaAPI satisfies the okta source plugin's API interface
+// without touching the network.
+type stubOktaAPI struct {
+	users []oktasource.User
+	apps  []oktasource.App
+}
+
+func (s *stubOktaAPI) ListUsers(context.Context) ([]oktasource.User, error) {
+	return s.users, nil
+}
+
+func (s *stubOktaAPI) ListApps(context.Context) ([]oktasource.App, error) {
+	return s.apps, nil
 }
 
 func assertRunCounts(t *testing.T, res *orchestrator.Result) {
@@ -165,11 +233,11 @@ func assertRunCounts(t *testing.T, res *orchestrator.Result) {
 	if res.ExitCode != orchestrator.ExitViolation {
 		t.Errorf("ExitCode = %d; want %d (violation)", res.ExitCode, orchestrator.ExitViolation)
 	}
-	if res.Summary.PoliciesTotal != 3 {
-		t.Errorf("PoliciesTotal = %d; want 3", res.Summary.PoliciesTotal)
+	if res.Summary.PoliciesTotal != 7 {
+		t.Errorf("PoliciesTotal = %d; want 7 (3 core + 4 identity)", res.Summary.PoliciesTotal)
 	}
-	if res.Summary.PoliciesPassed != 1 || res.Summary.PoliciesFailed != 2 {
-		t.Errorf("counts: passed=%d failed=%d; want 1/2", res.Summary.PoliciesPassed, res.Summary.PoliciesFailed)
+	if res.Summary.PoliciesPassed != 1 || res.Summary.PoliciesFailed != 6 {
+		t.Errorf("counts: passed=%d failed=%d; want 1/6", res.Summary.PoliciesPassed, res.Summary.PoliciesFailed)
 	}
 }
 
@@ -256,8 +324,8 @@ func assertCapturedPayloadPrivacy(t *testing.T, capturePath string) {
 	if payload.Schema != "sigcomply.cloud.v1" {
 		t.Errorf("Schema = %q", payload.Schema)
 	}
-	if len(payload.Policies) != 3 {
-		t.Errorf("Policies len = %d; want 3", len(payload.Policies))
+	if len(payload.Policies) != 7 {
+		t.Errorf("Policies len = %d; want 7", len(payload.Policies))
 	}
 	// Resource IDs must not leak. The vault has AIDABOB; the captured
 	// JSON must not.

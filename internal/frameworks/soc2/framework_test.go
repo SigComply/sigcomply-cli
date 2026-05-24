@@ -21,8 +21,8 @@ func TestFramework_BasicMetadata(t *testing.T) {
 	if len(fw.Controls()) < 2 {
 		t.Errorf("want at least 2 controls; got %d", len(fw.Controls()))
 	}
-	if len(fw.Policies()) != 3 {
-		t.Errorf("want 3 policies; got %d", len(fw.Policies()))
+	if len(fw.Policies()) != 7 {
+		t.Errorf("want 7 policies (3 core + 4 identity); got %d", len(fw.Policies()))
 	}
 }
 

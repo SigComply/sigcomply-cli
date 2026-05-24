@@ -18,6 +18,10 @@ vault:
 sources:
   aws.iam:
     region: us-east-1
+  github:
+    org: acme
+  okta:
+    org_url: https://acme.okta.com
   manual.pdf:
     backend: local
     path: ./manual-evidence-placeholder
@@ -33,6 +37,18 @@ bindings:
   soc2.cc6.1.mfa_enforced_all_sources:
     user_directory:
       - source: aws.iam
+  soc2.cc6.6.github_branch_protection_on_default:
+    repositories:
+      - source: github
+  soc2.cc6.1.github_org_members_have_2fa:
+    members:
+      - source: github
+  soc2.cc6.1.okta_users_have_mfa:
+    directory:
+      - source: okta
+  soc2.cc6.7.okta_apps_require_mfa:
+    applications:
+      - source: okta
 
 cloud:
   base_url: ""
