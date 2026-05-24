@@ -57,11 +57,17 @@ func (*Framework) Controls() []core.Control { return Controls() }
 
 // Policies implements core.Framework.
 func (*Framework) Policies() []core.PolicyRef {
-	return []core.PolicyRef{
-		{PolicyID: PolicyMFAEnforced},
-		{PolicyID: PolicyAccessReview},
-		{PolicyID: PolicyMFAUnion},
+	gcps := gcpPolicies()
+	refs := make([]core.PolicyRef, 0, 3+len(gcps))
+	refs = append(refs,
+		core.PolicyRef{PolicyID: PolicyMFAEnforced},
+		core.PolicyRef{PolicyID: PolicyAccessReview},
+		core.PolicyRef{PolicyID: PolicyMFAUnion},
+	)
+	for i := range gcps {
+		refs = append(refs, core.PolicyRef{PolicyID: gcps[i].ID})
 	}
+	return refs
 }
 
 // Register populates the rule and policy registries with the SOC 2
@@ -106,7 +112,7 @@ func ManualCatalog() map[string]manual.CatalogEntry {
 // (rather than embedded YAML) keeps the walking skeleton legible; the
 // L0 YAML loader is exercised in internal/spec's own tests.
 func Policies() []core.Policy {
-	return []core.Policy{
+	seed := []core.Policy{
 		{
 			ID:          PolicyMFAEnforced,
 			Control:     "SOC2.CC6.1",
@@ -150,15 +156,26 @@ func Policies() []core.Policy {
 			RuleRef: ruleIDMFAEnforced,
 		},
 	}
+	gcps := gcpPolicies()
+	out := make([]core.Policy, 0, len(seed)+len(gcps))
+	out = append(out, seed...)
+	out = append(out, gcps...)
+	return out
 }
 
 // Rules returns the rule implementations. Two rules cover the three
-// policies (the two MFA policies share a rule).
+// AWS / manual policies (the two MFA policies share a rule); the four
+// GCP rules are appended from gcp_policies.go.
 func Rules() []core.Rule {
-	return []core.Rule{
+	seed := []core.Rule{
 		mfaEnforcedRule(),
 		manualPresenceRule(),
 	}
+	gcps := gcpRules()
+	out := make([]core.Rule, 0, len(seed)+len(gcps))
+	out = append(out, seed...)
+	out = append(out, gcps...)
+	return out
 }
 
 const (

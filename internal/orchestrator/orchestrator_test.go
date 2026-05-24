@@ -9,8 +9,12 @@ import (
 	"testing"
 	"time"
 
+	gcs "cloud.google.com/go/storage"
 	awsiam "github.com/aws/aws-sdk-go-v2/service/iam"
 	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
+	crm "google.golang.org/api/cloudresourcemanager/v1"
+	gce "google.golang.org/api/compute/v1"
+	sqladmin "google.golang.org/api/sqladmin/v1"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/frameworks/soc2"
@@ -19,6 +23,10 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 	"github.com/sigcomply/sigcomply-cli/internal/sign"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/aws/iam"
+	gcpcompute "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/compute"
+	gcpiam "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/iam"
+	gcpsql "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/sql"
+	gcpstorage "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/storage"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 	"github.com/sigcomply/sigcomply-cli/internal/submitter"
@@ -88,10 +96,18 @@ func TestE2E_WalkingSkeleton(t *testing.T) {
 
 	assertRunCounts(t, &res)
 	assertManifestVerifies(t, v, res.RunRoot)
+	// The four GCP policies have required slots; their stubs return
+	// empty result sets, so the evaluator emits status=skip rather than
+	// invoking the rule. This is the v1 evaluator behavior
+	// (internal/evaluator: "required slot has no records" → skip).
 	assertResultStatuses(t, v, res.RunRoot, map[string]core.PolicyStatus{
-		soc2.PolicyMFAEnforced:  core.StatusFail,
-		soc2.PolicyMFAUnion:     core.StatusFail,
-		soc2.PolicyAccessReview: core.StatusPass,
+		soc2.PolicyMFAEnforced:                    core.StatusFail,
+		soc2.PolicyMFAUnion:                       core.StatusFail,
+		soc2.PolicyAccessReview:                   core.StatusPass,
+		soc2.PolicyGCPIAMNoOwnerRoleForUsers:      core.StatusSkip,
+		soc2.PolicyGCSBucketUniformAccess:         core.StatusSkip,
+		soc2.PolicyComputeNoDefaultServiceAccount: core.StatusSkip,
+		soc2.PolicyCloudSQLRequireSSL:             core.StatusSkip,
 	})
 	assertEnvelopesVerify(t, v, res.RunRoot, soc2.PolicyMFAEnforced, soc2.PolicyAccessReview)
 	assertCapturedPayloadPrivacy(t, capturePath)
@@ -157,7 +173,71 @@ func buildE2ERegistries(t *testing.T, cfg *spec.ProjectConfig, manualDir string,
 	})); err != nil {
 		t.Fatalf("register manual.pdf: %v", err)
 	}
+	registerGCPStubs(t, regs, now)
 	return regs
+}
+
+// registerGCPStubs registers in-memory stubs for the four GCP source
+// plugins so the walking-skeleton fixture can bind the four GCP SOC 2
+// policies and exercise their pass paths without live GCP credentials.
+// Each stub returns an empty result set — the GCP rules treat empty
+// inputs as "no violations to report", i.e. status=pass.
+func registerGCPStubs(t *testing.T, regs *registry.Set, now time.Time) {
+	t.Helper()
+	if err := regs.Sources.Register(gcpiam.New(gcpiam.Options{
+		API:       &stubGCPIAMAPI{},
+		ProjectID: "example-project",
+		Now:       func() time.Time { return now },
+	})); err != nil {
+		t.Fatalf("register gcp.iam: %v", err)
+	}
+	if err := regs.Sources.Register(gcpstorage.New(gcpstorage.Options{
+		API:       &stubGCPStorageAPI{},
+		ProjectID: "example-project",
+		Now:       func() time.Time { return now },
+	})); err != nil {
+		t.Fatalf("register gcp.storage: %v", err)
+	}
+	if err := regs.Sources.Register(gcpcompute.New(gcpcompute.Options{
+		API:       &stubGCPComputeAPI{},
+		ProjectID: "example-project",
+		Now:       func() time.Time { return now },
+	})); err != nil {
+		t.Fatalf("register gcp.compute: %v", err)
+	}
+	if err := regs.Sources.Register(gcpsql.New(gcpsql.Options{
+		API:       &stubGCPSQLAPI{},
+		ProjectID: "example-project",
+		Now:       func() time.Time { return now },
+	})); err != nil {
+		t.Fatalf("register gcp.sql: %v", err)
+	}
+}
+
+// --- GCP stub APIs returning empty result sets ---
+
+type stubGCPIAMAPI struct{}
+
+func (*stubGCPIAMAPI) GetIamPolicy(context.Context, string) (*crm.Policy, error) {
+	return &crm.Policy{}, nil
+}
+
+type stubGCPStorageAPI struct{}
+
+func (*stubGCPStorageAPI) ListBuckets(context.Context, string) ([]*gcs.BucketAttrs, error) {
+	return nil, nil
+}
+
+type stubGCPComputeAPI struct{}
+
+func (*stubGCPComputeAPI) AggregatedListInstances(context.Context, string) ([]*gce.Instance, error) {
+	return nil, nil
+}
+
+type stubGCPSQLAPI struct{}
+
+func (*stubGCPSQLAPI) ListInstances(context.Context, string) ([]*sqladmin.DatabaseInstance, error) {
+	return nil, nil
 }
 
 func assertRunCounts(t *testing.T, res *orchestrator.Result) {
@@ -165,11 +245,11 @@ func assertRunCounts(t *testing.T, res *orchestrator.Result) {
 	if res.ExitCode != orchestrator.ExitViolation {
 		t.Errorf("ExitCode = %d; want %d (violation)", res.ExitCode, orchestrator.ExitViolation)
 	}
-	if res.Summary.PoliciesTotal != 3 {
-		t.Errorf("PoliciesTotal = %d; want 3", res.Summary.PoliciesTotal)
+	if res.Summary.PoliciesTotal != 7 {
+		t.Errorf("PoliciesTotal = %d; want 7 (3 seed + 4 gcp)", res.Summary.PoliciesTotal)
 	}
-	if res.Summary.PoliciesPassed != 1 || res.Summary.PoliciesFailed != 2 {
-		t.Errorf("counts: passed=%d failed=%d; want 1/2", res.Summary.PoliciesPassed, res.Summary.PoliciesFailed)
+	if res.Summary.PoliciesPassed != 1 || res.Summary.PoliciesFailed != 2 || res.Summary.PoliciesSkipped != 4 {
+		t.Errorf("counts: passed=%d failed=%d skipped=%d; want 1/2/4", res.Summary.PoliciesPassed, res.Summary.PoliciesFailed, res.Summary.PoliciesSkipped)
 	}
 }
 
@@ -256,8 +336,8 @@ func assertCapturedPayloadPrivacy(t *testing.T, capturePath string) {
 	if payload.Schema != "sigcomply.cloud.v1" {
 		t.Errorf("Schema = %q", payload.Schema)
 	}
-	if len(payload.Policies) != 3 {
-		t.Errorf("Policies len = %d; want 3", len(payload.Policies))
+	if len(payload.Policies) != 7 {
+		t.Errorf("Policies len = %d; want 7", len(payload.Policies))
 	}
 	// Resource IDs must not leak. The vault has AIDABOB; the captured
 	// JSON must not.

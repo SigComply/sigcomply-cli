@@ -22,6 +22,14 @@ sources:
     backend: local
     path: ./manual-evidence-placeholder
     prefix: manual/
+  gcp.iam:
+    project_id: example-project
+  gcp.storage:
+    project_id: example-project
+  gcp.compute:
+    project_id: example-project
+  gcp.sql:
+    project_id: example-project
 
 bindings:
   soc2.cc6.1.mfa_enforced:
@@ -33,6 +41,18 @@ bindings:
   soc2.cc6.1.mfa_enforced_all_sources:
     user_directory:
       - source: aws.iam
+  soc2.cc6.1.gcp_iam_no_owner_role_for_users:
+    iam_bindings:
+      - source: gcp.iam
+  soc2.cc6.7.gcs_bucket_uniform_access:
+    buckets:
+      - source: gcp.storage
+  soc2.cc6.6.compute_no_default_service_account:
+    instances:
+      - source: gcp.compute
+  soc2.cc6.7.cloudsql_require_ssl:
+    instances:
+      - source: gcp.sql
 
 cloud:
   base_url: ""
