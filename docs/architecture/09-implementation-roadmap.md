@@ -162,11 +162,21 @@ needs; they parallelize once M6's walking skeleton is in place.
 
 | Item | Scope | Verification |
 |---|---|---|
+### Shipped
+
+| Item | Notes |
+|---|---|
+| **ISO 27001 framework skeleton** | `internal/frameworks/iso27001/` ships with a representative subset of Annex A controls (A.5.15, A.5.18, A.8.2, A.8.5, A.8.7, A.8.16, A.8.24) and 5 representative policies (4 wired; `iso27001.a.8.16.cloudtrail_logging` reserved for when the `aws.cloudtrail` plugin lands). Reuses the existing `aws.iam` and `manual.pdf` plugins so it doesn't depend on the broader plugin batch. Full ~30+ policy catalog and an ISO 27001 manual-catalog YAML remain backlog. |
+
+### Backlog
+
+| Item | Scope | Verification |
+|---|---|---|
 | **Full SOC 2 policy catalog** | Port the curated SOC 2 policy set against the new types. ~300 automated policies + ~50 manual catalog entries. | All policies have rules and tests; tests pass. End-to-end run against a fixture vault. |
 | **Plugin set v1** | `aws.s3`, `aws.cloudtrail`, `aws.kms`, `aws.rds`, `aws.ec2`, `aws.cloudwatch`, `aws.guardduty`, `aws.config`, `aws.eks`, `gcp.iam`, `gcp.storage`, `gcp.compute`, `gcp.sql`, `github`, `okta`. | Each plugin has manifest, tests, at least one shipped policy consuming it. |
 | **YAML DSL transpiler** | The third rule runner alongside Rego and Go. | Round-trip tests; one policy authored in YAML DSL evaluates correctly. |
 | **`sigcomply build`** | Project-local Go-extension build wrapper. | Fixture project's custom plugin compiles and runs end-to-end. |
-| **ISO 27001 framework skeleton** | Framework spec + control catalog + representative ~30 policies. | One audit period's worth of policies pass tests. |
+| **Full ISO 27001 policy catalog** | Expand the skeleton above to ~30 policies covering one audit period; add the ISO 27001 manual catalog YAML so manual-evidence entries beyond the access-rights review are tracked. | One audit period's worth of policies pass tests. |
 | **Auditor verification tooling** | Reference verifier (Go + SPA — this is where the SPA's `/verify` finally moves to envelope.v1); `sigcomply report` command (see §`sigcomply report` below) for snapshot views of the vault: latest-wins period roll-up, exception register, integrity verification, audit-ready PDF/CSV exports. **Time-series analytics (drift detection, deviation timelines, continuous-monitoring alerts) are explicitly out of scope for the free CLI — they live in the paid SigComply Cloud / Rails app.** | Fresh checkout + only the vault + the verifier can reproduce a policy's result. `sigcomply report --period 2026-Q1 --format pdf` produces a deterministic audit-ready snapshot. |
 | **CI integration & scaffolding** | `sigcomply init-ci --framework <fw> --ci <github\|gitlab>` scaffolds the cadence-aligned workflow set (`compliance-on-push.yml`, `compliance-daily.yml`, `compliance-weekly.yml`, `compliance-monthly.yml`, `compliance-quarterly.yml`, `compliance-annual.yml`). Reusable composite action (`SigComply/sigcomply-cli/.github/actions/check@v1`). GitLab CI include template. The `--cadence` and `--on-push` filter flags on `sigcomply check`. | E2E test repos: one GitHub-Actions project + one GitLab-CI project each scaffolded via `init-ci`; nightly + on-push workflows produce expected vault contents. |
 | **v1 release** | Tagged release; release notes; install docs; auditor-facing FAQ. | Public install + first community contribution merged. |

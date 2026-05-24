@@ -179,7 +179,11 @@ func TestRunCheck_MissingConfigFile(t *testing.T) {
 func TestRunCheck_RejectsUnsupportedFramework(t *testing.T) {
 	tmp := t.TempDir()
 	configPath := filepath.Join(tmp, "cfg.yaml")
-	writeMinimalConfig(t, configPath, "iso27001", tmp)
+	// hipaa is the stub framework — listed in spec.SupportedFrameworks
+	// but no framework package registers under that name, so the
+	// orchestrator must still reject it. iso27001 used to fail here too
+	// but now ships a real skeleton.
+	writeMinimalConfig(t, configPath, "hipaa", tmp)
 	err := runCheck(context.Background(), &bytes.Buffer{}, checkFlags{
 		config:   configPath,
 		cloudOff: true,
@@ -187,7 +191,7 @@ func TestRunCheck_RejectsUnsupportedFramework(t *testing.T) {
 	if err == nil {
 		t.Fatal("want error on unsupported framework")
 	}
-	if !strings.Contains(err.Error(), "iso27001") && !strings.Contains(err.Error(), "not supported") {
+	if !strings.Contains(err.Error(), "hipaa") && !strings.Contains(err.Error(), "not supported") {
 		t.Errorf("want framework error; got %v", err)
 	}
 }
