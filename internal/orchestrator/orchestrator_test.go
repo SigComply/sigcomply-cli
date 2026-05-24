@@ -9,6 +9,13 @@ import (
 	"testing"
 	"time"
 
+	awsct "github.com/aws/aws-sdk-go-v2/service/cloudtrail"
+	cttypes "github.com/aws/aws-sdk-go-v2/service/cloudtrail/types"
+	awscwl "github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
+	cwltypes "github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
+	awscfgsvc "github.com/aws/aws-sdk-go-v2/service/configservice"
+	cfgtypes "github.com/aws/aws-sdk-go-v2/service/configservice/types"
+	awsgd "github.com/aws/aws-sdk-go-v2/service/guardduty"
 	awsiam "github.com/aws/aws-sdk-go-v2/service/iam"
 	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 
@@ -18,12 +25,90 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/orchestrator"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 	"github.com/sigcomply/sigcomply-cli/internal/sign"
+	"github.com/sigcomply/sigcomply-cli/internal/sources/aws/cloudtrail"
+	"github.com/sigcomply/sigcomply-cli/internal/sources/aws/cloudwatch"
+	awsconfigsrc "github.com/sigcomply/sigcomply-cli/internal/sources/aws/config"
+	"github.com/sigcomply/sigcomply-cli/internal/sources/aws/guardduty"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/aws/iam"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 	"github.com/sigcomply/sigcomply-cli/internal/submitter"
 	"github.com/sigcomply/sigcomply-cli/internal/vault/local"
 )
+
+// --- empty stub APIs for the four infrastructure plugins.
+// They exist solely to satisfy plugin construction at registration
+// time; their Collect calls return zero records, which exercises the
+// no-record code paths in the cloudtrail/cloudwatch/guardduty/config
+// rules deterministically.
+
+// stubCloudtrailAPI returns one compliant multi-region trail with
+// logging on, exercising the happy path of the multi-region rule.
+type stubCloudtrailAPI struct{}
+
+func (stubCloudtrailAPI) DescribeTrails(context.Context, *awsct.DescribeTrailsInput, ...func(*awsct.Options)) (*awsct.DescribeTrailsOutput, error) {
+	name := "primary"
+	arn := "arn:aws:cloudtrail:us-east-1::trail/primary"
+	region := "us-east-1"
+	multi := true
+	return &awsct.DescribeTrailsOutput{
+		TrailList: []cttypes.Trail{{
+			Name: &name, TrailARN: &arn, HomeRegion: &region, IsMultiRegionTrail: &multi,
+		}},
+	}, nil
+}
+
+func (stubCloudtrailAPI) GetTrailStatus(context.Context, *awsct.GetTrailStatusInput, ...func(*awsct.Options)) (*awsct.GetTrailStatusOutput, error) {
+	logging := true
+	return &awsct.GetTrailStatusOutput{IsLogging: &logging}, nil
+}
+
+// stubCloudwatchAPI returns one log group with 365-day retention, so the
+// retention rule passes on the happy path.
+type stubCloudwatchAPI struct{}
+
+func (stubCloudwatchAPI) DescribeLogGroups(context.Context, *awscwl.DescribeLogGroupsInput, ...func(*awscwl.Options)) (*awscwl.DescribeLogGroupsOutput, error) {
+	name := "/aws/lambda/test"
+	arn := "arn:aws:logs:us-east-1::log-group:/aws/lambda/test:*"
+	ret := int32(365)
+	return &awscwl.DescribeLogGroupsOutput{
+		LogGroups: []cwltypes.LogGroup{{LogGroupName: &name, Arn: &arn, RetentionInDays: &ret}},
+	}, nil
+}
+
+// stubGuardDutyAPI returns exactly one disabled detector so the
+// guardduty_enabled rule has a record to evaluate and fails the
+// "at-least-one-enabled" check.
+type stubGuardDutyAPI struct{}
+
+func (stubGuardDutyAPI) ListDetectors(context.Context, *awsgd.ListDetectorsInput, ...func(*awsgd.Options)) (*awsgd.ListDetectorsOutput, error) {
+	return &awsgd.ListDetectorsOutput{DetectorIds: []string{"det-1"}}, nil
+}
+
+func (stubGuardDutyAPI) GetDetector(context.Context, *awsgd.GetDetectorInput, ...func(*awsgd.Options)) (*awsgd.GetDetectorOutput, error) {
+	return &awsgd.GetDetectorOutput{Status: "DISABLED"}, nil
+}
+
+// stubConfigAPI returns exactly one non-recording configuration
+// recorder so the config_recorder_enabled rule has a record to
+// evaluate and fails.
+type stubConfigAPI struct{}
+
+func (stubConfigAPI) DescribeConfigurationRecorders(context.Context, *awscfgsvc.DescribeConfigurationRecordersInput, ...func(*awscfgsvc.Options)) (*awscfgsvc.DescribeConfigurationRecordersOutput, error) {
+	name := "default"
+	return &awscfgsvc.DescribeConfigurationRecordersOutput{
+		ConfigurationRecorders: []cfgtypes.ConfigurationRecorder{{Name: &name, Arn: ptrStr("arn:aws:config:1::recorder/default")}},
+	}, nil
+}
+
+func (stubConfigAPI) DescribeConfigurationRecorderStatus(context.Context, *awscfgsvc.DescribeConfigurationRecorderStatusInput, ...func(*awscfgsvc.Options)) (*awscfgsvc.DescribeConfigurationRecorderStatusOutput, error) {
+	name := "default"
+	return &awscfgsvc.DescribeConfigurationRecorderStatusOutput{
+		ConfigurationRecordersStatus: []cfgtypes.ConfigurationRecorderStatus{{Name: &name, Recording: false}},
+	}, nil
+}
+
+func ptrStr(s string) *string { return &s }
 
 type stubIAMAPI struct {
 	users []iamtypes.User
@@ -89,9 +174,13 @@ func TestE2E_WalkingSkeleton(t *testing.T) {
 	assertRunCounts(t, &res)
 	assertManifestVerifies(t, v, res.RunRoot)
 	assertResultStatuses(t, v, res.RunRoot, map[string]core.PolicyStatus{
-		soc2.PolicyMFAEnforced:  core.StatusFail,
-		soc2.PolicyMFAUnion:     core.StatusFail,
-		soc2.PolicyAccessReview: core.StatusPass,
+		soc2.PolicyMFAEnforced:                  core.StatusFail,
+		soc2.PolicyMFAUnion:                     core.StatusFail,
+		soc2.PolicyAccessReview:                 core.StatusPass,
+		soc2.PolicyCloudTrailMultiRegionEnabled: core.StatusPass,
+		soc2.PolicyCloudWatchLogsRetentionSet:   core.StatusPass,
+		soc2.PolicyGuardDutyEnabled:             core.StatusFail,
+		soc2.PolicyConfigRecorderEnabled:        core.StatusFail,
 	})
 	assertEnvelopesVerify(t, v, res.RunRoot, soc2.PolicyMFAEnforced, soc2.PolicyAccessReview)
 	assertCapturedPayloadPrivacy(t, capturePath)
@@ -157,6 +246,23 @@ func buildE2ERegistries(t *testing.T, cfg *spec.ProjectConfig, manualDir string,
 	})); err != nil {
 		t.Fatalf("register manual.pdf: %v", err)
 	}
+	// Stub plugins for the four infrastructure-source policies. Each
+	// returns at least one record so the evaluator runs the rule (a
+	// required-slot policy with zero records is skipped, not failed).
+	// cloudtrail + cloudwatch stubs return compliant resources → pass.
+	// guardduty + config stubs return non-compliant resources → fail.
+	if err := regs.Sources.Register(cloudtrail.New(cloudtrail.Options{API: stubCloudtrailAPI{}, Now: func() time.Time { return now }})); err != nil {
+		t.Fatalf("register cloudtrail: %v", err)
+	}
+	if err := regs.Sources.Register(cloudwatch.New(cloudwatch.Options{API: stubCloudwatchAPI{}, Now: func() time.Time { return now }})); err != nil {
+		t.Fatalf("register cloudwatch: %v", err)
+	}
+	if err := regs.Sources.Register(guardduty.New(guardduty.Options{API: stubGuardDutyAPI{}, Now: func() time.Time { return now }})); err != nil {
+		t.Fatalf("register guardduty: %v", err)
+	}
+	if err := regs.Sources.Register(awsconfigsrc.New(awsconfigsrc.Options{API: stubConfigAPI{}, Now: func() time.Time { return now }})); err != nil {
+		t.Fatalf("register aws.config: %v", err)
+	}
 	return regs
 }
 
@@ -165,11 +271,17 @@ func assertRunCounts(t *testing.T, res *orchestrator.Result) {
 	if res.ExitCode != orchestrator.ExitViolation {
 		t.Errorf("ExitCode = %d; want %d (violation)", res.ExitCode, orchestrator.ExitViolation)
 	}
-	if res.Summary.PoliciesTotal != 3 {
-		t.Errorf("PoliciesTotal = %d; want 3", res.Summary.PoliciesTotal)
+	if res.Summary.PoliciesTotal != 7 {
+		t.Errorf("PoliciesTotal = %d; want 7", res.Summary.PoliciesTotal)
 	}
-	if res.Summary.PoliciesPassed != 1 || res.Summary.PoliciesFailed != 2 {
-		t.Errorf("counts: passed=%d failed=%d; want 1/2", res.Summary.PoliciesPassed, res.Summary.PoliciesFailed)
+	// 3 pass: access_review (manual PDF in window), cloudtrail multi-region
+	// (no trails → vacuously satisfied), cloudwatch retention (no log
+	// groups → vacuously satisfied).
+	// 4 fail: mfa_enforced (bob), mfa_enforced_all_sources (bob),
+	// guardduty_enabled (no detectors), config_recorder_enabled (no
+	// recorders).
+	if res.Summary.PoliciesPassed != 3 || res.Summary.PoliciesFailed != 4 {
+		t.Errorf("counts: passed=%d failed=%d; want 3/4", res.Summary.PoliciesPassed, res.Summary.PoliciesFailed)
 	}
 }
 
@@ -256,8 +368,8 @@ func assertCapturedPayloadPrivacy(t *testing.T, capturePath string) {
 	if payload.Schema != "sigcomply.cloud.v1" {
 		t.Errorf("Schema = %q", payload.Schema)
 	}
-	if len(payload.Policies) != 3 {
-		t.Errorf("Policies len = %d; want 3", len(payload.Policies))
+	if len(payload.Policies) != 7 {
+		t.Errorf("Policies len = %d; want 7", len(payload.Policies))
 	}
 	// Resource IDs must not leak. The vault has AIDABOB; the captured
 	// JSON must not.

@@ -7,6 +7,10 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.4
 	github.com/aws/aws-sdk-go-v2/config v1.32.7
+	github.com/aws/aws-sdk-go-v2/service/cloudtrail v1.55.11
+	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.74.0
+	github.com/aws/aws-sdk-go-v2/service/configservice v1.62.3
+	github.com/aws/aws-sdk-go-v2/service/guardduty v1.77.0
 	github.com/aws/aws-sdk-go-v2/service/iam v1.53.2
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.101.0
 	github.com/aws/smithy-go v1.25.1
