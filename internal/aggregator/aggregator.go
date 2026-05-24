@@ -1,0 +1,133 @@
+// Package aggregator is L6 of the SigComply CLI and the privacy
+// boundary: projects []core.PolicyResult into the structurally
+// counts-only core.SubmissionPayload that the cloud submitter
+// consumes. No resource identifier crosses this boundary. The wire
+// type has no Violations slice, no map[string]any, no interface{}
+// fields — widening it requires a code change reviewed at this seam.
+//
+// The structural enforcement lives in
+// internal/core/cloud_test.go::TestSubmissionPayload_StructurallyCountsOnly,
+// which walks SubmissionPayload's type graph and fails the build if
+// an identity-carrying field is added.
+//
+// See docs/architecture/02-layers.md and 06-aggregation.md.
+package aggregator
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/sigcomply/sigcomply-cli/internal/core"
+)
+
+// SchemaVersion is the wire-format identifier stamped on every
+// SubmissionPayload. Bumping requires a code change to the contract
+// (see 06-aggregation.md §Versioning the contract).
+const SchemaVersion = "sigcomply.cloud.v1"
+
+// Environment captures the CI-runtime metadata stamped on the payload.
+// The CLI's orchestrator (L9) populates it from environment variables
+// and git context before calling Build.
+type Environment struct {
+	Repository  core.Repository
+	CI          core.CIEnvironment
+	Branch      string
+	CommitSHA   string
+	CommitTime  time.Time
+	CLIVersion  string
+	RunID       string
+	Framework   string
+	PeriodID    string
+	StartedAt   time.Time
+	CompletedAt time.Time
+}
+
+// Build produces the SubmissionPayload from a run's per-policy results.
+// The "Message" field on each AggregatedPolicy is regenerated from
+// counts here; the rule's violation text is never copied across.
+func Build(results []core.PolicyResult, env *Environment) core.SubmissionPayload {
+	if env == nil {
+		env = &Environment{}
+	}
+	out := core.SubmissionPayload{
+		Schema:      SchemaVersion,
+		RunID:       env.RunID,
+		Framework:   env.Framework,
+		PeriodID:    env.PeriodID,
+		CommitSHA:   env.CommitSHA,
+		CommitTime:  env.CommitTime,
+		Branch:      env.Branch,
+		Repository:  env.Repository,
+		Environment: env.CI,
+		CLIVersion:  env.CLIVersion,
+		StartedAt:   env.StartedAt,
+		CompletedAt: env.CompletedAt,
+		Summary:     buildSummary(results),
+		Policies:    make([]core.AggregatedPolicy, 0, len(results)),
+	}
+	for i := range results {
+		r := &results[i]
+		out.Policies = append(out.Policies, core.AggregatedPolicy{
+			PolicyID:           r.PolicyID,
+			ControlID:          r.ControlID,
+			Status:             r.Status,
+			Severity:           r.Severity,
+			Category:           r.Category,
+			ResourcesEvaluated: r.ResourcesEvaluated,
+			ResourcesFailed:    r.ResourcesFailed,
+			Message:            generateMessage(r),
+			RuleVersion:        r.RuleVersion,
+		})
+	}
+	return out
+}
+
+func buildSummary(results []core.PolicyResult) core.RunSummary {
+	var s core.RunSummary
+	s.PoliciesTotal = len(results)
+	for i := range results {
+		r := &results[i]
+		switch r.Status {
+		case core.StatusPass:
+			s.PoliciesPassed++
+		case core.StatusFail:
+			s.PoliciesFailed++
+		case core.StatusSkip:
+			s.PoliciesSkipped++
+		case core.StatusError:
+			s.PoliciesError++
+		case core.StatusNA:
+			s.PoliciesNA++
+		case core.StatusWaived:
+			s.PoliciesWaived++
+		}
+	}
+	denominator := s.PoliciesTotal - s.PoliciesSkipped - s.PoliciesNA
+	if denominator > 0 {
+		s.ComplianceScore = float64(s.PoliciesPassed+s.PoliciesWaived) / float64(denominator)
+	}
+	return s
+}
+
+// generateMessage produces a count-only summary string. It NEVER
+// receives the rule's violation text — the rule's text may name
+// resources, and resource identifiers do not cross the privacy
+// boundary.
+func generateMessage(r *core.PolicyResult) string {
+	switch r.Status {
+	case core.StatusPass:
+		return fmt.Sprintf("All %d resources passed.", r.ResourcesEvaluated)
+	case core.StatusFail:
+		return fmt.Sprintf("%d of %d resources failed.", r.ResourcesFailed, r.ResourcesEvaluated)
+	case core.StatusSkip:
+		return "No matching resources to evaluate."
+	case core.StatusError:
+		return "Evaluation error; see customer vault for diagnostics."
+	case core.StatusNA:
+		return "Not applicable to this project."
+	case core.StatusWaived:
+		return fmt.Sprintf("Waived by exception (%d of %d resources affected).",
+			r.ResourcesFailed, r.ResourcesEvaluated)
+	}
+	return ""
+}

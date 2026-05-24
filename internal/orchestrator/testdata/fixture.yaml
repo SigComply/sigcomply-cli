@@ -1,0 +1,38 @@
+schema_version: project.v1
+
+# M6 walking-skeleton fixture. The vault path is overridden by the
+# test harness at runtime; this file declares the framework, the
+# fiscal period, the source bindings, and the manual-evidence catalog
+# pointer that the orchestrator wires together.
+framework: soc2
+
+period:
+  fiscal_calendar:
+    type: calendar_quarter
+  time_basis: commit
+
+vault:
+  backend: local
+  path: ./vault-placeholder
+
+sources:
+  aws.iam:
+    region: us-east-1
+  manual.pdf:
+    backend: local
+    path: ./manual-evidence-placeholder
+    prefix: manual/
+
+bindings:
+  soc2.cc6.1.mfa_enforced:
+    user_directory:
+      - source: aws.iam
+  soc2.cc6.3.access_review_quarterly:
+    review_document:
+      - source: "manual.pdf:access_review_quarterly"
+  soc2.cc6.1.mfa_enforced_all_sources:
+    user_directory:
+      - source: aws.iam
+
+cloud:
+  base_url: ""

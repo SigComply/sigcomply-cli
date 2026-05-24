@@ -41,7 +41,7 @@ type stubSource struct{ id string }
 func (s stubSource) ID() string                               { return s.id }
 func (stubSource) Emits() []string                            { return nil }
 func (stubSource) Init(context.Context, map[string]any) error { return nil }
-func (stubSource) Collect(context.Context, string) ([]core.EvidenceRecord, error) {
+func (stubSource) Collect(context.Context, core.SlotRequest) ([]core.EvidenceRecord, error) {
 	return nil, nil
 }
 

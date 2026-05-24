@@ -15,10 +15,12 @@ type stubSource struct {
 	emits []string
 }
 
-func (s *stubSource) ID() string                                                     { return s.id }
-func (s *stubSource) Emits() []string                                                { return s.emits }
-func (s *stubSource) Init(context.Context, map[string]any) error                     { return nil }
-func (s *stubSource) Collect(context.Context, string) ([]core.EvidenceRecord, error) { return nil, nil }
+func (s *stubSource) ID() string                                 { return s.id }
+func (s *stubSource) Emits() []string                            { return s.emits }
+func (s *stubSource) Init(context.Context, map[string]any) error { return nil }
+func (s *stubSource) Collect(context.Context, core.SlotRequest) ([]core.EvidenceRecord, error) {
+	return nil, nil
+}
 
 func registerSource(t *testing.T, set *registry.Set, id string, emits ...string) {
 	t.Helper()

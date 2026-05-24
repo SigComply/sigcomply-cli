@@ -2,6 +2,8 @@
 package main
 
 import (
+	"os"
+
 	cmd "github.com/sigcomply/sigcomply-cli/cmd/sigcomply"
 )
 
@@ -14,5 +16,5 @@ var (
 
 func main() {
 	cmd.SetVersionInfo(version, commit, buildTime)
-	cmd.Execute()
+	os.Exit(cmd.Execute())
 }

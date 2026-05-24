@@ -20,5 +20,18 @@ type SourcePlugin interface {
 	ID() string
 	Emits() []string
 	Init(ctx context.Context, cfg map[string]any) error
-	Collect(ctx context.Context, slot string) ([]EvidenceRecord, error)
+	Collect(ctx context.Context, req SlotRequest) ([]EvidenceRecord, error)
+}
+
+// SlotRequest is the per-binding call into a plugin's Collect. PolicyID
+// is for diagnostics only — plugins must not branch behavior on it.
+// EvidenceType is the slot's declared type and must match one of the
+// plugin's Emits(); the planner enforces this at plan time.
+// Params carries optional per-binding slot_params from the project
+// config (rare; most bindings have no params).
+type SlotRequest struct {
+	PolicyID     string
+	EvidenceType string
+	SlotName     string
+	Params       map[string]any
 }

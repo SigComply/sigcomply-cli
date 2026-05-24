@@ -29,7 +29,7 @@ type fakeSource struct{}
 func (*fakeSource) ID() string                                 { return "fake.src" }
 func (*fakeSource) Emits() []string                            { return nil }
 func (*fakeSource) Init(context.Context, map[string]any) error { return nil }
-func (*fakeSource) Collect(context.Context, string) ([]EvidenceRecord, error) {
+func (*fakeSource) Collect(context.Context, SlotRequest) ([]EvidenceRecord, error) {
 	return nil, nil
 }
 
