@@ -141,7 +141,7 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 	completedAt := nowOrFallback(opts.Now)
 	persistResults(ctx, rec, opts.Logger, runRoot, results, runID, plan, completedAt)
 
-	if err := writeManifest(ctx, rec, opts.Logger, runRoot, runID, startedAt, completedAt); err != nil {
+	if err := writeManifest(ctx, rec, opts.Logger, runRoot, runID, plan, startedAt, completedAt); err != nil {
 		return Result{ExitCode: ExitExecution}, err
 	}
 
@@ -221,13 +221,16 @@ func persistResults(ctx context.Context, rec *recordingVault, logger *log.Logger
 	}
 }
 
-func writeManifest(ctx context.Context, rec *recordingVault, logger *log.Logger, runRoot, runID string, startedAt, completedAt time.Time) error {
+func writeManifest(ctx context.Context, rec *recordingVault, logger *log.Logger, runRoot, runID string, plan *planner.RunPlan, startedAt, completedAt time.Time) error {
 	manifest := &core.Manifest{
-		SchemaVersion: ManifestSchemaVersion,
-		RunID:         runID,
-		StartedAt:     startedAt,
-		CompletedAt:   completedAt,
-		FileHashes:    rec.FileHashes(runRoot),
+		SchemaVersion:     ManifestSchemaVersion,
+		RunID:             runID,
+		Framework:         plan.Framework,
+		PeriodID:          plan.Period.ID,
+		StartedAt:         startedAt,
+		CompletedAt:       completedAt,
+		FileHashes:        rec.FileHashes(runRoot),
+		ExceptionsApplied: collectAppliedExceptions(plan),
 	}
 	if err := sign.Manifest(manifest); err != nil {
 		return fmt.Errorf("sign manifest: %w", err)
@@ -238,6 +241,35 @@ func writeManifest(ctx context.Context, rec *recordingVault, logger *log.Logger,
 		logger.Warnf("vault: write manifest.json: %s", err.Error())
 	}
 	return nil
+}
+
+// collectAppliedExceptions snapshots the planner-resolved exceptions
+// for the run. Ordered by policy_id so the manifest is deterministic
+// across runs with identical inputs — auditors comparing two runs by
+// hash should see no spurious diffs from map iteration order.
+func collectAppliedExceptions(plan *planner.RunPlan) []core.AppliedException {
+	out := make([]core.AppliedException, 0)
+	for i := range plan.Policies {
+		pp := &plan.Policies[i]
+		if pp.Exception == nil {
+			continue
+		}
+		out = append(out, core.AppliedException{
+			PolicyID:        pp.Spec.ID,
+			State:           string(pp.Exception.State),
+			Reason:          pp.Exception.Reason,
+			ApprovedBy:      pp.Exception.ApprovedBy,
+			ApprovedAt:      pp.Exception.ApprovedAt,
+			ExpiresAt:       pp.Exception.ExpiresAt,
+			ResourceID:      pp.Exception.ResourceID,
+			ResourcePattern: pp.Exception.ResourcePattern,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].PolicyID < out[j].PolicyID })
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func buildPayload(opts *Options, results []core.PolicyResult, plan *planner.RunPlan, runID string, startedAt, completedAt time.Time) core.SubmissionPayload {
