@@ -50,6 +50,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(newCheckCmd())
 	root.AddCommand(newInitCICmd())
+	root.AddCommand(newBuildCmd())
 	return root
 }
 
