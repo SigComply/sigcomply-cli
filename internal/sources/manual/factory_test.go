@@ -59,13 +59,28 @@ func TestBuildReader_ExplicitBucketAndPrefix(t *testing.T) {
 	}
 }
 
-func TestBuildReader_UnsupportedBackend(t *testing.T) {
+func TestBuildReader_UnregisteredBackend(t *testing.T) {
+	// Cloud backends (s3, gcs, azure_blob) land alongside the post-M6
+	// plugin-set work; until then the registry only carries "local".
+	// Third parties can register their own backends via RegisterReader.
 	r, scheme, bucket, prefix, err := buildReader(map[string]any{"backend": "s3", "path": "/x"})
-	if err == nil || !strings.Contains(err.Error(), "not supported in v1-alpha") {
-		t.Errorf("want v1-alpha unsupported error; got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "not registered") {
+		t.Errorf("want \"not registered\" error; got %v", err)
+	}
+	if !strings.Contains(err.Error(), "s3") {
+		t.Errorf("error %q does not name the offending backend", err.Error())
 	}
 	if r != nil || scheme != "" || bucket != "" || prefix != "" {
 		t.Errorf("error path should return zero values: r=%v scheme=%q bucket=%q prefix=%q", r, scheme, bucket, prefix)
+	}
+}
+
+func TestRegisterReader_LocalRegistered(t *testing.T) {
+	// init() must have registered the local backend in the manual.pdf
+	// reader registry. This is the canary for any in-tree backend that
+	// quietly fails to register at package init.
+	if _, ok := LookupReader("local"); !ok {
+		t.Fatalf("manual.pdf \"local\" reader not registered")
 	}
 }
 

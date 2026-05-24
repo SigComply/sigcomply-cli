@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
@@ -27,6 +29,7 @@ const (
 
 func init() {
 	sources.RegisterFactory(SourceID, build)
+	RegisterReader("local", buildLocalReader)
 }
 
 func build(_ context.Context, env sources.Env) (core.SourcePlugin, error) {
@@ -44,37 +47,100 @@ func build(_ context.Context, env sources.Env) (core.SourcePlugin, error) {
 	}), nil
 }
 
+// ReaderFactory builds a Reader from the raw config map for the
+// manual.pdf source. Each backend package registers its factory via
+// init(); the manual.pdf plugin dispatches generically. Third-party
+// backends (SFTP, MinIO, on-prem NFS, custom object stores) follow the
+// same pattern from a project-local plugin compiled in by
+// `sigcomply build` (M16) — no edits to internal/sources/manual
+// required. See docs/architecture/00-three-plugin-axes.md §Axis A.
+//
+// The factory extracts backend-specific fields from raw and returns
+// the Reader plus the (scheme, bucket, prefix) triple used to build
+// the URI in emitted evidence records.
+type ReaderFactory func(raw map[string]any) (reader Reader, scheme, bucket, prefix string, err error)
+
+var (
+	readerMu        sync.RWMutex
+	readerFactories = map[string]ReaderFactory{}
+)
+
+// RegisterReader adds a backend factory under id. Intended for init()
+// inside the backend's package. Duplicate IDs panic at process start —
+// duplicates among in-tree backends are a programming error, and a
+// project-local backend claiming a reserved ID is a misconfiguration
+// the build should not let through.
+func RegisterReader(id string, f ReaderFactory) {
+	if id == "" {
+		panic("manual: RegisterReader: empty ID")
+	}
+	if f == nil {
+		panic("manual: RegisterReader: nil factory for " + id)
+	}
+	readerMu.Lock()
+	defer readerMu.Unlock()
+	if _, dup := readerFactories[id]; dup {
+		panic("manual: duplicate reader registration for " + id)
+	}
+	readerFactories[id] = f
+}
+
+// LookupReader returns the factory registered under id, or (nil, false).
+func LookupReader(id string) (ReaderFactory, bool) {
+	readerMu.RLock()
+	defer readerMu.RUnlock()
+	f, ok := readerFactories[id]
+	return f, ok
+}
+
+// ReaderIDs returns every registered reader backend ID in sorted
+// order. Used to build helpful error messages when project config
+// names an unknown backend.
+func ReaderIDs() []string {
+	readerMu.RLock()
+	defer readerMu.RUnlock()
+	out := make([]string, 0, len(readerFactories))
+	for id := range readerFactories {
+		out = append(out, id)
+	}
+	sort.Strings(out)
+	return out
+}
+
 func buildReader(raw map[string]any) (reader Reader, scheme, bucket, prefix string, err error) {
 	backend := sources.StringOpt(raw, "backend")
 	if backend == "" {
 		backend = "local"
 	}
-	switch backend {
-	case "local":
-		root := sources.StringOpt(raw, "path")
-		if root == "" {
-			return nil, "", "", "", fmt.Errorf("manual.pdf.local: \"path\" required")
-		}
-		bucket = sources.StringOpt(raw, "bucket")
-		if bucket == "" {
-			bucket = root
-		}
-		prefix = sources.StringOpt(raw, "prefix")
-		if prefix == "" {
-			prefix = defaultPrefix
-		}
-		return &localReader{root: root}, localScheme, bucket, prefix, nil
-	default:
-		// Cloud-backed manual.pdf readers (s3, gcs, azure_blob) land
-		// alongside the post-M6 plugin-set work; see
-		// docs/architecture/09-implementation-roadmap.md.
-		return nil, "", "", "", fmt.Errorf("manual.pdf backend %q not supported in v1-alpha (use \"local\")", backend)
+	f, ok := LookupReader(backend)
+	if !ok {
+		return nil, "", "", "", fmt.Errorf("manual.pdf backend %q not registered (compiled-in: %v; "+
+			"third-party backends are compiled in via `sigcomply build`)", backend, ReaderIDs())
 	}
+	return f(raw)
+}
+
+func buildLocalReader(raw map[string]any) (reader Reader, scheme, bucket, prefix string, err error) {
+	root := sources.StringOpt(raw, "path")
+	if root == "" {
+		return nil, "", "", "", fmt.Errorf("manual.pdf.local: \"path\" required")
+	}
+	bucket = sources.StringOpt(raw, "bucket")
+	if bucket == "" {
+		bucket = root
+	}
+	prefix = sources.StringOpt(raw, "prefix")
+	if prefix == "" {
+		prefix = defaultPrefix
+	}
+	return &localReader{root: root}, localScheme, bucket, prefix, nil
 }
 
 // localReader satisfies Reader against a local directory tree. Lives
 // here (rather than cmd/sigcomply) so the manual package owns its
-// backend adapters and the factory can stay generic.
+// in-tree backend adapters; cloud backends (S3, GCS, Azure Blob) land
+// as subpackages alongside the post-M6 plugin-set work, each calling
+// RegisterReader from its own init().
 type localReader struct {
 	root string
 }
