@@ -15,6 +15,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/frameworks/soc2"
 	"github.com/sigcomply/sigcomply-cli/internal/log"
 	"github.com/sigcomply/sigcomply-cli/internal/orchestrator"
+	"github.com/sigcomply/sigcomply-cli/internal/planner"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/aws/iam"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
@@ -30,6 +31,8 @@ type checkFlags struct {
 	cloudOff           bool
 	cloudURL           string
 	capturePayloadPath string
+	cadence            string
+	onPush             bool
 }
 
 func newCheckCmd() *cobra.Command {
@@ -44,7 +47,7 @@ func newCheckCmd() *cobra.Command {
 			"  4. Persist signed envelopes + per-policy results + run manifest to the vault.\n" +
 			"  5. Optionally submit aggregated counts to the configured cloud endpoint.\n",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runCheck(cmd.Context(), cmd.OutOrStdout(), flags)
+			return runCheck(cmd.Context(), cmd.OutOrStdout(), &flags)
 		},
 	}
 	cmd.Flags().StringVarP(&flags.config, "config", "c", ".sigcomply.yaml", "Path to project config")
@@ -53,10 +56,13 @@ func newCheckCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&flags.cloudOff, "no-cloud", false, "Disable cloud submission")
 	cmd.Flags().StringVar(&flags.cloudURL, "cloud-url", "", "Cloud base URL override (defaults to .sigcomply.yaml cloud.base_url)")
 	cmd.Flags().StringVar(&flags.capturePayloadPath, "capture-cloud-payload", "", "Write the cloud SubmissionPayload to this file instead of POSTing it (auditor escape hatch)")
+	cmd.Flags().StringVar(&flags.cadence, "cadence", "", "Only evaluate policies whose effective cadence matches (continuous|hourly|daily|weekly|monthly|quarterly|annual)")
+	cmd.Flags().BoolVar(&flags.onPush, "on-push", false, "Only evaluate policies whose on_push attribute is true (mutually exclusive with --cadence)")
+	cmd.MarkFlagsMutuallyExclusive("cadence", "on-push")
 	return cmd
 }
 
-func runCheck(ctx context.Context, stdout io.Writer, flags checkFlags) error {
+func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 	cfg, registries, err := orchestrator.Bootstrap(flags.config)
 	if err != nil {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
@@ -108,6 +114,10 @@ func runCheck(ctx context.Context, stdout io.Writer, flags checkFlags) error {
 		ForceCloud:         flags.cloudOn,
 		DisableCloud:       flags.cloudOff,
 		CapturePayloadPath: flags.capturePayloadPath,
+		Filter: planner.Filter{
+			Cadence: flags.cadence,
+			OnPush:  flags.onPush,
+		},
 		SubmitterOpts: submitter.Options{
 			BaseURL:    cloudBase,
 			Force:      flags.cloudOn,

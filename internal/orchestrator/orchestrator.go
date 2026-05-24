@@ -78,6 +78,11 @@ type Options struct {
 
 	// Submitter overrides for tests.
 	SubmitterOpts submitter.Options
+
+	// Filter narrows the plan to a subset of policies. The planner
+	// enforces mutual exclusion across Filter's fields; the orchestrator
+	// just threads it through.
+	Filter planner.Filter
 }
 
 // Result is what Run returns to the CLI command. ExitCode is the
@@ -108,6 +113,7 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 		Registries: opts.Registries,
 		CommitTime: opts.CommitTime,
 		Now:        startedAt,
+		Filter:     opts.Filter,
 	})
 	if err != nil {
 		return Result{ExitCode: ExitConfig}, fmt.Errorf("plan: %w", err)

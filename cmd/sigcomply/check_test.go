@@ -163,7 +163,7 @@ func TestGitContext_GitLabSHA(t *testing.T) {
 }
 
 func TestRunCheck_MissingConfigFile(t *testing.T) {
-	err := runCheck(context.Background(), &bytes.Buffer{}, checkFlags{
+	err := runCheck(context.Background(), &bytes.Buffer{}, &checkFlags{
 		config:   filepath.Join(t.TempDir(), "nope.yaml"),
 		cloudOff: true,
 	})
@@ -184,7 +184,7 @@ func TestRunCheck_RejectsUnsupportedFramework(t *testing.T) {
 	// orchestrator must still reject it. iso27001 used to fail here too
 	// but now ships a real skeleton.
 	writeMinimalConfig(t, configPath, "hipaa", tmp)
-	err := runCheck(context.Background(), &bytes.Buffer{}, checkFlags{
+	err := runCheck(context.Background(), &bytes.Buffer{}, &checkFlags{
 		config:   configPath,
 		cloudOff: true,
 	})
@@ -205,7 +205,7 @@ func TestRunCheck_EndToEndWithManualOnly(t *testing.T) {
 	}
 	configPath := filepath.Join(tmp, "cfg.yaml")
 	writeManualOnlyConfig(t, configPath, vaultDir, manualDir)
-	err := runCheck(context.Background(), &bytes.Buffer{}, checkFlags{
+	err := runCheck(context.Background(), &bytes.Buffer{}, &checkFlags{
 		config:   configPath,
 		cloudOff: true,
 	})
