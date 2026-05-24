@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sigcomply/sigcomply-cli/internal/frameworks/iso27001"
 	"github.com/sigcomply/sigcomply-cli/internal/frameworks/soc2"
 	"github.com/sigcomply/sigcomply-cli/internal/log"
 	"github.com/sigcomply/sigcomply-cli/internal/orchestrator"
@@ -62,15 +63,24 @@ func runCheck(ctx context.Context, stdout io.Writer, flags checkFlags) error {
 	}
 	logger := log.New(os.Stderr, flags.verbose)
 
-	if cfg.Framework != soc2.FrameworkID {
+	var manualCatalog map[string]manual.CatalogEntry
+	switch cfg.Framework {
+	case soc2.FrameworkID:
+		if err := soc2.Register(registries); err != nil {
+			return &exitCodeError{code: orchestrator.ExitConfig, err: fmt.Errorf("register soc2: %w", err)}
+		}
+		manualCatalog = soc2.ManualCatalog()
+	case iso27001.FrameworkID:
+		if err := iso27001.Register(registries); err != nil {
+			return &exitCodeError{code: orchestrator.ExitConfig, err: fmt.Errorf("register iso27001: %w", err)}
+		}
+		manualCatalog = iso27001.ManualCatalog()
+	default:
 		return &exitCodeError{code: orchestrator.ExitConfig,
-			err: fmt.Errorf("framework %q not supported in v1-alpha (only soc2)", cfg.Framework)}
-	}
-	if err := soc2.Register(registries); err != nil {
-		return &exitCodeError{code: orchestrator.ExitConfig, err: fmt.Errorf("register soc2: %w", err)}
+			err: fmt.Errorf("framework %q not supported in v1-alpha (only soc2, iso27001)", cfg.Framework)}
 	}
 
-	if err := registerProductionSources(ctx, registries, cfg, soc2.ManualCatalog()); err != nil {
+	if err := registerProductionSources(ctx, registries, cfg, manualCatalog); err != nil {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
 	}
 
