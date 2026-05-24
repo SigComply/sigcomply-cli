@@ -57,11 +57,17 @@ func (*Framework) Controls() []core.Control { return Controls() }
 
 // Policies implements core.Framework.
 func (*Framework) Policies() []core.PolicyRef {
-	return []core.PolicyRef{
-		{PolicyID: PolicyMFAEnforced},
-		{PolicyID: PolicyAccessReview},
-		{PolicyID: PolicyMFAUnion},
+	aws := awsPolicies()
+	refs := make([]core.PolicyRef, 0, 3+len(aws))
+	refs = append(refs,
+		core.PolicyRef{PolicyID: PolicyMFAEnforced},
+		core.PolicyRef{PolicyID: PolicyAccessReview},
+		core.PolicyRef{PolicyID: PolicyMFAUnion},
+	)
+	for i := range aws {
+		refs = append(refs, core.PolicyRef{PolicyID: aws[i].ID})
 	}
+	return refs
 }
 
 // Register populates the rule and policy registries with the SOC 2
@@ -106,6 +112,16 @@ func ManualCatalog() map[string]manual.CatalogEntry {
 // (rather than embedded YAML) keeps the walking skeleton legible; the
 // L0 YAML loader is exercised in internal/spec's own tests.
 func Policies() []core.Policy {
+	aws := awsPolicies()
+	out := make([]core.Policy, 0, 3+len(aws))
+	out = append(out, accessControlPolicies()...)
+	out = append(out, aws...)
+	return out
+}
+
+// accessControlPolicies holds the three seed access-control policies
+// from the M6 walking skeleton.
+func accessControlPolicies() []core.Policy {
 	return []core.Policy{
 		{
 			ID:          PolicyMFAEnforced,
@@ -152,13 +168,15 @@ func Policies() []core.Policy {
 	}
 }
 
-// Rules returns the rule implementations. Two rules cover the three
-// policies (the two MFA policies share a rule).
+// Rules returns the rule implementations. The seed framework rules
+// cover the access policies; AWS infrastructure rules are appended
+// from policies_aws.go.
 func Rules() []core.Rule {
-	return []core.Rule{
-		mfaEnforcedRule(),
-		manualPresenceRule(),
-	}
+	aws := awsRules()
+	out := make([]core.Rule, 0, 2+len(aws))
+	out = append(out, mfaEnforcedRule(), manualPresenceRule())
+	out = append(out, aws...)
+	return out
 }
 
 const (

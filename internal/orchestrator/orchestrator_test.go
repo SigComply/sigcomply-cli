@@ -9,8 +9,14 @@ import (
 	"testing"
 	"time"
 
+	awsec2 "github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	awseks "github.com/aws/aws-sdk-go-v2/service/eks"
 	awsiam "github.com/aws/aws-sdk-go-v2/service/iam"
 	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
+	awskms "github.com/aws/aws-sdk-go-v2/service/kms"
+	awsrds "github.com/aws/aws-sdk-go-v2/service/rds"
+	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/frameworks/soc2"
@@ -18,7 +24,12 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/orchestrator"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 	"github.com/sigcomply/sigcomply-cli/internal/sign"
+	"github.com/sigcomply/sigcomply-cli/internal/sources/aws/ec2"
+	"github.com/sigcomply/sigcomply-cli/internal/sources/aws/eks"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/aws/iam"
+	"github.com/sigcomply/sigcomply-cli/internal/sources/aws/kms"
+	"github.com/sigcomply/sigcomply-cli/internal/sources/aws/rds"
+	"github.com/sigcomply/sigcomply-cli/internal/sources/aws/s3"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 	"github.com/sigcomply/sigcomply-cli/internal/submitter"
@@ -148,6 +159,25 @@ func buildE2ERegistries(t *testing.T, cfg *spec.ProjectConfig, manualDir string,
 	if err := regs.Sources.Register(iam.New(iam.Options{API: stubAPI, Now: func() time.Time { return now }})); err != nil {
 		t.Fatalf("register iam: %v", err)
 	}
+	// AWS infrastructure plugins — registered with empty stubs so the
+	// new SOC 2 CC6.6/6.7 policies plan cleanly and pass against a
+	// clean account. (Tests for non-empty fixtures live in each
+	// plugin's package.)
+	if err := regs.Sources.Register(s3.New(s3.Options{API: emptyS3API{}, Now: func() time.Time { return now }})); err != nil {
+		t.Fatalf("register aws.s3: %v", err)
+	}
+	if err := regs.Sources.Register(kms.New(kms.Options{API: emptyKMSAPI{}, Now: func() time.Time { return now }})); err != nil {
+		t.Fatalf("register aws.kms: %v", err)
+	}
+	if err := regs.Sources.Register(rds.New(rds.Options{API: emptyRDSAPI{}, Now: func() time.Time { return now }})); err != nil {
+		t.Fatalf("register aws.rds: %v", err)
+	}
+	if err := regs.Sources.Register(ec2.New(ec2.Options{API: emptyEC2API{}, Now: func() time.Time { return now }})); err != nil {
+		t.Fatalf("register aws.ec2: %v", err)
+	}
+	if err := regs.Sources.Register(eks.New(eks.Options{API: emptyEKSAPI{}, Now: func() time.Time { return now }})); err != nil {
+		t.Fatalf("register aws.eks: %v", err)
+	}
 	if err := regs.Sources.Register(manual.New(manual.Options{
 		Reader:  &localManualReader{root: manualDir},
 		Bucket:  manualDir,
@@ -160,16 +190,71 @@ func buildE2ERegistries(t *testing.T, cfg *spec.ProjectConfig, manualDir string,
 	return regs
 }
 
+// --- Empty AWS API stubs for the M7 plugins. Each returns no
+// resources so the corresponding SOC 2 policies pass cleanly.
+
+type emptyS3API struct{}
+
+func (emptyS3API) ListBuckets(context.Context, *awss3.ListBucketsInput, ...func(*awss3.Options)) (*awss3.ListBucketsOutput, error) {
+	return &awss3.ListBucketsOutput{}, nil
+}
+
+func (emptyS3API) GetBucketEncryption(context.Context, *awss3.GetBucketEncryptionInput, ...func(*awss3.Options)) (*awss3.GetBucketEncryptionOutput, error) {
+	return &awss3.GetBucketEncryptionOutput{}, nil
+}
+
+type emptyKMSAPI struct{}
+
+func (emptyKMSAPI) ListKeys(context.Context, *awskms.ListKeysInput, ...func(*awskms.Options)) (*awskms.ListKeysOutput, error) {
+	return &awskms.ListKeysOutput{}, nil
+}
+
+func (emptyKMSAPI) DescribeKey(context.Context, *awskms.DescribeKeyInput, ...func(*awskms.Options)) (*awskms.DescribeKeyOutput, error) {
+	return &awskms.DescribeKeyOutput{}, nil
+}
+
+func (emptyKMSAPI) GetKeyRotationStatus(context.Context, *awskms.GetKeyRotationStatusInput, ...func(*awskms.Options)) (*awskms.GetKeyRotationStatusOutput, error) {
+	return &awskms.GetKeyRotationStatusOutput{}, nil
+}
+
+type emptyRDSAPI struct{}
+
+func (emptyRDSAPI) DescribeDBInstances(context.Context, *awsrds.DescribeDBInstancesInput, ...func(*awsrds.Options)) (*awsrds.DescribeDBInstancesOutput, error) {
+	return &awsrds.DescribeDBInstancesOutput{}, nil
+}
+
+type emptyEC2API struct{}
+
+func (emptyEC2API) DescribeInstances(context.Context, *awsec2.DescribeInstancesInput, ...func(*awsec2.Options)) (*awsec2.DescribeInstancesOutput, error) {
+	return &awsec2.DescribeInstancesOutput{Reservations: []ec2types.Reservation{}}, nil
+}
+
+type emptyEKSAPI struct{}
+
+func (emptyEKSAPI) ListClusters(context.Context, *awseks.ListClustersInput, ...func(*awseks.Options)) (*awseks.ListClustersOutput, error) {
+	return &awseks.ListClustersOutput{}, nil
+}
+
+func (emptyEKSAPI) DescribeCluster(context.Context, *awseks.DescribeClusterInput, ...func(*awseks.Options)) (*awseks.DescribeClusterOutput, error) {
+	return &awseks.DescribeClusterOutput{}, nil
+}
+
 func assertRunCounts(t *testing.T, res *orchestrator.Result) {
 	t.Helper()
 	if res.ExitCode != orchestrator.ExitViolation {
 		t.Errorf("ExitCode = %d; want %d (violation)", res.ExitCode, orchestrator.ExitViolation)
 	}
-	if res.Summary.PoliciesTotal != 3 {
-		t.Errorf("PoliciesTotal = %d; want 3", res.Summary.PoliciesTotal)
+	// 3 access-control policies + 5 AWS infrastructure policies (M7).
+	if res.Summary.PoliciesTotal != 8 {
+		t.Errorf("PoliciesTotal = %d; want 8", res.Summary.PoliciesTotal)
 	}
-	if res.Summary.PoliciesPassed != 1 || res.Summary.PoliciesFailed != 2 {
-		t.Errorf("counts: passed=%d failed=%d; want 1/2", res.Summary.PoliciesPassed, res.Summary.PoliciesFailed)
+	// Access control policies: 1 pass (access review), 2 fail (MFA).
+	// AWS infrastructure policies bind empty stub plugins → required
+	// slots have no records → 5 skips. (Confirmed behavior of
+	// requiredSlotsPopulated in internal/evaluator/evaluator.go.)
+	if res.Summary.PoliciesPassed != 1 || res.Summary.PoliciesFailed != 2 || res.Summary.PoliciesSkipped != 5 {
+		t.Errorf("counts: pass=%d fail=%d skip=%d; want 1/2/5",
+			res.Summary.PoliciesPassed, res.Summary.PoliciesFailed, res.Summary.PoliciesSkipped)
 	}
 }
 
@@ -256,8 +341,8 @@ func assertCapturedPayloadPrivacy(t *testing.T, capturePath string) {
 	if payload.Schema != "sigcomply.cloud.v1" {
 		t.Errorf("Schema = %q", payload.Schema)
 	}
-	if len(payload.Policies) != 3 {
-		t.Errorf("Policies len = %d; want 3", len(payload.Policies))
+	if len(payload.Policies) != 8 {
+		t.Errorf("Policies len = %d; want 8", len(payload.Policies))
 	}
 	// Resource IDs must not leak. The vault has AIDABOB; the captured
 	// JSON must not.

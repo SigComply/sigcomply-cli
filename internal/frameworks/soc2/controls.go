@@ -21,5 +21,19 @@ func Controls() []core.Control {
 			Category:         "access",
 			BaselineSeverity: core.SeverityMedium,
 		},
+		{
+			ID:               "SOC2.CC6.6",
+			Name:             "External Network Access Restrictions",
+			Description:      "The entity implements logical access security measures to protect against threats from sources outside its system boundaries.",
+			Category:         "network",
+			BaselineSeverity: core.SeverityMedium,
+		},
+		{
+			ID:               "SOC2.CC6.7",
+			Name:             "Restricted Movement of Data",
+			Description:      "The entity restricts the transmission, movement, and removal of information to authorized internal and external users and processes, and protects it during transmission, movement, or removal.",
+			Category:         "data-protection",
+			BaselineSeverity: core.SeverityHigh,
+		},
 	}
 }
