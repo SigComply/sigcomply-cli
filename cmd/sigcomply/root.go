@@ -1,6 +1,6 @@
-// Package cmd is the CLI entry. M6 wires the `sigcomply check` and
-// `sigcomply version` commands and leaves placeholders for the
-// post-M6 subcommands (build, report, init-ci).
+// Package cmd is the CLI entry. M6 wires `sigcomply check` and
+// `sigcomply version`; the post-M6 work plan adds the auditor-facing
+// `sigcomply report` and (later) `build` + `init-ci`.
 package cmd
 
 import (
@@ -49,6 +49,7 @@ func newRootCmd() *cobra.Command {
 	}
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(newCheckCmd())
+	root.AddCommand(newReportCmd())
 	return root
 }
 

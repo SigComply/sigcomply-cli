@@ -11,12 +11,20 @@ import (
 // payload: every Manifest field except Signature. A verifier
 // reconstructs this shape from a parsed manifest to recompute the
 // bytes that were signed.
+//
+// Optional fields use `omitempty` so a manifest signed by an older
+// CLI (which left Framework, PeriodID, ExceptionsApplied unset)
+// still round-trips byte-identical through Encode — the canonical
+// JSON omits them entirely.
 type manifestForSigning struct {
-	SchemaVersion string            `json:"schema_version"`
-	RunID         string            `json:"run_id"`
-	StartedAt     time.Time         `json:"started_at"`
-	CompletedAt   time.Time         `json:"completed_at"`
-	FileHashes    map[string]string `json:"file_hashes"`
+	SchemaVersion     string                  `json:"schema_version"`
+	RunID             string                  `json:"run_id"`
+	Framework         string                  `json:"framework,omitempty"`
+	PeriodID          string                  `json:"period_id,omitempty"`
+	StartedAt         time.Time               `json:"started_at"`
+	CompletedAt       time.Time               `json:"completed_at"`
+	FileHashes        map[string]string       `json:"file_hashes"`
+	ExceptionsApplied []core.AppliedException `json:"exceptions_applied,omitempty"`
 }
 
 // Manifest signs m in place using a fresh ephemeral Ed25519 keypair.
@@ -74,10 +82,13 @@ func EncodeManifest(m *core.Manifest) ([]byte, error) {
 
 func manifestSigningBytes(m *core.Manifest) ([]byte, error) {
 	return Encode(manifestForSigning{
-		SchemaVersion: m.SchemaVersion,
-		RunID:         m.RunID,
-		StartedAt:     m.StartedAt,
-		CompletedAt:   m.CompletedAt,
-		FileHashes:    m.FileHashes,
+		SchemaVersion:     m.SchemaVersion,
+		RunID:             m.RunID,
+		Framework:         m.Framework,
+		PeriodID:          m.PeriodID,
+		StartedAt:         m.StartedAt,
+		CompletedAt:       m.CompletedAt,
+		FileHashes:        m.FileHashes,
+		ExceptionsApplied: m.ExceptionsApplied,
 	})
 }
