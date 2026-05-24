@@ -36,9 +36,9 @@ Everything else in the system is on the customer's side.
 ## The submission payload
 
 ```go
-// internal/core/cloud/types.go
+// internal/core/cloud.go
 
-package cloud
+package core
 
 // SubmissionPayload is the wire format. Every field is concretely
 // typed and represents either a count, an enum status, or
@@ -404,7 +404,7 @@ perform.
 
 ### 1. Static check: type inspection
 
-Read `internal/core/cloud/types.go`. Verify:
+Read `internal/core/cloud.go`. Verify:
 
 - No `interface{}` or `any` types in `SubmissionPayload` (transitively).
 - No `json.RawMessage` types.
@@ -417,11 +417,9 @@ Read `internal/core/cloud/types.go`. Verify:
 A unit test enforces this with `go/types` reflection on the package:
 
 ```go
-// internal/core/cloud/contract_test.go
-func TestSubmissionPayload_HasNoFreeformFields(t *testing.T) {
-    assertNoMapStringAny(t, reflect.TypeOf(cloud.SubmissionPayload{}))
-    assertNoRawMessage(t, reflect.TypeOf(cloud.SubmissionPayload{}))
-    assertNoInterfaceFields(t, reflect.TypeOf(cloud.SubmissionPayload{}))
+// internal/core/cloud_test.go
+func TestSubmissionPayload_StructurallyCountsOnly(t *testing.T) {
+    walkType(t, reflect.TypeOf(SubmissionPayload{}), "SubmissionPayload")
 }
 ```
 

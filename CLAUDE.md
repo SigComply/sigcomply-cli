@@ -391,7 +391,7 @@ through `POST /api/v1/runs`.
 ## Notes for AI Assistants
 
 - **Don't undo the aggregation boundary.** The Cloud client must never
-  send resource identifiers. `internal/core/cloud/types.go` carries an
+  send resource identifiers. `internal/core/cloud.go` carries an
   explicit warning against adding a freeform metadata field. Respect it.
 - **Don't invent evidence types.** The OPA evaluator only knows
   `automated` and `manual`. Catalog `type` values like `declaration`,
