@@ -38,16 +38,18 @@ jobs:
           fetch-depth: 0
 
       - name: Validate version format
+        env:
+          TAG: ${{ inputs.version }}
         run: |
-          TAG="${{ inputs.version }}"
           if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
             echo "Error: Version must match semver format (e.g., v1.2.3 or v1.2.3-rc.1)"
             exit 1
           fi
 
       - name: Create and push tag
+        env:
+          TAG: ${{ inputs.version }}
         run: |
-          TAG="${{ inputs.version }}"
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "Tag $TAG already exists"
           else
@@ -155,15 +157,18 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Install via script
+        env:
+          SIGCOMPLY_VERSION: ${{ inputs.version }}
         run: |
-          SIGCOMPLY_VERSION="${{ inputs.version }}" ./scripts/install.sh
+          ./scripts/install.sh
 
       - name: Verify version
+        env:
+          TAG_VERSION_INPUT: ${{ inputs.version }}
         run: |
           sigcomply version
           VERSION_OUTPUT=$(sigcomply version)
-          TAG_VERSION="${{ inputs.version }}"
-          TAG_VERSION="${TAG_VERSION#v}"
+          TAG_VERSION="${TAG_VERSION_INPUT#v}"
           if echo "$VERSION_OUTPUT" | grep -q "$TAG_VERSION"; then
             echo "Version matches: $TAG_VERSION"
           else

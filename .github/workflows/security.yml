@@ -74,12 +74,12 @@ jobs:
 
       - name: Run govulncheck
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
           govulncheck ./... || echo "::warning::Vulnerabilities found - review govulncheck output"
 
       - name: Run nancy (Sonatype OSS Index)
         run: |
-          go install github.com/sonatype-nexus-community/nancy@latest
+          go install github.com/sonatype-nexus-community/nancy@v1.0.51
           go list -json -deps ./... | nancy sleuth --loud || echo "::warning::Nancy check failed - OSS Index may require authentication"
         continue-on-error: true
 
@@ -353,7 +353,7 @@ jobs:
 
       - name: Check licenses
         run: |
-          go install github.com/google/go-licenses@latest
+          go install github.com/google/go-licenses@v1.6.0
           echo "Checking for forbidden licenses..."
           go-licenses check ./... \
             --disallowed_types=forbidden,restricted \

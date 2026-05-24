@@ -18,7 +18,7 @@ const PolicyS3BucketEncrypted = "soc2.cc6.7.s3_bucket_encrypted"
 
 // PolicyKMSKeyRotation is the policy that fails when any customer-
 // managed CMK has automatic rotation disabled (SOC 2 CC6.7).
-const PolicyKMSKeyRotation = "soc2.cc6.7.kms_key_rotation_enabled" //gitleaks:allow
+const PolicyKMSKeyRotation = "soc2.cc6.7.kms_key_rotation_enabled" //gitleaks:allow #nosec G101 -- policy identifier, not a credential
 
 // PolicyRDSEncryptionAtRest is the policy that fails when any RDS
 // instance has StorageEncrypted=false (SOC 2 CC6.7).
@@ -32,7 +32,7 @@ const PolicyEC2NoPublicIP = "soc2.cc6.6.ec2_no_public_ip"
 // PolicyEKSSecretsEncryption is the policy that fails when any EKS
 // cluster lacks envelope encryption for Kubernetes secrets (SOC 2
 // CC6.7).
-const PolicyEKSSecretsEncryption = "soc2.cc6.7.eks_secrets_encryption" //gitleaks:allow
+const PolicyEKSSecretsEncryption = "soc2.cc6.7.eks_secrets_encryption" //gitleaks:allow #nosec G101 -- policy identifier, not a credential
 
 const (
 	ruleIDS3BucketEncrypted    = "rules.soc2.s3_bucket_encrypted.v1"

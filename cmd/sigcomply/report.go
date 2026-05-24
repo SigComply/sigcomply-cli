@@ -205,16 +205,26 @@ func writeReport(stdout io.Writer, flags *reportFlags, snap *report.Snapshot) er
 		return &exitCodeError{code: orchestrator.ExitConfig,
 			err: fmt.Errorf("report: --out is required for --format %s (only text defaults to stdout)", flags.format)}
 	}
-	sink := stdout
-	if flags.out != "" {
-		f, err := os.OpenFile(flags.out, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
-		if err != nil {
-			return &exitCodeError{code: orchestrator.ExitExecution, err: fmt.Errorf("open out file: %w", err)}
-		}
-		defer f.Close() //nolint:errcheck // best-effort close; write errors are surfaced below
-		sink = f
+	if flags.out == "" {
+		return formatTo(stdout, flags.format, snap)
 	}
-	switch flags.format {
+	f, err := os.OpenFile(flags.out, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+	if err != nil {
+		return &exitCodeError{code: orchestrator.ExitExecution, err: fmt.Errorf("open out file: %w", err)}
+	}
+	formatErr := formatTo(f, flags.format, snap)
+	closeErr := f.Close()
+	if formatErr != nil {
+		return formatErr
+	}
+	if closeErr != nil {
+		return &exitCodeError{code: orchestrator.ExitExecution, err: fmt.Errorf("close out file: %w", closeErr)}
+	}
+	return nil
+}
+
+func formatTo(sink io.Writer, format string, snap *report.Snapshot) error {
+	switch format {
 	case "text":
 		return report.FormatText(sink, snap)
 	case "json":
@@ -223,6 +233,6 @@ func writeReport(stdout io.Writer, flags *reportFlags, snap *report.Snapshot) er
 		return report.FormatCSV(sink, snap)
 	default:
 		return &exitCodeError{code: orchestrator.ExitConfig,
-			err: fmt.Errorf("report: invalid --format %q (want text|json|csv|pdf)", flags.format)}
+			err: fmt.Errorf("report: invalid --format %q (want text|json|csv|pdf)", format)}
 	}
 }
