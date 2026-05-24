@@ -571,8 +571,13 @@ information loss step at the boundary.
 
 ## The substitutability axioms
 
-These three statements are the load-bearing claims of the design.
-Everything else follows from them.
+These statements are the load-bearing claims of the design. Everything
+else follows from them. Axioms 1–4 cover the policy/source/CLI seams;
+Axioms 5–6 cover the two storage seams (output vault, manual-evidence
+input). Together they articulate the **three plugin axes** described
+in [`00-three-plugin-axes.md`](00-three-plugin-axes.md): Axiom 1
+covers Axis C (API sources), Axiom 5 covers Axis B (output vault),
+Axiom 6 covers Axis A (manual input storage).
 
 ### Axiom 1 — Evidence type is the join key, not the source plugin
 
@@ -670,6 +675,58 @@ Airflow → whatever) does not require CLI changes. This is the property
 that lets the same `sigcomply` binary serve hourly automated sweeps,
 daily SOC 2 sweeps, quarterly access reviews, and on-push fast checks
 without internal mode flags or state files.
+
+### Axiom 5 — Vault backends are interchangeable
+
+The customer-owned vault — append-only object storage receiving every
+signed envelope, every PDF mirror, every per-policy result, every
+per-run manifest — is named only through its config-string ID. The L4
+(Collector), L7 (Persistence), and L8 (Submitter) layers consume
+`core.Vault` abstractly; they never know or care which backend is
+behind it.
+
+Backend selection is by self-registering factory: each in-tree backend
+(`local`, `s3`, `gcs`, `azure_blob`) registers itself via `init()`
+into `vault.RegisterBackend`. `internal/vault/builtin` blank-imports
+them; `cmd/sigcomply` blank-imports `vault/builtin`. The factory in
+`internal/vault/factory.go` does a registry lookup — no hardcoded
+switch, no per-backend knowledge.
+
+**Consequence.** Adding a new vault backend (SFTP, MinIO, NFS, an
+internal object store, anything) is one new package implementing
+`core.Vault` plus one `init()` call to `vault.RegisterBackend`. No
+edits anywhere in `internal/vault`, `internal/collector`,
+`internal/orchestrator`, or `cmd/sigcomply`. The pattern matches
+Axiom 1 mechanically — same `RegisterX` shape, same blank-import
+bootstrap, same project-local extension surface (`.sigcomply/plugins/`
+compiled in by `sigcomply build` at M16). See
+[`07-extensibility.md`](07-extensibility.md) §Custom vault backends.
+
+### Axiom 6 — Manual-evidence input backends are interchangeable
+
+The customer-owned bucket that holds the manual-evidence PDFs the CLI
+reads (quarterly access reviews, signed NDAs, training certificates,
+declarations) is named only through its config-string ID. The
+`manual.pdf` source plugin consumes a `manual.Reader` interface
+abstractly; it never knows or cares which backend is behind it. The
+path scheme — `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/{filename}`
+— is identical regardless of backend, so the temporal-window presence
+check the manual evaluator runs is identical across backends,
+frameworks, and customers.
+
+Backend selection is by self-registering factory inside the manual
+package: each backend registers itself via `init()` into
+`manual.RegisterReader`. `manual.buildReader` does a registry lookup —
+no hardcoded switch.
+
+**Consequence.** Adding a new manual-evidence backend (SFTP, MinIO,
+NFS, an internal object store, an in-house workflow tool that mirrors
+its uploads, anything) is one new subpackage implementing
+`manual.Reader` plus one `init()` call to `manual.RegisterReader`. No
+edits to the `manual.pdf` plugin core, no edits to the evaluator, no
+edits to any policy. Same mechanical pattern as Axioms 1 and 5. See
+[`07-extensibility.md`](07-extensibility.md) §Custom manual-evidence
+backends.
 
 ---
 

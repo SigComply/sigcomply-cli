@@ -552,8 +552,14 @@ and in vault snapshots if backups exist.
 
 ## Backend abstraction
 
-All vault operations go through the `Vault` interface (L1). Concrete
-backends in `internal/vault/`:
+All vault operations go through the `Vault` interface (L1). Vault
+backends are **Axis B** of the three plugin axes (see
+[`00-three-plugin-axes.md`](00-three-plugin-axes.md) §Axis B):
+self-registering factories, blank-import bootstrap, fully
+substitutable. The four shipped backends in `internal/vault/` are
+just the in-tree set; third parties add their own from
+`.sigcomply/plugins/` (see
+[`07-extensibility.md`](07-extensibility.md) §Custom vault backends).
 
 | Backend | Identifier | Config requirements |
 |---|---|---|
@@ -562,12 +568,14 @@ backends in `internal/vault/`:
 | GCS | `gcs` | `bucket`, optional `prefix` |
 | Azure Blob | `azure_blob` | `account`, `container`, optional `prefix` |
 | On-prem S3-compatible | `s3` with `endpoint` + `force_path_style: true` | (MinIO, Ceph, etc.) |
+| Custom (third-party) | any registered ID (e.g. `acme.nfs`, `acme.sftp_vault`) | backend-specific; read from `spec.VaultConfig` |
 
 Backend selection is per-project in `.sigcomply.yaml`. The same
 backend serves the entire vault — no per-framework override for the
 *evidence* vault. (Per-framework override for the *manual upload*
 location is separate: that's the `manual.pdf` plugin's `bucket`
-config, not the vault.)
+config, not the vault — and is itself **Axis A** of the three plugin
+axes, with its own self-registering reader registry.)
 
 ---
 

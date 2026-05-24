@@ -155,7 +155,8 @@ definitions in [`01-conceptual-model.md`](docs/architecture/01-conceptual-model.
 
 | Doc | What it covers |
 |---|---|
-| [`01-conceptual-model.md`](docs/architecture/01-conceptual-model.md) | The sixteen abstractions, their relationships, and the substitutability axioms that make the design extensible. |
+| [`00-three-plugin-axes.md`](docs/architecture/00-three-plugin-axes.md) | The unified design principle: three orthogonal plugin axes (manual input storage, output vault storage, API sources) all use one self-registering factory pattern. Read this first to grok the extensibility story. |
+| [`01-conceptual-model.md`](docs/architecture/01-conceptual-model.md) | The sixteen abstractions, their relationships, and the substitutability axioms (1–6) that make the design extensible. |
 | [`02-layers.md`](docs/architecture/02-layers.md) | Each layer's responsibilities, interfaces, and the contracts between them. |
 | [`03-policy-spec.md`](docs/architecture/03-policy-spec.md) | Format of a policy spec; slots, parameters, rule references; examples in Rego, Go, and YAML DSL. |
 | [`04-source-plugins.md`](docs/architecture/04-source-plugins.md) | Source plugin contract; how to author one; how evidence types are declared and consumed. |
@@ -171,9 +172,10 @@ definitions in [`01-conceptual-model.md`](docs/architecture/01-conceptual-model.
 
 ## Reading order
 
-- **First pass (1 hour)**: this file → `01-conceptual-model.md` →
-  `examples/acmecorp-walkthrough.md`. You'll understand the model and
-  see it applied end to end.
+- **First pass (1 hour)**: this file → `00-three-plugin-axes.md` →
+  `01-conceptual-model.md` → `examples/acmecorp-walkthrough.md`.
+  You'll understand the extensibility story, the model, and see it
+  applied end to end.
 - **Implementing a layer**: this file → `02-layers.md` → the spec for
   the layer's inputs/outputs (e.g. `03-policy-spec.md` if you're
   implementing the planner).

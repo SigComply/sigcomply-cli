@@ -310,7 +310,14 @@ singleton: true                  # cannot be instantiated with bracket suffix
 config_schema:
   backend:
     type: string
-    enum: [local, s3, gcs, azure_blob]
+    description: "Any registered manual-evidence backend ID. In-tree
+                  backends ship as: local. Cloud backends (s3, gcs,
+                  azure_blob) land alongside the post-M6 plugin-set
+                  work. Third-party backends (SFTP, MinIO, NFS, custom
+                  object stores) register from .sigcomply/plugins/
+                  via manual.RegisterReader — see Axis A in
+                  00-three-plugin-axes.md and §Custom manual-evidence
+                  backends in 07-extensibility.md."
     required: true
   bucket:
     type: string
@@ -324,6 +331,12 @@ config_schema:
     type: string
     description: "For S3-compatible endpoints (on-prem MinIO, etc.)."
 ```
+
+Backend selection goes through a self-registering factory registry —
+the same pattern source plugins (Axis C) and vault backends (Axis B)
+use. The `manual.pdf` source dispatches generically; no hardcoded
+switch. See [`00-three-plugin-axes.md`](00-three-plugin-axes.md)
+§Axis A for the unified rationale.
 
 ### Manual catalog (per project)
 

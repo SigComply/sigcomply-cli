@@ -25,11 +25,18 @@ project-local extension to an upstream contribution.
 | Framework spec | ❌ (frameworks are curated) | ✅ |
 | Policy | ✅ under `.sigcomply/policies/` | ✅ in `internal/compliance_frameworks/<fw>/policies/` |
 | Rule | ✅ as `rule.rego` or `rule.go` inside a custom policy dir | ✅ inside a shipped policy dir |
-| Source plugin | ✅ under `.sigcomply/plugins/` (registered via `init()` factory; compiled in by `sigcomply build`) | ✅ in `internal/sources/` (same self-registration pattern) |
+| Source plugin (Axis C) | ✅ under `.sigcomply/plugins/` (registered via `init()` factory; compiled in by `sigcomply build`) | ✅ in `internal/sources/` (same self-registration pattern) |
+| Vault backend (Axis B) | ✅ under `.sigcomply/plugins/` (registered via `init()` into `vault.RegisterBackend`; compiled in by `sigcomply build`) | ✅ in `internal/vault/<id>/` (same self-registration pattern) |
+| Manual-evidence backend (Axis A) | ✅ under `.sigcomply/plugins/` (registered via `init()` into `manual.RegisterReader`; compiled in by `sigcomply build`) | ✅ in `internal/sources/manual/<id>/` (same self-registration pattern) |
 | Evidence type | ✅ under `.sigcomply/evidence_types/<id>.v<n>.json` (planned — M16) | ✅ in `internal/evidence_types/schemas/<id>.v<n>.json`, embedded via `go:embed` (see [`04a`](04a-evidence-type-registry.md)) |
 | Manual catalog entries | ✅ under `.sigcomply/manual_catalog/` | ✅ in shipped framework's catalog |
 | Project config (`.sigcomply.yaml`) | ✅ | n/a |
 | Aggregation contract | ❌ (frozen schema) | ✅ (requires bump + security review) |
+
+The three plugin axes (A, B, C) share one mechanical pattern —
+self-registering factory plus blank-import bootstrap. See
+[`00-three-plugin-axes.md`](00-three-plugin-axes.md) for the unified
+design.
 
 The pattern: **framework specs, evidence type schemas, and the
 aggregation contract are curated by SigComply; everything else can be
@@ -559,6 +566,198 @@ rule: rules.acme.confidential_clearance.v1
 The custom rule reads `record.payload.security_clearance` and
 `record.payload.department`, which `user_record` doesn't expose but
 `acme_principal` guarantees.
+
+---
+
+## Custom vault backends
+
+Worked example: AcmeCorp's vault must live on an internal NFS mount
+fronted by an in-house metadata service. None of the shipped backends
+(`local`, `s3`, `gcs`, `azure_blob`) match. AcmeCorp authors a custom
+vault backend.
+
+This is **Axis B** of the three plugin axes (see
+[`00-three-plugin-axes.md`](00-three-plugin-axes.md) §Axis B). The
+extension surface is `.sigcomply/plugins/` — the same one used for
+custom source plugins. The mechanism is the same too: a Go package
+with an `init()` that calls a registry function.
+
+### Step 1 — Implement `core.Vault`
+
+```go
+// .sigcomply/plugins/acme.nfs_vault/vault.go
+package acme_nfs_vault
+
+import (
+    "context"
+
+    "github.com/sigcomply/sigcomply-cli/internal/core"
+)
+
+type Vault struct {
+    // … fields holding the NFS mount path, the metadata client, etc.
+}
+
+func (v *Vault) Init(ctx context.Context) error                                                { /* … */ return nil }
+func (v *Vault) PutEnvelope(ctx context.Context, key string, e *core.Envelope) error           { /* … */ return nil }
+func (v *Vault) PutJSON(ctx context.Context, key string, body any) error                       { /* … */ return nil }
+func (v *Vault) PutBinary(ctx context.Context, key string, body []byte, meta map[string]string) error { /* … */ return nil }
+func (v *Vault) GetBinary(ctx context.Context, key string) ([]byte, error)                     { /* … */ return nil, nil }
+func (v *Vault) List(ctx context.Context, prefix string) ([]string, error)                     { /* … */ return nil, nil }
+
+var _ core.Vault = (*Vault)(nil)
+```
+
+### Step 2 — Register the backend
+
+```go
+// .sigcomply/plugins/acme.nfs_vault/register.go
+package acme_nfs_vault
+
+import (
+    "context"
+
+    "github.com/sigcomply/sigcomply-cli/internal/core"
+    "github.com/sigcomply/sigcomply-cli/internal/spec"
+    "github.com/sigcomply/sigcomply-cli/internal/vault"
+)
+
+func init() {
+    vault.RegisterBackend("acme.nfs", build)
+}
+
+func build(ctx context.Context, cfg *spec.VaultConfig) (core.Vault, error) {
+    v := &Vault{ /* read fields from cfg */ }
+    if err := v.Init(ctx); err != nil {
+        return nil, err
+    }
+    return v, nil
+}
+```
+
+### Step 3 — Configure the project
+
+```yaml
+# .sigcomply.yaml (excerpt)
+vault:
+  backend: acme.nfs        # the registered ID
+  path: /mnt/sigcomply     # backend-specific fields read from VaultConfig
+```
+
+### Step 4 — Build and run
+
+```bash
+sigcomply build              # generates the wrapper, blank-imports
+                             # acme.nfs_vault, runs `go build`
+./bin/sigcomply check
+```
+
+`vault.FromConfig` looks up `"acme.nfs"` in the registry and calls
+`build`. The collector, persistence, and submitter layers write to it
+the same way they'd write to S3 or local — no other changes anywhere.
+
+**The substitutability claim.** A SOC 2 customer and an ISO 27001
+customer can both use `acme.nfs` with zero policy changes between
+them. A customer can switch from `s3` to `acme.nfs` by editing two
+lines in `.sigcomply.yaml`. The CLI's writing flow is identical
+regardless.
+
+---
+
+## Custom manual-evidence backends
+
+Worked example: AcmeCorp's manual evidence (signed access reviews,
+training certificates) lives on a private SFTP server, not in S3.
+AcmeCorp authors a custom manual-evidence backend.
+
+This is **Axis A** of the three plugin axes (see
+[`00-three-plugin-axes.md`](00-three-plugin-axes.md) §Axis A). The
+mechanism mirrors Axes B and C exactly: implement an interface, call a
+registry function from `init()`.
+
+### Step 1 — Implement `manual.Reader`
+
+```go
+// .sigcomply/plugins/acme.sftp_manual/reader.go
+package acme_sftp_manual
+
+import (
+    "context"
+    "time"
+
+    "github.com/sigcomply/sigcomply-cli/internal/sources/manual"
+)
+
+type Reader struct {
+    // … SFTP client, base path, credentials reference, etc.
+}
+
+func (r *Reader) Get(ctx context.Context, uri string) ([]byte, time.Time, error) {
+    // … fetch over SFTP. Return manual.ErrNotFound if the path
+    //    does not exist; other errors are treated as transport
+    //    failures by the manual.pdf plugin.
+    return nil, time.Time{}, manual.ErrNotFound
+}
+```
+
+### Step 2 — Register the backend
+
+```go
+// .sigcomply/plugins/acme.sftp_manual/register.go
+package acme_sftp_manual
+
+import (
+    "fmt"
+
+    "github.com/sigcomply/sigcomply-cli/internal/sources/manual"
+)
+
+func init() {
+    manual.RegisterReader("acme.sftp", build)
+}
+
+func build(raw map[string]any) (manual.Reader, string, string, string, error) {
+    host, _ := raw["host"].(string)
+    if host == "" {
+        return nil, "", "", "", fmt.Errorf("manual.pdf.acme.sftp: \"host\" required")
+    }
+    bucket, _ := raw["bucket"].(string)
+    prefix, _ := raw["prefix"].(string)
+    if prefix == "" {
+        prefix = "manual/"
+    }
+    return &Reader{ /* … */ }, "sftp", bucket, prefix, nil
+}
+```
+
+### Step 3 — Configure the project
+
+```yaml
+# .sigcomply.yaml (excerpt)
+sources:
+  manual.pdf:
+    backend: acme.sftp        # the registered ID
+    host: sftp.acme.internal
+    bucket: acme-manual-evidence
+    prefix: manual/
+```
+
+### Step 4 — Build and run
+
+```bash
+sigcomply build
+./bin/sigcomply check
+```
+
+The `manual.pdf` source resolves the per-evidence URI from the
+catalog as before — only the `Reader.Get` call now traverses SFTP
+instead of the filesystem. The evaluator, policies, and signing flow
+are unchanged.
+
+**The substitutability claim.** Every manual policy in every shipped
+framework works with `acme.sftp` immediately. Adding a second
+backend (Backblaze, an internal HTTP gateway, etc.) is one more
+package — never an edit to the core.
 
 ---
 
