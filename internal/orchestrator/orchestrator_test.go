@@ -49,7 +49,9 @@ import (
 	gcpiam "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/iam"
 	gcpsql "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/sql"
 	gcpstorage "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/storage"
+	ghsource "github.com/sigcomply/sigcomply-cli/internal/sources/github"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
+	oktasource "github.com/sigcomply/sigcomply-cli/internal/sources/okta"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 	"github.com/sigcomply/sigcomply-cli/internal/submitter"
 	"github.com/sigcomply/sigcomply-cli/internal/vault/local"
@@ -208,6 +210,10 @@ func TestE2E_WalkingSkeleton(t *testing.T) {
 		soc2.PolicyGCSBucketUniformAccess:         core.StatusSkip,
 		soc2.PolicyComputeNoDefaultServiceAccount: core.StatusSkip,
 		soc2.PolicyCloudSQLRequireSSL:             core.StatusSkip,
+		soc2.PolicyGitHubBranchProtection:         core.StatusFail,
+		soc2.PolicyGitHubMembers2FA:               core.StatusFail,
+		soc2.PolicyOktaUsersMFA:                   core.StatusFail,
+		soc2.PolicyOktaAppsMFA:                    core.StatusFail,
 	})
 	assertEnvelopesVerify(t, v, res.RunRoot, soc2.PolicyMFAEnforced, soc2.PolicyAccessReview)
 	assertCapturedPayloadPrivacy(t, capturePath)
@@ -292,7 +298,7 @@ func buildE2ERegistries(t *testing.T, cfg *spec.ProjectConfig, manualDir string,
 	})); err != nil {
 		t.Fatalf("register manual.pdf: %v", err)
 	}
-	// Stub plugins for the four infrastructure-source policies. Each
+	// Stub plugins for the four AWS-observability policies. Each
 	// returns at least one record so the evaluator runs the rule (a
 	// required-slot policy with zero records is skipped, not failed).
 	// cloudtrail + cloudwatch stubs return compliant resources → pass.
@@ -310,6 +316,7 @@ func buildE2ERegistries(t *testing.T, cfg *spec.ProjectConfig, manualDir string,
 		t.Fatalf("register aws.config: %v", err)
 	}
 	registerGCPStubs(t, regs, now)
+	registerIdentityStubs(t, regs, now)
 	return regs
 }
 
@@ -426,20 +433,91 @@ func (emptyEKSAPI) DescribeCluster(context.Context, *awseks.DescribeClusterInput
 	return &awseks.DescribeClusterOutput{}, nil
 }
 
+// registerIdentityStubs registers in-memory stubs for github + okta
+// so the four identity SOC 2 policies plan + collect + evaluate.
+// The stubs return mixed-pass/fail records so each policy exercises
+// its failure path at least once in the E2E.
+func registerIdentityStubs(t *testing.T, regs *registry.Set, now time.Time) {
+	t.Helper()
+	if err := regs.Sources.Register(ghsource.New(ghsource.Options{
+		API: &stubGitHubAPI{
+			repos: []ghsource.Repo{
+				{Name: "web", DefaultBranch: "main", ProtectionOn: true, RequiredReviews: 2},
+				{Name: "legacy", DefaultBranch: "master", ProtectionOn: false},
+			},
+			members: []ghsource.Member{
+				{Login: "alice", TwoFactorOn: true, Role: "admin"},
+				{Login: "bob", TwoFactorOn: false, Role: "member"},
+			},
+		},
+		Org: "acme",
+		Now: func() time.Time { return now },
+	})); err != nil {
+		t.Fatalf("register github: %v", err)
+	}
+	if err := regs.Sources.Register(oktasource.New(oktasource.Options{
+		API: &stubOktaAPI{
+			users: []oktasource.User{
+				{ID: "u_alice", Email: "alice@acme.com", Status: "ACTIVE", MFAFactorCount: 2},
+				{ID: "u_bob", Email: "bob@acme.com", Status: "ACTIVE", MFAFactorCount: 0},
+			},
+			apps: []oktasource.App{
+				{ID: "0oa1", Label: "Slack", SignOnMode: "SAML_2_0", MFARequired: true},
+				{ID: "0oa2", Label: "Legacy", SignOnMode: "AUTO_LOGIN", MFARequired: false},
+			},
+		},
+		Org: "https://acme.okta.com",
+		Now: func() time.Time { return now },
+	})); err != nil {
+		t.Fatalf("register okta: %v", err)
+	}
+}
+
+// stubGitHubAPI satisfies the github source plugin's API interface
+// without touching the network.
+type stubGitHubAPI struct {
+	repos   []ghsource.Repo
+	members []ghsource.Member
+}
+
+func (s *stubGitHubAPI) ListRepos(context.Context) ([]ghsource.Repo, error) {
+	return s.repos, nil
+}
+
+func (s *stubGitHubAPI) ListOrgMembers(context.Context) ([]ghsource.Member, error) {
+	return s.members, nil
+}
+
+// stubOktaAPI satisfies the okta source plugin's API interface
+// without touching the network.
+type stubOktaAPI struct {
+	users []oktasource.User
+	apps  []oktasource.App
+}
+
+func (s *stubOktaAPI) ListUsers(context.Context) ([]oktasource.User, error) {
+	return s.users, nil
+}
+
+func (s *stubOktaAPI) ListApps(context.Context) ([]oktasource.App, error) {
+	return s.apps, nil
+}
+
 func assertRunCounts(t *testing.T, res *orchestrator.Result) {
 	t.Helper()
 	if res.ExitCode != orchestrator.ExitViolation {
 		t.Errorf("ExitCode = %d; want %d (violation)", res.ExitCode, orchestrator.ExitViolation)
 	}
-	// 3 seed + 4 AWS infra + 5 AWS observability + 4 GCP = 16 policies.
-	if res.Summary.PoliciesTotal != 16 {
-		t.Errorf("PoliciesTotal = %d; want 16 (3 seed + 4 infra + 5 aws + 4 gcp)", res.Summary.PoliciesTotal)
+	// 3 seed + 4 infra + 5 aws + 4 gcp + 4 identity = 20 policies.
+	if res.Summary.PoliciesTotal != 20 {
+		t.Errorf("PoliciesTotal = %d; want 20", res.Summary.PoliciesTotal)
 	}
-	// 3 pass: access_review, cloudtrail (compliant stub), cloudwatch (compliant stub).
-	// 4 fail: mfa_enforced (bob), mfa_enforced_all_sources (bob), guardduty (empty), config (empty).
-	// 9 skip: 5 AWS-infra (s3/kms/rds/ec2/eks empty stubs) + 4 GCP (empty stubs).
-	if res.Summary.PoliciesPassed != 3 || res.Summary.PoliciesFailed != 4 || res.Summary.PoliciesSkipped != 9 {
-		t.Errorf("counts: pass=%d fail=%d skip=%d; want 3/4/9",
+	// 3 pass: access_review, cloudtrail, cloudwatch.
+	// 8 fail: mfa_enforced, mfa_enforced_all_sources, guardduty, config, +
+	//         4 identity (github branch protection / github 2fa / okta users / okta apps).
+	// 9 skip: 5 aws-infra empty stubs + 4 GCP empty stubs.
+	if res.Summary.PoliciesPassed != 3 || res.Summary.PoliciesFailed != 8 || res.Summary.PoliciesSkipped != 9 {
+		t.Errorf("counts: pass=%d fail=%d skip=%d; want 3/8/9",
 			res.Summary.PoliciesPassed, res.Summary.PoliciesFailed, res.Summary.PoliciesSkipped)
 	}
 }
@@ -527,8 +605,8 @@ func assertCapturedPayloadPrivacy(t *testing.T, capturePath string) {
 	if payload.Schema != "sigcomply.cloud.v1" {
 		t.Errorf("Schema = %q", payload.Schema)
 	}
-	if len(payload.Policies) != 16 {
-		t.Errorf("Policies len = %d; want 16", len(payload.Policies))
+	if len(payload.Policies) != 20 {
+		t.Errorf("Policies len = %d; want 20", len(payload.Policies))
 	}
 	// Resource IDs must not leak. The vault has AIDABOB; the captured
 	// JSON must not.

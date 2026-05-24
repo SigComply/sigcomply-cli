@@ -108,14 +108,16 @@ func ManualCatalog() map[string]manual.CatalogEntry {
 // L0 YAML loader is exercised in internal/spec's own tests.
 func Policies() []core.Policy {
 	seed := corePolicies()
-	gcps := gcpPolicies()
 	infras := infrastructurePolicies()
 	aws := awsPolicies()
-	out := make([]core.Policy, 0, len(seed)+len(gcps)+len(infras)+len(aws))
+	gcps := gcpPolicies()
+	ids := identityPolicies()
+	out := make([]core.Policy, 0, len(seed)+len(infras)+len(aws)+len(gcps)+len(ids))
 	out = append(out, seed...)
 	out = append(out, infras...)
 	out = append(out, aws...)
 	out = append(out, gcps...)
+	out = append(out, ids...)
 	return out
 }
 
@@ -169,9 +171,9 @@ func corePolicies() []core.Policy {
 }
 
 // Rules returns every rule the SOC 2 framework registers: seed (MFA
-// + manual presence), AWS infrastructure plugins (S3/KMS/RDS/EC2/EKS),
-// AWS observability plugins (CloudTrail/CloudWatch/GuardDuty/Config),
-// and GCP. Each rule is referenced by at least one policy.
+// + manual presence), AWS infrastructure (S3/KMS/RDS/EC2/EKS), AWS
+// observability (CloudTrail/CloudWatch/GuardDuty/Config), GCP, and
+// identity (github/okta).
 func Rules() []core.Rule {
 	seed := []core.Rule{
 		mfaEnforcedRule(),
@@ -180,11 +182,13 @@ func Rules() []core.Rule {
 	infras := infrastructureRules()
 	aws := awsRules()
 	gcps := gcpRules()
-	out := make([]core.Rule, 0, len(seed)+len(infras)+len(aws)+len(gcps))
+	ids := identityRules()
+	out := make([]core.Rule, 0, len(seed)+len(infras)+len(aws)+len(gcps)+len(ids))
 	out = append(out, seed...)
 	out = append(out, infras...)
 	out = append(out, aws...)
 	out = append(out, gcps...)
+	out = append(out, ids...)
 	return out
 }
 

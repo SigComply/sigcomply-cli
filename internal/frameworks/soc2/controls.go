@@ -2,11 +2,11 @@ package soc2
 
 import "github.com/sigcomply/sigcomply-cli/internal/core"
 
-// Controls returns the SOC 2 control catalog used by the shipped
-// policy set: the M6 walking-skeleton CC6.1 / CC6.3 plus the access /
+// Controls returns the SOC 2 control catalog used by every shipped
+// policy: the M6 walking-skeleton CC6.1 / CC6.3, plus the access /
 // data-protection / monitoring / logging controls referenced by the
-// post-M6 plugin-set policies. The full TSC 2017 catalog is still
-// post-M6 work.
+// post-M6 plugin-set + identity policies. The full TSC 2017 catalog
+// is still post-M6 work.
 func Controls() []core.Control {
 	return []core.Control{
 		{
@@ -26,14 +26,14 @@ func Controls() []core.Control {
 		{
 			ID:               "SOC2.CC6.6",
 			Name:             "Logical Access to System Components",
-			Description:      "The entity implements logical access security measures to protect against threats from sources outside its system boundaries.",
+			Description:      "The entity implements logical access security measures to protect against threats from sources outside its system boundaries — including protected branches and enforced code review in source control.",
 			Category:         "access",
 			BaselineSeverity: core.SeverityHigh,
 		},
 		{
 			ID:               "SOC2.CC6.7",
 			Name:             "Transmission and Movement of Information",
-			Description:      "The entity restricts the transmission, movement, and removal of information to authorized internal and external users and processes, and protects it during transmission, movement, or removal.",
+			Description:      "The entity restricts the transmission, movement, and removal of information to authorized internal and external users and processes, and protects it during transmission, movement, or removal — including enforcing MFA on applications that handle production data.",
 			Category:         "data-protection",
 			BaselineSeverity: core.SeverityHigh,
 		},
