@@ -123,6 +123,19 @@ linters:
       - path: internal/sources/builtin/builtin\.go
         linters:
           - revive
+      # Vault backend factories self-register into the vault
+      # backend registry via init() — same pattern as source plugins.
+      # See internal/vault/registry.go and
+      # docs/architecture/00-three-plugin-axes.md §Axis B.
+      - path: internal/vault/.*/register\.go
+        linters:
+          - gochecknoinits
+      # internal/vault/builtin imports every in-tree vault backend as
+      # a blank import for the side effect of running each package's
+      # init(). The package-level doc comment justifies this.
+      - path: internal/vault/builtin/builtin\.go
+        linters:
+          - revive
 
 issues:
   max-issues-per-linter: 50

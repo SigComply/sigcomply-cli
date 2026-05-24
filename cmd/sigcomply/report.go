@@ -13,6 +13,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/report"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 	"github.com/sigcomply/sigcomply-cli/internal/vault"
+	_ "github.com/sigcomply/sigcomply-cli/internal/vault/builtin" // side-effect: registers every in-tree vault backend
 )
 
 // reportFlags carries every flag accepted by `sigcomply report`.

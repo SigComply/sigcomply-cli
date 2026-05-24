@@ -23,6 +23,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 	"github.com/sigcomply/sigcomply-cli/internal/submitter"
 	"github.com/sigcomply/sigcomply-cli/internal/vault"
+	_ "github.com/sigcomply/sigcomply-cli/internal/vault/builtin" // side-effect: registers every in-tree vault backend
 )
 
 type checkFlags struct {
