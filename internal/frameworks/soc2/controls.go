@@ -35,7 +35,7 @@ func Controls() []core.Control {
 			Name:             "Transmission and Movement of Information",
 			Description:      "The entity restricts the transmission, movement, and removal of information to authorized internal and external users and processes, and protects it during transmission, movement, or removal.",
 			Category:         "data-protection",
-			BaselineSeverity: core.SeverityMedium,
+			BaselineSeverity: core.SeverityHigh,
 		},
 		{
 			ID:               "SOC2.CC7.1",

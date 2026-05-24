@@ -110,9 +110,11 @@ func Policies() []core.Policy {
 	seed := corePolicies()
 	gcps := gcpPolicies()
 	infras := infrastructurePolicies()
-	out := make([]core.Policy, 0, len(seed)+len(gcps)+len(infras))
+	aws := awsPolicies()
+	out := make([]core.Policy, 0, len(seed)+len(gcps)+len(infras)+len(aws))
 	out = append(out, seed...)
 	out = append(out, infras...)
+	out = append(out, aws...)
 	out = append(out, gcps...)
 	return out
 }
@@ -167,19 +169,21 @@ func corePolicies() []core.Policy {
 }
 
 // Rules returns every rule the SOC 2 framework registers: seed (MFA
-// + manual presence), infrastructure-source (CloudTrail / CloudWatch /
-// GuardDuty / Config), and GCP. Each rule is referenced by at least
-// one policy in Policies().
+// + manual presence), AWS infrastructure plugins (S3/KMS/RDS/EC2/EKS),
+// AWS observability plugins (CloudTrail/CloudWatch/GuardDuty/Config),
+// and GCP. Each rule is referenced by at least one policy.
 func Rules() []core.Rule {
 	seed := []core.Rule{
 		mfaEnforcedRule(),
 		manualPresenceRule(),
 	}
 	infras := infrastructureRules()
+	aws := awsRules()
 	gcps := gcpRules()
-	out := make([]core.Rule, 0, len(seed)+len(infras)+len(gcps))
+	out := make([]core.Rule, 0, len(seed)+len(infras)+len(aws)+len(gcps))
 	out = append(out, seed...)
 	out = append(out, infras...)
+	out = append(out, aws...)
 	out = append(out, gcps...)
 	return out
 }

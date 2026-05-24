@@ -26,6 +26,16 @@ sources:
     region: us-east-1
   aws.config:
     region: us-east-1
+  aws.s3:
+    region: us-east-1
+  aws.kms:
+    region: us-east-1
+  aws.rds:
+    region: us-east-1
+  aws.ec2:
+    region: us-east-1
+  aws.eks:
+    region: us-east-1
   manual.pdf:
     backend: local
     path: ./manual-evidence-placeholder
@@ -61,6 +71,21 @@ bindings:
   soc2.cc7.1.config_recorder_enabled:
     recorders:
       - source: aws.config
+  soc2.cc6.7.s3_bucket_encrypted:
+    buckets:
+      - source: aws.s3
+  soc2.cc6.7.kms_key_rotation_enabled:
+    keys:
+      - source: aws.kms
+  soc2.cc6.7.rds_encryption_at_rest:
+    db_instances:
+      - source: aws.rds
+  soc2.cc6.6.ec2_no_public_ip:
+    instances:
+      - source: aws.ec2
+  soc2.cc6.7.eks_secrets_encryption:
+    clusters:
+      - source: aws.eks
   soc2.cc6.1.gcp_iam_no_owner_role_for_users:
     iam_bindings:
       - source: gcp.iam
