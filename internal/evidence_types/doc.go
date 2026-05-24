@@ -1,4 +1,4 @@
-// Package evidence_types holds the in-tree evidence-type schemas
+// Package evidencetypes holds the in-tree evidence-type schemas
 // (JSON Schema documents) and exposes the loader that registers them
 // into the orchestrator's EvidenceType registry at bootstrap.
 //
@@ -24,4 +24,4 @@
 // or invalid payload surfaces as a configuration error (exit code 3).
 //
 // See docs/architecture/04a-evidence-type-registry.md.
-package evidence_types
+package evidencetypes

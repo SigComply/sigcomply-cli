@@ -1,4 +1,4 @@
-package evidence_types
+package evidencetypes
 
 import (
 	"embed"
