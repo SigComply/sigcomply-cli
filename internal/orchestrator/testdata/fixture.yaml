@@ -18,6 +18,14 @@ vault:
 sources:
   aws.iam:
     region: us-east-1
+  aws.cloudtrail:
+    region: us-east-1
+  aws.cloudwatch:
+    region: us-east-1
+  aws.guardduty:
+    region: us-east-1
+  aws.config:
+    region: us-east-1
   manual.pdf:
     backend: local
     path: ./manual-evidence-placeholder
@@ -33,6 +41,18 @@ bindings:
   soc2.cc6.1.mfa_enforced_all_sources:
     user_directory:
       - source: aws.iam
+  soc2.cc7.2.cloudtrail_multiregion_enabled:
+    trails:
+      - source: aws.cloudtrail
+  soc2.cc7.2.cloudwatch_logs_retention_set:
+    log_groups:
+      - source: aws.cloudwatch
+  soc2.cc7.1.guardduty_enabled:
+    detectors:
+      - source: aws.guardduty
+  soc2.cc7.1.config_recorder_enabled:
+    recorders:
+      - source: aws.config
 
 cloud:
   base_url: ""
