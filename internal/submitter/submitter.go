@@ -222,7 +222,7 @@ func (p *githubActionsProvider) Token(ctx context.Context, audience string) (str
 		}
 		tokenURL = tokenURL + joiner + "audience=" + audience
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, tokenURL, nil) //nolint:gosec // #nosec G107 -- tokenURL is from ACTIONS_ID_TOKEN_REQUEST_URL, provided by the GitHub Actions runner — not user input
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, tokenURL, nil) // #nosec G104 G107 G704 -- tokenURL is from ACTIONS_ID_TOKEN_REQUEST_URL, provided by the GitHub Actions runner — not user input
 	if err != nil {
 		return "", "", fmt.Errorf("github actions: new request: %w", err)
 	}
@@ -232,7 +232,7 @@ func (p *githubActionsProvider) Token(ctx context.Context, audience string) (str
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
 	}
-	resp, err := client.Do(req) //nolint:gosec // #nosec G107 -- tokenURL is provided by the GitHub Actions runner via ACTIONS_ID_TOKEN_REQUEST_URL — not user input
+	resp, err := client.Do(req) // #nosec G104 G107 G704 -- tokenURL is provided by the GitHub Actions runner via ACTIONS_ID_TOKEN_REQUEST_URL — not user input
 	if err != nil {
 		return "", "", fmt.Errorf("github actions: get oidc token: %w", err)
 	}

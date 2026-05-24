@@ -18,7 +18,7 @@ const PolicyS3BucketEncrypted = "soc2.cc6.7.s3_bucket_encrypted"
 
 // PolicyKMSKeyRotation is the policy that fails when any customer-
 // managed CMK has automatic rotation disabled (SOC 2 CC6.7).
-const PolicyKMSKeyRotation = "soc2.cc6.7.kms_key_rotation_enabled" //gitleaks:allow #nosec G101 -- policy identifier, not a credential
+const PolicyKMSKeyRotation = "soc2.cc6.7.kms_key_rotation_enabled" // #nosec G101 -- policy identifier, not a credential. gitleaks:allow
 
 // PolicyRDSEncryptionAtRest is the policy that fails when any RDS
 // instance has StorageEncrypted=false (SOC 2 CC6.7).
@@ -32,14 +32,14 @@ const PolicyEC2NoPublicIP = "soc2.cc6.6.ec2_no_public_ip"
 // PolicyEKSSecretsEncryption is the policy that fails when any EKS
 // cluster lacks envelope encryption for Kubernetes secrets (SOC 2
 // CC6.7).
-const PolicyEKSSecretsEncryption = "soc2.cc6.7.eks_secrets_encryption" //gitleaks:allow #nosec G101 -- policy identifier, not a credential
+const PolicyEKSSecretsEncryption = "soc2.cc6.7.eks_secrets_encryption" // #nosec G101 -- policy identifier, not a credential. gitleaks:allow
 
 const (
 	ruleIDS3BucketEncrypted    = "rules.soc2.s3_bucket_encrypted.v1"
 	ruleIDKMSKeyRotation       = "rules.soc2.kms_key_rotation_enabled.v1"
 	ruleIDRDSEncryptionAtRest  = "rules.soc2.rds_encryption_at_rest.v1"
 	ruleIDEC2NoPublicIP        = "rules.soc2.ec2_no_public_ip.v1"
-	ruleIDEKSSecretsEncryption = "rules.soc2.eks_secrets_encryption.v1"
+	ruleIDEKSSecretsEncryption = "rules.soc2.eks_secrets_encryption.v1" // #nosec G101 -- rule ID string, not a credential. gitleaks:allow
 )
 
 // awsPolicies returns the AWS infrastructure policies wired in this

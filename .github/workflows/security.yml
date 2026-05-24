@@ -11,9 +11,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
-  actions: read
-  pull-requests: write
 
 jobs:
   # ===========================================
@@ -24,6 +21,9 @@ jobs:
     name: Dependency Review
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write  # for comment-summary-in-pr
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
@@ -87,6 +87,11 @@ jobs:
     name: OpenSSF Scorecard
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      security-events: write  # SARIF upload
+      id-token: write  # publish_results signing
+      actions: read  # workflow analysis
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
@@ -120,6 +125,9 @@ jobs:
   codeql:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # SARIF upload
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
@@ -146,6 +154,9 @@ jobs:
   gosec:
     name: Go Security Scanner (gosec)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # SARIF upload
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
@@ -170,6 +181,9 @@ jobs:
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # SARIF upload
     container:
       image: semgrep/semgrep
     steps:
@@ -198,6 +212,9 @@ jobs:
   trivy:
     name: Trivy Vulnerability Scanner
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # SARIF upload
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
@@ -228,6 +245,9 @@ jobs:
   osv-scan:
     name: OSV Scanner
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # SARIF upload
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
