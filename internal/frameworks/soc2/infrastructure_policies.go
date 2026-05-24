@@ -34,6 +34,8 @@ const minCloudWatchRetentionDays = 90
 // infrastructurePolicies returns the four representative policies that
 // exercise the cloudtrail, cloudwatch, guardduty and config source
 // plugins.
+//
+//nolint:dupl // each policy spec is a deliberately-declarative config block; collapsing them would obscure rather than clarify
 func infrastructurePolicies() []core.Policy {
 	return []core.Policy{
 		{

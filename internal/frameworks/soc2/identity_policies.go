@@ -26,6 +26,8 @@ const (
 
 // identityPolicies returns the four representative policies that
 // exercise the github and okta source plugins.
+//
+//nolint:dupl // each policy spec is a deliberately-declarative config block; collapsing them would obscure rather than clarify
 func identityPolicies() []core.Policy {
 	return []core.Policy{
 		{

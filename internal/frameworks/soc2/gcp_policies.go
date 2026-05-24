@@ -38,6 +38,8 @@ const (
 // gcpPolicies returns the four representative GCP SOC 2 policies.
 // Appended to the framework's Policies() output and registered via
 // the standard Register flow.
+//
+//nolint:dupl // each policy spec is a deliberately-declarative config block; collapsing them would obscure rather than clarify
 func gcpPolicies() []core.Policy {
 	return []core.Policy{
 		{
