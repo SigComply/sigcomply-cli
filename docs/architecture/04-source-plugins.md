@@ -311,13 +311,14 @@ config_schema:
   backend:
     type: string
     description: "Any registered manual-evidence backend ID. In-tree
-                  backends ship as: local. Cloud backends (s3, gcs,
-                  azure_blob) land alongside the post-M6 plugin-set
-                  work. Third-party backends (SFTP, MinIO, NFS, custom
-                  object stores) register from .sigcomply/plugins/
-                  via manual.RegisterReader — see Axis A in
-                  00-three-plugin-axes.md and §Custom manual-evidence
-                  backends in 07-extensibility.md."
+                  backends ship as: local, s3, gcs, azure_blob. The s3
+                  backend also serves on-prem S3-compatible stores
+                  (MinIO, Ceph, Wasabi, …) via endpoint +
+                  force_path_style. Third-party backends (SFTP, NFS,
+                  custom object stores) register from
+                  .sigcomply/plugins/ via manual.RegisterReader — see
+                  Axis A in 00-three-plugin-axes.md and §Custom
+                  manual-evidence backends in 07-extensibility.md."
     required: true
   bucket:
     type: string

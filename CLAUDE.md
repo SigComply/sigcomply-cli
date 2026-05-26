@@ -400,6 +400,21 @@ scheme: `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/{filename}`.
 Customers pursuing multiple frameworks (SOC 2 + ISO 27001) typically use
 multiple repos.
 
+**Manual-evidence reader backends are symmetric with vault backends.**
+Both axes ship the same four in-tree backends — `local`, `s3`, `gcs`,
+`azure_blob` — registered through self-registering factories. The `s3`
+manual reader supports on-prem S3-compatible stores (MinIO, Ceph, …)
+via `endpoint` + `force_path_style`, mirroring the vault s3 backend.
+Implementation note: the manual local reader lives inline in
+`internal/sources/manual/factory.go` rather than in its own
+subpackage; the three cloud backends live under
+`internal/sources/manual/{s3,gcs,azureblob}/` and are blank-imported
+through `internal/sources/manual/builtin`. This asymmetry is
+file-layout-only — the registration mechanism is identical for all
+four. Third parties add backends (SFTP, NFS, custom object stores)
+the same way, from `.sigcomply/plugins/<id>/` compiled in by
+`sigcomply build` (M16).
+
 ---
 
 ## File Structure

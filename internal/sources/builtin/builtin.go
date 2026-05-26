@@ -31,5 +31,6 @@ import (
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/storage"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/github"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/manual"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/manual/builtin" // side-effect: registers every in-tree manual.pdf reader backend
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/okta"
 )

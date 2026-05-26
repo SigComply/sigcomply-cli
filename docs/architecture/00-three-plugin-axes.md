@@ -99,12 +99,20 @@ Each in-tree backend's `init()` calls `RegisterReader`. The `manual.pdf`
 source's `buildReader` dispatches by config-string lookup — no hardcoded
 switch, no per-backend knowledge in the plugin core.
 
-**Status.** The `local` filesystem backend ships and is wired today.
-Cloud backends (S3, GCS, Azure Blob) and any third-party backend (SFTP,
-MinIO, NFS, custom object stores) plug in via `RegisterReader` from
-their own subpackage — no edits to `internal/sources/manual`. The
-shipped cloud backends land alongside the post-M6 plugin-set work; the
-registry pattern they will register against is in place today.
+**Status.** Four in-tree backends ship and are wired today: `local`,
+`s3`, `gcs`, `azure_blob`. The `s3` backend also serves on-prem
+S3-compatible stores (MinIO, Ceph, Wasabi, NetApp StorageGRID, …) via
+`endpoint` + `force_path_style`. Any third-party backend (SFTP, NFS,
+custom object stores, an internal HTTP gateway) plugs in via
+`RegisterReader` from its own subpackage — no edits to
+`internal/sources/manual`. In-tree subpackages live under
+`internal/sources/manual/<id>/`; project-local backends drop under
+`.sigcomply/plugins/<id>/` and are compiled in by `sigcomply build`
+(M16). `internal/sources/manual/builtin` blank-imports the four
+shipped cloud subpackages and is itself blank-imported by
+`internal/sources/builtin` — the local backend self-registers from the
+parent `manual` package's init() and so does not appear in the builtin
+import list.
 
 See [`04-source-plugins.md`](04-source-plugins.md) §The manual.pdf
 plugin and [`07-extensibility.md`](07-extensibility.md) §Custom

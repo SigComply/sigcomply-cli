@@ -60,14 +60,18 @@ func TestBuildReader_ExplicitBucketAndPrefix(t *testing.T) {
 }
 
 func TestBuildReader_UnregisteredBackend(t *testing.T) {
-	// Cloud backends (s3, gcs, azure_blob) land alongside the post-M6
-	// plugin-set work; until then the registry only carries "local".
-	// Third parties can register their own backends via RegisterReader.
-	r, scheme, bucket, prefix, err := buildReader(map[string]any{"backend": "s3", "path": "/x"})
+	// In-tree backends are local, s3, gcs, azure_blob — each in its own
+	// subpackage with an init() that calls RegisterReader. Third parties
+	// register their own backends via RegisterReader from a project-local
+	// plugin under .sigcomply/plugins/, compiled in by `sigcomply build`.
+	// This test confirms the registry surfaces a clear error for a
+	// genuinely unknown backend name.
+	const unknown = "definitely-not-a-real-backend"
+	r, scheme, bucket, prefix, err := buildReader(map[string]any{"backend": unknown, "path": "/x"})
 	if err == nil || !strings.Contains(err.Error(), "not registered") {
 		t.Errorf("want \"not registered\" error; got %v", err)
 	}
-	if !strings.Contains(err.Error(), "s3") {
+	if !strings.Contains(err.Error(), unknown) {
 		t.Errorf("error %q does not name the offending backend", err.Error())
 	}
 	if r != nil || scheme != "" || bucket != "" || prefix != "" {

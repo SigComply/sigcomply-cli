@@ -136,6 +136,29 @@ linters:
       - path: internal/vault/builtin/builtin\.go
         linters:
           - revive
+      # Manual.pdf reader backends self-register into the manual
+      # reader registry via init() — same pattern as Axis B vault
+      # backends. See internal/sources/manual/factory.go and
+      # docs/architecture/00-three-plugin-axes.md §Axis A.
+      - path: internal/sources/manual/.*/register\.go
+        linters:
+          - gochecknoinits
+      # internal/sources/manual/builtin imports every in-tree manual
+      # reader backend as a blank import for the side effect of
+      # running each package's init(). The package-level doc comment
+      # justifies this.
+      - path: internal/sources/manual/builtin/builtin\.go
+        linters:
+          - revive
+      # Tests for the manual reader register.go factories call
+      # build() — which returns the 5-tuple (reader, scheme, bucket,
+      # prefix, err) defined by manual.ReaderFactory. Negative-path
+      # tests legitimately only care about err, so `_, _, _, _, err :=`
+      # is the idiomatic shape. dogsled flags this pattern; suppress
+      # it for the manual reader test files.
+      - path: internal/sources/manual/.*/.*_test\.go
+        linters:
+          - dogsled
 
 issues:
   max-issues-per-linter: 50
