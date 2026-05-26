@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,6 +31,7 @@ import (
 	sqladmin "google.golang.org/api/sqladmin/v1"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	evidencetypes "github.com/sigcomply/sigcomply-cli/internal/evidence_types"
 	"github.com/sigcomply/sigcomply-cli/internal/frameworks/soc2"
 	"github.com/sigcomply/sigcomply-cli/internal/log"
 	"github.com/sigcomply/sigcomply-cli/internal/orchestrator"
@@ -673,7 +675,14 @@ func (r *localManualReader) Get(_ context.Context, uri string) ([]byte, time.Tim
 
 // bootstrapWithRegistries is the test's version of orchestrator.Bootstrap
 // that accepts an already-parsed config. The production Bootstrap reads
-// from a file; tests inject the config directly.
+// from a file; tests inject the config directly. Mirrors production by
+// pre-loading the embedded evidence-type registry so the collector's
+// schema validation runs against real schemas — the silent-skip is
+// gone, and tests must conform to the schemas they exercise.
 func bootstrapWithRegistries(_ *spec.ProjectConfig) *registry.Set {
-	return registry.NewSet()
+	set := registry.NewSet()
+	if err := evidencetypes.Register(set); err != nil {
+		panic(fmt.Sprintf("bootstrapWithRegistries: register evidence types: %v", err))
+	}
+	return set
 }

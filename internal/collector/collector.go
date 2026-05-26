@@ -1,10 +1,10 @@
 // Package collector is L4 of the SigComply CLI. For each planned
 // policy it invokes the bound source plugins, validates the records
-// (schema validation is deferred to a future milestone — see post-M6
-// work plan), signs one envelope per (slot, source) pair, and writes
-// the envelope to the vault. Per the KISS-no-DRY axiom, there is no
-// record cache spanning policies: N policies → N invocations of
-// Collect even if the same (plugin, slot) recurs.
+// against the registered evidence-type schemas, signs one envelope
+// per (slot, source) pair, and writes the envelope to the vault.
+// Per the KISS-no-DRY axiom, there is no record cache spanning
+// policies: N policies → N invocations of Collect even if the same
+// (plugin, slot) recurs.
 //
 // See docs/architecture/02-layers.md §L4 and 04-source-plugins.md.
 package collector
@@ -267,10 +267,12 @@ func envelopePath(runRoot, policyID, evidenceType, sourceID, catalogID string) s
 }
 
 // validateRecords checks every record's payload against the schema
-// registered for its declared Type. Records whose Type has no
-// registered schema are accepted unchanged — this is the migration
-// path: schemas can be added incrementally without forcing every
-// type to be authored up-front. A nil EvidenceTypes registry skips
+// registered for its declared Type. The bootstrap-time
+// evidencetypes.VerifyRegistrations guarantees that every type a
+// registered plugin emits has a registered schema; reaching a record
+// with an unregistered Type here means a plugin violated its own
+// Emits() declaration, which is a contract bug surfaced as a
+// collection error (exit code 3). A nil EvidenceTypes registry skips
 // validation entirely (used by tests that don't exercise schemas).
 //
 // Returning the first failure (rather than a list) keeps callers
@@ -285,7 +287,7 @@ func validateRecords(types *registry.Registry[core.EvidenceType], records []core
 		r := &records[i]
 		et, ok := types.Lookup(r.Type)
 		if !ok {
-			continue
+			return fmt.Errorf("record %q has type %q which has no registered schema (plugin emitted a type outside its own Emits())", r.ID, r.Type)
 		}
 		if err := evidencetypes.Validate(et.Schema, r.Payload); err != nil {
 			return fmt.Errorf("record %q (type %q): %w", r.ID, r.Type, err)
