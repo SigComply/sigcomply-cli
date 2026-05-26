@@ -128,17 +128,26 @@ side, check the other.
 
 ### 2. Two — and only two — evidence flows
 
-Every policy declares `evidence_type: automated | manual` in its `metadata`
-rule. The OPA evaluator never branches on anything else.
+Every policy declares `evidence_mode: automated | manual` in its spec.
+This is an **explicit first-class field**, not inferred from slot types or
+from which evidence types are accepted. The evaluator branches on exactly
+this field and nothing else.
 
-- **Automated**: API collector → structured JSON → wrapped in
-  `EvidenceEnvelope` → policy reads `input.data.*`.
-- **Manual**: customer-supplied PDF at the catalog-resolved path → CLI
-  hashes bytes, runs cheap sanity checks, optionally compares to the
-  prior period's file → small JSON manifest is wrapped in
-  `EvidenceEnvelope`; PDF mirrored as sibling. Policy (v1) passes iff
-  the manifest's `file_present`, `in_temporal_window`, and `file_valid`
-  are all true.
+- **Automated**: Planner binds configured API source plugins to the
+  policy's slots → collector calls `plugin.Collect()` → records validated
+  against evidence-type schemas → evaluator runs the `pass_when:` DSL
+  condition (primary path) or the `rule:` escape hatch.
+- **Manual**: Planner binds `manual.pdf` to an implicit slot, resolving
+  the PDF path via `catalog_entry` → collector fetches and validates the
+  PDF → evaluator runs the universal PDF-presence check: `file_present`,
+  `in_temporal_window`, `file_valid`. `pass_when:` and `rule:` are ignored
+  entirely for manual policies.
+
+Projects can override the framework's `evidence_mode` default for any
+policy via `policy_overrides` in `.sigcomply.yaml`. This is the mechanism
+for customers who rely on manual processes today and plan to wire up API
+integrations later — the policy ID stays the same; the audit trail shows
+`evidence_mode` so auditors see which path was used.
 
 There are no `checklist` / `declaration` / `document_upload` sub-types in
 the evaluator. The catalog YAML keeps `type`, `items`, `declaration_text`
@@ -630,8 +639,42 @@ through `POST /api/v1/runs`.
   signal an evidence-type contract is missing. Add the type (see
   [`docs/architecture/04a-evidence-type-registry.md`](./docs/architecture/04a-evidence-type-registry.md))
   or extend an existing slot's `accepts:` list — not the special case.
-- **Don't invent evidence sub-types in the evaluator.** The OPA
-  evaluator only knows `automated` and `manual` as the *flow* dimension.
+- **Design evidence-type schemas top-down from the semantic concept,
+  never bottom-up from a vendor's API.** Every field in a cross-vendor
+  schema must be satisfiable by all plausible implementations without
+  null or a placeholder sentinel. The source plugin owns 100% of the
+  vendor→canonical translation — policy Rego must never contain null
+  guards (`if record.field != null`) or source-type branches
+  (`record.type == "aws_iam_user"`). Both are symptoms of a schema
+  designed wrong. If writing a second plugin for an existing evidence
+  type requires setting a required field to null, fix the schema —
+  not the plugin. The null-trap antipattern (null field → Rego null
+  guard → implicit source dispatch → broken substitutability) is the
+  most common way this architecture fails silently. Full design
+  guidance: [`docs/architecture/04a-evidence-type-registry.md`
+  §Schema design](./docs/architecture/04a-evidence-type-registry.md).
+- **`evidence_mode: automated | manual` is an explicit first-class
+  field on every policy spec — never infer it.** Do NOT detect
+  evidence mode by checking whether any slot accepts `signed_document`
+  (that is the old implicit pattern in `defaultOnPush` in
+  `internal/spec/policy.go` — it is being replaced). Do NOT guess
+  mode from slot types or absence of a `rule:` field. `evidence_mode`
+  is declared explicitly in every `policy.yaml`. If it is missing,
+  fail validation at load time (exit 3) — not silently defaulting to
+  automated.
+- **`pass_when:` is the primary evaluation path for automated
+  policies — `rule:` is the escape hatch.** ~95% of compliance
+  checks reduce to a quantifier (all/none/any/count) over a field
+  condition on a single slot. That is exactly what `pass_when:`
+  handles without writing a single line of Go or Rego. Never write a
+  per-policy rule function or Rego rule when the logic fits
+  `pass_when:`. Reach for `rule:` only for cross-slot joins, complex
+  aggregations, or logic the DSL cannot express. Manual policies
+  (`evidence_mode: manual`) never use `pass_when:` or `rule:` — the
+  universal PDF presence check (Path A in the L5 evaluator) runs
+  unconditionally for all of them.
+- **Don't invent evidence sub-types in the evaluator.** The evaluator
+  only knows `automated` and `manual` as the *flow* dimension.
   Catalog `type` values like `declaration`, `checklist`,
   `document_upload` are descriptive hints (used by the optional
   Evidence SPA helper to decide whether to render a clickable form) —

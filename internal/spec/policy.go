@@ -14,6 +14,11 @@ import (
 // policySchemaVersion is the only schema_version this loader accepts.
 const policySchemaVersion = "policy.v1"
 
+// ManualSlotName is the synthetic slot name the planner creates for
+// manual policies. The collector and evaluator use it as the key in
+// RecordsByPolicy[policyID].
+const ManualSlotName = "_manual"
+
 // policySpecRaw is the on-disk YAML shape of a policy.yaml file. It is
 // decoded with KnownFields(true), then validated and converted to
 // core.Policy. See docs/architecture/03-policy-spec.md for the canonical
@@ -32,6 +37,9 @@ type policySpecRaw struct {
 	Parameters    map[string]paramSpecRaw `yaml:"parameters"`
 	Rule          string                  `yaml:"rule"`
 	Tags          []string                `yaml:"tags"`
+	EvidenceMode  string                  `yaml:"evidence_mode"`
+	CatalogEntry  string                  `yaml:"catalog_entry"`
+	PassWhen      yaml.Node               `yaml:"pass_when"`
 }
 
 type slotSpecRaw struct {
@@ -58,6 +66,25 @@ type paramSpecRaw struct {
 	Description string `yaml:"description"`
 }
 
+// passWhenClauseRaw is the intermediate raw shape of one pass_when clause.
+type passWhenClauseRaw struct {
+	Slot          string                `yaml:"slot"`
+	Quantifier    string                `yaml:"quantifier"`
+	Condition     *passWhenConditionRaw `yaml:"condition"`
+	Filter        *passWhenConditionRaw `yaml:"filter"`
+	ViolationMsg  string                `yaml:"violation_message"`
+	IdentityKey   string                `yaml:"identity_key"`
+	MinPercentage *float64              `yaml:"min_percentage"`
+}
+
+// passWhenConditionRaw is the intermediate raw shape of one condition node.
+type passWhenConditionRaw struct {
+	Op         string                  `yaml:"op"`
+	Field      string                  `yaml:"field"`
+	Value      any                     `yaml:"value"`
+	Conditions []*passWhenConditionRaw `yaml:"conditions"`
+}
+
 // LoadPolicy parses a policy.yaml document and returns the L1
 // core.Policy with all fields populated.
 //
@@ -79,10 +106,10 @@ func LoadPolicy(data []byte) (core.Policy, error) {
 	if err := validatePolicy(&raw); err != nil {
 		return core.Policy{}, err
 	}
-	return policyFromRaw(&raw), nil
+	return policyFromRaw(&raw)
 }
 
-func policyFromRaw(raw *policySpecRaw) core.Policy {
+func policyFromRaw(raw *policySpecRaw) (core.Policy, error) {
 	onPush := defaultOnPush(raw)
 
 	slots := make(map[string]core.Slot, len(raw.Slots))
@@ -109,39 +136,44 @@ func policyFromRaw(raw *policySpecRaw) core.Policy {
 			Description: p.Description,
 		}
 	}
-	return core.Policy{
-		ID:          raw.ID,
-		Control:     raw.Control,
-		Description: raw.Description,
-		Remediation: raw.Remediation,
-		Severity:    raw.Severity,
-		Category:    raw.Category,
-		Cadence:     raw.Cadence,
-		OnPush:      onPush,
-		Slots:       slots,
-		Parameters:  params,
-		RuleRef:     raw.Rule,
-		Tags:        raw.Tags,
+
+	var passWhen *core.PassWhenSpec
+	if raw.PassWhen.Kind != 0 {
+		var err error
+		passWhen, err = parsePassWhen(&raw.PassWhen)
+		if err != nil {
+			return core.Policy{}, fmt.Errorf("policy spec %q: pass_when: %w", raw.ID, err)
+		}
 	}
+
+	return core.Policy{
+		ID:           raw.ID,
+		Control:      raw.Control,
+		Description:  raw.Description,
+		Remediation:  raw.Remediation,
+		Severity:     raw.Severity,
+		Category:     raw.Category,
+		Cadence:      raw.Cadence,
+		OnPush:       onPush,
+		Slots:        slots,
+		Parameters:   params,
+		RuleRef:      raw.Rule,
+		Tags:         raw.Tags,
+		EvidenceMode: core.EvidenceMode(raw.EvidenceMode),
+		PassWhen:     passWhen,
+		CatalogEntry: raw.CatalogEntry,
+	}, nil
 }
 
 // defaultOnPush returns OnPush honoring an explicit YAML value when
-// present, falling back to the framework convention: automated
-// policies default true, manual policies (any slot accepting
-// signed_document) default false. The check is shape-based — the
-// planner has the authoritative view, but the policy loader's defaults
-// match the convention documented in 03-policy-spec.md §Custom
-// policies.
+// present, falling back to the framework convention: automated policies
+// default true, manual policies (evidence_mode: manual) default false.
 func defaultOnPush(raw *policySpecRaw) bool {
 	if raw.OnPush != nil {
 		return *raw.OnPush
 	}
-	for _, s := range raw.Slots {
-		for _, t := range s.Accepts {
-			if t == "signed_document" {
-				return false
-			}
-		}
+	if raw.EvidenceMode == string(core.EvidenceModeManual) {
+		return false
 	}
 	return true
 }
@@ -156,7 +188,7 @@ func validatePolicy(raw *policySpecRaw) error {
 	if err := validatePolicyEnums(raw); err != nil {
 		return err
 	}
-	if err := validatePolicySlots(raw); err != nil {
+	if err := validatePolicyEvidenceMode(raw); err != nil {
 		return err
 	}
 	return validatePolicyParameters(raw)
@@ -172,8 +204,8 @@ func validatePolicyRequiredScalars(raw *policySpecRaw) error {
 	if raw.Description == "" {
 		return fmt.Errorf("policy spec %q: missing required field \"description\"", raw.ID)
 	}
-	if raw.Rule == "" {
-		return fmt.Errorf("policy spec %q: missing required field \"rule\"", raw.ID)
+	if raw.EvidenceMode == "" {
+		return fmt.Errorf("policy spec %q: missing required field \"evidence_mode\" (want \"automated\" or \"manual\")", raw.ID)
 	}
 	if raw.Severity == "" {
 		return fmt.Errorf("policy spec %q: missing required field \"severity\"", raw.ID)
@@ -190,6 +222,43 @@ func validatePolicyEnums(raw *policySpecRaw) error {
 	}
 	if err := validateCadenceSpec(raw.Cadence); err != nil {
 		return fmt.Errorf("policy spec %q: %w", raw.ID, err)
+	}
+	return nil
+}
+
+// validatePolicyEvidenceMode enforces the structural rules for each mode:
+//
+//   - manual: requires catalog_entry; forbids slots, pass_when, rule
+//   - automated: requires slots (≥1) and exactly one of pass_when or rule
+func validatePolicyEvidenceMode(raw *policySpecRaw) error {
+	switch raw.EvidenceMode {
+	case string(core.EvidenceModeManual):
+		if raw.CatalogEntry == "" {
+			return fmt.Errorf("policy spec %q: evidence_mode \"manual\" requires \"catalog_entry\"", raw.ID)
+		}
+		if len(raw.Slots) > 0 {
+			return fmt.Errorf("policy spec %q: evidence_mode \"manual\" must not declare \"slots\" (manual policies have no configurable slots)", raw.ID)
+		}
+		if raw.PassWhen.Kind != 0 {
+			return fmt.Errorf("policy spec %q: evidence_mode \"manual\" must not declare \"pass_when\" (the universal PDF presence check runs automatically)", raw.ID)
+		}
+		if raw.Rule != "" {
+			return fmt.Errorf("policy spec %q: evidence_mode \"manual\" must not declare \"rule\" (the universal PDF presence check runs automatically)", raw.ID)
+		}
+	case string(core.EvidenceModeAutomated):
+		if err := validatePolicySlots(raw); err != nil {
+			return err
+		}
+		hasPassWhen := raw.PassWhen.Kind != 0
+		hasRule := raw.Rule != ""
+		if !hasPassWhen && !hasRule {
+			return fmt.Errorf("policy spec %q: evidence_mode \"automated\" requires either \"pass_when\" (preferred) or \"rule\" (escape hatch)", raw.ID)
+		}
+		if hasPassWhen && hasRule {
+			return fmt.Errorf("policy spec %q: \"pass_when\" and \"rule\" are mutually exclusive; use \"pass_when\" for declarative logic, \"rule\" only for complex escape-hatch cases", raw.ID)
+		}
+	default:
+		return fmt.Errorf("policy spec %q: invalid evidence_mode %q (want \"automated\" or \"manual\")", raw.ID, raw.EvidenceMode)
 	}
 	return nil
 }
@@ -228,6 +297,153 @@ func validatePolicyParameters(raw *policySpecRaw) error {
 		}
 	}
 	return nil
+}
+
+// parsePassWhen decodes a yaml.Node into a core.PassWhenSpec. The node
+// may be a mapping (single-clause) or a sequence (multi-clause).
+func parsePassWhen(node *yaml.Node) (*core.PassWhenSpec, error) {
+	if node.Kind == yaml.SequenceNode {
+		// Multi-slot form: a list of clause mappings.
+		clauses := make([]core.PassWhenClause, 0, len(node.Content))
+		for i, child := range node.Content {
+			clause, err := decodePassWhenClause(child)
+			if err != nil {
+				return nil, fmt.Errorf("clause[%d]: %w", i, err)
+			}
+			clauses = append(clauses, clause)
+		}
+		if len(clauses) == 0 {
+			return nil, fmt.Errorf("pass_when list must contain at least one clause")
+		}
+		return &core.PassWhenSpec{Clauses: clauses}, nil
+	}
+	if node.Kind == yaml.MappingNode {
+		// Single-slot form.
+		clause, err := decodePassWhenClause(node)
+		if err != nil {
+			return nil, err
+		}
+		return &core.PassWhenSpec{Clauses: []core.PassWhenClause{clause}}, nil
+	}
+	return nil, fmt.Errorf("pass_when must be a mapping or a sequence of mappings")
+}
+
+// decodePassWhenClause decodes one mapping node into a PassWhenClause.
+func decodePassWhenClause(node *yaml.Node) (core.PassWhenClause, error) {
+	var raw passWhenClauseRaw
+	if err := node.Decode(&raw); err != nil {
+		return core.PassWhenClause{}, fmt.Errorf("decode clause: %w", err)
+	}
+	if err := validatePassWhenClause(&raw); err != nil {
+		return core.PassWhenClause{}, err
+	}
+	cond, err := convertCondition(raw.Condition)
+	if err != nil {
+		return core.PassWhenClause{}, fmt.Errorf("condition: %w", err)
+	}
+	filter, err := convertCondition(raw.Filter)
+	if err != nil {
+		return core.PassWhenClause{}, fmt.Errorf("filter: %w", err)
+	}
+	return core.PassWhenClause{
+		Slot:          raw.Slot,
+		Quantifier:    core.PassWhenQuantifier(raw.Quantifier),
+		Condition:     cond,
+		Filter:        filter,
+		ViolationMsg:  raw.ViolationMsg,
+		IdentityKey:   raw.IdentityKey,
+		MinPercentage: raw.MinPercentage,
+	}, nil
+}
+
+var validPassWhenQuantifiers = map[string]struct{}{
+	"all":   {},
+	"none":  {},
+	"any":   {},
+	"count": {},
+}
+
+var validPassWhenOps = map[string]struct{}{
+	"eq":     {},
+	"neq":    {},
+	"lt":     {},
+	"lte":    {},
+	"gt":     {},
+	"gte":    {},
+	"in":     {},
+	"not_in": {},
+	"is_set": {},
+	"all_of": {},
+	"any_of": {},
+}
+
+func validatePassWhenClause(raw *passWhenClauseRaw) error {
+	if raw.Slot == "" {
+		return fmt.Errorf("pass_when clause missing required field \"slot\"")
+	}
+	if raw.Quantifier == "" {
+		return fmt.Errorf("pass_when clause missing required field \"quantifier\"")
+	}
+	if _, ok := validPassWhenQuantifiers[raw.Quantifier]; !ok {
+		return fmt.Errorf("pass_when clause invalid quantifier %q (want all|none|any|count)", raw.Quantifier)
+	}
+	if raw.Quantifier == "count" && raw.MinPercentage == nil {
+		return fmt.Errorf("pass_when clause quantifier \"count\" requires \"min_percentage\"")
+	}
+	if raw.Quantifier != "count" && raw.MinPercentage != nil {
+		return fmt.Errorf("pass_when clause \"min_percentage\" is only valid with quantifier \"count\"")
+	}
+	if raw.Condition == nil {
+		return fmt.Errorf("pass_when clause missing required field \"condition\"")
+	}
+	return validatePassWhenCondition(raw.Condition)
+}
+
+func validatePassWhenCondition(raw *passWhenConditionRaw) error {
+	if raw.Op == "" {
+		return fmt.Errorf("pass_when condition missing required field \"op\"")
+	}
+	if _, ok := validPassWhenOps[raw.Op]; !ok {
+		return fmt.Errorf("pass_when condition invalid op %q", raw.Op)
+	}
+	switch raw.Op {
+	case "all_of", "any_of":
+		if len(raw.Conditions) == 0 {
+			return fmt.Errorf("pass_when condition op %q requires at least one sub-condition in \"conditions\"", raw.Op)
+		}
+		for i, sub := range raw.Conditions {
+			if err := validatePassWhenCondition(sub); err != nil {
+				return fmt.Errorf("conditions[%d]: %w", i, err)
+			}
+		}
+	default:
+		if raw.Field == "" {
+			return fmt.Errorf("pass_when condition op %q requires \"field\"", raw.Op)
+		}
+		if raw.Op != "is_set" && raw.Value == nil {
+			return fmt.Errorf("pass_when condition op %q requires \"value\"", raw.Op)
+		}
+	}
+	return nil
+}
+
+func convertCondition(raw *passWhenConditionRaw) (*core.PassWhenCondition, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	cond := &core.PassWhenCondition{
+		Op:    raw.Op,
+		Field: raw.Field,
+		Value: raw.Value,
+	}
+	for i, sub := range raw.Conditions {
+		converted, err := convertCondition(sub)
+		if err != nil {
+			return nil, fmt.Errorf("conditions[%d]: %w", i, err)
+		}
+		cond.Conditions = append(cond.Conditions, converted)
+	}
+	return cond, nil
 }
 
 var validCadences = map[string]struct{}{

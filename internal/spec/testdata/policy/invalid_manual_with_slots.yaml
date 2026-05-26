@@ -1,0 +1,14 @@
+schema_version: policy.v1
+id: soc2.cc1.4.quarterly_access_review
+control: SOC2.CC1.4
+severity: medium
+cadence: quarterly
+evidence_mode: manual
+catalog_entry: access_review_quarterly
+description: "Quarterly access review."
+slots:
+  doc:
+    accepts: [signed_document]
+    cardinality: exactly-one
+    required: true
+# manual policies must not declare slots

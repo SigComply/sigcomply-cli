@@ -9,6 +9,8 @@ category: access_control
 cadence: daily
 on_push: true
 
+evidence_mode: automated
+
 description: |
   All users in the configured user directory must have multi-factor
   authentication enabled.
@@ -18,7 +20,7 @@ remediation: |
 
 slots:
   user_directory:
-    accepts: [user_record]
+    accepts: [directory_user]
     cardinality: one-or-more
     required: true
     description: "Source(s) of users to evaluate for MFA."
@@ -31,7 +33,19 @@ parameters:
       If true, records where payload.is_service_account == true are
       skipped.
 
-rule: rules.mfa_enforced.v1
+pass_when:
+  slot: user_directory
+  quantifier: all
+  filter:
+    op: neq
+    field: payload.is_service_account
+    value: true
+  condition:
+    op: eq
+    field: payload.mfa_enabled
+    value: true
+  violation_message: "User {{.id}} does not have MFA enabled"
+  identity_key: id
 
 tags:
   - aws-soc2

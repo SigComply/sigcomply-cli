@@ -29,11 +29,26 @@ func makePlannedPolicy(id, control, ruleRef string, requiredSlots ...string) pla
 	}
 	return planner.PlannedPolicy{
 		Spec: core.Policy{
-			ID:       id,
-			Control:  control,
-			Severity: core.SeverityHigh,
-			RuleRef:  ruleRef,
-			Slots:    slots,
+			ID:           id,
+			Control:      control,
+			Severity:     core.SeverityHigh,
+			RuleRef:      ruleRef,
+			Slots:        slots,
+			EvidenceMode: core.EvidenceModeAutomated,
+		},
+		Parameters:     map[string]any{},
+		ShouldEvaluate: true,
+	}
+}
+
+func makePlannedPolicyManual(id, control string) planner.PlannedPolicy { //nolint:unparam // id is fixed in tests but the param documents intent
+	return planner.PlannedPolicy{
+		Spec: core.Policy{
+			ID:           id,
+			Control:      control,
+			Severity:     core.SeverityMedium,
+			EvidenceMode: core.EvidenceModeManual,
+			CatalogEntry: "access_review_quarterly",
 		},
 		Parameters:     map[string]any{},
 		ShouldEvaluate: true,
@@ -55,13 +70,6 @@ func TestEvaluate_NilInputErrors(t *testing.T) {
 	_, err := Evaluate(context.Background(), nil)
 	if err == nil {
 		t.Fatal("want error on nil input")
-	}
-}
-
-func TestEvaluate_NilRulesErrors(t *testing.T) {
-	_, err := Evaluate(context.Background(), &Input{Plan: &planner.RunPlan{}})
-	if err == nil {
-		t.Fatal("want error on nil Rules")
 	}
 }
 
@@ -251,60 +259,116 @@ func TestEvaluate_PatternResourceWaiverSuppressesAll(t *testing.T) {
 	}
 }
 
-func TestRegoRule_PresenceCheck(t *testing.T) {
-	module := `
-package rules.manual_presence.v1
-import rego.v1
-
-result := {"status": "pass", "violations": []} if {
-	rec := input.slots.doc[0]
-	rec.payload.file_present == true
-	rec.payload.in_temporal_window == true
-} else := {"status": "fail", "violations": [{
-	"resource_id": input.slots.doc[0].id,
-	"reason": "manual evidence missing or outside temporal window"
-}]}
-`
-	rule, err := NewRegoRule("rules.manual_presence.v1", module, "data.rules.manual_presence.v1.result")
+func TestEvaluate_ManualPathA_Pass(t *testing.T) {
+	pp := makePlannedPolicyManual("p.manual.1", "C1")
+	payload, err := json.Marshal(map[string]any{
+		"file_present":       true,
+		"in_temporal_window": true,
+		"file_valid":         true,
+		"expected_uri":       "s3://bucket/manual/access_review_quarterly/2026-Q1/evidence.pdf",
+	})
 	if err != nil {
-		t.Fatalf("NewRegoRule: %v", err)
+		t.Fatalf("json.Marshal: %v", err)
 	}
-	if rule.ID() != "rules.manual_presence.v1" {
-		t.Errorf("ID mismatch: %q", rule.ID())
+	in := &Input{
+		Plan:  &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
+		Rules: nil, // manual Path A doesn't need rules
+		RecordsByPolicy: map[string]map[string][]core.EvidenceRecord{
+			"p.manual.1": {"_manual": {{ID: "access_review_quarterly/2026-Q1", Payload: payload}}},
+		},
+		Now: time.Now(),
 	}
+	res, err := Evaluate(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Evaluate: %v", err)
+	}
+	if res[0].Status != core.StatusPass {
+		t.Errorf("status = %q; want pass", res[0].Status)
+	}
+}
 
-	cases := []struct {
-		name       string
-		present    bool
-		inWindow   bool
-		wantStatus core.PolicyStatus
-	}{
-		{"pass", true, true, core.StatusPass},
-		{"missing", false, false, core.StatusFail},
-		{"outside-window", true, false, core.StatusFail},
+func TestEvaluate_ManualPathA_MissingFile(t *testing.T) {
+	pp := makePlannedPolicyManual("p.manual.1", "C1")
+	payload, err := json.Marshal(map[string]any{
+		"file_present":       false,
+		"in_temporal_window": false,
+		"file_valid":         false,
+		"expected_uri":       "s3://bucket/manual/access_review_quarterly/2026-Q1/evidence.pdf",
+	})
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
 	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			payload, marshalErr := json.Marshal(map[string]any{
-				"file_present":       c.present,
-				"in_temporal_window": c.inWindow,
-			})
-			if marshalErr != nil {
-				t.Fatalf("Marshal: %v", marshalErr)
-			}
-			out, err := rule.Evaluate(context.Background(), core.RuleInput{
-				Slots: map[string][]core.EvidenceRecord{
-					"doc": {{ID: "e1/2026-Q1", Payload: payload}},
-				},
-				Now: time.Now(),
-			})
-			if err != nil {
-				t.Fatalf("Evaluate: %v", err)
-			}
-			if out.Status != c.wantStatus {
-				t.Errorf("status = %q; want %q", out.Status, c.wantStatus)
-			}
-		})
+	in := &Input{
+		Plan:  &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
+		Rules: nil,
+		RecordsByPolicy: map[string]map[string][]core.EvidenceRecord{
+			"p.manual.1": {"_manual": {{ID: "access_review_quarterly/2026-Q1", Payload: payload}}},
+		},
+		Now: time.Now(),
+	}
+	res, err := Evaluate(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Evaluate: %v", err)
+	}
+	if res[0].Status != core.StatusFail {
+		t.Errorf("status = %q; want fail", res[0].Status)
+	}
+}
+
+func TestEvaluate_ManualPathA_OutsideWindow(t *testing.T) {
+	pp := makePlannedPolicyManual("p.manual.1", "C1")
+	payload, err := json.Marshal(map[string]any{
+		"file_present":       true,
+		"in_temporal_window": false,
+		"file_valid":         true,
+		"expected_uri":       "s3://bucket/manual/q1/evidence.pdf",
+	})
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	in := &Input{
+		Plan:  &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
+		Rules: nil,
+		RecordsByPolicy: map[string]map[string][]core.EvidenceRecord{
+			"p.manual.1": {"_manual": {{ID: "q1/evidence", Payload: payload}}},
+		},
+		Now: time.Now(),
+	}
+	res, err := Evaluate(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Evaluate: %v", err)
+	}
+	if res[0].Status != core.StatusFail {
+		t.Errorf("status = %q; want fail", res[0].Status)
+	}
+}
+
+func TestEvaluate_ManualPathA_InvalidPDF(t *testing.T) {
+	pp := makePlannedPolicyManual("p.manual.1", "C1")
+	payload, err := json.Marshal(map[string]any{
+		"file_present":        true,
+		"in_temporal_window":  true,
+		"file_valid":          false,
+		"validation_failures": []string{"missing_pdf_header"},
+		"expected_uri":        "s3://bucket/manual/q1/evidence.pdf",
+	})
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	in := &Input{
+		Plan:  &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
+		Rules: nil,
+		RecordsByPolicy: map[string]map[string][]core.EvidenceRecord{
+			"p.manual.1": {"_manual": {{ID: "q1/evidence", Payload: payload}}},
+		},
+		Now: time.Now(),
+	}
+	res, err := Evaluate(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Evaluate: %v", err)
+	}
+	if res[0].Status != core.StatusFail {
+		t.Errorf("status = %q; want fail", res[0].Status)
 	}
 }
 

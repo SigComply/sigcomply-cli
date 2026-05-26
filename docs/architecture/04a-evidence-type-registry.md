@@ -408,6 +408,194 @@ checks; the registry is the precondition.
 
 ---
 
+## Schema design: top-down from concept, not bottom-up from a vendor's API
+
+This is the most consequential design decision when defining a new
+evidence type. Getting it right makes every future source addition
+trivial. Getting it wrong silently breaks the substitutability property
+— often only discovered when a second vendor is being added and the
+original schema turns out to be shaped around one vendor's API.
+
+### The core discipline
+
+A cross-vendor evidence type represents a *semantic domain concept* —
+"a user in a directory," "an object storage bucket," "a source code
+repository." Schema fields describe **what that concept universally
+is**, not what one vendor's API happens to return.
+
+**Wrong (bottom-up — modeled directly from AWS IAM's API response):**
+
+```json
+{
+  "UserName": "alice",
+  "Arn": "arn:aws:iam::123456789:user/alice",
+  "MFADevices": [
+    { "SerialNumber": "arn:aws:iam::123456789:mfa/alice", "EnableDate": "2024-01-15T09:00:00Z" }
+  ],
+  "PasswordLastUsed": "2026-05-20T09:14:00Z"
+}
+```
+
+Okta, Azure AD, and Google Workspace cannot provide `Arn`, `MFADevices`,
+or `PasswordLastUsed` without fabricating values. Any field that only
+one vendor can populate meaningfully is the wrong level of abstraction
+for a shared schema.
+
+**Right (top-down — modeled from the concept "a directory user"):**
+
+```json
+{
+  "id": "alice",
+  "email": "alice@example.com",
+  "mfa_enabled": true,
+  "is_admin": false
+}
+```
+
+Every directory system can answer "does this user have MFA enabled?"
+The plugin for each vendor translates its native representation into
+this canonical boolean. `mfa_enabled` is universal;
+`MFADevices[].SerialNumber` is an AWS IAM artifact.
+
+The shipped schemas in `internal/evidence_types/schemas/` —
+`directory_user.v1.json`, `object_storage_bucket.v1.json`,
+`git_repository.v1.json` — are concrete examples of this discipline
+applied consistently. Read them before designing a new cross-vendor
+type.
+
+### The universal-field test
+
+Before adding a field to a cross-vendor schema, apply this test:
+
+> Can **every** plausible implementation of this concept provide this
+> field with a meaningful, non-null value? If not, can it be safely
+> optional — with documented semantics for what "absent" means to a
+> policy consumer?
+
+Applied to `directory_user` as illustration:
+
+| Field | Universal? | Declaration |
+|-------|-----------|-------------|
+| `mfa_enabled: boolean` | Yes — all directories have this concept | `required` |
+| `is_admin: boolean` | Yes — all directories have an elevated-privilege concept | optional (absent = unknown) |
+| `email: string` | Mostly — not every system exposes email | optional (absent = unknown) |
+| `iam_path: string` | No — AWS IAM only | does not belong in the shared schema |
+| `okta_login: string` | No — Okta only | does not belong in the shared schema |
+
+**The schema author must survey at least two or three plausible
+implementations before declaring a field required.** Designing from a
+single implementation and hoping the rest will fit is how bottom-up
+schemas happen.
+
+### The normalization boundary
+
+The source plugin owns **100% of the translation** from vendor API
+shape to canonical schema shape. Zero normalization belongs in policy
+Rego.
+
+Policy code must never contain:
+
+- `record.type == "aws_iam_user"` — branching on source
+- `count(record.mfa_devices) > 0` — re-deriving a computed field the
+  plugin should have computed
+- `record.arn != null` — gating on a vendor-specific field
+
+Every one of these is a symptom that vendor-specific shape leaked into
+policy code. The fix is always in the plugin, not the Rego.
+
+How the `aws.iam` plugin handles MFA:
+
+```
+AWS IAM API returns: MFADevices: [{SerialNumber: "...", ...}]
+Plugin computes:     mfa_enabled = len(mfaDevices) > 0
+Plugin emits:        {"mfa_enabled": true}
+Policy sees:         record.mfa_enabled == true
+```
+
+How the Okta plugin handles MFA:
+
+```
+Okta API returns:    factors: [{status: "ACTIVE", ...}]
+Plugin computes:     mfa_enabled = any(factor.status == "ACTIVE")
+Plugin emits:        {"mfa_enabled": true}
+Policy sees:         record.mfa_enabled == true
+```
+
+Same policy, different plugins, identical Rego. That is the whole
+point of the substitutability property.
+
+### The null-trap antipattern
+
+What happens when a schema is designed bottom-up and a second vendor
+is forced to fit it:
+
+1. A required field in the schema cannot be meaningfully populated by
+   the new vendor.
+2. The plugin author sets it to `null`, `""`, or `0` to satisfy schema
+   validation.
+3. Policy authors add `if field != null` guards to avoid false
+   failures.
+4. Those guards are implicit source-dispatching: the policy now
+   silently behaves differently depending on which source is bound.
+5. Substitutability is broken. Two sources nominally satisfying the
+   same evidence type produce semantically different policy outcomes,
+   and the discrepancy is invisible in CI.
+
+**The fix is not to add null guards in Rego.** The fix is to find the
+offending schema field and either:
+
+- Relax it to optional, with clear documentation of what "absent"
+  means for policy consumers.
+- Move it to `additionalProperties` — vendor-specific extras that no
+  policy depends on.
+- Create a vendor-specific evidence type for the source that can't
+  satisfy the universal schema (see §Two-tier type taxonomy).
+
+`"additionalProperties": true` in the schema is the sanctioned escape
+hatch for vendor-specific data that policies should never branch on.
+
+### Two-tier type taxonomy
+
+Both tiers are legitimate. The discipline is knowing which to use.
+
+| Tier | Naming | Example | Use when |
+|------|--------|---------|----------|
+| **Semantic** (cross-vendor) | No vendor prefix | `directory_user`, `object_storage_bucket`, `git_repository` | The concept exists in ≥2 vendors and all required fields are universally satisfiable |
+| **Vendor-specific** | Vendor prefix | `aws_cloudtrail_event`, `gcp_vpc_flow_log` | The concept is genuinely unique to one vendor's data model |
+
+A policy accepting a semantic type is universally portable across every
+source that emits it. A policy accepting a vendor-specific type is
+honestly scoped and can use the full native API shape without
+normalization constraints.
+
+**Do not use vendor-specific types as an escape hatch from schema
+design.** When a concept *could* be cross-vendor but the first
+implementation was modeled bottom-up from a single API, shipping a
+vendor-prefixed type defers the cost instead of eliminating it: every
+future vendor for the same concept requires a new type and a policy
+fork. The substitutability property costs one careful design decision
+at schema-definition time, paid back at every subsequent source
+addition.
+
+### The "wrong schema" signal
+
+The clearest diagnostic that a schema was designed bottom-up:
+**implementing a second plugin for the same evidence type requires
+setting a required field to null or a meaningless sentinel.**
+
+If you're writing the Okta plugin and `directory_user.v1` has a
+required field `iam_path` that Okta has no equivalent for, the schema
+is wrong — not the plugin. Fix the schema (move `iam_path` to optional
+or remove it), update the AWS plugin accordingly, and coin a v2 if the
+change is breaking per §Versioning rule above.
+
+Do not paper over a bad schema by emitting `null`, `""`, `0`, or
+`false` where the vendor doesn't support the concept. That path ends
+in silent policy miscounts that are difficult to trace to their root
+cause.
+
+---
+
 ## Decision rubric: new type vs. extend `accepts:`
 
 This is the same rubric as in

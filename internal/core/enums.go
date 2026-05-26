@@ -32,6 +32,21 @@ const (
 	StatusCarriedForward PolicyStatus = "carried_forward"
 )
 
+// EvidenceMode declares whether a policy is evaluated via automated API
+// collection or via a manually-uploaded PDF. It is an explicit first-class
+// field on every policy spec; the evaluator branches on it and nothing else.
+type EvidenceMode string
+
+const (
+	// EvidenceModeAutomated means the policy binds API source plugins and
+	// evaluates via the pass_when: DSL (Path B) or a rule: escape-hatch (Path C).
+	EvidenceModeAutomated EvidenceMode = "automated"
+	// EvidenceModeManual means the policy expects a customer-uploaded PDF at a
+	// catalog-defined path. The evaluator runs the universal PDF presence check
+	// (Path A); pass_when: and rule: are ignored entirely.
+	EvidenceModeManual EvidenceMode = "manual"
+)
+
 // SlotCardinality declares how many sources a slot may bind.
 type SlotCardinality string
 

@@ -17,6 +17,18 @@ type Policy struct {
 	Parameters  map[string]ParameterSpec
 	RuleRef     string
 	Tags        []string
+
+	// EvidenceMode is the explicit first-class field that determines the
+	// evaluator path: automated (Path B/C) or manual (Path A). Required.
+	EvidenceMode EvidenceMode
+	// PassWhen is the declarative condition DSL for automated policies.
+	// Non-nil when evidence_mode: automated and no rule: escape-hatch.
+	// Exactly one of PassWhen / RuleRef must be set for automated policies.
+	PassWhen *PassWhenSpec
+	// CatalogEntry is the evidence_catalog_id for manual policies. It
+	// identifies which entry in the manual evidence catalog resolves to the
+	// expected PDF path. Required when EvidenceMode == EvidenceModeManual.
+	CatalogEntry string
 }
 
 // CadenceOnPush is the virtual cadence value representing the on_push

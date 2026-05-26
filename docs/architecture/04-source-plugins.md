@@ -592,6 +592,20 @@ A plugin author must guarantee:
 - **Validates all emitted records against their evidence type
   schema**, or relies on the collector's downstream validation to
   reject malformed records.
+- **Owns 100% of the vendor→canonical normalization.** For
+  cross-vendor evidence types, every required field must be populated
+  with a meaningful value — never `null`, `""`, `0`, or `false` as a
+  placeholder when the vendor doesn't have the concept. If the vendor
+  API returns a complex structure (e.g. an array of MFA device objects),
+  compute the canonical boolean or count inside `Collect` and emit
+  the normalized field. If a required field is genuinely impossible to
+  populate for a given vendor, that is a schema design issue: the field
+  does not belong in the shared schema. Escalate to fix the schema
+  rather than emitting a sentinel. Sentinel values on required fields
+  break substitutability silently: policy authors add null guards, which
+  become implicit source-dispatch (see
+  [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md)
+  §The null-trap antipattern).
 - **No silent failures.** Every error in `Collect` is returned; the
   collector decides whether it's fatal for the consuming policy.
 - **No transitive credential capture.** A plugin may not log,

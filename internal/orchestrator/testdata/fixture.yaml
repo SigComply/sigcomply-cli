@@ -54,9 +54,6 @@ sources:
     project_id: example-project
 
 bindings:
-  soc2.cc6.3.access_review_quarterly:
-    review_document:
-      - source: "manual.pdf:access_review_quarterly"
   soc2.cc6.1.mfa_enforced_all_sources:
     # Single source-agnostic MFA policy: binds every directory_user-
     # emitting source the project has registered. The rule runs once

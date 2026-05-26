@@ -43,10 +43,15 @@ seams, and the invariants that hold across the stack.
 **Owns.** All declarative artifacts. Versioned. Data-as-code.
 
 - Framework specs (shipped with the binary, one per framework)
-- Policy specs (one per policy, framework-shipped or project-local)
+- Policy specs (one per policy, framework-shipped or project-local):
+  each carries `evidence_mode`, `pass_when:` (declarative condition
+  DSL), and optionally `rule:` (escape hatch). `pass_when:` is the
+  primary evaluation path; `rule:` is used only when the DSL cannot
+  express the logic.
 - Evidence type schemas (JSON Schema, one per type)
 - Source plugin manifests (one per plugin, declaring emitted types)
-- Project config (`.sigcomply.yaml`, customer-authored)
+- Project config (`.sigcomply.yaml`, customer-authored): includes
+  `policy_overrides` for per-policy `evidence_mode` overrides
 - Manual evidence catalog (entries for `manual.pdf` source)
 
 **Format.** YAML for human-authored specs; JSON Schema for evidence
@@ -191,7 +196,7 @@ ID. Populated at process startup; immutable thereafter.
 |---|---|---|
 | `FrameworkRegistry` | In-binary framework specs (shipped) | `framework_id` |
 | `SourceRegistry` | Source-plugin factories registered via `init()` from in-binary `internal/sources/...` packages and from project-local `.sigcomply/plugins/...` packages compiled in by `sigcomply build` | `source_id` |
-| `RuleRegistry` | In-binary rules + project-local rules under `.sigcomply/policies/.../rules/` | `rule_ref` |
+| `RuleRegistry` | In-binary rules + project-local rules under `.sigcomply/policies/.../rules/`. **Consulted only for policies with a `rule:` escape-hatch reference.** Policies with `pass_when:` never touch this registry. | `rule_ref` |
 | `EvidenceTypeRegistry` | In-binary type schemas (embedded via `go:embed` from `internal/evidence_types/*.yaml`) + project-local under `.sigcomply/evidence_types/` | `evidence_type_id` |
 | `PolicyRegistry` | Framework-shipped policy specs + project-local policies under `.sigcomply/policies/` | `policy_id` |
 
@@ -217,11 +222,19 @@ configuration error (exit code 3). Detail: see
 1. Load in-binary registries (compiled-in via `embed.FS` and `init()`
    side effects).
 2. Discover and load `.sigcomply/` extensions.
-3. Validate: every `policy.rule` resolves to a registered rule; every
-   `policy.slot.accepts[*]` resolves to a registered evidence type;
-   every `binding.source` resolves to a registered plugin; every bound
-   source emits at least one of its slot's accepted types
-   (`source.Emits() ∩ slot.Accepts ≠ ∅`).
+3. Validate:
+   - Policies with `rule:` → reference resolves in `RuleRegistry`
+   - Policies with `pass_when:` and no `rule:` → `pass_when:` is
+     structurally valid (quantifier present, conditions reference
+     real fields in the accepted evidence type schemas)
+   - Policies with `evidence_mode: automated` and neither `pass_when:`
+     nor `rule:` → exit 3 (no evaluation path declared)
+   - Every `policy.slot.accepts[*]` resolves to a registered evidence
+     type; every `binding.source` resolves to a registered plugin;
+     every bound source emits at least one of the slot's accepted types
+     (`source.Emits() ∩ slot.Accepts ≠ ∅`)
+   - Policies with `evidence_mode: manual` do not require slot
+     declarations or `pass_when:`/`rule:` (all handled implicitly)
 4. If any validation fails, exit with config error (exit code 3).
 
 **Invariant.** Registries are read-only after startup. No runtime
@@ -248,9 +261,12 @@ producing an ordered, fully-resolved execution plan.
   - `run_id`, `framework`, `period_id`, `commit_sha`, `commit_time`
   - `policies []PlannedPolicy` — each with:
     - resolved `Policy` from registry
-    - resolved bindings (slot → list of source plugin instances)
+    - `evidence_mode` (from policy spec, overridden by project config)
+    - for `automated` policies: resolved bindings (slot → source
+      plugin instances), `pass_when` condition or resolved rule
+    - for `manual` policies: resolved `manual.pdf` binding + catalog
+      entry path, no `pass_when`/rule
     - effective parameter values (defaults overridden by project config)
-    - resolved rule from registry
   - `exceptions []ResolvedException`
   - `vault` configuration
 
@@ -258,10 +274,10 @@ producing an ordered, fully-resolved execution plan.
 
 - Period derived from `f(commit_time, fiscal_calendar)` (see
   `01-conceptual-model.md` §12).
-- Validates that every policy's required slots have at least one
-  binding.
-- Validates that every binding's source emits at least one of the
-  slot's accepted types (`source.Emits() ∩ slot.Accepts ≠ ∅`).
+- For `automated` policies: validates that every required slot has at
+  least one binding; validates `source.Emits() ∩ slot.Accepts ≠ ∅`.
+- For `manual` policies: resolves the `catalog_entry` to a PDF path;
+  no slot bindings to validate.
 - Resolves exception matchers against policy IDs.
 - Fails fast: any unresolved binding, missing required slot, or
   parameter out-of-bounds value is a planning error (exit 3), not a
@@ -315,26 +331,43 @@ if the same `(plugin, slot)` recurs across policies.
 
 ## L5 — Evaluator
 
-**Owns.** Running each policy's rule with the records collected for it.
+**Owns.** Evaluating each policy's pass condition against the records
+collected for it. Three paths, selected by `evidence_mode` and what
+evaluation declaration the policy carries.
 
 **Per policy:**
 
 1. Skip if the policy is fully covered by a `na` or `waived` exception.
 2. Skip with status `skip` if required slots have no records (e.g.
-   collector returned empty).
+   collector returned empty for an automated policy).
 3. Mark `error` if any of the policy's source bindings produced an
    error in L4.
-4. Otherwise: invoke the policy's rule.
-   - Construct `RuleInput` with slots, effective parameters, and `Now`.
-   - Call `rule.Evaluate(ctx, in)`.
-   - The rule returns `RuleResult` with status and violations.
+4. Otherwise — evaluate via the appropriate path:
+
+   **Path A — `evidence_mode: manual` (universal PDF-presence check):**
+   Read the manifest produced by the `manual.pdf` collector. Check
+   `file_present`, `in_temporal_window` (using the policy's
+   `grace_period_days` parameter), and `file_valid`. No rule
+   invocation, no `pass_when:` evaluation. Status is `pass` iff all
+   three are true; `fail` otherwise with a structured message naming
+   the expected upload path.
+
+   **Path B — `evidence_mode: automated` with `pass_when:` (primary):**
+   The evaluator interprets the `pass_when:` condition DSL directly
+   against the collected records. Deduplicates by `identity_key` when
+   the accepted evidence type declares one. Generates violations with
+   the template from `violation_message:` or the default. Pure
+   in-process evaluation; no OPA, no rule registry lookup.
+
+   **Path C — `evidence_mode: automated` with `rule:` (escape hatch):**
+   Construct `RuleInput` with slots, effective parameters, and `Now`.
+   Call `rule.Evaluate(ctx, in)`. The rule returns `RuleResult` with
+   status and violations. Rules are pure functions; they do no I/O.
+   Rego rules run in OPA's sandbox; Go rules are reviewed at PR time
+   for side-effect-freedom.
+
 5. Apply exception suppression: resource-scoped exceptions reclassify
    matching violations as `waived` and recompute the per-policy status.
-
-**Rule isolation.** Rules are pure functions over `RuleInput`. They
-do no I/O. Rego rules run in OPA's sandbox; Go rules are
-reviewed at PR time to enforce side-effect-freedom; YAML DSL rules
-compile to Rego.
 
 **Output.** Per-policy `PolicyResult`:
 

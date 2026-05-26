@@ -3,10 +3,11 @@ id: soc2.cc6.1.mfa_enforced
 control: SOC2.CC6.1
 severity: high
 cadence: every_tuesday
+evidence_mode: automated
 description: "All users must have MFA enabled."
 slots:
   user_directory:
-    accepts: [user_record]
+    accepts: [directory_user]
     cardinality: one-or-more
     required: true
 rule: rules.mfa_enforced.v1

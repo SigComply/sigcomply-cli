@@ -143,9 +143,21 @@ func planOne(policy *core.Policy, in *Input) (PlannedPolicy, error) {
 	if err != nil {
 		return PlannedPolicy{}, err
 	}
-	bindings, err := resolveBindings(policy, in.Config.Bindings[policy.ID], in.Registries.Sources)
-	if err != nil {
-		return PlannedPolicy{}, err
+	var bindings map[string][]Binding
+	if policy.EvidenceMode == core.EvidenceModeManual {
+		// Manual policies have no configurable slots. The planner creates a
+		// synthetic "_manual" binding pointing to the manual.pdf singleton,
+		// which the collector resolves via the catalog entry. Any project-config
+		// bindings for this policy are a configuration error.
+		if len(in.Config.Bindings[policy.ID]) > 0 {
+			return PlannedPolicy{}, fmt.Errorf("planner: policy %q (evidence_mode: manual) must not declare bindings in project config", policy.ID)
+		}
+		bindings = resolveManualBinding(policy)
+	} else {
+		bindings, err = resolveBindings(policy, in.Config.Bindings[policy.ID], in.Registries.Sources)
+		if err != nil {
+			return PlannedPolicy{}, err
+		}
 	}
 	exception := resolveException(policy.ID, in.Config.Exceptions, in.Now)
 	cadence := resolveCadence(policy.ID, policy.Cadence, in.Config.PolicyCadences)
@@ -251,6 +263,19 @@ func containsString(list []string, target string) bool {
 		}
 	}
 	return false
+}
+
+// resolveManualBinding creates the synthetic binding for a manual policy.
+// The collector uses the "_manual" slot name to route to the manual.pdf
+// source; the CatalogID drives path resolution inside the plugin.
+func resolveManualBinding(policy *core.Policy) map[string][]Binding {
+	return map[string][]Binding{
+		spec.ManualSlotName: {{
+			SourceID:      "manual.pdf",
+			AcceptedTypes: []string{"signed_document"},
+			CatalogID:     policy.CatalogEntry,
+		}},
+	}
 }
 
 // SplitCommaList is a small helper for the orchestrator: turn a
