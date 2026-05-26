@@ -11,18 +11,19 @@ import (
 // to live here (okta_users_have_mfa, github_org_members_have_2fa,
 // aws_iam mfa_enforced) collapsed into the canonical source-agnostic
 // PolicyMFAUnion now that all three plugins emit the cross-vendor
-// directory_user shape. What remains here is policies that consume
-// types with no cross-vendor analog yet — github_repository,
-// okta_app — under their natural SOC 2 controls.
+// directory_user shape. The repository branch-protection policy is
+// now cross-vendor (accepts git_repository from GitHub, GitLab,
+// Bitbucket, …). okta_app stays Okta-specific — SAML/OIDC app
+// catalogs have no cross-vendor analog yet.
 const (
-	PolicyGitHubBranchProtection = "soc2.cc6.6.github_branch_protection_on_default"
-	PolicyOktaAppsMFA            = "soc2.cc6.7.okta_apps_require_mfa"
+	PolicyGitDefaultBranchProtected = "soc2.cc6.6.git_default_branch_protected"
+	PolicyOktaAppsMFA               = "soc2.cc6.7.okta_apps_require_mfa"
 )
 
 // Rule IDs registered for the identity-source policies.
 const (
-	ruleIDGitHubBranchProtection = "rules.soc2.github_branch_protection.v1"
-	ruleIDOktaAppsMFA            = "rules.soc2.okta_apps_mfa.v1"
+	ruleIDGitDefaultBranchProtected = "rules.soc2.git_default_branch_protected.v1"
+	ruleIDOktaAppsMFA               = "rules.soc2.okta_apps_mfa.v1"
 )
 
 // identityPolicies returns the policies that exercise the github and
@@ -31,18 +32,18 @@ const (
 func identityPolicies() []core.Policy {
 	return []core.Policy{
 		{
-			ID:          PolicyGitHubBranchProtection,
+			ID:          PolicyGitDefaultBranchProtected,
 			Control:     "SOC2.CC6.6",
-			Description: "Default branches of all repositories enforce branch protection.",
-			Remediation: "Enable branch protection on the default branch via Settings → Branches in each affected GitHub repository.",
+			Description: "Default branches of all repositories across every bound git hosting platform enforce branch protection.",
+			Remediation: "Enable branch protection on the default branch of the listed repositories (GitHub: Settings → Branches; GitLab: Protected branches; Bitbucket: Branch restrictions).",
 			Severity:    core.SeverityHigh,
 			Category:    "change-management",
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"repositories": {Accepts: []string{"github_repository"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "GitHub repos in the configured org"},
+				"repositories": {Accepts: []string{"git_repository"}, Cardinality: core.SlotOneOrMore, Required: true, Description: "Source-code repositories across all bound git platforms"},
 			},
-			RuleRef: ruleIDGitHubBranchProtection,
+			RuleRef: ruleIDGitDefaultBranchProtected,
 		},
 		{
 			ID:          PolicyOktaAppsMFA,
@@ -64,22 +65,24 @@ func identityPolicies() []core.Policy {
 // identityRules returns the rules backing the identity-source policies.
 func identityRules() []core.Rule {
 	return []core.Rule{
-		githubBranchProtectionRule(),
+		gitDefaultBranchProtectedRule(),
 		oktaAppsMFARule(),
 	}
 }
 
-// githubBranchProtectionRule fails when any repo's default branch lacks
-// branch protection.
-func githubBranchProtectionRule() core.Rule {
+// gitDefaultBranchProtectedRule fails when any git_repository reports
+// default_branch_protected=false. Plugins (github, future gitlab,
+// bitbucket) normalize platform-specific protection-rule configs
+// into the boolean.
+func gitDefaultBranchProtectedRule() core.Rule {
 	return &evaluator.GoRule{
-		IDValue: ruleIDGitHubBranchProtection,
+		IDValue: ruleIDGitDefaultBranchProtected,
 		Fn: func(_ context.Context, in core.RuleInput) (core.RuleResult, error) {
 			records := in.Slots["repositories"]
 			violations := make([]core.Violation, 0)
 			for i := range records {
 				r := &records[i]
-				on, err := payloadBool(r.Payload, "branch_protection_enabled")
+				on, err := payloadBool(r.Payload, "default_branch_protected")
 				if err != nil {
 					return core.RuleResult{}, err
 				}
@@ -102,7 +105,7 @@ func githubBranchProtectionRule() core.Rule {
 				}
 				violations = append(violations, core.Violation{
 					ResourceID: r.ID,
-					Reason:     "branch protection disabled on " + name + "@" + branch,
+					Reason:     "default branch protection disabled on " + name + "@" + branch,
 				})
 			}
 			status := core.StatusPass

@@ -95,7 +95,7 @@ func TestCollectRepos_HappyPath_SortsByID(t *testing.T) {
 	if err := json.Unmarshal(records[0].Payload, &alpha); err != nil {
 		t.Fatalf("Unmarshal alpha: %v", err)
 	}
-	if !alpha.BranchProtectionEnabled || alpha.RequiredReviewersCount != 2 {
+	if !alpha.DefaultBranchProtected || alpha.RequiredReviewersCount != 2 {
 		t.Errorf("alpha payload = %+v", alpha)
 	}
 }
@@ -410,7 +410,7 @@ func TestHTTPAPI_RequestCtxCancel(t *testing.T) {
 // Tiny smoke test that confirms json roundtrip of the payload shapes — the
 // marshal path inside Collect is otherwise covered by the happy-path tests.
 func TestPayloadJSONRoundTrip(t *testing.T) {
-	rp := repoPayload{Name: "r", DefaultBranch: "main", BranchProtectionEnabled: true, RequiredReviewersCount: 1}
+	rp := repoPayload{Name: "r", DefaultBranch: "main", DefaultBranchProtected: true, RequiredReviewersCount: 1}
 	b, err := json.Marshal(rp)
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)

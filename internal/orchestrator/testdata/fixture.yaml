@@ -110,7 +110,7 @@ bindings:
   soc2.cc6.7.cloudsql_require_ssl:
     instances:
       - source: gcp.sql
-  soc2.cc6.6.github_branch_protection_on_default:
+  soc2.cc6.6.git_default_branch_protected:
     repositories:
       - source: github
   soc2.cc6.7.okta_apps_require_mfa:

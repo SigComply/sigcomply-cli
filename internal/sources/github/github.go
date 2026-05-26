@@ -32,13 +32,14 @@ import (
 
 // Evidence type IDs this plugin emits.
 //
-// EvidenceTypeRepository is the github_repository shape (a future
-// cross-vendor git_repository unification is planned but not yet
-// wired). EvidenceTypeDirectoryUser is the cross-vendor directory_user
+// EvidenceTypeRepository is the cross-vendor git_repository shape;
+// GitHub is one of several substitutable source-code platforms
+// (GitLab, Bitbucket, future Gitea/Azure DevOps).
+// EvidenceTypeDirectoryUser is the cross-vendor directory_user
 // shape — GitHub org members are one of several substitutable
 // directory sources (AWS IAM, Okta, future Azure AD/LDAP).
 const (
-	EvidenceTypeRepository    = "github_repository"
+	EvidenceTypeRepository    = "git_repository"
 	EvidenceTypeDirectoryUser = "directory_user"
 )
 
@@ -138,12 +139,15 @@ func (*Plugin) Emits() []string {
 // Init is a no-op; the constructor has already received configuration.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// repoPayload is the JSON payload shape inside each github_repository record.
+// repoPayload is the git_repository shape this plugin emits. GitHub-
+// specific signals not covered by the cross-vendor schema v1 (CodeQL
+// scanning state, secret scanning, app/action allowlists) are
+// intentionally omitted; adding them is additive.
 type repoPayload struct {
-	Name                    string `json:"name"`
-	DefaultBranch           string `json:"default_branch"`
-	BranchProtectionEnabled bool   `json:"branch_protection_enabled"`
-	RequiredReviewersCount  int    `json:"required_reviewers_count"`
+	Name                   string `json:"name"`
+	DefaultBranch          string `json:"default_branch"`
+	DefaultBranchProtected bool   `json:"default_branch_protected"`
+	RequiredReviewersCount int    `json:"required_reviewers_count,omitempty"`
 }
 
 // memberPayload is the directory_user shape this plugin emits for
@@ -199,10 +203,10 @@ func (p *Plugin) collectRepos(ctx context.Context) ([]core.EvidenceRecord, error
 	for i := range repos {
 		r := repos[i]
 		payload := repoPayload{
-			Name:                    r.Name,
-			DefaultBranch:           r.DefaultBranch,
-			BranchProtectionEnabled: r.ProtectionOn,
-			RequiredReviewersCount:  r.RequiredReviews,
+			Name:                   r.Name,
+			DefaultBranch:          r.DefaultBranch,
+			DefaultBranchProtected: r.ProtectionOn,
+			RequiredReviewersCount: r.RequiredReviews,
 		}
 		body, err := json.Marshal(payload)
 		if err != nil {

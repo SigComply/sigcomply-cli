@@ -15,7 +15,7 @@ func TestIdentityPolicies_RegisteredAndDistinct(t *testing.T) {
 		t.Fatalf("Register: %v", err)
 	}
 	for _, id := range []string{
-		PolicyGitHubBranchProtection,
+		PolicyGitDefaultBranchProtected,
 		PolicyOktaAppsMFA,
 	} {
 		if _, ok := set.Policies.Lookup(id); !ok {
@@ -23,7 +23,7 @@ func TestIdentityPolicies_RegisteredAndDistinct(t *testing.T) {
 		}
 	}
 	for _, id := range []string{
-		ruleIDGitHubBranchProtection,
+		ruleIDGitDefaultBranchProtected,
 		ruleIDOktaAppsMFA,
 	} {
 		if _, ok := set.Rules.Lookup(id); !ok {
@@ -33,7 +33,7 @@ func TestIdentityPolicies_RegisteredAndDistinct(t *testing.T) {
 }
 
 func TestGitHubBranchProtectionRule_PassWhenAllProtected(t *testing.T) {
-	rule := githubBranchProtectionRule()
+	rule := gitDefaultBranchProtectedRule()
 	res, err := rule.Evaluate(context.Background(), core.RuleInput{
 		Slots: map[string][]core.EvidenceRecord{
 			"repositories": {
@@ -51,7 +51,7 @@ func TestGitHubBranchProtectionRule_PassWhenAllProtected(t *testing.T) {
 }
 
 func TestGitHubBranchProtectionRule_FailWhenAnyUnprotected(t *testing.T) {
-	rule := githubBranchProtectionRule()
+	rule := gitDefaultBranchProtectedRule()
 	res, err := rule.Evaluate(context.Background(), core.RuleInput{
 		Slots: map[string][]core.EvidenceRecord{
 			"repositories": {
@@ -72,11 +72,11 @@ func TestGitHubBranchProtectionRule_FailWhenAnyUnprotected(t *testing.T) {
 }
 
 func TestGitHubBranchProtectionRule_EmptyPayloadFallsBackToID(t *testing.T) {
-	rule := githubBranchProtectionRule()
+	rule := gitDefaultBranchProtectedRule()
 	res, err := rule.Evaluate(context.Background(), core.RuleInput{
 		Slots: map[string][]core.EvidenceRecord{
 			"repositories": {
-				{ID: "broken", Payload: mustMarshal(t, map[string]any{"branch_protection_enabled": false})},
+				{ID: "broken", Payload: mustMarshal(t, map[string]any{"default_branch_protected": false})},
 			},
 		},
 	})
@@ -210,16 +210,16 @@ func TestPayloadInt_InvalidJSON(t *testing.T) {
 func ghRepoRecord(t *testing.T, name, branch string, protectionOn bool, reviews int) core.EvidenceRecord {
 	t.Helper()
 	payload, err := json.Marshal(map[string]any{
-		"name":                      name,
-		"default_branch":            branch,
-		"branch_protection_enabled": protectionOn,
-		"required_reviewers_count":  reviews,
+		"name":                     name,
+		"default_branch":           branch,
+		"default_branch_protected": protectionOn,
+		"required_reviewers_count": reviews,
 	})
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
 	}
 	return core.EvidenceRecord{
-		Type:     "github_repository",
+		Type:     "git_repository",
 		ID:       name,
 		Payload:  payload,
 		SourceID: "github",

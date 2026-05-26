@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/git_repository/v1.json",
+  "title": "git_repository",
+  "version": 1,
+  "description": "One source-code repository on any git hosting platform — GitHub, GitLab, Bitbucket, self-hosted Gitea, Azure DevOps, AWS CodeCommit. The single cross-vendor shape policies use for branch-protection, review, and lifecycle checks. Plugins normalize platform-specific protection-rule configurations into the boolean and integer fields here.",
+  "type": "object",
+  "required": ["name", "default_branch", "default_branch_protected"],
+  "properties": {
+    "name":                      { "type": "string", "description": "Repository name (typically `org/repo` or just `repo` — plugin's choice; must be stable per repo)." },
+    "default_branch":            { "type": "string", "description": "Name of the repo's default branch (main, master, trunk, …)." },
+    "default_branch_protected":  { "type": "boolean", "description": "Default branch has at least one protection rule enabled (any kind — review requirement, push restriction, status check)." },
+    "required_reviewers_count":  { "type": "integer", "description": "Minimum approving reviewers required on default-branch merges. 0 when not enforced." },
+    "requires_signed_commits":   { "type": "boolean", "description": "Default-branch protection enforces commit signing (GPG/SSH)." },
+    "requires_linear_history":   { "type": "boolean", "description": "Default-branch protection forbids merge commits (squash/rebase only)." },
+    "allows_force_push":         { "type": "boolean", "description": "Force-push is permitted on the default branch (red flag for audit; usually false in a protected repo)." },
+    "is_private":                { "type": "boolean", "description": "Repository visibility is non-public." },
+    "archived":                  { "type": "boolean", "description": "Repository is archived (read-only, no new activity)." },
+    "created_at":                { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": true
+}

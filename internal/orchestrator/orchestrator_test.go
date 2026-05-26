@@ -211,7 +211,7 @@ func TestE2E_WalkingSkeleton(t *testing.T) {
 		soc2.PolicyObjectStoragePublicAccessBlocked: core.StatusSkip,
 		soc2.PolicyComputeNoDefaultServiceAccount:   core.StatusSkip,
 		soc2.PolicyCloudSQLRequireSSL:               core.StatusSkip,
-		soc2.PolicyGitHubBranchProtection:           core.StatusFail,
+		soc2.PolicyGitDefaultBranchProtected:        core.StatusFail,
 		soc2.PolicyOktaAppsMFA:                      core.StatusFail,
 	})
 	assertEnvelopesVerify(t, v, res.RunRoot, soc2.PolicyMFAUnion, soc2.PolicyAccessReview)
