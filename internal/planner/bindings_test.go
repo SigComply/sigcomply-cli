@@ -31,11 +31,11 @@ func registerSource(t *testing.T, set *registry.Set, id string, emits ...string)
 
 func TestResolveBindings_ExactlyOne_RequiresOne(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, "aws.iam", "user_record")
+	registerSource(t, set, "aws.iam", "directory_user")
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Accepts: []string{"user_record"}, Cardinality: core.SlotExactlyOne, Required: true},
+			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotExactlyOne, Required: true},
 		},
 	}
 	cases := []struct {
@@ -58,11 +58,11 @@ func TestResolveBindings_ExactlyOne_RequiresOne(t *testing.T) {
 
 func TestResolveBindings_AtMostOne(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, "aws.iam", "user_record")
+	registerSource(t, set, "aws.iam", "directory_user")
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Accepts: []string{"user_record"}, Cardinality: core.SlotAtMostOne, Required: false},
+			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotAtMostOne, Required: false},
 		},
 	}
 	// Zero is fine.
@@ -83,7 +83,7 @@ func TestResolveBindings_Optional(t *testing.T) {
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Accepts: []string{"user_record"}, Cardinality: core.SlotOptional, Required: false},
+			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOptional, Required: false},
 		},
 	}
 	bindings, err := resolveBindings(policy, nil, set.Sources)
@@ -120,11 +120,11 @@ func TestResolveBindings_ManualColonSuffixParsed(t *testing.T) {
 
 func TestResolveBindings_RejectsBindingForUndeclaredSlot(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, "aws.iam", "user_record")
+	registerSource(t, set, "aws.iam", "directory_user")
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Accepts: []string{"user_record"}, Cardinality: core.SlotOneOrMore, Required: true},
+			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true},
 		},
 	}
 	_, err := resolveBindings(policy, map[string][]spec.BindingEntry{

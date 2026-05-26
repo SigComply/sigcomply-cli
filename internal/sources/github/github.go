@@ -31,9 +31,15 @@ import (
 )
 
 // Evidence type IDs this plugin emits.
+//
+// EvidenceTypeRepository is the github_repository shape (a future
+// cross-vendor git_repository unification is planned but not yet
+// wired). EvidenceTypeDirectoryUser is the cross-vendor directory_user
+// shape — GitHub org members are one of several substitutable
+// directory sources (AWS IAM, Okta, future Azure AD/LDAP).
 const (
-	EvidenceTypeRepository = "github_repository"
-	EvidenceTypeOrgMember  = "github_org_member"
+	EvidenceTypeRepository    = "github_repository"
+	EvidenceTypeDirectoryUser = "directory_user"
 )
 
 // SourceID is the registered ID for the github plugin instance.
@@ -126,7 +132,7 @@ func (*Plugin) ID() string { return SourceID }
 
 // Emits returns the evidence types this plugin can produce.
 func (*Plugin) Emits() []string {
-	return []string{EvidenceTypeRepository, EvidenceTypeOrgMember}
+	return []string{EvidenceTypeRepository, EvidenceTypeDirectoryUser}
 }
 
 // Init is a no-op; the constructor has already received configuration.
@@ -140,11 +146,17 @@ type repoPayload struct {
 	RequiredReviewersCount  int    `json:"required_reviewers_count"`
 }
 
-// memberPayload is the JSON payload shape inside each github_org_member record.
+// memberPayload is the directory_user shape this plugin emits for
+// GitHub org members. id and display_name both carry the member's
+// login (GitHub's primary identifier); mfa_enabled is the 2FA flag;
+// is_admin reflects the org role. Email and last_login_at are
+// omitted — neither is exposed by the public org-members endpoint.
 type memberPayload struct {
-	Login        string `json:"login"`
-	TwoFAEnabled bool   `json:"two_fa_enabled"`
-	Role         string `json:"role"`
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+	MFAEnabled  bool   `json:"mfa_enabled"`
+	IsAdmin     bool   `json:"is_admin"`
+	IsActive    bool   `json:"is_active"`
 }
 
 // Collect returns records for every evidence type in req.AcceptedTypes
@@ -154,10 +166,10 @@ type memberPayload struct {
 // Type for envelope writing.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
 	wantRepos := req.Accepts(EvidenceTypeRepository)
-	wantMembers := req.Accepts(EvidenceTypeOrgMember)
+	wantMembers := req.Accepts(EvidenceTypeDirectoryUser)
 	if !wantRepos && !wantMembers {
 		return nil, fmt.Errorf("github: AcceptedTypes %v does not include emitted types %q,%q",
-			req.AcceptedTypes, EvidenceTypeRepository, EvidenceTypeOrgMember)
+			req.AcceptedTypes, EvidenceTypeRepository, EvidenceTypeDirectoryUser)
 	}
 	var out []core.EvidenceRecord
 	if wantRepos {
@@ -218,16 +230,18 @@ func (p *Plugin) collectMembers(ctx context.Context) ([]core.EvidenceRecord, err
 	for i := range members {
 		m := members[i]
 		payload := memberPayload{
-			Login:        m.Login,
-			TwoFAEnabled: m.TwoFactorOn,
-			Role:         m.Role,
+			ID:          m.Login,
+			DisplayName: m.Login,
+			MFAEnabled:  m.TwoFactorOn,
+			IsAdmin:     strings.EqualFold(m.Role, "admin"),
+			IsActive:    true, // only active members appear in the org-members listing
 		}
 		body, err := json.Marshal(payload)
 		if err != nil {
 			return nil, fmt.Errorf("github: marshal member payload: %w", err)
 		}
 		records = append(records, core.EvidenceRecord{
-			Type:        EvidenceTypeOrgMember,
+			Type:        EvidenceTypeDirectoryUser,
 			ID:          m.Login,
 			IdentityKey: m.Login,
 			Payload:     body,

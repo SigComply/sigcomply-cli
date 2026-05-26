@@ -21,8 +21,8 @@ func TestFramework_BasicMetadata(t *testing.T) {
 	if len(fw.Controls()) < 4 {
 		t.Errorf("want at least 4 controls; got %d", len(fw.Controls()))
 	}
-	if len(fw.Policies()) != 20 {
-		t.Errorf("want 20 policies (3 seed + 4 infra + 5 aws + 4 gcp + 4 identity); got %d", len(fw.Policies()))
+	if len(fw.Policies()) != 17 {
+		t.Errorf("want 17 policies (2 seed + 4 infra + 5 aws + 4 gcp + 2 identity); got %d", len(fw.Policies()))
 	}
 }
 
@@ -198,11 +198,13 @@ func TestManualPresenceRule_FailWhenInvalid(t *testing.T) {
 func userRecord(t *testing.T, id, name string, mfa bool, identityKey string) core.EvidenceRecord {
 	t.Helper()
 	payload := mustMarshal(t, map[string]any{
-		"user_name":   name,
-		"mfa_enabled": mfa,
+		"id":           id,
+		"display_name": name,
+		"mfa_enabled":  mfa,
+		"is_active":    true,
 	})
 	return core.EvidenceRecord{
-		Type:        "user_record",
+		Type:        "directory_user",
 		ID:          id,
 		IdentityKey: identityKey,
 		Payload:     payload,

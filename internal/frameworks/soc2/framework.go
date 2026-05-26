@@ -25,19 +25,19 @@ const FrameworkID = "soc2"
 // FrameworkVersion stamps every PolicyRef returned by this framework.
 const FrameworkVersion = "soc2-2017@0.1.0"
 
-// PolicyMFAEnforced is the automated policy demonstrating
-// aws.iam → user_record consumption.
-const PolicyMFAEnforced = "soc2.cc6.1.mfa_enforced"
-
 // PolicyAccessReview is the manual policy demonstrating
 // manual.pdf → signed_document consumption.
 const PolicyAccessReview = "soc2.cc6.3.access_review_quarterly"
 
-// PolicyMFAUnion is the cross-source policy demonstrating slot union:
-// the user_directory slot binds multiple sources (in M6's fixture,
-// only aws.iam is registered, but the slot's cardinality is
-// `one-or-more` so a second source can be added without policy
-// change).
+// PolicyMFAUnion is the canonical MFA-enforcement policy. Its
+// user_directory slot accepts directory_user — the cross-vendor
+// identity shape that aws.iam, okta, github (org members), and
+// future Azure AD/LDAP plugins all emit — with one-or-more
+// cardinality, so the rule runs once against the union of every
+// bound directory source. There is no per-source MFA policy: the
+// rule logic is source-agnostic and a separate Okta-only or
+// GitHub-only audit lens is a project-config concern (binding
+// restrictions), not a duplicate framework policy.
 const PolicyMFAUnion = "soc2.cc6.1.mfa_enforced_all_sources"
 
 // Framework is the in-process SOC 2 framework.
@@ -121,24 +121,14 @@ func Policies() []core.Policy {
 	return out
 }
 
-// corePolicies are the three walking-skeleton seed policies that
-// landed with M6.
+// corePolicies are the seed policies covering MFA enforcement across
+// directory sources and the manual access-review evidence flow. The
+// MFA policy is intentionally source-agnostic: it consumes the cross-
+// vendor directory_user shape via a one-or-more slot, so any
+// combination of aws.iam, okta, github, and future directory plugins
+// satisfies it without policy duplication.
 func corePolicies() []core.Policy {
 	return []core.Policy{
-		{
-			ID:          PolicyMFAEnforced,
-			Control:     "SOC2.CC6.1",
-			Description: "All IAM users have MFA enabled.",
-			Remediation: "Enable MFA on the listed users via the AWS Console or `aws iam enable-mfa-device`.",
-			Severity:    core.SeverityHigh,
-			Category:    "access",
-			Cadence:     "daily",
-			OnPush:      true,
-			Slots: map[string]core.Slot{
-				"user_directory": {Accepts: []string{"user_record"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "IAM users"},
-			},
-			RuleRef: ruleIDMFAEnforced,
-		},
 		{
 			ID:          PolicyAccessReview,
 			Control:     "SOC2.CC6.3",
@@ -156,14 +146,14 @@ func corePolicies() []core.Policy {
 		{
 			ID:          PolicyMFAUnion,
 			Control:     "SOC2.CC6.1",
-			Description: "All human users across every bound user directory have MFA enabled.",
+			Description: "All active human users across every bound user directory have MFA enabled.",
 			Remediation: "Enable MFA for the listed users in each user-directory source.",
 			Severity:    core.SeverityHigh,
 			Category:    "access",
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"user_directory": {Accepts: []string{"user_record"}, Cardinality: core.SlotOneOrMore, Required: true},
+				"user_directory": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true},
 			},
 			RuleRef: ruleIDMFAEnforced,
 		},
@@ -197,8 +187,12 @@ const (
 	ruleIDManualPresence = "rules.soc2.manual_presence.v1"
 )
 
-// mfaEnforcedRule is a Go rule: passes iff every user_record in the
-// user_directory slot has payload.mfa_enabled == true.
+// mfaEnforcedRule is the source-agnostic MFA-enforcement rule. It
+// passes iff every active directory_user in the user_directory slot
+// has payload.mfa_enabled == true. Non-active accounts (is_active
+// explicitly false) are skipped — they cannot sign in, so flagging
+// their MFA state would be noise. Records without is_active are
+// treated as active (legacy/best-effort plugins).
 func mfaEnforcedRule() core.Rule {
 	return &evaluator.GoRule{
 		IDValue: ruleIDMFAEnforced,
@@ -208,20 +202,27 @@ func mfaEnforcedRule() core.Rule {
 			violations := make([]core.Violation, 0)
 			for i := range deduped {
 				r := &deduped[i]
+				if !isActiveOrUnknown(r.Payload) {
+					continue
+				}
 				mfa, err := payloadBool(r.Payload, "mfa_enabled")
 				if err != nil {
 					return core.RuleResult{}, err
 				}
-				if !mfa {
-					name, nameErr := payloadString(r.Payload, "user_name")
-					if nameErr != nil {
-						return core.RuleResult{}, nameErr
-					}
-					violations = append(violations, core.Violation{
-						ResourceID: r.ID,
-						Reason:     "MFA disabled for user " + name,
-					})
+				if mfa {
+					continue
 				}
+				label, err := payloadString(r.Payload, "display_name")
+				if err != nil {
+					return core.RuleResult{}, err
+				}
+				if label == "" {
+					label = r.ID
+				}
+				violations = append(violations, core.Violation{
+					ResourceID: r.ID,
+					Reason:     "MFA disabled for " + label,
+				})
 			}
 			status := core.StatusPass
 			if len(violations) > 0 {
@@ -230,6 +231,29 @@ func mfaEnforcedRule() core.Rule {
 			return core.RuleResult{Status: status, Violations: violations}, nil
 		},
 	}
+}
+
+// isActiveOrUnknown returns true when the directory_user payload omits
+// is_active or sets it true. Explicit false → skip the record (the
+// account cannot sign in). Centralized so future rules consuming
+// directory_user can share the same semantics.
+func isActiveOrUnknown(payload json.RawMessage) bool {
+	if len(payload) == 0 {
+		return true
+	}
+	var m map[string]any
+	if err := json.Unmarshal(payload, &m); err != nil {
+		return true
+	}
+	raw, present := m["is_active"]
+	if !present {
+		return true
+	}
+	v, ok := raw.(bool)
+	if !ok {
+		return true
+	}
+	return v
 }
 
 // manualPresenceRule is a Rego rule: passes iff the signed_document

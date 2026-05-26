@@ -201,7 +201,6 @@ func TestE2E_WalkingSkeleton(t *testing.T) {
 	// invoking the rule. This is the v1 evaluator behavior
 	// (internal/evaluator: "required slot has no records" → skip).
 	assertResultStatuses(t, v, res.RunRoot, map[string]core.PolicyStatus{
-		soc2.PolicyMFAEnforced:                    core.StatusFail,
 		soc2.PolicyMFAUnion:                       core.StatusFail,
 		soc2.PolicyAccessReview:                   core.StatusPass,
 		soc2.PolicyCloudTrailMultiRegionEnabled:   core.StatusPass,
@@ -213,11 +212,9 @@ func TestE2E_WalkingSkeleton(t *testing.T) {
 		soc2.PolicyComputeNoDefaultServiceAccount: core.StatusSkip,
 		soc2.PolicyCloudSQLRequireSSL:             core.StatusSkip,
 		soc2.PolicyGitHubBranchProtection:         core.StatusFail,
-		soc2.PolicyGitHubMembers2FA:               core.StatusFail,
-		soc2.PolicyOktaUsersMFA:                   core.StatusFail,
 		soc2.PolicyOktaAppsMFA:                    core.StatusFail,
 	})
-	assertEnvelopesVerify(t, v, res.RunRoot, soc2.PolicyMFAEnforced, soc2.PolicyAccessReview)
+	assertEnvelopesVerify(t, v, res.RunRoot, soc2.PolicyMFAUnion, soc2.PolicyAccessReview)
 	assertCapturedPayloadPrivacy(t, capturePath)
 }
 
@@ -518,16 +515,18 @@ func assertRunCounts(t *testing.T, res *orchestrator.Result) {
 	if res.ExitCode != orchestrator.ExitViolation {
 		t.Errorf("ExitCode = %d; want %d (violation)", res.ExitCode, orchestrator.ExitViolation)
 	}
-	// 3 seed + 4 infra + 5 aws + 4 gcp + 4 identity = 20 policies.
-	if res.Summary.PoliciesTotal != 20 {
-		t.Errorf("PoliciesTotal = %d; want 20", res.Summary.PoliciesTotal)
+	// 2 seed + 4 infra + 5 aws + 4 gcp + 2 identity = 17 policies.
+	// (Phase 2 consolidated the three per-source MFA policies into the
+	// single cross-vendor PolicyMFAUnion via directory_user.)
+	if res.Summary.PoliciesTotal != 17 {
+		t.Errorf("PoliciesTotal = %d; want 17", res.Summary.PoliciesTotal)
 	}
 	// 3 pass: access_review, cloudtrail, cloudwatch.
-	// 8 fail: mfa_enforced, mfa_enforced_all_sources, guardduty, config, +
-	//         4 identity (github branch protection / github 2fa / okta users / okta apps).
+	// 5 fail: mfa_enforced_all_sources (union across iam+okta+github),
+	//         guardduty, config, github_branch_protection, okta_apps_mfa.
 	// 9 skip: 5 aws-infra empty stubs + 4 GCP empty stubs.
-	if res.Summary.PoliciesPassed != 3 || res.Summary.PoliciesFailed != 8 || res.Summary.PoliciesSkipped != 9 {
-		t.Errorf("counts: pass=%d fail=%d skip=%d; want 3/8/9",
+	if res.Summary.PoliciesPassed != 3 || res.Summary.PoliciesFailed != 5 || res.Summary.PoliciesSkipped != 9 {
+		t.Errorf("counts: pass=%d fail=%d skip=%d; want 3/5/9",
 			res.Summary.PoliciesPassed, res.Summary.PoliciesFailed, res.Summary.PoliciesSkipped)
 	}
 }
@@ -615,8 +614,8 @@ func assertCapturedPayloadPrivacy(t *testing.T, capturePath string) {
 	if payload.Schema != "sigcomply.cloud.v2" {
 		t.Errorf("Schema = %q", payload.Schema)
 	}
-	if len(payload.Policies) != 20 {
-		t.Errorf("Policies len = %d; want 20", len(payload.Policies))
+	if len(payload.Policies) != 17 {
+		t.Errorf("Policies len = %d; want 17", len(payload.Policies))
 	}
 	// Resource IDs must not leak. The vault has AIDABOB; the captured
 	// JSON must not.

@@ -61,7 +61,7 @@ func setUp(t *testing.T) *registry.Set {
 		RuleRef:     "rules.mfa_enforced.v1",
 		Slots: map[string]core.Slot{
 			"user_directory": {
-				Accepts:     []string{"user_record"},
+				Accepts:     []string{"directory_user"},
 				Cardinality: core.SlotOneOrMore,
 				Required:    true,
 			},
@@ -81,10 +81,10 @@ func setUp(t *testing.T) *registry.Set {
 	if err := set.Frameworks.Register(fw); err != nil {
 		t.Fatalf("register framework: %v", err)
 	}
-	if err := set.Sources.Register(&fakeSource{id: "aws.iam", emits: []string{"user_record"}}); err != nil {
+	if err := set.Sources.Register(&fakeSource{id: "aws.iam", emits: []string{"directory_user"}}); err != nil {
 		t.Fatalf("register aws.iam: %v", err)
 	}
-	if err := set.Sources.Register(&fakeSource{id: "okta", emits: []string{"user_record"}}); err != nil {
+	if err := set.Sources.Register(&fakeSource{id: "okta", emits: []string{"directory_user"}}); err != nil {
 		t.Fatalf("register okta: %v", err)
 	}
 	return set

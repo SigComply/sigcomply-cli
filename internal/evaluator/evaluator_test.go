@@ -25,7 +25,7 @@ func makeRule(id string, result core.RuleResult, err error) *GoRule { //nolint:u
 func makePlannedPolicy(id, control, ruleRef string, requiredSlots ...string) planner.PlannedPolicy { //nolint:unparam // id is fixed in every test today but the param documents intent
 	slots := map[string]core.Slot{}
 	for _, s := range requiredSlots {
-		slots[s] = core.Slot{Accepts: []string{"user_record"}, Cardinality: core.SlotOneOrMore, Required: true}
+		slots[s] = core.Slot{Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true}
 	}
 	return planner.PlannedPolicy{
 		Spec: core.Policy{

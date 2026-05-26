@@ -16,8 +16,6 @@ func TestIdentityPolicies_RegisteredAndDistinct(t *testing.T) {
 	}
 	for _, id := range []string{
 		PolicyGitHubBranchProtection,
-		PolicyGitHubMembers2FA,
-		PolicyOktaUsersMFA,
 		PolicyOktaAppsMFA,
 	} {
 		if _, ok := set.Policies.Lookup(id); !ok {
@@ -26,8 +24,6 @@ func TestIdentityPolicies_RegisteredAndDistinct(t *testing.T) {
 	}
 	for _, id := range []string{
 		ruleIDGitHubBranchProtection,
-		ruleIDGitHubMembers2FA,
-		ruleIDOktaUsersMFA,
 		ruleIDOktaAppsMFA,
 	} {
 		if _, ok := set.Rules.Lookup(id); !ok {
@@ -92,121 +88,6 @@ func TestGitHubBranchProtectionRule_EmptyPayloadFallsBackToID(t *testing.T) {
 	}
 }
 
-func TestGitHubMembers2FARule_PassWhenAllEnabled(t *testing.T) {
-	rule := githubMembers2FARule()
-	res, err := rule.Evaluate(context.Background(), core.RuleInput{
-		Slots: map[string][]core.EvidenceRecord{
-			"members": {
-				ghMemberRecord(t, "alice", true, "admin"),
-				ghMemberRecord(t, "bob", true, "member"),
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Evaluate: %v", err)
-	}
-	if res.Status != core.StatusPass {
-		t.Errorf("Status = %q", res.Status)
-	}
-}
-
-func TestGitHubMembers2FARule_FailWhenAnyDisabled(t *testing.T) {
-	rule := githubMembers2FARule()
-	res, err := rule.Evaluate(context.Background(), core.RuleInput{
-		Slots: map[string][]core.EvidenceRecord{
-			"members": {
-				ghMemberRecord(t, "alice", true, "admin"),
-				ghMemberRecord(t, "bob", false, "member"),
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Evaluate: %v", err)
-	}
-	if res.Status != core.StatusFail {
-		t.Errorf("Status = %q", res.Status)
-	}
-	if len(res.Violations) != 1 || res.Violations[0].ResourceID != "bob" {
-		t.Errorf("violations = %+v", res.Violations)
-	}
-}
-
-func TestGitHubMembers2FARule_DedupesByIdentity(t *testing.T) {
-	rule := githubMembers2FARule()
-	res, err := rule.Evaluate(context.Background(), core.RuleInput{
-		Slots: map[string][]core.EvidenceRecord{
-			"members": {
-				// First record wins: 2FA on. Second record (same identity) dropped.
-				ghMemberRecord(t, "alice", true, "admin"),
-				ghMemberRecord(t, "alice", false, "admin"),
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Evaluate: %v", err)
-	}
-	if res.Status != core.StatusPass {
-		t.Errorf("Status = %q; want pass (dedup)", res.Status)
-	}
-}
-
-func TestOktaUsersMFARule_PassWhenAllActiveHaveFactor(t *testing.T) {
-	rule := oktaUsersMFARule()
-	res, err := rule.Evaluate(context.Background(), core.RuleInput{
-		Slots: map[string][]core.EvidenceRecord{
-			"directory": {
-				oktaUserRecord(t, "u1", "alice@x.com", "ACTIVE", 1),
-				oktaUserRecord(t, "u2", "bob@x.com", "ACTIVE", 2),
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Evaluate: %v", err)
-	}
-	if res.Status != core.StatusPass {
-		t.Errorf("Status = %q", res.Status)
-	}
-}
-
-func TestOktaUsersMFARule_FailWhenActiveUserHasNoFactors(t *testing.T) {
-	rule := oktaUsersMFARule()
-	res, err := rule.Evaluate(context.Background(), core.RuleInput{
-		Slots: map[string][]core.EvidenceRecord{
-			"directory": {
-				oktaUserRecord(t, "u1", "alice@x.com", "ACTIVE", 0),
-				oktaUserRecord(t, "u2", "bob@x.com", "ACTIVE", 2),
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Evaluate: %v", err)
-	}
-	if res.Status != core.StatusFail {
-		t.Errorf("Status = %q", res.Status)
-	}
-	if len(res.Violations) != 1 || res.Violations[0].ResourceID != "u1" {
-		t.Errorf("violations = %+v", res.Violations)
-	}
-}
-
-func TestOktaUsersMFARule_SkipsNonActiveUsers(t *testing.T) {
-	rule := oktaUsersMFARule()
-	res, err := rule.Evaluate(context.Background(), core.RuleInput{
-		Slots: map[string][]core.EvidenceRecord{
-			"directory": {
-				oktaUserRecord(t, "u1", "depro@x.com", "DEPROVISIONED", 0),
-				oktaUserRecord(t, "u2", "stage@x.com", "STAGED", 0),
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Evaluate: %v", err)
-	}
-	if res.Status != core.StatusPass {
-		t.Errorf("Status = %q; want pass (non-ACTIVE skipped)", res.Status)
-	}
-}
-
 func TestOktaAppsMFARule_PassWhenAllRequireMFA(t *testing.T) {
 	rule := oktaAppsMFARule()
 	res, err := rule.Evaluate(context.Background(), core.RuleInput{
@@ -243,6 +124,52 @@ func TestOktaAppsMFARule_FailWhenAnyMissingMFA(t *testing.T) {
 	}
 	if len(res.Violations) != 1 || res.Violations[0].ResourceID != "0oa2" {
 		t.Errorf("violations = %+v", res.Violations)
+	}
+}
+
+// MFAEnforcedRule with cross-vendor directory_user — exercises the
+// is_active skip and the display_name fallback paths that the rule
+// gained when the per-source MFA policies collapsed into the canonical
+// PolicyMFAUnion. The "across multiple sources" case is covered
+// end-to-end by the orchestrator walking-skeleton fixture.
+func TestMFAEnforcedRule_SkipsInactiveUsers(t *testing.T) {
+	rule := mfaEnforcedRule()
+	res, err := rule.Evaluate(context.Background(), core.RuleInput{
+		Slots: map[string][]core.EvidenceRecord{
+			"user_directory": {
+				directoryUserRecord(t, "u1", "alice", true, "alice@x.com", true),
+				directoryUserRecord(t, "u2", "deactivated-bob", false, "bob@x.com", false),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Evaluate: %v", err)
+	}
+	if res.Status != core.StatusPass {
+		t.Errorf("Status = %q; want pass (inactive bob is skipped)", res.Status)
+	}
+}
+
+func TestMFAEnforcedRule_FailUsesDisplayName(t *testing.T) {
+	rule := mfaEnforcedRule()
+	res, err := rule.Evaluate(context.Background(), core.RuleInput{
+		Slots: map[string][]core.EvidenceRecord{
+			"user_directory": {
+				directoryUserRecord(t, "u1", "carol-the-engineer", false, "carol@x.com", true),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Evaluate: %v", err)
+	}
+	if res.Status != core.StatusFail {
+		t.Errorf("Status = %q", res.Status)
+	}
+	if len(res.Violations) != 1 || res.Violations[0].ResourceID != "u1" {
+		t.Errorf("violations = %+v", res.Violations)
+	}
+	if got := res.Violations[0].Reason; got == "" || got == "MFA disabled for " {
+		t.Errorf("Reason = %q; want display_name in message", got)
 	}
 }
 
@@ -299,45 +226,6 @@ func ghRepoRecord(t *testing.T, name, branch string, protectionOn bool, reviews 
 	}
 }
 
-func ghMemberRecord(t *testing.T, login string, twoFA bool, role string) core.EvidenceRecord {
-	t.Helper()
-	payload, err := json.Marshal(map[string]any{
-		"login":          login,
-		"two_fa_enabled": twoFA,
-		"role":           role,
-	})
-	if err != nil {
-		t.Fatalf("Marshal: %v", err)
-	}
-	return core.EvidenceRecord{
-		Type:        "github_org_member",
-		ID:          login,
-		IdentityKey: login,
-		Payload:     payload,
-		SourceID:    "github",
-	}
-}
-
-func oktaUserRecord(t *testing.T, id, email, status string, factors int) core.EvidenceRecord {
-	t.Helper()
-	payload, err := json.Marshal(map[string]any{
-		"id":               id,
-		"email":            email,
-		"status":           status,
-		"mfa_factor_count": factors,
-	})
-	if err != nil {
-		t.Fatalf("Marshal: %v", err)
-	}
-	return core.EvidenceRecord{
-		Type:        "okta_user",
-		ID:          id,
-		IdentityKey: email,
-		Payload:     payload,
-		SourceID:    "okta",
-	}
-}
-
 func oktaAppRecord(t *testing.T, id, label, mode string, mfaRequired bool) core.EvidenceRecord {
 	t.Helper()
 	payload, err := json.Marshal(map[string]any{
@@ -354,5 +242,25 @@ func oktaAppRecord(t *testing.T, id, label, mode string, mfaRequired bool) core.
 		ID:       id,
 		Payload:  payload,
 		SourceID: "okta",
+	}
+}
+
+func directoryUserRecord(t *testing.T, id, displayName string, mfa bool, identityKey string, active bool) core.EvidenceRecord {
+	t.Helper()
+	payload, err := json.Marshal(map[string]any{
+		"id":           id,
+		"display_name": displayName,
+		"mfa_enabled":  mfa,
+		"is_active":    active,
+	})
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	return core.EvidenceRecord{
+		Type:        "directory_user",
+		ID:          id,
+		IdentityKey: identityKey,
+		Payload:     payload,
+		SourceID:    "test-directory",
 	}
 }

@@ -48,7 +48,7 @@ func TestPlugin_IDAndEmits(t *testing.T) {
 		t.Errorf("ID = %q; want %q", p.ID(), SourceID)
 	}
 	em := p.Emits()
-	if len(em) != 2 || em[0] != EvidenceTypeRepository || em[1] != EvidenceTypeOrgMember {
+	if len(em) != 2 || em[0] != EvidenceTypeRepository || em[1] != EvidenceTypeDirectoryUser {
 		t.Errorf("Emits = %v", em)
 	}
 }
@@ -110,7 +110,7 @@ func TestCollectMembers_HappyPath_SortsByID(t *testing.T) {
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return now }})
 	records, err := p.Collect(context.Background(),
-		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeOrgMember}, PolicyID: "p2"})
+		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDirectoryUser}, PolicyID: "p2"})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -127,17 +127,20 @@ func TestCollectMembers_HappyPath_SortsByID(t *testing.T) {
 	if err := json.Unmarshal(records[1].Payload, &bob); err != nil {
 		t.Fatalf("Unmarshal bob: %v", err)
 	}
-	if bob.TwoFAEnabled {
-		t.Errorf("bob.TwoFAEnabled should be false")
+	if bob.MFAEnabled {
+		t.Errorf("bob.MFAEnabled should be false")
 	}
-	if bob.Role != "member" {
-		t.Errorf("bob.Role = %q", bob.Role)
+	if bob.IsAdmin {
+		t.Errorf("bob.IsAdmin should be false (role=member)")
+	}
+	if !bob.IsActive {
+		t.Errorf("bob.IsActive should be true (listed members are active)")
 	}
 }
 
 func TestCollect_NoData(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}, Org: "acme"})
-	for _, et := range []string{EvidenceTypeRepository, EvidenceTypeOrgMember} {
+	for _, et := range []string{EvidenceTypeRepository, EvidenceTypeDirectoryUser} {
 		recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{et}})
 		if err != nil {
 			t.Fatalf("Collect %s: %v", et, err)
@@ -166,7 +169,7 @@ func TestCollectRepos_ErrorPropagates(t *testing.T) {
 
 func TestCollectMembers_ErrorPropagates(t *testing.T) {
 	p := New(Options{API: &fakeAPI{memErr: errors.New("forbidden")}, Org: "acme"})
-	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeOrgMember}})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDirectoryUser}})
 	if err == nil || !strings.Contains(err.Error(), "list org members") {
 		t.Errorf("want list org members error; got %v", err)
 	}
@@ -196,7 +199,7 @@ func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 			t.Fatalf("Collect repos: %v", err)
 		}
 		if _, err := p.Collect(context.Background(),
-			core.SlotRequest{AcceptedTypes: []string{EvidenceTypeOrgMember}}); err != nil {
+			core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDirectoryUser}}); err != nil {
 			t.Fatalf("Collect members: %v", err)
 		}
 	}

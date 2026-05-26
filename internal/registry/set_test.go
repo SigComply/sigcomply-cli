@@ -65,7 +65,7 @@ func TestSet_RegisterAndLookupEachKind(t *testing.T) {
 		t.Fatalf("Rules.Register: %v", err)
 	}
 	if err := s.EvidenceTypes.Register(core.EvidenceType{
-		ID:      "user_record",
+		ID:      "directory_user",
 		Version: 1,
 		Schema:  json.RawMessage(`{}`),
 	}); err != nil {
@@ -82,7 +82,7 @@ func TestSet_RegisterAndLookupEachKind(t *testing.T) {
 		{"Frameworks", lookupOK(s.Frameworks.Lookup("fw"))},
 		{"Sources", lookupOK(s.Sources.Lookup("src"))},
 		{"Rules", lookupOK(s.Rules.Lookup("rules.fake.v1"))},
-		{"EvidenceTypes", lookupOK(s.EvidenceTypes.Lookup("user_record"))},
+		{"EvidenceTypes", lookupOK(s.EvidenceTypes.Lookup("directory_user"))},
 		{"Policies", lookupOK(s.Policies.Lookup("soc2.cc6.1.mfa_enforced"))},
 	}
 	for _, c := range checks {

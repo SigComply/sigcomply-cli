@@ -102,17 +102,17 @@ func makePolicy(id, slot, evType string, sourceIDs ...string) planner.PlannedPol
 func TestCollect_WritesSignedEnvelopePerSlotSource(t *testing.T) {
 	src := &stubSource{
 		id:    "aws.iam",
-		emits: []string{"user_record"},
+		emits: []string{"directory_user"},
 		records: []core.EvidenceRecord{
-			{Type: "user_record", ID: "AID2", SourceID: "aws.iam"},
-			{Type: "user_record", ID: "AID1", SourceID: "aws.iam"},
+			{Type: "directory_user", ID: "AID2", SourceID: "aws.iam"},
+			{Type: "directory_user", ID: "AID1", SourceID: "aws.iam"},
 		},
 	}
 	reg := registry.NewSet()
 	if err := reg.Sources.Register(src); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
-	pp := makePolicy("soc2.cc6.1.mfa", "u", "user_record", "aws.iam")
+	pp := makePolicy("soc2.cc6.1.mfa", "u", "directory_user", "aws.iam")
 	vault := newMemVault()
 	out, err := Collect(context.Background(), &Input{
 		Plan:    &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
@@ -146,14 +146,14 @@ func TestCollect_WritesSignedEnvelopePerSlotSource(t *testing.T) {
 }
 
 func TestCollect_UnionsMultipleBindingsForOneSlot(t *testing.T) {
-	srcA := &stubSource{id: "aws.iam", emits: []string{"user_record"},
-		records: []core.EvidenceRecord{{Type: "user_record", ID: "AID1"}}}
-	srcB := &stubSource{id: "okta", emits: []string{"user_record"},
-		records: []core.EvidenceRecord{{Type: "user_record", ID: "OKT1"}}}
+	srcA := &stubSource{id: "aws.iam", emits: []string{"directory_user"},
+		records: []core.EvidenceRecord{{Type: "directory_user", ID: "AID1"}}}
+	srcB := &stubSource{id: "okta", emits: []string{"directory_user"},
+		records: []core.EvidenceRecord{{Type: "directory_user", ID: "OKT1"}}}
 	reg := registry.NewSet()
 	mustRegister(t, reg.Sources.Register(srcA))
 	mustRegister(t, reg.Sources.Register(srcB))
-	pp := makePolicy("p1", "u", "user_record", "aws.iam", "okta")
+	pp := makePolicy("p1", "u", "directory_user", "aws.iam", "okta")
 	vault := newMemVault()
 	out, err := Collect(context.Background(), &Input{
 		Plan: &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}}, Sources: reg.Sources, Vault: vault, RunRoot: "r",
@@ -170,10 +170,10 @@ func TestCollect_UnionsMultipleBindingsForOneSlot(t *testing.T) {
 }
 
 func TestCollect_SourceErrorTagsPolicy(t *testing.T) {
-	src := &stubSource{id: "aws.iam", emits: []string{"user_record"}, err: errors.New("api down")}
+	src := &stubSource{id: "aws.iam", emits: []string{"directory_user"}, err: errors.New("api down")}
 	reg := registry.NewSet()
 	mustRegister(t, reg.Sources.Register(src))
-	pp := makePolicy("p1", "u", "user_record", "aws.iam")
+	pp := makePolicy("p1", "u", "directory_user", "aws.iam")
 	out, err := Collect(context.Background(), &Input{
 		Plan: &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}}, Sources: reg.Sources, Vault: newMemVault(), RunRoot: "r",
 	})
@@ -187,7 +187,7 @@ func TestCollect_SourceErrorTagsPolicy(t *testing.T) {
 
 func TestCollect_UnregisteredSourceTagsPolicy(t *testing.T) {
 	reg := registry.NewSet()
-	pp := makePolicy("p1", "u", "user_record", "aws.iam")
+	pp := makePolicy("p1", "u", "directory_user", "aws.iam")
 	out, err := Collect(context.Background(), &Input{
 		Plan: &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}}, Sources: reg.Sources, Vault: newMemVault(), RunRoot: "r",
 	})
@@ -201,10 +201,10 @@ func TestCollect_UnregisteredSourceTagsPolicy(t *testing.T) {
 }
 
 func TestCollect_WholePolicyExceptionSkipsFetch(t *testing.T) {
-	src := &stubSource{id: "aws.iam", emits: []string{"user_record"}}
+	src := &stubSource{id: "aws.iam", emits: []string{"directory_user"}}
 	reg := registry.NewSet()
 	mustRegister(t, reg.Sources.Register(src))
-	pp := makePolicy("p1", "u", "user_record", "aws.iam")
+	pp := makePolicy("p1", "u", "directory_user", "aws.iam")
 	pp.Exception = &planner.Exception{State: core.StatusNA}
 	_, err := Collect(context.Background(), &Input{
 		Plan: &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}}, Sources: reg.Sources, Vault: newMemVault(), RunRoot: "r",
@@ -218,12 +218,12 @@ func TestCollect_WholePolicyExceptionSkipsFetch(t *testing.T) {
 }
 
 func TestCollect_KISSNoDRY_TwoPoliciesSameSourceTwoFetches(t *testing.T) {
-	src := &stubSource{id: "aws.iam", emits: []string{"user_record"},
-		records: []core.EvidenceRecord{{Type: "user_record", ID: "AID1"}}}
+	src := &stubSource{id: "aws.iam", emits: []string{"directory_user"},
+		records: []core.EvidenceRecord{{Type: "directory_user", ID: "AID1"}}}
 	reg := registry.NewSet()
 	mustRegister(t, reg.Sources.Register(src))
-	p1 := makePolicy("p1", "u", "user_record", "aws.iam")
-	p2 := makePolicy("p2", "u", "user_record", "aws.iam")
+	p1 := makePolicy("p1", "u", "directory_user", "aws.iam")
+	p2 := makePolicy("p2", "u", "directory_user", "aws.iam")
 	_, err := Collect(context.Background(), &Input{
 		Plan: &planner.RunPlan{Policies: []planner.PlannedPolicy{p1, p2}}, Sources: reg.Sources, Vault: newMemVault(), RunRoot: "r",
 	})
@@ -278,8 +278,8 @@ func TestCollect_PassesSlotParamsAndExtras(t *testing.T) {
 }
 
 func TestEnvelopePath_FormatsConsistently(t *testing.T) {
-	got := envelopePath("soc2/2026-Q1/run_x", "p1", "user_record", "aws.iam", "")
-	want := "soc2/2026-Q1/run_x/policies/p1/envelopes/user_record__aws.iam.json"
+	got := envelopePath("soc2/2026-Q1/run_x", "p1", "directory_user", "aws.iam", "")
+	want := "soc2/2026-Q1/run_x/policies/p1/envelopes/directory_user__aws.iam.json"
 	if got != want {
 		t.Errorf("envelopePath = %q; want %q", got, want)
 	}

@@ -121,14 +121,14 @@ func Policies() []core.Policy {
 		{
 			ID:          PolicyMFAEnforced,
 			Control:     "ISO27001.A.8.5",
-			Description: "Secure authentication: every IAM user has MFA enabled.",
-			Remediation: "Enable MFA on the listed users via the AWS Console or `aws iam enable-mfa-device`.",
+			Description: "Secure authentication: every active user across every bound directory has MFA enabled.",
+			Remediation: "Enable MFA for the listed users in each affected directory source.",
 			Severity:    core.SeverityHigh,
 			Category:    "access",
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"user_directory": {Accepts: []string{"user_record"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "IAM users"},
+				"user_directory": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true, Description: "Directory users across all bound sources"},
 			},
 			RuleRef: ruleIDMFAEnforced,
 		},
@@ -149,14 +149,14 @@ func Policies() []core.Policy {
 		{
 			ID:          PolicyPrivilegedAccessReview,
 			Control:     "ISO27001.A.8.2",
-			Description: "Privileged (admin) IAM users have MFA enabled.",
+			Description: "Privileged (admin) users across every bound directory have MFA enabled.",
 			Remediation: "For each listed admin user, either enable MFA or revoke admin access.",
 			Severity:    core.SeverityHigh,
 			Category:    "access",
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"user_directory": {Accepts: []string{"user_record"}, Cardinality: core.SlotExactlyOne, Required: true},
+				"user_directory": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true},
 			},
 			RuleRef: ruleIDPrivilegedMFA,
 		},
@@ -196,10 +196,11 @@ const (
 	ruleIDEvidenceSigned = "rules.iso27001.evidence_signed.v1"
 )
 
-// mfaEnforcedRule is the A.8.5 rule: every user_record in the
-// user_directory slot must have payload.mfa_enabled == true. Same
-// failure mode as soc2.cc6.1.mfa_enforced — only the control mapping
-// differs.
+// mfaEnforcedRule is the A.8.5 rule: every active directory_user in
+// the user_directory slot must have payload.mfa_enabled == true.
+// Non-active accounts (is_active explicitly false) are skipped — they
+// cannot sign in, so flagging their MFA state would be noise. Mirrors
+// the SOC 2 source-agnostic MFA rule shape.
 func mfaEnforcedRule() core.Rule {
 	return &evaluator.GoRule{
 		IDValue: ruleIDMFAEnforced,
@@ -208,20 +209,27 @@ func mfaEnforcedRule() core.Rule {
 			violations := make([]core.Violation, 0)
 			for i := range records {
 				r := &records[i]
+				if !isActiveOrUnknown(r.Payload) {
+					continue
+				}
 				mfa, err := payloadBool(r.Payload, "mfa_enabled")
 				if err != nil {
 					return core.RuleResult{}, err
 				}
-				if !mfa {
-					name, nameErr := payloadString(r.Payload, "user_name")
-					if nameErr != nil {
-						return core.RuleResult{}, nameErr
-					}
-					violations = append(violations, core.Violation{
-						ResourceID: r.ID,
-						Reason:     "MFA disabled for user " + name,
-					})
+				if mfa {
+					continue
 				}
+				label, err := payloadString(r.Payload, "display_name")
+				if err != nil {
+					return core.RuleResult{}, err
+				}
+				if label == "" {
+					label = r.ID
+				}
+				violations = append(violations, core.Violation{
+					ResourceID: r.ID,
+					Reason:     "MFA disabled for " + label,
+				})
 			}
 			status := core.StatusPass
 			if len(violations) > 0 {
@@ -232,9 +240,10 @@ func mfaEnforcedRule() core.Rule {
 	}
 }
 
-// privilegedMFARule is the A.8.2 rule: every user_record marked
+// privilegedMFARule is the A.8.2 rule: every directory_user marked
 // `is_admin: true` must also have `mfa_enabled: true`. Non-admin
-// users are ignored — A.8.5 covers them.
+// users are ignored — A.8.5 covers them. Inactive admins are skipped
+// for the same reason as A.8.5 (cannot sign in → no MFA risk today).
 func privilegedMFARule() core.Rule {
 	return &evaluator.GoRule{
 		IDValue: ruleIDPrivilegedMFA,
@@ -243,6 +252,9 @@ func privilegedMFARule() core.Rule {
 			violations := make([]core.Violation, 0)
 			for i := range records {
 				r := &records[i]
+				if !isActiveOrUnknown(r.Payload) {
+					continue
+				}
 				isAdmin, err := payloadBool(r.Payload, "is_admin")
 				if err != nil {
 					return core.RuleResult{}, err
@@ -254,16 +266,20 @@ func privilegedMFARule() core.Rule {
 				if err != nil {
 					return core.RuleResult{}, err
 				}
-				if !mfa {
-					name, nameErr := payloadString(r.Payload, "user_name")
-					if nameErr != nil {
-						return core.RuleResult{}, nameErr
-					}
-					violations = append(violations, core.Violation{
-						ResourceID: r.ID,
-						Reason:     "admin user " + name + " has MFA disabled",
-					})
+				if mfa {
+					continue
 				}
+				label, err := payloadString(r.Payload, "display_name")
+				if err != nil {
+					return core.RuleResult{}, err
+				}
+				if label == "" {
+					label = r.ID
+				}
+				violations = append(violations, core.Violation{
+					ResourceID: r.ID,
+					Reason:     "admin user " + label + " has MFA disabled",
+				})
 			}
 			status := core.StatusPass
 			if len(violations) > 0 {
@@ -272,6 +288,29 @@ func privilegedMFARule() core.Rule {
 			return core.RuleResult{Status: status, Violations: violations}, nil
 		},
 	}
+}
+
+// isActiveOrUnknown returns true when the directory_user payload omits
+// is_active or sets it true. Explicit false → skip the record.
+// Duplicated across frameworks per the KISS-no-DRY axiom; sharing
+// would couple the two frameworks via a helper package.
+func isActiveOrUnknown(payload json.RawMessage) bool {
+	if len(payload) == 0 {
+		return true
+	}
+	var m map[string]any
+	if err := json.Unmarshal(payload, &m); err != nil {
+		return true
+	}
+	raw, present := m["is_active"]
+	if !present {
+		return true
+	}
+	v, ok := raw.(bool)
+	if !ok {
+		return true
+	}
+	return v
 }
 
 // manualPresenceRule is the A.5.18 rule (Rego): passes iff the

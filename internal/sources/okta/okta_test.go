@@ -46,7 +46,7 @@ func TestPlugin_IDAndEmits(t *testing.T) {
 		t.Errorf("ID = %q; want %q", p.ID(), SourceID)
 	}
 	em := p.Emits()
-	if len(em) != 2 || em[0] != EvidenceTypeUser || em[1] != EvidenceTypeApp {
+	if len(em) != 2 || em[0] != EvidenceTypeDirectoryUser || em[1] != EvidenceTypeApp {
 		t.Errorf("Emits = %v", em)
 	}
 }
@@ -69,7 +69,7 @@ func TestCollectUsers_HappyPath_SortsByID(t *testing.T) {
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	p := New(Options{API: fake, Now: func() time.Time { return now }})
 	records, err := p.Collect(context.Background(),
-		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeUser}, PolicyID: "p1"})
+		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDirectoryUser}, PolicyID: "p1"})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestCollectApps_HappyPath_SortsByID(t *testing.T) {
 
 func TestCollect_NoData(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
-	for _, et := range []string{EvidenceTypeUser, EvidenceTypeApp} {
+	for _, et := range []string{EvidenceTypeDirectoryUser, EvidenceTypeApp} {
 		recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{et}})
 		if err != nil {
 			t.Fatalf("Collect %s: %v", et, err)
@@ -151,7 +151,7 @@ func TestCollect_RejectsUnknownEvidenceType(t *testing.T) {
 
 func TestCollectUsers_ErrorPropagates(t *testing.T) {
 	p := New(Options{API: &fakeAPI{userErr: errors.New("rate limit")}})
-	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeUser}})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDirectoryUser}})
 	if err == nil || !strings.Contains(err.Error(), "list users") {
 		t.Errorf("want list users error; got %v", err)
 	}
@@ -168,7 +168,7 @@ func TestCollectApps_ErrorPropagates(t *testing.T) {
 func TestCollect_DefaultNowIsInjected(t *testing.T) {
 	fake := &fakeAPI{users: []User{{ID: "u1", Email: "u@acme.com", Status: "ACTIVE"}}}
 	p := New(Options{API: fake})
-	recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeUser}})
+	recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDirectoryUser}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -185,7 +185,7 @@ func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 	p := New(Options{API: fake})
 	for range 3 {
 		if _, err := p.Collect(context.Background(),
-			core.SlotRequest{AcceptedTypes: []string{EvidenceTypeUser}}); err != nil {
+			core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDirectoryUser}}); err != nil {
 			t.Fatalf("Collect users: %v", err)
 		}
 		if _, err := p.Collect(context.Background(),
@@ -399,7 +399,7 @@ func TestHTTPAPI_RequestCtxCancel(t *testing.T) {
 }
 
 func TestPayloadJSONRoundTrip(t *testing.T) {
-	up := userPayload{ID: "u1", Email: "e@x.com", Status: "ACTIVE", MFAFactorCount: 2}
+	up := userPayload{ID: "u1", DisplayName: "alice", Email: "e@x.com", MFAEnabled: true, MFAFactorCount: 2, IsActive: true}
 	b, err := json.Marshal(up)
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)

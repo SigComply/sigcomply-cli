@@ -29,9 +29,15 @@ import (
 )
 
 // Evidence type IDs this plugin emits.
+//
+// EvidenceTypeDirectoryUser is the cross-vendor directory_user shape;
+// Okta is one of several substitutable directory sources (AWS IAM,
+// GitHub, future Azure AD/LDAP). EvidenceTypeApp is Okta-specific —
+// SAML/OIDC app catalogs differ enough across vendors that no
+// cross-vendor abstraction exists yet.
 const (
-	EvidenceTypeUser = "okta_user"
-	EvidenceTypeApp  = "okta_app"
+	EvidenceTypeDirectoryUser = "directory_user"
+	EvidenceTypeApp           = "okta_app"
 )
 
 // SourceID is the registered ID for the okta plugin instance.
@@ -119,19 +125,29 @@ func (*Plugin) ID() string { return SourceID }
 
 // Emits returns the evidence types this plugin can produce.
 func (*Plugin) Emits() []string {
-	return []string{EvidenceTypeUser, EvidenceTypeApp}
+	return []string{EvidenceTypeDirectoryUser, EvidenceTypeApp}
 }
 
 // Init is a no-op; configuration arrives via the constructor.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// userPayload is the JSON payload shape inside each okta_user record.
+// userPayload is the directory_user shape this plugin emits. Cross-
+// vendor fields map to Okta concepts as follows:
+//   - mfa_enabled: derived from MFAFactorCount > 0
+//   - is_active:   derived from Status == "ACTIVE"
+//   - display_name: best-effort, falls back to email
+//
+// is_admin and is_service_account are not populated — both require
+// per-user role/factor-list calls that aren't in the v1 collection
+// path. Adding them is additive.
 type userPayload struct {
 	ID             string    `json:"id"`
-	Email          string    `json:"email"`
-	Status         string    `json:"status"`
+	DisplayName    string    `json:"display_name,omitempty"`
+	Email          string    `json:"email,omitempty"`
+	MFAEnabled     bool      `json:"mfa_enabled"`
 	MFAFactorCount int       `json:"mfa_factor_count"`
-	LastLogin      time.Time `json:"last_login,omitempty"`
+	IsActive       bool      `json:"is_active"`
+	LastLoginAt    time.Time `json:"last_login_at,omitempty"`
 }
 
 // appPayload is the JSON payload shape inside each okta_app record.
@@ -148,11 +164,11 @@ type appPayload struct {
 // sorted by ID within each type group; the collector splits them by
 // Type for envelope writing.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	wantUsers := req.Accepts(EvidenceTypeUser)
+	wantUsers := req.Accepts(EvidenceTypeDirectoryUser)
 	wantApps := req.Accepts(EvidenceTypeApp)
 	if !wantUsers && !wantApps {
 		return nil, fmt.Errorf("okta: AcceptedTypes %v does not include emitted types %q,%q",
-			req.AcceptedTypes, EvidenceTypeUser, EvidenceTypeApp)
+			req.AcceptedTypes, EvidenceTypeDirectoryUser, EvidenceTypeApp)
 	}
 	var out []core.EvidenceRecord
 	if wantUsers {
@@ -181,13 +197,22 @@ func (p *Plugin) collectUsers(ctx context.Context) ([]core.EvidenceRecord, error
 	records := make([]core.EvidenceRecord, 0, len(users))
 	for i := range users {
 		u := users[i]
-		payload := userPayload(u)
+		displayName := u.Email
+		payload := userPayload{
+			ID:             u.ID,
+			DisplayName:    displayName,
+			Email:          u.Email,
+			MFAEnabled:     u.MFAFactorCount > 0,
+			MFAFactorCount: u.MFAFactorCount,
+			IsActive:       strings.EqualFold(u.Status, "ACTIVE"),
+			LastLoginAt:    u.LastLogin,
+		}
 		body, err := json.Marshal(payload)
 		if err != nil {
 			return nil, fmt.Errorf("okta: marshal user payload: %w", err)
 		}
 		records = append(records, core.EvidenceRecord{
-			Type:        EvidenceTypeUser,
+			Type:        EvidenceTypeDirectoryUser,
 			ID:          u.ID,
 			IdentityKey: u.Email,
 			Payload:     body,

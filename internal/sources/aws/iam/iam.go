@@ -27,8 +27,10 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
-// EvidenceTypeID is the single evidence type this plugin emits today.
-const EvidenceTypeID = "user_record"
+// EvidenceTypeID is the single evidence type this plugin emits today —
+// the cross-vendor directory_user shape. AWS IAM is one of several
+// substitutable directory sources (Okta, GitHub, future Azure AD/LDAP).
+const EvidenceTypeID = "directory_user"
 
 // SourceID is the registered ID for the aws.iam plugin instance.
 const SourceID = "aws.iam"
@@ -95,16 +97,22 @@ func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 // constructor already has it; this is a no-op preserved for symmetry.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// userPayload is the shape of the JSON payload inside each user_record.
+// userPayload is the directory_user shape this plugin emits. Cross-
+// vendor fields (id, display_name, mfa_enabled, is_admin, is_active,
+// last_login_at) map to AWS IAM concepts as documented in Collect.
+// AWS-specific signals not covered by directory_user v1 (password
+// configured vs. access keys only, MFA device serial numbers, attached
+// policies) are intentionally not emitted — adding them would push
+// vendor specifics back into the rule layer.
 type userPayload struct {
-	UserName        string    `json:"user_name"`
-	UserID          string    `json:"id"`
-	Email           string    `json:"email,omitempty"`
-	MFAEnabled      bool      `json:"mfa_enabled"`
-	IsAdmin         bool      `json:"is_admin"`
-	CreatedAt       time.Time `json:"created_at"`
-	LastUsedAt      time.Time `json:"last_used_at,omitempty"`
-	PasswordEnabled bool      `json:"password_enabled"`
+	ID          string    `json:"id"`
+	DisplayName string    `json:"display_name"`
+	Email       string    `json:"email,omitempty"`
+	MFAEnabled  bool      `json:"mfa_enabled"`
+	IsAdmin     bool      `json:"is_admin"`
+	IsActive    bool      `json:"is_active"`
+	LastLoginAt time.Time `json:"last_login_at,omitempty"`
+	CreatedAt   time.Time `json:"created_at,omitempty"`
 }
 
 // Collect lists IAM users in the configured account and returns one
@@ -127,15 +135,15 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 			return nil, fmt.Errorf("aws.iam: mfa for user %s: %w", safeUserName(u), err)
 		}
 		payload := userPayload{
-			UserName:        safeUserName(u),
-			UserID:          safeUserID(u),
-			MFAEnabled:      mfa,
-			IsAdmin:         false, // M6 leaves admin detection to follow-on work (post-M6)
-			CreatedAt:       safeCreatedAt(u),
-			PasswordEnabled: u.PasswordLastUsed != nil,
+			ID:          safeUserID(u),
+			DisplayName: safeUserName(u),
+			MFAEnabled:  mfa,
+			IsAdmin:     false, // admin detection (admin group / AdministratorAccess) is deferred — see post-M6 work plan
+			IsActive:    true,  // IAM list calls only return active users; pending-deletion is a separate concern not modeled here
+			CreatedAt:   safeCreatedAt(u),
 		}
 		if u.PasswordLastUsed != nil {
-			payload.LastUsedAt = *u.PasswordLastUsed
+			payload.LastLoginAt = *u.PasswordLastUsed
 		}
 		body, err := json.Marshal(payload)
 		if err != nil {

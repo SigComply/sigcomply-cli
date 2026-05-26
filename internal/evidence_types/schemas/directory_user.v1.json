@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/directory_user/v1.json",
+  "title": "directory_user",
+  "version": 1,
+  "description": "One identity in any user directory — IdP (Okta, Azure AD), code platform (GitHub, GitLab), cloud IAM (AWS, GCP), or on-prem LDAP. The single cross-vendor shape policies use for MFA, admin, and lifecycle checks. Plugins normalize provider-specific status enums and MFA semantics into the boolean fields here; rules consume the same payload regardless of source.",
+  "type": "object",
+  "required": ["id", "mfa_enabled"],
+  "properties": {
+    "id":                 { "type": "string", "description": "Unique within the emitting source (AWS IAM UserId, Okta user id, GitHub login, LDAP DN, …)." },
+    "display_name":       { "type": "string", "description": "Human-readable identifier (username, login, full name). Plugins populate the most useful single string for violation messages." },
+    "email":              { "type": "string", "format": "email", "description": "When known; not every directory exposes email." },
+    "mfa_enabled":        { "type": "boolean", "description": "True iff the identity has at least one MFA factor enrolled and required at sign-on. Plugins compute this from provider-specific MFA state." },
+    "mfa_factor_count":   { "type": "integer", "description": "Number of enrolled MFA factors (optional, best-effort). Useful for richer rules; not every plugin can compute it." },
+    "is_admin":           { "type": "boolean", "description": "Has account-wide elevated privileges (IAM admin group, Okta SuperAdmin, GitHub org owner, …). Plugins implement the per-vendor heuristic." },
+    "is_service_account": { "type": "boolean", "description": "Non-human identity (bot, machine, integration token). Plugins use vendor-specific signals; absent means unknown." },
+    "is_active":          { "type": "boolean", "description": "Account can authenticate today. Absent means assume active; explicit false skips the identity from active-only rules." },
+    "last_login_at":      { "type": "string", "format": "date-time", "description": "Most recent successful sign-in." },
+    "created_at":         { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": true
+}

@@ -371,7 +371,7 @@ func TestValidatePDF_Cases(t *testing.T) {
 
 func TestCollect_RejectsBadEvidenceType(t *testing.T) {
 	p := newTestPlugin(nil)
-	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{"user_record"}})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{"directory_user"}})
 	if err == nil || !strings.Contains(err.Error(), "does not include") {
 		t.Errorf("want error; got %v", err)
 	}
