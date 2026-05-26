@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/rds_instance/v1.json",
+  "title": "rds_instance",
+  "version": 1,
+  "description": "One AWS RDS database instance, with the encryption-at-rest and exposure flags policies check today.",
+  "type": "object",
+  "required": ["db_instance_identifier", "storage_encrypted"],
+  "properties": {
+    "db_instance_identifier": { "type": "string" },
+    "arn":                    { "type": "string" },
+    "engine":                 { "type": "string" },
+    "engine_version":         { "type": "string" },
+    "storage_encrypted":      { "type": "boolean" },
+    "kms_key_id":             { "type": "string" },
+    "publicly_accessible":    { "type": "boolean" },
+    "db_instance_status":     { "type": "string" }
+  },
+  "additionalProperties": true
+}

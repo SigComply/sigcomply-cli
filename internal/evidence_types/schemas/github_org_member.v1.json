@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/github_org_member/v1.json",
+  "title": "github_org_member",
+  "version": 1,
+  "description": "One member of a GitHub organization, with 2FA-enrollment status policies check today.",
+  "type": "object",
+  "required": ["login", "two_fa_enabled"],
+  "properties": {
+    "login":          { "type": "string" },
+    "two_fa_enabled": { "type": "boolean" },
+    "role":           { "type": "string", "description": "admin | member (the org role, not repo role)." }
+  },
+  "additionalProperties": true
+}

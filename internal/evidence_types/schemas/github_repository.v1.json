@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/github_repository/v1.json",
+  "title": "github_repository",
+  "version": 1,
+  "description": "One GitHub repository inside an organization, with the branch-protection flags policies check today.",
+  "type": "object",
+  "required": ["name", "default_branch", "branch_protection_enabled"],
+  "properties": {
+    "name":                       { "type": "string" },
+    "default_branch":             { "type": "string" },
+    "branch_protection_enabled":  { "type": "boolean" },
+    "required_reviewers_count":   { "type": "integer" }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/okta_user/v1.json",
+  "title": "okta_user",
+  "version": 1,
+  "description": "One Okta directory user, with MFA-enrollment count policies check today. Distinct from the cross-vendor user_record schema: okta_user carries factor count (not a single mfa_enabled boolean) and Okta-specific status semantics. A future unification under directory_user is a separate design decision.",
+  "type": "object",
+  "required": ["id", "mfa_factor_count"],
+  "properties": {
+    "id":               { "type": "string" },
+    "email":            { "type": "string", "format": "email" },
+    "status":           { "type": "string", "description": "Okta status: ACTIVE | PROVISIONED | SUSPENDED | DEPROVISIONED | LOCKED_OUT | PASSWORD_EXPIRED | RECOVERY | STAGED." },
+    "mfa_factor_count": { "type": "integer", "description": "Count of ACTIVE enrolled factors. > 0 implies MFA is available; full enforcement is policy-dependent." },
+    "last_login":       { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": true
+}

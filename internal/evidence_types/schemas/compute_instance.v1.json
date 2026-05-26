@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/compute_instance/v1.json",
+  "title": "compute_instance",
+  "version": 1,
+  "description": "One GCP Compute Engine VM instance, with the service-account, exposure, and hardening flags policies check today.",
+  "type": "object",
+  "required": ["name", "zone", "uses_default_service_account"],
+  "properties": {
+    "name":                         { "type": "string" },
+    "id":                           { "type": "integer" },
+    "zone":                         { "type": "string" },
+    "machine_type":                 { "type": "string" },
+    "status":                       { "type": "string" },
+    "service_account_emails":       { "type": "array" },
+    "uses_default_service_account": { "type": "boolean" },
+    "has_public_ip":                { "type": "boolean" },
+    "shielded_vm_enabled":          { "type": "boolean" },
+    "can_ip_forward":               { "type": "boolean" },
+    "deletion_protection":          { "type": "boolean" },
+    "creation_timestamp":           { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": true
+}

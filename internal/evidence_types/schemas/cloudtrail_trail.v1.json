@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/cloudtrail_trail/v1.json",
+  "title": "cloudtrail_trail",
+  "version": 1,
+  "description": "One AWS CloudTrail trail, with the logging, validation, and scope flags policies check today.",
+  "type": "object",
+  "required": ["name", "is_logging"],
+  "properties": {
+    "name":                          { "type": "string" },
+    "arn":                           { "type": "string" },
+    "home_region":                   { "type": "string" },
+    "is_multi_region_trail":         { "type": "boolean" },
+    "is_organization_trail":         { "type": "boolean" },
+    "include_global_service_events": { "type": "boolean" },
+    "log_file_validation_enabled":   { "type": "boolean" },
+    "is_logging":                    { "type": "boolean" },
+    "s3_bucket_name":                { "type": "string" },
+    "kms_key_id":                    { "type": "string" }
+  },
+  "additionalProperties": true
+}

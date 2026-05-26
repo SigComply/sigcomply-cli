@@ -98,7 +98,7 @@ func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 // userPayload is the shape of the JSON payload inside each user_record.
 type userPayload struct {
 	UserName        string    `json:"user_name"`
-	UserID          string    `json:"user_id"`
+	UserID          string    `json:"id"`
 	Email           string    `json:"email,omitempty"`
 	MFAEnabled      bool      `json:"mfa_enabled"`
 	IsAdmin         bool      `json:"is_admin"`

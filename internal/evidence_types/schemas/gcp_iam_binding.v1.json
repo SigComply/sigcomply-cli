@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/gcp_iam_binding/v1.json",
+  "title": "gcp_iam_binding",
+  "version": 1,
+  "description": "One GCP IAM (role, member) binding at project scope. Each record is a single (role, member) tuple — the plugin flattens GCP's role-with-member-list shape into one record per pair so policies can filter per-member.",
+  "type": "object",
+  "required": ["role", "member", "project_id"],
+  "properties": {
+    "role":          { "type": "string", "description": "Full role name, e.g. roles/owner." },
+    "member":        { "type": "string", "description": "Full IAM member, e.g. user:alice@example.com." },
+    "member_type":   { "type": "string", "description": "user | serviceAccount | group | domain | allUsers | allAuthenticatedUsers." },
+    "project_id":    { "type": "string" },
+    "has_condition": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

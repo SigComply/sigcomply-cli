@@ -104,7 +104,7 @@ type bucketPayload struct {
 	PublicAccessPrevention   string    `json:"public_access_prevention"`
 	VersioningEnabled        bool      `json:"versioning_enabled"`
 	RequesterPays            bool      `json:"requester_pays"`
-	Created                  time.Time `json:"created,omitempty"`
+	Created                  time.Time `json:"created_at,omitempty"`
 }
 
 // Collect lists buckets in the configured project and emits one

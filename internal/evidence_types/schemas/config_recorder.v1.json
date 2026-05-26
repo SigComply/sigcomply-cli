@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/config_recorder/v1.json",
+  "title": "config_recorder",
+  "version": 1,
+  "description": "One AWS Config configuration recorder, with recording status policies check today.",
+  "type": "object",
+  "required": ["name", "recording"],
+  "properties": {
+    "name":               { "type": "string" },
+    "arn":                { "type": "string" },
+    "recording":          { "type": "boolean" },
+    "last_status":        { "type": "string" },
+    "last_error_code":    { "type": "string" },
+    "last_error_message": { "type": "string" }
+  },
+  "additionalProperties": true
+}

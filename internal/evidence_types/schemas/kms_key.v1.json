@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/kms_key/v1.json",
+  "title": "kms_key",
+  "version": 1,
+  "description": "One AWS KMS key, with rotation and management flags policies check today.",
+  "type": "object",
+  "required": ["key_id", "rotation_enabled"],
+  "properties": {
+    "key_id":              { "type": "string" },
+    "arn":                 { "type": "string" },
+    "key_manager":         { "type": "string" },
+    "is_customer_managed": { "type": "boolean" },
+    "enabled":             { "type": "boolean" },
+    "rotation_enabled":    { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/cloudsql_instance/v1.json",
+  "title": "cloudsql_instance",
+  "version": 1,
+  "description": "One GCP Cloud SQL instance, with the SSL, network-exposure, and backup flags policies check today.",
+  "type": "object",
+  "required": ["name", "require_ssl"],
+  "properties": {
+    "name":                  { "type": "string" },
+    "database_version":      { "type": "string" },
+    "region":                { "type": "string" },
+    "state":                 { "type": "string" },
+    "require_ssl":           { "type": "boolean" },
+    "ssl_mode":              { "type": "string" },
+    "ipv4_enabled":          { "type": "boolean" },
+    "backup_config_enabled": { "type": "boolean" },
+    "pitr_enabled":          { "type": "boolean" },
+    "availability_type":     { "type": "string" },
+    "deletion_protection":   { "type": "boolean" }
+  },
+  "additionalProperties": true
+}
