@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	evidencetypes "github.com/sigcomply/sigcomply-cli/internal/evidence_types"
 	"github.com/sigcomply/sigcomply-cli/internal/frameworks/iso27001"
 	"github.com/sigcomply/sigcomply-cli/internal/frameworks/soc2"
 	"github.com/sigcomply/sigcomply-cli/internal/log"
@@ -95,6 +96,10 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 	}
 
 	if err := registerProductionSources(ctx, registries, cfg, manualCatalog); err != nil {
+		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
+	}
+
+	if err := evidencetypes.VerifyRegistrations(registries); err != nil {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
 	}
 
