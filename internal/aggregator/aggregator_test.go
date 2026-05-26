@@ -18,7 +18,7 @@ func TestBuild_StampsSchemaAndMetadata(t *testing.T) {
 		CommitTime:  time.Date(2026, 2, 15, 13, 55, 0, 0, time.UTC),
 		Branch:      "main",
 		Repository:  core.Repository{Provider: "github", NameSlug: "acme/infra"},
-		CI:          core.CIEnvironment{Provider: "github"},
+		CI:          core.CIEnvironment{Provider: "github_actions"},
 		CLIVersion:  "1.0.0",
 		StartedAt:   time.Date(2026, 2, 15, 14, 0, 0, 0, time.UTC),
 		CompletedAt: time.Date(2026, 2, 15, 14, 1, 42, 0, time.UTC),

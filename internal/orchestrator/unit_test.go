@@ -168,7 +168,7 @@ func TestDetectCIEnvironment_GitHub(t *testing.T) {
 	t.Setenv("GITHUB_WORKFLOW", "compliance.yml")
 	t.Setenv("GITLAB_CI", "")
 	env := detectCIEnvironment()
-	if env.Provider != "github" {
+	if env.Provider != "github_actions" {
 		t.Errorf("Provider = %q", env.Provider)
 	}
 	if !strings.Contains(env.RunURL, "/runs/9999") {
@@ -182,7 +182,7 @@ func TestDetectCIEnvironment_GitLab(t *testing.T) {
 	t.Setenv("CI_JOB_URL", "https://gitlab.com/.../jobs/1")
 	t.Setenv("CI_JOB_NAME", "compliance")
 	env := detectCIEnvironment()
-	if env.Provider != "gitlab" {
+	if env.Provider != "gitlab_ci" {
 		t.Errorf("Provider = %q", env.Provider)
 	}
 	if env.RunURL != "https://gitlab.com/.../jobs/1" {

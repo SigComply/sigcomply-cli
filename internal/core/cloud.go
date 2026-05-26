@@ -70,8 +70,12 @@ type CIEnvironment struct {
 }
 
 // RunSummary is the counts-only run-level summary. ComplianceScore is
-// the policies_passed / policies_total ratio, computed in the
-// aggregator.
+// the applicable-pass ratio computed in the aggregator:
+// (policies_passed + policies_waived) / (policies_total -
+// policies_skipped - policies_na). Skipped and N/A policies are
+// removed from the denominator so they don't drag the score down;
+// waived policies count toward the numerator on the basis that an
+// accepted exception is operationally equivalent to a pass.
 type RunSummary struct {
 	PoliciesTotal   int     `json:"policies_total"`
 	PoliciesPassed  int     `json:"policies_passed"`

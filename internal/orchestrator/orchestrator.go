@@ -648,6 +648,12 @@ func detectRepository() core.Repository {
 }
 
 func detectCIEnvironment() core.CIEnvironment {
+	// Provider names the CI runner ("github_actions", "gitlab_ci"),
+	// not the code host. Repository.Provider names the code host
+	// ("github", "gitlab"). These are conceptually distinct — a
+	// GitHub-hosted repo could in principle run on a non-GitHub CI.
+	// The Rails dashboard's CI_PROVIDERS allow-list expects the
+	// _actions / _ci suffix; keep these strings in sync.
 	if os.Getenv("GITHUB_ACTIONS") != "" {
 		runID := os.Getenv("GITHUB_RUN_ID")
 		repo := os.Getenv("GITHUB_REPOSITORY")
@@ -655,10 +661,10 @@ func detectCIEnvironment() core.CIEnvironment {
 		if runID != "" && repo != "" {
 			runURL = fmt.Sprintf("https://github.com/%s/actions/runs/%s", repo, runID)
 		}
-		return core.CIEnvironment{Provider: "github", Workflow: os.Getenv("GITHUB_WORKFLOW"), RunURL: runURL}
+		return core.CIEnvironment{Provider: "github_actions", Workflow: os.Getenv("GITHUB_WORKFLOW"), RunURL: runURL}
 	}
 	if os.Getenv("GITLAB_CI") != "" {
-		return core.CIEnvironment{Provider: "gitlab", Workflow: os.Getenv("CI_JOB_NAME"), RunURL: os.Getenv("CI_JOB_URL")}
+		return core.CIEnvironment{Provider: "gitlab_ci", Workflow: os.Getenv("CI_JOB_NAME"), RunURL: os.Getenv("CI_JOB_URL")}
 	}
 	return core.CIEnvironment{Provider: "local"}
 }
