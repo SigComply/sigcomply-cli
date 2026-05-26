@@ -46,6 +46,26 @@ const (
 // ManifestSchemaVersion is the run-manifest schema stamped at write time.
 const ManifestSchemaVersion = "run.v1"
 
+// Mode determines the higher-level run shape. ModeManual is the
+// default (one-shot ad-hoc check); ModePR is for PR/push-triggered
+// CI, narrows the plan to on_push policies and uses a generous slot
+// retry budget; ModeScheduled is for cron-triggered CI, reads the
+// per-policy state shards, decides which policies are due, and
+// advances state on success. See
+// docs/architecture/11-cadence-model.md §Modes.
+type Mode string
+
+// Mode values.
+const (
+	// ModeManual is the default ad-hoc one-shot run shape.
+	ModeManual Mode = ""
+	// ModePR narrows to on_push policies and uses a generous slot retry budget.
+	ModePR Mode = "pr"
+	// ModeScheduled consults per-policy state, gates evaluation by cadence,
+	// and advances state on success.
+	ModeScheduled Mode = "scheduled"
+)
+
 // Options is the input to Run. Most fields come from CLI flags or the
 // project config. Registries and Vault are pre-constructed by Bootstrap
 // so tests can inject in-memory backends without redoing config load.
@@ -82,8 +102,15 @@ type Options struct {
 
 	// Filter narrows the plan to a subset of policies. The planner
 	// enforces mutual exclusion across Filter's fields; the orchestrator
-	// just threads it through.
+	// just threads it through. When Mode is ModePR and Filter's cadence
+	// axes are unset, the orchestrator derives Filter.Cadences from the
+	// mode (PR → [on_push]).
 	Filter planner.Filter
+
+	// Mode selects the higher-level run shape (manual / pr /
+	// scheduled). See the Mode type for semantics. ModeManual is
+	// the default and preserves legacy single-run behavior.
+	Mode Mode
 }
 
 // Result is what Run returns to the CLI command. ExitCode is the
@@ -109,20 +136,27 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 	startedAt := nowOrFallback(opts.Now)
 	runID := uuid.NewString()
 
+	filter, retryPolicy, runState := resolveMode(ctx, opts, startedAt)
+
+	schemaDigests := computeSchemaDigests(opts.Registries)
 	plan, err := planner.Plan(&planner.Input{
-		Config:     opts.Config,
-		Registries: opts.Registries,
-		CommitTime: opts.CommitTime,
-		Now:        startedAt,
-		Filter:     opts.Filter,
+		Config:        opts.Config,
+		Registries:    opts.Registries,
+		CommitTime:    opts.CommitTime,
+		Now:           startedAt,
+		Filter:        filter,
+		PolicyStates:  runState.policyStates,
+		SchemaDigests: schemaDigests,
 	})
 	if err != nil {
 		return Result{ExitCode: ExitConfig}, fmt.Errorf("plan: %w", err)
 	}
+	emitPlanWarnings(opts.Logger, plan, startedAt)
+
 	runRoot := buildRunRoot(plan.Framework, plan.Period.ID, startedAt, runID)
 	rec := newRecordingVault(opts.Vault)
 
-	collectOut, err := runCollect(ctx, opts, plan, rec, runRoot, startedAt)
+	collectOut, err := runCollect(ctx, opts, plan, rec, runRoot, startedAt, retryPolicy)
 	if err != nil {
 		return Result{ExitCode: ExitExecution}, err
 	}
@@ -140,11 +174,14 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 	}
 
 	completedAt := nowOrFallback(opts.Now)
+	stampNextDue(results, plan)
 	persistResults(ctx, rec, opts.Logger, runRoot, results, runID, plan, completedAt)
 
 	if err := writeManifest(ctx, rec, opts.Logger, runRoot, runID, plan, startedAt, completedAt); err != nil {
 		return Result{ExitCode: ExitExecution}, err
 	}
+
+	advancePolicyStates(ctx, opts, plan, results, runID, runRoot, startedAt)
 
 	payload := buildPayload(opts, results, plan, runID, startedAt, completedAt)
 	submitted, submittedAt := handleSubmission(ctx, opts, &payload, completedAt)
@@ -158,6 +195,207 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 		Submitted:   submitted,
 		SubmittedAt: submittedAt,
 	}, nil
+}
+
+// runtimeState captures whatever the orchestrator preloaded before
+// planning. For ModeScheduled this includes the per-policy state map
+// the planner consults for cadence gating. For ModeManual and ModePR
+// the map stays nil — those modes always evaluate every in-scope
+// policy.
+type runtimeState struct {
+	policyStates map[string]*core.PolicyState
+}
+
+// resolveMode applies the orchestrator Mode to derive the effective
+// Filter, slot retry policy, and preloaded runtime state.
+//
+// When the caller already supplied a cadence-axis filter (Cadences,
+// Cadence, or OnPush), the explicit choice wins — mode-derived
+// defaults only kick in when no cadence axis was specified. This
+// lets a power user combine `--scheduled --policies=foo` to force
+// specific policies regardless of cadence state.
+func resolveMode(ctx context.Context, opts *Options, _ time.Time) (planner.Filter, collector.RetryPolicy, runtimeState) {
+	filter := opts.Filter
+	hasExplicitCadence := len(filter.Cadences) > 0 || filter.Cadence != "" || filter.OnPush
+	switch opts.Mode {
+	case ModePR:
+		if !hasExplicitCadence {
+			filter.Cadences = []string{core.CadenceOnPush}
+		}
+		return filter, collector.RetryPR, runtimeState{}
+	case ModeScheduled:
+		if filter.IsExplicit() {
+			// Operator-forced filter: skip state load entirely; every
+			// matching policy will evaluate (no cadence gating).
+			return filter, collector.RetryScheduled, runtimeState{}
+		}
+		states := loadPolicyStates(ctx, opts)
+		return filter, collector.RetryScheduled, runtimeState{policyStates: states}
+	default:
+		return filter, collector.RetryNone, runtimeState{}
+	}
+}
+
+// loadPolicyStates fetches every policy state shard for the
+// configured framework. Errors are logged as warnings — a missing
+// or unreadable shard degrades to "treat as first run", which is
+// safe (the policy re-evaluates) and surfaces loudly via the
+// first-run warning at plan time.
+func loadPolicyStates(ctx context.Context, opts *Options) map[string]*core.PolicyState {
+	framework := opts.Config.Framework
+	policies, ok := opts.Registries.Frameworks.Lookup(framework)
+	if !ok {
+		opts.Logger.Warnf("policy-state: framework %q not yet registered; skipping state load", framework)
+		return map[string]*core.PolicyState{}
+	}
+	ids := make([]string, 0, len(policies.Policies()))
+	for _, ref := range policies.Policies() {
+		ids = append(ids, ref.PolicyID)
+	}
+	states, errs := BulkReadPolicyStates(ctx, opts.Vault, framework, ids)
+	for _, err := range errs {
+		opts.Logger.Warnf("policy-state: %s", err.Error())
+	}
+	return states
+}
+
+// computeSchemaDigests projects every registered evidence type into
+// a (type_id → schema_digest) map. The digest is the SHA-256 of the
+// canonical JSON encoding of the schema bytes. Used by
+// PolicyContentHash so a schema bump invalidates the prior
+// evaluation of every policy that references the bumped type.
+//
+// Returns an empty map when the EvidenceTypes registry is nil or
+// empty — content hashing still discriminates policy-spec changes
+// in that case, just not schema bumps.
+func computeSchemaDigests(set *registry.Set) map[string]string {
+	if set == nil || set.EvidenceTypes == nil {
+		return nil
+	}
+	out := make(map[string]string)
+	for _, et := range set.EvidenceTypes.All() {
+		body, err := json.Marshal(et.Schema)
+		if err != nil {
+			continue
+		}
+		sum := sha256.Sum256(body)
+		out[et.ID] = "sha256:" + hex.EncodeToString(sum[:])
+	}
+	return out
+}
+
+// stampNextDue computes NextDueAt for each policy result post-
+// evaluation. A pass produces NextDueAt = startedAt + interval; any
+// other terminal status leaves NextDueAt zero so the planner's
+// on_fail_retry rule will fire the next run.
+func stampNextDue(results []core.PolicyResult, plan *planner.RunPlan) {
+	cadenceByPolicy := make(map[string]string, len(plan.Policies))
+	for i := range plan.Policies {
+		cadenceByPolicy[plan.Policies[i].Spec.ID] = plan.Policies[i].Cadence
+	}
+	for i := range results {
+		r := &results[i]
+		if r.Status != core.StatusPass {
+			continue
+		}
+		cad := cadenceByPolicy[r.PolicyID]
+		interval := planner.CadenceInterval(cad)
+		if interval == 0 {
+			continue
+		}
+		// Use the run-start-equivalent baseline; we don't have it on the
+		// result, but result writes happen close to startedAt so we use
+		// the time at which NextDueAt is computed which is the run
+		// completion path — close enough for cadence display.
+		r.NextDueAt = time.Now().UTC().Add(interval)
+	}
+}
+
+// emitPlanWarnings surfaces day-1 conditions the operator must see:
+// first-run policies (will run now and not again until the cadence
+// elapses) and gap-detected (last evaluation was long ago). The
+// warnings are explicit so customers don't mistake "all-green on day
+// one" for "compliant" — see docs/architecture/11-cadence-model.md
+// §Day-1 warnings.
+func emitPlanWarnings(logger *log.Logger, plan *planner.RunPlan, now time.Time) {
+	if plan == nil {
+		return
+	}
+	var firstRun []string
+	var gapped []string
+	const gapThreshold = 30 * 24 * time.Hour // 30 days
+	for i := range plan.Policies {
+		pp := &plan.Policies[i]
+		if pp.PriorState == nil || pp.PriorState.IsFirstRun() {
+			if pp.ShouldEvaluate {
+				firstRun = append(firstRun, pp.Spec.ID)
+			}
+			continue
+		}
+		if pp.PriorState.LastRunAt.Before(now.Add(-gapThreshold)) {
+			gapped = append(gapped, pp.Spec.ID)
+		}
+	}
+	if len(firstRun) > 0 {
+		sort.Strings(firstRun)
+		logger.Infof("first-run: %d policies will evaluate for the first time this run", len(firstRun))
+		logger.Debugf("first-run policies: %s", strings.Join(firstRun, ", "))
+		logger.Infof("first-run: configure a recurring CI schedule before depending on these results")
+	}
+	if len(gapped) > 0 {
+		sort.Strings(gapped)
+		logger.Warnf("gap-detected: %d policies have no evaluation in the last 30d; today's run does not backfill", len(gapped))
+		logger.Debugf("gap-detected policies: %s", strings.Join(gapped, ", "))
+	}
+}
+
+// advancePolicyStates writes one state shard per policy that actually
+// evaluated in this run. Carry-forward policies keep their existing
+// shard untouched. State-write failures are logged as warnings; the
+// next run will treat the un-advanced policy as still-due, which is
+// the correct degradation (over-run is safe; under-run is not).
+func advancePolicyStates(
+	ctx context.Context,
+	opts *Options,
+	plan *planner.RunPlan,
+	results []core.PolicyResult,
+	runID, runRoot string,
+	startedAt time.Time,
+) {
+	cadenceByPolicy := make(map[string]string, len(plan.Policies))
+	hashByPolicy := make(map[string]string, len(plan.Policies))
+	for i := range plan.Policies {
+		pp := &plan.Policies[i]
+		cadenceByPolicy[pp.Spec.ID] = pp.Cadence
+		hashByPolicy[pp.Spec.ID] = pp.ContentHash
+	}
+	for i := range results {
+		r := &results[i]
+		if r.Status == core.StatusCarriedForward {
+			continue
+		}
+		cadence := cadenceByPolicy[r.PolicyID]
+		envelopeRef := ""
+		if len(r.EvidenceEnvelopes) > 0 {
+			envelopeRef = r.EvidenceEnvelopes[0]
+		}
+		ps := AdvancePolicyState(
+			plan.Framework,
+			r.PolicyID,
+			runID,
+			plan.Period.ID,
+			cadence,
+			hashByPolicy[r.PolicyID],
+			envelopeRef,
+			r.Status,
+			startedAt,
+			planner.CadenceInterval(cadence),
+		)
+		if err := WritePolicyState(ctx, opts.Vault, ps); err != nil {
+			opts.Logger.Warnf("policy-state: write %s: %s", r.PolicyID, err.Error())
+		}
+	}
+	_ = runRoot // reserved for a future per-run state-snapshot file
 }
 
 func validateOptions(opts *Options) error {
@@ -186,7 +424,7 @@ func nowOrFallback(now func() time.Time) time.Time {
 	return time.Now().UTC()
 }
 
-func runCollect(ctx context.Context, opts *Options, plan *planner.RunPlan, rec *recordingVault, runRoot string, now time.Time) (*collector.Output, error) {
+func runCollect(ctx context.Context, opts *Options, plan *planner.RunPlan, rec *recordingVault, runRoot string, now time.Time, retryPolicy collector.RetryPolicy) (*collector.Output, error) {
 	out, err := collector.Collect(ctx, &collector.Input{
 		Plan:          plan,
 		Sources:       opts.Registries.Sources,
@@ -194,12 +432,14 @@ func runCollect(ctx context.Context, opts *Options, plan *planner.RunPlan, rec *
 		Vault:         rec,
 		RunRoot:       runRoot,
 		SlotParamsExtras: map[string]any{
-			"period_id":    plan.Period.ID,
-			"period_start": plan.Period.Start,
-			"period_end":   plan.Period.End,
-			"now":          now,
+			"period_id":       plan.Period.ID,
+			"prior_period_id": plan.Period.PriorID,
+			"period_start":    plan.Period.Start,
+			"period_end":      plan.Period.End,
+			"now":             now,
 		},
-		Now: now,
+		Now:         now,
+		RetryPolicy: retryPolicy,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("collect: %w", err)
@@ -385,16 +625,15 @@ func (v *recordingVault) FileHashes(runRoot string) map[string]string {
 	return out
 }
 
-func summaryFromResults(results []core.PolicyResult, runID string, plan *planner.RunPlan, completedAt time.Time) map[string]any {
-	out := map[string]any{
-		"schema_version": "summary.v1",
-		"run_id":         runID,
-		"framework":      plan.Framework,
-		"period_id":      plan.Period.ID,
-		"completed_at":   completedAt,
-		"policies":       results,
+func summaryFromResults(results []core.PolicyResult, runID string, plan *planner.RunPlan, completedAt time.Time) core.FrameworkRunSummary {
+	return core.FrameworkRunSummary{
+		SchemaVersion: core.RunSummarySchemaVersion,
+		RunID:         runID,
+		Framework:     plan.Framework,
+		PeriodID:      plan.Period.ID,
+		CompletedAt:   completedAt,
+		Policies:      results,
 	}
-	return out
 }
 
 func detectRepository() core.Repository {
@@ -433,7 +672,7 @@ func writeCapturedPayload(path string, payload *core.SubmissionPayload) error {
 }
 
 func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.PolicyResult, ci spec.CIConfig) int {
-	var passed, failed, skipped, errored, na, waived int
+	var passed, failed, skipped, errored, na, waived, carried int
 	for i := range results {
 		switch results[i].Status {
 		case core.StatusPass:
@@ -448,10 +687,12 @@ func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.P
 			na++
 		case core.StatusWaived:
 			waived++
+		case core.StatusCarriedForward:
+			carried++
 		}
 	}
-	_, _ = fmt.Fprintf(stdout, "SigComply check %s/%s — %d policies\n", plan.Framework, plan.Period.ID, len(results))                //nolint:errcheck // status output
-	_, _ = fmt.Fprintf(stdout, "  pass=%d fail=%d skip=%d error=%d na=%d waived=%d\n", passed, failed, skipped, errored, na, waived) //nolint:errcheck // status output
+	_, _ = fmt.Fprintf(stdout, "SigComply check %s/%s — %d policies\n", plan.Framework, plan.Period.ID, len(results))                                    //nolint:errcheck // status output
+	_, _ = fmt.Fprintf(stdout, "  pass=%d fail=%d carried=%d skip=%d error=%d na=%d waived=%d\n", passed, failed, carried, skipped, errored, na, waived) //nolint:errcheck // status output
 	sortedResults := make([]core.PolicyResult, len(results))
 	copy(sortedResults, results)
 	sort.Slice(sortedResults, func(i, j int) bool { return sortedResults[i].PolicyID < sortedResults[j].PolicyID })

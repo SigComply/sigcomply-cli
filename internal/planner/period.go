@@ -38,8 +38,13 @@ func calendarQuarter(t time.Time, timeBasis string) Period {
 	startMonth := time.Month((quarter-1)*3 + 1)
 	start := time.Date(year, startMonth, 1, 0, 0, 0, 0, time.UTC)
 	end := start.AddDate(0, 3, 0).Add(-time.Nanosecond)
+	priorYear, priorQuarter := year, quarter-1
+	if priorQuarter == 0 {
+		priorYear, priorQuarter = year-1, 4
+	}
 	return Period{
 		ID:        fmt.Sprintf("%d-Q%d", year, quarter),
+		PriorID:   fmt.Sprintf("%d-Q%d", priorYear, priorQuarter),
 		Start:     start,
 		End:       end,
 		TimeBasis: defaultBasis(timeBasis),
@@ -62,6 +67,7 @@ func fiscalYear(t time.Time, startsMonth, timeBasis string) (Period, error) {
 	end := start.AddDate(1, 0, 0).Add(-time.Nanosecond)
 	return Period{
 		ID:        fmt.Sprintf("FY%d", year),
+		PriorID:   fmt.Sprintf("FY%d", year-1),
 		Start:     start,
 		End:       end,
 		TimeBasis: defaultBasis(timeBasis),
@@ -83,8 +89,13 @@ func customPeriod(t time.Time, periods []spec.CustomPeriod, timeBasis string) (P
 		// Inclusive end-of-day.
 		end = end.Add(24*time.Hour - time.Nanosecond)
 		if (utc.Equal(start) || utc.After(start)) && utc.Before(end.Add(time.Nanosecond)) {
+			priorID := ""
+			if i > 0 {
+				priorID = periods[i-1].ID
+			}
 			return Period{
 				ID:        p.ID,
+				PriorID:   priorID,
 				Start:     start,
 				End:       end,
 				TimeBasis: defaultBasis(timeBasis),

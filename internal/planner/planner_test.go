@@ -236,6 +236,79 @@ func TestPlan_FilterByCadence(t *testing.T) {
 	}
 }
 
+func TestPlan_FilterByCadences_SetIntersection(t *testing.T) {
+	set := setUp(t)
+	cfg := &spec.ProjectConfig{
+		SchemaVersion: "project.v1", Framework: "soc2",
+		Bindings: map[string]map[string][]spec.BindingEntry{
+			"soc2.cc6.1.mfa_enforced": {"user_directory": {{Source: "aws.iam"}}},
+		},
+	}
+	commit := commitFixture(t)
+
+	// Policy is cadence=daily + on_push=true (see setUp). Effective cadences = {daily, on_push}.
+	cases := []struct {
+		name     string
+		cadences []string
+		want     int
+	}{
+		{"matches daily via Cadences", []string{"daily"}, 1},
+		{"matches on_push via Cadences", []string{core.CadenceOnPush}, 1},
+		{"matches when at least one element intersects", []string{"weekly", "daily"}, 1},
+		{"no match when set disjoint", []string{"weekly", "monthly"}, 0},
+		{"matches on_push even when scheduled-only cadences listed", []string{"weekly", core.CadenceOnPush}, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			plan, err := planner.Plan(&planner.Input{
+				Config: cfg, Registries: set, CommitTime: commit, Now: commit,
+				Filter: planner.Filter{Cadences: tc.cadences},
+			})
+			if err != nil {
+				t.Fatalf("Plan: %v", err)
+			}
+			if len(plan.Policies) != tc.want {
+				t.Errorf("Cadences=%v: got %d policies; want %d", tc.cadences, len(plan.Policies), tc.want)
+			}
+		})
+	}
+}
+
+func TestPlan_FilterByCadences_RespectsOverride(t *testing.T) {
+	set := setUp(t)
+	cfg := &spec.ProjectConfig{
+		SchemaVersion: "project.v1", Framework: "soc2",
+		Bindings: map[string]map[string][]spec.BindingEntry{
+			"soc2.cc6.1.mfa_enforced": {"user_directory": {{Source: "aws.iam"}}},
+		},
+		// Override base cadence from daily → hourly.
+		PolicyCadences: map[string]string{"soc2.cc6.1.mfa_enforced": "hourly"},
+	}
+	commit := commitFixture(t)
+
+	// With the override, {daily} no longer matches but {hourly} does.
+	plan, err := planner.Plan(&planner.Input{
+		Config: cfg, Registries: set, CommitTime: commit, Now: commit,
+		Filter: planner.Filter{Cadences: []string{"daily"}},
+	})
+	if err != nil {
+		t.Fatalf("Plan: %v", err)
+	}
+	if len(plan.Policies) != 0 {
+		t.Errorf("override should hide daily; got %d policies", len(plan.Policies))
+	}
+	plan, err = planner.Plan(&planner.Input{
+		Config: cfg, Registries: set, CommitTime: commit, Now: commit,
+		Filter: planner.Filter{Cadences: []string{"hourly"}},
+	})
+	if err != nil {
+		t.Fatalf("Plan: %v", err)
+	}
+	if len(plan.Policies) != 1 {
+		t.Errorf("override should expose hourly; got %d policies", len(plan.Policies))
+	}
+}
+
 func TestPlan_FilterMutualExclusionEnforced(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{

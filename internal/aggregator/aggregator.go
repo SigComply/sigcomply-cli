@@ -23,7 +23,14 @@ import (
 // SchemaVersion is the wire-format identifier stamped on every
 // SubmissionPayload. Bumping requires a code change to the contract
 // (see 06-aggregation.md §Versioning the contract).
-const SchemaVersion = "sigcomply.cloud.v1"
+//
+// v2 (current): adds per-policy cadence metadata
+// (ConfiguredCadence, LastEvaluatedAt, NextDueAt, IsCarriedForward,
+// PolicyContentHash) so the dashboard can render staleness and
+// next-due badges without recomputing locally. All additions are
+// non-identifying scalars and pass the structural counts-only test
+// in core/cloud_test.go.
+const SchemaVersion = "sigcomply.cloud.v2"
 
 // Environment captures the CI-runtime metadata stamped on the payload.
 // The CLI's orchestrator (L9) populates it from environment variables
@@ -77,9 +84,30 @@ func Build(results []core.PolicyResult, env *Environment) core.SubmissionPayload
 			ResourcesFailed:    r.ResourcesFailed,
 			Message:            generateMessage(r),
 			RuleVersion:        r.RuleVersion,
+			ConfiguredCadence:  r.ConfiguredCadence,
+			LastEvaluatedAt:    lastEvaluatedAt(r, env),
+			NextDueAt:          r.NextDueAt,
+			IsCarriedForward:   r.Status == core.StatusCarriedForward,
+			PolicyContentHash:  r.PolicyContentHash,
 		})
 	}
 	return out
+}
+
+// lastEvaluatedAt returns the timestamp of the most recent actual
+// evaluation for a policy. For freshly-evaluated policies it is the
+// run's start time. For carry-forward results it is the carry-
+// forward ref's LastEvaluatedAt — the earlier run that this row
+// inherits from. Used by the cloud dashboard to render staleness
+// badges without recomputing locally.
+func lastEvaluatedAt(r *core.PolicyResult, env *Environment) time.Time {
+	if r.Status == core.StatusCarriedForward && r.CarryForward != nil {
+		return r.CarryForward.LastEvaluatedAt
+	}
+	if env == nil {
+		return time.Time{}
+	}
+	return env.StartedAt
 }
 
 func buildSummary(results []core.PolicyResult) core.RunSummary {

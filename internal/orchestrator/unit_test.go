@@ -244,7 +244,7 @@ vault:
 	if err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
-	if cfg.Framework != "soc2" {
+	if cfg.Framework != testFramework {
 		t.Errorf("Framework = %q", cfg.Framework)
 	}
 	if regs == nil || regs.Sources == nil {

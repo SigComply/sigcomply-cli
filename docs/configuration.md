@@ -11,6 +11,25 @@ Higher-priority sources override lower ones. For example, `--framework iso27001`
 
 ---
 
+## Project model
+
+**One project = one repository = one framework.** A project is the
+GitHub or GitLab repo you run `sigcomply` in. Its `.sigcomply.yaml`
+declares exactly one framework via the singular `framework:` key — not
+a list. There is no `frameworks:` field.
+
+Customers pursuing multiple frameworks (SOC 2 + ISO 27001, SOC 2 +
+HIPAA) use **multiple repositories**, one per framework — each with
+its own config, CI workflow, and evidence vault. Multi-framework
+inside a single repo is not the supported configuration: it creates
+ambiguity at the CI scheduling layer (which framework's cadence does
+the daily workflow run?) and complicates auditor review.
+
+See [`docs/architecture/01-conceptual-model.md`](architecture/01-conceptual-model.md)
+§12 for the full definition.
+
+---
+
 ## Quick Start
 
 ```bash
@@ -433,6 +452,50 @@ You can also query it directly:
 sigcomply evidence path quarterly_access_review
 ```
 
+### What the CLI checks on each upload
+
+The CLI runs only a small, fixed set of **byte-level sanity checks**
+on each fetched PDF — it does not inspect contents:
+
+| Check | What it catches |
+|-------|----------------|
+| File present at the resolved path | Missing or late uploads |
+| Upload timestamp within `[period_start, period_end + grace]` | Out-of-window uploads |
+| File size ≥ 100 bytes | 0-byte or truncated uploads |
+| Starts with `%PDF-` magic bytes | Wrong file type (txt, docx, HTML error page) |
+| Contains a `/Page` object token | Header-only or structurally-empty PDFs |
+| SHA-256 differs from the prior period's file at the equivalent path | Copy-paste of last period's PDF |
+
+The CLI deliberately does **not** read PDF contents. It does not check
+internal dates, signatures inside the document, attendee lists, or
+whether the document matches the policy intent — those are the
+auditor's job. See [CLAUDE.md §Manual evidence design contract](../CLAUDE.md)
+for the full rationale.
+
+### Bucket-level immutability — required for tamper-resistance
+
+The CLI's per-file Ed25519 signing detects accidental drift and
+unilateral PDF swaps. It does **not** defend against a party with
+vault write access who regenerates envelope + PDF + manifest together
+with a fresh ephemeral keypair — the public key lives inside the
+envelope, so any re-signing is cryptographically valid.
+
+For genuine tamper-resistance, configure write-once / version-locked
+semantics at the storage layer on the bucket that holds your vault:
+
+- **AWS S3**: Object Lock in **compliance mode** with retention
+  matching audit-retention requirements (typically 7 years).
+- **Google Cloud Storage**: Bucket Lock with a retention policy +
+  Object Versioning.
+- **Azure Blob Storage**: Immutable storage with locked time-based
+  retention policies.
+- **Local filesystem**: not suitable for production audit retention —
+  use only for ad-hoc `sigcomply check` runs and ephemeral CI storage.
+
+Without one of these settings, the signing scheme still detects
+accidental drift, but cannot defend against deliberate re-signing.
+Full rationale: [SECURITY.md §Threat Model](../SECURITY.md).
+
 ---
 
 ## CLI Flags
@@ -456,11 +519,98 @@ Flags:
       --github-org string      GitHub organization to collect evidence from (requires GITHUB_TOKEN)
       --policies string        Comma-separated policy names to run (e.g., cc6_1_mfa,cc6_1_github_mfa)
       --controls string        Comma-separated control IDs to run (e.g., CC6.1,CC7.1)
+      --cadence string         Filter to policies whose effective cadence equals this value
+      --cadences strings       Set-intersection filter against effective cadences (--cadences daily,hourly)
+      --on-push                Filter to policies whose on_push=true (PR mode default)
+      --pr                     PR-mode run: --on-push + generous retry budget
+      --scheduled              Scheduled-mode run: cadence-gated; reads per-policy state shards
       --config string          Path to config file (default: .sigcomply.yaml)
 ```
 
+`--policies`, `--controls`, `--cadence`, `--cadences`, and `--on-push`
+are mutually exclusive. `--scheduled` may combine with `--policies`
+(operator override; cadence gating is bypassed for the selected
+policies).
+
 There is no `--collector` or `--fail-on-violation` flag — `fail_on_violation`
 and `fail_severity` live under `ci:` in the config file only.
+
+---
+
+## Cadence & scheduling
+
+Every policy declares a **cadence** — how often it must be re-
+evaluated. The CLI uses cadence to decide, on each run, whether to
+re-evaluate the policy or emit a carry-forward result that references
+the most recent signed envelope.
+
+### Cadence values
+
+Named cadences:
+
+| Value        | Minimum interval before due |
+|--------------|-----------------------------|
+| `continuous` | 0 (always due)               |
+| `hourly`     | 0 (always due in scheduled mode) |
+| `daily`      | 23 hours                     |
+| `weekly`     | 6 days 23 hours              |
+| `monthly`    | 29 days 23 hours             |
+| `quarterly`  | 89 days 23 hours             |
+| `annual`     | 364 days 23 hours            |
+
+Custom interval cadence:
+
+```yaml
+cadence: every:6h          # six hours since LastPassAt
+cadence: every:90m         # ninety minutes
+cadence: every:2h30m       # composite duration
+```
+
+The minimum interval for `every:<duration>` is 5 minutes — CI runners
+cannot meaningfully dispatch faster.
+
+`every:24h` is NOT the same as `daily`. The named cadence has 1h
+cron-drift slack baked in; `every:24h` is exactly 24h from
+LastPassAt and drifts time-of-day across runs.
+
+### Customer overrides
+
+```yaml
+# .sigcomply.yaml
+framework: soc2
+policy_cadences:
+  soc2.cc6.1.mfa_enforced_admin: every:6h
+  soc2.cc7.2.annual_pentest: annual
+```
+
+Overrides are exact-match by policy ID. Unknown IDs are caught at
+plan time.
+
+### Run modes and cadence
+
+```bash
+# Manual (default): evaluate every in-scope policy. No cadence gating.
+sigcomply check
+
+# PR: evaluate on_push policies only. Generous retry budget.
+sigcomply check --pr
+
+# Scheduled: gate by cadence. Reads per-policy state shards from the vault.
+sigcomply check --scheduled
+
+# Operator override: force-run specific policies regardless of state.
+sigcomply check --scheduled --policies soc2.cc6.1.mfa_enforced_admin
+```
+
+Per-policy state shards live at
+`{vault}/state/{framework}/policies/{policy_id}.json`. The shards
+are mutable and never signed — they are scheduling state, not audit
+evidence. Loss of the state directory is recoverable: the next run
+re-evaluates every policy as first-run, surfacing a loud
+`first-run: N policies will evaluate for the first time this run`
+warning.
+
+Full design: [`docs/architecture/11-cadence-model.md`](architecture/11-cadence-model.md).
 
 ---
 

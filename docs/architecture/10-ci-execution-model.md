@@ -78,6 +78,7 @@ evaluated. Values:
 | `monthly` | At least every month | Periodic config audits |
 | `quarterly` | At least every quarter | Quarterly access reviews, vendor risk assessments |
 | `annual` | At least once a year | Annual security training, BCP test, board approval of policies |
+| `every:<duration>` | Custom interval (`every:6h`, `every:90m`) | Power-user tuning: tighter than `hourly`, gentler than `daily`. Floor: 5 minutes. |
 
 Each shipped policy declares one cadence as a sensible default.
 Project config can override per policy:
@@ -85,52 +86,75 @@ Project config can override per policy:
 ```yaml
 # .sigcomply.yaml (excerpt)
 policy_cadences:
-  soc2.cc6.1.mfa_enforced: hourly        # stricter than the shipped default (daily)
-  soc2.cc6.1.access_review: monthly      # stricter than the shipped default (quarterly)
+  soc2.cc6.1.mfa_enforced: every:6h       # tighter than the shipped default (daily)
+  soc2.cc6.1.access_review: monthly       # stricter than the shipped default (quarterly)
 ```
-
-Cadence is **metadata**, not enforcement. The CLI accepts a filter
-flag (`--cadence X` or `--on-push`) and runs only matching policies.
-It never says "this policy already ran today, skip." That decision
-belongs to the CI scheduler.
 
 ---
 
-## How statelessness survives cadence
+## How cadence enforcement actually works
 
-The hard question: if the CLI keeps no state across runs, how does a
-project know that a quarterly policy doesn't need to re-run daily?
+A single CI run (typically once a day, plus on PR) triggers ALL
+policies in scope. The CLI gates each policy individually using its
+per-policy state shard. Run modes interact with the gate differently:
 
-**Answer**: it doesn't, and it doesn't need to. The CI cron schedule
-*is* the cadence enforcement.
+| Mode | When triggered | Loads state? | Gates by cadence? |
+|------|----------------|--------------|-------------------|
+| `--scheduled` | CI cron, single workflow | Yes | Yes — daily policies run daily, quarterlies skip until due |
+| `--pr` | PR open/push | No | No — every `on_push: true` policy runs |
+| Manual (default) | Local invocation | No | No — every in-scope policy runs |
 
-- The daily-cadence policies run because the `compliance-daily.yml`
-  workflow has `cron: '0 3 * * *'`.
-- The quarterly-cadence policies run because the
-  `compliance-quarterly.yml` workflow has `cron: '0 4 1 1,4,7,10 *'`.
-- A quarterly policy doesn't re-run daily because there's no daily
-  workflow that asks for it.
+**Recommended setup**: one scheduled workflow per day (or per few
+hours, depending on cadence distribution) calling
+`sigcomply check --scheduled`. The CLI's per-policy state shards
+decide which policies actually evaluate vs which carry forward.
 
-The CLI is asked to do less work in the quarterly cron than the daily
-cron, because the workflow file passes `--cadence quarterly` and the
-filter selects only the ~20 quarterly policies. The CLI doesn't need
-to remember that those 20 policies "already ran" three months ago —
-the next quarterly cron is three months away.
+```yaml
+# .github/workflows/compliance-scheduled.yml
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+jobs:
+  check:
+    steps:
+      - uses: SigComply/sigcomply-cli/.github/actions/check@v1
+        with:
+          mode: scheduled
+```
 
-What about re-running after a fix? Operators trigger the workflow
-manually (`workflow_dispatch` on GitHub, manual pipeline trigger on
-GitLab). No CLI state involved. The new invocation produces a new run
-folder in the vault; the period's roll-up reflects the latest result
-(see [`05-vault-layout.md`](05-vault-layout.md) §Period state).
+For PR runs, a separate workflow runs `sigcomply check --pr` on every
+pull request — that workflow only evaluates `on_push: true` policies
+and uses a generous retry budget (CI hiccups should not block a
+developer's PR).
 
-What about a CI scheduler that misses a cron (CI provider outage,
-runner queue starvation)? The cadence is "*at least*" the declared
-interval. If the daily cron misses Tuesday, Wednesday's run still
-covers Tuesday's evidence — the period roll-up doesn't care which
-specific day within the period produced the result. (For ultra-
-sensitive policies, customers can also wire those into
-`compliance-on-push.yml` so they run on every commit as well as on
-cron.)
+**Cadence is enforced by the CLI**, not by the cron schedule. A
+quarterly policy will carry forward from its prior signed envelope
+for ~90 days even if the scheduled workflow runs every night. The
+CI cron is the **upper bound** on cadence (you can't evaluate
+quarterly if you never run); the policy state is the **lower bound**
+(don't re-evaluate quarterly more than once per period).
+
+### What about re-running after a fix?
+
+A failed policy is "due" on every subsequent run regardless of
+cadence — the `on_fail_retry` rule. Operators don't need to manually
+trigger anything: the next scheduled run picks up the fix.
+
+For an explicit force-evaluation: `sigcomply check --scheduled
+--policies <id>` forces matching policies to evaluate, bypassing
+cadence gating.
+
+### What about a missed CI run?
+
+If CI is broken for an extended window, the planner emits a
+`gap-detected: N policies have no evaluation in the last 30d`
+warning at the next run. The CLI does NOT fabricate retroactive
+evaluations to fill the gap. Auditors will see the gap in the
+period history, which is the correct posture (compare Airflow's
+`catchup=false`).
+
+Full design: [`11-cadence-model.md`](11-cadence-model.md).
 
 ---
 

@@ -35,7 +35,8 @@ func makePlannedPolicy(id, control, ruleRef string, requiredSlots ...string) pla
 			RuleRef:  ruleRef,
 			Slots:    slots,
 		},
-		Parameters: map[string]any{},
+		Parameters:     map[string]any{},
+		ShouldEvaluate: true,
 	}
 }
 

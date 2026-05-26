@@ -273,8 +273,8 @@ func validateSources(sources map[string]map[string]any) error {
 
 func validatePolicyCadences(m map[string]string) error {
 	for id, c := range m {
-		if !isValidCadence(c) {
-			return fmt.Errorf("project config: policy_cadences[%q]: invalid cadence %q (want continuous|hourly|daily|weekly|monthly|quarterly|annual)", id, c)
+		if err := validateCadenceSpec(c); err != nil {
+			return fmt.Errorf("project config: policy_cadences[%q]: %w", id, err)
 		}
 	}
 	return nil

@@ -393,14 +393,44 @@ recompute the expected location from the catalog alone.
     "file_size":    194523,
     "uploaded_at":  "2026-03-15T10:00:00Z",
     "in_temporal_window": true,
+    "file_valid":   true,
+    "validation_failures": [],
     "expected_uri": "s3://acme-evidence/manual/access_review_quarterly/2026-Q1/evidence.pdf"
   }
 }
 ```
 
-A rule consuming `signed_document` records typically checks `file_present` and
-`in_temporal_window`. Future text-extraction (parsing the PDF and emitting
-fields like `signed_by`, `signed_date`) extends the schema additively.
+A rule consuming `signed_document` records typically checks
+`file_present`, `in_temporal_window`, and `file_valid`. Future
+text-extraction (parsing the PDF and emitting fields like `signed_by`,
+`signed_date`) extends the schema additively.
+
+### What the plugin checks — and what it deliberately does not
+
+The `manual.pdf` plugin runs a fixed, narrow set of **cheap stdlib
+sanity checks** on every fetched payload. These detect upload mistakes,
+not content correctness:
+
+| Check | Purpose | Fails when |
+|-------|---------|-----------|
+| **Size floor** | Catch 0-byte uploads, truncated transfers | `len(data) < 100` bytes |
+| **PDF magic bytes** | Catch wrong file types (txt, docx, HTML error pages) | Payload does not start with `%PDF-` |
+| **Page-object presence** | Catch header-only / structurally-empty files | Payload contains no `/Page` token |
+| **Prior-period duplication** | Catch copy-paste of last period's PDF | Current hash is byte-identical to the prior period's file at the equivalent path |
+
+Failures land in `validation_failures` (a list of strings) and flip
+`file_valid` to `false`. The framework's manual-presence Rego rule
+requires `file_valid == true` to pass; an auditor reading the envelope
+sees the specific failure reasons in the manifest.
+
+**Deliberately not checked at v1:**
+- PDF contents (no text extraction, no `signed_by` parsing, no expiry-date detection inside the document)
+- Whether the document is the *right* document for the policy (a wrong-but-valid PDF passes)
+- Whether the population covered by the document matches the in-scope population (e.g. access review of 40 users when production has 120 — undetectable here)
+- Whether signatures inside the PDF are present or valid
+- Any form of fraud detection — a determined customer can produce a fabricated PDF that satisfies all checks; that is and remains the auditor's job
+
+The reasoning is in [CLAUDE.md §Manual evidence design contract](../../CLAUDE.md) — the CLI is a custody-of-evidence layer, not a content reviewer. The auditor reads the PDF; the CLI gives the auditor a tamper-evident timeline of what was uploaded when.
 
 ### Missing evidence — error format
 

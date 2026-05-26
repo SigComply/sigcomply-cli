@@ -88,7 +88,7 @@ tags:
 | `control` | yes | The control this policy contributes to. Must exist in the framework's control catalog. |
 | `severity` | yes | Display severity. The rule cannot override this; if a single policy needs variable severity, split into multiple policies. |
 | `category` | no | Free-form grouping label (e.g. `access_control`, `encryption`, `monitoring`). Used in summaries. |
-| `cadence` | yes | How often the policy must be evaluated. One of `continuous`, `hourly`, `daily`, `weekly`, `monthly`, `quarterly`, `annual`. Drives CI workflow scheduling; the CLI itself does not enforce it. |
+| `cadence` | yes | How often the policy must be evaluated. One of `continuous`, `hourly`, `daily`, `weekly`, `monthly`, `quarterly`, `annual`, or the custom-interval form `every:<duration>` (`every:6h`, `every:90m`; 5-minute floor). The CLI enforces cadence in scheduled mode via per-policy state shards — see [`11-cadence-model.md`](11-cadence-model.md). |
 | `on_push` | no | Whether this policy is suitable for fast PR/push feedback. Defaults to `true` for automated rules, `false` for manual rules. CI workflows for on-push gates filter by this tag. |
 | `description` | yes | Plain-English statement of what the policy asserts. |
 | `remediation` | no | Plain-English remediation guidance, displayed alongside failures. |
@@ -396,9 +396,11 @@ vault remain interpretable.
 ## Cadence and on-push tagging
 
 `cadence` and `on_push` together describe **when** a policy should be
-evaluated. Both live on the policy spec. Neither is enforced by the
-CLI — they are the contract between the framework author and the CI
-workflow files that schedule runs.
+evaluated. Both live on the policy spec. In scheduled mode the CLI
+enforces cadence via per-policy state shards in the vault; in PR mode
+and manual mode the CLI evaluates every in-scope policy regardless of
+cadence. Full algorithm in [`11-cadence-model.md`](11-cadence-model.md)
+§The decision rule.
 
 ### Why cadence matters
 
@@ -406,21 +408,26 @@ A SOC 2 program does not benefit from re-checking every quarterly
 access review on every commit, and a public-bucket drift check does
 not want to wait a day to fire. Different policies need different
 schedules. By tagging each policy with a cadence, the framework author
-expresses what's reasonable; the CI scheduler turns that into actual
-cron entries.
+expresses what's reasonable; the CLI enforces it in scheduled mode
+without needing the CI scheduler to know which policies are due.
 
 The flow:
 
 ```
 policy.yaml declares cadence ──→ project .sigcomply.yaml may override
-                              ──→ CI workflow files filter on cadence
-                              ──→ scheduled workflow invokes
-                                  `sigcomply check --cadence <value>`
-                              ──→ CLI runs every policy whose effective
-                                  cadence matches the flag
+                              ──→ scheduled CI workflow invokes
+                                  `sigcomply check --scheduled`
+                              ──→ CLI loads per-policy state shards,
+                                  decides per-policy whether to re-
+                                  evaluate or carry forward
+                              ──→ carry-forward results reference the
+                                  prior signed envelope; the auditor
+                                  verifies that envelope independently
 ```
 
-### The seven cadence values
+### Cadence values
+
+The seven named cadences:
 
 | Cadence | Typical policy examples |
 |---|---|
@@ -431,6 +438,17 @@ policy.yaml declares cadence ──→ project .sigcomply.yaml may override
 | `monthly` | Backup verification, log retention sweep, vulnerability scan summary. |
 | `quarterly` | Manual access reviews, risk acceptance declarations, signed acknowledgments — almost all manual evidence. |
 | `annual` | Annual policy acknowledgment, security awareness training completion, business continuity test results. |
+
+Plus the custom-interval form:
+
+| Form | Meaning | Typical use |
+|---|---|---|
+| `every:<duration>` | Re-evaluate every `<duration>` since last pass | `every:6h` for tightly-monitored admin MFA; `every:90m` for high-frequency drift detection. Floor: 5 minutes. |
+
+`every:24h` is NOT equivalent to `daily`. The named cadence has 1h
+cron-drift slack baked in (interval = 23h) and is anchored against
+last-pass-at; `every:24h` is exactly 24h from last pass and drifts
+time-of-day across consecutive runs.
 
 ### The `on_push` tag
 
@@ -452,20 +470,24 @@ on-push workflow ignores it entirely. A daily IAM MFA check has
 `cadence: daily, on_push: true`: the daily workflow runs the full
 sweep, and PRs touching IAM also get the policy as fast feedback.
 
-### Cadence is metadata, not enforcement
+### Cadence enforcement vs operator override
 
-The CLI does not refuse to run a quarterly policy on demand. If a
-human types `sigcomply check --policies soc2.cc1.1.board_review`
-directly, the policy runs — its `cadence: quarterly` is documentation
-of the recommended schedule, not a lock. This preserves Axiom 4 (CI is
-the orchestrator, not the CLI) and matches how the rest of the CLI's
-filtering flags behave: the CLI is a deterministic function of its
-inputs, never a stateful gatekeeper.
+The CLI enforces cadence in scheduled mode but never traps the
+operator. If a human types
+`sigcomply check --scheduled --policies soc2.cc1.1.board_review`,
+the explicit `--policies` filter wins and the policy runs regardless
+of cadence state. The decision rule (full algorithm in
+[`11-cadence-model.md`](11-cadence-model.md) §The decision rule) puts
+operator filters at the top — they always bypass cadence gating.
 
-The CLI **does** filter by cadence when asked: `--cadence daily`
-selects every policy whose effective cadence is `daily`. Effective
-cadence = `project_config.policy_cadences[id]` if set, else
-`policy.cadence`.
+PR mode (`sigcomply check --pr`) and manual mode (the default,
+`sigcomply check`) don't read state at all — every in-scope policy
+evaluates. Cadence enforcement is strictly a scheduled-mode behavior.
+
+Effective cadence = `project_config.policy_cadences[id]` if set, else
+`policy.cadence`. Per-policy state captures the effective cadence at
+the time of the last evaluation so a later run can detect a
+configuration change.
 
 ### Project override pattern
 

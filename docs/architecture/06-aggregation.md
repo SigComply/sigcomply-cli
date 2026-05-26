@@ -49,7 +49,7 @@ package core
 // maintainers including the security owner. Adding a freeform field
 // is a non-custodial regression and must be explicitly justified.
 type SubmissionPayload struct {
-    Schema      string         `json:"schema"`        // "sigcomply.cloud.v1"
+    Schema      string         `json:"schema"`        // "sigcomply.cloud.v2"
 
     RunID       string         `json:"run_id"`        // UUID
     Framework   string         `json:"framework"`     // "soc2"
@@ -96,17 +96,32 @@ type RunSummary struct {
 
 // PolicyResult: per-policy. No identifiers permitted.
 type PolicyResult struct {
-    PolicyID           string  `json:"policy_id"`            // "soc2.cc6.1.mfa_enforced"
-    ControlID          string  `json:"control_id"`           // "SOC2.CC6.1"
-    Status             string  `json:"status"`               // pass|fail|skip|error|na|waived
-    Severity           string  `json:"severity"`             // info|low|medium|high|critical
-    Category           string  `json:"category,omitempty"`
-    ResourcesEvaluated int     `json:"resources_evaluated"`
-    ResourcesFailed    int     `json:"resources_failed"`
-    Message            string  `json:"message"`              // generated from counts
-    RuleVersion        string  `json:"rule_version,omitempty"`
+    PolicyID           string    `json:"policy_id"`            // "soc2.cc6.1.mfa_enforced"
+    ControlID          string    `json:"control_id"`           // "SOC2.CC6.1"
+    Status             string    `json:"status"`               // pass|fail|skip|error|na|waived|carried_forward
+    Severity           string    `json:"severity"`             // info|low|medium|high|critical
+    Category           string    `json:"category,omitempty"`
+    ResourcesEvaluated int       `json:"resources_evaluated"`
+    ResourcesFailed    int       `json:"resources_failed"`
+    Message            string    `json:"message"`              // generated from counts
+    RuleVersion        string    `json:"rule_version,omitempty"`
+
+    // v2 fields — non-identifying scalars added for the cadence model.
+    // The dashboard uses these to render staleness / next-due badges
+    // without recomputing locally. See docs/architecture/11-cadence-model.md.
+    ConfiguredCadence  string    `json:"configured_cadence,omitempty"`     // "daily" | "every:6h" | …
+    LastEvaluatedAt    time.Time `json:"last_evaluated_at,omitempty"`      // most recent ACTUAL eval
+    NextDueAt          time.Time `json:"next_due_at,omitempty"`            // when cadence next elapses
+    IsCarriedForward   bool      `json:"is_carried_forward,omitempty"`
+    PolicyContentHash  string    `json:"policy_content_hash,omitempty"`    // SHA-256(policy + schemas)
 }
 ```
+
+The five v2 fields are deliberately scalars — never maps, slices, or
+interfaces. The reflection test in `internal/core/cloud_test.go`
+walks the type graph and fails the build if a freeform-shape field
+is added. Adding a sixth field follows the same rules as adding any
+other (see §How to extend the type below).
 
 ### What this type physically cannot express
 
@@ -125,8 +140,8 @@ If a maintainer believes a new field is needed, they must:
 2. Demonstrate that the field cannot carry a resource identifier in
    any deployment.
 3. Get review from ≥ 2 maintainers including the security owner.
-4. Bump the schema version (`sigcomply.cloud.v2`) so existing
-   deployments are aware of the change.
+4. Bump the schema version (next would be `sigcomply.cloud.v3`) so
+   existing deployments are aware of the change.
 
 This is friction, by design. Every loosening of the contract erodes
 the non-custodial promise.
@@ -142,7 +157,7 @@ func Build(plan *planner.RunPlan, results []evaluator.PolicyResult,
            summary *vault.RunSummary, env cli.Environment) cloud.SubmissionPayload {
 
     out := cloud.SubmissionPayload{
-        Schema:      "sigcomply.cloud.v1",
+        Schema:      "sigcomply.cloud.v2",
         RunID:       plan.RunID,
         Framework:   plan.Framework,
         PeriodID:    plan.PeriodID,
@@ -480,7 +495,7 @@ makes that drift visible.
 
 ## Versioning the contract
 
-`Schema: "sigcomply.cloud.v1"` is stamped into every payload. The
+`Schema: "sigcomply.cloud.v2"` is stamped into every payload. The
 receiver (cloud or self-hosted dashboard) keys behavior off it.
 
 Breaking changes (renames, semantic shifts in existing fields) bump

@@ -57,6 +57,21 @@ func evaluateOne(ctx context.Context, pp *planner.PlannedPolicy, in *Input) core
 		Category:          pp.Spec.Category,
 		EffectiveParams:   pp.Parameters,
 		EvidenceEnvelopes: in.EnvelopesByPolicy[pp.Spec.ID],
+		ConfiguredCadence: pp.Cadence,
+		PolicyContentHash: pp.ContentHash,
+	}
+	// Carry-forward: the planner decided this run does not re-evaluate
+	// the policy. Emit a carry-forward result referencing the prior
+	// evaluation; an auditor can hash-verify the original envelope
+	// from LastEnvelopeRef independently. No rule invocation.
+	if !pp.ShouldEvaluate {
+		result.Status = core.StatusCarriedForward
+		result.CarryForward = buildCarryForwardRef(pp)
+		if result.Diag == nil {
+			result.Diag = map[string]any{}
+		}
+		result.Diag["skip_reason"] = pp.SkipReason
+		return result
 	}
 	// Whole-policy exception: na → skip rule entirely; waived without
 	// a resource scope → mark waived and skip rule.
@@ -170,6 +185,28 @@ func applyResourceException(result *core.PolicyResult, exc *planner.Exception) {
 	if result.ResourcesFailed >= waived {
 		result.ResourcesFailed -= waived
 	}
+}
+
+// buildCarryForwardRef captures the prior evaluation pointers a
+// carry-forward result needs. PriorState may be nil when this is the
+// first plan after introducing a new policy whose cadence has not
+// yet elapsed (rare — first runs are always ShouldEvaluate=true) or
+// for tests that don't load state; the returned ref handles both
+// cases gracefully.
+func buildCarryForwardRef(pp *planner.PlannedPolicy) *core.CarryForwardRef {
+	ref := &core.CarryForwardRef{SkipReason: pp.SkipReason}
+	if pp.PriorState == nil {
+		return ref
+	}
+	ref.LastEvaluatedAt = pp.PriorState.LastRunAt
+	ref.LastEnvelopeRef = pp.PriorState.LastEnvelopeRef
+	ref.LastKnownStatus = pp.PriorState.LastRunStatus
+	// LastEvaluatedRun is the run-relative root that the envelope ref
+	// is relative to. Currently the envelope ref stored in state is
+	// already a full vault path; LastEvaluatedRun stays empty until a
+	// future refactor splits the two. The auditor flow only needs
+	// LastEnvelopeRef to verify.
+	return ref
 }
 
 func matchesScope(resourceID string, exc *planner.Exception) bool {

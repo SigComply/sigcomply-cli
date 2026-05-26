@@ -3,6 +3,8 @@ package spec
 import (
 	"bytes"
 	"fmt"
+	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -186,8 +188,8 @@ func validatePolicyEnums(raw *policySpecRaw) error {
 	if !isValidSeverity(raw.Severity) {
 		return fmt.Errorf("policy spec %q: invalid severity %q (want info|low|medium|high|critical)", raw.ID, raw.Severity)
 	}
-	if !isValidCadence(raw.Cadence) {
-		return fmt.Errorf("policy spec %q: invalid cadence %q (want continuous|hourly|daily|weekly|monthly|quarterly|annual)", raw.ID, raw.Cadence)
+	if err := validateCadenceSpec(raw.Cadence); err != nil {
+		return fmt.Errorf("policy spec %q: %w", raw.ID, err)
 	}
 	return nil
 }
@@ -238,9 +240,53 @@ var validCadences = map[string]struct{}{
 	"annual":     {},
 }
 
-func isValidCadence(c string) bool {
+// everyCadencePrefix duplicates planner.everyCadencePrefix to avoid
+// an import cycle (spec → planner). Kept in sync by tests.
+const everyCadencePrefix = "every:"
+
+// minEveryDuration mirrors planner.minEveryDuration; see the comment
+// there for the rationale.
+const minEveryDuration = 5 * time.Minute
+
+// isNamedCadence reports whether c is one of the seven canonical
+// named cadences. Power users may also write `every:<duration>`
+// (validated separately).
+func isNamedCadence(c string) bool {
 	_, ok := validCadences[c]
 	return ok
+}
+
+// validateCadenceSpec accepts either a named cadence (continuous,
+// hourly, daily, weekly, monthly, quarterly, annual) or the
+// `every:<duration>` form. Duration uses Go's time.ParseDuration
+// grammar; values below minEveryDuration are rejected.
+func validateCadenceSpec(c string) error {
+	if isNamedCadence(c) {
+		return nil
+	}
+	if strings.HasPrefix(c, everyCadencePrefix) {
+		raw := strings.TrimPrefix(c, everyCadencePrefix)
+		if raw == "" {
+			return fmt.Errorf("cadence %q: missing duration after %q", c, everyCadencePrefix)
+		}
+		d, err := time.ParseDuration(raw)
+		if err != nil {
+			return fmt.Errorf("cadence %q: invalid duration: %w", c, err)
+		}
+		if d <= 0 {
+			return fmt.Errorf("cadence %q: duration must be positive", c)
+		}
+		if d < minEveryDuration {
+			return fmt.Errorf("cadence %q: duration %s is below floor %s", c, d, minEveryDuration)
+		}
+		return nil
+	}
+	// Best-effort lint hint: a plain duration like "24h" is a common
+	// mistake — the user wanted "every:24h" but forgot the prefix.
+	if _, err := time.ParseDuration(c); err == nil {
+		return fmt.Errorf("invalid cadence %q (did you mean %q? prefix duration cadences with %q)", c, everyCadencePrefix+c, everyCadencePrefix)
+	}
+	return fmt.Errorf("invalid cadence %q (want continuous|hourly|daily|weekly|monthly|quarterly|annual or every:<duration>)", c)
 }
 
 func isValidCardinality(c core.SlotCardinality) bool {

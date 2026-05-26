@@ -14,22 +14,60 @@ import (
 // CommitTime is the basis for period derivation; pass commit time
 // when time_basis == "commit" (the default) and wall-clock when
 // the project opts into wall_clock.
+//
+// PolicyStates is keyed by policy_id and provides the per-policy
+// scheduling state read from the vault. A nil map disables cadence
+// gating: every policy in the framework will have ShouldEvaluate
+// set to true. A non-nil map enables gating: each policy's
+// ShouldEvaluate decision composes its cadence, prior status,
+// content-hash, and the operator's filter.
+//
+// SchemaDigests maps evidence-type IDs to their JSON Schema digests
+// at plan time. Used by PolicyContentHash so a schema bump
+// invalidates prior evaluations of every policy referencing the
+// bumped schema. Pass nil to disable schema-hash discrimination
+// (the policy-spec content still contributes to the hash).
 type Input struct {
-	Config     *spec.ProjectConfig
-	Registries *registry.Set
-	CommitTime time.Time
-	Now        time.Time
-	Filter     Filter
+	Config        *spec.ProjectConfig
+	Registries    *registry.Set
+	CommitTime    time.Time
+	Now           time.Time
+	Filter        Filter
+	PolicyStates  map[string]*core.PolicyState
+	SchemaDigests map[string]string
 }
 
-// Filter narrows the set of policies the plan covers. The four
+// Filter narrows the set of policies the plan covers. The five
 // fields are mutually exclusive — passing more than one yields an
 // error. Filter{} means "every policy in the framework."
+//
+// Cadences is the canonical "fire when these cadences are due" filter
+// — set-intersection against core.PolicyCadences(policy). It is the
+// shape the orchestrator's PR and Scheduled modes use. Cadence and
+// OnPush remain as legacy single-axis shortcuts; they translate to
+// single-element Cadences sets internally.
+//
+// When any field is set, all matching policies receive
+// ShouldEvaluate=true regardless of cadence state. The filter is the
+// operator's explicit override — "I want these to run now" — and
+// trumps the planner's cadence-elapsed gate.
 type Filter struct {
 	Policies []string
 	Controls []string
 	Cadence  string
 	OnPush   bool
+	Cadences []string
+}
+
+// IsExplicit returns true when at least one filter axis is set. An
+// explicit filter forces ShouldEvaluate=true for every matching
+// policy — the user said "run these now."
+func (f *Filter) IsExplicit() bool {
+	return len(f.Policies) > 0 ||
+		len(f.Controls) > 0 ||
+		f.Cadence != "" ||
+		f.OnPush ||
+		len(f.Cadences) > 0
 }
 
 // Plan computes the run plan. Errors surface back to the orchestrator
@@ -71,8 +109,11 @@ func validateFilter(f *Filter) error {
 	if f.OnPush {
 		count++
 	}
+	if len(f.Cadences) > 0 {
+		count++
+	}
 	if count > 1 {
-		return fmt.Errorf("planner: --policies, --controls, --cadence, --on-push are mutually exclusive (set %d of them)", count)
+		return fmt.Errorf("planner: --policies, --controls, --cadence, --on-push, --cadences are mutually exclusive (set %d of them)", count)
 	}
 	return nil
 }
@@ -108,13 +149,59 @@ func planOne(policy *core.Policy, in *Input) (PlannedPolicy, error) {
 	}
 	exception := resolveException(policy.ID, in.Config.Exceptions, in.Now)
 	cadence := resolveCadence(policy.ID, policy.Cadence, in.Config.PolicyCadences)
+
+	contentHash := core.PolicyContentHash(policy, in.SchemaDigests)
+	priorState := lookupState(in.PolicyStates, policy.ID)
+	shouldEvaluate, skipReason := decideEvaluation(&in.Filter, cadence, contentHash, priorState, in.Now)
+
 	return PlannedPolicy{
-		Spec:       *policy,
-		Cadence:    cadence,
-		Parameters: params,
-		Bindings:   bindings,
-		Exception:  exception,
+		Spec:           *policy,
+		Cadence:        cadence,
+		Parameters:     params,
+		Bindings:       bindings,
+		Exception:      exception,
+		ShouldEvaluate: shouldEvaluate,
+		SkipReason:     skipReason,
+		PriorState:     priorState,
+		ContentHash:    contentHash,
 	}, nil
+}
+
+// decideEvaluation is the per-policy gate. Returns (ShouldEvaluate,
+// SkipReason). The decision is layered:
+//
+//  1. Explicit operator filter (--policies, --cadences, --on-push)
+//     → forced evaluation; cadence gating is bypassed entirely.
+//  2. PolicyStates absent (nil map) → no gating; evaluate.
+//  3. Content-hash mismatch → bundle update or schema bump invalidated
+//     prior evaluation; evaluate.
+//  4. Cadence elapsed via planner.IsDue (which also handles
+//     on_fail_retry and first-run) → evaluate.
+//  5. Otherwise → carry forward; SkipReason explains why.
+func decideEvaluation(filter *Filter, cadence, contentHash string, prior *core.PolicyState, now time.Time) (shouldEvaluate bool, skipReason string) {
+	if filter.IsExplicit() {
+		return true, ""
+	}
+	if prior == nil {
+		return true, ""
+	}
+	if contentHash != "" && prior.LastPolicyHash != "" && contentHash != prior.LastPolicyHash {
+		return true, "policy bundle or referenced schema changed since last evaluation; content_hash mismatch"
+	}
+	if IsDue(cadence, prior, now) {
+		return true, ""
+	}
+	return false, DueReason(cadence, prior, now)
+}
+
+func lookupState(states map[string]*core.PolicyState, policyID string) *core.PolicyState {
+	if states == nil {
+		return nil
+	}
+	if ps, ok := states[policyID]; ok {
+		return ps
+	}
+	return nil
 }
 
 func filterAccepts(policy *core.Policy, f *Filter, cadenceOverrides map[string]string) bool {
@@ -124,6 +211,9 @@ func filterAccepts(policy *core.Policy, f *Filter, cadenceOverrides map[string]s
 	if len(f.Controls) > 0 {
 		return containsString(f.Controls, policy.Control)
 	}
+	if len(f.Cadences) > 0 {
+		return policyMatchesCadences(policy, f.Cadences, cadenceOverrides)
+	}
 	if f.Cadence != "" {
 		effective := resolveCadence(policy.ID, policy.Cadence, cadenceOverrides)
 		return effective == f.Cadence
@@ -132,6 +222,26 @@ func filterAccepts(policy *core.Policy, f *Filter, cadenceOverrides map[string]s
 		return policy.OnPush
 	}
 	return true
+}
+
+// policyMatchesCadences returns true if the policy's effective cadence
+// set (its overridden Cadence plus CadenceOnPush when OnPush) shares
+// at least one element with filterCadences.
+func policyMatchesCadences(policy *core.Policy, filterCadences []string, cadenceOverrides map[string]string) bool {
+	effective := resolveCadence(policy.ID, policy.Cadence, cadenceOverrides)
+	wanted := make(map[string]struct{}, len(filterCadences))
+	for _, c := range filterCadences {
+		wanted[c] = struct{}{}
+	}
+	if _, ok := wanted[effective]; ok {
+		return true
+	}
+	if policy.OnPush {
+		if _, ok := wanted[core.CadenceOnPush]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func containsString(list []string, target string) bool {

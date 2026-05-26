@@ -233,7 +233,10 @@ func mfaEnforcedRule() core.Rule {
 }
 
 // manualPresenceRule is a Rego rule: passes iff the signed_document
-// payload has file_present == true and in_temporal_window == true.
+// payload reports file_present, in_temporal_window, and file_valid all
+// true. file_valid is set by the manual.pdf plugin from cheap sanity
+// checks (size + PDF magic bytes); validation_failures in the payload
+// names the specific check that failed.
 func manualPresenceRule() core.Rule {
 	const module = `
 package rules.soc2.manual_presence.v1
@@ -243,9 +246,10 @@ result := {"status": "pass", "violations": []} if {
 	rec := input.slots.review_document[0]
 	rec.payload.file_present == true
 	rec.payload.in_temporal_window == true
+	rec.payload.file_valid == true
 } else := {"status": "fail", "violations": [{
 	"resource_id": input.slots.review_document[0].id,
-	"reason": "manual evidence missing or outside temporal window — see expected_uri in vault"
+	"reason": "manual evidence missing, invalid, or outside temporal window — see expected_uri and validation_failures in vault"
 }]}
 `
 	r, err := evaluator.NewRegoRule(ruleIDManualPresence, module, "data.rules.soc2.manual_presence.v1.result")

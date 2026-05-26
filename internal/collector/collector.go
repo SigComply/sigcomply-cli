@@ -50,6 +50,11 @@ type Input struct {
 	SlotParamsExtras map[string]any
 	// Now is the run's reference time for envelope ProducedAt.
 	Now time.Time
+	// RetryPolicy controls per-slot retry behavior. Zero value (or
+	// MaxAttempts <= 1) is the legacy no-retry behavior. The
+	// orchestrator selects a mode-appropriate policy (PR=generous,
+	// Scheduled=fast-fail, Manual=none) and threads it through here.
+	RetryPolicy RetryPolicy
 }
 
 // Output is what L5 (evaluator) consumes.
@@ -85,6 +90,14 @@ func Collect(ctx context.Context, in *Input) (*Output, error) {
 	}
 	for i := range in.Plan.Policies {
 		pp := &in.Plan.Policies[i]
+		if !pp.ShouldEvaluate {
+			// Carry-forward: the planner decided this policy's prior
+			// evaluation is still valid for this period. No fresh
+			// evidence is collected and no envelope is written; the
+			// evaluator emits a carry-forward result referencing the
+			// prior envelope. See docs/architecture/11-cadence-model.md.
+			continue
+		}
 		if pp.Exception != nil && pp.Exception.ResourceID == "" && pp.Exception.ResourcePattern == "" {
 			// Whole-policy exception — no need to collect.
 			continue
@@ -127,8 +140,12 @@ func collectBinding(ctx context.Context, pp *planner.PlannedPolicy, slotName str
 		return nil, fmt.Errorf("collector: source %q not registered for policy %q", b.SourceID, pp.Spec.ID)
 	}
 	req := buildSlotRequest(pp, slotName, b, in.SlotParamsExtras)
-	records, err := plugin.Collect(ctx, req)
-	if err != nil {
+	var records []core.EvidenceRecord
+	if err := withRetry(ctx, in.RetryPolicy, func() error {
+		var inner error
+		records, inner = plugin.Collect(ctx, req)
+		return inner
+	}); err != nil {
 		return nil, fmt.Errorf("collector: policy %q slot %q source %q: %w", pp.Spec.ID, slotName, b.SourceID, err)
 	}
 	if err := validateRecords(in.EvidenceTypes, records); err != nil {

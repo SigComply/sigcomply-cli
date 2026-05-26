@@ -71,6 +71,20 @@ requires going back to the drawing board.
    discarded immediately. An auditor with a single envelope file and the
    public key embedded in it can verify the file offline, with no access
    to the CLI, the cloud, or any other piece of state.
+
+   **What this guarantees, and what it doesn't.** Embedded-public-key
+   signing detects accidental drift and unilateral PDF swaps (the
+   manifest's `file_hash` won't match new bytes). It does **not**
+   detect a customer with vault write access who regenerates envelope
+   + PDF together with a fresh ephemeral keypair — that re-signing
+   is cryptographically indistinguishable from original collection.
+   True tamper-resistance against deliberate re-signing requires
+   write-once / versioned object storage at the bucket layer (S3
+   Object Lock in compliance mode, GCS Bucket Lock with retention,
+   Azure Blob immutable storage). This is a customer-side setup
+   responsibility; the CLI does not configure it. See
+   [`SECURITY.md`](SECURITY.md) §Threat Model and CLAUDE.md Invariant
+   #3 for the precise wording to use in customer-facing docs.
 5. **Evidence type ≠ source plugin.** A policy depends on an evidence
    *shape* (`user_record`, `firewall_rule`). Many source plugins can
    produce the same shape. Policies never reach behind the type to ask
@@ -166,6 +180,7 @@ definitions in [`01-conceptual-model.md`](docs/architecture/01-conceptual-model.
 | [`08-project-config.md`](docs/architecture/08-project-config.md) | Full `.sigcomply.yaml` schema reference. |
 | [`09-implementation-roadmap.md`](docs/architecture/09-implementation-roadmap.md) | Order of work, milestones, what ships when. |
 | [`10-ci-execution-model.md`](docs/architecture/10-ci-execution-model.md) | How the CLI fits into a CI pipeline; cadence-driven workflow scheduling; `sigcomply init-ci` scaffolding; how statelessness survives variable run frequencies. |
+| [`11-cadence-model.md`](docs/architecture/11-cadence-model.md) | The two-axis cadence model (per-policy gating vs per-run period freeze); per-policy state shards; the `every:<duration>` DSL; carry-forward result format; day-1 warnings; Cloud payload v2 fields. The canonical reference for "should this policy re-evaluate now?" |
 | [`examples/acmecorp-walkthrough.md`](docs/architecture/examples/acmecorp-walkthrough.md) | End-to-end worked example: AcmeCorp pursuing SOC 2 with AWS + Okta + manual evidence. Reads alongside [`examples/acmecorp.sigcomply.yaml`](docs/architecture/examples/acmecorp.sigcomply.yaml). |
 
 ---

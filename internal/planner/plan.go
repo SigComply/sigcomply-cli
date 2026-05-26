@@ -9,6 +9,10 @@ import (
 // RunPlan is the fully-resolved output of L3. The collector and
 // evaluator iterate it; no further config lookups are needed at run
 // time.
+//
+// PlannedPolicy entries with ShouldEvaluate=false are present in the
+// plan so the orchestrator can emit a carry-forward result for each,
+// but the collector and evaluator skip them.
 type RunPlan struct {
 	Framework string
 	Period    Period
@@ -18,8 +22,15 @@ type RunPlan struct {
 // Period is the audit window this run belongs to. Computed from
 // (commit_time, fiscal_calendar) — see docs/architecture/01-
 // conceptual-model.md §Period.
+//
+// PriorID is the ID of the immediately preceding period under the same
+// calendar (e.g. 2026-Q2 → 2026-Q1, FY2026 → FY2025). Empty when no
+// prior period exists in the configured custom calendar. Plugins use
+// it to compare against the prior period's evidence — currently the
+// manual.pdf plugin reads it to detect copy-paste of last period's PDF.
 type Period struct {
 	ID        string
+	PriorID   string
 	Start     time.Time
 	End       time.Time
 	TimeBasis string // "commit" or "wall_clock"
@@ -28,12 +39,33 @@ type Period struct {
 // PlannedPolicy is one policy with everything needed to execute it
 // already resolved. Parameters and exceptions are flattened to their
 // effective values so the evaluator never goes back to the config.
+//
+// ShouldEvaluate is the per-policy gate decided by the planner from
+// the policy's cadence, its on_fail_retry state, the content-hash of
+// the current policy bundle vs the prior run, and the operator's
+// filter overrides. When false, the orchestrator emits a carry-
+// forward result.json that references PriorState.LastEnvelopeRef.
+//
+// PriorState is the previously-persisted state for this policy, or
+// nil for never-evaluated policies. The orchestrator uses it for
+// carry-forward emission and for the run-summary's freshness view.
+//
+// ContentHash is the SHA-256 of the canonicalized policy spec + its
+// referenced evidence-type schemas at plan time. Compared against
+// PriorState.LastPolicyHash to detect bundle updates that
+// invalidate prior evaluations.
 type PlannedPolicy struct {
 	Spec       core.Policy
 	Cadence    string
 	Parameters map[string]any
 	Bindings   map[string][]Binding
 	Exception  *Exception // nil unless one applies
+
+	ShouldEvaluate bool
+	SkipReason     string // empty when ShouldEvaluate is true
+
+	PriorState  *core.PolicyState
+	ContentHash string
 }
 
 // Binding is one resolved (source instance, optional slot params)

@@ -19,6 +19,30 @@ type Policy struct {
 	Tags        []string
 }
 
+// CadenceOnPush is the virtual cadence value representing the on_push
+// axis. A policy's effective cadences are its declared Cadence value
+// plus this constant if its OnPush field is true. The planner treats
+// "fires on every push" and "fires on a schedule" as members of the
+// same set, so a single set-intersection filter (Filter.Cadences)
+// handles both axes uniformly.
+const CadenceOnPush = "on_push"
+
+// PolicyCadences returns the policy's effective cadence set: its
+// declared Cadence value plus CadenceOnPush if OnPush is true. Used
+// by the planner for set-intersection filtering against
+// Filter.Cadences and by orchestrator.DueCadences for scheduled-mode
+// dispatch. Returns at most two entries.
+func PolicyCadences(p *Policy) []string {
+	out := make([]string, 0, 2)
+	if p.Cadence != "" {
+		out = append(out, p.Cadence)
+	}
+	if p.OnPush {
+		out = append(out, CadenceOnPush)
+	}
+	return out
+}
+
 // Slot is a named typed input on a policy — the interface between the
 // policy and the source plugins that fulfill it.
 //

@@ -35,6 +35,9 @@ type checkFlags struct {
 	capturePayloadPath string
 	cadence            string
 	onPush             bool
+	cadences           []string
+	pr                 bool
+	scheduled          bool
 }
 
 func newCheckCmd() *cobra.Command {
@@ -59,8 +62,11 @@ func newCheckCmd() *cobra.Command {
 	cmd.Flags().StringVar(&flags.cloudURL, "cloud-url", "", "Cloud base URL override (defaults to .sigcomply.yaml cloud.base_url)")
 	cmd.Flags().StringVar(&flags.capturePayloadPath, "capture-cloud-payload", "", "Write the cloud SubmissionPayload to this file instead of POSTing it (auditor escape hatch)")
 	cmd.Flags().StringVar(&flags.cadence, "cadence", "", "Only evaluate policies whose effective cadence matches (continuous|hourly|daily|weekly|monthly|quarterly|annual)")
-	cmd.Flags().BoolVar(&flags.onPush, "on-push", false, "Only evaluate policies whose on_push attribute is true (mutually exclusive with --cadence)")
-	cmd.MarkFlagsMutuallyExclusive("cadence", "on-push")
+	cmd.Flags().BoolVar(&flags.onPush, "on-push", false, "Only evaluate policies whose on_push attribute is true")
+	cmd.Flags().StringSliceVar(&flags.cadences, "cadences", nil, "Comma-separated cadence set (intersect: a policy matches if any of its effective cadences is in this set; 'on_push' is the virtual cadence value for the on_push axis)")
+	cmd.Flags().BoolVar(&flags.pr, "pr", false, "PR-mode run: filter to on_push policies and use a generous slot retry budget (~8 min/slot)")
+	cmd.Flags().BoolVar(&flags.scheduled, "scheduled", false, "Scheduled-mode run: consult the per-framework execution-state, run whichever cadences are due, advance the state on success")
+	cmd.MarkFlagsMutuallyExclusive("cadence", "on-push", "cadences", "pr", "scheduled")
 	return cmd
 }
 
@@ -103,6 +109,13 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 	}
 
 	commitSHA, commitTime := gitContext(ctx, logger)
+	mode := orchestrator.ModeManual
+	switch {
+	case flags.pr:
+		mode = orchestrator.ModePR
+	case flags.scheduled:
+		mode = orchestrator.ModeScheduled
+	}
 	res, err := orchestrator.Run(ctx, &orchestrator.Options{
 		Config:             cfg,
 		Registries:         registries,
@@ -116,9 +129,11 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 		ForceCloud:         flags.cloudOn,
 		DisableCloud:       flags.cloudOff,
 		CapturePayloadPath: flags.capturePayloadPath,
+		Mode:               mode,
 		Filter: planner.Filter{
-			Cadence: flags.cadence,
-			OnPush:  flags.onPush,
+			Cadence:  flags.cadence,
+			OnPush:   flags.onPush,
+			Cadences: flags.cadences,
 		},
 		SubmitterOpts: submitter.Options{
 			BaseURL:    cloudBase,

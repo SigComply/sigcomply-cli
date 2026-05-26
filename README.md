@@ -30,6 +30,15 @@ Auto-detects collectors based on available credentials (`AWS_*`,
 writes signed `EvidenceEnvelope` files to your storage backend, and (in
 CI with OIDC) submits aggregated results to the SigComply Cloud API.
 
+## Project model
+
+**One project = one source-control repository = one compliance framework.**
+A project is the GitHub or GitLab repo you run `sigcomply` in. Its
+`.sigcomply.yaml` selects exactly one framework (`framework: soc2`).
+Customers pursuing multiple frameworks (e.g. SOC 2 + ISO 27001) use
+multiple repos — one per framework — each with its own config, CI
+workflow, and evidence vault.
+
 ## Manual evidence
 
 For evidence that isn't an API call (declarations, training certificates,

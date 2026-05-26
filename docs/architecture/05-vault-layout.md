@@ -12,14 +12,35 @@ readable by an auditor in 2031.
 
 ```
 {vault_root}/
-   manifest.json                      # vault-level metadata
-   {framework}/                       # one per framework run against this vault
-      {period_id}/                    # e.g. 2026-Q1
-         run_{timestamp}_{run_id8}/   # immutable per-run folder
-            ...                       # see §Per-run folder
-         .closed                      # optional marker: period closed by auditor
+   manifest.json                                 # vault-level metadata
+   {framework}/                                  # one per framework run against this vault
+      {period_id}/                               # e.g. 2026-Q1
+         run_{timestamp}_{run_id8}/              # immutable per-run folder
+            ...                                  # see §Per-run folder
+         summary.json                            # rebuilt every run in this period
+         .closed                                 # optional marker: period closed by auditor
       ...
+   state/                                        # mutable, NOT under Object Lock
+      {framework}/
+         policies/
+            {policy_id}.json                     # one per-policy state shard
 ```
+
+The `state/` subtree is structurally separate from `evidence/` for
+exactly one reason: state shards are **mutable by design** (they
+update every run), while signed evidence under `{framework}/` should
+live under retention-and-Object-Lock so auditors can trust that
+historic envelopes have not been re-signed.
+
+**Loss of `state/` is recoverable.** The next run treats every
+policy as first-run and re-evaluates, surfacing a loud
+"first-run: N policies will evaluate for the first time" warning.
+Evidence integrity is unaffected. The signing scheme does not
+depend on state.
+
+See [`11-cadence-model.md`](11-cadence-model.md) §Per-policy state
+shards for the shard schema, the monotonic write rule, and the
+recovery story.
 
 - **vault_root** is the location configured in `.sigcomply.yaml`
   (`s3://acme-evidence/sigcomply/`, `/var/sigcomply/vault/`,

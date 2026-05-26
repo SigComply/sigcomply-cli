@@ -94,7 +94,8 @@ func makePolicy(id, slot, evType string, sourceIDs ...string) planner.PlannedPol
 			ID:    id,
 			Slots: map[string]core.Slot{slot: {Accepts: []string{evType}, Cardinality: core.SlotOneOrMore, Required: true}},
 		},
-		Bindings: map[string][]planner.Binding{slot: bindings},
+		Bindings:       map[string][]planner.Binding{slot: bindings},
+		ShouldEvaluate: true,
 	}
 }
 
@@ -249,6 +250,7 @@ func TestCollect_PassesSlotParamsAndExtras(t *testing.T) {
 		Bindings: map[string][]planner.Binding{
 			"doc": {{SourceID: "manual.pdf", AcceptedTypes: []string{"signed_document"}, CatalogID: "access_review_quarterly", SlotParams: map[string]any{"custom": 42}}},
 		},
+		ShouldEvaluate: true,
 	}
 	_, err := Collect(context.Background(), &Input{
 		Plan:             &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},

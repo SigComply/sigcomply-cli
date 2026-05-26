@@ -87,6 +87,13 @@ type RunSummary struct {
 // boundary. Counts only — no violation lists, no resource IDs. The
 // Message string is regenerated from counts by the aggregator, never
 // copied from the rule's violation text.
+//
+// Cadence-related fields (ConfiguredCadence, LastEvaluatedAt,
+// NextDueAt, IsCarriedForward, PolicyContentHash) are non-identifying
+// scalars: they describe schedule/staleness, not who or what. The
+// dashboard uses them to render staleness badges and "next due in N"
+// without recomputing locally. The reflection test in cloud_test.go
+// ensures no identity-carrying field can be added accidentally.
 type AggregatedPolicy struct {
 	PolicyID           string       `json:"policy_id"`
 	ControlID          string       `json:"control_id"`
@@ -97,4 +104,30 @@ type AggregatedPolicy struct {
 	ResourcesFailed    int          `json:"resources_failed"`
 	Message            string       `json:"message"`
 	RuleVersion        string       `json:"rule_version,omitempty"`
+
+	// ConfiguredCadence is the cadence string in effect at this run
+	// (e.g., "daily", "every:6h"). Non-identifying.
+	ConfiguredCadence string `json:"configured_cadence,omitempty"`
+
+	// LastEvaluatedAt is the start time of the most recent run that
+	// actually evaluated this policy. For freshly-evaluated rows it
+	// equals StartedAt; for carry-forward rows it points to the
+	// earlier run. Non-identifying.
+	LastEvaluatedAt time.Time `json:"last_evaluated_at,omitempty"`
+
+	// NextDueAt is the wall-clock time after which the policy is due
+	// to be re-evaluated. Zero when the policy is always due (cadence
+	// "continuous" / "every:0s") or when the most recent terminal
+	// status was not pass (on_fail_retry → due on next run).
+	NextDueAt time.Time `json:"next_due_at,omitempty"`
+
+	// IsCarriedForward is true when this row references a prior
+	// evaluation rather than a fresh one in this run.
+	IsCarriedForward bool `json:"is_carried_forward,omitempty"`
+
+	// PolicyContentHash is the SHA-256 hash of the policy spec +
+	// referenced evidence-type schemas at this run. The cloud uses
+	// it to detect a bundle bump that may invalidate prior
+	// evaluations.
+	PolicyContentHash string `json:"policy_content_hash,omitempty"`
 }

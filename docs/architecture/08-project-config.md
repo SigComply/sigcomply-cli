@@ -289,33 +289,40 @@ auditors see the exact thresholds.
 
 Per-policy cadence overrides. Each framework spec declares a default
 cadence for every policy (e.g. `mfa_enforced: daily`,
-`access_review: quarterly`). Cadence is one of `continuous`, `hourly`,
-`daily`, `weekly`, `monthly`, `quarterly`, `annual`. This section lets a
+`access_review: quarterly`). Allowed values: one of the seven named
+cadences (`continuous`, `hourly`, `daily`, `weekly`, `monthly`,
+`quarterly`, `annual`) or a custom interval `every:<duration>`
+(`every:6h`, `every:90m`, floor 5 minutes). This section lets a
 project tighten (or loosen) those defaults per policy.
 
 ```yaml
 policy_cadences:
-  soc2.cc6.1.mfa_enforced: hourly         # stricter than framework default
+  soc2.cc6.1.mfa_enforced_admin: every:6h     # tighter than framework default
   soc2.cc6.1.access_review: monthly
   soc2.cc1.4.security_training_annual: annual
 ```
 
-**The CLI does not enforce cadence.** It does not look at prior runs,
-it does not maintain a schedule, and it does not refuse to run a
-quarterly policy more often than once a quarter. Cadence is purely a
-**filter input**: when invoked with `--cadence <value>`, the CLI runs
-only the policies whose effective cadence (after applying this map's
-overrides) matches the flag. When invoked without `--cadence`, the
-filter is inactive and the policy set is determined by `--policies` /
-`--controls` (or, absent those, all policies in the framework).
+Overrides are exact-match by policy ID. Unknown IDs are caught at
+plan time. `every:24h` is NOT equivalent to `daily` — the named
+cadence has 1h cron-drift slack baked in; `every:24h` is exactly 24h
+since the last pass and drifts time-of-day across runs.
 
-Making cadence operational is the **CI scheduler's** job. The customer
-runs `sigcomply check --cadence hourly` on an hourly schedule, `--cadence
-daily` on a daily schedule, and so on. See
-[`10-ci-execution-model.md`](10-ci-execution-model.md) for the full
-orchestration model.
+**The CLI enforces cadence in scheduled mode.** When invoked with
+`sigcomply check --scheduled`, the CLI reads per-policy state
+shards from the vault at `state/{framework}/policies/
+{policy_id}.json` and decides per-policy whether to re-evaluate or
+emit a carry-forward result that references the prior signed
+envelope. PR mode (`--pr`) and manual mode evaluate every in-scope
+policy without cadence gating.
 
-Effective cadences (after overrides) are stamped into `manifest.json`.
+The decision rule is layered: operator filter > content-hash >
+on_fail_retry > cadence-elapsed. See
+[`11-cadence-model.md`](11-cadence-model.md) §The decision rule for
+the full algorithm.
+
+Effective cadences (after overrides) are stamped into the per-policy
+state shard's `ConfiguredCadence` field and into each run's
+`PolicyResult`.
 
 ### `exceptions`
 

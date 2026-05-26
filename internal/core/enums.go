@@ -19,13 +19,17 @@ type PolicyStatus string
 
 // PolicyStatus values. `pass`/`fail` are the rule outcomes; `skip` /
 // `error` / `na` / `waived` are evaluator/exception-driven states.
+// `carried_forward` indicates the policy was NOT evaluated in this
+// run — the result references a prior signed envelope. See
+// docs/architecture/11-cadence-model.md §Carry-forward.
 const (
-	StatusPass   PolicyStatus = "pass"
-	StatusFail   PolicyStatus = "fail"
-	StatusSkip   PolicyStatus = "skip"
-	StatusError  PolicyStatus = "error"
-	StatusNA     PolicyStatus = "na"
-	StatusWaived PolicyStatus = "waived"
+	StatusPass           PolicyStatus = "pass"
+	StatusFail           PolicyStatus = "fail"
+	StatusSkip           PolicyStatus = "skip"
+	StatusError          PolicyStatus = "error"
+	StatusNA             PolicyStatus = "na"
+	StatusWaived         PolicyStatus = "waived"
+	StatusCarriedForward PolicyStatus = "carried_forward"
 )
 
 // SlotCardinality declares how many sources a slot may bind.

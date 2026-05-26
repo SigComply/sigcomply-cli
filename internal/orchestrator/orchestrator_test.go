@@ -225,7 +225,15 @@ func setupManualFixture(t *testing.T, manualDir string) {
 		t.Fatalf("mkdir manual: %v", err)
 	}
 	pdfPath := filepath.Join(manualDir, "manual", "access_review_quarterly", "2026-Q1", "evidence.pdf")
-	if err := os.WriteFile(pdfPath, []byte("%PDF-1.7 fake bytes\n"), 0o600); err != nil {
+	// Padded past the manual.pdf plugin's minPDFBytes sanity threshold,
+	// carries the %PDF- magic prefix, and contains a /Page marker so the
+	// page-presence check passes. Real PDFs are always far larger.
+	fakePDF := bytes.Join([][]byte{
+		[]byte("%PDF-1.7\n"),
+		[]byte("1 0 obj\n<< /Type /Page >>\nendobj\n"),
+		bytes.Repeat([]byte("x"), 200),
+	}, nil)
+	if err := os.WriteFile(pdfPath, fakePDF, 0o600); err != nil {
 		t.Fatalf("write pdf: %v", err)
 	}
 	pdfUploadedAt := time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC)
@@ -602,7 +610,7 @@ func assertCapturedPayloadPrivacy(t *testing.T, capturePath string) {
 	if err := json.Unmarshal(captured, &payload); err != nil {
 		t.Fatalf("unmarshal captured: %v", err)
 	}
-	if payload.Schema != "sigcomply.cloud.v1" {
+	if payload.Schema != "sigcomply.cloud.v2" {
 		t.Errorf("Schema = %q", payload.Schema)
 	}
 	if len(payload.Policies) != 20 {

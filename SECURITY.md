@@ -41,8 +41,71 @@ never leaves the customer environment. Threats that violate this
 boundary — e.g. a bug that causes resource identifiers to land in
 the cloud SubmissionPayload — are treated as critical.
 
-The signing model is about preserving integrity, not preventing fraud.
-A customer running the CLI against fabricated infrastructure can
-produce signed evidence of a fabricated reality; this is out of scope
-for any compliance tool and explicitly called out in auditor-facing
-material.
+### What the signing scheme defends against
+
+The per-file Ed25519 signing detects **accidental and unilateral
+post-run drift**:
+
+- A vault file corrupted by bit rot, a sync tool, or a misbehaving
+  storage backend.
+- A PDF swapped in place in the manual-evidence bucket while the
+  original envelope is left untouched — the envelope's recorded
+  `file_hash` will not match the new bytes.
+- A modification to the per-run `manifest.json` after the run (the
+  manifest is itself signed).
+
+### What the signing scheme does NOT defend against
+
+- **Customer-side fabrication at upload time.** A customer can produce
+  a real-looking PDF whose contents do not reflect reality. The CLI
+  signs what it reads; it cannot verify that what it read was true.
+  This is and remains the auditor's job, and is out of scope for any
+  compliance tool.
+- **Determined re-signing by anyone with vault write access.** The
+  public key lives inside the envelope (`EvidenceEnvelope.Signature.
+  PublicKey`). A party with write access to the vault can generate a
+  new ephemeral Ed25519 keypair, fabricate envelope + PDF + per-run
+  manifest together, and sign all three. The result is cryptographic-
+  ally indistinguishable from an original collection. Defending
+  against this requires immutability at the storage layer, which the
+  CLI does not configure.
+
+### Required customer-side setup for tamper-resistance
+
+For an auditor to trust that an envelope has not been re-signed since
+the run, the storage holding the vault must enforce write-once or
+version-controlled semantics at the object layer. Recommended setup
+per backend:
+
+| Backend | Required setting |
+|---------|-----------------|
+| **AWS S3** | Object Lock in **compliance mode** with a retention period matching audit retention (typically 7 years). Alternatively, bucket versioning + MFA delete + restrictive bucket policy. |
+| **Google Cloud Storage** | Bucket Lock with a retention policy matching audit retention, plus Object Versioning. |
+| **Azure Blob Storage** | Immutable storage with **time-based retention policies** (locked) matching audit retention. |
+| **Local filesystem** | Not suitable for production audit retention. Use only for `sigcomply check` ad-hoc runs and ephemeral CI storage. |
+
+Without one of these settings, the signing scheme still detects
+accidental drift, but cannot defend against deliberate re-signing by
+a party with vault write access. This is a customer responsibility
+and a known limitation by design — the CLI explicitly does not
+attempt to enforce immutability itself, because doing so would
+require credentials the non-custodial model forbids.
+
+### Manual evidence: explicit scope
+
+The manual-evidence flow (`internal/sources/manual/`) performs
+**presence + temporal window + cheap stdlib sanity checks** on each
+uploaded PDF. See [CLAUDE.md §Manual evidence design contract](CLAUDE.md)
+for the precise list of what is and is not checked. In short:
+
+- The plugin verifies the file exists at the expected path within the
+  configured temporal window.
+- The plugin runs byte-level sanity checks (minimum size, `%PDF-`
+  magic bytes, presence of a `/Page` token, and byte-equality with
+  the prior period's file).
+- The plugin does **not** inspect PDF contents, validate signatures
+  inside the PDF, check internal dates, or verify that the document
+  matches the policy's intent.
+
+The auditor reads the PDF. The CLI provides a cryptographically-
+signed timeline of what was uploaded when.

@@ -223,13 +223,14 @@ func TestResolveParameters_UnsupportedType(t *testing.T) {
 }
 
 func TestResolveCadence(t *testing.T) {
-	if c := resolveCadence("p1", "daily", map[string]string{"p1": "hourly"}); c != "hourly" {
+	const cadenceDaily = "daily"
+	if c := resolveCadence("p1", cadenceDaily, map[string]string{"p1": "hourly"}); c != "hourly" {
 		t.Errorf("override not applied: got %q want hourly", c)
 	}
-	if c := resolveCadence("p1", "daily", map[string]string{"p2": "hourly"}); c != "daily" {
-		t.Errorf("default lost: got %q want daily", c)
+	if c := resolveCadence("p1", cadenceDaily, map[string]string{"p2": "hourly"}); c != cadenceDaily {
+		t.Errorf("default lost: got %q want %s", c, cadenceDaily)
 	}
-	if c := resolveCadence("p1", "daily", nil); c != "daily" {
-		t.Errorf("nil overrides: got %q want daily", c)
+	if c := resolveCadence("p1", cadenceDaily, nil); c != cadenceDaily {
+		t.Errorf("nil overrides: got %q want %s", c, cadenceDaily)
 	}
 }

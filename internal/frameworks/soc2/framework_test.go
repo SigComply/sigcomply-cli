@@ -136,7 +136,11 @@ func TestMFAEnforcedRule_DedupesByIdentityKey(t *testing.T) {
 
 func TestManualPresenceRule_PassWhenPresentInWindow(t *testing.T) {
 	rule := manualPresenceRule()
-	payload := mustMarshal(t, map[string]any{"file_present": true, "in_temporal_window": true})
+	payload := mustMarshal(t, map[string]any{
+		"file_present":       true,
+		"in_temporal_window": true,
+		"file_valid":         true,
+	})
 	res, err := rule.Evaluate(context.Background(), core.RuleInput{
 		Slots: map[string][]core.EvidenceRecord{
 			"review_document": {{ID: "access_review_quarterly/2026-Q1", Payload: payload}},
@@ -167,6 +171,27 @@ func TestManualPresenceRule_FailWhenMissing(t *testing.T) {
 	}
 	if len(res.Violations) != 1 {
 		t.Errorf("want 1 violation; got %v", res.Violations)
+	}
+}
+
+func TestManualPresenceRule_FailWhenInvalid(t *testing.T) {
+	rule := manualPresenceRule()
+	payload := mustMarshal(t, map[string]any{
+		"file_present":        true,
+		"in_temporal_window":  true,
+		"file_valid":          false,
+		"validation_failures": []string{"missing_pdf_header (file does not start with %PDF-)"},
+	})
+	res, err := rule.Evaluate(context.Background(), core.RuleInput{
+		Slots: map[string][]core.EvidenceRecord{
+			"review_document": {{ID: "access_review_quarterly/2026-Q1", Payload: payload}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Evaluate: %v", err)
+	}
+	if res.Status != core.StatusFail {
+		t.Errorf("Status = %q; want fail (file is present and in-window but invalid)", res.Status)
 	}
 }
 

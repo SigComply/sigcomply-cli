@@ -134,10 +134,11 @@ rule. The OPA evaluator never branches on anything else.
 - **Automated**: API collector → structured JSON → wrapped in
   `EvidenceEnvelope` → policy reads `input.data.*`.
 - **Manual**: customer-supplied PDF at the catalog-resolved path → CLI
-  hashes bytes → small JSON manifest `{evidence_id, file_hash, file_path,
-  period, framework}` is wrapped in `EvidenceEnvelope`; PDF mirrored as
-  sibling. Policy (v1) checks presence within the temporal window via
-  `data.sigcomply.lib.manual.presence_violation`.
+  hashes bytes, runs cheap sanity checks, optionally compares to the
+  prior period's file → small JSON manifest is wrapped in
+  `EvidenceEnvelope`; PDF mirrored as sibling. Policy (v1) passes iff
+  the manifest's `file_present`, `in_temporal_window`, and `file_valid`
+  are all true.
 
 There are no `checklist` / `declaration` / `document_upload` sub-types in
 the evaluator. The catalog YAML keeps `type`, `items`, `declaration_text`
@@ -145,6 +146,86 @@ as **descriptive hints** — the optional Evidence SPA helper uses them to
 render a clickable form for declaration/checklist entries; the CLI ignores
 them entirely. Externally-sourced PDFs (HR exports, scanned documents,
 third-party reports) are consumed the same way regardless of the hints.
+
+#### Manual evidence design contract — what we do, what we don't
+
+This is a deliberate, load-bearing design choice. Read this whole block
+before changing anything in `internal/sources/manual/` or the
+`manual_presence` Rego rules.
+
+**What the CLI does (v1):**
+
+1. **Path-resolves** the catalog entry to a deterministic upload path
+   under the project's single manual-evidence bucket:
+   `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/{filename}`.
+2. **Fetches** the PDF from that path. Missing file → policy fails
+   with a structured "expected at: <path>" message.
+3. **Hashes** the bytes (SHA-256) and records the upload timestamp.
+4. **Temporal window check**: the upload timestamp must lie in
+   `[period_start, period_end + grace]`. Outside → policy fails.
+5. **Cheap sanity checks** (in `internal/sources/manual/manual.go`
+   `validatePDF`): minimum file size, `%PDF-` magic-bytes prefix,
+   presence of at least one `/Page` object. Failures land in
+   `validation_failures` on the manifest and flip `file_valid` to
+   `false`. Stdlib-only — no PDF parser dependency.
+6. **Prior-period duplication check**: if the planner supplied
+   `prior_period_id` and a file exists at the equivalent prior path,
+   the SHA-256 hashes must differ. A byte-identical match is the
+   signature of copy-pasting last period's file and surfaces as
+   `copy_paste_of_prior_period` in `validation_failures`. Missing
+   prior file is **not** a failure (first run, or no prior period).
+7. **Signs** the manifest (canonical JSON of `{timestamp, evidence}`)
+   with a fresh ephemeral Ed25519 keypair (see Invariant #3).
+
+**What the CLI explicitly does NOT do:**
+
+- **No PDF content audit.** No text extraction. No
+  `signed_by` / `signed_date` parsing. No expiry-date detection. No
+  page-count beyond "is there at least one `/Page` token in the byte
+  stream." This is deliberate — content review is the auditor's job.
+- **No semantic correctness check.** A PDF that satisfies all sanity
+  checks but is the *wrong* document (last quarter's by mistake, an
+  internally-different-dated file, a PDF unrelated to the policy) will
+  pass. The auditor catches this when reading the documents.
+- **No scope/completeness check.** "Access review covers 40 users when
+  production has 120" is the most common SOC 2 audit finding industry-
+  wide and remains undetectable by this design — comparing the
+  document's population to live automated evidence is a future
+  cross-reference feature, not v1.
+- **No signature-inside-PDF detection.** Whether a board minute has
+  attendee signatures, whether an NDA is countersigned, etc., is not
+  inspected.
+- **No fraud detection.** A determined customer who wants to fabricate
+  manual evidence can produce a PDF that satisfies every check above.
+  That is and remains the auditor's job (and identifying such customers
+  is the auditor's livelihood, not the CLI's).
+
+**Why this is the right v1 — and the wrong place to "fix" later
+without thought.**
+
+- The product positions itself as **custody-of-evidence**, not
+  content-validator. Vanta and Drata shipped this exact model for a
+  decade; Secureframe (2025) and Hyperproof (2026) added AI evidence
+  validation only by sending customer PDFs to a cloud LLM — which
+  breaks "evidence without access," our core differentiator.
+- Auditors do not delegate substantive content review to compliance
+  tools. They read the documents. The CLI's value-add over Vanta/Drata
+  is the cryptographically-signed timeline of when each PDF existed at
+  each path — not deeper-than-them content inspection.
+- Any future check that requires reading PDF contents must stay inside
+  the CLI process (never exfiltrated). Anything richer than the v1
+  byte-level checks belongs in a follow-up plugin or a `manual.pdf.v2`,
+  not in shortcuts inside `validatePDF`.
+
+**Catalog-driven "this should change every period" is implicit.**
+The prior-period duplication check fires for every manual catalog
+entry. For genuinely-static evidence (a one-time signed declaration
+that doesn't change between periods), customers use exception
+declarations in `.sigcomply.yaml` rather than disabling the check. We
+have not added a `unique_per_period: bool` catalog field — every
+catalog entry shipped today (only `access_review_quarterly` so far) is
+expected to differ each period. Add the catalog flag only when a real
+catalog entry needs the override.
 
 ### 3. Per-file ephemeral signing + signed run manifest
 
@@ -162,10 +243,45 @@ covers the integrity of the entire run. Per-file signatures still allow
 spot-checking any one envelope offline; the run manifest lets an auditor
 verify the run as a whole.
 
-Threat model: protects against accidental corruption and unintentional
-drift. Does **not** attempt to prevent a determined customer from
-fabricating evidence (that's fraud — out of scope for all compliance
-tools).
+**Threat model — be precise about what this protects against.**
+
+- **Detects** (in scope):
+  - Accidental corruption of an envelope after the run (bit rot, a
+    sync tool truncating a file).
+  - A PDF swapped in place while the original envelope is left
+    intact — the manifest's `file_hash` won't match the new bytes.
+  - Modification of the per-run manifest after the run (it's signed
+    too).
+- **Does NOT detect** (out of scope, by design):
+  - A determined customer with vault write access who regenerates the
+    envelope + PDF together with a fresh ephemeral keypair. The public
+    key lives inside the envelope, so any new keypair produces a
+    cryptographically-valid envelope. This is indistinguishable from
+    original fabrication.
+  - A customer who fabricates evidence at upload time and signs it
+    legitimately during the run. The CLI signs what it reads; it
+    cannot verify reality.
+
+**Customer-side requirement for true tamper-resistance.** For an
+auditor to trust that "this envelope hasn't been re-signed since the
+run," the bucket holding the vault must be **write-once or
+version-controlled at the storage layer**. The CLI does not configure
+this. Recommended customer setup:
+
+- **S3**: Object Lock in compliance mode with a retention period
+  matching audit retention (typically 7 years), or bucket versioning
+  with MFA delete.
+- **GCS**: Object Versioning + retention policies, or Bucket Lock.
+- **Azure Blob**: Immutable storage with time-based retention
+  policies.
+- **Local filesystem**: not suitable for production audit retention —
+  only for `sigcomply check` ad-hoc runs and CI ephemeral storage.
+
+When this customer-side setup is **not** in place, the signing scheme
+still detects accidental drift, but cannot defend against deliberate
+re-signing. Make this explicit in customer-facing docs and in the
+auditor-handoff guide. Do not claim tamper-resistance the design does
+not deliver.
 
 ### 4. Source-agnostic policies via evidence-type contracts
 
@@ -200,6 +316,51 @@ Full design: [`docs/architecture/04a-evidence-type-registry.md`](./docs/architec
 and [`docs/architecture/01-conceptual-model.md`](./docs/architecture/01-conceptual-model.md)
 §Axiom 1.
 
+### 5. Two-axis cadence: scheduling state is mutable, audit evidence is not
+
+Every policy evaluation lives on two orthogonal axes:
+
+- **Cadence** — "should we re-evaluate this policy now?" — per-policy
+  scheduling concern. The state lives in `state/{framework}/policies/
+  {policy_id}.json`, is mutable, is NEVER signed, is NEVER an audit
+  deliverable. Loss is recoverable (next run treats as first-run).
+- **Period** — "what audit window does this run's evidence belong to?"
+  — per-run compliance concern. Frozen at run-start by the planner;
+  every policy in the run shares the same `period_id`. No mid-run
+  rollover, ever.
+
+The decision rule for each policy in each run is strictly layered (see
+[`docs/architecture/11-cadence-model.md`](./docs/architecture/11-cadence-model.md)
+§The decision rule):
+
+1. Operator filter explicit (`--policies`, `--cadences`) → evaluate.
+2. PolicyStates nil (Manual/PR mode) → evaluate.
+3. Prior state nil (never run) → evaluate, surface as first-run.
+4. Policy content-hash changed (bundle/schema bump) → evaluate.
+5. Prior terminal status was NOT pass → evaluate (on_fail_retry).
+6. `now - LastPassAt >= CadenceInterval` → evaluate.
+7. Else → carry-forward result (small pointer to the prior signed
+   envelope; no new signature, no new envelope).
+
+**Consequences worth knowing.**
+
+- The cadence DSL is `continuous|hourly|daily|weekly|monthly|quarterly|annual`
+  OR `every:<duration>` (5-minute floor). No cron strings. `every:24h`
+  ≠ `daily` (the former drifts; the latter is wall-clock-anchored
+  with cron-drift slack).
+- Carry-forward results inherit trust from the original envelope's
+  signature — the CLI does not re-sign them. The auditor verifies
+  the original at `CarryForward.LastEnvelopeRef`.
+- Cloud submission v2 (`sigcomply.cloud.v2`) carries
+  `ConfiguredCadence`, `LastEvaluatedAt`, `NextDueAt`,
+  `IsCarriedForward`, `PolicyContentHash` per policy — all
+  non-identifying scalars. The structural counts-only test in
+  `core/cloud_test.go` continues to enforce no identity-carrying
+  field can be added.
+- State writes use a monotonic guard:
+  `accept iff new.LastRunAt > existing.LastRunAt OR (equal AND new.LastRunID > existing.LastRunID)`.
+  Concurrent CI runs cannot regress state.
+
 ---
 
 ## CLI runtime architecture (summary)
@@ -217,9 +378,20 @@ sigcomply check
   └─ submit (paid tier):  POST aggregated counts to /api/v1/runs
 ```
 
-**Storage layout** (policy-first):
-`{framework}/{policy_id}/{timestamp}_{run_id_short}/{evidence,manual_attachments,result.json}`
-plus `{framework}/summary.json` and `{framework}/execution-state.json`.
+**Storage layout** (period-first under each framework):
+`{framework}/{period_id}/run_{timestamp}_{run_id_short}/policies/{policy_id}/...`
+plus `{framework}/{period_id}/summary.json` (rebuilt every run in that
+period, frozen when the next period starts).
+
+**Cadence scheduling state** lives outside the immutable evidence
+prefix at `state/{framework}/policies/{policy_id}.json` — one shard
+per policy, mutable, NOT signed, NOT under Object Lock. Loss of a
+state shard is recoverable (next run re-evaluates as first-run).
+The cadence DSL accepts the seven named values
+(`continuous`|`hourly`|`daily`|`weekly`|`monthly`|`quarterly`|`annual`)
+plus the `every:<duration>` escape hatch (`every:6h`, `every:90m`,
+floor 5m). See [docs/architecture/11-cadence-model.md](./docs/architecture/11-cadence-model.md)
+for the full design.
 
 **Manual evidence is a project-level singleton.** One project = one repo =
 one framework, so there is exactly one `manual.pdf` source per project and
@@ -449,6 +621,16 @@ through `POST /api/v1/runs`.
   `document_upload` are descriptive hints (used by the optional
   Evidence SPA helper to decide whether to render a clickable form) —
   the CLI ignores them.
+- **Don't add PDF-content checks to `validatePDF`.** That function is
+  stdlib-only, byte-level sanity (size, magic, `/Page` presence,
+  prior-period hash equality). Anything that requires understanding
+  PDF *contents* — text extraction, signature dictionaries, embedded
+  date checks — belongs in a separate, opt-in code path and stays
+  inside the customer process. Don't quietly grow `validatePDF` into a
+  parser; it will mask its own failures and break the
+  "evidence-without-access" promise the moment the parser pulls in a
+  network-aware dep. See Invariant #2 §"What the CLI explicitly does
+  NOT do."
 - **Don't sign hashes.** Signing covers canonical JSON of
   `{timestamp, evidence}`. SHA-256 is used only to identify the manual
   PDF inside the manifest, not as the signing input.

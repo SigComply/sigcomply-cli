@@ -13,6 +13,7 @@
 package manual
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -25,6 +26,45 @@ import (
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
+
+// minPDFBytes is the lower bound below which a payload cannot be a
+// real-world compliance PDF. A theoretical minimum-valid PDF is ~67
+// bytes, but any document with real content (a signed acknowledgement,
+// an access-review export, a training certificate) is comfortably
+// above 100 bytes. The check is meant to catch 0-byte uploads and
+// trivially corrupt payloads, not to validate PDF correctness.
+const minPDFBytes = 100
+
+// pdfMagic is the PDF file signature. A payload that does not start
+// with these bytes is not a PDF (commonly: a text file, an HTML error
+// page from the storage backend, or a zero-byte placeholder).
+var pdfMagic = []byte("%PDF-")
+
+// pdfPageMarker appears in the object dictionary of every PDF that has
+// at least one page. The PDF spec requires a /Type /Page entry for
+// each page (and a /Type /Pages catalog) — these tokens live in the
+// uncompressed object dictionary even when content streams themselves
+// are compressed. A payload starting with %PDF- but containing no
+// /Page token is structurally a header-only or truncated file.
+var pdfPageMarker = []byte("/Page")
+
+// validatePDF runs cheap, stdlib-only sanity checks on a fetched
+// payload and returns the list of failed checks (empty = valid). These
+// are NOT a content audit — they only detect "this isn't a usable PDF
+// at all" categories of upload mistake.
+func validatePDF(data []byte) []string {
+	var failures []string
+	if len(data) < minPDFBytes {
+		failures = append(failures, fmt.Sprintf("file_too_small (got %d bytes, want >=%d)", len(data), minPDFBytes))
+	}
+	if !bytes.HasPrefix(data, pdfMagic) {
+		failures = append(failures, "missing_pdf_header (file does not start with %PDF-)")
+	}
+	if !bytes.Contains(data, pdfPageMarker) {
+		failures = append(failures, "no_pages (PDF contains no /Page object — header-only or truncated)")
+	}
+	return failures
+}
 
 // EvidenceTypeID is the single evidence type this plugin emits.
 const EvidenceTypeID = "signed_document"
@@ -148,7 +188,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	data, uploadedAt, err := p.reader.Get(ctx, relPath)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) || errors.Is(err, fs.ErrNotExist) {
-			rec, encodeErr := buildRecord(entry.EvidenceID, periodID, expectedURI, "", 0, time.Time{}, false, false, now)
+			rec, encodeErr := buildRecord(entry.EvidenceID, periodID, expectedURI, "", 0, time.Time{}, false, false, nil, now)
 			if encodeErr != nil {
 				return nil, encodeErr
 			}
@@ -160,8 +200,26 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	hash := sha256.Sum256(data)
 	hashStr := "sha256:" + hex.EncodeToString(hash[:])
 	inWindow := isInTemporalWindow(uploadedAt, periodStart, periodEnd, entry.GracePeriod)
+	validationFailures := validatePDF(data)
 
-	rec, err := buildRecord(entry.EvidenceID, periodID, expectedURI, hashStr, len(data), uploadedAt, true, inWindow, now)
+	// Prior-period duplication check: if the planner passed a prior
+	// period ID and a file exists at the equivalent prior path, the
+	// hashes must differ. An identical byte-for-byte match is the
+	// signature of a customer copy-pasting last period's file rather
+	// than producing a fresh one. Missing prior file is not a failure
+	// (first run of the project, or genuinely no prior period).
+	if priorID := stringParam(req.Params, "prior_period_id"); priorID != "" {
+		priorPath := fmt.Sprintf("%s%s/%s/%s", p.prefix, entry.EvidenceID, priorID, filename)
+		priorData, _, priorErr := p.reader.Get(ctx, priorPath)
+		if priorErr == nil {
+			priorHash := sha256.Sum256(priorData)
+			if priorHash == hash {
+				validationFailures = append(validationFailures, fmt.Sprintf("copy_paste_of_prior_period (byte-identical to %s)", priorID))
+			}
+		}
+	}
+
+	rec, err := buildRecord(entry.EvidenceID, periodID, expectedURI, hashStr, len(data), uploadedAt, true, inWindow, validationFailures, now)
 	if err != nil {
 		return nil, err
 	}
@@ -195,27 +253,36 @@ func isInTemporalWindow(uploadedAt, start, end time.Time, grace time.Duration) b
 // manualManifest is the JSON payload embedded inside the
 // signed_document record. Kept small on purpose — auditors should be
 // able to read it without a schema in hand.
+//
+// FileValid + ValidationFailures report the result of cheap stdlib
+// sanity checks (see validatePDF): they catch upload mistakes like a
+// 0-byte file or a wrong file type, but do not validate PDF contents.
+// FileValid is only meaningful when FilePresent is true.
 type manualManifest struct {
-	EvidenceID       string    `json:"evidence_id"`
-	PeriodID         string    `json:"period_id"`
-	FilePresent      bool      `json:"file_present"`
-	FileHash         string    `json:"file_hash,omitempty"`
-	FileSize         int       `json:"file_size,omitempty"`
-	UploadedAt       time.Time `json:"uploaded_at,omitempty"`
-	InTemporalWindow bool      `json:"in_temporal_window"`
-	ExpectedURI      string    `json:"expected_uri"`
+	EvidenceID         string    `json:"evidence_id"`
+	PeriodID           string    `json:"period_id"`
+	FilePresent        bool      `json:"file_present"`
+	FileHash           string    `json:"file_hash,omitempty"`
+	FileSize           int       `json:"file_size,omitempty"`
+	UploadedAt         time.Time `json:"uploaded_at,omitempty"`
+	InTemporalWindow   bool      `json:"in_temporal_window"`
+	FileValid          bool      `json:"file_valid"`
+	ValidationFailures []string  `json:"validation_failures,omitempty"`
+	ExpectedURI        string    `json:"expected_uri"`
 }
 
-func buildRecord(evidenceID, periodID, uri, hash string, size int, uploadedAt time.Time, present, inWindow bool, now time.Time) (core.EvidenceRecord, error) {
+func buildRecord(evidenceID, periodID, uri, hash string, size int, uploadedAt time.Time, present, inWindow bool, validationFailures []string, now time.Time) (core.EvidenceRecord, error) {
 	manifest := manualManifest{
-		EvidenceID:       evidenceID,
-		PeriodID:         periodID,
-		FilePresent:      present,
-		FileHash:         hash,
-		FileSize:         size,
-		UploadedAt:       uploadedAt,
-		InTemporalWindow: inWindow,
-		ExpectedURI:      uri,
+		EvidenceID:         evidenceID,
+		PeriodID:           periodID,
+		FilePresent:        present,
+		FileHash:           hash,
+		FileSize:           size,
+		UploadedAt:         uploadedAt,
+		InTemporalWindow:   inWindow,
+		FileValid:          present && len(validationFailures) == 0,
+		ValidationFailures: validationFailures,
+		ExpectedURI:        uri,
 	}
 	payload, err := json.Marshal(manifest)
 	if err != nil {

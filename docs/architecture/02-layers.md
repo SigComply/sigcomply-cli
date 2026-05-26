@@ -365,7 +365,7 @@ This is the privacy boundary.
 
 ```go
 type SubmissionPayload struct {
-    Schema        string         // "sigcomply.cloud.v1"
+    Schema        string         // "sigcomply.cloud.v2"
     RunID         string
     Framework     string
     PeriodID      string
