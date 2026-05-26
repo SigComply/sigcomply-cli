@@ -201,18 +201,18 @@ func TestE2E_WalkingSkeleton(t *testing.T) {
 	// invoking the rule. This is the v1 evaluator behavior
 	// (internal/evaluator: "required slot has no records" → skip).
 	assertResultStatuses(t, v, res.RunRoot, map[string]core.PolicyStatus{
-		soc2.PolicyMFAUnion:                       core.StatusFail,
-		soc2.PolicyAccessReview:                   core.StatusPass,
-		soc2.PolicyCloudTrailMultiRegionEnabled:   core.StatusPass,
-		soc2.PolicyCloudWatchLogsRetentionSet:     core.StatusPass,
-		soc2.PolicyGuardDutyEnabled:               core.StatusFail,
-		soc2.PolicyConfigRecorderEnabled:          core.StatusFail,
-		soc2.PolicyGCPIAMNoOwnerRoleForUsers:      core.StatusSkip,
-		soc2.PolicyGCSBucketUniformAccess:         core.StatusSkip,
-		soc2.PolicyComputeNoDefaultServiceAccount: core.StatusSkip,
-		soc2.PolicyCloudSQLRequireSSL:             core.StatusSkip,
-		soc2.PolicyGitHubBranchProtection:         core.StatusFail,
-		soc2.PolicyOktaAppsMFA:                    core.StatusFail,
+		soc2.PolicyMFAUnion:                         core.StatusFail,
+		soc2.PolicyAccessReview:                     core.StatusPass,
+		soc2.PolicyCloudTrailMultiRegionEnabled:     core.StatusPass,
+		soc2.PolicyCloudWatchLogsRetentionSet:       core.StatusPass,
+		soc2.PolicyGuardDutyEnabled:                 core.StatusFail,
+		soc2.PolicyConfigRecorderEnabled:            core.StatusFail,
+		soc2.PolicyGCPIAMNoOwnerRoleForUsers:        core.StatusSkip,
+		soc2.PolicyObjectStoragePublicAccessBlocked: core.StatusSkip,
+		soc2.PolicyComputeNoDefaultServiceAccount:   core.StatusSkip,
+		soc2.PolicyCloudSQLRequireSSL:               core.StatusSkip,
+		soc2.PolicyGitHubBranchProtection:           core.StatusFail,
+		soc2.PolicyOktaAppsMFA:                      core.StatusFail,
 	})
 	assertEnvelopesVerify(t, v, res.RunRoot, soc2.PolicyMFAUnion, soc2.PolicyAccessReview)
 	assertCapturedPayloadPrivacy(t, capturePath)
@@ -402,6 +402,14 @@ func (emptyS3API) ListBuckets(context.Context, *awss3.ListBucketsInput, ...func(
 
 func (emptyS3API) GetBucketEncryption(context.Context, *awss3.GetBucketEncryptionInput, ...func(*awss3.Options)) (*awss3.GetBucketEncryptionOutput, error) {
 	return &awss3.GetBucketEncryptionOutput{}, nil
+}
+
+func (emptyS3API) GetPublicAccessBlock(context.Context, *awss3.GetPublicAccessBlockInput, ...func(*awss3.Options)) (*awss3.GetPublicAccessBlockOutput, error) {
+	return &awss3.GetPublicAccessBlockOutput{}, nil
+}
+
+func (emptyS3API) GetBucketVersioning(context.Context, *awss3.GetBucketVersioningInput, ...func(*awss3.Options)) (*awss3.GetBucketVersioningOutput, error) {
+	return &awss3.GetBucketVersioningOutput{}, nil
 }
 
 type emptyKMSAPI struct{}

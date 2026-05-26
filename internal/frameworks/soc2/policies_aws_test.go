@@ -34,11 +34,11 @@ func TestAWSPolicies_AllConsumeDistinctSlots(t *testing.T) {
 		t.Fatalf("awsPolicies() = %d; want 5", len(policies))
 	}
 	wantIDs := map[string]string{
-		PolicyS3BucketEncrypted:    "s3_bucket",
-		PolicyKMSKeyRotation:       "kms_key",
-		PolicyRDSEncryptionAtRest:  "rds_instance",
-		PolicyEC2NoPublicIP:        "ec2_instance",
-		PolicyEKSSecretsEncryption: "eks_cluster",
+		PolicyObjectStorageEncryptedAtRest: "object_storage_bucket",
+		PolicyKMSKeyRotation:               "kms_key",
+		PolicyRDSEncryptionAtRest:          "rds_instance",
+		PolicyEC2NoPublicIP:                "ec2_instance",
+		PolicyEKSSecretsEncryption:         "eks_cluster",
 	}
 	for _, p := range policies {
 		wantType, ok := wantIDs[p.ID]
@@ -69,12 +69,12 @@ func TestAWSPolicies_AllConsumeDistinctSlots(t *testing.T) {
 // --- S3 ---
 
 func TestS3BucketEncrypted_PassWhenAllEncrypted(t *testing.T) {
-	rule := rulesByID(t)[ruleIDS3BucketEncrypted]
+	rule := rulesByID(t)[ruleIDObjectStorageEncryptedAtRest]
 	res, err := rule.Evaluate(context.Background(), core.RuleInput{
 		Slots: map[string][]core.EvidenceRecord{
 			"buckets": {
-				{ID: "alpha", Payload: mustJSON(t, map[string]any{"name": "alpha", "encryption_enabled": true})},
-				{ID: "beta", Payload: mustJSON(t, map[string]any{"name": "beta", "encryption_enabled": true})},
+				{ID: "alpha", Payload: mustJSON(t, map[string]any{"name": "alpha", "encryption_at_rest_enabled": true})},
+				{ID: "beta", Payload: mustJSON(t, map[string]any{"name": "beta", "encryption_at_rest_enabled": true})},
 			},
 		},
 	})
@@ -90,12 +90,12 @@ func TestS3BucketEncrypted_PassWhenAllEncrypted(t *testing.T) {
 }
 
 func TestS3BucketEncrypted_FailWhenBucketUnencrypted(t *testing.T) {
-	rule := rulesByID(t)[ruleIDS3BucketEncrypted]
+	rule := rulesByID(t)[ruleIDObjectStorageEncryptedAtRest]
 	res, err := rule.Evaluate(context.Background(), core.RuleInput{
 		Slots: map[string][]core.EvidenceRecord{
 			"buckets": {
-				{ID: "alpha", Payload: mustJSON(t, map[string]any{"name": "alpha", "encryption_enabled": true})},
-				{ID: "leaky", Payload: mustJSON(t, map[string]any{"name": "leaky", "encryption_enabled": false})},
+				{ID: "alpha", Payload: mustJSON(t, map[string]any{"name": "alpha", "encryption_at_rest_enabled": true})},
+				{ID: "leaky", Payload: mustJSON(t, map[string]any{"name": "leaky", "encryption_at_rest_enabled": false})},
 			},
 		},
 	})
@@ -274,13 +274,13 @@ func TestEKSSecretsEncryption_FailWhenMissing(t *testing.T) {
 // --- boolAttrRule helper edge cases ---
 
 func TestBoolAttrRule_FallsBackToRecordIDWhenNameKeyAbsent(t *testing.T) {
-	rule := rulesByID(t)[ruleIDS3BucketEncrypted]
+	rule := rulesByID(t)[ruleIDObjectStorageEncryptedAtRest]
 	// Provide a payload that lacks the "name" field; boolAttrRule should
 	// fall back to the record's ID for the violation reason.
 	res, err := rule.Evaluate(context.Background(), core.RuleInput{
 		Slots: map[string][]core.EvidenceRecord{
 			"buckets": {
-				{ID: "fallback-id", Payload: mustJSON(t, map[string]any{"encryption_enabled": false})},
+				{ID: "fallback-id", Payload: mustJSON(t, map[string]any{"encryption_at_rest_enabled": false})},
 			},
 		},
 	})
@@ -296,9 +296,9 @@ func TestBoolAttrRule_FallsBackToRecordIDWhenNameKeyAbsent(t *testing.T) {
 }
 
 func TestBoolAttrRule_MissingAttrTreatedAsFalse(t *testing.T) {
-	// Buckets policy: passWhen=true, attr=encryption_enabled. A payload
+	// Buckets policy: passWhen=true, attr=encryption_at_rest_enabled. A payload
 	// without the attribute deserializes to false → violation.
-	rule := rulesByID(t)[ruleIDS3BucketEncrypted]
+	rule := rulesByID(t)[ruleIDObjectStorageEncryptedAtRest]
 	res, err := rule.Evaluate(context.Background(), core.RuleInput{
 		Slots: map[string][]core.EvidenceRecord{
 			"buckets": {

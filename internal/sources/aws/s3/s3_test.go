@@ -16,10 +16,14 @@ import (
 )
 
 type fakeAPI struct {
-	buckets []s3types.Bucket
-	enc     map[string]*s3types.ServerSideEncryptionConfiguration
-	encErr  map[string]error
-	listErr error
+	buckets         []s3types.Bucket
+	enc             map[string]*s3types.ServerSideEncryptionConfiguration
+	encErr          map[string]error
+	publicAccess    map[string]*s3types.PublicAccessBlockConfiguration
+	publicAccessErr map[string]error
+	versioning      map[string]s3types.BucketVersioningStatus
+	versioningErr   map[string]error
+	listErr         error
 
 	listCount int
 	encCount  int
@@ -45,10 +49,41 @@ func (f *fakeAPI) GetBucketEncryption(_ context.Context, in *awss3.GetBucketEncr
 	return &awss3.GetBucketEncryptionOutput{ServerSideEncryptionConfiguration: cfg}, nil
 }
 
-type notFoundError struct{}
+func (f *fakeAPI) GetPublicAccessBlock(_ context.Context, in *awss3.GetPublicAccessBlockInput, _ ...func(*awss3.Options)) (*awss3.GetPublicAccessBlockOutput, error) {
+	if in.Bucket == nil {
+		return &awss3.GetPublicAccessBlockOutput{}, nil
+	}
+	if err, ok := f.publicAccessErr[*in.Bucket]; ok {
+		return nil, err
+	}
+	cfg := f.publicAccess[*in.Bucket]
+	return &awss3.GetPublicAccessBlockOutput{PublicAccessBlockConfiguration: cfg}, nil
+}
 
-func (notFoundError) Error() string                 { return "no enc cfg" }
-func (notFoundError) ErrorCode() string             { return "ServerSideEncryptionConfigurationNotFoundError" }
+func (f *fakeAPI) GetBucketVersioning(_ context.Context, in *awss3.GetBucketVersioningInput, _ ...func(*awss3.Options)) (*awss3.GetBucketVersioningOutput, error) {
+	if in.Bucket == nil {
+		return &awss3.GetBucketVersioningOutput{}, nil
+	}
+	if err, ok := f.versioningErr[*in.Bucket]; ok {
+		return nil, err
+	}
+	return &awss3.GetBucketVersioningOutput{Status: f.versioning[*in.Bucket]}, nil
+}
+
+type notFoundError struct{ code string }
+
+func (e notFoundError) Error() string {
+	if e.code == "" {
+		return "not found"
+	}
+	return e.code
+}
+func (e notFoundError) ErrorCode() string {
+	if e.code == "" {
+		return "ServerSideEncryptionConfigurationNotFoundError"
+	}
+	return e.code
+}
 func (notFoundError) ErrorMessage() string          { return "" }
 func (notFoundError) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
@@ -112,11 +147,8 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	if err := json.Unmarshal(records[0].Payload, &alpha); err != nil {
 		t.Fatalf("Unmarshal alpha: %v", err)
 	}
-	if !alpha.EncryptionEnabled {
-		t.Errorf("alpha.EncryptionEnabled = false; want true")
-	}
-	if alpha.SSEAlgorithm == "" {
-		t.Errorf("alpha.SSEAlgorithm empty")
+	if !alpha.EncryptionAtRestEnabled {
+		t.Errorf("alpha.EncryptionAtRestEnabled = false; want true")
 	}
 	if alpha.KMSKeyID == "" {
 		t.Errorf("alpha.KMSKeyID empty")
@@ -125,8 +157,8 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	if err := json.Unmarshal(records[1].Payload, &zeta); err != nil {
 		t.Fatalf("Unmarshal zeta: %v", err)
 	}
-	if zeta.EncryptionEnabled {
-		t.Errorf("zeta.EncryptionEnabled = true; want false (no encryption config)")
+	if zeta.EncryptionAtRestEnabled {
+		t.Errorf("zeta.EncryptionAtRestEnabled = true; want false (no encryption config)")
 	}
 }
 
@@ -147,8 +179,8 @@ func TestCollect_EncryptionNotFound_TreatedAsDisabled(t *testing.T) {
 	if err := json.Unmarshal(records[0].Payload, &pl); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	if pl.EncryptionEnabled {
-		t.Errorf("EncryptionEnabled = true; want false for not-found")
+	if pl.EncryptionAtRestEnabled {
+		t.Errorf("EncryptionAtRestEnabled = true; want false for not-found")
 	}
 }
 

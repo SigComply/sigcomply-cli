@@ -19,20 +19,24 @@ import (
 )
 
 // GCP policy IDs — exported so tests and other packages can reference
-// them by symbol rather than string-literal.
+// them by symbol rather than string-literal. PolicyObjectStorageBlocked
+// is cross-vendor (it accepts object_storage_bucket from any cloud
+// source — S3, GCS, Azure Blob) even though it lives in this file for
+// historical reasons; the gcs_bucket_uniform_access policy it replaces
+// was GCS-only.
 const (
-	PolicyGCPIAMNoOwnerRoleForUsers      = "soc2.cc6.1.gcp_iam_no_owner_role_for_users"
-	PolicyGCSBucketUniformAccess         = "soc2.cc6.7.gcs_bucket_uniform_access"
-	PolicyComputeNoDefaultServiceAccount = "soc2.cc6.6.compute_no_default_service_account"
-	PolicyCloudSQLRequireSSL             = "soc2.cc6.7.cloudsql_require_ssl"
+	PolicyGCPIAMNoOwnerRoleForUsers        = "soc2.cc6.1.gcp_iam_no_owner_role_for_users"
+	PolicyObjectStoragePublicAccessBlocked = "soc2.cc6.7.object_storage_public_access_blocked"
+	PolicyComputeNoDefaultServiceAccount   = "soc2.cc6.6.compute_no_default_service_account"
+	PolicyCloudSQLRequireSSL               = "soc2.cc6.7.cloudsql_require_ssl"
 )
 
 // GCP rule IDs.
 const (
-	ruleIDGCPIAMNoOwnerRoleForUsers      = "rules.soc2.gcp_iam_no_owner_role_for_users.v1"
-	ruleIDGCSBucketUniformAccess         = "rules.soc2.gcs_bucket_uniform_access.v1"
-	ruleIDComputeNoDefaultServiceAccount = "rules.soc2.compute_no_default_service_account.v1"
-	ruleIDCloudSQLRequireSSL             = "rules.soc2.cloudsql_require_ssl.v1"
+	ruleIDGCPIAMNoOwnerRoleForUsers        = "rules.soc2.gcp_iam_no_owner_role_for_users.v1"
+	ruleIDObjectStoragePublicAccessBlocked = "rules.soc2.object_storage_public_access_blocked.v1"
+	ruleIDComputeNoDefaultServiceAccount   = "rules.soc2.compute_no_default_service_account.v1"
+	ruleIDCloudSQLRequireSSL               = "rules.soc2.cloudsql_require_ssl.v1"
 )
 
 // gcpPolicies returns the four representative GCP SOC 2 policies.
@@ -57,18 +61,18 @@ func gcpPolicies() []core.Policy {
 			RuleRef: ruleIDGCPIAMNoOwnerRoleForUsers,
 		},
 		{
-			ID:          PolicyGCSBucketUniformAccess,
+			ID:          PolicyObjectStoragePublicAccessBlocked,
 			Control:     "SOC2.CC6.7",
-			Description: "All GCS buckets have uniform bucket-level access enabled.",
-			Remediation: "Enable uniform bucket-level access on each listed bucket: gsutil ubla set on gs://<bucket>.",
+			Description: "Every object storage bucket across every bound cloud has public access blocked at the bucket-configuration layer.",
+			Remediation: "Block public access on the listed buckets (S3: set all four PublicAccessBlock flags; GCS: enable uniform bucket-level access AND set PublicAccessPrevention=enforced; Azure Blob: set allow_blob_public_access=false on the storage account).",
 			Severity:    core.SeverityMedium,
 			Category:    "data-protection",
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"buckets": {Accepts: []string{"gcs_bucket"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "GCS buckets in the project"},
+				"buckets": {Accepts: []string{"object_storage_bucket"}, Cardinality: core.SlotOneOrMore, Required: true, Description: "Object storage buckets across all bound clouds"},
 			},
-			RuleRef: ruleIDGCSBucketUniformAccess,
+			RuleRef: ruleIDObjectStoragePublicAccessBlocked,
 		},
 		{
 			ID:          PolicyComputeNoDefaultServiceAccount,
@@ -105,7 +109,7 @@ func gcpPolicies() []core.Policy {
 func gcpRules() []core.Rule {
 	return []core.Rule{
 		gcpIAMNoOwnerRoleForUsersRule(),
-		gcsBucketUniformAccessRule(),
+		objectStoragePublicAccessBlockedRule(),
 		computeNoDefaultServiceAccountRule(),
 		cloudSQLRequireSSLRule(),
 	}
@@ -150,31 +154,35 @@ func gcpIAMNoOwnerRoleForUsersRule() core.Rule {
 	}
 }
 
-// gcsBucketUniformAccessRule fails when any bucket has uniform
-// bucket-level access disabled (legacy ACL-based access remains
-// possible).
-func gcsBucketUniformAccessRule() core.Rule {
+// objectStoragePublicAccessBlockedRule fails when any object_storage_bucket
+// reports public_access_blocked=false. Plugins (aws.s3, gcp.storage,
+// future azure.blob) compute the boolean from provider-specific
+// bucket-policy / ACL / public-access-prevention settings.
+func objectStoragePublicAccessBlockedRule() core.Rule {
 	return &evaluator.GoRule{
-		IDValue: ruleIDGCSBucketUniformAccess,
+		IDValue: ruleIDObjectStoragePublicAccessBlocked,
 		Fn: func(_ context.Context, in core.RuleInput) (core.RuleResult, error) {
 			records := in.Slots["buckets"]
 			violations := make([]core.Violation, 0)
 			for i := range records {
 				r := &records[i]
-				enabled, err := payloadBool(r.Payload, "uniform_bucket_level_access")
+				blocked, err := payloadBool(r.Payload, "public_access_blocked")
 				if err != nil {
 					return core.RuleResult{}, err
 				}
-				if enabled {
+				if blocked {
 					continue
 				}
 				name, err := payloadString(r.Payload, "name")
 				if err != nil {
 					return core.RuleResult{}, err
 				}
+				if name == "" {
+					name = r.ID
+				}
 				violations = append(violations, core.Violation{
 					ResourceID: r.ID,
-					Reason:     fmt.Sprintf("bucket %s has uniform bucket-level access disabled", name),
+					Reason:     fmt.Sprintf("object storage bucket %s does not block public access at the bucket-configuration layer", name),
 				})
 			}
 			return resultFor(violations), nil

@@ -49,10 +49,62 @@ func TestPlugin_InitNoOp(t *testing.T) {
 }
 
 func TestCollect_HappyPath_SortsByID(t *testing.T) {
+	records := collectTwoBuckets(t)
+	if len(records) != 2 {
+		t.Fatalf("len(records) = %d; want 2", len(records))
+	}
+	if records[0].ID != "alpha-data" || records[1].ID != "zeta-logs" {
+		t.Errorf("records not sorted by ID: got %v", []string{records[0].ID, records[1].ID})
+	}
+	for i := range records {
+		if records[i].SourceID != SourceID {
+			t.Errorf("record[%d].SourceID = %q", i, records[i].SourceID)
+		}
+	}
+}
+
+func TestCollect_NormalizesPayload_AlphaIsBlockedZetaIsOpen(t *testing.T) {
+	records := collectTwoBuckets(t)
+	var alpha bucketPayload
+	if err := json.Unmarshal(records[0].Payload, &alpha); err != nil {
+		t.Fatalf("Unmarshal alpha: %v", err)
+	}
+	if !alpha.PublicAccessBlocked {
+		t.Errorf("alpha.PublicAccessBlocked = false; want true (UBLA + PAP=enforced)")
+	}
+	if !alpha.EncryptionAtRestEnabled {
+		t.Errorf("alpha.EncryptionAtRestEnabled = false; want true (GCS encrypts at rest unconditionally)")
+	}
+	if !alpha.VersioningEnabled {
+		t.Errorf("alpha.VersioningEnabled = false; want true")
+	}
+	if alpha.RegionOrLocation != "EU" {
+		t.Errorf("alpha.RegionOrLocation = %q", alpha.RegionOrLocation)
+	}
+
+	var zeta bucketPayload
+	if err := json.Unmarshal(records[1].Payload, &zeta); err != nil {
+		t.Fatalf("Unmarshal zeta: %v", err)
+	}
+	if zeta.PublicAccessBlocked {
+		t.Errorf("zeta.PublicAccessBlocked = true; want false (UBLA disabled / PAP not enforced)")
+	}
+	if !zeta.EncryptionAtRestEnabled {
+		t.Errorf("zeta.EncryptionAtRestEnabled = false; want true even for non-CMEK buckets")
+	}
+}
+
+// collectTwoBuckets returns the records the plugin produces against a
+// fixture with one fully-locked-down bucket (alpha) and one open one
+// (zeta). Shared so the envelope-shape test and the payload-mapping
+// test exercise the same fixture without duplicating setup.
+func collectTwoBuckets(t *testing.T) []core.EvidenceRecord {
+	t.Helper()
 	fake := &fakeAPI{buckets: []*gcs.BucketAttrs{
 		{Name: "zeta-logs", Location: "US", StorageClass: "STANDARD"},
 		{Name: "alpha-data", Location: "EU", StorageClass: "NEARLINE",
 			UniformBucketLevelAccess: gcs.UniformBucketLevelAccess{Enabled: true},
+			PublicAccessPrevention:   gcs.PublicAccessPreventionEnforced,
 			VersioningEnabled:        true},
 	}}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
@@ -61,43 +113,12 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
-	if len(records) != 2 {
-		t.Fatalf("len(records) = %d; want 2", len(records))
-	}
-	// Sorted by ID: alpha-data before zeta-logs.
-	if records[0].ID != "alpha-data" || records[1].ID != "zeta-logs" {
-		t.Errorf("records not sorted by ID: got %v", []string{records[0].ID, records[1].ID})
-	}
 	for i := range records {
 		if records[i].CollectedAt != now {
 			t.Errorf("record[%d].CollectedAt = %v; want %v", i, records[i].CollectedAt, now)
 		}
-		if records[i].SourceID != SourceID {
-			t.Errorf("record[%d].SourceID = %q", i, records[i].SourceID)
-		}
 	}
-
-	var alpha bucketPayload
-	if err := json.Unmarshal(records[0].Payload, &alpha); err != nil {
-		t.Fatalf("Unmarshal alpha: %v", err)
-	}
-	if !alpha.UniformBucketLevelAccess {
-		t.Errorf("alpha.UniformBucketLevelAccess = false; want true")
-	}
-	if !alpha.VersioningEnabled {
-		t.Errorf("alpha.VersioningEnabled = false; want true")
-	}
-	if alpha.Location != "EU" {
-		t.Errorf("alpha.Location = %q", alpha.Location)
-	}
-
-	var zeta bucketPayload
-	if err := json.Unmarshal(records[1].Payload, &zeta); err != nil {
-		t.Fatalf("Unmarshal zeta: %v", err)
-	}
-	if zeta.UniformBucketLevelAccess {
-		t.Errorf("zeta.UniformBucketLevelAccess = true; want false (uniform access disabled)")
-	}
+	return records
 }
 
 func TestCollect_NoBuckets(t *testing.T) {

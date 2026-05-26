@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/object_storage_bucket/v1.json",
+  "title": "object_storage_bucket",
+  "version": 1,
+  "description": "One object storage bucket or container in any cloud — AWS S3, GCS, Azure Blob Storage, MinIO, or any S3-compatible store. The single cross-vendor shape policies use for encryption-at-rest, public-access, and lifecycle checks. Plugins normalize provider-specific encryption modes and access-control configurations into the boolean fields here; rules consume the same payload regardless of source.",
+  "type": "object",
+  "required": ["name", "encryption_at_rest_enabled", "public_access_blocked"],
+  "properties": {
+    "name":                       { "type": "string", "description": "Bucket / container name as the provider sees it." },
+    "region_or_location":         { "type": "string", "description": "Provider's region or multi-region location string (us-east-1, EU, …). Free-form — semantics differ per cloud." },
+    "encryption_at_rest_enabled": { "type": "boolean", "description": "Server-side encryption at rest is on. Plugins should set true when ANY encryption mode is configured (SSE-S3, SSE-KMS, GCS default, Azure Storage Service Encryption, customer-managed key, etc.)." },
+    "kms_managed":                { "type": "boolean", "description": "Encryption uses a customer-managed key (CMK) rather than provider-default. Optional; absent means unknown or provider-default." },
+    "kms_key_id":                 { "type": "string", "description": "Opaque provider-specific identifier of the customer-managed key when kms_managed is true." },
+    "public_access_blocked":      { "type": "boolean", "description": "Bucket-level configuration prevents the bucket and its objects from being made public. Maps to: S3 PublicAccessBlock all-true, GCS UBLA + PublicAccessPrevention=enforced, Azure allow_blob_public_access=false." },
+    "versioning_enabled":         { "type": "boolean", "description": "Object versioning / soft-delete is on. Optional; absent means unknown." },
+    "created_at":                 { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": true
+}

@@ -1,7 +1,9 @@
 // Package s3 implements the aws.s3 source plugin: lists S3 buckets in
-// one AWS account and emits s3_bucket evidence records carrying the
-// security-relevant default-encryption attributes that SOC 2 CC6.7
-// policies consume.
+// one AWS account and emits object_storage_bucket evidence records
+// — the cross-vendor shape policies use across S3, GCS, Azure Blob,
+// and S3-compatible stores. AWS-specific encryption, public-access,
+// and versioning configuration is normalized into the boolean fields
+// the cross-vendor schema declares.
 //
 // Per the KISS-no-DRY axiom (docs/architecture/04-source-plugins.md
 // §The plugin contract) the plugin caches nothing across Collect calls.
@@ -10,7 +12,7 @@
 // Test injection: the API interface mirrors the pattern used by the
 // aws.iam plugin — the concrete *s3.Client satisfies it, and unit tests
 // inject an in-memory fake. The real SDK adapter has no integration
-// tests at M7 (deferred — see post-M6 work plan).
+// tests today (deferred — see post-M6 work plan).
 package s3
 
 import (
@@ -29,8 +31,10 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
-// EvidenceTypeID is the evidence type this plugin emits.
-const EvidenceTypeID = "s3_bucket"
+// EvidenceTypeID is the cross-vendor object_storage_bucket shape.
+// AWS S3 is one of several substitutable object-storage sources (GCS,
+// Azure Blob, MinIO/S3-compatible).
+const EvidenceTypeID = "object_storage_bucket"
 
 // SourceID is the registered ID for the aws.s3 plugin instance.
 const SourceID = "aws.s3"
@@ -40,6 +44,8 @@ const SourceID = "aws.s3"
 type API interface {
 	ListBuckets(ctx context.Context, params *awss3.ListBucketsInput, optFns ...func(*awss3.Options)) (*awss3.ListBucketsOutput, error)
 	GetBucketEncryption(ctx context.Context, params *awss3.GetBucketEncryptionInput, optFns ...func(*awss3.Options)) (*awss3.GetBucketEncryptionOutput, error)
+	GetPublicAccessBlock(ctx context.Context, params *awss3.GetPublicAccessBlockInput, optFns ...func(*awss3.Options)) (*awss3.GetPublicAccessBlockOutput, error)
+	GetBucketVersioning(ctx context.Context, params *awss3.GetBucketVersioningInput, optFns ...func(*awss3.Options)) (*awss3.GetBucketVersioningOutput, error)
 }
 
 // Plugin is the in-process aws.s3 source.
@@ -94,20 +100,25 @@ func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 // Init is a no-op; configuration is supplied to the constructor.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// bucketPayload is the shape of the JSON payload inside each s3_bucket.
+// bucketPayload is the object_storage_bucket shape this plugin emits.
+// AWS-specific signals not covered by the cross-vendor schema v1
+// (Object Ownership controls, bucket policy text, ACL details) are
+// intentionally omitted; adding them is additive.
 type bucketPayload struct {
-	Name              string    `json:"name"`
-	Region            string    `json:"region,omitempty"`
-	CreatedAt         time.Time `json:"created_at,omitempty"`
-	EncryptionEnabled bool      `json:"encryption_enabled"`
-	SSEAlgorithm      string    `json:"sse_algorithm,omitempty"`
-	KMSKeyID          string    `json:"kms_key_id,omitempty"`
+	Name                    string    `json:"name"`
+	RegionOrLocation        string    `json:"region_or_location,omitempty"`
+	EncryptionAtRestEnabled bool      `json:"encryption_at_rest_enabled"`
+	KMSManaged              bool      `json:"kms_managed,omitempty"`
+	KMSKeyID                string    `json:"kms_key_id,omitempty"`
+	PublicAccessBlocked     bool      `json:"public_access_blocked"`
+	VersioningEnabled       bool      `json:"versioning_enabled,omitempty"`
+	CreatedAt               time.Time `json:"created_at,omitempty"`
 }
 
 // Collect lists S3 buckets in the configured account and returns one
-// s3_bucket record per bucket. Records are sorted by ID before return
-// so envelope bytes are stable across runs against stable account
-// state.
+// object_storage_bucket record per bucket. Records are sorted by ID
+// before return so envelope bytes are stable across runs against
+// stable account state.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
 	if !req.Accepts(EvidenceTypeID) {
 		return nil, fmt.Errorf("aws.s3: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
@@ -124,17 +135,27 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		if name == "" {
 			continue
 		}
-		enc, alg, keyID, err := p.bucketEncryption(ctx, name)
+		enc, kmsManaged, keyID, err := p.bucketEncryption(ctx, name)
 		if err != nil {
 			return nil, fmt.Errorf("aws.s3: encryption for bucket %s: %w", name, err)
 		}
+		blocked, err := p.bucketPublicAccessBlocked(ctx, name)
+		if err != nil {
+			return nil, fmt.Errorf("aws.s3: public-access-block for bucket %s: %w", name, err)
+		}
+		versioning, err := p.bucketVersioningEnabled(ctx, name)
+		if err != nil {
+			return nil, fmt.Errorf("aws.s3: versioning for bucket %s: %w", name, err)
+		}
 		payload := bucketPayload{
-			Name:              name,
-			Region:            safeBucketRegion(b, p.region),
-			CreatedAt:         safeCreatedAt(b),
-			EncryptionEnabled: enc,
-			SSEAlgorithm:      alg,
-			KMSKeyID:          keyID,
+			Name:                    name,
+			RegionOrLocation:        safeBucketRegion(b, p.region),
+			EncryptionAtRestEnabled: enc,
+			KMSManaged:              kmsManaged,
+			KMSKeyID:                keyID,
+			PublicAccessBlocked:     blocked,
+			VersioningEnabled:       versioning,
+			CreatedAt:               safeCreatedAt(b),
 		}
 		body, err := json.Marshal(payload)
 		if err != nil {
@@ -152,21 +173,22 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	return records, nil
 }
 
-// bucketEncryption returns (enabled, algorithm, kmsKeyID, error). A
-// missing default-encryption configuration is reported as
-// `ServerSideEncryptionConfigurationNotFoundError` by S3; we treat that
-// as "encryption disabled" rather than a fatal error so policies see a
-// clean fail signal.
-func (p *Plugin) bucketEncryption(ctx context.Context, name string) (enabled bool, algorithm, kmsKeyID string, err error) {
+// bucketEncryption returns (encryptionEnabled, kmsManaged, kmsKeyID, error).
+// A missing default-encryption configuration is reported as
+// `ServerSideEncryptionConfigurationNotFoundError` by S3; treat that
+// as "encryption disabled" rather than fatal so policies see a clean
+// fail signal. kmsManaged is true when the configured algorithm is
+// SSE-KMS (aws:kms or aws:kms:dsse).
+func (p *Plugin) bucketEncryption(ctx context.Context, name string) (enabled, kmsManaged bool, kmsKeyID string, err error) {
 	out, err := p.api.GetBucketEncryption(ctx, &awss3.GetBucketEncryptionInput{Bucket: &name})
 	if err != nil {
-		if isEncryptionNotFound(err) {
-			return false, "", "", nil
+		if isAPIErrorCode(err, "ServerSideEncryptionConfigurationNotFoundError") {
+			return false, false, "", nil
 		}
-		return false, "", "", err
+		return false, false, "", err
 	}
 	if out == nil || out.ServerSideEncryptionConfiguration == nil {
-		return false, "", "", nil
+		return false, false, "", nil
 	}
 	for i := range out.ServerSideEncryptionConfiguration.Rules {
 		rule := &out.ServerSideEncryptionConfiguration.Rules[i]
@@ -175,25 +197,72 @@ func (p *Plugin) bucketEncryption(ctx context.Context, name string) (enabled boo
 		}
 		def := rule.ApplyServerSideEncryptionByDefault
 		alg := string(def.SSEAlgorithm)
+		if alg == "" {
+			continue
+		}
 		keyID := ""
 		if def.KMSMasterKeyID != nil {
 			keyID = *def.KMSMasterKeyID
 		}
-		return alg != "", alg, keyID, nil
+		kms := alg == "aws:kms" || alg == "aws:kms:dsse"
+		return true, kms, keyID, nil
 	}
-	return false, "", "", nil
+	return false, false, "", nil
 }
 
-// isEncryptionNotFound recognizes the documented "no default encryption"
-// API error and lets us model it as a payload boolean rather than a
-// hard error. We avoid depending on a typed error variant since the v2
-// SDK exposes this as a generic API error code.
-func isEncryptionNotFound(err error) bool {
+// bucketPublicAccessBlocked returns true iff the bucket has a Public
+// Access Block configuration with all four flags set. Missing
+// configuration (`NoSuchPublicAccessBlockConfiguration`) → false, the
+// safe-for-policies signal that public access is NOT blocked.
+func (p *Plugin) bucketPublicAccessBlocked(ctx context.Context, name string) (bool, error) {
+	out, err := p.api.GetPublicAccessBlock(ctx, &awss3.GetPublicAccessBlockInput{Bucket: &name})
+	if err != nil {
+		if isAPIErrorCode(err, "NoSuchPublicAccessBlockConfiguration") {
+			return false, nil
+		}
+		return false, err
+	}
+	if out == nil || out.PublicAccessBlockConfiguration == nil {
+		return false, nil
+	}
+	c := out.PublicAccessBlockConfiguration
+	allTrue := boolDeref(c.BlockPublicAcls) &&
+		boolDeref(c.IgnorePublicAcls) &&
+		boolDeref(c.BlockPublicPolicy) &&
+		boolDeref(c.RestrictPublicBuckets)
+	return allTrue, nil
+}
+
+// bucketVersioningEnabled returns true iff the bucket's versioning
+// status is "Enabled" (not "Suspended" or unset). Optional field —
+// absent versioning configuration is reported as false.
+func (p *Plugin) bucketVersioningEnabled(ctx context.Context, name string) (bool, error) {
+	out, err := p.api.GetBucketVersioning(ctx, &awss3.GetBucketVersioningInput{Bucket: &name})
+	if err != nil {
+		return false, err
+	}
+	if out == nil {
+		return false, nil
+	}
+	return string(out.Status) == "Enabled", nil
+}
+
+// isAPIErrorCode returns true when err wraps a smithy.APIError with the
+// supplied code. Used in lieu of typed-error matching since the v2 SDK
+// exposes these as generic API errors.
+func isAPIErrorCode(err error, code string) bool {
 	var apiErr smithy.APIError
 	if errors.As(err, &apiErr) {
-		return apiErr.ErrorCode() == "ServerSideEncryptionConfigurationNotFoundError"
+		return apiErr.ErrorCode() == code
 	}
 	return false
+}
+
+func boolDeref(p *bool) bool {
+	if p == nil {
+		return false
+	}
+	return *p
 }
 
 func safeBucketName(b *s3types.Bucket) string {

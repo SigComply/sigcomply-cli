@@ -75,10 +75,10 @@ func TestGCPIAMNoOwnerRoleForUsers_PassWhenServiceAccountHasOwner(t *testing.T) 
 	}
 }
 
-// --- gcsBucketUniformAccess ---
+// --- objectStoragePublicAccessBlocked ---
 
-func TestGCSBucketUniformAccess_PassWhenAllEnabled(t *testing.T) {
-	rule := gcsBucketUniformAccessRule()
+func TestObjectStoragePublicAccessBlocked_PassWhenAllBlocked(t *testing.T) {
+	rule := objectStoragePublicAccessBlockedRule()
 	res, err := rule.Evaluate(context.Background(), core.RuleInput{
 		Slots: map[string][]core.EvidenceRecord{
 			"buckets": {
@@ -95,8 +95,8 @@ func TestGCSBucketUniformAccess_PassWhenAllEnabled(t *testing.T) {
 	}
 }
 
-func TestGCSBucketUniformAccess_FailWhenAnyDisabled(t *testing.T) {
-	rule := gcsBucketUniformAccessRule()
+func TestObjectStoragePublicAccessBlocked_FailWhenAnyOpen(t *testing.T) {
+	rule := objectStoragePublicAccessBlockedRule()
 	res, err := rule.Evaluate(context.Background(), core.RuleInput{
 		Slots: map[string][]core.EvidenceRecord{
 			"buckets": {
@@ -116,7 +116,7 @@ func TestGCSBucketUniformAccess_FailWhenAnyDisabled(t *testing.T) {
 		t.Errorf("want 2 violations; got %d", len(res.Violations))
 	}
 	for _, v := range res.Violations {
-		if !strings.Contains(v.Reason, "uniform bucket-level access disabled") {
+		if !strings.Contains(v.Reason, "does not block public access") {
 			t.Errorf("Reason = %q", v.Reason)
 		}
 	}
@@ -221,7 +221,7 @@ func TestGCPPolicies_RegisteredInSet(t *testing.T) {
 	}
 	wantRules := []string{
 		ruleIDGCPIAMNoOwnerRoleForUsers,
-		ruleIDGCSBucketUniformAccess,
+		ruleIDObjectStoragePublicAccessBlocked,
 		ruleIDComputeNoDefaultServiceAccount,
 		ruleIDCloudSQLRequireSSL,
 	}
@@ -260,13 +260,14 @@ func iamBindingRec(t *testing.T, role, member, memberType string) core.EvidenceR
 	}
 }
 
-func bucketRec(t *testing.T, name string, uniformAccess bool) core.EvidenceRecord {
+func bucketRec(t *testing.T, name string, publicAccessBlocked bool) core.EvidenceRecord {
 	t.Helper()
 	payload := gcpMustMarshal(t, map[string]any{
-		"name":                        name,
-		"uniform_bucket_level_access": uniformAccess,
+		"name":                       name,
+		"encryption_at_rest_enabled": true,
+		"public_access_blocked":      publicAccessBlocked,
 	})
-	return core.EvidenceRecord{Type: "gcs_bucket", ID: name, Payload: payload}
+	return core.EvidenceRecord{Type: "object_storage_bucket", ID: name, Payload: payload}
 }
 
 func computeInstanceRec(t *testing.T, name string, usesDefaultSA bool) core.EvidenceRecord {

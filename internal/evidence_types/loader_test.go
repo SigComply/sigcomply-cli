@@ -12,7 +12,7 @@ func TestRegister_LoadsEmbeddedSchemas(t *testing.T) {
 	if err := Register(set); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
-	for _, want := range []string{"directory_user", "signed_document", "s3_bucket", "gcs_bucket", "okta_app"} {
+	for _, want := range []string{"directory_user", "signed_document", "object_storage_bucket", "okta_app"} {
 		if _, ok := set.EvidenceTypes.Lookup(want); !ok {
 			t.Errorf("expected %s in EvidenceTypes registry", want)
 		}

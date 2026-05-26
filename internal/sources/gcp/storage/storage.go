@@ -27,8 +27,10 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
-// EvidenceTypeID is the single evidence type this plugin emits today.
-const EvidenceTypeID = "gcs_bucket"
+// EvidenceTypeID is the cross-vendor object_storage_bucket shape.
+// GCS is one of several substitutable object-storage sources (AWS S3,
+// Azure Blob, MinIO/S3-compatible).
+const EvidenceTypeID = "object_storage_bucket"
 
 // SourceID is the registered ID for the gcp.storage plugin instance.
 const SourceID = "gcp.storage"
@@ -94,17 +96,25 @@ func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 // Preserved for symmetry with other plugins.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// bucketPayload is the shape of the JSON payload inside each
-// gcs_bucket record.
+// bucketPayload is the object_storage_bucket shape this plugin emits.
+// GCS is always encrypted at rest by default (encryption_at_rest_enabled
+// is unconditionally true); kms_managed reflects whether a customer-
+// managed encryption key (CMEK) is configured. public_access_blocked
+// is true iff BOTH uniform bucket-level access is enabled AND
+// PublicAccessPrevention is "enforced" — the conservative AND that
+// matches the cross-vendor semantic of "the bucket cannot be made
+// public from any path." GCS-specific signals not modeled here
+// (RequesterPays, StorageClass, retention policies) are omitted —
+// they'd belong in a future GCS-extension type, not here.
 type bucketPayload struct {
-	Name                     string    `json:"name"`
-	Location                 string    `json:"location"`
-	StorageClass             string    `json:"storage_class"`
-	UniformBucketLevelAccess bool      `json:"uniform_bucket_level_access"`
-	PublicAccessPrevention   string    `json:"public_access_prevention"`
-	VersioningEnabled        bool      `json:"versioning_enabled"`
-	RequesterPays            bool      `json:"requester_pays"`
-	Created                  time.Time `json:"created_at,omitempty"`
+	Name                    string    `json:"name"`
+	RegionOrLocation        string    `json:"region_or_location,omitempty"`
+	EncryptionAtRestEnabled bool      `json:"encryption_at_rest_enabled"`
+	KMSManaged              bool      `json:"kms_managed,omitempty"`
+	KMSKeyID                string    `json:"kms_key_id,omitempty"`
+	PublicAccessBlocked     bool      `json:"public_access_blocked"`
+	VersioningEnabled       bool      `json:"versioning_enabled,omitempty"`
+	CreatedAt               time.Time `json:"created_at,omitempty"`
 }
 
 // Collect lists buckets in the configured project and emits one
@@ -125,15 +135,19 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		if b == nil {
 			continue
 		}
+		kmsKey := ""
+		if b.Encryption != nil {
+			kmsKey = b.Encryption.DefaultKMSKeyName
+		}
 		payload := bucketPayload{
-			Name:                     b.Name,
-			Location:                 b.Location,
-			StorageClass:             b.StorageClass,
-			UniformBucketLevelAccess: b.UniformBucketLevelAccess.Enabled,
-			PublicAccessPrevention:   b.PublicAccessPrevention.String(),
-			VersioningEnabled:        b.VersioningEnabled,
-			RequesterPays:            b.RequesterPays,
-			Created:                  b.Created,
+			Name:                    b.Name,
+			RegionOrLocation:        b.Location,
+			EncryptionAtRestEnabled: true, // GCS encrypts at rest unconditionally; the question is only whether a CMEK is used
+			KMSManaged:              kmsKey != "",
+			KMSKeyID:                kmsKey,
+			PublicAccessBlocked:     b.UniformBucketLevelAccess.Enabled && b.PublicAccessPrevention.String() == "enforced",
+			VersioningEnabled:       b.VersioningEnabled,
+			CreatedAt:               b.Created,
 		}
 		body, err := json.Marshal(payload)
 		if err != nil {

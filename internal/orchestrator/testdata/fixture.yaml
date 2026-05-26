@@ -54,15 +54,18 @@ sources:
     project_id: example-project
 
 bindings:
-  soc2.cc6.1.mfa_enforced:
-    user_directory:
-      - source: aws.iam
   soc2.cc6.3.access_review_quarterly:
     review_document:
       - source: "manual.pdf:access_review_quarterly"
   soc2.cc6.1.mfa_enforced_all_sources:
+    # Single source-agnostic MFA policy: binds every directory_user-
+    # emitting source the project has registered. The rule runs once
+    # against the union; per-source audit lenses (if needed) are a
+    # project-config concern, not a duplicate framework policy.
     user_directory:
       - source: aws.iam
+      - source: okta
+      - source: github
   soc2.cc7.2.cloudtrail_multiregion_enabled:
     trails:
       - source: aws.cloudtrail
@@ -75,9 +78,17 @@ bindings:
   soc2.cc7.1.config_recorder_enabled:
     recorders:
       - source: aws.config
-  soc2.cc6.7.s3_bucket_encrypted:
+  soc2.cc6.7.object_storage_encrypted_at_rest:
+    # Cross-vendor object-storage policy: every bound bucket source
+    # (S3, GCS, future Azure Blob) contributes records of the same
+    # object_storage_bucket type.
     buckets:
       - source: aws.s3
+      - source: gcp.storage
+  soc2.cc6.7.object_storage_public_access_blocked:
+    buckets:
+      - source: aws.s3
+      - source: gcp.storage
   soc2.cc6.7.kms_key_rotation_enabled:
     keys:
       - source: aws.kms
@@ -93,9 +104,6 @@ bindings:
   soc2.cc6.1.gcp_iam_no_owner_role_for_users:
     iam_bindings:
       - source: gcp.iam
-  soc2.cc6.7.gcs_bucket_uniform_access:
-    buckets:
-      - source: gcp.storage
   soc2.cc6.6.compute_no_default_service_account:
     instances:
       - source: gcp.compute
@@ -105,12 +113,6 @@ bindings:
   soc2.cc6.6.github_branch_protection_on_default:
     repositories:
       - source: github
-  soc2.cc6.1.github_org_members_have_2fa:
-    members:
-      - source: github
-  soc2.cc6.1.okta_users_have_mfa:
-    directory:
-      - source: okta
   soc2.cc6.7.okta_apps_require_mfa:
     applications:
       - source: okta

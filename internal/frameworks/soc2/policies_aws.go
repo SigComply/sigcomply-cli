@@ -12,9 +12,12 @@ import (
 // Each policy binds to a single slot consuming the source's emitted
 // evidence type and fails on a security-relevant attribute.
 
-// PolicyS3BucketEncrypted is the policy that fails when any S3 bucket
-// has no default server-side encryption (SOC 2 CC6.7).
-const PolicyS3BucketEncrypted = "soc2.cc6.7.s3_bucket_encrypted"
+// PolicyObjectStorageEncryptedAtRest is the cross-vendor policy that
+// fails when any object_storage_bucket (S3, GCS, Azure Blob, …) lacks
+// server-side encryption at rest (SOC 2 CC6.7). The rule logic is
+// source-agnostic; a project that has both AWS S3 and GCS sources
+// registered sees one consolidated result spanning both clouds.
+const PolicyObjectStorageEncryptedAtRest = "soc2.cc6.7.object_storage_encrypted_at_rest"
 
 // PolicyKMSKeyRotation is the policy that fails when any customer-
 // managed CMK has automatic rotation disabled (SOC 2 CC6.7).
@@ -35,11 +38,11 @@ const PolicyEC2NoPublicIP = "soc2.cc6.6.ec2_no_public_ip"
 const PolicyEKSSecretsEncryption = "soc2.cc6.7.eks_secrets_encryption" // #nosec G101 -- policy identifier, not a credential. gitleaks:allow
 
 const (
-	ruleIDS3BucketEncrypted    = "rules.soc2.s3_bucket_encrypted.v1"
-	ruleIDKMSKeyRotation       = "rules.soc2.kms_key_rotation_enabled.v1"
-	ruleIDRDSEncryptionAtRest  = "rules.soc2.rds_encryption_at_rest.v1"
-	ruleIDEC2NoPublicIP        = "rules.soc2.ec2_no_public_ip.v1"
-	ruleIDEKSSecretsEncryption = "rules.soc2.eks_secrets_encryption.v1" // #nosec G101 -- rule ID string, not a credential. gitleaks:allow
+	ruleIDObjectStorageEncryptedAtRest = "rules.soc2.object_storage_encrypted_at_rest.v1"
+	ruleIDKMSKeyRotation               = "rules.soc2.kms_key_rotation_enabled.v1"
+	ruleIDRDSEncryptionAtRest          = "rules.soc2.rds_encryption_at_rest.v1"
+	ruleIDEC2NoPublicIP                = "rules.soc2.ec2_no_public_ip.v1"
+	ruleIDEKSSecretsEncryption         = "rules.soc2.eks_secrets_encryption.v1" // #nosec G101 -- rule ID string, not a credential. gitleaks:allow
 )
 
 // awsPolicies returns the AWS infrastructure policies wired in this
@@ -49,18 +52,18 @@ const (
 func awsPolicies() []core.Policy {
 	return []core.Policy{
 		{
-			ID:          PolicyS3BucketEncrypted,
+			ID:          PolicyObjectStorageEncryptedAtRest,
 			Control:     "SOC2.CC6.7",
-			Description: "Every S3 bucket has default server-side encryption configured.",
-			Remediation: "Enable default encryption (SSE-S3 or SSE-KMS) on the listed buckets via the AWS Console or `aws s3api put-bucket-encryption`.",
+			Description: "Every object storage bucket across every bound cloud has server-side encryption at rest enabled.",
+			Remediation: "Enable default server-side encryption on the listed buckets (S3: `aws s3api put-bucket-encryption`; GCS: CMEK is configured by default unless explicitly disabled; Azure Blob: enable Storage Service Encryption).",
 			Severity:    core.SeverityHigh,
 			Category:    "data-protection",
 			Cadence:     "daily",
 			OnPush:      true,
 			Slots: map[string]core.Slot{
-				"buckets": {Accepts: []string{"s3_bucket"}, Cardinality: core.SlotExactlyOne, Required: true, Description: "S3 buckets in the configured account"},
+				"buckets": {Accepts: []string{"object_storage_bucket"}, Cardinality: core.SlotOneOrMore, Required: true, Description: "Object storage buckets across all bound clouds"},
 			},
-			RuleRef: ruleIDS3BucketEncrypted,
+			RuleRef: ruleIDObjectStorageEncryptedAtRest,
 		},
 		{
 			ID:          PolicyKMSKeyRotation,
@@ -124,8 +127,8 @@ func awsPolicies() []core.Policy {
 // awsRules returns the Go rules wired for the AWS policies.
 func awsRules() []core.Rule {
 	return []core.Rule{
-		boolAttrRule(ruleIDS3BucketEncrypted, "buckets", "encryption_enabled", "name",
-			"S3 bucket %s has no default encryption configured", true),
+		boolAttrRule(ruleIDObjectStorageEncryptedAtRest, "buckets", "encryption_at_rest_enabled", "name",
+			"object storage bucket %s has no server-side encryption at rest configured", true),
 		// KMS: only customer-managed keys are eligible — AWS-managed keys
 		// are managed (and rotated) by AWS automatically.
 		kmsRotationRule(),
