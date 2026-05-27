@@ -166,7 +166,7 @@ run_20260215T140000Z_a3f8b2c1/
       "sha256:c9d4f2a1...",
     "policies/soc2.cc6.1.mfa_enforced/envelopes/user_record__aws.iam.json":
       "sha256:e3b0c442...",
-    "policies/soc2.cc6.1.access_review/attachments/access_review_quarterly/evidence.pdf":
+    "policies/soc2.cc6.1.access_review/attachments/access_review_quarterly/merged.pdf":
       "sha256:194523ba..."
   },
 
@@ -305,7 +305,7 @@ manual flow:
 
 ```
 policies/soc2.cc6.1.access_review/envelopes/signed_document__manual.pdf.json
-policies/soc2.cc6.1.access_review/attachments/access_review_quarterly/evidence.pdf
+policies/soc2.cc6.1.access_review/attachments/access_review_quarterly/merged.pdf
 ```
 
 The envelope's manifest references the PDF by relative path; the PDF

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	"google.golang.org/api/iterator"
 
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 )
@@ -20,6 +21,7 @@ import (
 // wraps a *storage.BucketHandle; tests inject an in-memory fake.
 type API interface {
 	Get(ctx context.Context, key string) ([]byte, time.Time, error)
+	List(ctx context.Context, prefix string) ([]manual.FileInfo, error)
 }
 
 // Reader is the manual.pdf Reader backed by GCS. The Bucket is held on
@@ -67,6 +69,15 @@ func (r *Reader) Get(ctx context.Context, key string) ([]byte, time.Time, error)
 	return data, uploadedAt, nil
 }
 
+// List returns all objects whose key begins with prefix, sorted by key.
+func (r *Reader) List(ctx context.Context, prefix string) ([]manual.FileInfo, error) {
+	items, err := r.Client.List(ctx, prefix)
+	if err != nil {
+		return nil, fmt.Errorf("manual.pdf gcs: list %s: %w", prefix, err)
+	}
+	return items, nil
+}
+
 // realGCS is the production implementation of API. It speaks to GCS
 // via the official Go SDK using a single NewReader round-trip; the
 // Reader's Attrs field exposes LastModified without a second Attrs
@@ -88,6 +99,22 @@ func (r *realGCS) Get(ctx context.Context, key string) (_ []byte, _ time.Time, e
 		return nil, time.Time{}, err
 	}
 	return data, reader.Attrs.LastModified.UTC(), nil
+}
+
+func (r *realGCS) List(ctx context.Context, prefix string) ([]manual.FileInfo, error) {
+	var items []manual.FileInfo
+	it := r.bucket.Objects(ctx, &storage.Query{Prefix: prefix})
+	for {
+		attrs, err := it.Next()
+		if errors.Is(err, iterator.Done) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, manual.FileInfo{Key: attrs.Name, UploadedAt: attrs.Updated.UTC()})
+	}
+	return items, nil
 }
 
 // Compile-time assertion.

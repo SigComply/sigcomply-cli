@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -678,6 +679,33 @@ func (r *localManualReader) Get(_ context.Context, uri string) ([]byte, time.Tim
 		return nil, time.Time{}, err
 	}
 	return data, info.ModTime().UTC(), nil
+}
+
+func (r *localManualReader) List(_ context.Context, prefix string) ([]manual.FileInfo, error) {
+	full := filepath.Join(r.root, prefix)
+	entries, err := os.ReadDir(full)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var items []manual.FileInfo
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, manual.FileInfo{
+			Key:        prefix + e.Name(),
+			UploadedAt: info.ModTime().UTC(),
+		})
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].Key < items[j].Key })
+	return items, nil
 }
 
 // bootstrapWithRegistries is the test's version of orchestrator.Bootstrap

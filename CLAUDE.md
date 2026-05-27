@@ -164,26 +164,38 @@ before changing anything in `internal/sources/manual/` or the
 
 **What the CLI does (v1):**
 
-1. **Path-resolves** the catalog entry to a deterministic upload path
-   under the project's single manual-evidence bucket:
-   `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/{filename}`.
-2. **Fetches** the PDF from that path. Missing file → policy fails
-   with a structured "expected at: <path>" message.
-3. **Hashes** the bytes (SHA-256) and records the upload timestamp.
-4. **Temporal window check**: the upload timestamp must lie in
-   `[period_start, period_end + grace]`. Outside → policy fails.
-5. **Cheap sanity checks** (in `internal/sources/manual/manual.go`
-   `validatePDF`): minimum file size, `%PDF-` magic-bytes prefix,
-   presence of at least one `/Page` object. Failures land in
-   `validation_failures` on the manifest and flip `file_valid` to
-   `false`. Stdlib-only — no PDF parser dependency.
-6. **Prior-period duplication check**: if the planner supplied
-   `prior_period_id` and a file exists at the equivalent prior path,
-   the SHA-256 hashes must differ. A byte-identical match is the
-   signature of copy-pasting last period's file and surfaces as
-   `copy_paste_of_prior_period` in `validation_failures`. Missing
-   prior file is **not** a failure (first run, or no prior period).
-7. **Signs** the manifest (canonical JSON of `{timestamp, evidence}`)
+1. **Folder-scans** the catalog-resolved folder under the project's
+   single manual-evidence bucket:
+   `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/`.
+   No files found → policy fails with a structured "expected files in:
+   <folder>" message.
+2. **Classifies** each file by extension. Supported: PDF, JPEG, PNG,
+   GIF, TIFF, WebP, BMP. Unsupported extensions (e.g. `.docx`) surface
+   as `unsupported_file_type` in `validation_failures` so CI operators
+   see an actionable error message. If no supported files remain after
+   filtering, `file_valid` is set to `false` immediately.
+3. **Fetches, hashes, converts**: each supported file is fetched;
+   its original bytes are SHA-256-hashed; images are converted to PDF
+   via `fileconv.ToPDF` (pure-Go, no external process). A per-file
+   audit record (filename, type, original hash, upload time, converted
+   flag) is added to `source_files` in the manifest.
+4. **Merges** all PDF parts into one via `pdfmerge.Merge` (pdfcpu).
+5. **Cheap sanity checks** on the merged PDF (in
+   `internal/sources/manual/manual.go` `validatePDF`): minimum file
+   size, `%PDF-` magic-bytes prefix, presence of at least one `/Page`
+   object. Failures land in `validation_failures` and flip `file_valid`
+   to `false`. Stdlib-only — no PDF parser dependency.
+6. **Temporal window check**: the *latest* upload timestamp across all
+   source files must lie in `[period_start, period_end + grace]`.
+   Outside → policy fails.
+7. **Prior-period duplication check**: if the planner supplied
+   `prior_period_id`, the plugin lists the prior-period folder, hashes
+   each supported file, and computes a `sourceFingerprint` (SHA-256 of
+   sorted `filename:sha256` pairs). A byte-identical fingerprint between
+   the current and prior period surfaces as `copy_paste_of_prior_period`
+   in `validation_failures`. Missing prior folder is **not** a failure
+   (first run, or no prior period).
+8. **Signs** the manifest (canonical JSON of `{timestamp, evidence}`)
    with a fresh ephemeral Ed25519 keypair (see Invariant #3).
 
 **What the CLI explicitly does NOT do:**
@@ -404,10 +416,11 @@ for the full design.
 
 **Manual evidence is a project-level singleton.** One project = one repo =
 one framework, so there is exactly one `manual.pdf` source per project and
-one bucket per project for manual uploads — never per-framework. Path
-scheme: `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/{filename}`.
-Customers pursuing multiple frameworks (SOC 2 + ISO 27001) typically use
-multiple repos.
+one bucket per project for manual uploads — never per-framework. Folder
+scheme: `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/`. Any number
+of files (PDF, JPEG, PNG, GIF, TIFF, WebP, BMP) may be placed in the
+folder; all are merged into one PDF before evaluation. Customers pursuing
+multiple frameworks (SOC 2 + ISO 27001) typically use multiple repos.
 
 **Manual-evidence reader backends are symmetric with vault backends.**
 Both axes ship the same four in-tree backends — `local`, `s3`, `gcs`,

@@ -226,12 +226,13 @@ before she got to it.
 
    Evidence:   contractor_review_quarterly
    Period:     2026-Q2
-   Expected:   s3://acme-evidence/manual/contractor_review_quarterly/2026-Q2/evidence.pdf
+   Expected:   s3://acme-evidence/manual/contractor_review_quarterly/2026-Q2/
 
    To remediate:
    1. Generate the contractor review PDF (use the SigComply Evidence SPA
       at https://evidence.sigcomply.com, or your own tooling).
-   2. Upload it to the path above.
+   2. Upload one or more files (PDF, JPEG, PNG, GIF, TIFF, WebP, or BMP)
+      to the folder above. Any filename is accepted.
    3. Manually re-run the appropriate compliance workflow
       (Settings → Actions → Re-run workflow).
 ```

@@ -15,6 +15,9 @@ import (
 	gcsreader "github.com/sigcomply/sigcomply-cli/internal/sources/manual/gcs"
 )
 
+// unused import guard (strings is used in List test below)
+var _ = strings.HasPrefix
+
 type fakeFile struct {
 	data       []byte
 	uploadedAt time.Time
@@ -43,6 +46,21 @@ func (f *fakeGCS) Get(_ context.Context, key string) ([]byte, time.Time, error) 
 		return nil, time.Time{}, storage.ErrObjectNotExist
 	}
 	return append([]byte(nil), o.data...), o.uploadedAt, nil
+}
+
+func (f *fakeGCS) List(_ context.Context, prefix string) ([]manual.FileInfo, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.err != nil {
+		return nil, f.err
+	}
+	var items []manual.FileInfo
+	for key, ff := range f.files {
+		if strings.HasPrefix(key, prefix) {
+			items = append(items, manual.FileInfo{Key: key, UploadedAt: ff.uploadedAt})
+		}
+	}
+	return items, nil
 }
 
 func TestReader_Get_Success(t *testing.T) {
@@ -115,5 +133,52 @@ func TestBuild_RejectsMissingBucket(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "bucket") {
 		t.Errorf("build error should mention \"bucket\", got: %v", err)
+	}
+}
+
+func TestReader_List_ReturnsMatchingKeys(t *testing.T) {
+	uploaded := time.Date(2026, 3, 15, 10, 0, 0, 0, time.UTC)
+	fake := newFakeGCS()
+	fake.files["manual/ev/2026-Q1/report.pdf"] = fakeFile{data: []byte("x"), uploadedAt: uploaded}
+	fake.files["manual/ev/2026-Q1/scan.jpg"] = fakeFile{data: []byte("y"), uploadedAt: uploaded}
+	fake.files["manual/ev/2026-Q2/other.pdf"] = fakeFile{data: []byte("z"), uploadedAt: uploaded}
+
+	r := &gcsreader.Reader{Client: fake, Bucket: "test-bucket"}
+	items, err := r.List(context.Background(), "manual/ev/2026-Q1/")
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(items) != 2 {
+		t.Errorf("List: got %d items, want 2; items: %v", len(items), items)
+	}
+	for _, item := range items {
+		if !strings.HasPrefix(item.Key, "manual/ev/2026-Q1/") {
+			t.Errorf("List: unexpected key %q for prefix \"manual/ev/2026-Q1/\"", item.Key)
+		}
+	}
+}
+
+func TestReader_List_Empty(t *testing.T) {
+	r := &gcsreader.Reader{Client: newFakeGCS(), Bucket: "test-bucket"}
+	items, err := r.List(context.Background(), "manual/ev/2026-Q1/")
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(items) != 0 {
+		t.Errorf("List: got %d items, want 0", len(items))
+	}
+}
+
+func TestReader_List_ErrorSurfaces(t *testing.T) {
+	sentinel := errors.New("synthetic list error")
+	fake := newFakeGCS()
+	fake.err = sentinel
+	r := &gcsreader.Reader{Client: fake, Bucket: "test-bucket"}
+	_, err := r.List(context.Background(), "manual/ev/2026-Q1/")
+	if err == nil {
+		t.Fatal("List: expected error, got nil")
+	}
+	if !errors.Is(err, sentinel) {
+		t.Errorf("List: expected error to wrap sentinel, got %v", err)
 	}
 }

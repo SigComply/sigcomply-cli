@@ -160,3 +160,30 @@ func (r *localReader) Get(_ context.Context, uri string) ([]byte, time.Time, err
 	}
 	return data, info.ModTime().UTC(), nil
 }
+
+func (r *localReader) List(_ context.Context, prefix string) ([]FileInfo, error) {
+	full := strings.TrimRight(r.root, "/") + "/" + prefix
+	entries, err := os.ReadDir(full)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var items []FileInfo
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, FileInfo{
+			Key:        prefix + e.Name(),
+			UploadedAt: info.ModTime().UTC(),
+		})
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].Key < items[j].Key })
+	return items, nil
+}

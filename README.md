@@ -42,13 +42,19 @@ workflow, and evidence vault.
 ## Manual evidence
 
 For evidence that isn't an API call (declarations, training certificates,
-HR exports), the CLI looks for a single PDF at
-`{framework}/{evidence_id}/{period}/evidence.pdf` in your storage:
+HR exports), the CLI scans a folder in your storage:
+
+```
+{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/
+```
+
+Upload any number of files — PDF, JPEG, PNG, GIF, TIFF, WebP, or BMP.
+Images are auto-converted to PDF; all files are merged into one before evaluation.
 
 ```sh
 sigcomply evidence catalog                    # list manual entries
 sigcomply evidence init                       # scaffold the period folders
-sigcomply evidence path security_awareness_training   # print where to upload a PDF
+sigcomply evidence path security_awareness_training   # print the folder URI to upload to
 ```
 
 Set the framework via `SIGCOMPLY_FRAMEWORK` or `framework:` in your config file
@@ -57,8 +63,8 @@ Set the framework via `SIGCOMPLY_FRAMEWORK` or `framework:` in your config file
 The optional [Evidence SPA](https://github.com/SigComply/sigcomply-evidence-spa)
 is a standalone helper that generates PDFs for declaration- and checklist-style
 entries — the CLI never talks to it. For all other manual evidence (HR exports,
-training certificates, scanned documents) you produce the PDF yourself and
-upload it to the same path.
+training certificates, scanned documents) you produce the file yourself and
+upload it to the folder above.
 
 ## CI/CD
 

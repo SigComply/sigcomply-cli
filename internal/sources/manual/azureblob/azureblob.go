@@ -20,6 +20,7 @@ import (
 // declared below.
 type API interface {
 	Get(ctx context.Context, key string) ([]byte, time.Time, error)
+	List(ctx context.Context, prefix string) ([]manual.FileInfo, error)
 }
 
 // Reader is an Azure-Blob-backed manual.Reader.
@@ -67,6 +68,15 @@ func (r *Reader) Get(ctx context.Context, key string) ([]byte, time.Time, error)
 	return data, uploadedAt, nil
 }
 
+// List returns all blobs whose key begins with prefix, sorted by key.
+func (r *Reader) List(ctx context.Context, prefix string) ([]manual.FileInfo, error) {
+	items, err := r.Client.List(ctx, prefix)
+	if err != nil {
+		return nil, fmt.Errorf("manual.pdf azureblob: list %s: %w", prefix, err)
+	}
+	return items, nil
+}
+
 // ErrNotFound is the sentinel a fake test impl can return; the real
 // adapter relies on the SDK's typed errors via bloberror.HasCode.
 var ErrNotFound = errors.New("blob not found")
@@ -95,6 +105,31 @@ func (r *realAzure) Get(ctx context.Context, key string) (_ []byte, _ time.Time,
 		lastMod = *resp.LastModified
 	}
 	return data, lastMod, nil
+}
+
+func (r *realAzure) List(ctx context.Context, prefix string) ([]manual.FileInfo, error) {
+	var items []manual.FileInfo
+	pager := r.svc.NewListBlobsFlatPager(r.container, &azblob.ListBlobsFlatOptions{
+		Prefix: &prefix,
+	})
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, blob := range page.Segment.BlobItems {
+			name := ""
+			if blob.Name != nil {
+				name = *blob.Name
+			}
+			var t time.Time
+			if blob.Properties != nil && blob.Properties.LastModified != nil {
+				t = *blob.Properties.LastModified
+			}
+			items = append(items, manual.FileInfo{Key: name, UploadedAt: t})
+		}
+	}
+	return items, nil
 }
 
 // Compile-time assertion.

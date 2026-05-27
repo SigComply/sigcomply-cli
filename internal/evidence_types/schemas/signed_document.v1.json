@@ -3,17 +3,39 @@
   "$id": "https://schemas.sigcomply.io/evidence_types/signed_document/v1.json",
   "title": "signed_document",
   "version": 1,
-  "description": "Manifest emitted by the manual.pdf plugin for a PDF the customer placed at the catalog-resolved path. The PDF itself sidecars the envelope; this record carries only metadata.",
+  "description": "Manifest emitted by the manual.pdf plugin for one or more customer-uploaded files (PDF, JPEG, PNG, GIF, TIFF, WebP, BMP) found in the catalog-resolved folder. Images are auto-converted to PDF and all files are merged into one PDF before signing. The merged PDF sidecars the envelope; this record carries only metadata.",
   "type": "object",
   "required": ["evidence_id", "file_present", "expected_uri"],
   "properties": {
     "evidence_id":         { "type": "string", "description": "Catalog entry ID (e.g. access_review_quarterly)." },
-    "file_present":        { "type": "boolean" },
-    "file_hash":           { "type": "string", "description": "SHA-256 hex of the PDF bytes when present." },
-    "uploaded_at":         { "type": "string", "format": "date-time" },
-    "expected_uri":        { "type": "string", "description": "Resolved {scheme}://{bucket}/{prefix}/{evidence_id}/{period}/{filename}." },
-    "period_id":           { "type": "string" },
-    "in_temporal_window":  { "type": "boolean" }
+    "period_id":           { "type": "string", "description": "Period identifier (e.g. 2026-Q1)." },
+    "file_present":        { "type": "boolean", "description": "True if at least one supported file was found in the expected folder." },
+    "file_hash":           { "type": "string", "description": "SHA-256 hex of the merged PDF bytes when present (all source files combined)." },
+    "file_size":           { "type": "integer", "description": "Byte size of the merged PDF." },
+    "uploaded_at":         { "type": "string", "format": "date-time", "description": "Latest upload time across all source files in the folder." },
+    "in_temporal_window":  { "type": "boolean", "description": "True if the latest file upload time falls within [period_start, period_end + grace]." },
+    "file_valid":          { "type": "boolean", "description": "True if all source files have supported types, convert successfully, and the merged PDF passes structural checks." },
+    "validation_failures": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Human-readable list of failed checks. Each entry is prefixed with the failure code: unsupported_file_type, conversion_failed, merge_failed, file_too_small, missing_pdf_header, no_pages, or copy_paste_of_prior_period."
+    },
+    "expected_uri":        { "type": "string", "description": "Resolved {scheme}://{bucket}/{prefix}/{evidence_id}/{period}/ folder URI where files are expected." },
+    "source_files": {
+      "type": "array",
+      "description": "Per-file audit trail. Each entry records the original filename, file type, SHA-256 of the original bytes (before any conversion), upload time, and whether the file was converted from an image format.",
+      "items": {
+        "type": "object",
+        "required": ["filename", "sha256"],
+        "properties": {
+          "filename":   { "type": "string", "description": "Base name of the original file as uploaded." },
+          "type":       { "type": "string", "description": "File type: pdf, jpeg, png, gif, tiff, webp, or bmp." },
+          "sha256":     { "type": "string", "description": "sha256:<hex> of the original file bytes before conversion." },
+          "uploaded_at":{ "type": "string", "format": "date-time", "description": "Upload timestamp for this specific file." },
+          "converted":  { "type": "boolean", "description": "True if this file was converted from an image format to PDF." }
+        }
+      }
+    }
   },
   "additionalProperties": true
 }

@@ -36,12 +36,15 @@ Each policy lives within its framework directory. Simplicity and readability ove
 
 ## Adding a New Manual Evidence Policy
 
-Manual policies check that a customer-supplied PDF exists within the temporal
-window. By default the CLI looks at `{framework}/{evidence_id}/{period}/evidence.pdf`
-under the framework's configured manual-evidence backend, but a catalog entry
-can override the path via `path_template` and `filename`. The CLI does not
-read or parse the PDF in v1 — only its presence and hash matter. Future PDF
-text-extraction policies layer on top of the presence check.
+Manual policies check that one or more customer-supplied files exist in the
+catalog-resolved folder within the temporal window. The CLI scans the folder
+`{prefix}{evidence_id}/{period_id}/` under the project's configured
+manual-evidence backend. Any number of files may be placed there; supported
+formats are PDF (pass-through), JPEG, PNG, GIF, TIFF, WebP, and BMP — images
+are auto-converted to PDF and all files are merged into one before evaluation.
+Unsupported extensions (e.g. `.docx`) surface as `unsupported_file_type`
+failures so CI operators see an actionable error. The CLI does not read or
+parse PDF contents — only presence, format validity, and upload timestamp matter.
 
 1. **Add a catalog entry** in `internal/core/manual/catalogs/<framework>.yaml`:
    ```yaml
@@ -56,41 +59,12 @@ text-extraction policies layer on top of the presence check.
      severity: high
      declaration_text: "I confirm…"  # descriptive hint
    ```
-   `type`, `items`, `declaration_text`, and `accepted_formats` are descriptive hints — the CLI never branches on them. The optional Evidence SPA helper uses them to render a clickable form for declaration- and checklist-style entries; for evidence sourced externally (training certs, HR exports, scanned docs) the user produces the PDF themselves and the hints are ignored.
+   `type`, `items`, `declaration_text`, and `accepted_formats` are descriptive hints — the CLI never branches on them. The optional Evidence SPA helper uses them to render a clickable form for declaration- and checklist-style entries; for evidence sourced externally (training certs, HR exports, scanned docs) the user produces the file themselves and the hints are ignored.
 
-   **Optional path override.** For evidence stored under a different layout (e.g.
-   one shared annual training cert filed by year, not by framework):
-   ```yaml
-   - id: security_awareness_training
-     control: CC1.4
-     frequency: yearly
-     grace_period: "30d"
-     name: Annual Security Awareness Training
-     description: All staff complete annual security awareness training
-     severity: medium
-     # Looks up:  shared/security_awareness_training/2026/training-cert.pdf
-     path_template: "shared/{evidence_id}/{year}/{filename}"
-     filename: training-cert.pdf
-   ```
-   Supported placeholders (see `internal/core/manual/path.go:buildPlaceholderValues`):
-
-   | Placeholder | Available for | Example |
-   |-------------|---------------|---------|
-   | `{framework}` | every frequency | `soc2` |
-   | `{evidence_id}` | every frequency | `employee_nda` |
-   | `{period}` | every frequency (frequency-shaped) | `2026`, `2026-Q1`, `2026-01`, `2026-W03`, `2026-01-15` |
-   | `{year}` | every frequency | `2026` |
-   | `{quarter}` | `quarterly` only | `Q1` |
-   | `{month}` | `monthly` and `daily` | `01` |
-   | `{day}` | `daily` only | `15` |
-   | `{filename}` | every frequency | `evidence.pdf` |
-
-   `{period}` carries the week designator for `weekly` policies
-   (`2026-W03`) — there is no separate `{week}` placeholder. Referencing
-   a placeholder outside its supported frequency (e.g. `{quarter}` on a
-   yearly policy) is a hard error at resolve time rather than a silent
-   empty substitution. The resolver also rejects `..`, leading `/`, and
-   non-PDF endings.
+   The `filename` field (if present in older entries) is kept for display
+   purposes only — the collector ignores it and scans the whole folder.
+   There is no `path_template` override; the folder scheme
+   `{prefix}{evidence_id}/{period_id}/` is canonical and fixed.
 
 2. **Create the Rego policy** in `internal/compliance_frameworks/<framework>/policies/manual/<id>.rego`:
    ```rego
@@ -118,7 +92,7 @@ text-extraction policies layer on top of the presence check.
 
 3. **Write the test** at `<id>_test.rego` covering three cases: overdue+not_uploaded (→ one violation), uploaded+within_window (→ no violations), and wrong-resource-type (→ no violations).
 
-4. The CLI's manual reader (`internal/data_sources/manual/reader.go`) automatically picks up new catalog entries — no further wiring needed.
+4. The CLI's manual plugin (`internal/sources/manual/manual.go`) automatically picks up new catalog entries — no further wiring needed.
 
 ## Adding a New Compliance Framework
 
@@ -143,7 +117,7 @@ text-extraction policies layer on top of the presence check.
 {framework}/{policy_id}/{timestamp}_{run_id_8chars}/
 ├── evidence/
 │   └── {collector}-{resource_type}.json   # EvidenceEnvelope (self-contained, signed)
-├── manual_attachments/{evidence_id}/evidence.pdf   # only for manual policies
+├── manual_attachments/{evidence_id}/merged.pdf      # only for manual policies (merged PDF of all source files)
 └── result.json                             # StoredPolicyResult (full violations)
 ```
 

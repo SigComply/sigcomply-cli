@@ -709,10 +709,10 @@ reads (quarterly access reviews, signed NDAs, training certificates,
 declarations) is named only through its config-string ID. The
 `manual.pdf` source plugin consumes a `manual.Reader` interface
 abstractly; it never knows or cares which backend is behind it. The
-path scheme — `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/{filename}`
-— is identical regardless of backend, so the temporal-window presence
-check the manual evaluator runs is identical across backends,
-frameworks, and customers.
+folder scheme — `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/`
+— is identical regardless of backend, so the folder presence and
+temporal-window check the manual evaluator runs is identical across
+backends, frameworks, and customers.
 
 Backend selection is by self-registering factory inside the manual
 package: each backend registers itself via `init()` into

@@ -298,10 +298,12 @@ schema_version: plugin.v1
 id: manual.pdf
 display_name: "Manual PDF Evidence"
 description: |
-  Reads customer-uploaded PDFs from the project's configured manual-
-  evidence bucket and emits a small JSON manifest record for each. The
-  PDF itself is preserved alongside the envelope as an attachment.
-  Singleton: exactly one instance per project.
+  Lists all files in the catalog-resolved folder in the project's
+  configured manual-evidence bucket. Supported images (JPEG, PNG, GIF,
+  TIFF, WebP, BMP) are auto-converted to PDF; all files are merged into
+  one PDF before signing. Emits one signed_document manifest record per
+  catalog entry. The merged PDF is preserved alongside the envelope as
+  an attachment. Singleton: exactly one instance per project.
 
 emits: [signed_document]
 
@@ -350,32 +352,45 @@ emits_as: signed_document
 cadence: quarterly               # continuous|hourly|daily|weekly|monthly|quarterly|annual
 grace_period: 15d
 temporal_rule: retrospective     # PDF dated within the period or grace window
-filename: evidence.pdf
+filename: evidence.pdf           # kept for display purposes; ignored in collection
 description: "Signed quarterly user access review."
 ```
 
+The `filename` field is retained for backward compatibility and display
+purposes (the Evidence SPA uses it as a suggested save-name). The
+collector ignores it — all files found in the period folder are
+collected regardless of name.
+
 ### Path resolution
 
-For each catalog entry and each period, the plugin computes a fully-
-qualified path under the project's single configured bucket:
+For each catalog entry and each period, the plugin resolves to a
+folder under the project's single configured bucket:
 
 ```
-{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/{filename}
+{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/
 ```
 
-Default `prefix` is `manual/`. Default `filename` is `evidence.pdf`. For
-AcmeCorp's quarterly access review in Q1 2026:
+Default `prefix` is `manual/`. For AcmeCorp's quarterly access review
+in Q1 2026, the plugin lists everything under:
 
 ```
-s3://acme-evidence/manual/access_review_quarterly/2026-Q1/evidence.pdf
+s3://acme-evidence/manual/access_review_quarterly/2026-Q1/
 ```
 
-**This scheme is canonical.** The CLI computes the path; customers
+Any number of files may be placed in that folder. Supported formats
+are: **PDF** (pass-through), **JPEG**, **PNG**, **GIF**, **TIFF**,
+**WebP**, and **BMP** (images are auto-converted to PDF). All files are
+merged into a single PDF before evaluation. Files with unsupported
+extensions (e.g. `.docx`, `.xlsx`) are surfaced as
+`unsupported_file_type` validation failures so CI operators receive an
+actionable error message without the policy silently ignoring files.
+
+**This scheme is canonical.** The CLI computes the folder; customers
 cannot remap it per-policy, per-catalog-entry, or per-framework. The
-only knobs are the project-level `bucket`, `prefix`, and (per catalog
-entry) `filename`. This determinism is what lets a missing-evidence
-error give the operator an exact upload path, and what lets an auditor
-recompute the expected location from the catalog alone.
+only knobs are the project-level `bucket` and `prefix`. This
+determinism is what lets a missing-evidence error give the operator
+the exact upload folder, and what lets an auditor recompute the
+expected location from the catalog alone.
 
 ### Emitted record
 
@@ -388,7 +403,6 @@ recompute the expected location from the catalog alone.
   "payload": {
     "evidence_id": "access_review_quarterly",
     "period_id":   "2026-Q1",
-    "framework":   "soc2",
     "file_present": true,
     "file_hash":    "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "file_size":    194523,
@@ -396,33 +410,63 @@ recompute the expected location from the catalog alone.
     "in_temporal_window": true,
     "file_valid":   true,
     "validation_failures": [],
-    "expected_uri": "s3://acme-evidence/manual/access_review_quarterly/2026-Q1/evidence.pdf"
+    "expected_uri": "s3://acme-evidence/manual/access_review_quarterly/2026-Q1/",
+    "source_files": [
+      {
+        "filename":   "report.pdf",
+        "type":       "pdf",
+        "sha256":     "sha256:abc123...",
+        "uploaded_at": "2026-03-14T09:00:00Z",
+        "converted":  false
+      },
+      {
+        "filename":   "screenshot.png",
+        "type":       "png",
+        "sha256":     "sha256:def456...",
+        "uploaded_at": "2026-03-15T10:00:00Z",
+        "converted":  true
+      }
+    ]
   }
 }
 ```
 
-A rule consuming `signed_document` records typically checks
-`file_present`, `in_temporal_window`, and `file_valid`. Future
-text-extraction (parsing the PDF and emitting fields like `signed_by`,
-`signed_date`) extends the schema additively.
+`file_hash` and `file_size` describe the **merged** PDF (all source
+files combined). `source_files` provides a per-file audit trail so
+auditors can trace individual uploads back from the merged evidence.
+`uploaded_at` is the latest upload time across all source files — used
+for the temporal window check.
+
+A rule consuming `signed_document` records checks `file_present`,
+`in_temporal_window`, and `file_valid`. Future text-extraction
+extends the schema additively.
 
 ### What the plugin checks — and what it deliberately does not
 
-The `manual.pdf` plugin runs a fixed, narrow set of **cheap stdlib
-sanity checks** on every fetched payload. These detect upload mistakes,
-not content correctness:
+The `manual.pdf` plugin runs a fixed, narrow set of checks on every
+collection. These detect upload mistakes and unsupported files, not
+content correctness:
 
-| Check | Purpose | Fails when |
-|-------|---------|-----------|
-| **Size floor** | Catch 0-byte uploads, truncated transfers | `len(data) < 100` bytes |
-| **PDF magic bytes** | Catch wrong file types (txt, docx, HTML error pages) | Payload does not start with `%PDF-` |
-| **Page-object presence** | Catch header-only / structurally-empty files | Payload contains no `/Page` token |
-| **Prior-period duplication** | Catch copy-paste of last period's PDF | Current hash is byte-identical to the prior period's file at the equivalent path |
+| Check | Failure code | Fails when |
+|-------|-------------|-----------|
+| **Extension filter** | `unsupported_file_type` | A file in the folder has an extension not in the supported set (pdf, jpg/jpeg, png, gif, tif/tiff, webp, bmp) |
+| **Image conversion** | `conversion_failed` | An image file cannot be decoded or wrapped as a PDF page |
+| **PDF merge** | `merge_failed` | Multiple PDF parts cannot be combined (e.g., structurally corrupt individual PDFs) |
+| **Size floor** | `file_too_small` | Merged PDF is < 100 bytes (catches 0-byte uploads and trivially corrupt files) |
+| **PDF magic bytes** | `missing_pdf_header` | Merged PDF does not start with `%PDF-` |
+| **Page-object presence** | `no_pages` | Merged PDF contains no `/Page` token |
+| **Prior-period duplication** | `copy_paste_of_prior_period` | The set of source files (identified by filename + SHA-256) is byte-identical to the prior period's folder |
 
 Failures land in `validation_failures` (a list of strings) and flip
 `file_valid` to `false`. The framework's manual-presence Rego rule
 requires `file_valid == true` to pass; an auditor reading the envelope
 sees the specific failure reasons in the manifest.
+
+The size floor, magic bytes, and page-object checks run against the
+**merged** PDF. Unsupported-type and conversion failures are per
+individual file; the remaining supported files are still merged and
+evaluated. If no supported files exist at all, the policy fails with
+`file_valid = false` and the unsupported-type failures listed.
 
 **Deliberately not checked at v1:**
 - PDF contents (no text extraction, no `signed_by` parsing, no expiry-date detection inside the document)
@@ -446,12 +490,13 @@ user-facing message:
 
    Evidence:   access_review_quarterly
    Period:     2026-Q1
-   Expected:   s3://acme-evidence/manual/access_review_quarterly/2026-Q1/evidence.pdf
+   Expected:   s3://acme-evidence/manual/access_review_quarterly/2026-Q1/
 
    To remediate:
-   1. Generate the access review PDF (use the SigComply Evidence SPA
+   1. Generate the evidence PDF (use the SigComply Evidence SPA
       at https://evidence.sigcomply.com, or your own tooling).
-   2. Upload it to the path above.
+   2. Upload one or more files (PDF, JPEG, PNG, GIF, TIFF, WebP, or BMP)
+      to the folder above. Any filename is accepted.
    3. Manually re-run the appropriate compliance workflow (Settings → Actions → Re-run).
 ```
 
@@ -468,16 +513,19 @@ message is sufficient.
 
 ### PDF mirroring
 
-The collector mirrors the PDF bytes into the run folder as an
+The collector mirrors the merged PDF into the run folder as an
 attachment:
 
 ```
-soc2/2026-Q1/run_.../policies/<policy_id>/attachments/access_review_quarterly/evidence.pdf
+soc2/2026-Q1/run_.../policies/<policy_id>/attachments/access_review_quarterly/merged.pdf
 ```
 
 The attachment is sibling to the envelope. An auditor opening the run
 folder sees both the signed manifest envelope (verifiable offline) and
-the actual PDF (their `file_hash` matches the envelope's manifest).
+the merged PDF (its SHA-256 matches `file_hash` in the manifest). The
+`source_files` array in the manifest lists each original file with its
+own SHA-256, providing a traceable link from the merged evidence back to
+individual uploads.
 
 ---
 

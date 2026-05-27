@@ -21,6 +21,7 @@ import (
 // bucket. The concrete *s3.Client satisfies it.
 type API interface {
 	GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+	ListObjectsV2(ctx context.Context, params *s3.ListObjectsV2Input, optFns ...func(*s3.Options)) (*s3.ListObjectsV2Output, error)
 }
 
 // Reader is the manual.pdf Reader backed by S3. The Bucket is held on
@@ -91,6 +92,38 @@ func (r *Reader) Get(ctx context.Context, key string) (_ []byte, _ time.Time, er
 		uploadedAt = *out.LastModified
 	}
 	return data, uploadedAt, nil
+}
+
+// List returns all objects whose key begins with prefix, sorted by key.
+func (r *Reader) List(ctx context.Context, prefix string) ([]manual.FileInfo, error) {
+	var items []manual.FileInfo
+	var continuationToken *string
+	for {
+		out, err := r.Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+			Bucket:            &r.Bucket,
+			Prefix:            &prefix,
+			ContinuationToken: continuationToken,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("manual.pdf s3: list %s: %w", prefix, err)
+		}
+		for _, obj := range out.Contents {
+			key := ""
+			if obj.Key != nil {
+				key = *obj.Key
+			}
+			var t time.Time
+			if obj.LastModified != nil {
+				t = *obj.LastModified
+			}
+			items = append(items, manual.FileInfo{Key: key, UploadedAt: t})
+		}
+		if out.IsTruncated == nil || !*out.IsTruncated {
+			break
+		}
+		continuationToken = out.NextContinuationToken
+	}
+	return items, nil
 }
 
 // isNotFound reports whether the error wraps a NoSuchKey-style S3

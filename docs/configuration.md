@@ -182,7 +182,7 @@ storage:
     #   mode: oidc                 # ambient | oidc
     #   role_arn: arn:aws:iam::123:role/sigcomply-evidence
 
-# Manual evidence (PDFs uploaded by users to a known path).
+# Manual evidence (files uploaded by users to a known folder).
 # Each framework can read from its own backend.
 manual_evidence:
   enabled: true
@@ -418,53 +418,59 @@ manual_evidence:
 Resolution at run time for framework `F`:
 `frameworks[F]` → `default` → validation error.
 
-### Path layout per evidence ID
+### Folder layout per evidence ID
 
-For each `evidence_id` in the framework catalog, the CLI looks for
-`evidence.pdf` at:
+For each `evidence_id` in the framework catalog, the CLI scans the
+folder:
 
 ```
-{framework}/{evidence_id}/{period}/evidence.pdf
+{prefix}{evidence_id}/{period_id}/
 ```
 
-(under whatever `prefix` is configured for the framework's backend).
-Where `{period}` matches the entry's frequency:
+Where `{period_id}` matches the entry's frequency:
 
-| Frequency | `{period}` example |
-|-----------|--------------------|
+| Frequency | `{period_id}` example |
+|-----------|-----------------------|
 | daily | `2026-01-15` |
 | weekly | `2026-W03` |
 | monthly | `2026-01` |
 | quarterly | `2026-Q1` |
 | yearly | `2026` |
 
-A catalog entry can override this layout with `path_template` and
-`filename` — see [Adding a new manual evidence policy](claude/recipes.md).
+Upload any number of files to the folder — **any filename is accepted**.
+Supported formats: PDF (pass-through), JPEG, PNG, GIF, TIFF, WebP, BMP.
+Images are auto-converted to PDF; all files are merged into one before
+evaluation. Files with unsupported extensions (e.g. `.docx`) appear as
+`unsupported_file_type` failures in the violation message so you know
+exactly which file to replace.
 
 ### Where do I upload?
 
-When evidence is missing, the CLI surfaces the exact upload URI in
-the violation message (e.g.
-`s3://soc2-manual-evidence/quarterly_access_review/2026-Q1/evidence.pdf`).
+When evidence is missing, the CLI surfaces the exact folder URI in the
+violation message (e.g.
+`s3://soc2-manual-evidence/quarterly_access_review/2026-Q1/`).
 You can also query it directly:
 
 ```bash
 sigcomply evidence path quarterly_access_review
 ```
 
-### What the CLI checks on each upload
+### What the CLI checks on each run
 
-The CLI runs only a small, fixed set of **byte-level sanity checks**
-on each fetched PDF — it does not inspect contents:
+The CLI runs a fixed set of checks on every collection — it does not
+inspect PDF contents:
 
-| Check | What it catches |
-|-------|----------------|
-| File present at the resolved path | Missing or late uploads |
-| Upload timestamp within `[period_start, period_end + grace]` | Out-of-window uploads |
-| File size ≥ 100 bytes | 0-byte or truncated uploads |
-| Starts with `%PDF-` magic bytes | Wrong file type (txt, docx, HTML error page) |
-| Contains a `/Page` object token | Header-only or structurally-empty PDFs |
-| SHA-256 differs from the prior period's file at the equivalent path | Copy-paste of last period's PDF |
+| Check | Failure code | What it catches |
+|-------|-------------|----------------|
+| At least one file found in the folder | *(file_present=false)* | Missing uploads |
+| All files have supported extensions | `unsupported_file_type` | `.docx`, `.xlsx`, etc. |
+| Image conversion succeeds | `conversion_failed` | Corrupt or unreadable images |
+| PDF merge succeeds | `merge_failed` | Structurally-corrupt individual PDFs |
+| Merged file ≥ 100 bytes | `file_too_small` | 0-byte or truncated results |
+| Merged file starts with `%PDF-` | `missing_pdf_header` | Wrong file type passed as PDF |
+| Merged file contains a `/Page` token | `no_pages` | Header-only or empty PDFs |
+| Latest upload timestamp within `[period_start, period_end + grace]` | *(in_temporal_window=false)* | Out-of-window uploads |
+| Source file set differs from prior period's | `copy_paste_of_prior_period` | Copy-paste of last period's files |
 
 The CLI deliberately does **not** read PDF contents. It does not check
 internal dates, signatures inside the document, attendee lists, or

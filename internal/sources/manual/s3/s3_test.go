@@ -17,6 +17,10 @@ import (
 	manuals3 "github.com/sigcomply/sigcomply-cli/internal/sources/manual/s3"
 )
 
+func boolPtr(b bool) *bool           { return &b }
+func strPtr(s string) *string        { return &s }
+func timePtr(t time.Time) *time.Time { return &t }
+
 // fakeObj is one in-memory S3 object with a recorded upload time.
 type fakeObj struct {
 	data         []byte
@@ -49,14 +53,38 @@ func (f *fakeS3) GetObject(_ context.Context, in *awss3.GetObjectInput, _ ...fun
 	}, nil
 }
 
-// errorAPI is a GetObject stub that always returns a synthetic error
-// unrelated to NoSuchKey, used to verify non-not-found errors surface
-// through the Reader.
+func (f *fakeS3) ListObjectsV2(_ context.Context, in *awss3.ListObjectsV2Input, _ ...func(*awss3.Options)) (*awss3.ListObjectsV2Output, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	prefix := ""
+	if in.Prefix != nil {
+		prefix = *in.Prefix
+	}
+	var contents []types.Object
+	for key, obj := range f.objects {
+		if strings.HasPrefix(key, prefix) {
+			k := key
+			lm := obj.lastModified
+			contents = append(contents, types.Object{Key: &k, LastModified: &lm})
+		}
+	}
+	return &awss3.ListObjectsV2Output{
+		Contents:    contents,
+		IsTruncated: boolPtr(false),
+	}, nil
+}
+
+// errorAPI is a GetObject/ListObjectsV2 stub that always returns a
+// synthetic error unrelated to NoSuchKey.
 type errorAPI struct {
 	err error
 }
 
 func (e *errorAPI) GetObject(_ context.Context, _ *awss3.GetObjectInput, _ ...func(*awss3.Options)) (*awss3.GetObjectOutput, error) {
+	return nil, e.err
+}
+
+func (e *errorAPI) ListObjectsV2(_ context.Context, _ *awss3.ListObjectsV2Input, _ ...func(*awss3.Options)) (*awss3.ListObjectsV2Output, error) {
 	return nil, e.err
 }
 
@@ -177,4 +205,51 @@ func TestBuild_PassesEndpointAndPathStyle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build with endpoint + force_path_style: %v", err)
 	}
+}
+
+func TestReader_List_ReturnsMatchingKeys(t *testing.T) {
+	uploaded := time.Date(2026, 3, 15, 10, 0, 0, 0, time.UTC)
+	fake := newFakeS3()
+	fake.objects["manual/ev/2026-Q1/report.pdf"] = fakeObj{data: []byte("x"), lastModified: uploaded}
+	fake.objects["manual/ev/2026-Q1/scan.jpg"] = fakeObj{data: []byte("y"), lastModified: uploaded}
+	fake.objects["manual/ev/2026-Q2/other.pdf"] = fakeObj{data: []byte("z"), lastModified: uploaded}
+
+	r := &manuals3.Reader{Client: fake, Bucket: "test-bucket"}
+	items, err := r.List(context.Background(), "manual/ev/2026-Q1/")
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(items) != 2 {
+		t.Errorf("List: got %d items, want 2; items: %v", len(items), items)
+	}
+	for _, item := range items {
+		if !strings.HasPrefix(item.Key, "manual/ev/2026-Q1/") {
+			t.Errorf("List: unexpected key %q returned for prefix \"manual/ev/2026-Q1/\"", item.Key)
+		}
+	}
+}
+
+func TestReader_List_Empty(t *testing.T) {
+	r := &manuals3.Reader{Client: newFakeS3(), Bucket: "test-bucket"}
+	items, err := r.List(context.Background(), "manual/ev/2026-Q1/")
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(items) != 0 {
+		t.Errorf("List: got %d items, want 0", len(items))
+	}
+}
+
+func TestReader_List_ErrorSurfaces(t *testing.T) {
+	sentinel := errors.New("synthetic list error")
+	r := &manuals3.Reader{Client: &errorAPI{err: sentinel}, Bucket: "test-bucket"}
+	_, err := r.List(context.Background(), "manual/ev/2026-Q1/")
+	if err == nil {
+		t.Fatal("List: expected error, got nil")
+	}
+	if !errors.Is(err, sentinel) {
+		t.Errorf("List: expected error to wrap sentinel, got %v", err)
+	}
+	_ = strPtr("")
+	_ = timePtr(time.Time{})
 }

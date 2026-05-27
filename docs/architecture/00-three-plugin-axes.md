@@ -55,7 +55,7 @@ one of them).
 
 | Axis | What's pluggable | Read or write? | What stays the same regardless of plug-in |
 |---|---|---|---|
-| **A** | Manual evidence input storage | Read | The path scheme (`{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/{filename}`), presence + temporal-window check, signed `signed_document` envelope shape |
+| **A** | Manual evidence input storage | Read | The folder scheme (`{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/`), multi-file folder scan + format check + temporal-window check, signed `signed_document` envelope shape |
 | **B** | Output vault storage | Write | The `core.Vault` interface, the per-run folder layout, the signed manifest, every byte of envelope content |
 | **C** | API-based data sources | Read | The `SourcePlugin` interface (`Emits() / Collect()`), the embedded JSON-Schema-validated evidence record shape, the planner's `slot.Accepts ∩ source.Emits ≠ ∅` matching |
 
@@ -79,14 +79,15 @@ identically regardless of which backend it is.
 
 ```go
 type Reader interface {
-    Get(ctx context.Context, uri string) (data []byte, uploadedAt time.Time, err error)
+    Get(ctx context.Context, key string) (data []byte, uploadedAt time.Time, err error)
+    List(ctx context.Context, prefix string) ([]FileInfo, error)
 }
 ```
 
-The path scheme `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/{filename}`
-is the same regardless of backend, so the policy layer (which only
-checks presence within the temporal window) is identical for every
-customer and every framework.
+The folder scheme `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/`
+is the same regardless of backend, so the policy layer (which checks
+folder presence, file formats, and temporal window) is identical for
+every customer and every framework.
 
 **The plug-in mechanism.** `internal/sources/manual` exposes a
 self-registering factory registry:

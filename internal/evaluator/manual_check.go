@@ -19,18 +19,20 @@ type manualPayload struct {
 	ValidationFails  []string `json:"validation_failures"`
 }
 
-// evaluateManual implements Path A: the universal PDF presence check for
-// evidence_mode: manual policies. It reads the record from the synthetic
-// "_manual" slot and checks file_present, in_temporal_window, file_valid.
+// evaluateManual implements Path A: the universal evidence presence check
+// for evidence_mode: manual policies. It reads the record from the
+// synthetic "_manual" slot and checks file_present, in_temporal_window,
+// file_valid.
 //
 // The check logic:
 //  1. No record at all → status=error (collector failed to run or
 //     source not configured).
 //  2. file_present=false → status=fail with a structured message that
-//     includes the expected URI.
+//     includes the expected folder URI.
 //  3. file_present=true, in_temporal_window=false → status=fail.
 //  4. file_present=true, file_valid=false → status=fail with the
-//     specific validation_failures listed.
+//     specific validation_failures listed. Unsupported file types,
+//     conversion failures, and structural PDF errors all surface here.
 //  5. All checks pass → status=pass.
 func evaluateManual(slots map[string][]core.EvidenceRecord) core.RuleResult {
 	records := slots[spec.ManualSlotName]
@@ -50,9 +52,9 @@ func evaluateManual(slots map[string][]core.EvidenceRecord) core.RuleResult {
 	}
 
 	if !p.FilePresent {
-		msg := "manual evidence PDF not found"
+		msg := "manual evidence not found"
 		if p.ExpectedURI != "" {
-			msg = fmt.Sprintf("manual evidence PDF not found; expected at: %s", p.ExpectedURI)
+			msg = fmt.Sprintf("manual evidence not found; expected files in: %s", p.ExpectedURI)
 		}
 		return core.RuleResult{
 			Status: core.StatusFail,
@@ -65,14 +67,14 @@ func evaluateManual(slots map[string][]core.EvidenceRecord) core.RuleResult {
 		return core.RuleResult{
 			Status: core.StatusFail,
 			Violations: []core.Violation{
-				{ResourceID: rec.ID, Reason: fmt.Sprintf("manual evidence PDF at %s was uploaded outside the configured temporal window", p.ExpectedURI)},
+				{ResourceID: rec.ID, Reason: fmt.Sprintf("manual evidence at %s was uploaded outside the configured temporal window", p.ExpectedURI)},
 			},
 		}
 	}
 	if !p.FileValid {
-		msg := "manual evidence PDF failed validation checks"
+		msg := "manual evidence failed validation checks"
 		if len(p.ValidationFails) > 0 {
-			msg = fmt.Sprintf("manual evidence PDF failed validation: %v", p.ValidationFails)
+			msg = fmt.Sprintf("manual evidence failed validation: %v", p.ValidationFails)
 		}
 		return core.RuleResult{
 			Status: core.StatusFail,
