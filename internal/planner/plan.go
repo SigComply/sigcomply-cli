@@ -64,6 +64,12 @@ type PlannedPolicy struct {
 	ShouldEvaluate bool
 	SkipReason     string // empty when ShouldEvaluate is true
 
+	// EvidenceModeOverridden is true when the project config's
+	// policy_overrides section changed this policy's evidence_mode from
+	// what the framework spec declared. Surfaced in result.json so
+	// auditors can see which policies are running in an overridden mode.
+	EvidenceModeOverridden bool
+
 	PriorState  *core.PolicyState
 	ContentHash string
 }

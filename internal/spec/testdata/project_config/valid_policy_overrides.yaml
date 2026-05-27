@@ -1,0 +1,19 @@
+schema_version: project.v1
+
+framework: soc2
+
+vault:
+  backend: local
+  path: ./vault
+
+sources:
+  manual.pdf:
+    backend: local
+    prefix: ./manual
+
+# Override an automated policy to run as manual while the API
+# integration is being built.
+policy_overrides:
+  soc2.cc6.1.mfa_enforced:
+    evidence_mode: manual
+    catalog_entry: mfa_attestation

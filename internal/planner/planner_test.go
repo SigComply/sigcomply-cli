@@ -352,6 +352,171 @@ func TestPlan_ExceptionApplied(t *testing.T) {
 	}
 }
 
+func TestPlan_PolicyOverride_AutomatedToManual(t *testing.T) {
+	// Flip an automated policy (mfa_enforced, has slots) to manual.
+	// The planner should produce a synthetic _manual binding and set
+	// EvidenceModeOverridden=true, without requiring any bindings in the
+	// project config.
+	set := setUp(t)
+	cfg := &spec.ProjectConfig{
+		SchemaVersion: "project.v1",
+		Framework:     "soc2",
+		PolicyOverrides: map[string]spec.PolicyOverride{
+			"soc2.cc6.1.mfa_enforced": {
+				EvidenceMode: "manual",
+				CatalogEntry: "mfa_attestation",
+			},
+		},
+	}
+	commit := commitFixture(t)
+	plan, err := planner.Plan(&planner.Input{
+		Config: cfg, Registries: set, CommitTime: commit, Now: commit,
+	})
+	if err != nil {
+		t.Fatalf("Plan: %v", err)
+	}
+	if len(plan.Policies) != 1 {
+		t.Fatalf("Policies length = %d; want 1", len(plan.Policies))
+	}
+	pp := plan.Policies[0]
+	if pp.Spec.EvidenceMode != core.EvidenceModeManual {
+		t.Errorf("Spec.EvidenceMode = %q; want manual", pp.Spec.EvidenceMode)
+	}
+	if pp.Spec.CatalogEntry != "mfa_attestation" {
+		t.Errorf("Spec.CatalogEntry = %q; want mfa_attestation", pp.Spec.CatalogEntry)
+	}
+	if !pp.EvidenceModeOverridden {
+		t.Error("EvidenceModeOverridden = false; want true")
+	}
+	manualBindings, ok := pp.Bindings[spec.ManualSlotName]
+	if !ok || len(manualBindings) != 1 {
+		t.Fatalf("expected 1 binding under %q; got %v", spec.ManualSlotName, pp.Bindings)
+	}
+	if manualBindings[0].SourceID != "manual.pdf" {
+		t.Errorf("Binding.SourceID = %q; want manual.pdf", manualBindings[0].SourceID)
+	}
+	if manualBindings[0].CatalogID != "mfa_attestation" {
+		t.Errorf("Binding.CatalogID = %q; want mfa_attestation", manualBindings[0].CatalogID)
+	}
+}
+
+func TestPlan_PolicyOverride_AutomatedToManual_RejectsExplicitBindings(t *testing.T) {
+	// Binding entries for a manually-overridden policy are a configuration
+	// error — the planner creates the synthetic _manual binding itself.
+	set := setUp(t)
+	cfg := &spec.ProjectConfig{
+		SchemaVersion: "project.v1",
+		Framework:     "soc2",
+		PolicyOverrides: map[string]spec.PolicyOverride{
+			"soc2.cc6.1.mfa_enforced": {EvidenceMode: "manual", CatalogEntry: "mfa_attestation"},
+		},
+		Bindings: map[string]map[string][]spec.BindingEntry{
+			"soc2.cc6.1.mfa_enforced": {
+				"user_directory": {{Source: "aws.iam"}},
+			},
+		},
+	}
+	_, err := planner.Plan(&planner.Input{
+		Config: cfg, Registries: set, CommitTime: time.Now(), Now: time.Now(),
+	})
+	if err == nil || !strings.Contains(err.Error(), "must not declare bindings") {
+		t.Errorf("expected 'must not declare bindings' error; got %v", err)
+	}
+}
+
+func TestPlan_PolicyOverride_ManualToAutomated(t *testing.T) {
+	// Flip a manual policy to automated. The planner should use the
+	// automated binding-resolution path and clear CatalogEntry.
+	set := setUp(t)
+	manualPolicy := core.Policy{
+		ID:           "soc2.cc6.1.access_review",
+		Control:      "SOC2.CC6.1",
+		EvidenceMode: core.EvidenceModeManual,
+		CatalogEntry: "access_review_quarterly",
+		Cadence:      "quarterly",
+		Slots: map[string]core.Slot{
+			"review_doc": {
+				Accepts:     []string{"directory_user"},
+				Cardinality: core.SlotOneOrMore,
+				Required:    true,
+			},
+		},
+	}
+	if err := set.Policies.Register(manualPolicy); err != nil {
+		t.Fatalf("register manual policy: %v", err)
+	}
+	fw := &fakeFramework{
+		id: "soc2", version: "2017",
+		policies: []core.PolicyRef{{PolicyID: manualPolicy.ID}},
+	}
+	// Replace the framework so only the manual policy is exercised.
+	set2 := registry.NewSet()
+	if err := set2.Policies.Register(manualPolicy); err != nil {
+		t.Fatalf("register policy: %v", err)
+	}
+	if err := set2.Frameworks.Register(fw); err != nil {
+		t.Fatalf("register framework: %v", err)
+	}
+	if err := set2.Sources.Register(&fakeSource{id: "aws.iam", emits: []string{"directory_user"}}); err != nil {
+		t.Fatalf("register source: %v", err)
+	}
+
+	cfg := &spec.ProjectConfig{
+		SchemaVersion: "project.v1",
+		Framework:     "soc2",
+		PolicyOverrides: map[string]spec.PolicyOverride{
+			"soc2.cc6.1.access_review": {EvidenceMode: "automated"},
+		},
+		Bindings: map[string]map[string][]spec.BindingEntry{
+			"soc2.cc6.1.access_review": {
+				"review_doc": {{Source: "aws.iam"}},
+			},
+		},
+	}
+	commit := commitFixture(t)
+	plan, err := planner.Plan(&planner.Input{
+		Config: cfg, Registries: set2, CommitTime: commit, Now: commit,
+	})
+	if err != nil {
+		t.Fatalf("Plan: %v", err)
+	}
+	pp := plan.Policies[0]
+	if pp.Spec.EvidenceMode != core.EvidenceModeAutomated {
+		t.Errorf("Spec.EvidenceMode = %q; want automated", pp.Spec.EvidenceMode)
+	}
+	if pp.Spec.CatalogEntry != "" {
+		t.Errorf("Spec.CatalogEntry = %q; want empty", pp.Spec.CatalogEntry)
+	}
+	if !pp.EvidenceModeOverridden {
+		t.Error("EvidenceModeOverridden = false; want true")
+	}
+	if _, ok := pp.Bindings["review_doc"]; !ok {
+		t.Error("expected automated bindings under review_doc slot")
+	}
+}
+
+func TestPlan_PolicyOverride_NotOverridden_WhenNoEntry(t *testing.T) {
+	// Policies with no override entry should have EvidenceModeOverridden=false.
+	set := setUp(t)
+	cfg := &spec.ProjectConfig{
+		SchemaVersion: "project.v1",
+		Framework:     "soc2",
+		Bindings: map[string]map[string][]spec.BindingEntry{
+			"soc2.cc6.1.mfa_enforced": {"user_directory": {{Source: "aws.iam"}}},
+		},
+	}
+	commit := commitFixture(t)
+	plan, err := planner.Plan(&planner.Input{
+		Config: cfg, Registries: set, CommitTime: commit, Now: commit,
+	})
+	if err != nil {
+		t.Fatalf("Plan: %v", err)
+	}
+	if plan.Policies[0].EvidenceModeOverridden {
+		t.Error("EvidenceModeOverridden = true; want false when no override declared")
+	}
+}
+
 func TestPlan_ExpiredExceptionSkipped(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{

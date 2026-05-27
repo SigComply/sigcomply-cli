@@ -138,6 +138,12 @@ func planPolicies(framework core.Framework, in *Input) ([]PlannedPolicy, error) 
 }
 
 func planOne(policy *core.Policy, in *Input) (PlannedPolicy, error) {
+	// Apply project-level evidence_mode override before binding resolution.
+	// Work on a local copy so we never mutate the registry entry.
+	originalMode := policy.EvidenceMode
+	p := applyEvidenceModeOverride(policy, in.Config.PolicyOverrides)
+	policy = &p
+
 	overrides := in.Config.PolicyParameters[policy.ID]
 	params, err := resolveParameters(policy, overrides)
 	if err != nil {
@@ -167,15 +173,16 @@ func planOne(policy *core.Policy, in *Input) (PlannedPolicy, error) {
 	shouldEvaluate, skipReason := decideEvaluation(&in.Filter, cadence, contentHash, priorState, in.Now)
 
 	return PlannedPolicy{
-		Spec:           *policy,
-		Cadence:        cadence,
-		Parameters:     params,
-		Bindings:       bindings,
-		Exception:      exception,
-		ShouldEvaluate: shouldEvaluate,
-		SkipReason:     skipReason,
-		PriorState:     priorState,
-		ContentHash:    contentHash,
+		Spec:                   *policy,
+		Cadence:                cadence,
+		Parameters:             params,
+		Bindings:               bindings,
+		Exception:              exception,
+		ShouldEvaluate:         shouldEvaluate,
+		SkipReason:             skipReason,
+		EvidenceModeOverridden: policy.EvidenceMode != originalMode,
+		PriorState:             priorState,
+		ContentHash:            contentHash,
 	}, nil
 }
 
@@ -276,6 +283,22 @@ func resolveManualBinding(policy *core.Policy) map[string][]Binding {
 			CatalogID:     policy.CatalogEntry,
 		}},
 	}
+}
+
+// applyEvidenceModeOverride returns a copy of p with EvidenceMode and
+// CatalogEntry patched from overrides[p.ID]. Returns a plain copy of p
+// unchanged when no override is declared for this policy. Takes p by
+// pointer to avoid copying 216 bytes on the hot path; always makes an
+// explicit value copy before mutating.
+func applyEvidenceModeOverride(p *core.Policy, overrides map[string]spec.PolicyOverride) core.Policy {
+	o, ok := overrides[p.ID]
+	if !ok {
+		return *p
+	}
+	cp := *p
+	cp.EvidenceMode = core.EvidenceMode(o.EvidenceMode)
+	cp.CatalogEntry = o.CatalogEntry
+	return cp
 }
 
 // SplitCommaList is a small helper for the orchestrator: turn a

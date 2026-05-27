@@ -31,6 +31,7 @@ type ProjectConfig struct {
 	Bindings         map[string]map[string][]BindingEntry `yaml:"bindings"`
 	PolicyParameters map[string]map[string]any            `yaml:"policy_parameters"`
 	PolicyCadences   map[string]string                    `yaml:"policy_cadences"`
+	PolicyOverrides  map[string]PolicyOverride            `yaml:"policy_overrides"`
 	Exceptions       []ExceptionConfig                    `yaml:"exceptions"`
 	Cloud            CloudConfig                          `yaml:"cloud"`
 	CIEnvironment    map[string]any                       `yaml:"ci_environment"`
@@ -128,6 +129,18 @@ type ExceptionScope struct {
 	ResourcePattern string `yaml:"resource_pattern"`
 }
 
+// PolicyOverride lets a project override the evidence_mode declared in a
+// framework-shipped policy spec. The primary use case is flipping an
+// automated policy to manual while API integrations are being built out,
+// then reverting the override once the integration is ready.
+//
+// evidence_mode: "manual"     — requires catalog_entry
+// evidence_mode: "automated"  — catalog_entry must be absent
+type PolicyOverride struct {
+	EvidenceMode string `yaml:"evidence_mode"`
+	CatalogEntry string `yaml:"catalog_entry"`
+}
+
 // CloudConfig models the cloud submission section.
 type CloudConfig struct {
 	Enabled *bool  `yaml:"enabled"`
@@ -189,6 +202,9 @@ func validateProjectConfig(cfg *ProjectConfig) error {
 		return err
 	}
 	if err := validatePolicyCadences(cfg.PolicyCadences); err != nil {
+		return err
+	}
+	if err := validatePolicyOverrides(cfg.PolicyOverrides); err != nil {
 		return err
 	}
 	if err := validateExceptions(cfg.Exceptions); err != nil {
@@ -275,6 +291,26 @@ func validatePolicyCadences(m map[string]string) error {
 	for id, c := range m {
 		if err := validateCadenceSpec(c); err != nil {
 			return fmt.Errorf("project config: policy_cadences[%q]: %w", id, err)
+		}
+	}
+	return nil
+}
+
+func validatePolicyOverrides(overrides map[string]PolicyOverride) error {
+	for id, o := range overrides {
+		switch o.EvidenceMode {
+		case "automated":
+			if o.CatalogEntry != "" {
+				return fmt.Errorf("project config: policy_overrides[%q]: catalog_entry must not be set when evidence_mode is \"automated\"", id)
+			}
+		case "manual":
+			if o.CatalogEntry == "" {
+				return fmt.Errorf("project config: policy_overrides[%q]: catalog_entry is required when evidence_mode is \"manual\"", id)
+			}
+		case "":
+			return fmt.Errorf("project config: policy_overrides[%q]: evidence_mode is required (want automated|manual)", id)
+		default:
+			return fmt.Errorf("project config: policy_overrides[%q]: evidence_mode: invalid value %q (want automated|manual)", id, o.EvidenceMode)
 		}
 	}
 	return nil

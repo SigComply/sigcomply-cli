@@ -87,6 +87,25 @@ func TestLoadProjectConfig_BindingWithSlotParams(t *testing.T) {
 	}
 }
 
+func TestLoadProjectConfig_PolicyOverrides(t *testing.T) {
+	data := readTestdata(t, "project_config/valid_policy_overrides.yaml")
+
+	cfg, err := LoadProjectConfig(data)
+	if err != nil {
+		t.Fatalf("LoadProjectConfig: %v", err)
+	}
+	o, ok := cfg.PolicyOverrides["soc2.cc6.1.mfa_enforced"]
+	if !ok {
+		t.Fatal("expected policy_overrides entry for soc2.cc6.1.mfa_enforced")
+	}
+	if o.EvidenceMode != "manual" {
+		t.Errorf("EvidenceMode = %q; want \"manual\"", o.EvidenceMode)
+	}
+	if o.CatalogEntry != "mfa_attestation" {
+		t.Errorf("CatalogEntry = %q; want \"mfa_attestation\"", o.CatalogEntry)
+	}
+}
+
 func TestLoadProjectConfig_RejectsInvalid(t *testing.T) {
 	cases := []struct {
 		file    string
@@ -102,6 +121,10 @@ func TestLoadProjectConfig_RejectsInvalid(t *testing.T) {
 		{"project_config/invalid_exception_bad_date.yaml", "ISO 8601"},
 		{"project_config/invalid_bad_output_format.yaml", "output.format"},
 		{"project_config/invalid_unknown_top_level.yaml", "mystery_section"},
+		{"project_config/invalid_policy_override_no_catalog.yaml", "catalog_entry"},
+		{"project_config/invalid_policy_override_bad_mode.yaml", "invalid value"},
+		{"project_config/invalid_policy_override_automated_with_catalog.yaml", "catalog_entry"},
+		{"project_config/invalid_policy_override_empty_mode.yaml", "evidence_mode is required"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.file, func(t *testing.T) {
