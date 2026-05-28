@@ -150,6 +150,10 @@ func (s *stubIAMAPI) ListMFADevices(_ context.Context, in *awsiam.ListMFADevices
 	return &awsiam.ListMFADevicesOutput{MFADevices: s.mfa[*in.UserName]}, nil
 }
 
+func (s *stubIAMAPI) ListAccessKeys(_ context.Context, _ *awsiam.ListAccessKeysInput, _ ...func(*awsiam.Options)) (*awsiam.ListAccessKeysOutput, error) {
+	return &awsiam.ListAccessKeysOutput{}, nil
+}
+
 func ptr[T any](v T) *T { return &v }
 
 // TestE2E_WalkingSkeleton drives the orchestrator end-to-end against
@@ -197,25 +201,22 @@ func TestE2E_WalkingSkeleton(t *testing.T) {
 
 	assertRunCounts(t, &res)
 	assertManifestVerifies(t, v, res.RunRoot)
-	// The four GCP policies have required slots; their stubs return
-	// empty result sets, so the evaluator emits status=skip rather than
-	// invoking the rule. This is the v1 evaluator behavior
-	// (internal/evaluator: "required slot has no records" → skip).
+	// Bound policies whose stubs return records evaluate; the cloudtrail
+	// and cloudwatch stubs are compliant (pass), the guardduty and config
+	// stubs are not (fail), MFA fails on bob, and the manual access review
+	// passes (PDF fixture present). Every other framework policy is
+	// unbound (no source for its evidence type) and skips cleanly.
 	assertResultStatuses(t, v, res.RunRoot, map[string]core.PolicyStatus{
-		soc2.PolicyMFAUnion:                         core.StatusFail,
-		soc2.PolicyAccessReview:                     core.StatusPass,
-		soc2.PolicyCloudTrailMultiRegionEnabled:     core.StatusPass,
-		soc2.PolicyCloudWatchLogsRetentionSet:       core.StatusPass,
-		soc2.PolicyGuardDutyEnabled:                 core.StatusFail,
-		soc2.PolicyConfigRecorderEnabled:            core.StatusFail,
-		soc2.PolicyGCPIAMNoOwnerRoleForUsers:        core.StatusSkip,
-		soc2.PolicyObjectStoragePublicAccessBlocked: core.StatusSkip,
-		soc2.PolicyComputeNoDefaultServiceAccount:   core.StatusSkip,
-		soc2.PolicyCloudSQLRequireSSL:               core.StatusSkip,
-		soc2.PolicyGitDefaultBranchProtected:        core.StatusFail,
-		soc2.PolicyOktaAppsMFA:                      core.StatusFail,
+		"soc2.cc6.1.mfa_enforced_all_users":   core.StatusFail,
+		"soc2.cc6.3.access_review_quarterly":  core.StatusPass,
+		"soc2.cc7.1.audit_logging_enabled":    core.StatusPass,
+		"soc2.cc7.1.log_retention_min_90d":    core.StatusPass,
+		"soc2.cc6.8.threat_detection_enabled": core.StatusFail,
+		"soc2.cc7.1.config_recording_enabled": core.StatusFail,
+		// Unbound: no firewall_rule source is registered → skip.
+		"soc2.cc6.6.no_unrestricted_ssh": core.StatusSkip,
 	})
-	assertEnvelopesVerify(t, v, res.RunRoot, soc2.PolicyMFAUnion, soc2.PolicyAccessReview)
+	assertEnvelopesVerify(t, v, res.RunRoot, "soc2.cc6.1.mfa_enforced_all_users", "soc2.cc6.3.access_review_quarterly")
 	assertCapturedPayloadPrivacy(t, capturePath)
 }
 
@@ -439,6 +440,10 @@ func (emptyEC2API) DescribeInstances(context.Context, *awsec2.DescribeInstancesI
 	return &awsec2.DescribeInstancesOutput{Reservations: []ec2types.Reservation{}}, nil
 }
 
+func (emptyEC2API) DescribeVolumes(context.Context, *awsec2.DescribeVolumesInput, ...func(*awsec2.Options)) (*awsec2.DescribeVolumesOutput, error) {
+	return &awsec2.DescribeVolumesOutput{}, nil
+}
+
 type emptyEKSAPI struct{}
 
 func (emptyEKSAPI) ListClusters(context.Context, *awseks.ListClustersInput, ...func(*awseks.Options)) (*awseks.ListClustersOutput, error) {
@@ -524,19 +529,21 @@ func assertRunCounts(t *testing.T, res *orchestrator.Result) {
 	if res.ExitCode != orchestrator.ExitViolation {
 		t.Errorf("ExitCode = %d; want %d (violation)", res.ExitCode, orchestrator.ExitViolation)
 	}
-	// 2 seed + 4 infra + 5 aws + 4 gcp + 2 identity = 17 policies.
-	// (Phase 2 consolidated the three per-source MFA policies into the
-	// single cross-vendor PolicyMFAUnion via directory_user.)
-	if res.Summary.PoliciesTotal != 17 {
-		t.Errorf("PoliciesTotal = %d; want 17", res.Summary.PoliciesTotal)
+	// The full SOC 2 library is planned; most policies reference evidence
+	// types with no registered source and skip. We assert the run covers
+	// the whole framework and that at least the bound-compliant and
+	// bound-non-compliant policies land in their respective buckets.
+	if res.Summary.PoliciesTotal != len(soc2.Policies()) {
+		t.Errorf("PoliciesTotal = %d; want %d (the whole framework)", res.Summary.PoliciesTotal, len(soc2.Policies()))
 	}
-	// 3 pass: access_review, cloudtrail, cloudwatch.
-	// 5 fail: mfa_enforced_all_sources (union across iam+okta+github),
-	//         guardduty, config, github_branch_protection, okta_apps_mfa.
-	// 9 skip: 5 aws-infra empty stubs + 4 GCP empty stubs.
-	if res.Summary.PoliciesPassed != 3 || res.Summary.PoliciesFailed != 5 || res.Summary.PoliciesSkipped != 9 {
-		t.Errorf("counts: pass=%d fail=%d skip=%d; want 3/5/9",
-			res.Summary.PoliciesPassed, res.Summary.PoliciesFailed, res.Summary.PoliciesSkipped)
+	if res.Summary.PoliciesPassed < 3 {
+		t.Errorf("PoliciesPassed = %d; want >= 3", res.Summary.PoliciesPassed)
+	}
+	if res.Summary.PoliciesFailed < 3 {
+		t.Errorf("PoliciesFailed = %d; want >= 3", res.Summary.PoliciesFailed)
+	}
+	if res.Summary.PoliciesSkipped < 1 {
+		t.Errorf("PoliciesSkipped = %d; want >= 1 (unbound deferred-type policies)", res.Summary.PoliciesSkipped)
 	}
 }
 
@@ -623,8 +630,8 @@ func assertCapturedPayloadPrivacy(t *testing.T, capturePath string) {
 	if payload.Schema != "sigcomply.cloud.v2" {
 		t.Errorf("Schema = %q", payload.Schema)
 	}
-	if len(payload.Policies) != 17 {
-		t.Errorf("Policies len = %d; want 17", len(payload.Policies))
+	if len(payload.Policies) != len(soc2.Policies()) {
+		t.Errorf("Policies len = %d; want %d (the whole framework)", len(payload.Policies), len(soc2.Policies()))
 	}
 	// Resource IDs must not leak. The vault has AIDABOB; the captured
 	// JSON must not.

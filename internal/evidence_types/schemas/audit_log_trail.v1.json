@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/audit_log_trail/v1.json",
+  "title": "audit_log_trail",
+  "version": 1,
+  "description": "One audit logging trail or equivalent control-plane log configuration — AWS CloudTrail, GCP Cloud Audit Logs sink, Azure Activity Log export. The single cross-vendor shape policies use for logging coverage and integrity checks.",
+  "type": "object",
+  "required": ["id", "name", "is_enabled", "is_multi_region", "log_file_validation_enabled", "kms_encrypted"],
+  "properties": {
+    "id":                          { "type": "string", "description": "Unique stable identifier (CloudTrail: ARN, GCP: sink name)." },
+    "name":                        { "type": "string", "description": "Human-readable trail or sink name." },
+    "provider":                    { "type": "string", "description": "Cloud provider short name: aws, gcp, azure." },
+    "is_enabled":                  { "type": "boolean", "description": "Trail is actively recording/logging." },
+    "is_multi_region":             { "type": "boolean", "description": "Trail covers all regions (not just the home region)." },
+    "log_file_validation_enabled": { "type": "boolean", "description": "Log file integrity validation / hashing is enabled." },
+    "kms_encrypted":               { "type": "boolean", "description": "Log storage is encrypted with a customer-managed key." }
+  },
+  "additionalProperties": true
+}

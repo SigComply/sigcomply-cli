@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/log_group/v1.json",
+  "title": "log_group",
+  "version": 1,
+  "description": "One log group or log destination — AWS CloudWatch Logs log group, GCP log bucket, Azure Log Analytics workspace. The single cross-vendor shape policies use for retention and encryption checks.",
+  "type": "object",
+  "required": ["id", "name", "retention_set", "retention_days"],
+  "properties": {
+    "id":             { "type": "string", "description": "Unique stable identifier (CloudWatch: ARN, GCP: bucket name)." },
+    "name":           { "type": "string", "description": "Human-readable log group name." },
+    "provider":       { "type": "string", "description": "Cloud provider short name: aws, gcp, azure." },
+    "retention_set":  { "type": "boolean", "description": "A retention policy is configured (not 'never expire')." },
+    "retention_days": { "type": "integer", "description": "Configured retention in days. 0 when retention is set to never-expire or when retention_set=false." },
+    "kms_encrypted":  { "type": "boolean", "description": "Log storage is encrypted with a customer-managed key." }
+  },
+  "additionalProperties": true
+}

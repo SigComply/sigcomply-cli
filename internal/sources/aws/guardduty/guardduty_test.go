@@ -134,14 +134,14 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	if err := json.Unmarshal(records[1].Payload, &zeta); err != nil {
 		t.Fatalf("Unmarshal zeta: %v", err)
 	}
-	if !zeta.Enabled || zeta.Status != "ENABLED" {
+	if !zeta.IsEnabled || zeta.Status != "ENABLED" {
 		t.Errorf("zeta unexpected: %+v", zeta)
 	}
 	var alpha detectorPayload
 	if err := json.Unmarshal(records[0].Payload, &alpha); err != nil {
 		t.Fatalf("Unmarshal alpha: %v", err)
 	}
-	if alpha.Enabled || alpha.Status != "DISABLED" {
+	if alpha.IsEnabled || alpha.Status != "DISABLED" {
 		t.Errorf("alpha should be disabled: %+v", alpha)
 	}
 }

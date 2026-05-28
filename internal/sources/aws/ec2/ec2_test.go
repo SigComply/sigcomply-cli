@@ -16,17 +16,28 @@ import (
 
 type fakeAPI struct {
 	reservations []ec2types.Reservation
-	err          error
+	volumes      []ec2types.Volume
+	descErr      error
+	volErr       error
 
-	count int
+	descCount int
+	volCount  int
 }
 
 func (f *fakeAPI) DescribeInstances(_ context.Context, _ *awsec2.DescribeInstancesInput, _ ...func(*awsec2.Options)) (*awsec2.DescribeInstancesOutput, error) {
-	f.count++
-	if f.err != nil {
-		return nil, f.err
+	f.descCount++
+	if f.descErr != nil {
+		return nil, f.descErr
 	}
 	return &awsec2.DescribeInstancesOutput{Reservations: f.reservations}, nil
+}
+
+func (f *fakeAPI) DescribeVolumes(_ context.Context, _ *awsec2.DescribeVolumesInput, _ ...func(*awsec2.Options)) (*awsec2.DescribeVolumesOutput, error) {
+	f.volCount++
+	if f.volErr != nil {
+		return nil, f.volErr
+	}
+	return &awsec2.DescribeVolumesOutput{Volumes: f.volumes}, nil
 }
 
 func ptr[T any](v T) *T { return &v }
@@ -53,8 +64,19 @@ func TestCollect_HappyPath_FlattensReservationsAndSorts(t *testing.T) {
 	fake := &fakeAPI{
 		reservations: []ec2types.Reservation{
 			{Instances: []ec2types.Instance{
-				{InstanceId: ptr("i-zzz"), PublicIpAddress: ptr("1.2.3.4"), PrivateIpAddress: ptr("10.0.0.5"), State: &ec2types.InstanceState{Name: ec2types.InstanceStateNameRunning}, InstanceType: ec2types.InstanceTypeT3Micro, VpcId: ptr("vpc-1")},
-				{InstanceId: ptr("i-aaa"), PrivateIpAddress: ptr("10.0.0.6"), State: &ec2types.InstanceState{Name: ec2types.InstanceStateNameStopped}, VpcId: ptr("vpc-1")},
+				{
+					InstanceId:      ptr("i-zzz"),
+					PublicIpAddress: ptr("1.2.3.4"),
+					State:           &ec2types.InstanceState{Name: ec2types.InstanceStateNameRunning},
+					InstanceType:    ec2types.InstanceTypeT3Micro,
+					VpcId:           ptr("vpc-1"),
+					Monitoring:      &ec2types.Monitoring{State: ec2types.MonitoringStateEnabled},
+				},
+				{
+					InstanceId: ptr("i-aaa"),
+					State:      &ec2types.InstanceState{Name: ec2types.InstanceStateNameStopped},
+					VpcId:      ptr("vpc-1"),
+				},
 			}},
 			{Instances: []ec2types.Instance{
 				{InstanceId: ptr("i-mmm")},
@@ -78,8 +100,11 @@ func TestCollect_HappyPath_FlattensReservationsAndSorts(t *testing.T) {
 		if records[i].CollectedAt != now {
 			t.Errorf("records[%d].CollectedAt = %v", i, records[i].CollectedAt)
 		}
+		if records[i].Type != EvidenceTypeID {
+			t.Errorf("records[%d].Type = %q; want %q", i, records[i].Type, EvidenceTypeID)
+		}
 	}
-	// i-zzz has public IP.
+	// i-zzz has public IP and monitoring enabled.
 	var zzz instancePayload
 	if err := json.Unmarshal(records[2].Payload, &zzz); err != nil {
 		t.Fatalf("Unmarshal zzz: %v", err)
@@ -87,16 +112,51 @@ func TestCollect_HappyPath_FlattensReservationsAndSorts(t *testing.T) {
 	if !zzz.HasPublicIP {
 		t.Errorf("zzz.HasPublicIP = false; want true")
 	}
-	if zzz.PublicIPAddress != "1.2.3.4" {
-		t.Errorf("zzz.PublicIPAddress = %q", zzz.PublicIPAddress)
+	if !zzz.IsRunning {
+		t.Errorf("zzz.IsRunning = false; want true")
 	}
-	// i-aaa has no public IP.
+	if !zzz.MonitoringEnabled {
+		t.Errorf("zzz.MonitoringEnabled = false; want true")
+	}
+	// i-aaa has no public IP, not running.
 	var aaa instancePayload
 	if err := json.Unmarshal(records[0].Payload, &aaa); err != nil {
 		t.Fatalf("Unmarshal aaa: %v", err)
 	}
 	if aaa.HasPublicIP {
 		t.Errorf("aaa.HasPublicIP = true; want false")
+	}
+	if aaa.IsRunning {
+		t.Errorf("aaa.IsRunning = true; want false")
+	}
+}
+
+func TestCollect_RootVolumeEncryption(t *testing.T) {
+	fake := &fakeAPI{
+		reservations: []ec2types.Reservation{{Instances: []ec2types.Instance{
+			{
+				InstanceId:     ptr("i-enc"),
+				RootDeviceName: ptr("/dev/xvda"),
+				BlockDeviceMappings: []ec2types.InstanceBlockDeviceMapping{
+					{DeviceName: ptr("/dev/xvda"), Ebs: &ec2types.EbsInstanceBlockDevice{VolumeId: ptr("vol-abc")}},
+				},
+			},
+		}}},
+		volumes: []ec2types.Volume{
+			{VolumeId: ptr("vol-abc"), Encrypted: ptr(true)},
+		},
+	}
+	p := New(Options{API: fake})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	var payload instancePayload
+	if err := json.Unmarshal(records[0].Payload, &payload); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if !payload.RootVolumeEncrypted {
+		t.Errorf("RootVolumeEncrypted = false; want true")
 	}
 }
 
@@ -109,7 +169,7 @@ func TestCollect_RejectsWrongEvidenceType(t *testing.T) {
 }
 
 func TestCollect_DescribeError(t *testing.T) {
-	p := New(Options{API: &fakeAPI{err: errors.New("kaboom")}})
+	p := New(Options{API: &fakeAPI{descErr: errors.New("kaboom")}})
 	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err == nil || !strings.Contains(err.Error(), "describe instances") {
 		t.Errorf("want describe error; got %v", err)
@@ -151,8 +211,8 @@ func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 			t.Fatalf("Collect: %v", err)
 		}
 	}
-	if fake.count != 3 {
-		t.Errorf("count = %d; want 3", fake.count)
+	if fake.descCount != 3 {
+		t.Errorf("descCount = %d; want 3", fake.descCount)
 	}
 }
 
@@ -168,6 +228,9 @@ func TestSafeHelpers_NilSafe(t *testing.T) {
 	}
 	if got := safeState(&ec2types.InstanceState{Name: ec2types.InstanceStateNameRunning}); got != "running" {
 		t.Errorf("safeState = %q", got)
+	}
+	if safeMonitoring(nil) {
+		t.Errorf("nil monitoring should be false")
 	}
 }
 

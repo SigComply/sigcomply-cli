@@ -1,17 +1,6 @@
 // Package cloudtrail implements the aws.cloudtrail source plugin: lists
-// CloudTrail trails in one AWS account along with each trail's logging
-// status, and emits cloudtrail_trail evidence records suitable for SOC 2
-// audit-logging policies (multi-region coverage, logging enablement,
-// log file validation).
-//
-// Per the KISS-no-DRY axiom (docs/architecture/04-source-plugins.md
-// §The plugin contract), the plugin caches nothing across Collect
-// calls. N policies bound to this plugin → N invocations of Collect.
-//
-// Test injection: the API interface mirrors the pattern used by
-// internal/sources/aws/iam — the concrete *cloudtrail.Client satisfies
-// it, and unit tests inject an in-memory fake. The real SDK adapter has
-// no integration tests at this milestone (deferred).
+// CloudTrail trails and emits audit_log_trail evidence records with
+// cross-vendor logging-coverage and integrity attributes.
 package cloudtrail
 
 import (
@@ -28,15 +17,13 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
-// EvidenceTypeID is the single evidence type this plugin emits today.
-const EvidenceTypeID = "cloudtrail_trail"
+// EvidenceTypeID is the single evidence type this plugin emits.
+const EvidenceTypeID = "audit_log_trail"
 
 // SourceID is the registered ID for the aws.cloudtrail plugin instance.
 const SourceID = "aws.cloudtrail"
 
 // API is the subset of the CloudTrail client this plugin uses.
-// Defining it as an interface lets tests inject a fake without hitting
-// AWS; the concrete *cloudtrail.Client satisfies it.
 type API interface {
 	DescribeTrails(ctx context.Context, params *awsct.DescribeTrailsInput, optFns ...func(*awsct.Options)) (*awsct.DescribeTrailsOutput, error)
 	GetTrailStatus(ctx context.Context, params *awsct.GetTrailStatusInput, optFns ...func(*awsct.Options)) (*awsct.GetTrailStatusOutput, error)
@@ -53,13 +40,10 @@ type Plugin struct {
 type Options struct {
 	API    API
 	Region string
-	// Now is injected so tests can produce deterministic CollectedAt
-	// values. Production callers leave it nil → time.Now().UTC().
-	Now func() time.Time
+	Now    func() time.Time
 }
 
 // New constructs a Plugin around an explicit API implementation.
-// Callers using the real AWS SDK should use NewFromAWS.
 func New(opts Options) *Plugin {
 	now := opts.Now
 	if now == nil {
@@ -72,8 +56,7 @@ func New(opts Options) *Plugin {
 	}
 }
 
-// NewFromAWS constructs a Plugin backed by the real AWS SDK using the
-// default credential chain.
+// NewFromAWS constructs a Plugin backed by the real AWS SDK.
 func NewFromAWS(ctx context.Context, region string) (*Plugin, error) {
 	cfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(region))
 	if err != nil {
@@ -91,30 +74,25 @@ func (*Plugin) ID() string { return SourceID }
 // Emits returns the evidence types this plugin can produce.
 func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 
-// Init accepts plugin config (currently just region) but the
-// constructor already has it; this is a no-op preserved for symmetry.
+// Init is a no-op; configuration is supplied to the constructor.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// trailPayload is the shape of the JSON payload inside each
-// cloudtrail_trail record. The fields are chosen to support common
-// SOC 2 audit-logging policies (multi-region, logging, validation).
+// trailPayload is the cross-vendor audit_log_trail shape.
 type trailPayload struct {
+	ID                         string `json:"id"`
 	Name                       string `json:"name"`
-	ARN                        string `json:"arn"`
-	HomeRegion                 string `json:"home_region"`
-	IsMultiRegionTrail         bool   `json:"is_multi_region_trail"`
+	Provider                   string `json:"provider"`
+	IsEnabled                  bool   `json:"is_enabled"`
+	IsMultiRegion              bool   `json:"is_multi_region"`
+	LogFileValidationEnabled   bool   `json:"log_file_validation_enabled"`
+	KMSEncrypted               bool   `json:"kms_encrypted"`
+	HomeRegion                 string `json:"home_region,omitempty"`
 	IsOrganizationTrail        bool   `json:"is_organization_trail"`
 	IncludeGlobalServiceEvents bool   `json:"include_global_service_events"`
-	LogFileValidationEnabled   bool   `json:"log_file_validation_enabled"`
-	IsLogging                  bool   `json:"is_logging"`
 	S3BucketName               string `json:"s3_bucket_name,omitempty"`
-	KMSKeyID                   string `json:"kms_key_id,omitempty"`
 }
 
-// Collect lists CloudTrail trails in the configured account and returns
-// one cloudtrail_trail per trail. Records are sorted by ID before
-// return so envelope bytes are stable across runs against stable
-// account state.
+// Collect lists CloudTrail trails and returns one audit_log_trail record per trail.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
 	if !req.Accepts(EvidenceTypeID) {
 		return nil, fmt.Errorf("aws.cloudtrail: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
@@ -138,16 +116,17 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 			return nil, fmt.Errorf("aws.cloudtrail: status for trail %s: %w", name, err)
 		}
 		payload := trailPayload{
+			ID:                         id,
 			Name:                       name,
-			ARN:                        arn,
+			Provider:                   "aws",
+			IsEnabled:                  isLogging,
+			IsMultiRegion:              safeBool(t.IsMultiRegionTrail),
+			LogFileValidationEnabled:   safeBool(t.LogFileValidationEnabled),
+			KMSEncrypted:               safeStr(t.KmsKeyId) != "",
 			HomeRegion:                 safeStr(t.HomeRegion),
-			IsMultiRegionTrail:         safeBool(t.IsMultiRegionTrail),
 			IsOrganizationTrail:        safeBool(t.IsOrganizationTrail),
 			IncludeGlobalServiceEvents: safeBool(t.IncludeGlobalServiceEvents),
-			LogFileValidationEnabled:   safeBool(t.LogFileValidationEnabled),
-			IsLogging:                  isLogging,
 			S3BucketName:               safeStr(t.S3BucketName),
-			KMSKeyID:                   safeStr(t.KmsKeyId),
 		}
 		body, err := json.Marshal(payload)
 		if err != nil {
@@ -166,7 +145,6 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 }
 
 func (p *Plugin) trailIsLogging(ctx context.Context, t *cttypes.Trail) (bool, error) {
-	// Prefer ARN — required for shadow trails to be addressable across regions.
 	ref := safeTrailARN(t)
 	if ref == "" {
 		ref = safeTrailName(t)

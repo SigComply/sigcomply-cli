@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/tls_certificate/v1.json",
+  "title": "tls_certificate",
+  "version": 1,
+  "description": "One TLS/SSL certificate — one record per AWS ACM certificate, GCP-managed certificate, or Azure certificate. Policies check expiry, managed status, and auto-renewal.",
+  "type": "object",
+  "required": ["id", "domain", "status", "days_until_expiry", "is_managed", "auto_renew"],
+  "properties": {
+    "id":               { "type": "string", "description": "Unique certificate identifier (ARN, resource ID)." },
+    "domain":           { "type": "string", "description": "Primary domain name the certificate covers." },
+    "provider":         { "type": "string", "description": "Cloud provider or CA short name: aws, gcp, azure." },
+    "status":           { "type": "string", "description": "Certificate status (ISSUED, PENDING_VALIDATION, EXPIRED, etc.)." },
+    "days_until_expiry":{ "type": "integer", "description": "Days until certificate expiry. Negative means already expired." },
+    "is_managed":       { "type": "boolean", "description": "Certificate is managed by the cloud provider (not imported)." },
+    "auto_renew":       { "type": "boolean", "description": "Certificate is configured for automatic renewal." }
+  },
+  "additionalProperties": true
+}

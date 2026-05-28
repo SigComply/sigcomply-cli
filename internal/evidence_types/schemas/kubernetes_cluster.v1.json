@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/kubernetes_cluster/v1.json",
+  "title": "kubernetes_cluster",
+  "version": 1,
+  "description": "One managed Kubernetes cluster — AWS EKS, GCP GKE, Azure AKS. The single cross-vendor shape policies use for secrets-encryption, logging, and network-isolation checks.",
+  "type": "object",
+  "required": ["id", "name", "secrets_encryption_enabled", "logging_enabled"],
+  "properties": {
+    "id":                         { "type": "string", "description": "Unique stable identifier (EKS: cluster ARN, GKE: cluster ID)." },
+    "name":                       { "type": "string", "description": "Human-readable cluster name." },
+    "provider":                   { "type": "string", "description": "Cloud provider short name: aws, gcp, azure." },
+    "version":                    { "type": "string", "description": "Kubernetes control-plane version string." },
+    "secrets_encryption_enabled": { "type": "boolean", "description": "Kubernetes secrets are encrypted at rest with an envelope encryption key." },
+    "logging_enabled":            { "type": "boolean", "description": "Control-plane logging (audit, API server) is enabled." },
+    "is_private_endpoint":        { "type": "boolean", "description": "Cluster API server endpoint is private (not publicly accessible)." },
+    "node_auto_upgrade_enabled":  { "type": "boolean", "description": "Nodes are configured for automatic patch/version upgrades." }
+  },
+  "additionalProperties": true
+}

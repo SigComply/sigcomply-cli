@@ -1,5 +1,5 @@
 // Package eks implements the aws.eks source plugin: lists EKS clusters
-// in one AWS account and emits eks_cluster evidence records carrying
+// in one AWS account and emits kubernetes_cluster evidence records carrying
 // the secrets-envelope-encryption attributes that SOC 2 CC6.7 policies
 // consume.
 //
@@ -26,8 +26,8 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
-// EvidenceTypeID is the evidence type this plugin emits.
-const EvidenceTypeID = "eks_cluster"
+// EvidenceTypeID is the cross-vendor evidence type this plugin emits.
+const EvidenceTypeID = "kubernetes_cluster"
 
 // SourceID is the registered ID for the aws.eks plugin instance.
 const SourceID = "aws.eks"
@@ -92,19 +92,24 @@ func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 // Init is a no-op; configuration is supplied to the constructor.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// clusterPayload is the shape of the JSON payload inside each
-// eks_cluster record.
+// clusterPayload is the cross-vendor kubernetes_cluster shape.
 type clusterPayload struct {
-	Name                       string `json:"name"`
+	ID                       string `json:"id"`
+	Name                     string `json:"name"`
+	Provider                 string `json:"provider"`
+	Version                  string `json:"version,omitempty"`
+	SecretsEncryptionEnabled bool   `json:"secrets_encryption_enabled"`
+	LoggingEnabled           bool   `json:"logging_enabled"`
+	IsPrivateEndpoint        bool   `json:"is_private_endpoint"`
+	NodeAutoUpgradeEnabled   bool   `json:"node_auto_upgrade_enabled"`
+	// AWS-specific extras
 	ARN                        string `json:"arn,omitempty"`
 	Status                     string `json:"status,omitempty"`
-	Version                    string `json:"version,omitempty"`
-	SecretsEncryptionEnabled   bool   `json:"secrets_encryption_enabled"`
 	SecretsEncryptionKMSKeyARN string `json:"secrets_encryption_kms_key_arn,omitempty"`
 }
 
 // Collect lists EKS clusters in the configured region and returns one
-// eks_cluster record per cluster.
+// kubernetes_cluster record per cluster.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
 	if !req.Accepts(EvidenceTypeID) {
 		return nil, fmt.Errorf("aws.eks: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
@@ -127,11 +132,16 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		c := safeCluster(desc)
 		enabled, keyARN := secretsEncryption(c)
 		payload := clusterPayload{
+			ID:                         name,
 			Name:                       name,
-			ARN:                        safeARN(c),
-			Status:                     safeStatus(c),
+			Provider:                   "aws",
 			Version:                    safeVersion(c),
 			SecretsEncryptionEnabled:   enabled,
+			LoggingEnabled:             clusterLoggingEnabled(c),
+			IsPrivateEndpoint:          privateEndpoint(c),
+			NodeAutoUpgradeEnabled:     false, // EKS managed node groups; not modeled at cluster level
+			ARN:                        safeARN(c),
+			Status:                     safeStatus(c),
 			SecretsEncryptionKMSKeyARN: keyARN,
 		}
 		body, err := json.Marshal(payload)
@@ -193,6 +203,30 @@ func containsSecrets(resources []string) bool {
 		}
 	}
 	return false
+}
+
+// clusterLoggingEnabled reports whether any control-plane log type is
+// enabled for the cluster.
+func clusterLoggingEnabled(c *ekstypes.Cluster) bool {
+	if c == nil || c.Logging == nil {
+		return false
+	}
+	for i := range c.Logging.ClusterLogging {
+		l := &c.Logging.ClusterLogging[i]
+		if l.Enabled != nil && *l.Enabled && len(l.Types) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// privateEndpoint reports whether the cluster's public API endpoint is
+// disabled (private-only access).
+func privateEndpoint(c *ekstypes.Cluster) bool {
+	if c == nil || c.ResourcesVpcConfig == nil {
+		return false
+	}
+	return !c.ResourcesVpcConfig.EndpointPublicAccess
 }
 
 func safeCluster(out *awseks.DescribeClusterOutput) *ekstypes.Cluster {

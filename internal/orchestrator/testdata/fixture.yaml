@@ -54,65 +54,26 @@ sources:
     project_id: example-project
 
 bindings:
-  soc2.cc6.1.mfa_enforced_all_sources:
-    # Single source-agnostic MFA policy: binds every directory_user-
-    # emitting source the project has registered. The rule runs once
-    # against the union; per-source audit lenses (if needed) are a
-    # project-config concern, not a duplicate framework policy.
-    user_directory:
+  # Every automated policy uses the conventional "evidence" slot.
+  # Source-agnostic MFA: bind every directory_user-emitting source.
+  soc2.cc6.1.mfa_enforced_all_users:
+    evidence:
       - source: aws.iam
       - source: okta
-      - source: github
-  soc2.cc7.2.cloudtrail_multiregion_enabled:
-    trails:
+  # Compliant resources → pass.
+  soc2.cc7.1.audit_logging_enabled:
+    evidence:
       - source: aws.cloudtrail
-  soc2.cc7.2.cloudwatch_logs_retention_set:
-    log_groups:
+  soc2.cc7.1.log_retention_min_90d:
+    evidence:
       - source: aws.cloudwatch
-  soc2.cc7.1.guardduty_enabled:
-    detectors:
+  # Non-compliant resources → fail.
+  soc2.cc6.8.threat_detection_enabled:
+    evidence:
       - source: aws.guardduty
-  soc2.cc7.1.config_recorder_enabled:
-    recorders:
+  soc2.cc7.1.config_recording_enabled:
+    evidence:
       - source: aws.config
-  soc2.cc6.7.object_storage_encrypted_at_rest:
-    # Cross-vendor object-storage policy: every bound bucket source
-    # (S3, GCS, future Azure Blob) contributes records of the same
-    # object_storage_bucket type.
-    buckets:
-      - source: aws.s3
-      - source: gcp.storage
-  soc2.cc6.7.object_storage_public_access_blocked:
-    buckets:
-      - source: aws.s3
-      - source: gcp.storage
-  soc2.cc6.7.kms_key_rotation_enabled:
-    keys:
-      - source: aws.kms
-  soc2.cc6.7.rds_encryption_at_rest:
-    db_instances:
-      - source: aws.rds
-  soc2.cc6.6.ec2_no_public_ip:
-    instances:
-      - source: aws.ec2
-  soc2.cc6.7.eks_secrets_encryption:
-    clusters:
-      - source: aws.eks
-  soc2.cc6.1.gcp_iam_no_owner_role_for_users:
-    iam_bindings:
-      - source: gcp.iam
-  soc2.cc6.6.compute_no_default_service_account:
-    instances:
-      - source: gcp.compute
-  soc2.cc6.7.cloudsql_require_ssl:
-    instances:
-      - source: gcp.sql
-  soc2.cc6.6.git_default_branch_protected:
-    repositories:
-      - source: github
-  soc2.cc6.7.okta_apps_require_mfa:
-    applications:
-      - source: okta
 
 cloud:
   base_url: ""

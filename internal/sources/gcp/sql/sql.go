@@ -1,5 +1,5 @@
 // Package sql implements the gcp.sql source plugin: lists Cloud SQL
-// instances in a project and emits one cloudsql_instance evidence
+// instances in a project and emits one managed_database_instance evidence
 // record per instance so SOC 2 database-hardening policies can flag
 // missing SSL enforcement, public IPv4, automated backups off, etc.
 //
@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	sqladmin "google.golang.org/api/sqladmin/v1"
@@ -24,8 +25,8 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
-// EvidenceTypeID is the single evidence type this plugin emits today.
-const EvidenceTypeID = "cloudsql_instance"
+// EvidenceTypeID is the cross-vendor evidence type this plugin emits.
+const EvidenceTypeID = "managed_database_instance"
 
 // SourceID is the registered ID for the gcp.sql plugin instance.
 const SourceID = "gcp.sql"
@@ -91,24 +92,29 @@ func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 // Preserved for symmetry with other plugins.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// instancePayload is the shape of the JSON payload inside each
-// cloudsql_instance record.
+// instancePayload is the cross-vendor managed_database_instance shape.
 type instancePayload struct {
-	Name                string `json:"name"`
-	DatabaseVersion     string `json:"database_version"`
-	Region              string `json:"region"`
-	State               string `json:"state"`
-	RequireSSL          bool   `json:"require_ssl"`
-	SSLMode             string `json:"ssl_mode,omitempty"`
-	Ipv4Enabled         bool   `json:"ipv4_enabled"`
-	BackupConfigEnabled bool   `json:"backup_config_enabled"`
-	PITREnabled         bool   `json:"pitr_enabled"`
-	AvailabilityType    string `json:"availability_type,omitempty"`
-	DeletionProtection  bool   `json:"deletion_protection"`
+	ID                 string `json:"id"`
+	Name               string `json:"name"`
+	Provider           string `json:"provider"`
+	Engine             string `json:"engine,omitempty"`
+	EngineVersion      string `json:"engine_version,omitempty"`
+	StorageEncrypted   bool   `json:"storage_encrypted"`
+	PubliclyAccessible bool   `json:"publicly_accessible"`
+	BackupEnabled      bool   `json:"backup_enabled"`
+	SSLRequired        bool   `json:"ssl_required"`
+	MultiAZ            bool   `json:"multi_az"`
+	DeletionProtection bool   `json:"deletion_protection"`
+	// GCP-specific extras
+	Region           string `json:"region,omitempty"`
+	State            string `json:"state,omitempty"`
+	SSLMode          string `json:"ssl_mode,omitempty"`
+	PITREnabled      bool   `json:"pitr_enabled"`
+	AvailabilityType string `json:"availability_type,omitempty"`
 }
 
 // Collect lists Cloud SQL instances in the configured project and
-// emits one cloudsql_instance record per instance. Records are sorted
+// emits one managed_database_instance record per instance, sorted
 // by ID (instance name) before return so envelope bytes are stable
 // across runs against stable project state.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
@@ -126,17 +132,22 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 			continue
 		}
 		payload := instancePayload{
-			Name:                inst.Name,
-			DatabaseVersion:     inst.DatabaseVersion,
-			Region:              inst.Region,
-			State:               inst.State,
-			RequireSSL:          ipCfgRequireSSL(inst),
-			SSLMode:             ipCfgSSLMode(inst),
-			Ipv4Enabled:         ipCfgIpv4Enabled(inst),
-			BackupConfigEnabled: backupEnabled(inst),
-			PITREnabled:         pitrEnabled(inst),
-			AvailabilityType:    availabilityType(inst),
-			DeletionProtection:  deletionProtection(inst),
+			ID:                 inst.Name,
+			Name:               inst.Name,
+			Provider:           "gcp",
+			Engine:             engineFromVersion(inst.DatabaseVersion),
+			EngineVersion:      inst.DatabaseVersion,
+			StorageEncrypted:   true, // Cloud SQL always encrypts data at rest
+			PubliclyAccessible: ipCfgIpv4Enabled(inst),
+			BackupEnabled:      backupEnabled(inst),
+			SSLRequired:        ipCfgRequireSSL(inst),
+			MultiAZ:            availabilityType(inst) == "REGIONAL",
+			DeletionProtection: deletionProtection(inst),
+			Region:             inst.Region,
+			State:              inst.State,
+			SSLMode:            ipCfgSSLMode(inst),
+			PITREnabled:        pitrEnabled(inst),
+			AvailabilityType:   availabilityType(inst),
 		}
 		body, err := json.Marshal(payload)
 		if err != nil {
@@ -152,6 +163,21 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	}
 	sort.Slice(records, func(i, j int) bool { return records[i].ID < records[j].ID })
 	return records, nil
+}
+
+// engineFromVersion extracts the engine family from a Cloud SQL
+// DatabaseVersion string (e.g. "POSTGRES_14" → "postgres",
+// "MYSQL_8_0" → "mysql", "SQLSERVER_2019_STANDARD" → "sqlserver").
+func engineFromVersion(version string) string {
+	if version == "" {
+		return ""
+	}
+	idx := strings.IndexByte(version, '_')
+	family := version
+	if idx > 0 {
+		family = version[:idx]
+	}
+	return strings.ToLower(family)
 }
 
 func ipCfgRequireSSL(inst *sqladmin.DatabaseInstance) bool {

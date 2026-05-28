@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/serverless_function/v1.json",
+  "title": "serverless_function",
+  "version": 1,
+  "description": "One serverless function — one record per AWS Lambda function, GCP Cloud Function, or Azure Function. Policies check VPC placement, tracing, and environment variable encryption.",
+  "type": "object",
+  "required": ["id", "name", "runtime", "is_in_vpc", "tracing_enabled"],
+  "properties": {
+    "id":                            { "type": "string", "description": "Unique function identifier (ARN, resource ID)." },
+    "name":                          { "type": "string", "description": "Function name." },
+    "provider":                      { "type": "string", "description": "Cloud provider short name: aws, gcp, azure." },
+    "runtime":                       { "type": "string", "description": "Runtime language and version (e.g. nodejs18.x, python3.11)." },
+    "is_in_vpc":                     { "type": "boolean", "description": "Function is deployed inside a VPC." },
+    "tracing_enabled":               { "type": "boolean", "description": "Distributed tracing (X-Ray, Cloud Trace) is enabled." },
+    "reserved_concurrency_set":      { "type": "boolean", "description": "Reserved concurrency limit is configured (prevents resource exhaustion)." },
+    "environment_variables_encrypted":{ "type": "boolean", "description": "Environment variables are encrypted with a customer-managed key." }
+  },
+  "additionalProperties": true
+}

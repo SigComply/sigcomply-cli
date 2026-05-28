@@ -119,14 +119,14 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	if err := json.Unmarshal(records[1].Payload, &zeta); err != nil {
 		t.Fatalf("Unmarshal zeta: %v", err)
 	}
-	if !zeta.IsMultiRegionTrail || !zeta.IsLogging || !zeta.LogFileValidationEnabled {
+	if !zeta.IsMultiRegion || !zeta.IsEnabled || !zeta.LogFileValidationEnabled {
 		t.Errorf("zeta unexpected: %+v", zeta)
 	}
 	var alpha trailPayload
 	if err := json.Unmarshal(records[0].Payload, &alpha); err != nil {
 		t.Fatalf("Unmarshal alpha: %v", err)
 	}
-	if alpha.IsMultiRegionTrail || alpha.IsLogging {
+	if alpha.IsMultiRegion || alpha.IsEnabled {
 		t.Errorf("alpha should be single-region + not logging: %+v", alpha)
 	}
 }

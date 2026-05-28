@@ -16,12 +16,14 @@ import (
 
 // fakeAPI lets tests drive the plugin without real AWS calls.
 type fakeAPI struct {
-	users   []iamtypes.User
-	mfaByUN map[string][]iamtypes.MFADevice
-	err     error
+	users    []iamtypes.User
+	mfaByUN  map[string][]iamtypes.MFADevice
+	keysByUN map[string][]iamtypes.AccessKeyMetadata
+	err      error
 
 	listUsersCount int
 	listMFACount   int
+	listKeysCount  int
 }
 
 func (f *fakeAPI) ListUsers(_ context.Context, _ *awsiam.ListUsersInput, _ ...func(*awsiam.Options)) (*awsiam.ListUsersOutput, error) {
@@ -38,6 +40,14 @@ func (f *fakeAPI) ListMFADevices(_ context.Context, in *awsiam.ListMFADevicesInp
 		return &awsiam.ListMFADevicesOutput{}, nil
 	}
 	return &awsiam.ListMFADevicesOutput{MFADevices: f.mfaByUN[*in.UserName]}, nil
+}
+
+func (f *fakeAPI) ListAccessKeys(_ context.Context, in *awsiam.ListAccessKeysInput, _ ...func(*awsiam.Options)) (*awsiam.ListAccessKeysOutput, error) {
+	f.listKeysCount++
+	if in.UserName == nil {
+		return &awsiam.ListAccessKeysOutput{}, nil
+	}
+	return &awsiam.ListAccessKeysOutput{AccessKeyMetadata: f.keysByUN[*in.UserName]}, nil
 }
 
 func ptr[T any](v T) *T { return &v }
@@ -215,6 +225,10 @@ func (f *mfaErrAPI) ListUsers(_ context.Context, _ *awsiam.ListUsersInput, _ ...
 
 func (f *mfaErrAPI) ListMFADevices(_ context.Context, _ *awsiam.ListMFADevicesInput, _ ...func(*awsiam.Options)) (*awsiam.ListMFADevicesOutput, error) {
 	return nil, errors.New("forbidden")
+}
+
+func (f *mfaErrAPI) ListAccessKeys(_ context.Context, _ *awsiam.ListAccessKeysInput, _ ...func(*awsiam.Options)) (*awsiam.ListAccessKeysOutput, error) {
+	return &awsiam.ListAccessKeysOutput{}, nil
 }
 
 func TestCollect_KISSNoDRY_EachCallReListsUsers(t *testing.T) {

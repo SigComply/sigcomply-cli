@@ -83,11 +83,14 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	if err := json.Unmarshal(records[0].Payload, &owner); err != nil {
 		t.Fatalf("Unmarshal owner: %v", err)
 	}
-	if owner.Role != "roles/owner" || owner.Member != "user:carol@acme.com" {
+	if owner.Role != "roles/owner" || owner.PrincipalID != "carol@acme.com" {
 		t.Errorf("owner payload = %+v", owner)
 	}
-	if owner.MemberType != "user" {
-		t.Errorf("MemberType = %q; want user", owner.MemberType)
+	if owner.PrincipalType != principalTypeUser {
+		t.Errorf("PrincipalType = %q; want user", owner.PrincipalType)
+	}
+	if !owner.IsBroadAdminRole {
+		t.Errorf("roles/owner should be broad admin role")
 	}
 	if owner.ProjectID != "proj-1" {
 		t.Errorf("ProjectID = %q", owner.ProjectID)

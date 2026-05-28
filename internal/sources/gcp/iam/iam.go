@@ -1,6 +1,6 @@
 // Package iam implements the gcp.iam source plugin: fetches the
 // project-level IAM policy from Cloud Resource Manager and emits one
-// gcp_iam_binding evidence record per (role, member) pair so SOC 2
+// iam_binding evidence record per (role, principal) pair so SOC 2
 // least-privilege policies can flag (e.g.) `roles/owner` granted to
 // individual users.
 //
@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	crm "google.golang.org/api/cloudresourcemanager/v1"
@@ -26,8 +27,8 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
-// EvidenceTypeID is the single evidence type this plugin emits today.
-const EvidenceTypeID = "gcp_iam_binding"
+// EvidenceTypeID is the cross-vendor evidence type this plugin emits.
+const EvidenceTypeID = "iam_binding"
 
 // SourceID is the registered ID for the gcp.iam plugin instance.
 const SourceID = "gcp.iam"
@@ -93,14 +94,16 @@ func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 // Preserved for symmetry with other plugins.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// bindingPayload is the shape of the JSON payload inside each
-// gcp_iam_binding record.
+// bindingPayload is the cross-vendor iam_binding shape.
 type bindingPayload struct {
-	Role         string `json:"role"`
-	Member       string `json:"member"`
-	MemberType   string `json:"member_type"`
-	ProjectID    string `json:"project_id"`
-	HasCondition bool   `json:"has_condition"`
+	ID               string `json:"id"`
+	Role             string `json:"role"`
+	PrincipalID      string `json:"principal_id"`
+	PrincipalType    string `json:"principal_type"`
+	IsBroadAdminRole bool   `json:"is_broad_admin_role"`
+	HasCondition     bool   `json:"has_condition"`
+	// GCP-specific extras
+	ProjectID string `json:"project_id,omitempty"`
 }
 
 // Collect fetches the project's IAM policy and emits one record per
@@ -123,11 +126,13 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		hasCondition := b.Condition != nil
 		for _, member := range b.Members {
 			payload := bindingPayload{
-				Role:         b.Role,
-				Member:       member,
-				MemberType:   memberType(member),
-				ProjectID:    p.projectID,
-				HasCondition: hasCondition,
+				ID:               fmt.Sprintf("%s|%s", b.Role, member),
+				Role:             b.Role,
+				PrincipalID:      identityKey(member),
+				PrincipalType:    principalType(memberType(member)),
+				IsBroadAdminRole: isBroadAdminRole(b.Role),
+				HasCondition:     hasCondition,
+				ProjectID:        p.projectID,
 			}
 			body, err := json.Marshal(payload)
 			if err != nil {
@@ -145,6 +150,39 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	}
 	sort.Slice(records, func(i, j int) bool { return records[i].ID < records[j].ID })
 	return records, nil
+}
+
+// principalTypeUser is the canonical iam_binding principal_type for a
+// human user — the value least-privilege policies filter on.
+const principalTypeUser = "user"
+
+// principalType maps a GCP member prefix to the cross-vendor
+// iam_binding principal_type enum (user, group, service_account).
+// Non-standard prefixes (domain, allUsers, allAuthenticatedUsers) pass
+// through unchanged — least-privilege policies filter on principal_type
+// == "user", so they simply don't match.
+func principalType(memberPrefix string) string {
+	switch memberPrefix {
+	case "serviceAccount":
+		return "service_account"
+	case principalTypeUser:
+		return principalTypeUser
+	case "group":
+		return "group"
+	default:
+		return memberPrefix
+	}
+}
+
+// isBroadAdminRole reports whether a GCP role grants project-wide or
+// account-wide admin privileges: roles/owner, roles/editor, or any role
+// whose name contains "admin".
+func isBroadAdminRole(role string) bool {
+	switch role {
+	case "roles/owner", "roles/editor":
+		return true
+	}
+	return strings.Contains(strings.ToLower(role), "admin")
 }
 
 // memberType extracts the principal prefix from a GCP member string —

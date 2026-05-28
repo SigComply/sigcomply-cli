@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/iam_binding/v1.json",
+  "title": "iam_binding",
+  "version": 1,
+  "description": "One (role, principal) IAM binding — GCP project-level IAM policy binding, AWS managed-policy attachment to a principal, Azure role assignment. One record per (role, member/principal) pair. The single cross-vendor shape policies use for least-privilege and separation-of-duties checks.",
+  "type": "object",
+  "required": ["id", "role", "principal_id", "principal_type", "is_broad_admin_role"],
+  "properties": {
+    "id":                 { "type": "string", "description": "Unique stable identifier composed from role + principal (e.g. 'roles/owner|user:alice@example.com')." },
+    "role":               { "type": "string", "description": "Role or policy name (GCP: 'roles/owner'; AWS: 'arn:aws:iam::aws:policy/AdministratorAccess')." },
+    "principal_id":       { "type": "string", "description": "Principal identifier (email, ARN, username, or group name)." },
+    "principal_type":     { "type": "string", "description": "Principal kind: user, group, service_account." },
+    "is_broad_admin_role":{ "type": "boolean", "description": "Role grants account-wide or project-wide admin privileges (e.g. roles/owner, AdministratorAccess)." },
+    "has_condition":      { "type": "boolean", "description": "Binding is subject to a condition/expression that restricts its scope." }
+  },
+  "additionalProperties": true
+}

@@ -29,7 +29,7 @@ func registerSource(t *testing.T, set *registry.Set, id string, emits ...string)
 	}
 }
 
-func TestResolveBindings_ExactlyOne_RequiresOne(t *testing.T) {
+func TestResolveBindings_ExactlyOne_AllowsAtMostOne(t *testing.T) {
 	set := registry.NewSet()
 	registerSource(t, set, "aws.iam", "directory_user")
 	policy := &core.Policy{
@@ -38,21 +38,21 @@ func TestResolveBindings_ExactlyOne_RequiresOne(t *testing.T) {
 			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotExactlyOne, Required: true},
 		},
 	}
-	cases := []struct {
-		name      string
-		entries   []spec.BindingEntry
-		wantError string
-	}{
-		{"zero", nil, "exactly-one requires 1 binding, got 0"},
-		{"two", []spec.BindingEntry{{Source: "aws.iam"}, {Source: "aws.iam"}}, "exactly-one requires 1 binding, got 2"},
+	// Zero bindings is allowed (deferred-source model: the policy plans
+	// cleanly and is skipped at evaluation time).
+	bindings, err := resolveBindings(policy, map[string][]spec.BindingEntry{"u": nil}, set.Sources)
+	if err != nil {
+		t.Fatalf("zero bindings should be allowed; got %v", err)
 	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := resolveBindings(policy, map[string][]spec.BindingEntry{"u": tc.entries}, set.Sources)
-			if err == nil || !strings.Contains(err.Error(), tc.wantError) {
-				t.Errorf("want error containing %q; got %v", tc.wantError, err)
-			}
-		})
+	if len(bindings["u"]) != 0 {
+		t.Errorf("expected empty bindings; got %v", bindings["u"])
+	}
+	// Two bindings for exactly-one is still a configuration error.
+	_, err = resolveBindings(policy, map[string][]spec.BindingEntry{
+		"u": {{Source: "aws.iam"}, {Source: "aws.iam"}},
+	}, set.Sources)
+	if err == nil || !strings.Contains(err.Error(), "at most 1 binding, got 2") {
+		t.Errorf("want at-most-1 error; got %v", err)
 	}
 }
 
@@ -73,7 +73,7 @@ func TestResolveBindings_AtMostOne(t *testing.T) {
 	_, err := resolveBindings(policy, map[string][]spec.BindingEntry{
 		"u": {{Source: "aws.iam"}, {Source: "aws.iam"}},
 	}, set.Sources)
-	if err == nil || !strings.Contains(err.Error(), "at-most-one") {
+	if err == nil || !strings.Contains(err.Error(), "at most 1 binding") {
 		t.Errorf("want at-most-one error; got %v", err)
 	}
 }

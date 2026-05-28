@@ -27,10 +27,11 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
-// EvidenceTypeID is the single evidence type this plugin emits today —
-// the cross-vendor directory_user shape. AWS IAM is one of several
-// substitutable directory sources (Okta, GitHub, future Azure AD/LDAP).
-const EvidenceTypeID = "directory_user"
+// EvidenceTypeID is the cross-vendor directory_user.v2 shape this plugin
+// emits — the v1 identity fields plus privileged-access and access-key
+// hygiene fields. AWS IAM is one of several substitutable directory
+// sources (Okta, GitHub, future Azure AD/LDAP).
+const EvidenceTypeID = "directory_user.v2"
 
 // SourceID is the registered ID for the aws.iam plugin instance.
 const SourceID = "aws.iam"
@@ -41,6 +42,7 @@ const SourceID = "aws.iam"
 type API interface {
 	ListUsers(ctx context.Context, params *awsiam.ListUsersInput, optFns ...func(*awsiam.Options)) (*awsiam.ListUsersOutput, error)
 	ListMFADevices(ctx context.Context, params *awsiam.ListMFADevicesInput, optFns ...func(*awsiam.Options)) (*awsiam.ListMFADevicesOutput, error)
+	ListAccessKeys(ctx context.Context, params *awsiam.ListAccessKeysInput, optFns ...func(*awsiam.Options)) (*awsiam.ListAccessKeysOutput, error)
 }
 
 // Plugin is the in-process aws.iam source.
@@ -97,22 +99,23 @@ func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 // constructor already has it; this is a no-op preserved for symmetry.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// userPayload is the directory_user shape this plugin emits. Cross-
-// vendor fields (id, display_name, mfa_enabled, is_admin, is_active,
-// last_login_at) map to AWS IAM concepts as documented in Collect.
-// AWS-specific signals not covered by directory_user v1 (password
-// configured vs. access keys only, MFA device serial numbers, attached
-// policies) are intentionally not emitted — adding them would push
-// vendor specifics back into the rule layer.
+// userPayload is the directory_user.v2 shape this plugin emits. The v1
+// identity fields map to AWS IAM concepts as documented in Collect; the
+// v2 fields (is_root, has_console_access, has_programmatic_access)
+// derive from already-available ListUsers data plus a per-user
+// ListAccessKeys call.
 type userPayload struct {
-	ID          string    `json:"id"`
-	DisplayName string    `json:"display_name"`
-	Email       string    `json:"email,omitempty"`
-	MFAEnabled  bool      `json:"mfa_enabled"`
-	IsAdmin     bool      `json:"is_admin"`
-	IsActive    bool      `json:"is_active"`
-	LastLoginAt time.Time `json:"last_login_at,omitempty"`
-	CreatedAt   time.Time `json:"created_at,omitempty"`
+	ID                    string    `json:"id"`
+	DisplayName           string    `json:"display_name"`
+	Email                 string    `json:"email,omitempty"`
+	MFAEnabled            bool      `json:"mfa_enabled"`
+	IsAdmin               bool      `json:"is_admin"`
+	IsActive              bool      `json:"is_active"`
+	IsRoot                bool      `json:"is_root"`
+	HasConsoleAccess      bool      `json:"has_console_access"`
+	HasProgrammaticAccess bool      `json:"has_programmatic_access"`
+	LastLoginAt           time.Time `json:"last_login_at,omitempty"`
+	CreatedAt             time.Time `json:"created_at,omitempty"`
 }
 
 // Collect lists IAM users in the configured account and returns one
@@ -134,13 +137,20 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		if err != nil {
 			return nil, fmt.Errorf("aws.iam: mfa for user %s: %w", safeUserName(u), err)
 		}
+		hasKeys, err := p.userHasActiveAccessKey(ctx, u)
+		if err != nil {
+			return nil, fmt.Errorf("aws.iam: access keys for user %s: %w", safeUserName(u), err)
+		}
 		payload := userPayload{
-			ID:          safeUserID(u),
-			DisplayName: safeUserName(u),
-			MFAEnabled:  mfa,
-			IsAdmin:     false, // admin detection (admin group / AdministratorAccess) is deferred — see post-M6 work plan
-			IsActive:    true,  // IAM list calls only return active users; pending-deletion is a separate concern not modeled here
-			CreatedAt:   safeCreatedAt(u),
+			ID:                    safeUserID(u),
+			DisplayName:           safeUserName(u),
+			MFAEnabled:            mfa,
+			IsAdmin:               false, // admin detection (admin group / AdministratorAccess) is deferred
+			IsActive:              true,  // IAM list calls only return active users
+			IsRoot:                false, // ListUsers never returns the account root user
+			HasConsoleAccess:      u.PasswordLastUsed != nil,
+			HasProgrammaticAccess: hasKeys,
+			CreatedAt:             safeCreatedAt(u),
 		}
 		if u.PasswordLastUsed != nil {
 			payload.LastLoginAt = *u.PasswordLastUsed
@@ -191,6 +201,25 @@ func (p *Plugin) userHasMFA(ctx context.Context, u *iamtypes.User) (bool, error)
 		return false, err
 	}
 	return len(out.MFADevices) > 0, nil
+}
+
+// userHasActiveAccessKey reports whether the user has at least one
+// active programmatic access key.
+func (p *Plugin) userHasActiveAccessKey(ctx context.Context, u *iamtypes.User) (bool, error) {
+	name := safeUserName(u)
+	if name == "" {
+		return false, nil
+	}
+	out, err := p.api.ListAccessKeys(ctx, &awsiam.ListAccessKeysInput{UserName: &name})
+	if err != nil {
+		return false, err
+	}
+	for i := range out.AccessKeyMetadata {
+		if out.AccessKeyMetadata[i].Status == iamtypes.StatusTypeActive {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func safeUserName(u *iamtypes.User) string {

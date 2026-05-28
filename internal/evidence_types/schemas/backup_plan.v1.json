@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/backup_plan/v1.json",
+  "title": "backup_plan",
+  "version": 1,
+  "description": "One backup plan or policy — one record per AWS Backup plan, GCP Backup plan, or Azure Backup policy. Policies check that active plans exist with retention rules.",
+  "type": "object",
+  "required": ["id", "name", "is_active", "has_retention_rule", "retention_days"],
+  "properties": {
+    "id":                   { "type": "string", "description": "Unique backup plan identifier." },
+    "name":                 { "type": "string", "description": "Human-readable plan name." },
+    "provider":             { "type": "string", "description": "Cloud provider short name: aws, gcp, azure." },
+    "is_active":            { "type": "boolean", "description": "Backup plan is active and running scheduled backups." },
+    "has_retention_rule":   { "type": "boolean", "description": "Plan has at least one retention rule configured." },
+    "retention_days":       { "type": "integer", "description": "Minimum retention period in days across all rules. 0 when no retention rule exists." },
+    "covers_resource_types":{ "type": "array", "description": "Resource types covered by this plan (e.g. ['EC2', 'RDS'])." }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/firewall_rule/v1.json",
+  "title": "firewall_rule",
+  "version": 1,
+  "description": "One inbound or outbound firewall rule — one record per rule within an AWS security group, GCP firewall rule, or Azure NSG rule. Port-range checks and unrestricted-source checks are the primary policy targets. Identity key: group_id + direction + index.",
+  "type": "object",
+  "required": ["id", "name", "direction", "protocol", "from_port", "to_port", "is_unrestricted_ipv4", "is_unrestricted_ipv6"],
+  "properties": {
+    "id":                  { "type": "string", "description": "Unique stable identifier (e.g. '{sg-id}:{direction}:{index}')." },
+    "name":                { "type": "string", "description": "Human-readable name including parent group name." },
+    "provider":            { "type": "string", "description": "Cloud provider short name: aws, gcp, azure." },
+    "group_id":            { "type": "string", "description": "Parent security group or firewall rule set ID." },
+    "direction":           { "type": "string", "description": "Traffic direction: ingress or egress." },
+    "protocol":            { "type": "string", "description": "Protocol: tcp, udp, icmp, all." },
+    "from_port":           { "type": "integer", "description": "Start of port range. -1 means all ports." },
+    "to_port":             { "type": "integer", "description": "End of port range. -1 means all ports." },
+    "source_cidr":         { "type": "string", "description": "Source CIDR for ingress rules." },
+    "dest_cidr":           { "type": "string", "description": "Destination CIDR for egress rules." },
+    "is_unrestricted_ipv4":{ "type": "boolean", "description": "Source/destination is 0.0.0.0/0 (open to all IPv4)." },
+    "is_unrestricted_ipv6":{ "type": "boolean", "description": "Source/destination is ::/0 (open to all IPv6)." }
+  },
+  "additionalProperties": true
+}

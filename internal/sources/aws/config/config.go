@@ -1,6 +1,6 @@
 // Package config implements the aws.config source plugin: lists AWS
 // Config configuration recorders along with their recording status, and
-// emits config_recorder evidence records suitable for SOC 2
+// emits configuration_recorder evidence records suitable for SOC 2
 // change-tracking policies (Config recorder enabled and recording).
 //
 // The "config" package name collides with Go's idiomatic name for
@@ -31,8 +31,8 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
-// EvidenceTypeID is the single evidence type this plugin emits today.
-const EvidenceTypeID = "config_recorder"
+// EvidenceTypeID is the cross-vendor evidence type this plugin emits.
+const EvidenceTypeID = "configuration_recorder"
 
 // SourceID is the registered ID for the aws.config plugin instance.
 const SourceID = "aws.config"
@@ -98,19 +98,22 @@ func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 // constructor already has it; this is a no-op preserved for symmetry.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// recorderPayload is the shape of the JSON payload inside each
-// config_recorder record.
+// recorderPayload is the cross-vendor configuration_recorder shape.
 type recorderPayload struct {
+	ID               string `json:"id"`
 	Name             string `json:"name"`
+	Provider         string `json:"provider"`
+	IsRecording      bool   `json:"is_recording"`
+	AllResourceTypes bool   `json:"all_resource_types"`
+	// AWS-specific extras
 	ARN              string `json:"arn,omitempty"`
-	Recording        bool   `json:"recording"`
 	LastStatus       string `json:"last_status,omitempty"`
 	LastErrorCode    string `json:"last_error_code,omitempty"`
 	LastErrorMessage string `json:"last_error_message,omitempty"`
 }
 
 // Collect lists Configuration Recorders in the configured region and
-// returns one config_recorder per recorder. Records are sorted by ID
+// returns one configuration_recorder per recorder, sorted by ID
 // before return so envelope bytes are stable across runs against
 // stable account state.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
@@ -145,9 +148,12 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		}
 		s := statusByName[name]
 		payload := recorderPayload{
+			ID:               id,
 			Name:             name,
+			Provider:         "aws",
+			IsRecording:      s.Recording,
+			AllResourceTypes: allResourceTypes(r),
 			ARN:              arn,
-			Recording:        s.Recording,
 			LastStatus:       string(s.LastStatus),
 			LastErrorCode:    safeStr(s.LastErrorCode),
 			LastErrorMessage: safeStr(s.LastErrorMessage),
@@ -173,6 +179,15 @@ func safeStr(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// allResourceTypes reports whether the recorder captures all supported
+// resource types (RecordingGroup.AllSupported).
+func allResourceTypes(r *cfgtypes.ConfigurationRecorder) bool {
+	if r == nil || r.RecordingGroup == nil {
+		return false
+	}
+	return r.RecordingGroup.AllSupported
 }
 
 var _ core.SourcePlugin = (*Plugin)(nil)

@@ -130,14 +130,14 @@ func assertHappyPathPayloads(t *testing.T, records []core.EvidenceRecord) {
 	if err := json.Unmarshal(records[1].Payload, &zeta); err != nil {
 		t.Fatalf("Unmarshal zeta: %v", err)
 	}
-	if zeta.RetentionInDays != 180 || !zeta.RetentionSet || zeta.StoredBytes != 1234 || zeta.MetricFilterUsed != 2 {
+	if zeta.RetentionDays != 180 || !zeta.RetentionSet || zeta.StoredBytes != 1234 {
 		t.Errorf("zeta unexpected: %+v", zeta)
 	}
 	var alpha logGroupPayload
 	if err := json.Unmarshal(records[0].Payload, &alpha); err != nil {
 		t.Fatalf("Unmarshal alpha: %v", err)
 	}
-	if alpha.RetentionSet || alpha.RetentionInDays != 0 {
+	if alpha.RetentionSet || alpha.RetentionDays != 0 {
 		t.Errorf("alpha should have no retention: %+v", alpha)
 	}
 	if alpha.KMSKeyID == "" {
@@ -211,9 +211,6 @@ func TestSafeHelpers_NilSafe(t *testing.T) {
 	}
 	if safeInt64(nil) != 0 {
 		t.Errorf("nil int64 not 0")
-	}
-	if safeInt32(nil) != 0 {
-		t.Errorf("nil int32 not 0")
 	}
 	if retentionDays(nil) != 0 {
 		t.Errorf("nil retention not 0")

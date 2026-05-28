@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/directory_user/v2.json",
+  "title": "directory_user.v2",
+  "version": 2,
+  "description": "Cross-vendor identity record (v2) — extends directory_user.v1 with privileged-access, access-key, and account-lifecycle fields needed for deeper IAM hygiene policies. Requires all v1 fields plus is_root, has_console_access, has_programmatic_access. Plugins that cannot compute optional fields should omit them.",
+  "type": "object",
+  "required": ["id", "mfa_enabled", "is_root", "has_console_access", "has_programmatic_access"],
+  "properties": {
+    "id":                     { "type": "string", "description": "Unique within the emitting source." },
+    "display_name":           { "type": "string" },
+    "email":                  { "type": "string" },
+    "mfa_enabled":            { "type": "boolean", "description": "User has MFA enrolled and required at sign-on." },
+    "mfa_factor_count":       { "type": "integer" },
+    "is_admin":               { "type": "boolean", "description": "Has account-wide elevated privileges." },
+    "is_service_account":     { "type": "boolean" },
+    "is_active":              { "type": "boolean" },
+    "last_login_at":          { "type": "string" },
+    "created_at":             { "type": "string" },
+    "is_root":                { "type": "boolean", "description": "This identity is the cloud provider's root or break-glass account (AWS root, GCP org admin super-admin)." },
+    "has_console_access":     { "type": "boolean", "description": "Can authenticate via the web console / GUI." },
+    "has_programmatic_access":{ "type": "boolean", "description": "Has at least one active programmatic credential (AWS access key, GCP service account key)." },
+    "direct_policy_count":    { "type": "integer", "description": "Number of IAM policies attached directly to the user (not via group). 0 is ideal; >0 violates group-based access hygiene." },
+    "unused_days":            { "type": "integer", "description": "Days since the identity last authenticated. -1 means never used / data unavailable." },
+    "groups":                 { "type": "array", "description": "Group memberships (names or IDs)." }
+  },
+  "additionalProperties": true
+}

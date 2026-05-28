@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/managed_database_instance/v1.json",
+  "title": "managed_database_instance",
+  "version": 1,
+  "description": "One managed relational database instance on any cloud — AWS RDS, GCP Cloud SQL, Azure Database. The single cross-vendor shape policies use for encryption, access, backup, and redundancy checks. Providers set additionalProperties for vendor-specific fields.",
+  "type": "object",
+  "required": ["id", "name", "storage_encrypted", "publicly_accessible", "backup_enabled", "ssl_required"],
+  "properties": {
+    "id":                  { "type": "string", "description": "Unique stable identifier (AWS: DB instance identifier, GCP: instance name)." },
+    "name":                { "type": "string", "description": "Human-readable name." },
+    "provider":            { "type": "string", "description": "Cloud provider short name: aws, gcp, azure." },
+    "engine":              { "type": "string", "description": "Database engine: mysql, postgres, sqlserver, etc." },
+    "engine_version":      { "type": "string", "description": "Database engine version string." },
+    "storage_encrypted":   { "type": "boolean", "description": "Data at rest is encrypted." },
+    "publicly_accessible": { "type": "boolean", "description": "Instance is reachable from the public internet." },
+    "backup_enabled":      { "type": "boolean", "description": "Automated backups are enabled." },
+    "ssl_required":        { "type": "boolean", "description": "SSL/TLS is required for all connections." },
+    "multi_az":            { "type": "boolean", "description": "Instance is deployed across multiple availability zones." },
+    "deletion_protection": { "type": "boolean", "description": "Deletion protection is enabled." },
+    "kms_key_id":          { "type": "string", "description": "KMS key ID used for encryption (if customer-managed)." }
+  },
+  "additionalProperties": true
+}

@@ -97,14 +97,14 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	if err := json.Unmarshal(records[1].Payload, &zeta); err != nil {
 		t.Fatalf("Unmarshal zeta: %v", err)
 	}
-	if !zeta.Recording || zeta.LastStatus != "Success" {
+	if !zeta.IsRecording || zeta.LastStatus != "Success" {
 		t.Errorf("zeta unexpected: %+v", zeta)
 	}
 	var alpha recorderPayload
 	if err := json.Unmarshal(records[0].Payload, &alpha); err != nil {
 		t.Fatalf("Unmarshal alpha: %v", err)
 	}
-	if alpha.Recording || alpha.LastErrorCode != "E" {
+	if alpha.IsRecording || alpha.LastErrorCode != "E" {
 		t.Errorf("alpha unexpected: %+v", alpha)
 	}
 }
@@ -125,7 +125,7 @@ func TestCollect_RecorderWithoutStatus(t *testing.T) {
 	if err := json.Unmarshal(records[0].Payload, &pl); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	if pl.Recording {
+	if pl.IsRecording {
 		t.Errorf("missing status should default to recording=false; got %+v", pl)
 	}
 }
@@ -144,7 +144,7 @@ func TestCollect_StatusWithNilNameIsSkipped(t *testing.T) {
 	if err := json.Unmarshal(records[0].Payload, &pl); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	if pl.Recording {
+	if pl.IsRecording {
 		t.Errorf("nil-name status should not be matched; got %+v", pl)
 	}
 }

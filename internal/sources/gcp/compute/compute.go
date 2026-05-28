@@ -94,17 +94,24 @@ func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 // Preserved for symmetry with other plugins.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// instancePayload is the shape of the JSON payload inside each
-// compute_instance record.
+// instancePayload is the cross-vendor compute_instance shape with GCP
+// enrichment fields in the additionalProperties tail.
 type instancePayload struct {
-	Name                      string   `json:"name"`
-	ID                        uint64   `json:"id,omitempty"`
-	Zone                      string   `json:"zone"`
-	MachineType               string   `json:"machine_type"`
-	Status                    string   `json:"status"`
-	ServiceAccountEmails      []string `json:"service_account_emails"`
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	Provider            string `json:"provider"`
+	Region              string `json:"region,omitempty"`
+	IsRunning           bool   `json:"is_running"`
+	HasPublicIP         bool   `json:"has_public_ip"`
+	RootVolumeEncrypted bool   `json:"root_volume_encrypted"`
+	MonitoringEnabled   bool   `json:"monitoring_enabled"`
+	// GCP-specific extras
+	NumericID                 uint64   `json:"numeric_id,omitempty"`
+	Zone                      string   `json:"zone,omitempty"`
+	MachineType               string   `json:"machine_type,omitempty"`
+	Status                    string   `json:"status,omitempty"`
+	ServiceAccountEmails      []string `json:"service_account_emails,omitempty"`
 	UsesDefaultServiceAccount bool     `json:"uses_default_service_account"`
-	HasPublicIP               bool     `json:"has_public_ip"`
 	ShieldedVMEnabled         bool     `json:"shielded_vm_enabled"`
 	CanIPForward              bool     `json:"can_ip_forward"`
 	DeletionProtection        bool     `json:"deletion_protection"`
@@ -131,14 +138,20 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		}
 		emails := serviceAccountEmails(inst)
 		payload := instancePayload{
+			ID:                        inst.Name,
 			Name:                      inst.Name,
-			ID:                        inst.Id,
+			Provider:                  "gcp",
+			Region:                    shortZone(inst.Zone),
+			IsRunning:                 inst.Status == "RUNNING",
+			HasPublicIP:               hasPublicIP(inst),
+			RootVolumeEncrypted:       true, // GCP encrypts all persistent disks at rest by default
+			MonitoringEnabled:         true, // GCP Compute Engine emits basic Cloud Monitoring metrics by default
+			NumericID:                 inst.Id,
 			Zone:                      shortZone(inst.Zone),
 			MachineType:               shortName(inst.MachineType),
 			Status:                    inst.Status,
 			ServiceAccountEmails:      emails,
 			UsesDefaultServiceAccount: usesDefaultSA(emails, p.projectID),
-			HasPublicIP:               hasPublicIP(inst),
 			ShieldedVMEnabled:         shieldedEnabled(inst),
 			CanIPForward:              inst.CanIpForward,
 			DeletionProtection:        inst.DeletionProtection,

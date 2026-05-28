@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/iam_access_key/v1.json",
+  "title": "iam_access_key",
+  "version": 1,
+  "description": "One programmatic credential / access key — one record per AWS IAM access key, GCP service account key, or Azure service principal credential. Policies check age, last-use, and active-but-never-used states.",
+  "type": "object",
+  "required": ["id", "user_id", "is_active", "age_days", "last_used_days", "never_used"],
+  "properties": {
+    "id":            { "type": "string", "description": "Unique key identifier (AWS: access key ID, GCP: key ID)." },
+    "user_id":       { "type": "string", "description": "Identifier of the user or service account that owns this key." },
+    "is_active":     { "type": "boolean", "description": "Key is currently active and usable for authentication." },
+    "age_days":      { "type": "integer", "description": "Number of days since key was created." },
+    "last_used_days":{ "type": "integer", "description": "Number of days since the key was last used. -1 if usage data is unavailable." },
+    "never_used":    { "type": "boolean", "description": "Key has never been used for any API call since creation." }
+  },
+  "additionalProperties": true
+}

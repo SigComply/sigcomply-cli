@@ -90,21 +90,21 @@ func intersect(accepts, emits []string) []string {
 }
 
 func enforceCardinality(policyID, slotName string, slot *core.Slot, n int) error {
+	// Zero bindings is always permitted, even for required slots: a
+	// framework ships policies whose source plugins may not be configured
+	// in a given project (the deferred-source model). An unbound required
+	// slot plans cleanly here and is skipped at evaluation time
+	// (requiredSlotsPopulated → status=skip), rather than aborting the
+	// whole run with a plan error. A source that IS bound but emits no
+	// accepting type is still a hard error — that check lives in
+	// resolveSlot's per-entry intersection, not here.
 	switch slot.Cardinality {
-	case core.SlotExactlyOne:
-		if n != 1 {
-			return fmt.Errorf("planner: policy %q slot %q: cardinality exactly-one requires 1 binding, got %d", policyID, slotName, n)
-		}
-	case core.SlotAtMostOne:
+	case core.SlotExactlyOne, core.SlotAtMostOne:
 		if n > 1 {
-			return fmt.Errorf("planner: policy %q slot %q: cardinality at-most-one requires 0 or 1 binding, got %d", policyID, slotName, n)
+			return fmt.Errorf("planner: policy %q slot %q: cardinality %q allows at most 1 binding, got %d", policyID, slotName, slot.Cardinality, n)
 		}
-	case core.SlotOneOrMore:
-		if n == 0 && slot.Required {
-			return fmt.Errorf("planner: policy %q slot %q: cardinality one-or-more with required=true demands ≥1 binding, got 0", policyID, slotName)
-		}
-	case core.SlotOptional:
-		// No constraint.
+	case core.SlotOneOrMore, core.SlotOptional:
+		// No upper bound; zero is allowed (skipped at evaluation).
 	default:
 		return fmt.Errorf("planner: policy %q slot %q: unknown cardinality %q", policyID, slotName, slot.Cardinality)
 	}

@@ -1,19 +1,6 @@
 // Package cloudwatch implements the aws.cloudwatch source plugin: lists
-// CloudWatch Logs log groups in one AWS account and emits
-// cloudwatch_log_group evidence records suitable for SOC 2
-// audit-logging policies (retention configured, encryption at rest).
-//
-// Today the plugin only emits cloudwatch_log_group records using the
-// CloudWatch Logs SDK. CloudWatch alarms (cloudwatch_alarm) are a
-// future addition under the same plugin ID.
-//
-// Per the KISS-no-DRY axiom (docs/architecture/04-source-plugins.md
-// §The plugin contract), the plugin caches nothing across Collect
-// calls.
-//
-// Test injection: the API interface mirrors the pattern used by
-// internal/sources/aws/iam — the concrete *cloudwatchlogs.Client
-// satisfies it, and unit tests inject an in-memory fake.
+// CloudWatch Logs log groups and emits log_group evidence records with
+// cross-vendor retention and encryption attributes.
 package cloudwatch
 
 import (
@@ -31,15 +18,12 @@ import (
 )
 
 // EvidenceTypeID is the single evidence type this plugin emits today.
-// cloudwatch_alarm will be added later under the same plugin.
-const EvidenceTypeID = "cloudwatch_log_group"
+const EvidenceTypeID = "log_group"
 
 // SourceID is the registered ID for the aws.cloudwatch plugin instance.
 const SourceID = "aws.cloudwatch"
 
 // API is the subset of the CloudWatch Logs client this plugin uses.
-// Defining it as an interface lets tests inject a fake; the concrete
-// *cloudwatchlogs.Client satisfies it.
 type API interface {
 	DescribeLogGroups(ctx context.Context, params *cwl.DescribeLogGroupsInput, optFns ...func(*cwl.Options)) (*cwl.DescribeLogGroupsOutput, error)
 }
@@ -55,13 +39,10 @@ type Plugin struct {
 type Options struct {
 	API    API
 	Region string
-	// Now is injected so tests can produce deterministic CollectedAt
-	// values. Production callers leave it nil → time.Now().UTC().
-	Now func() time.Time
+	Now    func() time.Time
 }
 
 // New constructs a Plugin around an explicit API implementation.
-// Callers using the real AWS SDK should use NewFromAWS.
 func New(opts Options) *Plugin {
 	now := opts.Now
 	if now == nil {
@@ -74,8 +55,7 @@ func New(opts Options) *Plugin {
 	}
 }
 
-// NewFromAWS constructs a Plugin backed by the real AWS SDK using the
-// default credential chain.
+// NewFromAWS constructs a Plugin backed by the real AWS SDK.
 func NewFromAWS(ctx context.Context, region string) (*Plugin, error) {
 	cfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(region))
 	if err != nil {
@@ -93,26 +73,24 @@ func (*Plugin) ID() string { return SourceID }
 // Emits returns the evidence types this plugin can produce.
 func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 
-// Init accepts plugin config (currently just region) but the
-// constructor already has it; this is a no-op preserved for symmetry.
+// Init is a no-op; configuration is supplied to the constructor.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// logGroupPayload is the shape of the JSON payload inside each
-// cloudwatch_log_group record.
+// logGroupPayload is the cross-vendor log_group shape.
 type logGroupPayload struct {
-	Name             string `json:"name"`
-	ARN              string `json:"arn"`
-	RetentionInDays  int    `json:"retention_in_days"`
-	RetentionSet     bool   `json:"retention_set"`
-	KMSKeyID         string `json:"kms_key_id,omitempty"`
-	StoredBytes      int64  `json:"stored_bytes"`
-	MetricFilterUsed int    `json:"metric_filter_count,omitempty"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Provider      string `json:"provider"`
+	RetentionSet  bool   `json:"retention_set"`
+	RetentionDays int    `json:"retention_days"`
+	KMSEncrypted  bool   `json:"kms_encrypted"`
+	// AWS-specific extras
+	ARN         string `json:"arn,omitempty"`
+	StoredBytes int64  `json:"stored_bytes,omitempty"`
+	KMSKeyID    string `json:"kms_key_id,omitempty"`
 }
 
-// Collect lists all CloudWatch log groups in the configured region and
-// returns one cloudwatch_log_group record per group. Records are sorted
-// by ID before return so envelope bytes are stable across runs against
-// stable account state.
+// Collect lists CloudWatch log groups and returns one log_group record per group.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
 	if !req.Accepts(EvidenceTypeID) {
 		return nil, fmt.Errorf("aws.cloudwatch: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
@@ -131,14 +109,18 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		if id == "" {
 			id = name
 		}
+		retDays := retentionDays(g.RetentionInDays)
+		kmsKeyID := safeStr(g.KmsKeyId)
 		payload := logGroupPayload{
-			Name:             name,
-			ARN:              arn,
-			RetentionInDays:  retentionDays(g.RetentionInDays),
-			RetentionSet:     g.RetentionInDays != nil,
-			KMSKeyID:         safeStr(g.KmsKeyId),
-			StoredBytes:      safeInt64(g.StoredBytes),
-			MetricFilterUsed: int(safeInt32(g.MetricFilterCount)),
+			ID:            id,
+			Name:          name,
+			Provider:      "aws",
+			RetentionSet:  g.RetentionInDays != nil,
+			RetentionDays: retDays,
+			KMSEncrypted:  kmsKeyID != "",
+			ARN:           arn,
+			StoredBytes:   safeInt64(g.StoredBytes),
+			KMSKeyID:      kmsKeyID,
 		}
 		body, err := json.Marshal(payload)
 		if err != nil {
@@ -189,13 +171,6 @@ func safeStr(s *string) string {
 }
 
 func safeInt64(p *int64) int64 {
-	if p == nil {
-		return 0
-	}
-	return *p
-}
-
-func safeInt32(p *int32) int32 {
 	if p == nil {
 		return 0
 	}

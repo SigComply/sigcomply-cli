@@ -1,12 +1,10 @@
 package soc2
 
 import (
-	"context"
-	"encoding/json"
+	"strings"
 	"testing"
-	"time"
 
-	"github.com/sigcomply/sigcomply-cli/internal/core"
+	evidencetypes "github.com/sigcomply/sigcomply-cli/internal/evidence_types"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 )
 
@@ -18,205 +16,78 @@ func TestFramework_BasicMetadata(t *testing.T) {
 	if fw.Version() != FrameworkVersion {
 		t.Errorf("Version = %q; want %q", fw.Version(), FrameworkVersion)
 	}
-	if len(fw.Controls()) < 4 {
-		t.Errorf("want at least 4 controls; got %d", len(fw.Controls()))
+	if len(fw.Controls()) < 30 {
+		t.Errorf("want at least 30 controls; got %d", len(fw.Controls()))
 	}
-	if len(fw.Policies()) != 17 {
-		t.Errorf("want 17 policies (2 seed + 4 infra + 5 aws + 4 gcp + 2 identity); got %d", len(fw.Policies()))
+	if len(fw.Policies()) < 100 {
+		t.Errorf("want at least 100 policies; got %d", len(fw.Policies()))
 	}
 }
 
-func TestRegister_PopulatesAllRegistries(t *testing.T) {
+func TestRegister_PopulatesRegistriesAndVerifies(t *testing.T) {
 	set := registry.NewSet()
+	if err := evidencetypes.Register(set); err != nil {
+		t.Fatalf("register evidence types: %v", err)
+	}
 	if err := Register(set); err != nil {
 		t.Fatalf("Register: %v", err)
-	}
-	if _, ok := set.Frameworks.Lookup(FrameworkID); !ok {
-		t.Errorf("framework not registered")
 	}
 	for _, ref := range New().Policies() {
 		if _, ok := set.Policies.Lookup(ref.PolicyID); !ok {
 			t.Errorf("policy %q not registered", ref.PolicyID)
 		}
 	}
-	if _, ok := set.Rules.Lookup(ruleIDMFAEnforced); !ok {
-		t.Errorf("mfa_enforced rule not registered")
-	}
-	if _, ok := set.Rules.Lookup(ruleIDManualPresence); !ok {
-		t.Errorf("manual_presence rule not registered")
+	// Every slot.Accepts type must be a registered evidence type, and
+	// every RuleRef must resolve.
+	if err := evidencetypes.VerifyRegistrations(set); err != nil {
+		t.Fatalf("VerifyRegistrations: %v", err)
 	}
 }
 
-func TestRegister_RejectsDuplicate(t *testing.T) {
+func TestPolicies_EveryAutomatedReferencesKnownTypesAndRules(t *testing.T) {
 	set := registry.NewSet()
+	if err := evidencetypes.Register(set); err != nil {
+		t.Fatalf("register evidence types: %v", err)
+	}
 	if err := Register(set); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
-	if err := Register(set); err == nil {
-		t.Errorf("second Register should fail (duplicate IDs)")
+	for _, p := range Policies() {
+		if p.EvidenceMode == "" {
+			t.Errorf("policy %q missing evidence_mode", p.ID)
+		}
+		if p.RuleRef != "" {
+			if _, ok := set.Rules.Lookup(p.RuleRef); !ok {
+				t.Errorf("policy %q references unregistered rule %q", p.ID, p.RuleRef)
+			}
+		}
+		if !strings.HasPrefix(p.ID, "soc2.") {
+			t.Errorf("policy %q must be soc2-namespaced", p.ID)
+		}
 	}
 }
 
-func TestManualCatalog_ContainsAccessReview(t *testing.T) {
+func TestManualCatalog_CoversEveryManualPolicy(t *testing.T) {
 	cat := ManualCatalog()
-	entry, ok := cat["access_review_quarterly"]
-	if !ok {
-		t.Fatal("access_review_quarterly missing from catalog")
+	for _, p := range Policies() {
+		if p.CatalogEntry == "" {
+			continue
+		}
+		if _, ok := cat[p.CatalogEntry]; !ok {
+			t.Errorf("manual policy %q references catalog entry %q not in ManualCatalog", p.ID, p.CatalogEntry)
+		}
 	}
-	if entry.Filename != "evidence.pdf" {
-		t.Errorf("Filename = %q", entry.Filename)
-	}
-	if entry.Cadence != "quarterly" {
-		t.Errorf("Cadence = %q", entry.Cadence)
-	}
-}
-
-func TestMFAEnforcedRule_PassWhenAllUsersHaveMFA(t *testing.T) {
-	rule := mfaEnforcedRule()
-	res, err := rule.Evaluate(context.Background(), core.RuleInput{
-		Slots: map[string][]core.EvidenceRecord{
-			"user_directory": {
-				userRecord(t, "u1", "alice", true, "alice@acme.com"),
-				userRecord(t, "u2", "bob", true, "bob@acme.com"),
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Evaluate: %v", err)
-	}
-	if res.Status != core.StatusPass {
-		t.Errorf("Status = %q; want pass", res.Status)
-	}
-	if len(res.Violations) != 0 {
-		t.Errorf("violations = %v; want none", res.Violations)
+	if _, ok := cat["access_review_quarterly"]; !ok {
+		t.Error("access_review_quarterly missing from catalog")
 	}
 }
 
-func TestMFAEnforcedRule_FailWhenUserMissingMFA(t *testing.T) {
-	rule := mfaEnforcedRule()
-	res, err := rule.Evaluate(context.Background(), core.RuleInput{
-		Slots: map[string][]core.EvidenceRecord{
-			"user_directory": {
-				userRecord(t, "u1", "alice", true, "alice@acme.com"),
-				userRecord(t, "u2", "bob", false, "bob@acme.com"),
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Evaluate: %v", err)
+func TestPolicyIDs_AreUnique(t *testing.T) {
+	seen := map[string]struct{}{}
+	for _, p := range Policies() {
+		if _, dup := seen[p.ID]; dup {
+			t.Errorf("duplicate policy ID %q", p.ID)
+		}
+		seen[p.ID] = struct{}{}
 	}
-	if res.Status != core.StatusFail {
-		t.Errorf("Status = %q; want fail", res.Status)
-	}
-	if len(res.Violations) != 1 || res.Violations[0].ResourceID != "u2" {
-		t.Errorf("violations = %v", res.Violations)
-	}
-}
-
-func TestMFAEnforcedRule_DedupesByIdentityKey(t *testing.T) {
-	rule := mfaEnforcedRule()
-	res, err := rule.Evaluate(context.Background(), core.RuleInput{
-		Slots: map[string][]core.EvidenceRecord{
-			"user_directory": {
-				// Alice in AWS — MFA on.
-				userRecord(t, "aws-u1", "alice", true, "alice@acme.com"),
-				// Alice in Okta — MFA off. Same identity key; first-seen
-				// wins, so the duplicate is dropped and the policy passes.
-				userRecord(t, "okta-u1", "alice", false, "alice@acme.com"),
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Evaluate: %v", err)
-	}
-	if res.Status != core.StatusPass {
-		t.Errorf("Status = %q; want pass (dedup by identity_key)", res.Status)
-	}
-}
-
-func TestManualPresenceRule_PassWhenPresentInWindow(t *testing.T) {
-	rule := manualPresenceRule()
-	payload := mustMarshal(t, map[string]any{
-		"file_present":       true,
-		"in_temporal_window": true,
-		"file_valid":         true,
-	})
-	res, err := rule.Evaluate(context.Background(), core.RuleInput{
-		Slots: map[string][]core.EvidenceRecord{
-			"review_document": {{ID: "access_review_quarterly/2026-Q1", Payload: payload}},
-		},
-		Now: time.Now(),
-	})
-	if err != nil {
-		t.Fatalf("Evaluate: %v", err)
-	}
-	if res.Status != core.StatusPass {
-		t.Errorf("Status = %q; want pass", res.Status)
-	}
-}
-
-func TestManualPresenceRule_FailWhenMissing(t *testing.T) {
-	rule := manualPresenceRule()
-	payload := mustMarshal(t, map[string]any{"file_present": false})
-	res, err := rule.Evaluate(context.Background(), core.RuleInput{
-		Slots: map[string][]core.EvidenceRecord{
-			"review_document": {{ID: "access_review_quarterly/2026-Q1", Payload: payload}},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Evaluate: %v", err)
-	}
-	if res.Status != core.StatusFail {
-		t.Errorf("Status = %q; want fail", res.Status)
-	}
-	if len(res.Violations) != 1 {
-		t.Errorf("want 1 violation; got %v", res.Violations)
-	}
-}
-
-func TestManualPresenceRule_FailWhenInvalid(t *testing.T) {
-	rule := manualPresenceRule()
-	payload := mustMarshal(t, map[string]any{
-		"file_present":        true,
-		"in_temporal_window":  true,
-		"file_valid":          false,
-		"validation_failures": []string{"missing_pdf_header (file does not start with %PDF-)"},
-	})
-	res, err := rule.Evaluate(context.Background(), core.RuleInput{
-		Slots: map[string][]core.EvidenceRecord{
-			"review_document": {{ID: "access_review_quarterly/2026-Q1", Payload: payload}},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Evaluate: %v", err)
-	}
-	if res.Status != core.StatusFail {
-		t.Errorf("Status = %q; want fail (file is present and in-window but invalid)", res.Status)
-	}
-}
-
-func userRecord(t *testing.T, id, name string, mfa bool, identityKey string) core.EvidenceRecord {
-	t.Helper()
-	payload := mustMarshal(t, map[string]any{
-		"id":           id,
-		"display_name": name,
-		"mfa_enabled":  mfa,
-		"is_active":    true,
-	})
-	return core.EvidenceRecord{
-		Type:        "directory_user",
-		ID:          id,
-		IdentityKey: identityKey,
-		Payload:     payload,
-		SourceID:    "aws.iam",
-	}
-}
-
-func mustMarshal(t *testing.T, v any) []byte {
-	t.Helper()
-	b, err := json.Marshal(v)
-	if err != nil {
-		t.Fatalf("Marshal: %v", err)
-	}
-	return b
 }

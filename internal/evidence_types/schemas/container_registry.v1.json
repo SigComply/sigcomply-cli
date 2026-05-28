@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/container_registry/v1.json",
+  "title": "container_registry",
+  "version": 1,
+  "description": "One container image registry or repository — one record per AWS ECR repository, GCP Artifact Registry repository, or Azure Container Registry. Policies check scan-on-push, public exposure, and encryption.",
+  "type": "object",
+  "required": ["id", "name", "scan_on_push_enabled", "is_public", "encryption_enabled"],
+  "properties": {
+    "id":                        { "type": "string", "description": "Unique identifier (ECR ARN, resource ID)." },
+    "name":                      { "type": "string", "description": "Repository name." },
+    "provider":                  { "type": "string", "description": "Cloud provider short name: aws, gcp, azure." },
+    "scan_on_push_enabled":      { "type": "boolean", "description": "Container images are scanned for vulnerabilities on push." },
+    "image_immutability_enabled":{ "type": "boolean", "description": "Image tags are immutable (cannot be overwritten)." },
+    "is_public":                 { "type": "boolean", "description": "Repository is publicly accessible." },
+    "encryption_enabled":        { "type": "boolean", "description": "Images at rest are encrypted." }
+  },
+  "additionalProperties": true
+}

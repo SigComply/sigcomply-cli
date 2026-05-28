@@ -110,14 +110,14 @@ func assertAlphaPayload(t *testing.T, rec *core.EvidenceRecord) {
 	if err := json.Unmarshal(rec.Payload, &alpha); err != nil {
 		t.Fatalf("Unmarshal alpha: %v", err)
 	}
-	if !alpha.RequireSSL {
-		t.Errorf("alpha.RequireSSL = false; want true")
+	if !alpha.SSLRequired {
+		t.Errorf("alpha.SSLRequired = false; want true")
 	}
 	if alpha.SSLMode != "ENCRYPTED_ONLY" {
 		t.Errorf("alpha.SSLMode = %q", alpha.SSLMode)
 	}
-	if !alpha.BackupConfigEnabled {
-		t.Errorf("alpha.BackupConfigEnabled = false; want true")
+	if !alpha.BackupEnabled {
+		t.Errorf("alpha.BackupEnabled = false; want true")
 	}
 	if !alpha.PITREnabled {
 		t.Errorf("alpha.PITREnabled = false; want true")
@@ -136,14 +136,14 @@ func assertZetaPayload(t *testing.T, rec *core.EvidenceRecord) {
 	if err := json.Unmarshal(rec.Payload, &zeta); err != nil {
 		t.Fatalf("Unmarshal zeta: %v", err)
 	}
-	if zeta.RequireSSL {
-		t.Errorf("zeta.RequireSSL = true; want false")
+	if zeta.SSLRequired {
+		t.Errorf("zeta.SSLRequired = true; want false")
 	}
-	if !zeta.Ipv4Enabled {
-		t.Errorf("zeta.Ipv4Enabled = false; want true")
+	if !zeta.PubliclyAccessible {
+		t.Errorf("zeta.PubliclyAccessible = false; want true")
 	}
-	if zeta.BackupConfigEnabled {
-		t.Errorf("zeta.BackupConfigEnabled = true; want false")
+	if zeta.BackupEnabled {
+		t.Errorf("zeta.BackupEnabled = true; want false")
 	}
 }
 
@@ -186,7 +186,7 @@ func TestCollect_HandlesMissingSettings(t *testing.T) {
 	if err := json.Unmarshal(records[0].Payload, &payload); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	if payload.RequireSSL || payload.Ipv4Enabled || payload.BackupConfigEnabled {
+	if payload.SSLRequired || payload.PubliclyAccessible || payload.BackupEnabled {
 		t.Errorf("payload fields = %+v; want all-false", payload)
 	}
 }

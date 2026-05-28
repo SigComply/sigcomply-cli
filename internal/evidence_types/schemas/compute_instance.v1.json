@@ -3,22 +3,19 @@
   "$id": "https://schemas.sigcomply.io/evidence_types/compute_instance/v1.json",
   "title": "compute_instance",
   "version": 1,
-  "description": "One GCP Compute Engine VM instance, with the service-account, exposure, and hardening flags policies check today.",
+  "description": "One virtual machine instance on any cloud provider — AWS EC2, GCP Compute Engine, Azure VM. The single cross-vendor shape policies use for network-exposure, encryption, and monitoring checks. Providers set additionalProperties for their vendor-specific fields (vpc_id, iam_instance_profile for AWS; uses_default_service_account, shielded_vm_enabled for GCP).",
   "type": "object",
-  "required": ["name", "zone", "uses_default_service_account"],
+  "required": ["id", "name", "has_public_ip", "is_running", "root_volume_encrypted", "monitoring_enabled"],
   "properties": {
-    "name":                         { "type": "string" },
-    "id":                           { "type": "integer" },
-    "zone":                         { "type": "string" },
-    "machine_type":                 { "type": "string" },
-    "status":                       { "type": "string" },
-    "service_account_emails":       { "type": "array" },
-    "uses_default_service_account": { "type": "boolean" },
-    "has_public_ip":                { "type": "boolean" },
-    "shielded_vm_enabled":          { "type": "boolean" },
-    "can_ip_forward":               { "type": "boolean" },
-    "deletion_protection":          { "type": "boolean" },
-    "creation_timestamp":           { "type": "string", "format": "date-time" }
+    "id":                     { "type": "string", "description": "Unique stable identifier (AWS: instance-id, GCP: instance name, Azure: resource ID)." },
+    "name":                   { "type": "string", "description": "Human-readable name (tag Name for AWS, instance name for GCP)." },
+    "provider":               { "type": "string", "description": "Cloud provider short name: aws, gcp, azure." },
+    "region":                 { "type": "string", "description": "Region or zone the instance runs in." },
+    "is_running":             { "type": "boolean", "description": "Instance is in a running/active state." },
+    "has_public_ip":          { "type": "boolean", "description": "Instance has at least one public/external IP address." },
+    "root_volume_encrypted":  { "type": "boolean", "description": "Root/boot disk is encrypted at rest." },
+    "monitoring_enabled":     { "type": "boolean", "description": "Detailed/enhanced monitoring is enabled (AWS detailed monitoring; GCP Cloud Monitoring integration)." },
+    "metadata_service_hardened": { "type": "boolean", "description": "Instance metadata service is hardened (AWS: IMDSv2 required; GCP: metadata server concealment enabled)." }
   },
   "additionalProperties": true
 }

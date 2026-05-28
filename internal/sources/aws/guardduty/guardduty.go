@@ -1,6 +1,6 @@
 // Package guardduty implements the aws.guardduty source plugin: lists
 // GuardDuty detectors in one AWS account along with each detector's
-// status, and emits guardduty_detector evidence records suitable for
+// status, and emits threat_detection_service evidence records suitable for
 // SOC 2 threat-detection policies (GuardDuty enabled).
 //
 // Per the KISS-no-DRY axiom (docs/architecture/04-source-plugins.md
@@ -26,8 +26,8 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
-// EvidenceTypeID is the single evidence type this plugin emits today.
-const EvidenceTypeID = "guardduty_detector"
+// EvidenceTypeID is the cross-vendor evidence type this plugin emits.
+const EvidenceTypeID = "threat_detection_service"
 
 // SourceID is the registered ID for the aws.guardduty plugin instance.
 const SourceID = "aws.guardduty"
@@ -93,20 +93,21 @@ func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 // constructor already has it; this is a no-op preserved for symmetry.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// detectorPayload is the shape of the JSON payload inside each
-// guardduty_detector record.
+// detectorPayload is the cross-vendor threat_detection_service shape.
 type detectorPayload struct {
-	DetectorID                 string `json:"detector_id"`
-	Status                     string `json:"status"`
-	Enabled                    bool   `json:"enabled"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Provider  string `json:"provider"`
+	Region    string `json:"region,omitempty"`
+	IsEnabled bool   `json:"is_enabled"`
+	// AWS-specific extras
+	Status                     string `json:"status,omitempty"`
 	ServiceRole                string `json:"service_role,omitempty"`
 	FindingPublishingFrequency string `json:"finding_publishing_frequency,omitempty"`
-	CreatedAt                  string `json:"created_at,omitempty"`
-	UpdatedAt                  string `json:"updated_at,omitempty"`
 }
 
 // Collect lists GuardDuty detectors in the configured region and
-// returns one guardduty_detector per detector. Records are sorted by ID
+// returns one threat_detection_service record per detector, sorted by ID
 // before return so envelope bytes are stable across runs against
 // stable account state.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
@@ -126,13 +127,14 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 			return nil, fmt.Errorf("aws.guardduty: get detector %s: %w", id, err)
 		}
 		payload := detectorPayload{
-			DetectorID:                 id,
+			ID:                         id,
+			Name:                       id,
+			Provider:                   "aws",
+			Region:                     p.region,
+			IsEnabled:                  out.Status == gdtypes.DetectorStatusEnabled,
 			Status:                     string(out.Status),
-			Enabled:                    out.Status == gdtypes.DetectorStatusEnabled,
 			ServiceRole:                safeStr(out.ServiceRole),
 			FindingPublishingFrequency: string(out.FindingPublishingFrequency),
-			CreatedAt:                  safeStr(out.CreatedAt),
-			UpdatedAt:                  safeStr(out.UpdatedAt),
 		}
 		body, err := json.Marshal(payload)
 		if err != nil {

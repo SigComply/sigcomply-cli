@@ -16,7 +16,13 @@
     "allows_force_push":         { "type": "boolean", "description": "Force-push is permitted on the default branch (red flag for audit; usually false in a protected repo)." },
     "is_private":                { "type": "boolean", "description": "Repository visibility is non-public." },
     "archived":                  { "type": "boolean", "description": "Repository is archived (read-only, no new activity)." },
-    "created_at":                { "type": "string", "format": "date-time" }
+    "created_at":                { "type": "string", "format": "date-time" },
+    "secret_scanning_enabled":   { "type": "boolean", "description": "Secret scanning is enabled on the repository." },
+    "push_protection_enabled":   { "type": "boolean", "description": "Push protection (blocking secrets on push) is enabled." },
+    "dependabot_alerts_enabled": { "type": "boolean", "description": "Dependabot vulnerability alerts are enabled." },
+    "code_scanning_enabled":     { "type": "boolean", "description": "Code scanning (SAST) is enabled." },
+    "dismiss_stale_reviews":     { "type": "boolean", "description": "Approved reviews are dismissed when new commits are pushed." },
+    "require_code_owner_reviews":{ "type": "boolean", "description": "Code owner review is required for changes to owned paths." }
   },
   "additionalProperties": true
 }

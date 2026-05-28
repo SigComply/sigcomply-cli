@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/threat_detection_service/v1.json",
+  "title": "threat_detection_service",
+  "version": 1,
+  "description": "One threat detection or anomaly detection service instance — AWS GuardDuty detector, GCP Security Command Center finding source, Azure Defender plan. The single cross-vendor shape policies use for enablement checks.",
+  "type": "object",
+  "required": ["id", "name", "is_enabled"],
+  "properties": {
+    "id":         { "type": "string", "description": "Unique stable identifier (GuardDuty: detector ID, SCC: source name)." },
+    "name":       { "type": "string", "description": "Human-readable name or display label." },
+    "provider":   { "type": "string", "description": "Cloud provider short name: aws, gcp, azure." },
+    "region":     { "type": "string", "description": "Region the service is active in." },
+    "is_enabled": { "type": "boolean", "description": "Threat detection is active and monitoring." }
+  },
+  "additionalProperties": true
+}

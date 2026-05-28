@@ -1,15 +1,6 @@
-// Package rds implements the aws.rds source plugin: lists RDS DB
-// instances in one AWS account and emits rds_instance evidence records
-// carrying encryption and engine attributes that SOC 2 CC6.7 policies
-// consume.
-//
-// Per the KISS-no-DRY axiom (docs/architecture/04-source-plugins.md
-// §The plugin contract) the plugin caches nothing across Collect calls.
-// N policies bound to this plugin → N invocations of Collect.
-//
-// Test injection: the API interface mirrors the pattern used by the
-// aws.iam plugin — the concrete *rds.Client satisfies it, and unit tests
-// inject an in-memory fake.
+// Package rds implements the aws.rds source plugin: lists RDS DB instances
+// and emits managed_database_instance evidence records with cross-vendor
+// encryption, access, backup, and redundancy attributes.
 package rds
 
 import (
@@ -27,7 +18,7 @@ import (
 )
 
 // EvidenceTypeID is the evidence type this plugin emits.
-const EvidenceTypeID = "rds_instance"
+const EvidenceTypeID = "managed_database_instance"
 
 // SourceID is the registered ID for the aws.rds plugin instance.
 const SourceID = "aws.rds"
@@ -48,9 +39,7 @@ type Plugin struct {
 type Options struct {
 	API    API
 	Region string
-	// Now is injected so tests can produce deterministic CollectedAt
-	// values. Production callers leave it nil → time.Now().UTC().
-	Now func() time.Time
+	Now    func() time.Time
 }
 
 // New constructs a Plugin around an explicit API implementation.
@@ -87,21 +76,26 @@ func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 // Init is a no-op; configuration is supplied to the constructor.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// instancePayload is the shape of the JSON payload inside each
-// rds_instance record.
+// instancePayload is the cross-vendor managed_database_instance shape.
 type instancePayload struct {
-	DBInstanceIdentifier string `json:"db_instance_identifier"`
-	ARN                  string `json:"arn,omitempty"`
-	Engine               string `json:"engine,omitempty"`
-	EngineVersion        string `json:"engine_version,omitempty"`
-	StorageEncrypted     bool   `json:"storage_encrypted"`
-	KMSKeyID             string `json:"kms_key_id,omitempty"`
-	PubliclyAccessible   bool   `json:"publicly_accessible"`
-	DBInstanceStatus     string `json:"db_instance_status,omitempty"`
+	ID                 string `json:"id"`
+	Name               string `json:"name"`
+	Provider           string `json:"provider"`
+	Engine             string `json:"engine,omitempty"`
+	EngineVersion      string `json:"engine_version,omitempty"`
+	StorageEncrypted   bool   `json:"storage_encrypted"`
+	PubliclyAccessible bool   `json:"publicly_accessible"`
+	BackupEnabled      bool   `json:"backup_enabled"`
+	SSLRequired        bool   `json:"ssl_required"`
+	MultiAZ            bool   `json:"multi_az"`
+	DeletionProtection bool   `json:"deletion_protection"`
+	KMSKeyID           string `json:"kms_key_id,omitempty"`
+	// AWS-specific extras
+	ARN    string `json:"arn,omitempty"`
+	Status string `json:"status,omitempty"`
 }
 
-// Collect lists DB instances in the configured account and returns one
-// rds_instance record per instance.
+// Collect lists DB instances and returns one managed_database_instance record per instance.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
 	if !req.Accepts(EvidenceTypeID) {
 		return nil, fmt.Errorf("aws.rds: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
@@ -119,14 +113,20 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 			continue
 		}
 		payload := instancePayload{
-			DBInstanceIdentifier: id,
-			ARN:                  safeString(inst.DBInstanceArn),
-			Engine:               safeString(inst.Engine),
-			EngineVersion:        safeString(inst.EngineVersion),
-			StorageEncrypted:     inst.StorageEncrypted != nil && *inst.StorageEncrypted,
-			KMSKeyID:             safeString(inst.KmsKeyId),
-			PubliclyAccessible:   inst.PubliclyAccessible != nil && *inst.PubliclyAccessible,
-			DBInstanceStatus:     safeString(inst.DBInstanceStatus),
+			ID:                 id,
+			Name:               id,
+			Provider:           "aws",
+			Engine:             safeString(inst.Engine),
+			EngineVersion:      safeString(inst.EngineVersion),
+			StorageEncrypted:   safeBool(inst.StorageEncrypted),
+			PubliclyAccessible: safeBool(inst.PubliclyAccessible),
+			BackupEnabled:      safeBackupEnabled(inst),
+			SSLRequired:        false, // RDS SSL is enforced via parameter groups; conservative default
+			MultiAZ:            safeBool(inst.MultiAZ),
+			DeletionProtection: safeBool(inst.DeletionProtection),
+			KMSKeyID:           safeString(inst.KmsKeyId),
+			ARN:                safeString(inst.DBInstanceArn),
+			Status:             safeString(inst.DBInstanceStatus),
 		}
 		body, err := json.Marshal(payload)
 		if err != nil {
@@ -163,6 +163,13 @@ func (p *Plugin) listAllInstances(ctx context.Context) ([]rdstypes.DBInstance, e
 	}
 }
 
+func safeBackupEnabled(inst *rdstypes.DBInstance) bool {
+	if inst == nil {
+		return false
+	}
+	return inst.BackupRetentionPeriod != nil && *inst.BackupRetentionPeriod > 0
+}
+
 func safeIdentifier(inst *rdstypes.DBInstance) string {
 	if inst == nil || inst.DBInstanceIdentifier == nil {
 		return ""
@@ -175,6 +182,13 @@ func safeString(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+func safeBool(b *bool) bool {
+	if b == nil {
+		return false
+	}
+	return *b
 }
 
 var _ core.SourcePlugin = (*Plugin)(nil)

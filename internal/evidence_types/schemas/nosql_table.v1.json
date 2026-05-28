@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/nosql_table/v1.json",
+  "title": "nosql_table",
+  "version": 1,
+  "description": "One NoSQL table or collection — one record per AWS DynamoDB table, GCP Firestore database, or Azure Cosmos DB container. Separate from managed_database_instance (which is SQL-focused). Policies check encryption, PITR, and deletion protection.",
+  "type": "object",
+  "required": ["id", "name", "encryption_enabled", "point_in_time_recovery_enabled", "deletion_protection"],
+  "properties": {
+    "id":                           { "type": "string", "description": "Unique table identifier (ARN, resource ID)." },
+    "name":                         { "type": "string", "description": "Table or collection name." },
+    "provider":                     { "type": "string", "description": "Cloud provider short name: aws, gcp, azure." },
+    "encryption_enabled":           { "type": "boolean", "description": "Table data is encrypted at rest." },
+    "point_in_time_recovery_enabled":{ "type": "boolean", "description": "Point-in-time recovery (PITR) is enabled." },
+    "deletion_protection":          { "type": "boolean", "description": "Deletion protection is enabled." },
+    "stream_enabled":               { "type": "boolean", "description": "Change data capture / streams are enabled." }
+  },
+  "additionalProperties": true
+}

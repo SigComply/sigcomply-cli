@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/configuration_recorder/v1.json",
+  "title": "configuration_recorder",
+  "version": 1,
+  "description": "One configuration change recorder or config management service — AWS Config recorder, GCP Config Connector, Azure Policy assignment. The single cross-vendor shape policies use for recording-status and coverage checks.",
+  "type": "object",
+  "required": ["id", "name", "is_recording"],
+  "properties": {
+    "id":                { "type": "string", "description": "Unique stable identifier (Config: recorder ARN or name)." },
+    "name":              { "type": "string", "description": "Human-readable recorder name." },
+    "provider":          { "type": "string", "description": "Cloud provider short name: aws, gcp, azure." },
+    "is_recording":      { "type": "boolean", "description": "Recorder is actively recording resource changes." },
+    "all_resource_types":{ "type": "boolean", "description": "Recorder is configured for all supported resource types (not a subset)." }
+  },
+  "additionalProperties": true
+}

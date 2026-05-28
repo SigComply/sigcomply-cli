@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/network/v1.json",
+  "title": "network",
+  "version": 1,
+  "description": "One virtual network — AWS VPC, GCP VPC Network, Azure Virtual Network. The single cross-vendor shape policies use for flow-logging and default-VPC-removal checks.",
+  "type": "object",
+  "required": ["id", "name", "flow_logs_enabled", "is_default"],
+  "properties": {
+    "id":               { "type": "string", "description": "Unique stable identifier (VPC ID, GCP network name, Azure VNet resource ID)." },
+    "name":             { "type": "string", "description": "Human-readable network name." },
+    "provider":         { "type": "string", "description": "Cloud provider short name: aws, gcp, azure." },
+    "region":           { "type": "string", "description": "Region the network exists in." },
+    "flow_logs_enabled":{ "type": "boolean", "description": "Network flow logs are enabled." },
+    "is_default":       { "type": "boolean", "description": "This is the provider-created default VPC/network that should typically be unused in production." },
+    "cidr_block":       { "type": "string", "description": "Primary CIDR block of the network." }
+  },
+  "additionalProperties": true
+}
