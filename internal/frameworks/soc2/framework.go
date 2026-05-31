@@ -4,9 +4,19 @@ import (
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/frameworks"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 )
+
+// init registers this framework's factory so commands can resolve it
+// by ID without a hardcoded switch. See internal/frameworks/registry.go.
+func init() {
+	frameworks.RegisterFactory(FrameworkID, frameworks.Factory{
+		Register:      Register,
+		ManualCatalog: ManualCatalog,
+	})
+}
 
 // FrameworkID is the registered identifier.
 const FrameworkID = "soc2"

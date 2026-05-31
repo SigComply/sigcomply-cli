@@ -150,6 +150,19 @@ linters:
       - path: internal/sources/manual/builtin/builtin\.go
         linters:
           - revive
+      # Compliance framework packages self-register a Factory into the
+      # frameworks registry via init() — same self-registering pattern
+      # as source plugins and vault backends. See
+      # internal/frameworks/registry.go.
+      - path: internal/frameworks/.*/framework\.go
+        linters:
+          - gochecknoinits
+      # internal/frameworks/builtin imports every in-tree framework as a
+      # blank import for the side effect of running each package's
+      # init(). The package-level doc comment justifies this.
+      - path: internal/frameworks/builtin/builtin\.go
+        linters:
+          - revive
       # Tests for the manual reader register.go factories call
       # build() — which returns the 5-tuple (reader, scheme, bucket,
       # prefix, err) defined by manual.ReaderFactory. Negative-path
