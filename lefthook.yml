@@ -12,7 +12,10 @@
 #   LEFTHOOK_EXCLUDE=lint git push
 
 # ── Pre-commit ──────────────────────────────────────────────────────────────
-# Fast checks on staged files only. Keeps commits quick.
+# fmt/vet are fast; lint + test were previously pre-push only, which let
+# lint and test failures slip into local commits and only bounce at push.
+# They run here too now (gated on *.go) so a commit is never green-locally
+# but red-on-push. Skip a slow one ad-hoc with e.g. LEFTHOOK_EXCLUDE=test.
 pre-commit:
   parallel: true
   commands:
@@ -27,6 +30,16 @@ pre-commit:
       name: Go vet
       glob: "*.go"
       run: go vet ./...
+
+    lint:
+      name: golangci-lint
+      glob: "*.go"
+      run: make lint
+
+    test:
+      name: Unit + policy tests
+      glob: "*.go"
+      run: make test
 
     mod-tidy:
       name: go mod tidy check
