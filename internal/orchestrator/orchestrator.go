@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -743,6 +744,13 @@ func Bootstrap(configPath string) (*spec.ProjectConfig, *registry.Set, error) {
 	// authoritative registry as they register.
 	if err := evidencetypes.Register(set); err != nil {
 		return nil, nil, fmt.Errorf("bootstrap: register evidence types: %w", err)
+	}
+	// Data-driven project-local extensions (.sigcomply/evidence_types/*.json,
+	// .sigcomply/policies/*/{rule.rego,policy.yaml}) load here, before the
+	// caller registers the framework. Go extensions are handled separately
+	// at compile time by `sigcomply build`.
+	if err := registerProjectLocal(filepath.Dir(configPath), &cfg, set); err != nil {
+		return nil, nil, fmt.Errorf("bootstrap: %w", err)
 	}
 	return &cfg, set, nil
 }

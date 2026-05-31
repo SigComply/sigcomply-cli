@@ -38,6 +38,14 @@ type ProjectConfig struct {
 	Output           OutputConfig                         `yaml:"output"`
 	CI               CIConfig                             `yaml:"ci"`
 	Extensions       ExtensionsConfig                     `yaml:"extensions"`
+
+	// ProjectLocalPolicies are PolicyRefs for policies discovered under
+	// .sigcomply/policies/*/policy.yaml at bootstrap and registered into
+	// the policy registry. The planner unions these with the active
+	// framework's own Policies() so a customer-authored YAML policy is
+	// actually planned and evaluated. yaml:"-" — populated by the
+	// orchestrator's project-local loader, never decoded from the file.
+	ProjectLocalPolicies []core.PolicyRef `yaml:"-"`
 }
 
 // PeriodConfig models the period section.

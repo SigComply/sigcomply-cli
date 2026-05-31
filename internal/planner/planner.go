@@ -119,8 +119,22 @@ func validateFilter(f *Filter) error {
 }
 
 func planPolicies(framework core.Framework, in *Input) ([]PlannedPolicy, error) {
-	planned := make([]PlannedPolicy, 0, len(framework.Policies()))
-	for _, ref := range framework.Policies() {
+	// The framework's own policies plus any project-local policies
+	// discovered at bootstrap (.sigcomply/policies/*/policy.yaml). One
+	// project = one framework, so every project-local policy belongs to
+	// the active framework. Dedupe by ID so a project-local policy reusing
+	// a framework policy ID is planned once.
+	refs := framework.Policies()
+	if in.Config != nil {
+		refs = append(refs, in.Config.ProjectLocalPolicies...)
+	}
+	planned := make([]PlannedPolicy, 0, len(refs))
+	seen := make(map[string]struct{}, len(refs))
+	for _, ref := range refs {
+		if _, dup := seen[ref.PolicyID]; dup {
+			continue
+		}
+		seen[ref.PolicyID] = struct{}{}
 		policy, ok := in.Registries.Policies.Lookup(ref.PolicyID)
 		if !ok {
 			return nil, fmt.Errorf("planner: framework %q references unknown policy %q", framework.ID(), ref.PolicyID)
