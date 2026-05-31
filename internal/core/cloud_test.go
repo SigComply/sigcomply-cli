@@ -107,7 +107,7 @@ func TestSubmissionPayload_JSONRoundTrip(t *testing.T) {
 		Summary:    RunSummary{PoliciesTotal: 1, PoliciesPassed: 1, ComplianceScore: 1.0},
 		Policies: []AggregatedPolicy{{
 			PolicyID:           "soc2.cc6.1.mfa_enforced",
-			ControlID:          "SOC2.CC6.1",
+			Controls:           []ControlRef{{ControlID: "SOC2.CC6.1"}},
 			Status:             StatusPass,
 			Severity:           SeverityHigh,
 			ResourcesEvaluated: 42,

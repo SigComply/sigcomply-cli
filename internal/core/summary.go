@@ -4,7 +4,7 @@ import "time"
 
 // RunSummarySchemaVersion is stamped on every vault-side framework
 // run summary. Bumped on any wire-format change.
-const RunSummarySchemaVersion = "summary.v1"
+const RunSummarySchemaVersion = "summary.v2"
 
 // FrameworkRunSummary is the per-run, framework-level summary
 // persisted at {framework}/{periodID}/run_*/summary.json. This

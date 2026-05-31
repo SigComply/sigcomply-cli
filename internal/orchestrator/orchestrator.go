@@ -704,7 +704,7 @@ func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.P
 	sort.Slice(sortedResults, func(i, j int) bool { return sortedResults[i].PolicyID < sortedResults[j].PolicyID })
 	for i := range sortedResults {
 		r := &sortedResults[i]
-		_, _ = fmt.Fprintf(stdout, "  [%s] %s — %s\n", r.Status, r.PolicyID, r.ControlID) //nolint:errcheck // status output
+		_, _ = fmt.Fprintf(stdout, "  [%s] %s — %s\n", r.Status, r.PolicyID, core.PrimaryControlID(r.Controls)) //nolint:errcheck // status output
 	}
 	if errored > 0 {
 		return ExitExecution

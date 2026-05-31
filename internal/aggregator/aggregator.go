@@ -24,13 +24,18 @@ import (
 // SubmissionPayload. Bumping requires a code change to the contract
 // (see 06-aggregation.md §Versioning the contract).
 //
-// v2 (current): adds per-policy cadence metadata
-// (ConfiguredCadence, LastEvaluatedAt, NextDueAt, IsCarriedForward,
-// PolicyContentHash) so the dashboard can render staleness and
-// next-due badges without recomputing locally. All additions are
-// non-identifying scalars and pass the structural counts-only test
+// v2: adds per-policy cadence metadata (ConfiguredCadence,
+// LastEvaluatedAt, NextDueAt, IsCarriedForward, PolicyContentHash) so
+// the dashboard can render staleness and next-due badges without
+// recomputing locally.
+//
+// v3 (current): replaces the per-policy scalar ControlID with a
+// Controls []ControlRef list so one check can map to controls across
+// multiple frameworks, each ControlRef carrying framework,
+// framework_version, control_id, and a relationship type. All fields
+// are non-identifying scalars and pass the structural counts-only test
 // in core/cloud_test.go.
-const SchemaVersion = "sigcomply.cloud.v2"
+const SchemaVersion = "sigcomply.cloud.v3"
 
 // Environment captures the CI-runtime metadata stamped on the payload.
 // The CLI's orchestrator (L9) populates it from environment variables
@@ -76,7 +81,7 @@ func Build(results []core.PolicyResult, env *Environment) core.SubmissionPayload
 		r := &results[i]
 		out.Policies = append(out.Policies, core.AggregatedPolicy{
 			PolicyID:           r.PolicyID,
-			ControlID:          r.ControlID,
+			Controls:           r.Controls,
 			Status:             r.Status,
 			Severity:           r.Severity,
 			Category:           r.Category,

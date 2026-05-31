@@ -18,6 +18,21 @@ import (
 
 const slotName = "evidence"
 
+// controlRefs wraps a single ISO 27001 Annex A control ID into the
+// framework-namespaced ControlRef list every policy carries. The
+// framework ID and version qualify the bare control ID (e.g. "A.8.9")
+// so results and the cloud payload record the framework version. A
+// check satisfying controls in more than one framework is authored with
+// a hand-written multi-element Controls list instead.
+func controlRefs(id string) []core.ControlRef {
+	return []core.ControlRef{{
+		Framework:        FrameworkID,
+		FrameworkVersion: FrameworkVersion,
+		ControlID:        id,
+		Relationship:     core.RelationshipEqual,
+	}}
+}
+
 type autoPolicy struct {
 	id       string
 	control  string
@@ -36,7 +51,7 @@ func (a autoPolicy) policy() core.Policy {
 	clause.Slot = slotName
 	return core.Policy{
 		ID:           a.id,
-		Control:      a.control,
+		Controls:     controlRefs(a.control),
 		Description:  a.desc,
 		Remediation:  a.rem,
 		Severity:     a.severity,
@@ -64,7 +79,7 @@ type manualPolicy struct {
 func (m manualPolicy) policy() core.Policy {
 	return core.Policy{
 		ID:           m.id,
-		Control:      m.control,
+		Controls:     controlRefs(m.control),
 		Description:  m.desc,
 		Remediation:  m.rem,
 		Severity:     core.SeverityMedium,

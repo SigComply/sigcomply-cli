@@ -166,7 +166,7 @@ func canonicalizePolicy(p *Policy, schemaDigests map[string]string) any {
 
 	return map[string]any{
 		"id":         p.ID,
-		"control":    p.Control,
+		"control":    PrimaryControlID(p.Controls),
 		"rule":       p.RuleRef,
 		"severity":   string(p.Severity),
 		"cadence":    p.Cadence,

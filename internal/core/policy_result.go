@@ -11,7 +11,7 @@ import "time"
 // aggregation boundary directly.
 type PolicyResult struct {
 	PolicyID           string
-	ControlID          string
+	Controls           []ControlRef
 	Status             PolicyStatus
 	Severity           Severity
 	Category           string

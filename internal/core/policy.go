@@ -6,7 +6,7 @@ package core
 // resolves it to a Rule implementation at plan time.
 type Policy struct {
 	ID          string
-	Control     string
+	Controls    []ControlRef
 	Description string
 	Remediation string
 	Severity    Severity

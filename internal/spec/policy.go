@@ -148,7 +148,7 @@ func policyFromRaw(raw *policySpecRaw) (core.Policy, error) {
 
 	return core.Policy{
 		ID:           raw.ID,
-		Control:      raw.Control,
+		Controls:     []core.ControlRef{{ControlID: raw.Control, Relationship: core.RelationshipEqual}},
 		Description:  raw.Description,
 		Remediation:  raw.Remediation,
 		Severity:     raw.Severity,

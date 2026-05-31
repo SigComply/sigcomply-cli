@@ -128,14 +128,14 @@ func TestBuild_Latest_LatestWinsAcrossRuns(t *testing.T) {
 			framework: "soc2", periodID: "2026-Q1",
 			runID: "earlierr", timestamp: earlier, completedAt: earlier,
 			policies: []core.PolicyResult{
-				{PolicyID: "soc2.cc6.1.mfa", ControlID: "SOC2.CC6.1", Status: core.StatusFail, Severity: core.SeverityHigh, Category: "access"},
+				{PolicyID: "soc2.cc6.1.mfa", Controls: []core.ControlRef{{ControlID: "SOC2.CC6.1"}}, Status: core.StatusFail, Severity: core.SeverityHigh, Category: "access"},
 			},
 		},
 		{
 			framework: "soc2", periodID: "2026-Q1",
 			runID: "laterr00", timestamp: later, completedAt: later,
 			policies: []core.PolicyResult{
-				{PolicyID: "soc2.cc6.1.mfa", ControlID: "SOC2.CC6.1", Status: core.StatusPass, Severity: core.SeverityHigh, Category: "access"},
+				{PolicyID: "soc2.cc6.1.mfa", Controls: []core.ControlRef{{ControlID: "SOC2.CC6.1"}}, Status: core.StatusPass, Severity: core.SeverityHigh, Category: "access"},
 			},
 		},
 	})
@@ -249,7 +249,7 @@ func TestBuild_Integrity_PassesOnUnmodifiedRun(t *testing.T) {
 			framework: "soc2", periodID: "2026-Q1", runID: "intg0000",
 			timestamp: t1, completedAt: t1,
 			policies: []core.PolicyResult{
-				{PolicyID: "p1", ControlID: "C1", Status: core.StatusPass},
+				{PolicyID: "p1", Controls: []core.ControlRef{{ControlID: "C1"}}, Status: core.StatusPass},
 			},
 			extraFiles: map[string][]byte{"summary.json": []byte(`{"ok":true}`)},
 		},
@@ -599,15 +599,15 @@ func TestBuild_Deterministic_LatestJSON_E2E(t *testing.T) {
 		{
 			framework: "soc2", periodID: "2026-Q1", runID: "runaaaaa", timestamp: t1, completedAt: t1,
 			policies: []core.PolicyResult{
-				{PolicyID: "p2", ControlID: "C2", Status: core.StatusPass, Severity: core.SeverityMedium},
-				{PolicyID: "p1", ControlID: "C1", Status: core.StatusFail, Severity: core.SeverityHigh},
+				{PolicyID: "p2", Controls: []core.ControlRef{{ControlID: "C2"}}, Status: core.StatusPass, Severity: core.SeverityMedium},
+				{PolicyID: "p1", Controls: []core.ControlRef{{ControlID: "C1"}}, Status: core.StatusFail, Severity: core.SeverityHigh},
 			},
 		},
 		{
 			framework: "soc2", periodID: "2026-Q1", runID: "runbbbbb", timestamp: t2, completedAt: t2,
 			policies: []core.PolicyResult{
-				{PolicyID: "p1", ControlID: "C1", Status: core.StatusPass, Severity: core.SeverityHigh},
-				{PolicyID: "p3", ControlID: "C3", Status: core.StatusSkip, Severity: core.SeverityLow},
+				{PolicyID: "p1", Controls: []core.ControlRef{{ControlID: "C1"}}, Status: core.StatusPass, Severity: core.SeverityHigh},
+				{PolicyID: "p3", Controls: []core.ControlRef{{ControlID: "C3"}}, Status: core.StatusSkip, Severity: core.SeverityLow},
 			},
 		},
 	}

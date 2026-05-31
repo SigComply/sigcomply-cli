@@ -206,7 +206,7 @@ func buildLatest(ctx context.Context, v core.Vault, runs []runRecord) (*LatestVi
 		e := byPolicy[policyID]
 		row := LatestPolicy{
 			PolicyID:      policyID,
-			ControlID:     e.policy.ControlID,
+			ControlID:     core.PrimaryControlID(e.policy.Controls),
 			Status:        string(e.policy.Status),
 			Severity:      string(e.policy.Severity),
 			Category:      e.policy.Category,

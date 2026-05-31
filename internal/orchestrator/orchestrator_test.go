@@ -627,7 +627,7 @@ func assertCapturedPayloadPrivacy(t *testing.T, capturePath string) {
 	if err := json.Unmarshal(captured, &payload); err != nil {
 		t.Fatalf("unmarshal captured: %v", err)
 	}
-	if payload.Schema != "sigcomply.cloud.v2" {
+	if payload.Schema != "sigcomply.cloud.v3" {
 		t.Errorf("Schema = %q", payload.Schema)
 	}
 	if len(payload.Policies) != len(soc2.Policies()) {

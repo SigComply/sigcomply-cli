@@ -33,7 +33,7 @@ func seedFixtureVault(t *testing.T) string {
 
 	const runRoot = "soc2/2026-Q1/run_20260215T140000Z_aaaaaaaa"
 	result := core.PolicyResult{
-		PolicyID: "soc2.cc6.1.mfa", ControlID: "SOC2.CC6.1",
+		PolicyID: "soc2.cc6.1.mfa", Controls: []core.ControlRef{{ControlID: "SOC2.CC6.1"}},
 		Status: core.StatusPass, Severity: core.SeverityHigh, Category: "access",
 	}
 	body, err := json.Marshal(result)

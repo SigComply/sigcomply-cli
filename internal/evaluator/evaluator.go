@@ -52,7 +52,7 @@ func Evaluate(ctx context.Context, in *Input) ([]core.PolicyResult, error) {
 func evaluateOne(ctx context.Context, pp *planner.PlannedPolicy, in *Input) core.PolicyResult {
 	result := core.PolicyResult{
 		PolicyID:          pp.Spec.ID,
-		ControlID:         pp.Spec.Control,
+		Controls:          pp.Spec.Controls,
 		Severity:          pp.Spec.Severity,
 		Category:          pp.Spec.Category,
 		EffectiveParams:   pp.Parameters,

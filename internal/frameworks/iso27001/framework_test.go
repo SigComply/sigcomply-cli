@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sigcomply/sigcomply-cli/internal/core"
 	evidencetypes "github.com/sigcomply/sigcomply-cli/internal/evidence_types"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 )
@@ -59,8 +60,8 @@ func TestControls_EveryPolicyControlIsRegistered(t *testing.T) {
 		controlIDs[c.ID] = struct{}{}
 	}
 	for _, p := range Policies() {
-		if _, ok := controlIDs[p.Control]; !ok {
-			t.Errorf("policy %q references control %q not in the catalog", p.ID, p.Control)
+		if _, ok := controlIDs[core.PrimaryControlID(p.Controls)]; !ok {
+			t.Errorf("policy %q references control %q not in the catalog", p.ID, core.PrimaryControlID(p.Controls))
 		}
 	}
 }

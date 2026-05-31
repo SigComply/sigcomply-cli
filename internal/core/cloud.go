@@ -100,7 +100,7 @@ type RunSummary struct {
 // ensures no identity-carrying field can be added accidentally.
 type AggregatedPolicy struct {
 	PolicyID           string       `json:"policy_id"`
-	ControlID          string       `json:"control_id"`
+	Controls           []ControlRef `json:"controls"`
 	Status             PolicyStatus `json:"status"`
 	Severity           Severity     `json:"severity"`
 	Category           string       `json:"category,omitempty"`

@@ -29,8 +29,8 @@ func assertMFAScalars(t *testing.T, p *core.Policy) {
 	if p.ID != "soc2.cc6.1.mfa_enforced" {
 		t.Errorf("ID = %q; want soc2.cc6.1.mfa_enforced", p.ID)
 	}
-	if p.Control != "SOC2.CC6.1" {
-		t.Errorf("Control = %q; want SOC2.CC6.1", p.Control)
+	if got := core.PrimaryControlID(p.Controls); got != "SOC2.CC6.1" {
+		t.Errorf("Control = %q; want SOC2.CC6.1", got)
 	}
 	if p.Severity != core.SeverityHigh {
 		t.Errorf("Severity = %q; want high", p.Severity)

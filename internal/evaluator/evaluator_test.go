@@ -30,7 +30,7 @@ func makePlannedPolicy(id, control, ruleRef string, requiredSlots ...string) pla
 	return planner.PlannedPolicy{
 		Spec: core.Policy{
 			ID:           id,
-			Control:      control,
+			Controls:     []core.ControlRef{{ControlID: control}},
 			Severity:     core.SeverityHigh,
 			RuleRef:      ruleRef,
 			Slots:        slots,
@@ -45,7 +45,7 @@ func makePlannedPolicyManual(id, control string) planner.PlannedPolicy { //nolin
 	return planner.PlannedPolicy{
 		Spec: core.Policy{
 			ID:           id,
-			Control:      control,
+			Controls:     []core.ControlRef{{ControlID: control}},
 			Severity:     core.SeverityMedium,
 			EvidenceMode: core.EvidenceModeManual,
 			CatalogEntry: "access_review_quarterly",

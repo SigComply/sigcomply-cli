@@ -223,12 +223,24 @@ func lookupState(states map[string]*core.PolicyState, policyID string) *core.Pol
 	return nil
 }
 
+// policyMatchesControl reports whether any of the policy's controls has
+// a ControlID listed in wanted. A policy can map to controls across
+// frameworks; the --controls operator filter matches on any of them.
+func policyMatchesControl(policy *core.Policy, wanted []string) bool {
+	for i := range policy.Controls {
+		if containsString(wanted, policy.Controls[i].ControlID) {
+			return true
+		}
+	}
+	return false
+}
+
 func filterAccepts(policy *core.Policy, f *Filter, cadenceOverrides map[string]string) bool {
 	if len(f.Policies) > 0 {
 		return containsString(f.Policies, policy.ID)
 	}
 	if len(f.Controls) > 0 {
-		return containsString(f.Controls, policy.Control)
+		return policyMatchesControl(policy, f.Controls)
 	}
 	if len(f.Cadences) > 0 {
 		return policyMatchesCadences(policy, f.Cadences, cadenceOverrides)

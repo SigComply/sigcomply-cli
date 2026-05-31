@@ -53,7 +53,7 @@ func setUp(t *testing.T) *registry.Set {
 	set := registry.NewSet()
 	policy := core.Policy{
 		ID:          "soc2.cc6.1.mfa_enforced",
-		Control:     "SOC2.CC6.1",
+		Controls:    []core.ControlRef{{ControlID: "SOC2.CC6.1"}},
 		Description: "MFA",
 		Severity:    core.SeverityHigh,
 		Cadence:     "daily",
@@ -430,7 +430,7 @@ func TestPlan_PolicyOverride_ManualToAutomated(t *testing.T) {
 	set := setUp(t)
 	manualPolicy := core.Policy{
 		ID:           "soc2.cc6.1.access_review",
-		Control:      "SOC2.CC6.1",
+		Controls:     []core.ControlRef{{ControlID: "SOC2.CC6.1"}},
 		EvidenceMode: core.EvidenceModeManual,
 		CatalogEntry: "access_review_quarterly",
 		Cadence:      "quarterly",

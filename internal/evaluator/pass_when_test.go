@@ -387,7 +387,7 @@ func TestEvaluate_PassWhenPathB(t *testing.T) {
 	pp := planner.PlannedPolicy{
 		Spec: core.Policy{
 			ID:           "p1",
-			Control:      "C1",
+			Controls:     []core.ControlRef{{ControlID: "C1"}},
 			Severity:     core.SeverityHigh,
 			EvidenceMode: core.EvidenceModeAutomated,
 			Slots: map[string]core.Slot{

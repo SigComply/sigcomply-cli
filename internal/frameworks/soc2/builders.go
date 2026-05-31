@@ -23,6 +23,21 @@ import "github.com/sigcomply/sigcomply-cli/internal/core"
 // map share one constant.
 const slotName = "evidence"
 
+// controlRefs wraps a single SOC 2 control ID into the framework-
+// namespaced ControlRef list every policy carries. The framework ID and
+// version qualify the bare control ID (e.g. "CC6.1") so results and the
+// cloud payload record which framework version the control belongs to.
+// A check satisfying controls in more than one framework is authored
+// with a hand-written multi-element Controls list instead.
+func controlRefs(id string) []core.ControlRef {
+	return []core.ControlRef{{
+		Framework:        FrameworkID,
+		FrameworkVersion: FrameworkVersion,
+		ControlID:        id,
+		Relationship:     core.RelationshipEqual,
+	}}
+}
+
 // autoPolicy is the compact authoring shape for an automated pass_when
 // policy. policy() expands it into a core.Policy with a single
 // one-or-more slot and a single pass_when clause.
@@ -44,7 +59,7 @@ func (a autoPolicy) policy() core.Policy {
 	clause.Slot = slotName
 	return core.Policy{
 		ID:           a.id,
-		Control:      a.control,
+		Controls:     controlRefs(a.control),
 		Description:  a.desc,
 		Remediation:  a.rem,
 		Severity:     a.severity,
@@ -77,7 +92,7 @@ type rulePolicy struct {
 func (r rulePolicy) policy() core.Policy {
 	return core.Policy{
 		ID:           r.id,
-		Control:      r.control,
+		Controls:     controlRefs(r.control),
 		Description:  r.desc,
 		Remediation:  r.rem,
 		Severity:     r.severity,
@@ -106,7 +121,7 @@ type manualPolicy struct {
 func (m manualPolicy) policy() core.Policy {
 	return core.Policy{
 		ID:           m.id,
-		Control:      m.control,
+		Controls:     controlRefs(m.control),
 		Description:  m.desc,
 		Remediation:  m.rem,
 		Severity:     core.SeverityMedium,
