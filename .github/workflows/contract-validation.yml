@@ -67,7 +67,7 @@ jobs:
 
       - name: Configure AWS credentials
         if: steps.check-contracts.outputs.has_credentials == 'true' && steps.check-contracts.outputs.has_contracts == 'true'
-        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
         with:
           aws-access-key-id: ${{ secrets.AWS_SANDBOX_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SANDBOX_SECRET_ACCESS_KEY }}
