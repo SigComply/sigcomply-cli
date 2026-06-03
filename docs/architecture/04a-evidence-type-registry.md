@@ -150,25 +150,32 @@ schema:
 | `description` | yes | What this type represents, why it exists, who emits it. Aimed at the next maintainer or third-party plugin author. |
 | `identity_key.meaning` | no | When the type has a meaningful cross-source identity, names what it represents (`email`, `employee_id`, `resource_arn`). When omitted, plugins should leave `IdentityKey` unset. |
 | `identity_key.description` | no | Free-form note expanding on `meaning`. |
-| `schema` | yes | JSON Schema (Draft-07 subset) describing the `payload` field of an `EvidenceRecord` of this type. |
+| `schema` | yes | JSON Schema (Draft-07) describing the `payload` field of an `EvidenceRecord` of this type. |
 
-### Schema subset
+### Schema validation
 
-The collector uses a JSON Schema Draft-07 validator. The supported
-keywords are the subset that's stable across implementations:
+The collector validates payloads with a full JSON Schema Draft-07
+implementation (`github.com/xeipuuv/gojsonschema`, wired in
+`internal/evidence_types/validate.go`; compiled schemas are cached by
+content hash). Every keyword a schema declares is enforced — not just
+`required`:
 
 - Type predicates: `type`, `required`, `properties`,
   `additionalProperties`, `patternProperties`, `items`, `minItems`,
-  `maxItems`, `uniqueItems`.
-- String constraints: `minLength`, `maxLength`, `pattern`, `format`
-  (with `email`, `date-time`, `uri`, `ipv4`, `ipv6`).
+  `maxItems`, `uniqueItems` — including **recursive** validation of
+  nested objects and array items.
+- String constraints: `minLength`, `maxLength`, `pattern`, `format`.
 - Number constraints: `minimum`, `maximum`, `exclusiveMinimum`,
   `exclusiveMaximum`, `multipleOf`.
-- Composition: `enum`, `const`, `oneOf`, `anyOf`, `allOf`.
+- Composition: `enum`, `const`, `oneOf`, `anyOf`, `allOf`, `not`,
+  `if`/`then`/`else`, and in-document `$ref`.
 
-Keywords outside this list (`$ref` across files, `if`/`then`/`else`,
-custom `format` values) are not supported in v1; a schema using them
-fails to load with exit 3 at bootstrap.
+A schema that fails to compile fails at bootstrap (exit 3); a payload
+that violates any constraint fails the binding (the first non-conforming
+record tags the policy `error`, exit 3). Earlier builds used a
+hand-rolled checker that silently enforced only `type`/`required`/
+top-level property types — schemas could declare `enum`/`format`/etc.
+that were never checked. That gap is closed.
 
 ---
 

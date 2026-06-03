@@ -33,11 +33,14 @@ selecting it fails (nothing registers under that name).
 **Policies are Go, not Rego.** There are zero `.rego` policy files. Each
 policy is an `autoPolicy{...}.policy()` builder under
 `internal/frameworks/<fw>/policies_*.go` carrying a declarative
-`pass_when:` clause (`all`/`allWhere`/`leaf`). OPA remains a dependency
-only for the `rule:` escape hatch (`internal/evaluator/rego_rule.go`,
-inline Rego module string); most `rule:` policies use the Go-rule path
-(`go_rule.go`) instead. To count a framework's policies, count
-`.policy()` calls — not files.
+`pass_when:` clause (`all`/`allWhere`/`leaf`/`anyWhere`). As of the
+security_alert reconception, **no shipped policy uses the `rule:` escape
+hatch** — both SOC 2 and ISO 27001 are 100% `pass_when:` (each
+framework's `Rules()` returns nil). The escape-hatch infrastructure
+remains available (`internal/evaluator/rego_rule.go` inline Rego,
+`go_rule.go` Go rules) for a future check the DSL genuinely cannot
+express; OPA stays a dependency for it. To count a framework's policies,
+count `.policy()` calls — not files.
 
 ---
 
@@ -217,8 +220,13 @@ registry is the **sole** mediator.
 - The planner matches by intersection (`Emits() ∩ Accepts ≠ ∅`); empty →
   plan-time error (exit 3).
 - The collector validates every payload against the registered JSON
-  Schema for `record.Type` before signing (>5% failure in one call →
-  exit 3 for that policy).
+  Schema for `record.Type` before signing — full JSON Schema draft-07
+  (gojsonschema): enum, format, pattern, minimum/maximum, and nested
+  object/array constraints are all enforced, not just `required`. The
+  first non-conforming record fails the binding and tags the policy
+  `error` (exit 3); there is no partial-acceptance threshold (a ">5% of
+  records" permissive mode is design intent only — see
+  `docs/architecture/04a-evidence-type-registry.md`).
 
 **Substitutability:** adding a new source for an existing type needs zero
 policy changes; extending a slot's `accepts:` is one line of YAML.

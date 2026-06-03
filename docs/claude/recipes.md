@@ -44,9 +44,11 @@ declares via `Emits()`. It never references a policy. Live example:
    })
    ```
    The payload must conform to the evidence type's JSON Schema — the
-   collector validates every record before signing (>5% failures in one
-   call → exit 3 for that policy). Do the full vendor→canonical
-   translation here; **never** leave a field null expecting the policy to
+   collector validates every record (full draft-07: enum/format/min/
+   nested all enforced) before signing; the first non-conforming record
+   fails the binding and tags the policy `error` (exit 3). Do the full
+   vendor→canonical translation here; **never** leave a field null
+   expecting the policy to
    guard it (see the null-trap antipattern in the CLI CLAUDE.md).
 
 3. **Register the factory** in a `factory.go` `init()`:
