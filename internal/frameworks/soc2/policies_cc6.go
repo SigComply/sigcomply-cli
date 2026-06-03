@@ -73,7 +73,10 @@ func cc6AccessPolicies() []core.Policy {
 			accepts: []string{"iam_access_key"},
 			desc:    "All active access keys have been used within the last 90 days.",
 			rem:     "Deactivate access keys unused for more than 90 days.",
-			clause:  allWhere(leaf("payload.is_active", "eq", true), leaf("payload.last_used_days", "lte", 90), "access key {{.payload.id}} has not been used in 90 days"),
+			// Scope to active AND used keys: last_used_days is omitted for
+			// never-used keys (covered by no_never_used_active_keys), and the
+			// evaluator errors on an absent referenced field.
+			clause: allWhere(allOf(leaf("payload.is_active", "eq", true), leaf("payload.never_used", "eq", false)), leaf("payload.last_used_days", "lte", 90), "access key {{.payload.id}} has not been used in 90 days"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.1.no_never_used_active_keys", control: "CC6.1", severity: core.SeverityHigh, category: "access", cadence: "daily",

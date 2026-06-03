@@ -15,6 +15,7 @@
 package builtin
 
 import (
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/accesskeys"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/cloudtrail"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/cloudwatch"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/config"
@@ -23,8 +24,11 @@ import (
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/guardduty"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/iam"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/kms"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/passwordpolicy"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/rds"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/s3"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/securitygroups"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/vpc"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/compute"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/iam"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/sql"
