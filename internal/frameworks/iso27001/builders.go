@@ -14,6 +14,7 @@ import (
 	"fmt"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/manualcatalog"
 )
 
 const slotName = "evidence"
@@ -66,6 +67,11 @@ func (a autoPolicy) policy() core.Policy {
 	}
 }
 
+// manualPolicy is the authoring shape for a manual-evidence policy. The
+// presentation fields feed only the descriptive catalog export consumed
+// by the Evidence SPA — the evaluator ignores them. They default
+// sensibly: etype → document_upload, name → TitleFromID(catalog),
+// severity → "medium".
 type manualPolicy struct {
 	id      string
 	control string
@@ -73,6 +79,49 @@ type manualPolicy struct {
 	catalog string
 	desc    string
 	rem     string
+
+	// Catalog-export presentation metadata (optional).
+	name            string
+	etype           manualcatalog.EvidenceType
+	severity        string
+	items           []manualcatalog.ChecklistItem
+	declarationText string
+	category        string
+	tsc             string
+}
+
+// entry expands the policy into its descriptive catalog entry for the
+// `sigcomply evidence catalog` export.
+//
+//nolint:gocritic // hugeParam: one-time startup builder.
+func (m manualPolicy) entry() manualcatalog.Entry {
+	name := m.name
+	if name == "" {
+		name = manualcatalog.TitleFromID(m.catalog)
+	}
+	etype := m.etype
+	if etype == "" {
+		etype = manualcatalog.TypeDocumentUpload
+	}
+	severity := m.severity
+	if severity == "" {
+		severity = "medium"
+	}
+	return manualcatalog.Entry{
+		ID:              m.catalog,
+		Control:         m.control,
+		Type:            etype,
+		Frequency:       manualcatalog.FrequencyFromCadence(m.cadence),
+		TemporalRule:    manualcatalog.TemporalRetrospective,
+		GracePeriod:     manualcatalog.GraceForCadence(m.cadence),
+		Name:            name,
+		Description:     m.desc,
+		Severity:        severity,
+		Items:           m.items,
+		DeclarationText: m.declarationText,
+		Category:        m.category,
+		TSC:             m.tsc,
+	}
 }
 
 //nolint:gocritic // hugeParam: one-time startup builder; value literals keep the policy tables legible.

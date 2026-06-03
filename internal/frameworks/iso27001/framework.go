@@ -5,6 +5,7 @@ import (
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/frameworks"
+	"github.com/sigcomply/sigcomply-cli/internal/manualcatalog"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 )
@@ -13,8 +14,9 @@ import (
 // by ID without a hardcoded switch. See internal/frameworks/registry.go.
 func init() {
 	frameworks.RegisterFactory(FrameworkID, frameworks.Factory{
-		Register:      Register,
-		ManualCatalog: ManualCatalog,
+		Register:            Register,
+		ManualCatalog:       ManualCatalog,
+		ManualCatalogExport: ManualCatalogExport,
 	})
 }
 
@@ -80,6 +82,22 @@ func Register(set *registry.Set) error {
 		}
 	}
 	return nil
+}
+
+// ManualCatalogExport returns the descriptive, presentation-facing
+// catalog for `sigcomply evidence catalog` (consumed by the Evidence
+// SPA). Derived from the same manualSpecs() as the policy library.
+func ManualCatalogExport() manualcatalog.Catalog {
+	specs := manualSpecs()
+	entries := make([]manualcatalog.Entry, len(specs))
+	for i := range specs {
+		entries[i] = specs[i].entry()
+	}
+	return manualcatalog.Catalog{
+		Framework: FrameworkID,
+		Version:   "1.0",
+		Entries:   entries,
+	}
 }
 
 // ManualCatalog returns one catalog entry per manual policy.

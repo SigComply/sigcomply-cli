@@ -15,6 +15,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/sigcomply/sigcomply-cli/internal/manualcatalog"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 )
@@ -27,6 +28,10 @@ import (
 type Factory struct {
 	Register      func(*registry.Set) error
 	ManualCatalog func() map[string]manual.CatalogEntry
+	// ManualCatalogExport returns the descriptive, presentation-facing
+	// manual-evidence catalog for `sigcomply evidence catalog` (consumed
+	// by the Evidence SPA). Nil when the framework has no manual policies.
+	ManualCatalogExport func() manualcatalog.Catalog
 }
 
 var (
