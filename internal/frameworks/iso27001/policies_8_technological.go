@@ -140,7 +140,8 @@ func techCryptoPolicies() []core.Policy {
 			accepts: []string{"tls_certificate"},
 			desc:    "Managed TLS certificates auto-renew.",
 			rem:     "Enable auto-renewal on each managed certificate.",
-			clause:  all(leaf("payload.auto_renew", "eq", true), "certificate {{.payload.domain}} does not auto-renew"),
+			// Scope to managed certs: imported certs omit auto_renew.
+			clause: allWhere(leaf("payload.is_managed", "eq", true), leaf("payload.auto_renew", "eq", true), "certificate {{.payload.domain}} does not auto-renew"),
 		}.policy(),
 	}
 }

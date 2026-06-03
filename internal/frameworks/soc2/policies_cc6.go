@@ -278,7 +278,9 @@ func cc6EncryptionPolicies() []core.Policy {
 			accepts: []string{"tls_certificate"},
 			desc:    "All managed TLS certificates have auto-renewal enabled.",
 			rem:     "Enable automatic renewal on each managed certificate.",
-			clause:  all(leaf("payload.auto_renew", "eq", true), "certificate {{.payload.domain}} does not have auto-renew enabled"),
+			// Scope to managed certs: imported certs have no auto-renew concept
+			// and omit the field, which would otherwise error the evaluator.
+			clause: allWhere(leaf("payload.is_managed", "eq", true), leaf("payload.auto_renew", "eq", true), "certificate {{.payload.domain}} does not have auto-renew enabled"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.7.secrets_rotation_enabled", control: "CC6.7", severity: core.SeverityMedium, category: "data-protection", cadence: "daily",

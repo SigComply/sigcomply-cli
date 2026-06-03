@@ -5,15 +5,20 @@
   "version": 1,
   "description": "One TLS/SSL certificate — one record per AWS ACM certificate, GCP-managed certificate, or Azure certificate. Policies check expiry, managed status, and auto-renewal.",
   "type": "object",
-  "required": ["id", "domain", "status", "days_until_expiry", "is_managed", "auto_renew"],
+  "required": ["id", "domain", "status", "not_after", "days_until_expiry", "is_managed"],
   "properties": {
     "id":               { "type": "string", "description": "Unique certificate identifier (ARN, resource ID)." },
     "domain":           { "type": "string", "description": "Primary domain name the certificate covers." },
     "provider":         { "type": "string", "description": "Cloud provider or CA short name: aws, gcp, azure." },
-    "status":           { "type": "string", "description": "Certificate status (ISSUED, PENDING_VALIDATION, EXPIRED, etc.)." },
-    "days_until_expiry":{ "type": "integer", "description": "Days until certificate expiry. Negative means already expired." },
+    "status":           {
+      "type": "string",
+      "description": "Certificate lifecycle status.",
+      "enum": ["ISSUED", "PENDING_VALIDATION", "EXPIRED", "INACTIVE", "VALIDATION_TIMED_OUT", "REVOKED", "FAILED"]
+    },
+    "not_after":        { "type": "string", "format": "date-time", "description": "Absolute expiry timestamp (RFC3339). The durable, replay-safe field; days_until_expiry is derived from it." },
+    "days_until_expiry":{ "type": "integer", "description": "Whole days until certificate expiry, derived from not_after at collection time. Negative means already expired." },
     "is_managed":       { "type": "boolean", "description": "Certificate is managed by the cloud provider (not imported)." },
-    "auto_renew":       { "type": "boolean", "description": "Certificate is configured for automatic renewal." }
+    "auto_renew":       { "type": "boolean", "description": "Certificate is configured for automatic renewal. Present only for managed certificates; omitted for imported certificates, which have no auto-renewal concept." }
   },
   "additionalProperties": true
 }
