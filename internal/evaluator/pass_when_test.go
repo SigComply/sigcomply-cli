@@ -472,3 +472,62 @@ func TestPassWhen_ViolationMsgTemplate(t *testing.T) {
 		t.Errorf("violation reason = %q; want %q", result.Violations[0].Reason, want)
 	}
 }
+
+// ---- absent-field semantics (Inv #2 robustness) ----
+
+// A comparison against a field the record does not carry must surface as
+// status=error, not a silent fail. This is the GitHub null-trap fix: a
+// policy reading a field no plugin emits should shout, not falsely
+// report non-compliance.
+func TestPassWhen_AbsentField_Errors(t *testing.T) {
+	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+		Slot:       "repos",
+		Quantifier: core.QuantifierAll,
+		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.secret_scanning_enabled", Value: true},
+	}}}
+	records := map[string][]core.EvidenceRecord{
+		"repos": {makeRecord("r1", map[string]any{"name": "r1"})}, // field absent
+	}
+	result := evaluatePassWhen(spec, records, nil)
+	if result.Status != core.StatusError {
+		t.Fatalf("status = %q; want error for absent field", result.Status)
+	}
+}
+
+// is_set guards an optional field without erroring: all_of short-circuits
+// on the is_set=false branch before the comparison is reached.
+func TestPassWhen_AbsentField_IsSetGuardDoesNotError(t *testing.T) {
+	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+		Slot:       "repos",
+		Quantifier: core.QuantifierAll,
+		Condition: &core.PassWhenCondition{Op: "all_of", Conditions: []*core.PassWhenCondition{
+			{Op: "is_set", Field: "payload.optional_flag"},
+			{Op: "eq", Field: "payload.optional_flag", Value: true},
+		}},
+	}}}
+	records := map[string][]core.EvidenceRecord{
+		"repos": {makeRecord("r1", map[string]any{"name": "r1"})}, // optional_flag absent
+	}
+	result := evaluatePassWhen(spec, records, nil)
+	if result.Status != core.StatusFail {
+		t.Fatalf("status = %q; want fail (guarded, not error)", result.Status)
+	}
+}
+
+// A filter referencing an absent field excludes the record rather than
+// erroring; the remaining (empty) set passes an `all` vacuously.
+func TestPassWhen_AbsentField_FilterExcludes(t *testing.T) {
+	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+		Slot:       "repos",
+		Quantifier: core.QuantifierAll,
+		Filter:     &core.PassWhenCondition{Op: "eq", Field: "payload.is_in_scope", Value: true},
+		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.compliant", Value: true},
+	}}}
+	records := map[string][]core.EvidenceRecord{
+		"repos": {makeRecord("r1", map[string]any{"name": "r1"})}, // is_in_scope absent -> excluded
+	}
+	result := evaluatePassWhen(spec, records, nil)
+	if result.Status != core.StatusPass {
+		t.Fatalf("status = %q; want pass (filtered to empty)", result.Status)
+	}
+}

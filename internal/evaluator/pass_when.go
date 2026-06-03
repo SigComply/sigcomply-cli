@@ -64,7 +64,11 @@ func evaluateAll(clause *core.PassWhenClause, records []core.EvidenceRecord, par
 	seen := map[string]struct{}{}
 	for i := range records {
 		rec := &records[i]
-		if !evalCondition(clause.Condition, rec, params) {
+		ok, err := evalCondition(clause.Condition, rec, params)
+		if err != nil {
+			return conditionErr(err)
+		}
+		if !ok {
 			key := recordIdentity(rec, identityKey)
 			if _, dup := seen[key]; dup {
 				continue
@@ -88,7 +92,11 @@ func evaluateNone(clause *core.PassWhenClause, records []core.EvidenceRecord, pa
 	seen := map[string]struct{}{}
 	for i := range records {
 		rec := &records[i]
-		if evalCondition(clause.Condition, rec, params) {
+		ok, err := evalCondition(clause.Condition, rec, params)
+		if err != nil {
+			return conditionErr(err)
+		}
+		if ok {
 			key := recordIdentity(rec, identityKey)
 			if _, dup := seen[key]; dup {
 				continue
@@ -117,7 +125,11 @@ func evaluateAny(clause *core.PassWhenClause, records []core.EvidenceRecord, par
 		}
 	}
 	for i := range records {
-		if evalCondition(clause.Condition, &records[i], params) {
+		ok, err := evalCondition(clause.Condition, &records[i], params)
+		if err != nil {
+			return conditionErr(err)
+		}
+		if ok {
 			return core.RuleResult{Status: core.StatusPass}
 		}
 	}
@@ -143,7 +155,11 @@ func evaluateCount(clause *core.PassWhenClause, records []core.EvidenceRecord, p
 	}
 	passing := 0
 	for i := range records {
-		if evalCondition(clause.Condition, &records[i], params) {
+		ok, err := evalCondition(clause.Condition, &records[i], params)
+		if err != nil {
+			return conditionErr(err)
+		}
+		if ok {
 			passing++
 		}
 	}
@@ -163,11 +179,25 @@ func evaluateCount(clause *core.PassWhenClause, records []core.EvidenceRecord, p
 	return core.RuleResult{Status: core.StatusPass}
 }
 
-// filterRecords returns the subset of records that satisfy the filter condition.
+// conditionErr wraps a condition-evaluation error as a policy-level
+// error result. A missing field is a contract gap (the evidence type
+// does not carry a fact the policy asks about), never a pass or fail.
+func conditionErr(err error) core.RuleResult {
+	return core.RuleResult{
+		Status: core.StatusError,
+		Diag:   map[string]any{"reason": err.Error()},
+	}
+}
+
+// filterRecords returns the subset of records that satisfy the filter
+// condition. Filters are lenient: a record whose filter field is absent
+// (or whose filter evaluation errors) is simply excluded from the set,
+// rather than erroring the whole policy — filtering is about scoping the
+// records to judge, and "field not present" means "out of scope".
 func filterRecords(records []core.EvidenceRecord, filter *core.PassWhenCondition, params map[string]any) []core.EvidenceRecord {
 	out := make([]core.EvidenceRecord, 0, len(records))
 	for i := range records {
-		if evalCondition(filter, &records[i], params) {
+		if ok, err := evalCondition(filter, &records[i], params); err == nil && ok {
 			out = append(out, records[i])
 		}
 	}
@@ -175,31 +205,52 @@ func filterRecords(records []core.EvidenceRecord, filter *core.PassWhenCondition
 }
 
 // evalCondition evaluates a single PassWhenCondition against a record.
-func evalCondition(cond *core.PassWhenCondition, rec *core.EvidenceRecord, params map[string]any) bool {
+//
+// A comparison (eq/neq/lt/lte/gt/gte/in/not_in) whose field is absent
+// from the record returns an error: comparing against a fact the
+// evidence does not carry is never a meaningful pass or fail, so the
+// policy surfaces status=error rather than silently treating the absence
+// as a violation (or a vacuous pass). Policies that legitimately tolerate
+// an absent field must guard it with the is_set operator (which returns
+// false, never errors) or scope it away in a clause filter.
+func evalCondition(cond *core.PassWhenCondition, rec *core.EvidenceRecord, params map[string]any) (bool, error) {
 	switch cond.Op {
 	case "all_of":
 		for _, sub := range cond.Conditions {
-			if !evalCondition(sub, rec, params) {
-				return false
+			ok, err := evalCondition(sub, rec, params)
+			if err != nil {
+				return false, err
+			}
+			if !ok {
+				return false, nil
 			}
 		}
-		return true
+		return true, nil
 	case "any_of":
 		for _, sub := range cond.Conditions {
-			if evalCondition(sub, rec, params) {
-				return true
+			ok, err := evalCondition(sub, rec, params)
+			if err != nil {
+				return false, err
+			}
+			if ok {
+				return true, nil
 			}
 		}
-		return false
+		return false, nil
 	case "is_set":
 		v, ok := getField(rec, cond.Field)
-		return ok && v != nil
+		return ok && v != nil, nil
 	}
 
-	lhs, _ := getField(rec, cond.Field)
+	lhs, ok := getField(rec, cond.Field)
+	if !ok {
+		return false, fmt.Errorf(
+			"policy references field %q which is not present on record %q (type %q) — "+
+				"reference a field the evidence type guarantees, or guard it with is_set/filter",
+			cond.Field, rec.ID, rec.Type)
+	}
 	rhs := resolveValue(cond.Value, params)
-
-	return evalComparisonOp(cond.Op, lhs, rhs)
+	return evalComparisonOp(cond.Op, lhs, rhs), nil
 }
 
 // evalComparisonOp dispatches binary comparison operators.
