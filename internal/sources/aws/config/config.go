@@ -1,6 +1,6 @@
 // Package config implements the aws.config source plugin: lists AWS
 // Config configuration recorders along with their recording status, and
-// emits configuration_recorder evidence records suitable for SOC 2
+// emits config_change_tracking evidence records suitable for SOC 2
 // change-tracking policies (Config recorder enabled and recording).
 //
 // The "config" package name collides with Go's idiomatic name for
@@ -32,7 +32,7 @@ import (
 )
 
 // EvidenceTypeID is the cross-vendor evidence type this plugin emits.
-const EvidenceTypeID = "configuration_recorder"
+const EvidenceTypeID = "config_change_tracking"
 
 // SourceID is the registered ID for the aws.config plugin instance.
 const SourceID = "aws.config"
@@ -98,7 +98,7 @@ func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 // constructor already has it; this is a no-op preserved for symmetry.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// recorderPayload is the cross-vendor configuration_recorder shape.
+// recorderPayload is the cross-vendor config_change_tracking shape.
 type recorderPayload struct {
 	ID               string `json:"id"`
 	Name             string `json:"name"`
@@ -113,7 +113,7 @@ type recorderPayload struct {
 }
 
 // Collect lists Configuration Recorders in the configured region and
-// returns one configuration_recorder per recorder, sorted by ID
+// returns one config_change_tracking per recorder, sorted by ID
 // before return so envelope bytes are stable across runs against
 // stable account state.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {

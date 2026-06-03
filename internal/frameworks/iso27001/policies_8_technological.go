@@ -177,14 +177,14 @@ func techLoggingPolicies() []core.Policy {
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.8.9.config_recording_enabled", control: "A.8.9", severity: core.SeverityHigh, category: "monitoring", cadence: "daily",
-			accepts: []string{"configuration_recorder"},
+			accepts: []string{"config_change_tracking"},
 			desc:    "Configuration change recording is enabled.",
 			rem:     "Enable a configuration recorder.",
 			clause:  all(leaf("payload.is_recording", "eq", true), "configuration recorder {{.payload.name}} is not recording"),
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.8.9.config_all_resources", control: "A.8.9", severity: core.SeverityMedium, category: "monitoring", cadence: "daily",
-			accepts: []string{"configuration_recorder"},
+			accepts: []string{"config_change_tracking"},
 			desc:    "Configuration recording covers all resource types.",
 			rem:     "Record all supported resource types.",
 			clause:  all(leaf("payload.all_resource_types", "eq", true), "configuration recorder {{.payload.name}} does not record all resource types"),

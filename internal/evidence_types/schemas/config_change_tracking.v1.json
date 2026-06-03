@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/config_change_tracking/v1.json",
+  "title": "config_change_tracking",
+  "version": 1,
+  "description": "One configuration-change tracking facility — AWS Config recorder, GCP Cloud Asset Inventory feed, Azure Policy assignment. The single cross-vendor shape policies use for recording-status and coverage checks. Named for the compliance concept (is resource-change tracking enabled and comprehensive?) rather than any one vendor's product.",
+  "type": "object",
+  "required": ["id", "name", "is_recording"],
+  "properties": {
+    "id":                { "type": "string", "description": "Unique stable identifier (AWS Config: recorder ARN or name)." },
+    "name":              { "type": "string", "description": "Human-readable name." },
+    "provider":          { "type": "string", "description": "Cloud provider short name: aws, gcp, azure." },
+    "is_recording":      { "type": "boolean", "description": "Change tracking is actively recording resource changes." },
+    "all_resource_types":{ "type": "boolean", "description": "Configured for all supported resource types (not a subset)." }
+  },
+  "additionalProperties": true
+}

@@ -47,14 +47,14 @@ func cc7LoggingPolicies() []core.Policy {
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc7.1.config_recording_enabled", control: "CC7.1", severity: core.SeverityHigh, category: "monitoring", cadence: "daily",
-			accepts: []string{"configuration_recorder"},
+			accepts: []string{"config_change_tracking"},
 			desc:    "Configuration change recording is enabled.",
 			rem:     "Enable a configuration recorder (AWS Config or equivalent).",
 			clause:  all(leaf("payload.is_recording", "eq", true), "configuration recorder {{.payload.name}} is not recording"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc7.1.config_all_resource_types", control: "CC7.1", severity: core.SeverityMedium, category: "monitoring", cadence: "daily",
-			accepts: []string{"configuration_recorder"},
+			accepts: []string{"config_change_tracking"},
 			desc:    "Configuration recording covers all resource types.",
 			rem:     "Configure the recorder to capture all supported resource types.",
 			clause:  all(leaf("payload.all_resource_types", "eq", true), "configuration recorder {{.payload.name}} does not record all resource types"),
