@@ -250,11 +250,23 @@ func TestHTTPAPI_ListRepos_HappyPath(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/orgs/acme/repos"):
-			_, _ = w.Write([]byte(`[{"name":"web","default_branch":"main"},{"name":"api","default_branch":"main"}]`)) //nolint:errcheck // test handler
+			_, _ = w.Write([]byte(`[` + //nolint:errcheck // test handler
+				`{"name":"web","default_branch":"main","private":true,` +
+				`"security_and_analysis":{"secret_scanning":{"status":"enabled"},` +
+				`"secret_scanning_push_protection":{"status":"enabled"},` +
+				`"code_scanning_default_setup":{"status":"enabled"}}},` +
+				`{"name":"api","default_branch":"main"}]`))
 		case r.URL.Path == "/repos/acme/web/branches/main/protection":
-			_, _ = w.Write([]byte(`{"required_pull_request_reviews":{"required_approving_review_count":2}}`)) //nolint:errcheck // test handler
+			_, _ = w.Write([]byte(`{"required_pull_request_reviews":{"required_approving_review_count":2,` + //nolint:errcheck // test handler
+				`"dismiss_stale_reviews":true,"require_code_owner_reviews":true},` +
+				`"required_signatures":{"enabled":true},"allow_force_pushes":{"enabled":false},` +
+				`"required_linear_history":{"enabled":true}}`))
 		case r.URL.Path == "/repos/acme/api/branches/main/protection":
 			http.Error(w, "not found", http.StatusNotFound)
+		case r.URL.Path == "/repos/acme/web/vulnerability-alerts":
+			w.WriteHeader(http.StatusNoContent) // enabled
+		case r.URL.Path == "/repos/acme/api/vulnerability-alerts":
+			http.Error(w, "not found", http.StatusNotFound) // disabled
 		default:
 			t.Errorf("unexpected request: %s", r.URL.Path)
 		}
@@ -273,11 +285,35 @@ func TestHTTPAPI_ListRepos_HappyPath(t *testing.T) {
 	for _, r := range repos {
 		byName[r.Name] = r
 	}
-	if !byName["web"].ProtectionOn || byName["web"].RequiredReviews != 2 {
-		t.Errorf("web protection = %+v", byName["web"])
+	web := byName["web"]
+	if web.RequiredReviews != 2 {
+		t.Errorf("web.RequiredReviews = %d; want 2", web.RequiredReviews)
 	}
-	if byName["api"].ProtectionOn {
-		t.Errorf("api should have no protection")
+	// All booleans the fully-protected "web" repo should report true, plus
+	// the two false-expecting fields, in one table to keep complexity low.
+	checks := []struct {
+		name string
+		got  bool
+		want bool
+	}{
+		{"ProtectionOn", web.ProtectionOn, true},
+		{"RequiresSignedCommits", web.RequiresSignedCommits, true},
+		{"RequiresLinearHistory", web.RequiresLinearHistory, true},
+		{"AllowsForcePush", web.AllowsForcePush, false},
+		{"DismissStaleReviews", web.DismissStaleReviews, true},
+		{"RequireCodeOwnerReviews", web.RequireCodeOwnerReviews, true},
+		{"SecretScanningEnabled", web.SecretScanningEnabled, true},
+		{"PushProtectionEnabled", web.PushProtectionEnabled, true},
+		{"CodeScanningEnabled", web.CodeScanningEnabled, true},
+		{"IsPrivate", web.IsPrivate, true},
+		{"DependabotAlertsEnabled", web.DependabotAlertsEnabled, true},
+		{"api.ProtectionOn", byName["api"].ProtectionOn, false},
+		{"api.DependabotAlertsEnabled", byName["api"].DependabotAlertsEnabled, false},
+	}
+	for _, c := range checks {
+		if c.got != c.want {
+			t.Errorf("%s = %v; want %v", c.name, c.got, c.want)
+		}
 	}
 }
 
@@ -421,5 +457,33 @@ func TestPayloadJSONRoundTrip(t *testing.T) {
 	}
 	if back != rp {
 		t.Errorf("roundtrip mismatch: %+v vs %+v", back, rp)
+	}
+}
+
+// TestCollectRepos_EmitsAllPolicyReadFields guards against the
+// under-emission null-trap: every git_repository field the SOC 2 CC8.1 /
+// CC6.5 policies read must be present in the emitted payload, or the
+// evaluator now errors the policy (absent field != false).
+func TestCollectRepos_EmitsAllPolicyReadFields(t *testing.T) {
+	fake := &fakeAPI{repos: []Repo{{Name: "r1", DefaultBranch: "main"}}}
+	p := New(Options{API: fake, Org: "acme"})
+	recs, err := p.Collect(context.Background(),
+		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeRepository}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(recs[0].Payload, &m); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	for _, field := range []string{
+		"default_branch_protected", "required_reviewers_count", "allows_force_push",
+		"requires_signed_commits", "dependabot_alerts_enabled", "code_scanning_enabled",
+		"dismiss_stale_reviews", "require_code_owner_reviews",
+		"secret_scanning_enabled", "push_protection_enabled",
+	} {
+		if _, ok := m[field]; !ok {
+			t.Errorf("emitted payload missing policy-read field %q", field)
+		}
 	}
 }

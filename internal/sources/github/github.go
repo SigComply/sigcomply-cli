@@ -48,12 +48,31 @@ const SourceID = "github"
 
 // Repo is the subset of fields the plugin extracts from a repository
 // listing. The plugin returns one record per Repo, augmented with
-// branch-protection state queried via a second call.
+// branch-protection state and code-security settings queried via
+// follow-up calls. Every field maps to a property of the git_repository
+// evidence type so policies never read an absent field.
 type Repo struct {
 	Name            string
 	DefaultBranch   string
 	ProtectionOn    bool
 	RequiredReviews int
+
+	// Branch-protection rule details (default branch).
+	RequiresSignedCommits   bool
+	RequiresLinearHistory   bool
+	AllowsForcePush         bool
+	DismissStaleReviews     bool
+	RequireCodeOwnerReviews bool
+
+	// Repository attributes.
+	IsPrivate bool
+	Archived  bool
+
+	// Code-security and analysis features.
+	SecretScanningEnabled   bool
+	PushProtectionEnabled   bool
+	DependabotAlertsEnabled bool
+	CodeScanningEnabled     bool
 }
 
 // Member is the subset of fields the plugin extracts from an org
@@ -139,15 +158,30 @@ func (*Plugin) Emits() []string {
 // Init is a no-op; the constructor has already received configuration.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
-// repoPayload is the git_repository shape this plugin emits. GitHub-
-// specific signals not covered by the cross-vendor schema v1 (CodeQL
-// scanning state, secret scanning, app/action allowlists) are
-// intentionally omitted; adding them is additive.
+// repoPayload is the git_repository shape this plugin emits. Every
+// boolean/integer property the git_repository schema declares is emitted
+// (never omitempty on the policy-read fields): an absent field would now
+// error the consuming policy rather than being read as false, so the
+// plugin owns the full cross-vendor contract.
 type repoPayload struct {
 	Name                   string `json:"name"`
 	DefaultBranch          string `json:"default_branch"`
 	DefaultBranchProtected bool   `json:"default_branch_protected"`
-	RequiredReviewersCount int    `json:"required_reviewers_count,omitempty"`
+	RequiredReviewersCount int    `json:"required_reviewers_count"`
+
+	RequiresSignedCommits   bool `json:"requires_signed_commits"`
+	RequiresLinearHistory   bool `json:"requires_linear_history"`
+	AllowsForcePush         bool `json:"allows_force_push"`
+	DismissStaleReviews     bool `json:"dismiss_stale_reviews"`
+	RequireCodeOwnerReviews bool `json:"require_code_owner_reviews"`
+
+	IsPrivate bool `json:"is_private"`
+	Archived  bool `json:"archived"`
+
+	SecretScanningEnabled   bool `json:"secret_scanning_enabled"`
+	PushProtectionEnabled   bool `json:"push_protection_enabled"`
+	DependabotAlertsEnabled bool `json:"dependabot_alerts_enabled"`
+	CodeScanningEnabled     bool `json:"code_scanning_enabled"`
 }
 
 // memberPayload is the directory_user shape this plugin emits for
@@ -203,10 +237,21 @@ func (p *Plugin) collectRepos(ctx context.Context) ([]core.EvidenceRecord, error
 	for i := range repos {
 		r := repos[i]
 		payload := repoPayload{
-			Name:                   r.Name,
-			DefaultBranch:          r.DefaultBranch,
-			DefaultBranchProtected: r.ProtectionOn,
-			RequiredReviewersCount: r.RequiredReviews,
+			Name:                    r.Name,
+			DefaultBranch:           r.DefaultBranch,
+			DefaultBranchProtected:  r.ProtectionOn,
+			RequiredReviewersCount:  r.RequiredReviews,
+			RequiresSignedCommits:   r.RequiresSignedCommits,
+			RequiresLinearHistory:   r.RequiresLinearHistory,
+			AllowsForcePush:         r.AllowsForcePush,
+			DismissStaleReviews:     r.DismissStaleReviews,
+			RequireCodeOwnerReviews: r.RequireCodeOwnerReviews,
+			IsPrivate:               r.IsPrivate,
+			Archived:                r.Archived,
+			SecretScanningEnabled:   r.SecretScanningEnabled,
+			PushProtectionEnabled:   r.PushProtectionEnabled,
+			DependabotAlertsEnabled: r.DependabotAlertsEnabled,
+			CodeScanningEnabled:     r.CodeScanningEnabled,
 		}
 		body, err := json.Marshal(payload)
 		if err != nil {
@@ -277,15 +322,41 @@ type httpAPI struct {
 	client *http.Client
 }
 
+// ghFeatureStatus is the {"status":"enabled"|"disabled"} shape GitHub
+// uses for security_and_analysis features.
+type ghFeatureStatus struct {
+	Status string `json:"status"`
+}
+
+func (f ghFeatureStatus) on() bool { return f.Status == "enabled" }
+
 type ghRepo struct {
-	Name          string `json:"name"`
-	DefaultBranch string `json:"default_branch"`
+	Name                string `json:"name"`
+	DefaultBranch       string `json:"default_branch"`
+	Private             bool   `json:"private"`
+	Archived            bool   `json:"archived"`
+	SecurityAndAnalysis struct {
+		SecretScanning               ghFeatureStatus `json:"secret_scanning"`
+		SecretScanningPushProtection ghFeatureStatus `json:"secret_scanning_push_protection"`
+		CodeScanningDefaultSetup     ghFeatureStatus `json:"code_scanning_default_setup"`
+	} `json:"security_and_analysis"`
+}
+
+// ghEnabled is the {"enabled":bool} shape used by several branch-protection
+// sub-objects.
+type ghEnabled struct {
+	Enabled bool `json:"enabled"`
 }
 
 type ghProtection struct {
 	RequiredPullRequestReviews struct {
-		RequiredApprovingReviewCount int `json:"required_approving_review_count"`
+		RequiredApprovingReviewCount int  `json:"required_approving_review_count"`
+		DismissStaleReviews          bool `json:"dismiss_stale_reviews"`
+		RequireCodeOwnerReviews      bool `json:"require_code_owner_reviews"`
 	} `json:"required_pull_request_reviews"`
+	RequiredSignatures    ghEnabled `json:"required_signatures"`
+	AllowForcePushes      ghEnabled `json:"allow_force_pushes"`
+	RequiredLinearHistory ghEnabled `json:"required_linear_history"`
 }
 
 type ghMember struct {
@@ -307,12 +378,21 @@ func (h *httpAPI) ListRepos(ctx context.Context) ([]Repo, error) {
 			return nil, err
 		}
 		for _, r := range repos {
-			rp := Repo{Name: r.Name, DefaultBranch: r.DefaultBranch}
-			if r.DefaultBranch != "" {
-				on, reviews := h.fetchProtection(ctx, r.Name, r.DefaultBranch)
-				rp.ProtectionOn = on
-				rp.RequiredReviews = reviews
+			rp := Repo{
+				Name:                  r.Name,
+				DefaultBranch:         r.DefaultBranch,
+				IsPrivate:             r.Private,
+				Archived:              r.Archived,
+				SecretScanningEnabled: r.SecurityAndAnalysis.SecretScanning.on(),
+				PushProtectionEnabled: r.SecurityAndAnalysis.SecretScanningPushProtection.on(),
+				CodeScanningEnabled:   r.SecurityAndAnalysis.CodeScanningDefaultSetup.on(),
 			}
+			if r.DefaultBranch != "" {
+				h.fetchProtection(ctx, &rp)
+			}
+			// Dependabot vulnerability alerts: 204 = enabled, 404 = disabled.
+			rp.DependabotAlertsEnabled = h.probeEnabled(ctx,
+				fmt.Sprintf("/repos/%s/%s/vulnerability-alerts", url.PathEscape(h.org), url.PathEscape(r.Name)))
 			out = append(out, rp)
 		}
 		if !hasMore {
@@ -322,16 +402,41 @@ func (h *httpAPI) ListRepos(ctx context.Context) ([]Repo, error) {
 	}
 }
 
-func (h *httpAPI) fetchProtection(ctx context.Context, repo, branch string) (on bool, requiredReviews int) {
+func (h *httpAPI) fetchProtection(ctx context.Context, rp *Repo) {
 	path := fmt.Sprintf("/repos/%s/%s/branches/%s/protection",
-		url.PathEscape(h.org), url.PathEscape(repo), url.PathEscape(branch))
+		url.PathEscape(h.org), url.PathEscape(rp.Name), url.PathEscape(rp.DefaultBranch))
 	var p ghProtection
 	if _, err := h.getJSON(ctx, path, &p); err != nil {
-		// 404 = no protection; any other error is surfaced as
-		// protection-off + 0 reviewers. The aggregator decides.
-		return false, 0
+		// 404 = no protection; any other error leaves all protection
+		// fields at their false/zero zero-values. The aggregator decides.
+		return
 	}
-	return true, p.RequiredPullRequestReviews.RequiredApprovingReviewCount
+	rp.ProtectionOn = true
+	rp.RequiredReviews = p.RequiredPullRequestReviews.RequiredApprovingReviewCount
+	rp.DismissStaleReviews = p.RequiredPullRequestReviews.DismissStaleReviews
+	rp.RequireCodeOwnerReviews = p.RequiredPullRequestReviews.RequireCodeOwnerReviews
+	rp.RequiresSignedCommits = p.RequiredSignatures.Enabled
+	rp.RequiresLinearHistory = p.RequiredLinearHistory.Enabled
+	rp.AllowsForcePush = p.AllowForcePushes.Enabled
+}
+
+// probeEnabled issues a GET and reports whether the response is 2xx.
+// GitHub uses 204/404 to signal feature on/off for endpoints with no
+// body (e.g. vulnerability-alerts), which getJSON cannot decode.
+func (h *httpAPI) probeEnabled(ctx context.Context, path string) bool {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.base+path, http.NoBody)
+	if err != nil {
+		return false
+	}
+	req.Header.Set("Authorization", "Bearer "+h.token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // best-effort close
+	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }
 
 func (h *httpAPI) ListOrgMembers(ctx context.Context) ([]Member, error) {
