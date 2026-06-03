@@ -549,7 +549,7 @@ requires a code change at the boundary, which is a code-review gate.
 ```json
 {
   "policy_id":          "soc2.cc6.1.mfa_enforced",
-  "control_id":         "CC6.1",
+  "controls":           [{ "framework": "soc2", "control_id": "CC6.1", "relationship": "equal" }],
   "status":             "fail",
   "severity":           "high",
   "resources_evaluated": 47,
@@ -813,7 +813,7 @@ policies/soc2.cc6.1.admin_mfa_enforced/result.json
 ```
 {
   policy_id:           "soc2.cc6.1.admin_mfa_enforced",
-  control_id:          "CC6.1",
+  controls:            [{ framework: "soc2", control_id: "CC6.1", relationship: "equal" }],
   status:              "fail",
   severity:            "high",
   resources_evaluated: 47,

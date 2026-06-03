@@ -374,7 +374,7 @@ evaluation declaration the policy carries.
 ```go
 type PolicyResult struct {
     PolicyID          string
-    ControlID         string
+    Controls          []ControlRef
     Status            PolicyStatus
     Severity          Severity
     EffectiveParams   map[string]any
@@ -398,7 +398,7 @@ This is the privacy boundary.
 
 ```go
 type SubmissionPayload struct {
-    Schema        string         // "sigcomply.cloud.v2"
+    Schema        string         // "sigcomply.cloud.v3"
     RunID         string
     Framework     string
     PeriodID      string
@@ -412,7 +412,7 @@ type SubmissionPayload struct {
 
 type AggregatedPolicy struct {
     PolicyID            string
-    ControlID           string
+    Controls            []ControlRef  // v3: multi-framework control mapping
     Status              PolicyStatus
     Severity            Severity
     Category            string
