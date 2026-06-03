@@ -23,6 +23,7 @@ require (
 	github.com/pdfcpu/pdfcpu v0.12.1
 	github.com/phpdave11/gofpdf v1.4.3
 	github.com/spf13/cobra v1.10.2
+	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/image v0.41.0
 	google.golang.org/api v0.283.0
 	gopkg.in/yaml.v3 v3.0.1
