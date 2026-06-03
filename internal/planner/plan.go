@@ -70,8 +70,37 @@ type PlannedPolicy struct {
 	// auditors can see which policies are running in an overridden mode.
 	EvidenceModeOverridden bool
 
+	// CoverageGaps lists version-skew near-misses: required slots that
+	// resolved to zero bindings while a configured source emits a
+	// different *version* of a type the slot accepts. Such policies are
+	// silently skipped at evaluation and drop out of the compliance
+	// score; the orchestrator warns the operator. Empty for the common
+	// case. See CoverageGap.
+	CoverageGaps []CoverageGap
+
 	PriorState  *core.PolicyState
 	ContentHash string
+}
+
+// CoverageGap flags a required slot that resolved to zero bindings even
+// though a configured source emits a *sibling version* of a type the
+// slot accepts — for example, the slot accepts directory_user.v2 but a
+// configured okta source emits directory_user (v1). The slot cannot bind
+// such a source, so the policy is silently skipped at evaluation
+// (requiredSlotsPopulated → StatusSkip) and disappears from the
+// compliance-score denominator, hiding the gap. The planner records the
+// near-miss so the orchestrator can surface it as an explicit warning.
+//
+// This is deliberately NOT a hard error: a version may genuinely be
+// unable to answer a policy (the admin-MFA check needs v2-only fields
+// that v1 cannot supply), so the legitimate fix is sometimes "leave it
+// skipped", sometimes "extend accepts:", and sometimes "wire a
+// v2-capable source" — the operator decides.
+type CoverageGap struct {
+	Slot        string   // the unbound required slot
+	Accepts     []string // evidence types the slot accepts
+	Source      string   // configured source ID emitting a sibling version
+	SourceEmits []string // the sibling (family-matching but unaccepted) types it emits
 }
 
 // Binding is one resolved (source instance, optional slot params)

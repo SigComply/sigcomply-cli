@@ -205,3 +205,31 @@ func TestRun_CapturePayloadPathTakesPrecedence(t *testing.T) {
 		t.Errorf("Submitted should be false when --capture-cloud-payload is set")
 	}
 }
+
+func TestEmitPlanWarnings_CoverageSkew(t *testing.T) {
+	var buf bytes.Buffer
+	logger := log.New(&buf, true) // verbose: include Debugf detail lines
+	plan := &planner.RunPlan{
+		Policies: []planner.PlannedPolicy{
+			{
+				Spec: core.Policy{ID: "soc2.cc6.1.mfa_enforced_admins"},
+				CoverageGaps: []planner.CoverageGap{
+					{
+						Slot:        "user_directory",
+						Accepts:     []string{"directory_user.v2"},
+						Source:      "okta",
+						SourceEmits: []string{"directory_user"},
+					},
+				},
+			},
+		},
+	}
+	emitPlanWarnings(logger, plan, time.Now().UTC())
+	out := buf.String()
+	if !strings.Contains(out, "coverage-skew") {
+		t.Fatalf("expected coverage-skew warning; got:\n%s", out)
+	}
+	if !strings.Contains(out, "okta") || !strings.Contains(out, "soc2.cc6.1.mfa_enforced_admins") {
+		t.Errorf("warning should name the source and policy; got:\n%s", out)
+	}
+}

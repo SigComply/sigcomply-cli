@@ -90,6 +90,68 @@ func setUp(t *testing.T) *registry.Set {
 	return set
 }
 
+// TestPlan_PopulatesCoverageGaps wires a policy whose required slot
+// accepts only directory_user.v2 while the project configures an okta
+// source emitting directory_user (v1) and supplies no binding. The plan
+// must surface the version-skew coverage gap rather than silently
+// planning the policy for a guaranteed skip.
+func TestPlan_PopulatesCoverageGaps(t *testing.T) {
+	set := registry.NewSet()
+	policy := core.Policy{
+		ID:           "soc2.cc6.1.mfa_enforced_admins",
+		Controls:     []core.ControlRef{{ControlID: "SOC2.CC6.1"}},
+		Description:  "MFA on admins",
+		Severity:     core.SeverityHigh,
+		Cadence:      "daily",
+		EvidenceMode: core.EvidenceModeAutomated,
+		RuleRef:      "rules.mfa_enforced_admins.v1",
+		Slots: map[string]core.Slot{
+			"user_directory": {
+				Accepts:     []string{"directory_user.v2"},
+				Cardinality: core.SlotOneOrMore,
+				Required:    true,
+			},
+		},
+	}
+	if err := set.Policies.Register(policy); err != nil {
+		t.Fatalf("register policy: %v", err)
+	}
+	fw := &fakeFramework{
+		id: "soc2", version: "2017",
+		policies: []core.PolicyRef{{PolicyID: policy.ID}},
+		controls: []core.Control{{ID: "SOC2.CC6.1", Name: "Logical Access"}},
+	}
+	if err := set.Frameworks.Register(fw); err != nil {
+		t.Fatalf("register framework: %v", err)
+	}
+	if err := set.Sources.Register(&fakeSource{id: "okta", emits: []string{"directory_user", "okta_app"}}); err != nil {
+		t.Fatalf("register okta: %v", err)
+	}
+
+	cfg := &spec.ProjectConfig{
+		SchemaVersion: "project.v1",
+		Framework:     "soc2",
+		Period:        spec.PeriodConfig{FiscalCalendar: spec.FiscalCalendarConfig{Type: "calendar_quarter"}},
+		Sources:       map[string]map[string]any{"okta": {}},
+		// No bindings: the slot cannot bind okta (v1) and stays empty.
+	}
+	commit := commitFixture(t)
+	plan, err := planner.Plan(&planner.Input{Config: cfg, Registries: set, CommitTime: commit, Now: commit})
+	if err != nil {
+		t.Fatalf("Plan: %v", err)
+	}
+	if len(plan.Policies) != 1 {
+		t.Fatalf("Policies = %d; want 1", len(plan.Policies))
+	}
+	gaps := plan.Policies[0].CoverageGaps
+	if len(gaps) != 1 {
+		t.Fatalf("CoverageGaps = %d; want 1 (%+v)", len(gaps), gaps)
+	}
+	if gaps[0].Source != "okta" || gaps[0].Slot != "user_directory" {
+		t.Errorf("gap = %+v; want source=okta slot=user_directory", gaps[0])
+	}
+}
+
 func TestPlan_HappyPath(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{

@@ -324,9 +324,14 @@ func emitPlanWarnings(logger *log.Logger, plan *planner.RunPlan, now time.Time) 
 	}
 	var firstRun []string
 	var gapped []string
+	var skews []string
 	const gapThreshold = 30 * 24 * time.Hour // 30 days
 	for i := range plan.Policies {
 		pp := &plan.Policies[i]
+		for _, g := range pp.CoverageGaps {
+			skews = append(skews, fmt.Sprintf("%s slot %q accepts %v but configured source %q emits %v (different version); slot stays unbound, policy will be SKIPPED",
+				pp.Spec.ID, g.Slot, g.Accepts, g.Source, g.SourceEmits))
+		}
 		if pp.PriorState == nil || pp.PriorState.IsFirstRun() {
 			if pp.ShouldEvaluate {
 				firstRun = append(firstRun, pp.Spec.ID)
@@ -335,6 +340,14 @@ func emitPlanWarnings(logger *log.Logger, plan *planner.RunPlan, now time.Time) 
 		}
 		if pp.PriorState.LastRunAt.Before(now.Add(-gapThreshold)) {
 			gapped = append(gapped, pp.Spec.ID)
+		}
+	}
+	if len(skews) > 0 {
+		sort.Strings(skews)
+		logger.Warnf("coverage-skew: %d required slot(s) cannot bind a configured source due to an evidence-type version mismatch; the affected policies will be skipped and excluded from the compliance score", len(skews))
+		logger.Warnf("coverage-skew: extend the slot's accepts: to include the emitted version, or wire a source that emits the accepted version")
+		for _, s := range skews {
+			logger.Debugf("coverage-skew: %s", s)
 		}
 	}
 	if len(firstRun) > 0 {

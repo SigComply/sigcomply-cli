@@ -136,6 +136,120 @@ func TestResolveBindings_RejectsBindingForUndeclaredSlot(t *testing.T) {
 	}
 }
 
+func TestEvidenceTypeFamily(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"directory_user", "directory_user"},
+		{"directory_user.v2", "directory_user"},
+		{"directory_user.v10", "directory_user"},
+		{"object_storage_bucket", "object_storage_bucket"},
+		{"gcp_service_account_key", "gcp_service_account_key"}, // underscores, no version
+		{"foo.bar", "foo.bar"},                                 // ".bar" is not ".vN"
+		{"foo.v", "foo.v"},                                     // bare "v" is not a version
+		{"foo.v2x", "foo.v2x"},                                 // trailing non-digit
+		{"foo.", "foo."},                                       // trailing dot
+	}
+	for _, tc := range cases {
+		if got := evidenceTypeFamily(tc.in); got != tc.want {
+			t.Errorf("evidenceTypeFamily(%q) = %q; want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// TestDetectCoverageGaps exercises the version-skew near-miss detector:
+// an unbound required slot accepting only directory_user.v2 while a
+// configured source emits directory_user (v1) is the canonical gap.
+func TestDetectCoverageGaps(t *testing.T) {
+	set := registry.NewSet()
+	registerSource(t, set, "okta", "directory_user", "okta_app")
+	registerSource(t, set, "aws.iam", "directory_user.v2")
+	registerSource(t, set, "aws.s3", "object_storage_bucket")
+
+	v2Only := func() *core.Policy {
+		return &core.Policy{
+			ID: "p1",
+			Slots: map[string]core.Slot{
+				"users": {Accepts: []string{"directory_user.v2"}, Cardinality: core.SlotOneOrMore, Required: true},
+			},
+		}
+	}
+
+	t.Run("version skew flagged when slot unbound", func(t *testing.T) {
+		gaps := detectCoverageGaps(v2Only(), map[string][]Binding{}, map[string]map[string]any{"okta": {}}, set.Sources)
+		if len(gaps) != 1 {
+			t.Fatalf("gaps = %d; want 1 (%+v)", len(gaps), gaps)
+		}
+		g := gaps[0]
+		if g.Slot != "users" || g.Source != "okta" {
+			t.Errorf("gap = %+v; want slot=users source=okta", g)
+		}
+		if len(g.SourceEmits) != 1 || g.SourceEmits[0] != "directory_user" {
+			t.Errorf("SourceEmits = %v; want [directory_user]", g.SourceEmits)
+		}
+	})
+
+	t.Run("no gap when an exactly-accepted source is configured", func(t *testing.T) {
+		// aws.iam emits directory_user.v2 exactly — the operator can bind
+		// it; absence of a binding is a plain unbound slot, not skew.
+		gaps := detectCoverageGaps(v2Only(), map[string][]Binding{}, map[string]map[string]any{"okta": {}, "aws.iam": {}}, set.Sources)
+		if len(gaps) != 0 {
+			t.Fatalf("gaps = %+v; want none (an exact emitter is configured)", gaps)
+		}
+	})
+
+	t.Run("no gap when slot already bound", func(t *testing.T) {
+		bound := map[string][]Binding{"users": {{SourceID: "aws.iam", AcceptedTypes: []string{"directory_user.v2"}}}}
+		gaps := detectCoverageGaps(v2Only(), bound, map[string]map[string]any{"okta": {}}, set.Sources)
+		if len(gaps) != 0 {
+			t.Fatalf("gaps = %+v; want none (slot is bound)", gaps)
+		}
+	})
+
+	t.Run("no gap for non-required slot", func(t *testing.T) {
+		p := v2Only()
+		s := p.Slots["users"]
+		s.Required = false
+		p.Slots["users"] = s
+		gaps := detectCoverageGaps(p, map[string][]Binding{}, map[string]map[string]any{"okta": {}}, set.Sources)
+		if len(gaps) != 0 {
+			t.Fatalf("gaps = %+v; want none (slot not required)", gaps)
+		}
+	})
+
+	t.Run("no gap when configured source is an unrelated family", func(t *testing.T) {
+		gaps := detectCoverageGaps(v2Only(), map[string][]Binding{}, map[string]map[string]any{"aws.s3": {}}, set.Sources)
+		if len(gaps) != 0 {
+			t.Fatalf("gaps = %+v; want none (unrelated family)", gaps)
+		}
+	})
+
+	t.Run("no gap when no sources configured", func(t *testing.T) {
+		gaps := detectCoverageGaps(v2Only(), map[string][]Binding{}, nil, set.Sources)
+		if len(gaps) != 0 {
+			t.Fatalf("gaps = %+v; want none", gaps)
+		}
+	})
+}
+
+// TestResolveSlot_VersionSkewHint verifies the bound-source empty-
+// intersection error names the version skew so the operator gets an
+// actionable message rather than a bare type-mismatch.
+func TestResolveSlot_VersionSkewHint(t *testing.T) {
+	set := registry.NewSet()
+	registerSource(t, set, "okta", "directory_user")
+	policy := &core.Policy{
+		ID: "p1",
+		Slots: map[string]core.Slot{
+			"u": {Accepts: []string{"directory_user.v2"}, Cardinality: core.SlotOneOrMore, Required: true},
+		},
+	}
+	_, err := resolveBindings(policy, map[string][]spec.BindingEntry{
+		"u": {{Source: "okta"}},
+	}, set.Sources)
+	if err == nil || !strings.Contains(err.Error(), "version skew") {
+		t.Fatalf("want version-skew hint in error; got %v", err)
+	}
+}
+
 func TestSplitCommaList(t *testing.T) {
 	cases := []struct {
 		in   string

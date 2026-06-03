@@ -164,6 +164,7 @@ func planOne(policy *core.Policy, in *Input) (PlannedPolicy, error) {
 		return PlannedPolicy{}, err
 	}
 	var bindings map[string][]Binding
+	var coverageGaps []CoverageGap
 	if policy.EvidenceMode == core.EvidenceModeManual {
 		// Manual policies have no configurable slots. The planner creates a
 		// synthetic "_manual" binding pointing to the manual.pdf singleton,
@@ -178,6 +179,7 @@ func planOne(policy *core.Policy, in *Input) (PlannedPolicy, error) {
 		if err != nil {
 			return PlannedPolicy{}, err
 		}
+		coverageGaps = detectCoverageGaps(policy, bindings, in.Config.Sources, in.Registries.Sources)
 	}
 	exception := resolveException(policy.ID, in.Config.Exceptions, in.Now)
 	cadence := resolveCadence(policy.ID, policy.Cadence, in.Config.PolicyCadences)
@@ -195,6 +197,7 @@ func planOne(policy *core.Policy, in *Input) (PlannedPolicy, error) {
 		ShouldEvaluate:         shouldEvaluate,
 		SkipReason:             skipReason,
 		EvidenceModeOverridden: policy.EvidenceMode != originalMode,
+		CoverageGaps:           coverageGaps,
 		PriorState:             priorState,
 		ContentHash:            contentHash,
 	}, nil
