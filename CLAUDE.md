@@ -25,11 +25,22 @@ Full cross-repo architecture: [parent CLAUDE.md](../CLAUDE.md).
 | **CLI E2E (GitHub Actions)** | `../sigcomply-cli-testing-project-github/` | `git@github.com:SigComply/sigcomply-cli-testing-project-github.git` |
 | **CLI E2E (GitLab CI)** | `../sigcomply-cli-testing-project-gitlab/` | `git@gitlab-personal:sigcomply/sigcomply-cli-testing-project-gitlab.git` |
 
-**Frameworks shipped today**: SOC 2 (production-ready, 400+ policies);
-ISO 27001 (early stage, handful of policies, no manual catalog yet). HIPAA
-is a stated future goal — there is no `hipaa/` package, no policies, and no
+**Frameworks shipped today**: SOC 2 (production-ready — 39 controls,
+~115 policies: ~75 automated + 40 manual) and ISO/IEC 27001:2022
+(all 93 Annex A controls, ~97 policies: ~51 automated + 46 manual, with
+its own manual catalog). Both frameworks are Go-native and registered via
+self-registering factories (`internal/frameworks/builtin`). HIPAA is a
+stated future goal — there is no `hipaa/` package, no policies, and no
 catalog. `config.go` still lists `"hipaa"` in `SupportedFrameworks`, but
 selecting it will fail because no framework registers under that name.
+
+**Policies are defined in Go, not as `.rego` files.** There are zero
+`.rego` files in the tree. Each policy is an `autoPolicy{...}.policy()`
+builder under `internal/frameworks/<fw>/policies_*.go` carrying a
+declarative `pass_when:`-style clause (`all`/`allWhere`/`leaf`). OPA is
+still a dependency, but only for the `rule:` escape hatch (`internal/
+evaluator/rego_rule.go` evaluates an inline Rego module string); most
+`rule:` policies use the Go-rule path (`go_rule.go`) instead.
 
 ---
 
@@ -159,8 +170,9 @@ third-party reports) are consumed the same way regardless of the hints.
 #### Manual evidence design contract — what we do, what we don't
 
 This is a deliberate, load-bearing design choice. Read this whole block
-before changing anything in `internal/sources/manual/` or the
-`manual_presence` Rego rules.
+before changing anything in `internal/sources/manual/` or the manual
+PDF-presence check (`internal/evaluator/manual_check.go` — a Go check,
+not a Rego rule).
 
 **What the CLI does (v1):**
 
@@ -389,14 +401,21 @@ The decision rule for each policy in each run is strictly layered (see
 Detailed flow + types live in [ARCHITECTURE.md](./ARCHITECTURE.md). The
 short version:
 
+The orchestrator (`internal/orchestrator`, L9) wires the layered
+pipeline L3→L8:
+
 ```
 sigcomply check
-  ├─ collect (automated): AWS / GitHub / GCP collectors → []Evidence
-  ├─ collect (manual):    read PDFs from manual-evidence storage → manifests
-  ├─ evaluate:            OPA engine evaluates all policies → CheckResult
-  ├─ store (--store / auto in CI): per-policy folders with signed envelopes
-  │                       + sibling PDFs + result.json + framework summary.json
-  └─ submit (paid tier):  POST aggregated counts to /api/v1/runs
+  ├─ plan      (L3 planner):   read .sigcomply.yaml, bind sources to slots,
+  │                            freeze period, decide cadence per policy → RunPlan
+  ├─ collect   (L4 collector): automated → AWS / GCP / GitHub / Okta plugins → records
+  │                            manual    → read PDFs from manual-evidence storage → manifests
+  ├─ evaluate  (L5 evaluator): per evidence_mode → pass_when DSL | rule: (Go or Rego)
+  │                            | manual PDF-presence check → []PolicyResult
+  ├─ aggregate (L6):           reduce raw evidence to counts (the privacy boundary)
+  ├─ sign + store (L7 vault, --store / auto in CI): per-policy folders with signed
+  │                            envelopes + sibling PDFs + result.json + summary.json
+  └─ submit    (L8 submitter, paid tier): POST aggregated counts to /api/v1/runs
 ```
 
 **Storage layout** (period-first under each framework):
@@ -441,46 +460,52 @@ the same way, from `.sigcomply/plugins/<id>/` compiled in by
 
 ## File Structure
 
+The CLI is organized as a numbered layer stack (L0–L9). Each layer is
+its own package under `internal/`; `internal/orchestrator` (L9) wires
+them together for `sigcomply check`.
+
 ```
 sigcomply-cli/
 ├── main.go                            # CLI entry
-├── cmd/sigcomply/                     # Cobra commands (check, evidence, version)
+├── cmd/sigcomply/                     # Cobra commands: check, init-ci, build,
+│                                      #   report, version (NO evidence command)
 │
 ├── internal/
-│   ├── compliance_frameworks/
-│   │   ├── engine/                    # OPA engine, framework registry, manual helpers
-│   │   ├── shared/lib.rego            # Shared Rego helpers
-│   │   ├── soc2/                      # SOC 2 (production-ready)
-│   │   │   ├── framework.go
-│   │   │   ├── controls.go
-│   │   │   └── policies/
-│   │   │       ├── aws/               # ~700 .rego files (incl. tests)
-│   │   │       ├── gcp/               # GCP policies
-│   │   │       ├── github/            # GitHub policies
-│   │   │       ├── multi/             # Cross-collector policies
-│   │   │       └── manual/            # Manual-evidence policies
-│   │   └── iso27001/                  # ISO 27001 (2 policies — early stage)
-│   │       └── policies/{aws,multi}/
+│   ├── spec/                          # L0  spec parsers/validators (policy, config)
+│   ├── core/                          # L1  frozen interfaces + shared types
+│   │                                  #     (Policy, EvidenceRecord, EvidenceEnvelope,
+│   │                                  #      PolicyResult, manifest, summary, pass_when,
+│   │                                  #      cloud SubmissionPayload, vault iface, enums)
+│   ├── registry/                      # L2  in-process catalogs (frameworks, policies,
+│   │                                  #     rules, sources, evidence types)
+│   ├── evidence_types/                # L1.5 embedded JSON-Schema registry + schemas/
+│   ├── planner/                       # L3  build RunPlan: bind sources↔slots, freeze
+│   │                                  #     period, decide cadence per policy
+│   ├── collector/                     # L4  run per-policy collection, validate records
+│   ├── evaluator/                     # L5  pass_when DSL + go_rule + rego_rule + manual_check
+│   ├── aggregator/                    # L6  reduce raw evidence → counts (privacy boundary)
+│   ├── vault/                         # L7  append-only storage: local/s3/gcs/azureblob
+│   │   └── {local,s3,gcs,azureblob}/  #     self-registering backend factories
+│   ├── submitter/                     # L8  optional cloud submission (POST /api/v1/runs)
+│   ├── orchestrator/                  # L9  wires L3→L8 for `check`; loads project-local exts
+│   ├── sign/                          # cross-cutting: per-file ephemeral Ed25519 signing
+│   ├── log/                           # cross-cutting: redaction logger
+│   ├── report/                        # report generation
 │   │
-│   ├── data_sources/
-│   │   ├── apis/                      # Automated collectors
-│   │   │   ├── aws/                   # 60+ services (iam, s3, cloudtrail, ec2,
-│   │   │   │                          # rds, kms, guardduty, configservice,
-│   │   │   │                          # cloudwatch, eks, ecs, lambda, dynamodb,
-│   │   │   │                          # securityhub, …) — see directory listing
-│   │   │   ├── github/                # collector, repos, members
-│   │   │   └── gcp/                   # collector, iam, storage, compute, sql
-│   │   └── manual/                    # PDF reader (manual flow)
+│   ├── frameworks/                    # one self-contained package per framework
+│   │   ├── builtin/                   # blank-imports soc2 + iso27001 to self-register
+│   │   ├── soc2/                      # framework.go, controls.go, builders.go, rules.go,
+│   │   │                              #   policies_{cc6,cc7,cc8,a1_c1,manual}.go
+│   │   └── iso27001/                  # framework.go, controls.go, builders.go,
+│   │                                  #   policies_{5_organizational,8_technological,manual}.go
 │   │
-│   └── core/
-│       ├── evidence/                  # Evidence, PolicyResult, Violation, CheckResult
-│       ├── config/                    # Config loading + env var binding
-│       ├── output/                    # text, json, junit formatters
-│       ├── storage/                   # local, s3, gcs, azure_blob backends + run paths + summary
-│       ├── manual/                    # Manual catalog, period/grace logic, execution state
-│       │   └── catalogs/              # Embedded YAML catalogs (soc2.yaml today)
-│       ├── attestation/               # Ephemeral Ed25519 signing, canonical JSON, OIDC helpers
-│       └── cloud/                     # SigComply Cloud client (POST /api/v1/runs)
+│   └── sources/                       # automated + manual evidence sources (plugins)
+│       ├── builtin/                   # blank-imports all source plugins to self-register
+│       ├── aws/                       # AWS collectors (60+ services)
+│       ├── gcp/                       # GCP collectors (iam, storage, compute, sql)
+│       ├── github/                    # GitHub collector (repos, members)
+│       ├── okta/                      # Okta directory_user collector
+│       └── manual/                    # PDF reader (manual flow) + {s3,gcs,azureblob}/ readers
 │
 ├── examples/                          # CI/CD workflow examples
 ├── .github/workflows/                 # CI + release automation
@@ -489,15 +514,19 @@ sigcomply-cli/
 
 ### Key organizational principles
 
-1. **compliance_frameworks/** — each framework is self-contained
-   (framework.go + controls.go + policies/ subtree). Policies are
-   organized **by collector under `policies/`** (aws, gcp, github, multi,
-   manual) — not flat — because the collection cost differs per source.
-2. **data_sources/** separates "where we get data" from "what we check".
-   `apis/<service>/` contains one file per AWS/GCP service; `manual/`
-   handles the PDF flow.
-3. **core/** holds shared types + utilities. Don't put framework- or
-   collector-specific logic here.
+1. **frameworks/** — each framework is a self-contained package
+   (`framework.go` + `controls.go` + `builders.go` + `policies_*.go`).
+   Policies are Go-native `autoPolicy{...}.policy()` builders grouped by
+   control family (cc6, cc7, …) — there are no `.rego` policy files. Each
+   framework self-registers via a factory; `frameworks/builtin`
+   blank-imports them.
+2. **sources/** separates "where we get data" from "what we check". Each
+   plugin declares `Emits() []string`; the planner binds plugins to policy
+   slots by evidence-type intersection. `sources/builtin` blank-imports
+   every plugin.
+3. **core/** (L1) holds the frozen interfaces + shared types; the
+   numbered layers (`spec`→`submitter`) each own one pipeline stage. Don't
+   put framework- or source-specific logic in `core/`.
 
 ---
 
@@ -505,20 +534,28 @@ sigcomply-cli/
 
 | Command | Status | Notes |
 |---------|--------|-------|
-| `sigcomply check` | Wired | Main entry — collect → evaluate → store → submit |
-| `sigcomply evidence init` | Wired | Scaffold per-period folders for manual evidence |
-| `sigcomply evidence catalog` | Wired | Print manual catalog (text or JSON); the SPA also consumes the JSON form at build time |
-| `sigcomply evidence path <evidence_id>` | Wired | Print upload URI for a specific manual entry |
+| `sigcomply check` | Wired | Main entry — plan → collect → evaluate → aggregate → sign/store → submit |
+| `sigcomply init-ci` | Wired | Scaffold CI workflow files calibrated to a framework's cadence distribution |
+| `sigcomply build` | Wired | Compile a project-tailored binary with `.sigcomply/` Go extensions |
+| `sigcomply report` | Wired | Read-only auditor snapshot of the vault |
+| `sigcomply evidence catalog` | Wired | Print the manual-evidence catalog (`-o text\|json`); `-o json` matches the Evidence SPA contract. Standalone — no project config needed. `-f/--framework` defaults to `$SIGCOMPLY_FRAMEWORK` then `soc2` |
 | `sigcomply version` | Wired | Print CLI version + commit + build time |
 | `sigcomply init` | Planned | Not yet in `cmd/sigcomply/root.go` |
-| `sigcomply init-ci` | Planned | Not yet in `cmd/sigcomply/root.go` |
+| `sigcomply evidence {init, path}` | Removed | The old period-scaffolding (`init`) and upload-URI (`path`) subcommands are not re-wired; only `catalog` returned |
 | `sigcomply collect` | Planned | Collect-only mode |
 | `sigcomply evaluate` | Planned | Evaluate stored evidence offline |
-| `sigcomply report` | Planned | Generate audit-ready reports |
 
-Note: `evidence` subcommands take `--config` and `--output`/`-o` only —
-**not `--framework`**. Framework comes from `SIGCOMPLY_FRAMEWORK` or
-`framework:` in the config file (default: `soc2`).
+Note: `sigcomply evidence catalog` is the export path the Evidence SPA's
+`scripts/fetch-catalogs.ts` consumes. The catalog is generated
+per-framework in Go from each framework's manual policies — both the
+runtime `ManualCatalog()` (planner path resolution) and the descriptive
+`ManualCatalogExport()` (SPA-facing, in `internal/manualcatalog`) derive
+from one `manualSpecs()` list, so the policy and its catalog metadata
+cannot drift. The old `evidence init`/`path` subcommands were not
+re-added.
+
+Framework comes from `SIGCOMPLY_FRAMEWORK` or `framework:` in the config
+file (default: `soc2`), or the `-f/--framework` flag on `check`.
 
 ### Flags actually wired on `sigcomply check`
 
@@ -588,7 +625,7 @@ the Rails app at `../sigcomply/`:
 |----------|------------|----------|
 | Aggregator / Submitter (`SubmissionPayload`) | `Api::V1::RunsController` (`POST /api/v1/runs`, strong params) | Counts-only run payload |
 | OIDC token helpers | Rails OIDC token validator | Token format, claim names (`repository`, `namespace_path`/`project_path`) |
-| Manual evidence catalog | SPA `scripts/fetch-catalogs.ts` (in `../sigcomply-evidence-spa/`) | The SPA pre-builds catalogs via `sigcomply evidence catalog -o json` |
+| Manual evidence catalog | SPA `scripts/fetch-catalogs.ts` (in `../sigcomply-evidence-spa/`) | The SPA pre-builds catalogs via `sigcomply evidence catalog --framework <fw> -o json`. The CLI's `ManualCatalogExport()` (`internal/manualcatalog`) emits the SPA's `Catalog`/`CatalogEntry` contract verbatim. Changing entry fields, the `type`/`items`/`declaration_text` shape, or the JSON tags here means updating `sigcomply-evidence-spa/src/types/catalog.ts`. |
 
 Older Rails CLI endpoints (`/api/v1/cli/policy_evaluations`,
 `compliance_status`, `heartbeat`, `health`) are legacy. New work goes
@@ -598,23 +635,32 @@ through `POST /api/v1/runs`.
 
 ## Current Status
 
-**Stage**: Active development — SOC 2 production-ready, ISO 27001 early.
+**Stage**: Active development — SOC 2 production-ready; ISO/IEC
+27001:2022 substantially built out (all 93 Annex A controls, ~97
+policies).
 
 **Done**:
 - Zero-config `sigcomply check` (auto-detect AWS)
 - AWS collector across 60+ services
 - GCP collector (IAM, Storage, Compute, SQL)
 - GitHub collector (repos, members)
-- OPA engine with 400+ embedded SOC 2 policies (split across aws/gcp/github/multi/manual)
-- ISO 27001 scaffolding with 2 policies as a proof of concept
+- Okta collector (`directory_user`)
+- Layered evaluator: `pass_when` declarative DSL (primary) + `rule:`
+  escape hatch (Go rules and inline OPA/Rego modules) + manual PDF check
+- Go-native policy libraries: SOC 2 (~115 policies, 39 controls) and
+  ISO 27001 (~97 policies, all 93 Annex A controls), both with manual
+  catalogs generated per-framework in Go
 - text / json / junit output formatters
-- Storage backends: local, S3 (incl. on-prem S3-compatible), GCS, Azure Blob
-- Per-file ephemeral Ed25519 signing + canonical JSON
-- Manual evidence flow: catalog, period/grace logic, execution state, sidecar mirroring
+- Storage (vault) backends: local, S3 (incl. on-prem S3-compatible), GCS, Azure Blob
+- Per-file ephemeral Ed25519 signing + canonical JSON + signed run manifest
+- Manual evidence flow: per-framework catalog, period/grace logic, temporal + prior-period checks, sidecar mirroring
 - Framework `summary.json` (per-policy snapshot, automated/manual split, merge-with-prior)
-- SigComply Cloud client (`POST /api/v1/runs`)
+- SigComply Cloud client (`POST /api/v1/runs`, `sigcomply.cloud.v2`)
 - OIDC auth (GitHub Actions + GitLab CI)
 - Policy filtering (`--policies`, `--controls`)
+- Two-axis cadence model (cadence scheduling state + frozen audit period)
+- `sigcomply check`, `init-ci`, `build` (project-local Go extensions), `report`, `evidence catalog` commands
+- Per-framework manual-catalog export (`internal/manualcatalog`) consumed by the Evidence SPA
 - Release automation (auto-release via conventional commits, manual release, GoReleaser)
 - GitHub Actions reusable workflow
 - GitLab CI: an example pipeline at `examples/gitlab-ci.yml` users can copy. (A first-class GitLab CI component is not yet packaged.)
@@ -622,9 +668,7 @@ through `POST /api/v1/runs`.
 
 **Remaining**:
 - HIPAA framework (not started — placeholder string in `config.go` only)
-- ISO 27001 policy library (only 2 policies today; no manual catalog)
-- Manual catalog for non-SOC 2 frameworks (`internal/core/manual/catalogs/`)
-- `init`, `init-ci`, `collect`, `evaluate`, `report`, `config` commands
+- `init`, `collect`, `evaluate`, `config` commands
 - Secret scanner
 - SARIF output formatter (config validates the format but no implementation)
 
@@ -714,15 +758,25 @@ through `POST /api/v1/runs`.
   put HIPAA defaults into code paths. The string lives in `config.go`'s
   supported list as a stub; selecting it currently fails at runtime.
 - **Framework yaml key is singular.** `framework: soc2`, not `frameworks: [soc2]`.
-- **Manual evidence catalog is SOC 2 only today.** ISO 27001 has no
-  catalog (`internal/core/manual/catalogs/iso27001.yaml` doesn't exist),
-  so `sigcomply evidence catalog --framework=iso27001` errors out.
+- **Both frameworks have manual catalogs, generated in Go.** Each
+  framework's `manualSpecs()` (in
+  `internal/frameworks/<fw>/policies_manual.go`) is the single authoring
+  list; `ManualCatalog()` (runtime path resolution) and
+  `ManualCatalogExport()` (SPA-facing, `internal/manualcatalog`) both
+  derive from it, so the policy and its catalog metadata can't drift.
+  There are **no** embedded `catalogs/*.yaml` files and no
+  `internal/core/manual/catalogs/` directory. The export is what
+  `sigcomply evidence catalog -o json` prints for the Evidence SPA — its
+  shape must stay in lockstep with
+  `sigcomply-evidence-spa/src/types/catalog.ts`.
 - **Run paths use basic ISO 8601 timestamps.** No colons in the path —
   `20260325T100000Z`, not `2026-03-25T10:00:00Z`. Some S3-compatible
   tools choke on colons.
-- **Don't add files matching `*_test.rego` to non-test counts.** The
-  policies/ subtrees mix `_test.rego` test files alongside their
-  policies, so naive globs over-count.
+- **Policies are Go, not Rego — count `.policy()` builders, not files.**
+  There are no `.rego` policy files. To count a framework's policies,
+  count `.policy()` builder calls in `internal/frameworks/<fw>/
+  policies_*.go`. OPA/Rego appears only in `internal/evaluator/
+  rego_rule.go` (the inline-module `rule:` escape hatch).
 - **Avoid editing `cmd/sigcomply/check.go` flag descriptions** without
   reflecting the change in `docs/configuration.md` and the table above.
   `hipaa` is omitted from `--framework`'s public help text since there

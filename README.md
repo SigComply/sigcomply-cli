@@ -48,17 +48,13 @@ HR exports), the CLI scans a folder in your storage:
 {bucket}/{prefix}/{evidence_catalog_id}/{period_id}/
 ```
 
-Upload any number of files — PDF, JPEG, PNG, GIF, TIFF, WebP, or BMP.
-Images are auto-converted to PDF; all files are merged into one before evaluation.
-
-```sh
-sigcomply evidence catalog                    # list manual entries
-sigcomply evidence init                       # scaffold the period folders
-sigcomply evidence path security_awareness_training   # print the folder URI to upload to
-```
+Upload any number of files — PDF, JPEG, PNG, GIF, TIFF, WebP, or BMP to the
+folder above. Images are auto-converted to PDF; all files are merged into one
+before evaluation. `sigcomply check` resolves each manual policy's folder from
+the framework's catalog and the active period, then scans it.
 
 Set the framework via `SIGCOMPLY_FRAMEWORK` or `framework:` in your config file
-(default: `soc2`). The evidence subcommands take no `--framework` flag.
+(default: `soc2`).
 
 The optional [Evidence SPA](https://github.com/SigComply/sigcomply-evidence-spa)
 is a standalone helper that generates PDFs for declaration- and checklist-style
