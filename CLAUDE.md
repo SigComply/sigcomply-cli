@@ -1,21 +1,20 @@
 # SigComply CLI — Claude Context
 
-This file is the AI-coding context for the CLI repo. It captures the
-invariants, decisions, and conventions an agent needs to make safe
-changes here. Architecture details live in
+AI-coding context for the CLI repo: the invariants, decisions, and
+conventions an agent needs to make safe changes. Architecture lives in
 [ARCHITECTURE.md](./ARCHITECTURE.md); configuration in
-[docs/configuration.md](./docs/configuration.md). Don't restate them here.
+[docs/configuration.md](./docs/configuration.md). **This file does not
+restate them — it points to them.**
 
 ## Product Overview
 
 **SigComply** is a zero-trust, non-custodial compliance engine —
-"Evidence without Access." Open-source CLI that runs in customer CI/CD,
-evaluates OPA/Rego policies against infrastructure, signs the resulting
-evidence locally, and (optionally, paid tier) submits aggregated counts
-to a private Rails dashboard.
-
-The product spans **4 logical components across 5 sibling repos**.
-Full cross-repo architecture: [parent CLAUDE.md](../CLAUDE.md).
+"Evidence without Access." An open-source Go CLI that runs in customer
+CI/CD, evaluates Go-native policies against infrastructure, signs the
+resulting evidence locally, and (optionally, paid tier) submits
+aggregated counts to a private Rails dashboard. The product spans **4
+logical components across 5 sibling repos** — full cross-repo
+architecture in the [parent CLAUDE.md](../CLAUDE.md).
 
 | Component | Local path | Remote |
 |-----------|-----------|--------|
@@ -25,44 +24,38 @@ Full cross-repo architecture: [parent CLAUDE.md](../CLAUDE.md).
 | **CLI E2E (GitHub Actions)** | `../sigcomply-cli-testing-project-github/` | `git@github.com:SigComply/sigcomply-cli-testing-project-github.git` |
 | **CLI E2E (GitLab CI)** | `../sigcomply-cli-testing-project-gitlab/` | `git@gitlab-personal:sigcomply/sigcomply-cli-testing-project-gitlab.git` |
 
-**Frameworks shipped today**: SOC 2 (production-ready — 39 controls,
-~115 policies: ~75 automated + 40 manual) and ISO/IEC 27001:2022
-(all 93 Annex A controls, ~97 policies: ~51 automated + 46 manual, with
-its own manual catalog). Both frameworks are Go-native and registered via
-self-registering factories (`internal/frameworks/builtin`). HIPAA is a
-stated future goal — there is no `hipaa/` package, no policies, and no
-catalog. `config.go` still lists `"hipaa"` in `SupportedFrameworks`, but
-selecting it will fail because no framework registers under that name.
+**Frameworks shipped:** SOC 2 (production-ready) and ISO/IEC 27001:2022
+(all 93 Annex A controls), both Go-native and self-registering via
+`internal/frameworks/builtin`. HIPAA is a future goal — no package, no
+policies; `config.go` lists `"hipaa"` in `SupportedFrameworks` but
+selecting it fails (nothing registers under that name).
 
-**Policies are defined in Go, not as `.rego` files.** There are zero
-`.rego` files in the tree. Each policy is an `autoPolicy{...}.policy()`
-builder under `internal/frameworks/<fw>/policies_*.go` carrying a
-declarative `pass_when:`-style clause (`all`/`allWhere`/`leaf`). OPA is
-still a dependency, but only for the `rule:` escape hatch (`internal/
-evaluator/rego_rule.go` evaluates an inline Rego module string); most
-`rule:` policies use the Go-rule path (`go_rule.go`) instead.
+**Policies are Go, not Rego.** There are zero `.rego` policy files. Each
+policy is an `autoPolicy{...}.policy()` builder under
+`internal/frameworks/<fw>/policies_*.go` carrying a declarative
+`pass_when:` clause (`all`/`allWhere`/`leaf`). OPA remains a dependency
+only for the `rule:` escape hatch (`internal/evaluator/rego_rule.go`,
+inline Rego module string); most `rule:` policies use the Go-rule path
+(`go_rule.go`) instead. To count a framework's policies, count
+`.policy()` calls — not files.
 
 ---
 
 ## IMPORTANT: Check for Local Instructions
 
 **Before starting any work, check if `CLAUDE.local.md` exists in the repo
-root.** If present, read it first and follow its instructions. The local
-file contains:
-
-- Private integration references not suitable for public documentation
-- Additional context for maintaining consistency with external systems
-- Instructions that override or supplement this public document
-
-The local file is gitignored and will not be present in all environments.
+root.** If present, read it first and follow it — it holds private
+integration references and instructions that override or supplement this
+public document. It is gitignored and absent in some environments.
 
 ---
 
 ## Documentation
 
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)** — system design, types, storage layout, signing
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** — system design, layer stack, types, storage, signing
 - **[docs/configuration.md](./docs/configuration.md)** — config file, env vars, flags
-- **[docs/claude/auth.md](./docs/claude/auth.md)** — OIDC authentication details
+- **[docs/architecture/](./docs/architecture/)** — deep design docs (layers, evidence-type registry, vault layout, aggregation, cadence, …)
+- **[docs/claude/auth.md](./docs/claude/auth.md)** — OIDC authentication
 - **[docs/claude/recipes.md](./docs/claude/recipes.md)** — step-by-step guides for common tasks
 - **[README.md](./README.md)** — public-facing intro
 
@@ -70,463 +63,278 @@ The local file is gitignored and will not be present in all environments.
 
 ## Development Rules
 
-### Ship Working Code
-
-Working, tested code is the primary measure of progress. Don't
-over-document — only update docs when architecture changes. Code with
-clear names and tests usually needs no extra docs.
-
-### Test-Driven Development
-
-1. Write unit tests first
-2. Write a basic happy-path integration test
-3. Implement the minimum code to pass
-4. Verify the full suite passes (`make test && make lint`)
-5. Update docs only if architecture changed
-
-### Architecture-First
-
-Before implementing: read relevant docs, plan the approach. If the
-design feels overly complex, **stop and ask** — difficulty is a signal
-to pause, not push through.
-
-### Small, Atomic Commits
-
-- One logical change per commit, all tests passing
-- Format: `<type>: <description>` (types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`)
-- Include `Co-Authored-By: Claude <model> <noreply@anthropic.com>`
-
-### Never Break Main
-
-Run `make test && make lint` before every commit. After pushing to
-main, verify the GitHub Actions pipeline is green via `gh run list` /
-`gh run view`. Don't move on while CI is red.
+- **Ship working code.** Tested code is the measure of progress. Don't
+  over-document — update docs only when architecture changes.
+- **TDD.** Unit test first → happy-path integration test → minimum code
+  to pass → `make test && make lint` green → docs only if architecture moved.
+- **Architecture-first.** Read the relevant docs and plan before
+  implementing. If the design feels overly complex, **stop and ask** —
+  difficulty is a signal to pause, not push through.
+- **Small atomic commits.** One logical change, all tests passing.
+  Format `<type>: <description>` (`feat`/`fix`/`refactor`/`test`/`docs`/`chore`).
+  Include `Co-Authored-By: Claude <model> <noreply@anthropic.com>`.
+- **Never break main.** `make test && make lint` before every commit;
+  after pushing, confirm CI is green (`gh run list` / `gh run view`).
+  Don't move on while CI is red.
 
 ---
 
 ## Sacred Invariants
 
-These are non-negotiable. Violating any of them is a hard architectural
-break — stop and ask before proceeding.
+Non-negotiable. Violating any is a hard architectural break — stop and
+ask before proceeding.
 
 ### 1. The aggregation boundary
 
-The CLI is the **only** place where raw evidence (resource IDs, ARNs,
+The CLI is the **only** place raw evidence (resource IDs, ARNs,
 usernames, emails, PDF bytes, file hashes) is reduced to counts. Any
-change that would cause an identifier to appear in a Cloud API request
-breaks the non-custodial model.
+change that would let an identifier reach a Cloud API request breaks the
+non-custodial model.
 
-What goes to the Cloud API (paid tier, `POST /api/v1/runs`) — the
-`SubmissionPayload`:
-- Per-policy: `policy_id`, `control_id`, pass/fail, severity,
-  `resources_evaluated`, `resources_failed`, `message` (count-based,
-  no IDs), `category`, `remediation`
-- Run summary: total/passed/failed/skipped policies, compliance score
-- Environment: `ci`, `ci_provider`, `repository`, `branch`,
-  `commit_sha`, `cli_version`
+- **To the Cloud API** (paid tier, `POST /api/v1/runs`, the
+  `SubmissionPayload`): per-policy `policy_id`, `control_id`, pass/fail,
+  severity, `resources_evaluated`, `resources_failed`, `message`
+  (count-based, no IDs), `category`, `remediation`; run summary
+  (total/passed/failed/skipped, compliance score); environment (`ci`,
+  `ci_provider`, `repository`, `branch`, `commit_sha`, `cli_version`).
+- **Stays in customer storage, always:** raw API responses, PDF bytes,
+  full violation lists with identifiers, ephemeral public key +
+  signature, per-run `manifest.json`.
 
-The submission type is **structurally** counts-only — no `map[string]any`,
-no `Violations` slice. The wire format is physically incapable of
-carrying ARNs, emails, file hashes, or any identity.
-
-What stays in customer storage (always):
-- Raw API responses, PDF bytes, full violation lists with resource
-  identifiers, ephemeral public key + signature, per-run `manifest.json`.
-
-The aggregator/submitter is where this contract lives. Rails strong-params
-live under `Api::V1::RunsController` in `../sigcomply/`. If you touch one
-side, check the other.
+The submission type is **structurally** counts-only — no
+`map[string]any`, no `Violations` slice — so the wire format physically
+cannot carry identity. A reflection test in `core/cloud_test.go` fails
+the build if a freeform field is added. Rails strong-params under
+`Api::V1::RunsController` (`../sigcomply/`) are the second-layer
+allow-list. Touch one side → check the other.
 
 ### 2. Two — and only two — evidence flows
 
-Every policy declares `evidence_mode: automated | manual` in its spec.
-This is an **explicit first-class field**, not inferred from slot types or
-from which evidence types are accepted. The evaluator branches on exactly
-this field and nothing else.
+Every policy declares `evidence_mode: automated | manual` as an
+**explicit first-class field** — never inferred from slot types, accepted
+evidence types, or presence of a `rule:`. The evaluator branches on this
+field and nothing else. Missing → fail validation at load (exit 3); never
+default silently.
 
-- **Automated**: Planner binds configured API source plugins to the
-  policy's slots → collector calls `plugin.Collect()` → records validated
-  against evidence-type schemas → evaluator runs the `pass_when:` DSL
-  condition (primary path) or the `rule:` escape hatch.
-- **Manual**: Planner binds `manual.pdf` to an implicit slot, resolving
-  the PDF path via `catalog_entry` → collector fetches and validates the
-  PDF → evaluator runs the universal PDF-presence check: `file_present`,
-  `in_temporal_window`, `file_valid`. `pass_when:` and `rule:` are ignored
-  entirely for manual policies.
+- **Automated:** planner binds API source plugins to slots → collector
+  calls `plugin.Collect()` → records validated against evidence-type
+  schemas → evaluator runs the `pass_when:` DSL (primary) or `rule:`
+  escape hatch.
+- **Manual:** planner binds `manual.pdf` to an implicit slot, resolving
+  the path via `catalog_entry` → collector fetches/validates the PDF →
+  evaluator runs the universal PDF-presence check (`file_present`,
+  `in_temporal_window`, `file_valid`). `pass_when:`/`rule:` are ignored.
 
-Projects can override the framework's `evidence_mode` default for any
-policy via `policy_overrides` in `.sigcomply.yaml`. This is the mechanism
-for customers who rely on manual processes today and plan to wire up API
-integrations later — the policy ID stays the same; the audit trail shows
-`evidence_mode` so auditors see which path was used.
+Projects can override the framework's `evidence_mode` default per policy
+via `policy_overrides` in `.sigcomply.yaml` (same policy ID; audit trail
+records which path ran) — the migration path for customers on manual
+processes today who wire up APIs later.
 
-There are no `checklist` / `declaration` / `document_upload` sub-types in
-the evaluator. The catalog YAML keeps `type`, `items`, `declaration_text`
-as **descriptive hints** — the optional Evidence SPA helper uses them to
-render a clickable form for declaration/checklist entries; the CLI ignores
-them entirely. Externally-sourced PDFs (HR exports, scanned documents,
-third-party reports) are consumed the same way regardless of the hints.
+There are **no** `checklist`/`declaration`/`document_upload` sub-types in
+the evaluator. Catalog `type`/`items`/`declaration_text` are descriptive
+hints the optional Evidence SPA uses to render a clickable form; the CLI
+ignores them. Externally-sourced PDFs (HR exports, scans, third-party
+reports) flow through the same path.
 
-#### Manual evidence design contract — what we do, what we don't
+#### Manual evidence contract (read before touching `internal/sources/manual/` or `internal/evaluator/manual_check.go`)
 
-This is a deliberate, load-bearing design choice. Read this whole block
-before changing anything in `internal/sources/manual/` or the manual
-PDF-presence check (`internal/evaluator/manual_check.go` — a Go check,
-not a Rego rule).
+**What the CLI does (v1):** for the catalog-resolved folder
+`{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/` —
 
-**What the CLI does (v1):**
+1. **Folder-scan**; no files → fail with a structured "expected files in: <folder>".
+2. **Classify by extension** (PDF, JPEG, PNG, GIF, TIFF, WebP, BMP).
+   Unsupported (e.g. `.docx`) → `unsupported_file_type` in
+   `validation_failures`; none supported → `file_valid=false`.
+3. **Fetch, SHA-256 the original bytes, convert images to PDF** via
+   `fileconv.ToPDF` (pure-Go); record a per-file audit entry in
+   `source_files`.
+4. **Merge** all PDF parts via `pdfmerge.Merge` (pdfcpu).
+5. **Cheap sanity checks** (`validatePDF` in `manual.go`): min size,
+   `%PDF-` magic prefix, ≥1 `/Page` object. Stdlib-only, no PDF parser.
+6. **Temporal window:** latest upload timestamp must lie in
+   `[period_start, period_end + grace]`.
+7. **Prior-period duplication:** if planner supplied `prior_period_id`,
+   compute a `sourceFingerprint` (SHA-256 of sorted `filename:sha256`);
+   byte-identical to prior → `copy_paste_of_prior_period`. Missing prior
+   folder is not a failure.
+8. **Sign** the manifest with a fresh ephemeral keypair (Invariant #3).
 
-1. **Folder-scans** the catalog-resolved folder under the project's
-   single manual-evidence bucket:
-   `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/`.
-   No files found → policy fails with a structured "expected files in:
-   <folder>" message.
-2. **Classifies** each file by extension. Supported: PDF, JPEG, PNG,
-   GIF, TIFF, WebP, BMP. Unsupported extensions (e.g. `.docx`) surface
-   as `unsupported_file_type` in `validation_failures` so CI operators
-   see an actionable error message. If no supported files remain after
-   filtering, `file_valid` is set to `false` immediately.
-3. **Fetches, hashes, converts**: each supported file is fetched;
-   its original bytes are SHA-256-hashed; images are converted to PDF
-   via `fileconv.ToPDF` (pure-Go, no external process). A per-file
-   audit record (filename, type, original hash, upload time, converted
-   flag) is added to `source_files` in the manifest.
-4. **Merges** all PDF parts into one via `pdfmerge.Merge` (pdfcpu).
-5. **Cheap sanity checks** on the merged PDF (in
-   `internal/sources/manual/manual.go` `validatePDF`): minimum file
-   size, `%PDF-` magic-bytes prefix, presence of at least one `/Page`
-   object. Failures land in `validation_failures` and flip `file_valid`
-   to `false`. Stdlib-only — no PDF parser dependency.
-6. **Temporal window check**: the *latest* upload timestamp across all
-   source files must lie in `[period_start, period_end + grace]`.
-   Outside → policy fails.
-7. **Prior-period duplication check**: if the planner supplied
-   `prior_period_id`, the plugin lists the prior-period folder, hashes
-   each supported file, and computes a `sourceFingerprint` (SHA-256 of
-   sorted `filename:sha256` pairs). A byte-identical fingerprint between
-   the current and prior period surfaces as `copy_paste_of_prior_period`
-   in `validation_failures`. Missing prior folder is **not** a failure
-   (first run, or no prior period).
-8. **Signs** the manifest (canonical JSON of `{timestamp, evidence}`)
-   with a fresh ephemeral Ed25519 keypair (see Invariant #3).
+**What it explicitly does NOT do** (all deliberate — content review is
+the auditor's job): no PDF content audit / text extraction / signature
+or expiry parsing; no semantic-correctness check (wrong-but-valid PDF
+passes); no scope/completeness check; no fraud detection.
 
-**What the CLI explicitly does NOT do:**
-
-- **No PDF content audit.** No text extraction. No
-  `signed_by` / `signed_date` parsing. No expiry-date detection. No
-  page-count beyond "is there at least one `/Page` token in the byte
-  stream." This is deliberate — content review is the auditor's job.
-- **No semantic correctness check.** A PDF that satisfies all sanity
-  checks but is the *wrong* document (last quarter's by mistake, an
-  internally-different-dated file, a PDF unrelated to the policy) will
-  pass. The auditor catches this when reading the documents.
-- **No scope/completeness check.** "Access review covers 40 users when
-  production has 120" is the most common SOC 2 audit finding industry-
-  wide and remains undetectable by this design — comparing the
-  document's population to live automated evidence is a future
-  cross-reference feature, not v1.
-- **No signature-inside-PDF detection.** Whether a board minute has
-  attendee signatures, whether an NDA is countersigned, etc., is not
-  inspected.
-- **No fraud detection.** A determined customer who wants to fabricate
-  manual evidence can produce a PDF that satisfies every check above.
-  That is and remains the auditor's job (and identifying such customers
-  is the auditor's livelihood, not the CLI's).
-
-**Why this is the right v1 — and the wrong place to "fix" later
-without thought.**
-
-- The product positions itself as **custody-of-evidence**, not
-  content-validator. Vanta and Drata shipped this exact model for a
-  decade; Secureframe (2025) and Hyperproof (2026) added AI evidence
-  validation only by sending customer PDFs to a cloud LLM — which
-  breaks "evidence without access," our core differentiator.
-- Auditors do not delegate substantive content review to compliance
-  tools. They read the documents. The CLI's value-add over Vanta/Drata
-  is the cryptographically-signed timeline of when each PDF existed at
-  each path — not deeper-than-them content inspection.
-- Any future check that requires reading PDF contents must stay inside
-  the CLI process (never exfiltrated). Anything richer than the v1
-  byte-level checks belongs in a follow-up plugin or a `manual.pdf.v2`,
-  not in shortcuts inside `validatePDF`.
-
-**Catalog-driven "this should change every period" is implicit.**
-The prior-period duplication check fires for every manual catalog
-entry. For genuinely-static evidence (a one-time signed declaration
-that doesn't change between periods), customers use exception
-declarations in `.sigcomply.yaml` rather than disabling the check. We
-have not added a `unique_per_period: bool` catalog field — every
-catalog entry shipped today (only `access_review_quarterly` so far) is
-expected to differ each period. Add the catalog flag only when a real
-catalog entry needs the override.
+**Why v1 stops here:** the product is custody-of-evidence, not
+content-validator. Richer inspection (text extraction, etc.) is exactly
+what breaks "evidence without access" the moment it pulls in a
+network-aware dep, and belongs in a separate opt-in path or a
+`manual.pdf.v2` — **never** as shortcuts inside `validatePDF`. The
+prior-period check fires for every manual entry; genuinely-static
+evidence uses exception declarations in `.sigcomply.yaml`, not a catalog
+flag (no `unique_per_period` field exists — add only when a real entry
+needs it).
 
 ### 3. Per-file ephemeral signing + signed run manifest
 
-A fresh Ed25519 keypair is generated **per evidence file**, never per run.
-Private key is discarded the instant the signature is computed; public key
-+ signature live inside the file (`EvidenceEnvelope`). Signing covers
-canonical JSON of `{timestamp, evidence}` — not a SHA-256 hash. The PDF
-itself is hashed (SHA-256) only because the manual manifest references the
-hash; the envelope still signs the manifest, not the hash.
+A fresh Ed25519 keypair per **evidence file** (never per run); private
+key discarded the instant the signature is computed; public key +
+signature live in the file (`EvidenceEnvelope`). Signing covers canonical
+JSON of `{timestamp, evidence}` — **not** a SHA-256 hash. The PDF is
+SHA-256-hashed only so the manifest can reference it; the envelope still
+signs the manifest.
 
-In addition, each run writes a `manifest.json` carrying `file_hashes` for
-every file in the run folder (a single-level Merkle table). That manifest
-is itself signed with its own ephemeral keypair, so a single signature
-covers the integrity of the entire run. Per-file signatures still allow
-spot-checking any one envelope offline; the run manifest lets an auditor
-verify the run as a whole.
+Each run also writes a `manifest.json` of `file_hashes` for the whole run
+(single-level Merkle), itself signed with its own ephemeral keypair — so
+one signature covers run-wide integrity while per-file signatures stay
+independently spot-checkable.
 
-**Threat model — be precise about what this protects against.**
+**Threat model.** *Detects:* accidental envelope corruption; a PDF
+swapped while the envelope is left intact (manifest hash mismatch);
+post-run manifest modification. *Does NOT detect (by design):* a customer
+with vault write access regenerating envelope+PDF with a fresh keypair
+(the public key lives inside the envelope — indistinguishable from
+original fabrication); evidence fabricated at upload time and signed
+legitimately (the CLI signs what it reads).
 
-- **Detects** (in scope):
-  - Accidental corruption of an envelope after the run (bit rot, a
-    sync tool truncating a file).
-  - A PDF swapped in place while the original envelope is left
-    intact — the manifest's `file_hash` won't match the new bytes.
-  - Modification of the per-run manifest after the run (it's signed
-    too).
-- **Does NOT detect** (out of scope, by design):
-  - A determined customer with vault write access who regenerates the
-    envelope + PDF together with a fresh ephemeral keypair. The public
-    key lives inside the envelope, so any new keypair produces a
-    cryptographically-valid envelope. This is indistinguishable from
-    original fabrication.
-  - A customer who fabricates evidence at upload time and signs it
-    legitimately during the run. The CLI signs what it reads; it
-    cannot verify reality.
-
-**Customer-side requirement for true tamper-resistance.** For an
-auditor to trust that "this envelope hasn't been re-signed since the
-run," the bucket holding the vault must be **write-once or
-version-controlled at the storage layer**. The CLI does not configure
-this. Recommended customer setup:
-
-- **S3**: Object Lock in compliance mode with a retention period
-  matching audit retention (typically 7 years), or bucket versioning
-  with MFA delete.
-- **GCS**: Object Versioning + retention policies, or Bucket Lock.
-- **Azure Blob**: Immutable storage with time-based retention
-  policies.
-- **Local filesystem**: not suitable for production audit retention —
-  only for `sigcomply check` ad-hoc runs and CI ephemeral storage.
-
-When this customer-side setup is **not** in place, the signing scheme
-still detects accidental drift, but cannot defend against deliberate
-re-signing. Make this explicit in customer-facing docs and in the
-auditor-handoff guide. Do not claim tamper-resistance the design does
-not deliver.
+**Customer-side requirement for real tamper-resistance:** the vault
+bucket must be write-once / version-controlled at the storage layer (S3
+Object Lock or versioning + MFA delete; GCS Object Versioning + retention
+or Bucket Lock; Azure immutable storage; local FS is dev/CI-ephemeral
+only). The CLI does not configure this. Without it the scheme still
+detects accidental drift but not deliberate re-signing — say so in
+customer/auditor docs; never claim tamper-resistance the design doesn't
+deliver.
 
 ### 4. Source-agnostic policies via evidence-type contracts
 
-Policies and source plugins never reference each other directly. The
-evidence-type registry is the **sole** mediator between the two.
+Policies and source plugins never reference each other. The evidence-type
+registry is the **sole** mediator.
 
-- **Policies declare `slots.<name>.accepts: [<type_id>, ...]`** — the
-  set of evidence type IDs the slot consumes. There is no `source:`
-  field anywhere in a policy spec.
-- **Source plugins declare `Emits() []string`** — the set of types
-  they can produce. They never know which policies (if any) consume
-  their records; `SlotRequest.PolicyID` is a diagnostic-only tag.
-- **The planner matches sources to slots by intersection:**
-  `source.Emits() ∩ slot.Accepts ≠ ∅`. An empty intersection is a
+- Policies declare `slots.<name>.accepts: [<type_id>, ...]`. There is no
+  `source:` field in a policy spec.
+- Source plugins declare `Emits() []string`. They never know which
+  policies consume them; `SlotRequest.PolicyID` is diagnostic-only.
+- The planner matches by intersection (`Emits() ∩ Accepts ≠ ∅`); empty →
   plan-time error (exit 3).
-- **The collector validates every emitted payload** against the
-  registered JSON Schema for `record.Type` before signing. A
-  schema-conformance failure is a configuration error
-  (>5% in one call → exit 3 for that policy), not a silent pass.
+- The collector validates every payload against the registered JSON
+  Schema for `record.Type` before signing (>5% failure in one call →
+  exit 3 for that policy).
 
-**Consequence (the substitutability property).** Adding a new source
-for an existing evidence type requires **zero policy changes** —
-write the plugin, drop a config block in `.sigcomply.yaml`, done.
-Adding a new evidence type to an existing slot's `Accepts` list (e.g.
-extending a storage-encryption policy from AWS-only to AWS+GCP) is
-one line of YAML. The canonical worked example: MFA enforced on admin
-users, satisfied by AWS IAM, Okta, Azure AD, or a customer's internal
-LDAP — one policy spec, four different bindings in four different
-projects, zero forks.
-
-Full design: [`docs/architecture/04a-evidence-type-registry.md`](./docs/architecture/04a-evidence-type-registry.md)
-and [`docs/architecture/01-conceptual-model.md`](./docs/architecture/01-conceptual-model.md)
-§Axiom 1.
+**Substitutability:** adding a new source for an existing type needs zero
+policy changes; extending a slot's `accepts:` is one line of YAML.
+Canonical example: "MFA enforced on admins" satisfied by AWS IAM / Okta /
+Azure AD / internal LDAP — one spec, four bindings, zero forks. Full
+design: [`docs/architecture/04a-evidence-type-registry.md`](./docs/architecture/04a-evidence-type-registry.md),
+[`docs/architecture/01-conceptual-model.md`](./docs/architecture/01-conceptual-model.md) §Axiom 1.
 
 ### 5. Two-axis cadence: scheduling state is mutable, audit evidence is not
 
-Every policy evaluation lives on two orthogonal axes:
-
-- **Cadence** — "should we re-evaluate this policy now?" — per-policy
-  scheduling concern. The state lives in `state/{framework}/policies/
-  {policy_id}.json`, is mutable, is NEVER signed, is NEVER an audit
-  deliverable. Loss is recoverable (next run treats as first-run).
-- **Period** — "what audit window does this run's evidence belong to?"
-  — per-run compliance concern. Frozen at run-start by the planner;
-  every policy in the run shares the same `period_id`. No mid-run
+- **Cadence** — "re-evaluate now?" Per-policy scheduling. State in
+  `state/{framework}/policies/{policy_id}.json`: mutable, NEVER signed,
+  NEVER an audit deliverable, loss recoverable (next run = first-run).
+- **Period** — "which audit window?" Per-run, frozen at run-start by the
+  planner; every policy in a run shares one `period_id`. No mid-run
   rollover, ever.
 
-The decision rule for each policy in each run is strictly layered (see
-[`docs/architecture/11-cadence-model.md`](./docs/architecture/11-cadence-model.md)
-§The decision rule):
+Per-policy decision rule (strictly layered — full design in
+[`docs/architecture/11-cadence-model.md`](./docs/architecture/11-cadence-model.md)):
+explicit operator filter → evaluate; PolicyStates nil → evaluate; prior
+state nil → evaluate (first-run); content-hash changed → evaluate; prior
+terminal status ≠ pass → evaluate; `now - LastPassAt >= CadenceInterval`
+→ evaluate; else carry-forward (pointer to the prior signed envelope, no
+re-sign).
 
-1. Operator filter explicit (`--policies`, `--cadences`) → evaluate.
-2. PolicyStates nil (Manual/PR mode) → evaluate.
-3. Prior state nil (never run) → evaluate, surface as first-run.
-4. Policy content-hash changed (bundle/schema bump) → evaluate.
-5. Prior terminal status was NOT pass → evaluate (on_fail_retry).
-6. `now - LastPassAt >= CadenceInterval` → evaluate.
-7. Else → carry-forward result (small pointer to the prior signed
-   envelope; no new signature, no new envelope).
-
-**Consequences worth knowing.**
-
-- The cadence DSL is `continuous|hourly|daily|weekly|monthly|quarterly|annual`
-  OR `every:<duration>` (5-minute floor). No cron strings. `every:24h`
-  ≠ `daily` (the former drifts; the latter is wall-clock-anchored
-  with cron-drift slack).
-- Carry-forward results inherit trust from the original envelope's
-  signature — the CLI does not re-sign them. The auditor verifies
-  the original at `CarryForward.LastEnvelopeRef`.
-- Cloud submission v2 (`sigcomply.cloud.v2`) carries
-  `ConfiguredCadence`, `LastEvaluatedAt`, `NextDueAt`,
-  `IsCarriedForward`, `PolicyContentHash` per policy — all
-  non-identifying scalars. The structural counts-only test in
-  `core/cloud_test.go` continues to enforce no identity-carrying
-  field can be added.
-- State writes use a monotonic guard:
-  `accept iff new.LastRunAt > existing.LastRunAt OR (equal AND new.LastRunID > existing.LastRunID)`.
-  Concurrent CI runs cannot regress state.
+Worth knowing: cadence DSL is
+`continuous|hourly|daily|weekly|monthly|quarterly|annual` OR
+`every:<duration>` (5-min floor, no cron strings — `every:24h` drifts,
+`daily` is wall-clock-anchored). Carry-forward inherits trust from the
+original signature; the auditor verifies it at
+`CarryForward.LastEnvelopeRef`. Cloud v2 (`sigcomply.cloud.v2`) adds
+`ConfiguredCadence`/`LastEvaluatedAt`/`NextDueAt`/`IsCarriedForward`/`PolicyContentHash`
+(all non-identifying scalars; the counts-only test still guards). State
+writes use a monotonic guard (accept iff newer `LastRunAt`, or equal-and-
+greater `LastRunID`) so concurrent CI runs can't regress state.
 
 ---
 
-## CLI runtime architecture (summary)
+## Conventions & Code Smells
 
-Detailed flow + types live in [ARCHITECTURE.md](./ARCHITECTURE.md). The
-short version:
+Actionable do/don'ts. The *why* is in the invariants above — these are
+the patterns to catch in review.
 
-The orchestrator (`internal/orchestrator`, L9) wires the layered
-pipeline L3→L8:
-
-```
-sigcomply check
-  ├─ plan      (L3 planner):   read .sigcomply.yaml, bind sources to slots,
-  │                            freeze period, decide cadence per policy → RunPlan
-  ├─ collect   (L4 collector): automated → AWS / GCP / GitHub / Okta plugins → records
-  │                            manual    → read PDFs from manual-evidence storage → manifests
-  ├─ evaluate  (L5 evaluator): per evidence_mode → pass_when DSL | rule: (Go or Rego)
-  │                            | manual PDF-presence check → []PolicyResult
-  ├─ aggregate (L6):           reduce raw evidence to counts (the privacy boundary)
-  ├─ sign + store (L7 vault, --store / auto in CI): per-policy folders with signed
-  │                            envelopes + sibling PDFs + result.json + summary.json
-  └─ submit    (L8 submitter, paid tier): POST aggregated counts to /api/v1/runs
-```
-
-**Storage layout** (period-first under each framework):
-`{framework}/{period_id}/run_{timestamp}_{run_id_short}/policies/{policy_id}/...`
-plus `{framework}/{period_id}/summary.json` (rebuilt every run in that
-period, frozen when the next period starts).
-
-**Cadence scheduling state** lives outside the immutable evidence
-prefix at `state/{framework}/policies/{policy_id}.json` — one shard
-per policy, mutable, NOT signed, NOT under Object Lock. Loss of a
-state shard is recoverable (next run re-evaluates as first-run).
-The cadence DSL accepts the seven named values
-(`continuous`|`hourly`|`daily`|`weekly`|`monthly`|`quarterly`|`annual`)
-plus the `every:<duration>` escape hatch (`every:6h`, `every:90m`,
-floor 5m). See [docs/architecture/11-cadence-model.md](./docs/architecture/11-cadence-model.md)
-for the full design.
-
-**Manual evidence is a project-level singleton.** One project = one repo =
-one framework, so there is exactly one `manual.pdf` source per project and
-one bucket per project for manual uploads — never per-framework. Folder
-scheme: `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/`. Any number
-of files (PDF, JPEG, PNG, GIF, TIFF, WebP, BMP) may be placed in the
-folder; all are merged into one PDF before evaluation. Customers pursuing
-multiple frameworks (SOC 2 + ISO 27001) typically use multiple repos.
-
-**Manual-evidence reader backends are symmetric with vault backends.**
-Both axes ship the same four in-tree backends — `local`, `s3`, `gcs`,
-`azure_blob` — registered through self-registering factories. The `s3`
-manual reader supports on-prem S3-compatible stores (MinIO, Ceph, …)
-via `endpoint` + `force_path_style`, mirroring the vault s3 backend.
-Implementation note: the manual local reader lives inline in
-`internal/sources/manual/factory.go` rather than in its own
-subpackage; the three cloud backends live under
-`internal/sources/manual/{s3,gcs,azureblob}/` and are blank-imported
-through `internal/sources/manual/builtin`. This asymmetry is
-file-layout-only — the registration mechanism is identical for all
-four. Third parties add backends (SFTP, NFS, custom object stores)
-the same way, from `.sigcomply/plugins/<id>/` compiled in by
-`sigcomply build` (M16).
+- **Never send identifiers to the Cloud client.** `internal/core/cloud.go`
+  carries an explicit warning; respect it. (Inv #1)
+- **No source IDs in policy code; no policy IDs in source plugins.**
+  Branching on `record.SourceID`, or on `SlotRequest.PolicyID` for
+  behavior, breaks substitutability. Legitimate per-vendor branching uses
+  `record.Type`. The urge to add "this policy only works with AWS" /
+  "this plugin behaves differently for SOC 2" means an evidence-type
+  contract is missing — add the type or extend `accepts:`, not a special
+  case. (Inv #4)
+- **Design evidence-type schemas top-down from the semantic concept, not
+  from a vendor API.** Every field must be satisfiable by all plausible
+  sources without null/sentinel. The plugin owns 100% of
+  vendor→canonical translation; policy logic must never contain null
+  guards or source-type branches. If a second plugin forces a required
+  field to null, fix the schema. (The null-trap → null-guard → implicit
+  source dispatch is how this architecture fails silently. See
+  [`04a-evidence-type-registry.md`](./docs/architecture/04a-evidence-type-registry.md) §Schema design.)
+- **`pass_when:` is the primary path; `rule:` is the escape hatch.** ~95%
+  of checks are a quantifier (all/none/any/count) over a field condition
+  on one slot — that's `pass_when:`, no Go/Rego. Reach for `rule:` only
+  for cross-slot joins, complex aggregations, or what the DSL can't
+  express. Manual policies use neither.
+- **Don't invent evidence sub-types in the evaluator.** Only `automated`
+  and `manual` exist as flows; catalog `type` values are SPA hints. (Inv #2)
+- **Don't grow `validatePDF` into a parser.** Stdlib-only byte-level
+  sanity. Anything needing PDF *contents* goes in a separate opt-in path,
+  inside the customer process. (Inv #2)
+- **Don't sign hashes; per-file keypair, never per-run.** (Inv #3)
+- **Manual catalogs are generated in Go from one list per framework.**
+  Each framework's `manualSpecs()` (`policies_manual.go`) feeds both
+  `ManualCatalog()` (runtime path resolution) and `ManualCatalogExport()`
+  (SPA-facing, `internal/manualcatalog`) so policy and catalog metadata
+  can't drift. No embedded `catalogs/*.yaml`, no
+  `internal/core/manual/catalogs/`. The export shape must stay in lockstep
+  with `sigcomply-evidence-spa/src/types/catalog.ts`.
+- **Run paths use basic ISO 8601 (no colons):** `20260325T100000Z`, not
+  `2026-03-25T10:00:00Z` — some S3-compatible tools choke on colons.
+- **Framework YAML key is singular:** `framework: soc2`, never
+  `frameworks: [soc2]`.
+- **HIPAA isn't a thing yet.** No HIPAA examples in docs, no HIPAA
+  defaults in code paths — it's a stub string in `config.go` that fails
+  at runtime.
+- **Editing `cmd/sigcomply/check.go` flag descriptions** requires
+  matching updates in `docs/configuration.md` and the command table
+  below. `hipaa` is omitted from `--framework`'s help text.
 
 ---
 
-## File Structure
+## Code Organization
 
-The CLI is organized as a numbered layer stack (L0–L9). Each layer is
-its own package under `internal/`; `internal/orchestrator` (L9) wires
-them together for `sigcomply check`.
+Numbered layer stack **L0–L9**, one package each under `internal/`;
+`internal/orchestrator` (L9) wires L3→L8 for `sigcomply check`. Full tree
+and layer responsibilities: [ARCHITECTURE.md](./ARCHITECTURE.md) and
+[`docs/architecture/02-layers.md`](./docs/architecture/02-layers.md). The
+load-bearing rules:
 
-```
-sigcomply-cli/
-├── main.go                            # CLI entry
-├── cmd/sigcomply/                     # Cobra commands: check, init-ci, build,
-│                                      #   report, version (NO evidence command)
-│
-├── internal/
-│   ├── spec/                          # L0  spec parsers/validators (policy, config)
-│   ├── core/                          # L1  frozen interfaces + shared types
-│   │                                  #     (Policy, EvidenceRecord, EvidenceEnvelope,
-│   │                                  #      PolicyResult, manifest, summary, pass_when,
-│   │                                  #      cloud SubmissionPayload, vault iface, enums)
-│   ├── registry/                      # L2  in-process catalogs (frameworks, policies,
-│   │                                  #     rules, sources, evidence types)
-│   ├── evidence_types/                # L1.5 embedded JSON-Schema registry + schemas/
-│   ├── planner/                       # L3  build RunPlan: bind sources↔slots, freeze
-│   │                                  #     period, decide cadence per policy
-│   ├── collector/                     # L4  run per-policy collection, validate records
-│   ├── evaluator/                     # L5  pass_when DSL + go_rule + rego_rule + manual_check
-│   ├── aggregator/                    # L6  reduce raw evidence → counts (privacy boundary)
-│   ├── vault/                         # L7  append-only storage: local/s3/gcs/azureblob
-│   │   └── {local,s3,gcs,azureblob}/  #     self-registering backend factories
-│   ├── submitter/                     # L8  optional cloud submission (POST /api/v1/runs)
-│   ├── orchestrator/                  # L9  wires L3→L8 for `check`; loads project-local exts
-│   ├── sign/                          # cross-cutting: per-file ephemeral Ed25519 signing
-│   ├── log/                           # cross-cutting: redaction logger
-│   ├── report/                        # report generation
-│   │
-│   ├── frameworks/                    # one self-contained package per framework
-│   │   ├── builtin/                   # blank-imports soc2 + iso27001 to self-register
-│   │   ├── soc2/                      # framework.go, controls.go, builders.go, rules.go,
-│   │   │                              #   policies_{cc6,cc7,cc8,a1_c1,manual}.go
-│   │   └── iso27001/                  # framework.go, controls.go, builders.go,
-│   │                                  #   policies_{5_organizational,8_technological,manual}.go
-│   │
-│   └── sources/                       # automated + manual evidence sources (plugins)
-│       ├── builtin/                   # blank-imports all source plugins to self-register
-│       ├── aws/                       # AWS collectors (60+ services)
-│       ├── gcp/                       # GCP collectors (iam, storage, compute, sql)
-│       ├── github/                    # GitHub collector (repos, members)
-│       ├── okta/                      # Okta directory_user collector
-│       └── manual/                    # PDF reader (manual flow) + {s3,gcs,azureblob}/ readers
-│
-├── examples/                          # CI/CD workflow examples
-├── .github/workflows/                 # CI + release automation
-└── scripts/                           # Build + dev scripts
-```
+1. **`internal/frameworks/<fw>/`** — each framework self-contained
+   (`framework.go`, `controls.go`, `builders.go`, `policies_*.go` grouped
+   by control family). Go-native `.policy()` builders, no `.rego` files.
+   Self-registers via factory; `frameworks/builtin` blank-imports.
+2. **`internal/sources/<vendor>/`** — separates "where we get data" from
+   "what we check". Each declares `Emits()`; the planner binds by
+   evidence-type intersection. `sources/builtin` blank-imports all. The
+   manual reader's `local` backend is inline in `factory.go`; `s3`/`gcs`/
+   `azureblob` are subpackages blank-imported via `manual/builtin` (a
+   file-layout asymmetry only — registration is identical, and symmetric
+   with the four vault backends).
+3. **`internal/core/`** (L1) — frozen interfaces + shared types. Never put
+   framework- or source-specific logic here.
 
-### Key organizational principles
-
-1. **frameworks/** — each framework is a self-contained package
-   (`framework.go` + `controls.go` + `builders.go` + `policies_*.go`).
-   Policies are Go-native `autoPolicy{...}.policy()` builders grouped by
-   control family (cc6, cc7, …) — there are no `.rego` policy files. Each
-   framework self-registers via a factory; `frameworks/builtin`
-   blank-imports them.
-2. **sources/** separates "where we get data" from "what we check". Each
-   plugin declares `Emits() []string`; the planner binds plugins to policy
-   slots by evidence-type intersection. `sources/builtin` blank-imports
-   every plugin.
-3. **core/** (L1) holds the frozen interfaces + shared types; the
-   numbered layers (`spec`→`submitter`) each own one pipeline stage. Don't
-   put framework- or source-specific logic in `core/`.
+**Manual evidence is a project-level singleton:** one repo = one
+framework, so exactly one `manual.pdf` source and one bucket per project
+(never per-framework). Multi-framework customers use multiple repos.
 
 ---
 
@@ -538,256 +346,77 @@ sigcomply-cli/
 | `sigcomply init-ci` | Wired | Scaffold CI workflow files calibrated to a framework's cadence distribution |
 | `sigcomply build` | Wired | Compile a project-tailored binary with `.sigcomply/` Go extensions |
 | `sigcomply report` | Wired | Read-only auditor snapshot of the vault |
-| `sigcomply evidence catalog` | Wired | Print the manual-evidence catalog (`-o text\|json`); `-o json` matches the Evidence SPA contract. Standalone — no project config needed. `-f/--framework` defaults to `$SIGCOMPLY_FRAMEWORK` then `soc2` |
-| `sigcomply version` | Wired | Print CLI version + commit + build time |
-| `sigcomply init` | Planned | Not yet in `cmd/sigcomply/root.go` |
-| `sigcomply evidence {init, path}` | Removed | The old period-scaffolding (`init`) and upload-URI (`path`) subcommands are not re-wired; only `catalog` returned |
-| `sigcomply collect` | Planned | Collect-only mode |
-| `sigcomply evaluate` | Planned | Evaluate stored evidence offline |
+| `sigcomply evidence catalog` | Wired | Print the manual-evidence catalog (`-o text\|json`); `-o json` matches the Evidence SPA contract. Standalone, no project config. `-f` defaults to `$SIGCOMPLY_FRAMEWORK` then `soc2` |
+| `sigcomply version` | Wired | Print version + commit + build time |
+| `sigcomply init` | Planned | Not yet in `root.go` |
+| `sigcomply collect` / `evaluate` | Planned | Collect-only / offline-evaluate modes |
+| `sigcomply evidence {init, path}` | Removed | Old period-scaffolding / upload-URI subcommands; only `catalog` returned |
 
-Note: `sigcomply evidence catalog` is the export path the Evidence SPA's
-`scripts/fetch-catalogs.ts` consumes. The catalog is generated
-per-framework in Go from each framework's manual policies — both the
-runtime `ManualCatalog()` (planner path resolution) and the descriptive
-`ManualCatalogExport()` (SPA-facing, in `internal/manualcatalog`) derive
-from one `manualSpecs()` list, so the policy and its catalog metadata
-cannot drift. The old `evidence init`/`path` subcommands were not
-re-added.
+Framework resolves from `SIGCOMPLY_FRAMEWORK` or `framework:` in config
+(default `soc2`), or `-f/--framework` on `check`.
 
-Framework comes from `SIGCOMPLY_FRAMEWORK` or `framework:` in the config
-file (default: `soc2`), or the `-f/--framework` flag on `check`.
+**Flags & config:** full flag list and `.sigcomply.yaml` schema in
+[docs/configuration.md](./docs/configuration.md). Gotchas: there is **no**
+`--quiet`/`--service`/`--collector`/`--fail-on-violation`/`--fail-severity`
+flag — `fail_on_violation` and `fail_severity` are config-file-only under
+`ci:`. **SARIF output is not wired** (it's in `SupportedOutputFormats`
+but no formatter exists); only `text`/`json`/`junit` work.
 
-### Flags actually wired on `sigcomply check`
+**Exit codes:** `0` passed · `1` violations · `2` execution error · `3`
+configuration error.
 
-```
--f, --framework string      Compliance framework (default empty → soc2)
--o, --output string         Output format: text, json, junit
-    --json-output string    Also write JSON to this file
--v, --verbose               Verbose output
-    --region string         AWS region
-    --store                 Persist evidence + results to configured storage
-    --storage-path string   Local storage path
-    --storage-backend       Storage backend (local, s3, gcs, azure_blob)
-    --cloud / --no-cloud    Force / disable Cloud submission
-    --github-org string     GitHub org (requires GITHUB_TOKEN)
-    --policies string       Comma-separated policy names to run
-    --controls string       Comma-separated control IDs to run
-    --config string         Path to config file (default .sigcomply.yaml)
-```
-
-There is no `--quiet`, `--service`, `--collector`, `--fail-on-violation`,
-or `--fail-severity` flag today — `fail_on_violation` and `fail_severity`
-are config-file-only fields under `ci:`. SARIF output is **not** yet
-wired (the format is in `SupportedOutputFormats` but no formatter
-exists).
-
-### Exit codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | All checks passed |
-| 1 | Violations found |
-| 2 | Execution error |
-| 3 | Configuration error |
-
-### Auto-detection
-
-- **Collectors**: from available credentials (`AWS_*`, `GITHUB_TOKEN`, GCP ADC)
-- **CI environment**: `GITHUB_ACTIONS`, `GITLAB_CI`, generic `CI`
-- **Cloud submission**: auto-enabled when an OIDC token is available in CI
+**Auto-detection:** collectors from credentials (`AWS_*`, `GITHUB_TOKEN`,
+GCP ADC); CI env from `GITHUB_ACTIONS`/`GITLAB_CI`/`CI`; Cloud submission
+auto-enables when an OIDC token is present in CI.
 
 ---
 
-## Configuration
+## Configuration (quick rules)
 
 Full reference: [docs/configuration.md](./docs/configuration.md).
 
-Quick rules:
-
-- YAML key for the framework is **singular** (`framework: soc2`), not a
-  list. There is no `frameworks:` field.
-- Precedence: CLI flags > env vars (`SIGCOMPLY_*`) > config file > defaults.
-- Storage backends: `local`, `s3`, `gcs`, `azure_blob`. The `s3` backend
-  also supports on-prem S3-compatible stores via `endpoint` +
-  `force_path_style`.
-- Manual evidence is a project-level singleton: one bucket per project
-  (not per-framework), configured once under `sources.manual.pdf`.
-- Cloud submission is OIDC-only (no API keys) and auto-enables in CI.
+- Framework key is **singular** (`framework: soc2`); no `frameworks:` field.
+- Precedence: CLI flags > env (`SIGCOMPLY_*`) > config file > defaults.
+- Storage backends: `local`, `s3`, `gcs`, `azure_blob`; `s3` supports
+  on-prem S3-compatible stores via `endpoint` + `force_path_style`.
+- Manual evidence is a project-level singleton — one bucket per project,
+  configured once under `sources.manual.pdf`.
+- Cloud submission is OIDC-only (no API keys), auto-enables in CI.
 
 ---
 
 ## Cross-Repo Integration Points
 
-When changing any of these in the CLI, check the corresponding place in
-the Rails app at `../sigcomply/`:
+When changing these in the CLI, check the matching place in the Rails app
+(`../sigcomply/`):
 
-| CLI side | Rails side | Contract |
-|----------|------------|----------|
+| CLI side | Rails / other side | Contract |
+|----------|--------------------|----------|
 | Aggregator / Submitter (`SubmissionPayload`) | `Api::V1::RunsController` (`POST /api/v1/runs`, strong params) | Counts-only run payload |
 | OIDC token helpers | Rails OIDC token validator | Token format, claim names (`repository`, `namespace_path`/`project_path`) |
-| Manual evidence catalog | SPA `scripts/fetch-catalogs.ts` (in `../sigcomply-evidence-spa/`) | The SPA pre-builds catalogs via `sigcomply evidence catalog --framework <fw> -o json`. The CLI's `ManualCatalogExport()` (`internal/manualcatalog`) emits the SPA's `Catalog`/`CatalogEntry` contract verbatim. Changing entry fields, the `type`/`items`/`declaration_text` shape, or the JSON tags here means updating `sigcomply-evidence-spa/src/types/catalog.ts`. |
+| Manual evidence catalog | SPA `scripts/fetch-catalogs.ts` | SPA pre-builds catalogs via `sigcomply evidence catalog --framework <fw> -o json`; `ManualCatalogExport()` emits the SPA's `Catalog`/`CatalogEntry` contract verbatim. Changing entry fields or JSON tags means updating `sigcomply-evidence-spa/src/types/catalog.ts`. |
 
 Older Rails CLI endpoints (`/api/v1/cli/policy_evaluations`,
-`compliance_status`, `heartbeat`, `health`) are legacy. New work goes
+`compliance_status`, `heartbeat`, `health`) are legacy — new work goes
 through `POST /api/v1/runs`.
 
 ---
 
-## Current Status
+## Not Yet Wired
 
-**Stage**: Active development — SOC 2 production-ready; ISO/IEC
-27001:2022 substantially built out (all 93 Annex A controls, ~97
-policies).
+(For "what's done", read the code — don't assume a feature exists because
+it's plausible.)
 
-**Done**:
-- Zero-config `sigcomply check` (auto-detect AWS)
-- AWS collector across 60+ services
-- GCP collector (IAM, Storage, Compute, SQL)
-- GitHub collector (repos, members)
-- Okta collector (`directory_user`)
-- Layered evaluator: `pass_when` declarative DSL (primary) + `rule:`
-  escape hatch (Go rules and inline OPA/Rego modules) + manual PDF check
-- Go-native policy libraries: SOC 2 (~115 policies, 39 controls) and
-  ISO 27001 (~97 policies, all 93 Annex A controls), both with manual
-  catalogs generated per-framework in Go
-- text / json / junit output formatters
-- Storage (vault) backends: local, S3 (incl. on-prem S3-compatible), GCS, Azure Blob
-- Per-file ephemeral Ed25519 signing + canonical JSON + signed run manifest
-- Manual evidence flow: per-framework catalog, period/grace logic, temporal + prior-period checks, sidecar mirroring
-- Framework `summary.json` (per-policy snapshot, automated/manual split, merge-with-prior)
-- SigComply Cloud client (`POST /api/v1/runs`, `sigcomply.cloud.v2`)
-- OIDC auth (GitHub Actions + GitLab CI)
-- Policy filtering (`--policies`, `--controls`)
-- Two-axis cadence model (cadence scheduling state + frozen audit period)
-- `sigcomply check`, `init-ci`, `build` (project-local Go extensions), `report`, `evidence catalog` commands
-- Per-framework manual-catalog export (`internal/manualcatalog`) consumed by the Evidence SPA
-- Release automation (auto-release via conventional commits, manual release, GoReleaser)
-- GitHub Actions reusable workflow
-- GitLab CI: an example pipeline at `examples/gitlab-ci.yml` users can copy. (A first-class GitLab CI component is not yet packaged.)
-- E2E test framework
-
-**Remaining**:
-- HIPAA framework (not started — placeholder string in `config.go` only)
+- HIPAA framework (stub string in `config.go` only)
 - `init`, `collect`, `evaluate`, `config` commands
 - Secret scanner
-- SARIF output formatter (config validates the format but no implementation)
-
----
-
-## Notes for AI Assistants
-
-- **Don't undo the aggregation boundary.** The Cloud client must never
-  send resource identifiers. `internal/core/cloud.go` carries an
-  explicit warning against adding a freeform metadata field. Respect it.
-- **Don't put source IDs inside policy code.** Policies declare
-  `slots.<name>.accepts: [...]`; they never name a plugin. A rule that
-  branches on `record.SourceID` to behave differently per plugin is a
-  code smell — it ties the policy to a specific source ID and breaks
-  Invariant #4. Legitimate per-vendor branching uses `record.Type`,
-  which the evidence-type registry guarantees.
-- **Don't put policy IDs inside source plugins.** A plugin's `Collect`
-  receives `SlotRequest.PolicyID` for diagnostics only; using it for
-  behavior branching breaks Invariant #4. Plugins emit records of
-  their declared types and stop there; what consumes them is not their
-  concern.
-- **The evidence-type registry is the sole coupling point.** If you
-  ever feel the urge to add a "this policy only works with AWS" or
-  "this plugin behaves differently for SOC 2" escape hatch, that's the
-  signal an evidence-type contract is missing. Add the type (see
-  [`docs/architecture/04a-evidence-type-registry.md`](./docs/architecture/04a-evidence-type-registry.md))
-  or extend an existing slot's `accepts:` list — not the special case.
-- **Design evidence-type schemas top-down from the semantic concept,
-  never bottom-up from a vendor's API.** Every field in a cross-vendor
-  schema must be satisfiable by all plausible implementations without
-  null or a placeholder sentinel. The source plugin owns 100% of the
-  vendor→canonical translation — policy Rego must never contain null
-  guards (`if record.field != null`) or source-type branches
-  (`record.type == "aws_iam_user"`). Both are symptoms of a schema
-  designed wrong. If writing a second plugin for an existing evidence
-  type requires setting a required field to null, fix the schema —
-  not the plugin. The null-trap antipattern (null field → Rego null
-  guard → implicit source dispatch → broken substitutability) is the
-  most common way this architecture fails silently. Full design
-  guidance: [`docs/architecture/04a-evidence-type-registry.md`
-  §Schema design](./docs/architecture/04a-evidence-type-registry.md).
-- **`evidence_mode: automated | manual` is an explicit first-class
-  field on every policy spec — never infer it.** Do NOT detect
-  evidence mode by checking whether any slot accepts `signed_document`
-  (that is the old implicit pattern in `defaultOnPush` in
-  `internal/spec/policy.go` — it is being replaced). Do NOT guess
-  mode from slot types or absence of a `rule:` field. `evidence_mode`
-  is declared explicitly in every `policy.yaml`. If it is missing,
-  fail validation at load time (exit 3) — not silently defaulting to
-  automated.
-- **`pass_when:` is the primary evaluation path for automated
-  policies — `rule:` is the escape hatch.** ~95% of compliance
-  checks reduce to a quantifier (all/none/any/count) over a field
-  condition on a single slot. That is exactly what `pass_when:`
-  handles without writing a single line of Go or Rego. Never write a
-  per-policy rule function or Rego rule when the logic fits
-  `pass_when:`. Reach for `rule:` only for cross-slot joins, complex
-  aggregations, or logic the DSL cannot express. Manual policies
-  (`evidence_mode: manual`) never use `pass_when:` or `rule:` — the
-  universal PDF presence check (Path A in the L5 evaluator) runs
-  unconditionally for all of them.
-- **Don't invent evidence sub-types in the evaluator.** The evaluator
-  only knows `automated` and `manual` as the *flow* dimension.
-  Catalog `type` values like `declaration`, `checklist`,
-  `document_upload` are descriptive hints (used by the optional
-  Evidence SPA helper to decide whether to render a clickable form) —
-  the CLI ignores them.
-- **Don't add PDF-content checks to `validatePDF`.** That function is
-  stdlib-only, byte-level sanity (size, magic, `/Page` presence,
-  prior-period hash equality). Anything that requires understanding
-  PDF *contents* — text extraction, signature dictionaries, embedded
-  date checks — belongs in a separate, opt-in code path and stays
-  inside the customer process. Don't quietly grow `validatePDF` into a
-  parser; it will mask its own failures and break the
-  "evidence-without-access" promise the moment the parser pulls in a
-  network-aware dep. See Invariant #2 §"What the CLI explicitly does
-  NOT do."
-- **Don't sign hashes.** Signing covers canonical JSON of
-  `{timestamp, evidence}`. SHA-256 is used only to identify the manual
-  PDF inside the manifest, not as the signing input.
-- **Per-file keypair, never per-run.** A run can collect dozens of evidence
-  files — each gets its own Ed25519 keypair, and the private key is
-  discarded immediately. The per-run `manifest.json` is also signed (with
-  its own ephemeral keypair) and covers `file_hashes` for the whole run —
-  but each envelope is still independently verifiable on its own.
-- **HIPAA isn't a thing yet.** Don't add HIPAA examples to docs. Don't
-  put HIPAA defaults into code paths. The string lives in `config.go`'s
-  supported list as a stub; selecting it currently fails at runtime.
-- **Framework yaml key is singular.** `framework: soc2`, not `frameworks: [soc2]`.
-- **Both frameworks have manual catalogs, generated in Go.** Each
-  framework's `manualSpecs()` (in
-  `internal/frameworks/<fw>/policies_manual.go`) is the single authoring
-  list; `ManualCatalog()` (runtime path resolution) and
-  `ManualCatalogExport()` (SPA-facing, `internal/manualcatalog`) both
-  derive from it, so the policy and its catalog metadata can't drift.
-  There are **no** embedded `catalogs/*.yaml` files and no
-  `internal/core/manual/catalogs/` directory. The export is what
-  `sigcomply evidence catalog -o json` prints for the Evidence SPA — its
-  shape must stay in lockstep with
-  `sigcomply-evidence-spa/src/types/catalog.ts`.
-- **Run paths use basic ISO 8601 timestamps.** No colons in the path —
-  `20260325T100000Z`, not `2026-03-25T10:00:00Z`. Some S3-compatible
-  tools choke on colons.
-- **Policies are Go, not Rego — count `.policy()` builders, not files.**
-  There are no `.rego` policy files. To count a framework's policies,
-  count `.policy()` builder calls in `internal/frameworks/<fw>/
-  policies_*.go`. OPA/Rego appears only in `internal/evaluator/
-  rego_rule.go` (the inline-module `rule:` escape hatch).
-- **Avoid editing `cmd/sigcomply/check.go` flag descriptions** without
-  reflecting the change in `docs/configuration.md` and the table above.
-  `hipaa` is omitted from `--framework`'s public help text since there
-  is no `hipaa/` package yet, but `SupportedFrameworks` in `config.go`
-  still accepts it as a stub value.
+- SARIF output formatter (config validates the format; no implementation)
+- First-class GitLab CI component (only an example pipeline at
+  `examples/gitlab-ci.yml` to copy)
 
 ---
 
 ## Resources
 
-- Open Policy Agent: https://www.openpolicyagent.org/
-- Rego language: https://www.openpolicyagent.org/docs/latest/policy-language/
-- SOC 2: https://www.aicpa.org/soc
-- ISO 27001: https://www.iso.org/isoiec-27001-information-security.html
+- Open Policy Agent: https://www.openpolicyagent.org/ · Rego: https://www.openpolicyagent.org/docs/latest/policy-language/
+- SOC 2: https://www.aicpa.org/soc · ISO 27001: https://www.iso.org/isoiec-27001-information-security.html
