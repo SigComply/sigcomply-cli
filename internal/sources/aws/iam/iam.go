@@ -43,7 +43,15 @@ type API interface {
 	ListUsers(ctx context.Context, params *awsiam.ListUsersInput, optFns ...func(*awsiam.Options)) (*awsiam.ListUsersOutput, error)
 	ListMFADevices(ctx context.Context, params *awsiam.ListMFADevicesInput, optFns ...func(*awsiam.Options)) (*awsiam.ListMFADevicesOutput, error)
 	ListAccessKeys(ctx context.Context, params *awsiam.ListAccessKeysInput, optFns ...func(*awsiam.Options)) (*awsiam.ListAccessKeysOutput, error)
+	ListAttachedUserPolicies(ctx context.Context, params *awsiam.ListAttachedUserPoliciesInput, optFns ...func(*awsiam.Options)) (*awsiam.ListAttachedUserPoliciesOutput, error)
+	ListGroupsForUser(ctx context.Context, params *awsiam.ListGroupsForUserInput, optFns ...func(*awsiam.Options)) (*awsiam.ListGroupsForUserOutput, error)
+	ListAttachedGroupPolicies(ctx context.Context, params *awsiam.ListAttachedGroupPoliciesInput, optFns ...func(*awsiam.Options)) (*awsiam.ListAttachedGroupPoliciesOutput, error)
 }
+
+// adminPolicyName is the AWS-managed policy that grants full
+// administrative access. A user holding it directly or via a group is
+// treated as an admin for MFA-on-admins coverage.
+const adminPolicyName = "AdministratorAccess"
 
 // Plugin is the in-process aws.iam source.
 type Plugin struct {
@@ -131,6 +139,9 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	}
 	records := make([]core.EvidenceRecord, 0, len(users))
 	now := p.now()
+	// groupAdmin memoizes per-group admin lookups within this Collect call
+	// (many users share groups); nothing is cached across Collect calls.
+	groupAdmin := map[string]bool{}
 	for i := range users {
 		u := &users[i]
 		mfa, err := p.userHasMFA(ctx, u)
@@ -141,11 +152,15 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		if err != nil {
 			return nil, fmt.Errorf("aws.iam: access keys for user %s: %w", safeUserName(u), err)
 		}
+		isAdmin, err := p.userIsAdmin(ctx, u, groupAdmin)
+		if err != nil {
+			return nil, fmt.Errorf("aws.iam: admin check for user %s: %w", safeUserName(u), err)
+		}
 		payload := userPayload{
 			ID:                    safeUserID(u),
 			DisplayName:           safeUserName(u),
 			MFAEnabled:            mfa,
-			IsAdmin:               false, // admin detection (admin group / AdministratorAccess) is deferred
+			IsAdmin:               isAdmin,
 			IsActive:              true,  // IAM list calls only return active users
 			IsRoot:                false, // ListUsers never returns the account root user
 			HasConsoleAccess:      u.PasswordLastUsed != nil,
@@ -220,6 +235,118 @@ func (p *Plugin) userHasActiveAccessKey(ctx context.Context, u *iamtypes.User) (
 		}
 	}
 	return false, nil
+}
+
+// userIsAdmin reports whether the user holds AdministratorAccess either
+// attached directly or via any group they belong to.
+func (p *Plugin) userIsAdmin(ctx context.Context, u *iamtypes.User, groupAdmin map[string]bool) (bool, error) {
+	name := safeUserName(u)
+	if name == "" {
+		return false, nil
+	}
+	direct, err := p.userHasAdminPolicyDirect(ctx, name)
+	if err != nil {
+		return false, err
+	}
+	if direct {
+		return true, nil
+	}
+	return p.userHasAdminViaGroup(ctx, name, groupAdmin)
+}
+
+func (p *Plugin) userHasAdminPolicyDirect(ctx context.Context, user string) (bool, error) {
+	var marker *string
+	for {
+		out, err := p.api.ListAttachedUserPolicies(ctx, &awsiam.ListAttachedUserPoliciesInput{
+			UserName: &user,
+			Marker:   marker,
+		})
+		if err != nil {
+			return false, err
+		}
+		if attachedHasAdmin(out.AttachedPolicies) {
+			return true, nil
+		}
+		if out.IsTruncated && out.Marker != nil {
+			marker = out.Marker
+			continue
+		}
+		return false, nil
+	}
+}
+
+func (p *Plugin) userHasAdminViaGroup(ctx context.Context, user string, groupAdmin map[string]bool) (bool, error) {
+	var marker *string
+	for {
+		out, err := p.api.ListGroupsForUser(ctx, &awsiam.ListGroupsForUserInput{
+			UserName: &user,
+			Marker:   marker,
+		})
+		if err != nil {
+			return false, err
+		}
+		for i := range out.Groups {
+			g := safeGroupName(&out.Groups[i])
+			if g == "" {
+				continue
+			}
+			admin, ok := groupAdmin[g]
+			if !ok {
+				admin, err = p.groupHasAdminPolicy(ctx, g)
+				if err != nil {
+					return false, err
+				}
+				groupAdmin[g] = admin
+			}
+			if admin {
+				return true, nil
+			}
+		}
+		if out.IsTruncated && out.Marker != nil {
+			marker = out.Marker
+			continue
+		}
+		return false, nil
+	}
+}
+
+func (p *Plugin) groupHasAdminPolicy(ctx context.Context, group string) (bool, error) {
+	var marker *string
+	for {
+		out, err := p.api.ListAttachedGroupPolicies(ctx, &awsiam.ListAttachedGroupPoliciesInput{
+			GroupName: &group,
+			Marker:    marker,
+		})
+		if err != nil {
+			return false, err
+		}
+		if attachedHasAdmin(out.AttachedPolicies) {
+			return true, nil
+		}
+		if out.IsTruncated && out.Marker != nil {
+			marker = out.Marker
+			continue
+		}
+		return false, nil
+	}
+}
+
+// attachedHasAdmin reports whether any attached managed policy is
+// AdministratorAccess (by name — the AWS-managed policy name is stable).
+func attachedHasAdmin(policies []iamtypes.AttachedPolicy) bool {
+	for i := range policies {
+		if policies[i].PolicyName != nil && *policies[i].PolicyName == adminPolicyName {
+			return true
+		}
+	}
+	return false
+}
+
+func safeGroupName(g *iamtypes.Group) string {
+	if g == nil || g.GroupName == nil {
+		return ""
+	}
+	return *g.GroupName
 }
 
 func safeUserName(u *iamtypes.User) string {

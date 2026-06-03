@@ -154,6 +154,18 @@ func (s *stubIAMAPI) ListAccessKeys(_ context.Context, _ *awsiam.ListAccessKeysI
 	return &awsiam.ListAccessKeysOutput{}, nil
 }
 
+func (s *stubIAMAPI) ListAttachedUserPolicies(_ context.Context, _ *awsiam.ListAttachedUserPoliciesInput, _ ...func(*awsiam.Options)) (*awsiam.ListAttachedUserPoliciesOutput, error) {
+	return &awsiam.ListAttachedUserPoliciesOutput{}, nil
+}
+
+func (s *stubIAMAPI) ListGroupsForUser(_ context.Context, _ *awsiam.ListGroupsForUserInput, _ ...func(*awsiam.Options)) (*awsiam.ListGroupsForUserOutput, error) {
+	return &awsiam.ListGroupsForUserOutput{}, nil
+}
+
+func (s *stubIAMAPI) ListAttachedGroupPolicies(_ context.Context, _ *awsiam.ListAttachedGroupPoliciesInput, _ ...func(*awsiam.Options)) (*awsiam.ListAttachedGroupPoliciesOutput, error) {
+	return &awsiam.ListAttachedGroupPoliciesOutput{}, nil
+}
+
 func ptr[T any](v T) *T { return &v }
 
 // TestE2E_WalkingSkeleton drives the orchestrator end-to-end against
@@ -432,6 +444,10 @@ type emptyRDSAPI struct{}
 
 func (emptyRDSAPI) DescribeDBInstances(context.Context, *awsrds.DescribeDBInstancesInput, ...func(*awsrds.Options)) (*awsrds.DescribeDBInstancesOutput, error) {
 	return &awsrds.DescribeDBInstancesOutput{}, nil
+}
+
+func (emptyRDSAPI) DescribeDBParameters(context.Context, *awsrds.DescribeDBParametersInput, ...func(*awsrds.Options)) (*awsrds.DescribeDBParametersOutput, error) {
+	return &awsrds.DescribeDBParametersOutput{}, nil
 }
 
 type emptyEC2API struct{}

@@ -5,7 +5,7 @@
   "version": 1,
   "description": "One managed relational database instance on any cloud — AWS RDS, GCP Cloud SQL, Azure Database. The single cross-vendor shape policies use for encryption, access, backup, and redundancy checks. Providers set additionalProperties for vendor-specific fields.",
   "type": "object",
-  "required": ["id", "name", "storage_encrypted", "publicly_accessible", "backup_enabled", "ssl_required"],
+  "required": ["id", "name", "storage_encrypted", "publicly_accessible", "backup_enabled"],
   "properties": {
     "id":                  { "type": "string", "description": "Unique stable identifier (AWS: DB instance identifier, GCP: instance name)." },
     "name":                { "type": "string", "description": "Human-readable name." },
@@ -15,7 +15,7 @@
     "storage_encrypted":   { "type": "boolean", "description": "Data at rest is encrypted." },
     "publicly_accessible": { "type": "boolean", "description": "Instance is reachable from the public internet." },
     "backup_enabled":      { "type": "boolean", "description": "Automated backups are enabled." },
-    "ssl_required":        { "type": "boolean", "description": "SSL/TLS is required for all connections." },
+    "ssl_required":        { "type": "boolean", "description": "SSL/TLS is required for all connections. Optional: omitted when the source cannot determine in-transit-encryption enforcement (e.g. an RDS engine configured via option groups rather than a parameter group); consuming policies guard with is_set." },
     "multi_az":            { "type": "boolean", "description": "Instance is deployed across multiple availability zones." },
     "deletion_protection": { "type": "boolean", "description": "Deletion protection is enabled." },
     "kms_key_id":          { "type": "string", "description": "KMS key ID used for encryption (if customer-managed)." }

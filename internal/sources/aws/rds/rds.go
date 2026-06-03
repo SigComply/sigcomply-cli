@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -26,6 +27,7 @@ const SourceID = "aws.rds"
 // API is the subset of the RDS client this plugin uses.
 type API interface {
 	DescribeDBInstances(ctx context.Context, params *awsrds.DescribeDBInstancesInput, optFns ...func(*awsrds.Options)) (*awsrds.DescribeDBInstancesOutput, error)
+	DescribeDBParameters(ctx context.Context, params *awsrds.DescribeDBParametersInput, optFns ...func(*awsrds.Options)) (*awsrds.DescribeDBParametersOutput, error)
 }
 
 // Plugin is the in-process aws.rds source.
@@ -86,7 +88,12 @@ type instancePayload struct {
 	StorageEncrypted   bool   `json:"storage_encrypted"`
 	PubliclyAccessible bool   `json:"publicly_accessible"`
 	BackupEnabled      bool   `json:"backup_enabled"`
-	SSLRequired        bool   `json:"ssl_required"`
+	// SSLRequired is a pointer so it is omitted (not emitted as false)
+	// when the engine's parameter group cannot be introspected for an
+	// in-transit-encryption setting. A consuming policy guards with
+	// is_set, so an undeterminable engine is skipped rather than
+	// false-failed. Measured from the DB parameter group, never assumed.
+	SSLRequired        *bool  `json:"ssl_required,omitempty"`
 	MultiAZ            bool   `json:"multi_az"`
 	DeletionProtection bool   `json:"deletion_protection"`
 	KMSKeyID           string `json:"kms_key_id,omitempty"`
@@ -105,6 +112,10 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		return nil, fmt.Errorf("aws.rds: describe db instances: %w", err)
 	}
 	now := p.now()
+	// sslCache memoizes per-parameter-group SSL lookups within this one
+	// Collect call: many instances share a parameter group, and the
+	// plugin caches nothing across Collect calls (KISS-no-DRY axiom).
+	sslCache := map[string]*bool{}
 	records := make([]core.EvidenceRecord, 0, len(instances))
 	for i := range instances {
 		inst := &instances[i]
@@ -121,7 +132,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 			StorageEncrypted:   safeBool(inst.StorageEncrypted),
 			PubliclyAccessible: safeBool(inst.PubliclyAccessible),
 			BackupEnabled:      safeBackupEnabled(inst),
-			SSLRequired:        false, // RDS SSL is enforced via parameter groups; conservative default
+			SSLRequired:        p.sslRequired(ctx, inst, sslCache),
 			MultiAZ:            safeBool(inst.MultiAZ),
 			DeletionProtection: safeBool(inst.DeletionProtection),
 			KMSKeyID:           safeString(inst.KmsKeyId),
@@ -160,6 +171,80 @@ func (p *Plugin) listAllInstances(ctx context.Context) ([]rdstypes.DBInstance, e
 			continue
 		}
 		return out, nil
+	}
+}
+
+// sslRequired determines whether the instance enforces in-transit
+// encryption by inspecting the engine-appropriate parameter in its DB
+// parameter group. Returns nil (field omitted) when the engine is not
+// introspectable this way (e.g. oracle/sqlserver use option groups), so
+// the consuming policy skips rather than false-fails such instances.
+func (p *Plugin) sslRequired(ctx context.Context, inst *rdstypes.DBInstance, cache map[string]*bool) *bool {
+	param, onValue := sslParamByEngine(safeString(inst.Engine))
+	if param == "" {
+		return nil
+	}
+	group := primaryParameterGroup(inst)
+	if group == "" {
+		return nil
+	}
+	if v, ok := cache[group]; ok {
+		return v
+	}
+	val, found := p.lookupParameter(ctx, group, param)
+	var result *bool
+	if found {
+		on := strings.EqualFold(val, onValue)
+		result = &on
+	}
+	cache[group] = result
+	return result
+}
+
+// sslParamByEngine maps an RDS engine to the parameter that enforces TLS
+// and the value that means "enforced". Empty param => not introspectable.
+func sslParamByEngine(engine string) (param, onValue string) {
+	switch {
+	case strings.Contains(engine, "postgres"):
+		return "rds.force_ssl", "1"
+	case strings.Contains(engine, "mysql"), strings.Contains(engine, "mariadb"):
+		return "require_secure_transport", "ON"
+	default:
+		return "", ""
+	}
+}
+
+func primaryParameterGroup(inst *rdstypes.DBInstance) string {
+	if inst == nil || len(inst.DBParameterGroups) == 0 {
+		return ""
+	}
+	return safeString(inst.DBParameterGroups[0].DBParameterGroupName)
+}
+
+// lookupParameter scans a parameter group (paged) for the named parameter
+// and returns its value. found=false when the parameter is absent or the
+// API errors — the caller treats that as "undeterminable".
+func (p *Plugin) lookupParameter(ctx context.Context, group, name string) (value string, found bool) {
+	var marker *string
+	for {
+		page, err := p.api.DescribeDBParameters(ctx, &awsrds.DescribeDBParametersInput{
+			DBParameterGroupName: &group,
+			Marker:               marker,
+		})
+		if err != nil {
+			return "", false
+		}
+		for i := range page.Parameters {
+			pm := &page.Parameters[i]
+			if pm.ParameterName != nil && *pm.ParameterName == name {
+				return safeString(pm.ParameterValue), true
+			}
+		}
+		if page.Marker != nil && *page.Marker != "" {
+			marker = page.Marker
+			continue
+		}
+		return "", false
 	}
 }
 

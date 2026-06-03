@@ -18,7 +18,12 @@ type fakeAPI struct {
 	instances []rdstypes.DBInstance
 	err       error
 
-	count int
+	// params maps parameter-group name -> parameter name -> value, used to
+	// drive ssl_required detection.
+	params map[string]map[string]string
+
+	count      int
+	paramCalls int
 }
 
 func (f *fakeAPI) DescribeDBInstances(_ context.Context, _ *awsrds.DescribeDBInstancesInput, _ ...func(*awsrds.Options)) (*awsrds.DescribeDBInstancesOutput, error) {
@@ -27,6 +32,27 @@ func (f *fakeAPI) DescribeDBInstances(_ context.Context, _ *awsrds.DescribeDBIns
 		return nil, f.err
 	}
 	return &awsrds.DescribeDBInstancesOutput{DBInstances: f.instances}, nil
+}
+
+func (f *fakeAPI) DescribeDBParameters(_ context.Context, in *awsrds.DescribeDBParametersInput, _ ...func(*awsrds.Options)) (*awsrds.DescribeDBParametersOutput, error) {
+	f.paramCalls++
+	var out awsrds.DescribeDBParametersOutput
+	group := ""
+	if in.DBParameterGroupName != nil {
+		group = *in.DBParameterGroupName
+	}
+	for name, val := range f.params[group] {
+		out.Parameters = append(out.Parameters, rdstypes.Parameter{
+			ParameterName:  ptr(name),
+			ParameterValue: ptr(val),
+		})
+	}
+	return &out, nil
+}
+
+// pgGroups builds the DBParameterGroups slice for an instance.
+func pgGroups(name string) []rdstypes.DBParameterGroupStatus {
+	return []rdstypes.DBParameterGroupStatus{{DBParameterGroupName: ptr(name)}}
 }
 
 func ptr[T any](v T) *T { return &v }
@@ -95,6 +121,55 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 		if records[i].SourceID != SourceID {
 			t.Errorf("record[%d].SourceID = %q", i, records[i].SourceID)
 		}
+	}
+}
+
+func TestCollect_SSLRequired_MeasuredFromParameterGroup(t *testing.T) {
+	fake := &fakeAPI{
+		instances: []rdstypes.DBInstance{
+			{DBInstanceIdentifier: ptr("pg-on"), Engine: ptr("postgres"), DBParameterGroups: pgGroups("pg1")},
+			{DBInstanceIdentifier: ptr("my-off"), Engine: ptr("mysql"), DBParameterGroups: pgGroups("my1")},
+			{DBInstanceIdentifier: ptr("oracle-unknown"), Engine: ptr("oracle-ee"), DBParameterGroups: pgGroups("or1")},
+		},
+		params: map[string]map[string]string{
+			"pg1": {"rds.force_ssl": "1"},
+			"my1": {"require_secure_transport": "OFF"},
+		},
+	}
+	p := New(Options{API: fake})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	byID := map[string]instancePayload{}
+	for _, r := range records {
+		var pl instancePayload
+		if err := json.Unmarshal(r.Payload, &pl); err != nil {
+			t.Fatalf("Unmarshal %s: %v", r.ID, err)
+		}
+		byID[r.ID] = pl
+	}
+	if v := byID["pg-on"].SSLRequired; v == nil || !*v {
+		t.Errorf("pg-on ssl_required = %v; want true", v)
+	}
+	if v := byID["my-off"].SSLRequired; v == nil || *v {
+		t.Errorf("my-off ssl_required = %v; want false", v)
+	}
+	// Oracle is not introspectable via parameter group -> omitted (nil).
+	if v := byID["oracle-unknown"].SSLRequired; v != nil {
+		t.Errorf("oracle ssl_required = %v; want nil (omitted)", v)
+	}
+	// The "oracle-unknown" payload must not carry the key at all.
+	var raw map[string]any
+	for _, r := range records {
+		if r.ID == "oracle-unknown" {
+			if err := json.Unmarshal(r.Payload, &raw); err != nil {
+				t.Fatalf("Unmarshal oracle: %v", err)
+			}
+		}
+	}
+	if _, present := raw["ssl_required"]; present {
+		t.Errorf("oracle payload should omit ssl_required, got present")
 	}
 }
 

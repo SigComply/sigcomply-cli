@@ -21,9 +21,60 @@ type fakeAPI struct {
 	keysByUN map[string][]iamtypes.AccessKeyMetadata
 	err      error
 
+	// Admin-detection fixtures: attached policy names by user, group
+	// memberships by user, and attached policy names by group.
+	userPolicies  map[string][]string
+	userGroups    map[string][]string
+	groupPolicies map[string][]string
+
 	listUsersCount int
 	listMFACount   int
 	listKeysCount  int
+}
+
+func attachedPolicies(names []string) []iamtypes.AttachedPolicy {
+	out := make([]iamtypes.AttachedPolicy, 0, len(names))
+	for _, n := range names {
+		out = append(out, iamtypes.AttachedPolicy{PolicyName: ptr(n)})
+	}
+	return out
+}
+
+func (f *fakeAPI) ListAttachedUserPolicies(_ context.Context, in *awsiam.ListAttachedUserPoliciesInput, _ ...func(*awsiam.Options)) (*awsiam.ListAttachedUserPoliciesOutput, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	name := ""
+	if in.UserName != nil {
+		name = *in.UserName
+	}
+	return &awsiam.ListAttachedUserPoliciesOutput{AttachedPolicies: attachedPolicies(f.userPolicies[name])}, nil
+}
+
+func (f *fakeAPI) ListGroupsForUser(_ context.Context, in *awsiam.ListGroupsForUserInput, _ ...func(*awsiam.Options)) (*awsiam.ListGroupsForUserOutput, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	name := ""
+	if in.UserName != nil {
+		name = *in.UserName
+	}
+	var groups []iamtypes.Group
+	for _, g := range f.userGroups[name] {
+		groups = append(groups, iamtypes.Group{GroupName: ptr(g)})
+	}
+	return &awsiam.ListGroupsForUserOutput{Groups: groups}, nil
+}
+
+func (f *fakeAPI) ListAttachedGroupPolicies(_ context.Context, in *awsiam.ListAttachedGroupPoliciesInput, _ ...func(*awsiam.Options)) (*awsiam.ListAttachedGroupPoliciesOutput, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	name := ""
+	if in.GroupName != nil {
+		name = *in.GroupName
+	}
+	return &awsiam.ListAttachedGroupPoliciesOutput{AttachedPolicies: attachedPolicies(f.groupPolicies[name])}, nil
 }
 
 func (f *fakeAPI) ListUsers(_ context.Context, _ *awsiam.ListUsersInput, _ ...func(*awsiam.Options)) (*awsiam.ListUsersOutput, error) {
@@ -67,6 +118,43 @@ func TestPlugin_InitNoOp(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
 	if err := p.Init(context.Background(), nil); err != nil {
 		t.Errorf("Init: %v", err)
+	}
+}
+
+func TestCollect_IsAdmin_DetectedDirectlyAndViaGroup(t *testing.T) {
+	fake := &fakeAPI{
+		users: []iamtypes.User{
+			{UserName: ptr("direct-admin"), UserId: ptr("A1")},
+			{UserName: ptr("group-admin"), UserId: ptr("A2")},
+			{UserName: ptr("plain-user"), UserId: ptr("A3")},
+		},
+		userPolicies: map[string][]string{
+			"direct-admin": {"AdministratorAccess"},
+			"plain-user":   {"ReadOnlyAccess"},
+		},
+		userGroups: map[string][]string{
+			"group-admin": {"admins"},
+			"plain-user":  {"devs"},
+		},
+		groupPolicies: map[string][]string{
+			"admins": {"AdministratorAccess"},
+			"devs":   {"ReadOnlyAccess"},
+		},
+	}
+	p := New(Options{API: fake})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	want := map[string]bool{"direct-admin": true, "group-admin": true, "plain-user": false}
+	for _, r := range records {
+		var pl userPayload
+		if err := json.Unmarshal(r.Payload, &pl); err != nil {
+			t.Fatalf("Unmarshal %s: %v", r.ID, err)
+		}
+		if pl.IsAdmin != want[pl.DisplayName] {
+			t.Errorf("%s is_admin = %v; want %v", pl.DisplayName, pl.IsAdmin, want[pl.DisplayName])
+		}
 	}
 }
 
@@ -229,6 +317,18 @@ func (f *mfaErrAPI) ListMFADevices(_ context.Context, _ *awsiam.ListMFADevicesIn
 
 func (f *mfaErrAPI) ListAccessKeys(_ context.Context, _ *awsiam.ListAccessKeysInput, _ ...func(*awsiam.Options)) (*awsiam.ListAccessKeysOutput, error) {
 	return &awsiam.ListAccessKeysOutput{}, nil
+}
+
+func (f *mfaErrAPI) ListAttachedUserPolicies(_ context.Context, _ *awsiam.ListAttachedUserPoliciesInput, _ ...func(*awsiam.Options)) (*awsiam.ListAttachedUserPoliciesOutput, error) {
+	return &awsiam.ListAttachedUserPoliciesOutput{}, nil
+}
+
+func (f *mfaErrAPI) ListGroupsForUser(_ context.Context, _ *awsiam.ListGroupsForUserInput, _ ...func(*awsiam.Options)) (*awsiam.ListGroupsForUserOutput, error) {
+	return &awsiam.ListGroupsForUserOutput{}, nil
+}
+
+func (f *mfaErrAPI) ListAttachedGroupPolicies(_ context.Context, _ *awsiam.ListAttachedGroupPoliciesInput, _ ...func(*awsiam.Options)) (*awsiam.ListAttachedGroupPoliciesOutput, error) {
+	return &awsiam.ListAttachedGroupPoliciesOutput{}, nil
 }
 
 func TestCollect_KISSNoDRY_EachCallReListsUsers(t *testing.T) {

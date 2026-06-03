@@ -230,7 +230,10 @@ func cc6EncryptionPolicies() []core.Policy {
 			accepts: []string{"managed_database_instance"},
 			desc:    "All managed databases require SSL/TLS for connections.",
 			rem:     "Enforce SSL on each database instance.",
-			clause:  all(leaf("payload.ssl_required", "eq", true), "database {{.payload.name}} does not require SSL"),
+			// Guarded with is_set: a source that cannot determine SSL
+			// enforcement (e.g. an RDS engine configured via option groups)
+			// omits the field and is skipped here rather than false-failed.
+			clause: allWhere(leaf("payload.ssl_required", "is_set", nil), leaf("payload.ssl_required", "eq", true), "database {{.payload.name}} does not require SSL"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.7.kms_key_rotation_enabled", control: "CC6.7", severity: core.SeverityHigh, category: "data-protection", cadence: "daily",
