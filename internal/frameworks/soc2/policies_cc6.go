@@ -35,7 +35,10 @@ func cc6AccessPolicies() []core.Policy {
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.1.mfa_enforced_admins", control: "CC6.1", severity: core.SeverityCritical, category: "access", cadence: "daily",
-			accepts: []string{"directory_user.v2"},
+			// Reads only common fields (is_admin, mfa_enabled) present in
+			// both directory_user versions, so any identity source (AWS IAM
+			// v2, Okta/GitHub v1) can satisfy it.
+			accepts: directoryUserTypes,
 			desc:    "All administrator users have MFA enabled.",
 			rem:     "Enable MFA for every admin user, or revoke their admin privileges.",
 			clause:  allWhere(leaf("payload.is_admin", "eq", true), leaf("payload.mfa_enabled", "eq", true), "admin user {{.payload.display_name}} does not have MFA enabled"),

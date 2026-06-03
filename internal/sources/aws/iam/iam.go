@@ -122,6 +122,8 @@ type userPayload struct {
 	IsRoot                bool      `json:"is_root"`
 	HasConsoleAccess      bool      `json:"has_console_access"`
 	HasProgrammaticAccess bool      `json:"has_programmatic_access"`
+	DirectPolicyCount     int       `json:"direct_policy_count"`
+	UnusedDays            int       `json:"unused_days"`
 	LastLoginAt           time.Time `json:"last_login_at,omitempty"`
 	CreatedAt             time.Time `json:"created_at,omitempty"`
 }
@@ -152,9 +154,9 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		if err != nil {
 			return nil, fmt.Errorf("aws.iam: access keys for user %s: %w", safeUserName(u), err)
 		}
-		isAdmin, err := p.userIsAdmin(ctx, u, groupAdmin)
+		isAdmin, directCount, err := p.userPrivilege(ctx, u, groupAdmin)
 		if err != nil {
-			return nil, fmt.Errorf("aws.iam: admin check for user %s: %w", safeUserName(u), err)
+			return nil, fmt.Errorf("aws.iam: privilege check for user %s: %w", safeUserName(u), err)
 		}
 		payload := userPayload{
 			ID:                    safeUserID(u),
@@ -165,6 +167,8 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 			IsRoot:                false, // ListUsers never returns the account root user
 			HasConsoleAccess:      u.PasswordLastUsed != nil,
 			HasProgrammaticAccess: hasKeys,
+			DirectPolicyCount:     directCount,
+			UnusedDays:            unusedDays(u, now),
 			CreatedAt:             safeCreatedAt(u),
 		}
 		if u.PasswordLastUsed != nil {
@@ -237,24 +241,33 @@ func (p *Plugin) userHasActiveAccessKey(ctx context.Context, u *iamtypes.User) (
 	return false, nil
 }
 
-// userIsAdmin reports whether the user holds AdministratorAccess either
-// attached directly or via any group they belong to.
-func (p *Plugin) userIsAdmin(ctx context.Context, u *iamtypes.User, groupAdmin map[string]bool) (bool, error) {
+// userPrivilege returns whether the user holds AdministratorAccess
+// (directly or via a group) and the count of policies attached DIRECTLY
+// to the user (managed). directCount feeds the no-direct-policies hygiene
+// check; group-attached policies are the recommended pattern and are not
+// counted here.
+func (p *Plugin) userPrivilege(ctx context.Context, u *iamtypes.User, groupAdmin map[string]bool) (isAdmin bool, directCount int, err error) {
 	name := safeUserName(u)
 	if name == "" {
-		return false, nil
+		return false, 0, nil
 	}
-	direct, err := p.userHasAdminPolicyDirect(ctx, name)
+	directCount, directAdmin, err := p.userDirectPolicies(ctx, name)
 	if err != nil {
-		return false, err
+		return false, 0, err
 	}
-	if direct {
-		return true, nil
+	if directAdmin {
+		return true, directCount, nil
 	}
-	return p.userHasAdminViaGroup(ctx, name, groupAdmin)
+	viaGroup, err := p.userHasAdminViaGroup(ctx, name, groupAdmin)
+	if err != nil {
+		return false, 0, err
+	}
+	return viaGroup, directCount, nil
 }
 
-func (p *Plugin) userHasAdminPolicyDirect(ctx context.Context, user string) (bool, error) {
+// userDirectPolicies lists the user's directly-attached managed policies,
+// returning the count and whether AdministratorAccess is among them.
+func (p *Plugin) userDirectPolicies(ctx context.Context, user string) (count int, hasAdmin bool, err error) {
 	var marker *string
 	for {
 		out, err := p.api.ListAttachedUserPolicies(ctx, &awsiam.ListAttachedUserPoliciesInput{
@@ -262,16 +275,17 @@ func (p *Plugin) userHasAdminPolicyDirect(ctx context.Context, user string) (boo
 			Marker:   marker,
 		})
 		if err != nil {
-			return false, err
+			return 0, false, err
 		}
+		count += len(out.AttachedPolicies)
 		if attachedHasAdmin(out.AttachedPolicies) {
-			return true, nil
+			hasAdmin = true
 		}
 		if out.IsTruncated && out.Marker != nil {
 			marker = out.Marker
 			continue
 		}
-		return false, nil
+		return count, hasAdmin, nil
 	}
 }
 
@@ -361,6 +375,21 @@ func safeUserID(u *iamtypes.User) string {
 		return safeUserName(u)
 	}
 	return *u.UserId
+}
+
+// unusedDays returns whole days since the user's last console
+// authentication. Returns -1 when the user has never signed in to the
+// console (PasswordLastUsed nil) — the inactive-accounts policy treats
+// -1 (>= 0 false) as "never logged in" and flags it.
+func unusedDays(u *iamtypes.User, now time.Time) int {
+	if u == nil || u.PasswordLastUsed == nil {
+		return -1
+	}
+	d := int(now.Sub(*u.PasswordLastUsed).Hours() / 24)
+	if d < 0 {
+		return 0
+	}
+	return d
 }
 
 func safeCreatedAt(u *iamtypes.User) time.Time {

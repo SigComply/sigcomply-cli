@@ -22,7 +22,9 @@ func techAccessPolicies() []core.Policy {
 	return []core.Policy{
 		autoPolicy{
 			id: "iso27001.8.2.privileged_mfa_enforced", control: "A.8.2", severity: core.SeverityCritical, category: "access", cadence: "daily",
-			accepts: []string{"directory_user.v2"},
+			// Common fields only (is_admin, mfa_enabled) — satisfiable by any
+			// identity source regardless of directory_user version.
+			accepts: directoryUserTypes,
 			desc:    "Privileged users have MFA enabled.",
 			rem:     "Enable MFA for all admin users.",
 			clause:  allWhere(leaf("payload.is_admin", "eq", true), leaf("payload.mfa_enabled", "eq", true), "admin user {{.payload.display_name}} does not have MFA enabled"),

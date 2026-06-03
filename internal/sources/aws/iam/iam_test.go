@@ -345,3 +345,42 @@ func TestCollect_KISSNoDRY_EachCallReListsUsers(t *testing.T) {
 		t.Errorf("listUsersCount = %d; want 3 (no caching across Collect calls per KISS-no-DRY)", fake.listUsersCount)
 	}
 }
+
+// TestCollect_EmitsDirectPolicyCountAndUnusedDays guards the v2 fields
+// the no_direct_iam_policies and inactive_user_accounts policies read —
+// absent would now error those policies.
+func TestCollect_EmitsDirectPolicyCountAndUnusedDays(t *testing.T) {
+	now := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	lastUsed := now.AddDate(0, 0, -100) // 100 days ago
+	fake := &fakeAPI{
+		users: []iamtypes.User{
+			{UserName: ptr("hasdirect"), UserId: ptr("A1"), PasswordLastUsed: ptr(lastUsed)},
+			{UserName: ptr("neverloggedin"), UserId: ptr("A2")},
+		},
+		userPolicies: map[string][]string{
+			"hasdirect": {"ReadOnlyAccess", "SomeOtherPolicy"},
+		},
+	}
+	p := New(Options{API: fake, Now: func() time.Time { return now }})
+	recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	byID := map[string]userPayload{}
+	for _, r := range recs {
+		var pl userPayload
+		if err := json.Unmarshal(r.Payload, &pl); err != nil {
+			t.Fatalf("Unmarshal: %v", err)
+		}
+		byID[pl.DisplayName] = pl
+	}
+	if got := byID["hasdirect"].DirectPolicyCount; got != 2 {
+		t.Errorf("hasdirect DirectPolicyCount = %d; want 2", got)
+	}
+	if got := byID["hasdirect"].UnusedDays; got != 100 {
+		t.Errorf("hasdirect UnusedDays = %d; want 100", got)
+	}
+	if got := byID["neverloggedin"].UnusedDays; got != -1 {
+		t.Errorf("neverloggedin UnusedDays = %d; want -1 (never)", got)
+	}
+}
