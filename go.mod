@@ -11,6 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/acm v1.39.4
 	github.com/aws/aws-sdk-go-v2/service/backup v1.57.4
 	github.com/aws/aws-sdk-go-v2/service/cloudtrail v1.56.0
+	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.58.1
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.74.2
 	github.com/aws/aws-sdk-go-v2/service/configservice v1.63.0
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.57.8
@@ -22,9 +23,11 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/inspector2 v1.48.4
 	github.com/aws/aws-sdk-go-v2/service/kms v1.53.0
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.92.1
+	github.com/aws/aws-sdk-go-v2/service/macie2 v1.51.6
 	github.com/aws/aws-sdk-go-v2/service/rds v1.118.4
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.102.2
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.42.1
+	github.com/aws/aws-sdk-go-v2/service/securityhub v1.71.4
 	github.com/aws/smithy-go v1.27.0
 	github.com/google/uuid v1.6.0
 	github.com/open-policy-agent/opa v1.17.0

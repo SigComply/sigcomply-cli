@@ -14,13 +14,6 @@ func organizationalAutomatedPolicies() []core.Policy {
 			clause:  noneWhere(leaf("payload.principal_type", "eq", "user"), allOf(leaf("payload.is_broad_admin_role", "eq", true), leaf("payload.has_condition", "eq", false)), "user {{.payload.principal_id}} holds unconditional broad-admin role {{.payload.role}}"),
 		}.policy(),
 		autoPolicy{
-			id: "iso27001.5.3.gcp_no_user_managed_sa_keys", control: "A.5.3", severity: core.SeverityHigh, category: "access", cadence: "daily",
-			accepts: []string{"gcp_service_account_key"},
-			desc:    "No GCP service account uses user-managed keys (segregation of duties).",
-			rem:     "Delete user-managed service account keys; use workload identity.",
-			clause:  none(leaf("payload.is_user_managed", "eq", true), "service account key {{.payload.id}} is user-managed"),
-		}.policy(),
-		autoPolicy{
 			id: "iso27001.5.16.inactive_user_accounts", control: "A.5.16", severity: core.SeverityMedium, category: "access", cadence: "daily",
 			accepts: []string{"directory_user.v2"},
 			desc:    "No active user account has been unused for more than 90 days (identity management).",

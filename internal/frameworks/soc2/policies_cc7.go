@@ -117,27 +117,29 @@ func cc7OperationsPolicies() []core.Policy {
 	}
 }
 
-// cc7AlarmPolicies — CC7.2 CloudWatch metric-filter alarms. These use
-// the rule: escape hatch because matching requires substring search over
-// the metric filter pattern, which the pass_when DSL cannot express.
+// cc7AlarmPolicies — CC7.2 security-event alerting. Each checks that at
+// least one enabled security_alert covers the given normalized
+// event_class. The AWS-specific classification (CloudTrail event names ->
+// event_class) lives in the security_alert source plugin, so these are
+// plain pass_when clauses, not a rule: escape hatch.
 func cc7AlarmPolicies() []core.Policy {
-	mk := func(id, desc string, ruleRef string) core.Policy {
-		return rulePolicy{
+	mk := func(id, desc, eventClass string) core.Policy {
+		return autoPolicy{
 			id: id, control: "CC7.2", severity: core.SeverityMedium, category: "monitoring", cadence: "daily",
-			accepts: []string{"cloudwatch_alarm"},
+			accepts: []string{"security_alert"},
 			desc:    desc,
-			rem:     "Create the CloudWatch metric filter and alarm covering this event class.",
-			ruleRef: ruleRef,
+			rem:     "Create a monitoring alert (metric filter + alarm with a notification target) covering this event class.",
+			clause:  anyWhere(leaf("payload.event_class", "eq", eventClass), leaf("payload.is_enabled", "eq", true), "no enabled alert covers "+eventClass),
 		}.policy()
 	}
 	return []core.Policy{
-		mk("soc2.cc7.2.alarm_unauthorized_api_calls", "A metric alarm exists for unauthorized API calls.", ruleAlarmUnauthorized),
-		mk("soc2.cc7.2.alarm_root_account_usage", "A metric alarm exists for root account usage.", ruleAlarmRootUsage),
-		mk("soc2.cc7.2.alarm_iam_policy_changes", "A metric alarm exists for IAM policy changes.", ruleAlarmIAMChanges),
-		mk("soc2.cc7.2.alarm_cloudtrail_config_changes", "A metric alarm exists for audit log configuration changes.", ruleAlarmTrailChanges),
-		mk("soc2.cc7.2.alarm_console_login_no_mfa", "A metric alarm exists for console sign-ins without MFA.", ruleAlarmConsoleNoMFA),
-		mk("soc2.cc7.2.alarm_security_group_changes", "A metric alarm exists for security group changes.", ruleAlarmSGChanges),
-		mk("soc2.cc7.2.alarm_vpc_changes", "A metric alarm exists for VPC changes.", ruleAlarmVPCChanges),
-		mk("soc2.cc7.2.alarm_kms_key_deletion", "A metric alarm exists for KMS key disable/deletion.", ruleAlarmKMSDeletion),
+		mk("soc2.cc7.2.alarm_unauthorized_api_calls", "An alert exists for unauthorized API calls.", "unauthorized_api_calls"),
+		mk("soc2.cc7.2.alarm_root_account_usage", "An alert exists for root account usage.", "root_account_usage"),
+		mk("soc2.cc7.2.alarm_iam_policy_changes", "An alert exists for IAM policy changes.", "iam_policy_changes"),
+		mk("soc2.cc7.2.alarm_cloudtrail_config_changes", "An alert exists for audit log configuration changes.", "cloudtrail_config_changes"),
+		mk("soc2.cc7.2.alarm_console_login_no_mfa", "An alert exists for console sign-ins without MFA.", "console_login_no_mfa"),
+		mk("soc2.cc7.2.alarm_security_group_changes", "An alert exists for security group changes.", "security_group_changes"),
+		mk("soc2.cc7.2.alarm_vpc_changes", "An alert exists for VPC changes.", "vpc_changes"),
+		mk("soc2.cc7.2.alarm_kms_key_deletion", "An alert exists for KMS key disable/deletion.", "kms_key_deletion"),
 	}
 }

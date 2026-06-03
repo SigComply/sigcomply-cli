@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/security_alert/v1.json",
+  "title": "security_alert",
+  "version": 1,
+  "description": "A monitoring alert for a security-relevant class of activity. One record per configured alert, normalized across vendors: the source plugin classifies the underlying detection logic into a vendor-neutral event_class so policies can ask 'is an active alert configured for event class X?' without knowing how the alert is wired up.",
+  "type": "object",
+  "required": ["id", "name", "event_class", "is_enabled"],
+  "properties": {
+    "id":       { "type": "string", "description": "Stable identifier for this alert record (event class plus alert name)." },
+    "name":     { "type": "string", "description": "Human-readable name of the alert." },
+    "provider": { "type": "string", "description": "Source provider that supplied this alert (e.g. aws)." },
+    "event_class": {
+      "type": "string",
+      "description": "Vendor-neutral classification of the security-relevant activity this alert monitors.",
+      "enum": [
+        "unauthorized_api_calls",
+        "root_account_usage",
+        "iam_policy_changes",
+        "cloudtrail_config_changes",
+        "console_login_no_mfa",
+        "security_group_changes",
+        "vpc_changes",
+        "kms_key_deletion",
+        "other"
+      ]
+    },
+    "is_enabled": {
+      "type": "boolean",
+      "description": "True when an active monitoring alert exists for this event class (the detection logic is wired to a live alarm)."
+    },
+    "has_notification_target": {
+      "type": "boolean",
+      "description": "True when the alert is configured to notify at least one target (e.g. an SNS topic) when it fires."
+    }
+  },
+  "additionalProperties": true
+}

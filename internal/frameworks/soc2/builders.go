@@ -77,39 +77,6 @@ func (a autoPolicy) policy() core.Policy {
 	}
 }
 
-// rulePolicy is the authoring shape for an automated policy that uses a
-// Go rule: escape hatch instead of pass_when.
-type rulePolicy struct {
-	id       string
-	control  string
-	severity core.Severity
-	category string
-	cadence  string
-	accepts  []string
-	desc     string
-	rem      string
-	ruleRef  string
-}
-
-//nolint:gocritic // hugeParam: one-time startup builder; value literals keep the policy tables legible.
-func (r rulePolicy) policy() core.Policy {
-	return core.Policy{
-		ID:           r.id,
-		Controls:     controlRefs(r.control),
-		Description:  r.desc,
-		Remediation:  r.rem,
-		Severity:     r.severity,
-		Category:     r.category,
-		Cadence:      r.cadence,
-		OnPush:       true,
-		EvidenceMode: core.EvidenceModeAutomated,
-		Slots: map[string]core.Slot{
-			slotName: {Accepts: r.accepts, Cardinality: core.SlotOneOrMore, Required: true, Description: "evidence records"},
-		},
-		RuleRef: r.ruleRef,
-	}
-}
-
 // manualPolicy is the authoring shape for a manual-evidence policy. The
 // presentation fields (name, etype, severity, items, declarationText,
 // …) feed only the descriptive catalog export consumed by the Evidence

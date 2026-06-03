@@ -118,20 +118,6 @@ func cc6AccessPolicies() []core.Policy {
 				leaf("payload.requires_symbols", "eq", true),
 			), "password policy does not require all four character classes"),
 		}.policy(),
-		autoPolicy{
-			id: "soc2.cc6.1.gcp_no_user_managed_sa_keys", control: "CC6.1", severity: core.SeverityHigh, category: "access", cadence: "daily",
-			accepts: []string{"gcp_service_account_key"},
-			desc:    "No GCP service account uses user-managed keys.",
-			rem:     "Delete user-managed service account keys; use workload identity or short-lived credentials.",
-			clause:  none(leaf("payload.is_user_managed", "eq", true), "service account key {{.payload.id}} is user-managed"),
-		}.policy(),
-		autoPolicy{
-			id: "soc2.cc6.1.gcp_sa_keys_rotated_90d", control: "CC6.1", severity: core.SeverityMedium, category: "access", cadence: "daily",
-			accepts: []string{"gcp_service_account_key"},
-			desc:    "All user-managed GCP service account keys are younger than 90 days.",
-			rem:     "Rotate user-managed service account keys older than 90 days.",
-			clause:  allWhere(leaf("payload.is_user_managed", "eq", true), leaf("payload.age_days", "lte", 90), "service account key {{.payload.id}} is older than 90 days"),
-		}.policy(),
 	}
 }
 

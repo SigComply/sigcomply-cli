@@ -72,6 +72,8 @@ github.com/aws/aws-sdk-go-v2/service/backup v1.57.4 h1:rniNcJ9IADUE8bsAOvF0lw589
 github.com/aws/aws-sdk-go-v2/service/backup v1.57.4/go.mod h1:S88PiBdjx86jLQggz2qi0xD2kmpAL4zgiXxWf+lQctc=
 github.com/aws/aws-sdk-go-v2/service/cloudtrail v1.56.0 h1:q1UwF0xlTX5F3XyXLTwz6Y+RIxsILCf9Malm2eRzH9M=
 github.com/aws/aws-sdk-go-v2/service/cloudtrail v1.56.0/go.mod h1:Gg/9JsDnQ6J4gB27gFd21WIK7wNEg9IVkCxLHRhzt9I=
+github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.58.1 h1:HFhmVzO6nTHIKaa38T20zlZrxYiqxXtSqyuPJ/jQBvQ=
+github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.58.1/go.mod h1:j6STVeg5y4DUqkaip8ZlkAO+MfSuhZ6OukpnsOGYfRU=
 github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.74.2 h1:ZG6ahQOknnJnvx7X+nza34k7dUTzEBCRyguW5ghr270=
 github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.74.2/go.mod h1:FBpD9d2czaAfwdeVjM/7DRkKaHSbsVaJK+T6DSK7DFc=
 github.com/aws/aws-sdk-go-v2/service/configservice v1.63.0 h1:ZXyDWCPYc065TvrZIwqbhSmlyWERli1PamdE9wb/hUQ=
@@ -104,12 +106,16 @@ github.com/aws/aws-sdk-go-v2/service/kms v1.53.0 h1:d/qhv0TFUtqeaLWmX5rJlKG+qBr/
 github.com/aws/aws-sdk-go-v2/service/kms v1.53.0/go.mod h1:oqZYP0JN0ih1JTsoiT10Un/Ivg8LeVOMTK+UDNBq3sU=
 github.com/aws/aws-sdk-go-v2/service/lambda v1.92.1 h1:WXCHC8eGCieCTxSJ0CsZc4yRK8PiUKPZm3un8L4Eu6I=
 github.com/aws/aws-sdk-go-v2/service/lambda v1.92.1/go.mod h1:RQmeW7HZrBCTGhwnmRTEw29G+Fhao0pkhrlwakALzbs=
+github.com/aws/aws-sdk-go-v2/service/macie2 v1.51.6 h1:GCy5Hv5d5j/ztrsYqB+Wo58NrBDBS3cnMxhv+Wz9LpE=
+github.com/aws/aws-sdk-go-v2/service/macie2 v1.51.6/go.mod h1:CIYsd3VOBsMFhev5CCoMav7e7wMHdBks6M5hgkeLEqE=
 github.com/aws/aws-sdk-go-v2/service/rds v1.118.4 h1:hcJ+L88hT1lgikQ066UteYQz1WIChgVFIo1SW0FviIE=
 github.com/aws/aws-sdk-go-v2/service/rds v1.118.4/go.mod h1:nIv0sjTTFfVnLPQeHmCwMSrln/G2hMX5aTyEYn4ldF4=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.102.2 h1:ie4ElCmUKS26pzrZcIk/lmt4yWjAqLLcawstyQCh298=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.102.2/go.mod h1:zjsomFeX5duj+4PlMB+o4JoWTIx+G0XMyzjYrUbQkN0=
 github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.42.1 h1:AH4hyaVe/2+p7zx/GkmjQLXOfVTul6EFMTRy8QVl71Q=
 github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.42.1/go.mod h1:BXtBSoY9TdCQwc46RZtaxNb+kKfcCbHOvk4h8drQUqM=
+github.com/aws/aws-sdk-go-v2/service/securityhub v1.71.4 h1:wI3Qhx7FPjuJPSuiM3j/mCTGA/BQ5t98/dRmGABJN0E=
+github.com/aws/aws-sdk-go-v2/service/securityhub v1.71.4/go.mod h1:6CdCmt/+3DZjsZyL64fLgyDvha3LF/5Y47qd1reofTg=
 github.com/aws/aws-sdk-go-v2/service/signin v1.1.1 h1:1VwbP3qMNfxUDEXWki4rCE5iA+44VA1lokTz9HasGzw=
 github.com/aws/aws-sdk-go-v2/service/signin v1.1.1/go.mod h1:vUtyoSj0OPji3kjIVSc/GlKuWEiL33f/WFxl6dmpy/A=
 github.com/aws/aws-sdk-go-v2/service/sso v1.30.19 h1:N6pIsdFOW1Kd9S4KyFKXdGRBojPPxkP32+uHFWLv4Hc=

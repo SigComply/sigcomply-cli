@@ -67,9 +67,10 @@ func Policies() []core.Policy {
 }
 
 // Rules returns the Go rule implementations referenced by RuleRef
-// policies (the CloudWatch-alarm substring checks).
+// policies. Empty today — soc2 authors every policy with the pass_when
+// DSL (see rules.go).
 func Rules() []core.Rule {
-	return alarmRules()
+	return rules()
 }
 
 // Register populates the framework, rule, and policy registries.

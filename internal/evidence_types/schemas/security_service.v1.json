@@ -10,7 +10,7 @@
     "id":           { "type": "string", "description": "Service resource identifier." },
     "name":         { "type": "string", "description": "Human-readable service name." },
     "provider":     { "type": "string", "description": "Cloud provider short name: aws, gcp, azure." },
-    "service_type": { "type": "string", "description": "Service category: siem, vulnerability_scanner, dlp, threat_detection, cspm." },
+    "service_type": { "type": "string", "enum": ["siem", "vulnerability_scanner", "dlp", "threat_detection", "cspm"], "description": "Service category: siem, vulnerability_scanner, dlp, threat_detection, cspm." },
     "is_enabled":   { "type": "boolean", "description": "Service is active and monitoring the account." }
   },
   "additionalProperties": true
