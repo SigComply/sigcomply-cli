@@ -730,6 +730,9 @@ func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.P
 		r := &sortedResults[i]
 		_, _ = fmt.Fprintf(stdout, "  [%s] %s — %s\n", r.Status, r.PolicyID, core.PrimaryControlID(r.Controls)) //nolint:errcheck // status output
 	}
+	if skipped > 0 {
+		renderSkipExplanations(stdout, plan, sortedResults)
+	}
 	if errored > 0 {
 		return ExitExecution
 	}
@@ -737,6 +740,87 @@ func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.P
 		return ExitViolation
 	}
 	return ExitOK
+}
+
+// renderSkipExplanations prints, to stdout, why each skipped policy was
+// skipped. A skip drops the control out of the compliance-score
+// denominator, so an all-green run can silently hide unevaluated
+// controls — the worst failure mode for a compliance tool. This block
+// makes that impossible to miss: every skipped policy is listed with the
+// concrete reason and the evidence types it needs, so the operator knows
+// exactly which source to configure.
+//
+// Two distinct causes are distinguished from the plan's bindings:
+//   - a required slot resolved to ZERO bindings → no configured source
+//     emits the evidence the control needs (the common day-1 gap);
+//   - the slot is bound but the source returned no records → a
+//     collection/coverage problem, not a configuration one.
+func renderSkipExplanations(stdout io.Writer, plan *planner.RunPlan, sortedResults []core.PolicyResult) {
+	planned := make(map[string]*planner.PlannedPolicy, len(plan.Policies))
+	for i := range plan.Policies {
+		planned[plan.Policies[i].Spec.ID] = &plan.Policies[i]
+	}
+
+	type skipLine struct {
+		policyID string
+		detail   string
+	}
+	var lines []skipLine
+	for i := range sortedResults {
+		r := &sortedResults[i]
+		if r.Status != core.StatusSkip {
+			continue
+		}
+		pp := planned[r.PolicyID]
+		if pp == nil {
+			lines = append(lines, skipLine{r.PolicyID, "skipped (no plan detail available)"})
+			continue
+		}
+		lines = append(lines, skipLine{r.PolicyID, skipDetail(pp)})
+	}
+	if len(lines) == 0 {
+		return
+	}
+
+	_, _ = fmt.Fprintf(stdout, "\n%d control(s) were SKIPPED and are NOT counted in the compliance score:\n", len(lines)) //nolint:errcheck // status output
+	for _, l := range lines {
+		_, _ = fmt.Fprintf(stdout, "  %s — %s\n", l.policyID, l.detail) //nolint:errcheck // status output
+	}
+	const skipFooter = "Configure a source that emits the listed evidence types (or add an explicit\n" +
+		"binding) so these controls are actually evaluated. A green run that skips\n" +
+		"controls is NOT a passing audit."
+	_, _ = fmt.Fprintln(stdout, skipFooter) //nolint:errcheck // status output
+}
+
+// skipDetail summarizes, for one skipped policy, the unbound required
+// slots (and the evidence types each needs) versus required slots that
+// were bound but yielded no records.
+func skipDetail(pp *planner.PlannedPolicy) string {
+	var unbound, empty []string
+	slotNames := make([]string, 0, len(pp.Spec.Slots))
+	for name := range pp.Spec.Slots {
+		slotNames = append(slotNames, name)
+	}
+	sort.Strings(slotNames)
+	for _, name := range slotNames {
+		slot := pp.Spec.Slots[name]
+		if !slot.Required {
+			continue
+		}
+		if len(pp.Bindings[name]) == 0 {
+			unbound = append(unbound, fmt.Sprintf("no configured source emits %v (slot %q)", slot.Accepts, name))
+		} else {
+			empty = append(empty, fmt.Sprintf("bound source(s) returned no evidence records (slot %q)", name))
+		}
+	}
+	switch {
+	case len(unbound) > 0:
+		return strings.Join(unbound, "; ")
+	case len(empty) > 0:
+		return strings.Join(empty, "; ")
+	default:
+		return "required evidence was not available"
+	}
 }
 
 func shouldFail(ci spec.CIConfig) bool {
@@ -754,6 +838,20 @@ func shouldFail(ci spec.CIConfig) bool {
 func Bootstrap(configPath string) (*spec.ProjectConfig, *registry.Set, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil, fmt.Errorf("no config file found at %q.\n\n"+
+				"Create one with:\n"+
+				"    sigcomply init\n\n"+
+				"A minimal .sigcomply.yaml looks like:\n\n"+
+				"    schema_version: project.v1\n"+
+				"    framework: soc2\n"+
+				"    sources:\n"+
+				"      aws.iam:\n"+
+				"        region: us-east-1\n\n"+
+				"(the vault defaults to a local folder, and policies auto-bind to the\n"+
+				"sources you configure — no bindings: block needed to get started)",
+				configPath)
+		}
 		return nil, nil, fmt.Errorf("bootstrap: read config: %w", err)
 	}
 	cfg, err := spec.LoadProjectConfig(data)

@@ -10,16 +10,30 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
-// resolveBindings turns the project config's binding entries into
-// fully-validated Binding values. The planner verifies that every
-// referenced source plugin exists in the SourceRegistry and that its
-// emits list includes the slot's declared evidence type. It also
-// enforces the slot's cardinality (exactly-one, one-or-more, etc.).
-func resolveBindings(policy *core.Policy, projectBindings map[string][]spec.BindingEntry, sources *registry.Registry[core.SourcePlugin]) (map[string][]Binding, error) {
+// resolveBindings turns the project config into fully-validated Binding
+// values for every slot the policy declares.
+//
+// Binding resolution is auto-by-default (Invariant #4 substitutability):
+//   - If the project config names sources for a slot (an explicit
+//     bindings: entry), the planner uses exactly those — the operator is
+//     narrowing the slot to a chosen subset.
+//   - Otherwise the planner auto-binds every CONFIGURED source whose
+//     Emits() intersects the slot's accepts:. Configuring a source under
+//     sources: is enough to make every policy that can consume it "just
+//     work" — no per-policy YAML required.
+//
+// In both cases the planner verifies the referenced plugin exists and
+// that its emits list includes the slot's declared evidence type, and it
+// enforces the slot's cardinality. configuredSources is the set of source
+// IDs the project actually declared under sources: (cfg.Sources); only
+// those are candidates for auto-binding (the registry may hold more — the
+// blank-imported builtins — but a source the operator never configured
+// has no credentials and must not be bound).
+func resolveBindings(policy *core.Policy, projectBindings map[string][]spec.BindingEntry, sources *registry.Registry[core.SourcePlugin], configuredSources map[string]map[string]any) (map[string][]Binding, error) {
 	out := make(map[string][]Binding, len(policy.Slots))
 	for slotName, slot := range policy.Slots {
 		entries := projectBindings[slotName]
-		bindings, err := resolveSlot(policy.ID, slotName, &slot, entries, sources)
+		bindings, err := resolveSlot(policy.ID, slotName, &slot, entries, sources, configuredSources)
 		if err != nil {
 			return nil, err
 		}
@@ -35,10 +49,22 @@ func resolveBindings(policy *core.Policy, projectBindings map[string][]spec.Bind
 	return out, nil
 }
 
-func resolveSlot(policyID, slotName string, slot *core.Slot, entries []spec.BindingEntry, sources *registry.Registry[core.SourcePlugin]) ([]Binding, error) {
+func resolveSlot(policyID, slotName string, slot *core.Slot, entries []spec.BindingEntry, sources *registry.Registry[core.SourcePlugin], configuredSources map[string]map[string]any) ([]Binding, error) {
 	if len(slot.Accepts) == 0 {
 		return nil, fmt.Errorf("planner: policy %q slot %q: slot.Accepts is empty (must list at least one evidence type)", policyID, slotName)
 	}
+	if len(entries) > 0 {
+		return resolveExplicitSlot(policyID, slotName, slot, entries, sources)
+	}
+	return autoBindSlot(policyID, slotName, slot, sources, configuredSources)
+}
+
+// resolveExplicitSlot resolves the operator-named sources for a slot. An
+// explicit binding is an override: the planner uses exactly these sources
+// and does not auto-bind. A named source that doesn't exist, or that
+// emits nothing the slot accepts, is a hard plan error — the operator
+// asked for it by name, so silence would hide a mistake.
+func resolveExplicitSlot(policyID, slotName string, slot *core.Slot, entries []spec.BindingEntry, sources *registry.Registry[core.SourcePlugin]) ([]Binding, error) {
 	bindings := make([]Binding, 0, len(entries))
 	for i, e := range entries {
 		sourceID, catalogID := parseBindingSource(e.Source)
@@ -61,6 +87,60 @@ func resolveSlot(policyID, slotName string, slot *core.Slot, entries []spec.Bind
 			CatalogID:     catalogID,
 			SlotParams:    e.SlotParams,
 		})
+	}
+	if err := enforceCardinality(policyID, slotName, slot, len(bindings)); err != nil {
+		return nil, err
+	}
+	return bindings, nil
+}
+
+// autoBindSlot binds every configured source whose Emits() intersects the
+// slot's accepts:. This is the substitutability promise made concrete: a
+// project that configures aws.iam gets every directory_user policy bound
+// to it without writing a bindings: block. Sources are considered in
+// sorted order for deterministic plans. A source that emits nothing the
+// slot accepts is simply not bound (no error — unlike the explicit path,
+// the operator never named it).
+//
+// Zero auto-binds on a required slot is permitted: the policy plans
+// cleanly and is skipped at evaluation (surfaced loudly in the run
+// summary so the operator sees the uncovered control). For single-source
+// slots (exactly-one / at-most-one) more than one candidate is genuinely
+// ambiguous — the planner refuses to guess and asks for an explicit
+// binding rather than picking arbitrarily.
+func autoBindSlot(policyID, slotName string, slot *core.Slot, sources *registry.Registry[core.SourcePlugin], configuredSources map[string]map[string]any) ([]Binding, error) {
+	srcIDs := make([]string, 0, len(configuredSources))
+	for id := range configuredSources {
+		srcIDs = append(srcIDs, id)
+	}
+	sort.Strings(srcIDs)
+
+	bindings := make([]Binding, 0, len(srcIDs))
+	for _, srcID := range srcIDs {
+		plugin := lookupSourcePlugin(sources, srcID)
+		if plugin == nil {
+			continue
+		}
+		accepted := intersect(slot.Accepts, plugin.Emits())
+		if len(accepted) == 0 {
+			continue
+		}
+		bindings = append(bindings, Binding{
+			SourceID:      srcID,
+			AcceptedTypes: accepted,
+		})
+	}
+
+	switch slot.Cardinality {
+	case core.SlotExactlyOne, core.SlotAtMostOne:
+		if len(bindings) > 1 {
+			ids := make([]string, len(bindings))
+			for i := range bindings {
+				ids[i] = bindings[i].SourceID
+			}
+			return nil, fmt.Errorf("planner: policy %q slot %q: cardinality %q accepts a single source but %d configured sources emit an accepted type (%v); add an explicit binding under bindings: to choose one",
+				policyID, slotName, slot.Cardinality, len(bindings), ids)
+		}
 	}
 	if err := enforceCardinality(policyID, slotName, slot, len(bindings)); err != nil {
 		return nil, err

@@ -112,6 +112,55 @@ func TestRenderAndExitCode_ErrorWinsOverFail(t *testing.T) {
 	}
 }
 
+// TestRenderAndExitCode_SkipExplanationsAreLoud verifies that skipped
+// controls are surfaced with the concrete reason — an unbound required
+// slot names the evidence types no source provided, and the operator is
+// warned a green-but-skipping run is not a passing audit.
+func TestRenderAndExitCode_SkipExplanationsAreLoud(t *testing.T) {
+	unboundSlot := core.Policy{
+		ID: "soc2.cc6.1.unbound",
+		Slots: map[string]core.Slot{
+			"evidence": {Accepts: []string{"directory_user"}, Required: true, Cardinality: core.SlotOneOrMore},
+		},
+	}
+	boundSlot := core.Policy{
+		ID: "soc2.cc7.2.empty",
+		Slots: map[string]core.Slot{
+			"evidence": {Accepts: []string{"audit_log_trail"}, Required: true, Cardinality: core.SlotOneOrMore},
+		},
+	}
+	plan := &planner.RunPlan{
+		Framework: "soc2",
+		Period:    planner.Period{ID: "2026-Q1"},
+		Policies: []planner.PlannedPolicy{
+			{Spec: unboundSlot, Bindings: map[string][]planner.Binding{}},
+			{Spec: boundSlot, Bindings: map[string][]planner.Binding{
+				"evidence": {{SourceID: "aws.cloudtrail", AcceptedTypes: []string{"audit_log_trail"}}},
+			}},
+		},
+	}
+	results := []core.PolicyResult{
+		{PolicyID: "soc2.cc6.1.unbound", Status: core.StatusSkip},
+		{PolicyID: "soc2.cc7.2.empty", Status: core.StatusSkip},
+	}
+	var buf bytes.Buffer
+	code := renderAndExitCode(&buf, plan, results, spec.CIConfig{})
+	if code != ExitOK {
+		t.Errorf("code = %d; want %d (skips alone are not a violation)", code, ExitOK)
+	}
+	out := buf.String()
+	for _, want := range []string{
+		"2 control(s) were SKIPPED",
+		"no configured source emits [directory_user]",
+		"bound source(s) returned no evidence records",
+		"NOT a passing audit",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("skip output missing %q\n--- got ---\n%s", want, out)
+		}
+	}
+}
+
 // To exercise Run()'s "no-cloud" path and the "force-cloud / no token"
 // path, we register SOC 2 with an empty framework so the run produces
 // zero policies. That keeps the test under 1 ms while still covering

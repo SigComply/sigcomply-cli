@@ -175,7 +175,7 @@ func planOne(policy *core.Policy, in *Input) (PlannedPolicy, error) {
 		}
 		bindings = resolveManualBinding(policy)
 	} else {
-		bindings, err = resolveBindings(policy, in.Config.Bindings[policy.ID], in.Registries.Sources)
+		bindings, err = resolveBindings(policy, in.Config.Bindings[policy.ID], in.Registries.Sources, in.Config.Sources)
 		if err != nil {
 			return PlannedPolicy{}, err
 		}

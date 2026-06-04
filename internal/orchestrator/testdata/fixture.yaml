@@ -60,6 +60,14 @@ bindings:
     evidence:
       - source: aws.iam
       - source: okta
+  # Admin-MFA is phrased to ERROR on a source that can't determine admin
+  # status (Okta). Narrow it to aws.iam — the source that populates
+  # is_admin — with an explicit binding, overriding auto-binding. This is
+  # the canonical "several sources emit the type but only one can answer
+  # this policy" override.
+  soc2.cc6.1.mfa_enforced_admins:
+    evidence:
+      - source: aws.iam
   # Compliant resources → pass.
   soc2.cc7.1.audit_logging_enabled:
     evidence:

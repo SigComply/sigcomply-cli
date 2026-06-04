@@ -72,7 +72,7 @@ func resolveFramework(flag string) string {
 	if env := os.Getenv("SIGCOMPLY_FRAMEWORK"); env != "" {
 		return env
 	}
-	return "soc2"
+	return defaultFramework
 }
 
 func runEvidenceCatalog(stdout io.Writer, flags *evidenceFlags) error {

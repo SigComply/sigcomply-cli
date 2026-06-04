@@ -1,0 +1,8 @@
+# Zero-config first-run shape: no vault: block (defaults to a local
+# vault) and no bindings: block (policies auto-bind to configured
+# sources by evidence-type intersection).
+schema_version: project.v1
+framework: soc2
+sources:
+  aws.iam:
+    region: us-east-1

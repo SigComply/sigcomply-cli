@@ -251,12 +251,28 @@ func validatePeriod(p *PeriodConfig) error {
 	return nil
 }
 
+// backendLocal is the local-filesystem vault backend identifier.
+const backendLocal = "local"
+
+// DefaultLocalVaultPath is where a backend-less project stores signed
+// evidence by default. It keeps a first run zero-config: no vault: block
+// is required to get going. Production deployments override with an
+// s3/gcs/azure_blob backend (which must be write-once / versioned for
+// real tamper-resistance — see Invariant #3).
+const DefaultLocalVaultPath = "./.sigcomply/vault"
+
 func validateVault(v *VaultConfig) error {
+	// Sensible default: an omitted vault: block means a local vault under
+	// the project. Mutating the struct here means the default flows through
+	// to vault.FromConfig unchanged — callers never see an empty backend.
 	if v.Backend == "" {
-		return fmt.Errorf("project config: vault.backend: required")
+		v.Backend = backendLocal
+	}
+	if v.Backend == backendLocal && v.Path == "" {
+		v.Path = DefaultLocalVaultPath
 	}
 	switch v.Backend {
-	case "local":
+	case backendLocal:
 		if v.Path == "" {
 			return fmt.Errorf("project config: vault.path: required for backend \"local\"")
 		}

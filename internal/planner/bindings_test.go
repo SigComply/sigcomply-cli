@@ -10,6 +10,10 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
+// srcOkta is the Okta source identifier — bound here so the goconst
+// linter doesn't flag the repeated literal across the planner tests.
+const srcOkta = "okta"
+
 type stubSource struct {
 	id    string
 	emits []string
@@ -39,8 +43,9 @@ func TestResolveBindings_ExactlyOne_AllowsAtMostOne(t *testing.T) {
 		},
 	}
 	// Zero bindings is allowed (deferred-source model: the policy plans
-	// cleanly and is skipped at evaluation time).
-	bindings, err := resolveBindings(policy, map[string][]spec.BindingEntry{"u": nil}, set.Sources)
+	// cleanly and is skipped at evaluation time). No configured sources,
+	// so auto-binding has nothing to bind.
+	bindings, err := resolveBindings(policy, map[string][]spec.BindingEntry{"u": nil}, set.Sources, nil)
 	if err != nil {
 		t.Fatalf("zero bindings should be allowed; got %v", err)
 	}
@@ -50,7 +55,7 @@ func TestResolveBindings_ExactlyOne_AllowsAtMostOne(t *testing.T) {
 	// Two bindings for exactly-one is still a configuration error.
 	_, err = resolveBindings(policy, map[string][]spec.BindingEntry{
 		"u": {{Source: "aws.iam"}, {Source: "aws.iam"}},
-	}, set.Sources)
+	}, set.Sources, nil)
 	if err == nil || !strings.Contains(err.Error(), "at most 1 binding, got 2") {
 		t.Errorf("want at-most-1 error; got %v", err)
 	}
@@ -66,13 +71,13 @@ func TestResolveBindings_AtMostOne(t *testing.T) {
 		},
 	}
 	// Zero is fine.
-	if _, err := resolveBindings(policy, map[string][]spec.BindingEntry{"u": nil}, set.Sources); err != nil {
+	if _, err := resolveBindings(policy, map[string][]spec.BindingEntry{"u": nil}, set.Sources, nil); err != nil {
 		t.Errorf("at-most-one with zero bindings: %v", err)
 	}
 	// Two is not.
 	_, err := resolveBindings(policy, map[string][]spec.BindingEntry{
 		"u": {{Source: "aws.iam"}, {Source: "aws.iam"}},
-	}, set.Sources)
+	}, set.Sources, nil)
 	if err == nil || !strings.Contains(err.Error(), "at most 1 binding") {
 		t.Errorf("want at-most-one error; got %v", err)
 	}
@@ -86,12 +91,144 @@ func TestResolveBindings_Optional(t *testing.T) {
 			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOptional, Required: false},
 		},
 	}
-	bindings, err := resolveBindings(policy, nil, set.Sources)
+	bindings, err := resolveBindings(policy, nil, set.Sources, nil)
 	if err != nil {
 		t.Fatalf("optional with zero bindings: %v", err)
 	}
 	if len(bindings["u"]) != 0 {
 		t.Errorf("expected empty bindings; got %v", bindings["u"])
+	}
+}
+
+// TestAutoBind_NoExplicitBinding_BindsConfiguredSource is the core
+// substitutability guarantee: configuring a source under sources: is
+// enough to bind every policy slot that can consume it, with no
+// bindings: block written by the operator.
+func TestAutoBind_NoExplicitBinding_BindsConfiguredSource(t *testing.T) {
+	set := registry.NewSet()
+	registerSource(t, set, "aws.iam", "directory_user")
+	policy := &core.Policy{
+		ID: "p1",
+		Slots: map[string]core.Slot{
+			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true},
+		},
+	}
+	// No bindings: entry at all; aws.iam is configured under sources:.
+	bindings, err := resolveBindings(policy, nil, set.Sources, map[string]map[string]any{"aws.iam": {}})
+	if err != nil {
+		t.Fatalf("auto-bind: %v", err)
+	}
+	got := bindings["u"]
+	if len(got) != 1 || got[0].SourceID != "aws.iam" {
+		t.Fatalf("auto-bind result = %+v; want one binding to aws.iam", got)
+	}
+	if len(got[0].AcceptedTypes) != 1 || got[0].AcceptedTypes[0] != "directory_user" {
+		t.Errorf("AcceptedTypes = %v; want [directory_user]", got[0].AcceptedTypes)
+	}
+}
+
+// TestAutoBind_OneOrMore_UnionsAllMatchingSources: a one-or-more slot
+// auto-binds every configured source that emits an accepted type, in
+// sorted order for deterministic plans.
+func TestAutoBind_OneOrMore_UnionsAllMatchingSources(t *testing.T) {
+	set := registry.NewSet()
+	registerSource(t, set, srcOkta, "directory_user")
+	registerSource(t, set, "aws.iam", "directory_user")
+	registerSource(t, set, "aws.s3", "object_storage_bucket") // unrelated; must not bind
+	policy := &core.Policy{
+		ID: "p1",
+		Slots: map[string]core.Slot{
+			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true},
+		},
+	}
+	bindings, err := resolveBindings(policy, nil, set.Sources,
+		map[string]map[string]any{srcOkta: {}, "aws.iam": {}, "aws.s3": {}})
+	if err != nil {
+		t.Fatalf("auto-bind: %v", err)
+	}
+	got := bindings["u"]
+	if len(got) != 2 {
+		t.Fatalf("auto-bind result = %+v; want 2 bindings (aws.iam, okta)", got)
+	}
+	if got[0].SourceID != "aws.iam" || got[1].SourceID != srcOkta {
+		t.Errorf("auto-bind order = [%s %s]; want sorted [aws.iam okta]", got[0].SourceID, got[1].SourceID)
+	}
+}
+
+// TestAutoBind_ExplicitBindingOverridesAutoBind: when the operator names
+// sources for a slot, auto-binding is suppressed for that slot — the
+// explicit list is authoritative (the narrowing escape hatch).
+func TestAutoBind_ExplicitBindingOverridesAutoBind(t *testing.T) {
+	set := registry.NewSet()
+	registerSource(t, set, srcOkta, "directory_user")
+	registerSource(t, set, "aws.iam", "directory_user")
+	policy := &core.Policy{
+		ID: "p1",
+		Slots: map[string]core.Slot{
+			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true},
+		},
+	}
+	// Both configured, but the operator narrows the slot to okta only.
+	bindings, err := resolveBindings(policy,
+		map[string][]spec.BindingEntry{"u": {{Source: srcOkta}}},
+		set.Sources, map[string]map[string]any{srcOkta: {}, "aws.iam": {}})
+	if err != nil {
+		t.Fatalf("explicit override: %v", err)
+	}
+	got := bindings["u"]
+	if len(got) != 1 || got[0].SourceID != srcOkta {
+		t.Fatalf("explicit override result = %+v; want only okta", got)
+	}
+}
+
+// TestAutoBind_SingleCardinalityAmbiguity_Errors: a single-source slot
+// with two configured candidates can't be auto-resolved — the planner
+// refuses to guess and tells the operator to add an explicit binding.
+func TestAutoBind_SingleCardinalityAmbiguity_Errors(t *testing.T) {
+	set := registry.NewSet()
+	registerSource(t, set, srcOkta, "directory_user")
+	registerSource(t, set, "aws.iam", "directory_user")
+	policy := &core.Policy{
+		ID: "p1",
+		Slots: map[string]core.Slot{
+			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotExactlyOne, Required: true},
+		},
+	}
+	_, err := resolveBindings(policy, nil, set.Sources,
+		map[string]map[string]any{srcOkta: {}, "aws.iam": {}})
+	if err == nil || !strings.Contains(err.Error(), "add an explicit binding") {
+		t.Fatalf("want ambiguity error asking for explicit binding; got %v", err)
+	}
+	// A single candidate auto-binds cleanly.
+	bindings, err := resolveBindings(policy, nil, set.Sources,
+		map[string]map[string]any{srcOkta: {}})
+	if err != nil {
+		t.Fatalf("single candidate should auto-bind; got %v", err)
+	}
+	if len(bindings["u"]) != 1 || bindings["u"][0].SourceID != srcOkta {
+		t.Errorf("auto-bind result = %+v; want one binding to okta", bindings["u"])
+	}
+}
+
+// TestAutoBind_UnconfiguredSourceNotBound: a source present in the
+// registry but absent from sources: (e.g. a blank-imported builtin the
+// operator never configured) must not be auto-bound — it has no creds.
+func TestAutoBind_UnconfiguredSourceNotBound(t *testing.T) {
+	set := registry.NewSet()
+	registerSource(t, set, "aws.iam", "directory_user")
+	policy := &core.Policy{
+		ID: "p1",
+		Slots: map[string]core.Slot{
+			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true},
+		},
+	}
+	// aws.iam is registered but NOT in configuredSources → no auto-bind.
+	bindings, err := resolveBindings(policy, nil, set.Sources, map[string]map[string]any{})
+	if err != nil {
+		t.Fatalf("auto-bind: %v", err)
+	}
+	if len(bindings["u"]) != 0 {
+		t.Errorf("expected no auto-bind for unconfigured source; got %+v", bindings["u"])
 	}
 }
 
@@ -106,7 +243,7 @@ func TestResolveBindings_ManualColonSuffixParsed(t *testing.T) {
 	}
 	bindings, err := resolveBindings(policy, map[string][]spec.BindingEntry{
 		"doc": {{Source: "manual.pdf:access_review_quarterly"}},
-	}, set.Sources)
+	}, set.Sources, nil)
 	if err != nil {
 		t.Fatalf("resolveBindings: %v", err)
 	}
@@ -130,7 +267,7 @@ func TestResolveBindings_RejectsBindingForUndeclaredSlot(t *testing.T) {
 	_, err := resolveBindings(policy, map[string][]spec.BindingEntry{
 		"u":            {{Source: "aws.iam"}},
 		"phantom_slot": {{Source: "aws.iam"}},
-	}, set.Sources)
+	}, set.Sources, nil)
 	if err == nil || !strings.Contains(err.Error(), "phantom_slot") {
 		t.Errorf("want unknown-slot error; got %v", err)
 	}
@@ -160,7 +297,7 @@ func TestEvidenceTypeFamily(t *testing.T) {
 // configured source emits directory_user (v1) is the canonical gap.
 func TestDetectCoverageGaps(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, "okta", "directory_user", "okta_app")
+	registerSource(t, set, srcOkta, "directory_user", "okta_app")
 	registerSource(t, set, "aws.iam", "directory_user.v2")
 	registerSource(t, set, "aws.s3", "object_storage_bucket")
 
@@ -174,12 +311,12 @@ func TestDetectCoverageGaps(t *testing.T) {
 	}
 
 	t.Run("version skew flagged when slot unbound", func(t *testing.T) {
-		gaps := detectCoverageGaps(v2Only(), map[string][]Binding{}, map[string]map[string]any{"okta": {}}, set.Sources)
+		gaps := detectCoverageGaps(v2Only(), map[string][]Binding{}, map[string]map[string]any{srcOkta: {}}, set.Sources)
 		if len(gaps) != 1 {
 			t.Fatalf("gaps = %d; want 1 (%+v)", len(gaps), gaps)
 		}
 		g := gaps[0]
-		if g.Slot != "users" || g.Source != "okta" {
+		if g.Slot != "users" || g.Source != srcOkta {
 			t.Errorf("gap = %+v; want slot=users source=okta", g)
 		}
 		if len(g.SourceEmits) != 1 || g.SourceEmits[0] != "directory_user" {
@@ -190,7 +327,7 @@ func TestDetectCoverageGaps(t *testing.T) {
 	t.Run("no gap when an exactly-accepted source is configured", func(t *testing.T) {
 		// aws.iam emits directory_user.v2 exactly — the operator can bind
 		// it; absence of a binding is a plain unbound slot, not skew.
-		gaps := detectCoverageGaps(v2Only(), map[string][]Binding{}, map[string]map[string]any{"okta": {}, "aws.iam": {}}, set.Sources)
+		gaps := detectCoverageGaps(v2Only(), map[string][]Binding{}, map[string]map[string]any{srcOkta: {}, "aws.iam": {}}, set.Sources)
 		if len(gaps) != 0 {
 			t.Fatalf("gaps = %+v; want none (an exact emitter is configured)", gaps)
 		}
@@ -198,7 +335,7 @@ func TestDetectCoverageGaps(t *testing.T) {
 
 	t.Run("no gap when slot already bound", func(t *testing.T) {
 		bound := map[string][]Binding{"users": {{SourceID: "aws.iam", AcceptedTypes: []string{"directory_user.v2"}}}}
-		gaps := detectCoverageGaps(v2Only(), bound, map[string]map[string]any{"okta": {}}, set.Sources)
+		gaps := detectCoverageGaps(v2Only(), bound, map[string]map[string]any{srcOkta: {}}, set.Sources)
 		if len(gaps) != 0 {
 			t.Fatalf("gaps = %+v; want none (slot is bound)", gaps)
 		}
@@ -209,7 +346,7 @@ func TestDetectCoverageGaps(t *testing.T) {
 		s := p.Slots["users"]
 		s.Required = false
 		p.Slots["users"] = s
-		gaps := detectCoverageGaps(p, map[string][]Binding{}, map[string]map[string]any{"okta": {}}, set.Sources)
+		gaps := detectCoverageGaps(p, map[string][]Binding{}, map[string]map[string]any{srcOkta: {}}, set.Sources)
 		if len(gaps) != 0 {
 			t.Fatalf("gaps = %+v; want none (slot not required)", gaps)
 		}
@@ -235,7 +372,7 @@ func TestDetectCoverageGaps(t *testing.T) {
 // actionable message rather than a bare type-mismatch.
 func TestResolveSlot_VersionSkewHint(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, "okta", "directory_user")
+	registerSource(t, set, srcOkta, "directory_user")
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
@@ -243,8 +380,8 @@ func TestResolveSlot_VersionSkewHint(t *testing.T) {
 		},
 	}
 	_, err := resolveBindings(policy, map[string][]spec.BindingEntry{
-		"u": {{Source: "okta"}},
-	}, set.Sources)
+		"u": {{Source: srcOkta}},
+	}, set.Sources, nil)
 	if err == nil || !strings.Contains(err.Error(), "version skew") {
 		t.Fatalf("want version-skew hint in error; got %v", err)
 	}

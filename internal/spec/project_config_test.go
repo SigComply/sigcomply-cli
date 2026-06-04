@@ -22,7 +22,7 @@ func TestLoadProjectConfig_Minimal(t *testing.T) {
 	if cfg.Framework != testFrameworkSOC2 {
 		t.Errorf("Framework = %q; want %q", cfg.Framework, testFrameworkSOC2)
 	}
-	if cfg.Vault.Backend != "local" || cfg.Vault.Path != "./vault" {
+	if cfg.Vault.Backend != backendLocal || cfg.Vault.Path != "./vault" {
 		t.Errorf("Vault = %+v; want backend=local path=./vault", cfg.Vault)
 	}
 	bind, ok := cfg.Bindings["soc2.cc6.1.mfa_enforced"]
@@ -31,6 +31,37 @@ func TestLoadProjectConfig_Minimal(t *testing.T) {
 	}
 	if len(bind["user_directory"]) != 1 || bind["user_directory"][0].Source != testSourceAWSIAM {
 		t.Errorf("binding user_directory = %+v; want [%s]", bind["user_directory"], testSourceAWSIAM)
+	}
+}
+
+// TestLoadProjectConfig_VaultDefaults verifies the zero-config first-run
+// shape: an omitted vault: block defaults to a local vault under the
+// project, so a brand-new config needs neither vault nor bindings.
+func TestLoadProjectConfig_VaultDefaults(t *testing.T) {
+	data := readTestdata(t, "project_config/valid_vault_defaults.yaml")
+	cfg, err := LoadProjectConfig(data)
+	if err != nil {
+		t.Fatalf("LoadProjectConfig: %v", err)
+	}
+	if cfg.Vault.Backend != backendLocal {
+		t.Errorf("Vault.Backend = %q; want local (defaulted)", cfg.Vault.Backend)
+	}
+	if cfg.Vault.Path != DefaultLocalVaultPath {
+		t.Errorf("Vault.Path = %q; want %q (defaulted)", cfg.Vault.Path, DefaultLocalVaultPath)
+	}
+}
+
+// TestLoadProjectConfig_LocalBackendNoPathDefaults verifies that an
+// explicit backend: local with no path: still defaults the path rather
+// than erroring (it used to be a hard validation error).
+func TestLoadProjectConfig_LocalBackendNoPathDefaults(t *testing.T) {
+	data := readTestdata(t, "project_config/valid_vault_local_no_path.yaml")
+	cfg, err := LoadProjectConfig(data)
+	if err != nil {
+		t.Fatalf("LoadProjectConfig: backend:local without path should default, got %v", err)
+	}
+	if cfg.Vault.Path != DefaultLocalVaultPath {
+		t.Errorf("Vault.Path = %q; want %q (defaulted)", cfg.Vault.Path, DefaultLocalVaultPath)
 	}
 }
 
@@ -112,7 +143,6 @@ func TestLoadProjectConfig_RejectsInvalid(t *testing.T) {
 		wantSub string
 	}{
 		{"project_config/invalid_missing_framework.yaml", "framework"},
-		{"project_config/invalid_vault_local_no_path.yaml", "vault.path"},
 		{"project_config/invalid_vault_s3_no_bucket.yaml", "vault.bucket"},
 		{"project_config/invalid_manual_pdf_bracket.yaml", "singleton"},
 		{"project_config/invalid_bad_cadence.yaml", "invalid cadence"},

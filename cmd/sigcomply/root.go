@@ -1,5 +1,5 @@
 // Package cmd is the CLI entry. Subcommands shipped: check, version,
-// init-ci, build, report.
+// init, init-ci, build, report.
 package cmd
 
 import (
@@ -49,6 +49,7 @@ func newRootCmd() *cobra.Command {
 	}
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(newCheckCmd())
+	root.AddCommand(newInitCmd())
 	root.AddCommand(newInitCICmd())
 	root.AddCommand(newBuildCmd())
 	root.AddCommand(newReportCmd())

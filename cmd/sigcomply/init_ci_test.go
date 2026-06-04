@@ -282,9 +282,9 @@ func TestResolveInitCIFramework_DefaultSoc2(t *testing.T) {
 	}
 }
 
-// defaultFW is the SOC 2 identifier — bound here so the goconst linter
-// doesn't flag the same literal across the tests.
-const defaultFW = "soc2"
+// defaultFW is the SOC 2 identifier — aliased to the production constant
+// so there is a single "soc2" literal in the package.
+const defaultFW = defaultFramework
 
 func TestInitCI_RejectsUnsupportedFramework(t *testing.T) {
 	dir := t.TempDir()
