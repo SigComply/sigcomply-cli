@@ -2,54 +2,53 @@
 
 A policy declares: what it asserts, what evidence mode it uses, what
 evidence shapes it needs, what parameters can be tuned, and the
-condition that determines pass/fail. Policies are framework-shipped
-(curated, in-binary) or project-local (custom, under
-`.sigcomply/policies/`). The spec format is identical for both.
+condition that determines pass/fail.
 
 The primary evaluation mechanism is the `pass_when:` declarative
-condition DSL — a YAML block inside `policy.yaml` that expresses
-"all records must satisfy X" without a separate rule file. For the
-rare case that `pass_when:` cannot express the logic (multi-slot
-joins, complex time math, cross-record aggregations), a `rule:`
-escape hatch remains available.
+condition DSL — a condition tree that expresses "all records must
+satisfy X" without a separate rule file. For the rare case that
+`pass_when:` cannot express the logic (multi-slot joins, complex time
+math, cross-record aggregations), a `rule:` escape hatch remains
+available. **No shipped policy uses `rule:` today** — both SOC 2 and
+ISO 27001 are 100% `pass_when:` (each framework's `Rules()` returns
+nil). The escape-hatch infrastructure stays available for a future
+check the DSL genuinely cannot express.
 
 Evidence collection is controlled by `evidence_mode: automated |
-manual`. Automated (default) collects from bound API source plugins
-and evaluates `pass_when:`. Manual binds `manual.pdf` and runs the
+manual`. Automated collects from bound API source plugins and
+evaluates `pass_when:`. Manual binds `manual.pdf` and runs the
 universal PDF-presence check — no `pass_when:` or `rule:` involved.
 
 ---
 
-## File layout
+## Two authoring surfaces
 
-For most policies, `policy.yaml` is the entire artifact — no
-separate rule file required:
+There are two ways a policy reaches the registry, and they are not
+symmetric:
 
-```
-soc2/policies/cc6.1.mfa_enforced/
-   policy.yaml        # spec + pass_when: condition — complete
-```
+- **Framework-shipped policies are authored in Go**, not YAML. Each is
+  an `autoPolicy{...}.policy()` (or `manualPolicy{...}.policy()`)
+  builder under `internal/frameworks/<fw>/policies_*.go`, using the
+  compact clause builders in `builders.go`
+  (`leaf`/`all`/`none`/`anyRec`/`allWhere`/`noneWhere`/`anyWhere`/
+  `allOf`/`anyOf`). There are **no shipped `policy.yaml` files** and
+  **no per-policy `tests/` directories** in-tree. To count a
+  framework's policies, count `.policy()` calls.
+- **Project-local custom policies are authored as `policy.yaml`** under
+  `.sigcomply/policies/<id>/policy.yaml`. This on-disk YAML form is the
+  *only* place `policy.yaml` exists. The loader (`internal/spec/
+  policy.go`, decoded with `yaml.KnownFields(true)`) parses it into the
+  same `core.Policy` the Go builders produce, so the two surfaces are
+  semantically identical.
 
-Policies that need the `rule:` escape hatch add a rule implementation
-alongside:
-
-```
-soc2/policies/cc6.1.complex_check/
-   policy.yaml        # spec (with rule: reference instead of pass_when:)
-   rule.rego          (one of)   # Rego implementation
-   rule.go            (or)       # Go implementation
-   tests/                        # rule unit tests
-      passes_when_…yaml
-      fails_when_…yaml
-```
-
-The `rule:` field names the rule reference
-(`rules.complex_check.v1`); the registry resolves it to whichever
-rule file is present. See §Escape-hatch rule implementations.
+The rest of this document describes the **logical spec** — the fields
+of a policy and the DSL — using YAML for legibility. For framework
+authors, each YAML field maps directly to a builder argument; for
+project authors, the YAML *is* the artifact.
 
 ---
 
-## The spec — `policy.yaml`
+## The spec (logical fields, shown as YAML)
 
 ```yaml
 schema_version: policy.v1
@@ -87,15 +86,16 @@ parameters:
 
 pass_when:
   slot: user_directory
+  quantifier: all
   filter:
-    exclude:
-      all_of:
-        - { param: exempt_service_accounts, eq: true }
-        - { field: is_service_account, eq: true }
-  all:
-    field: mfa_enabled
-    eq: true
-  violation_message: "MFA not enabled for {display_name} ({id})"
+    op: eq
+    field: payload.is_service_account
+    value: false
+  condition:
+    op: eq
+    field: payload.mfa_enabled
+    value: true
+  violation_message: "MFA not enabled for {{.payload.display_name}} ({{.id}})"
 
 tags:
   - identity
@@ -105,21 +105,21 @@ tags:
 
 | Field | Required | Description |
 |---|---|---|
-| `schema_version` | yes | Always `policy.v1` for v1 of the spec format. |
-| `id` | yes | Globally unique policy ID. Must match the directory name's last segment. Convention: `<framework>.<control_lowercase>.<short_name>`. |
-| `control` | yes | The control this policy contributes to. Must exist in the framework's control catalog. |
-| `severity` | yes | Display severity. The rule cannot override this; if a single policy needs variable severity, split into multiple policies. |
+| `schema_version` | yes (YAML) | Always `policy.v1`. Required in the on-disk project-local form; the Go builders set it implicitly. |
+| `id` | yes | Globally unique policy ID. Convention: `<framework>.<control_lowercase>.<short_name>`. |
+| `control` | yes | The control this policy contributes to. Must exist in the framework's control catalog (checked at L3, not at L0 load). |
+| `severity` | yes | Display severity (`info`/`low`/`medium`/`high`/`critical`). Cannot be overridden per-record; if a single policy needs variable severity, split into multiple policies. |
 | `category` | no | Free-form grouping label (e.g. `access_control`, `encryption`, `monitoring`). Used in summaries. |
-| `evidence_mode` | no | `automated` (default) or `manual`. Controls the evidence collection path. `automated` collects from bound API source plugins and evaluates `pass_when:` or `rule:`. `manual` binds `manual.pdf` and runs the universal PDF-presence check — `pass_when:` and `rule:` are ignored. Projects can override the framework default via project config. See §evidence_mode. |
-| `cadence` | yes | How often the policy must be evaluated. One of `continuous`, `hourly`, `daily`, `weekly`, `monthly`, `quarterly`, `annual`, or the custom-interval form `every:<duration>` (`every:6h`, `every:90m`; 5-minute floor). The CLI enforces cadence in scheduled mode via per-policy state shards — see [`11-cadence-model.md`](11-cadence-model.md). |
-| `on_push` | no | Whether this policy is suitable for fast PR/push feedback. Defaults to `true` when `evidence_mode: automated`, `false` when `evidence_mode: manual`. CI workflows for on-push gates filter by this tag. |
+| `evidence_mode` | **yes** | `automated` or `manual` — a required first-class field with **no default**. Missing → load fail (exit 3). `automated` collects from bound API source plugins and evaluates `pass_when:` (or the `rule:` escape hatch). `manual` binds `manual.pdf` and runs the universal PDF-presence check — `pass_when:` and `rule:` are ignored. Projects can override the framework default via project config. See §evidence_mode. |
+| `cadence` | yes | How often the policy must be evaluated. One of `continuous`, `hourly`, `daily`, `weekly`, `monthly`, `quarterly`, `annual`, or the custom-interval form `every:<duration>` (`every:6h`, `every:90m`; 5-minute floor). A plain duration (`cadence: 24h`) is a config error. The CLI enforces cadence in scheduled mode via per-policy state shards — see [`10-cadence-model.md`](10-cadence-model.md). |
+| `on_push` | no | Whether this policy is suitable for fast PR/push feedback. Defaults to `true` when `evidence_mode: automated`, `false` when `evidence_mode: manual`. CI workflows for on-push gates filter by this flag. |
 | `description` | yes | Plain-English statement of what the policy asserts. |
 | `remediation` | no | Plain-English remediation guidance, displayed alongside failures. |
-| `slots` | no | Named typed inputs. Required when `evidence_mode: automated`. Omitted for manual policies (the planner creates an implicit slot). See §Slots. |
+| `slots` | conditional | Named typed inputs. **Required (≥1) when `evidence_mode: automated`; forbidden when `evidence_mode: manual`** (manual policies have no configurable slots — the planner binds the implicit `manual.pdf` slot). See §Slots. |
 | `parameters` | no | Tunable per-project values. See §Parameters. |
-| `pass_when` | no | Declarative condition DSL — the primary evaluation path. Required when `evidence_mode: automated` and `rule:` is absent. Ignored when `evidence_mode: manual`. See §pass_when. |
-| `rule` | no | Escape-hatch rule reference. Used only when `pass_when:` cannot express the logic. If both are present, `rule:` takes precedence. Must resolve in `RuleRegistry`. See §Escape-hatch rule implementations. |
-| `catalog_entry` | no | For `evidence_mode: manual`: the manual catalog entry ID that resolves to the PDF path. Defaults to the policy's short name (last segment of `id`). |
+| `pass_when` | conditional | Declarative condition DSL — the primary evaluation path. For `evidence_mode: automated`, exactly one of `pass_when:` or `rule:` is required. Forbidden when `evidence_mode: manual`. See §pass_when. |
+| `rule` | conditional | Escape-hatch rule reference. Used only when `pass_when:` cannot express the logic. **`pass_when:` and `rule:` are mutually exclusive — declaring both is a load error (exit 3).** Must resolve in the rule registry (checked at L3). Unused by every shipped policy. See §Escape-hatch rule implementations. |
+| `catalog_entry` | conditional | **Required when `evidence_mode: manual`** (there is no short-name default): the manual catalog entry ID that resolves to the PDF path. Forbidden for `automated` policies. |
 | `tags` | no | Free-form labels for filtering and reporting. |
 
 ---
@@ -141,10 +141,21 @@ this slot will consume. The in-memory shape is
 ```yaml
 slots:
   user_directory:
-    accepts: [user_record]                                       # single-type slot
+    accepts: [directory_user]                # single-type slot, many sources
   buckets:
-    accepts: [s3_bucket, gcs_bucket, azure_blob_container]       # multi-type slot
+    accepts: [object_storage_bucket]         # single neutral type spans S3/GCS/Azure
 ```
+
+The two examples above show the two real cross-vendor shapes. A
+`directory_user` slot is satisfied by `aws.iam`, `okta`, and `github`
+— three sources, one type. An `object_storage_bucket` slot is
+satisfied by both `aws.s3` and `gcp.storage`, which **both emit the
+same neutral type** — there are no separate `s3_bucket`/`gcs_bucket`
+types. A genuinely multi-type `accepts:` list arises only when two
+sources emit *different* registered types into one slot (the canonical
+case being version migration — `accepts: [directory_user.v1,
+directory_user.v2]`; see [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md)
+§Versioning).
 
 A source matches a slot when **`source.Emits() ∩ slot.Accepts ≠ ∅`**.
 The planner verifies this intersection at plan time; an empty
@@ -175,164 +186,82 @@ handle the absence.
 ### Multiple bound sources
 
 When `cardinality: one-or-more` or `optional` allows multiple sources,
-the rule receives the **union** of all bound sources' records under
-`input.slots.<slot_name>`. The records remain tagged with their
-`Type` and `SourceID`. Most rules ignore both and treat the union as a
-flat set; rules that legitimately need to behave differently per
-evidence type (because, say, an S3 bucket's encryption configuration
-is structurally different from a GCS bucket's) switch on `record.Type`:
+the evaluator receives the **union** of all bound sources' records
+under the slot. The records remain tagged with their `Type` and
+`SourceID`. The `pass_when:` DSL treats the union as a flat set and
+evaluates one condition tree over it; per-record `Type` is available
+to filters and conditions via the `type` field if a clause needs it
+(`{op: eq, field: type, value: directory_user.v2}`).
 
-```rego
-package rules.object_storage_encrypted.v1
-
-violation contains v if {
-    record := input.slots.buckets[_]
-    record.Type == "s3_bucket"
-    not record.payload.encryption.sse_enabled
-    v := {"resource_id": record.id, "reason": "S3 bucket not encrypted"}
-}
-
-violation contains v if {
-    record := input.slots.buckets[_]
-    record.Type == "gcs_bucket"
-    not record.payload.default_kms_key_name
-    v := {"resource_id": record.id, "reason": "GCS bucket lacks default KMS key"}
-}
-```
-
-In Go:
-
-```go
-for _, rec := range in.Records("buckets") {
-    switch rec.Type {
-    case "s3_bucket":     // ...
-    case "gcs_bucket":    // ...
-    }
-}
-```
-
-Switching on `record.Type` is the **only** legitimate per-source
-branch in rule logic. Branching on `record.SourceID` is a code smell —
-it ties the rule to a specific plugin ID and breaks substitutability.
-If a rule needs to know "this came from AWS rather than GCP," the
-information is already encoded in `Type`.
+Branching on `source_id` for *behavior* is a code smell — it ties the
+policy to a specific plugin ID and breaks substitutability. If logic
+needs to know "this came from AWS rather than GCP," that distinction
+should be encoded in the evidence `type` (or a normalized payload
+field the plugin computes), not in `source_id`. See
+[`04a-evidence-type-registry.md`](04a-evidence-type-registry.md)
+§The normalization boundary.
 
 ### When to add a new evidence type vs. extend an existing slot's `accepts:`
 
 This decision comes up whenever a new backend appears for a check that
-SigComply already supports.
+SigComply already supports. The full rubric (with the worked rationale)
+lives in [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md)
+§Decision rubric. In brief:
 
-- **Same logical entity, same fields → reuse the existing type.** If
-  AWS IAM, Okta, and BambooHR all represent "a human user with an MFA
-  setting," they emit `user_record`. The slot keeps `accepts: [user_record]`
-  and the new plugin just adds itself to the bindings. This is the
-  default path.
-- **Same logical entity, structurally divergent fields → new type, add
-  to `accepts:`.** S3 buckets and GCS buckets are both "an object
-  storage container," but their encryption configuration, IAM model,
-  and lifecycle settings are structurally different. Forcing a shared
-  schema would either lose fidelity (lowest-common-denominator) or
-  bloat both schemas with each other's irrelevant fields. The right
-  move is: define `s3_bucket` and `gcs_bucket` as separate types,
-  declare `accepts: [s3_bucket, gcs_bucket]` on the slot, and let the
-  rule switch on `record.Type`.
+- **Same logical entity, satisfiable by a shared schema → reuse the
+  existing type.** AWS IAM, Okta, and GitHub all represent "a directory
+  user," so they emit `directory_user`; AWS S3 and GCP storage both
+  represent "an object storage bucket," so they emit
+  `object_storage_bucket`. The slot keeps a single-type `accepts:` and
+  the new plugin just adds itself to the bindings. This is the default
+  and the most common path.
+- **Same concept, structurally divergent fields that cannot share a
+  schema → coin a new type and add it to `accepts:`.** This is rarer
+  than it looks — the discipline in 04a is to design the schema
+  top-down from the concept so the shared type *does* fit. When it
+  genuinely cannot, the multi-type slot is the mechanism.
 - **Different logical entity → keep slots separate.** A firewall rule
   in AWS is not the same entity as a GitHub branch protection rule.
   They go in different slots, not into one slot's `accepts:` list.
 
-A useful test: if the rule would benefit from iterating "all the
-buckets, regardless of cloud" (e.g., "count how many buckets are
-unencrypted across all clouds"), the multi-type slot is correct. If
-the rule would always handle each source's data in a fundamentally
-different way, those are separate slots.
+**Consequence.** Most slots have a single-element `accepts:` list,
+because the neutral cross-vendor type usually covers all sources. A
+multi-element list appears mainly during a version-migration window
+(`accepts: [directory_user.v1, directory_user.v2]`).
 
-**Rule-of-thumb consequence.** Most slots have a single-element
-`accepts:` list. Multi-element lists appear primarily in policies that
-verify cloud-agnostic invariants (encryption at rest, network egress,
-audit logging) where the same control applies across vendors with
-different on-the-wire shapes.
-
-### Cross-source dedup (read this if your slot has cardinality `one-or-more`)
+### Cross-source dedup (clause-level `identity_key`)
 
 The union is a **bag**, not a set. If Alice has an account in both AWS
-IAM and Okta and a project's `user_directory` slot binds to
-`[aws.iam, okta]`, Alice's two records arrive as two entries. A naive
-rule that iterates and counts produces `resources_evaluated: <total>`
-that double-counts every human with accounts in multiple sources.
+IAM and Okta and a project's slot binds to `[aws.iam, okta]`, Alice's
+two records arrive as two entries.
 
-This matters because the count crosses the privacy boundary as the
-customer's compliance score input. A 47-record union of 30 AWS + 17
-Okta where 5 humans appear in both should report 42 unique humans
-evaluated, not 47.
+The `pass_when:` DSL deduplicates violations by a clause-level
+`identity_key:`, which **defaults to `"id"`**. When two records that
+both fail share the same value at the `identity_key` field, only one
+violation is emitted. To dedupe by a cross-source identity instead of
+the per-source ID, set `identity_key:` on the clause to a payload field
+the plugins normalize consistently:
 
-**The dedup mechanism** is `identity_key`. Source plugins may set
-`identity_key` on an `EvidenceRecord` to a stable cross-source
-identifier — typically email, employee_id, or another value that
-represents the same real-world entity across systems:
-
-```go
-// Inside aws.iam.Collect(...)
-records = append(records, evidence.Record{
-    Type:        "user_record",
-    ID:          "AIDAEXAMPLE01",        // AWS-local ARN
-    IdentityKey: "alice@acme.com",        // cross-source
-    Payload:     payload,
-    SourceID:    "aws.iam",
-})
-
-// Inside okta.Collect(...)
-records = append(records, evidence.Record{
-    Type:        "user_record",
-    ID:          "okta-user-99",          // Okta-local ID
-    IdentityKey: "alice@acme.com",        // same key — dedup possible
-    Payload:     payload,
-    SourceID:    "okta",
-})
+```yaml
+pass_when:
+  slot: user_directory
+  quantifier: all
+  identity_key: payload.email      # collapse the same human across sources
+  condition:
+    op: eq
+    field: payload.mfa_enabled
+    value: true
+  violation_message: "MFA not enabled for {{.payload.display_name}}"
 ```
 
-When a rule processes records with `IdentityKey` set, it should
-**dedupe by identity_key first** before counting. The framework's Go
-rule helpers expose `rule.DedupeByIdentity(records []Record) []Record`
-which returns one record per identity_key (first-seen wins; rules
-needing different semantics — e.g., "merge fields from both records"
-— must implement that themselves).
-
-Rego rules apply the same pattern via a `dedupe_by_identity` helper in
-`data.sigcomply.lib`:
-
-```rego
-package rules.mfa_enforced.v1
-
-import data.sigcomply.lib.dedupe_by_identity
-
-violation contains v if {
-    unique_users := dedupe_by_identity(input.slots.user_directory)
-    record := unique_users[_]
-    not record.payload.mfa_enabled
-    v := {"resource_id": record.id, "reason": ...}
-}
-```
-
-YAML DSL rules dedupe automatically when the evidence type schema
-declares `identity_key` as a known field — the transpiler emits the
-dedupe step.
-
-**When `identity_key` is not set**, no dedup happens. This is correct
-for evidence types where there is no cross-source identity (e.g.,
-`firewall_rule` — a rule in AWS is not the same rule as a rule in
-GCP). Plugin authors should set `identity_key` only when it
-genuinely represents a shared real-world entity across sources.
-
-**Effect on counts**: when dedup occurs, `resources_evaluated` and
-`resources_failed` in the `PolicyResult` reflect the deduplicated
-count. The vault's full violation list may still include all records
-(for forensic visibility into which source reported which failure);
-the cloud submission carries the deduplicated count only.
-
-Shipped rules that consume types where `identity_key` is meaningful
-(`user_record`, etc.) dedupe by default. Custom rule authors must
-explicitly choose: dedupe (set-of-entities semantics) or no-dedupe
-(bag-of-records semantics).
+This dedup is **opt-in at the clause level and does NOT read the
+evidence-type schema's identity_key** (the schema-level convention is
+documentation only — see
+[`04a-evidence-type-registry.md`](04a-evidence-type-registry.md)). It
+deduplicates the *violation list*, which in turn feeds
+`resources_failed` in the `PolicyResult`. When `identity_key:` is
+omitted, dedup is by `id` — correct for evidence types with no
+cross-source identity (e.g. `firewall_rule`).
 
 ---
 
@@ -383,8 +312,11 @@ effective = policy.parameters.<name>.default
 ```
 
 Validation runs against `min/max/enum/pattern`. Out-of-bounds values
-cause a planning error (exit 3). The effective values are stamped into
-the run's `manifest.json` so auditors see the exact thresholds used.
+cause a planning error (exit 3). The effective values are passed to the
+evaluator and recorded in the per-policy `result.json` so auditors see
+the exact thresholds used. (The run `manifest.json` is a minimal
+integrity record — `file_hashes` plus run metadata — and does not carry
+effective parameters; see [`05-vault-layout.md`](05-vault-layout.md).)
 
 ---
 
@@ -431,183 +363,222 @@ is not expected on every commit. When `evidence_mode: automated`,
 
 ## `pass_when:` — declarative condition DSL
 
-`pass_when:` is the **primary evaluation path** for automated policies.
-It expresses "all records must satisfy X" directly in `policy.yaml` —
-no separate rule file required. The evaluator interprets it against the
-collected records from the policy's slots.
+`pass_when:` is the **primary evaluation path** for automated policies
+— and the only one any shipped policy uses. It expresses "all records
+must satisfy X" directly, no separate rule file. The evaluator
+interprets it against the collected records from the policy's slot.
 
 For logic the DSL cannot express (multi-slot joins, cross-record
 aggregations, complex date computations not pre-computable by the
 plugin), the `rule:` escape hatch is available (see §Escape-hatch rule
 implementations). In practice, pre-computing derived fields in the
-source plugin (e.g. emitting `days_since_rotation` instead of
-`last_rotation_at`) eliminates most needs for the escape hatch.
+source plugin (e.g. emitting `age_days` instead of `last_rotation_at`)
+eliminates most needs for the escape hatch — which is why no shipped
+policy currently uses one.
 
 `pass_when:` is ignored when `evidence_mode: manual`.
 
 ### Structure
 
+A clause has a `quantifier`, a `condition` (the predicate tree), an
+optional `filter` (another condition tree applied first), and an
+optional `violation_message`. Conditions are **triples** —
+`{op, field, value}` — never an `{op: ...}` shorthand keyed by the
+operator.
+
 ```yaml
 pass_when:
-  slot: <slot_name>      # required if the policy has >1 slot; omit for single-slot policies
-  filter:                # optional: pre-filter records before applying the quantifier
-    include: <condition>   # only evaluate records matching this condition
-    exclude: <condition>   # skip records matching this condition
-  <quantifier>: <condition>   # one of: all | none | any | count
-  violation_message: "<template>"  # optional; default auto-generated
+  slot: <slot_name>            # required on every clause
+  quantifier: <all|none|any|count>
+  filter:                      # optional: a condition tree; only records that
+    op: <op>                   #   match it are passed to the quantifier
+    field: <field_path>        #   (records whose filter field is absent are
+    value: <literal|$params.x> #    excluded, never errored)
+  condition:                   # required: the predicate evaluated per record
+    op: <op>
+    field: <field_path>
+    value: <literal|$params.x>
+  identity_key: <field_path>   # optional; default "id" — dedup key for violations
+  min_percentage: <0-100>      # required iff quantifier == count; rejected otherwise
+  violation_message: "<go template>"   # optional
 ```
 
 ### Quantifiers
 
 | Quantifier | Semantics | Typical use |
 |---|---|---|
-| `all:` | Every record in the (filtered) slot must satisfy the condition. | MFA enforced, encryption at rest, branch protection enabled. |
-| `none:` | No record in the (filtered) slot may satisfy the condition. | No buckets publicly accessible, no root API keys active. |
-| `any:` | At least one record must satisfy the condition. | At least one CloudTrail trail enabled, at least one backup present. |
-| `count:` | A threshold count or percentage must satisfy the condition. | ≥90% of employees completed security training. |
+| `all` | Every record in the (filtered) slot must satisfy `condition`. | MFA enforced, encryption at rest, branch protection enabled. |
+| `none` | No record in the (filtered) slot may satisfy `condition`. | No buckets publicly accessible, no root API keys active. |
+| `any` | At least one record must satisfy `condition` (an empty slot fails). | At least one audit trail enabled, at least one backup present. |
+| `count` | At least `min_percentage`% of records must satisfy `condition`. | ≥90% of employees completed security training. |
 
 ### Conditions
 
-A condition tests a field on a record payload or a parameter value:
+A condition node is a triple. The leaf operators compare a record field
+(LHS) against a `value` (RHS); the two compound operators nest a
+`conditions:` list instead of a single field/value:
 
 ```yaml
 # Equality / inequality
-{ field: mfa_enabled, eq: true }
-{ field: status, neq: "DELETED" }
+{ op: eq,  field: payload.mfa_enabled, value: true }
+{ op: neq, field: payload.status,      value: "DELETED" }
 
-# Numeric / date comparison (right-hand side can be a literal or param ref)
-{ field: days_since_rotation, lt: 90 }
-{ field: days_since_rotation, lte: { param: max_age_days } }
-{ field: cert_expiry_days, gt: 30 }
+# Numeric comparison (RHS may be a literal or a parameter ref)
+{ op: lt,  field: payload.age_days, value: 90 }
+{ op: lte, field: payload.age_days, value: "$params.max_age_days" }
+{ op: gte, field: payload.min_length, value: 14 }
 
 # Set membership
-{ field: region, in: ["us-east-1", "us-west-2"] }
-{ field: protocol, not_in: ["http", "ftp"] }
+{ op: in,     field: payload.region,   value: ["us-east-1", "us-west-2"] }
+{ op: not_in, field: payload.protocol, value: ["http", "ftp"] }
 
-# Existence (non-null, non-empty)
-{ field: kms_key_id, is_set: true }
+# Existence (field present and non-null) — the only op with no value
+{ op: is_set, field: payload.kms_key_id }
 
-# Parameter value check (used in filter conditions)
-{ param: exempt_service_accounts, eq: true }
-
-# Compound — all_of (AND) / any_of (OR)
-all_of:
-  - { field: encryption_at_rest_enabled, eq: true }
-  - { field: public_access_blocked, eq: true }
+# Compound — all_of (AND) / any_of (OR), nesting a conditions list
+op: all_of
+conditions:
+  - { op: eq, field: payload.encryption_at_rest_enabled, value: true }
+  - { op: eq, field: payload.public_access_blocked,       value: true }
 ```
 
-`field:` uses dot notation for nested fields
-(`encryption.key_id`, `protection.required_reviewers_count`).
-`param:` references the effective value of a declared parameter after
-project-config overrides are applied.
+The full operator set is `eq`, `neq`, `lt`, `lte`, `gt`, `gte`, `in`,
+`not_in`, `is_set`, `all_of`, `any_of`.
 
-### The `count:` quantifier
+**Field paths are explicit and prefixed.** A condition's `field`
+resolves only `id`, `type`, `source_id`, or `payload.<dot.path>` (with
+dot notation for nested payload fields, e.g.
+`payload.encryption.key_id`). A bare field name without the `payload.`
+prefix is *not found* and surfaces the policy as `error` — there is no
+implicit payload scoping. A comparison against an absent field also
+errors (rather than silently passing or failing); tolerate a
+legitimately-absent field with `is_set` or by scoping it away in the
+clause `filter`.
+
+**Parameters are RHS-only.** Reference an effective parameter value as
+the string `"$params.<name>"` on the `value` side. There is no
+`{param: ...}` key, and the `field`/LHS side may never be a
+`$params.*` reference.
+
+### The `count` quantifier
 
 ```yaml
 pass_when:
-  slot: employees
-  count:
-    min_percentage: 100     # 0–100; all must satisfy
-    condition:
-      field: training_completed_this_year
-      eq: true
-  violation_message: "Training not completed for {display_name}"
+  slot: evidence
+  quantifier: count
+  min_percentage: 90          # ≥90% of records must satisfy the condition
+  condition:
+    op: eq
+    field: payload.training_completed_this_year
+    value: true
+  violation_message: "training completion below threshold"
 ```
 
-`count:` supports `min:` (absolute minimum), `max:` (absolute
-maximum), `min_percentage:`, and `max_percentage:`. At least one of
-these four is required.
+`min_percentage` (0–100) is **required for `count` and rejected for
+every other quantifier**. `count` is the only quantifier with a
+threshold knob; it is currently used by zero shipped policies (every
+shipped check is `all`/`none`/`any`).
 
 ### Violation message templates
 
-The default message when a record fails: `"<field> is <actual_value>
-for <id>"`. Override with `violation_message:` using `{token}`
-interpolation. Available tokens: any field name from the record
-payload, plus `{id}`, `{source_id}`, and `{type}`. Parameter values
-are referenceable as `{param.<name>}`.
+`violation_message` is a Go-template string. Substitution tokens are
+`{{.payload.<field>}}` for payload fields (dot notation for nested
+fields) and `{{.id}}` / `{{.type}}` / `{{.source_id}}` for the
+top-level record fields. Unresolved tokens are left verbatim. There is
+**no** `{token}` brace-only form and **no** parameter interpolation in
+messages.
 
-### Identity-key dedup
-
-When the accepted evidence type declares an `identity_key` (e.g.
-`directory_user` uses email as the cross-source dedup key), the DSL
-evaluator deduplicates records by `identity_key` before applying the
-quantifier. Records without `identity_key` set are never deduplicated.
-Policy authors using `pass_when:` never need to write dedup logic
-explicitly.
+```yaml
+violation_message: "user {{.payload.display_name}} ({{.id}}) does not have MFA enabled"
+```
 
 ### Multi-slot policies
 
-A policy with multiple slots provides a list of `pass_when:` blocks.
-All blocks must pass for the policy to pass:
+A policy with multiple slots provides a *list* of `pass_when:` clauses;
+each names its own `slot:`. All clauses must pass for the policy to
+pass:
 
 ```yaml
 pass_when:
   - slot: buckets
-    all:
-      field: encryption_at_rest_enabled
-      eq: true
-    violation_message: "Bucket {name} is not encrypted at rest"
+    quantifier: all
+    condition: { op: eq, field: payload.encryption_at_rest_enabled, value: true }
+    violation_message: "bucket {{.payload.name}} is not encrypted at rest"
   - slot: trails
-    any:
-      field: enabled
-      eq: true
+    quantifier: any
+    condition: { op: eq, field: payload.enabled, value: true }
 ```
 
-Cross-slot conditions (e.g. "every user in slot A must appear in slot
-B") cannot be expressed in the DSL and require the `rule:` escape
-hatch.
+A clause evaluates against a single slot. Genuine cross-slot
+conditions (e.g. "every user in slot A must appear in slot B") cannot
+be expressed in the DSL and require the `rule:` escape hatch.
 
 ### Worked examples
 
-**MFA enforced on all users (service accounts exempt by parameter):**
+These mirror real shipped checks (the Go builders in
+`internal/frameworks/soc2/policies_cc6.go`); the YAML below is the
+equivalent project-local form.
+
+**MFA enforced on all users (service accounts scoped out by filter):**
 
 ```yaml
 pass_when:
-  slot: user_directory
+  slot: evidence
+  quantifier: all
   filter:
-    exclude:
-      all_of:
-        - { param: exempt_service_accounts, eq: true }
-        - { field: is_service_account, eq: true }
-  all:
-    field: mfa_enabled
-    eq: true
-  violation_message: "MFA not enabled for {display_name} ({id})"
+    op: eq
+    field: payload.is_service_account
+    value: false
+  condition:
+    op: eq
+    field: payload.mfa_enabled
+    value: true
+  violation_message: "user {{.payload.display_name}} does not have MFA enabled"
 ```
 
-**Access key rotation within a configurable age limit:**
+**Active access keys rotated within a configurable age limit:**
 
 ```yaml
 pass_when:
-  slot: access_keys
+  slot: evidence
+  quantifier: all
   filter:
-    exclude: { field: is_active, eq: false }
-  all:
-    field: days_since_rotation
-    lt: { param: max_age_days }
-  violation_message: "Key {id} last rotated {days_since_rotation} days ago (limit: {param.max_age_days})"
+    op: eq
+    field: payload.is_active
+    value: true
+  condition:
+    op: lte
+    field: payload.age_days
+    value: "$params.max_age_days"
+  violation_message: "access key {{.id}} exceeds the rotation age limit"
 ```
 
-**At least one CloudTrail trail enabled:**
+**At least one multi-region audit trail enabled:**
 
 ```yaml
 pass_when:
-  slot: audit_trails
-  any:
-    field: enabled
-    eq: true
+  slot: evidence
+  quantifier: any
+  condition:
+    op: all_of
+    conditions:
+      - { op: eq, field: payload.is_enabled,      value: true }
+      - { op: eq, field: payload.is_multi_region, value: true }
+  violation_message: "no enabled multi-region audit trail exists"
 ```
 
-**All S3 buckets encrypted and blocking public access:**
+**No admin lacks MFA (none quantifier over a compound condition):**
 
 ```yaml
 pass_when:
-  slot: buckets
-  all:
-    all_of:
-      - { field: encryption_at_rest_enabled, eq: true }
-      - { field: public_access_blocked, eq: true }
-  violation_message: "Bucket {name}: encrypted={encryption_at_rest_enabled}, public_blocked={public_access_blocked}"
+  slot: evidence
+  quantifier: none
+  condition:
+    op: all_of
+    conditions:
+      - { op: eq, field: payload.is_admin,    value: true }
+      - { op: eq, field: payload.mfa_enabled, value: false }
+  violation_message: "admin user {{.payload.display_name}} does not have MFA enabled"
 ```
 
 ---
@@ -615,9 +586,10 @@ pass_when:
 ## Escape-hatch rule references
 
 The `rule:` field is available for the rare cases that `pass_when:`
-cannot express. If both `pass_when:` and `rule:` are present, `rule:`
-takes precedence (escape hatch always wins). If neither is present and
-`evidence_mode: automated`, the spec fails to load with exit 3.
+cannot express. **`pass_when:` and `rule:` are mutually exclusive** —
+declaring both fails to load (exit 3), and so does declaring neither
+when `evidence_mode: automated`. No shipped policy uses `rule:`; the
+infrastructure exists for a future check the DSL cannot express.
 
 The `rule:` field is a string in dotted-with-version notation:
 
@@ -649,7 +621,7 @@ vault remain interpretable.
 evaluated. Both live on the policy spec. In scheduled mode the CLI
 enforces cadence via per-policy state shards in the vault; in PR mode
 and manual mode the CLI evaluates every in-scope policy regardless of
-cadence. Full algorithm in [`11-cadence-model.md`](11-cadence-model.md)
+cadence. Full algorithm in [`10-cadence-model.md`](10-cadence-model.md)
 §The decision rule.
 
 ### Why cadence matters
@@ -720,19 +692,20 @@ on-push workflow ignores it entirely. A daily IAM MFA check has
 `cadence: daily, on_push: true`: the daily workflow runs the full
 sweep, and PRs touching IAM also get the policy as fast feedback.
 
-### Cadence enforcement vs operator override
+### Cadence enforcement vs explicit filters
 
 The CLI enforces cadence in scheduled mode but never traps the
-operator. If a human types
-`sigcomply check --scheduled --policies soc2.cc1.1.board_review`,
-the explicit `--policies` filter wins and the policy runs regardless
-of cadence state. The decision rule (full algorithm in
-[`11-cadence-model.md`](11-cadence-model.md) §The decision rule) puts
-operator filters at the top — they always bypass cadence gating.
+operator. When the operator passes an explicit filter flag
+(`--cadence`, `--cadences`, `--on-push`, `--pr`, `--scheduled` — these
+are mutually exclusive), that filter wins and the matching policies run
+regardless of cadence state. The decision rule (full algorithm in
+[`10-cadence-model.md`](10-cadence-model.md)) puts an explicit filter
+at the top: branch 1 is "filter is explicit → evaluate," ahead of the
+content-hash and due-time branches.
 
-PR mode (`sigcomply check --pr`) and manual mode (the default,
-`sigcomply check`) don't read state at all — every in-scope policy
-evaluates. Cadence enforcement is strictly a scheduled-mode behavior.
+PR mode (`sigcomply check --pr`) and the default invocation
+(`sigcomply check`) don't gate on cadence — every in-scope policy
+evaluates. Cadence gating is strictly a scheduled-mode behavior.
 
 Effective cadence = `project_config.policy_cadences[id]` if set, else
 `policy.cadence`. Per-policy state captures the effective cadence at
@@ -751,8 +724,8 @@ policy_cadences:
   soc2.cc1.2.code_of_conduct_attested: annual   # loosen — we attest yearly
 ```
 
-The full reference (precedence, validation, interaction with `--policies`
-filtering) lives in [`08-project-config.md`](08-project-config.md).
+The full reference (precedence, validation, interaction with the
+cadence filter flags) lives in [`08-project-config.md`](08-project-config.md).
 
 ### A manual policy's cadence in practice
 
@@ -788,13 +761,13 @@ evaluator to run the universal PDF-presence check: `file_present`,
 `in_temporal_window`, `file_valid`. The `grace_period_days` parameter
 is consumed by the presence check, not by a rule function.
 
-The quarterly CI workflow (`.github/workflows/sigcomply-quarterly.yml`)
-runs `sigcomply check --cadence quarterly` once per quarter on the
-calendar boundary plus grace. The on-push workflow never sees this
-policy because `on_push: false`. The CLI itself, given
-`--policies soc2.cc1.4.quarterly_access_review`, will still evaluate
-it on demand — the cadence value is guidance for the scheduler, not a
-runtime gate.
+The quarterly CI workflow (`.github/workflows/compliance-quarterly.yml`,
+scaffolded by `sigcomply init-ci`) runs `sigcomply check --cadence
+quarterly` once per quarter on the calendar boundary plus grace. The
+on-push workflow never sees this policy because `on_push: false`. A
+scheduled run is the gating mechanism — there is no `--policies`
+operator filter flag on `check`; the in-scope set is selected by the
+cadence/on-push filter flags (see [`09-ci-execution-model.md`](09-ci-execution-model.md)).
 
 ---
 
@@ -805,8 +778,10 @@ policy logic. If you find yourself reaching for `rule:`, first ask:
 can the source plugin pre-compute the derived field that makes the
 condition expressible in the DSL? Usually it can.
 
-When `rule:` is genuinely needed, it can be authored in either of two
-flavors. Both implement the same `Rule` Go interface.
+> **Shipped status.** No shipped policy uses `rule:` — both frameworks'
+> `Rules()` return nil, so the rule registry is empty in practice. The
+> rule types live in `internal/core` (there is no `internal/core/rule`
+> package). The two flavors below describe the available surface.
 
 **When to use `rule:` instead of `pass_when:`:**
 - Cross-slot conditions: "every user in slot A must exist in slot B"
@@ -816,40 +791,31 @@ flavors. Both implement the same `Rule` Go interface.
 
 ### Flavor 1 — Go
 
+Go rules implement `core.Rule` and are registered through a framework's
+`Rules()` method (the only mechanism that populates the per-`Set` rule
+registry). **There is no project-local Go-rule registration hook today**
+— a customer cannot drop a `rule.go` under `.sigcomply/` and have it
+load. Project-local *Rego* rules and project-local *YAML policies* do
+load; project-local Go rules are not wired (see §Project-local custom
+policies and [`07-extensibility.md`](07-extensibility.md)).
+
 ```go
-// rule.go
-package complex_check_v1
-
-import (
-    "context"
-    "fmt"
-
-    "github.com/sigcomply/sigcomply-cli/internal/core/rule"
-)
-
 type Rule struct{}
 
 func (Rule) ID() string { return "rules.complex_check.v1" }
 
-func (Rule) Evaluate(ctx context.Context, in rule.Input) (rule.Result, error) {
+func (Rule) Evaluate(ctx context.Context, in core.RuleInput) (core.RuleResult, error) {
     // Full Go expressiveness: joins, time math, cross-record logic.
     // Must be deterministic. Must not perform I/O.
-    var violations []rule.Violation
+    var violations []core.Violation
     // ...
-    return rule.Result{
-        Status:     rule.StatusFromViolations(violations),
-        Violations: violations,
-    }, nil
+    return core.RuleResult{ /* Status, Violations */ }, nil
 }
-
-func init() { rule.Register(Rule{}) }
 ```
 
-**Conventions:**
-- Package name `<rule_name>_v<n>`
-- Implements `rule.Rule` interface; `init()` registers it
-- Must be deterministic; must not perform I/O
-- Reviewed at PR time for side-effect-freedom
+A framework returns its Go rules from `Rules()`; the registry builder
+registers them per framework `Set`. Both shipped frameworks return
+`nil`.
 
 ### Flavor 2 — Rego
 
@@ -889,72 +855,32 @@ violation contains v if {
 }
 ```
 
-Rules receive `input.params.<name>` for every declared parameter,
-always populated (default if not overridden by project config).
+Rules receive parameters for every declared parameter, always populated
+(default if not overridden by project config).
 
 ---
 
-## Testing rules
+## Testing policies
 
-Every policy directory carries a `tests/` subdirectory with YAML
-test cases. Each test specifies inputs and expected outputs:
-
-```yaml
-# tests/passes_when_all_mfa_on.yaml
-name: passes when all users have MFA on
-inputs:
-  slots:
-    user_directory:
-      - id: alice
-        payload: { email: alice@acme.com, mfa_enabled: true,  is_service_account: false }
-      - id: bob
-        payload: { email: bob@acme.com,   mfa_enabled: true,  is_service_account: false }
-  params:
-    exempt_service_accounts: true
-  now: "2026-05-23T14:00:00Z"
-expected:
-  status: pass
-  violations: []
-```
-
-```yaml
-# tests/fails_when_any_mfa_off.yaml
-name: fails when any non-service-account user lacks MFA
-inputs:
-  slots:
-    user_directory:
-      - id: alice
-        payload: { email: alice@acme.com, mfa_enabled: false, is_service_account: false }
-      - id: bob
-        payload: { email: bob@acme.com,   mfa_enabled: true,  is_service_account: false }
-      - id: deploy_bot
-        payload: { email: deploy-bot@acme.com, mfa_enabled: false, is_service_account: true }
-  params:
-    exempt_service_accounts: true
-expected:
-  status: fail
-  violations:
-    - resource_id: alice
-      reason: "MFA disabled for alice@acme.com"
-```
-
-A repo-wide test runner (`sigcomply test policies`) loads every
-policy's tests and runs them against the registered rule, regardless
-of language flavor.
+Framework-shipped policies are Go values and are exercised by ordinary
+Go tests under `internal/frameworks/<fw>/` (and by the evaluator's own
+tests against the `pass_when:` DSL). There are **no per-policy
+`tests/` directories** and no `sigcomply test policies` command. The
+DSL evaluator is unit-tested directly; the policy tables are validated
+at build time (e.g. every accepted evidence type must have a registered
+emitter — `internal/sources/builtin/coverage_test.go`).
 
 ---
 
 ## Policy versioning and lifecycle
 
-- Policies are versionless from the project's perspective: there is one
-  current spec per policy ID.
-- Substantive logic changes happen in the *rule*, which is versioned.
-  When a rule's `.v2` ships, the policy spec is updated to point at it.
-  Old runs in the vault retain `rule_version: rules.X.v1` in their
-  result.json, so prior results stay interpretable.
-- Policies can be deprecated by marking `status: deprecated` (a
-  forthcoming optional field). Deprecated policies still run; the
-  output formatter surfaces a warning.
+- A framework ships exactly one current spec per policy ID.
+- The escape-hatch `rule:` reference carries a version
+  (`rules.X.v1`); when a rule's `.v2` would ship, the policy spec
+  points at it and old runs in the vault retain the prior
+  `rule_version` in their `result.json`, so prior results stay
+  interpretable. (No shipped policy uses `rule:` today, so this is
+  forward-looking.)
 - A policy can be removed entirely from a framework only at a major
   framework version bump.
 
@@ -963,28 +889,25 @@ of language flavor.
 ## Project-local custom policies
 
 A customer can author policies under
-`.sigcomply/policies/<id>/policy.yaml` using the identical schema. The
-loader merges them into the registry alongside framework-shipped
-policies. Conventions for custom policy IDs:
+`.sigcomply/policies/<id>/policy.yaml` using the logical spec above.
+This on-disk YAML is the only `policy.yaml` form — framework policies
+are Go. The loader merges project-local policies into the registry
+alongside the framework-shipped ones. Conventions for custom policy IDs:
 
 - Use a customer-specific prefix: `acme.custom.cc6.1.contractor_review`
 - Reference framework controls if applicable (`control: SOC2.CC6.1`)
-- Rules can reference framework-shipped rules (`rule: rules.mfa_enforced.v1`)
-  if the slots align — encouraged when the same logic applies with
-  different bindings.
+- The escape hatch a project-local policy may use is **Rego** (`rule:`
+  resolving to a project-local `rule.rego`); project-local Go rules are
+  not wired. A project-local policy may also reference a
+  framework-shipped rule by name if the slots align.
 
-Custom policies declare `evidence_mode`, `cadence`, and `on_push` the
-same way framework-shipped policies do. If omitted, the loader applies
-these defaults:
-
-- `evidence_mode` absent → `automated`
-- `cadence` absent → `daily` when `evidence_mode: automated`;
-  `quarterly` when `evidence_mode: manual`
-- `on_push` absent → `true` when `evidence_mode: automated`;
-  `false` when `evidence_mode: manual`
-
-Explicitly setting all three fields is encouraged — defaults exist to
-keep small custom policies low-friction, not to hide intent.
+A project-local `policy.yaml` is loaded with the same strict validation
+as any spec: `evidence_mode` is **required** (no automated default),
+`cadence` is required, and the `slots`/`pass_when`/`rule`/`catalog_entry`
+combination rules above all apply. `on_push` is the only field with an
+implicit default (true for automated, false for manual). There is no
+"omit and we'll guess `evidence_mode`" behavior — a missing
+`evidence_mode` fails the load (exit 3).
 
 Custom policies appear in run output and submission payloads just like
 framework-shipped policies. They do not affect framework version pins.

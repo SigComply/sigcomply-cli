@@ -151,7 +151,8 @@ framework: soc2
 # Audit period model — how the run's period_id is derived.
 period:
   fiscal_calendar:
-    type: calendar_quarter        # calendar_quarter | calendar_year | fiscal_year
+    type: calendar_quarter        # calendar_quarter | fiscal_year | custom
+                                  # (custom requires a periods: list)
   time_basis: commit              # commit | wall_clock
 
 # Evidence vault — where signed envelopes, results, and the run manifest land.
@@ -214,6 +215,11 @@ output:
 ci:
   fail_on_violation: true         # exit 1 on violations (config-only; no flag)
   fail_severity: high             # info | low | medium | high | critical (config-only; no flag)
+
+# ci_environment — free-form key/value map recorded with the run's
+# environment metadata (e.g. a deployment label or pipeline name).
+ci_environment:
+  deployment: production
 ```
 
 ### Minimal Example
@@ -227,6 +233,29 @@ vault:
 ```
 
 Everything else uses sensible defaults.
+
+### Top-level keys (authoritative)
+
+The config is parsed with `yaml.KnownFields(true)`, so this is the complete
+set of accepted top-level keys (`internal/spec/project_config.go`):
+
+| Key | Shape | Notes |
+|-----|-------|-------|
+| `schema_version` | string | Required; currently always `project.v1`. |
+| `framework` | string | Singular. `soc2` \| `iso27001` (`hipaa` is a stub that fails at runtime). |
+| `period` | `{ fiscal_calendar: { type, starts, periods[] }, time_basis }` | `type`: `calendar_quarter` \| `fiscal_year` \| `custom` (custom needs `periods:` of `{id, start, end}`). `time_basis`: `commit` \| `wall_clock`. |
+| `vault` | flat `VaultConfig` | See [Storage Backends](#storage-backends). |
+| `sources` | map: source id → config | Plugin configs; `manual.pdf` is the reserved manual-evidence singleton. |
+| `bindings` | map: policy id → `{ slot: [source, ...] }` | Sources fulfilling a policy's slots. Manual entries are `manual.pdf:<evidence_catalog_id>`. |
+| `policy_parameters` | map: policy id → `{ param: value }` | Per-policy parameter overrides. |
+| `policy_cadences` | map: policy id → cadence | Per-policy cadence override (see [Cadence](#cadence--scheduling)). |
+| `policy_overrides` | map: policy id → `{ evidence_mode, catalog_entry }` | `evidence_mode: manual` requires `catalog_entry`; `automated` forbids it. |
+| `exceptions` | list of `{ policy, scope: { resource_id, resource_pattern }, state, reason, approved_by, approved_at, expires_at }` | `state`: `waived` \| `na`. |
+| `cloud` | `{ enabled, base_url }` | `enabled` is a `*bool` (auto-detected in CI when omitted); `base_url` overrides the endpoint. |
+| `output` | `{ format, json_path, verbose }` | `format`: `text` \| `json` \| `junit`. |
+| `ci` | `{ fail_on_violation, fail_severity }` | Config-only; no equivalent flags. |
+| `ci_environment` | map | Free-form environment metadata recorded with the run. |
+| `extensions` | `{ path }` | Overrides extension-discovery path (default `.sigcomply/`). |
 
 ---
 
@@ -268,85 +297,56 @@ from `SIGCOMPLY_*` keys.
 
 ## Storage Backends
 
-The CLI supports four backend types. The same shape is used for both the
-main `storage` block (automated evidence vault) and the per-framework
-`manual_evidence` blocks.
-
-### `local` — filesystem
-
-```yaml
-backend: local
-local:
-  path: ./.sigcomply/evidence
-```
-
-### `s3` — AWS S3 (and on-prem S3-compatible)
+`vault:` and the `sources.manual.pdf:` source share **one flat config
+shape** — the same `VaultConfig` struct (`internal/spec/project_config.go`).
+There are **no** nested `local:`/`s3:`/`gcs:`/`azure_blob:` sub-blocks: every
+field sits directly under the block. Which fields apply depends on `backend`.
 
 ```yaml
-backend: s3
-s3:
-  bucket: my-evidence
-  region: us-east-1
-  prefix: sigcomply/
+vault:
+  backend: s3                # required: local | s3 | gcs | azure_blob
 
-  # On-prem (MinIO, Ceph, Dell ECS, NetApp StorageGRID) — optional:
+  # Object-store fields (s3 / gcs / azure_blob):
+  bucket: my-evidence        # s3 (required), gcs (required)
+  region: us-east-1          # s3 (required)
+  prefix: sigcomply/         # all object stores; trailing slash recommended
+  account: acmeevidence      # azure_blob (required)
+  container: sigcomply       # azure_blob (required)
+
+  # local filesystem:
+  path: ./.sigcomply/vault   # local (required)
+
+  # s3-compatible extras (MinIO, Ceph, Dell ECS, NetApp StorageGRID):
   endpoint: https://minio.internal.corp:9000
   force_path_style: true
 
-  # Auth — defaults to ambient (env vars / IAM role / instance metadata):
-  auth:
-    mode: oidc                          # ambient | oidc
-    role_arn: arn:aws:iam::123:role/sigcomply-evidence
-    audience: sts.amazonaws.com         # default; override for sovereign clouds
+  # AWS credential selection (optional; otherwise the ambient chain is used):
+  profile: sigcomply-evidence
+  role_arn: arn:aws:iam::123:role/sigcomply-evidence
 ```
 
-In `oidc` mode the CLI exchanges its CI OIDC token (GitHub Actions /
-GitLab CI) for AWS credentials via STS `AssumeRoleWithWebIdentity`.
+### Required fields per backend
 
-### `gcs` — Google Cloud Storage
+| `backend`    | Required fields      | Common optional fields                          |
+|--------------|----------------------|-------------------------------------------------|
+| `local`      | `path`               | `prefix`                                        |
+| `s3`         | `bucket`, `region`   | `prefix`, `endpoint`, `force_path_style`, `profile`, `role_arn` |
+| `gcs`        | `bucket`             | `prefix`                                        |
+| `azure_blob` | `account`, `container` | `prefix`, `endpoint`                           |
 
-```yaml
-backend: gcs
-gcs:
-  bucket: my-evidence
-  prefix: sigcomply/
-  project_id: my-gcp-project          # optional
+### Storage credentials are ambient only
 
-  auth:
-    mode: oidc                        # ambient | oidc
-    workload_identity_provider: projects/123/locations/global/workloadIdentityPools/sigcomply/providers/github
-    service_account: sigcomply@my-gcp-project.iam.gserviceaccount.com
-```
-
-In `oidc` mode the CLI exchanges its CI OIDC token via Workload
-Identity Federation, then impersonates the configured service account.
-
-### `azure_blob` — Azure Blob Storage
-
-```yaml
-backend: azure_blob
-azure_blob:
-  account: acmeevidence
-  container: sigcomply
-  prefix: ""
-  endpoint: ""                        # optional; defaults to https://{account}.blob.core.windows.net
-
-  auth:
-    mode: oidc                        # ambient | oidc
-    tenant_id: 00000000-0000-0000-0000-000000000000
-    client_id: 11111111-1111-1111-1111-111111111111
-    audience: api://AzureADTokenExchange    # default
-```
-
-In `oidc` mode the CLI presents its CI OIDC token to Azure AD as a
-federated client assertion via `ClientAssertionCredential`.
-
-### Auth modes summary
-
-| Mode | What it does |
-|------|--------------|
-| `ambient` (default) | Lets the SDK discover credentials: env vars, IAM roles, GCP ADC, Azure DefaultAzureCredential chain. Works seamlessly with `aws-actions/configure-aws-credentials`, `google-github-actions/auth`, `azure/login` action wrappers. |
-| `oidc` | The CLI fetches its CI OIDC token (GitHub Actions or GitLab CI) and exchanges it directly with the cloud provider — no separate "configure credentials" action needed in the workflow. |
+There is **no** storage `auth:` block — no `mode: ambient|oidc`, no
+`workload_identity_provider`, no `service_account`, no `tenant_id`/`client_id`.
+Storage credentials always come from the provider SDK's ambient credential
+chain (env vars, IAM role / instance metadata, GCP ADC, Azure
+`DefaultAzureCredential`). The CLI does not itself exchange OIDC tokens for
+storage credentials — set those up in your CI workflow (e.g.
+`aws-actions/configure-aws-credentials`, `google-github-actions/auth`,
+`azure/login`) before running `sigcomply check`. The optional `profile` /
+`role_arn` fields above only steer the AWS SDK's own resolution; they are not
+a separate auth mode. (OIDC *is* used for SigComply Cloud submission — that is
+a different concern, see [SigComply Cloud](#sigcomply-cloud-paid-tier).)
 
 ---
 
@@ -368,21 +368,20 @@ sources:
     region: us-east-1
     prefix: manual/
     # On-prem S3-compatible stores: add endpoint + force_path_style.
-    # OIDC auth: add an auth: { mode: oidc, ... } block, same shape as
-    # the vault backends documented under Storage Backends above.
 ```
 
-The backend choices and auth modes are identical to the vault backends
-(see [Storage Backends](#storage-backends)); `manual.pdf` simply points at
-wherever your users upload files.
+The config shape is identical to the vault backend (the same flat
+`VaultConfig`; see [Storage Backends](#storage-backends)), including
+ambient-only credentials; `manual.pdf` simply points at wherever your users
+upload files.
 
 ### Folder layout per evidence ID
 
-For each `evidence_id` in the framework catalog, the CLI scans the
-folder:
+For each `evidence_catalog_id` in the framework catalog, the CLI scans
+the folder:
 
 ```
-{prefix}{evidence_id}/{period_id}/
+{prefix}{evidence_catalog_id}/{period_id}/
 ```
 
 Where `{period_id}` matches the entry's frequency:
@@ -564,10 +563,12 @@ sigcomply check --pr
 
 # Scheduled: gate by cadence. Reads per-policy state shards from the vault.
 sigcomply check --scheduled
-
-# Operator override: force-run specific policies regardless of state.
-sigcomply check --scheduled --policies soc2.cc6.1.mfa_enforced_admin
 ```
+
+There is no `--policies` flag to force-run individual policies — scope is
+controlled by the cadence/`on_push` filter flags above plus the per-policy
+state shards. To force a re-evaluation of a specific policy, change its
+content (which busts the content-hash) or its cadence.
 
 Per-policy state shards live at
 `{vault}/state/{framework}/policies/{policy_id}.json`. The shards
@@ -577,7 +578,7 @@ re-evaluates every policy as first-run, surfacing a loud
 `first-run: N policies will evaluate for the first time this run`
 warning.
 
-Full design: [`docs/architecture/11-cadence-model.md`](architecture/11-cadence-model.md).
+Full design: [`docs/architecture/10-cadence-model.md`](architecture/10-cadence-model.md).
 
 ---
 

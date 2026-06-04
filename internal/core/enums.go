@@ -21,7 +21,7 @@ type PolicyStatus string
 // `error` / `na` / `waived` are evaluator/exception-driven states.
 // `carried_forward` indicates the policy was NOT evaluated in this
 // run — the result references a prior signed envelope. See
-// docs/architecture/11-cadence-model.md §Carry-forward.
+// docs/architecture/10-cadence-model.md §Carry-forward.
 const (
 	StatusPass           PolicyStatus = "pass"
 	StatusFail           PolicyStatus = "fail"

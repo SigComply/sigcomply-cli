@@ -8,13 +8,13 @@ is the only point of contact between the policy world and the source
 world.
 
 This is what makes the architecture cross-vendor. A single
-"object-storage encrypted at rest" policy is satisfied by `aws.s3`
-emitting `s3_bucket`, `gcp.storage` emitting `gcs_bucket`, or a future
-`azure.blob` plugin emitting `azure_blob_container` — no policy fork,
-no source-side normalization, no lowest-common-denominator schema.
-Adding a new vendor is two artifacts: a source plugin and an evidence
-type. The policies that already accepted that type now accept the new
-vendor by transitivity.
+"object-storage encrypted at rest" policy is satisfied by `aws.s3` and
+`gcp.storage`, which **both emit the same neutral type**
+`object_storage_bucket` — no policy fork, no per-vendor type, no
+lowest-common-denominator schema. Adding a new vendor for an
+already-modeled concept is usually a single artifact: a source plugin
+emitting the existing type. The policies that already accept that type
+pick up the new vendor by transitivity.
 
 This document specifies how evidence types are declared, embedded,
 loaded, validated, versioned, and extended. Read
@@ -33,30 +33,31 @@ what's wired today.
 
 | Aspect | Status | Notes |
 |---|---|---|
-| File format | **JSON Schema documents** | Schemas live at `internal/evidence_types/schemas/<id>.v<n>.json` — the file *is* a JSON Schema with extension fields (`title` used as the type ID, `version` for the type version). There is no separate YAML frontmatter wrapper. The YAML-with-frontmatter form described in §File format below is design intent, not current code. |
-| Embedding | **Wired** | `//go:embed schemas/*.json` in `internal/evidence_types/loader.go`; merged into the `EvidenceTypeRegistry` at orchestrator bootstrap. |
-| Schema-conformance validation | **Wired (minimal subset)** | The collector calls `evidence_types.Validate` before signing each envelope (`internal/collector/collector.go:134`). The current validator supports `type: object` at top level, `required: [...]`, and per-property `type` (`string`/`boolean`/`integer`/`number`/`object`/`array`). `format` (email, date-time, …), `enum`, `const`, `pattern`, length/range, `items`, nested-object recursion, `additionalProperties: false`, and composition (`oneOf`/`anyOf`/`allOf`) are **not** yet enforced — schemas may declare them, but those constraints are advisory until a richer validator lands. |
-| Validation failure handling | **Wired (strict)** | The collector fails the binding on the first non-conforming record (exit 3 via the policy's error tag). The ">5% of records in a call" percentage cutoff described in §Schema-conformance validation is design intent for a future, more permissive mode; today behavior is "first failure errors the binding." |
-| Planner check that a slot's `accepts:` only references registered types | **Wired** | Empty `source.Emits() ∩ slot.Accepts` fails at plan time (exit 3) in `internal/planner/bindings.go`. |
-| Project-local evidence types under `.sigcomply/evidence_types/` | **Planned (roadmap M16)** | Today only embedded in-tree types load. The path to ship project-local types alongside project-local plugins is part of `sigcomply build`. |
-| Per-type `identity_key` metadata in the schema file | **Not parsed** | `EvidenceRecord.IdentityKey` is fully wired and used by plugins (`aws.iam`, `okta`, `github`, etc. — see `core.EvidenceRecord`); rule-side dedup operates on it. The schema-level `identity_key.meaning` frontmatter described in §The cross-source identity story is not parsed today — for now, the convention is documented in the schema's `description` text instead. |
+| File format | **JSON Schema documents** | Schemas live at `internal/evidence_types/schemas/<id>.v<n>.json` — the file *is* a JSON Schema. The type ID is the schema's `title`; the version is its `version` field. There is **no** `schema_version`/`id`/`identity_key` frontmatter that is parsed. The YAML-with-frontmatter form once described below is not the shipped form; the §File format section below shows the real JSON shape. |
+| Embedding | **Wired** | `//go:embed schemas/*.json` in `internal/evidence_types/loader.go`; merged into the registry at orchestrator bootstrap. |
+| Schema-conformance validation | **Wired (full draft-07)** | The collector calls `evidence_types.Validate` before signing each envelope. The validator is **full JSON Schema draft-07** via `github.com/xeipuuv/gojsonschema` (`internal/evidence_types/validate.go`), content-hash cached: `enum`, `format`, `pattern`, `minimum`/`maximum`, length/range, `items`, nested-object recursion, and composition are all enforced — not just `type`/`required`. |
+| Validation failure handling | **Wired (strict)** | The collector fails the binding on the **first** non-conforming record (exit 3 via the policy's error tag). There is **no** drop-and-continue and **no** ">5% of records" threshold — that permissive mode is design-intent only, not implemented. |
+| Planner check that a slot's `accepts:` only references registered types | **Wired** | Empty `source.Emits() ∩ slot.Accepts` fails at plan time (exit 3). |
+| Project-local evidence types under `.sigcomply/evidence_types/` | **Planned** | Today only embedded in-tree types load. Shipping project-local types alongside project-local plugins is part of `sigcomply build`, not yet wired. |
+| Per-type `identity_key` metadata in the schema file | **Not parsed** | `EvidenceRecord.IdentityKey` is wired and set by plugins (`aws.iam`, `okta`, `github`, …), and the `pass_when:` DSL deduplicates via a clause-level `identity_key:`. A *schema-level* `identity_key` is **not parsed** — the convention lives in the schema's `description` text only. |
 
-Bottom line: the load-bearing pieces (registry, embedded loading, planner check, basic schema validation, per-record identity for dedup) are wired and used in production today. The remaining items in the table above are deliberate v1 simplifications, not architectural gaps.
+Bottom line: the load-bearing pieces — registry, embedded loading, planner check, full draft-07 validation, per-record identity for dedup — are wired and used in production today. The remaining items above are deliberate v1 simplifications, not architectural gaps.
 
 ---
 
 ## Why evidence types are a separate artifact
 
 In an earlier iteration of the design, each source package declared
-its own `const EvidenceTypeID = "user_record"` as a bare string and
+its own `const EvidenceTypeID = "directory_user"` as a bare string and
 nothing else. There was no schema, no central registration, and
-nothing prevented two sources from disagreeing about what `user_record`
-meant. The current design fixes this by making evidence types
-first-class artifacts:
+nothing prevented two sources from disagreeing about what
+`directory_user` meant. The current design fixes this by making
+evidence types first-class artifacts:
 
-- They live in their own directory (`internal/evidence_types/`)
-  alongside (but separate from) the source plugins.
-- They carry versioned JSON Schemas.
+- They live in their own directory
+  (`internal/evidence_types/schemas/`), separate from the source
+  plugins.
+- They are versioned JSON Schemas.
 - They are embedded into the binary via `go:embed` so the registry is
   trivially deterministic — no filesystem search at runtime.
 - The collector validates every emitted record's payload against the
@@ -66,95 +67,72 @@ first-class artifacts:
 
 The separation has three consequences:
 
-1. **A new vendor for an existing check is two artifacts.** Write the
-   source plugin emitting `s3_bucket` (or whatever existing type
-   fits); register it; done. The policies already accepting that type
-   pick up the new vendor with zero code changes.
+1. **A new vendor for an existing check is usually one artifact.**
+   Write the source plugin emitting `object_storage_bucket` (or
+   whatever existing type fits); register it; done. The policies
+   already accepting that type pick up the new vendor with zero code
+   changes.
 2. **Two sources cannot disagree about a type.** If `aws.iam` and
-   `okta` both emit `user_record`, both must conform to the same
-   schema. The collector enforces this — a payload that doesn't
-   validate is dropped (or, in volume, errors out the whole
-   collection).
+   `okta` both emit `directory_user`, both must conform to the same
+   schema. The collector enforces this — the first payload that
+   doesn't validate errors the binding (exit 3); there is no
+   silent drop.
 3. **Policies can rely on payload fields.** A policy declaring
-   `accepts: [user_record]` is guaranteed to receive records whose
-   payloads have a `mfa_enabled` field (because the schema makes it
-   required). No defensive `if record.payload.mfa_enabled != nil`
-   checks; the schema is the precondition.
+   `accepts: [directory_user]` is guaranteed to receive records whose
+   payloads have an `mfa_enabled` field (because the schema makes it
+   required). No defensive null checks; the schema is the precondition.
 
 ---
 
 ## File format
 
-Evidence types are YAML files under `internal/evidence_types/<id>.yaml`
-(in-tree) or `.sigcomply/evidence_types/<id>.yaml` (project-local). One
-file per type per version.
+Evidence types are **JSON Schema documents** under
+`internal/evidence_types/schemas/<id>.v<n>.json` (in-tree). The file
+*is* a JSON Schema — there is no separate metadata wrapper. Two
+extension fields carry the registry metadata: `title` holds the type ID
+(e.g. `"directory_user.v2"`) and `version` holds the integer version.
+One file per type per version. (Project-local types under
+`.sigcomply/evidence_types/` use the same JSON form; that path is
+planned, not yet shipped — see the status table.)
 
-```yaml
-# internal/evidence_types/user_record.v1.yaml
-schema_version: evidence_type.v1
-
-id: user_record
-version: 1
-title: "User Record"
-description: |
-  A human or service-account user from an identity provider. Used by
-  policies that verify MFA enforcement, access-key rotation, and
-  similar identity-centric controls. Plugins emitting this type
-  include aws.iam, gcp.iam, okta, github, and bamboohr.
-
-identity_key:
-  meaning: "email"
-  description: |
-    Cross-source dedup key. When a record is emitted for the same
-    human from multiple sources (e.g. alice@acme.com exists in both
-    AWS IAM and Okta), plugins should set EvidenceRecord.IdentityKey
-    to the user's email to enable rule-level deduplication. See
-    03-policy-spec.md §Cross-source dedup.
-
-schema:
-  $schema: "http://json-schema.org/draft-07/schema#"
-  type: object
-  required: [id, mfa_enabled]
-  properties:
-    id:
-      type: string
-      description: "Stable ID within the source (ARN, Okta user ID, etc.)."
-    email:
-      type: string
-      format: email
-    display_name:
-      type: string
-    mfa_enabled:
-      type: boolean
-    is_service_account:
-      type: boolean
-    is_admin:
-      type: boolean
-    last_used_at:
-      type: string
-      format: date-time
-    created_at:
-      type: string
-      format: date-time
-  additionalProperties: true
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/directory_user/v1.json",
+  "title": "directory_user.v1",
+  "version": 1,
+  "description": "Cross-vendor identity record. A human or service-account user from an identity provider, used by policies that verify MFA enforcement, access-key hygiene, and dormant-account controls. Plugins emitting this type include aws.iam, okta, and github. Cross-source dedup key (convention only — not parsed): email.",
+  "type": "object",
+  "required": ["id", "mfa_enabled"],
+  "properties": {
+    "id":                 { "type": "string", "description": "Stable ID within the emitting source." },
+    "email":              { "type": "string" },
+    "display_name":       { "type": "string" },
+    "mfa_enabled":        { "type": "boolean" },
+    "is_service_account": { "type": "boolean" },
+    "is_admin":           { "type": "boolean" },
+    "last_login_at":      { "type": "string" },
+    "created_at":         { "type": "string" }
+  },
+  "additionalProperties": true
+}
 ```
 
-### Frontmatter fields
+### Registry metadata fields
 
 | Field | Required | Description |
 |---|---|---|
-| `schema_version` | yes | Always `evidence_type.v1` for v1 of this meta-format. |
-| `id` | yes | The evidence type's stable identifier. Lowercase, snake_case, no version suffix on the ID itself — the version lives in the `version` field. |
+| `title` | yes | The type ID, **with** its version suffix (`directory_user.v2`). This is what the registry keys on and what plugins set as `record.Type`. |
 | `version` | yes | Integer version. New versions are independent registrations (see §Versioning). |
-| `title` | yes | Human-readable label for tooling and reports. |
-| `description` | yes | What this type represents, why it exists, who emits it. Aimed at the next maintainer or third-party plugin author. |
-| `identity_key.meaning` | no | When the type has a meaningful cross-source identity, names what it represents (`email`, `employee_id`, `resource_arn`). When omitted, plugins should leave `IdentityKey` unset. |
-| `identity_key.description` | no | Free-form note expanding on `meaning`. |
-| `schema` | yes | JSON Schema (Draft-07) describing the `payload` field of an `EvidenceRecord` of this type. |
+| `description` | yes | What this type represents, why it exists, who emits it — and, by convention, the cross-source identity field if any (there is **no** parsed `identity_key` key; see §The cross-source identity story). |
+| the schema body (`type`, `required`, `properties`, …) | yes | A standard JSON Schema draft-07 document describing the `payload` of an `EvidenceRecord` of this type. |
+
+There is **no** `schema_version`, `id`, or `identity_key` frontmatter
+key — the file is a schema, not a wrapper around one.
 
 ### Schema validation
 
-The collector validates payloads with a full JSON Schema Draft-07
+The collector validates payloads with a full JSON Schema draft-07
 implementation (`github.com/xeipuuv/gojsonschema`, wired in
 `internal/evidence_types/validate.go`; compiled schemas are cached by
 content hash). Every keyword a schema declares is enforced — not just
@@ -171,11 +149,9 @@ content hash). Every keyword a schema declares is enforced — not just
   `if`/`then`/`else`, and in-document `$ref`.
 
 A schema that fails to compile fails at bootstrap (exit 3); a payload
-that violates any constraint fails the binding (the first non-conforming
-record tags the policy `error`, exit 3). Earlier builds used a
-hand-rolled checker that silently enforced only `type`/`required`/
-top-level property types — schemas could declare `enum`/`format`/etc.
-that were never checked. That gap is closed.
+that violates any constraint fails the binding — the **first**
+non-conforming record tags the policy `error` (exit 3), with no
+drop-and-continue.
 
 ---
 
@@ -184,36 +160,23 @@ that were never checked. That gap is closed.
 In-tree evidence types are embedded into the binary at compile time:
 
 ```go
-// internal/evidence_types/embed.go
-package evidence_types
-
-import "embed"
-
-//go:embed *.yaml
-var FS embed.FS
+// internal/evidence_types/loader.go
+//go:embed schemas/*.json
+var schemaFS embed.FS
 ```
 
-At orchestrator bootstrap, the registry walks `FS`, parses each YAML
-file, validates the meta-schema (frontmatter shape + the JSON Schema
-itself being well-formed), and registers each type by its `id`. After
-bootstrap, the registry is read-only — see
-[`02-layers.md`](02-layers.md) §L2.
+At orchestrator bootstrap, the loader
+(`internal/evidence_types/loader.go`) walks the embedded FS, parses
+each JSON Schema, checks it compiles, and registers each type by its
+`title`. The registry itself lives at
+`internal/registry/evidence_type.go`. After bootstrap the registry is
+read-only — see [`02-layers.md`](02-layers.md) §L2.
 
-```go
-// internal/registries/evidence_types.go (sketch)
-type EvidenceTypeRegistry interface {
-    Lookup(id string) (core.EvidenceType, bool)
-    Validate(id string, payload json.RawMessage) error
-    All() []core.EvidenceType
-}
-```
-
-Project-local types under `.sigcomply/evidence_types/` are loaded the
-same way, just from the project filesystem rather than the embedded
-FS. They merge into the same registry. A project-local file
-attempting to redefine an in-tree type ID fails at bootstrap with
-exit 3 — types are append-only across the union of in-tree and
-project-local sets.
+Project-local types under `.sigcomply/evidence_types/` are **planned**:
+they would load the same way from the project filesystem and merge into
+the same registry, with a project-local file that redefines an in-tree
+type ID failing at bootstrap (types are append-only across the union).
+Today only the embedded in-tree set loads.
 
 ---
 
@@ -225,9 +188,8 @@ before the record is wrapped in an envelope:
 | Outcome | Action |
 |---|---|
 | Record's `Payload` validates against the schema for `Type` | Included in the envelope. |
-| Single record fails validation | Dropped; logged in envelope diagnostics with the offending field path. |
-| >5% of records from a (plugin, slot) call fail | The whole call is marked `error`; policies depending on it become `error` status (not silent partial results). |
-| `Type` not in `EvidenceTypeRegistry` | Plan-time error, exit 3 (caught before any `Collect` runs). |
+| Any record fails validation | The **first** non-conforming record errors the binding; the consuming policy becomes `error` (exit 3). There is no drop-and-continue and no per-call percentage threshold. |
+| `Type` not in the evidence-type registry | Plan-time error, exit 3 (caught before any `Collect` runs). |
 | `Type` not in the slot's `accepts:` list | Plan-time error, exit 3 (the planner refuses to bind a source for an unaccepted type). |
 
 This is what makes substitutability **safe**. A policy author can rely
@@ -264,18 +226,20 @@ Any of the following requires a new version:
 - Adding a property to `required`.
 - Tightening a constraint such that previously-valid records fail.
 
-A new version is a **new registration** with a distinct ID convention:
-`user_record.v2`, registered as a separate file
-(`user_record.v2.yaml`). Both `user_record.v1` and `user_record.v2`
-coexist in the registry. Plugins emit one specific version per record
-(by setting `Type` to e.g. `user_record.v1`). Policies accept one or
-both versions in their `accepts:` list during migration windows:
+A new version is a **new registration** with a distinct ID:
+`directory_user.v2`, registered as a separate file
+(`directory_user.v2.json`). Both `directory_user.v1` and
+`directory_user.v2` coexist in the registry — exactly the situation in
+the shipped tree today. Plugins emit one specific version per record
+(by setting `Type` to e.g. `directory_user.v2`, as `aws.iam` does).
+Policies accept one or both versions in their `accepts:` list during
+migration windows:
 
 ```yaml
 # during migration, accept both
 slots:
   user_directory:
-    accepts: [user_record.v1, user_record.v2]
+    accepts: [directory_user.v1, directory_user.v2]
 ```
 
 This is the same multi-type slot mechanism described in
@@ -292,97 +256,63 @@ remains interpretable in 2031 because the schema referenced by
 ## The cross-source identity story
 
 When an evidence type represents an entity that can exist in multiple
-source systems, plugin authors set `EvidenceRecord.IdentityKey` to a
-cross-source-stable value (typically email for users, perhaps
-`employee_id` for HR records). The type's frontmatter documents the
-meaning:
+source systems, plugin authors set `EvidenceRecord.IdentityKey` (and/or
+emit a stable payload field like `email`) to a cross-source-stable
+value. There is **no parsed `identity_key` key in the schema file** —
+the convention is recorded in the schema's `description` text, e.g.
+"cross-source dedup key: email."
 
-```yaml
-identity_key:
-  meaning: "email"
-```
-
-This:
+This convention:
 
 1. Tells plugin authors what to put in `IdentityKey` (no ambiguity
    between "use the email" vs "use the employee_id").
-2. Tells rule authors that records of this type may legitimately
+2. Tells policy authors that records of this type may legitimately
    appear from multiple sources for the same logical entity, so they
    should dedupe before counting.
-3. Interacts with cardinality: in a `cardinality: one-or-more` slot
-   bound to multiple sources, dedup-by-`IdentityKey` reduces the bag
-   of records to a set of entities. The `resources_evaluated` count
-   in the aggregation contract reflects the deduplicated count, so
-   the compliance score input correctly represents "47 unique humans
-   evaluated" rather than "47 + duplicates."
+3. Feeds the `pass_when:` clause-level `identity_key:` setting (default
+   `"id"`), which deduplicates the violation list — and therefore
+   `resources_failed` — by the chosen field. See
+   [`03-policy-spec.md`](03-policy-spec.md) §Cross-source dedup. (This
+   is the DSL's opt-in dedup; it does not read the schema description.)
 
 For evidence types where there is no meaningful cross-source identity
 (e.g. `firewall_rule` — a rule in AWS is not the same rule as a rule
-in GCP, even if both happen to allow port 22), omit `identity_key:`
-in the frontmatter and leave `IdentityKey` unset on records. Rules
-consuming the type then treat the union as a bag, not a set.
-
-Full dedup mechanics — Go and Rego helpers, when shipped rules
-auto-dedupe — live in [`03-policy-spec.md`](03-policy-spec.md)
-§Cross-source dedup.
+in GCP, even if both happen to allow port 22), say nothing about it in
+the description and leave `IdentityKey` unset on records; clauses then
+dedupe by `id`, treating the union as a bag.
 
 ---
 
 ## A concrete worked example
 
-A full `user_record` schema file as it would appear in-tree:
+The shipped `directory_user.v2` schema, verbatim
+(`internal/evidence_types/schemas/directory_user.v2.json`):
 
-```yaml
-# internal/evidence_types/user_record.v1.yaml
-schema_version: evidence_type.v1
-
-id: user_record
-version: 1
-title: "User Record"
-description: |
-  A human or service-account user from an identity provider. Used by
-  policies that verify MFA enforcement, access-key rotation, dormant
-  accounts, and similar identity-centric controls. Plugins emitting
-  this type include aws.iam, gcp.iam, okta, github, and bamboohr.
-
-identity_key:
-  meaning: "email"
-  description: |
-    Used to deduplicate across sources when the same human has
-    accounts in multiple identity providers. Plugins SHOULD populate
-    EvidenceRecord.IdentityKey with the user's primary email for
-    each emitted record. For service accounts (where there's no
-    email), leave IdentityKey unset.
-
-schema:
-  $schema: "http://json-schema.org/draft-07/schema#"
-  type: object
-  required: [id, mfa_enabled]
-  properties:
-    id:
-      type: string
-      description: "Stable ID within the source. e.g. an AWS IAM user ARN, an Okta user ID, a GitHub login."
-    email:
-      type: string
-      format: email
-    display_name:
-      type: string
-    mfa_enabled:
-      type: boolean
-    is_service_account:
-      type: boolean
-    is_admin:
-      type: boolean
-    last_used_at:
-      type: string
-      format: date-time
-    created_at:
-      type: string
-      format: date-time
-    groups:
-      type: array
-      items: { type: string }
-  additionalProperties: true
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/directory_user/v2.json",
+  "title": "directory_user.v2",
+  "version": 2,
+  "description": "Cross-vendor identity record (v2) — extends directory_user.v1 with privileged-access, access-key, and account-lifecycle fields needed for deeper IAM hygiene policies. Requires all v1 fields plus is_root, has_console_access, has_programmatic_access.",
+  "type": "object",
+  "required": ["id", "mfa_enabled", "is_root", "has_console_access", "has_programmatic_access"],
+  "properties": {
+    "id":                      { "type": "string" },
+    "display_name":            { "type": "string" },
+    "email":                   { "type": "string" },
+    "mfa_enabled":             { "type": "boolean" },
+    "is_admin":                { "type": "boolean" },
+    "is_service_account":      { "type": "boolean" },
+    "is_active":               { "type": "boolean" },
+    "is_root":                 { "type": "boolean" },
+    "has_console_access":      { "type": "boolean" },
+    "has_programmatic_access": { "type": "boolean" },
+    "direct_policy_count":     { "type": "integer" },
+    "unused_days":             { "type": "integer" }
+  },
+  "additionalProperties": true
+}
 ```
 
 A plugin emitting this type:
@@ -390,28 +320,29 @@ A plugin emitting this type:
 ```go
 // inside aws.iam.Collect(...)
 records = append(records, core.EvidenceRecord{
-    Type:        "user_record",
-    ID:          "AIDAEXAMPLE01",                 // AWS-local
-    IdentityKey: "alice@acme.com",                 // cross-source
+    Type:        "directory_user.v2",
+    ID:          "AIDAEXAMPLE01",       // AWS-local
+    IdentityKey: "alice@acme.com",       // cross-source
     SourceID:    "aws.iam",
-    CollectedAt: now,
     Payload:     mustMarshal(map[string]any{
-        "id":          "AIDAEXAMPLE01",
-        "email":       "alice@acme.com",
-        "mfa_enabled": false,
-        "is_admin":    true,
-        "last_used_at": "2026-05-20T09:14:00Z",
+        "id":                      "AIDAEXAMPLE01",
+        "email":                   "alice@acme.com",
+        "mfa_enabled":             false,
+        "is_admin":                true,
+        "is_root":                 false,
+        "has_console_access":      true,
+        "has_programmatic_access": true,
     }),
 })
 ```
 
 The collector validates each `Payload` against the registered schema.
-Records pass through; malformed records are dropped (or, in volume,
-the whole call errors out).
+The first non-conforming record errors the binding (exit 3) — there is
+no silent drop.
 
-A policy declaring `accepts: [user_record]` can rely on `mfa_enabled`
-existing and being a boolean on every record it sees. No defensive
-checks; the registry is the precondition.
+A policy declaring `accepts: [directory_user.v2]` can rely on
+`mfa_enabled` existing and being a boolean on every record it sees. No
+defensive checks; the registry is the precondition.
 
 ---
 
@@ -634,31 +565,31 @@ that converge.
 
 ---
 
-## Project-local extension
+## Project-local extension (planned)
 
-Customers can add evidence types under `.sigcomply/evidence_types/`
-using the identical file format:
+The intended design lets customers add evidence types under
+`.sigcomply/evidence_types/` using the identical JSON Schema file
+format:
 
 ```
 .sigcomply/
   evidence_types/
-    acme_internal_user.v1.yaml         # custom shape for acme.internal_iam
+    acme_internal_user.v1.json         # custom shape for acme.internal_iam
 ```
 
-These are loaded at bootstrap alongside in-tree types and merged into
-the same registry. Project-local plugins reference them in `Emits()`
-and project-local policies reference them in `accepts:`.
+These would load at bootstrap alongside in-tree types and merge into
+the same registry; project-local plugins reference them in `Emits()`
+and project-local policies in `accepts:`. A project-local file
+redefining an in-tree type ID would fail at bootstrap (exit 3) —
+project-local types are append-only across the union, and the
+upstream-curated set is not overridable, so auditors can trust that a
+shipped `directory_user` means the shipped thing, not a customer-tweaked
+variant.
 
-A project-local file attempting to redefine an in-tree type ID fails
-at bootstrap with exit 3. Project-local types are append-only across
-the union; the upstream-curated set is not overridable. This is the
-same rationale as framework specs being non-overridable — auditors
-need to trust that a shipped `user_record` means the shipped thing,
-not a customer-tweaked variant.
-
-The path from a project-local type to an upstream contribution is in
-[`07-extensibility.md`](07-extensibility.md) §Contributing back
-upstream.
+**This path is not yet wired** — today only the embedded in-tree set
+loads. It ships alongside project-local plugins as part of `sigcomply
+build`. The path from a project-local type to an upstream contribution
+is in [`07-extensibility.md`](07-extensibility.md).
 
 ---
 

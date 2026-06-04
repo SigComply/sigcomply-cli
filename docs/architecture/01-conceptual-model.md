@@ -19,7 +19,7 @@ here. If a term ever drifts, fix it here first; the rest follows.
 | 7 | Source (plugin) | Code that produces evidence of declared types. |
 | 8 | Evidence record | One fulfilled item: `{type, identity, payload, source_id, collected_at}`. |
 | 9 | Envelope | Signed wrapper around a batch of evidence records. |
-| 10 | Rule | The logic that decides a policy's outcome from its bound evidence. |
+| 10 | Evaluation logic | `pass_when:` (primary) decides a policy's outcome from its bound evidence; `rule:` is an unused escape hatch. |
 | 11 | Binding | Project-level mapping: "for policy X, fulfill slot Y from source Z." |
 | 12 | Project | One source-control repo; the unit of compliance posture. |
 | 13 | Period | A first-class audit window (e.g. `2026-Q1`). |
@@ -73,22 +73,36 @@ control-to-policy relationship is many-to-many.
 ### 3. Policy
 
 **Definition.** A verifiable assertion that contributes to a control.
-A policy has an ID, a target control, severity, a description, a set
-of *slots* declaring what evidence it consumes, an optional parameter
-schema, and a *rule* reference. Policies are framework-shipped or
-project-local (custom).
+A policy has an ID, one or more target controls, severity, a
+description, a required `evidence_mode` (`automated | manual`), a set
+of *slots* declaring what evidence it consumes (automated only), an
+optional parameter schema, and a `pass_when:` condition (the primary
+evaluation path). Policies are framework-shipped or project-local
+(custom).
 
-**Example.** `soc2.cc6.1.mfa_enforced` asserts "every user in the
-configured user-directory source has MFA enabled." It has one slot
-(`user_directory`) of type `user_record`, no parameters, and references
-the rule `rules.mfa_enforced.v1`.
+**`evidence_mode` is first-class and required.** Every policy declares
+`evidence_mode: automated` or `evidence_mode: manual` explicitly — it
+is never inferred from the slot types, the accepted evidence types, or
+the presence of a `rule:`. A missing `evidence_mode` fails validation
+at load (exit 3); it is never defaulted silently. The evaluator
+branches on this field and nothing else (see #10 and Axiom 4).
+Automated policies declare `slots:` and a `pass_when:`; manual policies
+declare a `catalog_entry:` and carry neither slots nor `pass_when:`. A
+project may override the framework's default per policy via
+`policy_overrides` in `.sigcomply.yaml` (same policy ID).
 
-**What it is *not*.** A policy is not the rule. The policy is the
-declaration of what's being checked and what evidence is needed; the
-rule is the executable logic. Two different policies can reference the
-same rule with different bindings. The policy is not source-specific:
-the same policy can be satisfied by Okta evidence in one project and
-by an HR-system PDF in another.
+**Example.** `soc2.cc6.1.mfa_enforced` (`evidence_mode: automated`)
+asserts "every user in the configured user-directory source has MFA
+enabled." It has one slot (`user_directory`) accepting `directory_user`,
+no parameters, and a `pass_when:` clause requiring
+`payload.mfa_enabled == true` across all records.
+
+**What it is *not*.** A policy is not its evaluation logic. The policy
+is the declaration of what's being checked and what evidence is needed;
+the `pass_when:` clause (or, rarely, the `rule:` escape hatch) is the
+executable part. The policy is not source-specific: the same policy can
+be satisfied by Okta evidence in one project and by an HR-system PDF in
+another.
 
 ---
 
@@ -128,12 +142,20 @@ policy_cadences:
   soc2.cc6.1.mfa_enforced: hourly
 ```
 
-**What it is *not*.** Cadence is not enforced by the CLI; the CLI runs
-whatever policies it's told to via `--cadence X` or `--on-push`. The CI
-scheduler is the enforcement layer (see Axiom 4 below and
-[`10-ci-execution-model.md`](10-ci-execution-model.md)). The CLI does
-not read prior runs to decide what to run — that would break
-statelessness. Asking the CLI to run a `quarterly` policy on demand is
+Cadence can also be expressed as `every:<duration>` (5-minute floor)
+when a named bucket doesn't fit; a bare `cadence: 24h` is a config
+error. When a policy is selected for a run but its interval has not
+elapsed and nothing material changed, the planner **carries forward**
+the prior signed result (a pointer to the previous envelope, no
+re-sign) rather than re-evaluating — yielding the `carried_forward`
+status (see #16 and [`10-cadence-model.md`](10-cadence-model.md)).
+
+**What it is *not*.** Cadence scheduling state is mutable and never
+signed — it is not audit evidence, and losing it just means the next
+run treats the policy as first-run. The CI scheduler triggers runs (see
+Axiom 4 below and [`09-ci-execution-model.md`](09-ci-execution-model.md));
+the CLI's per-policy cadence check then decides evaluate-vs-carry-forward
+within the run. Asking the CLI to run a `quarterly` policy on demand is
 legal and the CLI will execute it.
 
 ---
@@ -142,47 +164,57 @@ legal and the CLI will execute it.
 
 **Definition.** A named, multi-typed input on a policy. A slot declares:
 a name (`user_directory`), the **set** of evidence types it accepts
-(`accepts: [user_record]`, or for a cross-cloud policy
-`accepts: [s3_bucket, gcs_bucket, azure_blob_container]`), a cardinality
-(`exactly-one` | `one-or-more` | `optional` | `at-most-one`), and
-whether it's required. Slots are the interface between a policy and the
-data it needs, and the only abstraction that knows about evidence
-types — neither policies nor sources mention each other by ID.
+(`accepts: [directory_user]`, or a multi-type slot such as
+`accepts: [directory_user]` bound to several user sources), a
+cardinality (`exactly-one` | `one-or-more` | `optional` |
+`at-most-one`), and whether it's required. Slots are the interface
+between a policy and the data it needs, and the only abstraction that
+knows about evidence types — neither policies nor sources mention each
+other by ID.
 
 **Example.** `soc2.cc6.1.mfa_enforced` declares:
 
 ```yaml
 slots:
   user_directory:
-    accepts: [user_record]
+    accepts: [directory_user]
     cardinality: one-or-more
     required: true
 ```
 
-A cross-cloud "object storage encrypted at rest" policy declares:
+This one slot is satisfiable by several user sources at once —
+`aws.iam` (emitting `directory_user.v2`), `okta`, and `github` (both
+emitting `directory_user`) — because they all emit the same neutral
+evidence type. A cross-cloud "object storage encrypted at rest" policy
+works the same way through a **single** neutral type rather than a
+union of per-vendor types:
 
 ```yaml
 slots:
   buckets:
-    accepts: [s3_bucket, gcs_bucket, azure_blob_container]
+    accepts: [object_storage_bucket]
     cardinality: one-or-more
     required: true
 ```
 
-A project binds one or more sources to a slot. A source matches a slot
-when **`source.Emits() ∩ slot.Accepts ≠ ∅`**. The rule receives all
-records produced by all bound sources, unioned, under
-`input.slots.<slot_name>`. Records carry their `Type`, so a rule that
-must behave differently per evidence type switches on `record.Type`;
-most rules just iterate the union.
+`aws.s3` and `gcp.storage` both emit `object_storage_bucket`, so the
+slot accepts one type and spans both clouds. A project binds one or
+more sources to a slot. A source matches a slot when
+**`source.Emits() ∩ slot.Accepts ≠ ∅`**. The evaluator receives all
+records produced by all bound sources, unioned, under the slot. Records
+carry their `Type` and `SourceID`, so logic that must behave
+differently per evidence type switches on `record.Type`; most
+`pass_when:` clauses just quantify over the union.
 
 **Slots are the contract.** Policies declare what shapes they accept;
 sources declare what shapes they emit; the planner verifies the
-intersection at plan time. Adding a fourth blob backend (`azure_blob`,
-`r2`, `b2`) to the cross-cloud policy above is one line in `accepts:`,
-zero policy logic changes, zero source-side translation. This is what
-makes the architecture cross-vendor without polluting either side with
-knowledge of the other.
+intersection at plan time. Adding another object-store source (Azure
+Blob, R2, B2) that emits `object_storage_bucket` to the cross-cloud
+policy above is zero policy-logic changes and zero source-side
+translation — the new source is immediately usable. (When a genuinely
+*new* shape is needed, extending a slot's `accepts:` list with another
+type ID is one line of YAML.) This is what makes the architecture
+cross-vendor without polluting either side with knowledge of the other.
 
 **What it is *not*.** A slot is not a source. A slot says "I accept
 records of types X, Y, or Z"; the project's binding decides which
@@ -199,27 +231,30 @@ registered separately from the source plugins that emit them, and
 separately from the policies that consume them. The same evidence type
 can be emitted by multiple plugins and consumed by multiple policies.
 
-**Example.** `user_record.v1` schema:
+**Example.** `directory_user.v1` schema (JSON Schema, embedded as
+`internal/evidence_types/schemas/directory_user.v1.json`):
 
-```yaml
-id: user_record
-version: 1
-schema:
-  type: object
-  required: [id, mfa_enabled]
-  properties:
-    id:           { type: string }
-    email:        { type: string }
-    mfa_enabled:  { type: boolean }
-    last_used_at: { type: string, format: date-time }
-    is_admin:     { type: boolean }
+```json
+{
+  "title": "directory_user",
+  "version": 1,
+  "type": "object",
+  "required": ["id", "mfa_enabled"],
+  "properties": {
+    "id":           { "type": "string" },
+    "email":        { "type": "string" },
+    "mfa_enabled":  { "type": "boolean" },
+    "last_used_at": { "type": "string", "format": "date-time" },
+    "is_admin":     { "type": "boolean" }
+  }
+}
 ```
 
 This shape can be emitted by `aws.iam` (transformed from the AWS IAM
-API response), by `okta` (transformed from the Okta Users API), by
-`bamboohr` (transformed from BambooHR's employees endpoint), or by a
-customer's `internal.ldap` plugin. Any policy whose slot declares
-`accepts: [user_record]` can consume any of them, alone or in
+API response; it emits the `directory_user.v2` revision), by `okta`
+(transformed from the Okta Users API), by `github`, or by a customer's
+`internal.ldap` plugin. Any policy whose slot declares
+`accepts: [directory_user]` can consume any of them, alone or in
 combination.
 
 **What it is *not*.** An evidence type is not a source plugin. Source
@@ -242,17 +277,16 @@ A source plugin has a stable ID (`aws.iam`, `okta`, `manual.pdf`,
 (credentials, scope), and a `Collect` entry point. It declares which
 evidence types it emits.
 
-**Example.** The `aws.iam` plugin emits `user_record`, `iam_role`,
-`iam_policy`, and `access_key`. It requires AWS credentials in its
-config (region, optionally a profile or assumed role).
+**Example.** The `aws.iam` plugin emits `directory_user` (the `.v2`
+revision); a sibling `aws.iam_access_key` plugin emits `iam_access_key`.
+A plugin declares its emitted types in Go via `Emits() []string` — there
+is no in-tree `plugin.yaml` manifest. Credentials come from the ambient
+SDK chain (region, optionally a profile or assumed role configured under
+`sources:`).
 
-```yaml
-id: aws.iam
-emits: [user_record, iam_role, iam_policy, access_key]
-config_schema:
-  region: { type: string, required: true }
-  profile: { type: string }
-  role_arn: { type: string }
+```go
+func (p *iamPlugin) ID() string      { return "aws.iam" }
+func (p *iamPlugin) Emits() []string { return []string{"directory_user"} }
 ```
 
 **What it is *not*.** A source plugin is not a policy. A source plugin
@@ -266,7 +300,7 @@ and across frameworks.
 
 **Definition.** One fulfilled piece of data. Carries:
 
-- `type`: the evidence type ID (e.g. `user_record`)
+- `type`: the evidence type ID (e.g. `directory_user`)
 - `id`: a stable identifier within the source (the resource's natural ID)
 - `payload`: a JSON value conforming to the type's schema
 - `source_id`: the plugin that produced it (e.g. `aws.iam`)
@@ -276,7 +310,7 @@ and across frameworks.
 
 ```json
 {
-  "type": "user_record",
+  "type": "directory_user",
   "id": "AIDAEXAMPLEUSER01",
   "source_id": "aws.iam",
   "collected_at": "2026-05-23T14:00:01Z",
@@ -336,44 +370,55 @@ run.
 
 ---
 
-### 10. Rule
+### 10. Evaluation logic (`pass_when:`, with a `rule:` escape hatch)
 
-**Definition.** The executable logic that decides a policy's outcome.
-A rule receives evidence records by slot, plus the policy's effective
-parameters, and produces: a status (`pass` | `fail` | `skip` |
-`error`), a list of violations (each tied to a resource identity), and
-optional diagnostic metadata.
+**Definition.** The logic that decides an automated policy's outcome
+from its bound evidence. It produces a status (`pass` | `fail` | `skip`
+| `error`), a list of violations (each tied to a resource identity),
+and optional diagnostic metadata.
 
-Rules can be implemented in:
+There are two ways to express it, and they are **mutually exclusive**
+(declaring both is a load error, exit 3):
 
-- **Rego** (declarative, side-effect-free, the default for
-  framework-shipped rules)
-- **Go** (compiled in; available for custom rules where Rego is
-  awkward)
-- **YAML DSL** (for the common "for each X assert Y" pattern; transpiles
-  to one of the above)
+- **`pass_when:` (the primary path — and the only one any shipped
+  policy uses).** A declarative condition DSL evaluated in-process: a
+  quantifier (`all | none | any | count`) over a condition triple
+  (`{op, field, value}`) on the records in a slot. ~95% of compliance
+  checks are "for every record, assert field X" — that is exactly what
+  `pass_when:` expresses, with no Go or Rego. **Both shipped frameworks
+  (SOC 2 and ISO 27001) are 100% `pass_when:`; each framework's
+  `Rules()` returns nil.**
+- **`rule:` (the escape hatch — present but unused).** A Go or inline
+  Rego rule, for the rare check the DSL genuinely cannot express
+  (cross-slot joins, complex aggregations). The infrastructure remains
+  available and OPA stays a dependency for it, but no shipped policy
+  reaches for it. Rego rules run in OPA's sandbox; Go rules are
+  reviewed for side-effect-freedom at PR time.
 
-All three plug into a common `Rule` interface in Go.
+Manual policies use neither — they run the universal PDF-presence
+check (see #3, `evidence_mode: manual`).
 
-**Example (Rego, simplified).**
+**Example (`pass_when:`, the real shape).**
 
-```rego
-package rules.mfa_enforced.v1
-
-violation contains v if {
-    record := input.slots.user_directory[_]
-    not record.payload.mfa_enabled
-    v := {
-        "resource_id": record.id,
-        "reason": sprintf("MFA disabled for %s", [record.payload.email]),
-    }
-}
+```yaml
+pass_when:
+  quantifier: all
+  slot: user_directory
+  condition: { op: eq, field: "payload.mfa_enabled", value: true }
+violation_message: "MFA disabled for {{.payload.email}}"
 ```
 
-**What it is *not*.** A rule is not a policy. The rule is reusable —
-e.g. `rules.mfa_enforced.v1` can be referenced by both
-`soc2.cc6.1.mfa_enforced` and `iso27001.a.9.4.2.mfa_required`. The
-policy provides the slots and parameters; the rule is the algorithm.
+A field path resolves `id`, `type`, `source_id`, or `payload.<dot.path>`;
+a bare name without the `payload.` prefix errors the policy. Violation
+message tokens are Go-template form (`{{.payload.field}}`), not
+`{token}`.
+
+**What it is *not*.** The evaluation logic is not the policy. A policy
+that needs the escape hatch may share a `rule:` across frameworks (e.g.
+the same rule referenced by both a SOC 2 and an ISO 27001 policy), but
+the common, shipped case is a per-policy `pass_when:` clause. `rule:`
+is not "the default with `pass_when:` as sugar" — it is the exception,
+and currently the unused one.
 
 ---
 
@@ -392,12 +437,12 @@ bindings:
   soc2.cc6.1.mfa_enforced:
     user_directory: [aws.iam, okta]
   soc2.cc6.1.access_key_rotation:
-    access_keys: [aws.iam]
+    access_keys: [aws.iam_access_key]
 ```
 
 For `mfa_enforced`, AcmeCorp wants both AWS IAM users and Okta users
-checked under the same policy. Both plugins emit `user_record`, so the
-rule operates on the union.
+checked under the same policy. Both plugins emit `directory_user`, so
+the evaluation operates on the union.
 
 **What it is *not*.** A binding is not a source configuration. The
 source's credentials and scope live in the `sources:` section of the
@@ -532,11 +577,16 @@ cloud dashboard receives only aggregated counts (see #16).
 **Definition.** The frozen schema that crosses the privacy boundary to
 the hosted dashboard. It carries:
 
-- Per-policy: policy ID, control ID, status, severity, message
-  (count-based, regenerated, never forwarded from violation text),
-  category, resources_evaluated count, resources_failed count
-- Per-run summary: total/passed/failed/skipped policy counts,
-  compliance score
+- Per-policy: policy ID, `controls []ControlRef` (the multi-framework
+  control mapping — each `{framework, framework_version, control_id,
+  relationship}`, a public taxonomy carrying no identity), status,
+  severity, message (count-based, regenerated, never forwarded from
+  violation text), category, resources_evaluated count, resources_failed
+  count, plus the per-policy cadence scalars (`ConfiguredCadence`,
+  `LastEvaluatedAt`, `NextDueAt`, `IsCarriedForward`,
+  `PolicyContentHash`)
+- Per-run summary: total/passed/failed/skipped/error/na/waived policy
+  counts, compliance score
 - Environment metadata: CI provider, repository name, branch, commit
   SHA, CLI version
 
@@ -585,17 +635,18 @@ A policy declares `slots → accepts: [evidence types]`. A source plugin
 declares `source ID → emits: [evidence types]`. A project binding
 declares `policy slot → [source plugin IDs]`. The planner matches a
 source to a slot whenever `source.Emits() ∩ slot.Accepts ≠ ∅`. The
-rule only sees evidence records grouped by slot, each tagged with its
-`Type` and `SourceID` — but rules have no API to special-case "which
-plugin produced this?", and policies have no syntax to name a source.
+evaluation logic only sees evidence records grouped by slot, each
+tagged with its `Type` and `SourceID` — but it has no API to
+special-case "which plugin produced this?", and policies have no syntax
+to name a source.
 
 **The canonical example: MFA enforced on admin users.** SigComply
 ships one policy: `soc2.cc6.1.admin_mfa_enforced`, declaring a single
-slot `user_directory` with `accepts: [user_record]`. AcmeCorp uses AWS
-IAM; their `.sigcomply.yaml` binds `aws.iam` to that slot. BetaCorp
+slot `user_directory` with `accepts: [directory_user]`. AcmeCorp uses
+AWS IAM; their `.sigcomply.yaml` binds `aws.iam` to that slot. BetaCorp
 uses Okta; their config binds `okta`. GammaCorp uses both; theirs
 binds `[aws.iam, okta]`. DeltaCorp uses an internal LDAP and writes a
-project-local plugin emitting `user_record`; theirs binds
+project-local plugin emitting `directory_user`; theirs binds
 `acme.internal_iam`. **There is one policy in the binary, four
 different bindings in four different projects, zero forks.**
 
@@ -657,18 +708,22 @@ authorship simplicity.
 
 The CLI is a leaf invocation: it runs whatever set of policies its
 flags select, signs and writes the resulting envelopes, optionally
-submits aggregated counts, and exits. It does not read prior runs to
-decide what to run, does not maintain a schedule, and does not refuse
-work based on cadence. **CI workflow files** — one per cadence, scheduled
-by cron — determine what runs when. A daily workflow invokes
+submits aggregated counts, and exits. **Which cadences run when** is
+decided entirely by **CI workflow files** — one per cadence, scheduled
+by cron — not by the CLI maintaining its own schedule. (Within a
+selected run the CLI consults mutable, never-signed per-policy cadence
+state to decide evaluate-vs-carry-forward — see #4 and
+[`10-cadence-model.md`](10-cadence-model.md) — but it never decides
+*which workflow fires*.) A daily workflow invokes
 `sigcomply check --cadence daily`; an hourly workflow invokes
 `sigcomply check --cadence hourly`; a PR workflow invokes
 `sigcomply check --on-push`. Re-running after a fix is a manual workflow
 trigger, not a CLI feature.
 
-**Consequence.** The CLI stays stateless. Cadence enforcement, retries,
-fan-out across cadences, and "run only what's overdue" logic all live
-in human-readable workflow YAML the customer owns and audits. The CLI
+**Consequence.** The CLI carries no cross-run *scheduling* state beyond
+the small, recoverable, never-signed per-policy cadence file. Workflow
+fan-out across cadences, retries, and the cron schedule all live in
+human-readable workflow YAML the customer owns and audits. The CLI
 itself is trivially testable: given flags, it produces a deterministic
 set of outputs. Replacing or extending the orchestrator (cron → Argo →
 Airflow → whatever) does not require CLI changes. This is the property
@@ -741,15 +796,25 @@ MFA enabled. They have users in both AWS IAM and Okta.
 id: soc2.cc6.1.admin_mfa_enforced
 control: CC6.1
 severity: high
+evidence_mode: automated
 description: "All admin users must have MFA enabled."
 slots:
   user_directory:
-    accepts: [user_record]
+    accepts: [directory_user]
     cardinality: one-or-more
     required: true
 parameters: {}
-rule: rules.admin_mfa_enforced.v1
+pass_when:
+  quantifier: all
+  slot: user_directory
+  condition: { op: eq, field: "payload.mfa_enabled", value: true }
+violation_message: "MFA disabled for {{.payload.email}}"
 ```
+
+(Shipped policies are authored in Go via `autoPolicy{...}.policy()`
+builders, not on-disk YAML; the YAML here mirrors the same fields for
+readability. On-disk `policy.yaml` is only for project-local custom
+policies.)
 
 **Step 2 — Project binding (in `.sigcomply.yaml`):**
 
@@ -766,33 +831,27 @@ bindings:
 **Step 3 — At run time, the planner produces:**
 
 ```
-Policy:  soc2.cc6.1.admin_mfa_enforced
+Policy:  soc2.cc6.1.admin_mfa_enforced  (evidence_mode: automated)
   Slot user_directory binds to: [aws.iam, okta]
-  Rule: rules.admin_mfa_enforced.v1
+  Evaluation: pass_when (all user_directory records mfa_enabled == true)
   Parameters: {}
 ```
 
 **Step 4 — The collector executes:**
 
 ```
-- aws.iam.Collect() → 30 user_record envelopes
-- okta.Collect()    → 17 user_record envelopes
+- aws.iam.Collect() → 30 directory_user envelopes
+- okta.Collect()    → 17 directory_user envelopes
 - Each envelope signed with its own ephemeral Ed25519 keypair
 - All envelopes written to:
     soc2/2026-Q1/run_.../policies/soc2.cc6.1.admin_mfa_enforced/envelopes/
 ```
 
-**Step 5 — The evaluator invokes the rule:**
+**Step 5 — The evaluator runs the `pass_when:` clause in-process:**
 
 ```
-rules.admin_mfa_enforced.v1(
-  input = {
-    slots: {
-      user_directory: [<47 user records>]
-    },
-    params: {}
-  }
-)
+quantifier=all over user_directory: payload.mfa_enabled == true
+  evaluated against [<47 directory_user records>]
 → status: fail
   violations: [
     { resource_id: "AIDAEXAMPLE01", reason: "MFA disabled for alice@acme.com" },
@@ -853,6 +912,6 @@ users failed.
   are declared on a policy spec.
 - [`08-project-config.md`](08-project-config.md) — the `policy_cadences`
   override map in `.sigcomply.yaml`.
-- [`10-ci-execution-model.md`](10-ci-execution-model.md) — how CI
+- [`09-ci-execution-model.md`](09-ci-execution-model.md) — how CI
   workflow files schedule cadences and invoke the CLI (Axiom 4 in
   practice).

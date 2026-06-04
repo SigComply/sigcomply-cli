@@ -95,7 +95,7 @@ func Collect(ctx context.Context, in *Input) (*Output, error) {
 			// evaluation is still valid for this period. No fresh
 			// evidence is collected and no envelope is written; the
 			// evaluator emits a carry-forward result referencing the
-			// prior envelope. See docs/architecture/11-cadence-model.md.
+			// prior envelope. See docs/architecture/10-cadence-model.md.
 			continue
 		}
 		if pp.Exception != nil && pp.Exception.ResourceID == "" && pp.Exception.ResourcePattern == "" {

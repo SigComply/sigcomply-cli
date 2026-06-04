@@ -108,8 +108,8 @@ type RunSummary struct {
 type AggregatedPolicy struct {
     PolicyID           string       `json:"policy_id"`         // "soc2.cc6.1.mfa_enforced"
     Controls           []ControlRef `json:"controls"`          // v3: one check ↦ many frameworks
-    Status             string       `json:"status"`            // pass|fail|skip|error|na|waived|carried_forward
-    Severity           string       `json:"severity"`          // info|low|medium|high|critical
+    Status             PolicyStatus `json:"status"`            // pass|fail|skip|error|na|waived|carried_forward
+    Severity           Severity     `json:"severity"`          // info|low|medium|high|critical
     Category           string       `json:"category,omitempty"`
     ResourcesEvaluated int          `json:"resources_evaluated"`
     ResourcesFailed    int          `json:"resources_failed"`
@@ -119,7 +119,7 @@ type AggregatedPolicy struct {
     // Cadence fields (added in v2, retained in v3) — non-identifying
     // scalars for the cadence model. The dashboard uses these to render
     // staleness / next-due badges without recomputing locally. See
-    // docs/architecture/11-cadence-model.md.
+    // docs/architecture/10-cadence-model.md.
     ConfiguredCadence  string    `json:"configured_cadence,omitempty"`     // "daily" | "every:6h" | …
     LastEvaluatedAt    time.Time `json:"last_evaluated_at,omitempty"`      // most recent ACTUAL eval
     NextDueAt          time.Time `json:"next_due_at,omitempty"`            // when cadence next elapses
@@ -177,40 +177,53 @@ the non-custodial promise.
 
 ## How L6 actually builds the payload
 
+The real entry point is `aggregator.Build` — it takes the evaluated
+`PolicyResult` slice plus a `*Environment`, and computes the run summary
+internally (no `plan`/`summary` parameters are threaded in). The
+following is illustrative pseudocode of its shape, not a line-for-line
+transcription:
+
 ```go
-// internal/core/aggregator/aggregator.go (sketch)
+// internal/aggregator/aggregator.go (illustrative)
 
-func Build(plan *planner.RunPlan, results []evaluator.PolicyResult,
-           summary *vault.RunSummary, env cli.Environment) cloud.SubmissionPayload {
+func Build(results []core.PolicyResult, env *Environment) core.SubmissionPayload {
 
-    out := cloud.SubmissionPayload{
-        Schema:      "sigcomply.cloud.v3",
-        RunID:       plan.RunID,
-        Framework:   plan.Framework,
-        PeriodID:    plan.PeriodID,
-        CommitSHA:   plan.CommitSHA,
-        CommitTime:  plan.CommitTime,
+    out := core.SubmissionPayload{
+        Schema:      SchemaVersion,        // "sigcomply.cloud.v3"
+        RunID:       env.RunID,
+        Framework:   env.Framework,
+        PeriodID:    env.PeriodID,
+        CommitSHA:   env.CommitSHA,
+        CommitTime:  env.CommitTime,
         Branch:      env.Branch,
         Repository:  toRepository(env),
         Environment: toCIEnvironment(env),
-        CLIVersion:  cli.Version,
-        StartedAt:   plan.StartedAt,
+        CLIVersion:  env.CLIVersion,
+        StartedAt:   env.StartedAt,
         CompletedAt: time.Now(),
-        Summary:     buildSummary(results),
-        Policies:    make([]cloud.AggregatedPolicy, 0, len(results)),
+        Summary:     buildSummary(results),  // counts computed here
+        Policies:    make([]core.AggregatedPolicy, 0, len(results)),
     }
 
     for _, r := range results {
-        out.Policies = append(out.Policies, cloud.AggregatedPolicy{
+        out.Policies = append(out.Policies, core.AggregatedPolicy{
             PolicyID:           r.PolicyID,
             Controls:           r.Controls,  // []ControlRef — multi-framework mapping
-            Status:             string(r.Status),
-            Severity:           string(r.Severity),
+            Status:             r.Status,    // PolicyStatus
+            Severity:           r.Severity,  // Severity
             Category:           r.Category,
             ResourcesEvaluated: r.ResourcesEvaluated,
             ResourcesFailed:    r.ResourcesFailed,
             Message:            generateMessage(r),  // <-- key step
             RuleVersion:        r.RuleVersion,
+
+            // The five non-identifying cadence scalars (see
+            // 10-cadence-model.md §Cloud payload cadence fields).
+            ConfiguredCadence: r.ConfiguredCadence,
+            LastEvaluatedAt:   lastEvaluatedAt(r, env),
+            NextDueAt:         r.NextDueAt,
+            IsCarriedForward:  r.Status == core.StatusCarriedForward,
+            PolicyContentHash: r.PolicyContentHash,
         })
     }
 
@@ -219,22 +232,22 @@ func Build(plan *planner.RunPlan, results []evaluator.PolicyResult,
 
 // generateMessage produces a count-only summary from a PolicyResult.
 // It never copies the violation text, which may contain identities.
-func generateMessage(r evaluator.PolicyResult) string {
+func generateMessage(r core.PolicyResult) string {
     switch r.Status {
-    case evaluator.StatusPass:
+    case core.StatusPass:
         return fmt.Sprintf("All %d resources passed.", r.ResourcesEvaluated)
-    case evaluator.StatusFail:
+    case core.StatusFail:
         return fmt.Sprintf("%d of %d resources failed.", r.ResourcesFailed, r.ResourcesEvaluated)
-    case evaluator.StatusSkip:
+    case core.StatusSkip:
         return "No matching resources to evaluate."
-    case evaluator.StatusError:
+    case core.StatusError:
         return "Evaluation error; see customer vault for diagnostics."
-    case evaluator.StatusNA:
+    case core.StatusNA:
         return "Not applicable to this project."
-    case evaluator.StatusWaived:
+    case core.StatusWaived:
         return fmt.Sprintf("Waived by exception (%d of %d resources affected).",
             r.ResourcesFailed, r.ResourcesEvaluated)
-    case evaluator.StatusCarriedForward:
+    case core.StatusCarriedForward:
         return "Carried forward from a prior passing evaluation (cadence not yet due)."
     }
     return ""
@@ -499,7 +512,7 @@ escape hatch for verifying the boundary on demand.
 | `message` (generated) | Regenerated from counts; never copied from rule output. |
 | `commit_sha`, `commit_time`, `branch` | Already published to git; the cloud knowing them is the same as the cloud's host knowing them. |
 | `repository.name_slug` | Already public in the repo URL. |
-| `cli_version`, `framework`, `framework_version`, `cli_commit` | CLI/framework metadata, no customer specifics. |
+| `cli_version`, `framework`, `framework_version` | CLI/framework metadata, no customer specifics. |
 | `period_id` | Date label; non-identifying. |
 | OIDC subject claims (during auth, not in payload) | Standardized; the cloud sees them only to authenticate. |
 
@@ -515,6 +528,7 @@ escape hatch for verifying the boundary on demand.
 | Effective parameter values | Vault `manifest.json` only |
 | Envelope signatures and public keys | Vault envelopes only |
 | Exceptions detail (resource scopes, approver names) | Vault `manifest.json` only |
+| `RecordScope` / `Scope` (per-record scope on a `PolicyResult`) | Vault only — deliberately never lifted onto the wire type |
 
 A field on the "stays in" side that ever drifts to the "crosses"
 side is a privacy regression. The structural enforcement (type system)

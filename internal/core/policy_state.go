@@ -24,7 +24,7 @@ const PolicyStateSchemaVersion = "policy-state.v1"
 // "first run" and evaluates the policy. The shard is rewritten after
 // every evaluation.
 //
-// See docs/architecture/11-cadence-model.md for the model.
+// See docs/architecture/10-cadence-model.md for the model.
 type PolicyState struct {
 	SchemaVersion string `json:"schema_version"`
 

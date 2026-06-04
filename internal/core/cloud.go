@@ -25,7 +25,7 @@ type CloudClient interface {
 //  2. Demonstration that the field cannot carry identity in any
 //     deployment.
 //  3. Review by >=2 maintainers including the security owner.
-//  4. Schema-version bump (sigcomply.cloud.v2).
+//  4. Schema-version bump (current: sigcomply.cloud.v3).
 //
 // The reflection test in cloud_test.go enforces "no freeform fields"
 // structurally — adding interface{}, json.RawMessage, or

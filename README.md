@@ -15,10 +15,15 @@ policy libraries. Policies are open, Go-native declarative definitions
 ## Install
 
 ```sh
-go install github.com/SigComply/sigcomply-cli@latest
+curl -fsSL https://raw.githubusercontent.com/sigcomply/sigcomply-cli/main/scripts/install.sh | sh
 ```
 
-Pre-built binaries are published with each release on GitHub.
+This downloads the pre-built binary for your platform from the latest
+GitHub release. Alternatively, with a Go toolchain:
+
+```sh
+go install github.com/sigcomply/sigcomply-cli@latest
+```
 
 ## Quick start
 
@@ -32,6 +37,20 @@ Auto-detects collectors based on available credentials (`AWS_*`,
 `GITHUB_TOKEN`, GCP ADC, …), evaluates the framework's policies locally,
 writes signed `EvidenceEnvelope` files to your storage backend, and (in
 CI with OIDC) submits aggregated results to the SigComply Cloud API.
+
+## Commands
+
+| Command | Purpose |
+|---|---|
+| `sigcomply check` | Plan → collect → evaluate → aggregate → sign/store → submit. |
+| `sigcomply init-ci` | Scaffold per-cadence CI workflow files. |
+| `sigcomply build` | Compile a project-tailored binary with `.sigcomply/` Go extensions. |
+| `sigcomply report` | Read-only auditor snapshot of the vault. |
+| `sigcomply evidence catalog` | Print the manual-evidence catalog (`-o text\|json`). |
+| `sigcomply version` | Print version, commit, and build time. |
+
+Exit codes: `0` passed · `1` violations · `2` execution error · `3`
+configuration error.
 
 ## Project model
 
@@ -67,21 +86,16 @@ upload it to the folder above.
 
 ## CI/CD
 
-Reusable workflow / CI component:
+Run `sigcomply init-ci` to scaffold standalone, per-cadence workflow
+files calibrated to your framework's cadence distribution. On GitHub
+Actions it writes `compliance-{daily,weekly,monthly,quarterly,annual,on-push}.yml`
+under `.github/workflows/`; each downloads the binary from GitHub
+Releases and runs `sigcomply check` for that cadence.
 
-```yaml
-# GitHub Actions
-jobs:
-  compliance:
-    permissions: { id-token: write, contents: read }
-    uses: SigComply/sigcomply-cli/.github/workflows/compliance.yml@v1
-    with: { framework: soc2 }
-```
-
-```yaml
-# GitLab CI — copy examples/gitlab-ci.yml into your repo as a starting
-# point. A first-class GitLab CI component is not yet packaged.
-```
+Copy-paste starting points also live under `examples/`:
+`examples/github-actions/{basic,multi-environment}.yml` and
+`examples/gitlab-ci.yml`. A first-class packaged GitLab CI component is
+not yet available — copy or `include:` the example pipeline.
 
 ## Documentation
 

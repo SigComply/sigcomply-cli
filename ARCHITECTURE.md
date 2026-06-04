@@ -63,7 +63,7 @@ requires going back to the drawing board.
    a database, never carries in-memory state from a prior invocation.
    Cadence enforcement ("did the quarterly policy already run?") is the
    CI scheduler's job, not the CLI's — see
-   [`docs/architecture/10-ci-execution-model.md`](docs/architecture/10-ci-execution-model.md).
+   [`docs/architecture/09-ci-execution-model.md`](docs/architecture/09-ci-execution-model.md).
 3. **The vault is append-only.** Each run writes its own immutable
    folder. Period-level state is *derived* from the union of runs in a
    period, not stored as an authoritative mutable file. There is no
@@ -75,20 +75,15 @@ requires going back to the drawing board.
    to the CLI, the cloud, or any other piece of state.
 
    **What this guarantees, and what it doesn't.** Embedded-public-key
-   signing detects accidental drift and unilateral PDF swaps (the
-   manifest's `file_hash` won't match new bytes). It does **not**
-   detect a customer with vault write access who regenerates envelope
-   + PDF together with a fresh ephemeral keypair — that re-signing
-   is cryptographically indistinguishable from original collection.
-   True tamper-resistance against deliberate re-signing requires
-   write-once / versioned object storage at the bucket layer (S3
-   Object Lock in compliance mode, GCS Bucket Lock with retention,
-   Azure Blob immutable storage). This is a customer-side setup
-   responsibility; the CLI does not configure it. See
-   [`SECURITY.md`](SECURITY.md) §Threat Model and CLAUDE.md Invariant
-   #3 for the precise wording to use in customer-facing docs.
+   signing detects accidental drift and unilateral PDF swaps, but not
+   deliberate re-signing by a party with vault write access; true
+   tamper-resistance requires write-once / versioned object storage at
+   the bucket layer. The full threat model and the required
+   customer-side storage settings are the canonical subject of
+   [`SECURITY.md`](SECURITY.md) §Threat Model (see also CLAUDE.md
+   Invariant #3).
 5. **Evidence type ≠ source plugin.** A policy depends on an evidence
-   *shape* (`user_record`, `firewall_rule`). Many source plugins can
+   *shape* (`directory_user`, `firewall_rule`). Many source plugins can
    produce the same shape. Policies never reach behind the type to ask
    which plugin produced it; this is what makes sources interchangeable
    per project.
@@ -115,7 +110,8 @@ requires going back to the drawing board.
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│  L9  Orchestrator     CLI entry point; CI integration; exit codes  │
+│  L9  Orchestrator     CLI entry; CI integration; owns exit codes   │
+│                       (0 passed · 1 violations · 2 exec · 3 config) │
 ├────────────────────────────────────────────────────────────────────┤
 │  L8  Submitter        Optional cloud submission (counts only)      │
 ├────────────────────────────────────────────────────────────────────┤
@@ -139,6 +135,10 @@ requires going back to the drawing board.
 ```
 
 Detailed layer responsibilities: [`02-layers.md`](docs/architecture/02-layers.md).
+
+Several packages are cross-cutting support code and deliberately sit
+*outside* this ten-layer stack: `sign`, `log`, `manualcatalog`,
+`report`, `sources`, `frameworks`, and `evidence_types`.
 
 ---
 
@@ -176,13 +176,13 @@ definitions in [`01-conceptual-model.md`](docs/architecture/01-conceptual-model.
 | [`02-layers.md`](docs/architecture/02-layers.md) | Each layer's responsibilities, interfaces, and the contracts between them. |
 | [`03-policy-spec.md`](docs/architecture/03-policy-spec.md) | Format of a policy spec; slots, parameters, rule references; examples in Rego, Go, and YAML DSL. |
 | [`04-source-plugins.md`](docs/architecture/04-source-plugins.md) | Source plugin contract; how to author one; how evidence types are declared and consumed. |
+| [`04a-evidence-type-registry.md`](docs/architecture/04a-evidence-type-registry.md) | The evidence-type registry: versioned JSON Schemas, the policy↔source mediation contract, schema-design rules, and the substitutability property. |
 | [`05-vault-layout.md`](docs/architecture/05-vault-layout.md) | Vault directory structure; envelope format; signing; versioning. |
 | [`06-aggregation.md`](docs/architecture/06-aggregation.md) | The privacy boundary in detail; the exact wire format; structural enforcement. |
 | [`07-extensibility.md`](docs/architecture/07-extensibility.md) | How customers add custom policies and custom source plugins; how the community contributes upstream. |
 | [`08-project-config.md`](docs/architecture/08-project-config.md) | Full `.sigcomply.yaml` schema reference. |
-| [`09-implementation-roadmap.md`](docs/architecture/09-implementation-roadmap.md) | Order of work, milestones, what ships when. |
-| [`10-ci-execution-model.md`](docs/architecture/10-ci-execution-model.md) | How the CLI fits into a CI pipeline; cadence-driven workflow scheduling; `sigcomply init-ci` scaffolding; how statelessness survives variable run frequencies. |
-| [`11-cadence-model.md`](docs/architecture/11-cadence-model.md) | The two-axis cadence model (per-policy gating vs per-run period freeze); per-policy state shards; the `every:<duration>` DSL; carry-forward result format; day-1 warnings; the per-policy cadence scalars in the cloud payload. The canonical reference for "should this policy re-evaluate now?" |
+| [`09-ci-execution-model.md`](docs/architecture/09-ci-execution-model.md) | How the CLI fits into a CI pipeline; cadence-driven workflow scheduling; `sigcomply init-ci` scaffolding; how statelessness survives variable run frequencies. |
+| [`10-cadence-model.md`](docs/architecture/10-cadence-model.md) | The two-axis cadence model (per-policy gating vs per-run period freeze); per-policy state shards; the `every:<duration>` DSL; carry-forward result format; day-1 warnings; the per-policy cadence scalars in the cloud payload. The canonical reference for "should this policy re-evaluate now?" |
 | [`examples/acmecorp-walkthrough.md`](docs/architecture/examples/acmecorp-walkthrough.md) | End-to-end worked example: AcmeCorp pursuing SOC 2 with AWS + Okta + manual evidence. Reads alongside [`examples/acmecorp.sigcomply.yaml`](docs/architecture/examples/acmecorp.sigcomply.yaml). |
 
 ---

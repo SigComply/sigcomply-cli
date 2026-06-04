@@ -53,7 +53,7 @@ const ManifestSchemaVersion = "run.v1"
 // retry budget; ModeScheduled is for cron-triggered CI, reads the
 // per-policy state shards, decides which policies are due, and
 // advances state on success. See
-// docs/architecture/11-cadence-model.md §Modes.
+// docs/architecture/10-cadence-model.md §Modes.
 type Mode string
 
 // Mode values.
@@ -317,7 +317,7 @@ func stampNextDue(results []core.PolicyResult, plan *planner.RunPlan, startedAt 
 // first-run policies (will run now and not again until the cadence
 // elapses) and gap-detected (last evaluation was long ago). The
 // warnings are explicit so customers don't mistake "all-green on day
-// one" for "compliant" — see docs/architecture/11-cadence-model.md
+// one" for "compliant" — see docs/architecture/10-cadence-model.md
 // §Day-1 warnings.
 func emitPlanWarnings(logger *log.Logger, plan *planner.RunPlan, now time.Time) {
 	if plan == nil {

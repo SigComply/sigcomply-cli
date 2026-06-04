@@ -227,11 +227,21 @@ config-string lookup.
 **Status.** Many in-tree sources ship today (AWS across IAM/S3/EC2/RDS/
 KMS/CloudTrail/CloudWatch/Config/EKS/GuardDuty/…; GCP across
 IAM/Storage/Compute/SQL; GitHub; Okta). The evidence-type schemas for
-the records they emit (e.g. `user_record`, `s3_bucket`, `signed_document`)
-are embedded via `go:embed` and validated at collection time. Third
-parties add custom sources via `RegisterFactory` from their own
-package — compiled in by `sigcomply build` (M16) for project-local
-plug-ins, or by upstream PR.
+the records they emit (e.g. `directory_user`, `object_storage_bucket`,
+`signed_document`) are embedded via `go:embed` and validated at
+collection time. Third parties add custom sources via `RegisterFactory`
+from their own package — compiled in by `sigcomply build` (M16) for
+project-local plug-ins, or by upstream PR.
+
+**Version skew across sources.** Two plugins emitting the same
+evidence-type ID may emit different schema versions (e.g. `aws.iam`
+emits `directory_user.v2`, `okta` emits `directory_user.v1`). The
+planner resolves the slot's accepted version set against each plugin's
+emitted version (`siblingVersions`); a source whose version no plugin
+in the binding can cover is dropped from coverage and the affected
+policy is reported `SKIP` rather than silently mis-validated. The
+substitution claim above holds *per resolved version* — full mechanics
+in [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md).
 
 See [`04-source-plugins.md`](04-source-plugins.md),
 [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md), and
@@ -292,7 +302,7 @@ external parties (auditors, the cloud, the verification SPA) rely on:
   bytes, just to a different physical store.
 - **Evidence-type schemas already shipped.** Plug-ins can add *new*
   evidence types but cannot redefine existing ones in incompatible
-  ways. Breaking changes require a new ID (`user_record.v2`).
+  ways. Breaking changes require a new version (`directory_user.v2`).
 
 The substitutability axioms in [`01-conceptual-model.md`](01-conceptual-model.md)
 §The substitutability axioms restate these consequences in

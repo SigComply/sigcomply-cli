@@ -3,7 +3,7 @@
 This walks through how AcmeCorp uses the SigComply CLI end-to-end. It
 reads alongside [`acmecorp.sigcomply.yaml`](acmecorp.sigcomply.yaml)
 and assumes familiarity with the
-[CI execution model](../10-ci-execution-model.md).
+[CI execution model](../09-ci-execution-model.md).
 
 The point: show the architecture working — how a real (if fictional)
 project pursues SOC 2 with a mix of automated and manual evidence, a
@@ -46,16 +46,12 @@ github.com/acme/infrastructure
 ├── .sigcomply/
 │   ├── policies/
 │   │   └── acme.custom.cc6.1.contractor_review/
-│   │       ├── policy.yaml
-│   │       └── rule.go
+│   │       └── policy.yaml                       # pass_when DSL (the common case)
 │   ├── plugins/
 │   │   └── acme.internal_iam/
 │   │       ├── plugin.yaml
 │   │       └── plugin.go
-│   └── manual_catalog/
-│       ├── access_review_quarterly.yaml
-│       ├── security_training_annual.yaml
-│       └── contractor_review_quarterly.yaml
+│   └── evidence_types/                           # project-local schemas, if any
 └── .github/workflows/
     ├── compliance-on-push.yml      # every PR / push to main
     ├── compliance-daily.yml        # 03:00 UTC daily cron
@@ -69,11 +65,19 @@ github.com/acme/infrastructure
 `.sigcomply.yaml` that declares everything. The repo identity
 `acme/infrastructure` is the project identity.
 
+**No `manual_catalog/` directory.** Manual-evidence catalogs are
+generated in Go from each framework's `manualSpecs()` and compiled into the
+binary — there are no `catalogs/*.yaml` files in the repo. The real
+`.sigcomply/` extension directories are `policies/`, `plugins/`, and
+`evidence_types/`. A custom manual catalog entry (like AcmeCorp's
+`contractor_review_quarterly`) is declared by its project-local custom
+policy, not in a standalone catalog file.
+
 **The vault.** `s3://acme-evidence/sigcomply/`, one bucket per
 project.
 
 **The manual evidence bucket.** `s3://acme-evidence/manual/`, also
-one bucket per project (the `manual.pdf` plugin is a project-level
+one bucket per project (the `manual.pdf` source is a project-level
 singleton).
 
 **Cadence overrides** in `.sigcomply.yaml`:
@@ -106,7 +110,8 @@ sigcomply check --on-push
 
 This selects all policies tagged `on_push: true`. By default that's
 every automated policy with a cadence ≤ daily. AcmeCorp hasn't
-overridden any `on_push` flags, so this is ~280 policies. Manual
+overridden any `on_push` flags, so this is most of the automated
+policy set. Manual
 policies (quarterly access review, annual training, etc.) have
 `on_push: false` by default and are excluded — they have natural
 human-driven cadences that don't align with PR feedback.
@@ -120,7 +125,7 @@ human-driven cadences that don't align with PR feedback.
    - `run_id`: a fresh UUID
    - `framework`: soc2
    - `period_id`: `2026-Q1` (derived from `commit_time`)
-   - ~280 policies in scope (filtered by `on_push`)
+   - the on-push automated policy set in scope (filtered by `on_push`)
 3. Collects: per-policy fetches against AWS IAM, AWS S3, AWS
    CloudTrail, Okta, GitHub, AcmeCorp's internal IAM — many of these
    sources are hit multiple times (once per consuming policy, per the
@@ -129,7 +134,7 @@ human-driven cadences that don't align with PR feedback.
 5. Persists per-policy envelopes + result.json to the vault.
 6. Aggregates → submits to SigComply Cloud.
 
-**Outcome:** all 280 policies pass. Job exits 0. PR shows green.
+**Outcome:** every in-scope policy passes. Job exits 0. PR shows green.
 Runtime: ~7 minutes.
 
 **Vault contents from this run:**
@@ -138,11 +143,11 @@ Runtime: ~7 minutes.
 soc2/2026-Q1/run_20260215T135500Z_a3f8b2c1/
    manifest.json                       # period_id=2026-Q1, commit_sha=...
    summary.json
-   policies/                            # 280 policy folders
+   policies/                            # one folder per in-scope policy
       soc2.cc6.1.mfa_enforced/
          envelopes/
-            user_record__okta.json
-            user_record__acme.internal_iam.json
+            directory_user__okta.json
+            directory_user__acme.internal_iam.json
          result.json
       ...
 ```
@@ -164,7 +169,7 @@ This selects all policies with effective cadence `daily` (plus
 `hourly` and `continuous`, which are stricter and therefore must also
 run at least daily). For AcmeCorp's project:
 
-- All the standard daily automated checks: ~200 policies
+- All the standard daily automated checks
 - `soc2.cc6.1.mfa_enforced` (overridden to `hourly` → also caught
   by `--cadence daily` because hourly is stricter than daily)
 - AcmeCorp's custom policy `acme.custom.cc6.1.contractor_review` has
@@ -288,7 +293,7 @@ crons.
 AcmeCorp's auditor logs into SigComply Cloud or opens
 `s3://acme-evidence/sigcomply/soc2/2026-Q1/` directly. They see:
 
-- All ~360 SOC 2 policies + AcmeCorp's 1 custom policy
+- The full SOC 2 policy set + AcmeCorp's 1 custom policy
 - Per-policy state: each shows the latest result across all runs in
   the period
 - Cadence labels next to each: "daily policy, last run 2026-03-30",
@@ -299,7 +304,7 @@ remediation): green. Click in and see the timeline of runs — a fail
 on 2026-02-16, then a pass on 2026-02-16 after the remediation push.
 
 For `soc2.cc6.1.mfa_enforced` (cadence overridden to `hourly`): the
-auditor sees ~150 runs in Q1 (the on-push + daily ones). All
+auditor sees many runs in Q1 (the on-push + daily ones). All
 passing except the one that hit the legacy.deploy.bot exception.
 They click the exception detail: approved by Jane Doe on 2026-01-15,
 expires 2026-09-30. They click "View in repo" → GitHub shows the git

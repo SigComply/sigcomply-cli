@@ -43,25 +43,33 @@ seams, and the invariants that hold across the stack.
 **Owns.** All declarative artifacts. Versioned. Data-as-code.
 
 - Framework specs (shipped with the binary, one per framework)
-- Policy specs (one per policy, framework-shipped or project-local):
-  each carries `evidence_mode`, `pass_when:` (declarative condition
-  DSL), and optionally `rule:` (escape hatch). `pass_when:` is the
-  primary evaluation path; `rule:` is used only when the DSL cannot
-  express the logic.
-- Evidence type schemas (JSON Schema, one per type)
-- Source plugin manifests (one per plugin, declaring emitted types)
+- Policy specs: framework-shipped policies are authored in **Go** via
+  `autoPolicy{...}.policy()` builders (no on-disk `policy.yaml`);
+  project-local custom policies are on-disk `policy.yaml`. Either way a
+  policy carries `evidence_mode`, and (for automated) `pass_when:` (the
+  declarative condition DSL) or, rarely, `rule:` (escape hatch).
+  `pass_when:` is the primary and only-shipped path; `rule:` is unused
+  by any shipped policy.
+- Evidence type schemas (JSON Schema documents, one per type+version,
+  under `internal/evidence_types/schemas/`)
+- Source plugins declare their emitted types in **code** via
+  `Emits() []string` — there is no in-tree `plugin.yaml` manifest
+  (`plugin.yaml` is only for project-local plugins under
+  `.sigcomply/plugins/`)
 - Project config (`.sigcomply.yaml`, customer-authored): includes
   `policy_overrides` for per-policy `evidence_mode` overrides
-- Manual evidence catalog (entries for `manual.pdf` source)
+- Manual evidence catalog (generated in Go from each framework's
+  `manualSpecs()`; no embedded `catalogs/*.yaml`)
 
-**Format.** YAML for human-authored specs; JSON Schema for evidence
-type schemas; JSON for machine-emitted artifacts (run metadata,
-summaries).
+**Format.** YAML for human-authored project config and project-local
+policies; JSON Schema for evidence type schemas; JSON for
+machine-emitted artifacts (run metadata, summaries). Framework-shipped
+policies and manual catalogs are Go, not files.
 
 **Stability rules.** Every spec carries a `schema_version`. Backward-
 incompatible changes bump the major version of the relevant spec.
 Evidence type schemas are append-only: new fields are optional; renames
-and removals require a new version (`user_record.v2`).
+and removals require a new version (`directory_user.v2`).
 
 **No code in L0.** Nothing in this layer executes. Specs are parsed by
 L1, validated by L2, and consumed by L3 onwards.
@@ -73,8 +81,10 @@ L1, validated by L2, and consumed by L3 onwards.
 **Owns.** The stable Go types and interfaces that every other layer
 depends on. Frozen once published; changes here ripple everywhere.
 
-Key types (canonical names; full signatures live in
-`internal/core/`):
+**`internal/core/` is the source of truth for these signatures.** The
+listings below are illustrative and elide fields; when they disagree
+with the Go in `internal/core/`, the Go wins — read it rather than
+trusting a stale snippet here.
 
 ```go
 type Framework interface {
@@ -89,12 +99,19 @@ type Control struct {
     BaselineSeverity                Severity
 }
 
+// Illustrative — see internal/core and internal/spec for the real fields.
 type Policy struct {
-    ID, Control, Description, Remediation string
-    Severity                              Severity
-    Slots                                 map[string]Slot
-    Parameters                            map[string]ParameterSpec
-    RuleRef                               string  // "rules.mfa_enforced.v1"
+    ID, Description, Remediation string
+    Controls                     []ControlRef   // multi-framework mapping
+    Severity                     Severity
+    EvidenceMode                 string         // "automated" | "manual" (required)
+    Cadence                      string         // continuous|...|annual or every:<dur>
+    OnPush                       bool
+    Slots                        map[string]Slot // automated only
+    Parameters                   map[string]ParameterSpec
+    PassWhen                     *Condition      // primary evaluation path
+    Rule                         string          // escape hatch; unused by shipped policies
+    CatalogEntry                 string          // manual only
 }
 
 type Slot struct {
@@ -138,8 +155,15 @@ type EnvelopeSignature struct {
 type SourcePlugin interface {
     ID() string
     Emits() []string                                       // evidence type IDs
-    Init(ctx context.Context, cfg map[string]any) error
-    Collect(ctx context.Context, slot string) ([]EvidenceRecord, error)
+    Init(...) error
+    Collect(ctx context.Context, req SlotRequest) ([]EvidenceRecord, error)
+}
+
+type SlotRequest struct {
+    PolicyID      string   // diagnostic-only — never branch on it
+    AcceptedTypes []string // = slot.Accepts ∩ plugin.Emits(), NOT the raw slot.Accepts
+    SlotName      string
+    Params        map[string]any
 }
 
 type Rule interface {
@@ -155,7 +179,7 @@ type RuleInput struct {
 }
 
 type RuleResult struct {
-    Status     PolicyStatus // pass|fail|skip|error|na|waived
+    Status     PolicyStatus // pass|fail|skip|error|na|waived|carried_forward
     Violations []Violation
     Diag       map[string]any
 }
@@ -196,8 +220,8 @@ ID. Populated at process startup; immutable thereafter.
 |---|---|---|
 | `FrameworkRegistry` | In-binary framework specs (shipped) | `framework_id` |
 | `SourceRegistry` | Source-plugin factories registered via `init()` from in-binary `internal/sources/...` packages and from project-local `.sigcomply/plugins/...` packages compiled in by `sigcomply build` | `source_id` |
-| `RuleRegistry` | In-binary rules + project-local rules under `.sigcomply/policies/.../rules/`. **Consulted only for policies with a `rule:` escape-hatch reference.** Policies with `pass_when:` never touch this registry. | `rule_ref` |
-| `EvidenceTypeRegistry` | In-binary type schemas (embedded via `go:embed` from `internal/evidence_types/*.yaml`) + project-local under `.sigcomply/evidence_types/` | `evidence_type_id` |
+| `RuleRegistry` | In-binary rules populated from each framework's `Rules()` (both shipped frameworks return nil — zero in-binary rules today). **Consulted only for policies with a `rule:` escape-hatch reference; no shipped policy uses one, so `pass_when:` policies never touch it.** Project-local *Rego* rules and YAML policies load; project-local *Go* rules are not yet wired (no `rule.Register` hook — the rule registry is per-`Set`, populated only from `framework.Rules()`). | `rule_ref` |
+| `EvidenceTypeRegistry` | In-binary type schemas (JSON Schema files embedded via `//go:embed schemas/*.json` from `internal/evidence_types/schemas/`) + project-local under `.sigcomply/evidence_types/` | `evidence_type_id` |
 | `PolicyRegistry` | Framework-shipped policy specs + project-local policies under `.sigcomply/policies/` | `policy_id` |
 
 **Self-registering sources.** The `SourceRegistry` is populated by each
@@ -209,8 +233,10 @@ over the registered set. Third-party project-local plugins follow the
 exact same pattern under `.sigcomply/plugins/`. Detail: see
 [`04-source-plugins.md`](04-source-plugins.md) §The factory contract.
 
-**Embedded evidence-type schemas.** Each `internal/evidence_types/<id>.yaml`
-is compiled into the binary via `go:embed`. The
+**Embedded evidence-type schemas.** Each
+`internal/evidence_types/schemas/<id>.v<n>.json` (a JSON Schema
+document) is compiled into the binary via `//go:embed schemas/*.json`.
+The
 `EvidenceTypeRegistry` is loaded at orchestrator bootstrap; the
 collector validates every emitted `EvidenceRecord.Payload` against the
 registered schema before signing. A schema-conformance failure is a
@@ -253,7 +279,8 @@ producing an ordered, fully-resolved execution plan.
 - Framework spec (from `FrameworkRegistry`)
 - All registries (L2)
 - Current time (for period derivation)
-- Filter flags (`--policies`, `--controls`)
+- Cadence filter flags (`--cadence`, `--on-push`, `--cadences`, `--pr`,
+  `--scheduled` — mutually exclusive; there is no `--policies`/`--controls`)
 
 **Outputs.**
 
@@ -299,11 +326,14 @@ envelopes. Each policy in the plan is processed independently.
 1. For each slot in the policy:
    a. For each source bound to the slot:
       - Initialize the source plugin instance (if not yet for this run)
-      - Invoke `plugin.Collect(ctx, slot)` to fetch records
-      - Validate each record's `Payload` against the JSON Schema
-        registered for `record.Type` in `EvidenceTypeRegistry`. Records
-        from a source for evidence types not in the slot's `Accepts`
-        list are rejected at planning time, so the collector only
+      - Invoke `plugin.Collect(ctx, req)` (a `core.SlotRequest` carrying
+        `AcceptedTypes` = `slot.Accepts ∩ plugin.Emits()`, `SlotName`,
+        `Params`, and a diagnostic-only `PolicyID`) to fetch records
+      - Validate each record's `Payload` against the full draft-07 JSON
+        Schema registered for `record.Type` in `EvidenceTypeRegistry`
+        (enum/format/pattern/min/max/nested/required — not just
+        `required`). Records for evidence types not in the slot's
+        `Accepts` are rejected at planning time, so the collector only
         validates against the schemas of accepted types.
    b. Aggregate all records for the slot.
 2. For each (slot, source) pair, write one envelope:
@@ -315,13 +345,14 @@ envelopes. Each policy in the plan is processed independently.
 
 **Error handling.**
 
-- A source-level error (network, auth, schema validation) marks every
-  policy depending on that source as `error` status, with a diagnostic.
-  Other policies proceed.
-- A schema-validation error is fatal for that specific record but not
-  for the batch; the bad record is dropped and noted in the envelope's
-  diagnostics. Schema validation failures at scale (>5%) cause the
-  source's contribution to be marked `error`.
+- A source-level error (network, auth) marks every policy depending on
+  that source as `error` status, with a diagnostic. Other policies
+  proceed.
+- Schema validation is strict: the **first** non-conforming record
+  fails the binding and tags the affected policy `error` (exit 3).
+  There is no drop-and-continue and no ">5% of records" threshold. (A
+  permissive drop-and-continue mode is design-intent only — not
+  implemented; see [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md).)
 
 **Invariant.** Per the KISS-no-DRY decision, no record cache spans
 policies. Source `Collect` is invoked once per policy-binding even
@@ -448,19 +479,22 @@ L7 (vault) never touches `SubmissionPayload`. L8 (cloud) only
 **Writes per run** (see [`05-vault-layout.md`](05-vault-layout.md) for
 the full structure):
 
-- `manifest.json` at run root (run identity, versions)
-- `summary.json` at run root (full-fidelity run summary including
-  per-policy violations)
+- `manifest.json` at run root — schema `"run.v1"`, a single-level
+  Merkle of `file_hashes`, itself signed once with its own ephemeral
+  keypair. Fields: `schema_version`, `run_id`, `framework`, `period_id`,
+  `started_at`, `completed_at`, `file_hashes`, `exceptions_applied`,
+  `signature` (and nothing else — the elaborate multi-field manifest
+  with commit_sha / cli_version / evidence_type_versions / etc. is not
+  implemented).
+- `summary.json` at run root (full-fidelity run summary)
 - For each policy:
   - `envelopes/...json` (signed evidence envelopes from L4)
   - `attachments/...` (manual PDFs mirrored as siblings)
   - `result.json` (full `PolicyResult` including violations)
 
-**Writes for the framework period**:
-
-- The vault layout reflects period membership in the path; period state
-  is not stored authoritatively. (Optional materialized cache file:
-  `period_state.json`, but always regenerable from run folders.)
+**Period membership** is reflected in the run path; there is no
+authoritative period-state file. (No `period_state.json` cache exists —
+period state is derived by readers from the union of run folders.)
 
 **Behavior.**
 
@@ -517,8 +551,13 @@ config, CI environment detection, exit codes, and human-facing output.
 6. Persist run summary (L7).
 7. Aggregate (L6) → `SubmissionPayload`.
 8. Submit (L8) if enabled.
-9. Render output (text / json / junit / sarif), exit with appropriate
-   code:
+9. Render output and exit with the appropriate code. `sigcomply check`
+   emits one fixed text summary (no `-o`/format flag); only `sigcomply
+   report` renders alternate formats (`text`/`json`/`csv`; pdf is
+   deferred). The `output.format` config key validates `text`/`json`/
+   `junit` but no formatter renders `junit`, and `sarif` is rejected by
+   the validator — there is no SARIF formatter.
+   Exit codes:
    - `0`: all policies pass (or are NA/waived)
    - `1`: at least one fail
    - `2`: execution error (collector errors, panics)
@@ -590,12 +629,13 @@ Source plugins are required to:
 
 ### Versioning at every join
 
-Every persisted artifact carries the version of its schema:
+Persisted artifacts carry the version of their schema:
 
 - `Envelope.FormatVersion` = `"envelope.v1"`
-- `manifest.json` carries `schema_version`, `cli_version`, the
-  framework version, and the set of evidence type schemas used
-- `result.json` carries `policy_version`, `rule_version`
+- `manifest.json` carries `schema_version` = `"run.v1"` (plus
+  `run_id`, `framework`, `period_id`, `file_hashes`, signature — see
+  L7; it does **not** embed cli_version or an evidence-type-version set)
+- `result.json` carries the policy's `rule_version`
 
 A vault written in 2026 is readable in 2031 without ambiguity.
 
@@ -638,7 +678,7 @@ The CLI emits two output streams plus on-disk artifacts:
 
 | Stream | Contents | Identifiers allowed? |
 |---|---|---|
-| **stdout** | Final structured run summary in the chosen output format (text/json/junit/sarif). Same content the operator sees. | Per format: text shows counts + control names. JSON and JUnit may include policy IDs and violation reasons. SARIF includes the same. **Never raw credentials, never source payload fields beyond what the formatter explicitly extracts.** |
+| **stdout** | `sigcomply check` emits one fixed text run summary (counts + control names). `sigcomply report` can render `text`/`json`/`csv`, where JSON/CSV may include policy IDs and violation reasons. | **Never raw credentials, never source payload fields beyond what the formatter explicitly extracts.** |
 | **stderr** | Operational log lines: collection start/end, per-source errors, planning errors, vault write confirmations. | Resource identifiers (resource IDs, emails, etc.) are **redacted** at the logger boundary. Each log record passes through `internal/log/redact.go` which strips known PII shapes (emails, ARNs, UUIDs in identifier position) and replaces them with `<redacted:type>`. |
 | **vault `diagnostics.json`** | Source-level errors, schema validation drops, partial collector failures. | Resource identifiers are **retained** here because diagnostics live in the customer's own vault, on their side of the privacy boundary. |
 | **cloud submission** | The `SubmissionPayload` only (see L6). | Counts only, structurally enforced. |
@@ -694,6 +734,34 @@ Panics anywhere → exit 2.
 
 ---
 
+## Support packages (outside the numbered stack)
+
+Not every package is one of the ten layers. The following are
+cross-cutting support packages the layers call into:
+
+| Package | Role | Used by |
+|---|---|---|
+| `internal/sign` | Ed25519 envelope + manifest signing/verification (`sign.Envelope`, `sign.VerifyEnvelope`, `sign.VerifyManifest`). Per-file ephemeral keypair; the manifest is signed once with its own ephemeral keypair. | L4 (envelopes), L7 (manifest) |
+| `internal/log` | Shared logger + redaction (`internal/log/redact.go`). | all layers, plugins |
+| `internal/manualcatalog` | SPA-facing manual-evidence catalog export (`ManualCatalogExport()`), generated in Go from each framework's `manualSpecs()`. | `evidence catalog` command |
+| `internal/report` | Read-only auditor snapshot of the vault. | `report` command |
+| `internal/frameworks`, `internal/sources`, `internal/evidence_types` | Self-registering framework/source/schema providers that populate the L2 registries via blank-imported `builtin` packages. | L2 |
+
+**Cadence / Mode subsystem.** The two-axis cadence machinery
+(`internal/planner/{cadence.go,period.go}`,
+`internal/orchestrator/state.go`) decides evaluate-vs-carry-forward per
+policy and reads/writes the mutable, never-signed cadence state at
+`state/{framework}/policies/{policy_id}.json`. It is layered across L3
+(planner) and L9 (orchestrator) rather than being its own layer. Full
+design: [`10-cadence-model.md`](10-cadence-model.md).
+
+**Manifest signing.** L7 writes the per-run `manifest.json` and signs it
+via `internal/sign`; the persistence/manifest assembly lives partly in
+L7 and partly in the orchestrator. Vault layout and the manifest's
+single-level Merkle structure: [`05-vault-layout.md`](05-vault-layout.md).
+
+---
+
 ## What's deliberately not a layer
 
 A few things might look like they should be layers but aren't —
@@ -708,9 +776,10 @@ recording them here to prevent the design from drifting.
   spanning policies within a run.
 - **No "policy library" layer.** Policies are just specs in L0,
   registered in L2. There is no dynamic policy resolution layer.
-- **No "result transformer" layer.** Output formatting (text/json/junit/
-  sarif) lives in L9 alongside the orchestrator, because it's
-  human-facing and tightly coupled to CLI flags.
+- **No "result transformer" layer.** Output formatting (the fixed
+  `check` text summary, and `report`'s text/json/csv) lives in L9
+  alongside the orchestrator, because it's human-facing and tightly
+  coupled to CLI flags.
 
 If a future change feels like it needs one of these, treat that as a
 signal to re-read this document, not to add the layer.

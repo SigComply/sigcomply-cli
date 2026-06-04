@@ -252,21 +252,27 @@ same self-registering-factory pattern. In-tree backends: `local`, `s3`,
 
 ---
 
-## CI/CD Reusable Workflows
+## CI/CD Workflows
 
-### GitHub Actions Workflow (`.github/workflows/compliance.yml`)
-- Reusable workflow with `workflow_call`; inputs for framework, policy
-  filters, etc.; `id-token: write` for OIDC; install the CLI binary; run
-  `sigcomply check`; surface results/artifacts.
+### `sigcomply init-ci` (wired) — the supported path
+`init-ci` scaffolds **standalone, per-cadence** workflow files calibrated
+to a framework's cadence distribution. For GitHub it writes
+`.github/workflows/compliance-{daily,weekly,monthly,quarterly,annual,on-push}.yml`,
+each of which downloads the CLI binary via `curl` from GitHub Releases and
+runs `sigcomply check --cadence <X>` (or `--on-push`); it grants
+`id-token: write` for OIDC. There is **no** reusable `workflow_call`
+workflow and no composite action — each scaffolded file is self-contained.
+For GitLab, `init-ci` uses the template at
+`cmd/sigcomply/templates/gitlab/.gitlab-ci.yml`, which gates each cadence
+with `rules: if $CI_PIPELINE_SOURCE == "schedule" && $CADENCE == ...`.
 
-### GitLab CI
-- Users copy `examples/gitlab-ci.yml` (a first-class GitLab component is
-  not yet packaged). Use GitLab's OIDC token; install the CLI; run
-  `sigcomply check`; honor exit codes (0 pass / 1 violations / 2 error /
-  3 config).
+### Copy-paste examples
+- GitHub: `examples/github-actions/{basic,multi-environment}.yml`
+- GitLab: `examples/gitlab-ci.yml` (a first-class packaged GitLab CI
+  component is not yet available). Use GitLab's OIDC token via the
+  `id_tokens:` block; install the CLI; run `sigcomply check`; honor exit
+  codes (0 pass / 1 violations / 2 error / 3 config).
 
-### `sigcomply init-ci` (wired)
-`init-ci` scaffolds CI workflow files calibrated to a framework's cadence
-distribution. `sigcomply build` compiles a project-tailored binary that
-includes `.sigcomply/` Go extensions (project-local sources, policies,
-evidence types, backends).
+### `sigcomply build` (wired)
+`build` compiles a project-tailored binary that includes `.sigcomply/` Go
+extensions (project-local sources, policies, evidence types, backends).

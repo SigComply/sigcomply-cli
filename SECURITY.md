@@ -26,7 +26,8 @@ In scope:
 - The CLI binary (`sigcomply`) and its in-tree source plugins
 - The vault format and per-file Ed25519 signing
 - The cloud submission payload contract (privacy boundary)
-- The OPA/Rego rule runner and any framework-shipped rules
+- The Go/Rego rule-runner escape hatch (infrastructure present; no
+  shipped policy currently uses it)
 
 Out of scope (report upstream):
 - Vulnerabilities in transitive Go dependencies (open a Dependabot PR
@@ -40,6 +41,15 @@ The CLI is designed under "Evidence without Access": raw evidence
 never leaves the customer environment. Threats that violate this
 boundary — e.g. a bug that causes resource identifiers to land in
 the cloud SubmissionPayload — are treated as critical.
+
+The boundary is enforced structurally, not by review alone: the
+`SubmissionPayload` wire type carries no `map[string]any`, no
+`Violations` slice, and no freeform field, so it is physically
+incapable of carrying an identifier. A reflection test
+(`internal/core/cloud_test.go`) walks the type graph and fails the
+build if a freeform field is ever added. On the receiving side, Rails
+strong-params under `Api::V1::RunsController` act as a second-layer
+allow-list.
 
 ### What the signing scheme defends against
 

@@ -18,7 +18,6 @@ readable by an auditor in 2031.
          run_{timestamp}_{run_id8}/              # immutable per-run folder
             ...                                  # see §Per-run folder
          summary.json                            # rebuilt every run in this period
-         .closed                                 # optional marker: period closed by auditor
       ...
    state/                                        # mutable, NOT under Object Lock
       {framework}/
@@ -38,7 +37,7 @@ policy as first-run and re-evaluates, surfacing a loud
 Evidence integrity is unaffected. The signing scheme does not
 depend on state.
 
-See [`11-cadence-model.md`](11-cadence-model.md) §Per-policy state
+See [`10-cadence-model.md`](10-cadence-model.md) §Per-policy state
 shards for the shard schema, the monotonic write rule, and the
 recovery story.
 
@@ -105,70 +104,39 @@ run_20260215T140000Z_a3f8b2c1/
 
 ### `manifest.json` (per-run)
 
+The shipped `core.Manifest` (`internal/core/manifest.go`, schema
+`run.v1`) is deliberately small — just enough to identify the run and
+sign every file in the folder. Its fields:
+
 ```json
 {
-  "schema_version": "run.v1",
-
-  "run_id":          "a3f8b2c1-9d4e-4b23-8f7a-1e5c2d8a9b0f",
-  "framework":       "soc2",
-  "framework_version": "soc2-2017@1.2.0",
-  "period_id":       "2026-Q1",
-  "period_start":    "2026-01-01T00:00:00Z",
-  "period_end":      "2026-03-31T23:59:59Z",
-
-  "commit_sha":      "f3e8d7c6b5a4...",
-  "commit_time":     "2026-02-15T13:55:00Z",
-
-  "started_at":      "2026-02-15T14:00:00Z",
-  "completed_at":    "2026-02-15T14:01:42Z",
-
-  "cli_version":     "1.0.0",
-  "cli_commit":      "f3e8d7c6...",
-
-  "evidence_type_versions": {
-    "user_record":      1,
-    "iam_role":         1,
-    "signed_document":  1,
-    "s3_bucket":        1
-  },
-
-  "effective_parameters": {
-    "soc2.cc6.1.access_key_rotation": { "max_age_days": 60 },
-    "soc2.cc6.1.inactive_users":      { "inactive_days": 30 }
-  },
-
-  "policies_planned": 412,
-  "policies_evaluated": 412,
-  "exceptions_applied": [
-    {
-      "policy_id":      "soc2.cc6.1.mfa_enforced",
-      "scope":          { "resource_id": "iam_user_legacy_svc" },
-      "state":          "waived",
-      "approved_by":    "jane.doe@acme.com",
-      "expires_at":     "2026-07-15"
-    }
-  ],
-
-  "ci_environment": {
-    "provider":   "github",
-    "repository": "acme/infrastructure",
-    "branch":     "main",
-    "workflow":   "compliance.yml",
-    "run_url":    "https://github.com/acme/infrastructure/actions/runs/1234"
-  },
-
-  "backfill": false,
+  "schema_version":     "run.v1",
+  "run_id":             "a3f8b2c1-9d4e-4b23-8f7a-1e5c2d8a9b0f",
+  "framework":          "soc2",
+  "period_id":          "2026-Q1",
+  "started_at":         "2026-02-15T14:00:00Z",
+  "completed_at":       "2026-02-15T14:01:42Z",
 
   "file_hashes": {
     "summary.json":      "sha256:7f3a9c8e...",
     "diagnostics.json":  "sha256:b2e15d4a...",
     "policies/soc2.cc6.1.mfa_enforced/result.json":
       "sha256:c9d4f2a1...",
-    "policies/soc2.cc6.1.mfa_enforced/envelopes/user_record__aws.iam.json":
+    "policies/soc2.cc6.1.mfa_enforced/envelopes/directory_user__aws.iam.json":
       "sha256:e3b0c442...",
     "policies/soc2.cc6.1.access_review/attachments/access_review_quarterly/merged.pdf":
       "sha256:194523ba..."
   },
+
+  "exceptions_applied": [
+    {
+      "policy_id":   "soc2.cc6.1.mfa_enforced",
+      "resource_id": "iam_user_legacy_svc",
+      "state":       "waived",
+      "approved_by": "jane.doe@acme.com",
+      "expires_at":  "2026-07-15"
+    }
+  ],
 
   "signature": {
     "algorithm":  "ed25519",
@@ -178,12 +146,24 @@ run_20260215T140000Z_a3f8b2c1/
 }
 ```
 
-`manifest.json` is the single source of truth for the run's identity,
-the versions that were in play, and — via `file_hashes` — the integrity
-root of every other file in the run folder. A reader inspecting any
-single file in the run folder can find the manifest as a sibling, two
-directories up if necessary; the manifest tells them whether that file
-has been tampered with since the run was written.
+`framework`, `period_id`, and `exceptions_applied` are `omitempty`.
+`manifest.json` is the single source of truth for the run's identity
+and — via `file_hashes` — the integrity root of every other file in
+the run folder. A reader inspecting any single file in the run folder
+can find the manifest as a sibling, two directories up if necessary;
+the manifest tells them whether that file has been tampered with since
+the run was written.
+
+**Not yet implemented.** Earlier drafts of this manifest carried a
+dozen extra fields — `framework_version`, `period_start`/`period_end`,
+`commit_sha`/`commit_time`, `cli_version`/`cli_commit`,
+`evidence_type_versions`, `effective_parameters`,
+`policies_planned`/`policies_evaluated`, `ci_environment`, `backfill`.
+None of these exist on `core.Manifest` today. Most of that metadata
+*does* travel on the cloud `SubmissionPayload`
+(see [`06-aggregation.md`](06-aggregation.md)); it is simply not
+restated in the on-disk run manifest. Do not assume any of these fields
+are present when reading a real vault.
 
 ### Run integrity: manifest as signed Merkle root
 
@@ -227,10 +207,6 @@ substituting a valid envelope from a different run.
 hashed by the manifest. Modifying `summary.json` to flip a count
 breaks the manifest's recorded hash, and the manifest's signature
 makes that mismatch evidence of tampering.
-
-**What about the optional period_state.json cache?** Caches are
-intentionally regenerable and not signed; readers regenerate them from
-the immutable per-run folders if they need to trust the contents.
 
 ### `summary.json` (per-run)
 
@@ -276,7 +252,7 @@ auditors look at first.
           "resource_id": "AIDAEXAMPLE01",
           "reason":      "MFA disabled for alice@acme.com",
           "details": {
-            "evidence_file": "policies/soc2.cc6.1.mfa_enforced/envelopes/user_record__aws.iam.json"
+            "evidence_file": "policies/soc2.cc6.1.mfa_enforced/envelopes/directory_user__aws.iam.json"
           }
         },
         { /* ... */ }
@@ -323,20 +299,23 @@ PDFs). Mirroring policy:
 
 ### `diagnostics.json`
 
-Non-fatal events surfaced during the run: schema validation drops,
-partial collector failures, plugin warnings. Distinct from policy
-results so auditors can see what the CLI noticed but didn't act on.
+Events surfaced during the run: schema-validation failures, partial
+collector failures, plugin warnings. Distinct from policy results so
+auditors can see what the CLI noticed. (Note: a record that fails its
+evidence-type schema does **not** get silently dropped — the first
+non-conforming record fails the binding and tags the policy `error`;
+see [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md).)
 
 ```json
 {
   "schema_version": "diagnostics.v1",
   "events": [
     {
-      "level":     "warn",
+      "level":     "error",
       "source_id": "aws.iam",
       "kind":      "schema_validation",
-      "message":   "Record id=AIDA... missing required field 'mfa_enabled'; dropped.",
-      "context":   { "evidence_type": "user_record" }
+      "message":   "Record id=AIDA... violates directory_user schema; binding failed.",
+      "context":   { "evidence_type": "directory_user" }
     }
   ]
 }
@@ -358,7 +337,7 @@ one fresh keypair.
 
   "records": [
     {
-      "type":         "user_record",
+      "type":         "directory_user",
       "id":           "AIDAEXAMPLE01",
       "source_id":    "aws.iam",
       "collected_at": "2026-02-15T14:00:01Z",
@@ -421,9 +400,10 @@ reconstructs the three-field object from the parsed envelope.
 6. Arrays preserve their existing order
 
 The signing function is implemented once in `internal/sign`
-(`Encode`, `Sign`, `Verify`, plus the envelope and manifest wrappers)
-and reused everywhere — every envelope, every signature, every
-verification.
+(low-level `Encode`/`Sign`/`Verify`, plus the typed wrappers
+`Envelope`/`VerifyEnvelope`/`EncodeEnvelope` and
+`Manifest`/`VerifyManifest`/`EncodeManifest`) and reused everywhere —
+every envelope, every signature, every verification.
 
 ### Signing algorithm
 
@@ -454,12 +434,15 @@ Given a single envelope file, no other state:
    bytes).
 5. Call `ed25519.Verify(public_key, canonical_bytes, signature_value)`.
 6. If `true`: signature valid. Move on to attachment integrity.
-7. For each entry in `attachments`, compute SHA-256 of the file at
-   the relative path; compare to the recorded hash.
+7. For any record whose payload references an attachment by hash (the
+   manual flow records `{evidence_id, file_hash, file_path, …}`),
+   compute SHA-256 of the file at the relative path and compare to the
+   recorded `file_hash`.
 
-A reference verifier is implemented in Go in
-`internal/core/attestation/verify.go`. A browser implementation lives
-in `sigcomply-evidence-spa/src/verify/` and uses WebCrypto's `subtle`
+The reference verifier is implemented in Go in `internal/sign`
+(`sign.VerifyEnvelope` for envelopes, `sign.VerifyManifest` for the
+run manifest). A browser implementation lives in
+`sigcomply-evidence-spa/src/verify/` and uses WebCrypto's `subtle`
 Ed25519 API — no Node, no CLI required, runs in a static page.
 
 ---
@@ -529,45 +512,16 @@ with signed integrity guarantees.
 
 The vault is the data layer for both free and paid tooling; the paid
 analytical layer adds longitudinal capabilities the free CLI
-intentionally does not duplicate.
+intentionally does not duplicate. The full list of paid features and
+how the submission powers them lives in
+[`06-aggregation.md`](06-aggregation.md) §What the paid Rails app does.
 
-### Optional cache
-
-For very busy projects, the dashboard or `sigcomply report` *may*
-materialize a cache at `{framework}/{period_id}/period_state.json`.
-The cache is:
-
-- A roll-up of `summary.json.policies` for the period
-- Marked `"cache": true` and stamped with the latest `run_id`
-  contributing to it
-- **Always regenerable** from the run folders; never authoritative
-
-The CLI itself does not write this cache. Cache invalidation is the
-reader's concern.
-
-### Period closure
-
-When auditing is complete for a period, an auditor (or operator) may
-drop a marker file:
-
-```
-{framework}/{period_id}/.closed
-
-# Contents:
-{
-  "schema_version": "period_closure.v1",
-  "closed_at":      "2026-04-15T17:00:00Z",
-  "closed_by":      "jane.doe@acme.com",
-  "auditor":        "Acme Audit LLC",
-  "reason":         "Q1 2026 SOC 2 fieldwork complete."
-}
-```
-
-Subsequent runs detect the marker and refuse to write to that period
-unless `--reopen-period` is explicitly passed. This is soft
-enforcement: the file is data, not policy; deleting it removes the
-protection. But the marker survives in git history if it's committed,
-and in vault snapshots if backups exist.
+> **Not yet implemented.** Earlier designs for this section described a
+> regenerable `{framework}/{period_id}/period_state.json` cache and a
+> `.closed` period-closure marker (with a `--reopen-period` flag to
+> override it). Neither exists in the code today. Period state is
+> always derived on the fly by the algorithm above; there is no cache
+> file to write and no closure marker to honor.
 
 ---
 
@@ -610,8 +564,10 @@ permissions. The minimum-privilege model:
 | **CI runner (writer)** | `s3:PutObject`, `s3:GetObject`, `s3:ListBucket` on the vault prefix. **No** `s3:DeleteObject`. | Writes new run folders. Reads only existing data to verify the vault-level `manifest.json` once at startup. Append-only is enforced by IAM, not just convention. |
 | **`sigcomply report` (auditor read)** | `s3:GetObject`, `s3:ListBucket` on the vault prefix. **No** write or delete. | Reads run folders to produce reports. |
 | **Self-hosted dashboard reader** | `s3:GetObject`, `s3:ListBucket` on the vault prefix. | Reads summaries; does not modify. |
-| **Operator (incident response)** | Full read; conditional write only for `.closed` markers and `manifest.lifecycle.legal_hold`. | Documented rare action; logged. |
-| **Lifecycle automation** | Conditional `s3:DeleteObject` only on objects older than `retention_days` and *not* under a `legal_hold`. See §Lifecycle. | Implements retention. |
+
+Retention and deletion are governed entirely by the customer's
+storage-layer lifecycle policies, not by the CLI — see the note under
+§Retention.
 
 For S3, the CI runner role is typically assumed via OIDC from the
 CI provider (no long-lived keys). The shipped GitHub Actions workflow
@@ -632,95 +588,41 @@ to the vault prefix.
 
 ## Lifecycle: retention, deletion, legal hold
 
-The vault is append-only at the run-folder level *during the
-retention window*. After the window expires, deletion is permitted
-under controlled rules.
+> **Not yet implemented — customer-side responsibility today.** The
+> CLI has no lifecycle feature set. It does **not** delete vault data,
+> does **not** read a `retention:` config block (none exists in
+> `VaultConfig`), does **not** stamp any `retention_floor`,
+> `manifest.lifecycle.*`, `legal_hold.json`, or
+> `manifest.lifecycle.gdpr_deletions[]` field, and ships no lifecycle
+> IaC template. Earlier drafts described all of the above as shipped;
+> none of it is in the code.
 
-### Retention
+Retention, deletion, legal hold, and GDPR erasure are entirely the
+customer's storage-layer concern in v1, configured directly on the
+bucket (S3 lifecycle rules + Object Lock, GCS object lifecycle +
+retention/Bucket Lock, Azure Blob immutability). The product position
+is unchanged: the vault is the customer's, append-only by storage-layer
+policy, and the CLI never deletes from it.
 
-SOC 2 typically requires 7-year evidence retention post-period close;
-ISO 27001 varies. Set retention at the bucket level:
+Customer-side guidance worth stating (advice, not a CLI feature):
 
-```yaml
-# .sigcomply.yaml (excerpt)
-vault:
-  backend: s3
-  bucket:  acme-evidence
-  region:  us-east-1
-  retention:
-    minimum_years: 7        # no deletion before this many years post-period close
-    auto_delete:   false    # if true, lifecycle automation may delete past this
-```
+- SOC 2 typically expects ~7-year evidence retention post-period
+  close; encode that as a bucket lifecycle rule, not a CLI setting.
+- Because the signing model makes in-place redaction impossible (it
+  would invalidate signatures), a GDPR erasure request is satisfied by
+  deleting the whole envelope file — the manifest's `file_hashes` entry
+  then becomes the cryptographic trace that something used to exist at
+  that path. A re-signing migration tool is a possible future
+  direction, not a shipped feature.
+- Vault objects encrypted at rest with a customer KMS key: disable
+  auto-delete on the CMK (loss of the key means loss of the vault), and
+  prefer in-place key rotation that preserves access to old objects.
+  Ed25519 envelope signatures are independent of storage encryption, so
+  key rotation never invalidates a signature.
 
-The CLI does **not** delete vault data. Deletion is performed by
-the customer's bucket lifecycle policies (S3 lifecycle rules, GCS
-object lifecycle, Azure Blob lifecycle). The CLI's role is to stamp
-`retention_floor` into each run's `manifest.json` (computed as
-`completed_at + minimum_years`) so external lifecycle automation can
-key off it.
-
-A run's `manifest.lifecycle.retention_floor` is the earliest
-permitted deletion date. Lifecycle policies must respect it. A
-documented sample S3 lifecycle policy is shipped with `sigcomply
-init-ci`.
-
-### Legal hold
-
-A run can be marked under legal hold to suspend deletion regardless
-of retention floor:
-
-```
-{framework}/{period_id}/run_.../legal_hold.json
-
-{
-  "schema_version": "legal_hold.v1",
-  "asserted_at": "2026-08-15T10:00:00Z",
-  "asserted_by": "general.counsel@acme.com",
-  "reason":      "Active matter; do not delete pending counsel review.",
-  "released_at": null
-}
-```
-
-Lifecycle policies must check for `legal_hold.json` in every run
-folder before deleting. The shipped lifecycle policy template includes
-this guard.
-
-### GDPR / personal data deletion
-
-A customer subject to a GDPR erasure request may need to redact a
-former employee's email from past evidence. The signing model makes
-in-place redaction impossible (it would invalidate signatures).
-Approaches:
-
-- **Sealed-envelope deletion**: delete the entire envelope containing
-  the identifier. The manifest signature still verifies for the rest
-  of the run; the deleted envelope's hash entry in `file_hashes`
-  becomes the cryptographic trace that *something* used to be at that
-  path. Document the deletion in `manifest.lifecycle.gdpr_deletions[]`.
-- **Re-signing migration tool** (planned, v2): produces a new
-  envelope set with the identifier replaced, then archives the
-  originals to a sealed bucket under separate access controls.
-
-For v1, the only supported response to a GDPR erasure request is
-sealed-envelope deletion. Customers anticipating significant GDPR
-exposure should plan for this.
-
-### KMS key rotation
-
-Vault objects are encrypted at rest with the customer's KMS key. The
-Ed25519 envelope signatures are independent of storage encryption, so
-KMS key rotation does not invalidate signatures — but it does affect
-whether old envelopes remain *readable*.
-
-**Required**: customers MUST disable KMS auto-delete on the CMK used
-for the vault. Loss of the CMK means total loss of the vault. The
-shipped IaC templates set `EnableKeyRotation: true` (which rotates
-the key material annually within the same key ID, preserving access
-to old objects) and explicitly do not destroy old key versions.
-
-For multi-region replication, the replica must be encrypted with a
-KMS key in the replica region; cross-region key sharing is a
-customer decision.
+A richer, opt-in lifecycle layer (retention stamping, legal-hold
+markers, a GDPR re-signing tool) may arrive later; until it does, do
+not document any of it as available.
 
 ---
 
@@ -735,7 +637,6 @@ version:
 - envelopes → `envelope.v1`
 - diagnostics → `diagnostics.v1`
 - evidence type payloads → version embedded in the record
-- closure marker → `period_closure.v1`
 
 Forward-compatibility rules:
 
@@ -757,10 +658,10 @@ reads both.
 
 | Question | Answer | How |
 |---|---|---|
-| Were the recorded policy results computed by the CLI version claimed? | Yes (modulo trust in the binary's release artifact) | `manifest.cli_version` + `cli_commit` cross-referenced with the released binary's commit SHA. |
+| Were the recorded policy results computed by the CLI version claimed? | Partial (modulo trust in the binary's release artifact) | The on-disk run manifest does not record the CLI version today; the CLI version travels on the cloud `SubmissionPayload` (`cli_version`) instead. Re-derivation relies on the released binary's commit SHA. |
 | Did the evidence in this envelope match what the source actually returned? | Strong yes — for state in the source at `collected_at` | Re-run the same plugin against the same source with frozen credentials; compare records. (Time-sensitive sources may have drifted.) |
 | Has this envelope been modified since it was written? | Strong no | Verify the envelope's Ed25519 signature offline. |
-| Has the PDF mirrored alongside this envelope been substituted? | Strong no | Verify SHA-256 of the PDF matches the envelope's `attachments[i].sha256`. |
+| Has the PDF mirrored alongside this envelope been substituted? | Strong no | Verify SHA-256 of the PDF matches the `file_hash` in the manual record's payload (and the manifest's `file_hashes` entry for that path). |
 | Has `result.json` / `summary.json` / `diagnostics.json` been modified since the run was written? | Strong no | Verify `manifest.signature`; recompute SHA-256 of each file and compare to `manifest.file_hashes`. Any mismatch is tampering. |
 | Has an envelope been replaced with a valid envelope from a different run? | Strong no | Each envelope's path is hashed in `manifest.file_hashes`. Substituting a different envelope file at the same path changes the hash; the manifest signature fails. |
 | Did the customer fabricate evidence by running the CLI against a fake source? | Out of scope. | The CLI does not attest to source authenticity. Fabricating evidence is fraud; no compliance tool prevents it. |

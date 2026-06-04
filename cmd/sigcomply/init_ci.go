@@ -31,7 +31,7 @@ var supportedCIs = []string{"github", "gitlab"}
 // frameworkSupported reports whether init-ci will scaffold for the
 // framework. Today only soc2 has the cadence distribution baked into
 // the shipped templates; ISO 27001 will land with its own template
-// set per docs/architecture/10-ci-execution-model.md.
+// set per docs/architecture/09-ci-execution-model.md.
 func frameworkSupported(framework string) bool {
 	return framework == soc2.FrameworkID
 }

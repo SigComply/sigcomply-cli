@@ -13,7 +13,8 @@ author a custom plugin.
 
 ## The plugin contract
 
-A plugin is a Go type implementing:
+A plugin is a Go type implementing `core.SourcePlugin`
+(`internal/core/source.go`):
 
 ```go
 type SourcePlugin interface {
@@ -23,37 +24,40 @@ type SourcePlugin interface {
     // Emits returns the evidence type IDs this plugin can produce.
     Emits() []string
 
-    // Init initializes the plugin with project-provided configuration.
+    // Init initializes the plugin with already-typed configuration.
     // Called once per plugin instance per run. After Init, Collect may
     // be called many times.
-    Init(ctx context.Context, cfg map[string]any) error
+    Init(...) error
 
-    // Collect fetches records for the given slot. The slot is one of
-    // the slots the plugin's bound policy declares. Collect may be
+    // Collect fetches records for the given slot. Collect may be
     // invoked multiple times within a run (once per policy binding,
     // per the no-shared-collection axiom).
-    Collect(ctx context.Context, slot SlotRequest) ([]EvidenceRecord, error)
+    Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error)
 }
 
 type SlotRequest struct {
-    // PolicyID is the policy this Collect call serves; useful for
-    // diagnostics, never for behavior branching.
+    // PolicyID is the policy this Collect call serves; diagnostic only.
+    // Never branch on it — doing so breaks substitutability.
     PolicyID string
 
-    // AcceptedTypes is the slot's declared evidence-type set
-    // (slot.Accepts). The plugin must return records whose Type is
-    // in this set; the collector validates payloads against the
-    // schemas registered for those types.
+    // AcceptedTypes is the INTERSECTION of the slot's declared accepts
+    // and this plugin's Emits() — i.e. slot.Accepts ∩ plugin.Emits(),
+    // not the raw slot.Accepts. The plugin should return records whose
+    // Type is in this set; the collector validates each payload against
+    // the registered schema for that type before signing.
     AcceptedTypes []string
 
     // SlotName is the slot's name on the policy.
     SlotName string
 
-    // Params are slot-specific parameters from the binding (rare; most
-    // bindings have no params).
+    // Params are slot-specific parameters from the binding (rare).
     Params map[string]any
 }
 ```
+
+The plugin sees the *narrowed* type set, never the consuming policy's
+full `accepts:` — one more place the policy and the plugin do not name
+each other.
 
 **Lifecycle within a run:**
 
@@ -94,16 +98,9 @@ import (
 const SourceID = "aws.iam"
 
 // factory builds a configured aws.iam plugin instance from the
-// project config's `sources.aws.iam:` block.
-func factory(ctx context.Context, cfg map[string]any) (core.SourcePlugin, error) {
-    region, _ := cfg["region"].(string)
-    profile, _ := cfg["profile"].(string)
-    roleARN, _ := cfg["role_arn"].(string)
-    return New(ctx, Options{
-        Region:  region,
-        Profile: profile,
-        RoleARN: roleARN,
-    })
+// already-typed Env (which carries the parsed config for this source).
+func factory(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
+    return New(ctx, env)
 }
 
 func init() {
@@ -111,57 +108,40 @@ func init() {
 }
 ```
 
-The factory signature is fixed:
+The factory signature is fixed (`internal/sources/factory.go`):
 
 ```go
-type Factory func(ctx context.Context, cfg map[string]any) (core.SourcePlugin, error)
+type Factory func(ctx context.Context, env Env) (core.SourcePlugin, error)
 
 // In the sources package:
 func RegisterFactory(id string, f Factory)
 ```
 
-`cfg` is the YAML-unmarshalled map under `sources.<id>:` in
-`.sigcomply.yaml`. The factory is responsible for translating the
-generic map into the plugin's typed options. If config is missing
-required fields or has invalid values, the factory returns an error
-and the orchestrator exits with code 3.
+`env` is an `Env` **struct**, not a `map[string]any` — the source
+config is parsed into typed fields before the factory runs. If config
+is missing required fields or has invalid values, the factory returns
+an error and the orchestrator exits with code 3.
 
-**Why factories rather than constructors.** A factory takes the
-generic `map[string]any` from project config and produces a configured
-plugin instance. This is the only way to keep the orchestrator
-generic: the orchestrator never imports `iam.New`, never knows that
-`aws.iam` needs a region. It just calls `sources.NewByID(ctx,
-"aws.iam", cfg)`, which delegates to the registered factory.
+**Why factories rather than constructors.** A factory produces a
+configured plugin instance from the typed `Env`. This is the only way
+to keep the orchestrator generic: it never imports `iam.New`, never
+knows that `aws.iam` needs a region — it dispatches through the
+registered factory by source ID.
 
-**Bootstrap-time registration.** The orchestrator imports each in-tree
-source package purely for its side effect of calling
-`sources.RegisterFactory` from `init()`. A typical bootstrap import
-block:
+**Bootstrap-time registration.** Each in-tree source package
+self-registers its factory in `init()` via `sources.RegisterFactory`.
+The registry is bootstrapped by blank-importing
+`internal/sources/builtin`, which in turn blank-imports every in-tree
+source package so their `init()` functions run:
 
 ```go
-// internal/orchestrator/registrations.go
-package orchestrator
-
-import (
-    // Each blank-import causes the package's init() to run, which
-    // registers the source's factory with the global registry.
-    _ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/iam"
-    _ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/s3"
-    _ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/cloudtrail"
-    _ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/iam"
-    _ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/storage"
-    _ "github.com/sigcomply/sigcomply-cli/internal/sources/github"
-    _ "github.com/sigcomply/sigcomply-cli/internal/sources/okta"
-    _ "github.com/sigcomply/sigcomply-cli/internal/sources/manual"
-    // …project-local plugins compiled in via `sigcomply build` are
-    // appended here by the generated wrapper.
-)
+import _ "github.com/sigcomply/sigcomply-cli/internal/sources/builtin"
 ```
 
-Adding a new in-tree source is a two-line change: write the package,
-add a blank-import line. There is no central case statement to keep in
-sync. Adding a project-local plugin is the same pattern, applied
-through `sigcomply build` (M16).
+Adding a new in-tree source is: write the package, add one blank-import
+line in `builtin`. There is no central case statement to keep in sync.
+Adding a project-local plugin is the same pattern, applied through
+`sigcomply build`.
 
 **No runtime plugin loading.** Go's `plugin` package is fragile across
 versions and Linux-only; we don't use it. Every source — in-tree or
@@ -171,105 +151,84 @@ that includes project-local plugins; see
 
 ---
 
-## Plugin manifest
+## How a plugin declares itself
 
-Each plugin ships with a manifest declaring its identity, the
-evidence types it emits, and its configuration schema:
+**In-tree plugins declare everything in code — there is no in-tree
+`plugin.yaml`.** A plugin's identity is its `ID()`, the evidence types
+it produces are its `Emits()`, and its configuration is the typed `Env`
+its factory consumes. There is no manifest file to keep in sync with
+the Go and no manifest-validation step at startup.
 
-```yaml
-# internal/sources/aws/iam/plugin.yaml (in-tree)
-schema_version: plugin.v1
-id: aws.iam
-display_name: "AWS IAM"
-version: "1.0.0"
-description: |
-  Fetches IAM users, roles, policies, and access keys from a single
-  AWS account using SDK default credentials.
-
-emits:
-  - user_record
-  - iam_role
-  - iam_policy
-  - access_key
-
-config_schema:
-  region:
-    type: string
-    required: true
-    description: "AWS region for STS and IAM API calls."
-  profile:
-    type: string
-    description: "AWS named profile (~/.aws/credentials). Optional."
-  role_arn:
-    type: string
-    description: "Role to assume after initial auth. Optional."
-
-requires_credentials:
-  - source: env_or_default_chain   # AWS SDK default
-```
-
-The manifest is validated at startup. Any plugin in the registry whose
-manifest fails validation aborts CLI startup with exit 3.
+`plugin.yaml` exists **only for project-local plugins** under
+`.sigcomply/plugins/<id>/`, where it is parsed by `LoadPluginManifest`
+so `sigcomply build` knows what to wire in (see §How third parties
+contribute a source and [`07-extensibility.md`](07-extensibility.md)).
+In-tree plugins never use it.
 
 ---
 
 ## Evidence types — registered separately, validated by the collector
 
-A plugin declares the set of evidence types it emits via `Emits()` and
-in its manifest. A policy declares the types it accepts on each slot
-(`accepts: [...]`). The `EvidenceTypeRegistry` mediates: every type ID
-named on either side must be a registered schema, and the collector
-validates every record's payload against the registered schema before
-signing.
+A plugin declares the set of evidence types it emits via `Emits()`. A
+policy declares the types it accepts on each slot (`accepts: [...]`).
+The evidence-type registry mediates: every type ID named on either side
+must be a registered schema, and the collector validates every record's
+payload against the registered JSON Schema before signing.
 
-The full design — file format, embedding via `go:embed`, schema
-versioning, the cross-source `IdentityKey` field, the rubric for "new
-type vs. extend `accepts:`," and the project-local extension path
-under `.sigcomply/evidence_types/` — lives in
-[`04a-evidence-type-registry.md`](04a-evidence-type-registry.md).
-Read that document before authoring a plugin or a policy that needs
-a new evidence shape.
+The full design — file format (JSON Schema documents), embedding via
+`go:embed`, schema versioning, the cross-source identity field, the
+rubric for "new type vs. extend `accepts:`," and the *planned*
+project-local extension path under `.sigcomply/evidence_types/` — lives
+in [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md).
+Read that document before authoring a plugin or a policy that needs a
+new evidence shape.
 
 The short version a plugin author needs:
 
 - Emit records with `Type` set to a registered type ID.
-- Set `IdentityKey` when the type has a meaningful cross-source
-  identity; see
+- Set the record's identity field when the type has a meaningful
+  cross-source identity (e.g. email for `directory_user`); see
   [`03-policy-spec.md`](03-policy-spec.md) §Cross-source dedup.
-- Trust the collector to validate payloads; do not invent local
-  schema enforcement. If the validation fails, that's a bug in the
-  emitted payload, not in the schema.
+- Trust the collector to validate payloads against the full draft-07
+  schema; do not invent local schema enforcement. The first
+  non-conforming record errors the binding (exit 3) — a malformed
+  payload is a bug to fix in the plugin or the schema.
 
 ---
 
 ## Built-in plugin set (v1)
 
-The CLI ships with these plugins compiled in. Each lives under
-`internal/sources/<id>/` and self-registers a factory via `init()` (see
-§The factory contract).
+The CLI ships with a set of plugins compiled in. Each lives under
+`internal/sources/<vendor>/<id>/` and self-registers a factory via
+`init()` (see §The factory contract). The in-tree set is larger than
+the table below and changes over time — **do not treat this as
+exhaustive.** The two authoritative sources are each plugin's `Emits()`
+method and the registered schemas under
+`internal/evidence_types/schemas/`.
 
-| Plugin ID | Emits | Notes |
+A representative slice of the built-in set, with the real emitted type
+IDs:
+
+| Plugin ID | Emits (real type IDs) | Notes |
 |---|---|---|
-| `aws.iam` | `user_record`, `iam_role`, `iam_policy`, `access_key` | One AWS account per instance. Multiple instances supported via separate config blocks. |
-| `aws.s3` | `s3_bucket`, `s3_bucket_policy` | |
-| `aws.cloudtrail` | `cloudtrail_trail`, `cloudtrail_event_selector` | |
-| `aws.kms` | `kms_key`, `kms_key_policy` | |
-| `aws.rds` | `rds_instance`, `rds_snapshot` | |
-| `aws.ec2` | `ec2_instance`, `security_group`, `vpc`, `route_table` | |
-| `aws.cloudwatch` | `cloudwatch_log_group`, `cloudwatch_alarm` | |
-| `aws.guardduty` | `guardduty_detector`, `guardduty_finding` | |
-| `aws.config` | `config_recorder`, `config_rule` | |
-| `aws.eks` | `eks_cluster`, `eks_nodegroup` | |
-| `gcp.iam` | `user_record`, `gcp_service_account`, `gcp_iam_policy` | `user_record` for human members; `gcp_service_account` for SAs. |
-| `gcp.storage` | `storage_bucket`, `storage_bucket_policy` | |
-| `gcp.compute` | `gcp_instance`, `security_group`, `vpc` | Note: `security_group` shared schema with AWS. |
-| `gcp.sql` | `sql_instance` | |
-| `github` | `vcs_repository`, `user_record`, `vcs_branch_protection` | Single org per instance. |
-| `okta` | `user_record`, `okta_group`, `okta_application` | |
-| `manual.pdf` | varies — declared per catalog entry | **Project-level singleton.** Exactly one instance per project. See §The manual.pdf plugin. |
+| `aws.iam` | `directory_user.v2` | One AWS account per instance. Multiple instances via separate config blocks. |
+| `aws.iam_access_key` | `iam_access_key` | |
+| `aws.s3` | `object_storage_bucket` | Same neutral type as `gcp.storage`. |
+| `aws.cloudtrail` | `audit_log_trail` | |
+| `aws.kms` | `kms_key` | |
+| `gcp.storage` | `object_storage_bucket` | Same neutral type as `aws.s3`. |
+| `github` | `git_repository`, `directory_user` | Single org per instance. |
+| `okta` | `directory_user`, `okta_app` | |
+| `manual.pdf` | `signed_document` | **Project-level singleton.** Exactly one instance per project. See §The manual.pdf plugin. |
 
-Additional plugins (Azure, GitLab, Bitbucket, Auth0, BambooHR,
-Workday, Slack, Notion) ship as the community contributes them.
+Note the cross-vendor pattern: `aws.s3` and `gcp.storage` both emit the
+single neutral `object_storage_bucket` type (the "reuse the existing
+type" path), and `aws.iam`, `okta`, and `github` all emit
+`directory_user` (one type, many sources). Many more AWS and GCP
+subpackages exist; consult their `Emits()` for the current list.
+
+Additional vendors (Azure, GitLab, Bitbucket, Auth0, BambooHR,
+Workday, …) ship as the community contributes them.
 
 ---
 
@@ -287,79 +246,40 @@ project (e.g. one per framework, or one per team) are not supported.
 A project that wants stricter segregation of manual evidence runs the
 CLI from separate projects, each with its own `.sigcomply.yaml`.
 
-### Plugin manifest
+### Configuration
 
-The singleton ships with a single bucket, single prefix, single set of
-credentials, configured at the project level (`sources.manual.pdf` in
-`.sigcomply.yaml`):
+`manual.pdf` emits a single type, `signed_document`, and is configured
+at the project level under `sources.manual.pdf` in `.sigcomply.yaml`
+(one bucket, one prefix, one credential set). There is no in-tree
+`plugin.yaml` — like every in-tree source it declares itself in code.
+The config shape (`backend`, `bucket`, `prefix`, `region`, `endpoint`,
+`force_path_style`, …) is the flat `VaultConfig`-style block documented
+in [`08-project-config.md`](08-project-config.md). In-tree backends are
+`local`, `s3`, `gcs`, and `azure_blob`; the `s3` backend also serves
+on-prem S3-compatible stores (MinIO, Ceph, Wasabi, …) via `endpoint` +
+`force_path_style`.
 
-```yaml
-schema_version: plugin.v1
-id: manual.pdf
-display_name: "Manual PDF Evidence"
-description: |
-  Lists all files in the catalog-resolved folder in the project's
-  configured manual-evidence bucket. Supported images (JPEG, PNG, GIF,
-  TIFF, WebP, BMP) are auto-converted to PDF; all files are merged into
-  one PDF before signing. Emits one signed_document manifest record per
-  catalog entry. The merged PDF is preserved alongside the envelope as
-  an attachment. Singleton: exactly one instance per project.
+Backend selection goes through a self-registering reader registry
+(`manual.RegisterReader`) — the same pattern source plugins and vault
+backends use; the `manual.pdf` source dispatches generically with no
+hardcoded switch. There is a small file-layout asymmetry: the `local`
+backend is registered inline in `factory.go`, while `s3`/`gcs`/
+`azureblob` are subpackages blank-imported via
+`internal/sources/manual/builtin`. Registration is identical for all
+four; only where the `init()` lives differs. See
+[`00-three-plugin-axes.md`](00-three-plugin-axes.md) §Axis A.
 
-emits: [signed_document]
+### Manual catalog (generated in Go)
 
-singleton: true                  # cannot be instantiated with bracket suffix
-
-config_schema:
-  backend:
-    type: string
-    description: "Any registered manual-evidence backend ID. In-tree
-                  backends ship as: local, s3, gcs, azure_blob. The s3
-                  backend also serves on-prem S3-compatible stores
-                  (MinIO, Ceph, Wasabi, …) via endpoint +
-                  force_path_style. Third-party backends (SFTP, NFS,
-                  custom object stores) register from
-                  .sigcomply/plugins/ via manual.RegisterReader — see
-                  Axis A in 00-three-plugin-axes.md and §Custom
-                  manual-evidence backends in 07-extensibility.md."
-    required: true
-  bucket:
-    type: string
-    required: true
-  prefix:
-    type: string
-    default: "manual/"
-  region:
-    type: string
-  endpoint:
-    type: string
-    description: "For S3-compatible endpoints (on-prem MinIO, etc.)."
-```
-
-Backend selection goes through a self-registering factory registry —
-the same pattern source plugins (Axis C) and vault backends (Axis B)
-use. The `manual.pdf` source dispatches generically; no hardcoded
-switch. See [`00-three-plugin-axes.md`](00-three-plugin-axes.md)
-§Axis A for the unified rationale.
-
-### Manual catalog (per project)
-
-```yaml
-# .sigcomply/manual_catalog/access_review_quarterly.yaml
-schema_version: manual_catalog.v1
-
-id: access_review_quarterly
-emits_as: signed_document
-cadence: quarterly               # continuous|hourly|daily|weekly|monthly|quarterly|annual
-grace_period: 15d
-temporal_rule: retrospective     # PDF dated within the period or grace window
-filename: evidence.pdf           # kept for display purposes; ignored in collection
-description: "Signed quarterly user access review."
-```
-
-The `filename` field is retained for backward compatibility and display
-purposes (the Evidence SPA uses it as a suggested save-name). The
-collector ignores it — all files found in the period folder are
-collected regardless of name.
+The manual catalog is **not** an on-disk YAML file. Each framework
+generates its catalog in Go from a single list — `manualSpecs()` in
+`policies_manual.go` — which feeds both `ManualCatalog()` (runtime path
+resolution) and `ManualCatalogExport()` (the SPA-facing export). There
+is no `.sigcomply/manual_catalog/*.yaml` and no embedded
+`catalogs/*.yaml`. A catalog entry's logical fields (id, cadence, grace
+period, temporal rule, and the SPA-only presentation hints) all come
+from the framework's `manualPolicy{...}` builder. Inspect a catalog
+with `sigcomply evidence catalog -o json`.
 
 ### Path resolution
 
@@ -458,9 +378,10 @@ content correctness:
 | **Prior-period duplication** | `copy_paste_of_prior_period` | The set of source files (identified by filename + SHA-256) is byte-identical to the prior period's folder |
 
 Failures land in `validation_failures` (a list of strings) and flip
-`file_valid` to `false`. The framework's manual-presence Rego rule
-requires `file_valid == true` to pass; an auditor reading the envelope
-sees the specific failure reasons in the manifest.
+`file_valid` to `false`. The evaluator's universal PDF-presence check
+(`internal/evaluator/manual_check.go`, not a Rego rule) requires
+`file_valid == true` to pass; an auditor reading the envelope sees the
+specific failure reasons in the manifest.
 
 The size floor, magic bytes, and page-object checks run against the
 **merged** PDF. Unsupported-type and conversion failures are per
@@ -479,37 +400,27 @@ The reasoning is in [CLAUDE.md §Manual evidence design contract](../../CLAUDE.m
 
 ### Missing evidence — error format
 
-When the resolved path does not contain a PDF (or the PDF falls outside
-the temporal window), the CLI emits a structured, multi-line error
-naming the policy, the catalog entry, the period, and — crucially —
-the **exact expected upload path verbatim**. This is the canonical
-user-facing message:
+When the resolved folder contains no supported files (or the latest
+upload falls outside the temporal window), the universal PDF-presence
+check fails the policy with a violation whose reason names — crucially
+— the **exact expected upload path verbatim**. The canonical message
+emitted by `internal/evaluator/manual_check.go` is:
 
 ```
-[error] Policy soc2.cc6.1.access_review requires manual evidence.
-
-   Evidence:   access_review_quarterly
-   Period:     2026-Q1
-   Expected:   s3://acme-evidence/manual/access_review_quarterly/2026-Q1/
-
-   To remediate:
-   1. Generate the evidence PDF (use the SigComply Evidence SPA
-      at https://evidence.sigcomply.com, or your own tooling).
-   2. Upload one or more files (PDF, JPEG, PNG, GIF, TIFF, WebP, or BMP)
-      to the folder above. Any filename is accepted.
-   3. Manually re-run the appropriate compliance workflow (Settings → Actions → Re-run).
+manual evidence not found; expected files in: <expected-uri>
 ```
 
-The same message is preserved verbatim in two other places:
+where `<expected-uri>` is the resolved folder, e.g.
+`s3://acme-evidence/manual/access_review_quarterly/2026-Q1/`. Because
+the path is canonical (see §Path resolution), the operator can upload
+the file(s) without consulting any other documentation — the message
+carries the destination folder.
 
-- The policy's `result.json` under the failing check, so an auditor
-  reading the run folder offline sees the same remediation steps.
-- The violation `reason` field, so JSON/JUnit/SARIF consumers receive
-  the full text (not just a code).
-
-Because the path is canonical (see §Path resolution), the operator can
-upload the PDF without consulting any other documentation — the error
-message is sufficient.
+The same reason text is preserved in the policy's `result.json` under
+the failing check, so an auditor reading the run folder offline, and
+any `text`/`json` consumer, sees the exact expected location. (The CLI
+has no SARIF output; see [CLAUDE.md](../../CLAUDE.md) — `report`
+renders `text`/`json`/`csv` only.)
 
 ### PDF mirroring
 
@@ -602,17 +513,20 @@ difference is *when* the package gets compiled in.
 The short version:
 
 1. Create the directory `.sigcomply/plugins/acme.internal_iam/`.
-2. Author the manifest `plugin.yaml` declaring `id`, `emits`, and
-   `config_schema`.
+2. Author the project-local manifest `plugin.yaml` declaring `id`,
+   `emits`, and `config_schema`. (This project-local manifest is real;
+   in-tree plugins have none.)
 3. Author `plugin.go` implementing `SourcePlugin` and calling
    `sources.RegisterFactory(...)` in `init()` — same signature, same
    registry as the in-tree plugins.
 4. If the plugin needs an evidence shape not already shipped, drop a
-   schema YAML under `.sigcomply/evidence_types/<id>.yaml`
-   (see [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md)).
-5. Run `sigcomply build` (M16) — this scans `.sigcomply/plugins/`,
-   generates a wrapper that blank-imports each project-local package
-   (so their `init()` factories register at startup), and compiles a
+   JSON Schema under `.sigcomply/evidence_types/<id>.v<n>.json` (see
+   [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md)).
+   **Project-local evidence types are planned (part of `sigcomply
+   build`), not yet shipped** — today only embedded in-tree types load.
+5. Run `sigcomply build` — this scans `.sigcomply/plugins/`, generates
+   a wrapper that blank-imports each project-local package (so their
+   `init()` factories register at startup), and compiles a
    project-tailored binary `./bin/sigcomply`.
 6. From that point, `./bin/sigcomply check` is the same as the shipped
    `sigcomply check` but with the project-local plugins available.

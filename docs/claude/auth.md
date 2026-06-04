@@ -10,23 +10,26 @@ The CLI uses OIDC tokens **for authentication only** — to prove to the SigComp
 
 **Important distinction:**
 - **OIDC token** → HTTP `Authorization: Bearer` header (authentication with Cloud API)
-- **Ephemeral Ed25519 keypair** → attestation `Signature` field (evidence integrity, stored in customer S3)
+- **Ephemeral Ed25519 keypair** → `EvidenceEnvelope.signature` field (evidence integrity, stored in customer storage)
 
-These are two entirely separate concerns. OIDC is never used to sign attestations.
+These are two entirely separate concerns. OIDC is never used to sign evidence.
 
 **How it works:**
 
 1. **CI/CD Environment Provides OIDC Token:**
    - GitHub Actions automatically generates OIDC tokens via `permissions: id-token: write`
-   - GitLab CI provides OIDC tokens via `$CI_JOB_JWT_V2`
+   - GitLab CI exposes an OIDC token as an env var via the `.gitlab-ci.yml`
+     `id_tokens:` block (the CLI reads `SIGCOMPLY_ID_TOKEN`, falling back to
+     `ID_TOKEN`)
    - These tokens are short-lived (minutes to hours)
 
-2. **CLI Obtains Token:**
+2. **CLI Obtains Token** (`internal/submitter/submitter.go` — provider types
+   are unexported and implement
+   `Token(ctx, audience) (token, providerName string, err error)`):
    ```go
    // GitHub Actions: the two ACTIONS_ID_TOKEN_REQUEST_* env vars are NOT
    // the OIDC token themselves — they are the URL + bearer token used to
-   // fetch the real OIDC JWT from GitHub's token service. See
-   // internal/core/attestation/oidc.go (GitHubActionsTokenProvider.GetToken).
+   // fetch the real OIDC JWT from GitHub's token service.
    requestURL := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
    requestToken := os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN")
 
@@ -41,50 +44,61 @@ These are two entirely separate concerns. OIDC is never used to sign attestation
    token := parsed.Value // GitHub
 
    // GitLab CI: the OIDC JWT is provided directly as an env var,
-   // no HTTP fetch required. See
-   // internal/core/attestation/oidc.go (GitLabCITokenProvider.GetToken).
-   token = os.Getenv("CI_JOB_JWT_V2") // GitLab
+   // no HTTP fetch required. The .gitlab-ci.yml id_tokens: block populates it.
+   token = os.Getenv("SIGCOMPLY_ID_TOKEN") // GitLab (fallback: ID_TOKEN)
    ```
 
 3. **CLI Signs Each Evidence File with Ephemeral Ed25519 and Submits Aggregated Results:**
    ```go
-   // For each evidence file, a fresh EvidenceEnvelope is created and signed.
-   // A new ephemeral Ed25519 keypair is generated per file — private key is
-   // discarded immediately after signing. The public key and signature travel
-   // inside the file itself (EvidenceEnvelope), so each file is independently
-   // verifiable without any other artifact.
-   envelope := attestation.NewEvidenceEnvelope(collectionTimestamp, rawEvidenceJSON)
-
-   signer, _ := attestation.NewEd25519Signer()
-   signer.Sign(envelope) // Sets envelope.PublicKey + envelope.Signature; private key zeroed
-   // envelope is written to: {framework}/{policy_id}/{timestamp}_{run_id_short}/evidence/{type}.json
+   // For each evidence file, a fresh core.Envelope is signed. A new ephemeral
+   // Ed25519 keypair is generated per file — the private key is discarded
+   // immediately after signing. The public key and signature travel inside
+   // the envelope itself (core.Envelope.Signature), so each file is
+   // independently verifiable without any other artifact. Signing covers the
+   // canonical JSON of the content fields, NOT a SHA-256 hash.
+   // See internal/sign/envelope.go.
+   env := &core.Envelope{ProducedAt: collectionTime, Records: records}
+   if err := sign.Envelope(env); err != nil { /* ... */ } // sets env.Signature
+   blob, _ := sign.EncodeEnvelope(env)
+   // verification later: sign.VerifyEnvelope(env)
 
    // Only aggregated results (counts, not resource IDs) go to the Cloud API.
-   // OIDC token is used in the Authorization header for authentication.
-   client.Submit(ctx, &cloud.SubmitRequest{
-       RunID:         checkResult.RunID,
-       Framework:     "soc2",
-       PolicyResults: aggregated, // counts only, no ARNs, no usernames
-       Summary:       summary,
-   })
+   // internal/submitter POSTs a core.SubmissionPayload (schema
+   // sigcomply.cloud.v3) to /api/v1/runs with the OIDC token in the
+   // Authorization header. The payload is structurally counts-only — no
+   // map[string]any, no Violations slice.
    ```
 
 4. **Rails API Validates the OIDC Token:**
    - Validates OIDC token (in `Authorization` header) using GitHub/GitLab's public JWKS
    - Extracts repository and organization from OIDC claims to identify the customer account
    - Stores only the aggregated policy counts (pass/fail + resource counts)
-   - Never receives the attestation or any resource identifiers
+   - Never receives any envelope or any resource identifiers
 
 5. **Auditor Verifies Evidence Out-of-Band:**
    - Auditor requests specific evidence files directly from the customer
-   - Each evidence file is a self-contained `EvidenceEnvelope` — it contains the raw evidence,
-     a timestamp, the Ed25519 public key, and the signature, all in one JSON file
-   - Auditor verifies the signature using the public key embedded inside the same file
-   - No separate `attestation.json` or manifest needed; no SigComply involvement required
+   - Each evidence file is a self-contained `core.Envelope` — it contains the
+     records, a `produced_at` timestamp, the Ed25519 public key, and the
+     signature, all in one JSON file
+   - Auditor verifies the signature with `sign.VerifyEnvelope` using the public
+     key embedded inside the same file
+   - Whole-run integrity is covered separately by the signed `manifest.json`
+     (`sign.VerifyManifest`); no SigComply involvement is required
 
 ## B. Authenticating with Third-Party Services (Preferred)
 
-**CRITICAL DESIGN DECISION:** The GitHub Actions and GitLab CI reusable workflows should **prefer OIDC authentication** when fetching data from third-party services (AWS, GCP, Azure, GitHub, etc.) instead of using long-lived API keys stored as secrets.
+**CRITICAL DESIGN DECISION:** The CI workflow you run `sigcomply check` in
+should **prefer OIDC authentication** when granting the CLI access to
+third-party services (AWS, GCP, Azure, GitHub, etc.) instead of using
+long-lived API keys stored as secrets.
+
+> The CLI itself does **not** exchange OIDC tokens for cloud credentials. Its
+> source collectors read whatever the ambient SDK credential chain provides
+> (env vars, IAM role, instance metadata, GCP ADC, Azure
+> `DefaultAzureCredential`). The OIDC→credential exchange below happens in the
+> CI workflow YAML via the standard provider actions, *before* `sigcomply
+> check` runs — the CLI does not perform `AssumeRoleWithWebIdentity`, GCP
+> Workload Identity Federation, or Azure WIF on its own.
 
 ### Supported OIDC Integrations
 
@@ -125,7 +139,7 @@ These are two entirely separate concerns. OIDC is never used to sign attestation
    - name: Fetch GitHub Data
      env:
        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-     run: sigcomply check --github-org my-org
+     run: sigcomply check   # org comes from sources.github.org in .sigcomply.yaml
    ```
 
 ### Fallback Strategy
@@ -135,30 +149,24 @@ When OIDC is not available or not configured, fall back to traditional credentia
 - Service account keys (for GCP, Azure)
 - User provides these as repository secrets
 
-### CLI Implementation
+### How the CLI sees these credentials
 
-The CLI must detect which authentication method is available:
+The CLI does not implement its own credential-detection ladder. Each source
+plugin's `Init` builds a vendor SDK client using that SDK's default credential
+chain, which already prefers OIDC/web-identity, then instance/role credentials,
+then static env vars — in that order. So once the CI workflow has run the
+provider action above (or exported the relevant env vars), the AWS/GCP/Azure
+collectors pick the credentials up automatically with no SigComply-specific
+configuration.
 
-```go
-// Example: AWS authentication detection
-func (c *AWSCollector) Authenticate() error {
-    // 1. Try OIDC (check for Web Identity Token)
-    if os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE") != "" {
-        return c.authenticateWithOIDC()
-    }
+The pseudo-ladder below is **illustrative of what the underlying SDK does** —
+it is not code in this repo:
 
-    // 2. Fallback to IAM role (EC2, ECS, Lambda)
-    if metadata := ec2metadata.New(session.New()); metadata.Available() {
-        return c.authenticateWithIAMRole()
-    }
-
-    // 3. Fallback to environment variables
-    if os.Getenv("AWS_ACCESS_KEY_ID") != "" {
-        return c.authenticateWithCredentials()
-    }
-
-    return errors.New("No AWS credentials found")
-}
+```text
+# What the ambient SDK credential chain resolves, in order:
+1. OIDC / web identity   (AWS_WEB_IDENTITY_TOKEN_FILE, GCP WIF, Azure federated cred)
+2. Instance / role       (EC2/ECS/Lambda role, GCP ADC, Azure managed identity)
+3. Static env vars       (AWS_ACCESS_KEY_ID, GITHUB_TOKEN, GCP key file, ...)
 ```
 
 ### Security Benefits
@@ -179,7 +187,9 @@ func (c *AWSCollector) Authenticate() error {
 
 ### Implementation Notes
 
-- Reusable workflows should attempt OIDC first, then fall back to secrets
-- CLI should log which authentication method is being used (for debugging)
-- Clear error messages when OIDC setup is incorrect
+- CI workflows should set up OIDC-based credentials first, falling back to
+  secrets only where OIDC isn't available
+- Credential resolution is delegated to each provider SDK's default chain; the
+  CLI does not branch on auth method itself
+- Source plugins surface clear errors when no usable credentials are found
 - Documentation should strongly recommend OIDC over long-lived credentials

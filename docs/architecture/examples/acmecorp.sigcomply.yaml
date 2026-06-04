@@ -10,7 +10,8 @@
 #   - One project-local custom policy: contractor access review
 #   - One project-local custom source plugin: acme.internal_iam (their
 #     internal authorization service for the customer-facing app)
-#   - Vault: S3 in us-east-1 with their own KMS key
+#   - Vault: S3 in us-east-1 (bucket-side encryption is configured on the
+#     bucket itself; the CLI has no kms field)
 #   - CI: GitHub Actions
 #   - Fiscal year: calendar year, calendar quarters
 #
@@ -30,7 +31,8 @@ period:
   time_basis: commit
 
 # ---------------------------------------------------------------------
-# Vault — customer-owned S3 bucket, encrypted with their own KMS key.
+# Vault — customer-owned S3 bucket. Encryption at rest is configured on
+# the bucket (e.g. SSE-KMS); SigComply does not manage encryption keys.
 # ---------------------------------------------------------------------
 
 vault:
@@ -138,7 +140,7 @@ policy_parameters:
 # ---------------------------------------------------------------------
 # Policy cadence overrides — control how often each policy runs.
 #
-# Cadence drives CI workflow scheduling (see docs/architecture/10-ci-execution-model.md).
+# Cadence drives CI workflow scheduling (see docs/architecture/09-ci-execution-model.md).
 # The CLI does NOT enforce cadence: it accepts --cadence X / --on-push and
 # runs whatever matches. CI cron schedules are what make cadence operational.
 # ---------------------------------------------------------------------

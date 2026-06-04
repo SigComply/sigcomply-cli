@@ -1,4 +1,4 @@
-# 11 — Cadence Model
+# 10 — Cadence Model
 
 This document specifies how the CLI decides, for each policy in each
 run, whether to **re-evaluate** it now or **carry forward** its prior
@@ -206,43 +206,55 @@ state, which is the correct outcome.
 
 ## The decision rule
 
-For each policy in the plan, the planner answers ShouldEvaluate using
-a strictly-layered rule:
+For each policy in the plan, the planner answers ShouldEvaluate. The
+logic is split across **two functions** — a five-branch outer gate
+(`planner.decideEvaluation`, `internal/planner/planner.go`) that
+delegates the cadence question to `planner.IsDue`
+(`internal/planner/cadence.go`). Read them together:
 
 ```
-1. Filter explicit (--policies, --cadences, --on-push, etc.):
-   → ShouldEvaluate = true
-   (Operator forced; cadence-gate is bypassed.)
+decideEvaluation(filter, cadence, contentHash, prior, now):
 
-2. PolicyStates is nil (Manual or PR mode):
-   → ShouldEvaluate = true
-   (No gating; modes that don't load state always evaluate.)
+  1. filter.IsExplicit() (--policies, --controls, --cadences,
+     --cadence, --on-push):
+       → evaluate
+       (Operator forced; cadence-gate is bypassed entirely.)
 
-3. Prior state is nil (never run before):
-   → ShouldEvaluate = true
-   (First-run warning surfaces in the run log.)
+  2. prior == nil (no prior state — Manual/PR mode never loads state,
+     or this is a genuine first run):
+       → evaluate
 
-4. Prior policy content-hash differs from current:
-   → ShouldEvaluate = true
-   (Bundle update or schema bump invalidated prior evaluation.)
+  3. content-hash mismatch (prior.LastPolicyHash != current hash):
+       → evaluate
+       (Bundle update or schema bump invalidated prior evaluation.)
 
-5. Prior terminal status was NOT pass:
-   → ShouldEvaluate = true
-   (on_fail_retry: failed policies retry every run until they pass.)
+  4. IsDue(cadence, prior, now):
+       → evaluate
 
-6. Now - LastPassAt ≥ CadenceInterval:
-   → ShouldEvaluate = true
-   (Cadence elapsed.)
-
-7. Else:
-   → ShouldEvaluate = false
-   → Status becomes StatusCarriedForward.
+  5. else:
+       → carry forward; SkipReason = DueReason(cadence, prior, now)
+       → Status becomes StatusCarriedForward.
 ```
 
-The rule is encoded in `planner.decideEvaluation`. The reason string
-attached to a carried-forward result is human-readable and
-deterministic: `"only 4h12m since last pass; cadence interval 6h0m
-not yet elapsed (next due 2026-05-25T09:00:00Z)"`.
+`IsDue` (in `cadence.go`) is where first-run and on_fail_retry live —
+the outer gate does not test them separately:
+
+```
+IsDue(cadence, state, now):
+  • state == nil OR state.IsFirstRun()  → due (first run)
+  • state.LastRunStatus != StatusPass   → due (on_fail_retry: failed
+                                           policies retry every run
+                                           until they pass)
+  • CadenceInterval(cadence) == 0       → due (continuous/hourly)
+  • LastPassAt.IsZero()                 → due
+  • now - LastPassAt >= interval        → due
+  • else                                → not due
+```
+
+The reason string attached to a carried-forward result is
+human-readable and deterministic (`DueReason`): `"only 4h12m since
+last pass; cadence interval 6h0m not yet elapsed (next due
+2026-05-25T09:00:00Z)"`.
 
 ### Content-hash invalidation
 
@@ -272,7 +284,7 @@ result.json that references the prior signed envelope:
   "PolicyContentHash": "sha256:...",
   "CarryForward": {
     "LastEvaluatedAt": "2026-04-01T10:23:14Z",
-    "LastEnvelopeRef": "soc2/2026-Q2/run_20260401T102314Z_a3f9/policies/.../envelopes/manual_pdf__manual.json",
+    "LastEnvelopeRef": "soc2/2026-Q2/run_20260401T102314Z_a3f9/policies/.../envelopes/signed_document__manual.pdf.json",
     "LastKnownStatus": "pass",
     "SkipReason": "only 1h42m since last pass; cadence interval 89d23h not yet elapsed"
   }
@@ -326,10 +338,12 @@ type PeriodAggregate struct {
 }
 ```
 
-`PeriodAggregate` is populated by `sigcomply audit-ledger`, not the
-single-run path. A single run cannot know its period history without
-scanning the vault. The field is reserved on `PolicyResult` so the
-ledger command can populate it later without a schema bump.
+`PeriodAggregate` is a **reserved** field on `PolicyResult` populated
+by **no shipped command** today. A single run cannot know its period
+history without scanning the vault, so the single-run path always
+leaves it empty. The field is reserved so a future ledger/analysis
+command (not yet shipped) can scan the vault and populate it later
+without a schema bump.
 
 `PeriodAggregate` is omitted entirely for period-aligned cadences
 (quarterly-in-quarterly): there is only one data point to display.
@@ -453,4 +467,4 @@ the design space but are intentionally absent in v1:
 - `internal/orchestrator/orchestrator.go` — `loadPolicyStates`, `advancePolicyStates`, `emitPlanWarnings`
 - `internal/core/cloud.go` — `AggregatedPolicy` cadence scalars
 - `docs/architecture/06-aggregation.md` — Cloud schema versioning
-- `docs/architecture/10-ci-execution-model.md` — pipeline ↔ mode mapping
+- `docs/architecture/09-ci-execution-model.md` — pipeline ↔ mode mapping

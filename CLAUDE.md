@@ -246,7 +246,7 @@ design: [`docs/architecture/04a-evidence-type-registry.md`](./docs/architecture/
   rollover, ever.
 
 Per-policy decision rule (strictly layered — full design in
-[`docs/architecture/11-cadence-model.md`](./docs/architecture/11-cadence-model.md)):
+[`docs/architecture/10-cadence-model.md`](./docs/architecture/10-cadence-model.md)):
 explicit operator filter → evaluate; PolicyStates nil → evaluate; prior
 state nil → evaluate (first-run); content-hash changed → evaluate; prior
 terminal status ≠ pass → evaluate; `now - LastPassAt >= CadenceInterval`

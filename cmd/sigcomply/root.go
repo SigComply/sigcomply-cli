@@ -42,8 +42,9 @@ func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "sigcomply",
 		Short: "SigComply — zero-trust, non-custodial compliance engine",
-		Long: "SigComply runs in your CI/CD environment, evaluates OPA/Rego policies against\n" +
-			"infrastructure and uploaded evidence, signs the resulting evidence locally, and\n" +
+		Long: "SigComply runs in your CI/CD environment, evaluates Go-native compliance\n" +
+			"policies (a declarative pass_when DSL) against infrastructure and uploaded\n" +
+			"evidence, signs the resulting evidence locally, and\n" +
 			"optionally submits aggregated counts to a private cloud dashboard.\n",
 	}
 	root.AddCommand(newVersionCmd())

@@ -9,12 +9,19 @@ This document specifies what can be customized, how to author each
 artifact, the compilation/loading mechanism, and the path from a
 project-local extension to an upstream contribution.
 
-> **Status**: project-local Go extensions (custom policies with Go
-> rules, custom source plugins) and project-local evidence types both
-> require `sigcomply build` — roadmap milestone **M16**. The in-tree
-> patterns (self-registering factories, embedded schema loading) are
-> wired and used today; the project-local discovery and build-wrapper
-> pieces are planned. Read this doc as the target design.
+> **Status (verified against code).** `sigcomply build` is **wired**: it
+> discovers Go extensions under `.sigcomply/`, validates their imports
+> against a security allow-list, runs `go vet`, generates a blank-import
+> entrypoint, and runs `go build` (see §Loading mechanism). Project-local
+> **Rego rules** (`.sigcomply/policies/<id>/rule.rego`), **YAML policies**
+> (`.sigcomply/policies/<id>/policy.yaml`), and **evidence-type schemas**
+> are loaded at orchestrator bootstrap. The one genuine gap is
+> **project-local Go *rules***: the rule registry is per-evaluation `Set`
+> and is populated **only** from each framework's `Rules()` — there is no
+> central `rule.Register(...)` hook a project package can call, so Go rule
+> packages under `.sigcomply/` are discovered and compiled but **not yet
+> wired into evaluation**. That part is "not yet wired"; everything else
+> below is current behavior.
 
 ---
 
@@ -23,13 +30,13 @@ project-local extension to an upstream contribution.
 | Artifact | Project-local | In-tree (upstream) |
 |---|---|---|
 | Framework spec | ❌ (frameworks are curated) | ✅ |
-| Policy | ✅ under `.sigcomply/policies/` | ✅ in `internal/compliance_frameworks/<fw>/policies/` |
-| Rule | ✅ as `rule.rego` or `rule.go` inside a custom policy dir | ✅ inside a shipped policy dir |
-| Source plugin (Axis C) | ✅ under `.sigcomply/plugins/` (registered via `init()` factory; compiled in by `sigcomply build`) | ✅ in `internal/sources/` (same self-registration pattern) |
-| Vault backend (Axis B) | ✅ under `.sigcomply/plugins/` (registered via `init()` into `vault.RegisterBackend`; compiled in by `sigcomply build`) | ✅ in `internal/vault/<id>/` (same self-registration pattern) |
-| Manual-evidence backend (Axis A) | ✅ under `.sigcomply/plugins/` (registered via `init()` into `manual.RegisterReader`; compiled in by `sigcomply build`) | ✅ in `internal/sources/manual/<id>/` (same self-registration pattern) |
-| Evidence type | ✅ under `.sigcomply/evidence_types/<id>.v<n>.json` (planned — M16) | ✅ in `internal/evidence_types/schemas/<id>.v<n>.json`, embedded via `go:embed` (see [`04a`](04a-evidence-type-registry.md)) |
-| Manual catalog entries | ✅ under `.sigcomply/manual_catalog/` | ✅ in shipped framework's catalog |
+| Policy (YAML) | ✅ as `.sigcomply/policies/<id>/policy.yaml` (loaded at bootstrap, unioned into the plan) | ✅ Go `.policy()` builders in `internal/frameworks/<fw>/policies_*.go` |
+| Rego rule | ✅ as `.sigcomply/policies/<id>/rule.rego` (loaded at bootstrap) | ✅ via `framework.Rules()` (no shipped policy uses one today) |
+| Go rule | ⚠️ **not yet wired** — compiled by `sigcomply build`, but no registration hook feeds it into the per-`Set` rule registry | ✅ via `framework.Rules()` |
+| Source plugin (Axis C) | ✅ under `.sigcomply/plugins/` (registered via `init()` → `sources.RegisterFactory`; compiled in by `sigcomply build`) | ✅ in `internal/sources/` (same self-registration pattern) |
+| Vault backend (Axis B) | ✅ under `.sigcomply/plugins/` (registered via `init()` → `vault.RegisterBackend`; compiled in by `sigcomply build`) | ✅ in `internal/vault/<id>/` (same self-registration pattern) |
+| Manual-evidence backend (Axis A) | ✅ under `.sigcomply/plugins/` (registered via `init()` → `manual.RegisterReader`; compiled in by `sigcomply build`) | ✅ in `internal/sources/manual/<id>/` (same self-registration pattern) |
+| Evidence type | ✅ schema under `.sigcomply/evidence_types/` (Go package, compiled in by `sigcomply build`) | ✅ in `internal/evidence_types/schemas/<id>.v<n>.json`, embedded via `go:embed` (see [`04a`](04a-evidence-type-registry.md)) |
 | Project config (`.sigcomply.yaml`) | ✅ | n/a |
 | Aggregation contract | ❌ (frozen schema) | ✅ (requires bump + security review) |
 
@@ -54,151 +61,158 @@ artifacts.
 
 ```
 <repo root>/
-  .sigcomply.yaml                         # project config
+  go.mod                                   # required for Go extensions
+  .sigcomply.yaml                          # project config
   .sigcomply/
     policies/
       acme.custom.cc6.1.contractor_review/
-        policy.yaml
-        rule.rego                          # or rule.go
-        tests/
-          passes_when_signed.yaml
-          fails_when_missing.yaml
-        README.md
+        policy.yaml                         # loaded at bootstrap
+        rule.rego                           # optional Rego rule, loaded at bootstrap
+        rules/                              # optional Go rule package (not yet wired)
+          rule.go
     plugins/
       acme.internal_iam/
-        plugin.yaml
-        plugin.go                          # required
+        plugin.go                           # Go source plugin (package name == dir)
         plugin_test.go
-        README.md
     evidence_types/
-      acme_principal.v1.json               # JSON Schema document
-    manual_catalog/
-      contractor_review.yaml
+      acme_principal/
+        schema.go                           # Go package registering a schema
 ```
 
-The CLI discovers everything under `.sigcomply/` at startup and merges
-it into the registries (L2) alongside in-binary artifacts.
+Data-driven artifacts (`policy.yaml`, `rule.rego`) are discovered under
+`.sigcomply/` at orchestrator bootstrap and unioned into the registries
+(L2) alongside in-binary artifacts. Go artifacts (plugins, evidence-type
+packages, and — once wired — Go rule packages) are compiled into a tailored
+binary by `sigcomply build`. There is no in-tree `plugin.yaml` manifest for
+shipped plugins; a `plugin.yaml` only applies to project-local plugins.
 
 ---
 
 ## `.sigcomply/` is the only extension surface
 
-Three things and only three things make a customer extension visible
-to the CLI:
+There is no runtime plugin loading, no shared library, no IPC, no WASM.
+Customers extend SigComply by dropping files in known directories under
+`.sigcomply/` and (for Go code) running `sigcomply build`:
 
-| What | Where | When it's compiled in |
+| What | Where | How it loads |
 |---|---|---|
-| **Policy** (Rego or Go rule + spec) | `.sigcomply/policies/<id>/` | Rego rules: at orchestrator bootstrap. Go rules: by `sigcomply build`. |
-| **Source plugin** | `.sigcomply/plugins/<id>/` | By `sigcomply build`. |
-| **Evidence type** | `.sigcomply/evidence_types/<id>.v<n>.json` | At orchestrator bootstrap (JSON Schema document; no Go). |
-
-That's the entire third-party extensibility surface. There is no
-runtime plugin loading, no shared library, no plugin DSL beyond the
-existing rule DSLs, no IPC, no WASM. Customers extend SigComply by
-dropping files in three known directories and running one build
-command.
+| **YAML policy** | `.sigcomply/policies/<id>/policy.yaml` | Orchestrator bootstrap — parsed and added to the plan. |
+| **Rego rule** | `.sigcomply/policies/<id>/rule.rego` | Orchestrator bootstrap — registered into the per-`Set` rule registry (OPA-backed). |
+| **Go rule** | `.sigcomply/policies/<id>/rules/` | ⚠️ Discovered + compiled by `sigcomply build`, but **not yet wired** into evaluation (no registration hook). |
+| **Source plugin** | `.sigcomply/plugins/<id>/` | `sigcomply build` blank-imports it; its `init()` calls `sources.RegisterFactory`. |
+| **Vault / manual backend** | `.sigcomply/plugins/<id>/` | `sigcomply build`; `init()` calls `vault.RegisterBackend` / `manual.RegisterReader`. |
+| **Evidence type** | `.sigcomply/evidence_types/<id>/` | `sigcomply build` blank-imports the Go package that registers the schema. |
 
 ## Loading mechanism for project-local Go code
 
-Custom policies (Go rules) and source plugins need to be compiled.
 The CLI does not load Go plugins at runtime — Go's `plugin` package is
 fragile across versions and Linux-only. Instead, the CLI ships a
-**build wrapper**:
+**build wrapper** that is fully wired today:
 
 ```bash
-sigcomply build
+sigcomply build      # default output: ./bin/sigcomply
 ```
 
-This command (M16):
+`runBuild` (`cmd/sigcomply/build.go`):
 
-1. Scans `.sigcomply/policies/*/rule.go` and `.sigcomply/plugins/*/plugin.go`.
-2. Generates a `cmd/sigcomply-custom/main.go` that imports the in-tree
-   `sigcomply` library plus a **blank-import block** of every
-   project-local Go package. The blank imports trigger each package's
-   `init()`, which calls `sources.RegisterFactory(...)` (for plugins)
-   or `rules.Register(...)` (for rules) into the same registries the
-   in-tree code uses.
-3. Invokes `go build` to produce `./bin/sigcomply` — a binary tailored
-   to this project, with project-local code compiled in.
-4. From this point, `./bin/sigcomply check` runs the project-tailored
-   binary.
+1. **Discovers** Go packages under `.sigcomply/plugins/<name>/`,
+   `.sigcomply/policies/<name>/rules/`, and `.sigcomply/evidence_types/`
+   (`DiscoverExtensions`). If none are found, the command is a graceful
+   no-op — the shipped binary already covers Rego-only / YAML-only
+   projects.
+2. **Requires a project `go.mod`** (`readModulePath`). Project-local Go
+   extensions are import-rooted at the project's module path; a project
+   with Go extensions but no `go.mod` cannot compile, so this is an
+   immediate configuration error (exit 3).
+3. **Validates** each package (`ValidateExtensions`):
+   - The declared `package X` name must match the directory basename
+     (sanitized) — a mismatch is a configuration error.
+   - An **import allow-list** rejects packages that can reach outside the
+     in-process boundary: `os/exec` (subprocess spawning) and anything
+     under `net` / `net/*` (direct network access) are forbidden. In-tree
+     plugins reach those APIs only through curated `internal/` packages;
+     project-local code gets no such escape hatch in v1.
+4. **Runs `go vet`** against the discovered packages to surface errors
+   before a slow compile.
+5. **Generates an entrypoint** (`GenerateEntrypoint`) at
+   `.sigcomply/.build/sigcomply-custom/main.go` that imports the shipped
+   CLI command package (`github.com/sigcomply/sigcomply-cli/cmd/sigcomply`,
+   for `cmd.Execute()`) plus a **blank-import block** of every discovered
+   project-local package — so each package's `init()` runs and registers
+   its factory.
+6. **Runs `go build`** from the project dir (so imports resolve through the
+   project `go.mod`, which must require `sigcomply-cli`), producing
+   `./bin/sigcomply`.
 
-For projects with no Go-based extensions (only Rego rules, only YAML
-DSL rules, only YAML evidence-type schemas), no build step is
-required; the shipped `sigcomply` binary suffices.
+From there, `./bin/sigcomply check` runs the project-tailored binary.
+Projects with no Go extensions skip this entirely; the shipped binary
+suffices.
 
-CI integration: customers with Go extensions add a `sigcomply build`
-step to their workflow before the `sigcomply check` step. The shipped
-GitHub Actions workflow and the GitLab CI example handle both shapes.
+CI integration: customers with Go extensions add a `sigcomply build` step
+before `sigcomply check`. See the example workflows under
+[`examples/`](../../examples/) and [`09-ci-execution-model.md`](09-ci-execution-model.md).
 
-**Security implication.** Project-local Go code runs in the same
-process as the CLI. The customer's `plugin.go` has the same access as
-the in-tree plugins — including credentials, the vault backend, and
-the network. Customers should treat their `.sigcomply/` directory
-with the same code-review rigor as their core application code. The
-CLI's design provides isolation only against external systems; it does
-not sandbox project-local Go code.
+> **Go rules are the one unfinished edge.** A `rules/` package under a
+> policy dir is discovered and will compile, but the rule registry is
+> per-evaluation `Set` and is populated **only** from `framework.Rules()`
+> — there is no exported `rule.Register(...)` an `init()` can call. Until
+> that hook exists, author custom rule logic as a `rule.rego` (loaded at
+> bootstrap) rather than Go, or contribute the rule upstream via a
+> framework's `Rules()`.
+
+**Security implication.** Project-local Go code runs in the same process
+as the CLI. Apart from the `os/exec` + `net` import ban (which the build
+wrapper enforces), the customer's `plugin.go` has the same access as the
+in-tree plugins — including credentials and the vault backend. Customers
+should treat their `.sigcomply/` directory with the same code-review rigor
+as their core application code. The CLI provides isolation against external
+systems; it does not sandbox project-local Go code beyond the import
+allow-list.
 
 ---
 
 ## Authoring a custom policy
 
-Worked example: AcmeCorp has contractors who use their own laptops and
-identities. AcmeCorp's compliance program requires a documented
-quarterly review of contractor access by the engineering manager.
-There is no shipped SOC 2 policy that captures this exact assertion;
-AcmeCorp authors a custom policy.
+Every policy spec — shipped or project-local — carries a **required
+first-class `evidence_mode`** field (`automated` | `manual`). The
+evaluator branches on it and nothing else. The two modes have mutually
+exclusive shapes:
 
-### Step 1 — Create the directory
+- **`automated`** requires `slots` (each with `accepts: [<type>,…]` and a
+  `cardinality`) and **exactly one of** `pass_when:` or `rule:`. It must
+  not have a `catalog_entry`.
+- **`manual`** requires a `catalog_entry` and **must not** have `slots`,
+  `pass_when:`, or `rule:` — the manual PDF-presence check is universal.
 
-```bash
-mkdir -p .sigcomply/policies/acme.custom.cc6.1.contractor_review/{tests,}
-```
+`pass_when:` is the primary authoring path (no Go/Rego); `rule:` is the
+escape hatch for what the DSL can't express. A spec that omits
+`evidence_mode`, or mixes the two shapes, fails to load with exit 3.
 
-### Step 2 — Author `policy.yaml`
+### Example A — a manual policy
+
+AcmeCorp requires a documented quarterly review of contractor access,
+evidenced by a signed PDF. This is a **manual** policy: no slots, no rule.
 
 ```yaml
 # .sigcomply/policies/acme.custom.cc6.1.contractor_review/policy.yaml
 schema_version: policy.v1
 id: acme.custom.cc6.1.contractor_review
+evidence_mode: manual            # required; selects the PDF-presence path
 control: SOC2.CC6.1
 severity: high
 category: access_control
 description: |
   AcmeCorp requires a documented quarterly review of contractor access
-  signed by the engineering manager. Evidence is a single PDF uploaded
-  to manual evidence storage.
+  signed by the engineering manager. Evidence is a PDF uploaded to the
+  project's manual-evidence bucket.
 remediation: |
-  Engineering manager performs and signs the contractor access review.
-  Upload the signed PDF to the configured manual evidence bucket.
-slots:
-  review_document:
-    accepts: [signed_document]
-    cardinality: exactly-one
-    required: true
-parameters: {}
-rule: rules.manual_presence.v1   # reuses a shipped rule
+  Engineering manager performs and signs the contractor access review;
+  upload the signed PDF to the configured manual-evidence bucket.
+catalog_entry: contractor_review   # resolves the folder; NO slots/pass_when/rule
 ```
 
-AcmeCorp's policy reuses a shipped rule (`rules.manual_presence.v1`)
-that checks for the presence of a manual document within the temporal
-window. No new rule code required.
-
-### Step 3 — Register the manual catalog entry
-
-```yaml
-# .sigcomply/manual_catalog/contractor_review.yaml
-schema_version: manual_catalog.v1
-id: contractor_review
-emits_as: signed_document
-cadence: quarterly
-grace_period: 30d
-temporal_rule: retrospective
-filename: evidence.pdf
-description: "Quarterly contractor access review signed by engineering manager."
-```
-
-### Step 4 — Bind it in project config
+Binding it (in `.sigcomply.yaml`) names the manual catalog entry after a
+colon:
 
 ```yaml
 # .sigcomply.yaml (excerpt)
@@ -207,104 +221,77 @@ bindings:
     review_document: [manual.pdf:contractor_review]
 ```
 
-### Step 5 — Add a test
+> The previous version of this doc showed a manual policy declaring both
+> a `slots:` block and `rule: rules.manual_presence.v1`. That shape is
+> **rejected at load**: a manual policy must not carry slots or a rule.
+> Manual evidence runs the universal PDF-presence check, not a named rule.
+
+### Example B — an automated policy with `pass_when:`
+
+The common case: a quantifier over a field condition on one slot — no Go,
+no Rego.
 
 ```yaml
-# .sigcomply/policies/acme.custom.cc6.1.contractor_review/tests/passes_when_present.yaml
-name: passes when PDF present in window
-inputs:
-  slots:
-    review_document:
-      - type: signed_document
-        id: contractor_review/2026-Q1
-        payload:
-          file_present: true
-          in_temporal_window: true
-expected:
-  status: pass
-  violations: []
+# .sigcomply/policies/acme.custom.cc6.1.mfa_enforced/policy.yaml
+schema_version: policy.v1
+id: acme.custom.cc6.1.mfa_enforced
+evidence_mode: automated
+control: SOC2.CC6.1
+severity: high
+category: access_control
+description: Every user in the directory must have MFA enabled.
+slots:
+  user_directory:
+    accepts: [directory_user]
+    cardinality: one-or-more
+pass_when:
+  all:
+    # condition node is a {op, field, value} triple; field paths are
+    # rooted at payload.* (a bare field name errors the policy).
+    leaf: { op: eq, field: payload.mfa_enabled, value: true }
 ```
 
-### Step 6 — Run
+The supported quantifiers are `all | none | any | count` (only `count`
+takes `min_percentage`); ops are `eq, neq, lt, lte, gt, gte, in, not_in,
+is_set, all_of, any_of`. Parameters are referenced on the value side as
+the string `"$params.<name>"`. Full DSL reference:
+[`03-policy-spec.md`](03-policy-spec.md).
+
+### Run
 
 ```bash
-sigcomply check --policies acme.custom.cc6.1.contractor_review
+sigcomply check     # the framework is fixed by config / SIGCOMPLY_FRAMEWORK
 ```
 
-The policy appears in run output and in the cloud submission payload
-exactly like a framework-shipped policy.
+Project-local policies are unioned into the plan at bootstrap and appear in
+run output and the cloud submission payload exactly like framework-shipped
+ones. (There is no `--policies` filter flag; select the run set with
+`--cadence` / `--on-push` as in [`09-ci-execution-model.md`](09-ci-execution-model.md).)
 
----
+### When `pass_when:` isn't enough: the `rule:` escape hatch
 
-## Authoring a custom policy that requires custom rule logic
+For cross-slot joins or aggregations the DSL can't express, an automated
+policy may instead carry `rule: <rule_id>` (mutually exclusive with
+`pass_when:`). Today the only **wired** project-local rule mechanism is a
+`rule.rego` alongside the policy:
 
-Suppose AcmeCorp's contractor access review must additionally verify
-that the contractor count is below a threshold. There's no shipped
-rule for this; AcmeCorp authors one.
+```rego
+# .sigcomply/policies/acme.custom.cc6.1.contractor_count/rule.rego
+package sigcomply.acme.contractor_count
 
-### Add `rule.go`
-
-```go
-// .sigcomply/policies/acme.custom.cc6.1.contractor_review/rule.go
-package acme_custom_cc6_1_contractor_review
-
-import (
-    "context"
-    "fmt"
-
-    "github.com/sigcomply/sigcomply-cli/internal/core/rule"
-)
-
-type Rule struct{}
-
-func (Rule) ID() string { return "rules.acme.contractor_review.v1" }
-
-func (Rule) Evaluate(ctx context.Context, in rule.Input) (rule.Result, error) {
-    docs := in.Records("review_document")
-    if len(docs) == 0 || !docs[0].PayloadBool("file_present") {
-        return rule.Result{
-            Status: rule.StatusFail,
-            Violations: []rule.Violation{{
-                Reason: "Contractor review PDF missing for current period.",
-            }},
-        }, nil
-    }
-
-    contractorCount := docs[0].PayloadInt("contractor_count")
-    maxAllowed := in.ParamInt("max_contractors", 25)
-
-    if contractorCount > maxAllowed {
-        return rule.Result{
-            Status: rule.StatusFail,
-            Violations: []rule.Violation{{
-                Reason: fmt.Sprintf("Contractor count %d exceeds max %d.", contractorCount, maxAllowed),
-            }},
-        }, nil
-    }
-    return rule.Result{Status: rule.StatusPass}, nil
-}
-
-func init() { rule.Register(Rule{}) }
+default allow := false
+# … Rego expressing the cross-slot / threshold logic …
 ```
 
-### Update `policy.yaml`
+The Rego rule is registered into the per-`Set` rule registry at bootstrap,
+and the policy references it via its `rule:` field.
 
-```yaml
-rule: rules.acme.contractor_review.v1
-parameters:
-  max_contractors:
-    type: int
-    default: 25
-    min: 0
-    max: 1000
-```
-
-### Build and run
-
-```bash
-sigcomply build      # compiles project-tailored binary
-./bin/sigcomply check
-```
+**Project-local Go rules are not yet wired** (see the status note above):
+a `rules/` Go package compiles under `sigcomply build` but has no
+registration hook into the rule registry. Until that lands, express custom
+rule logic as Rego, or contribute the rule upstream through a framework's
+`Rules()`. The Go-rule authoring shape is therefore omitted here to avoid
+documenting an uncompilable-into-evaluation path.
 
 ---
 
@@ -317,16 +304,19 @@ shipped plugin covers it. AcmeCorp authors one.
 There are two paths depending on whether the data fits an existing
 evidence type:
 
-- **Path A (reuse `user_record`).** AcmeCorp's internal IAM records
-  are functionally identical to AWS IAM and Okta users — same fields,
-  same semantics. The plugin emits the shipped `user_record` type and
-  becomes immediately consumable by every existing policy with
-  `accepts: [user_record]`. **No policy changes needed anywhere.**
+- **Path A (reuse `directory_user`).** AcmeCorp's internal IAM records
+  are functionally identical to AWS IAM, Okta, and GitHub users — the
+  shipped `directory_user` type already covers them (note: `aws.iam`
+  emits `directory_user.v2`; `okta` and `github` emit `directory_user`).
+  The plugin emits `directory_user` and becomes immediately consumable by
+  every existing policy whose slot has `accepts: [directory_user]`. **No
+  policy changes needed anywhere.** This is the substitutability property:
+  one slot accepting `[directory_user]` can be fed by `aws.iam`, `okta`,
+  `github`, and `acme.internal_iam` interchangeably.
 - **Path B (coin a new `acme_principal` type).** AcmeCorp's records
-  carry extra fields (department, security clearance, manager_id)
-  that they want their custom policies to consume. They register a
-  new evidence type and add it to the relevant slots' `accepts:`
-  lists.
+  carry extra fields (department, security clearance, manager_id) that
+  they want their custom policies to consume. They register a new evidence
+  type and add it to the relevant slots' `accepts:` lists.
 
 We show both.
 
@@ -339,7 +329,7 @@ id: acme.internal_iam
 display_name: "Acme Internal IAM"
 version: "0.1.0"
 description: "Reads user records from Acme's internal IAM service."
-emits: [user_record]                  # Path A; Path B adds acme_principal
+emits: [directory_user]               # Path A; Path B adds acme_principal
 config_schema:
   endpoint:
     type: string
@@ -349,7 +339,18 @@ config_schema:
     default: "ACME_IAM_TOKEN"
 ```
 
+(The `plugin.yaml` manifest applies to **project-local** plugins only.
+In-tree plugins declare their emitted types in code via `Emits()`, with no
+manifest file.)
+
 ### Step 2 — Plugin implementation with a registered factory
+
+The `SourcePlugin` interface (`internal/core/source.go`) is `ID()`,
+`Emits() []string`, `Init(ctx, cfg map[string]any) error`, and
+`Collect(ctx, req core.SlotRequest) ([]core.EvidenceRecord, error)`. The
+factory registered in `init()` takes an **`sources.Env`** struct (not a
+bare `map[string]any`): `Env{ Config map[string]any, Vault core.Vault,
+FrameworkExtras map[string]any }`.
 
 ```go
 // .sigcomply/plugins/acme.internal_iam/plugin.go
@@ -359,7 +360,6 @@ import (
     "context"
     "encoding/json"
     "fmt"
-    "net/http"
     "os"
 
     "github.com/sigcomply/sigcomply-cli/internal/core"
@@ -374,7 +374,7 @@ type Plugin struct {
 }
 
 func (p *Plugin) ID() string      { return SourceID }
-func (p *Plugin) Emits() []string { return []string{"user_record"} }
+func (p *Plugin) Emits() []string { return []string{"directory_user"} }
 
 func (p *Plugin) Init(ctx context.Context, cfg map[string]any) error {
     p.endpoint, _ = cfg["endpoint"].(string)
@@ -393,21 +393,12 @@ func (p *Plugin) Init(ctx context.Context, cfg map[string]any) error {
 }
 
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-    httpReq, _ := http.NewRequestWithContext(ctx, "GET", p.endpoint+"/users", nil)
-    httpReq.Header.Set("Authorization", "Bearer "+p.token)
-    resp, err := http.DefaultClient.Do(httpReq)
-    if err != nil {
-        return nil, err
-    }
-    defer resp.Body.Close()
-
-    var users []struct {
-        ID, Email string
-        MFA, Admin bool
-    }
-    if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
-        return nil, err
-    }
+    // Fetch users from the internal IAM service and map each into a
+    // directory_user payload. (In v1, project-local plugins may not
+    // import net/* directly — see the build allow-list. Reach the
+    // network via a curated in-tree helper or contribute the plugin
+    // upstream where it can use internal/ packages.)
+    users := p.fetchUsers(ctx)
 
     out := make([]core.EvidenceRecord, 0, len(users))
     for _, u := range users {
@@ -418,7 +409,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
             "is_admin":    u.Admin,
         })
         out = append(out, core.EvidenceRecord{
-            Type:        "user_record",
+            Type:        "directory_user",
             ID:          u.ID,
             IdentityKey: u.Email,           // cross-source dedup with aws.iam, okta
             SourceID:    SourceID,
@@ -428,14 +419,13 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
     return out, nil
 }
 
-// init registers this plugin's factory with the global SourceRegistry.
-// This is the same pattern every in-tree plugin uses. The factory is
-// what the orchestrator calls (with the YAML-unmarshalled config block)
-// to produce a configured plugin instance per run.
+// init registers this plugin's factory. The factory receives an
+// sources.Env; pull the per-instance config from env.Config. This is
+// the same pattern every in-tree plugin uses.
 func init() {
-    sources.RegisterFactory(SourceID, func(ctx context.Context, cfg map[string]any) (core.SourcePlugin, error) {
+    sources.RegisterFactory(SourceID, func(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
         p := &Plugin{}
-        if err := p.Init(ctx, cfg); err != nil {
+        if err := p.Init(ctx, env.Config); err != nil {
             return nil, err
         }
         return p, nil
@@ -468,7 +458,7 @@ sigcomply build              # generates the wrapper, blank-imports
 ```
 
 The `acme.internal_iam` plugin now satisfies any policy whose slots
-have `accepts: [user_record]`. AcmeCorp can mix and match across the
+have `accepts: [directory_user]`. AcmeCorp can mix and match across the
 same binding (`[acme.internal_iam, aws.iam]`) if they want. **No
 policy changes happened — only configuration.**
 
@@ -477,19 +467,24 @@ policy changes happened — only configuration.**
 ### Path B — Coining a new evidence type
 
 If AcmeCorp wants their custom policies to consume fields beyond what
-`user_record` carries (department, security clearance, manager_id),
+`directory_user` carries (department, security clearance, manager_id),
 they register a new evidence type.
 
 #### B1 — Author the schema
 
+Project-local evidence types are registered through a Go package under
+`.sigcomply/evidence_types/<id>/` (compiled in by `sigcomply build`). The
+schema body is a JSON Schema **draft-07** document — the same form the
+in-tree schemas at `internal/evidence_types/schemas/<id>.v<n>.json` use.
+The type ID lives in the schema's `title`; the version in a `version`
+field.
+
 ```json
-// .sigcomply/evidence_types/acme_principal.v1.json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.acme.com/evidence_types/acme_principal/v1.json",
   "title": "acme_principal",
   "version": 1,
-  "description": "An Acme Corp user with internal-only fields (department, security clearance, manager_id) not present in the shipped user_record type. Cross-source identity convention: populate EvidenceRecord.IdentityKey with the user's primary email.",
+  "description": "An Acme Corp user with internal-only fields (department, security clearance, manager_id) not present in the shipped directory_user type. Cross-source identity convention: populate EvidenceRecord.IdentityKey with the user's primary email.",
   "type": "object",
   "required": ["id", "mfa_enabled", "department"],
   "properties": {
@@ -504,30 +499,31 @@ they register a new evidence type.
 }
 ```
 
-Cross-source identity convention is documented in the schema's
-`description` (plugin authors read it to know what to populate
-`EvidenceRecord.IdentityKey` with). The constraints `format: email`
-and `enum: [...]` are honored by future, richer validators — today's
-validator enforces only top-level `type: object`, `required`, and
-per-property scalar `type` (see
-[`04a-evidence-type-registry.md`](04a-evidence-type-registry.md)
-§Current implementation status).
+The collector validates every record against the registered schema using
+**full JSON Schema draft-07** (gojsonschema): `enum`, `format`, `pattern`,
+`minimum`/`maximum`, and nested object/array constraints are all enforced
+— not just `required`. The **first** non-conforming record fails the
+binding and tags the policy `error` (exit 3); there is no
+drop-and-continue and no ">5% threshold" (that permissive mode is design
+intent only). Design custom schemas top-down from the semantic concept so
+every field is satisfiable by all plausible sources without null sentinels
+(see [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md)).
 
 #### B2 — Plugin emits both types
 
 ```yaml
 # .sigcomply/plugins/acme.internal_iam/plugin.yaml
-emits: [user_record, acme_principal]
+emits: [directory_user, acme_principal]
 ```
 
 ```go
 // Inside Collect — emit two records per user, one of each type:
 out = append(out, core.EvidenceRecord{
-    Type:        "user_record",            // for shipped policies
+    Type:        "directory_user",         // for shipped policies
     ID:          u.ID,
     IdentityKey: u.Email,
     SourceID:    SourceID,
-    Payload:     userRecordPayload,
+    Payload:     directoryUserPayload,
 })
 out = append(out, core.EvidenceRecord{
     Type:        "acme_principal",          // for AcmeCorp policies
@@ -538,10 +534,10 @@ out = append(out, core.EvidenceRecord{
 })
 ```
 
-The shipped policies bind to slots with `accepts: [user_record]` and
-ignore the `acme_principal` records. AcmeCorp's custom policies bind
-to slots with `accepts: [acme_principal]` and ignore the
-`user_record` records.
+The shipped policies bind to slots with `accepts: [directory_user]` and
+ignore the `acme_principal` records. AcmeCorp's custom policies bind to
+slots with `accepts: [acme_principal]` and ignore the `directory_user`
+records.
 
 #### B3 — Custom policy references the new type
 
@@ -549,6 +545,7 @@ to slots with `accepts: [acme_principal]` and ignore the
 # .sigcomply/policies/acme.custom.cc6.1.confidential_clearance_review/policy.yaml
 schema_version: policy.v1
 id: acme.custom.cc6.1.confidential_clearance_review
+evidence_mode: automated
 control: SOC2.CC6.1
 severity: high
 category: access_control
@@ -559,13 +556,16 @@ slots:
   principals:
     accepts: [acme_principal]
     cardinality: one-or-more
-    required: true
-rule: rules.acme.confidential_clearance.v1
+pass_when:
+  all:
+    leaf: { op: in, field: payload.security_clearance,
+            value: [internal, confidential, secret] }
 ```
 
-The custom rule reads `record.payload.security_clearance` and
-`record.payload.department`, which `user_record` doesn't expose but
-`acme_principal` guarantees.
+The `pass_when:` reads `payload.security_clearance`, which
+`directory_user` doesn't expose but `acme_principal` guarantees. (A
+cross-slot or aggregate assertion the DSL can't express would use a
+`rule.rego` instead — Go rules remain unwired, per the status note.)
 
 ---
 
@@ -692,11 +692,18 @@ type Reader struct {
     // … SFTP client, base path, credentials reference, etc.
 }
 
-func (r *Reader) Get(ctx context.Context, uri string) ([]byte, time.Time, error) {
+// manual.Reader requires both Get and List.
+func (r *Reader) Get(ctx context.Context, key string) ([]byte, time.Time, error) {
     // … fetch over SFTP. Return manual.ErrNotFound if the path
     //    does not exist; other errors are treated as transport
     //    failures by the manual.pdf plugin.
     return nil, time.Time{}, manual.ErrNotFound
+}
+
+func (r *Reader) List(ctx context.Context, prefix string) ([]manual.FileInfo, error) {
+    // … list every file under prefix, sorted by key. An empty result
+    //    is not an error — the caller decides how to handle it.
+    return nil, nil
 }
 ```
 
@@ -771,14 +778,16 @@ The contribution path:
 
 1. **Fork** the public `sigcomply-cli` repo.
 2. **Move** the project-local files into the in-tree locations:
-   - `internal/sources/<id>/` for plugins
-   - `internal/compliance_frameworks/<fw>/policies/<id>/` for policies
-   - `internal/evidence_types/<id>.v<n>.yaml` for evidence types
+   - `internal/sources/<vendor>/` for source plugins
+   - `internal/frameworks/<fw>/policies_*.go` for policies (shipped
+     policies are Go `.policy()` builders, not on-disk `policy.yaml`)
+   - `internal/evidence_types/schemas/<id>.v<n>.json` for evidence types
+     (JSON Schema, embedded via `//go:embed schemas/*.json`)
 3. **Adapt** import paths from the project-local package names to the
    in-tree ones (`internal/sources/...`).
 4. **Add** in-tree tests under the same directory.
-5. **Update** the relevant framework's `policies/` index if adding a
-   shipped policy.
+5. **Register** a new shipped policy through the framework's `.policy()`
+   builder list (and, for a manual policy, its `manualSpecs()`).
 6. **Open a PR** with a clear description, test coverage, and a note
    on whether the contribution implies any aggregation-contract changes
    (almost always: no).

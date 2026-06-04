@@ -182,7 +182,7 @@ func ptr[T any](v T) *T { return &v }
 
 // TestE2E_WalkingSkeleton drives the orchestrator end-to-end against
 // a stubbed AWS IAM API and a local-filesystem vault. The fixture
-// matches docs/architecture/09-implementation-roadmap.md M6 row:
+// exercises the full check pipeline end to end:
 //
 //   - sigcomply check --config testdata/fixture.yaml runs to completion
 //   - the run produces a signed manifest.json that sign.VerifyManifest
