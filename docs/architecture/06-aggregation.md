@@ -49,7 +49,7 @@ package core
 // maintainers including the security owner. Adding a freeform field
 // is a non-custodial regression and must be explicitly justified.
 type SubmissionPayload struct {
-    Schema      string         `json:"schema"`        // "sigcomply.cloud.v2"
+    Schema      string         `json:"schema"`        // "sigcomply.cloud.v3"
 
     RunID       string         `json:"run_id"`        // UUID
     Framework   string         `json:"framework"`     // "soc2"
@@ -77,7 +77,7 @@ type Repository struct {
 }
 
 type CIEnvironment struct {
-    Provider     string `json:"provider"`        // "github" | "gitlab" | "local"
+    Provider     string `json:"provider"`        // "github_actions" | "gitlab_ci" | "local"
     Workflow     string `json:"workflow,omitempty"`
     RunURL       string `json:"run_url,omitempty"`
     WorkerImage  string `json:"worker_image,omitempty"`
@@ -94,34 +94,52 @@ type RunSummary struct {
     ComplianceScore  float64 `json:"compliance_score"`
 }
 
-// PolicyResult: per-policy. No identifiers permitted.
-type PolicyResult struct {
-    PolicyID           string    `json:"policy_id"`            // "soc2.cc6.1.mfa_enforced"
-    ControlID          string    `json:"control_id"`           // "SOC2.CC6.1"
-    Status             string    `json:"status"`               // pass|fail|skip|error|na|waived|carried_forward
-    Severity           string    `json:"severity"`             // info|low|medium|high|critical
-    Category           string    `json:"category,omitempty"`
-    ResourcesEvaluated int       `json:"resources_evaluated"`
-    ResourcesFailed    int       `json:"resources_failed"`
-    Message            string    `json:"message"`              // generated from counts
-    RuleVersion        string    `json:"rule_version,omitempty"`
+// AggregatedPolicy: per-policy. No identifiers permitted.
+// (Named PolicyResult in earlier docs; the wire type is
+// core.AggregatedPolicy.)
+type AggregatedPolicy struct {
+    PolicyID           string       `json:"policy_id"`         // "soc2.cc6.1.mfa_enforced"
+    Controls           []ControlRef `json:"controls"`          // v3: one check ↦ many frameworks
+    Status             string       `json:"status"`            // pass|fail|skip|error|na|waived|carried_forward
+    Severity           string       `json:"severity"`          // info|low|medium|high|critical
+    Category           string       `json:"category,omitempty"`
+    ResourcesEvaluated int          `json:"resources_evaluated"`
+    ResourcesFailed    int          `json:"resources_failed"`
+    Message            string       `json:"message"`           // generated from counts
+    RuleVersion        string       `json:"rule_version,omitempty"`
 
-    // v2 fields — non-identifying scalars added for the cadence model.
-    // The dashboard uses these to render staleness / next-due badges
-    // without recomputing locally. See docs/architecture/11-cadence-model.md.
+    // Cadence fields (added in v2, retained in v3) — non-identifying
+    // scalars for the cadence model. The dashboard uses these to render
+    // staleness / next-due badges without recomputing locally. See
+    // docs/architecture/11-cadence-model.md.
     ConfiguredCadence  string    `json:"configured_cadence,omitempty"`     // "daily" | "every:6h" | …
     LastEvaluatedAt    time.Time `json:"last_evaluated_at,omitempty"`      // most recent ACTUAL eval
     NextDueAt          time.Time `json:"next_due_at,omitempty"`            // when cadence next elapses
     IsCarriedForward   bool      `json:"is_carried_forward,omitempty"`
     PolicyContentHash  string    `json:"policy_content_hash,omitempty"`    // SHA-256(policy + schemas)
 }
+
+// ControlRef maps one policy to one control in one framework. A single
+// policy commonly satisfies controls across SOC 2, ISO 27001, etc., so
+// v3 carries a list. All four fields are public framework taxonomy —
+// no customer identity. Earlier schemas (v1/v2) had a single scalar
+// `control_id` instead; v2 clients still send it and the receiver
+// synthesizes a one-element list (see Rails RunSubmissionService).
+type ControlRef struct {
+    Framework        string `json:"framework,omitempty"`         // "soc2" | "iso27001" | …
+    FrameworkVersion string `json:"framework_version,omitempty"` // "soc2-2017@1.0.0"
+    ControlID        string `json:"control_id"`                  // "SOC2.CC6.1"
+    Relationship     string `json:"relationship,omitempty"`      // equal|subset_of|superset_of|intersects
+}
 ```
 
-The five v2 fields are deliberately scalars — never maps, slices, or
-interfaces. The reflection test in `internal/core/cloud_test.go`
+The cadence fields are deliberately scalars — never maps, slices, or
+interfaces — and `Controls` is a slice of a fixed, fully-typed struct
+(no freeform keys). The reflection test in `internal/core/cloud_test.go`
 walks the type graph and fails the build if a freeform-shape field
-is added. Adding a sixth field follows the same rules as adding any
-other (see §How to extend the type below).
+(`interface{}`, `json.RawMessage`, `map[string]any`) is added. Adding a
+new field follows the same rules as adding any other (see §How to extend
+the type below).
 
 ### What this type physically cannot express
 
@@ -140,8 +158,9 @@ If a maintainer believes a new field is needed, they must:
 2. Demonstrate that the field cannot carry a resource identifier in
    any deployment.
 3. Get review from ≥ 2 maintainers including the security owner.
-4. Bump the schema version (next would be `sigcomply.cloud.v3`) so
-   existing deployments are aware of the change.
+4. Bump the schema version (current is `sigcomply.cloud.v3`; next would
+   be `sigcomply.cloud.v4`) so existing deployments are aware of the
+   change.
 
 This is friction, by design. Every loosening of the contract erodes
 the non-custodial promise.
@@ -157,7 +176,7 @@ func Build(plan *planner.RunPlan, results []evaluator.PolicyResult,
            summary *vault.RunSummary, env cli.Environment) cloud.SubmissionPayload {
 
     out := cloud.SubmissionPayload{
-        Schema:      "sigcomply.cloud.v2",
+        Schema:      "sigcomply.cloud.v3",
         RunID:       plan.RunID,
         Framework:   plan.Framework,
         PeriodID:    plan.PeriodID,
@@ -170,13 +189,13 @@ func Build(plan *planner.RunPlan, results []evaluator.PolicyResult,
         StartedAt:   plan.StartedAt,
         CompletedAt: time.Now(),
         Summary:     buildSummary(results),
-        Policies:    make([]cloud.PolicyResult, 0, len(results)),
+        Policies:    make([]cloud.AggregatedPolicy, 0, len(results)),
     }
 
     for _, r := range results {
-        out.Policies = append(out.Policies, cloud.PolicyResult{
+        out.Policies = append(out.Policies, cloud.AggregatedPolicy{
             PolicyID:           r.PolicyID,
-            ControlID:          r.ControlID,
+            Controls:           r.Controls,  // []ControlRef — multi-framework mapping
             Status:             string(r.Status),
             Severity:           string(r.Severity),
             Category:           r.Category,
@@ -463,7 +482,7 @@ escape hatch for verifying the boundary on demand.
 
 | Field | Why it's OK |
 |---|---|
-| `policy_id`, `control_id` | Public framework taxonomy; identical across all customers. |
+| `policy_id`, `controls[]` (`framework`, `framework_version`, `control_id`, `relationship`) | Public framework taxonomy; identical across all customers. |
 | `status`, `severity` | Enum; carries no identity. |
 | `category` | Policy metadata, not customer data. |
 | `resources_evaluated`, `resources_failed` | Counts, by definition non-identifying. |
@@ -495,20 +514,28 @@ makes that drift visible.
 
 ## Versioning the contract
 
-`Schema: "sigcomply.cloud.v2"` is stamped into every payload. The
-receiver (cloud or self-hosted dashboard) keys behavior off it.
+`Schema: "sigcomply.cloud.v3"` is stamped into every payload (the
+constant `aggregator.SchemaVersion`). The receiver (cloud or self-hosted
+dashboard) keys behavior off it. v3 replaced the per-policy scalar
+`control_id` with a `controls []ControlRef` list so one check can map to
+controls across many frameworks; the cadence scalars added in v2 are
+unchanged.
 
-Breaking changes (renames, semantic shifts in existing fields) bump
-to `v2`. The CLI may emit only one version per release; the receiver
-typically accepts a range. Coexistence rules:
+Breaking changes (renames, semantic shifts in existing fields) bump the
+version. The CLI emits one version per release; the receiver typically
+accepts a range. Coexistence rules:
 
-- `cloud.v1` and `cloud.v2` may both be accepted by the cloud for an
-  overlap period.
-- An old CLI talking to a new cloud sends `v1`; the cloud
-  translates internally.
-- A new CLI talking to an old cloud sends `v2`; the cloud returns
-  `415 Unsupported Media Type` and the CLI falls back to `v1` if it
-  supports the older schema.
+- The Rails receiver is **shape-driven, not version-gated**: it stores
+  the `schema` string verbatim and accepts `v1`/`v2`/`v3` payloads
+  simultaneously. A policy carrying a non-empty `controls[]` is treated
+  as v3; one carrying only a scalar `control_id` is read as v2 and
+  synthesized into a single-element `controls` list. See the Rails app's
+  `Cli::RunSubmissionService#normalize_controls`.
+- An old CLI (v2) talking to a new cloud sends a scalar `control_id`; the
+  receiver up-converts it to a one-element list.
+- A new CLI (v3) talking to an old cloud that predates the `controls`
+  field would have that field dropped by strong-params; deploy the Rails
+  side first.
 
 The transition cost of bumping is intentional. The privacy boundary
 is not a place for casual evolution.

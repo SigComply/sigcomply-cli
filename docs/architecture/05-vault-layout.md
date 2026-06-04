@@ -265,7 +265,7 @@ auditors look at first.
   "policies": [
     {
       "policy_id":          "soc2.cc6.1.mfa_enforced",
-      "control_id":         "SOC2.CC6.1",
+      "controls":           [{ "framework": "soc2", "control_id": "SOC2.CC6.1", "relationship": "equal" }],
       "status":             "fail",
       "severity":           "high",
       "category":           "access_control",

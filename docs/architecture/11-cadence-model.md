@@ -266,7 +266,7 @@ result.json that references the prior signed envelope:
 ```json
 {
   "PolicyID": "soc2.cc1.board_review_quarterly",
-  "ControlID": "SOC2.CC1.1",
+  "Controls": [{ "control_id": "SOC2.CC1.1" }],
   "Status": "carried_forward",
   "ConfiguredCadence": "quarterly",
   "PolicyContentHash": "sha256:...",
@@ -395,11 +395,12 @@ this to a hard error in CI mode.
 
 ---
 
-## Cloud payload v2
+## Cloud payload cadence fields
 
-The submission schema is `sigcomply.cloud.v2`. Five non-identifying
-scalars per policy were added so the dashboard can render staleness
-and next-due badges without recomputing locally:
+The submission schema is `sigcomply.cloud.v3`. These five non-identifying
+scalars per policy (added in v2, retained unchanged in v3) let the
+dashboard render staleness and next-due badges without recomputing
+locally:
 
 - `ConfiguredCadence` (string)
 - `LastEvaluatedAt` (RFC3339)
@@ -407,7 +408,11 @@ and next-due badges without recomputing locally:
 - `IsCarriedForward` (bool)
 - `PolicyContentHash` (string)
 
-The aggregation boundary is preserved: every new field is a scalar,
+(v3's own change is unrelated to cadence — it swapped the scalar
+`control_id` for a `controls []ControlRef` list; see
+[06-aggregation.md](./06-aggregation.md).)
+
+The aggregation boundary is preserved: every cadence field is a scalar,
 not a map or interface. The structural counts-only test in
 `core/cloud_test.go` enforces this — adding a freeform field fails
 the build.
@@ -446,6 +451,6 @@ the design space but are intentionally absent in v1:
 - `internal/planner/cadence.go` — cadence parsing, NextDueAt, IsDue, DueReason
 - `internal/planner/plan.go` — `PlannedPolicy.ShouldEvaluate`
 - `internal/orchestrator/orchestrator.go` — `loadPolicyStates`, `advancePolicyStates`, `emitPlanWarnings`
-- `internal/core/cloud.go` — `AggregatedPolicy` v2 fields
+- `internal/core/cloud.go` — `AggregatedPolicy` cadence scalars
 - `docs/architecture/06-aggregation.md` — Cloud schema versioning
 - `docs/architecture/10-ci-execution-model.md` — pipeline ↔ mode mapping

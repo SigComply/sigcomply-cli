@@ -95,7 +95,8 @@ change that would let an identifier reach a Cloud API request breaks the
 non-custodial model.
 
 - **To the Cloud API** (paid tier, `POST /api/v1/runs`, the
-  `SubmissionPayload`): per-policy `policy_id`, `control_id`, pass/fail,
+  `SubmissionPayload`): per-policy `policy_id`, `controls[]`
+  (framework taxonomy, no identity), pass/fail,
   severity, `resources_evaluated`, `resources_failed`, `message`
   (count-based, no IDs), `category`, `remediation`; run summary
   (total/passed/failed/skipped, compliance score); environment (`ci`,
@@ -257,9 +258,13 @@ Worth knowing: cadence DSL is
 `every:<duration>` (5-min floor, no cron strings — `every:24h` drifts,
 `daily` is wall-clock-anchored). Carry-forward inherits trust from the
 original signature; the auditor verifies it at
-`CarryForward.LastEnvelopeRef`. Cloud v2 (`sigcomply.cloud.v2`) adds
+`CarryForward.LastEnvelopeRef`. The cadence model added five
+non-identifying per-policy scalars to the cloud payload in v2 —
 `ConfiguredCadence`/`LastEvaluatedAt`/`NextDueAt`/`IsCarriedForward`/`PolicyContentHash`
-(all non-identifying scalars; the counts-only test still guards). State
+— retained unchanged in the current `sigcomply.cloud.v3` schema (the
+counts-only test still guards). (v3 itself swapped the per-policy scalar
+`control_id` for a `controls []ControlRef` list — multi-framework
+mapping; see `docs/architecture/06-aggregation.md`.) State
 writes use a monotonic guard (accept iff newer `LastRunAt`, or equal-and-
 greater `LastRunID`) so concurrent CI runs can't regress state.
 
