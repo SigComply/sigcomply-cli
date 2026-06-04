@@ -84,15 +84,23 @@ type CIEnvironment struct {
 }
 
 type RunSummary struct {
-    PoliciesTotal    int     `json:"policies_total"`
-    PoliciesPassed   int     `json:"policies_passed"`
-    PoliciesFailed   int     `json:"policies_failed"`
-    PoliciesSkipped  int     `json:"policies_skipped"`
-    PoliciesError    int     `json:"policies_error"`
-    PoliciesNA       int     `json:"policies_na"`
-    PoliciesWaived   int     `json:"policies_waived"`
-    ComplianceScore  float64 `json:"compliance_score"`
+    PoliciesTotal          int     `json:"policies_total"`
+    PoliciesPassed         int     `json:"policies_passed"`
+    PoliciesFailed         int     `json:"policies_failed"`
+    PoliciesSkipped        int     `json:"policies_skipped"`
+    PoliciesError          int     `json:"policies_error"`
+    PoliciesNA             int     `json:"policies_na"`
+    PoliciesWaived         int     `json:"policies_waived"`
+    PoliciesCarriedForward int     `json:"policies_carried_forward"`
+    ComplianceScore        float64 `json:"compliance_score"`
 }
+
+// ComplianceScore = (PoliciesPassed + PoliciesWaived + PoliciesCarriedForward)
+//                 / (PoliciesTotal - PoliciesSkipped - PoliciesNA)
+// Carried-forward policies inherit a prior PASS (carry-forward never
+// follows a non-pass terminal status), so they count toward the
+// numerator; otherwise the steady state of sub-period cadences would
+// systematically understate the score.
 
 // AggregatedPolicy: per-policy. No identifiers permitted.
 // (Named PolicyResult in earlier docs; the wire type is
@@ -226,6 +234,8 @@ func generateMessage(r evaluator.PolicyResult) string {
     case evaluator.StatusWaived:
         return fmt.Sprintf("Waived by exception (%d of %d resources affected).",
             r.ResourcesFailed, r.ResourcesEvaluated)
+    case evaluator.StatusCarriedForward:
+        return "Carried forward from a prior passing evaluation (cadence not yet due)."
     }
     return ""
 }

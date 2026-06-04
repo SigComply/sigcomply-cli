@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -30,6 +31,42 @@ type fakeAPI struct {
 	listUsersCount int
 	listMFACount   int
 	listKeysCount  int
+
+	// credReport is the raw credential-report CSV returned by
+	// GetCredentialReport. When nil a default report is used: root MFA on,
+	// no root access keys, root console enabled — so the synthetic root
+	// record passes the root policies and existing user-focused tests
+	// don't have to set it.
+	credReport      []byte
+	credReportErr   error
+	credGenerateErr error
+}
+
+// rootReportCSV builds a minimal credential-report CSV with a single
+// "<root_account>" row carrying the given flags.
+func rootReportCSV(mfa, key1, key2, passwordEnabled bool) []byte {
+	b := strconv.FormatBool
+	header := "user,arn,mfa_active,password_enabled,access_key_1_active,access_key_2_active\n"
+	row := "<root_account>,arn:aws:iam::1:root," + b(mfa) + "," + b(passwordEnabled) + "," + b(key1) + "," + b(key2) + "\n"
+	return []byte(header + row)
+}
+
+func (f *fakeAPI) GenerateCredentialReport(_ context.Context, _ *awsiam.GenerateCredentialReportInput, _ ...func(*awsiam.Options)) (*awsiam.GenerateCredentialReportOutput, error) {
+	if f.credGenerateErr != nil {
+		return nil, f.credGenerateErr
+	}
+	return &awsiam.GenerateCredentialReportOutput{State: iamtypes.ReportStateTypeComplete}, nil
+}
+
+func (f *fakeAPI) GetCredentialReport(_ context.Context, _ *awsiam.GetCredentialReportInput, _ ...func(*awsiam.Options)) (*awsiam.GetCredentialReportOutput, error) {
+	if f.credReportErr != nil {
+		return nil, f.credReportErr
+	}
+	content := f.credReport
+	if content == nil {
+		content = rootReportCSV(true, false, false, true)
+	}
+	return &awsiam.GetCredentialReportOutput{Content: content}, nil
 }
 
 func attachedPolicies(names []string) []iamtypes.AttachedPolicy {
@@ -152,6 +189,9 @@ func TestCollect_IsAdmin_DetectedDirectlyAndViaGroup(t *testing.T) {
 		if err := json.Unmarshal(r.Payload, &pl); err != nil {
 			t.Fatalf("Unmarshal %s: %v", r.ID, err)
 		}
+		if pl.IsRoot {
+			continue // root is always admin; asserted separately
+		}
 		if pl.IsAdmin != want[pl.DisplayName] {
 			t.Errorf("%s is_admin = %v; want %v", pl.DisplayName, pl.IsAdmin, want[pl.DisplayName])
 		}
@@ -174,12 +214,13 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
-	if len(records) != 2 {
-		t.Fatalf("len(records) = %d; want 2", len(records))
+	// Two IAM users plus the synthetic root record.
+	if len(records) != 3 {
+		t.Fatalf("len(records) = %d; want 3 (2 users + root)", len(records))
 	}
-	// Sorted by ID: AIDA01 (bob) before AIDA02 (alice).
-	if records[0].ID != "AIDA01" || records[1].ID != "AIDA02" {
-		t.Errorf("records not sorted by ID: got %v", []string{records[0].ID, records[1].ID})
+	// Sorted by ID: "<root_account>" (0x3C) sorts before AIDA01/AIDA02.
+	if records[0].ID != rootAccountUser || records[1].ID != "AIDA01" || records[2].ID != "AIDA02" {
+		t.Errorf("records not sorted by ID: got %v", []string{records[0].ID, records[1].ID, records[2].ID})
 	}
 	for i := range records {
 		if records[i].CollectedAt != now {
@@ -191,18 +232,73 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	}
 
 	var alice userPayload
-	if err := json.Unmarshal(records[1].Payload, &alice); err != nil {
+	if err := json.Unmarshal(records[2].Payload, &alice); err != nil {
 		t.Fatalf("Unmarshal alice: %v", err)
 	}
 	if !alice.MFAEnabled {
 		t.Errorf("alice.MFAEnabled = false; want true")
 	}
 	var bob userPayload
-	if err := json.Unmarshal(records[0].Payload, &bob); err != nil {
+	if err := json.Unmarshal(records[1].Payload, &bob); err != nil {
 		t.Fatalf("Unmarshal bob: %v", err)
 	}
 	if bob.MFAEnabled {
 		t.Errorf("bob.MFAEnabled = true; want false")
+	}
+}
+
+// TestCollect_EmitsRootRecord verifies the synthetic root-account record
+// is produced from the credential report — without it the Critical root
+// policies (root MFA, no root access keys) filter to zero records and
+// pass vacuously.
+func TestCollect_EmitsRootRecord(t *testing.T) {
+	fake := &fakeAPI{
+		users:      []iamtypes.User{{UserName: ptr("alice"), UserId: ptr("AID1")}},
+		credReport: rootReportCSV(false /*mfa*/, true /*key1*/, false, true),
+	}
+	p := New(Options{API: fake})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	var root *userPayload
+	for i := range records {
+		var pl userPayload
+		if err := json.Unmarshal(records[i].Payload, &pl); err != nil {
+			t.Fatalf("Unmarshal: %v", err)
+		}
+		if pl.IsRoot {
+			root = &pl
+			break
+		}
+	}
+	if root == nil {
+		t.Fatal("no is_root record emitted")
+	}
+	if root.MFAEnabled {
+		t.Error("root MFAEnabled = true; want false (report said mfa_active=false)")
+	}
+	if !root.HasProgrammaticAccess {
+		t.Error("root HasProgrammaticAccess = false; want true (access_key_1_active=true)")
+	}
+	if !root.IsAdmin {
+		t.Error("root IsAdmin = false; want true (root is always admin)")
+	}
+}
+
+// TestCollect_CredentialReportErrorFailsCollect ensures a missing
+// credential-report permission surfaces as a hard error (the root check
+// must never be silently skipped).
+func TestCollect_CredentialReportErrorFailsCollect(t *testing.T) {
+	fake := &fakeAPI{
+		users:           []iamtypes.User{{UserName: ptr("alice"), UserId: ptr("AID1")}},
+		credReportErr:   errors.New("not ready"),
+		credGenerateErr: errors.New("AccessDenied: iam:GenerateCredentialReport"),
+	}
+	p := New(Options{API: fake, Sleep: func(time.Duration) {}})
+	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err == nil || !strings.Contains(err.Error(), "root account") {
+		t.Errorf("want root account error; got %v", err)
 	}
 }
 
@@ -212,8 +308,16 @@ func TestCollect_NoUsers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
-	if len(records) != 0 {
-		t.Errorf("len(records) = %d; want 0", len(records))
+	// No IAM users, but the synthetic root record is always emitted.
+	if len(records) != 1 {
+		t.Fatalf("len(records) = %d; want 1 (root only)", len(records))
+	}
+	var pl userPayload
+	if err := json.Unmarshal(records[0].Payload, &pl); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if !pl.IsRoot {
+		t.Errorf("sole record is not the root record: %+v", pl)
 	}
 }
 
@@ -329,6 +433,14 @@ func (f *mfaErrAPI) ListGroupsForUser(_ context.Context, _ *awsiam.ListGroupsFor
 
 func (f *mfaErrAPI) ListAttachedGroupPolicies(_ context.Context, _ *awsiam.ListAttachedGroupPoliciesInput, _ ...func(*awsiam.Options)) (*awsiam.ListAttachedGroupPoliciesOutput, error) {
 	return &awsiam.ListAttachedGroupPoliciesOutput{}, nil
+}
+
+func (f *mfaErrAPI) GenerateCredentialReport(_ context.Context, _ *awsiam.GenerateCredentialReportInput, _ ...func(*awsiam.Options)) (*awsiam.GenerateCredentialReportOutput, error) {
+	return &awsiam.GenerateCredentialReportOutput{State: iamtypes.ReportStateTypeComplete}, nil
+}
+
+func (f *mfaErrAPI) GetCredentialReport(_ context.Context, _ *awsiam.GetCredentialReportInput, _ ...func(*awsiam.Options)) (*awsiam.GetCredentialReportOutput, error) {
+	return &awsiam.GetCredentialReportOutput{Content: rootReportCSV(true, false, false, true)}, nil
 }
 
 func TestCollect_KISSNoDRY_EachCallReListsUsers(t *testing.T) {

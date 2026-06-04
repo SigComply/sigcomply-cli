@@ -321,3 +321,45 @@ rule: rules.mfa.v1
 		t.Errorf("error = %q; want substring \"mutually exclusive\"", err.Error())
 	}
 }
+
+// TestLoadPolicy_RejectsInvalidFilterOp guards the filter-validation gap:
+// a typo'd filter op (e.g. "contains") would otherwise load cleanly and,
+// at runtime, exclude every record (filterRecords swallows the dispatch
+// error) so an all/none/count quantifier passes vacuously — a silent
+// compliance bypass.
+func TestLoadPolicy_RejectsInvalidFilterOp(t *testing.T) {
+	yaml := []byte(`schema_version: policy.v1
+id: test.bad_filter
+control: SOC2.CC6.1
+severity: high
+category: access
+cadence: daily
+evidence_mode: automated
+description: test
+remediation: test
+slots:
+  s:
+    accepts: [directory_user]
+    cardinality: one-or-more
+    required: true
+    description: x
+pass_when:
+  slot: s
+  quantifier: all
+  filter:
+    op: contains
+    field: payload.is_admin
+    value: true
+  condition:
+    op: eq
+    field: payload.mfa_enabled
+    value: true
+`)
+	_, err := LoadPolicy(yaml)
+	if err == nil {
+		t.Fatal("expected error for invalid filter op; got nil")
+	}
+	if !strings.Contains(err.Error(), "filter") {
+		t.Errorf("error = %q; want it to mention the filter", err.Error())
+	}
+}

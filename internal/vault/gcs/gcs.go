@@ -108,22 +108,29 @@ func (v *Vault) List(ctx context.Context, prefix string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gcs vault: list %s: %w", prefix, err)
 	}
-	// Strip configured Prefix so callers see vault-relative keys.
+	// Strip the configured prefix-plus-separator (matching fullKey) so
+	// callers see vault-relative keys with no spurious leading slash.
 	out := make([]string, 0, len(keys))
 	for _, k := range keys {
-		out = append(out, strings.TrimPrefix(k, v.Prefix))
+		out = append(out, strings.TrimPrefix(k, v.keyPrefix()))
 	}
 	return out, nil
 }
 
 func (v *Vault) fullKey(key string) string {
+	return v.keyPrefix() + key
+}
+
+// keyPrefix returns the configured prefix including its trailing
+// separator (the exact string fullKey prepends), or "" when unset.
+func (v *Vault) keyPrefix() string {
 	if v.Prefix == "" {
-		return key
+		return ""
 	}
 	if strings.HasSuffix(v.Prefix, "/") {
-		return v.Prefix + key
+		return v.Prefix
 	}
-	return v.Prefix + "/" + key
+	return v.Prefix + "/"
 }
 
 // realGCS is the production implementation of API. It speaks to GCS

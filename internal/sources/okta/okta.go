@@ -137,9 +137,14 @@ func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 //   - is_active:   derived from Status == "ACTIVE"
 //   - display_name: best-effort, falls back to email
 //
-// is_admin and is_service_account are not populated — both require
-// per-user role/factor-list calls that aren't in the v1 collection
-// path. Adding them is additive.
+// is_admin and is_service_account are NOT populated — both require
+// per-user role calls (Okta admin-role assignments) not yet in the
+// collection path. Consequently the admin-MFA policies, which require
+// is_admin, currently ERROR for an Okta-only deployment rather than
+// silently passing: they are phrased as none(is_admin AND no-MFA), and a
+// missing is_admin surfaces as status=error (a coverage gap), not a
+// vacuous pass. Populating is_admin from Okta admin-role assignments is
+// the additive fix that closes the gap.
 type userPayload struct {
 	ID             string    `json:"id"`
 	DisplayName    string    `json:"display_name,omitempty"`

@@ -372,8 +372,11 @@ Framework resolves from `SIGCOMPLY_FRAMEWORK` or `framework:` in config
 [docs/configuration.md](./docs/configuration.md). Gotchas: there is **no**
 `--quiet`/`--service`/`--collector`/`--fail-on-violation`/`--fail-severity`
 flag — `fail_on_violation` and `fail_severity` are config-file-only under
-`ci:`. **SARIF output is not wired** (it's in `SupportedOutputFormats`
-but no formatter exists); only `text`/`json`/`junit` work.
+`ci:`. **Output formatting for `check` is not configurable**: `check` has
+no `--output`/`-o` flag and emits one fixed text summary (the
+`renderAndExitCode` line). The `output.format` config key validates
+`text`/`json`/`junit` but only `report` actually renders alternate formats
+(json/csv). `sarif` is rejected by the validator — no formatter exists.
 
 **Exit codes:** `0` passed · `1` violations · `2` execution error · `3`
 configuration error.

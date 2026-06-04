@@ -133,11 +133,17 @@ func buildSummary(results []core.PolicyResult) core.RunSummary {
 			s.PoliciesNA++
 		case core.StatusWaived:
 			s.PoliciesWaived++
+		case core.StatusCarriedForward:
+			s.PoliciesCarriedForward++
 		}
 	}
 	denominator := s.PoliciesTotal - s.PoliciesSkipped - s.PoliciesNA
 	if denominator > 0 {
-		s.ComplianceScore = float64(s.PoliciesPassed+s.PoliciesWaived) / float64(denominator)
+		// Carried-forward policies inherit a prior PASS (carry-forward
+		// never happens after a non-pass terminal status), so they
+		// count toward the numerator alongside fresh passes and waivers.
+		numerator := s.PoliciesPassed + s.PoliciesWaived + s.PoliciesCarriedForward
+		s.ComplianceScore = float64(numerator) / float64(denominator)
 	}
 	return s
 }
@@ -161,6 +167,8 @@ func generateMessage(r *core.PolicyResult) string {
 	case core.StatusWaived:
 		return fmt.Sprintf("Waived by exception (%d of %d resources affected).",
 			r.ResourcesFailed, r.ResourcesEvaluated)
+	case core.StatusCarriedForward:
+		return "Carried forward from a prior passing evaluation (cadence not yet due)."
 	}
 	return ""
 }

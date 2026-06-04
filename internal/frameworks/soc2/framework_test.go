@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sigcomply/sigcomply-cli/internal/core"
 	evidencetypes "github.com/sigcomply/sigcomply-cli/internal/evidence_types"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 )
@@ -89,5 +90,22 @@ func TestPolicyIDs_AreUnique(t *testing.T) {
 			t.Errorf("duplicate policy ID %q", p.ID)
 		}
 		seen[p.ID] = struct{}{}
+	}
+}
+
+// TestControls_EveryPolicyControlIsRegistered mirrors the ISO 27001 guard:
+// a typo'd control ID on a SOC 2 policy (e.g. "CC6.9", no such control)
+// would otherwise pass all tests and surface only as a wrong/empty
+// control mapping in the cloud payload.
+func TestControls_EveryPolicyControlIsRegistered(t *testing.T) {
+	controlIDs := map[string]struct{}{}
+	for _, c := range Controls() {
+		controlIDs[c.ID] = struct{}{}
+	}
+	for _, p := range Policies() {
+		id := core.PrimaryControlID(p.Controls)
+		if _, ok := controlIDs[id]; !ok {
+			t.Errorf("policy %q references control %q not in the catalog", p.ID, id)
+		}
 	}
 }

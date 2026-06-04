@@ -1,7 +1,9 @@
 # SigComply CLI — Architecture
 
-> **Status**: design specification for the v1 rewrite. The repository will be
-> rebuilt against this document. Implementation work has not started.
+> **Status**: implemented. This document is the canonical design reference for
+> the shipped v1 CLI (`sigcomply check`/`build`/`report`/`init-ci`/`evidence
+> catalog`/`version`). Where a section describes a future capability it is
+> marked inline; treat the code as the source of truth for what is wired.
 
 SigComply is a zero-trust, non-custodial compliance engine. The CLI runs
 inside the customer's own CI/CD environment, evaluates compliance policies

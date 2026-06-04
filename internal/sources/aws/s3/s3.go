@@ -123,14 +123,14 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	if !req.Accepts(EvidenceTypeID) {
 		return nil, fmt.Errorf("aws.s3: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
 	}
-	out, err := p.api.ListBuckets(ctx, &awss3.ListBucketsInput{})
+	buckets, err := p.listAllBuckets(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("aws.s3: list buckets: %w", err)
 	}
 	now := p.now()
-	records := make([]core.EvidenceRecord, 0, len(out.Buckets))
-	for i := range out.Buckets {
-		b := &out.Buckets[i]
+	records := make([]core.EvidenceRecord, 0, len(buckets))
+	for i := range buckets {
+		b := &buckets[i]
 		name := safeBucketName(b)
 		if name == "" {
 			continue
@@ -171,6 +171,29 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	}
 	sort.Slice(records, func(i, j int) bool { return records[i].ID < records[j].ID })
 	return records, nil
+}
+
+// listAllBuckets follows ListBuckets pagination (ContinuationToken) so
+// accounts with more buckets than the API page cap are fully covered.
+// Without this a bucket beyond the first page is silently dropped from
+// evaluation, letting an encryption/public-access policy pass while a
+// non-conforming bucket exists outside the page.
+func (p *Plugin) listAllBuckets(ctx context.Context) ([]s3types.Bucket, error) {
+	var (
+		out  []s3types.Bucket
+		cont *string
+	)
+	for {
+		page, err := p.api.ListBuckets(ctx, &awss3.ListBucketsInput{ContinuationToken: cont})
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, page.Buckets...)
+		if page.ContinuationToken == nil || *page.ContinuationToken == "" {
+			return out, nil
+		}
+		cont = page.ContinuationToken
+	}
 }
 
 // bucketEncryption returns (encryptionEnabled, kmsManaged, kmsKeyID, error).

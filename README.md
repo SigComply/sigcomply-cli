@@ -8,8 +8,9 @@ your data, credentials, or production environment. Raw evidence stays in
 your own storage; only aggregated counts and pass/fail scores are submitted
 to the optional Compliance Dashboard.
 
-Currently ships SOC 2 (Type II) policies; ISO 27001 is in early development.
-Policies are open OPA/Rego — inspect, fork, and contribute.
+Ships SOC 2 (Type II) and ISO/IEC 27001:2022 (all 93 Annex A controls)
+policy libraries. Policies are open, Go-native declarative definitions
+(a `pass_when` DSL) — inspect, fork, and contribute.
 
 ## Install
 
@@ -22,9 +23,11 @@ Pre-built binaries are published with each release on GitHub.
 ## Quick start
 
 ```sh
-sigcomply check --framework soc2
+sigcomply check
 ```
 
+The framework comes from `framework:` in `.sigcomply.yaml` (or the
+`SIGCOMPLY_FRAMEWORK` env var); `check` has no `--framework` flag.
 Auto-detects collectors based on available credentials (`AWS_*`,
 `GITHUB_TOKEN`, GCP ADC, …), evaluates the framework's policies locally,
 writes signed `EvidenceEnvelope` files to your storage backend, and (in
@@ -76,10 +79,8 @@ jobs:
 ```
 
 ```yaml
-# GitLab CI
-include:
-  - component: gitlab.com/sigcomply/sigcomply-cli/compliance@v1
-    inputs: { framework: soc2 }
+# GitLab CI — copy examples/gitlab-ci.yml into your repo as a starting
+# point. A first-class GitLab CI component is not yet packaged.
 ```
 
 ## Documentation

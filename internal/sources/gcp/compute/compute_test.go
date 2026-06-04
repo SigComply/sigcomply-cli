@@ -127,6 +127,16 @@ func assertAlphaPayload(t *testing.T, rec *core.EvidenceRecord) {
 	if alpha.Zone != "europe-west1-b" {
 		t.Errorf("alpha.Zone = %q", alpha.Zone)
 	}
+	// region must be the region (zone minus the trailing -<letter>), not
+	// the zone itself.
+	if alpha.Region != "europe-west1" {
+		t.Errorf("alpha.Region = %q; want europe-west1 (region, not zone)", alpha.Region)
+	}
+	// monitoring_enabled must be OMITTED for GCP (no fabricated true), so
+	// the monitoring policy's is_set guard scopes GCP instances out.
+	if alpha.MonitoringEnabled != nil {
+		t.Errorf("alpha.MonitoringEnabled = %v; want nil (GCP omits the field)", *alpha.MonitoringEnabled)
+	}
 	if alpha.MachineType != "n2-standard-2" {
 		t.Errorf("alpha.MachineType = %q", alpha.MachineType)
 	}

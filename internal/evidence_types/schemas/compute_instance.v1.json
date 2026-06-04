@@ -5,7 +5,7 @@
   "version": 1,
   "description": "One virtual machine instance on any cloud provider — AWS EC2, GCP Compute Engine, Azure VM. The single cross-vendor shape policies use for network-exposure, encryption, and monitoring checks. Providers set additionalProperties for their vendor-specific fields (vpc_id, iam_instance_profile for AWS; uses_default_service_account, shielded_vm_enabled for GCP).",
   "type": "object",
-  "required": ["id", "name", "has_public_ip", "is_running", "root_volume_encrypted", "monitoring_enabled"],
+  "required": ["id", "name", "has_public_ip", "is_running", "root_volume_encrypted"],
   "properties": {
     "id":                     { "type": "string", "description": "Unique stable identifier (AWS: instance-id, GCP: instance name, Azure: resource ID)." },
     "name":                   { "type": "string", "description": "Human-readable name (tag Name for AWS, instance name for GCP)." },
@@ -14,7 +14,7 @@
     "is_running":             { "type": "boolean", "description": "Instance is in a running/active state." },
     "has_public_ip":          { "type": "boolean", "description": "Instance has at least one public/external IP address." },
     "root_volume_encrypted":  { "type": "boolean", "description": "Root/boot disk is encrypted at rest." },
-    "monitoring_enabled":     { "type": "boolean", "description": "Detailed/enhanced monitoring is enabled (AWS detailed monitoring; GCP Cloud Monitoring integration)." },
+    "monitoring_enabled":     { "type": "boolean", "description": "Detailed/enhanced monitoring is enabled (AWS detailed monitoring). Optional: a source that cannot determine a per-instance detailed-monitoring signal (e.g. GCP Compute Engine, where it depends on the Ops Agent) omits this field, and monitoring policies guard it with is_set and scope such instances out as a coverage gap rather than reporting a fabricated pass." },
     "metadata_service_hardened": { "type": "boolean", "description": "Instance metadata service is hardened (AWS: IMDSv2 required; GCP: metadata server concealment enabled)." }
   },
   "additionalProperties": true

@@ -58,9 +58,9 @@ type PassWhenCondition struct {
 	// not_in, is_set, all_of, any_of.
 	Op string
 	// Field is the dot-path to the field to compare, e.g. "payload.mfa_enabled"
-	// or "id". Ignored for all_of / any_of.
-	// A "$params.<name>" prefix reads from the policy's effective parameters
-	// instead of the record.
+	// or "id". Ignored for all_of / any_of. Field is always a record path;
+	// "$params.<name>" is resolved only on the Value (RHS) side, not here —
+	// a "$params.*" Field would be looked up as a record path and fail.
 	Field string
 	// Value is the RHS of the comparison for leaf operators. May be a scalar
 	// (bool, int, float64, string) or a []interface{} for in / not_in.

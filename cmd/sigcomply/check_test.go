@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -108,22 +109,40 @@ func TestRunCheck_EndToEndWithManualOnly(t *testing.T) {
 	}
 	configPath := filepath.Join(tmp, "cfg.yaml")
 	writeManualOnlyConfig(t, configPath, vaultDir, manualDir)
-	err := runCheck(context.Background(), &bytes.Buffer{}, &checkFlags{
+	var stdout bytes.Buffer
+	err := runCheck(context.Background(), &stdout, &checkFlags{
 		config:   configPath,
 		cloudOff: true,
 	})
 	if err != nil {
-		// MFA policies fail to collect (no aws.iam) but the run still
-		// completes via the exit-code channel.
+		// Some policies may fail/violate; the run still completes through
+		// the rendering path and reports via exitCodeError.
 		var ec *exitCodeError
 		if !errors.As(err, &ec) {
-			t.Fatalf("unexpected error: %v", err)
+			t.Fatalf("unexpected (non-exitCode) error: %v", err)
 		}
-		t.Logf("runCheck exited via exitCodeError code=%d: %v", ec.code, ec.err)
 	}
-	// Whether or not exitCodeError was raised, a vault was constructed
-	// and a manifest written, OR the planner failed up-front. Either is
-	// a valid exercise of runCheck — what we're after is coverage.
+	// The run must have reached the rendering path and printed its summary.
+	if !strings.Contains(stdout.String(), "SigComply check") {
+		t.Errorf("stdout missing run summary header; got:\n%s", stdout.String())
+	}
+	// A completed run writes a signed manifest.json under its run folder.
+	var manifestFound bool
+	err = filepath.WalkDir(vaultDir, func(path string, d fs.DirEntry, werr error) error {
+		if werr != nil {
+			return werr
+		}
+		if !d.IsDir() && d.Name() == "manifest.json" {
+			manifestFound = true
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk vault: %v", err)
+	}
+	if !manifestFound {
+		t.Errorf("no manifest.json written under vault %s", vaultDir)
+	}
 }
 
 func TestExecute_Help(t *testing.T) {
@@ -173,10 +192,6 @@ sources:
     backend: local
     path: ` + manualDir + `
     prefix: manual/
-bindings:
-  soc2.cc6.3.access_review_quarterly:
-    review_document:
-      - source: "manual.pdf:access_review_quarterly"
 cloud:
   base_url: ""
 `

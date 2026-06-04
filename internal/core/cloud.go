@@ -71,20 +71,28 @@ type CIEnvironment struct {
 
 // RunSummary is the counts-only run-level summary. ComplianceScore is
 // the applicable-pass ratio computed in the aggregator:
-// (policies_passed + policies_waived) / (policies_total -
-// policies_skipped - policies_na). Skipped and N/A policies are
-// removed from the denominator so they don't drag the score down;
-// waived policies count toward the numerator on the basis that an
-// accepted exception is operationally equivalent to a pass.
+// (policies_passed + policies_waived + policies_carried_forward) /
+// (policies_total - policies_skipped - policies_na). Skipped and N/A
+// policies are removed from the denominator so they don't drag the
+// score down; waived policies count toward the numerator on the basis
+// that an accepted exception is operationally equivalent to a pass.
+// Carried-forward policies also count toward the numerator: a
+// carry-forward only happens when the prior terminal status was pass
+// (the cadence decision rule re-evaluates any non-pass), so the policy
+// is still passing — it simply wasn't re-evaluated this run. Carried-
+// forward policies are the normal steady state for sub-period cadences,
+// so omitting them from the numerator would systematically understate
+// the score on most real runs.
 type RunSummary struct {
-	PoliciesTotal   int     `json:"policies_total"`
-	PoliciesPassed  int     `json:"policies_passed"`
-	PoliciesFailed  int     `json:"policies_failed"`
-	PoliciesSkipped int     `json:"policies_skipped"`
-	PoliciesError   int     `json:"policies_error"`
-	PoliciesNA      int     `json:"policies_na"`
-	PoliciesWaived  int     `json:"policies_waived"`
-	ComplianceScore float64 `json:"compliance_score"`
+	PoliciesTotal          int     `json:"policies_total"`
+	PoliciesPassed         int     `json:"policies_passed"`
+	PoliciesFailed         int     `json:"policies_failed"`
+	PoliciesSkipped        int     `json:"policies_skipped"`
+	PoliciesError          int     `json:"policies_error"`
+	PoliciesNA             int     `json:"policies_na"`
+	PoliciesWaived         int     `json:"policies_waived"`
+	PoliciesCarriedForward int     `json:"policies_carried_forward"`
+	ComplianceScore        float64 `json:"compliance_score"`
 }
 
 // AggregatedPolicy is the per-policy projection that crosses the

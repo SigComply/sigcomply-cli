@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ import (
 
 type fakeAPI struct {
 	buckets         []s3types.Bucket
+	pages           [][]s3types.Bucket
 	enc             map[string]*s3types.ServerSideEncryptionConfiguration
 	encErr          map[string]error
 	publicAccess    map[string]*s3types.PublicAccessBlockConfiguration
@@ -29,10 +31,24 @@ type fakeAPI struct {
 	encCount  int
 }
 
-func (f *fakeAPI) ListBuckets(_ context.Context, _ *awss3.ListBucketsInput, _ ...func(*awss3.Options)) (*awss3.ListBucketsOutput, error) {
+func (f *fakeAPI) ListBuckets(_ context.Context, in *awss3.ListBucketsInput, _ ...func(*awss3.Options)) (*awss3.ListBucketsOutput, error) {
 	f.listCount++
 	if f.listErr != nil {
 		return nil, f.listErr
+	}
+	// When pages is set, serve one page per call keyed by the incoming
+	// ContinuationToken so the pagination loop is exercised end to end.
+	if len(f.pages) > 0 {
+		idx := 0
+		if in.ContinuationToken != nil {
+			idx, _ = strconv.Atoi(*in.ContinuationToken) //nolint:errcheck // test token is always a valid int
+		}
+		out := &awss3.ListBucketsOutput{Buckets: f.pages[idx]}
+		if idx+1 < len(f.pages) {
+			next := strconv.Itoa(idx + 1)
+			out.ContinuationToken = &next
+		}
+		return out, nil
 	}
 	return &awss3.ListBucketsOutput{Buckets: f.buckets}, nil
 }
@@ -104,6 +120,29 @@ func TestPlugin_InitNoOp(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
 	if err := p.Init(context.Background(), nil); err != nil {
 		t.Errorf("Init: %v", err)
+	}
+}
+
+func TestCollect_PaginatesAllBuckets(t *testing.T) {
+	created := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	fake := &fakeAPI{
+		pages: [][]s3types.Bucket{
+			{{Name: ptr("page0-a"), BucketRegion: ptr("us-east-1"), CreationDate: &created}},
+			{{Name: ptr("page1-a"), BucketRegion: ptr("us-east-1"), CreationDate: &created}},
+			{{Name: ptr("page2-a"), BucketRegion: ptr("us-east-1"), CreationDate: &created}},
+		},
+	}
+	p := New(Options{API: fake, Region: "us-east-1"})
+	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	// All three pages must be collected — not just the first.
+	if len(records) != 3 {
+		t.Fatalf("len(records) = %d; want 3 (buckets across all pages)", len(records))
+	}
+	if fake.listCount != 3 {
+		t.Errorf("listCount = %d; want 3 (one call per page)", fake.listCount)
 	}
 }
 

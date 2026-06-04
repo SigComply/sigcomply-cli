@@ -22,12 +22,16 @@ func techAccessPolicies() []core.Policy {
 	return []core.Policy{
 		autoPolicy{
 			id: "iso27001.8.2.privileged_mfa_enforced", control: "A.8.2", severity: core.SeverityCritical, category: "access", cadence: "daily",
-			// Common fields only (is_admin, mfa_enabled) — satisfiable by any
-			// identity source regardless of directory_user version.
+			// Requires is_admin AND mfa_enabled. Phrased as none(admin AND
+			// no-MFA) rather than a filter on is_admin so a source that does
+			// NOT populate is_admin (e.g. Okta, which can't determine admin
+			// status without a per-user roles call) ERRORS rather than
+			// filtering to an empty set and passing vacuously. Sources that
+			// do populate is_admin (AWS IAM, GitHub) evaluate correctly.
 			accepts: directoryUserTypes,
 			desc:    "Privileged users have MFA enabled.",
 			rem:     "Enable MFA for all admin users.",
-			clause:  allWhere(leaf("payload.is_admin", "eq", true), leaf("payload.mfa_enabled", "eq", true), "admin user {{.payload.display_name}} does not have MFA enabled"),
+			clause:  none(allOf(leaf("payload.is_admin", "eq", true), leaf("payload.mfa_enabled", "eq", false)), "admin user {{.payload.display_name}} does not have MFA enabled"),
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.8.3.storage_no_public_access", control: "A.8.3", severity: core.SeverityHigh, category: "data-protection", cadence: "daily",
@@ -204,7 +208,9 @@ func techLoggingPolicies() []core.Policy {
 			accepts: []string{"compute_instance"},
 			desc:    "Compute instances have monitoring enabled.",
 			rem:     "Enable detailed monitoring on each instance.",
-			clause:  all(leaf("payload.monitoring_enabled", "eq", true), "instance {{.payload.name}} does not have monitoring enabled"),
+			// Guarded with is_set so a source that omits the field (GCP) is
+			// scoped out as a coverage gap rather than a fabricated pass.
+			clause: allWhere(leaf("payload.monitoring_enabled", "is_set", nil), leaf("payload.monitoring_enabled", "eq", true), "instance {{.payload.name}} does not have monitoring enabled"),
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.8.16.security_aggregation_enabled", control: "A.8.16", severity: core.SeverityMedium, category: "monitoring", cadence: "daily",

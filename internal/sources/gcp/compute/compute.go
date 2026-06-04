@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	gce "google.golang.org/api/compute/v1"
@@ -104,7 +105,15 @@ type instancePayload struct {
 	IsRunning           bool   `json:"is_running"`
 	HasPublicIP         bool   `json:"has_public_ip"`
 	RootVolumeEncrypted bool   `json:"root_volume_encrypted"`
-	MonitoringEnabled   bool   `json:"monitoring_enabled"`
+	// MonitoringEnabled is a pointer so it can be OMITTED for GCP: the
+	// Compute Engine API exposes no per-instance "detailed monitoring"
+	// signal comparable to AWS detailed monitoring (it depends on the Ops
+	// Agent, which isn't queryable here). Emitting a hardcoded true would
+	// make the monitoring policy a tautological pass for GCP, so we leave
+	// it unset — the policy guards with is_set and scopes GCP instances
+	// out as a known, documented coverage gap rather than a fabricated
+	// pass. The compute_instance schema lists this field as optional.
+	MonitoringEnabled *bool `json:"monitoring_enabled,omitempty"`
 	// GCP-specific extras
 	NumericID                 uint64   `json:"numeric_id,omitempty"`
 	Zone                      string   `json:"zone,omitempty"`
@@ -138,14 +147,14 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		}
 		emails := serviceAccountEmails(inst)
 		payload := instancePayload{
-			ID:                        inst.Name,
-			Name:                      inst.Name,
-			Provider:                  "gcp",
-			Region:                    shortZone(inst.Zone),
-			IsRunning:                 inst.Status == "RUNNING",
-			HasPublicIP:               hasPublicIP(inst),
-			RootVolumeEncrypted:       true, // GCP encrypts all persistent disks at rest by default
-			MonitoringEnabled:         true, // GCP Compute Engine emits basic Cloud Monitoring metrics by default
+			ID:                  inst.Name,
+			Name:                inst.Name,
+			Provider:            "gcp",
+			Region:              regionFromZone(inst.Zone),
+			IsRunning:           inst.Status == "RUNNING",
+			HasPublicIP:         hasPublicIP(inst),
+			RootVolumeEncrypted: true, // GCP encrypts all persistent disks at rest by default
+			// MonitoringEnabled deliberately left nil — see field doc.
 			NumericID:                 inst.Id,
 			Zone:                      shortZone(inst.Zone),
 			MachineType:               shortName(inst.MachineType),
@@ -250,6 +259,20 @@ func shortName(url string) string {
 // readability — the URL shape is identical so the implementation is
 // the same.
 func shortZone(url string) string { return shortName(url) }
+
+// regionFromZone derives the GCP region from a zone URL or bare zone by
+// dropping the trailing "-<letter>" zone suffix: "us-central1-a" →
+// "us-central1". The cross-vendor region field should carry an actual
+// region (AWS reports one), not the zone — otherwise report grouping or
+// any future cross-source region rule would mismatch. The full zone is
+// preserved separately in the GCP-specific zone field.
+func regionFromZone(zoneURL string) string {
+	zone := shortZone(zoneURL)
+	if i := strings.LastIndexByte(zone, '-'); i > 0 {
+		return zone[:i]
+	}
+	return zone
+}
 
 // realCompute is the production implementation of API. It wraps
 // *compute.Service and uses AggregatedList for cross-zone enumeration.

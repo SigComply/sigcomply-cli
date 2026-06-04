@@ -175,7 +175,7 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 	}
 
 	completedAt := nowOrFallback(opts.Now)
-	stampNextDue(results, plan)
+	stampNextDue(results, plan, startedAt)
 	persistResults(ctx, rec, opts.Logger, runRoot, results, runID, plan, completedAt)
 
 	if err := writeManifest(ctx, rec, opts.Logger, runRoot, runID, plan, startedAt, completedAt); err != nil {
@@ -289,7 +289,12 @@ func computeSchemaDigests(set *registry.Set) map[string]string {
 // evaluation. A pass produces NextDueAt = startedAt + interval; any
 // other terminal status leaves NextDueAt zero so the planner's
 // on_fail_retry rule will fire the next run.
-func stampNextDue(results []core.PolicyResult, plan *planner.RunPlan) {
+//
+// The baseline is the run-start time (the same value the per-policy
+// state shard uses in AdvancePolicyState), so the NextDueAt sent to the
+// cloud matches the NextDueAt persisted to state, and deterministic
+// runs (injected opts.Now) produce deterministic output.
+func stampNextDue(results []core.PolicyResult, plan *planner.RunPlan, startedAt time.Time) {
 	cadenceByPolicy := make(map[string]string, len(plan.Policies))
 	for i := range plan.Policies {
 		cadenceByPolicy[plan.Policies[i].Spec.ID] = plan.Policies[i].Cadence
@@ -304,11 +309,7 @@ func stampNextDue(results []core.PolicyResult, plan *planner.RunPlan) {
 		if interval == 0 {
 			continue
 		}
-		// Use the run-start-equivalent baseline; we don't have it on the
-		// result, but result writes happen close to startedAt so we use
-		// the time at which NextDueAt is computed which is the run
-		// completion path — close enough for cadence display.
-		r.NextDueAt = time.Now().UTC().Add(interval)
+		r.NextDueAt = startedAt.UTC().Add(interval)
 	}
 }
 
@@ -338,7 +339,16 @@ func emitPlanWarnings(logger *log.Logger, plan *planner.RunPlan, now time.Time) 
 			}
 			continue
 		}
-		if pp.PriorState.LastRunAt.Before(now.Add(-gapThreshold)) {
+		// A "gap" means the policy is stale relative to its OWN cadence,
+		// not a fixed 30d window: a quarterly/annual policy correctly goes
+		// >30d between evaluations and carries forward by design. Use the
+		// larger of the fixed floor and 1.5× the cadence interval so the
+		// warning only fires for genuinely overdue policies.
+		staleAfter := gapThreshold
+		if iv := planner.CadenceInterval(pp.Cadence); time.Duration(float64(iv)*1.5) > staleAfter {
+			staleAfter = time.Duration(float64(iv) * 1.5)
+		}
+		if pp.PriorState.LastRunAt.Before(now.Add(-staleAfter)) {
 			gapped = append(gapped, pp.Spec.ID)
 		}
 	}

@@ -172,3 +172,26 @@ func TestEncodeHandlesRawMessage(t *testing.T) {
 		t.Errorf("Encode = %q; want %q", got, want)
 	}
 }
+
+func TestEncodePreservesLargeIntegers(t *testing.T) {
+	// EvidenceRecord payloads carry arbitrary vendor JSON, including
+	// 64-bit IDs and epoch-nanosecond timestamps that exceed 2^53. These
+	// are what gets signed and persisted as audit evidence — a float64
+	// re-parse would silently round them. The canonical encoder must
+	// preserve the exact digits.
+	body := struct {
+		Payload json.RawMessage `json:"payload"`
+	}{
+		// 9007199254740993 = 2^53 + 1 (first integer float64 cannot
+		// represent); the second is near uint64 max.
+		Payload: json.RawMessage(`{"big":18446744073709551615,"id":9007199254740993}`),
+	}
+	got, err := Encode(body)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	want := `{"payload":{"big":18446744073709551615,"id":9007199254740993}}`
+	if string(got) != want {
+		t.Errorf("Encode = %q; want %q (large integers must not be rounded)", got, want)
+	}
+}

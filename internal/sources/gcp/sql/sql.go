@@ -180,11 +180,25 @@ func engineFromVersion(version string) string {
 	return strings.ToLower(family)
 }
 
+// ipCfgRequireSSL reports whether the instance enforces TLS for
+// connections. The legacy RequireSsl boolean is often left false on
+// modern instances that instead enforce TLS via SslMode
+// (ENCRYPTED_ONLY / TRUSTED_CLIENT_CERTIFICATE_REQUIRED), so an
+// instance is SSL-enforced if EITHER signal says so. Reading only
+// RequireSsl false-fails fully-TLS-enforced instances.
 func ipCfgRequireSSL(inst *sqladmin.DatabaseInstance) bool {
 	if inst.Settings == nil || inst.Settings.IpConfiguration == nil {
 		return false
 	}
-	return inst.Settings.IpConfiguration.RequireSsl
+	ip := inst.Settings.IpConfiguration
+	return ip.RequireSsl || isEnforcingSSLMode(ip.SslMode)
+}
+
+// isEnforcingSSLMode reports whether a Cloud SQL SslMode value mandates
+// TLS. "ALLOW_UNENCRYPTED_AND_ENCRYPTED" does not; the two enforcing
+// modes do.
+func isEnforcingSSLMode(mode string) bool {
+	return mode == "ENCRYPTED_ONLY" || mode == "TRUSTED_CLIENT_CERTIFICATE_REQUIRED"
 }
 
 func ipCfgSSLMode(inst *sqladmin.DatabaseInstance) string {

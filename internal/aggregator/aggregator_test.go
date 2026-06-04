@@ -41,18 +41,47 @@ func TestBuild_CountsSummaryAndComplianceScore(t *testing.T) {
 		{PolicyID: "e", Status: core.StatusError},
 		{PolicyID: "f", Status: core.StatusNA},
 		{PolicyID: "g", Status: core.StatusWaived},
+		{PolicyID: "h", Status: core.StatusCarriedForward},
 	}
 	got := Build(results, &Environment{})
 	s := got.Summary
-	if s.PoliciesTotal != 7 || s.PoliciesPassed != 2 || s.PoliciesFailed != 1 ||
-		s.PoliciesSkipped != 1 || s.PoliciesError != 1 || s.PoliciesNA != 1 || s.PoliciesWaived != 1 {
+	if s.PoliciesTotal != 8 || s.PoliciesPassed != 2 || s.PoliciesFailed != 1 ||
+		s.PoliciesSkipped != 1 || s.PoliciesError != 1 || s.PoliciesNA != 1 || s.PoliciesWaived != 1 ||
+		s.PoliciesCarriedForward != 1 {
 		t.Errorf("summary counts mismatch: %+v", s)
 	}
-	// denominator = total - skipped - na = 7 - 1 - 1 = 5
-	// numerator   = passed + waived = 2 + 1 = 3
-	// score       = 3/5 = 0.6
-	if s.ComplianceScore < 0.59 || s.ComplianceScore > 0.61 {
-		t.Errorf("ComplianceScore = %v; want ~0.6", s.ComplianceScore)
+	// Every status bucket must sum to the total — guards against a future
+	// status being added to the enum but not to buildSummary (the exact
+	// gap that hid the carried-forward undercount).
+	bucketSum := s.PoliciesPassed + s.PoliciesFailed + s.PoliciesSkipped +
+		s.PoliciesError + s.PoliciesNA + s.PoliciesWaived + s.PoliciesCarriedForward
+	if bucketSum != s.PoliciesTotal {
+		t.Errorf("status buckets sum to %d; want PoliciesTotal=%d", bucketSum, s.PoliciesTotal)
+	}
+	// denominator = total - skipped - na = 8 - 1 - 1 = 6
+	// numerator   = passed + waived + carried_forward = 2 + 1 + 1 = 4
+	// score       = 4/6 = 0.666…
+	if s.ComplianceScore < 0.66 || s.ComplianceScore > 0.67 {
+		t.Errorf("ComplianceScore = %v; want ~0.667", s.ComplianceScore)
+	}
+}
+
+// TestBuild_CarriedForwardScoresAsPass guards the steady-state case:
+// a run dominated by carried-forward (previously-passing) policies must
+// not report a depressed compliance score.
+func TestBuild_CarriedForwardScoresAsPass(t *testing.T) {
+	results := make([]core.PolicyResult, 0, 10)
+	for i := 0; i < 8; i++ {
+		results = append(results, core.PolicyResult{PolicyID: "cf", Status: core.StatusCarriedForward})
+	}
+	results = append(results,
+		core.PolicyResult{PolicyID: "p1", Status: core.StatusPass},
+		core.PolicyResult{PolicyID: "p2", Status: core.StatusPass},
+	)
+	s := Build(results, &Environment{}).Summary
+	// 8 carried + 2 pass, nothing skipped/na => score must be 1.0, not 0.2.
+	if s.ComplianceScore < 0.999 {
+		t.Errorf("ComplianceScore = %v; want 1.0 (carried-forward counts as pass)", s.ComplianceScore)
 	}
 }
 
@@ -94,6 +123,7 @@ func TestBuild_MessagePerStatus(t *testing.T) {
 		{core.StatusError, "Evaluation error", 0, 0},
 		{core.StatusNA, "Not applicable", 0, 0},
 		{core.StatusWaived, "Waived by exception", 1, 5},
+		{core.StatusCarriedForward, "Carried forward", 0, 5},
 	}
 	for _, c := range cases {
 		got := generateMessage(&core.PolicyResult{

@@ -250,38 +250,52 @@ func evalCondition(cond *core.PassWhenCondition, rec *core.EvidenceRecord, param
 			cond.Field, rec.ID, rec.Type)
 	}
 	rhs := resolveValue(cond.Value, params)
-	return evalComparisonOp(cond.Op, lhs, rhs), nil
+	return evalComparisonOp(cond.Op, lhs, rhs)
 }
 
-// evalComparisonOp dispatches binary comparison operators.
-func evalComparisonOp(op string, lhs, rhs any) bool {
+// evalComparisonOp dispatches binary comparison operators. The ordered
+// operators (lt/lte/gt/gte) return an error when either operand is
+// non-numeric: comparing a string field with < is a policy/evidence
+// mismatch that must surface as status=error, never silently evaluate
+// to true (the old behavior collapsed non-numerics to 0, so gte/lte
+// returned true for any string field — a silent false-pass).
+func evalComparisonOp(op string, lhs, rhs any) (bool, error) {
 	switch op {
 	case "eq":
-		return deepEqual(lhs, rhs)
+		return deepEqual(lhs, rhs), nil
 	case "neq":
-		return !deepEqual(lhs, rhs)
-	case "lt":
-		return compareNumeric(lhs, rhs) < 0
-	case "lte":
-		return compareNumeric(lhs, rhs) <= 0
-	case "gt":
-		return compareNumeric(lhs, rhs) > 0
-	case "gte":
-		return compareNumeric(lhs, rhs) >= 0
+		return !deepEqual(lhs, rhs), nil
+	case "lt", "lte", "gt", "gte":
+		cmp, ok := compareNumeric(lhs, rhs)
+		if !ok {
+			return false, fmt.Errorf("operator %q requires numeric operands, got %T and %T", op, lhs, rhs)
+		}
+		switch op {
+		case "lt":
+			return cmp < 0, nil
+		case "lte":
+			return cmp <= 0, nil
+		case "gt":
+			return cmp > 0, nil
+		default: // gte
+			return cmp >= 0, nil
+		}
 	case "in":
-		return containsValue(lhs, rhs)
+		return containsValue(lhs, rhs), nil
 	case "not_in":
-		return !containsValue(lhs, rhs)
+		return !containsValue(lhs, rhs), nil
 	}
-	return false
+	return false, fmt.Errorf("unknown comparison operator %q", op)
 }
 
 // getField navigates a dot-path to extract a value from an EvidenceRecord.
 // Supported paths:
 //   - "id", "type", "source_id" — top-level record fields
 //   - "payload.<key>.<...>" — dot-path into the JSON payload
-//   - "$params.<name>" — policy effective parameter (handled by resolveValue;
-//     getField returns ok=false for $params paths so callers handle them via rhs)
+//
+// $params.<name> is NOT resolved here: parameters are only valid on the
+// Value (RHS) side of a condition, where resolveValue expands them. A
+// "$params.*" Field would fall through to the not-found path and error.
 func getField(rec *core.EvidenceRecord, path string) (any, bool) {
 	if rec == nil {
 		return nil, false
@@ -346,13 +360,23 @@ func resolveValue(v any, params map[string]any) any {
 // deepEqual compares two values with type coercion for JSON numeric types.
 // JSON unmarshalling produces float64 for all numbers; policy YAML produces
 // int or float64. We normalise both sides to float64 before comparing.
+//
+// If exactly one side is numeric, the values are NOT equal: a string
+// field "5" must not match the number 5 (JSON types are distinct, and
+// evidence types are schema-validated, so a type mismatch is a real
+// difference, not an equality). The string fallback applies only when
+// neither side is numeric (booleans, strings).
 func deepEqual(a, b any) bool {
 	af := toFloat64(a)
 	bf := toFloat64(b)
 	if af != nil && bf != nil {
 		return *af == *bf
 	}
-	// Non-numeric: fall back to string comparison for booleans and strings.
+	if af != nil || bf != nil {
+		// Exactly one numeric — different JSON types, never equal.
+		return false
+	}
+	// Neither numeric: compare booleans and strings by string form.
 	return fmt.Sprint(a) == fmt.Sprint(b)
 }
 
@@ -376,21 +400,23 @@ func toFloat64(v any) *float64 {
 	return nil
 }
 
-// compareNumeric returns -1, 0, or 1 for numeric comparisons.
-// Returns 0 on non-numeric inputs (condition will produce false for lt/gt).
-func compareNumeric(a, b any) int {
+// compareNumeric returns (-1|0|1, true) for numeric comparisons, or
+// (0, false) when either input is non-numeric. Callers must treat
+// ok=false as "incomparable" and surface an error rather than defaulting
+// to a comparison result.
+func compareNumeric(a, b any) (int, bool) {
 	af := toFloat64(a)
 	bf := toFloat64(b)
 	if af == nil || bf == nil {
-		return 0
+		return 0, false
 	}
 	switch {
 	case *af < *bf:
-		return -1
+		return -1, true
 	case *af > *bf:
-		return 1
+		return 1, true
 	default:
-		return 0
+		return 0, true
 	}
 }
 

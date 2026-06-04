@@ -396,6 +396,15 @@ func validatePassWhenClause(raw *passWhenClauseRaw) error {
 	if raw.Condition == nil {
 		return fmt.Errorf("pass_when clause missing required field \"condition\"")
 	}
+	// Validate the filter too. An invalid filter op (e.g. a typo like
+	// "contains") otherwise loads cleanly, then excludes every record at
+	// runtime (filterRecords swallows the dispatch error), so an all/none/
+	// count quantifier passes vacuously — a silent compliance bypass.
+	if raw.Filter != nil {
+		if err := validatePassWhenCondition(raw.Filter); err != nil {
+			return fmt.Errorf("filter: %w", err)
+		}
+	}
 	return validatePassWhenCondition(raw.Condition)
 }
 
@@ -456,12 +465,16 @@ var validCadences = map[string]struct{}{
 	"annual":     {},
 }
 
-// everyCadencePrefix duplicates planner.everyCadencePrefix to avoid
-// an import cycle (spec → planner). Kept in sync by tests.
+// everyCadencePrefix duplicates planner.everyCadencePrefix to avoid an
+// import cycle (planner imports spec, so spec must not import planner).
+// The duplication is guarded by TestCadenceValidation_SpecMatchesPlanner
+// in the planner package's external test, which drives a battery of
+// cadence strings (including the 5-minute floor) through both
+// spec.LoadPolicy and planner.ValidateCadence and asserts they agree.
 const everyCadencePrefix = "every:"
 
 // minEveryDuration mirrors planner.minEveryDuration; see the comment
-// there for the rationale.
+// there for the rationale. Kept in sync by the test named above.
 const minEveryDuration = 5 * time.Minute
 
 // isNamedCadence reports whether c is one of the seven canonical

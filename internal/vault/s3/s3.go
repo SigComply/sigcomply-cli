@@ -164,8 +164,12 @@ func (v *Vault) List(ctx context.Context, prefix string) ([]string, error) {
 				continue
 			}
 			// Strip the configured vault prefix so callers see vault-
-			// relative keys, matching the local backend's behavior.
-			k := strings.TrimPrefix(*obj.Key, v.Prefix)
+			// relative keys, matching the local backend's behavior. Strip
+			// the SAME prefix-plus-separator that fullKey prepended on
+			// write — stripping bare v.Prefix when it lacks a trailing
+			// slash would leave a spurious leading "/" that breaks exact-
+			// prefix matching in report and state enumeration.
+			k := strings.TrimPrefix(*obj.Key, v.keyPrefix())
 			keys = append(keys, k)
 		}
 		if out.IsTruncated == nil || !*out.IsTruncated {
@@ -192,13 +196,21 @@ func (v *Vault) put(ctx context.Context, key string, body []byte, contentType st
 }
 
 func (v *Vault) fullKey(key string) string {
+	return v.keyPrefix() + key
+}
+
+// keyPrefix returns the configured prefix including its trailing
+// separator (the exact string fullKey prepends to every stored key), or
+// "" when no prefix is set. List strips this same value so round-tripped
+// keys stay vault-relative with no leading slash.
+func (v *Vault) keyPrefix() string {
 	if v.Prefix == "" {
-		return key
+		return ""
 	}
 	if strings.HasSuffix(v.Prefix, "/") {
-		return v.Prefix + key
+		return v.Prefix
 	}
-	return v.Prefix + "/" + key
+	return v.Prefix + "/"
 }
 
 // isNotFound reports whether the error wraps a NoSuchKey-style S3

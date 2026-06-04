@@ -2,12 +2,14 @@
 
 SigComply CLI can be configured through three sources, listed from lowest to highest priority:
 
-1. **Config file** (`.sigcomply.yaml`)
-2. **Environment variables** (`SIGCOMPLY_*` and provider-specific)
-3. **CLI flags** (`--framework`, `--region`, etc.)
+1. **Config file** (`.sigcomply.yaml`) — the primary source: framework, vault, sources, bindings.
+2. **Environment variables** (`SIGCOMPLY_FRAMEWORK` plus provider credentials).
+3. **CLI flags** (run-mode and cloud flags — see [CLI Flags](#cli-flags)).
 
-Higher-priority sources override lower ones. For example, `--framework iso27001` beats
-`SIGCOMPLY_FRAMEWORK=soc2` which beats `framework: soc2` in the config file.
+Higher-priority sources override lower ones where they overlap. Note the
+flag surface is narrow: most settings (framework, storage, sources) are
+config-only. For the framework specifically, `SIGCOMPLY_FRAMEWORK=soc2`
+beats `framework:` in the config; there is no `--framework` flag on `check`.
 
 ---
 
@@ -33,21 +35,20 @@ See [`docs/architecture/01-conceptual-model.md`](architecture/01-conceptual-mode
 ## Quick Start
 
 ```bash
-# Minimal — just have AWS credentials and run:
-sigcomply check
-
-# With GitHub:
-export GITHUB_TOKEN=ghp_...
-sigcomply check --github-org my-org
-
-# With a config file:
+# A config file is required (it selects the framework, vault, and sources).
 cat > .sigcomply.yaml <<EOF
+schema_version: project.v1
 framework: soc2
-aws:
-  regions: [us-east-1]
-github:
-  org: my-org
+vault:
+  backend: local
+  path: ./.sigcomply/vault
+sources:
+  aws.iam: { region: us-east-1 }
+  github:  { org: my-org }
 EOF
+
+# Provide credentials via the provider's normal env vars, then run:
+export GITHUB_TOKEN=ghp_...
 sigcomply check
 ```
 
@@ -80,7 +81,12 @@ The CLI uses the standard [AWS SDK credential chain](https://aws.github.io/aws-s
       "Action": [
         "iam:ListUsers",
         "iam:ListMFADevices",
-        "iam:GetLoginProfile",
+        "iam:ListAccessKeys",
+        "iam:ListAttachedUserPolicies",
+        "iam:ListGroupsForUser",
+        "iam:ListAttachedGroupPolicies",
+        "iam:GenerateCredentialReport",
+        "iam:GetCredentialReport",
         "s3:ListAllMyBuckets",
         "s3:GetBucketVersioning",
         "s3:GetBucketEncryption",
@@ -129,86 +135,95 @@ If no file is found, the CLI uses defaults. This is not an error.
 
 ### Full Example
 
+The config is parsed with strict key checking (`yaml.KnownFields(true)`):
+an unknown top-level key is a hard error, so the keys below are the
+complete, authoritative set. A full annotated reference lives at
+[`docs/architecture/examples/acmecorp.sigcomply.yaml`](architecture/examples/acmecorp.sigcomply.yaml).
+
 ```yaml
-# Compliance framework to evaluate
-framework: soc2                    # Options: soc2, iso27001 (iso27001 is early-stage)
+# Schema version — required, currently always project.v1.
+schema_version: project.v1
 
-# AWS settings (credentials come from environment / IAM, not here)
-aws:
-  regions:
-    - us-east-1
-    - eu-west-1
+# Compliance framework to evaluate (singular key). Options: soc2, iso27001.
+# (hipaa is a placeholder string only and fails at runtime.)
+framework: soc2
 
-# GitHub settings (token comes from GITHUB_TOKEN env var, not here)
-github:
-  org: my-org
+# Audit period model — how the run's period_id is derived.
+period:
+  fiscal_calendar:
+    type: calendar_quarter        # calendar_quarter | calendar_year | fiscal_year
+  time_basis: commit              # commit | wall_clock
 
-# GCP settings (credentials come from ADC / Workload Identity, not here)
-gcp:
-  project_id: my-gcp-project
+# Evidence vault — where signed envelopes, results, and the run manifest land.
+vault:
+  backend: s3                     # local | s3 | gcs | azure_blob
+  bucket: my-evidence
+  region: us-east-1
+  prefix: sigcomply/              # trailing slash recommended
 
-# Policy filtering (optional — omit to run all policies)
-policies:                            # Run only these policies by name
-  - cc6_1_mfa
-  - cc6_1_github_mfa
-controls:                            # Or run only policies for these control IDs
-  - CC6.1
-  - CC7.1
-
-# Output settings
-output:
-  format: text                     # Options: text, json, junit
-  verbose: false
-
-# CI/CD behavior
-ci:
-  fail_on_violation: true          # Exit code 1 on violations
-  fail_severity: low               # Minimum severity to fail: low, medium, high, critical
-
-# Evidence storage (used for automated evidence + signed envelopes)
-storage:
-  enabled: false
-  backend: local                   # Options: local, s3, gcs, azure_blob
-  local:
-    path: ./.sigcomply/evidence
-  s3:
-    bucket: my-bucket
+# Sources — keyed by plugin id; the value is that plugin's config.
+# A source is bound to policy slots via `bindings` (below). Manual
+# evidence is one project-level source under the reserved key manual.pdf.
+sources:
+  aws.iam:        { region: us-east-1 }
+  aws.s3:         { region: us-east-1 }
+  github:         { org: my-org }
+  okta:           { domain: my.okta.com }
+  manual.pdf:
+    backend: s3                   # local | s3 | gcs | azure_blob
+    bucket: my-evidence
     region: us-east-1
-    prefix: compliance/
-    # On-prem S3-compatible (MinIO, Ceph, ECS, StorageGRID) — optional:
-    # endpoint: https://minio.internal.corp:9000
-    # force_path_style: true
-    # auth:                        # Optional; defaults to ambient creds
-    #   mode: oidc                 # ambient | oidc
-    #   role_arn: arn:aws:iam::123:role/sigcomply-evidence
+    prefix: manual/
 
-# Manual evidence (files uploaded by users to a known folder).
-# Each framework can read from its own backend.
-manual_evidence:
-  enabled: true
-  default:                         # Fallback for any framework not listed below
-    backend: s3
-    s3:
-      bucket: shared-evidence
-      region: us-east-1
-      prefix: manual/
-  frameworks:
-    soc2:
-      backend: s3
-      s3: { bucket: soc2-evidence, region: us-east-1 }
-    iso27001:
-      backend: azure_blob
-      azure_blob: { account: iso27001ev, container: evidence }
+# Bindings — map a policy's slot(s) to one or more sources. A manual
+# binding references a catalog entry as "manual.pdf:<evidence_catalog_id>".
+bindings:
+  soc2.cc6.1.mfa_enforced:
+    user_directory: [okta, aws.iam]
+  soc2.cc6.1.access_review_quarterly:
+    review_document: [manual.pdf:access_review_quarterly]
 
-# SigComply Cloud (auto-enabled when OIDC is available in CI)
+# Per-policy parameter overrides.
+policy_parameters:
+  soc2.cc6.1.access_key_rotation:
+    max_age_days: 60
+
+# Per-policy cadence overrides (drives CI scheduling; see Cadence below).
+policy_cadences:
+  soc2.cc6.1.mfa_enforced: hourly
+
+# Per-policy evidence_mode override (automated <-> manual migration path).
+policy_overrides:
+  soc2.cc6.1.access_review_quarterly:
+    evidence_mode: manual
+
+# Exceptions — waivers / not-applicable, versioned in git with justifications.
+exceptions:
+  - policy: soc2.cc6.7.waf_in_front_of_web_app
+    state: na                     # waived | na
+    reason: "API-only product; no public web app requiring a WAF."
+
+# SigComply Cloud submission (OIDC-only; auto-enables in CI).
 cloud:
-  enabled: false
+  enabled: true
+
+# Output and CI behavior.
+output:
+  format: text                    # text | json | junit (json/csv only honored by `report`)
+  json_path: ./compliance-report.json
+ci:
+  fail_on_violation: true         # exit 1 on violations (config-only; no flag)
+  fail_severity: high             # info | low | medium | high | critical (config-only; no flag)
 ```
 
 ### Minimal Example
 
 ```yaml
+schema_version: project.v1
 framework: soc2
+vault:
+  backend: local
+  path: ./.sigcomply/vault
 ```
 
 Everything else uses sensible defaults.
@@ -219,65 +234,24 @@ Everything else uses sensible defaults.
 
 ### SigComply Settings
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SIGCOMPLY_FRAMEWORK` | `soc2` | Compliance framework |
-| `SIGCOMPLY_POLICIES` | — | Comma-separated policy names to run (e.g., `cc6_1_mfa,cc6_1_github_mfa`) |
-| `SIGCOMPLY_CONTROLS` | — | Comma-separated control IDs to run (e.g., `CC6.1,CC7.1`) |
-| `SIGCOMPLY_OUTPUT_FORMAT` | `text` | Output format: text, json, junit |
-| `SIGCOMPLY_VERBOSE` | `false` | Set to `true` for verbose output |
-| `SIGCOMPLY_FAIL_ON_VIOLATION` | `true` | Set to `false` to always exit 0 |
-
-### Provider Settings
+These are the only `SIGCOMPLY_*` variables the CLI reads. Everything else
+(vault, sources, storage backends, manual evidence) is configured in
+`.sigcomply.yaml` — there are no `SIGCOMPLY_STORAGE_*`,
+`SIGCOMPLY_MANUAL_EVIDENCE_*`, `SIGCOMPLY_POLICIES`, or
+`SIGCOMPLY_OUTPUT_FORMAT` variables.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SIGCOMPLY_AWS_REGION` | Auto-detect | AWS region (single region) |
-| `SIGCOMPLY_GCP_PROJECT` | — | GCP project ID (used by the GCP collector) |
-| `SIGCOMPLY_GITHUB_ORG` | — | GitHub organization to collect from |
+| `SIGCOMPLY_FRAMEWORK` | `soc2` | Compliance framework (overrides `framework:` in the config; overridden by no flag — `check` reads config/env only) |
+| `SIGCOMPLY_ID_TOKEN` | — | OIDC ID token for Cloud submission when not injected by the CI provider's native mechanism |
+| `SIGCOMPLY_VERSION` | build value | Overrides the reported CLI version (used in CI image builds) |
 
-### Storage Settings
-
-The `storage` block configures the **automated evidence vault**. Manual
-evidence has its own per-framework configuration under `manual_evidence`
-(see below).
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SIGCOMPLY_STORAGE_ENABLED` | `false` | Set to `true` to enable evidence storage |
-| `SIGCOMPLY_STORAGE_BACKEND` | `local` | Storage backend: `local`, `s3`, `gcs`, `azure_blob` |
-| `SIGCOMPLY_STORAGE_PATH` | `./.sigcomply/evidence` | Local storage directory |
-| `SIGCOMPLY_STORAGE_BUCKET` | — | Bucket / container name (S3, GCS) |
-| `SIGCOMPLY_STORAGE_REGION` | — | AWS region (S3 only) |
-| `SIGCOMPLY_STORAGE_PREFIX` | — | Object name prefix |
-| `SIGCOMPLY_STORAGE_S3_ENDPOINT` | — | Custom S3 endpoint URL for on-prem (MinIO, Ceph, ECS) |
-| `SIGCOMPLY_STORAGE_S3_FORCE_PATH_STYLE` | `false` | Use path-style addressing (required by most on-prem stores) |
-| `SIGCOMPLY_STORAGE_S3_AUTH_MODE` | `ambient` | `ambient` or `oidc` |
-| `SIGCOMPLY_STORAGE_S3_AUTH_ROLE_ARN` | — | IAM role to assume via STS AssumeRoleWithWebIdentity (when `oidc`) |
-| `SIGCOMPLY_STORAGE_S3_AUTH_AUDIENCE` | `sts.amazonaws.com` | Audience claim sent to STS (override for sovereign clouds) |
-| `SIGCOMPLY_STORAGE_S3_AUTH_SESSION_NAME` | `sigcomply-cli` | STS session name used in CloudTrail / IAM logs |
-| `SIGCOMPLY_STORAGE_GCS_PROJECT_ID` | — | GCP project ID (optional) |
-| `SIGCOMPLY_STORAGE_GCS_AUTH_MODE` | `ambient` | `ambient` or `oidc` |
-| `SIGCOMPLY_STORAGE_GCS_AUTH_AUDIENCE` | provider default | Audience claim sent to the WIF provider |
-| `SIGCOMPLY_STORAGE_GCS_AUTH_WORKLOAD_IDENTITY_PROVIDER` | — | Full WIF provider resource name |
-| `SIGCOMPLY_STORAGE_GCS_AUTH_SERVICE_ACCOUNT` | — | Service account email to impersonate |
-| `SIGCOMPLY_STORAGE_AZURE_ACCOUNT` | — | Azure storage account name |
-| `SIGCOMPLY_STORAGE_AZURE_CONTAINER` | — | Azure blob container |
-| `SIGCOMPLY_STORAGE_AZURE_ENDPOINT` | `https://{account}.blob.core.windows.net` | Custom blob endpoint (sovereign clouds, Azurite) |
-| `SIGCOMPLY_STORAGE_AZURE_AUTH_MODE` | `ambient` | `ambient` or `oidc` |
-| `SIGCOMPLY_STORAGE_AZURE_AUTH_AUDIENCE` | `api://AzureADTokenExchange` | Audience claim for the federated client assertion |
-| `SIGCOMPLY_STORAGE_AZURE_AUTH_TENANT_ID` | — | Azure AD tenant ID (when `oidc`) |
-| `SIGCOMPLY_STORAGE_AZURE_AUTH_CLIENT_ID` | — | Azure AD app registration client ID (when `oidc`) |
-
-### Manual Evidence Settings
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SIGCOMPLY_MANUAL_EVIDENCE_ENABLED` | `false` | Set to `true` to enable manual evidence collection |
-
-Per-framework backend selection lives in the YAML file under
-`manual_evidence.frameworks.<framework>`. Env vars only toggle the
-feature on/off.
+Storage backends (vault and manual evidence) are configured under
+`vault:` and `sources.manual.pdf` in the config file — see
+[Storage Backends](#storage-backends) and
+[Manual Evidence Sources](#manual-evidence-sources). Credentials always
+come from the provider's ambient chain or the OIDC variables below, never
+from `SIGCOMPLY_*` keys.
 
 ### Provider Credentials (Not SigComply-Specific)
 
@@ -379,44 +353,28 @@ federated client assertion via `ClientAssertionCredential`.
 ## Manual Evidence Sources
 
 Manual evidence — the user-supplied PDFs that prove non-automatable
-controls (signed NDAs, training certs, access reviews, …) — has its
-own backend selection per framework. A typical setup keeps SOC 2
-evidence in one bucket and ISO 27001 evidence in another, possibly on
-a different cloud.
+controls (signed NDAs, training certs, access reviews, …) — is a
+**project-level singleton**: one repo = one framework, so there is
+exactly one manual-evidence source and one bucket per project. It is
+configured under the reserved source key `manual.pdf` (NOT a separate
+top-level `manual_evidence` block, and NOT per-framework). Multi-framework
+customers use multiple repos, each with its own `manual.pdf` source.
 
 ```yaml
-manual_evidence:
-  enabled: true
-
-  # Fallback for any framework not listed below.
-  default:
-    backend: s3
-    s3:
-      bucket: shared-manual-evidence
-      region: us-east-1
-      prefix: manual/
-
-  # Per-framework overrides.
-  frameworks:
-    soc2:
-      backend: s3
-      s3:
-        bucket: soc2-manual-evidence
-        region: us-east-1
-        prefix: ""
-    iso27001:
-      backend: gcs
-      gcs:
-        bucket: iso27001-manual-evidence
-        prefix: manual/
-        auth:
-          mode: oidc
-          workload_identity_provider: projects/123/locations/global/workloadIdentityPools/sigcomply/providers/github
-          service_account: iso27001-evidence@my-project.iam.gserviceaccount.com
+sources:
+  manual.pdf:
+    backend: s3            # local | s3 | gcs | azure_blob
+    bucket: my-evidence
+    region: us-east-1
+    prefix: manual/
+    # On-prem S3-compatible stores: add endpoint + force_path_style.
+    # OIDC auth: add an auth: { mode: oidc, ... } block, same shape as
+    # the vault backends documented under Storage Backends above.
 ```
 
-Resolution at run time for framework `F`:
-`frameworks[F]` → `default` → validation error.
+The backend choices and auth modes are identical to the vault backends
+(see [Storage Backends](#storage-backends)); `manual.pdf` simply points at
+wherever your users upload files.
 
 ### Folder layout per evidence ID
 
@@ -448,12 +406,17 @@ exactly which file to replace.
 
 When evidence is missing, the CLI surfaces the exact folder URI in the
 violation message (e.g.
-`s3://soc2-manual-evidence/quarterly_access_review/2026-Q1/`).
-You can also query it directly:
+`s3://my-evidence/manual/quarterly_access_review/2026-Q1/`). To see the
+full manual-evidence catalog (every `evidence_catalog_id` and its
+metadata), run:
 
 ```bash
-sigcomply evidence path quarterly_access_review
+sigcomply evidence catalog --framework soc2          # human-readable
+sigcomply evidence catalog --framework soc2 -o json  # machine-readable
 ```
+
+(The old `sigcomply evidence path` subcommand was removed; only
+`evidence catalog` exists.)
 
 ### What the CLI checks on each run
 
@@ -508,38 +471,36 @@ Full rationale: [SECURITY.md §Threat Model](../SECURITY.md).
 
 Flags have the highest precedence and override both config file and env vars.
 
+This is the complete flag set registered by `sigcomply check`. There is
+**no** `--framework`/`-f`, `--output`/`-o`, `--json-output`, `--region`,
+`--store`, `--storage-path`, `--storage-backend`, `--github-org`,
+`--policies`, `--controls`, `--quiet`, `--service`, `--collector`,
+`--fail-on-violation`, or `--fail-severity` flag. Framework comes from
+`framework:`/`SIGCOMPLY_FRAMEWORK`; storage from `vault:`/`sources:`;
+`fail_on_violation`/`fail_severity` from `ci:` — all in the config file.
+
 ```
 sigcomply check [flags]
 
 Flags:
-  -f, --framework string       Compliance framework (soc2, iso27001)
-  -o, --output string          Output format (text, json, junit)
-      --json-output string     Write JSON results to this file in addition to --output format
-  -v, --verbose                Verbose output
-      --region string          AWS region
-      --store                  Store evidence and results to configured storage
-      --storage-path string    Local storage path (default: ./.sigcomply/evidence)
-      --storage-backend string Storage backend (local, s3, gcs, azure_blob)
-      --cloud                  Force submission to SigComply Cloud (requires OIDC in CI)
-      --no-cloud               Disable submission to SigComply Cloud
-      --github-org string      GitHub organization to collect evidence from (requires GITHUB_TOKEN)
-      --policies string        Comma-separated policy names to run (e.g., cc6_1_mfa,cc6_1_github_mfa)
-      --controls string        Comma-separated control IDs to run (e.g., CC6.1,CC7.1)
-      --cadence string         Filter to policies whose effective cadence equals this value
-      --cadences strings       Set-intersection filter against effective cadences (--cadences daily,hourly)
-      --on-push                Filter to policies whose on_push=true (PR mode default)
-      --pr                     PR-mode run: --on-push + generous retry budget
-      --scheduled              Scheduled-mode run: cadence-gated; reads per-policy state shards
-      --config string          Path to config file (default: .sigcomply.yaml)
+  -c, --config string             Path to project config (default ".sigcomply.yaml")
+  -v, --verbose                   Verbose logging
+      --cloud                     Force cloud submission (requires OIDC)
+      --no-cloud                  Disable cloud submission
+      --cloud-url string          Cloud base URL override (defaults to cloud.base_url)
+      --capture-cloud-payload string  Write the cloud SubmissionPayload to this file
+                                       instead of POSTing it (auditor escape hatch)
+      --cadence string            Only evaluate policies whose effective cadence matches
+                                  (continuous|hourly|daily|weekly|monthly|quarterly|annual)
+      --cadences strings          Comma-separated cadence set (intersection match;
+                                  'on_push' is the virtual value for the on_push axis)
+      --on-push                   Only evaluate policies whose on_push=true
+      --pr                        PR-mode: filter to on_push + generous slot retry budget
+      --scheduled                 Scheduled-mode: cadence-gated; reads/advances per-policy state
 ```
 
-`--policies`, `--controls`, `--cadence`, `--cadences`, and `--on-push`
-are mutually exclusive. `--scheduled` may combine with `--policies`
-(operator override; cadence gating is bypassed for the selected
-policies).
-
-There is no `--collector` or `--fail-on-violation` flag — `fail_on_violation`
-and `fail_severity` live under `ci:` in the config file only.
+`--cadence`, `--on-push`, `--cadences`, `--pr`, and `--scheduled` are
+mutually exclusive (Cobra rejects combining them).
 
 ---
 
@@ -646,9 +607,9 @@ jobs:
       - name: Run compliance check
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SIGCOMPLY_GITHUB_ORG: my-org
-        run: sigcomply check --output junit
-        # OIDC token is auto-detected from GitHub Actions environment
+        run: sigcomply check
+        # GitHub org comes from sources.github.org in .sigcomply.yaml.
+        # OIDC token is auto-detected from the GitHub Actions environment.
 ```
 
 ### GitLab CI
@@ -658,8 +619,6 @@ compliance:
   image: golang:1.25
   variables:
     SIGCOMPLY_FRAMEWORK: soc2
-    SIGCOMPLY_GITHUB_ORG: my-org
-    SIGCOMPLY_OUTPUT_FORMAT: junit
   script:
     - sigcomply check
   artifacts:
@@ -677,32 +636,33 @@ Store these as CI secrets (never in code):
 | `AWS_SECRET_ACCESS_KEY` | CI secret (or use OIDC role assumption) |
 | `GITHUB_TOKEN` | CI secret (auto-provided in GitHub Actions) |
 
-Non-secrets can go in the workflow file or `.sigcomply.yaml`:
+Non-secrets go in `.sigcomply.yaml` (framework, sources, vault, GitHub
+org, AWS region) or — for the framework only — `SIGCOMPLY_FRAMEWORK`:
 
 | Setting | Where to Set |
 |---------|-------------|
-| `SIGCOMPLY_FRAMEWORK` | Workflow file, env var, or config file |
-| `SIGCOMPLY_GITHUB_ORG` | Workflow file, env var, or config file |
-| `SIGCOMPLY_AWS_REGION` | Workflow file, env var, or config file |
+| Framework | `framework:` in config, or `SIGCOMPLY_FRAMEWORK` env var |
+| GitHub org | `sources.github.org` in config |
+| AWS region | `sources.aws.<svc>.region` / `vault.region` in config, or the SDK's `AWS_REGION` |
 
 ---
 
 ## Precedence Examples
 
-```bash
-# Config file says iso27001, env says soc2, flag says iso27001
-# Result: iso27001 (flag wins)
-SIGCOMPLY_FRAMEWORK=soc2 sigcomply check --framework iso27001
+Framework resolution order is `SIGCOMPLY_FRAMEWORK` env var → `framework:`
+in the config → built-in default (`soc2`). `check` has no `--framework`
+flag, so the env var is the highest-precedence source for the framework.
 
-# Config file says iso27001, env says soc2, no flag
+```bash
+# Config file says iso27001, env says soc2
 # Result: soc2 (env wins over file)
 SIGCOMPLY_FRAMEWORK=soc2 sigcomply check
 
-# Config file says iso27001, no env, no flag
+# Config file says iso27001, no env
 # Result: iso27001 (file wins over default)
 sigcomply check
 
-# No config file, no env, no flag
+# No framework in config, no env
 # Result: soc2 (built-in default)
 sigcomply check
 ```

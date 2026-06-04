@@ -91,7 +91,11 @@ func cc7OperationsPolicies() []core.Policy {
 			accepts: []string{"compute_instance"},
 			desc:    "All compute instances have detailed monitoring enabled.",
 			rem:     "Enable detailed monitoring on each compute instance.",
-			clause:  all(leaf("payload.monitoring_enabled", "eq", true), "instance {{.payload.name}} does not have monitoring enabled"),
+			// Guarded with is_set: a source that cannot determine a
+			// per-instance detailed-monitoring signal (GCP omits the field)
+			// is scoped out as a coverage gap rather than reporting a
+			// fabricated pass. Sources that do emit it (AWS EC2) are checked.
+			clause: allWhere(leaf("payload.monitoring_enabled", "is_set", nil), leaf("payload.monitoring_enabled", "eq", true), "instance {{.payload.name}} does not have monitoring enabled"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc7.4.no_critical_vulns_active", control: "CC7.4", severity: core.SeverityCritical, category: "monitoring", cadence: "daily",

@@ -9,6 +9,7 @@ import (
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/evaluator"
+	evidencetypes "github.com/sigcomply/sigcomply-cli/internal/evidence_types"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
@@ -78,6 +79,15 @@ func loadProjectEvidenceTypes(dir string, set *registry.Set) error {
 		et, err := spec.LoadEvidenceType(data)
 		if err != nil {
 			return fmt.Errorf("project-local: load evidence type %s: %w", path, err)
+		}
+		// Compile the schema body now (not just the header spec.LoadEvidenceType
+		// checks) so a structurally-invalid draft-07 schema — e.g.
+		// "minimum":"abc" — fails fast here as an exit-3 config error,
+		// matching the embedded-schema compile guarantee. Otherwise the
+		// error would surface only at collection time, tagging just the
+		// policies that consume this type.
+		if err := evidencetypes.CompileSchema(et.Schema); err != nil {
+			return fmt.Errorf("project-local: evidence type %s: %w", path, err)
 		}
 		if err := set.EvidenceTypes.Register(et); err != nil {
 			return fmt.Errorf("project-local: register evidence type %s: %w", path, err)

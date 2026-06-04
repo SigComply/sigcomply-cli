@@ -166,6 +166,18 @@ func (s *stubIAMAPI) ListAttachedGroupPolicies(_ context.Context, _ *awsiam.List
 	return &awsiam.ListAttachedGroupPoliciesOutput{}, nil
 }
 
+func (s *stubIAMAPI) GenerateCredentialReport(_ context.Context, _ *awsiam.GenerateCredentialReportInput, _ ...func(*awsiam.Options)) (*awsiam.GenerateCredentialReportOutput, error) {
+	return &awsiam.GenerateCredentialReportOutput{State: iamtypes.ReportStateTypeComplete}, nil
+}
+
+func (s *stubIAMAPI) GetCredentialReport(_ context.Context, _ *awsiam.GetCredentialReportInput, _ ...func(*awsiam.Options)) (*awsiam.GetCredentialReportOutput, error) {
+	// Root: MFA on, no access keys, console enabled — a compliant root so
+	// the orchestrator E2E doesn't trip the root policies.
+	csv := "user,arn,mfa_active,password_enabled,access_key_1_active,access_key_2_active\n" +
+		"<root_account>,arn:aws:iam::1:root,true,true,false,false\n"
+	return &awsiam.GetCredentialReportOutput{Content: []byte(csv)}, nil
+}
+
 func ptr[T any](v T) *T { return &v }
 
 // TestE2E_WalkingSkeleton drives the orchestrator end-to-end against

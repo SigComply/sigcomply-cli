@@ -1,19 +1,20 @@
 // Package soc2 is the SOC 2 (TSC 2017) framework: the control catalog,
-// the automated policy library expressed in the pass_when: DSL, the
-// manual-evidence policies, and the handful of Go rules for checks the
-// DSL cannot express (CloudWatch metric-filter substring matching).
+// the automated policy library expressed in the pass_when: DSL, and the
+// manual-evidence policies. Every shipped policy is pass_when: or manual
+// — Rules() returns nil (no rule: escape hatch is used today; the
+// infrastructure remains available for a future check the DSL cannot
+// express).
 //
 // Policies are authored as Go values via the compact builders in this
 // file. Most automated checks reduce to "every / no / some record in a
 // slot satisfies a field condition" — exactly what the pass_when DSL
-// expresses without a line of Go. The escape-hatch rules live in
-// rules.go.
+// expresses without a line of Go.
 //
-// Many policies reference evidence types whose source plugins are not
-// yet registered (firewall_rule, password_policy, cloudwatch_alarm, …).
-// Those policies plan cleanly and are skipped at evaluation until a
-// matching source is configured — the deferred-source model. See
-// docs/claude/implementation-plan-policy-library.md.
+// Every evidence type a shipped policy accepts has a registered emitter
+// (enforced at build time by internal/sources/builtin/coverage_test.go),
+// so there are no inert "deferred-source" policies in-tree. A new
+// evidence type added ahead of its source must ship a source in the same
+// change or the coverage test fails.
 package soc2
 
 import (

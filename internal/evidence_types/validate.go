@@ -70,6 +70,20 @@ var (
 	schemaCache   = map[[32]byte]*gojsonschema.Schema{}
 )
 
+// CompileSchema validates that a schema document is itself a well-formed
+// JSON Schema (draft-07) — independent of any payload. Loaders use it to
+// fail fast at bootstrap when a project-local evidence-type schema has a
+// valid header but a structurally-invalid body (e.g. "minimum":"abc"),
+// rather than deferring the error to collection time where it would tag
+// only the consuming policies. Returns nil for a compilable schema.
+func CompileSchema(schema json.RawMessage) error {
+	if len(schema) == 0 {
+		return fmt.Errorf("validate: empty schema")
+	}
+	_, err := compileSchema(schema)
+	return err
+}
+
 func compileSchema(schema json.RawMessage) (*gojsonschema.Schema, error) {
 	key := sha256.Sum256(schema)
 

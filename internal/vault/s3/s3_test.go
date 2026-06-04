@@ -108,6 +108,16 @@ func TestS3Vault_PrefixWithoutTrailingSlash(t *testing.T) {
 	if _, ok := fake.objects["vault-root/key.bin"]; !ok {
 		t.Errorf("expected slash inserted between prefix and key; got keys %v", fake.objects)
 	}
+	// The List strip path must return the vault-relative key with NO
+	// leading slash — a "/key.bin" would break exact-prefix matching in
+	// report (uniqueRunFolders) and state enumeration (policyIDFromStatePath).
+	got, err := v.List(context.Background(), "")
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(got) != 1 || got[0] != "key.bin" {
+		t.Errorf("List returned %v; want exactly [\"key.bin\"] (no leading slash)", got)
+	}
 }
 
 func TestS3Vault_InitRejectsEmptyBucket(t *testing.T) {

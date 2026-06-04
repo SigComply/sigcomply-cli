@@ -4,9 +4,9 @@
 // upload JPEG screenshots, PNG exports, or scanned TIFFs alongside PDFs
 // without pre-converting them manually.
 //
-// Supported input formats: .pdf (pass-through), .jpg/.jpeg, .png, .gif,
-// .tif/.tiff (via gofpdf native), .webp, .bmp (via x/image decode → PNG
-// re-encode → gofpdf).
+// Supported input formats: .pdf (pass-through), .jpg/.jpeg, .png, .gif
+// (via gofpdf native), .tif/.tiff, .webp, .bmp (via x/image decode → PNG
+// re-encode → gofpdf — gofpdf has no native TIFF/WebP/BMP support).
 //
 // Unsupported formats (e.g. .docx, .xlsx) are not converted; callers
 // receive a typed UnsupportedTypeError with the full list of supported
@@ -23,8 +23,11 @@ import (
 
 	"github.com/phpdave11/gofpdf"
 
-	// Register WebP and BMP decoders into image.Decode.
+	// Register TIFF, WebP and BMP decoders into image.Decode. gofpdf has
+	// no native decoder for any of these, so they go through the x/image
+	// decode → PNG re-encode path.
 	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/tiff"
 	_ "golang.org/x/image/webp"
 )
 
@@ -97,11 +100,9 @@ func ToPDF(filename, ext string, data []byte) (pdf []byte, converted bool, err e
 	case ".gif":
 		out, e := imageToPDF(filename, "GIF", data)
 		return out, e == nil, e
-	case ".tif", ".tiff":
-		out, e := imageToPDF(filename, "TIFF", data)
-		return out, e == nil, e
-	case ".webp", ".bmp":
-		// Decode via x/image (registered above) then re-encode as PNG.
+	case ".tif", ".tiff", ".webp", ".bmp":
+		// gofpdf can't read these. Decode via x/image (registered above)
+		// then re-encode as PNG, which gofpdf does support.
 		pngData, e := reencodeAsPNG(data)
 		if e != nil {
 			return nil, false, fmt.Errorf("fileconv: decode %s: %w", filename, e)

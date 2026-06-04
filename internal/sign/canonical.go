@@ -18,9 +18,12 @@ import (
 //   - Object keys sorted lexicographically by Unicode code-point.
 //   - String escaping follows encoding/json with SetEscapeHTML(false);
 //     '<', '>', '&' are emitted verbatim, not as \u escapes.
-//   - Numbers use encoding/json's shortest decimal form. Signed
-//     payloads in this CLI contain no floats — integers up to 2^53
-//     round-trip through float64 without precision loss.
+//   - Numbers are preserved as their exact JSON source text via a
+//     UseNumber re-parse, so arbitrary-precision integers (64-bit IDs,
+//     epoch-nanosecond timestamps) survive canonicalization with no
+//     precision loss. Floats are emitted verbatim from their source
+//     text; signed payloads in this CLI are not expected to contain
+//     floats, but if one appears it round-trips unchanged.
 //   - Array order is preserved.
 //
 // The strategy is to leverage encoding/json for marshaling and string
@@ -32,8 +35,17 @@ func Encode(v any) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("canonical: marshal: %w", err)
 	}
+	// Re-parse with UseNumber so JSON numbers are preserved as json.Number
+	// (their exact source text) rather than decoded to float64. A plain
+	// json.Unmarshal into `any` rounds every integer above 2^53 — and
+	// EvidenceRecord.Payload is arbitrary vendor JSON that routinely
+	// carries 64-bit IDs and epoch-nanosecond timestamps. Rounding them
+	// here would silently corrupt the bytes we sign and persist as audit
+	// evidence. writeCanonical's json.Number branch emits the digits verbatim.
+	dec := json.NewDecoder(bytes.NewReader(first))
+	dec.UseNumber()
 	var generic any
-	if err := json.Unmarshal(first, &generic); err != nil {
+	if err := dec.Decode(&generic); err != nil {
 		return nil, fmt.Errorf("canonical: re-parse: %w", err)
 	}
 	var out bytes.Buffer

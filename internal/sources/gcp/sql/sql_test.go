@@ -104,6 +104,30 @@ func assertCommonRecordFields(t *testing.T, records []core.EvidenceRecord, now t
 	}
 }
 
+// TestSSLRequired_SslModeOnly guards the modern Cloud SQL path: an
+// instance with the legacy RequireSsl=false but an enforcing SslMode is
+// fully TLS-enforced and must report ssl_required=true. Reading only
+// RequireSsl would false-fail it.
+func TestSSLRequired_SslModeOnly(t *testing.T) {
+	cases := []struct {
+		mode string
+		want bool
+	}{
+		{"ENCRYPTED_ONLY", true},
+		{"TRUSTED_CLIENT_CERTIFICATE_REQUIRED", true},
+		{"ALLOW_UNENCRYPTED_AND_ENCRYPTED", false},
+		{"", false},
+	}
+	for _, c := range cases {
+		inst := &sqladmin.DatabaseInstance{Settings: &sqladmin.Settings{
+			IpConfiguration: &sqladmin.IpConfiguration{RequireSsl: false, SslMode: c.mode},
+		}}
+		if got := ipCfgRequireSSL(inst); got != c.want {
+			t.Errorf("SslMode=%q RequireSsl=false: ssl_required=%v; want %v", c.mode, got, c.want)
+		}
+	}
+}
+
 func assertAlphaPayload(t *testing.T, rec *core.EvidenceRecord) {
 	t.Helper()
 	var alpha instancePayload

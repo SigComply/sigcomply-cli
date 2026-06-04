@@ -26,6 +26,45 @@ func makeRecord(id string, payload map[string]any) core.EvidenceRecord {
 
 func minPct(v float64) *float64 { return &v }
 
+// ---- comparison operator edge cases ----
+
+// gte/lte against a non-numeric field must surface status=error, not
+// silently pass (the old compareNumeric collapsed non-numerics to 0,
+// so gte/lte returned true for any string field — a false-pass).
+func TestPassWhen_GteOnNonNumericField_Errors(t *testing.T) {
+	for _, op := range []string{"gte", "lte", "gt", "lt"} {
+		spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+			Slot:       "users",
+			Quantifier: core.QuantifierAll,
+			Condition:  &core.PassWhenCondition{Op: op, Field: "payload.tier", Value: 0},
+		}}}
+		records := map[string][]core.EvidenceRecord{
+			"users": {makeRecord("u1", map[string]any{"tier": "unknown"})},
+		}
+		result := evaluatePassWhen(spec, records, nil)
+		if result.Status != core.StatusError {
+			t.Errorf("op %q on non-numeric field: status = %q; want error", op, result.Status)
+		}
+	}
+}
+
+// eq between a string field and a numeric literal must be false: JSON
+// types are distinct, so "5" != 5.
+func TestPassWhen_EqStringVsNumber_NotEqual(t *testing.T) {
+	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+		Slot:       "users",
+		Quantifier: core.QuantifierAll,
+		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.count", Value: 5},
+	}}}
+	records := map[string][]core.EvidenceRecord{
+		"users": {makeRecord("u1", map[string]any{"count": "5"})},
+	}
+	result := evaluatePassWhen(spec, records, nil)
+	if result.Status != core.StatusFail {
+		t.Errorf("eq(\"5\", 5): status = %q; want fail (string != number)", result.Status)
+	}
+}
+
 // ---- pass_when quantifier: all ----
 
 func TestPassWhen_All_AllPass(t *testing.T) {

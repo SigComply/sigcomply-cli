@@ -2,11 +2,71 @@ package fileconv_test
 
 import (
 	"bytes"
+	"image"
+	"image/color"
+	"image/gif"
 	"strings"
 	"testing"
 
+	"golang.org/x/image/bmp"
+	"golang.org/x/image/tiff"
+
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual/fileconv"
 )
+
+// tinyImage is a 2×2 image used to encode real bytes for each format.
+func tinyImage() image.Image {
+	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	for y := 0; y < 2; y++ {
+		for x := 0; x < 2; x++ {
+			img.Set(x, y, color.White)
+		}
+	}
+	return img
+}
+
+// TestToPDF_ImageFormats encodes a real image for each advertised image
+// format and asserts it actually converts to a PDF. Before this test the
+// TIFF path was broken (gofpdf has no TIFF decoder) yet build/test/lint
+// were green because nothing pushed real TIFF bytes through ToPDF.
+func TestToPDF_ImageFormats(t *testing.T) {
+	img := tinyImage()
+	gifBuf := &bytes.Buffer{}
+	if err := gif.Encode(gifBuf, img, nil); err != nil {
+		t.Fatalf("encode gif: %v", err)
+	}
+	tiffBuf := &bytes.Buffer{}
+	if err := tiff.Encode(tiffBuf, img, nil); err != nil {
+		t.Fatalf("encode tiff: %v", err)
+	}
+	bmpBuf := &bytes.Buffer{}
+	if err := bmp.Encode(bmpBuf, img); err != nil {
+		t.Fatalf("encode bmp: %v", err)
+	}
+	cases := []struct {
+		name string
+		ext  string
+		data []byte
+	}{
+		{"gif.gif", ".gif", gifBuf.Bytes()},
+		{"scan.tif", ".tif", tiffBuf.Bytes()},
+		{"scan.tiff", ".tiff", tiffBuf.Bytes()},
+		{"image.bmp", ".bmp", bmpBuf.Bytes()},
+	}
+	for _, c := range cases {
+		out, converted, err := fileconv.ToPDF(c.name, c.ext, c.data)
+		if err != nil {
+			t.Errorf("ToPDF(%s): unexpected error: %v", c.ext, err)
+			continue
+		}
+		if !converted {
+			t.Errorf("ToPDF(%s): converted=false; want true", c.ext)
+		}
+		if !isPDFBytes(out) {
+			t.Errorf("ToPDF(%s): output is not a PDF (no %%PDF- prefix)", c.ext)
+		}
+	}
+}
 
 func TestSupportedExt(t *testing.T) {
 	supported := []string{".pdf", ".jpg", ".jpeg", ".png", ".gif", ".tif", ".tiff", ".webp", ".bmp"}

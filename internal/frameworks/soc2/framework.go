@@ -53,7 +53,8 @@ func (*Framework) Policies() []core.PolicyRef {
 }
 
 // Policies returns the full SOC 2 policy library: automated checks
-// (pass_when + rule: escape hatches) and manual-evidence policies.
+// (all pass_when: — no shipped policy uses the rule: escape hatch) and
+// manual-evidence policies.
 func Policies() []core.Policy {
 	out := make([]core.Policy, 0, 160)
 	out = append(out, cc6Policies()...)

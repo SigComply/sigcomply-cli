@@ -366,11 +366,15 @@ func validateOutput(o *OutputConfig) error {
 	if o.Format == "" {
 		return nil
 	}
+	// "sarif" is intentionally NOT accepted: no SARIF formatter is wired
+	// (only the report command emits json/csv; check emits a fixed text
+	// summary). Accepting it would pass validation and then produce no
+	// SARIF output — a silent contradiction. Re-add when a formatter ships.
 	switch o.Format {
-	case "text", "json", "junit", "sarif":
+	case "text", "json", "junit":
 		return nil
 	default:
-		return fmt.Errorf("project config: output.format: invalid value %q (want text|json|junit|sarif)", o.Format)
+		return fmt.Errorf("project config: output.format: invalid value %q (want text|json|junit)", o.Format)
 	}
 }
 
