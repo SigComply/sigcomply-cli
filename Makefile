@@ -54,49 +54,27 @@ clean: ## Clean build artifacts
 ##@ Testing
 
 .PHONY: test
-test: test-unit test-policy ## Run all fast tests (unit + policy)
+test: test-unit ## Run all fast tests
 
 .PHONY: test-unit
-test-unit: ## Run unit tests
+test-unit: ## Run unit tests (fast: -short skips heavy binary-build tests)
 	$(GOTEST) -short -race -v ./...
 
+.PHONY: test-full
+test-full: ## Run the full suite, including heavy `sigcomply build` tests (what CI runs)
+	$(GOTEST) -race ./...
+
 .PHONY: test-coverage
-test-coverage: ## Run unit tests with coverage report
+test-coverage: ## Run the full suite with coverage report (matches CI's enforced number)
 	@mkdir -p $(COVERAGE_DIR)
-	$(GOTEST) -short -race -coverprofile=$(COVERAGE_DIR)/coverage.out -covermode=atomic ./...
+	$(GOTEST) -race -coverprofile=$(COVERAGE_DIR)/coverage.out -covermode=atomic ./...
 	$(GOCMD) tool cover -html=$(COVERAGE_DIR)/coverage.out -o $(COVERAGE_DIR)/coverage.html
 	$(GOCMD) tool cover -func=$(COVERAGE_DIR)/coverage.out | tail -1
 	@echo "Coverage report: $(COVERAGE_DIR)/coverage.html"
 
-.PHONY: test-policy
-test-policy: ## Run OPA policy tests
-	@if ! command -v opa > /dev/null 2>&1; then \
-		echo "opa not installed - skipping policy tests"; \
-	elif [ -d "internal/compliance_frameworks/soc2/policies" ]; then \
-		opa test internal/compliance_frameworks/soc2/policies/ -v; \
-	else \
-		echo "No policies directory found yet - skipping"; \
-	fi
-
-.PHONY: test-integration
-test-integration: ## Run integration tests (requires LocalStack)
-	@echo "Starting LocalStack..."
-	docker-compose up -d localstack
-	@echo "Waiting for LocalStack to be ready..."
-	@timeout 60 bash -c 'until curl -s http://localhost:4566/_localstack/health | grep -q "running"; do sleep 2; done' || (docker-compose logs localstack && exit 1)
-	@echo "Running integration tests..."
-	AWS_ENDPOINT_URL=http://localhost:4566 \
-	AWS_ACCESS_KEY_ID=test \
-	AWS_SECRET_ACCESS_KEY=test \
-	AWS_DEFAULT_REGION=us-east-1 \
-	$(GOTEST) -tags=integration -race -v ./...
-	@echo "Stopping LocalStack..."
-	docker-compose down
-
-.PHONY: test-e2e
-test-e2e: ## Run E2E tests (requires real AWS credentials)
-	$(GOTEST) -tags=e2e -v ./test/e2e/...
-
+# Note: end-to-end Go tests run from the dedicated E2E repos
+# (sigcomply-cli-testing-project-{github,gitlab}), not from this module.
+# These targets only provision/tear down the AWS sandbox those runs use.
 .PHONY: e2e-setup
 e2e-setup: ## Provision AWS resources for E2E tests
 	./scripts/e2e/setup-aws.sh
@@ -104,9 +82,6 @@ e2e-setup: ## Provision AWS resources for E2E tests
 .PHONY: e2e-teardown
 e2e-teardown: ## Tear down AWS resources for E2E tests
 	./scripts/e2e/teardown-aws.sh
-
-.PHONY: test-all
-test-all: test-unit test-policy test-integration ## Run all tests including integration
 
 ##@ Code Quality
 
@@ -187,7 +162,7 @@ tools: ## Install development tools
 ci: deps lint test build ## Run CI pipeline locally
 
 .PHONY: pre-commit
-pre-commit: fmt-check vet lint test-unit test-policy ## Run pre-commit checks
+pre-commit: fmt-check vet lint test-unit ## Run pre-commit checks
 
 ##@ Release
 

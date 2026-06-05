@@ -227,17 +227,20 @@ func validateProjectConfig(cfg *ProjectConfig) error {
 	return nil
 }
 
+// fiscalTypeCustom is the fiscal-calendar type that requires explicit periods.
+const fiscalTypeCustom = "custom"
+
 func validatePeriod(p *PeriodConfig) error {
 	if p.FiscalCalendar.Type == "" {
 		// Default applied at planner time; loader leaves blank.
 		return nil
 	}
 	switch p.FiscalCalendar.Type {
-	case "calendar_quarter", "fiscal_year", "custom":
+	case "calendar_quarter", "fiscal_year", fiscalTypeCustom:
 	default:
 		return fmt.Errorf("project config: period.fiscal_calendar.type: invalid value %q (want calendar_quarter|fiscal_year|custom)", p.FiscalCalendar.Type)
 	}
-	if p.FiscalCalendar.Type == "custom" && len(p.FiscalCalendar.Periods) == 0 {
+	if p.FiscalCalendar.Type == fiscalTypeCustom && len(p.FiscalCalendar.Periods) == 0 {
 		return fmt.Errorf("project config: period.fiscal_calendar.periods: required when type is \"custom\"")
 	}
 	for i, cp := range p.FiscalCalendar.Periods {

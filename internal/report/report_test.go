@@ -297,7 +297,7 @@ func TestBuild_Integrity_DetectsTamperedFile(t *testing.T) {
 		t.Fatalf("Build: %v", err)
 	}
 	row := snap.Integrity.Runs[0]
-	if row.Status() != "fail" {
+	if row.Status() != statusFail {
 		t.Errorf("Status() = %q; want fail (file was tampered)", row.Status())
 	}
 	if row.FirstMismatchPath != "summary.json" {
@@ -499,7 +499,7 @@ func sampleLatestSnapshot() *report.Snapshot {
 		View: report.ViewLatest, Framework: "soc2", PeriodID: "2026-Q1",
 		Latest: &report.LatestView{Policies: []report.LatestPolicy{
 			{PolicyID: "soc2.cc6.1.mfa", ControlID: "SOC2.CC6.1", Status: "pass", Severity: "high", Category: "access", LastEvaluated: when, RunID: "abcd1234"},
-			{PolicyID: "soc2.cc6.3.review", ControlID: "SOC2.CC6.3", Status: "fail", Severity: "medium", Category: "access", LastEvaluated: when, RunID: "abcd1234", ExceptionID: "soc2.cc6.3.review"},
+			{PolicyID: "soc2.cc6.3.review", ControlID: "SOC2.CC6.3", Status: statusFail, Severity: "medium", Category: "access", LastEvaluated: when, RunID: "abcd1234", ExceptionID: "soc2.cc6.3.review"},
 		}},
 	}
 }
@@ -524,7 +524,7 @@ func TestBuild_Integrity_HandlesMissingManifest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
-	if len(snap.Integrity.Runs) != 1 || snap.Integrity.Runs[0].Status() != "fail" {
+	if len(snap.Integrity.Runs) != 1 || snap.Integrity.Runs[0].Status() != statusFail {
 		t.Errorf("expected one failing run; got %#v", snap.Integrity.Runs)
 	}
 }
@@ -570,7 +570,7 @@ func TestFormatCSV_Integrity(t *testing.T) {
 		t.Fatalf("FormatCSV: %v", err)
 	}
 	out := b.String()
-	if !strings.Contains(out, "pass") || !strings.Contains(out, "fail") {
+	if !strings.Contains(out, "pass") || !strings.Contains(out, statusFail) {
 		t.Errorf("integrity CSV missing pass+fail rows: %q", out)
 	}
 	if !strings.Contains(out, "summary.json") {

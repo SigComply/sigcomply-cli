@@ -293,3 +293,199 @@ func TestInCI(t *testing.T) {
 		t.Errorf("InCI false with CI=true")
 	}
 }
+
+func TestSubmit_NilPayload(t *testing.T) {
+	_, err := Submit(context.Background(), Options{BaseURL: "https://x"}, nil)
+	if err == nil || !strings.Contains(err.Error(), "nil payload") {
+		t.Errorf("want nil-payload error; got %v", err)
+	}
+}
+
+func TestSubmit_NetworkFailure(t *testing.T) {
+	// Point at a server that is immediately closed so the dial fails.
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	url := srv.URL
+	srv.Close()
+	_, err := Submit(context.Background(), Options{
+		BaseURL:       url,
+		HTTPClient:    &http.Client{},
+		TokenProvider: &stubProvider{token: "x", provider: "github"},
+	}, &core.SubmissionPayload{})
+	if err == nil || !strings.Contains(err.Error(), "post ") {
+		t.Errorf("want post/network error; got %v", err)
+	}
+}
+
+func TestSubmit_TrimsTrailingSlashInBaseURL(t *testing.T) {
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	_, err := Submit(context.Background(), Options{
+		BaseURL:       srv.URL + "/",
+		HTTPClient:    srv.Client(),
+		TokenProvider: &stubProvider{token: "x", provider: "github"},
+	}, &core.SubmissionPayload{})
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	if gotPath != Path {
+		t.Errorf("path = %q; want %q (trailing slash should be trimmed)", gotPath, Path)
+	}
+}
+
+func TestSubmit_SuccessReturnsResponseBody(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"run-99"}`)) //nolint:errcheck // test handler
+	}))
+	defer srv.Close()
+	resp, err := Submit(context.Background(), Options{
+		BaseURL:       srv.URL,
+		HTTPClient:    srv.Client(),
+		TokenProvider: &stubProvider{token: "x", provider: "gitlab"},
+	}, &core.SubmissionPayload{})
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status = %d", resp.StatusCode)
+	}
+	if !strings.Contains(string(resp.Body), "run-99") {
+		t.Errorf("body = %q; want it to carry the server response", resp.Body)
+	}
+}
+
+// TestSubmit_NoCLIVersionHeaderWhenUnset confirms the optional header is
+// omitted rather than sent empty.
+func TestSubmit_NoCLIVersionHeaderWhenUnset(t *testing.T) {
+	var present bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, present = r.Header["X-Sigcomply-Cli-Version"]
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	_, err := Submit(context.Background(), Options{
+		BaseURL:       srv.URL,
+		HTTPClient:    srv.Client(),
+		TokenProvider: &stubProvider{token: "x", provider: "github"},
+	}, &core.SubmissionPayload{})
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	if present {
+		t.Error("X-Sigcomply-CLI-Version sent despite empty CLIVersion")
+	}
+}
+
+// TestSubmit_BodyIsCountsOnly is the wire-level companion to the
+// structural guard in core/cloud_test.go: it inspects the actual bytes
+// on the wire and asserts that fields capable of carrying identity are
+// absent. A regression that smuggled identifiers into the payload would
+// surface here even if the Go type somehow allowed it.
+func TestSubmit_BodyIsCountsOnly(t *testing.T) {
+	var raw map[string]json.RawMessage
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)  //nolint:errcheck // test handler
+		_ = json.Unmarshal(body, &raw) //nolint:errcheck // asserted below
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	payload := &core.SubmissionPayload{
+		Schema:    "sigcomply.cloud.v3",
+		RunID:     "r1",
+		Framework: "soc2",
+		Summary:   core.RunSummary{PoliciesTotal: 2, PoliciesPassed: 1, PoliciesFailed: 1},
+		Policies: []core.AggregatedPolicy{{
+			PolicyID:           "soc2.cc6.1.mfa_enforced",
+			Status:             core.StatusFail,
+			ResourcesEvaluated: 10,
+			ResourcesFailed:    3,
+			Message:            "3 of 10 resources failed.",
+		}},
+	}
+	_, err := Submit(context.Background(), Options{
+		BaseURL:       srv.URL,
+		HTTPClient:    srv.Client(),
+		TokenProvider: &stubProvider{token: "x", provider: "github"},
+	}, payload)
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	for _, forbidden := range []string{"violations", "resources", "identifiers", "raw", "details", "arns", "emails"} {
+		if _, present := raw[forbidden]; present {
+			t.Errorf("submitted payload carries forbidden top-level key %q", forbidden)
+		}
+	}
+	// The body must carry the counts the dashboard needs.
+	if _, ok := raw["summary"]; !ok {
+		t.Error("payload missing summary counts")
+	}
+	if _, ok := raw["policies"]; !ok {
+		t.Error("payload missing policies")
+	}
+}
+
+func TestDefaultTokenProvider_ReturnsChain(t *testing.T) {
+	p := DefaultTokenProvider()
+	cp, ok := p.(*chainProvider)
+	if !ok {
+		t.Fatalf("DefaultTokenProvider returned %T; want *chainProvider", p)
+	}
+	if len(cp.providers) != 2 {
+		t.Errorf("chain has %d providers; want 2 (github, gitlab)", len(cp.providers))
+	}
+}
+
+func TestGitHubActionsProvider_AppendsAudienceToURLWithQuery(t *testing.T) {
+	var gotAudience string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAudience = r.URL.Query().Get("audience")
+		if r.URL.Query().Get("existing") != "1" {
+			t.Errorf("pre-existing query param lost: %s", r.URL.RawQuery)
+		}
+		_ = json.NewEncoder(w).Encode(ghActionsResponse{Value: "tok"}) //nolint:errcheck // test handler
+	}))
+	defer srv.Close()
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", srv.URL+"?existing=1")
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "secret")
+	p := &githubActionsProvider{httpClient: srv.Client()}
+	_, _, err := p.Token(context.Background(), "aud://x")
+	if err != nil {
+		t.Fatalf("Token: %v", err)
+	}
+	if gotAudience != "aud://x" {
+		t.Errorf("audience = %q; want aud://x (appended with & joiner)", gotAudience)
+	}
+}
+
+func TestGitHubActionsProvider_EmptyTokenInResponse(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(ghActionsResponse{Value: ""}) //nolint:errcheck // test handler
+	}))
+	defer srv.Close()
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", srv.URL)
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "x")
+	p := &githubActionsProvider{httpClient: srv.Client()}
+	_, _, err := p.Token(context.Background(), "")
+	if err == nil || !strings.Contains(err.Error(), "empty token") {
+		t.Errorf("want empty-token error; got %v", err)
+	}
+}
+
+func TestGitHubActionsProvider_MalformedJSON(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("not json")) //nolint:errcheck // test handler
+	}))
+	defer srv.Close()
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", srv.URL)
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "x")
+	p := &githubActionsProvider{httpClient: srv.Client()}
+	_, _, err := p.Token(context.Background(), "")
+	if err == nil || !strings.Contains(err.Error(), "decode") {
+		t.Errorf("want decode error; got %v", err)
+	}
+}

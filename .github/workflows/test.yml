@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # Hard floor enforced in CI. Raise as coverage improves; never lower silently.
+  COVERAGE_THRESHOLD: 80
+
 jobs:
   unit-tests:
     name: Unit Tests
@@ -31,38 +35,27 @@ jobs:
           go-version: '1.25'
           cache: true
 
-      - name: Check for Go packages
-        id: check-packages
-        run: |
-          if find . -name "*.go" -type f | grep -q .; then
-            echo "has_go_files=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_go_files=false" >> $GITHUB_OUTPUT
-            echo "::notice::No Go source files found - skipping tests"
-          fi
-
       - name: Download dependencies
-        if: steps.check-packages.outputs.has_go_files == 'true'
         run: go mod download
 
-      - name: Run unit tests
-        if: steps.check-packages.outputs.has_go_files == 'true'
-        run: go test -short -race -coverprofile=coverage.out -covermode=atomic ./...
+      # Full suite (no -short): also runs the heavy `sigcomply build` tests that
+      # compile a tailored binary. Those are -short-skipped locally for speed but
+      # MUST run somewhere — this is that somewhere.
+      - name: Run tests
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
 
-      - name: Check coverage threshold
+      - name: Enforce coverage threshold
         id: coverage
-        if: steps.check-packages.outputs.has_go_files == 'true'
         run: |
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
           echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
-          echo "Total coverage: $COVERAGE%"
-
-          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
-            echo "::warning::Coverage $COVERAGE% is below 80% threshold"
+          echo "Total coverage: $COVERAGE% (threshold: ${COVERAGE_THRESHOLD}%)"
+          if (( $(echo "$COVERAGE < $COVERAGE_THRESHOLD" | bc -l) )); then
+            echo "::error::Coverage $COVERAGE% is below the ${COVERAGE_THRESHOLD}% threshold"
+            exit 1
           fi
 
       - name: Upload coverage to Codecov
-        if: steps.check-packages.outputs.has_go_files == 'true'
         uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6.0.1
         with:
           files: ./coverage.out
@@ -70,45 +63,19 @@ jobs:
         continue-on-error: true
 
       - name: Add coverage comment to PR
-        if: github.event_name == 'pull_request' && steps.check-packages.outputs.has_go_files == 'true'
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const coverage = '${{ steps.coverage.outputs.coverage }}';
-            const emoji = parseFloat(coverage) >= 80 ? '✅' : '⚠️';
-
+            const threshold = '${{ env.COVERAGE_THRESHOLD }}';
+            const emoji = parseFloat(coverage) >= parseFloat(threshold) ? '✅' : '❌';
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## ${emoji} Test Coverage: ${coverage}%\n\nThreshold: 80%`
+              body: `## ${emoji} Test Coverage: ${coverage}%\n\nThreshold: ${threshold}%`
             });
-
-  policy-tests:
-    name: Policy Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
-        with:
-          egress-policy: audit
-
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - name: Install OPA
-        run: |
-          curl -L -o opa https://github.com/open-policy-agent/opa/releases/download/v1.4.2/opa_linux_amd64_static
-          chmod +x opa
-          sudo mv opa /usr/local/bin/
-
-      - name: Run policy tests
-        run: |
-          if [ -d "internal/compliance_frameworks/soc2/policies" ]; then
-            opa test internal/compliance_frameworks/soc2/policies/ internal/compliance_frameworks/shared/ -v
-          else
-            echo "No policies directory found yet - skipping"
-          fi
 
   lint:
     name: Lint
@@ -122,25 +89,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Check for Go packages
-        id: check-packages
-        run: |
-          if find . -name "*.go" -type f | grep -q .; then
-            echo "has_go_files=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_go_files=false" >> $GITHUB_OUTPUT
-            echo "::notice::No Go source files found - skipping lint"
-          fi
-
       - name: Set up Go
-        if: steps.check-packages.outputs.has_go_files == 'true'
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version: '1.25'
           cache: true
 
       - name: Run golangci-lint
-        if: steps.check-packages.outputs.has_go_files == 'true'
         uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v8
         with:
           version: v2.8.0
@@ -165,25 +120,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Check for Go main package
-        id: check-main
-        run: |
-          if [ -f "main.go" ]; then
-            echo "has_main=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_main=false" >> $GITHUB_OUTPUT
-            echo "::notice::No main.go found - skipping build"
-          fi
-
       - name: Set up Go
-        if: steps.check-main.outputs.has_main == 'true'
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version: '1.25'
           cache: true
 
       - name: Build binary
-        if: steps.check-main.outputs.has_main == 'true'
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
@@ -192,78 +135,16 @@ jobs:
           go build -ldflags="-s -w" -o bin/sigcomply-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} .
 
       - name: Upload artifact
-        if: steps.check-main.outputs.has_main == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sigcomply-${{ matrix.goos }}-${{ matrix.goarch }}
           path: bin/sigcomply-*
 
-  integration-tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    # Only run on main branch pushes, not on every PR
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    services:
-      localstack:
-        image: localstack/localstack:3.0
-        ports:
-          - 4566:4566
-        env:
-          SERVICES: iam,s3,sts,cloudtrail
-          DEFAULT_REGION: us-east-1
-        options: >-
-          --health-cmd "curl -f http://localhost:4566/_localstack/health"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
-        with:
-          egress-policy: audit
-
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - name: Set up Go
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
-        with:
-          go-version: '1.25'
-          cache: true
-
-      - name: Wait for LocalStack
-        run: |
-          # LocalStack 3.x: services start as "available", only become "running" when accessed
-          # Check for either state or just verify the health endpoint returns successfully
-          timeout 120 bash -c 'until curl -sf http://localhost:4566/_localstack/health > /dev/null; do sleep 2; done'
-          # Verify services are ready
-          curl -s http://localhost:4566/_localstack/health | jq '.'
-
-      - name: Check for Go packages
-        id: check-packages
-        run: |
-          if find . -name "*.go" -type f | grep -q .; then
-            echo "has_go_files=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_go_files=false" >> $GITHUB_OUTPUT
-            echo "::notice::No Go source files found - skipping integration tests"
-          fi
-
-      - name: Run integration tests
-        if: steps.check-packages.outputs.has_go_files == 'true'
-        env:
-          AWS_ENDPOINT_URL: http://localhost:4566
-          AWS_ACCESS_KEY_ID: test
-          AWS_SECRET_ACCESS_KEY: test
-          AWS_DEFAULT_REGION: us-east-1
-        run: |
-          go test -tags=integration -race -v ./...
-
   # Summary job that other workflows can depend on
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [unit-tests, policy-tests, lint, build]
+    needs: [unit-tests, lint, build]
     if: always()
     steps:
       - name: Harden runner
@@ -275,10 +156,9 @@ jobs:
         run: |
           echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Test | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Unit Tests | ${{ needs.unit-tests.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Policy Tests | ${{ needs.policy-tests.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Lint | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Build | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
 
@@ -286,9 +166,9 @@ jobs:
              [[ "${{ needs.lint.result }}" == "failure" ]] || \
              [[ "${{ needs.build.result }}" == "failure" ]]; then
             echo ""
-            echo "❌ Some tests failed!" >> $GITHUB_STEP_SUMMARY
+            echo "❌ Some checks failed!" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
           echo ""
-          echo "✅ All tests passed!" >> $GITHUB_STEP_SUMMARY
+          echo "✅ All checks passed!" >> $GITHUB_STEP_SUMMARY

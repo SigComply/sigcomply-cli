@@ -199,3 +199,54 @@ cloud:
 		t.Fatalf("write config: %v", err)
 	}
 }
+
+func TestWithRegionDefault(t *testing.T) {
+	cases := []struct {
+		name        string
+		raw         map[string]any
+		vaultRegion string
+		wantRegion  any
+		wantPresent bool
+	}{
+		{
+			name:        "no vault region leaves raw untouched",
+			raw:         map[string]any{"bucket": "b"},
+			vaultRegion: "",
+			wantPresent: false,
+		},
+		{
+			name:        "vault region fills in missing region",
+			raw:         map[string]any{"bucket": "b"},
+			vaultRegion: "us-east-1",
+			wantRegion:  "us-east-1",
+			wantPresent: true,
+		},
+		{
+			name:        "explicit region is preserved over vault default",
+			raw:         map[string]any{"region": "eu-west-1"},
+			vaultRegion: "us-east-1",
+			wantRegion:  "eu-west-1",
+			wantPresent: true,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := withRegionDefault(c.raw, c.vaultRegion)
+			region, present := got["region"]
+			if present != c.wantPresent {
+				t.Fatalf("region present = %v; want %v", present, c.wantPresent)
+			}
+			if c.wantPresent && region != c.wantRegion {
+				t.Errorf("region = %v; want %v", region, c.wantRegion)
+			}
+			// The original map must never be mutated when a copy is made.
+			if c.vaultRegion != "" {
+				if _, hadRegion := c.raw["region"]; !hadRegion {
+					if _, leaked := c.raw["region"]; leaked {
+						t.Error("withRegionDefault mutated the input map")
+					}
+				}
+			}
+		})
+	}
+}

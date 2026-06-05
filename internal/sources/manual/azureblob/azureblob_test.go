@@ -1,6 +1,7 @@
 package azureblob_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"strings"
@@ -11,9 +12,6 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual/azureblob"
 )
-
-// unused import guard
-var _ = strings.HasPrefix
 
 type fakeFile struct {
 	data       []byte
@@ -182,5 +180,130 @@ func TestReader_List_ErrorSurfaces(t *testing.T) {
 	}
 	if !errors.Is(err, sentinel) {
 		t.Errorf("List: expected error to wrap sentinel, got %v", err)
+	}
+}
+
+func TestBuild_DefaultsPrefix(t *testing.T) {
+	f, ok := manual.LookupReader("azure_blob")
+	if !ok {
+		t.Fatal("azure_blob factory not registered")
+	}
+	// Azure SDK creates the client without connecting; New() succeeds here.
+	r, scheme, bucket, prefix, err := f(map[string]any{
+		"account":   "myaccount",
+		"container": "mycontainer",
+	})
+	if err != nil {
+		t.Fatalf("build with valid config: %v", err)
+	}
+	if r == nil {
+		t.Fatal("build returned nil reader")
+	}
+	if scheme != "azure" {
+		t.Errorf("scheme = %q; want azure", scheme)
+	}
+	if bucket != "mycontainer" {
+		t.Errorf("bucket = %q; want mycontainer (container name)", bucket)
+	}
+	if prefix != "manual/" {
+		t.Errorf("prefix = %q; want manual/ (default)", prefix)
+	}
+}
+
+func TestBuild_ExplicitPrefix(t *testing.T) {
+	f, ok := manual.LookupReader("azure_blob")
+	if !ok {
+		t.Fatal("azure_blob factory not registered")
+	}
+	_, _, _, prefix, err := f(map[string]any{
+		"account":   "myaccount",
+		"container": "mycontainer",
+		"prefix":    "evidence/",
+	})
+	if err != nil {
+		t.Fatalf("build with explicit prefix: %v", err)
+	}
+	if prefix != "evidence/" {
+		t.Errorf("prefix = %q; want evidence/", prefix)
+	}
+}
+
+func TestBuild_RejectsMissingAccountAndContainer(t *testing.T) {
+	// Both missing: error must mention both required fields.
+	f, ok := manual.LookupReader("azure_blob")
+	if !ok {
+		t.Fatal("azure_blob factory not registered")
+	}
+	_, _, _, _, err := f(map[string]any{})
+	if err == nil {
+		t.Fatal("build with no config: expected error")
+	}
+	if !strings.Contains(err.Error(), "account") || !strings.Contains(err.Error(), "container") {
+		t.Errorf("error should mention both account and container: %v", err)
+	}
+}
+
+func TestReader_Get_ErrorPrefix(t *testing.T) {
+	// Verify that Reader.Get wraps non-NotFound errors with the expected
+	// backend prefix so operators can identify which backend failed.
+	sentinel := errors.New("synthetic azure transport error")
+	fake := &fakeAzure{files: map[string]fakeFile{}, err: sentinel}
+	r := &azureblob.Reader{Client: fake, Account: "acct", Container: "cnt"}
+	_, _, err := r.Get(context.Background(), "manual/ev/2026Q1/evidence.pdf")
+	if err == nil {
+		t.Fatal("Get: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "manual.pdf azureblob") {
+		t.Errorf("Get error missing backend prefix: %v", err)
+	}
+}
+
+func TestReader_List_ErrorPrefix(t *testing.T) {
+	// Verify that Reader.List wraps errors with the expected backend prefix.
+	sentinel := errors.New("synthetic azure list transport error")
+	fake := &fakeAzure{files: map[string]fakeFile{}, err: sentinel}
+	r := &azureblob.Reader{Client: fake, Account: "acct", Container: "cnt"}
+	_, err := r.List(context.Background(), "manual/ev/2026-Q1/")
+	if err == nil {
+		t.Fatal("List: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "manual.pdf azureblob") {
+		t.Errorf("List error missing backend prefix: %v", err)
+	}
+}
+
+func TestReader_List_TimestampPreserved(t *testing.T) {
+	// Each FileInfo returned by List must carry the blob's upload time.
+	want := time.Date(2026, 3, 15, 10, 0, 0, 0, time.UTC)
+	fake := &fakeAzure{files: map[string]fakeFile{
+		"manual/ev/2026-Q1/report.pdf": {data: []byte("x"), uploadedAt: want},
+	}}
+	r := &azureblob.Reader{Client: fake, Account: "acct", Container: "cnt"}
+	items, err := r.List(context.Background(), "manual/ev/2026-Q1/")
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("List: got %d items; want 1", len(items))
+	}
+	if !items[0].UploadedAt.Equal(want) {
+		t.Errorf("List item UploadedAt = %v; want %v", items[0].UploadedAt, want)
+	}
+}
+
+func TestReader_Get_ByteExact(t *testing.T) {
+	// Byte-exact check: Get must return precisely the bytes that were stored,
+	// not a subslice or truncated view.
+	want := []byte("%PDF-1.7\nsome content\nmore content\n/Page /Pages")
+	fake := &fakeAzure{files: map[string]fakeFile{
+		"manual/ev/2026-Q1/exact.pdf": {data: want, uploadedAt: time.Now()},
+	}}
+	r := &azureblob.Reader{Client: fake, Account: "acct", Container: "cnt"}
+	got, _, err := r.Get(context.Background(), "manual/ev/2026-Q1/exact.pdf")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Errorf("Get data = %q; want %q", got, want)
 	}
 }

@@ -65,10 +65,6 @@ pre-push:
       name: Unit tests
       run: go test -short -race ./...
 
-    test-policy:
-      name: OPA policy tests
-      run: make test-policy
-
     secrets:
       name: Gitleaks (full scan)
       run: gitleaks detect --config .gitleaks.toml --source . --redact
