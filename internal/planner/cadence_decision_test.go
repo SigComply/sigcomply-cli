@@ -232,8 +232,8 @@ func TestPlan_CadenceGate_PriorFailForcesEvaluate(t *testing.T) {
 func minimalPlanConfig() *spec.ProjectConfig {
 	return &spec.ProjectConfig{
 		SchemaVersion: "project.v1", Framework: "soc2",
-		Bindings: map[string]map[string][]spec.BindingEntry{
-			"soc2.cc6.1.mfa_enforced": {"user_directory": {{Source: "aws.iam"}}},
+		Policies: map[string]spec.PolicyConfig{
+			"soc2.cc6.1.mfa_enforced": {Bindings: map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}}},
 		},
 	}
 }

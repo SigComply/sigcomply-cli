@@ -99,70 +99,105 @@ never-signed cadence state. See [`01-conceptual-model.md`](01-conceptual-model.m
 
 ## The binding model
 
-`bindings` is the architectural keystone: it maps
-`policy_id → { slot_name: [source_id, …] }`, and it is the **only** place
-a policy is connected to a concrete source. Policies declare
-`slots.<name>.accepts: [<evidence_type>, …]`; sources declare
+All per-policy configuration lives under one object per policy ID in the
+`policies:` map — bindings, parameter overrides, cadence override,
+evidence-mode override, and scoped exceptions, co-located:
+
+```yaml
+policies:
+  soc2.cc6.1.mfa_enforced:
+    bindings:
+      user_directory: [okta, acme.internal_iam]
+    parameters:
+      exempt_service_accounts: false
+    cadence: hourly
+    exceptions:
+      - scope: { resource_id: "okta_user:bot@acme.com" }
+        state: waived
+        reason: "Legacy deploy bot; retired by Q3."
+        expires_at: 2026-09-30
+```
+
+This single-object shape is deliberate: a new per-policy dimension
+(severity, scope, owner, enabled) is added as a new optional field here —
+additive, never a new top-level section — so the config evolves without a
+schema bump (see [Config evolution policy](#config-evolution-policy)).
+
+`bindings` is the architectural keystone: `{ slot_name: [source_id, …] }`
+is the **only** place a policy is connected to a concrete source. Policies
+declare `slots.<name>.accepts: [<evidence_type>, …]`; sources declare
 `Emits()`; the binding picks which emitting source feeds which slot. The
 planner validates that every bound source is registered and that its
 emitted types intersect the slot's `accepts:` — empty intersection is a
 plan-time error (exit 3). This indirection is what makes sources
 substitutable without touching policies (see
-[`04a-evidence-type-registry.md`](04a-evidence-type-registry.md) and
-[`07-extensibility.md`](07-extensibility.md)).
+[`04a-evidence-type-registry.md`](04a-evidence-type-registry.md)). Omitting
+`bindings` for a policy auto-binds every configured source whose `Emits()`
+intersects the slot — the substitutability default; a `policies:` entry is
+only needed to *narrow* or otherwise tune a policy.
 
-For manual sources the binding names the catalog entry after a colon, e.g.
-`review_document: [manual.pdf:access_review_quarterly]`. `manual.pdf` is a
-**project-level singleton** — exactly one `sources.manual.pdf` entry, no
-bracket-suffix instance variants (`manual.pdf[x]` is rejected). A project
-has one manual-evidence bucket, one prefix, one credential set. API
-plugins, by contrast, may have bracketed instances (`"aws.iam[backup]"`)
-for multiple accounts. See
-[`04-source-plugins.md`](04-source-plugins.md) §The manual.pdf plugin.
-
-A policy with no binding for a required slot is reported as `error` at plan
-time — bindings are also how a project effectively excludes a framework
-policy. To *intentionally* skip a policy, declare an exception with
-`state: na` rather than leaving it unbound.
+`manual.pdf` is a **project-level singleton** — exactly one
+`sources.manual.pdf` entry, no bracket-suffix instance variants
+(`manual.pdf[x]` is rejected). A manual policy names its catalog entry
+with the structured `catalog_entry:` field (alongside `evidence_mode:
+manual`), not a `manual.pdf:<entry>` colon-string. API plugins may have
+bracketed instances (`"aws.iam[backup]"`) for multiple accounts.
 
 ---
 
 ## The exception model
 
-`exceptions` are declarative waivers and N/A declarations, each carrying
-`policy`, an optional `scope.resource_id`, a `state` (`waived` | `na`), a
-required `reason`, and approval metadata (`approved_by`, `approved_at`,
-`expires_at`). They exist as config — not code — because a waiver is a
-*governance* decision an auditor must be able to read, date, and trace in
-git history.
+Exceptions are declarative waivers and N/A declarations, listed under the
+policy they apply to (`policies.<id>.exceptions`) — there is no `policy:`
+field, the map key is the policy. Each entry carries an optional
+`scope.resource_id` / `scope.resource_pattern`, a `state` (`waived` |
+`na`), a required `reason`, and approval metadata (`approved_by`,
+`approved_at`, `expires_at`). A policy may list several entries with
+distinct scopes. They are config — not code — because a waiver is a
+*governance* decision an auditor must read, date, and trace in git.
 
-Semantics: `waived` preserves the rule's findings but reclassifies the
-failure as compliant-with-documented-compensating-control (the operator
-still sees what is being masked); `na` short-circuits the policy to `na`
-without evaluating it at all. Expired exceptions are ignored — the rule's
-real result wins — so a stale waiver can never silently keep masking a
-failure.
+Semantics: a **scoped** `waived` runs the rule and reclassifies only the
+matching resource's failure (every other resource still counts); a
+**whole-policy** exception (no scope) sets the policy directly to its state
+— `na` short-circuits without evaluating. Expired exceptions
+(`expires_at` in the past) are ignored, so a stale waiver can never
+silently keep masking a failure.
+
+To evolve a control's evidence source over time, override its
+`evidence_mode` on the policy object: a customer who satisfies a control
+by PDF today (`evidence_mode: manual` + `catalog_entry`) can later flip
+that **single policy** to `automated` (and supply its bindings) — same
+policy ID, same control mapping, the audit trail records which path ran.
+This is the supported migration between the two evidence flows without
+renumbering policies or forking the framework.
 
 ---
 
-## The `policy_overrides` evidence-mode migration story
+## The controls section
 
-`policy_overrides` is a `map[policy_id]{evidence_mode, catalog_entry}`. Its
-reason for existing is the migration path between the two — and only two —
-evidence flows.
+`controls:` holds the coarse, governance-level decisions that are
+naturally authored **per control**, not per check — the unit auditors and
+the ISO Statement of Applicability think in:
 
-Every policy ships with a default `evidence_mode` (`automated` | `manual`),
-a required first-class field. A customer who today satisfies a control by
-uploading a PDF (manual) but later wires up an API source can flip that
-**single policy** to `automated` — same policy ID, same control mapping —
-by setting `policy_overrides.<id>.evidence_mode: automated` (and supplying
-the slots/binding the automated path needs). Going the other way,
-`evidence_mode: manual` plus a `catalog_entry` reroutes a policy through
-the manual PDF-presence path. The run's audit trail records which path
-actually executed, so the transition is visible to auditors rather than
-silent. This is the supported way to evolve a control's evidence source
-over time without renumbering policies or forking the framework. See
-[`01-conceptual-model.md`](01-conceptual-model.md) §Evidence flows.
+```yaml
+controls:
+  CC6.4:
+    applicability: not_applicable
+    reason: "Cloud-only; physical security inherited from AWS."
+    approved_by: ciso@acme.com
+```
+
+A control marked `not_applicable` **cascades**: every policy that maps to
+it is set to `na` in the run, with the control's reason. This is the
+clean, first-class replacement for waiving each policy under a control
+individually. Control-level applicability takes precedence over a
+policy-level exception (the planner resolves the control cascade first).
+`approved_by` and `reason` form the audit trail; `owner` / `inherited_from`
+are reserved for later — additive fields under the same key.
+
+The two axes compose: `controls:` for coarse "this whole requirement is
+out of scope / inherited," `policies.<id>.exceptions` for the fine,
+resource-scoped waiver.
 
 ---
 

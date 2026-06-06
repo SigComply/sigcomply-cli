@@ -13,7 +13,7 @@ sources:
 
 # Override an automated policy to run as manual while the API
 # integration is being built.
-policy_overrides:
+policies:
   soc2.cc6.1.mfa_enforced:
     evidence_mode: manual
     catalog_entry: mfa_attestation

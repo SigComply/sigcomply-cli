@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
 // resolveParameters computes the effective parameter map for a policy:
@@ -251,10 +252,11 @@ func toFloat(v any) (float64, error) {
 	}
 }
 
-// resolveCadence returns the effective cadence: the project override
-// if present, otherwise the policy's declared cadence.
-func resolveCadence(policyID, policyCadence string, overrides map[string]string) string {
-	if c, ok := overrides[policyID]; ok && c != "" {
+// resolveCadence returns the effective cadence: the project override from
+// policies[policyID].cadence if present, otherwise the policy's declared
+// cadence.
+func resolveCadence(policyID, policyCadence string, cfg *spec.ProjectConfig) string {
+	if c := cfg.CadenceFor(policyID); c != "" {
 		return c
 	}
 	return policyCadence

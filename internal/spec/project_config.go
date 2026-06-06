@@ -23,21 +23,36 @@ const projectConfigSchemaVersion = "project.v1"
 // job (L3 / M4) — this loader only validates what's expressible
 // without the registries.
 type ProjectConfig struct {
-	SchemaVersion    string                               `yaml:"schema_version"`
-	Framework        string                               `yaml:"framework"`
-	Period           PeriodConfig                         `yaml:"period"`
-	Vault            VaultConfig                          `yaml:"vault"`
-	Sources          map[string]map[string]any            `yaml:"sources"`
-	Bindings         map[string]map[string][]BindingEntry `yaml:"bindings"`
-	PolicyParameters map[string]map[string]any            `yaml:"policy_parameters"`
-	PolicyCadences   map[string]string                    `yaml:"policy_cadences"`
-	PolicyOverrides  map[string]PolicyOverride            `yaml:"policy_overrides"`
-	Exceptions       []ExceptionConfig                    `yaml:"exceptions"`
-	Cloud            CloudConfig                          `yaml:"cloud"`
-	CIEnvironment    map[string]any                       `yaml:"ci_environment"`
-	Output           OutputConfig                         `yaml:"output"`
-	CI               CIConfig                             `yaml:"ci"`
-	Extensions       ExtensionsConfig                     `yaml:"extensions"`
+	SchemaVersion string                    `yaml:"schema_version"`
+	Framework     string                    `yaml:"framework"`
+	Period        PeriodConfig              `yaml:"period"`
+	Vault         VaultConfig               `yaml:"vault"`
+	Sources       map[string]map[string]any `yaml:"sources"`
+
+	// Policies holds all per-policy configuration as one object per
+	// policy ID — bindings, parameter overrides, cadence override,
+	// evidence_mode override, and scoped exceptions co-located in a single
+	// place. This replaces the former family of parallel policy-ID-keyed
+	// maps (bindings/policy_parameters/policy_cadences/policy_overrides/
+	// exceptions). The shape is what makes the config extensible without a
+	// schema bump: a new per-policy dimension (severity, scope, owner) is a
+	// new optional field on PolicyConfig — additive, never a new top-level
+	// section. See docs/architecture/08-project-config.md §The binding model.
+	Policies map[string]PolicyConfig `yaml:"policies"`
+
+	// Controls holds control-level decisions — the coarse, governance
+	// axis that is naturally per-control, not per-check: applicability
+	// (the ISO Statement of Applicability), and room for ownership and
+	// inheritance. A control marked not_applicable cascades to every
+	// policy that maps to it (planner sets status=na). Fine-grained,
+	// resource-scoped waivers stay under Policies[id].exceptions.
+	Controls map[string]ControlConfig `yaml:"controls"`
+
+	Cloud         CloudConfig      `yaml:"cloud"`
+	CIEnvironment map[string]any   `yaml:"ci_environment"`
+	Output        OutputConfig     `yaml:"output"`
+	CI            CIConfig         `yaml:"ci"`
+	Extensions    ExtensionsConfig `yaml:"extensions"`
 
 	// Experimental is the forward-compatibility escape hatch. The loader
 	// runs with KnownFields(true) so a typo in a recognized key is a loud
@@ -81,9 +96,6 @@ type CustomPeriod struct {
 	End   string `yaml:"end"`
 }
 
-// VaultConfig models the vault section. Backend-specific fields are
-// all declared optional at the YAML level; per-backend required-field
-// checks happen in validate.
 // VaultConfig selects an output vault backend and carries its
 // backend-specific settings as an open bag — symmetric with the
 // `sources:` config, where each plugin reads the keys it needs. Only
@@ -172,9 +184,37 @@ func (b *BindingEntry) UnmarshalYAML(node *yaml.Node) error {
 	}
 }
 
-// ExceptionConfig is one declarative waiver or N/A entry.
-type ExceptionConfig struct {
-	Policy     string         `yaml:"policy"`
+// PolicyConfig is the per-policy configuration object — everything a
+// project can override or declare about one policy, co-located under its
+// ID in the policies: map. Every field is optional; an absent policy
+// entry means "framework defaults, auto-bound sources, no exceptions."
+//
+//	policies:
+//	  soc2.cc6.1.mfa_enforced:
+//	    cadence: hourly
+//	    bindings: { user_directory: [okta, acme.internal_iam] }
+//	    parameters: { exempt_service_accounts: false }
+//	    exceptions:
+//	      - scope: { resource_id: "okta_user:bot@acme.com" }
+//	        state: waived
+//	        reason: "Legacy deploy bot; retired by Q3."
+//	        expires_at: 2026-09-30
+//
+// New per-policy dimensions (severity, scope, owner, enabled) are added
+// here as new optional fields — additive, no schema bump.
+type PolicyConfig struct {
+	Bindings     map[string][]BindingEntry `yaml:"bindings"`
+	Parameters   map[string]any            `yaml:"parameters"`
+	Cadence      string                    `yaml:"cadence"`
+	EvidenceMode string                    `yaml:"evidence_mode"`
+	CatalogEntry string                    `yaml:"catalog_entry"`
+	Exceptions   []PolicyException         `yaml:"exceptions"`
+}
+
+// PolicyException is one declarative waiver or N/A entry on a policy. The
+// owning policy is the map key in PolicyConfig — there is no policy
+// field. Multiple entries on one policy support distinct resource scopes.
+type PolicyException struct {
 	Scope      ExceptionScope `yaml:"scope"`
 	State      string         `yaml:"state"`
 	Reason     string         `yaml:"reason"`
@@ -189,16 +229,49 @@ type ExceptionScope struct {
 	ResourcePattern string `yaml:"resource_pattern"`
 }
 
-// PolicyOverride lets a project override the evidence_mode declared in a
-// framework-shipped policy spec. The primary use case is flipping an
-// automated policy to manual while API integrations are being built out,
-// then reverting the override once the integration is ready.
-//
-// evidence_mode: "manual"     — requires catalog_entry
-// evidence_mode: "automated"  — catalog_entry must be absent
-type PolicyOverride struct {
-	EvidenceMode string `yaml:"evidence_mode"`
-	CatalogEntry string `yaml:"catalog_entry"`
+// ControlConfig is a control-level decision — the coarse governance axis
+// authored per control (the unit auditors and the ISO Statement of
+// Applicability think in), not per check. applicability: not_applicable
+// cascades to every policy mapping to this control. Reason/ApprovedBy
+// give the audit trail; Owner/InheritedFrom are reserved for later.
+type ControlConfig struct {
+	Applicability string `yaml:"applicability"` // "" | applicable | not_applicable
+	Reason        string `yaml:"reason"`
+	ApprovedBy    string `yaml:"approved_by"`
+}
+
+// BindingsFor returns the slot→entries map a project declared for a
+// policy, or nil if the policy has no entry. nil means "auto-bind every
+// configured source whose Emits() intersects the slot" — the planner's
+// substitutability default.
+func (c *ProjectConfig) BindingsFor(policyID string) map[string][]BindingEntry {
+	return c.Policies[policyID].Bindings
+}
+
+// ParametersFor returns the parameter overrides a project declared for a
+// policy, or nil.
+func (c *ProjectConfig) ParametersFor(policyID string) map[string]any {
+	return c.Policies[policyID].Parameters
+}
+
+// CadenceFor returns the cadence override for a policy, or "" (use the
+// framework default).
+func (c *ProjectConfig) CadenceFor(policyID string) string {
+	return c.Policies[policyID].Cadence
+}
+
+// EvidenceModeOverrideFor returns the (mode, catalog_entry) override for a
+// policy. mode is "" when the project does not override the framework's
+// evidence_mode for this policy.
+func (c *ProjectConfig) EvidenceModeOverrideFor(policyID string) (mode, catalogEntry string) {
+	p := c.Policies[policyID]
+	return p.EvidenceMode, p.CatalogEntry
+}
+
+// ExceptionsFor returns the scoped waiver/NA entries a project declared
+// for a policy, or nil.
+func (c *ProjectConfig) ExceptionsFor(policyID string) []PolicyException {
+	return c.Policies[policyID].Exceptions
 }
 
 // CloudConfig models the cloud submission section.
@@ -261,13 +334,10 @@ func validateProjectConfig(cfg *ProjectConfig) error {
 	if err := validateSources(cfg.Sources); err != nil {
 		return err
 	}
-	if err := validatePolicyCadences(cfg.PolicyCadences); err != nil {
+	if err := validatePolicies(cfg.Policies); err != nil {
 		return err
 	}
-	if err := validatePolicyOverrides(cfg.PolicyOverrides); err != nil {
-		return err
-	}
-	if err := validateExceptions(cfg.Exceptions); err != nil {
+	if err := validateControls(cfg.Controls); err != nil {
 		return err
 	}
 	if err := validateOutput(&cfg.Output); err != nil {
@@ -354,30 +424,36 @@ func validateSources(sources map[string]map[string]any) error {
 	return nil
 }
 
-func validatePolicyCadences(m map[string]string) error {
-	for id, c := range m {
-		if err := validateCadenceSpec(c); err != nil {
-			return fmt.Errorf("project config: policy_cadences[%q]: %w", id, err)
+// validatePolicies validates every per-policy config object: cadence
+// override, evidence_mode override (with its catalog_entry rule), and
+// each scoped exception. Cross-reference checks — does this policy ID
+// exist in the framework? does the named source exist? — are NOT done
+// here (the loader has no registries by design); they belong to the
+// planner / the P1.1 bootstrap validation pass.
+func validatePolicies(policies map[string]PolicyConfig) error {
+	for id := range policies {
+		pc := policies[id]
+		if pc.Cadence != "" {
+			if err := validateCadenceSpec(pc.Cadence); err != nil {
+				return fmt.Errorf("project config: policies[%q].cadence: %w", id, err)
+			}
 		}
-	}
-	return nil
-}
-
-func validatePolicyOverrides(overrides map[string]PolicyOverride) error {
-	for id, o := range overrides {
-		switch o.EvidenceMode {
-		case "automated":
-			if o.CatalogEntry != "" {
-				return fmt.Errorf("project config: policy_overrides[%q]: catalog_entry must not be set when evidence_mode is \"automated\"", id)
+		switch pc.EvidenceMode {
+		case "", "automated":
+			if pc.CatalogEntry != "" {
+				return fmt.Errorf("project config: policies[%q]: catalog_entry must not be set unless evidence_mode is \"manual\"", id)
 			}
 		case "manual":
-			if o.CatalogEntry == "" {
-				return fmt.Errorf("project config: policy_overrides[%q]: catalog_entry is required when evidence_mode is \"manual\"", id)
+			if pc.CatalogEntry == "" {
+				return fmt.Errorf("project config: policies[%q]: catalog_entry is required when evidence_mode is \"manual\"", id)
 			}
-		case "":
-			return fmt.Errorf("project config: policy_overrides[%q]: evidence_mode is required (want automated|manual)", id)
 		default:
-			return fmt.Errorf("project config: policy_overrides[%q]: evidence_mode: invalid value %q (want automated|manual)", id, o.EvidenceMode)
+			return fmt.Errorf("project config: policies[%q].evidence_mode: invalid value %q (want automated|manual)", id, pc.EvidenceMode)
+		}
+		for i := range pc.Exceptions {
+			if err := validatePolicyException(id, i, &pc.Exceptions[i]); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -385,38 +461,57 @@ func validatePolicyOverrides(overrides map[string]PolicyOverride) error {
 
 var iso8601Date = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
-func validateExceptions(exs []ExceptionConfig) error {
-	for i := range exs {
-		e := &exs[i]
-		if e.Policy == "" {
-			return fmt.Errorf("project config: exceptions[%d]: missing required field \"policy\"", i)
-		}
-		switch e.State {
-		case "waived", "na":
-		case "":
-			return fmt.Errorf("project config: exceptions[%d] (%s): missing required field \"state\"", i, e.Policy)
+func validatePolicyException(policyID string, idx int, e *PolicyException) error {
+	switch e.State {
+	case "waived", "na":
+	case "":
+		return fmt.Errorf("project config: policies[%q].exceptions[%d]: missing required field \"state\"", policyID, idx)
+	default:
+		return fmt.Errorf("project config: policies[%q].exceptions[%d]: invalid state %q (want waived|na)", policyID, idx, e.State)
+	}
+	if strings.TrimSpace(e.Reason) == "" {
+		return fmt.Errorf("project config: policies[%q].exceptions[%d]: missing required field \"reason\"", policyID, idx)
+	}
+	if err := validateOptionalDate(e.ApprovedAt); err != nil {
+		return fmt.Errorf("project config: policies[%q].exceptions[%d]: approved_at %w", policyID, idx, err)
+	}
+	if err := validateOptionalDate(e.ExpiresAt); err != nil {
+		return fmt.Errorf("project config: policies[%q].exceptions[%d]: expires_at %w", policyID, idx, err)
+	}
+	return nil
+}
+
+// validateControls validates the control-level decisions: applicability
+// must be a known value, and not_applicable requires a reason (the audit
+// trail for a Statement-of-Applicability exclusion).
+func validateControls(controls map[string]ControlConfig) error {
+	for id := range controls {
+		c := controls[id]
+		switch c.Applicability {
+		case "", "applicable":
+		case "not_applicable":
+			if strings.TrimSpace(c.Reason) == "" {
+				return fmt.Errorf("project config: controls[%q]: reason is required when applicability is \"not_applicable\"", id)
+			}
 		default:
-			return fmt.Errorf("project config: exceptions[%d] (%s): invalid state %q (want waived|na)", i, e.Policy, e.State)
+			return fmt.Errorf("project config: controls[%q].applicability: invalid value %q (want applicable|not_applicable)", id, c.Applicability)
 		}
-		if strings.TrimSpace(e.Reason) == "" {
-			return fmt.Errorf("project config: exceptions[%d] (%s): missing required field \"reason\"", i, e.Policy)
-		}
-		if e.ApprovedAt != "" {
-			if !iso8601Date.MatchString(e.ApprovedAt) {
-				return fmt.Errorf("project config: exceptions[%d] (%s): approved_at %q is not an ISO 8601 date (YYYY-MM-DD)", i, e.Policy, e.ApprovedAt)
-			}
-			if _, err := time.Parse("2006-01-02", e.ApprovedAt); err != nil {
-				return fmt.Errorf("project config: exceptions[%d] (%s): approved_at %q is not a valid date: %v", i, e.Policy, e.ApprovedAt, err)
-			}
-		}
-		if e.ExpiresAt != "" {
-			if !iso8601Date.MatchString(e.ExpiresAt) {
-				return fmt.Errorf("project config: exceptions[%d] (%s): expires_at %q is not an ISO 8601 date (YYYY-MM-DD)", i, e.Policy, e.ExpiresAt)
-			}
-			if _, err := time.Parse("2006-01-02", e.ExpiresAt); err != nil {
-				return fmt.Errorf("project config: exceptions[%d] (%s): expires_at %q is not a valid date: %v", i, e.Policy, e.ExpiresAt, err)
-			}
-		}
+	}
+	return nil
+}
+
+// validateOptionalDate returns nil for an empty string, else verifies the
+// value is an ISO 8601 calendar date (YYYY-MM-DD). The returned error is
+// phrased to be wrapped after a field-path prefix.
+func validateOptionalDate(s string) error {
+	if s == "" {
+		return nil
+	}
+	if !iso8601Date.MatchString(s) {
+		return fmt.Errorf("%q is not an ISO 8601 date (YYYY-MM-DD)", s)
+	}
+	if _, err := time.Parse("2006-01-02", s); err != nil {
+		return fmt.Errorf("%q is not a valid date: %v", s, err)
 	}
 	return nil
 }

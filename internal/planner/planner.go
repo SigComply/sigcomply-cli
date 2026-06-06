@@ -139,7 +139,7 @@ func planPolicies(framework core.Framework, in *Input) ([]PlannedPolicy, error) 
 		if !ok {
 			return nil, fmt.Errorf("planner: framework %q references unknown policy %q", framework.ID(), ref.PolicyID)
 		}
-		if !filterAccepts(&policy, &in.Filter, in.Config.PolicyCadences) {
+		if !filterAccepts(&policy, &in.Filter, in.Config) {
 			continue
 		}
 		pp, err := planOne(&policy, in)
@@ -155,10 +155,10 @@ func planOne(policy *core.Policy, in *Input) (PlannedPolicy, error) {
 	// Apply project-level evidence_mode override before binding resolution.
 	// Work on a local copy so we never mutate the registry entry.
 	originalMode := policy.EvidenceMode
-	p := applyEvidenceModeOverride(policy, in.Config.PolicyOverrides)
+	p := applyEvidenceModeOverride(policy, in.Config)
 	policy = &p
 
-	overrides := in.Config.PolicyParameters[policy.ID]
+	overrides := in.Config.ParametersFor(policy.ID)
 	params, err := resolveParameters(policy, overrides)
 	if err != nil {
 		return PlannedPolicy{}, err
@@ -170,19 +170,26 @@ func planOne(policy *core.Policy, in *Input) (PlannedPolicy, error) {
 		// synthetic "_manual" binding pointing to the manual.pdf singleton,
 		// which the collector resolves via the catalog entry. Any project-config
 		// bindings for this policy are a configuration error.
-		if len(in.Config.Bindings[policy.ID]) > 0 {
+		if len(in.Config.BindingsFor(policy.ID)) > 0 {
 			return PlannedPolicy{}, fmt.Errorf("planner: policy %q (evidence_mode: manual) must not declare bindings in project config", policy.ID)
 		}
 		bindings = resolveManualBinding(policy)
 	} else {
-		bindings, err = resolveBindings(policy, in.Config.Bindings[policy.ID], in.Registries.Sources, in.Config.Sources)
+		bindings, err = resolveBindings(policy, in.Config.BindingsFor(policy.ID), in.Registries.Sources, in.Config.Sources)
 		if err != nil {
 			return PlannedPolicy{}, err
 		}
 		coverageGaps = detectCoverageGaps(policy, bindings, in.Config.Sources, in.Registries.Sources)
 	}
-	exception := resolveException(policy.ID, in.Config.Exceptions, in.Now)
-	cadence := resolveCadence(policy.ID, policy.Cadence, in.Config.PolicyCadences)
+	// Control-level applicability takes precedence over policy-level
+	// exceptions: a control marked not_applicable cascades a single na to
+	// every policy that maps to it. Only if no control N/A applies do we
+	// resolve the policy's own scoped waivers.
+	exception := resolveControlException(policy, in.Config.Controls)
+	if exception == nil {
+		exception = resolveException(in.Config.ExceptionsFor(policy.ID), in.Now)
+	}
+	cadence := resolveCadence(policy.ID, policy.Cadence, in.Config)
 
 	contentHash := core.PolicyContentHash(policy, in.SchemaDigests)
 	priorState := lookupState(in.PolicyStates, policy.ID)
@@ -252,7 +259,7 @@ func policyMatchesControl(policy *core.Policy, wanted []string) bool {
 	return false
 }
 
-func filterAccepts(policy *core.Policy, f *Filter, cadenceOverrides map[string]string) bool {
+func filterAccepts(policy *core.Policy, f *Filter, cfg *spec.ProjectConfig) bool {
 	if len(f.Policies) > 0 {
 		return containsString(f.Policies, policy.ID)
 	}
@@ -260,10 +267,10 @@ func filterAccepts(policy *core.Policy, f *Filter, cadenceOverrides map[string]s
 		return policyMatchesControl(policy, f.Controls)
 	}
 	if len(f.Cadences) > 0 {
-		return policyMatchesCadences(policy, f.Cadences, cadenceOverrides)
+		return policyMatchesCadences(policy, f.Cadences, cfg)
 	}
 	if f.Cadence != "" {
-		effective := resolveCadence(policy.ID, policy.Cadence, cadenceOverrides)
+		effective := resolveCadence(policy.ID, policy.Cadence, cfg)
 		return effective == f.Cadence
 	}
 	if f.OnPush {
@@ -275,8 +282,8 @@ func filterAccepts(policy *core.Policy, f *Filter, cadenceOverrides map[string]s
 // policyMatchesCadences returns true if the policy's effective cadence
 // set (its overridden Cadence plus CadenceOnPush when OnPush) shares
 // at least one element with filterCadences.
-func policyMatchesCadences(policy *core.Policy, filterCadences []string, cadenceOverrides map[string]string) bool {
-	effective := resolveCadence(policy.ID, policy.Cadence, cadenceOverrides)
+func policyMatchesCadences(policy *core.Policy, filterCadences []string, cfg *spec.ProjectConfig) bool {
+	effective := resolveCadence(policy.ID, policy.Cadence, cfg)
 	wanted := make(map[string]struct{}, len(filterCadences))
 	for _, c := range filterCadences {
 		wanted[c] = struct{}{}
@@ -315,18 +322,18 @@ func resolveManualBinding(policy *core.Policy) map[string][]Binding {
 }
 
 // applyEvidenceModeOverride returns a copy of p with EvidenceMode and
-// CatalogEntry patched from overrides[p.ID]. Returns a plain copy of p
-// unchanged when no override is declared for this policy. Takes p by
-// pointer to avoid copying 216 bytes on the hot path; always makes an
+// CatalogEntry patched from the project's policies[p.ID] override. Returns
+// a plain copy of p unchanged when no evidence_mode override is declared.
+// Takes p by pointer to avoid copying on the hot path; always makes an
 // explicit value copy before mutating.
-func applyEvidenceModeOverride(p *core.Policy, overrides map[string]spec.PolicyOverride) core.Policy {
-	o, ok := overrides[p.ID]
-	if !ok {
+func applyEvidenceModeOverride(p *core.Policy, cfg *spec.ProjectConfig) core.Policy {
+	mode, catalogEntry := cfg.EvidenceModeOverrideFor(p.ID)
+	if mode == "" {
 		return *p
 	}
 	cp := *p
-	cp.EvidenceMode = core.EvidenceMode(o.EvidenceMode)
-	cp.CatalogEntry = o.CatalogEntry
+	cp.EvidenceMode = core.EvidenceMode(mode)
+	cp.CatalogEntry = catalogEntry
 	return cp
 }
 

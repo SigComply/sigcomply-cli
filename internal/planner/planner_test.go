@@ -160,16 +160,12 @@ func TestPlan_HappyPath(t *testing.T) {
 		Period: spec.PeriodConfig{
 			FiscalCalendar: spec.FiscalCalendarConfig{Type: "calendar_quarter"},
 		},
-		Bindings: map[string]map[string][]spec.BindingEntry{
+		Policies: map[string]spec.PolicyConfig{
 			"soc2.cc6.1.mfa_enforced": {
-				"user_directory": {{Source: "aws.iam"}, {Source: "okta"}},
+				Bindings:   map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}, {Source: "okta"}}},
+				Parameters: map[string]any{"exempt_service_accounts": false},
+				Cadence:    "hourly",
 			},
-		},
-		PolicyParameters: map[string]map[string]any{
-			"soc2.cc6.1.mfa_enforced": {"exempt_service_accounts": false},
-		},
-		PolicyCadences: map[string]string{
-			"soc2.cc6.1.mfa_enforced": "hourly",
 		},
 	}
 	commit := commitFixture(t)
@@ -210,10 +206,10 @@ func TestPlan_RejectsUnknownSource(t *testing.T) {
 	cfg := &spec.ProjectConfig{
 		SchemaVersion: "project.v1", Framework: "soc2",
 		Vault: spec.VaultConfig{Backend: "local", Config: map[string]any{"path": "."}},
-		Bindings: map[string]map[string][]spec.BindingEntry{
-			"soc2.cc6.1.mfa_enforced": {
+		Policies: map[string]spec.PolicyConfig{
+			"soc2.cc6.1.mfa_enforced": {Bindings: map[string][]spec.BindingEntry{
 				"user_directory": {{Source: "mystery.source"}},
-			},
+			}},
 		},
 	}
 	_, err := planner.Plan(&planner.Input{
@@ -232,10 +228,10 @@ func TestPlan_RejectsSourceWrongEvidenceType(t *testing.T) {
 	cfg := &spec.ProjectConfig{
 		SchemaVersion: "project.v1", Framework: "soc2",
 		Vault: spec.VaultConfig{Backend: "local", Config: map[string]any{"path": "."}},
-		Bindings: map[string]map[string][]spec.BindingEntry{
-			"soc2.cc6.1.mfa_enforced": {
+		Policies: map[string]spec.PolicyConfig{
+			"soc2.cc6.1.mfa_enforced": {Bindings: map[string][]spec.BindingEntry{
 				"user_directory": {{Source: "gcs.storage"}},
-			},
+			}},
 		},
 	}
 	_, err := planner.Plan(&planner.Input{
@@ -250,8 +246,8 @@ func TestPlan_FilterByPolicy(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
 		SchemaVersion: "project.v1", Framework: "soc2",
-		Bindings: map[string]map[string][]spec.BindingEntry{
-			"soc2.cc6.1.mfa_enforced": {"user_directory": {{Source: "aws.iam"}}},
+		Policies: map[string]spec.PolicyConfig{
+			"soc2.cc6.1.mfa_enforced": {Bindings: map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}}},
 		},
 	}
 	commit := commitFixture(t)
@@ -271,8 +267,8 @@ func TestPlan_FilterByCadence(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
 		SchemaVersion: "project.v1", Framework: "soc2",
-		Bindings: map[string]map[string][]spec.BindingEntry{
-			"soc2.cc6.1.mfa_enforced": {"user_directory": {{Source: "aws.iam"}}},
+		Policies: map[string]spec.PolicyConfig{
+			"soc2.cc6.1.mfa_enforced": {Bindings: map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}}},
 		},
 	}
 	commit := commitFixture(t)
@@ -302,8 +298,8 @@ func TestPlan_FilterByCadences_SetIntersection(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
 		SchemaVersion: "project.v1", Framework: "soc2",
-		Bindings: map[string]map[string][]spec.BindingEntry{
-			"soc2.cc6.1.mfa_enforced": {"user_directory": {{Source: "aws.iam"}}},
+		Policies: map[string]spec.PolicyConfig{
+			"soc2.cc6.1.mfa_enforced": {Bindings: map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}}},
 		},
 	}
 	commit := commitFixture(t)
@@ -340,11 +336,13 @@ func TestPlan_FilterByCadences_RespectsOverride(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
 		SchemaVersion: "project.v1", Framework: "soc2",
-		Bindings: map[string]map[string][]spec.BindingEntry{
-			"soc2.cc6.1.mfa_enforced": {"user_directory": {{Source: "aws.iam"}}},
+		Policies: map[string]spec.PolicyConfig{
+			// Override base cadence from daily → hourly.
+			"soc2.cc6.1.mfa_enforced": {
+				Bindings: map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}},
+				Cadence:  "hourly",
+			},
 		},
-		// Override base cadence from daily → hourly.
-		PolicyCadences: map[string]string{"soc2.cc6.1.mfa_enforced": "hourly"},
 	}
 	commit := commitFixture(t)
 
@@ -392,11 +390,11 @@ func TestPlan_ExceptionApplied(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
 		SchemaVersion: "project.v1", Framework: "soc2",
-		Bindings: map[string]map[string][]spec.BindingEntry{
-			"soc2.cc6.1.mfa_enforced": {"user_directory": {{Source: "aws.iam"}}},
-		},
-		Exceptions: []spec.ExceptionConfig{
-			{Policy: "soc2.cc6.1.mfa_enforced", State: "waived", Reason: "Legacy."},
+		Policies: map[string]spec.PolicyConfig{
+			"soc2.cc6.1.mfa_enforced": {
+				Bindings:   map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}},
+				Exceptions: []spec.PolicyException{{State: "waived", Reason: "Legacy."}},
+			},
 		},
 	}
 	commit := commitFixture(t)
@@ -423,7 +421,7 @@ func TestPlan_PolicyOverride_AutomatedToManual(t *testing.T) {
 	cfg := &spec.ProjectConfig{
 		SchemaVersion: "project.v1",
 		Framework:     "soc2",
-		PolicyOverrides: map[string]spec.PolicyOverride{
+		Policies: map[string]spec.PolicyConfig{
 			"soc2.cc6.1.mfa_enforced": {
 				EvidenceMode: "manual",
 				CatalogEntry: "mfa_attestation",
@@ -469,12 +467,11 @@ func TestPlan_PolicyOverride_AutomatedToManual_RejectsExplicitBindings(t *testin
 	cfg := &spec.ProjectConfig{
 		SchemaVersion: "project.v1",
 		Framework:     "soc2",
-		PolicyOverrides: map[string]spec.PolicyOverride{
-			"soc2.cc6.1.mfa_enforced": {EvidenceMode: "manual", CatalogEntry: "mfa_attestation"},
-		},
-		Bindings: map[string]map[string][]spec.BindingEntry{
+		Policies: map[string]spec.PolicyConfig{
 			"soc2.cc6.1.mfa_enforced": {
-				"user_directory": {{Source: "aws.iam"}},
+				EvidenceMode: "manual",
+				CatalogEntry: "mfa_attestation",
+				Bindings:     map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}},
 			},
 		},
 	}
@@ -526,12 +523,10 @@ func TestPlan_PolicyOverride_ManualToAutomated(t *testing.T) {
 	cfg := &spec.ProjectConfig{
 		SchemaVersion: "project.v1",
 		Framework:     "soc2",
-		PolicyOverrides: map[string]spec.PolicyOverride{
-			"soc2.cc6.1.access_review": {EvidenceMode: "automated"},
-		},
-		Bindings: map[string]map[string][]spec.BindingEntry{
+		Policies: map[string]spec.PolicyConfig{
 			"soc2.cc6.1.access_review": {
-				"review_doc": {{Source: "aws.iam"}},
+				EvidenceMode: "automated",
+				Bindings:     map[string][]spec.BindingEntry{"review_doc": {{Source: "aws.iam"}}},
 			},
 		},
 	}
@@ -563,8 +558,8 @@ func TestPlan_PolicyOverride_NotOverridden_WhenNoEntry(t *testing.T) {
 	cfg := &spec.ProjectConfig{
 		SchemaVersion: "project.v1",
 		Framework:     "soc2",
-		Bindings: map[string]map[string][]spec.BindingEntry{
-			"soc2.cc6.1.mfa_enforced": {"user_directory": {{Source: "aws.iam"}}},
+		Policies: map[string]spec.PolicyConfig{
+			"soc2.cc6.1.mfa_enforced": {Bindings: map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}}},
 		},
 	}
 	commit := commitFixture(t)
@@ -583,11 +578,11 @@ func TestPlan_ExpiredExceptionSkipped(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
 		SchemaVersion: "project.v1", Framework: "soc2",
-		Bindings: map[string]map[string][]spec.BindingEntry{
-			"soc2.cc6.1.mfa_enforced": {"user_directory": {{Source: "aws.iam"}}},
-		},
-		Exceptions: []spec.ExceptionConfig{
-			{Policy: "soc2.cc6.1.mfa_enforced", State: "waived", Reason: "Expired.", ExpiresAt: "2025-01-01"},
+		Policies: map[string]spec.PolicyConfig{
+			"soc2.cc6.1.mfa_enforced": {
+				Bindings:   map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}},
+				Exceptions: []spec.PolicyException{{State: "waived", Reason: "Expired.", ExpiresAt: "2025-01-01"}},
+			},
 		},
 	}
 	commit := commitFixture(t)

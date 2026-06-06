@@ -3,8 +3,7 @@ framework: soc2
 vault:
   backend: local
   path: ./vault
-
-policy_overrides:
+policies:
   soc2.cc6.1.mfa_enforced:
-    evidence_mode: ""   # empty — evidence_mode is required
+    evidence_mode: ""   # empty == no override; catalog_entry then not allowed
     catalog_entry: mfa_attestation

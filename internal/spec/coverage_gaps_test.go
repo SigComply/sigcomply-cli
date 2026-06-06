@@ -650,11 +650,12 @@ func TestLoadProjectConfig_ExceptionValidExpiresAt(t *testing.T) {
 	data := []byte(`
 schema_version: project.v1
 framework: soc2
-exceptions:
-  - policy: soc2.cc6.1.mfa
-    state: waived
-    reason: "Migration in progress"
-    expires_at: "2026-12-31"
+policies:
+  soc2.cc6.1.mfa:
+    exceptions:
+      - state: waived
+        reason: "Migration in progress"
+        expires_at: "2026-12-31"
 `)
 	_, err := LoadProjectConfig(data)
 	if err != nil {
@@ -666,11 +667,12 @@ func TestLoadProjectConfig_ExceptionBadExpiresAt(t *testing.T) {
 	data := []byte(`
 schema_version: project.v1
 framework: soc2
-exceptions:
-  - policy: soc2.cc6.1.mfa
-    state: waived
-    reason: "Migration in progress"
-    expires_at: "31-12-2026"
+policies:
+  soc2.cc6.1.mfa:
+    exceptions:
+      - state: waived
+        reason: "Migration in progress"
+        expires_at: "31-12-2026"
 `)
 	_, err := LoadProjectConfig(data)
 	if err == nil || !strings.Contains(err.Error(), "expires_at") {
@@ -719,16 +721,17 @@ func TestLoadProjectConfig_BindingEntryStringForm(t *testing.T) {
 	data := []byte(`
 schema_version: project.v1
 framework: soc2
-bindings:
+policies:
   soc2.cc6.1.mfa:
-    users:
-      - aws.iam
+    bindings:
+      users:
+        - aws.iam
 `)
 	cfg, err := LoadProjectConfig(data)
 	if err != nil {
 		t.Fatalf("string binding should parse; got %v", err)
 	}
-	entries := cfg.Bindings["soc2.cc6.1.mfa"]["users"]
+	entries := cfg.BindingsFor("soc2.cc6.1.mfa")["users"]
 	if len(entries) != 1 || entries[0].Source != "aws.iam" {
 		t.Errorf("entries = %+v", entries)
 	}
@@ -739,11 +742,12 @@ func TestLoadProjectConfig_BindingEntryMissingSource(t *testing.T) {
 	data := []byte(`
 schema_version: project.v1
 framework: soc2
-bindings:
+policies:
   soc2.cc6.1.mfa:
-    users:
-      - slot_params:
-          filter: true
+    bindings:
+      users:
+        - slot_params:
+            filter: true
 `)
 	_, err := LoadProjectConfig(data)
 	if err == nil || !strings.Contains(err.Error(), "source") {

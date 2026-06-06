@@ -3,7 +3,8 @@ framework: soc2
 vault:
   backend: local
   path: ./vault
-exceptions:
-  - policy: soc2.cc6.1.mfa_enforced
-    state: waived
-    approved_by: jane@acme.com
+policies:
+  soc2.cc6.1.mfa_enforced:
+    exceptions:
+      - state: waived
+        approved_by: jane@acme.com
