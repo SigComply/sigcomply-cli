@@ -83,10 +83,13 @@ singleton).
 **Cadence overrides** in `.sigcomply.yaml`:
 
 ```yaml
-policy_cadences:
-  soc2.cc6.1.mfa_enforced: hourly                    # stricter than default daily
-  soc2.cc6.1.access_review_quarterly: monthly        # stricter than default quarterly
-  soc2.cc1.4.security_training_annual: annual        # explicit
+policies:
+  soc2.cc6.1.mfa_enforced:
+    cadence: hourly                                  # stricter than default daily
+  soc2.cc6.1.access_review_quarterly:
+    cadence: monthly                                 # stricter than default quarterly
+  soc2.cc1.4.security_training_annual:
+    cadence: annual                                  # explicit
 ```
 
 These overrides change which CI workflow runs each policy. Because

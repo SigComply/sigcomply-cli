@@ -56,8 +56,9 @@ seams, and the invariants that hold across the stack.
   `Emits() []string` — there is no in-tree `plugin.yaml` manifest
   (`plugin.yaml` is only for project-local plugins under
   `.sigcomply/plugins/`)
-- Project config (`.sigcomply.yaml`, customer-authored): includes
-  `policy_overrides` for per-policy `evidence_mode` overrides
+- Project config (`.sigcomply.yaml`, customer-authored): includes the
+  `policies:` object (per-policy bindings, parameters, cadence,
+  `evidence_mode` override, exceptions) and the `controls:` section
 - Manual evidence catalog (generated in Go from each framework's
   `manualSpecs()`; no embedded `catalogs/*.yaml`)
 

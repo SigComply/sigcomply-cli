@@ -11,8 +11,7 @@ and human-reviewed.
 
 > **Scope of this document.** This is the *architectural rationale* for
 > the project config — why it is one file, how precedence works, and the
-> semantics of the period / binding / exception / `policy_overrides`
-> models. The **canonical, field-by-field schema and the complete
+> semantics of the period / `policies:` / `controls:` models. The **canonical, field-by-field schema and the complete
 > `check` flag reference live in
 > [`../configuration.md`](../configuration.md)** — that is the single
 > source of truth for key names, defaults, and allowed values. This page
@@ -38,9 +37,9 @@ config never needs to span frameworks; multi-framework customers use
 multiple repos.
 
 The top-level keys are `schema_version` (required, `project.v1`),
-`framework`, `period`, `vault`, `sources`, `bindings`,
-`policy_parameters`, `policy_cadences`, `policy_overrides`, `exceptions`,
-`cloud`, `output`, `ci`, and `ci_environment`. Their fields and defaults
+`framework`, `period`, `vault`, `sources`, `policies`, `controls`,
+`cloud`, `output`, `ci`, `ci_environment`, `extensions`, and
+`experimental`. Their fields and defaults
 are documented in [`../configuration.md`](../configuration.md); the
 sections below cover only the load-bearing *design* decisions.
 
@@ -56,8 +55,8 @@ The important architectural point is that **precedence applies to values,
 not to scheduling.** A bare `sigcomply check` does not consult prior runs
 to decide what to evaluate *now*: it takes its policy set from at most one
 mutually-exclusive filter flag (`--cadence` / `--cadences` / `--on-push` /
-`--pr` / `--scheduled`), applies effective `policy_cadences` overrides on
-top of framework defaults, runs that set, and exits. Deciding *which*
+`--pr` / `--scheduled`), applies effective per-policy `cadence` overrides
+(from `policies:`) on top of framework defaults, runs that set, and exits. Deciding *which*
 cadence to run when is the CI scheduler's job (the per-cadence cron
 workflows), not the config file's. The `--scheduled` mode is the one place
 the CLI itself reads prior state to gate by cadence. See
