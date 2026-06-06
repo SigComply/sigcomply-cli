@@ -166,18 +166,39 @@ over time without renumbering policies or forking the framework. See
 
 ---
 
-## Vault config is flat
+## Vault config is flat and open
 
-`vault` is a **flat** struct — `backend` plus backend-specific scalar
-fields (`bucket`, `region`, `prefix`, `endpoint`, `force_path_style`,
-`profile`, `role_arn`, `path`, `account`, `container`) directly under
-`vault:`. There are **no** nested `local:` / `s3:` / `gcs:` /
-`azure_blob:` sub-blocks and **no** `auth:` apparatus — storage
-authentication is ambient SDK credentials only (`AWS_*`,
-`GOOGLE_APPLICATION_CREDENTIALS`, `AZURE_*`), never declared in the config.
-Required fields per backend (`local`→`path`; `s3`→`bucket`+`region`;
-`gcs`→`bucket`; `azure_blob`→`account`+`container`) and the full field
-list are in [`../configuration.md`](../configuration.md).
+`vault` is a **flat, open** mapping — `backend` plus whatever keys that
+backend reads, directly under `vault:`:
+
+```yaml
+vault:
+  backend: s3
+  bucket: acme-evidence
+  region: us-east-1
+  prefix: sigcomply/
+```
+
+This is deliberately **symmetric with `sources:`**: only `backend` is
+interpreted by the loader; every other key flows through as an open
+config bag to the backend's factory (`VaultConfig.Config`). There are
+**no** nested `local:` / `s3:` / `gcs:` / `azure_blob:` sub-blocks and
+**no** `auth:` apparatus — storage authentication is ambient SDK
+credentials only (`AWS_*`, `GOOGLE_APPLICATION_CREDENTIALS`, `AZURE_*`),
+never declared in the config.
+
+**Adding a destination backend touches no file in `internal/spec`.** The
+loader does not enumerate backends or their required fields — that would
+be a second source of truth that drifts from the vault registry. Each
+backend validates its own required keys in its factory and surfaces a
+clear error at `vault.FromConfig` (still at startup, before any work).
+The current backends expect: `local`→`path`; `s3`→`bucket`+`region`
+(plus optional `endpoint`+`force_path_style` for S3-compatible stores);
+`gcs`→`bucket`; `azure_blob`→`account`+`container`. The full field list
+is in [`../configuration.md`](../configuration.md). Because the bag is
+open like `sources:`, a typo in a vault key is not caught by the loader's
+`KnownFields` strictness — the planned cross-reference validation pass
+(P1.1) is where unknown-key warnings for vault belong.
 
 `output.format` validates to `text | json | junit` only — there is no
 `sarif` value (the validator rejects it; no SARIF formatter exists). And

@@ -277,7 +277,10 @@ func loadE2EFixture(t *testing.T, vaultDir, manualDir string) spec.ProjectConfig
 	if err != nil {
 		t.Fatalf("LoadProjectConfig: %v", err)
 	}
-	cfg.Vault.Path = vaultDir
+	if cfg.Vault.Config == nil {
+		cfg.Vault.Config = map[string]any{}
+	}
+	cfg.Vault.Config["path"] = vaultDir
 	if cfg.Sources["manual.pdf"] != nil {
 		cfg.Sources["manual.pdf"]["path"] = manualDir
 	}
@@ -679,7 +682,7 @@ func TestE2E_NoPoliciesPassThroughGracefully(t *testing.T) {
 	}
 	regs := bootstrapWithRegistries(&spec.ProjectConfig{
 		Framework: "soc2",
-		Vault:     spec.VaultConfig{Backend: "local", Path: filepath.Join(tmp, "vault")},
+		Vault:     spec.VaultConfig{Backend: "local", Config: map[string]any{"path": filepath.Join(tmp, "vault")}},
 	})
 	// Don't register soc2 — no policies → plan empty.
 	res, err := orchestrator.Run(context.Background(), &orchestrator.Options{

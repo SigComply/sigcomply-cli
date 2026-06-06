@@ -278,20 +278,20 @@ func TestVaultConfigFromURI(t *testing.T) {
 			if got.Backend != c.backend {
 				t.Errorf("Backend = %q; want %q", got.Backend, c.backend)
 			}
-			if got.Bucket != c.bucket {
-				t.Errorf("Bucket = %q; want %q", got.Bucket, c.bucket)
+			if got.Str("bucket") != c.bucket {
+				t.Errorf("bucket = %q; want %q", got.Str("bucket"), c.bucket)
 			}
-			if got.Prefix != c.prefix {
-				t.Errorf("Prefix = %q; want %q", got.Prefix, c.prefix)
+			if got.Str("prefix") != c.prefix {
+				t.Errorf("prefix = %q; want %q", got.Str("prefix"), c.prefix)
 			}
-			if got.Path != c.path {
-				t.Errorf("Path = %q; want %q", got.Path, c.path)
+			if got.Str("path") != c.path {
+				t.Errorf("path = %q; want %q", got.Str("path"), c.path)
 			}
-			if got.Account != c.account {
-				t.Errorf("Account = %q; want %q", got.Account, c.account)
+			if got.Str("account") != c.account {
+				t.Errorf("account = %q; want %q", got.Str("account"), c.account)
 			}
-			if got.Container != c.cont {
-				t.Errorf("Container = %q; want %q", got.Container, c.cont)
+			if got.Str("container") != c.cont {
+				t.Errorf("container = %q; want %q", got.Str("container"), c.cont)
 			}
 		})
 	}

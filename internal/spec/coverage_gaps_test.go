@@ -495,23 +495,16 @@ vault:
 	if err != nil {
 		t.Fatalf("gcs vault should be valid; got %v", err)
 	}
-	if cfg.Vault.Backend != "gcs" || cfg.Vault.Bucket != "my-gcs-bucket" {
+	if cfg.Vault.Backend != "gcs" || cfg.Vault.Str("bucket") != "my-gcs-bucket" {
 		t.Errorf("Vault = %+v", cfg.Vault)
 	}
 }
 
-func TestLoadProjectConfig_VaultGCSMissingBucket(t *testing.T) {
-	data := []byte(`
-schema_version: project.v1
-framework: soc2
-vault:
-  backend: gcs
-`)
-	_, err := LoadProjectConfig(data)
-	if err == nil || !strings.Contains(err.Error(), "vault.bucket") {
-		t.Errorf("expected bucket required error; got %v", err)
-	}
-}
+// Per-backend required-field validation moved out of the spec loader and
+// into each backend's factory (registry-driven, no central switch). The
+// load loader now accepts any backend + open config bag; missing-field
+// and unknown-backend errors are asserted in internal/vault/factory_test.go
+// (TestFromConfig_BackendRequiredFields, TestFromConfig_UnknownBackendErrors).
 
 func TestLoadProjectConfig_VaultAzureBlob(t *testing.T) {
 	data := []byte(`
@@ -528,61 +521,6 @@ vault:
 	}
 	if cfg.Vault.Backend != "azure_blob" {
 		t.Errorf("Backend = %q", cfg.Vault.Backend)
-	}
-}
-
-func TestLoadProjectConfig_VaultAzureBlobMissingAccount(t *testing.T) {
-	data := []byte(`
-schema_version: project.v1
-framework: soc2
-vault:
-  backend: azure_blob
-  container: mycontainer
-`)
-	_, err := LoadProjectConfig(data)
-	if err == nil || !strings.Contains(err.Error(), "vault.account") {
-		t.Errorf("expected account required error; got %v", err)
-	}
-}
-
-func TestLoadProjectConfig_VaultAzureBlobMissingContainer(t *testing.T) {
-	data := []byte(`
-schema_version: project.v1
-framework: soc2
-vault:
-  backend: azure_blob
-  account: myaccount
-`)
-	_, err := LoadProjectConfig(data)
-	if err == nil || !strings.Contains(err.Error(), "vault.container") {
-		t.Errorf("expected container required error; got %v", err)
-	}
-}
-
-func TestLoadProjectConfig_VaultInvalidBackend(t *testing.T) {
-	data := []byte(`
-schema_version: project.v1
-framework: soc2
-vault:
-  backend: hdfs
-`)
-	_, err := LoadProjectConfig(data)
-	if err == nil || !strings.Contains(err.Error(), "vault.backend") {
-		t.Errorf("expected invalid backend error; got %v", err)
-	}
-}
-
-func TestLoadProjectConfig_VaultS3MissingRegion(t *testing.T) {
-	data := []byte(`
-schema_version: project.v1
-framework: soc2
-vault:
-  backend: s3
-  bucket: my-bucket
-`)
-	_, err := LoadProjectConfig(data)
-	if err == nil || !strings.Contains(err.Error(), "vault.region") {
-		t.Errorf("expected region required error; got %v", err)
 	}
 }
 

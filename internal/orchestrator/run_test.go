@@ -20,7 +20,7 @@ import (
 func minimalConfig() *spec.ProjectConfig {
 	return &spec.ProjectConfig{
 		Framework: "soc2",
-		Vault:     spec.VaultConfig{Backend: "local", Path: "/tmp/x"},
+		Vault:     spec.VaultConfig{Backend: "local", Config: map[string]any{"path": "/tmp/x"}},
 	}
 }
 

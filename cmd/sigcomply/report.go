@@ -153,10 +153,10 @@ func vaultConfigFromURI(uri string) (spec.VaultConfig, error) {
 	switch {
 	case strings.HasPrefix(uri, "s3://"):
 		bucket, prefix := splitBucketPrefix(strings.TrimPrefix(uri, "s3://"))
-		return spec.VaultConfig{Backend: "s3", Bucket: bucket, Prefix: prefix}, nil
+		return spec.VaultConfig{Backend: "s3", Config: map[string]any{"bucket": bucket, "prefix": prefix}}, nil
 	case strings.HasPrefix(uri, "gs://"):
 		bucket, prefix := splitBucketPrefix(strings.TrimPrefix(uri, "gs://"))
-		return spec.VaultConfig{Backend: "gcs", Bucket: bucket, Prefix: prefix}, nil
+		return spec.VaultConfig{Backend: "gcs", Config: map[string]any{"bucket": bucket, "prefix": prefix}}, nil
 	case strings.HasPrefix(uri, "az://"):
 		rest := strings.TrimPrefix(uri, "az://")
 		parts := strings.SplitN(rest, "/", 3)
@@ -167,11 +167,11 @@ func vaultConfigFromURI(uri string) (spec.VaultConfig, error) {
 		if len(parts) == 3 {
 			prefix = parts[2]
 		}
-		return spec.VaultConfig{Backend: "azure_blob", Account: parts[0], Container: parts[1], Prefix: prefix}, nil
+		return spec.VaultConfig{Backend: "azure_blob", Config: map[string]any{"account": parts[0], "container": parts[1], "prefix": prefix}}, nil
 	case strings.HasPrefix(uri, "file://"):
-		return spec.VaultConfig{Backend: "local", Path: strings.TrimPrefix(uri, "file://")}, nil
+		return spec.VaultConfig{Backend: "local", Config: map[string]any{"path": strings.TrimPrefix(uri, "file://")}}, nil
 	default:
-		return spec.VaultConfig{Backend: "local", Path: uri}, nil
+		return spec.VaultConfig{Backend: "local", Config: map[string]any{"path": uri}}, nil
 	}
 }
 

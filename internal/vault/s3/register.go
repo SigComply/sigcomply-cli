@@ -2,6 +2,7 @@ package s3
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
@@ -13,12 +14,18 @@ func init() {
 }
 
 func build(ctx context.Context, cfg *spec.VaultConfig) (core.Vault, error) {
+	if cfg.Str("bucket") == "" {
+		return nil, fmt.Errorf("vault: backend %q requires %q", "s3", "bucket")
+	}
+	if cfg.Str("region") == "" {
+		return nil, fmt.Errorf("vault: backend %q requires %q", "s3", "region")
+	}
 	v, err := New(ctx, Options{
-		Bucket:         cfg.Bucket,
-		Region:         cfg.Region,
-		Prefix:         cfg.Prefix,
-		Endpoint:       cfg.Endpoint,
-		ForcePathStyle: cfg.ForcePathStyle,
+		Bucket:         cfg.Str("bucket"),
+		Region:         cfg.Str("region"),
+		Prefix:         cfg.Str("prefix"),
+		Endpoint:       cfg.Str("endpoint"),
+		ForcePathStyle: cfg.Bool("force_path_style"),
 	})
 	if err != nil {
 		return nil, err

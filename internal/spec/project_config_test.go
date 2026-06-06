@@ -22,7 +22,7 @@ func TestLoadProjectConfig_Minimal(t *testing.T) {
 	if cfg.Framework != testFrameworkSOC2 {
 		t.Errorf("Framework = %q; want %q", cfg.Framework, testFrameworkSOC2)
 	}
-	if cfg.Vault.Backend != backendLocal || cfg.Vault.Path != "./vault" {
+	if cfg.Vault.Backend != backendLocal || cfg.Vault.Str("path") != "./vault" {
 		t.Errorf("Vault = %+v; want backend=local path=./vault", cfg.Vault)
 	}
 	bind, ok := cfg.Bindings["soc2.cc6.1.mfa_enforced"]
@@ -72,8 +72,8 @@ func TestLoadProjectConfig_VaultDefaults(t *testing.T) {
 	if cfg.Vault.Backend != backendLocal {
 		t.Errorf("Vault.Backend = %q; want local (defaulted)", cfg.Vault.Backend)
 	}
-	if cfg.Vault.Path != DefaultLocalVaultPath {
-		t.Errorf("Vault.Path = %q; want %q (defaulted)", cfg.Vault.Path, DefaultLocalVaultPath)
+	if cfg.Vault.Str("path") != DefaultLocalVaultPath {
+		t.Errorf("Vault path = %q; want %q (defaulted)", cfg.Vault.Str("path"), DefaultLocalVaultPath)
 	}
 }
 
@@ -86,8 +86,8 @@ func TestLoadProjectConfig_LocalBackendNoPathDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadProjectConfig: backend:local without path should default, got %v", err)
 	}
-	if cfg.Vault.Path != DefaultLocalVaultPath {
-		t.Errorf("Vault.Path = %q; want %q (defaulted)", cfg.Vault.Path, DefaultLocalVaultPath)
+	if cfg.Vault.Str("path") != DefaultLocalVaultPath {
+		t.Errorf("Vault path = %q; want %q (defaulted)", cfg.Vault.Str("path"), DefaultLocalVaultPath)
 	}
 }
 
@@ -101,7 +101,7 @@ func TestLoadProjectConfig_AcmeCorpExample(t *testing.T) {
 	if cfg.Framework != testFrameworkSOC2 {
 		t.Errorf("Framework = %q; want %q", cfg.Framework, testFrameworkSOC2)
 	}
-	if cfg.Vault.Backend != "s3" || cfg.Vault.Bucket != "acme-evidence" {
+	if cfg.Vault.Backend != "s3" || cfg.Vault.Str("bucket") != "acme-evidence" {
 		t.Errorf("Vault = %+v; want s3 / acme-evidence", cfg.Vault)
 	}
 	if _, ok := cfg.Sources["manual.pdf"]; !ok {
@@ -169,7 +169,6 @@ func TestLoadProjectConfig_RejectsInvalid(t *testing.T) {
 		wantSub string
 	}{
 		{"project_config/invalid_missing_framework.yaml", "framework"},
-		{"project_config/invalid_vault_s3_no_bucket.yaml", "vault.bucket"},
 		{"project_config/invalid_manual_pdf_bracket.yaml", "singleton"},
 		{"project_config/invalid_bad_cadence.yaml", "invalid cadence"},
 		{"project_config/invalid_exception_no_reason.yaml", "reason"},

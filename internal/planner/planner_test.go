@@ -209,7 +209,7 @@ func TestPlan_RejectsUnknownSource(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
 		SchemaVersion: "project.v1", Framework: "soc2",
-		Vault: spec.VaultConfig{Backend: "local", Path: "."},
+		Vault: spec.VaultConfig{Backend: "local", Config: map[string]any{"path": "."}},
 		Bindings: map[string]map[string][]spec.BindingEntry{
 			"soc2.cc6.1.mfa_enforced": {
 				"user_directory": {{Source: "mystery.source"}},
@@ -231,7 +231,7 @@ func TestPlan_RejectsSourceWrongEvidenceType(t *testing.T) {
 	}
 	cfg := &spec.ProjectConfig{
 		SchemaVersion: "project.v1", Framework: "soc2",
-		Vault: spec.VaultConfig{Backend: "local", Path: "."},
+		Vault: spec.VaultConfig{Backend: "local", Config: map[string]any{"path": "."}},
 		Bindings: map[string]map[string][]spec.BindingEntry{
 			"soc2.cc6.1.mfa_enforced": {
 				"user_directory": {{Source: "gcs.storage"}},

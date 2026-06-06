@@ -14,13 +14,43 @@ import (
 func TestFromConfig_LocalSucceeds(t *testing.T) {
 	v, err := vault.FromConfig(context.Background(), &spec.VaultConfig{
 		Backend: "local",
-		Path:    t.TempDir(),
+		Config:  map[string]any{"path": t.TempDir()},
 	})
 	if err != nil {
 		t.Fatalf("FromConfig(local): %v", err)
 	}
 	if v == nil {
 		t.Fatal("FromConfig returned nil vault with nil error")
+	}
+}
+
+// TestFromConfig_BackendRequiredFields verifies that per-backend
+// required-field validation now lives in the backend factory (not a
+// central switch in internal/spec): a backend with missing required keys
+// errors clearly at FromConfig, naming the missing field. This is the
+// registry-driven replacement for the old validateVault switch.
+func TestFromConfig_BackendRequiredFields(t *testing.T) {
+	cases := []struct {
+		name    string
+		cfg     spec.VaultConfig
+		wantSub string
+	}{
+		{"s3 missing bucket", spec.VaultConfig{Backend: "s3", Config: map[string]any{"region": "us-east-1"}}, "bucket"},
+		{"s3 missing region", spec.VaultConfig{Backend: "s3", Config: map[string]any{"bucket": "b"}}, "region"},
+		{"gcs missing bucket", spec.VaultConfig{Backend: "gcs", Config: map[string]any{}}, "bucket"},
+		{"azure missing container", spec.VaultConfig{Backend: "azure_blob", Config: map[string]any{"account": "a"}}, "container"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := tc.cfg
+			_, err := vault.FromConfig(context.Background(), &cfg)
+			if err == nil {
+				t.Fatalf("FromConfig(%s): expected error, got nil", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.wantSub) {
+				t.Errorf("error %q does not mention missing field %q", err.Error(), tc.wantSub)
+			}
+		})
 	}
 }
 

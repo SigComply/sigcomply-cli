@@ -2,6 +2,7 @@ package gcs
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
@@ -13,9 +14,12 @@ func init() {
 }
 
 func build(ctx context.Context, cfg *spec.VaultConfig) (core.Vault, error) {
+	if cfg.Str("bucket") == "" {
+		return nil, fmt.Errorf("vault: backend %q requires %q", "gcs", "bucket")
+	}
 	v, err := New(ctx, Options{
-		Bucket: cfg.Bucket,
-		Prefix: cfg.Prefix,
+		Bucket: cfg.Str("bucket"),
+		Prefix: cfg.Str("prefix"),
 	})
 	if err != nil {
 		return nil, err

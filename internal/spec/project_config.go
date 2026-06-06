@@ -84,18 +84,57 @@ type CustomPeriod struct {
 // VaultConfig models the vault section. Backend-specific fields are
 // all declared optional at the YAML level; per-backend required-field
 // checks happen in validate.
+// VaultConfig selects an output vault backend and carries its
+// backend-specific settings as an open bag — symmetric with the
+// `sources:` config, where each plugin reads the keys it needs. Only
+// `backend` is interpreted by the spec layer; every other key flows
+// through to the backend's factory untouched. This is what makes a new
+// destination backend additive: it reads its own keys from Config, with
+// no typed struct field and no central validation switch to edit (see
+// docs/architecture/05-vault-layout.md §Adding a backend).
+//
+// The YAML stays flat for ergonomics — `vault: {backend: s3, bucket: x,
+// region: y}` — via the custom UnmarshalYAML below: `backend` is lifted
+// out and the remaining keys become Config.
 type VaultConfig struct {
-	Backend        string `yaml:"backend"`
-	Bucket         string `yaml:"bucket"`
-	Region         string `yaml:"region"`
-	Prefix         string `yaml:"prefix"`
-	Endpoint       string `yaml:"endpoint"`
-	ForcePathStyle bool   `yaml:"force_path_style"`
-	Profile        string `yaml:"profile"`
-	RoleARN        string `yaml:"role_arn"`
-	Path           string `yaml:"path"`
-	Account        string `yaml:"account"`
-	Container      string `yaml:"container"`
+	Backend string
+	Config  map[string]any
+}
+
+// UnmarshalYAML accepts the flat `vault:` mapping, lifting `backend` into
+// its own field and passing all other keys through as Config. Decoding
+// into a map deliberately bypasses the parent decoder's KnownFields
+// strictness for vault keys — the bag is open, exactly like `sources:`.
+func (v *VaultConfig) UnmarshalYAML(node *yaml.Node) error {
+	if node.Kind != yaml.MappingNode {
+		return fmt.Errorf("vault: expected a mapping (got node kind %d)", node.Kind)
+	}
+	raw := map[string]any{}
+	if err := node.Decode(&raw); err != nil {
+		return err
+	}
+	if b, ok := raw["backend"]; ok {
+		s, ok := b.(string)
+		if !ok {
+			return fmt.Errorf("vault.backend: must be a string (got %T)", b)
+		}
+		v.Backend = s
+		delete(raw, "backend")
+	}
+	v.Config = raw
+	return nil
+}
+
+// Str returns the string value of a Config key, or "" if absent/non-string.
+func (v VaultConfig) Str(key string) string {
+	s, _ := v.Config[key].(string)
+	return s
+}
+
+// Bool returns the bool value of a Config key, or false if absent/non-bool.
+func (v VaultConfig) Bool(key string) bool {
+	b, _ := v.Config[key].(bool)
+	return b
 }
 
 // BindingEntry is one element of a slot binding list. It accepts both
@@ -281,35 +320,23 @@ func validateVault(v *VaultConfig) error {
 	// Sensible default: an omitted vault: block means a local vault under
 	// the project. Mutating the struct here means the default flows through
 	// to vault.FromConfig unchanged — callers never see an empty backend.
+	if v.Config == nil {
+		v.Config = map[string]any{}
+	}
 	if v.Backend == "" {
 		v.Backend = backendLocal
 	}
-	if v.Backend == backendLocal && v.Path == "" {
-		v.Path = DefaultLocalVaultPath
+	if v.Backend == backendLocal && v.Str("path") == "" {
+		v.Config["path"] = DefaultLocalVaultPath
 	}
-	switch v.Backend {
-	case backendLocal:
-		if v.Path == "" {
-			return fmt.Errorf("project config: vault.path: required for backend \"local\"")
-		}
-	case "s3":
-		if v.Bucket == "" {
-			return fmt.Errorf("project config: vault.bucket: required for backend \"s3\"")
-		}
-		if v.Region == "" {
-			return fmt.Errorf("project config: vault.region: required for backend \"s3\"")
-		}
-	case "gcs":
-		if v.Bucket == "" {
-			return fmt.Errorf("project config: vault.bucket: required for backend \"gcs\"")
-		}
-	case "azure_blob":
-		if v.Account == "" || v.Container == "" {
-			return fmt.Errorf("project config: vault.account and vault.container: both required for backend \"azure_blob\"")
-		}
-	default:
-		return fmt.Errorf("project config: vault.backend: invalid value %q (want local|s3|gcs|azure_blob)", v.Backend)
-	}
+	// No per-backend switch here by design. The spec layer cannot know any
+	// given backend's required fields without importing the vault package
+	// (an import cycle), and re-listing the backends here would be a second
+	// source of truth that drifts from the registry — the exact coupling
+	// that made adding a backend a central edit. Per-backend required-field
+	// validation is therefore the backend's own job, surfaced clearly at
+	// vault.FromConfig (still at startup, before any work). Adding a
+	// destination backend touches no file in internal/spec.
 	return nil
 }
 
