@@ -43,16 +43,16 @@ func resolveParameters(policy *core.Policy, overrides map[string]any) (map[strin
 	return out, nil
 }
 
-func validateParameter(policyID, name string, spec *core.ParameterSpec, value any) (any, error) {
-	switch spec.Type {
+func validateParameter(policyID, name string, pspec *core.ParameterSpec, value any) (any, error) {
+	switch pspec.Type {
 	case "bool":
 		return validateBool(policyID, name, value)
 	case "int":
-		return validateInt(policyID, name, spec, value)
+		return validateInt(policyID, name, pspec, value)
 	case "float":
-		return validateFloat(policyID, name, spec, value)
+		return validateFloat(policyID, name, pspec, value)
 	case "string":
-		return validateString(policyID, name, spec, value)
+		return validateString(policyID, name, pspec, value)
 	case "duration":
 		return validateDuration(policyID, name, value)
 	case "date":
@@ -62,7 +62,7 @@ func validateParameter(policyID, name string, spec *core.ParameterSpec, value an
 	case "list_of_int":
 		return validateListOfInt(policyID, name, value)
 	default:
-		return nil, fmt.Errorf("planner: policy %q: parameter %q has unsupported type %q", policyID, name, spec.Type)
+		return nil, fmt.Errorf("planner: policy %q: parameter %q has unsupported type %q", policyID, name, pspec.Type)
 	}
 }
 
@@ -74,19 +74,19 @@ func validateBool(policyID, name string, v any) (bool, error) {
 	return b, nil
 }
 
-func validateInt(policyID, name string, spec *core.ParameterSpec, v any) (int, error) {
+func validateInt(policyID, name string, pspec *core.ParameterSpec, v any) (int, error) {
 	n, err := toInt(v)
 	if err != nil {
 		return 0, fmt.Errorf("planner: policy %q: parameter %q: %w", policyID, name, err)
 	}
-	if spec.Min != nil {
-		minVal, err := toInt(spec.Min)
+	if pspec.Min != nil {
+		minVal, err := toInt(pspec.Min)
 		if err == nil && n < minVal {
 			return 0, fmt.Errorf("planner: policy %q: parameter %q: value %d below min %d", policyID, name, n, minVal)
 		}
 	}
-	if spec.Max != nil {
-		maxVal, err := toInt(spec.Max)
+	if pspec.Max != nil {
+		maxVal, err := toInt(pspec.Max)
 		if err == nil && n > maxVal {
 			return 0, fmt.Errorf("planner: policy %q: parameter %q: value %d above max %d", policyID, name, n, maxVal)
 		}
@@ -94,19 +94,19 @@ func validateInt(policyID, name string, spec *core.ParameterSpec, v any) (int, e
 	return n, nil
 }
 
-func validateFloat(policyID, name string, spec *core.ParameterSpec, v any) (float64, error) {
+func validateFloat(policyID, name string, pspec *core.ParameterSpec, v any) (float64, error) {
 	f, err := toFloat(v)
 	if err != nil {
 		return 0, fmt.Errorf("planner: policy %q: parameter %q: %w", policyID, name, err)
 	}
-	if spec.Min != nil {
-		minVal, err := toFloat(spec.Min)
+	if pspec.Min != nil {
+		minVal, err := toFloat(pspec.Min)
 		if err == nil && f < minVal {
 			return 0, fmt.Errorf("planner: policy %q: parameter %q: value %v below min %v", policyID, name, f, minVal)
 		}
 	}
-	if spec.Max != nil {
-		maxVal, err := toFloat(spec.Max)
+	if pspec.Max != nil {
+		maxVal, err := toFloat(pspec.Max)
 		if err == nil && f > maxVal {
 			return 0, fmt.Errorf("planner: policy %q: parameter %q: value %v above max %v", policyID, name, f, maxVal)
 		}
@@ -114,30 +114,30 @@ func validateFloat(policyID, name string, spec *core.ParameterSpec, v any) (floa
 	return f, nil
 }
 
-func validateString(policyID, name string, spec *core.ParameterSpec, v any) (string, error) {
+func validateString(policyID, name string, pspec *core.ParameterSpec, v any) (string, error) {
 	s, ok := v.(string)
 	if !ok {
 		return "", fmt.Errorf("planner: policy %q: parameter %q: expected string, got %T", policyID, name, v)
 	}
-	if len(spec.Enum) > 0 {
+	if len(pspec.Enum) > 0 {
 		found := false
-		for _, allowed := range spec.Enum {
+		for _, allowed := range pspec.Enum {
 			if allowedStr, ok := allowed.(string); ok && allowedStr == s {
 				found = true
 				break
 			}
 		}
 		if !found {
-			return "", fmt.Errorf("planner: policy %q: parameter %q: value %q not in enum %v", policyID, name, s, spec.Enum)
+			return "", fmt.Errorf("planner: policy %q: parameter %q: value %q not in enum %v", policyID, name, s, pspec.Enum)
 		}
 	}
-	if spec.Pattern != "" {
-		re, err := regexp.Compile(spec.Pattern)
+	if pspec.Pattern != "" {
+		re, err := regexp.Compile(pspec.Pattern)
 		if err != nil {
-			return "", fmt.Errorf("planner: policy %q: parameter %q: invalid pattern %q: %w", policyID, name, spec.Pattern, err)
+			return "", fmt.Errorf("planner: policy %q: parameter %q: invalid pattern %q: %w", policyID, name, pspec.Pattern, err)
 		}
 		if !re.MatchString(s) {
-			return "", fmt.Errorf("planner: policy %q: parameter %q: value %q does not match pattern %q", policyID, name, s, spec.Pattern)
+			return "", fmt.Errorf("planner: policy %q: parameter %q: value %q does not match pattern %q", policyID, name, s, pspec.Pattern)
 		}
 	}
 	return s, nil

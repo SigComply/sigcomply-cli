@@ -139,14 +139,18 @@ func (v *VaultConfig) UnmarshalYAML(node *yaml.Node) error {
 
 // Str returns the string value of a Config key, or "" if absent/non-string.
 func (v VaultConfig) Str(key string) string {
-	s, _ := v.Config[key].(string)
-	return s
+	if s, ok := v.Config[key].(string); ok {
+		return s
+	}
+	return ""
 }
 
 // Bool returns the bool value of a Config key, or false if absent/non-bool.
 func (v VaultConfig) Bool(key string) bool {
-	b, _ := v.Config[key].(bool)
-	return b
+	if b, ok := v.Config[key].(bool); ok {
+		return b
+	}
+	return false
 }
 
 // BindingEntry is one element of a slot binding list. It accepts both
