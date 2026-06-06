@@ -34,6 +34,32 @@ func TestLoadProjectConfig_Minimal(t *testing.T) {
 	}
 }
 
+// TestLoadProjectConfig_ExperimentalEscapeHatch verifies the
+// forward-compatibility contract: arbitrary subkeys under `experimental:`
+// load without error (so a newer config never hard-fails an older pinned
+// CLI), while an unrecognized *top-level* key is still a loud error.
+func TestLoadProjectConfig_ExperimentalEscapeHatch(t *testing.T) {
+	data := readTestdata(t, "project_config/valid_experimental.yaml")
+
+	cfg, err := LoadProjectConfig(data)
+	if err != nil {
+		t.Fatalf("LoadProjectConfig: %v", err)
+	}
+	if got, ok := cfg.Experimental["quarantine_policy_population"]; !ok || got != true {
+		t.Errorf("Experimental[quarantine_policy_population] = %v (ok=%v); want true", got, ok)
+	}
+	if _, ok := cfg.Experimental["some_future_knob"]; !ok {
+		t.Error("Experimental[some_future_knob] missing; nested experimental subkeys must survive the loader")
+	}
+
+	// An unknown key OUTSIDE the experimental bag must still be rejected —
+	// the escape hatch must not weaken typo detection on real sections.
+	stray := strings.Replace(string(data), "\nexperimental:", "\nexperimentl:", 1)
+	if _, err := LoadProjectConfig([]byte(stray)); err == nil {
+		t.Error("misspelled top-level key was accepted; KnownFields strictness must hold outside experimental:")
+	}
+}
+
 // TestLoadProjectConfig_VaultDefaults verifies the zero-config first-run
 // shape: an omitted vault: block defaults to a local vault under the
 // project, so a brand-new config needs neither vault nor bindings.

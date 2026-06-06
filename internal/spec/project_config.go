@@ -39,6 +39,19 @@ type ProjectConfig struct {
 	CI               CIConfig                             `yaml:"ci"`
 	Extensions       ExtensionsConfig                     `yaml:"extensions"`
 
+	// Experimental is the forward-compatibility escape hatch. The loader
+	// runs with KnownFields(true) so a typo in a recognized key is a loud
+	// error — but that strictness would also make any *new* top-level key
+	// break older CLIs that predate it. New, not-yet-stable fields are
+	// introduced under `experimental:` first: every CLI version that has
+	// this field tolerates (and ignores) experimental subkeys it does not
+	// understand, so a newer config never hard-fails an older pinned CLI.
+	// A field graduates from `experimental.<name>` to a first-class
+	// top-level key in a later release. The loader does not interpret
+	// anything in here; individual features opt in by reading their own
+	// key. See docs/architecture/08-project-config.md §Config evolution.
+	Experimental map[string]any `yaml:"experimental"`
+
 	// ProjectLocalPolicies are PolicyRefs for policies discovered under
 	// .sigcomply/policies/*/policy.yaml at bootstrap and registered into
 	// the policy registry. The planner unions these with the active

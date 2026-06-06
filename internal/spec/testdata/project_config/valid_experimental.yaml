@@ -1,0 +1,15 @@
+schema_version: project.v1
+
+framework: soc2
+
+vault:
+  backend: local
+  path: ./vault
+
+# Forward-compat escape hatch: subkeys here are tolerated and ignored by
+# any CLI that recognizes `experimental:`, even ones predating the
+# specific feature. A loud unknown-key error would fire if `quarantine`
+# were a top-level key instead.
+experimental:
+  quarantine_policy_population: true
+  some_future_knob: { nested: ok }

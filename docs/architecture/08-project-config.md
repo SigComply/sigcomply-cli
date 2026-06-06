@@ -186,6 +186,49 @@ note that `check` itself emits one fixed text summary regardless of
 
 ---
 
+## Config evolution policy
+
+`.sigcomply.yaml` lives in the customer's git repo and is the audit
+trail of their compliance decisions. It must keep loading across CLI
+upgrades. The shape therefore evolves under one rule:
+
+**Additive-only within `project.v1`.** New keys are always optional and
+carry a safe default; existing keys are never renamed or removed. An old
+config keeps loading on a new CLI forever, and a config written for a new
+CLI keeps loading on an older one — *provided* the new field landed under
+the escape hatch first (below). `schema_version` only bumps to
+`project.v2` for a genuinely breaking shape change, which ships with an
+automatic `sigcomply migrate` and a deprecation window; that is the path
+of last resort, not the normal way to add a feature.
+
+**The `experimental:` escape hatch.** The loader runs with
+`KnownFields(true)`, so a typo in a recognized key (`policys:`,
+`vualt:`) is a loud load-time error — exactly what you want for a
+hand-edited file. But that same strictness means any brand-new top-level
+key would hard-fail every CLI released before it. To break the tension,
+not-yet-stable fields are introduced under `experimental:` first:
+
+```yaml
+experimental:
+  some_future_knob: true
+```
+
+Every CLI version that recognizes `experimental:` tolerates and ignores
+subkeys it doesn't understand, so a newer config never breaks an older
+pinned CLI. Once a field stabilizes it graduates from
+`experimental.<name>` to a first-class top-level key in a later release
+(the old `experimental.<name>` form is honored for one deprecation
+window). The loader itself interprets nothing inside `experimental:`;
+each feature opts in by reading its own key.
+
+This is why the per-policy and per-control configuration is shaped as a
+single object per ID (see [The binding model](#the-binding-model)) rather
+than a family of parallel `policy_*` maps: a new per-policy dimension is
+then a new optional field on that object — additive, never a new
+top-level section — and the rule above holds without a `v2`.
+
+---
+
 ## Worked example
 
 A complete `.sigcomply.yaml` for AcmeCorp's SOC 2 pursuit lives at
