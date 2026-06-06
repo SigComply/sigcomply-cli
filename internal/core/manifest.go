@@ -24,10 +24,11 @@ type Manifest struct {
 }
 
 // AppliedException is the snapshot of a planner-resolved exception
-// that was in effect for the run. The shape mirrors spec.ExceptionConfig
-// in .sigcomply.yaml, plus the resolved state and policy ID so an
-// auditor reading the manifest doesn't need the project config to
-// reconstruct who waived what and why.
+// that was in effect for the run. The shape mirrors a project-config
+// exception (spec.PolicyException under policies.<id>.exceptions, or a
+// control-level not_applicable cascade), plus the resolved state and
+// policy ID so an auditor reading the manifest doesn't need the project
+// config to reconstruct who waived what and why.
 type AppliedException struct {
 	PolicyID        string `json:"policy_id"`
 	State           string `json:"state"`
