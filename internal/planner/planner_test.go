@@ -242,6 +242,47 @@ func TestPlan_RejectsSourceWrongEvidenceType(t *testing.T) {
 	}
 }
 
+func TestPlan_RejectsUnknownPolicyKey(t *testing.T) {
+	// A typo'd policy ID under policies: would otherwise silently no-op
+	// (the override never applies). It must be a loud error with a
+	// did-you-mean suggestion. (P1.1 cross-reference validation.)
+	set := setUp(t)
+	cfg := &spec.ProjectConfig{
+		SchemaVersion: "project.v1", Framework: "soc2",
+		Policies: map[string]spec.PolicyConfig{
+			"soc2.cc6.1.mfa_enforce": {Cadence: "hourly"}, // missing trailing 'd'
+		},
+	}
+	_, err := planner.Plan(&planner.Input{
+		Config: cfg, Registries: set, CommitTime: time.Now(), Now: time.Now(),
+	})
+	if err == nil {
+		t.Fatal("expected error for unknown policy key; got nil")
+	}
+	if !strings.Contains(err.Error(), "no such policy") || !strings.Contains(err.Error(), "did you mean") {
+		t.Errorf("error = %q; want 'no such policy' with a did-you-mean suggestion", err.Error())
+	}
+	if !strings.Contains(err.Error(), "soc2.cc6.1.mfa_enforced") {
+		t.Errorf("error = %q; want it to suggest the correct policy ID", err.Error())
+	}
+}
+
+func TestPlan_RejectsUnknownControlKey(t *testing.T) {
+	set := setUp(t)
+	cfg := &spec.ProjectConfig{
+		SchemaVersion: "project.v1", Framework: "soc2",
+		Controls: map[string]spec.ControlConfig{
+			"CC99.9": {Applicability: "not_applicable", Reason: "typo'd control"},
+		},
+	}
+	_, err := planner.Plan(&planner.Input{
+		Config: cfg, Registries: set, CommitTime: time.Now(), Now: time.Now(),
+	})
+	if err == nil || !strings.Contains(err.Error(), "no such control") {
+		t.Errorf("expected 'no such control' error; got %v", err)
+	}
+}
+
 func TestPlan_FilterByPolicy(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{

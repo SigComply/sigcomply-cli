@@ -80,6 +80,9 @@ func Plan(in *Input) (*RunPlan, error) {
 	if !ok {
 		return nil, fmt.Errorf("planner: framework %q not registered", in.Config.Framework)
 	}
+	if err := validateProjectReferences(in.Config, framework, in.Registries); err != nil {
+		return nil, err
+	}
 	period, err := DerivePeriod(&in.Config.Period, in.CommitTime)
 	if err != nil {
 		return nil, err
