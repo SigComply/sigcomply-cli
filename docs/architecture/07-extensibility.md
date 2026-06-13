@@ -211,14 +211,17 @@ remediation: |
 catalog_entry: contractor_review   # resolves the folder; NO slots/pass_when/rule
 ```
 
-Binding it (in `.sigcomply.yaml`) names the manual catalog entry after a
-colon:
+A manual policy takes **no binding** — it carries its own `catalog_entry`
+(above), and the planner routes it through the `manual.pdf` singleton. A
+project only needs a `policies:` entry to *override* the catalog entry (or
+to flip an automated policy to manual):
 
 ```yaml
-# .sigcomply.yaml (excerpt)
-bindings:
+# .sigcomply.yaml (excerpt) — only needed to override the default
+policies:
   acme.custom.cc6.1.contractor_review:
-    review_document: [manual.pdf:contractor_review]
+    evidence_mode: manual
+    catalog_entry: contractor_review
 ```
 
 > The previous version of this doc showed a manual policy declaring both
@@ -442,11 +445,13 @@ sources:
     endpoint: "https://auth.acme-internal.com/api/v1"
     token_env: "ACME_IAM_TOKEN"
 
-bindings:
+policies:
   soc2.cc6.1.mfa_enforced:
-    user_directory: [acme.internal_iam]
+    bindings:
+      user_directory: [acme.internal_iam]
   soc2.cc6.1.admin_mfa_enforced:
-    user_directory: [acme.internal_iam, aws.iam]    # mix and match
+    bindings:
+      user_directory: [acme.internal_iam, aws.iam]   # mix and match
 ```
 
 ### Step 4 — Build and run

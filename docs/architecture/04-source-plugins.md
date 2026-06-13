@@ -456,9 +456,10 @@ sources:
 Bindings reference instances by ID:
 
 ```yaml
-bindings:
+policies:
   soc2.cc6.1.mfa_enforced:
-    user_directory: [aws.iam, "aws.iam[backup]"]
+    bindings:
+      user_directory: [aws.iam, "aws.iam[backup]"]
 ```
 
 This is how a customer with multiple AWS accounts (or multiple GitHub
@@ -484,12 +485,13 @@ from the same default chain do work; multi-scope as a first-class
 A binding can pass per-slot parameters to the plugin:
 
 ```yaml
-bindings:
+policies:
   soc2.cc6.1.admin_mfa_enforced:
-    user_directory:
-      - source: aws.iam
-        slot_params:
-          filter_admins_only: true
+    bindings:
+      user_directory:
+        - source: aws.iam
+          slot_params:
+            filter_admins_only: true
 ```
 
 `slot_params` are passed in `SlotRequest.Params` to the plugin's

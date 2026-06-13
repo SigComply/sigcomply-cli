@@ -137,26 +137,43 @@ vault:
   # prefix: sigcomply/
 
 # ---------------------------------------------------------------------------
-# Optional customization (uncomment as needed)
+# Per-policy customization (uncomment as needed)
 # ---------------------------------------------------------------------------
-# Narrow a specific policy to specific sources (overrides auto-binding). Use
-# this only when several sources emit the same evidence type and you want one:
-# bindings:
+# Everything about one policy lives under policies:<policy-id>. Each field is
+# optional; omit the whole block to take framework defaults + auto-binding.
+# policies:
 #   <policy-id>:
-#     evidence: [okta]
+#     # Narrow to specific sources (overrides auto-binding) — only needed when
+#     # several sources emit the same evidence type and you want one:
+#     bindings:
+#       <slot>: [okta]
+#     # Tune a policy parameter (e.g. a threshold):
+#     parameters:
+#       max_age_days: 60
+#     # Override the cadence
+#     # (continuous|hourly|daily|weekly|monthly|quarterly|annual or every:<dur>):
+#     cadence: weekly
+#     # Run this policy from manual PDF evidence instead of an API:
+#     evidence_mode: manual
+#     catalog_entry: <catalog-id>
+#     # Declare scoped waivers / not-applicable with an audit trail:
+#     exceptions:
+#       - state: waived          # waived | na
+#         reason: "Compensating control in place"
+#         approved_by: security@example.com
+#         approved_at: 2026-01-15
+#         # scope: { resource_id: "..." }   # omit to waive the whole policy
 #
-# Override a policy's evaluation cadence
-# (continuous|hourly|daily|weekly|monthly|quarterly|annual or every:<duration>):
-# policy_cadences:
-#   <policy-id>: weekly
-#
-# Declare waivers / not-applicable with an audit trail:
-# exceptions:
-#   - policy: <policy-id>
-#     state: waived            # waived | na
-#     reason: "Compensating control in place"
-#     approved_by: security@example.com
-#     approved_at: 2026-01-15
+# ---------------------------------------------------------------------------
+# Control-level decisions (uncomment as needed)
+# ---------------------------------------------------------------------------
+# Mark a whole control not-applicable (cascades na to all its policies) — e.g.
+# physical-security controls for a cloud-only company:
+# controls:
+#   <control-id>:
+#     applicability: not_applicable
+#     reason: "Inherited from cloud provider; SOC 2 report on file."
+#     approved_by: ciso@example.com
 #
 # Submit aggregated counts to SigComply Cloud (paid tier; OIDC in CI):
 # cloud:

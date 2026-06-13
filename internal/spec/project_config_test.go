@@ -22,15 +22,41 @@ func TestLoadProjectConfig_Minimal(t *testing.T) {
 	if cfg.Framework != testFrameworkSOC2 {
 		t.Errorf("Framework = %q; want %q", cfg.Framework, testFrameworkSOC2)
 	}
-	if cfg.Vault.Backend != backendLocal || cfg.Vault.Path != "./vault" {
+	if cfg.Vault.Backend != backendLocal || cfg.Vault.Str("path") != "./vault" {
 		t.Errorf("Vault = %+v; want backend=local path=./vault", cfg.Vault)
 	}
-	bind, ok := cfg.Bindings["soc2.cc6.1.mfa_enforced"]
-	if !ok {
+	bind := cfg.BindingsFor("soc2.cc6.1.mfa_enforced")
+	if bind == nil {
 		t.Fatal("missing binding for soc2.cc6.1.mfa_enforced")
 	}
 	if len(bind["user_directory"]) != 1 || bind["user_directory"][0].Source != testSourceAWSIAM {
 		t.Errorf("binding user_directory = %+v; want [%s]", bind["user_directory"], testSourceAWSIAM)
+	}
+}
+
+// TestLoadProjectConfig_ExperimentalEscapeHatch verifies the
+// forward-compatibility contract: arbitrary subkeys under `experimental:`
+// load without error (so a newer config never hard-fails an older pinned
+// CLI), while an unrecognized *top-level* key is still a loud error.
+func TestLoadProjectConfig_ExperimentalEscapeHatch(t *testing.T) {
+	data := readTestdata(t, "project_config/valid_experimental.yaml")
+
+	cfg, err := LoadProjectConfig(data)
+	if err != nil {
+		t.Fatalf("LoadProjectConfig: %v", err)
+	}
+	if got, ok := cfg.Experimental["quarantine_policy_population"]; !ok || got != true {
+		t.Errorf("Experimental[quarantine_policy_population] = %v (ok=%v); want true", got, ok)
+	}
+	if _, ok := cfg.Experimental["some_future_knob"]; !ok {
+		t.Error("Experimental[some_future_knob] missing; nested experimental subkeys must survive the loader")
+	}
+
+	// An unknown key OUTSIDE the experimental bag must still be rejected —
+	// the escape hatch must not weaken typo detection on real sections.
+	stray := strings.Replace(string(data), "\nexperimental:", "\nexperimentl:", 1)
+	if _, err := LoadProjectConfig([]byte(stray)); err == nil {
+		t.Error("misspelled top-level key was accepted; KnownFields strictness must hold outside experimental:")
 	}
 }
 
@@ -46,8 +72,8 @@ func TestLoadProjectConfig_VaultDefaults(t *testing.T) {
 	if cfg.Vault.Backend != backendLocal {
 		t.Errorf("Vault.Backend = %q; want local (defaulted)", cfg.Vault.Backend)
 	}
-	if cfg.Vault.Path != DefaultLocalVaultPath {
-		t.Errorf("Vault.Path = %q; want %q (defaulted)", cfg.Vault.Path, DefaultLocalVaultPath)
+	if cfg.Vault.Str("path") != DefaultLocalVaultPath {
+		t.Errorf("Vault path = %q; want %q (defaulted)", cfg.Vault.Str("path"), DefaultLocalVaultPath)
 	}
 }
 
@@ -60,8 +86,8 @@ func TestLoadProjectConfig_LocalBackendNoPathDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadProjectConfig: backend:local without path should default, got %v", err)
 	}
-	if cfg.Vault.Path != DefaultLocalVaultPath {
-		t.Errorf("Vault.Path = %q; want %q (defaulted)", cfg.Vault.Path, DefaultLocalVaultPath)
+	if cfg.Vault.Str("path") != DefaultLocalVaultPath {
+		t.Errorf("Vault path = %q; want %q (defaulted)", cfg.Vault.Str("path"), DefaultLocalVaultPath)
 	}
 }
 
@@ -75,7 +101,7 @@ func TestLoadProjectConfig_AcmeCorpExample(t *testing.T) {
 	if cfg.Framework != testFrameworkSOC2 {
 		t.Errorf("Framework = %q; want %q", cfg.Framework, testFrameworkSOC2)
 	}
-	if cfg.Vault.Backend != "s3" || cfg.Vault.Bucket != "acme-evidence" {
+	if cfg.Vault.Backend != "s3" || cfg.Vault.Str("bucket") != "acme-evidence" {
 		t.Errorf("Vault = %+v; want s3 / acme-evidence", cfg.Vault)
 	}
 	if _, ok := cfg.Sources["manual.pdf"]; !ok {
@@ -84,14 +110,23 @@ func TestLoadProjectConfig_AcmeCorpExample(t *testing.T) {
 	if _, ok := cfg.Sources["acme.internal_iam"]; !ok {
 		t.Error("expected acme.internal_iam in sources")
 	}
-	if cad := cfg.PolicyCadences["soc2.cc6.1.mfa_enforced"]; cad != "hourly" {
-		t.Errorf("policy_cadences mfa_enforced = %q; want hourly", cad)
+	if cad := cfg.CadenceFor("soc2.cc6.1.mfa_enforced"); cad != "hourly" {
+		t.Errorf("cadence mfa_enforced = %q; want hourly", cad)
 	}
-	if got := cfg.PolicyParameters["soc2.cc6.1.mfa_enforced"]["exempt_service_accounts"]; got != false {
-		t.Errorf("policy_parameters exempt_service_accounts = %#v; want false", got)
+	if got := cfg.ParametersFor("soc2.cc6.1.mfa_enforced")["exempt_service_accounts"]; got != false {
+		t.Errorf("parameters exempt_service_accounts = %#v; want false", got)
 	}
-	if n := len(cfg.Exceptions); n != 2 {
-		t.Errorf("Exceptions length = %d; want 2", n)
+	// Exceptions are now co-located under each policy: one scoped waiver on
+	// mfa_enforced, one whole-policy na on the WAF policy.
+	if n := len(cfg.ExceptionsFor("soc2.cc6.1.mfa_enforced")); n != 1 {
+		t.Errorf("mfa_enforced exceptions = %d; want 1", n)
+	}
+	if n := len(cfg.ExceptionsFor("soc2.cc6.7.waf_in_front_of_web_app")); n != 1 {
+		t.Errorf("waf exceptions = %d; want 1", n)
+	}
+	// Control-level applicability: CC6.4 is not_applicable (inherited).
+	if cc := cfg.Controls["CC6.4"]; cc.Applicability != "not_applicable" {
+		t.Errorf("controls[CC6.4].applicability = %q; want not_applicable", cc.Applicability)
 	}
 	if cfg.CI.FailSeverity != core.SeverityHigh {
 		t.Errorf("CI.FailSeverity = %q; want high", cfg.CI.FailSeverity)
@@ -105,7 +140,7 @@ func TestLoadProjectConfig_BindingWithSlotParams(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadProjectConfig: %v", err)
 	}
-	entries := cfg.Bindings["soc2.cc6.1.admin_mfa_enforced"]["user_directory"]
+	entries := cfg.BindingsFor("soc2.cc6.1.admin_mfa_enforced")["user_directory"]
 	if len(entries) != 1 {
 		t.Fatalf("expected 1 binding entry; got %d", len(entries))
 	}
@@ -125,15 +160,12 @@ func TestLoadProjectConfig_PolicyOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadProjectConfig: %v", err)
 	}
-	o, ok := cfg.PolicyOverrides["soc2.cc6.1.mfa_enforced"]
-	if !ok {
-		t.Fatal("expected policy_overrides entry for soc2.cc6.1.mfa_enforced")
+	mode, catalog := cfg.EvidenceModeOverrideFor("soc2.cc6.1.mfa_enforced")
+	if mode != "manual" {
+		t.Errorf("evidence_mode override = %q; want \"manual\"", mode)
 	}
-	if o.EvidenceMode != "manual" {
-		t.Errorf("EvidenceMode = %q; want \"manual\"", o.EvidenceMode)
-	}
-	if o.CatalogEntry != "mfa_attestation" {
-		t.Errorf("CatalogEntry = %q; want \"mfa_attestation\"", o.CatalogEntry)
+	if catalog != "mfa_attestation" {
+		t.Errorf("catalog_entry = %q; want \"mfa_attestation\"", catalog)
 	}
 }
 
@@ -143,7 +175,6 @@ func TestLoadProjectConfig_RejectsInvalid(t *testing.T) {
 		wantSub string
 	}{
 		{"project_config/invalid_missing_framework.yaml", "framework"},
-		{"project_config/invalid_vault_s3_no_bucket.yaml", "vault.bucket"},
 		{"project_config/invalid_manual_pdf_bracket.yaml", "singleton"},
 		{"project_config/invalid_bad_cadence.yaml", "invalid cadence"},
 		{"project_config/invalid_exception_no_reason.yaml", "reason"},
@@ -154,7 +185,7 @@ func TestLoadProjectConfig_RejectsInvalid(t *testing.T) {
 		{"project_config/invalid_policy_override_no_catalog.yaml", "catalog_entry"},
 		{"project_config/invalid_policy_override_bad_mode.yaml", "invalid value"},
 		{"project_config/invalid_policy_override_automated_with_catalog.yaml", "catalog_entry"},
-		{"project_config/invalid_policy_override_empty_mode.yaml", "evidence_mode is required"},
+		{"project_config/invalid_policy_override_empty_mode.yaml", "catalog_entry must not be set"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.file, func(t *testing.T) {

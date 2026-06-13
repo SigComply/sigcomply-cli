@@ -53,35 +53,41 @@ sources:
   gcp.sql:
     project_id: example-project
 
-bindings:
+policies:
   # Every automated policy uses the conventional "evidence" slot.
   # Source-agnostic MFA: bind every directory_user-emitting source.
   soc2.cc6.1.mfa_enforced_all_users:
-    evidence:
-      - source: aws.iam
-      - source: okta
+    bindings:
+      evidence:
+        - source: aws.iam
+        - source: okta
   # Admin-MFA is phrased to ERROR on a source that can't determine admin
   # status (Okta). Narrow it to aws.iam — the source that populates
   # is_admin — with an explicit binding, overriding auto-binding. This is
   # the canonical "several sources emit the type but only one can answer
   # this policy" override.
   soc2.cc6.1.mfa_enforced_admins:
-    evidence:
-      - source: aws.iam
+    bindings:
+      evidence:
+        - source: aws.iam
   # Compliant resources → pass.
   soc2.cc7.1.audit_logging_enabled:
-    evidence:
-      - source: aws.cloudtrail
+    bindings:
+      evidence:
+        - source: aws.cloudtrail
   soc2.cc7.1.log_retention_min_90d:
-    evidence:
-      - source: aws.cloudwatch
+    bindings:
+      evidence:
+        - source: aws.cloudwatch
   # Non-compliant resources → fail.
   soc2.cc6.8.threat_detection_enabled:
-    evidence:
-      - source: aws.guardduty
+    bindings:
+      evidence:
+        - source: aws.guardduty
   soc2.cc7.1.config_recording_enabled:
-    evidence:
-      - source: aws.config
+    bindings:
+      evidence:
+        - source: aws.config
 
 cloud:
   base_url: ""

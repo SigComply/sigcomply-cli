@@ -308,7 +308,7 @@ The planner computes effective values as:
 
 ```
 effective = policy.parameters.<name>.default
-          ⊕ project_config.policy_parameters[policy_id].<name>
+          ⊕ project_config.policies[policy_id].parameters.<name>
 ```
 
 Validation runs against `min/max/enum/pattern`. Out-of-bounds values
@@ -337,7 +337,7 @@ Projects can override the framework default for any policy in
 `.sigcomply.yaml`:
 
 ```yaml
-policy_overrides:
+policies:
   soc2.cc6.1.mfa_enforced:
     evidence_mode: manual          # customer has no IAM integration yet
     catalog_entry: mfa_attestation # which catalog entry to use for the PDF
@@ -707,7 +707,7 @@ PR mode (`sigcomply check --pr`) and the default invocation
 (`sigcomply check`) don't gate on cadence — every in-scope policy
 evaluates. Cadence gating is strictly a scheduled-mode behavior.
 
-Effective cadence = `project_config.policy_cadences[id]` if set, else
+Effective cadence = `project_config.policies[id].cadence` if set, else
 `policy.cadence`. Per-policy state captures the effective cadence at
 the time of the last evaluation so a later run can detect a
 configuration change.
@@ -718,10 +718,13 @@ A project can override a shipped policy's cadence in its
 `.sigcomply.yaml`:
 
 ```yaml
-policy_cadences:
-  soc2.cc6.1.mfa_enforced: hourly       # tighten — we care about drift
-  soc2.cc6.6.public_access_blocked: continuous
-  soc2.cc1.2.code_of_conduct_attested: annual   # loosen — we attest yearly
+policies:
+  soc2.cc6.1.mfa_enforced:
+    cadence: hourly                     # tighten — we care about drift
+  soc2.cc6.6.public_access_blocked:
+    cadence: continuous
+  soc2.cc1.2.code_of_conduct_attested:
+    cadence: annual                     # loosen — we attest yearly
 ```
 
 The full reference (precedence, validation, interaction with the

@@ -85,9 +85,11 @@ Project config can override per policy:
 
 ```yaml
 # .sigcomply.yaml (excerpt)
-policy_cadences:
-  soc2.cc6.1.mfa_enforced: every:6h       # tighter than the shipped default (daily)
-  soc2.cc6.1.access_review: monthly       # stricter than the shipped default (quarterly)
+policies:
+  soc2.cc6.1.mfa_enforced:
+    cadence: every:6h       # tighter than the shipped default (daily)
+  soc2.cc6.1.access_review:
+    cadence: monthly        # stricter than the shipped default (quarterly)
 ```
 
 ---
@@ -488,8 +490,8 @@ workflow files are part of what they review. Specifically:
 - **Modification detection**: have workflows been modified to skip
   certain policies? `git log` on the workflow files.
 - **Exception traceability**: if a quarterly policy has been "skipped"
-  for three quarters, did the workflow file change? Did a
-  `policy_cadences:` override appear? Did an exception get added?
+  for three quarters, did the workflow file change? Did a per-policy
+  `cadence:` override appear? Did an exception get added?
 
 The workflow files, like `.sigcomply.yaml` and any custom policies
 under `.sigcomply/`, are part of the project's audit trail and live
@@ -505,7 +507,8 @@ in git.
   fields on a policy spec.
 - [`05-vault-layout.md`](05-vault-layout.md) — how multiple runs
   within a period interact.
-- [`08-project-config.md`](08-project-config.md) — `policy_cadences:`
-  overrides and the `check` flag reference (via `docs/configuration.md`).
+- [`08-project-config.md`](08-project-config.md) — per-policy `cadence`
+  overrides (under `policies:`) and the `check` flag reference (via
+  `docs/configuration.md`).
 - [`10-cadence-model.md`](10-cadence-model.md) — the per-policy decision
   rule and per-policy state shards.

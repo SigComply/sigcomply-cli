@@ -10,6 +10,7 @@ sources:
   aws.iam:
     region: us-east-1
 
-bindings:
+policies:
   soc2.cc6.1.mfa_enforced:
-    user_directory: [aws.iam]
+    bindings:
+      user_directory: [aws.iam]

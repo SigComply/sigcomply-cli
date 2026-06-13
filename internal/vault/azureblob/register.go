@@ -2,6 +2,7 @@ package azureblob
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
@@ -13,10 +14,13 @@ func init() {
 }
 
 func build(ctx context.Context, cfg *spec.VaultConfig) (core.Vault, error) {
+	if cfg.Str("account") == "" || cfg.Str("container") == "" {
+		return nil, fmt.Errorf("vault: backend %q requires %q and %q", "azure_blob", "account", "container")
+	}
 	v, err := New(ctx, Options{
-		Account:   cfg.Account,
-		Container: cfg.Container,
-		Prefix:    cfg.Prefix,
+		Account:   cfg.Str("account"),
+		Container: cfg.Str("container"),
+		Prefix:    cfg.Str("prefix"),
 	})
 	if err != nil {
 		return nil, err

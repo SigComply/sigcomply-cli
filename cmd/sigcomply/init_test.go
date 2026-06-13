@@ -46,9 +46,9 @@ func TestInit_ScaffoldsValidConfig(t *testing.T) {
 	if _, ok := cfg.Sources["aws.iam"]; !ok {
 		t.Errorf("expected aws.iam in scaffolded sources, got %v", cfg.Sources)
 	}
-	// No bindings: block — auto-binding carries the first run.
-	if len(cfg.Bindings) != 0 {
-		t.Errorf("expected no bindings: block in scaffold, got %v", cfg.Bindings)
+	// No policies: block — auto-binding carries the first run.
+	if len(cfg.Policies) != 0 {
+		t.Errorf("expected no policies: block in scaffold, got %v", cfg.Policies)
 	}
 	if !strings.Contains(buf.String(), "Next steps") {
 		t.Errorf("expected next-steps guidance in output, got %q", buf.String())

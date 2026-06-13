@@ -3,5 +3,6 @@ framework: soc2
 vault:
   backend: local
   path: ./vault
-policy_cadences:
-  soc2.cc6.1.mfa_enforced: every_morning
+policies:
+  soc2.cc6.1.mfa_enforced:
+    cadence: every_morning

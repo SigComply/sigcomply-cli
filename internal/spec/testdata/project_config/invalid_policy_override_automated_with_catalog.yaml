@@ -3,8 +3,7 @@ framework: soc2
 vault:
   backend: local
   path: ./vault
-
-policy_overrides:
+policies:
   soc2.cc6.1.mfa_enforced:
     evidence_mode: automated
     catalog_entry: mfa_attestation  # must not be set for automated

@@ -97,34 +97,68 @@ func TestPolicyMatchesControl(t *testing.T) {
 	}
 }
 
-// resolveException matches a policy by exact ID and by trailing-wildcard
-// prefix, and skips a non-matching exception (covers the wildcard branch
-// of exceptionMatchesPolicy).
-func TestResolveException_WildcardPrefixMatch(t *testing.T) {
+// resolveException returns the first non-expired entry in a policy's own
+// exception list (entries are already scoped to one policy by the map key
+// in PolicyConfig, so there is no cross-policy matching).
+func TestResolveException_FirstNonExpired(t *testing.T) {
 	now := time.Date(2026, 5, 25, 0, 0, 0, 0, time.UTC)
-	exceptions := []spec.ExceptionConfig{
-		{Policy: "soc2.cc9.*", State: "waived", Reason: "family waiver"},
+	exceptions := []spec.PolicyException{
+		{State: "waived", Reason: "expired waiver", ExpiresAt: "2026-01-01"},
+		{State: "na", Reason: "live waiver"},
 	}
-	// Wildcard prefix matches.
-	if e := resolveException("soc2.cc9.1.foo", exceptions, now); e == nil {
-		t.Error("wildcard prefix should match soc2.cc9.1.foo")
+	e := resolveException(exceptions, now)
+	if e == nil {
+		t.Fatal("expected the live (non-expired) exception")
 	}
-	// A policy outside the prefix does not match.
-	if e := resolveException("soc2.cc6.1.mfa", exceptions, now); e != nil {
-		t.Errorf("non-matching policy should not get an exception; got %+v", e)
+	if e.Reason != "live waiver" {
+		t.Errorf("resolved reason = %q; want the live one (expired entries are skipped)", e.Reason)
 	}
 }
 
-// An exact-ID exception matches only that policy.
-func TestResolveException_ExactMatch(t *testing.T) {
+// An empty exception list yields no exception.
+func TestResolveException_Empty(t *testing.T) {
 	now := time.Date(2026, 5, 25, 0, 0, 0, 0, time.UTC)
-	exceptions := []spec.ExceptionConfig{
-		{Policy: "soc2.cc6.1.mfa", State: "na", Reason: "n/a"},
+	if e := resolveException(nil, now); e != nil {
+		t.Errorf("empty list should yield nil; got %+v", e)
 	}
-	if e := resolveException("soc2.cc6.1.mfa", exceptions, now); e == nil {
-		t.Error("exact ID should match")
+}
+
+// A control marked not_applicable cascades a whole-policy na to every
+// policy that maps to it — the control-level replacement for the old
+// per-policy wildcard.
+func TestResolveControlException_NotApplicableCascades(t *testing.T) {
+	policy := &core.Policy{
+		ID:       "soc2.cc6.4.physical_access",
+		Controls: []core.ControlRef{{ControlID: "CC6.4"}},
 	}
-	if e := resolveException("soc2.cc6.1.other", exceptions, now); e != nil {
-		t.Error("a different exact ID should not match")
+	controls := map[string]spec.ControlConfig{
+		"CC6.4": {Applicability: "not_applicable", Reason: "inherited from AWS"},
+	}
+	e := resolveControlException(policy, controls)
+	if e == nil {
+		t.Fatal("expected a cascaded na exception for a not_applicable control")
+	}
+	if e.State != core.StatusNA {
+		t.Errorf("State = %q; want %q", e.State, core.StatusNA)
+	}
+	if e.Reason != "inherited from AWS" {
+		t.Errorf("Reason = %q; want the control's reason", e.Reason)
+	}
+}
+
+// A control that is applicable (or absent) cascades nothing.
+func TestResolveControlException_NoMatch(t *testing.T) {
+	policy := &core.Policy{
+		ID:       "soc2.cc6.1.mfa",
+		Controls: []core.ControlRef{{ControlID: "CC6.1"}},
+	}
+	controls := map[string]spec.ControlConfig{
+		"CC6.4": {Applicability: "not_applicable", Reason: "inherited"},
+	}
+	if e := resolveControlException(policy, controls); e != nil {
+		t.Errorf("a policy not under the excluded control should get nil; got %+v", e)
+	}
+	if e := resolveControlException(policy, nil); e != nil {
+		t.Errorf("no controls config should yield nil; got %+v", e)
 	}
 }

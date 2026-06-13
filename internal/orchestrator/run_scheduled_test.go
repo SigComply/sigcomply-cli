@@ -87,7 +87,7 @@ func schedRegistries(t *testing.T, src *schedSource) *registry.Set {
 func schedConfig() *spec.ProjectConfig {
 	return &spec.ProjectConfig{
 		Framework: testFramework,
-		Vault:     spec.VaultConfig{Backend: "local", Path: "/tmp/x"},
+		Vault:     spec.VaultConfig{Backend: "local", Config: map[string]any{"path": "/tmp/x"}},
 		Sources:   map[string]map[string]any{"aws.iam": {}},
 	}
 }

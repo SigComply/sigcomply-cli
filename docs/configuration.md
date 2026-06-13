@@ -176,33 +176,32 @@ sources:
     region: us-east-1
     prefix: manual/
 
-# Bindings — map a policy's slot(s) to one or more sources. A manual
-# binding references a catalog entry as "manual.pdf:<evidence_catalog_id>".
-bindings:
+# Policies — all per-policy config lives under one object per policy ID:
+# bindings, parameters, cadence, evidence_mode, and scoped exceptions.
+# Omit a policy entirely to take framework defaults + auto-binding.
+policies:
   soc2.cc6.1.mfa_enforced:
-    user_directory: [okta, aws.iam]
-  soc2.cc6.1.access_review_quarterly:
-    review_document: [manual.pdf:access_review_quarterly]
-
-# Per-policy parameter overrides.
-policy_parameters:
+    bindings:
+      user_directory: [okta, aws.iam]   # narrow the slot to chosen sources
+    cadence: hourly                      # override the framework cadence
   soc2.cc6.1.access_key_rotation:
-    max_age_days: 60
-
-# Per-policy cadence overrides (drives CI scheduling; see Cadence below).
-policy_cadences:
-  soc2.cc6.1.mfa_enforced: hourly
-
-# Per-policy evidence_mode override (automated <-> manual migration path).
-policy_overrides:
+    parameters:
+      max_age_days: 60                   # tune a policy parameter
   soc2.cc6.1.access_review_quarterly:
-    evidence_mode: manual
+    evidence_mode: manual                # automated <-> manual migration
+    catalog_entry: access_review_quarterly
+  soc2.cc6.7.waf_in_front_of_web_app:
+    exceptions:                          # waivers / N/A, versioned in git
+      - state: na                        # waived | na
+        reason: "API-only product; no public web app requiring a WAF."
 
-# Exceptions — waivers / not-applicable, versioned in git with justifications.
-exceptions:
-  - policy: soc2.cc6.7.waf_in_front_of_web_app
-    state: na                     # waived | na
-    reason: "API-only product; no public web app requiring a WAF."
+# Controls — control-level decisions (coarse, per-control). not_applicable
+# cascades na to every policy mapping to the control.
+controls:
+  CC6.4:
+    applicability: not_applicable
+    reason: "Cloud-only; physical security inherited from AWS."
+    approved_by: ciso@example.com
 
 # SigComply Cloud submission (OIDC-only; auto-enables in CI).
 cloud:
@@ -244,18 +243,16 @@ set of accepted top-level keys (`internal/spec/project_config.go`):
 | `schema_version` | string | Required; currently always `project.v1`. |
 | `framework` | string | Singular. `soc2` \| `iso27001` (`hipaa` is a stub that fails at runtime). |
 | `period` | `{ fiscal_calendar: { type, starts, periods[] }, time_basis }` | `type`: `calendar_quarter` \| `fiscal_year` \| `custom` (custom needs `periods:` of `{id, start, end}`). `time_basis`: `commit` \| `wall_clock`. |
-| `vault` | flat `VaultConfig` | See [Storage Backends](#storage-backends). |
+| `vault` | open `{ backend, ... }` mapping | Flat; only `backend` is interpreted, other keys pass through to the backend. See [Storage Backends](#storage-backends). |
 | `sources` | map: source id → config | Plugin configs; `manual.pdf` is the reserved manual-evidence singleton. |
-| `bindings` | map: policy id → `{ slot: [source, ...] }` | Sources fulfilling a policy's slots. Manual entries are `manual.pdf:<evidence_catalog_id>`. |
-| `policy_parameters` | map: policy id → `{ param: value }` | Per-policy parameter overrides. |
-| `policy_cadences` | map: policy id → cadence | Per-policy cadence override (see [Cadence](#cadence--scheduling)). |
-| `policy_overrides` | map: policy id → `{ evidence_mode, catalog_entry }` | `evidence_mode: manual` requires `catalog_entry`; `automated` forbids it. |
-| `exceptions` | list of `{ policy, scope: { resource_id, resource_pattern }, state, reason, approved_by, approved_at, expires_at }` | `state`: `waived` \| `na`. |
+| `policies` | map: policy id → `PolicyConfig` | All per-policy config, co-located per ID. `PolicyConfig` = `{ bindings: { slot: [source,...] }, parameters: { param: value }, cadence, evidence_mode, catalog_entry, exceptions: [...] }`. `evidence_mode: manual` requires `catalog_entry`; `automated` forbids it. Each exception is `{ scope: { resource_id, resource_pattern }, state (waived\|na), reason, approved_by, approved_at, expires_at }` — no `policy:` field (the map key is the policy). |
+| `controls` | map: control id → `{ applicability, reason, approved_by }` | `applicability`: `applicable` \| `not_applicable`; `not_applicable` requires `reason` and cascades `na` to every policy mapping to the control. |
 | `cloud` | `{ enabled, base_url }` | `enabled` is a `*bool` (auto-detected in CI when omitted); `base_url` overrides the endpoint. |
 | `output` | `{ format, json_path, verbose }` | `format`: `text` \| `json` \| `junit`. |
 | `ci` | `{ fail_on_violation, fail_severity }` | Config-only; no equivalent flags. |
 | `ci_environment` | map | Free-form environment metadata recorded with the run. |
 | `extensions` | `{ path }` | Overrides extension-discovery path (default `.sigcomply/`). |
+| `experimental` | map | Forward-compat escape hatch: not-yet-stable keys live here so a newer config never breaks an older CLI. Ignored by the loader. |
 
 ---
 
@@ -544,13 +541,15 @@ LastPassAt and drifts time-of-day across runs.
 ```yaml
 # .sigcomply.yaml
 framework: soc2
-policy_cadences:
-  soc2.cc6.1.mfa_enforced_admin: every:6h
-  soc2.cc7.2.annual_pentest: annual
+policies:
+  soc2.cc6.1.mfa_enforced_admin:
+    cadence: every:6h
+  soc2.cc7.2.annual_pentest:
+    cadence: annual
 ```
 
 Overrides are exact-match by policy ID. Unknown IDs are caught at
-plan time.
+plan time (with a "did you mean …?" suggestion).
 
 ### Run modes and cadence
 

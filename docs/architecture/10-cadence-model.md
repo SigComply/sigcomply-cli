@@ -108,9 +108,11 @@ single scalar.
 Customers override the framework default in `.sigcomply.yaml`:
 
 ```yaml
-policy_cadences:
-  soc2.cc6.1.mfa_enforced_admin: every:6h
-  soc2.cc7.2.annual_pentest: annual
+policies:
+  soc2.cc6.1.mfa_enforced_admin:
+    cadence: every:6h
+  soc2.cc7.2.annual_pentest:
+    cadence: annual
 ```
 
 Overrides are exact-match by policy ID. Unknown IDs are caught at

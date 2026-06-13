@@ -165,7 +165,7 @@ func registerProductionSources(ctx context.Context, registries *registry.Set, cf
 	}
 	for id, raw := range cfg.Sources {
 		env := sources.Env{
-			Config:          withRegionDefault(raw, cfg.Vault.Region),
+			Config:          withRegionDefault(raw, cfg.Vault.Str("region")),
 			FrameworkExtras: extras,
 		}
 		plugin, err := sources.Build(ctx, id, env)

@@ -10,9 +10,10 @@ sources:
   aws.iam:
     region: us-east-1
 
-bindings:
+policies:
   soc2.cc6.1.admin_mfa_enforced:
-    user_directory:
-      - source: aws.iam
-        slot_params:
-          filter_admins_only: true
+    bindings:
+      user_directory:
+        - source: aws.iam
+          slot_params:
+            filter_admins_only: true

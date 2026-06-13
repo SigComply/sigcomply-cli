@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
 // paramAs is a test helper that fetches a parameter and type-asserts
@@ -224,13 +225,15 @@ func TestResolveParameters_UnsupportedType(t *testing.T) {
 
 func TestResolveCadence(t *testing.T) {
 	const cadenceDaily = "daily"
-	if c := resolveCadence("p1", cadenceDaily, map[string]string{"p1": "hourly"}); c != "hourly" {
+	withOverride := &spec.ProjectConfig{Policies: map[string]spec.PolicyConfig{"p1": {Cadence: "hourly"}}}
+	if c := resolveCadence("p1", cadenceDaily, withOverride); c != "hourly" {
 		t.Errorf("override not applied: got %q want hourly", c)
 	}
-	if c := resolveCadence("p1", cadenceDaily, map[string]string{"p2": "hourly"}); c != cadenceDaily {
+	otherPolicy := &spec.ProjectConfig{Policies: map[string]spec.PolicyConfig{"p2": {Cadence: "hourly"}}}
+	if c := resolveCadence("p1", cadenceDaily, otherPolicy); c != cadenceDaily {
 		t.Errorf("default lost: got %q want %s", c, cadenceDaily)
 	}
-	if c := resolveCadence("p1", cadenceDaily, nil); c != cadenceDaily {
-		t.Errorf("nil overrides: got %q want %s", c, cadenceDaily)
+	if c := resolveCadence("p1", cadenceDaily, &spec.ProjectConfig{}); c != cadenceDaily {
+		t.Errorf("empty cfg: got %q want %s", c, cadenceDaily)
 	}
 }

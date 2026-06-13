@@ -1,37 +1,23 @@
 # AcmeCorp — SOC 2 Type II project configuration.
 #
 # Profile:
-#   - Mid-sized SaaS, ~80 employees
-#   - Pursuing SOC 2 Type II
-#   - Single AWS account (prod) in us-east-1
-#   - Identity: Okta SSO for everyone
-#   - Code: GitHub Enterprise Cloud (org "acme")
+#   - Mid-sized SaaS, ~80 employees, single AWS account (prod) in us-east-1
+#   - Identity: Okta SSO; Code: GitHub Enterprise Cloud (org "acme")
 #   - Some manual evidence: quarterly access review, annual security training
-#   - One project-local custom policy: contractor access review
-#   - One project-local custom source plugin: acme.internal_iam (their
-#     internal authorization service for the customer-facing app)
-#   - Vault: S3 in us-east-1 with their own KMS key
-#   - CI: GitHub Actions
-#   - Fiscal year: calendar year, calendar quarters
+#   - One project-local custom policy + one custom source plugin
+#   - Vault: S3 in us-east-1; CI: GitHub Actions; calendar quarters
 #
-# Narrative walkthrough: ./acmecorp-walkthrough.md
+# Demonstrates the consolidated config shape: all per-policy settings live
+# under policies:<id>; control-level decisions live under controls:.
 
 schema_version: project.v1
 
 framework: soc2
 
-# ---------------------------------------------------------------------
-# Period model — calendar quarters; time basis is the commit time.
-# ---------------------------------------------------------------------
-
 period:
   fiscal_calendar:
     type: calendar_quarter
   time_basis: commit
-
-# ---------------------------------------------------------------------
-# Vault — customer-owned S3 bucket, encrypted with their own KMS key.
-# ---------------------------------------------------------------------
 
 vault:
   backend: s3
@@ -39,12 +25,7 @@ vault:
   region: us-east-1
   prefix: sigcomply/
 
-# ---------------------------------------------------------------------
-# Sources — plugin configurations.
-# ---------------------------------------------------------------------
-
 sources:
-  # AWS — single account, default credential chain (CI uses OIDC + role assumption).
   aws.iam:        { region: us-east-1 }
   aws.s3:         { region: us-east-1 }
   aws.cloudtrail: { region: us-east-1 }
@@ -55,145 +36,108 @@ sources:
   aws.guardduty:  { region: us-east-1 }
   aws.config:     { region: us-east-1 }
   aws.eks:        { region: us-east-1 }
-
-  # Identity provider — Okta SSO. Token from OKTA_TOKEN env var.
   okta:
     domain: acme.okta.com
-
-  # Source control — GitHub Enterprise Cloud, the "acme" org.
   github:
     org: acme
-
-  # Manual evidence — PDFs deposited in a sibling S3 bucket.
   manual.pdf:
     backend: s3
     bucket:  acme-evidence
     region:  us-east-1
     prefix:  manual/
-
-  # Project-local custom plugin — see .sigcomply/plugins/acme.internal_iam/
   acme.internal_iam:
     endpoint: "https://auth.acme-internal.com/api/v1"
     token_env: "ACME_IAM_TOKEN"
 
 # ---------------------------------------------------------------------
-# Bindings — which sources fulfill which policy slots.
+# Per-policy configuration — bindings, parameters, cadence, evidence_mode,
+# and scoped exceptions, all co-located under each policy ID.
 # ---------------------------------------------------------------------
-
-bindings:
-  # MFA enforced: AcmeCorp checks both their Okta users and the
-  # customer-facing app's IAM users (custom plugin).
+policies:
+  # MFA — checked across both Okta and the custom internal IAM; stricter
+  # than default (service accounts not exempt); caught hourly. One legacy
+  # bot is waived (scoped) until it is decommissioned.
   soc2.cc6.1.mfa_enforced:
-    user_directory: [okta, acme.internal_iam]
+    cadence: hourly
+    bindings:
+      user_directory: [okta, acme.internal_iam]
+    parameters:
+      exempt_service_accounts: false
+    exceptions:
+      - scope:
+          resource_id: "okta_user:legacy.deploy.bot@acme.com"
+        state: waived
+        reason: |
+          Legacy deployment bot identity. To be retired with the
+          decommissioning of the on-prem build pipeline. Replacement uses
+          federated OIDC and does not require an interactive identity.
+        approved_by: "jane.doe@acme.com"
+        approved_at: "2026-01-15"
+        expires_at: "2026-09-30"
 
-  # Access key rotation: only relevant for AWS programmatic users.
+  # Access key rotation — only AWS programmatic users; stricter (60d).
   soc2.cc6.1.access_key_rotation:
-    access_keys: [aws.iam]
+    bindings:
+      access_keys: [aws.iam]
+    parameters:
+      max_age_days: 60
 
-  # Inactive user accounts: human users are in Okta; service identities
-  # in AWS IAM and the internal IAM are filtered by the policy itself.
+  # Inactive users — across all identity sources; tighter threshold (60d).
   soc2.cc6.1.inactive_users:
-    user_directory: [okta, aws.iam, acme.internal_iam]
+    bindings:
+      user_directory: [okta, aws.iam, acme.internal_iam]
+    parameters:
+      inactive_days: 60
 
-  # Quarterly access review — manual PDF.
+  # Quarterly access review — manual PDF, structured catalog_entry
+  # (replaces the old "manual.pdf:access_review_quarterly" string).
   soc2.cc6.1.access_review_quarterly:
-    review_document: [manual.pdf:access_review_quarterly]
+    evidence_mode: manual
+    catalog_entry: access_review_quarterly
+    cadence: monthly
 
   # Annual security awareness training certificate — manual PDF.
   soc2.cc1.4.security_training_annual:
-    training_record: [manual.pdf:security_training_annual]
+    evidence_mode: manual
+    catalog_entry: security_training_annual
+    cadence: annual
 
-  # Custom policy: contractor access review (defined under
-  # .sigcomply/policies/acme.custom.cc6.1.contractor_review/).
+  # Custom project-local policy — contractor access review (manual PDF).
   acme.custom.cc6.1.contractor_review:
-    review_document: [manual.pdf:contractor_review_quarterly]
+    evidence_mode: manual
+    catalog_entry: contractor_review_quarterly
+    parameters:
+      max_contractors: 50
 
-  # ... other framework policies use their bindings via defaults.
-  # AcmeCorp can omit a binding here if the framework spec already
-  # provides one that matches a source AcmeCorp has configured.
-
-# ---------------------------------------------------------------------
-# Policy parameter overrides — AcmeCorp is stricter than default in
-# a few areas, more relaxed in others (always with documented reasons
-# in adjacent comments).
-# ---------------------------------------------------------------------
-
-policy_parameters:
-  # Stricter than the framework default (90 days).
-  soc2.cc6.1.access_key_rotation:
-    max_age_days: 60
-
-  # Tighter inactive-user threshold (default is 90).
-  soc2.cc6.1.inactive_users:
-    inactive_days: 60
-
-  # AcmeCorp requires MFA on all identities including service accounts.
-  soc2.cc6.1.mfa_enforced:
-    exempt_service_accounts: false
-
-  # Their compliance program allows up to 50 contractors at any time.
-  acme.custom.cc6.1.contractor_review:
-    max_contractors: 50
+  # WAF-in-front-of-web-app does not apply — API-only product. This is a
+  # single-policy N/A (the API tier's WAF is verified by another policy),
+  # so it stays a policy-level exception rather than a control-level one.
+  soc2.cc6.7.waf_in_front_of_web_app:
+    exceptions:
+      - state: na
+        reason: |
+          AcmeCorp's product surface is API-only; there is no public web
+          application requiring a WAF. The CloudFront + API Gateway WAF
+          coverage for the API tier is verified by
+          soc2.cc6.7.waf_in_front_of_api.
 
 # ---------------------------------------------------------------------
-# Policy cadence overrides — control how often each policy runs.
-#
-# Cadence drives CI workflow scheduling (see docs/architecture/10-ci-execution-model.md).
-# The CLI does NOT enforce cadence: it accepts --cadence X / --on-push and
-# runs whatever matches. CI cron schedules are what make cadence operational.
+# Control-level decisions — coarse, governance-level, per control. A
+# not_applicable control cascades to every policy that maps to it.
 # ---------------------------------------------------------------------
-
-policy_cadences:
-  # AcmeCorp wants MFA disabling caught immediately on PR push, plus every
-  # hour during the day. Framework default for this policy is "daily".
-  soc2.cc6.1.mfa_enforced: hourly
-
-  # Access reviews monthly rather than the framework default (quarterly) —
-  # AcmeCorp's compliance program requires tighter cadence.
-  soc2.cc6.1.access_review_quarterly: monthly
-
-  # Annual training stays annual; explicit here for documentation clarity.
-  soc2.cc1.4.security_training_annual: annual
-
-# ---------------------------------------------------------------------
-# Exceptions — versioned in git; each carries a justification.
-# ---------------------------------------------------------------------
-
-exceptions:
-  # Legacy service account used by a deprecating internal tool. To be
-  # decommissioned by 2026-09-30; waived until then.
-  - policy: soc2.cc6.1.mfa_enforced
-    scope:
-      resource_id: "okta_user:legacy.deploy.bot@acme.com"
-    state: waived
+controls:
+  # Physical access security is inherited from AWS (cloud-only company);
+  # the whole control is out of scope for AcmeCorp's own assessment.
+  CC6.4:
+    applicability: not_applicable
     reason: |
-      Legacy deployment bot identity. To be retired with the
-      decommissioning of the on-prem build pipeline. Replacement uses
-      federated OIDC and does not require an interactive identity.
-    approved_by: "jane.doe@acme.com"
-    approved_at: "2026-01-15"
-    expires_at: "2026-09-30"
-
-  # AcmeCorp's product is API-only; no public-facing web app, so the
-  # web application firewall policy does not apply.
-  - policy: soc2.cc6.7.waf_in_front_of_web_app
-    state: na
-    reason: |
-      AcmeCorp's product surface is API-only; there is no public web
-      application requiring a WAF. The CloudFront + API Gateway WAF
-      coverage for the API tier is verified by
-      soc2.cc6.7.waf_in_front_of_api.
-
-# ---------------------------------------------------------------------
-# Cloud submission — to SigComply Cloud, OIDC-authenticated.
-# ---------------------------------------------------------------------
+      AcmeCorp operates no physical data-center footprint; physical and
+      environmental security is inherited from AWS, whose SOC 2 report is
+      on file. Every CC6.4 policy is therefore not applicable.
+    approved_by: "ciso@acme.com"
 
 cloud:
-  enabled: true   # auto-detected in CI; explicit here for clarity.
-
-# ---------------------------------------------------------------------
-# Output and CI behavior.
-# ---------------------------------------------------------------------
+  enabled: true
 
 output:
   format: text
@@ -201,4 +145,4 @@ output:
 
 ci:
   fail_on_violation: true
-  fail_severity: high     # PRs block on high+ failures; medium/low surfaces but doesn't block.
+  fail_severity: high

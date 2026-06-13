@@ -89,7 +89,7 @@ branches on this field and nothing else (see #10 and Axiom 4).
 Automated policies declare `slots:` and a `pass_when:`; manual policies
 declare a `catalog_entry:` and carry neither slots nor `pass_when:`. A
 project may override the framework's default per policy via
-`policy_overrides` in `.sigcomply.yaml` (same policy ID).
+`policies.<id>.evidence_mode` in `.sigcomply.yaml` (same policy ID).
 
 **Example.** `soc2.cc6.1.mfa_enforced` (`evidence_mode: automated`)
 asserts "every user in the configured user-directory source has MFA
@@ -138,8 +138,9 @@ on_push: true
 A project may override per policy in `.sigcomply.yaml`:
 
 ```yaml
-policy_cadences:
-  soc2.cc6.1.mfa_enforced: hourly
+policies:
+  soc2.cc6.1.mfa_enforced:
+    cadence: hourly
 ```
 
 Cadence can also be expressed as `every:<duration>` (5-minute floor)
@@ -433,11 +434,13 @@ rule input.
 **Example.**
 
 ```yaml
-bindings:
+policies:
   soc2.cc6.1.mfa_enforced:
-    user_directory: [aws.iam, okta]
+    bindings:
+      user_directory: [aws.iam, okta]
   soc2.cc6.1.access_key_rotation:
-    access_keys: [aws.iam_access_key]
+    bindings:
+      access_keys: [aws.iam_access_key]
 ```
 
 For `mfa_enforced`, AcmeCorp wants both AWS IAM users and Okta users
@@ -459,8 +462,9 @@ policy slots.
 described by:
 
 - A `.sigcomply.yaml` at the repo root (framework, period config,
-  source configurations, bindings, exceptions, parameter overrides,
-  vault location, optional `policy_cadences` overrides)
+  source configurations, the `policies:` object — bindings, exceptions,
+  parameter and cadence overrides — the `controls:` section, and the
+  vault location)
 - A `.sigcomply/` directory for custom code (custom policies, custom
   source plugins)
 - A vault (customer-owned storage; configured in `.sigcomply.yaml`)
@@ -823,9 +827,10 @@ sources:
   aws.iam: { region: us-east-1 }
   okta:    { domain: acme.okta.com }
 
-bindings:
+policies:
   soc2.cc6.1.admin_mfa_enforced:
-    user_directory: [aws.iam, okta]
+    bindings:
+      user_directory: [aws.iam, okta]
 ```
 
 **Step 3 — At run time, the planner produces:**
@@ -910,8 +915,8 @@ users failed.
 
 - [`03-policy-spec.md`](03-policy-spec.md) — how `cadence` and `on_push`
   are declared on a policy spec.
-- [`08-project-config.md`](08-project-config.md) — the `policy_cadences`
-  override map in `.sigcomply.yaml`.
+- [`08-project-config.md`](08-project-config.md) — the per-policy
+  `cadence` override (under `policies:`) in `.sigcomply.yaml`.
 - [`09-ci-execution-model.md`](09-ci-execution-model.md) — how CI
   workflow files schedule cadences and invoke the CLI (Axiom 4 in
   practice).

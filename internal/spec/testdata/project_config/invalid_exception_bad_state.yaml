@@ -3,7 +3,8 @@ framework: soc2
 vault:
   backend: local
   path: ./vault
-exceptions:
-  - policy: soc2.cc6.1.mfa_enforced
-    state: maybe-later
-    reason: "We will get to it eventually."
+policies:
+  soc2.cc6.1.mfa_enforced:
+    exceptions:
+      - state: maybe-later
+        reason: "We will get to it eventually."
