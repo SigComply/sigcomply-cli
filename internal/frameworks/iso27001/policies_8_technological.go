@@ -94,6 +94,13 @@ func techAccessPolicies() []core.Policy {
 				leaf("payload.requires_symbols", "eq", true),
 			), "password policy does not require all four character classes"),
 		}.policy(),
+		autoPolicy{
+			id: "iso27001.8.5.org_2fa_required", control: "A.8.5", severity: core.SeverityHigh, category: "access", cadence: "daily",
+			accepts: []string{"source_control_org_policy"},
+			desc:    "The source-control organization enforces two-factor authentication for all members (secure authentication).",
+			rem:     "Enable the org-wide two-factor authentication requirement.",
+			clause:  all(leaf("payload.two_factor_required", "eq", true), "organization {{.payload.id}} does not require two-factor authentication"),
+		}.policy(),
 	}
 }
 

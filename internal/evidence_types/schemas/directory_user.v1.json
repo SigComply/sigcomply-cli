@@ -14,6 +14,7 @@
     "mfa_factor_count":   { "type": "integer", "description": "Number of enrolled MFA factors (optional, best-effort). Useful for richer rules; not every plugin can compute it." },
     "is_admin":           { "type": "boolean", "description": "Has account-wide elevated privileges (IAM admin group, Okta SuperAdmin, GitHub org owner, …). Plugins implement the per-vendor heuristic." },
     "is_service_account": { "type": "boolean", "description": "Non-human identity (bot, machine, integration token). Plugins use vendor-specific signals; absent means unknown." },
+    "is_external":        { "type": "boolean", "description": "Identity is external to the organization — a GitHub outside collaborator, guest/B2B account, or contractor with scoped access rather than full membership. Optional; sources that cannot distinguish membership omit it. Guard with is_set before filtering on it." },
     "is_active":          { "type": "boolean", "description": "Account can authenticate today. Absent means assume active; explicit false skips the identity from active-only rules." },
     "last_login_at":      { "type": "string", "format": "date-time", "description": "Most recent successful sign-in." },
     "created_at":         { "type": "string", "format": "date-time" }

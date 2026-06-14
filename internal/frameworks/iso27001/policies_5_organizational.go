@@ -27,5 +27,12 @@ func organizationalAutomatedPolicies() []core.Policy {
 			rem:     "Enable MFA for every user.",
 			clause:  all(leaf("payload.mfa_enabled", "eq", true), "user {{.payload.display_name}} does not have MFA enabled"),
 		}.policy(),
+		autoPolicy{
+			id: "iso27001.5.15.repo_default_permission_least_privilege", control: "A.5.15", severity: core.SeverityMedium, category: "access", cadence: "daily",
+			accepts: []string{"source_control_org_policy"},
+			desc:    "The source-control organization grants members a least-privilege default repository permission (access control).",
+			rem:     "Set the default member repository permission to `none` or `read`; grant write/admin per team.",
+			clause:  all(leaf("payload.default_member_repository_permission", "not_in", []any{"write", "admin"}), "organization {{.payload.id}} grants an overly broad default repository permission"),
+		}.policy(),
 	}
 }

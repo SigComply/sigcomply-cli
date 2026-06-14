@@ -354,3 +354,26 @@ func unrestrictedPortClause(port int) core.PassWhenClause {
 	)
 	return noneWhere(filter, cond, fmt.Sprintf("firewall rule {{.payload.id}} exposes port %d to 0.0.0.0/0", port))
 }
+
+// cc6OrgGovernancePolicies — CC6.1/CC6.3 logical access governance at the
+// source-control org level: org-wide MFA enforcement and least-privilege
+// default member access. Consumes the singleton source_control_org_policy
+// record (GitHub org, GitLab group, …).
+func cc6OrgGovernancePolicies() []core.Policy {
+	return []core.Policy{
+		autoPolicy{
+			id: "soc2.cc6.1.org_2fa_required", control: "CC6.1", severity: core.SeverityHigh, category: "access", cadence: "daily",
+			accepts: []string{"source_control_org_policy"},
+			desc:    "The source-control organization enforces two-factor authentication for all members.",
+			rem:     "Enable the org-wide two-factor authentication requirement.",
+			clause:  all(leaf("payload.two_factor_required", "eq", true), "organization {{.payload.id}} does not require two-factor authentication"),
+		}.policy(),
+		autoPolicy{
+			id: "soc2.cc6.3.repo_default_permission_least_privilege", control: "CC6.3", severity: core.SeverityMedium, category: "access", cadence: "daily",
+			accepts: []string{"source_control_org_policy"},
+			desc:    "The source-control organization grants members a least-privilege default repository permission (none or read).",
+			rem:     "Set the default member repository permission to `none` or `read`; grant write/admin per team.",
+			clause:  all(leaf("payload.default_member_repository_permission", "not_in", []any{"write", "admin"}), "organization {{.payload.id}} grants an overly broad default repository permission"),
+		}.policy(),
+	}
+}

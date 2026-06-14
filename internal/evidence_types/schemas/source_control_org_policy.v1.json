@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/source_control_org_policy/v1.json",
+  "title": "source_control_org_policy",
+  "version": 1,
+  "description": "Org/group-level governance settings for a source-code hosting platform — a GitHub organization, GitLab group, or Bitbucket workspace. Singleton: each org/group emits exactly one record. The single cross-vendor shape policies use for org-wide MFA enforcement, default member access, and secure-by-default repository creation. Plugins normalize platform-specific org settings into these fields; collecting them requires an org-admin-scoped credential.",
+  "type": "object",
+  "required": ["id", "two_factor_required", "default_member_repository_permission"],
+  "properties": {
+    "id":                                  { "type": "string", "description": "Org/group identifier — GitHub org login, GitLab group path, Bitbucket workspace slug. Stable per org." },
+    "provider":                            { "type": "string", "description": "Platform short name: github, gitlab, bitbucket." },
+    "two_factor_required":                 { "type": "boolean", "description": "Org enforces two-factor authentication for every member (org-wide requirement, not merely observed per user)." },
+    "default_member_repository_permission":{ "type": "string", "enum": ["none", "read", "write", "admin"], "description": "Baseline permission every member gets on org repositories. `none`/`read` are least-privilege; `write`/`admin` grant broad default access." },
+    "members_can_create_public_repos":     { "type": "boolean", "description": "Members (non-admins) may create public repositories. Optional — omitted by platforms with no such setting." },
+    "web_commit_signoff_required":         { "type": "boolean", "description": "Org requires sign-off on web-based commits. Optional." },
+    "advanced_security_enabled_new_repos": { "type": "boolean", "description": "Advanced Security (code/secret scanning suite) is enabled by default on newly created repos. Optional — license-gated on GitHub; omitted where unavailable." },
+    "secret_scanning_enabled_new_repos":   { "type": "boolean", "description": "Secret scanning is enabled by default on newly created repos. Optional." },
+    "dependabot_alerts_enabled_new_repos": { "type": "boolean", "description": "Dependency vulnerability alerts are enabled by default on newly created repos. Optional." }
+  },
+  "additionalProperties": true
+}

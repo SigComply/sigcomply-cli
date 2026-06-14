@@ -237,6 +237,13 @@ func TestE2E_WalkingSkeleton(t *testing.T) {
 		"soc2.cc7.1.log_retention_min_90d":    core.StatusPass,
 		"soc2.cc6.8.threat_detection_enabled": core.StatusFail,
 		"soc2.cc7.1.config_recording_enabled": core.StatusFail,
+		// Phase 1 (source_control_org_policy): org 2FA not required → fail;
+		// least-privilege default permission ("read") → pass.
+		"soc2.cc6.1.org_2fa_required":                        core.StatusFail,
+		"soc2.cc6.3.repo_default_permission_least_privilege": core.StatusPass,
+		// Phase 3a (Dependabot → vulnerability_finding): one open critical
+		// alert → the none-quantifier critical-vuln policy fails.
+		"soc2.cc7.4.no_critical_vulns_active": core.StatusFail,
 		// Unbound: no firewall_rule source is registered → skip.
 		"soc2.cc6.6.no_unrestricted_ssh": core.StatusSkip,
 	})
@@ -501,6 +508,22 @@ func registerIdentityStubs(t *testing.T, regs *registry.Set, now time.Time) {
 				{Login: "alice", TwoFactorOn: true, Role: "admin"},
 				{Login: "bob", TwoFactorOn: false, Role: "member"},
 			},
+			// One external identity with repo access (Phase 2): flows into
+			// the directory_user evidence as is_external=true.
+			collaborators: []ghsource.Member{
+				{Login: "contractor-carol", TwoFactorOn: true},
+			},
+			// Mixed org policy: 2FA not required (fails the org_2fa
+			// policy) but a least-privilege default permission (passes),
+			// so the new source_control_org_policy checks exercise both paths.
+			orgPolicy: ghsource.OrgPolicy{TwoFactorRequired: false, DefaultRepoPermission: "read"},
+			// One open critical Dependabot alert (Phase 3a): exercises the
+			// Dependabot → vulnerability_finding reuse path end-to-end, so
+			// the existing none-quantifier critical-vuln policy must fail.
+			alerts: []ghsource.DependabotAlert{
+				{Number: 1, RepoFullName: "acme/web", PackageName: "log4j-core",
+					Summary: "Remote code execution", Severity: "critical", State: "open"},
+			},
 		},
 		Org: "acme",
 		Now: func() time.Time { return now },
@@ -528,8 +551,11 @@ func registerIdentityStubs(t *testing.T, regs *registry.Set, now time.Time) {
 // stubGitHubAPI satisfies the github source plugin's API interface
 // without touching the network.
 type stubGitHubAPI struct {
-	repos   []ghsource.Repo
-	members []ghsource.Member
+	repos         []ghsource.Repo
+	members       []ghsource.Member
+	collaborators []ghsource.Member
+	orgPolicy     ghsource.OrgPolicy
+	alerts        []ghsource.DependabotAlert
 }
 
 func (s *stubGitHubAPI) ListRepos(context.Context) ([]ghsource.Repo, error) {
@@ -538,6 +564,18 @@ func (s *stubGitHubAPI) ListRepos(context.Context) ([]ghsource.Repo, error) {
 
 func (s *stubGitHubAPI) ListOrgMembers(context.Context) ([]ghsource.Member, error) {
 	return s.members, nil
+}
+
+func (s *stubGitHubAPI) ListOutsideCollaborators(context.Context) ([]ghsource.Member, error) {
+	return s.collaborators, nil
+}
+
+func (s *stubGitHubAPI) GetOrgPolicy(context.Context) (ghsource.OrgPolicy, error) {
+	return s.orgPolicy, nil
+}
+
+func (s *stubGitHubAPI) ListDependabotAlerts(context.Context) ([]ghsource.DependabotAlert, error) {
+	return s.alerts, nil
 }
 
 // stubOktaAPI satisfies the okta source plugin's API interface

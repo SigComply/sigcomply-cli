@@ -14,6 +14,7 @@
     "mfa_factor_count":       { "type": "integer" },
     "is_admin":               { "type": "boolean", "description": "Has account-wide elevated privileges." },
     "is_service_account":     { "type": "boolean" },
+    "is_external":            { "type": "boolean", "description": "Identity is external to the organization (outside collaborator, guest/B2B, contractor). Optional; guard with is_set before filtering." },
     "is_active":              { "type": "boolean" },
     "last_login_at":          { "type": "string" },
     "created_at":             { "type": "string" },
