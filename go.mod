@@ -30,7 +30,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/securityhub v1.71.4
 	github.com/aws/smithy-go v1.27.0
 	github.com/google/uuid v1.6.0
-	github.com/open-policy-agent/opa v1.17.0
+	github.com/open-policy-agent/opa v1.17.1
 	github.com/pdfcpu/pdfcpu v0.12.1
 	github.com/phpdave11/gofpdf v1.4.3
 	github.com/spf13/cobra v1.10.2
