@@ -38,6 +38,7 @@ import (
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/securitygroups"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/securityservices"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/vpc"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/artifactregistry"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/asset"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/audit"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/compute"
