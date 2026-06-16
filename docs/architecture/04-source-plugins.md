@@ -219,6 +219,7 @@ IDs:
 | `gcp.storage` | `object_storage_bucket` | Same neutral type as `aws.s3`. |
 | `gcp.directory` | `directory_user` | Google Workspace / Cloud Identity users via the Admin SDK Directory API. Account/customer-scoped (optional `customer_id`, default `my_customer`). Same neutral type as `aws.iam`/`okta`/`github`/`gitlab`. |
 | `gcp.firewall` | `firewall_rule` | VPC firewall rules (Compute `firewalls.list`), flattened to one record per protocol/port-range. Same neutral type as `aws.security_group`. |
+| `gcp.network` | `network` | VPC Networks (Compute `networks.list`), one record per network; `flow_logs_enabled` aggregated from subnetworks (all-must-be-on). Same neutral type as `aws.vpc`. |
 | `github` | `git_repository`, `directory_user` | Single org per instance. |
 | `gitlab` | `git_repository`, `directory_user` | Single group per instance (`include_subgroups`); self-managed via `base_url`. Same neutral types as `github`. |
 | `okta` | `directory_user`, `okta_app` | |
