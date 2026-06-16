@@ -94,11 +94,27 @@ Per-provider config keys and required scopes are catalogued in `docs/configurati
 
 ---
 
+## Cross-vendor identity contract (`directory_user`) — settled (WU-0.2)
+
+Every identity source — AWS IAM, GitHub, Okta, GitLab, GCP, Azure Entra — emits into the cloud-neutral `directory_user` type. Two questions had to be settled so that adding a non-AWS identity source is mechanical and so the cross-vendor admin-MFA policies actually fire. Both are now decided.
+
+**Decision 1 — non-AWS identity sources emit `directory_user` (v1), not v2.**
+`directory_user.v2` adds three **required** AWS-centric fields — `is_root`, `has_console_access`, `has_programmatic_access` (`internal/evidence_types/schemas/directory_user.v2.json`). Those have no honest analog on GitHub, Okta, GitLab, Cloud Identity, or Entra, so non-AWS sources **must not** fabricate them. v1 requires only `id` + `mfa_enabled` and exposes the cross-vendor fields (`is_admin`, `is_active`, `email`, `mfa_enabled`, `last_login_at`, `display_name`) as optional. AWS keeps emitting v2; everyone else emits v1. GitHub already does this (`internal/sources/github/github.go` emits `"directory_user"` / v1).
+
+**Decision 2 — `is_admin` and `is_active` are mandatory in practice, even though the schema marks them optional.**
+The admin-MFA policies are phrased as `none(is_admin == true AND mfa_enabled == false)`:
+
+- `soc2.cc6.1.mfa_enforced_admins` — `internal/frameworks/soc2/policies_cc6.go:47`
+- `iso27001.8.2.privileged_mfa_enforced` — `internal/frameworks/iso27001/policies_8_technological.go:34`
+
+The evaluator treats a **referenced-but-absent field as a contract gap, not a pass**: `getField` miss → `status=error` (exit 3), see `internal/evaluator/pass_when.go:245` and `TestPassWhen_AbsentField_Errors`. So a source that omits `is_admin` does **not** silently no-op these policies — it makes them **error**, which is the intended way to surface a coverage gap (the policy comments say so explicitly). Therefore every `directory_user` emitter **must populate** `is_admin` (vendor heuristic: org owner / SuperAdmin / Owner-or-Maintainer / privileged directory-role) and **must populate** `is_active` (from the vendor's account-status field; `true` when only active identities are listable). If a source genuinely cannot compute `is_admin` yet, that is a tracked coverage gap for its WU (e.g. Okta, WU-1.2) — not a license to omit the field.
+
+> **Schema-text caveat.** `directory_user.v1.json`'s description for `is_active` reads "Absent means assume active." That default is **aspirational** — it would only apply to a future active-only rule that opts into `is_set`/filter semantics. The generic evaluator does **not** apply it; a bare reference to an absent field errors. The operative contract is **populate, don't rely on the default.**
+
+Optional vendor-specific fields (`email`, `is_external`, `is_service_account`, `mfa_factor_count`, `last_login_at`) may be omitted when the vendor doesn't surface them; any policy that reads them must guard with `is_set`/filter.
+
 ## Open design decisions (tracked here)
 
-Two cross-vendor decisions are settled in their own work units and recorded in this document:
-
-- **Cross-vendor identity contract** (`is_admin` / `is_active`, and which `directory_user` version non-AWS sources emit) — to be documented by WU-0.2. Interim rule: every `directory_user` emitter **must** populate `is_admin` and `is_active`; the `mfa_enforced_admins` and inactive-account policies depend on them.
 - **`password_policy` schema fit for GCP / Azure** — to be decided by WU-0.3 (map / new `authentication_policy` type / defer). Default is **defer** rather than emit a misleading record, because Entra ID and Cloud Identity do not expose a classic IAM-style password policy.
 
 ---
