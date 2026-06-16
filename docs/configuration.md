@@ -145,6 +145,8 @@ It enumerates all users and emits one `directory_user` record each — substitut
 
 **Required scope & privilege:** the read-only scope `https://www.googleapis.com/auth/admin.directory.user.readonly`. The Admin SDK has **no anonymous service-account access** — the ADC identity must be a Workspace admin, or a service account with **domain-wide delegation** authorized for that scope and impersonating an admin subject. Without an admin context the API returns 403 and the source errors. Per-user 2SV enrollment is only meaningfully populated for users in the customer's own domain(s).
 
+The `gcp.firewall` source is project-scoped (`project_id` required, under `sources.gcp.firewall`). It lists VPC firewall rules via the Compute `firewalls.list` API (read-only scope `https://www.googleapis.com/auth/compute.readonly`) and emits one `firewall_rule` record per protocol/port-range — the same neutral type as `aws.security_group`, so network-exposure policies (open ports, unrestricted-source) span both clouds with no policy change. A GCP firewall holds either an `allowed` or a `denied` set; the plugin flattens each into individual rules. Mapping: `direction` ← `INGRESS`/`EGRESS` (lowercased); `protocol`/`from_port`/`to_port` ← each allowed/denied entry's protocol and port range (empty ports ⇒ all ports, `from_port = -1`); `is_unrestricted_ipv4`/`_ipv6` ← `0.0.0.0/0` / `::/0` in the direction's range list (`sourceRanges` for ingress, `destinationRanges` for egress); GCP extras `action` (allow/deny), `network`, `priority`, `disabled` ride in `additionalProperties`.
+
 ### SigComply Cloud (Paid Tier)
 
 The CLI authenticates to SigComply Cloud using ephemeral OIDC tokens, automatically detected
