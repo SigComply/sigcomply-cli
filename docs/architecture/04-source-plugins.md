@@ -221,6 +221,7 @@ IDs:
 | `gcp.firewall` | `firewall_rule` | VPC firewall rules (Compute `firewalls.list`), flattened to one record per protocol/port-range. Same neutral type as `aws.security_group`. |
 | `gcp.kms` | `kms_key` | Cloud KMS crypto keys (CloudKMS `cryptoKeys.list`), walked across all project locations; `rotation_enabled` ← rotationPeriod set. Same neutral type as `aws.kms`. |
 | `gcp.network` | `network` | VPC Networks (Compute `networks.list`), one record per network; `flow_logs_enabled` aggregated from subnetworks (all-must-be-on). Same neutral type as `aws.vpc`. |
+| `gcp.secretmanager` | `secret` | Secret Manager secrets (`secrets.list`); `rotation_enabled` ← rotation policy attached; `kms_encrypted` ← CMEK on replication; `never_rotated`/`last_rotated_days` ← per-secret `versions.list` (no last-rotation timestamp on the resource). Same neutral type as `aws.secretsmanager`. |
 | `github` | `git_repository`, `directory_user` | Single org per instance. |
 | `gitlab` | `git_repository`, `directory_user` | Single group per instance (`include_subgroups`); self-managed via `base_url`. Same neutral types as `github`. |
 | `okta` | `directory_user`, `okta_app` | |
