@@ -171,6 +171,34 @@ The `gcp.backup` source is project-scoped (`project_id` required, under `sources
 
 The `gcp.certs` source is project-scoped (`project_id` required, under `sources.gcp.certs`). It lists Certificate Manager certificates via the Certificate Manager API (scope `https://www.googleapis.com/auth/cloud-platform` — Certificate Manager exposes no dedicated read-only scope, so restrict access at the IAM layer with `roles/certificatemanager.viewer`, which grants `certificatemanager.certs.list`/`.get`) and emits one `tls_certificate` record per certificate — the same neutral type as `aws.acm`, so the expiry and auto-renewal policies (SOC 2 CC6.7, ISO A.8.21) span both clouds with no policy change. One call covers the project: `Projects.Locations.Certificates.List` with the all-locations wildcard (`locations/-`) returns certificates from every region, paginated; if the response reports any `unreachable` location the plugin errors rather than returning a partial list (a silently-dropped certificate could make an all-quantifier expiry policy falsely pass). Mapping: `id` ← the certificate full resource name (`projects/{p}/locations/{loc}/certificates/{c}`); `domain` ← the first Subject Alternative Name (`sanDnsnames`, populated from `managed.domains` for a managed cert still provisioning); `not_after` ← `expireTime`, normalized to RFC3339 UTC (the durable, replay-safe field); `days_until_expiry` ← whole days from `expireTime` at collect time, rounded toward zero (negative once expired); `is_managed` ← the certificate is managed (`managed` is set, vs. a self-managed uploaded PEM); `auto_renew` ← `true` for managed certificates (Google auto-renews them) and **omitted** for self-managed certs, which have no renewal concept (the auto-renew policy guards on `is_managed`, matching `aws.acm`); `status` ← an honest enum mapping (an expired cert is `EXPIRED`; otherwise a managed cert maps its `managed.state` — ACTIVE→`ISSUED`, PROVISIONING→`PENDING_VALIDATION`, FAILED→`FAILED`, else `INACTIVE` — and a present self-managed cert is `ISSUED`). GCP extras `location`, `san_dns_names` (every covered domain), `managed_state` (the raw managed-cert state), and `scope` (DEFAULT/EDGE_CACHE/ALL_REGIONS/CLIENT_AUTH) ride in `additionalProperties`.
 
+### Azure
+
+Azure sources share a single credential and subscription model (the `azure.*`
+plugins themselves land in later releases; this describes the foundation they
+build on). Authentication uses the Azure SDK's
+[`DefaultAzureCredential`](https://learn.microsoft.com/azure/developer/go/azure-sdk-authentication)
+— no SigComply-specific credential config. The credential resolves through a
+chain (environment → workload identity → managed identity → Azure CLI), so:
+
+- **In CI**, run [`azure/login`](https://github.com/marketplace/actions/azure-login)
+  with OpenID Connect (set `permissions: id-token: write` and pass
+  `client-id`/`tenant-id`/`subscription-id`) **before** `sigcomply check`. The
+  action performs the OIDC → Entra token exchange and leaves an Azure CLI
+  session that `DefaultAzureCredential` picks up — **no long-lived secret**.
+- **Locally**, `az login` (or `AZURE_TENANT_ID`/`AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET`
+  environment variables) works the same way.
+
+Shared config keys (under each ARM-plane `sources.azure.<service>` block):
+`subscription_id` is **required** — it scopes resource collection to one
+subscription. The Entra/directory source (Microsoft Graph plane) instead takes
+an optional `tenant_id` and uses the credential's home tenant by default.
+Resource collectors enumerate across resource groups via Azure Resource Graph
+(a single fast KQL query per run), and `subscription_id` can be validated or
+discovered against the tenant-scoped Subscriptions API. Least privilege is set
+at the Azure RBAC layer (e.g. the built-in **Reader** role on the subscription;
+the directory source additionally needs Microsoft Graph read permissions —
+documented per source as those land).
+
 ### SigComply Cloud (Paid Tier)
 
 The CLI authenticates to SigComply Cloud using ephemeral OIDC tokens, automatically detected
