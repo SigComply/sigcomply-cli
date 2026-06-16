@@ -174,8 +174,9 @@ The `gcp.certs` source is project-scoped (`project_id` required, under `sources.
 ### Azure
 
 Azure sources share a single credential and subscription model (the
-`azure.entra` directory source has shipped; the ARM-plane resource collectors
-land in later releases). Authentication uses the Azure SDK's
+`azure.entra` directory source and the `azure.storage` ARM-plane collector have
+shipped; the remaining ARM-plane resource collectors land in later releases).
+Authentication uses the Azure SDK's
 [`DefaultAzureCredential`](https://learn.microsoft.com/azure/developer/go/azure-sdk-authentication)
 — no SigComply-specific credential config. The credential resolves through a
 chain (environment → workload identity → managed identity → Azure CLI), so:
@@ -242,6 +243,50 @@ unavailable.
 > `microsoftgraph/msgraph-sdk-go` SDK — the Kiota-generated SDK adds minutes to
 > build/test/lint and a large transitive tree, against the repo's
 > minimal-dependency convention (same reason `github`/`okta` call REST directly).
+
+#### `azure.storage` — object_storage_bucket
+
+Lists every Azure Storage account in the configured subscription and emits one
+`object_storage_bucket` per account — the same cross-vendor type as `aws.s3` and
+`gcp.storage`, so encryption-at-rest, public-access, and versioning policies
+evaluate against Azure with **zero policy changes**.
+
+```yaml
+sources:
+  azure.storage:
+    subscription_id: 00000000-0000-0000-0000-000000000000  # required (ARM plane)
+```
+
+This is an **ARM-plane** source, so `subscription_id` is **required** (unlike the
+Graph-plane `azure.entra`). Collection is two reads per account: the
+subscription-wide `Microsoft.Storage/storageAccounts` list, plus a per-account
+`blobServices/default` GET for versioning / soft-delete (an N+1; the resource
+group is parsed from each account's ARM id for that call).
+
+Field mapping:
+
+| `object_storage_bucket` field | Azure source |
+| --- | --- |
+| `name` | storage account name |
+| `region_or_location` | account `location` |
+| `encryption_at_rest_enabled` | **always `true`** — Azure Storage Service Encryption is always-on and cannot be disabled |
+| `kms_managed` | `Encryption.keySource == Microsoft.Keyvault` (customer-managed key vs the Microsoft-managed default) |
+| `kms_key_id` | resolved Key Vault key identifier when CMEK is configured |
+| `public_access_blocked` | `allowBlobPublicAccess == false` (a **nil/absent** value is treated as *not* blocked — an unset value never reads as secure) |
+| `versioning_enabled` | blob versioning **OR** blob soft-delete is on (the schema field covers both) |
+| `created_at` | account `creationTime` |
+
+The granular `blob_versioning_enabled`, `blob_soft_delete_enabled`,
+`soft_delete_retention_days`, `minimum_tls_version`, and `public_network_access`
+values ride in `additionalProperties` so the `versioning_enabled` derivation and
+security posture stay auditable. A blob-service read failure (e.g. a
+missing-permission 403) is surfaced as an error — tagging only the
+`azure.storage`-bound policies `error` — rather than silently reporting
+`versioning_enabled=false`, which would be misleading false-fail evidence.
+
+**Required RBAC:** the built-in **Reader** role on the subscription
+(`Microsoft.Storage/storageAccounts/read` +
+`.../storageAccounts/blobServices/read`).
 
 ### SigComply Cloud (Paid Tier)
 
