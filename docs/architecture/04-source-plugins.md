@@ -220,6 +220,7 @@ IDs:
 | `gcp.directory` | `directory_user` | Google Workspace / Cloud Identity users via the Admin SDK Directory API. Account/customer-scoped (optional `customer_id`, default `my_customer`). Same neutral type as `aws.iam`/`okta`/`github`/`gitlab`. |
 | `gcp.firewall` | `firewall_rule` | VPC firewall rules (Compute `firewalls.list`), flattened to one record per protocol/port-range. Same neutral type as `aws.security_group`. |
 | `gcp.kms` | `kms_key` | Cloud KMS crypto keys (CloudKMS `cryptoKeys.list`), walked across all project locations; `rotation_enabled` ← rotationPeriod set. Same neutral type as `aws.kms`. |
+| `gcp.logging` | `log_group` | Cloud Logging log buckets (Logging `buckets.list`, all locations), one record per bucket; `retention_set` ← `retentionDays > 0`, `retention_days` ← `retentionDays` (every GCP bucket has finite retention — no "never expire"); `kms_encrypted` ← CMEK on `cmekSettings`. Same neutral type as `aws.cloudwatch`. |
 | `gcp.network` | `network` | VPC Networks (Compute `networks.list`), one record per network; `flow_logs_enabled` aggregated from subnetworks (all-must-be-on). Same neutral type as `aws.vpc`. |
 | `gcp.secretmanager` | `secret` | Secret Manager secrets (`secrets.list`); `rotation_enabled` ← rotation policy attached; `kms_encrypted` ← CMEK on replication; `never_rotated`/`last_rotated_days` ← per-secret `versions.list` (no last-rotation timestamp on the resource). Same neutral type as `aws.secretsmanager`. |
 | `github` | `git_repository`, `directory_user` | Single org per instance. |

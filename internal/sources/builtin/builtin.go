@@ -43,6 +43,7 @@ import (
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/firewall"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/iam"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/kms"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/logging"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/network"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/secretmanager"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/sql"
