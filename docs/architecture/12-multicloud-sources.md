@@ -20,7 +20,7 @@ This yields the substitutability property: one "object storage encrypted at rest
 |----------|---------|------|--------|
 | **AWS** | management plane (per region/account) | SDK default chain | 23 plugins (mature) |
 | **GCP** | management plane (per project) | Application Default Credentials | 4 plugins → expanding (Phases 3–4) |
-| **GitHub** | SaaS | token | 1 plugin (`git_repository`, `directory_user`) |
+| **GitHub** | SaaS | token | 1 plugin → `git_repository`, `directory_user`, `source_control_org_policy`, `vulnerability_finding` |
 | **Okta** | SaaS | token | 1 plugin (`directory_user`) |
 | **GitLab** | SaaS / self-managed | token | planned (Phase 2) |
 | **Azure** | management plane + Entra/Graph | DefaultAzureCredential / OIDC | planned (Phase 5) |
