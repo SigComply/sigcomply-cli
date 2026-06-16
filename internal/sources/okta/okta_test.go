@@ -99,6 +99,39 @@ func TestCollectUsers_HappyPath_SortsByID(t *testing.T) {
 	}
 }
 
+func TestCollectUsers_AdminMapping(t *testing.T) {
+	fake := &fakeAPI{
+		users: []User{
+			{ID: "u_admin", Email: "admin@acme.com", Status: "ACTIVE", AdminRoles: []string{"SUPER_ADMIN"}},
+			{ID: "u_ro", Email: "ro@acme.com", Status: "ACTIVE", AdminRoles: []string{"READ_ONLY_ADMIN"}},
+			{ID: "u_plain", Email: "plain@acme.com", Status: "ACTIVE", AdminRoles: nil},
+		},
+	}
+	p := New(Options{API: fake})
+	records, err := p.Collect(context.Background(),
+		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDirectoryUser}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	byID := map[string]userPayload{}
+	for _, r := range records {
+		var up userPayload
+		if err := json.Unmarshal(r.Payload, &up); err != nil {
+			t.Fatalf("Unmarshal %s: %v", r.ID, err)
+		}
+		byID[r.ID] = up
+	}
+	if !byID["u_admin"].IsAdmin {
+		t.Errorf("u_admin (SUPER_ADMIN) should be is_admin=true")
+	}
+	if !byID["u_ro"].IsAdmin {
+		t.Errorf("u_ro (READ_ONLY_ADMIN) is still an elevated role; want is_admin=true")
+	}
+	if byID["u_plain"].IsAdmin {
+		t.Errorf("u_plain (no admin roles) should be is_admin=false")
+	}
+}
+
 func TestCollectApps_HappyPath_SortsByID(t *testing.T) {
 	fake := &fakeAPI{
 		apps: []App{
@@ -266,6 +299,10 @@ func TestHTTPAPI_ListUsers_HappyPath(t *testing.T) {
 			_, _ = w.Write([]byte(`[{"id":"f1","status":"ACTIVE"},{"id":"f2","status":"PENDING_ACTIVATION"}]`)) //nolint:errcheck // test handler
 		case "/api/v1/users/u2/factors":
 			_, _ = w.Write([]byte(`[]`)) //nolint:errcheck // test handler
+		case "/api/v1/users/u1/roles":
+			_, _ = w.Write([]byte(`[{"id":"r1","type":"SUPER_ADMIN","status":"ACTIVE","label":"Super Administrator"}]`)) //nolint:errcheck // test handler
+		case "/api/v1/users/u2/roles":
+			_, _ = w.Write([]byte(`[]`)) //nolint:errcheck // test handler
 		default:
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
@@ -289,8 +326,14 @@ func TestHTTPAPI_ListUsers_HappyPath(t *testing.T) {
 	if byID["u1"].LastLogin.IsZero() {
 		t.Errorf("u1 LastLogin not parsed")
 	}
+	if len(byID["u1"].AdminRoles) != 1 || byID["u1"].AdminRoles[0] != "SUPER_ADMIN" {
+		t.Errorf("u1 AdminRoles = %v; want [SUPER_ADMIN]", byID["u1"].AdminRoles)
+	}
 	if byID["u2"].MFAFactorCount != 0 {
 		t.Errorf("u2 factors = %d", byID["u2"].MFAFactorCount)
+	}
+	if len(byID["u2"].AdminRoles) != 0 {
+		t.Errorf("u2 AdminRoles = %v; want empty", byID["u2"].AdminRoles)
 	}
 }
 
@@ -361,7 +404,7 @@ func TestHTTPAPI_GetJSON_DecodeError(t *testing.T) {
 func TestHTTPAPI_ListUsers_Pagination(t *testing.T) {
 	var base string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Path, "/factors") {
+		if strings.Contains(r.URL.Path, "/factors") || strings.Contains(r.URL.Path, "/roles") {
 			_, _ = w.Write([]byte(`[]`)) //nolint:errcheck // test handler
 			return
 		}

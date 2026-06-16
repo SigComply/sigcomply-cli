@@ -111,6 +111,18 @@ The CLI uses the standard [AWS SDK credential chain](https://aws.github.io/aws-s
 
 The token is read in the GitHub collector's `Init()` method. If `GITHUB_TOKEN` is not set and no token is provided via `WithToken()`, initialization fails with a clear error.
 
+### Okta
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `OKTA_API_TOKEN` | Yes (if using Okta collector) | Okta admin API token (sent via the `SSWS` scheme), or set `api_token` in config |
+
+Config keys (under `sources.okta`): `org_url` (the full tenant URL, e.g. `https://acme.okta.com`) is required; `api_token` may be supplied here or via `OKTA_API_TOKEN`.
+
+**Required privileges:** the token owner must be able to **read user role assignments** (an admin token, or the `okta.roles.read` OAuth scope) so the collector can populate `is_admin` on each `directory_user` from `GET /api/v1/users/{id}/roles`. Without it, the directory_user records still emit but `is_admin` is unreliable — which makes the admin-MFA policies error rather than evaluate.
+
+**Known limitation (v1):** `is_admin` is derived from **directly-assigned** admin roles. A user who is an administrator *only* through a group-role assignment may read as `is_admin=false`; group-inherited admin resolution is deferred. The roles call is per-user (N+1 over the user list) and draws from Okta's org-wide `/api/v1/users/*` rate-limit bucket.
+
 ### SigComply Cloud (Paid Tier)
 
 The CLI authenticates to SigComply Cloud using ephemeral OIDC tokens, automatically detected
@@ -289,6 +301,7 @@ from `SIGCOMPLY_*` keys.
 | `AWS_PROFILE` | AWS | Named profile from `~/.aws/credentials` |
 | `AWS_REGION` / `AWS_DEFAULT_REGION` | AWS | Default region (used by SDK auto-detect) |
 | `GITHUB_TOKEN` | GitHub | Personal access token or app token |
+| `OKTA_API_TOKEN` | Okta | Admin API token (SSWS); needs role-read to populate `is_admin` |
 
 ---
 

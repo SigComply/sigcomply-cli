@@ -44,13 +44,20 @@ const (
 const SourceID = "okta"
 
 // User is the subset of fields the plugin extracts from an Okta user
-// listing. MFAFactorCount is filled from a follow-up factors call.
+// listing. MFAFactorCount is filled from a follow-up factors call;
+// AdminRoles from a follow-up admin-role-assignments call.
 type User struct {
 	ID             string
 	Email          string
 	Status         string
 	MFAFactorCount int
 	LastLogin      time.Time
+	// AdminRoles holds the `type` of each admin role assigned to the
+	// user (e.g. SUPER_ADMIN, ORG_ADMIN, READ_ONLY_ADMIN). Okta's
+	// /users/{id}/roles endpoint only ever returns admin-role grants, so
+	// a non-empty slice means the user is an administrator. Empty/nil →
+	// not an admin.
+	AdminRoles []string
 }
 
 // App is the subset of fields the plugin extracts from an Okta app
@@ -135,16 +142,26 @@ func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 // vendor fields map to Okta concepts as follows:
 //   - mfa_enabled: derived from MFAFactorCount > 0
 //   - is_active:   derived from Status == "ACTIVE"
+//   - is_admin:    derived from len(AdminRoles) > 0 (any Okta admin-role
+//     assignment — SUPER_ADMIN, ORG_ADMIN, READ_ONLY_ADMIN, …)
 //   - display_name: best-effort, falls back to email
 //
-// is_admin and is_service_account are NOT populated — both require
-// per-user role calls (Okta admin-role assignments) not yet in the
-// collection path. Consequently the admin-MFA policies, which require
-// is_admin, currently ERROR for an Okta-only deployment rather than
-// silently passing: they are phrased as none(is_admin AND no-MFA), and a
-// missing is_admin surfaces as status=error (a coverage gap), not a
-// vacuous pass. Populating is_admin from Okta admin-role assignments is
-// the additive fix that closes the gap.
+// is_admin is mandatory for every directory_user emitter (WU-0.2,
+// docs/architecture/12-multicloud-sources.md): the admin-MFA policies are
+// phrased as none(is_admin AND no-MFA), and a missing is_admin surfaces as
+// status=error (a coverage gap), not a vacuous pass. Populating it from
+// admin-role assignments is what makes those policies fire for an
+// Okta-only deployment.
+//
+// Known v1 limitation: AdminRoles is sourced from the per-user
+// /users/{id}/roles endpoint, which by default returns *directly-assigned*
+// admin roles. Admin privileges inherited via group-role assignments are
+// not yet resolved (would require a group-first enumeration); a user who
+// is admin *only* through a group could read as is_admin=false. Documented
+// in docs/configuration.md; closing it is deferred to the testing revamp.
+//
+// is_service_account is still NOT populated (Okta has no first-class
+// service-account flag on users; deferred).
 type userPayload struct {
 	ID             string    `json:"id"`
 	DisplayName    string    `json:"display_name,omitempty"`
@@ -152,6 +169,7 @@ type userPayload struct {
 	MFAEnabled     bool      `json:"mfa_enabled"`
 	MFAFactorCount int       `json:"mfa_factor_count"`
 	IsActive       bool      `json:"is_active"`
+	IsAdmin        bool      `json:"is_admin"`
 	LastLoginAt    time.Time `json:"last_login_at,omitempty"`
 }
 
@@ -210,6 +228,7 @@ func (p *Plugin) collectUsers(ctx context.Context) ([]core.EvidenceRecord, error
 			MFAEnabled:     u.MFAFactorCount > 0,
 			MFAFactorCount: u.MFAFactorCount,
 			IsActive:       strings.EqualFold(u.Status, "ACTIVE"),
+			IsAdmin:        len(u.AdminRoles) > 0,
 			LastLoginAt:    u.LastLogin,
 		}
 		body, err := json.Marshal(payload)
@@ -264,10 +283,19 @@ func (p *Plugin) collectApps(ctx context.Context) ([]core.EvidenceRecord, error)
 //
 //	GET /api/v1/users                  — paged listing of users
 //	GET /api/v1/users/{id}/factors     — per-user enrolled factors
+//	GET /api/v1/users/{id}/roles       — per-user admin-role assignments
 //	GET /api/v1/apps                   — paged listing of applications
 //
 // Okta uses an `SSWS` auth scheme and link-header pagination similar to
 // GitHub's; integration coverage is deferred.
+//
+// Rate limits: the factors and roles calls are per-user (N+1 over the
+// user list), drawing from the org-wide /api/v1/users/* bucket
+// (~600 req/min on developer orgs, higher on production). v1 relies on
+// the user listing's limit=200 paging and Okta's own 429 responses
+// (surfaced as errors via getJSON) rather than proactive backoff; a
+// budget-aware throttle is deferred to the testing revamp. Reading roles
+// requires an admin token / okta.roles.read scope.
 type httpAPI struct {
 	base   string
 	token  string
@@ -286,6 +314,11 @@ type oktaUser struct {
 type oktaFactor struct {
 	ID     string `json:"id"`
 	Status string `json:"status"`
+}
+
+type oktaRole struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
 }
 
 type oktaApp struct {
@@ -320,6 +353,11 @@ func (h *httpAPI) ListUsers(ctx context.Context) ([]User, error) {
 				return nil, err
 			}
 			usr.MFAFactorCount = n
+			roles, err := h.listAdminRoles(ctx, u.ID)
+			if err != nil {
+				return nil, err
+			}
+			usr.AdminRoles = roles
 			out = append(out, usr)
 		}
 		if next == "" {
@@ -342,6 +380,27 @@ func (h *httpAPI) countActiveFactors(ctx context.Context, userID string) (int, e
 		}
 	}
 	return n, nil
+}
+
+// listAdminRoles returns the `type` of each admin role assigned to the
+// user. Okta's /users/{id}/roles endpoint only returns admin-role grants,
+// so any returned role makes the user an administrator. Returns nil when
+// the user holds no admin roles. See the rate-limit / group-inheritance
+// notes on httpAPI and userPayload.
+func (h *httpAPI) listAdminRoles(ctx context.Context, userID string) ([]string, error) {
+	path := fmt.Sprintf("/api/v1/users/%s/roles", url.PathEscape(userID))
+	var roles []oktaRole
+	if _, err := h.getJSON(ctx, path, &roles); err != nil {
+		return nil, err
+	}
+	if len(roles) == 0 {
+		return nil, nil
+	}
+	types := make([]string, 0, len(roles))
+	for _, r := range roles {
+		types = append(types, r.Type)
+	}
+	return types, nil
 }
 
 func (h *httpAPI) ListApps(ctx context.Context) ([]App, error) {
