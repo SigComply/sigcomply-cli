@@ -310,10 +310,19 @@ func TestCollectVulnerabilities_HappyPath_MapsAndSorts(t *testing.T) {
 	if err := json.Unmarshal(records[1].Payload, &web); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	if web.Severity != "HIGH" || web.Status != "ACTIVE" || web.ResourceID != "acme/web" ||
-		web.ResourceType != "repository" || web.CVEID != "CVE-2020-8203" || web.Score != 7.4 ||
-		!web.RemediationAvailable || web.Title != "lodash: Prototype pollution" {
-		t.Errorf("web payload = %+v", web)
+	want := vulnFindingPayload{
+		ID:                   "acme/web/7",
+		ResourceID:           "acme/web",
+		ResourceType:         "repository",
+		Title:                "lodash: Prototype pollution",
+		Severity:             "HIGH",
+		Status:               "ACTIVE",
+		CVEID:                "CVE-2020-8203",
+		Score:                7.4,
+		RemediationAvailable: true,
+	}
+	if web != want {
+		t.Errorf("web payload = %+v; want %+v", web, want)
 	}
 	if records[1].Type != EvidenceTypeVulnerability || records[1].CollectedAt != now {
 		t.Errorf("record meta = %+v", records[1])

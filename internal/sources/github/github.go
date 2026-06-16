@@ -481,7 +481,7 @@ func (p *Plugin) collectVulnerabilities(ctx context.Context) ([]core.EvidenceRec
 			ID:                   id,
 			ResourceID:           a.RepoFullName,
 			ResourceType:         "repository",
-			Title:                vulnTitle(a),
+			Title:                vulnTitle(&a),
 			Severity:             normalizeSeverity(a.Severity),
 			Status:               normalizeAlertState(a.State),
 			CVEID:                a.CVEID,
@@ -506,7 +506,7 @@ func (p *Plugin) collectVulnerabilities(ctx context.Context) ([]core.EvidenceRec
 
 // vulnTitle builds a human-readable finding title from the package name
 // and advisory summary, preferring the summary when present.
-func vulnTitle(a DependabotAlert) string {
+func vulnTitle(a *DependabotAlert) string {
 	switch {
 	case a.Summary != "" && a.PackageName != "":
 		return fmt.Sprintf("%s: %s", a.PackageName, a.Summary)
