@@ -47,6 +47,7 @@ import (
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/kms"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/logging"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/network"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/scc"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/secretmanager"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/sql"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/storage"
