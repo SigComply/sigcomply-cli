@@ -42,6 +42,7 @@ import (
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/asset"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/audit"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/backup"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/certs"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/compute"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/directory"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/firestore"
