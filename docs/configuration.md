@@ -135,6 +135,16 @@ Config keys (under `sources.okta`): `org_url` (the full tenant URL, e.g. `https:
 
 **Known limitation (v1):** `is_admin` is derived from **directly-assigned** admin roles. A user who is an administrator *only* through a group-role assignment may read as `is_admin=false`; group-inherited admin resolution is deferred. The roles call is per-user (N+1 over the user list) and draws from Okta's org-wide `/api/v1/users/*` rate-limit bucket.
 
+### GCP
+
+GCP sources use [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials) (ADC) — no SigComply-specific credential config. Set ADC up in your CI workflow (`google-github-actions/auth` via Workload Identity Federation, or `gcloud auth application-default login` locally) before running `sigcomply check`. Project-scoped GCP sources (`gcp.storage`, `gcp.iam`, …) take a `project_id` config key.
+
+The `gcp.directory` source is the exception: it reads Google Workspace / Cloud Identity users via the **Admin SDK Directory API**, which is **account/customer-scoped, not project-scoped**. Config keys (under `sources.gcp.directory`): `customer_id` is optional and defaults to the `my_customer` alias (resolves to the credential's own organization); set it to an explicit `C0...` customer ID only to target a different account.
+
+It enumerates all users and emits one `directory_user` record each — substitutable for AWS IAM / Okta / GitHub / GitLab identities in every MFA / admin / lifecycle policy. Mapping: `mfa_enabled` ← the user's 2-step-verification enrollment (`isEnrolledIn2Sv`); `is_admin` ← super-admin **or** delegated admin; `is_active` ← not `suspended`; `id` ← the directory user id; `email`/`identity_key` ← `primaryEmail`; `display_name` ← full name.
+
+**Required scope & privilege:** the read-only scope `https://www.googleapis.com/auth/admin.directory.user.readonly`. The Admin SDK has **no anonymous service-account access** — the ADC identity must be a Workspace admin, or a service account with **domain-wide delegation** authorized for that scope and impersonating an admin subject. Without an admin context the API returns 403 and the source errors. Per-user 2SV enrollment is only meaningfully populated for users in the customer's own domain(s).
+
 ### SigComply Cloud (Paid Tier)
 
 The CLI authenticates to SigComply Cloud using ephemeral OIDC tokens, automatically detected

@@ -39,6 +39,7 @@ import (
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/securityservices"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/vpc"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/compute"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/directory"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/iam"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/sql"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/storage"

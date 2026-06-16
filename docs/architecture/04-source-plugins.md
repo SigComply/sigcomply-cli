@@ -217,8 +217,9 @@ IDs:
 | `aws.cloudtrail` | `audit_log_trail` | |
 | `aws.kms` | `kms_key` | |
 | `gcp.storage` | `object_storage_bucket` | Same neutral type as `aws.s3`. |
+| `gcp.directory` | `directory_user` | Google Workspace / Cloud Identity users via the Admin SDK Directory API. Account/customer-scoped (optional `customer_id`, default `my_customer`). Same neutral type as `aws.iam`/`okta`/`github`/`gitlab`. |
 | `github` | `git_repository`, `directory_user` | Single org per instance. |
-| `gitlab` | `git_repository` | Single group per instance (`include_subgroups`); self-managed via `base_url`. Same neutral type as `github`. `directory_user` is a planned follow-up. |
+| `gitlab` | `git_repository`, `directory_user` | Single group per instance (`include_subgroups`); self-managed via `base_url`. Same neutral types as `github`. |
 | `okta` | `directory_user`, `okta_app` | |
 | `manual.pdf` | `signed_document` | **Project-level singleton.** Exactly one instance per project. See §The manual.pdf plugin. |
 
