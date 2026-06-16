@@ -1,6 +1,8 @@
 package spec
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -198,6 +200,34 @@ func TestLoadProjectConfig_RejectsInvalid(t *testing.T) {
 				t.Errorf("error = %q; want substring %q", err.Error(), tc.wantSub)
 			}
 		})
+	}
+}
+
+// TestLoadProjectConfig_GitLabExample parses the documented GitLab example
+// config so the example in docs/ can never drift out of the strict loader's
+// accepted shape (unknown keys are a hard error).
+func TestLoadProjectConfig_GitLabExample(t *testing.T) {
+	path := filepath.Join("..", "..", "docs", "architecture", "examples", "gitlab-selfmanaged.sigcomply.yaml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	cfg, err := LoadProjectConfig(data)
+	if err != nil {
+		t.Fatalf("LoadProjectConfig(gitlab example): %v", err)
+	}
+	if cfg.Framework != testFrameworkSOC2 {
+		t.Errorf("Framework = %q; want %q", cfg.Framework, testFrameworkSOC2)
+	}
+	if _, ok := cfg.Sources["gitlab"]; !ok {
+		t.Error("expected gitlab in sources")
+	}
+	// gitlab is bound to both a directory_user and a git_repository policy.
+	if b := cfg.BindingsFor("soc2.cc6.1.mfa_enforced_admins")["evidence"]; len(b) != 1 || b[0].Source != "gitlab" {
+		t.Errorf("mfa_enforced_admins evidence binding = %v; want [gitlab]", b)
+	}
+	if b := cfg.BindingsFor("soc2.cc8.1.default_branch_protected")["evidence"]; len(b) != 1 || b[0].Source != "gitlab" {
+		t.Errorf("default_branch_protected evidence binding = %v; want [gitlab]", b)
 	}
 }
 

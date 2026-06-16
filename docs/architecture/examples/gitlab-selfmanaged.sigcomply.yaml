@@ -1,0 +1,122 @@
+# GitLabShop — SOC 2 project configuration for a GitLab-hosted org.
+#
+# Profile:
+#   - Code AND identity on a self-managed GitLab instance
+#     (gitlab.example.com); no separate IdP, no AWS.
+#   - One GitLab group ("platform", with subgroups) holds every project.
+#   - Vault: GCS; CI: GitLab CI; calendar quarters.
+#
+# Purpose: show the `gitlab` source supplying BOTH evidence types it
+# emits — `git_repository` (branch-protection / code-review policies)
+# and `directory_user` (MFA / admin / lifecycle policies) — so a
+# GitLab-only customer needs no other identity or SCM source. The same
+# policies are satisfied by GitHub or Okta elsewhere; only the binding
+# changes (substitutability — see 04a-evidence-type-registry.md).
+#
+# Credentials are NEVER in this file. Provide GITLAB_TOKEN (a group-owner
+# or instance-admin token; scope read_api) via the CI environment.
+
+schema_version: project.v1
+
+framework: soc2
+
+period:
+  fiscal_calendar:
+    type: calendar_quarter
+  time_basis: commit
+
+vault:
+  backend: gcs
+  bucket: gitlabshop-evidence
+  prefix: sigcomply/
+
+# ---------------------------------------------------------------------
+# Sources. One `gitlab` plugin emits both git_repository and
+# directory_user, so it is the only API source this org needs.
+#   group    — required; group ID or full path (subgroups are included).
+#   base_url — optional; set for a self-managed instance (default
+#              https://gitlab.com). token comes from GITLAB_TOKEN.
+# ---------------------------------------------------------------------
+sources:
+  gitlab:
+    group: platform
+    base_url: https://gitlab.example.com
+  manual.pdf:
+    backend: gcs
+    bucket:  gitlabshop-evidence
+    prefix:  manual/
+
+# ---------------------------------------------------------------------
+# Per-policy configuration. The `gitlab` source is bound to the single
+# conventional `evidence` slot of each policy. Omit `bindings` entirely
+# and the planner auto-binds gitlab anyway (it is the only emitter of
+# both types); the explicit bindings below are illustrative.
+# ---------------------------------------------------------------------
+policies:
+  # directory_user — MFA on admins. mfa_enabled comes from each member's
+  # two_factor_enabled, readable only with a group-owner / instance-admin
+  # token; with a lesser token it degrades to best-effort false. Provision
+  # an owner/admin token where MFA-enforcement policies matter.
+  soc2.cc6.1.mfa_enforced_admins:
+    bindings:
+      evidence: [gitlab]
+    cadence: hourly
+
+  # directory_user — MFA on every member.
+  soc2.cc6.1.mfa_enforced_all_users:
+    bindings:
+      evidence: [gitlab]
+
+  # git_repository — default branch protected across every project.
+  soc2.cc8.1.default_branch_protected:
+    bindings:
+      evidence: [gitlab]
+
+  # git_repository — at least one approving review (from approval rules).
+  soc2.cc8.1.required_code_reviews:
+    bindings:
+      evidence: [gitlab]
+
+  # git_repository — no force-push to the default branch.
+  soc2.cc8.1.no_force_push_to_main:
+    bindings:
+      evidence: [gitlab]
+
+  # git_repository — signed commits. On GitLab this maps to the push rule
+  # `reject_unsigned_commits`, a Premium/Ultimate feature; on Free tier
+  # the endpoint 404s and the signal degrades to false. Waive per-project,
+  # or accept the finding, on plans without it.
+  soc2.cc8.1.signed_commits_required:
+    bindings:
+      evidence: [gitlab]
+
+  # Pipeline scanners (SAST / Secret Detection / Dependency scanning) live
+  # in .gitlab-ci.yml and have NO read-only project-settings API, so
+  # secret/code-scanning and dependency-alert signals always read false on
+  # GitLab. Treat these as not-applicable for GitLab-hosted repos and cover
+  # the control with manual evidence (a pipeline-config export).
+  soc2.cc8.1.code_scanning_enabled:
+    exceptions:
+      - state: na
+        reason: |
+          Scanning is enforced in .gitlab-ci.yml; GitLab exposes no
+          read-only project-settings API for it, so this signal cannot be
+          collected automatically. Covered by a manual pipeline-config
+          export under cc8.1.
+
+  # Manual PDF — quarterly access review exported from GitLab admin.
+  soc2.cc6.3.access_review_quarterly:
+    evidence_mode: manual
+    catalog_entry: access_review_quarterly
+    cadence: monthly
+
+cloud:
+  enabled: true
+
+output:
+  format: text
+  json_path: ./compliance-report.json
+
+ci:
+  fail_on_violation: true
+  fail_severity: high

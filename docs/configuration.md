@@ -117,7 +117,7 @@ The token is read in the GitHub collector's `Init()` method. If `GITHUB_TOKEN` i
 |----------|----------|-------------|
 | `GITLAB_TOKEN` | Yes (if using GitLab collector) | Personal-access or group-access token, or set `token` in config |
 
-Config keys (under `sources.gitlab`): `group` (group ID or full path, e.g. `my-group/sub-group`) is required; `token` may be supplied here or via `GITLAB_TOKEN`; `base_url` is optional and targets a self-managed instance (default `https://gitlab.com`).
+Config keys (under `sources.gitlab`): `group` (group ID or full path, e.g. `my-group/sub-group`) is required; `token` may be supplied here or via `GITLAB_TOKEN`; `base_url` is optional and targets a self-managed instance (default `https://gitlab.com`). A complete worked example — one `gitlab` source supplying both `git_repository` and `directory_user`, bound to real SOC 2 policies on a self-managed instance — is at [`docs/architecture/examples/gitlab-selfmanaged.sigcomply.yaml`](architecture/examples/gitlab-selfmanaged.sigcomply.yaml).
 
 **Required token scope:** `read_api`. The collector enumerates the group's projects (`include_subgroups`) and emits one `git_repository` record per project — substitutable for GitHub repositories in every branch-protection / code-review policy. Per project it reads branch-protection, approval-rule, approval-config, and push-rule state. It also lists the group's members and emits one `directory_user` record per member — substitutable for GitHub / Okta / AWS IAM identities in every MFA / admin / lifecycle policy. Mapping: `is_admin` ← group role ≥ Maintainer **or** instance admin; `is_active` ← member state `active`; `mfa_enabled` ← the user's `two_factor_enabled`; `id`/`identity_key` ← username.
 
@@ -192,7 +192,8 @@ vault:
 sources:
   aws.iam:        { region: us-east-1 }
   aws.s3:         { region: us-east-1 }
-  github:         { org: my-org }
+  github:         { org: my-org }        # GitHub-hosted code, OR…
+  gitlab:         { group: my-group }    # …GitLab-hosted code (add base_url: for self-managed)
   okta:           { domain: my.okta.com }
   manual.pdf:
     backend: s3                   # local | s3 | gcs | azure_blob
