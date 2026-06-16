@@ -218,17 +218,21 @@ IDs:
 | `aws.kms` | `kms_key` | |
 | `gcp.storage` | `object_storage_bucket` | Same neutral type as `aws.s3`. |
 | `github` | `git_repository`, `directory_user` | Single org per instance. |
+| `gitlab` | `git_repository` | Single group per instance (`include_subgroups`); self-managed via `base_url`. Same neutral type as `github`. `directory_user` is a planned follow-up. |
 | `okta` | `directory_user`, `okta_app` | |
 | `manual.pdf` | `signed_document` | **Project-level singleton.** Exactly one instance per project. See §The manual.pdf plugin. |
 
 Note the cross-vendor pattern: `aws.s3` and `gcp.storage` both emit the
 single neutral `object_storage_bucket` type (the "reuse the existing
 type" path), and `aws.iam`, `okta`, and `github` all emit
-`directory_user` (one type, many sources). Many more AWS and GCP
-subpackages exist; consult their `Emits()` for the current list.
+`directory_user` (one type, many sources). The same pattern now spans
+git hosts: `github` and `gitlab` both emit the neutral `git_repository`
+type, so every branch-protection policy works against either without
+change. Many more AWS and GCP subpackages exist; consult their `Emits()`
+for the current list.
 
-Additional vendors (Azure, GitLab, Bitbucket, Auth0, BambooHR,
-Workday, …) ship as the community contributes them.
+Additional vendors (Azure, Bitbucket, Auth0, BambooHR, Workday, …) ship
+as the community contributes them.
 
 ---
 

@@ -111,6 +111,18 @@ The CLI uses the standard [AWS SDK credential chain](https://aws.github.io/aws-s
 
 The token is read in the GitHub collector's `Init()` method. If `GITHUB_TOKEN` is not set and no token is provided via `WithToken()`, initialization fails with a clear error.
 
+### GitLab
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GITLAB_TOKEN` | Yes (if using GitLab collector) | Personal-access or group-access token, or set `token` in config |
+
+Config keys (under `sources.gitlab`): `group` (group ID or full path, e.g. `my-group/sub-group`) is required; `token` may be supplied here or via `GITLAB_TOKEN`; `base_url` is optional and targets a self-managed instance (default `https://gitlab.com`).
+
+**Required token scope:** `read_api`. The collector enumerates the group's projects (`include_subgroups`) and emits one `git_repository` record per project — substitutable for GitHub repositories in every branch-protection / code-review policy. Per project it reads branch-protection, approval-rule, approval-config, and push-rule state.
+
+**Known limitations (v1):** some signals are premium/ultimate features and degrade gracefully to `false` on free tier (the endpoint 404s): `requires_signed_commits` (push rule `reject_unsigned_commits`) and `require_code_owner_reviews`. Pipeline SAST / Secret Detection / Dependency scanning have **no read-only project-settings API** (they are configured in `.gitlab-ci.yml`), so `secret_scanning_enabled`, `code_scanning_enabled`, and `dependabot_alerts_enabled` are always emitted as `false`; `push_protection_enabled` maps to GitLab's pre-receive secret detection. (`directory_user` emission for group members lands in a follow-up.)
+
 ### Okta
 
 | Variable | Required | Description |

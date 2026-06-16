@@ -33,6 +33,7 @@ func emittableTypes(t *testing.T) (emittable map[string]bool, failed map[string]
 		"region":     "us-east-1",
 		"project_id": "coverage-test",
 		"org":        "coverage-test",
+		"group":      "coverage-test",
 		"token":      "dummy",
 		"org_url":    "https://example.okta.com",
 		"api_token":  "dummy",
