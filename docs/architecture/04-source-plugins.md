@@ -231,6 +231,7 @@ IDs:
 | `gcp.network` | `network` | VPC Networks (Compute `networks.list`), one record per network; `flow_logs_enabled` aggregated from subnetworks (all-must-be-on). Same neutral type as `aws.vpc`. |
 | `gcp.secretmanager` | `secret` | Secret Manager secrets (`secrets.list`); `rotation_enabled` ← rotation policy attached; `kms_encrypted` ← CMEK on replication; `never_rotated`/`last_rotated_days` ← per-secret `versions.list` (no last-rotation timestamp on the resource). Same neutral type as `aws.secretsmanager`. |
 | `gcp.scc` | `threat_detection_service`, `security_service`, `vulnerability_finding` | **Org-scoped** (`organization_id`, not `project_id`; needs org-level `securitycenter.findingsViewer`+`settingsViewer`). Security Command Center: ETD enablement → `threat_detection_service` (`aws.guardduty` analog); SHA enablement → `security_service` `service_type: "siem"` (`aws.security_services` analog); active `VULNERABILITY`/`MISCONFIGURATION` findings → `vulnerability_finding` (`aws.inspector` analog), severity/status mapped to the schema enums. Reads `sources/-/findings` (v1) + v1beta2 settings (`serviceEnablementState`). |
+| `azure.entra` | `directory_user` | Microsoft Entra ID (Azure AD) users via Microsoft Graph (raw REST, not `msgraph-sdk-go`). Graph-plane (optional `tenant_id`, no `subscription_id`). `mfa_enabled` ← `userRegistrationDetails.isMfaRegistered`; `is_admin` ← `userRegistrationDetails.isAdmin` (Microsoft's computed flag — no `directoryRoles` traversal); `is_active` ← `users.accountEnabled`; `email` ← `users.mail` only; `last_login_at` ← `users.signInActivity.lastSignInDateTime` (omitted if absent). Needs `User.Read.All` + `AuditLog.Read.All` + Entra ID P1/P2; errors (not false MFA) when the report is inaccessible. Same neutral type as `aws.iam`/`okta`/`github`/`gitlab`/`gcp.directory`. |
 | `github` | `git_repository`, `directory_user` | Single org per instance. |
 | `gitlab` | `git_repository`, `directory_user` | Single group per instance (`include_subgroups`); self-managed via `base_url`. Same neutral types as `github`. |
 | `okta` | `directory_user`, `okta_app` | |
@@ -238,15 +239,16 @@ IDs:
 
 Note the cross-vendor pattern: `aws.s3` and `gcp.storage` both emit the
 single neutral `object_storage_bucket` type (the "reuse the existing
-type" path), and `aws.iam`, `okta`, and `github` all emit
-`directory_user` (one type, many sources). The same pattern now spans
+type" path), and `aws.iam`, `okta`, `github`, `gitlab`, `gcp.directory`,
+and `azure.entra` all emit `directory_user` (one type, six sources across
+IdP, code host, and three clouds). The same pattern now spans
 git hosts: `github` and `gitlab` both emit the neutral `git_repository`
 type, so every branch-protection policy works against either without
 change. Many more AWS and GCP subpackages exist; consult their `Emits()`
 for the current list.
 
-Additional vendors (Azure, Bitbucket, Auth0, BambooHR, Workday, …) ship
-as the community contributes them.
+Additional vendors (Bitbucket, Auth0, BambooHR, Workday, …) and the
+remaining ARM-plane Azure resource collectors ship as they land.
 
 ---
 

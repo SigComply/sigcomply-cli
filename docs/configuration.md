@@ -173,9 +173,9 @@ The `gcp.certs` source is project-scoped (`project_id` required, under `sources.
 
 ### Azure
 
-Azure sources share a single credential and subscription model (the `azure.*`
-plugins themselves land in later releases; this describes the foundation they
-build on). Authentication uses the Azure SDK's
+Azure sources share a single credential and subscription model (the
+`azure.entra` directory source has shipped; the ARM-plane resource collectors
+land in later releases). Authentication uses the Azure SDK's
 [`DefaultAzureCredential`](https://learn.microsoft.com/azure/developer/go/azure-sdk-authentication)
 — no SigComply-specific credential config. The credential resolves through a
 chain (environment → workload identity → managed identity → Azure CLI), so:
@@ -198,6 +198,50 @@ discovered against the tenant-scoped Subscriptions API. Least privilege is set
 at the Azure RBAC layer (e.g. the built-in **Reader** role on the subscription;
 the directory source additionally needs Microsoft Graph read permissions —
 documented per source as those land).
+
+#### `azure.entra` — directory_user
+
+Lists Microsoft Entra ID (Azure AD) users via Microsoft Graph and emits one
+`directory_user` per user — the same cross-vendor type as `aws.iam`, `okta`,
+`github`, `gitlab`, and `gcp.directory`, so MFA / admin / lifecycle policies
+evaluate against Entra identities with **zero policy changes**.
+
+```yaml
+sources:
+  azure.entra:
+    tenant_id: 00000000-0000-0000-0000-000000000000  # optional; provenance only
+```
+
+`tenant_id` is optional — the Graph token is scoped by the credential's home
+tenant (resolved from `azure/login` / `az login` / `AZURE_TENANT_ID`); when set
+it tags each record's scope. **No `subscription_id`** (this is a Graph-plane
+source, not ARM).
+
+Field mapping (two Graph reads joined on the user object id):
+
+| `directory_user` field | Graph source |
+| --- | --- |
+| `mfa_enabled` | `userRegistrationDetails.isMfaRegistered` |
+| `is_admin` | `userRegistrationDetails.isAdmin` (Microsoft's computed privileged-role flag — no `directoryRoles` traversal) |
+| `is_active` | `users.accountEnabled` |
+| `email` | `users.mail` **only** (never `userPrincipalName`, which is non-email-shaped for guests; falls back to UPN only as the internal dedup key) |
+| `display_name` | `users.displayName` (falls back to UPN) |
+| `last_login_at` | `users.signInActivity.lastSignInDateTime` (omitted when unavailable) |
+
+**Required Graph application permissions** (admin-consented on the app
+registration): `User.Read.All` + `AuditLog.Read.All`. The
+`userRegistrationDetails` report and `signInActivity` both require an **Entra ID
+P1 or P2 license**. If those are missing the source returns a clear error
+(naming `AuditLog.Read.All` + P1/P2) rather than fabricating `mfa_enabled=false`
+for every user — that tags only the Entra-bound policies `error`, never a run
+crash. `last_login_at` degrades silently (omitted) when `signInActivity` is
+unavailable.
+
+> **Implementation note:** `azure.entra` calls Microsoft Graph over raw REST
+> (with a bearer token from `DefaultAzureCredential`), not the
+> `microsoftgraph/msgraph-sdk-go` SDK — the Kiota-generated SDK adds minutes to
+> build/test/lint and a large transitive tree, against the repo's
+> minimal-dependency convention (same reason `github`/`okta` call REST directly).
 
 ### SigComply Cloud (Paid Tier)
 
