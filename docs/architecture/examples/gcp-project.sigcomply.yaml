@@ -1,0 +1,191 @@
+# CloudNova — SOC 2 project configuration for a GCP-only org.
+#
+# Profile:
+#   - All infrastructure on Google Cloud; identity in Google Workspace /
+#     Cloud Identity. No AWS, no Azure, no separate IdP.
+#   - One GCP project ("cloudnova-prod") holds the workloads; Security
+#     Command Center is enabled at the organization.
+#   - Vault: GCS; CI: GitHub Actions (code is on GitHub, but every
+#     automated evidence type here comes from GCP, not the SCM).
+#
+# Purpose: show the GCP source family covering a SOC 2 estate end to end —
+# identity, network, encryption, logging, change-tracking, and security
+# posture — so a GCP-only customer satisfies the same controls an AWS
+# customer would, with no policy change (substitutability — see
+# 04a-evidence-type-registry.md). Each gcp.* source emits a cloud-neutral
+# evidence type; only the binding names GCP.
+#
+# Credentials are NEVER in this file. GCP sources use Application Default
+# Credentials (ADC): in CI, set ADC up with google-github-actions/auth via
+# Workload Identity Federation (no long-lived keys); locally,
+# `gcloud auth application-default login`. See docs/configuration.md §GCP.
+
+schema_version: project.v1
+
+framework: soc2
+
+period:
+  fiscal_calendar:
+    type: calendar_quarter
+  # wall_clock: cloud-posture checks run on a schedule, not per code commit,
+  # so the period is anchored to run time rather than a commit timestamp.
+  time_basis: wall_clock
+
+vault:
+  backend: gcs
+  bucket: cloudnova-evidence
+  prefix: sigcomply/
+
+# ---------------------------------------------------------------------
+# Sources. One gcp.* plugin per service; each emits a distinct
+# cloud-neutral evidence type, so the planner auto-binds unambiguously
+# (the explicit bindings below are illustrative). Almost every GCP source
+# is project-scoped and takes `project_id`. Two are exceptions:
+#   - gcp.directory is account/customer-scoped — `customer_id` is optional
+#     and defaults to the my_customer alias (the ADC identity's own org).
+#     Needs a Workspace-admin context or a service account with
+#     domain-wide delegation for admin.directory.user.readonly.
+#   - gcp.scc is ORGANIZATION-scoped — it takes `organization_id`, not
+#     project_id, and needs org-level SCC IAM (securitycenter.findingsViewer
+#     + settingsViewer). A project-scoped CI service account that works for
+#     every other gcp.* source will likely lack this — the usual gotcha.
+# ---------------------------------------------------------------------
+sources:
+  gcp.directory:
+    customer_id: my_customer
+  gcp.firewall:
+    project_id: cloudnova-prod
+  gcp.network:
+    project_id: cloudnova-prod
+  gcp.kms:
+    project_id: cloudnova-prod
+  gcp.secretmanager:
+    project_id: cloudnova-prod
+  gcp.logging:
+    project_id: cloudnova-prod
+  gcp.audit:
+    project_id: cloudnova-prod
+  gcp.asset:
+    project_id: cloudnova-prod
+  gcp.scc:
+    organization_id: "123456789012"
+  manual.pdf:
+    backend: gcs
+    bucket: cloudnova-evidence
+    prefix: manual/
+
+# ---------------------------------------------------------------------
+# Per-policy configuration. Each gcp.* source is bound to the conventional
+# `evidence` slot of the policies that accept the type it emits.
+# ---------------------------------------------------------------------
+policies:
+  # directory_user (gcp.directory) — MFA on admins / on every user.
+  # mfa_enabled ← the user's 2-step-verification enrollment; is_admin ←
+  # super-admin or delegated admin (so the admin-MFA policy evaluates
+  # rather than erroring).
+  soc2.cc6.1.mfa_enforced_admins:
+    bindings:
+      evidence: [gcp.directory]
+    cadence: daily
+  soc2.cc6.1.mfa_enforced_all_users:
+    bindings:
+      evidence: [gcp.directory]
+
+  # firewall_rule (gcp.firewall) — no public SSH / RDP. The plugin flattens
+  # each VPC firewall into one rule per protocol/port-range; 0.0.0.0/0 in
+  # the direction's range list → is_unrestricted_ipv4.
+  soc2.cc6.6.no_unrestricted_ssh:
+    bindings:
+      evidence: [gcp.firewall]
+  soc2.cc6.6.no_unrestricted_rdp:
+    bindings:
+      evidence: [gcp.firewall]
+
+  # network (gcp.network) — VPC flow logs. Aggregated from subnetworks:
+  # true only when every subnetwork of the network has flow logs on.
+  soc2.cc6.6.vpc_flow_logs_enabled:
+    bindings:
+      evidence: [gcp.network]
+
+  # kms_key (gcp.kms) — key rotation. rotation_enabled ← a rotationPeriod
+  # is set (ENCRYPT_DECRYPT keys only; asymmetric/MAC report false).
+  soc2.cc6.7.kms_key_rotation_enabled:
+    bindings:
+      evidence: [gcp.kms]
+
+  # secret (gcp.secretmanager) — secrets rotation. rotation_enabled ← a
+  # rotation policy is attached (rotation.nextRotationTime set).
+  soc2.cc6.7.secrets_rotation_enabled:
+    bindings:
+      evidence: [gcp.secretmanager]
+
+  # log_group (gcp.logging) — ≥90-day retention. Every GCP log bucket has a
+  # finite retention, so a bucket left at the 30-day _Default honestly
+  # fails; _Required (400 days) passes.
+  soc2.cc7.1.log_retention_min_90d:
+    bindings:
+      evidence: [gcp.logging]
+
+  # audit_log_trail (gcp.audit) — audit logging on. is_enabled is a GCP
+  # platform constant (Admin Activity audit logs are always-on), grounded
+  # by a real GetIamPolicy/GetCmekSettings read so missing access fails
+  # honestly.
+  soc2.cc7.1.audit_logging_enabled:
+    bindings:
+      evidence: [gcp.audit]
+
+  # config_change_tracking (gcp.asset) — change recording. Maps to Cloud
+  # Asset Inventory FEEDS (the deliberately-configured change pipeline),
+  # not the always-on inventory, so is_recording can honestly be false.
+  soc2.cc7.1.config_recording_enabled:
+    bindings:
+      evidence: [gcp.asset]
+
+  # gcp.scc emits THREE cross-vendor types from one org-scoped source:
+  #   security_service           → securityhub_enabled (SCC as the SIEM)
+  #   threat_detection_service   → threat_detection_enabled (Event Threat Detection)
+  #   vulnerability_finding      → no_critical_vulns_active (active SCC findings)
+  soc2.cc7.1.securityhub_enabled:
+    bindings:
+      evidence: [gcp.scc]
+  soc2.cc6.8.threat_detection_enabled:
+    bindings:
+      evidence: [gcp.scc]
+    cadence: hourly
+  soc2.cc7.4.no_critical_vulns_active:
+    bindings:
+      evidence: [gcp.scc]
+    cadence: hourly
+
+  # password_policy has NO honest GCP source: Cloud Identity exposes no
+  # readable IAM-password-policy object (Admin SDK surfaces no policy), so
+  # the plan defers it (WU-0.3) and these controls are covered by manual
+  # evidence — a screenshot/export of the Workspace password settings.
+  # Marked not-applicable for the automated flow rather than emitting a
+  # misleading record. (Same for the other password_* CC6.1 policies.)
+  soc2.cc6.1.password_min_length_14:
+    exceptions:
+      - state: na
+        reason: |
+          GCP Cloud Identity exposes no readable password-policy object,
+          so this signal cannot be collected automatically (WU-0.3: defer).
+          Covered by a manual export of the Workspace password settings
+          under cc6.1.
+
+  # Manual PDF — quarterly access review exported from the GCP/Workspace
+  # admin console.
+  soc2.cc6.3.access_review_quarterly:
+    evidence_mode: manual
+    catalog_entry: access_review_quarterly
+    cadence: monthly
+
+cloud:
+  enabled: true
+
+output:
+  format: text
+  json_path: ./compliance-report.json
+
+ci:
+  fail_on_violation: true
+  fail_severity: high

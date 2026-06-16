@@ -231,6 +231,39 @@ func TestLoadProjectConfig_GitLabExample(t *testing.T) {
 	}
 }
 
+// TestLoadProjectConfig_GCPExample parses the documented GCP example config
+// so the example in docs/ can never drift out of the strict loader's accepted
+// shape (unknown keys are a hard error). It also pins the two GCP-scope
+// exceptions (org-scoped gcp.scc, customer-scoped gcp.directory) and the
+// password-policy not-applicable deferral.
+func TestLoadProjectConfig_GCPExample(t *testing.T) {
+	path := filepath.Join("..", "..", "docs", "architecture", "examples", "gcp-project.sigcomply.yaml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	cfg, err := LoadProjectConfig(data)
+	if err != nil {
+		t.Fatalf("LoadProjectConfig(gcp example): %v", err)
+	}
+	if cfg.Framework != testFrameworkSOC2 {
+		t.Errorf("Framework = %q; want %q", cfg.Framework, testFrameworkSOC2)
+	}
+	for _, src := range []string{"gcp.directory", "gcp.firewall", "gcp.scc", "manual.pdf"} {
+		if _, ok := cfg.Sources[src]; !ok {
+			t.Errorf("expected %q in sources", src)
+		}
+	}
+	// gcp.directory supplies the identity (directory_user) evidence.
+	if b := cfg.BindingsFor("soc2.cc6.1.mfa_enforced_admins")["evidence"]; len(b) != 1 || b[0].Source != "gcp.directory" {
+		t.Errorf("mfa_enforced_admins evidence binding = %v; want [gcp.directory]", b)
+	}
+	// The org-scoped gcp.scc source emits three types; one binding shown here.
+	if b := cfg.BindingsFor("soc2.cc7.4.no_critical_vulns_active")["evidence"]; len(b) != 1 || b[0].Source != "gcp.scc" {
+		t.Errorf("no_critical_vulns_active evidence binding = %v; want [gcp.scc]", b)
+	}
+}
+
 func TestLoadProjectConfig_EmptyInput(t *testing.T) {
 	if _, err := LoadProjectConfig(nil); err == nil {
 		t.Error("expected error on nil input")

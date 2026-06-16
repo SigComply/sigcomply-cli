@@ -137,7 +137,7 @@ Config keys (under `sources.okta`): `org_url` (the full tenant URL, e.g. `https:
 
 ### GCP
 
-GCP sources use [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials) (ADC) — no SigComply-specific credential config. Set ADC up in your CI workflow (`google-github-actions/auth` via Workload Identity Federation, or `gcloud auth application-default login` locally) before running `sigcomply check`. Project-scoped GCP sources (`gcp.storage`, `gcp.iam`, …) take a `project_id` config key.
+GCP sources use [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials) (ADC) — no SigComply-specific credential config. Set ADC up in your CI workflow (`google-github-actions/auth` via Workload Identity Federation, or `gcloud auth application-default login` locally) before running `sigcomply check`. Project-scoped GCP sources (`gcp.storage`, `gcp.iam`, …) take a `project_id` config key; the two exceptions are `gcp.directory` (account/customer-scoped — `customer_id`) and `gcp.scc` (organization-scoped — `organization_id`). A full worked GCP-only SOC 2 config — the gcp.* source family covering identity, network, encryption, logging, change-tracking, and security posture, with the password-policy controls deferred to manual evidence (see WU-0.3) — lives at [`docs/architecture/examples/gcp-project.sigcomply.yaml`](architecture/examples/gcp-project.sigcomply.yaml).
 
 The `gcp.directory` source is the exception: it reads Google Workspace / Cloud Identity users via the **Admin SDK Directory API**, which is **account/customer-scoped, not project-scoped**. Config keys (under `sources.gcp.directory`): `customer_id` is optional and defaults to the `my_customer` alias (resolves to the credential's own organization); set it to an explicit `C0...` customer ID only to target a different account.
 
@@ -231,6 +231,9 @@ sources:
   github:         { org: my-org }        # GitHub-hosted code, OR…
   gitlab:         { group: my-group }    # …GitLab-hosted code (add base_url: for self-managed)
   okta:           { domain: my.okta.com }
+  gcp.kms:        { project_id: my-project }   # project-scoped gcp.* sources take project_id
+  gcp.scc:        { organization_id: "123456789012" }  # gcp.scc is org-scoped (not project_id)
+  gcp.directory:  { customer_id: my_customer } # account-scoped (optional; defaults to my_customer)
   manual.pdf:
     backend: s3                   # local | s3 | gcs | azure_blob
     bucket: my-evidence
