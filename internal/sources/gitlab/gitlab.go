@@ -1,7 +1,8 @@
 // Package gitlab implements the gitlab source plugin: lists projects
-// ("repositories") under a single GitLab group and emits the
-// cross-vendor git_repository evidence type — suitable for SOC 2 / ISO
-// 27001 branch-protection and code-review policies.
+// ("repositories") and members under a single GitLab group and emits the
+// cross-vendor git_repository and directory_user evidence types —
+// suitable for SOC 2 / ISO 27001 branch-protection, code-review, and
+// identity (MFA/admin/lifecycle) policies.
 //
 // GitLab is one of several substitutable source-code platforms (GitHub,
 // Bitbucket, future Gitea/Azure DevOps); a policy accepts the
@@ -20,9 +21,13 @@
 // adapter is exercised by an httptest-backed test; live integration
 // tests against gitlab.com are deferred to the testing revamp.
 //
-// WU-2.1 scope: this plugin emits only git_repository. The group's
-// directory_user emission (members → MFA/admin/active) lands in WU-2.2 as
-// a second emitted type on the same plugin.
+// directory_user (WU-2.2): the plugin also lists the group's members and
+// emits one directory_user per member, mapping AccessLevel ≥ Maintainer
+// (or instance-admin) → is_admin, account state → is_active, and the
+// user's two_factor_enabled → mfa_enabled. 2FA and instance-admin status
+// are only readable with a group-owner / instance-admin token (via the
+// Users API); without that privilege the sdkAPI degrades gracefully and
+// mfa_enabled is best-effort false — documented in docs/configuration.md.
 package gitlab
 
 import (
@@ -41,6 +46,11 @@ import (
 // EvidenceTypeRepository is the cross-vendor git_repository shape this
 // plugin emits.
 const EvidenceTypeRepository = "git_repository"
+
+// EvidenceTypeDirectoryUser is the cross-vendor directory_user shape this
+// plugin emits for the group's members — identical to the shape the
+// github and okta plugins emit (the same identity evidence type).
+const EvidenceTypeDirectoryUser = "directory_user"
 
 // SourceID is the registered ID for the gitlab plugin instance.
 const SourceID = "gitlab"
@@ -80,6 +90,23 @@ type Repo struct {
 	CodeScanningEnabled     bool
 }
 
+// Member is the subset of fields the plugin extracts from a GitLab group
+// member, normalized into the directory_user contract. Every field maps
+// to a property the consuming policies read so none reads an absent field.
+//
+// MFAEnabled and the instance-admin component of IsAdmin require a
+// group-owner / instance-admin token (the Users API exposes
+// two_factor_enabled / is_admin); the sdkAPI degrades gracefully when the
+// token can't read them, leaving MFAEnabled best-effort false.
+type Member struct {
+	Username   string
+	Name       string
+	Email      string
+	MFAEnabled bool
+	IsAdmin    bool
+	IsActive   bool
+}
+
 // API is the subset of the GitLab REST API the plugin uses. Defining it
 // as an interface lets tests inject a fake without making real network
 // calls; the concrete *sdkAPI satisfies it.
@@ -88,6 +115,10 @@ type API interface {
 	// normalized into the git_repository contract. Implementations must
 	// page transparently — callers receive the full list in one slice.
 	ListRepos(ctx context.Context) ([]Repo, error)
+	// ListMembers returns all members of the configured group, normalized
+	// into the directory_user contract. Implementations must page
+	// transparently — callers receive the full list in one slice.
+	ListMembers(ctx context.Context) ([]Member, error)
 }
 
 // Plugin is the in-process gitlab source.
@@ -138,9 +169,11 @@ func NewFromToken(_ context.Context, group, token, baseURL string) (*Plugin, err
 // ID returns the registered plugin ID.
 func (*Plugin) ID() string { return SourceID }
 
-// Emits returns the evidence types this plugin can produce. WU-2.1:
-// git_repository only; directory_user is added in WU-2.2.
-func (*Plugin) Emits() []string { return []string{EvidenceTypeRepository} }
+// Emits returns the evidence types this plugin can produce: project
+// metadata as git_repository and group members as directory_user.
+func (*Plugin) Emits() []string {
+	return []string{EvidenceTypeRepository, EvidenceTypeDirectoryUser}
+}
 
 // Init is a no-op; the constructor has already received configuration.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
@@ -172,14 +205,51 @@ type repoPayload struct {
 	CodeScanningEnabled     bool `json:"code_scanning_enabled"`
 }
 
-// Collect returns one git_repository record per project under the group,
-// sorted by ID (the project path). A slot that does not accept
-// git_repository is rejected.
+// memberPayload is the directory_user shape this plugin emits — identical
+// to the github/okta plugins' (the same cross-vendor evidence type). The
+// policy-read booleans are emitted unconditionally (an absent field errors
+// the consuming policy rather than reading as false); email is optional in
+// the schema and omitted when GitLab does not expose it.
+type memberPayload struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+	Email       string `json:"email,omitempty"`
+	MFAEnabled  bool   `json:"mfa_enabled"`
+	IsAdmin     bool   `json:"is_admin"`
+	IsActive    bool   `json:"is_active"`
+}
+
+// Collect dispatches to the per-type collectors for whichever emitted
+// types the slot accepts, returning their records together. A slot that
+// accepts neither emitted type is rejected.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	if !req.Accepts(EvidenceTypeRepository) {
-		return nil, fmt.Errorf("gitlab: AcceptedTypes %v does not include emitted type %q",
-			req.AcceptedTypes, EvidenceTypeRepository)
+	wantRepos := req.Accepts(EvidenceTypeRepository)
+	wantMembers := req.Accepts(EvidenceTypeDirectoryUser)
+	if !wantRepos && !wantMembers {
+		return nil, fmt.Errorf("gitlab: AcceptedTypes %v does not include emitted types %q,%q",
+			req.AcceptedTypes, EvidenceTypeRepository, EvidenceTypeDirectoryUser)
 	}
+	var out []core.EvidenceRecord
+	if wantRepos {
+		rs, err := p.collectRepos(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rs...)
+	}
+	if wantMembers {
+		rs, err := p.collectMembers(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rs...)
+	}
+	return out, nil
+}
+
+// collectRepos returns one git_repository record per project under the
+// group, sorted by ID (the project path).
+func (p *Plugin) collectRepos(ctx context.Context) ([]core.EvidenceRecord, error) {
 	repos, err := p.api.ListRepos(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("gitlab: list repos: %w", err)
@@ -212,6 +282,44 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		records = append(records, core.EvidenceRecord{
 			Type:        EvidenceTypeRepository,
 			ID:          r.Name,
+			Payload:     body,
+			SourceID:    SourceID,
+			CollectedAt: now,
+		})
+	}
+	sort.Slice(records, func(i, j int) bool { return records[i].ID < records[j].ID })
+	return records, nil
+}
+
+// collectMembers returns one directory_user record per group member,
+// sorted by ID (the member's username). IdentityKey is the username —
+// the stable per-source identity (mirroring github; GitLab member email
+// is not reliably exposed without an elevated token).
+func (p *Plugin) collectMembers(ctx context.Context) ([]core.EvidenceRecord, error) {
+	members, err := p.api.ListMembers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("gitlab: list members: %w", err)
+	}
+	now := p.now()
+	records := make([]core.EvidenceRecord, 0, len(members))
+	for i := range members {
+		m := members[i]
+		payload := memberPayload{
+			ID:          m.Username,
+			DisplayName: m.Name,
+			Email:       m.Email,
+			MFAEnabled:  m.MFAEnabled,
+			IsAdmin:     m.IsAdmin,
+			IsActive:    m.IsActive,
+		}
+		body, err := json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("gitlab: marshal member payload: %w", err)
+		}
+		records = append(records, core.EvidenceRecord{
+			Type:        EvidenceTypeDirectoryUser,
+			ID:          m.Username,
+			IdentityKey: m.Username,
 			Payload:     body,
 			SourceID:    SourceID,
 			CollectedAt: now,
@@ -320,6 +428,62 @@ func (s *sdkAPI) mapProject(ctx context.Context, proj *gitlab.Project) Repo {
 	}
 
 	return r
+}
+
+// ListMembers lists the configured group's members, normalizing each into
+// the directory_user contract. AccessLevel and account state come straight
+// from the members listing; two_factor_enabled and instance-admin status
+// require a per-member Users-API read that only a privileged token can
+// satisfy — that read degrades gracefully (best-effort) so an
+// insufficiently-scoped token still yields a usable listing rather than a
+// hard failure.
+func (s *sdkAPI) ListMembers(ctx context.Context) ([]Member, error) {
+	opt := &gitlab.ListGroupMembersOptions{
+		ListOptions: gitlab.ListOptions{PerPage: 100, Page: 1},
+	}
+	var out []Member
+	for {
+		members, resp, err := s.client.Groups.ListAllGroupMembers(s.group, opt, gitlab.WithContext(ctx))
+		if err != nil {
+			return nil, fmt.Errorf("gitlab: list group members: %w", err)
+		}
+		for _, m := range members {
+			out = append(out, s.mapMember(ctx, m))
+		}
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.Page = resp.NextPage
+	}
+	return out, nil
+}
+
+// mapMember normalizes one GitLab group member into the directory_user
+// contract. is_admin is the group role (Maintainer/Owner) OR instance
+// admin; mfa_enabled and instance-admin come from a per-member Users-API
+// read that degrades gracefully when the token lacks the privilege.
+func (s *sdkAPI) mapMember(ctx context.Context, m *gitlab.GroupMember) Member {
+	mem := Member{
+		Username: m.Username,
+		Name:     m.Name,
+		Email:    m.Email,
+		// AccessLevel ≥ Maintainer (40) is the group-level elevated role;
+		// instance admins are folded in below from the Users API.
+		IsAdmin:  m.AccessLevel >= gitlab.MaintainerPermissions,
+		IsActive: m.State == "active",
+	}
+	// two_factor_enabled and is_admin (instance) are only on the User
+	// object, readable via the Users API with a group-owner / instance-admin
+	// token. Any error (403 insufficient privilege, 404) leaves mfa_enabled
+	// best-effort false rather than failing the listing — documented as a
+	// known v1 visibility gap in docs/configuration.md.
+	if u, _, err := s.client.Users.GetUser(m.ID, gitlab.GetUsersOptions{}, gitlab.WithContext(ctx)); err == nil && u != nil {
+		mem.MFAEnabled = u.TwoFactorEnabled
+		if u.IsAdmin {
+			mem.IsAdmin = true
+		}
+	}
+	return mem
 }
 
 // isNotFound reports whether a GitLab response carries a 404 status. The
