@@ -41,6 +41,7 @@ import (
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/azure/compute"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/azure/entra"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/azure/keyvault"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/azure/monitor"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/azure/network"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/azure/sql"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/azure/storage"

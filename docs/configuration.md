@@ -508,6 +508,64 @@ Auditable `secret` extras: `content_type`, `enabled`, `vault_name`,
 to `Microsoft.KeyVault/vaults/read`, `.../keys/read`, and `.../secrets/read` —
 all management-plane actions Reader includes; no Key Vault access policy needed).
 
+#### `azure.monitor` — log_group + audit_log_trail
+
+Reads Azure Monitor's logging surface in the subscription and emits two
+cross-vendor types: `log_group` (one per **Log Analytics workspace** — the same
+type as `aws` CloudWatch Logs and `gcp.logging`) and `audit_log_trail` (one per
+subscription — the **Activity Log** — the same type as `aws` CloudTrail and
+`gcp.audit`), so the log-retention and audit-logging policies evaluate against
+Azure with **zero policy changes**.
+
+```yaml
+sources:
+  azure.monitor:
+    subscription_id: 00000000-0000-0000-0000-000000000000  # required (ARM plane)
+```
+
+This is an **ARM-plane** source, so `subscription_id` is **required**.
+
+| `log_group` field | Azure source |
+| --- | --- |
+| `id` / `name` | Log Analytics workspace ARM id / name |
+| `retention_set` | the workspace has a positive `retentionInDays` |
+| `retention_days` | the workspace `retentionInDays` (0 when unset) |
+
+Auditable `log_group` extras (`additionalProperties`): `location`, `sku`,
+`resource_group`. Log Analytics encryption at rest is platform-always-on;
+customer-managed keys (CMEK) are a per-*cluster* feature (a dedicated Azure
+Monitor cluster), not a per-workspace property, so `kms_encrypted` is not emitted
+in v1 (no `log_group` policy reads it).
+
+| `audit_log_trail` field | Azure source |
+| --- | --- |
+| `id` | `/subscriptions/{id}/providers/Microsoft.Insights/activityLog` |
+| `name` | `"Azure Activity Log"` |
+| `is_enabled` | **always `true`** — the Activity Log is always-on and cannot be disabled |
+| `is_multi_region` | **always `true`** — subscription-wide across all regions |
+| `log_file_validation_enabled` | **always `true`** — the platform Activity Log is append-only / immutable to users (the same platform-integrity basis as `gcp.audit`) |
+| `kms_encrypted` | **always `false`** — see the note below |
+
+Auditable `audit_log_trail` extras: `exported` (at least one enabled diagnostic
+setting routes the log to a destination), `diagnostic_setting_count`,
+`enabled_categories`, `destination_workspace_id`, `destination_storage_account_id`
+— read from the subscription's diagnostic settings, which prove whether the
+Activity Log is retained beyond the platform's 90-day window.
+
+> **Audit-log CMEK gap.** The native Activity Log platform retention uses
+> Microsoft-managed keys, not customer-managed, so `kms_encrypted` is reported as
+> `false` rather than a guessed `true`. CMEK would require routing the log (via a
+> diagnostic setting) to a CMEK-enabled destination and resolving that
+> destination's key state, which is out of scope for v1; customers cover the
+> audit-log-encryption control via a routed CMEK destination + a `.sigcomply.yaml`
+> exception or manual evidence (the same honest-gap pattern `azure.keyvault` uses
+> for secret rotation). A workspace or diagnostic-settings read failure (e.g. a
+> 403) is surfaced as an error — tagging only the `azure.monitor`-bound policies.
+
+**Required RBAC:** the built-in **Reader** role on the subscription (covers
+`Microsoft.OperationalInsights/workspaces/read` and
+`Microsoft.Insights/diagnosticSettings/read`).
+
 ### SigComply Cloud (Paid Tier)
 
 The CLI authenticates to SigComply Cloud using ephemeral OIDC tokens, automatically detected
