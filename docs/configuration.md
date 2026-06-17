@@ -566,6 +566,69 @@ Activity Log is retained beyond the platform's 90-day window.
 `Microsoft.OperationalInsights/workspaces/read` and
 `Microsoft.Insights/diagnosticSettings/read`).
 
+#### `azure.defender` — threat_detection_service + security_service + vulnerability_finding
+
+Reads **Microsoft Defender for Cloud** (Azure Security Center) in the
+subscription and emits three cross-vendor types: `threat_detection_service` (one
+per **Defender plan** — the same type as `aws.guardduty` and `gcp.scc`),
+`security_service` (one record for Defender for Cloud itself — the same type as
+`aws` SecurityHub/Macie/Inspector and `gcp.scc`), and `vulnerability_finding`
+(one per **security sub-assessment** — the same type as `aws.inspector` and
+`gcp.scc`), so the threat-detection, security-service-enablement, and
+unaddressed-finding policies evaluate against Azure with **zero policy changes**.
+
+```yaml
+sources:
+  azure.defender:
+    subscription_id: 00000000-0000-0000-0000-000000000000  # required (ARM plane)
+```
+
+This is an **ARM-plane** source, so `subscription_id` is **required**. The
+Pricings read is shared by `threat_detection_service` and `security_service`, so
+it is performed at most once per collection.
+
+| `threat_detection_service` field | Azure source |
+| --- | --- |
+| `id` / `name` | Defender plan ARM id / plan name (`VirtualMachines`, `StorageAccounts`, `SqlServers`, `Containers`, …) |
+| `is_enabled` | the plan's pricing tier is **Standard** (the paid tier with advanced threat detection); the **Free** tier reads `false` |
+
+Auditable `threat_detection_service` extras: `pricing_tier`, `sub_plan`. One
+record is emitted **per Defender plan** (mirroring `aws.guardduty`'s
+one-record-per-detector granularity), so the "all threat detection enabled"
+policy expects every plan on Standard; customers scope out plans for resource
+types they do not use via a `.sigcomply.yaml` exception.
+
+| `security_service` field | Azure source |
+| --- | --- |
+| `id` / `name` | `azure-defender-for-cloud` / `"Microsoft Defender for Cloud"` |
+| `service_type` | **always `cspm`** — Defender for Cloud is a Cloud Security Posture Management service (not a SIEM or DLP) |
+| `is_enabled` | **at least one Defender plan is on the Standard tier** |
+
+Auditable `security_service` extras: `enabled_plan_count`, `total_plan_count`.
+The legacy auto-provisioning toggle is deprecated by Microsoft and is
+deliberately **not** used as the enablement signal — a modern estate using
+agentless scanning + Defender plans would read a false auto-provisioning value
+while being fully protected.
+
+| `vulnerability_finding` field | Azure source |
+| --- | --- |
+| `id` | the sub-assessment ARM id |
+| `resource_id` | the assessed resource's ARM id (`""` for non-Azure resources) |
+| `resource_type` | the ARM type parsed from `resource_id` (e.g. `Microsoft.Compute/virtualMachines`), else `azure_resource` |
+| `severity` | sub-assessment severity → `CRITICAL`/`HIGH`/`MEDIUM`/`LOW` (anything else → `INFORMATIONAL`) |
+| `status` | status code → `Unhealthy`=`ACTIVE`, `Healthy`=`RESOLVED`, `NotApplicable`=`SUPPRESSED`; a missing code → `ACTIVE` (a finding is never silently hidden) |
+
+Auditable `vulnerability_finding` extras: `provider`, `category`. `cve_id` is set
+only when the sub-assessment's vulnerability id is a CVE identifier;
+`remediation_available` reflects whether the sub-assessment carries remediation
+text. A Pricings or sub-assessments read failure (e.g. a 403) is surfaced as an
+error — tagging only the `azure.defender`-bound policies.
+
+**Required RBAC:** the built-in **Security Reader** role on the subscription
+(covers `Microsoft.Security/pricings/read` and
+`Microsoft.Security/assessments/subAssessments/read`); the broader **Reader**
+role also suffices.
+
 ### SigComply Cloud (Paid Tier)
 
 The CLI authenticates to SigComply Cloud using ephemeral OIDC tokens, automatically detected
