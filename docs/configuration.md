@@ -288,6 +288,62 @@ missing-permission 403) is surfaced as an error — tagging only the
 (`Microsoft.Storage/storageAccounts/read` +
 `.../storageAccounts/blobServices/read`).
 
+#### `azure.sql` — managed_database_instance
+
+Enumerates Azure's three managed relational-database services in the
+subscription and emits one `managed_database_instance` per database/server — the
+same cross-vendor type as `aws.rds` and `gcp.sql`, so encryption-at-rest,
+public-access, backup, SSL, and multi-AZ policies evaluate against Azure with
+**zero policy changes**. One plugin covers all three families (mirroring
+`aws.rds`, which covers every engine):
+
+- **Azure SQL** (`armsql`) — one record per database, **excluding** the `master`
+  system database. Transparent Data Encryption (TDE) is per-database, so this is
+  an N+1+1 walk: list servers → list databases per server → GET TDE per database.
+- **PostgreSQL Flexible Server** — one record per server.
+- **MySQL Flexible Server** — one record per server.
+
+```yaml
+sources:
+  azure.sql:
+    subscription_id: 00000000-0000-0000-0000-000000000000  # required (ARM plane)
+```
+
+This is an **ARM-plane** source, so `subscription_id` is **required**.
+
+Field mapping:
+
+| `managed_database_instance` field | Azure source |
+| --- | --- |
+| `id` | the ARM resource id (database id for Azure SQL, server id for the flexible servers) |
+| `name` | `server/database` for Azure SQL; the server name for the flexible servers |
+| `engine` | `sqlserver` / `postgres` / `mysql` |
+| `engine_version` | server `version` |
+| `storage_encrypted` | **Azure SQL:** real TDE toggle (`current` TDE state == `Enabled`). **Flexible servers:** **always `true`** — at-rest encryption is always-on and cannot be disabled (the CMEK distinction rides in the `cmek_enabled` extra) |
+| `publicly_accessible` | server-level `publicNetworkAccess == Enabled` (on Azure SQL it gates every database on the logical server) |
+| `backup_enabled` | **always `true`** — Azure SQL Database always retains automated PITR backups, and the flexible servers always run automated backups (`backup_retention_days` extra makes that auditable) |
+| `ssl_required` | **Azure SQL only:** `true` (encrypted connections are enforced unconditionally). **Flexible servers:** **omitted** — SSL enforcement is a server *parameter* (`require_secure_transport`/`ssl`), not a `ServerProperties` field, so rather than fabricate a value the field is left unset and the is_set-guarded SSL policy skips those records |
+| `multi_az` | Azure SQL `database.zoneRedundant`; flexible-server `highAvailability.mode == ZoneRedundant` |
+| `deletion_protection` | **always `false`** — no Azure managed database exposes a deletion-protection property; the Azure mechanism is an ARM resource lock (`CanNotDelete`), which is not a database property and is not read here |
+
+The `location`, `state`, `public_network_access`, `backup_retention_days`,
+`cmek_enabled`, and `minimum_tls_version` values ride in `additionalProperties`.
+A list/GET failure (e.g. a missing-permission 403) is surfaced as an error —
+tagging only the `azure.sql`-bound policies `error` — rather than silently
+reporting an insecure default, which would be misleading false-fail evidence.
+
+> **Deletion-protection / SSL note.** Because `deletion_protection` is always
+> `false` and `ssl_required` is omitted for the flexible servers, the SOC 2
+> CC7.5 deletion-protection control and the flexible-server SSL control are
+> covered via an ARM resource lock plus an exception (or manual evidence)
+> rather than by this source.
+
+**Required RBAC:** the built-in **Reader** role on the subscription (read access
+to `Microsoft.Sql/servers`, `.../databases`,
+`.../databases/transparentDataEncryption`,
+`Microsoft.DBforPostgreSQL/flexibleServers`, and
+`Microsoft.DBforMySQL/flexibleServers`).
+
 ### SigComply Cloud (Paid Tier)
 
 The CLI authenticates to SigComply Cloud using ephemeral OIDC tokens, automatically detected
