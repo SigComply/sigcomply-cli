@@ -446,6 +446,68 @@ and `resource_group`.
 **Required RBAC:** the built-in **Reader** role on the subscription (read access
 to `Microsoft.Compute/virtualMachines` and `Microsoft.Network/networkInterfaces`).
 
+#### `azure.keyvault` — kms_key + secret
+
+Lists Key Vault **keys** and **secret metadata** in the subscription and emits
+two cross-vendor types: `kms_key` (one per key — the same type as `aws.kms` and
+`gcp.kms`) and `secret` (one per secret — the same type as `aws.secretsmanager`
+and `gcp.secretmanager`), so the key-rotation, customer-managed-key, and
+secret-rotation/encryption policies evaluate against Azure with **zero policy
+changes**.
+
+```yaml
+sources:
+  azure.keyvault:
+    subscription_id: 00000000-0000-0000-0000-000000000000  # required (ARM plane)
+```
+
+This is an **ARM-plane** source, so `subscription_id` is **required**. Everything
+is read on the **management plane** (`armkeyvault`) — no Key Vault data-plane
+access policies, and the mgmt plane never returns secret values. The keys *list*
+endpoint strips the rotation policy, so each key needs a follow-up `Get` (an
+N+1).
+
+| `kms_key` field | Azure source |
+| --- | --- |
+| `key_id` | key ARM resource id |
+| `rotation_enabled` | the key's rotation policy has a `rotate` lifetime action with a trigger (a `notify`-only policy reads `false`) |
+| `is_customer_managed` | **always `true`** — a Key Vault key is customer-provisioned by definition (matches `gcp.kms`) |
+| `key_manager` | **always `"CUSTOMER"`** |
+| `enabled` | key attribute `enabled` |
+
+Auditable `kms_key` extras (`additionalProperties`): `protection_level`
+(`HSM`/`SOFTWARE`, from the key type's `-HSM` suffix), `key_type` (the `kty`),
+`rotation_period` (the rotate trigger's ISO-8601 duration), `vault_name`,
+`resource_group`.
+
+| `secret` field | Azure source |
+| --- | --- |
+| `id` | secret ARM resource id |
+| `name` | secret name |
+| `rotation_enabled` | **always `false`** — see the note below |
+| `kms_encrypted` | **always `true`** — a Key Vault secret is always encrypted at rest by the customer's own vault (the vault *is* the customer-managed key store) |
+| `never_rotated` | best-effort: `true` unless the secret has been updated since creation |
+| `last_rotated_days` | days since the secret's last update (omitted when never rotated) |
+
+Auditable `secret` extras: `content_type`, `enabled`, `vault_name`,
+`resource_group`.
+
+> **Secret-rotation gap.** Azure Key Vault exposes **no API-readable native
+> secret-rotation policy** (rotation is implemented externally via Event Grid
+> near-expiry events + a Function), so `rotation_enabled` is reported as `false`
+> rather than a guessed `true`. The secret-rotation policy therefore flags Azure
+> secrets; customers who rotate via automation cover it with a `.sigcomply.yaml`
+> exception or manual evidence (the same pattern `azure.sql` uses for
+> `deletion_protection`). Because the mgmt plane exposes no secret version
+> history, `never_rotated`/`last_rotated_days` are derived from the secret's
+> created-vs-updated timestamps (a metadata-only edit also advances "updated", so
+> this is an upper bound). A vault/key/secret read failure (e.g. a 403) is
+> surfaced as an error — tagging only the `azure.keyvault`-bound policies.
+
+**Required RBAC:** the built-in **Reader** role on the subscription (read access
+to `Microsoft.KeyVault/vaults/read`, `.../keys/read`, and `.../secrets/read` —
+all management-plane actions Reader includes; no Key Vault access policy needed).
+
 ### SigComply Cloud (Paid Tier)
 
 The CLI authenticates to SigComply Cloud using ephemeral OIDC tokens, automatically detected
