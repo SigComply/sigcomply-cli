@@ -821,6 +821,61 @@ transparent).
 broader **Reader**) — read access to Recovery Services vaults and their backup
 policies.
 
+#### `azure.certs` — tls_certificate
+
+Lists Azure certificates across the subscription and emits one `tls_certificate`
+record per certificate — the same cross-vendor type as `aws.acm` and `gcp.certs`,
+so the expiry (`soc2.cc6.7.tls_certificates_not_expiring` /
+`iso27001.8.21.tls_certificates_valid`) and auto-renewal
+(`soc2.cc6.7.tls_auto_renew_enabled` / `iso27001.8.21.tls_auto_renew_enabled`)
+policies evaluate against Azure with **zero policy changes**.
+
+```yaml
+sources:
+  azure.certs:
+    subscription_id: 00000000-0000-0000-0000-000000000000  # required (ARM plane)
+```
+
+This is an **ARM-plane** source, so `subscription_id` is **required**. Collection
+merges two subscription-wide management-plane reads:
+
+- **App Service certificates** (`armappservice` `CertificatesClient.NewListPager`)
+  — TLS certificates uploaded to or Key-Vault-referenced by App Services. These
+  are imported (not provider-auto-renewed at this layer): they emit
+  `is_managed=false` and **omit** `auto_renew`.
+- **App Service certificate orders** (`armcertificateregistration`
+  `AppServiceCertificateOrdersClient.NewListPager`) — provider-managed
+  certificates (App Service Certificates). These emit `is_managed=true` and a real
+  `auto_renew` (the order's `autoRenew` flag).
+
+| `tls_certificate` field | Azure source |
+| --- | --- |
+| `id` | certificate / order ARM resource id |
+| `domain` | App Service cert `subjectName` (else first host name) / order distinguished-name CN |
+| `not_after` | cert `expirationDate` / order `expirationTime` (RFC3339 UTC) |
+| `days_until_expiry` | derived from `not_after` (negative once expired) |
+| `is_managed` | `false` for App Service certs (imported); `true` for certificate orders (provider-managed) |
+| `auto_renew` | the order's `autoRenew` flag for managed certs; **omitted** for App Service certs (matching `aws.acm` imported certs) |
+| `status` | honest enum: expired → `EXPIRED`; App Service cert maps `valid`/Key Vault secret status, order maps its `CertificateOrderStatus` |
+
+Auditable extras (`additionalProperties`): `name`, `location`, `resource_group`,
+and (where present) `issuer`, `thumbprint`, `host_names`, `key_vault_id`,
+`key_vault_secret_status`, `product_type`, `provisioning_state`, `serial_number`.
+
+> **Key Vault certificate objects are deliberately not collected here.** A Key
+> Vault certificate's expiry and auto-renew (lifetime-action) policy live only on
+> the Key Vault **data plane** (`azcertificates`), which needs per-vault access
+> policies / RBAC beyond subscription Reader and an N+1 over vaults — breaking the
+> ARM-plane / Reader-only model `azure.keyvault` established. Key Vault
+> certificate auto-renewal evidence is covered via **manual evidence** (the
+> honest-gap pattern `azure.sql` / `azure.keyvault` use). A certificates- or
+> orders-list failure (e.g. a 403, or an unregistered
+> `Microsoft.CertificateRegistration` provider) is surfaced as an error — tagging
+> only the `azure.certs`-bound policies — rather than returning a partial result.
+
+**Required RBAC:** the built-in **Reader** role on the subscription — read access
+to App Service certificates and certificate orders.
+
 ### SigComply Cloud (Paid Tier)
 
 The CLI authenticates to SigComply Cloud using ephemeral OIDC tokens, automatically detected
