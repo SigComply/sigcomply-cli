@@ -723,6 +723,54 @@ Auditable extras (`additionalProperties`): `resource_group`, `location`,
 to `Microsoft.ContainerService/managedClusters` and
 `Microsoft.Insights/diagnosticSettings`).
 
+#### `azure.cosmos` — nosql_table
+
+Lists Azure Cosmos DB accounts in the subscription and emits one `nosql_table`
+record per **account** — the same cross-vendor type as `aws.dynamodb` and
+`gcp.firestore`, so encryption, point-in-time-recovery, and deletion-protection
+policies evaluate against Azure with **zero policy changes**. Encryption, PITR
+and deletion protection are all account-level in Cosmos DB (not per-container),
+so one record per account is the right grain (like `gcp.firestore`'s
+one-per-database).
+
+```yaml
+sources:
+  azure.cosmos:
+    subscription_id: 00000000-0000-0000-0000-000000000000  # required (ARM plane)
+```
+
+This is an **ARM-plane** source, so `subscription_id` is **required**. Collection
+is a single subscription-wide list call (`armcosmos`
+`DatabaseAccountsClient.NewListPager`) — there is no per-account follow-up GET.
+
+| `nosql_table` field | Azure source |
+| --- | --- |
+| `id` | account ARM resource id |
+| `name` | account name |
+| `encryption_enabled` | **always `true`** — Cosmos DB always encrypts data at rest (Microsoft-managed keys by default, cannot be disabled) |
+| `point_in_time_recovery_enabled` | the account's backup policy is **continuous mode** (`ContinuousModeBackupPolicy`, discriminator `Continuous`). Periodic (snapshot-only) and a nil/unknown policy → `false`. |
+| `deletion_protection` | **always `false`** — Cosmos DB has no account-level deletion-protection property; an ARM resource lock is the mechanism (a separate plane, not read here) |
+
+Auditable extras (`additionalProperties`): `kind` (`GlobalDocumentDB`/`MongoDB`/…),
+`location`, `resource_group`, `backup_policy_type` (`Continuous`/`Periodic`),
+`continuous_backup_tier` (`Continuous7Days`/`Continuous30Days`), `cmek_enabled`
+(`keyVaultKeyUri` present → customer-managed key vs the platform-managed default),
+`kms_key_id`, `public_network_access`, `local_auth_disabled` (`disableLocalAuth`
+— Azure AD-only auth), `vnet_filter_enabled`, and `provisioning_state`.
+
+> **Deletion-protection gap.** Cosmos DB exposes no account-level
+> deletion-protection toggle; real deletion protection is an **ARM resource lock**
+> (`Microsoft.Authorization/locks` — a separate plane, an extra read and N+1, out
+> of scope here), so `deletion_protection` is reported `false` rather than
+> fabricated `true`. Customers cover that control via a `CanNotDelete` resource
+> lock plus a `.sigcomply.yaml` exception or manual evidence — the same honest-gap
+> pattern as `azure.sql` deletion protection. An accounts-list failure (e.g. a
+> 403) is surfaced as an error — tagging only the `azure.cosmos`-bound policies —
+> rather than fabricating a result.
+
+**Required RBAC:** the built-in **Reader** role on the subscription (read access
+to `Microsoft.DocumentDB/databaseAccounts`).
+
 ### SigComply Cloud (Paid Tier)
 
 The CLI authenticates to SigComply Cloud using ephemeral OIDC tokens, automatically detected
