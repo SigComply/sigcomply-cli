@@ -344,6 +344,61 @@ to `Microsoft.Sql/servers`, `.../databases`,
 `Microsoft.DBforPostgreSQL/flexibleServers`, and
 `Microsoft.DBforMySQL/flexibleServers`).
 
+#### `azure.network` — firewall_rule + network
+
+Reads Network Security Groups and Virtual Networks in the subscription and emits
+two cross-vendor types: `firewall_rule` (one per NSG rule, flattened — the same
+type as `aws.security_group` and `gcp.firewall`) and `network` (one per VNet —
+the same type as `aws.vpc` and `gcp.network`), so network-exposure and
+flow-logging policies evaluate against Azure with **zero policy changes**.
+
+```yaml
+sources:
+  azure.network:
+    subscription_id: 00000000-0000-0000-0000-000000000000  # required (ARM plane)
+```
+
+This is an **ARM-plane** source, so `subscription_id` is **required**.
+
+**firewall_rule** is produced from each NSG's custom `securityRules`. Only
+**Allow** rules are emitted: an NSG Deny rule is the opposite of an exposure, and
+the unrestricted-SSH / all-traffic policies do not filter on action, so emitting
+a Deny rule open to the internet would false-fail them (Azure estates routinely
+carry explicit Deny rules, unlike GCP). The platform `defaultSecurityRules` are
+also excluded. Each rule is flattened to one record per destination port range:
+
+| `firewall_rule` field | Azure source |
+| --- | --- |
+| `id` | `{resourceGroup}/{nsgName}:{direction}:{index}` |
+| `name` | `{nsgName} {direction} rule` |
+| `group_id` | NSG name |
+| `direction` | `Inbound` → `ingress`, `Outbound` → `egress` |
+| `protocol` | `Tcp`/`Udp`/`Icmp` → `tcp`/`udp`/`icmp`; `*` → `all` |
+| `from_port`/`to_port` | the destination port range (`*` → `-1`/`-1` all-ports; `22` → 22/22; `80-443` → 80/443) |
+| `is_unrestricted_ipv4` / `_ipv6` | the direction-relevant address prefixes contain `*`, `Internet`, or `Any` (both) / `0.0.0.0/0` (v4) / `::/0` (v6) |
+| `source_cidr` / `dest_cidr` | first source prefix (ingress) / first destination prefix (egress) |
+
+**network** is produced from each VNet:
+
+| `network` field | Azure source |
+| --- | --- |
+| `id` | VNet ARM resource id |
+| `name` | VNet name |
+| `region` | VNet `location` |
+| `flow_logs_enabled` | an inline **VNet flow log** is enabled |
+| `is_default` | **always `false`** — Azure has no provider-created default VNet (unlike an AWS default VPC) |
+| `cidr_block` | first `addressSpace.addressPrefixes` entry |
+
+> **Flow-logs note.** `flow_logs_enabled` reflects VNet flow logs (the modern
+> signal that supersedes NSG flow logs). NSG-flow-log-only setups (the legacy
+> model) are a known v1 gap and read `false` — a conservative mapping (absence is
+> treated as "not enabled" rather than guessed true). A list failure (e.g. a
+> 403) is surfaced as an error, tagging only the `azure.network`-bound policies.
+
+**Required RBAC:** the built-in **Reader** role on the subscription (read access
+to `Microsoft.Network/networkSecurityGroups` and
+`Microsoft.Network/virtualNetworks`).
+
 ### SigComply Cloud (Paid Tier)
 
 The CLI authenticates to SigComply Cloud using ephemeral OIDC tokens, automatically detected
