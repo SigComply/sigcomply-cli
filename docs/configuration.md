@@ -629,6 +629,52 @@ error — tagging only the `azure.defender`-bound policies.
 `Microsoft.Security/assessments/subAssessments/read`); the broader **Reader**
 role also suffices.
 
+#### `azure.acr` — container_registry
+
+Lists Azure Container Registries in the subscription and emits one
+`container_registry` record per registry — the same cross-vendor type as
+`aws.ecr` and `gcp.artifactregistry`, so scan-on-push, public-exposure, and
+encryption policies evaluate against Azure with **zero policy changes**.
+
+```yaml
+sources:
+  azure.acr:
+    subscription_id: 00000000-0000-0000-0000-000000000000  # required (ARM plane)
+```
+
+This is an **ARM-plane** source, so `subscription_id` is **required**. Collection
+is a single subscription-wide list call (`armcontainerregistry`
+`RegistriesClient.NewListPager`) — there is no per-registry follow-up GET.
+
+| `container_registry` field | Azure source |
+| --- | --- |
+| `id` | registry ARM resource id |
+| `name` | registry name |
+| `is_public` | `anonymousPullEnabled` — anyone can pull images **without credentials**. (NOT `publicNetworkAccess`, which only means the endpoint is internet-reachable but still requires auth — mapping that would false-fail nearly every registry.) |
+| `scan_on_push_enabled` | the **quarantine policy** is enabled — the only per-registry gate that holds pushed images unpullable until scanned. |
+| `encryption_enabled` | **always `true`** — ACR always encrypts images at rest (Microsoft-managed keys by default, cannot be disabled) |
+
+Auditable extras (`additionalProperties`): `sku`, `login_server`,
+`public_network_access` (the raw `Enabled`/`Disabled` posture),
+`anonymous_pull_enabled`, `admin_user_enabled`, `cmek_enabled`
+(`encryption.keyVaultProperties` present → customer-managed key vs the
+platform-managed default), `kms_key_id`, `encryption_status`, `zone_redundancy`,
+`quarantine_policy_status`, and `resource_group`.
+
+> **Scanning gap.** ACR exposes no per-registry "scanning enabled" property:
+> image vulnerability scanning is **Microsoft Defender for Containers**, a
+> subscription-level capability surfaced by `azure.defender`'s
+> `threat_detection_service` (the `Containers` plan), not a registry toggle. The
+> quarantine policy is the one per-registry signal that genuinely gates pulls on
+> scanning, so `scan_on_push_enabled` reflects it; registries relying on Defender
+> for Containers instead cover the scan-on-push controls via a `.sigcomply.yaml`
+> exception or manual evidence (the same honest-gap pattern as `azure.keyvault`
+> secret rotation). A registry list failure (e.g. a 403) is surfaced as an error —
+> tagging only the `azure.acr`-bound policies — rather than fabricating a result.
+
+**Required RBAC:** the built-in **Reader** role on the subscription (read access
+to `Microsoft.ContainerRegistry/registries`).
+
 ### SigComply Cloud (Paid Tier)
 
 The CLI authenticates to SigComply Cloud using ephemeral OIDC tokens, automatically detected
