@@ -40,6 +40,7 @@ import (
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/vpc"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/azure/acr"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/azure/aks"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/azure/backup"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/azure/compute"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/azure/cosmos"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/azure/defender"

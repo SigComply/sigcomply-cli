@@ -771,6 +771,56 @@ Auditable extras (`additionalProperties`): `kind` (`GlobalDocumentDB`/`MongoDB`/
 **Required RBAC:** the built-in **Reader** role on the subscription (read access
 to `Microsoft.DocumentDB/databaseAccounts`).
 
+#### `azure.backup` — backup_plan
+
+Enumerates Azure Recovery Services **backup protection policies** across the
+subscription and emits one `backup_plan` record per policy — the same
+cross-vendor type as `aws.backup` and `gcp.backup`, so the backup_plan policy
+(`soc2.a1.1.backup_plan_exists`) evaluates against Azure with **zero policy
+changes**.
+
+```yaml
+sources:
+  azure.backup:
+    subscription_id: 00000000-0000-0000-0000-000000000000  # required (ARM plane)
+```
+
+This is an **ARM-plane** source, so `subscription_id` is **required**. Collection
+is an **N+1 walk**: list every Recovery Services vault in the subscription
+(`armrecoveryservices` `VaultsClient.NewListBySubscriptionIDPager`), then list the
+backup policies inside each vault (`armrecoveryservicesbackup`
+`BackupPoliciesClient.NewListPager`) — protection policies are a child of a vault,
+with no subscription-wide list endpoint.
+
+| `backup_plan` field | Azure source |
+| --- | --- |
+| `id` | policy ARM resource id |
+| `name` | policy name |
+| `is_active` | the policy currently protects ≥1 item (`ProtectedItemsCount > 0`) |
+| `has_retention_rule` | the policy's resolved retention yields a positive day count |
+| `retention_days` | the **max** retention across the policy's schedules/sub-policies; omitted when no retention rule |
+| `covers_resource_types` | the `BackupManagementType` discriminator (e.g. `AzureIaasVM`/`AzureSql`/`AzureStorage`/`AzureWorkload`) as a 1-element list |
+
+Auditable extras (`additionalProperties`): `location`, `resource_group`,
+`vault_name`, and `protected_items_count` (makes the `is_active` derivation
+transparent).
+
+> **`is_active` is the honest "actively backing up" signal.** A backup policy has
+> no enabled/state flag in Azure — it either exists or not — so a
+> defined-but-unused policy (zero protected items) provides no backup coverage and
+> reads `is_active=false`. This mirrors `gcp.backup`'s `State==ACTIVE` and is
+> stronger than `aws.backup`'s "listed == active" (AWS exposes no such count).
+>
+> **Retention is approximate.** Azure stores retention as count + unit
+> (Days/Weeks/Months/Years), not raw days; Weeks/Months/Years are converted with
+> 7/30/365-day approximations. A vault-list or policy-list failure (e.g. a 403) is
+> surfaced as an error — tagging only the `azure.backup`-bound policies — rather
+> than returning a partial result.
+
+**Required RBAC:** the built-in **Backup Reader** role on the subscription (or the
+broader **Reader**) — read access to Recovery Services vaults and their backup
+policies.
+
 ### SigComply Cloud (Paid Tier)
 
 The CLI authenticates to SigComply Cloud using ephemeral OIDC tokens, automatically detected
