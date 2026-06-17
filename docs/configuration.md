@@ -675,6 +675,54 @@ platform-managed default), `kms_key_id`, `encryption_status`, `zone_redundancy`,
 **Required RBAC:** the built-in **Reader** role on the subscription (read access
 to `Microsoft.ContainerRegistry/registries`).
 
+#### `azure.aks` — kubernetes_cluster
+
+Lists Azure Kubernetes Service (AKS) managed clusters in the subscription and
+emits one `kubernetes_cluster` record per cluster — the same cross-vendor type as
+`aws.eks` and `gcp.gke`, so secrets-encryption, logging, and network-isolation
+policies evaluate against Azure with **zero policy changes**.
+
+```yaml
+sources:
+  azure.aks:
+    subscription_id: 00000000-0000-0000-0000-000000000000  # required (ARM plane)
+```
+
+This is an **ARM-plane** source, so `subscription_id` is **required**. Clusters
+are listed in one subscription-wide call (`armcontainerservice`
+`ManagedClustersClient.NewListPager`); each cluster's audit-logging posture then
+needs a per-cluster diagnostic-settings read (`armmonitor`
+`DiagnosticSettingsClient`) — an N+1.
+
+| `kubernetes_cluster` field | Azure source |
+| --- | --- |
+| `id` | cluster ARM resource id |
+| `name` | cluster name |
+| `secrets_encryption_enabled` | `securityProfile.azureKeyVaultKms.enabled` — Kubernetes Secrets in etcd are encrypted with a customer Key Vault KMS key (the analog of GKE application-layer secrets encryption / EKS envelope encryption). AKS always encrypts etcd with platform keys; this is the customer-controlled signal policies care about. |
+| `logging_enabled` | a **diagnostic setting** on the cluster routes an enabled control-plane audit log category — `kube-audit`, `kube-audit-admin`, or `guard` (or the `audit` / `allLogs` category group). |
+| `is_private_endpoint` | `apiServerAccessProfile.enablePrivateCluster` — the API server has no public endpoint |
+| `node_auto_upgrade_enabled` | `autoUpgradeProfile.upgradeChannel` set to anything other than `none` |
+
+Auditable extras (`additionalProperties`): `resource_group`, `location`,
+`power_state`, `provisioning_state`, `sku_tier`, `rbac_enabled`, `network_policy`,
+`network_plugin`, `kms_key_id` (the Key Vault KEK id), `disk_encryption_set_id`,
+`encryption_at_host` (every agent pool has host encryption), `audit_log_categories`
+(the matched categories, making the `logging_enabled` derivation auditable), and
+`authorized_ip_range_count`.
+
+> **Logging signal.** AKS control-plane audit logging is **not** a field on the
+> cluster object — it is configured through Azure Monitor diagnostic settings on
+> the cluster resource (the `kube-audit` family of log categories). The `omsagent`
+> (Container Insights) addon was deliberately rejected as a proxy: it collects
+> container/metric logs, not the control-plane audit trail this field means. A
+> clusters-list or diagnostic-settings read failure (e.g. a 403) is surfaced as an
+> error — tagging only the `azure.aks`-bound policies — rather than fabricating a
+> result.
+
+**Required RBAC:** the built-in **Reader** role on the subscription (read access
+to `Microsoft.ContainerService/managedClusters` and
+`Microsoft.Insights/diagnosticSettings`).
+
 ### SigComply Cloud (Paid Tier)
 
 The CLI authenticates to SigComply Cloud using ephemeral OIDC tokens, automatically detected
