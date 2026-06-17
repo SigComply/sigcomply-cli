@@ -876,6 +876,53 @@ and (where present) `issuer`, `thumbprint`, `host_names`, `key_vault_id`,
 **Required RBAC:** the built-in **Reader** role on the subscription — read access
 to App Service certificates and certificate orders.
 
+#### `azure.policy` — config_change_tracking
+
+Emits a single `config_change_tracking` record describing whether the
+subscription has resource-configuration tracking configured — the same
+cross-vendor type as `aws.config` and `gcp.asset`, so the config-recording
+policies (`soc2.cc7.1.config_recording_enabled` /
+`soc2.cc7.1.config_all_resource_types` and the `iso27001.8.9` equivalents)
+evaluate against Azure with **zero policy changes**.
+
+```yaml
+sources:
+  azure.policy:
+    subscription_id: 00000000-0000-0000-0000-000000000000  # required (ARM plane)
+```
+
+This is an **ARM-plane** source, so `subscription_id` is **required**. Azure has
+no literal "configuration recorder" on/off toggle (like AWS Config). The
+deliberately-configured artifact that makes Azure continuously evaluate and
+record the configuration-compliance state of a subscription's resources is an
+**Azure Policy assignment** — so an assignment existing is the honest analog of
+enabling an AWS Config recorder or creating a GCP Cloud Asset feed. Collection is
+a **single subscription-wide list call** (`armpolicy`
+`AssignmentsClient.NewListPager`, no N+1) reduced to one record per subscription.
+
+| `config_change_tracking` field | Azure source |
+| --- | --- |
+| `id` | synthetic `subscriptions/{subscription_id}/configChangeTracking` (stable; never an assignment id) |
+| `name` | the subscription id |
+| `is_recording` | at least one policy assignment exists (`len(assignments) > 0`) — a fresh subscription with none honestly reports `false` |
+| `all_resource_types` | at least one assignment is scoped at the subscription root (`/subscriptions/{id}`). Azure Policy has no per-assignment resource-type list (the analog of AWS Config's `allSupported`), so coverage breadth is approximated by assignment **scope**: subscription-scoped assignments evaluate the whole subscription, RG-scoped ones cover only a subset |
+
+Auditable extras (`additionalProperties`, pure counts — no resource identities):
+`assignment_count` (backs `is_recording`), `enforced_count` (assignments in
+enforcing `Default` mode vs audit-only `DoNotEnforce`; a nil mode counts as
+enforced, the Azure default), `subscription_scoped_count` (backs
+`all_resource_types`).
+
+> Compliance-**state** enrichment (counts of compliant/non-compliant resources
+> via `armpolicyinsights`) is a deliberate future enhancement — it backs no
+> `config_change_tracking` field, and the assignment list alone carries every
+> load-bearing signal, so the plugin stays on a single SDK (`armpolicy`). An
+> assignments-list failure (e.g. a 403) is surfaced as an error — tagging only
+> the `azure.policy`-bound policies — rather than fabricating a result.
+
+**Required RBAC:** the built-in **Reader** role on the subscription
+(`Microsoft.Authorization/policyAssignments/read`).
+
 ### SigComply Cloud (Paid Tier)
 
 The CLI authenticates to SigComply Cloud using ephemeral OIDC tokens, automatically detected
