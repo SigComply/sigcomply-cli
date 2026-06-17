@@ -38,6 +38,7 @@ import (
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/securitygroups"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/securityservices"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/vpc"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/azure/compute"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/azure/entra"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/azure/network"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/azure/sql"

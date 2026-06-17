@@ -399,6 +399,53 @@ also excluded. Each rule is flattened to one record per destination port range:
 to `Microsoft.Network/networkSecurityGroups` and
 `Microsoft.Network/virtualNetworks`).
 
+#### `azure.compute` — compute_instance
+
+Lists Virtual Machines in the subscription and emits one `compute_instance`
+record per VM — the same cross-vendor type as `aws.ec2` and `gcp.compute`, so
+network-exposure, encryption, and monitoring policies evaluate against Azure with
+**zero policy changes**.
+
+```yaml
+sources:
+  azure.compute:
+    subscription_id: 00000000-0000-0000-0000-000000000000  # required (ARM plane)
+```
+
+This is an **ARM-plane** source, so `subscription_id` is **required**. The VM
+list is requested with `StatusOnly`, which carries each VM's power state in the
+single subscription-wide call (no per-VM instance-view round-trip).
+
+| `compute_instance` field | Azure source |
+| --- | --- |
+| `id` | VM ARM resource id |
+| `name` | VM name |
+| `region` | VM `location` |
+| `is_running` | VM power state is `PowerState/running` (from the instance view) |
+| `has_public_ip` | any attached NIC has an IP configuration that references a public IP (one `networkInterfaces` GET per NIC; the public-IP object itself is not resolved — presence of the reference is sufficient) |
+| `root_volume_encrypted` | **always `true`** — Azure managed disks are encrypted at rest unconditionally (Storage Service Encryption cannot be disabled) |
+
+Auditable extras (`additionalProperties`): `power_state`, `vm_size`, `os_type`,
+`cmek_enabled` (OS-disk `managedDisk.diskEncryptionSet` present → customer-managed
+key, vs the platform-managed default), `encryption_at_host`
+(`securityProfile.encryptionAtHost`), `kms_key_id` (the disk-encryption-set id),
+and `resource_group`.
+
+> **Monitoring gap.** `monitoring_enabled` is **omitted** for Azure VMs: ARM
+> exposes no per-VM detailed-monitoring signal comparable to AWS detailed
+> monitoring, so a fabricated value would be misleading. The monitoring policies
+> guard this field with `is_set` and scope Azure VMs out as a documented coverage
+> gap (the same pattern as `gcp.compute`).
+>
+> **Encryption note.** Because every managed disk is encrypted at rest, the
+> root-volume-encryption policy passes for all Azure VMs; the meaningful
+> platform/customer-key distinction is surfaced in the `cmek_enabled` extra. A VM
+> list or NIC read failure (e.g. a 403) is surfaced as an error — tagging only
+> the `azure.compute`-bound policies — rather than fabricating `has_public_ip`.
+
+**Required RBAC:** the built-in **Reader** role on the subscription (read access
+to `Microsoft.Compute/virtualMachines` and `Microsoft.Network/networkInterfaces`).
+
 ### SigComply Cloud (Paid Tier)
 
 The CLI authenticates to SigComply Cloud using ephemeral OIDC tokens, automatically detected
