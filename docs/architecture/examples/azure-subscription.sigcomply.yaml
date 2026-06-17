@@ -1,0 +1,334 @@
+# Contoso — SOC 2 project configuration for an Azure-only org.
+#
+# Profile:
+#   - All infrastructure on Microsoft Azure; identity in Microsoft Entra
+#     ID (Azure AD). No AWS, no GCP, no separate IdP.
+#   - One subscription ("contoso-prod") holds the workloads; Microsoft
+#     Defender for Cloud is enabled on it (the security-posture source).
+#   - Vault: Azure Blob (immutable container); CI: GitHub Actions (code is
+#     on GitHub, but every automated evidence type here comes from Azure,
+#     not the SCM).
+#
+# Purpose: show the Azure source family covering a SOC 2 estate end to end —
+# identity, storage, database, network, compute, encryption, logging,
+# change-tracking, security posture, container/Kubernetes, NoSQL, backup,
+# and certificates — so an Azure-only customer satisfies the same controls
+# an AWS or GCP customer would, with no policy change (substitutability —
+# see 04a-evidence-type-registry.md). Each azure.* source emits a
+# cloud-neutral evidence type; only the binding names Azure.
+#
+# Credentials are NEVER in this file. Azure sources use the Azure SDK's
+# DefaultAzureCredential: in CI, run azure/login with OpenID Connect (a
+# federated credential — no long-lived secret); locally, `az login`. See
+# docs/configuration.md §Azure.
+
+schema_version: project.v1
+
+framework: soc2
+
+period:
+  fiscal_calendar:
+    type: calendar_quarter
+  # wall_clock: cloud-posture checks run on a schedule, not per code commit,
+  # so the period is anchored to run time rather than a commit timestamp.
+  time_basis: wall_clock
+
+# Azure Blob vault. azure_blob takes `account` + `container` (NOT bucket);
+# the container should be immutability-locked (a time-based retention or
+# legal-hold policy) for real tamper-resistance — see configuration.md
+# §Bucket-level immutability.
+vault:
+  backend: azure_blob
+  account: contosoevidence
+  container: sigcomply
+  prefix: sigcomply/
+
+# ---------------------------------------------------------------------
+# Sources. One azure.* plugin per service; each emits a distinct
+# cloud-neutral evidence type, so the planner auto-binds unambiguously
+# (the explicit bindings below are illustrative). All ARM-plane resource
+# collectors take `subscription_id` — the same value here, scoping every
+# read to one subscription. The one exception is azure.entra (Microsoft
+# Graph plane): it takes an optional `tenant_id` and otherwise uses the
+# credential's home tenant. Defender's azure.defender plan and Activity
+# Log are likewise subscription-scoped. Least privilege is the built-in
+# Reader role on the subscription (plus a few service-specific reader
+# roles — Security Reader, Backup Reader — and Microsoft Graph read scopes
+# for azure.entra; see configuration.md §Azure).
+# ---------------------------------------------------------------------
+sources:
+  azure.entra:
+    tenant_id: "11111111-1111-1111-1111-111111111111"
+  azure.storage:
+    subscription_id: "00000000-0000-0000-0000-000000000000"
+  azure.sql:
+    subscription_id: "00000000-0000-0000-0000-000000000000"
+  azure.network:
+    subscription_id: "00000000-0000-0000-0000-000000000000"
+  azure.compute:
+    subscription_id: "00000000-0000-0000-0000-000000000000"
+  azure.keyvault:
+    subscription_id: "00000000-0000-0000-0000-000000000000"
+  azure.monitor:
+    subscription_id: "00000000-0000-0000-0000-000000000000"
+  azure.defender:
+    subscription_id: "00000000-0000-0000-0000-000000000000"
+  azure.acr:
+    subscription_id: "00000000-0000-0000-0000-000000000000"
+  azure.aks:
+    subscription_id: "00000000-0000-0000-0000-000000000000"
+  azure.cosmos:
+    subscription_id: "00000000-0000-0000-0000-000000000000"
+  azure.backup:
+    subscription_id: "00000000-0000-0000-0000-000000000000"
+  azure.certs:
+    subscription_id: "00000000-0000-0000-0000-000000000000"
+  azure.policy:
+    subscription_id: "00000000-0000-0000-0000-000000000000"
+  manual.pdf:
+    backend: azure_blob
+    account: contosoevidence
+    container: sigcomply
+    prefix: manual/
+
+# ---------------------------------------------------------------------
+# Per-policy configuration. Each azure.* source is bound to the
+# conventional `evidence` slot of the policies that accept the type it
+# emits.
+# ---------------------------------------------------------------------
+policies:
+  # directory_user (azure.entra) — MFA on admins / on every user.
+  # mfa_enabled ← the user's authentication-method registration; is_admin
+  # ← Microsoft's computed admin flag from userRegistrationDetails (so the
+  # admin-MFA policy evaluates rather than erroring). Needs Entra ID P1/P2
+  # for the per-user MFA report — see configuration.md §azure.entra.
+  soc2.cc6.1.mfa_enforced_admins:
+    bindings:
+      evidence: [azure.entra]
+    cadence: daily
+  soc2.cc6.1.mfa_enforced_all_users:
+    bindings:
+      evidence: [azure.entra]
+
+  # object_storage_bucket (azure.storage) — encryption-at-rest is an Azure
+  # platform constant (Storage Service Encryption is always on), so the
+  # question is only CMEK vs Microsoft-managed; no_public_access ←
+  # allowBlobPublicAccess explicitly false (a nil value is treated as NOT
+  # provably blocked, never silently secure).
+  soc2.cc6.7.storage_encryption_at_rest:
+    bindings:
+      evidence: [azure.storage]
+  soc2.c1.1.storage_no_public_access:
+    bindings:
+      evidence: [azure.storage]
+
+  # managed_database_instance (azure.sql) — covers Azure SQL + PostgreSQL/
+  # MySQL Flexible servers in one source. encryption_at_rest ← TDE for
+  # Azure SQL / platform constant for the flexible servers; backup ← always
+  # retained (PITR); no_public_access ← server-level publicNetworkAccess.
+  soc2.cc6.7.database_encryption_at_rest:
+    bindings:
+      evidence: [azure.sql]
+  soc2.a1.1.database_backup_enabled:
+    bindings:
+      evidence: [azure.sql]
+  soc2.c1.1.database_no_public_access:
+    bindings:
+      evidence: [azure.sql]
+
+  # firewall_rule (azure.network, from NSGs) — no public SSH / RDP / open
+  # all-traffic. The plugin flattens each NSG Allow rule into one record per
+  # destination port range; a source prefix of */Internet/0.0.0.0/0 →
+  # is_unrestricted_ipv4. (Deny rules are deliberately not emitted — they
+  # are the opposite of an exposure.)
+  soc2.cc6.6.no_unrestricted_ssh:
+    bindings:
+      evidence: [azure.network]
+  soc2.cc6.6.no_unrestricted_rdp:
+    bindings:
+      evidence: [azure.network]
+  soc2.cc6.6.no_unrestricted_all_traffic:
+    bindings:
+      evidence: [azure.network]
+
+  # network (azure.network, from VNets) — VNet flow logs. flow_logs_enabled
+  # ← an inline VNet flow log is on (the modern signal); is_default ← always
+  # false (Azure has no provider-created default VNet, so the
+  # no-default-network policy is vacuously satisfied).
+  soc2.cc6.6.vpc_flow_logs_enabled:
+    bindings:
+      evidence: [azure.network]
+
+  # compute_instance (azure.compute) — root-volume encryption. Azure managed
+  # disks are always encrypted at rest, so this passes by platform design;
+  # the CMEK-vs-platform-key distinction rides in the cmek_enabled extra.
+  soc2.cc6.7.compute_root_volume_encrypted:
+    bindings:
+      evidence: [azure.compute]
+
+  # kms_key (azure.keyvault) — key rotation. rotation_enabled ← the key has
+  # a rotation policy with a populated `rotate` action (a notify-only policy
+  # → false). is_customer_managed ← always true (a Key Vault key is
+  # customer-provisioned by definition).
+  soc2.cc6.7.kms_key_rotation_enabled:
+    bindings:
+      evidence: [azure.keyvault]
+
+  # log_group (azure.monitor, from Log Analytics) — ≥90-day retention.
+  # retention_days ← the workspace's retentionInDays; a workspace left at
+  # the 30-day default honestly fails.
+  soc2.cc7.1.log_retention_min_90d:
+    bindings:
+      evidence: [azure.monitor]
+
+  # audit_log_trail (azure.monitor, the subscription Activity Log) — audit
+  # logging on + integrity. is_enabled / is_multi_region / log-file
+  # validation are Azure platform constants (the Activity Log is always-on,
+  # subscription-wide, and append-only/immutable to users), grounded by a
+  # real diagnostic-settings read so missing access fails honestly.
+  soc2.cc7.1.audit_logging_enabled:
+    bindings:
+      evidence: [azure.monitor]
+  soc2.cc7.1.audit_log_integrity_enabled:
+    bindings:
+      evidence: [azure.monitor]
+
+  # config_change_tracking (azure.policy) — change recording. Maps to Azure
+  # Policy ASSIGNMENTS (the deliberately-configured artifact that makes
+  # Azure continuously evaluate the subscription), not an always-on facility,
+  # so is_recording can honestly be false on a fresh subscription.
+  soc2.cc7.1.config_recording_enabled:
+    bindings:
+      evidence: [azure.policy]
+  soc2.cc7.1.config_all_resource_types:
+    bindings:
+      evidence: [azure.policy]
+
+  # azure.defender emits THREE cross-vendor types from one subscription-
+  # scoped source:
+  #   security_service           → securityhub_enabled (Defender for Cloud as the CSPM)
+  #   threat_detection_service   → threat_detection_enabled (Defender plans on Standard)
+  #   vulnerability_finding      → no_critical_vulns_active (active sub-assessments)
+  soc2.cc7.1.securityhub_enabled:
+    bindings:
+      evidence: [azure.defender]
+  soc2.cc6.8.threat_detection_enabled:
+    bindings:
+      evidence: [azure.defender]
+    cadence: hourly
+  soc2.cc7.4.no_critical_vulns_active:
+    bindings:
+      evidence: [azure.defender]
+    cadence: hourly
+
+  # container_registry (azure.acr) — no anonymous-pull repos + scan-on-push.
+  # is_public ← anonymousPullEnabled (NOT publicNetworkAccess, which still
+  # requires auth); scan_on_push ← the quarantine policy (the one per-registry
+  # signal that gates pulls on scanning).
+  soc2.c1.1.no_public_container_repos:
+    bindings:
+      evidence: [azure.acr]
+  soc2.cc6.8.container_scan_on_push:
+    bindings:
+      evidence: [azure.acr]
+
+  # kubernetes_cluster (azure.aks) — secrets encryption. secrets_encryption_
+  # enabled ← Azure Key Vault KMS envelope encryption of Kubernetes Secrets
+  # (the customer-controlled signal; etcd-at-rest is always-on and vacuous).
+  soc2.cc6.7.kubernetes_secrets_encrypted:
+    bindings:
+      evidence: [azure.aks]
+
+  # nosql_table (azure.cosmos) — PITR + encryption. point_in_time_recovery ←
+  # the account's backup policy is continuous mode; encryption ← always true
+  # (Cosmos DB always encrypts at rest). deletion_protection has no Cosmos
+  # account property (covered via an ARM resource lock + exception), so it is
+  # not asserted here.
+  soc2.a1.2.dynamodb_pitr_enabled:
+    bindings:
+      evidence: [azure.cosmos]
+  soc2.c1.1.dynamodb_encryption_enabled:
+    bindings:
+      evidence: [azure.cosmos]
+
+  # backup_plan (azure.backup) — a protection policy exists and is active.
+  # is_active ← the Recovery Services policy is protecting ≥1 item (a
+  # defined-but-unused policy honestly reads false).
+  soc2.a1.1.backup_plan_exists:
+    bindings:
+      evidence: [azure.backup]
+
+  # tls_certificate (azure.certs) — not expiring + auto-renew. From App
+  # Service certificates + certificate orders (ARM plane); managed orders
+  # carry a real auto_renew flag. (Key Vault data-plane certs are excluded —
+  # they need data-plane access; cover those via manual evidence.)
+  soc2.cc6.7.tls_certificates_not_expiring:
+    bindings:
+      evidence: [azure.certs]
+  soc2.cc6.7.tls_auto_renew_enabled:
+    bindings:
+      evidence: [azure.certs]
+
+  # ---- Honest gaps: controls with no API-readable Azure signal ----
+  # These are NOT no-ops; the automated flow can't honestly collect them, so
+  # they are marked not-applicable for automation and covered by manual
+  # evidence (an export/screenshot), the same pattern the GCP example uses
+  # for password policy.
+
+  # secret rotation (secret, azure.keyvault) — Azure Key Vault exposes no
+  # API-readable native secret-rotation policy (rotation is implemented
+  # externally via Event Grid near-expiry events + a Function), so a guessed
+  # value would be misleading. Covered by manual evidence of the rotation
+  # automation under cc6.7.
+  soc2.cc6.7.secrets_rotation_enabled:
+    exceptions:
+      - state: na
+        reason: |
+          Azure Key Vault has no API-readable secret-rotation policy
+          (WU-5.6); rotation is implemented via Event Grid + a Function.
+          Covered by a manual export of the rotation automation under cc6.7.
+
+  # audit-log encryption (audit_log_trail, azure.monitor) — the native
+  # Activity Log uses Microsoft-managed keys, not CMEK; reporting CMEK true
+  # would be fabricated. Customers route the Activity Log to a CMEK
+  # destination and evidence it manually, or accept the platform default.
+  soc2.cc7.1.audit_log_kms_encrypted:
+    exceptions:
+      - state: na
+        reason: |
+          The Azure Activity Log's native retention uses Microsoft-managed
+          keys (WU-5.7); CMEK applies only to a routed destination. Covered
+          by manual evidence of the CMEK-routed log destination under cc7.1.
+
+  # password_policy has NO honest Azure source: Microsoft Entra ID does not
+  # expose the classic IAM-password-policy shape (length/complexity are fixed
+  # platform constants; only expiry is readable), so the plan defers it
+  # (WU-0.3 / WU-5.15) and these controls are covered by manual evidence — a
+  # screenshot/export of the Entra password and authentication-method
+  # settings. Marked not-applicable for the automated flow rather than
+  # emitting a misleading record.
+  soc2.cc6.1.password_min_length_14:
+    exceptions:
+      - state: na
+        reason: |
+          Microsoft Entra ID exposes no readable IAM-style password-policy
+          object (WU-0.3/WU-5.15: defer). Covered by a manual export of the
+          Entra password / authentication-method settings under cc6.1.
+
+  # Manual PDF — quarterly access review exported from the Entra / Azure
+  # admin console.
+  soc2.cc6.3.access_review_quarterly:
+    evidence_mode: manual
+    catalog_entry: access_review_quarterly
+    cadence: monthly
+
+cloud:
+  enabled: true
+
+output:
+  format: text
+  json_path: ./compliance-report.json
+
+ci:
+  fail_on_violation: true
+  fail_severity: high

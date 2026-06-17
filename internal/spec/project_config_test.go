@@ -264,6 +264,41 @@ func TestLoadProjectConfig_GCPExample(t *testing.T) {
 	}
 }
 
+// TestLoadProjectConfig_AzureExample parses the documented Azure example
+// config so the example in docs/ can never drift out of the strict loader's
+// accepted shape (unknown keys are a hard error). It pins the azure.* source
+// family, one binding from a single-type source (azure.entra) and one from a
+// multi-type source (azure.defender, which emits three types), plus the
+// honest-gap not-applicable deferrals.
+func TestLoadProjectConfig_AzureExample(t *testing.T) {
+	path := filepath.Join("..", "..", "docs", "architecture", "examples", "azure-subscription.sigcomply.yaml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	cfg, err := LoadProjectConfig(data)
+	if err != nil {
+		t.Fatalf("LoadProjectConfig(azure example): %v", err)
+	}
+	if cfg.Framework != testFrameworkSOC2 {
+		t.Errorf("Framework = %q; want %q", cfg.Framework, testFrameworkSOC2)
+	}
+	for _, src := range []string{"azure.entra", "azure.storage", "azure.defender", "azure.policy", "manual.pdf"} {
+		if _, ok := cfg.Sources[src]; !ok {
+			t.Errorf("expected %q in sources", src)
+		}
+	}
+	// azure.entra supplies the identity (directory_user) evidence.
+	if b := cfg.BindingsFor("soc2.cc6.1.mfa_enforced_admins")["evidence"]; len(b) != 1 || b[0].Source != "azure.entra" {
+		t.Errorf("mfa_enforced_admins evidence binding = %v; want [azure.entra]", b)
+	}
+	// The subscription-scoped azure.defender source emits three types; one
+	// binding shown here.
+	if b := cfg.BindingsFor("soc2.cc7.4.no_critical_vulns_active")["evidence"]; len(b) != 1 || b[0].Source != "azure.defender" {
+		t.Errorf("no_critical_vulns_active evidence binding = %v; want [azure.defender]", b)
+	}
+}
+
 func TestLoadProjectConfig_EmptyInput(t *testing.T) {
 	if _, err := LoadProjectConfig(nil); err == nil {
 		t.Error("expected error on nil input")

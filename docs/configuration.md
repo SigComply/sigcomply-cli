@@ -173,10 +173,12 @@ The `gcp.certs` source is project-scoped (`project_id` required, under `sources.
 
 ### Azure
 
-Azure sources share a single credential and subscription model (the
-`azure.entra` directory source and the `azure.storage` ARM-plane collector have
-shipped; the remaining ARM-plane resource collectors land in later releases).
-Authentication uses the Azure SDK's
+Azure sources share a single credential and subscription model. The full
+Azure source family has shipped — the `azure.entra` directory source plus the
+ARM-plane collectors `azure.storage`, `azure.sql`, `azure.network`,
+`azure.compute`, `azure.keyvault`, `azure.monitor`, `azure.defender`,
+`azure.acr`, `azure.aks`, `azure.cosmos`, `azure.backup`, `azure.certs`, and
+`azure.policy` (each documented below). Authentication uses the Azure SDK's
 [`DefaultAzureCredential`](https://learn.microsoft.com/azure/developer/go/azure-sdk-authentication)
 — no SigComply-specific credential config. The credential resolves through a
 chain (environment → workload identity → managed identity → Azure CLI), so:
@@ -189,6 +191,31 @@ chain (environment → workload identity → managed identity → Azure CLI), so
 - **Locally**, `az login` (or `AZURE_TENANT_ID`/`AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET`
   environment variables) works the same way.
 
+#### Workload-identity federation setup (one-time, no secrets)
+
+The CI flow above needs an Entra app registration with a **federated
+credential** trusting your CI provider's OIDC issuer — there is no client
+secret to store or rotate. One-time setup:
+
+1. **Create an app registration** (or use an existing one) and note its
+   **Application (client) ID** and **Directory (tenant) ID**.
+2. **Add a federated credential** to it (Entra → App registrations → your app →
+   Certificates & secrets → Federated credentials → Add). For GitHub Actions
+   pick the "GitHub Actions deploying Azure resources" scenario and scope the
+   subject to your repo/branch/environment, e.g.
+   `repo:my-org/my-repo:ref:refs/heads/main` (issuer
+   `https://token.actions.githubusercontent.com`, audience `api://AzureADTokenExchange`).
+   For GitLab CI use the GitLab OIDC issuer and a matching subject claim.
+3. **Grant read-only RBAC** to that app's service principal: the built-in
+   **Reader** role on the subscription (plus **Security Reader** for
+   `azure.defender` and **Backup Reader** for `azure.backup`), and the
+   Microsoft Graph application permissions for `azure.entra`
+   (`User.Read.All`, `AuditLog.Read.All` / `Reports.Read.All`,
+   `UserAuthenticationMethod.Read.All`, admin-consented).
+4. **Pass** `client-id`/`tenant-id`/`subscription-id` to `azure/login` as shown
+   above. No secret is ever stored — the OIDC token is exchanged for a
+   short-lived Entra token per run.
+
 Shared config keys (under each ARM-plane `sources.azure.<service>` block):
 `subscription_id` is **required** — it scopes resource collection to one
 subscription. The Entra/directory source (Microsoft Graph plane) instead takes
@@ -197,8 +224,15 @@ Resource collectors enumerate across resource groups via Azure Resource Graph
 (a single fast KQL query per run), and `subscription_id` can be validated or
 discovered against the tenant-scoped Subscriptions API. Least privilege is set
 at the Azure RBAC layer (e.g. the built-in **Reader** role on the subscription;
-the directory source additionally needs Microsoft Graph read permissions —
-documented per source as those land).
+some sources need an additional reader role — Security Reader for
+`azure.defender`, Backup Reader for `azure.backup` — and `azure.entra`
+additionally needs the Microsoft Graph read scopes above). A full worked
+Azure-only SOC 2 config — the azure.* source family covering identity, storage,
+database, network, compute, encryption, logging, change-tracking, security
+posture, container/Kubernetes, NoSQL, backup, and certificates, with the
+secret-rotation, audit-log-CMEK, and password-policy controls deferred to
+manual evidence — lives at
+[`docs/architecture/examples/azure-subscription.sigcomply.yaml`](architecture/examples/azure-subscription.sigcomply.yaml).
 
 #### `azure.entra` — directory_user
 
@@ -986,6 +1020,8 @@ sources:
   gcp.kms:        { project_id: my-project }   # project-scoped gcp.* sources take project_id
   gcp.scc:        { organization_id: "123456789012" }  # gcp.scc is org-scoped (not project_id)
   gcp.directory:  { customer_id: my_customer } # account-scoped (optional; defaults to my_customer)
+  azure.storage:  { subscription_id: "00000000-0000-0000-0000-000000000000" }  # ARM-plane azure.* take subscription_id
+  azure.entra:    { tenant_id: "11111111-1111-1111-1111-111111111111" }        # Graph-plane; tenant_id optional
   manual.pdf:
     backend: s3                   # local | s3 | gcs | azure_blob
     bucket: my-evidence
