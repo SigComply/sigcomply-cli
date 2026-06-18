@@ -7,4 +7,4 @@ policies:
   soc2.cc6.1.mfa_enforced:
     exceptions:
       - state: waived
-        approved_by: jane@acme.com
+        approved_by: jane@example.com

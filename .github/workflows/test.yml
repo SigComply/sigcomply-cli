@@ -29,6 +29,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
+      # Privacy gate: fail fast if any fixture/contract leaks real secrets or
+      # identity instead of the §4 placeholders (docs/architecture/11-testing-strategy.md).
+      - name: Check fixtures for leaked secrets/PII
+        run: scripts/check-fixtures.sh
+
       - name: Set up Go
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:

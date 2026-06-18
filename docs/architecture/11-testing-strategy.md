@@ -140,10 +140,17 @@ Decided once; obeyed everywhere.
    | email address | `user@example.com` |
    | username / login | `example-user` |
 
-   A CI gate (WU-0.3 — `scripts/check-fixtures.sh`) greps `testdata/` +
-   `contracts/` for `AKIA[0-9A-Z]{16}`, bare 12-digit account IDs,
-   `@`-emails (other than `example.com`), and bearer tokens, and **fails
-   the build on a hit**. A fixture that leaks identity violates the
+   A CI gate (`scripts/check-fixtures.sh`) greps every `testdata/` dir +
+   `contracts/` for `AKIA[0-9A-Z]{16}`, bare 12-digit account IDs, ARNs
+   carrying a real (non-zero) account ID, `@`-emails (other than the
+   reserved `example.{com,org,net}` domains), and bearer tokens, and
+   **fails the build on a hit**. Tokens matching the placeholders above
+   are ignored, and `*.md` docs are skipped (a README documenting the
+   `service@version.json` contract path scheme is not a fixture). It runs
+   as a first step in `test.yml`, in `make check-fixtures`, and in
+   `make pre-commit`; `internal/fixturehygiene` drives it over synthetic
+   fixtures so `go test ./...` proves it catches planted secrets and
+   passes a clean tree. A fixture that leaks identity violates the
    non-custodial architecture, not just a style rule.
 4. **Build tags.** Live tests carry `//go:build live` as the first line
    and additionally skip if the required env (token) is absent

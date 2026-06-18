@@ -105,6 +105,10 @@ fmt-check: ## Check code formatting
 vet: ## Run go vet
 	$(GOCMD) vet ./...
 
+.PHONY: check-fixtures
+check-fixtures: ## Scan testdata/ + contracts/ for leaked secrets/PII (WU-0.3 gate)
+	./scripts/check-fixtures.sh
+
 .PHONY: tidy
 tidy: ## Tidy go modules
 	$(GOMOD) tidy
@@ -162,7 +166,7 @@ tools: ## Install development tools
 ci: deps lint test build ## Run CI pipeline locally
 
 .PHONY: pre-commit
-pre-commit: fmt-check vet lint test-unit ## Run pre-commit checks
+pre-commit: fmt-check vet lint check-fixtures test-unit ## Run pre-commit checks
 
 ##@ Release
 

@@ -65,13 +65,13 @@ policies:
       exempt_service_accounts: false
     exceptions:
       - scope:
-          resource_id: "okta_user:legacy.deploy.bot@acme.com"
+          resource_id: "okta_user:legacy.deploy.bot@example.com"
         state: waived
         reason: |
           Legacy deployment bot identity. To be retired with the
           decommissioning of the on-prem build pipeline. Replacement uses
           federated OIDC and does not require an interactive identity.
-        approved_by: "jane.doe@acme.com"
+        approved_by: "jane.doe@example.com"
         approved_at: "2026-01-15"
         expires_at: "2026-09-30"
 
@@ -134,7 +134,7 @@ controls:
       AcmeCorp operates no physical data-center footprint; physical and
       environmental security is inherited from AWS, whose SOC 2 report is
       on file. Every CC6.4 policy is therefore not applicable.
-    approved_by: "ciso@acme.com"
+    approved_by: "ciso@example.com"
 
 cloud:
   enabled: true
