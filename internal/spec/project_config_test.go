@@ -299,6 +299,49 @@ func TestLoadProjectConfig_AzureExample(t *testing.T) {
 	}
 }
 
+// TestLoadProjectConfig_MultiCloudHybridExample parses the documented
+// multi-cloud example config so the example in docs/ can never drift out of
+// the strict loader's accepted shape (unknown keys are a hard error). It
+// pins one source from each cloud plus manual, and — the point of this
+// example — asserts that the MFA policies bind aws.iam, gcp.directory, and
+// azure.entra to the SAME evidence slot (cross-cloud substitutability over
+// the directory_user family).
+func TestLoadProjectConfig_MultiCloudHybridExample(t *testing.T) {
+	path := filepath.Join("..", "..", "docs", "architecture", "examples", "multi-cloud-hybrid.sigcomply.yaml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	cfg, err := LoadProjectConfig(data)
+	if err != nil {
+		t.Fatalf("LoadProjectConfig(multi-cloud example): %v", err)
+	}
+	if cfg.Framework != testFrameworkSOC2 {
+		t.Errorf("Framework = %q; want %q", cfg.Framework, testFrameworkSOC2)
+	}
+	// One source from each cloud, plus manual evidence.
+	for _, src := range []string{"aws.iam", "aws.s3", "gcp.kms", "gcp.logging", "azure.entra", "azure.network", "manual.pdf"} {
+		if _, ok := cfg.Sources[src]; !ok {
+			t.Errorf("expected %q in sources", src)
+		}
+	}
+	// The substitutability demonstration: all three clouds' identity sources
+	// bound to one slot of the same MFA policy.
+	want := []string{"aws.iam", "gcp.directory", "azure.entra"}
+	for _, pol := range []string{"soc2.cc6.1.mfa_enforced_admins", "soc2.cc6.1.mfa_enforced_all_users"} {
+		b := cfg.BindingsFor(pol)["evidence"]
+		if len(b) != len(want) {
+			t.Errorf("%s evidence binding = %v; want %v", pol, b, want)
+			continue
+		}
+		for i, w := range want {
+			if b[i].Source != w {
+				t.Errorf("%s evidence[%d] = %q; want %q", pol, i, b[i].Source, w)
+			}
+		}
+	}
+}
+
 func TestLoadProjectConfig_EmptyInput(t *testing.T) {
 	if _, err := LoadProjectConfig(nil); err == nil {
 		t.Error("expected error on nil input")

@@ -1,0 +1,158 @@
+# Northwind — SOC 2 project configuration for a multi-cloud org.
+#
+# Profile:
+#   - A hybrid estate spanning all three major clouds: legacy compute and
+#     object storage on AWS, the data/analytics platform on GCP, and
+#     corporate identity in Microsoft Entra (Azure AD). Security posture
+#     comes from each cloud's native service.
+#   - Vault: S3 (a neutral, widely-supported backend); CI: GitHub Actions
+#     (code is on GitHub, but the automated evidence comes from the three
+#     clouds, not the SCM).
+#
+# Purpose: show that ONE policy spec is satisfied by sources from different
+# clouds at the same time — the substitutability the evidence-type registry
+# is built for (see 04a-evidence-type-registry.md). The MFA policies below
+# bind the AWS, GCP, and Azure identity sources to the SAME `evidence` slot:
+# all three emit the cloud-neutral directory_user family, so the planner
+# evaluates every identity together with no policy change. The single-cloud
+# examples (acmecorp / gcp-project / azure-subscription) show one provider
+# end to end; this one shows the providers MIXED inside one project.
+#
+# Credentials are NEVER in this file. Each provider uses its own ambient
+# credential chain — AWS SDK default chain, GCP Application Default
+# Credentials, and Azure DefaultAzureCredential — wired up via OIDC /
+# workload-identity federation in CI (no long-lived secrets). See
+# docs/configuration.md §Credentials and the per-provider sections.
+
+schema_version: project.v1
+
+framework: soc2
+
+period:
+  fiscal_calendar:
+    type: calendar_quarter
+  # wall_clock: cloud-posture checks run on a schedule, not per code commit,
+  # so the period is anchored to run time rather than a commit timestamp.
+  time_basis: wall_clock
+
+vault:
+  backend: s3
+  bucket: northwind-evidence
+  region: us-east-1
+  prefix: sigcomply/
+
+# ---------------------------------------------------------------------
+# Sources — a mix of aws.*, gcp.*, and azure.* plugins in one project.
+# Each emits a distinct cloud-neutral evidence type. Config keys differ
+# by provider:
+#   - aws.*   take an optional `region` (else AWS_REGION / SDK default).
+#   - gcp.*   are project-scoped and take `project_id`.
+#   - azure.* (ARM plane) are subscription-scoped and take `subscription_id`;
+#     azure.entra (Graph plane) takes an optional `tenant_id`.
+# The three identity sources (aws.iam, gcp.directory, azure.entra) all emit
+# the directory_user family — that is what lets the MFA policies below bind
+# all three at once.
+# ---------------------------------------------------------------------
+sources:
+  # Identity — three clouds, one cloud-neutral type (directory_user[.v2]).
+  aws.iam:
+    region: us-east-1
+  gcp.directory:
+    customer_id: my_customer
+  azure.entra:
+    tenant_id: "11111111-1111-1111-1111-111111111111"
+
+  # Object storage (AWS) — object_storage_bucket.
+  aws.s3:
+    region: us-east-1
+  # Audit logging (AWS) — audit_log_trail.
+  aws.cloudtrail:
+    region: us-east-1
+
+  # Encryption keys (GCP) — kms_key.
+  gcp.kms:
+    project_id: northwind-data
+  # Log retention (GCP) — log_group.
+  gcp.logging:
+    project_id: northwind-data
+
+  # Network exposure (Azure) — firewall_rule.
+  azure.network:
+    subscription_id: "00000000-0000-0000-0000-000000000000"
+  # Threat / vulnerability posture (Azure Defender for Cloud) — emits three
+  # types; the active-vulnerability finding is bound below.
+  azure.defender:
+    subscription_id: "00000000-0000-0000-0000-000000000000"
+
+  manual.pdf:
+    backend: s3
+    bucket: northwind-evidence
+    region: us-east-1
+    prefix: manual/
+
+# ---------------------------------------------------------------------
+# Per-policy configuration. Each source is bound to the conventional
+# `evidence` slot of the policies that accept the type it emits.
+# ---------------------------------------------------------------------
+policies:
+  # *** The multi-cloud substitutability demonstration ***
+  # directory_user — MFA on admins / on every user. All three identity
+  # sources are bound to ONE slot: aws.iam emits directory_user.v2,
+  # gcp.directory and azure.entra emit directory_user; the slot accepts the
+  # whole family, so AWS, GCP, and Azure users are evaluated together. Add
+  # or drop a cloud here with zero policy change.
+  soc2.cc6.1.mfa_enforced_admins:
+    bindings:
+      evidence: [aws.iam, gcp.directory, azure.entra]
+    cadence: daily
+  soc2.cc6.1.mfa_enforced_all_users:
+    bindings:
+      evidence: [aws.iam, gcp.directory, azure.entra]
+
+  # object_storage_bucket (aws.s3) — encryption at rest.
+  soc2.cc6.7.storage_encryption_at_rest:
+    bindings:
+      evidence: [aws.s3]
+
+  # audit_log_trail (aws.cloudtrail) — audit logging enabled.
+  soc2.cc7.1.audit_logging_enabled:
+    bindings:
+      evidence: [aws.cloudtrail]
+
+  # kms_key (gcp.kms) — key rotation enabled.
+  soc2.cc6.7.kms_key_rotation_enabled:
+    bindings:
+      evidence: [gcp.kms]
+
+  # log_group (gcp.logging) — ≥90-day retention.
+  soc2.cc7.1.log_retention_min_90d:
+    bindings:
+      evidence: [gcp.logging]
+
+  # firewall_rule (azure.network) — no public SSH.
+  soc2.cc6.6.no_unrestricted_ssh:
+    bindings:
+      evidence: [azure.network]
+
+  # vulnerability_finding (azure.defender) — no active critical vulns.
+  soc2.cc7.4.no_critical_vulns_active:
+    bindings:
+      evidence: [azure.defender]
+    cadence: hourly
+
+  # Manual PDF — quarterly access review exported from the identity console.
+  soc2.cc6.3.access_review_quarterly:
+    evidence_mode: manual
+    catalog_entry: access_review_quarterly
+    cadence: monthly
+
+cloud:
+  enabled: true
+
+output:
+  format: text
+  json_path: ./compliance-report.json
+
+ci:
+  fail_on_violation: true
+  fail_severity: high

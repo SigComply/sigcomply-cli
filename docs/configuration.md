@@ -54,6 +54,44 @@ sigcomply check
 
 ---
 
+## Source configuration reference
+
+Every source is keyed by its **source ID** under `sources:`; the value is
+that source's config map. The table below is the at-a-glance reference for
+**which config keys each source takes** and **how it authenticates** —
+the per-source detail (IAM roles / OAuth scopes / Graph permissions, field
+mappings, honest gaps) follows under [Credentials](#credentials) and the
+per-provider sections. For *which evidence type each source emits*, see the
+provider × evidence-type matrix in
+[`architecture/04-source-plugins.md`](architecture/04-source-plugins.md).
+
+Credentials are **never** config keys — they always come from the
+provider's ambient credential chain (env vars, IAM roles, ADC, OIDC /
+workload-identity federation). The keys below only identify *what* to scan
+(account / project / subscription / org), never *how* to authenticate.
+
+| Source ID(s) | Required keys | Optional keys | Credential chain |
+|--------------|---------------|---------------|------------------|
+| **`aws.*`** — all 23 AWS sources (`aws.iam`, `aws.s3`, `aws.ec2`, `aws.rds`, `aws.kms`, `aws.cloudtrail`, `aws.config`, `aws.dynamodb`, `aws.ecr`, `aws.eks`, `aws.acm`, `aws.backup`, `aws.cloudwatch`, `aws.guardduty`, `aws.inspector`, `aws.lambda`, `aws.secretsmanager`, `aws.vpc`, `aws.iam_access_key`, `aws.password_policy`, `aws.security_alert`, `aws.security_group`, `aws.security_services`) | — | `region` | AWS SDK default chain (env → profile → IAM role → OIDC/IRSA); `region` falls back to `AWS_REGION` then the SDK default |
+| **`gcp.*`** — project-scoped (`gcp.compute`, `gcp.iam`, `gcp.sql`, `gcp.storage`, `gcp.firewall`, `gcp.network`, `gcp.kms`, `gcp.secretmanager`, `gcp.logging`, `gcp.audit`, `gcp.asset`, `gcp.artifactregistry`, `gcp.gke`, `gcp.firestore`, `gcp.backup`, `gcp.certs`) | `project_id` | — | Application Default Credentials (ADC) |
+| `gcp.directory` | — | `customer_id` (defaults to the `my_customer` alias) | ADC — Admin SDK Directory API; needs a Workspace-admin context (account/customer-scoped, **not** project-scoped) |
+| `gcp.scc` | `organization_id` | — | ADC — Security Command Center; **org-scoped**, needs org-level SCC IAM |
+| **`azure.*`** — ARM plane, all except `azure.entra` (`azure.storage`, `azure.sql`, `azure.network`, `azure.compute`, `azure.keyvault`, `azure.monitor`, `azure.defender`, `azure.acr`, `azure.aks`, `azure.cosmos`, `azure.backup`, `azure.certs`, `azure.policy`) | `subscription_id` | — | `DefaultAzureCredential` (env → managed identity → Azure CLI → OIDC federation) |
+| `azure.entra` | — | `tenant_id` | `DefaultAzureCredential` — Microsoft Graph plane (directory/tenant-scoped) |
+| `github` | `org` | — | `token` config key or `GITHUB_TOKEN` env |
+| `gitlab` | `group` | `base_url` (self-managed; default `https://gitlab.com`) | `token` config key or `GITLAB_TOKEN` env |
+| `okta` | `org_url` | — | `api_token` config key or `OKTA_API_TOKEN` env |
+| `manual.pdf` | per backend: `local`→ none (defaults to local FS); `s3`→ `bucket`, `region`; `gcs`→ `bucket`; `azure_blob`→ `account`, `container` | `backend` (default `local`), `prefix`, plus `endpoint` + `force_path_style` (on-prem `s3`) | the selected backend's own chain (matches `aws.*` / `gcp.*` / `azure.*`) |
+
+> The five AWS sources whose **source ID differs from their package
+> directory** are `aws.iam_access_key` (dir `accesskeys`),
+> `aws.password_policy` (dir `passwordpolicy`), `aws.security_alert` (dir
+> `securityalert`), `aws.security_group` (dir `securitygroups`), and
+> `aws.security_services` (dir `securityservices`). Use the dotted ID in
+> `.sigcomply.yaml`, never the directory name.
+
+---
+
 ## Credentials
 
 Credentials are **never** stored in the config file. They come from environment variables
@@ -137,7 +175,7 @@ Config keys (under `sources.okta`): `org_url` (the full tenant URL, e.g. `https:
 
 ### GCP
 
-GCP sources use [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials) (ADC) — no SigComply-specific credential config. Set ADC up in your CI workflow (`google-github-actions/auth` via Workload Identity Federation, or `gcloud auth application-default login` locally) before running `sigcomply check`. Project-scoped GCP sources (`gcp.storage`, `gcp.iam`, …) take a `project_id` config key; the two exceptions are `gcp.directory` (account/customer-scoped — `customer_id`) and `gcp.scc` (organization-scoped — `organization_id`). A full worked GCP-only SOC 2 config — the gcp.* source family covering identity, network, encryption, logging, change-tracking, and security posture, with the password-policy controls deferred to manual evidence (see WU-0.3) — lives at [`docs/architecture/examples/gcp-project.sigcomply.yaml`](architecture/examples/gcp-project.sigcomply.yaml).
+GCP sources use [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials) (ADC) — no SigComply-specific credential config. Set ADC up in your CI workflow (`google-github-actions/auth` via Workload Identity Federation, or `gcloud auth application-default login` locally) before running `sigcomply check`. Project-scoped GCP sources (`gcp.storage`, `gcp.iam`, `gcp.compute`, `gcp.sql`, and the rest) take a `project_id` config key; the two exceptions are `gcp.directory` (account/customer-scoped — `customer_id`) and `gcp.scc` (organization-scoped — `organization_id`). A full worked GCP-only SOC 2 config — the gcp.* source family covering identity, network, encryption, logging, change-tracking, and security posture, with the password-policy controls deferred to manual evidence (see WU-0.3) — lives at [`docs/architecture/examples/gcp-project.sigcomply.yaml`](architecture/examples/gcp-project.sigcomply.yaml).
 
 The `gcp.directory` source is the exception: it reads Google Workspace / Cloud Identity users via the **Admin SDK Directory API**, which is **account/customer-scoped, not project-scoped**. Config keys (under `sources.gcp.directory`): `customer_id` is optional and defaults to the `my_customer` alias (resolves to the credential's own organization); set it to an explicit `C0...` customer ID only to target a different account.
 
@@ -170,6 +208,8 @@ The `gcp.gke` source is project-scoped (`project_id` required, under `sources.gc
 The `gcp.backup` source is project-scoped (`project_id` required, under `sources.gcp.backup`). It lists Backup and DR Service backup plans via the Backup and DR API (scope `https://www.googleapis.com/auth/cloud-platform` — Backup and DR exposes no dedicated read-only scope, so restrict access at the IAM layer with `roles/backupdr.viewer`, which grants `backupdr.backupPlans.list`/`.get`) and emits one `backup_plan` record per plan — the same neutral type as `aws.backup`, so the backup-plan-exists policy (SOC 2 A1.1) spans both clouds with no policy change. Backup and DR Service is GCP's centralized backup product and the direct analog of AWS Backup (it spans Compute, Disk, Cloud SQL, AlloyDB, and Filestore — far broader than the GKE-only Backup-for-GKE service or per-instance Cloud SQL backup toggles, which is why it is the honest mapping). One call covers the project: `Projects.Locations.BackupPlans.List` with the all-locations wildcard (`locations/-`) returns plans from every region, paginated; if the response reports any `unreachable` location the plugin errors rather than returning a partial list. Mapping: `id` ← the plan full resource name (`projects/{p}/locations/{loc}/backupPlans/{plan}`); `name` ← the trailing plan id; `is_active` ← `state == ACTIVE` (Backup and DR exposes a real plan-state enum, unlike `aws.backup`, which reports every listed plan active); `has_retention_rule` ← at least one backup rule has `backupRetentionDays > 0`; `retention_days` ← the maximum `backupRetentionDays` across the plan's rules (omitted when no retention rule exists, matching `aws.backup`); `covers_resource_types` ← the plan's single `resourceType` (e.g. `compute.googleapis.com/Instance`). GCP extras `state` (the raw plan state, so an INACTIVE/CREATING is distinguishable from ACTIVE), `backup_vault`, and `rule_count` (makes the `has_retention_rule` derivation auditable) ride in `additionalProperties`. (A future `gkebackup` source could emit the same `backup_plan` type for GKE workloads — the substitutability the plugin model is designed for.)
 
 The `gcp.certs` source is project-scoped (`project_id` required, under `sources.gcp.certs`). It lists Certificate Manager certificates via the Certificate Manager API (scope `https://www.googleapis.com/auth/cloud-platform` — Certificate Manager exposes no dedicated read-only scope, so restrict access at the IAM layer with `roles/certificatemanager.viewer`, which grants `certificatemanager.certs.list`/`.get`) and emits one `tls_certificate` record per certificate — the same neutral type as `aws.acm`, so the expiry and auto-renewal policies (SOC 2 CC6.7, ISO A.8.21) span both clouds with no policy change. One call covers the project: `Projects.Locations.Certificates.List` with the all-locations wildcard (`locations/-`) returns certificates from every region, paginated; if the response reports any `unreachable` location the plugin errors rather than returning a partial list (a silently-dropped certificate could make an all-quantifier expiry policy falsely pass). Mapping: `id` ← the certificate full resource name (`projects/{p}/locations/{loc}/certificates/{c}`); `domain` ← the first Subject Alternative Name (`sanDnsnames`, populated from `managed.domains` for a managed cert still provisioning); `not_after` ← `expireTime`, normalized to RFC3339 UTC (the durable, replay-safe field); `days_until_expiry` ← whole days from `expireTime` at collect time, rounded toward zero (negative once expired); `is_managed` ← the certificate is managed (`managed` is set, vs. a self-managed uploaded PEM); `auto_renew` ← `true` for managed certificates (Google auto-renews them) and **omitted** for self-managed certs, which have no renewal concept (the auto-renew policy guards on `is_managed`, matching `aws.acm`); `status` ← an honest enum mapping (an expired cert is `EXPIRED`; otherwise a managed cert maps its `managed.state` — ACTIVE→`ISSUED`, PROVISIONING→`PENDING_VALIDATION`, FAILED→`FAILED`, else `INACTIVE` — and a present self-managed cert is `ISSUED`). GCP extras `location`, `san_dns_names` (every covered domain), `managed_state` (the raw managed-cert state), and `scope` (DEFAULT/EDGE_CACHE/ALL_REGIONS/CLIENT_AUTH) ride in `additionalProperties`.
+
+The four **foundation** GCP sources — `gcp.storage` (`object_storage_bucket`, the same neutral type as `aws.s3` / `azure.storage`), `gcp.compute` (`compute_instance`, like `aws.ec2` / `azure.compute`), `gcp.sql` (`managed_database_instance`, like `aws.rds` / `azure.sql`), and `gcp.iam` (`iam_binding`) — predate the per-service documentation convention above but follow the identical model: each is project-scoped (`project_id` required, under `sources.gcp.<service>`), authenticates via ADC, and emits one cloud-neutral record per resource so its policies span all three clouds with no policy change. Restrict access at the IAM layer with the matching read-only role (`roles/storage.viewer`, `roles/compute.viewer`, `roles/cloudsql.viewer`, `roles/iam.securityReviewer`).
 
 ### Azure
 
@@ -985,6 +1025,13 @@ The config is parsed with strict key checking (`yaml.KnownFields(true)`):
 an unknown top-level key is a hard error, so the keys below are the
 complete, authoritative set. A full annotated reference lives at
 [`docs/architecture/examples/acmecorp.sigcomply.yaml`](architecture/examples/acmecorp.sigcomply.yaml).
+Worked single-cloud profiles are at
+[`gcp-project.sigcomply.yaml`](architecture/examples/gcp-project.sigcomply.yaml),
+[`azure-subscription.sigcomply.yaml`](architecture/examples/azure-subscription.sigcomply.yaml),
+and [`gitlab-selfmanaged.sigcomply.yaml`](architecture/examples/gitlab-selfmanaged.sigcomply.yaml);
+a **multi-cloud** profile that binds AWS, GCP, and Azure identity sources
+to the same MFA-policy slot (cross-cloud substitutability) is at
+[`multi-cloud-hybrid.sigcomply.yaml`](architecture/examples/multi-cloud-hybrid.sigcomply.yaml).
 
 ```yaml
 # Schema version — required, currently always project.v1.
@@ -1016,7 +1063,7 @@ sources:
   aws.s3:         { region: us-east-1 }
   github:         { org: my-org }        # GitHub-hosted code, OR…
   gitlab:         { group: my-group }    # …GitLab-hosted code (add base_url: for self-managed)
-  okta:           { domain: my.okta.com }
+  okta:           { org_url: https://my.okta.com }  # api_token here or OKTA_API_TOKEN env
   gcp.kms:        { project_id: my-project }   # project-scoped gcp.* sources take project_id
   gcp.scc:        { organization_id: "123456789012" }  # gcp.scc is org-scoped (not project_id)
   gcp.directory:  { customer_id: my_customer } # account-scoped (optional; defaults to my_customer)

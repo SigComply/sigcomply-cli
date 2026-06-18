@@ -37,7 +37,7 @@ sources:
   aws.config:     { region: us-east-1 }
   aws.eks:        { region: us-east-1 }
   okta:
-    domain: acme.okta.com
+    org_url: https://acme.okta.com   # api_token here or OKTA_API_TOKEN env
   github:
     org: acme
   manual.pdf:
