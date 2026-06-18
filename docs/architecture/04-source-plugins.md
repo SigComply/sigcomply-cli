@@ -206,8 +206,62 @@ exhaustive.** The two authoritative sources are each plugin's `Emits()`
 method and the registered schemas under
 `internal/evidence_types/schemas/`.
 
-A representative slice of the built-in set, with the real emitted type
-IDs:
+### Provider × evidence-type coverage matrix (final state)
+
+The matrix below is the authoritative at-a-glance view of which provider
+emits which cloud-neutral evidence type. A ✓ means at least one built-in
+plugin for that provider emits that type; because policies bind to the
+*type* and never to a vendor (Invariant #4), any ✓ in a row is fully
+substitutable for any other ✓ in the same row. **59 built-in plugins
+emit 28 distinct evidence types** (AWS 23 · GCP 18 · Azure 14 · GitHub 1 ·
+GitLab 1 · Okta 1 · Manual 1).
+
+| Evidence type | AWS | Azure | GCP | GitHub | GitLab | Okta | Manual |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| `directory_user` | ✓¹ | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| `iam_access_key` | ✓ | | | | | | |
+| `iam_binding` | | | ✓ | | | | |
+| `password_policy` | ✓ | | | | | | |
+| `okta_app` | | | | | | ✓ | |
+| `compute_instance` | ✓ | ✓ | ✓ | | | | |
+| `serverless_function` | ✓ | | | | | | |
+| `kubernetes_cluster` | ✓ | ✓ | ✓ | | | | |
+| `container_registry` | ✓ | ✓ | ✓ | | | | |
+| `object_storage_bucket` | ✓ | ✓ | ✓ | | | | |
+| `managed_database_instance` | ✓ | ✓ | ✓ | | | | |
+| `nosql_table` | ✓ | ✓ | ✓ | | | | |
+| `backup_plan` | ✓ | ✓ | ✓ | | | | |
+| `network` | ✓ | ✓ | ✓ | | | | |
+| `firewall_rule` | ✓ | ✓ | ✓ | | | | |
+| `kms_key` | ✓ | ✓ | ✓ | | | | |
+| `secret` | ✓ | ✓ | ✓ | | | | |
+| `tls_certificate` | ✓ | ✓ | ✓ | | | | |
+| `log_group` | ✓ | ✓ | ✓ | | | | |
+| `audit_log_trail` | ✓ | ✓ | ✓ | | | | |
+| `config_change_tracking` | ✓ | ✓ | ✓ | | | | |
+| `threat_detection_service` | ✓ | ✓ | ✓ | | | | |
+| `security_service` | ✓ | ✓ | ✓ | | | | |
+| `vulnerability_finding` | ✓ | ✓ | ✓ | ✓ | | | |
+| `security_alert` | ✓ | | | | | | |
+| `git_repository` | | | | ✓ | ✓ | | |
+| `source_control_org_policy` | | | | ✓ | | | |
+| `signed_document` | | | | | | | ✓ |
+
+¹ AWS IAM emits the `directory_user.v2` schema variant of the
+`directory_user` type; the other five sources emit `directory_user`.
+Both satisfy a slot that accepts the directory-user family.
+
+Cross-cloud reach: 18 of the 28 types are emitted identically by all
+three major clouds (AWS + Azure + GCP), so the bulk of a SOC 2 / ISO
+27001 estate is covered by one policy set regardless of provider.
+
+### Per-plugin detail
+
+The table below gives the per-plugin emitted-type detail and modeling
+notes. GCP, Azure, source-control, and manual plugins are listed in full;
+the AWS rows are a representative slice (all 23 AWS plugins follow the
+same one-type-per-plugin pattern — consult each `Emits()` for the
+complete list).
 
 | Plugin ID | Emits (real type IDs) | Notes |
 |---|---|---|
@@ -245,7 +299,7 @@ IDs:
 | `azure.backup` | `backup_plan` | Azure Recovery Services backup protection policies (`armrecoveryservices` `VaultsClient.NewListBySubscriptionIDPager` → per-vault `armrecoveryservicesbackup` `BackupPoliciesClient.NewListPager` — an N+1, policies are a child of a vault with no subscription-wide list). **ARM-plane** (`subscription_id` required). One record per policy. `is_active` ← `ProtectedItemsCount > 0` (a policy has no enabled flag; one protecting zero items provides no coverage — the honest signal, like `gcp.backup`'s `State==ACTIVE`, stronger than `aws.backup`'s "listed == active"); `has_retention_rule` ← resolved retention yields `> 0` days; `retention_days` ← max retention across the policy's schedules/sub-policies, with Weeks/Months/Years converted at 7/30/365-day approximations (Azure stores count+unit, not raw days); `covers_resource_types` ← the `BackupManagementType` discriminator (e.g. `AzureIaasVM`). Same neutral type as `aws.backup` and `gcp.backup`. |
 | `azure.certs` | `tls_certificate` | Azure certificates from two subscription-wide ARM management-plane reads, merged: App Service certificates (`armappservice` `CertificatesClient.NewListPager` — imported / Key-Vault-referenced, `is_managed=false`, `auto_renew` omitted) and App Service certificate orders (`armcertificateregistration` `AppServiceCertificateOrdersClient.NewListPager` — provider-managed, `is_managed=true`, real `auto_renew` from the order's `autoRenew`). **ARM-plane** (`subscription_id` required). `not_after` ← App Service cert `expirationDate` / order `expirationTime` (RFC3339 UTC); `days_until_expiry` derived from it (negative once expired); `domain` ← cert `subjectName` (else first host name) / order distinguished-name CN; `status` ← honest enum (expired→`EXPIRED`, else cert `valid`/Key Vault secret status, order `CertificateOrderStatus`). **Key Vault certificate objects deliberately NOT collected** — their expiry/auto-renew policy is data-plane only (`azcertificates`, per-vault RBAC beyond Reader), breaking the ARM-plane/Reader-only model; covered via exception/manual evidence like `azure.keyvault` secret rotation. Same neutral type as `aws.acm` and `gcp.certs`. |
 | `azure.policy` | `config_change_tracking` | Azure Policy assignments (`armpolicy` `AssignmentsClient.NewListPager` — a single subscription-wide call, no N+1), reduced to one record per subscription (like `aws.config` per account, `gcp.asset` per project). **ARM-plane** (`subscription_id` required). Azure has no literal config-recorder toggle; a policy **assignment** is the deliberately-configured artifact that makes Azure continuously evaluate/record resource-config compliance (the analog of an AWS Config recorder / GCP Cloud Asset feed). `is_recording` ← `len(assignments) > 0` (a fresh subscription honestly reports `false`, like `gcp.asset`'s `len(feeds) > 0`); `all_resource_types` ← at least one assignment is scoped at the subscription root (Azure Policy has no per-assignment resource-type list, so scope breadth stands in for AWS Config's `allSupported`). Auditable count extras: `assignment_count`/`enforced_count`/`subscription_scoped_count`. Compliance-state counts (`armpolicyinsights`) are a deliberate future enhancement (no schema field needs them). Same neutral type as `aws.config` and `gcp.asset`. |
-| `github` | `git_repository`, `directory_user` | Single org per instance. |
+| `github` | `git_repository`, `directory_user`, `source_control_org_policy`, `vulnerability_finding` | Single org per instance. `source_control_org_policy` ← org-level security settings (2FA requirement, default member permissions); `vulnerability_finding` ← Dependabot alerts (same neutral type as `aws.inspector`/`gcp.scc`/`azure.defender`). |
 | `gitlab` | `git_repository`, `directory_user` | Single group per instance (`include_subgroups`); self-managed via `base_url`. Same neutral types as `github`. |
 | `okta` | `directory_user`, `okta_app` | |
 | `manual.pdf` | `signed_document` | **Project-level singleton.** Exactly one instance per project. See §The manual.pdf plugin. |
@@ -258,11 +312,12 @@ existing type" path, one type across three clouds), and `aws.iam`, `okta`,
 clouds). The same pattern now spans
 git hosts: `github` and `gitlab` both emit the neutral `git_repository`
 type, so every branch-protection policy works against either without
-change. Many more AWS and GCP subpackages exist; consult their `Emits()`
-for the current list.
+change. AWS, GCP, and Azure now emit the full cross-cloud type set shown
+in the coverage matrix above; the AWS detail rows here are abbreviated —
+consult each `Emits()` for the complete 23-plugin list.
 
-Additional vendors (Bitbucket, Auth0, BambooHR, Workday, …) and the
-remaining ARM-plane Azure resource collectors ship as they land.
+Additional vendors (Bitbucket, Auth0, BambooHR, Workday, …) ship as they
+land.
 
 ---
 

@@ -38,6 +38,28 @@ Auto-detects collectors based on available credentials (`AWS_*`,
 writes signed `EvidenceEnvelope` files to your storage backend, and (in
 CI with OIDC) submits aggregated results to the SigComply Cloud API.
 
+## Supported sources
+
+The CLI ships 59 built-in source plugins across seven providers, all
+self-registering and compiled in:
+
+| Provider | Coverage |
+|---|---|
+| **AWS** (23) | IAM, access keys, password policy, S3, RDS, DynamoDB, EC2, Lambda, EKS, ECR, KMS, Secrets Manager, CloudTrail, CloudWatch, Config, VPC, security groups, ACM, Backup, GuardDuty, Inspector, Security Hub, security alerts |
+| **GCP** (18) | Cloud Identity, IAM, Compute, GKE, Cloud SQL, Firestore, Cloud Storage, KMS, Secret Manager, Logging, Audit Logs, Cloud Asset, VPC, firewall, Artifact Registry, Backup & DR, Certificate Manager, Security Command Center |
+| **Azure** (14) | Entra ID, Storage, SQL, Cosmos DB, VMs, AKS, ACR, Key Vault, Monitor, Network, Backup, certificates, Defender for Cloud, Policy |
+| **GitHub** | repositories, org members, org security policy, Dependabot findings |
+| **GitLab** | repositories, group members |
+| **Okta** | directory users, assigned apps |
+| **Manual** | PDF/image evidence from any S3 / GCS / Azure Blob / local folder |
+
+Because policies bind to a cloud-neutral *evidence type* and never to a
+vendor, a control like "MFA enforced on admins" or "object storage
+encrypted at rest" is satisfied identically by AWS, GCP, or Azure with
+zero policy changes — and adding a new source for an existing type needs
+no policy edits. Full provider × evidence-type coverage matrix:
+[docs/architecture/04-source-plugins.md](docs/architecture/04-source-plugins.md).
+
 ## Commands
 
 | Command | Purpose |
