@@ -58,6 +58,7 @@ public document. It is gitignored and absent in some environments.
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** — system design, layer stack, types, storage, signing
 - **[docs/configuration.md](./docs/configuration.md)** — config file, env vars, flags
 - **[docs/architecture/](./docs/architecture/)** — deep design docs (layers, evidence-type registry, vault layout, aggregation, cadence, …)
+- **[TESTING.md](./TESTING.md)** / **[docs/architecture/11-testing-strategy.md](./docs/architecture/11-testing-strategy.md)** — testing strategy: layered tests (L0–L4b), CLI-vs-E2E repo split, cassette/contract conventions
 - **[docs/claude/auth.md](./docs/claude/auth.md)** — OIDC authentication
 - **[docs/claude/recipes.md](./docs/claude/recipes.md)** — step-by-step guides for common tasks
 - **[README.md](./README.md)** — public-facing intro

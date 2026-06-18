@@ -183,6 +183,7 @@ definitions in [`01-conceptual-model.md`](docs/architecture/01-conceptual-model.
 | [`08-project-config.md`](docs/architecture/08-project-config.md) | Full `.sigcomply.yaml` schema reference. |
 | [`09-ci-execution-model.md`](docs/architecture/09-ci-execution-model.md) | How the CLI fits into a CI pipeline; cadence-driven workflow scheduling; `sigcomply init-ci` scaffolding; how statelessness survives variable run frequencies. |
 | [`10-cadence-model.md`](docs/architecture/10-cadence-model.md) | The two-axis cadence model (per-policy gating vs per-run period freeze); per-policy state shards; the `every:<duration>` DSL; carry-forward result format; day-1 warnings; the per-policy cadence scalars in the cloud payload. The canonical reference for "should this policy re-evaluate now?" |
+| [`11-testing-strategy.md`](docs/architecture/11-testing-strategy.md) | How source-API integrations are tested: the regression-vs-drift model, the six test layers (L0–L4b), the CLI-vs-E2E repo split, and the cross-cutting conventions (cassette/contract paths, redaction, build tags, coverage). See also root [`TESTING.md`](TESTING.md). |
 | [`examples/acmecorp-walkthrough.md`](docs/architecture/examples/acmecorp-walkthrough.md) | End-to-end worked example: AcmeCorp pursuing SOC 2 with AWS + Okta + manual evidence. Reads alongside [`examples/acmecorp.sigcomply.yaml`](docs/architecture/examples/acmecorp.sigcomply.yaml). |
 
 ---
