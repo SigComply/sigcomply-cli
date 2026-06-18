@@ -106,27 +106,62 @@ tests.
 
 Decided once; obeyed everywhere.
 
-1. **Cassette location.**
-   `internal/sources/<provider>/<service>/testdata/cassettes/*.yaml`
-   (go-vcr v4). One cassette per scenario — e.g.
-   `list_buckets_encrypted.yaml`, `list_buckets_unencrypted.yaml`.
+1. **Cassette location** (go-vcr v4). The path mirrors the package that
+   owns the mapper, so cassettes sit next to the code they test:
+   - **Multi-service providers** (one Go package per service —
+     `aws`, `gcp`, `azure`):
+     `internal/sources/<provider>/<service>/testdata/cassettes/*.yaml`
+     (e.g. `internal/sources/aws/s3/testdata/cassettes/`).
+   - **Single-service providers** (one flat package —
+     `github`, `gitlab`, `okta`, `manual`):
+     `internal/sources/<provider>/testdata/cassettes/*.yaml`
+     (e.g. `internal/sources/github/testdata/cassettes/`).
+
+   One cassette **per scenario**, named for the behavior it captures —
+   e.g. `list_buckets_encrypted.yaml`, `list_buckets_unencrypted.yaml`,
+   `branch_protection_present.yaml`, `branch_protection_absent.yaml`.
+   `testdata/` is ignored by the Go toolchain, so cassettes never affect
+   the build.
 2. **Vendor spec snapshots ("contracts").**
    `contracts/<provider>/<service>@<api-version>.json`. Serves **both**
    L2 (validate cassettes against the spec) and L3 (diff over time). Pin
    only the services we actually use.
 3. **Redaction (mandatory — privacy invariant).** The go-vcr
-   `BeforeSaveHook` scrubs `Authorization`, tokens, ARNs, account IDs,
-   emails, and usernames to stable placeholders. A CI gate greps
-   `testdata/` + `contracts/` for `AKIA…`, 12-digit account IDs,
-   `@`-emails, and bearer tokens, and fails the build on a hit. A fixture
-   that leaks identity violates the non-custodial architecture, not just
-   a style rule.
-4. **Build tags.** Live tests are `//go:build live` and additionally
-   skip if the required env (token) is absent (`TF_ACC`-style). They are
-   excluded from the per-PR suite and from the coverage gate.
-5. **Coverage.** Keep the existing **80% floor** (`test.yml`). L2
-   cassette replay *raises* coverage (the real deserialize paths run).
-   Live/build-tagged code is excluded from the gate.
+   `BeforeSaveHook` scrubs secrets and identity to **stable
+   placeholders** as a cassette is recorded, so re-recording is
+   deterministic. The agreed placeholders:
+
+   | Real value | Placeholder |
+   |---|---|
+   | `Authorization` / bearer token / API key headers | `REDACTED` |
+   | AWS access key (`AKIA…`) | `AKIAEXAMPLE0000000000` |
+   | AWS account ID (12 digits) | `000000000000` |
+   | ARN | `arn:aws:<svc>:<region>:000000000000:<resource>` |
+   | email address | `user@example.com` |
+   | username / login | `example-user` |
+
+   A CI gate (WU-0.3 — `scripts/check-fixtures.sh`) greps `testdata/` +
+   `contracts/` for `AKIA[0-9A-Z]{16}`, bare 12-digit account IDs,
+   `@`-emails (other than `example.com`), and bearer tokens, and **fails
+   the build on a hit**. A fixture that leaks identity violates the
+   non-custodial architecture, not just a style rule.
+4. **Build tags.** Live tests carry `//go:build live` as the first line
+   and additionally skip if the required env (token) is absent
+   (`TF_ACC`-style — call `sourcetest.RequireEnv(t, "GITHUB_TEST_TOKEN")`
+   at the top of the test). Because the default build (`go test ./...`,
+   no `-tags live`) never compiles a `live`-tagged file, live tests run
+   in neither the per-PR suite nor the coverage run — no extra exclusion
+   config is needed. **Corollary:** a `live` file must never be the
+   *only* test for a production mapper, or that mapper would show 0%
+   under the default build. Every mapper is covered by non-tagged L1/L2
+   tests; live is *additional* confidence.
+5. **Coverage.** Keep the existing **80% floor**. It is enforced in
+   `.github/workflows/test.yml`: CI runs
+   `go test -race -coverprofile=coverage.out -covermode=atomic ./...`
+   then fails if `go tool cover -func` `total` `< COVERAGE_THRESHOLD`
+   (currently `80`). L2 cassette replay *raises* coverage because the
+   real deserialize paths execute. Raise the floor as coverage improves;
+   never lower it silently.
 6. **Shared harness.** All source-plugin tests run through
    `internal/sources/sourcetest/` — schema conformance + field
    completeness + determinism + metadata checks. Adding a plugin must not
@@ -135,6 +170,42 @@ Decided once; obeyed everywhere.
    sweepers can find and delete leaks safely.
 8. **Drift jobs are alert-only.** They open/update a GitHub issue; they
    do **not** block PRs (they run on a schedule, not on PRs).
+
+### Where a new plugin's test artifacts go (worked layout)
+
+A contributor adding the (illustrative) AWS S3 plugin and the GitHub
+plugin places artifacts exactly here:
+
+```
+sigcomply-cli/
+├── contracts/
+│   ├── aws/
+│   │   └── s3@2006-03-01.json            # vendor spec snapshot  (L2 + L3)
+│   └── github/
+│       └── api.github.com@2026-06-18.json
+└── internal/
+    └── sources/
+        ├── aws/s3/                        # multi-service provider → per-service pkg
+        │   ├── s3.go                      # the mapper (production)
+        │   ├── s3_test.go                 # L1 fakeAPI unit + L2 conformance (RunConformance)
+        │   ├── s3_live_test.go            # //go:build live   (L4a, if applicable)
+        │   └── testdata/cassettes/
+        │       ├── list_buckets_encrypted.yaml
+        │       └── list_buckets_unencrypted.yaml
+        └── github/                        # single-service provider → flat pkg
+            ├── github.go
+            ├── github_test.go
+            └── testdata/cassettes/
+                ├── branch_protection_present.yaml
+                └── branch_protection_absent.yaml
+```
+
+Rule of thumb: **mapper, its `*_test.go`, and its `testdata/cassettes/`
+are siblings**; the matching `contracts/<provider>/<service>@<ver>.json`
+spec snapshot is the only artifact that lives outside the plugin package
+(it is shared by L2 validation and L3 drift). See
+[`contracts/README.md`](../../contracts/README.md) and
+[`internal/sources/sourcetest/README.md`](../../internal/sources/sourcetest/README.md).
 
 ---
 
