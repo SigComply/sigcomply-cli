@@ -91,7 +91,7 @@ func Build(results []core.PolicyResult, env *Environment) core.SubmissionPayload
 			RuleVersion:        r.RuleVersion,
 			ConfiguredCadence:  r.ConfiguredCadence,
 			LastEvaluatedAt:    lastEvaluatedAt(r, env),
-			NextDueAt:          r.NextDueAt,
+			NextDueAt:          timePtrOrNil(r.NextDueAt),
 			IsCarriedForward:   r.Status == core.StatusCarriedForward,
 			PolicyContentHash:  r.PolicyContentHash,
 		})
@@ -104,15 +104,28 @@ func Build(results []core.PolicyResult, env *Environment) core.SubmissionPayload
 // run's start time. For carry-forward results it is the carry-
 // forward ref's LastEvaluatedAt — the earlier run that this row
 // inherits from. Used by the cloud dashboard to render staleness
-// badges without recomputing locally.
-func lastEvaluatedAt(r *core.PolicyResult, env *Environment) time.Time {
+// badges without recomputing locally. Returns nil (omitted from the
+// wire) when the timestamp is the zero value.
+func lastEvaluatedAt(r *core.PolicyResult, env *Environment) *time.Time {
 	if r.Status == core.StatusCarriedForward && r.CarryForward != nil {
-		return r.CarryForward.LastEvaluatedAt
+		return timePtrOrNil(r.CarryForward.LastEvaluatedAt)
 	}
 	if env == nil {
-		return time.Time{}
+		return nil
 	}
-	return env.StartedAt
+	return timePtrOrNil(env.StartedAt)
+}
+
+// timePtrOrNil returns a pointer to t, or nil if t is the zero value.
+// A nil *time.Time is omitted by the `omitempty` JSON tag, so a zero
+// time is absent on the wire rather than serialized as the misleading
+// "0001-01-01T00:00:00Z" (encoding/json never omits a zero time.Time
+// struct value, only a nil pointer).
+func timePtrOrNil(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	return &t
 }
 
 func buildSummary(results []core.PolicyResult) core.RunSummary {

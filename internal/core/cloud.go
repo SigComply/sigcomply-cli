@@ -124,14 +124,17 @@ type AggregatedPolicy struct {
 	// LastEvaluatedAt is the start time of the most recent run that
 	// actually evaluated this policy. For freshly-evaluated rows it
 	// equals StartedAt; for carry-forward rows it points to the
-	// earlier run. Non-identifying.
-	LastEvaluatedAt time.Time `json:"last_evaluated_at,omitempty"`
+	// earlier run. Non-identifying. Pointer so a zero value is omitted
+	// from the wire rather than serialized as "0001-01-01T00:00:00Z"
+	// (encoding/json's omitempty does not omit a zero time.Time struct).
+	LastEvaluatedAt *time.Time `json:"last_evaluated_at,omitempty"`
 
 	// NextDueAt is the wall-clock time after which the policy is due
-	// to be re-evaluated. Zero when the policy is always due (cadence
+	// to be re-evaluated. Nil when the policy is always due (cadence
 	// "continuous" / "every:0s") or when the most recent terminal
-	// status was not pass (on_fail_retry → due on next run).
-	NextDueAt time.Time `json:"next_due_at,omitempty"`
+	// status was not pass (on_fail_retry → due on next run). Pointer
+	// for the same omit-zero reason as LastEvaluatedAt.
+	NextDueAt *time.Time `json:"next_due_at,omitempty"`
 
 	// IsCarriedForward is true when this row references a prior
 	// evaluation rather than a fresh one in this run.
