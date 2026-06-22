@@ -1,0 +1,172 @@
+{
+  "schema": "sigcomply.cloud.v3",
+  "run_id": "20260622T100000Z-abc123",
+  "framework": "soc2",
+  "period_id": "2026-Q2",
+  "commit_sha": "deadbeef0000000000000000000000000000beef",
+  "commit_time": "2026-06-22T09:00:00Z",
+  "branch": "main",
+  "repository": {
+    "provider": "github",
+    "name_slug": "acme-corp/infrastructure",
+    "url": "https://github.com/acme-corp/infrastructure"
+  },
+  "environment": {
+    "provider": "github_actions",
+    "workflow": "compliance",
+    "run_url": "https://github.com/acme-corp/infrastructure/actions/runs/123",
+    "worker_image": "ubuntu-22.04"
+  },
+  "cli_version": "1.5.0",
+  "started_at": "2026-06-22T10:00:00Z",
+  "completed_at": "2026-06-22T10:01:30Z",
+  "summary": {
+    "policies_total": 7,
+    "policies_passed": 1,
+    "policies_failed": 1,
+    "policies_skipped": 1,
+    "policies_error": 1,
+    "policies_na": 1,
+    "policies_waived": 1,
+    "policies_carried_forward": 1,
+    "compliance_score": 0.6
+  },
+  "policies": [
+    {
+      "policy_id": "shared.mfa_enforced",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC6.1",
+          "relationship": "equal"
+        },
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.8.5",
+          "relationship": "subset_of"
+        }
+      ],
+      "status": "pass",
+      "severity": "high",
+      "category": "access_control",
+      "resources_evaluated": 42,
+      "resources_failed": 0,
+      "message": "All 42 resources passed.",
+      "rule_version": "1",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-06-22T10:00:00Z",
+      "next_due_at": "2026-06-23T10:00:00Z",
+      "policy_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "policy_id": "soc2.cc7.2.audit_logging",
+      "controls": [
+        {
+          "framework": "soc2",
+          "framework_version": "soc2-2017@1.0.0",
+          "control_id": "CC7.2",
+          "relationship": "equal"
+        }
+      ],
+      "status": "fail",
+      "severity": "critical",
+      "category": "logging",
+      "resources_evaluated": 10,
+      "resources_failed": 3,
+      "message": "3 of 10 resources failed.",
+      "rule_version": "2",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-06-22T10:00:00Z"
+    },
+    {
+      "policy_id": "soc2.cc6.6.firewall_rules",
+      "controls": [
+        {
+          "framework": "soc2",
+          "control_id": "CC6.6"
+        }
+      ],
+      "status": "skip",
+      "severity": "medium",
+      "category": "network",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "No matching resources to evaluate.",
+      "configured_cadence": "weekly",
+      "last_evaluated_at": "2026-06-22T10:00:00Z"
+    },
+    {
+      "policy_id": "soc2.cc8.1.change_management",
+      "controls": [
+        {
+          "framework": "soc2",
+          "control_id": "CC8.1"
+        }
+      ],
+      "status": "error",
+      "severity": "high",
+      "category": "change_management",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "Evaluation error; see customer vault for diagnostics.",
+      "configured_cadence": "daily",
+      "last_evaluated_at": "2026-06-22T10:00:00Z"
+    },
+    {
+      "policy_id": "iso27001.a8.physical_media",
+      "controls": [
+        {
+          "framework": "iso27001",
+          "framework_version": "iso27001-2022@1.0.0",
+          "control_id": "A.7.10",
+          "relationship": "intersects"
+        }
+      ],
+      "status": "na",
+      "severity": "low",
+      "category": "physical_security",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "Not applicable to this project.",
+      "last_evaluated_at": "2026-06-22T10:00:00Z"
+    },
+    {
+      "policy_id": "soc2.cc1.4.background_checks",
+      "controls": [
+        {
+          "framework": "soc2",
+          "control_id": "CC1.4",
+          "relationship": "superset_of"
+        }
+      ],
+      "status": "waived",
+      "severity": "medium",
+      "category": "hr",
+      "resources_evaluated": 5,
+      "resources_failed": 1,
+      "message": "Waived by exception (1 of 5 resources affected).",
+      "last_evaluated_at": "2026-06-22T10:00:00Z"
+    },
+    {
+      "policy_id": "soc2.cc6.1.password_policy",
+      "controls": [
+        {
+          "framework": "soc2",
+          "control_id": "CC6.1"
+        }
+      ],
+      "status": "carried_forward",
+      "severity": "high",
+      "category": "access_control",
+      "resources_evaluated": 0,
+      "resources_failed": 0,
+      "message": "Carried forward from a prior passing evaluation (cadence not yet due).",
+      "configured_cadence": "quarterly",
+      "last_evaluated_at": "2026-06-21T10:00:00Z",
+      "is_carried_forward": true,
+      "policy_content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  ]
+}
