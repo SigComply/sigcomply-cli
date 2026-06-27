@@ -1,0 +1,769 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: api.github.com
+        form:
+            page:
+                - "1"
+            per_page:
+                - "100"
+        headers:
+            Accept:
+                - application/vnd.github+json
+            Authorization:
+                - REDACTED
+            X-Github-Api-Version:
+                - "2022-11-28"
+        url: https://api.github.com/orgs/e2e-test-org/repos?per_page=100&page=1
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '[{"id":1275498817,"node_id":"R_kgDOTAaRQQ","name":"e2e-unprotected","full_name":"e2e-test-org/e2e-unprotected","private":true,"owner":{"login":"e2e-test-org","id":295433351,"node_id":"O_kgDOEZv0hw","avatar_url":"https://avatars.githubusercontent.com/u/295433351?v=4","gravatar_id":"","url":"https://api.github.com/users/e2e-test-org","html_url":"https://github.com/e2e-test-org","followers_url":"https://api.github.com/users/e2e-test-org/followers","following_url":"https://api.github.com/users/e2e-test-org/following{/other_user}","gists_url":"https://api.github.com/users/e2e-test-org/gists{/gist_id}","starred_url":"https://api.github.com/users/e2e-test-org/starred{/owner}{/repo}","subscriptions_url":"https://api.github.com/users/e2e-test-org/subscriptions","organizations_url":"https://api.github.com/users/e2e-test-org/orgs","repos_url":"https://api.github.com/users/e2e-test-org/repos","events_url":"https://api.github.com/users/e2e-test-org/events{/privacy}","received_events_url":"https://api.github.com/users/e2e-test-org/received_events","type":"Organization","user_view_type":"public","site_admin":false},"html_url":"https://github.com/e2e-test-org/e2e-unprotected","description":null,"fork":false,"url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected","forks_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/forks","keys_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/keys{/key_id}","collaborators_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/collaborators{/collaborator}","teams_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/teams","hooks_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/hooks","issue_events_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/issues/events{/number}","events_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/events","assignees_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/assignees{/user}","branches_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/branches{/branch}","tags_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/tags","blobs_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/git/blobs{/sha}","git_tags_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/git/tags{/sha}","git_refs_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/git/refs{/sha}","trees_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/git/trees{/sha}","statuses_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/statuses/{sha}","languages_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/languages","stargazers_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/stargazers","contributors_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/contributors","subscribers_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/subscribers","subscription_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/subscription","commits_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/commits{/sha}","git_commits_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/git/commits{/sha}","comments_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/comments{/number}","issue_comment_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/issues/comments{/number}","contents_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/contents/{+path}","compare_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/compare/{base}...{head}","merges_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/merges","archive_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/{archive_format}{/ref}","downloads_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/downloads","issues_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/issues{/number}","pulls_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/pulls{/number}","milestones_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/milestones{/number}","notifications_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/notifications{?since,all,participating}","labels_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/labels{/name}","releases_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/releases{/id}","deployments_url":"https://api.github.com/repos/e2e-test-org/e2e-unprotected/deployments","created_at":"2026-06-20T19:13:41Z","updated_at":"2026-06-20T19:24:37Z","pushed_at":"2026-06-20T19:13:42Z","git_url":"git://github.com/e2e-test-org/e2e-unprotected.git","ssh_url":"user@example.com:e2e-test-org/e2e-unprotected.git","clone_url":"https://github.com/e2e-test-org/e2e-unprotected.git","svn_url":"https://github.com/e2e-test-org/e2e-unprotected","homepage":null,"size":0,"stargazers_count":0,"watchers_count":0,"language":null,"has_issues":true,"has_projects":true,"has_downloads":true,"has_wiki":false,"has_pages":false,"has_discussions":false,"forks_count":0,"mirror_url":null,"archived":false,"disabled":false,"open_issues_count":0,"license":null,"allow_forking":false,"is_template":false,"web_commit_signoff_required":false,"has_pull_requests":true,"pull_request_creation_policy":"all","topics":[],"visibility":"private","forks":0,"open_issues":0,"watchers":0,"default_branch":"main","permissions":{"admin":true,"maintain":true,"push":true,"triage":true,"pull":true},"security_and_analysis":{"secret_scanning":{"status":"disabled"},"secret_scanning_push_protection":{"status":"disabled"},"dependabot_security_updates":{"status":"disabled"},"secret_scanning_non_provider_patterns":{"status":"disabled"},"secret_scanning_validity_checks":{"status":"disabled"}},"custom_properties":{}},{"id":1275502912,"node_id":"R_kgDOTAahQA","name":"e2e-protected","full_name":"e2e-test-org/e2e-protected","private":false,"owner":{"login":"e2e-test-org","id":295433351,"node_id":"O_kgDOEZv0hw","avatar_url":"https://avatars.githubusercontent.com/u/295433351?v=4","gravatar_id":"","url":"https://api.github.com/users/e2e-test-org","html_url":"https://github.com/e2e-test-org","followers_url":"https://api.github.com/users/e2e-test-org/followers","following_url":"https://api.github.com/users/e2e-test-org/following{/other_user}","gists_url":"https://api.github.com/users/e2e-test-org/gists{/gist_id}","starred_url":"https://api.github.com/users/e2e-test-org/starred{/owner}{/repo}","subscriptions_url":"https://api.github.com/users/e2e-test-org/subscriptions","organizations_url":"https://api.github.com/users/e2e-test-org/orgs","repos_url":"https://api.github.com/users/e2e-test-org/repos","events_url":"https://api.github.com/users/e2e-test-org/events{/privacy}","received_events_url":"https://api.github.com/users/e2e-test-org/received_events","type":"Organization","user_view_type":"public","site_admin":false},"html_url":"https://github.com/e2e-test-org/e2e-protected","description":null,"fork":false,"url":"https://api.github.com/repos/e2e-test-org/e2e-protected","forks_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/forks","keys_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/keys{/key_id}","collaborators_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/collaborators{/collaborator}","teams_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/teams","hooks_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/hooks","issue_events_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/issues/events{/number}","events_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/events","assignees_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/assignees{/user}","branches_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/branches{/branch}","tags_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/tags","blobs_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/git/blobs{/sha}","git_tags_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/git/tags{/sha}","git_refs_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/git/refs{/sha}","trees_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/git/trees{/sha}","statuses_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/statuses/{sha}","languages_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/languages","stargazers_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/stargazers","contributors_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/contributors","subscribers_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/subscribers","subscription_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/subscription","commits_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/commits{/sha}","git_commits_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/git/commits{/sha}","comments_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/comments{/number}","issue_comment_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/issues/comments{/number}","contents_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/contents/{+path}","compare_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/compare/{base}...{head}","merges_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/merges","archive_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/{archive_format}{/ref}","downloads_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/downloads","issues_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/issues{/number}","pulls_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/pulls{/number}","milestones_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/milestones{/number}","notifications_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/notifications{?since,all,participating}","labels_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/labels{/name}","releases_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/releases{/id}","deployments_url":"https://api.github.com/repos/e2e-test-org/e2e-protected/deployments","created_at":"2026-06-20T19:21:35Z","updated_at":"2026-06-20T19:24:19Z","pushed_at":"2026-06-20T19:21:36Z","git_url":"git://github.com/e2e-test-org/e2e-protected.git","ssh_url":"user@example.com:e2e-test-org/e2e-protected.git","clone_url":"https://github.com/e2e-test-org/e2e-protected.git","svn_url":"https://github.com/e2e-test-org/e2e-protected","homepage":null,"size":0,"stargazers_count":0,"watchers_count":0,"language":null,"has_issues":true,"has_projects":true,"has_downloads":true,"has_wiki":true,"has_pages":false,"has_discussions":false,"forks_count":0,"mirror_url":null,"archived":false,"disabled":false,"open_issues_count":0,"license":null,"allow_forking":true,"is_template":false,"web_commit_signoff_required":false,"has_pull_requests":true,"pull_request_creation_policy":"all","topics":[],"visibility":"public","forks":0,"open_issues":0,"watchers":0,"default_branch":"main","permissions":{"admin":true,"maintain":true,"push":true,"triage":true,"pull":true},"security_and_analysis":{"secret_scanning":{"status":"disabled"},"secret_scanning_push_protection":{"status":"disabled"},"dependabot_security_updates":{"status":"disabled"},"secret_scanning_non_provider_patterns":{"status":"disabled"},"secret_scanning_validity_checks":{"status":"disabled"}},"custom_properties":{}}]'
+        headers:
+            Access-Control-Allow-Origin:
+                - '*'
+            Access-Control-Expose-Headers:
+                - ETag, Link, Location, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Used, X-RateLimit-Resource, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval, X-GitHub-Media-Type, X-GitHub-SSO, X-GitHub-Request-Id, Deprecation, Sunset, Warning
+            Cache-Control:
+                - private, max-age=60, s-maxage=60
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sat, 27 Jun 2026 19:12:38 GMT
+            Etag:
+                - W/"b1523e742021a93a274bad88b1a68021958001d586f56ea835d8f0d14401fd56"
+            Referrer-Policy:
+                - origin-when-cross-origin, strict-origin-when-cross-origin
+            Server:
+                - github.com
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubdomains; preload
+            Vary:
+                - Accept, Authorization, Cookie, X-GitHub-OTP,Accept-Encoding, Accept, X-Requested-With
+            X-Accepted-Oauth-Scopes:
+                - ""
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - deny
+            X-Github-Api-Version-Selected:
+                - "2022-11-28"
+            X-Github-Media-Type:
+                - github.v3; format=json
+            X-Github-Request-Id:
+                - 1EBB:5A44:12B1374:155901B:6A4020A5
+            X-Oauth-Scopes:
+                - admin:org, repo
+            X-Ratelimit-Limit:
+                - "5000"
+            X-Ratelimit-Remaining:
+                - "4987"
+            X-Ratelimit-Reset:
+                - "1782590558"
+            X-Ratelimit-Resource:
+                - core
+            X-Ratelimit-Used:
+                - "13"
+            X-Xss-Protection:
+                - "0"
+        status: 200 OK
+        code: 200
+        duration: 2.856497s
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: api.github.com
+        headers:
+            Accept:
+                - application/vnd.github+json
+            Authorization:
+                - REDACTED
+            X-Github-Api-Version:
+                - "2022-11-28"
+        url: https://api.github.com/repos/e2e-test-org/e2e-unprotected/branches/main/protection
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"message":"Upgrade to GitHub Pro or make this repository public to enable this feature.","documentation_url":"https://docs.github.com/rest/branches/branch-protection#get-branch-protection","status":"403"}'
+        headers:
+            Access-Control-Allow-Origin:
+                - '*'
+            Access-Control-Expose-Headers:
+                - ETag, Link, Location, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Used, X-RateLimit-Resource, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval, X-GitHub-Media-Type, X-GitHub-SSO, X-GitHub-Request-Id, Deprecation, Sunset, Warning
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sat, 27 Jun 2026 19:12:41 GMT
+            Referrer-Policy:
+                - origin-when-cross-origin, strict-origin-when-cross-origin
+            Server:
+                - github.com
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubdomains; preload
+            Vary:
+                - Accept-Encoding, Accept, X-Requested-With
+            X-Accepted-Oauth-Scopes:
+                - ""
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - deny
+            X-Github-Api-Version-Selected:
+                - "2022-11-28"
+            X-Github-Media-Type:
+                - github.v3; format=json
+            X-Github-Request-Id:
+                - 1EBB:5A44:12B151F:1559216:6A4020A6
+            X-Oauth-Scopes:
+                - admin:org, repo
+            X-Ratelimit-Limit:
+                - "5000"
+            X-Ratelimit-Remaining:
+                - "4986"
+            X-Ratelimit-Reset:
+                - "1782590558"
+            X-Ratelimit-Resource:
+                - core
+            X-Ratelimit-Used:
+                - "14"
+            X-Xss-Protection:
+                - "0"
+        status: 403 Forbidden
+        code: 403
+        duration: 412.309375ms
+    - id: 2
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: api.github.com
+        headers:
+            Accept:
+                - application/vnd.github+json
+            Authorization:
+                - REDACTED
+            X-Github-Api-Version:
+                - "2022-11-28"
+        url: https://api.github.com/repos/e2e-test-org/e2e-unprotected/vulnerability-alerts
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"message":"Vulnerability alerts are disabled.","documentation_url":"https://docs.github.com/rest/repos/repos#check-if-vulnerability-alerts-are-enabled-for-a-repository","status":"404"}'
+        headers:
+            Access-Control-Allow-Origin:
+                - '*'
+            Access-Control-Expose-Headers:
+                - ETag, Link, Location, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Used, X-RateLimit-Resource, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval, X-GitHub-Media-Type, X-GitHub-SSO, X-GitHub-Request-Id, Deprecation, Sunset, Warning
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sat, 27 Jun 2026 19:12:42 GMT
+            Referrer-Policy:
+                - origin-when-cross-origin, strict-origin-when-cross-origin
+            Server:
+                - github.com
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubdomains; preload
+            Vary:
+                - Accept-Encoding, Accept, X-Requested-With
+            X-Accepted-Oauth-Scopes:
+                - repo
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - deny
+            X-Github-Api-Version-Selected:
+                - "2022-11-28"
+            X-Github-Media-Type:
+                - github.v3; format=json
+            X-Github-Request-Id:
+                - 1EBB:5A44:12B1592:15592BA:6A4020A9
+            X-Oauth-Scopes:
+                - admin:org, repo
+            X-Ratelimit-Limit:
+                - "5000"
+            X-Ratelimit-Remaining:
+                - "4985"
+            X-Ratelimit-Reset:
+                - "1782590558"
+            X-Ratelimit-Resource:
+                - core
+            X-Ratelimit-Used:
+                - "15"
+            X-Xss-Protection:
+                - "0"
+        status: 404 Not Found
+        code: 404
+        duration: 387.71475ms
+    - id: 3
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: api.github.com
+        headers:
+            Accept:
+                - application/vnd.github+json
+            Authorization:
+                - REDACTED
+            X-Github-Api-Version:
+                - "2022-11-28"
+        url: https://api.github.com/repos/e2e-test-org/e2e-protected/branches/main/protection
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"url":"https://api.github.com/repos/e2e-test-org/e2e-protected/branches/main/protection","required_pull_request_reviews":{"url":"https://api.github.com/repos/e2e-test-org/e2e-protected/branches/main/protection/required_pull_request_reviews","dismiss_stale_reviews":false,"require_code_owner_reviews":false,"require_last_push_approval":false,"required_approving_review_count":1},"required_signatures":{"url":"https://api.github.com/repos/e2e-test-org/e2e-protected/branches/main/protection/required_signatures","enabled":false},"enforce_admins":{"url":"https://api.github.com/repos/e2e-test-org/e2e-protected/branches/main/protection/enforce_admins","enabled":false},"required_linear_history":{"enabled":false},"allow_force_pushes":{"enabled":false},"allow_deletions":{"enabled":false},"block_creations":{"enabled":false},"required_conversation_resolution":{"enabled":false},"lock_branch":{"enabled":false},"allow_fork_syncing":{"enabled":false}}'
+        headers:
+            Access-Control-Allow-Origin:
+                - '*'
+            Access-Control-Expose-Headers:
+                - ETag, Link, Location, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Used, X-RateLimit-Resource, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval, X-GitHub-Media-Type, X-GitHub-SSO, X-GitHub-Request-Id, Deprecation, Sunset, Warning
+            Cache-Control:
+                - private, max-age=60, s-maxage=60
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sat, 27 Jun 2026 19:12:43 GMT
+            Etag:
+                - W/"2c01d8e68cf24d69e153ef8c4d68620c4d2db5634d1ed360956a068858a161d0"
+            Referrer-Policy:
+                - origin-when-cross-origin, strict-origin-when-cross-origin
+            Server:
+                - github.com
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubdomains; preload
+            Vary:
+                - Accept, Authorization, Cookie, X-GitHub-OTP,Accept-Encoding, Accept, X-Requested-With
+            X-Accepted-Oauth-Scopes:
+                - ""
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - deny
+            X-Github-Api-Version-Selected:
+                - "2022-11-28"
+            X-Github-Media-Type:
+                - github.v3; format=json
+            X-Github-Request-Id:
+                - 1EBB:5A44:12B160C:1559349:6A4020AA
+            X-Oauth-Scopes:
+                - admin:org, repo
+            X-Ratelimit-Limit:
+                - "5000"
+            X-Ratelimit-Remaining:
+                - "4984"
+            X-Ratelimit-Reset:
+                - "1782590558"
+            X-Ratelimit-Resource:
+                - core
+            X-Ratelimit-Used:
+                - "16"
+            X-Xss-Protection:
+                - "0"
+        status: 200 OK
+        code: 200
+        duration: 353.6255ms
+    - id: 4
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: api.github.com
+        headers:
+            Accept:
+                - application/vnd.github+json
+            Authorization:
+                - REDACTED
+            X-Github-Api-Version:
+                - "2022-11-28"
+        url: https://api.github.com/repos/e2e-test-org/e2e-protected/vulnerability-alerts
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 0
+        body: ""
+        headers:
+            Access-Control-Allow-Origin:
+                - '*'
+            Access-Control-Expose-Headers:
+                - ETag, Link, Location, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Used, X-RateLimit-Resource, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval, X-GitHub-Media-Type, X-GitHub-SSO, X-GitHub-Request-Id, Deprecation, Sunset, Warning
+            Content-Security-Policy:
+                - default-src 'none'
+            Date:
+                - Sat, 27 Jun 2026 19:12:43 GMT
+            Referrer-Policy:
+                - origin-when-cross-origin, strict-origin-when-cross-origin
+            Server:
+                - github.com
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubdomains; preload
+            Vary:
+                - Accept-Encoding, Accept, X-Requested-With
+            X-Accepted-Oauth-Scopes:
+                - repo
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - deny
+            X-Github-Api-Version-Selected:
+                - "2022-11-28"
+            X-Github-Media-Type:
+                - github.v3; format=json
+            X-Github-Request-Id:
+                - 1EBB:5A44:12B165A:15593A5:6A4020AB
+            X-Oauth-Scopes:
+                - admin:org, repo
+            X-Ratelimit-Limit:
+                - "5000"
+            X-Ratelimit-Remaining:
+                - "4983"
+            X-Ratelimit-Reset:
+                - "1782590558"
+            X-Ratelimit-Resource:
+                - core
+            X-Ratelimit-Used:
+                - "17"
+            X-Xss-Protection:
+                - "0"
+        status: 204 No Content
+        code: 204
+        duration: 331.286042ms
+    - id: 5
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: api.github.com
+        form:
+            filter:
+                - 2fa_disabled
+            page:
+                - "1"
+            per_page:
+                - "100"
+        headers:
+            Accept:
+                - application/vnd.github+json
+            Authorization:
+                - REDACTED
+            X-Github-Api-Version:
+                - "2022-11-28"
+        url: https://api.github.com/orgs/e2e-test-org/members?filter=2fa_disabled&page=1&per_page=100
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '[{"login":"e2e-admin","id":295432430,"node_id":"U_kgDOEZvw7g","avatar_url":"https://avatars.githubusercontent.com/u/295432430?v=4","gravatar_id":"","url":"https://api.github.com/users/e2e-admin","html_url":"https://github.com/e2e-admin","followers_url":"https://api.github.com/users/e2e-admin/followers","following_url":"https://api.github.com/users/e2e-admin/following{/other_user}","gists_url":"https://api.github.com/users/e2e-admin/gists{/gist_id}","starred_url":"https://api.github.com/users/e2e-admin/starred{/owner}{/repo}","subscriptions_url":"https://api.github.com/users/e2e-admin/subscriptions","organizations_url":"https://api.github.com/users/e2e-admin/orgs","repos_url":"https://api.github.com/users/e2e-admin/repos","events_url":"https://api.github.com/users/e2e-admin/events{/privacy}","received_events_url":"https://api.github.com/users/e2e-admin/received_events","type":"User","user_view_type":"public","site_admin":false}]'
+        headers:
+            Access-Control-Allow-Origin:
+                - '*'
+            Access-Control-Expose-Headers:
+                - ETag, Link, Location, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Used, X-RateLimit-Resource, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval, X-GitHub-Media-Type, X-GitHub-SSO, X-GitHub-Request-Id, Deprecation, Sunset, Warning
+            Cache-Control:
+                - private, max-age=60, s-maxage=60
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sat, 27 Jun 2026 19:12:44 GMT
+            Etag:
+                - W/"f8dd75c480e6d71cbce80a92f4da212269bb3be2b1c533bb83fe9df6c02a615c"
+            Referrer-Policy:
+                - origin-when-cross-origin, strict-origin-when-cross-origin
+            Server:
+                - github.com
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubdomains; preload
+            Vary:
+                - Accept, Authorization, Cookie, X-GitHub-OTP,Accept-Encoding, Accept, X-Requested-With
+            X-Accepted-Oauth-Scopes:
+                - ""
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - deny
+            X-Github-Api-Version-Selected:
+                - "2022-11-28"
+            X-Github-Media-Type:
+                - github.v3; format=json
+            X-Github-Request-Id:
+                - 1EBB:5A44:12B16B0:1559401:6A4020AB
+            X-Oauth-Scopes:
+                - admin:org, repo
+            X-Ratelimit-Limit:
+                - "5000"
+            X-Ratelimit-Remaining:
+                - "4982"
+            X-Ratelimit-Reset:
+                - "1782590558"
+            X-Ratelimit-Resource:
+                - core
+            X-Ratelimit-Used:
+                - "18"
+            X-Xss-Protection:
+                - "0"
+        status: 200 OK
+        code: 200
+        duration: 367.8945ms
+    - id: 6
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: api.github.com
+        form:
+            page:
+                - "1"
+            per_page:
+                - "100"
+        headers:
+            Accept:
+                - application/vnd.github+json
+            Authorization:
+                - REDACTED
+            X-Github-Api-Version:
+                - "2022-11-28"
+        url: https://api.github.com/orgs/e2e-test-org/members?page=1&per_page=100
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '[{"login":"e2e-admin","id":295432430,"node_id":"U_kgDOEZvw7g","avatar_url":"https://avatars.githubusercontent.com/u/295432430?v=4","gravatar_id":"","url":"https://api.github.com/users/e2e-admin","html_url":"https://github.com/e2e-admin","followers_url":"https://api.github.com/users/e2e-admin/followers","following_url":"https://api.github.com/users/e2e-admin/following{/other_user}","gists_url":"https://api.github.com/users/e2e-admin/gists{/gist_id}","starred_url":"https://api.github.com/users/e2e-admin/starred{/owner}{/repo}","subscriptions_url":"https://api.github.com/users/e2e-admin/subscriptions","organizations_url":"https://api.github.com/users/e2e-admin/orgs","repos_url":"https://api.github.com/users/e2e-admin/repos","events_url":"https://api.github.com/users/e2e-admin/events{/privacy}","received_events_url":"https://api.github.com/users/e2e-admin/received_events","type":"User","user_view_type":"public","site_admin":false}]'
+        headers:
+            Access-Control-Allow-Origin:
+                - '*'
+            Access-Control-Expose-Headers:
+                - ETag, Link, Location, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Used, X-RateLimit-Resource, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval, X-GitHub-Media-Type, X-GitHub-SSO, X-GitHub-Request-Id, Deprecation, Sunset, Warning
+            Cache-Control:
+                - private, max-age=60, s-maxage=60
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sat, 27 Jun 2026 19:12:45 GMT
+            Etag:
+                - W/"f8dd75c480e6d71cbce80a92f4da212269bb3be2b1c533bb83fe9df6c02a615c"
+            Referrer-Policy:
+                - origin-when-cross-origin, strict-origin-when-cross-origin
+            Server:
+                - github.com
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubdomains; preload
+            Vary:
+                - Accept, Authorization, Cookie, X-GitHub-OTP,Accept-Encoding, Accept, X-Requested-With
+            X-Accepted-Oauth-Scopes:
+                - ""
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - deny
+            X-Github-Api-Version-Selected:
+                - "2022-11-28"
+            X-Github-Media-Type:
+                - github.v3; format=json
+            X-Github-Request-Id:
+                - 1EBB:5A44:12B171A:1559485:6A4020AC
+            X-Oauth-Scopes:
+                - admin:org, repo
+            X-Ratelimit-Limit:
+                - "5000"
+            X-Ratelimit-Remaining:
+                - "4981"
+            X-Ratelimit-Reset:
+                - "1782590558"
+            X-Ratelimit-Resource:
+                - core
+            X-Ratelimit-Used:
+                - "19"
+            X-Xss-Protection:
+                - "0"
+        status: 200 OK
+        code: 200
+        duration: 384.501208ms
+    - id: 7
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: api.github.com
+        headers:
+            Accept:
+                - application/vnd.github+json
+            Authorization:
+                - REDACTED
+            X-Github-Api-Version:
+                - "2022-11-28"
+        url: https://api.github.com/orgs/e2e-test-org/memberships/e2e-admin
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"url":"https://api.github.com/orgs/e2e-test-org/memberships/e2e-admin","state":"active","role":"admin","organization_url":"https://api.github.com/orgs/e2e-test-org","user":{"login":"e2e-admin","id":295432430,"node_id":"U_kgDOEZvw7g","avatar_url":"https://avatars.githubusercontent.com/u/295432430?v=4","gravatar_id":"","url":"https://api.github.com/users/e2e-admin","html_url":"https://github.com/e2e-admin","followers_url":"https://api.github.com/users/e2e-admin/followers","following_url":"https://api.github.com/users/e2e-admin/following{/other_user}","gists_url":"https://api.github.com/users/e2e-admin/gists{/gist_id}","starred_url":"https://api.github.com/users/e2e-admin/starred{/owner}{/repo}","subscriptions_url":"https://api.github.com/users/e2e-admin/subscriptions","organizations_url":"https://api.github.com/users/e2e-admin/orgs","repos_url":"https://api.github.com/users/e2e-admin/repos","events_url":"https://api.github.com/users/e2e-admin/events{/privacy}","received_events_url":"https://api.github.com/users/e2e-admin/received_events","type":"User","user_view_type":"public","site_admin":false},"direct_membership":true,"enterprise_teams_providing_indirect_membership":[],"organization":{"login":"e2e-test-org","id":295433351,"node_id":"O_kgDOEZv0hw","url":"https://api.github.com/orgs/e2e-test-org","repos_url":"https://api.github.com/orgs/e2e-test-org/repos","events_url":"https://api.github.com/orgs/e2e-test-org/events","hooks_url":"https://api.github.com/orgs/e2e-test-org/hooks","issues_url":"https://api.github.com/orgs/e2e-test-org/issues","members_url":"https://api.github.com/orgs/e2e-test-org/members{/member}","public_members_url":"https://api.github.com/orgs/e2e-test-org/public_members{/member}","avatar_url":"https://avatars.githubusercontent.com/u/295433351?v=4","description":null}}'
+        headers:
+            Access-Control-Allow-Origin:
+                - '*'
+            Access-Control-Expose-Headers:
+                - ETag, Link, Location, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Used, X-RateLimit-Resource, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval, X-GitHub-Media-Type, X-GitHub-SSO, X-GitHub-Request-Id, Deprecation, Sunset, Warning
+            Cache-Control:
+                - private, max-age=60, s-maxage=60
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sat, 27 Jun 2026 19:12:45 GMT
+            Etag:
+                - W/"562cc6bc59b3896a03045375529d57d5f5aa41f15d66467cfa919eccad397e19"
+            Referrer-Policy:
+                - origin-when-cross-origin, strict-origin-when-cross-origin
+            Server:
+                - github.com
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubdomains; preload
+            Vary:
+                - Accept, Authorization, Cookie, X-GitHub-OTP,Accept-Encoding, Accept, X-Requested-With
+            X-Accepted-Oauth-Scopes:
+                - admin:org, read:org, repo, user, write:org
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - deny
+            X-Github-Api-Version-Selected:
+                - "2022-11-28"
+            X-Github-Media-Type:
+                - github.v3; format=json
+            X-Github-Request-Id:
+                - 1EBB:5A44:12B1776:15594F2:6A4020AD
+            X-Oauth-Scopes:
+                - admin:org, repo
+            X-Ratelimit-Limit:
+                - "5000"
+            X-Ratelimit-Remaining:
+                - "4980"
+            X-Ratelimit-Reset:
+                - "1782590558"
+            X-Ratelimit-Resource:
+                - core
+            X-Ratelimit-Used:
+                - "20"
+            X-Xss-Protection:
+                - "0"
+        status: 200 OK
+        code: 200
+        duration: 350.755583ms
+    - id: 8
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: api.github.com
+        form:
+            filter:
+                - 2fa_disabled
+            page:
+                - "1"
+            per_page:
+                - "100"
+        headers:
+            Accept:
+                - application/vnd.github+json
+            Authorization:
+                - REDACTED
+            X-Github-Api-Version:
+                - "2022-11-28"
+        url: https://api.github.com/orgs/e2e-test-org/outside_collaborators?filter=2fa_disabled&page=1&per_page=100
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 2
+        body: '[]'
+        headers:
+            Access-Control-Allow-Origin:
+                - '*'
+            Access-Control-Expose-Headers:
+                - ETag, Link, Location, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Used, X-RateLimit-Resource, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval, X-GitHub-Media-Type, X-GitHub-SSO, X-GitHub-Request-Id, Deprecation, Sunset, Warning
+            Cache-Control:
+                - private, max-age=60, s-maxage=60
+            Content-Length:
+                - "2"
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sat, 27 Jun 2026 19:12:46 GMT
+            Etag:
+                - '"15ddd61ae1425aaf2db7b44f4e6cc3e52c971dddcc0547f7e849a45120efacae"'
+            Referrer-Policy:
+                - origin-when-cross-origin, strict-origin-when-cross-origin
+            Server:
+                - github.com
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubdomains; preload
+            Vary:
+                - Accept, Authorization, Cookie, X-GitHub-OTP,Accept-Encoding, Accept, X-Requested-With
+            X-Accepted-Oauth-Scopes:
+                - admin:org, read:org, repo, write:org
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - deny
+            X-Github-Api-Version-Selected:
+                - "2022-11-28"
+            X-Github-Media-Type:
+                - github.v3; format=json
+            X-Github-Request-Id:
+                - 1EBB:5A44:12B17D0:1559566:6A4020AE
+            X-Oauth-Scopes:
+                - admin:org, repo
+            X-Ratelimit-Limit:
+                - "5000"
+            X-Ratelimit-Remaining:
+                - "4998"
+            X-Ratelimit-Reset:
+                - "1782590669"
+            X-Ratelimit-Resource:
+                - core
+            X-Ratelimit-Used:
+                - "2"
+            X-Xss-Protection:
+                - "0"
+        status: 200 OK
+        code: 200
+        duration: 348.066333ms
+    - id: 9
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: api.github.com
+        form:
+            page:
+                - "1"
+            per_page:
+                - "100"
+        headers:
+            Accept:
+                - application/vnd.github+json
+            Authorization:
+                - REDACTED
+            X-Github-Api-Version:
+                - "2022-11-28"
+        url: https://api.github.com/orgs/e2e-test-org/outside_collaborators?page=1&per_page=100
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 2
+        body: '[]'
+        headers:
+            Access-Control-Allow-Origin:
+                - '*'
+            Access-Control-Expose-Headers:
+                - ETag, Link, Location, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Used, X-RateLimit-Resource, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval, X-GitHub-Media-Type, X-GitHub-SSO, X-GitHub-Request-Id, Deprecation, Sunset, Warning
+            Cache-Control:
+                - private, max-age=60, s-maxage=60
+            Content-Length:
+                - "2"
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sat, 27 Jun 2026 19:12:47 GMT
+            Etag:
+                - '"15ddd61ae1425aaf2db7b44f4e6cc3e52c971dddcc0547f7e849a45120efacae"'
+            Referrer-Policy:
+                - origin-when-cross-origin, strict-origin-when-cross-origin
+            Server:
+                - github.com
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubdomains; preload
+            Vary:
+                - Accept, Authorization, Cookie, X-GitHub-OTP,Accept-Encoding, Accept, X-Requested-With
+            X-Accepted-Oauth-Scopes:
+                - admin:org, read:org, repo, write:org
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - deny
+            X-Github-Api-Version-Selected:
+                - "2022-11-28"
+            X-Github-Media-Type:
+                - github.v3; format=json
+            X-Github-Request-Id:
+                - 1EBB:5A44:12B182D:15595CB:6A4020AE
+            X-Oauth-Scopes:
+                - admin:org, repo
+            X-Ratelimit-Limit:
+                - "5000"
+            X-Ratelimit-Remaining:
+                - "4997"
+            X-Ratelimit-Reset:
+                - "1782590669"
+            X-Ratelimit-Resource:
+                - core
+            X-Ratelimit-Used:
+                - "3"
+            X-Xss-Protection:
+                - "0"
+        status: 200 OK
+        code: 200
+        duration: 298.771084ms
