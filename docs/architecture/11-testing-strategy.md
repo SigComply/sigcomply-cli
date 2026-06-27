@@ -48,7 +48,7 @@ loudly* when an upstream API changes.
 | **L1 — Mapping unit** | fake API response → mapped `EvidenceRecord`; every schema field populated; deterministic | No (by design) | $0 | per-PR | **CLI** |
 | **L2 — Contract/fixture** | recorded cassette replayed **through the real SDK deserializer**; cassette validated against the **vendor's published spec** | Partially (on re-record / spec-snapshot update) | $0 | per-PR | **CLI** |
 | **L3 — Spec-diff drift** | diff the vendor's own machine-readable API model on a schedule | **Yes — shape/contract changes**, for $0 | $0 | scheduled (weekly) | **CLI** |
-| **L4a — SaaS/Entra live** | real calls to **free** accounts (GitHub/GitLab/Okta/Entra) | **Yes — incl. behavioral** | ~$0 | scheduled (nightly) | **CLI** (`//go:build live`) |
+| **L4a — SaaS/Entra live** | real calls to **free** accounts (GitHub/GitLab/Okta/Entra†) | **Yes — incl. behavioral** | ~$0 | scheduled (nightly) | **CLI** (`//go:build live`) |
 | **L4b — Cloud + pipeline E2E** | provision minimal real cloud infra, run the released binary end-to-end, **assert expected per-policy outcomes** | **Yes — incl. behavioral + integration** | bounded (~$1–5/run) | scheduled / manual | **E2E repos** |
 
 **Why L3 is the centerpiece.** AWS (Smithy models), Azure
@@ -58,6 +58,12 @@ machine-readable model their own SDK is generated from. Diffing it on a
 schedule catches contract changes with **zero accounts and zero live
 calls**. GitLab's published spec is thin → for GitLab we lean on L4a
 cassette re-record diffs instead.
+
+† **Entra is partially live.** Non-premium Entra surfaces (users,
+`authorizationPolicy`) run as L4a live on a free Azure-account tenant; the
+**P2-gated MFA registration report** is not free to host, so it is covered
+by a spec-validated L2 cassette instead — see the Entra exception under §3
+boundary rules.
 
 ---
 
@@ -99,6 +105,31 @@ tests.
   fixtures.
 - The CLI repo never provisions cloud resources in CI. The E2E repos
   never contain Go unit tests of mappers.
+- **Entra's P2-gated surfaces are the one L4a exception.** Most Entra
+  surfaces (users, `authorizationPolicy`) are L4a-live-capable on a free
+  Azure-account tenant. But the **MFA registration report**
+  (`reports/authenticationMethods/userRegistrationDetails`) the plugin
+  reads requires an Entra ID **P2** license, which is **not free** — the
+  Microsoft 365 Developer Program is no longer self-serve, and a P2 trial
+  is time-boxed (30 days) and may require a payment method. So that single
+  surface is covered by a **hand-authored, spec-validated L2 cassette**
+  (validated against the `azure-rest-api-specs` OpenAPI like any other
+  cassette — see `mfa_registration_*.yaml`), not an L4a live call. This is
+  a deliberate, scoped fallback: the P2-gated report gets contract
+  coverage for $0; only its *nightly behavioral* live confirmation is
+  forgone. A maintainer with a live P2 tenant can record the real cassette
+  to refresh it; the per-PR gate never depends on either.
+- **GCP cassettes are hand-authored until a usable credential exists.**
+  The contract path for GCP is the same L2 cassette + L3 Discovery-Doc
+  drift as any cloud, but **live recording is currently blocked**: the test
+  GCP org enforces `iam.disableServiceAccountKeyCreation` (no downloadable
+  JSON keys) *and* an org-level IAM deny on `iam.serviceAccounts.*` (so
+  impersonation also fails, even for a project Owner), and its billing
+  account is closed (so `compute`/`container` won't enable). Until an org
+  admin lifts those (or a no-org project is used), GCP cassettes are
+  **hand-authored and validated against the published Discovery Doc /
+  OpenAPI**, exactly like the Entra P2 fallback above. Same contract
+  coverage for $0; only live (L4a smoke / L4b behavioral) GCP is deferred.
 
 ---
 
@@ -228,7 +259,7 @@ spec snapshot is the only artifact that lives outside the plugin package
 | Spec-diff (AWS) | `smithy diff` / track `botocore` `.changes` | models in `aws/aws-sdk-go-v2` `codegen/sdk-codegen/aws-models/` |
 | Spec-diff (GCP) | snapshot Discovery Doc + JSON / `oasdiff` (via converter) | `https://<api>.googleapis.com/$discovery/rest?version=<v>` |
 | Sweeper | `cloud-nuke` / `aws-nuke` | name-prefix scoped; dedicated test account |
-| Free identity tenant | Microsoft 365 Developer Program | Entra ID P2 + seeded users (for L4a Entra) |
+| Free identity tenant | Free Azure-account tenant (`*.onmicrosoft.com`) + seeded users | Covers non-premium L4a Entra (users, policies). The Microsoft 365 Developer Program is no longer self-serve free. **Entra ID P2 is not free** (time-boxed trial only) → the P2-gated MFA registration report falls back to a spec-validated L2 cassette, not L4a. |
 | Schema validation in tests | existing `internal/evidence_types` (`gojsonschema`) | reuse `Validate()` |
 
 ---
