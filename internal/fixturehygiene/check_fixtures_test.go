@@ -85,6 +85,18 @@ func TestGatePassesOnCleanTree(t *testing.T) {
 	}
 }
 
+// A 12-digit run that is a substring of a longer alphanumeric token — a
+// sha256 hash, a hex commit SHA — is not an AWS account ID and must not trip
+// the account-ID detector.
+func TestGatePassesOnHashesWithDigitRuns(t *testing.T) {
+	content := `commit_sha: "deadbeef0000000000000000000000000000beef"` + "\n" +
+		`policy_content_hash: "sha256:1111111111111111111111111111111111111111111111111111111111111111"` + "\n"
+	code, out := run(t, writeFixture(t, content))
+	if code != 0 {
+		t.Fatalf("expected clean exit for hashes with embedded digit runs, got %d\n%s", code, out)
+	}
+}
+
 func TestGatePassesOnEmptyDir(t *testing.T) {
 	code, out := run(t, t.TempDir())
 	if code != 0 {

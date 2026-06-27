@@ -76,10 +76,14 @@ scan "AWS access keys (AKIA…)" \
     'AKIA[0-9A-Z]{16}' \
     'EXAMPLE'
 
-# Bare 12-digit AWS account IDs. Placeholder is all-zeros.
+# Bare 12-digit AWS account IDs. Placeholder is all-zeros. The digit run must
+# stand alone (delimited by a non-alphanumeric or a line edge) so a 12-digit
+# *substring* of a longer token — a 64-hex sha256 hash, a hex commit SHA — does
+# not false-positive. grep -o keeps the delimiter chars, so the allow pattern
+# tolerates them around the zero placeholder.
 scan "AWS account IDs (12 digits)" \
-    '[0-9]{12}' \
-    '^0{12}$'
+    '(^|[^0-9A-Za-z])[0-9]{12}([^0-9A-Za-z]|$)' \
+    '(^|[^0-9])0{12}([^0-9]|$)'
 
 # ARNs carrying a real (non-zero) account ID.
 scan "ARNs with a real account ID" \
