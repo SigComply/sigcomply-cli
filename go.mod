@@ -53,7 +53,7 @@ require (
 	github.com/getkin/kin-openapi v0.134.0
 	github.com/google/uuid v1.6.0
 	github.com/open-policy-agent/opa v1.17.0
-	github.com/pdfcpu/pdfcpu v0.12.1
+	github.com/pdfcpu/pdfcpu v0.13.0
 	github.com/phpdave11/gofpdf v1.4.3
 	github.com/spf13/cobra v1.10.2
 	github.com/xeipuuv/gojsonschema v1.2.0
@@ -128,7 +128,7 @@ require (
 	github.com/lestrrat-go/jwx/v3 v3.1.1 // indirect
 	github.com/lestrrat-go/option/v2 v2.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/mattn/go-runewidth v0.0.23 // indirect
+	github.com/mattn/go-runewidth v0.0.24 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/oasdiff/yaml v0.0.0-20260313112342-a3ea61cb4d4c // indirect
 	github.com/oasdiff/yaml3 v0.0.0-20260224194419-61cd415a242b // indirect
@@ -160,7 +160,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.3 // indirect
-	golang.org/x/crypto v0.51.0 // indirect
+	golang.org/x/crypto v0.52.0 // indirect
 	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
