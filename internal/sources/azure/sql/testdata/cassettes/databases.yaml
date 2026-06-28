@@ -1,0 +1,178 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56206
+        form:
+            api-version:
+                - 2021-02-01-preview
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armsql/v1.2.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Sql/servers?api-version=2021-02-01-preview
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 276
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Sql/servers/e2esql","name":"e2esql","location":"eastus","properties":{"state":"Ready","version":"12.0","publicNetworkAccess":"Disabled","minimalTlsVersion":"1.2"}}]}'
+        headers:
+            Content-Length:
+                - "276"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:02:15 GMT
+        status: 200 OK
+        code: 200
+        duration: 5.4705ms
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56206
+        form:
+            api-version:
+                - 2021-05-01-preview
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armsql/v1.2.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Sql/servers/e2esql/databases?api-version=2021-05-01-preview
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 200
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Sql/servers/e2esql/databases/appdb","name":"appdb","properties":{"zoneRedundant":true}}]}'
+        headers:
+            Content-Length:
+                - "200"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:02:15 GMT
+        status: 200 OK
+        code: 200
+        duration: 245.791µs
+    - id: 2
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56206
+        form:
+            api-version:
+                - 2021-02-01-preview
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armsql/v1.2.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Sql/servers/e2esql/databases/appdb/transparentDataEncryption/current?api-version=2021-02-01-preview
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 221
+        body: '{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Sql/servers/e2esql/databases/appdb/transparentDataEncryption/current","name":"current","properties":{"state":"Enabled"}}'
+        headers:
+            Content-Length:
+                - "221"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:02:15 GMT
+        status: 200 OK
+        code: 200
+        duration: 174µs
+    - id: 3
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56206
+        form:
+            api-version:
+                - "2025-08-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armpostgresqlflexibleservers/v5.0.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.DBforPostgreSQL/flexibleServers?api-version=2025-08-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 383
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.DBforPostgreSQL/flexibleServers/e2epg","name":"e2epg","location":"eastus","properties":{"version":"13","network":{"publicNetworkAccess":"Disabled"},"highAvailability":{"mode":"ZoneRedundant"},"backup":{"backupRetentionDays":7},"dataEncryption":{"type":"AzureKeyVault"}}}]}'
+        headers:
+            Content-Length:
+                - "383"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:02:15 GMT
+        status: 200 OK
+        code: 200
+        duration: 153.833µs
+    - id: 4
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56206
+        form:
+            api-version:
+                - "2021-05-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armmysqlflexibleservers/v1.2.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.DBforMySQL/flexibleServers?api-version=2021-05-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 12
+        body: '{"value":[]}'
+        headers:
+            Content-Length:
+                - "12"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:02:15 GMT
+        status: 200 OK
+        code: 200
+        duration: 174.208µs

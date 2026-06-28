@@ -1,0 +1,73 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56189
+        form:
+            api-version:
+                - "2024-01-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armstorage/v1.8.1 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Storage/storageAccounts?api-version=2024-01-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 613
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Storage/storageAccounts/e2eaccount","name":"e2eaccount","type":"Microsoft.Storage/storageAccounts","location":"eastus","properties":{"creationTime":"2026-01-02T03:04:05Z","allowBlobPublicAccess":false,"minimumTlsVersion":"TLS1_2","publicNetworkAccess":"Enabled","encryption":{"keySource":"Microsoft.Keyvault","keyVaultProperties":{"keyVaultUri":"https://e2evault.vault.azure.net","keyName":"k1","keyVersion":"ver1","currentVersionedKeyIdentifier":"https://e2evault.vault.azure.net/keys/k1/abc123"}}}}]}'
+        headers:
+            Content-Length:
+                - "613"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:00:30 GMT
+        status: 200 OK
+        code: 200
+        duration: 4.299833ms
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56189
+        form:
+            api-version:
+                - "2024-01-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armstorage/v1.8.1 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Storage/storageAccounts/e2eaccount/blobServices/default?api-version=2024-01-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 93
+        body: '{"properties":{"isVersioningEnabled":true,"deleteRetentionPolicy":{"enabled":true,"days":7}}}'
+        headers:
+            Content-Length:
+                - "93"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:00:30 GMT
+        status: 200 OK
+        code: 200
+        duration: 258.542µs
