@@ -75,6 +75,15 @@ infrastructure provisioning, and gate every CLI change. L4a (SaaS/Entra)
 lives here because those vendors are *free* and need only a token — no
 Terraform, no teardown.
 
+**L4a convention (WU-4.1).** A live test carries the `//go:build live` tag
+(so the default `go test ./...`, the coverage gate, and CI's unit job never
+compile it) and calls `sourcetest.RequireEnv(t, "GITHUB_TEST_TOKEN", …)` as
+its first line — which returns the values when every named var is set, or
+`t.Skip`s when any is absent. So `make test-live` (`go test -tags live ./...`)
+runs every live test that has credentials configured and cleanly skips the
+rest; with no secrets set (PRs, most contributors) the whole set no-ops. Live
+tests never count toward the coverage number.
+
 **The E2E repos own L4b only.** L4b needs real provisioned cloud
 infrastructure (apply → read → assert → destroy), credential/OIDC
 plumbing per CI platform, and a sweeper to garbage-collect leaks. That

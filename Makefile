@@ -64,6 +64,10 @@ test-unit: ## Run unit tests (fast: -short skips heavy binary-build tests)
 test-full: ## Run the full suite, including heavy `sigcomply build` tests (what CI runs)
 	$(GOTEST) -race ./...
 
+.PHONY: test-live
+test-live: ## Run L4a live tests (//go:build live) against real APIs; each skips unless its creds env is set
+	$(GOTEST) -tags live -count=1 ./...
+
 .PHONY: test-coverage
 test-coverage: ## Run the full suite with coverage report (matches CI's enforced number)
 	@mkdir -p $(COVERAGE_DIR)
