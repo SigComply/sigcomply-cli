@@ -113,6 +113,10 @@ check-fixtures: ## Scan testdata/ + contracts/ for leaked secrets/PII (WU-0.3 ga
 contracts-fetch: ## Refresh contracts/ vendor spec snapshots from upstream (WU-3.1)
 	./scripts/contracts-fetch.sh
 
+.PHONY: contracts-diff
+contracts-diff: ## Diff committed contracts/ vs fresh upstream; report breaking drift (WU-3.2)
+	./scripts/contracts-diff.sh
+
 .PHONY: tidy
 tidy: ## Tidy go modules
 	$(GOMOD) tidy

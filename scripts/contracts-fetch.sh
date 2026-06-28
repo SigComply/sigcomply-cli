@@ -17,6 +17,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 SLICE_DIR="scripts/contracts"
+# Output root; contracts-diff.sh overrides this to fetch fresh into a temp dir
+# without touching the committed snapshots.
+OUT_ROOT="${CONTRACTS_DIR:-contracts}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -50,14 +53,14 @@ fetch_smithy() {
     local ver
     ver="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(next((v.get("version","") for v in d["shapes"].values() if v.get("type")=="service"), ""))' "$TMP/$model.json")"
     [ -n "$ver" ] || { echo "contracts-fetch: could not derive $out API version" >&2; exit 1; }
-    mkdir -p contracts/aws
-    python3 "$SLICE_DIR/slice_smithy.py" "$TMP/$model.json" "contracts/aws/$out@$ver.json" "$@"
+    mkdir -p "$OUT_ROOT/aws"
+    python3 "$SLICE_DIR/slice_smithy.py" "$TMP/$model.json" "$OUT_ROOT/aws/$out@$ver.json" "$@"
 }
 
 echo "GitHub:"
 fetch_openapi \
     "$GH_RAW/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json" \
-    "contracts/github/api.github.com@2026-06-28.json" \
+    "$OUT_ROOT/github/api.github.com@2026-06-28.json" \
     "GitHub REST API (sigcomply contract slice)" \
     "github/rest-api-description descriptions/api.github.com/api.github.com.json" \
     "operations consumed by internal/sources/github; see github_spec_conformance_test.go" \
@@ -70,7 +73,7 @@ fetch_openapi \
 echo "Okta:"
 fetch_openapi_yaml \
     "$GH_RAW/okta/okta-management-openapi-spec/master/dist/current/management-minimal.yaml" \
-    "contracts/okta/management@2026-06-28.json" \
+    "$OUT_ROOT/okta/management@2026-06-28.json" \
     "Okta Management API (sigcomply contract slice)" \
     "okta/okta-management-openapi-spec dist/current/management-minimal.yaml" \
     "operations consumed by internal/sources/okta; see okta_spec_conformance_test.go" \
