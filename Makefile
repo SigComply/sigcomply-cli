@@ -68,6 +68,10 @@ test-full: ## Run the full suite, including heavy `sigcomply build` tests (what 
 test-live: ## Run L4a live tests (//go:build live) against real APIs; each skips unless its creds env is set
 	$(GOTEST) -tags live -count=1 ./...
 
+.PHONY: test-contract
+test-contract: ## Run L2 contract tests: per-plugin cassette + fixture-vs-spec conformance
+	$(GOTEST) -run Conformance ./internal/sources/...
+
 .PHONY: test-coverage
 test-coverage: ## Run the full suite with coverage report (matches CI's enforced number)
 	@mkdir -p $(COVERAGE_DIR)
