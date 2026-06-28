@@ -55,7 +55,7 @@ func TestGCPSCCConformance(t *testing.T) {
 	if err := json.Unmarshal(vuln[0].Payload, &v); err != nil {
 		t.Fatal(err)
 	}
-	if v.Severity != "HIGH" || v.Status != "ACTIVE" || !v.RemediationAvailable {
-		t.Errorf("finding = %+v; want HIGH/ACTIVE with remediation", v)
+	if v.Status != stateActive || v.CVEID == "" || !v.RemediationAvailable {
+		t.Errorf("finding = %+v; want an active CVE finding with remediation", v)
 	}
 }
