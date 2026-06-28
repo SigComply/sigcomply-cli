@@ -1,0 +1,77 @@
+name: Contract Drift
+
+# L3 drift detection (WU-3.3): weekly, re-fetch every pinned vendor API-spec
+# slice and diff it against the committed snapshot. Alert-only — it NEVER runs
+# on PRs and never blocks them; on a breaking change it opens (or comments on) a
+# GitHub issue so a human can triage per the runbook in
+# docs/architecture/11-testing-strategy.md.
+
+on:
+  schedule:
+    # Weekly on Monday at 00:00 UTC (mirrors security.yml).
+    - cron: '0 0 * * 1'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  contract-drift:
+    name: Contract drift
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write # open/update the alert issue
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      # ubuntu-latest ships python3, ruby, and curl — all contracts-diff needs.
+      - name: Diff committed contracts vs. upstream
+        id: diff
+        run: |
+          set +e
+          ./scripts/contracts-diff.sh > drift-report.txt 2>&1
+          code=$?
+          echo "exit=$code" >> "$GITHUB_OUTPUT"
+          cat drift-report.txt
+          # exit 1 = breaking drift, exit 2 = fetch/tooling failure; both alert.
+          if [ "$code" -ne 0 ]; then echo "alert=true" >> "$GITHUB_OUTPUT"; fi
+          exit 0
+
+      - name: Open or update drift issue
+        if: steps.diff.outputs.alert == 'true'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('drift-report.txt', 'utf8');
+            const { owner, repo } = context.repo;
+            const label = 'contract-drift';
+            const title = 'Contract drift detected in a pinned vendor spec';
+            const body = [
+              'A scheduled `make contracts-diff` run found a change in a pinned vendor',
+              'API-spec snapshot under `contracts/`. This is an L3 drift alert — assess',
+              'impact on the affected source plugin(s), re-record cassettes if needed,',
+              'and refresh the snapshot with `make contracts-fetch`. Runbook:',
+              '`docs/architecture/11-testing-strategy.md`.',
+              '',
+              '```',
+              report.trim(),
+              '```',
+            ].join('\n');
+            const existing = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: label,
+            });
+            if (existing.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: existing.data[0].number, body,
+              });
+            } else {
+              await github.rest.issues.create({ owner, repo, title, labels: [label], body });
+            }
