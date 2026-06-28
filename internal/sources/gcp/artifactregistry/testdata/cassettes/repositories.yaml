@@ -1,0 +1,108 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55830
+        form:
+            alt:
+                - json
+            prettyPrint:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://artifactregistry.googleapis.com/v1/projects/e2e-project/locations?alt=json&prettyPrint=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 78
+        body: '{"locations":[{"locationId":"us","name":"projects/e2e-project/locations/us"}]}'
+        headers:
+            Content-Length:
+                - "78"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 13:38:48 GMT
+        status: 200 OK
+        code: 200
+        duration: 1.146625ms
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55830
+        form:
+            alt:
+                - json
+            prettyPrint:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://artifactregistry.googleapis.com/v1/projects/e2e-project/locations/us/repositories?alt=json&prettyPrint=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 356
+        body: '{"repositories":[{"name":"projects/e2e-project/locations/us/repositories/app","format":"DOCKER","mode":"STANDARD_REPOSITORY","registryUri":"us-docker.pkg.dev/e2e-project/app","kmsKeyName":"projects/e2e-project/locations/us/keyRings/r/cryptoKeys/k","dockerConfig":{"immutableTags":true},"vulnerabilityScanningConfig":{"enablementState":"SCANNING_ACTIVE"}}]}'
+        headers:
+            Content-Length:
+                - "356"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 13:38:48 GMT
+        status: 200 OK
+        code: 200
+        duration: 187.333µs
+    - id: 2
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55830
+        form:
+            alt:
+                - json
+            prettyPrint:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://artifactregistry.googleapis.com/v1/projects/e2e-project/locations/us/repositories/app:getIamPolicy?alt=json&prettyPrint=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 123
+        body: '{"bindings":[{"role":"roles/artifactregistry.reader","members":["serviceAccount:user@example.com"]}]}'
+        headers:
+            Content-Length:
+                - "123"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 13:38:48 GMT
+        status: 200 OK
+        code: 200
+        duration: 140µs

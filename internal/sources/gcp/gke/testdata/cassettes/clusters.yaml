@@ -1,0 +1,38 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55828
+        form:
+            alt:
+                - json
+            prettyPrint:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://container.googleapis.com/v1/projects/e2e-project/locations/-/clusters?alt=json&prettyPrint=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 607
+        body: '{"clusters":[{"name":"e2e-cluster","selfLink":"https://container.googleapis.com/v1/projects/e2e-project/zones/us-central1-a/clusters/e2e-cluster","location":"us-central1-a","status":"RUNNING","currentMasterVersion":"1.29.5-gke.100","loggingConfig":{"componentConfig":{"enableComponents":["SYSTEM_COMPONENTS","WORKLOADS"]}},"databaseEncryption":{"state":"ENCRYPTED","keyName":"projects/e2e-project/locations/us-central1/keyRings/r/cryptoKeys/k"},"privateClusterConfig":{"enablePrivateEndpoint":true},"releaseChannel":{"channel":"REGULAR"},"nodePools":[{"name":"default","management":{"autoUpgrade":true}}]}]}'
+        headers:
+            Content-Length:
+                - "607"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 13:38:46 GMT
+        status: 200 OK
+        code: 200
+        duration: 559.5µs

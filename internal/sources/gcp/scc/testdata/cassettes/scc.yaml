@@ -1,0 +1,112 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55836
+        form:
+            alt:
+                - json
+            prettyPrint:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://securitycenter.googleapis.com/v1beta2/organizations/123/eventThreatDetectionSettings?alt=json&prettyPrint=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 92
+        body: '{"name":"organizations/123/eventThreatDetectionSettings","serviceEnablementState":"ENABLED"}'
+        headers:
+            Content-Length:
+                - "92"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 13:39:18 GMT
+        status: 200 OK
+        code: 200
+        duration: 534.667µs
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55836
+        form:
+            alt:
+                - json
+            prettyPrint:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://securitycenter.googleapis.com/v1beta2/organizations/123/securityHealthAnalyticsSettings?alt=json&prettyPrint=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 95
+        body: '{"name":"organizations/123/securityHealthAnalyticsSettings","serviceEnablementState":"ENABLED"}'
+        headers:
+            Content-Length:
+                - "95"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 13:39:18 GMT
+        status: 200 OK
+        code: 200
+        duration: 196.917µs
+    - id: 2
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55836
+        form:
+            alt:
+                - json
+            filter:
+                - state="ACTIVE" AND (finding_class="VULNERABILITY" OR finding_class="MISCONFIGURATION")
+            pageSize:
+                - "1000"
+            prettyPrint:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://securitycenter.googleapis.com/v1/organizations/123/sources/-/findings?alt=json&filter=state%3D%22ACTIVE%22+AND+%28finding_class%3D%22VULNERABILITY%22+OR+finding_class%3D%22MISCONFIGURATION%22%29&pageSize=1000&prettyPrint=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 439
+        body: '{"listFindingsResults":[{"finding":{"name":"organizations/123/sources/-/findings/f1","resourceName":"//compute.googleapis.com/projects/e2e-project/global/firewalls/open","category":"OPEN_FIREWALL","severity":"HIGH","state":"ACTIVE","findingClass":"MISCONFIGURATION","nextSteps":"Restrict the firewall source ranges","vulnerability":{"cve":{"id":"CVE-2024-1111","cvssv3":{"baseScore":7.5}}}},"resource":{"type":"google.compute.Firewall"}}]}'
+        headers:
+            Content-Length:
+                - "439"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 13:39:18 GMT
+        status: 200 OK
+        code: 200
+        duration: 131.5µs
