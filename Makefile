@@ -109,6 +109,10 @@ vet: ## Run go vet
 check-fixtures: ## Scan testdata/ + contracts/ for leaked secrets/PII (WU-0.3 gate)
 	./scripts/check-fixtures.sh
 
+.PHONY: contracts-fetch
+contracts-fetch: ## Refresh contracts/ vendor spec snapshots from upstream (WU-3.1)
+	./scripts/contracts-fetch.sh
+
 .PHONY: tidy
 tidy: ## Tidy go modules
 	$(GOMOD) tidy

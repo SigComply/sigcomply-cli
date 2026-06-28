@@ -1,0 +1,1402 @@
+{
+ "smithy": "2.0",
+ "shapes": {
+  "com.amazonaws.kms#TrentService": {
+   "type": "service",
+   "version": "2014-11-01",
+   "operations": [
+    {
+     "target": "com.amazonaws.kms#DescribeKey"
+    },
+    {
+     "target": "com.amazonaws.kms#GetKeyRotationStatus"
+    },
+    {
+     "target": "com.amazonaws.kms#ListKeys"
+    }
+   ],
+   "traits": {
+    "aws.api#service": {
+     "sdkId": "KMS",
+     "arnNamespace": "kms",
+     "cloudFormationName": "KMS",
+     "cloudTrailEventSource": "kms.amazonaws.com",
+     "endpointPrefix": "kms"
+    },
+    "aws.auth#sigv4": {
+     "name": "kms"
+    },
+    "aws.protocols#awsJson1_1": {},
+    "smithy.api#title": "AWS Key Management Service",
+    "smithy.api#xmlNamespace": {
+     "uri": "https://trent.amazonaws.com/doc/2014-11-01/"
+    },
+    "smithy.rules#endpointBdd": {
+     "version": "1.1",
+     "parameters": {
+      "Region": {
+       "builtIn": "AWS::Region",
+       "required": false,
+       "documentation": "The AWS region used to dispatch the request.",
+       "type": "string"
+      },
+      "UseDualStack": {
+       "builtIn": "AWS::UseDualStack",
+       "required": true,
+       "default": false,
+       "documentation": "When true, use the dual-stack endpoint. If the configured endpoint does not support dual-stack, dispatching the request MAY return an error.",
+       "type": "boolean"
+      },
+      "UseFIPS": {
+       "builtIn": "AWS::UseFIPS",
+       "required": true,
+       "default": false,
+       "documentation": "When true, send this request to the FIPS-compliant regional endpoint. If the configured endpoint does not have a FIPS compliant endpoint, dispatching the request will return an error.",
+       "type": "boolean"
+      },
+      "Endpoint": {
+       "builtIn": "SDK::Endpoint",
+       "required": false,
+       "documentation": "Override the endpoint used to send this request",
+       "type": "string"
+      }
+     },
+     "conditions": [
+      {
+       "fn": "isSet",
+       "argv": [
+        {
+         "ref": "Endpoint"
+        }
+       ]
+      },
+      {
+       "fn": "isSet",
+       "argv": [
+        {
+         "ref": "Region"
+        }
+       ]
+      },
+      {
+       "fn": "aws.partition",
+       "argv": [
+        {
+         "ref": "Region"
+        }
+       ],
+       "assign": "PartitionResult"
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "ref": "UseFIPS"
+        },
+        true
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "ref": "UseDualStack"
+        },
+        true
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "supportsDualStack"
+         ]
+        },
+        true
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "supportsFIPS"
+         ]
+        },
+        true
+       ]
+      }
+     ],
+     "results": [
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: FIPS and custom endpoint are not supported",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: Dualstack and custom endpoint are not supported",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": {
+         "ref": "Endpoint"
+        },
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://kms-fips.{Region}.{PartitionResult#dualStackDnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "FIPS and DualStack are enabled, but this partition does not support one or both",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://kms-fips.{Region}.{PartitionResult#dnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "FIPS is enabled but this partition does not support FIPS",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://kms.{Region}.{PartitionResult#dualStackDnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "DualStack is enabled but this partition does not support DualStack",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://kms.{Region}.{PartitionResult#dnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: Missing Region",
+       "type": "error"
+      }
+     ],
+     "root": 2,
+     "nodeCount": 13,
+     "nodes": "/////wAAAAH/////AAAAAAAAAAwAAAADAAAAAQAAAAQF9eELAAAAAgAAAAUF9eELAAAAAwAAAAgAAAAGAAAABAAAAAcF9eEKAAAABQX14QgF9eEJAAAABAAAAAoAAAAJAAAABgX14QYF9eEHAAAABQAAAAsF9eEFAAAABgX14QQF9eEFAAAAAwX14QEAAAANAAAABAX14QIF9eED"
+    }
+   }
+  },
+  "com.amazonaws.kms#AWSAccountIdType": {
+   "type": "string"
+  },
+  "com.amazonaws.kms#ArnType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 20,
+     "max": 2048
+    }
+   }
+  },
+  "com.amazonaws.kms#BackingKeyIdType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 64,
+     "max": 64
+    },
+    "smithy.api#pattern": "^[a-f0-9]+$"
+   }
+  },
+  "com.amazonaws.kms#BooleanType": {
+   "type": "boolean",
+   "traits": {
+    "smithy.api#default": false
+   }
+  },
+  "com.amazonaws.kms#CloudHsmClusterIdType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 19,
+     "max": 24
+    },
+    "smithy.api#pattern": "^cluster-[2-7a-zA-Z]{11,16}$"
+   }
+  },
+  "com.amazonaws.kms#CustomKeyStoreIdType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 64
+    }
+   }
+  },
+  "com.amazonaws.kms#CustomerMasterKeySpec": {
+   "type": "enum",
+   "members": {
+    "RSA_2048": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "RSA_2048"
+     }
+    },
+    "RSA_3072": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "RSA_3072"
+     }
+    },
+    "RSA_4096": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "RSA_4096"
+     }
+    },
+    "ECC_NIST_P256": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ECC_NIST_P256"
+     }
+    },
+    "ECC_NIST_P384": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ECC_NIST_P384"
+     }
+    },
+    "ECC_NIST_P521": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ECC_NIST_P521"
+     }
+    },
+    "ECC_SECG_P256K1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ECC_SECG_P256K1"
+     }
+    },
+    "SYMMETRIC_DEFAULT": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "SYMMETRIC_DEFAULT"
+     }
+    },
+    "HMAC_224": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "HMAC_224"
+     }
+    },
+    "HMAC_256": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "HMAC_256"
+     }
+    },
+    "HMAC_384": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "HMAC_384"
+     }
+    },
+    "HMAC_512": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "HMAC_512"
+     }
+    },
+    "SM2": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "SM2"
+     }
+    }
+   },
+   "traits": {
+    "smithy.api#deprecated": {
+     "message": "This enum has been deprecated. Instead, use the KeySpec enum."
+    }
+   }
+  },
+  "com.amazonaws.kms#DateType": {
+   "type": "timestamp"
+  },
+  "com.amazonaws.kms#DependencyTimeoutException": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.kms#ErrorMessageType"
+    }
+   },
+   "traits": {
+    "aws.protocols#awsQueryError": {
+     "code": "DependencyTimeout",
+     "httpResponseCode": 503
+    },
+    "smithy.api#error": "server",
+    "smithy.api#httpError": 503
+   }
+  },
+  "com.amazonaws.kms#DescribeKey": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.kms#DescribeKeyRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.kms#DescribeKeyResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.kms#DependencyTimeoutException"
+    },
+    {
+     "target": "com.amazonaws.kms#InvalidArnException"
+    },
+    {
+     "target": "com.amazonaws.kms#KMSInternalException"
+    },
+    {
+     "target": "com.amazonaws.kms#NotFoundException"
+    }
+   ],
+   "traits": {}
+  },
+  "com.amazonaws.kms#DescribeKeyRequest": {
+   "type": "structure",
+   "members": {
+    "KeyId": {
+     "target": "com.amazonaws.kms#KeyIdType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "GrantTokens": {
+     "target": "com.amazonaws.kms#GrantTokenList",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.kms#DescribeKeyResponse": {
+   "type": "structure",
+   "members": {
+    "KeyMetadata": {
+     "target": "com.amazonaws.kms#KeyMetadata",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.kms#DescriptionType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 0,
+     "max": 8192
+    }
+   }
+  },
+  "com.amazonaws.kms#EncryptionAlgorithmSpec": {
+   "type": "enum",
+   "members": {
+    "SYMMETRIC_DEFAULT": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "SYMMETRIC_DEFAULT"
+     }
+    },
+    "RSAES_OAEP_SHA_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "RSAES_OAEP_SHA_1"
+     }
+    },
+    "RSAES_OAEP_SHA_256": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "RSAES_OAEP_SHA_256"
+     }
+    },
+    "SM2PKE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "SM2PKE"
+     }
+    }
+   }
+  },
+  "com.amazonaws.kms#EncryptionAlgorithmSpecList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.kms#EncryptionAlgorithmSpec"
+   }
+  },
+  "com.amazonaws.kms#ErrorMessageType": {
+   "type": "string"
+  },
+  "com.amazonaws.kms#ExpirationModelType": {
+   "type": "enum",
+   "members": {
+    "KEY_MATERIAL_EXPIRES": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "KEY_MATERIAL_EXPIRES"
+     }
+    },
+    "KEY_MATERIAL_DOES_NOT_EXPIRE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "KEY_MATERIAL_DOES_NOT_EXPIRE"
+     }
+    }
+   }
+  },
+  "com.amazonaws.kms#GetKeyRotationStatus": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.kms#GetKeyRotationStatusRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.kms#GetKeyRotationStatusResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.kms#DependencyTimeoutException"
+    },
+    {
+     "target": "com.amazonaws.kms#InvalidArnException"
+    },
+    {
+     "target": "com.amazonaws.kms#KMSInternalException"
+    },
+    {
+     "target": "com.amazonaws.kms#KMSInvalidStateException"
+    },
+    {
+     "target": "com.amazonaws.kms#NotFoundException"
+    },
+    {
+     "target": "com.amazonaws.kms#UnsupportedOperationException"
+    }
+   ],
+   "traits": {}
+  },
+  "com.amazonaws.kms#GetKeyRotationStatusRequest": {
+   "type": "structure",
+   "members": {
+    "KeyId": {
+     "target": "com.amazonaws.kms#KeyIdType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.kms#GetKeyRotationStatusResponse": {
+   "type": "structure",
+   "members": {
+    "KeyRotationEnabled": {
+     "target": "com.amazonaws.kms#BooleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    },
+    "KeyId": {
+     "target": "com.amazonaws.kms#KeyIdType",
+     "traits": {}
+    },
+    "RotationPeriodInDays": {
+     "target": "com.amazonaws.kms#RotationPeriodInDaysType",
+     "traits": {}
+    },
+    "NextRotationDate": {
+     "target": "com.amazonaws.kms#DateType",
+     "traits": {}
+    },
+    "OnDemandRotationStartDate": {
+     "target": "com.amazonaws.kms#DateType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.kms#GrantTokenList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.kms#GrantTokenType"
+   },
+   "traits": {
+    "smithy.api#length": {
+     "min": 0,
+     "max": 10
+    }
+   }
+  },
+  "com.amazonaws.kms#GrantTokenType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 8192
+    }
+   }
+  },
+  "com.amazonaws.kms#InvalidArnException": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.kms#ErrorMessageType"
+    }
+   },
+   "traits": {
+    "aws.protocols#awsQueryError": {
+     "code": "InvalidArn",
+     "httpResponseCode": 400
+    },
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 400
+   }
+  },
+  "com.amazonaws.kms#InvalidMarkerException": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.kms#ErrorMessageType"
+    }
+   },
+   "traits": {
+    "aws.protocols#awsQueryError": {
+     "code": "InvalidMarker",
+     "httpResponseCode": 400
+    },
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 400
+   }
+  },
+  "com.amazonaws.kms#KMSInternalException": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.kms#ErrorMessageType"
+    }
+   },
+   "traits": {
+    "aws.protocols#awsQueryError": {
+     "code": "KMSInternal",
+     "httpResponseCode": 500
+    },
+    "smithy.api#error": "server",
+    "smithy.api#httpError": 500
+   }
+  },
+  "com.amazonaws.kms#KMSInvalidStateException": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.kms#ErrorMessageType"
+    }
+   },
+   "traits": {
+    "aws.protocols#awsQueryError": {
+     "code": "KMSInvalidStateException",
+     "httpResponseCode": 409
+    },
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 409
+   }
+  },
+  "com.amazonaws.kms#KeyAgreementAlgorithmSpec": {
+   "type": "enum",
+   "members": {
+    "ECDH": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ECDH"
+     }
+    }
+   }
+  },
+  "com.amazonaws.kms#KeyAgreementAlgorithmSpecList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.kms#KeyAgreementAlgorithmSpec"
+   }
+  },
+  "com.amazonaws.kms#KeyIdType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 2048
+    }
+   }
+  },
+  "com.amazonaws.kms#KeyList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.kms#KeyListEntry"
+   }
+  },
+  "com.amazonaws.kms#KeyListEntry": {
+   "type": "structure",
+   "members": {
+    "KeyId": {
+     "target": "com.amazonaws.kms#KeyIdType",
+     "traits": {}
+    },
+    "KeyArn": {
+     "target": "com.amazonaws.kms#ArnType",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.kms#KeyManagerType": {
+   "type": "enum",
+   "members": {
+    "AWS": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "AWS"
+     }
+    },
+    "CUSTOMER": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "CUSTOMER"
+     }
+    }
+   }
+  },
+  "com.amazonaws.kms#KeyMetadata": {
+   "type": "structure",
+   "members": {
+    "AWSAccountId": {
+     "target": "com.amazonaws.kms#AWSAccountIdType",
+     "traits": {}
+    },
+    "KeyId": {
+     "target": "com.amazonaws.kms#KeyIdType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "Arn": {
+     "target": "com.amazonaws.kms#ArnType",
+     "traits": {}
+    },
+    "CreationDate": {
+     "target": "com.amazonaws.kms#DateType",
+     "traits": {}
+    },
+    "Enabled": {
+     "target": "com.amazonaws.kms#BooleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    },
+    "Description": {
+     "target": "com.amazonaws.kms#DescriptionType",
+     "traits": {}
+    },
+    "KeyUsage": {
+     "target": "com.amazonaws.kms#KeyUsageType",
+     "traits": {}
+    },
+    "KeyState": {
+     "target": "com.amazonaws.kms#KeyState",
+     "traits": {}
+    },
+    "DeletionDate": {
+     "target": "com.amazonaws.kms#DateType",
+     "traits": {}
+    },
+    "ValidTo": {
+     "target": "com.amazonaws.kms#DateType",
+     "traits": {}
+    },
+    "Origin": {
+     "target": "com.amazonaws.kms#OriginType",
+     "traits": {}
+    },
+    "CustomKeyStoreId": {
+     "target": "com.amazonaws.kms#CustomKeyStoreIdType",
+     "traits": {}
+    },
+    "CloudHsmClusterId": {
+     "target": "com.amazonaws.kms#CloudHsmClusterIdType",
+     "traits": {}
+    },
+    "ExpirationModel": {
+     "target": "com.amazonaws.kms#ExpirationModelType",
+     "traits": {}
+    },
+    "KeyManager": {
+     "target": "com.amazonaws.kms#KeyManagerType",
+     "traits": {}
+    },
+    "CustomerMasterKeySpec": {
+     "target": "com.amazonaws.kms#CustomerMasterKeySpec",
+     "traits": {
+      "smithy.api#deprecated": {
+       "message": "This field has been deprecated. Instead, use the KeySpec field."
+      }
+     }
+    },
+    "KeySpec": {
+     "target": "com.amazonaws.kms#KeySpec",
+     "traits": {}
+    },
+    "EncryptionAlgorithms": {
+     "target": "com.amazonaws.kms#EncryptionAlgorithmSpecList",
+     "traits": {}
+    },
+    "SigningAlgorithms": {
+     "target": "com.amazonaws.kms#SigningAlgorithmSpecList",
+     "traits": {}
+    },
+    "KeyAgreementAlgorithms": {
+     "target": "com.amazonaws.kms#KeyAgreementAlgorithmSpecList",
+     "traits": {}
+    },
+    "MultiRegion": {
+     "target": "com.amazonaws.kms#NullableBooleanType",
+     "traits": {}
+    },
+    "MultiRegionConfiguration": {
+     "target": "com.amazonaws.kms#MultiRegionConfiguration",
+     "traits": {}
+    },
+    "PendingDeletionWindowInDays": {
+     "target": "com.amazonaws.kms#PendingWindowInDaysType",
+     "traits": {}
+    },
+    "MacAlgorithms": {
+     "target": "com.amazonaws.kms#MacAlgorithmSpecList",
+     "traits": {}
+    },
+    "XksKeyConfiguration": {
+     "target": "com.amazonaws.kms#XksKeyConfigurationType",
+     "traits": {}
+    },
+    "CurrentKeyMaterialId": {
+     "target": "com.amazonaws.kms#BackingKeyIdType",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.kms#KeySpec": {
+   "type": "enum",
+   "members": {
+    "RSA_2048": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "RSA_2048"
+     }
+    },
+    "RSA_3072": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "RSA_3072"
+     }
+    },
+    "RSA_4096": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "RSA_4096"
+     }
+    },
+    "ECC_NIST_P256": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ECC_NIST_P256"
+     }
+    },
+    "ECC_NIST_P384": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ECC_NIST_P384"
+     }
+    },
+    "ECC_NIST_P521": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ECC_NIST_P521"
+     }
+    },
+    "ECC_SECG_P256K1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ECC_SECG_P256K1"
+     }
+    },
+    "SYMMETRIC_DEFAULT": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "SYMMETRIC_DEFAULT"
+     }
+    },
+    "HMAC_224": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "HMAC_224"
+     }
+    },
+    "HMAC_256": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "HMAC_256"
+     }
+    },
+    "HMAC_384": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "HMAC_384"
+     }
+    },
+    "HMAC_512": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "HMAC_512"
+     }
+    },
+    "SM2": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "SM2"
+     }
+    },
+    "ML_DSA_44": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ML_DSA_44"
+     }
+    },
+    "ML_DSA_65": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ML_DSA_65"
+     }
+    },
+    "ML_DSA_87": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ML_DSA_87"
+     }
+    },
+    "ECC_NIST_EDWARDS25519": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ECC_NIST_EDWARDS25519"
+     }
+    }
+   }
+  },
+  "com.amazonaws.kms#KeyState": {
+   "type": "enum",
+   "members": {
+    "Creating": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "Creating"
+     }
+    },
+    "Enabled": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "Enabled"
+     }
+    },
+    "Disabled": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "Disabled"
+     }
+    },
+    "PendingDeletion": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "PendingDeletion"
+     }
+    },
+    "PendingImport": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "PendingImport"
+     }
+    },
+    "PendingReplicaDeletion": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "PendingReplicaDeletion"
+     }
+    },
+    "Unavailable": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "Unavailable"
+     }
+    },
+    "Updating": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "Updating"
+     }
+    }
+   }
+  },
+  "com.amazonaws.kms#KeyUsageType": {
+   "type": "enum",
+   "members": {
+    "SIGN_VERIFY": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "SIGN_VERIFY"
+     }
+    },
+    "ENCRYPT_DECRYPT": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ENCRYPT_DECRYPT"
+     }
+    },
+    "GENERATE_VERIFY_MAC": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "GENERATE_VERIFY_MAC"
+     }
+    },
+    "KEY_AGREEMENT": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "KEY_AGREEMENT"
+     }
+    }
+   }
+  },
+  "com.amazonaws.kms#LimitType": {
+   "type": "integer",
+   "traits": {
+    "smithy.api#range": {
+     "min": 1,
+     "max": 1000
+    }
+   }
+  },
+  "com.amazonaws.kms#ListKeys": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.kms#ListKeysRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.kms#ListKeysResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.kms#DependencyTimeoutException"
+    },
+    {
+     "target": "com.amazonaws.kms#InvalidMarkerException"
+    },
+    {
+     "target": "com.amazonaws.kms#KMSInternalException"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "Marker",
+     "outputToken": "NextMarker",
+     "items": "Keys",
+     "pageSize": "Limit"
+    }
+   }
+  },
+  "com.amazonaws.kms#ListKeysRequest": {
+   "type": "structure",
+   "members": {
+    "Limit": {
+     "target": "com.amazonaws.kms#LimitType",
+     "traits": {}
+    },
+    "Marker": {
+     "target": "com.amazonaws.kms#MarkerType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.kms#ListKeysResponse": {
+   "type": "structure",
+   "members": {
+    "Keys": {
+     "target": "com.amazonaws.kms#KeyList",
+     "traits": {}
+    },
+    "NextMarker": {
+     "target": "com.amazonaws.kms#MarkerType",
+     "traits": {}
+    },
+    "Truncated": {
+     "target": "com.amazonaws.kms#BooleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.kms#MacAlgorithmSpec": {
+   "type": "enum",
+   "members": {
+    "HMAC_SHA_224": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "HMAC_SHA_224"
+     }
+    },
+    "HMAC_SHA_256": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "HMAC_SHA_256"
+     }
+    },
+    "HMAC_SHA_384": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "HMAC_SHA_384"
+     }
+    },
+    "HMAC_SHA_512": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "HMAC_SHA_512"
+     }
+    }
+   }
+  },
+  "com.amazonaws.kms#MacAlgorithmSpecList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.kms#MacAlgorithmSpec"
+   }
+  },
+  "com.amazonaws.kms#MarkerType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 1024
+    },
+    "smithy.api#pattern": "^[\\u0020-\\u00FF]*$"
+   }
+  },
+  "com.amazonaws.kms#MultiRegionConfiguration": {
+   "type": "structure",
+   "members": {
+    "MultiRegionKeyType": {
+     "target": "com.amazonaws.kms#MultiRegionKeyType",
+     "traits": {}
+    },
+    "PrimaryKey": {
+     "target": "com.amazonaws.kms#MultiRegionKey",
+     "traits": {}
+    },
+    "ReplicaKeys": {
+     "target": "com.amazonaws.kms#MultiRegionKeyList",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.kms#MultiRegionKey": {
+   "type": "structure",
+   "members": {
+    "Arn": {
+     "target": "com.amazonaws.kms#ArnType",
+     "traits": {}
+    },
+    "Region": {
+     "target": "com.amazonaws.kms#RegionType",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.kms#MultiRegionKeyList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.kms#MultiRegionKey"
+   }
+  },
+  "com.amazonaws.kms#MultiRegionKeyType": {
+   "type": "enum",
+   "members": {
+    "PRIMARY": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "PRIMARY"
+     }
+    },
+    "REPLICA": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "REPLICA"
+     }
+    }
+   }
+  },
+  "com.amazonaws.kms#NotFoundException": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.kms#ErrorMessageType"
+    }
+   },
+   "traits": {
+    "aws.protocols#awsQueryError": {
+     "code": "NotFound",
+     "httpResponseCode": 404
+    },
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 404
+   }
+  },
+  "com.amazonaws.kms#NullableBooleanType": {
+   "type": "boolean"
+  },
+  "com.amazonaws.kms#OriginType": {
+   "type": "enum",
+   "members": {
+    "AWS_KMS": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "AWS_KMS"
+     }
+    },
+    "EXTERNAL": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "EXTERNAL"
+     }
+    },
+    "AWS_CLOUDHSM": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "AWS_CLOUDHSM"
+     }
+    },
+    "EXTERNAL_KEY_STORE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "EXTERNAL_KEY_STORE"
+     }
+    }
+   }
+  },
+  "com.amazonaws.kms#PendingWindowInDaysType": {
+   "type": "integer",
+   "traits": {
+    "smithy.api#range": {
+     "min": 1,
+     "max": 365
+    }
+   }
+  },
+  "com.amazonaws.kms#RegionType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 32
+    },
+    "smithy.api#pattern": "^([a-z]+-){2,3}\\d+$"
+   }
+  },
+  "com.amazonaws.kms#RotationPeriodInDaysType": {
+   "type": "integer",
+   "traits": {
+    "smithy.api#range": {
+     "min": 90,
+     "max": 2560
+    }
+   }
+  },
+  "com.amazonaws.kms#SigningAlgorithmSpec": {
+   "type": "enum",
+   "members": {
+    "RSASSA_PSS_SHA_256": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "RSASSA_PSS_SHA_256"
+     }
+    },
+    "RSASSA_PSS_SHA_384": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "RSASSA_PSS_SHA_384"
+     }
+    },
+    "RSASSA_PSS_SHA_512": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "RSASSA_PSS_SHA_512"
+     }
+    },
+    "RSASSA_PKCS1_V1_5_SHA_256": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "RSASSA_PKCS1_V1_5_SHA_256"
+     }
+    },
+    "RSASSA_PKCS1_V1_5_SHA_384": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "RSASSA_PKCS1_V1_5_SHA_384"
+     }
+    },
+    "RSASSA_PKCS1_V1_5_SHA_512": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "RSASSA_PKCS1_V1_5_SHA_512"
+     }
+    },
+    "ECDSA_SHA_256": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ECDSA_SHA_256"
+     }
+    },
+    "ECDSA_SHA_384": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ECDSA_SHA_384"
+     }
+    },
+    "ECDSA_SHA_512": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ECDSA_SHA_512"
+     }
+    },
+    "SM2DSA": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "SM2DSA"
+     }
+    },
+    "ML_DSA_SHAKE_256": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ML_DSA_SHAKE_256"
+     }
+    },
+    "ED25519_SHA_512": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ED25519_SHA_512"
+     }
+    },
+    "ED25519_PH_SHA_512": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ED25519_PH_SHA_512"
+     }
+    }
+   }
+  },
+  "com.amazonaws.kms#SigningAlgorithmSpecList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.kms#SigningAlgorithmSpec"
+   }
+  },
+  "com.amazonaws.kms#UnsupportedOperationException": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.kms#ErrorMessageType"
+    }
+   },
+   "traits": {
+    "aws.protocols#awsQueryError": {
+     "code": "UnsupportedOperation",
+     "httpResponseCode": 400
+    },
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 400
+   }
+  },
+  "com.amazonaws.kms#XksKeyConfigurationType": {
+   "type": "structure",
+   "members": {
+    "Id": {
+     "target": "com.amazonaws.kms#XksKeyIdType",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.kms#XksKeyIdType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 128
+    },
+    "smithy.api#pattern": "^[a-zA-Z0-9-_.]+$"
+   }
+  }
+ }
+}

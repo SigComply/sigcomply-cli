@@ -54,12 +54,17 @@ contracts/okta/management@2024-07-01.json
 
 A snapshot is refreshed (and re-committed) when a plugin's mapper or
 cassettes are intentionally updated to a new API shape, or when the L3
-drift job flags a change you've triaged. The fetch + diff scripts are
-added later in the revamp:
+drift job flags a change you've triaged.
 
-- `make contracts-fetch` → `scripts/contracts-fetch.sh` (pull current
-  specs for every used service).
-- `make contracts-diff` → diff committed snapshots vs. freshly fetched.
+- `make contracts-fetch` → `scripts/contracts-fetch.sh` (WU-3.1): pulls the
+  current upstream spec for every used service and re-slices it in place
+  (OpenAPI via `scripts/contracts/slice_openapi.py`; AWS Smithy via
+  `slice_smithy.py`). Re-running overwrites each committed snapshot, so
+  `git diff contracts/` after a fetch is the raw drift signal. Pin only
+  services with a plugin + cassette; GitLab is omitted (thin spec → L4a
+  re-record), GCP/Azure added when their plugins land.
+- `make contracts-diff` → diff committed snapshots vs. freshly fetched
+  (WU-3.2, pending).
 
 See the drift-triage runbook in
 [`docs/architecture/11-testing-strategy.md`](../docs/architecture/11-testing-strategy.md).

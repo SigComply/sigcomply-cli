@@ -1,0 +1,2109 @@
+{
+ "smithy": "2.0",
+ "shapes": {
+  "com.amazonaws.dynamodb#DynamoDB_20120810": {
+   "type": "service",
+   "version": "2012-08-10",
+   "operations": [
+    {
+     "target": "com.amazonaws.dynamodb#DescribeContinuousBackups"
+    },
+    {
+     "target": "com.amazonaws.dynamodb#DescribeTable"
+    },
+    {
+     "target": "com.amazonaws.dynamodb#ListTables"
+    }
+   ],
+   "traits": {
+    "aws.api#clientEndpointDiscovery": {
+     "operation": "com.amazonaws.dynamodb#DescribeEndpoints",
+     "error": "com.amazonaws.dynamodb#InvalidEndpointException"
+    },
+    "aws.api#service": {
+     "sdkId": "DynamoDB",
+     "arnNamespace": "dynamodb",
+     "cloudFormationName": "DynamoDB",
+     "cloudTrailEventSource": "dynamodb.amazonaws.com",
+     "endpointPrefix": "dynamodb"
+    },
+    "aws.auth#sigv4": {
+     "name": "dynamodb"
+    },
+    "aws.protocols#awsJson1_0": {},
+    "smithy.api#suppress": [
+     "RuleSetAwsBuiltIn.AWS::Auth::AccountId"
+    ],
+    "smithy.api#title": "Amazon DynamoDB",
+    "smithy.api#xmlNamespace": {
+     "uri": "http://dynamodb.amazonaws.com/doc/2012-08-10/"
+    },
+    "smithy.rules#endpointBdd": {
+     "version": "1.1",
+     "parameters": {
+      "Region": {
+       "builtIn": "AWS::Region",
+       "required": false,
+       "documentation": "The AWS region used to dispatch the request.",
+       "type": "string"
+      },
+      "UseDualStack": {
+       "builtIn": "AWS::UseDualStack",
+       "required": true,
+       "default": false,
+       "documentation": "When true, use the dual-stack endpoint. If the configured endpoint does not support dual-stack, dispatching the request MAY return an error.",
+       "type": "boolean"
+      },
+      "UseFIPS": {
+       "builtIn": "AWS::UseFIPS",
+       "required": true,
+       "default": false,
+       "documentation": "When true, send this request to the FIPS-compliant regional endpoint. If the configured endpoint does not have a FIPS compliant endpoint, dispatching the request will return an error.",
+       "type": "boolean"
+      },
+      "Endpoint": {
+       "builtIn": "SDK::Endpoint",
+       "required": false,
+       "documentation": "Override the endpoint used to send this request",
+       "type": "string"
+      },
+      "AccountId": {
+       "builtIn": "AWS::Auth::AccountId",
+       "required": false,
+       "documentation": "The AWS AccountId used for the request.",
+       "type": "string"
+      },
+      "AccountIdEndpointMode": {
+       "builtIn": "AWS::Auth::AccountIdEndpointMode",
+       "required": false,
+       "documentation": "The AccountId Endpoint Mode.",
+       "type": "string"
+      },
+      "ResourceArn": {
+       "required": false,
+       "documentation": "ResourceArn containing arn of resource",
+       "type": "string"
+      },
+      "ResourceArnList": {
+       "required": false,
+       "documentation": "ResourceArnList containing list of resource arns",
+       "type": "stringArray"
+      }
+     },
+     "conditions": [
+      {
+       "fn": "isSet",
+       "argv": [
+        {
+         "ref": "Region"
+        }
+       ]
+      },
+      {
+       "fn": "isSet",
+       "argv": [
+        {
+         "ref": "Endpoint"
+        }
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "ref": "UseFIPS"
+        },
+        true
+       ]
+      },
+      {
+       "fn": "aws.partition",
+       "argv": [
+        {
+         "ref": "Region"
+        }
+       ],
+       "assign": "PartitionResult"
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "ref": "Region"
+        },
+        "local"
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "supportsFIPS"
+         ]
+        },
+        true
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "ref": "UseDualStack"
+        },
+        true
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "supportsDualStack"
+         ]
+        },
+        true
+       ]
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        "https://dynamodb.{Region}.{PartitionResult#dualStackDnsSuffix}",
+        {
+         "ref": "Endpoint"
+        }
+       ]
+      },
+      {
+       "fn": "isSet",
+       "argv": [
+        {
+         "ref": "AccountIdEndpointMode"
+        }
+       ]
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "name"
+         ]
+        },
+        "aws"
+       ]
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "ref": "AccountIdEndpointMode"
+        },
+        "disabled"
+       ]
+      },
+      {
+       "fn": "isSet",
+       "argv": [
+        {
+         "ref": "ResourceArn"
+        }
+       ]
+      },
+      {
+       "fn": "aws.parseArn",
+       "argv": [
+        {
+         "ref": "ResourceArn"
+        }
+       ],
+       "assign": "ParsedArn_ssa_2"
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "ParsedArn_ssa_2"
+          },
+          "region"
+         ]
+        },
+        {
+         "ref": "Region"
+        }
+       ]
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "ParsedArn_ssa_2"
+          },
+          "service"
+         ]
+        },
+        "dynamodb"
+       ]
+      },
+      {
+       "fn": "isValidHostLabel",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "ParsedArn_ssa_2"
+          },
+          "accountId"
+         ]
+        },
+        false
+       ]
+      },
+      {
+       "fn": "isValidHostLabel",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "ParsedArn_ssa_2"
+          },
+          "region"
+         ]
+        },
+        false
+       ]
+      },
+      {
+       "fn": "isSet",
+       "argv": [
+        {
+         "ref": "ResourceArnList"
+        }
+       ]
+      },
+      {
+       "fn": "getAttr",
+       "argv": [
+        {
+         "ref": "ResourceArnList"
+        },
+        "[0]"
+       ],
+       "assign": "FirstArn"
+      },
+      {
+       "fn": "aws.parseArn",
+       "argv": [
+        {
+         "ref": "FirstArn"
+        }
+       ],
+       "assign": "ParsedArn_ssa_1"
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "ParsedArn_ssa_1"
+          },
+          "region"
+         ]
+        },
+        {
+         "ref": "Region"
+        }
+       ]
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "ParsedArn_ssa_1"
+          },
+          "service"
+         ]
+        },
+        "dynamodb"
+       ]
+      },
+      {
+       "fn": "isValidHostLabel",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "ParsedArn_ssa_1"
+          },
+          "accountId"
+         ]
+        },
+        false
+       ]
+      },
+      {
+       "fn": "isValidHostLabel",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "ParsedArn_ssa_1"
+          },
+          "region"
+         ]
+        },
+        false
+       ]
+      },
+      {
+       "fn": "isSet",
+       "argv": [
+        {
+         "ref": "AccountId"
+        }
+       ]
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "ref": "AccountIdEndpointMode"
+        },
+        "required"
+       ]
+      },
+      {
+       "fn": "isValidHostLabel",
+       "argv": [
+        {
+         "ref": "AccountId"
+        },
+        false
+       ]
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "name"
+         ]
+        },
+        "aws-us-gov"
+       ]
+      }
+     ],
+     "results": [
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: FIPS and custom endpoint are not supported",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: Dualstack and custom endpoint are not supported",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "error": "Endpoint override is not supported for dual-stack endpoints. Please enable dual-stack functionality by enabling the configuration. For more details, see: https://docs.aws.amazon.com/sdkref/latest/guide/feature-endpoints.html",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "{Endpoint}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: FIPS and local endpoint are not supported",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: Dualstack and local endpoint are not supported",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "http://localhost:8000",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingName": "dynamodb",
+           "signingRegion": "us-east-1"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: AccountIdEndpointMode is required and FIPS is enabled, but FIPS account endpoints are not supported",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://dynamodb-fips.{Region}.{PartitionResult#dualStackDnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "FIPS and DualStack are enabled, but this partition does not support one or both",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://dynamodb.{Region}.{PartitionResult#dnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://dynamodb-fips.{Region}.{PartitionResult#dnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "FIPS is enabled but this partition does not support FIPS",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://{ParsedArn_ssa_2#accountId}.ddb.{Region}.{PartitionResult#dualStackDnsSuffix}",
+        "properties": {
+         "metricValues": [
+          "O"
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://{ParsedArn_ssa_1#accountId}.ddb.{Region}.{PartitionResult#dualStackDnsSuffix}",
+        "properties": {
+         "metricValues": [
+          "O"
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://{AccountId}.ddb.{Region}.{PartitionResult#dualStackDnsSuffix}",
+        "properties": {
+         "metricValues": [
+          "O"
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "Credentials-sourced account ID parameter is invalid",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "error": "AccountIdEndpointMode is required but no AccountID was provided or able to be loaded",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: AccountIdEndpointMode is required but account endpoints are not supported in this partition",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://dynamodb.{Region}.{PartitionResult#dualStackDnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "DualStack is enabled but this partition does not support DualStack",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://{ParsedArn_ssa_2#accountId}.ddb.{Region}.{PartitionResult#dnsSuffix}",
+        "properties": {
+         "metricValues": [
+          "O"
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://{ParsedArn_ssa_1#accountId}.ddb.{Region}.{PartitionResult#dnsSuffix}",
+        "properties": {
+         "metricValues": [
+          "O"
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://{AccountId}.ddb.{Region}.{PartitionResult#dnsSuffix}",
+        "properties": {
+         "metricValues": [
+          "O"
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: Missing Region",
+       "type": "error"
+      }
+     ],
+     "root": 2,
+     "nodeCount": 67,
+     "nodes": "/////wAAAAH/////AAAAAAAAAAUAAAADAAAAAQAAAAQF9eEZAAAAAgX14QEAAABBAAAAAQAAAD8AAAAGAAAAAgAAADQAAAAHAAAAAwAAAAgF9eEZAAAABAAAADMAAAAJAAAABgAAAB4AAAAKAAAACQAAAAsF9eELAAAACgAAAA0AAAAMAAAAGgX14RMF9eELAAAACwAAAB0AAAAOAAAADAAAAA8AAAAUAAAADQAAABAAAAAUAAAADgAAABEAAAAUAAAADwAAABIAAAAUAAAAEAAAABMAAAAUAAAAEQX14RYAAAAUAAAAEgAAABUAAAAbAAAAEwAAABYAAAAbAAAAFAAAABcAAAAbAAAAFQAAABgAAAAbAAAAFgAAABkAAAAbAAAAFwAAABoAAAAbAAAAGAX14RcAAAAbAAAAGQAAABwAAAAdAAAAGwX14RgF9eERAAAAGgX14RIF9eELAAAABwAAAB8F9eEVAAAACQAAACAF9eEUAAAACgAAACIAAAAhAAAAGgX14RMF9eEUAAAACwAAADIAAAAjAAAADAAAACQAAAApAAAADQAAACUAAAApAAAADgAAACYAAAApAAAADwAAACcAAAApAAAAEAAAACgAAAApAAAAEQX14Q4AAAApAAAAEgAAACoAAAAwAAAAEwAAACsAAAAwAAAAFAAAACwAAAAwAAAAFQAAAC0AAAAwAAAAFgAAAC4AAAAwAAAAFwAAAC8AAAAwAAAAGAX14Q8AAAAwAAAAGQAAADEAAAAyAAAAGwX14RAF9eERAAAAGgX14RIF9eEUAAAABgX14QYF9eEHAAAAAwAAADUF9eEZAAAABAX14QUAAAA2AAAABQAAADgAAAA3AAAABgX14QoF9eENAAAABgAAADwAAAA5AAAACQAAADoAAAA7AAAAGgX14QgAAAA7AAAAHAX14QsF9eEMAAAABwAAAD0F9eEKAAAACQAAAD4F9eEJAAAAGgX14QgF9eEJAAAAAgX14QEAAABAAAAAAwAAAEIAAABBAAAABgX14QIF9eEEAAAABgX14QIAAABDAAAACAX14QMF9eEE"
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#ArchivalReason": {
+   "type": "string"
+  },
+  "com.amazonaws.dynamodb#ArchivalSummary": {
+   "type": "structure",
+   "members": {
+    "ArchivalDateTime": {
+     "target": "com.amazonaws.dynamodb#Date",
+     "traits": {}
+    },
+    "ArchivalReason": {
+     "target": "com.amazonaws.dynamodb#ArchivalReason",
+     "traits": {}
+    },
+    "ArchivalBackupArn": {
+     "target": "com.amazonaws.dynamodb#BackupArn",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#AttributeDefinition": {
+   "type": "structure",
+   "members": {
+    "AttributeName": {
+     "target": "com.amazonaws.dynamodb#KeySchemaAttributeName",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "AttributeType": {
+     "target": "com.amazonaws.dynamodb#ScalarAttributeType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#AttributeDefinitions": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.dynamodb#AttributeDefinition"
+   }
+  },
+  "com.amazonaws.dynamodb#Backfilling": {
+   "type": "boolean"
+  },
+  "com.amazonaws.dynamodb#BackupArn": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 37,
+     "max": 1024
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#BillingMode": {
+   "type": "enum",
+   "members": {
+    "PROVISIONED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "PROVISIONED"
+     }
+    },
+    "PAY_PER_REQUEST": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "PAY_PER_REQUEST"
+     }
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#BillingModeSummary": {
+   "type": "structure",
+   "members": {
+    "BillingMode": {
+     "target": "com.amazonaws.dynamodb#BillingMode",
+     "traits": {}
+    },
+    "LastUpdateToPayPerRequestDateTime": {
+     "target": "com.amazonaws.dynamodb#Date",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#ContinuousBackupsDescription": {
+   "type": "structure",
+   "members": {
+    "ContinuousBackupsStatus": {
+     "target": "com.amazonaws.dynamodb#ContinuousBackupsStatus",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "PointInTimeRecoveryDescription": {
+     "target": "com.amazonaws.dynamodb#PointInTimeRecoveryDescription",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#ContinuousBackupsStatus": {
+   "type": "enum",
+   "members": {
+    "ENABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ENABLED"
+     }
+    },
+    "DISABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "DISABLED"
+     }
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#Date": {
+   "type": "timestamp"
+  },
+  "com.amazonaws.dynamodb#DeletionProtectionEnabled": {
+   "type": "boolean"
+  },
+  "com.amazonaws.dynamodb#DescribeContinuousBackups": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.dynamodb#DescribeContinuousBackupsInput"
+   },
+   "output": {
+    "target": "com.amazonaws.dynamodb#DescribeContinuousBackupsOutput"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.dynamodb#InternalServerError"
+    },
+    {
+     "target": "com.amazonaws.dynamodb#InvalidEndpointException"
+    },
+    {
+     "target": "com.amazonaws.dynamodb#TableNotFoundException"
+    }
+   ],
+   "traits": {
+    "aws.api#clientDiscoveredEndpoint": {
+     "required": false
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#DescribeContinuousBackupsInput": {
+   "type": "structure",
+   "members": {
+    "TableName": {
+     "target": "com.amazonaws.dynamodb#TableArn",
+     "traits": {
+      "smithy.api#required": {},
+      "smithy.rules#contextParam": {
+       "name": "ResourceArn"
+      }
+     }
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.dynamodb#DescribeContinuousBackupsOutput": {
+   "type": "structure",
+   "members": {
+    "ContinuousBackupsDescription": {
+     "target": "com.amazonaws.dynamodb#ContinuousBackupsDescription",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.dynamodb#DescribeTable": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.dynamodb#DescribeTableInput"
+   },
+   "output": {
+    "target": "com.amazonaws.dynamodb#DescribeTableOutput"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.dynamodb#InternalServerError"
+    },
+    {
+     "target": "com.amazonaws.dynamodb#InvalidEndpointException"
+    },
+    {
+     "target": "com.amazonaws.dynamodb#ResourceNotFoundException"
+    }
+   ],
+   "traits": {
+    "aws.api#clientDiscoveredEndpoint": {
+     "required": false
+    },
+    "smithy.waiters#waitable": {
+     "TableExists": {
+      "acceptors": [
+       {
+        "state": "success",
+        "matcher": {
+         "output": {
+          "path": "Table.TableStatus",
+          "expected": "ACTIVE",
+          "comparator": "stringEquals"
+         }
+        }
+       },
+       {
+        "state": "retry",
+        "matcher": {
+         "errorType": "ResourceNotFoundException"
+        }
+       }
+      ],
+      "minDelay": 20
+     },
+     "TableNotExists": {
+      "acceptors": [
+       {
+        "state": "success",
+        "matcher": {
+         "errorType": "ResourceNotFoundException"
+        }
+       }
+      ],
+      "minDelay": 20
+     }
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#DescribeTableInput": {
+   "type": "structure",
+   "members": {
+    "TableName": {
+     "target": "com.amazonaws.dynamodb#TableArn",
+     "traits": {
+      "smithy.api#required": {},
+      "smithy.rules#contextParam": {
+       "name": "ResourceArn"
+      }
+     }
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.dynamodb#DescribeTableOutput": {
+   "type": "structure",
+   "members": {
+    "Table": {
+     "target": "com.amazonaws.dynamodb#TableDescription",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.dynamodb#ErrorMessage": {
+   "type": "string"
+  },
+  "com.amazonaws.dynamodb#GlobalSecondaryIndexDescription": {
+   "type": "structure",
+   "members": {
+    "IndexName": {
+     "target": "com.amazonaws.dynamodb#IndexName",
+     "traits": {}
+    },
+    "KeySchema": {
+     "target": "com.amazonaws.dynamodb#KeySchema",
+     "traits": {}
+    },
+    "Projection": {
+     "target": "com.amazonaws.dynamodb#Projection",
+     "traits": {}
+    },
+    "IndexStatus": {
+     "target": "com.amazonaws.dynamodb#IndexStatus",
+     "traits": {}
+    },
+    "Backfilling": {
+     "target": "com.amazonaws.dynamodb#Backfilling",
+     "traits": {}
+    },
+    "ProvisionedThroughput": {
+     "target": "com.amazonaws.dynamodb#ProvisionedThroughputDescription",
+     "traits": {}
+    },
+    "IndexSizeBytes": {
+     "target": "com.amazonaws.dynamodb#LongObject",
+     "traits": {}
+    },
+    "ItemCount": {
+     "target": "com.amazonaws.dynamodb#LongObject",
+     "traits": {}
+    },
+    "IndexArn": {
+     "target": "com.amazonaws.dynamodb#String",
+     "traits": {}
+    },
+    "OnDemandThroughput": {
+     "target": "com.amazonaws.dynamodb#OnDemandThroughput",
+     "traits": {}
+    },
+    "WarmThroughput": {
+     "target": "com.amazonaws.dynamodb#GlobalSecondaryIndexWarmThroughputDescription",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#GlobalSecondaryIndexDescriptionList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.dynamodb#GlobalSecondaryIndexDescription"
+   }
+  },
+  "com.amazonaws.dynamodb#GlobalSecondaryIndexWarmThroughputDescription": {
+   "type": "structure",
+   "members": {
+    "ReadUnitsPerSecond": {
+     "target": "com.amazonaws.dynamodb#PositiveLongObject",
+     "traits": {}
+    },
+    "WriteUnitsPerSecond": {
+     "target": "com.amazonaws.dynamodb#PositiveLongObject",
+     "traits": {}
+    },
+    "Status": {
+     "target": "com.amazonaws.dynamodb#IndexStatus",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#GlobalTableSettingsReplicationMode": {
+   "type": "enum",
+   "members": {
+    "ENABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ENABLED"
+     }
+    },
+    "DISABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "DISABLED"
+     }
+    },
+    "ENABLED_WITH_OVERRIDES": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ENABLED_WITH_OVERRIDES"
+     }
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#GlobalTableWitnessDescription": {
+   "type": "structure",
+   "members": {
+    "RegionName": {
+     "target": "com.amazonaws.dynamodb#RegionName",
+     "traits": {}
+    },
+    "WitnessStatus": {
+     "target": "com.amazonaws.dynamodb#WitnessStatus",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#GlobalTableWitnessDescriptionList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.dynamodb#GlobalTableWitnessDescription"
+   }
+  },
+  "com.amazonaws.dynamodb#IndexName": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 3,
+     "max": 255
+    },
+    "smithy.api#pattern": "^[a-zA-Z0-9_.-]+$"
+   }
+  },
+  "com.amazonaws.dynamodb#IndexStatus": {
+   "type": "enum",
+   "members": {
+    "CREATING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "CREATING"
+     }
+    },
+    "UPDATING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "UPDATING"
+     }
+    },
+    "DELETING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "DELETING"
+     }
+    },
+    "ACTIVE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ACTIVE"
+     }
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#InternalServerError": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.dynamodb#ErrorMessage",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#error": "server"
+   }
+  },
+  "com.amazonaws.dynamodb#InvalidEndpointException": {
+   "type": "structure",
+   "members": {
+    "Message": {
+     "target": "com.amazonaws.dynamodb#String"
+    }
+   },
+   "traits": {
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 421
+   }
+  },
+  "com.amazonaws.dynamodb#KMSMasterKeyArn": {
+   "type": "string"
+  },
+  "com.amazonaws.dynamodb#KMSMasterKeyId": {
+   "type": "string"
+  },
+  "com.amazonaws.dynamodb#KeySchema": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.dynamodb#KeySchemaElement"
+   },
+   "traits": {
+    "smithy.api#length": {
+     "min": 1
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#KeySchemaAttributeName": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 255
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#KeySchemaElement": {
+   "type": "structure",
+   "members": {
+    "AttributeName": {
+     "target": "com.amazonaws.dynamodb#KeySchemaAttributeName",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "KeyType": {
+     "target": "com.amazonaws.dynamodb#KeyType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#KeyType": {
+   "type": "enum",
+   "members": {
+    "HASH": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "HASH"
+     }
+    },
+    "RANGE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "RANGE"
+     }
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#ListTables": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.dynamodb#ListTablesInput"
+   },
+   "output": {
+    "target": "com.amazonaws.dynamodb#ListTablesOutput"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.dynamodb#InternalServerError"
+    },
+    {
+     "target": "com.amazonaws.dynamodb#InvalidEndpointException"
+    }
+   ],
+   "traits": {
+    "aws.api#clientDiscoveredEndpoint": {
+     "required": false
+    },
+    "smithy.api#paginated": {
+     "inputToken": "ExclusiveStartTableName",
+     "outputToken": "LastEvaluatedTableName",
+     "items": "TableNames",
+     "pageSize": "Limit"
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#ListTablesInput": {
+   "type": "structure",
+   "members": {
+    "ExclusiveStartTableName": {
+     "target": "com.amazonaws.dynamodb#TableName",
+     "traits": {}
+    },
+    "Limit": {
+     "target": "com.amazonaws.dynamodb#ListTablesInputLimit",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.dynamodb#ListTablesInputLimit": {
+   "type": "integer",
+   "traits": {
+    "smithy.api#range": {
+     "min": 1,
+     "max": 100
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#ListTablesOutput": {
+   "type": "structure",
+   "members": {
+    "TableNames": {
+     "target": "com.amazonaws.dynamodb#TableNameList",
+     "traits": {}
+    },
+    "LastEvaluatedTableName": {
+     "target": "com.amazonaws.dynamodb#TableName",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.dynamodb#LocalSecondaryIndexDescription": {
+   "type": "structure",
+   "members": {
+    "IndexName": {
+     "target": "com.amazonaws.dynamodb#IndexName",
+     "traits": {}
+    },
+    "KeySchema": {
+     "target": "com.amazonaws.dynamodb#KeySchema",
+     "traits": {}
+    },
+    "Projection": {
+     "target": "com.amazonaws.dynamodb#Projection",
+     "traits": {}
+    },
+    "IndexSizeBytes": {
+     "target": "com.amazonaws.dynamodb#LongObject",
+     "traits": {}
+    },
+    "ItemCount": {
+     "target": "com.amazonaws.dynamodb#LongObject",
+     "traits": {}
+    },
+    "IndexArn": {
+     "target": "com.amazonaws.dynamodb#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#LocalSecondaryIndexDescriptionList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.dynamodb#LocalSecondaryIndexDescription"
+   }
+  },
+  "com.amazonaws.dynamodb#LongObject": {
+   "type": "long"
+  },
+  "com.amazonaws.dynamodb#MultiRegionConsistency": {
+   "type": "enum",
+   "members": {
+    "EVENTUAL": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "EVENTUAL"
+     }
+    },
+    "STRONG": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "STRONG"
+     }
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#NonKeyAttributeName": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 255
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#NonKeyAttributeNameList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.dynamodb#NonKeyAttributeName"
+   },
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 20
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#NonNegativeLongObject": {
+   "type": "long",
+   "traits": {
+    "smithy.api#range": {
+     "min": 0
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#OnDemandThroughput": {
+   "type": "structure",
+   "members": {
+    "MaxReadRequestUnits": {
+     "target": "com.amazonaws.dynamodb#LongObject",
+     "traits": {}
+    },
+    "MaxWriteRequestUnits": {
+     "target": "com.amazonaws.dynamodb#LongObject",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#OnDemandThroughputOverride": {
+   "type": "structure",
+   "members": {
+    "MaxReadRequestUnits": {
+     "target": "com.amazonaws.dynamodb#LongObject",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#PointInTimeRecoveryDescription": {
+   "type": "structure",
+   "members": {
+    "PointInTimeRecoveryStatus": {
+     "target": "com.amazonaws.dynamodb#PointInTimeRecoveryStatus",
+     "traits": {}
+    },
+    "RecoveryPeriodInDays": {
+     "target": "com.amazonaws.dynamodb#RecoveryPeriodInDays",
+     "traits": {}
+    },
+    "EarliestRestorableDateTime": {
+     "target": "com.amazonaws.dynamodb#Date",
+     "traits": {}
+    },
+    "LatestRestorableDateTime": {
+     "target": "com.amazonaws.dynamodb#Date",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#PointInTimeRecoveryStatus": {
+   "type": "enum",
+   "members": {
+    "ENABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ENABLED"
+     }
+    },
+    "DISABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "DISABLED"
+     }
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#PositiveLongObject": {
+   "type": "long",
+   "traits": {
+    "smithy.api#range": {
+     "min": 1
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#Projection": {
+   "type": "structure",
+   "members": {
+    "ProjectionType": {
+     "target": "com.amazonaws.dynamodb#ProjectionType",
+     "traits": {}
+    },
+    "NonKeyAttributes": {
+     "target": "com.amazonaws.dynamodb#NonKeyAttributeNameList",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#ProjectionType": {
+   "type": "enum",
+   "members": {
+    "ALL": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ALL"
+     }
+    },
+    "KEYS_ONLY": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "KEYS_ONLY"
+     }
+    },
+    "INCLUDE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "INCLUDE"
+     }
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#ProvisionedThroughputDescription": {
+   "type": "structure",
+   "members": {
+    "LastIncreaseDateTime": {
+     "target": "com.amazonaws.dynamodb#Date",
+     "traits": {}
+    },
+    "LastDecreaseDateTime": {
+     "target": "com.amazonaws.dynamodb#Date",
+     "traits": {}
+    },
+    "NumberOfDecreasesToday": {
+     "target": "com.amazonaws.dynamodb#PositiveLongObject",
+     "traits": {}
+    },
+    "ReadCapacityUnits": {
+     "target": "com.amazonaws.dynamodb#NonNegativeLongObject",
+     "traits": {}
+    },
+    "WriteCapacityUnits": {
+     "target": "com.amazonaws.dynamodb#NonNegativeLongObject",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#ProvisionedThroughputOverride": {
+   "type": "structure",
+   "members": {
+    "ReadCapacityUnits": {
+     "target": "com.amazonaws.dynamodb#PositiveLongObject",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#RecoveryPeriodInDays": {
+   "type": "integer",
+   "traits": {
+    "smithy.api#range": {
+     "min": 1,
+     "max": 35
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#RegionName": {
+   "type": "string"
+  },
+  "com.amazonaws.dynamodb#ReplicaDescription": {
+   "type": "structure",
+   "members": {
+    "RegionName": {
+     "target": "com.amazonaws.dynamodb#RegionName",
+     "traits": {}
+    },
+    "ReplicaStatus": {
+     "target": "com.amazonaws.dynamodb#ReplicaStatus",
+     "traits": {}
+    },
+    "ReplicaArn": {
+     "target": "com.amazonaws.dynamodb#String",
+     "traits": {}
+    },
+    "ReplicaStatusDescription": {
+     "target": "com.amazonaws.dynamodb#ReplicaStatusDescription",
+     "traits": {}
+    },
+    "ReplicaStatusPercentProgress": {
+     "target": "com.amazonaws.dynamodb#ReplicaStatusPercentProgress",
+     "traits": {}
+    },
+    "KMSMasterKeyId": {
+     "target": "com.amazonaws.dynamodb#KMSMasterKeyId",
+     "traits": {}
+    },
+    "ProvisionedThroughputOverride": {
+     "target": "com.amazonaws.dynamodb#ProvisionedThroughputOverride",
+     "traits": {}
+    },
+    "OnDemandThroughputOverride": {
+     "target": "com.amazonaws.dynamodb#OnDemandThroughputOverride",
+     "traits": {}
+    },
+    "WarmThroughput": {
+     "target": "com.amazonaws.dynamodb#TableWarmThroughputDescription",
+     "traits": {}
+    },
+    "GlobalSecondaryIndexes": {
+     "target": "com.amazonaws.dynamodb#ReplicaGlobalSecondaryIndexDescriptionList",
+     "traits": {}
+    },
+    "ReplicaInaccessibleDateTime": {
+     "target": "com.amazonaws.dynamodb#Date",
+     "traits": {}
+    },
+    "ReplicaTableClassSummary": {
+     "target": "com.amazonaws.dynamodb#TableClassSummary"
+    },
+    "GlobalTableSettingsReplicationMode": {
+     "target": "com.amazonaws.dynamodb#GlobalTableSettingsReplicationMode",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#ReplicaDescriptionList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.dynamodb#ReplicaDescription"
+   }
+  },
+  "com.amazonaws.dynamodb#ReplicaGlobalSecondaryIndexDescription": {
+   "type": "structure",
+   "members": {
+    "IndexName": {
+     "target": "com.amazonaws.dynamodb#IndexName",
+     "traits": {}
+    },
+    "ProvisionedThroughputOverride": {
+     "target": "com.amazonaws.dynamodb#ProvisionedThroughputOverride",
+     "traits": {}
+    },
+    "OnDemandThroughputOverride": {
+     "target": "com.amazonaws.dynamodb#OnDemandThroughputOverride",
+     "traits": {}
+    },
+    "WarmThroughput": {
+     "target": "com.amazonaws.dynamodb#GlobalSecondaryIndexWarmThroughputDescription",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#ReplicaGlobalSecondaryIndexDescriptionList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.dynamodb#ReplicaGlobalSecondaryIndexDescription"
+   }
+  },
+  "com.amazonaws.dynamodb#ReplicaStatus": {
+   "type": "enum",
+   "members": {
+    "CREATING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "CREATING"
+     }
+    },
+    "CREATION_FAILED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "CREATION_FAILED"
+     }
+    },
+    "UPDATING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "UPDATING"
+     }
+    },
+    "DELETING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "DELETING"
+     }
+    },
+    "ACTIVE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ACTIVE"
+     }
+    },
+    "REGION_DISABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "REGION_DISABLED"
+     }
+    },
+    "INACCESSIBLE_ENCRYPTION_CREDENTIALS": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "INACCESSIBLE_ENCRYPTION_CREDENTIALS"
+     }
+    },
+    "ARCHIVING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ARCHIVING"
+     }
+    },
+    "ARCHIVED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ARCHIVED"
+     }
+    },
+    "REPLICATION_NOT_AUTHORIZED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "REPLICATION_NOT_AUTHORIZED"
+     }
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#ReplicaStatusDescription": {
+   "type": "string"
+  },
+  "com.amazonaws.dynamodb#ReplicaStatusPercentProgress": {
+   "type": "string"
+  },
+  "com.amazonaws.dynamodb#ResourceNotFoundException": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.dynamodb#ErrorMessage",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#error": "client"
+   }
+  },
+  "com.amazonaws.dynamodb#RestoreInProgress": {
+   "type": "boolean"
+  },
+  "com.amazonaws.dynamodb#RestoreSummary": {
+   "type": "structure",
+   "members": {
+    "SourceBackupArn": {
+     "target": "com.amazonaws.dynamodb#BackupArn",
+     "traits": {}
+    },
+    "SourceTableArn": {
+     "target": "com.amazonaws.dynamodb#TableArn",
+     "traits": {}
+    },
+    "RestoreDateTime": {
+     "target": "com.amazonaws.dynamodb#Date",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "RestoreInProgress": {
+     "target": "com.amazonaws.dynamodb#RestoreInProgress",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#SSEDescription": {
+   "type": "structure",
+   "members": {
+    "Status": {
+     "target": "com.amazonaws.dynamodb#SSEStatus",
+     "traits": {}
+    },
+    "SSEType": {
+     "target": "com.amazonaws.dynamodb#SSEType",
+     "traits": {}
+    },
+    "KMSMasterKeyArn": {
+     "target": "com.amazonaws.dynamodb#KMSMasterKeyArn",
+     "traits": {}
+    },
+    "InaccessibleEncryptionDateTime": {
+     "target": "com.amazonaws.dynamodb#Date",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#SSEStatus": {
+   "type": "enum",
+   "members": {
+    "ENABLING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ENABLING"
+     }
+    },
+    "ENABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ENABLED"
+     }
+    },
+    "DISABLING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "DISABLING"
+     }
+    },
+    "DISABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "DISABLED"
+     }
+    },
+    "UPDATING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "UPDATING"
+     }
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#SSEType": {
+   "type": "enum",
+   "members": {
+    "AES256": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "AES256"
+     }
+    },
+    "KMS": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "KMS"
+     }
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#ScalarAttributeType": {
+   "type": "enum",
+   "members": {
+    "S": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "S"
+     }
+    },
+    "N": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "N"
+     }
+    },
+    "B": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "B"
+     }
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#StreamArn": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 37,
+     "max": 1024
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#StreamEnabled": {
+   "type": "boolean"
+  },
+  "com.amazonaws.dynamodb#StreamSpecification": {
+   "type": "structure",
+   "members": {
+    "StreamEnabled": {
+     "target": "com.amazonaws.dynamodb#StreamEnabled",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "StreamViewType": {
+     "target": "com.amazonaws.dynamodb#StreamViewType",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#StreamViewType": {
+   "type": "enum",
+   "members": {
+    "NEW_IMAGE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "NEW_IMAGE"
+     }
+    },
+    "OLD_IMAGE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "OLD_IMAGE"
+     }
+    },
+    "NEW_AND_OLD_IMAGES": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "NEW_AND_OLD_IMAGES"
+     }
+    },
+    "KEYS_ONLY": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "KEYS_ONLY"
+     }
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#String": {
+   "type": "string"
+  },
+  "com.amazonaws.dynamodb#TableArn": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 1024
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#TableClass": {
+   "type": "enum",
+   "members": {
+    "STANDARD": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "STANDARD"
+     }
+    },
+    "STANDARD_INFREQUENT_ACCESS": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "STANDARD_INFREQUENT_ACCESS"
+     }
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#TableClassSummary": {
+   "type": "structure",
+   "members": {
+    "TableClass": {
+     "target": "com.amazonaws.dynamodb#TableClass",
+     "traits": {}
+    },
+    "LastUpdateDateTime": {
+     "target": "com.amazonaws.dynamodb#Date",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#TableDescription": {
+   "type": "structure",
+   "members": {
+    "AttributeDefinitions": {
+     "target": "com.amazonaws.dynamodb#AttributeDefinitions",
+     "traits": {}
+    },
+    "TableName": {
+     "target": "com.amazonaws.dynamodb#TableName",
+     "traits": {}
+    },
+    "KeySchema": {
+     "target": "com.amazonaws.dynamodb#KeySchema",
+     "traits": {}
+    },
+    "TableStatus": {
+     "target": "com.amazonaws.dynamodb#TableStatus",
+     "traits": {}
+    },
+    "CreationDateTime": {
+     "target": "com.amazonaws.dynamodb#Date",
+     "traits": {}
+    },
+    "ProvisionedThroughput": {
+     "target": "com.amazonaws.dynamodb#ProvisionedThroughputDescription",
+     "traits": {}
+    },
+    "TableSizeBytes": {
+     "target": "com.amazonaws.dynamodb#LongObject",
+     "traits": {}
+    },
+    "ItemCount": {
+     "target": "com.amazonaws.dynamodb#LongObject",
+     "traits": {}
+    },
+    "TableArn": {
+     "target": "com.amazonaws.dynamodb#String",
+     "traits": {}
+    },
+    "TableId": {
+     "target": "com.amazonaws.dynamodb#TableId",
+     "traits": {}
+    },
+    "BillingModeSummary": {
+     "target": "com.amazonaws.dynamodb#BillingModeSummary",
+     "traits": {}
+    },
+    "LocalSecondaryIndexes": {
+     "target": "com.amazonaws.dynamodb#LocalSecondaryIndexDescriptionList",
+     "traits": {}
+    },
+    "GlobalSecondaryIndexes": {
+     "target": "com.amazonaws.dynamodb#GlobalSecondaryIndexDescriptionList",
+     "traits": {}
+    },
+    "StreamSpecification": {
+     "target": "com.amazonaws.dynamodb#StreamSpecification",
+     "traits": {}
+    },
+    "LatestStreamLabel": {
+     "target": "com.amazonaws.dynamodb#String",
+     "traits": {}
+    },
+    "LatestStreamArn": {
+     "target": "com.amazonaws.dynamodb#StreamArn",
+     "traits": {}
+    },
+    "GlobalTableVersion": {
+     "target": "com.amazonaws.dynamodb#String",
+     "traits": {}
+    },
+    "Replicas": {
+     "target": "com.amazonaws.dynamodb#ReplicaDescriptionList",
+     "traits": {}
+    },
+    "GlobalTableWitnesses": {
+     "target": "com.amazonaws.dynamodb#GlobalTableWitnessDescriptionList",
+     "traits": {}
+    },
+    "GlobalTableSettingsReplicationMode": {
+     "target": "com.amazonaws.dynamodb#GlobalTableSettingsReplicationMode",
+     "traits": {}
+    },
+    "RestoreSummary": {
+     "target": "com.amazonaws.dynamodb#RestoreSummary",
+     "traits": {}
+    },
+    "SSEDescription": {
+     "target": "com.amazonaws.dynamodb#SSEDescription",
+     "traits": {}
+    },
+    "ArchivalSummary": {
+     "target": "com.amazonaws.dynamodb#ArchivalSummary",
+     "traits": {}
+    },
+    "TableClassSummary": {
+     "target": "com.amazonaws.dynamodb#TableClassSummary",
+     "traits": {}
+    },
+    "DeletionProtectionEnabled": {
+     "target": "com.amazonaws.dynamodb#DeletionProtectionEnabled",
+     "traits": {}
+    },
+    "OnDemandThroughput": {
+     "target": "com.amazonaws.dynamodb#OnDemandThroughput",
+     "traits": {}
+    },
+    "WarmThroughput": {
+     "target": "com.amazonaws.dynamodb#TableWarmThroughputDescription",
+     "traits": {}
+    },
+    "MultiRegionConsistency": {
+     "target": "com.amazonaws.dynamodb#MultiRegionConsistency",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#TableId": {
+   "type": "string",
+   "traits": {
+    "smithy.api#pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+   }
+  },
+  "com.amazonaws.dynamodb#TableName": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 3,
+     "max": 255
+    },
+    "smithy.api#pattern": "^[a-zA-Z0-9_.-]+$"
+   }
+  },
+  "com.amazonaws.dynamodb#TableNameList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.dynamodb#TableName"
+   }
+  },
+  "com.amazonaws.dynamodb#TableNotFoundException": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.dynamodb#ErrorMessage"
+    }
+   },
+   "traits": {
+    "smithy.api#error": "client"
+   }
+  },
+  "com.amazonaws.dynamodb#TableStatus": {
+   "type": "enum",
+   "members": {
+    "CREATING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "CREATING"
+     }
+    },
+    "UPDATING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "UPDATING"
+     }
+    },
+    "DELETING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "DELETING"
+     }
+    },
+    "ACTIVE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ACTIVE"
+     }
+    },
+    "INACCESSIBLE_ENCRYPTION_CREDENTIALS": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "INACCESSIBLE_ENCRYPTION_CREDENTIALS"
+     }
+    },
+    "ARCHIVING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ARCHIVING"
+     }
+    },
+    "ARCHIVED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ARCHIVED"
+     }
+    },
+    "REPLICATION_NOT_AUTHORIZED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "REPLICATION_NOT_AUTHORIZED"
+     }
+    }
+   }
+  },
+  "com.amazonaws.dynamodb#TableWarmThroughputDescription": {
+   "type": "structure",
+   "members": {
+    "ReadUnitsPerSecond": {
+     "target": "com.amazonaws.dynamodb#PositiveLongObject",
+     "traits": {}
+    },
+    "WriteUnitsPerSecond": {
+     "target": "com.amazonaws.dynamodb#PositiveLongObject",
+     "traits": {}
+    },
+    "Status": {
+     "target": "com.amazonaws.dynamodb#TableStatus",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.dynamodb#WitnessStatus": {
+   "type": "enum",
+   "members": {
+    "CREATING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "CREATING"
+     }
+    },
+    "DELETING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "DELETING"
+     }
+    },
+    "ACTIVE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ACTIVE"
+     }
+    }
+   }
+  }
+ }
+}

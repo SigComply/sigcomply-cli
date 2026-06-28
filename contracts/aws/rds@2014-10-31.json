@@ -1,0 +1,1853 @@
+{
+ "smithy": "2.0",
+ "shapes": {
+  "com.amazonaws.rds#AmazonRDSv19": {
+   "type": "service",
+   "version": "2014-10-31",
+   "operations": [
+    {
+     "target": "com.amazonaws.rds#DescribeDBInstances"
+    },
+    {
+     "target": "com.amazonaws.rds#DescribeDBParameters"
+    }
+   ],
+   "traits": {
+    "aws.api#service": {
+     "sdkId": "RDS",
+     "arnNamespace": "rds",
+     "cloudFormationName": "RDS",
+     "cloudTrailEventSource": "rds.amazonaws.com",
+     "endpointPrefix": "rds"
+    },
+    "aws.auth#sigv4": {
+     "name": "rds"
+    },
+    "aws.protocols#awsQuery": {},
+    "smithy.api#title": "Amazon Relational Database Service",
+    "smithy.api#xmlNamespace": {
+     "uri": "http://rds.amazonaws.com/doc/2014-10-31/"
+    },
+    "smithy.rules#endpointBdd": {
+     "version": "1.1",
+     "parameters": {
+      "Region": {
+       "builtIn": "AWS::Region",
+       "required": false,
+       "documentation": "The AWS region used to dispatch the request.",
+       "type": "string"
+      },
+      "UseDualStack": {
+       "builtIn": "AWS::UseDualStack",
+       "required": true,
+       "default": false,
+       "documentation": "When true, use the dual-stack endpoint. If the configured endpoint does not support dual-stack, dispatching the request MAY return an error.",
+       "type": "boolean"
+      },
+      "UseFIPS": {
+       "builtIn": "AWS::UseFIPS",
+       "required": true,
+       "default": false,
+       "documentation": "When true, send this request to the FIPS-compliant regional endpoint. If the configured endpoint does not have a FIPS compliant endpoint, dispatching the request will return an error.",
+       "type": "boolean"
+      },
+      "Endpoint": {
+       "builtIn": "SDK::Endpoint",
+       "required": false,
+       "documentation": "Override the endpoint used to send this request",
+       "type": "string"
+      }
+     },
+     "conditions": [
+      {
+       "fn": "isSet",
+       "argv": [
+        {
+         "ref": "Endpoint"
+        }
+       ]
+      },
+      {
+       "fn": "isSet",
+       "argv": [
+        {
+         "ref": "Region"
+        }
+       ]
+      },
+      {
+       "fn": "aws.partition",
+       "argv": [
+        {
+         "ref": "Region"
+        }
+       ],
+       "assign": "PartitionResult"
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "ref": "UseFIPS"
+        },
+        true
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "ref": "UseDualStack"
+        },
+        true
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "supportsDualStack"
+         ]
+        },
+        true
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "supportsFIPS"
+         ]
+        },
+        true
+       ]
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "name"
+         ]
+        },
+        "aws-us-gov"
+       ]
+      }
+     ],
+     "results": [
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: FIPS and custom endpoint are not supported",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: Dualstack and custom endpoint are not supported",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": {
+         "ref": "Endpoint"
+        },
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://rds-fips.{Region}.{PartitionResult#dualStackDnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "FIPS and DualStack are enabled, but this partition does not support one or both",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://rds.{Region}.amazonaws.com",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://rds-fips.{Region}.{PartitionResult#dnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "FIPS is enabled but this partition does not support FIPS",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://rds.{Region}.{PartitionResult#dualStackDnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "DualStack is enabled but this partition does not support DualStack",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://rds.{Region}.{PartitionResult#dnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: Missing Region",
+       "type": "error"
+      }
+     ],
+     "root": 2,
+     "nodeCount": 14,
+     "nodes": "/////wAAAAH/////AAAAAAAAAA0AAAADAAAAAQAAAAQF9eEMAAAAAgAAAAUF9eEMAAAAAwAAAAgAAAAGAAAABAAAAAcF9eELAAAABQX14QkF9eEKAAAABAAAAAsAAAAJAAAABgAAAAoF9eEIAAAABwX14QYF9eEHAAAABQAAAAwF9eEFAAAABgX14QQF9eEFAAAAAwX14QEAAAAOAAAABAX14QIF9eED"
+    }
+   }
+  },
+  "com.amazonaws.rds#ActivityStreamMode": {
+   "type": "enum",
+   "members": {
+    "sync": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "sync"
+     }
+    },
+    "async": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "async"
+     }
+    }
+   }
+  },
+  "com.amazonaws.rds#ActivityStreamPolicyStatus": {
+   "type": "enum",
+   "members": {
+    "locked": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "locked"
+     }
+    },
+    "unlocked": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "unlocked"
+     }
+    },
+    "locking_policy": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "locking-policy"
+     }
+    },
+    "unlocking_policy": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "unlocking-policy"
+     }
+    }
+   }
+  },
+  "com.amazonaws.rds#ActivityStreamStatus": {
+   "type": "enum",
+   "members": {
+    "stopped": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "stopped"
+     }
+    },
+    "starting": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "starting"
+     }
+    },
+    "started": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "started"
+     }
+    },
+    "stopping": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "stopping"
+     }
+    }
+   }
+  },
+  "com.amazonaws.rds#AdditionalStorageVolume": {
+   "type": "structure",
+   "members": {
+    "VolumeName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {
+      "smithy.api#clientOptional": {},
+      "smithy.api#required": {}
+     }
+    },
+    "AllocatedStorage": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "IOPS": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "MaxAllocatedStorage": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "StorageThroughput": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "StorageType": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#AdditionalStorageVolumeOutput": {
+   "type": "structure",
+   "members": {
+    "VolumeName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "StorageVolumeStatus": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "AllocatedStorage": {
+     "target": "com.amazonaws.rds#Integer",
+     "traits": {}
+    },
+    "IOPS": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "MaxAllocatedStorage": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "StorageThroughput": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "StorageType": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#AdditionalStorageVolumesList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#AdditionalStorageVolume"
+   }
+  },
+  "com.amazonaws.rds#AdditionalStorageVolumesOutputList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#AdditionalStorageVolumeOutput"
+   }
+  },
+  "com.amazonaws.rds#ApplyMethod": {
+   "type": "enum",
+   "members": {
+    "immediate": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "immediate"
+     }
+    },
+    "pending_reboot": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "pending-reboot"
+     }
+    }
+   }
+  },
+  "com.amazonaws.rds#AutomationMode": {
+   "type": "enum",
+   "members": {
+    "FULL": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "full"
+     }
+    },
+    "ALL_PAUSED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "all-paused"
+     }
+    }
+   }
+  },
+  "com.amazonaws.rds#AvailabilityZone": {
+   "type": "structure",
+   "members": {
+    "Name": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#Boolean": {
+   "type": "boolean"
+  },
+  "com.amazonaws.rds#BooleanOptional": {
+   "type": "boolean"
+  },
+  "com.amazonaws.rds#CertificateDetails": {
+   "type": "structure",
+   "members": {
+    "CAIdentifier": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "ValidTill": {
+     "target": "com.amazonaws.rds#TStamp",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#DBInstance": {
+   "type": "structure",
+   "members": {
+    "DBInstanceIdentifier": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DBInstanceClass": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Engine": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DBInstanceStatus": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "MasterUsername": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DBName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Endpoint": {
+     "target": "com.amazonaws.rds#Endpoint",
+     "traits": {}
+    },
+    "AllocatedStorage": {
+     "target": "com.amazonaws.rds#Integer",
+     "traits": {}
+    },
+    "InstanceCreateTime": {
+     "target": "com.amazonaws.rds#TStamp",
+     "traits": {}
+    },
+    "PreferredBackupWindow": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "BackupRetentionPeriod": {
+     "target": "com.amazonaws.rds#Integer",
+     "traits": {}
+    },
+    "DBSecurityGroups": {
+     "target": "com.amazonaws.rds#DBSecurityGroupMembershipList",
+     "traits": {}
+    },
+    "VpcSecurityGroups": {
+     "target": "com.amazonaws.rds#VpcSecurityGroupMembershipList",
+     "traits": {}
+    },
+    "DBParameterGroups": {
+     "target": "com.amazonaws.rds#DBParameterGroupStatusList",
+     "traits": {}
+    },
+    "AvailabilityZone": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DBSubnetGroup": {
+     "target": "com.amazonaws.rds#DBSubnetGroup",
+     "traits": {}
+    },
+    "PreferredMaintenanceWindow": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "UpgradeRolloutOrder": {
+     "target": "com.amazonaws.rds#UpgradeRolloutOrder",
+     "traits": {}
+    },
+    "PendingModifiedValues": {
+     "target": "com.amazonaws.rds#PendingModifiedValues",
+     "traits": {}
+    },
+    "LatestRestorableTime": {
+     "target": "com.amazonaws.rds#TStamp",
+     "traits": {}
+    },
+    "MultiAZ": {
+     "target": "com.amazonaws.rds#Boolean",
+     "traits": {}
+    },
+    "EngineVersion": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "AutoMinorVersionUpgrade": {
+     "target": "com.amazonaws.rds#Boolean",
+     "traits": {}
+    },
+    "ReadReplicaSourceDBInstanceIdentifier": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "ReadReplicaDBInstanceIdentifiers": {
+     "target": "com.amazonaws.rds#ReadReplicaDBInstanceIdentifierList",
+     "traits": {}
+    },
+    "ReadReplicaDBClusterIdentifiers": {
+     "target": "com.amazonaws.rds#ReadReplicaDBClusterIdentifierList",
+     "traits": {}
+    },
+    "ReplicaMode": {
+     "target": "com.amazonaws.rds#ReplicaMode",
+     "traits": {}
+    },
+    "LicenseModel": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Iops": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "StorageThroughput": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "OptionGroupMemberships": {
+     "target": "com.amazonaws.rds#OptionGroupMembershipList",
+     "traits": {}
+    },
+    "CharacterSetName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "NcharCharacterSetName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "SecondaryAvailabilityZone": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "PubliclyAccessible": {
+     "target": "com.amazonaws.rds#Boolean",
+     "traits": {}
+    },
+    "StatusInfos": {
+     "target": "com.amazonaws.rds#DBInstanceStatusInfoList",
+     "traits": {}
+    },
+    "StorageType": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "StorageEncryptionType": {
+     "target": "com.amazonaws.rds#StorageEncryptionType",
+     "traits": {}
+    },
+    "TdeCredentialArn": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DbInstancePort": {
+     "target": "com.amazonaws.rds#Integer",
+     "traits": {}
+    },
+    "DBClusterIdentifier": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "StorageEncrypted": {
+     "target": "com.amazonaws.rds#Boolean",
+     "traits": {}
+    },
+    "KmsKeyId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DbiResourceId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "CACertificateIdentifier": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DomainMemberships": {
+     "target": "com.amazonaws.rds#DomainMembershipList",
+     "traits": {}
+    },
+    "CopyTagsToSnapshot": {
+     "target": "com.amazonaws.rds#Boolean",
+     "traits": {}
+    },
+    "MonitoringInterval": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "EnhancedMonitoringResourceArn": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "MonitoringRoleArn": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "PromotionTier": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "DBInstanceArn": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Timezone": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "IAMDatabaseAuthenticationEnabled": {
+     "target": "com.amazonaws.rds#Boolean",
+     "traits": {}
+    },
+    "DatabaseInsightsMode": {
+     "target": "com.amazonaws.rds#DatabaseInsightsMode",
+     "traits": {}
+    },
+    "PerformanceInsightsEnabled": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "PerformanceInsightsKMSKeyId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "PerformanceInsightsRetentionPeriod": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "EnabledCloudwatchLogsExports": {
+     "target": "com.amazonaws.rds#LogTypeList",
+     "traits": {}
+    },
+    "ProcessorFeatures": {
+     "target": "com.amazonaws.rds#ProcessorFeatureList",
+     "traits": {}
+    },
+    "DeletionProtection": {
+     "target": "com.amazonaws.rds#Boolean",
+     "traits": {}
+    },
+    "AssociatedRoles": {
+     "target": "com.amazonaws.rds#DBInstanceRoles",
+     "traits": {}
+    },
+    "ListenerEndpoint": {
+     "target": "com.amazonaws.rds#Endpoint",
+     "traits": {}
+    },
+    "MaxAllocatedStorage": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "TagList": {
+     "target": "com.amazonaws.rds#TagList"
+    },
+    "AutomationMode": {
+     "target": "com.amazonaws.rds#AutomationMode",
+     "traits": {}
+    },
+    "ResumeFullAutomationModeTime": {
+     "target": "com.amazonaws.rds#TStamp",
+     "traits": {}
+    },
+    "CustomerOwnedIpEnabled": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "NetworkType": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "ActivityStreamStatus": {
+     "target": "com.amazonaws.rds#ActivityStreamStatus",
+     "traits": {}
+    },
+    "ActivityStreamKmsKeyId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "ActivityStreamKinesisStreamName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "ActivityStreamMode": {
+     "target": "com.amazonaws.rds#ActivityStreamMode",
+     "traits": {}
+    },
+    "ActivityStreamEngineNativeAuditFieldsIncluded": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "AwsBackupRecoveryPointArn": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DBInstanceAutomatedBackupsReplications": {
+     "target": "com.amazonaws.rds#DBInstanceAutomatedBackupsReplicationList",
+     "traits": {}
+    },
+    "BackupTarget": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "AutomaticRestartTime": {
+     "target": "com.amazonaws.rds#TStamp",
+     "traits": {}
+    },
+    "CustomIamInstanceProfile": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "ActivityStreamPolicyStatus": {
+     "target": "com.amazonaws.rds#ActivityStreamPolicyStatus",
+     "traits": {}
+    },
+    "CertificateDetails": {
+     "target": "com.amazonaws.rds#CertificateDetails",
+     "traits": {}
+    },
+    "DBSystemId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "MasterUserSecret": {
+     "target": "com.amazonaws.rds#MasterUserSecret",
+     "traits": {}
+    },
+    "ReadReplicaSourceDBClusterIdentifier": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "PercentProgress": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "MultiTenant": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "DedicatedLogVolume": {
+     "target": "com.amazonaws.rds#Boolean",
+     "traits": {}
+    },
+    "IsStorageConfigUpgradeAvailable": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "EngineLifecycleSupport": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "AdditionalStorageVolumes": {
+     "target": "com.amazonaws.rds#AdditionalStorageVolumesOutputList",
+     "traits": {}
+    },
+    "StorageVolumeStatus": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#DBInstanceAutomatedBackupsReplication": {
+   "type": "structure",
+   "members": {
+    "DBInstanceAutomatedBackupsArn": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#DBInstanceAutomatedBackupsReplicationList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#DBInstanceAutomatedBackupsReplication",
+    "traits": {
+     "smithy.api#xmlName": "DBInstanceAutomatedBackupsReplication"
+    }
+   }
+  },
+  "com.amazonaws.rds#DBInstanceList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#DBInstance",
+    "traits": {
+     "smithy.api#xmlName": "DBInstance"
+    }
+   }
+  },
+  "com.amazonaws.rds#DBInstanceMessage": {
+   "type": "structure",
+   "members": {
+    "Marker": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DBInstances": {
+     "target": "com.amazonaws.rds#DBInstanceList",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.rds#DBInstanceNotFoundFault": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.rds#ExceptionMessage"
+    }
+   },
+   "traits": {
+    "aws.protocols#awsQueryError": {
+     "code": "DBInstanceNotFound",
+     "httpResponseCode": 404
+    },
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 404
+   }
+  },
+  "com.amazonaws.rds#DBInstanceRole": {
+   "type": "structure",
+   "members": {
+    "RoleArn": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "FeatureName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Status": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#DBInstanceRoles": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#DBInstanceRole",
+    "traits": {
+     "smithy.api#xmlName": "DBInstanceRole"
+    }
+   }
+  },
+  "com.amazonaws.rds#DBInstanceStatusInfo": {
+   "type": "structure",
+   "members": {
+    "StatusType": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Normal": {
+     "target": "com.amazonaws.rds#Boolean",
+     "traits": {}
+    },
+    "Status": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Message": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#DBInstanceStatusInfoList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#DBInstanceStatusInfo",
+    "traits": {
+     "smithy.api#xmlName": "DBInstanceStatusInfo"
+    }
+   }
+  },
+  "com.amazonaws.rds#DBParameterGroupDetails": {
+   "type": "structure",
+   "members": {
+    "Parameters": {
+     "target": "com.amazonaws.rds#ParametersList",
+     "traits": {}
+    },
+    "Marker": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#DBParameterGroupNotFoundFault": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.rds#ExceptionMessage"
+    }
+   },
+   "traits": {
+    "aws.protocols#awsQueryError": {
+     "code": "DBParameterGroupNotFound",
+     "httpResponseCode": 404
+    },
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 404
+   }
+  },
+  "com.amazonaws.rds#DBParameterGroupStatus": {
+   "type": "structure",
+   "members": {
+    "DBParameterGroupName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "ParameterApplyStatus": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#DBParameterGroupStatusList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#DBParameterGroupStatus",
+    "traits": {
+     "smithy.api#xmlName": "DBParameterGroup"
+    }
+   }
+  },
+  "com.amazonaws.rds#DBSecurityGroupMembership": {
+   "type": "structure",
+   "members": {
+    "DBSecurityGroupName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Status": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#DBSecurityGroupMembershipList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#DBSecurityGroupMembership",
+    "traits": {
+     "smithy.api#xmlName": "DBSecurityGroup"
+    }
+   }
+  },
+  "com.amazonaws.rds#DBSubnetGroup": {
+   "type": "structure",
+   "members": {
+    "DBSubnetGroupName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DBSubnetGroupDescription": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "VpcId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "SubnetGroupStatus": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Subnets": {
+     "target": "com.amazonaws.rds#SubnetList",
+     "traits": {}
+    },
+    "DBSubnetGroupArn": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "SupportedNetworkTypes": {
+     "target": "com.amazonaws.rds#StringList",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#DatabaseInsightsMode": {
+   "type": "enum",
+   "members": {
+    "STANDARD": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "standard"
+     }
+    },
+    "ADVANCED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "advanced"
+     }
+    }
+   }
+  },
+  "com.amazonaws.rds#DescribeDBInstances": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.rds#DescribeDBInstancesMessage"
+   },
+   "output": {
+    "target": "com.amazonaws.rds#DBInstanceMessage"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.rds#DBInstanceNotFoundFault"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "Marker",
+     "outputToken": "Marker",
+     "items": "DBInstances",
+     "pageSize": "MaxRecords"
+    },
+    "smithy.api#suppress": [
+     "WaitableTraitInvalidErrorType"
+    ],
+    "smithy.waiters#waitable": {
+     "DBInstanceAvailable": {
+      "acceptors": [
+       {
+        "state": "success",
+        "matcher": {
+         "output": {
+          "path": "DBInstances[].DBInstanceStatus",
+          "expected": "available",
+          "comparator": "allStringEquals"
+         }
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBInstances[].DBInstanceStatus",
+          "expected": "deleted",
+          "comparator": "anyStringEquals"
+         }
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBInstances[].DBInstanceStatus",
+          "expected": "deleting",
+          "comparator": "anyStringEquals"
+         }
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBInstances[].DBInstanceStatus",
+          "expected": "failed",
+          "comparator": "anyStringEquals"
+         }
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBInstances[].DBInstanceStatus",
+          "expected": "incompatible-restore",
+          "comparator": "anyStringEquals"
+         }
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBInstances[].DBInstanceStatus",
+          "expected": "incompatible-parameters",
+          "comparator": "anyStringEquals"
+         }
+        }
+       }
+      ],
+      "minDelay": 30,
+      "maxDelay": 1800
+     },
+     "DBInstanceDeleted": {
+      "acceptors": [
+       {
+        "state": "success",
+        "matcher": {
+         "output": {
+          "path": "length(DBInstances) == `0`",
+          "expected": "true",
+          "comparator": "booleanEquals"
+         }
+        }
+       },
+       {
+        "state": "success",
+        "matcher": {
+         "errorType": "DBInstanceNotFound"
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBInstances[].DBInstanceStatus",
+          "expected": "creating",
+          "comparator": "anyStringEquals"
+         }
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBInstances[].DBInstanceStatus",
+          "expected": "modifying",
+          "comparator": "anyStringEquals"
+         }
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBInstances[].DBInstanceStatus",
+          "expected": "rebooting",
+          "comparator": "anyStringEquals"
+         }
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBInstances[].DBInstanceStatus",
+          "expected": "resetting-master-credentials",
+          "comparator": "anyStringEquals"
+         }
+        }
+       }
+      ],
+      "minDelay": 30,
+      "maxDelay": 1800
+     }
+    }
+   }
+  },
+  "com.amazonaws.rds#DescribeDBInstancesMessage": {
+   "type": "structure",
+   "members": {
+    "DBInstanceIdentifier": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Filters": {
+     "target": "com.amazonaws.rds#FilterList",
+     "traits": {}
+    },
+    "MaxRecords": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "Marker": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.rds#DescribeDBParameters": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.rds#DescribeDBParametersMessage"
+   },
+   "output": {
+    "target": "com.amazonaws.rds#DBParameterGroupDetails"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.rds#DBParameterGroupNotFoundFault"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "Marker",
+     "outputToken": "Marker",
+     "items": "Parameters",
+     "pageSize": "MaxRecords"
+    }
+   }
+  },
+  "com.amazonaws.rds#DescribeDBParametersMessage": {
+   "type": "structure",
+   "members": {
+    "DBParameterGroupName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {
+      "smithy.api#clientOptional": {},
+      "smithy.api#required": {}
+     }
+    },
+    "Source": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Filters": {
+     "target": "com.amazonaws.rds#FilterList",
+     "traits": {}
+    },
+    "MaxRecords": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "Marker": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.rds#DomainMembership": {
+   "type": "structure",
+   "members": {
+    "Domain": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Status": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "FQDN": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "IAMRoleName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "OU": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "AuthSecretArn": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DnsIps": {
+     "target": "com.amazonaws.rds#StringList",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#DomainMembershipList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#DomainMembership",
+    "traits": {
+     "smithy.api#xmlName": "DomainMembership"
+    }
+   }
+  },
+  "com.amazonaws.rds#Endpoint": {
+   "type": "structure",
+   "members": {
+    "Address": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Port": {
+     "target": "com.amazonaws.rds#Integer",
+     "traits": {}
+    },
+    "HostedZoneId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#EngineModeList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#String"
+   }
+  },
+  "com.amazonaws.rds#ExceptionMessage": {
+   "type": "string"
+  },
+  "com.amazonaws.rds#Filter": {
+   "type": "structure",
+   "members": {
+    "Name": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {
+      "smithy.api#clientOptional": {},
+      "smithy.api#required": {}
+     }
+    },
+    "Values": {
+     "target": "com.amazonaws.rds#FilterValueList",
+     "traits": {
+      "smithy.api#clientOptional": {},
+      "smithy.api#required": {}
+     }
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#FilterList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#Filter",
+    "traits": {
+     "smithy.api#xmlName": "Filter"
+    }
+   }
+  },
+  "com.amazonaws.rds#FilterValueList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#String",
+    "traits": {
+     "smithy.api#xmlName": "Value"
+    }
+   }
+  },
+  "com.amazonaws.rds#Integer": {
+   "type": "integer"
+  },
+  "com.amazonaws.rds#IntegerOptional": {
+   "type": "integer"
+  },
+  "com.amazonaws.rds#LogTypeList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#String"
+   }
+  },
+  "com.amazonaws.rds#MasterUserSecret": {
+   "type": "structure",
+   "members": {
+    "SecretArn": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "SecretStatus": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "KmsKeyId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#OptionGroupMembership": {
+   "type": "structure",
+   "members": {
+    "OptionGroupName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Status": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#OptionGroupMembershipList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#OptionGroupMembership",
+    "traits": {
+     "smithy.api#xmlName": "OptionGroupMembership"
+    }
+   }
+  },
+  "com.amazonaws.rds#Outpost": {
+   "type": "structure",
+   "members": {
+    "Arn": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#Parameter": {
+   "type": "structure",
+   "members": {
+    "ParameterName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "ParameterValue": {
+     "target": "com.amazonaws.rds#PotentiallySensitiveParameterValue",
+     "traits": {}
+    },
+    "Description": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Source": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "ApplyType": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DataType": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "AllowedValues": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "IsModifiable": {
+     "target": "com.amazonaws.rds#Boolean",
+     "traits": {}
+    },
+    "MinimumEngineVersion": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "ApplyMethod": {
+     "target": "com.amazonaws.rds#ApplyMethod",
+     "traits": {}
+    },
+    "SupportedEngineModes": {
+     "target": "com.amazonaws.rds#EngineModeList",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#ParametersList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#Parameter",
+    "traits": {
+     "smithy.api#xmlName": "Parameter"
+    }
+   }
+  },
+  "com.amazonaws.rds#PendingCloudwatchLogsExports": {
+   "type": "structure",
+   "members": {
+    "LogTypesToEnable": {
+     "target": "com.amazonaws.rds#LogTypeList",
+     "traits": {}
+    },
+    "LogTypesToDisable": {
+     "target": "com.amazonaws.rds#LogTypeList",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#PendingModifiedValues": {
+   "type": "structure",
+   "members": {
+    "DBInstanceClass": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "AllocatedStorage": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "MasterUserPassword": {
+     "target": "com.amazonaws.rds#SensitiveString",
+     "traits": {}
+    },
+    "Port": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "BackupRetentionPeriod": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "MultiAZ": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "EngineVersion": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "LicenseModel": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Iops": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "StorageThroughput": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "DBInstanceIdentifier": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "StorageType": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "CACertificateIdentifier": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DBSubnetGroupName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "PendingCloudwatchLogsExports": {
+     "target": "com.amazonaws.rds#PendingCloudwatchLogsExports"
+    },
+    "ProcessorFeatures": {
+     "target": "com.amazonaws.rds#ProcessorFeatureList",
+     "traits": {}
+    },
+    "AutomationMode": {
+     "target": "com.amazonaws.rds#AutomationMode",
+     "traits": {}
+    },
+    "ResumeFullAutomationModeTime": {
+     "target": "com.amazonaws.rds#TStamp",
+     "traits": {}
+    },
+    "MultiTenant": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "IAMDatabaseAuthenticationEnabled": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "DedicatedLogVolume": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "Engine": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "AdditionalStorageVolumes": {
+     "target": "com.amazonaws.rds#AdditionalStorageVolumesList",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#PotentiallySensitiveParameterValue": {
+   "type": "string"
+  },
+  "com.amazonaws.rds#ProcessorFeature": {
+   "type": "structure",
+   "members": {
+    "Name": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Value": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#ProcessorFeatureList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#ProcessorFeature",
+    "traits": {
+     "smithy.api#xmlName": "ProcessorFeature"
+    }
+   }
+  },
+  "com.amazonaws.rds#ReadReplicaDBClusterIdentifierList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#String",
+    "traits": {
+     "smithy.api#xmlName": "ReadReplicaDBClusterIdentifier"
+    }
+   }
+  },
+  "com.amazonaws.rds#ReadReplicaDBInstanceIdentifierList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#String",
+    "traits": {
+     "smithy.api#xmlName": "ReadReplicaDBInstanceIdentifier"
+    }
+   }
+  },
+  "com.amazonaws.rds#ReplicaMode": {
+   "type": "enum",
+   "members": {
+    "OPEN_READ_ONLY": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "open-read-only"
+     }
+    },
+    "MOUNTED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "mounted"
+     }
+    }
+   }
+  },
+  "com.amazonaws.rds#SensitiveString": {
+   "type": "string",
+   "traits": {
+    "smithy.api#sensitive": {}
+   }
+  },
+  "com.amazonaws.rds#StorageEncryptionType": {
+   "type": "enum",
+   "members": {
+    "UNENCRYPTED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "none"
+     }
+    },
+    "CMK": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "sse-kms"
+     }
+    },
+    "SSE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "sse-rds"
+     }
+    }
+   }
+  },
+  "com.amazonaws.rds#String": {
+   "type": "string"
+  },
+  "com.amazonaws.rds#StringList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#String"
+   }
+  },
+  "com.amazonaws.rds#Subnet": {
+   "type": "structure",
+   "members": {
+    "SubnetIdentifier": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "SubnetAvailabilityZone": {
+     "target": "com.amazonaws.rds#AvailabilityZone"
+    },
+    "SubnetOutpost": {
+     "target": "com.amazonaws.rds#Outpost",
+     "traits": {}
+    },
+    "SubnetStatus": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#SubnetList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#Subnet",
+    "traits": {
+     "smithy.api#xmlName": "Subnet"
+    }
+   }
+  },
+  "com.amazonaws.rds#TStamp": {
+   "type": "timestamp"
+  },
+  "com.amazonaws.rds#Tag": {
+   "type": "structure",
+   "members": {
+    "Key": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Value": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#TagList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#Tag",
+    "traits": {
+     "smithy.api#xmlName": "Tag"
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#UpgradeRolloutOrder": {
+   "type": "enum",
+   "members": {
+    "FIRST": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "first"
+     }
+    },
+    "SECOND": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "second"
+     }
+    },
+    "LAST": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "last"
+     }
+    }
+   }
+  },
+  "com.amazonaws.rds#VpcSecurityGroupMembership": {
+   "type": "structure",
+   "members": {
+    "VpcSecurityGroupId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Status": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#VpcSecurityGroupMembershipList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#VpcSecurityGroupMembership",
+    "traits": {
+     "smithy.api#xmlName": "VpcSecurityGroupMembership"
+    }
+   }
+  }
+ }
+}

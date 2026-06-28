@@ -1,0 +1,960 @@
+{
+ "smithy": "2.0",
+ "shapes": {
+  "com.amazonaws.backup#CryoControllerUserManager": {
+   "type": "service",
+   "version": "2018-11-15",
+   "operations": [
+    {
+     "target": "com.amazonaws.backup#GetBackupPlan"
+    },
+    {
+     "target": "com.amazonaws.backup#ListBackupPlans"
+    }
+   ],
+   "traits": {
+    "aws.api#service": {
+     "sdkId": "Backup",
+     "arnNamespace": "backup",
+     "cloudFormationName": "Backup",
+     "cloudTrailEventSource": "backup.amazonaws.com",
+     "endpointPrefix": "backup"
+    },
+    "aws.auth#sigv4": {
+     "name": "backup"
+    },
+    "aws.protocols#restJson1": {},
+    "smithy.api#title": "AWS Backup",
+    "smithy.rules#endpointBdd": {
+     "version": "1.1",
+     "parameters": {
+      "Region": {
+       "builtIn": "AWS::Region",
+       "required": false,
+       "documentation": "The AWS region used to dispatch the request.",
+       "type": "string"
+      },
+      "UseDualStack": {
+       "builtIn": "AWS::UseDualStack",
+       "required": true,
+       "default": false,
+       "documentation": "When true, use the dual-stack endpoint. If the configured endpoint does not support dual-stack, dispatching the request MAY return an error.",
+       "type": "boolean"
+      },
+      "UseFIPS": {
+       "builtIn": "AWS::UseFIPS",
+       "required": true,
+       "default": false,
+       "documentation": "When true, send this request to the FIPS-compliant regional endpoint. If the configured endpoint does not have a FIPS compliant endpoint, dispatching the request will return an error.",
+       "type": "boolean"
+      },
+      "Endpoint": {
+       "builtIn": "SDK::Endpoint",
+       "required": false,
+       "documentation": "Override the endpoint used to send this request",
+       "type": "string"
+      }
+     },
+     "conditions": [
+      {
+       "fn": "isSet",
+       "argv": [
+        {
+         "ref": "Endpoint"
+        }
+       ]
+      },
+      {
+       "fn": "isSet",
+       "argv": [
+        {
+         "ref": "Region"
+        }
+       ]
+      },
+      {
+       "fn": "aws.partition",
+       "argv": [
+        {
+         "ref": "Region"
+        }
+       ],
+       "assign": "PartitionResult"
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "ref": "UseFIPS"
+        },
+        true
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "ref": "UseDualStack"
+        },
+        true
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "supportsDualStack"
+         ]
+        },
+        true
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "supportsFIPS"
+         ]
+        },
+        true
+       ]
+      }
+     ],
+     "results": [
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: FIPS and custom endpoint are not supported",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: Dualstack and custom endpoint are not supported",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": {
+         "ref": "Endpoint"
+        },
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://backup-fips.{Region}.{PartitionResult#dualStackDnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "FIPS and DualStack are enabled, but this partition does not support one or both",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://backup-fips.{Region}.{PartitionResult#dnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "FIPS is enabled but this partition does not support FIPS",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://backup.{Region}.{PartitionResult#dualStackDnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "DualStack is enabled but this partition does not support DualStack",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://backup.{Region}.{PartitionResult#dnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: Missing Region",
+       "type": "error"
+      }
+     ],
+     "root": 2,
+     "nodeCount": 13,
+     "nodes": "/////wAAAAH/////AAAAAAAAAAwAAAADAAAAAQAAAAQF9eELAAAAAgAAAAUF9eELAAAAAwAAAAgAAAAGAAAABAAAAAcF9eEKAAAABQX14QgF9eEJAAAABAAAAAoAAAAJAAAABgX14QYF9eEHAAAABQAAAAsF9eEFAAAABgX14QQF9eEFAAAAAwX14QEAAAANAAAABAX14QIF9eED"
+    }
+   }
+  },
+  "com.amazonaws.backup#ARN": {
+   "type": "string"
+  },
+  "com.amazonaws.backup#AdvancedBackupSetting": {
+   "type": "structure",
+   "members": {
+    "ResourceType": {
+     "target": "com.amazonaws.backup#ResourceType",
+     "traits": {}
+    },
+    "BackupOptions": {
+     "target": "com.amazonaws.backup#BackupOptions",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.backup#AdvancedBackupSettings": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.backup#AdvancedBackupSetting"
+   }
+  },
+  "com.amazonaws.backup#BackupOptionKey": {
+   "type": "string",
+   "traits": {
+    "smithy.api#pattern": "^[a-zA-Z0-9\\-\\_\\.]{1,50}$"
+   }
+  },
+  "com.amazonaws.backup#BackupOptionValue": {
+   "type": "string",
+   "traits": {
+    "smithy.api#pattern": "^[a-zA-Z0-9\\-\\_\\.]{1,50}$"
+   }
+  },
+  "com.amazonaws.backup#BackupOptions": {
+   "type": "map",
+   "key": {
+    "target": "com.amazonaws.backup#BackupOptionKey"
+   },
+   "value": {
+    "target": "com.amazonaws.backup#BackupOptionValue"
+   }
+  },
+  "com.amazonaws.backup#BackupPlan": {
+   "type": "structure",
+   "members": {
+    "BackupPlanName": {
+     "target": "com.amazonaws.backup#BackupPlanName",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "Rules": {
+     "target": "com.amazonaws.backup#BackupRules",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "AdvancedBackupSettings": {
+     "target": "com.amazonaws.backup#AdvancedBackupSettings",
+     "traits": {}
+    },
+    "ScanSettings": {
+     "target": "com.amazonaws.backup#ScanSettings",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.backup#BackupPlanName": {
+   "type": "string"
+  },
+  "com.amazonaws.backup#BackupPlansList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.backup#BackupPlansListMember"
+   }
+  },
+  "com.amazonaws.backup#BackupPlansListMember": {
+   "type": "structure",
+   "members": {
+    "BackupPlanArn": {
+     "target": "com.amazonaws.backup#ARN",
+     "traits": {}
+    },
+    "BackupPlanId": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {}
+    },
+    "CreationDate": {
+     "target": "com.amazonaws.backup#timestamp",
+     "traits": {}
+    },
+    "DeletionDate": {
+     "target": "com.amazonaws.backup#timestamp",
+     "traits": {}
+    },
+    "VersionId": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {}
+    },
+    "BackupPlanName": {
+     "target": "com.amazonaws.backup#BackupPlanName",
+     "traits": {}
+    },
+    "CreatorRequestId": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {}
+    },
+    "LastExecutionDate": {
+     "target": "com.amazonaws.backup#timestamp",
+     "traits": {}
+    },
+    "AdvancedBackupSettings": {
+     "target": "com.amazonaws.backup#AdvancedBackupSettings",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.backup#BackupRule": {
+   "type": "structure",
+   "members": {
+    "RuleName": {
+     "target": "com.amazonaws.backup#BackupRuleName",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "TargetBackupVaultName": {
+     "target": "com.amazonaws.backup#BackupVaultName",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "TargetLogicallyAirGappedBackupVaultArn": {
+     "target": "com.amazonaws.backup#ARN",
+     "traits": {}
+    },
+    "ScheduleExpression": {
+     "target": "com.amazonaws.backup#CronExpression",
+     "traits": {}
+    },
+    "StartWindowMinutes": {
+     "target": "com.amazonaws.backup#WindowMinutes",
+     "traits": {}
+    },
+    "CompletionWindowMinutes": {
+     "target": "com.amazonaws.backup#WindowMinutes",
+     "traits": {}
+    },
+    "Lifecycle": {
+     "target": "com.amazonaws.backup#Lifecycle",
+     "traits": {}
+    },
+    "RecoveryPointTags": {
+     "target": "com.amazonaws.backup#Tags",
+     "traits": {}
+    },
+    "RuleId": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {}
+    },
+    "CopyActions": {
+     "target": "com.amazonaws.backup#CopyActions",
+     "traits": {}
+    },
+    "EnableContinuousBackup": {
+     "target": "com.amazonaws.backup#Boolean",
+     "traits": {}
+    },
+    "ScheduleExpressionTimezone": {
+     "target": "com.amazonaws.backup#Timezone",
+     "traits": {}
+    },
+    "IndexActions": {
+     "target": "com.amazonaws.backup#IndexActions",
+     "traits": {}
+    },
+    "ScanActions": {
+     "target": "com.amazonaws.backup#ScanActions",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.backup#BackupRuleName": {
+   "type": "string",
+   "traits": {
+    "smithy.api#pattern": "^[a-zA-Z0-9\\-\\_\\.]{1,50}$"
+   }
+  },
+  "com.amazonaws.backup#BackupRules": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.backup#BackupRule"
+   }
+  },
+  "com.amazonaws.backup#BackupVaultName": {
+   "type": "string",
+   "traits": {
+    "smithy.api#pattern": "^[a-zA-Z0-9\\-\\_]{2,50}$"
+   }
+  },
+  "com.amazonaws.backup#Boolean": {
+   "type": "boolean"
+  },
+  "com.amazonaws.backup#CopyAction": {
+   "type": "structure",
+   "members": {
+    "Lifecycle": {
+     "target": "com.amazonaws.backup#Lifecycle"
+    },
+    "DestinationBackupVaultArn": {
+     "target": "com.amazonaws.backup#ARN",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.backup#CopyActions": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.backup#CopyAction"
+   }
+  },
+  "com.amazonaws.backup#CronExpression": {
+   "type": "string"
+  },
+  "com.amazonaws.backup#GetBackupPlan": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.backup#GetBackupPlanInput"
+   },
+   "output": {
+    "target": "com.amazonaws.backup#GetBackupPlanOutput"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.backup#InvalidParameterValueException"
+    },
+    {
+     "target": "com.amazonaws.backup#MissingParameterValueException"
+    },
+    {
+     "target": "com.amazonaws.backup#ResourceNotFoundException"
+    },
+    {
+     "target": "com.amazonaws.backup#ServiceUnavailableException"
+    }
+   ],
+   "traits": {
+    "smithy.api#http": {
+     "method": "GET",
+     "uri": "/backup/plans/{BackupPlanId}",
+     "code": 200
+    },
+    "smithy.api#idempotent": {}
+   }
+  },
+  "com.amazonaws.backup#GetBackupPlanInput": {
+   "type": "structure",
+   "members": {
+    "BackupPlanId": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {
+      "smithy.api#httpLabel": {},
+      "smithy.api#required": {}
+     }
+    },
+    "VersionId": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {
+      "smithy.api#httpQuery": "versionId"
+     }
+    },
+    "MaxScheduledRunsPreview": {
+     "target": "com.amazonaws.backup#MaxScheduledRunsPreview",
+     "traits": {
+      "smithy.api#default": 0,
+      "smithy.api#httpQuery": "MaxScheduledRunsPreview"
+     }
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.backup#GetBackupPlanOutput": {
+   "type": "structure",
+   "members": {
+    "BackupPlan": {
+     "target": "com.amazonaws.backup#BackupPlan",
+     "traits": {}
+    },
+    "BackupPlanId": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {}
+    },
+    "BackupPlanArn": {
+     "target": "com.amazonaws.backup#ARN",
+     "traits": {}
+    },
+    "VersionId": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {}
+    },
+    "CreatorRequestId": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {}
+    },
+    "CreationDate": {
+     "target": "com.amazonaws.backup#timestamp",
+     "traits": {}
+    },
+    "DeletionDate": {
+     "target": "com.amazonaws.backup#timestamp",
+     "traits": {}
+    },
+    "LastExecutionDate": {
+     "target": "com.amazonaws.backup#timestamp",
+     "traits": {}
+    },
+    "AdvancedBackupSettings": {
+     "target": "com.amazonaws.backup#AdvancedBackupSettings",
+     "traits": {}
+    },
+    "ScheduledRunsPreview": {
+     "target": "com.amazonaws.backup#ScheduledRunsPreview",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.backup#IAMRoleArn": {
+   "type": "string"
+  },
+  "com.amazonaws.backup#IndexAction": {
+   "type": "structure",
+   "members": {
+    "ResourceTypes": {
+     "target": "com.amazonaws.backup#ResourceTypes",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.backup#IndexActions": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.backup#IndexAction"
+   }
+  },
+  "com.amazonaws.backup#InvalidParameterValueException": {
+   "type": "structure",
+   "members": {
+    "Code": {
+     "target": "com.amazonaws.backup#string"
+    },
+    "Message": {
+     "target": "com.amazonaws.backup#string"
+    },
+    "Type": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {}
+    },
+    "Context": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#error": "client"
+   }
+  },
+  "com.amazonaws.backup#Lifecycle": {
+   "type": "structure",
+   "members": {
+    "MoveToColdStorageAfterDays": {
+     "target": "com.amazonaws.backup#Long",
+     "traits": {}
+    },
+    "DeleteAfterDays": {
+     "target": "com.amazonaws.backup#Long",
+     "traits": {}
+    },
+    "OptInToArchiveForSupportedResources": {
+     "target": "com.amazonaws.backup#Boolean",
+     "traits": {}
+    },
+    "DeleteAfterEvent": {
+     "target": "com.amazonaws.backup#LifecycleDeleteAfterEvent",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.backup#LifecycleDeleteAfterEvent": {
+   "type": "enum",
+   "members": {
+    "DELETE_AFTER_COPY": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "DELETE_AFTER_COPY"
+     }
+    }
+   }
+  },
+  "com.amazonaws.backup#ListBackupPlans": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.backup#ListBackupPlansInput"
+   },
+   "output": {
+    "target": "com.amazonaws.backup#ListBackupPlansOutput"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.backup#InvalidParameterValueException"
+    },
+    {
+     "target": "com.amazonaws.backup#MissingParameterValueException"
+    },
+    {
+     "target": "com.amazonaws.backup#ResourceNotFoundException"
+    },
+    {
+     "target": "com.amazonaws.backup#ServiceUnavailableException"
+    }
+   ],
+   "traits": {
+    "smithy.api#http": {
+     "method": "GET",
+     "uri": "/backup/plans",
+     "code": 200
+    },
+    "smithy.api#idempotent": {},
+    "smithy.api#paginated": {
+     "inputToken": "NextToken",
+     "outputToken": "NextToken",
+     "items": "BackupPlansList",
+     "pageSize": "MaxResults"
+    }
+   }
+  },
+  "com.amazonaws.backup#ListBackupPlansInput": {
+   "type": "structure",
+   "members": {
+    "NextToken": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {
+      "smithy.api#httpQuery": "nextToken"
+     }
+    },
+    "MaxResults": {
+     "target": "com.amazonaws.backup#MaxResults",
+     "traits": {
+      "smithy.api#httpQuery": "maxResults"
+     }
+    },
+    "IncludeDeleted": {
+     "target": "com.amazonaws.backup#Boolean",
+     "traits": {
+      "smithy.api#httpQuery": "includeDeleted"
+     }
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.backup#ListBackupPlansOutput": {
+   "type": "structure",
+   "members": {
+    "NextToken": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {}
+    },
+    "BackupPlansList": {
+     "target": "com.amazonaws.backup#BackupPlansList",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.backup#Long": {
+   "type": "long"
+  },
+  "com.amazonaws.backup#MalwareScanner": {
+   "type": "enum",
+   "members": {
+    "GUARDDUTY": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "GUARDDUTY"
+     }
+    }
+   }
+  },
+  "com.amazonaws.backup#MaxResults": {
+   "type": "integer",
+   "traits": {
+    "smithy.api#range": {
+     "min": 1,
+     "max": 1000
+    }
+   }
+  },
+  "com.amazonaws.backup#MaxScheduledRunsPreview": {
+   "type": "integer",
+   "traits": {
+    "smithy.api#default": 0,
+    "smithy.api#range": {
+     "min": 0,
+     "max": 10
+    }
+   }
+  },
+  "com.amazonaws.backup#MissingParameterValueException": {
+   "type": "structure",
+   "members": {
+    "Code": {
+     "target": "com.amazonaws.backup#string"
+    },
+    "Message": {
+     "target": "com.amazonaws.backup#string"
+    },
+    "Type": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {}
+    },
+    "Context": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#error": "client"
+   }
+  },
+  "com.amazonaws.backup#ResourceNotFoundException": {
+   "type": "structure",
+   "members": {
+    "Code": {
+     "target": "com.amazonaws.backup#string"
+    },
+    "Message": {
+     "target": "com.amazonaws.backup#string"
+    },
+    "Type": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {}
+    },
+    "Context": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#error": "client"
+   }
+  },
+  "com.amazonaws.backup#ResourceType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#pattern": "^[a-zA-Z0-9\\-\\_\\.]{1,50}$"
+   }
+  },
+  "com.amazonaws.backup#ResourceTypes": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.backup#ResourceType"
+   }
+  },
+  "com.amazonaws.backup#RuleExecutionType": {
+   "type": "enum",
+   "members": {
+    "CONTINUOUS": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "CONTINUOUS"
+     }
+    },
+    "SNAPSHOTS": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "SNAPSHOTS"
+     }
+    },
+    "CONTINUOUS_AND_SNAPSHOTS": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "CONTINUOUS_AND_SNAPSHOTS"
+     }
+    }
+   }
+  },
+  "com.amazonaws.backup#ScanAction": {
+   "type": "structure",
+   "members": {
+    "MalwareScanner": {
+     "target": "com.amazonaws.backup#MalwareScanner",
+     "traits": {}
+    },
+    "ScanMode": {
+     "target": "com.amazonaws.backup#ScanMode",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.backup#ScanActions": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.backup#ScanAction"
+   }
+  },
+  "com.amazonaws.backup#ScanMode": {
+   "type": "enum",
+   "members": {
+    "FULL_SCAN": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "FULL_SCAN"
+     }
+    },
+    "INCREMENTAL_SCAN": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "INCREMENTAL_SCAN"
+     }
+    }
+   }
+  },
+  "com.amazonaws.backup#ScanSetting": {
+   "type": "structure",
+   "members": {
+    "MalwareScanner": {
+     "target": "com.amazonaws.backup#MalwareScanner",
+     "traits": {}
+    },
+    "ResourceTypes": {
+     "target": "com.amazonaws.backup#ResourceTypes",
+     "traits": {}
+    },
+    "ScannerRoleArn": {
+     "target": "com.amazonaws.backup#IAMRoleArn",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.backup#ScanSettings": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.backup#ScanSetting"
+   }
+  },
+  "com.amazonaws.backup#ScheduledPlanExecutionMember": {
+   "type": "structure",
+   "members": {
+    "ExecutionTime": {
+     "target": "com.amazonaws.backup#timestamp",
+     "traits": {}
+    },
+    "RuleId": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {}
+    },
+    "RuleExecutionType": {
+     "target": "com.amazonaws.backup#RuleExecutionType",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.backup#ScheduledRunsPreview": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.backup#ScheduledPlanExecutionMember"
+   }
+  },
+  "com.amazonaws.backup#ServiceUnavailableException": {
+   "type": "structure",
+   "members": {
+    "Code": {
+     "target": "com.amazonaws.backup#string"
+    },
+    "Message": {
+     "target": "com.amazonaws.backup#string"
+    },
+    "Type": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {}
+    },
+    "Context": {
+     "target": "com.amazonaws.backup#string",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#error": "server"
+   }
+  },
+  "com.amazonaws.backup#TagKey": {
+   "type": "string"
+  },
+  "com.amazonaws.backup#TagValue": {
+   "type": "string"
+  },
+  "com.amazonaws.backup#Tags": {
+   "type": "map",
+   "key": {
+    "target": "com.amazonaws.backup#TagKey"
+   },
+   "value": {
+    "target": "com.amazonaws.backup#TagValue"
+   },
+   "traits": {
+    "smithy.api#sensitive": {}
+   }
+  },
+  "com.amazonaws.backup#Timezone": {
+   "type": "string"
+  },
+  "com.amazonaws.backup#WindowMinutes": {
+   "type": "long"
+  },
+  "com.amazonaws.backup#string": {
+   "type": "string"
+  },
+  "com.amazonaws.backup#timestamp": {
+   "type": "timestamp"
+  }
+ }
+}
