@@ -1,0 +1,568 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure Log Analytics (slice)",
+    "version": "2025-07-01",
+    "x-source": "Azure/azure-rest-api-specs Microsoft.OperationalInsights/OperationalInsights/stable/2025-07-01/openapi.json",
+    "x-slice": "log_group: workspace"
+  },
+  "definitions": {
+    "DataIngestionStatus": {
+      "type": "string",
+      "enum": [
+        "RespectQuota",
+        "ForceOn",
+        "ForceOff",
+        "OverQuota",
+        "SubscriptionSuspended",
+        "ApproachingQuota"
+      ],
+      "x-ms-enum": {
+        "name": "DataIngestionStatus",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "RespectQuota",
+            "value": "RespectQuota"
+          },
+          {
+            "name": "ForceOn",
+            "value": "ForceOn"
+          },
+          {
+            "name": "ForceOff",
+            "value": "ForceOff"
+          },
+          {
+            "name": "OverQuota",
+            "value": "OverQuota"
+          },
+          {
+            "name": "SubscriptionSuspended",
+            "value": "SubscriptionSuspended"
+          },
+          {
+            "name": "ApproachingQuota",
+            "value": "ApproachingQuota"
+          }
+        ]
+      }
+    },
+    "Identity": {
+      "type": "object",
+      "properties": {
+        "principalId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "tenantId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "type": {
+          "$ref": "#/definitions/IdentityType"
+        },
+        "userAssignedIdentities": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/UserIdentityProperties"
+          }
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "IdentityType": {
+      "type": "string",
+      "enum": [
+        "SystemAssigned",
+        "UserAssigned",
+        "None"
+      ],
+      "x-ms-enum": {
+        "name": "IdentityType",
+        "modelAsString": false,
+        "values": [
+          {
+            "name": "SystemAssigned",
+            "value": "SystemAssigned"
+          },
+          {
+            "name": "UserAssigned",
+            "value": "UserAssigned"
+          },
+          {
+            "name": "None",
+            "value": "None"
+          }
+        ]
+      }
+    },
+    "PrivateLinkScopedResource": {
+      "type": "object",
+      "properties": {
+        "resourceId": {
+          "type": "string"
+        },
+        "scopeId": {
+          "type": "string"
+        }
+      }
+    },
+    "UserIdentityProperties": {
+      "type": "object",
+      "properties": {
+        "principalId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "clientId": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "Workspace": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/WorkspaceProperties",
+          "x-ms-client-flatten": true
+        },
+        "identity": {
+          "$ref": "#/definitions/Identity"
+        },
+        "etag": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v5/types.json#/definitions/TrackedResource"
+        }
+      ]
+    },
+    "WorkspaceCapping": {
+      "type": "object",
+      "properties": {
+        "dailyQuotaGb": {
+          "type": "number",
+          "format": "double"
+        },
+        "quotaNextResetTime": {
+          "type": "string",
+          "readOnly": true
+        },
+        "dataIngestionStatus": {
+          "$ref": "#/definitions/DataIngestionStatus",
+          "readOnly": true
+        }
+      }
+    },
+    "WorkspaceEntityStatus": {
+      "type": "string",
+      "enum": [
+        "Creating",
+        "Succeeded",
+        "Failed",
+        "Canceled",
+        "Deleting",
+        "ProvisioningAccount",
+        "Updating"
+      ],
+      "x-ms-enum": {
+        "name": "WorkspaceEntityStatus",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Creating",
+            "value": "Creating"
+          },
+          {
+            "name": "Succeeded",
+            "value": "Succeeded"
+          },
+          {
+            "name": "Failed",
+            "value": "Failed"
+          },
+          {
+            "name": "Canceled",
+            "value": "Canceled"
+          },
+          {
+            "name": "Deleting",
+            "value": "Deleting"
+          },
+          {
+            "name": "ProvisioningAccount",
+            "value": "ProvisioningAccount"
+          },
+          {
+            "name": "Updating",
+            "value": "Updating"
+          }
+        ]
+      }
+    },
+    "WorkspaceFailoverProperties": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "$ref": "#/definitions/WorkspaceFailoverState",
+          "readOnly": true
+        },
+        "lastModifiedDate": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        }
+      }
+    },
+    "WorkspaceFailoverState": {
+      "type": "string",
+      "enum": [
+        "Inactive",
+        "Activating",
+        "Active",
+        "Deactivating",
+        "Failed"
+      ],
+      "x-ms-enum": {
+        "name": "WorkspaceFailoverState",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Inactive",
+            "value": "Inactive"
+          },
+          {
+            "name": "Activating",
+            "value": "Activating"
+          },
+          {
+            "name": "Active",
+            "value": "Active"
+          },
+          {
+            "name": "Deactivating",
+            "value": "Deactivating"
+          },
+          {
+            "name": "Failed",
+            "value": "Failed"
+          }
+        ]
+      }
+    },
+    "WorkspaceFeatures": {
+      "type": "object",
+      "properties": {
+        "enableDataExport": {
+          "type": "boolean",
+          "x-nullable": true
+        },
+        "immediatePurgeDataOn30Days": {
+          "type": "boolean",
+          "x-nullable": true
+        },
+        "enableLogAccessUsingOnlyResourcePermissions": {
+          "type": "boolean",
+          "x-nullable": true
+        },
+        "clusterResourceId": {
+          "type": "string",
+          "x-nullable": true
+        },
+        "disableLocalAuth": {
+          "type": "boolean",
+          "x-nullable": true
+        },
+        "unifiedSentinelBillingOnly": {
+          "type": "boolean",
+          "x-nullable": true,
+          "readOnly": true
+        },
+        "associations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true
+        }
+      },
+      "additionalProperties": {}
+    },
+    "WorkspaceProperties": {
+      "type": "object",
+      "properties": {
+        "provisioningState": {
+          "$ref": "#/definitions/WorkspaceEntityStatus",
+          "readOnly": true
+        },
+        "customerId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "sku": {
+          "$ref": "#/definitions/WorkspaceSku"
+        },
+        "retentionInDays": {
+          "type": "integer",
+          "format": "int32",
+          "x-nullable": true
+        },
+        "workspaceCapping": {
+          "$ref": "#/definitions/WorkspaceCapping"
+        },
+        "createdDate": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "modifiedDate": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "publicNetworkAccessForIngestion": {
+          "type": "string",
+          "default": "Enabled",
+          "enum": [
+            "Enabled",
+            "Disabled",
+            "SecuredByPerimeter"
+          ],
+          "x-ms-enum": {
+            "name": "PublicNetworkAccessType",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Enabled",
+                "value": "Enabled"
+              },
+              {
+                "name": "Disabled",
+                "value": "Disabled"
+              },
+              {
+                "name": "SecuredByPerimeter",
+                "value": "SecuredByPerimeter"
+              }
+            ]
+          }
+        },
+        "publicNetworkAccessForQuery": {
+          "type": "string",
+          "default": "Enabled",
+          "enum": [
+            "Enabled",
+            "Disabled",
+            "SecuredByPerimeter"
+          ],
+          "x-ms-enum": {
+            "name": "PublicNetworkAccessType",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Enabled",
+                "value": "Enabled"
+              },
+              {
+                "name": "Disabled",
+                "value": "Disabled"
+              },
+              {
+                "name": "SecuredByPerimeter",
+                "value": "SecuredByPerimeter"
+              }
+            ]
+          }
+        },
+        "forceCmkForQuery": {
+          "type": "boolean"
+        },
+        "privateLinkScopedResources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PrivateLinkScopedResource"
+          },
+          "readOnly": true,
+          "x-ms-identifiers": [
+            "resourceId"
+          ]
+        },
+        "features": {
+          "$ref": "#/definitions/WorkspaceFeatures"
+        },
+        "defaultDataCollectionRuleResourceId": {
+          "type": "string"
+        },
+        "replication": {
+          "$ref": "#/definitions/WorkspaceReplicationProperties"
+        },
+        "failover": {
+          "$ref": "#/definitions/WorkspaceFailoverProperties"
+        }
+      }
+    },
+    "WorkspaceReplicationProperties": {
+      "type": "object",
+      "properties": {
+        "location": {
+          "type": "string",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "provisioningState": {
+          "$ref": "#/definitions/WorkspaceReplicationState",
+          "readOnly": true
+        },
+        "createdDate": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "lastModifiedDate": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        }
+      }
+    },
+    "WorkspaceReplicationState": {
+      "type": "string",
+      "enum": [
+        "Succeeded",
+        "EnableRequested",
+        "Enabling",
+        "DisableRequested",
+        "Disabling",
+        "RollbackRequested",
+        "RollingBack",
+        "Failed",
+        "Canceled"
+      ],
+      "x-ms-enum": {
+        "name": "WorkspaceReplicationState",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Succeeded",
+            "value": "Succeeded"
+          },
+          {
+            "name": "EnableRequested",
+            "value": "EnableRequested"
+          },
+          {
+            "name": "Enabling",
+            "value": "Enabling"
+          },
+          {
+            "name": "DisableRequested",
+            "value": "DisableRequested"
+          },
+          {
+            "name": "Disabling",
+            "value": "Disabling"
+          },
+          {
+            "name": "RollbackRequested",
+            "value": "RollbackRequested"
+          },
+          {
+            "name": "RollingBack",
+            "value": "RollingBack"
+          },
+          {
+            "name": "Failed",
+            "value": "Failed"
+          },
+          {
+            "name": "Canceled",
+            "value": "Canceled"
+          }
+        ]
+      }
+    },
+    "WorkspaceSku": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/WorkspaceSkuNameEnum"
+        },
+        "capacityReservationLevel": {
+          "type": "integer",
+          "format": "int32",
+          "x-nullable": true
+        },
+        "lastSkuUpdate": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "WorkspaceSkuNameEnum": {
+      "type": "string",
+      "enum": [
+        "Free",
+        "Standard",
+        "Premium",
+        "PerNode",
+        "PerGB2018",
+        "Standalone",
+        "CapacityReservation",
+        "LACluster"
+      ],
+      "x-ms-enum": {
+        "name": "WorkspaceSkuNameEnum",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Free",
+            "value": "Free"
+          },
+          {
+            "name": "Standard",
+            "value": "Standard"
+          },
+          {
+            "name": "Premium",
+            "value": "Premium"
+          },
+          {
+            "name": "PerNode",
+            "value": "PerNode"
+          },
+          {
+            "name": "PerGB2018",
+            "value": "PerGB2018"
+          },
+          {
+            "name": "Standalone",
+            "value": "Standalone"
+          },
+          {
+            "name": "CapacityReservation",
+            "value": "CapacityReservation"
+          },
+          {
+            "name": "LACluster",
+            "value": "LACluster"
+          }
+        ]
+      }
+    }
+  }
+}

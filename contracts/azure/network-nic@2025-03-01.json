@@ -1,0 +1,339 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure NIC (slice)",
+    "version": "2025-03-01",
+    "x-source": "Azure/azure-rest-api-specs network/resource-manager/Microsoft.Network/Network/stable/2025-03-01/networkInterface.json",
+    "x-slice": "compute_instance: network interface"
+  },
+  "definitions": {
+    "NetworkInterface": {
+      "properties": {
+        "extendedLocation": {
+          "$ref": "./network.json#/definitions/ExtendedLocation"
+        },
+        "properties": {
+          "x-ms-client-flatten": true,
+          "$ref": "#/definitions/NetworkInterfacePropertiesFormat"
+        },
+        "etag": {
+          "readOnly": true,
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "./network.json#/definitions/Resource"
+        }
+      ]
+    },
+    "NetworkInterfaceDnsSettings": {
+      "properties": {
+        "dnsServers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "appliedDnsServers": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "internalDnsNameLabel": {
+          "type": "string"
+        },
+        "internalFqdn": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "internalDomainNameSuffix": {
+          "readOnly": true,
+          "type": "string"
+        }
+      }
+    },
+    "NetworkInterfaceIPConfiguration": {
+      "properties": {
+        "properties": {
+          "x-ms-client-flatten": true,
+          "$ref": "#/definitions/NetworkInterfaceIPConfigurationPropertiesFormat"
+        },
+        "name": {
+          "type": "string"
+        },
+        "etag": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "./network.json#/definitions/SubResource"
+        }
+      ]
+    },
+    "NetworkInterfaceIPConfigurationPrivateLinkConnectionProperties": {
+      "properties": {
+        "groupId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "requiredMemberName": {
+          "type": "string",
+          "readOnly": true
+        },
+        "fqdns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true
+        }
+      }
+    },
+    "NetworkInterfaceIPConfigurationPropertiesFormat": {
+      "properties": {
+        "gatewayLoadBalancer": {
+          "$ref": "./network.json#/definitions/SubResource"
+        },
+        "virtualNetworkTaps": {
+          "type": "array",
+          "items": {
+            "$ref": "./virtualNetworkTap.json#/definitions/VirtualNetworkTap"
+          }
+        },
+        "applicationGatewayBackendAddressPools": {
+          "type": "array",
+          "items": {
+            "$ref": "./applicationGateway.json#/definitions/ApplicationGatewayBackendAddressPool"
+          }
+        },
+        "loadBalancerBackendAddressPools": {
+          "type": "array",
+          "items": {
+            "$ref": "./loadBalancer.json#/definitions/BackendAddressPool"
+          }
+        },
+        "loadBalancerInboundNatRules": {
+          "type": "array",
+          "items": {
+            "$ref": "./loadBalancer.json#/definitions/InboundNatRule"
+          }
+        },
+        "privateIPAddress": {
+          "type": "string"
+        },
+        "privateIPAddressPrefixLength": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 1,
+          "maximum": 128,
+          "x-nullable": true
+        },
+        "privateIPAllocationMethod": {
+          "$ref": "./network.json#/definitions/IPAllocationMethod"
+        },
+        "privateIPAddressVersion": {
+          "$ref": "./network.json#/definitions/IPVersion"
+        },
+        "subnet": {
+          "$ref": "./virtualNetwork.json#/definitions/Subnet"
+        },
+        "primary": {
+          "type": "boolean"
+        },
+        "publicIPAddress": {
+          "$ref": "./publicIpAddress.json#/definitions/PublicIPAddress"
+        },
+        "applicationSecurityGroups": {
+          "type": "array",
+          "items": {
+            "$ref": "./applicationSecurityGroup.json#/definitions/ApplicationSecurityGroup"
+          }
+        },
+        "provisioningState": {
+          "readOnly": true,
+          "$ref": "./network.json#/definitions/ProvisioningState"
+        },
+        "privateLinkConnectionProperties": {
+          "$ref": "#/definitions/NetworkInterfaceIPConfigurationPrivateLinkConnectionProperties",
+          "readOnly": true
+        }
+      }
+    },
+    "NetworkInterfacePropertiesFormat": {
+      "properties": {
+        "virtualMachine": {
+          "$ref": "./network.json#/definitions/SubResource",
+          "readOnly": true
+        },
+        "networkSecurityGroup": {
+          "$ref": "./networkSecurityGroup.json#/definitions/NetworkSecurityGroup"
+        },
+        "privateEndpoint": {
+          "readOnly": true,
+          "$ref": "./privateEndpoint.json#/definitions/PrivateEndpoint"
+        },
+        "ipConfigurations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NetworkInterfaceIPConfiguration"
+          }
+        },
+        "tapConfigurations": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NetworkInterfaceTapConfiguration"
+          }
+        },
+        "dnsSettings": {
+          "$ref": "#/definitions/NetworkInterfaceDnsSettings"
+        },
+        "macAddress": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "primary": {
+          "readOnly": true,
+          "type": "boolean"
+        },
+        "vnetEncryptionSupported": {
+          "readOnly": true,
+          "type": "boolean"
+        },
+        "defaultOutboundConnectivityEnabled": {
+          "readOnly": true,
+          "type": "boolean"
+        },
+        "enableAcceleratedNetworking": {
+          "type": "boolean"
+        },
+        "disableTcpStateTracking": {
+          "type": "boolean"
+        },
+        "enableIPForwarding": {
+          "type": "boolean"
+        },
+        "hostedWorkloads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true
+        },
+        "dscpConfiguration": {
+          "$ref": "./network.json#/definitions/SubResource",
+          "readOnly": true
+        },
+        "resourceGuid": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "provisioningState": {
+          "readOnly": true,
+          "$ref": "./network.json#/definitions/ProvisioningState"
+        },
+        "workloadType": {
+          "type": "string"
+        },
+        "nicType": {
+          "type": "string",
+          "enum": [
+            "Standard",
+            "Elastic"
+          ],
+          "x-ms-enum": {
+            "name": "NetworkInterfaceNicType",
+            "modelAsString": true
+          }
+        },
+        "privateLinkService": {
+          "$ref": "./privateLinkService.json#/definitions/PrivateLinkService"
+        },
+        "migrationPhase": {
+          "type": "string",
+          "enum": [
+            "None",
+            "Prepare",
+            "Commit",
+            "Abort",
+            "Committed"
+          ],
+          "x-ms-enum": {
+            "name": "NetworkInterfaceMigrationPhase",
+            "modelAsString": true
+          }
+        },
+        "auxiliaryMode": {
+          "type": "string",
+          "enum": [
+            "None",
+            "MaxConnections",
+            "Floating",
+            "AcceleratedConnections"
+          ],
+          "x-ms-enum": {
+            "name": "NetworkInterfaceAuxiliaryMode",
+            "modelAsString": true
+          }
+        },
+        "auxiliarySku": {
+          "type": "string",
+          "enum": [
+            "None",
+            "A1",
+            "A2",
+            "A4",
+            "A8"
+          ],
+          "x-ms-enum": {
+            "name": "NetworkInterfaceAuxiliarySku",
+            "modelAsString": true
+          }
+        }
+      }
+    },
+    "NetworkInterfaceTapConfiguration": {
+      "properties": {
+        "properties": {
+          "x-ms-client-flatten": true,
+          "$ref": "#/definitions/NetworkInterfaceTapConfigurationPropertiesFormat"
+        },
+        "name": {
+          "type": "string"
+        },
+        "etag": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "type": {
+          "readOnly": true,
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "./network.json#/definitions/SubResource"
+        }
+      ]
+    },
+    "NetworkInterfaceTapConfigurationPropertiesFormat": {
+      "properties": {
+        "virtualNetworkTap": {
+          "$ref": "./virtualNetworkTap.json#/definitions/VirtualNetworkTap"
+        },
+        "provisioningState": {
+          "readOnly": true,
+          "$ref": "./network.json#/definitions/ProvisioningState"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,943 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure Cosmos DB (sigcomply slice)",
+    "version": "2026-03-15",
+    "x-source": "Azure/azure-rest-api-specs Microsoft.DocumentDB/DocumentDB/stable/2026-03-15/openapi.json",
+    "x-slice": "nosql_table: database account"
+  },
+  "definitions": {
+    "AccountKeyMetadata": {
+      "type": "object",
+      "properties": {
+        "generationTime": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        }
+      }
+    },
+    "AnalyticalStorageConfiguration": {
+      "type": "object",
+      "properties": {
+        "schemaType": {
+          "$ref": "#/definitions/AnalyticalStorageSchemaType"
+        }
+      }
+    },
+    "AnalyticalStorageSchemaType": {
+      "type": "string",
+      "enum": [
+        "WellDefined",
+        "FullFidelity"
+      ],
+      "x-ms-enum": {
+        "name": "AnalyticalStorageSchemaType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "WellDefined",
+            "value": "WellDefined"
+          },
+          {
+            "name": "FullFidelity",
+            "value": "FullFidelity"
+          }
+        ]
+      }
+    },
+    "ApiProperties": {
+      "type": "object",
+      "properties": {
+        "serverVersion": {
+          "$ref": "#/definitions/ServerVersion"
+        }
+      }
+    },
+    "BackupPolicy": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/BackupPolicyType"
+        },
+        "migrationState": {
+          "$ref": "#/definitions/BackupPolicyMigrationState"
+        }
+      },
+      "discriminator": "type",
+      "required": [
+        "type"
+      ]
+    },
+    "BackupPolicyMigrationState": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/BackupPolicyMigrationStatus"
+        },
+        "targetType": {
+          "$ref": "#/definitions/BackupPolicyType"
+        },
+        "startTime": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "BackupPolicyMigrationStatus": {
+      "type": "string",
+      "enum": [
+        "Invalid",
+        "InProgress",
+        "Completed",
+        "Failed"
+      ],
+      "x-ms-enum": {
+        "name": "BackupPolicyMigrationStatus",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Invalid",
+            "value": "Invalid"
+          },
+          {
+            "name": "InProgress",
+            "value": "InProgress"
+          },
+          {
+            "name": "Completed",
+            "value": "Completed"
+          },
+          {
+            "name": "Failed",
+            "value": "Failed"
+          }
+        ]
+      }
+    },
+    "BackupPolicyType": {
+      "type": "string",
+      "enum": [
+        "Periodic",
+        "Continuous"
+      ],
+      "x-ms-enum": {
+        "name": "BackupPolicyType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Periodic",
+            "value": "Periodic"
+          },
+          {
+            "name": "Continuous",
+            "value": "Continuous"
+          }
+        ]
+      }
+    },
+    "Capability": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "Capacity": {
+      "type": "object",
+      "properties": {
+        "totalThroughputLimit": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": -1
+        }
+      }
+    },
+    "ConnectorOffer": {
+      "type": "string",
+      "enum": [
+        "Small"
+      ],
+      "x-ms-enum": {
+        "name": "ConnectorOffer",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Small",
+            "value": "Small"
+          }
+        ]
+      }
+    },
+    "ConsistencyPolicy": {
+      "type": "object",
+      "properties": {
+        "defaultConsistencyLevel": {
+          "$ref": "#/definitions/DefaultConsistencyLevel"
+        },
+        "maxStalenessPrefix": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "maxIntervalInSeconds": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 5,
+          "maximum": 86400
+        }
+      },
+      "required": [
+        "defaultConsistencyLevel"
+      ]
+    },
+    "CorsPolicy": {
+      "type": "object",
+      "properties": {
+        "allowedOrigins": {
+          "type": "string"
+        },
+        "allowedMethods": {
+          "type": "string"
+        },
+        "allowedHeaders": {
+          "type": "string"
+        },
+        "exposedHeaders": {
+          "type": "string"
+        },
+        "maxAgeInSeconds": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "allowedOrigins"
+      ]
+    },
+    "DatabaseAccountGetProperties": {
+      "type": "object",
+      "properties": {
+        "provisioningState": {
+          "type": "string",
+          "readOnly": true
+        },
+        "documentEndpoint": {
+          "type": "string",
+          "readOnly": true
+        },
+        "databaseAccountOfferType": {
+          "type": "string",
+          "enum": [
+            "Standard"
+          ],
+          "x-ms-enum": {
+            "modelAsString": false
+          },
+          "readOnly": true
+        },
+        "ipRules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/IpAddressOrRange"
+          },
+          "x-ms-identifiers": []
+        },
+        "isVirtualNetworkFilterEnabled": {
+          "type": "boolean"
+        },
+        "enableAutomaticFailover": {
+          "type": "boolean"
+        },
+        "consistencyPolicy": {
+          "$ref": "#/definitions/ConsistencyPolicy"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Capability"
+          }
+        },
+        "writeLocations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Location"
+          },
+          "readOnly": true
+        },
+        "readLocations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Location"
+          },
+          "readOnly": true
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Location"
+          },
+          "readOnly": true
+        },
+        "failoverPolicies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FailoverPolicy"
+          },
+          "readOnly": true
+        },
+        "virtualNetworkRules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/VirtualNetworkRule"
+          }
+        },
+        "privateEndpointConnections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PrivateEndpointConnection"
+          },
+          "readOnly": true
+        },
+        "enableMultipleWriteLocations": {
+          "type": "boolean"
+        },
+        "enableCassandraConnector": {
+          "type": "boolean"
+        },
+        "connectorOffer": {
+          "$ref": "#/definitions/ConnectorOffer"
+        },
+        "disableKeyBasedMetadataWriteAccess": {
+          "type": "boolean"
+        },
+        "keyVaultKeyUri": {
+          "type": "string"
+        },
+        "defaultIdentity": {
+          "type": "string"
+        },
+        "publicNetworkAccess": {
+          "$ref": "#/definitions/PublicNetworkAccess"
+        },
+        "enableFreeTier": {
+          "type": "boolean"
+        },
+        "apiProperties": {
+          "$ref": "#/definitions/ApiProperties"
+        },
+        "enableAnalyticalStorage": {
+          "type": "boolean"
+        },
+        "analyticalStorageConfiguration": {
+          "$ref": "#/definitions/AnalyticalStorageConfiguration"
+        },
+        "instanceId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "createMode": {
+          "type": "string",
+          "default": "Default",
+          "enum": [
+            "Default",
+            "Restore"
+          ],
+          "x-ms-enum": {
+            "name": "CreateMode",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Default",
+                "value": "Default"
+              },
+              {
+                "name": "Restore",
+                "value": "Restore"
+              }
+            ]
+          }
+        },
+        "restoreParameters": {
+          "$ref": "#/definitions/RestoreParameters"
+        },
+        "backupPolicy": {
+          "$ref": "#/definitions/BackupPolicy"
+        },
+        "cors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CorsPolicy"
+          },
+          "x-ms-identifiers": []
+        },
+        "networkAclBypass": {
+          "$ref": "#/definitions/NetworkAclBypass"
+        },
+        "networkAclBypassResourceIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "arm-id"
+          }
+        },
+        "disableLocalAuth": {
+          "type": "boolean"
+        },
+        "capacity": {
+          "$ref": "#/definitions/Capacity"
+        },
+        "keysMetadata": {
+          "$ref": "#/definitions/DatabaseAccountKeysMetadata",
+          "readOnly": true
+        },
+        "enablePartitionMerge": {
+          "type": "boolean"
+        },
+        "enableBurstCapacity": {
+          "type": "boolean"
+        },
+        "minimalTlsVersion": {
+          "$ref": "#/definitions/MinimalTlsVersion"
+        },
+        "customerManagedKeyStatus": {
+          "type": "string"
+        },
+        "keyVaultKeyUriVersion": {
+          "type": "string",
+          "readOnly": true
+        },
+        "enablePriorityBasedExecution": {
+          "type": "boolean"
+        },
+        "defaultPriorityLevel": {
+          "$ref": "#/definitions/DefaultPriorityLevel"
+        },
+        "enablePerRegionPerPartitionAutoscale": {
+          "type": "boolean"
+        },
+        "enforceHierarchicalPartitionKeyIdLastLevel": {
+          "type": "boolean"
+        }
+      }
+    },
+    "DatabaseAccountGetResults": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/DatabaseAccountGetProperties",
+          "x-ms-client-flatten": true
+        },
+        "location": {
+          "type": "string",
+          "x-ms-mutability": [
+            "read",
+            "update",
+            "create"
+          ]
+        },
+        "tags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "identity": {
+          "$ref": "#/definitions/ManagedServiceIdentity"
+        },
+        "kind": {
+          "type": "string",
+          "default": "GlobalDocumentDB",
+          "enum": [
+            "GlobalDocumentDB",
+            "MongoDB",
+            "Parse"
+          ],
+          "x-ms-enum": {
+            "name": "DatabaseAccountKind",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "GlobalDocumentDB",
+                "value": "GlobalDocumentDB"
+              },
+              {
+                "name": "MongoDB",
+                "value": "MongoDB"
+              },
+              {
+                "name": "Parse",
+                "value": "Parse"
+              }
+            ]
+          }
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v6/types.json#/definitions/ProxyResource"
+        }
+      ]
+    },
+    "DatabaseAccountKeysMetadata": {
+      "type": "object",
+      "properties": {
+        "primaryMasterKey": {
+          "$ref": "#/definitions/AccountKeyMetadata",
+          "readOnly": true
+        },
+        "secondaryMasterKey": {
+          "$ref": "#/definitions/AccountKeyMetadata",
+          "readOnly": true
+        },
+        "primaryReadonlyMasterKey": {
+          "$ref": "#/definitions/AccountKeyMetadata",
+          "readOnly": true
+        },
+        "secondaryReadonlyMasterKey": {
+          "$ref": "#/definitions/AccountKeyMetadata",
+          "readOnly": true
+        }
+      }
+    },
+    "DatabaseRestoreResource": {
+      "type": "object",
+      "properties": {
+        "databaseName": {
+          "type": "string"
+        },
+        "collectionNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "DefaultConsistencyLevel": {
+      "type": "string",
+      "enum": [
+        "Eventual",
+        "Session",
+        "BoundedStaleness",
+        "Strong",
+        "ConsistentPrefix"
+      ],
+      "x-ms-enum": {
+        "name": "DefaultConsistencyLevel",
+        "modelAsString": false
+      }
+    },
+    "DefaultPriorityLevel": {
+      "type": "string",
+      "enum": [
+        "High",
+        "Low"
+      ],
+      "x-ms-enum": {
+        "name": "DefaultPriorityLevel",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "High",
+            "value": "High"
+          },
+          {
+            "name": "Low",
+            "value": "Low"
+          }
+        ]
+      }
+    },
+    "FailoverPolicy": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "readOnly": true
+        },
+        "locationName": {
+          "type": "string"
+        },
+        "failoverPriority": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 0
+        }
+      }
+    },
+    "GremlinDatabaseRestoreResource": {
+      "type": "object",
+      "properties": {
+        "databaseName": {
+          "type": "string"
+        },
+        "graphNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "IpAddressOrRange": {
+      "type": "object",
+      "properties": {
+        "ipAddressOrRange": {
+          "type": "string"
+        }
+      }
+    },
+    "Location": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "readOnly": true
+        },
+        "locationName": {
+          "type": "string"
+        },
+        "documentEndpoint": {
+          "type": "string",
+          "readOnly": true
+        },
+        "provisioningState": {
+          "type": "string",
+          "readOnly": true
+        },
+        "failoverPriority": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 0
+        },
+        "isZoneRedundant": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ManagedServiceIdentity": {
+      "type": "object",
+      "properties": {
+        "principalId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "tenantId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "type": {
+          "$ref": "#/definitions/ResourceIdentityType"
+        },
+        "userAssignedIdentities": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ManagedServiceIdentityUserAssignedIdentities"
+          }
+        }
+      }
+    },
+    "ManagedServiceIdentityUserAssignedIdentities": {
+      "type": "object",
+      "properties": {
+        "principalId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "clientId": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "MinimalTlsVersion": {
+      "type": "string",
+      "enum": [
+        "Tls",
+        "Tls11",
+        "Tls12"
+      ],
+      "x-ms-enum": {
+        "name": "MinimalTlsVersion",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Tls",
+            "value": "Tls"
+          },
+          {
+            "name": "Tls11",
+            "value": "Tls11"
+          },
+          {
+            "name": "Tls12",
+            "value": "Tls12"
+          }
+        ]
+      }
+    },
+    "NetworkAclBypass": {
+      "type": "string",
+      "enum": [
+        "None",
+        "AzureServices"
+      ],
+      "x-ms-enum": {
+        "name": "NetworkAclBypass",
+        "modelAsString": false
+      }
+    },
+    "PrivateEndpointConnection": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/PrivateEndpointConnectionProperties",
+          "x-ms-client-flatten": true
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v6/types.json#/definitions/ProxyResource"
+        }
+      ]
+    },
+    "PrivateEndpointConnectionProperties": {
+      "type": "object",
+      "properties": {
+        "privateEndpoint": {
+          "$ref": "#/definitions/PrivateEndpointProperty"
+        },
+        "privateLinkServiceConnectionState": {
+          "$ref": "#/definitions/PrivateLinkServiceConnectionStateProperty"
+        },
+        "groupId": {
+          "type": "string"
+        },
+        "provisioningState": {
+          "type": "string"
+        }
+      }
+    },
+    "PrivateEndpointProperty": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "PrivateLinkServiceConnectionStateProperty": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "actionsRequired": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "PublicNetworkAccess": {
+      "type": "string",
+      "enum": [
+        "Enabled",
+        "Disabled",
+        "SecuredByPerimeter"
+      ],
+      "x-ms-enum": {
+        "name": "PublicNetworkAccess",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Enabled",
+            "value": "Enabled"
+          },
+          {
+            "name": "Disabled",
+            "value": "Disabled"
+          },
+          {
+            "name": "SecuredByPerimeter",
+            "value": "SecuredByPerimeter"
+          }
+        ]
+      }
+    },
+    "ResourceIdentityType": {
+      "type": "string",
+      "enum": [
+        "SystemAssigned",
+        "UserAssigned",
+        "SystemAssigned,UserAssigned",
+        "None"
+      ],
+      "x-ms-enum": {
+        "name": "ResourceIdentityType",
+        "modelAsString": false,
+        "values": [
+          {
+            "name": "SystemAssigned",
+            "value": "SystemAssigned"
+          },
+          {
+            "name": "UserAssigned",
+            "value": "UserAssigned"
+          },
+          {
+            "name": "SystemAssignedUserAssigned",
+            "value": "SystemAssigned,UserAssigned"
+          },
+          {
+            "name": "None",
+            "value": "None"
+          }
+        ]
+      }
+    },
+    "RestoreMode": {
+      "type": "string",
+      "enum": [
+        "PointInTime"
+      ],
+      "x-ms-enum": {
+        "name": "RestoreMode",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "PointInTime",
+            "value": "PointInTime"
+          }
+        ]
+      }
+    },
+    "RestoreParameters": {
+      "type": "object",
+      "properties": {
+        "restoreMode": {
+          "$ref": "#/definitions/RestoreMode"
+        },
+        "restoreSource": {
+          "type": "string"
+        },
+        "restoreTimestampInUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "databasesToRestore": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DatabaseRestoreResource"
+          },
+          "x-ms-identifiers": []
+        },
+        "gremlinDatabasesToRestore": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GremlinDatabaseRestoreResource"
+          },
+          "x-ms-identifiers": []
+        },
+        "tablesToRestore": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sourceBackupLocation": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/RestoreParametersBase"
+        }
+      ]
+    },
+    "RestoreParametersBase": {
+      "type": "object",
+      "properties": {
+        "restoreSource": {
+          "type": "string"
+        },
+        "restoreTimestampInUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "restoreWithTtlDisabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ServerVersion": {
+      "type": "string",
+      "enum": [
+        "3.2",
+        "3.6",
+        "4.0",
+        "4.2",
+        "5.0",
+        "6.0",
+        "7.0"
+      ],
+      "x-ms-enum": {
+        "name": "ServerVersion",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Three2",
+            "value": "3.2"
+          },
+          {
+            "name": "Three6",
+            "value": "3.6"
+          },
+          {
+            "name": "Four0",
+            "value": "4.0"
+          },
+          {
+            "name": "Four2",
+            "value": "4.2"
+          },
+          {
+            "name": "Five0",
+            "value": "5.0"
+          },
+          {
+            "name": "Six0",
+            "value": "6.0"
+          },
+          {
+            "name": "Seven0",
+            "value": "7.0"
+          }
+        ]
+      }
+    },
+    "VirtualNetworkRule": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.Network/virtualNetworks/subnets"
+              }
+            ]
+          }
+        },
+        "ignoreMissingVNetServiceEndpoint": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

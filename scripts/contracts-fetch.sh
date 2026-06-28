@@ -25,6 +25,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 GH_RAW="https://raw.githubusercontent.com"
 AWS_MODELS="$GH_RAW/aws/aws-sdk-go-v2/main/codegen/sdk-codegen/aws-models"
+AZURE_SPECS="$GH_RAW/Azure/azure-rest-api-specs/main/specification"
 
 # fetch_openapi <url> <out> <title> <source> <slice> <METHOD:/path>...
 fetch_openapi() {
@@ -55,6 +56,20 @@ fetch_discovery() {
     fi
     mkdir -p "$OUT_ROOT/gcp"
     python3 "$SLICE_DIR/slice_discovery.py" "$TMP/disc.json" "$OUT_ROOT/gcp/$api@$version.json" "$@"
+}
+
+# fetch_swagger <out@apiver> <spec-subpath> <title> <source> <slice> <Def>...
+#   → contracts/azure/<out@apiver>.json
+# Azure RPs publish fragmented per-area/per-version OpenAPI-2.0 swaggers, so the
+# api-version + file are pinned in the subpath (re-fetch is byte-stable; drift
+# detection catches in-place edits — new api-versions are a manual bump). The
+# armXXX SDK is go.mod-pinned anyway, so this tracks the upstream shape, not the
+# exact wire our client speaks (that is the L2 cassette's job).
+fetch_swagger() {
+    local out="$1" sub="$2" title="$3" source="$4" slice="$5"; shift 5
+    curl -fsSL "$AZURE_SPECS/$sub" -o "$TMP/az.json"
+    mkdir -p "$OUT_ROOT/azure"
+    python3 "$SLICE_DIR/slice_swagger.py" "$TMP/az.json" "$OUT_ROOT/azure/$out.json" "$title" "$source" "$slice" "$@"
 }
 
 # fetch_smithy <out-name> <model-basename> <Op>...
@@ -128,5 +143,58 @@ fetch_discovery container v1 Cluster
 fetch_discovery firestore v1 GoogleFirestoreAdminV1Database
 fetch_discovery backupdr v1 BackupPlan
 fetch_discovery certificatemanager v1 Certificate
+
+echo "Azure (azure-rest-api-specs OpenAPI-2.0 swaggers, sliced to definition closure):"
+fetch_swagger "storage@2026-04-01" \
+    "storage/resource-manager/Microsoft.Storage/stable/2026-04-01/openapi.json" \
+    "Azure Storage (sigcomply slice)" \
+    "Azure/azure-rest-api-specs Microsoft.Storage/stable/2026-04-01/openapi.json" \
+    "object_storage_bucket: account + blob service properties" \
+    StorageAccount BlobServiceProperties
+fetch_swagger "documentdb@2026-03-15" \
+    "cosmos-db/resource-manager/Microsoft.DocumentDB/DocumentDB/stable/2026-03-15/openapi.json" \
+    "Azure Cosmos DB (sigcomply slice)" \
+    "Azure/azure-rest-api-specs Microsoft.DocumentDB/DocumentDB/stable/2026-03-15/openapi.json" \
+    "nosql_table: database account" \
+    DatabaseAccountGetResults
+fetch_swagger "containerregistry@2025-11-01" \
+    "containerregistry/resource-manager/Microsoft.ContainerRegistry/Registry/stable/2025-11-01/containerregistry.json" \
+    "Azure Container Registry (sigcomply slice)" \
+    "Azure/azure-rest-api-specs Microsoft.ContainerRegistry/Registry/stable/2025-11-01/containerregistry.json" \
+    "container_registry: registry" \
+    Registry
+fetch_swagger "containerservice@2026-04-01" \
+    "containerservice/resource-manager/Microsoft.ContainerService/aks/stable/2026-04-01/managedClusters.json" \
+    "Azure Kubernetes Service (sigcomply slice)" \
+    "Azure/azure-rest-api-specs Microsoft.ContainerService/aks/stable/2026-04-01/managedClusters.json" \
+    "kubernetes_cluster: managed cluster" \
+    ManagedCluster
+fetch_swagger "policy@2026-06-01" \
+    "resources/resource-manager/Microsoft.Authorization/policy/stable/2026-06-01/openapi.json" \
+    "Azure Policy (sigcomply slice)" \
+    "Azure/azure-rest-api-specs Microsoft.Authorization/policy/stable/2026-06-01/openapi.json" \
+    "config_change_tracking: policy assignment" \
+    PolicyAssignment
+SQL="sql/resource-manager/Microsoft.Sql/SQL/stable/2025-01-01"
+fetch_swagger "sql-servers@2025-01-01"   "$SQL/servers.json"   "Azure SQL servers (slice)"   "Azure/azure-rest-api-specs $SQL/servers.json"   "managed_database_instance: SQL server" Server
+fetch_swagger "sql-databases@2025-01-01" "$SQL/databases.json" "Azure SQL databases (slice)" "Azure/azure-rest-api-specs $SQL/databases.json" "managed_database_instance: SQL database" Database
+fetch_swagger "sql-tde@2025-01-01" "$SQL/transparentDataEncryptions.json" "Azure SQL TDE (slice)" "Azure/azure-rest-api-specs $SQL/transparentDataEncryptions.json" "managed_database_instance: TDE state" LogicalDatabaseTransparentDataEncryption
+NET="network/resource-manager/Microsoft.Network/Network/stable/2025-03-01"
+fetch_swagger "network-nsg@2025-03-01"  "$NET/networkSecurityGroup.json" "Azure NSG (slice)"  "Azure/azure-rest-api-specs $NET/networkSecurityGroup.json" "firewall_rule: network security group" NetworkSecurityGroup
+fetch_swagger "network-vnet@2025-03-01" "$NET/virtualNetwork.json"       "Azure VNet (slice)" "Azure/azure-rest-api-specs $NET/virtualNetwork.json" "network: virtual network" VirtualNetwork
+fetch_swagger "network-nic@2025-03-01"  "$NET/networkInterface.json"     "Azure NIC (slice)"  "Azure/azure-rest-api-specs $NET/networkInterface.json" "compute_instance: network interface" NetworkInterface
+fetch_swagger "compute@2026-03-01" "compute/resource-manager/Microsoft.Compute/Compute/stable/2026-03-01/ComputeRP.json" "Azure Compute (slice)" "Azure/azure-rest-api-specs Microsoft.Compute/Compute/stable/2026-03-01/ComputeRP.json" "compute_instance: virtual machine" VirtualMachine
+fetch_swagger "keyvault@2026-02-01" "keyvault/resource-manager/Microsoft.KeyVault/KeyVault/stable/2026-02-01/openapi.json" "Azure Key Vault (slice)" "Azure/azure-rest-api-specs Microsoft.KeyVault/KeyVault/stable/2026-02-01/openapi.json" "kms_key + secret: vault, keys, secrets" Vault Key Secret
+fetch_swagger "operationalinsights@2025-07-01" "operationalinsights/resource-manager/Microsoft.OperationalInsights/OperationalInsights/stable/2025-07-01/openapi.json" "Azure Log Analytics (slice)" "Azure/azure-rest-api-specs Microsoft.OperationalInsights/OperationalInsights/stable/2025-07-01/openapi.json" "log_group: workspace" Workspace
+fetch_swagger "recoveryservices@2026-05-01" "recoveryservices/resource-manager/Microsoft.RecoveryServices/RecoveryServices/stable/2026-05-01/openapi.json" "Azure Recovery Services (slice)" "Azure/azure-rest-api-specs Microsoft.RecoveryServices/RecoveryServices/stable/2026-05-01/openapi.json" "backup_plan: vault" Vault
+fetch_swagger "recoveryservicesbackup@2026-05-01" "recoveryservicesbackup/resource-manager/Microsoft.RecoveryServices/RecoveryServicesBackup/stable/2026-05-01/bms.json" "Azure Backup (slice)" "Azure/azure-rest-api-specs Microsoft.RecoveryServices/RecoveryServicesBackup/stable/2026-05-01/bms.json" "backup_plan: protection policy" ProtectionPolicyResource
+fetch_swagger "appservice@2026-03-15" "web/resource-manager/Microsoft.Web/AppService/stable/2026-03-15/openapi.json" "Azure App Service certs (slice)" "Azure/azure-rest-api-specs Microsoft.Web/AppService/stable/2026-03-15/openapi.json" "tls_certificate: app service certificate" Certificate
+fetch_swagger "certificateregistration@2024-11-01" "certificateregistration/resource-manager/Microsoft.CertificateRegistration/CertificateRegistration/stable/2024-11-01/openapi.json" "Azure cert orders (slice)" "Azure/azure-rest-api-specs Microsoft.CertificateRegistration/CertificateRegistration/stable/2024-11-01/openapi.json" "tls_certificate: certificate order" AppServiceCertificateOrder
+fetch_swagger "postgresql@2025-08-01" "postgresql/resource-manager/Microsoft.DBforPostgreSQL/stable/2025-08-01/openapi.json" "Azure PostgreSQL flexible (slice)" "Azure/azure-rest-api-specs Microsoft.DBforPostgreSQL/stable/2025-08-01/openapi.json" "managed_database_instance: PG flexible server" Server
+fetch_swagger "mysql@2024-12-30" "mysql/resource-manager/Microsoft.DBforMySQL/FlexibleServers/stable/2024-12-30/openapi.json" "Azure MySQL flexible (slice)" "Azure/azure-rest-api-specs Microsoft.DBforMySQL/FlexibleServers/stable/2024-12-30/openapi.json" "managed_database_instance: MySQL flexible server" Server
+fetch_swagger "security-pricings@2024-01-01" "security/resource-manager/Microsoft.Security/Security/stable/2024-01-01/pricings.json" "Azure Defender pricings (slice)" "Azure/azure-rest-api-specs Microsoft.Security/Security/stable/2024-01-01/pricings.json" "threat_detection_service + security_service: Defender pricings" Pricing
+# Residual (not yet pinned): monitor DiagnosticSettingsResource (audit_log_trail) and
+# Microsoft.Security sub-assessments (vulnerability_finding) — buried in Azure's
+# inconsistent per-area layout; L2 cassettes cover them. See testing_strategy_revamp.md.
 
 echo "contracts-fetch: done"

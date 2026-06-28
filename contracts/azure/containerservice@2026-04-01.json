@@ -1,0 +1,3688 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure Kubernetes Service (sigcomply slice)",
+    "version": "2026-04-01",
+    "x-source": "Azure/azure-rest-api-specs Microsoft.ContainerService/aks/stable/2026-04-01/managedClusters.json",
+    "x-slice": "kubernetes_cluster: managed cluster"
+  },
+  "definitions": {
+    "AdvancedNetworkPolicies": {
+      "type": "string",
+      "enum": [
+        "L7",
+        "FQDN",
+        "None"
+      ],
+      "x-ms-enum": {
+        "name": "AdvancedNetworkPolicies",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "L7",
+            "value": "L7"
+          },
+          {
+            "name": "FQDN",
+            "value": "FQDN"
+          },
+          {
+            "name": "None",
+            "value": "None"
+          }
+        ]
+      }
+    },
+    "AdvancedNetworking": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "observability": {
+          "$ref": "#/definitions/AdvancedNetworkingObservability"
+        },
+        "security": {
+          "$ref": "#/definitions/AdvancedNetworkingSecurity"
+        },
+        "performance": {
+          "$ref": "#/definitions/AdvancedNetworkingPerformance"
+        }
+      }
+    },
+    "AdvancedNetworkingObservability": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "AdvancedNetworkingPerformance": {
+      "type": "object",
+      "properties": {
+        "accelerationMode": {
+          "type": "string",
+          "default": "None",
+          "enum": [
+            "BpfVeth",
+            "None"
+          ],
+          "x-ms-enum": {
+            "name": "AccelerationMode",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "BpfVeth",
+                "value": "BpfVeth"
+              },
+              {
+                "name": "None",
+                "value": "None"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "AdvancedNetworkingSecurity": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "advancedNetworkPolicies": {
+          "$ref": "#/definitions/AdvancedNetworkPolicies"
+        },
+        "transitEncryption": {
+          "$ref": "#/definitions/AdvancedNetworkingSecurityTransitEncryption"
+        }
+      }
+    },
+    "AdvancedNetworkingSecurityTransitEncryption": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/TransitEncryptionType"
+        }
+      }
+    },
+    "AgentPoolArtifactStreamingProfile": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "AgentPoolGatewayProfile": {
+      "type": "object",
+      "properties": {
+        "publicIPPrefixSize": {
+          "type": "integer",
+          "format": "int32",
+          "default": 31,
+          "minimum": 28,
+          "maximum": 31
+        }
+      }
+    },
+    "AgentPoolMode": {
+      "type": "string",
+      "enum": [
+        "System",
+        "User",
+        "Gateway"
+      ],
+      "x-ms-enum": {
+        "name": "AgentPoolMode",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "System",
+            "value": "System"
+          },
+          {
+            "name": "User",
+            "value": "User"
+          },
+          {
+            "name": "Gateway",
+            "value": "Gateway"
+          }
+        ]
+      }
+    },
+    "AgentPoolNetworkProfile": {
+      "type": "object",
+      "properties": {
+        "nodePublicIPTags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/IPTag"
+          },
+          "x-ms-identifiers": []
+        },
+        "allowedHostPorts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PortRange"
+          },
+          "x-ms-identifiers": []
+        },
+        "applicationSecurityGroups": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "arm-id",
+            "x-ms-arm-id-details": {
+              "allowedResources": [
+                {
+                  "type": "Microsoft.Network/applicationSecurityGroups"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "AgentPoolSSHAccess": {
+      "type": "string",
+      "enum": [
+        "LocalUser",
+        "Disabled"
+      ],
+      "x-ms-enum": {
+        "name": "AgentPoolSSHAccess",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "LocalUser",
+            "value": "LocalUser"
+          },
+          {
+            "name": "Disabled",
+            "value": "Disabled"
+          }
+        ]
+      }
+    },
+    "AgentPoolSecurityProfile": {
+      "type": "object",
+      "properties": {
+        "enableVTPM": {
+          "type": "boolean"
+        },
+        "enableSecureBoot": {
+          "type": "boolean"
+        },
+        "sshAccess": {
+          "$ref": "#/definitions/AgentPoolSSHAccess"
+        }
+      }
+    },
+    "AgentPoolStatus": {
+      "type": "object",
+      "properties": {
+        "provisioningError": {
+          "$ref": "../../../../../../common-types/resource-management/v6/types.json#/definitions/ErrorDetail",
+          "readOnly": true
+        }
+      }
+    },
+    "AgentPoolType": {
+      "type": "string",
+      "enum": [
+        "VirtualMachineScaleSets",
+        "AvailabilitySet",
+        "VirtualMachines"
+      ],
+      "x-ms-enum": {
+        "name": "AgentPoolType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "VirtualMachineScaleSets",
+            "value": "VirtualMachineScaleSets"
+          },
+          {
+            "name": "AvailabilitySet",
+            "value": "AvailabilitySet"
+          },
+          {
+            "name": "VirtualMachines",
+            "value": "VirtualMachines"
+          }
+        ]
+      }
+    },
+    "AgentPoolUpgradeSettings": {
+      "type": "object",
+      "properties": {
+        "maxSurge": {
+          "type": "string"
+        },
+        "maxUnavailable": {
+          "type": "string"
+        },
+        "drainTimeoutInMinutes": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 1,
+          "maximum": 1440
+        },
+        "nodeSoakDurationInMinutes": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 0,
+          "maximum": 30
+        },
+        "undrainableNodeBehavior": {
+          "$ref": "#/definitions/UndrainableNodeBehavior"
+        }
+      }
+    },
+    "AgentPoolWindowsProfile": {
+      "type": "object",
+      "properties": {
+        "disableOutboundNat": {
+          "type": "boolean"
+        }
+      }
+    },
+    "AzureKeyVaultKms": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "keyId": {
+          "type": "string"
+        },
+        "keyVaultNetworkAccess": {
+          "type": "string",
+          "default": "Public",
+          "enum": [
+            "Public",
+            "Private"
+          ],
+          "x-ms-enum": {
+            "name": "KeyVaultNetworkAccessTypes",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Public",
+                "value": "Public"
+              },
+              {
+                "name": "Private",
+                "value": "Private"
+              }
+            ]
+          }
+        },
+        "keyVaultResourceId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.KeyVault/vaults"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "ClusterUpgradeSettings": {
+      "type": "object",
+      "properties": {
+        "overrideSettings": {
+          "$ref": "#/definitions/UpgradeOverrideSettings"
+        }
+      }
+    },
+    "Code": {
+      "type": "string",
+      "enum": [
+        "Running",
+        "Stopped"
+      ],
+      "x-ms-enum": {
+        "name": "Code",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Running",
+            "value": "Running"
+          },
+          {
+            "name": "Stopped",
+            "value": "Stopped"
+          }
+        ]
+      }
+    },
+    "ContainerServiceLinuxProfile": {
+      "type": "object",
+      "properties": {
+        "adminUsername": {
+          "type": "string",
+          "pattern": "^[A-Za-z][-A-Za-z0-9_]*$"
+        },
+        "ssh": {
+          "$ref": "#/definitions/ContainerServiceSshConfiguration"
+        }
+      },
+      "required": [
+        "adminUsername",
+        "ssh"
+      ]
+    },
+    "ContainerServiceNetworkProfile": {
+      "type": "object",
+      "properties": {
+        "networkPlugin": {
+          "$ref": "#/definitions/NetworkPlugin"
+        },
+        "networkPluginMode": {
+          "$ref": "#/definitions/NetworkPluginMode"
+        },
+        "networkPolicy": {
+          "$ref": "#/definitions/NetworkPolicy"
+        },
+        "networkMode": {
+          "$ref": "#/definitions/NetworkMode"
+        },
+        "networkDataplane": {
+          "$ref": "#/definitions/NetworkDataplane"
+        },
+        "advancedNetworking": {
+          "$ref": "#/definitions/AdvancedNetworking"
+        },
+        "podCidr": {
+          "type": "string",
+          "default": "10.244.0.0/16",
+          "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(\\/([0-9]|[1-2][0-9]|3[0-2]))?$"
+        },
+        "serviceCidr": {
+          "type": "string",
+          "default": "10.0.0.0/16",
+          "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(\\/([0-9]|[1-2][0-9]|3[0-2]))?$"
+        },
+        "dnsServiceIP": {
+          "type": "string",
+          "default": "10.0.0.10",
+          "pattern": "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+        },
+        "outboundType": {
+          "type": "string",
+          "default": "loadBalancer",
+          "enum": [
+            "loadBalancer",
+            "userDefinedRouting",
+            "managedNATGateway",
+            "userAssignedNATGateway",
+            "none"
+          ],
+          "x-ms-enum": {
+            "name": "OutboundType",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "loadBalancer",
+                "value": "loadBalancer"
+              },
+              {
+                "name": "userDefinedRouting",
+                "value": "userDefinedRouting"
+              },
+              {
+                "name": "managedNATGateway",
+                "value": "managedNATGateway"
+              },
+              {
+                "name": "userAssignedNATGateway",
+                "value": "userAssignedNATGateway"
+              },
+              {
+                "name": "none",
+                "value": "none"
+              }
+            ]
+          }
+        },
+        "loadBalancerSku": {
+          "$ref": "#/definitions/LoadBalancerSku"
+        },
+        "loadBalancerProfile": {
+          "$ref": "#/definitions/ManagedClusterLoadBalancerProfile"
+        },
+        "natGatewayProfile": {
+          "$ref": "#/definitions/ManagedClusterNATGatewayProfile"
+        },
+        "staticEgressGatewayProfile": {
+          "$ref": "#/definitions/ManagedClusterStaticEgressGatewayProfile"
+        },
+        "podCidrs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "serviceCidrs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ipFamilies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/IPFamily"
+          }
+        }
+      }
+    },
+    "ContainerServiceSshConfiguration": {
+      "type": "object",
+      "properties": {
+        "publicKeys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ContainerServiceSshPublicKey"
+          },
+          "x-ms-identifiers": []
+        }
+      },
+      "required": [
+        "publicKeys"
+      ]
+    },
+    "ContainerServiceSshPublicKey": {
+      "type": "object",
+      "properties": {
+        "keyData": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "keyData"
+      ]
+    },
+    "CreationData": {
+      "type": "object",
+      "properties": {
+        "sourceResourceId": {
+          "type": "string",
+          "format": "arm-id"
+        }
+      }
+    },
+    "Expander": {
+      "type": "string",
+      "enum": [
+        "least-waste",
+        "most-pods",
+        "priority",
+        "random"
+      ],
+      "x-ms-enum": {
+        "name": "Expander",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "least-waste",
+            "value": "least-waste"
+          },
+          {
+            "name": "most-pods",
+            "value": "most-pods"
+          },
+          {
+            "name": "priority",
+            "value": "priority"
+          },
+          {
+            "name": "random",
+            "value": "random"
+          }
+        ]
+      }
+    },
+    "ExtendedLocation": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/ExtendedLocationTypes"
+        }
+      }
+    },
+    "ExtendedLocationTypes": {
+      "type": "string",
+      "enum": [
+        "EdgeZone"
+      ],
+      "x-ms-enum": {
+        "name": "ExtendedLocationTypes",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "EdgeZone",
+            "value": "EdgeZone"
+          }
+        ]
+      }
+    },
+    "GPUDriver": {
+      "type": "string",
+      "enum": [
+        "Install",
+        "None"
+      ],
+      "x-ms-enum": {
+        "name": "GPUDriver",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Install",
+            "value": "Install"
+          },
+          {
+            "name": "None",
+            "value": "None"
+          }
+        ]
+      }
+    },
+    "GPUInstanceProfile": {
+      "type": "string",
+      "enum": [
+        "MIG1g",
+        "MIG2g",
+        "MIG3g",
+        "MIG4g",
+        "MIG7g"
+      ],
+      "x-ms-enum": {
+        "name": "GPUInstanceProfile",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "MIG1g",
+            "value": "MIG1g"
+          },
+          {
+            "name": "MIG2g",
+            "value": "MIG2g"
+          },
+          {
+            "name": "MIG3g",
+            "value": "MIG3g"
+          },
+          {
+            "name": "MIG4g",
+            "value": "MIG4g"
+          },
+          {
+            "name": "MIG7g",
+            "value": "MIG7g"
+          }
+        ]
+      }
+    },
+    "GPUProfile": {
+      "type": "object",
+      "properties": {
+        "driver": {
+          "$ref": "#/definitions/GPUDriver"
+        }
+      }
+    },
+    "GatewayAPIIstioEnabled": {
+      "type": "string",
+      "enum": [
+        "Enabled",
+        "Disabled"
+      ],
+      "x-ms-enum": {
+        "name": "GatewayAPIIstioEnabled",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Enabled",
+            "value": "Enabled"
+          },
+          {
+            "name": "Disabled",
+            "value": "Disabled"
+          }
+        ]
+      }
+    },
+    "IPFamily": {
+      "type": "string",
+      "enum": [
+        "IPv4",
+        "IPv6"
+      ],
+      "x-ms-enum": {
+        "name": "IPFamily",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "IPv4",
+            "value": "IPv4"
+          },
+          {
+            "name": "IPv6",
+            "value": "IPv6"
+          }
+        ]
+      }
+    },
+    "IPTag": {
+      "type": "object",
+      "properties": {
+        "ipTagType": {
+          "type": "string"
+        },
+        "tag": {
+          "type": "string"
+        }
+      }
+    },
+    "IstioCertificateAuthority": {
+      "type": "object",
+      "properties": {
+        "plugin": {
+          "$ref": "#/definitions/IstioPluginCertificateAuthority"
+        }
+      }
+    },
+    "IstioComponents": {
+      "type": "object",
+      "properties": {
+        "ingressGateways": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/IstioIngressGateway"
+          },
+          "x-ms-identifiers": []
+        },
+        "egressGateways": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/IstioEgressGateway"
+          },
+          "x-ms-identifiers": []
+        },
+        "proxyRedirectionMechanism": {
+          "$ref": "#/definitions/ProxyRedirectionMechanism"
+        }
+      }
+    },
+    "IstioEgressGateway": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "gatewayConfigurationName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "enabled",
+        "name"
+      ]
+    },
+    "IstioIngressGateway": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "$ref": "#/definitions/IstioIngressGatewayMode"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "mode",
+        "enabled"
+      ]
+    },
+    "IstioIngressGatewayMode": {
+      "type": "string",
+      "enum": [
+        "External",
+        "Internal"
+      ],
+      "x-ms-enum": {
+        "name": "IstioIngressGatewayMode",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "External",
+            "value": "External"
+          },
+          {
+            "name": "Internal",
+            "value": "Internal"
+          }
+        ]
+      }
+    },
+    "IstioPluginCertificateAuthority": {
+      "type": "object",
+      "properties": {
+        "keyVaultId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.KeyVault/vaults"
+              }
+            ]
+          }
+        },
+        "certObjectName": {
+          "type": "string"
+        },
+        "keyObjectName": {
+          "type": "string"
+        },
+        "rootCertObjectName": {
+          "type": "string"
+        },
+        "certChainObjectName": {
+          "type": "string"
+        }
+      }
+    },
+    "IstioServiceMesh": {
+      "type": "object",
+      "properties": {
+        "components": {
+          "$ref": "#/definitions/IstioComponents"
+        },
+        "certificateAuthority": {
+          "$ref": "#/definitions/IstioCertificateAuthority"
+        },
+        "revisions": {
+          "type": "array",
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "KubeletConfig": {
+      "type": "object",
+      "properties": {
+        "cpuManagerPolicy": {
+          "type": "string"
+        },
+        "cpuCfsQuota": {
+          "type": "boolean"
+        },
+        "cpuCfsQuotaPeriod": {
+          "type": "string"
+        },
+        "imageGcHighThreshold": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "imageGcLowThreshold": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "topologyManagerPolicy": {
+          "type": "string"
+        },
+        "allowedUnsafeSysctls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "failSwapOn": {
+          "type": "boolean"
+        },
+        "containerLogMaxSizeMB": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "containerLogMaxFiles": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 2
+        },
+        "podMaxPids": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "KubeletDiskType": {
+      "type": "string",
+      "enum": [
+        "OS",
+        "Temporary"
+      ],
+      "x-ms-enum": {
+        "name": "KubeletDiskType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "OS",
+            "value": "OS"
+          },
+          {
+            "name": "Temporary",
+            "value": "Temporary"
+          }
+        ]
+      }
+    },
+    "KubernetesSupportPlan": {
+      "type": "string",
+      "enum": [
+        "KubernetesOfficial",
+        "AKSLongTermSupport"
+      ],
+      "x-ms-enum": {
+        "name": "KubernetesSupportPlan",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "KubernetesOfficial",
+            "value": "KubernetesOfficial"
+          },
+          {
+            "name": "AKSLongTermSupport",
+            "value": "AKSLongTermSupport"
+          }
+        ]
+      }
+    },
+    "LicenseType": {
+      "type": "string",
+      "enum": [
+        "None",
+        "Windows_Server"
+      ],
+      "x-ms-enum": {
+        "name": "LicenseType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "None",
+            "value": "None"
+          },
+          {
+            "name": "Windows_Server",
+            "value": "Windows_Server"
+          }
+        ]
+      }
+    },
+    "LinuxOSConfig": {
+      "type": "object",
+      "properties": {
+        "sysctls": {
+          "$ref": "#/definitions/SysctlConfig"
+        },
+        "transparentHugePageEnabled": {
+          "type": "string"
+        },
+        "transparentHugePageDefrag": {
+          "type": "string"
+        },
+        "swapFileSizeMB": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "LoadBalancerSku": {
+      "type": "string",
+      "enum": [
+        "standard",
+        "basic"
+      ],
+      "x-ms-enum": {
+        "name": "LoadBalancerSku",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "standard",
+            "value": "standard"
+          },
+          {
+            "name": "basic",
+            "value": "basic"
+          }
+        ]
+      }
+    },
+    "LocalDNSOverride": {
+      "type": "object",
+      "properties": {
+        "queryLogging": {
+          "type": "string",
+          "default": "Error",
+          "enum": [
+            "Error",
+            "Log"
+          ],
+          "x-ms-enum": {
+            "name": "LocalDNSQueryLogging",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Error",
+                "value": "Error"
+              },
+              {
+                "name": "Log",
+                "value": "Log"
+              }
+            ]
+          }
+        },
+        "protocol": {
+          "type": "string",
+          "default": "PreferUDP",
+          "enum": [
+            "PreferUDP",
+            "ForceTCP"
+          ],
+          "x-ms-enum": {
+            "name": "LocalDNSProtocol",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "PreferUDP",
+                "value": "PreferUDP"
+              },
+              {
+                "name": "ForceTCP",
+                "value": "ForceTCP"
+              }
+            ]
+          }
+        },
+        "forwardDestination": {
+          "type": "string",
+          "default": "ClusterCoreDNS",
+          "enum": [
+            "ClusterCoreDNS",
+            "VnetDNS"
+          ],
+          "x-ms-enum": {
+            "name": "LocalDNSForwardDestination",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "ClusterCoreDNS",
+                "value": "ClusterCoreDNS"
+              },
+              {
+                "name": "VnetDNS",
+                "value": "VnetDNS"
+              }
+            ]
+          }
+        },
+        "forwardPolicy": {
+          "type": "string",
+          "default": "Sequential",
+          "enum": [
+            "Sequential",
+            "RoundRobin",
+            "Random"
+          ],
+          "x-ms-enum": {
+            "name": "LocalDNSForwardPolicy",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Sequential",
+                "value": "Sequential"
+              },
+              {
+                "name": "RoundRobin",
+                "value": "RoundRobin"
+              },
+              {
+                "name": "Random",
+                "value": "Random"
+              }
+            ]
+          }
+        },
+        "maxConcurrent": {
+          "type": "integer",
+          "format": "int32",
+          "default": 1000
+        },
+        "cacheDurationInSeconds": {
+          "type": "integer",
+          "format": "int32",
+          "default": 3600
+        },
+        "serveStaleDurationInSeconds": {
+          "type": "integer",
+          "format": "int32",
+          "default": 3600
+        },
+        "serveStale": {
+          "type": "string",
+          "default": "Immediate",
+          "enum": [
+            "Verify",
+            "Immediate",
+            "Disable"
+          ],
+          "x-ms-enum": {
+            "name": "LocalDNSServeStale",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Verify",
+                "value": "Verify"
+              },
+              {
+                "name": "Immediate",
+                "value": "Immediate"
+              },
+              {
+                "name": "Disable",
+                "value": "Disable"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "LocalDNSProfile": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "default": "Preferred",
+          "enum": [
+            "Preferred",
+            "Required",
+            "Disabled"
+          ],
+          "x-ms-enum": {
+            "name": "LocalDNSMode",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Preferred",
+                "value": "Preferred"
+              },
+              {
+                "name": "Required",
+                "value": "Required"
+              },
+              {
+                "name": "Disabled",
+                "value": "Disabled"
+              }
+            ]
+          }
+        },
+        "state": {
+          "$ref": "#/definitions/LocalDNSState",
+          "readOnly": true
+        },
+        "vnetDNSOverrides": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/LocalDNSOverride"
+          }
+        },
+        "kubeDNSOverrides": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/LocalDNSOverride"
+          }
+        }
+      }
+    },
+    "LocalDNSState": {
+      "type": "string",
+      "enum": [
+        "Enabled",
+        "Disabled"
+      ],
+      "x-ms-enum": {
+        "name": "LocalDNSState",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Enabled",
+            "value": "Enabled"
+          },
+          {
+            "name": "Disabled",
+            "value": "Disabled"
+          }
+        ]
+      }
+    },
+    "ManagedCluster": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/ManagedClusterProperties",
+          "x-ms-client-flatten": true
+        },
+        "eTag": {
+          "type": "string",
+          "readOnly": true
+        },
+        "sku": {
+          "$ref": "#/definitions/ManagedClusterSKU"
+        },
+        "extendedLocation": {
+          "$ref": "#/definitions/ExtendedLocation"
+        },
+        "identity": {
+          "$ref": "#/definitions/ManagedClusterIdentity"
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v6/types.json#/definitions/TrackedResource"
+        }
+      ]
+    },
+    "ManagedClusterAADProfile": {
+      "type": "object",
+      "properties": {
+        "managed": {
+          "type": "boolean"
+        },
+        "enableAzureRBAC": {
+          "type": "boolean"
+        },
+        "adminGroupObjectIDs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "clientAppID": {
+          "type": "string"
+        },
+        "serverAppID": {
+          "type": "string"
+        },
+        "serverAppSecret": {
+          "type": "string",
+          "format": "password",
+          "x-ms-secret": true
+        },
+        "tenantID": {
+          "type": "string"
+        }
+      }
+    },
+    "ManagedClusterAIToolchainOperatorProfile": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ManagedClusterAPIServerAccessProfile": {
+      "type": "object",
+      "properties": {
+        "authorizedIPRanges": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enablePrivateCluster": {
+          "type": "boolean"
+        },
+        "privateDNSZone": {
+          "type": "string"
+        },
+        "enablePrivateClusterPublicFQDN": {
+          "type": "boolean"
+        },
+        "disableRunCommand": {
+          "type": "boolean"
+        },
+        "enableVnetIntegration": {
+          "type": "boolean"
+        },
+        "subnetId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.Network/virtualNetworks/subnets"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "ManagedClusterAddonProfile": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "config": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "identity": {
+          "$ref": "#/definitions/ManagedClusterAddonProfileIdentity",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "enabled"
+      ]
+    },
+    "ManagedClusterAddonProfileIdentity": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/UserAssignedIdentity"
+        }
+      ]
+    },
+    "ManagedClusterAgentPoolProfile": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]{0,11}$"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/definitions/ManagedClusterAgentPoolProfileProperties"
+        }
+      ]
+    },
+    "ManagedClusterAgentPoolProfileProperties": {
+      "type": "object",
+      "properties": {
+        "eTag": {
+          "type": "string",
+          "readOnly": true
+        },
+        "count": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "vmSize": {
+          "type": "string"
+        },
+        "osDiskSizeGB": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 0,
+          "maximum": 2048
+        },
+        "osDiskType": {
+          "$ref": "#/definitions/OSDiskType"
+        },
+        "kubeletDiskType": {
+          "$ref": "#/definitions/KubeletDiskType"
+        },
+        "workloadRuntime": {
+          "$ref": "#/definitions/WorkloadRuntime"
+        },
+        "messageOfTheDay": {
+          "type": "string"
+        },
+        "vnetSubnetID": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.Network/virtualNetworks/subnets"
+              }
+            ]
+          }
+        },
+        "podSubnetID": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.Network/virtualNetworks/subnets"
+              }
+            ]
+          }
+        },
+        "podIPAllocationMode": {
+          "$ref": "#/definitions/PodIPAllocationMode"
+        },
+        "maxPods": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "osType": {
+          "type": "string",
+          "default": "Linux",
+          "enum": [
+            "Linux",
+            "Windows"
+          ],
+          "x-ms-enum": {
+            "name": "OSType",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Linux",
+                "value": "Linux"
+              },
+              {
+                "name": "Windows",
+                "value": "Windows"
+              }
+            ]
+          }
+        },
+        "osSKU": {
+          "$ref": "#/definitions/OSSKU"
+        },
+        "maxCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "minCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "enableAutoScaling": {
+          "type": "boolean"
+        },
+        "scaleDownMode": {
+          "$ref": "#/definitions/ScaleDownMode"
+        },
+        "type": {
+          "$ref": "#/definitions/AgentPoolType"
+        },
+        "mode": {
+          "$ref": "#/definitions/AgentPoolMode"
+        },
+        "orchestratorVersion": {
+          "type": "string"
+        },
+        "currentOrchestratorVersion": {
+          "type": "string",
+          "readOnly": true
+        },
+        "nodeImageVersion": {
+          "type": "string"
+        },
+        "upgradeSettings": {
+          "$ref": "#/definitions/AgentPoolUpgradeSettings"
+        },
+        "provisioningState": {
+          "type": "string",
+          "readOnly": true
+        },
+        "powerState": {
+          "$ref": "#/definitions/PowerState"
+        },
+        "availabilityZones": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enableNodePublicIP": {
+          "type": "boolean"
+        },
+        "nodePublicIPPrefixID": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.Network/publicIPPrefixes"
+              }
+            ]
+          }
+        },
+        "scaleSetPriority": {
+          "type": "string",
+          "default": "Regular",
+          "enum": [
+            "Spot",
+            "Regular"
+          ],
+          "x-ms-enum": {
+            "name": "ScaleSetPriority",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Spot",
+                "value": "Spot"
+              },
+              {
+                "name": "Regular",
+                "value": "Regular"
+              }
+            ]
+          }
+        },
+        "scaleSetEvictionPolicy": {
+          "type": "string",
+          "default": "Delete",
+          "enum": [
+            "Delete",
+            "Deallocate"
+          ],
+          "x-ms-enum": {
+            "name": "ScaleSetEvictionPolicy",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Delete",
+                "value": "Delete"
+              },
+              {
+                "name": "Deallocate",
+                "value": "Deallocate"
+              }
+            ]
+          }
+        },
+        "spotMaxPrice": {
+          "type": "number",
+          "format": "float",
+          "default": -1
+        },
+        "tags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "nodeLabels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "nodeTaints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "proximityPlacementGroupID": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.Compute/proximityPlacementGroups"
+              }
+            ]
+          }
+        },
+        "kubeletConfig": {
+          "$ref": "#/definitions/KubeletConfig"
+        },
+        "linuxOSConfig": {
+          "$ref": "#/definitions/LinuxOSConfig"
+        },
+        "enableEncryptionAtHost": {
+          "type": "boolean"
+        },
+        "enableUltraSSD": {
+          "type": "boolean"
+        },
+        "enableFIPS": {
+          "type": "boolean"
+        },
+        "gpuInstanceProfile": {
+          "$ref": "#/definitions/GPUInstanceProfile"
+        },
+        "creationData": {
+          "$ref": "#/definitions/CreationData"
+        },
+        "capacityReservationGroupID": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.Compute/CapacityReservationGroups"
+              }
+            ]
+          }
+        },
+        "hostGroupID": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.Compute/hostGroups"
+              }
+            ]
+          }
+        },
+        "networkProfile": {
+          "$ref": "#/definitions/AgentPoolNetworkProfile"
+        },
+        "windowsProfile": {
+          "$ref": "#/definitions/AgentPoolWindowsProfile"
+        },
+        "securityProfile": {
+          "$ref": "#/definitions/AgentPoolSecurityProfile"
+        },
+        "gpuProfile": {
+          "$ref": "#/definitions/GPUProfile"
+        },
+        "gatewayProfile": {
+          "$ref": "#/definitions/AgentPoolGatewayProfile"
+        },
+        "artifactStreamingProfile": {
+          "$ref": "#/definitions/AgentPoolArtifactStreamingProfile"
+        },
+        "virtualMachinesProfile": {
+          "$ref": "#/definitions/VirtualMachinesProfile"
+        },
+        "virtualMachineNodesStatus": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/VirtualMachineNodes"
+          },
+          "x-ms-identifiers": []
+        },
+        "status": {
+          "$ref": "#/definitions/AgentPoolStatus"
+        },
+        "localDNSProfile": {
+          "$ref": "#/definitions/LocalDNSProfile"
+        }
+      }
+    },
+    "ManagedClusterAppRoutingIstio": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "$ref": "#/definitions/GatewayAPIIstioEnabled"
+        }
+      }
+    },
+    "ManagedClusterAutoUpgradeProfile": {
+      "type": "object",
+      "properties": {
+        "upgradeChannel": {
+          "$ref": "#/definitions/UpgradeChannel"
+        },
+        "nodeOSUpgradeChannel": {
+          "$ref": "#/definitions/NodeOSUpgradeChannel"
+        }
+      }
+    },
+    "ManagedClusterAzureMonitorProfile": {
+      "type": "object",
+      "properties": {
+        "metrics": {
+          "$ref": "#/definitions/ManagedClusterAzureMonitorProfileMetrics"
+        },
+        "appMonitoring": {
+          "$ref": "#/definitions/ManagedClusterAzureMonitorProfileAppMonitoring"
+        }
+      }
+    },
+    "ManagedClusterAzureMonitorProfileAppMonitoring": {
+      "type": "object",
+      "properties": {
+        "autoInstrumentation": {
+          "$ref": "#/definitions/ManagedClusterAzureMonitorProfileAppMonitoringAutoInstrumentation"
+        }
+      }
+    },
+    "ManagedClusterAzureMonitorProfileAppMonitoringAutoInstrumentation": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ManagedClusterAzureMonitorProfileKubeStateMetrics": {
+      "type": "object",
+      "properties": {
+        "metricLabelsAllowlist": {
+          "type": "string"
+        },
+        "metricAnnotationsAllowList": {
+          "type": "string"
+        }
+      }
+    },
+    "ManagedClusterAzureMonitorProfileMetrics": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "kubeStateMetrics": {
+          "$ref": "#/definitions/ManagedClusterAzureMonitorProfileKubeStateMetrics"
+        },
+        "controlPlane": {
+          "$ref": "#/definitions/ManagedClusterAzureMonitorProfileMetricsControlPlane"
+        }
+      },
+      "required": [
+        "enabled"
+      ]
+    },
+    "ManagedClusterAzureMonitorProfileMetricsControlPlane": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ManagedClusterBootstrapProfile": {
+      "type": "object",
+      "properties": {
+        "artifactSource": {
+          "type": "string",
+          "default": "Direct",
+          "enum": [
+            "Cache",
+            "Direct"
+          ],
+          "x-ms-enum": {
+            "name": "ArtifactSource",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Cache",
+                "value": "Cache"
+              },
+              {
+                "name": "Direct",
+                "value": "Direct"
+              }
+            ]
+          }
+        },
+        "containerRegistryId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.ContainerRegistry/registries"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "ManagedClusterCostAnalysis": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ManagedClusterHTTPProxyConfig": {
+      "type": "object",
+      "properties": {
+        "httpProxy": {
+          "type": "string"
+        },
+        "httpsProxy": {
+          "type": "string"
+        },
+        "noProxy": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "trustedCa": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ManagedClusterHostedSystemProfile": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "systemNodeSubnetID": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.Network/virtualNetworks/subnets"
+              }
+            ]
+          }
+        },
+        "nodeSubnetID": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.Network/virtualNetworks/subnets"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "ManagedClusterIdentity": {
+      "type": "object",
+      "properties": {
+        "principalId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "tenantId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "type": {
+          "$ref": "#/definitions/ResourceIdentityType"
+        },
+        "delegatedResources": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "../../../../../../common-types/resource-management/v6/managedidentitywithdelegation.json#/definitions/DelegatedResource"
+          }
+        },
+        "userAssignedIdentities": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ManagedServiceIdentityUserAssignedIdentitiesValue"
+          }
+        }
+      }
+    },
+    "ManagedClusterIngressProfile": {
+      "type": "object",
+      "properties": {
+        "webAppRouting": {
+          "$ref": "#/definitions/ManagedClusterIngressProfileWebAppRouting"
+        },
+        "gatewayAPI": {
+          "$ref": "#/definitions/ManagedClusterIngressProfileGatewayConfiguration"
+        }
+      }
+    },
+    "ManagedClusterIngressProfileGatewayConfiguration": {
+      "type": "object",
+      "properties": {
+        "installation": {
+          "$ref": "#/definitions/ManagedGatewayType"
+        }
+      }
+    },
+    "ManagedClusterIngressProfileNginx": {
+      "type": "object",
+      "properties": {
+        "defaultIngressControllerType": {
+          "$ref": "#/definitions/NginxIngressControllerType"
+        }
+      }
+    },
+    "ManagedClusterIngressProfileWebAppRouting": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "gatewayAPIImplementations": {
+          "$ref": "#/definitions/ManagedClusterWebAppRoutingGatewayAPIImplementations"
+        },
+        "dnsZoneResourceIds": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "string",
+            "format": "arm-id",
+            "x-ms-arm-id-details": {
+              "allowedResources": [
+                {
+                  "type": "Microsoft.Network/dnszones"
+                },
+                {
+                  "type": "Microsoft.Network/privateDnsZones"
+                }
+              ]
+            }
+          }
+        },
+        "nginx": {
+          "$ref": "#/definitions/ManagedClusterIngressProfileNginx"
+        },
+        "identity": {
+          "$ref": "#/definitions/UserAssignedIdentity",
+          "readOnly": true
+        }
+      }
+    },
+    "ManagedClusterLoadBalancerProfile": {
+      "type": "object",
+      "properties": {
+        "managedOutboundIPs": {
+          "$ref": "#/definitions/ManagedClusterLoadBalancerProfileManagedOutboundIPs"
+        },
+        "outboundIPPrefixes": {
+          "$ref": "#/definitions/ManagedClusterLoadBalancerProfileOutboundIPPrefixes"
+        },
+        "outboundIPs": {
+          "$ref": "#/definitions/ManagedClusterLoadBalancerProfileOutboundIPs"
+        },
+        "effectiveOutboundIPs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ResourceReference"
+          },
+          "readOnly": true
+        },
+        "allocatedOutboundPorts": {
+          "type": "integer",
+          "format": "int32",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 64000
+        },
+        "idleTimeoutInMinutes": {
+          "type": "integer",
+          "format": "int32",
+          "default": 30,
+          "minimum": 4,
+          "maximum": 120
+        },
+        "enableMultipleStandardLoadBalancers": {
+          "type": "boolean"
+        },
+        "backendPoolType": {
+          "type": "string",
+          "default": "NodeIPConfiguration",
+          "enum": [
+            "NodeIPConfiguration",
+            "NodeIP"
+          ],
+          "x-ms-enum": {
+            "name": "BackendPoolType",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "NodeIPConfiguration",
+                "value": "NodeIPConfiguration"
+              },
+              {
+                "name": "NodeIP",
+                "value": "NodeIP"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "ManagedClusterLoadBalancerProfileManagedOutboundIPs": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "format": "int32",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 100
+        },
+        "countIPv6": {
+          "type": "integer",
+          "format": "int32",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "ManagedClusterLoadBalancerProfileOutboundIPPrefixes": {
+      "type": "object",
+      "properties": {
+        "publicIPPrefixes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ResourceReference"
+          }
+        }
+      }
+    },
+    "ManagedClusterLoadBalancerProfileOutboundIPs": {
+      "type": "object",
+      "properties": {
+        "publicIPs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ResourceReference"
+          }
+        }
+      }
+    },
+    "ManagedClusterManagedOutboundIPProfile": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "format": "int32",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 16
+        }
+      }
+    },
+    "ManagedClusterMetricsProfile": {
+      "type": "object",
+      "properties": {
+        "costAnalysis": {
+          "$ref": "#/definitions/ManagedClusterCostAnalysis"
+        }
+      }
+    },
+    "ManagedClusterNATGatewayProfile": {
+      "type": "object",
+      "properties": {
+        "managedOutboundIPProfile": {
+          "$ref": "#/definitions/ManagedClusterManagedOutboundIPProfile"
+        },
+        "effectiveOutboundIPs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ResourceReference"
+          },
+          "readOnly": true
+        },
+        "idleTimeoutInMinutes": {
+          "type": "integer",
+          "format": "int32",
+          "default": 4,
+          "minimum": 4,
+          "maximum": 120
+        }
+      }
+    },
+    "ManagedClusterNodeProvisioningProfile": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "$ref": "#/definitions/NodeProvisioningMode"
+        },
+        "defaultNodePools": {
+          "type": "string",
+          "default": "Auto",
+          "enum": [
+            "None",
+            "Auto"
+          ],
+          "x-ms-enum": {
+            "name": "NodeProvisioningDefaultNodePools",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "None",
+                "value": "None"
+              },
+              {
+                "name": "Auto",
+                "value": "Auto"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "ManagedClusterNodeResourceGroupProfile": {
+      "type": "object",
+      "properties": {
+        "restrictionLevel": {
+          "$ref": "#/definitions/RestrictionLevel"
+        }
+      }
+    },
+    "ManagedClusterOIDCIssuerProfile": {
+      "type": "object",
+      "properties": {
+        "issuerURL": {
+          "type": "string",
+          "readOnly": true
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ManagedClusterPodIdentity": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "bindingSelector": {
+          "type": "string"
+        },
+        "identity": {
+          "$ref": "#/definitions/UserAssignedIdentity"
+        },
+        "provisioningState": {
+          "$ref": "#/definitions/ManagedClusterPodIdentityProvisioningState",
+          "readOnly": true
+        },
+        "provisioningInfo": {
+          "$ref": "#/definitions/ManagedClusterPodIdentityProvisioningInfo",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "name",
+        "namespace",
+        "identity"
+      ]
+    },
+    "ManagedClusterPodIdentityException": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "podLabels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "namespace",
+        "podLabels"
+      ]
+    },
+    "ManagedClusterPodIdentityProfile": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "allowNetworkPluginKubenet": {
+          "type": "boolean"
+        },
+        "userAssignedIdentities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ManagedClusterPodIdentity"
+          },
+          "x-ms-identifiers": []
+        },
+        "userAssignedIdentityExceptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ManagedClusterPodIdentityException"
+          },
+          "x-ms-identifiers": []
+        }
+      }
+    },
+    "ManagedClusterPodIdentityProvisioningError": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "$ref": "#/definitions/ManagedClusterPodIdentityProvisioningErrorBody"
+        }
+      }
+    },
+    "ManagedClusterPodIdentityProvisioningErrorBody": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ManagedClusterPodIdentityProvisioningErrorBody"
+          },
+          "x-ms-identifiers": []
+        }
+      }
+    },
+    "ManagedClusterPodIdentityProvisioningInfo": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "$ref": "#/definitions/ManagedClusterPodIdentityProvisioningError"
+        }
+      }
+    },
+    "ManagedClusterPodIdentityProvisioningState": {
+      "type": "string",
+      "enum": [
+        "Assigned",
+        "Canceled",
+        "Deleting",
+        "Failed",
+        "Succeeded",
+        "Updating"
+      ],
+      "x-ms-enum": {
+        "name": "ManagedClusterPodIdentityProvisioningState",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Assigned",
+            "value": "Assigned"
+          },
+          {
+            "name": "Canceled",
+            "value": "Canceled"
+          },
+          {
+            "name": "Deleting",
+            "value": "Deleting"
+          },
+          {
+            "name": "Failed",
+            "value": "Failed"
+          },
+          {
+            "name": "Succeeded",
+            "value": "Succeeded"
+          },
+          {
+            "name": "Updating",
+            "value": "Updating"
+          }
+        ]
+      },
+      "readOnly": true
+    },
+    "ManagedClusterProperties": {
+      "type": "object",
+      "properties": {
+        "provisioningState": {
+          "type": "string",
+          "readOnly": true
+        },
+        "powerState": {
+          "$ref": "#/definitions/PowerState",
+          "readOnly": true
+        },
+        "maxAgentPools": {
+          "type": "integer",
+          "format": "int32",
+          "readOnly": true
+        },
+        "kubernetesVersion": {
+          "type": "string"
+        },
+        "currentKubernetesVersion": {
+          "type": "string",
+          "readOnly": true
+        },
+        "dnsPrefix": {
+          "type": "string"
+        },
+        "fqdnSubdomain": {
+          "type": "string"
+        },
+        "fqdn": {
+          "type": "string",
+          "readOnly": true
+        },
+        "privateFQDN": {
+          "type": "string",
+          "readOnly": true
+        },
+        "azurePortalFQDN": {
+          "type": "string",
+          "readOnly": true
+        },
+        "agentPoolProfiles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ManagedClusterAgentPoolProfile"
+          },
+          "x-ms-identifiers": []
+        },
+        "linuxProfile": {
+          "$ref": "#/definitions/ContainerServiceLinuxProfile"
+        },
+        "windowsProfile": {
+          "$ref": "#/definitions/ManagedClusterWindowsProfile"
+        },
+        "servicePrincipalProfile": {
+          "$ref": "#/definitions/ManagedClusterServicePrincipalProfile"
+        },
+        "addonProfiles": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ManagedClusterAddonProfile"
+          }
+        },
+        "podIdentityProfile": {
+          "$ref": "#/definitions/ManagedClusterPodIdentityProfile"
+        },
+        "oidcIssuerProfile": {
+          "$ref": "#/definitions/ManagedClusterOIDCIssuerProfile"
+        },
+        "nodeResourceGroup": {
+          "type": "string"
+        },
+        "nodeResourceGroupProfile": {
+          "$ref": "#/definitions/ManagedClusterNodeResourceGroupProfile"
+        },
+        "enableRBAC": {
+          "type": "boolean"
+        },
+        "supportPlan": {
+          "$ref": "#/definitions/KubernetesSupportPlan"
+        },
+        "networkProfile": {
+          "$ref": "#/definitions/ContainerServiceNetworkProfile"
+        },
+        "aadProfile": {
+          "$ref": "#/definitions/ManagedClusterAADProfile"
+        },
+        "autoUpgradeProfile": {
+          "$ref": "#/definitions/ManagedClusterAutoUpgradeProfile"
+        },
+        "upgradeSettings": {
+          "$ref": "#/definitions/ClusterUpgradeSettings"
+        },
+        "autoScalerProfile": {
+          "$ref": "#/definitions/ManagedClusterPropertiesAutoScalerProfile"
+        },
+        "apiServerAccessProfile": {
+          "$ref": "#/definitions/ManagedClusterAPIServerAccessProfile"
+        },
+        "diskEncryptionSetID": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.Compute/diskEncryptionSets"
+              }
+            ]
+          }
+        },
+        "identityProfile": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/UserAssignedIdentity"
+          }
+        },
+        "privateLinkResources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PrivateLinkResource"
+          }
+        },
+        "disableLocalAccounts": {
+          "type": "boolean"
+        },
+        "httpProxyConfig": {
+          "$ref": "#/definitions/ManagedClusterHTTPProxyConfig"
+        },
+        "securityProfile": {
+          "$ref": "#/definitions/ManagedClusterSecurityProfile"
+        },
+        "storageProfile": {
+          "$ref": "#/definitions/ManagedClusterStorageProfile"
+        },
+        "ingressProfile": {
+          "$ref": "#/definitions/ManagedClusterIngressProfile"
+        },
+        "publicNetworkAccess": {
+          "$ref": "#/definitions/PublicNetworkAccess"
+        },
+        "workloadAutoScalerProfile": {
+          "$ref": "#/definitions/ManagedClusterWorkloadAutoScalerProfile"
+        },
+        "azureMonitorProfile": {
+          "$ref": "#/definitions/ManagedClusterAzureMonitorProfile"
+        },
+        "serviceMeshProfile": {
+          "$ref": "#/definitions/ServiceMeshProfile"
+        },
+        "resourceUID": {
+          "type": "string",
+          "readOnly": true
+        },
+        "metricsProfile": {
+          "$ref": "#/definitions/ManagedClusterMetricsProfile"
+        },
+        "nodeProvisioningProfile": {
+          "$ref": "#/definitions/ManagedClusterNodeProvisioningProfile"
+        },
+        "bootstrapProfile": {
+          "$ref": "#/definitions/ManagedClusterBootstrapProfile"
+        },
+        "aiToolchainOperatorProfile": {
+          "$ref": "#/definitions/ManagedClusterAIToolchainOperatorProfile"
+        },
+        "hostedSystemProfile": {
+          "$ref": "#/definitions/ManagedClusterHostedSystemProfile"
+        },
+        "status": {
+          "$ref": "#/definitions/ManagedClusterStatus"
+        }
+      }
+    },
+    "ManagedClusterPropertiesAutoScalerProfile": {
+      "type": "object",
+      "properties": {
+        "balance-similar-node-groups": {
+          "type": "string",
+          "x-ms-client-name": "balanceSimilarNodeGroups"
+        },
+        "daemonset-eviction-for-empty-nodes": {
+          "type": "boolean",
+          "x-ms-client-name": "daemonsetEvictionForEmptyNodes"
+        },
+        "daemonset-eviction-for-occupied-nodes": {
+          "type": "boolean",
+          "x-ms-client-name": "daemonsetEvictionForOccupiedNodes"
+        },
+        "ignore-daemonsets-utilization": {
+          "type": "boolean",
+          "x-ms-client-name": "ignoreDaemonsetsUtilization"
+        },
+        "expander": {
+          "$ref": "#/definitions/Expander"
+        },
+        "max-empty-bulk-delete": {
+          "type": "string",
+          "x-ms-client-name": "maxEmptyBulkDelete"
+        },
+        "max-graceful-termination-sec": {
+          "type": "string",
+          "x-ms-client-name": "maxGracefulTerminationSec"
+        },
+        "max-node-provision-time": {
+          "type": "string",
+          "x-ms-client-name": "maxNodeProvisionTime"
+        },
+        "max-total-unready-percentage": {
+          "type": "string",
+          "x-ms-client-name": "maxTotalUnreadyPercentage"
+        },
+        "new-pod-scale-up-delay": {
+          "type": "string",
+          "x-ms-client-name": "newPodScaleUpDelay"
+        },
+        "ok-total-unready-count": {
+          "type": "string",
+          "x-ms-client-name": "okTotalUnreadyCount"
+        },
+        "scan-interval": {
+          "type": "string",
+          "x-ms-client-name": "scanInterval"
+        },
+        "scale-down-delay-after-add": {
+          "type": "string",
+          "x-ms-client-name": "scaleDownDelayAfterAdd"
+        },
+        "scale-down-delay-after-delete": {
+          "type": "string",
+          "x-ms-client-name": "scaleDownDelayAfterDelete"
+        },
+        "scale-down-delay-after-failure": {
+          "type": "string",
+          "x-ms-client-name": "scaleDownDelayAfterFailure"
+        },
+        "scale-down-unneeded-time": {
+          "type": "string",
+          "x-ms-client-name": "scaleDownUnneededTime"
+        },
+        "scale-down-unready-time": {
+          "type": "string",
+          "x-ms-client-name": "scaleDownUnreadyTime"
+        },
+        "scale-down-utilization-threshold": {
+          "type": "string",
+          "x-ms-client-name": "scaleDownUtilizationThreshold"
+        },
+        "skip-nodes-with-local-storage": {
+          "type": "string",
+          "x-ms-client-name": "skipNodesWithLocalStorage"
+        },
+        "skip-nodes-with-system-pods": {
+          "type": "string",
+          "x-ms-client-name": "skipNodesWithSystemPods"
+        }
+      }
+    },
+    "ManagedClusterSKU": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/ManagedClusterSKUName"
+        },
+        "tier": {
+          "$ref": "#/definitions/ManagedClusterSKUTier"
+        }
+      }
+    },
+    "ManagedClusterSKUName": {
+      "type": "string",
+      "enum": [
+        "Base",
+        "Automatic"
+      ],
+      "x-ms-enum": {
+        "name": "ManagedClusterSKUName",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Base",
+            "value": "Base"
+          },
+          {
+            "name": "Automatic",
+            "value": "Automatic"
+          }
+        ]
+      }
+    },
+    "ManagedClusterSKUTier": {
+      "type": "string",
+      "enum": [
+        "Premium",
+        "Standard",
+        "Free"
+      ],
+      "x-ms-enum": {
+        "name": "ManagedClusterSKUTier",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Premium",
+            "value": "Premium"
+          },
+          {
+            "name": "Standard",
+            "value": "Standard"
+          },
+          {
+            "name": "Free",
+            "value": "Free"
+          }
+        ]
+      }
+    },
+    "ManagedClusterSecurityProfile": {
+      "type": "object",
+      "properties": {
+        "defender": {
+          "$ref": "#/definitions/ManagedClusterSecurityProfileDefender"
+        },
+        "azureKeyVaultKms": {
+          "$ref": "#/definitions/AzureKeyVaultKms"
+        },
+        "workloadIdentity": {
+          "$ref": "#/definitions/ManagedClusterSecurityProfileWorkloadIdentity"
+        },
+        "imageCleaner": {
+          "$ref": "#/definitions/ManagedClusterSecurityProfileImageCleaner"
+        },
+        "customCATrustCertificates": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 10,
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        }
+      }
+    },
+    "ManagedClusterSecurityProfileDefender": {
+      "type": "object",
+      "properties": {
+        "logAnalyticsWorkspaceResourceId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.OperationalInsights/workspaces"
+              }
+            ]
+          }
+        },
+        "securityMonitoring": {
+          "$ref": "#/definitions/ManagedClusterSecurityProfileDefenderSecurityMonitoring"
+        }
+      }
+    },
+    "ManagedClusterSecurityProfileDefenderSecurityMonitoring": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ManagedClusterSecurityProfileImageCleaner": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "intervalHours": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "ManagedClusterSecurityProfileWorkloadIdentity": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ManagedClusterServicePrincipalProfile": {
+      "type": "object",
+      "properties": {
+        "clientId": {
+          "type": "string"
+        },
+        "secret": {
+          "type": "string",
+          "format": "password",
+          "x-ms-secret": true
+        }
+      },
+      "required": [
+        "clientId"
+      ]
+    },
+    "ManagedClusterStaticEgressGatewayProfile": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ManagedClusterStatus": {
+      "type": "object",
+      "properties": {
+        "provisioningError": {
+          "$ref": "../../../../../../common-types/resource-management/v6/types.json#/definitions/ErrorDetail",
+          "readOnly": true
+        }
+      }
+    },
+    "ManagedClusterStorageProfile": {
+      "type": "object",
+      "properties": {
+        "diskCSIDriver": {
+          "$ref": "#/definitions/ManagedClusterStorageProfileDiskCSIDriver"
+        },
+        "fileCSIDriver": {
+          "$ref": "#/definitions/ManagedClusterStorageProfileFileCSIDriver"
+        },
+        "snapshotController": {
+          "$ref": "#/definitions/ManagedClusterStorageProfileSnapshotController"
+        },
+        "blobCSIDriver": {
+          "$ref": "#/definitions/ManagedClusterStorageProfileBlobCSIDriver"
+        }
+      }
+    },
+    "ManagedClusterStorageProfileBlobCSIDriver": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ManagedClusterStorageProfileDiskCSIDriver": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ManagedClusterStorageProfileFileCSIDriver": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ManagedClusterStorageProfileSnapshotController": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ManagedClusterWebAppRoutingGatewayAPIImplementations": {
+      "type": "object",
+      "properties": {
+        "appRoutingIstio": {
+          "$ref": "#/definitions/ManagedClusterAppRoutingIstio"
+        }
+      }
+    },
+    "ManagedClusterWindowsProfile": {
+      "type": "object",
+      "properties": {
+        "adminUsername": {
+          "type": "string"
+        },
+        "adminPassword": {
+          "type": "string",
+          "format": "password",
+          "x-ms-secret": true
+        },
+        "licenseType": {
+          "$ref": "#/definitions/LicenseType"
+        },
+        "enableCSIProxy": {
+          "type": "boolean"
+        },
+        "gmsaProfile": {
+          "$ref": "#/definitions/WindowsGmsaProfile"
+        }
+      },
+      "required": [
+        "adminUsername"
+      ]
+    },
+    "ManagedClusterWorkloadAutoScalerProfile": {
+      "type": "object",
+      "properties": {
+        "keda": {
+          "$ref": "#/definitions/ManagedClusterWorkloadAutoScalerProfileKeda"
+        },
+        "verticalPodAutoscaler": {
+          "$ref": "#/definitions/ManagedClusterWorkloadAutoScalerProfileVerticalPodAutoscaler"
+        }
+      }
+    },
+    "ManagedClusterWorkloadAutoScalerProfileKeda": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ]
+    },
+    "ManagedClusterWorkloadAutoScalerProfileVerticalPodAutoscaler": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "enabled"
+      ]
+    },
+    "ManagedGatewayType": {
+      "type": "string",
+      "enum": [
+        "Disabled",
+        "Standard"
+      ],
+      "x-ms-enum": {
+        "name": "ManagedGatewayType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Disabled",
+            "value": "Disabled"
+          },
+          {
+            "name": "Standard",
+            "value": "Standard"
+          }
+        ]
+      }
+    },
+    "ManagedServiceIdentityUserAssignedIdentitiesValue": {
+      "type": "object",
+      "properties": {
+        "principalId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "clientId": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "ManualScaleProfile": {
+      "type": "object",
+      "properties": {
+        "size": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "NetworkDataplane": {
+      "type": "string",
+      "enum": [
+        "azure",
+        "cilium"
+      ],
+      "x-ms-enum": {
+        "name": "NetworkDataplane",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "azure",
+            "value": "azure"
+          },
+          {
+            "name": "cilium",
+            "value": "cilium"
+          }
+        ]
+      }
+    },
+    "NetworkMode": {
+      "type": "string",
+      "enum": [
+        "transparent",
+        "bridge"
+      ],
+      "x-ms-enum": {
+        "name": "NetworkMode",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "transparent",
+            "value": "transparent"
+          },
+          {
+            "name": "bridge",
+            "value": "bridge"
+          }
+        ]
+      }
+    },
+    "NetworkPlugin": {
+      "type": "string",
+      "enum": [
+        "azure",
+        "kubenet",
+        "none"
+      ],
+      "x-ms-enum": {
+        "name": "NetworkPlugin",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "azure",
+            "value": "azure"
+          },
+          {
+            "name": "kubenet",
+            "value": "kubenet"
+          },
+          {
+            "name": "none",
+            "value": "none"
+          }
+        ]
+      }
+    },
+    "NetworkPluginMode": {
+      "type": "string",
+      "enum": [
+        "overlay"
+      ],
+      "x-ms-enum": {
+        "name": "NetworkPluginMode",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "overlay",
+            "value": "overlay"
+          }
+        ]
+      }
+    },
+    "NetworkPolicy": {
+      "type": "string",
+      "enum": [
+        "none",
+        "calico",
+        "azure",
+        "cilium"
+      ],
+      "x-ms-enum": {
+        "name": "NetworkPolicy",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "none",
+            "value": "none"
+          },
+          {
+            "name": "calico",
+            "value": "calico"
+          },
+          {
+            "name": "azure",
+            "value": "azure"
+          },
+          {
+            "name": "cilium",
+            "value": "cilium"
+          }
+        ]
+      }
+    },
+    "NginxIngressControllerType": {
+      "type": "string",
+      "enum": [
+        "AnnotationControlled",
+        "External",
+        "Internal",
+        "None"
+      ],
+      "x-ms-enum": {
+        "name": "NginxIngressControllerType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "AnnotationControlled",
+            "value": "AnnotationControlled"
+          },
+          {
+            "name": "External",
+            "value": "External"
+          },
+          {
+            "name": "Internal",
+            "value": "Internal"
+          },
+          {
+            "name": "None",
+            "value": "None"
+          }
+        ]
+      }
+    },
+    "NodeOSUpgradeChannel": {
+      "type": "string",
+      "enum": [
+        "None",
+        "Unmanaged",
+        "NodeImage",
+        "SecurityPatch"
+      ],
+      "x-ms-enum": {
+        "name": "NodeOSUpgradeChannel",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "None",
+            "value": "None"
+          },
+          {
+            "name": "Unmanaged",
+            "value": "Unmanaged"
+          },
+          {
+            "name": "NodeImage",
+            "value": "NodeImage"
+          },
+          {
+            "name": "SecurityPatch",
+            "value": "SecurityPatch"
+          }
+        ]
+      }
+    },
+    "NodeProvisioningMode": {
+      "type": "string",
+      "enum": [
+        "Manual",
+        "Auto"
+      ],
+      "x-ms-enum": {
+        "name": "NodeProvisioningMode",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Manual",
+            "value": "Manual"
+          },
+          {
+            "name": "Auto",
+            "value": "Auto"
+          }
+        ]
+      }
+    },
+    "OSDiskType": {
+      "type": "string",
+      "enum": [
+        "Managed",
+        "Ephemeral"
+      ],
+      "x-ms-enum": {
+        "name": "OSDiskType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Managed",
+            "value": "Managed"
+          },
+          {
+            "name": "Ephemeral",
+            "value": "Ephemeral"
+          }
+        ]
+      }
+    },
+    "OSSKU": {
+      "type": "string",
+      "enum": [
+        "Ubuntu",
+        "AzureLinux",
+        "AzureLinux3",
+        "CBLMariner",
+        "Windows2019",
+        "Windows2022",
+        "Ubuntu2204",
+        "Windows2025",
+        "Ubuntu2404",
+        "AzureContainerLinux"
+      ],
+      "x-ms-enum": {
+        "name": "OSSKU",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Ubuntu",
+            "value": "Ubuntu"
+          },
+          {
+            "name": "AzureLinux",
+            "value": "AzureLinux"
+          },
+          {
+            "name": "AzureLinux3",
+            "value": "AzureLinux3"
+          },
+          {
+            "name": "CBLMariner",
+            "value": "CBLMariner"
+          },
+          {
+            "name": "Windows2019",
+            "value": "Windows2019"
+          },
+          {
+            "name": "Windows2022",
+            "value": "Windows2022"
+          },
+          {
+            "name": "Ubuntu2204",
+            "value": "Ubuntu2204"
+          },
+          {
+            "name": "Windows2025",
+            "value": "Windows2025"
+          },
+          {
+            "name": "Ubuntu2404",
+            "value": "Ubuntu2404"
+          },
+          {
+            "name": "AzureContainerLinux",
+            "value": "AzureContainerLinux"
+          }
+        ]
+      }
+    },
+    "PodIPAllocationMode": {
+      "type": "string",
+      "enum": [
+        "DynamicIndividual",
+        "StaticBlock"
+      ],
+      "x-ms-enum": {
+        "name": "PodIPAllocationMode",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "DynamicIndividual",
+            "value": "DynamicIndividual"
+          },
+          {
+            "name": "StaticBlock",
+            "value": "StaticBlock"
+          }
+        ]
+      }
+    },
+    "PortRange": {
+      "type": "object",
+      "properties": {
+        "portStart": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "portEnd": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "protocol": {
+          "$ref": "#/definitions/Protocol"
+        }
+      }
+    },
+    "PowerState": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "$ref": "#/definitions/Code"
+        }
+      }
+    },
+    "PrivateLinkResource": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "groupId": {
+          "type": "string"
+        },
+        "requiredMembers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "privateLinkServiceID": {
+          "type": "string",
+          "format": "arm-id",
+          "readOnly": true
+        }
+      }
+    },
+    "Protocol": {
+      "type": "string",
+      "enum": [
+        "TCP",
+        "UDP"
+      ],
+      "x-ms-enum": {
+        "name": "Protocol",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "TCP",
+            "value": "TCP"
+          },
+          {
+            "name": "UDP",
+            "value": "UDP"
+          }
+        ]
+      }
+    },
+    "ProxyRedirectionMechanism": {
+      "type": "string",
+      "enum": [
+        "InitContainers",
+        "CNIChaining"
+      ],
+      "x-ms-enum": {
+        "name": "ProxyRedirectionMechanism",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "InitContainers",
+            "value": "InitContainers"
+          },
+          {
+            "name": "CNIChaining",
+            "value": "CNIChaining"
+          }
+        ]
+      }
+    },
+    "PublicNetworkAccess": {
+      "type": "string",
+      "enum": [
+        "Enabled",
+        "Disabled"
+      ],
+      "x-ms-enum": {
+        "name": "PublicNetworkAccess",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Enabled",
+            "value": "Enabled"
+          },
+          {
+            "name": "Disabled",
+            "value": "Disabled"
+          }
+        ]
+      }
+    },
+    "ResourceIdentityType": {
+      "type": "string",
+      "enum": [
+        "SystemAssigned",
+        "UserAssigned",
+        "None"
+      ],
+      "x-ms-enum": {
+        "name": "ResourceIdentityType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "SystemAssigned",
+            "value": "SystemAssigned"
+          },
+          {
+            "name": "UserAssigned",
+            "value": "UserAssigned"
+          },
+          {
+            "name": "None",
+            "value": "None"
+          }
+        ]
+      }
+    },
+    "ResourceReference": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "arm-id"
+        }
+      }
+    },
+    "RestrictionLevel": {
+      "type": "string",
+      "enum": [
+        "Unrestricted",
+        "ReadOnly"
+      ],
+      "x-ms-enum": {
+        "name": "RestrictionLevel",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Unrestricted",
+            "value": "Unrestricted"
+          },
+          {
+            "name": "ReadOnly",
+            "value": "ReadOnly"
+          }
+        ]
+      }
+    },
+    "ScaleDownMode": {
+      "type": "string",
+      "enum": [
+        "Delete",
+        "Deallocate"
+      ],
+      "x-ms-enum": {
+        "name": "ScaleDownMode",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Delete",
+            "value": "Delete"
+          },
+          {
+            "name": "Deallocate",
+            "value": "Deallocate"
+          }
+        ]
+      }
+    },
+    "ScaleProfile": {
+      "type": "object",
+      "properties": {
+        "manual": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ManualScaleProfile"
+          },
+          "x-ms-identifiers": []
+        }
+      }
+    },
+    "ServiceMeshMode": {
+      "type": "string",
+      "enum": [
+        "Istio",
+        "Disabled"
+      ],
+      "x-ms-enum": {
+        "name": "ServiceMeshMode",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Istio",
+            "value": "Istio"
+          },
+          {
+            "name": "Disabled",
+            "value": "Disabled"
+          }
+        ]
+      }
+    },
+    "ServiceMeshProfile": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "$ref": "#/definitions/ServiceMeshMode"
+        },
+        "istio": {
+          "$ref": "#/definitions/IstioServiceMesh"
+        }
+      },
+      "required": [
+        "mode"
+      ]
+    },
+    "SysctlConfig": {
+      "type": "object",
+      "properties": {
+        "netCoreSomaxconn": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "netCoreNetdevMaxBacklog": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "netCoreRmemDefault": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "netCoreRmemMax": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "netCoreWmemDefault": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "netCoreWmemMax": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "netCoreOptmemMax": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "netIpv4TcpMaxSynBacklog": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "netIpv4TcpMaxTwBuckets": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "netIpv4TcpFinTimeout": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "netIpv4TcpKeepaliveTime": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "netIpv4TcpKeepaliveProbes": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "netIpv4TcpkeepaliveIntvl": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 10,
+          "maximum": 90
+        },
+        "netIpv4TcpTwReuse": {
+          "type": "boolean"
+        },
+        "netIpv4IpLocalPortRange": {
+          "type": "string"
+        },
+        "netIpv4NeighDefaultGcThresh1": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "netIpv4NeighDefaultGcThresh2": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "netIpv4NeighDefaultGcThresh3": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "netNetfilterNfConntrackMax": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 131072,
+          "maximum": 2097152
+        },
+        "netNetfilterNfConntrackBuckets": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 65536,
+          "maximum": 524288
+        },
+        "fsInotifyMaxUserWatches": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "fsFileMax": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "fsAioMaxNr": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "fsNrOpen": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "kernelThreadsMax": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "vmMaxMapCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "vmSwappiness": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "vmVfsCachePressure": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "TransitEncryptionType": {
+      "type": "string",
+      "enum": [
+        "WireGuard",
+        "None"
+      ],
+      "x-ms-enum": {
+        "name": "TransitEncryptionType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "WireGuard",
+            "value": "WireGuard"
+          },
+          {
+            "name": "None",
+            "value": "None"
+          }
+        ]
+      }
+    },
+    "UndrainableNodeBehavior": {
+      "type": "string",
+      "enum": [
+        "Cordon",
+        "Schedule"
+      ],
+      "x-ms-enum": {
+        "name": "UndrainableNodeBehavior",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Cordon",
+            "value": "Cordon"
+          },
+          {
+            "name": "Schedule",
+            "value": "Schedule"
+          }
+        ]
+      }
+    },
+    "UpgradeChannel": {
+      "type": "string",
+      "enum": [
+        "rapid",
+        "stable",
+        "patch",
+        "node-image",
+        "none"
+      ],
+      "x-ms-enum": {
+        "name": "UpgradeChannel",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "rapid",
+            "value": "rapid"
+          },
+          {
+            "name": "stable",
+            "value": "stable"
+          },
+          {
+            "name": "patch",
+            "value": "patch"
+          },
+          {
+            "name": "node-image",
+            "value": "node-image"
+          },
+          {
+            "name": "none",
+            "value": "none"
+          }
+        ]
+      }
+    },
+    "UpgradeOverrideSettings": {
+      "type": "object",
+      "properties": {
+        "forceUpgrade": {
+          "type": "boolean"
+        },
+        "until": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "UserAssignedIdentity": {
+      "type": "object",
+      "properties": {
+        "resourceId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.ManagedIdentity/userAssignedIdentities"
+              }
+            ]
+          }
+        },
+        "clientId": {
+          "type": "string"
+        },
+        "objectId": {
+          "type": "string"
+        }
+      }
+    },
+    "VirtualMachineNodes": {
+      "type": "object",
+      "properties": {
+        "size": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "VirtualMachinesProfile": {
+      "type": "object",
+      "properties": {
+        "scale": {
+          "$ref": "#/definitions/ScaleProfile"
+        }
+      }
+    },
+    "WindowsGmsaProfile": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "dnsServer": {
+          "type": "string"
+        },
+        "rootDomainName": {
+          "type": "string"
+        }
+      }
+    },
+    "WorkloadRuntime": {
+      "type": "string",
+      "enum": [
+        "OCIContainer",
+        "WasmWasi",
+        "KataVmIsolation"
+      ],
+      "x-ms-enum": {
+        "name": "WorkloadRuntime",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "OCIContainer",
+            "value": "OCIContainer"
+          },
+          {
+            "name": "WasmWasi",
+            "value": "WasmWasi"
+          },
+          {
+            "name": "KataVmIsolation",
+            "value": "KataVmIsolation"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,770 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure Container Registry (sigcomply slice)",
+    "version": "2025-11-01",
+    "x-source": "Azure/azure-rest-api-specs Microsoft.ContainerRegistry/Registry/stable/2025-11-01/containerregistry.json",
+    "x-slice": "container_registry: registry"
+  },
+  "definitions": {
+    "ActionsRequired": {
+      "type": "string",
+      "enum": [
+        "None",
+        "Recreate"
+      ],
+      "x-ms-enum": {
+        "name": "ActionsRequired",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "None",
+            "value": "None"
+          },
+          {
+            "name": "Recreate",
+            "value": "Recreate"
+          }
+        ]
+      }
+    },
+    "AzureADAuthenticationAsArmPolicy": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "default": "enabled",
+          "enum": [
+            "enabled",
+            "disabled"
+          ],
+          "x-ms-enum": {
+            "name": "AzureADAuthenticationAsArmPolicyStatus",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "enabled",
+                "value": "enabled"
+              },
+              {
+                "name": "disabled",
+                "value": "disabled"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "ConnectionStatus": {
+      "type": "string",
+      "enum": [
+        "Approved",
+        "Pending",
+        "Rejected",
+        "Disconnected"
+      ],
+      "x-ms-enum": {
+        "name": "ConnectionStatus",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Approved",
+            "value": "Approved"
+          },
+          {
+            "name": "Pending",
+            "value": "Pending"
+          },
+          {
+            "name": "Rejected",
+            "value": "Rejected"
+          },
+          {
+            "name": "Disconnected",
+            "value": "Disconnected"
+          }
+        ]
+      }
+    },
+    "EncryptionProperty": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/EncryptionStatus"
+        },
+        "keyVaultProperties": {
+          "$ref": "#/definitions/KeyVaultProperties"
+        }
+      }
+    },
+    "EncryptionStatus": {
+      "type": "string",
+      "enum": [
+        "enabled",
+        "disabled"
+      ],
+      "x-ms-enum": {
+        "name": "EncryptionStatus",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "enabled",
+            "value": "enabled"
+          },
+          {
+            "name": "disabled",
+            "value": "disabled"
+          }
+        ]
+      }
+    },
+    "ExportPolicy": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "default": "enabled",
+          "enum": [
+            "enabled",
+            "disabled"
+          ],
+          "x-ms-enum": {
+            "name": "ExportPolicyStatus",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "enabled",
+                "value": "enabled"
+              },
+              {
+                "name": "disabled",
+                "value": "disabled"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "IPRule": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "default": "Allow",
+          "enum": [
+            "Allow"
+          ],
+          "x-ms-enum": {
+            "name": "Action",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Allow",
+                "value": "Allow"
+              }
+            ]
+          }
+        },
+        "value": {
+          "type": "string",
+          "x-ms-client-name": "IPAddressOrRange"
+        }
+      },
+      "required": [
+        "value"
+      ]
+    },
+    "IdentityProperties": {
+      "type": "object",
+      "properties": {
+        "principalId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "tenantId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "type": {
+          "$ref": "#/definitions/ResourceIdentityType"
+        },
+        "userAssignedIdentities": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/UserIdentityProperties"
+          }
+        }
+      }
+    },
+    "KeyVaultProperties": {
+      "type": "object",
+      "properties": {
+        "keyIdentifier": {
+          "type": "string"
+        },
+        "versionedKeyIdentifier": {
+          "type": "string",
+          "readOnly": true
+        },
+        "identity": {
+          "type": "string"
+        },
+        "keyRotationEnabled": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "lastKeyRotationTimestamp": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        }
+      }
+    },
+    "NetworkRuleSet": {
+      "type": "object",
+      "properties": {
+        "defaultAction": {
+          "type": "string",
+          "default": "Allow",
+          "enum": [
+            "Allow",
+            "Deny"
+          ],
+          "x-ms-enum": {
+            "name": "DefaultAction",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Allow",
+                "value": "Allow"
+              },
+              {
+                "name": "Deny",
+                "value": "Deny"
+              }
+            ]
+          }
+        },
+        "ipRules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/IPRule"
+          },
+          "x-ms-identifiers": []
+        }
+      },
+      "required": [
+        "defaultAction"
+      ]
+    },
+    "Policies": {
+      "type": "object",
+      "properties": {
+        "quarantinePolicy": {
+          "$ref": "#/definitions/QuarantinePolicy"
+        },
+        "trustPolicy": {
+          "$ref": "#/definitions/TrustPolicy"
+        },
+        "retentionPolicy": {
+          "$ref": "#/definitions/RetentionPolicy"
+        },
+        "exportPolicy": {
+          "$ref": "#/definitions/ExportPolicy"
+        },
+        "azureADAuthenticationAsArmPolicy": {
+          "$ref": "#/definitions/AzureADAuthenticationAsArmPolicy"
+        }
+      }
+    },
+    "PrivateEndpoint": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "PrivateEndpointConnection": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/PrivateEndpointConnectionProperties",
+          "x-ms-client-flatten": true
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v6/types.json#/definitions/ProxyResource"
+        }
+      ]
+    },
+    "PrivateEndpointConnectionProperties": {
+      "type": "object",
+      "properties": {
+        "privateEndpoint": {
+          "$ref": "#/definitions/PrivateEndpoint"
+        },
+        "privateLinkServiceConnectionState": {
+          "$ref": "#/definitions/PrivateLinkServiceConnectionState"
+        },
+        "provisioningState": {
+          "$ref": "#/definitions/ProvisioningState",
+          "readOnly": true
+        }
+      }
+    },
+    "PrivateLinkServiceConnectionState": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/ConnectionStatus"
+        },
+        "actionsRequired": {
+          "$ref": "#/definitions/ActionsRequired"
+        }
+      }
+    },
+    "ProvisioningState": {
+      "type": "string",
+      "enum": [
+        "Creating",
+        "Updating",
+        "Deleting",
+        "Succeeded",
+        "Failed",
+        "Canceled"
+      ],
+      "x-ms-enum": {
+        "name": "ProvisioningState",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Creating",
+            "value": "Creating"
+          },
+          {
+            "name": "Updating",
+            "value": "Updating"
+          },
+          {
+            "name": "Deleting",
+            "value": "Deleting"
+          },
+          {
+            "name": "Succeeded",
+            "value": "Succeeded"
+          },
+          {
+            "name": "Failed",
+            "value": "Failed"
+          },
+          {
+            "name": "Canceled",
+            "value": "Canceled"
+          }
+        ]
+      }
+    },
+    "QuarantinePolicy": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "default": "disabled",
+          "enum": [
+            "enabled",
+            "disabled"
+          ],
+          "x-ms-enum": {
+            "name": "PolicyStatus",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "enabled",
+                "value": "enabled"
+              },
+              {
+                "name": "disabled",
+                "value": "disabled"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "Registry": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/RegistryProperties",
+          "x-ms-client-flatten": true
+        },
+        "sku": {
+          "$ref": "#/definitions/Sku"
+        },
+        "identity": {
+          "$ref": "#/definitions/IdentityProperties"
+        }
+      },
+      "required": [
+        "sku"
+      ],
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v6/types.json#/definitions/TrackedResource"
+        }
+      ]
+    },
+    "RegistryProperties": {
+      "type": "object",
+      "properties": {
+        "loginServer": {
+          "type": "string",
+          "readOnly": true
+        },
+        "creationDate": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "provisioningState": {
+          "$ref": "#/definitions/ProvisioningState",
+          "readOnly": true
+        },
+        "status": {
+          "$ref": "#/definitions/Status",
+          "readOnly": true
+        },
+        "adminUserEnabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "networkRuleSet": {
+          "$ref": "#/definitions/NetworkRuleSet"
+        },
+        "policies": {
+          "$ref": "#/definitions/Policies"
+        },
+        "encryption": {
+          "$ref": "#/definitions/EncryptionProperty"
+        },
+        "dataEndpointEnabled": {
+          "type": "boolean"
+        },
+        "dataEndpointHostNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true
+        },
+        "privateEndpointConnections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PrivateEndpointConnection"
+          },
+          "readOnly": true
+        },
+        "publicNetworkAccess": {
+          "type": "string",
+          "default": "Enabled",
+          "enum": [
+            "Enabled",
+            "Disabled"
+          ],
+          "x-ms-enum": {
+            "name": "PublicNetworkAccess",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Enabled",
+                "value": "Enabled"
+              },
+              {
+                "name": "Disabled",
+                "value": "Disabled"
+              }
+            ]
+          }
+        },
+        "networkRuleBypassOptions": {
+          "type": "string",
+          "default": "AzureServices",
+          "enum": [
+            "AzureServices",
+            "None"
+          ],
+          "x-ms-enum": {
+            "name": "NetworkRuleBypassOptions",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "AzureServices",
+                "value": "AzureServices"
+              },
+              {
+                "name": "None",
+                "value": "None"
+              }
+            ]
+          }
+        },
+        "networkRuleBypassAllowedForTasks": {
+          "type": "boolean",
+          "default": false
+        },
+        "zoneRedundancy": {
+          "type": "string",
+          "default": "Disabled",
+          "enum": [
+            "Enabled",
+            "Disabled"
+          ],
+          "x-ms-enum": {
+            "name": "ZoneRedundancy",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Enabled",
+                "value": "Enabled"
+              },
+              {
+                "name": "Disabled",
+                "value": "Disabled"
+              }
+            ]
+          }
+        },
+        "anonymousPullEnabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "roleAssignmentMode": {
+          "type": "string",
+          "default": "LegacyRegistryPermissions",
+          "enum": [
+            "AbacRepositoryPermissions",
+            "LegacyRegistryPermissions"
+          ],
+          "x-ms-enum": {
+            "name": "RoleAssignmentMode",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "AbacRepositoryPermissions",
+                "value": "AbacRepositoryPermissions"
+              },
+              {
+                "name": "LegacyRegistryPermissions",
+                "value": "LegacyRegistryPermissions"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "ResourceIdentityType": {
+      "type": "string",
+      "enum": [
+        "SystemAssigned",
+        "UserAssigned",
+        "SystemAssigned, UserAssigned",
+        "None"
+      ],
+      "x-ms-enum": {
+        "name": "ResourceIdentityType",
+        "modelAsString": false
+      }
+    },
+    "RetentionPolicy": {
+      "type": "object",
+      "properties": {
+        "days": {
+          "type": "integer",
+          "format": "int32",
+          "default": 7
+        },
+        "lastUpdatedTime": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "status": {
+          "type": "string",
+          "default": "disabled",
+          "enum": [
+            "enabled",
+            "disabled"
+          ],
+          "x-ms-enum": {
+            "name": "PolicyStatus",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "enabled",
+                "value": "enabled"
+              },
+              {
+                "name": "disabled",
+                "value": "disabled"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "Sku": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/SkuName"
+        },
+        "tier": {
+          "$ref": "#/definitions/SkuTier",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "SkuName": {
+      "type": "string",
+      "enum": [
+        "Classic",
+        "Basic",
+        "Standard",
+        "Premium"
+      ],
+      "x-ms-enum": {
+        "name": "SkuName",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Classic",
+            "value": "Classic"
+          },
+          {
+            "name": "Basic",
+            "value": "Basic"
+          },
+          {
+            "name": "Standard",
+            "value": "Standard"
+          },
+          {
+            "name": "Premium",
+            "value": "Premium"
+          }
+        ]
+      }
+    },
+    "SkuTier": {
+      "type": "string",
+      "enum": [
+        "Classic",
+        "Basic",
+        "Standard",
+        "Premium"
+      ],
+      "x-ms-enum": {
+        "name": "SkuTier",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Classic",
+            "value": "Classic"
+          },
+          {
+            "name": "Basic",
+            "value": "Basic"
+          },
+          {
+            "name": "Standard",
+            "value": "Standard"
+          },
+          {
+            "name": "Premium",
+            "value": "Premium"
+          }
+        ]
+      }
+    },
+    "Status": {
+      "type": "object",
+      "properties": {
+        "displayStatus": {
+          "type": "string",
+          "readOnly": true
+        },
+        "message": {
+          "type": "string",
+          "readOnly": true
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        }
+      }
+    },
+    "TrustPolicy": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "default": "Notary",
+          "enum": [
+            "Notary"
+          ],
+          "x-ms-enum": {
+            "name": "TrustPolicyType",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Notary",
+                "value": "Notary"
+              }
+            ]
+          }
+        },
+        "status": {
+          "type": "string",
+          "default": "disabled",
+          "enum": [
+            "enabled",
+            "disabled"
+          ],
+          "x-ms-enum": {
+            "name": "PolicyStatus",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "enabled",
+                "value": "enabled"
+              },
+              {
+                "name": "disabled",
+                "value": "disabled"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "UserIdentityProperties": {
+      "type": "object",
+      "properties": {
+        "principalId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "clientId": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    }
+  }
+}

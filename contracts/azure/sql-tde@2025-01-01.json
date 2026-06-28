@@ -1,0 +1,39 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure SQL TDE (slice)",
+    "version": "2025-01-01",
+    "x-source": "Azure/azure-rest-api-specs sql/resource-manager/Microsoft.Sql/SQL/stable/2025-01-01/transparentDataEncryptions.json",
+    "x-slice": "managed_database_instance: TDE state"
+  },
+  "definitions": {
+    "LogicalDatabaseTransparentDataEncryption": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/TransparentDataEncryptionProperties",
+          "x-ms-client-flatten": true
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v5/types.json#/definitions/ProxyResource"
+        }
+      ]
+    },
+    "TransparentDataEncryptionProperties": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "$ref": "./common.json#/definitions/TransparentDataEncryptionState"
+        },
+        "scanState": {
+          "$ref": "./common.json#/definitions/TransparentDataEncryptionScanState"
+        }
+      },
+      "required": [
+        "state"
+      ]
+    }
+  }
+}

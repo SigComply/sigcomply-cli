@@ -1,0 +1,226 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure Defender pricings (slice)",
+    "version": "2024-01-01",
+    "x-source": "Azure/azure-rest-api-specs Microsoft.Security/Security/stable/2024-01-01/pricings.json",
+    "x-slice": "threat_detection_service + security_service: Defender pricings"
+  },
+  "definitions": {
+    "Common.OperationStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "Enforce": {
+      "type": "string",
+      "enum": [
+        "False",
+        "True"
+      ],
+      "x-ms-enum": {
+        "name": "Enforce",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "False",
+            "value": "False"
+          },
+          {
+            "name": "True",
+            "value": "True"
+          }
+        ]
+      }
+    },
+    "Extension": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "isEnabled": {
+          "$ref": "#/definitions/IsEnabled"
+        },
+        "additionalExtensionProperties": {
+          "type": "object",
+          "additionalProperties": {}
+        },
+        "operationStatus": {
+          "$ref": "#/definitions/Common.OperationStatus",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "name",
+        "isEnabled"
+      ]
+    },
+    "Inherited": {
+      "type": "string",
+      "enum": [
+        "True",
+        "False"
+      ],
+      "x-ms-enum": {
+        "name": "Inherited",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "True",
+            "value": "True"
+          },
+          {
+            "name": "False",
+            "value": "False"
+          }
+        ]
+      }
+    },
+    "IsEnabled": {
+      "type": "string",
+      "enum": [
+        "True",
+        "False"
+      ],
+      "x-ms-enum": {
+        "name": "IsEnabled",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "True",
+            "value": "True"
+          },
+          {
+            "name": "False",
+            "value": "False"
+          }
+        ]
+      }
+    },
+    "Pricing": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/PricingProperties",
+          "x-ms-client-flatten": true
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v5/types.json#/definitions/ProxyResource"
+        }
+      ]
+    },
+    "PricingProperties": {
+      "type": "object",
+      "properties": {
+        "pricingTier": {
+          "$ref": "#/definitions/PricingTier"
+        },
+        "subPlan": {
+          "type": "string"
+        },
+        "freeTrialRemainingTime": {
+          "type": "string",
+          "format": "duration",
+          "readOnly": true
+        },
+        "enablementTime": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "enforce": {
+          "$ref": "#/definitions/Enforce"
+        },
+        "inherited": {
+          "$ref": "#/definitions/Inherited",
+          "readOnly": true
+        },
+        "inheritedFrom": {
+          "type": "string",
+          "readOnly": true
+        },
+        "resourcesCoverageStatus": {
+          "$ref": "#/definitions/ResourcesCoverageStatus",
+          "readOnly": true
+        },
+        "extensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Extension"
+          },
+          "x-ms-identifiers": []
+        },
+        "deprecated": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "replacedBy": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true
+        }
+      },
+      "required": [
+        "pricingTier"
+      ]
+    },
+    "PricingTier": {
+      "type": "string",
+      "enum": [
+        "Free",
+        "Standard"
+      ],
+      "x-ms-enum": {
+        "name": "PricingTier",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Free",
+            "value": "Free"
+          },
+          {
+            "name": "Standard",
+            "value": "Standard"
+          }
+        ]
+      }
+    },
+    "ResourcesCoverageStatus": {
+      "type": "string",
+      "enum": [
+        "FullyCovered",
+        "PartiallyCovered",
+        "NotCovered"
+      ],
+      "x-ms-enum": {
+        "name": "ResourcesCoverageStatus",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "FullyCovered",
+            "value": "FullyCovered"
+          },
+          {
+            "name": "PartiallyCovered",
+            "value": "PartiallyCovered"
+          },
+          {
+            "name": "NotCovered",
+            "value": "NotCovered"
+          }
+        ]
+      }
+    }
+  }
+}

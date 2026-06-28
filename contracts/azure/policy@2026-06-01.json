@@ -1,0 +1,383 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure Policy (sigcomply slice)",
+    "version": "2026-06-01",
+    "x-source": "Azure/azure-rest-api-specs Microsoft.Authorization/policy/stable/2026-06-01/openapi.json",
+    "x-slice": "config_change_tracking: policy assignment"
+  },
+  "definitions": {
+    "AssignmentType": {
+      "type": "string",
+      "enum": [
+        "NotSpecified",
+        "System",
+        "SystemHidden",
+        "Custom"
+      ],
+      "x-ms-enum": {
+        "name": "AssignmentType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "NotSpecified",
+            "value": "NotSpecified"
+          },
+          {
+            "name": "System",
+            "value": "System"
+          },
+          {
+            "name": "SystemHidden",
+            "value": "SystemHidden"
+          },
+          {
+            "name": "Custom",
+            "value": "Custom"
+          }
+        ]
+      }
+    },
+    "Identity": {
+      "type": "object",
+      "properties": {
+        "principalId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "tenantId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "type": {
+          "$ref": "#/definitions/ResourceIdentityType"
+        },
+        "userAssignedIdentities": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/UserAssignedIdentitiesValue"
+          }
+        }
+      }
+    },
+    "NonComplianceMessage": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "policyDefinitionReferenceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ]
+    },
+    "Override": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/OverrideKind"
+        },
+        "value": {
+          "type": "string"
+        },
+        "selectors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Selector"
+          },
+          "x-ms-identifiers": []
+        }
+      }
+    },
+    "OverrideKind": {
+      "type": "string",
+      "enum": [
+        "policyEffect",
+        "definitionVersion"
+      ],
+      "x-ms-enum": {
+        "name": "OverrideKind",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "policyEffect",
+            "value": "policyEffect"
+          },
+          {
+            "name": "definitionVersion",
+            "value": "definitionVersion"
+          }
+        ]
+      }
+    },
+    "ParameterValuesValue": {
+      "type": "object",
+      "properties": {
+        "value": {}
+      }
+    },
+    "PolicyAssignment": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/PolicyAssignmentProperties",
+          "x-ms-client-flatten": true
+        },
+        "location": {
+          "type": "string"
+        },
+        "identity": {
+          "$ref": "#/definitions/Identity"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v5/types.json#/definitions/ProxyResource"
+        }
+      ]
+    },
+    "PolicyAssignmentProperties": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "policyDefinitionId": {
+          "type": "string"
+        },
+        "definitionVersion": {
+          "type": "string"
+        },
+        "latestDefinitionVersion": {
+          "type": "string",
+          "readOnly": true
+        },
+        "effectiveDefinitionVersion": {
+          "type": "string",
+          "readOnly": true
+        },
+        "scope": {
+          "type": "string",
+          "readOnly": true
+        },
+        "notScopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ParameterValuesValue"
+          }
+        },
+        "metadata": {},
+        "enforcementMode": {
+          "type": "string",
+          "default": "Default",
+          "enum": [
+            "Default",
+            "DoNotEnforce",
+            "Enroll"
+          ],
+          "x-ms-enum": {
+            "name": "EnforcementMode",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Default",
+                "value": "Default"
+              },
+              {
+                "name": "DoNotEnforce",
+                "value": "DoNotEnforce"
+              },
+              {
+                "name": "Enroll",
+                "value": "Enroll"
+              }
+            ]
+          }
+        },
+        "nonComplianceMessages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NonComplianceMessage"
+          },
+          "x-ms-identifiers": [
+            "message",
+            "policyDefinitionReferenceId"
+          ]
+        },
+        "resourceSelectors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ResourceSelector"
+          },
+          "x-ms-identifiers": []
+        },
+        "overrides": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Override"
+          },
+          "x-ms-identifiers": []
+        },
+        "assignmentType": {
+          "$ref": "#/definitions/AssignmentType"
+        },
+        "instanceId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "selfServeExemptionSettings": {
+          "$ref": "#/definitions/SelfServeExemptionSettings"
+        }
+      }
+    },
+    "ResourceIdentityType": {
+      "type": "string",
+      "enum": [
+        "SystemAssigned",
+        "UserAssigned",
+        "None"
+      ],
+      "x-ms-enum": {
+        "name": "ResourceIdentityType",
+        "modelAsString": false,
+        "values": [
+          {
+            "name": "SystemAssigned",
+            "value": "SystemAssigned"
+          },
+          {
+            "name": "UserAssigned",
+            "value": "UserAssigned"
+          },
+          {
+            "name": "None",
+            "value": "None"
+          }
+        ]
+      }
+    },
+    "ResourceSelector": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "selectors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Selector"
+          },
+          "x-ms-identifiers": []
+        }
+      }
+    },
+    "Selector": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/SelectorKind"
+        },
+        "in": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notIn": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "progress": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 1,
+          "maximum": 99
+        }
+      }
+    },
+    "SelectorKind": {
+      "type": "string",
+      "enum": [
+        "resourceLocation",
+        "resourceType",
+        "resourceWithoutLocation",
+        "policyDefinitionReferenceId",
+        "resourcePercentage",
+        "userPrincipalId",
+        "groupPrincipalId"
+      ],
+      "x-ms-enum": {
+        "name": "SelectorKind",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "resourceLocation",
+            "value": "resourceLocation"
+          },
+          {
+            "name": "resourceType",
+            "value": "resourceType"
+          },
+          {
+            "name": "resourceWithoutLocation",
+            "value": "resourceWithoutLocation"
+          },
+          {
+            "name": "policyDefinitionReferenceId",
+            "value": "policyDefinitionReferenceId"
+          },
+          {
+            "name": "resourcePercentage",
+            "value": "resourcePercentage"
+          },
+          {
+            "name": "userPrincipalId",
+            "value": "userPrincipalId"
+          },
+          {
+            "name": "groupPrincipalId",
+            "value": "groupPrincipalId"
+          }
+        ]
+      }
+    },
+    "SelfServeExemptionSettings": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "policyDefinitionReferenceIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "UserAssignedIdentitiesValue": {
+      "type": "object",
+      "properties": {
+        "principalId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "clientId": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    }
+  }
+}

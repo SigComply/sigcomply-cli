@@ -1,0 +1,636 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure VNet (slice)",
+    "version": "2025-03-01",
+    "x-source": "Azure/azure-rest-api-specs network/resource-manager/Microsoft.Network/Network/stable/2025-03-01/virtualNetwork.json",
+    "x-slice": "network: virtual network"
+  },
+  "definitions": {
+    "AddressSpace": {
+      "properties": {
+        "addressPrefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ipamPoolPrefixAllocations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/IpamPoolPrefixAllocation"
+          }
+        }
+      }
+    },
+    "Delegation": {
+      "properties": {
+        "properties": {
+          "x-ms-client-flatten": true,
+          "$ref": "#/definitions/ServiceDelegationPropertiesFormat"
+        },
+        "name": {
+          "type": "string"
+        },
+        "etag": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "./network.json#/definitions/SubResource"
+        }
+      ]
+    },
+    "DhcpOptions": {
+      "properties": {
+        "dnsServers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "IpamPoolPrefixAllocation": {
+      "type": "object",
+      "properties": {
+        "pool": {
+          "type": "object",
+          "x-ms-client-flatten": true,
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "arm-id"
+            }
+          }
+        },
+        "numberOfIpAddresses": {
+          "type": "string"
+        },
+        "allocatedAddressPrefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true
+        }
+      }
+    },
+    "PrivateEndpointVNetPolicies": {
+      "type": "string",
+      "enum": [
+        "Disabled",
+        "Basic"
+      ],
+      "x-ms-enum": {
+        "name": "PrivateEndpointVNetPolicies",
+        "modelAsString": true
+      }
+    },
+    "ResourceNavigationLink": {
+      "properties": {
+        "properties": {
+          "x-ms-client-flatten": true,
+          "$ref": "#/definitions/ResourceNavigationLinkFormat"
+        },
+        "name": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string",
+          "readOnly": true
+        },
+        "etag": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "type": {
+          "readOnly": true,
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "./network.json#/definitions/SubResource"
+        }
+      ]
+    },
+    "ResourceNavigationLinkFormat": {
+      "properties": {
+        "linkedResourceType": {
+          "type": "string"
+        },
+        "link": {
+          "type": "string"
+        },
+        "provisioningState": {
+          "readOnly": true,
+          "$ref": "./network.json#/definitions/ProvisioningState"
+        }
+      }
+    },
+    "ServiceAssociationLink": {
+      "properties": {
+        "properties": {
+          "x-ms-client-flatten": true,
+          "$ref": "#/definitions/ServiceAssociationLinkPropertiesFormat"
+        },
+        "name": {
+          "type": "string"
+        },
+        "etag": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "type": {
+          "readOnly": true,
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "./network.json#/definitions/SubResource"
+        }
+      ]
+    },
+    "ServiceAssociationLinkPropertiesFormat": {
+      "properties": {
+        "linkedResourceType": {
+          "type": "string"
+        },
+        "link": {
+          "type": "string"
+        },
+        "provisioningState": {
+          "readOnly": true,
+          "$ref": "./network.json#/definitions/ProvisioningState"
+        },
+        "allowDelete": {
+          "type": "boolean"
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ServiceDelegationPropertiesFormat": {
+      "properties": {
+        "serviceName": {
+          "type": "string"
+        },
+        "actions": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "provisioningState": {
+          "readOnly": true,
+          "$ref": "./network.json#/definitions/ProvisioningState"
+        }
+      }
+    },
+    "ServiceEndpointPropertiesFormat": {
+      "properties": {
+        "service": {
+          "type": "string"
+        },
+        "networkIdentifier": {
+          "$ref": "./network.json#/definitions/SubResource"
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "provisioningState": {
+          "readOnly": true,
+          "$ref": "./network.json#/definitions/ProvisioningState"
+        }
+      }
+    },
+    "Subnet": {
+      "properties": {
+        "properties": {
+          "x-ms-client-flatten": true,
+          "$ref": "#/definitions/SubnetPropertiesFormat"
+        },
+        "name": {
+          "type": "string"
+        },
+        "etag": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "./network.json#/definitions/SubResource"
+        }
+      ]
+    },
+    "SubnetPropertiesFormat": {
+      "properties": {
+        "addressPrefix": {
+          "type": "string"
+        },
+        "addressPrefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "networkSecurityGroup": {
+          "$ref": "./networkSecurityGroup.json#/definitions/NetworkSecurityGroup"
+        },
+        "routeTable": {
+          "$ref": "./routeTable.json#/definitions/RouteTable"
+        },
+        "natGateway": {
+          "$ref": "./network.json#/definitions/SubResource"
+        },
+        "serviceEndpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ServiceEndpointPropertiesFormat"
+          }
+        },
+        "serviceEndpointPolicies": {
+          "type": "array",
+          "items": {
+            "$ref": "./serviceEndpointPolicy.json#/definitions/ServiceEndpointPolicy"
+          }
+        },
+        "privateEndpoints": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "$ref": "./privateEndpoint.json#/definitions/PrivateEndpoint"
+          }
+        },
+        "ipConfigurations": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "$ref": "./networkInterface.json#/definitions/IPConfiguration"
+          }
+        },
+        "ipConfigurationProfiles": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "$ref": "./networkProfile.json#/definitions/IPConfigurationProfile"
+          }
+        },
+        "ipAllocations": {
+          "type": "array",
+          "items": {
+            "$ref": "./network.json#/definitions/SubResource"
+          }
+        },
+        "resourceNavigationLinks": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ResourceNavigationLink"
+          }
+        },
+        "serviceAssociationLinks": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ServiceAssociationLink"
+          }
+        },
+        "delegations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Delegation"
+          }
+        },
+        "purpose": {
+          "type": "string",
+          "readOnly": true
+        },
+        "provisioningState": {
+          "readOnly": true,
+          "$ref": "./network.json#/definitions/ProvisioningState"
+        },
+        "privateEndpointNetworkPolicies": {
+          "type": "string",
+          "default": "Disabled",
+          "enum": [
+            "Enabled",
+            "Disabled",
+            "NetworkSecurityGroupEnabled",
+            "RouteTableEnabled"
+          ],
+          "x-ms-enum": {
+            "name": "VirtualNetworkPrivateEndpointNetworkPolicies",
+            "modelAsString": true
+          }
+        },
+        "privateLinkServiceNetworkPolicies": {
+          "type": "string",
+          "default": "Enabled",
+          "enum": [
+            "Enabled",
+            "Disabled"
+          ],
+          "x-ms-enum": {
+            "name": "VirtualNetworkPrivateLinkServiceNetworkPolicies",
+            "modelAsString": true
+          }
+        },
+        "applicationGatewayIPConfigurations": {
+          "type": "array",
+          "items": {
+            "$ref": "./applicationGateway.json#/definitions/ApplicationGatewayIPConfiguration"
+          }
+        },
+        "sharingScope": {
+          "type": "string",
+          "default": null,
+          "enum": [
+            "Tenant",
+            "DelegatedServices"
+          ],
+          "x-ms-enum": {
+            "name": "SharingScope",
+            "modelAsString": true
+          }
+        },
+        "defaultOutboundAccess": {
+          "type": "boolean"
+        },
+        "ipamPoolPrefixAllocations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/IpamPoolPrefixAllocation"
+          }
+        }
+      }
+    },
+    "VirtualNetwork": {
+      "properties": {
+        "extendedLocation": {
+          "$ref": "./network.json#/definitions/ExtendedLocation"
+        },
+        "properties": {
+          "x-ms-client-flatten": true,
+          "$ref": "#/definitions/VirtualNetworkPropertiesFormat"
+        },
+        "etag": {
+          "readOnly": true,
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "./network.json#/definitions/Resource"
+        }
+      ]
+    },
+    "VirtualNetworkBgpCommunities": {
+      "properties": {
+        "virtualNetworkCommunity": {
+          "type": "string"
+        },
+        "regionalCommunity": {
+          "type": "string",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "virtualNetworkCommunity"
+      ]
+    },
+    "VirtualNetworkEncryption": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "enforcement": {
+          "type": "string",
+          "enum": [
+            "DropUnencrypted",
+            "AllowUnencrypted"
+          ],
+          "x-ms-enum": {
+            "name": "VirtualNetworkEncryptionEnforcement",
+            "modelAsString": true
+          }
+        }
+      },
+      "required": [
+        "enabled"
+      ]
+    },
+    "VirtualNetworkPeering": {
+      "properties": {
+        "properties": {
+          "x-ms-client-flatten": true,
+          "$ref": "#/definitions/VirtualNetworkPeeringPropertiesFormat"
+        },
+        "name": {
+          "type": "string"
+        },
+        "etag": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "./network.json#/definitions/SubResource"
+        }
+      ]
+    },
+    "VirtualNetworkPeeringPropertiesFormat": {
+      "properties": {
+        "allowVirtualNetworkAccess": {
+          "type": "boolean"
+        },
+        "allowForwardedTraffic": {
+          "type": "boolean"
+        },
+        "allowGatewayTransit": {
+          "type": "boolean"
+        },
+        "useRemoteGateways": {
+          "type": "boolean"
+        },
+        "remoteVirtualNetwork": {
+          "$ref": "./network.json#/definitions/SubResource"
+        },
+        "localAddressSpace": {
+          "$ref": "#/definitions/AddressSpace"
+        },
+        "localVirtualNetworkAddressSpace": {
+          "$ref": "#/definitions/AddressSpace"
+        },
+        "remoteAddressSpace": {
+          "$ref": "#/definitions/AddressSpace"
+        },
+        "remoteVirtualNetworkAddressSpace": {
+          "$ref": "#/definitions/AddressSpace"
+        },
+        "remoteBgpCommunities": {
+          "$ref": "#/definitions/VirtualNetworkBgpCommunities",
+          "default": null
+        },
+        "remoteVirtualNetworkEncryption": {
+          "readOnly": true,
+          "$ref": "#/definitions/VirtualNetworkEncryption",
+          "default": null
+        },
+        "peeringState": {
+          "type": "string",
+          "enum": [
+            "Initiated",
+            "Connected",
+            "Disconnected"
+          ],
+          "x-ms-enum": {
+            "name": "VirtualNetworkPeeringState",
+            "modelAsString": true
+          }
+        },
+        "peeringSyncLevel": {
+          "type": "string",
+          "enum": [
+            "FullyInSync",
+            "RemoteNotInSync",
+            "LocalNotInSync",
+            "LocalAndRemoteNotInSync"
+          ],
+          "x-ms-enum": {
+            "name": "VirtualNetworkPeeringLevel",
+            "modelAsString": true
+          }
+        },
+        "provisioningState": {
+          "readOnly": true,
+          "$ref": "./network.json#/definitions/ProvisioningState"
+        },
+        "doNotVerifyRemoteGateways": {
+          "type": "boolean"
+        },
+        "resourceGuid": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "peerCompleteVnets": {
+          "type": "boolean"
+        },
+        "enableOnlyIPv6Peering": {
+          "type": "boolean"
+        },
+        "localSubnetNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "remoteSubnetNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "VirtualNetworkPropertiesFormat": {
+      "properties": {
+        "addressSpace": {
+          "$ref": "#/definitions/AddressSpace"
+        },
+        "dhcpOptions": {
+          "$ref": "#/definitions/DhcpOptions"
+        },
+        "flowTimeoutInMinutes": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "subnets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Subnet"
+          }
+        },
+        "virtualNetworkPeerings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/VirtualNetworkPeering"
+          }
+        },
+        "resourceGuid": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "provisioningState": {
+          "readOnly": true,
+          "$ref": "./network.json#/definitions/ProvisioningState"
+        },
+        "enableDdosProtection": {
+          "type": "boolean",
+          "default": false
+        },
+        "enableVmProtection": {
+          "type": "boolean",
+          "default": false
+        },
+        "ddosProtectionPlan": {
+          "$ref": "./network.json#/definitions/SubResource",
+          "default": null
+        },
+        "bgpCommunities": {
+          "$ref": "#/definitions/VirtualNetworkBgpCommunities",
+          "default": null
+        },
+        "encryption": {
+          "$ref": "#/definitions/VirtualNetworkEncryption",
+          "default": null
+        },
+        "ipAllocations": {
+          "type": "array",
+          "items": {
+            "$ref": "./network.json#/definitions/SubResource"
+          }
+        },
+        "flowLogs": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "$ref": "./networkWatcher.json#/definitions/FlowLog"
+          }
+        },
+        "privateEndpointVNetPolicies": {
+          "readOnly": false,
+          "$ref": "#/definitions/PrivateEndpointVNetPolicies"
+        },
+        "defaultPublicNatGateway": {
+          "readOnly": true,
+          "$ref": "./network.json#/definitions/SubResource"
+        }
+      }
+    }
+  }
+}

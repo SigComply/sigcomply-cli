@@ -1,0 +1,154 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure SQL servers (slice)",
+    "version": "2025-01-01",
+    "x-source": "Azure/azure-rest-api-specs sql/resource-manager/Microsoft.Sql/SQL/stable/2025-01-01/servers.json",
+    "x-slice": "managed_database_instance: SQL server"
+  },
+  "definitions": {
+    "Server": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/ServerProperties",
+          "x-ms-client-flatten": true
+        },
+        "identity": {
+          "$ref": "./common.json#/definitions/ResourceIdentity"
+        },
+        "kind": {
+          "type": "string",
+          "readOnly": true
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v5/types.json#/definitions/TrackedResource"
+        }
+      ]
+    },
+    "ServerExternalAdministrator": {
+      "type": "object",
+      "properties": {
+        "administratorType": {
+          "$ref": "./common.json#/definitions/AdministratorType"
+        },
+        "principalType": {
+          "$ref": "./common.json#/definitions/PrincipalType"
+        },
+        "login": {
+          "type": "string"
+        },
+        "sid": {
+          "$ref": "./common.json#/definitions/Azure.Core.uuid"
+        },
+        "tenantId": {
+          "$ref": "./common.json#/definitions/Azure.Core.uuid"
+        },
+        "azureADOnlyAuthentication": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ServerPrivateEndpointConnection": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "readOnly": true
+        },
+        "properties": {
+          "$ref": "./common.json#/definitions/PrivateEndpointConnectionProperties",
+          "readOnly": true
+        }
+      }
+    },
+    "ServerProperties": {
+      "type": "object",
+      "properties": {
+        "administratorLogin": {
+          "type": "string",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "administratorLoginPassword": {
+          "type": "string",
+          "format": "password",
+          "x-ms-mutability": [
+            "update",
+            "create"
+          ],
+          "x-ms-secret": true
+        },
+        "version": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "readOnly": true
+        },
+        "fullyQualifiedDomainName": {
+          "type": "string",
+          "readOnly": true
+        },
+        "privateEndpointConnections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ServerPrivateEndpointConnection"
+          },
+          "readOnly": true
+        },
+        "minimalTlsVersion": {
+          "$ref": "./common.json#/definitions/MinimalTlsVersion"
+        },
+        "publicNetworkAccess": {
+          "$ref": "./common.json#/definitions/ServerPublicNetworkAccessFlag"
+        },
+        "workspaceFeature": {
+          "$ref": "./common.json#/definitions/ServerWorkspaceFeature",
+          "readOnly": true
+        },
+        "primaryUserAssignedIdentityId": {
+          "type": "string"
+        },
+        "federatedClientId": {
+          "$ref": "./common.json#/definitions/Azure.Core.uuid"
+        },
+        "keyId": {
+          "type": "string"
+        },
+        "administrators": {
+          "$ref": "#/definitions/ServerExternalAdministrator",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "restrictOutboundNetworkAccess": {
+          "$ref": "./common.json#/definitions/ServerNetworkAccessFlag"
+        },
+        "isIPv6Enabled": {
+          "$ref": "./common.json#/definitions/ServerNetworkAccessFlag"
+        },
+        "externalGovernanceStatus": {
+          "$ref": "./common.json#/definitions/ExternalGovernanceStatus",
+          "readOnly": true
+        },
+        "retentionDays": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "createMode": {
+          "$ref": "./common.json#/definitions/ServerCreateMode",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        }
+      }
+    }
+  }
+}

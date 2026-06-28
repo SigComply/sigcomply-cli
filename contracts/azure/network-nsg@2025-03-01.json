@@ -1,0 +1,209 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure NSG (slice)",
+    "version": "2025-03-01",
+    "x-source": "Azure/azure-rest-api-specs network/resource-manager/Microsoft.Network/Network/stable/2025-03-01/networkSecurityGroup.json",
+    "x-slice": "firewall_rule: network security group"
+  },
+  "definitions": {
+    "NetworkSecurityGroup": {
+      "properties": {
+        "properties": {
+          "x-ms-client-flatten": true,
+          "$ref": "#/definitions/NetworkSecurityGroupPropertiesFormat"
+        },
+        "etag": {
+          "readOnly": true,
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "./network.json#/definitions/Resource"
+        }
+      ]
+    },
+    "NetworkSecurityGroupPropertiesFormat": {
+      "properties": {
+        "flushConnection": {
+          "type": "boolean"
+        },
+        "securityRules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SecurityRule"
+          }
+        },
+        "defaultSecurityRules": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SecurityRule"
+          }
+        },
+        "networkInterfaces": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "$ref": "./networkInterface.json#/definitions/NetworkInterface"
+          }
+        },
+        "subnets": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "$ref": "./virtualNetwork.json#/definitions/Subnet"
+          }
+        },
+        "flowLogs": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "$ref": "./networkWatcher.json#/definitions/FlowLog"
+          }
+        },
+        "resourceGuid": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "provisioningState": {
+          "readOnly": true,
+          "$ref": "./network.json#/definitions/ProvisioningState"
+        }
+      }
+    },
+    "SecurityRule": {
+      "properties": {
+        "properties": {
+          "x-ms-client-flatten": true,
+          "$ref": "#/definitions/SecurityRulePropertiesFormat"
+        },
+        "name": {
+          "type": "string"
+        },
+        "etag": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "./network.json#/definitions/SubResource"
+        }
+      ]
+    },
+    "SecurityRuleAccess": {
+      "type": "string",
+      "enum": [
+        "Allow",
+        "Deny"
+      ],
+      "x-ms-enum": {
+        "name": "SecurityRuleAccess",
+        "modelAsString": true
+      }
+    },
+    "SecurityRuleDirection": {
+      "type": "string",
+      "enum": [
+        "Inbound",
+        "Outbound"
+      ],
+      "x-ms-enum": {
+        "name": "SecurityRuleDirection",
+        "modelAsString": true
+      }
+    },
+    "SecurityRulePropertiesFormat": {
+      "properties": {
+        "protocol": {
+          "type": "string",
+          "enum": [
+            "Tcp",
+            "Udp",
+            "Icmp",
+            "Esp",
+            "*",
+            "Ah"
+          ],
+          "x-ms-enum": {
+            "name": "SecurityRuleProtocol",
+            "modelAsString": true
+          }
+        },
+        "sourcePortRange": {
+          "type": "string"
+        },
+        "destinationPortRange": {
+          "type": "string"
+        },
+        "sourceAddressPrefix": {
+          "type": "string"
+        },
+        "sourceAddressPrefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sourceApplicationSecurityGroups": {
+          "type": "array",
+          "items": {
+            "$ref": "./applicationSecurityGroup.json#/definitions/ApplicationSecurityGroup"
+          }
+        },
+        "destinationAddressPrefix": {
+          "type": "string"
+        },
+        "destinationAddressPrefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "destinationApplicationSecurityGroups": {
+          "type": "array",
+          "items": {
+            "$ref": "./applicationSecurityGroup.json#/definitions/ApplicationSecurityGroup"
+          }
+        },
+        "sourcePortRanges": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "destinationPortRanges": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "access": {
+          "$ref": "#/definitions/SecurityRuleAccess"
+        },
+        "priority": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "direction": {
+          "$ref": "#/definitions/SecurityRuleDirection"
+        },
+        "provisioningState": {
+          "readOnly": true,
+          "$ref": "./network.json#/definitions/ProvisioningState"
+        }
+      },
+      "required": [
+        "protocol",
+        "access",
+        "priority",
+        "direction"
+      ]
+    }
+  }
+}

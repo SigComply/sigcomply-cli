@@ -1,0 +1,1066 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure PostgreSQL flexible (slice)",
+    "version": "2025-08-01",
+    "x-source": "Azure/azure-rest-api-specs Microsoft.DBforPostgreSQL/stable/2025-08-01/openapi.json",
+    "x-slice": "managed_database_instance: PG flexible server"
+  },
+  "definitions": {
+    "AuthConfig": {
+      "type": "object",
+      "properties": {
+        "activeDirectoryAuth": {
+          "$ref": "#/definitions/MicrosoftEntraAuth"
+        },
+        "passwordAuth": {
+          "type": "string",
+          "default": "Enabled",
+          "enum": [
+            "Enabled",
+            "Disabled"
+          ],
+          "x-ms-enum": {
+            "name": "PasswordBasedAuth",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Enabled",
+                "value": "Enabled"
+              },
+              {
+                "name": "Disabled",
+                "value": "Disabled"
+              }
+            ]
+          }
+        },
+        "tenantId": {
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "AzureManagedDiskPerformanceTier": {
+      "type": "string",
+      "enum": [
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P6",
+        "P10",
+        "P15",
+        "P20",
+        "P30",
+        "P40",
+        "P50",
+        "P60",
+        "P70",
+        "P80"
+      ],
+      "x-ms-enum": {
+        "name": "AzureManagedDiskPerformanceTier",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "P1",
+            "value": "P1"
+          },
+          {
+            "name": "P2",
+            "value": "P2"
+          },
+          {
+            "name": "P3",
+            "value": "P3"
+          },
+          {
+            "name": "P4",
+            "value": "P4"
+          },
+          {
+            "name": "P6",
+            "value": "P6"
+          },
+          {
+            "name": "P10",
+            "value": "P10"
+          },
+          {
+            "name": "P15",
+            "value": "P15"
+          },
+          {
+            "name": "P20",
+            "value": "P20"
+          },
+          {
+            "name": "P30",
+            "value": "P30"
+          },
+          {
+            "name": "P40",
+            "value": "P40"
+          },
+          {
+            "name": "P50",
+            "value": "P50"
+          },
+          {
+            "name": "P60",
+            "value": "P60"
+          },
+          {
+            "name": "P70",
+            "value": "P70"
+          },
+          {
+            "name": "P80",
+            "value": "P80"
+          }
+        ]
+      }
+    },
+    "Backup": {
+      "type": "object",
+      "properties": {
+        "backupRetentionDays": {
+          "type": "integer",
+          "format": "int32",
+          "default": 7
+        },
+        "geoRedundantBackup": {
+          "type": "string",
+          "default": "Disabled",
+          "enum": [
+            "Enabled",
+            "Disabled"
+          ],
+          "x-ms-enum": {
+            "name": "GeographicallyRedundantBackup",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Enabled",
+                "value": "Enabled"
+              },
+              {
+                "name": "Disabled",
+                "value": "Disabled"
+              }
+            ]
+          },
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "earliestRestoreDate": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        }
+      }
+    },
+    "Cluster": {
+      "type": "object",
+      "properties": {
+        "clusterSize": {
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "defaultDatabaseName": {
+          "type": "string"
+        }
+      }
+    },
+    "CreateMode": {
+      "type": "string",
+      "enum": [
+        "Default",
+        "Create",
+        "Update",
+        "PointInTimeRestore",
+        "GeoRestore",
+        "Replica",
+        "ReviveDropped"
+      ],
+      "x-ms-enum": {
+        "name": "CreateMode",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Default",
+            "value": "Default"
+          },
+          {
+            "name": "Create",
+            "value": "Create"
+          },
+          {
+            "name": "Update",
+            "value": "Update"
+          },
+          {
+            "name": "PointInTimeRestore",
+            "value": "PointInTimeRestore"
+          },
+          {
+            "name": "GeoRestore",
+            "value": "GeoRestore"
+          },
+          {
+            "name": "Replica",
+            "value": "Replica"
+          },
+          {
+            "name": "ReviveDropped",
+            "value": "ReviveDropped"
+          }
+        ]
+      }
+    },
+    "DataEncryption": {
+      "type": "object",
+      "properties": {
+        "primaryKeyURI": {
+          "type": "string"
+        },
+        "primaryUserAssignedIdentityId": {
+          "type": "string"
+        },
+        "geoBackupKeyURI": {
+          "type": "string"
+        },
+        "geoBackupUserAssignedIdentityId": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/DataEncryptionType"
+        },
+        "primaryEncryptionKeyStatus": {
+          "$ref": "#/definitions/EncryptionKeyStatus",
+          "readOnly": true
+        },
+        "geoBackupEncryptionKeyStatus": {
+          "$ref": "#/definitions/EncryptionKeyStatus",
+          "readOnly": true
+        }
+      }
+    },
+    "DataEncryptionType": {
+      "type": "string",
+      "enum": [
+        "SystemManaged",
+        "AzureKeyVault"
+      ],
+      "x-ms-enum": {
+        "name": "DataEncryptionType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "SystemManaged",
+            "value": "SystemManaged"
+          },
+          {
+            "name": "AzureKeyVault",
+            "value": "AzureKeyVault"
+          }
+        ]
+      }
+    },
+    "EncryptionKeyStatus": {
+      "type": "string",
+      "enum": [
+        "Valid",
+        "Invalid"
+      ],
+      "x-ms-enum": {
+        "name": "EncryptionKeyStatus",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Valid",
+            "value": "Valid"
+          },
+          {
+            "name": "Invalid",
+            "value": "Invalid"
+          }
+        ]
+      }
+    },
+    "HighAvailability": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "default": "Disabled",
+          "enum": [
+            "Disabled",
+            "ZoneRedundant",
+            "SameZone"
+          ],
+          "x-ms-enum": {
+            "name": "PostgreSqlFlexibleServerHighAvailabilityMode",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Disabled",
+                "value": "Disabled"
+              },
+              {
+                "name": "ZoneRedundant",
+                "value": "ZoneRedundant"
+              },
+              {
+                "name": "SameZone",
+                "value": "SameZone"
+              }
+            ]
+          }
+        },
+        "state": {
+          "$ref": "#/definitions/HighAvailabilityState",
+          "readOnly": true
+        },
+        "standbyAvailabilityZone": {
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "HighAvailabilityState": {
+      "type": "string",
+      "enum": [
+        "NotEnabled",
+        "CreatingStandby",
+        "ReplicatingData",
+        "FailingOver",
+        "Healthy",
+        "RemovingStandby",
+        "RecreatingStandby",
+        "ComputeUpdatingByFailover"
+      ],
+      "x-ms-enum": {
+        "name": "HighAvailabilityState",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "NotEnabled",
+            "value": "NotEnabled"
+          },
+          {
+            "name": "CreatingStandby",
+            "value": "CreatingStandby"
+          },
+          {
+            "name": "ReplicatingData",
+            "value": "ReplicatingData"
+          },
+          {
+            "name": "FailingOver",
+            "value": "FailingOver"
+          },
+          {
+            "name": "Healthy",
+            "value": "Healthy"
+          },
+          {
+            "name": "RemovingStandby",
+            "value": "RemovingStandby"
+          },
+          {
+            "name": "RecreatingStandby",
+            "value": "RecreatingStandby"
+          },
+          {
+            "name": "ComputeUpdatingByFailover",
+            "value": "ComputeUpdatingByFailover"
+          }
+        ]
+      }
+    },
+    "IdentityType": {
+      "type": "string",
+      "enum": [
+        "None",
+        "UserAssigned",
+        "SystemAssigned",
+        "SystemAssigned,UserAssigned"
+      ],
+      "x-ms-enum": {
+        "name": "IdentityType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "None",
+            "value": "None"
+          },
+          {
+            "name": "UserAssigned",
+            "value": "UserAssigned"
+          },
+          {
+            "name": "SystemAssigned",
+            "value": "SystemAssigned"
+          },
+          {
+            "name": "SystemAssigned,UserAssigned",
+            "value": "SystemAssigned,UserAssigned"
+          }
+        ]
+      }
+    },
+    "MaintenanceWindow": {
+      "type": "object",
+      "properties": {
+        "customWindow": {
+          "type": "string",
+          "default": "Disabled"
+        },
+        "startHour": {
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "startMinute": {
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "dayOfWeek": {
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        }
+      }
+    },
+    "MicrosoftEntraAuth": {
+      "type": "string",
+      "enum": [
+        "Enabled",
+        "Disabled"
+      ],
+      "x-ms-enum": {
+        "name": "MicrosoftEntraAuth",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Enabled",
+            "value": "Enabled"
+          },
+          {
+            "name": "Disabled",
+            "value": "Disabled"
+          }
+        ]
+      }
+    },
+    "Network": {
+      "type": "object",
+      "properties": {
+        "publicNetworkAccess": {
+          "$ref": "#/definitions/ServerPublicNetworkAccessState"
+        },
+        "delegatedSubnetResourceId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.Network/virtualNetworks/subnets"
+              }
+            ]
+          }
+        },
+        "privateDnsZoneArmResourceId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.Network/privateDnsZones"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "PostgresMajorVersion": {
+      "type": "string",
+      "enum": [
+        "18",
+        "17",
+        "16",
+        "15",
+        "14",
+        "13",
+        "12",
+        "11"
+      ],
+      "x-ms-enum": {
+        "name": "PostgresMajorVersion",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "18",
+            "value": "18"
+          },
+          {
+            "name": "17",
+            "value": "17"
+          },
+          {
+            "name": "16",
+            "value": "16"
+          },
+          {
+            "name": "15",
+            "value": "15"
+          },
+          {
+            "name": "14",
+            "value": "14"
+          },
+          {
+            "name": "13",
+            "value": "13"
+          },
+          {
+            "name": "12",
+            "value": "12"
+          },
+          {
+            "name": "11",
+            "value": "11"
+          }
+        ]
+      }
+    },
+    "ReadReplicaPromoteMode": {
+      "type": "string",
+      "enum": [
+        "Standalone",
+        "Switchover"
+      ],
+      "x-ms-enum": {
+        "name": "ReadReplicaPromoteMode",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Standalone",
+            "value": "Standalone"
+          },
+          {
+            "name": "Switchover",
+            "value": "Switchover"
+          }
+        ]
+      }
+    },
+    "ReadReplicaPromoteOption": {
+      "type": "string",
+      "enum": [
+        "Planned",
+        "Forced"
+      ],
+      "x-ms-enum": {
+        "name": "ReadReplicaPromoteOption",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Planned",
+            "value": "Planned"
+          },
+          {
+            "name": "Forced",
+            "value": "Forced"
+          }
+        ]
+      }
+    },
+    "Replica": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "$ref": "#/definitions/ReplicationRole"
+        },
+        "capacity": {
+          "type": "integer",
+          "format": "int32",
+          "readOnly": true
+        },
+        "replicationState": {
+          "$ref": "#/definitions/ReplicationState",
+          "readOnly": true
+        },
+        "promoteMode": {
+          "$ref": "#/definitions/ReadReplicaPromoteMode",
+          "x-ms-mutability": [
+            "update"
+          ]
+        },
+        "promoteOption": {
+          "$ref": "#/definitions/ReadReplicaPromoteOption",
+          "x-ms-mutability": [
+            "update"
+          ]
+        }
+      }
+    },
+    "ReplicationRole": {
+      "type": "string",
+      "enum": [
+        "None",
+        "Primary",
+        "AsyncReplica",
+        "GeoAsyncReplica"
+      ],
+      "x-ms-enum": {
+        "name": "ReplicationRole",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "None",
+            "value": "None"
+          },
+          {
+            "name": "Primary",
+            "value": "Primary"
+          },
+          {
+            "name": "AsyncReplica",
+            "value": "AsyncReplica"
+          },
+          {
+            "name": "GeoAsyncReplica",
+            "value": "GeoAsyncReplica"
+          }
+        ]
+      }
+    },
+    "ReplicationState": {
+      "type": "string",
+      "enum": [
+        "Active",
+        "Catchup",
+        "Provisioning",
+        "Updating",
+        "Broken",
+        "Reconfiguring"
+      ],
+      "x-ms-enum": {
+        "name": "ReplicationState",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Active",
+            "value": "Active"
+          },
+          {
+            "name": "Catchup",
+            "value": "Catchup"
+          },
+          {
+            "name": "Provisioning",
+            "value": "Provisioning"
+          },
+          {
+            "name": "Updating",
+            "value": "Updating"
+          },
+          {
+            "name": "Broken",
+            "value": "Broken"
+          },
+          {
+            "name": "Reconfiguring",
+            "value": "Reconfiguring"
+          }
+        ]
+      }
+    },
+    "Server": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/ServerProperties",
+          "x-ms-client-flatten": true
+        },
+        "sku": {
+          "$ref": "#/definitions/Sku"
+        },
+        "identity": {
+          "$ref": "#/definitions/UserAssignedIdentity"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "../../../../../common-types/resource-management/v6/types.json#/definitions/TrackedResource"
+        }
+      ]
+    },
+    "ServerProperties": {
+      "type": "object",
+      "properties": {
+        "administratorLogin": {
+          "type": "string",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "administratorLoginPassword": {
+          "type": "string",
+          "format": "password",
+          "x-ms-mutability": [
+            "update",
+            "create"
+          ],
+          "x-ms-secret": true
+        },
+        "version": {
+          "$ref": "#/definitions/PostgresMajorVersion"
+        },
+        "minorVersion": {
+          "type": "string",
+          "readOnly": true
+        },
+        "state": {
+          "$ref": "#/definitions/ServerState",
+          "readOnly": true
+        },
+        "fullyQualifiedDomainName": {
+          "type": "string",
+          "readOnly": true
+        },
+        "storage": {
+          "$ref": "#/definitions/Storage"
+        },
+        "authConfig": {
+          "$ref": "#/definitions/AuthConfig"
+        },
+        "dataEncryption": {
+          "$ref": "#/definitions/DataEncryption"
+        },
+        "backup": {
+          "$ref": "#/definitions/Backup"
+        },
+        "network": {
+          "$ref": "#/definitions/Network"
+        },
+        "highAvailability": {
+          "$ref": "#/definitions/HighAvailability"
+        },
+        "maintenanceWindow": {
+          "$ref": "#/definitions/MaintenanceWindow",
+          "x-ms-mutability": [
+            "read",
+            "update"
+          ]
+        },
+        "sourceServerResourceId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ],
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.DBforPostgreSQL/flexibleServers"
+              }
+            ]
+          }
+        },
+        "pointInTimeUTC": {
+          "type": "string",
+          "format": "date-time",
+          "x-ms-mutability": [
+            "create"
+          ]
+        },
+        "availabilityZone": {
+          "type": "string",
+          "default": "",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "replicationRole": {
+          "$ref": "#/definitions/ReplicationRole"
+        },
+        "replicaCapacity": {
+          "type": "integer",
+          "format": "int32",
+          "readOnly": true
+        },
+        "replica": {
+          "$ref": "#/definitions/Replica",
+          "x-ms-mutability": [
+            "read",
+            "update"
+          ]
+        },
+        "createMode": {
+          "$ref": "#/definitions/CreateMode",
+          "x-ms-mutability": [
+            "update",
+            "create"
+          ]
+        },
+        "privateEndpointConnections": {
+          "type": "array",
+          "items": {
+            "$ref": "../../../../../common-types/resource-management/v6/privatelinks.json#/definitions/PrivateEndpointConnection"
+          },
+          "readOnly": true
+        },
+        "cluster": {
+          "$ref": "#/definitions/Cluster",
+          "x-ms-mutability": [
+            "read",
+            "update",
+            "create"
+          ]
+        }
+      }
+    },
+    "ServerPublicNetworkAccessState": {
+      "type": "string",
+      "enum": [
+        "Enabled",
+        "Disabled"
+      ],
+      "x-ms-enum": {
+        "name": "ServerPublicNetworkAccessState",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Enabled",
+            "value": "Enabled"
+          },
+          {
+            "name": "Disabled",
+            "value": "Disabled"
+          }
+        ]
+      }
+    },
+    "ServerState": {
+      "type": "string",
+      "enum": [
+        "Ready",
+        "Dropping",
+        "Disabled",
+        "Starting",
+        "Stopping",
+        "Stopped",
+        "Updating",
+        "Restarting",
+        "Inaccessible",
+        "Provisioning"
+      ],
+      "x-ms-enum": {
+        "name": "ServerState",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Ready",
+            "value": "Ready"
+          },
+          {
+            "name": "Dropping",
+            "value": "Dropping"
+          },
+          {
+            "name": "Disabled",
+            "value": "Disabled"
+          },
+          {
+            "name": "Starting",
+            "value": "Starting"
+          },
+          {
+            "name": "Stopping",
+            "value": "Stopping"
+          },
+          {
+            "name": "Stopped",
+            "value": "Stopped"
+          },
+          {
+            "name": "Updating",
+            "value": "Updating"
+          },
+          {
+            "name": "Restarting",
+            "value": "Restarting"
+          },
+          {
+            "name": "Inaccessible",
+            "value": "Inaccessible"
+          },
+          {
+            "name": "Provisioning",
+            "value": "Provisioning"
+          }
+        ]
+      }
+    },
+    "Sku": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "tier": {
+          "$ref": "#/definitions/SkuTier"
+        }
+      },
+      "required": [
+        "name",
+        "tier"
+      ]
+    },
+    "SkuTier": {
+      "type": "string",
+      "enum": [
+        "Burstable",
+        "GeneralPurpose",
+        "MemoryOptimized"
+      ],
+      "x-ms-enum": {
+        "name": "SkuTier",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Burstable",
+            "value": "Burstable"
+          },
+          {
+            "name": "GeneralPurpose",
+            "value": "GeneralPurpose"
+          },
+          {
+            "name": "MemoryOptimized",
+            "value": "MemoryOptimized"
+          }
+        ]
+      }
+    },
+    "Storage": {
+      "type": "object",
+      "properties": {
+        "storageSizeGB": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "autoGrow": {
+          "$ref": "#/definitions/StorageAutoGrow"
+        },
+        "tier": {
+          "$ref": "#/definitions/AzureManagedDiskPerformanceTier"
+        },
+        "iops": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "throughput": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "type": {
+          "$ref": "#/definitions/StorageType"
+        }
+      }
+    },
+    "StorageAutoGrow": {
+      "type": "string",
+      "enum": [
+        "Enabled",
+        "Disabled"
+      ],
+      "x-ms-enum": {
+        "name": "StorageAutoGrow",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Enabled",
+            "value": "Enabled"
+          },
+          {
+            "name": "Disabled",
+            "value": "Disabled"
+          }
+        ]
+      }
+    },
+    "StorageType": {
+      "type": "string",
+      "enum": [
+        "Premium_LRS",
+        "PremiumV2_LRS",
+        "UltraSSD_LRS"
+      ],
+      "x-ms-enum": {
+        "name": "StorageType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Premium_LRS",
+            "value": "Premium_LRS"
+          },
+          {
+            "name": "PremiumV2_LRS",
+            "value": "PremiumV2_LRS"
+          },
+          {
+            "name": "UltraSSD_LRS",
+            "value": "UltraSSD_LRS"
+          }
+        ]
+      }
+    },
+    "UserAssignedIdentity": {
+      "type": "object",
+      "properties": {
+        "userAssignedIdentities": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/UserIdentity"
+          }
+        },
+        "principalId": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/IdentityType"
+        },
+        "tenantId": {
+          "type": "string",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "UserIdentity": {
+      "type": "object",
+      "properties": {
+        "principalId": {
+          "type": "string"
+        },
+        "clientId": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

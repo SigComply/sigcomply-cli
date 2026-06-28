@@ -1,0 +1,788 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure MySQL flexible (slice)",
+    "version": "2024-12-30",
+    "x-source": "Azure/azure-rest-api-specs Microsoft.DBforMySQL/FlexibleServers/stable/2024-12-30/openapi.json",
+    "x-slice": "managed_database_instance: MySQL flexible server"
+  },
+  "definitions": {
+    "Backup": {
+      "type": "object",
+      "properties": {
+        "backupRetentionDays": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "backupIntervalHours": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "geoRedundantBackup": {
+          "type": "string",
+          "default": "Disabled",
+          "enum": [
+            "Enabled",
+            "Disabled"
+          ],
+          "x-ms-enum": {
+            "name": "EnableStatusEnum",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Enabled",
+                "value": "Enabled"
+              },
+              {
+                "name": "Disabled",
+                "value": "Disabled"
+              }
+            ]
+          }
+        },
+        "earliestRestoreDate": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        }
+      }
+    },
+    "BatchOfMaintenance": {
+      "type": "string",
+      "enum": [
+        "Default",
+        "Batch1",
+        "Batch2"
+      ],
+      "x-ms-enum": {
+        "name": "BatchOfMaintenance",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Default",
+            "value": "Default"
+          },
+          {
+            "name": "Batch1",
+            "value": "Batch1"
+          },
+          {
+            "name": "Batch2",
+            "value": "Batch2"
+          }
+        ]
+      }
+    },
+    "CreateMode": {
+      "type": "string",
+      "enum": [
+        "Default",
+        "PointInTimeRestore",
+        "Replica",
+        "GeoRestore"
+      ],
+      "x-ms-enum": {
+        "name": "CreateMode",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Default",
+            "value": "Default"
+          },
+          {
+            "name": "PointInTimeRestore",
+            "value": "PointInTimeRestore"
+          },
+          {
+            "name": "Replica",
+            "value": "Replica"
+          },
+          {
+            "name": "GeoRestore",
+            "value": "GeoRestore"
+          }
+        ]
+      }
+    },
+    "DataEncryption": {
+      "type": "object",
+      "properties": {
+        "primaryUserAssignedIdentityId": {
+          "type": "string"
+        },
+        "primaryKeyURI": {
+          "type": "string"
+        },
+        "geoBackupUserAssignedIdentityId": {
+          "type": "string"
+        },
+        "geoBackupKeyURI": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/DataEncryptionType"
+        }
+      }
+    },
+    "DataEncryptionType": {
+      "type": "string",
+      "enum": [
+        "AzureKeyVault",
+        "SystemManaged"
+      ],
+      "x-ms-enum": {
+        "name": "DataEncryptionType",
+        "modelAsString": false
+      }
+    },
+    "EnableStatusEnum": {
+      "type": "string",
+      "enum": [
+        "Enabled",
+        "Disabled"
+      ],
+      "x-ms-enum": {
+        "name": "EnableStatusEnum",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Enabled",
+            "value": "Enabled"
+          },
+          {
+            "name": "Disabled",
+            "value": "Disabled"
+          }
+        ]
+      }
+    },
+    "HighAvailability": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "$ref": "#/definitions/HighAvailabilityMode"
+        },
+        "state": {
+          "$ref": "#/definitions/HighAvailabilityState",
+          "readOnly": true
+        },
+        "standbyAvailabilityZone": {
+          "type": "string"
+        }
+      }
+    },
+    "HighAvailabilityMode": {
+      "type": "string",
+      "enum": [
+        "Disabled",
+        "ZoneRedundant",
+        "SameZone"
+      ],
+      "x-ms-enum": {
+        "name": "HighAvailabilityMode",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Disabled",
+            "value": "Disabled"
+          },
+          {
+            "name": "ZoneRedundant",
+            "value": "ZoneRedundant"
+          },
+          {
+            "name": "SameZone",
+            "value": "SameZone"
+          }
+        ]
+      }
+    },
+    "HighAvailabilityState": {
+      "type": "string",
+      "enum": [
+        "NotEnabled",
+        "CreatingStandby",
+        "Healthy",
+        "FailingOver",
+        "RemovingStandby"
+      ],
+      "x-ms-enum": {
+        "name": "HighAvailabilityState",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "NotEnabled",
+            "value": "NotEnabled"
+          },
+          {
+            "name": "CreatingStandby",
+            "value": "CreatingStandby"
+          },
+          {
+            "name": "Healthy",
+            "value": "Healthy"
+          },
+          {
+            "name": "FailingOver",
+            "value": "FailingOver"
+          },
+          {
+            "name": "RemovingStandby",
+            "value": "RemovingStandby"
+          }
+        ]
+      }
+    },
+    "ImportSourceProperties": {
+      "type": "object",
+      "properties": {
+        "storageType": {
+          "$ref": "#/definitions/ImportSourceStorageType",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "storageUrl": {
+          "type": "string",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "sasToken": {
+          "type": "string",
+          "format": "password",
+          "x-ms-mutability": [
+            "create"
+          ],
+          "x-ms-secret": true
+        },
+        "dataDirPath": {
+          "type": "string",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        }
+      }
+    },
+    "ImportSourceStorageType": {
+      "type": "string",
+      "enum": [
+        "AzureBlob"
+      ],
+      "x-ms-enum": {
+        "name": "ImportSourceStorageType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "AzureBlob",
+            "value": "AzureBlob"
+          }
+        ]
+      }
+    },
+    "MaintenancePolicy": {
+      "type": "object",
+      "properties": {
+        "patchStrategy": {
+          "$ref": "#/definitions/PatchStrategy"
+        }
+      }
+    },
+    "MaintenanceWindow": {
+      "type": "object",
+      "properties": {
+        "customWindow": {
+          "type": "string"
+        },
+        "startHour": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "startMinute": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "dayOfWeek": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "batchOfMaintenance": {
+          "$ref": "#/definitions/BatchOfMaintenance"
+        }
+      }
+    },
+    "ManagedServiceIdentityType": {
+      "type": "string",
+      "enum": [
+        "UserAssigned"
+      ],
+      "x-ms-enum": {
+        "name": "ManagedServiceIdentityType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "UserAssigned",
+            "value": "UserAssigned"
+          }
+        ]
+      }
+    },
+    "MySQLServerIdentity": {
+      "type": "object",
+      "properties": {
+        "principalId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "tenantId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "type": {
+          "$ref": "#/definitions/ManagedServiceIdentityType"
+        },
+        "userAssignedIdentities": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/UserAssignedIdentity"
+          }
+        }
+      }
+    },
+    "MySQLServerSku": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "tier": {
+          "$ref": "#/definitions/ServerSkuTier"
+        }
+      },
+      "required": [
+        "name",
+        "tier"
+      ]
+    },
+    "Network": {
+      "type": "object",
+      "properties": {
+        "publicNetworkAccess": {
+          "$ref": "#/definitions/EnableStatusEnum"
+        },
+        "delegatedSubnetResourceId": {
+          "type": "string"
+        },
+        "privateDnsZoneResourceId": {
+          "type": "string"
+        }
+      }
+    },
+    "PatchStrategy": {
+      "type": "string",
+      "enum": [
+        "Regular",
+        "VirtualCanary"
+      ],
+      "x-ms-enum": {
+        "name": "PatchStrategy",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Regular",
+            "value": "Regular"
+          },
+          {
+            "name": "VirtualCanary",
+            "value": "VirtualCanary"
+          }
+        ]
+      }
+    },
+    "ReplicationRole": {
+      "type": "string",
+      "enum": [
+        "None",
+        "Source",
+        "Replica"
+      ],
+      "x-ms-enum": {
+        "name": "ReplicationRole",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "None",
+            "value": "None"
+          },
+          {
+            "name": "Source",
+            "value": "Source"
+          },
+          {
+            "name": "Replica",
+            "value": "Replica"
+          }
+        ]
+      }
+    },
+    "Server": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/ServerProperties",
+          "x-ms-client-flatten": true
+        },
+        "identity": {
+          "$ref": "#/definitions/MySQLServerIdentity"
+        },
+        "sku": {
+          "$ref": "#/definitions/MySQLServerSku"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v5/types.json#/definitions/TrackedResource"
+        }
+      ]
+    },
+    "ServerProperties": {
+      "type": "object",
+      "properties": {
+        "administratorLogin": {
+          "type": "string",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "administratorLoginPassword": {
+          "type": "string",
+          "format": "password",
+          "x-ms-mutability": [
+            "update",
+            "create"
+          ],
+          "x-ms-secret": true
+        },
+        "version": {
+          "$ref": "#/definitions/ServerVersion"
+        },
+        "fullVersion": {
+          "type": "string",
+          "readOnly": true
+        },
+        "availabilityZone": {
+          "type": "string",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "createMode": {
+          "$ref": "#/definitions/CreateMode",
+          "x-ms-mutability": [
+            "create"
+          ]
+        },
+        "sourceServerResourceId": {
+          "type": "string",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "restorePointInTime": {
+          "type": "string",
+          "format": "date-time",
+          "x-ms-mutability": [
+            "create"
+          ]
+        },
+        "replicationRole": {
+          "$ref": "#/definitions/ReplicationRole"
+        },
+        "replicaCapacity": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 0,
+          "readOnly": true
+        },
+        "dataEncryption": {
+          "$ref": "#/definitions/DataEncryption"
+        },
+        "state": {
+          "$ref": "#/definitions/ServerState",
+          "readOnly": true
+        },
+        "fullyQualifiedDomainName": {
+          "type": "string",
+          "readOnly": true
+        },
+        "databasePort": {
+          "type": "integer",
+          "format": "int32",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "storage": {
+          "$ref": "#/definitions/Storage"
+        },
+        "backup": {
+          "$ref": "#/definitions/Backup"
+        },
+        "highAvailability": {
+          "$ref": "#/definitions/HighAvailability"
+        },
+        "network": {
+          "$ref": "#/definitions/Network",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "privateEndpointConnections": {
+          "type": "array",
+          "items": {
+            "$ref": "../../../../../../common-types/resource-management/v5/privatelinks.json#/definitions/PrivateEndpointConnection"
+          },
+          "readOnly": true
+        },
+        "maintenancePolicy": {
+          "$ref": "#/definitions/MaintenancePolicy"
+        },
+        "maintenanceWindow": {
+          "$ref": "#/definitions/MaintenanceWindow",
+          "x-ms-mutability": [
+            "read",
+            "update"
+          ]
+        },
+        "importSourceProperties": {
+          "$ref": "#/definitions/ImportSourceProperties"
+        }
+      }
+    },
+    "ServerSkuTier": {
+      "type": "string",
+      "enum": [
+        "Burstable",
+        "GeneralPurpose",
+        "MemoryOptimized"
+      ],
+      "x-ms-enum": {
+        "name": "ServerSkuTier",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Burstable",
+            "value": "Burstable"
+          },
+          {
+            "name": "GeneralPurpose",
+            "value": "GeneralPurpose"
+          },
+          {
+            "name": "MemoryOptimized",
+            "value": "MemoryOptimized"
+          }
+        ]
+      }
+    },
+    "ServerState": {
+      "type": "string",
+      "enum": [
+        "Ready",
+        "Dropping",
+        "Disabled",
+        "Starting",
+        "Stopping",
+        "Stopped",
+        "Updating"
+      ],
+      "x-ms-enum": {
+        "name": "ServerState",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Ready",
+            "value": "Ready"
+          },
+          {
+            "name": "Dropping",
+            "value": "Dropping"
+          },
+          {
+            "name": "Disabled",
+            "value": "Disabled"
+          },
+          {
+            "name": "Starting",
+            "value": "Starting"
+          },
+          {
+            "name": "Stopping",
+            "value": "Stopping"
+          },
+          {
+            "name": "Stopped",
+            "value": "Stopped"
+          },
+          {
+            "name": "Updating",
+            "value": "Updating"
+          }
+        ]
+      }
+    },
+    "ServerVersion": {
+      "type": "string",
+      "enum": [
+        "5.7",
+        "8.0.21"
+      ],
+      "x-ms-enum": {
+        "name": "ServerVersion",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "5.7",
+            "value": "5.7"
+          },
+          {
+            "name": "8.0.21",
+            "value": "8.0.21"
+          }
+        ]
+      }
+    },
+    "Storage": {
+      "type": "object",
+      "properties": {
+        "storageSizeGB": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "iops": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "autoGrow": {
+          "type": "string",
+          "default": "Disabled",
+          "enum": [
+            "Enabled",
+            "Disabled"
+          ],
+          "x-ms-enum": {
+            "name": "EnableStatusEnum",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Enabled",
+                "value": "Enabled"
+              },
+              {
+                "name": "Disabled",
+                "value": "Disabled"
+              }
+            ]
+          }
+        },
+        "logOnDisk": {
+          "type": "string",
+          "default": "Disabled",
+          "enum": [
+            "Enabled",
+            "Disabled"
+          ],
+          "x-ms-enum": {
+            "name": "EnableStatusEnum",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Enabled",
+                "value": "Enabled"
+              },
+              {
+                "name": "Disabled",
+                "value": "Disabled"
+              }
+            ]
+          }
+        },
+        "storageSku": {
+          "type": "string",
+          "readOnly": true
+        },
+        "autoIoScaling": {
+          "type": "string",
+          "default": "Enabled",
+          "enum": [
+            "Enabled",
+            "Disabled"
+          ],
+          "x-ms-enum": {
+            "name": "EnableStatusEnum",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "Enabled",
+                "value": "Enabled"
+              },
+              {
+                "name": "Disabled",
+                "value": "Disabled"
+              }
+            ]
+          }
+        },
+        "storageRedundancy": {
+          "type": "string",
+          "default": "LocalRedundancy",
+          "enum": [
+            "LocalRedundancy",
+            "ZoneRedundancy"
+          ],
+          "x-ms-enum": {
+            "name": "StorageRedundancyEnum",
+            "modelAsString": true,
+            "values": [
+              {
+                "name": "LocalRedundancy",
+                "value": "LocalRedundancy"
+              },
+              {
+                "name": "ZoneRedundancy",
+                "value": "ZoneRedundancy"
+              }
+            ]
+          },
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        }
+      }
+    },
+    "UserAssignedIdentity": {
+      "type": "object",
+      "properties": {
+        "principalId": {
+          "type": "string",
+          "readOnly": true,
+          "x-ms-client-name": "PrincipalId"
+        },
+        "clientId": {
+          "type": "string",
+          "readOnly": true,
+          "x-ms-client-name": "ClientId"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,309 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure cert orders (slice)",
+    "version": "2024-11-01",
+    "x-source": "Azure/azure-rest-api-specs Microsoft.CertificateRegistration/CertificateRegistration/stable/2024-11-01/openapi.json",
+    "x-slice": "tls_certificate: certificate order"
+  },
+  "definitions": {
+    "AppServiceCertificate": {
+      "type": "object",
+      "properties": {
+        "keyVaultId": {
+          "type": "string"
+        },
+        "keyVaultSecretName": {
+          "type": "string"
+        },
+        "provisioningState": {
+          "$ref": "#/definitions/KeyVaultSecretStatus",
+          "readOnly": true
+        }
+      }
+    },
+    "AppServiceCertificateOrder": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/AppServiceCertificateOrderProperties",
+          "x-ms-client-flatten": true
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v3/types.json#/definitions/TrackedResource"
+        }
+      ]
+    },
+    "AppServiceCertificateOrderProperties": {
+      "type": "object",
+      "properties": {
+        "certificates": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/AppServiceCertificate"
+          }
+        },
+        "distinguishedName": {
+          "type": "string",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "domainVerificationToken": {
+          "type": "string",
+          "readOnly": true
+        },
+        "validityInYears": {
+          "type": "integer",
+          "format": "int32",
+          "default": 1,
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "keySize": {
+          "type": "integer",
+          "format": "int32",
+          "default": 2048,
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "productType": {
+          "$ref": "#/definitions/CertificateProductType",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "autoRenew": {
+          "type": "boolean",
+          "default": true
+        },
+        "provisioningState": {
+          "$ref": "#/definitions/ProvisioningState",
+          "readOnly": true
+        },
+        "status": {
+          "$ref": "#/definitions/CertificateOrderStatus",
+          "readOnly": true
+        },
+        "signedCertificate": {
+          "$ref": "#/definitions/CertificateDetails",
+          "readOnly": true
+        },
+        "csr": {
+          "type": "string",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "intermediate": {
+          "$ref": "#/definitions/CertificateDetails",
+          "readOnly": true
+        },
+        "root": {
+          "$ref": "#/definitions/CertificateDetails",
+          "readOnly": true
+        },
+        "serialNumber": {
+          "type": "string",
+          "readOnly": true
+        },
+        "lastCertificateIssuanceTime": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "expirationTime": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "isPrivateKeyExternal": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "appServiceCertificateNotRenewableReasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ResourceNotRenewableReason"
+          },
+          "readOnly": true
+        },
+        "nextAutoRenewalTimeStamp": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "contact": {
+          "$ref": "#/definitions/CertificateOrderContact",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "productType"
+      ]
+    },
+    "CertificateDetails": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "integer",
+          "format": "int32",
+          "readOnly": true
+        },
+        "serialNumber": {
+          "type": "string",
+          "readOnly": true
+        },
+        "thumbprint": {
+          "type": "string",
+          "readOnly": true
+        },
+        "subject": {
+          "type": "string",
+          "readOnly": true
+        },
+        "notBefore": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "notAfter": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "signatureAlgorithm": {
+          "type": "string",
+          "readOnly": true
+        },
+        "issuer": {
+          "type": "string",
+          "readOnly": true
+        },
+        "rawData": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "CertificateOrderContact": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "nameFirst": {
+          "type": "string"
+        },
+        "nameLast": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        }
+      }
+    },
+    "CertificateOrderStatus": {
+      "type": "string",
+      "enum": [
+        "Pendingissuance",
+        "Issued",
+        "Revoked",
+        "Canceled",
+        "Denied",
+        "Pendingrevocation",
+        "PendingRekey",
+        "Unused",
+        "Expired",
+        "NotSubmitted"
+      ],
+      "x-ms-enum": {
+        "name": "CertificateOrderStatus",
+        "modelAsString": false
+      }
+    },
+    "CertificateProductType": {
+      "type": "string",
+      "enum": [
+        "StandardDomainValidatedSsl",
+        "StandardDomainValidatedWildCardSsl"
+      ],
+      "x-ms-enum": {
+        "name": "CertificateProductType",
+        "modelAsString": false
+      }
+    },
+    "KeyVaultSecretStatus": {
+      "type": "string",
+      "enum": [
+        "Initialized",
+        "WaitingOnCertificateOrder",
+        "Succeeded",
+        "CertificateOrderFailed",
+        "OperationNotPermittedOnKeyVault",
+        "AzureServiceUnauthorizedToAccessKeyVault",
+        "KeyVaultDoesNotExist",
+        "KeyVaultSecretDoesNotExist",
+        "UnknownError",
+        "ExternalPrivateKey",
+        "Unknown"
+      ],
+      "x-ms-enum": {
+        "name": "KeyVaultSecretStatus",
+        "modelAsString": false
+      }
+    },
+    "ProvisioningState": {
+      "type": "string",
+      "enum": [
+        "Succeeded",
+        "Failed",
+        "Canceled",
+        "InProgress",
+        "Deleting"
+      ],
+      "x-ms-enum": {
+        "name": "ProvisioningState",
+        "modelAsString": false
+      }
+    },
+    "ResourceNotRenewableReason": {
+      "type": "string",
+      "enum": [
+        "RegistrationStatusNotSupportedForRenewal",
+        "ExpirationNotInRenewalTimeRange",
+        "SubscriptionNotActive"
+      ],
+      "x-ms-enum": {
+        "name": "ResourceNotRenewableReason",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "RegistrationStatusNotSupportedForRenewal",
+            "value": "RegistrationStatusNotSupportedForRenewal"
+          },
+          {
+            "name": "ExpirationNotInRenewalTimeRange",
+            "value": "ExpirationNotInRenewalTimeRange"
+          },
+          {
+            "name": "SubscriptionNotActive",
+            "value": "SubscriptionNotActive"
+          }
+        ]
+      }
+    }
+  }
+}

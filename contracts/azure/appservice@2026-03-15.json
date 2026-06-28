@@ -1,0 +1,168 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure App Service certs (slice)",
+    "version": "2026-03-15",
+    "x-source": "Azure/azure-rest-api-specs Microsoft.Web/AppService/stable/2026-03-15/openapi.json",
+    "x-slice": "tls_certificate: app service certificate"
+  },
+  "definitions": {
+    "Certificate": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/CertificateProperties",
+          "x-ms-client-flatten": true
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v5/types.json#/definitions/TrackedResource"
+        }
+      ]
+    },
+    "CertificateProperties": {
+      "type": "object",
+      "properties": {
+        "password": {
+          "type": "string"
+        },
+        "friendlyName": {
+          "type": "string",
+          "readOnly": true
+        },
+        "subjectName": {
+          "type": "string",
+          "readOnly": true
+        },
+        "hostNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pfxBlob": {
+          "type": "string",
+          "format": "byte"
+        },
+        "siteName": {
+          "type": "string",
+          "readOnly": true
+        },
+        "selfLink": {
+          "type": "string",
+          "readOnly": true
+        },
+        "issuer": {
+          "type": "string",
+          "readOnly": true
+        },
+        "issueDate": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "expirationDate": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "thumbprint": {
+          "type": "string",
+          "readOnly": true
+        },
+        "valid": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "cerBlob": {
+          "type": "string",
+          "format": "byte",
+          "readOnly": true
+        },
+        "publicKeyHash": {
+          "type": "string",
+          "readOnly": true
+        },
+        "hostingEnvironmentProfile": {
+          "$ref": "#/definitions/HostingEnvironmentProfile",
+          "readOnly": true
+        },
+        "keyVaultId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.KeyVault/vaults"
+              }
+            ]
+          }
+        },
+        "keyVaultSecretName": {
+          "type": "string"
+        },
+        "keyVaultSecretStatus": {
+          "$ref": "#/definitions/KeyVaultSecretStatus",
+          "readOnly": true
+        },
+        "serverFarmId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.Web/serverfarms"
+              }
+            ]
+          }
+        },
+        "canonicalName": {
+          "type": "string"
+        },
+        "domainValidationMethod": {
+          "type": "string"
+        }
+      }
+    },
+    "HostingEnvironmentProfile": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "readOnly": true
+        },
+        "type": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "KeyVaultSecretStatus": {
+      "type": "string",
+      "enum": [
+        "Initialized",
+        "WaitingOnCertificateOrder",
+        "Succeeded",
+        "CertificateOrderFailed",
+        "OperationNotPermittedOnKeyVault",
+        "AzureServiceUnauthorizedToAccessKeyVault",
+        "KeyVaultDoesNotExist",
+        "KeyVaultSecretDoesNotExist",
+        "UnknownError",
+        "ExternalPrivateKey",
+        "Unknown"
+      ],
+      "x-ms-enum": {
+        "name": "KeyVaultSecretStatus",
+        "modelAsString": false
+      }
+    }
+  }
+}

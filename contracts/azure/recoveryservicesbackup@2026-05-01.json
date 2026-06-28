@@ -1,0 +1,65 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure Backup (slice)",
+    "version": "2026-05-01",
+    "x-source": "Azure/azure-rest-api-specs Microsoft.RecoveryServices/RecoveryServicesBackup/stable/2026-05-01/bms.json",
+    "x-slice": "backup_plan: protection policy"
+  },
+  "definitions": {
+    "Azure.Core.azureLocation": {
+      "type": "string"
+    },
+    "ProtectionPolicy": {
+      "type": "object",
+      "properties": {
+        "protectedItemsCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "backupManagementType": {
+          "type": "string"
+        },
+        "resourceGuardOperationRequests": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "discriminator": "backupManagementType",
+      "required": [
+        "backupManagementType"
+      ]
+    },
+    "ProtectionPolicyResource": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/ProtectionPolicy"
+        },
+        "tags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "location": {
+          "$ref": "#/definitions/Azure.Core.azureLocation",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "eTag": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v3/types.json#/definitions/ProxyResource"
+        }
+      ]
+    }
+  }
+}

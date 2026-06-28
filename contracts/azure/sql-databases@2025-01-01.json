@@ -1,0 +1,314 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure SQL databases (slice)",
+    "version": "2025-01-01",
+    "x-source": "Azure/azure-rest-api-specs sql/resource-manager/Microsoft.Sql/SQL/stable/2025-01-01/databases.json",
+    "x-slice": "managed_database_instance: SQL database"
+  },
+  "definitions": {
+    "Database": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/DatabaseProperties",
+          "x-ms-client-flatten": true
+        },
+        "sku": {
+          "$ref": "./common.json#/definitions/Sku"
+        },
+        "kind": {
+          "type": "string",
+          "readOnly": true
+        },
+        "managedBy": {
+          "type": "string",
+          "readOnly": true
+        },
+        "identity": {
+          "$ref": "#/definitions/DatabaseIdentity",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v5/types.json#/definitions/TrackedResource"
+        }
+      ]
+    },
+    "DatabaseIdentity": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "./common.json#/definitions/DatabaseIdentityType"
+        },
+        "tenantId": {
+          "$ref": "./common.json#/definitions/Azure.Core.uuid",
+          "readOnly": true
+        },
+        "userAssignedIdentities": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/DatabaseUserIdentity"
+          }
+        }
+      }
+    },
+    "DatabaseProperties": {
+      "type": "object",
+      "properties": {
+        "createMode": {
+          "$ref": "./common.json#/definitions/CreateMode",
+          "x-ms-mutability": [
+            "create"
+          ]
+        },
+        "collation": {
+          "type": "string",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "maxSizeBytes": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "sampleName": {
+          "$ref": "./common.json#/definitions/SampleName",
+          "x-ms-mutability": [
+            "create"
+          ]
+        },
+        "elasticPoolId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.Sql/servers/elasticPools"
+              }
+            ]
+          }
+        },
+        "sourceDatabaseId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-mutability": [
+            "create"
+          ]
+        },
+        "status": {
+          "$ref": "./common.json#/definitions/DatabaseStatus",
+          "readOnly": true
+        },
+        "databaseId": {
+          "$ref": "./common.json#/definitions/Azure.Core.uuid",
+          "readOnly": true
+        },
+        "creationDate": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "currentServiceObjectiveName": {
+          "type": "string",
+          "readOnly": true
+        },
+        "requestedServiceObjectiveName": {
+          "type": "string",
+          "readOnly": true
+        },
+        "defaultSecondaryLocation": {
+          "type": "string",
+          "readOnly": true
+        },
+        "failoverGroupId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "restorePointInTime": {
+          "type": "string",
+          "format": "date-time",
+          "x-ms-mutability": [
+            "create"
+          ]
+        },
+        "sourceDatabaseDeletionDate": {
+          "type": "string",
+          "format": "date-time",
+          "x-ms-mutability": [
+            "create"
+          ]
+        },
+        "recoveryServicesRecoveryPointId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-mutability": [
+            "create"
+          ]
+        },
+        "longTermRetentionBackupResourceId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-mutability": [
+            "create"
+          ],
+          "x-ms-arm-id-details": {
+            "allowedResources": [
+              {
+                "type": "Microsoft.Sql/locations/longTermRetentionBackups"
+              }
+            ]
+          }
+        },
+        "recoverableDatabaseId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-mutability": [
+            "create"
+          ]
+        },
+        "restorableDroppedDatabaseId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-mutability": [
+            "create"
+          ]
+        },
+        "catalogCollation": {
+          "$ref": "./common.json#/definitions/CatalogCollationType",
+          "x-ms-mutability": [
+            "read",
+            "create"
+          ]
+        },
+        "zoneRedundant": {
+          "type": "boolean"
+        },
+        "licenseType": {
+          "$ref": "./common.json#/definitions/DatabaseLicenseType"
+        },
+        "maxLogSizeBytes": {
+          "type": "integer",
+          "format": "int64",
+          "readOnly": true
+        },
+        "earliestRestoreDate": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "readScale": {
+          "$ref": "./common.json#/definitions/DatabaseReadScale",
+          "x-ms-mutability": [
+            "read",
+            "update"
+          ]
+        },
+        "highAvailabilityReplicaCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "secondaryType": {
+          "$ref": "./common.json#/definitions/SecondaryType"
+        },
+        "currentSku": {
+          "$ref": "./common.json#/definitions/Sku",
+          "readOnly": true
+        },
+        "autoPauseDelay": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "currentBackupStorageRedundancy": {
+          "$ref": "./common.json#/definitions/BackupStorageRedundancy",
+          "readOnly": true
+        },
+        "requestedBackupStorageRedundancy": {
+          "$ref": "./common.json#/definitions/BackupStorageRedundancy"
+        },
+        "minCapacity": {
+          "type": "number",
+          "format": "double"
+        },
+        "pausedDate": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "resumedDate": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "maintenanceConfigurationId": {
+          "type": "string"
+        },
+        "isLedgerOn": {
+          "type": "boolean"
+        },
+        "isInfraEncryptionEnabled": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "federatedClientId": {
+          "$ref": "./common.json#/definitions/Azure.Core.uuid"
+        },
+        "keys": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "./common.json#/definitions/DatabaseKey"
+          }
+        },
+        "encryptionProtector": {
+          "type": "string"
+        },
+        "preferredEnclaveType": {
+          "$ref": "./common.json#/definitions/AlwaysEncryptedEnclaveType"
+        },
+        "useFreeLimit": {
+          "type": "boolean"
+        },
+        "freeLimitExhaustionBehavior": {
+          "$ref": "./common.json#/definitions/FreeLimitExhaustionBehavior"
+        },
+        "sourceResourceId": {
+          "type": "string",
+          "format": "arm-id",
+          "x-ms-mutability": [
+            "create"
+          ]
+        },
+        "manualCutover": {
+          "type": "boolean"
+        },
+        "performCutover": {
+          "type": "boolean"
+        },
+        "availabilityZone": {
+          "$ref": "./common.json#/definitions/AvailabilityZoneType"
+        },
+        "encryptionProtectorAutoRotation": {
+          "type": "boolean"
+        }
+      }
+    },
+    "DatabaseUserIdentity": {
+      "type": "object",
+      "properties": {
+        "principalId": {
+          "$ref": "./common.json#/definitions/Azure.Core.uuid",
+          "readOnly": true
+        },
+        "clientId": {
+          "$ref": "./common.json#/definitions/Azure.Core.uuid",
+          "readOnly": true
+        }
+      }
+    }
+  }
+}

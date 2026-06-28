@@ -1,0 +1,1262 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure Key Vault (slice)",
+    "version": "2026-02-01",
+    "x-source": "Azure/azure-rest-api-specs Microsoft.KeyVault/KeyVault/stable/2026-02-01/openapi.json",
+    "x-slice": "kms_key + secret: vault, keys, secrets"
+  },
+  "definitions": {
+    "AccessPolicyEntry": {
+      "type": "object",
+      "properties": {
+        "tenantId": {
+          "$ref": "#/definitions/Azure.Core.uuid"
+        },
+        "objectId": {
+          "type": "string"
+        },
+        "applicationId": {
+          "$ref": "#/definitions/Azure.Core.uuid"
+        },
+        "permissions": {
+          "$ref": "#/definitions/Permissions"
+        }
+      },
+      "required": [
+        "tenantId",
+        "objectId",
+        "permissions"
+      ]
+    },
+    "Action": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/KeyRotationPolicyActionType"
+        }
+      }
+    },
+    "ActionsRequired": {
+      "type": "string",
+      "enum": [
+        "None"
+      ],
+      "x-ms-enum": {
+        "name": "ActionsRequired",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "None",
+            "value": "None"
+          }
+        ]
+      }
+    },
+    "Attributes": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "nbf": {
+          "type": "integer",
+          "format": "unixtime",
+          "x-ms-client-name": "NotBefore"
+        },
+        "exp": {
+          "type": "integer",
+          "format": "unixtime",
+          "x-ms-client-name": "Expires"
+        },
+        "created": {
+          "type": "integer",
+          "format": "unixtime",
+          "readOnly": true
+        },
+        "updated": {
+          "type": "integer",
+          "format": "unixtime",
+          "readOnly": true
+        }
+      }
+    },
+    "Azure.Core.azureLocation": {
+      "type": "string"
+    },
+    "Azure.Core.eTag": {
+      "type": "string"
+    },
+    "Azure.Core.uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "CertificatePermissions": {
+      "type": "string",
+      "enum": [
+        "all",
+        "get",
+        "list",
+        "delete",
+        "create",
+        "import",
+        "update",
+        "managecontacts",
+        "getissuers",
+        "listissuers",
+        "setissuers",
+        "deleteissuers",
+        "manageissuers",
+        "recover",
+        "purge",
+        "backup",
+        "restore"
+      ],
+      "x-ms-enum": {
+        "name": "CertificatePermissions",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "all",
+            "value": "all"
+          },
+          {
+            "name": "get",
+            "value": "get"
+          },
+          {
+            "name": "list",
+            "value": "list"
+          },
+          {
+            "name": "delete",
+            "value": "delete"
+          },
+          {
+            "name": "create",
+            "value": "create"
+          },
+          {
+            "name": "import",
+            "value": "import"
+          },
+          {
+            "name": "update",
+            "value": "update"
+          },
+          {
+            "name": "managecontacts",
+            "value": "managecontacts"
+          },
+          {
+            "name": "getissuers",
+            "value": "getissuers"
+          },
+          {
+            "name": "listissuers",
+            "value": "listissuers"
+          },
+          {
+            "name": "setissuers",
+            "value": "setissuers"
+          },
+          {
+            "name": "deleteissuers",
+            "value": "deleteissuers"
+          },
+          {
+            "name": "manageissuers",
+            "value": "manageissuers"
+          },
+          {
+            "name": "recover",
+            "value": "recover"
+          },
+          {
+            "name": "purge",
+            "value": "purge"
+          },
+          {
+            "name": "backup",
+            "value": "backup"
+          },
+          {
+            "name": "restore",
+            "value": "restore"
+          }
+        ]
+      }
+    },
+    "CreateMode": {
+      "type": "string",
+      "enum": [
+        "recover",
+        "default"
+      ],
+      "x-ms-enum": {
+        "name": "CreateMode",
+        "modelAsString": false
+      }
+    },
+    "DeletionRecoveryLevel": {
+      "type": "string",
+      "enum": [
+        "Purgeable",
+        "Recoverable+Purgeable",
+        "Recoverable",
+        "Recoverable+ProtectedSubscription"
+      ],
+      "x-ms-enum": {
+        "name": "DeletionRecoveryLevel",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Purgeable",
+            "value": "Purgeable"
+          },
+          {
+            "name": "Recoverable+Purgeable",
+            "value": "Recoverable+Purgeable"
+          },
+          {
+            "name": "Recoverable",
+            "value": "Recoverable"
+          },
+          {
+            "name": "Recoverable+ProtectedSubscription",
+            "value": "Recoverable+ProtectedSubscription"
+          }
+        ]
+      }
+    },
+    "IPRule": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ]
+    },
+    "JsonWebKeyCurveName": {
+      "type": "string",
+      "enum": [
+        "P-256",
+        "P-384",
+        "P-521",
+        "P-256K"
+      ],
+      "x-ms-enum": {
+        "name": "JsonWebKeyCurveName",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "P-256",
+            "value": "P-256"
+          },
+          {
+            "name": "P-384",
+            "value": "P-384"
+          },
+          {
+            "name": "P-521",
+            "value": "P-521"
+          },
+          {
+            "name": "P-256K",
+            "value": "P-256K"
+          }
+        ]
+      }
+    },
+    "JsonWebKeyOperation": {
+      "type": "string",
+      "enum": [
+        "encrypt",
+        "decrypt",
+        "sign",
+        "verify",
+        "wrapKey",
+        "unwrapKey",
+        "import",
+        "release"
+      ],
+      "x-ms-enum": {
+        "name": "JsonWebKeyOperation",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "encrypt",
+            "value": "encrypt"
+          },
+          {
+            "name": "decrypt",
+            "value": "decrypt"
+          },
+          {
+            "name": "sign",
+            "value": "sign"
+          },
+          {
+            "name": "verify",
+            "value": "verify"
+          },
+          {
+            "name": "wrapKey",
+            "value": "wrapKey"
+          },
+          {
+            "name": "unwrapKey",
+            "value": "unwrapKey"
+          },
+          {
+            "name": "import",
+            "value": "import"
+          },
+          {
+            "name": "release",
+            "value": "release"
+          }
+        ]
+      }
+    },
+    "JsonWebKeyType": {
+      "type": "string",
+      "enum": [
+        "EC",
+        "EC-HSM",
+        "RSA",
+        "RSA-HSM"
+      ],
+      "x-ms-enum": {
+        "name": "JsonWebKeyType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "EC",
+            "value": "EC"
+          },
+          {
+            "name": "EC-HSM",
+            "value": "EC-HSM"
+          },
+          {
+            "name": "RSA",
+            "value": "RSA"
+          },
+          {
+            "name": "RSA-HSM",
+            "value": "RSA-HSM"
+          }
+        ]
+      }
+    },
+    "Key": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/KeyProperties",
+          "x-ms-client-flatten": true
+        },
+        "location": {
+          "type": "string",
+          "readOnly": true
+        },
+        "tags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "readOnly": true
+        }
+      },
+      "required": [
+        "properties"
+      ],
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v5/types.json#/definitions/ProxyResource"
+        }
+      ]
+    },
+    "KeyAttributes": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "nbf": {
+          "type": "integer",
+          "format": "int64",
+          "x-ms-client-name": "NotBefore"
+        },
+        "exp": {
+          "type": "integer",
+          "format": "int64",
+          "x-ms-client-name": "Expires"
+        },
+        "created": {
+          "type": "integer",
+          "format": "int64",
+          "readOnly": true
+        },
+        "updated": {
+          "type": "integer",
+          "format": "int64",
+          "readOnly": true
+        },
+        "recoveryLevel": {
+          "$ref": "#/definitions/DeletionRecoveryLevel",
+          "readOnly": true
+        },
+        "exportable": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "KeyPermissions": {
+      "type": "string",
+      "enum": [
+        "all",
+        "encrypt",
+        "decrypt",
+        "wrapKey",
+        "unwrapKey",
+        "sign",
+        "verify",
+        "get",
+        "list",
+        "create",
+        "update",
+        "import",
+        "delete",
+        "backup",
+        "restore",
+        "recover",
+        "purge",
+        "release",
+        "rotate",
+        "getrotationpolicy",
+        "setrotationpolicy"
+      ],
+      "x-ms-enum": {
+        "name": "KeyPermissions",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "all",
+            "value": "all"
+          },
+          {
+            "name": "encrypt",
+            "value": "encrypt"
+          },
+          {
+            "name": "decrypt",
+            "value": "decrypt"
+          },
+          {
+            "name": "wrapKey",
+            "value": "wrapKey"
+          },
+          {
+            "name": "unwrapKey",
+            "value": "unwrapKey"
+          },
+          {
+            "name": "sign",
+            "value": "sign"
+          },
+          {
+            "name": "verify",
+            "value": "verify"
+          },
+          {
+            "name": "get",
+            "value": "get"
+          },
+          {
+            "name": "list",
+            "value": "list"
+          },
+          {
+            "name": "create",
+            "value": "create"
+          },
+          {
+            "name": "update",
+            "value": "update"
+          },
+          {
+            "name": "import",
+            "value": "import"
+          },
+          {
+            "name": "delete",
+            "value": "delete"
+          },
+          {
+            "name": "backup",
+            "value": "backup"
+          },
+          {
+            "name": "restore",
+            "value": "restore"
+          },
+          {
+            "name": "recover",
+            "value": "recover"
+          },
+          {
+            "name": "purge",
+            "value": "purge"
+          },
+          {
+            "name": "release",
+            "value": "release"
+          },
+          {
+            "name": "rotate",
+            "value": "rotate"
+          },
+          {
+            "name": "getrotationpolicy",
+            "value": "getrotationpolicy"
+          },
+          {
+            "name": "setrotationpolicy",
+            "value": "setrotationpolicy"
+          }
+        ]
+      }
+    },
+    "KeyProperties": {
+      "type": "object",
+      "properties": {
+        "attributes": {
+          "$ref": "#/definitions/KeyAttributes"
+        },
+        "kty": {
+          "$ref": "#/definitions/JsonWebKeyType",
+          "minLength": 1
+        },
+        "keyOps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/JsonWebKeyOperation"
+          }
+        },
+        "keySize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "curveName": {
+          "$ref": "#/definitions/JsonWebKeyCurveName"
+        },
+        "keyUri": {
+          "type": "string",
+          "readOnly": true
+        },
+        "keyUriWithVersion": {
+          "type": "string",
+          "readOnly": true
+        },
+        "rotationPolicy": {
+          "$ref": "#/definitions/RotationPolicy"
+        },
+        "release_policy": {
+          "$ref": "#/definitions/KeyReleasePolicy"
+        }
+      }
+    },
+    "KeyReleasePolicy": {
+      "type": "object",
+      "properties": {
+        "contentType": {
+          "type": "string",
+          "default": "application/json; charset=utf-8"
+        },
+        "data": {
+          "type": "string",
+          "format": "base64url"
+        }
+      }
+    },
+    "KeyRotationPolicyActionType": {
+      "type": "string",
+      "enum": [
+        "rotate",
+        "notify"
+      ],
+      "x-ms-enum": {
+        "name": "KeyRotationPolicyActionType",
+        "modelAsString": false
+      }
+    },
+    "KeyRotationPolicyAttributes": {
+      "type": "object",
+      "properties": {
+        "created": {
+          "type": "integer",
+          "format": "int64",
+          "readOnly": true
+        },
+        "updated": {
+          "type": "integer",
+          "format": "int64",
+          "readOnly": true
+        },
+        "expiryTime": {
+          "type": "string"
+        }
+      }
+    },
+    "LifetimeAction": {
+      "type": "object",
+      "properties": {
+        "trigger": {
+          "$ref": "#/definitions/Trigger"
+        },
+        "action": {
+          "$ref": "#/definitions/Action"
+        }
+      }
+    },
+    "NetworkRuleAction": {
+      "type": "string",
+      "enum": [
+        "Allow",
+        "Deny"
+      ],
+      "x-ms-enum": {
+        "name": "NetworkRuleAction",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Allow",
+            "value": "Allow"
+          },
+          {
+            "name": "Deny",
+            "value": "Deny"
+          }
+        ]
+      }
+    },
+    "NetworkRuleBypassOptions": {
+      "type": "string",
+      "enum": [
+        "AzureServices",
+        "None"
+      ],
+      "x-ms-enum": {
+        "name": "NetworkRuleBypassOptions",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "AzureServices",
+            "value": "AzureServices"
+          },
+          {
+            "name": "None",
+            "value": "None"
+          }
+        ]
+      }
+    },
+    "NetworkRuleSet": {
+      "type": "object",
+      "properties": {
+        "bypass": {
+          "$ref": "#/definitions/NetworkRuleBypassOptions"
+        },
+        "defaultAction": {
+          "$ref": "#/definitions/NetworkRuleAction"
+        },
+        "ipRules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/IPRule"
+          },
+          "x-ms-identifiers": []
+        },
+        "virtualNetworkRules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/VirtualNetworkRule"
+          },
+          "x-ms-identifiers": [
+            "id"
+          ]
+        }
+      }
+    },
+    "Permissions": {
+      "type": "object",
+      "properties": {
+        "keys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KeyPermissions"
+          }
+        },
+        "secrets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SecretPermissions"
+          }
+        },
+        "certificates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CertificatePermissions"
+          }
+        },
+        "storage": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StoragePermissions"
+          }
+        }
+      }
+    },
+    "PrivateEndpoint": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "PrivateEndpointConnectionItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "etag": {
+          "$ref": "#/definitions/Azure.Core.eTag"
+        },
+        "properties": {
+          "$ref": "#/definitions/PrivateEndpointConnectionProperties",
+          "x-ms-client-flatten": true
+        }
+      }
+    },
+    "PrivateEndpointConnectionProperties": {
+      "type": "object",
+      "properties": {
+        "privateEndpoint": {
+          "$ref": "#/definitions/PrivateEndpoint"
+        },
+        "privateLinkServiceConnectionState": {
+          "$ref": "#/definitions/PrivateLinkServiceConnectionState"
+        },
+        "provisioningState": {
+          "$ref": "#/definitions/PrivateEndpointConnectionProvisioningState",
+          "readOnly": true
+        }
+      }
+    },
+    "PrivateEndpointConnectionProvisioningState": {
+      "type": "string",
+      "enum": [
+        "Succeeded",
+        "Creating",
+        "Updating",
+        "Deleting",
+        "Failed",
+        "Disconnected"
+      ],
+      "x-ms-enum": {
+        "name": "PrivateEndpointConnectionProvisioningState",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Succeeded",
+            "value": "Succeeded"
+          },
+          {
+            "name": "Creating",
+            "value": "Creating"
+          },
+          {
+            "name": "Updating",
+            "value": "Updating"
+          },
+          {
+            "name": "Deleting",
+            "value": "Deleting"
+          },
+          {
+            "name": "Failed",
+            "value": "Failed"
+          },
+          {
+            "name": "Disconnected",
+            "value": "Disconnected"
+          }
+        ]
+      },
+      "readOnly": true
+    },
+    "PrivateEndpointServiceConnectionStatus": {
+      "type": "string",
+      "enum": [
+        "Pending",
+        "Approved",
+        "Rejected",
+        "Disconnected"
+      ],
+      "x-ms-enum": {
+        "name": "PrivateEndpointServiceConnectionStatus",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Pending",
+            "value": "Pending"
+          },
+          {
+            "name": "Approved",
+            "value": "Approved"
+          },
+          {
+            "name": "Rejected",
+            "value": "Rejected"
+          },
+          {
+            "name": "Disconnected",
+            "value": "Disconnected"
+          }
+        ]
+      }
+    },
+    "PrivateLinkServiceConnectionState": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/PrivateEndpointServiceConnectionStatus"
+        },
+        "actionsRequired": {
+          "$ref": "#/definitions/ActionsRequired"
+        }
+      }
+    },
+    "RotationPolicy": {
+      "type": "object",
+      "properties": {
+        "attributes": {
+          "$ref": "#/definitions/KeyRotationPolicyAttributes"
+        },
+        "lifetimeActions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LifetimeAction"
+          },
+          "x-ms-identifiers": []
+        }
+      }
+    },
+    "Secret": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/SecretProperties"
+        },
+        "location": {
+          "type": "string",
+          "readOnly": true
+        },
+        "tags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "readOnly": true
+        }
+      },
+      "required": [
+        "properties"
+      ],
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v5/types.json#/definitions/ProxyResource"
+        }
+      ]
+    },
+    "SecretAttributes": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Attributes"
+        }
+      ]
+    },
+    "SecretPermissions": {
+      "type": "string",
+      "enum": [
+        "all",
+        "get",
+        "list",
+        "set",
+        "delete",
+        "backup",
+        "restore",
+        "recover",
+        "purge"
+      ],
+      "x-ms-enum": {
+        "name": "SecretPermissions",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "all",
+            "value": "all"
+          },
+          {
+            "name": "get",
+            "value": "get"
+          },
+          {
+            "name": "list",
+            "value": "list"
+          },
+          {
+            "name": "set",
+            "value": "set"
+          },
+          {
+            "name": "delete",
+            "value": "delete"
+          },
+          {
+            "name": "backup",
+            "value": "backup"
+          },
+          {
+            "name": "restore",
+            "value": "restore"
+          },
+          {
+            "name": "recover",
+            "value": "recover"
+          },
+          {
+            "name": "purge",
+            "value": "purge"
+          }
+        ]
+      }
+    },
+    "SecretProperties": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "contentType": {
+          "type": "string"
+        },
+        "attributes": {
+          "$ref": "#/definitions/SecretAttributes"
+        },
+        "secretUri": {
+          "type": "string",
+          "readOnly": true
+        },
+        "secretUriWithVersion": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "Sku": {
+      "type": "object",
+      "properties": {
+        "family": {
+          "$ref": "#/definitions/SkuFamily"
+        },
+        "name": {
+          "$ref": "#/definitions/SkuName"
+        }
+      },
+      "required": [
+        "family",
+        "name"
+      ]
+    },
+    "SkuFamily": {
+      "type": "string",
+      "enum": [
+        "A"
+      ],
+      "x-ms-enum": {
+        "name": "SkuFamily",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "A",
+            "value": "A"
+          }
+        ]
+      }
+    },
+    "SkuName": {
+      "type": "string",
+      "enum": [
+        "standard",
+        "premium"
+      ],
+      "x-ms-enum": {
+        "name": "SkuName",
+        "modelAsString": false
+      }
+    },
+    "StoragePermissions": {
+      "type": "string",
+      "enum": [
+        "all",
+        "get",
+        "list",
+        "delete",
+        "set",
+        "update",
+        "regeneratekey",
+        "recover",
+        "purge",
+        "backup",
+        "restore",
+        "setsas",
+        "listsas",
+        "getsas",
+        "deletesas"
+      ],
+      "x-ms-enum": {
+        "name": "StoragePermissions",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "all",
+            "value": "all"
+          },
+          {
+            "name": "get",
+            "value": "get"
+          },
+          {
+            "name": "list",
+            "value": "list"
+          },
+          {
+            "name": "delete",
+            "value": "delete"
+          },
+          {
+            "name": "set",
+            "value": "set"
+          },
+          {
+            "name": "update",
+            "value": "update"
+          },
+          {
+            "name": "regeneratekey",
+            "value": "regeneratekey"
+          },
+          {
+            "name": "recover",
+            "value": "recover"
+          },
+          {
+            "name": "purge",
+            "value": "purge"
+          },
+          {
+            "name": "backup",
+            "value": "backup"
+          },
+          {
+            "name": "restore",
+            "value": "restore"
+          },
+          {
+            "name": "setsas",
+            "value": "setsas"
+          },
+          {
+            "name": "listsas",
+            "value": "listsas"
+          },
+          {
+            "name": "getsas",
+            "value": "getsas"
+          },
+          {
+            "name": "deletesas",
+            "value": "deletesas"
+          }
+        ]
+      }
+    },
+    "Trigger": {
+      "type": "object",
+      "properties": {
+        "timeAfterCreate": {
+          "type": "string"
+        },
+        "timeBeforeExpiry": {
+          "type": "string"
+        }
+      }
+    },
+    "Vault": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/VaultProperties"
+        },
+        "location": {
+          "$ref": "#/definitions/Azure.Core.azureLocation"
+        },
+        "tags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "properties"
+      ],
+      "allOf": [
+        {
+          "$ref": "../../../../../../common-types/resource-management/v5/types.json#/definitions/ProxyResource"
+        }
+      ]
+    },
+    "VaultProperties": {
+      "type": "object",
+      "properties": {
+        "tenantId": {
+          "$ref": "#/definitions/Azure.Core.uuid"
+        },
+        "sku": {
+          "$ref": "#/definitions/Sku"
+        },
+        "accessPolicies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AccessPolicyEntry"
+          },
+          "x-ms-identifiers": [
+            "tenantId",
+            "objectId",
+            "permissions"
+          ]
+        },
+        "vaultUri": {
+          "type": "string"
+        },
+        "hsmPoolResourceId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "enabledForDeployment": {
+          "type": "boolean",
+          "default": false
+        },
+        "enabledForDiskEncryption": {
+          "type": "boolean",
+          "default": false
+        },
+        "enabledForTemplateDeployment": {
+          "type": "boolean",
+          "default": false
+        },
+        "enableSoftDelete": {
+          "type": "boolean",
+          "default": true
+        },
+        "softDeleteRetentionInDays": {
+          "type": "integer",
+          "format": "int32",
+          "default": 90
+        },
+        "enableRbacAuthorization": {
+          "type": "boolean",
+          "default": true
+        },
+        "createMode": {
+          "$ref": "#/definitions/CreateMode",
+          "x-ms-mutability": [
+            "update",
+            "create"
+          ]
+        },
+        "enablePurgeProtection": {
+          "type": "boolean"
+        },
+        "networkAcls": {
+          "$ref": "#/definitions/NetworkRuleSet"
+        },
+        "provisioningState": {
+          "$ref": "#/definitions/VaultProvisioningState"
+        },
+        "privateEndpointConnections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PrivateEndpointConnectionItem"
+          },
+          "readOnly": true
+        },
+        "publicNetworkAccess": {
+          "type": "string",
+          "default": "enabled"
+        }
+      },
+      "required": [
+        "tenantId",
+        "sku"
+      ]
+    },
+    "VaultProvisioningState": {
+      "type": "string",
+      "enum": [
+        "Succeeded",
+        "RegisteringDns"
+      ],
+      "x-ms-enum": {
+        "name": "VaultProvisioningState",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Succeeded",
+            "value": "Succeeded"
+          },
+          {
+            "name": "RegisteringDns",
+            "value": "RegisteringDns"
+          }
+        ]
+      }
+    },
+    "VirtualNetworkRule": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "ignoreMissingVnetServiceEndpoint": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    }
+  }
+}
