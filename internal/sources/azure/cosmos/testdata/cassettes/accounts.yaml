@@ -1,0 +1,38 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56314
+        form:
+            api-version:
+                - "2025-10-15"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armcosmos/v3.4.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.DocumentDB/databaseAccounts?api-version=2025-10-15
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 561
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.DocumentDB/databaseAccounts/e2ecosmos","name":"e2ecosmos","type":"Microsoft.DocumentDB/databaseAccounts","location":"eastus","kind":"GlobalDocumentDB","properties":{"provisioningState":"Succeeded","keyVaultKeyURI":"https://e2evault.vault.azure.net/keys/k1/abc","disableLocalAuth":true,"isVirtualNetworkFilterEnabled":true,"publicNetworkAccess":"Disabled","backupPolicy":{"type":"Continuous","continuousModeProperties":{"tier":"Continuous30Days"}}}}]}'
+        headers:
+            Content-Length:
+                - "561"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:10:34 GMT
+        status: 200 OK
+        code: 200
+        duration: 5.744792ms

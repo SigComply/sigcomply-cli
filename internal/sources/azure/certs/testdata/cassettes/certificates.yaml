@@ -1,0 +1,73 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56319
+        form:
+            api-version:
+                - "2025-05-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armappservice/v6.0.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Web/certificates?api-version=2025-05-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 530
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Web/certificates/e2ecert","name":"e2ecert","type":"Microsoft.Web/certificates","location":"eastus","properties":{"subjectName":"example.com","hostNames":["example.com","www.example.com"],"thumbprint":"ABC123","issuer":"DigiCert","expirationDate":"2027-06-28T12:00:00Z","valid":true,"keyVaultId":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.KeyVault/vaults/e2evault"}}]}'
+        headers:
+            Content-Length:
+                - "530"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:10:37 GMT
+        status: 200 OK
+        code: 200
+        duration: 3.50825ms
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56319
+        form:
+            api-version:
+                - "2024-11-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armcertificateregistration/v0.1.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.CertificateRegistration/certificateOrders?api-version=2024-11-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 466
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.CertificateRegistration/certificateOrders/e2eorder","name":"e2eorder","type":"Microsoft.CertificateRegistration/certificateOrders","location":"global","properties":{"distinguishedName":"CN=example.com","status":"Issued","expirationTime":"2027-06-28T12:00:00Z","autoRenew":true,"productType":"StandardDomainValidatedSsl","provisioningState":"Succeeded"}}]}'
+        headers:
+            Content-Length:
+                - "466"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:10:37 GMT
+        status: 200 OK
+        code: 200
+        duration: 118.208µs

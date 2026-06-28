@@ -1,0 +1,73 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56316
+        form:
+            api-version:
+                - "2023-04-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armrecoveryservices/v1.6.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.RecoveryServices/vaults?api-version=2023-04-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 275
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.RecoveryServices/vaults/e2evault","name":"e2evault","type":"Microsoft.RecoveryServices/vaults","location":"eastus","properties":{"provisioningState":"Succeeded"}}]}'
+        headers:
+            Content-Length:
+                - "275"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:10:36 GMT
+        status: 200 OK
+        code: 200
+        duration: 4.282417ms
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56316
+        form:
+            api-version:
+                - "2025-02-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armrecoveryservicesbackup/v4.2.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.RecoveryServices/vaults/e2evault/backupPolicies?api-version=2025-02-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 478
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.RecoveryServices/vaults/e2evault/backupPolicies/daily","name":"daily","type":"Microsoft.RecoveryServices/vaults/backupPolicies","location":"eastus","properties":{"backupManagementType":"AzureIaasVM","protectedItemsCount":5,"retentionPolicy":{"retentionPolicyType":"LongTermRetentionPolicy","dailySchedule":{"retentionDuration":{"count":30,"durationType":"Days"}}}}}]}'
+        headers:
+            Content-Length:
+                - "478"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:10:36 GMT
+        status: 200 OK
+        code: 200
+        duration: 196.375µs
