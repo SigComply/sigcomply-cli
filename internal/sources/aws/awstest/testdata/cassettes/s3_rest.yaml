@@ -1,0 +1,54 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 0
+        host: ""
+        form:
+            x-id:
+                - ListBuckets
+        headers:
+            Accept-Encoding:
+                - identity
+            Amz-Sdk-Invocation-Id:
+                - 18aa40e3-871b-4be5-9fe5-17978d7e6b19
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/s3#1.102.2 m/g
+            X-Amz-Content-Sha256:
+                - e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            X-Amz-Date:
+                - 20260628T072109Z
+        url: https://s3.us-east-1.amazonaws.com/?x-id=ListBuckets
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        transfer_encoding:
+            - chunked
+        content_length: -1
+        body: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Owner><ID>example0000000000000000000000000000000000000000000000000000000000</ID></Owner><Buckets/></ListAllMyBucketsResult>
+        headers:
+            Content-Type:
+                - application/xml
+            Date:
+                - Sun, 28 Jun 2026 07:21:12 GMT
+            Server:
+                - AmazonS3
+            X-Amz-Id-2:
+                - Go/7VNylH97dVs86F0zUCAN7q45TK39athDruoX1uk+j6Qk+L3t8807d8HC4bz99QqA7nym9KjM=
+            X-Amz-Request-Id:
+                - 2EKQK9BF5TV1HXYX
+        status: 200 OK
+        code: 200
+        duration: 2.745278417s

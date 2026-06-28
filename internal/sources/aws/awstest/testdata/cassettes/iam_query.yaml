@@ -1,0 +1,264 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 35
+        host: ""
+        body: Action=ListUsers&Version=2010-05-08
+        form:
+            Action:
+                - ListUsers
+            Version:
+                - "2010-05-08"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - b9da1c20-3269-4788-8827-986fa2305581
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/iam#1.54.0 m/g
+            X-Amz-Date:
+                - 20260628T072057Z
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 847
+        body: |
+            <ListUsersResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <ListUsersResult>
+                <IsTruncated>false</IsTruncated>
+                <Users>
+                  <member>
+                    <Path>/</Path>
+                    <UserName>example-admin</UserName>
+                    <Arn>arn:aws:iam::000000000000:user/example-admin</Arn>
+                    <UserId>AIDAEXAMPLE0000000001</UserId>
+                    <CreateDate>2026-06-14T07:06:48Z</CreateDate>
+                  </member>
+                  <member>
+                    <Path>/</Path>
+                    <UserName>example-recorder</UserName>
+                    <Arn>arn:aws:iam::000000000000:user/example-recorder</Arn>
+                    <UserId>AIDAEXAMPLE0000000002</UserId>
+                    <CreateDate>2026-06-21T18:17:39Z</CreateDate>
+                  </member>
+                </Users>
+              </ListUsersResult>
+              <ResponseMetadata>
+                <RequestId>737b38d3-a6d3-444a-813d-9a4ec255d504</RequestId>
+              </ResponseMetadata>
+            </ListUsersResponse>
+        headers:
+            Content-Length:
+                - "847"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 07:21:02 GMT
+            X-Amzn-Requestid:
+                - 737b38d3-a6d3-444a-813d-9a4ec255d504
+        status: 200 OK
+        code: 200
+        duration: 5.746112917s
+    - id: 1
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 43
+        host: ""
+        body: Action=GetAccountSummary&Version=2010-05-08
+        form:
+            Action:
+                - GetAccountSummary
+            Version:
+                - "2010-05-08"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 8e271f8b-557e-4cf8-9f31-85d9eb677d96
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/iam#1.54.0 m/g
+            X-Amz-Date:
+                - 20260628T072102Z
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 3483
+        body: |
+            <GetAccountSummaryResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <GetAccountSummaryResult>
+                <SummaryMap>
+                  <entry>
+                    <key>GroupPolicySizeQuota</key>
+                    <value>5120</value>
+                  </entry>
+                  <entry>
+                    <key>InstanceProfilesQuota</key>
+                    <value>1000</value>
+                  </entry>
+                  <entry>
+                    <key>Policies</key>
+                    <value>0</value>
+                  </entry>
+                  <entry>
+                    <key>GroupsPerUserQuota</key>
+                    <value>10</value>
+                  </entry>
+                  <entry>
+                    <key>InstanceProfiles</key>
+                    <value>0</value>
+                  </entry>
+                  <entry>
+                    <key>AttachedPoliciesPerUserQuota</key>
+                    <value>10</value>
+                  </entry>
+                  <entry>
+                    <key>Users</key>
+                    <value>2</value>
+                  </entry>
+                  <entry>
+                    <key>PoliciesQuota</key>
+                    <value>1500</value>
+                  </entry>
+                  <entry>
+                    <key>Providers</key>
+                    <value>1</value>
+                  </entry>
+                  <entry>
+                    <key>AccountMFAEnabled</key>
+                    <value>0</value>
+                  </entry>
+                  <entry>
+                    <key>AccessKeysPerUserQuota</key>
+                    <value>2</value>
+                  </entry>
+                  <entry>
+                    <key>AssumeRolePolicySizeQuota</key>
+                    <value>2048</value>
+                  </entry>
+                  <entry>
+                    <key>PolicyVersionsInUseQuota</key>
+                    <value>10000</value>
+                  </entry>
+                  <entry>
+                    <key>GlobalEndpointTokenVersion</key>
+                    <value>1</value>
+                  </entry>
+                  <entry>
+                    <key>VersionsPerPolicyQuota</key>
+                    <value>5</value>
+                  </entry>
+                  <entry>
+                    <key>AttachedPoliciesPerGroupQuota</key>
+                    <value>10</value>
+                  </entry>
+                  <entry>
+                    <key>PolicySizeQuota</key>
+                    <value>6144</value>
+                  </entry>
+                  <entry>
+                    <key>Groups</key>
+                    <value>0</value>
+                  </entry>
+                  <entry>
+                    <key>AccountSigningCertificatesPresent</key>
+                    <value>0</value>
+                  </entry>
+                  <entry>
+                    <key>UsersQuota</key>
+                    <value>5000</value>
+                  </entry>
+                  <entry>
+                    <key>ServerCertificatesQuota</key>
+                    <value>20</value>
+                  </entry>
+                  <entry>
+                    <key>MFADevices</key>
+                    <value>0</value>
+                  </entry>
+                  <entry>
+                    <key>UserPolicySizeQuota</key>
+                    <value>2048</value>
+                  </entry>
+                  <entry>
+                    <key>PolicyVersionsInUse</key>
+                    <value>11</value>
+                  </entry>
+                  <entry>
+                    <key>ServerCertificates</key>
+                    <value>0</value>
+                  </entry>
+                  <entry>
+                    <key>Roles</key>
+                    <value>9</value>
+                  </entry>
+                  <entry>
+                    <key>RolesQuota</key>
+                    <value>1000</value>
+                  </entry>
+                  <entry>
+                    <key>SigningCertificatesPerUserQuota</key>
+                    <value>2</value>
+                  </entry>
+                  <entry>
+                    <key>MFADevicesInUse</key>
+                    <value>0</value>
+                  </entry>
+                  <entry>
+                    <key>RolePolicySizeQuota</key>
+                    <value>10240</value>
+                  </entry>
+                  <entry>
+                    <key>AttachedPoliciesPerRoleQuota</key>
+                    <value>10</value>
+                  </entry>
+                  <entry>
+                    <key>AccountAccessKeysPresent</key>
+                    <value>0</value>
+                  </entry>
+                  <entry>
+                    <key>AccountPasswordPresent</key>
+                    <value>1</value>
+                  </entry>
+                  <entry>
+                    <key>GroupsQuota</key>
+                    <value>300</value>
+                  </entry>
+                </SummaryMap>
+              </GetAccountSummaryResult>
+              <ResponseMetadata>
+                <RequestId>3d2fcfde-f8aa-4677-b8d6-3808b0dfb998</RequestId>
+              </ResponseMetadata>
+            </GetAccountSummaryResponse>
+        headers:
+            Content-Length:
+                - "3483"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 07:21:08 GMT
+            X-Amzn-Requestid:
+                - 3d2fcfde-f8aa-4677-b8d6-3808b0dfb998
+        status: 200 OK
+        code: 200
+        duration: 263.232875ms

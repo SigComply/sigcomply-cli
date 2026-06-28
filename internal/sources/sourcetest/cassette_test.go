@@ -152,3 +152,65 @@ func checkScrubbed(t *testing.T, label, s string) {
 		}
 	}
 }
+
+func TestAWSMatcher(t *testing.T) {
+	const iamURL = "https://iam.amazonaws.com/"
+	listUsers := cassette.Request{Method: "POST", URL: iamURL, Body: "Action=ListUsers&Version=2010-05-08"}
+	dynamo := cassette.Request{
+		Method:  "POST",
+		URL:     "https://dynamodb.us-east-1.amazonaws.com/",
+		Headers: http.Header{"X-Amz-Target": {"DynamoDB_20120810.ListTables"}},
+	}
+
+	newReq := func(method, url, body string, target string) *http.Request {
+		r, err := http.NewRequestWithContext(t.Context(), method, url, strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if target != "" {
+			r.Header.Set("X-Amz-Target", target)
+		}
+		return r
+	}
+
+	cases := []struct {
+		name string
+		req  *http.Request
+		rec  cassette.Request
+		want bool
+	}{
+		// Query protocol: same URL, disambiguated by body.
+		{"query match", newReq("POST", iamURL, "Action=ListUsers&Version=2010-05-08", ""), listUsers, true},
+		{"query body mismatch", newReq("POST", iamURL, "Action=ListRoles&Version=2010-05-08", ""), listUsers, false},
+		{"method mismatch", newReq("GET", iamURL, "Action=ListUsers&Version=2010-05-08", ""), listUsers, false},
+		{"url mismatch", newReq("POST", "https://iam.amazonaws.com/other", "Action=ListUsers&Version=2010-05-08", ""), listUsers, false},
+		// json protocol: disambiguated by X-Amz-Target, body ignored.
+		{"json target match", newReq("POST", dynamo.URL, `{"x":1}`, "DynamoDB_20120810.ListTables"), dynamo, true},
+		{"json target mismatch", newReq("POST", dynamo.URL, `{"x":1}`, "DynamoDB_20120810.Scan"), dynamo, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := AWSMatcher(tc.req, tc.rec); got != tc.want {
+				t.Errorf("AWSMatcher = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestAWSMatcherRestoresBody(t *testing.T) {
+	const body = "Action=ListUsers&Version=2010-05-08"
+	r, err := http.NewRequestWithContext(t.Context(), "POST", "https://iam.amazonaws.com/", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = AWSMatcher(r, cassette.Request{Method: "POST", URL: "https://iam.amazonaws.com/", Body: body})
+	// The body must still be readable after matching (go-vcr calls the matcher
+	// once per interaction against the same request, then sends it on a miss).
+	got, err := io.ReadAll(r.Body)
+	if err != nil {
+		t.Fatalf("read restored body: %v", err)
+	}
+	if string(got) != body {
+		t.Errorf("restored body = %q, want %q", got, body)
+	}
+}

@@ -1,6 +1,8 @@
 package sourcetest
 
 import (
+	"bytes"
+	"io"
 	"net/http"
 	"regexp"
 	"testing"
@@ -23,12 +25,20 @@ import (
 // an endpoint more than once and the conformance harness's two Collect runs.
 func ReplayClient(t *testing.T, cassetteName string) *http.Client {
 	t.Helper()
+	return ReplayClientWithMatcher(t, cassetteName, MethodURLMatcher)
+}
+
+// ReplayClientWithMatcher is ReplayClient with a caller-supplied request
+// matcher — used by providers whose operations collide on method+URL (e.g.
+// AWS query/json protocols; see AWSMatcher).
+func ReplayClientWithMatcher(t *testing.T, cassetteName string, matcher cassette.MatcherFunc) *http.Client {
+	t.Helper()
 	rec, err := recorder.New(
 		cassetteName,
 		recorder.WithMode(recorder.ModeReplayOnly),
 		recorder.WithSkipRequestLatency(true),
 		recorder.WithReplayableInteractions(true),
-		recorder.WithMatcher(MethodURLMatcher),
+		recorder.WithMatcher(matcher),
 	)
 	if err != nil {
 		t.Fatalf("sourcetest: load cassette %q: %v", cassetteName, err)
@@ -48,6 +58,14 @@ func ReplayClient(t *testing.T, cassetteName string) *http.Client {
 // realTransport defaults to http.DefaultTransport.
 func RecordClient(t *testing.T, cassetteName string, realTransport http.RoundTripper) *http.Client {
 	t.Helper()
+	return RecordClientWithMatcher(t, cassetteName, realTransport, MethodURLMatcher)
+}
+
+// RecordClientWithMatcher is RecordClient with a caller-supplied request
+// matcher (the same one replay will use), so multi-operation recordings whose
+// requests share a URL are de-duplicated correctly while recording.
+func RecordClientWithMatcher(t *testing.T, cassetteName string, realTransport http.RoundTripper, matcher cassette.MatcherFunc) *http.Client {
+	t.Helper()
 	if realTransport == nil {
 		realTransport = http.DefaultTransport
 	}
@@ -56,7 +74,7 @@ func RecordClient(t *testing.T, cassetteName string, realTransport http.RoundTri
 		recorder.WithMode(recorder.ModeRecordOnce),
 		recorder.WithRealTransport(realTransport),
 		recorder.WithReplayableInteractions(true),
-		recorder.WithMatcher(MethodURLMatcher),
+		recorder.WithMatcher(matcher),
 		recorder.WithHook(RedactInteraction, recorder.BeforeSaveHook),
 	)
 	if err != nil {
@@ -79,6 +97,45 @@ func RecordClient(t *testing.T, cassetteName string, realTransport http.RoundTri
 //nolint:gocritic // signature is fixed by cassette.MatcherFunc (value receiver).
 func MethodURLMatcher(r *http.Request, i cassette.Request) bool {
 	return r.Method == i.Method && r.URL.String() == i.URL
+}
+
+// AWSMatcher matches AWS SDK requests, which the default method+URL matcher
+// cannot tell apart: AWS "query protocol" services (IAM, STS) send every
+// operation as POST to one identical URL (e.g. https://iam.amazonaws.com/) with
+// the operation in the form-encoded body, and "json protocol" services
+// (DynamoDB, SSM, …) carry the operation in the X-Amz-Target header. So after
+// method+URL it disambiguates by X-Amz-Target when present, else by the request
+// body. It deliberately never compares Authorization / X-Amz-Date — those carry
+// the SigV4 signature and timestamp, which differ between record and replay.
+// REST services (S3) have distinct per-operation URLs, so method+URL alone
+// already separates them and the body branch is simply unused.
+//
+//nolint:gocritic // signature is fixed by cassette.MatcherFunc (value receiver).
+func AWSMatcher(r *http.Request, i cassette.Request) bool {
+	if r.Method != i.Method || r.URL.String() != i.URL {
+		return false
+	}
+	if tgt := r.Header.Get("X-Amz-Target"); tgt != "" {
+		return tgt == i.Headers.Get("X-Amz-Target")
+	}
+	return readRequestBody(r) == i.Body
+}
+
+// readRequestBody returns the live request body as a string and restores
+// r.Body, so the cassette matcher loop (called once per recorded interaction
+// against the same *http.Request) and any subsequent real RoundTrip still see
+// it — mirroring go-vcr's own default body matcher. AWS SDK v2 (smithy) never
+// sets GetBody, so the read-and-restore path is the one that fires.
+func readRequestBody(r *http.Request) string {
+	if r.Body == nil || r.Body == http.NoBody {
+		return ""
+	}
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(r.Body); err != nil {
+		return ""
+	}
+	r.Body = io.NopCloser(bytes.NewReader(buf.Bytes()))
+	return buf.String()
 }
 
 // Redaction patterns mirror the §4 placeholder table. Order matters: specific
