@@ -1,0 +1,38 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55797
+        form:
+            alt:
+                - json
+            prettyPrint:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://logging.googleapis.com/v2/projects/e2e-project/locations/-/buckets?alt=json&prettyPrint=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 229
+        body: '{"buckets":[{"name":"projects/e2e-project/locations/global/buckets/_Default","retentionDays":400,"locked":true,"lifecycleState":"ACTIVE","cmekSettings":{"kmsKeyName":"projects/e2e-project/locations/us/keyRings/r/cryptoKeys/k"}}]}'
+        headers:
+            Content-Length:
+                - "229"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 13:35:54 GMT
+        status: 200 OK
+        code: 200
+        duration: 959.25µs
