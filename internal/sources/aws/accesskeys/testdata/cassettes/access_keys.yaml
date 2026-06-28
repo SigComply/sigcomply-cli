@@ -1,0 +1,323 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 35
+        host: ""
+        body: Action=ListUsers&Version=2010-05-08
+        form:
+            Action:
+                - ListUsers
+            Version:
+                - "2010-05-08"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 6e4f367e-4021-4b88-964b-e05b63ecc03c
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/iam#1.54.0 m/g
+            X-Amz-Date:
+                - 20260628T075053Z
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 847
+        body: |
+            <ListUsersResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <ListUsersResult>
+                <IsTruncated>false</IsTruncated>
+                <Users>
+                  <member>
+                    <Path>/</Path>
+                    <UserName>example-admin</UserName>
+                    <Arn>arn:aws:iam::000000000000:user/example-admin</Arn>
+                    <UserId>AIDAEXAMPLE0000000001</UserId>
+                    <CreateDate>2026-06-14T07:06:48Z</CreateDate>
+                  </member>
+                  <member>
+                    <Path>/</Path>
+                    <UserName>example-recorder</UserName>
+                    <Arn>arn:aws:iam::000000000000:user/example-recorder</Arn>
+                    <UserId>AIDAEXAMPLE0000000002</UserId>
+                    <CreateDate>2026-06-21T18:17:39Z</CreateDate>
+                  </member>
+                </Users>
+              </ListUsersResult>
+              <ResponseMetadata>
+                <RequestId>256c14f3-c681-4e84-8788-e73d407cba8d</RequestId>
+              </ResponseMetadata>
+            </ListUsersResponse>
+        headers:
+            Content-Length:
+                - "847"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 07:50:59 GMT
+            X-Amzn-Requestid:
+                - 256c14f3-c681-4e84-8788-e73d407cba8d
+        status: 200 OK
+        code: 200
+        duration: 5.683497958s
+    - id: 1
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 65
+        host: ""
+        body: Action=ListAccessKeys&UserName=example-admin&Version=2010-05-08
+        form:
+            Action:
+                - ListAccessKeys
+            UserName:
+                - example-admin
+            Version:
+                - "2010-05-08"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 031e00c7-861a-41bd-9cf2-9779494585ac
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/iam#1.54.0 m/g
+            X-Amz-Date:
+                - 20260628T075059Z
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 563
+        body: |
+            <ListAccessKeysResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <ListAccessKeysResult>
+                <IsTruncated>false</IsTruncated>
+                <AccessKeyMetadata>
+                  <member>
+                    <AccessKeyId>AKIAEXAMPLE30EDE2406</AccessKeyId>
+                    <UserName>example-admin</UserName>
+                    <Status>Active</Status>
+                    <CreateDate>2026-06-14T07:07:16Z</CreateDate>
+                  </member>
+                </AccessKeyMetadata>
+              </ListAccessKeysResult>
+              <ResponseMetadata>
+                <RequestId>e2994f93-54d8-483d-b0e3-0a1788669684</RequestId>
+              </ResponseMetadata>
+            </ListAccessKeysResponse>
+        headers:
+            Content-Length:
+                - "563"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 07:51:05 GMT
+            X-Amzn-Requestid:
+                - e2994f93-54d8-483d-b0e3-0a1788669684
+        status: 200 OK
+        code: 200
+        duration: 242.376041ms
+    - id: 2
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 79
+        host: ""
+        body: AccessKeyId=AKIAEXAMPLE30EDE2406&Action=GetAccessKeyLastUsed&Version=2010-05-08
+        form:
+            AccessKeyId:
+                - AKIAEXAMPLE30EDE2406
+            Action:
+                - GetAccessKeyLastUsed
+            Version:
+                - "2010-05-08"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 46e01b7c-91b5-4b56-ae3c-46231b18b282
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/iam#1.54.0 m/g
+            X-Amz-Date:
+                - 20260628T075105Z
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 499
+        body: |
+            <GetAccessKeyLastUsedResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <GetAccessKeyLastUsedResult>
+                <AccessKeyLastUsed>
+                  <LastUsedDate>2026-06-21T18:18:00Z</LastUsedDate>
+                  <Region>us-east-1</Region>
+                  <ServiceName>iam</ServiceName>
+                </AccessKeyLastUsed>
+                <UserName>example-admin</UserName>
+              </GetAccessKeyLastUsedResult>
+              <ResponseMetadata>
+                <RequestId>835c5382-bfa2-4447-a431-7c9dc0dd5dc5</RequestId>
+              </ResponseMetadata>
+            </GetAccessKeyLastUsedResponse>
+        headers:
+            Content-Length:
+                - "499"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 07:51:05 GMT
+            X-Amzn-Requestid:
+                - 835c5382-bfa2-4447-a431-7c9dc0dd5dc5
+        status: 200 OK
+        code: 200
+        duration: 230.98975ms
+    - id: 3
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 72
+        host: ""
+        body: Action=ListAccessKeys&UserName=example-recorder&Version=2010-05-08
+        form:
+            Action:
+                - ListAccessKeys
+            UserName:
+                - example-recorder
+            Version:
+                - "2010-05-08"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - de472a67-79a1-44ed-b8b4-9c632a2f0d43
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/iam#1.54.0 m/g
+            X-Amz-Date:
+                - 20260628T075105Z
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 570
+        body: |
+            <ListAccessKeysResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <ListAccessKeysResult>
+                <IsTruncated>false</IsTruncated>
+                <AccessKeyMetadata>
+                  <member>
+                    <AccessKeyId>AKIAEXAMPLEC262BA526</AccessKeyId>
+                    <UserName>example-recorder</UserName>
+                    <Status>Active</Status>
+                    <CreateDate>2026-06-21T18:18:27Z</CreateDate>
+                  </member>
+                </AccessKeyMetadata>
+              </ListAccessKeysResult>
+              <ResponseMetadata>
+                <RequestId>e93b63e6-f1c7-40c3-a3d6-8eae3e147754</RequestId>
+              </ResponseMetadata>
+            </ListAccessKeysResponse>
+        headers:
+            Content-Length:
+                - "570"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 07:51:06 GMT
+            X-Amzn-Requestid:
+                - e93b63e6-f1c7-40c3-a3d6-8eae3e147754
+        status: 200 OK
+        code: 200
+        duration: 252.969041ms
+    - id: 4
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 79
+        host: ""
+        body: AccessKeyId=AKIAEXAMPLEC262BA526&Action=GetAccessKeyLastUsed&Version=2010-05-08
+        form:
+            AccessKeyId:
+                - AKIAEXAMPLEC262BA526
+            Action:
+                - GetAccessKeyLastUsed
+            Version:
+                - "2010-05-08"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 53115dbe-0878-4df7-995f-5391e0baa37d
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/iam#1.54.0 m/g
+            X-Amz-Date:
+                - 20260628T075106Z
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 506
+        body: |
+            <GetAccessKeyLastUsedResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <GetAccessKeyLastUsedResult>
+                <AccessKeyLastUsed>
+                  <LastUsedDate>2026-06-28T07:47:00Z</LastUsedDate>
+                  <Region>us-east-1</Region>
+                  <ServiceName>iam</ServiceName>
+                </AccessKeyLastUsed>
+                <UserName>example-recorder</UserName>
+              </GetAccessKeyLastUsedResult>
+              <ResponseMetadata>
+                <RequestId>44bce8b7-9c62-4806-b881-e1e97917b678</RequestId>
+              </ResponseMetadata>
+            </GetAccessKeyLastUsedResponse>
+        headers:
+            Content-Length:
+                - "506"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 07:51:06 GMT
+            X-Amzn-Requestid:
+                - 44bce8b7-9c62-4806-b881-e1e97917b678
+        status: 200 OK
+        code: 200
+        duration: 243.376333ms

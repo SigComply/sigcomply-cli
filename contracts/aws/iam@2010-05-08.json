@@ -1,0 +1,3521 @@
+{
+ "smithy": "2.0",
+ "shapes": {
+  "com.amazonaws.iam#AWSIdentityManagementV20100508": {
+   "type": "service",
+   "version": "2010-05-08",
+   "operations": [
+    {
+     "target": "com.amazonaws.iam#GenerateCredentialReport"
+    },
+    {
+     "target": "com.amazonaws.iam#GetAccessKeyLastUsed"
+    },
+    {
+     "target": "com.amazonaws.iam#GetAccountPasswordPolicy"
+    },
+    {
+     "target": "com.amazonaws.iam#GetCredentialReport"
+    },
+    {
+     "target": "com.amazonaws.iam#ListAccessKeys"
+    },
+    {
+     "target": "com.amazonaws.iam#ListAttachedGroupPolicies"
+    },
+    {
+     "target": "com.amazonaws.iam#ListAttachedUserPolicies"
+    },
+    {
+     "target": "com.amazonaws.iam#ListGroupsForUser"
+    },
+    {
+     "target": "com.amazonaws.iam#ListMFADevices"
+    },
+    {
+     "target": "com.amazonaws.iam#ListUsers"
+    }
+   ],
+   "traits": {
+    "aws.api#service": {
+     "sdkId": "IAM",
+     "arnNamespace": "iam",
+     "cloudFormationName": "IAM",
+     "cloudTrailEventSource": "iam.amazonaws.com",
+     "endpointPrefix": "iam"
+    },
+    "aws.auth#sigv4": {
+     "name": "iam"
+    },
+    "aws.protocols#awsQuery": {},
+    "smithy.api#title": "AWS Identity and Access Management",
+    "smithy.api#xmlNamespace": {
+     "uri": "https://iam.amazonaws.com/doc/2010-05-08/"
+    },
+    "smithy.rules#endpointBdd": {
+     "version": "1.1",
+     "parameters": {
+      "UseDualStack": {
+       "builtIn": "AWS::UseDualStack",
+       "required": true,
+       "default": false,
+       "documentation": "When true, use the dual-stack endpoint. If the configured endpoint does not support dual-stack, dispatching the request MAY return an error.",
+       "type": "boolean"
+      },
+      "UseFIPS": {
+       "builtIn": "AWS::UseFIPS",
+       "required": true,
+       "default": false,
+       "documentation": "When true, send this request to the FIPS-compliant regional endpoint. If the configured endpoint does not have a FIPS compliant endpoint, dispatching the request will return an error.",
+       "type": "boolean"
+      },
+      "Endpoint": {
+       "builtIn": "SDK::Endpoint",
+       "required": false,
+       "documentation": "Override the endpoint used to send this request",
+       "type": "string"
+      },
+      "Region": {
+       "builtIn": "AWS::Region",
+       "required": false,
+       "documentation": "The AWS region used to dispatch the request.",
+       "type": "string"
+      }
+     },
+     "conditions": [
+      {
+       "fn": "isSet",
+       "argv": [
+        {
+         "ref": "Endpoint"
+        }
+       ]
+      },
+      {
+       "fn": "isSet",
+       "argv": [
+        {
+         "ref": "Region"
+        }
+       ]
+      },
+      {
+       "fn": "aws.partition",
+       "argv": [
+        {
+         "ref": "Region"
+        }
+       ],
+       "assign": "PartitionResult"
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "ref": "UseFIPS"
+        },
+        true
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "ref": "UseDualStack"
+        },
+        true
+       ]
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "name"
+         ]
+        },
+        "aws"
+       ]
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "name"
+         ]
+        },
+        "aws-cn"
+       ]
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "name"
+         ]
+        },
+        "aws-us-gov"
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "supportsDualStack"
+         ]
+        },
+        true
+       ]
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "name"
+         ]
+        },
+        "aws-iso"
+       ]
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "name"
+         ]
+        },
+        "aws-iso-b"
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "supportsFIPS"
+         ]
+        },
+        true
+       ]
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "name"
+         ]
+        },
+        "aws-iso-e"
+       ]
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "name"
+         ]
+        },
+        "aws-iso-f"
+       ]
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "name"
+         ]
+        },
+        "aws-eusc"
+       ]
+      }
+     ],
+     "results": [
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: FIPS and custom endpoint are not supported",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: Dualstack and custom endpoint are not supported",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": {
+         "ref": "Endpoint"
+        },
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://iam.global.api.aws",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingRegion": "us-east-1"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://iam-fips.global.api.aws",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingRegion": "us-east-1"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://iam.global.api.amazonwebservices.com.cn",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingRegion": "cn-north-1"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://iam.cn-north-1.amazonaws.com.cn",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingRegion": "cn-north-1"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://iam.us-gov.api.aws",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingRegion": "us-gov-west-1"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://iam.us-gov.amazonaws.com",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingRegion": "us-gov-west-1"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://iam.us-iso-east-1.c2s.ic.gov",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingRegion": "us-iso-east-1"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://iam-fips.us-iso-east-1.c2s.ic.gov",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingRegion": "us-iso-east-1"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://iam.us-isob-east-1.sc2s.sgov.gov",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingRegion": "us-isob-east-1"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://iam-fips.us-isob-east-1.sc2s.sgov.gov",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingRegion": "us-isob-east-1"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://iam.eu-isoe-west-1.cloud.adc-e.uk",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingRegion": "eu-isoe-west-1"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://iam.us-isof-south-1.csp.hci.ic.gov",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingRegion": "us-isof-south-1"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://iam.eusc-de-east-1.amazonaws.eu",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingRegion": "eusc-de-east-1"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://iam-fips.{PartitionResult#dualStackDnsSuffix}",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingRegion": "{PartitionResult#implicitGlobalRegion}"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "FIPS and DualStack are enabled, but this partition does not support one or both",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://iam-fips.{PartitionResult#dnsSuffix}",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingRegion": "{PartitionResult#implicitGlobalRegion}"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "FIPS is enabled but this partition does not support FIPS",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://iam.{PartitionResult#dualStackDnsSuffix}",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingRegion": "{PartitionResult#implicitGlobalRegion}"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "DualStack is enabled but this partition does not support DualStack",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://iam.{PartitionResult#dnsSuffix}",
+        "properties": {
+         "authSchemes": [
+          {
+           "name": "sigv4",
+           "signingRegion": "{PartitionResult#implicitGlobalRegion}"
+          }
+         ]
+        },
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: Missing Region",
+       "type": "error"
+      }
+     ],
+     "root": 2,
+     "nodeCount": 28,
+     "nodes": "/////wAAAAH/////AAAAAAAAABsAAAADAAAAAQAAAAQF9eEYAAAAAgAAAAUF9eEYAAAAAwAAABIAAAAGAAAABAAAAA4AAAAHAAAABgX14QcAAAAIAAAABwX14QkAAAAJAAAACQX14QoAAAAKAAAACgX14QwAAAALAAAADAX14Q4AAAAMAAAADQX14Q8AAAANAAAADgX14RAF9eEXAAAABQX14QQAAAAPAAAABgX14QYAAAAQAAAABwX14QgAAAARAAAACAX14RUF9eEWAAAABAAAABcAAAATAAAABwX14QkAAAAUAAAACQX14QsAAAAVAAAACgX14Q0AAAAWAAAACwX14RMF9eEUAAAABQX14QUAAAAYAAAABwX14QgAAAAZAAAACAAAABoF9eESAAAACwX14REF9eESAAAAAwX14QEAAAAcAAAABAX14QIF9eED"
+    },
+    "smithy.rules#endpointRuleSet": {
+     "version": "1.0",
+     "parameters": {
+      "UseDualStack": {
+       "builtIn": "AWS::UseDualStack",
+       "required": true,
+       "default": false,
+       "documentation": "When true, use the dual-stack endpoint. If the configured endpoint does not support dual-stack, dispatching the request MAY return an error.",
+       "type": "boolean"
+      },
+      "UseFIPS": {
+       "builtIn": "AWS::UseFIPS",
+       "required": true,
+       "default": false,
+       "documentation": "When true, send this request to the FIPS-compliant regional endpoint. If the configured endpoint does not have a FIPS compliant endpoint, dispatching the request will return an error.",
+       "type": "boolean"
+      },
+      "Endpoint": {
+       "builtIn": "SDK::Endpoint",
+       "required": false,
+       "documentation": "Override the endpoint used to send this request",
+       "type": "string"
+      },
+      "Region": {
+       "builtIn": "AWS::Region",
+       "required": false,
+       "documentation": "The AWS region used to dispatch the request.",
+       "type": "string"
+      }
+     },
+     "rules": [
+      {
+       "conditions": [
+        {
+         "fn": "isSet",
+         "argv": [
+          {
+           "ref": "Endpoint"
+          }
+         ]
+        }
+       ],
+       "rules": [
+        {
+         "conditions": [
+          {
+           "fn": "booleanEquals",
+           "argv": [
+            {
+             "ref": "UseFIPS"
+            },
+            true
+           ]
+          }
+         ],
+         "error": "Invalid Configuration: FIPS and custom endpoint are not supported",
+         "type": "error"
+        },
+        {
+         "conditions": [],
+         "rules": [
+          {
+           "conditions": [
+            {
+             "fn": "booleanEquals",
+             "argv": [
+              {
+               "ref": "UseDualStack"
+              },
+              true
+             ]
+            }
+           ],
+           "error": "Invalid Configuration: Dualstack and custom endpoint are not supported",
+           "type": "error"
+          },
+          {
+           "conditions": [],
+           "endpoint": {
+            "url": {
+             "ref": "Endpoint"
+            },
+            "properties": {},
+            "headers": {}
+           },
+           "type": "endpoint"
+          }
+         ],
+         "type": "tree"
+        }
+       ],
+       "type": "tree"
+      },
+      {
+       "conditions": [],
+       "rules": [
+        {
+         "conditions": [
+          {
+           "fn": "isSet",
+           "argv": [
+            {
+             "ref": "Region"
+            }
+           ]
+          }
+         ],
+         "rules": [
+          {
+           "conditions": [
+            {
+             "fn": "aws.partition",
+             "argv": [
+              {
+               "ref": "Region"
+              }
+             ],
+             "assign": "PartitionResult"
+            }
+           ],
+           "rules": [
+            {
+             "conditions": [
+              {
+               "fn": "stringEquals",
+               "argv": [
+                {
+                 "fn": "getAttr",
+                 "argv": [
+                  {
+                   "ref": "PartitionResult"
+                  },
+                  "name"
+                 ]
+                },
+                "aws"
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                false
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                true
+               ]
+              }
+             ],
+             "endpoint": {
+              "url": "https://iam.global.api.aws",
+              "properties": {
+               "authSchemes": [
+                {
+                 "name": "sigv4",
+                 "signingRegion": "us-east-1"
+                }
+               ]
+              },
+              "headers": {}
+             },
+             "type": "endpoint"
+            },
+            {
+             "conditions": [
+              {
+               "fn": "stringEquals",
+               "argv": [
+                {
+                 "fn": "getAttr",
+                 "argv": [
+                  {
+                   "ref": "PartitionResult"
+                  },
+                  "name"
+                 ]
+                },
+                "aws"
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                true
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                true
+               ]
+              }
+             ],
+             "endpoint": {
+              "url": "https://iam-fips.global.api.aws",
+              "properties": {
+               "authSchemes": [
+                {
+                 "name": "sigv4",
+                 "signingRegion": "us-east-1"
+                }
+               ]
+              },
+              "headers": {}
+             },
+             "type": "endpoint"
+            },
+            {
+             "conditions": [
+              {
+               "fn": "stringEquals",
+               "argv": [
+                {
+                 "fn": "getAttr",
+                 "argv": [
+                  {
+                   "ref": "PartitionResult"
+                  },
+                  "name"
+                 ]
+                },
+                "aws-cn"
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                false
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                true
+               ]
+              }
+             ],
+             "endpoint": {
+              "url": "https://iam.global.api.amazonwebservices.com.cn",
+              "properties": {
+               "authSchemes": [
+                {
+                 "name": "sigv4",
+                 "signingRegion": "cn-north-1"
+                }
+               ]
+              },
+              "headers": {}
+             },
+             "type": "endpoint"
+            },
+            {
+             "conditions": [
+              {
+               "fn": "stringEquals",
+               "argv": [
+                {
+                 "fn": "getAttr",
+                 "argv": [
+                  {
+                   "ref": "PartitionResult"
+                  },
+                  "name"
+                 ]
+                },
+                "aws-cn"
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                false
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                false
+               ]
+              }
+             ],
+             "endpoint": {
+              "url": "https://iam.cn-north-1.amazonaws.com.cn",
+              "properties": {
+               "authSchemes": [
+                {
+                 "name": "sigv4",
+                 "signingRegion": "cn-north-1"
+                }
+               ]
+              },
+              "headers": {}
+             },
+             "type": "endpoint"
+            },
+            {
+             "conditions": [
+              {
+               "fn": "stringEquals",
+               "argv": [
+                {
+                 "fn": "getAttr",
+                 "argv": [
+                  {
+                   "ref": "PartitionResult"
+                  },
+                  "name"
+                 ]
+                },
+                "aws-us-gov"
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                false
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                true
+               ]
+              }
+             ],
+             "endpoint": {
+              "url": "https://iam.us-gov.api.aws",
+              "properties": {
+               "authSchemes": [
+                {
+                 "name": "sigv4",
+                 "signingRegion": "us-gov-west-1"
+                }
+               ]
+              },
+              "headers": {}
+             },
+             "type": "endpoint"
+            },
+            {
+             "conditions": [
+              {
+               "fn": "stringEquals",
+               "argv": [
+                {
+                 "fn": "getAttr",
+                 "argv": [
+                  {
+                   "ref": "PartitionResult"
+                  },
+                  "name"
+                 ]
+                },
+                "aws-us-gov"
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                true
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                true
+               ]
+              }
+             ],
+             "endpoint": {
+              "url": "https://iam.us-gov.api.aws",
+              "properties": {
+               "authSchemes": [
+                {
+                 "name": "sigv4",
+                 "signingRegion": "us-gov-west-1"
+                }
+               ]
+              },
+              "headers": {}
+             },
+             "type": "endpoint"
+            },
+            {
+             "conditions": [
+              {
+               "fn": "stringEquals",
+               "argv": [
+                {
+                 "fn": "getAttr",
+                 "argv": [
+                  {
+                   "ref": "PartitionResult"
+                  },
+                  "name"
+                 ]
+                },
+                "aws-us-gov"
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                false
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                false
+               ]
+              }
+             ],
+             "endpoint": {
+              "url": "https://iam.us-gov.amazonaws.com",
+              "properties": {
+               "authSchemes": [
+                {
+                 "name": "sigv4",
+                 "signingRegion": "us-gov-west-1"
+                }
+               ]
+              },
+              "headers": {}
+             },
+             "type": "endpoint"
+            },
+            {
+             "conditions": [
+              {
+               "fn": "stringEquals",
+               "argv": [
+                {
+                 "fn": "getAttr",
+                 "argv": [
+                  {
+                   "ref": "PartitionResult"
+                  },
+                  "name"
+                 ]
+                },
+                "aws-us-gov"
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                true
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                false
+               ]
+              }
+             ],
+             "endpoint": {
+              "url": "https://iam.us-gov.amazonaws.com",
+              "properties": {
+               "authSchemes": [
+                {
+                 "name": "sigv4",
+                 "signingRegion": "us-gov-west-1"
+                }
+               ]
+              },
+              "headers": {}
+             },
+             "type": "endpoint"
+            },
+            {
+             "conditions": [
+              {
+               "fn": "stringEquals",
+               "argv": [
+                {
+                 "fn": "getAttr",
+                 "argv": [
+                  {
+                   "ref": "PartitionResult"
+                  },
+                  "name"
+                 ]
+                },
+                "aws-iso"
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                false
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                false
+               ]
+              }
+             ],
+             "endpoint": {
+              "url": "https://iam.us-iso-east-1.c2s.ic.gov",
+              "properties": {
+               "authSchemes": [
+                {
+                 "name": "sigv4",
+                 "signingRegion": "us-iso-east-1"
+                }
+               ]
+              },
+              "headers": {}
+             },
+             "type": "endpoint"
+            },
+            {
+             "conditions": [
+              {
+               "fn": "stringEquals",
+               "argv": [
+                {
+                 "fn": "getAttr",
+                 "argv": [
+                  {
+                   "ref": "PartitionResult"
+                  },
+                  "name"
+                 ]
+                },
+                "aws-iso"
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                true
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                false
+               ]
+              }
+             ],
+             "endpoint": {
+              "url": "https://iam-fips.us-iso-east-1.c2s.ic.gov",
+              "properties": {
+               "authSchemes": [
+                {
+                 "name": "sigv4",
+                 "signingRegion": "us-iso-east-1"
+                }
+               ]
+              },
+              "headers": {}
+             },
+             "type": "endpoint"
+            },
+            {
+             "conditions": [
+              {
+               "fn": "stringEquals",
+               "argv": [
+                {
+                 "fn": "getAttr",
+                 "argv": [
+                  {
+                   "ref": "PartitionResult"
+                  },
+                  "name"
+                 ]
+                },
+                "aws-iso-b"
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                false
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                false
+               ]
+              }
+             ],
+             "endpoint": {
+              "url": "https://iam.us-isob-east-1.sc2s.sgov.gov",
+              "properties": {
+               "authSchemes": [
+                {
+                 "name": "sigv4",
+                 "signingRegion": "us-isob-east-1"
+                }
+               ]
+              },
+              "headers": {}
+             },
+             "type": "endpoint"
+            },
+            {
+             "conditions": [
+              {
+               "fn": "stringEquals",
+               "argv": [
+                {
+                 "fn": "getAttr",
+                 "argv": [
+                  {
+                   "ref": "PartitionResult"
+                  },
+                  "name"
+                 ]
+                },
+                "aws-iso-b"
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                true
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                false
+               ]
+              }
+             ],
+             "endpoint": {
+              "url": "https://iam-fips.us-isob-east-1.sc2s.sgov.gov",
+              "properties": {
+               "authSchemes": [
+                {
+                 "name": "sigv4",
+                 "signingRegion": "us-isob-east-1"
+                }
+               ]
+              },
+              "headers": {}
+             },
+             "type": "endpoint"
+            },
+            {
+             "conditions": [
+              {
+               "fn": "stringEquals",
+               "argv": [
+                {
+                 "fn": "getAttr",
+                 "argv": [
+                  {
+                   "ref": "PartitionResult"
+                  },
+                  "name"
+                 ]
+                },
+                "aws-iso-e"
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                false
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                false
+               ]
+              }
+             ],
+             "endpoint": {
+              "url": "https://iam.eu-isoe-west-1.cloud.adc-e.uk",
+              "properties": {
+               "authSchemes": [
+                {
+                 "name": "sigv4",
+                 "signingRegion": "eu-isoe-west-1"
+                }
+               ]
+              },
+              "headers": {}
+             },
+             "type": "endpoint"
+            },
+            {
+             "conditions": [
+              {
+               "fn": "stringEquals",
+               "argv": [
+                {
+                 "fn": "getAttr",
+                 "argv": [
+                  {
+                   "ref": "PartitionResult"
+                  },
+                  "name"
+                 ]
+                },
+                "aws-iso-f"
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                false
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                false
+               ]
+              }
+             ],
+             "endpoint": {
+              "url": "https://iam.us-isof-south-1.csp.hci.ic.gov",
+              "properties": {
+               "authSchemes": [
+                {
+                 "name": "sigv4",
+                 "signingRegion": "us-isof-south-1"
+                }
+               ]
+              },
+              "headers": {}
+             },
+             "type": "endpoint"
+            },
+            {
+             "conditions": [
+              {
+               "fn": "stringEquals",
+               "argv": [
+                {
+                 "fn": "getAttr",
+                 "argv": [
+                  {
+                   "ref": "PartitionResult"
+                  },
+                  "name"
+                 ]
+                },
+                "aws-eusc"
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                false
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                false
+               ]
+              }
+             ],
+             "endpoint": {
+              "url": "https://iam.eusc-de-east-1.amazonaws.eu",
+              "properties": {
+               "authSchemes": [
+                {
+                 "name": "sigv4",
+                 "signingRegion": "eusc-de-east-1"
+                }
+               ]
+              },
+              "headers": {}
+             },
+             "type": "endpoint"
+            },
+            {
+             "conditions": [
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                true
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                true
+               ]
+              }
+             ],
+             "rules": [
+              {
+               "conditions": [
+                {
+                 "fn": "booleanEquals",
+                 "argv": [
+                  true,
+                  {
+                   "fn": "getAttr",
+                   "argv": [
+                    {
+                     "ref": "PartitionResult"
+                    },
+                    "supportsFIPS"
+                   ]
+                  }
+                 ]
+                },
+                {
+                 "fn": "booleanEquals",
+                 "argv": [
+                  true,
+                  {
+                   "fn": "getAttr",
+                   "argv": [
+                    {
+                     "ref": "PartitionResult"
+                    },
+                    "supportsDualStack"
+                   ]
+                  }
+                 ]
+                }
+               ],
+               "rules": [
+                {
+                 "conditions": [],
+                 "endpoint": {
+                  "url": "https://iam-fips.{PartitionResult#dualStackDnsSuffix}",
+                  "properties": {
+                   "authSchemes": [
+                    {
+                     "name": "sigv4",
+                     "signingRegion": "{PartitionResult#implicitGlobalRegion}"
+                    }
+                   ]
+                  },
+                  "headers": {}
+                 },
+                 "type": "endpoint"
+                }
+               ],
+               "type": "tree"
+              },
+              {
+               "conditions": [],
+               "error": "FIPS and DualStack are enabled, but this partition does not support one or both",
+               "type": "error"
+              }
+             ],
+             "type": "tree"
+            },
+            {
+             "conditions": [
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                true
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                false
+               ]
+              }
+             ],
+             "rules": [
+              {
+               "conditions": [
+                {
+                 "fn": "booleanEquals",
+                 "argv": [
+                  {
+                   "fn": "getAttr",
+                   "argv": [
+                    {
+                     "ref": "PartitionResult"
+                    },
+                    "supportsFIPS"
+                   ]
+                  },
+                  true
+                 ]
+                }
+               ],
+               "rules": [
+                {
+                 "conditions": [],
+                 "endpoint": {
+                  "url": "https://iam-fips.{PartitionResult#dnsSuffix}",
+                  "properties": {
+                   "authSchemes": [
+                    {
+                     "name": "sigv4",
+                     "signingRegion": "{PartitionResult#implicitGlobalRegion}"
+                    }
+                   ]
+                  },
+                  "headers": {}
+                 },
+                 "type": "endpoint"
+                }
+               ],
+               "type": "tree"
+              },
+              {
+               "conditions": [],
+               "error": "FIPS is enabled but this partition does not support FIPS",
+               "type": "error"
+              }
+             ],
+             "type": "tree"
+            },
+            {
+             "conditions": [
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseFIPS"
+                },
+                false
+               ]
+              },
+              {
+               "fn": "booleanEquals",
+               "argv": [
+                {
+                 "ref": "UseDualStack"
+                },
+                true
+               ]
+              }
+             ],
+             "rules": [
+              {
+               "conditions": [
+                {
+                 "fn": "booleanEquals",
+                 "argv": [
+                  true,
+                  {
+                   "fn": "getAttr",
+                   "argv": [
+                    {
+                     "ref": "PartitionResult"
+                    },
+                    "supportsDualStack"
+                   ]
+                  }
+                 ]
+                }
+               ],
+               "rules": [
+                {
+                 "conditions": [],
+                 "endpoint": {
+                  "url": "https://iam.{PartitionResult#dualStackDnsSuffix}",
+                  "properties": {
+                   "authSchemes": [
+                    {
+                     "name": "sigv4",
+                     "signingRegion": "{PartitionResult#implicitGlobalRegion}"
+                    }
+                   ]
+                  },
+                  "headers": {}
+                 },
+                 "type": "endpoint"
+                }
+               ],
+               "type": "tree"
+              },
+              {
+               "conditions": [],
+               "error": "DualStack is enabled but this partition does not support DualStack",
+               "type": "error"
+              }
+             ],
+             "type": "tree"
+            },
+            {
+             "conditions": [],
+             "endpoint": {
+              "url": "https://iam.{PartitionResult#dnsSuffix}",
+              "properties": {
+               "authSchemes": [
+                {
+                 "name": "sigv4",
+                 "signingRegion": "{PartitionResult#implicitGlobalRegion}"
+                }
+               ]
+              },
+              "headers": {}
+             },
+             "type": "endpoint"
+            }
+           ],
+           "type": "tree"
+          }
+         ],
+         "type": "tree"
+        },
+        {
+         "conditions": [],
+         "error": "Invalid Configuration: Missing Region",
+         "type": "error"
+        }
+       ],
+       "type": "tree"
+      }
+     ]
+    },
+    "smithy.rules#endpointTests": {
+     "testCases": [
+      {
+       "documentation": "For custom endpoint with region not set and fips disabled",
+       "expect": {
+        "endpoint": {
+         "url": "https://example.com"
+        }
+       },
+       "params": {
+        "Endpoint": "https://example.com",
+        "UseFIPS": false
+       }
+      },
+      {
+       "documentation": "For custom endpoint with fips enabled",
+       "expect": {
+        "error": "Invalid Configuration: FIPS and custom endpoint are not supported"
+       },
+       "params": {
+        "Endpoint": "https://example.com",
+        "UseFIPS": true
+       }
+      },
+      {
+       "documentation": "For custom endpoint with fips disabled and dualstack enabled",
+       "expect": {
+        "error": "Invalid Configuration: Dualstack and custom endpoint are not supported"
+       },
+       "params": {
+        "Endpoint": "https://example.com",
+        "UseFIPS": false,
+        "UseDualStack": true
+       }
+      },
+      {
+       "documentation": "For region us-east-1 with FIPS enabled and DualStack enabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "us-east-1"
+           }
+          ]
+         },
+         "url": "https://iam-fips.global.api.aws"
+        }
+       },
+       "params": {
+        "Region": "us-east-1",
+        "UseFIPS": true,
+        "UseDualStack": true
+       }
+      },
+      {
+       "documentation": "For region us-east-1 with FIPS enabled and DualStack disabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "us-east-1"
+           }
+          ]
+         },
+         "url": "https://iam-fips.amazonaws.com"
+        }
+       },
+       "params": {
+        "Region": "us-east-1",
+        "UseFIPS": true,
+        "UseDualStack": false
+       }
+      },
+      {
+       "documentation": "For region us-east-1 with FIPS disabled and DualStack enabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "us-east-1"
+           }
+          ]
+         },
+         "url": "https://iam.global.api.aws"
+        }
+       },
+       "params": {
+        "Region": "us-east-1",
+        "UseFIPS": false,
+        "UseDualStack": true
+       }
+      },
+      {
+       "documentation": "For region us-east-1 with FIPS disabled and DualStack disabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "us-east-1"
+           }
+          ]
+         },
+         "url": "https://iam.amazonaws.com"
+        }
+       },
+       "params": {
+        "Region": "us-east-1",
+        "UseFIPS": false,
+        "UseDualStack": false
+       }
+      },
+      {
+       "documentation": "For region cn-northwest-1 with FIPS enabled and DualStack enabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "cn-northwest-1"
+           }
+          ]
+         },
+         "url": "https://iam-fips.api.amazonwebservices.com.cn"
+        }
+       },
+       "params": {
+        "Region": "cn-northwest-1",
+        "UseFIPS": true,
+        "UseDualStack": true
+       }
+      },
+      {
+       "documentation": "For region cn-northwest-1 with FIPS enabled and DualStack disabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "cn-northwest-1"
+           }
+          ]
+         },
+         "url": "https://iam-fips.amazonaws.com.cn"
+        }
+       },
+       "params": {
+        "Region": "cn-northwest-1",
+        "UseFIPS": true,
+        "UseDualStack": false
+       }
+      },
+      {
+       "documentation": "For region cn-northwest-1 with FIPS disabled and DualStack enabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "cn-north-1"
+           }
+          ]
+         },
+         "url": "https://iam.global.api.amazonwebservices.com.cn"
+        }
+       },
+       "params": {
+        "Region": "cn-northwest-1",
+        "UseFIPS": false,
+        "UseDualStack": true
+       }
+      },
+      {
+       "documentation": "For region cn-northwest-1 with FIPS disabled and DualStack disabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "cn-north-1"
+           }
+          ]
+         },
+         "url": "https://iam.cn-north-1.amazonaws.com.cn"
+        }
+       },
+       "params": {
+        "Region": "cn-northwest-1",
+        "UseFIPS": false,
+        "UseDualStack": false
+       }
+      },
+      {
+       "documentation": "For region eusc-de-east-1 with FIPS enabled and DualStack disabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "eusc-de-east-1"
+           }
+          ]
+         },
+         "url": "https://iam-fips.amazonaws.eu"
+        }
+       },
+       "params": {
+        "Region": "eusc-de-east-1",
+        "UseFIPS": true,
+        "UseDualStack": false
+       }
+      },
+      {
+       "documentation": "For region eusc-de-east-1 with FIPS disabled and DualStack disabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "eusc-de-east-1"
+           }
+          ]
+         },
+         "url": "https://iam.eusc-de-east-1.amazonaws.eu"
+        }
+       },
+       "params": {
+        "Region": "eusc-de-east-1",
+        "UseFIPS": false,
+        "UseDualStack": false
+       }
+      },
+      {
+       "documentation": "For region us-iso-east-1 with FIPS enabled and DualStack disabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "us-iso-east-1"
+           }
+          ]
+         },
+         "url": "https://iam-fips.us-iso-east-1.c2s.ic.gov"
+        }
+       },
+       "params": {
+        "Region": "us-iso-east-1",
+        "UseFIPS": true,
+        "UseDualStack": false
+       }
+      },
+      {
+       "documentation": "For region us-iso-east-1 with FIPS disabled and DualStack disabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "us-iso-east-1"
+           }
+          ]
+         },
+         "url": "https://iam.us-iso-east-1.c2s.ic.gov"
+        }
+       },
+       "params": {
+        "Region": "us-iso-east-1",
+        "UseFIPS": false,
+        "UseDualStack": false
+       }
+      },
+      {
+       "documentation": "For region us-isob-east-1 with FIPS enabled and DualStack disabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "us-isob-east-1"
+           }
+          ]
+         },
+         "url": "https://iam-fips.us-isob-east-1.sc2s.sgov.gov"
+        }
+       },
+       "params": {
+        "Region": "us-isob-east-1",
+        "UseFIPS": true,
+        "UseDualStack": false
+       }
+      },
+      {
+       "documentation": "For region us-isob-east-1 with FIPS disabled and DualStack disabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "us-isob-east-1"
+           }
+          ]
+         },
+         "url": "https://iam.us-isob-east-1.sc2s.sgov.gov"
+        }
+       },
+       "params": {
+        "Region": "us-isob-east-1",
+        "UseFIPS": false,
+        "UseDualStack": false
+       }
+      },
+      {
+       "documentation": "For region eu-isoe-west-1 with FIPS enabled and DualStack disabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "eu-isoe-west-1"
+           }
+          ]
+         },
+         "url": "https://iam-fips.cloud.adc-e.uk"
+        }
+       },
+       "params": {
+        "Region": "eu-isoe-west-1",
+        "UseFIPS": true,
+        "UseDualStack": false
+       }
+      },
+      {
+       "documentation": "For region eu-isoe-west-1 with FIPS disabled and DualStack disabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "eu-isoe-west-1"
+           }
+          ]
+         },
+         "url": "https://iam.eu-isoe-west-1.cloud.adc-e.uk"
+        }
+       },
+       "params": {
+        "Region": "eu-isoe-west-1",
+        "UseFIPS": false,
+        "UseDualStack": false
+       }
+      },
+      {
+       "documentation": "For region us-isof-south-1 with FIPS enabled and DualStack disabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "us-isof-south-1"
+           }
+          ]
+         },
+         "url": "https://iam-fips.csp.hci.ic.gov"
+        }
+       },
+       "params": {
+        "Region": "us-isof-south-1",
+        "UseFIPS": true,
+        "UseDualStack": false
+       }
+      },
+      {
+       "documentation": "For region us-isof-south-1 with FIPS disabled and DualStack disabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "us-isof-south-1"
+           }
+          ]
+         },
+         "url": "https://iam.us-isof-south-1.csp.hci.ic.gov"
+        }
+       },
+       "params": {
+        "Region": "us-isof-south-1",
+        "UseFIPS": false,
+        "UseDualStack": false
+       }
+      },
+      {
+       "documentation": "For region us-gov-west-1 with FIPS enabled and DualStack enabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "us-gov-west-1"
+           }
+          ]
+         },
+         "url": "https://iam.us-gov.api.aws"
+        }
+       },
+       "params": {
+        "Region": "us-gov-west-1",
+        "UseFIPS": true,
+        "UseDualStack": true
+       }
+      },
+      {
+       "documentation": "For region us-gov-west-1 with FIPS enabled and DualStack disabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "us-gov-west-1"
+           }
+          ]
+         },
+         "url": "https://iam.us-gov.amazonaws.com"
+        }
+       },
+       "params": {
+        "Region": "us-gov-west-1",
+        "UseFIPS": true,
+        "UseDualStack": false
+       }
+      },
+      {
+       "documentation": "For region us-gov-west-1 with FIPS disabled and DualStack enabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "us-gov-west-1"
+           }
+          ]
+         },
+         "url": "https://iam.us-gov.api.aws"
+        }
+       },
+       "params": {
+        "Region": "us-gov-west-1",
+        "UseFIPS": false,
+        "UseDualStack": true
+       }
+      },
+      {
+       "documentation": "For region us-gov-west-1 with FIPS disabled and DualStack disabled",
+       "expect": {
+        "endpoint": {
+         "properties": {
+          "authSchemes": [
+           {
+            "name": "sigv4",
+            "signingRegion": "us-gov-west-1"
+           }
+          ]
+         },
+         "url": "https://iam.us-gov.amazonaws.com"
+        }
+       },
+       "params": {
+        "Region": "us-gov-west-1",
+        "UseFIPS": false,
+        "UseDualStack": false
+       }
+      },
+      {
+       "documentation": "Missing region",
+       "expect": {
+        "error": "Invalid Configuration: Missing Region"
+       }
+      }
+     ],
+     "version": "1.0"
+    }
+   }
+  },
+  "com.amazonaws.iam#AccessKeyLastUsed": {
+   "type": "structure",
+   "members": {
+    "LastUsedDate": {
+     "target": "com.amazonaws.iam#dateType",
+     "traits": {}
+    },
+    "ServiceName": {
+     "target": "com.amazonaws.iam#stringType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "Region": {
+     "target": "com.amazonaws.iam#stringType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.iam#AccessKeyMetadata": {
+   "type": "structure",
+   "members": {
+    "UserName": {
+     "target": "com.amazonaws.iam#userNameType",
+     "traits": {}
+    },
+    "AccessKeyId": {
+     "target": "com.amazonaws.iam#accessKeyIdType",
+     "traits": {}
+    },
+    "Status": {
+     "target": "com.amazonaws.iam#statusType",
+     "traits": {}
+    },
+    "CreateDate": {
+     "target": "com.amazonaws.iam#dateType",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.iam#AttachedPermissionsBoundary": {
+   "type": "structure",
+   "members": {
+    "PermissionsBoundaryType": {
+     "target": "com.amazonaws.iam#PermissionsBoundaryAttachmentType",
+     "traits": {}
+    },
+    "PermissionsBoundaryArn": {
+     "target": "com.amazonaws.iam#arnType",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.iam#AttachedPolicy": {
+   "type": "structure",
+   "members": {
+    "PolicyName": {
+     "target": "com.amazonaws.iam#policyNameType",
+     "traits": {}
+    },
+    "PolicyArn": {
+     "target": "com.amazonaws.iam#arnType"
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.iam#CredentialReportExpiredException": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.iam#credentialReportExpiredExceptionMessage"
+    }
+   },
+   "traits": {
+    "aws.protocols#awsQueryError": {
+     "code": "ReportExpired",
+     "httpResponseCode": 410
+    },
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 410
+   }
+  },
+  "com.amazonaws.iam#CredentialReportNotPresentException": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.iam#credentialReportNotPresentExceptionMessage"
+    }
+   },
+   "traits": {
+    "aws.protocols#awsQueryError": {
+     "code": "ReportNotPresent",
+     "httpResponseCode": 410
+    },
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 410
+   }
+  },
+  "com.amazonaws.iam#CredentialReportNotReadyException": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.iam#credentialReportNotReadyExceptionMessage"
+    }
+   },
+   "traits": {
+    "aws.protocols#awsQueryError": {
+     "code": "ReportInProgress",
+     "httpResponseCode": 404
+    },
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 404
+   }
+  },
+  "com.amazonaws.iam#GenerateCredentialReport": {
+   "type": "operation",
+   "input": {
+    "target": "smithy.api#Unit"
+   },
+   "output": {
+    "target": "com.amazonaws.iam#GenerateCredentialReportResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.iam#LimitExceededException"
+    },
+    {
+     "target": "com.amazonaws.iam#ServiceFailureException"
+    }
+   ],
+   "traits": {}
+  },
+  "com.amazonaws.iam#GenerateCredentialReportResponse": {
+   "type": "structure",
+   "members": {
+    "State": {
+     "target": "com.amazonaws.iam#ReportStateType",
+     "traits": {}
+    },
+    "Description": {
+     "target": "com.amazonaws.iam#ReportStateDescriptionType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.iam#GetAccessKeyLastUsed": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.iam#GetAccessKeyLastUsedRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.iam#GetAccessKeyLastUsedResponse"
+   },
+   "traits": {}
+  },
+  "com.amazonaws.iam#GetAccessKeyLastUsedRequest": {
+   "type": "structure",
+   "members": {
+    "AccessKeyId": {
+     "target": "com.amazonaws.iam#accessKeyIdType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.iam#GetAccessKeyLastUsedResponse": {
+   "type": "structure",
+   "members": {
+    "UserName": {
+     "target": "com.amazonaws.iam#existingUserNameType",
+     "traits": {}
+    },
+    "AccessKeyLastUsed": {
+     "target": "com.amazonaws.iam#AccessKeyLastUsed",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.iam#GetAccountPasswordPolicy": {
+   "type": "operation",
+   "input": {
+    "target": "smithy.api#Unit"
+   },
+   "output": {
+    "target": "com.amazonaws.iam#GetAccountPasswordPolicyResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.iam#NoSuchEntityException"
+    },
+    {
+     "target": "com.amazonaws.iam#ServiceFailureException"
+    }
+   ],
+   "traits": {}
+  },
+  "com.amazonaws.iam#GetAccountPasswordPolicyResponse": {
+   "type": "structure",
+   "members": {
+    "PasswordPolicy": {
+     "target": "com.amazonaws.iam#PasswordPolicy",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.iam#GetCredentialReport": {
+   "type": "operation",
+   "input": {
+    "target": "smithy.api#Unit"
+   },
+   "output": {
+    "target": "com.amazonaws.iam#GetCredentialReportResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.iam#CredentialReportExpiredException"
+    },
+    {
+     "target": "com.amazonaws.iam#CredentialReportNotPresentException"
+    },
+    {
+     "target": "com.amazonaws.iam#CredentialReportNotReadyException"
+    },
+    {
+     "target": "com.amazonaws.iam#ServiceFailureException"
+    }
+   ],
+   "traits": {}
+  },
+  "com.amazonaws.iam#GetCredentialReportResponse": {
+   "type": "structure",
+   "members": {
+    "Content": {
+     "target": "com.amazonaws.iam#ReportContentType",
+     "traits": {}
+    },
+    "ReportFormat": {
+     "target": "com.amazonaws.iam#ReportFormatType",
+     "traits": {}
+    },
+    "GeneratedTime": {
+     "target": "com.amazonaws.iam#dateType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.iam#Group": {
+   "type": "structure",
+   "members": {
+    "Path": {
+     "target": "com.amazonaws.iam#pathType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "GroupName": {
+     "target": "com.amazonaws.iam#groupNameType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "GroupId": {
+     "target": "com.amazonaws.iam#idType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "Arn": {
+     "target": "com.amazonaws.iam#arnType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "CreateDate": {
+     "target": "com.amazonaws.iam#dateType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.iam#InvalidInputException": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.iam#invalidInputMessage"
+    }
+   },
+   "traits": {
+    "aws.protocols#awsQueryError": {
+     "code": "InvalidInput",
+     "httpResponseCode": 400
+    },
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 400
+   }
+  },
+  "com.amazonaws.iam#LimitExceededException": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.iam#limitExceededMessage"
+    }
+   },
+   "traits": {
+    "aws.protocols#awsQueryError": {
+     "code": "LimitExceeded",
+     "httpResponseCode": 409
+    },
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 409
+   }
+  },
+  "com.amazonaws.iam#ListAccessKeys": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.iam#ListAccessKeysRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.iam#ListAccessKeysResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.iam#NoSuchEntityException"
+    },
+    {
+     "target": "com.amazonaws.iam#ServiceFailureException"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "Marker",
+     "outputToken": "Marker",
+     "items": "AccessKeyMetadata",
+     "pageSize": "MaxItems"
+    }
+   }
+  },
+  "com.amazonaws.iam#ListAccessKeysRequest": {
+   "type": "structure",
+   "members": {
+    "UserName": {
+     "target": "com.amazonaws.iam#existingUserNameType",
+     "traits": {}
+    },
+    "Marker": {
+     "target": "com.amazonaws.iam#markerType",
+     "traits": {}
+    },
+    "MaxItems": {
+     "target": "com.amazonaws.iam#maxItemsType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.iam#ListAccessKeysResponse": {
+   "type": "structure",
+   "members": {
+    "AccessKeyMetadata": {
+     "target": "com.amazonaws.iam#accessKeyMetadataListType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "IsTruncated": {
+     "target": "com.amazonaws.iam#booleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    },
+    "Marker": {
+     "target": "com.amazonaws.iam#responseMarkerType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.iam#ListAttachedGroupPolicies": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.iam#ListAttachedGroupPoliciesRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.iam#ListAttachedGroupPoliciesResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.iam#InvalidInputException"
+    },
+    {
+     "target": "com.amazonaws.iam#NoSuchEntityException"
+    },
+    {
+     "target": "com.amazonaws.iam#ServiceFailureException"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "Marker",
+     "outputToken": "Marker",
+     "items": "AttachedPolicies",
+     "pageSize": "MaxItems"
+    }
+   }
+  },
+  "com.amazonaws.iam#ListAttachedGroupPoliciesRequest": {
+   "type": "structure",
+   "members": {
+    "GroupName": {
+     "target": "com.amazonaws.iam#groupNameType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "PathPrefix": {
+     "target": "com.amazonaws.iam#policyPathType",
+     "traits": {}
+    },
+    "Marker": {
+     "target": "com.amazonaws.iam#markerType",
+     "traits": {}
+    },
+    "MaxItems": {
+     "target": "com.amazonaws.iam#maxItemsType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.iam#ListAttachedGroupPoliciesResponse": {
+   "type": "structure",
+   "members": {
+    "AttachedPolicies": {
+     "target": "com.amazonaws.iam#attachedPoliciesListType",
+     "traits": {}
+    },
+    "IsTruncated": {
+     "target": "com.amazonaws.iam#booleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    },
+    "Marker": {
+     "target": "com.amazonaws.iam#responseMarkerType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.iam#ListAttachedUserPolicies": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.iam#ListAttachedUserPoliciesRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.iam#ListAttachedUserPoliciesResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.iam#InvalidInputException"
+    },
+    {
+     "target": "com.amazonaws.iam#NoSuchEntityException"
+    },
+    {
+     "target": "com.amazonaws.iam#ServiceFailureException"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "Marker",
+     "outputToken": "Marker",
+     "items": "AttachedPolicies",
+     "pageSize": "MaxItems"
+    }
+   }
+  },
+  "com.amazonaws.iam#ListAttachedUserPoliciesRequest": {
+   "type": "structure",
+   "members": {
+    "UserName": {
+     "target": "com.amazonaws.iam#userNameType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "PathPrefix": {
+     "target": "com.amazonaws.iam#policyPathType",
+     "traits": {}
+    },
+    "Marker": {
+     "target": "com.amazonaws.iam#markerType",
+     "traits": {}
+    },
+    "MaxItems": {
+     "target": "com.amazonaws.iam#maxItemsType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.iam#ListAttachedUserPoliciesResponse": {
+   "type": "structure",
+   "members": {
+    "AttachedPolicies": {
+     "target": "com.amazonaws.iam#attachedPoliciesListType",
+     "traits": {}
+    },
+    "IsTruncated": {
+     "target": "com.amazonaws.iam#booleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    },
+    "Marker": {
+     "target": "com.amazonaws.iam#responseMarkerType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.iam#ListGroupsForUser": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.iam#ListGroupsForUserRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.iam#ListGroupsForUserResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.iam#NoSuchEntityException"
+    },
+    {
+     "target": "com.amazonaws.iam#ServiceFailureException"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "Marker",
+     "outputToken": "Marker",
+     "items": "Groups",
+     "pageSize": "MaxItems"
+    }
+   }
+  },
+  "com.amazonaws.iam#ListGroupsForUserRequest": {
+   "type": "structure",
+   "members": {
+    "UserName": {
+     "target": "com.amazonaws.iam#existingUserNameType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "Marker": {
+     "target": "com.amazonaws.iam#markerType",
+     "traits": {}
+    },
+    "MaxItems": {
+     "target": "com.amazonaws.iam#maxItemsType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.iam#ListGroupsForUserResponse": {
+   "type": "structure",
+   "members": {
+    "Groups": {
+     "target": "com.amazonaws.iam#groupListType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "IsTruncated": {
+     "target": "com.amazonaws.iam#booleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    },
+    "Marker": {
+     "target": "com.amazonaws.iam#responseMarkerType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.iam#ListMFADevices": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.iam#ListMFADevicesRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.iam#ListMFADevicesResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.iam#NoSuchEntityException"
+    },
+    {
+     "target": "com.amazonaws.iam#ServiceFailureException"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "Marker",
+     "outputToken": "Marker",
+     "items": "MFADevices",
+     "pageSize": "MaxItems"
+    }
+   }
+  },
+  "com.amazonaws.iam#ListMFADevicesRequest": {
+   "type": "structure",
+   "members": {
+    "UserName": {
+     "target": "com.amazonaws.iam#existingUserNameType",
+     "traits": {}
+    },
+    "Marker": {
+     "target": "com.amazonaws.iam#markerType",
+     "traits": {}
+    },
+    "MaxItems": {
+     "target": "com.amazonaws.iam#maxItemsType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.iam#ListMFADevicesResponse": {
+   "type": "structure",
+   "members": {
+    "MFADevices": {
+     "target": "com.amazonaws.iam#mfaDeviceListType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "IsTruncated": {
+     "target": "com.amazonaws.iam#booleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    },
+    "Marker": {
+     "target": "com.amazonaws.iam#responseMarkerType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.iam#ListUsers": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.iam#ListUsersRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.iam#ListUsersResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.iam#ServiceFailureException"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "Marker",
+     "outputToken": "Marker",
+     "items": "Users",
+     "pageSize": "MaxItems"
+    },
+    "smithy.test#smokeTests": [
+     {
+      "id": "ListUsersSuccess",
+      "params": {},
+      "vendorParams": {
+       "region": "us-east-1"
+      },
+      "vendorParamsShape": "aws.test#AwsVendorParams",
+      "expect": {
+       "success": {}
+      }
+     }
+    ]
+   }
+  },
+  "com.amazonaws.iam#ListUsersRequest": {
+   "type": "structure",
+   "members": {
+    "PathPrefix": {
+     "target": "com.amazonaws.iam#pathPrefixType",
+     "traits": {}
+    },
+    "Marker": {
+     "target": "com.amazonaws.iam#markerType",
+     "traits": {}
+    },
+    "MaxItems": {
+     "target": "com.amazonaws.iam#maxItemsType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.iam#ListUsersResponse": {
+   "type": "structure",
+   "members": {
+    "Users": {
+     "target": "com.amazonaws.iam#userListType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "IsTruncated": {
+     "target": "com.amazonaws.iam#booleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    },
+    "Marker": {
+     "target": "com.amazonaws.iam#responseMarkerType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.iam#MFADevice": {
+   "type": "structure",
+   "members": {
+    "UserName": {
+     "target": "com.amazonaws.iam#userNameType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "SerialNumber": {
+     "target": "com.amazonaws.iam#serialNumberType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "EnableDate": {
+     "target": "com.amazonaws.iam#dateType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.iam#NoSuchEntityException": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.iam#noSuchEntityMessage"
+    }
+   },
+   "traits": {
+    "aws.protocols#awsQueryError": {
+     "code": "NoSuchEntity",
+     "httpResponseCode": 404
+    },
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 404
+   }
+  },
+  "com.amazonaws.iam#PasswordPolicy": {
+   "type": "structure",
+   "members": {
+    "MinimumPasswordLength": {
+     "target": "com.amazonaws.iam#minimumPasswordLengthType",
+     "traits": {}
+    },
+    "RequireSymbols": {
+     "target": "com.amazonaws.iam#booleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    },
+    "RequireNumbers": {
+     "target": "com.amazonaws.iam#booleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    },
+    "RequireUppercaseCharacters": {
+     "target": "com.amazonaws.iam#booleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    },
+    "RequireLowercaseCharacters": {
+     "target": "com.amazonaws.iam#booleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    },
+    "AllowUsersToChangePassword": {
+     "target": "com.amazonaws.iam#booleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    },
+    "ExpirePasswords": {
+     "target": "com.amazonaws.iam#booleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    },
+    "MaxPasswordAge": {
+     "target": "com.amazonaws.iam#maxPasswordAgeType",
+     "traits": {}
+    },
+    "PasswordReusePrevention": {
+     "target": "com.amazonaws.iam#passwordReusePreventionType",
+     "traits": {}
+    },
+    "HardExpiry": {
+     "target": "com.amazonaws.iam#booleanObjectType",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.iam#PermissionsBoundaryAttachmentType": {
+   "type": "enum",
+   "members": {
+    "Policy": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "PermissionsBoundaryPolicy"
+     }
+    }
+   }
+  },
+  "com.amazonaws.iam#ReportContentType": {
+   "type": "blob"
+  },
+  "com.amazonaws.iam#ReportFormatType": {
+   "type": "enum",
+   "members": {
+    "text_csv": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "text/csv"
+     }
+    }
+   }
+  },
+  "com.amazonaws.iam#ReportStateDescriptionType": {
+   "type": "string"
+  },
+  "com.amazonaws.iam#ReportStateType": {
+   "type": "enum",
+   "members": {
+    "STARTED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "STARTED"
+     }
+    },
+    "INPROGRESS": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "INPROGRESS"
+     }
+    },
+    "COMPLETE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "COMPLETE"
+     }
+    }
+   }
+  },
+  "com.amazonaws.iam#ServiceFailureException": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.iam#serviceFailureExceptionMessage"
+    }
+   },
+   "traits": {
+    "aws.protocols#awsQueryError": {
+     "code": "ServiceFailure",
+     "httpResponseCode": 500
+    },
+    "smithy.api#error": "server",
+    "smithy.api#httpError": 500
+   }
+  },
+  "com.amazonaws.iam#Tag": {
+   "type": "structure",
+   "members": {
+    "Key": {
+     "target": "com.amazonaws.iam#tagKeyType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "Value": {
+     "target": "com.amazonaws.iam#tagValueType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.iam#User": {
+   "type": "structure",
+   "members": {
+    "Path": {
+     "target": "com.amazonaws.iam#pathType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "UserName": {
+     "target": "com.amazonaws.iam#userNameType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "UserId": {
+     "target": "com.amazonaws.iam#idType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "Arn": {
+     "target": "com.amazonaws.iam#arnType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "CreateDate": {
+     "target": "com.amazonaws.iam#dateType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "PasswordLastUsed": {
+     "target": "com.amazonaws.iam#dateType",
+     "traits": {}
+    },
+    "PermissionsBoundary": {
+     "target": "com.amazonaws.iam#AttachedPermissionsBoundary",
+     "traits": {}
+    },
+    "Tags": {
+     "target": "com.amazonaws.iam#tagListType",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.iam#accessKeyIdType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 16,
+     "max": 128
+    },
+    "smithy.api#pattern": "^[\\w]+$"
+   }
+  },
+  "com.amazonaws.iam#accessKeyMetadataListType": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.iam#AccessKeyMetadata"
+   },
+   "traits": {}
+  },
+  "com.amazonaws.iam#arnType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 20,
+     "max": 2048
+    }
+   }
+  },
+  "com.amazonaws.iam#attachedPoliciesListType": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.iam#AttachedPolicy"
+   }
+  },
+  "com.amazonaws.iam#booleanObjectType": {
+   "type": "boolean"
+  },
+  "com.amazonaws.iam#booleanType": {
+   "type": "boolean",
+   "traits": {
+    "smithy.api#default": false
+   }
+  },
+  "com.amazonaws.iam#credentialReportExpiredExceptionMessage": {
+   "type": "string"
+  },
+  "com.amazonaws.iam#credentialReportNotPresentExceptionMessage": {
+   "type": "string"
+  },
+  "com.amazonaws.iam#credentialReportNotReadyExceptionMessage": {
+   "type": "string"
+  },
+  "com.amazonaws.iam#dateType": {
+   "type": "timestamp"
+  },
+  "com.amazonaws.iam#existingUserNameType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 128
+    },
+    "smithy.api#pattern": "^[\\w+=,.@-]+$"
+   }
+  },
+  "com.amazonaws.iam#groupListType": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.iam#Group"
+   },
+   "traits": {}
+  },
+  "com.amazonaws.iam#groupNameType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 128
+    },
+    "smithy.api#pattern": "^[\\w+=,.@-]+$"
+   }
+  },
+  "com.amazonaws.iam#idType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 16,
+     "max": 128
+    },
+    "smithy.api#pattern": "^[\\w]+$"
+   }
+  },
+  "com.amazonaws.iam#invalidInputMessage": {
+   "type": "string"
+  },
+  "com.amazonaws.iam#limitExceededMessage": {
+   "type": "string"
+  },
+  "com.amazonaws.iam#markerType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 320
+    },
+    "smithy.api#pattern": "^[\\u0020-\\u00FF]+$"
+   }
+  },
+  "com.amazonaws.iam#maxItemsType": {
+   "type": "integer",
+   "traits": {
+    "smithy.api#range": {
+     "min": 1,
+     "max": 1000
+    }
+   }
+  },
+  "com.amazonaws.iam#maxPasswordAgeType": {
+   "type": "integer",
+   "traits": {
+    "smithy.api#range": {
+     "min": 1,
+     "max": 1095
+    }
+   }
+  },
+  "com.amazonaws.iam#mfaDeviceListType": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.iam#MFADevice"
+   },
+   "traits": {}
+  },
+  "com.amazonaws.iam#minimumPasswordLengthType": {
+   "type": "integer",
+   "traits": {
+    "smithy.api#range": {
+     "min": 6,
+     "max": 128
+    }
+   }
+  },
+  "com.amazonaws.iam#noSuchEntityMessage": {
+   "type": "string"
+  },
+  "com.amazonaws.iam#passwordReusePreventionType": {
+   "type": "integer",
+   "traits": {
+    "smithy.api#range": {
+     "min": 1,
+     "max": 24
+    }
+   }
+  },
+  "com.amazonaws.iam#pathPrefixType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 512
+    },
+    "smithy.api#pattern": "^\\u002F[\\u0021-\\u007F]*$"
+   }
+  },
+  "com.amazonaws.iam#pathType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 512
+    },
+    "smithy.api#pattern": "^(\\u002F)|(\\u002F[\\u0021-\\u007E]+\\u002F)$"
+   }
+  },
+  "com.amazonaws.iam#policyNameType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 128
+    },
+    "smithy.api#pattern": "^[\\w+=,.@-]+$"
+   }
+  },
+  "com.amazonaws.iam#policyPathType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 512
+    },
+    "smithy.api#pattern": "^((/[A-Za-z0-9\\.,\\+@=_-]+)*)/$"
+   }
+  },
+  "com.amazonaws.iam#responseMarkerType": {
+   "type": "string"
+  },
+  "com.amazonaws.iam#serialNumberType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 9,
+     "max": 256
+    },
+    "smithy.api#pattern": "^[\\w+=/:,.@-]+$"
+   }
+  },
+  "com.amazonaws.iam#serviceFailureExceptionMessage": {
+   "type": "string"
+  },
+  "com.amazonaws.iam#statusType": {
+   "type": "enum",
+   "members": {
+    "Active": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "Active"
+     }
+    },
+    "Inactive": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "Inactive"
+     }
+    },
+    "Expired": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "Expired"
+     }
+    }
+   }
+  },
+  "com.amazonaws.iam#stringType": {
+   "type": "string"
+  },
+  "com.amazonaws.iam#tagKeyType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 128
+    },
+    "smithy.api#pattern": "^[\\p{L}\\p{Z}\\p{N}_.:/=+\\-@]+$"
+   }
+  },
+  "com.amazonaws.iam#tagListType": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.iam#Tag"
+   },
+   "traits": {
+    "smithy.api#length": {
+     "min": 0,
+     "max": 50
+    }
+   }
+  },
+  "com.amazonaws.iam#tagValueType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 0,
+     "max": 256
+    },
+    "smithy.api#pattern": "^[\\p{L}\\p{Z}\\p{N}_.:/=+\\-@]*$"
+   }
+  },
+  "com.amazonaws.iam#userListType": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.iam#User"
+   },
+   "traits": {}
+  },
+  "com.amazonaws.iam#userNameType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 64
+    },
+    "smithy.api#pattern": "^[\\w+=,.@-]+$"
+   }
+  }
+ }
+}

@@ -2,9 +2,12 @@ package sourcetest
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"net/http"
 	"regexp"
+	"strings"
 	"testing"
 
 	"gopkg.in/dnaeon/go-vcr.v4/pkg/cassette"
@@ -171,10 +174,21 @@ var (
 func RedactInteraction(i *cassette.Interaction) error {
 	scrubHeaders(i.Request.Headers)
 	scrubHeaders(i.Response.Headers)
+	scrubValues(i.Request.Form) // go-vcr also persists the parsed form, which mirrors a form-encoded body
 	i.Request.URL = scrubString(i.Request.URL)
 	i.Request.Body = scrubString(i.Request.Body)
 	i.Response.Body = scrubString(i.Response.Body)
 	return nil
+}
+
+// scrubValues scrubs every value of a url.Values-shaped map (e.g. the recorded
+// request Form, which AWS query-protocol requests populate alongside Body).
+func scrubValues(v map[string][]string) {
+	for _, vals := range v {
+		for k := range vals {
+			vals[k] = scrubString(vals[k])
+		}
+	}
 }
 
 func scrubHeaders(h http.Header) {
@@ -190,7 +204,7 @@ func scrubHeaders(h http.Header) {
 }
 
 func scrubString(s string) string {
-	s = reAccessKey.ReplaceAllString(s, "AKIAEXAMPLE0000000000")
+	s = reAccessKey.ReplaceAllStringFunc(s, redactAccessKey)
 	s = reBearer.ReplaceAllString(s, "Bearer REDACTED")
 	s = reEmail.ReplaceAllStringFunc(s, func(m string) string {
 		if exampleDomain.MatchString(m) {
@@ -200,4 +214,16 @@ func scrubString(s string) string {
 	})
 	s = reAccountID.ReplaceAllString(s, "000000000000")
 	return s
+}
+
+// redactAccessKey maps each distinct AWS access key ID to a stable, distinct
+// placeholder that still contains "EXAMPLE" (so the WU-0.3 fixture gate accepts
+// it). Distinctness matters: plugins key records on the access key ID (e.g. the
+// iam_access_key source), so collapsing every key to one placeholder would alias
+// separate records and collide their per-key follow-up requests under the
+// matcher. The hash is deterministic, so the same key scrubs to the same
+// placeholder everywhere it appears (response body and request body alike).
+func redactAccessKey(id string) string {
+	sum := sha256.Sum256([]byte(id))
+	return "AKIAEXAMPLE" + strings.ToUpper(hex.EncodeToString(sum[:]))[:9]
 }

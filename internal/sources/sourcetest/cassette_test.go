@@ -81,6 +81,7 @@ func TestRedactInteraction(t *testing.T) {
 			URL:     "https://api.example.com/q?token=Bearer%20abcDEF123456",
 			Headers: http.Header{"Authorization": {"Bearer sk_live_abcdef123456"}, "Private-Token": {"glpat-realsecrettoken1234"}, "Accept": {"application/json"}},
 			Body:    `{"actor":"alice@acmecorp.com"}`,
+			Form:    map[string][]string{"AccessKeyId": {"AKIAIOSFODNN7EXAMPLE9"}},
 		},
 		Response: cassette.Response{
 			Headers: http.Header{"Set-Cookie": {"session=deadbeef"}, "Content-Type": {"application/json"}},
@@ -117,10 +118,17 @@ func TestRedactInteraction(t *testing.T) {
 
 	// Spot-check specific placeholder substitutions in the response body.
 	rb := i.Response.Body
-	for _, want := range []string{"AKIAEXAMPLE0000000000", "000000000000", "user@example.com", "Bearer REDACTED"} {
+	for _, want := range []string{"AKIAEXAMPLE", "000000000000", "user@example.com", "Bearer REDACTED"} {
 		if !strings.Contains(rb, want) {
 			t.Errorf("response body missing placeholder %q: %s", want, rb)
 		}
+	}
+	if strings.Contains(rb, "AKIAIOSFODNN7EXAMPLE") {
+		t.Errorf("response body still contains the original access key: %s", rb)
+	}
+	// The parsed request Form is scrubbed too (it mirrors a form-encoded body).
+	if got := i.Request.Form["AccessKeyId"][0]; strings.Contains(got, "AKIAIOSFODNN7EXAMPLE") || !strings.Contains(got, "AKIAEXAMPLE") {
+		t.Errorf("request Form not scrubbed: %q", got)
 	}
 	if strings.Contains(rb, "123456789012") || strings.Contains(rb, "210987654321") {
 		t.Errorf("response body still contains a real account ID: %s", rb)
@@ -212,5 +220,26 @@ func TestAWSMatcherRestoresBody(t *testing.T) {
 	}
 	if string(got) != body {
 		t.Errorf("restored body = %q, want %q", got, body)
+	}
+}
+
+func TestRedactAccessKeyDistinct(t *testing.T) {
+	// Distinct real keys must scrub to distinct placeholders (records are keyed
+	// on the access key ID); the same key must be stable across calls.
+	a := redactAccessKey("AKIA5TVOUBSOCES7IFLX")
+	b := redactAccessKey("AKIA5TVOUBSOBUHZ7R5C")
+	if a == b {
+		t.Errorf("distinct keys collapsed to the same placeholder: %q", a)
+	}
+	if a != redactAccessKey("AKIA5TVOUBSOCES7IFLX") {
+		t.Error("placeholder is not deterministic")
+	}
+	for _, p := range []string{a, b} {
+		if !strings.Contains(p, "EXAMPLE") {
+			t.Errorf("placeholder %q lacks EXAMPLE (fixture gate would flag it)", p)
+		}
+		if !reAccessKey.MatchString(p) {
+			t.Errorf("placeholder %q is not a well-formed AKIA token", p)
+		}
 	}
 }

@@ -1,0 +1,556 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 35
+        host: ""
+        body: Action=ListUsers&Version=2010-05-08
+        form:
+            Action:
+                - ListUsers
+            Version:
+                - "2010-05-08"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 490657e5-39cd-4f96-9c37-d020063a9f66
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/iam#1.54.0 m/g
+            X-Amz-Date:
+                - 20260628T075035Z
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 847
+        body: |
+            <ListUsersResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <ListUsersResult>
+                <IsTruncated>false</IsTruncated>
+                <Users>
+                  <member>
+                    <Path>/</Path>
+                    <UserName>example-admin</UserName>
+                    <Arn>arn:aws:iam::000000000000:user/example-admin</Arn>
+                    <UserId>AIDAEXAMPLE0000000001</UserId>
+                    <CreateDate>2026-06-14T07:06:48Z</CreateDate>
+                  </member>
+                  <member>
+                    <Path>/</Path>
+                    <UserName>example-recorder</UserName>
+                    <Arn>arn:aws:iam::000000000000:user/example-recorder</Arn>
+                    <UserId>AIDAEXAMPLE0000000002</UserId>
+                    <CreateDate>2026-06-21T18:17:39Z</CreateDate>
+                  </member>
+                </Users>
+              </ListUsersResult>
+              <ResponseMetadata>
+                <RequestId>c7408d9c-aa5e-4aac-bcac-58006023a112</RequestId>
+              </ResponseMetadata>
+            </ListUsersResponse>
+        headers:
+            Content-Length:
+                - "847"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 07:50:41 GMT
+            X-Amzn-Requestid:
+                - c7408d9c-aa5e-4aac-bcac-58006023a112
+        status: 200 OK
+        code: 200
+        duration: 5.845636791s
+    - id: 1
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 65
+        host: ""
+        body: Action=ListMFADevices&UserName=example-admin&Version=2010-05-08
+        form:
+            Action:
+                - ListMFADevices
+            UserName:
+                - example-admin
+            Version:
+                - "2010-05-08"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - c8ea369b-6cc2-4561-a587-a9611d743660
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/iam#1.54.0 m/g
+            X-Amz-Date:
+                - 20260628T075041Z
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 314
+        body: |
+            <ListMFADevicesResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <ListMFADevicesResult>
+                <IsTruncated>false</IsTruncated>
+                <MFADevices/>
+              </ListMFADevicesResult>
+              <ResponseMetadata>
+                <RequestId>132d9671-8b11-4eac-9584-6d17829d8678</RequestId>
+              </ResponseMetadata>
+            </ListMFADevicesResponse>
+        headers:
+            Content-Length:
+                - "314"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 07:50:47 GMT
+            X-Amzn-Requestid:
+                - 132d9671-8b11-4eac-9584-6d17829d8678
+        status: 200 OK
+        code: 200
+        duration: 264.80475ms
+    - id: 2
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 65
+        host: ""
+        body: Action=ListAccessKeys&UserName=example-admin&Version=2010-05-08
+        form:
+            Action:
+                - ListAccessKeys
+            UserName:
+                - example-admin
+            Version:
+                - "2010-05-08"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - a1ddb462-c562-41d2-8c23-6753b496a2cd
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/iam#1.54.0 m/g
+            X-Amz-Date:
+                - 20260628T075047Z
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 563
+        body: |
+            <ListAccessKeysResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <ListAccessKeysResult>
+                <IsTruncated>false</IsTruncated>
+                <AccessKeyMetadata>
+                  <member>
+                    <AccessKeyId>AKIAEXAMPLE30EDE2406</AccessKeyId>
+                    <UserName>example-admin</UserName>
+                    <Status>Active</Status>
+                    <CreateDate>2026-06-14T07:07:16Z</CreateDate>
+                  </member>
+                </AccessKeyMetadata>
+              </ListAccessKeysResult>
+              <ResponseMetadata>
+                <RequestId>a0ab43ed-1810-4035-8b14-a1b72f5c2ca4</RequestId>
+              </ResponseMetadata>
+            </ListAccessKeysResponse>
+        headers:
+            Content-Length:
+                - "563"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 07:50:48 GMT
+            X-Amzn-Requestid:
+                - a0ab43ed-1810-4035-8b14-a1b72f5c2ca4
+        status: 200 OK
+        code: 200
+        duration: 238.251ms
+    - id: 3
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 75
+        host: ""
+        body: Action=ListAttachedUserPolicies&UserName=example-admin&Version=2010-05-08
+        form:
+            Action:
+                - ListAttachedUserPolicies
+            UserName:
+                - example-admin
+            Version:
+                - "2010-05-08"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 8db02534-4a66-4ba5-83dc-91ffb72d3330
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/iam#1.54.0 m/g
+            X-Amz-Date:
+                - 20260628T075048Z
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 705
+        body: |
+            <ListAttachedUserPoliciesResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <ListAttachedUserPoliciesResult>
+                <IsTruncated>false</IsTruncated>
+                <AttachedPolicies>
+                  <member>
+                    <PolicyArn>arn:aws:iam::aws:policy/AdministratorAccess</PolicyArn>
+                    <PolicyName>AdministratorAccess</PolicyName>
+                  </member>
+                  <member>
+                    <PolicyArn>arn:aws:iam::aws:policy/IAMUserChangePassword</PolicyArn>
+                    <PolicyName>IAMUserChangePassword</PolicyName>
+                  </member>
+                </AttachedPolicies>
+              </ListAttachedUserPoliciesResult>
+              <ResponseMetadata>
+                <RequestId>565d7ef5-fea8-4be5-8e8e-ee9007283701</RequestId>
+              </ResponseMetadata>
+            </ListAttachedUserPoliciesResponse>
+        headers:
+            Content-Length:
+                - "705"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 07:50:48 GMT
+            X-Amzn-Requestid:
+                - 565d7ef5-fea8-4be5-8e8e-ee9007283701
+        status: 200 OK
+        code: 200
+        duration: 235.844ms
+    - id: 4
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 72
+        host: ""
+        body: Action=ListMFADevices&UserName=example-recorder&Version=2010-05-08
+        form:
+            Action:
+                - ListMFADevices
+            UserName:
+                - example-recorder
+            Version:
+                - "2010-05-08"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - c6a2a7b0-1c43-4914-8a13-124a9daa04f2
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/iam#1.54.0 m/g
+            X-Amz-Date:
+                - 20260628T075048Z
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 314
+        body: |
+            <ListMFADevicesResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <ListMFADevicesResult>
+                <IsTruncated>false</IsTruncated>
+                <MFADevices/>
+              </ListMFADevicesResult>
+              <ResponseMetadata>
+                <RequestId>36a0b3c4-b23b-4c63-9be5-c71953e932a9</RequestId>
+              </ResponseMetadata>
+            </ListMFADevicesResponse>
+        headers:
+            Content-Length:
+                - "314"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 07:50:49 GMT
+            X-Amzn-Requestid:
+                - 36a0b3c4-b23b-4c63-9be5-c71953e932a9
+        status: 200 OK
+        code: 200
+        duration: 255.709541ms
+    - id: 5
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 72
+        host: ""
+        body: Action=ListAccessKeys&UserName=example-recorder&Version=2010-05-08
+        form:
+            Action:
+                - ListAccessKeys
+            UserName:
+                - example-recorder
+            Version:
+                - "2010-05-08"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 51e6aed9-0e4d-437b-8c27-3616a41a644a
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/iam#1.54.0 m/g
+            X-Amz-Date:
+                - 20260628T075049Z
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 570
+        body: |
+            <ListAccessKeysResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <ListAccessKeysResult>
+                <IsTruncated>false</IsTruncated>
+                <AccessKeyMetadata>
+                  <member>
+                    <AccessKeyId>AKIAEXAMPLEC262BA526</AccessKeyId>
+                    <UserName>example-recorder</UserName>
+                    <Status>Active</Status>
+                    <CreateDate>2026-06-21T18:18:27Z</CreateDate>
+                  </member>
+                </AccessKeyMetadata>
+              </ListAccessKeysResult>
+              <ResponseMetadata>
+                <RequestId>2233b5c1-69e6-461d-9bd1-f3f279799d7b</RequestId>
+              </ResponseMetadata>
+            </ListAccessKeysResponse>
+        headers:
+            Content-Length:
+                - "570"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 07:50:49 GMT
+            X-Amzn-Requestid:
+                - 2233b5c1-69e6-461d-9bd1-f3f279799d7b
+        status: 200 OK
+        code: 200
+        duration: 246.212375ms
+    - id: 6
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 82
+        host: ""
+        body: Action=ListAttachedUserPolicies&UserName=example-recorder&Version=2010-05-08
+        form:
+            Action:
+                - ListAttachedUserPolicies
+            UserName:
+                - example-recorder
+            Version:
+                - "2010-05-08"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 4f7f501c-d570-4b7a-9229-ac9b8e45e935
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/iam#1.54.0 m/g
+            X-Amz-Date:
+                - 20260628T075049Z
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 532
+        body: |
+            <ListAttachedUserPoliciesResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <ListAttachedUserPoliciesResult>
+                <IsTruncated>false</IsTruncated>
+                <AttachedPolicies>
+                  <member>
+                    <PolicyArn>arn:aws:iam::aws:policy/ReadOnlyAccess</PolicyArn>
+                    <PolicyName>ReadOnlyAccess</PolicyName>
+                  </member>
+                </AttachedPolicies>
+              </ListAttachedUserPoliciesResult>
+              <ResponseMetadata>
+                <RequestId>71f48be2-53b1-434b-bf62-6d30ad2621b3</RequestId>
+              </ResponseMetadata>
+            </ListAttachedUserPoliciesResponse>
+        headers:
+            Content-Length:
+                - "532"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 07:50:50 GMT
+            X-Amzn-Requestid:
+                - 71f48be2-53b1-434b-bf62-6d30ad2621b3
+        status: 200 OK
+        code: 200
+        duration: 284.863166ms
+    - id: 7
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 75
+        host: ""
+        body: Action=ListGroupsForUser&UserName=example-recorder&Version=2010-05-08
+        form:
+            Action:
+                - ListGroupsForUser
+            UserName:
+                - example-recorder
+            Version:
+                - "2010-05-08"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 1b02e30c-9934-4896-aae6-000000000000
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/iam#1.54.0 m/g
+            X-Amz-Date:
+                - 20260628T075050Z
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 322
+        body: |
+            <ListGroupsForUserResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <ListGroupsForUserResult>
+                <IsTruncated>false</IsTruncated>
+                <Groups/>
+              </ListGroupsForUserResult>
+              <ResponseMetadata>
+                <RequestId>9e2ae2a8-182e-4570-a7fb-b1f4eb37565f</RequestId>
+              </ResponseMetadata>
+            </ListGroupsForUserResponse>
+        headers:
+            Content-Length:
+                - "322"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 07:50:50 GMT
+            X-Amzn-Requestid:
+                - 9e2ae2a8-182e-4570-a7fb-b1f4eb37565f
+        status: 200 OK
+        code: 200
+        duration: 237.599791ms
+    - id: 8
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 45
+        host: ""
+        body: Action=GetCredentialReport&Version=2010-05-08
+        form:
+            Action:
+                - GetCredentialReport
+            Version:
+                - "2010-05-08"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 4e0bf564-2010-4fa0-a343-08011f849a08
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/iam#1.54.0 m/g
+            X-Amz-Date:
+                - 20260628T075050Z
+        url: https://iam.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 1893
+        body: |
+            <GetCredentialReportResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/">
+              <GetCredentialReportResult>
+                <GeneratedTime>2026-06-28T07:47:13Z</GeneratedTime>
+                <ReportFormat>text/csv</ReportFormat>
+                <Content>dXNlcixhcm4sdXNlcl9jcmVhdGlvbl90aW1lLHBhc3N3b3JkX2VuYWJsZWQscGFzc3dvcmRfbGFzdF91c2VkLHBhc3N3b3JkX2xhc3RfY2hhbmdlZCxwYXNzd29yZF9uZXh0X3JvdGF0aW9uLG1mYV9hY3RpdmUsYWNjZXNzX2tleV8xX2FjdGl2ZSxhY2Nlc3Nfa2V5XzFfbGFzdF9yb3RhdGVkLGFjY2Vzc19rZXlfMV9sYXN0X3VzZWRfZGF0ZSxhY2Nlc3Nfa2V5XzFfbGFzdF91c2VkX3JlZ2lvbixhY2Nlc3Nfa2V5XzFfbGFzdF91c2VkX3NlcnZpY2UsYWNjZXNzX2tleV8yX2FjdGl2ZSxhY2Nlc3Nfa2V5XzJfbGFzdF9yb3RhdGVkLGFjY2Vzc19rZXlfMl9sYXN0X3VzZWRfZGF0ZSxhY2Nlc3Nfa2V5XzJfbGFzdF91c2VkX3JlZ2lvbixhY2Nlc3Nfa2V5XzJfbGFzdF91c2VkX3NlcnZpY2UsY2VydF8xX2FjdGl2ZSxjZXJ0XzFfbGFzdF9yb3RhdGVkLGNlcnRfMl9hY3RpdmUsY2VydF8yX2xhc3Rfcm90YXRlZAo8cm9vdF9hY2NvdW50Pixhcm46YXdzOmlhbTo6MDAwMDAwMDAwMDAwOnJvb3QsMjAyNi0wMi0wN1QxMDo0NjoyMlosdHJ1ZSwyMDI2LTA2LTE0VDA3OjAyOjE5WiwyMDI2LTA2LTEzVDE3OjE0OjE0Wixub3Rfc3VwcG9ydGVkLGZhbHNlLGZhbHNlLE4vQSxOL0EsTi9BLE4vQSxmYWxzZSxOL0EsTi9BLE4vQSxOL0EsZmFsc2UsTi9BLGZhbHNlLE4vQQpleGFtcGxlLWFkbWluLGFybjphd3M6aWFtOjowMDAwMDAwMDAwMDA6dXNlci9leGFtcGxlLWFkbWluLDIwMjYtMDYtMTRUMDc6MDY6NDhaLHRydWUsbm9faW5mb3JtYXRpb24sMjAyNi0wNi0xNFQwNzowNjo0OFosTi9BLGZhbHNlLHRydWUsMjAyNi0wNi0xNFQwNzowNzoxNlosMjAyNi0wNi0yMVQxODoxODowMFosdXMtZWFzdC0xLGlhbSxmYWxzZSxOL0EsTi9BLE4vQSxOL0EsZmFsc2UsTi9BLGZhbHNlLE4vQQpleGFtcGxlLXJlY29yZGVyLGFybjphd3M6aWFtOjowMDAwMDAwMDAwMDA6dXNlci9leGFtcGxlLXJlY29yZGVyLDIwMjYtMDYtMjFUMTg6MTc6MzlaLGZhbHNlLE4vQSxOL0EsTi9BLGZhbHNlLHRydWUsMjAyNi0wNi0yMVQxODoxODoyN1osMjAyNi0wNi0yOFQwNzozOTowMFosdXMtZWFzdC0xLGlhbSxmYWxzZSxOL0EsTi9BLE4vQSxOL0EsZmFsc2UsTi9BLGZhbHNlLE4vQQ==</Content>
+              </GetCredentialReportResult>
+              <ResponseMetadata>
+                <RequestId>e833804b-bbd5-4479-ae85-1feb1310c2e4</RequestId>
+              </ResponseMetadata>
+            </GetCredentialReportResponse>
+        headers:
+            Content-Length:
+                - "1893"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 07:50:51 GMT
+            X-Amzn-Requestid:
+                - e833804b-bbd5-4479-ae85-1feb1310c2e4
+        status: 200 OK
+        code: 200
+        duration: 258.754875ms
