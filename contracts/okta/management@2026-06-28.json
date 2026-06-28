@@ -1,0 +1,4741 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Okta Management API (sigcomply contract slice)",
+    "version": "2026.06.2",
+    "x-source": "okta/okta-management-openapi-spec dist/current/management-minimal.yaml",
+    "x-slice": "operations consumed by internal/sources/okta; see okta_spec_conformance_test.go"
+  },
+  "paths": {
+    "/api/v1/users": {
+      "get": {
+        "operationId": "listUsers",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/User"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{userId}/factors": {
+      "get": {
+        "operationId": "listFactors",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserFactor"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{userId}/roles": {
+      "get": {
+        "operationId": "listAssignedRolesForUser",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/StandardRole"
+                      },
+                      {
+                        "$ref": "#/components/schemas/CustomRole"
+                      }
+                    ],
+                    "discriminator": {
+                      "propertyName": "type",
+                      "mapping": {
+                        "API_ACCESS_MANAGEMENT_ADMIN": "#/components/schemas/StandardRole",
+                        "APP_ADMIN": "#/components/schemas/StandardRole",
+                        "GROUP_MEMBERSHIP_ADMIN": "#/components/schemas/StandardRole",
+                        "HELP_DESK_ADMIN": "#/components/schemas/StandardRole",
+                        "MOBILE_ADMIN": "#/components/schemas/StandardRole",
+                        "ORG_ADMIN": "#/components/schemas/StandardRole",
+                        "READ_ONLY_ADMIN": "#/components/schemas/StandardRole",
+                        "REPORT_ADMIN": "#/components/schemas/StandardRole",
+                        "SUPER_ADMIN": "#/components/schemas/StandardRole",
+                        "USER_ADMIN": "#/components/schemas/StandardRole",
+                        "WORKFLOWS_ADMIN": "#/components/schemas/CustomRole",
+                        "ACCESS_CERTIFICATIONS_ADMIN": "#/components/schemas/CustomRole",
+                        "ACCESS_REQUESTS_ADMIN": "#/components/schemas/CustomRole",
+                        "CUSTOM": "#/components/schemas/CustomRole"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/apps": {
+      "get": {
+        "operationId": "listApplications",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Application"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AccessPolicyLink": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HrefObject"
+          },
+          {
+            "description": "Link to the app access policy resource"
+          }
+        ]
+      },
+      "AcsEndpoint": {
+        "description": "An array of ACS endpoints. You can configure a maximum of 100 endpoints.",
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer",
+            "description": "Index of the URL in the array of ACS endpoints",
+            "example": 0
+          },
+          "url": {
+            "type": "string",
+            "description": "URL of the ACS",
+            "maxLength": 1024,
+            "example": "https://www.example.com/sso/saml"
+          }
+        },
+        "required": [
+          "url",
+          "index"
+        ]
+      },
+      "Application": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "accessibility": {
+            "$ref": "#/components/schemas/ApplicationAccessibility"
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true,
+            "description": "Timestamp when the application object was created"
+          },
+          "expressConfiguration": {
+            "$ref": "#/components/schemas/ApplicationExpressConfiguration"
+          },
+          "features": {
+            "type": "array",
+            "description": "Enabled app features\n> **Note:** See [Application Features](/openapi/okta-management/management/tags/applicationfeatures/) for app provisioning features.\n",
+            "readOnly": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "GROUP_PUSH",
+                "IMPORT_NEW_USERS",
+                "IMPORT_PROFILE_UPDATES",
+                "IMPORT_USER_SCHEMA",
+                "PROFILE_MASTERING",
+                "PUSH_NEW_USERS",
+                "PUSH_PASSWORD_UPDATES",
+                "PUSH_PROFILE_UPDATES",
+                "PUSH_USER_DEACTIVATION",
+                "REACTIVATE_USERS",
+                "OUTBOUND_DEL_AUTH",
+                "DESKTOP_SSO",
+                "FEDERATED_PROFILE",
+                "SUPPRESS_ACTIVATION_EMAIL",
+                "PUSH_PENDING_USERS",
+                "MFA",
+                "UPDATE_EXISTING_USERNAME",
+                "EXCLUDE_USERNAME_UPDATE_ON_PROFILE_PUSH",
+                "EXCHANGE_ACTIVE_SYNC",
+                "IMPORT_SYNC",
+                "IMPORT_SYNC_CONTACTS",
+                "DEVICE_COMPLIANCE",
+                "VPN_CONFIG",
+                "IMPORT_SCHEMA_ENUM_VALUES",
+                "SCIM_PROVISIONING",
+                "DEVICE_FILTER_IN_SIGN_ON_RULES",
+                "PROFILE_TEMPLATE_UPGRADE",
+                "DEFAULT_PUSH_STATUS_TO_PUSH",
+                "REAL_TIME_SYNC",
+                "SSO",
+                "AUTHN_CONTEXT",
+                "JIT_PROVISIONING",
+                "GROUP_SYNC",
+                "OPP_SCIM_INCREMENTAL_IMPORTS",
+                "IN_MEMORY_APP_USER",
+                "LOG_STREAMING",
+                "OAUTH_INTEGRATION",
+                "IDP",
+                "PUSH_NEW_USERS_WITHOUT_PASSWORD",
+                "SKYHOOK_SERVICE",
+                "ENTITLEMENT_MANAGEMENT",
+                "PUSH_NEW_USERS_WITH_HASHED_PASSWORD"
+              ],
+              "x-enumDescriptions": {
+                "GROUP_PUSH": "Creates or links a group in the app when a mapping is defined for a group in Okta. Okta is the source for group memberships and all group members in Okta who are also assigned to the app are synced as group members to the app.",
+                "IMPORT_NEW_USERS": "Creates or links a user in Okta to a user from the app",
+                "IMPORT_PROFILE_UPDATES": "Updates a linked user's app profile during manual or scheduled imports",
+                "IMPORT_USER_SCHEMA": "Discovers the profile schema for a user from the app automatically",
+                "PROFILE_MASTERING": "Designates the app as the identity lifecycle and profile attribute authority for linked users. The user's profile in Okta is read-only.",
+                "PUSH_NEW_USERS": "Creates or links a user account in the app when assigning the app to a user in Okta",
+                "PUSH_PASSWORD_UPDATES": "Updates the user's app password when their password changes in Okta",
+                "PUSH_PROFILE_UPDATES": "Updates a user's profile in the app when the user's profile changes in Okta (the profile source)",
+                "PUSH_USER_DEACTIVATION": "Deactivates a user's account in the app when unassigned from the app in Okta or deactivated",
+                "REACTIVATE_USERS": "Reactivates an existing inactive user when provisioning a user to the app",
+                "OUTBOUND_DEL_AUTH": "Okta user authentication requests are delegated to a third-party app",
+                "DESKTOP_SSO": "Okta user authentication requests are handled by desktop SSO negotiation (if possible)",
+                "FEDERATED_PROFILE": "App user profiles are synchronized at sign-in and profile-view instances instead of during bulk imports",
+                "SUPPRESS_ACTIVATION_EMAIL": "Activation emails aren't sent to users sourced by AD and orgs with DelAuth enabled",
+                "PUSH_PENDING_USERS": "Users are in PENDING state in Okta and are created but not active in the sourced app user",
+                "MFA": "App can verify credentials as a second factor",
+                "UPDATE_EXISTING_USERNAME": "App can update the user name for existing users",
+                "EXCLUDE_USERNAME_UPDATE_ON_PROFILE_PUSH": "Exclude username update during profile push",
+                "EXCHANGE_ACTIVE_SYNC": "App supports synchronizing credentials with OMM enrolled devices",
+                "IMPORT_SYNC": "Synchronize import events",
+                "IMPORT_SYNC_CONTACTS": "Synchronize contacts",
+                "DEVICE_COMPLIANCE": "Apps support device compliance rules",
+                "VPN_CONFIG": "App supports pushing VPN configuration to OMM enrolled devices",
+                "IMPORT_SCHEMA_ENUM_VALUES": "App supports downloading schema enum values. You can download custom objects and integrating them with UD without being tied to the type metadata system.",
+                "SCIM_PROVISIONING": "App supports generic SCIM client provisioning and can leverage SCIM standard for provisioning and push custom attributes to a third-party app",
+                "DEVICE_FILTER_IN_SIGN_ON_RULES": "App supports filtering by client type in app sign-on rules",
+                "PROFILE_TEMPLATE_UPGRADE": "App supports profile template upgrades. This is primarily to help roll out the profile template upgrade feature for individual apps",
+                "DEFAULT_PUSH_STATUS_TO_PUSH": "App defaults Push status to `PUSH`. This feature is for apps, such as SharePoint, that want to receive App User profile updates even though they didn't implement traditional PUSH_PROFILE_UPDATES in the client API.",
+                "REAL_TIME_SYNC": "Apps support real-time synchronization",
+                "SSO": "Apps support establishing a subject based on claims from an IdP",
+                "AUTHN_CONTEXT": "Apps support establishing an authentication context based on claims from an IdP",
+                "JIT_PROVISIONING": "Apps support provisioning a user based on claims from an IdP",
+                "GROUP_SYNC": "Apps support syncing group information based on claims from an IdP",
+                "OPP_SCIM_INCREMENTAL_IMPORTS": "Apps support incremental imports. Used for SCIM app instances",
+                "IN_MEMORY_APP_USER": "Apps support in-memory app users. This feature is used as an alternative to Implicit App Assignment for a non-persisted app user.",
+                "LOG_STREAMING": "Apps support log streaming",
+                "OAUTH_INTEGRATION": "App is an OAuth 2.0 integration",
+                "IDP": "Apps support IdP functionalities",
+                "PUSH_NEW_USERS_WITHOUT_PASSWORD": "Don't send generated password for new users",
+                "SKYHOOK_SERVICE": "Use the Skyhook microservice for LCM operations",
+                "ENTITLEMENT_MANAGEMENT": "Marker to showcase which OIN apps are entitlement enabled",
+                "PUSH_NEW_USERS_WITH_HASHED_PASSWORD": "Send hashed password for new users. This feature is only used for CIS to CIC migration."
+              }
+            }
+          },
+          "id": {
+            "type": "string",
+            "readOnly": true,
+            "description": "Unique ID for the app instance"
+          },
+          "label": {
+            "$ref": "#/components/schemas/ApplicationLabel"
+          },
+          "lastUpdated": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true,
+            "description": "Timestamp when the application object was last updated"
+          },
+          "licensing": {
+            "$ref": "#/components/schemas/ApplicationLicensing"
+          },
+          "orn": {
+            "type": "string",
+            "readOnly": true,
+            "description": "The Okta resource name (ORN) for the current app instance"
+          },
+          "profile": {
+            "type": "object",
+            "description": "Contains any valid JSON schema for specifying properties that can be referenced from a request (only available to OAuth 2.0 client apps).\nFor example, add an app manager contact email address or define an allowlist of groups that you can then reference using the Okta Expression Language `getFilteredGroups` function.\n\n> **Notes:**\n> * `profile` isn't encrypted, so don't store sensitive data in it.\n> * `profile` doesn't limit the level of nesting in the JSON schema you created, but there is a practical size limit. Okta recommends a JSON schema size of 1 MB or less for best performance.",
+            "additionalProperties": true
+          },
+          "signOnMode": {
+            "$ref": "#/components/schemas/ApplicationSignOnMode"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ApplicationLifecycleStatus"
+          },
+          "universalLogout": {
+            "$ref": "#/components/schemas/ApplicationUniversalLogout"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/ApplicationVisibility"
+          },
+          "_embedded": {
+            "type": "object",
+            "description": "Embedded resources related to the app using the [JSON Hypertext Application Language](https://datatracker.ietf.org/doc/html/draft-kelly-json-hal-06) specification. If the `expand=user/{userId}` query parameter is specified, then the assigned [Application User](/openapi/okta-management/management/tags/applicationusers) is embedded.",
+            "properties": {
+              "user": {
+                "type": "object",
+                "description": "The specified [Application User](/openapi/okta-management/management/tags/applicationusers) assigned to the app",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            "readOnly": true
+          },
+          "_links": {
+            "$ref": "#/components/schemas/ApplicationLinks"
+          }
+        },
+        "required": [
+          "signOnMode",
+          "label"
+        ],
+        "discriminator": {
+          "propertyName": "signOnMode",
+          "mapping": {
+            "AUTO_LOGIN": "#/components/schemas/AutoLoginApplication",
+            "BASIC_AUTH": "#/components/schemas/BasicAuthApplication",
+            "BOOKMARK": "#/components/schemas/BookmarkApplication",
+            "BROWSER_PLUGIN": "#/components/schemas/BrowserPluginApplication",
+            "OPENID_CONNECT": "#/components/schemas/OpenIdConnectApplication",
+            "SAML_1_1": "#/components/schemas/Saml11Application",
+            "SAML_2_0": "#/components/schemas/SamlApplication",
+            "SECURE_PASSWORD_STORE": "#/components/schemas/SecurePasswordStoreApplication",
+            "WS_FEDERATION": "#/components/schemas/WsFederationApplication"
+          }
+        }
+      },
+      "ApplicationAccessibility": {
+        "description": "Specifies access settings for the app",
+        "type": "object",
+        "properties": {
+          "errorRedirectUrl": {
+            "type": "string",
+            "description": "Custom error page URL for the app"
+          },
+          "loginRedirectUrl": {
+            "type": "string",
+            "description": "Custom login page URL for the app\n> **Note:** The `loginRedirectUrl` property is deprecated in Identity Engine. This property is used with the custom app login feature. Orgs that actively use this feature can continue to do so. See [Okta-hosted sign-in (redirect authentication)](https://developer.okta.com/docs/guides/redirect-authentication/) or [configure IdP routing rules](https://help.okta.com/okta_help.htm?type=oie&id=ext-cfg-routing-rules) to redirect users to the appropriate sign-in app for orgs that don't use the custom app login feature."
+          },
+          "selfService": {
+            "type": "boolean",
+            "description": "Represents whether the app can be self-assignable by users"
+          }
+        }
+      },
+      "ApplicationCapability": {
+        "description": "Capabilities supported by the app",
+        "type": "string",
+        "enum": [
+          "PROVISIONING",
+          "SSO",
+          "UNIVERSAL_LOGOUT"
+        ]
+      },
+      "ApplicationCredentials": {
+        "description": "Credentials for the specified `signOnMode`",
+        "type": "object",
+        "properties": {
+          "signing": {
+            "$ref": "#/components/schemas/ApplicationCredentialsSigning"
+          },
+          "userNameTemplate": {
+            "$ref": "#/components/schemas/ApplicationCredentialsUsernameTemplate"
+          }
+        }
+      },
+      "ApplicationCredentialsOAuthClient": {
+        "type": "object",
+        "properties": {
+          "autoKeyRotation": {
+            "type": "boolean",
+            "description": "Requested key rotation mode",
+            "default": true
+          },
+          "client_id": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 6,
+            "description": "Unique identifier for the OAuth 2.0 client app\n\n> **Notes:**\n> * If you don't specify the `client_id`, this immutable property is populated with the [Application instance ID](/openapi/okta-management/management/application/replaceapplication#application/replaceapplication/t=response&c=200&path=&d=0/id).\n> * The `client_id` must consist of alphanumeric characters or the following special characters: `$-_.+!*'(),`.\n> * You can't use the reserved word `ALL_CLIENTS`."
+          },
+          "client_secret": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 14,
+            "description": "OAuth 2.0 client secret string (used for confidential clients)\n\n> **Notes:** If a `client_secret` isn't provided on creation, and the `token_endpoint_auth_method` requires one, Okta generates a random `client_secret` for the client app.\n> The `client_secret` is only shown when an OAuth 2.0 client app is created or updated (and only if the `token_endpoint_auth_method` requires a client secret)."
+          },
+          "pkce_required": {
+            "type": "boolean",
+            "description": "Requires Proof Key for Code Exchange (PKCE) for additional verification. If `token_endpoint_auth_method` is `none`, then `pkce_required` must be `true`. The default is `true` for browser and native app types.",
+            "default": true
+          },
+          "token_endpoint_auth_method": {
+            "$ref": "#/components/schemas/OAuthEndpointAuthenticationMethod"
+          }
+        }
+      },
+      "ApplicationCredentialsScheme": {
+        "description": "Apps with `BASIC_AUTH`, `BROWSER_PLUGIN`, or `SECURE_PASSWORD_STORE` sign-on modes have credentials vaulted by Okta and can be configured with the following schemes.\n",
+        "type": "string",
+        "enum": [
+          "ADMIN_SETS_CREDENTIALS",
+          "EDIT_PASSWORD_ONLY",
+          "EDIT_USERNAME_AND_PASSWORD",
+          "EXTERNAL_PASSWORD_SYNC",
+          "SHARED_USERNAME_AND_PASSWORD"
+        ],
+        "x-enumDescriptions": {
+          "ADMIN_SETS_CREDENTIALS": "Admin sets username and password",
+          "EDIT_PASSWORD_ONLY": "Admin sets username, user sets password",
+          "EDIT_USERNAME_AND_PASSWORD": "User sets username and password",
+          "EXTERNAL_PASSWORD_SYNC": "Admin sets username, password is the same as user's Okta password",
+          "SHARED_USERNAME_AND_PASSWORD": "Users share a single username and password set by the admin"
+        }
+      },
+      "ApplicationCredentialsSigning": {
+        "description": "App signing key properties\n> **Note:** Only apps with SAML_2_0, SAML_1_1, WS_FEDERATION, or OPENID_CONNECT `signOnMode` support the key rotation feature.\n",
+        "type": "object",
+        "properties": {
+          "kid": {
+            "type": "string",
+            "description": "Key identifier used for signing assertions\n> **Note:** Currently, only the X.509 JWK format is supported for apps with SAML_2_0 `signOnMode`."
+          },
+          "lastRotated": {
+            "type": "string",
+            "description": "Timestamp when the signing key was last rotated",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "nextRotation": {
+            "type": "string",
+            "description": "The scheduled time for the next signing key rotation",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "rotationMode": {
+            "type": "string",
+            "description": "The mode of key rotation"
+          },
+          "use": {
+            "$ref": "#/components/schemas/ApplicationCredentialsSigningUse"
+          }
+        }
+      },
+      "ApplicationCredentialsSigningUse": {
+        "description": "Specifies the intended use of the key",
+        "type": "string",
+        "enum": [
+          "sig"
+        ]
+      },
+      "ApplicationCredentialsUsernameTemplate": {
+        "description": "The template used to generate the username when the app is assigned through a group or directly to a user",
+        "type": "object",
+        "properties": {
+          "pushStatus": {
+            "type": "string",
+            "description": "Determines if the username is pushed to the app on updates for CUSTOM `type`",
+            "enum": [
+              "PUSH",
+              "DONT_PUSH",
+              "NOT_CONFIGURED"
+            ]
+          },
+          "template": {
+            "type": "string",
+            "description": "Mapping expression used to generate usernames.\n\nThe following are supported mapping expressions that are used with the `BUILT_IN` template type:\n\n| Name                            | Template Expression                            |\n| ------------------------------- | ---------------------------------------------- |\n| AD Employee ID                  | `${source.employeeID}`                         |\n| AD SAM Account Name             | `${source.samAccountName}`                     |\n| AD SAM Account Name (lowercase) | `${fn:toLowerCase(source.samAccountName)}`     |\n| AD User Principal Name          | `${source.userName}`                           |\n| AD User Principal Name prefix   | `${fn:substringBefore(source.userName, \"@\")}`  |\n| Email                           | `${source.email}`                              |\n| Email (lowercase)               | `${fn:toLowerCase(source.email)}`              |\n| Email prefix                    | `${fn:substringBefore(source.email, \"@\")}`     |\n| LDAP UID + custom suffix        | `${source.userName}${instance.userSuffix}`     |\n| Okta username                   | `${source.login}`                              |\n| Okta username prefix            | `${fn:substringBefore(source.login, \"@\")}`     |",
+            "default": "${source.login}"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type of mapping expression. Empty string is allowed.",
+            "enum": [
+              "NONE",
+              "BUILT_IN",
+              "CUSTOM"
+            ],
+            "default": "BUILT_IN"
+          },
+          "userSuffix": {
+            "type": "string",
+            "description": "An optional suffix appended to usernames for `BUILT_IN` mapping expressions"
+          }
+        }
+      },
+      "ApplicationExpressConfiguration": {
+        "description": "<div class=\"x-lifecycle-container\"><x-lifecycle class=\"oie\"></x-lifecycle></div>\nIndicates which Express Configuration capabilities the app supports and has enabled",
+        "type": "object",
+        "properties": {
+          "enabledCapabilities": {
+            "type": "array",
+            "description": "Capabilities currently enabled for the app",
+            "items": {
+              "$ref": "#/components/schemas/ApplicationCapability"
+            },
+            "example": [
+              "SSO"
+            ]
+          },
+          "supportedCapabilities": {
+            "type": "array",
+            "description": "Capabilities supported by the app",
+            "items": {
+              "$ref": "#/components/schemas/ApplicationCapability"
+            },
+            "example": [
+              "SSO",
+              "PROVISIONING",
+              "UNIVERSAL_LOGOUT"
+            ]
+          }
+        },
+        "readOnly": true
+      },
+      "ApplicationLabel": {
+        "description": "User-defined display name for app",
+        "type": "string"
+      },
+      "ApplicationLicensing": {
+        "description": "Licenses for the app",
+        "type": "object",
+        "properties": {
+          "seatCount": {
+            "type": "integer",
+            "description": "Number of licenses purchased for the app"
+          }
+        }
+      },
+      "ApplicationLifecycleStatus": {
+        "description": "App instance status",
+        "type": "string",
+        "enum": [
+          "ACTIVE",
+          "DELETED",
+          "INACTIVE"
+        ],
+        "readOnly": true
+      },
+      "ApplicationLinks": {
+        "description": "Discoverable resources related to the app",
+        "properties": {
+          "accessPolicy": {
+            "$ref": "#/components/schemas/AccessPolicyLink"
+          },
+          "activate": {
+            "$ref": "#/components/schemas/HrefObjectActivateLink"
+          },
+          "appLinks": {
+            "type": "array",
+            "description": "List of app link resources",
+            "items": {
+              "$ref": "#/components/schemas/HrefObject"
+            }
+          },
+          "deactivate": {
+            "$ref": "#/components/schemas/HrefObjectDeactivateLink"
+          },
+          "groups": {
+            "$ref": "#/components/schemas/GroupsLink"
+          },
+          "help": {
+            "$ref": "#/components/schemas/HelpLink"
+          },
+          "logo": {
+            "type": "array",
+            "description": "List of app logo resources",
+            "items": {
+              "$ref": "#/components/schemas/HrefObject"
+            }
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/MetadataLink"
+          },
+          "self": {
+            "$ref": "#/components/schemas/HrefObjectSelfLink"
+          },
+          "users": {
+            "$ref": "#/components/schemas/UsersLink"
+          }
+        },
+        "readOnly": true
+      },
+      "ApplicationSettings": {
+        "description": "App settings",
+        "type": "object",
+        "properties": {
+          "emOptInStatus": {
+            "type": "string",
+            "description": "The entitlement management opt-in status for the app",
+            "readOnly": true,
+            "enum": [
+              "DISABLED",
+              "DISABLING",
+              "ENABLED",
+              "ENABLING",
+              "NONE"
+            ],
+            "x-enumDescriptions": {
+              "DISABLED": "Entitlement management for the app is disabled.",
+              "DISABLING": "Entitlement management for the app was enabled and is now being disabled.",
+              "ENABLED": "Entitlement management for the app is enabled.",
+              "ENABLING": "Entitlement management for the app was disabled and is now being enabled."
+            }
+          },
+          "identityStoreId": {
+            "type": "string",
+            "description": "Identifies an additional identity store app, if your app supports it. The `identityStoreId` value must be a valid identity store app ID. This identity store app must be created in the same org as your app."
+          },
+          "implicitAssignment": {
+            "type": "boolean",
+            "description": "Controls whether Okta automatically assigns users to the app based on the user's role or group membership."
+          },
+          "inlineHookId": {
+            "type": "string",
+            "description": "Identifier of an inline hook. Inline hooks are outbound calls from Okta to your own custom code, triggered at specific points in Okta process flows. They allow you to integrate custom functionality into those flows. See [Inline hooks](/openapi/okta-management/management/tags/inlinehook/)."
+          },
+          "notes": {
+            "$ref": "#/components/schemas/ApplicationSettingsNotes"
+          },
+          "notifications": {
+            "$ref": "#/components/schemas/ApplicationSettingsNotifications"
+          }
+        }
+      },
+      "ApplicationSettingsNotes": {
+        "description": "App notes visible to either the admin or end user",
+        "type": "object",
+        "properties": {
+          "admin": {
+            "type": "string",
+            "description": "An app message that's visible to admins"
+          },
+          "enduser": {
+            "type": "string",
+            "description": "A message that's visible in the End-User Dashboard"
+          }
+        }
+      },
+      "ApplicationSettingsNotifications": {
+        "description": "Specifies notifications settings for the app",
+        "type": "object",
+        "properties": {
+          "vpn": {
+            "$ref": "#/components/schemas/ApplicationSettingsNotificationsVpn"
+          }
+        }
+      },
+      "ApplicationSettingsNotificationsVpn": {
+        "description": "Sends customizable messages with conditions to end users when a VPN connection is required",
+        "type": "object",
+        "properties": {
+          "helpUrl": {
+            "type": "string",
+            "description": "An optional URL to a help page to assist your end users in signing in to your company VPN"
+          },
+          "message": {
+            "type": "string",
+            "description": "A VPN requirement message that's displayed to users"
+          },
+          "network": {
+            "$ref": "#/components/schemas/ApplicationSettingsNotificationsVpnNetwork"
+          }
+        },
+        "required": [
+          "network"
+        ]
+      },
+      "ApplicationSettingsNotificationsVpnNetwork": {
+        "description": "Defines network zones for VPN notification",
+        "type": "object",
+        "properties": {
+          "connection": {
+            "type": "string",
+            "description": "Specifies the VPN connection details required to access the app",
+            "enum": [
+              "DISABLED",
+              "ANYWHERE",
+              "ON_NETWORK",
+              "OFF_NETWORK",
+              "ZONE"
+            ],
+            "x-enumDescriptions": {
+              "DISABLED": "The default state. Retain this setting for apps that don't require a VPN connection.",
+              "ANYWHERE": "Displays VPN connection information regardless of the browser's client IP. The notification appears before the end user can access the app.",
+              "ON_NETWORK": "Displays VPN connection information only when a browser's client IP matches the configured Public Gateway IPs. The notification appears before the end user can access the app.",
+              "OFF_NETWORK": "Displays VPN connection information only when the browser's client IP doesn't match the configured Public Gateway IPs. The notification appears before the end user can access the app."
+            }
+          },
+          "exclude": {
+            "type": "array",
+            "description": "Defines the IP addresses or network ranges that are excluded from the VPN requirement",
+            "items": {
+              "type": "string"
+            }
+          },
+          "include": {
+            "type": "array",
+            "description": "Defines the IP addresses or network ranges that are required to use the VPN",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ApplicationSignOnMode": {
+        "description": "Authentication mode for the app\n\n| signOnMode | Description |\n| ---------- | ----------- |\n| AUTO_LOGIN | Secure Web Authentication (SWA) |\n| BASIC_AUTH | HTTP Basic Authentication with Okta Browser Plugin |\n| BOOKMARK | Just a bookmark (no-authentication) |\n| BROWSER_PLUGIN | Secure Web Authentication (SWA) with Okta Browser Plugin |\n| OPENID_CONNECT | Federated Authentication with OpenID Connect (OIDC) |\n| SAML_1_1 | Federated Authentication with SAML 1.1 WebSSO (not supported for custom apps) |\n| SAML_2_0 | Federated Authentication with SAML 2.0 WebSSO |\n| SECURE_PASSWORD_STORE | Secure Web Authentication (SWA) with POST (plugin not required) |\n| WS_FEDERATION | Federated Authentication with WS-Federation Passive Requestor Profile |\n\nSelect the `signOnMode` for your custom app:\n",
+        "type": "string",
+        "enum": [
+          "AUTO_LOGIN",
+          "BASIC_AUTH",
+          "BOOKMARK",
+          "BROWSER_PLUGIN",
+          "OPENID_CONNECT",
+          "SAML_1_1",
+          "SAML_2_0",
+          "SECURE_PASSWORD_STORE",
+          "WS_FEDERATION"
+        ]
+      },
+      "ApplicationUniversalLogout": {
+        "description": "<div class=\"x-lifecycle-container\"><x-lifecycle class=\"oie\"></x-lifecycle></div>\nUniversal Logout properties for the app. These properties are only returned and can't be updated.",
+        "x-okta-lifecycle": {
+          "lifecycle": "GA",
+          "isGenerallyAvailable": false,
+          "SKUs": []
+        },
+        "example": "ACTIVE",
+        "type": "object",
+        "properties": {
+          "identityStack": {
+            "type": "string",
+            "description": "Indicates whether the app uses a shared identity stack that may cause the user to sign out of other apps by the same company",
+            "enum": [
+              "SHARED",
+              "NOT_SHARED"
+            ],
+            "example": "SHARED"
+          },
+          "protocol": {
+            "type": "string",
+            "description": "The protocol used for Universal Logout",
+            "enum": [
+              "PROPRIETARY",
+              "GLOBAL_TOKEN_REVOCATION"
+            ],
+            "x-enumDescriptions": {
+              "PROPRIETARY": "Universal Logout is implemented with a proprietary method.",
+              "GLOBAL_TOKEN_REVOCATION": "Universal Logout is implemented with the [Global Token Revocation](https://datatracker.ietf.org/doc/draft-parecki-oauth-global-token-revocation/) protocol. See the [Global Token Revocation API](https://developer.okta.com/docs/api/openapi/okta-oauth/oauth/tag/GlobalTokenRevocation/)."
+            },
+            "example": "PROPRIETARY"
+          },
+          "status": {
+            "type": "string",
+            "description": "Universal Logout status for the app instance",
+            "enum": [
+              "ENABLED",
+              "DISABLED",
+              "UNSUPPORTED"
+            ],
+            "example": "ENABLED",
+            "x-enumDescriptions": {
+              "ENABLED": "Universal Logout is enabled. Users are signed out of the app instance when the Okta system or an admin initiates logout.",
+              "DISABLED": "Universal Logout is disabled",
+              "UNSUPPORTED": "The app doesn't support Universal Logout"
+            }
+          },
+          "supportType": {
+            "type": "string",
+            "description": "Indicates whether the app supports full or partial Universal Logout (UL).",
+            "enum": [
+              "FULL",
+              "PARTIAL"
+            ],
+            "x-enumDescriptions": {
+              "FULL": "Full UL support (users are signed out of an app when the Okta system or an admin initiates logout)",
+              "PARTIAL": "This app's sign-out behavior can be different from other supported UL apps."
+            },
+            "example": "FULL"
+          }
+        },
+        "readOnly": true
+      },
+      "ApplicationVisibility": {
+        "description": "Specifies visibility settings for the app",
+        "type": "object",
+        "properties": {
+          "appLinks": {
+            "type": "object",
+            "description": "Links or icons that appear on the End-User Dashboard if they're set to `true`.",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "autoLaunch": {
+            "type": "boolean",
+            "description": "Automatically signs in to the app when user signs into Okta"
+          },
+          "autoSubmitToolbar": {
+            "type": "boolean",
+            "description": "Automatically sign in when user lands on the sign-in page"
+          },
+          "hide": {
+            "$ref": "#/components/schemas/ApplicationVisibilityHide"
+          }
+        }
+      },
+      "ApplicationVisibilityHide": {
+        "description": "Hides the app for specific end-user apps",
+        "type": "object",
+        "properties": {
+          "iOS": {
+            "type": "boolean",
+            "description": "Okta Mobile for iOS or Android (pre-dates Android)",
+            "default": false,
+            "example": false
+          },
+          "web": {
+            "type": "boolean",
+            "description": "Okta End-User Dashboard on a web browser",
+            "default": false,
+            "example": true
+          }
+        }
+      },
+      "AuthenticationProvider": {
+        "description": "Specifies the authentication provider that validates the user's password credential. The user's current provider is managed by the **Delegated Authentication** settings for your org. The provider object is **read-only**.",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The name of the authentication provider",
+            "readOnly": true,
+            "example": "OKTA"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AuthenticationProviderType"
+          }
+        },
+        "readOnly": true
+      },
+      "AuthenticationProviderType": {
+        "description": "The type of authentication provider",
+        "type": "string",
+        "enum": [
+          "ACTIVE_DIRECTORY",
+          "FEDERATION",
+          "IMPORT",
+          "LDAP",
+          "OKTA",
+          "SOCIAL"
+        ],
+        "x-enumDescriptions": {
+          "ACTIVE_DIRECTORY": "Specifies the Microsoft Active Directory instance name as the `name` property",
+          "FEDERATION": "Specifies a federated identity provider (such as an SAML IdP) that validates the user's password credentials. Doesn't support a `password` or `recovery question` credential. The user must authenticate through a trusted identity provider.",
+          "IMPORT": "Specifies a hashed password that was imported from an external source",
+          "LDAP": "Specifies the LDAP directory instance name as the `name` property",
+          "OKTA": "Specifies the Okta identity provider",
+          "SOCIAL": "Specifies an OIDC or third-party social identity provider. Doesn't support a `password` or `recovery question` credential. The user must authenticate through a trusted identity provider."
+        },
+        "readOnly": true
+      },
+      "AutoLoginApplication": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Application"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "credentials": {
+                "$ref": "#/components/schemas/SchemeApplicationCredentials"
+              },
+              "name": {
+                "type": "string",
+                "description": "A unique key is generated for the custom SWA app instance when you use AUTO_LOGIN `signOnMode`.",
+                "readOnly": true
+              },
+              "settings": {
+                "$ref": "#/components/schemas/AutoLoginApplicationSettings"
+              }
+            }
+          }
+        ]
+      },
+      "AutoLoginApplicationSettings": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApplicationSettings"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "signOn": {
+                "$ref": "#/components/schemas/AutoLoginApplicationSettingsSignOn"
+              }
+            }
+          }
+        ]
+      },
+      "AutoLoginApplicationSettingsSignOn": {
+        "type": "object",
+        "properties": {
+          "loginUrl": {
+            "type": "string",
+            "description": "Primary URL of the sign-in page for this app"
+          },
+          "redirectUrl": {
+            "type": "string",
+            "description": "Secondary URL of the sign-in page for this app"
+          }
+        },
+        "required": [
+          "loginUrl"
+        ]
+      },
+      "BasicApplicationSettings": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApplicationSettings"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "app": {
+                "$ref": "#/components/schemas/BasicApplicationSettingsApplication"
+              }
+            }
+          }
+        ]
+      },
+      "BasicApplicationSettingsApplication": {
+        "type": "object",
+        "properties": {
+          "authURL": {
+            "type": "string",
+            "description": "The URL of the authenticating site for this app"
+          },
+          "url": {
+            "type": "string",
+            "description": "The URL of the sign-in page for this app"
+          }
+        },
+        "required": [
+          "authURL",
+          "url"
+        ]
+      },
+      "BasicAuthApplication": {
+        "x-okta-defined-as": {
+          "name": "template_basic_auth"
+        },
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Application"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "credentials": {
+                "$ref": "#/components/schemas/SchemeApplicationCredentials"
+              },
+              "name": {
+                "type": "string",
+                "description": "`template_basic_auth` is the key name for a Basic Authentication scheme app instance",
+                "enum": [
+                  "template_basic_auth"
+                ]
+              },
+              "settings": {
+                "$ref": "#/components/schemas/BasicApplicationSettings"
+              }
+            },
+            "required": [
+              "name",
+              "settings"
+            ]
+          }
+        ]
+      },
+      "BookmarkApplication": {
+        "x-okta-defined-as": {
+          "name": "bookmark"
+        },
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Application"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "credentials": {
+                "$ref": "#/components/schemas/ApplicationCredentials"
+              },
+              "name": {
+                "type": "string",
+                "description": "`bookmark` is the key name for a Bookmark app",
+                "enum": [
+                  "bookmark"
+                ]
+              },
+              "settings": {
+                "$ref": "#/components/schemas/BookmarkApplicationSettings"
+              }
+            },
+            "required": [
+              "name",
+              "settings"
+            ]
+          }
+        ]
+      },
+      "BookmarkApplicationSettings": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApplicationSettings"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "app": {
+                "$ref": "#/components/schemas/BookmarkApplicationSettingsApplication"
+              }
+            }
+          }
+        ]
+      },
+      "BookmarkApplicationSettingsApplication": {
+        "type": "object",
+        "properties": {
+          "requestIntegration": {
+            "type": "boolean",
+            "description": "Would you like Okta to add an integration for this app?",
+            "default": false
+          },
+          "url": {
+            "type": "string",
+            "description": "The URL of the launch page for this app"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "BrowserPluginApplication": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Application"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "credentials": {
+                "$ref": "#/components/schemas/SchemeApplicationCredentials"
+              },
+              "name": {
+                "type": "string",
+                "description": "The key name for the app definition",
+                "enum": [
+                  "template_swa",
+                  "template_swa3field"
+                ],
+                "x-enumDescriptions": {
+                  "template_swa": "The key name for a SWA app instance that requires a browser plugin",
+                  "template_swa3field": "The key name for a SWA app instance that requires a browser plugin and supports three CSS selectors"
+                }
+              },
+              "settings": {
+                "$ref": "#/components/schemas/SwaApplicationSettings"
+              }
+            },
+            "required": [
+              "name",
+              "settings"
+            ]
+          }
+        ]
+      },
+      "CatalogApplication": {
+        "description": "An app in the OIN catalog",
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Category for the app in the OIN catalog",
+            "example": "SOCIAL",
+            "readOnly": true
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the app in the OIN catalog",
+            "readOnly": true
+          },
+          "displayName": {
+            "type": "string",
+            "description": "OIN catalog app display name",
+            "readOnly": true
+          },
+          "features": {
+            "type": "array",
+            "readOnly": true,
+            "description": "Features supported by the app. See app [features](/openapi/okta-management/management/application/listapplications#application/listapplications/t=response&c=200&path=&d=0/features).",
+            "items": {
+              "type": "string"
+            }
+          },
+          "id": {
+            "type": "string",
+            "readOnly": true,
+            "description": "ID of the app instance. Okta returns this property only for apps not in the OIN catalog."
+          },
+          "lastUpdated": {
+            "type": "string",
+            "description": "Timestamp when the object was last updated",
+            "format": "date-time",
+            "readOnly": true,
+            "example": "2024-09-19T23:37:37.000Z"
+          },
+          "name": {
+            "type": "string",
+            "description": "App key name. For OIN catalog apps, this is a unique key for the app definition."
+          },
+          "signOnModes": {
+            "type": "array",
+            "description": "Authentication mode for the app. See app [signOnMode](/openapi/okta-management/management/application/listapplications#application/listapplications/t=response&c=200&path=&d=0/signonmode).",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "$ref": "#/components/schemas/CatalogApplicationStatus"
+          },
+          "verificationStatus": {
+            "type": "string",
+            "description": "OIN verification status of the catalog app",
+            "example": "OKTA_VERIFIED"
+          },
+          "website": {
+            "type": "string",
+            "description": "Website of the OIN catalog app"
+          },
+          "_links": {
+            "type": "object",
+            "description": "Specifies link relations (see [Web Linking](https://www.rfc-editor.org/rfc/rfc8288)) available using the [JSON Hypertext Application Language](https://datatracker.ietf.org/doc/html/draft-kelly-json-hal-06) specification",
+            "readOnly": true,
+            "properties": {
+              "logo": {
+                "type": "array",
+                "description": "List of app logo resources",
+                "items": {
+                  "$ref": "#/components/schemas/HrefObjectLogoLink"
+                }
+              },
+              "self": {
+                "$ref": "#/components/schemas/HrefObjectSelfLink"
+              }
+            }
+          }
+        }
+      },
+      "CatalogApplicationStatus": {
+        "description": "App status",
+        "type": "string",
+        "enum": [
+          "ACTIVE",
+          "INACTIVE"
+        ]
+      },
+      "CustomRole": {
+        "title": "Custom role assignment",
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "assignmentType": {
+            "$ref": "#/components/schemas/RoleAssignmentType"
+          },
+          "created": {
+            "type": "string",
+            "description": "Timestamp when the object was created",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "id": {
+            "type": "string",
+            "description": "Binding object ID",
+            "readOnly": true
+          },
+          "label": {
+            "type": "string",
+            "description": "Label for the role assignment",
+            "readOnly": true
+          },
+          "lastUpdated": {
+            "type": "string",
+            "description": "Timestamp when the object was last updated",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "resource-set": {
+            "type": "string",
+            "description": "Resource set ID",
+            "readOnly": true
+          },
+          "role": {
+            "type": "string",
+            "description": "Role ID",
+            "readOnly": true
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LifecycleStatus"
+              },
+              {
+                "description": "Status of the role assignment"
+              }
+            ]
+          },
+          "type": {
+            "$ref": "#/components/schemas/RoleType"
+          },
+          "_links": {
+            "$ref": "#/components/schemas/LinksCustomRoleResponse"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "DigestAlgorithm": {
+        "description": "Algorithm used to generate the key. Only required for the PBKDF2 algorithm.",
+        "type": "string",
+        "enum": [
+          "SHA256_HMAC",
+          "SHA512_HMAC"
+        ]
+      },
+      "GrantType": {
+        "description": "Determines the mechanism Okta uses to authorize the creation of the tokens.",
+        "type": "string",
+        "enum": [
+          "authorization_code",
+          "client_credentials",
+          "implicit",
+          "interaction_code",
+          "password",
+          "refresh_token",
+          "urn:ietf:params:oauth:grant-type:device_code",
+          "urn:ietf:params:oauth:grant-type:jwt-bearer",
+          "urn:ietf:params:oauth:grant-type:saml2-bearer",
+          "urn:ietf:params:oauth:grant-type:token-exchange",
+          "urn:openid:params:grant-type:ciba",
+          "urn:okta:params:oauth:grant-type:otp",
+          "urn:okta:params:oauth:grant-type:oob",
+          "http://auth0.com/oauth/grant-type/mfa-otp",
+          "http://auth0.com/oauth/grant-type/mfa-oob"
+        ]
+      },
+      "Group": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "created": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true,
+            "description": "Timestamp when the group was created"
+          },
+          "id": {
+            "type": "string",
+            "readOnly": true,
+            "example": "0gabcd1234",
+            "description": "Unique ID for the group"
+          },
+          "lastMembershipUpdated": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true,
+            "description": "Timestamp when the groups memberships were last updated"
+          },
+          "lastUpdated": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true,
+            "description": "Timestamp when the group's profile was last updated"
+          },
+          "objectClass": {
+            "type": "array",
+            "readOnly": true,
+            "description": "Determines the group's `profile`",
+            "items": {
+              "type": "string"
+            }
+          },
+          "profile": {
+            "$ref": "#/components/schemas/GroupProfile"
+          },
+          "type": {
+            "$ref": "#/components/schemas/GroupType"
+          },
+          "_embedded": {
+            "type": "object",
+            "description": "Embedded resources related to the group",
+            "readOnly": true,
+            "properties": {
+              "stats": {
+                "description": "Statistics about the group",
+                "type": "object",
+                "properties": {
+                  "usersCount": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "Number of users in the group"
+                  },
+                  "appsCount": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "Number of apps associated with the group"
+                  },
+                  "groupPushMappingsCount": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "Number of group push mappings associated with the group"
+                  },
+                  "hasAdminPrivlege": {
+                    "type": "boolean",
+                    "description": "Indicates if the group has admin privileges via a group-level role assignment"
+                  }
+                }
+              },
+              "app": {
+                "description": "If the group is sourced from an app, this object contains information about that app",
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "The ID of the `AppInstance`"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "The name of the `AppInstance`"
+                  },
+                  "label": {
+                    "type": "string",
+                    "description": "The user-facing display name of the `AppInstance`"
+                  },
+                  "signOnMode": {
+                    "type": "string",
+                    "description": "The configured sign-on mode for the `AppInstance`",
+                    "example": "SAML_1_1"
+                  }
+                }
+              }
+            }
+          },
+          "_links": {
+            "description": "[Discoverable resources](/openapi/okta-management/management/group/listgroups#group/listgroups/t=response&c=200&path=_links/source) related to the group",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LinksSelf"
+              },
+              {
+                "properties": {
+                  "apps": {
+                    "$ref": "#/components/schemas/HrefObject"
+                  },
+                  "logo": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/HrefObject"
+                    }
+                  },
+                  "source": {
+                    "$ref": "#/components/schemas/HrefObject"
+                  },
+                  "users": {
+                    "$ref": "#/components/schemas/HrefObject"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "GroupProfile": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/OktaUserGroupProfile"
+          },
+          {
+            "$ref": "#/components/schemas/OktaActiveDirectoryGroupProfile"
+          }
+        ]
+      },
+      "GroupType": {
+        "description": "Determines how a group's profile and memberships are managed",
+        "type": "string",
+        "enum": [
+          "APP_GROUP",
+          "BUILT_IN",
+          "OKTA_GROUP"
+        ],
+        "x-enumDescriptions": {
+          "APP_GROUP": "Group profile and memberships are imported and must be managed within the app (such as Active Directory or LDAP) that imported the group",
+          "BUILT_IN": "Group profile and memberships are managed by Okta and can't be modified",
+          "OKTA_GROUP": "Group profile and memberships are directly managed in Okta via static assignments or indirectly through group rules"
+        }
+      },
+      "GroupsLink": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HrefObject"
+          },
+          {
+            "description": "Link to the [Application Groups](/openapi/okta-management/management/tags/applicationgroups/other/listapplicationgroupassignments) resource"
+          }
+        ]
+      },
+      "HelpLink": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HrefObject"
+          },
+          {
+            "description": "Link to the app help resource"
+          }
+        ]
+      },
+      "HrefHints": {
+        "description": "Describes allowed HTTP verbs for the `href`",
+        "type": "object",
+        "properties": {
+          "allow": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HttpMethod"
+            }
+          }
+        }
+      },
+      "HrefObject": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "title": "Link Object",
+        "additionalProperties": true,
+        "type": "object",
+        "properties": {
+          "hints": {
+            "$ref": "#/components/schemas/HrefHints",
+            "readOnly": true
+          },
+          "href": {
+            "type": "string",
+            "description": "Link URI"
+          },
+          "name": {
+            "type": "string",
+            "description": "Link name",
+            "readOnly": true
+          },
+          "templated": {
+            "type": "boolean",
+            "description": "Indicates whether the link object's `href` property is a URI template.",
+            "readOnly": true
+          },
+          "type": {
+            "type": "string",
+            "description": "The media type of the link. If omitted, it is implicitly `application/json`.",
+            "readOnly": true
+          }
+        },
+        "required": [
+          "href"
+        ]
+      },
+      "HrefObjectActivateLink": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HrefObject"
+          },
+          {
+            "description": "Link to activate the resource"
+          }
+        ]
+      },
+      "HrefObjectAssigneeLink": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HrefObject"
+          },
+          {
+            "description": "Link to the assignee resource"
+          }
+        ]
+      },
+      "HrefObjectDeactivateLink": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HrefObject"
+          },
+          {
+            "description": "Link to deactivate the resource"
+          }
+        ]
+      },
+      "HrefObjectDeleteLink": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HrefObject"
+          },
+          {
+            "description": "Link to delete the resource"
+          }
+        ]
+      },
+      "HrefObjectLogoLink": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HrefObject"
+          },
+          {
+            "description": "Link to the logo resource"
+          }
+        ]
+      },
+      "HrefObjectMemberLink": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HrefObject"
+          },
+          {
+            "description": "Link to the member resource"
+          }
+        ]
+      },
+      "HrefObjectPermissionsLink": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HrefObject"
+          },
+          {
+            "description": "Link to the permissions resource"
+          }
+        ]
+      },
+      "HrefObjectResourceSetLink": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HrefObject"
+          },
+          {
+            "description": "Link to the resource set resource"
+          }
+        ]
+      },
+      "HrefObjectRoleLink": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HrefObject"
+          },
+          {
+            "description": "Link to the role resource"
+          }
+        ]
+      },
+      "HrefObjectSelfLink": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HrefObject"
+          },
+          {
+            "description": "Link to the resource (self)"
+          }
+        ]
+      },
+      "HttpMethod": {
+        "type": "string",
+        "enum": [
+          "DELETE",
+          "GET",
+          "POST",
+          "PUT"
+        ]
+      },
+      "IdTokenKeyEncryptionAlgorithm": {
+        "description": "JWE alg algorithm for encrypting the ID token issued to this client. If this is requested, the response is signed, and then encrypted with the result being a nested JWT. The default, if omitted, is that no encryption is performed. See the [Application Public Keys API](/openapi/okta-management/management/applicationssopublickeys/) for more information on encryption keys. See [Key management](https://developer.okta.com/docs/guides/key-management/main/) for more information on how encryption keys are used.",
+        "x-okta-lifecycle": {
+          "lifecycle": "GA",
+          "isGenerallyAvailable": true
+        },
+        "type": "string",
+        "enum": [
+          "RSA-OAEP-256",
+          "RSA-OAEP-384",
+          "RSA-OAEP-512"
+        ]
+      },
+      "LifecycleStatus": {
+        "type": "string",
+        "enum": [
+          "ACTIVE",
+          "INACTIVE"
+        ]
+      },
+      "LinksActivate": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "activate": {
+            "allOf": [
+              {
+                "description": "Activates an enrolled factor. See [Activate a factor](/openapi/okta-management/management/userfactor/activatefactor)."
+              },
+              {
+                "$ref": "#/components/schemas/HrefObject"
+              }
+            ]
+          }
+        },
+        "readOnly": true
+      },
+      "LinksAssignee": {
+        "description": "Specifies link relations (see [Web Linking](https://www.rfc-editor.org/rfc/rfc8288)) available using the [JSON Hypertext Application Language](https://datatracker.ietf.org/doc/html/draft-kelly-json-hal-06) specification.",
+        "type": "object",
+        "properties": {
+          "assignee": {
+            "$ref": "#/components/schemas/HrefObjectAssigneeLink"
+          }
+        }
+      },
+      "LinksCancel": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "cancel": {
+            "allOf": [
+              {
+                "description": "Cancels a `push` factor challenge with a `WAITING` status"
+              },
+              {
+                "$ref": "#/components/schemas/HrefObject"
+              }
+            ]
+          }
+        },
+        "readOnly": true
+      },
+      "LinksCustomRoleResponse": {
+        "description": "Specifies link relations (see [Web Linking](https://www.rfc-editor.org/rfc/rfc8288)) available using the [JSON Hypertext Application Language](https://datatracker.ietf.org/doc/html/draft-kelly-json-hal-06) specification. This object is used for dynamic discovery of related resources.",
+        "type": "object",
+        "properties": {
+          "assignee": {
+            "$ref": "#/components/schemas/HrefObjectAssigneeLink"
+          },
+          "member": {
+            "$ref": "#/components/schemas/HrefObjectMemberLink"
+          },
+          "permissions": {
+            "$ref": "#/components/schemas/HrefObjectPermissionsLink"
+          },
+          "resource-set": {
+            "$ref": "#/components/schemas/HrefObjectResourceSetLink"
+          },
+          "role": {
+            "$ref": "#/components/schemas/HrefObjectRoleLink"
+          }
+        }
+      },
+      "LinksDeactivate": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "deactivate": {
+            "allOf": [
+              {
+                "description": "Deactivates the factor. See [Unenroll a factor](/openapi/okta-management/management/userfactor/unenrollfactor)."
+              },
+              {
+                "$ref": "#/components/schemas/HrefObject"
+              }
+            ]
+          }
+        },
+        "readOnly": true
+      },
+      "LinksEnroll": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "enroll": {
+            "allOf": [
+              {
+                "description": "Enrolls a supported factor. See [Enroll a factor](/openapi/okta-management/management/userfactor/enrollfactor)."
+              },
+              {
+                "$ref": "#/components/schemas/HrefObject"
+              }
+            ]
+          }
+        },
+        "readOnly": true
+      },
+      "LinksFactor": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "factor": {
+            "allOf": [
+              {
+                "description": "Link to the factor resource"
+              },
+              {
+                "$ref": "#/components/schemas/HrefObject"
+              }
+            ]
+          }
+        },
+        "readOnly": true
+      },
+      "LinksPoll": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "poll": {
+            "allOf": [
+              {
+                "description": "Polls the factor resource for status information. Always use the `poll` link instead of manually constructing your own URL."
+              },
+              {
+                "$ref": "#/components/schemas/HrefObject"
+              }
+            ]
+          }
+        },
+        "readOnly": true
+      },
+      "LinksQrcode": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "qrcode": {
+            "allOf": [
+              {
+                "description": "QR code that encodes the push activation code needed for enrollment on the device"
+              },
+              {
+                "$ref": "#/components/schemas/HrefObject"
+              }
+            ]
+          }
+        },
+        "readOnly": true
+      },
+      "LinksQuestions": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "question": {
+            "allOf": [
+              {
+                "description": "Lists all supported security questions. See [List all supported security questions](/openapi/okta-management/management/userfactor/listsupportedsecurityquestions)."
+              },
+              {
+                "$ref": "#/components/schemas/HrefObject"
+              }
+            ]
+          }
+        },
+        "readOnly": true
+      },
+      "LinksResend": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "resend": {
+            "allOf": [
+              {
+                "description": "Resends the factor enrollment challenge. See [Resend a factor enrollment](/openapi/okta-management/management/userfactor/resendenrollfactor)."
+              },
+              {
+                "$ref": "#/components/schemas/HrefObject"
+              }
+            ]
+          }
+        },
+        "readOnly": true
+      },
+      "LinksSelf": {
+        "description": "Specifies link relations (see [Web Linking](https://www.rfc-editor.org/rfc/rfc8288)) available using the [JSON Hypertext Application Language](https://datatracker.ietf.org/doc/html/draft-kelly-json-hal-06) specification. This object is used for dynamic discovery of related resources and lifecycle operations.",
+        "type": "object",
+        "properties": {
+          "self": {
+            "$ref": "#/components/schemas/HrefObjectSelfLink"
+          }
+        },
+        "readOnly": true
+      },
+      "LinksSend": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "send": {
+            "allOf": [
+              {
+                "description": "Sends an activation link through email or sms for users who can't scan the QR code"
+              },
+              {
+                "$ref": "#/components/schemas/HrefObject"
+              }
+            ]
+          }
+        },
+        "readOnly": true
+      },
+      "LinksUserFactors": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "user": {
+            "allOf": [
+              {
+                "description": "Returns information on the specified user"
+              },
+              {
+                "$ref": "#/components/schemas/HrefObject"
+              }
+            ]
+          }
+        },
+        "readOnly": true
+      },
+      "LinksVerify": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "verify": {
+            "allOf": [
+              {
+                "description": "Verifies the factor resource. See [Verify a factor](/openapi/okta-management/management/userfactor/verifyfactor)."
+              },
+              {
+                "$ref": "#/components/schemas/HrefObject"
+              }
+            ]
+          }
+        },
+        "readOnly": true
+      },
+      "MetadataLink": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HrefObject"
+          },
+          {
+            "description": "Link to the [SAML metadata](/openapi/okta-management/management/applicationsso/previewsamlmetadataforapplication) for SSO"
+          }
+        ]
+      },
+      "OAuth2ClientJsonEncryptionKeyResponse": {
+        "title": "Encryption Key",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/OAuth2ClientJsonWebKeyRequestBase"
+          },
+          {
+            "$ref": "#/components/schemas/OAuth2ClientJsonWebKeyResponseBase"
+          }
+        ],
+        "description": "A [JSON Web Key (JWK)](https://tools.ietf.org/html/rfc7517) is a JSON representation of a cryptographic key. Okta uses an encryption key to encrypt an ID token JWT minted by the org authorization server or custom authorization server. Okta supports only RSA keys for encrypting tokens.",
+        "x-okta-lifecycle": {
+          "lifecycle": "GA",
+          "isGenerallyAvailable": true
+        },
+        "type": "object",
+        "properties": {
+          "e": {
+            "type": "string",
+            "description": "RSA key value (exponent) for key binding",
+            "example": "AQAB",
+            "nullable": false
+          },
+          "kty": {
+            "type": "string",
+            "description": "Cryptographic algorithm family for the certificate's key pair",
+            "example": "RSA",
+            "nullable": false,
+            "enum": [
+              "RSA"
+            ]
+          },
+          "n": {
+            "type": "string",
+            "description": "RSA key value (modulus) for key binding",
+            "example": "mkC6yAJVvFwUlmM9gKjb2d-YK5qHFt-mXSsbjWKKs4EfNm-BoQeeovBZtSACyaqLc8IYFTPEURFcbDQ9DkAL04uUIRD2gaHYY7uK0jsluEaXGq2RAIsmzAwNTzkiDw4q9pDL_q7n0f_SDt1TsMaMQayB6bU5jWsmqcWJ8MCRJ1aJMjZ16un5UVx51IIeCbe4QRDxEXGAvYNczsBoZxspDt28esSpq5W0dBFxcyGVudyl54Er3FzAguhgfMVjH-bUec9j2Tl40qDTktrYgYfxz9pfjm01Hl4WYP1YQxeETpSL7cQ5Ihz4jGDtHUEOcZ4GfJrPzrGpUrak8Qp5xcwCqQ",
+            "nullable": false
+          },
+          "use": {
+            "type": "string",
+            "description": "Acceptable use of the JSON Web Key",
+            "example": "enc",
+            "nullable": false,
+            "enum": [
+              "enc"
+            ]
+          }
+        }
+      },
+      "OAuth2ClientJsonSigningKeyResponse": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "title": "Signing Key",
+        "description": "A [JSON Web Key (JWK)](https://tools.ietf.org/html/rfc7517) is a JSON representation of a cryptographic key. Okta uses signing keys to verify the signature of a JWT when provided for the `private_key_jwt` client authentication method or for a signed authorize request object. Okta supports both RSA and Elliptic Curve (EC) keys for signing tokens.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OAuth2ClientJsonWebKeyRsaResponse"
+          },
+          {
+            "$ref": "#/components/schemas/OAuth2ClientJsonWebKeyECResponse"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kty",
+          "mapping": {
+            "RSA": "#/components/schemas/OAuth2ClientJsonWebKeyRsaResponse",
+            "EC": "#/components/schemas/OAuth2ClientJsonWebKeyECResponse"
+          }
+        }
+      },
+      "OAuth2ClientJsonWebKeyECResponse": {
+        "title": "EC signing key",
+        "description": "An EC signing key",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/OAuth2ClientJsonWebKeyRequestBase"
+          },
+          {
+            "$ref": "#/components/schemas/OAuth2ClientJsonWebKeyResponseBase"
+          }
+        ],
+        "type": "object",
+        "properties": {
+          "kty": {
+            "type": "string",
+            "description": "Cryptographic algorithm family for the certificate's key pair",
+            "example": "EC",
+            "nullable": false,
+            "enum": [
+              "EC"
+            ]
+          },
+          "x": {
+            "type": "string",
+            "description": "The public x coordinate for the elliptic curve point"
+          },
+          "y": {
+            "type": "string",
+            "description": "The public y coordinate for the elliptic curve point"
+          }
+        }
+      },
+      "OAuth2ClientJsonWebKeyRequestBase": {
+        "type": "object",
+        "properties": {
+          "kid": {
+            "type": "string",
+            "description": "Unique identifier of the JSON Web Key in the OAUth 2.0 client's JWKS",
+            "example": "SIMcCQNY3uwXoW3y0vf6VxiBb5n9pf8L2fK8d-FIbm4",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ],
+            "description": "Status of the OAuth 2.0 client JSON Web Key",
+            "example": "ACTIVE",
+            "nullable": false,
+            "default": "ACTIVE"
+          }
+        }
+      },
+      "OAuth2ClientJsonWebKeyResponseBase": {
+        "type": "object",
+        "properties": {
+          "created": {
+            "type": "string",
+            "description": "Timestamp when the OAuth 2.0 client JSON Web Key was created",
+            "example": "2023-02-21T20:08:24.000Z",
+            "readOnly": true,
+            "nullable": false
+          },
+          "id": {
+            "type": "string",
+            "description": "The unique ID of the OAuth client JSON Web Key",
+            "example": "pks2f4zrZbs8nUa7p0g4",
+            "readOnly": true,
+            "nullable": false
+          },
+          "lastUpdated": {
+            "type": "string",
+            "description": "Timestamp when the OAuth 2.0 client JSON Web Key was updated",
+            "example": "2023-02-21T20:08:24.000Z",
+            "readOnly": true,
+            "nullable": false
+          },
+          "_links": {
+            "$ref": "#/components/schemas/OAuthClientSecretLinks",
+            "readOnly": true,
+            "nullable": false
+          }
+        }
+      },
+      "OAuth2ClientJsonWebKeyRsaResponse": {
+        "title": "RSA signing key",
+        "description": "An RSA signing key",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/OAuth2ClientJsonWebKeyRequestBase"
+          },
+          {
+            "$ref": "#/components/schemas/OAuth2ClientJsonWebKeyResponseBase"
+          }
+        ],
+        "type": "object",
+        "properties": {
+          "e": {
+            "type": "string",
+            "description": "RSA key value (exponent) for key binding",
+            "example": "AQAB",
+            "nullable": false
+          },
+          "kty": {
+            "type": "string",
+            "description": "Cryptographic algorithm family for the certificate's key pair",
+            "example": "RSA",
+            "nullable": false,
+            "enum": [
+              "RSA"
+            ]
+          },
+          "n": {
+            "type": "string",
+            "description": "RSA key value (modulus) for key binding",
+            "example": "mkC6yAJVvFwUlmM9gKjb2d-YK5qHFt-mXSsbjWKKs4EfNm-BoQeeovBZtSACyaqLc8IYFTPEURFcbDQ9DkAL04uUIRD2gaHYY7uK0jsluEaXGq2RAIsmzAwNTzkiDw4q9pDL_q7n0f_SDt1TsMaMQayB6bU5jWsmqcWJ8MCRJ1aJMjZ16un5UVx51IIeCbe4QRDxEXGAvYNczsBoZxspDt28esSpq5W0dBFxcyGVudyl54Er3FzAguhgfMVjH-bUec9j2Tl40qDTktrYgYfxz9pfjm01Hl4WYP1YQxeETpSL7cQ5Ihz4jGDtHUEOcZ4GfJrPzrGpUrak8Qp5xcwCqQ",
+            "nullable": false
+          }
+        }
+      },
+      "OAuthApplicationCredentials": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApplicationCredentials"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "oauthClient": {
+                "$ref": "#/components/schemas/ApplicationCredentialsOAuthClient"
+              }
+            }
+          }
+        ]
+      },
+      "OAuthClientSecretLinks": {
+        "description": "Specifies link relations (see [Web Linking](https://www.rfc-editor.org/rfc/rfc8288)) available for the current status of an app using the [JSON Hypertext Application Language](https://datatracker.ietf.org/doc/html/draft-kelly-json-hal-06) specification. This object is used for dynamic discovery of related resources and lifecycle operations.",
+        "properties": {
+          "activate": {
+            "$ref": "#/components/schemas/HrefObjectActivateLink"
+          },
+          "deactivate": {
+            "$ref": "#/components/schemas/HrefObjectDeactivateLink"
+          },
+          "delete": {
+            "$ref": "#/components/schemas/HrefObjectDeleteLink"
+          }
+        },
+        "readOnly": true
+      },
+      "OAuthEndpointAuthenticationMethod": {
+        "description": "Requested authentication method for the token endpoint",
+        "default": "client_secret_basic",
+        "type": "string",
+        "enum": [
+          "client_secret_basic",
+          "client_secret_jwt",
+          "client_secret_post",
+          "none",
+          "private_key_jwt"
+        ]
+      },
+      "OAuthResponseType": {
+        "description": "Array of OAuth 2.0 response type strings",
+        "type": "string",
+        "enum": [
+          "code",
+          "id_token",
+          "token"
+        ]
+      },
+      "OktaActiveDirectoryGroupProfile": {
+        "description": "Profile for a group that is imported from Active Directory.\n\nThe `objectClass` for such groups is `okta:windows_security_principal`.\n\nYou can extend group profiles with custom properties, but you must first add the properties to the group profile schema before you can reference them. Use the Profile Editor in the Admin Console or the [Schemas API](https://developer.okta.com/docs/api/openapi/okta-management/management/tag/Schema/) to manage schema extensions.\n\nCustom properties can contain HTML tags. It is the client's responsibility to escape or encode this data before displaying it. Use [best-practices](https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html) to prevent cross-site scripting.",
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "example": "All users in the engineering department",
+            "description": "Description of the Windows group"
+          },
+          "dn": {
+            "type": "string",
+            "example": "CN=West Coast users,OU=West Coast,DC=example,DC=com",
+            "description": "The distinguished name of the Windows group"
+          },
+          "externalId": {
+            "type": "string",
+            "example": "VKzYZ1C+IkSZxIWlrW5ITg==",
+            "description": "Base-64 encoded GUID (`objectGUID`) of the Windows group"
+          },
+          "name": {
+            "type": "string",
+            "example": "West Coast users",
+            "description": "Name of the Windows group"
+          },
+          "samAccountName": {
+            "type": "string",
+            "example": "West Coast users",
+            "description": "Pre-Windows 2000 name of the Windows group"
+          },
+          "windowsDomainQualifiedName": {
+            "type": "string",
+            "example": "EXAMPLE\\\\West Coast users",
+            "description": "Fully qualified name of the Windows group"
+          }
+        }
+      },
+      "OktaUserGroupProfile": {
+        "description": "Profile for any group that is not imported from Active Directory. Specifies the standard\nand custom profile properties for a group.\n\nThe `objectClass` for these groups is `okta:user_group`.\n\nYou can extend group profiles with custom properties, but you must first add the properties to the group profile schema before you can reference them. Use the Profile Editor in the Admin Console or the [Schemas API](https://developer.okta.com/docs/api/openapi/okta-management/management/tag/Schema/) to manage schema extensions.\n\nCustom properties can contain HTML tags. It is the client's responsibility to escape or encode this data before displaying it. Use [best-practices](https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html) to prevent cross-site scripting.",
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "example": "All users West of The Rockies",
+            "description": "Description of the group"
+          },
+          "name": {
+            "type": "string",
+            "example": "West Coast users",
+            "description": "Name of the group"
+          }
+        },
+        "x-okta-extensible": true
+      },
+      "OpenIdConnectApplication": {
+        "x-okta-defined-as": {
+          "name": "oidc_client"
+        },
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Application"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "credentials": {
+                "$ref": "#/components/schemas/OAuthApplicationCredentials"
+              },
+              "name": {
+                "type": "string",
+                "description": "`oidc_client` is the key name for an OAuth 2.0 client app instance",
+                "enum": [
+                  "oidc_client"
+                ]
+              },
+              "settings": {
+                "$ref": "#/components/schemas/OpenIdConnectApplicationSettings"
+              }
+            },
+            "required": [
+              "name",
+              "settings",
+              "credentials"
+            ]
+          }
+        ]
+      },
+      "OpenIdConnectApplicationConsentMethod": {
+        "description": "Indicates whether user consent is required or implicit.\nA consent dialog appears for the end user depending on the values of three elements:\n\n* [prompt](/openapi/okta-oauth/oauth/orgas/authorize#orgas/authorize/t=request&in=query&path=prompt): A query parameter that is used in requests to `/authorize`\n* `consent_method` (this property)\n* [consent](/openapi/okta-management/management/authorizationserverscopes/createoauth2scope#authorizationserverscopes/createoauth2scope/t=request&path=consent): A [Scope](https://developer.okta.com/docs/api/openapi/okta-management/management/tag/AuthorizationServerScopes/) property that allows you to enable or disable user consent for an individual scope\n\n| `prompt` | `consent_method` | `consent` | Result\n| ---------- | ----------- | ---------- | ----------- |\n| CONSENT | TRUSTED or REQUIRED | REQUIRED | Prompted |\n| CONSENT | TRUSTED or REQUIRED | FLEXIBLE | Prompted |\n| CONSENT | TRUSTED | IMPLICIT | Not prompted |\n| NONE | TRUSTED | FLEXIBLE, IMPLICIT, or REQUIRED | Not prompted |\n| NONE | REQUIRED | FLEXIBLE or REQUIRED | Prompted |\n| NONE | REQUIRED | IMPLICIT | Not prompted |\n\n> **Notes:**\n> * If you request a scope that requires consent while using the `client_credentials` flow, an error is returned because the flow doesn't support user consent.\n> * If the `prompt` value is set to `NONE`, but the `consent_method` and the consent values are set to `REQUIRED`, then an error occurs.\n> * When a scope is requested during a Client Credentials grant flow and `consent` is set to `FLEXIBLE`, the scope is granted in the access token with no consent prompt. This occurs because there is no user involved in a two-legged OAuth 2.0 [Client Credentials](https://developer.okta.com/docs/guides/implement-grant-type/clientcreds/main/) grant flow.\n",
+        "default": "TRUSTED",
+        "type": "string",
+        "enum": [
+          "REQUIRED",
+          "TRUSTED"
+        ],
+        "x-enumDescriptions": {
+          "TRUSTED": "The client is fully trusted (for example, a first-party app). The default consent method for app instances created with a [Create an Application](/openapi/okta-management/management/tags/application/other/createapplication) request",
+          "REQUIRED": "The client requires consent (for example, a third-party app). The default consent method for app instances created with a [Create a Client Application](/openapi/okta-oauth/oauth/client/createclient) request"
+        }
+      },
+      "OpenIdConnectApplicationIdpInitiatedLogin": {
+        "description": "The type of IdP-initiated sign-in flow that the client supports",
+        "type": "object",
+        "properties": {
+          "default_scope": {
+            "type": "array",
+            "description": "The scopes to use for the request when `mode` is `OKTA`",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mode": {
+            "type": "string",
+            "description": "The mode to use for the IdP-initiated sign-in flow. For `OKTA` or `SPEC` modes, the client must have an `initiate_login_uri` registered.\n> **Note:** For web and SPA apps, if the mode is `SPEC` or `OKTA`, you must set `grant_types` to `authorization_code`, `implicit`, or `interaction_code`.\n",
+            "enum": [
+              "DISABLED",
+              "SPEC",
+              "OKTA"
+            ],
+            "x-enumDescriptions": {
+              "DISABLED": "The client doesn't support the IdP-initiated sign-in flow.",
+              "SPEC": "The client is redirected to the Relying Party's `initiate_login_uri`.",
+              "OKTA": "Tokens are directly sent to the Relying Party. This corresponds to the **Okta Simplified** option in the Admin Console."
+            }
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "OpenIdConnectApplicationIssuerMode": {
+        "description": "Indicates whether the Okta authorization server uses the original Okta org domain URL or a custom domain URL as the issuer of the ID token for this client",
+        "type": "string",
+        "enum": [
+          "CUSTOM_URL",
+          "DYNAMIC",
+          "ORG_URL"
+        ],
+        "x-enumDescriptions": {
+          "CUSTOM_URL": "The issuer is returned in the appropriate OIDC token response. This is the default `issuer_mode` when you configured a custom domain for your org.",
+          "DYNAMIC": "A request for the ID token made from the custom domain has the custom URL as the issuer.  A request for the ID token made from an Okta org has the Org URL as the issuer. You can only set `issuer_mode` as DYNAMIC if the Dynamic Issuer Mode feature is enabled. Contact Okta Support to enable this feature.",
+          "ORG_URL": "The issuer is returned based on the URL of your Okta organization. This is useful when you are using Okta\u2019s default domain and do not have a custom domain configured."
+        }
+      },
+      "OpenIdConnectApplicationNetwork": {
+        "description": "The network restrictions of the client",
+        "x-okta-lifecycle": {
+          "lifecycle": "GA",
+          "isGenerallyAvailable": true
+        },
+        "type": "object",
+        "properties": {
+          "connection": {
+            "type": "string",
+            "description": "The connection type of the network. Can be `ANYWHERE` or `ZONE`.\n",
+            "enum": [
+              "ANYWHERE",
+              "ZONE"
+            ],
+            "x-enumDescriptions": {
+              "ANYWHERE": "There is no restrictions on network zones.",
+              "ZONE": "There are network restrictions on network zones. Zones are specified in the `include` or `exclude` array."
+            }
+          },
+          "exclude": {
+            "type": "array",
+            "description": "If `ZONE` is specified as a connection, then specify the excluded IP network zones here. Value can be \"ALL_IP_ZONES\" or an array of zone IDs.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "include": {
+            "type": "array",
+            "description": "If `ZONE` is specified as a connection, then specify the included IP network zones here. Value can be \"ALL_IP_ZONES\" or an array of zone IDs.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "connection"
+        ]
+      },
+      "OpenIdConnectApplicationSettings": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApplicationSettings"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "oauthClient": {
+                "$ref": "#/components/schemas/OpenIdConnectApplicationSettingsClient"
+              }
+            }
+          }
+        ]
+      },
+      "OpenIdConnectApplicationSettingsClient": {
+        "type": "object",
+        "properties": {
+          "application_type": {
+            "$ref": "#/components/schemas/OpenIdConnectApplicationType"
+          },
+          "backchannel_authentication_request_signing_alg": {
+            "description": "The signing algorithm for Client-Initiated Backchannel Authentication (CIBA) signed requests using JWT. If this value isn't set and a JWT-signed request is sent, the request fails.\n> **Note:** This property appears for clients with `urn:openid:params:grant-type:ciba` defined as one of the `grant_types`.\n",
+            "type": "string",
+            "enum": [
+              "HS256",
+              "HS384",
+              "HS512",
+              "RS256",
+              "RS384",
+              "RS512",
+              "ES256",
+              "ES384",
+              "ES512"
+            ]
+          },
+          "backchannel_custom_authenticator_id": {
+            "description": "The ID of the custom authenticator that authenticates the user\n> **Note:** This property appears for clients with `urn:openid:params:grant-type:ciba` defined as one of the `grant_types`.\n",
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 20
+          },
+          "backchannel_token_delivery_mode": {
+            "description": "The delivery mode for Client-Initiated Backchannel Authentication (CIBA).  Currently, only `poll` is supported.\n> **Note:** This property appears for clients with `urn:openid:params:grant-type:ciba` defined as one of the `grant_types`.\n",
+            "enum": [
+              "poll",
+              "ping",
+              "push"
+            ],
+            "type": "string"
+          },
+          "client_uri": {
+            "type": "string",
+            "description": "URL string of a web page providing information about the client",
+            "maxLength": 1024
+          },
+          "consent_method": {
+            "$ref": "#/components/schemas/OpenIdConnectApplicationConsentMethod"
+          },
+          "dpop_bound_access_tokens": {
+            "type": "boolean",
+            "description": "Indicates that the client application uses Demonstrating Proof-of-Possession (DPoP) for token requests. If `true`, the authorization server rejects token requests from this client that don't contain the DPoP header.\n> **Note:** If `dpop_bound_access_tokens` is true, then `client_credentials` and `implicit` aren't allowed in `grant_types`.\n",
+            "default": false,
+            "x-okta-lifecycle": {
+              "lifecycle": "TOMBSTONE",
+              "isGenerallyAvailable": false,
+              "SKUs": []
+            }
+          },
+          "frontchannel_logout_session_required": {
+            "description": "<x-lifecycle-container><x-lifecycle class=\"ea\"></x-lifecycle> <x-lifecycle class=\"oie\"></x-lifecycle></x-lifecycle-container>Determines whether Okta sends `sid` and `iss` in the logout request",
+            "type": "boolean",
+            "x-okta-lifecycle": {
+              "lifecycle": "EA",
+              "isGenerallyAvailable": false,
+              "SKUs": [
+                "Okta Identity Engine"
+              ]
+            }
+          },
+          "frontchannel_logout_uri": {
+            "description": "<x-lifecycle-container><x-lifecycle class=\"ea\"></x-lifecycle> <x-lifecycle class=\"oie\"></x-lifecycle></x-lifecycle-container>URL where Okta sends the logout request",
+            "type": "string",
+            "maxLength": 1024,
+            "x-okta-lifecycle": {
+              "lifecycle": "EA",
+              "isGenerallyAvailable": false,
+              "SKUs": [
+                "Okta Identity Engine"
+              ]
+            }
+          },
+          "grant_types": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GrantType"
+            }
+          },
+          "id_token_encrypted_response_alg": {
+            "$ref": "#/components/schemas/IdTokenKeyEncryptionAlgorithm"
+          },
+          "idp_initiated_login": {
+            "$ref": "#/components/schemas/OpenIdConnectApplicationIdpInitiatedLogin"
+          },
+          "initiate_login_uri": {
+            "type": "string",
+            "description": "URL string that a third party can use to initiate the sign-in flow by the client"
+          },
+          "issuer_mode": {
+            "$ref": "#/components/schemas/OpenIdConnectApplicationIssuerMode"
+          },
+          "jwks": {
+            "$ref": "#/components/schemas/OpenIdConnectApplicationSettingsClientKeys"
+          },
+          "jwks_uri": {
+            "description": "URL string that references a JSON Web Key Set for validating JWTs presented to Okta or for encrypting ID tokens minted by Okta for the client",
+            "type": "string"
+          },
+          "logo_uri": {
+            "type": "string",
+            "description": "The URL string that references a logo for the client. This logo appears on the client tile in the End-User Dashboard. It also appears on the client consent dialog during the client consent flow.",
+            "maxLength": 1024
+          },
+          "network": {
+            "$ref": "#/components/schemas/OpenIdConnectApplicationNetwork"
+          },
+          "participate_slo": {
+            "description": "<x-lifecycle-container><x-lifecycle class=\"ea\"></x-lifecycle> <x-lifecycle class=\"oie\"></x-lifecycle></x-lifecycle-container>Allows the app to participate in front-channel Single Logout\n\n> **Note:** You can only enable `participate_slo` for `web` and `browser` application types (`application_type`).\n",
+            "type": "boolean",
+            "x-okta-lifecycle": {
+              "lifecycle": "EA",
+              "isGenerallyAvailable": false,
+              "SKUs": [
+                "Okta Identity Engine"
+              ]
+            }
+          },
+          "policy_uri": {
+            "type": "string",
+            "description": "URL string of a web page providing the client's policy document"
+          },
+          "post_logout_redirect_uris": {
+            "type": "array",
+            "description": "Array of redirection URI strings for relying party-initiated logouts",
+            "items": {
+              "type": "string"
+            }
+          },
+          "redirect_uris": {
+            "type": "array",
+            "description": "Array of redirection URI strings for use in redirect-based flows.\n> **Note:** At least one `redirect_uris` and `response_types` are required for all client types, with exceptions: if the client uses the [Resource Owner Password ](https://tools.ietf.org/html/rfc6749#section-4.3)flow (`grant_types` contains `password`) or [Client Credentials](https://tools.ietf.org/html/rfc6749#section-4.4)flow (`grant_types` contains `client_credentials`), then no `redirect_uris` or `response_types` is necessary. In these cases, you can pass either null or an empty array for these attributes.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "refresh_token": {
+            "$ref": "#/components/schemas/OpenIdConnectApplicationSettingsRefreshToken"
+          },
+          "request_object_signing_alg": {
+            "description": "The type of JSON Web Key Set (JWKS) algorithm that must be used for signing request objects",
+            "type": "string",
+            "enum": [
+              "HS256",
+              "HS384",
+              "HS512",
+              "RS256",
+              "RS384",
+              "RS512",
+              "ES256",
+              "ES384",
+              "ES512"
+            ]
+          },
+          "response_types": {
+            "type": "array",
+            "description": "Array of OAuth 2.0 response type strings",
+            "items": {
+              "$ref": "#/components/schemas/OAuthResponseType"
+            }
+          },
+          "sector_identifier_uri": {
+            "type": "string",
+            "description": "The sector identifier used for pairwise `subject_type`. See [OIDC Pairwise Identifier Algorithm](https://openid.net/specs/openid-connect-messages-1_0-20.html#idtype.pairwise.alg)",
+            "maxLength": 1024
+          },
+          "subject_type": {
+            "description": "Type of the subject",
+            "type": "string",
+            "enum": [
+              "public",
+              "pairwise"
+            ]
+          },
+          "tos_uri": {
+            "type": "string",
+            "description": "URL string of a web page providing the client's terms of service document"
+          },
+          "wildcard_redirect": {
+            "type": "string",
+            "description": "Indicates if the client is allowed to use wildcard matching of `redirect_uris`",
+            "enum": [
+              "DISABLED",
+              "SUBDOMAIN"
+            ],
+            "x-enumDescriptions": {
+              "DISABLED": "All redirect URIs must be absolute URIs and not include a fragment component.",
+              "SUBDOMAIN": "Any configured redirect URIs may contain a single `*` character in the lowest-level domain (for example, `https://redirect-*-domain.example.com/oidc/redirect`) to act as a wildcard.\nThe wildcard subdomain must have at least one subdomain between it and the top level domain.\nThe wildcard can match any valid hostname characters, but can't span more than one domain.\nFor example, if `https://redirect-*-domain.example.com/oidc/redirect` is configured as a redirect URI, then `https://redirect-1-domain.example.com/oidc/redirect` and `https://redirect-sub-domain.example.com/oidc/redirect` match, but `https://redirect-1.sub-domain.example.com/oidc/redirect` doesn't match.\nOnly the `https` URI scheme can use wildcard redirect URIs.\n> **Note:** The use of wildcard subdomains is discouraged as an insecure practice, since it may allow malicious actors to have tokens or authorization codes sent to unexpected or attacker-controlled pages. Exercise caution if you decide to include a wildcard redirect URI in your configuration.\n"
+            }
+          }
+        },
+        "required": [
+          "grant_types"
+        ]
+      },
+      "OpenIdConnectApplicationSettingsClientKeys": {
+        "description": "A [JSON Web Key Set](https://tools.ietf.org/html/rfc7517#section-5) for validating JWTs presented to Okta or for encrypting ID tokens minted by Okta for the client",
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/OAuth2ClientJsonSigningKeyResponse"
+                },
+                {
+                  "$ref": "#/components/schemas/OAuth2ClientJsonEncryptionKeyResponse"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "OpenIdConnectApplicationSettingsRefreshToken": {
+        "description": "Refresh token configuration for an OAuth 2.0 client\n\nWhen you create or update an OAuth 2.0 client, you can configure refresh token rotation by setting the `rotation_type` and `leeway` properties. If you don't set these properties when you create an app integration, the default values are used.\nWhen you update an app integration, your previously configured values are used.\n",
+        "type": "object",
+        "properties": {
+          "leeway": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60,
+            "description": "The leeway, in seconds, allowed for the OAuth 2.0 client.\nAfter the refresh token is rotated, the previous token remains valid for the specified period of time so clients can get the new token.\n\n> **Note:** A leeway of 0 doesn't necessarily mean that the previous token is immediately invalidated. The previous token is invalidated after the new token is generated and returned in the response.\n",
+            "default": 30,
+            "example": 20
+          },
+          "rotation_type": {
+            "$ref": "#/components/schemas/OpenIdConnectRefreshTokenRotationType"
+          }
+        },
+        "required": [
+          "rotation_type"
+        ]
+      },
+      "OpenIdConnectApplicationType": {
+        "description": "The type of client app     \nSpecific `grant_types` are valid for each `application_type`. See [Create a Client Application](/openapi/okta-oauth/oauth/client/createclient).",
+        "type": "string",
+        "enum": [
+          "browser",
+          "native",
+          "service",
+          "web"
+        ],
+        "x-enumDescriptions": {
+          "browser": "Single-Page app (SPA)",
+          "native": "Native app",
+          "service": "API service app",
+          "web": "Web app"
+        }
+      },
+      "OpenIdConnectRefreshTokenRotationType": {
+        "description": "The refresh token rotation mode for the OAuth 2.0 client",
+        "example": "STATIC",
+        "type": "string",
+        "enum": [
+          "ROTATE",
+          "STATIC"
+        ],
+        "x-enumDescriptions": {
+          "ROTATE": "The default rotation type for single-page apps (SPAs)",
+          "STATIC": "The default rotation type for all clients, except SPAs"
+        }
+      },
+      "PasswordCredential": {
+        "description": "Specifies a password for a user.\n\nWhen a user has a valid password, imported hashed password, or password hook, and a response object contains\na password credential, then the password object is a bare object without the value property defined (for example, `password: {}`). This indicates that a password value exists. You can modify password policy requirements in the Admin Console by editing the Password authenticator:  **Security** > **Authenticators** > **Password** (or for Okta Classic orgs, use **Security** > **Authentication** > **Password**).\n\nFor information on defaults and configuring your password policies, see [Configure the password authenticator](https://help.okta.com/okta_help.htm?type=oie&id=ext-configure-password) in the help documentation.",
+        "type": "object",
+        "properties": {
+          "hash": {
+            "$ref": "#/components/schemas/PasswordCredentialHash"
+          },
+          "hook": {
+            "$ref": "#/components/schemas/PasswordCredentialHook"
+          },
+          "value": {
+            "type": "string",
+            "writeOnly": true,
+            "description": "Specifies the password for a user. The password policy validates this password.",
+            "format": "password",
+            "example": "pa$$word"
+          }
+        }
+      },
+      "PasswordCredentialHash": {
+        "description": "Specifies a hashed password to import into Okta. This allows an existing password to be imported into Okta directly\nfrom some other store. Okta supports the BCRYPT, SHA-512, SHA-256, SHA-1, MD5, and PBKDF2 hash functions for password import.\n A hashed password may be specified in a password object when creating or updating a user, but not for other operations.\n See the [Create user with imported hashed password](https://developer.okta.com/docs/api/openapi/okta-management/management/tag/User/#create-user-with-imported-hashed-password) description. When you update a user with a hashed password, the user must be in the `STAGED` status.",
+        "type": "object",
+        "properties": {
+          "algorithm": {
+            "$ref": "#/components/schemas/PasswordCredentialHashAlgorithm"
+          },
+          "digestAlgorithm": {
+            "$ref": "#/components/schemas/DigestAlgorithm"
+          },
+          "iterationCount": {
+            "type": "integer",
+            "description": "The number of iterations used when hashing passwords using PBKDF2. Must be >= 4096. Only required for PBKDF2 algorithm."
+          },
+          "keySize": {
+            "type": "integer",
+            "description": "Size of the derived key in bytes. Only required for PBKDF2 algorithm."
+          },
+          "salt": {
+            "description": "Only required for salted hashes. For BCRYPT, this specifies Radix-64 as the encoded salt used to generate the hash,\nwhich must be 22 characters long. For other salted hashes, this specifies the Base64-encoded salt used to\ngenerate the hash.",
+            "type": "string"
+          },
+          "saltOrder": {
+            "type": "string",
+            "description": "Specifies whether salt was pre- or postfixed to the password before hashing. Only required for salted algorithms."
+          },
+          "value": {
+            "description": "For SHA-512, SHA-256, SHA-1, MD5, and PBKDF2, this is the actual base64-encoded hash of the password (and salt, if used).\nThis is the Base64-encoded `value` of the SHA-512/SHA-256/SHA-1/MD5/PBKDF2 digest that was computed by either pre-fixing or post-fixing\nthe `salt` to the `password`, depending on the `saltOrder`. If a `salt` was not used in the `source` system, then this should just be\nthe Base64-encoded `value` of the password's SHA-512/SHA-256/SHA-1/MD5/PBKDF2 digest. For BCRYPT, this is the actual Radix-64 encoded hashed password.",
+            "type": "string"
+          },
+          "workFactor": {
+            "type": "integer",
+            "description": "Governs the strength of the hash and the time required to compute it. Only required for BCRYPT algorithm.",
+            "minimum": 1,
+            "maximum": 20
+          }
+        }
+      },
+      "PasswordCredentialHashAlgorithm": {
+        "description": "The algorithm used to generate the hash using the password (and salt, when applicable).",
+        "type": "string",
+        "enum": [
+          "BCRYPT",
+          "MD5",
+          "PBKDF2",
+          "SHA-1",
+          "SHA-256",
+          "SHA-512"
+        ]
+      },
+      "PasswordCredentialHook": {
+        "description": "Specify a [password import inline hook](/openapi/okta-management/management/tags/inlinehook/createpasswordimportinlinehook) to trigger verification of the user's password the first time the user signs in. This allows an existing password to be imported into Okta directly from some other store.",
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "The type of password inline hook. Currently, must be set to default."
+          }
+        }
+      },
+      "RecoveryQuestionCredential": {
+        "description": "Specifies a secret question and answer that's validated (case insensitive) when a user forgets their\npassword or unlocks their account. The answer property is write-only.",
+        "type": "object",
+        "properties": {
+          "answer": {
+            "type": "string",
+            "description": "The answer to the recovery question",
+            "minimum": 1,
+            "maximum": 100,
+            "writeOnly": true,
+            "example": "se7en"
+          },
+          "question": {
+            "type": "string",
+            "description": "The recovery question",
+            "minimum": 1,
+            "maximum": 100,
+            "example": "what is your favourite movie?"
+          }
+        }
+      },
+      "RoleAssignmentType": {
+        "description": "Role assignment type",
+        "type": "string",
+        "enum": [
+          "CLIENT",
+          "GROUP",
+          "USER"
+        ],
+        "x-enumDescriptions": {
+          "USER": "The role is assigned to a user",
+          "GROUP": "The role is assigned to a group",
+          "CLIENT": "The role is assigned to a client app"
+        }
+      },
+      "RoleType": {
+        "title": "roleType",
+        "description": "| Role type                    | Description                                                 |\n|------------------------------|-------------------------------------------------------------|\n| ACCESS_CERTIFICATIONS_ADMIN  | Access Certifications Administrator IAM-based standard role |\n| ACCESS_REQUESTS_ADMIN        | Access Requests Administrator IAM-based standard role       |\n| API_ACCESS_MANAGEMENT_ADMIN  | Access Management Administrator standard role               |\n| APP_ADMIN                    | Application Administrator standard role                     |\n| CUSTOM                       | Custom admin role                                           |\n| GROUP_MEMBERSHIP_ADMIN       | Group Membership Administrator standard role                |\n| HELP_DESK_ADMIN              | Help Desk Administrator standard role                       |\n| ORG_ADMIN                    | Organizational Administrator standard role                  |\n| READ_ONLY_ADMIN              | Read-Only Administrator standard role                       |\n| REPORT_ADMIN                 | Report Administrator standard role                          |\n| SUPER_ADMIN                  | Super Administrator standard role                           |\n| USER_ADMIN                   | User Administrator standard role                            |\n| WORKFLOWS_ADMIN              | Workflows Administrator IAM-based standard role             |",
+        "type": "string",
+        "enum": [
+          "ACCESS_CERTIFICATIONS_ADMIN",
+          "ACCESS_REQUESTS_ADMIN",
+          "API_ACCESS_MANAGEMENT_ADMIN",
+          "APP_ADMIN",
+          "CUSTOM",
+          "GROUP_MEMBERSHIP_ADMIN",
+          "HELP_DESK_ADMIN",
+          "ORG_ADMIN",
+          "READ_ONLY_ADMIN",
+          "REPORT_ADMIN",
+          "SUPER_ADMIN",
+          "USER_ADMIN",
+          "WORKFLOWS_ADMIN"
+        ]
+      },
+      "Saml11Application": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Application"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "credentials": {
+                "$ref": "#/components/schemas/ApplicationCredentials"
+              },
+              "name": {
+                "type": "string",
+                "description": "The key name for the SAML 1.1 app definition. You can't create a custom SAML 1.1 app integration instance. Only existing OIN SAML 1.1 app integrations are supported."
+              },
+              "settings": {
+                "$ref": "#/components/schemas/Saml11ApplicationSettings"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          }
+        ]
+      },
+      "Saml11ApplicationSettings": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApplicationSettings"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "app": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "signOn": {
+                "$ref": "#/components/schemas/Saml11ApplicationSettingsSignOn"
+              }
+            }
+          }
+        ]
+      },
+      "Saml11ApplicationSettingsSignOn": {
+        "title": "SAML 1.1 settings",
+        "description": "SAML 1.1 sign-on mode attributes",
+        "type": "object",
+        "properties": {
+          "audienceOverride": {
+            "type": "string",
+            "description": "The intended audience of the SAML assertion. This is usually the Entity ID of your application."
+          },
+          "defaultRelayState": {
+            "type": "string",
+            "description": "The URL of the resource to direct users after they successfully sign in to the SP using SAML. See the SP documentation to check if you need to specify a RelayState. In most instances, you can leave this field blank."
+          },
+          "recipientOverride": {
+            "type": "string",
+            "description": "The location where the application can present the SAML assertion. This is usually the Single Sign-On (SSO) URL."
+          },
+          "ssoAcsUrlOverride": {
+            "type": "string",
+            "description": "Assertion Consumer Services (ACS) URL value for the Service Provider (SP). This URL is always used for Identity Provider (IdP) initiated sign-on requests."
+          }
+        }
+      },
+      "SamlApplication": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Application"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "credentials": {
+                "$ref": "#/components/schemas/ApplicationCredentials"
+              },
+              "name": {
+                "type": "string",
+                "description": "A unique key is generated for the custom app instance when you use SAML_2_0 `signOnMode`.",
+                "readOnly": true
+              },
+              "settings": {
+                "$ref": "#/components/schemas/SamlApplicationSettings"
+              }
+            }
+          }
+        ]
+      },
+      "SamlApplicationSettings": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApplicationSettings"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "signOn": {
+                "$ref": "#/components/schemas/SamlApplicationSettingsSignOn"
+              }
+            }
+          }
+        ]
+      },
+      "SamlApplicationSettingsSignOn": {
+        "description": "SAML 2.0 sign-on attributes.\n> **Note:** Set either `destinationOverride` or `ssoAcsUrl` to configure any other SAML 2.0 attributes in this section.",
+        "type": "object",
+        "properties": {
+          "acsEndpoints": {
+            "type": "array",
+            "description": "An array of ACS endpoints. You can configure a maximum of 100 endpoints.",
+            "items": {
+              "$ref": "#/components/schemas/AcsEndpoint"
+            }
+          },
+          "allowMultipleAcsEndpoints": {
+            "description": "Determines whether the app allows you to configure multiple ACS URIs",
+            "type": "boolean"
+          },
+          "assertionEncryption": {
+            "$ref": "#/components/schemas/SamlAssertionEncryption"
+          },
+          "assertionSigned": {
+            "type": "boolean",
+            "description": "Determines whether the SAML assertion is digitally signed"
+          },
+          "attributeStatements": {
+            "type": "array",
+            "description": "A list of custom attribute statements for the app's SAML assertion. See [SAML 2.0 Technical Overview](https://docs.oasis-open.org/security/saml/Post2.0/sstc-saml-tech-overview-2.0-cd-02.html).\n\nThere are two types of attribute statements:\n| Type | Description |\n| ---- | ----------- |\n| EXPRESSION | Generic attribute statement that can be dynamic and supports [Okta Expression Language](https://developer.okta.com/docs/reference/okta-expression-language/) |\n| GROUP | Group attribute statement |\n",
+            "items": {
+              "$ref": "#/components/schemas/SamlAttributeStatement"
+            }
+          },
+          "audience": {
+            "type": "string",
+            "description": "The entity ID of the SP. Use the entity ID value exactly as provided by the SP."
+          },
+          "audienceOverride": {
+            "type": "string",
+            "description": "Audience override for CASB configuration. See [CASB config guide](https://help.okta.com/en-us/Content/Topics/Apps/CASB-config-guide.htm)."
+          },
+          "authnContextClassRef": {
+            "type": "string",
+            "description": "Identifies the SAML authentication context class for the assertion's authentication statement",
+            "enum": [
+              "urn:federation:authentication:windows",
+              "oasis:names:tc:SAML:2.0:ac:classes:Kerberos",
+              "urn:oasis:names:tc:SAML:2.0:ac:classes:Password",
+              "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
+              "urn:oasis:names:tc:SAML:2.0:ac:classes:TLSClient",
+              "urn:oasis:names:tc:SAML:2.0:ac:classes:unspecified",
+              "urn:oasis:names:tc:SAML:2.0:ac:classes:X509"
+            ],
+            "x-enumDescriptions": {
+              "urn:federation:authentication:windows": "Integrated Windows Authentication",
+              "oasis:names:tc:SAML:2.0:ac:classes:Kerberos": "Kerberos",
+              "urn:oasis:names:tc:SAML:2.0:ac:classes:Password": "Password",
+              "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport": "PasswordProtectedTransport",
+              "urn:oasis:names:tc:SAML:2.0:ac:classes:TLSClient": "TLS Client",
+              "urn:oasis:names:tc:SAML:2.0:ac:classes:unspecified": "Unspecified",
+              "urn:oasis:names:tc:SAML:2.0:ac:classes:X509": "X509 Certificate"
+            }
+          },
+          "configuredAttributeStatements": {
+            "type": "array",
+            "description": "The list of dynamic attribute statements for the SAML assertion inherited from app metadata (apps from the OIN) during app creation.\n\nThere are two types of attribute statements: `EXPRESSION` and `GROUP`.\n",
+            "items": {
+              "$ref": "#/components/schemas/SamlAttributeStatement"
+            }
+          },
+          "defaultRelayState": {
+            "type": "string",
+            "description": "Identifies a specific application resource in an IdP-initiated SSO scenario"
+          },
+          "destination": {
+            "type": "string",
+            "description": "Identifies the location inside the SAML assertion where the SAML response should be sent"
+          },
+          "destinationOverride": {
+            "type": "string",
+            "description": "Destination override for CASB configuration. See [CASB config guide](https://help.okta.com/en-us/Content/Topics/Apps/CASB-config-guide.htm)."
+          },
+          "digestAlgorithm": {
+            "type": "string",
+            "description": "Determines the digest algorithm used to digitally sign the SAML assertion and response",
+            "enum": [
+              "SHA1",
+              "SHA256"
+            ]
+          },
+          "honorForceAuthn": {
+            "type": "boolean",
+            "description": "Set to `true` to prompt users for their credentials when a SAML request has the `ForceAuthn` attribute set to `true`"
+          },
+          "idpIssuer": {
+            "type": "string",
+            "description": "SAML Issuer ID"
+          },
+          "inlineHooks": {
+            "description": "Associates the app with SAML inline hooks. See [the SAML assertion inline hook reference](https://developer.okta.com/docs/reference/saml-hook/).",
+            "items": {
+              "$ref": "#/components/schemas/SignOnInlineHook"
+            },
+            "type": "array"
+          },
+          "participateSlo": {
+            "$ref": "#/components/schemas/SloParticipate"
+          },
+          "recipient": {
+            "description": "The location where the app may present the SAML assertion",
+            "type": "string"
+          },
+          "recipientOverride": {
+            "type": "string",
+            "description": "Recipient override for CASB configuration. See [CASB config guide](https://help.okta.com/en-us/Content/Topics/Apps/CASB-config-guide.htm)."
+          },
+          "requestCompressed": {
+            "type": "boolean",
+            "description": "Determines whether the SAML request is expected to be compressed"
+          },
+          "responseSigned": {
+            "type": "boolean",
+            "description": "Determines whether the SAML authentication response message is digitally signed by the IdP\n> **Note:** Either (or both) `responseSigned` or `assertionSigned` must be `TRUE`."
+          },
+          "samlAssertionLifetimeSeconds": {
+            "x-okta-lifecycle": {
+              "lifecycle": "GA",
+              "isGenerallyAvailable": true
+            },
+            "type": "integer",
+            "description": "Determines the SAML app session lifetimes with Okta",
+            "example": 3600
+          },
+          "signatureAlgorithm": {
+            "type": "string",
+            "description": "Determines the signing algorithm used to digitally sign the SAML assertion and response",
+            "enum": [
+              "RSA_SHA1",
+              "RSA_SHA256"
+            ]
+          },
+          "slo": {
+            "$ref": "#/components/schemas/SingleLogout"
+          },
+          "spCertificate": {
+            "$ref": "#/components/schemas/SamlSpCertificate"
+          },
+          "spIssuer": {
+            "type": "string",
+            "description": "The issuer ID for the Service Provider. This property appears when SLO is enabled."
+          },
+          "ssoAcsUrl": {
+            "type": "string",
+            "description": "Single Sign-On Assertion Consumer Service (ACS) URL"
+          },
+          "ssoAcsUrlOverride": {
+            "type": "string",
+            "description": "Assertion Consumer Service (ACS) URL override for CASB configuration. See [CASB config guide](https://help.okta.com/en-us/Content/Topics/Apps/CASB-config-guide.htm)."
+          },
+          "subjectNameIdFormat": {
+            "type": "string",
+            "description": "Identifies the SAML processing rules. Supported values:",
+            "enum": [
+              "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+              "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent",
+              "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+              "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified",
+              "urn:oasis:names:tc:SAML:1.1:nameid-format:x509SubjectName"
+            ],
+            "x-enumDescriptions": {
+              "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress": "Email Address",
+              "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent": "Persistent",
+              "urn:oasis:names:tc:SAML:2.0:nameid-format:transient": "Transient",
+              "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified": "Unspecified",
+              "urn:oasis:names:tc:SAML:1.1:nameid-format:x509SubjectName": "x509SubjectName"
+            }
+          },
+          "subjectNameIdTemplate": {
+            "type": "string",
+            "description": "Template for app user's username when a user is assigned to the app"
+          }
+        },
+        "required": [
+          "allowMultipleAcsEndpoints",
+          "assertionSigned",
+          "honorForceAuthn",
+          "requestCompressed",
+          "responseSigned"
+        ]
+      },
+      "SamlAssertionEncryption": {
+        "description": "Determines if the app supports encrypted assertions",
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Indicates whether Okta encrypts the assertions that it sends to the Service Provider"
+          },
+          "encryptionAlgorithm": {
+            "type": "string",
+            "description": "The encryption algorithm used to encrypt the SAML assertion",
+            "enum": [
+              "AES128_CBC",
+              "AES256_CBC",
+              "AES256_CBC",
+              "AES256_GCM"
+            ]
+          },
+          "keyTransportAlgorithm": {
+            "type": "string",
+            "description": "The key transport algorithm used to encrypt the SAML assertion",
+            "enum": [
+              "RSA_OAEP",
+              "RSA_15"
+            ]
+          },
+          "x5c": {
+            "type": "array",
+            "description": "A list that contains exactly one x509 encoded certificate which Okta uses to encrypt the SAML assertion with",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SamlAttributeStatement": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/SamlAttributeStatementExpression"
+          },
+          {
+            "$ref": "#/components/schemas/SamlAttributeStatementGroup"
+          }
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "The type of attribute statements object",
+            "enum": [
+              "EXPRESSION",
+              "GROUP"
+            ]
+          }
+        },
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "EXPRESSION": "#/components/schemas/SamlAttributeStatementExpression",
+            "GROUP": "#/components/schemas/SamlAttributeStatementGroup"
+          }
+        }
+      },
+      "SamlAttributeStatementExpression": {
+        "description": "Generic `EXPRESSION` attribute statements",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The name of the attribute in your app. The attribute name must be unique across all user and group attribute statements.",
+            "example": "attributeOne"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "The name format of the attribute. Supported values:",
+            "enum": [
+              "urn:oasis:names:tc:SAML:2.0:attrname-format:basic",
+              "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
+              "urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified"
+            ],
+            "x-enumDescriptions": {
+              "urn:oasis:names:tc:SAML:2.0:attrname-format:basic": "Basic",
+              "urn:oasis:names:tc:SAML:2.0:attrname-format:uri": "URI reference",
+              "urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified": "Unspecified"
+            },
+            "example": "urn:oasis:names:tc:SAML:2.0:attrname-format:basic"
+          },
+          "type": {
+            "type": "string",
+            "description": "The type of attribute statements object",
+            "example": "EXPRESSION"
+          },
+          "values": {
+            "type": "array",
+            "description": "The attribute values (supports [Okta Expression Language](https://developer.okta.com/docs/reference/okta-expression-language/))",
+            "items": {
+              "type": "string",
+              "example": "ValueOne"
+            }
+          }
+        }
+      },
+      "SamlAttributeStatementGroup": {
+        "description": "`GROUP` attribute statements",
+        "type": "object",
+        "properties": {
+          "filterType": {
+            "type": "string",
+            "description": "The operation to filter groups based on `filterValue`",
+            "enum": [
+              "STARTS_WITH",
+              "EQUALS",
+              "CONTAINS",
+              "REGEX"
+            ]
+          },
+          "filterValue": {
+            "type": "string",
+            "description": "Filter the groups based on a specific value.",
+            "example": "Team"
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the group attribute in your app. The attribute name must be unique across all user and group attribute statements."
+          },
+          "namespace": {
+            "type": "string",
+            "description": "The name format of the group attribute. Supported values:",
+            "enum": [
+              "urn:oasis:names:tc:SAML:2.0:attrname-format:basic",
+              "urn:oasis:names:tc:SAML:2.0:attrname-format:uri",
+              "urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified"
+            ],
+            "x-enumDescriptions": {
+              "urn:oasis:names:tc:SAML:2.0:attrname-format:basic": "Basic",
+              "urn:oasis:names:tc:SAML:2.0:attrname-format:uri": "URI reference",
+              "urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified": "Unspecified"
+            },
+            "example": "urn:oasis:names:tc:SAML:2.0:attrname-format:basic"
+          },
+          "type": {
+            "type": "string",
+            "description": "The type of attribute statements object",
+            "example": "GROUP"
+          }
+        }
+      },
+      "SamlSpCertificate": {
+        "description": "The certificate that Okta uses to validate Single Logout (SLO) requests and responses",
+        "type": "object",
+        "properties": {
+          "x5c": {
+            "type": "array",
+            "description": "A list that contains exactly one x509 encoded certificate",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SchemeApplicationCredentials": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApplicationCredentials"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "password": {
+                "$ref": "#/components/schemas/PasswordCredential"
+              },
+              "revealPassword": {
+                "type": "boolean",
+                "description": "Allow users to securely see their password"
+              },
+              "scheme": {
+                "$ref": "#/components/schemas/ApplicationCredentialsScheme"
+              },
+              "signing": {
+                "$ref": "#/components/schemas/ApplicationCredentialsSigning"
+              },
+              "userName": {
+                "type": "string",
+                "description": "Shared username for the app",
+                "minLength": 1,
+                "maxLength": 100
+              }
+            }
+          }
+        ]
+      },
+      "SecurePasswordStoreApplication": {
+        "x-okta-defined-as": {
+          "name": "template_sps"
+        },
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Application"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "credentials": {
+                "$ref": "#/components/schemas/SchemeApplicationCredentials"
+              },
+              "name": {
+                "type": "string",
+                "description": "`template_sps` is the key name for a SWA app instance that uses HTTP POST and doesn't require a browser plugin",
+                "enum": [
+                  "template_sps"
+                ]
+              },
+              "settings": {
+                "$ref": "#/components/schemas/SecurePasswordStoreApplicationSettings"
+              }
+            },
+            "required": [
+              "name",
+              "settings"
+            ]
+          }
+        ]
+      },
+      "SecurePasswordStoreApplicationSettings": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApplicationSettings"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "app": {
+                "$ref": "#/components/schemas/SecurePasswordStoreApplicationSettingsApplication"
+              }
+            }
+          }
+        ]
+      },
+      "SecurePasswordStoreApplicationSettingsApplication": {
+        "type": "object",
+        "properties": {
+          "optionalField1": {
+            "type": "string",
+            "description": "Name of the optional parameter in the sign-in form"
+          },
+          "optionalField1Value": {
+            "type": "string",
+            "description": "Name of the optional value in the sign-in form"
+          },
+          "optionalField2": {
+            "type": "string",
+            "description": "Name of the optional parameter in the sign-in form"
+          },
+          "optionalField2Value": {
+            "type": "string",
+            "description": "Name of the optional value in the sign-in form"
+          },
+          "optionalField3": {
+            "type": "string",
+            "description": "Name of the optional parameter in the sign-in form"
+          },
+          "optionalField3Value": {
+            "type": "string",
+            "description": "Name of the optional value in the sign-in form"
+          },
+          "passwordField": {
+            "type": "string",
+            "description": "CSS selector for the **Password** field in the sign-in form"
+          },
+          "url": {
+            "type": "string",
+            "description": "The URL of the sign-in page for this app"
+          },
+          "usernameField": {
+            "type": "string",
+            "description": "CSS selector for the **Username** field in the sign-in form"
+          }
+        },
+        "required": [
+          "passwordField",
+          "url",
+          "usernameField"
+        ]
+      },
+      "SignOnInlineHook": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "readOnly": false
+          }
+        }
+      },
+      "SingleLogout": {
+        "description": "Determines if the app supports Single Logout (SLO)",
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the application supports SLO"
+          },
+          "issuer": {
+            "type": "string",
+            "description": "The issuer of the Service Provider that generates the SLO request"
+          },
+          "logoutUrl": {
+            "type": "string",
+            "description": "The location where the logout response is sent"
+          }
+        }
+      },
+      "SloParticipate": {
+        "description": "Determines if the app participates in Single Logout (SLO)",
+        "type": "object",
+        "properties": {
+          "bindingType": {
+            "type": "string",
+            "description": "Request binding type",
+            "enum": [
+              "POST",
+              "REDIRECT"
+            ]
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Indicates whether the app is allowed to participate in front-channel SLO"
+          },
+          "logoutRequestUrl": {
+            "type": "string",
+            "description": "URL where Okta sends the logout request"
+          },
+          "sessionIndexRequired": {
+            "type": "boolean",
+            "description": "Determines whether Okta sends the `SessionIndex` elements in the logout request"
+          }
+        }
+      },
+      "StandardRole": {
+        "title": "Standard role assignment",
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "assignmentType": {
+            "$ref": "#/components/schemas/RoleAssignmentType"
+          },
+          "created": {
+            "type": "string",
+            "description": "Timestamp when the object was created",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "id": {
+            "type": "string",
+            "description": "Role assignment ID",
+            "readOnly": true
+          },
+          "label": {
+            "type": "string",
+            "description": "Label for the role assignment",
+            "readOnly": true
+          },
+          "lastUpdated": {
+            "type": "string",
+            "description": "Timestamp when the object was last updated",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LifecycleStatus"
+              },
+              {
+                "description": "Status of the role assignment"
+              }
+            ]
+          },
+          "type": {
+            "$ref": "#/components/schemas/RoleType"
+          },
+          "_embedded": {
+            "type": "object",
+            "description": "Optional embedded resources for the role assignment",
+            "properties": {
+              "targets": {
+                "type": "object",
+                "description": "Targets configured for the role assignment",
+                "properties": {
+                  "groups": {
+                    "type": "array",
+                    "description": "Group targets",
+                    "items": {
+                      "$ref": "#/components/schemas/Group"
+                    }
+                  },
+                  "catalog": {
+                    "description": "App targets",
+                    "properties": {
+                      "apps": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/components/schemas/CatalogApplication"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "_links": {
+            "$ref": "#/components/schemas/LinksAssignee"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "SwaApplicationSettings": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApplicationSettings"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "app": {
+                "$ref": "#/components/schemas/SwaApplicationSettingsApplication"
+              }
+            }
+          }
+        ]
+      },
+      "SwaApplicationSettingsApplication": {
+        "type": "object",
+        "properties": {
+          "buttonField": {
+            "type": "string",
+            "description": "CSS selector for the **Sign-In** button in the sign-in form (for SWA apps with the `template_swa` app name definition)"
+          },
+          "buttonSelector": {
+            "type": "string",
+            "description": "CSS selector for the **Sign-In**  button in the sign-in form (for three-field SWA apps with the `template_swa3field` app name definition)"
+          },
+          "extraFieldSelector": {
+            "type": "string",
+            "description": "Enter the CSS selector for the extra field (for three-field SWA apps with the `template_swa3field` app name definition)."
+          },
+          "extraFieldValue": {
+            "type": "string",
+            "description": "Enter the value for the extra field in the form (for three-field SWA apps with the `template_swa3field` app name definition)."
+          },
+          "loginUrlRegex": {
+            "type": "string",
+            "description": "A regular expression that further restricts targetURL to the specified regular expression"
+          },
+          "passwordField": {
+            "type": "string",
+            "description": "CSS selector for the **Password** field in the sign-in form (for SWA apps with the `template_swa` app name definition)"
+          },
+          "passwordSelector": {
+            "type": "string",
+            "description": "CSS selector for the **Password** field in the sign-in form (for three-field SWA apps with the `template_swa3field` app name definition)"
+          },
+          "targetURL": {
+            "type": "string",
+            "description": "The URL of the sign-in page for this app (for three-field SWA apps with the `template_swa3field` app name definition)"
+          },
+          "url": {
+            "type": "string",
+            "description": "The URL of the sign-in page for this app (for SWA apps with the `template_swa` app name definition)"
+          },
+          "usernameField": {
+            "type": "string",
+            "description": "CSS selector for the **Username** field in the sign-in form (for SWA apps with the `template_swa` app name definition)"
+          },
+          "userNameSelector": {
+            "type": "string",
+            "description": "CSS selector for the **Username** field in the sign-in form (for three-field SWA apps with the `template_swa3field` app name definition)"
+          }
+        },
+        "required": [
+          "buttonField",
+          "passwordField",
+          "usernameField",
+          "url"
+        ]
+      },
+      "User": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "activated": {
+            "type": "string",
+            "description": "The timestamp when the user status transitioned to `ACTIVE`",
+            "format": "date-time",
+            "readOnly": true,
+            "nullable": true
+          },
+          "created": {
+            "type": "string",
+            "description": "The timestamp when the user was created",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "credentials": {
+            "$ref": "#/components/schemas/UserCredentials"
+          },
+          "id": {
+            "type": "string",
+            "description": "The unique key for the user",
+            "readOnly": true
+          },
+          "lastLogin": {
+            "type": "string",
+            "description": "The timestamp of the last login",
+            "format": "date-time",
+            "readOnly": true,
+            "nullable": true
+          },
+          "lastUpdated": {
+            "type": "string",
+            "description": "The timestamp when the user was last updated",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "passwordChanged": {
+            "type": "string",
+            "description": "The timestamp when the user's password was last updated",
+            "format": "date-time",
+            "readOnly": true,
+            "nullable": true
+          },
+          "profile": {
+            "$ref": "#/components/schemas/UserProfile"
+          },
+          "realmId": {
+            "type": "string",
+            "description": "The ID of the realm in which the user is residing. See [Realms](/openapi/okta-management/management/tags/realm).",
+            "example": "guo1bfiNtSnZYILxO0g4",
+            "readOnly": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/UserStatus"
+          },
+          "statusChanged": {
+            "type": "string",
+            "description": "The timestamp when the status of the user last changed",
+            "format": "date-time",
+            "readOnly": true,
+            "nullable": true
+          },
+          "transitioningToStatus": {
+            "type": "string",
+            "description": "The target status of an in-progress asynchronous status transition. This property is only returned if the user's state is transitioning.",
+            "readOnly": true,
+            "nullable": true,
+            "enum": [
+              "ACTIVE",
+              "DEPROVISIONED",
+              "PROVISIONED"
+            ]
+          },
+          "type": {
+            "type": "object",
+            "description": "The user type that determines the schema for the user's profile. The `type` property is a map that identifies the [User Types](https://developer.okta.com/docs/api/openapi/okta-management/management/tag/UserType/#tag/UserType).\n\nCurrently it contains a single element, `id`. It can be specified when creating a new user, and can be updated by an admin on a full replace of an existing user (but not a partial update).",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "The ID of the user type"
+              }
+            }
+          },
+          "_embedded": {
+            "type": "object",
+            "description": "Embedded resources related to the user using the [JSON Hypertext Application Language](https://datatracker.ietf.org/doc/html/draft-kelly-json-hal-06) specification",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            },
+            "readOnly": true
+          },
+          "_links": {
+            "description": "Specifies link relations (see [Web Linking](https://datatracker.ietf.org/doc/html/rfc8288) available for the current status of a user.\nThe links object is used for dynamic discovery of related resources, lifecycle operations, and credential operations. The links object is read-only.\n\nFor an individual user result, the links object contains a full set of link relations available for that user as determined by your policies.\nFor a collection of users, the links object contains only the `self` link. Operations that return a collection of users include [List all users](https://developer.okta.com/docs/api/openapi/okta-management/management/user/listusers) and [List all group member users](https://developer.okta.com/docs/api/openapi/okta-management/management/tag/Group/#tag/Group/operation/listGroupUsers).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LinksSelf"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "self": {
+                    "description": "URL to the individual user",
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/HrefObject"
+                      }
+                    ]
+                  },
+                  "activate": {
+                    "description": "URL to activate the user",
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/HrefObject"
+                      }
+                    ]
+                  },
+                  "resetPassword": {
+                    "description": "URL to reset the user's password",
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/HrefObject"
+                      }
+                    ]
+                  },
+                  "resetFactors": {
+                    "description": "URL to reset the user's factors",
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/HrefObject"
+                      }
+                    ]
+                  },
+                  "expirePassword": {
+                    "description": "URL to expire the user's password",
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/HrefObject"
+                      }
+                    ]
+                  },
+                  "forgotPassword": {
+                    "description": "URL to initiate a forgot password operation",
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/HrefObject"
+                      }
+                    ]
+                  },
+                  "changeRecoveryQuestion": {
+                    "description": "URL to change the user's recovery question",
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/HrefObject"
+                      }
+                    ]
+                  },
+                  "deactivate": {
+                    "description": "URL to deactivate a user",
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/HrefObject"
+                      }
+                    ]
+                  },
+                  "reactivate": {
+                    "description": "URL to reactivate the user",
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/HrefObject"
+                      }
+                    ]
+                  },
+                  "changePassword": {
+                    "description": "URL to change the user's password",
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/HrefObject"
+                      }
+                    ]
+                  },
+                  "schema": {
+                    "description": "URL to the user's profile schema",
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/HrefObject"
+                      }
+                    ]
+                  },
+                  "suspend": {
+                    "description": "URL to suspend the user",
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/HrefObject"
+                      }
+                    ]
+                  },
+                  "unsuspend": {
+                    "description": "URL to unsuspend the user",
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/HrefObject"
+                      }
+                    ]
+                  },
+                  "unlock": {
+                    "description": "URL to unlock the locked-out user",
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/HrefObject"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "description": "URL to the user type",
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/HrefObject"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "readOnly": true
+              }
+            ]
+          }
+        }
+      },
+      "UserCredentials": {
+        "description": "Specifies primary authentication and recovery credentials for a user. Credential types and requirements vary depending on the provider and security policy of the org.",
+        "type": "object",
+        "properties": {
+          "password": {
+            "$ref": "#/components/schemas/PasswordCredential"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/AuthenticationProvider"
+          },
+          "recovery_question": {
+            "$ref": "#/components/schemas/RecoveryQuestionCredential"
+          }
+        }
+      },
+      "UserFactor": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "created": {
+            "description": "Timestamp when the factor was enrolled",
+            "type": "string",
+            "format": "date-time",
+            "example": "2022-08-25T00:31:00.000Z",
+            "readOnly": true
+          },
+          "factorType": {
+            "$ref": "#/components/schemas/UserFactorType"
+          },
+          "id": {
+            "description": "ID of the factor",
+            "type": "string",
+            "example": "caf8m6jbcvUH8mAep1d7",
+            "readOnly": true
+          },
+          "lastUpdated": {
+            "description": "Timestamp when the factor was last updated",
+            "type": "string",
+            "format": "date-time",
+            "example": "2022-08-25T00:31:00.000Z",
+            "readOnly": true
+          },
+          "profile": {
+            "type": "object",
+            "x-okta-ignore-redocly-rules-for-sdk": true,
+            "description": "Specific attributes related to the factor"
+          },
+          "provider": {
+            "description": "Provider for the factor. Each provider can support a subset of factor types.",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/UserFactorStatus"
+          },
+          "vendorName": {
+            "description": "Name of the factor vendor. This is usually the same as the provider except for On-Prem MFA, which depends on admin settings.",
+            "type": "string",
+            "example": "OKTA",
+            "readOnly": true
+          },
+          "_embedded": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            },
+            "readOnly": true
+          },
+          "_links": {
+            "$ref": "#/components/schemas/UserFactorLinks"
+          }
+        },
+        "discriminator": {
+          "propertyName": "factorType",
+          "mapping": {
+            "call": "#/components/schemas/UserFactorCall",
+            "email": "#/components/schemas/UserFactorEmail",
+            "push": "#/components/schemas/UserFactorPush",
+            "question": "#/components/schemas/UserFactorSecurityQuestion",
+            "sms": "#/components/schemas/UserFactorSMS",
+            "token": "#/components/schemas/UserFactorToken",
+            "token:hardware": "#/components/schemas/UserFactorTokenHardware",
+            "token:hotp": "#/components/schemas/UserFactorTokenHOTP",
+            "token:software:totp": "#/components/schemas/UserFactorTokenSoftwareTOTP",
+            "u2f": "#/components/schemas/UserFactorU2F",
+            "web": "#/components/schemas/UserFactorWeb",
+            "webauthn": "#/components/schemas/UserFactorWebAuthn"
+          }
+        }
+      },
+      "UserFactorCall": {
+        "title": "call",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UserFactor"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "factorType": {
+                "example": "call"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/UserFactorCallProfile"
+              },
+              "provider": {
+                "enum": [
+                  "OKTA"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "UserFactorCallProfile": {
+        "type": "object",
+        "properties": {
+          "phoneExtension": {
+            "description": "Extension of the associated `phoneNumber`",
+            "type": "string",
+            "example": 1234,
+            "nullable": true,
+            "maxLength": 15
+          },
+          "phoneNumber": {
+            "description": "Phone number of the factor. Format phone numbers to use the [E.164 standard](https://www.itu.int/rec/T-REC-E.164/).",
+            "example": "+15554151337",
+            "type": "string",
+            "pattern": "^\\+[1-9]\\d{1,14}$",
+            "maxLength": 15
+          }
+        }
+      },
+      "UserFactorEmail": {
+        "title": "email",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UserFactor"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "factorType": {
+                "example": "email"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/UserFactorEmailProfile"
+              },
+              "provider": {
+                "enum": [
+                  "OKTA"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "UserFactorEmailProfile": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "description": "Email address of the user. This must be either the primary or secondary email address associated with the Okta user account.",
+            "maxLength": 100,
+            "example": "z.cool@example.com",
+            "type": "string"
+          }
+        }
+      },
+      "UserFactorLinks": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/LinksActivate"
+          },
+          {
+            "$ref": "#/components/schemas/LinksCancel"
+          },
+          {
+            "$ref": "#/components/schemas/LinksDeactivate"
+          },
+          {
+            "$ref": "#/components/schemas/LinksEnroll"
+          },
+          {
+            "$ref": "#/components/schemas/LinksFactor"
+          },
+          {
+            "$ref": "#/components/schemas/LinksPoll"
+          },
+          {
+            "$ref": "#/components/schemas/LinksQrcode"
+          },
+          {
+            "$ref": "#/components/schemas/LinksQuestions"
+          },
+          {
+            "$ref": "#/components/schemas/LinksResend"
+          },
+          {
+            "$ref": "#/components/schemas/LinksSend"
+          },
+          {
+            "$ref": "#/components/schemas/LinksSelf"
+          },
+          {
+            "$ref": "#/components/schemas/LinksUserFactors"
+          },
+          {
+            "$ref": "#/components/schemas/LinksVerify"
+          }
+        ],
+        "readOnly": true
+      },
+      "UserFactorPush": {
+        "title": "push",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UserFactor"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "profile": {
+                "$ref": "#/components/schemas/UserFactorPushProfile"
+              },
+              "provider": {
+                "enum": [
+                  "OKTA"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "UserFactorPushProfile": {
+        "type": "object",
+        "properties": {
+          "credentialId": {
+            "description": "ID for the factor credential",
+            "example": "dade.murphy@example.com",
+            "type": "string"
+          },
+          "deviceToken": {
+            "description": "Token used to identify the device",
+            "example": "fwf7ku6bsiSCieh6y1d7",
+            "type": "string"
+          },
+          "deviceType": {
+            "description": "Type of device",
+            "example": "SmartPhone_IPhone",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the device",
+            "example": "My Phone",
+            "type": "string"
+          },
+          "platform": {
+            "description": "OS version of the associated device",
+            "example": "IOS",
+            "type": "string"
+          },
+          "version": {
+            "description": "Installed version of Okta Verify",
+            "example": "9.0",
+            "type": "string"
+          }
+        }
+      },
+      "UserFactorSMS": {
+        "title": "sms",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UserFactor"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "factorType": {
+                "example": "sms"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/UserFactorSMSProfile"
+              },
+              "provider": {
+                "enum": [
+                  "OKTA"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "UserFactorSMSProfile": {
+        "type": "object",
+        "properties": {
+          "phoneNumber": {
+            "description": "Phone number of the factor. You should format phone numbers to use the [E.164 standard](https://www.itu.int/rec/T-REC-E.164/).",
+            "example": "+15554151337",
+            "type": "string",
+            "pattern": "^\\+[1-9]\\d{1,14}$",
+            "maxLength": 15
+          }
+        }
+      },
+      "UserFactorSecurityQuestion": {
+        "title": "question",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UserFactor"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "factorType": {
+                "example": "question"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/UserFactorSecurityQuestionProfile"
+              },
+              "provider": {
+                "enum": [
+                  "OKTA"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "UserFactorSecurityQuestionProfile": {
+        "type": "object",
+        "properties": {
+          "answer": {
+            "description": "Answer to the question",
+            "minLength": 4,
+            "type": "string",
+            "writeOnly": true
+          },
+          "question": {
+            "description": "Unique key for the question",
+            "example": "disliked_food",
+            "enum": [
+              "disliked_food",
+              "name_of_first_plush_toy",
+              "first_award",
+              "favorite_security_question",
+              "favorite_toy",
+              "first_computer_game",
+              "favorite_movie_quote",
+              "first_sports_team_mascot",
+              "first_music_purchase",
+              "favorite_art_piece",
+              "grandmother_favorite_desert",
+              "first_thing_cooked",
+              "childhood_dream_job",
+              "first_kiss_location",
+              "place_where_significant_other_was_met",
+              "favorite_vacation_location",
+              "new_years_two_thousand",
+              "favorite_speaker_actor",
+              "favorite_book_movie_character",
+              "favorite_sports_player"
+            ],
+            "type": "string"
+          },
+          "questionText": {
+            "description": "Human-readable text that's displayed to the user",
+            "example": "What is the food you least liked as a child?",
+            "type": "string",
+            "readOnly": true
+          }
+        }
+      },
+      "UserFactorStatus": {
+        "example": "ACTIVE",
+        "description": "Status of the factor",
+        "type": "string",
+        "enum": [
+          "ACTIVE",
+          "DISABLED",
+          "ENROLLED",
+          "EXPIRED",
+          "INACTIVE",
+          "NOT_SETUP",
+          "PENDING_ACTIVATION"
+        ],
+        "readOnly": true
+      },
+      "UserFactorToken": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "title": "token",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UserFactor"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "factorType": {
+                "example": "token"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/UserFactorTokenProfile"
+              },
+              "provider": {
+                "enum": [
+                  "RSA",
+                  "SYMANTEC"
+                ]
+              },
+              "verify": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/UserFactorTokenVerifyRSA"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UserFactorTokenVerifySymantec"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "UserFactorTokenHOTP": {
+        "title": "token:hotp",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UserFactor"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "factorProfileId": {
+                "description": "ID of an existing Custom TOTP factor profile. To create this, see [Custom TOTP factor](https://help.okta.com/okta_help.htm?id=ext-mfa-totp).",
+                "type": "string"
+              },
+              "factorType": {
+                "example": "token:hotp"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/UserFactorTokenHOTPProfile"
+              },
+              "provider": {
+                "enum": [
+                  "CUSTOM"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "UserFactorTokenHOTPProfile": {
+        "type": "object",
+        "properties": {
+          "sharedSecret": {
+            "description": "Unique secret key used to generate the OTP",
+            "type": "string",
+            "example": "484f97be3213b117e3a20438e291540a"
+          }
+        }
+      },
+      "UserFactorTokenHardware": {
+        "title": "token:hardware",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UserFactor"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "factorType": {
+                "example": "token:hardware"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/UserFactorTokenProfile"
+              },
+              "provider": {
+                "enum": [
+                  "YUBICO"
+                ]
+              },
+              "verify": {
+                "type": "object",
+                "properties": {
+                  "passCode": {
+                    "description": "OTP for the current time window",
+                    "type": "string",
+                    "example": "cccccceukngdfgkukfctkcvfidnetljjiknckkcjulji"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "UserFactorTokenProfile": {
+        "type": "object",
+        "properties": {
+          "credentialId": {
+            "description": "ID for the factor credential",
+            "example": "dade.murphy@example.com",
+            "type": "string"
+          }
+        }
+      },
+      "UserFactorTokenSoftwareTOTP": {
+        "title": "token:software:totp",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UserFactor"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "factorType": {
+                "example": "token:software:totp"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/UserFactorTokenProfile"
+              },
+              "provider": {
+                "enum": [
+                  "OKTA",
+                  "GOOGLE"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "UserFactorTokenVerifyRSA": {
+        "title": "RSA SecurID",
+        "type": "object",
+        "properties": {
+          "passCode": {
+            "description": "OTP for the current time window",
+            "type": "string",
+            "example": 5275875498
+          }
+        }
+      },
+      "UserFactorTokenVerifySymantec": {
+        "title": "Symantec VIP",
+        "type": "object",
+        "properties": {
+          "nextPassCode": {
+            "description": "OTP for the next time window",
+            "type": "integer",
+            "example": 3956685498
+          },
+          "passCode": {
+            "description": "OTP for the current time window",
+            "type": "string",
+            "example": 5275875498
+          }
+        }
+      },
+      "UserFactorType": {
+        "description": "Type of factor",
+        "type": "string",
+        "enum": [
+          "call",
+          "email",
+          "push",
+          "question",
+          "signed_nonce",
+          "sms",
+          "token",
+          "token:hardware",
+          "token:hotp",
+          "token:software:totp",
+          "u2f",
+          "web",
+          "webauthn"
+        ]
+      },
+      "UserFactorU2F": {
+        "title": "u2f",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UserFactor"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "factorType": {
+                "example": "u2f"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/UserFactorU2FProfile"
+              },
+              "provider": {
+                "enum": [
+                  "FIDO"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "UserFactorU2FProfile": {
+        "type": "object",
+        "properties": {
+          "credentialId": {
+            "description": "ID for the factor credential",
+            "example": "dade.murphy@example.com",
+            "type": "string"
+          }
+        }
+      },
+      "UserFactorWeb": {
+        "title": "web",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UserFactor"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "factorType": {
+                "example": "web"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/UserFactorWebProfile"
+              },
+              "provider": {
+                "enum": [
+                  "DUO"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "UserFactorWebAuthn": {
+        "title": "webauthn",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UserFactor"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "factorType": {
+                "example": "webauthn"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/UserFactorWebAuthnProfile"
+              },
+              "provider": {
+                "enum": [
+                  "FIDO"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "UserFactorWebAuthnProfile": {
+        "type": "object",
+        "properties": {
+          "authenticatorName": {
+            "description": "Human-readable name of the authenticator\n\n> **Note:** This name is set from the AAGUID metadata during enrollment. It can't be changed in the Admin Console or by using any Okta APIs.",
+            "example": "MacBook Touch ID",
+            "type": "string"
+          },
+          "credentialId": {
+            "description": "ID for the factor credential",
+            "example": "AHoOEhwvYiMv6SSwLp7KYRNttXtg_kYgQoQiEIWPFH_T3Ztp5Vj3bQ5H0LypIFR8ka8kfiCJ3I5qVpxrsd6JTMWKcE3xNh_U2QVF0Kwlan8Fiw",
+            "type": "string"
+          }
+        },
+        "readOnly": true
+      },
+      "UserFactorWebProfile": {
+        "type": "object",
+        "properties": {
+          "credentialId": {
+            "description": "ID for the factor credential",
+            "example": "dade.murphy@example.com",
+            "type": "string"
+          }
+        }
+      },
+      "UserProfile": {
+        "additionalProperties": true,
+        "description": "Specifies the default and custom profile properties for a user.\n\nThe default user profile is based on the [System for Cross-domain Identity Management: Core Schema](https://datatracker.ietf.org/doc/html/rfc7643).\n\nThe only permitted customizations of the default profile are to update permissions, change whether the `firstName` and `lastName` properties are nullable, and specify a [pattern](https://developer.okta.com/docs/reference/api/schemas/#login-pattern-validation) for `login`. You can use the Profile Editor in the Admin Console or the [Schemas API](https://developer.okta.com/docs/api/openapi/okta-management/management/tag/UISchema/#tag/UISchema) to make schema modifications.\n\nYou can extend user profiles with custom properties. You must first add the custom property to the user profile schema before you reference it.\nYou can use the Profile Editor in the Admin Console or the [Schemas API](https://developer.okta.com/docs/api/openapi/okta-management/management/tag/UISchema/#tag/UISchema) to manage schema extensions.\n\nCustom attributes can contain HTML tags. It's the client's responsibility to escape or encode this data before displaying it. Use [best-practices](https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html) to prevent cross-site scripting.",
+        "type": "object",
+        "properties": {
+          "city": {
+            "type": "string",
+            "description": "The city or locality of the user's address (`locality`)",
+            "maxLength": 128,
+            "nullable": true
+          },
+          "costCenter": {
+            "type": "string",
+            "description": "Name of the cost center assigned to a user",
+            "nullable": true
+          },
+          "countryCode": {
+            "description": "The country name component of the user's address (`country`). For validation, see [ISO 3166-1 alpha 2 \"short\" code format](https://datatracker.ietf.org/doc/html/draft-ietf-scim-core-schema-22#ref-ISO3166).",
+            "type": "string",
+            "maxLength": 2,
+            "nullable": true
+          },
+          "department": {
+            "type": "string",
+            "description": "Name of the user's department"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Name of the user suitable for display to end users",
+            "nullable": true
+          },
+          "division": {
+            "type": "string",
+            "description": "Name of the user's division",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "description": "The primary email address of the user. For validation, see [RFC 5322 Section 3.2.3](https://datatracker.ietf.org/doc/html/rfc5322#section-3.2.3).",
+            "format": "email",
+            "minLength": 5,
+            "maxLength": 100
+          },
+          "employeeNumber": {
+            "description": "The organization or company assigned unique identifier for the user",
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string",
+            "description": "Given name of the user (`givenName`)",
+            "minLength": 1,
+            "maxLength": 50,
+            "nullable": true
+          },
+          "honorificPrefix": {
+            "type": "string",
+            "description": "Honorific prefix(es) of the user, or title in most Western languages",
+            "nullable": true
+          },
+          "honorificSuffix": {
+            "type": "string",
+            "description": "Honorific suffix(es) of the user",
+            "nullable": true
+          },
+          "lastName": {
+            "type": "string",
+            "description": "The family name of the user (`familyName`)",
+            "minLength": 1,
+            "maxLength": 50,
+            "nullable": true
+          },
+          "locale": {
+            "type": "string",
+            "description": "The user's default location for purposes of localizing items such as currency, date time format, numerical representations, and so on.\nA locale value is a concatenation of the ISO 639-1 two-letter language code, an underscore, and the ISO 3166-1 two-letter country code. For example, en_US specifies the language English and country US. This value is `en_US` by default."
+          },
+          "login": {
+            "type": "string",
+            "description": "The unique identifier for the user (`username`). For validation, see [Login pattern validation](https://developer.okta.com/docs/reference/api/schemas/#login-pattern-validation).\n\nEvery user within your Okta org must have a unique identifier for a login. This constraint applies to all users you import from other systems or applications such as Active Directory. Your organization is the top-level namespace to mix and match logins from all your connected applications or directories. Careful consideration of naming conventions for your login identifier will make it easier to onboard new applications in the future.\n\nLogins are not considered unique if they differ only in case and/or diacritical marks. If one of your users has a login of `Isaac.Brock@example.com`, there cannot be another user whose login is `isaac.brock@example.com`, nor `is\u00e1\u00e0c.br\u00f6ck@example.com`.\n\nOkta has a default ambiguous name resolution policy for usernames that include @-signs. By default, usernames must be formatted as email addresses and thus always include @-signs. You can remove that restriction using either the Admin Console or the [Schemas API](https://developer.okta.com/docs/api/openapi/okta-management/management/tag/Schema/). Users can sign in with their non-qualified short name (for example: `isaac.brock` with username `isaac.brock@example.com`) as long as the short name is still unique within the org.",
+            "maxLength": 100,
+            "minLength": 5
+          },
+          "manager": {
+            "type": "string",
+            "description": "The `displayName` of the user's manager",
+            "nullable": true
+          },
+          "managerId": {
+            "type": "string",
+            "description": "The `id` of the user's manager",
+            "nullable": true
+          },
+          "middleName": {
+            "type": "string",
+            "description": "The middle name of the user",
+            "nullable": true
+          },
+          "mobilePhone": {
+            "type": "string",
+            "description": "The mobile phone number of the user",
+            "maxLength": 100,
+            "minLength": 0,
+            "nullable": true
+          },
+          "nickName": {
+            "type": "string",
+            "description": "The casual way to address the user in real life",
+            "nullable": true
+          },
+          "organization": {
+            "type": "string",
+            "description": "Name of the the user's organization",
+            "nullable": true
+          },
+          "postalAddress": {
+            "type": "string",
+            "description": "Mailing address component of the user's address",
+            "maxLength": 4096,
+            "nullable": true
+          },
+          "preferredLanguage": {
+            "type": "string",
+            "description": "The user's preferred written or spoken language. For validation, see [RFC 7231 Section 5.3.5](https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.5).",
+            "nullable": true
+          },
+          "primaryPhone": {
+            "type": "string",
+            "description": "The primary phone number of the user such as a home number",
+            "maxLength": 100,
+            "minLength": 0,
+            "nullable": true
+          },
+          "profileUrl": {
+            "type": "string",
+            "description": "The URL of the user's online profile. For example, a web page. See [URL](https://datatracker.ietf.org/doc/html/rfc1808).",
+            "nullable": true
+          },
+          "secondEmail": {
+            "type": "string",
+            "format": "email",
+            "description": "The secondary email address of the user typically used for account recovery. For validation, see [RFC 5322 Section 3.2.3](https://datatracker.ietf.org/doc/html/rfc5322#section-3.2.3).",
+            "maxLength": 100,
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "description": "The state or region component of the user's address (`region`)",
+            "maxLength": 128,
+            "nullable": true
+          },
+          "streetAddress": {
+            "type": "string",
+            "description": "The full street address component of the user's address",
+            "maxLength": 1024,
+            "nullable": true
+          },
+          "timezone": {
+            "type": "string",
+            "description": "The user's time zone",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "description": "The user's title, such as Vice President",
+            "nullable": true
+          },
+          "userType": {
+            "type": "string",
+            "description": "The property used to describe the organization-to-user relationship, such as employee or contractor\n\n> **Note:** The `userType` property is a standard string attribute and should be treated as a descriptive label rather than a functional setting. Unlike a user's assigned user [`type`](https://developer.okta.com/docs/api/openapi/okta-management/management/tag/User/#tag/User/operation/createUser!path=type&t=request), this property is purely informational and doesn't influence the behavior of the Okta platform.",
+            "nullable": true
+          },
+          "zipCode": {
+            "type": "string",
+            "description": "The ZIP code or postal code component of the user's address (`postalCode`)",
+            "maxLength": 50,
+            "nullable": true
+          }
+        }
+      },
+      "UserStatus": {
+        "description": "The current status of the user.\n\nThe status of a user changes in response to explicit events, such as admin-driven lifecycle changes, user login, or self-service password recovery. Okta doesn't asynchronously sweep through users and update their password expiry state, for example. Instead, Okta evaluates password policy at login time, notices the password has expired, and moves the user to the expired state. When running reports, remember that the data is valid as of the last login or lifecycle event for that user.\n\n> **Note:** The `ACTIVATING` status is a transitional status that occurs when a user is being activated but hasn't completed the activation process. This status isn't directly settable through the API, nor should you use it for any of your user management workflows.",
+        "type": "string",
+        "enum": [
+          "ACTIVE",
+          "DEPROVISIONED",
+          "LOCKED_OUT",
+          "PASSWORD_EXPIRED",
+          "PROVISIONED",
+          "RECOVERY",
+          "STAGED",
+          "SUSPENDED"
+        ],
+        "readOnly": true
+      },
+      "UsersLink": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HrefObject"
+          },
+          {
+            "description": "Link to the [Application Users](/openapi/okta-management/management/applicationusers#tag/ApplicationUsers/operation/listApplicationUsers) resource"
+          }
+        ]
+      },
+      "WsFederationApplication": {
+        "x-okta-defined-as": {
+          "name": "template_wsfed"
+        },
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Application"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "credentials": {
+                "$ref": "#/components/schemas/ApplicationCredentials"
+              },
+              "name": {
+                "type": "string",
+                "description": "`template_wsfed` is the key name for a WS-Federated app instance with a SAML 2.0 token",
+                "enum": [
+                  "template_wsfed"
+                ]
+              },
+              "settings": {
+                "$ref": "#/components/schemas/WsFederationApplicationSettings"
+              }
+            },
+            "required": [
+              "name",
+              "settings"
+            ]
+          }
+        ]
+      },
+      "WsFederationApplicationSettings": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApplicationSettings"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "app": {
+                "$ref": "#/components/schemas/WsFederationApplicationSettingsApplication"
+              }
+            }
+          }
+        ]
+      },
+      "WsFederationApplicationSettingsApplication": {
+        "type": "object",
+        "properties": {
+          "attributeStatements": {
+            "type": "string",
+            "description": "You can federate user attributes such as Okta profile fields, LDAP, Active Directory, and Workday values. The SP uses the federated WS-Fed attribute values accordingly."
+          },
+          "audienceRestriction": {
+            "type": "string",
+            "description": "The entity ID of the SP. Use the entity ID value exactly as provided by the SP."
+          },
+          "authnContextClassRef": {
+            "type": "string",
+            "description": "Identifies the SAML authentication context class for the assertion's authentication statement"
+          },
+          "groupFilter": {
+            "type": "string",
+            "description": "A regular expression that filters for the User Groups you want included with the `groupName` attribute. If the matching User Group has a corresponding AD group, then the attribute statement includes the value of the attribute specified by `groupValueFormat`. If the matching User Group doesn't contain a corresponding AD group, then the `groupName` is used in the attribute statement."
+          },
+          "groupName": {
+            "type": "string",
+            "description": "The group name to include in the WS-Fed response attribute statement. This property is used in conjunction with the `groupFilter` property.  Groups that are filtered through the `groupFilter` expression are included with the `groupName` in the attribute statement. Any users that belong to the group you've filtered are included in the WS-Fed response attribute statement."
+          },
+          "groupValueFormat": {
+            "type": "string",
+            "description": "Specifies the WS-Fed assertion attribute value for filtered groups. This attribute is only applied to Active Directory groups.",
+            "enum": [
+              "windowsDomainQualifiedName",
+              "samAccountName",
+              "dn"
+            ]
+          },
+          "nameIDFormat": {
+            "type": "string",
+            "description": "The username format that you send in the WS-Fed response"
+          },
+          "realm": {
+            "type": "string",
+            "description": "The uniform resource identifier (URI) of the WS-Fed app that's used to share resources securely within a domain. It's the identity that's sent to the Okta IdP when signing in. See [Realm name](https://help.okta.com/okta_help.htm?type=oie&id=ext_Apps_Configure_Okta_Template_WS_Federation#Realm)."
+          },
+          "siteURL": {
+            "type": "string",
+            "description": "Launch URL for the web app"
+          },
+          "usernameAttribute": {
+            "type": "string",
+            "description": "Specifies additional username attribute statements to include in the WS-Fed assertion",
+            "enum": [
+              "username",
+              "upn",
+              "upnAndUsername",
+              "none"
+            ]
+          },
+          "wReplyOverride": {
+            "type": "boolean",
+            "description": "Enables a web app to override the `wReplyURL` URL with a reply parameter."
+          },
+          "wReplyURL": {
+            "type": "string",
+            "description": "The WS-Fed SP endpoint where your users sign in",
+            "example": "http://test.acme.com/example-post-sign/"
+          }
+        },
+        "required": [
+          "audienceRestriction",
+          "groupValueFormat",
+          "wReplyURL",
+          "nameIDFormat",
+          "authnContextClassRef",
+          "siteURL",
+          "usernameAttribute"
+        ]
+      }
+    }
+  }
+}
