@@ -1,0 +1,73 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56290
+        form:
+            api-version:
+                - "2024-01-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armsecurity/v0.15.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Security/pricings?api-version=2024-01-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 456
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Security/pricings/VirtualMachines","name":"VirtualMachines","type":"Microsoft.Security/pricings","properties":{"pricingTier":"Standard","subPlan":"P2"}},{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Security/pricings/StorageAccounts","name":"StorageAccounts","type":"Microsoft.Security/pricings","properties":{"pricingTier":"Free"}}]}'
+        headers:
+            Content-Length:
+                - "456"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:08:56 GMT
+        status: 200 OK
+        code: 200
+        duration: 4.661583ms
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56290
+        form:
+            api-version:
+                - 2019-01-01-preview
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armsecurity/v0.15.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Security/subAssessments?api-version=2019-01-01-preview
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 518
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Security/subAssessments/a1","name":"a1","type":"Microsoft.Security/subAssessments","properties":{"displayName":"Outdated package CVE","id":"CVE-2025-1234","category":"Compute","severity":"High","status":{"code":"Unhealthy","severity":"High"},"resourceDetails":{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Compute/virtualMachines/e2evm"},"remediation":"Patch the system"}}]}'
+        headers:
+            Content-Length:
+                - "518"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:08:56 GMT
+        status: 200 OK
+        code: 200
+        duration: 238.208µs

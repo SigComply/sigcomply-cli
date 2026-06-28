@@ -1,0 +1,73 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56294
+        form:
+            api-version:
+                - "2026-03-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armcontainerservice/v9.2.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.ContainerService/managedClusters?api-version=2026-03-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 766
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.ContainerService/managedClusters/e2eaks","name":"e2eaks","location":"eastus","type":"Microsoft.ContainerService/managedClusters","sku":{"tier":"Standard"},"properties":{"kubernetesVersion":"1.28.0","currentKubernetesVersion":"1.28.5","powerState":{"code":"Running"},"provisioningState":"Succeeded","enableRBAC":true,"securityProfile":{"azureKeyVaultKms":{"enabled":true,"keyId":"https://e2evault.vault.azure.net/keys/k1/abc"}},"apiServerAccessProfile":{"enablePrivateCluster":true},"autoUpgradeProfile":{"upgradeChannel":"stable"},"networkProfile":{"networkPlugin":"azure","networkPolicy":"azure"},"agentPoolProfiles":[{"enableEncryptionAtHost":true}]}}]}'
+        headers:
+            Content-Length:
+                - "766"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:08:59 GMT
+        status: 200 OK
+        code: 200
+        duration: 2.769375ms
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56294
+        form:
+            api-version:
+                - 2021-05-01-preview
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armmonitor/v0.11.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.ContainerService/managedClusters/e2eaks/providers/Microsoft.Insights/diagnosticSettings?api-version=2021-05-01-preview
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 344
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.ContainerService/managedClusters/e2eaks/providers/Microsoft.Insights/diagnosticSettings/ds1","name":"ds1","type":"Microsoft.Insights/diagnosticSettings","properties":{"logs":[{"category":"kube-audit","enabled":true}],"metrics":[]}}]}'
+        headers:
+            Content-Length:
+                - "344"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:08:59 GMT
+        status: 200 OK
+        code: 200
+        duration: 251.875µs

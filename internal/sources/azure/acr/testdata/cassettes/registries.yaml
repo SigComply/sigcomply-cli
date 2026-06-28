@@ -1,0 +1,38 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56292
+        form:
+            api-version:
+                - "2025-11-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armcontainerregistry/v3.0.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.ContainerRegistry/registries?api-version=2025-11-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 663
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.ContainerRegistry/registries/e2eacr","name":"e2eacr","location":"eastus","type":"Microsoft.ContainerRegistry/registries","sku":{"name":"Premium"},"properties":{"loginServer":"e2eacr.azurecr.io","anonymousPullEnabled":false,"publicNetworkAccess":"Disabled","adminUserEnabled":false,"encryption":{"status":"enabled","keyVaultProperties":{"keyIdentifier":"https://e2evault.vault.azure.net/keys/k1","versionedKeyIdentifier":"https://e2evault.vault.azure.net/keys/k1/abc"}},"zoneRedundancy":"Enabled","policies":{"quarantinePolicy":{"status":"enabled"}}}}]}'
+        headers:
+            Content-Length:
+                - "663"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:08:57 GMT
+        status: 200 OK
+        code: 200
+        duration: 4.905416ms
