@@ -255,9 +255,8 @@ spec snapshot is the only artifact that lives outside the plugin package
 | AWS test seam | fake `HTTPClient` via `config.WithHTTPClient` (runs the real deserializer); interface stubs for pure logic | per-protocol matcher needed for query/json APIs (IAM/EC2/STS) |
 | GCP test seam | `option.WithHTTPClient` + `option.WithoutAuthentication` → httptest / go-vcr | REST/JSON clients |
 | Azure test seam | `arm.ClientOptions{Transport: ...}`; fake `azcore.TokenCredential` | swap the transport |
-| Spec-diff (OpenAPI) | `oasdiff` | GitHub, GitLab (partial), Okta, Azure |
-| Spec-diff (AWS) | `smithy diff` / track `botocore` `.changes` | models in `aws/aws-sdk-go-v2` `codegen/sdk-codegen/aws-models/` |
-| Spec-diff (GCP) | snapshot Discovery Doc + JSON / `oasdiff` (via converter) | `https://<api>.googleapis.com/$discovery/rest?version=<v>` |
+| Spec-diff (all providers) | `scripts/contracts/diff_contracts.py` (dependency-free structural JSON diff over our committed slices) | Implemented in WU-3.2; run via `make contracts-diff`. Classifies *removed/changed* (op·shape·field·enum we read) as **breaking**, *added* as non-breaking. Chosen over `oasdiff`/`smithy diff` to keep the toolchain to python3 only (no Go-binary or Java gate); the slices are deterministic JSON we control. Upgrade to `oasdiff` later if richer OpenAPI rules are wanted. |
+| Spec snapshots | `scripts/contracts-fetch.sh` (`make contracts-fetch`) | OpenAPI sliced by `slice_openapi.py` (GitHub/Okta); AWS Smithy by `slice_smithy.py`; models in `aws/aws-sdk-go-v2` `codegen/sdk-codegen/aws-models/`. |
 | Sweeper | `cloud-nuke` / `aws-nuke` | name-prefix scoped; dedicated test account |
 | Free identity tenant | Free Azure-account tenant (`*.onmicrosoft.com`) + seeded users | Covers non-premium L4a Entra (users, policies). The Microsoft 365 Developer Program is no longer self-serve free. **Entra ID P2 is not free** (time-boxed trial only) → the P2-gated MFA registration report falls back to a spec-validated L2 cassette, not L4a. |
 | Schema validation in tests | existing `internal/evidence_types` (`gojsonschema`) | reuse `Validate()` |
@@ -279,3 +278,42 @@ spec snapshot is the only artifact that lives outside the plugin package
 For the per-plugin requirements when adding a new source, see
 [`04-source-plugins.md`](04-source-plugins.md) and
 [`07-extensibility.md`](07-extensibility.md).
+
+---
+
+## 7. Drift triage runbook (L3 alert response)
+
+The weekly `contract-drift` workflow re-fetches every pinned vendor spec
+slice and diffs it against the committed snapshot in `contracts/`. A
+change opens (or comments on) a GitHub issue labelled `contract-drift`
+with the diff report. The alert is **never** on the per-PR path — it's a
+heads-up that an upstream API moved. Triage:
+
+1. **Reproduce locally:** `make contracts-diff`. It prints, per snapshot,
+   `BREAKING …` lines (a removed/changed operation, shape, field, or enum
+   value our mapper reads) and an additions count. A clean tree exits 0.
+2. **Classify each change.**
+   - *Additions only* (new fields/operations upstream): non-breaking — we
+     ignore unknown fields. Skip to step 5 (just re-baseline the snapshot).
+   - *Breaking* (something we read was removed or changed type): continue.
+3. **Assess mapper impact.** For each breaking change, find the consuming
+   plugin (the `contracts/<provider>/<service>` path maps to
+   `internal/sources/<provider>/<service>`). Does its mapper or
+   evidence-type schema read the changed field? If not, it's breaking for
+   the vendor but inert for us — note it and proceed.
+4. **Fix what broke.** Update the mapper (and, if the canonical shape
+   changed, the evidence-type schema in `internal/evidence_types/schemas/`
+   — new version, never a mutation). Re-record the affected cassette so it
+   reflects the new response shape (re-run the plugin's `//go:build record`
+   recorder against a live/test account, or hand-author from the real
+   response). Re-run the plugin's conformance + spec test.
+5. **Re-baseline the snapshot:** `make contracts-fetch` re-slices in place;
+   commit the updated `contracts/<…>.json`. This clears the alert on the
+   next scheduled run.
+6. **Close the issue** once the snapshot (and any mapper/cassette/schema
+   changes) are committed and CI is green.
+
+Rule of thumb: a `contract-drift` issue is *informational until proven
+breaking* — most vendor changes are additive. Never silence it by editing
+the differ; re-baseline via `make contracts-fetch` so the next genuine
+drift still fires.
