@@ -1,0 +1,233 @@
+{
+  "discoveryVersion": "v1",
+  "name": "firestore",
+  "version": "v1",
+  "x-slice": "response-schema closure consumed by internal/sources/gcp",
+  "schemas": {
+    "GoogleFirestoreAdminV1BackupSource": {
+      "id": "GoogleFirestoreAdminV1BackupSource",
+      "type": "object",
+      "properties": {
+        "backup": {
+          "type": "string"
+        }
+      }
+    },
+    "GoogleFirestoreAdminV1CmekConfig": {
+      "id": "GoogleFirestoreAdminV1CmekConfig",
+      "type": "object",
+      "properties": {
+        "activeKeyVersion": {
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true,
+          "type": "array"
+        },
+        "kmsKeyName": {
+          "type": "string"
+        }
+      }
+    },
+    "GoogleFirestoreAdminV1Database": {
+      "id": "GoogleFirestoreAdminV1Database",
+      "type": "object",
+      "properties": {
+        "freeTier": {
+          "readOnly": true,
+          "type": "boolean"
+        },
+        "realtimeUpdatesMode": {
+          "type": "string",
+          "enumDescriptions": [
+            "The Realtime Updates feature is not specified.",
+            "The Realtime Updates feature is enabled by default. This could potentially degrade write performance for the database.",
+            "The Realtime Updates feature is disabled by default."
+          ],
+          "enum": [
+            "REALTIME_UPDATES_MODE_UNSPECIFIED",
+            "REALTIME_UPDATES_MODE_ENABLED",
+            "REALTIME_UPDATES_MODE_DISABLED"
+          ]
+        },
+        "versionRetentionPeriod": {
+          "format": "google-duration",
+          "readOnly": true,
+          "type": "string"
+        },
+        "mongodbCompatibleDataAccessMode": {
+          "type": "string",
+          "enum": [
+            "DATA_ACCESS_MODE_UNSPECIFIED",
+            "DATA_ACCESS_MODE_ENABLED",
+            "DATA_ACCESS_MODE_DISABLED"
+          ],
+          "enumDescriptions": [
+            "Not Used.",
+            "Accessing the database through the API is allowed.",
+            "Accessing the database through the API is disallowed."
+          ]
+        },
+        "etag": {
+          "type": "string"
+        },
+        "pointInTimeRecoveryEnablement": {
+          "type": "string",
+          "enum": [
+            "POINT_IN_TIME_RECOVERY_ENABLEMENT_UNSPECIFIED",
+            "POINT_IN_TIME_RECOVERY_ENABLED",
+            "POINT_IN_TIME_RECOVERY_DISABLED"
+          ],
+          "enumDescriptions": [
+            "Not used.",
+            "Reads are supported on selected versions of the data from within the past 7 days: * Reads against any timestamp within the past hour * Reads against 1-minute snapshots beyond 1 hour and within 7 days `version_retention_period` and `earliest_version_time` can be used to determine the supported versions.",
+            "Reads are supported on any version of the data from within the past 1 hour."
+          ]
+        },
+        "earliestVersionTime": {
+          "format": "google-datetime",
+          "readOnly": true,
+          "type": "string"
+        },
+        "firestoreDataAccessMode": {
+          "type": "string",
+          "enum": [
+            "DATA_ACCESS_MODE_UNSPECIFIED",
+            "DATA_ACCESS_MODE_ENABLED",
+            "DATA_ACCESS_MODE_DISABLED"
+          ],
+          "enumDescriptions": [
+            "Not Used.",
+            "Accessing the database through the API is allowed.",
+            "Accessing the database through the API is disallowed."
+          ]
+        },
+        "createTime": {
+          "readOnly": true,
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "cmekConfig": {
+          "$ref": "GoogleFirestoreAdminV1CmekConfig"
+        },
+        "deleteTime": {
+          "readOnly": true,
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "concurrencyMode": {
+          "enumDescriptions": [
+            "Not used.",
+            "Use optimistic concurrency control by default. This mode is available for Cloud Firestore databases. This is the default setting for Cloud Firestore Enterprise Edition databases.",
+            "Use pessimistic concurrency control by default. This mode is available for Cloud Firestore databases. This is the default setting for Cloud Firestore Standard Edition databases.",
+            "Use optimistic concurrency control with entity groups by default. This mode is enabled for some databases that were automatically upgraded from Cloud Datastore to Cloud Firestore with Datastore Mode. It is not recommended for any new databases, and not supported for Firestore Native databases."
+          ],
+          "enum": [
+            "CONCURRENCY_MODE_UNSPECIFIED",
+            "OPTIMISTIC",
+            "PESSIMISTIC",
+            "OPTIMISTIC_WITH_ENTITY_GROUPS"
+          ],
+          "type": "string"
+        },
+        "deleteProtectionState": {
+          "type": "string",
+          "enumDescriptions": [
+            "The default value. Delete protection type is not specified",
+            "Delete protection is disabled",
+            "Delete protection is enabled"
+          ],
+          "enum": [
+            "DELETE_PROTECTION_STATE_UNSPECIFIED",
+            "DELETE_PROTECTION_DISABLED",
+            "DELETE_PROTECTION_ENABLED"
+          ]
+        },
+        "uid": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "updateTime": {
+          "readOnly": true,
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "enumDescriptions": [
+            "Not used.",
+            "Firestore Native Mode",
+            "Firestore in Datastore Mode."
+          ],
+          "enum": [
+            "DATABASE_TYPE_UNSPECIFIED",
+            "FIRESTORE_NATIVE",
+            "DATASTORE_MODE"
+          ],
+          "type": "string"
+        },
+        "appEngineIntegrationMode": {
+          "type": "string",
+          "enumDescriptions": [
+            "Not used.",
+            "If an App Engine application exists in the same region as this database, App Engine configuration will impact this database. This includes disabling of the application & database, as well as disabling writes to the database.",
+            "App Engine has no effect on the ability of this database to serve requests. This is the default setting for databases created with the Firestore API."
+          ],
+          "enum": [
+            "APP_ENGINE_INTEGRATION_MODE_UNSPECIFIED",
+            "ENABLED",
+            "DISABLED"
+          ]
+        },
+        "previousId": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "locationId": {
+          "type": "string"
+        },
+        "databaseEdition": {
+          "enumDescriptions": [
+            "Not used.",
+            "Standard edition. This is the default setting if not specified.",
+            "Enterprise edition."
+          ],
+          "enum": [
+            "DATABASE_EDITION_UNSPECIFIED",
+            "STANDARD",
+            "ENTERPRISE"
+          ],
+          "type": "string"
+        },
+        "keyPrefix": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "sourceInfo": {
+          "readOnly": true,
+          "$ref": "GoogleFirestoreAdminV1SourceInfo"
+        },
+        "tags": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      }
+    },
+    "GoogleFirestoreAdminV1SourceInfo": {
+      "type": "object",
+      "properties": {
+        "backup": {
+          "$ref": "GoogleFirestoreAdminV1BackupSource"
+        },
+        "operation": {
+          "type": "string"
+        }
+      },
+      "id": "GoogleFirestoreAdminV1SourceInfo"
+    }
+  }
+}

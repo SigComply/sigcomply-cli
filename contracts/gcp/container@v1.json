@@ -1,0 +1,4407 @@
+{
+  "discoveryVersion": "v1",
+  "name": "container",
+  "version": "v1",
+  "x-slice": "response-schema closure consumed by internal/sources/gcp",
+  "schemas": {
+    "AcceleratorConfig": {
+      "id": "AcceleratorConfig",
+      "type": "object",
+      "properties": {
+        "acceleratorCount": {
+          "format": "int64",
+          "type": "string"
+        },
+        "acceleratorType": {
+          "type": "string"
+        },
+        "gpuPartitionSize": {
+          "type": "string"
+        },
+        "gpuDriverInstallationConfig": {
+          "$ref": "GPUDriverInstallationConfig"
+        },
+        "gpuSharingConfig": {
+          "$ref": "GPUSharingConfig"
+        }
+      }
+    },
+    "AccurateTimeConfig": {
+      "id": "AccurateTimeConfig",
+      "type": "object",
+      "properties": {
+        "enablePtpKvmTimeSync": {
+          "type": "boolean"
+        }
+      }
+    },
+    "AdditionalIPRangesConfig": {
+      "id": "AdditionalIPRangesConfig",
+      "type": "object",
+      "properties": {
+        "podIpv4RangeNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "subnetwork": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enumDescriptions": [
+            "Not set, same as ACTIVE.",
+            "ACTIVE status indicates that the subnet is available for new node pool creation.",
+            "DRAINING status indicates that the subnet is not used for new node pool creation."
+          ],
+          "enum": [
+            "STATUS_UNSPECIFIED",
+            "ACTIVE",
+            "DRAINING"
+          ]
+        }
+      }
+    },
+    "AdditionalNodeNetworkConfig": {
+      "id": "AdditionalNodeNetworkConfig",
+      "type": "object",
+      "properties": {
+        "network": {
+          "type": "string"
+        },
+        "subnetwork": {
+          "type": "string"
+        }
+      }
+    },
+    "AdditionalPodNetworkConfig": {
+      "id": "AdditionalPodNetworkConfig",
+      "type": "object",
+      "properties": {
+        "secondaryPodRange": {
+          "type": "string"
+        },
+        "maxPodsPerNode": {
+          "$ref": "MaxPodsConstraint"
+        },
+        "subnetwork": {
+          "type": "string"
+        },
+        "networkAttachment": {
+          "type": "string"
+        }
+      }
+    },
+    "AdditionalPodRangesConfig": {
+      "id": "AdditionalPodRangesConfig",
+      "type": "object",
+      "properties": {
+        "podRangeNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "podRangeInfo": {
+          "type": "array",
+          "items": {
+            "$ref": "RangeInfo"
+          },
+          "readOnly": true
+        }
+      }
+    },
+    "AddonsConfig": {
+      "id": "AddonsConfig",
+      "type": "object",
+      "properties": {
+        "dnsCacheConfig": {
+          "$ref": "DnsCacheConfig"
+        },
+        "slurmOperatorConfig": {
+          "$ref": "SlurmOperatorConfig"
+        },
+        "sliceControllerConfig": {
+          "$ref": "SliceControllerConfig"
+        },
+        "nodeReadinessConfig": {
+          "$ref": "NodeReadinessConfig"
+        },
+        "networkPolicyConfig": {
+          "$ref": "NetworkPolicyConfig"
+        },
+        "rayOperatorConfig": {
+          "$ref": "RayOperatorConfig"
+        },
+        "gcsFuseCsiDriverConfig": {
+          "$ref": "GcsFuseCsiDriverConfig"
+        },
+        "highScaleCheckpointingConfig": {
+          "$ref": "HighScaleCheckpointingConfig"
+        },
+        "httpLoadBalancing": {
+          "$ref": "HttpLoadBalancing"
+        },
+        "horizontalPodAutoscaling": {
+          "$ref": "HorizontalPodAutoscaling"
+        },
+        "kubernetesDashboard": {
+          "deprecated": true,
+          "$ref": "KubernetesDashboard"
+        },
+        "parallelstoreCsiDriverConfig": {
+          "$ref": "ParallelstoreCsiDriverConfig"
+        },
+        "podSnapshotConfig": {
+          "$ref": "PodSnapshotConfig"
+        },
+        "gcpFilestoreCsiDriverConfig": {
+          "$ref": "GcpFilestoreCsiDriverConfig"
+        },
+        "statefulHaConfig": {
+          "$ref": "StatefulHAConfig"
+        },
+        "lustreCsiDriverConfig": {
+          "$ref": "LustreCsiDriverConfig"
+        },
+        "agentSandboxConfig": {
+          "$ref": "AgentSandboxConfig"
+        },
+        "configConnectorConfig": {
+          "$ref": "ConfigConnectorConfig"
+        },
+        "gkeBackupAgentConfig": {
+          "$ref": "GkeBackupAgentConfig"
+        },
+        "cloudRunConfig": {
+          "$ref": "CloudRunConfig"
+        },
+        "gcePersistentDiskCsiDriverConfig": {
+          "$ref": "GcePersistentDiskCsiDriverConfig"
+        }
+      }
+    },
+    "AdvancedDatapathObservabilityConfig": {
+      "id": "AdvancedDatapathObservabilityConfig",
+      "type": "object",
+      "properties": {
+        "enableRelay": {
+          "type": "boolean"
+        },
+        "relayMode": {
+          "type": "string",
+          "enumDescriptions": [
+            "Default value. This shouldn't be used.",
+            "disabled",
+            "exposed via internal load balancer",
+            "exposed via external load balancer"
+          ],
+          "enum": [
+            "RELAY_MODE_UNSPECIFIED",
+            "DISABLED",
+            "INTERNAL_VPC_LB",
+            "EXTERNAL_LB"
+          ]
+        },
+        "enableMetrics": {
+          "type": "boolean"
+        }
+      }
+    },
+    "AdvancedMachineFeatures": {
+      "id": "AdvancedMachineFeatures",
+      "type": "object",
+      "properties": {
+        "enableNestedVirtualization": {
+          "type": "boolean"
+        },
+        "performanceMonitoringUnit": {
+          "type": "string",
+          "enumDescriptions": [
+            "PMU not enabled.",
+            "Architecturally defined non-LLC events.",
+            "Most documented core/L2 events.",
+            "Most documented core/L2 and LLC events."
+          ],
+          "enum": [
+            "PERFORMANCE_MONITORING_UNIT_UNSPECIFIED",
+            "ARCHITECTURAL",
+            "STANDARD",
+            "ENHANCED"
+          ]
+        },
+        "threadsPerCore": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "AgentSandboxConfig": {
+      "id": "AgentSandboxConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "AnonymousAuthenticationConfig": {
+      "id": "AnonymousAuthenticationConfig",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enumDescriptions": [
+            "Default value not specified.",
+            "Anonymous authentication is allowed for all endpoints.",
+            "Anonymous authentication is allowed for only health check endpoints."
+          ],
+          "enum": [
+            "MODE_UNSPECIFIED",
+            "ENABLED",
+            "LIMITED"
+          ]
+        }
+      }
+    },
+    "AuthenticatorGroupsConfig": {
+      "id": "AuthenticatorGroupsConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "securityGroup": {
+          "type": "string"
+        }
+      }
+    },
+    "AutoIpamConfig": {
+      "id": "AutoIpamConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "AutoMonitoringConfig": {
+      "id": "AutoMonitoringConfig",
+      "type": "object",
+      "properties": {
+        "scope": {
+          "enum": [
+            "SCOPE_UNSPECIFIED",
+            "ALL",
+            "NONE"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "Not set.",
+            "Auto-Monitoring is enabled for all supported applications.",
+            "Disable Auto-Monitoring."
+          ]
+        }
+      }
+    },
+    "AutoUpgradeOptions": {
+      "id": "AutoUpgradeOptions",
+      "type": "object",
+      "properties": {
+        "autoUpgradeStartTime": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "Autopilot": {
+      "id": "Autopilot",
+      "type": "object",
+      "properties": {
+        "workloadPolicyConfig": {
+          "$ref": "WorkloadPolicyConfig"
+        },
+        "privilegedAdmissionConfig": {
+          "$ref": "PrivilegedAdmissionConfig"
+        },
+        "clusterPolicyConfig": {
+          "$ref": "ClusterPolicyConfig"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "AutopilotConfig": {
+      "id": "AutopilotConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "AutoprovisioningNodePoolDefaults": {
+      "id": "AutoprovisioningNodePoolDefaults",
+      "type": "object",
+      "properties": {
+        "shieldedInstanceConfig": {
+          "$ref": "ShieldedInstanceConfig"
+        },
+        "serviceAccount": {
+          "type": "string"
+        },
+        "upgradeSettings": {
+          "$ref": "UpgradeSettings"
+        },
+        "bootDiskKmsKey": {
+          "type": "string"
+        },
+        "diskSizeGb": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "diskType": {
+          "type": "string"
+        },
+        "minCpuPlatform": {
+          "type": "string",
+          "deprecated": true
+        },
+        "management": {
+          "$ref": "NodeManagement"
+        },
+        "insecureKubeletReadonlyPortEnabled": {
+          "type": "boolean"
+        },
+        "imageType": {
+          "type": "string"
+        },
+        "oauthScopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "AutoscaledRolloutPolicy": {
+      "id": "AutoscaledRolloutPolicy",
+      "type": "object",
+      "properties": {
+        "waitForDrainDuration": {
+          "format": "google-duration",
+          "type": "string"
+        }
+      }
+    },
+    "BestEffortProvisioning": {
+      "id": "BestEffortProvisioning",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "minProvisionNodes": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "BigQueryDestination": {
+      "id": "BigQueryDestination",
+      "type": "object",
+      "properties": {
+        "datasetId": {
+          "type": "string"
+        }
+      }
+    },
+    "BinaryAuthorization": {
+      "id": "BinaryAuthorization",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "deprecated": true
+        },
+        "evaluationMode": {
+          "type": "string",
+          "enumDescriptions": [
+            "Default value",
+            "Disable BinaryAuthorization",
+            "Enforce Kubernetes admission requests with BinaryAuthorization using the project's singleton policy. This is equivalent to setting the enabled boolean to true."
+          ],
+          "enum": [
+            "EVALUATION_MODE_UNSPECIFIED",
+            "DISABLED",
+            "PROJECT_SINGLETON_POLICY_ENFORCE"
+          ]
+        }
+      }
+    },
+    "BlueGreenInfo": {
+      "id": "BlueGreenInfo",
+      "type": "object",
+      "properties": {
+        "bluePoolDeletionStartTime": {
+          "type": "string"
+        },
+        "greenPoolVersion": {
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "PHASE_UNSPECIFIED",
+            "UPDATE_STARTED",
+            "CREATING_GREEN_POOL",
+            "CORDONING_BLUE_POOL",
+            "DRAINING_BLUE_POOL",
+            "NODE_POOL_SOAKING",
+            "DELETING_BLUE_POOL",
+            "ROLLBACK_STARTED"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "Unspecified phase.",
+            "blue-green upgrade has been initiated.",
+            "Start creating green pool nodes.",
+            "Start cordoning blue pool nodes.",
+            "Start draining blue pool nodes.",
+            "Start soaking time after draining entire blue pool.",
+            "Start deleting blue nodes.",
+            "Rollback has been initiated."
+          ]
+        },
+        "blueInstanceGroupUrls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "greenInstanceGroupUrls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "BlueGreenSettings": {
+      "id": "BlueGreenSettings",
+      "type": "object",
+      "properties": {
+        "standardRolloutPolicy": {
+          "$ref": "StandardRolloutPolicy"
+        },
+        "autoscaledRolloutPolicy": {
+          "$ref": "AutoscaledRolloutPolicy"
+        },
+        "nodePoolSoakDuration": {
+          "type": "string",
+          "format": "google-duration"
+        }
+      }
+    },
+    "BootDisk": {
+      "id": "BootDisk",
+      "type": "object",
+      "properties": {
+        "provisionedThroughput": {
+          "type": "string",
+          "format": "int64"
+        },
+        "sizeGb": {
+          "format": "int64",
+          "type": "string"
+        },
+        "diskType": {
+          "type": "string"
+        },
+        "provisionedIops": {
+          "format": "int64",
+          "type": "string"
+        }
+      }
+    },
+    "BootDiskProfile": {
+      "id": "BootDiskProfile",
+      "type": "object",
+      "properties": {
+        "swapSizeGib": {
+          "type": "string",
+          "format": "int64"
+        },
+        "swapSizePercent": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "CertificateAuthorityDomainConfig": {
+      "id": "CertificateAuthorityDomainConfig",
+      "type": "object",
+      "properties": {
+        "fqdns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "gcpSecretManagerCertificateConfig": {
+          "$ref": "GCPSecretManagerCertificateConfig"
+        }
+      }
+    },
+    "CertificateConfig": {
+      "id": "CertificateConfig",
+      "type": "object",
+      "properties": {
+        "gcpSecretManagerSecretUri": {
+          "type": "string"
+        }
+      }
+    },
+    "CertificateConfigPair": {
+      "id": "CertificateConfigPair",
+      "type": "object",
+      "properties": {
+        "cert": {
+          "$ref": "CertificateConfig"
+        },
+        "key": {
+          "$ref": "CertificateConfig"
+        }
+      }
+    },
+    "CidrBlock": {
+      "id": "CidrBlock",
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "cidrBlock": {
+          "type": "string"
+        }
+      }
+    },
+    "ClientCertificateConfig": {
+      "id": "ClientCertificateConfig",
+      "type": "object",
+      "properties": {
+        "issueClientCertificate": {
+          "type": "boolean"
+        }
+      }
+    },
+    "CloudRunConfig": {
+      "id": "CloudRunConfig",
+      "type": "object",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        },
+        "loadBalancerType": {
+          "type": "string",
+          "enumDescriptions": [
+            "Load balancer type for Cloud Run is unspecified.",
+            "Install external load balancer for Cloud Run.",
+            "Install internal load balancer for Cloud Run."
+          ],
+          "enum": [
+            "LOAD_BALANCER_TYPE_UNSPECIFIED",
+            "LOAD_BALANCER_TYPE_EXTERNAL",
+            "LOAD_BALANCER_TYPE_INTERNAL"
+          ]
+        }
+      }
+    },
+    "Cluster": {
+      "id": "Cluster",
+      "type": "object",
+      "properties": {
+        "binaryAuthorization": {
+          "$ref": "BinaryAuthorization"
+        },
+        "enableTpu": {
+          "type": "boolean",
+          "deprecated": true
+        },
+        "fleet": {
+          "$ref": "Fleet"
+        },
+        "rbacBindingConfig": {
+          "$ref": "RBACBindingConfig"
+        },
+        "managedOpentelemetryConfig": {
+          "$ref": "ManagedOpenTelemetryConfig"
+        },
+        "labelFingerprint": {
+          "type": "string"
+        },
+        "controlPlaneEgress": {
+          "$ref": "ControlPlaneEgress"
+        },
+        "securityPostureConfig": {
+          "$ref": "SecurityPostureConfig"
+        },
+        "loggingService": {
+          "type": "string"
+        },
+        "costManagementConfig": {
+          "$ref": "CostManagementConfig"
+        },
+        "anonymousAuthenticationConfig": {
+          "$ref": "AnonymousAuthenticationConfig"
+        },
+        "nodePoolAutoConfig": {
+          "$ref": "NodePoolAutoConfig"
+        },
+        "privateClusterConfig": {
+          "$ref": "PrivateClusterConfig"
+        },
+        "managedMachineLearningDiagnosticsConfig": {
+          "$ref": "ManagedMachineLearningDiagnosticsConfig"
+        },
+        "maintenancePolicy": {
+          "$ref": "MaintenancePolicy"
+        },
+        "nodePools": {
+          "type": "array",
+          "items": {
+            "$ref": "NodePool"
+          }
+        },
+        "resourceLabels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "defaultMaxPodsConstraint": {
+          "$ref": "MaxPodsConstraint"
+        },
+        "expireTime": {
+          "type": "string",
+          "readOnly": true
+        },
+        "initialClusterVersion": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string",
+          "readOnly": true
+        },
+        "clusterIpv4Cidr": {
+          "type": "string"
+        },
+        "enableKubernetesAlpha": {
+          "type": "boolean"
+        },
+        "legacyAbac": {
+          "$ref": "LegacyAbac"
+        },
+        "databaseEncryption": {
+          "$ref": "DatabaseEncryption"
+        },
+        "nodeConfig": {
+          "$ref": "NodeConfig",
+          "deprecated": true
+        },
+        "masterAuthorizedNetworksConfig": {
+          "deprecated": true,
+          "$ref": "MasterAuthorizedNetworksConfig"
+        },
+        "resourceUsageExportConfig": {
+          "$ref": "ResourceUsageExportConfig"
+        },
+        "createTime": {
+          "type": "string",
+          "readOnly": true
+        },
+        "podAutoscaling": {
+          "$ref": "PodAutoscaling"
+        },
+        "userManagedKeysConfig": {
+          "$ref": "UserManagedKeysConfig"
+        },
+        "enterpriseConfig": {
+          "$ref": "EnterpriseConfig",
+          "deprecated": true
+        },
+        "status": {
+          "type": "string",
+          "readOnly": true,
+          "enum": [
+            "STATUS_UNSPECIFIED",
+            "PROVISIONING",
+            "RUNNING",
+            "RECONCILING",
+            "STOPPING",
+            "ERROR",
+            "DEGRADED"
+          ],
+          "enumDescriptions": [
+            "Not set.",
+            "The PROVISIONING state indicates the cluster is being created.",
+            "The RUNNING state indicates the cluster has been created and is fully usable.",
+            "The RECONCILING state indicates that some work is actively being done on the cluster, such as upgrading the master or node software. Details can be found in the `statusMessage` field.",
+            "The STOPPING state indicates the cluster is being deleted.",
+            "The ERROR state indicates the cluster is unusable. It will be automatically deleted. Details can be found in the `statusMessage` field.",
+            "The DEGRADED state indicates the cluster requires user action to restore full functionality. Details can be found in the `statusMessage` field."
+          ]
+        },
+        "compliancePostureConfig": {
+          "deprecated": true,
+          "$ref": "CompliancePostureConfig"
+        },
+        "location": {
+          "type": "string",
+          "readOnly": true
+        },
+        "monitoringConfig": {
+          "$ref": "MonitoringConfig"
+        },
+        "autopilot": {
+          "$ref": "Autopilot"
+        },
+        "tpuIpv4CidrBlock": {
+          "deprecated": true,
+          "type": "string",
+          "readOnly": true
+        },
+        "authenticatorGroupsConfig": {
+          "$ref": "AuthenticatorGroupsConfig"
+        },
+        "id": {
+          "type": "string",
+          "readOnly": true
+        },
+        "initialNodeCount": {
+          "format": "int32",
+          "deprecated": true,
+          "type": "integer"
+        },
+        "workloadIdentityConfig": {
+          "$ref": "WorkloadIdentityConfig"
+        },
+        "currentNodeVersion": {
+          "readOnly": true,
+          "deprecated": true,
+          "type": "string"
+        },
+        "notificationConfig": {
+          "$ref": "NotificationConfig"
+        },
+        "networkPolicy": {
+          "$ref": "NetworkPolicy"
+        },
+        "name": {
+          "type": "string"
+        },
+        "enableK8sBetaApis": {
+          "$ref": "K8sBetaAPIConfig"
+        },
+        "nodeIpv4CidrSize": {
+          "format": "int32",
+          "readOnly": true,
+          "type": "integer"
+        },
+        "currentNodeCount": {
+          "type": "integer",
+          "deprecated": true,
+          "readOnly": true,
+          "format": "int32"
+        },
+        "network": {
+          "type": "string"
+        },
+        "autoscaling": {
+          "$ref": "ClusterAutoscaling"
+        },
+        "parentProductConfig": {
+          "$ref": "ParentProductConfig"
+        },
+        "currentMasterVersion": {
+          "type": "string",
+          "readOnly": true
+        },
+        "identityServiceConfig": {
+          "$ref": "IdentityServiceConfig"
+        },
+        "masterAuth": {
+          "$ref": "MasterAuth"
+        },
+        "confidentialNodes": {
+          "$ref": "ConfidentialNodes"
+        },
+        "instanceGroupUrls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true,
+          "deprecated": true
+        },
+        "satisfiesPzs": {
+          "readOnly": true,
+          "type": "boolean"
+        },
+        "loggingConfig": {
+          "$ref": "LoggingConfig"
+        },
+        "verticalPodAutoscaling": {
+          "$ref": "VerticalPodAutoscaling"
+        },
+        "servicesIpv4Cidr": {
+          "type": "string",
+          "readOnly": true
+        },
+        "monitoringService": {
+          "type": "string"
+        },
+        "selfLink": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "secretManagerConfig": {
+          "$ref": "SecretManagerConfig"
+        },
+        "alphaClusterFeatureGates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "addonsConfig": {
+          "$ref": "AddonsConfig"
+        },
+        "gkeAutoUpgradeConfig": {
+          "$ref": "GkeAutoUpgradeConfig"
+        },
+        "releaseChannel": {
+          "$ref": "ReleaseChannel"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "StatusCondition"
+          }
+        },
+        "nodePoolDefaults": {
+          "$ref": "NodePoolDefaults"
+        },
+        "ipAllocationPolicy": {
+          "$ref": "IPAllocationPolicy"
+        },
+        "nodeCreationConfig": {
+          "$ref": "NodeCreationConfig"
+        },
+        "secretSyncConfig": {
+          "$ref": "SecretSyncConfig"
+        },
+        "subnetwork": {
+          "type": "string"
+        },
+        "satisfiesPzi": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "scheduleUpgradeConfig": {
+          "$ref": "ScheduleUpgradeConfig"
+        },
+        "controlPlaneEndpointsConfig": {
+          "$ref": "ControlPlaneEndpointsConfig"
+        },
+        "zone": {
+          "type": "string",
+          "deprecated": true,
+          "readOnly": true
+        },
+        "statusMessage": {
+          "readOnly": true,
+          "type": "string",
+          "deprecated": true
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "shieldedNodes": {
+          "$ref": "ShieldedNodes"
+        },
+        "etag": {
+          "type": "string"
+        },
+        "meshCertificates": {
+          "$ref": "MeshCertificates"
+        },
+        "networkConfig": {
+          "$ref": "NetworkConfig"
+        }
+      }
+    },
+    "ClusterAutoscaling": {
+      "id": "ClusterAutoscaling",
+      "type": "object",
+      "properties": {
+        "defaultComputeClassConfig": {
+          "$ref": "DefaultComputeClassConfig"
+        },
+        "autoscalingProfile": {
+          "enum": [
+            "PROFILE_UNSPECIFIED",
+            "OPTIMIZE_UTILIZATION",
+            "BALANCED"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "No change to autoscaling configuration.",
+            "Prioritize optimizing utilization of resources.",
+            "Use default (balanced) autoscaling configuration."
+          ]
+        },
+        "autoprovisioningLocations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "autopilotGeneralProfile": {
+          "enum": [
+            "AUTOPILOT_GENERAL_PROFILE_UNSPECIFIED",
+            "NO_PERFORMANCE",
+            "NONE"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "Use default configuration.",
+            "Avoid extra IP consumption.",
+            "Use default configuration."
+          ]
+        },
+        "autoprovisioningNodePoolDefaults": {
+          "$ref": "AutoprovisioningNodePoolDefaults"
+        },
+        "enableNodeAutoprovisioning": {
+          "type": "boolean"
+        },
+        "resourceLimits": {
+          "type": "array",
+          "items": {
+            "$ref": "ResourceLimit"
+          }
+        }
+      }
+    },
+    "ClusterNetworkPerformanceConfig": {
+      "id": "ClusterNetworkPerformanceConfig",
+      "type": "object",
+      "properties": {
+        "totalEgressBandwidthTier": {
+          "type": "string",
+          "enumDescriptions": [
+            "Default value",
+            "Higher bandwidth, actual values based on VM size."
+          ],
+          "enum": [
+            "TIER_UNSPECIFIED",
+            "TIER_1"
+          ]
+        }
+      }
+    },
+    "ClusterPolicyConfig": {
+      "id": "ClusterPolicyConfig",
+      "type": "object",
+      "properties": {
+        "noSystemMutation": {
+          "type": "boolean"
+        },
+        "noSystemImpersonation": {
+          "type": "boolean"
+        },
+        "noUnsafeWebhooks": {
+          "type": "boolean"
+        },
+        "noStandardNodePools": {
+          "type": "boolean"
+        }
+      }
+    },
+    "CompliancePostureConfig": {
+      "deprecated": true,
+      "id": "CompliancePostureConfig",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enumDescriptions": [
+            "Default value not specified.",
+            "Disables Compliance Posture features on the cluster.",
+            "Enables Compliance Posture features on the cluster."
+          ],
+          "enum": [
+            "MODE_UNSPECIFIED",
+            "DISABLED",
+            "ENABLED"
+          ]
+        },
+        "complianceStandards": {
+          "type": "array",
+          "items": {
+            "$ref": "ComplianceStandard"
+          }
+        }
+      }
+    },
+    "ComplianceStandard": {
+      "id": "ComplianceStandard",
+      "type": "object",
+      "properties": {
+        "standard": {
+          "type": "string"
+        }
+      }
+    },
+    "ConfidentialNodes": {
+      "id": "ConfidentialNodes",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "confidentialInstanceType": {
+          "type": "string",
+          "enumDescriptions": [
+            "No type specified. Do not use this value.",
+            "AMD Secure Encrypted Virtualization.",
+            "AMD Secure Encrypted Virtualization - Secure Nested Paging.",
+            "Intel Trust Domain eXtension."
+          ],
+          "enum": [
+            "CONFIDENTIAL_INSTANCE_TYPE_UNSPECIFIED",
+            "SEV",
+            "SEV_SNP",
+            "TDX"
+          ]
+        }
+      }
+    },
+    "ConfigConnectorConfig": {
+      "id": "ConfigConnectorConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ConsumptionMeteringConfig": {
+      "id": "ConsumptionMeteringConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ContainerdConfig": {
+      "id": "ContainerdConfig",
+      "type": "object",
+      "properties": {
+        "writableCgroups": {
+          "$ref": "WritableCgroups"
+        },
+        "registryHosts": {
+          "type": "array",
+          "items": {
+            "$ref": "RegistryHostConfig"
+          }
+        },
+        "privateRegistryAccessConfig": {
+          "$ref": "PrivateRegistryAccessConfig"
+        }
+      }
+    },
+    "ControlPlaneEgress": {
+      "id": "ControlPlaneEgress",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enumDescriptions": [
+            "Default value not specified.",
+            "Control plane has public IP and no restriction on egress.",
+            "No public IP on control plane and only internal allowlisted egress."
+          ],
+          "enum": [
+            "MODE_UNSPECIFIED",
+            "VIA_CONTROL_PLANE",
+            "NONE"
+          ]
+        }
+      }
+    },
+    "ControlPlaneEndpointsConfig": {
+      "id": "ControlPlaneEndpointsConfig",
+      "type": "object",
+      "properties": {
+        "dnsEndpointConfig": {
+          "$ref": "DNSEndpointConfig"
+        },
+        "ipEndpointsConfig": {
+          "$ref": "IPEndpointsConfig"
+        }
+      }
+    },
+    "CostManagementConfig": {
+      "id": "CostManagementConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "CrashLoopBackOffConfig": {
+      "id": "CrashLoopBackOffConfig",
+      "type": "object",
+      "properties": {
+        "maxContainerRestartPeriod": {
+          "type": "string"
+        }
+      }
+    },
+    "CustomImageConfig": {
+      "id": "CustomImageConfig",
+      "type": "object",
+      "properties": {
+        "imageProject": {
+          "type": "string"
+        },
+        "image": {
+          "type": "string"
+        }
+      }
+    },
+    "CustomNodeInit": {
+      "id": "CustomNodeInit",
+      "type": "object",
+      "properties": {
+        "initScript": {
+          "$ref": "InitScript"
+        }
+      }
+    },
+    "DNSConfig": {
+      "id": "DNSConfig",
+      "type": "object",
+      "properties": {
+        "clusterDnsScope": {
+          "type": "string",
+          "enumDescriptions": [
+            "Default value, will be inferred as cluster scope.",
+            "DNS records are accessible from within the cluster.",
+            "DNS records are accessible from within the VPC."
+          ],
+          "enum": [
+            "DNS_SCOPE_UNSPECIFIED",
+            "CLUSTER_SCOPE",
+            "VPC_SCOPE"
+          ]
+        },
+        "clusterDnsDomain": {
+          "type": "string"
+        },
+        "clusterDns": {
+          "enum": [
+            "PROVIDER_UNSPECIFIED",
+            "PLATFORM_DEFAULT",
+            "CLOUD_DNS",
+            "KUBE_DNS"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "Default value",
+            "Use GKE default DNS provider(kube-dns) for DNS resolution.",
+            "Use CloudDNS for DNS resolution.",
+            "Use KubeDNS for DNS resolution."
+          ]
+        },
+        "additiveVpcScopeDnsDomain": {
+          "type": "string"
+        }
+      }
+    },
+    "DNSEndpointConfig": {
+      "id": "DNSEndpointConfig",
+      "type": "object",
+      "properties": {
+        "allowExternalTraffic": {
+          "type": "boolean"
+        },
+        "enableK8sCertsViaDns": {
+          "type": "boolean"
+        },
+        "enableK8sTokensViaDns": {
+          "type": "boolean"
+        },
+        "endpoint": {
+          "readOnly": true,
+          "type": "string"
+        }
+      }
+    },
+    "DailyMaintenanceWindow": {
+      "id": "DailyMaintenanceWindow",
+      "type": "object",
+      "properties": {
+        "duration": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "startTime": {
+          "type": "string"
+        }
+      }
+    },
+    "DatabaseEncryption": {
+      "id": "DatabaseEncryption",
+      "type": "object",
+      "properties": {
+        "state": {
+          "enum": [
+            "UNKNOWN",
+            "ENCRYPTED",
+            "DECRYPTED",
+            "ALL_OBJECTS_ENCRYPTION_ENABLED"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "Should never be set",
+            "Secrets in etcd are encrypted.",
+            "Secrets in etcd are stored in plain text (at etcd level) - this is unrelated to Compute Engine level full disk encryption.",
+            "Encryption of all objects in the storage is enabled. There is no guarantee that all objects in the storage are encrypted, but eventually they will be."
+          ]
+        },
+        "lastOperationErrors": {
+          "type": "array",
+          "items": {
+            "$ref": "OperationError"
+          },
+          "readOnly": true
+        },
+        "decryptionKeys": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "keyName": {
+          "type": "string"
+        },
+        "currentState": {
+          "type": "string",
+          "enumDescriptions": [
+            "Should never be set",
+            "Secrets in etcd are encrypted.",
+            "Secrets in etcd are stored in plain text (at etcd level) - this is unrelated to Compute Engine level full disk encryption.",
+            "Encryption (or re-encryption with a different CloudKMS key) of Secrets is in progress.",
+            "Encryption (or re-encryption with a different CloudKMS key) of Secrets in etcd encountered an error.",
+            "De-crypting Secrets to plain text in etcd is in progress.",
+            "De-crypting Secrets to plain text in etcd encountered an error.",
+            "Encryption of all objects in the storage is enabled. It does not guarantee that all objects in the storage are encrypted, but eventually they will be.",
+            "Enablement of the encryption of all objects in storage is pending.",
+            "Enabling encryption of all objects in storage encountered an error."
+          ],
+          "readOnly": true,
+          "enum": [
+            "CURRENT_STATE_UNSPECIFIED",
+            "CURRENT_STATE_ENCRYPTED",
+            "CURRENT_STATE_DECRYPTED",
+            "CURRENT_STATE_ENCRYPTION_PENDING",
+            "CURRENT_STATE_ENCRYPTION_ERROR",
+            "CURRENT_STATE_DECRYPTION_PENDING",
+            "CURRENT_STATE_DECRYPTION_ERROR",
+            "CURRENT_STATE_ALL_OBJECTS_ENCRYPTION_ENABLED",
+            "CURRENT_STATE_ALL_OBJECTS_ENCRYPTION_PENDING",
+            "CURRENT_STATE_ALL_OBJECTS_ENCRYPTION_ERROR"
+          ]
+        }
+      }
+    },
+    "DataplaneV2Config": {
+      "id": "DataplaneV2Config",
+      "type": "object",
+      "properties": {
+        "scalabilityMode": {
+          "type": "string",
+          "enumDescriptions": [
+            "Default value.",
+            "Disables the scale optimized mode for DPv2.",
+            "Enables the scale optimized mode for DPv2."
+          ],
+          "enum": [
+            "SCALABILITY_MODE_UNSPECIFIED",
+            "DISABLED",
+            "SCALE_OPTIMIZED"
+          ]
+        }
+      }
+    },
+    "Date": {
+      "id": "Date",
+      "type": "object",
+      "properties": {
+        "day": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "year": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "month": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "DedicatedLocalSsdProfile": {
+      "id": "DedicatedLocalSsdProfile",
+      "type": "object",
+      "properties": {
+        "diskCount": {
+          "format": "int64",
+          "type": "string"
+        }
+      }
+    },
+    "DefaultComputeClassConfig": {
+      "id": "DefaultComputeClassConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "DefaultSnatStatus": {
+      "id": "DefaultSnatStatus",
+      "type": "object",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "DisruptionBudget": {
+      "id": "DisruptionBudget",
+      "type": "object",
+      "properties": {
+        "minorVersionDisruptionInterval": {
+          "format": "google-duration",
+          "type": "string"
+        },
+        "patchVersionDisruptionInterval": {
+          "type": "string",
+          "format": "google-duration"
+        },
+        "lastMinorVersionDisruptionTime": {
+          "readOnly": true,
+          "format": "google-datetime",
+          "type": "string"
+        },
+        "lastDisruptionTime": {
+          "type": "string",
+          "readOnly": true,
+          "format": "google-datetime"
+        }
+      }
+    },
+    "DnsCacheConfig": {
+      "id": "DnsCacheConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "EncryptionConfig": {
+      "id": "EncryptionConfig",
+      "type": "object",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "EnterpriseConfig": {
+      "id": "EnterpriseConfig",
+      "type": "object",
+      "properties": {
+        "clusterTier": {
+          "enumDescriptions": [
+            "CLUSTER_TIER_UNSPECIFIED is when cluster_tier is not set.",
+            "STANDARD indicates a standard GKE cluster.",
+            "ENTERPRISE indicates a GKE Enterprise cluster."
+          ],
+          "readOnly": true,
+          "enum": [
+            "CLUSTER_TIER_UNSPECIFIED",
+            "STANDARD",
+            "ENTERPRISE"
+          ],
+          "type": "string"
+        },
+        "desiredTier": {
+          "enum": [
+            "CLUSTER_TIER_UNSPECIFIED",
+            "STANDARD",
+            "ENTERPRISE"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "CLUSTER_TIER_UNSPECIFIED is when cluster_tier is not set.",
+            "STANDARD indicates a standard GKE cluster.",
+            "ENTERPRISE indicates a GKE Enterprise cluster."
+          ]
+        }
+      },
+      "deprecated": true
+    },
+    "EphemeralLocalSsdProfile": {
+      "id": "EphemeralLocalSsdProfile",
+      "type": "object",
+      "properties": {
+        "swapSizeGib": {
+          "format": "int64",
+          "type": "string"
+        },
+        "swapSizePercent": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "EphemeralStorageLocalSsdConfig": {
+      "id": "EphemeralStorageLocalSsdConfig",
+      "type": "object",
+      "properties": {
+        "localSsdCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "dataCacheCount": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "EvictionGracePeriod": {
+      "id": "EvictionGracePeriod",
+      "type": "object",
+      "properties": {
+        "imagefsAvailable": {
+          "type": "string"
+        },
+        "nodefsAvailable": {
+          "type": "string"
+        },
+        "imagefsInodesFree": {
+          "type": "string"
+        },
+        "memoryAvailable": {
+          "type": "string"
+        },
+        "pidAvailable": {
+          "type": "string"
+        },
+        "nodefsInodesFree": {
+          "type": "string"
+        }
+      }
+    },
+    "EvictionMinimumReclaim": {
+      "id": "EvictionMinimumReclaim",
+      "type": "object",
+      "properties": {
+        "memoryAvailable": {
+          "type": "string"
+        },
+        "pidAvailable": {
+          "type": "string"
+        },
+        "nodefsInodesFree": {
+          "type": "string"
+        },
+        "nodefsAvailable": {
+          "type": "string"
+        },
+        "imagefsInodesFree": {
+          "type": "string"
+        },
+        "imagefsAvailable": {
+          "type": "string"
+        }
+      }
+    },
+    "EvictionSignals": {
+      "id": "EvictionSignals",
+      "type": "object",
+      "properties": {
+        "imagefsAvailable": {
+          "type": "string"
+        },
+        "nodefsAvailable": {
+          "type": "string"
+        },
+        "imagefsInodesFree": {
+          "type": "string"
+        },
+        "nodefsInodesFree": {
+          "type": "string"
+        },
+        "memoryAvailable": {
+          "type": "string"
+        },
+        "pidAvailable": {
+          "type": "string"
+        }
+      }
+    },
+    "ExclusionUntilEndOfSupport": {
+      "id": "ExclusionUntilEndOfSupport",
+      "type": "object",
+      "properties": {
+        "endTime": {
+          "type": "string",
+          "readOnly": true,
+          "format": "google-datetime"
+        },
+        "startTime": {
+          "type": "string",
+          "format": "google-datetime",
+          "readOnly": true
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "FastSocket": {
+      "id": "FastSocket",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Filter": {
+      "id": "Filter",
+      "type": "object",
+      "properties": {
+        "eventType": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "EVENT_TYPE_UNSPECIFIED",
+              "UPGRADE_AVAILABLE_EVENT",
+              "UPGRADE_EVENT",
+              "SECURITY_BULLETIN_EVENT",
+              "UPGRADE_INFO_EVENT"
+            ],
+            "type": "string",
+            "enumDescriptions": [
+              "Not set, will be ignored.",
+              "Corresponds with UpgradeAvailableEvent.",
+              "Corresponds with UpgradeEvent.",
+              "Corresponds with SecurityBulletinEvent.",
+              "Corresponds with UpgradeInfoEvent."
+            ]
+          }
+        }
+      }
+    },
+    "Fleet": {
+      "id": "Fleet",
+      "type": "object",
+      "properties": {
+        "membershipType": {
+          "type": "string",
+          "enumDescriptions": [
+            "The MembershipType is not set.",
+            "The membership supports only lightweight compatible features."
+          ],
+          "enum": [
+            "MEMBERSHIP_TYPE_UNSPECIFIED",
+            "LIGHTWEIGHT"
+          ]
+        },
+        "project": {
+          "type": "string"
+        },
+        "membership": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "preRegistered": {
+          "readOnly": true,
+          "type": "boolean"
+        }
+      }
+    },
+    "GCPSecretManagerCertificateConfig": {
+      "id": "GCPSecretManagerCertificateConfig",
+      "type": "object",
+      "properties": {
+        "secretUri": {
+          "type": "string"
+        }
+      }
+    },
+    "GPUDirectConfig": {
+      "id": "GPUDirectConfig",
+      "type": "object",
+      "properties": {
+        "gpuDirectStrategy": {
+          "type": "string",
+          "enumDescriptions": [
+            "Default value. No GPU Direct strategy is enabled on the node.",
+            "GPUDirect-RDMA on A3 Ultra, and A4 machine types"
+          ],
+          "enum": [
+            "GPU_DIRECT_STRATEGY_UNSPECIFIED",
+            "RDMA"
+          ]
+        }
+      }
+    },
+    "GPUDriverInstallationConfig": {
+      "id": "GPUDriverInstallationConfig",
+      "type": "object",
+      "properties": {
+        "gpuDriverVersion": {
+          "enum": [
+            "GPU_DRIVER_VERSION_UNSPECIFIED",
+            "INSTALLATION_DISABLED",
+            "DEFAULT",
+            "LATEST"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "Default value is to not install any GPU driver.",
+            "Disable GPU driver auto installation and needs manual installation",
+            "\"Default\" GPU driver in COS and Ubuntu.",
+            "\"Latest\" GPU driver in COS."
+          ]
+        }
+      }
+    },
+    "GPUSharingConfig": {
+      "id": "GPUSharingConfig",
+      "type": "object",
+      "properties": {
+        "maxSharedClientsPerGpu": {
+          "format": "int64",
+          "type": "string"
+        },
+        "gpuSharingStrategy": {
+          "type": "string",
+          "enumDescriptions": [
+            "Default value.",
+            "GPUs are time-shared between containers.",
+            "GPUs are shared between containers with NVIDIA MPS."
+          ],
+          "enum": [
+            "GPU_SHARING_STRATEGY_UNSPECIFIED",
+            "TIME_SHARING",
+            "MPS"
+          ]
+        }
+      }
+    },
+    "GatewayAPIConfig": {
+      "id": "GatewayAPIConfig",
+      "type": "object",
+      "properties": {
+        "channel": {
+          "type": "string",
+          "enum": [
+            "CHANNEL_UNSPECIFIED",
+            "CHANNEL_DISABLED",
+            "CHANNEL_EXPERIMENTAL",
+            "CHANNEL_STANDARD"
+          ],
+          "enumDeprecated": [
+            false,
+            false,
+            true,
+            false
+          ],
+          "enumDescriptions": [
+            "Default value.",
+            "Gateway API support is disabled",
+            "Deprecated: use CHANNEL_STANDARD instead. Gateway API support is enabled, experimental CRDs are installed",
+            "Gateway API support is enabled, standard CRDs are installed"
+          ]
+        }
+      }
+    },
+    "GcePersistentDiskCsiDriverConfig": {
+      "id": "GcePersistentDiskCsiDriverConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "GcfsConfig": {
+      "id": "GcfsConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "GcpFilestoreCsiDriverConfig": {
+      "id": "GcpFilestoreCsiDriverConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "GcsFuseCsiDriverConfig": {
+      "id": "GcsFuseCsiDriverConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "GkeAutoUpgradeConfig": {
+      "id": "GkeAutoUpgradeConfig",
+      "type": "object",
+      "properties": {
+        "patchMode": {
+          "type": "string",
+          "enumDescriptions": [
+            "PATCH_MODE_UNSPECIFIED defaults to using the upgrade target from the channel's patch upgrade targets as the upgrade target for the version.",
+            "ACCELERATED denotes that the latest patch build in the channel should be used as the upgrade target for the version."
+          ],
+          "enum": [
+            "PATCH_MODE_UNSPECIFIED",
+            "ACCELERATED"
+          ]
+        }
+      }
+    },
+    "GkeBackupAgentConfig": {
+      "id": "GkeBackupAgentConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "HighScaleCheckpointingConfig": {
+      "id": "HighScaleCheckpointingConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "HorizontalPodAutoscaling": {
+      "id": "HorizontalPodAutoscaling",
+      "type": "object",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "HostConfig": {
+      "id": "HostConfig",
+      "type": "object",
+      "properties": {
+        "header": {
+          "type": "array",
+          "items": {
+            "$ref": "RegistryHeader"
+          }
+        },
+        "client": {
+          "type": "array",
+          "items": {
+            "$ref": "CertificateConfigPair"
+          }
+        },
+        "overridePath": {
+          "type": "boolean"
+        },
+        "ca": {
+          "type": "array",
+          "items": {
+            "$ref": "CertificateConfig"
+          }
+        },
+        "dialTimeout": {
+          "format": "google-duration",
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "HOST_CAPABILITY_UNSPECIFIED",
+              "HOST_CAPABILITY_PULL",
+              "HOST_CAPABILITY_RESOLVE",
+              "HOST_CAPABILITY_PUSH"
+            ],
+            "type": "string",
+            "enumDescriptions": [
+              "UNKNOWN should never be set.",
+              "Pull represents the capability to fetch manifests and blobs by digest.",
+              "Resolve represents the capability to fetch manifests by name.",
+              "Push represents the capability to push blobs and manifests."
+            ]
+          }
+        }
+      }
+    },
+    "HttpLoadBalancing": {
+      "id": "HttpLoadBalancing",
+      "type": "object",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "HugepagesConfig": {
+      "id": "HugepagesConfig",
+      "type": "object",
+      "properties": {
+        "hugepageSize2m": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "hugepageSize1g": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "IPAllocationPolicy": {
+      "id": "IPAllocationPolicy",
+      "type": "object",
+      "properties": {
+        "clusterIpv4CidrBlock": {
+          "type": "string"
+        },
+        "defaultPodIpv4RangeUtilization": {
+          "format": "double",
+          "readOnly": true,
+          "type": "number"
+        },
+        "autoIpamConfig": {
+          "$ref": "AutoIpamConfig"
+        },
+        "subnetworkName": {
+          "type": "string"
+        },
+        "servicesSecondaryRangeName": {
+          "type": "string"
+        },
+        "servicesIpv4CidrBlock": {
+          "type": "string"
+        },
+        "subnetIpv6CidrBlock": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "createSubnetwork": {
+          "type": "boolean"
+        },
+        "stackType": {
+          "enum": [
+            "STACK_TYPE_UNSPECIFIED",
+            "IPV4",
+            "IPV4_IPV6"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "Default value, will be defaulted as IPV4 only",
+            "Cluster is IPV4 only",
+            "Cluster can use both IPv4 and IPv6"
+          ]
+        },
+        "ipv6AccessType": {
+          "enum": [
+            "IPV6_ACCESS_TYPE_UNSPECIFIED",
+            "INTERNAL",
+            "EXTERNAL"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "Default value, will be defaulted as type external.",
+            "Access type internal (all v6 addresses are internal IPs)",
+            "Access type external (all v6 addresses are external IPs)"
+          ]
+        },
+        "additionalIpRangesConfigs": {
+          "type": "array",
+          "items": {
+            "$ref": "AdditionalIPRangesConfig"
+          },
+          "readOnly": true
+        },
+        "clusterIpv4Cidr": {
+          "deprecated": true,
+          "type": "string"
+        },
+        "nodeIpv4CidrBlock": {
+          "type": "string"
+        },
+        "nodeIpv4Cidr": {
+          "deprecated": true,
+          "type": "string"
+        },
+        "podCidrOverprovisionConfig": {
+          "$ref": "PodCIDROverprovisionConfig"
+        },
+        "useRoutes": {
+          "type": "boolean"
+        },
+        "servicesIpv6CidrBlock": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "additionalPodRangesConfig": {
+          "readOnly": true,
+          "$ref": "AdditionalPodRangesConfig"
+        },
+        "networkTierConfig": {
+          "$ref": "NetworkTierConfig"
+        },
+        "clusterSecondaryRangeName": {
+          "type": "string"
+        },
+        "useIpAliases": {
+          "type": "boolean"
+        },
+        "tpuIpv4CidrBlock": {
+          "deprecated": true,
+          "type": "string"
+        },
+        "servicesIpv4Cidr": {
+          "type": "string",
+          "deprecated": true
+        }
+      }
+    },
+    "IPEndpointsConfig": {
+      "id": "IPEndpointsConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "authorizedNetworksConfig": {
+          "$ref": "MasterAuthorizedNetworksConfig"
+        },
+        "privateEndpointSubnetwork": {
+          "type": "string"
+        },
+        "globalAccess": {
+          "type": "boolean"
+        },
+        "publicEndpoint": {
+          "type": "string",
+          "readOnly": true
+        },
+        "privateEndpoint": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "enablePublicEndpoint": {
+          "type": "boolean"
+        }
+      }
+    },
+    "IdentityServiceConfig": {
+      "id": "IdentityServiceConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "InitScript": {
+      "id": "InitScript",
+      "type": "object",
+      "properties": {
+        "gcsUri": {
+          "type": "string"
+        },
+        "gcsGeneration": {
+          "type": "string",
+          "format": "int64"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "gcpSecretManagerSecretUri": {
+          "type": "string"
+        }
+      }
+    },
+    "K8sBetaAPIConfig": {
+      "id": "K8sBetaAPIConfig",
+      "type": "object",
+      "properties": {
+        "enabledApis": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "KubernetesDashboard": {
+      "id": "KubernetesDashboard",
+      "type": "object",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "LegacyAbac": {
+      "id": "LegacyAbac",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "LinuxNodeConfig": {
+      "id": "LinuxNodeConfig",
+      "type": "object",
+      "properties": {
+        "transparentHugepageDefrag": {
+          "enum": [
+            "TRANSPARENT_HUGEPAGE_DEFRAG_UNSPECIFIED",
+            "TRANSPARENT_HUGEPAGE_DEFRAG_ALWAYS",
+            "TRANSPARENT_HUGEPAGE_DEFRAG_DEFER",
+            "TRANSPARENT_HUGEPAGE_DEFRAG_DEFER_WITH_MADVISE",
+            "TRANSPARENT_HUGEPAGE_DEFRAG_MADVISE",
+            "TRANSPARENT_HUGEPAGE_DEFRAG_NEVER"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "Default value. GKE will not modify the kernel configuration.",
+            "It means that an application requesting THP will stall on allocation failure and directly reclaim pages and compact memory in an effort to allocate a THP immediately.",
+            "It means that an application will wake kswapd in the background to reclaim pages and wake kcompactd to compact memory so that THP is available in the near future. It's the responsibility of khugepaged to then install the THP pages later.",
+            "It means that an application will enter direct reclaim and compaction like always, but only for regions that have used madvise(MADV_HUGEPAGE); all other regions will wake kswapd in the background to reclaim pages and wake kcompactd to compact memory so that THP is available in the near future.",
+            "It means that an application will enter direct reclaim like always but only for regions that are have used madvise(MADV_HUGEPAGE). This is the default kernel configuration.",
+            "It means that an application will never enter direct reclaim or compaction."
+          ]
+        },
+        "transparentHugepageEnabled": {
+          "type": "string",
+          "enumDescriptions": [
+            "Default value. GKE will not modify the kernel configuration.",
+            "Transparent hugepage support for anonymous memory is enabled system wide.",
+            "Transparent hugepage support for anonymous memory is enabled inside MADV_HUGEPAGE regions. This is the default kernel configuration.",
+            "Transparent hugepage support for anonymous memory is disabled."
+          ],
+          "enum": [
+            "TRANSPARENT_HUGEPAGE_ENABLED_UNSPECIFIED",
+            "TRANSPARENT_HUGEPAGE_ENABLED_ALWAYS",
+            "TRANSPARENT_HUGEPAGE_ENABLED_MADVISE",
+            "TRANSPARENT_HUGEPAGE_ENABLED_NEVER"
+          ]
+        },
+        "sysctls": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "cgroupMode": {
+          "type": "string",
+          "enumDescriptions": [
+            "CGROUP_MODE_UNSPECIFIED is when unspecified cgroup configuration is used. The default for the GKE node OS image will be used.",
+            "CGROUP_MODE_V1 specifies to use cgroupv1 for the cgroup configuration on the node image.",
+            "CGROUP_MODE_V2 specifies to use cgroupv2 for the cgroup configuration on the node image."
+          ],
+          "enum": [
+            "CGROUP_MODE_UNSPECIFIED",
+            "CGROUP_MODE_V1",
+            "CGROUP_MODE_V2"
+          ]
+        },
+        "customNodeInit": {
+          "$ref": "CustomNodeInit"
+        },
+        "accurateTimeConfig": {
+          "$ref": "AccurateTimeConfig"
+        },
+        "swapConfig": {
+          "$ref": "SwapConfig"
+        },
+        "hugepages": {
+          "$ref": "HugepagesConfig"
+        },
+        "nodeKernelModuleLoading": {
+          "$ref": "NodeKernelModuleLoading"
+        }
+      }
+    },
+    "LocalNvmeSsdBlockConfig": {
+      "id": "LocalNvmeSsdBlockConfig",
+      "type": "object",
+      "properties": {
+        "localSsdCount": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "LoggingComponentConfig": {
+      "id": "LoggingComponentConfig",
+      "type": "object",
+      "properties": {
+        "enableComponents": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "COMPONENT_UNSPECIFIED",
+              "SYSTEM_COMPONENTS",
+              "WORKLOADS",
+              "APISERVER",
+              "SCHEDULER",
+              "CONTROLLER_MANAGER",
+              "KCP_SSHD",
+              "KCP_CONNECTION",
+              "KCP_HPA",
+              "KCP_VPA"
+            ],
+            "type": "string",
+            "enumDescriptions": [
+              "Default value. This shouldn't be used.",
+              "system components",
+              "workloads",
+              "kube-apiserver",
+              "kube-scheduler",
+              "kube-controller-manager",
+              "kcp-sshd",
+              "kcp connection logs",
+              "horizontal pod autoscaler decision logs",
+              "vertical pod autoscaler decision logs"
+            ]
+          }
+        }
+      }
+    },
+    "LoggingConfig": {
+      "id": "LoggingConfig",
+      "type": "object",
+      "properties": {
+        "componentConfig": {
+          "$ref": "LoggingComponentConfig"
+        }
+      }
+    },
+    "LoggingVariantConfig": {
+      "id": "LoggingVariantConfig",
+      "type": "object",
+      "properties": {
+        "variant": {
+          "enum": [
+            "VARIANT_UNSPECIFIED",
+            "DEFAULT",
+            "MAX_THROUGHPUT"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "Default value. This shouldn't be used.",
+            "default logging variant.",
+            "maximum logging throughput variant."
+          ]
+        }
+      }
+    },
+    "LustreCsiDriverConfig": {
+      "id": "LustreCsiDriverConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "enableLegacyLustrePort": {
+          "deprecated": true,
+          "type": "boolean"
+        },
+        "disableMultiNic": {
+          "type": "boolean"
+        }
+      }
+    },
+    "MaintenanceExclusionOptions": {
+      "id": "MaintenanceExclusionOptions",
+      "type": "object",
+      "properties": {
+        "scope": {
+          "enum": [
+            "NO_UPGRADES",
+            "NO_MINOR_UPGRADES",
+            "NO_MINOR_OR_NODE_UPGRADES"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "NO_UPGRADES excludes all upgrades, including patch upgrades and minor upgrades across control planes and nodes. This is the default exclusion behavior.",
+            "NO_MINOR_UPGRADES excludes all minor upgrades for the cluster, only patches are allowed.",
+            "NO_MINOR_OR_NODE_UPGRADES excludes all minor upgrades for the cluster, and also exclude all node pool upgrades. Only control plane patches are allowed."
+          ]
+        },
+        "endTimeBehavior": {
+          "type": "string",
+          "enumDescriptions": [
+            "END_TIME_BEHAVIOR_UNSPECIFIED is the default behavior, which is fixed end time.",
+            "UNTIL_END_OF_SUPPORT means the exclusion will be in effect until the end of the support of the cluster's current version."
+          ],
+          "enum": [
+            "END_TIME_BEHAVIOR_UNSPECIFIED",
+            "UNTIL_END_OF_SUPPORT"
+          ]
+        }
+      }
+    },
+    "MaintenancePolicy": {
+      "id": "MaintenancePolicy",
+      "type": "object",
+      "properties": {
+        "disruptionBudget": {
+          "$ref": "DisruptionBudget"
+        },
+        "window": {
+          "$ref": "MaintenanceWindow"
+        },
+        "resourceVersion": {
+          "type": "string"
+        }
+      }
+    },
+    "MaintenanceWindow": {
+      "id": "MaintenanceWindow",
+      "type": "object",
+      "properties": {
+        "dailyMaintenanceWindow": {
+          "$ref": "DailyMaintenanceWindow"
+        },
+        "recurringWindow": {
+          "$ref": "RecurringTimeWindow"
+        },
+        "recurringMaintenanceWindow": {
+          "$ref": "RecurringMaintenanceWindow"
+        },
+        "maintenanceExclusions": {
+          "additionalProperties": {
+            "$ref": "TimeWindow"
+          },
+          "type": "object"
+        }
+      }
+    },
+    "ManagedMachineLearningDiagnosticsConfig": {
+      "id": "ManagedMachineLearningDiagnosticsConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ManagedOpenTelemetryConfig": {
+      "id": "ManagedOpenTelemetryConfig",
+      "type": "object",
+      "properties": {
+        "scope": {
+          "enum": [
+            "SCOPE_UNSPECIFIED",
+            "NONE",
+            "COLLECTION_AND_INSTRUMENTATION_COMPONENTS"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "SCOPE_UNSPECIFIED is when the scope is not set.",
+            "NONE is used to disable the Managed OpenTelemetry pipeline.",
+            "COLLECTION_AND_INSTRUMENTATION_COMPONENTS is used to enable the Managed OpenTelemetry pipeline for collection and instrumentation components."
+          ]
+        }
+      }
+    },
+    "ManagedPrometheusConfig": {
+      "id": "ManagedPrometheusConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "autoMonitoringConfig": {
+          "$ref": "AutoMonitoringConfig"
+        }
+      }
+    },
+    "MasterAuth": {
+      "id": "MasterAuth",
+      "type": "object",
+      "properties": {
+        "clientCertificateConfig": {
+          "$ref": "ClientCertificateConfig"
+        },
+        "clusterCaCertificate": {
+          "type": "string",
+          "readOnly": true
+        },
+        "password": {
+          "deprecated": true,
+          "type": "string"
+        },
+        "username": {
+          "deprecated": true,
+          "type": "string"
+        },
+        "clientCertificate": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "clientKey": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "MasterAuthorizedNetworksConfig": {
+      "id": "MasterAuthorizedNetworksConfig",
+      "type": "object",
+      "properties": {
+        "gcpPublicCidrsAccessEnabled": {
+          "type": "boolean"
+        },
+        "privateEndpointEnforcementEnabled": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "cidrBlocks": {
+          "type": "array",
+          "items": {
+            "$ref": "CidrBlock"
+          }
+        }
+      }
+    },
+    "MaxPodsConstraint": {
+      "id": "MaxPodsConstraint",
+      "type": "object",
+      "properties": {
+        "maxPodsPerNode": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "MemoryManager": {
+      "id": "MemoryManager",
+      "type": "object",
+      "properties": {
+        "policy": {
+          "type": "string"
+        }
+      }
+    },
+    "MeshCertificates": {
+      "id": "MeshCertificates",
+      "type": "object",
+      "properties": {
+        "enableCertificates": {
+          "type": "boolean"
+        }
+      }
+    },
+    "MonitoringComponentConfig": {
+      "id": "MonitoringComponentConfig",
+      "type": "object",
+      "properties": {
+        "enableComponents": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enumDescriptions": [
+              "Default value. This shouldn't be used.",
+              "system components",
+              "kube-apiserver",
+              "kube-scheduler",
+              "kube-controller-manager",
+              "Storage",
+              "Horizontal Pod Autoscaling",
+              "Pod",
+              "DaemonSet",
+              "Deployment",
+              "Statefulset",
+              "CADVISOR",
+              "KUBELET",
+              "NVIDIA Data Center GPU Manager (DCGM)",
+              "JobSet"
+            ],
+            "enum": [
+              "COMPONENT_UNSPECIFIED",
+              "SYSTEM_COMPONENTS",
+              "APISERVER",
+              "SCHEDULER",
+              "CONTROLLER_MANAGER",
+              "STORAGE",
+              "HPA",
+              "POD",
+              "DAEMONSET",
+              "DEPLOYMENT",
+              "STATEFULSET",
+              "CADVISOR",
+              "KUBELET",
+              "DCGM",
+              "JOBSET"
+            ]
+          }
+        }
+      }
+    },
+    "MonitoringConfig": {
+      "id": "MonitoringConfig",
+      "type": "object",
+      "properties": {
+        "advancedDatapathObservabilityConfig": {
+          "$ref": "AdvancedDatapathObservabilityConfig"
+        },
+        "componentConfig": {
+          "$ref": "MonitoringComponentConfig"
+        },
+        "managedPrometheusConfig": {
+          "$ref": "ManagedPrometheusConfig"
+        }
+      }
+    },
+    "NetworkConfig": {
+      "id": "NetworkConfig",
+      "type": "object",
+      "properties": {
+        "privateIpv6GoogleAccess": {
+          "type": "string",
+          "enumDescriptions": [
+            "Default value. Same as DISABLED",
+            "No private access to or from Google Services",
+            "Enables private IPv6 access to Google Services from GKE",
+            "Enables private IPv6 access to and from Google Services"
+          ],
+          "enum": [
+            "PRIVATE_IPV6_GOOGLE_ACCESS_UNSPECIFIED",
+            "PRIVATE_IPV6_GOOGLE_ACCESS_DISABLED",
+            "PRIVATE_IPV6_GOOGLE_ACCESS_TO_GOOGLE",
+            "PRIVATE_IPV6_GOOGLE_ACCESS_BIDIRECTIONAL"
+          ]
+        },
+        "network": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "serviceExternalIpsConfig": {
+          "$ref": "ServiceExternalIPsConfig"
+        },
+        "dataplaneV2Config": {
+          "$ref": "DataplaneV2Config"
+        },
+        "subnetwork": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "inTransitEncryptionConfig": {
+          "type": "string",
+          "enumDescriptions": [
+            "Unspecified, will be inferred as default - IN_TRANSIT_ENCRYPTION_UNSPECIFIED.",
+            "In-transit encryption is disabled.",
+            "Data in-transit is encrypted using inter-node transparent encryption."
+          ],
+          "enum": [
+            "IN_TRANSIT_ENCRYPTION_CONFIG_UNSPECIFIED",
+            "IN_TRANSIT_ENCRYPTION_DISABLED",
+            "IN_TRANSIT_ENCRYPTION_INTER_NODE_TRANSPARENT"
+          ]
+        },
+        "enableL4ilbSubsetting": {
+          "type": "boolean"
+        },
+        "enableCiliumClusterwideNetworkPolicy": {
+          "type": "boolean"
+        },
+        "datapathProvider": {
+          "enum": [
+            "DATAPATH_PROVIDER_UNSPECIFIED",
+            "LEGACY_DATAPATH",
+            "ADVANCED_DATAPATH"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "Default value.",
+            "Use the IPTables implementation based on kube-proxy.",
+            "Use the eBPF based GKE Dataplane V2 with additional features. See the [GKE Dataplane V2 documentation](https://cloud.google.com/kubernetes-engine/docs/how-to/dataplane-v2) for more."
+          ]
+        },
+        "enableFqdnNetworkPolicy": {
+          "type": "boolean"
+        },
+        "networkPerformanceConfig": {
+          "$ref": "ClusterNetworkPerformanceConfig"
+        },
+        "defaultSnatStatus": {
+          "$ref": "DefaultSnatStatus"
+        },
+        "defaultEnablePrivateNodes": {
+          "type": "boolean"
+        },
+        "dnsConfig": {
+          "$ref": "DNSConfig"
+        },
+        "enableMultiNetworking": {
+          "type": "boolean"
+        },
+        "disableL4LbFirewallReconciliation": {
+          "type": "boolean"
+        },
+        "enableIntraNodeVisibility": {
+          "type": "boolean"
+        },
+        "gatewayApiConfig": {
+          "$ref": "GatewayAPIConfig"
+        }
+      }
+    },
+    "NetworkPerformanceConfig": {
+      "id": "NetworkPerformanceConfig",
+      "type": "object",
+      "properties": {
+        "totalEgressBandwidthTier": {
+          "enum": [
+            "TIER_UNSPECIFIED",
+            "TIER_1"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "Default value",
+            "Higher bandwidth, actual values based on VM size."
+          ]
+        }
+      }
+    },
+    "NetworkPolicy": {
+      "id": "NetworkPolicy",
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enumDescriptions": [
+            "Not set",
+            "Tigera (Calico Felix)."
+          ],
+          "enum": [
+            "PROVIDER_UNSPECIFIED",
+            "CALICO"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "NetworkPolicyConfig": {
+      "id": "NetworkPolicyConfig",
+      "type": "object",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "NetworkTags": {
+      "id": "NetworkTags",
+      "type": "object",
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "NetworkTierConfig": {
+      "id": "NetworkTierConfig",
+      "type": "object",
+      "properties": {
+        "networkTier": {
+          "type": "string",
+          "enumDescriptions": [
+            "By default, use project-level configuration. When unspecified, the behavior defaults to NETWORK_TIER_DEFAULT. For cluster updates, this implies no action (no-op).",
+            "Default network tier. Use project-level configuration. User can specify this value, meaning they want to keep the same behaviour as before cluster level network tier configuration is introduced. This field ensures backward compatibility for the network tier of cluster resources, such as node pools and load balancers, for their external IP addresses.",
+            "Premium network tier.",
+            "Standard network tier."
+          ],
+          "enum": [
+            "NETWORK_TIER_UNSPECIFIED",
+            "NETWORK_TIER_DEFAULT",
+            "NETWORK_TIER_PREMIUM",
+            "NETWORK_TIER_STANDARD"
+          ]
+        }
+      }
+    },
+    "NodeAffinity": {
+      "id": "NodeAffinity",
+      "type": "object",
+      "properties": {
+        "operator": {
+          "type": "string",
+          "enumDescriptions": [
+            "Invalid or unspecified affinity operator.",
+            "Affinity operator.",
+            "Anti-affinity operator."
+          ],
+          "enum": [
+            "OPERATOR_UNSPECIFIED",
+            "IN",
+            "NOT_IN"
+          ]
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "key": {
+          "type": "string"
+        }
+      }
+    },
+    "NodeConfig": {
+      "id": "NodeConfig",
+      "type": "object",
+      "properties": {
+        "workloadMetadataConfig": {
+          "$ref": "WorkloadMetadataConfig"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "nodeImageConfig": {
+          "$ref": "CustomImageConfig"
+        },
+        "localNvmeSsdBlockConfig": {
+          "$ref": "LocalNvmeSsdBlockConfig"
+        },
+        "gvnic": {
+          "$ref": "VirtualNIC"
+        },
+        "soleTenantConfig": {
+          "$ref": "SoleTenantConfig"
+        },
+        "secondaryBootDisks": {
+          "type": "array",
+          "items": {
+            "$ref": "SecondaryBootDisk"
+          }
+        },
+        "kubeletConfig": {
+          "$ref": "NodeKubeletConfig"
+        },
+        "bootDiskKmsKey": {
+          "type": "string"
+        },
+        "gcfsConfig": {
+          "$ref": "GcfsConfig"
+        },
+        "nodeGroup": {
+          "type": "string"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "linuxNodeConfig": {
+          "$ref": "LinuxNodeConfig"
+        },
+        "localSsdCount": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "effectiveCgroupMode": {
+          "type": "string",
+          "readOnly": true,
+          "enum": [
+            "EFFECTIVE_CGROUP_MODE_UNSPECIFIED",
+            "EFFECTIVE_CGROUP_MODE_V1",
+            "EFFECTIVE_CGROUP_MODE_V2"
+          ],
+          "enumDescriptions": [
+            "EFFECTIVE_CGROUP_MODE_UNSPECIFIED means the cgroup configuration for the node pool is unspecified, i.e. the node pool is a Windows node pool.",
+            "CGROUP_MODE_V1 means the node pool is configured to use cgroupv1 for the cgroup configuration.",
+            "CGROUP_MODE_V2 means the node pool is configured to use cgroupv2 for the cgroup configuration."
+          ]
+        },
+        "taints": {
+          "type": "array",
+          "items": {
+            "$ref": "NodeTaint"
+          }
+        },
+        "windowsNodeConfig": {
+          "$ref": "WindowsNodeConfig"
+        },
+        "containerdConfig": {
+          "$ref": "ContainerdConfig"
+        },
+        "loggingConfig": {
+          "$ref": "NodePoolLoggingConfig"
+        },
+        "spot": {
+          "type": "boolean"
+        },
+        "confidentialNodes": {
+          "$ref": "ConfidentialNodes"
+        },
+        "flexStart": {
+          "type": "boolean"
+        },
+        "diskType": {
+          "type": "string"
+        },
+        "bootDisk": {
+          "$ref": "BootDisk"
+        },
+        "enableConfidentialStorage": {
+          "type": "boolean"
+        },
+        "diskSizeGb": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "machineType": {
+          "type": "string"
+        },
+        "minCpuPlatform": {
+          "type": "string"
+        },
+        "consolidationDelay": {
+          "format": "google-duration",
+          "type": "string"
+        },
+        "imageType": {
+          "type": "string"
+        },
+        "accelerators": {
+          "type": "array",
+          "items": {
+            "$ref": "AcceleratorConfig"
+          }
+        },
+        "fastSocket": {
+          "$ref": "FastSocket"
+        },
+        "gpuDirectConfig": {
+          "$ref": "GPUDirectConfig"
+        },
+        "sandboxConfig": {
+          "$ref": "SandboxConfig"
+        },
+        "oauthScopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reservationAffinity": {
+          "$ref": "ReservationAffinity"
+        },
+        "advancedMachineFeatures": {
+          "$ref": "AdvancedMachineFeatures"
+        },
+        "preemptible": {
+          "type": "boolean"
+        },
+        "resourceManagerTags": {
+          "$ref": "ResourceManagerTags"
+        },
+        "serviceAccount": {
+          "type": "string"
+        },
+        "maxRunDuration": {
+          "format": "google-duration",
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "ephemeralStorageLocalSsdConfig": {
+          "$ref": "EphemeralStorageLocalSsdConfig"
+        },
+        "taintConfig": {
+          "$ref": "TaintConfig"
+        },
+        "localSsdEncryptionMode": {
+          "enum": [
+            "LOCAL_SSD_ENCRYPTION_MODE_UNSPECIFIED",
+            "STANDARD_ENCRYPTION",
+            "EPHEMERAL_KEY_ENCRYPTION"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "The given node will be encrypted using keys managed by Google infrastructure and the keys will be deleted when the node is deleted.",
+            "The given node will be encrypted using keys managed by Google infrastructure and the keys will be deleted when the node is deleted.",
+            "The given node will opt-in for using ephemeral key for encryption of Local SSDs. The Local SSDs will not be able to recover data in case of node crash."
+          ]
+        },
+        "secondaryBootDiskUpdateStrategy": {
+          "$ref": "SecondaryBootDiskUpdateStrategy"
+        },
+        "shieldedInstanceConfig": {
+          "$ref": "ShieldedInstanceConfig"
+        },
+        "resourceLabels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "storagePools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "NodeConfigDefaults": {
+      "id": "NodeConfigDefaults",
+      "type": "object",
+      "properties": {
+        "gcfsConfig": {
+          "$ref": "GcfsConfig"
+        },
+        "nodeKubeletConfig": {
+          "$ref": "NodeKubeletConfig"
+        },
+        "loggingConfig": {
+          "$ref": "NodePoolLoggingConfig"
+        },
+        "containerdConfig": {
+          "$ref": "ContainerdConfig"
+        }
+      }
+    },
+    "NodeCreationConfig": {
+      "id": "NodeCreationConfig",
+      "type": "object",
+      "properties": {
+        "nodeCreationMode": {
+          "enum": [
+            "MODE_UNSPECIFIED",
+            "VIA_KUBELET",
+            "VIA_CONTROL_PLANE"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "When no user input is provided.",
+            "Kubelet registers itself.",
+            "gcp-controller-manager automatically creates the node object after CSR approval."
+          ]
+        }
+      }
+    },
+    "NodeDrainConfig": {
+      "id": "NodeDrainConfig",
+      "type": "object",
+      "properties": {
+        "graceTerminationDuration": {
+          "format": "google-duration",
+          "type": "string"
+        },
+        "respectPdbDuringNodePoolDeletion": {
+          "type": "boolean"
+        },
+        "pdbTimeoutDuration": {
+          "format": "google-duration",
+          "type": "string"
+        }
+      }
+    },
+    "NodeKernelModuleLoading": {
+      "id": "NodeKernelModuleLoading",
+      "type": "object",
+      "properties": {
+        "policy": {
+          "type": "string",
+          "enumDescriptions": [
+            "Default behavior. GKE selects the image based on node type. For CPU and TPU nodes, the image will not allow loading external kernel modules. For GPU nodes, the image will allow loading any module, whether it is signed or not.",
+            "Enforced signature verification: Node pools will use a Container-Optimized OS image configured to allow loading of *Google-signed* external kernel modules. Loadpin is enabled but configured to exclude modules, and kernel module signature checking is enforced.",
+            "Mirrors existing DEFAULT behavior: For CPU and TPU nodes, the image will not allow loading external kernel modules. For GPU nodes, the image will allow loading any module, whether it is signed or not."
+          ],
+          "enum": [
+            "POLICY_UNSPECIFIED",
+            "ENFORCE_SIGNED_MODULES",
+            "DO_NOT_ENFORCE_SIGNED_MODULES"
+          ]
+        }
+      }
+    },
+    "NodeKubeletConfig": {
+      "id": "NodeKubeletConfig",
+      "type": "object",
+      "properties": {
+        "maxParallelImagePulls": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "allowedUnsafeSysctls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evictionMaxPodGracePeriodSeconds": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "cpuManagerPolicy": {
+          "type": "string"
+        },
+        "containerLogMaxFiles": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "insecureKubeletReadonlyPortEnabled": {
+          "type": "boolean"
+        },
+        "evictionSoftGracePeriod": {
+          "$ref": "EvictionGracePeriod"
+        },
+        "memoryManager": {
+          "$ref": "MemoryManager"
+        },
+        "podPidsLimit": {
+          "type": "string",
+          "format": "int64"
+        },
+        "shutdownGracePeriodCriticalPodsSeconds": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "containerLogMaxSize": {
+          "type": "string"
+        },
+        "topologyManager": {
+          "$ref": "TopologyManager"
+        },
+        "imageMaximumGcAge": {
+          "type": "string"
+        },
+        "evictionSoft": {
+          "$ref": "EvictionSignals"
+        },
+        "shutdownGracePeriodSeconds": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "imageGcLowThresholdPercent": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "cpuCfsQuota": {
+          "type": "boolean"
+        },
+        "evictionMinimumReclaim": {
+          "$ref": "EvictionMinimumReclaim"
+        },
+        "cpuCfsQuotaPeriod": {
+          "type": "string"
+        },
+        "singleProcessOomKill": {
+          "type": "boolean"
+        },
+        "imageGcHighThresholdPercent": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "imageMinimumGcAge": {
+          "type": "string"
+        },
+        "crashLoopBackOff": {
+          "$ref": "CrashLoopBackOffConfig"
+        }
+      }
+    },
+    "NodeManagement": {
+      "id": "NodeManagement",
+      "type": "object",
+      "properties": {
+        "autoRepair": {
+          "type": "boolean"
+        },
+        "autoUpgrade": {
+          "type": "boolean"
+        },
+        "upgradeOptions": {
+          "$ref": "AutoUpgradeOptions"
+        }
+      }
+    },
+    "NodeNetworkConfig": {
+      "id": "NodeNetworkConfig",
+      "type": "object",
+      "properties": {
+        "subnetwork": {
+          "type": "string"
+        },
+        "podIpv4RangeUtilization": {
+          "format": "double",
+          "readOnly": true,
+          "type": "number"
+        },
+        "network": {
+          "type": "string"
+        },
+        "createPodRange": {
+          "type": "boolean"
+        },
+        "additionalPodNetworkConfigs": {
+          "type": "array",
+          "items": {
+            "$ref": "AdditionalPodNetworkConfig"
+          }
+        },
+        "acceleratorNetworkProfile": {
+          "type": "string"
+        },
+        "podRange": {
+          "type": "string"
+        },
+        "podIpv4CidrBlock": {
+          "type": "string"
+        },
+        "enablePrivateNodes": {
+          "type": "boolean"
+        },
+        "networkTierConfig": {
+          "readOnly": true,
+          "$ref": "NetworkTierConfig"
+        },
+        "podCidrOverprovisionConfig": {
+          "$ref": "PodCIDROverprovisionConfig"
+        },
+        "networkPerformanceConfig": {
+          "$ref": "NetworkPerformanceConfig"
+        },
+        "additionalNodeNetworkConfigs": {
+          "type": "array",
+          "items": {
+            "$ref": "AdditionalNodeNetworkConfig"
+          }
+        }
+      }
+    },
+    "NodePool": {
+      "id": "NodePool",
+      "type": "object",
+      "properties": {
+        "initialNodeCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "upgradeSettings": {
+          "$ref": "UpgradeSettings"
+        },
+        "selfLink": {
+          "type": "string",
+          "readOnly": true
+        },
+        "statusMessage": {
+          "readOnly": true,
+          "deprecated": true,
+          "type": "string"
+        },
+        "nodeDrainConfig": {
+          "$ref": "NodeDrainConfig"
+        },
+        "maintenancePolicy": {
+          "$ref": "NodePoolMaintenancePolicy"
+        },
+        "networkConfig": {
+          "$ref": "NodeNetworkConfig"
+        },
+        "etag": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "config": {
+          "$ref": "NodeConfig"
+        },
+        "version": {
+          "type": "string"
+        },
+        "maxPodsConstraint": {
+          "$ref": "MaxPodsConstraint"
+        },
+        "updateInfo": {
+          "readOnly": true,
+          "$ref": "UpdateInfo"
+        },
+        "queuedProvisioning": {
+          "$ref": "QueuedProvisioning"
+        },
+        "instanceGroupUrls": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "podIpv4CidrSize": {
+          "type": "integer",
+          "format": "int32",
+          "readOnly": true
+        },
+        "autoscaling": {
+          "$ref": "NodePoolAutoscaling"
+        },
+        "bestEffortProvisioning": {
+          "$ref": "BestEffortProvisioning"
+        },
+        "status": {
+          "enumDescriptions": [
+            "Not set.",
+            "The PROVISIONING state indicates the node pool is being created.",
+            "The RUNNING state indicates the node pool has been created and is fully usable.",
+            "The RUNNING_WITH_ERROR state indicates the node pool has been created and is partially usable. Some error state has occurred and some functionality may be impaired. Customer may need to reissue a request or trigger a new update.",
+            "The RECONCILING state indicates that some work is actively being done on the node pool, such as upgrading node software. Details can be found in the `statusMessage` field.",
+            "The STOPPING state indicates the node pool is being deleted.",
+            "The ERROR state indicates the node pool may be unusable. Details can be found in the `statusMessage` field."
+          ],
+          "readOnly": true,
+          "enum": [
+            "STATUS_UNSPECIFIED",
+            "PROVISIONING",
+            "RUNNING",
+            "RUNNING_WITH_ERROR",
+            "RECONCILING",
+            "STOPPING",
+            "ERROR"
+          ],
+          "type": "string"
+        },
+        "autopilotConfig": {
+          "$ref": "AutopilotConfig"
+        },
+        "conditions": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "$ref": "StatusCondition"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "placementPolicy": {
+          "$ref": "PlacementPolicy"
+        },
+        "management": {
+          "$ref": "NodeManagement"
+        }
+      }
+    },
+    "NodePoolAutoConfig": {
+      "id": "NodePoolAutoConfig",
+      "type": "object",
+      "properties": {
+        "networkTags": {
+          "$ref": "NetworkTags"
+        },
+        "nodeKubeletConfig": {
+          "$ref": "NodeKubeletConfig"
+        },
+        "resourceManagerTags": {
+          "$ref": "ResourceManagerTags"
+        },
+        "linuxNodeConfig": {
+          "readOnly": true,
+          "$ref": "LinuxNodeConfig"
+        }
+      }
+    },
+    "NodePoolAutoscaling": {
+      "id": "NodePoolAutoscaling",
+      "type": "object",
+      "properties": {
+        "maxNodeCount": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "locationPolicy": {
+          "type": "string",
+          "enumDescriptions": [
+            "Not set.",
+            "BALANCED is a best effort policy that aims to balance the sizes of different zones.",
+            "ANY policy picks zones that have the highest capacity available."
+          ],
+          "enum": [
+            "LOCATION_POLICY_UNSPECIFIED",
+            "BALANCED",
+            "ANY"
+          ]
+        },
+        "totalMinNodeCount": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "minNodeCount": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "autoprovisioned": {
+          "type": "boolean"
+        },
+        "totalMaxNodeCount": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "NodePoolDefaults": {
+      "id": "NodePoolDefaults",
+      "type": "object",
+      "properties": {
+        "nodeConfigDefaults": {
+          "$ref": "NodeConfigDefaults"
+        }
+      }
+    },
+    "NodePoolLoggingConfig": {
+      "id": "NodePoolLoggingConfig",
+      "type": "object",
+      "properties": {
+        "variantConfig": {
+          "$ref": "LoggingVariantConfig"
+        }
+      }
+    },
+    "NodePoolMaintenancePolicy": {
+      "id": "NodePoolMaintenancePolicy",
+      "type": "object",
+      "properties": {
+        "exclusionUntilEndOfSupport": {
+          "$ref": "ExclusionUntilEndOfSupport"
+        }
+      }
+    },
+    "NodeReadinessConfig": {
+      "id": "NodeReadinessConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "NodeTaint": {
+      "id": "NodeTaint",
+      "type": "object",
+      "properties": {
+        "effect": {
+          "enum": [
+            "EFFECT_UNSPECIFIED",
+            "NO_SCHEDULE",
+            "PREFER_NO_SCHEDULE",
+            "NO_EXECUTE"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "Not set",
+            "NoSchedule",
+            "PreferNoSchedule",
+            "NoExecute"
+          ]
+        },
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "NotificationConfig": {
+      "id": "NotificationConfig",
+      "type": "object",
+      "properties": {
+        "pubsub": {
+          "$ref": "PubSub"
+        }
+      }
+    },
+    "OperationError": {
+      "id": "OperationError",
+      "type": "object",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "keyName": {
+          "type": "string"
+        },
+        "errorMessage": {
+          "type": "string"
+        }
+      }
+    },
+    "ParallelstoreCsiDriverConfig": {
+      "id": "ParallelstoreCsiDriverConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ParentProductConfig": {
+      "id": "ParentProductConfig",
+      "type": "object",
+      "properties": {
+        "productName": {
+          "type": "string"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      }
+    },
+    "PlacementPolicy": {
+      "id": "PlacementPolicy",
+      "type": "object",
+      "properties": {
+        "tpuTopology": {
+          "type": "string"
+        },
+        "policyName": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "TYPE_UNSPECIFIED",
+            "COMPACT"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "TYPE_UNSPECIFIED specifies no requirements on nodes placement.",
+            "COMPACT specifies node placement in the same availability domain to ensure low communication latency."
+          ]
+        }
+      }
+    },
+    "PodAutoscaling": {
+      "id": "PodAutoscaling",
+      "type": "object",
+      "properties": {
+        "hpaProfile": {
+          "enum": [
+            "HPA_PROFILE_UNSPECIFIED",
+            "NONE",
+            "PERFORMANCE"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "HPA_PROFILE_UNSPECIFIED is used when no custom HPA profile is set.",
+            "Customers explicitly opt-out of HPA profiles.",
+            "PERFORMANCE is used when customers opt-in to the performance HPA profile. In this profile we support a higher number of HPAs per cluster and faster metrics collection for workload autoscaling."
+          ]
+        }
+      }
+    },
+    "PodCIDROverprovisionConfig": {
+      "id": "PodCIDROverprovisionConfig",
+      "type": "object",
+      "properties": {
+        "disable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "PodSnapshotConfig": {
+      "id": "PodSnapshotConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "PrivateClusterConfig": {
+      "id": "PrivateClusterConfig",
+      "type": "object",
+      "properties": {
+        "masterIpv4CidrBlock": {
+          "type": "string"
+        },
+        "privateEndpointSubnetwork": {
+          "deprecated": true,
+          "type": "string"
+        },
+        "enablePrivateEndpoint": {
+          "deprecated": true,
+          "type": "boolean"
+        },
+        "peeringName": {
+          "type": "string",
+          "readOnly": true
+        },
+        "enablePrivateNodes": {
+          "deprecated": true,
+          "type": "boolean"
+        },
+        "publicEndpoint": {
+          "type": "string",
+          "deprecated": true,
+          "readOnly": true
+        },
+        "masterGlobalAccessConfig": {
+          "deprecated": true,
+          "$ref": "PrivateClusterMasterGlobalAccessConfig"
+        },
+        "privateEndpoint": {
+          "deprecated": true,
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "PrivateClusterMasterGlobalAccessConfig": {
+      "id": "PrivateClusterMasterGlobalAccessConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "PrivateRegistryAccessConfig": {
+      "id": "PrivateRegistryAccessConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "certificateAuthorityDomainConfig": {
+          "type": "array",
+          "items": {
+            "$ref": "CertificateAuthorityDomainConfig"
+          }
+        }
+      }
+    },
+    "PrivilegedAdmissionConfig": {
+      "id": "PrivilegedAdmissionConfig",
+      "type": "object",
+      "properties": {
+        "allowlistPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "PubSub": {
+      "id": "PubSub",
+      "type": "object",
+      "properties": {
+        "topic": {
+          "type": "string"
+        },
+        "filter": {
+          "$ref": "Filter"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "QueuedProvisioning": {
+      "id": "QueuedProvisioning",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "RBACBindingConfig": {
+      "id": "RBACBindingConfig",
+      "type": "object",
+      "properties": {
+        "enableInsecureBindingSystemAuthenticated": {
+          "type": "boolean"
+        },
+        "enableInsecureBindingSystemUnauthenticated": {
+          "type": "boolean"
+        }
+      }
+    },
+    "RangeInfo": {
+      "id": "RangeInfo",
+      "type": "object",
+      "properties": {
+        "utilization": {
+          "type": "number",
+          "format": "double",
+          "readOnly": true
+        },
+        "rangeName": {
+          "readOnly": true,
+          "type": "string"
+        }
+      }
+    },
+    "RayClusterLoggingConfig": {
+      "id": "RayClusterLoggingConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "RayClusterMonitoringConfig": {
+      "id": "RayClusterMonitoringConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "RayOperatorConfig": {
+      "id": "RayOperatorConfig",
+      "type": "object",
+      "properties": {
+        "rayClusterLoggingConfig": {
+          "$ref": "RayClusterLoggingConfig"
+        },
+        "rayClusterMonitoringConfig": {
+          "$ref": "RayClusterMonitoringConfig"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "RecurringMaintenanceWindow": {
+      "id": "RecurringMaintenanceWindow",
+      "type": "object",
+      "properties": {
+        "delayUntil": {
+          "$ref": "Date"
+        },
+        "windowStartTime": {
+          "$ref": "TimeOfDay"
+        },
+        "windowDuration": {
+          "type": "string",
+          "format": "google-duration"
+        },
+        "recurrence": {
+          "type": "string"
+        }
+      }
+    },
+    "RecurringTimeWindow": {
+      "id": "RecurringTimeWindow",
+      "type": "object",
+      "properties": {
+        "window": {
+          "$ref": "TimeWindow"
+        },
+        "recurrence": {
+          "type": "string"
+        }
+      }
+    },
+    "RegistryHeader": {
+      "id": "RegistryHeader",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "RegistryHostConfig": {
+      "id": "RegistryHostConfig",
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string"
+        },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "$ref": "HostConfig"
+          }
+        }
+      }
+    },
+    "ReleaseChannel": {
+      "id": "ReleaseChannel",
+      "type": "object",
+      "properties": {
+        "channel": {
+          "enumDescriptions": [
+            "Deprecated: No channel specified. it will be removed in the future, use RAPID, REGULAR, STABLE or EXTENDED instead.",
+            "RAPID channel is offered on an early access basis for customers who want to test new releases. WARNING: Versions available in the RAPID Channel may be subject to unresolved issues with no known workaround and are not subject to any SLAs.",
+            "Clusters subscribed to REGULAR receive versions that are considered GA quality. REGULAR is intended for production users who want to take advantage of new features.",
+            "Clusters subscribed to STABLE receive versions that are known to be stable and reliable in production.",
+            "Clusters subscribed to EXTENDED receive extended support and availability for versions which are known to be stable and reliable in production."
+          ],
+          "enumDeprecated": [
+            true,
+            false,
+            false,
+            false,
+            false
+          ],
+          "enum": [
+            "UNSPECIFIED",
+            "RAPID",
+            "REGULAR",
+            "STABLE",
+            "EXTENDED"
+          ],
+          "type": "string"
+        }
+      }
+    },
+    "ReservationAffinity": {
+      "id": "ReservationAffinity",
+      "type": "object",
+      "properties": {
+        "consumeReservationType": {
+          "enum": [
+            "UNSPECIFIED",
+            "NO_RESERVATION",
+            "ANY_RESERVATION",
+            "SPECIFIC_RESERVATION",
+            "ANY_RESERVATION_THEN_FAIL"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "Default value. This should not be used.",
+            "Do not consume from any reserved capacity.",
+            "Consume any reservation available.",
+            "Must consume from a specific reservation. Must specify key value fields for specifying the reservations.",
+            "Consume any reservation available. If no reservation is available, fail the node creation."
+          ]
+        },
+        "key": {
+          "type": "string"
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ResourceLimit": {
+      "id": "ResourceLimit",
+      "type": "object",
+      "properties": {
+        "minimum": {
+          "format": "int64",
+          "type": "string"
+        },
+        "maximum": {
+          "format": "int64",
+          "type": "string"
+        },
+        "resourceType": {
+          "type": "string"
+        }
+      }
+    },
+    "ResourceManagerTags": {
+      "id": "ResourceManagerTags",
+      "type": "object",
+      "properties": {
+        "tags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ResourceUsageExportConfig": {
+      "id": "ResourceUsageExportConfig",
+      "type": "object",
+      "properties": {
+        "bigqueryDestination": {
+          "$ref": "BigQueryDestination"
+        },
+        "enableNetworkEgressMetering": {
+          "type": "boolean"
+        },
+        "consumptionMeteringConfig": {
+          "$ref": "ConsumptionMeteringConfig"
+        }
+      }
+    },
+    "RotationConfig": {
+      "id": "RotationConfig",
+      "type": "object",
+      "properties": {
+        "rotationInterval": {
+          "type": "string",
+          "format": "google-duration"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "SandboxConfig": {
+      "id": "SandboxConfig",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enumDescriptions": [
+            "Default value. This should not be used.",
+            "Run sandbox using gvisor."
+          ],
+          "enum": [
+            "UNSPECIFIED",
+            "GVISOR"
+          ]
+        }
+      }
+    },
+    "ScheduleUpgradeConfig": {
+      "id": "ScheduleUpgradeConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "SecondaryBootDisk": {
+      "id": "SecondaryBootDisk",
+      "type": "object",
+      "properties": {
+        "diskImage": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enumDescriptions": [
+            "MODE_UNSPECIFIED is when mode is not set.",
+            "CONTAINER_IMAGE_CACHE is for using the secondary boot disk as a container image cache."
+          ],
+          "enum": [
+            "MODE_UNSPECIFIED",
+            "CONTAINER_IMAGE_CACHE"
+          ]
+        }
+      }
+    },
+    "SecondaryBootDiskUpdateStrategy": {
+      "id": "SecondaryBootDiskUpdateStrategy",
+      "type": "object",
+      "properties": {}
+    },
+    "SecretManagerConfig": {
+      "id": "SecretManagerConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "rotationConfig": {
+          "$ref": "RotationConfig"
+        }
+      }
+    },
+    "SecretSyncConfig": {
+      "id": "SecretSyncConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "rotationConfig": {
+          "$ref": "SyncRotationConfig"
+        }
+      }
+    },
+    "SecurityPostureConfig": {
+      "id": "SecurityPostureConfig",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "MODE_UNSPECIFIED",
+            "DISABLED",
+            "BASIC",
+            "ENTERPRISE"
+          ],
+          "enumDeprecated": [
+            false,
+            false,
+            false,
+            true
+          ],
+          "enumDescriptions": [
+            "Default value not specified.",
+            "Disables Security Posture features on the cluster.",
+            "Applies Security Posture features on the cluster.",
+            "Deprecated: Security Posture Enterprise features are no longer supported. For more details, see https://cloud.google.com/kubernetes-engine/docs/deprecations/posture-management-deprecation. Applies the Security Posture off cluster Enterprise level features."
+          ]
+        },
+        "vulnerabilityMode": {
+          "enumDeprecated": [
+            false,
+            false,
+            true,
+            false
+          ],
+          "enumDescriptions": [
+            "Default value not specified.",
+            "Disables vulnerability scanning on the cluster.",
+            "Deprecated: Basic vulnerability scanning is no longer supported. For more details, see https://cloud.google.com/kubernetes-engine/docs/deprecations/posture-management-deprecation. Applies basic vulnerability scanning on the cluster.",
+            "Applies the Security Posture's vulnerability on cluster Enterprise level features."
+          ],
+          "enum": [
+            "VULNERABILITY_MODE_UNSPECIFIED",
+            "VULNERABILITY_DISABLED",
+            "VULNERABILITY_BASIC",
+            "VULNERABILITY_ENTERPRISE"
+          ],
+          "type": "string"
+        }
+      }
+    },
+    "ServiceExternalIPsConfig": {
+      "id": "ServiceExternalIPsConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ShieldedInstanceConfig": {
+      "id": "ShieldedInstanceConfig",
+      "type": "object",
+      "properties": {
+        "enableSecureBoot": {
+          "type": "boolean"
+        },
+        "enableIntegrityMonitoring": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ShieldedNodes": {
+      "id": "ShieldedNodes",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "SliceControllerConfig": {
+      "id": "SliceControllerConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "SlurmOperatorConfig": {
+      "id": "SlurmOperatorConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "SoleTenantConfig": {
+      "id": "SoleTenantConfig",
+      "type": "object",
+      "properties": {
+        "nodeAffinities": {
+          "type": "array",
+          "items": {
+            "$ref": "NodeAffinity"
+          }
+        },
+        "minNodeCpus": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "StandardRolloutPolicy": {
+      "id": "StandardRolloutPolicy",
+      "type": "object",
+      "properties": {
+        "batchPercentage": {
+          "type": "number",
+          "format": "float"
+        },
+        "batchNodeCount": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "batchSoakDuration": {
+          "format": "google-duration",
+          "type": "string"
+        }
+      }
+    },
+    "StatefulHAConfig": {
+      "id": "StatefulHAConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "StatusCondition": {
+      "id": "StatusCondition",
+      "type": "object",
+      "properties": {
+        "code": {
+          "enumDescriptions": [
+            "UNKNOWN indicates a generic condition.",
+            "GCE_STOCKOUT indicates that Google Compute Engine resources are temporarily unavailable.",
+            "GKE_SERVICE_ACCOUNT_DELETED indicates that the user deleted their robot service account.",
+            "Google Compute Engine quota was exceeded.",
+            "Cluster state was manually changed by an SRE due to a system logic error.",
+            "Unable to perform an encrypt operation against the CloudKMS key used for etcd level encryption.",
+            "Cluster CA is expiring soon.",
+            "Node service account is missing permissions.",
+            "Cloud KMS key version used for etcd level encryption has been destroyed. This is a permanent error."
+          ],
+          "deprecated": true,
+          "enum": [
+            "UNKNOWN",
+            "GCE_STOCKOUT",
+            "GKE_SERVICE_ACCOUNT_DELETED",
+            "GCE_QUOTA_EXCEEDED",
+            "SET_BY_OPERATOR",
+            "CLOUD_KMS_KEY_ERROR",
+            "CA_EXPIRING",
+            "NODE_SERVICE_ACCOUNT_MISSING_PERMISSIONS",
+            "CLOUD_KMS_KEY_DESTROYED"
+          ],
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "canonicalCode": {
+          "type": "string",
+          "enumDescriptions": [
+            "Not an error; returned on success. HTTP Mapping: 200 OK",
+            "The operation was cancelled, typically by the caller. HTTP Mapping: 499 Client Closed Request",
+            "Unknown error. For example, this error may be returned when a `Status` value received from another address space belongs to an error space that is not known in this address space. Also errors raised by APIs that do not return enough error information may be converted to this error. HTTP Mapping: 500 Internal Server Error",
+            "The client specified an invalid argument. Note that this differs from `FAILED_PRECONDITION`. `INVALID_ARGUMENT` indicates arguments that are problematic regardless of the state of the system (e.g., a malformed file name). HTTP Mapping: 400 Bad Request",
+            "The deadline expired before the operation could complete. For operations that change the state of the system, this error may be returned even if the operation has completed successfully. For example, a successful response from a server could have been delayed long enough for the deadline to expire. HTTP Mapping: 504 Gateway Timeout",
+            "Some requested entity (e.g., file or directory) was not found. Note to server developers: if a request is denied for an entire class of users, such as gradual feature rollout or undocumented allowlist, `NOT_FOUND` may be used. If a request is denied for some users within a class of users, such as user-based access control, `PERMISSION_DENIED` must be used. HTTP Mapping: 404 Not Found",
+            "The entity that a client attempted to create (e.g., file or directory) already exists. HTTP Mapping: 409 Conflict",
+            "The caller does not have permission to execute the specified operation. `PERMISSION_DENIED` must not be used for rejections caused by exhausting some resource (use `RESOURCE_EXHAUSTED` instead for those errors). `PERMISSION_DENIED` must not be used if the caller can not be identified (use `UNAUTHENTICATED` instead for those errors). This error code does not imply the request is valid or the requested entity exists or satisfies other pre-conditions. HTTP Mapping: 403 Forbidden",
+            "The request does not have valid authentication credentials for the operation. HTTP Mapping: 401 Unauthorized",
+            "Some resource has been exhausted, perhaps a per-user quota, or perhaps the entire file system is out of space. HTTP Mapping: 429 Too Many Requests",
+            "The operation was rejected because the system is not in a state required for the operation's execution. For example, the directory to be deleted is non-empty, an rmdir operation is applied to a non-directory, etc. Service implementors can use the following guidelines to decide between `FAILED_PRECONDITION`, `ABORTED`, and `UNAVAILABLE`: (a) Use `UNAVAILABLE` if the client can retry just the failing call. (b) Use `ABORTED` if the client should retry at a higher level. For example, when a client-specified test-and-set fails, indicating the client should restart a read-modify-write sequence. (c) Use `FAILED_PRECONDITION` if the client should not retry until the system state has been explicitly fixed. For example, if an \"rmdir\" fails because the directory is non-empty, `FAILED_PRECONDITION` should be returned since the client should not retry unless the files are deleted from the directory. HTTP Mapping: 400 Bad Request",
+            "The operation was aborted, typically due to a concurrency issue such as a sequencer check failure or transaction abort. See the guidelines above for deciding between `FAILED_PRECONDITION`, `ABORTED`, and `UNAVAILABLE`. HTTP Mapping: 409 Conflict",
+            "The operation was attempted past the valid range. E.g., seeking or reading past end-of-file. Unlike `INVALID_ARGUMENT`, this error indicates a problem that may be fixed if the system state changes. For example, a 32-bit file system will generate `INVALID_ARGUMENT` if asked to read at an offset that is not in the range [0,2^32-1], but it will generate `OUT_OF_RANGE` if asked to read from an offset past the current file size. There is a fair bit of overlap between `FAILED_PRECONDITION` and `OUT_OF_RANGE`. We recommend using `OUT_OF_RANGE` (the more specific error) when it applies so that callers who are iterating through a space can easily look for an `OUT_OF_RANGE` error to detect when they are done. HTTP Mapping: 400 Bad Request",
+            "The operation is not implemented or is not supported/enabled in this service. HTTP Mapping: 501 Not Implemented",
+            "Internal errors. This means that some invariants expected by the underlying system have been broken. This error code is reserved for serious errors. HTTP Mapping: 500 Internal Server Error",
+            "The service is currently unavailable. This is most likely a transient condition, which can be corrected by retrying with a backoff. Note that it is not always safe to retry non-idempotent operations. See the guidelines above for deciding between `FAILED_PRECONDITION`, `ABORTED`, and `UNAVAILABLE`. HTTP Mapping: 503 Service Unavailable",
+            "Unrecoverable data loss or corruption. HTTP Mapping: 500 Internal Server Error"
+          ],
+          "enum": [
+            "OK",
+            "CANCELLED",
+            "UNKNOWN",
+            "INVALID_ARGUMENT",
+            "DEADLINE_EXCEEDED",
+            "NOT_FOUND",
+            "ALREADY_EXISTS",
+            "PERMISSION_DENIED",
+            "UNAUTHENTICATED",
+            "RESOURCE_EXHAUSTED",
+            "FAILED_PRECONDITION",
+            "ABORTED",
+            "OUT_OF_RANGE",
+            "UNIMPLEMENTED",
+            "INTERNAL",
+            "UNAVAILABLE",
+            "DATA_LOSS"
+          ]
+        }
+      }
+    },
+    "SwapConfig": {
+      "id": "SwapConfig",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "bootDiskProfile": {
+          "$ref": "BootDiskProfile"
+        },
+        "ephemeralLocalSsdProfile": {
+          "$ref": "EphemeralLocalSsdProfile"
+        },
+        "encryptionConfig": {
+          "$ref": "EncryptionConfig"
+        },
+        "dedicatedLocalSsdProfile": {
+          "$ref": "DedicatedLocalSsdProfile"
+        }
+      }
+    },
+    "SyncRotationConfig": {
+      "id": "SyncRotationConfig",
+      "type": "object",
+      "properties": {
+        "rotationInterval": {
+          "type": "string",
+          "format": "google-duration"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "TaintConfig": {
+      "id": "TaintConfig",
+      "type": "object",
+      "properties": {
+        "architectureTaintBehavior": {
+          "enum": [
+            "ARCHITECTURE_TAINT_BEHAVIOR_UNSPECIFIED",
+            "NONE",
+            "ARM"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "Specifies that the behavior is unspecified, defaults to ARM.",
+            "Disables default architecture taints on the node pool.",
+            "Taints all the nodes in the node pool with the default ARM taint."
+          ]
+        }
+      }
+    },
+    "TimeOfDay": {
+      "id": "TimeOfDay",
+      "type": "object",
+      "properties": {
+        "hours": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "minutes": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "nanos": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "seconds": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "TimeWindow": {
+      "id": "TimeWindow",
+      "type": "object",
+      "properties": {
+        "startTime": {
+          "format": "google-datetime",
+          "type": "string"
+        },
+        "maintenanceExclusionOptions": {
+          "$ref": "MaintenanceExclusionOptions"
+        },
+        "endTime": {
+          "type": "string",
+          "format": "google-datetime"
+        }
+      }
+    },
+    "TopologyManager": {
+      "id": "TopologyManager",
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        }
+      }
+    },
+    "UpdateInfo": {
+      "id": "UpdateInfo",
+      "type": "object",
+      "properties": {
+        "blueGreenInfo": {
+          "$ref": "BlueGreenInfo"
+        }
+      }
+    },
+    "UpgradeSettings": {
+      "id": "UpgradeSettings",
+      "type": "object",
+      "properties": {
+        "maxUnavailable": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "strategy": {
+          "type": "string",
+          "enumDescriptions": [
+            "Default value if unset. GKE internally defaults the update strategy to SURGE for unspecified strategies.",
+            "blue-green upgrade.",
+            "SURGE is the traditional way of upgrade a node pool. max_surge and max_unavailable determines the level of upgrade parallelism.",
+            "SHORT_LIVED is the dedicated upgrade strategy for QueuedProvisioning and flex start node pools scaled up only by enqueueing to the Dynamic Workload Scheduler (DWS)."
+          ],
+          "enum": [
+            "NODE_POOL_UPDATE_STRATEGY_UNSPECIFIED",
+            "BLUE_GREEN",
+            "SURGE",
+            "SHORT_LIVED"
+          ]
+        },
+        "maxSurge": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "blueGreenSettings": {
+          "$ref": "BlueGreenSettings"
+        }
+      }
+    },
+    "UserManagedKeysConfig": {
+      "id": "UserManagedKeysConfig",
+      "type": "object",
+      "properties": {
+        "clusterCa": {
+          "type": "string"
+        },
+        "gkeopsEtcdBackupEncryptionKey": {
+          "type": "string"
+        },
+        "controlPlaneDiskEncryptionKeyVersions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true
+        },
+        "etcdPeerCa": {
+          "type": "string"
+        },
+        "aggregationCa": {
+          "type": "string"
+        },
+        "controlPlaneDiskEncryptionKey": {
+          "type": "string"
+        },
+        "etcdApiCa": {
+          "type": "string"
+        },
+        "serviceAccountVerificationKeys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "serviceAccountSigningKeys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "VerticalPodAutoscaling": {
+      "id": "VerticalPodAutoscaling",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "VirtualNIC": {
+      "id": "VirtualNIC",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "WindowsNodeConfig": {
+      "id": "WindowsNodeConfig",
+      "type": "object",
+      "properties": {
+        "osVersion": {
+          "enum": [
+            "OS_VERSION_UNSPECIFIED",
+            "OS_VERSION_LTSC2019",
+            "OS_VERSION_LTSC2022"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "When OSVersion is not specified.",
+            "LTSC2019 specifies to use LTSC2019 as the Windows Servercore Base Image.",
+            "LTSC2022 specifies to use LTSC2022 as the Windows Servercore Base Image."
+          ]
+        }
+      }
+    },
+    "WorkloadIdentityConfig": {
+      "id": "WorkloadIdentityConfig",
+      "type": "object",
+      "properties": {
+        "workloadPool": {
+          "type": "string"
+        }
+      }
+    },
+    "WorkloadMetadataConfig": {
+      "id": "WorkloadMetadataConfig",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enumDescriptions": [
+            "Not set.",
+            "Expose all Compute Engine metadata to pods.",
+            "Run the GKE Metadata Server on this node. The GKE Metadata Server exposes a metadata API to workloads that is compatible with the V1 Compute Metadata APIs exposed by the Compute Engine and App Engine Metadata Servers. This feature can only be enabled if Workload Identity is enabled at the cluster level."
+          ],
+          "enum": [
+            "MODE_UNSPECIFIED",
+            "GCE_METADATA",
+            "GKE_METADATA"
+          ]
+        }
+      }
+    },
+    "WorkloadPolicyConfig": {
+      "id": "WorkloadPolicyConfig",
+      "type": "object",
+      "properties": {
+        "autopilotCompatibilityAuditingEnabled": {
+          "type": "boolean"
+        },
+        "allowNetAdmin": {
+          "type": "boolean"
+        }
+      }
+    },
+    "WritableCgroups": {
+      "id": "WritableCgroups",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

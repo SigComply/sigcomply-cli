@@ -45,11 +45,14 @@ fetch_openapi_yaml() {
 
 # fetch_discovery <api> <version> <SeedSchema>...
 #   → contracts/gcp/<api>@<version>.json
-# GCP Discovery Documents are public (no auth), so this works without the live
-# credential GCP otherwise lacks here.
+# GCP Discovery Documents are public (no auth). Older APIs publish to the legacy
+# aggregated directory; newer ones (artifactregistry, backupdr, certificatemanager,
+# securitycenter v1beta2) only to the per-service $discovery endpoint — try both.
 fetch_discovery() {
     local api="$1" version="$2"; shift 2
-    curl -sSL "https://www.googleapis.com/discovery/v1/apis/$api/$version/rest" -o "$TMP/disc.json"
+    if ! curl -fsSL "https://www.googleapis.com/discovery/v1/apis/$api/$version/rest" -o "$TMP/disc.json" 2>/dev/null; then
+        curl -fsSL "https://$api.googleapis.com/\$discovery/rest?version=$version" -o "$TMP/disc.json"
+    fi
     mkdir -p "$OUT_ROOT/gcp"
     python3 "$SLICE_DIR/slice_discovery.py" "$TMP/disc.json" "$OUT_ROOT/gcp/$api@$version.json" "$@"
 }
@@ -106,9 +109,24 @@ fetch_smithy secretsmanager secrets-manager ListSecrets
 fetch_smithy backup backup ListBackupPlans GetBackupPlan
 
 echo "GCP (public Discovery Docs; sliced to response-schema closure):"
-fetch_discovery compute v1 InstanceAggregatedList
+# Foundation (WU-2.7)
+fetch_discovery compute v1 InstanceAggregatedList Firewall Network Subnetwork
 fetch_discovery cloudresourcemanager v1 Policy
 fetch_discovery sqladmin v1 InstancesListResponse
 fetch_discovery storage v1 Buckets
+# Expansion (WU-2.11): one snapshot per API the 14 expansion plugins read
+fetch_discovery cloudresourcemanager v3 Policy
+fetch_discovery cloudkms v1 CryptoKey KeyRing Location
+fetch_discovery secretmanager v1 Secret SecretVersion
+fetch_discovery logging v2 LogBucket CmekSettings
+fetch_discovery admin directory_v1 User
+fetch_discovery cloudasset v1 Feed
+fetch_discovery securitycenter v1 Finding
+fetch_discovery securitycenter v1beta2 EventThreatDetectionSettings SecurityHealthAnalyticsSettings
+fetch_discovery artifactregistry v1 Repository Policy Location
+fetch_discovery container v1 Cluster
+fetch_discovery firestore v1 GoogleFirestoreAdminV1Database
+fetch_discovery backupdr v1 BackupPlan
+fetch_discovery certificatemanager v1 Certificate
 
 echo "contracts-fetch: done"

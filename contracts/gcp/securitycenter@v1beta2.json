@@ -1,0 +1,109 @@
+{
+  "discoveryVersion": "v1",
+  "name": "securitycenter",
+  "version": "v1beta2",
+  "x-slice": "response-schema closure consumed by internal/sources/gcp",
+  "schemas": {
+    "Config": {
+      "id": "Config",
+      "type": "object",
+      "properties": {
+        "moduleEnablementState": {
+          "type": "string",
+          "enum": [
+            "ENABLEMENT_STATE_UNSPECIFIED",
+            "INHERITED",
+            "ENABLED",
+            "DISABLED"
+          ],
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        "value": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "any"
+          }
+        }
+      }
+    },
+    "EventThreatDetectionSettings": {
+      "id": "EventThreatDetectionSettings",
+      "type": "object",
+      "properties": {
+        "updateTime": {
+          "readOnly": true,
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "serviceEnablementState": {
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "type": "string",
+          "enum": [
+            "ENABLEMENT_STATE_UNSPECIFIED",
+            "INHERITED",
+            "ENABLED",
+            "DISABLED"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "modules": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "Config"
+          }
+        }
+      }
+    },
+    "SecurityHealthAnalyticsSettings": {
+      "id": "SecurityHealthAnalyticsSettings",
+      "type": "object",
+      "properties": {
+        "updateTime": {
+          "readOnly": true,
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "name": {
+          "type": "string"
+        },
+        "modules": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "Config"
+          }
+        },
+        "serviceEnablementState": {
+          "type": "string",
+          "enum": [
+            "ENABLEMENT_STATE_UNSPECIFIED",
+            "INHERITED",
+            "ENABLED",
+            "DISABLED"
+          ],
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        "serviceAccount": {
+          "readOnly": true,
+          "type": "string"
+        }
+      }
+    }
+  }
+}

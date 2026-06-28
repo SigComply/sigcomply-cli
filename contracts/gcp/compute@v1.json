@@ -6,7 +6,6 @@
   "schemas": {
     "AcceleratorConfig": {
       "type": "object",
-      "id": "AcceleratorConfig",
       "properties": {
         "acceleratorType": {
           "type": "string"
@@ -15,76 +14,96 @@
           "type": "integer",
           "format": "int32"
         }
-      }
+      },
+      "id": "AcceleratorConfig"
     },
     "AccessConfig": {
-      "type": "object",
       "id": "AccessConfig",
+      "type": "object",
       "properties": {
         "networkTier": {
-          "enumDescriptions": [
-            "Public internet quality with fixed bandwidth.",
-            "High quality, Google-grade network tier, support for all networking\nproducts.",
-            "Public internet quality, only limited support for other networking\nproducts.",
-            "(Output only) Temporary tier for FIXED_STANDARD when fixed standard tier\nis expired or not configured."
-          ],
           "type": "string",
           "enum": [
             "FIXED_STANDARD",
             "PREMIUM",
             "STANDARD",
             "STANDARD_OVERRIDES_FIXED_STANDARD"
-          ]
-        },
-        "externalIpv6": {
-          "type": "string"
-        },
-        "setPublicPtr": {
-          "type": "boolean"
-        },
-        "kind": {
-          "default": "compute#accessConfig",
-          "readOnly": true,
-          "type": "string"
-        },
-        "publicPtrDomainName": {
-          "type": "string"
-        },
-        "natIP": {
-          "type": "string"
-        },
-        "externalIpv6PrefixLength": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "type": {
-          "enumDescriptions": [
-            "",
-            ""
           ],
-          "type": "string",
-          "enum": [
-            "DIRECT_IPV6",
-            "ONE_TO_ONE_NAT"
+          "enumDescriptions": [
+            "Public internet quality with fixed bandwidth.",
+            "High quality, Google-grade network tier, support for all networking\nproducts.",
+            "Public internet quality, only limited support for other networking\nproducts.",
+            "(Output only) Temporary tier for FIXED_STANDARD when fixed standard tier\nis expired or not configured."
           ]
         },
         "name": {
           "type": "string"
         },
+        "setPublicPtr": {
+          "type": "boolean"
+        },
+        "publicPtrDomainName": {
+          "type": "string"
+        },
+        "externalIpv6PrefixLength": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "kind": {
+          "type": "string",
+          "default": "compute#accessConfig",
+          "readOnly": true
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "DIRECT_IPV6",
+            "ONE_TO_ONE_NAT"
+          ],
+          "enumDescriptions": [
+            "",
+            ""
+          ]
+        },
         "securityPolicy": {
+          "type": "string"
+        },
+        "externalIpv6": {
+          "type": "string"
+        },
+        "natIP": {
           "type": "string"
         }
       }
     },
     "AdvancedMachineFeatures": {
       "id": "AdvancedMachineFeatures",
+      "type": "object",
       "properties": {
         "visibleCoreCount": {
           "format": "int32",
           "type": "integer"
         },
+        "enableUefiNetworking": {
+          "type": "boolean"
+        },
         "enableNestedVirtualization": {
           "type": "boolean"
+        },
+        "performanceMonitoringUnit": {
+          "type": "string",
+          "enum": [
+            "ARCHITECTURAL",
+            "ENHANCED",
+            "PERFORMANCE_MONITORING_UNIT_UNSPECIFIED",
+            "STANDARD"
+          ],
+          "enumDescriptions": [
+            "Architecturally defined non-LLC events.",
+            "Most documented core/L2 and LLC events.",
+            "",
+            "Most documented core/L2 events."
+          ]
         },
         "threadsPerCore": {
           "format": "int32",
@@ -92,30 +111,11 @@
         },
         "turboMode": {
           "type": "string"
-        },
-        "enableUefiNetworking": {
-          "type": "boolean"
-        },
-        "performanceMonitoringUnit": {
-          "enumDescriptions": [
-            "Architecturally defined non-LLC events.",
-            "Most documented core/L2 and LLC events.",
-            "",
-            "Most documented core/L2 events."
-          ],
-          "type": "string",
-          "enum": [
-            "ARCHITECTURAL",
-            "ENHANCED",
-            "PERFORMANCE_MONITORING_UNIT_UNSPECIFIED",
-            "STANDARD"
-          ]
         }
-      },
-      "type": "object"
+      }
     },
     "AliasIpRange": {
-      "id": "AliasIpRange",
+      "type": "object",
       "properties": {
         "ipCidrRange": {
           "type": "string"
@@ -124,32 +124,46 @@
           "type": "string"
         }
       },
-      "type": "object"
+      "id": "AliasIpRange"
     },
     "AttachedDisk": {
       "id": "AttachedDisk",
+      "type": "object",
       "properties": {
-        "diskSizeGb": {
-          "format": "int64",
-          "type": "string"
+        "boot": {
+          "type": "boolean"
         },
-        "mode": {
+        "interface": {
           "type": "string",
           "enum": [
-            "READ_ONLY",
-            "READ_WRITE"
+            "NVME",
+            "SCSI"
           ],
           "enumDescriptions": [
-            "Attaches this disk in read-only mode. Multiple virtual machines can use\na disk in read-only mode at a time.",
-            "*[Default]* Attaches this disk in read-write mode. Only one\nvirtual machine at a time can be attached to a disk in read-write mode."
+            "",
+            ""
           ]
+        },
+        "forceAttach": {
+          "type": "boolean"
+        },
+        "index": {
+          "type": "integer",
+          "readOnly": true,
+          "format": "int32"
+        },
+        "deviceName": {
+          "type": "string"
+        },
+        "initializeParams": {
+          "$ref": "AttachedDiskInitializeParams"
         },
         "licenses": {
           "type": "array",
-          "readOnly": true,
           "items": {
             "type": "string"
-          }
+          },
+          "readOnly": true
         },
         "type": {
           "enumDescriptions": [
@@ -162,30 +176,6 @@
             "SCRATCH"
           ]
         },
-        "savedState": {
-          "readOnly": true,
-          "enum": [
-            "DISK_SAVED_STATE_UNSPECIFIED",
-            "PRESERVED"
-          ],
-          "enumDescriptions": [
-            "*[Default]* Disk state has not been preserved.",
-            "Disk state has been preserved."
-          ],
-          "type": "string"
-        },
-        "boot": {
-          "type": "boolean"
-        },
-        "forceAttach": {
-          "type": "boolean"
-        },
-        "source": {
-          "type": "string"
-        },
-        "deviceName": {
-          "type": "string"
-        },
         "kind": {
           "default": "compute#attachedDisk",
           "readOnly": true,
@@ -194,30 +184,35 @@
         "autoDelete": {
           "type": "boolean"
         },
-        "interface": {
-          "enumDescriptions": [
-            "",
-            ""
-          ],
+        "shieldedInstanceInitialState": {
+          "readOnly": true,
+          "$ref": "InitialStateConfig"
+        },
+        "diskEncryptionKey": {
+          "$ref": "CustomerEncryptionKey"
+        },
+        "mode": {
           "type": "string",
           "enum": [
-            "NVME",
-            "SCSI"
+            "READ_ONLY",
+            "READ_WRITE"
+          ],
+          "enumDescriptions": [
+            "Attaches this disk in read-only mode. Multiple virtual machines can use\na disk in read-only mode at a time.",
+            "*[Default]* Attaches this disk in read-write mode. Only one\nvirtual machine at a time can be attached to a disk in read-write mode."
           ]
         },
-        "architecture": {
-          "type": "string",
+        "savedState": {
           "enum": [
-            "ARCHITECTURE_UNSPECIFIED",
-            "ARM64",
-            "X86_64"
+            "DISK_SAVED_STATE_UNSPECIFIED",
+            "PRESERVED"
           ],
+          "readOnly": true,
           "enumDescriptions": [
-            "Default value indicating Architecture is not set.",
-            "Machines with architecture ARM64",
-            "Machines with architecture X86_64"
+            "*[Default]* Disk state has not been preserved.",
+            "Disk state has been preserved."
           ],
-          "readOnly": true
+          "type": "string"
         },
         "guestOsFeatures": {
           "type": "array",
@@ -225,40 +220,35 @@
             "$ref": "GuestOsFeature"
           }
         },
-        "index": {
-          "type": "integer",
+        "source": {
+          "type": "string"
+        },
+        "diskSizeGb": {
+          "format": "int64",
+          "type": "string"
+        },
+        "architecture": {
+          "enum": [
+            "ARCHITECTURE_UNSPECIFIED",
+            "ARM64",
+            "X86_64"
+          ],
           "readOnly": true,
-          "format": "int32"
-        },
-        "diskEncryptionKey": {
-          "$ref": "CustomerEncryptionKey"
-        },
-        "shieldedInstanceInitialState": {
-          "readOnly": true,
-          "$ref": "InitialStateConfig"
-        },
-        "initializeParams": {
-          "$ref": "AttachedDiskInitializeParams"
+          "enumDescriptions": [
+            "Default value indicating Architecture is not set.",
+            "Machines with architecture ARM64",
+            "Machines with architecture X86_64"
+          ],
+          "type": "string"
         }
-      },
-      "type": "object"
+      }
     },
     "AttachedDiskInitializeParams": {
       "type": "object",
-      "id": "AttachedDiskInitializeParams",
       "properties": {
-        "provisionedIops": {
+        "diskSizeGb": {
           "type": "string",
           "format": "int64"
-        },
-        "sourceImageEncryptionKey": {
-          "$ref": "CustomerEncryptionKey"
-        },
-        "replicaZones": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
         },
         "architecture": {
           "enumDescriptions": [
@@ -273,11 +263,43 @@
             "X86_64"
           ]
         },
+        "provisionedThroughput": {
+          "type": "string",
+          "format": "int64"
+        },
+        "sourceImage": {
+          "type": "string"
+        },
         "diskType": {
           "type": "string"
         },
+        "provisionedIops": {
+          "format": "int64",
+          "type": "string"
+        },
+        "sourceSnapshot": {
+          "type": "string"
+        },
+        "sourceSnapshotEncryptionKey": {
+          "$ref": "CustomerEncryptionKey"
+        },
+        "replicaZones": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
         "storagePool": {
           "type": "string"
+        },
+        "sourceImageEncryptionKey": {
+          "$ref": "CustomerEncryptionKey"
         },
         "onUpdateAction": {
           "type": "string",
@@ -293,26 +315,16 @@
           ]
         },
         "licenses": {
+          "type": "array",
           "items": {
             "type": "string"
-          },
-          "type": "array"
+          }
         },
-        "diskSizeGb": {
-          "type": "string",
-          "format": "int64"
+        "diskName": {
+          "type": "string"
         },
         "enableConfidentialCompute": {
           "type": "boolean"
-        },
-        "sourceSnapshot": {
-          "type": "string"
-        },
-        "resourcePolicies": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
         },
         "resourceManagerTags": {
           "type": "object",
@@ -320,29 +332,17 @@
             "type": "string"
           }
         },
-        "diskName": {
-          "type": "string"
-        },
-        "sourceSnapshotEncryptionKey": {
-          "$ref": "CustomerEncryptionKey"
-        },
-        "provisionedThroughput": {
-          "format": "int64",
-          "type": "string"
-        },
-        "sourceImage": {
-          "type": "string"
-        },
-        "labels": {
-          "type": "object",
-          "additionalProperties": {
+        "resourcePolicies": {
+          "type": "array",
+          "items": {
             "type": "string"
           }
         }
-      }
+      },
+      "id": "AttachedDiskInitializeParams"
     },
     "ConfidentialInstanceConfig": {
-      "id": "ConfidentialInstanceConfig",
+      "type": "object",
       "properties": {
         "enableConfidentialCompute": {
           "type": "boolean"
@@ -365,32 +365,32 @@
           ]
         }
       },
-      "type": "object"
+      "id": "ConfidentialInstanceConfig"
     },
     "CustomerEncryptionKey": {
       "id": "CustomerEncryptionKey",
+      "type": "object",
       "properties": {
-        "rawKey": {
-          "type": "string"
-        },
         "rsaEncryptedKey": {
           "type": "string"
         },
         "kmsKeyName": {
           "type": "string"
         },
-        "sha256": {
+        "rawKey": {
           "type": "string"
         },
         "kmsKeyServiceAccount": {
           "type": "string"
+        },
+        "sha256": {
+          "type": "string"
         }
-      },
-      "type": "object"
+      }
     },
     "DisplayDevice": {
-      "type": "object",
       "id": "DisplayDevice",
+      "type": "object",
       "properties": {
         "enableDisplay": {
           "type": "boolean"
@@ -398,7 +398,7 @@
       }
     },
     "Duration": {
-      "id": "Duration",
+      "type": "object",
       "properties": {
         "seconds": {
           "format": "int64",
@@ -409,15 +409,12 @@
           "format": "int32"
         }
       },
-      "type": "object"
+      "id": "Duration"
     },
     "FileContentBuffer": {
       "id": "FileContentBuffer",
+      "type": "object",
       "properties": {
-        "content": {
-          "format": "byte",
-          "type": "string"
-        },
         "fileType": {
           "enumDescriptions": [
             "",
@@ -430,33 +427,180 @@
             "UNDEFINED",
             "X509"
           ]
+        },
+        "content": {
+          "format": "byte",
+          "type": "string"
+        }
+      }
+    },
+    "Firewall": {
+      "type": "object",
+      "properties": {
+        "sourceServiceAccounts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "params": {
+          "$ref": "FirewallParams"
+        },
+        "kind": {
+          "type": "string",
+          "default": "compute#firewall",
+          "readOnly": true
+        },
+        "sourceRanges": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "selfLink": {
+          "type": "string"
+        },
+        "targetServiceAccounts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "IPProtocol": {
+                "type": "string"
+              },
+              "ports": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "network": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "EGRESS",
+            "INGRESS"
+          ],
+          "enumDescriptions": [
+            "Indicates that firewall should apply to outgoing traffic.",
+            "Indicates that firewall should apply to incoming traffic."
+          ]
+        },
+        "sourceTags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "destinationRanges": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "targetTags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "denied": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "IPProtocol": {
+                "type": "string"
+              },
+              "ports": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "creationTimestamp": {
+          "type": "string",
+          "readOnly": true
+        },
+        "id": {
+          "type": "string",
+          "readOnly": true,
+          "format": "uint64"
+        },
+        "priority": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "disabled": {
+          "type": "boolean"
+        },
+        "name": {
+          "annotations": {
+            "required": [
+              "compute.firewalls.insert",
+              "compute.firewalls.patch"
+            ]
+          },
+          "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+          "type": "string"
+        },
+        "logConfig": {
+          "$ref": "FirewallLogConfig"
         }
       },
-      "type": "object"
+      "id": "Firewall"
     },
-    "GuestOsFeature": {
+    "FirewallLogConfig": {
       "type": "object",
-      "id": "GuestOsFeature",
       "properties": {
-        "type": {
+        "enable": {
+          "type": "boolean"
+        },
+        "metadata": {
           "enumDescriptions": [
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
             "",
             ""
           ],
+          "type": "string",
+          "enum": [
+            "EXCLUDE_ALL_METADATA",
+            "INCLUDE_ALL_METADATA"
+          ]
+        }
+      },
+      "id": "FirewallLogConfig"
+    },
+    "FirewallParams": {
+      "type": "object",
+      "properties": {
+        "resourceManagerTags": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "id": "FirewallParams"
+    },
+    "GuestOsFeature": {
+      "id": "GuestOsFeature",
+      "type": "object",
+      "properties": {
+        "type": {
           "type": "string",
           "enum": [
             "BARE_METAL_LINUX_COMPATIBLE",
@@ -475,67 +619,72 @@
             "UEFI_COMPATIBLE",
             "VIRTIO_SCSI_MULTIQUEUE",
             "WINDOWS"
+          ],
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
           ]
         }
       }
     },
     "InitialStateConfig": {
       "id": "InitialStateConfig",
+      "type": "object",
       "properties": {
-        "dbs": {
-          "items": {
-            "$ref": "FileContentBuffer"
-          },
-          "type": "array"
+        "pk": {
+          "$ref": "FileContentBuffer"
         },
         "keks": {
+          "type": "array",
           "items": {
             "$ref": "FileContentBuffer"
-          },
-          "type": "array"
+          }
+        },
+        "dbs": {
+          "type": "array",
+          "items": {
+            "$ref": "FileContentBuffer"
+          }
         },
         "dbxs": {
           "type": "array",
           "items": {
             "$ref": "FileContentBuffer"
           }
-        },
-        "pk": {
-          "$ref": "FileContentBuffer"
         }
-      },
-      "type": "object"
+      }
     },
     "Instance": {
       "id": "Instance",
+      "type": "object",
       "properties": {
-        "zone": {
-          "type": "string",
-          "readOnly": true
-        },
-        "lastStopTimestamp": {
-          "type": "string",
-          "readOnly": true
-        },
-        "labelFingerprint": {
-          "format": "byte",
+        "hostname": {
           "type": "string"
         },
-        "deletionProtection": {
-          "type": "boolean"
+        "cpuPlatform": {
+          "readOnly": true,
+          "type": "string"
         },
-        "selfLink": {
-          "type": "string",
+        "satisfiesPzs": {
+          "type": "boolean",
           "readOnly": true
         },
-        "resourcePolicies": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "displayDevice": {
-          "$ref": "DisplayDevice"
+        "shieldedInstanceIntegrityPolicy": {
+          "$ref": "ShieldedInstanceIntegrityPolicy"
         },
         "serviceAccounts": {
           "type": "array",
@@ -544,93 +693,25 @@
           }
         },
         "id": {
-          "readOnly": true,
-          "format": "uint64",
-          "type": "string"
-        },
-        "guestAccelerators": {
-          "items": {
-            "$ref": "AcceleratorConfig"
-          },
-          "type": "array"
-        },
-        "shieldedInstanceIntegrityPolicy": {
-          "$ref": "ShieldedInstanceIntegrityPolicy"
-        },
-        "labels": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "instanceEncryptionKey": {
-          "$ref": "CustomerEncryptionKey"
-        },
-        "satisfiesPzs": {
-          "type": "boolean",
-          "readOnly": true
-        },
-        "disks": {
-          "type": "array",
-          "items": {
-            "$ref": "AttachedDisk"
-          }
-        },
-        "creationTimestamp": {
-          "readOnly": true,
-          "type": "string"
-        },
-        "statusMessage": {
           "type": "string",
-          "readOnly": true
-        },
-        "startRestricted": {
-          "type": "boolean",
-          "readOnly": true
-        },
-        "shieldedInstanceConfig": {
-          "$ref": "ShieldedInstanceConfig"
-        },
-        "metadata": {
-          "$ref": "Metadata"
-        },
-        "sourceMachineImageEncryptionKey": {
-          "$ref": "CustomerEncryptionKey"
-        },
-        "advancedMachineFeatures": {
-          "$ref": "AdvancedMachineFeatures"
-        },
-        "sourceMachineImage": {
-          "type": "string"
-        },
-        "lastSuspendedTimestamp": {
           "readOnly": true,
-          "type": "string"
+          "format": "uint64"
         },
-        "workloadIdentityConfig": {
-          "$ref": "WorkloadIdentityConfig"
-        },
-        "canIpForward": {
+        "satisfiesPzi": {
+          "readOnly": true,
           "type": "boolean"
         },
-        "params": {
-          "$ref": "InstanceParams"
+        "zone": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "startRestricted": {
+          "readOnly": true,
+          "type": "boolean"
         },
         "status": {
+          "type": "string",
           "readOnly": true,
-          "enum": [
-            "DEPROVISIONING",
-            "PENDING",
-            "PROVISIONING",
-            "REPAIRING",
-            "RUNNING",
-            "STAGING",
-            "STOPPED",
-            "STOPPING",
-            "SUSPENDED",
-            "SUSPENDING",
-            "TERMINATED"
-          ],
           "enumDescriptions": [
             "The instance is halted and we are performing tear down tasks like network\ndeprogramming, releasing quota, IP, tearing down disks etc.",
             "For Flex Start provisioning instance is waiting for available capacity\nfrom Dynamic Workload Scheduler (DWS).",
@@ -644,69 +725,113 @@
             "The instance is suspending.",
             "The instance has stopped (either by explicit action or underlying\nfailure)."
           ],
+          "enum": [
+            "DEPROVISIONING",
+            "PENDING",
+            "PROVISIONING",
+            "REPAIRING",
+            "RUNNING",
+            "STAGING",
+            "STOPPED",
+            "STOPPING",
+            "SUSPENDED",
+            "SUSPENDING",
+            "TERMINATED"
+          ]
+        },
+        "confidentialInstanceConfig": {
+          "$ref": "ConfidentialInstanceConfig"
+        },
+        "resourcePolicies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "deletionProtection": {
+          "type": "boolean"
+        },
+        "lastStartTimestamp": {
+          "type": "string",
+          "readOnly": true
+        },
+        "sourceMachineImageEncryptionKey": {
+          "$ref": "CustomerEncryptionKey"
+        },
+        "metadata": {
+          "$ref": "Metadata"
+        },
+        "advancedMachineFeatures": {
+          "$ref": "AdvancedMachineFeatures"
+        },
+        "workloadIdentityConfig": {
+          "$ref": "WorkloadIdentityConfig"
+        },
+        "canIpForward": {
+          "type": "boolean"
+        },
+        "shieldedInstanceConfig": {
+          "$ref": "ShieldedInstanceConfig"
+        },
+        "tags": {
+          "$ref": "Tags"
+        },
+        "scheduling": {
+          "$ref": "Scheduling"
+        },
+        "minCpuPlatform": {
           "type": "string"
         },
-        "networkPerformanceConfig": {
-          "$ref": "NetworkPerformanceConfig"
+        "lastStopTimestamp": {
+          "type": "string",
+          "readOnly": true
         },
-        "fingerprint": {
-          "format": "byte",
+        "name": {
+          "annotations": {
+            "required": [
+              "compute.instances.insert"
+            ]
+          },
+          "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
           "type": "string"
         },
-        "reservationAffinity": {
-          "$ref": "ReservationAffinity"
+        "sourceMachineImage": {
+          "type": "string"
         },
         "privateIpv6GoogleAccess": {
-          "enumDescriptions": [
-            "Bidirectional private IPv6 access to/from Google services. If\nspecified, the subnetwork who is attached to the instance's default network\ninterface will be assigned an internal IPv6 prefix if it doesn't have\nbefore.",
-            "Outbound private IPv6 access from VMs in this subnet to Google services. If\nspecified, the subnetwork who is attached to the instance's default network\ninterface will be assigned an internal IPv6 prefix if it doesn't have\nbefore.",
-            "Each network interface inherits PrivateIpv6GoogleAccess from its\nsubnetwork."
-          ],
           "type": "string",
           "enum": [
             "ENABLE_BIDIRECTIONAL_ACCESS_TO_GOOGLE",
             "ENABLE_OUTBOUND_VM_ACCESS_TO_GOOGLE",
             "INHERIT_FROM_SUBNETWORK"
+          ],
+          "enumDescriptions": [
+            "Bidirectional private IPv6 access to/from Google services. If\nspecified, the subnetwork who is attached to the instance's default network\ninterface will be assigned an internal IPv6 prefix if it doesn't have\nbefore.",
+            "Outbound private IPv6 access from VMs in this subnet to Google services. If\nspecified, the subnetwork who is attached to the instance's default network\ninterface will be assigned an internal IPv6 prefix if it doesn't have\nbefore.",
+            "Each network interface inherits PrivateIpv6GoogleAccess from its\nsubnetwork."
           ]
         },
-        "resourceStatus": {
-          "$ref": "ResourceStatus",
-          "readOnly": true
-        },
-        "hostname": {
+        "labelFingerprint": {
+          "format": "byte",
           "type": "string"
         },
-        "scheduling": {
-          "$ref": "Scheduling"
-        },
-        "tags": {
-          "$ref": "Tags"
-        },
-        "machineType": {
-          "type": "string"
-        },
-        "kind": {
-          "default": "compute#instance",
-          "readOnly": true,
-          "type": "string"
-        },
-        "lastStartTimestamp": {
-          "readOnly": true,
-          "type": "string"
-        },
-        "satisfiesPzi": {
-          "readOnly": true,
-          "type": "boolean"
-        },
-        "cpuPlatform": {
+        "lastSuspendedTimestamp": {
           "type": "string",
           "readOnly": true
         },
-        "minCpuPlatform": {
+        "creationTimestamp": {
+          "readOnly": true,
           "type": "string"
         },
-        "confidentialInstanceConfig": {
-          "$ref": "ConfidentialInstanceConfig"
+        "reservationAffinity": {
+          "$ref": "ReservationAffinity"
+        },
+        "resourceStatus": {
+          "readOnly": true,
+          "$ref": "ResourceStatus"
+        },
+        "machineType": {
+          "type": "string"
         },
         "keyRevocationActionType": {
           "enumDescriptions": [
@@ -721,14 +846,52 @@
             "STOP"
           ]
         },
-        "name": {
-          "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
-          "type": "string",
-          "annotations": {
-            "required": [
-              "compute.instances.insert"
-            ]
+        "guestAccelerators": {
+          "type": "array",
+          "items": {
+            "$ref": "AcceleratorConfig"
           }
+        },
+        "fingerprint": {
+          "type": "string",
+          "format": "byte"
+        },
+        "displayDevice": {
+          "$ref": "DisplayDevice"
+        },
+        "disks": {
+          "type": "array",
+          "items": {
+            "$ref": "AttachedDisk"
+          }
+        },
+        "networkPerformanceConfig": {
+          "$ref": "NetworkPerformanceConfig"
+        },
+        "selfLink": {
+          "type": "string",
+          "readOnly": true
+        },
+        "kind": {
+          "default": "compute#instance",
+          "readOnly": true,
+          "type": "string"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "statusMessage": {
+          "type": "string",
+          "readOnly": true
+        },
+        "params": {
+          "$ref": "InstanceParams"
+        },
+        "instanceEncryptionKey": {
+          "$ref": "CustomerEncryptionKey"
         },
         "networkInterfaces": {
           "type": "array",
@@ -736,30 +899,137 @@
             "$ref": "NetworkInterface"
           }
         }
-      },
-      "type": "object"
+      }
     },
     "InstanceAggregatedList": {
       "id": "InstanceAggregatedList",
+      "type": "object",
       "properties": {
+        "id": {
+          "type": "string"
+        },
         "items": {
           "type": "object",
           "additionalProperties": {
             "$ref": "InstancesScopedList"
           }
         },
-        "selfLink": {
-          "readOnly": true,
-          "type": "string"
-        },
-        "id": {
-          "type": "string"
-        },
-        "unreachables": {
-          "type": "array",
-          "readOnly": true,
-          "items": {
-            "type": "string"
+        "warning": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enumDescriptions": [
+                "Warning about failed cleanup of transient changes made by a failed\noperation.",
+                "A link to a deprecated resource was created.",
+                "When deploying and at least one of the resources has a type marked as\ndeprecated",
+                "The user created a boot disk that is larger than image size.",
+                "When deploying and at least one of the resources has a type marked as\nexperimental",
+                "Warning that is present in an external api call",
+                "Warning that value of a field has been overridden.\nDeprecated unused field.",
+                "The operation involved use of an injected kernel, which is deprecated.",
+                "A WEIGHTED_MAGLEV backend service is associated with a health check that is\nnot of type HTTP/HTTPS/HTTP2.",
+                "When deploying a deployment with a exceedingly large number of resources",
+                "Resource can't be retrieved due to list overhead quota exceed\nwhich captures the amount of resources filtered out by\nuser-defined list filter.",
+                "A resource depends on a missing type",
+                "The route's nextHopIp address is not assigned to an instance on the\nnetwork.",
+                "The route's next hop instance cannot ip forward.",
+                "The route's nextHopInstance URL refers to an instance that does not have an\nipv6 interface on the same network as the route.",
+                "The route's nextHopInstance URL refers to an instance that does not exist.",
+                "The route's nextHopInstance URL refers to an instance that is not on the\nsame network as the route.",
+                "The route's next hop instance does not have a status of RUNNING.",
+                "Error which is not critical. We decided to continue the process despite\nthe mentioned error.",
+                "No results are present on a particular list page.",
+                "Success is reported, but some results may be missing due to errors",
+                "Quota information is not available to client requests (e.g:\nregions.list).",
+                "The user attempted to use a resource that requires a TOS they have not\naccepted.",
+                "Warning that a resource is in use.",
+                "One or more of the resources set to auto-delete could not be deleted\nbecause they were in use.",
+                "When a resource schema validation is ignored.",
+                "Instance template used in instance group manager is valid as such, but\nits application does not make a lot of sense, because it allows only\nsingle instance in instance group.",
+                "When undeclared properties in the schema are present",
+                "A given scope cannot be reached."
+              ],
+              "enumDeprecated": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+              ],
+              "enum": [
+                "CLEANUP_FAILED",
+                "DEPRECATED_RESOURCE_USED",
+                "DEPRECATED_TYPE_USED",
+                "DISK_SIZE_LARGER_THAN_IMAGE_SIZE",
+                "EXPERIMENTAL_TYPE_USED",
+                "EXTERNAL_API_WARNING",
+                "FIELD_VALUE_OVERRIDEN",
+                "INJECTED_KERNELS_DEPRECATED",
+                "INVALID_HEALTH_CHECK_FOR_DYNAMIC_WIEGHTED_LB",
+                "LARGE_DEPLOYMENT_WARNING",
+                "LIST_OVERHEAD_QUOTA_EXCEED",
+                "MISSING_TYPE_DEPENDENCY",
+                "NEXT_HOP_ADDRESS_NOT_ASSIGNED",
+                "NEXT_HOP_CANNOT_IP_FORWARD",
+                "NEXT_HOP_INSTANCE_HAS_NO_IPV6_INTERFACE",
+                "NEXT_HOP_INSTANCE_NOT_FOUND",
+                "NEXT_HOP_INSTANCE_NOT_ON_NETWORK",
+                "NEXT_HOP_NOT_RUNNING",
+                "NOT_CRITICAL_ERROR",
+                "NO_RESULTS_ON_PAGE",
+                "PARTIAL_SUCCESS",
+                "QUOTA_INFO_UNAVAILABLE",
+                "REQUIRED_TOS_AGREEMENT",
+                "RESOURCE_IN_USE_BY_OTHER_RESOURCE_WARNING",
+                "RESOURCE_NOT_DELETED",
+                "SCHEMA_VALIDATION_IGNORED",
+                "SINGLE_INSTANCE_PROPERTY_TEMPLATE",
+                "UNDECLARED_PROPERTIES",
+                "UNREACHABLE"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "data": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
           }
         },
         "kind": {
@@ -769,6 +1039,44 @@
         },
         "nextPageToken": {
           "type": "string"
+        },
+        "selfLink": {
+          "type": "string",
+          "readOnly": true
+        },
+        "unreachables": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true
+        }
+      }
+    },
+    "InstanceParams": {
+      "id": "InstanceParams",
+      "type": "object",
+      "properties": {
+        "requestValidForDuration": {
+          "$ref": "Duration"
+        },
+        "resourceManagerTags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "InstancesScopedList": {
+      "id": "InstancesScopedList",
+      "type": "object",
+      "properties": {
+        "instances": {
+          "type": "array",
+          "items": {
+            "$ref": "Instance"
+          }
         },
         "warning": {
           "type": "object",
@@ -805,124 +1113,6 @@
                 "When undeclared properties in the schema are present",
                 "A given scope cannot be reached."
               ],
-              "enum": [
-                "CLEANUP_FAILED",
-                "DEPRECATED_RESOURCE_USED",
-                "DEPRECATED_TYPE_USED",
-                "DISK_SIZE_LARGER_THAN_IMAGE_SIZE",
-                "EXPERIMENTAL_TYPE_USED",
-                "EXTERNAL_API_WARNING",
-                "FIELD_VALUE_OVERRIDEN",
-                "INJECTED_KERNELS_DEPRECATED",
-                "INVALID_HEALTH_CHECK_FOR_DYNAMIC_WIEGHTED_LB",
-                "LARGE_DEPLOYMENT_WARNING",
-                "LIST_OVERHEAD_QUOTA_EXCEED",
-                "MISSING_TYPE_DEPENDENCY",
-                "NEXT_HOP_ADDRESS_NOT_ASSIGNED",
-                "NEXT_HOP_CANNOT_IP_FORWARD",
-                "NEXT_HOP_INSTANCE_HAS_NO_IPV6_INTERFACE",
-                "NEXT_HOP_INSTANCE_NOT_FOUND",
-                "NEXT_HOP_INSTANCE_NOT_ON_NETWORK",
-                "NEXT_HOP_NOT_RUNNING",
-                "NOT_CRITICAL_ERROR",
-                "NO_RESULTS_ON_PAGE",
-                "PARTIAL_SUCCESS",
-                "QUOTA_INFO_UNAVAILABLE",
-                "REQUIRED_TOS_AGREEMENT",
-                "RESOURCE_IN_USE_BY_OTHER_RESOURCE_WARNING",
-                "RESOURCE_NOT_DELETED",
-                "SCHEMA_VALIDATION_IGNORED",
-                "SINGLE_INSTANCE_PROPERTY_TEMPLATE",
-                "UNDECLARED_PROPERTIES",
-                "UNREACHABLE"
-              ],
-              "enumDeprecated": [
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                true,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false
-              ],
-              "type": "string"
-            },
-            "message": {
-              "type": "string"
-            },
-            "data": {
-              "items": {
-                "type": "object",
-                "properties": {
-                  "key": {
-                    "type": "string"
-                  },
-                  "value": {
-                    "type": "string"
-                  }
-                }
-              },
-              "type": "array"
-            }
-          }
-        }
-      },
-      "type": "object"
-    },
-    "InstanceParams": {
-      "type": "object",
-      "id": "InstanceParams",
-      "properties": {
-        "resourceManagerTags": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "requestValidForDuration": {
-          "$ref": "Duration"
-        }
-      }
-    },
-    "InstancesScopedList": {
-      "type": "object",
-      "id": "InstancesScopedList",
-      "properties": {
-        "instances": {
-          "type": "array",
-          "items": {
-            "$ref": "Instance"
-          }
-        },
-        "warning": {
-          "type": "object",
-          "properties": {
-            "message": {
-              "type": "string"
-            },
-            "code": {
               "type": "string",
               "enumDeprecated": [
                 false,
@@ -985,52 +1175,24 @@
                 "SINGLE_INSTANCE_PROPERTY_TEMPLATE",
                 "UNDECLARED_PROPERTIES",
                 "UNREACHABLE"
-              ],
-              "enumDescriptions": [
-                "Warning about failed cleanup of transient changes made by a failed\noperation.",
-                "A link to a deprecated resource was created.",
-                "When deploying and at least one of the resources has a type marked as\ndeprecated",
-                "The user created a boot disk that is larger than image size.",
-                "When deploying and at least one of the resources has a type marked as\nexperimental",
-                "Warning that is present in an external api call",
-                "Warning that value of a field has been overridden.\nDeprecated unused field.",
-                "The operation involved use of an injected kernel, which is deprecated.",
-                "A WEIGHTED_MAGLEV backend service is associated with a health check that is\nnot of type HTTP/HTTPS/HTTP2.",
-                "When deploying a deployment with a exceedingly large number of resources",
-                "Resource can't be retrieved due to list overhead quota exceed\nwhich captures the amount of resources filtered out by\nuser-defined list filter.",
-                "A resource depends on a missing type",
-                "The route's nextHopIp address is not assigned to an instance on the\nnetwork.",
-                "The route's next hop instance cannot ip forward.",
-                "The route's nextHopInstance URL refers to an instance that does not have an\nipv6 interface on the same network as the route.",
-                "The route's nextHopInstance URL refers to an instance that does not exist.",
-                "The route's nextHopInstance URL refers to an instance that is not on the\nsame network as the route.",
-                "The route's next hop instance does not have a status of RUNNING.",
-                "Error which is not critical. We decided to continue the process despite\nthe mentioned error.",
-                "No results are present on a particular list page.",
-                "Success is reported, but some results may be missing due to errors",
-                "Quota information is not available to client requests (e.g:\nregions.list).",
-                "The user attempted to use a resource that requires a TOS they have not\naccepted.",
-                "Warning that a resource is in use.",
-                "One or more of the resources set to auto-delete could not be deleted\nbecause they were in use.",
-                "When a resource schema validation is ignored.",
-                "Instance template used in instance group manager is valid as such, but\nits application does not make a lot of sense, because it allows only\nsingle instance in instance group.",
-                "When undeclared properties in the schema are present",
-                "A given scope cannot be reached."
               ]
             },
+            "message": {
+              "type": "string"
+            },
             "data": {
+              "type": "array",
               "items": {
                 "type": "object",
                 "properties": {
-                  "key": {
+                  "value": {
                     "type": "string"
                   },
-                  "value": {
+                  "key": {
                     "type": "string"
                   }
                 }
-              },
-              "type": "array"
+              }
             }
           }
         }
@@ -1038,17 +1200,10 @@
     },
     "Metadata": {
       "id": "Metadata",
+      "type": "object",
       "properties": {
-        "kind": {
-          "default": "compute#metadata",
-          "readOnly": true,
-          "type": "string"
-        },
-        "fingerprint": {
-          "type": "string",
-          "format": "byte"
-        },
         "items": {
+          "type": "array",
           "items": {
             "type": "object",
             "properties": {
@@ -1063,36 +1218,159 @@
                 }
               },
               "value": {
+                "type": "string",
                 "annotations": {
                   "required": [
                     "compute.instances.insert",
                     "compute.projects.setCommonInstanceMetadata"
                   ]
-                },
-                "type": "string"
+                }
               }
             }
-          },
-          "type": "array"
-        }
-      },
-      "type": "object"
-    },
-    "NetworkInterface": {
-      "type": "object",
-      "id": "NetworkInterface",
-      "properties": {
-        "ipv6AccessConfigs": {
-          "items": {
-            "$ref": "AccessConfig"
-          },
-          "type": "array"
+          }
         },
-        "accessConfigs": {
+        "fingerprint": {
+          "type": "string",
+          "format": "byte"
+        },
+        "kind": {
+          "default": "compute#metadata",
+          "readOnly": true,
+          "type": "string"
+        }
+      }
+    },
+    "Network": {
+      "id": "Network",
+      "type": "object",
+      "properties": {
+        "routingConfig": {
+          "$ref": "NetworkRoutingConfig"
+        },
+        "enableUlaInternalIpv6": {
+          "type": "boolean"
+        },
+        "internalIpv6Range": {
+          "type": "string"
+        },
+        "creationTimestamp": {
+          "type": "string",
+          "readOnly": true
+        },
+        "IPv4Range": {
+          "deprecated": true,
+          "pattern": "[0-9]{1,3}(?:\\.[0-9]{1,3}){3}/[0-9]{1,2}",
+          "type": "string"
+        },
+        "mtu": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "name": {
+          "annotations": {
+            "required": [
+              "compute.networks.insert"
+            ]
+          },
+          "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+          "type": "string"
+        },
+        "networkFirewallPolicyEnforcementOrder": {
+          "type": "string",
+          "enum": [
+            "AFTER_CLASSIC_FIREWALL",
+            "BEFORE_CLASSIC_FIREWALL"
+          ],
+          "enumDescriptions": [
+            "",
+            ""
+          ]
+        },
+        "networkProfile": {
+          "type": "string"
+        },
+        "selfLinkWithId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "id": {
+          "type": "string",
+          "readOnly": true,
+          "format": "uint64"
+        },
+        "kind": {
+          "default": "compute#network",
+          "readOnly": true,
+          "type": "string"
+        },
+        "selfLink": {
+          "type": "string"
+        },
+        "params": {
+          "$ref": "NetworkParams"
+        },
+        "firewallPolicy": {
+          "type": "string",
+          "readOnly": true
+        },
+        "gatewayIPv4": {
+          "pattern": "[0-9]{1,3}(?:\\.[0-9]{1,3}){3}",
+          "type": "string"
+        },
+        "autoCreateSubnetworks": {
+          "type": "boolean"
+        },
+        "subnetworks": {
           "type": "array",
           "items": {
-            "$ref": "AccessConfig"
+            "type": "string"
           }
+        },
+        "peerings": {
+          "type": "array",
+          "items": {
+            "$ref": "NetworkPeering"
+          },
+          "readOnly": true
+        }
+      }
+    },
+    "NetworkInterface": {
+      "id": "NetworkInterface",
+      "type": "object",
+      "properties": {
+        "fingerprint": {
+          "type": "string",
+          "format": "byte"
+        },
+        "queueCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "subnetwork": {
+          "type": "string"
+        },
+        "aliasIpRanges": {
+          "type": "array",
+          "items": {
+            "$ref": "AliasIpRange"
+          }
+        },
+        "aliasIpv6Ranges": {
+          "type": "array",
+          "items": {
+            "$ref": "AliasIpRange"
+          }
+        },
+        "internalIpv6PrefixLength": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "networkIP": {
+          "type": "string"
+        },
+        "network": {
+          "type": "string"
         },
         "stackType": {
           "type": "string",
@@ -1107,30 +1385,43 @@
             "The network interface will only be assigned IPv6 addresses."
           ]
         },
-        "subnetwork": {
+        "accessConfigs": {
+          "type": "array",
+          "items": {
+            "$ref": "AccessConfig"
+          }
+        },
+        "kind": {
+          "default": "compute#networkInterface",
+          "readOnly": true,
           "type": "string"
         },
-        "queueCount": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "vlan": {
-          "format": "int32",
-          "type": "integer"
-        },
-        "internalIpv6PrefixLength": {
-          "format": "int32",
-          "type": "integer"
-        },
-        "fingerprint": {
-          "format": "byte",
+        "serviceClassId": {
           "type": "string"
         },
-        "networkAttachment": {
-          "type": "string"
+        "ipv6AccessConfigs": {
+          "type": "array",
+          "items": {
+            "$ref": "AccessConfig"
+          }
         },
         "name": {
           "type": "string"
+        },
+        "ipv6Address": {
+          "type": "string"
+        },
+        "ipv6AccessType": {
+          "type": "string",
+          "readOnly": true,
+          "enumDescriptions": [
+            "This network interface can have external IPv6.",
+            "This network interface can have internal IPv6."
+          ],
+          "enum": [
+            "EXTERNAL",
+            "INTERNAL"
+          ]
         },
         "nicType": {
           "enumDescriptions": [
@@ -1151,68 +1442,219 @@
             "VIRTIO_NET"
           ]
         },
-        "serviceClassId": {
-          "type": "string"
-        },
-        "networkIP": {
-          "type": "string"
-        },
-        "ipv6AccessType": {
-          "readOnly": true,
-          "enumDescriptions": [
-            "This network interface can have external IPv6.",
-            "This network interface can have internal IPv6."
-          ],
-          "enum": [
-            "EXTERNAL",
-            "INTERNAL"
-          ],
-          "type": "string"
-        },
-        "parentNicName": {
-          "type": "string"
-        },
-        "enableVpcScopedDns": {
-          "type": "boolean"
-        },
-        "aliasIpv6Ranges": {
-          "type": "array",
-          "items": {
-            "$ref": "AliasIpRange"
-          }
-        },
         "igmpQuery": {
+          "enumDescriptions": [
+            "The network interface has disabled IGMP query.",
+            "The network interface has enabled IGMP query - v2."
+          ],
           "type": "string",
           "enum": [
             "IGMP_QUERY_DISABLED",
             "IGMP_QUERY_V2"
-          ],
-          "enumDescriptions": [
-            "The network interface has disabled IGMP query.",
-            "The network interface has enabled IGMP query - v2."
           ]
+        },
+        "parentNicName": {
+          "type": "string"
+        },
+        "vlan": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "networkAttachment": {
+          "type": "string"
+        },
+        "enableVpcScopedDns": {
+          "type": "boolean"
+        }
+      }
+    },
+    "NetworkParams": {
+      "id": "NetworkParams",
+      "type": "object",
+      "properties": {
+        "resourceManagerTags": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      }
+    },
+    "NetworkPeering": {
+      "id": "NetworkPeering",
+      "type": "object",
+      "properties": {
+        "importCustomRoutes": {
+          "type": "boolean"
         },
         "network": {
           "type": "string"
         },
-        "aliasIpRanges": {
-          "type": "array",
-          "items": {
-            "$ref": "AliasIpRange"
-          }
+        "stackType": {
+          "type": "string",
+          "enum": [
+            "IPV4_IPV6",
+            "IPV4_ONLY"
+          ],
+          "enumDescriptions": [
+            "This Peering will allow IPv4 traffic and routes to be\nexchanged. Additionally if the matching peering is\nIPV4_IPV6, IPv6 traffic and routes will be exchanged as\nwell.",
+            "This Peering will only allow IPv4 traffic and routes to be\nexchanged, even if the matching peering is IPV4_IPV6."
+          ]
         },
-        "ipv6Address": {
-          "type": "string"
+        "exchangeSubnetRoutes": {
+          "type": "boolean"
         },
-        "kind": {
-          "default": "compute#networkInterface",
+        "connectionStatus": {
+          "readOnly": true,
+          "$ref": "NetworkPeeringConnectionStatus"
+        },
+        "stateDetails": {
           "readOnly": true,
           "type": "string"
+        },
+        "updateStrategy": {
+          "enumDescriptions": [
+            "Updates are reflected in the local peering but aren't applied to the\npeering connection until a complementary change is made to the\nmatching peering.\nTo delete a peering with the consensus update strategy, both the peerings\nmust request the deletion of the peering before the peering can be\ndeleted.",
+            "In this mode, changes to the peering configuration can\nbe unilaterally altered by changing either side of the peering.\nThis is the default value if the field is unspecified.",
+            "Peerings with update strategy UNSPECIFIED are created with\nupdate strategy INDEPENDENT."
+          ],
+          "type": "string",
+          "enum": [
+            "CONSENSUS",
+            "INDEPENDENT",
+            "UNSPECIFIED"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "readOnly": true,
+          "enumDescriptions": [
+            "Matching configuration exists on the peer.",
+            "There is no matching configuration on the peer, including the case when\npeer does not exist."
+          ],
+          "enum": [
+            "ACTIVE",
+            "INACTIVE"
+          ]
+        },
+        "importSubnetRoutesWithPublicIp": {
+          "type": "boolean"
+        },
+        "peerMtu": {
+          "readOnly": true,
+          "format": "int32",
+          "type": "integer"
+        },
+        "exportCustomRoutes": {
+          "type": "boolean"
+        },
+        "autoCreateRoutes": {
+          "type": "boolean"
+        },
+        "exportSubnetRoutesWithPublicIp": {
+          "type": "boolean"
+        }
+      }
+    },
+    "NetworkPeeringConnectionStatus": {
+      "id": "NetworkPeeringConnectionStatus",
+      "type": "object",
+      "properties": {
+        "trafficConfiguration": {
+          "$ref": "NetworkPeeringConnectionStatusTrafficConfiguration"
+        },
+        "consensusState": {
+          "$ref": "NetworkPeeringConnectionStatusConsensusState"
+        },
+        "updateStrategy": {
+          "enumDescriptions": [
+            "Updates are reflected in the local peering but aren't applied to the\npeering connection until a complementary change is made to the\nmatching peering.\nTo delete a peering with the consensus update strategy, both the peerings\nmust request the deletion of the peering before the peering can be\ndeleted.",
+            "In this mode, changes to the peering configuration can\nbe unilaterally altered by changing either side of the peering.\nThis is the default value if the field is unspecified.",
+            "Peerings with update strategy UNSPECIFIED are created with\nupdate strategy INDEPENDENT."
+          ],
+          "type": "string",
+          "enum": [
+            "CONSENSUS",
+            "INDEPENDENT",
+            "UNSPECIFIED"
+          ]
+        }
+      }
+    },
+    "NetworkPeeringConnectionStatusConsensusState": {
+      "type": "object",
+      "properties": {
+        "deleteStatus": {
+          "type": "string",
+          "enum": [
+            "DELETE_ACKNOWLEDGED",
+            "DELETE_STATUS_UNSPECIFIED",
+            "LOCAL_CANCEL_REQUESTED",
+            "LOCAL_DELETE_REQUESTED",
+            "PEER_CANCEL_REQUESTED",
+            "PEER_DELETE_REQUESTED"
+          ],
+          "enumDescriptions": [
+            "Both network admins have agreed this consensus peering connection can\nbe deleted.",
+            "",
+            "The local network admin requested to cancel their delete request\nafter DELETE_ACKNOWLEDGED.",
+            "Network admin has requested deletion of this peering connection.",
+            "The peer network admin requested to cancel their delete request after\nDELETE_ACKNOWLEDGED.",
+            "The peer network admin has requested deletion of this peering\nconnection."
+          ]
+        },
+        "updateStatus": {
+          "type": "string",
+          "enum": [
+            "IN_SYNC",
+            "PENDING_LOCAL_ACKNOWLEDMENT",
+            "PENDING_PEER_ACKNOWLEDGEMENT",
+            "UPDATE_STATUS_UNSPECIFIED"
+          ],
+          "enumDescriptions": [
+            "No pending configuration update proposals to the  peering connection.",
+            "The peer network admin has made an updatePeering call. The change is\nawaiting acknowledgment from this peering's network admin.",
+            "The local network admin has made an updatePeering call. The change\nis awaiting acknowledgment from the peer network admin.",
+            ""
+          ]
+        }
+      },
+      "id": "NetworkPeeringConnectionStatusConsensusState"
+    },
+    "NetworkPeeringConnectionStatusTrafficConfiguration": {
+      "id": "NetworkPeeringConnectionStatusTrafficConfiguration",
+      "type": "object",
+      "properties": {
+        "importCustomRoutesFromPeer": {
+          "type": "boolean"
+        },
+        "stackType": {
+          "enumDescriptions": [
+            "This Peering will allow IPv4 traffic and routes to be\nexchanged. Additionally if the matching peering is\nIPV4_IPV6, IPv6 traffic and routes will be exchanged as\nwell.",
+            "This Peering will only allow IPv4 traffic and routes to be\nexchanged, even if the matching peering is IPV4_IPV6."
+          ],
+          "type": "string",
+          "enum": [
+            "IPV4_IPV6",
+            "IPV4_ONLY"
+          ]
+        },
+        "exportCustomRoutesToPeer": {
+          "type": "boolean"
+        },
+        "importSubnetRoutesWithPublicIpFromPeer": {
+          "type": "boolean"
+        },
+        "exportSubnetRoutesWithPublicIpToPeer": {
+          "type": "boolean"
         }
       }
     },
     "NetworkPerformanceConfig": {
-      "id": "NetworkPerformanceConfig",
+      "type": "object",
       "properties": {
         "totalEgressBandwidthTier": {
           "enumDescriptions": [
@@ -1226,10 +1668,69 @@
           ]
         }
       },
-      "type": "object"
+      "id": "NetworkPerformanceConfig"
+    },
+    "NetworkRoutingConfig": {
+      "type": "object",
+      "properties": {
+        "bgpBestPathSelectionMode": {
+          "enumDescriptions": [
+            "",
+            ""
+          ],
+          "type": "string",
+          "enum": [
+            "LEGACY",
+            "STANDARD"
+          ]
+        },
+        "effectiveBgpInterRegionCost": {
+          "type": "string",
+          "readOnly": true,
+          "enumDescriptions": [
+            "",
+            ""
+          ],
+          "enum": [
+            "ADD_COST_TO_MED",
+            "DEFAULT"
+          ]
+        },
+        "bgpAlwaysCompareMed": {
+          "type": "boolean"
+        },
+        "effectiveBgpAlwaysCompareMed": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "routingMode": {
+          "type": "string",
+          "enum": [
+            "GLOBAL",
+            "REGIONAL"
+          ],
+          "enumDescriptions": [
+            "",
+            ""
+          ]
+        },
+        "bgpInterRegionCost": {
+          "type": "string",
+          "enum": [
+            "ADD_COST_TO_MED",
+            "DEFAULT"
+          ],
+          "enumDescriptions": [
+            "",
+            ""
+          ]
+        }
+      },
+      "id": "NetworkRoutingConfig"
     },
     "ReservationAffinity": {
       "id": "ReservationAffinity",
+      "type": "object",
       "properties": {
         "key": {
           "type": "string"
@@ -1255,25 +1756,12 @@
             ""
           ]
         }
-      },
-      "type": "object"
+      }
     },
     "ResourceStatus": {
-      "type": "object",
       "id": "ResourceStatus",
+      "type": "object",
       "properties": {
-        "effectiveInstanceMetadata": {
-          "readOnly": true,
-          "$ref": "ResourceStatusEffectiveInstanceMetadata"
-        },
-        "physicalHostTopology": {
-          "readOnly": true,
-          "$ref": "ResourceStatusPhysicalHostTopology"
-        },
-        "reservationConsumptionInfo": {
-          "readOnly": true,
-          "$ref": "ResourceStatusReservationConsumptionInfo"
-        },
         "upcomingMaintenance": {
           "readOnly": true,
           "$ref": "UpcomingMaintenance"
@@ -1282,54 +1770,60 @@
           "readOnly": true,
           "type": "string"
         },
+        "reservationConsumptionInfo": {
+          "readOnly": true,
+          "$ref": "ResourceStatusReservationConsumptionInfo"
+        },
+        "physicalHostTopology": {
+          "readOnly": true,
+          "$ref": "ResourceStatusPhysicalHostTopology"
+        },
         "scheduling": {
           "$ref": "ResourceStatusScheduling"
+        },
+        "effectiveInstanceMetadata": {
+          "readOnly": true,
+          "$ref": "ResourceStatusEffectiveInstanceMetadata"
         }
       }
     },
     "ResourceStatusEffectiveInstanceMetadata": {
       "type": "object",
-      "id": "ResourceStatusEffectiveInstanceMetadata",
       "properties": {
-        "serialPortLoggingEnableMetadataValue": {
+        "serialPortEnableMetadataValue": {
           "type": "boolean"
         },
-        "serialPortEnableMetadataValue": {
+        "enableGuestAttributesMetadataValue": {
           "type": "boolean"
         },
         "blockProjectSshKeysMetadataValue": {
           "type": "boolean"
         },
-        "gceContainerDeclarationMetadataValue": {
+        "enableOsloginMetadataValue": {
           "type": "boolean"
         },
         "enableOsconfigMetadataValue": {
           "type": "boolean"
         },
-        "enableOsloginMetadataValue": {
-          "type": "boolean"
-        },
         "vmDnsSettingMetadataValue": {
           "type": "string"
         },
+        "serialPortLoggingEnableMetadataValue": {
+          "type": "boolean"
+        },
+        "gceContainerDeclarationMetadataValue": {
+          "type": "boolean"
+        },
         "enableOsInventoryMetadataValue": {
           "type": "boolean"
-        },
-        "enableGuestAttributesMetadataValue": {
-          "type": "boolean"
         }
-      }
+      },
+      "id": "ResourceStatusEffectiveInstanceMetadata"
     },
     "ResourceStatusPhysicalHostTopology": {
-      "id": "ResourceStatusPhysicalHostTopology",
+      "type": "object",
       "properties": {
-        "cluster": {
-          "type": "string"
-        },
         "host": {
-          "type": "string"
-        },
-        "block": {
           "type": "string"
         },
         "additionalAttributes": {
@@ -1338,50 +1832,64 @@
         },
         "subblock": {
           "type": "string"
+        },
+        "cluster": {
+          "type": "string"
+        },
+        "block": {
+          "type": "string"
         }
       },
-      "type": "object"
+      "id": "ResourceStatusPhysicalHostTopology"
     },
     "ResourceStatusPhysicalHostTopologyAdditionalAttributes": {
-      "id": "ResourceStatusPhysicalHostTopologyAdditionalAttributes",
+      "type": "object",
       "properties": {
         "acceleratorTopologyIds": {
-          "type": "object",
+          "readOnly": true,
           "additionalProperties": {
             "type": "string"
           },
-          "readOnly": true
+          "type": "object"
         }
       },
-      "type": "object"
+      "id": "ResourceStatusPhysicalHostTopologyAdditionalAttributes"
     },
     "ResourceStatusReservationConsumptionInfo": {
       "id": "ResourceStatusReservationConsumptionInfo",
+      "type": "object",
       "properties": {
         "consumedReservation": {
-          "readOnly": true,
-          "type": "string"
+          "type": "string",
+          "readOnly": true
         }
-      },
-      "type": "object"
+      }
     },
     "ResourceStatusScheduling": {
       "id": "ResourceStatusScheduling",
+      "type": "object",
       "properties": {
         "availabilityDomain": {
-          "format": "int32",
-          "type": "integer"
+          "type": "integer",
+          "format": "int32"
         }
-      },
-      "type": "object"
+      }
     },
     "Scheduling": {
-      "id": "Scheduling",
+      "type": "object",
       "properties": {
-        "terminationTime": {
-          "type": "string"
+        "onHostMaintenance": {
+          "type": "string",
+          "enum": [
+            "MIGRATE",
+            "TERMINATE"
+          ],
+          "enumDescriptions": [
+            "*[Default]* Allows Compute Engine to automatically migrate instances\nout of the way of maintenance events.",
+            "Tells Compute Engine to terminate and (optionally) restart the instance\naway from the maintenance activity. If you would like your instance to be\nrestarted, set the automaticRestart flag to true. Your\ninstance may be restarted more than once, and it may be restarted outside\nthe window of maintenance events."
+          ]
         },
-        "hostErrorTimeoutSeconds": {
+        "availabilityDomain": {
           "type": "integer",
           "format": "int32"
         },
@@ -1390,40 +1898,6 @@
           "items": {
             "$ref": "SchedulingNodeAffinity"
           }
-        },
-        "skipGuestOsShutdown": {
-          "type": "boolean"
-        },
-        "maxRunDuration": {
-          "$ref": "Duration"
-        },
-        "provisioningModel": {
-          "enumDescriptions": [
-            "Instance is provisioned using the Flex Start provisioning model and\nhas a limited runtime.",
-            "Bound to the lifecycle of the reservation in which it is provisioned.",
-            "Heavily discounted, no guaranteed runtime.",
-            "Standard provisioning with user controlled runtime, no discounts."
-          ],
-          "type": "string",
-          "enum": [
-            "FLEX_START",
-            "RESERVATION_BOUND",
-            "SPOT",
-            "STANDARD"
-          ]
-        },
-        "preemptible": {
-          "type": "boolean"
-        },
-        "onInstanceStopAction": {
-          "$ref": "SchedulingOnInstanceStopAction"
-        },
-        "locationHint": {
-          "type": "string"
-        },
-        "availabilityDomain": {
-          "format": "int32",
-          "type": "integer"
         },
         "instanceTerminationAction": {
           "type": "string",
@@ -1441,30 +1915,59 @@
         "localSsdRecoveryTimeout": {
           "$ref": "Duration"
         },
+        "terminationTime": {
+          "type": "string"
+        },
         "minNodeCpus": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "hostErrorTimeoutSeconds": {
           "format": "int32",
           "type": "integer"
+        },
+        "provisioningModel": {
+          "enumDescriptions": [
+            "Instance is provisioned using the Flex Start provisioning model and\nhas a limited runtime.",
+            "Bound to the lifecycle of the reservation in which it is provisioned.",
+            "Heavily discounted, no guaranteed runtime.",
+            "Standard provisioning with user controlled runtime, no discounts."
+          ],
+          "type": "string",
+          "enum": [
+            "FLEX_START",
+            "RESERVATION_BOUND",
+            "SPOT",
+            "STANDARD"
+          ]
+        },
+        "maxRunDuration": {
+          "$ref": "Duration"
         },
         "automaticRestart": {
           "type": "boolean"
         },
-        "onHostMaintenance": {
-          "enumDescriptions": [
-            "*[Default]* Allows Compute Engine to automatically migrate instances\nout of the way of maintenance events.",
-            "Tells Compute Engine to terminate and (optionally) restart the instance\naway from the maintenance activity. If you would like your instance to be\nrestarted, set the automaticRestart flag to true. Your\ninstance may be restarted more than once, and it may be restarted outside\nthe window of maintenance events."
-          ],
-          "type": "string",
-          "enum": [
-            "MIGRATE",
-            "TERMINATE"
-          ]
+        "onInstanceStopAction": {
+          "$ref": "SchedulingOnInstanceStopAction"
+        },
+        "locationHint": {
+          "type": "string"
+        },
+        "skipGuestOsShutdown": {
+          "type": "boolean"
+        },
+        "preemptible": {
+          "type": "boolean"
         }
       },
-      "type": "object"
+      "id": "Scheduling"
     },
     "SchedulingNodeAffinity": {
-      "id": "SchedulingNodeAffinity",
+      "type": "object",
       "properties": {
+        "key": {
+          "type": "string"
+        },
         "operator": {
           "enumDescriptions": [
             "Requires Compute Engine to seek for matched nodes.",
@@ -1478,110 +1981,435 @@
             "OPERATOR_UNSPECIFIED"
           ]
         },
-        "key": {
-          "type": "string"
-        },
         "values": {
+          "type": "array",
           "items": {
             "type": "string"
-          },
-          "type": "array"
+          }
         }
       },
-      "type": "object"
+      "id": "SchedulingNodeAffinity"
     },
     "SchedulingOnInstanceStopAction": {
       "id": "SchedulingOnInstanceStopAction",
+      "type": "object",
       "properties": {
         "discardLocalSsd": {
           "type": "boolean"
         }
-      },
-      "type": "object"
+      }
     },
     "ServiceAccount": {
-      "id": "ServiceAccount",
+      "type": "object",
       "properties": {
+        "email": {
+          "type": "string"
+        },
         "scopes": {
           "type": "array",
           "items": {
             "type": "string"
           }
-        },
-        "email": {
-          "type": "string"
         }
       },
-      "type": "object"
+      "id": "ServiceAccount"
     },
     "ShieldedInstanceConfig": {
       "id": "ShieldedInstanceConfig",
+      "type": "object",
       "properties": {
-        "enableVtpm": {
+        "enableIntegrityMonitoring": {
           "type": "boolean"
         },
         "enableSecureBoot": {
           "type": "boolean"
         },
-        "enableIntegrityMonitoring": {
+        "enableVtpm": {
           "type": "boolean"
         }
-      },
-      "type": "object"
+      }
     },
     "ShieldedInstanceIntegrityPolicy": {
       "id": "ShieldedInstanceIntegrityPolicy",
+      "type": "object",
       "properties": {
         "updateAutoLearnPolicy": {
           "type": "boolean"
         }
-      },
-      "type": "object"
+      }
     },
-    "Tags": {
-      "id": "Tags",
+    "Subnetwork": {
+      "id": "Subnetwork",
+      "type": "object",
       "properties": {
+        "internalIpv6Prefix": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "selfLink": {
+          "type": "string"
+        },
+        "allowSubnetCidrRoutesOverlap": {
+          "type": "boolean"
+        },
+        "kind": {
+          "type": "string",
+          "default": "compute#subnetwork",
+          "readOnly": true
+        },
+        "params": {
+          "$ref": "SubnetworkParams"
+        },
+        "resolveSubnetMask": {
+          "enumDescriptions": [
+            "All ranges assigned to the VM NIC will respond to ARP.",
+            "Only the primary range of the VM NIC will respond to ARP."
+          ],
+          "type": "string",
+          "enum": [
+            "ARP_ALL_RANGES",
+            "ARP_PRIMARY_RANGE"
+          ]
+        },
         "fingerprint": {
           "format": "byte",
           "type": "string"
         },
-        "items": {
+        "systemReservedInternalIpv6Ranges": {
           "type": "array",
-          "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true
+        },
+        "externalIpv6Prefix": {
+          "type": "string"
+        },
+        "ipv6GceEndpoint": {
+          "enum": [
+            "VM_AND_FR",
+            "VM_ONLY"
+          ],
+          "readOnly": true,
+          "enumDescriptions": [
+            "",
+            ""
+          ],
+          "type": "string"
+        },
+        "network": {
+          "type": "string"
+        },
+        "creationTimestamp": {
+          "type": "string",
+          "readOnly": true
+        },
+        "systemReservedExternalIpv6Ranges": {
+          "readOnly": true,
+          "type": "array",
           "items": {
             "type": "string"
           }
+        },
+        "ipv6CidrRange": {
+          "type": "string",
+          "readOnly": true
+        },
+        "privateIpv6GoogleAccess": {
+          "enumDescriptions": [
+            "Disable private IPv6 access to/from Google services.",
+            "Bidirectional private IPv6 access to/from Google services.",
+            "Outbound private IPv6 access from VMs in this subnet to Google services."
+          ],
+          "type": "string",
+          "enum": [
+            "DISABLE_GOOGLE_ACCESS",
+            "ENABLE_BIDIRECTIONAL_ACCESS_TO_GOOGLE",
+            "ENABLE_OUTBOUND_VM_ACCESS_TO_GOOGLE"
+          ]
+        },
+        "purpose": {
+          "enumDescriptions": [
+            "Subnet reserved for Global Envoy-based Load Balancing.",
+            "Subnet reserved for Internal HTTP(S) Load Balancing. This is a legacy\npurpose, please use REGIONAL_MANAGED_PROXY instead.",
+            "Subnetwork will be used for Migration from one peered VPC to another.\n(a transient state of subnetwork\nwhile migrating resources from one project to another).",
+            "Regular user created or automatically created subnet.",
+            "Subnetwork used as source range for Private NAT Gateways.",
+            "Regular user created or automatically created subnet.",
+            "Subnetworks created for Private Service Connect in the producer network.",
+            "Subnetwork used for Regional Envoy-based Load Balancing."
+          ],
+          "type": "string",
+          "enum": [
+            "GLOBAL_MANAGED_PROXY",
+            "INTERNAL_HTTPS_LOAD_BALANCER",
+            "PEER_MIGRATION",
+            "PRIVATE",
+            "PRIVATE_NAT",
+            "PRIVATE_RFC_1918",
+            "PRIVATE_SERVICE_CONNECT",
+            "REGIONAL_MANAGED_PROXY"
+          ]
+        },
+        "name": {
+          "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+          "type": "string"
+        },
+        "ipv6AccessType": {
+          "enumDescriptions": [
+            "VMs on this subnet will be assigned IPv6 addresses that are accessible\nvia the Internet, as well as the VPC network.",
+            "VMs on this subnet will be assigned IPv6 addresses that are only\naccessible over the VPC network."
+          ],
+          "type": "string",
+          "enum": [
+            "EXTERNAL",
+            "INTERNAL"
+          ]
+        },
+        "ipCollection": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "BACKUP"
+          ],
+          "enumDescriptions": [
+            "The ACTIVE subnet that is currently used.",
+            "The BACKUP subnet that could be promoted to ACTIVE."
+          ]
+        },
+        "reservedInternalRange": {
+          "type": "string"
+        },
+        "utilizationDetails": {
+          "readOnly": true,
+          "$ref": "SubnetworkUtilizationDetails"
+        },
+        "privateIpGoogleAccess": {
+          "type": "boolean"
+        },
+        "stackType": {
+          "type": "string",
+          "enum": [
+            "IPV4_IPV6",
+            "IPV4_ONLY",
+            "IPV6_ONLY"
+          ],
+          "enumDescriptions": [
+            "New VMs in this subnet can have both IPv4 and IPv6 addresses.",
+            "New VMs in this subnet will only be assigned IPv4 addresses.",
+            "New VMs in this subnet will only  be assigned IPv6 addresses."
+          ]
+        },
+        "state": {
+          "enum": [
+            "DRAINING",
+            "READY"
+          ],
+          "readOnly": true,
+          "enumDescriptions": [
+            "Subnetwork is being drained.",
+            "Subnetwork is ready for use."
+          ],
+          "type": "string"
+        },
+        "secondaryIpRanges": {
+          "type": "array",
+          "items": {
+            "$ref": "SubnetworkSecondaryRange"
+          }
+        },
+        "gatewayAddress": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "id": {
+          "type": "string",
+          "readOnly": true,
+          "format": "uint64"
+        },
+        "enableFlowLogs": {
+          "type": "boolean"
+        },
+        "logConfig": {
+          "$ref": "SubnetworkLogConfig"
+        },
+        "ipCidrRange": {
+          "type": "string"
+        }
+      }
+    },
+    "SubnetworkLogConfig": {
+      "id": "SubnetworkLogConfig",
+      "type": "object",
+      "properties": {
+        "filterExpr": {
+          "type": "string"
+        },
+        "flowSampling": {
+          "format": "float",
+          "type": "number"
+        },
+        "metadata": {
+          "enumDescriptions": [
+            "",
+            "",
+            ""
+          ],
+          "type": "string",
+          "enum": [
+            "CUSTOM_METADATA",
+            "EXCLUDE_ALL_METADATA",
+            "INCLUDE_ALL_METADATA"
+          ]
+        },
+        "aggregationInterval": {
+          "type": "string",
+          "enum": [
+            "INTERVAL_10_MIN",
+            "INTERVAL_15_MIN",
+            "INTERVAL_1_MIN",
+            "INTERVAL_30_SEC",
+            "INTERVAL_5_MIN",
+            "INTERVAL_5_SEC"
+          ],
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        "metadataFields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "SubnetworkParams": {
+      "id": "SubnetworkParams",
+      "type": "object",
+      "properties": {
+        "resourceManagerTags": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      }
+    },
+    "SubnetworkSecondaryRange": {
+      "id": "SubnetworkSecondaryRange",
+      "type": "object",
+      "properties": {
+        "rangeName": {
+          "type": "string"
+        },
+        "reservedInternalRange": {
+          "type": "string"
+        },
+        "ipCidrRange": {
+          "type": "string"
+        }
+      }
+    },
+    "SubnetworkUtilizationDetails": {
+      "type": "object",
+      "properties": {
+        "internalIpv6Utilization": {
+          "$ref": "SubnetworkUtilizationDetailsIPV6Utilization"
+        },
+        "externalIpv6LbUtilization": {
+          "$ref": "SubnetworkUtilizationDetailsIPV6Utilization"
+        },
+        "ipv4Utilizations": {
+          "type": "array",
+          "items": {
+            "$ref": "SubnetworkUtilizationDetailsIPV4Utilization"
+          }
+        },
+        "externalIpv6InstanceUtilization": {
+          "$ref": "SubnetworkUtilizationDetailsIPV6Utilization"
         }
       },
-      "type": "object"
+      "id": "SubnetworkUtilizationDetails"
+    },
+    "SubnetworkUtilizationDetailsIPV4Utilization": {
+      "type": "object",
+      "properties": {
+        "totalAllocatedIp": {
+          "type": "string",
+          "format": "int64"
+        },
+        "rangeName": {
+          "type": "string"
+        },
+        "totalFreeIp": {
+          "format": "int64",
+          "type": "string"
+        }
+      },
+      "id": "SubnetworkUtilizationDetailsIPV4Utilization"
+    },
+    "SubnetworkUtilizationDetailsIPV6Utilization": {
+      "id": "SubnetworkUtilizationDetailsIPV6Utilization",
+      "type": "object",
+      "properties": {
+        "totalAllocatedIp": {
+          "$ref": "Uint128"
+        },
+        "totalFreeIp": {
+          "$ref": "Uint128"
+        }
+      }
+    },
+    "Tags": {
+      "id": "Tags",
+      "type": "object",
+      "properties": {
+        "items": {
+          "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fingerprint": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "Uint128": {
+      "id": "Uint128",
+      "type": "object",
+      "properties": {
+        "high": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "low": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
     },
     "UpcomingMaintenance": {
-      "id": "UpcomingMaintenance",
+      "type": "object",
       "properties": {
         "canReschedule": {
           "type": "boolean"
-        },
-        "windowEndTime": {
-          "type": "string"
-        },
-        "latestWindowStartTime": {
-          "type": "string"
-        },
-        "maintenanceStatus": {
-          "type": "string",
-          "enum": [
-            "ONGOING",
-            "PENDING",
-            "UNKNOWN"
-          ],
-          "enumDescriptions": [
-            "There is ongoing maintenance on this VM.",
-            "There is pending maintenance.",
-            "Unknown maintenance status. Do not use this value."
-          ]
-        },
-        "windowStartTime": {
-          "type": "string"
         },
         "maintenanceReasons": {
           "type": "array",
@@ -1627,6 +2455,28 @@
             ]
           }
         },
+        "latestWindowStartTime": {
+          "type": "string"
+        },
+        "maintenanceStatus": {
+          "type": "string",
+          "enum": [
+            "ONGOING",
+            "PENDING",
+            "UNKNOWN"
+          ],
+          "enumDescriptions": [
+            "There is ongoing maintenance on this VM.",
+            "There is pending maintenance.",
+            "Unknown maintenance status. Do not use this value."
+          ]
+        },
+        "windowStartTime": {
+          "type": "string"
+        },
+        "windowEndTime": {
+          "type": "string"
+        },
         "type": {
           "type": "string",
           "enum": [
@@ -1646,19 +2496,19 @@
           "type": "boolean"
         }
       },
-      "type": "object"
+      "id": "UpcomingMaintenance"
     },
     "WorkloadIdentityConfig": {
-      "id": "WorkloadIdentityConfig",
+      "type": "object",
       "properties": {
-        "identity": {
-          "type": "string"
-        },
         "identityCertificateEnabled": {
           "type": "boolean"
+        },
+        "identity": {
+          "type": "string"
         }
       },
-      "type": "object"
+      "id": "WorkloadIdentityConfig"
     }
   }
 }

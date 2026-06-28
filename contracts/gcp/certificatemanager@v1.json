@@ -1,0 +1,343 @@
+{
+  "discoveryVersion": "v1",
+  "name": "certificatemanager",
+  "version": "v1",
+  "x-slice": "response-schema closure consumed by internal/sources/gcp",
+  "schemas": {
+    "AuthorizationAttemptInfo": {
+      "id": "AuthorizationAttemptInfo",
+      "type": "object",
+      "properties": {
+        "state": {
+          "enumDescriptions": [
+            "State is unspecified.",
+            "Certificate provisioning for this domain is under way. Google Cloud will attempt to authorize the domain.",
+            "A managed certificate can be provisioned, no issues for this domain.",
+            "Attempt to authorize the domain failed. This prevents the Managed Certificate from being issued. See `failure_reason` and `details` fields for more information."
+          ],
+          "type": "string",
+          "enum": [
+            "STATE_UNSPECIFIED",
+            "AUTHORIZING",
+            "AUTHORIZED",
+            "FAILED"
+          ],
+          "readOnly": true
+        },
+        "failureReason": {
+          "enum": [
+            "FAILURE_REASON_UNSPECIFIED",
+            "CONFIG",
+            "CAA",
+            "RATE_LIMITED"
+          ],
+          "type": "string",
+          "readOnly": true,
+          "enumDescriptions": [
+            "FailureReason is unspecified.",
+            "There was a problem with the user's DNS or load balancer configuration for this domain.",
+            "Certificate issuance forbidden by an explicit CAA record for the domain or a failure to check CAA records for the domain.",
+            "Reached a CA or internal rate-limit for the domain, e.g. for certificates per top-level private domain."
+          ]
+        },
+        "troubleshooting": {
+          "readOnly": true,
+          "$ref": "Troubleshooting"
+        },
+        "attemptTime": {
+          "readOnly": true,
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "domain": {
+          "type": "string",
+          "readOnly": true
+        },
+        "details": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "CNAME": {
+      "id": "CNAME",
+      "type": "object",
+      "properties": {
+        "resolvedData": {
+          "type": "array",
+          "readOnly": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "expectedData": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "Certificate": {
+      "type": "object",
+      "properties": {
+        "updateTime": {
+          "readOnly": true,
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "expireTime": {
+          "readOnly": true,
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "sanDnsnames": {
+          "type": "array",
+          "readOnly": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "DEFAULT",
+            "EDGE_CACHE",
+            "ALL_REGIONS",
+            "CLIENT_AUTH"
+          ],
+          "enumDescriptions": [
+            "Use the DEFAULT scope if you plan to use the certificate with global external Application Load Balancer, global external proxy Network Load Balancer, or any of the regional Google Cloud services.",
+            "Use the EDGE_CACHE scope if you plan to use the certificate with Media CDN. The certificates are served from Edge Points of Presence. See https://cloud.google.com/vpc/docs/edge-locations.",
+            "Use the ALL_REGIONS scope if you plan to use the certificate with cross-region internal Application Load Balancer. The certificates are served from all Google Cloud regions. See https://cloud.google.com/compute/docs/regions-zones.",
+            "Associated with certificates used as client certificates in Backend mTLS."
+          ]
+        },
+        "managedIdentity": {
+          "$ref": "ManagedIdentityCertificate"
+        },
+        "usedBy": {
+          "readOnly": true,
+          "items": {
+            "$ref": "UsedBy"
+          },
+          "type": "array"
+        },
+        "createTime": {
+          "type": "string",
+          "format": "google-datetime",
+          "readOnly": true
+        },
+        "pemCertificate": {
+          "type": "string",
+          "readOnly": true
+        },
+        "name": {
+          "type": "string"
+        },
+        "managed": {
+          "$ref": "ManagedCertificate"
+        },
+        "selfManaged": {
+          "$ref": "SelfManagedCertificate"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "id": "Certificate"
+    },
+    "IPs": {
+      "type": "object",
+      "properties": {
+        "serving": {
+          "type": "array",
+          "readOnly": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "servingOnAltPorts": {
+          "readOnly": true,
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "resolved": {
+          "readOnly": true,
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "id": "IPs"
+    },
+    "ManagedCertificate": {
+      "type": "object",
+      "properties": {
+        "dnsAuthorizations": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "state": {
+          "enumDescriptions": [
+            "State is unspecified.",
+            "Certificate Manager attempts to provision or renew the certificate. If the process takes longer than expected, consult the `provisioning_issue` field.",
+            "Multiple certificate provisioning attempts failed and Certificate Manager gave up. To try again, delete and create a new managed Certificate resource. For details see the `provisioning_issue` field.",
+            "The certificate management is working, and a certificate has been provisioned."
+          ],
+          "enum": [
+            "STATE_UNSPECIFIED",
+            "PROVISIONING",
+            "FAILED",
+            "ACTIVE"
+          ],
+          "type": "string",
+          "readOnly": true
+        },
+        "domains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "issuanceConfig": {
+          "type": "string"
+        },
+        "provisioningIssue": {
+          "readOnly": true,
+          "$ref": "ProvisioningIssue"
+        },
+        "authorizationAttemptInfo": {
+          "readOnly": true,
+          "items": {
+            "$ref": "AuthorizationAttemptInfo"
+          },
+          "type": "array"
+        }
+      },
+      "id": "ManagedCertificate"
+    },
+    "ManagedIdentityCertificate": {
+      "id": "ManagedIdentityCertificate",
+      "type": "object",
+      "properties": {
+        "identity": {
+          "type": "string"
+        },
+        "state": {
+          "enumDescriptions": [
+            "State is unspecified.",
+            "Certificate Manager attempts to provision or renew the certificate. If the process takes longer than expected, consult the `provisioning_issue` field.",
+            "Multiple certificate provisioning attempts failed and Certificate Manager gave up. To try again, delete and create a new managed Certificate resource. For details see the `provisioning_issue` field.",
+            "The certificate management is working, and a certificate has been provisioned."
+          ],
+          "readOnly": true,
+          "type": "string",
+          "enum": [
+            "STATE_UNSPECIFIED",
+            "PROVISIONING",
+            "FAILED",
+            "ACTIVE"
+          ]
+        },
+        "provisioningIssue": {
+          "readOnly": true,
+          "$ref": "ProvisioningIssue"
+        }
+      }
+    },
+    "ProvisioningIssue": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "enumDescriptions": [
+            "Reason is unspecified.",
+            "Certificate provisioning failed due to an issue with one or more of the domains on the certificate. For details of which domains failed, consult the `authorization_attempt_info` field.",
+            "Exceeded Certificate Authority quotas or internal rate limits of the system. Provisioning may take longer to complete."
+          ],
+          "readOnly": true,
+          "enum": [
+            "REASON_UNSPECIFIED",
+            "AUTHORIZATION_ISSUE",
+            "RATE_LIMITED"
+          ],
+          "type": "string"
+        },
+        "details": {
+          "readOnly": true,
+          "type": "string"
+        }
+      },
+      "id": "ProvisioningIssue"
+    },
+    "SelfManagedCertificate": {
+      "id": "SelfManagedCertificate",
+      "type": "object",
+      "properties": {
+        "pemCertificate": {
+          "type": "string"
+        },
+        "pemPrivateKey": {
+          "type": "string"
+        }
+      }
+    },
+    "Troubleshooting": {
+      "id": "Troubleshooting",
+      "type": "object",
+      "properties": {
+        "issues": {
+          "type": "array",
+          "readOnly": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "ISSUE_UNSPECIFIED",
+              "CNAME_MISMATCH",
+              "RESOLVED_TO_NOT_SERVING",
+              "RESOLVED_TO_SERVING_ON_ALT_PORTS",
+              "NO_RESOLVED_IPS",
+              "CERTIFICATE_NOT_ATTACHED"
+            ],
+            "enumDescriptions": [
+              "Issue is unspecified.",
+              "The resolved CNAME value doesn't match the expected CNAME.",
+              "Domain has A/AAAA records that point to IPs, where the certificate is not attached.",
+              "Domain has A/AAAA records that point to IPs, where the certificate is attached, but port 443 is not open.",
+              "Domain doesn't have any A/AAAA records.",
+              "Certificate is not configured to be served from any IPs (e.g. Certificate is not attached to any load balancer)."
+            ]
+          }
+        },
+        "cname": {
+          "readOnly": true,
+          "$ref": "CNAME"
+        },
+        "ips": {
+          "readOnly": true,
+          "$ref": "IPs"
+        }
+      }
+    },
+    "UsedBy": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "readOnly": true
+        }
+      },
+      "id": "UsedBy"
+    }
+  }
+}

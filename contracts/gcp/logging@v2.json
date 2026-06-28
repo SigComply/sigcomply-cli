@@ -1,0 +1,121 @@
+{
+  "discoveryVersion": "v1",
+  "name": "logging",
+  "version": "v2",
+  "x-slice": "response-schema closure consumed by internal/sources/gcp",
+  "schemas": {
+    "CmekSettings": {
+      "properties": {
+        "kmsKeyName": {
+          "type": "string"
+        },
+        "kmsKeyVersionName": {
+          "type": "string",
+          "readOnly": true
+        },
+        "serviceAccountId": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "name": {
+          "readOnly": true,
+          "type": "string"
+        }
+      },
+      "id": "CmekSettings",
+      "type": "object"
+    },
+    "IndexConfig": {
+      "properties": {
+        "type": {
+          "enum": [
+            "INDEX_TYPE_UNSPECIFIED",
+            "INDEX_TYPE_STRING",
+            "INDEX_TYPE_INTEGER"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "The index's type is unspecified.",
+            "The index is a string-type index.",
+            "The index is a integer-type index."
+          ]
+        },
+        "createTime": {
+          "format": "google-datetime",
+          "type": "string",
+          "readOnly": true
+        },
+        "fieldPath": {
+          "type": "string"
+        }
+      },
+      "id": "IndexConfig",
+      "type": "object"
+    },
+    "LogBucket": {
+      "id": "LogBucket",
+      "type": "object",
+      "properties": {
+        "restrictedFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "name": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "analyticsEnabled": {
+          "type": "boolean"
+        },
+        "indexConfigs": {
+          "items": {
+            "$ref": "IndexConfig"
+          },
+          "type": "array"
+        },
+        "cmekSettings": {
+          "$ref": "CmekSettings"
+        },
+        "updateTime": {
+          "readOnly": true,
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "retentionDays": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "lifecycleState": {
+          "enum": [
+            "LIFECYCLE_STATE_UNSPECIFIED",
+            "ACTIVE",
+            "DELETE_REQUESTED",
+            "UPDATING",
+            "CREATING",
+            "FAILED"
+          ],
+          "readOnly": true,
+          "type": "string",
+          "enumDescriptions": [
+            "Unspecified state. This is only used/useful for distinguishing unset values.",
+            "The normal and active state.",
+            "The resource has been marked for deletion by the user. For some resources (e.g. buckets), this can be reversed by an un-delete operation.",
+            "The resource has been marked for an update by the user. It will remain in this state until the update is complete.",
+            "The resource has been marked for creation by the user. It will remain in this state until the creation is complete.",
+            "The resource is in an INTERNAL error state."
+          ]
+        },
+        "createTime": {
+          "type": "string",
+          "readOnly": true,
+          "format": "google-datetime"
+        }
+      }
+    }
+  }
+}

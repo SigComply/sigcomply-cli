@@ -1,0 +1,255 @@
+{
+  "discoveryVersion": "v1",
+  "name": "admin",
+  "version": "directory_v1",
+  "x-slice": "response-schema closure consumed by internal/sources/gcp",
+  "schemas": {
+    "GuestAccountInfo": {
+      "properties": {
+        "primaryGuestEmail": {
+          "type": "string"
+        }
+      },
+      "id": "GuestAccountInfo",
+      "type": "object"
+    },
+    "User": {
+      "type": "object",
+      "id": "User",
+      "properties": {
+        "lastLoginTime": {
+          "format": "date-time",
+          "readOnly": true,
+          "type": "string"
+        },
+        "ims": {
+          "type": "any"
+        },
+        "archivalTime": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "isAdmin": {
+          "readOnly": true,
+          "type": "boolean"
+        },
+        "creationTime": {
+          "format": "date-time",
+          "readOnly": true,
+          "type": "string"
+        },
+        "isMailboxSetup": {
+          "readOnly": true,
+          "type": "boolean"
+        },
+        "deletionTime": {
+          "format": "date-time",
+          "readOnly": true,
+          "type": "string"
+        },
+        "emails": {
+          "type": "any"
+        },
+        "customerId": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "aliases": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "websites": {
+          "type": "any"
+        },
+        "gender": {
+          "type": "any"
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "languages": {
+          "type": "any"
+        },
+        "id": {
+          "type": "string"
+        },
+        "thumbnailPhotoUrl": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "default": "admin#directory#user",
+          "readOnly": true
+        },
+        "customSchemas": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "UserCustomProperties"
+          }
+        },
+        "sshPublicKeys": {
+          "type": "any"
+        },
+        "isEnforcedIn2Sv": {
+          "readOnly": true,
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "any"
+        },
+        "includeInGlobalAddressList": {
+          "type": "boolean"
+        },
+        "posixAccounts": {
+          "type": "any"
+        },
+        "name": {
+          "$ref": "UserName",
+          "annotations": {
+            "required": [
+              "directory.users.insert"
+            ]
+          }
+        },
+        "recoveryEmail": {
+          "type": "string"
+        },
+        "suspensionTime": {
+          "type": "string",
+          "readOnly": true
+        },
+        "addresses": {
+          "type": "any"
+        },
+        "recoveryPhone": {
+          "type": "string"
+        },
+        "keywords": {
+          "type": "any"
+        },
+        "changePasswordAtNextLogin": {
+          "type": "boolean"
+        },
+        "externalIds": {
+          "type": "any"
+        },
+        "organizations": {
+          "type": "any"
+        },
+        "suspended": {
+          "type": "boolean"
+        },
+        "thumbnailPhotoEtag": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "primaryEmail": {
+          "type": "string",
+          "annotations": {
+            "required": [
+              "directory.users.insert"
+            ]
+          }
+        },
+        "suspensionReason": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "nonEditableAliases": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "password": {
+          "type": "string",
+          "annotations": {
+            "required": [
+              "directory.users.insert"
+            ]
+          }
+        },
+        "agreedToTerms": {
+          "readOnly": true,
+          "type": "boolean"
+        },
+        "phones": {
+          "type": "any"
+        },
+        "isDelegatedAdmin": {
+          "readOnly": true,
+          "type": "boolean"
+        },
+        "locations": {
+          "type": "any"
+        },
+        "hashFunction": {
+          "type": "string"
+        },
+        "isEnrolledIn2Sv": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "ipWhitelisted": {
+          "type": "boolean"
+        },
+        "relations": {
+          "type": "any"
+        },
+        "etag": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "orgUnitPath": {
+          "type": "string"
+        },
+        "guestAccountInfo": {
+          "$ref": "GuestAccountInfo"
+        },
+        "isGuestUser": {
+          "type": "boolean"
+        }
+      }
+    },
+    "UserCustomProperties": {
+      "id": "UserCustomProperties",
+      "additionalProperties": {
+        "type": "any"
+      },
+      "type": "object"
+    },
+    "UserName": {
+      "id": "UserName",
+      "properties": {
+        "fullName": {
+          "type": "string"
+        },
+        "familyName": {
+          "annotations": {
+            "required": [
+              "directory.users.insert"
+            ]
+          },
+          "type": "string"
+        },
+        "givenName": {
+          "annotations": {
+            "required": [
+              "directory.users.insert"
+            ]
+          },
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  }
+}

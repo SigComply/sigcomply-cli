@@ -1,0 +1,726 @@
+{
+  "discoveryVersion": "v1",
+  "name": "artifactregistry",
+  "version": "v1",
+  "x-slice": "response-schema closure consumed by internal/sources/gcp",
+  "schemas": {
+    "AptRepository": {
+      "type": "object",
+      "id": "AptRepository",
+      "properties": {
+        "customRepository": {
+          "$ref": "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigAptRepositoryCustomRepository"
+        },
+        "publicRepository": {
+          "$ref": "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigAptRepositoryPublicRepository"
+        }
+      }
+    },
+    "Binding": {
+      "id": "Binding",
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "condition": {
+          "$ref": "Expr"
+        }
+      }
+    },
+    "CleanupPolicy": {
+      "type": "object",
+      "id": "CleanupPolicy",
+      "properties": {
+        "mostRecentVersions": {
+          "$ref": "CleanupPolicyMostRecentVersions"
+        },
+        "id": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "ACTION_UNSPECIFIED",
+            "DELETE",
+            "KEEP"
+          ],
+          "enumDescriptions": [
+            "Action not specified.",
+            "Delete action.",
+            "Keep action."
+          ]
+        },
+        "condition": {
+          "$ref": "CleanupPolicyCondition"
+        }
+      }
+    },
+    "CleanupPolicyCondition": {
+      "properties": {
+        "tagState": {
+          "type": "string",
+          "enum": [
+            "TAG_STATE_UNSPECIFIED",
+            "TAGGED",
+            "UNTAGGED",
+            "ANY"
+          ],
+          "enumDescriptions": [
+            "Tag status not specified.",
+            "Applies to tagged versions only.",
+            "Applies to untagged versions only.",
+            "Applies to all versions."
+          ]
+        },
+        "newerThan": {
+          "type": "string",
+          "format": "google-duration"
+        },
+        "tagPrefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "packageNamePrefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "versionNamePrefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "olderThan": {
+          "type": "string",
+          "format": "google-duration"
+        }
+      },
+      "type": "object",
+      "id": "CleanupPolicyCondition"
+    },
+    "CleanupPolicyMostRecentVersions": {
+      "type": "object",
+      "id": "CleanupPolicyMostRecentVersions",
+      "properties": {
+        "packageNamePrefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "keepCount": {
+          "format": "int32",
+          "type": "integer"
+        }
+      }
+    },
+    "CommonRemoteRepository": {
+      "properties": {
+        "uri": {
+          "type": "string"
+        }
+      },
+      "id": "CommonRemoteRepository",
+      "type": "object"
+    },
+    "DockerRepository": {
+      "type": "object",
+      "id": "DockerRepository",
+      "properties": {
+        "publicRepository": {
+          "enumDescriptions": [
+            "Unspecified repository.",
+            "Docker Hub."
+          ],
+          "type": "string",
+          "enum": [
+            "PUBLIC_REPOSITORY_UNSPECIFIED",
+            "DOCKER_HUB"
+          ]
+        },
+        "customRepository": {
+          "$ref": "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigDockerRepositoryCustomRepository"
+        }
+      }
+    },
+    "DockerRepositoryConfig": {
+      "properties": {
+        "immutableTags": {
+          "type": "boolean"
+        }
+      },
+      "type": "object",
+      "id": "DockerRepositoryConfig"
+    },
+    "Expr": {
+      "properties": {
+        "expression": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        }
+      },
+      "id": "Expr",
+      "type": "object"
+    },
+    "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigAptRepositoryCustomRepository": {
+      "properties": {
+        "uri": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "id": "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigAptRepositoryCustomRepository"
+    },
+    "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigAptRepositoryPublicRepository": {
+      "id": "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigAptRepositoryPublicRepository",
+      "type": "object",
+      "properties": {
+        "repositoryPath": {
+          "type": "string"
+        },
+        "repositoryBase": {
+          "enumDescriptions": [
+            "Unspecified repository base.",
+            "Debian.",
+            "Ubuntu LTS/Pro.",
+            "Archived Debian."
+          ],
+          "type": "string",
+          "enum": [
+            "REPOSITORY_BASE_UNSPECIFIED",
+            "DEBIAN",
+            "UBUNTU",
+            "DEBIAN_SNAPSHOT"
+          ]
+        }
+      }
+    },
+    "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigDockerRepositoryCustomRepository": {
+      "properties": {
+        "uri": {
+          "type": "string"
+        }
+      },
+      "id": "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigDockerRepositoryCustomRepository",
+      "type": "object"
+    },
+    "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigMavenRepositoryCustomRepository": {
+      "type": "object",
+      "id": "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigMavenRepositoryCustomRepository",
+      "properties": {
+        "uri": {
+          "type": "string"
+        }
+      }
+    },
+    "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigNpmRepositoryCustomRepository": {
+      "id": "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigNpmRepositoryCustomRepository",
+      "type": "object",
+      "properties": {
+        "uri": {
+          "type": "string"
+        }
+      }
+    },
+    "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigPythonRepositoryCustomRepository": {
+      "properties": {
+        "uri": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "id": "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigPythonRepositoryCustomRepository"
+    },
+    "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigYumRepositoryCustomRepository": {
+      "properties": {
+        "uri": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "id": "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigYumRepositoryCustomRepository"
+    },
+    "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigYumRepositoryPublicRepository": {
+      "id": "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigYumRepositoryPublicRepository",
+      "type": "object",
+      "properties": {
+        "repositoryBase": {
+          "enumDescriptions": [
+            "Unspecified repository base.",
+            "CentOS.",
+            "CentOS Debug.",
+            "CentOS Vault.",
+            "CentOS Stream.",
+            "Rocky.",
+            "Fedora Extra Packages for Enterprise Linux (EPEL)."
+          ],
+          "type": "string",
+          "enum": [
+            "REPOSITORY_BASE_UNSPECIFIED",
+            "CENTOS",
+            "CENTOS_DEBUG",
+            "CENTOS_VAULT",
+            "CENTOS_STREAM",
+            "ROCKY",
+            "EPEL"
+          ]
+        },
+        "repositoryPath": {
+          "type": "string"
+        }
+      }
+    },
+    "Location": {
+      "type": "object",
+      "id": "Location",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "metadata": {
+          "additionalProperties": {
+            "type": "any"
+          },
+          "type": "object"
+        },
+        "locationId": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        }
+      }
+    },
+    "MavenRepository": {
+      "id": "MavenRepository",
+      "type": "object",
+      "properties": {
+        "customRepository": {
+          "$ref": "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigMavenRepositoryCustomRepository"
+        },
+        "publicRepository": {
+          "type": "string",
+          "enum": [
+            "PUBLIC_REPOSITORY_UNSPECIFIED",
+            "MAVEN_CENTRAL"
+          ],
+          "enumDescriptions": [
+            "Unspecified repository.",
+            "Maven Central."
+          ]
+        }
+      }
+    },
+    "MavenRepositoryConfig": {
+      "id": "MavenRepositoryConfig",
+      "type": "object",
+      "properties": {
+        "allowSnapshotOverwrites": {
+          "type": "boolean"
+        },
+        "versionPolicy": {
+          "type": "string",
+          "enum": [
+            "VERSION_POLICY_UNSPECIFIED",
+            "RELEASE",
+            "SNAPSHOT"
+          ],
+          "enumDescriptions": [
+            "VERSION_POLICY_UNSPECIFIED - the version policy is not defined. When the version policy is not defined, no validation is performed for the versions.",
+            "RELEASE - repository will accept only Release versions.",
+            "SNAPSHOT - repository will accept only Snapshot versions."
+          ]
+        }
+      }
+    },
+    "NpmRepository": {
+      "type": "object",
+      "id": "NpmRepository",
+      "properties": {
+        "publicRepository": {
+          "type": "string",
+          "enum": [
+            "PUBLIC_REPOSITORY_UNSPECIFIED",
+            "NPMJS"
+          ],
+          "enumDescriptions": [
+            "Unspecified repository.",
+            "npmjs."
+          ]
+        },
+        "customRepository": {
+          "$ref": "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigNpmRepositoryCustomRepository"
+        }
+      }
+    },
+    "PlatformLogsConfig": {
+      "id": "PlatformLogsConfig",
+      "type": "object",
+      "properties": {
+        "loggingState": {
+          "enumDescriptions": [
+            "Platform logs settings for the parent resource haven't been set. This is the default state or when the user clears the settings for the parent.",
+            "Platform logs are enabled.",
+            "Platform logs are disabled."
+          ],
+          "type": "string",
+          "enum": [
+            "LOGGING_STATE_UNSPECIFIED",
+            "ENABLED",
+            "DISABLED"
+          ]
+        },
+        "severityLevel": {
+          "enumDescriptions": [
+            "No severity level specified, meaning everything is being logged.",
+            "Debug or trace information.",
+            "Routine information, such as ongoing status or performance.",
+            "Normal but significant events, such as start up, shut down, or a configuration change.",
+            "Warning events that might cause problems.",
+            "Error events that are likely to cause problems.",
+            "Critical events that cause more severe problems or outages.",
+            "Alert events that require a person must take an action immediately.",
+            "One or more systems are unusable."
+          ],
+          "type": "string",
+          "enum": [
+            "SEVERITY_LEVEL_UNSPECIFIED",
+            "DEBUG",
+            "INFO",
+            "NOTICE",
+            "WARNING",
+            "ERROR",
+            "CRITICAL",
+            "ALERT",
+            "EMERGENCY"
+          ]
+        }
+      }
+    },
+    "Policy": {
+      "properties": {
+        "bindings": {
+          "items": {
+            "$ref": "Binding"
+          },
+          "type": "array"
+        },
+        "version": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "etag": {
+          "format": "byte",
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "id": "Policy"
+    },
+    "PythonRepository": {
+      "properties": {
+        "customRepository": {
+          "$ref": "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigPythonRepositoryCustomRepository"
+        },
+        "publicRepository": {
+          "enumDescriptions": [
+            "Unspecified repository.",
+            "PyPI."
+          ],
+          "type": "string",
+          "enum": [
+            "PUBLIC_REPOSITORY_UNSPECIFIED",
+            "PYPI"
+          ]
+        }
+      },
+      "id": "PythonRepository",
+      "type": "object"
+    },
+    "RemoteRepositoryConfig": {
+      "properties": {
+        "commonRepository": {
+          "$ref": "CommonRemoteRepository"
+        },
+        "pythonRepository": {
+          "$ref": "PythonRepository"
+        },
+        "dockerRepository": {
+          "$ref": "DockerRepository"
+        },
+        "aptRepository": {
+          "$ref": "AptRepository"
+        },
+        "yumRepository": {
+          "$ref": "YumRepository"
+        },
+        "mavenRepository": {
+          "$ref": "MavenRepository"
+        },
+        "disableUpstreamValidation": {
+          "type": "boolean"
+        },
+        "npmRepository": {
+          "$ref": "NpmRepository"
+        },
+        "upstreamCredentials": {
+          "$ref": "UpstreamCredentials"
+        }
+      },
+      "type": "object",
+      "id": "RemoteRepositoryConfig"
+    },
+    "Repository": {
+      "properties": {
+        "cleanupPolicyDryRun": {
+          "type": "boolean"
+        },
+        "disallowUnspecifiedMode": {
+          "type": "boolean"
+        },
+        "cleanupPolicies": {
+          "additionalProperties": {
+            "$ref": "CleanupPolicy"
+          },
+          "type": "object"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "MODE_UNSPECIFIED",
+            "STANDARD_REPOSITORY",
+            "VIRTUAL_REPOSITORY",
+            "REMOTE_REPOSITORY",
+            "AOSS_REPOSITORY",
+            "ASSURED_OSS_REPOSITORY"
+          ],
+          "enumDescriptions": [
+            "Unspecified mode.",
+            "A standard repository storing artifacts.",
+            "A virtual repository to serve artifacts from one or more sources.",
+            "A remote repository to serve artifacts from a remote source.",
+            "An AOSS repository provides artifacts from AOSS upstreams.",
+            "Replacement of AOSS_REPOSITORY."
+          ]
+        },
+        "registryUri": {
+          "type": "string",
+          "readOnly": true
+        },
+        "mavenConfig": {
+          "$ref": "MavenRepositoryConfig"
+        },
+        "kmsKeyName": {
+          "type": "string"
+        },
+        "createTime": {
+          "readOnly": true,
+          "format": "google-datetime",
+          "type": "string"
+        },
+        "remoteRepositoryConfig": {
+          "$ref": "RemoteRepositoryConfig"
+        },
+        "platformLogsConfig": {
+          "$ref": "PlatformLogsConfig"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "dockerConfig": {
+          "$ref": "DockerRepositoryConfig"
+        },
+        "updateTime": {
+          "format": "google-datetime",
+          "readOnly": true,
+          "type": "string"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "FORMAT_UNSPECIFIED",
+            "DOCKER",
+            "MAVEN",
+            "NPM",
+            "APT",
+            "YUM",
+            "GOOGET",
+            "PYTHON",
+            "KFP",
+            "GO",
+            "GENERIC",
+            "RUBY"
+          ],
+          "enumDescriptions": [
+            "Unspecified package format.",
+            "Docker package format.",
+            "Maven package format.",
+            "NPM package format.",
+            "APT package format.",
+            "YUM package format.",
+            "GooGet package format.",
+            "Python package format.",
+            "Kubeflow Pipelines package format.",
+            "Go package format.",
+            "Generic package format.",
+            "Ruby package format."
+          ]
+        },
+        "virtualRepositoryConfig": {
+          "$ref": "VirtualRepositoryConfig"
+        },
+        "satisfiesPzs": {
+          "readOnly": true,
+          "type": "boolean"
+        },
+        "satisfiesPzi": {
+          "readOnly": true,
+          "type": "boolean"
+        },
+        "vulnerabilityScanningConfig": {
+          "$ref": "VulnerabilityScanningConfig"
+        },
+        "name": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "format": "int64",
+          "readOnly": true,
+          "type": "string"
+        }
+      },
+      "id": "Repository",
+      "type": "object"
+    },
+    "UpstreamCredentials": {
+      "id": "UpstreamCredentials",
+      "type": "object",
+      "properties": {
+        "usernamePasswordCredentials": {
+          "$ref": "UsernamePasswordCredentials"
+        }
+      }
+    },
+    "UpstreamPolicy": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "type": "object",
+      "id": "UpstreamPolicy"
+    },
+    "UsernamePasswordCredentials": {
+      "type": "object",
+      "id": "UsernamePasswordCredentials",
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "passwordSecretVersion": {
+          "type": "string"
+        }
+      }
+    },
+    "VirtualRepositoryConfig": {
+      "properties": {
+        "upstreamPolicies": {
+          "type": "array",
+          "items": {
+            "$ref": "UpstreamPolicy"
+          }
+        }
+      },
+      "type": "object",
+      "id": "VirtualRepositoryConfig"
+    },
+    "VulnerabilityScanningConfig": {
+      "type": "object",
+      "id": "VulnerabilityScanningConfig",
+      "properties": {
+        "enablementConfig": {
+          "type": "string",
+          "enum": [
+            "ENABLEMENT_CONFIG_UNSPECIFIED",
+            "INHERITED",
+            "DISABLED"
+          ],
+          "enumDescriptions": [
+            "Not set. This will be treated as INHERITED for Docker repositories and DISABLED for non-Docker repositories.",
+            "Scanning is Enabled, but dependent on API enablement.",
+            "No automatic vulnerability scanning will be performed for this repository."
+          ]
+        },
+        "lastEnableTime": {
+          "type": "string",
+          "readOnly": true,
+          "format": "google-datetime"
+        },
+        "enablementState": {
+          "type": "string",
+          "enum": [
+            "ENABLEMENT_STATE_UNSPECIFIED",
+            "SCANNING_UNSUPPORTED",
+            "SCANNING_DISABLED",
+            "SCANNING_ACTIVE"
+          ],
+          "readOnly": true,
+          "enumDescriptions": [
+            "Enablement state is unclear.",
+            "Repository does not support vulnerability scanning.",
+            "Vulnerability scanning is disabled for this repository.",
+            "Vulnerability scanning is active for this repository."
+          ]
+        },
+        "enablementStateReason": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "YumRepository": {
+      "id": "YumRepository",
+      "type": "object",
+      "properties": {
+        "publicRepository": {
+          "$ref": "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigYumRepositoryPublicRepository"
+        },
+        "customRepository": {
+          "$ref": "GoogleDevtoolsArtifactregistryV1RemoteRepositoryConfigYumRepositoryCustomRepository"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,3419 @@
+{
+  "discoveryVersion": "v1",
+  "name": "securitycenter",
+  "version": "v1",
+  "x-slice": "response-schema closure consumed by internal/sources/gcp",
+  "schemas": {
+    "Access": {
+      "properties": {
+        "principalEmail": {
+          "type": "string"
+        },
+        "callerIp": {
+          "type": "string"
+        },
+        "serviceAccountKeyName": {
+          "type": "string"
+        },
+        "methodName": {
+          "type": "string"
+        },
+        "principalSubject": {
+          "type": "string"
+        },
+        "serviceName": {
+          "type": "string"
+        },
+        "callerIpGeo": {
+          "$ref": "Geolocation"
+        },
+        "serviceAccountDelegationInfo": {
+          "items": {
+            "$ref": "ServiceAccountDelegationInfo"
+          },
+          "type": "array"
+        },
+        "userName": {
+          "type": "string"
+        },
+        "userAgent": {
+          "type": "string"
+        },
+        "userAgentFamily": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "id": "Access"
+    },
+    "AccessReview": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "subresource": {
+          "type": "string"
+        },
+        "group": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "verb": {
+          "type": "string"
+        },
+        "resource": {
+          "type": "string"
+        },
+        "ns": {
+          "type": "string"
+        }
+      },
+      "id": "AccessReview"
+    },
+    "AdaptiveProtection": {
+      "id": "AdaptiveProtection",
+      "properties": {
+        "confidence": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "type": "object"
+    },
+    "AffectedResources": {
+      "properties": {
+        "count": {
+          "type": "string",
+          "format": "int64"
+        }
+      },
+      "type": "object",
+      "id": "AffectedResources"
+    },
+    "AgentDataAccessEvent": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "OPERATION_UNSPECIFIED",
+            "READ",
+            "MOVE",
+            "COPY"
+          ]
+        },
+        "eventId": {
+          "type": "string"
+        },
+        "principalSubject": {
+          "type": "string"
+        },
+        "eventTime": {
+          "type": "string",
+          "format": "google-datetime"
+        }
+      },
+      "id": "AgentDataAccessEvent"
+    },
+    "AiModel": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "library": {
+          "type": "string"
+        },
+        "deploymentPlatform": {
+          "enum": [
+            "DEPLOYMENT_PLATFORM_UNSPECIFIED",
+            "VERTEX_AI",
+            "GKE",
+            "GCE",
+            "FINE_TUNED_MODEL"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        "usageCategory": {
+          "type": "string"
+        },
+        "publisher": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        }
+      },
+      "id": "AiModel"
+    },
+    "Allowed": {
+      "id": "Allowed",
+      "type": "object",
+      "properties": {
+        "ipRules": {
+          "type": "array",
+          "items": {
+            "$ref": "IpRule"
+          }
+        }
+      }
+    },
+    "Application": {
+      "properties": {
+        "baseUri": {
+          "type": "string"
+        },
+        "fullUri": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "id": "Application"
+    },
+    "ArtifactGuardPolicies": {
+      "id": "ArtifactGuardPolicies",
+      "type": "object",
+      "properties": {
+        "resourceId": {
+          "type": "string"
+        },
+        "failingPolicies": {
+          "items": {
+            "$ref": "ArtifactGuardPolicy"
+          },
+          "type": "array"
+        }
+      }
+    },
+    "ArtifactGuardPolicy": {
+      "id": "ArtifactGuardPolicy",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            ""
+          ],
+          "enum": [
+            "ARTIFACT_GUARD_POLICY_TYPE_UNSPECIFIED",
+            "VULNERABILITY"
+          ]
+        },
+        "policyId": {
+          "type": "string"
+        },
+        "failureReason": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Attack": {
+      "id": "Attack",
+      "properties": {
+        "volumePpsLong": {
+          "type": "string",
+          "format": "int64"
+        },
+        "volumeBps": {
+          "format": "int32",
+          "deprecated": true,
+          "type": "integer"
+        },
+        "volumeBpsLong": {
+          "type": "string",
+          "format": "int64"
+        },
+        "volumePps": {
+          "format": "int32",
+          "deprecated": true,
+          "type": "integer"
+        },
+        "classification": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "AttackExposure": {
+      "type": "object",
+      "properties": {
+        "attackExposureResult": {
+          "type": "string"
+        },
+        "latestCalculationTime": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "state": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "STATE_UNSPECIFIED",
+            "CALCULATED",
+            "NOT_CALCULATED"
+          ]
+        },
+        "score": {
+          "type": "number",
+          "format": "double"
+        },
+        "exposedMediumValueResourcesCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "exposedLowValueResourcesCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "exposedHighValueResourcesCount": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "id": "AttackExposure"
+    },
+    "BackupDisasterRecovery": {
+      "id": "BackupDisasterRecovery",
+      "type": "object",
+      "properties": {
+        "applications": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "backupCreateTime": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "appliance": {
+          "type": "string"
+        },
+        "backupTemplate": {
+          "type": "string"
+        },
+        "storagePool": {
+          "type": "string"
+        },
+        "policyOptions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "backupType": {
+          "type": "string"
+        },
+        "policies": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "host": {
+          "type": "string"
+        },
+        "profile": {
+          "type": "string"
+        }
+      }
+    },
+    "Chokepoint": {
+      "properties": {
+        "relatedFindings": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object",
+      "id": "Chokepoint"
+    },
+    "CloudArmor": {
+      "properties": {
+        "adaptiveProtection": {
+          "$ref": "AdaptiveProtection"
+        },
+        "requests": {
+          "$ref": "Requests"
+        },
+        "attack": {
+          "$ref": "Attack"
+        },
+        "securityPolicy": {
+          "$ref": "SecurityPolicy"
+        },
+        "threatVector": {
+          "type": "string"
+        },
+        "duration": {
+          "type": "string",
+          "format": "google-duration"
+        }
+      },
+      "type": "object",
+      "id": "CloudArmor"
+    },
+    "CloudControl": {
+      "id": "CloudControl",
+      "type": "object",
+      "properties": {
+        "policyType": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "CLOUD_CONTROL_TYPE_UNSPECIFIED",
+            "BUILT_IN",
+            "CUSTOM"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            ""
+          ]
+        },
+        "cloudControlName": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "CloudDlpDataProfile": {
+      "id": "CloudDlpDataProfile",
+      "type": "object",
+      "properties": {
+        "parentType": {
+          "enum": [
+            "PARENT_TYPE_UNSPECIFIED",
+            "ORGANIZATION",
+            "PROJECT"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            ""
+          ]
+        },
+        "infoTypes": {
+          "items": {
+            "$ref": "InfoType"
+          },
+          "type": "array"
+        },
+        "dataProfile": {
+          "type": "string"
+        }
+      }
+    },
+    "CloudDlpInspection": {
+      "type": "object",
+      "properties": {
+        "fullScan": {
+          "type": "boolean"
+        },
+        "infoType": {
+          "type": "string"
+        },
+        "infoTypeCount": {
+          "type": "string",
+          "format": "int64"
+        },
+        "inspectJob": {
+          "type": "string"
+        }
+      },
+      "id": "CloudDlpInspection"
+    },
+    "CloudLoggingEntry": {
+      "id": "CloudLoggingEntry",
+      "type": "object",
+      "properties": {
+        "logId": {
+          "type": "string"
+        },
+        "insertId": {
+          "type": "string"
+        },
+        "resourceContainer": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "google-datetime"
+        }
+      }
+    },
+    "Compliance": {
+      "type": "object",
+      "properties": {
+        "standard": {
+          "type": "string"
+        },
+        "ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "id": "Compliance"
+    },
+    "ComplianceDetails": {
+      "type": "object",
+      "properties": {
+        "frameworks": {
+          "items": {
+            "$ref": "Framework"
+          },
+          "type": "array"
+        },
+        "cloudControl": {
+          "$ref": "CloudControl"
+        },
+        "cloudControlDeploymentNames": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "id": "ComplianceDetails"
+    },
+    "Connection": {
+      "id": "Connection",
+      "type": "object",
+      "properties": {
+        "sourceIp": {
+          "type": "string"
+        },
+        "protocol": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "PROTOCOL_UNSPECIFIED",
+            "ICMP",
+            "TCP",
+            "UDP",
+            "GRE",
+            "ESP"
+          ]
+        },
+        "sourcePort": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "destinationIp": {
+          "type": "string"
+        },
+        "destinationPort": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "Contact": {
+      "id": "Contact",
+      "properties": {
+        "email": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ContactDetails": {
+      "type": "object",
+      "properties": {
+        "contacts": {
+          "items": {
+            "$ref": "Contact"
+          },
+          "type": "array"
+        }
+      },
+      "id": "ContactDetails"
+    },
+    "Container": {
+      "properties": {
+        "imageId": {
+          "type": "string"
+        },
+        "labels": {
+          "items": {
+            "$ref": "Label"
+          },
+          "type": "array"
+        },
+        "createTime": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "name": {
+          "type": "string"
+        },
+        "uri": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "id": "Container"
+    },
+    "Control": {
+      "properties": {
+        "controlName": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "id": "Control"
+    },
+    "Cve": {
+      "id": "Cve",
+      "type": "object",
+      "properties": {
+        "firstExploitationDate": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "zeroDay": {
+          "type": "boolean"
+        },
+        "exploitReleaseDate": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "Reference"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "upstreamFixAvailable": {
+          "type": "boolean"
+        },
+        "impact": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "RISK_RATING_UNSPECIFIED",
+            "LOW",
+            "MEDIUM",
+            "HIGH",
+            "CRITICAL"
+          ]
+        },
+        "cvssv3": {
+          "$ref": "Cvssv3"
+        },
+        "observedInTheWild": {
+          "type": "boolean"
+        },
+        "exploitationActivity": {
+          "enum": [
+            "EXPLOITATION_ACTIVITY_UNSPECIFIED",
+            "WIDE",
+            "CONFIRMED",
+            "AVAILABLE",
+            "ANTICIPATED",
+            "NO_KNOWN"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        }
+      }
+    },
+    "Cvssv3": {
+      "id": "Cvssv3",
+      "type": "object",
+      "properties": {
+        "baseScore": {
+          "type": "number",
+          "format": "double"
+        },
+        "integrityImpact": {
+          "enum": [
+            "IMPACT_UNSPECIFIED",
+            "IMPACT_HIGH",
+            "IMPACT_LOW",
+            "IMPACT_NONE"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        "privilegesRequired": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "PRIVILEGES_REQUIRED_UNSPECIFIED",
+            "PRIVILEGES_REQUIRED_NONE",
+            "PRIVILEGES_REQUIRED_LOW",
+            "PRIVILEGES_REQUIRED_HIGH"
+          ]
+        },
+        "confidentialityImpact": {
+          "enum": [
+            "IMPACT_UNSPECIFIED",
+            "IMPACT_HIGH",
+            "IMPACT_LOW",
+            "IMPACT_NONE"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        "attackComplexity": {
+          "enum": [
+            "ATTACK_COMPLEXITY_UNSPECIFIED",
+            "ATTACK_COMPLEXITY_LOW",
+            "ATTACK_COMPLEXITY_HIGH"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            ""
+          ]
+        },
+        "userInteraction": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "USER_INTERACTION_UNSPECIFIED",
+            "USER_INTERACTION_NONE",
+            "USER_INTERACTION_REQUIRED"
+          ]
+        },
+        "scope": {
+          "enum": [
+            "SCOPE_UNSPECIFIED",
+            "SCOPE_UNCHANGED",
+            "SCOPE_CHANGED"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            ""
+          ]
+        },
+        "availabilityImpact": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "IMPACT_UNSPECIFIED",
+            "IMPACT_HIGH",
+            "IMPACT_LOW",
+            "IMPACT_NONE"
+          ]
+        },
+        "attackVector": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "ATTACK_VECTOR_UNSPECIFIED",
+            "ATTACK_VECTOR_NETWORK",
+            "ATTACK_VECTOR_ADJACENT",
+            "ATTACK_VECTOR_LOCAL",
+            "ATTACK_VECTOR_PHYSICAL"
+          ]
+        }
+      }
+    },
+    "Cwe": {
+      "id": "Cwe",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "Reference"
+          }
+        }
+      }
+    },
+    "DataAccessEvent": {
+      "type": "object",
+      "properties": {
+        "eventId": {
+          "type": "string"
+        },
+        "operation": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "OPERATION_UNSPECIFIED",
+            "READ",
+            "MOVE",
+            "COPY"
+          ]
+        },
+        "eventTime": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "principalEmail": {
+          "type": "string"
+        }
+      },
+      "id": "DataAccessEvent"
+    },
+    "DataFlowEvent": {
+      "id": "DataFlowEvent",
+      "type": "object",
+      "properties": {
+        "eventTime": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "eventId": {
+          "type": "string"
+        },
+        "operation": {
+          "enum": [
+            "OPERATION_UNSPECIFIED",
+            "READ",
+            "MOVE",
+            "COPY"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        "violatedLocation": {
+          "type": "string"
+        },
+        "principalEmail": {
+          "type": "string"
+        }
+      }
+    },
+    "DataRetentionDeletionEvent": {
+      "id": "DataRetentionDeletionEvent",
+      "type": "object",
+      "properties": {
+        "maxRetentionAllowed": {
+          "type": "string",
+          "format": "google-duration"
+        },
+        "dataObjectCount": {
+          "type": "string",
+          "format": "int64"
+        },
+        "eventDetectionTime": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "minRetentionAllowed": {
+          "type": "string",
+          "format": "google-duration"
+        },
+        "eventType": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          "enumDeprecated": [
+            false,
+            true,
+            false,
+            false,
+            false
+          ],
+          "enum": [
+            "EVENT_TYPE_UNSPECIFIED",
+            "EVENT_TYPE_MAX_TTL_EXCEEDED",
+            "EVENT_TYPE_MAX_TTL_FROM_CREATION",
+            "EVENT_TYPE_MAX_TTL_FROM_LAST_MODIFICATION",
+            "EVENT_TYPE_MIN_TTL_FROM_CREATION"
+          ]
+        }
+      }
+    },
+    "Database": {
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "userName": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "grantees": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object",
+      "id": "Database"
+    },
+    "Dataset": {
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "id": "Dataset"
+    },
+    "Denied": {
+      "type": "object",
+      "properties": {
+        "ipRules": {
+          "type": "array",
+          "items": {
+            "$ref": "IpRule"
+          }
+        }
+      },
+      "id": "Denied"
+    },
+    "Detection": {
+      "id": "Detection",
+      "properties": {
+        "percentPagesMatched": {
+          "type": "number",
+          "format": "double"
+        },
+        "binary": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "DiscoveredWorkload": {
+      "properties": {
+        "detectedRelevantPackages": {
+          "type": "boolean"
+        },
+        "workloadType": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "WORKLOAD_TYPE_UNSPECIFIED",
+            "MCP_SERVER",
+            "AI_INFERENCE",
+            "AGENT"
+          ]
+        },
+        "confidence": {
+          "enum": [
+            "CONFIDENCE_UNSPECIFIED",
+            "CONFIDENCE_HIGH"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            ""
+          ]
+        },
+        "detectedRelevantHardware": {
+          "type": "boolean"
+        },
+        "detectedRelevantKeywords": {
+          "type": "boolean"
+        }
+      },
+      "type": "object",
+      "id": "DiscoveredWorkload"
+    },
+    "Disk": {
+      "id": "Disk",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "DiskPath": {
+      "id": "DiskPath",
+      "properties": {
+        "partitionUuid": {
+          "type": "string"
+        },
+        "relativePath": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "DynamicMuteRecord": {
+      "id": "DynamicMuteRecord",
+      "type": "object",
+      "properties": {
+        "muteConfig": {
+          "type": "string"
+        },
+        "matchTime": {
+          "type": "string",
+          "format": "google-datetime"
+        }
+      }
+    },
+    "EnvironmentVariable": {
+      "properties": {
+        "val": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "id": "EnvironmentVariable"
+    },
+    "ExfilResource": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "id": "ExfilResource"
+    },
+    "Exfiltration": {
+      "id": "Exfiltration",
+      "properties": {
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "ExfilResource"
+          }
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "$ref": "ExfilResource"
+          }
+        },
+        "totalExfiltratedBytes": {
+          "type": "string",
+          "format": "int64"
+        }
+      },
+      "type": "object"
+    },
+    "ExternalExposure": {
+      "type": "object",
+      "properties": {
+        "hostnameUri": {
+          "type": "string"
+        },
+        "backendService": {
+          "type": "string"
+        },
+        "instanceGroup": {
+          "type": "string"
+        },
+        "publicPort": {
+          "type": "string"
+        },
+        "exposedEndpoint": {
+          "type": "string"
+        },
+        "networkEndpointGroup": {
+          "type": "string"
+        },
+        "exposedApplication": {
+          "type": "string"
+        },
+        "publicIpAddress": {
+          "type": "string"
+        },
+        "internalBackendService": {
+          "type": "string"
+        },
+        "pscServiceAttachment": {
+          "type": "string"
+        },
+        "backendBucket": {
+          "type": "string"
+        },
+        "networkPathInsightsGenerationTime": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "loadBalancerFirewallPolicy": {
+          "type": "string"
+        },
+        "pscNetworkAttachment": {
+          "type": "string"
+        },
+        "privateIpAddress": {
+          "type": "string"
+        },
+        "httpResponse": {
+          "items": {
+            "$ref": "HttpResponse"
+          },
+          "type": "array"
+        },
+        "serviceFirewallPolicy": {
+          "type": "string"
+        },
+        "networkIngressFirewallPolicy": {
+          "type": "string"
+        },
+        "privatePort": {
+          "type": "string"
+        },
+        "exposedService": {
+          "type": "string"
+        },
+        "forwardingRule": {
+          "type": "string"
+        }
+      },
+      "id": "ExternalExposure"
+    },
+    "File": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "hashedSize": {
+          "type": "string",
+          "format": "int64"
+        },
+        "contents": {
+          "type": "string"
+        },
+        "operations": {
+          "type": "array",
+          "items": {
+            "$ref": "FileOperation"
+          }
+        },
+        "fileLoadState": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "FILE_LOAD_STATE_UNSPECIFIED",
+            "LOADED_BY_PROCESS",
+            "NOT_LOADED_BY_PROCESS"
+          ]
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "partiallyHashed": {
+          "type": "boolean"
+        },
+        "diskPath": {
+          "$ref": "DiskPath"
+        },
+        "size": {
+          "type": "string",
+          "format": "int64"
+        }
+      },
+      "id": "File"
+    },
+    "FileOperation": {
+      "id": "FileOperation",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "OPERATION_TYPE_UNSPECIFIED",
+            "OPEN",
+            "READ",
+            "RENAME",
+            "WRITE",
+            "EXECUTE"
+          ]
+        }
+      }
+    },
+    "Finding": {
+      "type": "object",
+      "properties": {
+        "networks": {
+          "type": "array",
+          "items": {
+            "$ref": "Network"
+          }
+        },
+        "category": {
+          "type": "string"
+        },
+        "securityMarks": {
+          "readOnly": true,
+          "$ref": "SecurityMarks"
+        },
+        "notebook": {
+          "$ref": "Notebook"
+        },
+        "mitreAttack": {
+          "$ref": "MitreAttack"
+        },
+        "containers": {
+          "type": "array",
+          "items": {
+            "$ref": "Container"
+          }
+        },
+        "externalUri": {
+          "type": "string"
+        },
+        "database": {
+          "$ref": "Database"
+        },
+        "exfiltration": {
+          "$ref": "Exfiltration"
+        },
+        "parent": {
+          "type": "string"
+        },
+        "application": {
+          "$ref": "Application"
+        },
+        "groupMemberships": {
+          "items": {
+            "$ref": "GroupMembership"
+          },
+          "type": "array"
+        },
+        "agentDataAccessEvents": {
+          "items": {
+            "$ref": "AgentDataAccessEvent"
+          },
+          "type": "array"
+        },
+        "createTime": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "muteInfo": {
+          "$ref": "MuteInfo",
+          "readOnly": true
+        },
+        "nextSteps": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "STATE_UNSPECIFIED",
+            "ACTIVE",
+            "INACTIVE"
+          ]
+        },
+        "discoveredWorkload": {
+          "$ref": "DiscoveredWorkload"
+        },
+        "compliances": {
+          "type": "array",
+          "items": {
+            "$ref": "Compliance"
+          }
+        },
+        "access": {
+          "$ref": "Access"
+        },
+        "logEntries": {
+          "type": "array",
+          "items": {
+            "$ref": "LogEntry"
+          }
+        },
+        "indicator": {
+          "$ref": "Indicator"
+        },
+        "dataRetentionDeletionEvents": {
+          "type": "array",
+          "items": {
+            "$ref": "DataRetentionDeletionEvent"
+          }
+        },
+        "ipRules": {
+          "$ref": "IpRules"
+        },
+        "iamDetails": {
+          "$ref": "GoogleCloudSecuritycenterV1IamDetails"
+        },
+        "eventTime": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "parentDisplayName": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "cloudDlpDataProfile": {
+          "$ref": "CloudDlpDataProfile"
+        },
+        "muteUpdateTime": {
+          "type": "string",
+          "readOnly": true,
+          "format": "google-datetime"
+        },
+        "complianceDetails": {
+          "$ref": "ComplianceDetails"
+        },
+        "loadBalancers": {
+          "type": "array",
+          "items": {
+            "$ref": "LoadBalancer"
+          }
+        },
+        "externalExposure": {
+          "$ref": "ExternalExposure"
+        },
+        "chokepoint": {
+          "$ref": "Chokepoint"
+        },
+        "connections": {
+          "type": "array",
+          "items": {
+            "$ref": "Connection"
+          }
+        },
+        "processes": {
+          "type": "array",
+          "items": {
+            "$ref": "Process"
+          }
+        },
+        "iamBindings": {
+          "items": {
+            "$ref": "IamBinding"
+          },
+          "type": "array"
+        },
+        "affectedResources": {
+          "$ref": "AffectedResources"
+        },
+        "aiModel": {
+          "$ref": "AiModel"
+        },
+        "resourceName": {
+          "type": "string"
+        },
+        "secret": {
+          "$ref": "Secret"
+        },
+        "cloudDlpInspection": {
+          "$ref": "CloudDlpInspection"
+        },
+        "dataAccessEvents": {
+          "type": "array",
+          "items": {
+            "$ref": "DataAccessEvent"
+          }
+        },
+        "artifactGuardPolicies": {
+          "$ref": "ArtifactGuardPolicies"
+        },
+        "severity": {
+          "enum": [
+            "SEVERITY_UNSPECIFIED",
+            "CRITICAL",
+            "HIGH",
+            "MEDIUM",
+            "LOW"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        "moduleName": {
+          "type": "string"
+        },
+        "backupDisasterRecovery": {
+          "$ref": "BackupDisasterRecovery"
+        },
+        "dataFlowEvents": {
+          "type": "array",
+          "items": {
+            "$ref": "DataFlowEvent"
+          }
+        },
+        "orgPolicies": {
+          "items": {
+            "$ref": "OrgPolicy"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "canonicalName": {
+          "type": "string"
+        },
+        "externalSystems": {
+          "additionalProperties": {
+            "$ref": "GoogleCloudSecuritycenterV1ExternalSystem"
+          },
+          "type": "object",
+          "readOnly": true
+        },
+        "securityPosture": {
+          "$ref": "SecurityPosture"
+        },
+        "sourceProperties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "any"
+          }
+        },
+        "kubernetes": {
+          "$ref": "Kubernetes"
+        },
+        "policyViolationSummary": {
+          "$ref": "PolicyViolationSummary"
+        },
+        "vertexAi": {
+          "$ref": "VertexAi"
+        },
+        "muteInitiator": {
+          "type": "string"
+        },
+        "toxicCombination": {
+          "$ref": "ToxicCombination"
+        },
+        "files": {
+          "items": {
+            "$ref": "File"
+          },
+          "type": "array"
+        },
+        "findingClass": {
+          "enum": [
+            "FINDING_CLASS_UNSPECIFIED",
+            "THREAT",
+            "VULNERABILITY",
+            "MISCONFIGURATION",
+            "OBSERVATION",
+            "SCC_ERROR",
+            "POSTURE_VIOLATION",
+            "TOXIC_COMBINATION",
+            "SENSITIVE_DATA_RISK",
+            "CHOKEPOINT",
+            "EXTERNAL_EXPOSURE",
+            "SECRET"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        "attackExposure": {
+          "$ref": "AttackExposure"
+        },
+        "kernelRootkit": {
+          "$ref": "KernelRootkit"
+        },
+        "disk": {
+          "$ref": "Disk"
+        },
+        "mute": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "MUTE_UNSPECIFIED",
+            "MUTED",
+            "UNMUTED",
+            "UNDEFINED"
+          ]
+        },
+        "vulnerability": {
+          "$ref": "Vulnerability"
+        },
+        "contacts": {
+          "type": "object",
+          "readOnly": true,
+          "additionalProperties": {
+            "$ref": "ContactDetails"
+          }
+        },
+        "cloudArmor": {
+          "$ref": "CloudArmor"
+        },
+        "job": {
+          "$ref": "Job"
+        }
+      },
+      "id": "Finding"
+    },
+    "Framework": {
+      "id": "Framework",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "FRAMEWORK_TYPE_UNSPECIFIED",
+            "FRAMEWORK_TYPE_BUILT_IN",
+            "FRAMEWORK_TYPE_CUSTOM"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            ""
+          ]
+        },
+        "category": {
+          "items": {
+            "enum": [
+              "FRAMEWORK_CATEGORY_UNSPECIFIED",
+              "SECURITY_BENCHMARKS",
+              "ASSURED_WORKLOADS",
+              "DATA_SECURITY",
+              "GOOGLE_BEST_PRACTICES",
+              "CUSTOM_FRAMEWORK"
+            ],
+            "type": "string",
+            "enumDescriptions": [
+              "",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          },
+          "type": "array"
+        },
+        "controls": {
+          "items": {
+            "$ref": "Control"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Geolocation": {
+      "id": "Geolocation",
+      "type": "object",
+      "properties": {
+        "regionCode": {
+          "type": "string"
+        }
+      }
+    },
+    "GoogleCloudSecuritycenterV1Binding": {
+      "id": "GoogleCloudSecuritycenterV1Binding",
+      "type": "object",
+      "properties": {
+        "ns": {
+          "type": "string"
+        },
+        "subjects": {
+          "items": {
+            "$ref": "Subject"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "$ref": "Role"
+        }
+      }
+    },
+    "GoogleCloudSecuritycenterV1ExternalSystem": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "externalSystemUpdateTime": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "caseCloseTime": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "externalUid": {
+          "type": "string"
+        },
+        "assignees": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "caseSla": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "ticketInfo": {
+          "$ref": "TicketInfo"
+        },
+        "caseUri": {
+          "type": "string"
+        },
+        "casePriority": {
+          "type": "string"
+        },
+        "caseCreateTime": {
+          "type": "string",
+          "format": "google-datetime"
+        }
+      },
+      "id": "GoogleCloudSecuritycenterV1ExternalSystem"
+    },
+    "GoogleCloudSecuritycenterV1IamDetails": {
+      "id": "GoogleCloudSecuritycenterV1IamDetails",
+      "properties": {
+        "iamRolePermissions": {
+          "items": {
+            "$ref": "GoogleCloudSecuritycenterV1IamRolePermission"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "GoogleCloudSecuritycenterV1IamRolePermission": {
+      "id": "GoogleCloudSecuritycenterV1IamRolePermission",
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "GroupMembership": {
+      "type": "object",
+      "properties": {
+        "groupType": {
+          "enum": [
+            "GROUP_TYPE_UNSPECIFIED",
+            "GROUP_TYPE_TOXIC_COMBINATION",
+            "GROUP_TYPE_CHOKEPOINT"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            ""
+          ]
+        },
+        "groupId": {
+          "type": "string"
+        }
+      },
+      "id": "GroupMembership"
+    },
+    "HttpResponse": {
+      "id": "HttpResponse",
+      "type": "object",
+      "properties": {
+        "statusCode": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    "IamBinding": {
+      "id": "IamBinding",
+      "type": "object",
+      "properties": {
+        "action": {
+          "enum": [
+            "ACTION_UNSPECIFIED",
+            "ADD",
+            "REMOVE"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            ""
+          ]
+        },
+        "role": {
+          "type": "string"
+        },
+        "member": {
+          "type": "string"
+        }
+      }
+    },
+    "Indicator": {
+      "id": "Indicator",
+      "properties": {
+        "ipAddresses": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "signatures": {
+          "items": {
+            "$ref": "ProcessSignature"
+          },
+          "type": "array"
+        },
+        "uris": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "InfoType": {
+      "id": "InfoType",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "sensitivityScore": {
+          "$ref": "SensitivityScore"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "IpRule": {
+      "properties": {
+        "portRanges": {
+          "items": {
+            "$ref": "PortRange"
+          },
+          "type": "array"
+        },
+        "protocol": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "id": "IpRule"
+    },
+    "IpRules": {
+      "properties": {
+        "sourceIpRanges": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exposedServices": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "denied": {
+          "$ref": "Denied"
+        },
+        "destinationIpRanges": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "allowed": {
+          "$ref": "Allowed"
+        },
+        "direction": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "DIRECTION_UNSPECIFIED",
+            "INGRESS",
+            "EGRESS"
+          ]
+        }
+      },
+      "type": "object",
+      "id": "IpRules"
+    },
+    "Job": {
+      "id": "Job",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "JOB_STATE_UNSPECIFIED",
+            "PENDING",
+            "RUNNING",
+            "SUCCEEDED",
+            "FAILED"
+          ],
+          "readOnly": true,
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        "errorCode": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "type": "object"
+    },
+    "KernelRootkit": {
+      "id": "KernelRootkit",
+      "properties": {
+        "unexpectedKprobeHandler": {
+          "type": "boolean"
+        },
+        "unexpectedInterruptHandler": {
+          "type": "boolean"
+        },
+        "unexpectedProcessesInRunqueue": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "unexpectedFtraceHandler": {
+          "type": "boolean"
+        },
+        "unexpectedKernelCodePages": {
+          "type": "boolean"
+        },
+        "unexpectedCodeModification": {
+          "type": "boolean"
+        },
+        "unexpectedReadOnlyDataModification": {
+          "type": "boolean"
+        },
+        "unexpectedSystemCallHandler": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "Kubernetes": {
+      "id": "Kubernetes",
+      "type": "object",
+      "properties": {
+        "nodePools": {
+          "type": "array",
+          "items": {
+            "$ref": "NodePool"
+          }
+        },
+        "objects": {
+          "items": {
+            "$ref": "Object"
+          },
+          "type": "array"
+        },
+        "pods": {
+          "items": {
+            "$ref": "Pod"
+          },
+          "type": "array"
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "$ref": "Role"
+          }
+        },
+        "accessReviews": {
+          "type": "array",
+          "items": {
+            "$ref": "AccessReview"
+          }
+        },
+        "nodes": {
+          "items": {
+            "$ref": "Node"
+          },
+          "type": "array"
+        },
+        "bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "GoogleCloudSecuritycenterV1Binding"
+          }
+        }
+      }
+    },
+    "Label": {
+      "id": "Label",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "LoadBalancer": {
+      "id": "LoadBalancer",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "LogEntry": {
+      "id": "LogEntry",
+      "properties": {
+        "cloudLoggingEntry": {
+          "$ref": "CloudLoggingEntry"
+        }
+      },
+      "type": "object"
+    },
+    "MemoryHashSignature": {
+      "id": "MemoryHashSignature",
+      "properties": {
+        "binaryFamily": {
+          "type": "string"
+        },
+        "detections": {
+          "type": "array",
+          "items": {
+            "$ref": "Detection"
+          }
+        }
+      },
+      "type": "object"
+    },
+    "MitreAttack": {
+      "id": "MitreAttack",
+      "type": "object",
+      "properties": {
+        "primaryTactic": {
+          "enum": [
+            "TACTIC_UNSPECIFIED",
+            "RECONNAISSANCE",
+            "RESOURCE_DEVELOPMENT",
+            "INITIAL_ACCESS",
+            "EXECUTION",
+            "PERSISTENCE",
+            "PRIVILEGE_ESCALATION",
+            "DEFENSE_EVASION",
+            "CREDENTIAL_ACCESS",
+            "DISCOVERY",
+            "LATERAL_MOVEMENT",
+            "COLLECTION",
+            "COMMAND_AND_CONTROL",
+            "EXFILTRATION",
+            "IMPACT"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        "additionalTactics": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "TACTIC_UNSPECIFIED",
+              "RECONNAISSANCE",
+              "RESOURCE_DEVELOPMENT",
+              "INITIAL_ACCESS",
+              "EXECUTION",
+              "PERSISTENCE",
+              "PRIVILEGE_ESCALATION",
+              "DEFENSE_EVASION",
+              "CREDENTIAL_ACCESS",
+              "DISCOVERY",
+              "LATERAL_MOVEMENT",
+              "COLLECTION",
+              "COMMAND_AND_CONTROL",
+              "EXFILTRATION",
+              "IMPACT"
+            ],
+            "type": "string",
+            "enumDescriptions": [
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          }
+        },
+        "version": {
+          "type": "string"
+        },
+        "primaryTechniques": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "TECHNIQUE_UNSPECIFIED",
+              "DATA_OBFUSCATION",
+              "DATA_OBFUSCATION_STEGANOGRAPHY",
+              "OS_CREDENTIAL_DUMPING",
+              "OS_CREDENTIAL_DUMPING_PROC_FILESYSTEM",
+              "OS_CREDENTIAL_DUMPING_ETC_PASSWORD_AND_ETC_SHADOW",
+              "DATA_FROM_LOCAL_SYSTEM",
+              "AUTOMATED_EXFILTRATION",
+              "OBFUSCATED_FILES_OR_INFO",
+              "STEGANOGRAPHY",
+              "COMPILE_AFTER_DELIVERY",
+              "COMMAND_OBFUSCATION",
+              "SCHEDULED_TRANSFER",
+              "SYSTEM_OWNER_USER_DISCOVERY",
+              "MASQUERADING",
+              "MATCH_LEGITIMATE_NAME_OR_LOCATION",
+              "BOOT_OR_LOGON_INITIALIZATION_SCRIPTS",
+              "STARTUP_ITEMS",
+              "NETWORK_SERVICE_DISCOVERY",
+              "SCHEDULED_TASK_JOB",
+              "SCHEDULED_TASK_JOB_CRON",
+              "CONTAINER_ORCHESTRATION_JOB",
+              "PROCESS_INJECTION",
+              "INPUT_CAPTURE",
+              "INPUT_CAPTURE_KEYLOGGING",
+              "PROCESS_DISCOVERY",
+              "COMMAND_AND_SCRIPTING_INTERPRETER",
+              "UNIX_SHELL",
+              "PYTHON",
+              "EXPLOITATION_FOR_PRIVILEGE_ESCALATION",
+              "PERMISSION_GROUPS_DISCOVERY",
+              "CLOUD_GROUPS",
+              "INDICATOR_REMOVAL",
+              "INDICATOR_REMOVAL_CLEAR_LINUX_OR_MAC_SYSTEM_LOGS",
+              "INDICATOR_REMOVAL_CLEAR_COMMAND_HISTORY",
+              "INDICATOR_REMOVAL_FILE_DELETION",
+              "INDICATOR_REMOVAL_TIMESTOMP",
+              "INDICATOR_REMOVAL_CLEAR_MAILBOX_DATA",
+              "APPLICATION_LAYER_PROTOCOL",
+              "DNS",
+              "SOFTWARE_DEPLOYMENT_TOOLS",
+              "VALID_ACCOUNTS",
+              "DEFAULT_ACCOUNTS",
+              "LOCAL_ACCOUNTS",
+              "CLOUD_ACCOUNTS",
+              "FILE_AND_DIRECTORY_DISCOVERY",
+              "ACCOUNT_DISCOVERY_LOCAL_ACCOUNT",
+              "PROXY",
+              "EXTERNAL_PROXY",
+              "MULTI_HOP_PROXY",
+              "ACCOUNT_MANIPULATION",
+              "ADDITIONAL_CLOUD_CREDENTIALS",
+              "ADDITIONAL_CLOUD_ROLES",
+              "SSH_AUTHORIZED_KEYS",
+              "ADDITIONAL_CONTAINER_CLUSTER_ROLES",
+              "MULTI_STAGE_CHANNELS",
+              "INGRESS_TOOL_TRANSFER",
+              "NATIVE_API",
+              "BRUTE_FORCE",
+              "AUTOMATED_COLLECTION",
+              "SHARED_MODULES",
+              "DATA_ENCODING",
+              "STANDARD_ENCODING",
+              "ACCESS_TOKEN_MANIPULATION",
+              "TOKEN_IMPERSONATION_OR_THEFT",
+              "CREATE_ACCOUNT",
+              "LOCAL_ACCOUNT",
+              "DEOBFUSCATE_DECODE_FILES_OR_INFO",
+              "EXPLOIT_PUBLIC_FACING_APPLICATION",
+              "SUPPLY_CHAIN_COMPROMISE",
+              "COMPROMISE_SOFTWARE_DEPENDENCIES_AND_DEVELOPMENT_TOOLS",
+              "EXPLOITATION_FOR_CLIENT_EXECUTION",
+              "USER_EXECUTION",
+              "EXPLOITATION_FOR_CREDENTIAL_ACCESS",
+              "LINUX_AND_MAC_FILE_AND_DIRECTORY_PERMISSIONS_MODIFICATION",
+              "DOMAIN_POLICY_MODIFICATION",
+              "DATA_DESTRUCTION",
+              "DATA_ENCRYPTED_FOR_IMPACT",
+              "SERVICE_STOP",
+              "INHIBIT_SYSTEM_RECOVERY",
+              "FIRMWARE_CORRUPTION",
+              "RESOURCE_HIJACKING",
+              "NETWORK_DENIAL_OF_SERVICE",
+              "CLOUD_SERVICE_DISCOVERY",
+              "STEAL_APPLICATION_ACCESS_TOKEN",
+              "ACCOUNT_ACCESS_REMOVAL",
+              "TRANSFER_DATA_TO_CLOUD_ACCOUNT",
+              "STEAL_WEB_SESSION_COOKIE",
+              "CREATE_OR_MODIFY_SYSTEM_PROCESS",
+              "EVENT_TRIGGERED_EXECUTION",
+              "BOOT_OR_LOGON_AUTOSTART_EXECUTION",
+              "KERNEL_MODULES_AND_EXTENSIONS",
+              "SHORTCUT_MODIFICATION",
+              "ABUSE_ELEVATION_CONTROL_MECHANISM",
+              "ABUSE_ELEVATION_CONTROL_MECHANISM_SETUID_AND_SETGID",
+              "ABUSE_ELEVATION_CONTROL_MECHANISM_SUDO_AND_SUDO_CACHING",
+              "UNSECURED_CREDENTIALS",
+              "CREDENTIALS_IN_FILES",
+              "BASH_HISTORY",
+              "PRIVATE_KEYS",
+              "SUBVERT_TRUST_CONTROL",
+              "INSTALL_ROOT_CERTIFICATE",
+              "COMPROMISE_HOST_SOFTWARE_BINARY",
+              "CREDENTIALS_FROM_PASSWORD_STORES",
+              "MODIFY_AUTHENTICATION_PROCESS",
+              "PLUGGABLE_AUTHENTICATION_MODULES",
+              "MULTI_FACTOR_AUTHENTICATION",
+              "IMPAIR_DEFENSES",
+              "DISABLE_OR_MODIFY_TOOLS",
+              "INDICATOR_BLOCKING",
+              "DISABLE_OR_MODIFY_LINUX_AUDIT_SYSTEM",
+              "HIDE_ARTIFACTS",
+              "HIDDEN_FILES_AND_DIRECTORIES",
+              "HIDDEN_USERS",
+              "EXFILTRATION_OVER_WEB_SERVICE",
+              "EXFILTRATION_TO_CLOUD_STORAGE",
+              "DYNAMIC_RESOLUTION",
+              "LATERAL_TOOL_TRANSFER",
+              "HIJACK_EXECUTION_FLOW",
+              "HIJACK_EXECUTION_FLOW_DYNAMIC_LINKER_HIJACKING",
+              "MODIFY_CLOUD_COMPUTE_INFRASTRUCTURE",
+              "CREATE_SNAPSHOT",
+              "CLOUD_INFRASTRUCTURE_DISCOVERY",
+              "DEVELOP_CAPABILITIES",
+              "DEVELOP_CAPABILITIES_MALWARE",
+              "OBTAIN_CAPABILITIES",
+              "OBTAIN_CAPABILITIES_MALWARE",
+              "OBTAIN_CAPABILITIES_VULNERABILITIES",
+              "ACTIVE_SCANNING",
+              "SCANNING_IP_BLOCKS",
+              "STAGE_CAPABILITIES",
+              "UPLOAD_MALWARE",
+              "CONTAINER_ADMINISTRATION_COMMAND",
+              "DEPLOY_CONTAINER",
+              "ESCAPE_TO_HOST",
+              "CONTAINER_AND_RESOURCE_DISCOVERY",
+              "REFLECTIVE_CODE_LOADING",
+              "STEAL_OR_FORGE_AUTHENTICATION_CERTIFICATES",
+              "FINANCIAL_THEFT"
+            ],
+            "type": "string",
+            "enumDescriptions": [
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          }
+        },
+        "additionalTechniques": {
+          "items": {
+            "type": "string",
+            "enumDescriptions": [
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            "enum": [
+              "TECHNIQUE_UNSPECIFIED",
+              "DATA_OBFUSCATION",
+              "DATA_OBFUSCATION_STEGANOGRAPHY",
+              "OS_CREDENTIAL_DUMPING",
+              "OS_CREDENTIAL_DUMPING_PROC_FILESYSTEM",
+              "OS_CREDENTIAL_DUMPING_ETC_PASSWORD_AND_ETC_SHADOW",
+              "DATA_FROM_LOCAL_SYSTEM",
+              "AUTOMATED_EXFILTRATION",
+              "OBFUSCATED_FILES_OR_INFO",
+              "STEGANOGRAPHY",
+              "COMPILE_AFTER_DELIVERY",
+              "COMMAND_OBFUSCATION",
+              "SCHEDULED_TRANSFER",
+              "SYSTEM_OWNER_USER_DISCOVERY",
+              "MASQUERADING",
+              "MATCH_LEGITIMATE_NAME_OR_LOCATION",
+              "BOOT_OR_LOGON_INITIALIZATION_SCRIPTS",
+              "STARTUP_ITEMS",
+              "NETWORK_SERVICE_DISCOVERY",
+              "SCHEDULED_TASK_JOB",
+              "SCHEDULED_TASK_JOB_CRON",
+              "CONTAINER_ORCHESTRATION_JOB",
+              "PROCESS_INJECTION",
+              "INPUT_CAPTURE",
+              "INPUT_CAPTURE_KEYLOGGING",
+              "PROCESS_DISCOVERY",
+              "COMMAND_AND_SCRIPTING_INTERPRETER",
+              "UNIX_SHELL",
+              "PYTHON",
+              "EXPLOITATION_FOR_PRIVILEGE_ESCALATION",
+              "PERMISSION_GROUPS_DISCOVERY",
+              "CLOUD_GROUPS",
+              "INDICATOR_REMOVAL",
+              "INDICATOR_REMOVAL_CLEAR_LINUX_OR_MAC_SYSTEM_LOGS",
+              "INDICATOR_REMOVAL_CLEAR_COMMAND_HISTORY",
+              "INDICATOR_REMOVAL_FILE_DELETION",
+              "INDICATOR_REMOVAL_TIMESTOMP",
+              "INDICATOR_REMOVAL_CLEAR_MAILBOX_DATA",
+              "APPLICATION_LAYER_PROTOCOL",
+              "DNS",
+              "SOFTWARE_DEPLOYMENT_TOOLS",
+              "VALID_ACCOUNTS",
+              "DEFAULT_ACCOUNTS",
+              "LOCAL_ACCOUNTS",
+              "CLOUD_ACCOUNTS",
+              "FILE_AND_DIRECTORY_DISCOVERY",
+              "ACCOUNT_DISCOVERY_LOCAL_ACCOUNT",
+              "PROXY",
+              "EXTERNAL_PROXY",
+              "MULTI_HOP_PROXY",
+              "ACCOUNT_MANIPULATION",
+              "ADDITIONAL_CLOUD_CREDENTIALS",
+              "ADDITIONAL_CLOUD_ROLES",
+              "SSH_AUTHORIZED_KEYS",
+              "ADDITIONAL_CONTAINER_CLUSTER_ROLES",
+              "MULTI_STAGE_CHANNELS",
+              "INGRESS_TOOL_TRANSFER",
+              "NATIVE_API",
+              "BRUTE_FORCE",
+              "AUTOMATED_COLLECTION",
+              "SHARED_MODULES",
+              "DATA_ENCODING",
+              "STANDARD_ENCODING",
+              "ACCESS_TOKEN_MANIPULATION",
+              "TOKEN_IMPERSONATION_OR_THEFT",
+              "CREATE_ACCOUNT",
+              "LOCAL_ACCOUNT",
+              "DEOBFUSCATE_DECODE_FILES_OR_INFO",
+              "EXPLOIT_PUBLIC_FACING_APPLICATION",
+              "SUPPLY_CHAIN_COMPROMISE",
+              "COMPROMISE_SOFTWARE_DEPENDENCIES_AND_DEVELOPMENT_TOOLS",
+              "EXPLOITATION_FOR_CLIENT_EXECUTION",
+              "USER_EXECUTION",
+              "EXPLOITATION_FOR_CREDENTIAL_ACCESS",
+              "LINUX_AND_MAC_FILE_AND_DIRECTORY_PERMISSIONS_MODIFICATION",
+              "DOMAIN_POLICY_MODIFICATION",
+              "DATA_DESTRUCTION",
+              "DATA_ENCRYPTED_FOR_IMPACT",
+              "SERVICE_STOP",
+              "INHIBIT_SYSTEM_RECOVERY",
+              "FIRMWARE_CORRUPTION",
+              "RESOURCE_HIJACKING",
+              "NETWORK_DENIAL_OF_SERVICE",
+              "CLOUD_SERVICE_DISCOVERY",
+              "STEAL_APPLICATION_ACCESS_TOKEN",
+              "ACCOUNT_ACCESS_REMOVAL",
+              "TRANSFER_DATA_TO_CLOUD_ACCOUNT",
+              "STEAL_WEB_SESSION_COOKIE",
+              "CREATE_OR_MODIFY_SYSTEM_PROCESS",
+              "EVENT_TRIGGERED_EXECUTION",
+              "BOOT_OR_LOGON_AUTOSTART_EXECUTION",
+              "KERNEL_MODULES_AND_EXTENSIONS",
+              "SHORTCUT_MODIFICATION",
+              "ABUSE_ELEVATION_CONTROL_MECHANISM",
+              "ABUSE_ELEVATION_CONTROL_MECHANISM_SETUID_AND_SETGID",
+              "ABUSE_ELEVATION_CONTROL_MECHANISM_SUDO_AND_SUDO_CACHING",
+              "UNSECURED_CREDENTIALS",
+              "CREDENTIALS_IN_FILES",
+              "BASH_HISTORY",
+              "PRIVATE_KEYS",
+              "SUBVERT_TRUST_CONTROL",
+              "INSTALL_ROOT_CERTIFICATE",
+              "COMPROMISE_HOST_SOFTWARE_BINARY",
+              "CREDENTIALS_FROM_PASSWORD_STORES",
+              "MODIFY_AUTHENTICATION_PROCESS",
+              "PLUGGABLE_AUTHENTICATION_MODULES",
+              "MULTI_FACTOR_AUTHENTICATION",
+              "IMPAIR_DEFENSES",
+              "DISABLE_OR_MODIFY_TOOLS",
+              "INDICATOR_BLOCKING",
+              "DISABLE_OR_MODIFY_LINUX_AUDIT_SYSTEM",
+              "HIDE_ARTIFACTS",
+              "HIDDEN_FILES_AND_DIRECTORIES",
+              "HIDDEN_USERS",
+              "EXFILTRATION_OVER_WEB_SERVICE",
+              "EXFILTRATION_TO_CLOUD_STORAGE",
+              "DYNAMIC_RESOLUTION",
+              "LATERAL_TOOL_TRANSFER",
+              "HIJACK_EXECUTION_FLOW",
+              "HIJACK_EXECUTION_FLOW_DYNAMIC_LINKER_HIJACKING",
+              "MODIFY_CLOUD_COMPUTE_INFRASTRUCTURE",
+              "CREATE_SNAPSHOT",
+              "CLOUD_INFRASTRUCTURE_DISCOVERY",
+              "DEVELOP_CAPABILITIES",
+              "DEVELOP_CAPABILITIES_MALWARE",
+              "OBTAIN_CAPABILITIES",
+              "OBTAIN_CAPABILITIES_MALWARE",
+              "OBTAIN_CAPABILITIES_VULNERABILITIES",
+              "ACTIVE_SCANNING",
+              "SCANNING_IP_BLOCKS",
+              "STAGE_CAPABILITIES",
+              "UPLOAD_MALWARE",
+              "CONTAINER_ADMINISTRATION_COMMAND",
+              "DEPLOY_CONTAINER",
+              "ESCAPE_TO_HOST",
+              "CONTAINER_AND_RESOURCE_DISCOVERY",
+              "REFLECTIVE_CODE_LOADING",
+              "STEAL_OR_FORGE_AUTHENTICATION_CERTIFICATES",
+              "FINANCIAL_THEFT"
+            ]
+          },
+          "type": "array"
+        }
+      }
+    },
+    "MuteInfo": {
+      "id": "MuteInfo",
+      "properties": {
+        "staticMute": {
+          "$ref": "StaticMute"
+        },
+        "dynamicMuteRecords": {
+          "items": {
+            "$ref": "DynamicMuteRecord"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Network": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "id": "Network"
+    },
+    "Node": {
+      "id": "Node",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "NodePool": {
+      "id": "NodePool",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "Node"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Notebook": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "service": {
+          "type": "string"
+        },
+        "lastAuthor": {
+          "type": "string"
+        },
+        "notebookUpdateTime": {
+          "type": "string",
+          "format": "google-datetime"
+        }
+      },
+      "id": "Notebook"
+    },
+    "Object": {
+      "properties": {
+        "containers": {
+          "items": {
+            "$ref": "Container"
+          },
+          "type": "array"
+        },
+        "ns": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "group": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "id": "Object"
+    },
+    "OrgPolicy": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "id": "OrgPolicy"
+    },
+    "Package": {
+      "id": "Package",
+      "properties": {
+        "cpeUri": {
+          "type": "string"
+        },
+        "packageVersion": {
+          "type": "string"
+        },
+        "packageName": {
+          "type": "string"
+        },
+        "packageType": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Pipeline": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "id": "Pipeline"
+    },
+    "Pod": {
+      "id": "Pod",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "ns": {
+          "type": "string"
+        },
+        "labels": {
+          "items": {
+            "$ref": "Label"
+          },
+          "type": "array"
+        },
+        "containers": {
+          "type": "array",
+          "items": {
+            "$ref": "Container"
+          }
+        }
+      }
+    },
+    "PolicyDriftDetails": {
+      "type": "object",
+      "properties": {
+        "expectedValue": {
+          "type": "string"
+        },
+        "detectedValue": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        }
+      },
+      "id": "PolicyDriftDetails"
+    },
+    "PolicyViolationSummary": {
+      "id": "PolicyViolationSummary",
+      "type": "object",
+      "properties": {
+        "evaluationErrorsCount": {
+          "type": "string",
+          "format": "int64"
+        },
+        "policyViolationsCount": {
+          "type": "string",
+          "format": "int64"
+        },
+        "conformantResourcesCount": {
+          "type": "string",
+          "format": "int64"
+        },
+        "outOfScopeResourcesCount": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "PortRange": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": "string",
+          "format": "int64"
+        },
+        "max": {
+          "type": "string",
+          "format": "int64"
+        }
+      },
+      "id": "PortRange"
+    },
+    "Process": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "envVariablesTruncated": {
+          "type": "boolean"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "script": {
+          "$ref": "File"
+        },
+        "argumentsTruncated": {
+          "type": "boolean"
+        },
+        "binary": {
+          "$ref": "File"
+        },
+        "libraries": {
+          "items": {
+            "$ref": "File"
+          },
+          "type": "array"
+        },
+        "parentPid": {
+          "type": "string",
+          "format": "int64"
+        },
+        "pid": {
+          "type": "string",
+          "format": "int64"
+        },
+        "envVariables": {
+          "items": {
+            "$ref": "EnvironmentVariable"
+          },
+          "type": "array"
+        },
+        "userId": {
+          "type": "string",
+          "format": "int64"
+        }
+      },
+      "type": "object",
+      "id": "Process"
+    },
+    "ProcessSignature": {
+      "type": "object",
+      "properties": {
+        "memoryHashSignature": {
+          "$ref": "MemoryHashSignature"
+        },
+        "yaraRuleSignature": {
+          "$ref": "YaraRuleSignature"
+        },
+        "signatureType": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "SIGNATURE_TYPE_UNSPECIFIED",
+            "SIGNATURE_TYPE_PROCESS",
+            "SIGNATURE_TYPE_FILE"
+          ]
+        }
+      },
+      "id": "ProcessSignature"
+    },
+    "Reference": {
+      "id": "Reference",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "uri": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Requests": {
+      "properties": {
+        "longTermAllowed": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "longTermDenied": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "ratio": {
+          "type": "number",
+          "format": "double"
+        },
+        "shortTermAllowed": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "type": "object",
+      "id": "Requests"
+    },
+    "Role": {
+      "id": "Role",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "KIND_UNSPECIFIED",
+            "ROLE",
+            "CLUSTER_ROLE"
+          ]
+        },
+        "ns": {
+          "type": "string"
+        }
+      }
+    },
+    "Secret": {
+      "properties": {
+        "status": {
+          "$ref": "SecretStatus"
+        },
+        "filePath": {
+          "$ref": "SecretFilePath"
+        },
+        "type": {
+          "type": "string"
+        },
+        "environmentVariable": {
+          "$ref": "SecretEnvironmentVariable"
+        }
+      },
+      "type": "object",
+      "id": "Secret"
+    },
+    "SecretEnvironmentVariable": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        }
+      },
+      "id": "SecretEnvironmentVariable"
+    },
+    "SecretFilePath": {
+      "id": "SecretFilePath",
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "SecretStatus": {
+      "id": "SecretStatus",
+      "properties": {
+        "validity": {
+          "enum": [
+            "SECRET_VALIDITY_UNSPECIFIED",
+            "SECRET_VALIDITY_UNSUPPORTED",
+            "SECRET_VALIDITY_FAILED",
+            "SECRET_VALIDITY_INVALID",
+            "SECRET_VALIDITY_VALID"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        "lastUpdatedTime": {
+          "type": "string",
+          "format": "google-datetime"
+        }
+      },
+      "type": "object"
+    },
+    "SecurityBulletin": {
+      "type": "object",
+      "properties": {
+        "submissionTime": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "bulletinId": {
+          "type": "string"
+        },
+        "suggestedUpgradeVersion": {
+          "type": "string"
+        }
+      },
+      "id": "SecurityBulletin"
+    },
+    "SecurityMarks": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "canonicalName": {
+          "type": "string"
+        },
+        "marks": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "type": "object",
+      "id": "SecurityMarks"
+    },
+    "SecurityPolicy": {
+      "id": "SecurityPolicy",
+      "properties": {
+        "preview": {
+          "type": "boolean"
+        },
+        "type": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "SecurityPosture": {
+      "id": "SecurityPosture",
+      "properties": {
+        "revisionId": {
+          "type": "string"
+        },
+        "policySet": {
+          "type": "string"
+        },
+        "postureDeploymentResource": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "changedPolicy": {
+          "type": "string"
+        },
+        "postureDeployment": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "policyDriftDetails": {
+          "type": "array",
+          "items": {
+            "$ref": "PolicyDriftDetails"
+          }
+        }
+      },
+      "type": "object"
+    },
+    "SensitivityScore": {
+      "type": "object",
+      "properties": {
+        "score": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "SENSITIVITY_SCORE_LEVEL_UNSPECIFIED",
+            "SENSITIVITY_LOW",
+            "SENSITIVITY_UNKNOWN",
+            "SENSITIVITY_MODERATE",
+            "SENSITIVITY_HIGH"
+          ]
+        }
+      },
+      "id": "SensitivityScore"
+    },
+    "ServiceAccountDelegationInfo": {
+      "id": "ServiceAccountDelegationInfo",
+      "type": "object",
+      "properties": {
+        "principalEmail": {
+          "type": "string"
+        },
+        "principalSubject": {
+          "type": "string"
+        }
+      }
+    },
+    "StaticMute": {
+      "id": "StaticMute",
+      "type": "object",
+      "properties": {
+        "applyTime": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "state": {
+          "enum": [
+            "MUTE_UNSPECIFIED",
+            "MUTED",
+            "UNMUTED",
+            "UNDEFINED"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            ""
+          ]
+        }
+      }
+    },
+    "Subject": {
+      "id": "Subject",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "AUTH_TYPE_UNSPECIFIED",
+            "USER",
+            "SERVICEACCOUNT",
+            "GROUP"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "ns": {
+          "type": "string"
+        }
+      }
+    },
+    "TicketInfo": {
+      "id": "TicketInfo",
+      "properties": {
+        "updateTime": {
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "id": {
+          "type": "string"
+        },
+        "uri": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "assignee": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ToxicCombination": {
+      "id": "ToxicCombination",
+      "type": "object",
+      "properties": {
+        "attackExposureScore": {
+          "type": "number",
+          "format": "double"
+        },
+        "relatedFindings": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      }
+    },
+    "VertexAi": {
+      "type": "object",
+      "properties": {
+        "datasets": {
+          "type": "array",
+          "items": {
+            "$ref": "Dataset"
+          }
+        },
+        "pipelines": {
+          "items": {
+            "$ref": "Pipeline"
+          },
+          "type": "array"
+        }
+      },
+      "id": "VertexAi"
+    },
+    "Vulnerability": {
+      "type": "object",
+      "properties": {
+        "fixedPackage": {
+          "$ref": "Package"
+        },
+        "providerRiskScore": {
+          "type": "string",
+          "format": "int64"
+        },
+        "cve": {
+          "$ref": "Cve"
+        },
+        "reachable": {
+          "type": "boolean"
+        },
+        "offendingPackage": {
+          "$ref": "Package"
+        },
+        "cwes": {
+          "items": {
+            "$ref": "Cwe"
+          },
+          "type": "array"
+        },
+        "securityBulletin": {
+          "$ref": "SecurityBulletin"
+        }
+      },
+      "id": "Vulnerability"
+    },
+    "YaraRuleSignature": {
+      "properties": {
+        "yaraRule": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "id": "YaraRuleSignature"
+    }
+  }
+}

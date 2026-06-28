@@ -1,27 +1,26 @@
 {
   "discoveryVersion": "v1",
   "name": "cloudresourcemanager",
-  "version": "v1",
+  "version": "v3",
   "x-slice": "response-schema closure consumed by internal/sources/gcp",
   "schemas": {
     "AuditConfig": {
-      "id": "AuditConfig",
       "type": "object",
+      "id": "AuditConfig",
       "properties": {
         "service": {
           "type": "string"
         },
         "auditLogConfigs": {
-          "type": "array",
           "items": {
             "$ref": "AuditLogConfig"
-          }
+          },
+          "type": "array"
         }
       }
     },
     "AuditLogConfig": {
       "id": "AuditLogConfig",
-      "type": "object",
       "properties": {
         "exemptedMembers": {
           "type": "array",
@@ -30,49 +29,50 @@
           }
         },
         "logType": {
+          "enumDescriptions": [
+            "Default case. Should never be this.",
+            "Admin reads. Example: CloudIAM getIamPolicy",
+            "Data writes. Example: CloudSQL Users create",
+            "Data reads. Example: CloudSQL Users list"
+          ],
           "type": "string",
           "enum": [
             "LOG_TYPE_UNSPECIFIED",
             "ADMIN_READ",
             "DATA_WRITE",
             "DATA_READ"
-          ],
-          "enumDescriptions": [
-            "Default case. Should never be this.",
-            "Admin reads. Example: CloudIAM getIamPolicy",
-            "Data writes. Example: CloudSQL Users create",
-            "Data reads. Example: CloudSQL Users list"
           ]
         }
-      }
+      },
+      "type": "object"
     },
     "Binding": {
-      "id": "Binding",
       "type": "object",
       "properties": {
         "role": {
           "type": "string"
         },
         "members": {
-          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         },
         "condition": {
           "$ref": "Expr"
         }
-      }
+      },
+      "id": "Binding"
     },
     "Expr": {
       "properties": {
-        "location": {
-          "type": "string"
-        },
         "expression": {
           "type": "string"
         },
         "title": {
+          "type": "string"
+        },
+        "location": {
           "type": "string"
         }
       },
@@ -81,25 +81,25 @@
     },
     "Policy": {
       "properties": {
-        "version": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "auditConfigs": {
-          "type": "array",
-          "items": {
-            "$ref": "AuditConfig"
-          }
-        },
         "etag": {
           "format": "byte",
           "type": "string"
         },
+        "version": {
+          "format": "int32",
+          "type": "integer"
+        },
         "bindings": {
-          "type": "array",
           "items": {
             "$ref": "Binding"
-          }
+          },
+          "type": "array"
+        },
+        "auditConfigs": {
+          "items": {
+            "$ref": "AuditConfig"
+          },
+          "type": "array"
         }
       },
       "id": "Policy",

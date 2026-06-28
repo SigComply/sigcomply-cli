@@ -1,0 +1,305 @@
+{
+  "discoveryVersion": "v1",
+  "name": "backupdr",
+  "version": "v1",
+  "x-slice": "response-schema closure consumed by internal/sources/gcp",
+  "schemas": {
+    "BackupPlan": {
+      "type": "object",
+      "id": "BackupPlan",
+      "properties": {
+        "backupVault": {
+          "type": "string"
+        },
+        "backupVaultServiceAccount": {
+          "type": "string",
+          "readOnly": true
+        },
+        "etag": {
+          "type": "string"
+        },
+        "resourceType": {
+          "type": "string"
+        },
+        "computeInstanceBackupPlanProperties": {
+          "$ref": "ComputeInstanceBackupPlanProperties"
+        },
+        "state": {
+          "readOnly": true,
+          "enumDescriptions": [
+            "State not set.",
+            "The resource is being created.",
+            "The resource has been created and is fully usable.",
+            "The resource is being deleted.",
+            "The resource has been created but is not usable.",
+            "The resource is being updated."
+          ],
+          "enum": [
+            "STATE_UNSPECIFIED",
+            "CREATING",
+            "ACTIVE",
+            "DELETING",
+            "INACTIVE",
+            "UPDATING"
+          ],
+          "type": "string"
+        },
+        "logRetentionDays": {
+          "type": "string",
+          "format": "int64"
+        },
+        "name": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "revisionName": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "createTime": {
+          "readOnly": true,
+          "format": "google-datetime",
+          "type": "string"
+        },
+        "backupRules": {
+          "type": "array",
+          "items": {
+            "$ref": "BackupRule"
+          }
+        },
+        "revisionId": {
+          "type": "string",
+          "readOnly": true
+        },
+        "diskBackupPlanProperties": {
+          "$ref": "DiskBackupPlanProperties"
+        },
+        "updateTime": {
+          "readOnly": true,
+          "format": "google-datetime",
+          "type": "string"
+        },
+        "maxCustomOnDemandRetentionDays": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "supportedResourceTypes": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "BackupRule": {
+      "id": "BackupRule",
+      "properties": {
+        "ruleId": {
+          "type": "string"
+        },
+        "standardSchedule": {
+          "$ref": "StandardSchedule"
+        },
+        "backupRetentionDays": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "type": "object"
+    },
+    "BackupWindow": {
+      "id": "BackupWindow",
+      "properties": {
+        "startHourOfDay": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "endHourOfDay": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "type": "object"
+    },
+    "ComputeInstanceBackupPlanProperties": {
+      "type": "object",
+      "id": "ComputeInstanceBackupPlanProperties",
+      "properties": {
+        "guestFlush": {
+          "type": "boolean"
+        }
+      }
+    },
+    "DiskBackupPlanProperties": {
+      "id": "DiskBackupPlanProperties",
+      "properties": {
+        "guestFlush": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "StandardSchedule": {
+      "type": "object",
+      "id": "StandardSchedule",
+      "properties": {
+        "daysOfWeek": {
+          "items": {
+            "type": "string",
+            "enumDescriptions": [
+              "The day of the week is unspecified.",
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday",
+              "Sunday"
+            ],
+            "enum": [
+              "DAY_OF_WEEK_UNSPECIFIED",
+              "MONDAY",
+              "TUESDAY",
+              "WEDNESDAY",
+              "THURSDAY",
+              "FRIDAY",
+              "SATURDAY",
+              "SUNDAY"
+            ]
+          },
+          "type": "array"
+        },
+        "recurrenceType": {
+          "enum": [
+            "RECURRENCE_TYPE_UNSPECIFIED",
+            "HOURLY",
+            "DAILY",
+            "WEEKLY",
+            "MONTHLY",
+            "YEARLY"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "recurrence type not set",
+            "The `BackupRule` is to be applied hourly.",
+            "The `BackupRule` is to be applied daily.",
+            "The `BackupRule` is to be applied weekly.",
+            "The `BackupRule` is to be applied monthly.",
+            "The `BackupRule` is to be applied yearly."
+          ]
+        },
+        "daysOfMonth": {
+          "items": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "hourlyFrequency": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "months": {
+          "type": "array",
+          "items": {
+            "enumDescriptions": [
+              "The unspecified month.",
+              "The month of January.",
+              "The month of February.",
+              "The month of March.",
+              "The month of April.",
+              "The month of May.",
+              "The month of June.",
+              "The month of July.",
+              "The month of August.",
+              "The month of September.",
+              "The month of October.",
+              "The month of November.",
+              "The month of December."
+            ],
+            "type": "string",
+            "enum": [
+              "MONTH_UNSPECIFIED",
+              "JANUARY",
+              "FEBRUARY",
+              "MARCH",
+              "APRIL",
+              "MAY",
+              "JUNE",
+              "JULY",
+              "AUGUST",
+              "SEPTEMBER",
+              "OCTOBER",
+              "NOVEMBER",
+              "DECEMBER"
+            ]
+          }
+        },
+        "backupWindow": {
+          "$ref": "BackupWindow"
+        },
+        "timeZone": {
+          "type": "string"
+        },
+        "weekDayOfMonth": {
+          "$ref": "WeekDayOfMonth"
+        }
+      }
+    },
+    "WeekDayOfMonth": {
+      "type": "object",
+      "id": "WeekDayOfMonth",
+      "properties": {
+        "dayOfWeek": {
+          "enumDescriptions": [
+            "The day of the week is unspecified.",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday"
+          ],
+          "type": "string",
+          "enum": [
+            "DAY_OF_WEEK_UNSPECIFIED",
+            "MONDAY",
+            "TUESDAY",
+            "WEDNESDAY",
+            "THURSDAY",
+            "FRIDAY",
+            "SATURDAY",
+            "SUNDAY"
+          ]
+        },
+        "weekOfMonth": {
+          "enumDescriptions": [
+            "The zero value. Do not use.",
+            "The first week of the month.",
+            "The second week of the month.",
+            "The third week of the month.",
+            "The fourth week of the month.",
+            "The last week of the month."
+          ],
+          "type": "string",
+          "enum": [
+            "WEEK_OF_MONTH_UNSPECIFIED",
+            "FIRST",
+            "SECOND",
+            "THIRD",
+            "FOURTH",
+            "LAST"
+          ]
+        }
+      }
+    }
+  }
+}

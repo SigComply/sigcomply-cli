@@ -1,0 +1,95 @@
+{
+  "discoveryVersion": "v1",
+  "name": "cloudasset",
+  "version": "v1",
+  "x-slice": "response-schema closure consumed by internal/sources/gcp",
+  "schemas": {
+    "Expr": {
+      "id": "Expr",
+      "type": "object",
+      "properties": {
+        "expression": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        }
+      }
+    },
+    "Feed": {
+      "type": "object",
+      "properties": {
+        "assetTypes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "condition": {
+          "$ref": "Expr"
+        },
+        "contentType": {
+          "type": "string",
+          "enumDescriptions": [
+            "Unspecified content type.",
+            "Resource metadata.",
+            "The actual IAM policy set on a resource.",
+            "The organization policy set on an asset.",
+            "The Access Context Manager policy set on an asset.",
+            "The runtime OS Inventory information.",
+            "The related resources."
+          ],
+          "enum": [
+            "CONTENT_TYPE_UNSPECIFIED",
+            "RESOURCE",
+            "IAM_POLICY",
+            "ORG_POLICY",
+            "ACCESS_POLICY",
+            "OS_INVENTORY",
+            "RELATIONSHIP"
+          ]
+        },
+        "relationshipTypes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "feedOutputConfig": {
+          "$ref": "FeedOutputConfig"
+        },
+        "name": {
+          "type": "string"
+        },
+        "assetNames": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "id": "Feed"
+    },
+    "FeedOutputConfig": {
+      "type": "object",
+      "properties": {
+        "pubsubDestination": {
+          "$ref": "PubsubDestination"
+        }
+      },
+      "id": "FeedOutputConfig"
+    },
+    "PubsubDestination": {
+      "id": "PubsubDestination",
+      "type": "object",
+      "properties": {
+        "topic": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
