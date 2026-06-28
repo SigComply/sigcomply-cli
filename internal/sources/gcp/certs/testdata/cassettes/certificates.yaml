@@ -1,0 +1,42 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55883
+        form:
+            alt:
+                - json
+            prettyPrint:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://certificatemanager.googleapis.com/v1/projects/e2e-project/locations/-/certificates?alt=json&prettyPrint=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 474
+        body: |-
+            {"certificates":[
+            {"name":"projects/e2e-project/locations/us-central1/certificates/web","expireTime":"2026-09-14T00:00:00Z","sanDnsnames":["www.example.com","example.com"],"scope":"DEFAULT","managed":{"state":"ACTIVE","domains":["www.example.com"]}},
+            {"name":"projects/e2e-project/locations/us-east1/certificates/legacy","expireTime":"2026-08-01T00:00:00Z","sanDnsnames":["api.example.com"],"selfManaged":{"pemCertificate":"-----BEGIN CERTIFICATE-----"}}
+            ],"unreachable":[]}
+        headers:
+            Content-Length:
+                - "474"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 13:42:55 GMT
+        status: 200 OK
+        code: 200
+        duration: 1.221291ms
