@@ -1,0 +1,85 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 2
+        host: ""
+        body: '{}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 9b9dc55e-fe78-40a9-839e-84bf0b80acc1
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/acm#1.39.4 m/g
+            X-Amz-Date:
+                - 20260628T112415Z
+            X-Amz-Target:
+                - CertificateManager.ListCertificates
+        url: https://acm.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 141
+        body: '{"CertificateSummaryList":[{"CertificateArn":"arn:aws:acm:us-east-1:000000000000:certificate/e2e-cert-0001","DomainName":"e2e.example.com"}]}'
+        headers:
+            Content-Length:
+                - "141"
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sun, 28 Jun 2026 11:24:15 GMT
+        status: 200 OK
+        code: 200
+        duration: 487.125µs
+    - id: 1
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 81
+        host: ""
+        body: '{"CertificateArn":"arn:aws:acm:us-east-1:000000000000:certificate/e2e-cert-0001"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 137b808f-f69d-4c4a-a834-7ef206677ef0
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/acm#1.39.4 m/g
+            X-Amz-Date:
+                - 20260628T112415Z
+            X-Amz-Target:
+                - CertificateManager.DescribeCertificate
+        url: https://acm.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 341
+        body: '{"Certificate":{"CertificateArn":"arn:aws:acm:us-east-1:000000000000:certificate/e2e-cert-0001","DomainName":"e2e.example.com","Status":"ISSUED","Type":"AMAZON_ISSUED","RenewalEligibility":"ELIGIBLE","KeyAlgorithm":"RSA_2048","InUseBy":["arn:aws:elasticloadbalancing:us-east-1:000000000000:loadbalancer/app/e2e/0001"],"NotAfter":1786492800}}'
+        headers:
+            Content-Length:
+                - "341"
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sun, 28 Jun 2026 11:24:15 GMT
+        status: 200 OK
+        code: 200
+        duration: 157.917µs

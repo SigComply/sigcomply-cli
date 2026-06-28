@@ -1,0 +1,224 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 0
+        host: ""
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 87a51d36-df1b-4d8c-a29c-98fb60458942
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/guardduty#1.78.2 m/g
+            X-Amz-Date:
+                - 20260628T112214Z
+        url: https://guardduty.us-east-1.amazonaws.com/detector
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 52
+        body: '{"detectorIds":["02cf86fb4bfca744174e92bed5839e22"]}'
+        headers:
+            Access-Control-Allow-Headers:
+                - Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-Content-Sha256,X-Amz-User-Agent,*,Date,X-Amz-Target,x-amzn-platform-id,x-amzn-trace-id
+            Access-Control-Allow-Origin:
+                - '*'
+            Access-Control-Expose-Headers:
+                - x-amzn-ErrorType,x-amzn-requestid,x-amzn-errormessage,x-amzn-trace-id,x-amz-apigw-id,Date
+            Access-Control-Max-Age:
+                - "86400"
+            Content-Length:
+                - "52"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 11:22:19 GMT
+            X-Amz-Apigw-Id:
+                - fq2M6GJfIAMEghQ=
+            X-Amzn-Requestid:
+                - b86988fc-a0b4-46eb-9d68-a2bed7f1d7dd
+            X-Amzn-Trace-Id:
+                - Root=1-6a4103eb-3b0349335d7879cc244fb981;Parent=4f9e9719907b49e4;Sampled=0;Lineage=1:c19854cb:0
+        status: 200 OK
+        code: 200
+        duration: 5.784479958s
+    - id: 1
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 0
+        host: ""
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - aa90bd1f-b109-48f3-bdb4-498cd39d0476
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/guardduty#1.78.2 m/g
+            X-Amz-Date:
+                - 20260628T112219Z
+        url: https://guardduty.us-east-1.amazonaws.com/detector/02cf86fb4bfca744174e92bed5839e22
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 3313
+        body: |-
+            {
+              "status" : "ENABLED",
+              "createdAt" : "2026-06-28T11:21:32.515Z",
+              "updatedAt" : "2026-06-28T11:21:32.515Z",
+              "findingPublishingFrequency" : "SIX_HOURS",
+              "dataSources" : {
+                "cloudTrail" : {
+                  "status" : "ENABLED",
+                  "updatedAt" : "2026-06-28T11:22:26.031Z"
+                },
+                "dnsLogs" : {
+                  "status" : "ENABLED",
+                  "updatedAt" : "2026-06-28T11:22:26.034Z"
+                },
+                "flowLogs" : {
+                  "status" : "ENABLED",
+                  "updatedAt" : "2026-06-28T11:22:26.037Z"
+                },
+                "s3Logs" : {
+                  "status" : "ENABLED",
+                  "updatedAt" : "2026-06-28T11:21:32.542Z"
+                },
+                "kubernetes" : {
+                  "auditLogs" : {
+                    "status" : "ENABLED",
+                    "updatedAt" : "2026-06-28T11:21:32.549Z"
+                  }
+                },
+                "malwareProtection" : {
+                  "serviceRole" : "arn:aws:iam::000000000000:role/aws-service-role/malware-protection.guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDutyMalwareProtection",
+                  "scanEc2InstanceWithFindings" : {
+                    "ebsVolumes" : {
+                      "status" : "ENABLED",
+                      "updatedAt" : "2026-06-28T11:21:32.554Z"
+                    }
+                  }
+                },
+                "database" : {
+                  "rds" : {
+                    "databaseEvents" : {
+                      "status" : "ENABLED",
+                      "updatedAt" : "2026-06-28T11:21:32.558Z"
+                    }
+                  }
+                }
+              },
+              "features" : [ {
+                "name" : "CLOUD_TRAIL",
+                "status" : "ENABLED",
+                "updatedAt" : 1782645746,
+                "additionalConfiguration" : null
+              }, {
+                "name" : "DNS_LOGS",
+                "status" : "ENABLED",
+                "updatedAt" : 1782645746,
+                "additionalConfiguration" : null
+              }, {
+                "name" : "FLOW_LOGS",
+                "status" : "ENABLED",
+                "updatedAt" : 1782645746,
+                "additionalConfiguration" : null
+              }, {
+                "name" : "S3_DATA_EVENTS",
+                "status" : "ENABLED",
+                "updatedAt" : 1782645692,
+                "additionalConfiguration" : null
+              }, {
+                "name" : "EKS_AUDIT_LOGS",
+                "status" : "ENABLED",
+                "updatedAt" : 1782645692,
+                "additionalConfiguration" : null
+              }, {
+                "name" : "EBS_MALWARE_PROTECTION",
+                "status" : "ENABLED",
+                "updatedAt" : 1782645692,
+                "additionalConfiguration" : null
+              }, {
+                "name" : "RDS_LOGIN_EVENTS",
+                "status" : "ENABLED",
+                "updatedAt" : 1782645692,
+                "additionalConfiguration" : null
+              }, {
+                "name" : "AI_ANALYST",
+                "status" : "DISABLED",
+                "updatedAt" : 1782645692,
+                "additionalConfiguration" : null
+              }, {
+                "name" : "EKS_RUNTIME_MONITORING",
+                "status" : "DISABLED",
+                "updatedAt" : 1782645692,
+                "additionalConfiguration" : [ {
+                  "name" : "EKS_ADDON_MANAGEMENT",
+                  "status" : "DISABLED",
+                  "updatedAt" : 1782645692
+                } ]
+              }, {
+                "name" : "LAMBDA_NETWORK_LOGS",
+                "status" : "ENABLED",
+                "updatedAt" : 1782645692,
+                "additionalConfiguration" : null
+              }, {
+                "name" : "RUNTIME_MONITORING",
+                "status" : "DISABLED",
+                "updatedAt" : 1782645692,
+                "additionalConfiguration" : [ {
+                  "name" : "EKS_ADDON_MANAGEMENT",
+                  "status" : "DISABLED",
+                  "updatedAt" : 1782645692
+                }, {
+                  "name" : "ECS_FARGATE_AGENT_MANAGEMENT",
+                  "status" : "DISABLED",
+                  "updatedAt" : 1782645692
+                }, {
+                  "name" : "EC2_AGENT_MANAGEMENT",
+                  "status" : "DISABLED",
+                  "updatedAt" : 1782645692
+                } ]
+              } ],
+              "tags" : { },
+              "serviceRole" : "arn:aws:iam::000000000000:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty"
+            }
+        headers:
+            Access-Control-Allow-Headers:
+                - Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-Content-Sha256,X-Amz-User-Agent,*,Date,X-Amz-Target,x-amzn-platform-id,x-amzn-trace-id
+            Access-Control-Allow-Origin:
+                - '*'
+            Access-Control-Expose-Headers:
+                - x-amzn-ErrorType,x-amzn-requestid,x-amzn-errormessage,x-amzn-trace-id,x-amz-apigw-id,Date
+            Access-Control-Max-Age:
+                - "86400"
+            Content-Length:
+                - "3313"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 11:22:26 GMT
+            X-Amz-Apigw-Id:
+                - fq2N3Hn3IAMES3A=
+            X-Amzn-Requestid:
+                - 728c2f51-da18-4bec-b85c-c410ff32a54e
+            X-Amzn-Trace-Id:
+                - Root=1-6a4103f1-38778bbd0d8f4d2a5b2d7d18;Parent=4f38a238fc8e085b;Sampled=0;Lineage=1:b41c633d:0
+        status: 200 OK
+        code: 200
+        duration: 441.558709ms

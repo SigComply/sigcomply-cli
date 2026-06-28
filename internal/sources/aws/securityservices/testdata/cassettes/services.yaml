@@ -1,0 +1,152 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 0
+        host: ""
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 965a0163-428b-4ed4-a958-14c9d95e3ab5
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/macie2#1.51.6 m/g
+            X-Amz-Date:
+                - 20260628T112034Z
+        url: https://macie2.us-east-1.amazonaws.com/macie
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 34
+        body: '{"message":"Macie is not enabled"}'
+        headers:
+            Content-Length:
+                - "34"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 11:20:37 GMT
+            X-Amz-Apigw-Id:
+                - fq182Gx6oAMEJmw=
+            X-Amzn-Errortype:
+                - AccessDeniedException
+            X-Amzn-Remapped-Content-Length:
+                - "34"
+            X-Amzn-Remapped-Date:
+                - Sun, 28 Jun 2026 11:20:37 GMT
+            X-Amzn-Remapped-X-Amzn-Requestid:
+                - 45fb0e37-537d-4ba4-abd8-b3dd96278aa9
+            X-Amzn-Requestid:
+                - e309720e-dbb2-4ee6-bba9-89aad9fb1f6a
+        status: 403 Forbidden
+        code: 403
+        duration: 2.976234292s
+    - id: 1
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 2
+        host: ""
+        body: '{}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 797f1062-8029-4416-b3db-4a286d58c657
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/json
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/inspector2#1.48.4 m/g
+            X-Amz-Date:
+                - 20260628T112040Z
+        url: https://inspector2.us-east-1.amazonaws.com/status/batch/get
+        method: POST
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 300
+        body: '{"accounts":[{"accountId":"000000000000","resourceState":{"ami":{"status":"DISABLED"},"codeRepository":{"status":"DISABLED"},"ec2":{"status":"DISABLED"},"ecr":{"status":"DISABLED"},"lambda":{"status":"DISABLED"},"lambdaCode":{"status":"DISABLED"}},"state":{"status":"DISABLED"}}],"failedAccounts":[]}'
+        headers:
+            Content-Length:
+                - "300"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 11:20:43 GMT
+            X-Amz-Apigw-Id:
+                - fq190FQloAMEizA=
+            X-Amzn-Requestid:
+                - e40e7287-6543-4271-b7cc-580ef8b60cb3
+            X-Amzn-Trace-Id:
+                - Root=1-6a41038b-7e9a3fdb5b0f7b870f23ec46
+        status: 200 OK
+        code: 200
+        duration: 3.141008375s
+    - id: 2
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 0
+        host: ""
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - abcdd4e7-bf07-4270-8745-3591d321bcea
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/securityhub#1.71.4 m/g
+            X-Amz-Date:
+                - 20260628T112046Z
+        url: https://securityhub.us-east-1.amazonaws.com/accounts
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 187
+        body: '{"Code":"InvalidAccessException","Type":"InvalidAccessException","RequestId":"282a909f-dc58-4857-a5fb-29af4b6741f2","Message":"Account 000000000000 is not subscribed to AWS Security Hub"}'
+        headers:
+            Access-Control-Allow-Headers:
+                - Authorization,Date,X-Amz-Date,X-Amz-Security-Token,X-Amz-Target,content-type,x-amz-content-sha256,x-amz-user-agent,x-amzn-platform-id,x-amzn-trace-id
+            Access-Control-Allow-Methods:
+                - GET,POST,OPTIONS,PUT,PATCH,DELETE
+            Access-Control-Allow-Origin:
+                - '*'
+            Access-Control-Expose-Headers:
+                - x-amzn-errortype,x-amzn-requestid,x-amzn-errormessage,x-amzn-trace-id,x-amz-apigw-id,date
+            Access-Control-Max-Age:
+                - "86400"
+            Cache-Control:
+                - no-cache
+            Content-Length:
+                - "187"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 11:20:48 GMT
+            X-Amz-Apigw-Id:
+                - fq1-wHGwIAMEL_Q=
+            X-Amzn-Errortype:
+                - InvalidAccessException
+            X-Amzn-Requestid:
+                - 4de6db55-0b46-4a0d-8210-d3abbd424a96
+            X-Amzn-Trace-Id:
+                - Root=1-6a410391-6206b087589b5d010d9d9d8f
+        status: 401 Unauthorized
+        code: 401
+        duration: 2.902888791s

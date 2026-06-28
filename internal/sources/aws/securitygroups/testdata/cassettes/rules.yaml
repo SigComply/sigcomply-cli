@@ -1,0 +1,57 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 48
+        host: ""
+        body: Action=DescribeSecurityGroups&Version=2016-11-15
+        form:
+            Action:
+                - DescribeSecurityGroups
+            Version:
+                - "2016-11-15"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - c9bf996a-15c9-4764-953a-7e4ecd6ab8e1
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/ec2#1.304.2 m/g
+            X-Amz-Date:
+                - 20260628T112020Z
+        url: https://ec2.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 960
+        body: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <DescribeSecurityGroupsResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/"><requestId>5ac3599e-9fa1-40f8-a400-124cb2e2fd8e</requestId><securityGroupInfo><item><ownerId>000000000000</ownerId><groupId>sg-04da2f5695c5341e3</groupId><groupName>default</groupName><groupDescription>default VPC security group</groupDescription><vpcId>vpc-0860fcf78e32a5d9f</vpcId><ipPermissions><item><ipProtocol>-1</ipProtocol><groups><item><userId>000000000000</userId><groupId>sg-04da2f5695c5341e3</groupId></item></groups><ipRanges/><ipv6Ranges/><prefixListIds/></item></ipPermissions><ipPermissionsEgress><item><ipProtocol>-1</ipProtocol><groups/><ipRanges><item><cidrIp>0.0.0.0/0</cidrIp></item></ipRanges><ipv6Ranges/><prefixListIds/></item></ipPermissionsEgress><securityGroupArn>arn:aws:ec2:us-east-1:000000000000:security-group/sg-04da2f5695c5341e3</securityGroupArn></item></securityGroupInfo></DescribeSecurityGroupsResponse>
+        headers:
+            Cache-Control:
+                - no-cache, no-store
+            Content-Length:
+                - "960"
+            Content-Type:
+                - text/xml;charset=UTF-8
+            Date:
+                - Sun, 28 Jun 2026 11:20:26 GMT
+            Server:
+                - AmazonEC2
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Amzn-Requestid:
+                - 5ac3599e-9fa1-40f8-a400-124cb2e2fd8e
+        status: 200 OK
+        code: 200
+        duration: 5.923581583s

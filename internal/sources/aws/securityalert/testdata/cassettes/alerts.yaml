@@ -1,0 +1,122 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 2
+        host: ""
+        body: '{}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 8004a10a-c67f-4c14-87f5-01c3aa65f8e5
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/cloudwatchlogs#1.74.2 m/g
+            X-Amz-Date:
+                - 20260628T112228Z
+            X-Amz-Target:
+                - Logs_20140328.DescribeMetricFilters
+        url: https://logs.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 636
+        body: '{"metricFilters":[{"applyOnTransformedLogs":false,"creationTime":1782645695377,"filterName":"e2e-root-usage","filterPattern":"{ $.userIdentity.type = \"Root\" }","logGroupName":"e2e-cis-lg","metricTransformations":[{"metricName":"E2ERootUsage","metricNamespace":"SigComplyE2E","metricValue":"1"}]},{"applyOnTransformedLogs":false,"creationTime":1782645696728,"filterName":"e2e-unauthorized","filterPattern":"{ ($.errorCode = \"*UnauthorizedOperation\") }","logGroupName":"e2e-cis-lg","metricTransformations":[{"metricName":"E2EUnauthorized","metricNamespace":"SigComplyE2E","metricValue":"1"}]}]}'
+        headers:
+            Content-Length:
+                - "636"
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sun, 28 Jun 2026 11:22:34 GMT
+            X-Amzn-Requestid:
+                - 68d529e0-7370-4927-8439-c57f2479c0cb
+        status: 200 OK
+        code: 200
+        duration: 6.09574575s
+    - id: 1
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 1
+        host: ""
+        body: !!binary oA==
+        headers:
+            Accept:
+                - application/cbor
+            Amz-Sdk-Invocation-Id:
+                - 58e721c2-1317-4910-a767-7cbd522d6eca
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/cbor
+            Smithy-Protocol:
+                - rpc-v2-cbor
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/cloudwatch#1.58.1 m/M,g
+            X-Amz-Date:
+                - 20260628T112241Z
+            X-Amzn-Query-Mode:
+                - "true"
+        url: https://monitoring.us-east-1.amazonaws.com/service/GraniteServiceVersion20100801/operation/DescribeAlarms
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 1402
+        body: !!binary |
+            v29Db21wb3NpdGVBbGFybXOf/2lMb2dBbGFybXOf/2xNZXRyaWNBbGFybXOfv25BY3Rpb2
+            5zRW5hYmxlZPVsQWxhcm1BY3Rpb25zn3g3YXJuOmF3czpzbnM6dXMtZWFzdC0xOjAwMDAw
+            MDAwMDAwMDpzaWdjb21wbHktZTJlLWFsZXJ0c/9oQWxhcm1Bcm54SGFybjphd3M6Y2xvdW
+            R3YXRjaDp1cy1lYXN0LTE6MDAwMDAwMDAwMDAwOmFsYXJtOnNpZ2NvbXBseS1lMmUtcm9v
+            dC1hbGFybXgiQWxhcm1Db25maWd1cmF0aW9uVXBkYXRlZFRpbWVzdGFtcMH7QdqQQPDYYk
+            5pQWxhcm1OYW1leBhzaWdjb21wbHktZTJlLXJvb3QtYWxhcm1yQ29tcGFyaXNvbk9wZXJh
+            dG9yeB1HcmVhdGVyVGhhbk9yRXF1YWxUb1RocmVzaG9sZGpDcmVhdGlvbklkeDJmNDBmZG
+            I4Yi0yZDI0LTRiMjctODNjMy0xOGM4OGVmNDdlMTYvMTc4MjY0NTY5OTMyMmpEaW1lbnNp
+            b25zn/9xRXZhbHVhdGlvblBlcmlvZHMBd0luc3VmZmljaWVudERhdGFBY3Rpb25zn/9qTW
+            V0cmljTmFtZWxFMkVSb290VXNhZ2VpTmFtZXNwYWNlbFNpZ0NvbXBseUUyRWlPS0FjdGlv
+            bnOf/2ZQZXJpb2QZASxrU3RhdGVSZWFzb254IVVuY2hlY2tlZDogSW5pdGlhbCBhbGFybS
+            BjcmVhdGlvbngaU3RhdGVUcmFuc2l0aW9uZWRUaW1lc3RhbXDB+0HakEDw2GJOdVN0YXRl
+            VXBkYXRlZFRpbWVzdGFtcMH7QdqQQPDYYk5qU3RhdGVWYWx1ZXFJTlNVRkZJQ0lFTlRfRE
+            FUQWlTdGF0aXN0aWNjU3VtaVRocmVzaG9sZPs/8AAAAAAAAP+/bkFjdGlvbnNFbmFibGVk
+            9WxBbGFybUFjdGlvbnOfeDdhcm46YXdzOnNuczp1cy1lYXN0LTE6MDAwMDAwMDAwMDAwOn
+            NpZ2NvbXBseS1lMmUtYWxlcnRz/2hBbGFybUFybnhKYXJuOmF3czpjbG91ZHdhdGNoOnVz
+            LWVhc3QtMTowMDAwMDAwMDAwMDA6YWxhcm06c2lnY29tcGx5LWUyZS11bmF1dGgtYWxhcm
+            14IkFsYXJtQ29uZmlndXJhdGlvblVwZGF0ZWRUaW1lc3RhbXDB+0HakEDxKUeuaUFsYXJt
+            TmFtZXgac2lnY29tcGx5LWUyZS11bmF1dGgtYWxhcm1yQ29tcGFyaXNvbk9wZXJhdG9yeB
+            1HcmVhdGVyVGhhbk9yRXF1YWxUb1RocmVzaG9sZGpDcmVhdGlvbklkeDJlMTcyZWE1Ny05
+            ZjBlLTQ3N2UtYTQ1My0wNDFhOWY3YjQ3ZGYvMTc4MjY0NTcwMDYwNmpEaW1lbnNpb25zn/
+            9xRXZhbHVhdGlvblBlcmlvZHMBd0luc3VmZmljaWVudERhdGFBY3Rpb25zn/9qTWV0cmlj
+            TmFtZW9FMkVVbmF1dGhvcml6ZWRpTmFtZXNwYWNlbFNpZ0NvbXBseUUyRWlPS0FjdGlvbn
+            Of/2ZQZXJpb2QZASxrU3RhdGVSZWFzb254IVVuY2hlY2tlZDogSW5pdGlhbCBhbGFybSBj
+            cmVhdGlvbngaU3RhdGVUcmFuc2l0aW9uZWRUaW1lc3RhbXDB+0HakEDxKUeudVN0YXRlVX
+            BkYXRlZFRpbWVzdGFtcMH7QdqQQPEpR65qU3RhdGVWYWx1ZXFJTlNVRkZJQ0lFTlRfREFU
+            QWlTdGF0aXN0aWNjU3VtaVRocmVzaG9sZPs/8AAAAAAAAP///w==
+        headers:
+            Content-Length:
+                - "1402"
+            Content-Type:
+                - application/cbor
+            Date:
+                - Sun, 28 Jun 2026 11:22:47 GMT
+            Smithy-Protocol:
+                - rpc-v2-cbor
+            X-Amzn-Requestid:
+                - 0372f542-2059-4182-a07a-8d484eca0087
+        status: 200 OK
+        code: 200
+        duration: 6.394536041s

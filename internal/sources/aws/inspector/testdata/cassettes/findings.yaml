@@ -1,0 +1,42 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 2
+        host: ""
+        body: '{}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 5b90d795-980a-425f-9ca7-982f88ebadf3
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/json
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/inspector2#1.48.4 m/g
+            X-Amz-Date:
+                - 20260628T112416Z
+        url: https://inspector2.us-east-1.amazonaws.com/findings/list
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 420
+        body: '{"findings":[{"findingArn":"arn:aws:inspector2:us-east-1:000000000000:finding/e2e-finding-0001","severity":"HIGH","status":"ACTIVE","title":"CVE-2024-9999 - openssl","type":"PACKAGE_VULNERABILITY","inspectorScore":7.5,"packageVulnerabilityDetails":{"vulnerabilityId":"CVE-2024-9999"},"remediation":{"recommendation":{"text":"Update the openssl package"}},"resources":[{"id":"i-0e2eexample","type":"AWS_EC2_INSTANCE"}]}]}'
+        headers:
+            Content-Length:
+                - "420"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 11:24:16 GMT
+        status: 200 OK
+        code: 200
+        duration: 516.583µs

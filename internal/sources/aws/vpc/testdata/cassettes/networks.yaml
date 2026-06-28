@@ -1,0 +1,114 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 42
+        host: ""
+        body: Action=DescribeFlowLogs&Version=2016-11-15
+        form:
+            Action:
+                - DescribeFlowLogs
+            Version:
+                - "2016-11-15"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - a61a6295-7456-402c-803d-5e4574a669b3
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/ec2#1.304.2 m/g
+            X-Amz-Date:
+                - 20260628T112005Z
+        url: https://ec2.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        transfer_encoding:
+            - chunked
+        content_length: -1
+        uncompressed: true
+        body: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <DescribeFlowLogsResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/"><requestId>2544fd50-3556-40c9-ab32-4ec18f43ab14</requestId><flowLogSet/></DescribeFlowLogsResponse>
+        headers:
+            Cache-Control:
+                - no-cache, no-store
+            Content-Type:
+                - text/xml;charset=UTF-8
+            Date:
+                - Sun, 28 Jun 2026 11:20:11 GMT
+            Server:
+                - AmazonEC2
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            Vary:
+                - accept-encoding
+            X-Amzn-Requestid:
+                - 2544fd50-3556-40c9-ab32-4ec18f43ab14
+        status: 200 OK
+        code: 200
+        duration: 6.171455041s
+    - id: 1
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 38
+        host: ""
+        body: Action=DescribeVpcs&Version=2016-11-15
+        form:
+            Action:
+                - DescribeVpcs
+            Version:
+                - "2016-11-15"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 3f41d249-ed0b-4160-a3a5-8477c8c88939
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/ec2#1.304.2 m/g
+            X-Amz-Date:
+                - 20260628T112011Z
+        url: https://ec2.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 799
+        body: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <DescribeVpcsResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/"><requestId>81096551-7e9e-4a50-bc53-033cad95c450</requestId><vpcSet><item><vpcId>vpc-0860fcf78e32a5d9f</vpcId><ownerId>000000000000</ownerId><state>available</state><cidrBlock>172.31.0.0/16</cidrBlock><cidrBlockAssociationSet><item><cidrBlock>172.31.0.0/16</cidrBlock><associationId>vpc-cidr-assoc-0d2365f5c2e6308a4</associationId><cidrBlockState><state>associated</state></cidrBlockState></item></cidrBlockAssociationSet><dhcpOptionsId>dopt-03d2c03c0140e10c2</dhcpOptionsId><instanceTenancy>default</instanceTenancy><isDefault>true</isDefault><blockPublicAccessStates><internetGatewayBlockMode>off</internetGatewayBlockMode></blockPublicAccessStates></item></vpcSet></DescribeVpcsResponse>
+        headers:
+            Cache-Control:
+                - no-cache, no-store
+            Content-Length:
+                - "799"
+            Content-Type:
+                - text/xml;charset=UTF-8
+            Date:
+                - Sun, 28 Jun 2026 11:20:17 GMT
+            Server:
+                - AmazonEC2
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Amzn-Requestid:
+                - 81096551-7e9e-4a50-bc53-033cad95c450
+        status: 200 OK
+        code: 200
+        duration: 301.559209ms
