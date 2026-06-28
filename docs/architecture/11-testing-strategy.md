@@ -326,3 +326,31 @@ Rule of thumb: a `contract-drift` issue is *informational until proven
 breaking* — most vendor changes are additive. Never silence it by editing
 the differ; re-baseline via `make contracts-fetch` so the next genuine
 drift still fires.
+
+## 8. L4a live-test setup (free-account guide)
+
+The L4a live tests (`//go:build live`, run by `make test-live` locally and the
+nightly **Live SaaS Drift** workflow, `.github/workflows/live-saas.yml`) hit
+real provider APIs. Each calls `sourcetest.RequireEnv` first, so it **skips**
+unless its credentials are present — configure only the providers you have free
+accounts for. In CI the credentials are repository **secrets**; the workflow maps
+them onto the env the tests read (GitHub's are stored as `GH_TEST_*` because
+secret names can't begin with `GITHUB_`).
+
+| Provider | Env the test reads | CI secret | How to get a free credential |
+|----------|--------------------|-----------|------------------------------|
+| GitHub  | `GITHUB_TEST_TOKEN`, `GITHUB_TEST_ORG` | `GH_TEST_TOKEN`, `GH_TEST_ORG` | A free org; a classic PAT with `read:org` + `admin:org` (org policy + member 2FA) + `repo`. The org must enforce 2FA (the test asserts `two_factor_required`). |
+| GitLab  | `GITLAB_TEST_TOKEN`, `GITLAB_TEST_GROUP`, `GITLAB_TEST_BASE_URL` (optional) | same names | gitlab.com free group; a **classic** `read_api` PAT (fine-grained tokens 403 on `/user`). Base URL blank = gitlab.com. |
+| Okta    | `OKTA_TEST_TOKEN`, `OKTA_TEST_ORG_URL` | same names | Okta Integrator Free Plan org; an API token (Security → API → Tokens), SSWS scheme; org URL e.g. `https://trial-xxximes.okta.com`. |
+| Entra   | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | same names | Free Azure tenant; an app registration with **application** Graph permissions `User.Read.All` + `AuditLog.Read.All` (admin-consented) + a client secret. The MFA registration report needs Entra **P1/P2**; without it the test skips after proving auth (`Authentication_RequestFromNonPremiumTenantOrB2CTenant`). |
+
+**Drift signal & remediation.** A live test failing on the nightly run opens a
+`live-drift` issue (alert-only; PRs never run it). Cassette **re-record is
+manual** by design — the recorders are throwaway `//go:build record` drivers, not
+committed — so triage is: reproduce with `make test-live`, fix the mapper/schema,
+re-record the affected cassette with a throwaway driver, and (if the upstream
+shape moved) re-baseline the L3 snapshot via `make contracts-fetch`. The two
+drift jobs are complementary: **Contract Drift** (L3) catches spec-shape changes
+with zero accounts; **Live SaaS Drift** (L4a) catches behavioral changes a spec
+diff can't see (and GitLab, whose published spec is too thin for L3, relies on it
+entirely).

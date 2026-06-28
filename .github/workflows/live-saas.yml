@@ -1,0 +1,104 @@
+name: Live SaaS Drift
+
+# L4a live drift detection (WU-4.6): nightly run of the //go:build live tests
+# against real free-account SaaS APIs (GitHub, GitLab, Okta, Entra). Alert-only —
+# it NEVER runs on PRs and never blocks them; on a failure it opens (or comments
+# on) a GitHub issue so a human can triage.
+#
+# Each live test skips cleanly when its provider's credentials are unset, so the
+# job is green when every test passes-or-skips and red-flags (issue) only on a
+# real failure: an auth break, a schema/behavioral drift, or a count regression.
+# This is the behavioral half of drift detection that the L3 Contract Drift job
+# (spec-diffing) cannot see.
+#
+# Remediation when a live test fails is manual — re-record the affected cassette
+# with a throwaway //go:build record driver and re-baseline the L3 snapshot per
+# docs/architecture/11-testing-strategy.md (§7 runbook + §"L4a setup").
+
+on:
+  schedule:
+    # Nightly at 03:00 UTC.
+    - cron: '0 3 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  live-saas:
+    name: Live SaaS drift
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write # open/update the alert issue
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+        with:
+          go-version: '1.25'
+
+      # Secret names cannot start with GITHUB_, so the GitHub token/org are stored
+      # as GH_TEST_* and mapped onto the GITHUB_TEST_* env the tests read. Any
+      # provider whose secret is unset simply has its test skip.
+      - name: Run live tests
+        id: live
+        env:
+          GITHUB_TEST_TOKEN: ${{ secrets.GH_TEST_TOKEN }}
+          GITHUB_TEST_ORG: ${{ secrets.GH_TEST_ORG }}
+          GITLAB_TEST_TOKEN: ${{ secrets.GITLAB_TEST_TOKEN }}
+          GITLAB_TEST_GROUP: ${{ secrets.GITLAB_TEST_GROUP }}
+          GITLAB_TEST_BASE_URL: ${{ secrets.GITLAB_TEST_BASE_URL }}
+          OKTA_TEST_TOKEN: ${{ secrets.OKTA_TEST_TOKEN }}
+          OKTA_TEST_ORG_URL: ${{ secrets.OKTA_TEST_ORG_URL }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        run: |
+          set +e
+          go test -tags live -count=1 -run Live ./... > live-report.txt 2>&1
+          code=$?
+          echo "exit=$code" >> "$GITHUB_OUTPUT"
+          cat live-report.txt
+          if [ "$code" -ne 0 ]; then echo "alert=true" >> "$GITHUB_OUTPUT"; fi
+          exit 0
+
+      - name: Open or update live-drift issue
+        if: steps.live.outputs.alert == 'true'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('live-report.txt', 'utf8');
+            const { owner, repo } = context.repo;
+            const label = 'live-drift';
+            const title = 'Live SaaS drift detected (L4a)';
+            const body = [
+              'A scheduled `go test -tags live` run against the real SaaS APIs',
+              'failed. This is an L4a behavioral-drift alert — a provider API changed',
+              'shape, a mapper regressed, an asserted invariant moved, or a test',
+              'credential broke. Assess the failing provider, fix the mapper/schema',
+              'if needed, and re-record the affected cassette. Runbook:',
+              '`docs/architecture/11-testing-strategy.md`.',
+              '',
+              '```',
+              report.trim().slice(-8000),
+              '```',
+            ].join('\n');
+            const existing = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: label,
+            });
+            if (existing.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: existing.data[0].number, body,
+              });
+            } else {
+              await github.rest.issues.create({ owner, repo, title, labels: [label], body });
+            }
