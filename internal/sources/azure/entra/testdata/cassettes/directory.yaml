@@ -1,0 +1,68 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56632
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+        url: https://graph.microsoft.com/v1.0/reports/authenticationMethods/userRegistrationDetails
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 121
+        body: '{"value":[{"id":"u-alice","isAdmin":true,"isMfaRegistered":true},{"id":"u-bob","isAdmin":false,"isMfaRegistered":false}]}'
+        headers:
+            Content-Length:
+                - "121"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:21:20 GMT
+        status: 200 OK
+        code: 200
+        duration: 732.042µs
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56632
+        form:
+            $select:
+                - id,userPrincipalName,mail,displayName,accountEnabled,signInActivity
+            $top:
+                - "500"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+        url: https://graph.microsoft.com/v1.0/users?$select=id,userPrincipalName,mail,displayName,accountEnabled,signInActivity&$top=500
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 396
+        body: '{"value":[{"id":"u-alice","userPrincipalName":"alice@example.com","mail":"alice@example.com","displayName":"Alice Admin","accountEnabled":true,"signInActivity":{"lastSignInDateTime":"2026-06-20T10:00:00Z"}},{"id":"u-bob","userPrincipalName":"bob@example.com","mail":"bob@example.com","displayName":"Bob User","accountEnabled":true,"signInActivity":{"lastSignInDateTime":"2026-06-15T10:00:00Z"}}]}'
+        headers:
+            Content-Length:
+                - "396"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:21:20 GMT
+        status: 200 OK
+        code: 200
+        duration: 167µs
