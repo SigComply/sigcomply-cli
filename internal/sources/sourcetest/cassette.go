@@ -101,6 +101,8 @@ var (
 		"X-Amz-Security-Token": true,
 		"X-Amz-Credential":     true,
 		"X-Goog-Api-Key":       true,
+		"Private-Token":        true, // GitLab PAT (canonical form of PRIVATE-TOKEN)
+		"Job-Token":            true, // GitLab CI job token
 	}
 )
 

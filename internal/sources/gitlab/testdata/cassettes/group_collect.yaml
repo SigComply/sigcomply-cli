@@ -1,0 +1,1563 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        form:
+            include_subgroups:
+                - "true"
+            page:
+                - "1"
+            per_page:
+                - "100"
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/groups/e2e-group/projects?include_subgroups=true&page=1&per_page=100
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '[{"id":83588601,"description":null,"name":"e2e-unprotected","name_with_namespace":"e2e-group / e2e-unprotected","path":"e2e-unprotected","path_with_namespace":"e2e-group/e2e-unprotected","created_at":"2026-06-20T19:58:43.977Z","default_branch":"main","tag_list":[],"topics":[],"ssh_url_to_repo":"user@example.com:e2e-group/e2e-unprotected.git","http_url_to_repo":"https://gitlab.com/e2e-group/e2e-unprotected.git","web_url":"https://gitlab.com/e2e-group/e2e-unprotected","readme_url":"https://gitlab.com/e2e-group/e2e-unprotected/-/blob/main/README.md","forks_count":0,"avatar_url":null,"star_count":0,"last_activity_at":"2026-06-20T19:58:43.902Z","visibility":"private","namespace":{"id":135372574,"name":"e2e-group","path":"e2e-group","kind":"group","full_path":"e2e-group","parent_id":null,"avatar_url":null,"web_url":"https://gitlab.com/groups/e2e-group"},"container_registry_image_prefix":"registry.gitlab.com/e2e-group/e2e-unprotected","_links":{"self":"https://gitlab.com/api/v4/projects/83588601","issues":"https://gitlab.com/api/v4/projects/83588601/issues","merge_requests":"https://gitlab.com/api/v4/projects/83588601/merge_requests","repo_branches":"https://gitlab.com/api/v4/projects/83588601/repository/branches","labels":"https://gitlab.com/api/v4/projects/83588601/labels","events":"https://gitlab.com/api/v4/projects/83588601/events","members":"https://gitlab.com/api/v4/projects/83588601/members","cluster_agents":"https://gitlab.com/api/v4/projects/83588601/cluster_agents"},"marked_for_deletion_at":null,"marked_for_deletion_on":null,"packages_enabled":true,"empty_repo":false,"archived":false,"resolve_outdated_diff_discussions":false,"container_expiration_policy":{"cadence":"1d","enabled":false,"keep_n":10,"older_than":"90d","name_regex":".*","name_regex_keep":null,"next_run_at":"2026-06-21T19:58:43.993Z"},"repository_object_format":"sha1","issues_enabled":true,"merge_requests_enabled":true,"wiki_enabled":true,"jobs_enabled":true,"snippets_enabled":true,"container_registry_enabled":true,"service_desk_enabled":true,"service_desk_address":"user@example.com","can_create_merge_request_in":true,"issues_access_level":"enabled","repository_access_level":"enabled","merge_requests_access_level":"enabled","forking_access_level":"enabled","wiki_access_level":"enabled","builds_access_level":"enabled","snippets_access_level":"enabled","pages_access_level":"private","analytics_access_level":"enabled","container_registry_access_level":"enabled","security_and_compliance_access_level":"private","releases_access_level":"enabled","environments_access_level":"enabled","feature_flags_access_level":"enabled","infrastructure_access_level":"enabled","monitor_access_level":"enabled","model_experiments_access_level":"enabled","model_registry_access_level":"enabled","package_registry_access_level":"enabled","emails_disabled":false,"emails_enabled":true,"show_diff_preview_in_email":true,"shared_runners_enabled":true,"lfs_enabled":true,"creator_id":39443482,"import_url":null,"import_type":null,"import_status":"none","open_issues_count":0,"description_html":"","updated_at":"2026-06-20T19:59:23.843Z","ci_default_git_depth":20,"ci_delete_pipelines_in_seconds":null,"ci_forward_deployment_enabled":true,"ci_forward_deployment_rollback_allowed":true,"ci_job_token_scope_enabled":false,"ci_separated_caches":true,"ci_allow_fork_pipelines_to_run_in_parent_project":true,"ci_id_token_sub_claim_components":["project_path","ref_type","ref"],"build_git_strategy":"fetch","keep_latest_artifact":true,"restrict_user_defined_variables":true,"ci_pipeline_variables_minimum_override_role":"no_one_allowed","runner_token_expiration_interval":null,"group_runners_enabled":true,"resource_group_default_process_mode":"unordered","auto_cancel_pending_pipelines":"enabled","build_timeout":3600,"auto_devops_enabled":false,"auto_devops_deploy_strategy":"continuous","ci_push_repository_for_job_token_allowed":false,"protect_merge_request_pipelines":true,"ci_display_pipeline_variables":false,"ci_config_path":"","public_jobs":true,"shared_with_groups":[],"only_allow_merge_if_pipeline_succeeds":false,"allow_merge_on_skipped_pipeline":null,"request_access_enabled":true,"only_allow_merge_if_all_discussions_are_resolved":false,"remove_source_branch_after_merge":true,"printing_merge_request_link_enabled":true,"merge_method":"merge","squash_option":"default_off","enforce_auth_checks_on_uploads":true,"suggestion_commit_message":null,"merge_commit_template":null,"squash_commit_template":null,"mr_default_title_template":null,"issue_branch_template":null,"warn_about_potentially_unwanted_characters":true,"autoclose_referenced_issues":true,"max_artifacts_size":null,"external_authorization_classification_label":"","requirements_enabled":false,"requirements_access_level":"enabled","security_and_compliance_enabled":true,"compliance_frameworks":[],"web_based_commit_signing_enabled":false},{"id":83588562,"description":null,"name":"e2e-protected","name_with_namespace":"e2e-group / e2e-protected","path":"e2e-protected","path_with_namespace":"e2e-group/e2e-protected","created_at":"2026-06-20T19:55:57.724Z","default_branch":"main","tag_list":[],"topics":[],"ssh_url_to_repo":"user@example.com:e2e-group/e2e-protected.git","http_url_to_repo":"https://gitlab.com/e2e-group/e2e-protected.git","web_url":"https://gitlab.com/e2e-group/e2e-protected","readme_url":"https://gitlab.com/e2e-group/e2e-protected/-/blob/main/README.md","forks_count":0,"avatar_url":null,"star_count":0,"last_activity_at":"2026-06-20T19:55:57.650Z","visibility":"private","namespace":{"id":135372574,"name":"e2e-group","path":"e2e-group","kind":"group","full_path":"e2e-group","parent_id":null,"avatar_url":null,"web_url":"https://gitlab.com/groups/e2e-group"},"container_registry_image_prefix":"registry.gitlab.com/e2e-group/e2e-protected","_links":{"self":"https://gitlab.com/api/v4/projects/83588562","issues":"https://gitlab.com/api/v4/projects/83588562/issues","merge_requests":"https://gitlab.com/api/v4/projects/83588562/merge_requests","repo_branches":"https://gitlab.com/api/v4/projects/83588562/repository/branches","labels":"https://gitlab.com/api/v4/projects/83588562/labels","events":"https://gitlab.com/api/v4/projects/83588562/events","members":"https://gitlab.com/api/v4/projects/83588562/members","cluster_agents":"https://gitlab.com/api/v4/projects/83588562/cluster_agents"},"marked_for_deletion_at":null,"marked_for_deletion_on":null,"packages_enabled":true,"empty_repo":false,"archived":false,"resolve_outdated_diff_discussions":false,"container_expiration_policy":{"cadence":"1d","enabled":false,"keep_n":10,"older_than":"90d","name_regex":".*","name_regex_keep":null,"next_run_at":"2026-06-21T19:55:57.738Z"},"repository_object_format":"sha1","issues_enabled":true,"merge_requests_enabled":true,"wiki_enabled":true,"jobs_enabled":true,"snippets_enabled":true,"container_registry_enabled":true,"service_desk_enabled":true,"service_desk_address":"user@example.com","can_create_merge_request_in":true,"issues_access_level":"enabled","repository_access_level":"enabled","merge_requests_access_level":"enabled","forking_access_level":"enabled","wiki_access_level":"enabled","builds_access_level":"enabled","snippets_access_level":"enabled","pages_access_level":"private","analytics_access_level":"enabled","container_registry_access_level":"enabled","security_and_compliance_access_level":"private","releases_access_level":"enabled","environments_access_level":"enabled","feature_flags_access_level":"enabled","infrastructure_access_level":"enabled","monitor_access_level":"enabled","model_experiments_access_level":"enabled","model_registry_access_level":"enabled","package_registry_access_level":"enabled","emails_disabled":false,"emails_enabled":true,"show_diff_preview_in_email":true,"shared_runners_enabled":true,"lfs_enabled":true,"creator_id":39443482,"import_url":null,"import_type":null,"import_status":"none","open_issues_count":0,"description_html":"","updated_at":"2026-06-20T19:56:38.637Z","ci_default_git_depth":20,"ci_delete_pipelines_in_seconds":null,"ci_forward_deployment_enabled":true,"ci_forward_deployment_rollback_allowed":true,"ci_job_token_scope_enabled":false,"ci_separated_caches":true,"ci_allow_fork_pipelines_to_run_in_parent_project":true,"ci_id_token_sub_claim_components":["project_path","ref_type","ref"],"build_git_strategy":"fetch","keep_latest_artifact":true,"restrict_user_defined_variables":true,"ci_pipeline_variables_minimum_override_role":"no_one_allowed","runner_token_expiration_interval":null,"group_runners_enabled":true,"resource_group_default_process_mode":"unordered","auto_cancel_pending_pipelines":"enabled","build_timeout":3600,"auto_devops_enabled":false,"auto_devops_deploy_strategy":"continuous","ci_push_repository_for_job_token_allowed":false,"protect_merge_request_pipelines":true,"ci_display_pipeline_variables":false,"ci_config_path":"","public_jobs":true,"shared_with_groups":[],"only_allow_merge_if_pipeline_succeeds":false,"allow_merge_on_skipped_pipeline":null,"request_access_enabled":true,"only_allow_merge_if_all_discussions_are_resolved":false,"remove_source_branch_after_merge":true,"printing_merge_request_link_enabled":true,"merge_method":"merge","squash_option":"default_off","enforce_auth_checks_on_uploads":true,"suggestion_commit_message":null,"merge_commit_template":null,"squash_commit_template":null,"mr_default_title_template":null,"issue_branch_template":null,"warn_about_potentially_unwanted_characters":true,"autoclose_referenced_issues":true,"max_artifacts_size":null,"external_authorization_classification_label":"","requirements_enabled":false,"requirements_access_level":"enabled","security_and_compliance_enabled":true,"compliance_frameworks":[],"web_based_commit_signing_enabled":false},{"id":83588544,"description":null,"name":"e2e-group-deletion_scheduled-83588544","name_with_namespace":"e2e-group / e2e-group-deletion_scheduled-83588544","path":"e2e-group-deletion_scheduled-83588544","path_with_namespace":"e2e-group/e2e-group-deletion_scheduled-83588544","created_at":"2026-06-20T19:54:43.651Z","default_branch":"main","tag_list":[],"topics":[],"ssh_url_to_repo":"user@example.com:e2e-group/e2e-group-deletion_scheduled-83588544.git","http_url_to_repo":"https://gitlab.com/e2e-group/e2e-group-deletion_scheduled-83588544.git","web_url":"https://gitlab.com/e2e-group/e2e-group-deletion_scheduled-83588544","readme_url":"https://gitlab.com/e2e-group/e2e-group-deletion_scheduled-83588544/-/blob/main/README.md","forks_count":0,"avatar_url":null,"star_count":0,"last_activity_at":"2026-06-20T19:55:39.260Z","visibility":"private","namespace":{"id":135372574,"name":"e2e-group","path":"e2e-group","kind":"group","full_path":"e2e-group","parent_id":null,"avatar_url":null,"web_url":"https://gitlab.com/groups/e2e-group"},"container_registry_image_prefix":"registry.gitlab.com/e2e-group/e2e-group-deletion_scheduled-83588544","_links":{"self":"https://gitlab.com/api/v4/projects/83588544","issues":"https://gitlab.com/api/v4/projects/83588544/issues","merge_requests":"https://gitlab.com/api/v4/projects/83588544/merge_requests","repo_branches":"https://gitlab.com/api/v4/projects/83588544/repository/branches","labels":"https://gitlab.com/api/v4/projects/83588544/labels","events":"https://gitlab.com/api/v4/projects/83588544/events","members":"https://gitlab.com/api/v4/projects/83588544/members","cluster_agents":"https://gitlab.com/api/v4/projects/83588544/cluster_agents"},"marked_for_deletion_at":"2026-06-20","marked_for_deletion_on":"2026-06-20","packages_enabled":true,"empty_repo":false,"archived":false,"resolve_outdated_diff_discussions":false,"container_expiration_policy":{"cadence":"1d","enabled":false,"keep_n":10,"older_than":"90d","name_regex":".*","name_regex_keep":null,"next_run_at":"2026-06-21T19:54:43.664Z"},"repository_object_format":"sha1","issues_enabled":true,"merge_requests_enabled":true,"wiki_enabled":true,"jobs_enabled":true,"snippets_enabled":true,"container_registry_enabled":true,"service_desk_enabled":true,"can_create_merge_request_in":false,"issues_access_level":"enabled","repository_access_level":"enabled","merge_requests_access_level":"enabled","forking_access_level":"enabled","wiki_access_level":"enabled","builds_access_level":"enabled","snippets_access_level":"enabled","pages_access_level":"private","analytics_access_level":"enabled","container_registry_access_level":"enabled","security_and_compliance_access_level":"private","releases_access_level":"enabled","environments_access_level":"enabled","feature_flags_access_level":"enabled","infrastructure_access_level":"enabled","monitor_access_level":"enabled","model_experiments_access_level":"enabled","model_registry_access_level":"enabled","package_registry_access_level":"enabled","emails_disabled":false,"emails_enabled":true,"show_diff_preview_in_email":true,"shared_runners_enabled":true,"lfs_enabled":true,"creator_id":39443482,"import_url":null,"import_type":null,"import_status":"none","open_issues_count":0,"description_html":"","updated_at":"2026-06-20T19:55:39.285Z","ci_default_git_depth":20,"ci_delete_pipelines_in_seconds":null,"ci_forward_deployment_enabled":true,"ci_forward_deployment_rollback_allowed":true,"ci_job_token_scope_enabled":false,"ci_separated_caches":true,"ci_allow_fork_pipelines_to_run_in_parent_project":true,"ci_id_token_sub_claim_components":["project_path","ref_type","ref"],"build_git_strategy":"fetch","keep_latest_artifact":true,"restrict_user_defined_variables":true,"ci_pipeline_variables_minimum_override_role":"no_one_allowed","runner_token_expiration_interval":null,"group_runners_enabled":true,"resource_group_default_process_mode":"unordered","auto_cancel_pending_pipelines":"enabled","build_timeout":3600,"auto_devops_enabled":false,"auto_devops_deploy_strategy":"continuous","ci_push_repository_for_job_token_allowed":false,"protect_merge_request_pipelines":true,"ci_display_pipeline_variables":false,"ci_config_path":"","public_jobs":true,"shared_with_groups":[],"only_allow_merge_if_pipeline_succeeds":false,"allow_merge_on_skipped_pipeline":null,"request_access_enabled":true,"only_allow_merge_if_all_discussions_are_resolved":false,"remove_source_branch_after_merge":true,"printing_merge_request_link_enabled":true,"merge_method":"merge","squash_option":"default_off","enforce_auth_checks_on_uploads":true,"suggestion_commit_message":null,"merge_commit_template":null,"squash_commit_template":null,"mr_default_title_template":null,"issue_branch_template":null,"warn_about_potentially_unwanted_characters":true,"autoclose_referenced_issues":true,"max_artifacts_size":null,"external_authorization_classification_label":"","requirements_enabled":false,"requirements_access_level":"enabled","security_and_compliance_enabled":true,"compliance_frameworks":[],"web_based_commit_signing_enabled":false},{"id":83588505,"description":null,"name":"PROTECTED-deletion_scheduled-83588505","name_with_namespace":"e2e-group / PROTECTED-deletion_scheduled-83588505","path":"PROTECTED-deletion_scheduled-83588505","path_with_namespace":"e2e-group/PROTECTED-deletion_scheduled-83588505","created_at":"2026-06-20T19:51:31.752Z","default_branch":"master","tag_list":[],"topics":[],"ssh_url_to_repo":"user@example.com:e2e-group/PROTECTED-deletion_scheduled-83588505.git","http_url_to_repo":"https://gitlab.com/e2e-group/PROTECTED-deletion_scheduled-83588505.git","web_url":"https://gitlab.com/e2e-group/PROTECTED-deletion_scheduled-83588505","readme_url":"https://gitlab.com/e2e-group/PROTECTED-deletion_scheduled-83588505/-/blob/master/README.md","forks_count":0,"avatar_url":null,"star_count":0,"last_activity_at":"2026-06-20T19:53:53.895Z","visibility":"private","namespace":{"id":135372574,"name":"e2e-group","path":"e2e-group","kind":"group","full_path":"e2e-group","parent_id":null,"avatar_url":null,"web_url":"https://gitlab.com/groups/e2e-group"},"container_registry_image_prefix":"registry.gitlab.com/e2e-group/protected-deletion_scheduled-83588505","_links":{"self":"https://gitlab.com/api/v4/projects/83588505","issues":"https://gitlab.com/api/v4/projects/83588505/issues","merge_requests":"https://gitlab.com/api/v4/projects/83588505/merge_requests","repo_branches":"https://gitlab.com/api/v4/projects/83588505/repository/branches","labels":"https://gitlab.com/api/v4/projects/83588505/labels","events":"https://gitlab.com/api/v4/projects/83588505/events","members":"https://gitlab.com/api/v4/projects/83588505/members","cluster_agents":"https://gitlab.com/api/v4/projects/83588505/cluster_agents"},"marked_for_deletion_at":"2026-06-20","marked_for_deletion_on":"2026-06-20","packages_enabled":true,"empty_repo":false,"archived":false,"resolve_outdated_diff_discussions":false,"container_expiration_policy":{"cadence":"1d","enabled":false,"keep_n":10,"older_than":"90d","name_regex":".*","name_regex_keep":null,"next_run_at":"2026-06-21T19:51:33.182Z"},"repository_object_format":"sha1","issues_enabled":true,"merge_requests_enabled":true,"wiki_enabled":true,"jobs_enabled":true,"snippets_enabled":true,"container_registry_enabled":true,"service_desk_enabled":false,"can_create_merge_request_in":false,"issues_access_level":"enabled","repository_access_level":"enabled","merge_requests_access_level":"enabled","forking_access_level":"enabled","wiki_access_level":"enabled","builds_access_level":"enabled","snippets_access_level":"enabled","pages_access_level":"private","analytics_access_level":"enabled","container_registry_access_level":"enabled","security_and_compliance_access_level":"private","releases_access_level":"enabled","environments_access_level":"enabled","feature_flags_access_level":"enabled","infrastructure_access_level":"enabled","monitor_access_level":"enabled","model_experiments_access_level":"enabled","model_registry_access_level":"enabled","package_registry_access_level":"enabled","emails_disabled":false,"emails_enabled":true,"show_diff_preview_in_email":true,"shared_runners_enabled":true,"lfs_enabled":true,"creator_id":39443482,"import_url":null,"import_type":"gitlab_built_in_project_template","import_status":"finished","open_issues_count":0,"description_html":"","updated_at":"2026-06-20T19:53:53.915Z","ci_default_git_depth":20,"ci_delete_pipelines_in_seconds":null,"ci_forward_deployment_enabled":true,"ci_forward_deployment_rollback_allowed":true,"ci_job_token_scope_enabled":false,"ci_separated_caches":true,"ci_allow_fork_pipelines_to_run_in_parent_project":true,"ci_id_token_sub_claim_components":["project_path","ref_type","ref"],"build_git_strategy":"fetch","keep_latest_artifact":true,"restrict_user_defined_variables":true,"ci_pipeline_variables_minimum_override_role":"no_one_allowed","runner_token_expiration_interval":null,"group_runners_enabled":true,"resource_group_default_process_mode":"unordered","auto_cancel_pending_pipelines":"enabled","build_timeout":3600,"auto_devops_enabled":false,"auto_devops_deploy_strategy":"continuous","ci_push_repository_for_job_token_allowed":false,"protect_merge_request_pipelines":true,"ci_display_pipeline_variables":false,"ci_config_path":"","public_jobs":true,"shared_with_groups":[],"only_allow_merge_if_pipeline_succeeds":false,"allow_merge_on_skipped_pipeline":null,"request_access_enabled":true,"only_allow_merge_if_all_discussions_are_resolved":false,"remove_source_branch_after_merge":true,"printing_merge_request_link_enabled":true,"merge_method":"merge","squash_option":"default_off","enforce_auth_checks_on_uploads":true,"suggestion_commit_message":null,"merge_commit_template":null,"squash_commit_template":null,"mr_default_title_template":null,"issue_branch_template":null,"warn_about_potentially_unwanted_characters":true,"autoclose_referenced_issues":true,"max_artifacts_size":null,"external_authorization_classification_label":"","requirements_enabled":false,"requirements_access_level":"enabled","security_and_compliance_enabled":true,"compliance_frameworks":[],"web_based_commit_signing_enabled":false}]'
+        headers:
+            Cache-Control:
+                - max-age=0, private, must-revalidate
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acb55f81ac151-BLR
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:56:55 GMT
+            Etag:
+                - W/"d58a66df88770517fec0bcbf7ab0fadb"
+            Gitlab-Lb:
+                - haproxy-main-12-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-d
+            Link:
+                - <https://gitlab.com/api/v4/groups/e2e-group/projects?id=e2e-group&include_ancestor_groups=false&include_subgroups=true&order_by=created_at&owned=false&page=1&per_page=100&simple=false&sort=desc&starred=false&with_custom_attributes=false&with_issues_enabled=false&with_merge_requests_enabled=false&with_security_reports=false&with_shared=true>; rel="first", <https://gitlab.com/api/v4/groups/e2e-group/projects?id=e2e-group&include_ancestor_groups=false&include_subgroups=true&order_by=created_at&owned=false&page=1&per_page=100&simple=false&sort=desc&starred=false&with_custom_attributes=false&with_issues_enabled=false&with_merge_requests_enabled=false&with_security_reports=false&with_shared=true>; rel="last"
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "1"
+            Ratelimit-Remaining:
+                - "1999"
+            Ratelimit-Reset:
+                - "1782629820"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acb55f81ac151-BLR","version":"1"}'
+            X-Next-Page:
+                - ""
+            X-Page:
+                - "1"
+            X-Per-Page:
+                - "100"
+            X-Prev-Page:
+                - ""
+            X-Request-Id:
+                - a12acb55f81ac151-BLR
+            X-Runtime:
+                - "0.360391"
+            X-Total:
+                - "4"
+            X-Total-Pages:
+                - "1"
+        status: 200 OK
+        code: 200
+        duration: 999.543ms
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/projects/83588601/protected_branches/main
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 27
+        body: '{"message":"404 Not found"}'
+        headers:
+            Cache-Control:
+                - no-cache
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acb60cbd6c151-BLR
+            Content-Length:
+                - "27"
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:56:56 GMT
+            Gitlab-Lb:
+                - haproxy-main-12-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-d
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "2"
+            Ratelimit-Remaining:
+                - "1998"
+            Ratelimit-Reset:
+                - "1782629820"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acb60cbd6c151-BLR","version":"1"}'
+            X-Request-Id:
+                - a12acb60cbd6c151-BLR
+            X-Runtime:
+                - "0.141149"
+        status: 404 Not Found
+        code: 404
+        duration: 610.719709ms
+    - id: 2
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/projects/83588601/approval_rules
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 2
+        body: '[]'
+        headers:
+            Cache-Control:
+                - max-age=0, private, must-revalidate
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acb680e4bc151-BLR
+            Content-Length:
+                - "2"
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:56:57 GMT
+            Etag:
+                - W/"4f53cda18c2baa0c0354bb5f9a3ecbe5"
+            Gitlab-Lb:
+                - haproxy-main-05-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-c
+            Link:
+                - <https://gitlab.com/api/v4/projects/83588601/approval_rules?id=83588601&page=1&per_page=20>; rel="first", <https://gitlab.com/api/v4/projects/83588601/approval_rules?id=83588601&page=1&per_page=20>; rel="last"
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "3"
+            Ratelimit-Remaining:
+                - "1997"
+            Ratelimit-Reset:
+                - "1782629820"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acb680e4bc151-BLR","version":"1"}'
+            X-Next-Page:
+                - ""
+            X-Page:
+                - "1"
+            X-Per-Page:
+                - "20"
+            X-Prev-Page:
+                - ""
+            X-Request-Id:
+                - a12acb680e4bc151-BLR
+            X-Runtime:
+                - "0.051362"
+            X-Total:
+                - "0"
+            X-Total-Pages:
+                - "1"
+        status: 200 OK
+        code: 200
+        duration: 338.556791ms
+    - id: 3
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/projects/83588601/approvals
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"approvers":[],"approver_groups":[],"approvals_before_merge":0,"reset_approvals_on_push":false,"selective_code_owner_removals":false,"disable_overriding_approvers_per_merge_request":false,"merge_requests_author_approval":false,"merge_requests_disable_committers_approval":false,"require_password_to_approve":false,"require_reauthentication_to_approve":false}'
+        headers:
+            Cache-Control:
+                - max-age=0, private, must-revalidate
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acb6c4fa4c151-BLR
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:56:58 GMT
+            Etag:
+                - W/"f2791b6e16d4e98fd7d6427dd7b141ab"
+            Gitlab-Lb:
+                - haproxy-main-34-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-b
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "4"
+            Ratelimit-Remaining:
+                - "1996"
+            Ratelimit-Reset:
+                - "1782629820"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acb6c4fa4c151-BLR","version":"1"}'
+            X-Request-Id:
+                - a12acb6c4fa4c151-BLR
+            X-Runtime:
+                - "0.067738"
+        status: 200 OK
+        code: 200
+        duration: 368.256542ms
+    - id: 4
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/projects/83588601/push_rule
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 27
+        body: '{"message":"404 Not Found"}'
+        headers:
+            Cache-Control:
+                - no-cache
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acb70f956c151-BLR
+            Content-Length:
+                - "27"
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:56:59 GMT
+            Gitlab-Lb:
+                - haproxy-main-47-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-c
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "5"
+            Ratelimit-Remaining:
+                - "1995"
+            Ratelimit-Reset:
+                - "1782629820"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acb70f956c151-BLR","version":"1"}'
+            X-Request-Id:
+                - a12acb70f956c151-BLR
+            X-Runtime:
+                - "0.074836"
+        status: 404 Not Found
+        code: 404
+        duration: 382.366416ms
+    - id: 5
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/projects/83588562/protected_branches/main
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"id":261166851,"name":"main","push_access_levels":[{"id":318829797,"access_level":40,"access_level_description":"Maintainers","deploy_key_id":null,"user_id":null,"group_id":null}],"merge_access_levels":[{"id":282937452,"access_level":40,"access_level_description":"Maintainers","user_id":null,"group_id":null}],"allow_force_push":true,"unprotect_access_levels":[],"code_owner_approval_required":false,"inherited":false}'
+        headers:
+            Cache-Control:
+                - max-age=0, private, must-revalidate
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acb761ad4c151-BLR
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:57:00 GMT
+            Etag:
+                - W/"d5dd1c5c5353da43279c95f0fb44ba5b"
+            Gitlab-Lb:
+                - haproxy-main-42-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-d
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "1"
+            Ratelimit-Remaining:
+                - "1999"
+            Ratelimit-Reset:
+                - "1782629880"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acb761ad4c151-BLR","version":"1"}'
+            X-Request-Id:
+                - a12acb761ad4c151-BLR
+            X-Runtime:
+                - "0.113421"
+        status: 200 OK
+        code: 200
+        duration: 524.09575ms
+    - id: 6
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/projects/83588562/approval_rules
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 2
+        body: '[]'
+        headers:
+            Cache-Control:
+                - max-age=0, private, must-revalidate
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acb7c4ca1c151-BLR
+            Content-Length:
+                - "2"
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:57:01 GMT
+            Etag:
+                - W/"4f53cda18c2baa0c0354bb5f9a3ecbe5"
+            Gitlab-Lb:
+                - haproxy-main-33-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-d
+            Link:
+                - <https://gitlab.com/api/v4/projects/83588562/approval_rules?id=83588562&page=1&per_page=20>; rel="first", <https://gitlab.com/api/v4/projects/83588562/approval_rules?id=83588562&page=1&per_page=20>; rel="last"
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "2"
+            Ratelimit-Remaining:
+                - "1998"
+            Ratelimit-Reset:
+                - "1782629880"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acb7c4ca1c151-BLR","version":"1"}'
+            X-Next-Page:
+                - ""
+            X-Page:
+                - "1"
+            X-Per-Page:
+                - "20"
+            X-Prev-Page:
+                - ""
+            X-Request-Id:
+                - a12acb7c4ca1c151-BLR
+            X-Runtime:
+                - "0.065837"
+            X-Total:
+                - "0"
+            X-Total-Pages:
+                - "1"
+        status: 200 OK
+        code: 200
+        duration: 383.20875ms
+    - id: 7
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/projects/83588562/approvals
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"approvers":[],"approver_groups":[],"approvals_before_merge":0,"reset_approvals_on_push":false,"selective_code_owner_removals":false,"disable_overriding_approvers_per_merge_request":false,"merge_requests_author_approval":false,"merge_requests_disable_committers_approval":false,"require_password_to_approve":false,"require_reauthentication_to_approve":false}'
+        headers:
+            Cache-Control:
+                - max-age=0, private, must-revalidate
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acb821eb3c151-BLR
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:57:02 GMT
+            Etag:
+                - W/"f2791b6e16d4e98fd7d6427dd7b141ab"
+            Gitlab-Lb:
+                - haproxy-main-13-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-b
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "3"
+            Ratelimit-Remaining:
+                - "1997"
+            Ratelimit-Reset:
+                - "1782629880"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acb821eb3c151-BLR","version":"1"}'
+            X-Request-Id:
+                - a12acb821eb3c151-BLR
+            X-Runtime:
+                - "0.086305"
+        status: 200 OK
+        code: 200
+        duration: 559.219167ms
+    - id: 8
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/projects/83588562/push_rule
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 27
+        body: '{"message":"404 Not Found"}'
+        headers:
+            Cache-Control:
+                - no-cache
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acb881924c151-BLR
+            Content-Length:
+                - "27"
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:57:03 GMT
+            Gitlab-Lb:
+                - haproxy-main-60-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-d
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "4"
+            Ratelimit-Remaining:
+                - "1996"
+            Ratelimit-Reset:
+                - "1782629880"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acb881924c151-BLR","version":"1"}'
+            X-Request-Id:
+                - a12acb881924c151-BLR
+            X-Runtime:
+                - "0.068400"
+        status: 404 Not Found
+        code: 404
+        duration: 455.091708ms
+    - id: 9
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/projects/83588544/protected_branches/main
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"id":261166397,"name":"main","push_access_levels":[{"id":318829338,"access_level":40,"access_level_description":"Maintainers","deploy_key_id":null,"user_id":null,"group_id":null}],"merge_access_levels":[{"id":282936998,"access_level":40,"access_level_description":"Maintainers","user_id":null,"group_id":null}],"allow_force_push":false,"unprotect_access_levels":[],"code_owner_approval_required":false,"inherited":false}'
+        headers:
+            Cache-Control:
+                - max-age=0, private, must-revalidate
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acb8ddb30c151-BLR
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:57:04 GMT
+            Etag:
+                - W/"1f053371fa8c911e49535ccf7a05c750"
+            Gitlab-Lb:
+                - haproxy-main-59-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-c
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "5"
+            Ratelimit-Remaining:
+                - "1995"
+            Ratelimit-Reset:
+                - "1782629880"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acb8ddb30c151-BLR","version":"1"}'
+            X-Request-Id:
+                - a12acb8ddb30c151-BLR
+            X-Runtime:
+                - "0.065638"
+        status: 200 OK
+        code: 200
+        duration: 406.921667ms
+    - id: 10
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/projects/83588544/approval_rules
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 2
+        body: '[]'
+        headers:
+            Accept-Ranges:
+                - bytes
+            Cache-Control:
+                - max-age=0, private, must-revalidate
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acb932cb3c151-BLR
+            Content-Length:
+                - "2"
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:57:04 GMT
+            Etag:
+                - W/"4f53cda18c2baa0c0354bb5f9a3ecbe5"
+            Gitlab-Lb:
+                - haproxy-main-36-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-d
+            Link:
+                - <https://gitlab.com/api/v4/projects/83588544/approval_rules?id=83588544&page=1&per_page=20>; rel="first", <https://gitlab.com/api/v4/projects/83588544/approval_rules?id=83588544&page=1&per_page=20>; rel="last"
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "6"
+            Ratelimit-Remaining:
+                - "1994"
+            Ratelimit-Reset:
+                - "1782629880"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acb932cb3c151-BLR","version":"1"}'
+            X-Next-Page:
+                - ""
+            X-Page:
+                - "1"
+            X-Per-Page:
+                - "20"
+            X-Prev-Page:
+                - ""
+            X-Request-Id:
+                - a12acb932cb3c151-BLR
+            X-Runtime:
+                - "0.060856"
+            X-Total:
+                - "0"
+            X-Total-Pages:
+                - "1"
+        status: 200 OK
+        code: 200
+        duration: 412.07675ms
+    - id: 11
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/projects/83588544/approvals
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"approvers":[],"approver_groups":[],"approvals_before_merge":0,"reset_approvals_on_push":false,"selective_code_owner_removals":false,"disable_overriding_approvers_per_merge_request":false,"merge_requests_author_approval":false,"merge_requests_disable_committers_approval":false,"require_password_to_approve":false,"require_reauthentication_to_approve":false}'
+        headers:
+            Cache-Control:
+                - max-age=0, private, must-revalidate
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acb980e98c151-BLR
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:57:05 GMT
+            Etag:
+                - W/"f2791b6e16d4e98fd7d6427dd7b141ab"
+            Gitlab-Lb:
+                - haproxy-main-52-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-b
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "7"
+            Ratelimit-Remaining:
+                - "1993"
+            Ratelimit-Reset:
+                - "1782629880"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acb980e98c151-BLR","version":"1"}'
+            X-Request-Id:
+                - a12acb980e98c151-BLR
+            X-Runtime:
+                - "0.080921"
+        status: 200 OK
+        code: 200
+        duration: 447.969834ms
+    - id: 12
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/projects/83588544/push_rule
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 27
+        body: '{"message":"404 Not Found"}'
+        headers:
+            Cache-Control:
+                - no-cache
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acb9dd835c151-BLR
+            Content-Length:
+                - "27"
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:57:06 GMT
+            Gitlab-Lb:
+                - haproxy-main-03-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-d
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "8"
+            Ratelimit-Remaining:
+                - "1992"
+            Ratelimit-Reset:
+                - "1782629880"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acb9dd835c151-BLR","version":"1"}'
+            X-Request-Id:
+                - a12acb9dd835c151-BLR
+            X-Runtime:
+                - "0.069409"
+        status: 404 Not Found
+        code: 404
+        duration: 511.752ms
+    - id: 13
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/projects/83588505/protected_branches/master
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"id":261165060,"name":"master","push_access_levels":[{"id":318827990,"access_level":40,"access_level_description":"Maintainers","deploy_key_id":null,"user_id":null,"group_id":null}],"merge_access_levels":[{"id":282935661,"access_level":40,"access_level_description":"Maintainers","user_id":null,"group_id":null}],"allow_force_push":false,"unprotect_access_levels":[],"code_owner_approval_required":false,"inherited":false}'
+        headers:
+            Cache-Control:
+                - max-age=0, private, must-revalidate
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acba42a27c151-BLR
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:57:07 GMT
+            Etag:
+                - W/"c4b9318e732dacbc5e446f0c48d7400c"
+            Gitlab-Lb:
+                - haproxy-main-45-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-d
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "9"
+            Ratelimit-Remaining:
+                - "1991"
+            Ratelimit-Reset:
+                - "1782629880"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acba42a27c151-BLR","version":"1"}'
+            X-Request-Id:
+                - a12acba42a27c151-BLR
+            X-Runtime:
+                - "0.069390"
+        status: 200 OK
+        code: 200
+        duration: 439.249583ms
+    - id: 14
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/projects/83588505/approval_rules
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 2
+        body: '[]'
+        headers:
+            Accept-Ranges:
+                - bytes
+            Cache-Control:
+                - max-age=0, private, must-revalidate
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acba98b96c151-BLR
+            Content-Length:
+                - "2"
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:57:08 GMT
+            Etag:
+                - W/"4f53cda18c2baa0c0354bb5f9a3ecbe5"
+            Gitlab-Lb:
+                - haproxy-main-51-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-d
+            Link:
+                - <https://gitlab.com/api/v4/projects/83588505/approval_rules?id=83588505&page=1&per_page=20>; rel="first", <https://gitlab.com/api/v4/projects/83588505/approval_rules?id=83588505&page=1&per_page=20>; rel="last"
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "10"
+            Ratelimit-Remaining:
+                - "1990"
+            Ratelimit-Reset:
+                - "1782629880"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acba98b96c151-BLR","version":"1"}'
+            X-Next-Page:
+                - ""
+            X-Page:
+                - "1"
+            X-Per-Page:
+                - "20"
+            X-Prev-Page:
+                - ""
+            X-Request-Id:
+                - a12acba98b96c151-BLR
+            X-Runtime:
+                - "0.102682"
+            X-Total:
+                - "0"
+            X-Total-Pages:
+                - "1"
+        status: 200 OK
+        code: 200
+        duration: 439.234125ms
+    - id: 15
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/projects/83588505/approvals
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"approvers":[],"approver_groups":[],"approvals_before_merge":0,"reset_approvals_on_push":false,"selective_code_owner_removals":false,"disable_overriding_approvers_per_merge_request":true,"merge_requests_author_approval":false,"merge_requests_disable_committers_approval":false,"require_password_to_approve":false,"require_reauthentication_to_approve":false}'
+        headers:
+            Cache-Control:
+                - max-age=0, private, must-revalidate
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acbaf2d73c151-BLR
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:57:09 GMT
+            Etag:
+                - W/"28d8d3aaa81887343d2a0242f1215202"
+            Gitlab-Lb:
+                - haproxy-main-55-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-b
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "11"
+            Ratelimit-Remaining:
+                - "1989"
+            Ratelimit-Reset:
+                - "1782629880"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acbaf2d73c151-BLR","version":"1"}'
+            X-Request-Id:
+                - a12acbaf2d73c151-BLR
+            X-Runtime:
+                - "0.072238"
+        status: 200 OK
+        code: 200
+        duration: 397.262708ms
+    - id: 16
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/projects/83588505/push_rule
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 27
+        body: '{"message":"404 Not Found"}'
+        headers:
+            Cache-Control:
+                - no-cache
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acbba794dc151-BLR
+            Content-Length:
+                - "27"
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:57:11 GMT
+            Gitlab-Lb:
+                - haproxy-main-41-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-c
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "12"
+            Ratelimit-Remaining:
+                - "1988"
+            Ratelimit-Reset:
+                - "1782629880"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acbba794dc151-BLR","version":"1"}'
+            X-Request-Id:
+                - a12acbba794dc151-BLR
+            X-Runtime:
+                - "0.058695"
+        status: 404 Not Found
+        code: 404
+        duration: 1.386258166s
+    - id: 17
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        form:
+            page:
+                - "1"
+            per_page:
+                - "100"
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/groups/e2e-group/members/all?page=1&per_page=100
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '[{"id":39443482,"username":"e2e-owner","public_email":null,"name":"Prasanth Melethil","state":"active","locked":false,"avatar_url":"https://secure.gravatar.com/avatar/614ba415980c6056aa89a519f5babbdd66224bfd58b1a65f77b2616ee3a0a0e7?s=80\u0026d=identicon","web_url":"https://gitlab.com/e2e-owner","access_level":50,"created_at":"2026-06-20T19:51:31.304Z","expires_at":null,"membership_state":"active"}]'
+        headers:
+            Cache-Control:
+                - max-age=0, private, must-revalidate
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acbc6ed2bc151-BLR
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:57:13 GMT
+            Etag:
+                - W/"95aa8b8cb7f1ad12734327cf4c9788f8"
+            Gitlab-Lb:
+                - haproxy-main-13-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-b
+            Link:
+                - <https://gitlab.com/api/v4/groups/e2e-group/members/all?id=e2e-group&page=1&per_page=100>; rel="first", <https://gitlab.com/api/v4/groups/e2e-group/members/all?id=e2e-group&page=1&per_page=100>; rel="last"
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "13"
+            Ratelimit-Remaining:
+                - "1987"
+            Ratelimit-Reset:
+                - "1782629880"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acbc6ed2bc151-BLR","version":"1"}'
+            X-Next-Page:
+                - ""
+            X-Page:
+                - "1"
+            X-Per-Page:
+                - "100"
+            X-Prev-Page:
+                - ""
+            X-Request-Id:
+                - a12acbc6ed2bc151-BLR
+            X-Runtime:
+                - "0.135247"
+            X-Total:
+                - "1"
+            X-Total-Pages:
+                - "1"
+        status: 200 OK
+        code: 200
+        duration: 750.838417ms
+    - id: 18
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: gitlab.com
+        headers:
+            Accept:
+                - application/json
+            Private-Token:
+                - REDACTED
+            User-Agent:
+                - go-gitlab
+        url: https://gitlab.com/api/v4/users/39443482
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"id":39443482,"username":"e2e-owner","public_email":null,"name":"Prasanth Melethil","state":"active","locked":false,"avatar_url":"https://secure.gravatar.com/avatar/614ba415980c6056aa89a519f5babbdd66224bfd58b1a65f77b2616ee3a0a0e7?s=80\u0026d=identicon","web_url":"https://gitlab.com/e2e-owner","created_at":"2026-06-20T19:49:07.019Z","bio":"","location":"","linkedin":"","twitter":"","discord":"","website_url":"","github":"","job_title":"","pronouns":null,"organization":"","bot":false,"work_information":null,"local_time":null}'
+        headers:
+            Cache-Control:
+                - max-age=0, private, must-revalidate
+            Cf-Cache-Status:
+                - BYPASS
+            Cf-Ray:
+                - a12acbd4b9a9c151-BLR
+            Content-Security-Policy:
+                - default-src 'none'
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 06:57:15 GMT
+            Etag:
+                - W/"cd5b0ad94aae622a64bc8508ff9e41c8"
+            Gitlab-Lb:
+                - haproxy-main-34-lb-gprd
+            Gitlab-Sv:
+                - api-gke-us-east1-b
+            Nel:
+                - '{"max_age": 0}'
+            Ratelimit-Limit:
+                - "2000"
+            Ratelimit-Name:
+                - throttle_authenticated_api
+            Ratelimit-Observed:
+                - "14"
+            Ratelimit-Remaining:
+                - "1986"
+            Ratelimit-Reset:
+                - "1782629880"
+            Referrer-Policy:
+                - strict-origin-when-cross-origin
+            Server:
+                - cloudflare
+            Set-Cookie:
+                - REDACTED
+            Strict-Transport-Security:
+                - max-age=31536000
+            Vary:
+                - Origin, Accept-Encoding
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Gitlab-Meta:
+                - '{"correlation_id":"a12acbd4b9a9c151-BLR","version":"1"}'
+            X-Request-Id:
+                - a12acbd4b9a9c151-BLR
+            X-Runtime:
+                - "0.046685"
+        status: 200 OK
+        code: 200
+        duration: 2.184227417s

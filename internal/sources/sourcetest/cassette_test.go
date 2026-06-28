@@ -79,7 +79,7 @@ func TestRedactInteraction(t *testing.T) {
 		Request: cassette.Request{
 			Method:  "POST",
 			URL:     "https://api.example.com/q?token=Bearer%20abcDEF123456",
-			Headers: http.Header{"Authorization": {"Bearer sk_live_abcdef123456"}, "Accept": {"application/json"}},
+			Headers: http.Header{"Authorization": {"Bearer sk_live_abcdef123456"}, "Private-Token": {"glpat-realsecrettoken1234"}, "Accept": {"application/json"}},
 			Body:    `{"actor":"alice@acmecorp.com"}`,
 		},
 		Response: cassette.Response{
@@ -92,12 +92,18 @@ func TestRedactInteraction(t *testing.T) {
 		t.Fatalf("RedactInteraction: %v", err)
 	}
 
-	// Sensitive headers fully redacted.
-	if got := i.Request.Headers.Get("Authorization"); got != "REDACTED" {
-		t.Errorf("Authorization = %q; want REDACTED", got)
-	}
-	if got := i.Response.Headers.Get("Set-Cookie"); got != "REDACTED" {
-		t.Errorf("Set-Cookie = %q; want REDACTED", got)
+	// Sensitive headers fully redacted (incl. GitLab's PRIVATE-TOKEN).
+	const redacted = "REDACTED"
+	for _, h := range []struct {
+		name, got string
+	}{
+		{"Authorization", i.Request.Headers.Get("Authorization")},
+		{"Set-Cookie", i.Response.Headers.Get("Set-Cookie")},
+		{"Private-Token", i.Request.Headers.Get("Private-Token")},
+	} {
+		if h.got != redacted {
+			t.Errorf("%s = %q; want %s", h.name, h.got, redacted)
+		}
 	}
 	// Non-sensitive header preserved.
 	if got := i.Request.Headers.Get("Accept"); got != "application/json" {
