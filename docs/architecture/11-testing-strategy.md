@@ -209,6 +209,12 @@ Decided once; obeyed everywhere.
    (currently `80`). L2 cassette replay *raises* coverage because the
    real deserialize paths execute. Raise the floor as coverage improves;
    never lower it silently.
+   **`live` and E2E are excluded from the gate by construction** (WU-7.4):
+   the coverage run carries no `-tags live`, so `//go:build live` tests are
+   never compiled into it (they neither raise nor dilute the number), and the
+   L4b E2E suites live in separate repos entirely. `make ci` and `make
+   pre-commit` likewise omit `-tags live`. So the floor measures exactly the
+   L0–L3 in-repo tests, which is what gates every CLI change.
 6. **Shared harness.** All source-plugin tests run through
    `internal/sources/sourcetest/` — schema conformance + field
    completeness + determinism + metadata checks. Adding a plugin must not
