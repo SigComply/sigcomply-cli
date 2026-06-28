@@ -167,7 +167,8 @@ func TestAWSMatcher(t *testing.T) {
 	dynamo := cassette.Request{
 		Method:  "POST",
 		URL:     "https://dynamodb.us-east-1.amazonaws.com/",
-		Headers: http.Header{"X-Amz-Target": {"DynamoDB_20120810.ListTables"}},
+		Headers: http.Header{"X-Amz-Target": {"DynamoDB_20120810.DescribeTable"}},
+		Body:    `{"TableName":"a"}`,
 	}
 
 	newReq := func(method, url, body string, target string) *http.Request {
@@ -192,9 +193,11 @@ func TestAWSMatcher(t *testing.T) {
 		{"query body mismatch", newReq("POST", iamURL, "Action=ListRoles&Version=2010-05-08", ""), listUsers, false},
 		{"method mismatch", newReq("GET", iamURL, "Action=ListUsers&Version=2010-05-08", ""), listUsers, false},
 		{"url mismatch", newReq("POST", "https://iam.amazonaws.com/other", "Action=ListUsers&Version=2010-05-08", ""), listUsers, false},
-		// json protocol: disambiguated by X-Amz-Target, body ignored.
-		{"json target match", newReq("POST", dynamo.URL, `{"x":1}`, "DynamoDB_20120810.ListTables"), dynamo, true},
-		{"json target mismatch", newReq("POST", dynamo.URL, `{"x":1}`, "DynamoDB_20120810.Scan"), dynamo, false},
+		// json protocol: same op (X-Amz-Target) on different resources differs
+		// only in body, so body must be compared too.
+		{"json full match", newReq("POST", dynamo.URL, `{"TableName":"a"}`, "DynamoDB_20120810.DescribeTable"), dynamo, true},
+		{"json target mismatch", newReq("POST", dynamo.URL, `{"TableName":"a"}`, "DynamoDB_20120810.Scan"), dynamo, false},
+		{"json same-op different resource (body) mismatch", newReq("POST", dynamo.URL, `{"TableName":"b"}`, "DynamoDB_20120810.DescribeTable"), dynamo, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

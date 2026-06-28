@@ -1,0 +1,258 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 2
+        host: ""
+        body: '{}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - b3de5d66-2465-42f8-952c-85c849476969
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/kms#1.53.0 m/g
+            X-Amz-Date:
+                - 20260628T085237Z
+            X-Amz-Target:
+                - TrentService.ListKeys
+        url: https://kms.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 449
+        body: '{"KeyCount":3,"Keys":[{"KeyArn":"arn:aws:kms:us-east-1:000000000000:key/c8e91989-7720-4eff-8a63-84ae7efc0882","KeyId":"c8e91989-7720-4eff-8a63-84ae7efc0882"},{"KeyArn":"arn:aws:kms:us-east-1:000000000000:key/d027a993-6345-4a2a-b813-5c86861aa934","KeyId":"d027a993-6345-4a2a-b813-5c86861aa934"},{"KeyArn":"arn:aws:kms:us-east-1:000000000000:key/d8137e9d-fdac-438a-8f14-30227264a9cc","KeyId":"d8137e9d-fdac-438a-8f14-30227264a9cc"}],"Truncated":false}'
+        headers:
+            Cache-Control:
+                - no-cache, no-store, must-revalidate, private
+            Connection:
+                - keep-alive
+            Content-Length:
+                - "449"
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sun, 28 Jun 2026 08:52:43 GMT
+            Expires:
+                - "0"
+            Pragma:
+                - no-cache
+            X-Amzn-Requestid:
+                - 1c3d6934-e473-4309-b499-2a3cf3011901
+        status: 200 OK
+        code: 200
+        duration: 5.699202875s
+    - id: 1
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 48
+        host: ""
+        body: '{"KeyId":"c8e91989-7720-4eff-8a63-84ae7efc0882"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 91dce0bf-ecd7-41a4-83a7-8ade5292414a
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/kms#1.53.0 m/g
+            X-Amz-Date:
+                - 20260628T085243Z
+            X-Amz-Target:
+                - TrentService.DescribeKey
+        url: https://kms.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 630
+        body: '{"KeyMetadata":{"AWSAccountId":"000000000000","Arn":"arn:aws:kms:us-east-1:000000000000:key/c8e91989-7720-4eff-8a63-84ae7efc0882","CreationDate":1.781381787403E9,"CurrentKeyMaterialId":"8fb23aedb5b43e27340b465a98fe0c0088af1822310d8a816bedbbbc325e8f39","CustomerMasterKeySpec":"SYMMETRIC_DEFAULT","Description":"Default key that protects my DynamoDB data when no other key is defined","Enabled":true,"EncryptionAlgorithms":["SYMMETRIC_DEFAULT"],"KeyId":"c8e91989-7720-4eff-8a63-84ae7efc0882","KeyManager":"AWS","KeySpec":"SYMMETRIC_DEFAULT","KeyState":"Enabled","KeyUsage":"ENCRYPT_DECRYPT","MultiRegion":false,"Origin":"AWS_KMS"}}'
+        headers:
+            Cache-Control:
+                - no-cache, no-store, must-revalidate, private
+            Connection:
+                - keep-alive
+            Content-Length:
+                - "630"
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sun, 28 Jun 2026 08:52:49 GMT
+            Expires:
+                - "0"
+            Pragma:
+                - no-cache
+            X-Amzn-Requestid:
+                - e568929d-c92a-4db4-a58e-6f135860eabf
+        status: 200 OK
+        code: 200
+        duration: 208.461542ms
+    - id: 2
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 48
+        host: ""
+        body: '{"KeyId":"d027a993-6345-4a2a-b813-5c86861aa934"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 4d3e3a1f-0879-47bf-98ef-dfb07bd4a155
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/kms#1.53.0 m/g
+            X-Amz-Date:
+                - 20260628T085249Z
+            X-Amz-Target:
+                - TrentService.DescribeKey
+        url: https://kms.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 628
+        body: '{"KeyMetadata":{"AWSAccountId":"000000000000","Arn":"arn:aws:kms:us-east-1:000000000000:key/d027a993-6345-4a2a-b813-5c86861aa934","CreationDate":1.782636125421E9,"CurrentKeyMaterialId":"81291efc20f133dcf3f9c738eb1de5e6ad9a3c5edb9a3e7ec37fb2b88daa4436","CustomerMasterKeySpec":"SYMMETRIC_DEFAULT","Description":"Default key that protects my Backup data when no other key is defined","Enabled":true,"EncryptionAlgorithms":["SYMMETRIC_DEFAULT"],"KeyId":"d027a993-6345-4a2a-b813-5c86861aa934","KeyManager":"AWS","KeySpec":"SYMMETRIC_DEFAULT","KeyState":"Enabled","KeyUsage":"ENCRYPT_DECRYPT","MultiRegion":false,"Origin":"AWS_KMS"}}'
+        headers:
+            Cache-Control:
+                - no-cache, no-store, must-revalidate, private
+            Connection:
+                - keep-alive
+            Content-Length:
+                - "628"
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sun, 28 Jun 2026 08:52:49 GMT
+            Expires:
+                - "0"
+            Pragma:
+                - no-cache
+            X-Amzn-Requestid:
+                - 48f39665-33be-46ed-9aa9-b044e4ae6740
+        status: 200 OK
+        code: 200
+        duration: 210.549708ms
+    - id: 3
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 48
+        host: ""
+        body: '{"KeyId":"d8137e9d-fdac-438a-8f14-30227264a9cc"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 48d995b7-f90e-4f6f-ad2c-762e4009db8a
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/kms#1.53.0 m/g
+            X-Amz-Date:
+                - 20260628T085249Z
+            X-Amz-Target:
+                - TrentService.DescribeKey
+        url: https://kms.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 581
+        body: '{"KeyMetadata":{"AWSAccountId":"000000000000","Arn":"arn:aws:kms:us-east-1:000000000000:key/d8137e9d-fdac-438a-8f14-30227264a9cc","CreationDate":1.782636089492E9,"CurrentKeyMaterialId":"e27e560ab8035ce93a1c962e070440617b4e9f3eadb1493a1010cf4c56d4f3f5","CustomerMasterKeySpec":"SYMMETRIC_DEFAULT","Description":"e2e-key","Enabled":true,"EncryptionAlgorithms":["SYMMETRIC_DEFAULT"],"KeyId":"d8137e9d-fdac-438a-8f14-30227264a9cc","KeyManager":"CUSTOMER","KeySpec":"SYMMETRIC_DEFAULT","KeyState":"Enabled","KeyUsage":"ENCRYPT_DECRYPT","MultiRegion":false,"Origin":"AWS_KMS"}}'
+        headers:
+            Cache-Control:
+                - no-cache, no-store, must-revalidate, private
+            Connection:
+                - keep-alive
+            Content-Length:
+                - "581"
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sun, 28 Jun 2026 08:52:50 GMT
+            Expires:
+                - "0"
+            Pragma:
+                - no-cache
+            X-Amzn-Requestid:
+                - ea85df23-c7a5-4d65-bdf8-93159580cca0
+        status: 200 OK
+        code: 200
+        duration: 440.919875ms
+    - id: 4
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 48
+        host: ""
+        body: '{"KeyId":"d8137e9d-fdac-438a-8f14-30227264a9cc"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - e466c8ac-1ee4-4af1-a0e0-1dc02fc0e1aa
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/kms#1.53.0 m/g
+            X-Amz-Date:
+                - 20260628T085250Z
+            X-Amz-Target:
+                - TrentService.GetKeyRotationStatus
+        url: https://kms.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 176
+        body: '{"KeyId":"arn:aws:kms:us-east-1:000000000000:key/d8137e9d-fdac-438a-8f14-30227264a9cc","KeyRotationEnabled":true,"NextRotationDate":1.814172754045E9,"RotationPeriodInDays":365}'
+        headers:
+            Cache-Control:
+                - no-cache, no-store, must-revalidate, private
+            Connection:
+                - keep-alive
+            Content-Length:
+                - "176"
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sun, 28 Jun 2026 08:52:50 GMT
+            Expires:
+                - "0"
+            Pragma:
+                - no-cache
+            X-Amzn-Requestid:
+                - c499e263-5dab-44e4-b40f-0057e67bc68b
+        status: 200 OK
+        code: 200
+        duration: 212.655084ms

@@ -1,0 +1,201 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 0
+        host: ""
+        form:
+            x-id:
+                - ListBuckets
+        headers:
+            Accept-Encoding:
+                - identity
+            Amz-Sdk-Invocation-Id:
+                - 8a0f2e6f-8b3f-4558-9976-0bff02f103bc
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/s3#1.102.2 m/g
+            X-Amz-Content-Sha256:
+                - e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            X-Amz-Date:
+                - 20260628T084545Z
+        url: https://s3.us-east-1.amazonaws.com/?x-id=ListBuckets
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        transfer_encoding:
+            - chunked
+        content_length: -1
+        body: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Owner><ID>ca62761cf331b315f0f9ea446d72135c0be3140a335a81de563710ded0dbf469</ID></Owner><Buckets><Bucket><Name>e2e-store-1472921946</Name><CreationDate>2026-06-28T08:42:01.000Z</CreationDate><BucketArn>arn:aws:s3:::e2e-store-1472921946</BucketArn></Bucket></Buckets></ListAllMyBucketsResult>
+        headers:
+            Content-Type:
+                - application/xml
+            Date:
+                - Sun, 28 Jun 2026 08:45:50 GMT
+            Server:
+                - AmazonS3
+            X-Amz-Id-2:
+                - 305ZJgYhkIoxAvSx0nQQVmvg2fMrzm9+fuDVGvJzg2tZ/PwG7zJdKdAEWeyPQ75J3wUtmbjV1MqOEflyvtpap+qu4a0BmS6l
+            X-Amz-Request-Id:
+                - S86TM6GHEF3GE5DH
+        status: 200 OK
+        code: 200
+        duration: 3.950040875s
+    - id: 1
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 0
+        host: ""
+        form:
+            encryption:
+                - ""
+        headers:
+            Accept-Encoding:
+                - identity
+            Amz-Sdk-Invocation-Id:
+                - 580530da-65f1-4b5a-a1a4-58d94763b05d
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/s3#1.102.2 m/g
+            X-Amz-Content-Sha256:
+                - e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            X-Amz-Date:
+                - 20260628T084550Z
+        url: https://e2e-store-1472921946.s3.us-east-1.amazonaws.com/?encryption=
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        transfer_encoding:
+            - chunked
+        content_length: -1
+        body: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <ServerSideEncryptionConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><BucketKeyEnabled>false</BucketKeyEnabled><ApplyServerSideEncryptionByDefault><SSEAlgorithm>aws:kms</SSEAlgorithm><KMSMasterKeyID>arn:aws:kms:us-east-1:000000000000:key/d8137e9d-fdac-438a-8f14-30227264a9cc</KMSMasterKeyID></ApplyServerSideEncryptionByDefault><BlockedEncryptionTypes><EncryptionType>SSE-C</EncryptionType></BlockedEncryptionTypes></Rule></ServerSideEncryptionConfiguration>
+        headers:
+            Date:
+                - Sun, 28 Jun 2026 08:45:57 GMT
+            Server:
+                - AmazonS3
+            X-Amz-Id-2:
+                - bV/k70G69QloxscgySXJsn6EBelpzIat1jzpB+HPGPrxWbaQAPae0W8o0+8nbKdcSrx91ZYgdGk=
+            X-Amz-Request-Id:
+                - ZW21E0F5EYD45EH3
+        status: 200 OK
+        code: 200
+        duration: 3.378608208s
+    - id: 2
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 0
+        host: ""
+        form:
+            publicAccessBlock:
+                - ""
+        headers:
+            Accept-Encoding:
+                - identity
+            Amz-Sdk-Invocation-Id:
+                - 88ae7d26-ad64-4184-9060-fc169f815d30
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/s3#1.102.2 m/g
+            X-Amz-Content-Sha256:
+                - e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            X-Amz-Date:
+                - 20260628T084557Z
+        url: https://e2e-store-1472921946.s3.us-east-1.amazonaws.com/?publicAccessBlock=
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        transfer_encoding:
+            - chunked
+        content_length: -1
+        body: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <PublicAccessBlockConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><BlockPublicAcls>true</BlockPublicAcls><IgnorePublicAcls>true</IgnorePublicAcls><BlockPublicPolicy>true</BlockPublicPolicy><RestrictPublicBuckets>true</RestrictPublicBuckets></PublicAccessBlockConfiguration>
+        headers:
+            Date:
+                - Sun, 28 Jun 2026 08:46:01 GMT
+            Server:
+                - AmazonS3
+            X-Amz-Id-2:
+                - P/fkgAhVjtbKw2i1e7Ra+8xp6xz/WLm0P+uBk9TBgBkepxCVCQv4pJOyeVw3LMQDiz/vrffULH8=
+            X-Amz-Request-Id:
+                - YCF0HKFR3K08NFBS
+        status: 200 OK
+        code: 200
+        duration: 220.796667ms
+    - id: 3
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 0
+        host: ""
+        form:
+            versioning:
+                - ""
+        headers:
+            Accept-Encoding:
+                - identity
+            Amz-Sdk-Invocation-Id:
+                - f4c510a3-577d-4916-98b0-4bce0c4e7a49
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/s3#1.102.2 m/g
+            X-Amz-Content-Sha256:
+                - e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            X-Amz-Date:
+                - 20260628T084601Z
+        url: https://e2e-store-1472921946.s3.us-east-1.amazonaws.com/?versioning=
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        transfer_encoding:
+            - chunked
+        content_length: -1
+        body: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>Enabled</Status></VersioningConfiguration>
+        headers:
+            Date:
+                - Sun, 28 Jun 2026 08:46:02 GMT
+            Server:
+                - AmazonS3
+            X-Amz-Id-2:
+                - 49u9VqpZKKdpmp+WisWNBBGzc2FzG/ZNWphd2HnDSX/cr9FUP/4aA0hJ1AonynyPopS4LU9K0v8=
+            X-Amz-Request-Id:
+                - B8JSDA047EA6PEWZ
+        status: 200 OK
+        code: 200
+        duration: 220.951834ms

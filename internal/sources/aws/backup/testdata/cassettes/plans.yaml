@@ -1,0 +1,79 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 0
+        host: ""
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 7e03e054-9961-4f49-99f2-ab422342cefe
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/backup#1.57.4 m/g
+            X-Amz-Date:
+                - 20260628T084511Z
+        url: https://backup.us-east-1.amazonaws.com/backup/plans
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 465
+        body: '{"BackupPlansList":[{"AdvancedBackupSettings":null,"BackupPlanArn":"arn:aws:backup:us-east-1:000000000000:backup-plan:ab2e3e05-b043-46cb-98ee-dc9ede8d1989","BackupPlanId":"ab2e3e05-b043-46cb-98ee-dc9ede8d1989","BackupPlanName":"e2e-plan","CreationDate":1.782636126802E9,"CreatorRequestId":"b70e7a3c-c6a2-496b-aa80-a636a428541c","DeletionDate":null,"LastExecutionDate":null,"VersionId":"NTQ0NjE5NDctNDE0OC00MGFkLWI1YjUtNThiMTdjNDFhMTYx"}],"NextToken":null}'
+        headers:
+            Content-Length:
+                - "465"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 08:45:14 GMT
+            X-Amzn-Requestid:
+                - a0d74103-a905-4ad3-8d31-4600981e6e4a
+        status: 200 OK
+        code: 200
+        duration: 2.86399925s
+    - id: 1
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 0
+        host: ""
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 36c25c69-54f3-4379-8ea5-00504314ce23
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/backup#1.57.4 m/g
+            X-Amz-Date:
+                - 20260628T084514Z
+        url: https://backup.us-east-1.amazonaws.com/backup/plans/ab2e3e05-b043-46cb-98ee-dc9ede8d1989
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 1076
+        body: '{"AdvancedBackupSettings":null,"BackupPlan":{"AdvancedBackupSettings":null,"BackupPlanName":"e2e-plan","Rules":[{"CompletionWindowMinutes":10080,"CopyActions":null,"EnableContinuousBackup":null,"IndexActions":null,"Lifecycle":{"DeleteAfterDays":30,"DeleteAfterEvent":null,"MoveToColdStorageAfterDays":null,"OptInToArchiveForSupportedResources":null},"RecoveryPointTags":null,"RuleId":"ada1f022-275b-4ded-a13a-083e9daf1583","RuleName":"daily","ScanActions":null,"ScheduleExpression":"cron(0 5 * * ? *)","ScheduleExpressionTimezone":"Etc/UTC","StartWindowMinutes":480,"TargetBackupVaultName":"e2e-vault","TargetLogicallyAirGappedBackupVaultArn":null}],"ScanSettings":null},"BackupPlanArn":"arn:aws:backup:us-east-1:000000000000:backup-plan:ab2e3e05-b043-46cb-98ee-dc9ede8d1989","BackupPlanId":"ab2e3e05-b043-46cb-98ee-dc9ede8d1989","CreationDate":1.782636126802E9,"CreatorRequestId":"b70e7a3c-c6a2-496b-aa80-a636a428541c","DeletionDate":null,"LastExecutionDate":null,"ScheduledRunsPreview":null,"VersionId":"NTQ0NjE5NDctNDE0OC00MGFkLWI1YjUtNThiMTdjNDFhMTYx"}'
+        headers:
+            Content-Length:
+                - "1076"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 08:45:17 GMT
+            X-Amzn-Requestid:
+                - 175bb730-32c8-4aa4-9c48-ed98f930f99f
+        status: 200 OK
+        code: 200
+        duration: 1.255423292s

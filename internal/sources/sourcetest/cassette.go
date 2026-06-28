@@ -103,23 +103,26 @@ func MethodURLMatcher(r *http.Request, i cassette.Request) bool {
 }
 
 // AWSMatcher matches AWS SDK requests, which the default method+URL matcher
-// cannot tell apart: AWS "query protocol" services (IAM, STS) send every
+// cannot tell apart. AWS "query protocol" services (IAM, STS) send every
 // operation as POST to one identical URL (e.g. https://iam.amazonaws.com/) with
-// the operation in the form-encoded body, and "json protocol" services
-// (DynamoDB, SSM, …) carry the operation in the X-Amz-Target header. So after
-// method+URL it disambiguates by X-Amz-Target when present, else by the request
-// body. It deliberately never compares Authorization / X-Amz-Date — those carry
-// the SigV4 signature and timestamp, which differ between record and replay.
-// REST services (S3) have distinct per-operation URLs, so method+URL alone
-// already separates them and the body branch is simply unused.
+// the operation AND its parameters in the form-encoded body. "json protocol"
+// services (DynamoDB, KMS, …) carry the operation in the X-Amz-Target header and
+// the parameters in the JSON body — so two calls of the SAME operation on
+// different resources (e.g. DescribeKey per key) share an X-Amz-Target and a URL
+// and differ ONLY in the body. So the matcher requires method + URL +
+// X-Amz-Target (equal — both empty for query) + an identical request body. It
+// deliberately never compares Authorization / X-Amz-Date (the SigV4 signature +
+// timestamp differ between record and replay). REST services (S3) have distinct
+// per-operation URLs; method+URL already separates them and the body matches
+// trivially (often empty).
 //
 //nolint:gocritic // signature is fixed by cassette.MatcherFunc (value receiver).
 func AWSMatcher(r *http.Request, i cassette.Request) bool {
 	if r.Method != i.Method || r.URL.String() != i.URL {
 		return false
 	}
-	if tgt := r.Header.Get("X-Amz-Target"); tgt != "" {
-		return tgt == i.Headers.Get("X-Amz-Target")
+	if r.Header.Get("X-Amz-Target") != i.Headers.Get("X-Amz-Target") {
+		return false
 	}
 	return readRequestBody(r) == i.Body
 }

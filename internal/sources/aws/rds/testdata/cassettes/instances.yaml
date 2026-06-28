@@ -1,0 +1,116 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 45
+        host: ""
+        body: Action=DescribeDBInstances&Version=2014-10-31
+        form:
+            Action:
+                - DescribeDBInstances
+            Version:
+                - "2014-10-31"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - c0f698e8-67ea-49dc-a040-e61806d40224
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/rds#1.118.4 m/g
+            X-Amz-Date:
+                - 20260628T085628Z
+        url: https://rds.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 936
+        body: |-
+            <DescribeDBInstancesResponse xmlns="http://rds.amazonaws.com/doc/2014-10-31/">
+            <DescribeDBInstancesResult><DBInstances><DBInstance>
+            <DBInstanceIdentifier>e2e-postgres</DBInstanceIdentifier>
+            <DBInstanceArn>arn:aws:rds:us-east-1:000000000000:db:e2e-postgres</DBInstanceArn>
+            <Engine>postgres</Engine><EngineVersion>15.4</EngineVersion>
+            <DBInstanceStatus>available</DBInstanceStatus>
+            <StorageEncrypted>true</StorageEncrypted>
+            <PubliclyAccessible>false</PubliclyAccessible>
+            <BackupRetentionPeriod>7</BackupRetentionPeriod>
+            <MultiAZ>false</MultiAZ>
+            <DeletionProtection>true</DeletionProtection>
+            <KmsKeyId>arn:aws:kms:us-east-1:000000000000:key/example-rds-key</KmsKeyId>
+            <DBParameterGroups><DBParameterGroup>
+            <DBParameterGroupName>e2e-pg15</DBParameterGroupName>
+            <ParameterApplyStatus>in-sync</ParameterApplyStatus>
+            </DBParameterGroup></DBParameterGroups>
+            </DBInstance></DBInstances></DescribeDBInstancesResult>
+            </DescribeDBInstancesResponse>
+        headers:
+            Content-Length:
+                - "936"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 08:56:28 GMT
+        status: 200 OK
+        code: 200
+        duration: 555µs
+    - id: 1
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 76
+        host: ""
+        body: Action=DescribeDBParameters&DBParameterGroupName=e2e-pg15&Version=2014-10-31
+        form:
+            Action:
+                - DescribeDBParameters
+            DBParameterGroupName:
+                - e2e-pg15
+            Version:
+                - "2014-10-31"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 6261cc78-5557-4078-8180-419a3975fb9e
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/rds#1.118.4 m/g
+            X-Amz-Date:
+                - 20260628T085628Z
+        url: https://rds.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 297
+        body: |-
+            <DescribeDBParametersResponse xmlns="http://rds.amazonaws.com/doc/2014-10-31/">
+            <DescribeDBParametersResult><Parameters>
+            <Parameter><ParameterName>rds.force_ssl</ParameterName><ParameterValue>1</ParameterValue></Parameter>
+            </Parameters></DescribeDBParametersResult>
+            </DescribeDBParametersResponse>
+        headers:
+            Content-Length:
+                - "297"
+            Content-Type:
+                - text/xml
+            Date:
+                - Sun, 28 Jun 2026 08:56:28 GMT
+        status: 200 OK
+        code: 200
+        duration: 113.75µs
