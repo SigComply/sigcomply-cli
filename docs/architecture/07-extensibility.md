@@ -790,7 +790,13 @@ The contribution path:
      (JSON Schema, embedded via `//go:embed schemas/*.json`)
 3. **Adapt** import paths from the project-local package names to the
    in-tree ones (`internal/sources/...`).
-4. **Add** in-tree tests under the same directory.
+4. **Add** in-tree tests under the same directory. A source plugin must
+   ship the full **[testing checklist](04-source-plugins.md#testing-a-source-plugin-checklist)**:
+   a `sourcetest` conformance test, sanitized cassettes, a `contracts/`
+   spec snapshot with a fixture-vs-spec test, and redaction-clean
+   fixtures. The GitHub plugin is the worked example to copy; see
+   [`TESTING.md`](../../TESTING.md) and
+   [`11-testing-strategy.md`](11-testing-strategy.md).
 5. **Register** a new shipped policy through the framework's `.policy()`
    builder list (and, for a manual policy, its `manualSpecs()`).
 6. **Open a PR** with a clear description, test coverage, and a note

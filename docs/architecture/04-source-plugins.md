@@ -679,3 +679,30 @@ A plugin author must guarantee:
   `Init`, applied inside each `Collect`. Plugins MAY return an
   `error` after exhausting retries, which becomes `error` status on
   the consuming policies — not a silent partial-result.
+
+---
+
+## Testing a source plugin (checklist)
+
+Every in-tree source plugin (and every plugin contributed upstream) ships
+the layered tests below. They run through the shared harness in
+[`internal/sources/sourcetest/`](../../internal/sources/sourcetest/) so a
+new plugin never re-invents test scaffolding. The full rationale (the L0–L4b
+layer model, the CLI-vs-E2E repo split, cassette/contract conventions) is in
+[`11-testing-strategy.md`](11-testing-strategy.md); [`TESTING.md`](../../TESTING.md)
+is the entry point. **The GitHub plugin is the worked example** — copy its
+shape:
+
+| # | Deliverable | GitHub worked example |
+|---|-------------|-----------------------|
+| a | **Conformance test** (L1+L2) via `sourcetest.RunConformance` — asserts every emitted record validates against its evidence-type JSON Schema, is complete (no schema field silently dropped), is deterministic (inject a clock, never `time.Now`), and carries `Type`/`ID`/`SourceID`/`CollectedAt`. Run it **per evidence type** (`Request.AcceptedTypes`) when the plugin emits several — records are sorted within each type group, not across. | [`github_conformance_test.go`](../../internal/sources/github/github_conformance_test.go) |
+| b | **Cassettes** — sanitized go-vcr recordings of the real API replayed offline through the real deserializer. Record once via `sourcetest.RecordClient` against a free/test account, replay via `sourcetest.ReplayClient`. One file per scenario under `internal/sources/<provider>/testdata/cassettes/` (or `<provider>/<service>/testdata/cassettes/` for multi-service providers — see §4.1 of the strategy doc). | [`testdata/cassettes/org_collect.yaml`](../../internal/sources/github/testdata/cassettes/) |
+| c | **`contracts/` snapshot entry** — a pinned slice of the vendor's own machine-readable API model (`contracts/<provider>/<service>@<version>.json`), pinning **only** the operations the plugin calls plus their `$ref` closure. A fixture-vs-spec test validates each cassette response body against it (`sourcetest.NewSpecValidator` / `Check` / `CheckArray`), so a cassette that drifts from the real shape fails. This same snapshot feeds the scheduled L3 drift job. See [`contracts/README.md`](../../contracts/README.md). | [`contracts/github/api.github.com@2026-06-28.json`](../../contracts/github/) + [`github_spec_conformance_test.go`](../../internal/sources/github/github_spec_conformance_test.go) |
+| d | **Redaction-clean fixtures** — cassettes and snapshots carry **no** real credentials or identity. `RecordClient` scrubs known secret shapes on save (auth headers, AKIA keys, account IDs, emails, bearer tokens) to stable placeholders; vendor-specific identifiers the generic hook doesn't cover (e.g. git logins, org names) are neutralized to placeholders by hand. The `scripts/check-fixtures.sh` gate scans every `testdata/` dir + `contracts/` in CI and fails the build on a leak. | scrubbed in `org_collect.yaml` (org/login → `e2e-test-org`/`e2e-admin`) |
+
+Cloud cassettes (AWS/GCP/Azure) are recorded during an L4b run or a one-off
+maintainer record; hand-authored fixtures from real responses are an
+acceptable bootstrap (see §16 of the strategy doc). For providers whose
+spec is too thin for L3 (GitLab) or whose live recording is blocked
+(GCP / Entra P2), the contract path is a hand-authored, spec-validated
+cassette — same deliverables, only the live layer deferred.
