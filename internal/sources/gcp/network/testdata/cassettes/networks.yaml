@@ -1,0 +1,73 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55659
+        form:
+            alt:
+                - json
+            prettyPrint:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://compute.googleapis.com/projects/e2e-project/global/networks?alt=json&prettyPrint=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 102
+        body: '{"items":[{"name":"default","autoCreateSubnetworks":true,"routingConfig":{"routingMode":"REGIONAL"}}]}'
+        headers:
+            Content-Length:
+                - "102"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 13:31:11 GMT
+        status: 200 OK
+        code: 200
+        duration: 631.625µs
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55659
+        form:
+            alt:
+                - json
+            prettyPrint:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://compute.googleapis.com/projects/e2e-project/aggregated/subnetworks?alt=json&prettyPrint=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 155
+        body: '{"items":{"regions/us-central1":{"subnetworks":[{"name":"default","network":"projects/e2e-project/global/networks/default","logConfig":{"enable":true}}]}}}'
+        headers:
+            Content-Length:
+                - "155"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 13:31:11 GMT
+        status: 200 OK
+        code: 200
+        duration: 121.834µs

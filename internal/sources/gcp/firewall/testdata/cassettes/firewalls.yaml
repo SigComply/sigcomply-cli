@@ -1,0 +1,38 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55657
+        form:
+            alt:
+                - json
+            prettyPrint:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://compute.googleapis.com/projects/e2e-project/global/firewalls?alt=json&prettyPrint=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 227
+        body: '{"items":[{"name":"allow-web","direction":"INGRESS","network":"projects/e2e-project/global/networks/default","priority":1000,"sourceRanges":["0.0.0.0/0"],"allowed":[{"IPProtocol":"tcp","ports":["80","443"]}],"disabled":false}]}'
+        headers:
+            Content-Length:
+                - "227"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 13:31:09 GMT
+        status: 200 OK
+        code: 200
+        duration: 5.980375ms
