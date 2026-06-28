@@ -1,0 +1,1664 @@
+{
+  "discoveryVersion": "v1",
+  "name": "compute",
+  "version": "v1",
+  "x-slice": "response-schema closure consumed by internal/sources/gcp",
+  "schemas": {
+    "AcceleratorConfig": {
+      "type": "object",
+      "id": "AcceleratorConfig",
+      "properties": {
+        "acceleratorType": {
+          "type": "string"
+        },
+        "acceleratorCount": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "AccessConfig": {
+      "type": "object",
+      "id": "AccessConfig",
+      "properties": {
+        "networkTier": {
+          "enumDescriptions": [
+            "Public internet quality with fixed bandwidth.",
+            "High quality, Google-grade network tier, support for all networking\nproducts.",
+            "Public internet quality, only limited support for other networking\nproducts.",
+            "(Output only) Temporary tier for FIXED_STANDARD when fixed standard tier\nis expired or not configured."
+          ],
+          "type": "string",
+          "enum": [
+            "FIXED_STANDARD",
+            "PREMIUM",
+            "STANDARD",
+            "STANDARD_OVERRIDES_FIXED_STANDARD"
+          ]
+        },
+        "externalIpv6": {
+          "type": "string"
+        },
+        "setPublicPtr": {
+          "type": "boolean"
+        },
+        "kind": {
+          "default": "compute#accessConfig",
+          "readOnly": true,
+          "type": "string"
+        },
+        "publicPtrDomainName": {
+          "type": "string"
+        },
+        "natIP": {
+          "type": "string"
+        },
+        "externalIpv6PrefixLength": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "type": {
+          "enumDescriptions": [
+            "",
+            ""
+          ],
+          "type": "string",
+          "enum": [
+            "DIRECT_IPV6",
+            "ONE_TO_ONE_NAT"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "securityPolicy": {
+          "type": "string"
+        }
+      }
+    },
+    "AdvancedMachineFeatures": {
+      "id": "AdvancedMachineFeatures",
+      "properties": {
+        "visibleCoreCount": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "enableNestedVirtualization": {
+          "type": "boolean"
+        },
+        "threadsPerCore": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "turboMode": {
+          "type": "string"
+        },
+        "enableUefiNetworking": {
+          "type": "boolean"
+        },
+        "performanceMonitoringUnit": {
+          "enumDescriptions": [
+            "Architecturally defined non-LLC events.",
+            "Most documented core/L2 and LLC events.",
+            "",
+            "Most documented core/L2 events."
+          ],
+          "type": "string",
+          "enum": [
+            "ARCHITECTURAL",
+            "ENHANCED",
+            "PERFORMANCE_MONITORING_UNIT_UNSPECIFIED",
+            "STANDARD"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "AliasIpRange": {
+      "id": "AliasIpRange",
+      "properties": {
+        "ipCidrRange": {
+          "type": "string"
+        },
+        "subnetworkRangeName": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "AttachedDisk": {
+      "id": "AttachedDisk",
+      "properties": {
+        "diskSizeGb": {
+          "format": "int64",
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "READ_ONLY",
+            "READ_WRITE"
+          ],
+          "enumDescriptions": [
+            "Attaches this disk in read-only mode. Multiple virtual machines can use\na disk in read-only mode at a time.",
+            "*[Default]* Attaches this disk in read-write mode. Only one\nvirtual machine at a time can be attached to a disk in read-write mode."
+          ]
+        },
+        "licenses": {
+          "type": "array",
+          "readOnly": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "type": {
+          "enumDescriptions": [
+            "",
+            ""
+          ],
+          "type": "string",
+          "enum": [
+            "PERSISTENT",
+            "SCRATCH"
+          ]
+        },
+        "savedState": {
+          "readOnly": true,
+          "enum": [
+            "DISK_SAVED_STATE_UNSPECIFIED",
+            "PRESERVED"
+          ],
+          "enumDescriptions": [
+            "*[Default]* Disk state has not been preserved.",
+            "Disk state has been preserved."
+          ],
+          "type": "string"
+        },
+        "boot": {
+          "type": "boolean"
+        },
+        "forceAttach": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string"
+        },
+        "deviceName": {
+          "type": "string"
+        },
+        "kind": {
+          "default": "compute#attachedDisk",
+          "readOnly": true,
+          "type": "string"
+        },
+        "autoDelete": {
+          "type": "boolean"
+        },
+        "interface": {
+          "enumDescriptions": [
+            "",
+            ""
+          ],
+          "type": "string",
+          "enum": [
+            "NVME",
+            "SCSI"
+          ]
+        },
+        "architecture": {
+          "type": "string",
+          "enum": [
+            "ARCHITECTURE_UNSPECIFIED",
+            "ARM64",
+            "X86_64"
+          ],
+          "enumDescriptions": [
+            "Default value indicating Architecture is not set.",
+            "Machines with architecture ARM64",
+            "Machines with architecture X86_64"
+          ],
+          "readOnly": true
+        },
+        "guestOsFeatures": {
+          "type": "array",
+          "items": {
+            "$ref": "GuestOsFeature"
+          }
+        },
+        "index": {
+          "type": "integer",
+          "readOnly": true,
+          "format": "int32"
+        },
+        "diskEncryptionKey": {
+          "$ref": "CustomerEncryptionKey"
+        },
+        "shieldedInstanceInitialState": {
+          "readOnly": true,
+          "$ref": "InitialStateConfig"
+        },
+        "initializeParams": {
+          "$ref": "AttachedDiskInitializeParams"
+        }
+      },
+      "type": "object"
+    },
+    "AttachedDiskInitializeParams": {
+      "type": "object",
+      "id": "AttachedDiskInitializeParams",
+      "properties": {
+        "provisionedIops": {
+          "type": "string",
+          "format": "int64"
+        },
+        "sourceImageEncryptionKey": {
+          "$ref": "CustomerEncryptionKey"
+        },
+        "replicaZones": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "architecture": {
+          "enumDescriptions": [
+            "Default value indicating Architecture is not set.",
+            "Machines with architecture ARM64",
+            "Machines with architecture X86_64"
+          ],
+          "type": "string",
+          "enum": [
+            "ARCHITECTURE_UNSPECIFIED",
+            "ARM64",
+            "X86_64"
+          ]
+        },
+        "diskType": {
+          "type": "string"
+        },
+        "storagePool": {
+          "type": "string"
+        },
+        "onUpdateAction": {
+          "type": "string",
+          "enum": [
+            "RECREATE_DISK",
+            "RECREATE_DISK_IF_SOURCE_CHANGED",
+            "USE_EXISTING_DISK"
+          ],
+          "enumDescriptions": [
+            "Always recreate the disk.",
+            "Recreate the disk if source (image, snapshot) of this disk is different\nfrom source of existing disk.",
+            "Use the existing disk, this is the default behaviour."
+          ]
+        },
+        "licenses": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "diskSizeGb": {
+          "type": "string",
+          "format": "int64"
+        },
+        "enableConfidentialCompute": {
+          "type": "boolean"
+        },
+        "sourceSnapshot": {
+          "type": "string"
+        },
+        "resourcePolicies": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "resourceManagerTags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "diskName": {
+          "type": "string"
+        },
+        "sourceSnapshotEncryptionKey": {
+          "$ref": "CustomerEncryptionKey"
+        },
+        "provisionedThroughput": {
+          "format": "int64",
+          "type": "string"
+        },
+        "sourceImage": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ConfidentialInstanceConfig": {
+      "id": "ConfidentialInstanceConfig",
+      "properties": {
+        "enableConfidentialCompute": {
+          "type": "boolean"
+        },
+        "confidentialInstanceType": {
+          "enumDescriptions": [
+            "Arm Confidential Compute Architecture.",
+            "No type specified. Do not use this value.",
+            "AMD Secure Encrypted Virtualization.",
+            "AMD Secure Encrypted Virtualization - Secure Nested Paging.",
+            "Intel Trust Domain eXtension."
+          ],
+          "type": "string",
+          "enum": [
+            "CCA",
+            "CONFIDENTIAL_INSTANCE_TYPE_UNSPECIFIED",
+            "SEV",
+            "SEV_SNP",
+            "TDX"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "CustomerEncryptionKey": {
+      "id": "CustomerEncryptionKey",
+      "properties": {
+        "rawKey": {
+          "type": "string"
+        },
+        "rsaEncryptedKey": {
+          "type": "string"
+        },
+        "kmsKeyName": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "kmsKeyServiceAccount": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "DisplayDevice": {
+      "type": "object",
+      "id": "DisplayDevice",
+      "properties": {
+        "enableDisplay": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Duration": {
+      "id": "Duration",
+      "properties": {
+        "seconds": {
+          "format": "int64",
+          "type": "string"
+        },
+        "nanos": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "type": "object"
+    },
+    "FileContentBuffer": {
+      "id": "FileContentBuffer",
+      "properties": {
+        "content": {
+          "format": "byte",
+          "type": "string"
+        },
+        "fileType": {
+          "enumDescriptions": [
+            "",
+            "",
+            ""
+          ],
+          "type": "string",
+          "enum": [
+            "BIN",
+            "UNDEFINED",
+            "X509"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "GuestOsFeature": {
+      "type": "object",
+      "id": "GuestOsFeature",
+      "properties": {
+        "type": {
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          "type": "string",
+          "enum": [
+            "BARE_METAL_LINUX_COMPATIBLE",
+            "CCA_CAPABLE",
+            "FEATURE_TYPE_UNSPECIFIED",
+            "GVNIC",
+            "IDPF",
+            "MULTI_IP_SUBNET",
+            "SECURE_BOOT",
+            "SEV_CAPABLE",
+            "SEV_LIVE_MIGRATABLE",
+            "SEV_LIVE_MIGRATABLE_V2",
+            "SEV_SNP_CAPABLE",
+            "SNP_SVSM_CAPABLE",
+            "TDX_CAPABLE",
+            "UEFI_COMPATIBLE",
+            "VIRTIO_SCSI_MULTIQUEUE",
+            "WINDOWS"
+          ]
+        }
+      }
+    },
+    "InitialStateConfig": {
+      "id": "InitialStateConfig",
+      "properties": {
+        "dbs": {
+          "items": {
+            "$ref": "FileContentBuffer"
+          },
+          "type": "array"
+        },
+        "keks": {
+          "items": {
+            "$ref": "FileContentBuffer"
+          },
+          "type": "array"
+        },
+        "dbxs": {
+          "type": "array",
+          "items": {
+            "$ref": "FileContentBuffer"
+          }
+        },
+        "pk": {
+          "$ref": "FileContentBuffer"
+        }
+      },
+      "type": "object"
+    },
+    "Instance": {
+      "id": "Instance",
+      "properties": {
+        "zone": {
+          "type": "string",
+          "readOnly": true
+        },
+        "lastStopTimestamp": {
+          "type": "string",
+          "readOnly": true
+        },
+        "labelFingerprint": {
+          "format": "byte",
+          "type": "string"
+        },
+        "deletionProtection": {
+          "type": "boolean"
+        },
+        "selfLink": {
+          "type": "string",
+          "readOnly": true
+        },
+        "resourcePolicies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "displayDevice": {
+          "$ref": "DisplayDevice"
+        },
+        "serviceAccounts": {
+          "type": "array",
+          "items": {
+            "$ref": "ServiceAccount"
+          }
+        },
+        "id": {
+          "readOnly": true,
+          "format": "uint64",
+          "type": "string"
+        },
+        "guestAccelerators": {
+          "items": {
+            "$ref": "AcceleratorConfig"
+          },
+          "type": "array"
+        },
+        "shieldedInstanceIntegrityPolicy": {
+          "$ref": "ShieldedInstanceIntegrityPolicy"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "instanceEncryptionKey": {
+          "$ref": "CustomerEncryptionKey"
+        },
+        "satisfiesPzs": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "disks": {
+          "type": "array",
+          "items": {
+            "$ref": "AttachedDisk"
+          }
+        },
+        "creationTimestamp": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "statusMessage": {
+          "type": "string",
+          "readOnly": true
+        },
+        "startRestricted": {
+          "type": "boolean",
+          "readOnly": true
+        },
+        "shieldedInstanceConfig": {
+          "$ref": "ShieldedInstanceConfig"
+        },
+        "metadata": {
+          "$ref": "Metadata"
+        },
+        "sourceMachineImageEncryptionKey": {
+          "$ref": "CustomerEncryptionKey"
+        },
+        "advancedMachineFeatures": {
+          "$ref": "AdvancedMachineFeatures"
+        },
+        "sourceMachineImage": {
+          "type": "string"
+        },
+        "lastSuspendedTimestamp": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "workloadIdentityConfig": {
+          "$ref": "WorkloadIdentityConfig"
+        },
+        "canIpForward": {
+          "type": "boolean"
+        },
+        "params": {
+          "$ref": "InstanceParams"
+        },
+        "status": {
+          "readOnly": true,
+          "enum": [
+            "DEPROVISIONING",
+            "PENDING",
+            "PROVISIONING",
+            "REPAIRING",
+            "RUNNING",
+            "STAGING",
+            "STOPPED",
+            "STOPPING",
+            "SUSPENDED",
+            "SUSPENDING",
+            "TERMINATED"
+          ],
+          "enumDescriptions": [
+            "The instance is halted and we are performing tear down tasks like network\ndeprogramming, releasing quota, IP, tearing down disks etc.",
+            "For Flex Start provisioning instance is waiting for available capacity\nfrom Dynamic Workload Scheduler (DWS).",
+            "Resources are being allocated for the instance.",
+            "The instance is in repair.",
+            "The instance is running.",
+            "All required resources have been allocated and the instance\nis being started.",
+            "The instance has stopped successfully.",
+            "The instance is currently stopping (either being deleted or killed).",
+            "The instance has suspended.",
+            "The instance is suspending.",
+            "The instance has stopped (either by explicit action or underlying\nfailure)."
+          ],
+          "type": "string"
+        },
+        "networkPerformanceConfig": {
+          "$ref": "NetworkPerformanceConfig"
+        },
+        "fingerprint": {
+          "format": "byte",
+          "type": "string"
+        },
+        "reservationAffinity": {
+          "$ref": "ReservationAffinity"
+        },
+        "privateIpv6GoogleAccess": {
+          "enumDescriptions": [
+            "Bidirectional private IPv6 access to/from Google services. If\nspecified, the subnetwork who is attached to the instance's default network\ninterface will be assigned an internal IPv6 prefix if it doesn't have\nbefore.",
+            "Outbound private IPv6 access from VMs in this subnet to Google services. If\nspecified, the subnetwork who is attached to the instance's default network\ninterface will be assigned an internal IPv6 prefix if it doesn't have\nbefore.",
+            "Each network interface inherits PrivateIpv6GoogleAccess from its\nsubnetwork."
+          ],
+          "type": "string",
+          "enum": [
+            "ENABLE_BIDIRECTIONAL_ACCESS_TO_GOOGLE",
+            "ENABLE_OUTBOUND_VM_ACCESS_TO_GOOGLE",
+            "INHERIT_FROM_SUBNETWORK"
+          ]
+        },
+        "resourceStatus": {
+          "$ref": "ResourceStatus",
+          "readOnly": true
+        },
+        "hostname": {
+          "type": "string"
+        },
+        "scheduling": {
+          "$ref": "Scheduling"
+        },
+        "tags": {
+          "$ref": "Tags"
+        },
+        "machineType": {
+          "type": "string"
+        },
+        "kind": {
+          "default": "compute#instance",
+          "readOnly": true,
+          "type": "string"
+        },
+        "lastStartTimestamp": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "satisfiesPzi": {
+          "readOnly": true,
+          "type": "boolean"
+        },
+        "cpuPlatform": {
+          "type": "string",
+          "readOnly": true
+        },
+        "minCpuPlatform": {
+          "type": "string"
+        },
+        "confidentialInstanceConfig": {
+          "$ref": "ConfidentialInstanceConfig"
+        },
+        "keyRevocationActionType": {
+          "enumDescriptions": [
+            "Default value. This value is unused.",
+            "Indicates user chose no operation.",
+            "Indicates user chose to opt for VM shutdown on key revocation."
+          ],
+          "type": "string",
+          "enum": [
+            "KEY_REVOCATION_ACTION_TYPE_UNSPECIFIED",
+            "NONE",
+            "STOP"
+          ]
+        },
+        "name": {
+          "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+          "type": "string",
+          "annotations": {
+            "required": [
+              "compute.instances.insert"
+            ]
+          }
+        },
+        "networkInterfaces": {
+          "type": "array",
+          "items": {
+            "$ref": "NetworkInterface"
+          }
+        }
+      },
+      "type": "object"
+    },
+    "InstanceAggregatedList": {
+      "id": "InstanceAggregatedList",
+      "properties": {
+        "items": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "InstancesScopedList"
+          }
+        },
+        "selfLink": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "unreachables": {
+          "type": "array",
+          "readOnly": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "type": "string",
+          "default": "compute#instanceAggregatedList",
+          "readOnly": true
+        },
+        "nextPageToken": {
+          "type": "string"
+        },
+        "warning": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "enumDescriptions": [
+                "Warning about failed cleanup of transient changes made by a failed\noperation.",
+                "A link to a deprecated resource was created.",
+                "When deploying and at least one of the resources has a type marked as\ndeprecated",
+                "The user created a boot disk that is larger than image size.",
+                "When deploying and at least one of the resources has a type marked as\nexperimental",
+                "Warning that is present in an external api call",
+                "Warning that value of a field has been overridden.\nDeprecated unused field.",
+                "The operation involved use of an injected kernel, which is deprecated.",
+                "A WEIGHTED_MAGLEV backend service is associated with a health check that is\nnot of type HTTP/HTTPS/HTTP2.",
+                "When deploying a deployment with a exceedingly large number of resources",
+                "Resource can't be retrieved due to list overhead quota exceed\nwhich captures the amount of resources filtered out by\nuser-defined list filter.",
+                "A resource depends on a missing type",
+                "The route's nextHopIp address is not assigned to an instance on the\nnetwork.",
+                "The route's next hop instance cannot ip forward.",
+                "The route's nextHopInstance URL refers to an instance that does not have an\nipv6 interface on the same network as the route.",
+                "The route's nextHopInstance URL refers to an instance that does not exist.",
+                "The route's nextHopInstance URL refers to an instance that is not on the\nsame network as the route.",
+                "The route's next hop instance does not have a status of RUNNING.",
+                "Error which is not critical. We decided to continue the process despite\nthe mentioned error.",
+                "No results are present on a particular list page.",
+                "Success is reported, but some results may be missing due to errors",
+                "Quota information is not available to client requests (e.g:\nregions.list).",
+                "The user attempted to use a resource that requires a TOS they have not\naccepted.",
+                "Warning that a resource is in use.",
+                "One or more of the resources set to auto-delete could not be deleted\nbecause they were in use.",
+                "When a resource schema validation is ignored.",
+                "Instance template used in instance group manager is valid as such, but\nits application does not make a lot of sense, because it allows only\nsingle instance in instance group.",
+                "When undeclared properties in the schema are present",
+                "A given scope cannot be reached."
+              ],
+              "enum": [
+                "CLEANUP_FAILED",
+                "DEPRECATED_RESOURCE_USED",
+                "DEPRECATED_TYPE_USED",
+                "DISK_SIZE_LARGER_THAN_IMAGE_SIZE",
+                "EXPERIMENTAL_TYPE_USED",
+                "EXTERNAL_API_WARNING",
+                "FIELD_VALUE_OVERRIDEN",
+                "INJECTED_KERNELS_DEPRECATED",
+                "INVALID_HEALTH_CHECK_FOR_DYNAMIC_WIEGHTED_LB",
+                "LARGE_DEPLOYMENT_WARNING",
+                "LIST_OVERHEAD_QUOTA_EXCEED",
+                "MISSING_TYPE_DEPENDENCY",
+                "NEXT_HOP_ADDRESS_NOT_ASSIGNED",
+                "NEXT_HOP_CANNOT_IP_FORWARD",
+                "NEXT_HOP_INSTANCE_HAS_NO_IPV6_INTERFACE",
+                "NEXT_HOP_INSTANCE_NOT_FOUND",
+                "NEXT_HOP_INSTANCE_NOT_ON_NETWORK",
+                "NEXT_HOP_NOT_RUNNING",
+                "NOT_CRITICAL_ERROR",
+                "NO_RESULTS_ON_PAGE",
+                "PARTIAL_SUCCESS",
+                "QUOTA_INFO_UNAVAILABLE",
+                "REQUIRED_TOS_AGREEMENT",
+                "RESOURCE_IN_USE_BY_OTHER_RESOURCE_WARNING",
+                "RESOURCE_NOT_DELETED",
+                "SCHEMA_VALIDATION_IGNORED",
+                "SINGLE_INSTANCE_PROPERTY_TEMPLATE",
+                "UNDECLARED_PROPERTIES",
+                "UNREACHABLE"
+              ],
+              "enumDeprecated": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+              ],
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "data": {
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                }
+              },
+              "type": "array"
+            }
+          }
+        }
+      },
+      "type": "object"
+    },
+    "InstanceParams": {
+      "type": "object",
+      "id": "InstanceParams",
+      "properties": {
+        "resourceManagerTags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "requestValidForDuration": {
+          "$ref": "Duration"
+        }
+      }
+    },
+    "InstancesScopedList": {
+      "type": "object",
+      "id": "InstancesScopedList",
+      "properties": {
+        "instances": {
+          "type": "array",
+          "items": {
+            "$ref": "Instance"
+          }
+        },
+        "warning": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "code": {
+              "type": "string",
+              "enumDeprecated": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+              ],
+              "enum": [
+                "CLEANUP_FAILED",
+                "DEPRECATED_RESOURCE_USED",
+                "DEPRECATED_TYPE_USED",
+                "DISK_SIZE_LARGER_THAN_IMAGE_SIZE",
+                "EXPERIMENTAL_TYPE_USED",
+                "EXTERNAL_API_WARNING",
+                "FIELD_VALUE_OVERRIDEN",
+                "INJECTED_KERNELS_DEPRECATED",
+                "INVALID_HEALTH_CHECK_FOR_DYNAMIC_WIEGHTED_LB",
+                "LARGE_DEPLOYMENT_WARNING",
+                "LIST_OVERHEAD_QUOTA_EXCEED",
+                "MISSING_TYPE_DEPENDENCY",
+                "NEXT_HOP_ADDRESS_NOT_ASSIGNED",
+                "NEXT_HOP_CANNOT_IP_FORWARD",
+                "NEXT_HOP_INSTANCE_HAS_NO_IPV6_INTERFACE",
+                "NEXT_HOP_INSTANCE_NOT_FOUND",
+                "NEXT_HOP_INSTANCE_NOT_ON_NETWORK",
+                "NEXT_HOP_NOT_RUNNING",
+                "NOT_CRITICAL_ERROR",
+                "NO_RESULTS_ON_PAGE",
+                "PARTIAL_SUCCESS",
+                "QUOTA_INFO_UNAVAILABLE",
+                "REQUIRED_TOS_AGREEMENT",
+                "RESOURCE_IN_USE_BY_OTHER_RESOURCE_WARNING",
+                "RESOURCE_NOT_DELETED",
+                "SCHEMA_VALIDATION_IGNORED",
+                "SINGLE_INSTANCE_PROPERTY_TEMPLATE",
+                "UNDECLARED_PROPERTIES",
+                "UNREACHABLE"
+              ],
+              "enumDescriptions": [
+                "Warning about failed cleanup of transient changes made by a failed\noperation.",
+                "A link to a deprecated resource was created.",
+                "When deploying and at least one of the resources has a type marked as\ndeprecated",
+                "The user created a boot disk that is larger than image size.",
+                "When deploying and at least one of the resources has a type marked as\nexperimental",
+                "Warning that is present in an external api call",
+                "Warning that value of a field has been overridden.\nDeprecated unused field.",
+                "The operation involved use of an injected kernel, which is deprecated.",
+                "A WEIGHTED_MAGLEV backend service is associated with a health check that is\nnot of type HTTP/HTTPS/HTTP2.",
+                "When deploying a deployment with a exceedingly large number of resources",
+                "Resource can't be retrieved due to list overhead quota exceed\nwhich captures the amount of resources filtered out by\nuser-defined list filter.",
+                "A resource depends on a missing type",
+                "The route's nextHopIp address is not assigned to an instance on the\nnetwork.",
+                "The route's next hop instance cannot ip forward.",
+                "The route's nextHopInstance URL refers to an instance that does not have an\nipv6 interface on the same network as the route.",
+                "The route's nextHopInstance URL refers to an instance that does not exist.",
+                "The route's nextHopInstance URL refers to an instance that is not on the\nsame network as the route.",
+                "The route's next hop instance does not have a status of RUNNING.",
+                "Error which is not critical. We decided to continue the process despite\nthe mentioned error.",
+                "No results are present on a particular list page.",
+                "Success is reported, but some results may be missing due to errors",
+                "Quota information is not available to client requests (e.g:\nregions.list).",
+                "The user attempted to use a resource that requires a TOS they have not\naccepted.",
+                "Warning that a resource is in use.",
+                "One or more of the resources set to auto-delete could not be deleted\nbecause they were in use.",
+                "When a resource schema validation is ignored.",
+                "Instance template used in instance group manager is valid as such, but\nits application does not make a lot of sense, because it allows only\nsingle instance in instance group.",
+                "When undeclared properties in the schema are present",
+                "A given scope cannot be reached."
+              ]
+            },
+            "data": {
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                }
+              },
+              "type": "array"
+            }
+          }
+        }
+      }
+    },
+    "Metadata": {
+      "id": "Metadata",
+      "properties": {
+        "kind": {
+          "default": "compute#metadata",
+          "readOnly": true,
+          "type": "string"
+        },
+        "fingerprint": {
+          "type": "string",
+          "format": "byte"
+        },
+        "items": {
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "pattern": "[a-zA-Z0-9-_]{1,128}",
+                "type": "string",
+                "annotations": {
+                  "required": [
+                    "compute.instances.insert",
+                    "compute.projects.setCommonInstanceMetadata"
+                  ]
+                }
+              },
+              "value": {
+                "annotations": {
+                  "required": [
+                    "compute.instances.insert",
+                    "compute.projects.setCommonInstanceMetadata"
+                  ]
+                },
+                "type": "string"
+              }
+            }
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "NetworkInterface": {
+      "type": "object",
+      "id": "NetworkInterface",
+      "properties": {
+        "ipv6AccessConfigs": {
+          "items": {
+            "$ref": "AccessConfig"
+          },
+          "type": "array"
+        },
+        "accessConfigs": {
+          "type": "array",
+          "items": {
+            "$ref": "AccessConfig"
+          }
+        },
+        "stackType": {
+          "type": "string",
+          "enum": [
+            "IPV4_IPV6",
+            "IPV4_ONLY",
+            "IPV6_ONLY"
+          ],
+          "enumDescriptions": [
+            "The network interface can have both IPv4 and IPv6 addresses.",
+            "The network interface will only be assigned IPv4 addresses.",
+            "The network interface will only be assigned IPv6 addresses."
+          ]
+        },
+        "subnetwork": {
+          "type": "string"
+        },
+        "queueCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "vlan": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "internalIpv6PrefixLength": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "fingerprint": {
+          "format": "byte",
+          "type": "string"
+        },
+        "networkAttachment": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "nicType": {
+          "enumDescriptions": [
+            "GVNIC",
+            "IDPF",
+            "IRDMA",
+            "MRDMA",
+            "No type specified.",
+            "VIRTIO"
+          ],
+          "type": "string",
+          "enum": [
+            "GVNIC",
+            "IDPF",
+            "IRDMA",
+            "MRDMA",
+            "UNSPECIFIED_NIC_TYPE",
+            "VIRTIO_NET"
+          ]
+        },
+        "serviceClassId": {
+          "type": "string"
+        },
+        "networkIP": {
+          "type": "string"
+        },
+        "ipv6AccessType": {
+          "readOnly": true,
+          "enumDescriptions": [
+            "This network interface can have external IPv6.",
+            "This network interface can have internal IPv6."
+          ],
+          "enum": [
+            "EXTERNAL",
+            "INTERNAL"
+          ],
+          "type": "string"
+        },
+        "parentNicName": {
+          "type": "string"
+        },
+        "enableVpcScopedDns": {
+          "type": "boolean"
+        },
+        "aliasIpv6Ranges": {
+          "type": "array",
+          "items": {
+            "$ref": "AliasIpRange"
+          }
+        },
+        "igmpQuery": {
+          "type": "string",
+          "enum": [
+            "IGMP_QUERY_DISABLED",
+            "IGMP_QUERY_V2"
+          ],
+          "enumDescriptions": [
+            "The network interface has disabled IGMP query.",
+            "The network interface has enabled IGMP query - v2."
+          ]
+        },
+        "network": {
+          "type": "string"
+        },
+        "aliasIpRanges": {
+          "type": "array",
+          "items": {
+            "$ref": "AliasIpRange"
+          }
+        },
+        "ipv6Address": {
+          "type": "string"
+        },
+        "kind": {
+          "default": "compute#networkInterface",
+          "readOnly": true,
+          "type": "string"
+        }
+      }
+    },
+    "NetworkPerformanceConfig": {
+      "id": "NetworkPerformanceConfig",
+      "properties": {
+        "totalEgressBandwidthTier": {
+          "enumDescriptions": [
+            "",
+            ""
+          ],
+          "type": "string",
+          "enum": [
+            "DEFAULT",
+            "TIER_1"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "ReservationAffinity": {
+      "id": "ReservationAffinity",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "consumeReservationType": {
+          "type": "string",
+          "enum": [
+            "ANY_RESERVATION",
+            "NO_RESERVATION",
+            "SPECIFIC_RESERVATION",
+            "UNSPECIFIED"
+          ],
+          "enumDescriptions": [
+            "Consume any allocation available.",
+            "Do not consume from any allocated capacity.",
+            "Must consume from a specific reservation. Must specify key value fields\nfor specifying the reservations.",
+            ""
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "ResourceStatus": {
+      "type": "object",
+      "id": "ResourceStatus",
+      "properties": {
+        "effectiveInstanceMetadata": {
+          "readOnly": true,
+          "$ref": "ResourceStatusEffectiveInstanceMetadata"
+        },
+        "physicalHostTopology": {
+          "readOnly": true,
+          "$ref": "ResourceStatusPhysicalHostTopology"
+        },
+        "reservationConsumptionInfo": {
+          "readOnly": true,
+          "$ref": "ResourceStatusReservationConsumptionInfo"
+        },
+        "upcomingMaintenance": {
+          "readOnly": true,
+          "$ref": "UpcomingMaintenance"
+        },
+        "physicalHost": {
+          "readOnly": true,
+          "type": "string"
+        },
+        "scheduling": {
+          "$ref": "ResourceStatusScheduling"
+        }
+      }
+    },
+    "ResourceStatusEffectiveInstanceMetadata": {
+      "type": "object",
+      "id": "ResourceStatusEffectiveInstanceMetadata",
+      "properties": {
+        "serialPortLoggingEnableMetadataValue": {
+          "type": "boolean"
+        },
+        "serialPortEnableMetadataValue": {
+          "type": "boolean"
+        },
+        "blockProjectSshKeysMetadataValue": {
+          "type": "boolean"
+        },
+        "gceContainerDeclarationMetadataValue": {
+          "type": "boolean"
+        },
+        "enableOsconfigMetadataValue": {
+          "type": "boolean"
+        },
+        "enableOsloginMetadataValue": {
+          "type": "boolean"
+        },
+        "vmDnsSettingMetadataValue": {
+          "type": "string"
+        },
+        "enableOsInventoryMetadataValue": {
+          "type": "boolean"
+        },
+        "enableGuestAttributesMetadataValue": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ResourceStatusPhysicalHostTopology": {
+      "id": "ResourceStatusPhysicalHostTopology",
+      "properties": {
+        "cluster": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "block": {
+          "type": "string"
+        },
+        "additionalAttributes": {
+          "readOnly": true,
+          "$ref": "ResourceStatusPhysicalHostTopologyAdditionalAttributes"
+        },
+        "subblock": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ResourceStatusPhysicalHostTopologyAdditionalAttributes": {
+      "id": "ResourceStatusPhysicalHostTopologyAdditionalAttributes",
+      "properties": {
+        "acceleratorTopologyIds": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "readOnly": true
+        }
+      },
+      "type": "object"
+    },
+    "ResourceStatusReservationConsumptionInfo": {
+      "id": "ResourceStatusReservationConsumptionInfo",
+      "properties": {
+        "consumedReservation": {
+          "readOnly": true,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ResourceStatusScheduling": {
+      "id": "ResourceStatusScheduling",
+      "properties": {
+        "availabilityDomain": {
+          "format": "int32",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "Scheduling": {
+      "id": "Scheduling",
+      "properties": {
+        "terminationTime": {
+          "type": "string"
+        },
+        "hostErrorTimeoutSeconds": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "nodeAffinities": {
+          "type": "array",
+          "items": {
+            "$ref": "SchedulingNodeAffinity"
+          }
+        },
+        "skipGuestOsShutdown": {
+          "type": "boolean"
+        },
+        "maxRunDuration": {
+          "$ref": "Duration"
+        },
+        "provisioningModel": {
+          "enumDescriptions": [
+            "Instance is provisioned using the Flex Start provisioning model and\nhas a limited runtime.",
+            "Bound to the lifecycle of the reservation in which it is provisioned.",
+            "Heavily discounted, no guaranteed runtime.",
+            "Standard provisioning with user controlled runtime, no discounts."
+          ],
+          "type": "string",
+          "enum": [
+            "FLEX_START",
+            "RESERVATION_BOUND",
+            "SPOT",
+            "STANDARD"
+          ]
+        },
+        "preemptible": {
+          "type": "boolean"
+        },
+        "onInstanceStopAction": {
+          "$ref": "SchedulingOnInstanceStopAction"
+        },
+        "locationHint": {
+          "type": "string"
+        },
+        "availabilityDomain": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "instanceTerminationAction": {
+          "type": "string",
+          "enum": [
+            "DELETE",
+            "INSTANCE_TERMINATION_ACTION_UNSPECIFIED",
+            "STOP"
+          ],
+          "enumDescriptions": [
+            "Delete the VM.",
+            "Default value. This value is unused.",
+            "Stop the VM without storing in-memory content. default action."
+          ]
+        },
+        "localSsdRecoveryTimeout": {
+          "$ref": "Duration"
+        },
+        "minNodeCpus": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "automaticRestart": {
+          "type": "boolean"
+        },
+        "onHostMaintenance": {
+          "enumDescriptions": [
+            "*[Default]* Allows Compute Engine to automatically migrate instances\nout of the way of maintenance events.",
+            "Tells Compute Engine to terminate and (optionally) restart the instance\naway from the maintenance activity. If you would like your instance to be\nrestarted, set the automaticRestart flag to true. Your\ninstance may be restarted more than once, and it may be restarted outside\nthe window of maintenance events."
+          ],
+          "type": "string",
+          "enum": [
+            "MIGRATE",
+            "TERMINATE"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "SchedulingNodeAffinity": {
+      "id": "SchedulingNodeAffinity",
+      "properties": {
+        "operator": {
+          "enumDescriptions": [
+            "Requires Compute Engine to seek for matched nodes.",
+            "Requires Compute Engine to avoid certain nodes.",
+            ""
+          ],
+          "type": "string",
+          "enum": [
+            "IN",
+            "NOT_IN",
+            "OPERATOR_UNSPECIFIED"
+          ]
+        },
+        "key": {
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "SchedulingOnInstanceStopAction": {
+      "id": "SchedulingOnInstanceStopAction",
+      "properties": {
+        "discardLocalSsd": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "ServiceAccount": {
+      "id": "ServiceAccount",
+      "properties": {
+        "scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "email": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ShieldedInstanceConfig": {
+      "id": "ShieldedInstanceConfig",
+      "properties": {
+        "enableVtpm": {
+          "type": "boolean"
+        },
+        "enableSecureBoot": {
+          "type": "boolean"
+        },
+        "enableIntegrityMonitoring": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "ShieldedInstanceIntegrityPolicy": {
+      "id": "ShieldedInstanceIntegrityPolicy",
+      "properties": {
+        "updateAutoLearnPolicy": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "Tags": {
+      "id": "Tags",
+      "properties": {
+        "fingerprint": {
+          "format": "byte",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "type": "object"
+    },
+    "UpcomingMaintenance": {
+      "id": "UpcomingMaintenance",
+      "properties": {
+        "canReschedule": {
+          "type": "boolean"
+        },
+        "windowEndTime": {
+          "type": "string"
+        },
+        "latestWindowStartTime": {
+          "type": "string"
+        },
+        "maintenanceStatus": {
+          "type": "string",
+          "enum": [
+            "ONGOING",
+            "PENDING",
+            "UNKNOWN"
+          ],
+          "enumDescriptions": [
+            "There is ongoing maintenance on this VM.",
+            "There is pending maintenance.",
+            "Unknown maintenance status. Do not use this value."
+          ]
+        },
+        "windowStartTime": {
+          "type": "string"
+        },
+        "maintenanceReasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "FAILURE_DISK",
+              "FAILURE_GPU",
+              "FAILURE_GPU_MULTIPLE_FAULTY_HOSTS_CUSTOMER_REPORTED",
+              "FAILURE_GPU_NVLINK_SWITCH_CUSTOMER_REPORTED",
+              "FAILURE_GPU_TEMPERATURE",
+              "FAILURE_GPU_XID",
+              "FAILURE_INFRA",
+              "FAILURE_INTERFACE",
+              "FAILURE_MEMORY",
+              "FAILURE_NETWORK",
+              "FAILURE_NVLINK",
+              "FAILURE_REDUNDANT_HARDWARE_FAULT",
+              "FAILURE_TPU",
+              "INFRASTRUCTURE_RELOCATION",
+              "MAINTENANCE_REASON_UNKNOWN",
+              "PLANNED_NETWORK_UPDATE",
+              "PLANNED_UPDATE"
+            ],
+            "enumDescriptions": [
+              "Maintenance due to disk errors.",
+              "Maintenance due to GPU errors.",
+              "Maintenance due to customer reported multiple faulty hosts via R&R\nSubblock API.",
+              "Maintenance due to customer reported NVLink switch failure via R&R\nSubblock API.",
+              "Maintenance due to high GPU temperature.",
+              "Maintenance due to GPU xid failure.",
+              "Maintenance due to infrastructure errors.",
+              "Maintenance due to interface errors.",
+              "Maintenance due to memory errors.",
+              "Maintenance due to network errors.",
+              "Maintenance due to NVLink failure.",
+              "Maintenance due to redundant hardware fault.",
+              "Maintenance due to TPU errors.",
+              "Maintenance due to infrastructure relocation.",
+              "Unknown maintenance reason. Do not use this value.",
+              "Maintenance due to planned network update.",
+              "Maintenance due to planned update to the instance."
+            ]
+          }
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "MULTIPLE",
+            "SCHEDULED",
+            "UNKNOWN_TYPE",
+            "UNSCHEDULED"
+          ],
+          "enumDescriptions": [
+            "Multiple maintenance types in one window.\nThis is only intended to be used for groups.",
+            "Scheduled maintenance (e.g. maintenance after uptime guarantee is\ncomplete).",
+            "No type specified. Do not use this value.",
+            "Unscheduled maintenance (e.g. emergency maintenance during\nuptime guarantee)."
+          ]
+        },
+        "maintenanceOnShutdown": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "WorkloadIdentityConfig": {
+      "id": "WorkloadIdentityConfig",
+      "properties": {
+        "identity": {
+          "type": "string"
+        },
+        "identityCertificateEnabled": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    }
+  }
+}

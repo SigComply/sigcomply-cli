@@ -1,0 +1,46 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 3
+        host: 127.0.0.1:55195
+        body: |
+            {}
+        form:
+            alt:
+                - json
+            prettyPrint:
+                - "false"
+        headers:
+            Content-Type:
+                - application/json
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://cloudresourcemanager.googleapis.com/v1/projects/e2e-project:getIamPolicy?alt=json&prettyPrint=false
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 224
+        body: |-
+            {"version":1,"etag":"BwAbcdEf","bindings":[
+            {"role":"roles/owner","members":["user:admin@example.com"]},
+            {"role":"roles/viewer","members":["group:eng@example.com","serviceAccount:user@example.com"]}
+            ]}
+        headers:
+            Content-Length:
+                - "224"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 12:48:14 GMT
+        status: 200 OK
+        code: 200
+        duration: 1.178041ms

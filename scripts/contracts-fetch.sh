@@ -8,8 +8,8 @@
 #
 # Pin only services we actually have a plugin + cassette for. GitLab is omitted
 # (its published OpenAPI is too thin to cover the endpoints we call — it leans on
-# L4a live re-record per the strategy doc §2); GCP/Azure are added when their
-# plugins land.
+# L4a live re-record per the strategy doc §2); Azure is added when its plugins
+# land.
 #
 # Requires: curl, python3, ruby (only for the YAML→JSON Okta spec).
 set -euo pipefail
@@ -41,6 +41,17 @@ fetch_openapi_yaml() {
     ruby -ryaml -rjson -e 'File.write(ARGV[1], JSON.generate(YAML.load(File.read(ARGV[0]))))' "$TMP/in.yaml" "$TMP/in.json"
     mkdir -p "$(dirname "$out")"
     python3 "$SLICE_DIR/slice_openapi.py" "$TMP/in.json" "$out" "$title" "$source" "$slice" "$@"
+}
+
+# fetch_discovery <api> <version> <SeedSchema>...
+#   → contracts/gcp/<api>@<version>.json
+# GCP Discovery Documents are public (no auth), so this works without the live
+# credential GCP otherwise lacks here.
+fetch_discovery() {
+    local api="$1" version="$2"; shift 2
+    curl -sSL "https://www.googleapis.com/discovery/v1/apis/$api/$version/rest" -o "$TMP/disc.json"
+    mkdir -p "$OUT_ROOT/gcp"
+    python3 "$SLICE_DIR/slice_discovery.py" "$TMP/disc.json" "$OUT_ROOT/gcp/$api@$version.json" "$@"
 }
 
 # fetch_smithy <out-name> <model-basename> <Op>...
@@ -93,5 +104,11 @@ fetch_smithy dynamodb dynamodb ListTables DescribeTable DescribeContinuousBackup
 fetch_smithy kms kms ListKeys DescribeKey GetKeyRotationStatus
 fetch_smithy secretsmanager secrets-manager ListSecrets
 fetch_smithy backup backup ListBackupPlans GetBackupPlan
+
+echo "GCP (public Discovery Docs; sliced to response-schema closure):"
+fetch_discovery compute v1 InstanceAggregatedList
+fetch_discovery cloudresourcemanager v1 Policy
+fetch_discovery sqladmin v1 InstancesListResponse
+fetch_discovery storage v1 Buckets
 
 echo "contracts-fetch: done"

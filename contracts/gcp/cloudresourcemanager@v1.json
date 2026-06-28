@@ -1,0 +1,109 @@
+{
+  "discoveryVersion": "v1",
+  "name": "cloudresourcemanager",
+  "version": "v1",
+  "x-slice": "response-schema closure consumed by internal/sources/gcp",
+  "schemas": {
+    "AuditConfig": {
+      "id": "AuditConfig",
+      "properties": {
+        "service": {
+          "type": "string"
+        },
+        "auditLogConfigs": {
+          "type": "array",
+          "items": {
+            "$ref": "AuditLogConfig"
+          }
+        }
+      },
+      "type": "object"
+    },
+    "AuditLogConfig": {
+      "type": "object",
+      "id": "AuditLogConfig",
+      "properties": {
+        "logType": {
+          "enumDescriptions": [
+            "Default case. Should never be this.",
+            "Admin reads. Example: CloudIAM getIamPolicy",
+            "Data writes. Example: CloudSQL Users create",
+            "Data reads. Example: CloudSQL Users list"
+          ],
+          "type": "string",
+          "enum": [
+            "LOG_TYPE_UNSPECIFIED",
+            "ADMIN_READ",
+            "DATA_WRITE",
+            "DATA_READ"
+          ]
+        },
+        "exemptedMembers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      }
+    },
+    "Binding": {
+      "id": "Binding",
+      "properties": {
+        "role": {
+          "type": "string"
+        },
+        "condition": {
+          "$ref": "Expr"
+        },
+        "members": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Expr": {
+      "type": "object",
+      "id": "Expr",
+      "properties": {
+        "location": {
+          "type": "string"
+        },
+        "expression": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      }
+    },
+    "Policy": {
+      "type": "object",
+      "id": "Policy",
+      "properties": {
+        "etag": {
+          "format": "byte",
+          "type": "string"
+        },
+        "version": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "auditConfigs": {
+          "type": "array",
+          "items": {
+            "$ref": "AuditConfig"
+          }
+        },
+        "bindings": {
+          "items": {
+            "$ref": "Binding"
+          },
+          "type": "array"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,56 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55199
+        form:
+            alt:
+                - json
+            pageToken:
+                - ""
+            prefix:
+                - ""
+            prettyPrint:
+                - "false"
+            project:
+                - e2e-project
+            projection:
+                - full
+            returnPartialSuccess:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0 gccl-invocation-id/3e7fa813-abaf-4bcd-9af4-02132dab5ad2 gccl-attempt-count/1 gl-go/1.25.8 gccl/1.62.2
+            X-Goog-Gcs-Idempotency-Token:
+                - 3e7fa813-abaf-4bcd-9af4-02132dab5ad2
+        url: https://storage.googleapis.com/b?alt=json&pageToken=&prefix=&prettyPrint=false&project=e2e-project&projection=full&returnPartialSuccess=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 366
+        body: |-
+            {"kind":"storage#buckets","items":[{
+            "kind":"storage#bucket","name":"e2e-bucket","location":"US","timeCreated":"2026-01-01T00:00:00Z",
+            "iamConfiguration":{"uniformBucketLevelAccess":{"enabled":true},"publicAccessPrevention":"enforced"},
+            "versioning":{"enabled":true},
+            "encryption":{"defaultKmsKeyName":"projects/e2e-project/locations/us/keyRings/r/cryptoKeys/k"}
+            }]}
+        headers:
+            Content-Length:
+                - "366"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 12:48:19 GMT
+        status: 200 OK
+        code: 200
+        duration: 588.042µs

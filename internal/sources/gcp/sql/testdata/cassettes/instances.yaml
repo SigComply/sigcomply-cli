@@ -1,0 +1,44 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55197
+        form:
+            alt:
+                - json
+            prettyPrint:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://sqladmin.googleapis.com/v1/projects/e2e-project/instances?alt=json&prettyPrint=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 342
+        body: |-
+            {"items":[{
+            "name":"e2e-pg","databaseVersion":"POSTGRES_15","region":"us-central1","state":"RUNNABLE",
+            "settings":{"availabilityType":"REGIONAL","deletionProtectionEnabled":true,
+            "ipConfiguration":{"ipv4Enabled":false,"requireSsl":true,"sslMode":"ENCRYPTED_ONLY"},
+            "backupConfiguration":{"enabled":true,"pointInTimeRecoveryEnabled":true}}
+            }]}
+        headers:
+            Content-Length:
+                - "342"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 12:48:16 GMT
+        status: 200 OK
+        code: 200
+        duration: 1.040125ms
