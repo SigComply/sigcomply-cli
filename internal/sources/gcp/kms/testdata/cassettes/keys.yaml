@@ -1,0 +1,108 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55699
+        form:
+            alt:
+                - json
+            prettyPrint:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://cloudkms.googleapis.com/v1/projects/e2e-project/locations?alt=json&prettyPrint=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 78
+        body: '{"locations":[{"locationId":"us","name":"projects/e2e-project/locations/us"}]}'
+        headers:
+            Content-Length:
+                - "78"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 13:33:42 GMT
+        status: 200 OK
+        code: 200
+        duration: 714.75µs
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55699
+        form:
+            alt:
+                - json
+            prettyPrint:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://cloudkms.googleapis.com/v1/projects/e2e-project/locations/us/keyRings?alt=json&prettyPrint=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 76
+        body: '{"keyRings":[{"name":"projects/e2e-project/locations/us/keyRings/primary"}]}'
+        headers:
+            Content-Length:
+                - "76"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 13:33:42 GMT
+        status: 200 OK
+        code: 200
+        duration: 147.583µs
+    - id: 2
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55699
+        form:
+            alt:
+                - json
+            prettyPrint:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://cloudkms.googleapis.com/v1/projects/e2e-project/locations/us/keyRings/primary/cryptoKeys?alt=json&prettyPrint=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 229
+        body: '{"cryptoKeys":[{"name":"projects/e2e-project/locations/us/keyRings/primary/cryptoKeys/symmetric","purpose":"ENCRYPT_DECRYPT","rotationPeriod":"7776000s","versionTemplate":{"protectionLevel":"HSM"},"primary":{"state":"ENABLED"}}]}'
+        headers:
+            Content-Length:
+                - "229"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 13:33:42 GMT
+        status: 200 OK
+        code: 200
+        duration: 287.583µs

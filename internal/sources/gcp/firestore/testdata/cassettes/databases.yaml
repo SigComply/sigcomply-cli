@@ -1,0 +1,38 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:55703
+        form:
+            alt:
+                - json
+            prettyPrint:
+                - "false"
+        headers:
+            User-Agent:
+                - google-api-go-client/0.5
+            X-Goog-Api-Client:
+                - gl-go/1.25.8 gdcl/0.283.0
+        url: https://firestore.googleapis.com/v1/projects/e2e-project/databases/databases?alt=json&prettyPrint=false
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 344
+        body: '{"databases":[{"name":"projects/e2e-project/databases/(default)","locationId":"nam5","type":"FIRESTORE_NATIVE","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_ENABLED","deleteProtectionState":"DELETE_PROTECTION_ENABLED","cmekConfig":{"kmsKeyName":"projects/e2e-project/locations/us-central1/keyRings/r/cryptoKeys/k"}}],"unreachable":[]}'
+        headers:
+            Content-Length:
+                - "344"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 13:33:46 GMT
+        status: 200 OK
+        code: 200
+        duration: 839.125µs
