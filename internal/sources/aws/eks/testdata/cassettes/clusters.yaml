@@ -1,0 +1,84 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 0
+        host: ""
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 80908d2e-60bf-420c-96f5-5138aaa03bf1
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/eks#1.84.2 m/g
+            X-Amz-Date:
+                - 20260628T110800Z
+        url: https://eks.us-east-1.amazonaws.com/clusters
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 28
+        body: '{"clusters":["e2e-cluster"]}'
+        headers:
+            Content-Length:
+                - "28"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 11:08:00 GMT
+        status: 200 OK
+        code: 200
+        duration: 411.875µs
+    - id: 1
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 0
+        host: ""
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 62bcba35-ef57-45a9-a319-13ee7f4c41cc
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/eks#1.84.2 m/g
+            X-Amz-Date:
+                - 20260628T110800Z
+        url: https://eks.us-east-1.amazonaws.com/clusters/e2e-cluster
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 419
+        body: |-
+            {"cluster":{
+            "name":"e2e-cluster",
+            "arn":"arn:aws:eks:us-east-1:000000000000:cluster/e2e-cluster",
+            "version":"1.29",
+            "status":"ACTIVE",
+            "resourcesVpcConfig":{"endpointPublicAccess":false,"endpointPrivateAccess":true},
+            "logging":{"clusterLogging":[{"types":["api","audit"],"enabled":true}]},
+            "encryptionConfig":[{"resources":["secrets"],"provider":{"keyArn":"arn:aws:kms:us-east-1:000000000000:key/example-eks-key"}}]
+            }}
+        headers:
+            Content-Length:
+                - "419"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 11:08:00 GMT
+        status: 200 OK
+        code: 200
+        duration: 92.833µs

@@ -1,0 +1,41 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 0
+        host: ""
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 33d4e22c-4b31-44c0-a9a4-147c859f6b82
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/lambda#1.92.1 m/g
+            X-Amz-Date:
+                - 20260628T110526Z
+        url: https://lambda.us-east-1.amazonaws.com/2015-03-31/functions
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 1253
+        body: '{"Functions":[{"Description":"","TracingConfig":{"Mode":"Active"},"VpcConfig":null,"DurableConfig":null,"SigningJobArn":null,"SnapStart":{"OptimizationStatus":"Off","ApplyOn":"None"},"RevisionId":"e6b4f5e3-2403-4afe-98d5-0f095ebefd0a","LastModified":"2026-06-28T11:04:25.798+0000","FunctionName":"e2e-fn","Runtime":"python3.12","Version":"$LATEST","PackageType":"Zip","LastUpdateStatus":null,"Layers":null,"TenancyConfig":null,"FunctionArn":"arn:aws:lambda:us-east-1:000000000000:function:e2e-fn","KMSKeyArn":null,"MemorySize":128,"ImageConfigResponse":null,"LastUpdateStatusReason":null,"CapacityProviderConfig":null,"Timeout":3,"DeadLetterConfig":null,"ConfigSha256":null,"Handler":"index.handler","CodeSha256":"oVISm3Cdj7Z+a8MawCPeEH9gEbca7xQrA+9EqTqwyJI=","Role":"arn:aws:iam::000000000000:role/e2e-lambda-role","SigningProfileVersionArn":null,"RuntimeVersionConfig":null,"MasterArn":null,"CodeSize":209,"State":null,"StateReason":null,"LoggingConfig":{"LogFormat":"Text","ApplicationLogLevel":null,"LogGroup":"/aws/lambda/e2e-fn","SystemLogLevel":null},"Environment":null,"EphemeralStorage":{"Size":512},"StateReasonCode":null,"LastUpdateStatusReasonCode":null,"Architectures":["x86_64"]}],"NextMarker":null}'
+        headers:
+            Content-Length:
+                - "1253"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 11:05:32 GMT
+            X-Amzn-Requestid:
+                - 4ebb1659-0219-44f2-b524-3baddbdd0ff0
+        status: 200 OK
+        code: 200
+        duration: 6.146372s

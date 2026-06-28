@@ -1,0 +1,116 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 43
+        host: ""
+        body: Action=DescribeInstances&Version=2016-11-15
+        form:
+            Action:
+                - DescribeInstances
+            Version:
+                - "2016-11-15"
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - c7c18e32-7ce2-47c1-a791-99528866c0a2
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/ec2#1.304.2 m/g
+            X-Amz-Date:
+                - 20260628T110511Z
+        url: https://ec2.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        transfer_encoding:
+            - chunked
+        content_length: -1
+        uncompressed: true
+        body: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <DescribeInstancesResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/"><requestId>0b7b9ca5-5c77-4d3e-9561-2361f97c08d7</requestId><reservationSet><item><reservationId>r-014eaaf89cfa7fdeb</reservationId><ownerId>000000000000</ownerId><groupSet/><instancesSet><item><instanceId>i-0dc12857920ddf55c</instanceId><imageId>ami-00948338a4aeec604</imageId><instanceState><code>16</code><name>running</name></instanceState><privateDnsName>ip-172-31-40-57.ec2.internal</privateDnsName><publicIpDnsNameOptions><dnsHostnameType>public-ipv4-dns-name</dnsHostnameType><publicIpv4DnsName>ec2-203-0-113-10.compute-1.amazonaws.com</publicIpv4DnsName></publicIpDnsNameOptions><dnsName>ec2-203-0-113-10.compute-1.amazonaws.com</dnsName><reason/><amiLaunchIndex>0</amiLaunchIndex><productCodes/><operator><managed>false</managed><hiddenByDefault>false</hiddenByDefault></operator><instanceType>t3.micro</instanceType><launchTime>2026-06-28T11:04:33.000Z</launchTime><placement><availabilityZone>us-east-1d</availabilityZone><availabilityZoneId>use1-az6</availabilityZoneId><groupName/><tenancy>default</tenancy></placement><monitoring><state>disabled</state></monitoring><subnetId>subnet-0d710e476dcd77d5e</subnetId><vpcId>vpc-0860fcf78e32a5d9f</vpcId><privateIpAddress>172.31.40.57</privateIpAddress><ipAddress>203.0.113.10</ipAddress><sourceDestCheck>true</sourceDestCheck><groupSet><item><groupId>sg-04da2f5695c5341e3</groupId><groupName>default</groupName></item></groupSet><architecture>x86_64</architecture><rootDeviceType>ebs</rootDeviceType><rootDeviceName>/dev/xvda</rootDeviceName><blockDeviceMapping><item><deviceName>/dev/xvda</deviceName><ebs><volumeId>vol-0785a94c64c2bc7ae</volumeId><status>attached</status><attachTime>2026-06-28T11:04:34.000Z</attachTime><deleteOnTermination>true</deleteOnTermination><ebsCardIndex>0</ebsCardIndex></ebs></item></blockDeviceMapping><virtualizationType>hvm</virtualizationType><clientToken>769fa6b5-4d4a-49e1-a94e-813baee4faab</clientToken><tagSet><item><key>Name</key><value>e2e-instance</value></item></tagSet><hypervisor>xen</hypervisor><networkInterfaceSet><item><networkInterfaceId>eni-07f0e061f06b7f237</networkInterfaceId><subnetId>subnet-0d710e476dcd77d5e</subnetId><vpcId>vpc-0860fcf78e32a5d9f</vpcId><description/><ownerId>000000000000</ownerId><status>in-use</status><macAddress>0e:4e:b4:98:17:d7</macAddress><privateIpAddress>172.31.40.57</privateIpAddress><privateDnsName>ip-172-31-40-57.ec2.internal</privateDnsName><publicDnsName>ec2-203-0-113-10.compute-1.amazonaws.com</publicDnsName><publicIpDnsNameOptions><dnsHostnameType>public-ipv4-dns-name</dnsHostnameType><publicIpv4DnsName>ec2-203-0-113-10.compute-1.amazonaws.com</publicIpv4DnsName></publicIpDnsNameOptions><sourceDestCheck>true</sourceDestCheck><groupSet><item><groupId>sg-04da2f5695c5341e3</groupId><groupName>default</groupName></item></groupSet><attachment><attachmentId>eni-attach-0756726dea8c14b1a</attachmentId><deviceIndex>0</deviceIndex><status>attached</status><attachTime>2026-06-28T11:04:32.000Z</attachTime><deleteOnTermination>true</deleteOnTermination><networkCardIndex>0</networkCardIndex></attachment><association><publicIp>203.0.113.10</publicIp><publicDnsName>ec2-203-0-113-10.compute-1.amazonaws.com</publicDnsName><ipOwnerId>amazon</ipOwnerId></association><privateIpAddressesSet><item><privateIpAddress>172.31.40.57</privateIpAddress><privateDnsName>ip-172-31-40-57.ec2.internal</privateDnsName><primary>true</primary><association><publicIp>203.0.113.10</publicIp><publicDnsName>ec2-203-0-113-10.compute-1.amazonaws.com</publicDnsName><ipOwnerId>amazon</ipOwnerId></association></item></privateIpAddressesSet><ipv6AddressesSet/><interfaceType>interface</interfaceType><operator><managed>false</managed></operator></item></networkInterfaceSet><secondaryInterfaceSet/><ebsOptimized>false</ebsOptimized><enaSupport>true</enaSupport><cpuOptions><coreCount>1</coreCount><threadsPerCore>2</threadsPerCore></cpuOptions><capacityReservationSpecification><capacityReservationPreference>open</capacityReservationPreference></capacityReservationSpecification><hibernationOptions><configured>false</configured></hibernationOptions><enclaveOptions><enabled>false</enabled></enclaveOptions><metadataOptions><state>applied</state><httpTokens>required</httpTokens><httpPutResponseHopLimit>2</httpPutResponseHopLimit><httpEndpoint>enabled</httpEndpoint><httpProtocolIpv4>enabled</httpProtocolIpv4><httpProtocolIpv6>disabled</httpProtocolIpv6><instanceMetadataTags>disabled</instanceMetadataTags></metadataOptions><maintenanceOptions><autoRecovery>default</autoRecovery><rebootMigration>default</rebootMigration></maintenanceOptions><networkPerformanceOptions><bandwidthWeighting>default</bandwidthWeighting></networkPerformanceOptions><bootMode>uefi-preferred</bootMode><currentInstanceBootMode>uefi</currentInstanceBootMode><platformDetails>Linux/UNIX</platformDetails><usageOperation>RunInstances</usageOperation><usageOperationUpdateTime>2026-06-28T11:04:33.000Z</usageOperationUpdateTime><privateDnsNameOptions><hostnameType>ip-name</hostnameType><enableResourceNameDnsARecord>false</enableResourceNameDnsARecord><enableResourceNameDnsAAAARecord>false</enableResourceNameDnsAAAARecord></privateDnsNameOptions></item></instancesSet></item></reservationSet></DescribeInstancesResponse>
+        headers:
+            Cache-Control:
+                - no-cache, no-store
+            Content-Type:
+                - text/xml;charset=UTF-8
+            Date:
+                - Sun, 28 Jun 2026 11:05:17 GMT
+            Server:
+                - AmazonEC2
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            Vary:
+                - accept-encoding
+            X-Amzn-Requestid:
+                - 0b7b9ca5-5c77-4d3e-9561-2361f97c08d7
+        status: 200 OK
+        code: 200
+        duration: 6.204832041s
+    - id: 1
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 74
+        host: ""
+        body: Action=DescribeVolumes&Version=2016-11-15&VolumeId.1=vol-0785a94c64c2bc7ae
+        form:
+            Action:
+                - DescribeVolumes
+            Version:
+                - "2016-11-15"
+            VolumeId.1:
+                - vol-0785a94c64c2bc7ae
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 5c6728b4-5197-4373-add3-80cd151fda92
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-www-form-urlencoded
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/ec2#1.304.2 m/g
+            X-Amz-Date:
+                - 20260628T110517Z
+        url: https://ec2.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 1256
+        body: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <DescribeVolumesResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/"><requestId>0e63da0a-660a-4786-b20f-902d0ed9d37d</requestId><volumeSet><item><volumeId>vol-0785a94c64c2bc7ae</volumeId><size>8</size><snapshotId>snap-0ddddd66776eccb06</snapshotId><availabilityZone>us-east-1d</availabilityZone><availabilityZoneId>use1-az6</availabilityZoneId><status>in-use</status><createTime>2026-06-28T11:04:34.363Z</createTime><attachmentSet><item><volumeId>vol-0785a94c64c2bc7ae</volumeId><instanceId>i-0dc12857920ddf55c</instanceId><device>/dev/xvda</device><status>attached</status><attachTime>2026-06-28T11:04:34.000Z</attachTime><deleteOnTermination>true</deleteOnTermination><ebsCardIndex>0</ebsCardIndex></item></attachmentSet><volumeType>gp3</volumeType><iops>3000</iops><encrypted>true</encrypted><kmsKeyId>arn:aws:kms:us-east-1:000000000000:key/6de713c2-6ab8-4688-b6e9-6f7a7cbf3109</kmsKeyId><multiAttachEnabled>false</multiAttachEnabled><throughput>125</throughput><operator><managed>false</managed><hiddenByDefault>false</hiddenByDefault></operator><volumeArn>arn:aws:ec2:us-east-1:000000000000:volume/vol-0785a94c64c2bc7ae</volumeArn><ownerId>000000000000</ownerId></item></volumeSet></DescribeVolumesResponse>
+        headers:
+            Cache-Control:
+                - no-cache, no-store
+            Content-Length:
+                - "1256"
+            Content-Type:
+                - text/xml;charset=UTF-8
+            Date:
+                - Sun, 28 Jun 2026 11:05:24 GMT
+            Server:
+                - AmazonEC2
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Amzn-Requestid:
+                - 0e63da0a-660a-4786-b20f-902d0ed9d37d
+        status: 200 OK
+        code: 200
+        duration: 456.044042ms

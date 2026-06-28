@@ -1,0 +1,48 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 2
+        host: ""
+        body: '{}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 9a24849b-051a-414a-9fff-780a201649db
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.41.11 ua/2.1 os/macos lang/go#1.25.8 md/GOOS#darwin md/GOARCH#arm64 api/ecr#1.58.2 m/g
+            X-Amz-Date:
+                - 20260628T110541Z
+            X-Amz-Target:
+                - AmazonEC2ContainerRegistry_V20150921.DescribeRepositories
+        url: https://api.ecr.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 416
+        body: '{"repositories":[{"createdAt":1.782644649317E9,"encryptionConfiguration":{"encryptionType":"AES256"},"imageScanningConfiguration":{"scanOnPush":true},"imageTagMutability":"IMMUTABLE","registryId":"000000000000","repositoryArn":"arn:aws:ecr:us-east-1:000000000000:repository/e2e-repo","repositoryName":"e2e-repo","repositoryUri":"000000000000.dkr.ecr.us-east-1.amazonaws.com/e2e-repo"}]}'
+        headers:
+            Connection:
+                - keep-alive
+            Content-Length:
+                - "416"
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sun, 28 Jun 2026 11:05:46 GMT
+            X-Amzn-Requestid:
+                - 8687e25b-7b61-4a76-9a53-dc5f1e833e6d
+        status: 200 OK
+        code: 200
+        duration: 5.530079958s
