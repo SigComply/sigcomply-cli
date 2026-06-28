@@ -1,0 +1,38 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56270
+        form:
+            api-version:
+                - "2025-03-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armpolicy/v1.0.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/policyAssignments?api-version=2025-03-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 753
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/policyAssignments/require-encryption","name":"require-encryption","type":"Microsoft.Authorization/policyAssignments","properties":{"scope":"/subscriptions/00000000-0000-0000-0000-000000000000","enforcementMode":"Default","policyDefinitionId":"/providers/Microsoft.Authorization/policyDefinitions/def1"}},{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Authorization/policyAssignments/audit-rg","name":"audit-rg","type":"Microsoft.Authorization/policyAssignments","properties":{"scope":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg","enforcementMode":"DoNotEnforce"}}]}'
+        headers:
+            Content-Length:
+                - "753"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:07:11 GMT
+        status: 200 OK
+        code: 200
+        duration: 3.332459ms
