@@ -1,0 +1,143 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56258
+        form:
+            api-version:
+                - "2026-02-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armkeyvault/v2.0.2 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.KeyVault/vaults?api-version=2026-02-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 335
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.KeyVault/vaults/e2evault","name":"e2evault","location":"eastus","type":"Microsoft.KeyVault/vaults","properties":{"tenantId":"00000000-0000-0000-0000-000000000000","sku":{"family":"A","name":"premium"},"accessPolicies":[]}}]}'
+        headers:
+            Content-Length:
+                - "335"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:06:17 GMT
+        status: 200 OK
+        code: 200
+        duration: 5.343416ms
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56258
+        form:
+            api-version:
+                - "2026-02-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armkeyvault/v2.0.2 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.KeyVault/vaults/e2evault/keys?api-version=2026-02-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 167
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.KeyVault/vaults/e2evault/keys/e2ekey","name":"e2ekey"}]}'
+        headers:
+            Content-Length:
+                - "167"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:06:17 GMT
+        status: 200 OK
+        code: 200
+        duration: 268.666µs
+    - id: 2
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56258
+        form:
+            api-version:
+                - "2026-02-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armkeyvault/v2.0.2 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.KeyVault/vaults/e2evault/keys/e2ekey?api-version=2026-02-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 378
+        body: '{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.KeyVault/vaults/e2evault/keys/e2ekey","name":"e2ekey","properties":{"kty":"RSA-HSM","keySize":2048,"attributes":{"enabled":true,"created":1700000000,"updated":1700000000},"rotationPolicy":{"lifetimeActions":[{"trigger":{"timeAfterCreate":"P90D"},"action":{"type":"rotate"}}]}}}'
+        headers:
+            Content-Length:
+                - "378"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:06:17 GMT
+        status: 200 OK
+        code: 200
+        duration: 155.084µs
+    - id: 3
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56258
+        form:
+            api-version:
+                - "2026-02-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armkeyvault/v2.0.2 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.KeyVault/vaults/e2evault/secrets?api-version=2026-02-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 331
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.KeyVault/vaults/e2evault/secrets/e2esecret","name":"e2esecret","type":"Microsoft.KeyVault/vaults/secrets","properties":{"contentType":"password","attributes":{"enabled":true,"created":1700000000,"updated":1700000000}}}]}'
+        headers:
+            Content-Length:
+                - "331"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:06:17 GMT
+        status: 200 OK
+        code: 200
+        duration: 181.25µs

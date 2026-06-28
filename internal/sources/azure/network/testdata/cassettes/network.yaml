@@ -1,0 +1,73 @@
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56233
+        form:
+            api-version:
+                - "2025-05-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armnetwork/v9.0.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/networkSecurityGroups?api-version=2025-05-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 602
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Network/networkSecurityGroups/e2ensg","name":"e2ensg","location":"eastus","properties":{"securityRules":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Network/networkSecurityGroups/e2ensg/securityRules/AllowSSH","name":"AllowSSH","properties":{"protocol":"Tcp","sourcePortRange":"*","destinationPortRange":"22","sourceAddressPrefix":"0.0.0.0/0","destinationAddressPrefix":"*","access":"Allow","priority":100,"direction":"Inbound"}}]}}]}'
+        headers:
+            Content-Length:
+                - "602"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:04:31 GMT
+        status: 200 OK
+        code: 200
+        duration: 5.744208ms
+    - id: 1
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56233
+        form:
+            api-version:
+                - "2025-05-01"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armnetwork/v9.0.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Network/virtualNetworks?api-version=2025-05-01
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 499
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Network/virtualNetworks/e2evnet","name":"e2evnet","location":"eastus","properties":{"addressSpace":{"addressPrefixes":["10.0.0.0/16"]},"subnets":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Network/virtualNetworks/e2evnet/subnets/default","name":"default","properties":{}}],"flowLogs":[{"id":"x","properties":{"enabled":true}}]}}]}'
+        headers:
+            Content-Length:
+                - "499"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:04:31 GMT
+        status: 200 OK
+        code: 200
+        duration: 247.959µs
