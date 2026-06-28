@@ -466,19 +466,19 @@ func TestNewFromToken_ValidatesArgs(t *testing.T) {
 	}
 }
 
-func TestHasNextLink(t *testing.T) {
+func TestNextLink(t *testing.T) {
 	cases := []struct {
 		in   string
-		want bool
+		want string
 	}{
-		{"", false},
-		{`<https://api.github.com/x?page=2>; rel="next"`, true},
-		{`<https://api.github.com/x?page=2>; rel="prev"`, false},
-		{`<https://x>; rel="next", <https://y>; rel="last"`, true},
+		{"", ""},
+		{`<https://api.github.com/x?page=2>; rel="next"`, "https://api.github.com/x?page=2"},
+		{`<https://api.github.com/x?page=2>; rel="prev"`, ""},
+		{`<https://x?after=cur>; rel="next", <https://y>; rel="last"`, "https://x?after=cur"},
 	}
 	for _, c := range cases {
-		if got := hasNextLink(c.in); got != c.want {
-			t.Errorf("hasNextLink(%q) = %v; want %v", c.in, got, c.want)
+		if got := nextLink(c.in); got != c.want {
+			t.Errorf("nextLink(%q) = %q; want %q", c.in, got, c.want)
 		}
 	}
 }

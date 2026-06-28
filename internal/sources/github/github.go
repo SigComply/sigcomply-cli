@@ -826,17 +826,16 @@ type ghDependabotAlert struct {
 // (alerts disabled for the org, or the token lacks security-events
 // access) is treated as "no alerts" rather than an error — the per-repo
 // enablement gap is reported by the dependabot_alerts_enabled policy.
+//
+// The org-level Dependabot alerts endpoint uses CURSOR pagination only —
+// it rejects the `page` parameter with 400 — so we follow the Link
+// header's rel="next" URL rather than incrementing a page number.
 func (h *httpAPI) ListDependabotAlerts(ctx context.Context) ([]DependabotAlert, error) {
 	var out []DependabotAlert
-	page := 1
-	for {
-		q := url.Values{}
-		q.Set("state", "open")
-		q.Set("per_page", "100")
-		q.Set("page", strconv.Itoa(page))
-		path := fmt.Sprintf("/orgs/%s/dependabot/alerts?%s", url.PathEscape(h.org), q.Encode())
+	next := h.base + fmt.Sprintf("/orgs/%s/dependabot/alerts?state=open&per_page=100", url.PathEscape(h.org))
+	for next != "" {
 		var alerts []ghDependabotAlert
-		hasMore, status, err := h.getJSONStatus(ctx, path, &alerts)
+		n, status, err := h.getJSONStatus(ctx, next, &alerts)
 		if status == http.StatusForbidden {
 			return nil, nil // alerts disabled / no access: no findings
 		}
@@ -856,11 +855,9 @@ func (h *httpAPI) ListDependabotAlerts(ctx context.Context) ([]DependabotAlert, 
 				PatchAvailable: a.SecurityVulnerability.FirstPatchedVersion != nil,
 			})
 		}
-		if !hasMore {
-			return out, nil
-		}
-		page++
+		next = n
 	}
+	return out, nil
 }
 
 func (h *httpAPI) fetchMembershipRole(ctx context.Context, login string) (string, error) {
@@ -872,59 +869,64 @@ func (h *httpAPI) fetchMembershipRole(ctx context.Context, login string) (string
 	return m.Role, nil
 }
 
-// getJSON performs a single GET and decodes the JSON body into out.
-// It returns hasMore=true when the response carries a `Link` header
-// with a rel="next" entry.
+// getJSON performs a single GET on a base-relative path and decodes the JSON
+// body into out. It returns hasMore=true when the response carries a `Link`
+// header with a rel="next" entry (page-based callers increment a page number).
 func (h *httpAPI) getJSON(ctx context.Context, path string, out any) (bool, error) {
-	hasMore, _, err := h.getJSONStatus(ctx, path, out)
-	return hasMore, err
+	next, _, err := h.getJSONStatus(ctx, h.base+path, out)
+	return next != "", err
 }
 
-// getJSONStatus is getJSON that also reports the HTTP status code, so a
-// caller can distinguish a specific status (e.g. 403 = feature disabled)
-// from a generic transport error. The status is 0 when the request never
-// reached a response (transport error, context cancel).
-func (h *httpAPI) getJSONStatus(ctx context.Context, path string, out any) (hasMore bool, status int, err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.base+path, http.NoBody)
+// getJSONStatus GETs an absolute URL, decodes the JSON body into out, and
+// returns the rel="next" URL from the Link header (empty when there is none).
+// It also reports the HTTP status code, so a caller can distinguish a specific
+// status (e.g. 403 = feature disabled) from a generic transport error; status
+// is 0 when the request never reached a response. Cursor-paginated endpoints
+// (e.g. org Dependabot alerts) follow the returned next URL directly.
+func (h *httpAPI) getJSONStatus(ctx context.Context, fullURL string, out any) (next string, status int, err error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, http.NoBody)
 	if err != nil {
-		return false, 0, err
+		return "", 0, err
 	}
 	req.Header.Set("Authorization", "Bearer "+h.token)
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	resp, err := h.client.Do(req)
 	if err != nil {
-		return false, 0, err
+		return "", 0, err
 	}
 	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // best-effort close
 	if resp.StatusCode == http.StatusNotFound {
-		return false, resp.StatusCode, fmt.Errorf("github: %s: %s", path, resp.Status)
+		return "", resp.StatusCode, fmt.Errorf("github: %s: %s", fullURL, resp.Status)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
-			return false, resp.StatusCode, fmt.Errorf("github: %s: %s: %w", path, resp.Status, readErr)
+			return "", resp.StatusCode, fmt.Errorf("github: %s: %s: %w", fullURL, resp.Status, readErr)
 		}
-		return false, resp.StatusCode, fmt.Errorf("github: %s: %s: %s", path, resp.Status, strings.TrimSpace(string(body)))
+		return "", resp.StatusCode, fmt.Errorf("github: %s: %s: %s", fullURL, resp.Status, strings.TrimSpace(string(body)))
 	}
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
-		return false, resp.StatusCode, fmt.Errorf("github: decode %s: %w", path, err)
+		return "", resp.StatusCode, fmt.Errorf("github: decode %s: %w", fullURL, err)
 	}
-	return hasNextLink(resp.Header.Get("Link")), resp.StatusCode, nil
+	return nextLink(resp.Header.Get("Link")), resp.StatusCode, nil
 }
 
-// hasNextLink reports whether a Link header advertises a rel="next" page.
-// Format reference: https://docs.github.com/rest/guides/using-pagination-in-the-rest-api
-func hasNextLink(link string) bool {
-	if link == "" {
-		return false
-	}
+// nextLink returns the rel="next" URL from a Link header, or "" when there is
+// none. Format reference:
+// https://docs.github.com/rest/guides/using-pagination-in-the-rest-api
+func nextLink(link string) string {
 	for _, part := range strings.Split(link, ",") {
-		if strings.Contains(part, `rel="next"`) {
-			return true
+		if !strings.Contains(part, `rel="next"`) {
+			continue
+		}
+		if i := strings.IndexByte(part, '<'); i >= 0 {
+			if j := strings.IndexByte(part[i+1:], '>'); j >= 0 {
+				return part[i+1 : i+1+j]
+			}
 		}
 	}
-	return false
+	return ""
 }
 
 var _ core.SourcePlugin = (*Plugin)(nil)
