@@ -45,6 +45,7 @@ plugin **MUST** include, in the same PR:
    (Where the vendor publishes an OpenAPI/Smithy/Discovery/Swagger spec — see the
    existing slicers in `scripts/contracts/`.)
 
-The canonical step-by-step is in [`docs/claude/recipes.md`](./docs/claude/recipes.md)
-(the plugin testing checklist). Policies and sources never reference each other —
+The canonical step-by-step is the **Testing a source plugin (checklist)**
+section of [`docs/architecture/04-source-plugins.md`](./docs/architecture/04-source-plugins.md).
+Policies and sources never reference each other —
 mediate via the evidence-type registry (Invariant #4 in `CLAUDE.md`).

@@ -64,7 +64,14 @@ declares via `Emits()`. It never references a policy. Live example:
 4. **Blank-import it** in `internal/sources/builtin/builtin.go` (one
    line). `cmd/sigcomply` needs no other changes.
 
-5. **Write unit tests** with a fake API client (see `okta_test.go`).
+5. **Write the layered tests** — not just unit tests. A new plugin ships
+   L0/L1 unit tests (fake API client, see `okta_test.go`) **plus** an L2
+   `*_conformance_test.go` replaying a scrubbed go-vcr cassette through
+   `sourcetest.RunConformance`, **plus** a `contracts/<provider>/…`
+   snapshot for L3 drift. Follow the canonical **Testing a source plugin
+   (checklist)** in
+   [`docs/architecture/04-source-plugins.md`](../architecture/04-source-plugins.md);
+   `CONTRIBUTING.md` gates it in review.
 
 6. **No policy changes** are needed if the plugin emits an existing
    evidence type — every policy already accepting that type can now bind

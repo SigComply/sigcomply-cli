@@ -15,8 +15,13 @@ per-PR path is fast, free, and deterministic, and the "did the vendor
 change?" question is answered by a separate, mostly-free, scheduled
 path.
 
-> **Status:** target architecture. The layers below are being rolled out
-> per-plugin; not every source has every layer yet. The
+> **Status:** implemented. L0–L3 (unit, integration, cassette
+> conformance, spec-diff drift) and the scheduled drift
+> (`contract-drift.yml`) and live-SaaS (`live-saas.yml`) workflows are in
+> place across all providers. The one remaining gap is **L4a live**
+> coverage for the clouds: GitHub, GitLab, Okta, and Entra have live
+> tests; **AWS, GCP, and Azure-ARM are cassette-only** (no live layer
+> yet). The
 > [add-a-source-plugin testing checklist](04-source-plugins.md) and
 > [extensibility doc](07-extensibility.md) state what a *new* plugin must
 > ship today.
@@ -128,17 +133,25 @@ tests.
   coverage for $0; only its *nightly behavioral* live confirmation is
   forgone. A maintainer with a live P2 tenant can record the real cassette
   to refresh it; the per-PR gate never depends on either.
-- **GCP cassettes are hand-authored until a usable credential exists.**
-  The contract path for GCP is the same L2 cassette + L3 Discovery-Doc
-  drift as any cloud, but **live recording is currently blocked**: the test
-  GCP org enforces `iam.disableServiceAccountKeyCreation` (no downloadable
-  JSON keys) *and* an org-level IAM deny on `iam.serviceAccounts.*` (so
-  impersonation also fails, even for a project Owner), and its billing
-  account is closed (so `compute`/`container` won't enable). Until an org
-  admin lifts those (or a no-org project is used), GCP cassettes are
-  **hand-authored and validated against the published Discovery Doc /
-  OpenAPI**, exactly like the Entra P2 fallback above. Same contract
-  coverage for $0; only live (L4a smoke / L4b behavioral) GCP is deferred.
+- **GCP cassettes are hand-authored today, but live recording is now
+  unblocked.** The contract path for GCP is the same L2 cassette + L3
+  Discovery-Doc drift as any cloud. The test GCP org still enforces
+  `iam.disableServiceAccountKeyCreation`, so a **downloadable JSON key
+  remains impossible** — but that is the *only* live blocker left.
+  **SA impersonation now works**: a project Owner granted
+  `roles/iam.serviceAccountTokenCreator` on
+  `sigcomply-e2e-recorder@alert-height-486710-e8` can mint short-lived
+  tokens and read live (verified 2026-06-28 — impersonated reads across
+  storage/compute/sql/kms/iam/logging/GKE all succeeded; billing has been
+  reopened so `compute`/`container` enable). The earlier org-level IAM
+  deny on `iam.serviceAccounts.*` that used to block impersonation has
+  been lifted. So the intended live paths are: **local recording** via an
+  impersonation ADC (`GOOGLE_APPLICATION_CREDENTIALS` → an
+  impersonated-SA credential, *not* a key), and the **CI E2E** (WU-5.6)
+  via **Workload Identity Federation** (CI OIDC → impersonate the SA).
+  Until a maintainer records real cassettes against seeded fixtures, the
+  committed GCP cassettes stay hand-authored and validated against the
+  published Discovery Doc / OpenAPI — same contract coverage for $0.
 
 ---
 
