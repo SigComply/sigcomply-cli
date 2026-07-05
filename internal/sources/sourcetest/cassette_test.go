@@ -229,12 +229,12 @@ func TestAWSMatcherRestoresBody(t *testing.T) {
 func TestRedactAccessKeyDistinct(t *testing.T) {
 	// Distinct real keys must scrub to distinct placeholders (records are keyed
 	// on the access key ID); the same key must be stable across calls.
-	a := redactAccessKey("AKIA5TVOUBSOCES7IFLX")
-	b := redactAccessKey("AKIA5TVOUBSOBUHZ7R5C")
+	a := redactAccessKey("AKIAFAKEACCESSKEY001")
+	b := redactAccessKey("AKIAFAKEACCESSKEY002")
 	if a == b {
 		t.Errorf("distinct keys collapsed to the same placeholder: %q", a)
 	}
-	if a != redactAccessKey("AKIA5TVOUBSOCES7IFLX") {
+	if a != redactAccessKey("AKIAFAKEACCESSKEY001") {
 		t.Error("placeholder is not deterministic")
 	}
 	for _, p := range []string{a, b} {
