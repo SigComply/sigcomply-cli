@@ -71,7 +71,7 @@ type SubmissionPayload struct {
 }
 
 type Repository struct {
-    Provider string `json:"provider"` // "github" | "gitlab" | "bitbucket" | "self_hosted"
+    Provider string `json:"provider"` // "github" | "gitlab" (where the code is hosted)
     NameSlug string `json:"name_slug"` // e.g. "acme/infrastructure"
     URL      string `json:"url,omitempty"`
 }
@@ -120,11 +120,14 @@ type AggregatedPolicy struct {
     // scalars for the cadence model. The dashboard uses these to render
     // staleness / next-due badges without recomputing locally. See
     // docs/architecture/10-cadence-model.md.
-    ConfiguredCadence  string    `json:"configured_cadence,omitempty"`     // "daily" | "every:6h" | …
-    LastEvaluatedAt    time.Time `json:"last_evaluated_at,omitempty"`      // most recent ACTUAL eval
-    NextDueAt          time.Time `json:"next_due_at,omitempty"`            // when cadence next elapses
-    IsCarriedForward   bool      `json:"is_carried_forward,omitempty"`
-    PolicyContentHash  string    `json:"policy_content_hash,omitempty"`    // SHA-256(policy + schemas)
+    ConfiguredCadence  string     `json:"configured_cadence,omitempty"`     // "daily" | "every:6h" | …
+    LastEvaluatedAt    *time.Time `json:"last_evaluated_at,omitempty"`      // most recent ACTUAL eval
+    NextDueAt          *time.Time `json:"next_due_at,omitempty"`            // when cadence next elapses
+    IsCarriedForward   bool       `json:"is_carried_forward,omitempty"`
+    PolicyContentHash  string     `json:"policy_content_hash,omitempty"`    // SHA-256(policy + schemas)
+    // LastEvaluatedAt / NextDueAt are pointers so omitempty drops a zero
+    // value instead of serializing "0001-01-01T00:00:00Z" (encoding/json
+    // does not omit a zero time.Time struct).
 }
 
 // ControlRef maps one policy to one control in one framework. A single
@@ -133,11 +136,12 @@ type AggregatedPolicy struct {
 // no customer identity. Earlier schemas (v1/v2) had a single scalar
 // `control_id` instead; v2 clients still send it and the receiver
 // synthesizes a one-element list (see Rails RunSubmissionService).
+// Defined in internal/core/framework.go (not cloud.go).
 type ControlRef struct {
-    Framework        string `json:"framework,omitempty"`         // "soc2" | "iso27001" | …
-    FrameworkVersion string `json:"framework_version,omitempty"` // "soc2-2017@1.0.0"
-    ControlID        string `json:"control_id"`                  // "SOC2.CC6.1"
-    Relationship     string `json:"relationship,omitempty"`      // equal|subset_of|superset_of|intersects
+    Framework        string              `json:"framework,omitempty"`         // "soc2" | "iso27001" | …
+    FrameworkVersion string              `json:"framework_version,omitempty"` // "soc2-2017@1.0.0"
+    ControlID        string              `json:"control_id"`                  // "SOC2.CC6.1"
+    Relationship     ControlRelationship `json:"relationship,omitempty"`      // equal|subset_of|superset_of|intersects
 }
 ```
 
@@ -284,8 +288,9 @@ OIDC only. No API keys, no secrets stored, no long-lived credentials.
 - In GitHub Actions: the CLI fetches a workload-identity token from
   `ACTIONS_ID_TOKEN_REQUEST_URL` with audience
   `https://api.sigcomply.com` (or the configured base URL).
-- In GitLab CI: the CLI reads the JWT from `ID_TOKEN` (configured in
-  the pipeline) with the same audience.
+- In GitLab CI: the CLI reads the JWT from `SIGCOMPLY_ID_TOKEN`
+  (falling back to `ID_TOKEN`), configured in the pipeline, with the
+  same audience.
 - Locally: no OIDC token available → cloud submission silently
   skipped. The vault still receives all evidence.
 
@@ -301,16 +306,22 @@ not block the run.
 
 ### Response
 
+The Rails `RunsController` returns:
+
 ```json
 {
-  "accepted": true,
-  "run_id":   "a3f8b2c1-...",
-  "received_at": "2026-02-15T14:01:43Z",
-  "dashboard_url": "https://app.sigcomply.com/runs/a3f8b2c1"
+  "run": {
+    "id":                   "a3f8b2c1-...",
+    "policy_evaluation_id":  1234,
+    "status":               "accepted"
+  }
 }
 ```
 
-The CLI prints `dashboard_url` for the operator's convenience.
+There is no `accepted` boolean, `received_at`, or `dashboard_url` on
+`POST /api/v1/runs`. The CLI does **not** parse the response body — on
+success it logs `submission accepted (HTTP <code>)` and moves on
+(`submitter.Response` carries only `{StatusCode, Body}`).
 
 ---
 
@@ -331,7 +342,7 @@ The CLI prints `dashboard_url` for the operator's convenience.
 |---|---|---|---|---|
 | `--no-cloud` | any | any | any | **No** |
 | `--cloud` | any | yes | yes | **Yes** |
-| `--cloud` | any | no | yes | **Error** (exit 2 with explanation) |
+| `--cloud` | any | no | yes | **No** — logs "`--cloud` set but no OIDC token detected; skipping"; exit code unaffected |
 | (default) | yes | yes | yes | **Yes** (auto) |
 | (default) | yes | no | yes | **No** (silently) |
 | (default) | no | n/a | any | **No** |

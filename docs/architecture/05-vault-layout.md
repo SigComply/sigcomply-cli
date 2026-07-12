@@ -12,12 +12,10 @@ readable by an auditor in 2031.
 
 ```
 {vault_root}/
-   manifest.json                                 # vault-level metadata
    {framework}/                                  # one per framework run against this vault
       {period_id}/                               # e.g. 2026-Q1
          run_{timestamp}_{run_id8}/              # immutable per-run folder
             ...                                  # see §Per-run folder
-         summary.json                            # rebuilt every run in this period
       ...
    state/                                        # mutable, NOT under Object Lock
       {framework}/
@@ -25,9 +23,18 @@ readable by an auditor in 2031.
             {policy_id}.json                     # one per-policy state shard
 ```
 
-The `state/` subtree is structurally separate from `evidence/` for
-exactly one reason: state shards are **mutable by design** (they
-update every run), while signed evidence under `{framework}/` should
+> **Not yet implemented.** Earlier drafts placed a vault-level
+> `manifest.json` at the root and a regenerable per-period
+> `{framework}/{period_id}/summary.json` alongside the run folders.
+> Neither is written by the current code — the only manifest is the
+> per-run `manifest.json` (schema `run.v1`), and the only summary is the
+> per-run `summary.json` inside each run folder. Period state is derived
+> on the fly (see §Period state).
+
+The `state/` subtree is structurally separate from the signed
+`{framework}/` subtree for exactly one reason: state shards are
+**mutable by design** (they update every run), while signed evidence
+under `{framework}/` should
 live under retention-and-Object-Lock so auditors can trust that
 historic envelopes have not been re-signed.
 
@@ -60,25 +67,15 @@ existing run folders.
 
 ---
 
-## Vault-level `manifest.json`
+## Vault-level `manifest.json` (planned — not yet implemented)
 
-Written by the first run; subsequent runs read it to verify
-compatibility, never overwrite it.
-
-```json
-{
-  "schema_version": "vault.v1",
-  "created_at":     "2026-01-15T09:00:00Z",
-  "created_by_cli": "sigcomply 1.0.0",
-  "project_id":     "acme",
-  "vault_root":     "s3://acme-evidence/sigcomply/"
-}
-```
-
-If a future CLI version introduces an incompatible vault layout, it
-will inspect this file and either upgrade in place (writing a new
-`schema_version` field) or refuse to write until the operator runs
-an explicit migration command.
+> **Not yet implemented.** No code writes a vault-level `manifest.json`
+> (schema `vault.v1`, `created_by_cli`, `project_id`, `vault_root`).
+> Only the per-run manifest (`run.v1`, below) exists today. The design
+> intent — a root manifest a future CLI inspects to detect an
+> incompatible vault layout and either upgrade in place or refuse to
+> write until an explicit migration runs — is retained here as a
+> forward-compatibility note, not a shipped artifact.
 
 ---
 
@@ -86,21 +83,23 @@ an explicit migration command.
 
 ```
 run_20260215T140000Z_a3f8b2c1/
-   manifest.json                     # run identity, versions, env
-   summary.json                      # full-fidelity run summary
+   manifest.json                     # run identity + file_hashes (schema run.v1)
+   summary.json                      # per-run summary (schema summary.v2)
    policies/
       {policy_id}/
          envelopes/
-            {evidence_type}__{source_id}.json   # one signed envelope per (slot, source)
-            ...
-         attachments/                # binary files referenced by envelopes
-            {evidence_id}/
-               evidence.pdf
+            {evidence_type}__{source_id}[_{catalog_id}].json   # one signed envelope per evidence type
             ...
          result.json                # full PolicyResult (includes violations)
       ...
-   diagnostics.json                 # source-level errors, schema validation drops
 ```
+
+> **Not yet implemented.** Two sub-trees earlier drafts placed here are
+> not written by the current pipeline: a per-policy `attachments/`
+> folder mirroring merged manual PDFs (the `manual.pdf` plugin hashes
+> the merged PDF and discards the bytes — nothing is persisted to the
+> vault via `PutBinary`), and a run-level `diagnostics.json`. Do not
+> assume either exists when reading a real vault.
 
 ### `manifest.json` (per-run)
 
@@ -119,13 +118,10 @@ sign every file in the folder. Its fields:
 
   "file_hashes": {
     "summary.json":      "sha256:7f3a9c8e...",
-    "diagnostics.json":  "sha256:b2e15d4a...",
     "policies/soc2.cc6.1.mfa_enforced/result.json":
       "sha256:c9d4f2a1...",
     "policies/soc2.cc6.1.mfa_enforced/envelopes/directory_user__aws.iam.json":
-      "sha256:e3b0c442...",
-    "policies/soc2.cc6.1.access_review/attachments/access_review_quarterly/merged.pdf":
-      "sha256:194523ba..."
+      "sha256:e3b0c442..."
   },
 
   "exceptions_applied": [
@@ -170,14 +166,14 @@ are present when reading a real vault.
 Only `manifest.json` is signed. Every other file in the run folder is
 covered by `manifest.file_hashes`:
 
-- `summary.json`, `diagnostics.json`, every `result.json`, every
-  signed envelope JSON, and every attachment binary (PDFs) is hashed
-  with SHA-256 at write time.
+- `summary.json`, every `result.json`, and every signed envelope JSON
+  is hashed with SHA-256 at write time.
 - The hashes are recorded in `manifest.file_hashes`, keyed by path
   relative to the run-folder root.
-- The manifest is serialized to canonical JSON (with `signature: null`),
-  signed once with a fresh ephemeral Ed25519 keypair, the private key
-  is discarded, and the signature is embedded.
+- The manifest is serialized to canonical JSON (**with the `signature`
+  field omitted entirely** — not set to null), signed once with a fresh
+  ephemeral Ed25519 keypair, the private key is discarded, and the
+  signature is embedded.
 
 This is a single-level Merkle: `manifest.signature` → covers the
 entire `file_hashes` table → which covers every file. One signature
@@ -185,7 +181,7 @@ verifies the whole run folder. To detect tampering:
 
 ```
 1. Read manifest.json from the run folder.
-2. Verify manifest.signature (with signature set to null in the input).
+2. Verify manifest.signature (with the signature field omitted from the input).
 3. For each entry in file_hashes:
      compute SHA-256 of the file at the relative path
      compare to the recorded hash
@@ -212,114 +208,94 @@ makes that mismatch evidence of tampering.
 
 Full-fidelity summary including per-policy violations. This is what
 the dashboard reads when the customer is self-hosted; it's also what
-auditors look at first.
+auditors look at first. The shipped shape is `core.FrameworkRunSummary`
+(`internal/core/summary.go`, schema `summary.v2`): a small top-level
+header plus the full `[]PolicyResult`. There is **no** top-level
+`totals` or `categories` block — run-level counts are computed by the
+aggregator into the cloud `SubmissionPayload`, not persisted here.
 
 ```json
 {
-  "schema_version": "summary.v1",
+  "schema_version": "summary.v2",
   "run_id":         "a3f8b2c1-...",
   "framework":      "soc2",
   "period_id":      "2026-Q1",
-
-  "totals": {
-    "policies_total":    412,
-    "policies_passed":   395,
-    "policies_failed":   8,
-    "policies_skipped":  6,
-    "policies_error":    3,
-    "policies_na":       0,
-    "policies_waived":   0,
-    "compliance_score":  0.964
-  },
-
-  "categories": {
-    "access_control":   { "passed": 89, "failed": 3, ... },
-    "encryption":       { "passed": 41, "failed": 0, ... },
-    ...
-  },
+  "completed_at":   "2026-02-15T14:01:42Z",
 
   "policies": [
     {
-      "policy_id":          "soc2.cc6.1.mfa_enforced",
-      "controls":           [{ "framework": "soc2", "control_id": "SOC2.CC6.1", "relationship": "equal" }],
-      "status":             "fail",
-      "severity":           "high",
-      "category":           "access_control",
-      "resources_evaluated": 47,
-      "resources_failed":    3,
-      "violations": [
+      "PolicyID":           "soc2.cc6.1.mfa_enforced_admins",
+      "Controls":           [{ "framework": "soc2", "framework_version": "soc2-2017@1.0.0", "control_id": "SOC2.CC6.1", "relationship": "equal" }],
+      "Status":             "fail",
+      "Severity":           "high",
+      "Category":           "access_control",
+      "EffectiveParams":    {},
+      "Violations": [
         {
-          "resource_id": "AIDAEXAMPLE01",
-          "reason":      "MFA disabled for alice@acme.com",
-          "details": {
-            "evidence_file": "policies/soc2.cc6.1.mfa_enforced/envelopes/directory_user__aws.iam.json"
+          "ResourceID": "AIDAEXAMPLE01",
+          "Reason":     "MFA disabled for alice@acme.com",
+          "Details": {
+            "evidence_file": "policies/soc2.cc6.1.mfa_enforced_admins/envelopes/directory_user.v2__aws.iam.json"
           }
         },
         { /* ... */ }
       ],
-      "rule_version":       "rules.mfa_enforced.v1",
-      "effective_params":   {}
+      "ResourcesEvaluated": 47,
+      "ResourcesFailed":    3,
+      "EvidenceEnvelopes":  ["policies/soc2.cc6.1.mfa_enforced_admins/envelopes/directory_user.v2__aws.iam.json"],
+      "RuleVersion":        "rules.mfa_enforced.v1",
+      "ConfiguredCadence":  "daily",
+      "PolicyContentHash":  "sha256:...",
+      "NextDueAt":          "2026-02-16T14:00:00Z"
     },
     /* ... */
   ]
 }
 ```
 
+> **Key casing.** The top-level `FrameworkRunSummary` fields carry
+> `json:` tags (snake_case), but `core.PolicyResult` and `core.Violation`
+> carry **no** json tags — so each `policies[]` element marshals with Go
+> field names (`PolicyID`, `ResourcesEvaluated`, `Violations`, …). The
+> nested `Controls` values use `ControlRef`'s own snake_case tags. This
+> mixed casing is real; don't "normalize" it in a reader.
+
 ### `policies/<policy_id>/result.json`
 
-Same shape as one element of `summary.json.policies`, but more
-verbose (includes diagnostics and the full list of envelope file
-paths). The summary is the index; the per-policy result is the
-detail.
+The persisted `core.PolicyResult` — the same element rendered inside
+`summary.json.policies[]` (same Go type, same PascalCase keys),
+including its `Violations` and `EvidenceEnvelopes` paths. The summary is
+the index; the per-policy result is the detail.
 
 ### `policies/<policy_id>/envelopes/`
 
-One signed envelope file per (slot, source) pair. The filename
-convention is `{evidence_type}__{source_id}.json` with a double
-underscore to make the source-vs-type boundary unambiguous. For the
-manual flow:
+One signed envelope file **per evidence type** within a (slot, source)
+binding (`collector.groupByType` — when a source emits a single accepted
+type this is one envelope per (slot, source)). The filename convention is
+`{evidence_type}__{source_id}.json`, with a `_{catalog_id}` suffix when
+the binding carries a catalog entry (the manual flow always does). For
+the manual flow:
 
 ```
-policies/soc2.cc6.1.access_review/envelopes/signed_document__manual.pdf.json
-policies/soc2.cc6.1.access_review/attachments/access_review_quarterly/merged.pdf
+policies/soc2.cc6.3.access_review_quarterly/envelopes/signed_document__manual.pdf_access_review_quarterly.json
 ```
 
-The envelope's manifest references the PDF by relative path; the PDF
-mirror is a sibling.
+> **Not yet implemented.** Earlier drafts mirrored the merged manual PDF
+> into a per-policy `attachments/{evidence_id}/` folder as a sibling of
+> `envelopes/`. No code writes it — `Vault.PutBinary` is never called on
+> the production path; the `manual.pdf` plugin hashes the merged PDF and
+> discards the bytes, recording only the hash and the customer-side
+> upload URI in the signed record. There is no vault-side PDF sidecar
+> today, and therefore no per-policy `attachments/` folder.
 
-### `policies/<policy_id>/attachments/`
-
-Binary attachments referenced by envelopes (currently: manual evidence
-PDFs). Mirroring policy:
-
-- One PDF per `(evidence_id, period)` combination.
-- The same PDF is mirrored under every policy folder whose envelope
-  references it. Auditors verify each policy folder independently;
-  duplicating bytes is the cost of self-containment.
-
-### `diagnostics.json`
-
-Events surfaced during the run: schema-validation failures, partial
-collector failures, plugin warnings. Distinct from policy results so
-auditors can see what the CLI noticed. (Note: a record that fails its
-evidence-type schema does **not** get silently dropped — the first
-non-conforming record fails the binding and tags the policy `error`;
-see [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md).)
-
-```json
-{
-  "schema_version": "diagnostics.v1",
-  "events": [
-    {
-      "level":     "error",
-      "source_id": "aws.iam",
-      "kind":      "schema_validation",
-      "message":   "Record id=AIDA... violates directory_user schema; binding failed.",
-      "context":   { "evidence_type": "directory_user" }
-    }
-  ]
-}
-```
+> **Not yet implemented.** A run-level `diagnostics.json` (schema
+> `diagnostics.v1`, source-level errors / schema-validation events) is
+> not written by the current pipeline. Note that a record failing its
+> evidence-type schema is **not** silently dropped regardless — the
+> first non-conforming record fails the binding and tags the policy
+> `error` (see [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md));
+> that outcome surfaces in the policy's `result.json`, not a separate
+> diagnostics file.
 
 ---
 
@@ -366,11 +342,16 @@ envelope (policy_id, slot, evidence_type, source_id, run_id) is
 expressed structurally: it lives in the envelope's file path
 (`policies/{policy_id}/envelopes/{evidence_type}__{source_id}.json`)
 and is bound to the run by the per-run `manifest.json` (whose
-`file_hashes` table covers every envelope file). Attachments are
-referenced by the relevant record's payload — for example, the
-`manual.pdf` plugin emits a record whose payload is `{evidence_id,
-file_hash, file_path, period, framework}`, and the PDF itself is
-mirrored at the referenced path and hashed in the run manifest.
+`file_hashes` table covers every envelope file). For the manual flow,
+the `manual.pdf` plugin emits a single `signed_document` record whose
+payload is `{evidence_id, period_id, file_present, file_hash,
+file_size, uploaded_at, in_temporal_window, file_valid,
+validation_failures, expected_uri, source_files}` — where `file_hash`
+is the SHA-256 of the merged PDF and `expected_uri` is the customer's
+upload **folder** URI (`{scheme}://{bucket}/{prefix}{evidence_id}/{period_id}/`).
+The PDF bytes themselves are not persisted to the vault today (see the
+"Not yet implemented" attachments note above); the hash inside the
+signed record is what an auditor re-checks against the customer's copy.
 
 ### Signed payload
 
@@ -428,16 +409,19 @@ their reachable memory.
 Given a single envelope file, no other state:
 
 1. Parse JSON.
-2. Extract `signature` block; clone the envelope with `signature: null`.
-3. Compute canonical JSON of the cloned envelope.
+2. Extract `signature` block; rebuild the three-field object
+   (`format_version`, `produced_at`, `records`) with the `signature`
+   field **omitted entirely** (not set to null).
+3. Compute canonical JSON of that object.
 4. Decode `public_key` (base64 → 32 bytes) and `value` (base64 → 64
    bytes).
 5. Call `ed25519.Verify(public_key, canonical_bytes, signature_value)`.
-6. If `true`: signature valid. Move on to attachment integrity.
-7. For any record whose payload references an attachment by hash (the
-   manual flow records `{evidence_id, file_hash, file_path, …}`),
-   compute SHA-256 of the file at the relative path and compare to the
-   recorded `file_hash`.
+6. If `true`: signature valid.
+7. For the manual flow, the `signed_document` record carries a
+   `file_hash` (SHA-256 of the merged PDF); an auditor re-checks it by
+   hashing their own copy of the evidence and comparing. (The CLI does
+   not persist the PDF bytes in the vault today, so there is no
+   vault-relative attachment path to hash.)
 
 The reference verifier is implemented in Go in `internal/sign`
 (`sign.VerifyEnvelope` for envelopes, `sign.VerifyManifest` for the
@@ -561,7 +545,7 @@ permissions. The minimum-privilege model:
 
 | Actor | Permissions | Why |
 |---|---|---|
-| **CI runner (writer)** | `s3:PutObject`, `s3:GetObject`, `s3:ListBucket` on the vault prefix. **No** `s3:DeleteObject`. | Writes new run folders. Reads only existing data to verify the vault-level `manifest.json` once at startup. Append-only is enforced by IAM, not just convention. |
+| **CI runner (writer)** | `s3:PutObject`, `s3:GetObject`, `s3:ListBucket` on the vault prefix. **No** `s3:DeleteObject`. | Writes new run folders; reads existing state shards / prior envelopes it must reference (e.g. carry-forward). Append-only is enforced by IAM, not just convention. |
 | **`sigcomply report` (auditor read)** | `s3:GetObject`, `s3:ListBucket` on the vault prefix. **No** write or delete. | Reads run folders to produce reports. |
 | **Self-hosted dashboard reader** | `s3:GetObject`, `s3:ListBucket` on the vault prefix. | Reads summaries; does not modify. |
 
@@ -628,15 +612,18 @@ not document any of it as available.
 
 ## Versioning & forward compatibility
 
-Every persisted artifact in the vault carries an explicit schema
-version:
+The versioned persisted artifacts today:
 
-- `manifest.json` → `vault.v1`, `run.v1`
-- `summary.json` → `summary.v1`
-- `result.json` → `policy_result.v1`
+- per-run `manifest.json` → `run.v1`
+- `summary.json` → `summary.v2`
 - envelopes → `envelope.v1`
-- diagnostics → `diagnostics.v1`
-- evidence type payloads → version embedded in the record
+- evidence type payloads → version embedded in the record's `type`
+  (e.g. `directory_user.v2`)
+
+`result.json` is the raw `core.PolicyResult` and carries **no** schema
+version stamp today. The `vault.v1` and `diagnostics.v1` versions belong
+to artifacts that are not yet written (see the "Not yet implemented"
+notes above).
 
 Forward-compatibility rules:
 
@@ -661,8 +648,8 @@ reads both.
 | Were the recorded policy results computed by the CLI version claimed? | Partial (modulo trust in the binary's release artifact) | The on-disk run manifest does not record the CLI version today; the CLI version travels on the cloud `SubmissionPayload` (`cli_version`) instead. Re-derivation relies on the released binary's commit SHA. |
 | Did the evidence in this envelope match what the source actually returned? | Strong yes — for state in the source at `collected_at` | Re-run the same plugin against the same source with frozen credentials; compare records. (Time-sensitive sources may have drifted.) |
 | Has this envelope been modified since it was written? | Strong no | Verify the envelope's Ed25519 signature offline. |
-| Has the PDF mirrored alongside this envelope been substituted? | Strong no | Verify SHA-256 of the PDF matches the `file_hash` in the manual record's payload (and the manifest's `file_hashes` entry for that path). |
-| Has `result.json` / `summary.json` / `diagnostics.json` been modified since the run was written? | Strong no | Verify `manifest.signature`; recompute SHA-256 of each file and compare to `manifest.file_hashes`. Any mismatch is tampering. |
+| Has the manual evidence PDF been substituted? | Strong no | Verify SHA-256 of the customer's PDF matches the `file_hash` inside the signed `signed_document` record. (The CLI does not persist the PDF bytes in the vault; the hash lives in the signed envelope.) |
+| Has `result.json` / `summary.json` been modified since the run was written? | Strong no | Verify `manifest.signature`; recompute SHA-256 of each file and compare to `manifest.file_hashes`. Any mismatch is tampering. |
 | Has an envelope been replaced with a valid envelope from a different run? | Strong no | Each envelope's path is hashed in `manifest.file_hashes`. Substituting a different envelope file at the same path changes the hash; the manifest signature fails. |
 | Did the customer fabricate evidence by running the CLI against a fake source? | Out of scope. | The CLI does not attest to source authenticity. Fabricating evidence is fraud; no compliance tool prevents it. |
 
