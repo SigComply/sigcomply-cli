@@ -225,8 +225,9 @@ Each in-tree source's `init()` calls `RegisterFactory`.
 config-string lookup.
 
 **Status.** Many in-tree sources ship today (AWS across IAM/S3/EC2/RDS/
-KMS/CloudTrail/CloudWatch/Config/EKS/GuardDuty/…; GCP across
-IAM/Storage/Compute/SQL; GitHub; Okta). The evidence-type schemas for
+KMS/CloudTrail/CloudWatch/Config/EKS/GuardDuty/…; Azure across
+Entra/Storage/Compute/SQL/KeyVault/Defender/…; GCP across
+IAM/Storage/Compute/SQL/…; GitHub; GitLab; Okta). The evidence-type schemas for
 the records they emit (e.g. `directory_user`, `object_storage_bucket`,
 `signed_document`) are embedded via `go:embed` and validated at
 collection time. Third parties add custom sources via `RegisterFactory`

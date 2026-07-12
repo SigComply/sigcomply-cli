@@ -680,7 +680,7 @@ The CLI emits two output streams plus on-disk artifacts:
 | Stream | Contents | Identifiers allowed? |
 |---|---|---|
 | **stdout** | `sigcomply check` emits one fixed text run summary (counts + control names). `sigcomply report` can render `text`/`json`/`csv`, where JSON/CSV may include policy IDs and violation reasons. | **Never raw credentials, never source payload fields beyond what the formatter explicitly extracts.** |
-| **stderr** | Operational log lines: collection start/end, per-source errors, planning errors, vault write confirmations. | Resource identifiers (resource IDs, emails, etc.) are **redacted** at the logger boundary. Each log record passes through `internal/log/redact.go` which strips known PII shapes (emails, ARNs, UUIDs in identifier position) and replaces them with `<redacted:type>`. |
+| **stderr** | Operational log lines: collection start/end, per-source errors, planning errors, vault write confirmations. | Resource identifiers (resource IDs, emails, etc.) are **redacted** at the logger boundary. Each log record passes through `log.Redact` in `internal/log/log.go` which strips known PII shapes (emails, ARNs, UUIDs in identifier position) and replaces them with `<redacted:type>`. |
 | **vault `diagnostics.json`** | Source-level errors, schema validation drops, partial collector failures. | Resource identifiers are **retained** here because diagnostics live in the customer's own vault, on their side of the privacy boundary. |
 | **cloud submission** | The `SubmissionPayload` only (see L6). | Counts only, structurally enforced. |
 
@@ -692,8 +692,6 @@ and from plugins via the shared logger):
 3. UUIDs in identifier position → `<redacted:uuid>`
 4. AWS access key IDs (`AKIA…`, `ASIA…`) → `<redacted:aws-key>`
 5. OIDC JWTs → `<redacted:token>`
-6. Anything matching configured plugin-secret-shape regexes →
-   `<redacted:secret>`
 
 Plugins **MUST** use the shared logger (`internal/log`) for all
 informational/diagnostic output. Direct writes to `os.Stdout` or
@@ -743,7 +741,7 @@ cross-cutting support packages the layers call into:
 | Package | Role | Used by |
 |---|---|---|
 | `internal/sign` | Ed25519 envelope + manifest signing/verification (`sign.Envelope`, `sign.VerifyEnvelope`, `sign.VerifyManifest`). Per-file ephemeral keypair; the manifest is signed once with its own ephemeral keypair. | L4 (envelopes), L7 (manifest) |
-| `internal/log` | Shared logger + redaction (`internal/log/redact.go`). | all layers, plugins |
+| `internal/log` | Shared logger + redaction (`log.Redact` in `internal/log/log.go`). | all layers, plugins |
 | `internal/manualcatalog` | SPA-facing manual-evidence catalog export (`ManualCatalogExport()`), generated in Go from each framework's `manualSpecs()`. | `evidence catalog` command |
 | `internal/report` | Read-only auditor snapshot of the vault. | `report` command |
 | `internal/frameworks`, `internal/sources`, `internal/evidence_types` | Self-registering framework/source/schema providers that populate the L2 registries via blank-imported `builtin` packages. | L2 |

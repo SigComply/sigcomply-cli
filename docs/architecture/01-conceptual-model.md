@@ -198,8 +198,9 @@ slots:
     required: true
 ```
 
-`aws.s3` and `gcp.storage` both emit `object_storage_bucket`, so the
-slot accepts one type and spans both clouds. A project binds one or
+`aws.s3`, `gcp.storage`, and `azure.storage` all emit
+`object_storage_bucket`, so the slot accepts one type and spans all
+three clouds. A project binds one or
 more sources to a slot. A source matches a slot when
 **`source.Emits() ∩ slot.Accepts ≠ ∅`**. The evaluator receives all
 records produced by all bound sources, unioned, under the slot. Records
@@ -209,10 +210,12 @@ differently per evidence type switches on `record.Type`; most
 
 **Slots are the contract.** Policies declare what shapes they accept;
 sources declare what shapes they emit; the planner verifies the
-intersection at plan time. Adding another object-store source (Azure
-Blob, R2, B2) that emits `object_storage_bucket` to the cross-cloud
-policy above is zero policy-logic changes and zero source-side
-translation — the new source is immediately usable. (When a genuinely
+intersection at plan time. Adding another object-store source
+(Cloudflare R2, Backblaze B2) that emits `object_storage_bucket` to the
+cross-cloud policy above is zero policy-logic changes and zero
+source-side translation — the new source is immediately usable, exactly
+as `azure.storage` already joins `aws.s3` and `gcp.storage` on that one
+neutral type. (When a genuinely
 *new* shape is needed, extending a slot's `accepts:` list with another
 type ID is one line of YAML.) This is what makes the architecture
 cross-vendor without polluting either side with knowledge of the other.

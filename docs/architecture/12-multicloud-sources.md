@@ -1,6 +1,6 @@
 # 12 — Multicloud Sources
 
-This document is the design reference for SigComply's source plugins across cloud and identity providers. It defines the **authentication model**, **package layout**, **source-ID naming**, and **dependency policy** that every new provider plugin follows, so that adding GitLab, expanding GCP, or building Azure is a mechanical exercise rather than a fresh design each time.
+This document is the design reference for SigComply's source plugins across cloud and identity providers. It defines the **authentication model**, **package layout**, **source-ID naming**, and **dependency policy** that every provider plugin follows, so that adding a new provider (as GitLab, the expanded GCP suite, and Azure each were) is a mechanical exercise rather than a fresh design each time.
 
 It complements [04-source-plugins.md](04-source-plugins.md) (the factory contract and the policy ↔ evidence-type ↔ source registry) and [04a-evidence-type-registry.md](04a-evidence-type-registry.md) (the cloud-neutral evidence-type schemas). The *phased rollout, work-unit breakdown, and progress tracking* live outside the CLI repo in the **Core Source-API Integrations Plan** (`core_source_integrations_plan.md`, in the `sigcomply-repositories/` root), which is the source of truth for what ships when.
 
@@ -8,7 +8,7 @@ It complements [04-source-plugins.md](04-source-plugins.md) (the factory contrac
 
 ## Why multicloud is mostly mechanical
 
-A policy accepts an **evidence type**, not a vendor. The evidence-type schemas are already **cloud-neutral** — `object_storage_bucket`, `managed_database_instance`, `directory_user`, `firewall_rule`, etc. — and exist for all 24 types the policy set consumes. So a new provider almost always **reuses an existing schema** and emits records into it; new schemas are the exception, not the rule.
+A policy accepts an **evidence type**, not a vendor. The evidence-type schemas are already **cloud-neutral** — `object_storage_bucket`, `managed_database_instance`, `directory_user`, `firewall_rule`, etc. — and cover every type the policy set consumes (28 distinct types in the shipped registry). So a new provider almost always **reuses an existing schema** and emits records into it; new schemas are the exception, not the rule.
 
 This yields the substitutability property: one "object storage encrypted at rest" policy spans AWS S3, GCS, and Azure Blob because all three emit the single `object_storage_bucket` type. Adding a new source for an existing type needs **zero policy changes**.
 
@@ -19,14 +19,14 @@ This yields the substitutability property: one "object storage encrypted at rest
 | Provider | Hosting | Auth | Status |
 |----------|---------|------|--------|
 | **AWS** | management plane (per region/account) | SDK default chain | 23 plugins (mature) |
-| **GCP** | management plane (per project) | Application Default Credentials | 4 plugins → expanding (Phases 3–4) |
+| **GCP** | management plane (per project) | Application Default Credentials | 18 plugins (mature) |
+| **Azure** | management plane + Entra/Graph | DefaultAzureCredential / OIDC (Entra via raw Graph REST) | 14 plugins (mature) |
 | **GitHub** | SaaS | token | 1 plugin → `git_repository`, `directory_user`, `source_control_org_policy`, `vulnerability_finding` |
-| **Okta** | SaaS | token | 1 plugin (`directory_user`) |
-| **GitLab** | SaaS / self-managed | token | planned (Phase 2) |
-| **Azure** | management plane + Entra/Graph | DefaultAzureCredential / OIDC | planned (Phase 5) |
+| **GitLab** | SaaS / self-managed | token | 1 plugin → `git_repository`, `directory_user` |
+| **Okta** | SaaS | token | 1 plugin → `directory_user`, `okta_app` |
 | **Manual** | customer bucket | n/a | 1 plugin (`manual.pdf`, project singleton) |
 
-See the plan's gap matrix for the per-evidence-type breakdown.
+Totals: **59 plugins** (AWS 23 · GCP 18 · Azure 14 · GitHub 1 · GitLab 1 · Okta 1 · Manual 1) emitting **28 distinct cloud-neutral evidence types**. The full provider × evidence-type matrix lives in [04-source-plugins.md](04-source-plugins.md); see the plan's gap matrix for per-evidence-type history.
 
 ---
 
@@ -75,7 +75,7 @@ No central registry edit is needed: `internal/sources/builtin/coverage_test.go` 
 Auth is **read-only** and, in CI, prefers keyless federation (OIDC / workload identity) over long-lived secrets.
 
 - **GCP** — Application Default Credentials (ADC): the existing pattern (`storage.NewClient(ctx)`, service clients via `google.golang.org/api/...`). In CI, Workload Identity Federation. Config key: `project_id`.
-- **Azure** — `azidentity.NewDefaultAzureCredential(nil)`: OIDC / workload-identity federation in CI (no secrets), falling back to `AZURE_TENANT_ID` / `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET`. Management plane via `armXXX` clients scoped to a `subscription_id`; **Entra / Microsoft Graph** via `msgraph-sdk-go` with the *same* credential. Config keys: `subscription_id`, `tenant_id` (Graph). Required Graph scopes and the Entra ID P1/P2 caveat for per-user MFA reporting are documented per the relevant WU.
+- **Azure** — `azidentity.NewDefaultAzureCredential(nil)`: OIDC / workload-identity federation in CI (no secrets), falling back to `AZURE_TENANT_ID` / `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET`. Management plane via `armXXX` clients scoped to a `subscription_id`; **Entra / Microsoft Graph** via the Graph v1.0 REST API (raw `net/http`, no vendor SDK) with the *same* credential. Config keys: `subscription_id`, `tenant_id` (Graph). Required Graph scopes and the Entra ID P1/P2 caveat for per-user MFA reporting are documented per the relevant WU.
 - **GitLab** — token from config `token` or `GITLAB_TOKEN`; client `gitlab.com/gitlab-org/api/client-go`; scope `read_api`. Config key: `group` (or `instance`); `base_url` (default `https://gitlab.com`) for self-managed.
 - **GitHub** / **Okta** — unchanged: token from config or env (`GITHUB_TOKEN`/`GH_TOKEN`, `OKTA_API_TOKEN`), direct HTTP (no vendor SDK).
 
@@ -87,8 +87,8 @@ Per-provider config keys and required scopes are catalogued in `docs/configurati
 
 **Dependencies are added at first use, not pre-added.** Go's `go mod tidy` strips modules with no importing code, so a dep added "ahead of need" would not survive a tidy. Each provider's SDK therefore enters `go.mod` in the first work unit that imports it:
 
-- `gitlab.com/gitlab-org/api/client-go` — added by the first GitLab WU (Phase 2). (Note: the client moved from the deprecated `github.com/xanzy/go-gitlab`.)
-- `github.com/microsoftgraph/msgraph-sdk-go` — added by the first Azure Entra WU (Phase 5).
+- `gitlab.com/gitlab-org/api/client-go` — present (GitLab plugin). (Note: the client moved from the deprecated `github.com/xanzy/go-gitlab`.)
+- **Microsoft Graph** — no SDK dependency; the Entra plugin calls the Graph v1.0 REST API directly over `net/http` (`grep msgraph go.mod` is empty).
 - `github.com/Azure/azure-sdk-for-go/sdk/azidentity` — **already present** (v1.x), pulled in by the manual-evidence Azure Blob backend; reused by Azure management-plane plugins. The `armXXX` resource-manager modules are added per Azure service WU.
 - GCP (`cloud.google.com/go/...`, `google.golang.org/api/...`) and AWS SDK modules are already present and extended per service.
 

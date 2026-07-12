@@ -255,8 +255,10 @@ IsDue(cadence, state, now):
 
 The reason string attached to a carried-forward result is
 human-readable and deterministic (`DueReason`): `"only 4h12m since
-last pass; cadence interval 6h0m not yet elapsed (next due
-2026-05-25T09:00:00Z)"`.
+last pass; cadence interval 6h0m0s not yet elapsed (next due
+2026-05-25T09:00:00Z)"`. (The interval renders via `time.Duration`'s
+`String()`, which never prints days and always includes seconds — so a
+quarterly interval shows as `2159h0m0s`, not `89d23h`.)
 
 ### Content-hash invalidation
 
@@ -286,9 +288,10 @@ result.json that references the prior signed envelope:
   "PolicyContentHash": "sha256:...",
   "CarryForward": {
     "LastEvaluatedAt": "2026-04-01T10:23:14Z",
+    "LastEvaluatedRun": "run_20260401T102314Z_a3f9",
     "LastEnvelopeRef": "soc2/2026-Q2/run_20260401T102314Z_a3f9/policies/.../envelopes/signed_document__manual.pdf.json",
     "LastKnownStatus": "pass",
-    "SkipReason": "only 1h42m since last pass; cadence interval 89d23h not yet elapsed"
+    "SkipReason": "only 1h42m since last pass; cadence interval 2159h0m0s not yet elapsed"
   }
 }
 ```

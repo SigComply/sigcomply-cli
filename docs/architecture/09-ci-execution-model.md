@@ -209,7 +209,11 @@ The shipped cron expressions are exactly:
 
 `continuous` and `hourly` policies fold into the on-push / daily workflows;
 the scaffold does not emit a dedicated workflow per named cadence beyond
-the six above. For ISO 27001 the same six templates are emitted.
+the six above. v1-alpha ships cadence templates for **SOC 2 only** —
+`init-ci` for any other framework (including ISO 27001) exits `3` with a
+"not supported in v1-alpha" error (`frameworkSupported()` in
+`cmd/sigcomply/init_ci.go` returns true only for `soc2`). ISO 27001
+templates are planned but not yet shipped.
 
 ### Example: `compliance-daily.yml` (GitHub Actions, scaffolded)
 
