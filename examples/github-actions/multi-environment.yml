@@ -1,9 +1,12 @@
-# Example: Multi-Environment Compliance Checks
+# Example: Multi-Environment Compliance Checks (standalone workflow)
 #
-# This example shows how to run compliance checks across multiple
-# AWS accounts and regions using a matrix strategy.
+# Runs `sigcomply check` across multiple AWS accounts/regions using a
+# matrix. SigComply ships no reusable workflow — each matrix leg installs
+# the released binary via curl and runs the CLI directly. One repo = one
+# framework; the framework is read from `framework:` in .sigcomply.yaml.
 #
-# Copy this file to your repository at .github/workflows/compliance-multi-env.yml
+# Copy to .github/workflows/compliance-multi-env.yml and set the per-env
+# role ARNs as repo secrets (AWS_ROLE_ARN_PROD, …).
 
 name: Multi-Environment Compliance
 
@@ -11,11 +14,20 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '0 6 * * 1'  # Weekly on Monday at 6 AM
+    - cron: '0 2 * * 1'  # Weekly on Monday at 02:00 UTC
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  SIGCOMPLY_VERSION: latest
 
 jobs:
   compliance:
     name: Check ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false  # Continue checking other environments if one fails
       matrix:
@@ -29,14 +41,26 @@ jobs:
           - environment: development
             aws-region: us-west-2
             role-secret: AWS_ROLE_ARN_DEV
-
-    uses: SigComply/sigcomply-cli/.github/workflows/compliance.yml@v1
-    with:
-      framework: soc2
-      aws-region: ${{ matrix.aws-region }}
-      fail-on-violation: ${{ matrix.environment == 'production' }}
-    secrets:
-      AWS_ROLE_ARN: ${{ secrets[matrix.role-secret] }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SigComply CLI
+        run: |
+          set -eu
+          version="${SIGCOMPLY_VERSION:-latest}"
+          if [ "$version" = "latest" ]; then
+            tag=$(curl -fsSL https://api.github.com/repos/SigComply/sigcomply-cli/releases/latest | jq -r .tag_name)
+          else
+            tag="$version"
+          fi
+          curl -fsSL "https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply-linux-amd64" -o /usr/local/bin/sigcomply
+          chmod +x /usr/local/bin/sigcomply
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets[matrix.role-secret] }}
+          aws-region: ${{ matrix.aws-region }}
+          audience: https://api.sigcomply.com
+      - name: Run SigComply
+        run: sigcomply check
 
   summary:
     name: Compliance Summary

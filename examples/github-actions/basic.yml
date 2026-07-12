@@ -1,50 +1,55 @@
-# Example: Basic SigComply Compliance Check
+# Example: Basic SigComply Compliance Check (standalone workflow)
 #
-# This example shows how to use the SigComply reusable workflow
-# to run compliance checks on every push and pull request.
-#
-# Copy this file to your repository at .github/workflows/compliance.yml
-# and configure the secrets as described below.
+# SigComply ships NO reusable `workflow_call` workflow and no composite
+# action — integration is a standalone job that installs the released
+# binary via curl and runs `sigcomply check`. This mirrors what
+# `sigcomply init-ci` scaffolds; copy it to
+# .github/workflows/compliance.yml and edit the env block.
 
 name: Compliance Check
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
-    branches: [main, master]
-  # Optional: Run on a schedule
+  # Optional: also run on a schedule (daily at 02:00 UTC).
   schedule:
-    - cron: '0 0 * * *'  # Daily at midnight
+    - cron: '0 2 * * *'
+
+permissions:
+  id-token: write    # OIDC role assumption + SigComply Cloud submission
+  contents: read
+
+env:
+  SIGCOMPLY_VERSION: latest    # pin to a tagged release (e.g. v1.2.3) once stabilised
+  AWS_REGION: us-east-1
+  AWS_ROLE_ARN: arn:aws:iam::000000000000:role/REPLACE_ME
 
 jobs:
-  compliance:
-    uses: SigComply/sigcomply-cli/.github/workflows/compliance.yml@v1
-    with:
-      framework: soc2           # Options: soc2, hipaa, iso27001
-      aws-region: us-east-1     # Your AWS region
-      fail-on-violation: true   # Fail the workflow on compliance violations
-    secrets:
-      # Option 1 (Recommended): Use OIDC authentication
-      # This requires setting up an IAM role with OIDC trust policy.
-      # See: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services
-      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
-
-      # Option 2 (Fallback): Use static credentials
-      # Only use this if OIDC is not available.
-      # AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      # AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-  # Example: Post results to Slack
-  notify:
-    needs: compliance
-    if: always()
+  check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - name: Notify on failure
-        if: needs.compliance.outputs.result == 'fail'
+      - uses: actions/checkout@v4
+      - name: Install SigComply CLI
         run: |
-          echo "Compliance check failed!"
-          echo "Score: ${{ needs.compliance.outputs.compliance-score }}%"
-          echo "Failed policies: ${{ needs.compliance.outputs.failed-policies }}"
-          # Add your notification logic here (Slack, Teams, etc.)
+          set -eu
+          version="${SIGCOMPLY_VERSION:-latest}"
+          if [ "$version" = "latest" ]; then
+            tag=$(curl -fsSL https://api.github.com/repos/SigComply/sigcomply-cli/releases/latest | jq -r .tag_name)
+          else
+            tag="$version"
+          fi
+          curl -fsSL "https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply-linux-amd64" -o /usr/local/bin/sigcomply
+          chmod +x /usr/local/bin/sigcomply
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: https://api.sigcomply.com
+      - name: Run SigComply
+        # Framework comes from `framework:` in .sigcomply.yaml (there is no
+        # --framework flag on `check`). Exit code: 0 pass, 1 violations,
+        # 2 execution error, 3 config error. To fail the job on violations,
+        # set `ci.fail_on_violation: true` in .sigcomply.yaml.
+        run: sigcomply check
