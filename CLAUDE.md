@@ -59,24 +59,49 @@ public document. It is gitignored and absent in some environments.
 - **[docs/configuration.md](./docs/configuration.md)** — config file, env vars, flags
 - **[docs/architecture/](./docs/architecture/)** — deep design docs (layers, evidence-type registry, vault layout, aggregation, cadence, …)
 - **[TESTING.md](./TESTING.md)** / **[docs/architecture/11-testing-strategy.md](./docs/architecture/11-testing-strategy.md)** — testing strategy: layered tests (L0–L4b), CLI-vs-E2E repo split, cassette/contract conventions
+- **[docs/claude/development-workflow.md](./docs/claude/development-workflow.md)** — the end-to-end change loop: plan → tests-first → implement → verify (`make test && make lint` + exercise the built CLI) → update docs → commit to `main`. Read before starting any task.
 - **[docs/claude/auth.md](./docs/claude/auth.md)** — OIDC authentication
-- **[docs/claude/recipes.md](./docs/claude/recipes.md)** — step-by-step guides for common tasks
+- **[docs/claude/recipes.md](./docs/claude/recipes.md)** — step-by-step guides for common tasks (adding a source/policy/evidence type/framework/backend)
 - **[README.md](./README.md)** — public-facing intro
 
 ---
 
 ## Development Rules
 
-- **Ship working code.** Tested code is the measure of progress. Don't
-  over-document — update docs only when architecture changes.
+This SDLC is run almost entirely by **Claude Code agents** — coding,
+tests, planning, verification, and debugging. The full step-by-step loop
+(and how to manually verify a CLI with no web UI) is
+**[docs/claude/development-workflow.md](./docs/claude/development-workflow.md)**;
+the rules below are the summary.
+
+- **Ship working code.** Tested code is the measure of progress.
 - **TDD.** Unit test first → happy-path integration test → minimum code
-  to pass → `make test && make lint` green → docs only if architecture moved.
+  to pass → `make test && make lint` green → **build & exercise the CLI**
+  (`make build`; run the affected `sigcomply` subcommand; check stdout +
+  exit code + vault) → **update the docs your change touched** → commit.
+- **Docs are part of "done".** Every change updates the focused doc it
+  affects (a recipe, `configuration.md`, an `architecture/` doc, this
+  file's command table) in the same commit — not "only when architecture
+  moves". A purely-internal change with no behavioral surface is the
+  justified exception, not the default.
 - **Architecture-first.** Read the relevant docs and plan before
   implementing. If the design feels overly complex, **stop and ask** —
   difficulty is a signal to pause, not push through.
 - **Small atomic commits.** One logical change, all tests passing.
   Format `<type>: <description>` (`feat`/`fix`/`refactor`/`test`/`docs`/`chore`).
   Include `Co-Authored-By: Claude <model> <noreply@anthropic.com>`.
+- **Pre-launch: commit directly to `main`.** The product has no users yet.
+  Once tests pass and you've verified, commit to `main` and push — no PRs,
+  no reviews for internal work (this becomes a PR + review flow at public
+  launch; `CONTRIBUTING.md` and the PR template already govern external
+  contributions). No backward-compat/backfill burden for local state, but
+  cross-repo contracts (Inv #1) still stay in lockstep.
+- **A push to `main` auto-cuts a release.** `auto-release.yml` runs on every
+  push, bumps the version from your commit's conventional-commit prefix
+  (`feat`→minor, `fix`/`refactor`/`perf`→patch, `BREAKING CHANGE` in the
+  body→major), tags, and runs GoReleaser to publish binaries to GitHub
+  Releases. The commit *type* is therefore load-bearing, not cosmetic.
+  Doc-only pushes (`*.md`, `docs/**`) are path-ignored and cut no release.
 - **Never break main.** `make test && make lint` before every commit;
   after pushing, confirm CI is green (`gh run list` / `gh run view`).
   Don't move on while CI is red.

@@ -29,12 +29,23 @@ pipeline against real cloud infrastructure in CI:
 
 | Command | What it runs |
 |---------|--------------|
-| `make test-unit` | unit tests, `-short -race` (per-PR backbone: L0/L1/L2) |
-| `make test-full` | full suite, `-race` |
-| `make test-coverage` | full suite with the 80% coverage floor |
+| `make test` | fast per-change backbone (aliases `test-unit`: L0/L1/L2, `-short -race`) |
+| `make test-full` | full suite, `-race` (what CI runs) |
+| `make test-contract` | L2 cassette + fixture-vs-spec conformance |
+| `make test-coverage` | full suite with the 80% coverage floor (matches CI's enforced number) |
+| `make check-fixtures` | scan `testdata/` + `contracts/` for leaked secrets/PII |
 | `make lint` | `golangci-lint` |
-| `make ci` | the per-PR gate (lint + tests + coverage) |
+| `make pre-commit` | `fmt-check vet lint check-fixtures test-unit` |
+| `make ci` | local pipeline: `deps lint test build` (**not** coverage — that gate lives in `.github/workflows/test.yml`) |
+
+The **per-change gate** is `make test && make lint`; the **full pre-merge
+gate** (with the 80% coverage floor) runs in CI (`test.yml`). Pre-launch,
+work commits directly to `main` after that gate is green — see the
+end-to-end loop in
+[`docs/claude/development-workflow.md`](docs/claude/development-workflow.md),
+which also covers **manually exercising the built binary** (there is no web
+UI, so `make test` alone is not "verified").
 
 Live tests (L4a) are gated behind `//go:build live` and skip when the
 required vendor token env vars are absent; they are excluded from the
-per-PR suite and the coverage gate. See the canonical doc for details.
+per-change suite and the coverage gate. See the canonical doc for details.

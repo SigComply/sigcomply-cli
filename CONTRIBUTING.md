@@ -2,13 +2,32 @@
 
 Thanks for contributing! This file covers the **non-negotiable testing
 requirements**; the broader engineering rules, architecture, and invariants live
-in [`CLAUDE.md`](./CLAUDE.md) and [`docs/architecture/`](./docs/architecture/).
+in [`CLAUDE.md`](./CLAUDE.md) and [`docs/architecture/`](./docs/architecture/),
+and the full change loop in
+[`docs/claude/development-workflow.md`](./docs/claude/development-workflow.md).
+
+## Two contribution flows
+
+- **Internal (pre-launch, now):** the product has no users yet, so internal
+  work commits **directly to `main`** once `make test && make lint` are green
+  and the change is manually verified — no PR, no review. CI must go green
+  after the push. (This becomes a PR + review flow at public launch.)
+- **External / post-launch:** open a **pull request**; the checklist in
+  [`.github/pull_request_template.md`](./.github/pull_request_template.md)
+  gates it. Everything below applies to a *change* whether it lands via a
+  direct commit or a PR.
 
 ## Development rules (summary)
 
 - **TDD + small atomic commits**, all tests passing per commit. Format
   `<type>: <description>` (`feat`/`fix`/`refactor`/`test`/`docs`/`chore`).
 - **`make test && make lint` green before every commit; never break `main`.**
+- **Manually verify** — there's no web UI, so build and run the affected
+  command (`make build`; `sigcomply check` / `evidence catalog -o json` /
+  `report`) and confirm stdout + exit code + vault output before committing.
+- **Docs are part of "done"** — a behavior/architecture change isn't
+  finished until the focused doc it touches (a recipe, `configuration.md`, an
+  `architecture/` doc) is updated in the same change.
 - Full rules: [`CLAUDE.md` → Development Rules](./CLAUDE.md#development-rules).
 
 ## Testing layers
@@ -30,8 +49,9 @@ repos); see §Coverage in the strategy doc.
 
 ## Adding a new source plugin — required tests
 
-A PR that adds (or materially changes) a `internal/sources/<vendor>/<service>`
-plugin **MUST** include, in the same PR:
+A change (direct commit or PR) that adds (or materially changes) a
+`internal/sources/<vendor>/<service>` plugin **MUST** include, in the same
+change:
 
 1. **L0/L1 unit tests** — the mapper/`Collect` against an in-memory fake `API`
    (field mapping, edge cases, deterministic clock via the `Now` seam).

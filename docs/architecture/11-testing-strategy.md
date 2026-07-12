@@ -11,9 +11,18 @@ requirements pull against each other:
   CI run.
 
 The answer is a **layered strategy** with a clear **repo split**: the
-per-PR path is fast, free, and deterministic, and the "did the vendor
+per-change path is fast, free, and deterministic, and the "did the vendor
 change?" question is answered by a separate, mostly-free, scheduled
 path.
+
+> **This doc is the test *architecture*, not the dev loop.** How tests fit
+> into a task — write the test **first** (TDD), keep `make test && make
+> lint` green, then **manually exercise the built `sigcomply` binary**
+> (there is no web UI, so automated tests alone aren't "verified"), and
+> update docs in the same change — lives in
+> [../claude/development-workflow.md](../claude/development-workflow.md).
+> Pre-launch, work commits directly to `main`; there is no PR gate yet
+> (the "per-change gate" below runs on every commit, not per-PR).
 
 > **Status:** implemented. L0–L3 (unit, integration, cassette
 > conformance, spec-diff drift) and the scheduled drift

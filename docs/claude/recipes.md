@@ -3,6 +3,12 @@
 > **When to read**: First time doing a common task (adding sources,
 > policies, evidence types, frameworks, storage backends).
 
+> **Scope**: these recipes cover *adding a thing*. For the surrounding
+> change loop — plan → tests-first → implement → **verify by running the
+> built CLI** → update docs → commit — and for **debugging a failing check
+> or CI run**, see
+> [development-workflow.md](./development-workflow.md).
+
 > **Architecture note**: Policies are **Go-native**, not `.rego` files.
 > There are no `.rego` policy files in the tree. The three coupling points
 > are the **source plugin** (emits evidence types), the **evidence-type
