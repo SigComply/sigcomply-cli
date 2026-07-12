@@ -46,7 +46,8 @@ github.com/acme/infrastructure
 ├── .sigcomply/
 │   ├── policies/
 │   │   └── acme.custom.cc6.1.contractor_review/
-│   │       └── policy.yaml                       # pass_when DSL (the common case)
+│   │       └── policy.yaml                       # evidence_mode: manual (PDF-presence check;
+│   │                                             #   the common case is pass_when, but this one is manual)
 │   ├── plugins/
 │   │   └── acme.internal_iam/
 │   │       ├── plugin.yaml
@@ -54,11 +55,11 @@ github.com/acme/infrastructure
 │   └── evidence_types/                           # project-local schemas, if any
 └── .github/workflows/
     ├── compliance-on-push.yml      # every PR / push to main
-    ├── compliance-daily.yml        # 03:00 UTC daily cron
-    ├── compliance-weekly.yml       # Monday 04:00 UTC
-    ├── compliance-monthly.yml      # 1st of month 04:00 UTC
-    ├── compliance-quarterly.yml    # Jan/Apr/Jul/Oct 1st at 04:00 UTC
-    └── compliance-annual.yml       # Jan 1 at 05:00 UTC
+    ├── compliance-daily.yml        # 02:00 UTC daily cron
+    ├── compliance-weekly.yml       # Monday 02:00 UTC
+    ├── compliance-monthly.yml      # 1st of month 02:00 UTC
+    ├── compliance-quarterly.yml    # Jan/Apr/Jul/Oct 1st at 02:00 UTC
+    └── compliance-annual.yml       # Jan 1 at 02:00 UTC
 ```
 
 **The project.** One source-control repo. One framework (`soc2`). One
@@ -84,16 +85,16 @@ singleton).
 
 ```yaml
 policies:
-  soc2.cc6.1.mfa_enforced:
+  soc2.cc6.1.mfa_enforced_admins:
     cadence: hourly                                  # stricter than default daily
-  soc2.cc6.1.access_review_quarterly:
+  soc2.cc6.3.access_review_quarterly:
     cadence: monthly                                 # stricter than default quarterly
-  soc2.cc1.4.security_training_annual:
+  soc2.cc1.1.security_awareness_training:
     cadence: annual                                  # explicit
 ```
 
 These overrides change which CI workflow runs each policy. Because
-AcmeCorp set `mfa_enforced` to `hourly`, it now runs in
+AcmeCorp set `mfa_enforced_admins` to `hourly`, it now runs in
 `compliance-on-push.yml` and `compliance-daily.yml` (catches everything
 ≥ daily by `on_push: true`). It does NOT run in the hourly cron
 unless AcmeCorp also creates a `compliance-hourly.yml` workflow with
@@ -147,10 +148,10 @@ soc2/2026-Q1/run_20260215T135500Z_a3f8b2c1/
    manifest.json                       # period_id=2026-Q1, commit_sha=...
    summary.json
    policies/                            # one folder per in-scope policy
-      soc2.cc6.1.mfa_enforced/
+      soc2.cc6.1.mfa_enforced_admins/
          envelopes/
-            directory_user__okta.json
-            directory_user__acme.internal_iam.json
+            directory_user.v2__okta.json
+            directory_user.v2__acme.internal_iam.json
          result.json
       ...
 ```
@@ -160,7 +161,7 @@ they're not in scope.
 
 ---
 
-## Scenario 2 — Nightly daily cron, 2026-02-16 03:00 UTC
+## Scenario 2 — Nightly daily cron, 2026-02-16 02:00 UTC
 
 `compliance-daily.yml` fires.
 
@@ -173,7 +174,7 @@ This selects all policies with effective cadence `daily` (plus
 run at least daily). For AcmeCorp's project:
 
 - All the standard daily automated checks
-- `soc2.cc6.1.mfa_enforced` (overridden to `hourly` → also caught
+- `soc2.cc6.1.mfa_enforced_admins` (overridden to `hourly` → also caught
   by `--cadence daily` because hourly is stricter than daily)
 - AcmeCorp's custom policy `acme.custom.cc6.1.contractor_review` has
   `cadence: quarterly` (declared in its `policy.yaml`) and is NOT
@@ -183,7 +184,7 @@ Result: similar to Scenario 1's flow, mostly the same evidence
 collected. One small difference: a stale credential.
 
 **The catch.** One of AcmeCorp's CI deployment keys hit 60 days of
-age overnight. The `soc2.cc6.1.access_key_rotation` policy (which
+age overnight. The `soc2.cc6.1.access_keys_rotated_90d` policy (which
 AcmeCorp set to a stricter `max_age_days: 60`) catches it.
 
 - Policy status: `fail`
@@ -202,11 +203,11 @@ failure.
 An engineer sees the alert, rotates the key, pushes the fix. The next
 `compliance-on-push.yml` run picks up the fix and the policy passes.
 The period roll-up (latest-wins) now shows
-`soc2.cc6.1.access_key_rotation: pass` for Q1.
+`soc2.cc6.1.access_keys_rotated_90d: pass` for Q1.
 
 ---
 
-## Scenario 3 — Quarterly cron, 2026-04-01 04:00 UTC
+## Scenario 3 — Quarterly cron, 2026-04-01 02:00 UTC
 
 `compliance-quarterly.yml` fires.
 
@@ -219,7 +220,7 @@ This selects only quarterly-cadence policies:
 - AcmeCorp's custom policy `acme.custom.cc6.1.contractor_review`
 - Several SOC 2 manual-evidence policies that AcmeCorp didn't
   override
-- (`soc2.cc6.1.access_review_quarterly` is now `monthly` per
+- (`soc2.cc6.3.access_review_quarterly` is now `monthly` per
   AcmeCorp's override — it runs in the monthly cron, not the
   quarterly one.)
 
@@ -227,35 +228,28 @@ This selects only quarterly-cadence policies:
 yet. The compliance manager is in a Tuesday meeting; the cron fired
 before she got to it.
 
-**The CLI's output:**
+**The CLI's output.** The manual-evidence check finds no files in the
+catalog-resolved folder, so `acme.custom.cc6.1.contractor_review` gets
+status `fail` with a single-line violation reason:
 
 ```
-[error] Policy acme.custom.cc6.1.contractor_review requires manual evidence.
-
-   Evidence:   contractor_review_quarterly
-   Period:     2026-Q2
-   Expected:   s3://acme-evidence/manual/contractor_review_quarterly/2026-Q2/
-
-   To remediate:
-   1. Generate the contractor review PDF (use the SigComply Evidence SPA
-      at https://evidence.sigcomply.com, or your own tooling).
-   2. Upload one or more files (PDF, JPEG, PNG, GIF, TIFF, WebP, or BMP)
-      to the folder above. Any filename is accepted.
-   3. Manually re-run the appropriate compliance workflow
-      (Settings → Actions → Re-run workflow).
+manual evidence not found; expected files in: s3://acme-evidence/manual/contractor_review_quarterly/2026-Q2/
 ```
 
-This same message appears in the policy's `result.json` in the
-vault and in the violation `reason` field. The cloud submission
-includes a counts-only summary: `resources_evaluated: 1,
-resources_failed: 1, message: "1 of 1 contractor reviews missing."`
+That reason is the folder URI the CLI expected — shape
+`s3://{bucket}/{prefix}{catalog_id}/{period_id}/`. It appears in the
+policy's `result.json` in the vault and in the violation `reason`
+field. The cloud submission includes a counts-only summary:
+`resources_evaluated: 1, resources_failed: 1, message: "1 of 1
+contractor reviews missing."`
 
-The job exits 1. The compliance manager gets the GitHub Actions
-notification, opens the run page, sees the error message with the
-exact upload path. She generates the PDF, uploads it. Then she goes
-to the workflow page and clicks "Re-run workflow." The CLI runs
-again, finds the PDF this time, the policy passes. The period
-roll-up updates.
+The job exits 1. To remediate (operator guidance, not CLI output): the
+compliance manager produces the contractor-review PDF — the optional
+SigComply Evidence SPA can generate declaration/checklist PDFs, or she
+uses her own tooling — uploads one or more files (PDF, JPEG, PNG, GIF,
+TIFF, WebP, or BMP; any filename) to the folder above, then re-runs the
+compliance workflow. The CLI runs again, finds the PDF this time, the
+policy passes. The period roll-up updates.
 
 **Note**: AcmeCorp didn't have to wait until July 1 (the next
 quarterly cron) for the system to catch the fix. Manual workflow
@@ -268,7 +262,7 @@ another run folder, and the period roll-up uses the latest result.
 
 ## Scenario 4 — A workflow that doesn't run
 
-The annual policy `soc2.cc1.4.security_training_annual` has cadence
+The annual policy `soc2.cc1.1.security_awareness_training` has cadence
 `annual` and runs in `compliance-annual.yml`. AcmeCorp ran it
 successfully on 2026-01-08 (the training PDF for 2026 was uploaded
 in early January). Now it's late February.
@@ -302,11 +296,11 @@ AcmeCorp's auditor logs into SigComply Cloud or opens
 - Cadence labels next to each: "daily policy, last run 2026-03-30",
   "quarterly policy, last run 2026-02-12"
 
-For `soc2.cc6.1.access_key_rotation` (which eventually `pass` after
+For `soc2.cc6.1.access_keys_rotated_90d` (which eventually `pass` after
 remediation): green. Click in and see the timeline of runs — a fail
 on 2026-02-16, then a pass on 2026-02-16 after the remediation push.
 
-For `soc2.cc6.1.mfa_enforced` (cadence overridden to `hourly`): the
+For `soc2.cc6.1.mfa_enforced_admins` (cadence overridden to `hourly`): the
 auditor sees many runs in Q1 (the on-push + daily ones). All
 passing except the one that hit the legacy.deploy.bot exception.
 They click the exception detail: approved by Jane Doe on 2026-01-15,
@@ -319,10 +313,6 @@ present, the SHA-256 hash of the PDF, and a link to the PDF in the
 attachments. They download the PDF, verify the hash matches, and
 open the PDF in their browser. The PDF is the human-readable signed
 review.
-
-For `soc2.cc6.7.waf_in_front_of_web_app`: shown as "N/A" with the
-documented justification ("API-only product surface; no public web
-app").
 
 **The auditor never logs into anything AcmeCorp doesn't own.** The
 vault is in AcmeCorp's S3 bucket. The exceptions are in AcmeCorp's

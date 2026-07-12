@@ -56,8 +56,26 @@ sources:
 policies:
   # MFA — checked across both Okta and the custom internal IAM; stricter
   # than default (service accounts not exempt); caught hourly. One legacy
-  # bot is waived (scoped) until it is decommissioned.
-  soc2.cc6.1.mfa_enforced:
+  # bot is waived (scoped) until it is decommissioned. SOC 2 ships MFA as
+  # two policies (admins and all users); AcmeCorp overrides both.
+  soc2.cc6.1.mfa_enforced_admins:
+    cadence: hourly
+    bindings:
+      user_directory: [okta, acme.internal_iam]
+    parameters:
+      exempt_service_accounts: false
+    exceptions:
+      - scope:
+          resource_id: "okta_user:legacy.deploy.bot@acme.com"
+        state: waived
+        reason: |
+          Legacy deployment bot identity. To be retired with the
+          decommissioning of the on-prem build pipeline. Replacement uses
+          federated OIDC and does not require an interactive identity.
+        approved_by: "jane.doe@acme.com"
+        approved_at: "2026-01-15"
+        expires_at: "2026-09-30"
+  soc2.cc6.1.mfa_enforced_all_users:
     cadence: hourly
     bindings:
       user_directory: [okta, acme.internal_iam]
@@ -76,30 +94,30 @@ policies:
         expires_at: "2026-09-30"
 
   # Access key rotation — only AWS programmatic users; stricter (60d).
-  soc2.cc6.1.access_key_rotation:
+  soc2.cc6.1.access_keys_rotated_90d:
     bindings:
       access_keys: [aws.iam]
     parameters:
       max_age_days: 60
 
-  # Inactive users — across all identity sources; tighter threshold (60d).
-  soc2.cc6.1.inactive_users:
+  # Unused active keys — AWS programmatic users; tighter threshold (60d).
+  soc2.cc6.1.no_unused_active_keys_90d:
     bindings:
-      user_directory: [okta, aws.iam, acme.internal_iam]
+      access_keys: [aws.iam]
     parameters:
       inactive_days: 60
 
   # Quarterly access review — manual PDF, structured catalog_entry
   # (replaces the old "manual.pdf:access_review_quarterly" string).
-  soc2.cc6.1.access_review_quarterly:
+  soc2.cc6.3.access_review_quarterly:
     evidence_mode: manual
     catalog_entry: access_review_quarterly
     cadence: monthly
 
   # Annual security awareness training certificate — manual PDF.
-  soc2.cc1.4.security_training_annual:
+  soc2.cc1.1.security_awareness_training:
     evidence_mode: manual
-    catalog_entry: security_training_annual
+    catalog_entry: security_awareness_training
     cadence: annual
 
   # Custom project-local policy — contractor access review (manual PDF).
@@ -108,33 +126,6 @@ policies:
     catalog_entry: contractor_review_quarterly
     parameters:
       max_contractors: 50
-
-  # WAF-in-front-of-web-app does not apply — API-only product. This is a
-  # single-policy N/A (the API tier's WAF is verified by another policy),
-  # so it stays a policy-level exception rather than a control-level one.
-  soc2.cc6.7.waf_in_front_of_web_app:
-    exceptions:
-      - state: na
-        reason: |
-          AcmeCorp's product surface is API-only; there is no public web
-          application requiring a WAF. The CloudFront + API Gateway WAF
-          coverage for the API tier is verified by
-          soc2.cc6.7.waf_in_front_of_api.
-
-# ---------------------------------------------------------------------
-# Control-level decisions — coarse, governance-level, per control. A
-# not_applicable control cascades to every policy that maps to it.
-# ---------------------------------------------------------------------
-controls:
-  # Physical access security is inherited from AWS (cloud-only company);
-  # the whole control is out of scope for AcmeCorp's own assessment.
-  CC6.4:
-    applicability: not_applicable
-    reason: |
-      AcmeCorp operates no physical data-center footprint; physical and
-      environmental security is inherited from AWS, whose SOC 2 report is
-      on file. Every CC6.4 policy is therefore not applicable.
-    approved_by: "ciso@acme.com"
 
 cloud:
   enabled: true
