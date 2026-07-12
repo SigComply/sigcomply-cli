@@ -27,8 +27,10 @@ architecture in the [parent CLAUDE.md](../CLAUDE.md).
 **Frameworks shipped:** SOC 2 (production-ready) and ISO/IEC 27001:2022
 (all 93 Annex A controls), both Go-native and self-registering via
 `internal/frameworks/builtin`. HIPAA is a future goal — no package, no
-policies; `config.go` lists `"hipaa"` in `SupportedFrameworks` but
-selecting it fails (nothing registers under that name).
+policies, and (contrary to older notes) **no `hipaa` string anywhere in
+the Go code**: framework validation is purely dynamic via
+`frameworks.Lookup` / `frameworks.IDs()`, so selecting `hipaa` fails
+exactly like any other unregistered name (nothing registers under it).
 
 **Policies are Go, not Rego.** There are zero `.rego` policy files. Each
 policy is an `autoPolicy{...}.policy()` builder under
@@ -382,17 +384,18 @@ framework, so exactly one `manual.pdf` source and one bucket per project
 | Command | Status | Notes |
 |---------|--------|-------|
 | `sigcomply check` | Wired | Main entry — plan → collect → evaluate → aggregate → sign/store → submit |
-| `sigcomply init-ci` | Wired | Scaffold CI workflow files calibrated to a framework's cadence distribution |
+| `sigcomply init` | Wired | Scaffold a starter `.sigcomply.yaml` (`-f` framework, `-o` out path, `--force`); refuses to overwrite without `--force` |
+| `sigcomply init-ci` | Wired | Scaffold CI workflow files calibrated to a framework's cadence distribution (SOC 2 only in v1-alpha; other frameworks exit 3) |
 | `sigcomply build` | Wired | Compile a project-tailored binary with `.sigcomply/` Go extensions |
-| `sigcomply report` | Wired | Read-only auditor snapshot of the vault |
+| `sigcomply report` | Wired | Read-only auditor snapshot of the vault (`--view latest\|exceptions\|integrity`) |
 | `sigcomply evidence catalog` | Wired | Print the manual-evidence catalog (`-o text\|json`); `-o json` matches the Evidence SPA contract. Standalone, no project config. `-f` defaults to `$SIGCOMPLY_FRAMEWORK` then `soc2` |
 | `sigcomply version` | Wired | Print version + commit + build time |
-| `sigcomply init` | Planned | Not yet in `root.go` |
 | `sigcomply collect` / `evaluate` | Planned | Collect-only / offline-evaluate modes |
 | `sigcomply evidence {init, path}` | Removed | Old period-scaffolding / upload-URI subcommands; only `catalog` returned |
 
-Framework resolves from `SIGCOMPLY_FRAMEWORK` or `framework:` in config
-(default `soc2`), or `-f/--framework` on `check`.
+Framework resolves from `-f/--framework` on `init`, or `SIGCOMPLY_FRAMEWORK`
+/ `framework:` in config (default `soc2`), for `check`. **`check` itself has
+no `--framework` flag** — it reads `framework:` from the loaded config.
 
 **Flags & config:** full flag list and `.sigcomply.yaml` schema in
 [docs/configuration.md](./docs/configuration.md). Gotchas: there is **no**
@@ -449,8 +452,8 @@ through `POST /api/v1/runs`.
 (For "what's done", read the code — don't assume a feature exists because
 it's plausible.)
 
-- HIPAA framework (stub string in `config.go` only)
-- `init`, `collect`, `evaluate`, `config` commands
+- HIPAA framework (no package, no policies, no `hipaa` string in code — any unregistered framework name fails identically)
+- `collect`, `evaluate`, `config` commands (`init` is now wired)
 - Secret scanner
 - SARIF output formatter (config validates the format; no implementation)
 - First-class GitLab CI component (only an example pipeline at

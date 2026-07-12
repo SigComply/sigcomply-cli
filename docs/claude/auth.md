@@ -36,7 +36,7 @@ These are two entirely separate concerns. OIDC is never used to sign evidence.
    req, _ := http.NewRequestWithContext(ctx, http.MethodGet,
        requestURL+"?audience="+audience, http.NoBody)
    req.Header.Set("Authorization", "Bearer "+requestToken)
-   req.Header.Set("Accept", "application/json; api-version=2.0")
+   req.Header.Set("Accept", "application/json")
    resp, _ := httpClient.Do(req)
    // resp body is { "value": "<the actual OIDC JWT>" }
    var parsed struct{ Value string `json:"value"` }
@@ -71,7 +71,7 @@ These are two entirely separate concerns. OIDC is never used to sign evidence.
 
 4. **Rails API Validates the OIDC Token:**
    - Validates OIDC token (in `Authorization` header) using GitHub/GitLab's public JWKS
-   - Extracts repository and organization from OIDC claims to identify the customer account
+   - Extracts the project identity from provider-specific OIDC claims — `repository` / `repository_owner` (GitHub) or `project_path` / `namespace_path` (GitLab) — to identify the customer account
    - Stores only the aggregated policy counts (pass/fail + resource counts)
    - Never receives any envelope or any resource identifiers
 

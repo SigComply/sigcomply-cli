@@ -8,7 +8,7 @@ your data, credentials, or production environment. Raw evidence stays in
 your own storage; only aggregated counts and pass/fail scores are submitted
 to the optional Compliance Dashboard.
 
-Ships SOC 2 (Type II) and ISO/IEC 27001:2022 (all 93 Annex A controls)
+Ships SOC 2 (2017 Trust Services Criteria) and ISO/IEC 27001:2022 (all 93 Annex A controls)
 policy libraries. Policies are open, Go-native declarative definitions
 (a `pass_when` DSL) — inspect, fork, and contribute.
 
@@ -65,6 +65,7 @@ no policy edits. Full provider × evidence-type coverage matrix:
 | Command | Purpose |
 |---|---|
 | `sigcomply check` | Plan → collect → evaluate → aggregate → sign/store → submit. |
+| `sigcomply init` | Scaffold a starter `.sigcomply.yaml` for the chosen framework. |
 | `sigcomply init-ci` | Scaffold per-cadence CI workflow files. |
 | `sigcomply build` | Compile a project-tailored binary with `.sigcomply/` Go extensions. |
 | `sigcomply report` | Read-only auditor snapshot of the vault. |

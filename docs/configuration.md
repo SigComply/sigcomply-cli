@@ -81,7 +81,7 @@ workload-identity federation). The keys below only identify *what* to scan
 | `github` | `org` | — | `token` config key or `GITHUB_TOKEN` env |
 | `gitlab` | `group` | `base_url` (self-managed; default `https://gitlab.com`) | `token` config key or `GITLAB_TOKEN` env |
 | `okta` | `org_url` | — | `api_token` config key or `OKTA_API_TOKEN` env |
-| `manual.pdf` | per backend: `local`→ none (defaults to local FS); `s3`→ `bucket`, `region`; `gcs`→ `bucket`; `azure_blob`→ `account`, `container` | `backend` (default `local`), `prefix`, plus `endpoint` + `force_path_style` (on-prem `s3`) | the selected backend's own chain (matches `aws.*` / `gcp.*` / `azure.*`) |
+| `manual.pdf` | per backend: `local`→ `path`; `s3`→ `bucket`, `region`; `gcs`→ `bucket`; `azure_blob`→ `account`, `container` | `backend` (default `local`), `prefix`, plus `endpoint` + `force_path_style` (on-prem `s3`) | the selected backend's own chain (matches `aws.*` / `gcp.*` / `azure.*`) |
 
 > The five AWS sources whose **source ID differs from their package
 > directory** are `aws.iam_access_key` (dir `accesskeys`),
@@ -1011,13 +1011,14 @@ The config file holds **non-secret, declarative settings** — what to check and
 
 ### File Location
 
-The CLI searches for config files in this order:
+The CLI loads the config from the `--config` path (Cobra default
+`.sigcomply.yaml`, resolved relative to the current working directory).
+There is **no** home-directory fallback and no multi-location search.
 
-1. `--config /path/to/file.yaml` (explicit flag)
-2. `.sigcomply.yaml` in the current working directory
-3. `~/.sigcomply.yaml` in the home directory
-
-If no file is found, the CLI uses defaults. This is not an error.
+A config file is **required** — it selects the framework, vault, and
+sources. A missing file is a configuration error (exit `3`): `Bootstrap`
+returns `no config file found at <path>` with a `sigcomply init` hint
+rather than falling back to defaults.
 
 ### Full Example
 
@@ -1108,7 +1109,7 @@ cloud:
 
 # Output and CI behavior.
 output:
-  format: text                    # text | json | junit (json/csv only honored by `report`)
+  format: text                    # text | json | junit — validated, but only `report` renders alternates (json/csv); `junit` has no formatter yet, `sarif` is rejected
   json_path: ./compliance-report.json
 ci:
   fail_on_violation: true         # exit 1 on violations (config-only; no flag)
@@ -1147,7 +1148,7 @@ set of accepted top-level keys (`internal/spec/project_config.go`):
 | `policies` | map: policy id → `PolicyConfig` | All per-policy config, co-located per ID. `PolicyConfig` = `{ bindings: { slot: [source,...] }, parameters: { param: value }, cadence, evidence_mode, catalog_entry, exceptions: [...] }`. `evidence_mode: manual` requires `catalog_entry`; `automated` forbids it. Each exception is `{ scope: { resource_id, resource_pattern }, state (waived\|na), reason, approved_by, approved_at, expires_at }` — no `policy:` field (the map key is the policy). |
 | `controls` | map: control id → `{ applicability, reason, approved_by }` | `applicability`: `applicable` \| `not_applicable`; `not_applicable` requires `reason` and cascades `na` to every policy mapping to the control. |
 | `cloud` | `{ enabled, base_url }` | `enabled` is a `*bool` (auto-detected in CI when omitted); `base_url` overrides the endpoint. |
-| `output` | `{ format, json_path, verbose }` | `format`: `text` \| `json` \| `junit`. |
+| `output` | `{ format, json_path, verbose }` | `format`: `text` \| `json` \| `junit` (validated; only `report` renders json/csv; `junit` has no formatter yet; `sarif` rejected). |
 | `ci` | `{ fail_on_violation, fail_severity }` | Config-only; no equivalent flags. |
 | `ci_environment` | map | Free-form environment metadata recorded with the run. |
 | `extensions` | `{ path }` | Overrides extension-discovery path (default `.sigcomply/`). |
@@ -1216,10 +1217,6 @@ vault:
   # s3-compatible extras (MinIO, Ceph, Dell ECS, NetApp StorageGRID):
   endpoint: https://minio.internal.corp:9000
   force_path_style: true
-
-  # AWS credential selection (optional; otherwise the ambient chain is used):
-  profile: sigcomply-evidence
-  role_arn: arn:aws:iam::123:role/sigcomply-evidence
 ```
 
 ### Required fields per backend
@@ -1227,7 +1224,7 @@ vault:
 | `backend`    | Required fields      | Common optional fields                          |
 |--------------|----------------------|-------------------------------------------------|
 | `local`      | `path`               | `prefix`                                        |
-| `s3`         | `bucket`, `region`   | `prefix`, `endpoint`, `force_path_style`, `profile`, `role_arn` |
+| `s3`         | `bucket`, `region`   | `prefix`, `endpoint`, `force_path_style`         |
 | `gcs`        | `bucket`             | `prefix`                                        |
 | `azure_blob` | `account`, `container` | `prefix`, `endpoint`                           |
 
@@ -1240,9 +1237,10 @@ chain (env vars, IAM role / instance metadata, GCP ADC, Azure
 `DefaultAzureCredential`). The CLI does not itself exchange OIDC tokens for
 storage credentials — set those up in your CI workflow (e.g.
 `aws-actions/configure-aws-credentials`, `google-github-actions/auth`,
-`azure/login`) before running `sigcomply check`. The optional `profile` /
-`role_arn` fields above only steer the AWS SDK's own resolution; they are not
-a separate auth mode. (OIDC *is* used for SigComply Cloud submission — that is
+`azure/login`) before running `sigcomply check`. The s3 vault block reads no
+credential keys — AWS profile/role selection is entirely ambient (env vars
+such as `AWS_PROFILE`, or role assumption configured in your CI step). (OIDC
+*is* used for SigComply Cloud submission — that is
 a different concern, see [SigComply Cloud](#sigcomply-cloud-paid-tier).)
 
 ---
@@ -1275,7 +1273,8 @@ upload files.
 ### Folder layout per evidence ID
 
 For each `evidence_catalog_id` in the framework catalog, the CLI scans
-the folder:
+the folder (the object key under the configured bucket/root — the
+canonical full path is `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/`):
 
 ```
 {prefix}{evidence_catalog_id}/{period_id}/

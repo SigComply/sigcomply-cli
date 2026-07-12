@@ -1,7 +1,7 @@
 # SigComply CLI — Architecture
 
 > **Status**: implemented. This document is the canonical design reference for
-> the shipped v1 CLI (`sigcomply check`/`build`/`report`/`init-ci`/`evidence
+> the shipped v1 CLI (`sigcomply check`/`init`/`build`/`report`/`init-ci`/`evidence
 > catalog`/`version`). Where a section describes a future capability it is
 > marked inline; treat the code as the source of truth for what is wired.
 
@@ -125,7 +125,7 @@ requires going back to the drawing board.
 ├────────────────────────────────────────────────────────────────────┤
 │  L3  Planner          Resolve bindings; ordered policy list        │
 ├────────────────────────────────────────────────────────────────────┤
-│  L2  Registries       Framework, Source, Rule, EvidenceType lookups│
+│  L2  Registries       Framework, Source, Rule, Policy, EvidenceType│
 ├────────────────────────────────────────────────────────────────────┤
 │  L1  Core domain      Stable Go types and interfaces               │
 ├────────────────────────────────────────────────────────────────────┤
@@ -149,7 +149,7 @@ definitions in [`01-conceptual-model.md`](docs/architecture/01-conceptual-model.
 
 | Term | One-line meaning |
 |---|---|
-| **Framework** | A published compliance regime (SOC 2, ISO 27001, HIPAA). |
+| **Framework** | A published compliance regime (SOC 2, ISO 27001). |
 | **Control** | A single requirement in a framework, e.g. `SOC2.CC6.1`. |
 | **Policy** | A verifiable assertion contributing to a control. |
 | **Policy cadence** | How often a policy must be evaluated (`continuous` … `annual`); drives CI scheduling. |
