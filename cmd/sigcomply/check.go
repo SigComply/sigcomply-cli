@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"time"
 
@@ -92,6 +93,12 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
 	}
 
+	// Tell the operator, before any API call, that `check` is about to
+	// reach real infrastructure using ambient credentials — this is not a
+	// dry run. The banner names sources and region/backend only; it never
+	// prints a credential.
+	printCollectionBanner(stdout, cfg)
+
 	if err := evidencetypes.VerifyRegistrations(registries); err != nil {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
 	}
@@ -177,6 +184,49 @@ func registerProductionSources(ctx context.Context, registries *registry.Set, cf
 		}
 	}
 	return nil
+}
+
+// printCollectionBanner writes a short notice naming the configured
+// sources `check` will collect from, so a tester sees that the run
+// authenticated against real infrastructure rather than a dry run. It
+// prints region (API sources) or backend (manual.pdf) only — never a
+// credential, key, or token.
+func printCollectionBanner(stdout io.Writer, cfg *spec.ProjectConfig) {
+	if len(cfg.Sources) == 0 {
+		return
+	}
+	ids := make([]string, 0, len(cfg.Sources))
+	for id := range cfg.Sources {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	vaultRegion := cfg.Vault.Str("region")
+	_, _ = fmt.Fprintf(stdout, "Collecting evidence from %d configured source(s) using ambient credentials:\n", len(ids)) //nolint:errcheck // status output
+	for _, id := range ids {
+		_, _ = fmt.Fprintf(stdout, "  - %s%s\n", id, sourceBannerDetail(id, cfg.Sources[id], vaultRegion)) //nolint:errcheck // status output
+	}
+	_, _ = fmt.Fprintln(stdout, "SigComply issues read-only calls; raw evidence stays in your vault.") //nolint:errcheck // status output
+}
+
+// sourceBannerDetail returns the parenthetical shown after a source ID
+// in the collection banner: region for API sources, backend for the
+// manual.pdf singleton, empty when neither is known.
+func sourceBannerDetail(id string, raw map[string]any, vaultRegion string) string {
+	if id == manual.SourceID {
+		backend := sources.StringOpt(raw, "backend")
+		if backend == "" {
+			backend = "local"
+		}
+		return fmt.Sprintf(" (manual evidence, backend %s)", backend)
+	}
+	region := sources.StringOpt(raw, "region")
+	if region == "" {
+		region = vaultRegion
+	}
+	if region != "" {
+		return fmt.Sprintf(" (region %s)", region)
+	}
+	return ""
 }
 
 // withRegionDefault preserves the legacy convenience that AWS source
