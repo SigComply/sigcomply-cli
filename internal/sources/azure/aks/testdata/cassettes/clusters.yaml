@@ -10,15 +10,15 @@ interactions:
         host: 127.0.0.1:56294
         form:
             api-version:
-                - "2026-03-01"
+                - "2026-04-01"
         headers:
             Accept:
                 - application/json
             Authorization:
                 - REDACTED
             User-Agent:
-                - azsdk-go-armcontainerservice/v9.2.0 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.ContainerService/managedClusters?api-version=2026-03-01
+                - azsdk-go-armcontainerservice/v9.3.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.ContainerService/managedClusters?api-version=2026-04-01
         method: GET
       response:
         proto: HTTP/1.1
