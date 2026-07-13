@@ -34,9 +34,10 @@ type Decision int
 
 // Decision values.
 const (
-	DecisionSubmit       Decision = iota
-	DecisionSkip                  // no cloud URL, no CI, or user passed --no-cloud
-	DecisionMissingToken          // explicit --cloud but OIDC unavailable
+	DecisionSubmit         Decision = iota
+	DecisionSkip                    // no cloud URL, no CI, or user passed --no-cloud
+	DecisionMissingToken            // explicit --cloud but OIDC unavailable
+	DecisionMissingBaseURL          // explicit --cloud but no cloud.base_url / --cloud-url configured
 )
 
 // Options control whether and where to submit.
@@ -67,14 +68,20 @@ func Decide(opts Options, hasOIDC, inCI bool) Decision {
 	if opts.Disable {
 		return DecisionSkip
 	}
-	if opts.BaseURL == "" {
-		return DecisionSkip
-	}
+	// When the operator explicitly asked to submit (--cloud), a missing
+	// base_url is a mistake worth surfacing, not a silent no-op. Check it
+	// before the general empty-URL skip so the caller can warn.
 	if opts.Force {
+		if opts.BaseURL == "" {
+			return DecisionMissingBaseURL
+		}
 		if !hasOIDC {
 			return DecisionMissingToken
 		}
 		return DecisionSubmit
+	}
+	if opts.BaseURL == "" {
+		return DecisionSkip
 	}
 	if !inCI || !hasOIDC {
 		return DecisionSkip

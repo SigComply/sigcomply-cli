@@ -35,6 +35,7 @@ func TestDecide(t *testing.T) {
 		{"no-url", Options{}, true, true, DecisionSkip},
 		{"force-ok", Options{Force: true, BaseURL: "https://x"}, true, false, DecisionSubmit},
 		{"force-no-token", Options{Force: true, BaseURL: "https://x"}, false, false, DecisionMissingToken},
+		{"force-no-baseurl", Options{Force: true}, true, true, DecisionMissingBaseURL},
 		{"default-ci-with-token", Options{BaseURL: "https://x"}, true, true, DecisionSubmit},
 		{"default-ci-no-token", Options{BaseURL: "https://x"}, false, true, DecisionSkip},
 		{"default-local", Options{BaseURL: "https://x"}, true, false, DecisionSkip},

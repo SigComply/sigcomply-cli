@@ -574,6 +574,8 @@ func handleSubmission(ctx context.Context, opts *Options, payload *core.Submissi
 		return true, completedAt
 	case submitter.DecisionMissingToken:
 		opts.Logger.Warnf("submit: --cloud was set but no OIDC token detected; skipping")
+	case submitter.DecisionMissingBaseURL:
+		opts.Logger.Warnf("submit: --cloud was set but no cloud endpoint is configured; skipping submission. Set cloud.base_url in .sigcomply.yaml or pass --cloud-url <url>")
 	case submitter.DecisionSkip:
 		// no-op
 	}
@@ -729,6 +731,14 @@ func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.P
 	for i := range sortedResults {
 		r := &sortedResults[i]
 		_, _ = fmt.Fprintf(stdout, "  [%s] %s — %s\n", r.Status, r.PolicyID, core.PrimaryControlID(r.Controls)) //nolint:errcheck // status output
+		// Surface the actionable reason for a fail/error inline, so a
+		// non-expert knows what to fix (e.g. which files to upload) without
+		// digging into the vault result.json. This is local stdout in the
+		// operator's own environment — identifiers here are fine; only the
+		// cloud payload is counts-only.
+		if reason := resultReason(r); reason != "" {
+			_, _ = fmt.Fprintf(stdout, "      ↳ %s\n", reason) //nolint:errcheck // status output
+		}
 	}
 	if skipped > 0 {
 		renderSkipExplanations(stdout, plan, sortedResults)
@@ -740,6 +750,51 @@ func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.P
 		return ExitViolation
 	}
 	return ExitOK
+}
+
+// resultReason returns a concise, single-line reason for a fail or
+// error result, suitable for inline display under the policy in the
+// check summary. Returns "" for any other status (pass/skip/na/…), so
+// the caller prints nothing. It reads the first violation's reason (the
+// manual-evidence "not found; expected files in: <path>" message lands
+// here) or, for errors, the diagnostic recorded by the collector/
+// evaluator. The full detail always remains in the vault result.json.
+func resultReason(r *core.PolicyResult) string {
+	const maxLen = 240
+	switch r.Status {
+	case core.StatusError:
+		for _, k := range []string{"collect_error", "rule_error", "reason"} {
+			if v, ok := r.Diag[k].(string); ok && v != "" {
+				return truncateReason(v, maxLen)
+			}
+		}
+		return "evaluation error (see the run's result.json in the vault)"
+	case core.StatusFail:
+		if len(r.Violations) > 0 && r.Violations[0].Reason != "" {
+			reason := r.Violations[0].Reason
+			if r.ResourcesFailed > 1 {
+				return truncateReason(fmt.Sprintf("%d of %d resources failed, e.g. %s", r.ResourcesFailed, r.ResourcesEvaluated, reason), maxLen)
+			}
+			return truncateReason(reason, maxLen)
+		}
+		if r.ResourcesFailed > 0 {
+			return fmt.Sprintf("%d of %d resources failed", r.ResourcesFailed, r.ResourcesEvaluated)
+		}
+		return "policy failed"
+	default:
+		return ""
+	}
+}
+
+// truncateReason clamps a reason string to n runes, appending an
+// ellipsis when it overflows, so one pathological violation message
+// can't blow up the summary.
+func truncateReason(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "…"
 }
 
 // renderSkipExplanations prints, to stdout, why each skipped policy was
@@ -856,7 +911,16 @@ func Bootstrap(configPath string) (*spec.ProjectConfig, *registry.Set, error) {
 	}
 	cfg, err := spec.LoadProjectConfig(data)
 	if err != nil {
-		return nil, nil, fmt.Errorf("bootstrap: parse config: %w", err)
+		// The underlying error is often a raw `yaml: ...` line/column
+		// message that's opaque to a first-time user. Prepend a plain-
+		// language hint about the most common causes (indentation, tabs,
+		// unknown/misspelled keys — the parser is strict) while keeping
+		// the exact parser message for precise debugging.
+		return nil, nil, fmt.Errorf("could not parse %s: %w\n\n"+
+			"Check for: inconsistent indentation, tab characters (use spaces), or an\n"+
+			"unrecognized/misspelled key (the config is parsed strictly — every key must\n"+
+			"be a documented one; e.g. the framework key is singular, `framework:`).\n"+
+			"See docs/configuration.md for the full config reference", configPath, err)
 	}
 	set := registry.NewSet()
 	// Evidence-type schemas are loaded before frameworks so policies
