@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 env:
-  SIGCOMPLY_VERSION: latest
+  SIGCOMPLY_VERSION: v0.64.38    # pinned release; bump to a newer tag, or set to "latest" for the newest
   AWS_REGION: us-east-1
   AWS_ROLE_ARN: arn:aws:iam::000000000000:role/REPLACE_ME
 
