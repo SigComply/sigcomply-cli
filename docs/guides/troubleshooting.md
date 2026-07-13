@@ -20,6 +20,26 @@ Every command uses the same four exit codes:
 `1` means the CLI ran correctly and found failing policies. `2` and `3`
 mean the CLI could not complete the run.
 
+## Getting more detail: `--verbose`
+
+When a run's one-line summary isn't enough, re-run `check` with `--verbose`
+(`-v`):
+
+```bash
+sigcomply check --verbose
+```
+
+Verbose mode turns on **debug-level** logging (to stderr) on top of the
+default info/warn output. It surfaces the detail behind the summary — the
+per-policy first-run and gap-detection notes, coverage-skew diagnostics, the
+git commit-time parse, and the individual policy IDs behind each aggregated
+warning. Redaction is always on regardless of verbosity: emails, ARNs, access
+keys, UUIDs, and JWTs are stripped before anything is written, so `--verbose`
+is safe to enable in CI logs.
+
+For a still-deeper look at *what* was evaluated, read the signed
+`result.json` / envelopes in your vault, or run `sigcomply report`.
+
 ## Configuration errors (exit 3)
 
 `.sigcomply.yaml` is loaded with a **strict** parser (`yaml.KnownFields`),

@@ -40,16 +40,16 @@ your organization.
 - **GitHub Actions**: add `permissions: { id-token: write, contents: read }`
   to the job. The runner mints the token; nothing else to configure.
 - **GitLab CI**: add an `id_tokens:` block with `aud: https://api.sigcomply.com`.
-  Read the [GitLab cloud-submission caveat](ci-gitlab.md) before you rely on
-  it — the shipped template names the token in an env the CLI does not read.
+  The shipped template names the token `SIGCOMPLY_ID_TOKEN` — exactly what the CLI
+  reads — so cloud submission works out of the box. See [ci-gitlab.md](ci-gitlab.md).
 
 Cloud submission **auto-enables** when the CLI runs in CI, an OIDC token is
 present, and you have not passed `--no-cloud`.
 
 ## Step-by-step: connect a project
 
-1. **Sign up** at the dashboard. The first user in a new organization
-   becomes the **owner**.
+1. **Sign up** at the dashboard, **https://sigcomply.com**. The first user in a
+   new organization becomes the **owner**.
 2. **Create your organization** (done as part of sign-up).
 3. **Connect a project.** Paste the project's GitHub or GitLab **repository
    URL**. This registers the repo so OIDC tokens from its CI match your org.

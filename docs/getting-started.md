@@ -28,7 +28,8 @@ links to a focused how-to guide for the deep detail.
 The cloud dashboard is the optional paid tier that turns submitted counts into
 compliance dashboards and auditor reports.
 
-1. Sign up on **SigComply Cloud**. The first user becomes the organization owner.
+1. Sign up on **SigComply Cloud** at **https://sigcomply.com**. The first user
+   becomes the organization owner.
 2. **Connect a project** by pasting your GitHub or GitLab **repo URL**. This
    registers the repo so OIDC tokens minted by its CI are recognized on
    submission.
@@ -117,9 +118,10 @@ sigcomply init-ci --ci gitlab
 
 This writes a single `.gitlab-ci.yml` with cadence-keyed jobs driven by pipeline
 schedules. GitLab OIDC needs an `id_tokens:` block with
-`aud: https://api.sigcomply.com`. **Read [guides/ci-gitlab.md](guides/ci-gitlab.md)
-carefully** — the shipped template has a known id-token naming caveat that must be
-corrected for cloud submission to work.
+`aud: https://api.sigcomply.com` — the scaffolded template already names the token
+`SIGCOMPLY_ID_TOKEN`, exactly what the CLI reads, so cloud submission works out of
+the box with no hand-editing. See [guides/ci-gitlab.md](guides/ci-gitlab.md) for
+the full walkthrough.
 
 > `init-ci` ships SOC 2 cadence templates in v1-alpha; other frameworks exit 3.
 
