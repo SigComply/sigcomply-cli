@@ -27,6 +27,7 @@ vault:
 
 sources:
   aws.iam:        { region: us-east-1 }
+  aws.iam_access_key: { region: us-east-1 }
   aws.s3:         { region: us-east-1 }
   aws.cloudtrail: { region: us-east-1 }
   aws.kms:        { region: us-east-1 }
@@ -61,7 +62,7 @@ policies:
   soc2.cc6.1.mfa_enforced_admins:
     cadence: hourly
     bindings:
-      user_directory: [okta, acme.internal_iam]
+      evidence: [okta, acme.internal_iam]
     parameters:
       exempt_service_accounts: false
     exceptions:
@@ -78,7 +79,7 @@ policies:
   soc2.cc6.1.mfa_enforced_all_users:
     cadence: hourly
     bindings:
-      user_directory: [okta, acme.internal_iam]
+      evidence: [okta, acme.internal_iam]
     parameters:
       exempt_service_accounts: false
     exceptions:
@@ -96,14 +97,14 @@ policies:
   # Access key rotation — only AWS programmatic users; stricter (60d).
   soc2.cc6.1.access_keys_rotated_90d:
     bindings:
-      access_keys: [aws.iam]
+      evidence: [aws.iam_access_key]
     parameters:
       max_age_days: 60
 
   # Unused active keys — AWS programmatic users; tighter threshold (60d).
   soc2.cc6.1.no_unused_active_keys_90d:
     bindings:
-      access_keys: [aws.iam]
+      evidence: [aws.iam_access_key]
     parameters:
       inactive_days: 60
 
