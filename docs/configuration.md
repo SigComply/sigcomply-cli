@@ -1088,7 +1088,7 @@ sources:
 policies:
   soc2.cc6.1.mfa_enforced:
     bindings:
-      user_directory: [okta, aws.iam]   # narrow the slot to chosen sources
+      evidence: [okta, aws.iam]          # narrow the slot to chosen sources
     cadence: hourly                      # override the framework cadence
   soc2.cc6.1.access_key_rotation:
     parameters:

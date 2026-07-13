@@ -1,0 +1,36 @@
+# SigComply CLI
+
+> Zero-trust, non-custodial compliance engine — "Evidence without Access." A Go CLI that runs in your CI/CD, evaluates open Go-native policies against your infrastructure and uploaded evidence, signs the resulting evidence locally into your own storage, and (optional, paid tier) submits only aggregated counts — never raw evidence, never identifiers — to a private cloud dashboard. Ships SOC 2 (2017 Trust Services Criteria, default) and ISO/IEC 27001:2022.
+
+Key facts for agents: the framework key is singular (`framework: soc2`, never `frameworks:`). The main entry command is `sigcomply check`, which reads the framework from config and has no `--framework` flag. Exit codes are `0` passed, `1` violations, `2` execution error, `3` config error. Cloud submission is OIDC-only and auto-enables in CI. One repo = one framework = one evidence vault. Raw evidence and identifiers (ARNs, emails, usernames) always stay in the customer's storage; only counts and scores leave.
+
+## Getting started
+
+- [Quickstart](https://github.com/SigComply/sigcomply-cli/blob/main/docs/quickstart.md): Install, `sigcomply init`, and a first passing local `check` in ~10 minutes.
+- [Getting started](https://github.com/SigComply/sigcomply-cli/blob/main/docs/getting-started.md): The full SOC 2 journey including cloud, CI/OIDC, manual evidence, and auditors.
+
+## How-to guides
+
+- [Install](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/install.md): Install via script or Go, pin a version, verify.
+- [Configure sources](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/configure-sources.md): Declare sources and supply read-only credentials for AWS, GCP, Azure, GitHub, GitLab, Okta.
+- [CI on GitHub](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/ci-github.md): Scaffold and wire per-cadence GitHub Actions workflows with OIDC.
+- [CI on GitLab](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/ci-gitlab.md): Scaffold `.gitlab-ci.yml`, pipeline schedules, and OIDC (incl. the id-token caveat).
+- [Manual evidence](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/manual-evidence.md): Upload PDF/image evidence to a bucket folder and consume it from a policy.
+- [Cloud dashboard](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/cloud-dashboard.md): Connect a repo, start the Pro trial, and manage auditor seats.
+- [Verify evidence](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/verify-evidence.md): Use `report` views and the `/verify` SPA to check signatures and integrity.
+- [Troubleshooting](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/troubleshooting.md): Common errors, exit codes, and the GitLab cloud caveat.
+
+## Reference
+
+- [Commands](https://github.com/SigComply/sigcomply-cli/blob/main/docs/reference/commands.md): Every command, flag, default, and exit code.
+- [Frameworks](https://github.com/SigComply/sigcomply-cli/blob/main/docs/reference/frameworks.md): Shipped frameworks, policy counts, and manual catalog overview.
+- [Configuration](https://github.com/SigComply/sigcomply-cli/blob/main/docs/configuration.md): Full `.sigcomply.yaml` schema, env vars, and precedence.
+
+## For AI agents
+
+- [For AI agents](https://github.com/SigComply/sigcomply-cli/blob/main/docs/for-ai-agents.md): Deterministic runbook for setting up a customer compliance repo, plus an `AGENTS.md` template.
+
+## Optional
+
+- [Concepts](https://github.com/SigComply/sigcomply-cli/blob/main/docs/concepts.md): The non-custodial model, the aggregation boundary, ephemeral signing, and the two evidence flows.
+- [Architecture](https://github.com/SigComply/sigcomply-cli/blob/main/ARCHITECTURE.md): Full system design — layers, evidence-type registry, vault layout, cadence.
