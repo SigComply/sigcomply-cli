@@ -283,7 +283,7 @@ only on scheduled pipelines whose `CADENCE` variable matches:
 
 ```yaml
 # excerpt — one job per cadence, all sharing an OIDC id_tokens block
-compliance:on-push:
+compliance:on_push:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'

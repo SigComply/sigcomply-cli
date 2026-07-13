@@ -86,7 +86,8 @@ drift crosses midnight.
 
 The escape hatch for power users. The value after `every:` is a
 Go-style duration (`time.ParseDuration` grammar): `6h`, `30m`,
-`2h30m`, `90s`. Examples:
+`2h30m`, `12h` (values below the 5-minute floor are rejected).
+Examples:
 
 ```yaml
 cadence: every:6h          # every six hours since last pass
@@ -217,8 +218,9 @@ delegates the cadence question to `planner.IsDue`
 ```
 decideEvaluation(filter, cadence, contentHash, prior, now):
 
-  1. filter.IsExplicit() (--policies, --controls, --cadences,
-     --cadence, --on-push):
+  1. filter.IsExplicit() (--cadence, --cadences, --on-push; the
+     planner Filter also has Policies/Controls axes, not yet exposed
+     as check flags):
        → evaluate
        (Operator forced; cadence-gate is bypassed entirely.)
 
@@ -369,9 +371,10 @@ per-policy state after evaluation — so a PR-triggered run that
 passes a daily policy correctly sets `LastPassAt`, and the next
 Scheduled run skips it as expected.
 
-When `--scheduled` is combined with an explicit filter
-(`--policies foo,bar`), the operator's intent wins: every matching
-policy evaluates regardless of cadence state. State load is skipped
+When a scheduled run also carries an explicit selection filter — the
+planner's `Filter.Policies` / `Filter.Controls` axes, not yet exposed
+as `check` flags — the operator's intent wins: every matching policy
+evaluates regardless of cadence state, and state load is skipped
 entirely in that case.
 
 ---
