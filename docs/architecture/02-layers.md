@@ -742,7 +742,7 @@ cross-cutting support packages the layers call into:
 |---|---|---|
 | `internal/sign` | Ed25519 envelope + manifest signing/verification (`sign.Envelope`, `sign.VerifyEnvelope`, `sign.VerifyManifest`). Per-file ephemeral keypair; the manifest is signed once with its own ephemeral keypair. | L4 (envelopes), L7 (manifest) |
 | `internal/log` | Shared logger + redaction (`log.Redact` in `internal/log/log.go`). | all layers, plugins |
-| `internal/manualcatalog` | SPA-facing manual-evidence catalog export (`ManualCatalogExport()`), generated in Go from each framework's `manualSpecs()`. | `evidence catalog` command |
+| `internal/manualcatalog` | The SPA-facing manual-evidence `Catalog` type plus derive helpers (`TitleFromID`, `FrequencyFromCadence`, `GraceForCadence`). Each framework's `ManualCatalogExport()` hook (`internal/frameworks/registry.go`) builds a `Catalog` from its `manualSpecs()`. | `evidence catalog` command |
 | `internal/report` | Read-only auditor snapshot of the vault. | `report` command |
 | `internal/frameworks`, `internal/sources`, `internal/evidence_types` | Self-registering framework/source/schema providers that populate the L2 registries via blank-imported `builtin` packages. | L2 |
 

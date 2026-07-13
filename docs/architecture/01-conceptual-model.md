@@ -290,7 +290,7 @@ SDK chain (region, optionally a profile or assumed role configured under
 
 ```go
 func (p *iamPlugin) ID() string      { return "aws.iam" }
-func (p *iamPlugin) Emits() []string { return []string{"directory_user"} }
+func (p *iamPlugin) Emits() []string { return []string{"directory_user.v2"} }
 ```
 
 **What it is *not*.** A source plugin is not a policy. A source plugin

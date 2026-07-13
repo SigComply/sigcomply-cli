@@ -90,7 +90,9 @@ Evidence types are **JSON Schema documents** under
 `internal/evidence_types/schemas/<id>.v<n>.json` (in-tree). The file
 *is* a JSON Schema — there is no separate metadata wrapper. Two
 extension fields carry the registry metadata: `title` holds the type ID
-(e.g. `"directory_user.v2"`) and `version` holds the integer version.
+— bare for v1 types (`"directory_user"`), version-suffixed only for
+re-versioned types (`"directory_user.v2"`) — and `version` holds the
+integer version.
 One file per type per version. (Project-local types under
 `.sigcomply/evidence_types/` use the same JSON form; that path is
 planned, not yet shipped — see the status table.)
@@ -99,7 +101,7 @@ planned, not yet shipped — see the status table.)
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.sigcomply.io/evidence_types/directory_user/v1.json",
-  "title": "directory_user.v1",
+  "title": "directory_user",
   "version": 1,
   "description": "Cross-vendor identity record. A human or service-account user from an identity provider, used by policies that verify MFA enforcement, access-key hygiene, and dormant-account controls. Plugins emitting this type include aws.iam, okta, and github. Cross-source dedup key (convention only — not parsed): email.",
   "type": "object",
@@ -122,7 +124,7 @@ planned, not yet shipped — see the status table.)
 
 | Field | Required | Description |
 |---|---|---|
-| `title` | yes | The type ID, **with** its version suffix (`directory_user.v2`). This is what the registry keys on and what plugins set as `record.Type`. |
+| `title` | yes | The type ID. **Bare** for v1 types (`directory_user`); version-suffixed only for re-versioned types (`directory_user.v2`). This is what the registry keys on and what plugins set as `record.Type`. |
 | `version` | yes | Integer version. New versions are independent registrations (see §Versioning). |
 | `description` | yes | What this type represents, why it exists, who emits it — and, by convention, the cross-source identity field if any (there is **no** parsed `identity_key` key; see §The cross-source identity story). |
 | the schema body (`type`, `required`, `properties`, …) | yes | A standard JSON Schema draft-07 document describing the `payload` of an `EvidenceRecord` of this type. |
@@ -294,22 +296,27 @@ The shipped `directory_user.v2` schema, verbatim
   "$id": "https://schemas.sigcomply.io/evidence_types/directory_user/v2.json",
   "title": "directory_user.v2",
   "version": 2,
-  "description": "Cross-vendor identity record (v2) — extends directory_user.v1 with privileged-access, access-key, and account-lifecycle fields needed for deeper IAM hygiene policies. Requires all v1 fields plus is_root, has_console_access, has_programmatic_access.",
+  "description": "Cross-vendor identity record (v2) — extends directory_user.v1 with privileged-access, access-key, and account-lifecycle fields needed for deeper IAM hygiene policies. Requires all v1 fields plus is_root, has_console_access, has_programmatic_access. Plugins that cannot compute optional fields should omit them.",
   "type": "object",
   "required": ["id", "mfa_enabled", "is_root", "has_console_access", "has_programmatic_access"],
   "properties": {
-    "id":                      { "type": "string" },
-    "display_name":            { "type": "string" },
-    "email":                   { "type": "string" },
-    "mfa_enabled":             { "type": "boolean" },
-    "is_admin":                { "type": "boolean" },
-    "is_service_account":      { "type": "boolean" },
-    "is_active":               { "type": "boolean" },
-    "is_root":                 { "type": "boolean" },
-    "has_console_access":      { "type": "boolean" },
-    "has_programmatic_access": { "type": "boolean" },
-    "direct_policy_count":     { "type": "integer" },
-    "unused_days":             { "type": "integer" }
+    "id":                     { "type": "string", "description": "Unique within the emitting source." },
+    "display_name":           { "type": "string" },
+    "email":                  { "type": "string" },
+    "mfa_enabled":            { "type": "boolean", "description": "User has MFA enrolled and required at sign-on." },
+    "mfa_factor_count":       { "type": "integer" },
+    "is_admin":               { "type": "boolean", "description": "Has account-wide elevated privileges." },
+    "is_service_account":     { "type": "boolean" },
+    "is_external":            { "type": "boolean", "description": "Identity is external to the organization (outside collaborator, guest/B2B, contractor). Optional; guard with is_set before filtering." },
+    "is_active":              { "type": "boolean" },
+    "last_login_at":          { "type": "string" },
+    "created_at":             { "type": "string" },
+    "is_root":                { "type": "boolean", "description": "This identity is the cloud provider's root or break-glass account (AWS root, GCP org admin super-admin)." },
+    "has_console_access":     { "type": "boolean", "description": "Can authenticate via the web console / GUI." },
+    "has_programmatic_access":{ "type": "boolean", "description": "Has at least one active programmatic credential (AWS access key, GCP service account key)." },
+    "direct_policy_count":    { "type": "integer", "description": "Number of IAM policies attached directly to the user (not via group). 0 is ideal; >0 violates group-based access hygiene." },
+    "unused_days":            { "type": "integer", "description": "Days since the identity last authenticated. -1 means never used / data unavailable." },
+    "groups":                 { "type": "array", "description": "Group memberships (names or IDs)." }
   },
   "additionalProperties": true
 }
