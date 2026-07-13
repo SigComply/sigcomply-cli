@@ -65,8 +65,9 @@ These are two entirely separate concerns. OIDC is never used to sign evidence.
    // Only aggregated results (counts, not resource IDs) go to the Cloud API.
    // internal/submitter POSTs a core.SubmissionPayload (schema
    // sigcomply.cloud.v3) to /api/v1/runs with the OIDC token in the
-   // Authorization header. The payload is structurally counts-only — no
-   // map[string]any, no Violations slice.
+   // Authorization header and an X-OIDC-Provider: github|gitlab header
+   // telling Rails which JWKS/claim set to validate against. The payload is
+   // structurally counts-only — no map[string]any, no Violations slice.
    ```
 
 4. **Rails API Validates the OIDC Token:**

@@ -393,9 +393,11 @@ framework, so exactly one `manual.pdf` source and one bucket per project
 | `sigcomply collect` / `evaluate` | Planned | Collect-only / offline-evaluate modes |
 | `sigcomply evidence {init, path}` | Removed | Old period-scaffolding / upload-URI subcommands; only `catalog` returned |
 
-Framework resolves from `-f/--framework` on `init`, or `SIGCOMPLY_FRAMEWORK`
-/ `framework:` in config (default `soc2`), for `check`. **`check` itself has
-no `--framework` flag** — it reads `framework:` from the loaded config.
+Framework resolution differs by command: `init` and `evidence catalog`
+resolve `-f/--framework` → `SIGCOMPLY_FRAMEWORK` → `soc2` default. **`check`
+reads `framework:` from the loaded config only** — it has no `--framework`
+flag and ignores `SIGCOMPLY_FRAMEWORK`; a missing `framework:` is a config
+error (exit 3), not a `soc2` default.
 
 **Flags & config:** full flag list and `.sigcomply.yaml` schema in
 [docs/configuration.md](./docs/configuration.md). Gotchas: there is **no**
@@ -456,8 +458,11 @@ it's plausible.)
 - `collect`, `evaluate`, `config` commands (`init` is now wired)
 - Secret scanner
 - SARIF output formatter (config validates the format; no implementation)
-- First-class GitLab CI component (only an example pipeline at
-  `examples/gitlab-ci.yml` to copy)
+- First-class GitLab CI *component* (the `include: component` catalog
+  feature). `init-ci --ci gitlab` does scaffold a standalone `.gitlab-ci.yml`
+  (from `cmd/sigcomply/templates/gitlab/.gitlab-ci.yml`), and
+  `examples/gitlab-ci.yml` is copyable — but no reusable component/catalog
+  entry is published
 
 ---
 

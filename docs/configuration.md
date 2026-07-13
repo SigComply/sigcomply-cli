@@ -8,8 +8,10 @@ SigComply CLI can be configured through three sources, listed from lowest to hig
 
 Higher-priority sources override lower ones where they overlap. Note the
 flag surface is narrow: most settings (framework, storage, sources) are
-config-only. For the framework specifically, `SIGCOMPLY_FRAMEWORK=soc2`
-beats `framework:` in the config; there is no `--framework` flag on `check`.
+config-only. `check` reads the framework **only** from `framework:` in the
+config — there is no `--framework` flag, and `SIGCOMPLY_FRAMEWORK` is
+consulted only by `init` and `evidence catalog`, never by `check`. A
+missing `framework:` is a config error (exit 3), not a `soc2` default.
 
 ---
 
@@ -65,10 +67,14 @@ per-provider sections. For *which evidence type each source emits*, see the
 provider × evidence-type matrix in
 [`architecture/04-source-plugins.md`](architecture/04-source-plugins.md).
 
-Credentials are **never** config keys — they always come from the
+Credentials are **generally not** config keys — they come from the
 provider's ambient credential chain (env vars, IAM roles, ADC, OIDC /
-workload-identity federation). The keys below only identify *what* to scan
-(account / project / subscription / org), never *how* to authenticate.
+workload-identity federation). The keys below mostly identify *what* to scan
+(account / project / subscription / org), not *how* to authenticate. The
+exceptions are the token-based sources: `github`/`gitlab` accept an optional
+`token`, and `okta` an optional `api_token`, each falling back to
+`GITHUB_TOKEN` / `GITLAB_TOKEN` / `OKTA_API_TOKEN` when the config key is
+omitted (see the source tables below).
 
 | Source ID(s) | Required keys | Optional keys | Credential chain |
 |--------------|---------------|---------------|------------------|
@@ -1168,7 +1174,7 @@ These are the only `SIGCOMPLY_*` variables the CLI reads. Everything else
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SIGCOMPLY_FRAMEWORK` | `soc2` | Compliance framework (overrides `framework:` in the config; overridden by no flag — `check` reads config/env only) |
+| `SIGCOMPLY_FRAMEWORK` | `soc2` | Compliance framework for `init` and `evidence catalog` only (each resolves `-f/--framework` flag → `SIGCOMPLY_FRAMEWORK` → `soc2` default). **`check` ignores it** — `check` reads `framework:` from the config. |
 | `SIGCOMPLY_ID_TOKEN` | — | OIDC ID token for Cloud submission when not injected by the CI provider's native mechanism |
 | `SIGCOMPLY_VERSION` | build value | Overrides the reported CLI version (used in CI image builds) |
 
@@ -1371,7 +1377,8 @@ This is the complete flag set registered by `sigcomply check`. There is
 `--store`, `--storage-path`, `--storage-backend`, `--github-org`,
 `--policies`, `--controls`, `--quiet`, `--service`, `--collector`,
 `--fail-on-violation`, or `--fail-severity` flag. Framework comes from
-`framework:`/`SIGCOMPLY_FRAMEWORK`; storage from `vault:`/`sources:`;
+`framework:` in the config (`check` does not read `SIGCOMPLY_FRAMEWORK`);
+storage from `vault:`/`sources:`;
 `fail_on_violation`/`fail_severity` from `ci:` — all in the config file.
 
 ```
@@ -1516,8 +1523,8 @@ jobs:
 ```yaml
 compliance:
   image: golang:1.25
-  variables:
-    SIGCOMPLY_FRAMEWORK: soc2
+  # Framework comes from framework: in .sigcomply.yaml — check does not
+  # read SIGCOMPLY_FRAMEWORK.
   script:
     - sigcomply check
   artifacts:
@@ -1536,11 +1543,12 @@ Store these as CI secrets (never in code):
 | `GITHUB_TOKEN` | CI secret (auto-provided in GitHub Actions) |
 
 Non-secrets go in `.sigcomply.yaml` (framework, sources, vault, GitHub
-org, AWS region) or — for the framework only — `SIGCOMPLY_FRAMEWORK`:
+org, AWS region). `SIGCOMPLY_FRAMEWORK` is read only by `init` and
+`evidence catalog`, never by `check`:
 
 | Setting | Where to Set |
 |---------|-------------|
-| Framework | `framework:` in config, or `SIGCOMPLY_FRAMEWORK` env var |
+| Framework | `framework:` in config (required for `check`). `SIGCOMPLY_FRAMEWORK` applies only to `init` / `evidence catalog`. |
 | GitHub org | `sources.github.org` in config |
 | AWS region | `sources.aws.<svc>.region` / `vault.region` in config, or the SDK's `AWS_REGION` |
 
@@ -1548,20 +1556,28 @@ org, AWS region) or — for the framework only — `SIGCOMPLY_FRAMEWORK`:
 
 ## Precedence Examples
 
-Framework resolution order is `SIGCOMPLY_FRAMEWORK` env var → `framework:`
-in the config → built-in default (`soc2`). `check` has no `--framework`
-flag, so the env var is the highest-precedence source for the framework.
+Framework resolution differs by command:
+
+- **`check`** reads the framework **only** from `framework:` in the config.
+  It has no `--framework` flag and ignores `SIGCOMPLY_FRAMEWORK`. A missing
+  `framework:` is a hard config error (exit 3) — there is no `soc2` default.
+- **`init`** and **`evidence catalog`** resolve `-f/--framework` flag →
+  `SIGCOMPLY_FRAMEWORK` env var → built-in default (`soc2`).
 
 ```bash
-# Config file says iso27001, env says soc2
-# Result: soc2 (env wins over file)
+# check: config says iso27001, env is ignored
+# Result: iso27001 (from framework: in config)
 SIGCOMPLY_FRAMEWORK=soc2 sigcomply check
 
-# Config file says iso27001, no env
-# Result: iso27001 (file wins over default)
+# check: config says iso27001
+# Result: iso27001
 sigcomply check
 
-# No framework in config, no env
-# Result: soc2 (built-in default)
+# check: no framework: in config
+# Result: exit 3 config error (no default)
 sigcomply check
+
+# evidence catalog / init: flag > env > soc2 default
+SIGCOMPLY_FRAMEWORK=iso27001 sigcomply evidence catalog   # → iso27001
+sigcomply init                                            # → soc2 (default)
 ```

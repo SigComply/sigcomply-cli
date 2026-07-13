@@ -150,7 +150,7 @@ soc2/2026-Q1/run_20260215T135500Z_a3f8b2c1/
    policies/                            # one folder per in-scope policy
       soc2.cc6.1.mfa_enforced_admins/
          envelopes/
-            directory_user.v2__okta.json
+            directory_user__okta.json
             directory_user.v2__acme.internal_iam.json
          result.json
       ...
