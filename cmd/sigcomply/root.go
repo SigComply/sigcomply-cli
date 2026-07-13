@@ -27,12 +27,18 @@ func SetVersionInfo(version, commit, buildTime string) {
 func Execute() int {
 	rootCmd := newRootCmd()
 	if err := rootCmd.Execute(); err != nil {
-		// Cobra already printed the error; honor any RunResult exit
-		// code stamped via ExitCodeError, else default to 2.
+		// The root command sets SilenceErrors, so we own the top-level
+		// error print. Honor any exit code stamped via exitCodeError,
+		// else default to 2. A bare exitCodeError (code only, no wrapped
+		// error) is a normal non-OK exit such as a policy violation — no
+		// message to print, just the code.
 		if e, ok := err.(*exitCodeError); ok {
+			if e.err != nil {
+				fmt.Fprintln(os.Stderr, "Error:", e.err)
+			}
 			return e.code
 		}
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, "Error:", err)
 		return 2
 	}
 	return 0
@@ -46,6 +52,13 @@ func newRootCmd() *cobra.Command {
 			"policies (a declarative pass_when DSL) against infrastructure and uploaded\n" +
 			"evidence, signs the resulting evidence locally, and\n" +
 			"optionally submits aggregated counts to a private cloud dashboard.\n",
+		// Don't dump the ~19-line usage/flags block after a runtime error
+		// (a missing config, a bad framework); the one-line message is what
+		// the operator needs. Usage still prints for genuine flag-parse
+		// errors and `--help`. SilenceErrors lets Execute() own the single
+		// top-level "Error: ..." print (see Execute).
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(newCheckCmd())
