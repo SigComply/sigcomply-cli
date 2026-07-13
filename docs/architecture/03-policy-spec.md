@@ -58,7 +58,7 @@ id: soc2.cc6.1.mfa_enforced
 control: SOC2.CC6.1
 severity: high               # info | low | medium | high | critical
 category: access_control
-evidence_mode: automated     # automated (default) | manual
+evidence_mode: automated     # automated | manual (required — no default)
 
 cadence: daily               # continuous | hourly | daily | weekly | monthly | quarterly | annual
 on_push: true                # run on every PR/push for fast feedback
@@ -299,7 +299,7 @@ parameters:
 | `string` | string | Optional `enum: [...]` or `pattern: <regex>` |
 | `duration` | `"30d"`, `"24h"`, `"15m"` | Parsed via Go `time.ParseDuration` extended for days |
 | `date` | `"2026-01-15"` | ISO 8601 date |
-| `list_of_string` | `["a", "b"]` | Optional `item_pattern: <regex>` |
+| `list_of_string` | `["a", "b"]` | Optional `item_pattern: <regex>` (parsed but not yet enforced) |
 | `list_of_int` | `[1, 2, 3]` | |
 
 ### Effective values
@@ -328,7 +328,7 @@ policy.
 
 | Value | Collection | Evaluation |
 |---|---|---|
-| `automated` (default) | Planner binds configured API source plugins to the policy's declared slots. The collector calls `plugin.Collect()` for each binding. | The evaluator runs the `pass_when:` condition DSL, or the `rule:` escape hatch if `pass_when:` is absent. |
+| `automated` | Planner binds configured API source plugins to the policy's declared slots. The collector calls `plugin.Collect()` for each binding. | The evaluator runs the `pass_when:` condition DSL, or the `rule:` escape hatch if `pass_when:` is absent. |
 | `manual` | Planner binds `manual.pdf` to an implicit slot, resolving the PDF path via `catalog_entry`. No API calls. | The evaluator runs the universal PDF-presence check: `file_present`, `in_temporal_window`, `file_valid`. `pass_when:` and `rule:` are ignored entirely. |
 
 ### Project-level override

@@ -248,10 +248,11 @@ slots:
     accepts: [directory_user]
     cardinality: one-or-more
 pass_when:
-  all:
-    # condition node is a {op, field, value} triple; field paths are
-    # rooted at payload.* (a bare field name errors the policy).
-    leaf: { op: eq, field: payload.mfa_enabled, value: true }
+  slot: user_directory
+  quantifier: all
+  # condition node is a {op, field, value} triple; field paths are
+  # rooted at payload.* (a bare field name errors the policy).
+  condition: { op: eq, field: payload.mfa_enabled, value: true }
 ```
 
 The supported quantifiers are `all | none | any | count` (only `count`
@@ -562,9 +563,10 @@ slots:
     accepts: [acme_principal]
     cardinality: one-or-more
 pass_when:
-  all:
-    leaf: { op: in, field: payload.security_clearance,
-            value: [internal, confidential, secret] }
+  slot: principals
+  quantifier: all
+  condition: { op: in, field: payload.security_clearance,
+               value: [internal, confidential, secret] }
 ```
 
 The `pass_when:` reads `payload.security_clearance`, which
