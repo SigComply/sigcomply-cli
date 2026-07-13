@@ -32,7 +32,9 @@ variables:
       else
         tag="$version"
       fi
-      curl -fsSL "https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply-linux-amd64" -o /usr/local/bin/sigcomply
+      ver="${tag#v}"
+      curl -fsSL "https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply_${ver}_linux_amd64.tar.gz" -o /tmp/sigcomply.tar.gz
+      tar -xzf /tmp/sigcomply.tar.gz -C /usr/local/bin sigcomply
       chmod +x /usr/local/bin/sigcomply
 
 compliance:on_push:

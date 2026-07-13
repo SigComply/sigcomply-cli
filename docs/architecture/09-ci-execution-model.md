@@ -187,10 +187,10 @@ The templates live at `cmd/sigcomply/templates/github/` and carry an
   and `pull_request`.
 - Requests `id-token: write` + `contents: read` permissions (the OIDC
   token for SigComply Cloud submission).
-- Installs the CLI by `curl`-ing the release binary from GitHub Releases
-  (`https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply-linux-amd64`),
-  resolving `latest` via the GitHub releases API when `SIGCOMPLY_VERSION`
-  is `latest`.
+- Installs the CLI by `curl`-ing the release tarball from GitHub Releases
+  (`https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply_${ver}_linux_amd64.tar.gz`)
+  and extracting the `sigcomply` binary, resolving `latest` via the GitHub
+  releases API when `SIGCOMPLY_VERSION` is `latest`.
 - Configures cloud credentials via `aws-actions/configure-aws-credentials@v4`
   with `audience: https://api.sigcomply.com`.
 - Runs `sigcomply check --cadence <X>` (or `sigcomply check --on-push`
@@ -250,7 +250,9 @@ jobs:
           else
             tag="$version"
           fi
-          curl -fsSL "https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply-linux-amd64" -o /usr/local/bin/sigcomply
+          ver="${tag#v}"
+          curl -fsSL "https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply_${ver}_linux_amd64.tar.gz" -o /tmp/sigcomply.tar.gz
+          tar -xzf /tmp/sigcomply.tar.gz -C /usr/local/bin sigcomply
           chmod +x /usr/local/bin/sigcomply
       - uses: aws-actions/configure-aws-credentials@v4
         with:
