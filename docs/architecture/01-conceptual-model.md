@@ -478,8 +478,8 @@ credentials, one organizational unit.
 **One project = one framework.** Customers pursuing SOC 2 + ISO 27001
 typically use two repositories: each holds its own `.sigcomply.yaml`,
 its own bindings, its own CI workflow files, and its own vault prefix.
-The CLI does not forbid `--framework` overrides at the command line, but
-the canonical pattern is one-framework-per-project. Multi-framework
+`check` has no `--framework` override — it reads `framework:` from
+`.sigcomply.yaml` — so the canonical pattern is one-framework-per-project. Multi-framework
 within one repo creates ambiguity at the CI scheduling layer (which
 framework's daily cadence does the daily workflow run?) and is not the
 supported configuration.
@@ -549,8 +549,9 @@ A run writes one folder under
 `{vault_root}/{framework}/{period_id}/run_{timestamp}_{run_id_short}/`.
 That folder is immutable once the run completes.
 
-**Example.** AcmeCorp's nightly CI runs `sigcomply check --framework
-soc2`. The run lands in `soc2/2026-Q1/run_20260223T030000Z_a3f8b2c1/`.
+**Example.** AcmeCorp's nightly CI runs `sigcomply check` (the framework
+is read from `.sigcomply.yaml`). The run lands in
+`soc2/2026-Q1/run_20260223T030000Z_a3f8b2c1/`.
 
 **What it is *not*.** A run is not the audit period. A period
 typically contains many runs. A run is not the unit auditors ultimately
