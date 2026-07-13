@@ -149,6 +149,12 @@ func TestInitCI_MissingCIFlagIsRequired(t *testing.T) {
 	if err == nil {
 		t.Fatal("want error when --ci is omitted")
 	}
+	// A missing required flag is a configuration error → exit 3, not
+	// cobra's default exit 2.
+	var ec *exitCodeError
+	if !errors.As(err, &ec) || ec.code != orchestrator.ExitConfig {
+		t.Errorf("want ExitConfig (3) for missing --ci; got %v", err)
+	}
 }
 
 func TestInitCI_GoldenCompare_GitHub(t *testing.T) {

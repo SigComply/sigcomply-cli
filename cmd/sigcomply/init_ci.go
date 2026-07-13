@@ -65,10 +65,10 @@ func newInitCICmd() *cobra.Command {
 	cmd.Flags().StringVar(&flags.outDir, "out", "", "Output directory (defaults to .github/workflows/ for github, repo root for gitlab)")
 	cmd.Flags().BoolVar(&flags.force, "force", false, "Overwrite existing files (default: refuse if any target file exists)")
 	cmd.Flags().StringVarP(&flags.config, "config", "c", ".sigcomply.yaml", "Path to project config (used to default --framework)")
-	if err := cmd.MarkFlagRequired("ci"); err != nil {
-		// Only fails if the flag wasn't registered above — programmer error.
-		panic(fmt.Sprintf("init-ci: MarkFlagRequired(ci): %v", err))
-	}
+	// --ci is required, but we validate it in runInitCI (via validateCI)
+	// rather than cmd.MarkFlagRequired so a missing flag returns exit 3
+	// (configuration error) per the exit-code taxonomy, not cobra's
+	// default exit 2.
 	return cmd
 }
 
@@ -102,6 +102,9 @@ func runInitCI(stdout io.Writer, flags initCIFlags) error {
 }
 
 func validateCI(ci string) error {
+	if ci == "" {
+		return fmt.Errorf("init-ci: --ci is required (one of %s)", strings.Join(supportedCIs, ", "))
+	}
 	for _, ok := range supportedCIs {
 		if ci == ok {
 			return nil
@@ -243,7 +246,8 @@ func printSummary(stdout io.Writer, framework, ci string, written []string) {
 	b.WriteString("\nNext steps:\n")
 	b.WriteString("  1. Replace AWS_ROLE_ARN placeholders with the IAM role you've configured\n")
 	b.WriteString("     for OIDC role assumption (aud: https://api.sigcomply.com).\n")
-	b.WriteString("  2. Optionally pin SIGCOMPLY_VERSION to a tagged release instead of \"latest\".\n")
+	b.WriteString("  2. SIGCOMPLY_VERSION is pinned to a tagged release; bump it to adopt a\n")
+	b.WriteString("     newer version (or set it to \"latest\" to always track the newest).\n")
 	switch ci {
 	case "gitlab":
 		b.WriteString("  3. Create one GitLab pipeline schedule per cadence (daily, weekly,\n")
