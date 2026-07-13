@@ -46,6 +46,12 @@ func TestInit_ScaffoldsValidConfig(t *testing.T) {
 	if _, ok := cfg.Sources["aws.iam"]; !ok {
 		t.Errorf("expected aws.iam in scaffolded sources, got %v", cfg.Sources)
 	}
+	// manual.pdf must be scaffolded too: the framework ships manual-evidence
+	// policies, and without a manual.pdf source they error (source not
+	// registered) rather than reporting fail. See init.go starterConfig.
+	if _, ok := cfg.Sources["manual.pdf"]; !ok {
+		t.Errorf("expected manual.pdf in scaffolded sources, got %v", cfg.Sources)
+	}
 	// No policies: block — auto-binding carries the first run.
 	if len(cfg.Policies) != 0 {
 		t.Errorf("expected no policies: block in scaffold, got %v", cfg.Policies)

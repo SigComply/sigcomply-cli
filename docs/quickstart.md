@@ -65,6 +65,17 @@ Two things to know:
 - **Policies auto-bind** to any configured source that emits the evidence type
   they need — you do **not** need a `bindings:` block to start.
 
+The full scaffold also wires a `manual.pdf` source pointing at a local
+`./evidence` folder. SOC 2 ships ~40 controls whose evidence is a document rather
+than an API call (access reviews, signed NDAs, training certificates, risk
+declarations). Until you upload those files they simply report **fail**
+("evidence not found") — see [What you'll see](#what-youll-see) — and
+[Getting started](getting-started.md) walks through producing and uploading them.
+For the declaration/checklist entries you can generate the PDF with the optional
+[Evidence SPA](guides/manual-evidence.md); externally-sourced documents (HR
+exports, certificates) you upload directly. The SPA shows only the
+declaration/checklist entries by design.
+
 ## Step 2 — Export read-only AWS credentials
 
 `sigcomply` reads AWS credentials from the environment using the standard AWS SDK
@@ -91,7 +102,10 @@ source, evaluates each policy, and signs the results into your vault.
 
 ## What you'll see
 
-A run summary is printed to your terminal, followed by an exit code:
+Before any API call, `check` prints a short banner naming the sources it is about
+to collect from (and their region/backend) — a reminder that this is a live run
+against real infrastructure, not a dry run. Then a run summary is printed,
+followed by an exit code:
 
 - **Exit `0`** — every evaluated policy passed.
 - **Exit `1`** — the run completed but found violations (policies that failed).
@@ -103,8 +117,21 @@ Check the exit code with:
 echo $?
 ```
 
-Both `0` and `1` mean the run worked — `1` just means your infrastructure has
-findings to remediate, which is normal on a first run.
+Both `0` and `1` mean the run worked — `1` just means there are findings to
+address, which is **normal and expected on a first run**. In particular:
+
+- **Manual-evidence controls report `fail`** with a reason line like
+  `manual evidence not found; expected files in: file://./evidence/manual/...`.
+  That's the CLI telling you exactly where to drop each document. They pass once
+  you upload files to those folders.
+- **Controls whose source you haven't configured are `skip`ped** (e.g. GitHub or
+  GCP checks when you only wired AWS). Skipped controls are listed separately and
+  are **not** counted in the compliance score — a green run that skips controls is
+  not a passing audit.
+
+A fresh `sigcomply init -f soc2 && sigcomply check` therefore exits `1` (findings
+to remediate), never `2` — every control either evaluates, fails with an
+actionable reason, or is transparently skipped.
 
 ## Where your evidence landed
 
@@ -130,8 +157,9 @@ sigcomply report --period 2026-Q1
 
 ## Next steps
 
-- **[Getting started](getting-started.md)** — connect SigComply Cloud, run in CI
-  with OIDC, add manual evidence, and invite an auditor.
+- **[Getting started](getting-started.md)** — connect SigComply Cloud
+  (sign up at **https://sigcomply.com**), run in CI with OIDC, add manual
+  evidence, and invite an auditor.
 - **[Configure sources](guides/configure-sources.md)** — add GCP, Azure, GitHub,
   GitLab, or Okta sources with read-only credentials.
 - **[CI on GitHub](guides/ci-github.md)** / **[CI on GitLab](guides/ci-gitlab.md)** — automate `check` on a cadence.

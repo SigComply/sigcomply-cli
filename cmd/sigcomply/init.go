@@ -122,6 +122,21 @@ sources:
   # okta:
   #   org_url: https://your-org.okta.com
 
+  # Manual evidence (a project-level singleton). Many ` + fw + ` controls need
+  # documents an API can't produce — access reviews, signed NDAs, security-
+  # training certificates, risk-acceptance declarations. Without this source
+  # every such control errors out ("source manual.pdf not registered"); with
+  # it they simply report fail ("evidence not found") until you upload. Drop
+  # the files (PDF/JPEG/PNG/GIF/TIFF/WebP/BMP) into
+  #     ./evidence/manual/<evidence_catalog_id>/<period_id>/
+  # List the catalog IDs with ` + "`sigcomply evidence catalog -f " + fw + "`" + `. The optional
+  # Evidence SPA renders only the declaration/checklist entries; export
+  # certificates and HR reports are produced outside it. For production,
+  # switch backend to s3 / gcs / azure_blob (one bucket per project).
+  manual.pdf:
+    backend: local
+    path: ./evidence
+
 # ---------------------------------------------------------------------------
 # Vault — where signed evidence is stored (it never leaves your environment)
 # ---------------------------------------------------------------------------
