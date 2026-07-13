@@ -15,7 +15,7 @@ policy libraries. Policies are open, Go-native declarative definitions
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/sigcomply/sigcomply-cli/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/SigComply/sigcomply-cli/main/scripts/install.sh | sh
 ```
 
 This downloads the pre-built binary for your platform from the latest
@@ -24,6 +24,13 @@ GitHub release. Alternatively, with a Go toolchain:
 ```sh
 go install github.com/sigcomply/sigcomply-cli@latest
 ```
+
+> `go install` names the binary after the module's last path segment, so
+> it installs as `sigcomply-cli`. Rename or symlink it to `sigcomply` so
+> the commands below work as written, e.g.
+> `ln -sf "$(go env GOPATH)/bin/sigcomply-cli" "$(go env GOPATH)/bin/sigcomply"`.
+> The module path is lowercase (`github.com/sigcomply/sigcomply-cli`) and
+> must be typed exactly — it is case-sensitive.
 
 ## Quick start
 
@@ -113,7 +120,9 @@ Run `sigcomply init-ci` to scaffold standalone, per-cadence workflow
 files calibrated to your framework's cadence distribution. On GitHub
 Actions it writes `compliance-{daily,weekly,monthly,quarterly,annual,on-push}.yml`
 under `.github/workflows/`; each downloads the binary from GitHub
-Releases and runs `sigcomply check` for that cadence.
+Releases and runs `sigcomply check` for that cadence. On GitLab, run
+`sigcomply init-ci --ci gitlab` to scaffold an equivalent `.gitlab-ci.yml`
+whose cadence jobs are driven by pipeline schedules.
 
 Copy-paste starting points also live under `examples/`:
 `examples/github-actions/{basic,multi-environment}.yml` and
