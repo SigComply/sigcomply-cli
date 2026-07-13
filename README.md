@@ -11,6 +11,26 @@ production-ready, default) and **ISO/IEC 27001:2022** (all 93 Annex A controls).
 
 **One project = one source-control repo = one compliance framework = one evidence vault.**
 
+## The SigComply product
+
+SigComply is **"Evidence without Access"** — compliance automation where raw
+evidence never leaves your environment. It has four components:
+
+1. **The Engine (this CLI)** — runs in your CI/CD; collects evidence, evaluates
+   Go-native policies, and signs results locally into your own storage.
+2. **The Compliance Dashboard** — a hosted web app that stores only aggregated
+   pass/fail counts and scores (never raw evidence, never PII) and powers
+   auditor reports. **Sign up at [sigcomply.com](https://sigcomply.com).**
+3. **The Manual Evidence SPA** — a static, backend-less browser helper that
+   turns declaration/checklist forms into a PDF and re-verifies signed evidence
+   ([repo](https://github.com/SigComply/sigcomply-evidence-spa)).
+4. **CLI E2E test harnesses** — reference GitHub Actions and GitLab CI projects
+   that run the full pipeline against a test org.
+
+The CLI is fully usable standalone (`--no-cloud`); the Dashboard is an optional
+paid tier, with a no-card 2-month Pro trial that starts on your first run
+submission. Jump to the [quickstart](#quickstart).
+
 ## Install
 
 Primary — downloads the prebuilt binary for your OS/arch from the latest GitHub release:
