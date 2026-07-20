@@ -60,7 +60,7 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0
 	gitlab.com/gitlab-org/api/client-go v1.46.0
 	golang.org/x/image v0.44.0
-	google.golang.org/api v0.288.0
+	google.golang.org/api v0.289.0
 	gopkg.in/dnaeon/go-vcr.v4 v4.0.6
 	gopkg.in/yaml.v3 v3.0.1
 )
