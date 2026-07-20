@@ -50,7 +50,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.105.0
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.43.0
 	github.com/aws/aws-sdk-go-v2/service/securityhub v1.73.0
-	github.com/aws/smithy-go v1.27.3
+	github.com/aws/smithy-go v1.27.4
 	github.com/getkin/kin-openapi v0.134.0
 	github.com/google/uuid v1.6.0
 	github.com/open-policy-agent/opa v1.18.2
