@@ -30,8 +30,8 @@ github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 h1:fhqpLE3UEXi9lPaBRpQ6Xu
 github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0/go.mod h1:7dCRMLwisfRH3dBupKeNCioWYUZ4SS09Z14H+7i8ZoY=
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/appservice/armappservice/v6 v6.0.0 h1:vhXsRicy0J6KLMsd7sAL6ll2CMEag2V2tIpuVI2CZP0=
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/appservice/armappservice/v6 v6.0.0/go.mod h1:8bqI53aVbpaMreTHLfgG5VcqQKmfBc99UZtPozthauQ=
-github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/certificateregistration/armcertificateregistration v0.1.0 h1:qAyJqW24pfVIILGLJ8Bkd9NmIUj9O2w24uRwVUqlvZA=
-github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/certificateregistration/armcertificateregistration v0.1.0/go.mod h1:DjE3/1EwEFIdUjbVRfSpKUGdHX79ykUKdub7bxiPi6Y=
+github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/certificateregistration/armcertificateregistration v1.0.0 h1:36UQ0gJoJ7yXLSSVXe9zBwp6GqCRExnp3fODxBOd+G0=
+github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/certificateregistration/armcertificateregistration v1.0.0/go.mod h1:Gvd5eO/Lkec5I1T5Z8scaxRNswpuNyJ8NjZ/WMpwyKQ=
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7 v7.3.0 h1:nyxugFxG2uhbMeJVCFFuD2j9wu+6KgeabITdINraQsE=
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7 v7.3.0/go.mod h1:e4RAYykLIz73CF52KhSooo4whZGXvXrD09m0jkgnWiU=
 github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry/v3 v3.0.0 h1:07oYAINVqsub90MrYYdlTSwNSwqOM4OAAg5+35OMqn0=
