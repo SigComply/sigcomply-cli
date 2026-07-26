@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:55657
+        host: compute.googleapis.com
         form:
             alt:
                 - json
@@ -18,21 +18,36 @@ interactions:
                 - google-api-go-client/0.5
             X-Goog-Api-Client:
                 - gl-go/1.25.8 gdcl/0.283.0
-        url: https://compute.googleapis.com/projects/e2e-project/global/firewalls?alt=json&prettyPrint=false
+        url: https://compute.googleapis.com/compute/v1/projects/e2e-project/global/firewalls?alt=json&prettyPrint=false
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 227
-        body: '{"items":[{"name":"allow-web","direction":"INGRESS","network":"projects/e2e-project/global/networks/default","priority":1000,"sourceRanges":["0.0.0.0/0"],"allowed":[{"IPProtocol":"tcp","ports":["80","443"]}],"disabled":false}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"kind":"compute#firewallList","id":"projects/e2e-project/global/firewalls","items":[{"kind":"compute#firewall","id":"1222213409027177741","creationTimestamp":"2026-07-25T11:43:46.330-07:00","name":"default-allow-icmp","description":"Allow ICMP from anywhere","network":"https://www.googleapis.com/compute/v1/projects/e2e-project/global/networks/default","priority":65534,"sourceRanges":["0.0.0.0/0"],"allowed":[{"IPProtocol":"icmp"}],"direction":"INGRESS","logConfig":{"enable":false},"disabled":false,"selfLink":"https://www.googleapis.com/compute/v1/projects/e2e-project/global/firewalls/default-allow-icmp"},{"kind":"compute#firewall","id":"7066420269627784461","creationTimestamp":"2026-07-25T11:43:46.081-07:00","name":"default-allow-internal","description":"Allow internal traffic on the default network","network":"https://www.googleapis.com/compute/v1/projects/e2e-project/global/networks/default","priority":65534,"sourceRanges":["10.128.0.0/9"],"allowed":[{"IPProtocol":"tcp","ports":["0-65535"]},{"IPProtocol":"udp","ports":["0-65535"]},{"IPProtocol":"icmp"}],"direction":"INGRESS","logConfig":{"enable":false},"disabled":false,"selfLink":"https://www.googleapis.com/compute/v1/projects/e2e-project/global/firewalls/default-allow-internal"},{"kind":"compute#firewall","id":"3865271240000847117","creationTimestamp":"2026-07-25T11:43:46.247-07:00","name":"default-allow-rdp","description":"Allow RDP from anywhere","network":"https://www.googleapis.com/compute/v1/projects/e2e-project/global/networks/default","priority":65534,"sourceRanges":["0.0.0.0/0"],"allowed":[{"IPProtocol":"tcp","ports":["3389"]}],"direction":"INGRESS","logConfig":{"enable":false},"disabled":false,"selfLink":"https://www.googleapis.com/compute/v1/projects/e2e-project/global/firewalls/default-allow-rdp"},{"kind":"compute#firewall","id":"888490090736172301","creationTimestamp":"2026-07-25T11:43:46.165-07:00","name":"default-allow-ssh","description":"Allow SSH from anywhere","network":"https://www.googleapis.com/compute/v1/projects/e2e-project/global/networks/default","priority":65534,"sourceRanges":["0.0.0.0/0"],"allowed":[{"IPProtocol":"tcp","ports":["22"]}],"direction":"INGRESS","logConfig":{"enable":false},"disabled":false,"selfLink":"https://www.googleapis.com/compute/v1/projects/e2e-project/global/firewalls/default-allow-ssh"}],"selfLink":"https://www.googleapis.com/compute/v1/projects/e2e-project/global/firewalls"}'
         headers:
-            Content-Length:
-                - "227"
+            Alt-Svc:
+                - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
             Content-Type:
-                - application/json
+                - application/json; charset=UTF-8
             Date:
-                - Sun, 28 Jun 2026 13:31:09 GMT
+                - Sun, 26 Jul 2026 10:39:32 GMT
+            Etag:
+                - Lso_31fCsGsfAeKLH_J4TjAOzsM=/2BgOuqiDv4Cr1oTI9ZKeR5WQ-Ow=
+            Server:
+                - ESF
+            Vary:
+                - Origin
+                - X-Origin
+                - Referer
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Xss-Protection:
+                - "0"
         status: 200 OK
         code: 200
-        duration: 5.980375ms
+        duration: 718.039542ms

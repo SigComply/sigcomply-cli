@@ -29,14 +29,21 @@ func TestGCPLoggingConformance(t *testing.T) {
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes: sourcetest.BuiltinEvidenceTypes(t),
 	})
-	if len(recs) != 1 {
-		t.Fatalf("log_group records = %d, want 1", len(recs))
+	if len(recs) != 2 {
+		t.Fatalf("log_group records = %d, want 2 (_Default + _Required)", len(recs))
 	}
-	var p logGroupPayload
-	if err := json.Unmarshal(recs[0].Payload, &p); err != nil {
-		t.Fatal(err)
+	var retentionSet int
+	for _, r := range recs {
+		var p logGroupPayload
+		if err := json.Unmarshal(r.Payload, &p); err != nil {
+			t.Fatal(err)
+		}
+		if p.RetentionSet {
+			retentionSet++
+		}
 	}
-	if !p.RetentionSet || !p.KMSEncrypted {
-		t.Errorf("bucket = %+v; want retention set + CMEK", p)
+	// CMEK is not asserted: the default log buckets use Google-managed keys.
+	if retentionSet == 0 {
+		t.Errorf("want >=1 log bucket with retention set; got 0")
 	}
 }

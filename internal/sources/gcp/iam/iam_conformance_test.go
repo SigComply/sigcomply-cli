@@ -29,8 +29,8 @@ func TestGCPIAMConformance(t *testing.T) {
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes: sourcetest.BuiltinEvidenceTypes(t),
 	})
-	if len(recs) != 3 {
-		t.Fatalf("iam_binding records = %d, want 3 (owner + 2 viewer members)", len(recs))
+	if len(recs) != 10 {
+		t.Fatalf("iam_binding records = %d, want 10 (bindings on the seeded project's policy)", len(recs))
 	}
 	var broad int
 	for _, r := range recs {

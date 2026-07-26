@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 3
-        host: 127.0.0.1:55195
+        host: cloudresourcemanager.googleapis.com
         body: |
             {}
         form:
@@ -25,22 +25,33 @@ interactions:
         url: https://cloudresourcemanager.googleapis.com/v1/projects/e2e-project:getIamPolicy?alt=json&prettyPrint=false
         method: POST
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 224
-        body: |-
-            {"version":1,"etag":"BwAbcdEf","bindings":[
-            {"role":"roles/owner","members":["user:admin@example.com"]},
-            {"role":"roles/viewer","members":["group:eng@example.com","serviceAccount:user@example.com"]}
-            ]}
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"version":1,"etag":"BwZXgSij+wI=","bindings":[{"role":"roles/artifactregistry.serviceAgent","members":["serviceAccount:user-ead174ccb90f@example.com"]},{"role":"roles/compute.instanceGroupManagerServiceAgent","members":["serviceAccount:user-f62f4e4e7c2d@example.com"]},{"role":"roles/compute.serviceAgent","members":["serviceAccount:user-0afbaf72f80f@example.com"]},{"role":"roles/container.serviceAgent","members":["serviceAccount:user-9d9c1fc6dea0@example.com"]},{"role":"roles/containerregistry.ServiceAgent","members":["serviceAccount:user-83d9a4d29fab@example.com"]},{"role":"roles/file.serviceAgent","members":["serviceAccount:user-6126eb2aad97@example.com"]},{"role":"roles/iam.securityReviewer","members":["serviceAccount:user-7dbeacc1468c@example.com"]},{"role":"roles/owner","members":["user:user-e7ddd3e87a20@example.com"]},{"role":"roles/pubsub.serviceAgent","members":["serviceAccount:user-027d66fc1dca@example.com"]},{"role":"roles/viewer","members":["serviceAccount:user-7dbeacc1468c@example.com"]}]}'
         headers:
-            Content-Length:
-                - "224"
+            Alt-Svc:
+                - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
             Content-Type:
-                - application/json
+                - application/json; charset=UTF-8
             Date:
-                - Sun, 28 Jun 2026 12:48:14 GMT
+                - Sun, 26 Jul 2026 10:55:16 GMT
+            Server:
+                - ESF
+            Server-Timing:
+                - gfet4t7; dur=1274
+            Vary:
+                - Origin
+                - X-Origin
+                - Referer
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Xss-Protection:
+                - "0"
         status: 200 OK
         code: 200
-        duration: 1.178041ms
+        duration: 1.57496975s
