@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56292
+        host: management.azure.com
         form:
             api-version:
                 - "2025-11-01"
@@ -21,18 +21,46 @@ interactions:
         url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.ContainerRegistry/registries?api-version=2025-11-01
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 663
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.ContainerRegistry/registries/e2eacr","name":"e2eacr","location":"eastus","type":"Microsoft.ContainerRegistry/registries","sku":{"name":"Premium"},"properties":{"loginServer":"e2eacr.azurecr.io","anonymousPullEnabled":false,"publicNetworkAccess":"Disabled","adminUserEnabled":false,"encryption":{"status":"enabled","keyVaultProperties":{"keyIdentifier":"https://e2evault.vault.azure.net/keys/k1","versionedKeyIdentifier":"https://e2evault.vault.azure.net/keys/k1/abc"}},"zoneRedundancy":"Enabled","policies":{"quarantinePolicy":{"status":"enabled"}}}}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 1438
+        body: '{"value":[{"sku":{"name":"Premium","tier":"Premium"},"type":"Microsoft.ContainerRegistry/registries","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.ContainerRegistry/registries/sigcomplye2eacr1cd7","name":"sigcomplye2eacr1cd7","location":"eastus","tags":{},"systemData":{"createdBy":"user-ae0e86b080bc@example.com","createdByType":"User","createdAt":"2026-07-26T17:41:17.9463764+00:00","lastModifiedBy":"user-ae0e86b080bc@example.com","lastModifiedByType":"User","lastModifiedAt":"2026-07-26T17:41:17.9463764+00:00"},"properties":{"loginServer":"sigcomplye2eacr1cd7.azurecr.io","creationDate":"2026-07-26T17:41:17.9463764Z","provisioningState":"Succeeded","adminUserEnabled":false,"networkRuleSet":{"defaultAction":"Deny","ipRules":[]},"policies":{"quarantinePolicy":{"status":"disabled"},"trustPolicy":{"type":"Notary","status":"disabled"},"retentionPolicy":{"days":7,"lastUpdatedTime":"2026-07-26T17:41:24.5962611+00:00","status":"disabled"},"exportPolicy":{"status":"enabled"},"azureADAuthenticationAsArmPolicy":{"status":"enabled"}},"encryption":{"status":"disabled"},"dataEndpointEnabled":false,"dataEndpointHostNames":[],"privateEndpointConnections":[],"publicNetworkAccess":"Disabled","networkRuleBypassOptions":"AzureServices","networkRuleBypassAllowedForTasks":false,"zoneRedundancy":"Disabled","anonymousPullEnabled":false,"roleAssignmentMode":"LegacyRegistryPermissions"}}]}'
         headers:
+            Api-Supported-Versions:
+                - "2025-11-01"
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "663"
+                - "1438"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:08:57 GMT
+                - Sun, 26 Jul 2026 17:42:05 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Correlation-Request-Id:
+                - f38af69a-796a-403f-93db-7f117e93aa97
+            X-Ms-Original-Request-Ids:
+                - ""
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - f38af69a-796a-403f-93db-7f117e93aa97
+            X-Ms-Routing-Request-Id:
+                - WESTINDIA:20260726T174205Z:f38af69a-796a-403f-93db-7f117e93aa97
+            X-Msedge-Ref:
+                - 'Ref A: 51ABB429540446E78CBF27ACB5A67F9C Ref B: MAA211070115034 Ref C: 2026-07-26T17:42:04Z'
         status: 200 OK
         code: 200
-        duration: 4.905416ms
+        duration: 1.506032459s
