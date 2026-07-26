@@ -15,6 +15,7 @@ package gcptest
 import (
 	"context"
 	"net/http"
+	"os"
 	"testing"
 
 	"golang.org/x/oauth2"
@@ -73,7 +74,14 @@ func RecordLiveOptions(t *testing.T, cassetteName, endpoint string, scopes ...st
 		t.Fatalf("gcptest: no Application Default Credentials — run `gcloud auth "+
 			"application-default login --impersonate-service-account=<recorder-sa>`: %v", err)
 	}
-	authed := &oauth2.Transport{Source: creds.TokenSource, Base: http.DefaultTransport}
+	var authed http.RoundTripper = &oauth2.Transport{Source: creds.TokenSource, Base: http.DefaultTransport}
+	// Some APIs (Cloud Asset, etc.) reject user ADC without a quota project (the
+	// X-Goog-User-Project header). Our custom transport bypasses the client
+	// library's ADC quota-project handling, so inject it from the record env.
+	// Added below the recording point, so it never lands in the cassette.
+	if qp := os.Getenv("GCP_TEST_PROJECT"); qp != "" {
+		authed = &quotaProjectTransport{base: authed, project: qp}
+	}
 	return []option.ClientOption{
 		// Auth lives in `authed`, so tell the SDK not to add its own credential
 		// layer on top of our recording transport.
@@ -81,4 +89,19 @@ func RecordLiveOptions(t *testing.T, cassetteName, endpoint string, scopes ...st
 		option.WithEndpoint(endpoint),
 		option.WithHTTPClient(sourcetest.RecordClient(t, cassetteName, authed)),
 	}
+}
+
+// quotaProjectTransport sets X-Goog-User-Project on each request so a live
+// recording against user ADC satisfies APIs that require a quota project.
+type quotaProjectTransport struct {
+	base    http.RoundTripper
+	project string
+}
+
+func (q *quotaProjectTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	if r.Header.Get("X-Goog-User-Project") == "" {
+		r = r.Clone(r.Context())
+		r.Header.Set("X-Goog-User-Project", q.project)
+	}
+	return q.base.RoundTrip(r)
 }

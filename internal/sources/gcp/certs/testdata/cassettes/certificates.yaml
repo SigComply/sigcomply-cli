@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:55883
+        host: certificatemanager.googleapis.com
         form:
             alt:
                 - json
@@ -21,22 +21,31 @@ interactions:
         url: https://certificatemanager.googleapis.com/v1/projects/e2e-project/locations/-/certificates?alt=json&prettyPrint=false
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 474
-        body: |-
-            {"certificates":[
-            {"name":"projects/e2e-project/locations/us-central1/certificates/web","expireTime":"2026-09-14T00:00:00Z","sanDnsnames":["www.example.com","example.com"],"scope":"DEFAULT","managed":{"state":"ACTIVE","domains":["www.example.com"]}},
-            {"name":"projects/e2e-project/locations/us-east1/certificates/legacy","expireTime":"2026-08-01T00:00:00Z","sanDnsnames":["api.example.com"],"selfManaged":{"pemCertificate":"-----BEGIN CERTIFICATE-----"}}
-            ],"unreachable":[]}
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"certificates":[{"name":"projects/e2e-project/locations/global/certificates/sigcomply-e2e-cert1","createTime":"2026-07-26T11:13:31.841316203Z","updateTime":"2026-07-26T11:13:32.197051306Z","selfManaged":{},"sanDnsnames":["e2e-test-1.example.com"],"expireTime":"2027-07-26T11:13:29Z","pemCertificate":"-----BEGIN CERTIFICATE-----\nMIIDIzCCAgugAwIBAgIUVYf9kS8V+lPMjz3QkXR1FV7/FHIwDQYJKoZIhvcNAQEL\nBQAwITEfMB0GA1UEAwwWZTJlLXRlc3QtMS5leGFtcGxlLmNvbTAeFw0yNjA3MjYx\nMTEzMjlaFw0yNzA3MjYxMTEzMjlaMCExHzAdBgNVBAMMFmUyZS10ZXN0LTEuZXhh\nbXBsZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDbdsRf0qT0\noLjdG9kq21juU9nfPxXXcXelLaFk64BEP52rgPvggY5fGLf4jB2OiBPPKQqFlvzL\n7WBb0fS9FQxM7qz/GjWYdxKIvukr9UiXCWSRrmwc95OcOe1LG4DpuCMbYHee5xwj\ndAr9PJeF83FXH5kipJdveE+nsVFfl03U+7gyHQXEaZ93KBPa+krTODgRMQfUAnWs\nQIhu/PmM6octN20Da4kQj63y32y/9XV7X4SinMAUFH/KaBpn1hLiOfCFIvvyfHYI\n7Sm2gCTiIHQY6z819/AGfnfU2N1DVuLYoi5K97Inl1zyj/ain9E+FCdeVewzLkw4\nqbsSlKjplDjJAgMBAAGjUzBRMB0GA1UdDgQWBBQRvpneH5QlTr2JF3IzMspqVvpi\nRTAfBgNVHSMEGDAWgBQRvpneH5QlTr2JF3IzMspqVvpiRTAPBgNVHRMBAf8EBTAD\nAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQBxabnm/DSsU7cdHLurb3wWjHS1PuwiJxs0\nd5lDVJyG0zZzhAWqJ0TrLAxH7t/x2iCgMTGSgnV6DLlM/XMFIB2YeiU7si7SdjdO\nFVBQmWiHVvvdznyOh4VmrCuitn5JvQiBfKqCpHxL8phw/LlzydhXYLB5lWqZmS+a\nKCEufZ+JAGnc48mieBacshFOcjZNJpNi8SLYxSwERwSPgNYW1u54IZ7lq0J/FeH8\nx03A4kIxI6XaXTNYfNQptfSt7CnN84BjPVgPsfMC8Uz0mgDqSfBYGDyf5Sg6r/PR\nVNo3GavVeYJ+/0IAyUPnc952jIi1VOfOtYHuEtGWK2OSe2g9v6O6\n-----END CERTIFICATE-----\n"},{"name":"projects/e2e-project/locations/global/certificates/sigcomply-e2e-cert2","createTime":"2026-07-26T11:13:38.948550507Z","updateTime":"2026-07-26T11:13:39.350510755Z","selfManaged":{},"sanDnsnames":["e2e-test-2.example.com"],"expireTime":"2027-07-26T11:13:37Z","pemCertificate":"-----BEGIN CERTIFICATE-----\nMIIDIzCCAgugAwIBAgIUOITAHP4AECVhg6EMXJEvC2ff3zcwDQYJKoZIhvcNAQEL\nBQAwITEfMB0GA1UEAwwWZTJlLXRlc3QtMi5leGFtcGxlLmNvbTAeFw0yNjA3MjYx\nMTEzMzdaFw0yNzA3MjYxMTEzMzdaMCExHzAdBgNVBAMMFmUyZS10ZXN0LTIuZXhh\nbXBsZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCyacQ9ltob\nEPOyb4xI11hpRol6QfjgjkXU9cuwhZfgvsFMC++pLvJmHupfWTMMVA5ONXAoWrHr\njbLLrGaXWdTz9+Vmf6YHzNjxh35sj4m3sUkperCsqIktgqC6kme2fp6+TxJ2s8GB\nttiQ8lUY7qMUkRVB4ntTKD0cOEPAomdYem6viBqsKzSwa8vwyUS/KxYIPmAYfriR\nZQl5FAj4V3CVgykbXsOdRiKy9vCY+R4Z8KnUzoV7o0g3udNqG96AsasDECEr6X0K\njAdTbzDbUmV5dni7nkoHjp+XiUrp68rzOssOayv/TDCKF6pLIFGyDitpYut4F83Q\ncduvT9NBb+i3AgMBAAGjUzBRMB0GA1UdDgQWBBQAVWM2FBYDRFaQroFgF8f7cL1k\n0DAfBgNVHSMEGDAWgBQAVWM2FBYDRFaQroFgF8f7cL1k0DAPBgNVHRMBAf8EBTAD\nAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQBa9Hw5B60CgUy/H8uYRdtJcoD+WKsxiYew\nhZV8mRAn2uWjIC0D9KwAM/LMEwo98F8cYuYZIjG3zDP9vKth2qEhZZyx1J6dhPvD\nze6wwjRlqVmKd4AZ7Xj/lTD7NHulRdVayFOQ3fV2HstQuXLaTggVwLIMso/CTUhg\nG3urEkPJKsWmH73566oW9YhINfHfeVardQhQ5MHX/Q9aGAFQG3trg/sbR773phWa\nmnAhfQDvt9uT5T7SaCsEwCq2b1pvluRm97VKmiPATOovefUgXgyrS/qMM76kcN76\n1ON2LdjDdSXianeH2dLrVGSmUvlMjLICFySAcVg8WGLME1c+2N2U\n-----END CERTIFICATE-----\n"}]}'
         headers:
-            Content-Length:
-                - "474"
+            Alt-Svc:
+                - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
             Content-Type:
-                - application/json
+                - application/json; charset=UTF-8
             Date:
-                - Sun, 28 Jun 2026 13:42:55 GMT
+                - Sun, 26 Jul 2026 11:16:01 GMT
+            Server:
+                - ESF
+            Vary:
+                - Origin
+                - X-Origin
+                - Referer
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Xss-Protection:
+                - "0"
         status: 200 OK
         code: 200
-        duration: 1.221291ms
+        duration: 2.174419833s

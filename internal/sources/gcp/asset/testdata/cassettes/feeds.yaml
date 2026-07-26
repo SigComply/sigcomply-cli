@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:55799
+        host: cloudasset.googleapis.com
         form:
             alt:
                 - json
@@ -21,18 +21,31 @@ interactions:
         url: https://cloudasset.googleapis.com/v1/projects/e2e-project/feeds?alt=json&prettyPrint=false
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 80
-        body: '{"feeds":[{"name":"projects/e2e-project/feeds/all-assets","assetTypes":[".*"]}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"feeds":[{"name":"projects/000000000000/feeds/sigcomply-e2e-feed","assetTypes":[".*"],"contentType":"RESOURCE","feedOutputConfig":{"pubsubDestination":{"topic":"projects/e2e-project/topics/sigcomply-e2e-asset-topic"}},"condition":{}}]}'
         headers:
-            Content-Length:
-                - "80"
+            Alt-Svc:
+                - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
             Content-Type:
-                - application/json
+                - application/json; charset=UTF-8
             Date:
-                - Sun, 28 Jun 2026 13:35:56 GMT
+                - Sun, 26 Jul 2026 11:18:53 GMT
+            Server:
+                - ESF
+            Vary:
+                - Origin
+                - X-Origin
+                - Referer
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Xss-Protection:
+                - "0"
         status: 200 OK
         code: 200
-        duration: 526.958µs
+        duration: 3.969001792s
