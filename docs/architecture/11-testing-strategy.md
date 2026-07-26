@@ -142,25 +142,32 @@ tests.
   coverage for $0; only its *nightly behavioral* live confirmation is
   forgone. A maintainer with a live P2 tenant can record the real cassette
   to refresh it; the per-PR gate never depends on either.
-- **GCP cassettes are hand-authored today, but live recording is now
-  unblocked.** The contract path for GCP is the same L2 cassette + L3
-  Discovery-Doc drift as any cloud. The test GCP org still enforces
-  `iam.disableServiceAccountKeyCreation`, so a **downloadable JSON key
-  remains impossible** — but that is the *only* live blocker left.
-  **SA impersonation now works**: a project Owner granted
-  `roles/iam.serviceAccountTokenCreator` on
-  `sigcomply-e2e-recorder@alert-height-486710-e8` can mint short-lived
-  tokens and read live (verified 2026-06-28 — impersonated reads across
-  storage/compute/sql/kms/iam/logging/GKE all succeeded; billing has been
-  reopened so `compute`/`container` enable). The earlier org-level IAM
-  deny on `iam.serviceAccounts.*` that used to block impersonation has
-  been lifted. So the intended live paths are: **local recording** via an
-  impersonation ADC (`GOOGLE_APPLICATION_CREDENTIALS` → an
-  impersonated-SA credential, *not* a key), and the **CI E2E** (WU-5.6)
-  via **Workload Identity Federation** (CI OIDC → impersonate the SA).
-  Until a maintainer records real cassettes against seeded fixtures, the
-  committed GCP cassettes stay hand-authored and validated against the
-  published Discovery Doc / OpenAPI — same contract coverage for $0.
+- **GCP cassettes are real live recordings (16/18 sources).** Recorded
+  against a seeded personal-Gmail project (`project-5622825a-…`, no org
+  lockdown) via `gcptest.RecordLiveOptions` (ADC from `gcloud auth
+  application-default login` + go-vcr; a `//go:build record` harness per
+  source) and `gcptest.RecordLiveClient` (one shared recording client for
+  multi-endpoint sources like `audit`). `scripts/setup-gcp.sh` /
+  `teardown-gcp.sh` in the E2E repo provision + destroy the compliant
+  posture (an `GCP_FULL=1` tier adds VM/GKE/SQL/backup). compute-client
+  sources (`compute`/`network`/`firewall`) need the `/compute/v1/` endpoint.
+  **Two sources stay hand-authored:** `scc` (needs an org + SCC premium + a
+  real HIGH vuln scan finding — scan-latency, not cost) and `directory`
+  (needs a Cloud Identity / Workspace directory, i.e. a domain). Recording
+  against reality caught real bugs the hand-authored guesses had masked —
+  a doubled `…/databases/databases` firestore path (404), a missing
+  quota-project header (Cloud Asset 403), and the `/compute/v1/` endpoint.
+- **Azure ARM cassettes are real live recordings (11/13 sources).** Recorded
+  against subscription `1cd72616-…` (the new tenant) via
+  `azuretest.RecordLiveOptions` (azidentity + go-vcr) after an owner
+  `az login`; multi-client sources capture into one cassette through the
+  shared recording transport. `scripts/setup-azure.sh` / `teardown-azure.sh`
+  provision + destroy the posture (an `AZURE_FULL=1` tier adds
+  VM/GKE/SQL/cosmos/backup). Regional quirks are documented in the setup
+  script: Cosmos → `eastus2`, SQL DB server → `westus3`, and the VM via an
+  ARM template (`az vm create` is broken on some az-CLI/Python builds).
+  **Two stay hand-authored:** `defender` (needs a real HIGH vuln scan
+  finding) and `certs` (needs a validated domain).
 
 ---
 
@@ -197,9 +204,10 @@ Decided once; obeyed everywhere.
    |---|---|
    | `Authorization` / bearer token / API key headers | `REDACTED` |
    | AWS access key (`AKIA…`) | `AKIAEXAMPLE0000000000` |
-   | AWS account ID (12 digits) | `000000000000` |
+   | AWS account ID — quoted or inside an ARN (12 digits) | `000000000000` |
+   | 12-digit **bare** JSON number (e.g. an Azure byte size) | `0` — leading zeros are invalid JSON, so bare numbers are **not** zeroed to `000000000000` |
    | ARN | `arn:aws:<svc>:<region>:000000000000:<resource>` |
-   | email address | `user@example.com` |
+   | email address | `user-<hash>@example.com` — **distinct per address** (a single shared placeholder would alias distinct members in identity-bearing sources like GCP `iam` / Okta / Entra) |
    | username / login | `example-user` |
 
    A CI gate (`scripts/check-fixtures.sh`) greps every `testdata/` dir +
