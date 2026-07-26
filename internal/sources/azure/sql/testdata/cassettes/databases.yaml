@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56206
+        host: management.azure.com
         form:
             api-version:
                 - 2021-02-01-preview
@@ -21,28 +21,54 @@ interactions:
         url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Sql/servers?api-version=2021-02-01-preview
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 276
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Sql/servers/e2esql","name":"e2esql","location":"eastus","properties":{"state":"Ready","version":"12.0","publicNetworkAccess":"Disabled","minimalTlsVersion":"1.2"}}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 545
+        body: '{"value":[{"kind":"v12.0","properties":{"administratorLogin":"sqladmin","version":"12.0","state":"Ready","fullyQualifiedDomainName":"sigcomply-e2e-sql1cd7.database.windows.net","privateEndpointConnections":[],"minimalTlsVersion":"1.2","publicNetworkAccess":"Disabled","restrictOutboundNetworkAccess":"Disabled"},"location":"westus3","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-sqlrg/providers/Microsoft.Sql/servers/sigcomply-e2e-sql1cd7","name":"sigcomply-e2e-sql1cd7","type":"Microsoft.Sql/servers"}]}'
         headers:
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "276"
+                - "545"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:02:15 GMT
+                - Sun, 26 Jul 2026 18:43:15 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Correlation-Request-Id:
+                - 2e85ef18-2226-4906-96d1-5dbdeca5e7c5
+            X-Ms-Original-Request-Ids:
+                - f9083ec3-6cd9-4780-ba1b-392d909dd4ea
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - 2e85ef18-2226-4906-96d1-5dbdeca5e7c5
+            X-Ms-Routing-Request-Id:
+                - CENTRALINDIA:20260726T184315Z:2e85ef18-2226-4906-96d1-5dbdeca5e7c5
+            X-Msedge-Ref:
+                - 'Ref A: 4B301C4FFAFD44C788F013239C4CFD12 Ref B: MAA211070112034 Ref C: 2026-07-26T18:43:13Z'
         status: 200 OK
         code: 200
-        duration: 5.4705ms
+        duration: 1.896894708s
     - id: 1
       request:
         proto: HTTP/1.1
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56206
+        host: management.azure.com
         form:
             api-version:
                 - 2021-05-01-preview
@@ -53,31 +79,57 @@ interactions:
                 - REDACTED
             User-Agent:
                 - azsdk-go-armsql/v1.2.0 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Sql/servers/e2esql/databases?api-version=2021-05-01-preview
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-sqlrg/providers/Microsoft.Sql/servers/sigcomply-e2e-sql1cd7/databases?api-version=2021-05-01-preview
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 200
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Sql/servers/e2esql/databases/appdb","name":"appdb","properties":{"zoneRedundant":true}}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 2390
+        body: '{"value":[{"sku":{"name":"Standard","tier":"Standard","capacity":10},"kind":"v12.0,user","properties":{"collation":"SQL_Latin1_General_CP1_CI_AS","maxSizeBytes":0,"status":"Online","databaseId":"72cf794f-1781-48cb-a008-759b2c945187","creationDate":"2026-07-26T18:31:17.557Z","currentServiceObjectiveName":"S0","requestedServiceObjectiveName":"S0","defaultSecondaryLocation":"eastus","catalogCollation":"SQL_Latin1_General_CP1_CI_AS","zoneRedundant":false,"readScale":"Disabled","currentSku":{"name":"Standard","tier":"Standard","capacity":10},"currentBackupStorageRedundancy":"Geo","requestedBackupStorageRedundancy":"Geo","maintenanceConfigurationId":"/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Maintenance/publicMaintenanceConfigurations/SQL_Default","isLedgerOn":false,"isInfraEncryptionEnabled":false},"location":"westus3","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-sqlrg/providers/Microsoft.Sql/servers/sigcomply-e2e-sql1cd7/databases/e2edb","name":"e2edb","type":"Microsoft.Sql/servers/databases"},{"sku":{"name":"GP_SYSTEM","tier":"System","family":"SYSTEM","capacity":4},"kind":"v12.0,system,serverless","managedBy":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-sqlrg/providers/Microsoft.Sql/servers/sigcomply-e2e-sql1cd7","properties":{"collation":"SQL_Latin1_General_CP1_CI_AS","maxSizeBytes":0,"status":"Online","databaseId":"757ebd6a-6210-4b7b-9e9f-c2d0209bbf29","creationDate":"2026-07-26T18:29:48.82Z","currentServiceObjectiveName":"GP_SYSTEM_4","requestedServiceObjectiveName":"GP_SYSTEM_4","defaultSecondaryLocation":"eastus","catalogCollation":"SQL_Latin1_General_CP1_CI_AS","zoneRedundant":false,"readScale":"Disabled","currentSku":{"name":"GP_SYSTEM","tier":"System","family":"SYSTEM","capacity":4},"currentBackupStorageRedundancy":"Local","requestedBackupStorageRedundancy":"Local","maintenanceConfigurationId":"/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Maintenance/publicMaintenanceConfigurations/SQL_Default","isLedgerOn":false,"isInfraEncryptionEnabled":false},"location":"westus3","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-sqlrg/providers/Microsoft.Sql/servers/sigcomply-e2e-sql1cd7/databases/master","name":"master","type":"Microsoft.Sql/servers/databases"}]}'
         headers:
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "200"
+                - "2390"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:02:15 GMT
+                - Sun, 26 Jul 2026 18:43:18 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Correlation-Request-Id:
+                - db9da893-ff3a-4a91-b509-a2d8903848c0
+            X-Ms-Original-Request-Ids:
+                - f2dc6a6c-8d97-43e3-966f-2c920812269a
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - db9da893-ff3a-4a91-b509-a2d8903848c0
+            X-Ms-Routing-Request-Id:
+                - EASTUS:20260726T184318Z:db9da893-ff3a-4a91-b509-a2d8903848c0
+            X-Msedge-Ref:
+                - 'Ref A: 07AA1C6859884134BE5FDA41C88F58E5 Ref B: MAA211070112034 Ref C: 2026-07-26T18:43:17Z'
         status: 200 OK
         code: 200
-        duration: 245.791µs
+        duration: 720.258083ms
     - id: 2
       request:
         proto: HTTP/1.1
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56206
+        host: management.azure.com
         form:
             api-version:
                 - 2021-02-01-preview
@@ -88,31 +140,57 @@ interactions:
                 - REDACTED
             User-Agent:
                 - azsdk-go-armsql/v1.2.0 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Sql/servers/e2esql/databases/appdb/transparentDataEncryption/current?api-version=2021-02-01-preview
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-sqlrg/providers/Microsoft.Sql/servers/sigcomply-e2e-sql1cd7/databases/e2edb/transparentDataEncryption/current?api-version=2021-02-01-preview
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 221
-        body: '{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Sql/servers/e2esql/databases/appdb/transparentDataEncryption/current","name":"current","properties":{"state":"Enabled"}}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 316
+        body: '{"properties":{"state":"Enabled"},"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-sqlrg/providers/Microsoft.Sql/servers/sigcomply-e2e-sql1cd7/databases/e2edb/transparentDataEncryption/Current","name":"Current","type":"Microsoft.Sql/servers/databases/transparentDataEncryption"}'
         headers:
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "221"
+                - "316"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:02:15 GMT
+                - Sun, 26 Jul 2026 18:43:19 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Correlation-Request-Id:
+                - a7720da8-ee22-49c7-8638-694f41b9ab26
+            X-Ms-Operation-Identifier:
+                - tenantId=a62d98eb-ea44-431f-9d5a-3ba56f2be3ce,objectId=367cc74a-c222-4bd4-b837-8fde51b4a9cd/eastus/b3832959-3db0-4273-9692-421682717a2b
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3748"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "248"
+            X-Ms-Request-Id:
+                - b4cc030c-c4b4-4273-a545-83a7fe39cf92
+            X-Ms-Routing-Request-Id:
+                - EASTUS:20260726T184319Z:a7720da8-ee22-49c7-8638-694f41b9ab26
+            X-Msedge-Ref:
+                - 'Ref A: 110DC1CD1BDE4925BAF832D300586028 Ref B: MAA211070112034 Ref C: 2026-07-26T18:43:19Z'
         status: 200 OK
         code: 200
-        duration: 174µs
+        duration: 322.50625ms
     - id: 3
       request:
         proto: HTTP/1.1
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56206
+        host: management.azure.com
         form:
             api-version:
                 - "2025-08-01"
@@ -126,28 +204,54 @@ interactions:
         url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.DBforPostgreSQL/flexibleServers?api-version=2025-08-01
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 383
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.DBforPostgreSQL/flexibleServers/e2epg","name":"e2epg","location":"eastus","properties":{"version":"13","network":{"publicNetworkAccess":"Disabled"},"highAvailability":{"mode":"ZoneRedundant"},"backup":{"backupRetentionDays":7},"dataEncryption":{"type":"AzureKeyVault"}}}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 1244
+        body: '{"value":[{"sku":{"name":"Standard_B1ms","tier":"Burstable"},"systemData":{"createdAt":"2026-07-26T18:30:58.3326172Z"},"properties":{"replica":{"role":"Primary","capacity":5},"storage":{"type":"Premium_LRS","iops":120,"tier":"P4","storageSizeGB":32,"autoGrow":"Disabled"},"network":{"publicNetworkAccess":"Disabled"},"privateEndpointConnections":[],"dataEncryption":{"type":"SystemManaged"},"authConfig":{"activeDirectoryAuth":"Disabled","passwordAuth":"Enabled"},"fullyQualifiedDomainName":"sigcomply-e2e-pg1cd7.postgres.database.azure.com","version":"18","minorVersion":"4","administratorLogin":"pgadmin","state":"Ready","availabilityZone":"1","backup":{"backupRetentionDays":7,"geoRedundantBackup":"Disabled","earliestRestoreDate":"2026-07-26T18:37:23.033817+00:00"},"highAvailability":{"mode":"Disabled","state":"NotEnabled"},"maintenanceWindow":{"customWindow":"Disabled","dayOfWeek":0,"startHour":0,"startMinute":0},"replicationRole":"Primary","replicaCapacity":5},"location":"West US 3","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-sqlrg/providers/Microsoft.DBforPostgreSQL/flexibleServers/sigcomply-e2e-pg1cd7","name":"sigcomply-e2e-pg1cd7","type":"Microsoft.DBforPostgreSQL/flexibleServers"}]}'
         headers:
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "383"
+                - "1244"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:02:15 GMT
+                - Sun, 26 Jul 2026 18:43:22 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Correlation-Request-Id:
+                - 59f8a325-93c2-4bf9-bd13-e10edcefdcdf
+            X-Ms-Original-Request-Ids:
+                - c9501995-ed9b-4613-9b24-646ae8367bc1
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - 59f8a325-93c2-4bf9-bd13-e10edcefdcdf
+            X-Ms-Routing-Request-Id:
+                - JIOINDIACENTRAL:20260726T184322Z:59f8a325-93c2-4bf9-bd13-e10edcefdcdf
+            X-Msedge-Ref:
+                - 'Ref A: 60911D8C1FAD45338673C09DBF6B0CD3 Ref B: MAA211070112034 Ref C: 2026-07-26T18:43:20Z'
         status: 200 OK
         code: 200
-        duration: 153.833µs
+        duration: 2.061724375s
     - id: 4
       request:
         proto: HTTP/1.1
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56206
+        host: management.azure.com
         form:
             api-version:
                 - "2021-05-01"
@@ -161,18 +265,42 @@ interactions:
         url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.DBforMySQL/flexibleServers?api-version=2021-05-01
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
         content_length: 12
         body: '{"value":[]}'
         headers:
+            Cache-Control:
+                - no-cache
             Content-Length:
                 - "12"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:02:15 GMT
+                - Sun, 26 Jul 2026 18:43:25 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Correlation-Request-Id:
+                - 0b93a58e-c2f4-443a-a252-71eac4dd6d51
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - 0b93a58e-c2f4-443a-a252-71eac4dd6d51
+            X-Ms-Routing-Request-Id:
+                - WESTINDIA:20260726T184325Z:0b93a58e-c2f4-443a-a252-71eac4dd6d51
+            X-Msedge-Ref:
+                - 'Ref A: 66FF71C43EC445D08AF21B1B5A5C766B Ref B: MAA211070112034 Ref C: 2026-07-26T18:43:24Z'
         status: 200 OK
         code: 200
-        duration: 174.208µs
+        duration: 1.142838166s

@@ -1,0 +1,45 @@
+//go:build record
+
+package sql
+
+import (
+	"context"
+	"os"
+	"testing"
+
+	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/sources/azure/internal/azcommon"
+	"github.com/sigcomply/sigcomply-cli/internal/sources/azure/internal/azuretest"
+)
+
+// sql_record_test.go records testdata/cassettes/databases.yaml against the real
+// Azure SQL + PostgreSQL + MySQL APIs (five clients, one cassette). SQL DB server
+// creation is region-restricted on some subscriptions — westus3 worked when
+// eastus/eastus2/westus2 did not (see scripts/setup-azure.sh). See
+// azuretest.RecordLiveOptions:
+//
+//	AZURE_TEST_SUBSCRIPTION=<sub> go test -tags record -run TestRecordSQL ./internal/sources/azure/sql/ -v
+func TestRecordSQL(t *testing.T) {
+	sub := os.Getenv("AZURE_TEST_SUBSCRIPTION")
+	if sub == "" {
+		t.Skip("set AZURE_TEST_SUBSCRIPTION to record against a live subscription")
+	}
+	cred, err := azcommon.NewCredential()
+	if err != nil {
+		t.Fatalf("credential: %v", err)
+	}
+	adapter, err := newRealSQL(sub, cred, azuretest.RecordLiveOptions(t, "testdata/cassettes/databases"))
+	if err != nil {
+		t.Fatalf("adapter: %v", err)
+	}
+	p := New(Options{API: adapter, SubscriptionID: sub})
+
+	recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("collect (recording): %v", err)
+	}
+	if len(recs) == 0 {
+		t.Fatal("collected 0 records — seed a SQL + PostgreSQL server before recording")
+	}
+	t.Logf("recorded %d managed_database_instance record(s)", len(recs))
+}

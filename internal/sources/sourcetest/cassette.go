@@ -153,6 +153,11 @@ var (
 	reEmail       = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}`)
 	reAccountID   = regexp.MustCompile(`\b\d{12}\b`)
 	exampleDomain = regexp.MustCompile(`@example\.(com|org|net)$`)
+	// A bare 12-digit JSON *number value* (e.g. Azure `"maxSizeBytes":107374182400`)
+	// — preceded by :/,/[ and followed by ,/}/] — must NOT become 000000000000
+	// (leading zeros are invalid JSON, and byte sizes aren't identity). Zero these
+	// to a single 0 before the broad account-ID sweep handles quoted IDs and ARNs.
+	reBareNum = regexp.MustCompile(`([:,\[]\s*)\d{12}(\s*[,}\]])`)
 
 	// Header names whose entire value is a secret — replaced wholesale.
 	sensitiveHeaders = map[string]bool{
@@ -210,6 +215,11 @@ func scrubString(s string) string {
 	s = reAccessKey.ReplaceAllStringFunc(s, redactAccessKey)
 	s = reBearer.ReplaceAllString(s, "Bearer REDACTED")
 	s = reEmail.ReplaceAllStringFunc(s, redactEmail)
+	// Bare numeric JSON values first (→ 0, keeping valid JSON), then quoted IDs /
+	// ARNs (→ 000000000000). Run twice so back-to-back matches sharing a delimiter
+	// are both caught.
+	s = reBareNum.ReplaceAllString(s, "${1}0${2}")
+	s = reBareNum.ReplaceAllString(s, "${1}0${2}")
 	s = reAccountID.ReplaceAllString(s, "000000000000")
 	return s
 }

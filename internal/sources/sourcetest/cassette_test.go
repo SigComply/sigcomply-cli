@@ -86,7 +86,7 @@ func TestRedactInteraction(t *testing.T) {
 		Response: cassette.Response{
 			Headers: http.Header{"Set-Cookie": {"session=deadbeef"}, "Content-Type": {"application/json"}},
 			Body: `{"key":"AKIAIOSFODNN7EXAMPLE1","arn":"arn:aws:iam::123456789012:user/bob",` +
-				`"account":"210987654321","owner":"carol@acmecorp.com","auth":"Bearer ghp_secrettoken123"}`,
+				`"account":"210987654321","maxSizeBytes":107374182400,"owner":"carol@acmecorp.com","auth":"Bearer ghp_secrettoken123"}`,
 		},
 	}
 	if err := RedactInteraction(i); err != nil {
@@ -132,6 +132,12 @@ func TestRedactInteraction(t *testing.T) {
 	}
 	if strings.Contains(rb, "123456789012") || strings.Contains(rb, "210987654321") {
 		t.Errorf("response body still contains a real account ID: %s", rb)
+	}
+	// A bare 12-digit JSON number (a byte size, not identity) is zeroed to a valid
+	// number, not 000000000000 (leading zeros = invalid JSON) as the account-ID
+	// sweep would otherwise produce.
+	if !strings.Contains(rb, `"maxSizeBytes":0,`) {
+		t.Errorf("bare 12-digit number not zeroed to valid JSON: %s", rb)
 	}
 	// Distinct real emails must scrub to DISTINCT placeholders (not aliased to
 	// one), so identity-bearing sources keep separate members separate. Both
