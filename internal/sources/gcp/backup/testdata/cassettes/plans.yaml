@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:55885
+        host: backupdr.googleapis.com
         form:
             alt:
                 - json
@@ -21,18 +21,31 @@ interactions:
         url: https://backupdr.googleapis.com/v1/projects/e2e-project/locations/-/backupPlans?alt=json&prettyPrint=false
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 307
-        body: '{"backupPlans":[{"name":"projects/e2e-project/locations/us-central1/backupPlans/daily","state":"ACTIVE","resourceType":"compute.googleapis.com/Instance","backupVault":"projects/e2e-project/locations/us-central1/backupVaults/vault","backupRules":[{"ruleId":"r1","backupRetentionDays":30}]}],"unreachable":[]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"backupPlans":[{"name":"projects/e2e-project/locations/us-central1/backupPlans/sigcomply-e2e-bp","backupRules":[{"ruleId":"daily-30","backupRetentionDays":30,"standardSchedule":{"recurrenceType":"WEEKLY","daysOfWeek":["SUNDAY"],"backupWindow":{"startHourOfDay":1,"endHourOfDay":6},"timeZone":"UTC"}}],"state":"ACTIVE","resourceType":"compute.googleapis.com/Instance","etag":"htLWxayE--PPvFWmUpCq9B45Hl4TPeMOWARfC_Gt_xo","backupVault":"projects/000000000000/locations/us-central1/backupVaults/sigcomply-e2e-bv","backupVaultServiceAccount":"user-aee11866eae5@example.com","supportedResourceTypes":["compute.googleapis.com/Instance"],"revisionId":"v0","revisionName":"projects/000000000000/locations/us-central1/backupPlans/sigcomply-e2e-bp/revisions/74dcc8f3","createTime":"2026-07-26T19:44:22.026627849Z","updateTime":"2026-07-26T19:44:29.595548571Z"}]}'
         headers:
-            Content-Length:
-                - "307"
+            Alt-Svc:
+                - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
             Content-Type:
-                - application/json
+                - application/json; charset=UTF-8
             Date:
-                - Sun, 28 Jun 2026 13:42:56 GMT
+                - Sun, 26 Jul 2026 19:44:49 GMT
+            Server:
+                - ESF
+            Vary:
+                - Origin
+                - X-Origin
+                - Referer
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Xss-Protection:
+                - "0"
         status: 200 OK
         code: 200
-        duration: 1.0785ms
+        duration: 2.262792583s
