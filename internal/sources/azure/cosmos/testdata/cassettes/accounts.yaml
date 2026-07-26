@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56314
+        host: management.azure.com
         form:
             api-version:
                 - "2025-10-15"
@@ -21,18 +21,44 @@ interactions:
         url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.DocumentDB/databaseAccounts?api-version=2025-10-15
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 561
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.DocumentDB/databaseAccounts/e2ecosmos","name":"e2ecosmos","type":"Microsoft.DocumentDB/databaseAccounts","location":"eastus","kind":"GlobalDocumentDB","properties":{"provisioningState":"Succeeded","keyVaultKeyURI":"https://e2evault.vault.azure.net/keys/k1/abc","disableLocalAuth":true,"isVirtualNetworkFilterEnabled":true,"publicNetworkAccess":"Disabled","backupPolicy":{"type":"Continuous","continuousModeProperties":{"tier":"Continuous30Days"}}}}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 2930
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.DocumentDB/databaseAccounts/sigcomplye2ecosmos1cd7","name":"sigcomplye2ecosmos1cd7","location":"East US 2","type":"Microsoft.DocumentDB/databaseAccounts","kind":"GlobalDocumentDB","tags":{},"systemData":{"createdAt":"2026-07-26T18:22:26.2807705Z"},"properties":{"provisioningState":"Succeeded","documentEndpoint":"https://sigcomplye2ecosmos1cd7.documents.azure.com:443/","sqlEndpoint":"https://sigcomplye2ecosmos1cd7.documents.azure.com:443/","publicNetworkAccess":"Enabled","enableAutomaticFailover":true,"enableMultipleWriteLocations":false,"enablePartitionKeyMonitor":false,"isVirtualNetworkFilterEnabled":false,"virtualNetworkRules":[],"EnabledApiTypes":"Sql","disableKeyBasedMetadataWriteAccess":false,"enableFreeTier":false,"enableAnalyticalStorage":false,"analyticalStorageConfiguration":{"schemaType":"WellDefined"},"instanceId":"1a77a217-90c8-4f91-b196-66d628368bbf","createMode":"Default","databaseAccountOfferType":"Standard","defaultIdentity":"FirstPartyIdentity","networkAclBypass":"None","disableLocalAuth":false,"enablePartitionMerge":false,"enablePerRegionPerPartitionAutoscale":true,"enableBurstCapacity":false,"enablePriorityBasedExecution":false,"defaultPriorityLevel":"High","minimalTlsVersion":"Tls12","enablePerPartitionAutomaticFailover":false,"consistencyPolicy":{"defaultConsistencyLevel":"Session","maxIntervalInSeconds":5,"maxStalenessPrefix":100},"configurationOverrides":{"EnablePerRegionPerPartitionAutoscaleOptIn":"True"},"writeLocations":[{"id":"sigcomplye2ecosmos1cd7-eastus2","locationName":"East US 2","documentEndpoint":"https://sigcomplye2ecosmos1cd7-eastus2.documents.azure.com:443/","provisioningState":"Succeeded","failoverPriority":0,"isZoneRedundant":false}],"readLocations":[{"id":"sigcomplye2ecosmos1cd7-eastus2","locationName":"East US 2","documentEndpoint":"https://sigcomplye2ecosmos1cd7-eastus2.documents.azure.com:443/","provisioningState":"Succeeded","failoverPriority":0,"isZoneRedundant":false}],"locations":[{"id":"sigcomplye2ecosmos1cd7-eastus2","locationName":"East US 2","documentEndpoint":"https://sigcomplye2ecosmos1cd7-eastus2.documents.azure.com:443/","provisioningState":"Succeeded","failoverPriority":0,"isZoneRedundant":false}],"failoverPolicies":[{"id":"sigcomplye2ecosmos1cd7-eastus2","locationName":"East US 2","failoverPriority":0}],"cors":[],"capabilities":[],"ipRules":[],"backupPolicy":{"type":"Continuous","continuousModeProperties":{"tier":"Continuous30Days"}},"networkAclBypassResourceIds":[],"keysMetadata":{"primaryMasterKey":{"generationTime":"2026-07-26T18:22:26.2807705Z"},"secondaryMasterKey":{"generationTime":"2026-07-26T18:22:26.2807705Z"},"primaryReadonlyMasterKey":{"generationTime":"2026-07-26T18:22:26.2807705Z"},"secondaryReadonlyMasterKey":{"generationTime":"2026-07-26T18:22:26.2807705Z"}}},"identity":{"type":"None"}}]}'
         headers:
+            Cache-Control:
+                - no-store, no-cache
             Content-Length:
-                - "561"
+                - "2930"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:10:34 GMT
+                - Sun, 26 Jul 2026 18:23:57 GMT
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Correlation-Request-Id:
+                - f8258fb9-d214-42bd-8445-16136ab6470a
+            X-Ms-Gatewayversion:
+                - version=2.14.0
+            X-Ms-Original-Request-Ids:
+                - ""
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - f8258fb9-d214-42bd-8445-16136ab6470a
+            X-Ms-Routing-Request-Id:
+                - WESTINDIA:20260726T182358Z:f8258fb9-d214-42bd-8445-16136ab6470a
+            X-Msedge-Ref:
+                - 'Ref A: 72370763BE0643AB858989C2D0DDA0C2 Ref B: MAA211070117060 Ref C: 2026-07-26T18:23:56Z'
         status: 200 OK
         code: 200
-        duration: 5.744792ms
+        duration: 1.517943833s

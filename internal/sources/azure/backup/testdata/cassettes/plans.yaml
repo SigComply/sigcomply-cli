@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56316
+        host: management.azure.com
         form:
             api-version:
                 - "2023-04-01"
@@ -21,28 +21,56 @@ interactions:
         url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.RecoveryServices/vaults?api-version=2023-04-01
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 275
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.RecoveryServices/vaults/e2evault","name":"e2evault","type":"Microsoft.RecoveryServices/vaults","location":"eastus","properties":{"provisioningState":"Succeeded"}}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 777
+        body: '{"value":[{"location":"eastus","name":"sigcomply-e2e-rsv","etag":"W/\"datetime''2026-07-26T18%3A17%3A13.8528186Z''\"","properties":{"provisioningState":"Succeeded","privateEndpointStateForBackup":"None","privateEndpointStateForSiteRecovery":"None","monitoringSettings":{"azureMonitorAlertSettings":{"alertsForAllJobFailures":"Enabled"},"classicAlertSettings":{"alertsForCriticalOperations":"Enabled"}},"secureScore":"None","publicNetworkAccess":"Enabled","restoreSettings":{"crossSubscriptionRestoreSettings":{"crossSubscriptionRestoreState":"Enabled"}}},"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.RecoveryServices/vaults/sigcomply-e2e-rsv","type":"Microsoft.RecoveryServices/vaults","sku":{"name":"Standard"}}]}'
         headers:
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "275"
+                - "777"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:10:36 GMT
+                - Sun, 26 Jul 2026 18:19:23 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Client-Request-Id:
+                - a7226f62-9a76-402b-8871-98ce1e2aa58b
+            X-Ms-Correlation-Request-Id:
+                - b2b8a561-f120-4e98-ad6f-2a989b81747a
+            X-Ms-Original-Request-Ids:
+                - b2b8a561-f120-4e98-ad6f-2a989b81747a
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - b2b8a561-f120-4e98-ad6f-2a989b81747a
+            X-Ms-Routing-Request-Id:
+                - SOUTHINDIA:20260726T181923Z:b2b8a561-f120-4e98-ad6f-2a989b81747a
+            X-Msedge-Ref:
+                - 'Ref A: FCF1F4D5D8F441798EDE31AB232D047F Ref B: MAA211070114036 Ref C: 2026-07-26T18:19:21Z'
         status: 200 OK
         code: 200
-        duration: 4.282417ms
+        duration: 1.465944167s
     - id: 1
       request:
         proto: HTTP/1.1
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56316
+        host: management.azure.com
         form:
             api-version:
                 - "2025-02-01"
@@ -53,21 +81,47 @@ interactions:
                 - REDACTED
             User-Agent:
                 - azsdk-go-armrecoveryservicesbackup/v4.2.0 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.RecoveryServices/vaults/e2evault/backupPolicies?api-version=2025-02-01
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.RecoveryServices/vaults/sigcomply-e2e-rsv/backupPolicies?api-version=2025-02-01
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 478
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.RecoveryServices/vaults/e2evault/backupPolicies/daily","name":"daily","type":"Microsoft.RecoveryServices/vaults/backupPolicies","location":"eastus","properties":{"backupManagementType":"AzureIaasVM","protectedItemsCount":5,"retentionPolicy":{"retentionPolicyType":"LongTermRetentionPolicy","dailySchedule":{"retentionDuration":{"count":30,"durationType":"Days"}}}}}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 2694
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.RecoveryServices/vaults/sigcomply-e2e-rsv/backupPolicies/HourlyLogBackup","name":"HourlyLogBackup","type":"Microsoft.RecoveryServices/vaults/backupPolicies","properties":{"backupManagementType":"AzureWorkload","workLoadType":"SQLDataBase","settings":{"timeZone":"UTC","issqlcompression":false,"isCompression":false},"subProtectionPolicy":[{"policyType":"Full","schedulePolicy":{"schedulePolicyType":"SimpleSchedulePolicy","scheduleRunFrequency":"Daily","scheduleRunTimes":["2026-07-27T04:00:00Z"],"scheduleWeeklyFrequency":0},"retentionPolicy":{"retentionPolicyType":"LongTermRetentionPolicy","dailySchedule":{"retentionTimes":["2026-07-27T04:00:00Z"],"retentionDuration":{"count":30,"durationType":"Days"}}}},{"policyType":"Log","schedulePolicy":{"schedulePolicyType":"LogSchedulePolicy","scheduleFrequencyInMins":60},"retentionPolicy":{"retentionPolicyType":"SimpleRetentionPolicy","retentionDuration":{"count":30,"durationType":"Days"}}}],"protectedItemsCount":0}},{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.RecoveryServices/vaults/sigcomply-e2e-rsv/backupPolicies/DefaultPolicy","name":"DefaultPolicy","type":"Microsoft.RecoveryServices/vaults/backupPolicies","properties":{"backupManagementType":"AzureIaasVM","policyType":"V1","instantRPDetails":{},"schedulePolicy":{"schedulePolicyType":"SimpleSchedulePolicy","scheduleRunFrequency":"Daily","scheduleRunTimes":["2026-07-27T04:00:00Z"],"scheduleWeeklyFrequency":0},"retentionPolicy":{"retentionPolicyType":"LongTermRetentionPolicy","dailySchedule":{"retentionTimes":["2026-07-27T04:00:00Z"],"retentionDuration":{"count":30,"durationType":"Days"}}},"instantRpRetentionRangeInDays":2,"timeZone":"UTC","protectedItemsCount":0}},{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.RecoveryServices/vaults/sigcomply-e2e-rsv/backupPolicies/EnhancedPolicy","name":"EnhancedPolicy","type":"Microsoft.RecoveryServices/vaults/backupPolicies","properties":{"backupManagementType":"AzureIaasVM","policyType":"V2","instantRPDetails":{},"schedulePolicy":{"schedulePolicyType":"SimpleSchedulePolicyV2","scheduleRunFrequency":"Hourly","hourlySchedule":{"interval":4,"scheduleWindowStartTime":"2026-07-27T08:00:00Z","scheduleWindowDuration":12}},"retentionPolicy":{"retentionPolicyType":"LongTermRetentionPolicy","dailySchedule":{"retentionTimes":["2026-07-27T08:00:00Z"],"retentionDuration":{"count":30,"durationType":"Days"}}},"instantRpRetentionRangeInDays":2,"timeZone":"UTC","protectedItemsCount":0}}]}'
         headers:
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "478"
+                - "2694"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:10:36 GMT
+                - Sun, 26 Jul 2026 18:19:25 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Client-Request-Id:
+                - c6cf19eb-ba1d-40cb-a776-6e0a988177b8
+            X-Ms-Correlation-Request-Id:
+                - 88168c1f-590c-474d-bfd6-f7aac83db62c
+            X-Ms-Operation-Identifier:
+                - tenantId=a62d98eb-ea44-431f-9d5a-3ba56f2be3ce,objectId=367cc74a-c222-4bd4-b837-8fde51b4a9cd/eastus/0ab57485-54bb-4893-ac45-c23fe9b08b2f
+            X-Ms-Ratelimit-Remaining-Subscription-Resource-Requests:
+                - "249"
+            X-Ms-Request-Id:
+                - 88168c1f-590c-474d-bfd6-f7aac83db62c
+            X-Ms-Routing-Request-Id:
+                - EASTUS:20260726T181925Z:88168c1f-590c-474d-bfd6-f7aac83db62c
+            X-Msedge-Ref:
+                - 'Ref A: ABA6D52D5B0D41B18CC539603414CA32 Ref B: MAA211070114036 Ref C: 2026-07-26T18:19:25Z'
         status: 200 OK
         code: 200
-        duration: 196.375µs
+        duration: 684.097167ms

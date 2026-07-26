@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56294
+        host: management.azure.com
         form:
             api-version:
                 - "2026-04-01"
@@ -21,28 +21,115 @@ interactions:
         url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.ContainerService/managedClusters?api-version=2026-04-01
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 766
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.ContainerService/managedClusters/e2eaks","name":"e2eaks","location":"eastus","type":"Microsoft.ContainerService/managedClusters","sku":{"tier":"Standard"},"properties":{"kubernetesVersion":"1.28.0","currentKubernetesVersion":"1.28.5","powerState":{"code":"Running"},"provisioningState":"Succeeded","enableRBAC":true,"securityProfile":{"azureKeyVaultKms":{"enabled":true,"keyId":"https://e2evault.vault.azure.net/keys/k1/abc"}},"apiServerAccessProfile":{"enablePrivateCluster":true},"autoUpgradeProfile":{"upgradeChannel":"stable"},"networkProfile":{"networkPlugin":"azure","networkPolicy":"azure"},"agentPoolProfiles":[{"enableEncryptionAtHost":true}]}}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 4475
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/sigcomply-e2e-rg/providers/Microsoft.ContainerService/managedClusters/sigcomply-e2e-aks","location":"eastus","name":"sigcomply-e2e-aks","type":"Microsoft.ContainerService/ManagedClusters","kind":"Base","properties":{"provisioningState":"Succeeded","powerState":{"code":"Running"},"kubernetesVersion":"1.35","currentKubernetesVersion":"1.35.6","dnsPrefix":"sigcomply--sigcomply-e2e-rg-1cd726","fqdn":"sigcomply--sigcomply-e2e-rg-1cd726-k0jpy10u.hcp.eastus.azmk8s.io","azurePortalFQDN":"sigcomply--sigcomply-e2e-rg-1cd726-k0jpy10u.portal.hcp.eastus.azmk8s.io","agentPoolProfiles":[{"name":"nodepool1","count":1,"vmSize":"Standard_D2als_v7","osDiskSizeGB":128,"osDiskType":"Managed","kubeletDiskType":"OS","maxPods":250,"type":"VirtualMachineScaleSets","enableAutoScaling":false,"scaleDownMode":"Delete","provisioningState":"Succeeded","powerState":{"code":"Running"},"orchestratorVersion":"1.35","currentOrchestratorVersion":"1.35.6","enableNodePublicIP":false,"mode":"System","enableEncryptionAtHost":false,"enableUltraSSD":false,"osType":"Linux","osSKU":"Ubuntu","nodeImageVersion":"AKSUbuntu-2404gen2containerd-202607.09.0","upgradeSettings":{"maxSurge":"10%","maxUnavailable":"0"},"enableFIPS":false,"securityProfile":{"sshAccess":"LocalUser","enableVTPM":false,"enableSecureBoot":false},"eTag":"c8b3752c-16d9-4c4e-9aa1-f29d7b19e7ba"}],"linuxProfile":{"adminUsername":"azureuser","ssh":{"publicKeys":[{"keyData":"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCemA8HXFy2TaKUpO2bkLjz03KKKDYbjP099YYABaiav9V1A0YX7EAcRKNFTfNW1d5uLWl+/f6IqUmaqQJSniv/X6lazFhbSnN6Uw0ZGwRNqW6RJBX3mzVBxG17Uy6dlL/XxaLGHlwlGswOxDkBOU63CYv1DtEvopvDJTmx742hUeO9EVNlgBUwXLelR3AEmPB1t9nnp5jM31hclKF8Ehu6tqAOTrLmjBqcjxw1uhtjNl2A9SpaDIxJc94lABczWO74x6IoXSTsMxu+brYF7H0ftxDOaBFRvg6LitN2GDbvpYN2pFeBFwf01XTAykp3krwPfC3zJJjJUQ0EBPr9YU9X"}]}},"servicePrincipalProfile":{"clientId":"msi"},"nodeResourceGroup":"MC_sigcomply-e2e-rg_sigcomply-e2e-aks_eastus","enableRBAC":true,"supportPlan":"KubernetesOfficial","networkProfile":{"networkPlugin":"azure","networkPluginMode":"overlay","networkPolicy":"none","networkDataplane":"azure","loadBalancerSku":"standard","loadBalancerProfile":{"managedOutboundIPs":{"count":1},"effectiveOutboundIPs":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/MC_sigcomply-e2e-rg_sigcomply-e2e-aks_eastus/providers/Microsoft.Network/publicIPAddresses/6dda1207-2296-49dc-8c5e-d5d554b8dfe2"}],"backendPoolType":"nodeIPConfiguration"},"podCidr":"10.244.0.0/16","serviceCidr":"10.0.0.0/16","dnsServiceIP":"10.0.0.10","outboundType":"loadBalancer","podCidrs":["10.244.0.0/16"],"serviceCidrs":["10.0.0.0/16"],"ipFamilies":["IPv4"]},"maxAgentPools":100,"identityProfile":{"kubeletidentity":{"resourceId":"/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/MC_sigcomply-e2e-rg_sigcomply-e2e-aks_eastus/providers/Microsoft.ManagedIdentity/userAssignedIdentities/sigcomply-e2e-aks-agentpool","clientId":"1da22628-3eca-43e6-b35c-924944cb8084","objectId":"bffc697f-4770-46e8-b0ae-47a0f549c14f"}},"autoUpgradeProfile":{"nodeOSUpgradeChannel":"NodeImage"},"disableLocalAccounts":false,"securityProfile":{},"storageProfile":{"diskCSIDriver":{"enabled":true},"fileCSIDriver":{"enabled":true},"snapshotController":{"enabled":true}},"oidcIssuerProfile":{"enabled":true,"issuerURL":"https://eastus.oic.prod-aks.azure.com/a62d98eb-ea44-431f-9d5a-3ba56f2be3ce/e5b8e6fb-9ed6-4eba-9282-4c2631210aad/"},"workloadAutoScalerProfile":{},"resourceUID":"6a664ef842ac450001954dd2","metricsProfile":{"costAnalysis":{"enabled":false}},"nodeProvisioningProfile":{"mode":"Manual"},"bootstrapProfile":{"artifactSource":"Direct"},"hostedSystemProfile":{"enabled":false}},"identity":{"type":"SystemAssigned","principalId":"97f08404-b56c-4ad0-9552-b6445b265c39","tenantId":"a62d98eb-ea44-431f-9d5a-3ba56f2be3ce"},"sku":{"name":"Base","tier":"Free"},"eTag":"72bc0535-c624-4dc0-85b0-464c26eb0c70"}],"nextLink":"https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.ContainerService/managedClusters?api-version=2026-03-01&%24skiptoken=3Y%2fNaoQwFIXf5UJnNTHGib8wFBm6q5s63blJkzs2WBNJopSK714ZZtc36Pacw%2fn4VjD4HV61GTxUK7zU7fW9hQo%2bQ5h8RekojOhxRBMi8TM7jKQdqZ8%2fvHR6CtoaT5lUeZKxjEjBFeF5LkiRliWRCU9TiVmh2I1Ozi5aofO00dJZb28hulgThDboWnSLlviAqcvX7MM%2bfX5KuB%2f0dLUDmjPj5SmNC3YQkybLXu%2fwcxInGYlPJGaHv0vYjiDcWPe9w14EVPejXa5%2ba%2bB4F2%2bEG9Dt0do93Duoun9h38EG2y8%3d"}'
         headers:
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "766"
+                - "4475"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:08:59 GMT
+                - Sun, 26 Jul 2026 18:21:52 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Correlation-Request-Id:
+                - 60cf3e8a-b83d-46d7-ba54-abd80ee69252
+            X-Ms-Original-Request-Ids:
+                - b07c188e-41a7-465f-8ed3-4d4e93b708af
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - 60cf3e8a-b83d-46d7-ba54-abd80ee69252
+            X-Ms-Routing-Request-Id:
+                - CENTRALINDIA:20260726T182153Z:60cf3e8a-b83d-46d7-ba54-abd80ee69252
+            X-Msedge-Ref:
+                - 'Ref A: 5400A6B26C274828993CF91042B5CF7F Ref B: MAA201060513029 Ref C: 2026-07-26T18:21:51Z'
         status: 200 OK
         code: 200
-        duration: 2.769375ms
+        duration: 1.492178125s
     - id: 1
       request:
         proto: HTTP/1.1
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56294
+        host: management.azure.com
+        form:
+            $skiptoken:
+                - 3Y/NaoQwFIXf5UJnNTHGib8wFBm6q5s63blJkzs2WBNJopSK714ZZtc36Pacw/n4VjD4HV61GTxUK7zU7fW9hQo+Q5h8RekojOhxRBMi8TM7jKQdqZ8/vHR6CtoaT5lUeZKxjEjBFeF5LkiRliWRCU9TiVmh2I1Ozi5aofO00dJZb28hulgThDboWnSLlviAqcvX7MM+fX5KuB/0dLUDmjPj5SmNC3YQkybLXu/wcxInGYlPJGaHv0vYjiDcWPe9w14EVPejXa5+a+B4F2+EG9Dt0do93Duoun9h38EG2y8=
+            api-version:
+                - "2026-03-01"
+        headers:
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armcontainerservice/v9.2.0 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.ContainerService/managedClusters?%24skiptoken=3Y%2FNaoQwFIXf5UJnNTHGib8wFBm6q5s63blJkzs2WBNJopSK714ZZtc36Pacw%2Fn4VjD4HV61GTxUK7zU7fW9hQo%2BQ5h8RekojOhxRBMi8TM7jKQdqZ8%2FvHR6CtoaT5lUeZKxjEjBFeF5LkiRliWRCU9TiVmh2I1Ozi5aofO00dJZb28hulgThDboWnSLlviAqcvX7MM%2BfX5KuB%2F0dLUDmjPj5SmNC3YQkybLXu%2FwcxInGYlPJGaHv0vYjiDcWPe9w14EVPejXa5%2Ba%2BB4F2%2BEG9Dt0do93Duoun9h38EG2y8%3D&api-version=2026-03-01
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 12
+        body: '{"value":[]}'
+        headers:
+            Cache-Control:
+                - no-cache
+            Content-Length:
+                - "12"
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sun, 26 Jul 2026 18:21:54 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Correlation-Request-Id:
+                - e37a6dcb-0ff5-48bb-b8d5-e662ad084837
+            X-Ms-Original-Request-Ids:
+                - 8fabca7c-dde6-4971-8338-00a34abbf5ff
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - e37a6dcb-0ff5-48bb-b8d5-e662ad084837
+            X-Ms-Routing-Request-Id:
+                - SOUTHINDIA:20260726T182155Z:e37a6dcb-0ff5-48bb-b8d5-e662ad084837
+            X-Msedge-Ref:
+                - 'Ref A: C497489DEE8D4412899AEC6F3BF77DF1 Ref B: MAA201060513029 Ref C: 2026-07-26T18:21:54Z'
+        status: 200 OK
+        code: 200
+        duration: 1.290023917s
+    - id: 2
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: management.azure.com
         form:
             api-version:
                 - 2021-05-01-preview
@@ -53,21 +140,47 @@ interactions:
                 - REDACTED
             User-Agent:
                 - azsdk-go-armmonitor/v0.11.0 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.ContainerService/managedClusters/e2eaks/providers/Microsoft.Insights/diagnosticSettings?api-version=2021-05-01-preview
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/sigcomply-e2e-rg/providers/Microsoft.ContainerService/managedClusters/sigcomply-e2e-aks/providers/Microsoft.Insights/diagnosticSettings?api-version=2021-05-01-preview
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 344
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.ContainerService/managedClusters/e2eaks/providers/Microsoft.Insights/diagnosticSettings/ds1","name":"ds1","type":"Microsoft.Insights/diagnosticSettings","properties":{"logs":[{"category":"kube-audit","enabled":true}],"metrics":[]}}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 12
+        body: '{"value":[]}'
         headers:
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "344"
+                - "12"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:08:59 GMT
+                - Sun, 26 Jul 2026 18:21:57 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Correlation-Request-Id:
+                - 9016bcfe-b359-4281-9606-9f6e7b3d44a4
+            X-Ms-Operation-Identifier:
+                - tenantId=a62d98eb-ea44-431f-9d5a-3ba56f2be3ce,objectId=367cc74a-c222-4bd4-b837-8fde51b4a9cd/eastus/e1ad2402-35c4-4d74-b682-9dd169ff87b7
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - 24bddc2b-9d6e-489e-903f-076d82d5ad15
+            X-Ms-Routing-Request-Id:
+                - EASTUS:20260726T182158Z:9016bcfe-b359-4281-9606-9f6e7b3d44a4
+            X-Msedge-Ref:
+                - 'Ref A: A46FB112F97D4395BF8B30A10DAD5226 Ref B: MAA201060513029 Ref C: 2026-07-26T18:21:57Z'
         status: 200 OK
         code: 200
-        duration: 251.875µs
+        duration: 623.771084ms
