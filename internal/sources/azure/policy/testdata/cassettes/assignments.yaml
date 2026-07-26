@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56270
+        host: management.azure.com
         form:
             api-version:
                 - "2025-03-01"
@@ -21,18 +21,44 @@ interactions:
         url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/policyAssignments?api-version=2025-03-01
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 753
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/policyAssignments/require-encryption","name":"require-encryption","type":"Microsoft.Authorization/policyAssignments","properties":{"scope":"/subscriptions/00000000-0000-0000-0000-000000000000","enforcementMode":"Default","policyDefinitionId":"/providers/Microsoft.Authorization/policyDefinitions/def1"}},{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Authorization/policyAssignments/audit-rg","name":"audit-rg","type":"Microsoft.Authorization/policyAssignments","properties":{"scope":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg","enforcementMode":"DoNotEnforce"}}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 1946
+        body: '{"value":[{"properties":{"displayName":"sigcomply e2e allowed locations","policyDefinitionId":"/providers/Microsoft.Authorization/policyDefinitions/e56962a6-4747-49cd-b67b-bf8b01975c4c","definitionVersion":"1.*.*","scope":"/subscriptions/00000000-0000-0000-0000-000000000000","parameters":{"listOfAllowedLocations":{"value":["eastus"]}},"metadata":{"createdBy":"367cc74a-c222-4bd4-b837-8fde51b4a9cd","createdOn":"2026-07-26T17:32:27.0505342Z","updatedBy":null,"updatedOn":null},"enforcementMode":"Default","instanceId":"c4239b6a-a097-4d12-b570-746dde6cd222"},"id":"/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/policyAssignments/sigcomply-e2e-loc","type":"Microsoft.Authorization/policyAssignments","name":"sigcomply-e2e-loc","systemData":{"createdBy":"user-ae0e86b080bc@example.com","createdByType":"User","createdAt":"2026-07-26T17:32:26.753463Z","lastModifiedBy":"user-ae0e86b080bc@example.com","lastModifiedByType":"User","lastModifiedAt":"2026-07-26T17:32:26.753463Z"}},{"properties":{"displayName":"Microsoft Azure region access restriction blocking West Europe region","policyDefinitionId":"/PROVIDERS/MICROSOFT.AUTHORIZATION/POLICYDEFINITIONS/7509877F-D414-4D79-8D1F-D600EA78D087","definitionVersion":"1.*.*","scope":"/providers/Microsoft.Management/managementGroups/a62d98eb-ea44-431f-9d5a-3ba56f2be3ce","metadata":{"createdBy":null,"createdOn":"2026-07-12T18:10:28.8901568Z","updatedBy":null,"updatedOn":null},"enforcementMode":"Default","nonComplianceMessages":[{"message":"The selected region is currently not accepting new customers: https://aka.ms/locationineligible"}],"assignmentType":"SystemHidden","instanceId":"00000000-0000-0000-0000-000000000000"},"id":"/providers/Microsoft.Management/managementGroups/a62d98eb-ea44-431f-9d5a-3ba56f2be3ce/providers/Microsoft.Authorization/policyAssignments/sys.blockwesteurope","type":"Microsoft.Authorization/policyAssignments","name":"sys.blockwesteurope"}]}'
         headers:
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "753"
+                - "1946"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:07:11 GMT
+                - Sun, 26 Jul 2026 17:33:09 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Correlation-Request-Id:
+                - 185bf693-1fde-40c6-9cdd-3d5365dae114
+            X-Ms-Operation-Identifier:
+                - tenantId=a62d98eb-ea44-431f-9d5a-3ba56f2be3ce,objectId=367cc74a-c222-4bd4-b837-8fde51b4a9cd/westindia/f1683abe-663a-4b40-8cd2-6121dc502ee3
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - 185bf693-1fde-40c6-9cdd-3d5365dae114
+            X-Ms-Routing-Request-Id:
+                - WESTINDIA:20260726T173310Z:185bf693-1fde-40c6-9cdd-3d5365dae114
+            X-Msedge-Ref:
+                - 'Ref A: D2B3B46DDF264DE3B7AD40D530DE7389 Ref B: MAA211070116029 Ref C: 2026-07-26T17:33:10Z'
         status: 200 OK
         code: 200
-        duration: 3.332459ms
+        duration: 593.372583ms

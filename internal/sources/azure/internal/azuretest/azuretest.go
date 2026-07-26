@@ -69,3 +69,14 @@ func RecordOptions(t *testing.T, cassetteName, endpoint string, base http.RoundT
 	t.Helper()
 	return options(sourcetest.RecordClient(t, cassetteName, base), endpoint)
 }
+
+// RecordLiveOptions returns ARM client options that record REAL Azure management
+// traffic into the named cassette against the live public endpoint. Pair it with
+// a real azidentity credential (azcommon.NewCredential, i.e. `az login`) and the
+// real subscription ID; the ARM SDK's auth policy adds the bearer token before
+// the recording transport, so the cassette captures it — RedactInteraction scrubs
+// Authorization to REDACTED. Only ever run under //go:build record.
+func RecordLiveOptions(t *testing.T, cassetteName string) *arm.ClientOptions {
+	t.Helper()
+	return options(sourcetest.RecordClient(t, cassetteName, http.DefaultTransport), "")
+}
