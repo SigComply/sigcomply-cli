@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:55197
+        host: sqladmin.googleapis.com
         form:
             alt:
                 - json
@@ -21,24 +21,31 @@ interactions:
         url: https://sqladmin.googleapis.com/v1/projects/e2e-project/instances?alt=json&prettyPrint=false
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 342
-        body: |-
-            {"items":[{
-            "name":"e2e-pg","databaseVersion":"POSTGRES_15","region":"us-central1","state":"RUNNABLE",
-            "settings":{"availabilityType":"REGIONAL","deletionProtectionEnabled":true,
-            "ipConfiguration":{"ipv4Enabled":false,"requireSsl":true,"sslMode":"ENCRYPTED_ONLY"},
-            "backupConfiguration":{"enabled":true,"pointInTimeRecoveryEnabled":true}}
-            }]}
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"items":[{"kind":"sql#instance","state":"RUNNABLE","databaseVersion":"POSTGRES_15","settings":{"authorizedGaeApplications":[],"tier":"db-f1-micro","kind":"sql#settings","availabilityType":"ZONAL","pricingPlan":"PER_USE","replicationType":"SYNCHRONOUS","activationPolicy":"ALWAYS","ipConfiguration":{"authorizedNetworks":[],"sslMode":"ALLOW_UNENCRYPTED_AND_ENCRYPTED","ipv4Enabled":true,"requireSsl":false,"serverCaMode":"GOOGLE_MANAGED_INTERNAL_CA","serverCertificateRotationMode":"SERVER_CERTIFICATE_ROTATION_MODE_UNSPECIFIED"},"locationPreference":{"zone":"us-east1-d","kind":"sql#locationPreference"},"dataDiskType":"PD_SSD","backupConfiguration":{"startTime":"08:00","kind":"sql#backupConfiguration","backupRetentionSettings":{"retentionUnit":"COUNT","retainedBackups":7},"enabled":false,"transactionLogRetentionDays":7,"transactionalLogStorageState":"TRANSACTIONAL_LOG_STORAGE_STATE_UNSPECIFIED","backupTier":"STANDARD"},"edition":"ENTERPRISE","connectorEnforcement":"NOT_REQUIRED","settingsVersion":"2","storageAutoResizeLimit":"0","storageAutoResize":true,"dataDiskSizeGb":"10","deletionProtectionEnabled":true,"replicationLagMaxSeconds":31536000,"enableDataplexIntegration":true},"etag":"a8062742ac7e5636a1cf3f05765bee5c5b8b48305870ba061494cc8b9ae8ac62","ipAddresses":[{"type":"PRIMARY","ipAddress":"35.185.60.240"},{"type":"OUTGOING","ipAddress":"34.24.101.124"}],"serverCaCert":{"kind":"sql#sslCert","certSerialNumber":"0","cert":"-----BEGIN CERTIFICATE-----\nMIIDcTCCAlmgAwIBAgIBADANBgkqhkiG9w0BAQsFADBwMS0wKwYDVQQuEyQ5MGQ2\nODQzNi1kNGRjLTQxNTQtYjAxZS0xYTFlYjNiOTRkM2YxHDAaBgNVBAMTE0Nsb3Vk\nIFNRTCBTZXJ2ZXIgQ0ExFDASBgNVBAoTC0dvb2dsZSwgSW5jMQswCQYDVQQGEwJV\nUzAeFw0yNjA3MjYxMTQyNTZaFw0zNjA3MjMxMTQzNTZaMHAxLTArBgNVBC4TJDkw\nZDY4NDM2LWQ0ZGMtNDE1NC1iMDFlLTFhMWViM2I5NGQzZjEcMBoGA1UEAxMTQ2xv\ndWQgU1FMIFNlcnZlciBDQTEUMBIGA1UEChMLR29vZ2xlLCBJbmMxCzAJBgNVBAYT\nAlVTMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAotAr9Kl1p3qaW5D2\n618maJNjNGvZbPHFhh7MbxdfDRNVo6FOGvmYNCKnwC269J/jobG2dkb4S3NXgiEH\nWcZahoE1tfeixBBnhtyldxH0IDpK9Kyigk5q1jzp1hGsnQzMBqzCkodtZWJKY2Rb\nE4CyXGPyttVrA70jZmPAw5JV338lbSdcl37NtDLQ3Lly5GQ1kRzN+ZqZB1TUGs9j\nbIEPyKC0TUZ/AoghZEcMTY34dinWZNDYrG5Crm9xOW04qbyp51UntyDBMtHn2EA4\nqnt7Isz9Fs5HZRZuc9ANj4j0udEhI5EmgLJzfUiDMBRGb+V4YIEGbRwWusL8iKBo\njfvg2QIDAQABoxYwFDASBgNVHRMBAf8ECDAGAQH/AgEAMA0GCSqGSIb3DQEBCwUA\nA4IBAQCLtwMZmSZY/8Y6DP5seFZKKU7BXSL5i7fA7i3BIF5J64+JZy0fcZZ/vZ8I\nvc2fBNSSNLOsHBXsh4tGLC7rwglkNsG+lJQ3jan/NX8b21iL+5nVvw/rwtkFSEgc\nUdaZuL41GGCPLTQjhhZa615EJ2rcEvP1RRELeDJ/O47Zl3erXh2sS7ubKspCNrQZ\nW5DvfVCLKqu/LGqm318hg02v+HH7JwRzFlJul6r0emOf9tHJxnUc9D/Lev+1OHrk\n6/5sXnVAKdocHqVXTj1kDhwIAxMpqdsPBmSZ8iXpik0VCcDJTL0yEWTB3NKnDzcP\nd5VXUM1DYv6SsCu/T4iXirAmfq6W\n-----END CERTIFICATE-----","commonName":"C=US,O=Google\\, Inc,CN=Cloud SQL Server CA,dnQualifier=90d68436-d4dc-4154-b01e-1a1eb3b94d3f","sha1Fingerprint":"047323240f274bf1638cff9a112d37ce568a611e","instance":"sigcomply-e2e-sql","createTime":"2026-07-26T11:42:56.227Z","expirationTime":"2036-07-23T11:43:56.227Z"},"instanceType":"CLOUD_SQL_INSTANCE","project":"e2e-project","serviceAccountEmailAddress":"user-b5e98e10f305@example.com","backendType":"SECOND_GEN","selfLink":"https://sqladmin.googleapis.com/v1/projects/e2e-project/instances/sigcomply-e2e-sql","connectionName":"e2e-project:us-east1:sigcomply-e2e-sql","name":"sigcomply-e2e-sql","region":"us-east1","gceZone":"us-east1-d","databaseInstalledVersion":"POSTGRES_15_18","maintenanceVersion":"POSTGRES_15_18.R20260712.01_02","createTime":"2026-07-26T11:42:35.062Z","sqlNetworkArchitecture":"NEW_NETWORK_ARCHITECTURE","satisfiesPzi":false,"includeReplicasForMajorVersionUpgrade":false}]}'
         headers:
-            Content-Length:
-                - "342"
+            Alt-Svc:
+                - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
             Content-Type:
-                - application/json
+                - application/json; charset=UTF-8
             Date:
-                - Sun, 28 Jun 2026 12:48:16 GMT
+                - Sun, 26 Jul 2026 12:01:08 GMT
+            Server:
+                - ESF
+            Vary:
+                - Origin
+                - X-Origin
+                - Referer
+            X-Content-Type-Options:
+                - nosniff
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Xss-Protection:
+                - "0"
         status: 200 OK
         code: 200
-        duration: 1.040125ms
+        duration: 1.480480833s
