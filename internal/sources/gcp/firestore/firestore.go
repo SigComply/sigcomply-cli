@@ -245,7 +245,10 @@ type realFirestore struct {
 }
 
 func (r *realFirestore) ListDatabases(ctx context.Context, project string) ([]*firestore.GoogleFirestoreAdminV1Database, error) {
-	parent := fmt.Sprintf("projects/%s/databases", project)
+	// The List template is "v1/{+parent}/databases", so the parent is the project
+	// itself ("projects/{project}") — appending "/databases" here would produce a
+	// doubled ".../databases/databases" path that the real API 404s on.
+	parent := fmt.Sprintf("projects/%s", project)
 	resp, err := r.svc.Projects.Databases.List(parent).Context(ctx).Do()
 	if err != nil {
 		return nil, err

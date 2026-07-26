@@ -22,7 +22,7 @@ func TestGCPComputeConformance(t *testing.T) {
 	fixedNow := time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC)
 	newPlugin := func() core.SourcePlugin {
 		svc, err := gce.NewService(context.Background(),
-			gcptest.ReplayOptions(t, "testdata/cassettes/instances", "https://compute.googleapis.com")...)
+			gcptest.ReplayOptions(t, "testdata/cassettes/instances", "https://compute.googleapis.com/compute/v1/")...)
 		if err != nil {
 			t.Fatal(err)
 		}

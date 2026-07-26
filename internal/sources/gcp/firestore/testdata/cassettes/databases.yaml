@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:55703
+        host: firestore.googleapis.com
         form:
             alt:
                 - json
@@ -18,21 +18,36 @@ interactions:
                 - google-api-go-client/0.5
             X-Goog-Api-Client:
                 - gl-go/1.25.8 gdcl/0.283.0
-        url: https://firestore.googleapis.com/v1/projects/e2e-project/databases/databases?alt=json&prettyPrint=false
+        url: https://firestore.googleapis.com/v1/projects/e2e-project/databases?alt=json&prettyPrint=false
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 344
-        body: '{"databases":[{"name":"projects/e2e-project/databases/(default)","locationId":"nam5","type":"FIRESTORE_NATIVE","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_ENABLED","deleteProtectionState":"DELETE_PROTECTION_ENABLED","cmekConfig":{"kmsKeyName":"projects/e2e-project/locations/us-central1/keyRings/r/cryptoKeys/k"}}],"unreachable":[]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: -1
+        uncompressed: true
+        body: '{"databases":[{"name":"projects/e2e-project/databases/(default)","uid":"3297a169-4fa7-4dc6-b03a-761cb10d2e4b","createTime":"2026-07-26T11:05:45.041899Z","updateTime":"2026-07-26T11:05:50.092369Z","locationId":"us-east1","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"604800s","earliestVersionTime":"2026-07-26T11:05:45.041899Z","appEngineIntegrationMode":"DISABLED","keyPrefix":"p","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_ENABLED","deleteProtectionState":"DELETE_PROTECTION_ENABLED","databaseEdition":"STANDARD","freeTier":true,"realtimeUpdatesMode":"REALTIME_UPDATES_MODE_ENABLED","etag":"IMyI9Yma8JUDML38lrWZ8JUD"}]}'
         headers:
-            Content-Length:
-                - "344"
+            Alt-Svc:
+                - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
             Content-Type:
-                - application/json
+                - application/json; charset=UTF-8
             Date:
-                - Sun, 28 Jun 2026 13:33:46 GMT
+                - Sun, 26 Jul 2026 11:08:48 GMT
+            Server:
+                - ESF
+            Vary:
+                - Origin
+                - X-Origin
+                - Referer
+            X-Content-Type-Options:
+                - nosniff
+            X-Debug-Tracking-Id:
+                - 6935137152989069712;o=0
+            X-Frame-Options:
+                - SAMEORIGIN
+            X-Xss-Protection:
+                - "0"
         status: 200 OK
         code: 200
-        duration: 839.125µs
+        duration: 1.210467917s
