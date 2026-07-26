@@ -209,14 +209,24 @@ func scrubHeaders(h http.Header) {
 func scrubString(s string) string {
 	s = reAccessKey.ReplaceAllStringFunc(s, redactAccessKey)
 	s = reBearer.ReplaceAllString(s, "Bearer REDACTED")
-	s = reEmail.ReplaceAllStringFunc(s, func(m string) string {
-		if exampleDomain.MatchString(m) {
-			return m // already a reserved placeholder domain
-		}
-		return "user@example.com"
-	})
+	s = reEmail.ReplaceAllStringFunc(s, redactEmail)
 	s = reAccountID.ReplaceAllString(s, "000000000000")
 	return s
+}
+
+// redactEmail maps each distinct real email to a stable, DISTINCT placeholder in
+// the reserved example.com domain. Like redactAccessKey, distinctness matters:
+// identity-bearing sources (GCP iam bindings, directory users, Okta/Entra users)
+// key records on the member address, so collapsing every email to one placeholder
+// would alias separate members into a single record and drop the others. The hash
+// is deterministic, so the same email scrubs to the same placeholder everywhere it
+// appears; reserved-domain emails (already placeholders) pass through unchanged.
+func redactEmail(m string) string {
+	if exampleDomain.MatchString(m) {
+		return m
+	}
+	sum := sha256.Sum256([]byte(m))
+	return "user-" + strings.ToLower(hex.EncodeToString(sum[:]))[:12] + "@example.com"
 }
 
 // redactAccessKey maps each distinct AWS access key ID to a stable, distinct

@@ -118,7 +118,7 @@ func TestRedactInteraction(t *testing.T) {
 
 	// Spot-check specific placeholder substitutions in the response body.
 	rb := i.Response.Body
-	for _, want := range []string{"AKIAEXAMPLE", "000000000000", "user@example.com", "Bearer REDACTED"} {
+	for _, want := range []string{"AKIAEXAMPLE", "000000000000", "@example.com", "Bearer REDACTED"} {
 		if !strings.Contains(rb, want) {
 			t.Errorf("response body missing placeholder %q: %s", want, rb)
 		}
@@ -132,6 +132,18 @@ func TestRedactInteraction(t *testing.T) {
 	}
 	if strings.Contains(rb, "123456789012") || strings.Contains(rb, "210987654321") {
 		t.Errorf("response body still contains a real account ID: %s", rb)
+	}
+	// Distinct real emails must scrub to DISTINCT placeholders (not aliased to
+	// one), so identity-bearing sources keep separate members separate. Both
+	// still land in the reserved example.com domain and drop the real identity.
+	alice, carol := scrubString("alice@acmecorp.com"), scrubString("carol@acmecorp.com")
+	if alice == carol {
+		t.Errorf("distinct emails collapsed to one placeholder: %q", alice)
+	}
+	for _, e := range []string{alice, carol} {
+		if !exampleDomain.MatchString(e) || strings.Contains(e, "acmecorp") {
+			t.Errorf("email not scrubbed to a reserved-domain placeholder: %q", e)
+		}
 	}
 }
 
