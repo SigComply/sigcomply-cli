@@ -66,13 +66,30 @@ func RecordOptions(t *testing.T, cassetteName, endpoint string) []option.ClientO
 // never in the per-PR suite.
 func RecordLiveOptions(t *testing.T, cassetteName, endpoint string, scopes ...string) []option.ClientOption {
 	t.Helper()
+	return []option.ClientOption{
+		// Auth lives in the record client, so tell the SDK not to add its own
+		// credential layer on top of our recording transport.
+		option.WithoutAuthentication(),
+		option.WithEndpoint(endpoint),
+		option.WithHTTPClient(RecordLiveClient(t, cassetteName, scopes...)),
+	}
+}
+
+// RecordLiveClient returns a single *http.Client that records REAL GCP traffic
+// into the named cassette, authenticated via ADC (+ the quota project from
+// GCP_TEST_PROJECT). Use it directly when one client must be shared across
+// several NewService calls against different endpoints (e.g. the audit source's
+// Resource Manager + Logging clients, matched by URL in one cassette); otherwise
+// prefer RecordLiveOptions.
+func RecordLiveClient(t *testing.T, cassetteName string, scopes ...string) *http.Client {
+	t.Helper()
 	if len(scopes) == 0 {
 		scopes = []string{"https://www.googleapis.com/auth/cloud-platform.read-only"}
 	}
 	creds, err := google.FindDefaultCredentials(context.Background(), scopes...)
 	if err != nil {
 		t.Fatalf("gcptest: no Application Default Credentials — run `gcloud auth "+
-			"application-default login --impersonate-service-account=<recorder-sa>`: %v", err)
+			"application-default login`: %v", err)
 	}
 	var authed http.RoundTripper = &oauth2.Transport{Source: creds.TokenSource, Base: http.DefaultTransport}
 	// Some APIs (Cloud Asset, etc.) reject user ADC without a quota project (the
@@ -82,13 +99,7 @@ func RecordLiveOptions(t *testing.T, cassetteName, endpoint string, scopes ...st
 	if qp := os.Getenv("GCP_TEST_PROJECT"); qp != "" {
 		authed = &quotaProjectTransport{base: authed, project: qp}
 	}
-	return []option.ClientOption{
-		// Auth lives in `authed`, so tell the SDK not to add its own credential
-		// layer on top of our recording transport.
-		option.WithoutAuthentication(),
-		option.WithEndpoint(endpoint),
-		option.WithHTTPClient(sourcetest.RecordClient(t, cassetteName, authed)),
-	}
+	return sourcetest.RecordClient(t, cassetteName, authed)
 }
 
 // quotaProjectTransport sets X-Goog-User-Project on each request so a live
