@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:55199
+        host: storage.googleapis.com
         form:
             alt:
                 - json
@@ -27,30 +27,37 @@ interactions:
             User-Agent:
                 - google-api-go-client/0.5
             X-Goog-Api-Client:
-                - gl-go/1.25.8 gdcl/0.283.0 gccl-invocation-id/3e7fa813-abaf-4bcd-9af4-02132dab5ad2 gccl-attempt-count/1 gl-go/1.25.8 gccl/1.62.2
+                - gl-go/1.25.8 gdcl/0.283.0 gccl-invocation-id/e8cdcf8f-67da-4acf-a630-aeab10cc5db0 gccl-attempt-count/1 gl-go/1.25.8 gccl/1.62.2
             X-Goog-Gcs-Idempotency-Token:
-                - 3e7fa813-abaf-4bcd-9af4-02132dab5ad2
-        url: https://storage.googleapis.com/b?alt=json&pageToken=&prefix=&prettyPrint=false&project=e2e-project&projection=full&returnPartialSuccess=false
+                - e8cdcf8f-67da-4acf-a630-aeab10cc5db0
+        url: https://storage.googleapis.com/storage/v1/b?alt=json&pageToken=&prefix=&prettyPrint=false&project=e2e-project&projection=full&returnPartialSuccess=false
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 366
-        body: |-
-            {"kind":"storage#buckets","items":[{
-            "kind":"storage#bucket","name":"e2e-bucket","location":"US","timeCreated":"2026-01-01T00:00:00Z",
-            "iamConfiguration":{"uniformBucketLevelAccess":{"enabled":true},"publicAccessPrevention":"enforced"},
-            "versioning":{"enabled":true},
-            "encryption":{"defaultKmsKeyName":"projects/e2e-project/locations/us/keyRings/r/cryptoKeys/k"}
-            }]}
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 830
+        body: '{"kind":"storage#buckets","items":[{"kind":"storage#bucket","selfLink":"https://www.googleapis.com/storage/v1/b/e2e-bucket","id":"e2e-bucket","name":"e2e-bucket","projectNumber":"000000000000","generation":"1785058914099400274","metageneration":"2","location":"US-EAST1","storageClass":"STANDARD","etag":"CAI=","timeCreated":"2026-07-26T09:41:54.466Z","updated":"2026-07-26T09:41:56.440Z","versioning":{"enabled":true},"softDeletePolicy":{"retentionDurationSeconds":"604800","effectiveTime":"2026-07-26T09:41:54.466Z"},"iamConfiguration":{"bucketPolicyOnly":{"enabled":true,"lockedTime":"2026-10-24T09:41:54.466Z"},"uniformBucketLevelAccess":{"enabled":true,"lockedTime":"2026-10-24T09:41:54.466Z"},"publicAccessPrevention":"enforced"},"locationType":"region","satisfiesPZI":true}]}'
         headers:
+            Alt-Svc:
+                - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+            Cache-Control:
+                - private, max-age=0, must-revalidate, no-transform
             Content-Length:
-                - "366"
+                - "830"
             Content-Type:
-                - application/json
+                - application/json; charset=UTF-8
             Date:
-                - Sun, 28 Jun 2026 12:48:19 GMT
+                - Sun, 26 Jul 2026 09:50:04 GMT
+            Expires:
+                - Sun, 26 Jul 2026 09:50:04 GMT
+            Server:
+                - UploadServer
+            Vary:
+                - Origin
+                - X-Origin
+            X-Guploader-Uploadid:
+                - AKhXX7JzngesJVvoQk8wG7aTFkr4D_lWJGyuBMgDMV-R5Y6tNpp6vkoq9Wsq0zJGvLu__9cKlERjUi-_MkcC
         status: 200 OK
         code: 200
-        duration: 588.042µs
+        duration: 1.108580125s

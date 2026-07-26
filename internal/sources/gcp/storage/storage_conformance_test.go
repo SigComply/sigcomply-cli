@@ -14,13 +14,15 @@ import (
 )
 
 // storage_conformance_test.go: gcp.object_storage_bucket L1+L2 (WU-2.7).
-// Hand-authored: one bucket with uniform bucket-level access + public-access
-// prevention enforced, versioning, and a CMEK key.
+// Replays a cassette recorded against a real GCS bucket (see
+// storage_record_test.go) with uniform bucket-level access + public-access
+// prevention enforced and versioning on (no CMEK — the seeded bucket uses
+// Google-managed keys).
 func TestGCPStorageConformance(t *testing.T) {
 	fixedNow := time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC)
 	newPlugin := func() core.SourcePlugin {
 		client, err := gcs.NewClient(context.Background(),
-			gcptest.ReplayOptions(t, "testdata/cassettes/buckets", "https://storage.googleapis.com")...)
+			gcptest.ReplayOptions(t, "testdata/cassettes/buckets", "https://storage.googleapis.com/storage/v1/")...)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -38,7 +40,7 @@ func TestGCPStorageConformance(t *testing.T) {
 	if err := json.Unmarshal(recs[0].Payload, &p); err != nil {
 		t.Fatal(err)
 	}
-	if !p.PublicAccessBlocked || !p.VersioningEnabled || !p.KMSManaged {
-		t.Errorf("bucket = %+v; want public-access-blocked, versioned, CMEK", p)
+	if !p.PublicAccessBlocked || !p.VersioningEnabled {
+		t.Errorf("bucket = %+v; want public-access-blocked and versioned", p)
 	}
 }

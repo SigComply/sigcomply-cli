@@ -13,8 +13,12 @@
 package gcptest
 
 import (
+	"context"
+	"net/http"
 	"testing"
 
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 
 	"github.com/sigcomply/sigcomply-cli/internal/sources/sourcetest"
@@ -39,5 +43,42 @@ func RecordOptions(t *testing.T, cassetteName, endpoint string) []option.ClientO
 		option.WithoutAuthentication(),
 		option.WithEndpoint(endpoint),
 		option.WithHTTPClient(sourcetest.RecordClient(t, cassetteName, nil)),
+	}
+}
+
+// RecordLiveOptions returns client options that record REAL GCP API traffic into
+// the named cassette, pointed at the live endpoint (e.g.
+// "https://storage.googleapis.com"). Unlike RecordOptions (which records a
+// hand-authored httptest server), this authenticates via Application Default
+// Credentials, so it hits the real API — the maintainer path for capturing a
+// genuine cassette against a seeded test project.
+//
+// Configure impersonation before recording (the recorder SA is read-only):
+//
+//	gcloud auth application-default login \
+//	  --impersonate-service-account=sigcomply-e2e-recorder@<project>.iam.gserviceaccount.com
+//
+// The recorder wraps the ADC oauth2 transport, so a real bearer token reaches
+// googleapis while the request the cassette stores carries none (the token is
+// added by the inner transport, below the recording point, and RedactInteraction
+// scrubs Authorization as a second guard). Only ever run under //go:build record;
+// never in the per-PR suite.
+func RecordLiveOptions(t *testing.T, cassetteName, endpoint string, scopes ...string) []option.ClientOption {
+	t.Helper()
+	if len(scopes) == 0 {
+		scopes = []string{"https://www.googleapis.com/auth/cloud-platform.read-only"}
+	}
+	creds, err := google.FindDefaultCredentials(context.Background(), scopes...)
+	if err != nil {
+		t.Fatalf("gcptest: no Application Default Credentials — run `gcloud auth "+
+			"application-default login --impersonate-service-account=<recorder-sa>`: %v", err)
+	}
+	authed := &oauth2.Transport{Source: creds.TokenSource, Base: http.DefaultTransport}
+	return []option.ClientOption{
+		// Auth lives in `authed`, so tell the SDK not to add its own credential
+		// layer on top of our recording transport.
+		option.WithoutAuthentication(),
+		option.WithEndpoint(endpoint),
+		option.WithHTTPClient(sourcetest.RecordClient(t, cassetteName, authed)),
 	}
 }
