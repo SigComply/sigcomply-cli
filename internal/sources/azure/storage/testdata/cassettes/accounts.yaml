@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56189
+        host: management.azure.com
         form:
             api-version:
                 - "2024-01-01"
@@ -21,28 +21,54 @@ interactions:
         url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Storage/storageAccounts?api-version=2024-01-01
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 613
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Storage/storageAccounts/e2eaccount","name":"e2eaccount","type":"Microsoft.Storage/storageAccounts","location":"eastus","properties":{"creationTime":"2026-01-02T03:04:05Z","allowBlobPublicAccess":false,"minimumTlsVersion":"TLS1_2","publicNetworkAccess":"Enabled","encryption":{"keySource":"Microsoft.Keyvault","keyVaultProperties":{"keyVaultUri":"https://e2evault.vault.azure.net","keyName":"k1","keyVersion":"ver1","currentVersionedKeyIdentifier":"https://e2evault.vault.azure.net/keys/k1/abc123"}}}}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 1509
+        body: '{"value":[{"sku":{"name":"Standard_LRS","tier":"Standard"},"kind":"StorageV2","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.Storage/storageAccounts/sigcomplye2e1cd72616","name":"sigcomplye2e1cd72616","type":"Microsoft.Storage/storageAccounts","location":"eastus","tags":{},"properties":{"keyCreationTime":{"key1":"2026-07-26T17:35:29.3141425Z","key2":"2026-07-26T17:35:29.3141425Z"},"allowCrossTenantReplication":false,"privateEndpointConnections":[],"minimumTlsVersion":"TLS1_2","allowBlobPublicAccess":false,"networkAcls":{"ipv6Rules":[],"bypass":"None","virtualNetworkRules":[],"ipRules":[],"defaultAction":"Allow"},"supportsHttpsTrafficOnly":true,"encryption":{"services":{"file":{"keyType":"Account","enabled":true,"lastEnabledTime":"2026-07-26T17:35:29.3244146Z"},"blob":{"keyType":"Account","enabled":true,"lastEnabledTime":"2026-07-26T17:35:29.3244146Z"}},"keySource":"Microsoft.Storage"},"accessTier":"Hot","provisioningState":"Succeeded","creationTime":"2026-07-26T17:35:28.9075833Z","primaryEndpoints":{"dfs":"https://sigcomplye2e1cd72616.dfs.core.windows.net/","web":"https://sigcomplye2e1cd72616.z13.web.core.windows.net/","blob":"https://sigcomplye2e1cd72616.blob.core.windows.net/","queue":"https://sigcomplye2e1cd72616.queue.core.windows.net/","table":"https://sigcomplye2e1cd72616.table.core.windows.net/","file":"https://sigcomplye2e1cd72616.file.core.windows.net/"},"primaryLocation":"eastus","statusOfPrimary":"available"}}]}'
         headers:
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "613"
+                - "1509"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:00:30 GMT
+                - Sun, 26 Jul 2026 17:38:05 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Correlation-Request-Id:
+                - a872ec9a-4c83-4501-99a4-333625e7fc3f
+            X-Ms-Original-Request-Ids:
+                - 7120591c-123b-4f3c-b583-e59726d7bdb5
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - a872ec9a-4c83-4501-99a4-333625e7fc3f
+            X-Ms-Routing-Request-Id:
+                - SOUTHINDIA:20260726T173806Z:a872ec9a-4c83-4501-99a4-333625e7fc3f
+            X-Msedge-Ref:
+                - 'Ref A: B305B83F72D94B45801BCCCEDB6F7D5B Ref B: MAA211070116042 Ref C: 2026-07-26T17:38:05Z'
         status: 200 OK
         code: 200
-        duration: 4.299833ms
+        duration: 1.221618167s
     - id: 1
       request:
         proto: HTTP/1.1
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56189
+        host: management.azure.com
         form:
             api-version:
                 - "2024-01-01"
@@ -53,21 +79,47 @@ interactions:
                 - REDACTED
             User-Agent:
                 - azsdk-go-armstorage/v1.8.1 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Storage/storageAccounts/e2eaccount/blobServices/default?api-version=2024-01-01
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.Storage/storageAccounts/sigcomplye2e1cd72616/blobServices/default?api-version=2024-01-01
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 93
-        body: '{"properties":{"isVersioningEnabled":true,"deleteRetentionPolicy":{"enabled":true,"days":7}}}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 436
+        body: '{"sku":{"name":"Standard_LRS","tier":"Standard"},"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.Storage/storageAccounts/sigcomplye2e1cd72616/blobServices/default","name":"default","type":"Microsoft.Storage/storageAccounts/blobServices","properties":{"cors":{"corsRules":[]},"deleteRetentionPolicy":{"allowPermanentDelete":false,"enabled":false},"isVersioningEnabled":true}}'
         headers:
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "93"
+                - "436"
             Content-Type:
                 - application/json
             Date:
-                - Sun, 28 Jun 2026 14:00:30 GMT
+                - Sun, 26 Jul 2026 17:38:07 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Correlation-Request-Id:
+                - f94540a1-46d8-49ad-8828-962bce1586f5
+            X-Ms-Operation-Identifier:
+                - tenantId=a62d98eb-ea44-431f-9d5a-3ba56f2be3ce,objectId=367cc74a-c222-4bd4-b837-8fde51b4a9cd/eastus/4b7bfd1e-8318-4117-a410-eed175580e87
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - c282bd30-c504-47a2-8f0c-452414b6c84d
+            X-Ms-Routing-Request-Id:
+                - EASTUS:20260726T173808Z:f94540a1-46d8-49ad-8828-962bce1586f5
+            X-Msedge-Ref:
+                - 'Ref A: FEE7055EC5AE43BC8FFB1CFC0339DBB9 Ref B: MAA211070116042 Ref C: 2026-07-26T17:38:07Z'
         status: 200 OK
         code: 200
-        duration: 258.542µs
+        duration: 486.107625ms

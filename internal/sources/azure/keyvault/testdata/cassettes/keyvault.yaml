@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56258
+        host: management.azure.com
         form:
             api-version:
                 - "2026-02-01"
@@ -21,63 +21,123 @@ interactions:
         url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.KeyVault/vaults?api-version=2026-02-01
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 335
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.KeyVault/vaults/e2evault","name":"e2evault","location":"eastus","type":"Microsoft.KeyVault/vaults","properties":{"tenantId":"00000000-0000-0000-0000-000000000000","sku":{"family":"A","name":"premium"},"accessPolicies":[]}}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 1659
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.KeyVault/vaults/sigcomply-e2e-kv-1cd7","name":"sigcomply-e2e-kv-1cd7","type":"Microsoft.KeyVault/vaults","location":"eastus","tags":{},"systemData":{"createdBy":"user-ae0e86b080bc@example.com","createdByType":"User","createdAt":"2026-07-26T17:36:18.156Z","lastModifiedBy":"user-ae0e86b080bc@example.com","lastModifiedByType":"User","lastModifiedAt":"2026-07-26T17:36:18.156Z"},"properties":{"sku":{"family":"A","name":"standard"},"tenantId":"a62d98eb-ea44-431f-9d5a-3ba56f2be3ce","accessPolicies":[{"tenantId":"a62d98eb-ea44-431f-9d5a-3ba56f2be3ce","objectId":"367cc74a-c222-4bd4-b837-8fde51b4a9cd","permissions":{"keys":["all"],"secrets":["all"],"certificates":["all"],"storage":["all"]}}],"enabledForDeployment":false,"enabledForDiskEncryption":false,"enabledForTemplateDeployment":false,"enableSoftDelete":true,"softDeleteRetentionInDays":7,"enableRbacAuthorization":false,"enablePurgeProtection":true,"vaultUri":"https://sigcomply-e2e-kv-1cd7.vault.azure.net/","provisioningState":"Succeeded","publicNetworkAccess":"Enabled"}}],"nextLink":"https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.KeyVault/vaults?api-version=2026-02-01&%24skiptoken=3ZDNaoQwAITfJZSeNkZTf1ZBitA%2fWr1Ut1LxEmPWumqUJNp1xXevW%2foUvcxhGL5hZgGcnVVY80YCbwGPQZwcYuCBL6UG6SHUEU4q1jGuNHIZBdNo3yE5FpKKelB1zyUyaOlg27AhJWYJTcchcG%2b5LqTYtCzK7H1pHNEg%2bqkumZAoqqnoZX9U2hubP8jYKjRdVd6ToYbTFtmoPtaxDXUMdeP2RjZbVd8w7lPc8k%2fsKvp8tsL0MGexMWd35wtJy1OBje%2fipVFZ8tqGqcJh8nTKHqgP1h0goguqSrCKKFYmV9Q2MXiPwO53fkREw8RmLfnfAznw8n%2f0QQ5WsP4A"}'
         headers:
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "335"
+                - "1659"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:06:17 GMT
+                - Sun, 26 Jul 2026 17:38:11 GMT
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Aspnet-Version:
+                - 4.0.30319
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Client-Request-Id:
+                - c6756335-ef42-4c38-b751-99c69c482168
+            X-Ms-Correlation-Request-Id:
+                - 752ee795-58a0-4808-8dae-afe20c5f89f9
+            X-Ms-Keyvault-Service-Version:
+                - 2.2.981.0
+            X-Ms-Original-Request-Ids:
+                - c2646304-b4b7-4bb3-9895-fcef7410d4b0
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - 752ee795-58a0-4808-8dae-afe20c5f89f9
+            X-Ms-Routing-Request-Id:
+                - SOUTHINDIA:20260726T173812Z:752ee795-58a0-4808-8dae-afe20c5f89f9
+            X-Msedge-Ref:
+                - 'Ref A: 92895FBB958342C887AB374B5C2AD3F1 Ref B: MAA211070115029 Ref C: 2026-07-26T17:38:11Z'
         status: 200 OK
         code: 200
-        duration: 5.343416ms
+        duration: 1.159441334s
     - id: 1
       request:
         proto: HTTP/1.1
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56258
+        host: management.azure.com
         form:
+            $skiptoken:
+                - 3ZDNaoQwAITfJZSeNkZTf1ZBitA/Wr1Ut1LxEmPWumqUJNp1xXevW/oUvcxhGL5hZgGcnVVY80YCbwGPQZwcYuCBL6UG6SHUEU4q1jGuNHIZBdNo3yE5FpKKelB1zyUyaOlg27AhJWYJTcchcG+5LqTYtCzK7H1pHNEg+qkumZAoqqnoZX9U2hubP8jYKjRdVd6ToYbTFtmoPtaxDXUMdeP2RjZbVd8w7lPc8k/sKvp8tsL0MGexMWd35wtJy1OBje/ipVFZ8tqGqcJh8nTKHqgP1h0goguqSrCKKFYmV9Q2MXiPwO53fkREw8RmLfnfAznw8n/0QQ5WsP4A
             api-version:
                 - "2026-02-01"
         headers:
-            Accept:
-                - application/json
             Authorization:
                 - REDACTED
             User-Agent:
                 - azsdk-go-armkeyvault/v2.0.2 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.KeyVault/vaults/e2evault/keys?api-version=2026-02-01
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.KeyVault/vaults?%24skiptoken=3ZDNaoQwAITfJZSeNkZTf1ZBitA%2FWr1Ut1LxEmPWumqUJNp1xXevW%2FoUvcxhGL5hZgGcnVVY80YCbwGPQZwcYuCBL6UG6SHUEU4q1jGuNHIZBdNo3yE5FpKKelB1zyUyaOlg27AhJWYJTcchcG%2B5LqTYtCzK7H1pHNEg%2BqkumZAoqqnoZX9U2hubP8jYKjRdVd6ToYbTFtmoPtaxDXUMdeP2RjZbVd8w7lPc8k%2FsKvp8tsL0MGexMWd35wtJy1OBje%2FipVFZ8tqGqcJh8nTKHqgP1h0goguqSrCKKFYmV9Q2MXiPwO53fkREw8RmLfnfAznw8n%2F0QQ5WsP4A&api-version=2026-02-01
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 167
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.KeyVault/vaults/e2evault/keys/e2ekey","name":"e2ekey"}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 12
+        body: '{"value":[]}'
         headers:
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "167"
+                - "12"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:06:17 GMT
+                - Sun, 26 Jul 2026 17:38:14 GMT
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Aspnet-Version:
+                - 4.0.30319
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Client-Request-Id:
+                - f5222a26-c734-4ecc-9f33-51c51bae3c85
+            X-Ms-Correlation-Request-Id:
+                - b0cc4352-8552-44ed-bf7b-ab4c70dca91f
+            X-Ms-Keyvault-Service-Version:
+                - 2.2.981.0
+            X-Ms-Original-Request-Ids:
+                - a9e24095-e334-4718-9cb1-b507e99b2823
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - b0cc4352-8552-44ed-bf7b-ab4c70dca91f
+            X-Ms-Routing-Request-Id:
+                - CENTRALINDIA:20260726T173814Z:b0cc4352-8552-44ed-bf7b-ab4c70dca91f
+            X-Msedge-Ref:
+                - 'Ref A: 37182796128D44D7BF411BD0A7B5B9EF Ref B: MAA211070115029 Ref C: 2026-07-26T17:38:13Z'
         status: 200 OK
         code: 200
-        duration: 268.666µs
+        duration: 1.13606425s
     - id: 2
       request:
         proto: HTTP/1.1
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56258
+        host: management.azure.com
         form:
             api-version:
                 - "2026-02-01"
@@ -88,31 +148,63 @@ interactions:
                 - REDACTED
             User-Agent:
                 - azsdk-go-armkeyvault/v2.0.2 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.KeyVault/vaults/e2evault/keys/e2ekey?api-version=2026-02-01
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.KeyVault/vaults/sigcomply-e2e-kv-1cd7/keys?api-version=2026-02-01
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 378
-        body: '{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.KeyVault/vaults/e2evault/keys/e2ekey","name":"e2ekey","properties":{"kty":"RSA-HSM","keySize":2048,"attributes":{"enabled":true,"created":1700000000,"updated":1700000000},"rotationPolicy":{"lifetimeActions":[{"trigger":{"timeAfterCreate":"P90D"},"action":{"type":"rotate"}}]}}}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 468
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.KeyVault/vaults/sigcomply-e2e-kv-1cd7/keys/e2e-key","name":"e2e-key","type":"Microsoft.KeyVault/vaults/keys","location":"eastus","properties":{"attributes":{"enabled":true,"created":1785087414,"updated":1785087414,"recoveryLevel":"CustomizedRecoverable","exportable":false},"keyUri":"https://sigcomply-e2e-kv-1cd7.vault.azure.net/keys/e2e-key"}}]}'
         headers:
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "378"
+                - "468"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:06:17 GMT
+                - Sun, 26 Jul 2026 17:38:17 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Aspnet-Version:
+                - 4.0.30319
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Client-Request-Id:
+                - e9541f85-b81d-47d8-9180-a7797146b1cf
+            X-Ms-Correlation-Request-Id:
+                - f01ac7fd-ff56-4bc7-8c03-8b210030aae8
+            X-Ms-Keyvault-Service-Version:
+                - 2.2.981.0
+            X-Ms-Operation-Identifier:
+                - tenantId=a62d98eb-ea44-431f-9d5a-3ba56f2be3ce,objectId=367cc74a-c222-4bd4-b837-8fde51b4a9cd/eastus/04042d8d-612b-4aa9-b326-73a1833b56b9
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - 736b5ab4-df91-4efd-87e5-9c449ccda311
+            X-Ms-Routing-Request-Id:
+                - EASTUS:20260726T173817Z:f01ac7fd-ff56-4bc7-8c03-8b210030aae8
+            X-Msedge-Ref:
+                - 'Ref A: EE990CF026CB4408AF547D42F33801A3 Ref B: MAA211070115029 Ref C: 2026-07-26T17:38:16Z'
         status: 200 OK
         code: 200
-        duration: 155.084µs
+        duration: 1.411489833s
     - id: 3
       request:
         proto: HTTP/1.1
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56258
+        host: management.azure.com
         form:
             api-version:
                 - "2026-02-01"
@@ -123,21 +215,120 @@ interactions:
                 - REDACTED
             User-Agent:
                 - azsdk-go-armkeyvault/v2.0.2 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.KeyVault/vaults/e2evault/secrets?api-version=2026-02-01
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.KeyVault/vaults/sigcomply-e2e-kv-1cd7/keys/e2e-key?api-version=2026-02-01
         method: GET
       response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 849
+        body: '{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.KeyVault/vaults/sigcomply-e2e-kv-1cd7/keys/e2e-key","name":"e2e-key","type":"Microsoft.KeyVault/vaults/keys","location":"eastus","properties":{"attributes":{"enabled":true,"created":1785087414,"updated":1785087414,"recoveryLevel":"CustomizedRecoverable","exportable":false},"rotationPolicy":{"lifetimeActions":[{"trigger":{"timeBeforeExpiry":"P30D"},"action":{"type":"Notify"}}],"attributes":{"created":1785087415,"updated":1785087415,"expiryTime":"P90D"}},"kty":"RSA","keyOps":["encrypt","decrypt","sign","verify","wrapKey","unwrapKey"],"keySize":2048,"keyUri":"https://sigcomply-e2e-kv-1cd7.vault.azure.net/keys/e2e-key","keyUriWithVersion":"https://sigcomply-e2e-kv-1cd7.vault.azure.net/keys/e2e-key/58a5becb63af4a72ae9a85ddf013640a"}}'
+        headers:
+            Cache-Control:
+                - no-cache
+            Content-Length:
+                - "849"
+            Content-Type:
+                - application/json; charset=utf-8
+            Date:
+                - Sun, 26 Jul 2026 17:38:20 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Aspnet-Version:
+                - 4.0.30319
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Client-Request-Id:
+                - b3055263-b55e-4d54-adda-1549a42efb81
+            X-Ms-Correlation-Request-Id:
+                - 0deff9af-325d-4853-bd4a-155e1b175523
+            X-Ms-Keyvault-Service-Version:
+                - 2.2.981.0
+            X-Ms-Operation-Identifier:
+                - tenantId=a62d98eb-ea44-431f-9d5a-3ba56f2be3ce,objectId=367cc74a-c222-4bd4-b837-8fde51b4a9cd/eastus/81fa6f12-c4bd-4597-89a7-1dcc1a1ce8a5
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - 80a659fe-9460-49ea-bef1-49847e634679
+            X-Ms-Routing-Request-Id:
+                - EASTUS:20260726T173820Z:0deff9af-325d-4853-bd4a-155e1b175523
+            X-Msedge-Ref:
+                - 'Ref A: EF41944C4995438DBA8475C5E6C10832 Ref B: MAA211070115029 Ref C: 2026-07-26T17:38:19Z'
+        status: 200 OK
+        code: 200
+        duration: 1.829814458s
+    - id: 4
+      request:
         proto: HTTP/1.1
         proto_major: 1
         proto_minor: 1
-        content_length: 331
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.KeyVault/vaults/e2evault/secrets/e2esecret","name":"e2esecret","type":"Microsoft.KeyVault/vaults/secrets","properties":{"contentType":"password","attributes":{"enabled":true,"created":1700000000,"updated":1700000000}}}]}'
+        content_length: 0
+        host: management.azure.com
+        form:
+            api-version:
+                - "2026-02-01"
         headers:
-            Content-Length:
-                - "331"
-            Content-Type:
+            Accept:
                 - application/json
+            Authorization:
+                - REDACTED
+            User-Agent:
+                - azsdk-go-armkeyvault/v2.0.2 (go1.25.8; darwin)
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.KeyVault/vaults/sigcomply-e2e-kv-1cd7/secrets?api-version=2026-02-01
+        method: GET
+      response:
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 586
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.KeyVault/vaults/sigcomply-e2e-kv-1cd7/secrets/e2e-secret","name":"e2e-secret","type":"Microsoft.KeyVault/vaults/secrets","location":"eastus","tags":{"file-encoding":"utf-8"},"properties":{"attributes":{"enabled":true,"created":1785087418,"updated":1785087418},"secretUri":"https://sigcomply-e2e-kv-1cd7.vault.azure.net/secrets/e2e-secret","secretUriWithVersion":"https://sigcomply-e2e-kv-1cd7.vault.azure.net/secrets/e2e-secret/5ee1398a062647b48942fd11e19de1dd"}}]}'
+        headers:
+            Cache-Control:
+                - no-cache
+            Content-Length:
+                - "586"
+            Content-Type:
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:06:17 GMT
+                - Sun, 26 Jul 2026 17:38:22 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Aspnet-Version:
+                - 4.0.30319
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Client-Request-Id:
+                - 281260e8-4f81-4c18-be27-d485adc52abf
+            X-Ms-Correlation-Request-Id:
+                - 8ace49e4-7821-4a7d-8154-3eba72e5172f
+            X-Ms-Keyvault-Service-Version:
+                - 2.2.981.0
+            X-Ms-Operation-Identifier:
+                - tenantId=a62d98eb-ea44-431f-9d5a-3ba56f2be3ce,objectId=367cc74a-c222-4bd4-b837-8fde51b4a9cd/eastus/4b0cf92b-1e1a-419c-9fd0-515812c0413f
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3748"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "248"
+            X-Ms-Request-Id:
+                - 193f2422-cad3-4960-859c-9504be1ffc45
+            X-Ms-Routing-Request-Id:
+                - EASTUS:20260726T173823Z:8ace49e4-7821-4a7d-8154-3eba72e5172f
+            X-Msedge-Ref:
+                - 'Ref A: 88226CD9D46842A18FD37054942ED2D6 Ref B: MAA211070115029 Ref C: 2026-07-26T17:38:23Z'
         status: 200 OK
         code: 200
-        duration: 181.25µs
+        duration: 275.665208ms

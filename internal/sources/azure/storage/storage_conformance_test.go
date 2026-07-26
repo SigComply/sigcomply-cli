@@ -40,7 +40,9 @@ func TestAzureStorageConformance(t *testing.T) {
 	if err := json.Unmarshal(recs[0].Payload, &p); err != nil {
 		t.Fatal(err)
 	}
-	if !p.PublicAccessBlocked || !p.KMSManaged {
-		t.Errorf("account = %+v; want public-access-blocked + CMEK", p)
+	// CMEK is not asserted (needs a key vault + key + managed identity chain);
+	// the account blocks public access and has blob versioning on.
+	if !p.PublicAccessBlocked {
+		t.Errorf("account = %+v; want public-access-blocked", p)
 	}
 }

@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56267
+        host: management.azure.com
         form:
             api-version:
                 - "2025-07-01"
@@ -21,28 +21,60 @@ interactions:
         url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.OperationalInsights/workspaces?api-version=2025-07-01
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 299
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.OperationalInsights/workspaces/e2ews","name":"e2ews","location":"eastus","type":"Microsoft.OperationalInsights/workspaces","properties":{"sku":{"name":"PerGB2018"},"retentionInDays":90}}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 904
+        body: '{"value":[{"properties":{"customerId":"20f951a4-2612-4eff-9087-528f4bb1567f","provisioningState":"Succeeded","sku":{"name":"PerGB2018","lastSkuUpdate":"2026-07-26T17:36:59.6628816Z"},"retentionInDays":90,"features":{"legacy":0,"searchVersion":1,"enableLogAccessUsingOnlyResourcePermissions":true},"workspaceCapping":{"dailyQuotaGb":-1.0,"quotaNextResetTime":"2026-07-27T17:00:00Z","dataIngestionStatus":"RespectQuota"},"publicNetworkAccessForIngestion":"Enabled","publicNetworkAccessForQuery":"Enabled","createdDate":"2026-07-26T17:36:59.6628816Z","modifiedDate":"2026-07-26T17:37:11.7682817Z"},"location":"eastus","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.OperationalInsights/workspaces/sigcomply-e2e-law","name":"sigcomply-e2e-law","type":"Microsoft.OperationalInsights/workspaces","etag":"\"0303352a-0000-0100-0000-6a6645c70000\""}]}'
         headers:
+            Access-Control-Allow-Origin:
+                - '*'
+            Api-Supported-Versions:
+                - 2015-03-20, 2020-08-01, 2020-10-01, 2021-06-01, 2022-10-01, 2023-09-01, 2025-02-01, 2025-07-01, 2026-03-01
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "299"
+                - "904"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:07:10 GMT
+                - Sun, 26 Jul 2026 17:38:36 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Request-Context:
+                - appId=
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Correlation-Request-Id:
+                - b40517d0-4833-4fb9-83d9-5dfacc6ce49f
+            X-Ms-Original-Request-Ids:
+                - ""
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - b40517d0-4833-4fb9-83d9-5dfacc6ce49f
+            X-Ms-Routing-Request-Id:
+                - CENTRALINDIA:20260726T173836Z:b40517d0-4833-4fb9-83d9-5dfacc6ce49f
+            X-Msedge-Ref:
+                - 'Ref A: 1640F4A1970644848A266CAFDBC50550 Ref B: MAA211070113025 Ref C: 2026-07-26T17:38:35Z'
         status: 200 OK
         code: 200
-        duration: 2.343625ms
+        duration: 1.330389583s
     - id: 1
       request:
         proto: HTTP/1.1
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56267
+        host: management.azure.com
         form:
             api-version:
                 - 2021-05-01-preview
@@ -56,18 +88,44 @@ interactions:
         url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Insights/diagnosticSettings?api-version=2021-05-01-preview
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 459
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Insights/diagnosticSettings/activity-log","name":"activity-log","type":"Microsoft.Insights/diagnosticSettings","properties":{"logs":[{"category":"Administrative","enabled":true},{"categoryGroup":"Audit","enabled":true}],"workspaceId":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.OperationalInsights/workspaces/e2ews"}}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 932
+        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/providers/microsoft.insights/diagnosticSettings/sigcomply-e2e-diag","type":"Microsoft.Insights/diagnosticSettings","name":"sigcomply-e2e-diag","location":"global","properties":{"workspaceId":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.OperationalInsights/workspaces/sigcomply-e2e-law","logs":[{"category":"Administrative","enabled":true,"categoryGroup":null},{"category":"Security","enabled":true,"categoryGroup":null},{"category":"ServiceHealth","enabled":false,"categoryGroup":null},{"category":"Alert","enabled":false,"categoryGroup":null},{"category":"Recommendation","enabled":false,"categoryGroup":null},{"category":"Policy","enabled":false,"categoryGroup":null},{"category":"Autoscale","enabled":false,"categoryGroup":null},{"category":"ResourceHealth","enabled":false,"categoryGroup":null}]}}]}'
         headers:
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "459"
+                - "932"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:07:10 GMT
+                - Sun, 26 Jul 2026 17:38:39 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Correlation-Request-Id:
+                - 08e27c5b-a77c-4061-b0ef-08e9e2a01f05
+            X-Ms-Operation-Identifier:
+                - tenantId=a62d98eb-ea44-431f-9d5a-3ba56f2be3ce,objectId=367cc74a-c222-4bd4-b837-8fde51b4a9cd/centralindia/102bb6c7-0f03-456a-9e16-8e22d163a7f2
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - 953ce376-6805-442a-aba2-b32ac900f2df
+            X-Ms-Routing-Request-Id:
+                - CENTRALINDIA:20260726T173839Z:08e27c5b-a77c-4061-b0ef-08e9e2a01f05
+            X-Msedge-Ref:
+                - 'Ref A: B0824A9D9B1649AEB66EABB3AFF8F94E Ref B: MAA211070113025 Ref C: 2026-07-26T17:38:38Z'
         status: 200 OK
         code: 200
-        duration: 86.583µs
+        duration: 1.583790917s
