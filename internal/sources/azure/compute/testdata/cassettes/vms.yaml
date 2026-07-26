@@ -7,7 +7,7 @@ interactions:
         proto_major: 1
         proto_minor: 1
         content_length: 0
-        host: 127.0.0.1:56208
+        host: management.azure.com
         form:
             api-version:
                 - "2025-04-01"
@@ -23,53 +23,48 @@ interactions:
         url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/virtualMachines?api-version=2025-04-01&statusOnly=true
         method: GET
       response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 742
-        body: '{"value":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Compute/virtualMachines/e2evm","name":"e2evm","location":"eastus","properties":{"hardwareProfile":{"vmSize":"Standard_D2s_v3"},"storageProfile":{"osDisk":{"osType":"Linux","managedDisk":{"diskEncryptionSet":{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Compute/diskEncryptionSets/e2edes"}}}},"networkProfile":{"networkInterfaces":[{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Network/networkInterfaces/e2enic"}]},"securityProfile":{"encryptionAtHost":true},"instanceView":{"statuses":[{"code":"PowerState/running"}]}}}]}'
+        proto: HTTP/2.0
+        proto_major: 2
+        proto_minor: 0
+        content_length: 634
+        body: '{"value":[{"name":"sigcomply-e2e-vm","id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/SIGCOMPLY-E2E-RG/providers/Microsoft.Compute/virtualMachines/sigcomply-e2e-vm","type":"Microsoft.Compute/virtualMachines","location":"eastus","properties":{"hardwareProfile":{},"provisioningState":"Succeeded","vmId":"3ec2e7ae-4adb-4725-963f-770c4e47f03a","instanceView":{"platformFaultDomain":0,"statuses":[{"code":"ProvisioningState/succeeded","level":"Info","displayStatus":"Provisioning succeeded","time":"2026-07-26T17:52:02.6114131+00:00"},{"code":"PowerState/running","level":"Info","displayStatus":"VM running"}]}}}]}'
         headers:
+            Cache-Control:
+                - no-cache
             Content-Length:
-                - "742"
+                - "634"
             Content-Type:
-                - application/json
+                - application/json; charset=utf-8
             Date:
-                - Sun, 28 Jun 2026 14:02:17 GMT
+                - Sun, 26 Jul 2026 17:52:26 GMT
+            Expires:
+                - "-1"
+            Pragma:
+                - no-cache
+            Strict-Transport-Security:
+                - max-age=31536000; includeSubDomains
+            X-Cache:
+                - CONFIG_NOCACHE
+            X-Content-Type-Options:
+                - nosniff
+            X-Ms-Correlation-Request-Id:
+                - c108a5c0-8063-4153-907e-000000000000
+            X-Ms-Need-To-Refresh-Epl-Cache:
+                - "False"
+            X-Ms-Original-Request-Ids:
+                - e2faa9b9-c8c4-4fef-a709-13829d3249ba
+            X-Ms-Ratelimit-Remaining-Resource:
+                - Microsoft.Compute/HighCostGetSubscriptionMaximum;899
+            X-Ms-Ratelimit-Remaining-Subscription-Global-Reads:
+                - "3749"
+            X-Ms-Ratelimit-Remaining-Subscription-Reads:
+                - "249"
+            X-Ms-Request-Id:
+                - c108a5c0-8063-4153-907e-000000000000
+            X-Ms-Routing-Request-Id:
+                - WESTINDIA:20260726T175227Z:c108a5c0-8063-4153-907e-000000000000
+            X-Msedge-Ref:
+                - 'Ref A: 7BA3AA1BD56243F493417750CD632099 Ref B: MAA211070116029 Ref C: 2026-07-26T17:52:26Z'
         status: 200 OK
         code: 200
-        duration: 2.557458ms
-    - id: 1
-      request:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 0
-        host: 127.0.0.1:56208
-        form:
-            api-version:
-                - "2025-05-01"
-        headers:
-            Accept:
-                - application/json
-            Authorization:
-                - REDACTED
-            User-Agent:
-                - azsdk-go-armnetwork/v9.0.0 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Network/networkInterfaces/e2enic?api-version=2025-05-01
-        method: GET
-      response:
-        proto: HTTP/1.1
-        proto_major: 1
-        proto_minor: 1
-        content_length: 244
-        body: '{"id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/e2e-rg/providers/Microsoft.Network/networkInterfaces/e2enic","name":"e2enic","location":"eastus","properties":{"ipConfigurations":[{"name":"ipconfig1","properties":{}}]}}'
-        headers:
-            Content-Length:
-                - "244"
-            Content-Type:
-                - application/json
-            Date:
-                - Sun, 28 Jun 2026 14:02:17 GMT
-        status: 200 OK
-        code: 200
-        duration: 123.833µs
+        duration: 1.129221375s
