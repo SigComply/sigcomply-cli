@@ -61,7 +61,7 @@ require (
 	gitlab.com/gitlab-org/api/client-go v1.46.0
 	golang.org/x/image v0.44.0
 	golang.org/x/oauth2 v0.36.0
-	google.golang.org/api v0.288.0
+	google.golang.org/api v0.290.0
 	gopkg.in/dnaeon/go-vcr.v4 v4.0.6
 	gopkg.in/yaml.v3 v3.0.1
 )
