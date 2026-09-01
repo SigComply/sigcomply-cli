@@ -9,7 +9,7 @@ var directoryUserTypes = []string{"directory_user", "directory_user.v2"}
 // policies. ISO 27001 reuses the same evidence types as SOC 2 with
 // ISO-specific thresholds (e.g. 365-day log retention vs SOC 2's 90).
 func technologicalPolicies() []core.Policy {
-	out := make([]core.Policy, 0, 48)
+	out := make([]core.Policy, 0, 56)
 	out = append(out, techAccessPolicies()...)
 	out = append(out, techCryptoPolicies()...)
 	out = append(out, techLoggingPolicies()...)
@@ -246,6 +246,23 @@ func techLoggingPolicies() []core.Policy {
 func techNetworkPolicies() []core.Policy {
 	return []core.Policy{
 		autoPolicy{
+			// A.8.22 — segregation of networks: workloads must not sit
+			// directly on the public network.
+			id: "iso27001.8.22.no_public_compute_instances", control: "A.8.22", severity: core.SeverityHigh, category: "network", cadence: "daily",
+			accepts: []string{"compute_instance"},
+			desc:    "Running compute instances are not directly addressable from the public internet (network segregation).",
+			rem:     "Remove public IPs from instances and place them behind a load balancer or NAT gateway.",
+			clause:  allWhere(leaf("payload.is_running", "eq", true), leaf("payload.has_public_ip", "eq", false), "instance {{.payload.name}} has a public IP address"),
+		}.policy(),
+		autoPolicy{
+			id: "iso27001.8.22.private_kubernetes_endpoint", control: "A.8.22", severity: core.SeverityMedium, category: "network", cadence: "daily",
+			accepts: []string{"kubernetes_cluster"},
+			desc:    "Kubernetes control-plane endpoints are private (network segregation).",
+			rem:     "Restrict each cluster's API endpoint to private networks.",
+			// is_set guard: is_private_endpoint is optional in the schema.
+			clause: allWhere(leaf("payload.is_private_endpoint", "is_set", nil), leaf("payload.is_private_endpoint", "eq", true), "cluster {{.payload.name}} exposes a public control-plane endpoint"),
+		}.policy(),
+		autoPolicy{
 			id: "iso27001.8.20.no_unrestricted_ssh", control: "A.8.20", severity: core.SeverityHigh, category: "network", cadence: "daily",
 			accepts: []string{"firewall_rule"},
 			desc:    "SSH (port 22) is not exposed to the public internet.",
@@ -299,6 +316,24 @@ func techNetworkPolicies() []core.Policy {
 
 func techDevSecOpsPolicies() []core.Policy {
 	return []core.Policy{
+		autoPolicy{
+			// A.8.29 — security testing in development and acceptance:
+			// the pipeline blocks insecure changes before they land.
+			id: "iso27001.8.29.secret_push_protection_enabled", control: "A.8.29", severity: core.SeverityMedium, category: "change-management", cadence: "daily",
+			accepts: []string{"git_repository"},
+			desc:    "Repositories block pushes containing secrets (pre-acceptance security testing).",
+			rem:     "Enable secret push protection on each repository.",
+			// is_set guard: push_protection_enabled is optional in the schema.
+			clause: allWhere(leaf("payload.push_protection_enabled", "is_set", nil), leaf("payload.push_protection_enabled", "eq", true), "repository {{.payload.name}} does not block pushes containing secrets"),
+		}.policy(),
+		autoPolicy{
+			id: "iso27001.8.29.org_security_testing_default", control: "A.8.29", severity: core.SeverityMedium, category: "change-management", cadence: "daily",
+			accepts: []string{"source_control_org_policy"},
+			desc:    "Security testing is enabled by default for newly created repositories.",
+			rem:     "Turn on advanced security for new repositories at the organization level.",
+			// is_set guard: advanced_security_enabled_new_repos is optional.
+			clause: allWhere(leaf("payload.advanced_security_enabled_new_repos", "is_set", nil), leaf("payload.advanced_security_enabled_new_repos", "eq", true), "organization does not enable security testing for new repositories"),
+		}.policy(),
 		autoPolicy{
 			id: "iso27001.8.8.container_scan_on_push", control: "A.8.8", severity: core.SeverityMedium, category: "monitoring", cadence: "daily",
 			accepts: []string{"container_registry"},

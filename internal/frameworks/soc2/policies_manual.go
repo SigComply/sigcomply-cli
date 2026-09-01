@@ -33,24 +33,37 @@ func manualSpecs() []manualPolicy {
 		{id: "soc2.cc1.2.board_security_oversight", control: "CC1.2", cadence: "annual", catalog: "board_security_oversight", desc: "The board exercises security oversight.", rem: "Upload board/exec security review minutes.", tsc: "security"},
 		{id: "soc2.cc1.3.org_chart_security_roles", control: "CC1.3", cadence: "annual", catalog: "org_chart_security_roles", desc: "An org chart documents security responsibilities.", rem: "Upload an org chart showing security roles.", tsc: "security"},
 		{id: "soc2.cc1.4.background_check_policy", control: "CC1.4", cadence: "annual", catalog: "background_check_policy", desc: "A background-check process is documented.", rem: "Upload the background-check policy.", tsc: "security"},
+		{id: "soc2.cc1.5.accountability_for_controls", control: "CC1.5", cadence: "annual", catalog: "accountability_for_controls", desc: "Individuals are held accountable for their internal-control responsibilities.", rem: "Upload evidence that security responsibilities are defined in role descriptions and evaluated in performance reviews.", tsc: "security",
+			etype:           manualcatalog.TypeDeclaration,
+			declarationText: "I confirm that internal-control and information-security responsibilities are defined for each role, that individuals were evaluated against those responsibilities during this period, and that failures to meet them are addressed through the organization's performance and disciplinary processes.",
+		},
 
 		// CC2 — Communication and information.
 		{id: "soc2.cc2.1.information_security_policy", control: "CC2.1", cadence: "annual", catalog: "information_security_policy", desc: "A written information security policy exists.", rem: "Upload the approved information security policy.", tsc: "security"},
 		{id: "soc2.cc2.2.internal_security_communication", control: "CC2.2", cadence: "annual", catalog: "internal_security_communication", desc: "Security responsibilities are communicated internally.", rem: "Upload evidence of internal security communications.", tsc: "security"},
+		{id: "soc2.cc2.3.external_security_communication", control: "CC2.3", cadence: "annual", catalog: "external_security_communication", desc: "Security commitments, changes and incidents are communicated to external parties.", rem: "Upload evidence of external security communication — trust/security page, customer security notices, status-page or breach-notification procedure.", tsc: "security"},
 
 		// CC3 — Risk assessment.
 		{id: "soc2.cc3.1.risk_assessment", control: "CC3.1", cadence: "annual", catalog: "risk_assessment", desc: "An annual risk assessment is performed.", rem: "Upload the latest risk assessment.", tsc: "security"},
 		{id: "soc2.cc3.2.fraud_risk_assessment", control: "CC3.2", cadence: "annual", catalog: "fraud_risk_assessment", desc: "Fraud risk is assessed.", rem: "Upload the fraud risk assessment.", tsc: "security"},
+		{id: "soc2.cc3.3.fraud_risk_considered", control: "CC3.3", cadence: "annual", catalog: "fraud_risk_considered", desc: "The potential for fraud is explicitly considered when assessing risks.", rem: "Confirm that fraud scenarios — including management override of controls — were considered in this period's risk assessment.", tsc: "security",
+			etype:           manualcatalog.TypeDeclaration,
+			declarationText: "I confirm that the potential for fraud was explicitly considered when assessing risks during this period, including management override of controls, incentives and pressures to commit fraud, and opportunities arising from privileged system access.",
+		},
+		{id: "soc2.cc3.4.change_risk_assessment", control: "CC3.4", cadence: "annual", catalog: "change_risk_assessment", desc: "Significant changes that could impact the system of internal control are identified and assessed.", rem: "Upload the assessment of significant changes — new systems, new vendors, organizational or regulatory changes — and their impact on controls.", tsc: "security"},
 
 		// CC4 — Monitoring activities.
 		{id: "soc2.cc4.1.control_monitoring", control: "CC4.1", cadence: "quarterly", catalog: "control_monitoring", desc: "Controls are monitored on an ongoing basis.", rem: "Upload evidence of ongoing control monitoring.", tsc: "security"},
+		{id: "soc2.cc4.2.control_deficiency_communication", control: "CC4.2", cadence: "quarterly", catalog: "control_deficiency_communication", desc: "Internal-control deficiencies are evaluated and communicated to those responsible for corrective action.", rem: "Upload the deficiency / remediation tracker showing each finding, its owner, severity, and closure date.", tsc: "security"},
 
 		// CC5 — Control activities.
 		{id: "soc2.cc5.1.control_selection_rationale", control: "CC5.1", cadence: "annual", catalog: "control_selection_rationale", desc: "Control design rationale is documented.", rem: "Upload the control selection rationale.", tsc: "security"},
+		{id: "soc2.cc5.2.technology_control_activities", control: "CC5.2", cadence: "annual", catalog: "technology_control_activities", desc: "General control activities over technology are selected and developed to support the achievement of objectives.", rem: "Upload documentation of the technology general controls in place — access, change and operations — and the rationale for their selection.", tsc: "security"},
 		{id: "soc2.cc5.3.technology_controls_deployment", control: "CC5.3", cadence: "annual", catalog: "technology_controls_deployment", desc: "Technology controls are deployed per policy.", rem: "Upload evidence of technology control deployment.", tsc: "security"},
 
 		// CC6 — Logical access (manual portions).
 		{id: "soc2.cc6.3.access_review_quarterly", control: "CC6.3", cadence: "quarterly", catalog: "access_review_quarterly", desc: "A quarterly user access review is performed and signed.", rem: "Upload the signed quarterly access review.", tsc: "security"},
+		{id: "soc2.cc6.4.subservice_org_reports", control: "CC6.4", cadence: "annual", catalog: "subservice_org_reports", desc: "Physical access to facilities hosting the system is restricted; for cloud-hosted infrastructure this control is carried by the subservice organization.", rem: "Upload the current SOC 2 or ISO 27001 report for each infrastructure subservice organization (AWS, GCP, Azure), or evidence of physical access controls for any facility you operate yourself.", tsc: "security"},
 		{id: "soc2.cc6.5.termination_access_removal_process", control: "CC6.5", cadence: "annual", catalog: "termination_process_documented", desc: "An offboarding access-removal process is documented.", rem: "Upload the user offboarding procedure.", tsc: "security"},
 		{id: "soc2.cc6.1.privileged_access_policy", control: "CC6.1", cadence: "annual", catalog: "privileged_access_policy", desc: "A privileged access management policy exists.", rem: "Upload the privileged access management policy.", tsc: "security"},
 		{id: "soc2.cc6.2.user_provisioning_process", control: "CC6.2", cadence: "annual", catalog: "user_provisioning_process", desc: "A user provisioning/onboarding SOP exists.", rem: "Upload the user provisioning procedure.", tsc: "security"},

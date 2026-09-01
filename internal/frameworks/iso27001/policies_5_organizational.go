@@ -6,6 +6,24 @@ import "github.com/sigcomply/sigcomply-cli/internal/core"
 // that can be checked automatically against infrastructure evidence.
 func organizationalAutomatedPolicies() []core.Policy {
 	return []core.Policy{
+		// A.5.33 — protection of records: stored records must not be
+		// silently destroyed. Both fields are unread by any other policy.
+		autoPolicy{
+			id: "iso27001.5.33.database_deletion_protection", control: "A.5.33", severity: core.SeverityMedium, category: "data-protection", cadence: "daily",
+			accepts: []string{"managed_database_instance"},
+			desc:    "Managed databases holding records have deletion protection enabled.",
+			rem:     "Enable deletion protection on each managed database instance.",
+			// is_set guard: deletion_protection is optional in the schema, so a
+			// source that omits it is scoped out rather than fabricating a pass.
+			clause: allWhere(leaf("payload.deletion_protection", "is_set", nil), leaf("payload.deletion_protection", "eq", true), "database {{.payload.name}} does not have deletion protection enabled"),
+		}.policy(),
+		autoPolicy{
+			id: "iso27001.5.33.nosql_deletion_protection", control: "A.5.33", severity: core.SeverityMedium, category: "data-protection", cadence: "daily",
+			accepts: []string{"nosql_table"},
+			desc:    "NoSQL tables holding records have deletion protection enabled.",
+			rem:     "Enable deletion protection on each NoSQL table.",
+			clause:  all(leaf("payload.deletion_protection", "eq", true), "table {{.payload.name}} does not have deletion protection enabled"),
+		}.policy(),
 		autoPolicy{
 			id: "iso27001.5.3.no_broad_admin_bindings", control: "A.5.3", severity: core.SeverityHigh, category: "access", cadence: "daily",
 			accepts: []string{"iam_binding"},
