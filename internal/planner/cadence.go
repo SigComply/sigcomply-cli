@@ -177,7 +177,7 @@ func NextDueAt(cadence string, lastPass time.Time) time.Time {
 //
 // Content-hash invalidation (LastPolicyHash mismatch with current
 // hash) is handled by the planner outside this function so the same
-// logic also drives `sigcomply why`-style introspection without
+// logic also drives why-is-this-skipped introspection without
 // needing the current hash.
 func IsDue(cadence string, state *core.PolicyState, now time.Time) bool {
 	if state == nil || state.IsFirstRun() {
@@ -201,7 +201,7 @@ func IsDue(cadence string, state *core.PolicyState, now time.Time) bool {
 
 // DueReason returns a short human-readable reason string for why a
 // policy is (or isn't) due at `now` under the given cadence and
-// state. Powers the `sigcomply why` command and the run-level
+// state. Powers the carry-forward SkipReason and the run-level
 // "skipped because…" diagnostics. Reasons are deterministic given
 // (cadence, state, now) and free of resource identifiers.
 func DueReason(cadence string, state *core.PolicyState, now time.Time) string {

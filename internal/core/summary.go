@@ -36,12 +36,14 @@ type FrameworkRunSummary struct {
 // cadences (quarterly inside a quarterly period — there is only one
 // data point).
 //
-// NOTE: PeriodAggregate is populated by `sigcomply audit-ledger`
-// which scans the run-folder history for the period. The single-run
-// path does not compute it (a single run cannot know its own period
-// history without scanning the vault). Reserved as a typed field on
-// PolicyResult so the audit-ledger command can populate it without
-// schema-bumping later.
+// NOTE: nothing in the CLI populates this today, and no `sigcomply
+// audit-ledger` command exists — an earlier draft of this comment
+// named one. Computing it means reading the run-folder history for a
+// period, which the CLI deliberately does not do: it keeps no history
+// across runs (ARCHITECTURE.md Core Principle #2), and cross-run and
+// cross-period reporting belongs to the Cloud dashboard. The type is
+// kept as the agreed shape for that reporting, not as a promise of a
+// CLI command.
 type PeriodAggregate struct {
 	EvaluationsInPeriod          int           `json:"evaluations_in_period"`
 	PassCount                    int           `json:"pass_count"`

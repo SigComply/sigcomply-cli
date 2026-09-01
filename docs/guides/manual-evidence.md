@@ -62,10 +62,10 @@ project config:
 sigcomply evidence catalog -f soc2 -o text
 ```
 
-The SOC 2 catalog has **40 entries**. Abbreviated output:
+The SOC 2 catalog has **47 entries**. Abbreviated output:
 
 ```
-Manual Evidence Catalog: soc2 (v1.0) — 40 entries
+Manual Evidence Catalog: soc2 (v1.0) — 47 entries
 
 ID                               CONTROL  TYPE             FREQUENCY  NAME
 access_review_quarterly          CC6.3    document_upload  quarterly  Access Review Quarterly

@@ -180,9 +180,9 @@ func BulkReadPolicyStates(ctx context.Context, vault core.Vault, framework strin
 }
 
 // ListPolicyStates enumerates every state shard under a framework's
-// prefix. Used by `sigcomply status`, `sigcomply audit-ledger`, and
-// orphan-shard detection (state for a policy no longer in the
-// bundle).
+// prefix, for orphan-shard detection (state for a policy no longer in
+// the bundle). Earlier drafts of this comment also named `sigcomply
+// status` and `sigcomply audit-ledger`; neither command exists.
 //
 // The vault's List backend is authoritative for the result. An
 // unimplemented List (some test vaults) returns an empty map — that

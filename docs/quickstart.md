@@ -66,8 +66,8 @@ Two things to know:
   they need — you do **not** need a `bindings:` block to start.
 
 The full scaffold also wires a `manual.pdf` source pointing at a local
-`./evidence` folder. SOC 2 ships ~40 controls whose evidence is a document rather
-than an API call (access reviews, signed NDAs, training certificates, risk
+`./evidence` folder. SOC 2 ships 47 catalog entries whose evidence is a document
+rather than an API call (access reviews, signed NDAs, training certificates, risk
 declarations). Until you upload those files they simply report **fail**
 ("evidence not found") — see [What you'll see](#what-youll-see) — and
 [Getting started](getting-started.md) walks through producing and uploading them.

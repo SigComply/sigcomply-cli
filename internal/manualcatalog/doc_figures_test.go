@@ -1,0 +1,128 @@
+package manualcatalog_test
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/frameworks/iso27001"
+	"github.com/sigcomply/sigcomply-cli/internal/frameworks/soc2"
+)
+
+// coverage is the derived truth about one framework: what the compiled
+// registries actually contain, not what a document claims they contain.
+type coverage struct {
+	controls, policies   int
+	automated, manual    int // policies, by evidence mode
+	ctrlAuto, ctrlManual int // controls, by the strongest check behind them
+	catalogEntries       int
+}
+
+func measure(controls []core.Control, policies []core.Policy, entries int) coverage {
+	c := coverage{controls: len(controls), policies: len(policies), catalogEntries: entries}
+	best := map[string]string{}
+	for i := range policies {
+		p := &policies[i]
+		auto := p.EvidenceMode == core.EvidenceModeAutomated
+		if auto {
+			c.automated++
+		} else {
+			c.manual++
+		}
+		id := core.PrimaryControlID(p.Controls)
+		if auto {
+			best[id] = "auto"
+		} else if best[id] == "" {
+			best[id] = "manual"
+		}
+	}
+	for _, ctl := range controls {
+		switch best[ctl.ID] {
+		case "auto":
+			c.ctrlAuto++
+		case "manual":
+			c.ctrlManual++
+		}
+	}
+	return c
+}
+
+// TestDocFiguresMatchCode pins every published count and coverage claim
+// to the compiled frameworks.
+//
+// Why this exists: a 2026 audit found `docs/reference/frameworks.md`
+// advertising "100+ automated policies" when there were 82 — a claim
+// that was false in customer-facing material, in a product whose whole
+// pitch is not overclaiming. The counts had been recomputed by hand
+// twice; nothing stopped them drifting again. Now adding a policy that
+// changes a published figure fails the build, and the failure message
+// names the number to write.
+//
+// If a doc is reworded, update the expected substring here rather than
+// deleting the assertion.
+func TestDocFiguresMatchCode(t *testing.T) {
+	s := measure(soc2.Controls(), soc2.Policies(), len(soc2.ManualCatalogExport().Entries))
+	i := measure(iso27001.Controls(), iso27001.Policies(), len(iso27001.ManualCatalogExport().Entries))
+
+	for _, tc := range []struct {
+		doc  string
+		want []string
+	}{
+		{"docs/reference/frameworks.md", []string{
+			fmt.Sprintf("%d / %d criteria have a check — %d automated, %d manual-only", s.controls, s.controls, s.ctrlAuto, s.ctrlManual),
+			fmt.Sprintf("%d policies: %d automated + %d manual catalog entries", s.policies, s.automated, s.catalogEntries),
+			fmt.Sprintf("%d / %d Annex A controls have a check — %d automated, %d manual-only", i.controls, i.controls, i.ctrlAuto, i.ctrlManual),
+			fmt.Sprintf("%d policies: %d automated + %d manual catalog entries", i.policies, i.automated, i.catalogEntries),
+		}},
+		{"README.md", []string{
+			fmt.Sprintf("all %d Annex A controls,", i.controls),
+			fmt.Sprintf("%d of them with an automated check", i.ctrlAuto),
+		}},
+		{"CLAUDE.md", []string{
+			fmt.Sprintf("all %d Annex A controls, %d automated", i.controls, i.ctrlAuto),
+		}},
+		{"docs/guides/manual-evidence.md", []string{
+			fmt.Sprintf("The SOC 2 catalog has **%d entries**", s.catalogEntries),
+			fmt.Sprintf("Manual Evidence Catalog: soc2 (v1.0) — %d entries", s.catalogEntries),
+		}},
+		{"docs/quickstart.md", []string{
+			fmt.Sprintf("SOC 2 ships %d catalog entries", s.catalogEntries),
+		}},
+	} {
+		t.Run(tc.doc, func(t *testing.T) {
+			path := filepath.Join("..", "..", tc.doc)
+			data, err := os.ReadFile(path) //nolint:gosec // fixed in-repo doc paths
+			if err != nil {
+				t.Fatalf("read %s: %v", tc.doc, err)
+			}
+			body := string(data)
+			for _, want := range tc.want {
+				if !strings.Contains(body, want) {
+					t.Errorf("%s is out of date with the code.\n  expected to find: %q\n"+
+						"  the compiled frameworks are the source of truth — update the doc to match, "+
+						"then update the expected string here if you reworded it.", tc.doc, want)
+				}
+			}
+		})
+	}
+}
+
+// TestNoOverclaimedCoverage guards the specific phrasings that made the
+// old docs misleading: a bare "all N controls" reads as "all N are
+// checked", and "100+ automated policies" was simply false.
+func TestNoOverclaimedCoverage(t *testing.T) {
+	for _, doc := range []string{"README.md", "CLAUDE.md", "docs/reference/frameworks.md", "docs/quickstart.md", "docs/guides/manual-evidence.md"} {
+		data, err := os.ReadFile(filepath.Join("..", "..", doc)) //nolint:gosec // fixed in-repo doc paths
+		if err != nil {
+			t.Fatalf("read %s: %v", doc, err)
+		}
+		for _, banned := range []string{"100+ automated"} {
+			if strings.Contains(string(data), banned) {
+				t.Errorf("%s contains the overclaiming phrase %q; state the real count instead", doc, banned)
+			}
+		}
+	}
+}

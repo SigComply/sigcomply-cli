@@ -49,10 +49,10 @@ type PolicyResult struct {
 	CarryForward *CarryForwardRef
 
 	// PeriodAggregate, when non-nil, summarizes every evaluation of
-	// this policy across the current audit period. Populated by
-	// `sigcomply audit-ledger`, not by the single-run path — a
-	// single run cannot know its period history without scanning
-	// the vault. See PeriodAggregate's doc for the rationale.
+	// this policy across the current audit period. Nothing populates
+	// it today: a single run cannot know its period history, and the
+	// CLI keeps no history across runs by design. See
+	// PeriodAggregate's doc for why it is kept.
 	PeriodAggregate *PeriodAggregate
 }
 

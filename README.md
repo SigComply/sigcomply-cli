@@ -7,7 +7,8 @@ your infrastructure and uploaded evidence, and signs the resulting evidence
 locally into your **own** storage. Only aggregated **counts** and pass/fail
 scores — never raw evidence, never identifiers — are (optionally) submitted to a
 private cloud dashboard. Ships **SOC 2** (2017 Trust Services Criteria,
-production-ready, default) and **ISO/IEC 27001:2022** (all 93 Annex A controls).
+production-ready, default) and **ISO/IEC 27001:2022** (all 93 Annex A controls,
+25 of them with an automated check; the rest prompt for manual evidence).
 
 **One project = one source-control repo = one compliance framework = one evidence vault.**
 
