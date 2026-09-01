@@ -57,13 +57,27 @@ requires going back to the drawing board.
    leaves the customer environment. The cloud submission struct is
    *physically incapable* of carrying ARNs, emails, usernames, file
    hashes, or any other identity — only counts, statuses, and policy IDs.
-2. **The CLI is stateless across runs.** Every `sigcomply check`
+2. **The CLI keeps no history across runs.** Every `sigcomply check`
    invocation reads the project config and the external sources it's
-   bound to. It never reads prior runs from the vault, never consults
-   a database, never carries in-memory state from a prior invocation.
-   Cadence enforcement ("did the quarterly policy already run?") is the
-   CI scheduler's job, not the CLI's — see
-   [`docs/architecture/09-ci-execution-model.md`](docs/architecture/09-ci-execution-model.md).
+   bound to. It never reads prior *run folders* from the immutable
+   evidence prefix, never consults a database, never carries in-memory
+   state from a prior invocation. No trend, no accumulated result set,
+   no cross-period view — that is the Cloud dashboard's job, deliberately.
+
+   The one exception, and its bounds: a scheduled run reads a small
+   per-policy **state shard** from `{vault}/state/` — mutable, outside
+   the Object-Locked evidence prefix — carrying `LastPassAt`,
+   `LastRunStatus`, `NextDueAt` and the policy content hash. It exists
+   solely so the planner can answer "is this policy due?"
+   (`planner.IsDue`) and emit a carry-forward result when it is not.
+   Losing the whole `state/` tree is recoverable: the next run treats
+   every policy as a first run and re-evaluates. Evidence integrity does
+   not depend on it.
+
+   So cadence *scheduling* is the CI cron's job; cadence *enforcement*
+   is the CLI's. See
+   [`docs/architecture/09-ci-execution-model.md`](docs/architecture/09-ci-execution-model.md)
+   and [`docs/architecture/10-cadence-model.md`](docs/architecture/10-cadence-model.md).
 3. **The vault is append-only.** Each run writes its own immutable
    folder. Period-level state is *derived* from the union of runs in a
    period, not stored as an authoritative mutable file. There is no
