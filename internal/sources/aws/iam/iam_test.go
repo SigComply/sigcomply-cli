@@ -96,7 +96,7 @@ func (f *fakeAPI) ListGroupsForUser(_ context.Context, in *awsiam.ListGroupsForU
 	if in.UserName != nil {
 		name = *in.UserName
 	}
-	var groups []iamtypes.Group
+	groups := make([]iamtypes.Group, 0, len(f.userGroups[name]))
 	for _, g := range f.userGroups[name] {
 		groups = append(groups, iamtypes.Group{GroupName: ptr(g)})
 	}

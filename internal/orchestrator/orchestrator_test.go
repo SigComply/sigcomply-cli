@@ -766,7 +766,7 @@ func (r *localManualReader) List(_ context.Context, prefix string) ([]manual.Fil
 		}
 		return nil, err
 	}
-	var items []manual.FileInfo
+	items := make([]manual.FileInfo, 0, len(entries))
 	for _, e := range entries {
 		if e.IsDir() {
 			continue

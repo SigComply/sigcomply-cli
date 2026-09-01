@@ -93,7 +93,16 @@ func TestRedactInteraction(t *testing.T) {
 		t.Fatalf("RedactInteraction: %v", err)
 	}
 
-	// Sensitive headers fully redacted (incl. GitLab's PRIVATE-TOKEN).
+	t.Run("headers", func(t *testing.T) { assertHeadersRedacted(t, i) })
+	t.Run("no identity survives", func(t *testing.T) { assertNoIdentitySurvives(t, i) })
+	t.Run("placeholder substitutions", func(t *testing.T) { assertPlaceholders(t, i) })
+	t.Run("distinct emails stay distinct", func(t *testing.T) { assertDistinctEmails(t) })
+}
+
+// assertHeadersRedacted checks sensitive headers are fully redacted (incl.
+// GitLab's PRIVATE-TOKEN) while non-sensitive ones survive untouched.
+func assertHeadersRedacted(t *testing.T, i *cassette.Interaction) {
+	t.Helper()
 	const redacted = "REDACTED"
 	for _, h := range []struct {
 		name, got string
@@ -106,17 +115,24 @@ func TestRedactInteraction(t *testing.T) {
 			t.Errorf("%s = %q; want %s", h.name, h.got, redacted)
 		}
 	}
-	// Non-sensitive header preserved.
 	if got := i.Request.Headers.Get("Accept"); got != "application/json" {
 		t.Errorf("Accept = %q; want preserved", got)
 	}
+}
 
-	// Bodies + URL scrubbed to placeholders; no real identity survives.
+// assertNoIdentitySurvives runs the fixture-gate patterns over the URL and both
+// bodies: nothing matching a secret/PII shape may remain unscrubbed.
+func assertNoIdentitySurvives(t *testing.T, i *cassette.Interaction) {
+	t.Helper()
 	checkScrubbed(t, "request URL", i.Request.URL)
 	checkScrubbed(t, "request body", i.Request.Body)
 	checkScrubbed(t, "response body", i.Response.Body)
+}
 
-	// Spot-check specific placeholder substitutions in the response body.
+// assertPlaceholders spot-checks that each scrubbed value became its specific
+// placeholder — and that the pre-scrub original is gone.
+func assertPlaceholders(t *testing.T, i *cassette.Interaction) {
+	t.Helper()
 	rb := i.Response.Body
 	for _, want := range []string{"AKIAEXAMPLE", "000000000000", "@example.com", "Bearer REDACTED"} {
 		if !strings.Contains(rb, want) {
@@ -139,9 +155,13 @@ func TestRedactInteraction(t *testing.T) {
 	if !strings.Contains(rb, `"maxSizeBytes":0,`) {
 		t.Errorf("bare 12-digit number not zeroed to valid JSON: %s", rb)
 	}
-	// Distinct real emails must scrub to DISTINCT placeholders (not aliased to
-	// one), so identity-bearing sources keep separate members separate. Both
-	// still land in the reserved example.com domain and drop the real identity.
+}
+
+// assertDistinctEmails guards the aliasing bug: distinct real emails must scrub
+// to DISTINCT placeholders, so identity-bearing sources keep separate members
+// separate. Both still land in the reserved example.com domain.
+func assertDistinctEmails(t *testing.T) {
+	t.Helper()
 	alice, carol := scrubString("alice@acmecorp.com"), scrubString("carol@acmecorp.com")
 	if alice == carol {
 		t.Errorf("distinct emails collapsed to one placeholder: %q", alice)

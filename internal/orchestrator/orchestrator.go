@@ -820,7 +820,7 @@ func renderSkipExplanations(stdout io.Writer, plan *planner.RunPlan, sortedResul
 		policyID string
 		detail   string
 	}
-	var lines []skipLine
+	lines := make([]skipLine, 0, len(sortedResults))
 	for i := range sortedResults {
 		r := &sortedResults[i]
 		if r.Status != core.StatusSkip {

@@ -279,7 +279,7 @@ func (p *Plugin) collectPostgres(ctx context.Context, now time.Time, scope *core
 	if err != nil {
 		return nil, fmt.Errorf("azure.sql: list postgres servers: %w", err)
 	}
-	var records []core.EvidenceRecord
+	records := make([]core.EvidenceRecord, 0, len(servers))
 	for _, srv := range servers {
 		if srv == nil {
 			continue
@@ -317,7 +317,7 @@ func (p *Plugin) collectMySQL(ctx context.Context, now time.Time, scope *core.Re
 	if err != nil {
 		return nil, fmt.Errorf("azure.sql: list mysql servers: %w", err)
 	}
-	var records []core.EvidenceRecord
+	records := make([]core.EvidenceRecord, 0, len(servers))
 	for _, srv := range servers {
 		if srv == nil {
 			continue

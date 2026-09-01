@@ -170,7 +170,7 @@ func (r *localReader) List(_ context.Context, prefix string) ([]FileInfo, error)
 		}
 		return nil, err
 	}
-	var items []FileInfo
+	items := make([]FileInfo, 0, len(entries))
 	for _, e := range entries {
 		if e.IsDir() {
 			continue

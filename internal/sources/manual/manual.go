@@ -323,7 +323,7 @@ func (p *Plugin) checkPriorPeriod(ctx context.Context, currentFiles []sourceFile
 	if listErr != nil || len(priorItems) == 0 {
 		return ""
 	}
-	var priorFiles []sourceFile
+	priorFiles := make([]sourceFile, 0, len(priorItems))
 	for _, pi := range priorItems {
 		ext := fileconv.NormalizeExt(pi.Key)
 		if !fileconv.SupportedExt(ext) {

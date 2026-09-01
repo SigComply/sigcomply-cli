@@ -177,7 +177,7 @@ func checkCompleteness(prefix, typeID string, schema, payload json.RawMessage, e
 	}
 	sort.Strings(fields) // deterministic error ordering
 
-	var errs []error
+	errs := make([]error, 0, len(fields))
 	for _, f := range fields {
 		if _, present := obj[f]; present {
 			continue
