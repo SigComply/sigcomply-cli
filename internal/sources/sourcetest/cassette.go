@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aws/smithy-go/encoding/cbor"
 	"gopkg.in/dnaeon/go-vcr.v4/pkg/cassette"
 	"gopkg.in/dnaeon/go-vcr.v4/pkg/recorder"
 )
@@ -124,7 +125,38 @@ func AWSMatcher(r *http.Request, i cassette.Request) bool {
 	if r.Header.Get("X-Amz-Target") != i.Headers.Get("X-Amz-Target") {
 		return false
 	}
-	return readRequestBody(r) == i.Body
+	live := readRequestBody(r)
+	if live == i.Body {
+		return true
+	}
+	if isCBOR(r.Header) && isCBOR(i.Headers) {
+		return cborValuesEqual(live, i.Body)
+	}
+	return false
+}
+
+// isCBOR reports whether a request carries an rpc-v2-cbor body (CloudWatch and
+// the other Smithy RPCv2 services).
+func isCBOR(h http.Header) bool {
+	return strings.Contains(h.Get("Content-Type"), "application/cbor")
+}
+
+// cborValuesEqual compares two CBOR request bodies by decoded value rather than
+// by bytes. The same payload has more than one valid encoding — an empty map is
+// `a0` (definite length) or `bf ff` (indefinite length) — and which one the AWS
+// SDK emits has changed across SDK releases without any change to the API
+// contract. Byte comparison would then fail a cassette that is still perfectly
+// valid, so re-encode both sides through one encoder and compare that.
+func cborValuesEqual(live, recorded string) bool {
+	lv, err := cbor.Decode([]byte(live))
+	if err != nil {
+		return false
+	}
+	rv, err := cbor.Decode([]byte(recorded))
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(cbor.Encode(lv), cbor.Encode(rv))
 }
 
 // readRequestBody returns the live request body as a string and restores

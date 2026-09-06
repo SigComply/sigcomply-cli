@@ -29,6 +29,18 @@ updates:
         patterns:
           - "github.com/stretchr/testify"
           - "github.com/golang/mock"
+    ignore:
+      # L2 cassettes are recorded against a pinned vendor API version
+      # (contracts/azure/containerservice@2026-04-01.json). armcontainerservice
+      # v9.4.0+ moves managedClusters to api-version 2026-06-01, which no longer
+      # matches the recorded cassette, so the bump has to ride along with a
+      # deliberate live re-record rather than land on its own. The scheduled L3
+      # contract-drift job still watches the vendor spec, and OSV/dependency
+      # review still cover this module for vulnerabilities.
+      - dependency-name: "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v9"
+      # OPA still requires gobwas/glob v0.2.3; v1.0.0 renamed the API and does
+      # not compile against it.
+      - dependency-name: "github.com/gobwas/glob"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"

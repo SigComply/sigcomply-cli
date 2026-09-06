@@ -220,6 +220,22 @@ func TestAWSMatcher(t *testing.T) {
 		return r
 	}
 
+	// rpc-v2-cbor (CloudWatch et al.): the SAME empty map is `bf ff`
+	// (indefinite length) or `a0` (definite length) depending on the AWS SDK
+	// release, so bodies must match by decoded value, not by bytes.
+	const cborURL = "https://monitoring.us-east-1.amazonaws.com/service/GraniteServiceVersion20100801/operation/DescribeAlarms"
+	cborRec := cassette.Request{
+		Method:  "POST",
+		URL:     cborURL,
+		Headers: http.Header{"Content-Type": {"application/cbor"}},
+		Body:    "\xa0",
+	}
+	newCBORReq := func(body string) *http.Request {
+		r := newReq("POST", cborURL, body, "")
+		r.Header.Set("Content-Type", "application/cbor")
+		return r
+	}
+
 	cases := []struct {
 		name string
 		req  *http.Request
@@ -236,6 +252,13 @@ func TestAWSMatcher(t *testing.T) {
 		{"json full match", newReq("POST", dynamo.URL, `{"TableName":"a"}`, "DynamoDB_20120810.DescribeTable"), dynamo, true},
 		{"json target mismatch", newReq("POST", dynamo.URL, `{"TableName":"a"}`, "DynamoDB_20120810.Scan"), dynamo, false},
 		{"json same-op different resource (body) mismatch", newReq("POST", dynamo.URL, `{"TableName":"b"}`, "DynamoDB_20120810.DescribeTable"), dynamo, false},
+		// cbor: byte-identical, and re-encoded-equal but byte-different.
+		{"cbor identical bytes", newCBORReq("\xa0"), cborRec, true},
+		{"cbor indefinite vs definite empty map", newCBORReq("\xbf\xff"), cborRec, true},
+		{"cbor different value", newCBORReq("\xa1\x61a\x01"), cborRec, false},
+		{"cbor undecodable body", newCBORReq("not cbor at all"), cborRec, false},
+		// Without the CBOR content type the bytes must match exactly.
+		{"non-cbor body is compared bytewise", newReq("POST", cborURL, "\xbf\xff", ""), cassette.Request{Method: "POST", URL: cborURL, Body: "\xa0"}, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

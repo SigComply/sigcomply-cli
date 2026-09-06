@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -49,7 +50,7 @@ func (f *fakeAPI) ListSecrets(_ context.Context, in *awssm.ListSecretsInput, _ .
 	return out, nil
 }
 
-func pageToken(i int) string { return "page-" + string(rune('0'+i)) }
+func pageToken(i int) string { return "page-" + strconv.Itoa(i) }
 
 func ptr[T any](v T) *T { return &v }
 

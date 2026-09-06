@@ -1522,7 +1522,7 @@ jobs:
 
 ```yaml
 compliance:
-  image: golang:1.25
+  image: golang:1.26
   # Framework comes from framework: in .sigcomply.yaml — check does not
   # read SIGCOMPLY_FRAMEWORK.
   script:

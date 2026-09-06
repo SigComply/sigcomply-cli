@@ -16,6 +16,8 @@ GOBUILD := $(GOCMD) build
 GOTEST := $(GOCMD) test
 GOMOD := $(GOCMD) mod
 GOFMT := gofmt
+# Needs golangci-lint >= v2.11 (the version CI pins in test.yml): older
+# builds are compiled with Go 1.25 and refuse to load this Go 1.26 module.
 GOLINT := golangci-lint
 
 # Default target

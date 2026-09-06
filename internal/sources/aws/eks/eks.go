@@ -185,6 +185,12 @@ func secretsEncryption(c *ekstypes.Cluster) (enabled bool, kmsKeyARN string) {
 	}
 	for i := range c.EncryptionConfig {
 		cfg := &c.EncryptionConfig[i]
+		// EncryptionConfig.Resources is marked deprecated by the EKS SDK
+		// because EKS now encrypts Kubernetes API data by default. It is
+		// still the only field that reports the customer's own envelope
+		// encryption setting, which is what the KMS-backed secrets control
+		// asks about, so keep reading it.
+		//nolint:staticcheck // deprecated upstream; still the only signal for customer-managed envelope encryption.
 		if !containsSecrets(cfg.Resources) {
 			continue
 		}
