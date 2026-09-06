@@ -119,7 +119,10 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          args: release --clean --skip=publish
+          # --parallelism 2: nine cross-compile targets at the runner's
+          # default (one per vCPU) peak around 2.8 GB each and OOM-kill the
+          # job silently mid-build. Two at a time fits comfortably.
+          args: release --clean --skip=publish --parallelism 2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ steps.bump.outputs.new_tag }}
