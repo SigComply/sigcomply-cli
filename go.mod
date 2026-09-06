@@ -1,6 +1,6 @@
 module github.com/sigcomply/sigcomply-cli
 
-go 1.26.8
+go 1.26.0
 
 require (
 	cloud.google.com/go/storage v1.67.0
