@@ -193,5 +193,22 @@ vault:
 # Submit aggregated counts to SigComply Cloud (paid tier; OIDC in CI):
 # cloud:
 #   base_url: https://api.sigcomply.com
+#
+# ---------------------------------------------------------------------------
+# Declare the estate this project covers (uncomment to opt in)
+# ---------------------------------------------------------------------------
+# Without this, a source you forget to wire is silent: its policies bind
+# nothing, get skipped, and drop out of the compliance score — so the
+# omission raises your score instead of lowering it. Declaring the estate
+# turns that silence into a finding (SCOPE INCOMPLETE, exit 1). Each listed
+# source must be configured above, bound by a policy slot, and return at
+# least one record.
+# experimental:
+#   scope:
+#     declared_by: ciso@example.com
+#     declared_at: "2026-01-15"
+#     required_sources:
+#       - aws.iam
+#       - github
 `
 }

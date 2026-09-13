@@ -72,7 +72,7 @@ func TestRenderAndExitCode_PassExitOK(t *testing.T) {
 		{PolicyID: "p1", Status: core.StatusPass},
 		{PolicyID: "p2", Status: core.StatusNA},
 	}
-	code := renderAndExitCode(&buf, plan, results, spec.CIConfig{})
+	code := renderAndExitCode(&buf, plan, results, spec.CIConfig{}, nil)
 	if code != ExitOK {
 		t.Errorf("code = %d; want %d", code, ExitOK)
 	}
@@ -84,7 +84,7 @@ func TestRenderAndExitCode_PassExitOK(t *testing.T) {
 func TestRenderAndExitCode_FailWithDefaultsIsViolation(t *testing.T) {
 	plan := &planner.RunPlan{Framework: "soc2"}
 	results := []core.PolicyResult{{PolicyID: "p1", Status: core.StatusFail}}
-	code := renderAndExitCode(&bytes.Buffer{}, plan, results, spec.CIConfig{})
+	code := renderAndExitCode(&bytes.Buffer{}, plan, results, spec.CIConfig{}, nil)
 	if code != ExitViolation {
 		t.Errorf("code = %d; want %d", code, ExitViolation)
 	}
@@ -94,7 +94,7 @@ func TestRenderAndExitCode_FailWithFailOnViolationDisabled(t *testing.T) {
 	plan := &planner.RunPlan{Framework: "soc2"}
 	results := []core.PolicyResult{{PolicyID: "p1", Status: core.StatusFail}}
 	disabled := false
-	code := renderAndExitCode(&bytes.Buffer{}, plan, results, spec.CIConfig{FailOnViolation: &disabled})
+	code := renderAndExitCode(&bytes.Buffer{}, plan, results, spec.CIConfig{FailOnViolation: &disabled}, nil)
 	if code != ExitOK {
 		t.Errorf("code = %d; want %d (fail_on_violation disabled)", code, ExitOK)
 	}
@@ -106,7 +106,7 @@ func TestRenderAndExitCode_ErrorWinsOverFail(t *testing.T) {
 		{PolicyID: "p1", Status: core.StatusError},
 		{PolicyID: "p2", Status: core.StatusFail},
 	}
-	code := renderAndExitCode(&bytes.Buffer{}, plan, results, spec.CIConfig{})
+	code := renderAndExitCode(&bytes.Buffer{}, plan, results, spec.CIConfig{}, nil)
 	if code != ExitExecution {
 		t.Errorf("code = %d; want %d", code, ExitExecution)
 	}
@@ -144,7 +144,7 @@ func TestRenderAndExitCode_SkipExplanationsAreLoud(t *testing.T) {
 		{PolicyID: "soc2.cc7.2.empty", Status: core.StatusSkip},
 	}
 	var buf bytes.Buffer
-	code := renderAndExitCode(&buf, plan, results, spec.CIConfig{})
+	code := renderAndExitCode(&buf, plan, results, spec.CIConfig{}, nil)
 	if code != ExitOK {
 		t.Errorf("code = %d; want %d (skips alone are not a violation)", code, ExitOK)
 	}

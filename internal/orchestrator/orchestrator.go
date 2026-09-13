@@ -31,6 +31,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/log"
 	"github.com/sigcomply/sigcomply-cli/internal/planner"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
+	"github.com/sigcomply/sigcomply-cli/internal/scope"
 	"github.com/sigcomply/sigcomply-cli/internal/sign"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 	"github.com/sigcomply/sigcomply-cli/internal/submitter"
@@ -174,9 +175,11 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 		return Result{ExitCode: ExitExecution}, fmt.Errorf("evaluate: %w", err)
 	}
 
+	scopeReport := evaluateScope(opts, plan, collectOut.RecordsByPolicy)
+
 	completedAt := nowOrFallback(opts.Now)
 	stampNextDue(results, plan, startedAt)
-	persistResults(ctx, rec, opts.Logger, runRoot, results, runID, plan, completedAt)
+	persistResults(ctx, rec, opts.Logger, runRoot, results, runID, plan, completedAt, scopeReport)
 
 	if err := writeManifest(ctx, rec, opts.Logger, runRoot, runID, plan, startedAt, completedAt); err != nil {
 		return Result{ExitCode: ExitExecution}, err
@@ -187,7 +190,7 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 	payload := buildPayload(opts, results, plan, runID, startedAt, completedAt)
 	submitted, submittedAt := handleSubmission(ctx, opts, &payload, completedAt)
 
-	exitCode := renderAndExitCode(opts.Stdout, plan, results, opts.Config.CI)
+	exitCode := renderAndExitCode(opts.Stdout, plan, results, opts.Config.CI, scopeReport)
 	return Result{
 		ExitCode:    exitCode,
 		RunID:       runID,
@@ -474,14 +477,14 @@ func runCollect(ctx context.Context, opts *Options, plan *planner.RunPlan, rec *
 	return out, nil
 }
 
-func persistResults(ctx context.Context, rec *recordingVault, logger *log.Logger, runRoot string, results []core.PolicyResult, runID string, plan *planner.RunPlan, completedAt time.Time) {
+func persistResults(ctx context.Context, rec *recordingVault, logger *log.Logger, runRoot string, results []core.PolicyResult, runID string, plan *planner.RunPlan, completedAt time.Time, scopeReport *scope.Report) {
 	for i := range results {
 		r := &results[i]
 		if err := rec.PutJSON(ctx, fmt.Sprintf("%s/policies/%s/result.json", runRoot, r.PolicyID), r); err != nil {
 			logger.Warnf("vault: write result.json for %s: %s", r.PolicyID, err.Error())
 		}
 	}
-	summary := summaryFromResults(results, runID, plan, completedAt)
+	summary := summaryFromResults(results, runID, plan, completedAt, scopeReport)
 	if err := rec.PutJSON(ctx, fmt.Sprintf("%s/summary.json", runRoot), summary); err != nil {
 		logger.Warnf("vault: write summary.json: %s", err.Error())
 	}
@@ -651,8 +654,8 @@ func (v *recordingVault) FileHashes(runRoot string) map[string]string {
 	return out
 }
 
-func summaryFromResults(results []core.PolicyResult, runID string, plan *planner.RunPlan, completedAt time.Time) core.FrameworkRunSummary {
-	return core.FrameworkRunSummary{
+func summaryFromResults(results []core.PolicyResult, runID string, plan *planner.RunPlan, completedAt time.Time, scopeReport *scope.Report) core.FrameworkRunSummary {
+	out := core.FrameworkRunSummary{
 		SchemaVersion: core.RunSummarySchemaVersion,
 		RunID:         runID,
 		Framework:     plan.Framework,
@@ -660,6 +663,16 @@ func summaryFromResults(results []core.PolicyResult, runID string, plan *planner
 		CompletedAt:   completedAt,
 		Policies:      results,
 	}
+	// Typed as any on the struct so core stays dependency-free; a nil
+	// *scope.Report must not become a non-nil any, or omitempty stops
+	// working and every pre-scope run grows an empty "scope": null.
+	// An undeclared estate is omitted too: opting in is what adds the
+	// block, so a project that never declared one keeps a byte-identical
+	// summary.json shape across the upgrade.
+	if scopeReport != nil && scopeReport.Status != scope.StatusUndeclared {
+		out.Scope = scopeReport
+	}
+	return out
 }
 
 func detectRepository() core.Repository {
@@ -703,7 +716,7 @@ func writeCapturedPayload(path string, payload *core.SubmissionPayload) error {
 	return os.WriteFile(path, body, 0o600)
 }
 
-func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.PolicyResult, ci spec.CIConfig) int {
+func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.PolicyResult, ci spec.CIConfig, scopeReport *scope.Report) int {
 	var passed, failed, skipped, errored, na, waived, carried int
 	for i := range results {
 		switch results[i].Status {
@@ -743,10 +756,16 @@ func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.P
 	if skipped > 0 {
 		renderSkipExplanations(stdout, plan, sortedResults)
 	}
+	renderScope(stdout, scopeReport)
 	if errored > 0 {
 		return ExitExecution
 	}
-	if failed > 0 && shouldFail(ci) {
+	// An incomplete estate is a violation of the operator's own
+	// declaration, so it fails the build exactly as a failing policy
+	// does — including honouring ci.fail_on_violation. Routing it
+	// through the same gate keeps one rule for "what turns this build
+	// red" rather than a second, invisible one.
+	if (failed > 0 || !scopeReport.Complete()) && shouldFail(ci) {
 		return ExitViolation
 	}
 	return ExitOK

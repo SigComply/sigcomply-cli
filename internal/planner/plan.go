@@ -78,6 +78,15 @@ type PlannedPolicy struct {
 	// case. See CoverageGap.
 	CoverageGaps []CoverageGap
 
+	// UnboundRequiredSlots names the required slots that resolved to zero
+	// bindings, sorted. Unlike CoverageGaps (which reports only the
+	// version-skew near-miss) this is the plain "no configured source
+	// emits what this slot accepts" case — the policy will be skipped at
+	// evaluation and will vanish from the compliance-score denominator.
+	// Consumed by the scope report so an unevaluated control is
+	// distinguishable from a passing one. Empty for the common case.
+	UnboundRequiredSlots []string
+
 	PriorState  *core.PolicyState
 	ContentHash string
 }

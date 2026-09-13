@@ -168,6 +168,7 @@ func planOne(policy *core.Policy, in *Input) (PlannedPolicy, error) {
 	}
 	var bindings map[string][]Binding
 	var coverageGaps []CoverageGap
+	var unbound []string
 	if policy.EvidenceMode == core.EvidenceModeManual {
 		// Manual policies have no configurable slots. The planner creates a
 		// synthetic "_manual" binding pointing to the manual.pdf singleton,
@@ -183,6 +184,7 @@ func planOne(policy *core.Policy, in *Input) (PlannedPolicy, error) {
 			return PlannedPolicy{}, err
 		}
 		coverageGaps = detectCoverageGaps(policy, bindings, in.Config.Sources, in.Registries.Sources)
+		unbound = unboundRequiredSlots(policy, bindings)
 	}
 	// Control-level applicability takes precedence over policy-level
 	// exceptions: a control marked not_applicable cascades a single na to
@@ -208,6 +210,7 @@ func planOne(policy *core.Policy, in *Input) (PlannedPolicy, error) {
 		SkipReason:             skipReason,
 		EvidenceModeOverridden: policy.EvidenceMode != originalMode,
 		CoverageGaps:           coverageGaps,
+		UnboundRequiredSlots:   unbound,
 		PriorState:             priorState,
 		ContentHash:            contentHash,
 	}, nil

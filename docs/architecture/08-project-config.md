@@ -241,6 +241,58 @@ note that `check` itself emits one fixed text summary regardless of
 
 ---
 
+## The scope model
+
+`sources:` says what the project *has* wired. It cannot say what the
+project *should* have wired, and that asymmetry is the config's one
+structural blind spot.
+
+The planner binds only configured sources. A required slot with no
+configured emitter binds nothing, plans cleanly (the deferred-source
+model permits it deliberately), is skipped at evaluation, and is then
+removed from the compliance-score denominator. The consequence is
+perverse: forgetting a platform does not lower the score, it *raises*
+it, because the controls that would have failed simply stop being
+counted. Nothing in the collected evidence can reveal the omission,
+since the evidence that would reveal it is precisely what is absent.
+
+`experimental.scope.required_sources` is the external baseline that
+closes this. The operator declares the estate the project asserts
+coverage over; the run is then checked against that declaration rather
+than against itself.
+
+```yaml
+experimental:
+  scope:
+    declared_by: ciso@example.com
+    declared_at: "2026-09-13"
+    required_sources: [aws.iam, github, okta]
+```
+
+A declared source must clear three bars to count as covered — configured,
+bound by some policy slot, and returning at least one record. Stopping at
+the first would reduce this to a lint on a single file: it would report
+success for a source whose credentials are absent, whose plugin emits
+nothing any policy accepts, or whose every collection failed.
+
+Three properties are deliberate:
+
+- **Opt-in.** No declaration means no judgement. We will not call a run
+  incomplete against a baseline that does not exist, and a project that
+  never opts in sees no new output, no new exit code, and a byte-identical
+  `summary.json`.
+- **Per-project, not per-organization.** One project is one repo is one
+  framework (Core Principle #9), so this declares the estate *this
+  project* covers. Rolling several projects into one estate view is the
+  Cloud dashboard's job, not this file's.
+- **Vault-side only.** Source IDs are operator-chosen and routinely embed
+  account or environment names, and `declared_by` is an email address.
+  The verdict is written to `summary.json` and rendered locally; none of
+  it crosses the aggregation boundary (Core Principle #1).
+
+It lives under `experimental:` because the loader runs with
+`KnownFields(true)` — see the next section.
+
 ## Config evolution policy
 
 `.sigcomply.yaml` lives in the customer's git repo and is the audit
@@ -281,6 +333,20 @@ single object per ID (see [The binding model](#the-binding-model)) rather
 than a family of parallel `policy_*` maps: a new per-policy dimension is
 then a new optional field on that object — additive, never a new
 top-level section — and the rule above holds without a `v2`.
+
+`experimental.scope` is the worked example of this rule. It is a genuinely
+*project-level* assertion, not a per-policy or per-control dimension, so
+it could not be folded into an existing per-ID object — and a new
+top-level `scope:` key would hard-fail every CLI released before it. It
+therefore ships under the hatch first and graduates later.
+
+One consequence is easy to get wrong: because the hatch's promise is that
+older CLIs *tolerate and ignore* subkeys they do not understand,
+validation inside `experimental.scope` must warn on unrecognized keys, not
+reject them. Hard-erroring there would recreate exactly the
+forward-compatibility hazard the hatch exists to prevent, one level
+further down. Malformed *recognized* keys — a bad date, a duplicate
+source ID — are still hard errors.
 
 ---
 

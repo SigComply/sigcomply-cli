@@ -1158,7 +1158,57 @@ set of accepted top-level keys (`internal/spec/project_config.go`):
 | `ci` | `{ fail_on_violation, fail_severity }` | Config-only; no equivalent flags. |
 | `ci_environment` | map | Free-form environment metadata recorded with the run. |
 | `extensions` | `{ path }` | Overrides extension-discovery path (default `.sigcomply/`). |
-| `experimental` | map | Forward-compat escape hatch: not-yet-stable keys live here so a newer config never breaks an older CLI. Ignored by the loader. |
+| `experimental` | map | Forward-compat escape hatch: not-yet-stable keys live here so a newer config never breaks an older CLI. The loader itself interprets nothing here; each feature reads its own key. See [`experimental.scope`](#experimentalscope--declaring-the-estate) below. |
+
+#### `experimental.scope` — declaring the estate
+
+Optional. Declares the estate this project asserts coverage over, so a
+source you forgot to wire becomes a finding instead of silence.
+
+```yaml
+experimental:
+  scope:
+    declared_by: ciso@example.com   # optional audit trail
+    declared_at: "2026-09-13"       # optional, ISO 8601 (YYYY-MM-DD)
+    required_sources:               # required when the block is present
+      - aws.iam
+      - github
+      - okta
+```
+
+| Key | Shape | Notes |
+|-----|-------|-------|
+| `declared_by` | string | Who asserted the estate. Vault-side only — never sent to SigComply Cloud. |
+| `declared_at` | string | ISO 8601 calendar date. |
+| `required_sources` | list of source IDs | At least one. Each must appear under `sources:`, bind to at least one policy slot, and return at least one record, or the run reports `SCOPE INCOMPLETE` and exits `1`. |
+
+**Why it exists.** Without a declaration every check is self-referential:
+it evaluates the evidence it happened to collect, against itself. A policy
+whose required slot has no configured source binds nothing, is skipped at
+evaluation, and drops out of the compliance-score denominator — so
+forgetting a platform *raises* your score instead of lowering it. The
+declaration is the external baseline that turns that silence into a
+finding.
+
+**Three bars.** A declared source counts as covered only if it is
+configured, actually bound by some policy slot, and actually returned
+records. Checking only the first would pass a source whose credentials are
+missing or whose plugin emits nothing any policy accepts.
+
+**Behaviour is opt-in.** Omit the block and nothing changes: no new output,
+no new exit codes, and `summary.json` keeps its exact previous shape. When
+present, the verdict is written to `summary.json` under `scope` (covered by
+the run manifest's signature) and rendered by
+[`sigcomply report --view scope`](./reference/commands.md).
+
+Unrecognized keys inside `scope:` are **warned about, never fatal** — that
+tolerance is what lets a config written for a newer CLI keep loading on an
+older pinned one.
+
+It lives under `experimental:` rather than at the top level because the
+loader runs with `KnownFields(true)`: a brand-new top-level key would
+hard-fail every CLI released before it. It graduates to a first-class key in
+a later release.
 
 ---
 

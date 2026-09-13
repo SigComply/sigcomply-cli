@@ -3,7 +3,9 @@ package core
 import "time"
 
 // RunSummarySchemaVersion is stamped on every vault-side framework
-// run summary. Bumped on any wire-format change.
+// run summary. Adding an optional field keeps the same major version;
+// only a rename or a semantic change to an existing field bumps it.
+// See docs/architecture/05-vault-layout.md §Schema versions.
 const RunSummarySchemaVersion = "summary.v2"
 
 // FrameworkRunSummary is the per-run, framework-level summary
@@ -22,6 +24,18 @@ type FrameworkRunSummary struct {
 	PeriodID      string         `json:"period_id"`
 	CompletedAt   time.Time      `json:"completed_at"`
 	Policies      []PolicyResult `json:"policies"`
+
+	// Scope is the run's estate-coverage verdict: what the operator
+	// declared this project covers, and whether the run actually reached
+	// it. Absent (and omitted) when no estate is declared, which is the
+	// default. Typed as any so core keeps no dependency on the scope
+	// package; the concrete type is *scope.Report.
+	//
+	// This lives here rather than on the wire deliberately. Source IDs
+	// are operator-chosen and routinely embed account or environment
+	// names, so the report stays vault-side, where identifiers are
+	// allowed, and is covered by the run manifest's signature.
+	Scope any `json:"scope,omitempty"`
 }
 
 // PeriodAggregate is the per-policy timeline summary for sub-period
