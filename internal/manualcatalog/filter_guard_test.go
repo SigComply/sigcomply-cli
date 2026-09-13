@@ -136,10 +136,21 @@ func unguardedFields(cond *core.PassWhenCondition, guarded map[string]bool) []st
 	if guarded[cond.Field] {
 		return nil
 	}
-	// Record-level fields are structural and always present.
-	switch cond.Field {
-	case "id", "type", "source_id":
+	// Only payload paths map onto an evidence-type schema, so only they
+	// can be checked for optionality here. `id`/`type`/`source_id` are
+	// structural and always present, and any other namespace is either a
+	// construct this walker does not model or unresolvable at run time —
+	// in which case getField errors loudly on its own, which is a
+	// different problem from the silent one this test guards.
+	if !strings.HasPrefix(cond.Field, "payload.") {
 		return nil
 	}
-	return []string{strings.TrimPrefix(cond.Field, "payload.")}
+	field := strings.TrimPrefix(cond.Field, "payload.")
+	// Nested paths (payload.a.b) are not modeled: `required` lists
+	// top-level keys only. Report the root, which is the part the schema
+	// can actually speak to.
+	if root, _, nested := strings.Cut(field, "."); nested {
+		field = root
+	}
+	return []string{field}
 }
