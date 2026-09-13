@@ -401,9 +401,12 @@ func validatePassWhenClause(raw *passWhenClauseRaw) error {
 		return fmt.Errorf("pass_when clause missing required field \"condition\"")
 	}
 	// Validate the filter too. An invalid filter op (e.g. a typo like
-	// "contains") otherwise loads cleanly, then excludes every record at
-	// runtime (filterRecords swallows the dispatch error), so an all/none/
-	// count quantifier passes vacuously — a silent compliance bypass.
+	// "contains") otherwise loads cleanly and only fails at run time, once
+	// per run, on evidence the operator has already paid to collect. The
+	// runtime is no longer permissive about it — an unevaluable filter
+	// errors the policy rather than excluding every record and passing
+	// vacuously — but catching it at load time still turns a failed run
+	// into a rejected policy file.
 	if raw.Filter != nil {
 		if err := validatePassWhenCondition(raw.Filter); err != nil {
 			return fmt.Errorf("filter: %w", err)

@@ -199,6 +199,42 @@ ln -sf "$(go env GOPATH)/bin/sigcomply-cli" "$(go env GOPATH)/bin/sigcomply"
 The prebuilt installer (`scripts/install.sh`) already installs it as
 `sigcomply`. See [install.md](install.md). (There is no Homebrew package.)
 
+## Policies
+
+### A policy reports `error` and names a field
+
+**Problem:** `check` prints something like
+
+```
+[error] soc2.cc6.7.kms_key_rotation_enabled — CC6.7
+    ↳ pass_when: the filter for slot "evidence" could not be evaluated, so
+      the records in scope are unknown: policy references field
+      "payload.is_customer_managed" which is not present on record "…"
+```
+
+**Cause:** a policy read a field the evidence record does not carry. The
+evaluator never guesses: a condition it cannot evaluate leaves one
+record's verdict unknown, and a *filter* it cannot evaluate leaves the
+clause's whole scope unknown. Both surface as `error` (exit 2) rather
+than a pass, because excluding the record would bias the result toward
+passing — `all` and `none` are true of the empty set, so a filter that
+fails on every record would return green having examined nothing.
+
+**Fix:** either the source should populate the field, or the policy
+should say the absence is acceptable. For a field the evidence type marks
+optional, guard it with `is_set` inside an `all_of`:
+
+```yaml
+filter:
+  op: all_of
+  conditions:
+    - { op: is_set, field: payload.is_customer_managed }
+    - { op: eq, field: payload.is_customer_managed, value: true }
+```
+
+For a field the type marks `required`, a record missing it is a source
+bug — check the plugin, not the policy.
+
 ## Frameworks
 
 ### HIPAA (or any other framework) isn't recognized

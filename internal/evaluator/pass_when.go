@@ -19,11 +19,23 @@ func evaluatePassWhen(spec *core.PassWhenSpec, slots map[string][]core.EvidenceR
 	for i := range spec.Clauses {
 		clause := &spec.Clauses[i]
 		records := slots[clause.Slot]
-		result := evaluatePassWhenClause(clause, records, params)
+
+		// Scope first. A filter that cannot be evaluated leaves the
+		// clause's scope unknown, which is an error — see filterRecords.
+		included := records
+		if clause.Filter != nil {
+			var err error
+			included, err = filterRecords(records, clause.Filter, params)
+			if err != nil {
+				return filterErr(clause, err)
+			}
+		}
+
+		result := evaluateQuantifier(clause, included, params)
 		if result.Status == core.StatusError {
 			return result
 		}
-		if examinedBy(clause, records, params) == 0 {
+		if reportsVacuity(clause.Quantifier) && len(included) == 0 {
 			vacuous = append(vacuous, clause.Slot)
 		}
 		allViolations = append(allViolations, result.Violations...)
@@ -47,29 +59,18 @@ func evaluatePassWhen(spec *core.PassWhenSpec, slots map[string][]core.EvidenceR
 	return out
 }
 
-// examinedBy reports how many records a clause actually evaluated, after
-// its filter. Quantifiers that already treat the empty set as a failure
-// (any, count with a minimum) need no guard, so they never report vacuity.
-func examinedBy(clause *core.PassWhenClause, records []core.EvidenceRecord, params map[string]any) int {
-	switch clause.Quantifier {
-	case core.QuantifierAll, core.QuantifierNone:
-	default:
-		return 1
-	}
-	if clause.Filter == nil {
-		return len(records)
-	}
-	return len(filterRecords(records, clause.Filter, params))
+// reportsVacuity reports whether a quantifier needs the empty-set guard.
+// `all` and `none` are true of the empty set, so a clause that examined
+// nothing passes and has to be reported. Quantifiers that already treat
+// the empty set as a failure (any, count with a minimum) need no guard.
+func reportsVacuity(q core.PassWhenQuantifier) bool {
+	return q == core.QuantifierAll || q == core.QuantifierNone
 }
 
-// evaluatePassWhenClause evaluates one clause against its slot's records.
-func evaluatePassWhenClause(clause *core.PassWhenClause, records []core.EvidenceRecord, params map[string]any) core.RuleResult {
-	// Pre-filter: exclude records that do not satisfy the filter condition.
-	included := records
-	if clause.Filter != nil {
-		included = filterRecords(records, clause.Filter, params)
-	}
-
+// evaluateQuantifier applies a clause's quantifier to the records that
+// survived its filter. Filtering happens once, in evaluatePassWhen, so
+// the records handed here are already the in-scope set.
+func evaluateQuantifier(clause *core.PassWhenClause, included []core.EvidenceRecord, params map[string]any) core.RuleResult {
 	identityKey := clause.IdentityKey
 	if identityKey == "" {
 		identityKey = "id"
@@ -224,18 +225,42 @@ func conditionErr(err error) core.RuleResult {
 }
 
 // filterRecords returns the subset of records that satisfy the filter
-// condition. Filters are lenient: a record whose filter field is absent
-// (or whose filter evaluation errors) is simply excluded from the set,
-// rather than erroring the whole policy — filtering is about scoping the
-// records to judge, and "field not present" means "out of scope".
-func filterRecords(records []core.EvidenceRecord, filter *core.PassWhenCondition, params map[string]any) []core.EvidenceRecord {
+// condition.
+//
+// A filter that cannot be evaluated is an error, never a silent drop.
+// The two outcomes look the same from inside the loop and are not: a
+// filter that returns false decided the record is out of scope, while a
+// filter that errors did not decide anything. Excluding the undecided
+// record biases the policy toward passing — it is one fewer record
+// checked, and `all`/`none` over the empty set is true, so a filter that
+// fails to evaluate on every record turns the policy green without
+// examining anything. A filter that legitimately tolerates an absent
+// field says so with is_set, which returns false rather than erroring.
+func filterRecords(records []core.EvidenceRecord, filter *core.PassWhenCondition, params map[string]any) ([]core.EvidenceRecord, error) {
 	out := make([]core.EvidenceRecord, 0, len(records))
 	for i := range records {
-		if ok, err := evalCondition(filter, &records[i], params); err == nil && ok {
+		ok, err := evalCondition(filter, &records[i], params)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
 			out = append(out, records[i])
 		}
 	}
-	return out
+	return out, nil
+}
+
+// filterErr wraps a filter-evaluation failure as a policy-level error.
+// It is worded separately from conditionErr because the consequence
+// differs: an unevaluable condition leaves one record's verdict unknown,
+// while an unevaluable filter leaves the clause's whole scope unknown.
+func filterErr(clause *core.PassWhenClause, err error) core.RuleResult {
+	return core.RuleResult{
+		Status: core.StatusError,
+		Diag: map[string]any{"reason": fmt.Sprintf(
+			"pass_when: the filter for slot %q could not be evaluated, so the records in scope are unknown: %v",
+			clause.Slot, err)},
+	}
 }
 
 // evalCondition evaluates a single PassWhenCondition against a record.
@@ -245,8 +270,10 @@ func filterRecords(records []core.EvidenceRecord, filter *core.PassWhenCondition
 // evidence does not carry is never a meaningful pass or fail, so the
 // policy surfaces status=error rather than silently treating the absence
 // as a violation (or a vacuous pass). Policies that legitimately tolerate
-// an absent field must guard it with the is_set operator (which returns
-// false, never errors) or scope it away in a clause filter.
+// an absent field must guard it with the is_set operator, which returns
+// false rather than erroring. The guard belongs wherever the field is
+// read: a clause filter is not itself an excuse, because an unevaluable
+// filter is an error too (see filterRecords).
 func evalCondition(cond *core.PassWhenCondition, rec *core.EvidenceRecord, params map[string]any) (bool, error) {
 	switch cond.Op {
 	case "all_of":
@@ -280,7 +307,7 @@ func evalCondition(cond *core.PassWhenCondition, rec *core.EvidenceRecord, param
 	if !ok {
 		return false, fmt.Errorf(
 			"policy references field %q which is not present on record %q (type %q) — "+
-				"reference a field the evidence type guarantees, or guard it with is_set/filter",
+				"reference a field the evidence type guarantees, or guard it with is_set",
 			cond.Field, rec.ID, rec.Type)
 	}
 	rhs := resolveValue(cond.Value, params)

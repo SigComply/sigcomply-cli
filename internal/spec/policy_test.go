@@ -323,10 +323,11 @@ rule: rules.mfa.v1
 }
 
 // TestLoadPolicy_RejectsInvalidFilterOp guards the filter-validation gap:
-// a typo'd filter op (e.g. "contains") would otherwise load cleanly and,
-// at runtime, exclude every record (filterRecords swallows the dispatch
-// error) so an all/none/count quantifier passes vacuously — a silent
-// compliance bypass.
+// a typo'd filter op (e.g. "contains") would otherwise load cleanly and
+// fail only at run time, on evidence already collected. The evaluator no
+// longer turns that into a silent pass — an unevaluable filter errors the
+// policy — but rejecting the file at load time is still the cheaper place
+// to catch it.
 func TestLoadPolicy_RejectsInvalidFilterOp(t *testing.T) {
 	yaml := []byte(`schema_version: policy.v1
 id: test.bad_filter

@@ -22,11 +22,13 @@ func techAccessPolicies() []core.Policy {
 	return []core.Policy{
 		autoPolicy{
 			id: "iso27001.8.2.privileged_mfa_enforced", control: "A.8.2", severity: core.SeverityCritical, category: "access", cadence: "daily",
-			// Requires is_admin AND mfa_enabled. Phrased as none(admin AND
-			// no-MFA) rather than a filter on is_admin so a source that does
-			// NOT populate is_admin (e.g. Okta, which can't determine admin
-			// status without a per-user roles call) ERRORS rather than
-			// filtering to an empty set and passing vacuously. Sources that
+			// Requires is_admin AND mfa_enabled, phrased as none(admin AND
+			// no-MFA). A source that does NOT populate is_admin (e.g. Okta,
+			// which can't determine admin status without a per-user roles
+			// call) ERRORS, which is the intended way to surface a coverage
+			// gap. A bare filter on is_admin would now error too — it no
+			// longer silently empties the set — but the none() phrasing
+			// keeps the requirement legible as one predicate. Sources that
 			// do populate is_admin (AWS IAM, GitHub) evaluate correctly.
 			accepts: directoryUserTypes,
 			desc:    "Privileged users have MFA enabled.",
@@ -132,7 +134,7 @@ func techCryptoPolicies() []core.Policy {
 			accepts: []string{"kms_key"},
 			desc:    "Customer-managed KMS keys rotate automatically.",
 			rem:     "Enable rotation on each customer-managed key.",
-			clause:  allWhere(leaf("payload.is_customer_managed", "eq", true), leaf("payload.rotation_enabled", "eq", true), "KMS key {{.payload.key_id}} does not have rotation enabled"),
+			clause:  allWhere(allOf(isSet("payload.is_customer_managed"), leaf("payload.is_customer_managed", "eq", true)), leaf("payload.rotation_enabled", "eq", true), "KMS key {{.payload.key_id}} does not have rotation enabled"),
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.8.24.secrets_rotation_enabled", control: "A.8.24", severity: core.SeverityMedium, category: "data-protection", cadence: "daily",

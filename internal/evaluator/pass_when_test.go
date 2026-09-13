@@ -2,6 +2,8 @@ package evaluator
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -553,9 +555,15 @@ func TestPassWhen_AbsentField_IsSetGuardDoesNotError(t *testing.T) {
 	}
 }
 
-// A filter referencing an absent field excludes the record rather than
-// erroring; the remaining (empty) set passes an `all` vacuously.
-func TestPassWhen_AbsentField_FilterExcludes(t *testing.T) {
+// A filter referencing an absent field errors the policy rather than
+// excluding the record.
+//
+// This is the vacuous pass that used to be reachable in production: the
+// filter could not decide whether the record was in scope, the record
+// was dropped anyway, and `all` over the resulting empty set returned
+// pass. One unpopulated field turned a real check into a green tick.
+// Scope that cannot be decided is an error, so the run stops instead.
+func TestPassWhen_AbsentField_FilterErrors(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
 		Slot:       "repos",
 		Quantifier: core.QuantifierAll,
@@ -563,10 +571,64 @@ func TestPassWhen_AbsentField_FilterExcludes(t *testing.T) {
 		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.compliant", Value: true},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"repos": {makeRecord("r1", map[string]any{"name": "r1"})}, // is_in_scope absent -> excluded
+		"repos": {makeRecord("r1", map[string]any{"name": "r1"})}, // is_in_scope absent
+	}
+	result := evaluatePassWhen(spec, records, nil)
+	if result.Status != core.StatusError {
+		t.Fatalf("status = %q; want error (filter could not be evaluated)", result.Status)
+	}
+	reason := fmt.Sprint(result.Diag["reason"])
+	if !strings.Contains(reason, "repos") || !strings.Contains(reason, "could not be evaluated") {
+		t.Errorf("Diag[reason] = %q; want it to name the slot and the undecidable filter", reason)
+	}
+	if _, ok := result.Diag["vacuous_clauses"]; ok {
+		t.Error("an erroring filter must not also be reported as a vacuous pass")
+	}
+}
+
+// The is_set guard is what makes tolerating an absent field a decision in
+// the policy rather than an accident in the engine: the record is
+// excluded, the clause examines nothing, and that is reported as vacuous
+// instead of erroring.
+func TestPassWhen_AbsentField_IsSetGuardedFilterExcludes(t *testing.T) {
+	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+		Slot:       "repos",
+		Quantifier: core.QuantifierAll,
+		Filter: &core.PassWhenCondition{Op: "all_of", Conditions: []*core.PassWhenCondition{
+			{Op: "is_set", Field: "payload.is_in_scope"},
+			{Op: "eq", Field: "payload.is_in_scope", Value: true},
+		}},
+		Condition: &core.PassWhenCondition{Op: "eq", Field: "payload.compliant", Value: true},
+	}}}
+	records := map[string][]core.EvidenceRecord{
+		"repos": {makeRecord("r1", map[string]any{"name": "r1"})}, // is_in_scope absent
 	}
 	result := evaluatePassWhen(spec, records, nil)
 	if result.Status != core.StatusPass {
-		t.Fatalf("status = %q; want pass (filtered to empty)", result.Status)
+		t.Fatalf("status = %q; want pass (guarded filter excludes, does not error)", result.Status)
+	}
+	if _, ok := result.Diag["vacuous_clauses"]; !ok {
+		t.Error("a guarded filter that matched nothing must still be reported vacuous")
+	}
+}
+
+// A record the filter legitimately excludes must not be reported as a
+// violation of the condition it was never judged against.
+func TestPassWhen_FilterErrorDoesNotLeakViolations(t *testing.T) {
+	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+		Slot:       "repos",
+		Quantifier: core.QuantifierNone,
+		Filter:     &core.PassWhenCondition{Op: "eq", Field: "payload.missing", Value: true},
+		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.compliant", Value: false},
+	}}}
+	records := map[string][]core.EvidenceRecord{
+		"repos": {makeRecord("r1", map[string]any{"compliant": false})},
+	}
+	result := evaluatePassWhen(spec, records, nil)
+	if result.Status != core.StatusError {
+		t.Fatalf("status = %q; want error", result.Status)
+	}
+	if len(result.Violations) != 0 {
+		t.Errorf("violations = %d; want 0 (nothing was judged)", len(result.Violations))
 	}
 }

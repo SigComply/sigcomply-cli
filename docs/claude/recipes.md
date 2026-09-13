@@ -137,6 +137,15 @@ reach for the `rule:` escape hatch only for logic the DSL can't express.
    builder. There is **no `source:` field** — a policy never names a
    plugin.
 
+   **A filter on a schema-optional field must be `is_set`-guarded:**
+   `allWhere(allOf(isSet(f), leaf(f, "eq", true)), cond, msg)`. An
+   unevaluable filter errors the policy rather than dropping the record,
+   so a bare filter on an optional field is a latent failure — and before
+   that changed it was a latent *vacuous pass*.
+   `TestEveryFilterGuardsOptionalFields` (`internal/manualcatalog/`)
+   fails the build otherwise. Fields that are `required` in the evidence
+   type need no guard.
+
 3. **For a `rule:` escape-hatch policy** (e.g. substring matching the DSL
    lacks), register a `core.Rule` (see `rules.go` `alarmRules()` using
    `evaluator.GoRule`, or an inline OPA module via

@@ -36,7 +36,16 @@ func organizationalAutomatedPolicies() []core.Policy {
 			accepts: []string{"directory_user.v2"},
 			desc:    "No active user account has been unused for more than 90 days (identity management).",
 			rem:     "Disable accounts unused for more than 90 days; investigate never-logged-in accounts.",
-			clause:  allWhere(leaf("payload.is_active", "eq", true), allOf(leaf("payload.unused_days", "gte", 0), leaf("payload.unused_days", "lte", 90)), "user {{.payload.display_name}} has been inactive for more than 90 days (or never logged in)"),
+			// is_active is is_set-guarded because it is optional in
+			// directory_user.v2 and an unevaluable filter errors the
+			// policy. unused_days, also optional, is deliberately left
+			// unguarded in the condition: a directory that cannot say
+			// how long an account has been idle cannot answer this
+			// control, and erroring says so. Guarding it would instead
+			// drop those users from the population and pass. Only
+			// aws.iam emits directory_user.v2 today and it always
+			// populates both.
+			clause: allWhere(allOf(isSet("payload.is_active"), leaf("payload.is_active", "eq", true)), allOf(leaf("payload.unused_days", "gte", 0), leaf("payload.unused_days", "lte", 90)), "user {{.payload.display_name}} has been inactive for more than 90 days (or never logged in)"),
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.5.17.mfa_enforced", control: "A.5.17", severity: core.SeverityCritical, category: "access", cadence: "daily",

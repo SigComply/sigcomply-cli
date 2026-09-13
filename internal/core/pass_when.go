@@ -20,7 +20,11 @@ type PassWhenClause struct {
 	Condition *PassWhenCondition
 	// Filter is an optional pre-condition. Records not satisfying the Filter
 	// are excluded from the quantifier evaluation entirely (neither pass nor
-	// fail). Nil means all records are evaluated.
+	// fail). Nil means all records are evaluated. A Filter that cannot be
+	// evaluated against a record — it reads a field the record does not
+	// carry — errors the policy instead: it decided nothing, and excluding
+	// an undecided record biases the result toward passing. Guard an
+	// optional field with is_set.
 	Filter *PassWhenCondition
 	// ViolationMsg is a template for per-record violation messages.
 	// Supports {{.field.path}} substitution against the record context.

@@ -67,7 +67,7 @@ func TestPassWhen_UnknownOperator_Errors(t *testing.T) {
 }
 
 // An unknown quantifier surfaces status=error (guards the default branch
-// of evaluatePassWhenClause).
+// of evaluateQuantifier).
 func TestPassWhen_UnknownQuantifier_Errors(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
 		Slot:       "repos",

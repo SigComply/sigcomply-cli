@@ -307,7 +307,7 @@ The shipped `directory_user.v2` schema, verbatim
     "mfa_factor_count":       { "type": "integer" },
     "is_admin":               { "type": "boolean", "description": "Has account-wide elevated privileges." },
     "is_service_account":     { "type": "boolean" },
-    "is_external":            { "type": "boolean", "description": "Identity is external to the organization (outside collaborator, guest/B2B, contractor). Optional; guard with is_set before filtering." },
+    "is_external":            { "type": "boolean", "description": "Identity is external to the organization (outside collaborator, guest/B2B, contractor). Optional; guard with is_set before reading it — in a filter as much as in a condition." },
     "is_active":              { "type": "boolean" },
     "last_login_at":          { "type": "string" },
     "created_at":             { "type": "string" },
@@ -416,6 +416,15 @@ Before adding a field to a cross-vendor schema, apply this test:
 > field with a meaningful, non-null value? If not, can it be safely
 > optional — with documented semantics for what "absent" means to a
 > policy consumer?
+
+Marking a field optional puts a real obligation on every policy that
+reads it. The evaluator errors on a reference to an absent field, in a
+clause `filter` as much as in a `condition`, so an optional field is
+readable only behind an `is_set` guard. That is deliberate: the
+alternative — silently skipping the record — is how an omitted field
+turns a check into a vacuous pass. `TestEveryFilterGuardsOptionalFields`
+(`internal/manualcatalog/`) fails the build if a shipped filter reads a
+field this registry does not mark `required`.
 
 Applied to `directory_user` as illustration:
 

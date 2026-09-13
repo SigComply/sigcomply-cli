@@ -261,6 +261,35 @@ is_set, all_of, any_of`. Parameters are referenced on the value side as
 the string `"$params.<name>"`. Full DSL reference:
 [`03-policy-spec.md`](03-policy-spec.md).
 
+**Scoping with `filter`, and the one rule to remember.** A clause may
+carry a `filter` — a second condition tree that selects which records the
+quantifier judges:
+
+```yaml
+pass_when:
+  slot: keys
+  quantifier: all
+  filter:                      # only customer-managed keys are in scope
+    op: all_of
+    conditions:
+      - { op: is_set, field: payload.is_customer_managed }
+      - { op: eq, field: payload.is_customer_managed, value: true }
+  condition: { op: eq, field: payload.rotation_enabled, value: true }
+```
+
+The `is_set` leg is not decoration. A filter that references a field the
+record does not carry **errors the policy** — it has not decided whether
+that record is in scope, and quietly excluding it would bias the result
+toward passing, because `all` and `none` are true of the empty set. So if
+your filter reads a field that is `required` in the evidence type's
+schema, write it bare; if it reads an optional one, guard it with
+`is_set` inside an `all_of`, which short-circuits before the comparison
+is reached. (`any_of` does not guard — it keeps evaluating past a false.)
+
+Check the schema — `sigcomply evidence catalog` and
+[`04a-evidence-type-registry.md`](04a-evidence-type-registry.md) list
+which fields each type guarantees.
+
 ### Run
 
 ```bash

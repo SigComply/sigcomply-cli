@@ -168,6 +168,14 @@ func anyOf(conds ...*core.PassWhenCondition) *core.PassWhenCondition {
 	return &core.PassWhenCondition{Op: "any_of", Conditions: conds}
 }
 
+// isSet builds a presence guard. A clause filter that cannot be
+// evaluated errors the policy, so a filter reading a schema-OPTIONAL
+// field must say so explicitly: allOf(isSet(f), leaf(f, ...)). all_of
+// short-circuits, so the comparison is never reached when f is absent.
+func isSet(field string) *core.PassWhenCondition {
+	return leaf(field, "is_set", nil)
+}
+
 // all builds an "every record satisfies cond" clause.
 func all(cond *core.PassWhenCondition, msg string) core.PassWhenClause {
 	return core.PassWhenClause{Quantifier: core.QuantifierAll, Condition: cond, ViolationMsg: msg}

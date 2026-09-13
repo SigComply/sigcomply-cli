@@ -35,12 +35,14 @@ func cc6AccessPolicies() []core.Policy {
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.1.mfa_enforced_admins", control: "CC6.1", severity: core.SeverityCritical, category: "access", cadence: "daily",
-			// Requires is_admin AND mfa_enabled. Phrased as none(admin AND
-			// no-MFA) rather than a filter on is_admin so a source that does
-			// NOT populate is_admin (e.g. Okta, which needs a per-user roles
-			// call to determine admin status) ERRORS rather than filtering to
-			// an empty set and passing vacuously. AWS IAM and GitHub populate
-			// is_admin and evaluate correctly.
+			// Requires is_admin AND mfa_enabled, phrased as none(admin AND
+			// no-MFA). A source that does NOT populate is_admin (e.g. Okta,
+			// which needs a per-user roles call to determine admin status)
+			// ERRORS, which is the intended way to surface a coverage gap.
+			// A bare filter on is_admin would now error too — it no longer
+			// silently empties the set — but the none() phrasing keeps the
+			// requirement legible as one predicate. AWS IAM and GitHub
+			// populate is_admin and evaluate correctly.
 			accepts: directoryUserTypes,
 			desc:    "All administrator users have MFA enabled.",
 			rem:     "Enable MFA for every admin user, or revoke their admin privileges.",
@@ -235,7 +237,7 @@ func cc6EncryptionPolicies() []core.Policy {
 			accepts: []string{"kms_key"},
 			desc:    "All customer-managed KMS keys have automatic rotation enabled.",
 			rem:     "Enable automatic key rotation on each customer-managed key.",
-			clause:  allWhere(leaf("payload.is_customer_managed", "eq", true), leaf("payload.rotation_enabled", "eq", true), "KMS key {{.payload.key_id}} does not have rotation enabled"),
+			clause:  allWhere(allOf(isSet("payload.is_customer_managed"), leaf("payload.is_customer_managed", "eq", true)), leaf("payload.rotation_enabled", "eq", true), "KMS key {{.payload.key_id}} does not have rotation enabled"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.7.kms_customer_managed_keys", control: "CC6.7", severity: core.SeverityLow, category: "data-protection", cadence: "daily",

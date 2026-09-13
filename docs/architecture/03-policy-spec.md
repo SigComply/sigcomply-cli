@@ -206,9 +206,14 @@ are three ways to arrive there:
 1. **The slot is empty.** For `required: true` slots the evaluator skips
    the policy before the DSL runs, so this is reachable only on a
    `required: false` slot.
-2. **The filter matched nothing.** `filterRecords` drops any record whose
-   filter errors or whose field is absent, so a populated slot can still
-   present an empty set to the quantifier. This is reachable today.
+2. **The filter matched nothing.** A populated slot can still present an
+   empty set to the quantifier. This is reachable today, and it is
+   legitimate — "no public bucket is unencrypted" is honestly true when
+   no bucket is public. What is *not* reachable is arriving here because
+   the filter could not be evaluated: a filter that errors on a record
+   has not decided whether that record is in scope, and dropping it would
+   bias the policy toward passing, so it errors the policy instead. See
+   `filterRecords`.
 3. **The clause names a slot the policy does not declare.** The lookup
    misses and yields an empty set. The loader rejects this outright — see
    `validateClauseSlotsDeclared` — because there is no reading under
@@ -434,8 +439,8 @@ pass_when:
   quantifier: <all|none|any|count>
   filter:                      # optional: a condition tree; only records that
     op: <op>                   #   match it are passed to the quantifier
-    field: <field_path>        #   (records whose filter field is absent are
-    value: <literal|$params.x> #    excluded, never errored)
+    field: <field_path>        #   (a filter that cannot be evaluated errors the
+    value: <literal|$params.x> #    policy — guard optional fields with is_set)
   condition:                   # required: the predicate evaluated per record
     op: <op>
     field: <field_path>
@@ -494,8 +499,27 @@ dot notation for nested payload fields, e.g.
 prefix is *not found* and surfaces the policy as `error` — there is no
 implicit payload scoping. A comparison against an absent field also
 errors (rather than silently passing or failing); tolerate a
-legitimately-absent field with `is_set` or by scoping it away in the
-clause `filter`.
+legitimately-absent field with `is_set`.
+
+**The rule is the same in a `filter`.** A filter is not an escape hatch
+from it: a filter that cannot be evaluated has not decided whether the
+record is in scope, and excluding it biases every such policy toward
+passing — `all` and `none` are true of the empty set, so a filter that
+fails to evaluate on every record returns a green tick having examined
+nothing. Guard the field where it is read:
+
+```yaml
+filter:                        # only customer-managed keys are in scope,
+  op: all_of                   #   and is_customer_managed is optional in
+  conditions:                  #   the schema, so its absence is declared
+    - { op: is_set, field: payload.is_customer_managed }
+    - { op: eq, field: payload.is_customer_managed, value: true }
+```
+
+`all_of` short-circuits on the first false sub-condition, so the
+comparison is never reached when the field is absent. `any_of` does not
+guard — it keeps evaluating past a false, and the comparison still
+errors.
 
 **Parameters are RHS-only.** Reference an effective parameter value as
 the string `"$params.<name>"` on the `value` side. There is no

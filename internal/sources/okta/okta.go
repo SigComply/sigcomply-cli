@@ -149,7 +149,9 @@ func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 // is_admin is mandatory for every directory_user emitter (WU-0.2,
 // docs/architecture/12-multicloud-sources.md): the admin-MFA policies are
 // phrased as none(is_admin AND no-MFA), and a missing is_admin surfaces as
-// status=error (a coverage gap), not a vacuous pass. Populating it from
+// status=error (a coverage gap), not a vacuous pass. That now holds
+// wherever the field is read — a clause filter reading an absent field
+// errors as well, rather than dropping the record. Populating it from
 // admin-role assignments is what makes those policies fire for an
 // Okta-only deployment.
 //

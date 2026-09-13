@@ -333,6 +333,14 @@ the patterns to catch in review.
   on one slot — that's `pass_when:`, no Go/Rego. Reach for `rule:` only
   for cross-slot joins, complex aggregations, or what the DSL can't
   express. Manual policies use neither.
+- **The evaluator never guesses.** A `pass_when` reference to a field the
+  record does not carry is `status=error`, in a clause `filter` as much as
+  in a `condition` — an undecidable filter leaves the clause's *scope*
+  unknown, and dropping the record biases toward passing because
+  `all`/`none` are true of the empty set. A filter reading a
+  schema-optional field must be `is_set`-guarded inside an `all_of`;
+  `TestEveryFilterGuardsOptionalFields` (`internal/manualcatalog/`) fails
+  the build otherwise.
 - **Don't invent evidence sub-types in the evaluator.** Only `automated`
   and `manual` exist as flows; catalog `type` values are SPA hints. (Inv #2)
 - **Don't grow `validatePDF` into a parser.** Stdlib-only byte-level

@@ -64,6 +64,19 @@ tracks the human-curated highlights.
 
 ### Changed
 
+- **A `pass_when` filter that cannot be evaluated now errors the policy instead
+  of silently dropping the record.** `filterRecords` treated "the filter says
+  this record is out of scope" and "the filter could not be evaluated" as the
+  same outcome, and excluded both. Excluding the second biases toward passing:
+  the record is one fewer thing checked, and `all`/`none` are true of the empty
+  set — so a filter that failed to evaluate on every record returned a green
+  tick having examined nothing. One unpopulated optional field was enough. A
+  filter that legitimately tolerates an absent field must now say so with
+  `is_set`, which returns false rather than erroring. Three shipped policies
+  gained that guard (`soc2.cc6.7.kms_key_rotation_enabled`,
+  `iso27001.8.24.kms_key_rotation`, `iso27001.5.16.inactive_user_accounts`);
+  none change verdict on today's sources, which all populate the fields in
+  question. A new build-failing test keeps a fourth from appearing.
 - **Source keys and `catalog_entry` values are now validated** against a
   restrictive grammar (letters, digits, dot, dash, underscore, plus an optional
   `[instance]` suffix). Both become part of an evidence file's object key in the
