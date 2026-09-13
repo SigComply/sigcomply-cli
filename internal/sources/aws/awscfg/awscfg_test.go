@@ -3,6 +3,8 @@ package awscfg
 import (
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
 
@@ -38,7 +40,7 @@ func TestFromEnv_Empty(t *testing.T) {
 func TestFromEnv_IgnoresProfile(t *testing.T) {
 	got := FromEnv(sources.Env{Config: map[string]any{"profile": "second-account"}})
 	if got != (Options{}) {
-		t.Errorf("FromEnv = %+v; profile must not be honoured", got)
+		t.Errorf("FromEnv = %+v; profile must not be honored", got)
 	}
 }
 
@@ -49,15 +51,24 @@ func TestCacheKeyDistinguishesInstances(t *testing.T) {
 	Reset()
 	t.Cleanup(Reset)
 
-	a := Options{Region: "us-east-1", RoleARN: "arn:aws:iam::111111111111:role/A"}
-	b := Options{Region: "us-east-1", RoleARN: "arn:aws:iam::222222222222:role/B"}
-	if a == b {
-		t.Fatal("distinct roles must produce distinct cache keys")
-	}
+	a := Options{Region: "us-east-1", RoleARN: "arn:aws:iam::000000000000:role/A"}
+	b := Options{Region: "us-east-1", RoleARN: "arn:aws:iam::000000000000:role/B"}
+	sameAsA := Options{Region: "us-east-1", RoleARN: "arn:aws:iam::000000000000:role/A"}
 
-	// Same instance twice is one key: without this, one instance would
-	// issue an AssumeRole per AWS plugin (~23) on every run.
-	if (Options{Region: "us-east-1"}) != (Options{Region: "us-east-1"}) {
-		t.Fatal("identical options must share a cache key")
+	// Exercise the real cache map rather than comparing literals: what
+	// matters is whether one instance can read another's entry.
+	mu.Lock()
+	cached[a] = aws.Config{Region: "marker-a"}
+	_, bHit := cached[b]
+	fromSame, sameHit := cached[sameAsA]
+	mu.Unlock()
+
+	if bHit {
+		t.Error("a different role must not hit another instance's cached credentials")
+	}
+	// Without reuse, each of the ~23 AWS plugins would assume the role
+	// again on every run.
+	if !sameHit || fromSame.Region != "marker-a" {
+		t.Error("identical options must reuse one cache entry")
 	}
 }

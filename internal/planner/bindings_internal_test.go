@@ -10,6 +10,12 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
+// Shared across the instance tests so goconst stays quiet.
+const (
+	srcAWSIAM       = "aws.iam"
+	srcAWSIAMBackup = "aws.iam[backup]"
+)
+
 // lookupSourcePlugin is exact, including for instance keys. Every
 // configured source is registered under its exact key, so a miss means
 // the key names nothing real. A base-ID fallback would make a typo'd
@@ -18,15 +24,15 @@ import (
 // typo'd name.
 func TestLookupSourcePlugin_IsExact(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, "aws.iam", "directory_user")
-	registerSource(t, set, "aws.iam[backup]", "directory_user")
+	registerSource(t, set, srcAWSIAM, "directory_user")
+	registerSource(t, set, srcAWSIAMBackup, "directory_user")
 
-	if p := lookupSourcePlugin(set.Sources, "aws.iam"); p == nil {
+	if p := lookupSourcePlugin(set.Sources, srcAWSIAM); p == nil {
 		t.Fatal("exact key lookup failed")
 	}
-	if p := lookupSourcePlugin(set.Sources, "aws.iam[backup]"); p == nil {
+	if p := lookupSourcePlugin(set.Sources, srcAWSIAMBackup); p == nil {
 		t.Error("a registered instance key must resolve")
-	} else if p.ID() != "aws.iam[backup]" {
+	} else if p.ID() != srcAWSIAMBackup {
 		t.Errorf("instance resolved to %q; want aws.iam[backup]", p.ID())
 	}
 	if p := lookupSourcePlugin(set.Sources, "aws.iam[typo]"); p != nil {
@@ -176,9 +182,9 @@ func TestResolveControlException_NoMatch(t *testing.T) {
 // has an ambiguity the operator must resolve explicitly.
 func TestAutoBind_SecondInstanceAffectsCardinality(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, "aws.iam", "directory_user")
-	registerSource(t, set, "aws.iam[backup]", "directory_user")
-	configured := map[string]map[string]any{"aws.iam": {}, "aws.iam[backup]": {}}
+	registerSource(t, set, srcAWSIAM, "directory_user")
+	registerSource(t, set, srcAWSIAMBackup, "directory_user")
+	configured := map[string]map[string]any{srcAWSIAM: {}, srcAWSIAMBackup: {}}
 
 	t.Run("one-or-more unions both instances", func(t *testing.T) {
 		slot := &core.Slot{Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true}
@@ -191,7 +197,7 @@ func TestAutoBind_SecondInstanceAffectsCardinality(t *testing.T) {
 		}
 		// Sorted by source ID, and each binding keeps its own instance
 		// identity so the collector writes two distinct envelopes.
-		if got[0].SourceID != "aws.iam" || got[1].SourceID != "aws.iam[backup]" {
+		if got[0].SourceID != srcAWSIAM || got[1].SourceID != srcAWSIAMBackup {
 			t.Errorf("bindings = %+v; want distinct instance IDs", got)
 		}
 	})
