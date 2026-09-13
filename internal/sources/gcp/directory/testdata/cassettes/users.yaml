@@ -28,15 +28,16 @@ interactions:
         proto: HTTP/1.1
         proto_major: 1
         proto_minor: 1
-        content_length: 299
+        content_length: 683
         body: |-
             {"users":[
-            {"id":"100200300","primaryEmail":"alice@example.com","name":{"fullName":"Alice Admin"},"isAdmin":true,"isEnrolledIn2Sv":true,"suspended":false},
-            {"id":"100200301","primaryEmail":"bob@example.com","name":{"fullName":"Bob User"},"isAdmin":false,"isEnrolledIn2Sv":false,"suspended":false}
+            {"id":"100200300","primaryEmail":"alice@example.com","name":{"fullName":"Alice Admin"},"isAdmin":true,"isEnrolledIn2Sv":true,"suspended":false,"externalIds":[{"type":"organization","value":"E-1001"}]},
+            {"id":"100200301","primaryEmail":"bob@example.com","name":{"fullName":"Bob User"},"isAdmin":false,"isEnrolledIn2Sv":false,"suspended":false,"externalIds":[{"type":"account","value":"bob-acct"}]},
+            {"id":"100200302","primaryEmail":"carol@example.com","name":{"fullName":"Carol Former"},"isAdmin":false,"isEnrolledIn2Sv":true,"suspended":false,"archived":true,"externalIds":[{"type":"custom","customType":"badge","value":"B-7"},{"type":"organization","value":"E-1002"}]}
             ]}
         headers:
             Content-Length:
-                - "299"
+                - "683"
             Content-Type:
                 - application/json
             Date:

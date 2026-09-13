@@ -5,6 +5,11 @@
 // against Google identities exactly as they do against AWS IAM, Okta,
 // GitHub, and GitLab — zero policy changes (Invariant #4, substitutability).
 //
+// From the same user listing it also emits roster_entry (roster.go) when a
+// project designates Google Workspace as its workforce roster: status
+// inactive for suspended or archived users, employee_id from the first
+// "organization" external ID.
+//
 // Per the KISS-no-DRY axiom (docs/architecture/04-source-plugins.md
 // §The plugin contract), the plugin caches nothing across Collect calls.
 //
@@ -109,7 +114,7 @@ func NewFromGCP(ctx context.Context, customer string, auth AuthConfig) (*Plugin,
 func (*Plugin) ID() string { return SourceID }
 
 // Emits returns the evidence types this plugin can produce.
-func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
+func (*Plugin) Emits() []string { return []string{EvidenceTypeID, RosterEvidenceTypeID} }
 
 // Init is a no-op for this plugin — configuration is fixed at New.
 // Preserved for symmetry with other plugins.
@@ -128,12 +133,16 @@ type userPayload struct {
 	IsActive    bool   `json:"is_active"`
 }
 
-// Collect lists the customer's users and emits one directory_user record
-// each. Records are sorted by ID before return so envelope bytes are
-// stable across runs against stable directory state.
+// Collect lists the customer's users once and emits, per accepted type,
+// one directory_user and/or one roster_entry record each. Records are
+// stably sorted by ID before return so envelope bytes are stable across
+// runs against stable directory state.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	if !req.Accepts(EvidenceTypeID) {
-		return nil, fmt.Errorf("gcp.directory: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
+	wantUsers := req.Accepts(EvidenceTypeID)
+	wantRoster := req.Accepts(RosterEvidenceTypeID)
+	if !wantUsers && !wantRoster {
+		return nil, fmt.Errorf("gcp.directory: slot AcceptedTypes %v does not include %q or %q",
+			req.AcceptedTypes, EvidenceTypeID, RosterEvidenceTypeID)
 	}
 	users, err := p.api.ListUsers(ctx, p.customer)
 	if err != nil {
@@ -145,39 +154,55 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		if u == nil {
 			continue
 		}
-		displayName := ""
-		if u.Name != nil {
-			displayName = u.Name.FullName
+		if wantUsers {
+			r, err := directoryUserRecord(u, now)
+			if err != nil {
+				return nil, err
+			}
+			records = append(records, r)
 		}
-		payload := userPayload{
-			ID:          u.Id,
-			DisplayName: displayName,
-			Email:       u.PrimaryEmail,
-			// IsEnrolledIn2Sv is Google's 2-step-verification enrollment
-			// flag — the directory_user MFA signal for Workspace.
-			MFAEnabled: u.IsEnrolledIn2Sv,
-			// Super-admins (IsAdmin) and delegated admins both hold
-			// account-wide elevated privileges, so both count as is_admin
-			// for admin-MFA / least-privilege policies.
-			IsAdmin: u.IsAdmin || u.IsDelegatedAdmin,
-			// Suspended accounts cannot authenticate; invert for is_active.
-			IsActive: !u.Suspended,
+		if wantRoster {
+			r, err := rosterRecord(u, now)
+			if err != nil {
+				return nil, err
+			}
+			records = append(records, r)
 		}
-		body, err := json.Marshal(payload)
-		if err != nil {
-			return nil, fmt.Errorf("gcp.directory: marshal user payload: %w", err)
-		}
-		records = append(records, core.EvidenceRecord{
-			Type:        EvidenceTypeID,
-			ID:          u.Id,
-			IdentityKey: u.PrimaryEmail,
-			Payload:     body,
-			SourceID:    SourceID,
-			CollectedAt: now,
-		})
 	}
-	sort.Slice(records, func(i, j int) bool { return records[i].ID < records[j].ID })
+	sort.SliceStable(records, func(i, j int) bool { return records[i].ID < records[j].ID })
 	return records, nil
+}
+
+// directoryUserRecord builds one directory_user record from a Workspace user.
+func directoryUserRecord(u *admin.User, now time.Time) (core.EvidenceRecord, error) {
+	status, _ := userStatus(u)
+	payload := userPayload{
+		ID:          u.Id,
+		DisplayName: userDisplayName(u),
+		Email:       u.PrimaryEmail,
+		// IsEnrolledIn2Sv is Google's 2-step-verification enrollment
+		// flag — the directory_user MFA signal for Workspace.
+		MFAEnabled: u.IsEnrolledIn2Sv,
+		// Super-admins (IsAdmin) and delegated admins both hold
+		// account-wide elevated privileges, so both count as is_admin
+		// for admin-MFA / least-privilege policies.
+		IsAdmin: u.IsAdmin || u.IsDelegatedAdmin,
+		// Suspended and archived accounts cannot authenticate — the same
+		// rule that makes them inactive in the roster.
+		IsActive: status == rosterActive,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return core.EvidenceRecord{}, fmt.Errorf("gcp.directory: marshal user payload: %w", err)
+	}
+	return core.EvidenceRecord{
+		Type:        EvidenceTypeID,
+		ID:          u.Id,
+		IdentityKey: u.PrimaryEmail,
+		Payload:     body,
+		SourceID:    SourceID,
+		CollectedAt: now,
+	}, nil
 }
 
 // realDirectory is the production implementation of API. It wraps

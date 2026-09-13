@@ -44,8 +44,8 @@ func TestIDAndEmits(t *testing.T) {
 		t.Errorf("ID = %q; want gcp.directory", p.ID())
 	}
 	emits := p.Emits()
-	if len(emits) != 1 || emits[0] != "directory_user" {
-		t.Errorf("Emits = %v; want [directory_user]", emits)
+	if !reflect.DeepEqual(emits, []string{"directory_user", "roster_entry"}) {
+		t.Errorf("Emits = %v; want [directory_user roster_entry]", emits)
 	}
 }
 
