@@ -67,6 +67,39 @@ func (a autoPolicy) policy() core.Policy {
 	}
 }
 
+// rosterPolicy is the authoring shape for an account-lifecycle policy
+// that checks accounts in other systems against the designated roster
+// (experimental.roster.source). The roster slot is never auto-bound, and
+// the planner never binds the roster source to the accounts slot: a
+// directory cannot vouch for its own accounts.
+type rosterPolicy struct {
+	id, control, desc, rem string
+	severity               core.Severity
+	clause                 core.PassWhenClause
+}
+
+//nolint:gocritic // hugeParam: one-time startup builder.
+func (r rosterPolicy) policy() core.Policy {
+	clause := r.clause
+	clause.Slot, clause.IdentityKey = "accounts", "account.ref"
+	return core.Policy{
+		ID: r.id, Controls: controlRefs(r.control), Description: r.desc, Remediation: r.rem,
+		Severity: r.severity, Category: "access", Cadence: "daily", OnPush: true,
+		EvidenceMode: core.EvidenceModeAutomated,
+		Slots: map[string]core.Slot{
+			"roster":   {Accepts: []string{"roster_entry"}, Cardinality: core.SlotExactlyOne, Required: true, Role: core.SlotRoleRoster, Description: "people in the designated roster directory"},
+			"accounts": {Accepts: directoryUserTypes, Cardinality: core.SlotOneOrMore, Required: true, Role: core.SlotRoleRosterSubject, Description: "accounts in every other identity source"},
+		},
+		PassWhen: &core.PassWhenSpec{Clauses: []core.PassWhenClause{clause}},
+	}
+}
+
+// inRoster matches an account whose key (alias, else email) equals the
+// email of a roster entry satisfying where (nil: any entry).
+func inRoster(where *core.PassWhenCondition) *core.PassWhenCondition {
+	return &core.PassWhenCondition{Op: core.OpMatchesIn, Field: "account.key", InSlot: "roster", RemoteField: "payload.email", Normalize: core.NormalizeLowerTrim, Where: where}
+}
+
 // manualPolicy is the authoring shape for a manual-evidence policy. The
 // presentation fields feed only the descriptive catalog export consumed
 // by the Evidence SPA — the evaluator ignores them. They default

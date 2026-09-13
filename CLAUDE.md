@@ -25,7 +25,7 @@ architecture in the [parent CLAUDE.md](../CLAUDE.md).
 | **CLI E2E (GitLab CI)** | `../sigcomply-cli-testing-project-gitlab/` | `git@gitlab-personal:sigcomply/sigcomply-cli-testing-project-gitlab.git` |
 
 **Frameworks shipped:** SOC 2 (production-ready) and ISO/IEC 27001:2022
-(all 93 Annex A controls, 25 automated), both Go-native and self-registering via
+(all 93 Annex A controls, 26 automated), both Go-native and self-registering via
 `internal/frameworks/builtin`. HIPAA is a future goal — no package, no
 policies, and (contrary to older notes) **no `hipaa` string anywhere in
 the Go code**: framework validation is purely dynamic via

@@ -17,6 +17,7 @@ var directoryUserTypes = []string{"directory_user", "directory_user.v2"}
 func cc6Policies() []core.Policy {
 	out := make([]core.Policy, 0, 48)
 	out = append(out, cc6AccessPolicies()...)
+	out = append(out, cc6RosterPolicies()...)
 	out = append(out, cc6NetworkPolicies()...)
 	out = append(out, cc6EncryptionPolicies()...)
 	out = append(out, cc6ThreatPolicies()...)
@@ -376,6 +377,32 @@ func cc6OrgGovernancePolicies() []core.Policy {
 			desc:    "The source-control organization grants members a least-privilege default repository permission (none or read).",
 			rem:     "Set the default member repository permission to `none` or `read`; grant write/admin per team.",
 			clause:  all(leaf("payload.default_member_repository_permission", "not_in", []any{"write", "admin"}), "organization {{.payload.id}} grants an overly broad default repository permission"),
+		}.policy(),
+	}
+}
+
+// cc6RosterPolicies — CC6.2 user provisioning and removal, checked by
+// joining accounts in every bound identity source to the roster the
+// project designates (experimental.roster.source). The roster directory's
+// own accounts are never checked against itself, so deprovisioning from
+// that directory still needs the manual CC6.2 evidence.
+func cc6RosterPolicies() []core.Policy {
+	return []core.Policy{
+		rosterPolicy{
+			id: "soc2.cc6.2.accounts_linked_to_roster", control: "CC6.2", severity: core.SeverityHigh,
+			desc: "Every active human account in the bound identity sources (GitHub, GitLab, AWS IAM, …) belongs to a person in the designated roster directory, matched by email or a declared alias. " +
+				"Accounts in the roster directory itself are not checked. A person deleted from the roster directory drops out of the roster, so their remaining accounts are reported here.",
+			rem: "Remove accounts that belong to no one in the roster. Link an account whose email is absent or differs from the roster's with experimental.roster.aliases, and declare bots and deploy users in experimental.roster.non_human.",
+			clause: allWhere(allOf(leaf("account.active", "eq", true), leaf("account.non_human", "eq", false)), inRoster(nil),
+				"account {{.account.ref}} is not linked to anyone in the roster"),
+		}.policy(),
+		rosterPolicy{
+			id: "soc2.cc6.2.no_active_accounts_for_inactive_personnel", control: "CC6.2", severity: core.SeverityCritical,
+			desc: "No active account in the bound identity sources belongs to a person the designated roster directory marks inactive (suspended, disabled or deprovisioned). " +
+				"This does not attest removal from the roster directory itself (keep providing manual evidence for that), and people deleted outright from the roster are reported by soc2.cc6.2.accounts_linked_to_roster instead.",
+			rem: "Disable or remove the accounts of people who are inactive in the roster, in every system where they still have access.",
+			clause: noneWhere(leaf("account.active", "eq", true), inRoster(leaf("payload.status", "eq", "inactive")),
+				"account {{.account.ref}} belongs to {{.account.key}}, who is inactive in the roster"),
 		}.policy(),
 	}
 }

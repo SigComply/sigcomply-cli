@@ -61,5 +61,26 @@ func organizationalAutomatedPolicies() []core.Policy {
 			rem:     "Set the default member repository permission to `none` or `read`; grant write/admin per team.",
 			clause:  all(leaf("payload.default_member_repository_permission", "not_in", []any{"write", "admin"}), "organization {{.payload.id}} grants an overly broad default repository permission"),
 		}.policy(),
+		// A.5.16 / A.5.18 — identity lifecycle, checked by joining accounts
+		// in every bound identity source to the roster the project
+		// designates (experimental.roster.source). The roster directory's
+		// own accounts are never checked against itself, so removal from
+		// that directory still needs manual A.5.18 evidence.
+		rosterPolicy{
+			id: "iso27001.5.16.accounts_linked_to_roster", control: "A.5.16", severity: core.SeverityHigh,
+			desc: "Every active human account in the bound identity sources (GitHub, GitLab, AWS IAM, …) belongs to a person in the designated roster directory, matched by email or a declared alias (identity management). " +
+				"Accounts in the roster directory itself are not checked. A person deleted from the roster directory drops out of the roster, so their remaining accounts are reported here.",
+			rem: "Remove accounts that belong to no one in the roster. Link an account whose email is absent or differs from the roster's with experimental.roster.aliases, and declare bots and deploy users in experimental.roster.non_human.",
+			clause: allWhere(allOf(leaf("account.active", "eq", true), leaf("account.non_human", "eq", false)), inRoster(nil),
+				"account {{.account.ref}} is not linked to anyone in the roster"),
+		}.policy(),
+		rosterPolicy{
+			id: "iso27001.5.18.no_active_accounts_for_inactive_personnel", control: "A.5.18", severity: core.SeverityCritical,
+			desc: "No active account in the bound identity sources belongs to a person the designated roster directory marks inactive: suspended, disabled or deprovisioned (access rights). " +
+				"This does not attest removal from the roster directory itself (keep providing manual evidence for that), and people deleted outright from the roster are reported by iso27001.5.16.accounts_linked_to_roster instead.",
+			rem: "Disable or remove the accounts of people who are inactive in the roster, in every system where they still have access.",
+			clause: noneWhere(leaf("account.active", "eq", true), inRoster(leaf("payload.status", "eq", "inactive")),
+				"account {{.account.ref}} belongs to {{.account.key}}, who is inactive in the roster"),
+		}.policy(),
 	}
 }
