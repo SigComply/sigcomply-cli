@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/sigcomply/sigcomply-cli/internal/log"
+	"github.com/sigcomply/sigcomply-cli/internal/orchestrator"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
@@ -160,6 +161,38 @@ func TestExecute_UnknownCommand(t *testing.T) {
 	os.Args = []string{"sigcomply", "does-not-exist"}
 	if got := Execute(); got == 0 {
 		t.Errorf("Execute unknown command = 0; want non-zero")
+	}
+}
+
+// A config mistake the planner catches (here: a roster source that is not
+// configured) is a configuration error, so the binary must exit 3 — the
+// code orchestrator.Run reports — not the generic execution code 2.
+func TestRunCheck_PlanErrorExitsConfig(t *testing.T) {
+	tmp := t.TempDir()
+	configPath := filepath.Join(tmp, "cfg.yaml")
+	manualDir := filepath.Join(tmp, "manual")
+	if err := os.MkdirAll(manualDir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	writeManualOnlyConfig(t, configPath, filepath.Join(tmp, "vault"), manualDir)
+	f, err := os.OpenFile(configPath, os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString("experimental:\n  roster:\n    source: okta\n"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	err = runCheck(context.Background(), &bytes.Buffer{}, &checkFlags{config: configPath, cloudOff: true})
+	var ec *exitCodeError
+	if !errors.As(err, &ec) || ec.code != orchestrator.ExitConfig {
+		t.Fatalf("want exitCodeError{code:3}; got %v", err)
+	}
+	if !strings.Contains(err.Error(), "experimental.roster.source") {
+		t.Errorf("want the roster error surfaced; got %v", err)
 	}
 }
 

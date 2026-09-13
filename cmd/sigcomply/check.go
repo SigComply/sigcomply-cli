@@ -148,7 +148,13 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 		},
 	})
 	if err != nil {
-		return &exitCodeError{code: orchestrator.ExitExecution, err: err}
+		// Run classifies its own failures (config/plan errors are
+		// ExitConfig); only fall back to ExitExecution when it didn't.
+		code := res.ExitCode
+		if code == orchestrator.ExitOK {
+			code = orchestrator.ExitExecution
+		}
+		return &exitCodeError{code: code, err: err}
 	}
 	if res.ExitCode != orchestrator.ExitOK {
 		return &exitCodeError{code: res.ExitCode}
