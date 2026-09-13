@@ -71,7 +71,7 @@ var knownScopeKeys = map[string]struct{}{
 
 // LoadScopeConfig projects the experimental.scope block out of a loaded
 // project config. It returns (nil, nil) when the block is absent — the
-// undeclared case, which leaves every existing behaviour untouched.
+// undeclared case, which leaves every existing behavior untouched.
 //
 // Validation here is shape-only. Whether a declared source ID actually
 // exists is a cross-reference question that needs the registries, and so
@@ -130,11 +130,24 @@ func LoadScopeConfig(cfg *ProjectConfig) (*ScopeConfig, error) {
 		return nil, fmt.Errorf("project config: experimental.scope.declared_at: %w", err)
 	}
 
-	if len(rawScope.RequiredSources) == 0 {
+	sources, err := validateRequiredSources(rawScope.RequiredSources)
+	if err != nil {
+		return nil, err
+	}
+	out.RequiredSources = sources
+
+	return out, nil
+}
+
+// validateRequiredSources checks the declared list is non-empty and each
+// source ID is non-empty and unique, and returns them sorted.
+func validateRequiredSources(ids []string) ([]string, error) {
+	if len(ids) == 0 {
 		return nil, fmt.Errorf("project config: experimental.scope: required_sources must list at least one source (remove the scope block entirely to leave the estate undeclared)")
 	}
-	seen := make(map[string]struct{}, len(rawScope.RequiredSources))
-	for i, id := range rawScope.RequiredSources {
+	var out []string
+	seen := make(map[string]struct{}, len(ids))
+	for i, id := range ids {
 		if id == "" {
 			return nil, fmt.Errorf("project config: experimental.scope.required_sources[%d]: empty source ID", i)
 		}
@@ -142,9 +155,8 @@ func LoadScopeConfig(cfg *ProjectConfig) (*ScopeConfig, error) {
 			return nil, fmt.Errorf("project config: experimental.scope.required_sources: duplicate source ID %q", id)
 		}
 		seen[id] = struct{}{}
-		out.RequiredSources = append(out.RequiredSources, id)
+		out = append(out, id)
 	}
-	sort.Strings(out.RequiredSources)
-
+	sort.Strings(out)
 	return out, nil
 }

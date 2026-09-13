@@ -716,28 +716,38 @@ func writeCapturedPayload(path string, payload *core.SubmissionPayload) error {
 	return os.WriteFile(path, body, 0o600)
 }
 
-func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.PolicyResult, ci spec.CIConfig, scopeReport *scope.Report) int {
-	var passed, failed, skipped, errored, na, waived, carried int
+// statusCounts tallies policy results by status for the check summary.
+type statusCounts struct {
+	passed, failed, skipped, errored, na, waived, carried int
+}
+
+func countStatuses(results []core.PolicyResult) statusCounts {
+	var c statusCounts
 	for i := range results {
 		switch results[i].Status {
 		case core.StatusPass:
-			passed++
+			c.passed++
 		case core.StatusFail:
-			failed++
+			c.failed++
 		case core.StatusSkip:
-			skipped++
+			c.skipped++
 		case core.StatusError:
-			errored++
+			c.errored++
 		case core.StatusNA:
-			na++
+			c.na++
 		case core.StatusWaived:
-			waived++
+			c.waived++
 		case core.StatusCarriedForward:
-			carried++
+			c.carried++
 		}
 	}
-	_, _ = fmt.Fprintf(stdout, "SigComply check %s/%s — %d policies\n", plan.Framework, plan.Period.ID, len(results))                                    //nolint:errcheck // status output
-	_, _ = fmt.Fprintf(stdout, "  pass=%d fail=%d carried=%d skip=%d error=%d na=%d waived=%d\n", passed, failed, carried, skipped, errored, na, waived) //nolint:errcheck // status output
+	return c
+}
+
+func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.PolicyResult, ci spec.CIConfig, scopeReport *scope.Report) int {
+	c := countStatuses(results)
+	_, _ = fmt.Fprintf(stdout, "SigComply check %s/%s — %d policies\n", plan.Framework, plan.Period.ID, len(results))                                                  //nolint:errcheck // status output
+	_, _ = fmt.Fprintf(stdout, "  pass=%d fail=%d carried=%d skip=%d error=%d na=%d waived=%d\n", c.passed, c.failed, c.carried, c.skipped, c.errored, c.na, c.waived) //nolint:errcheck // status output
 	sortedResults := make([]core.PolicyResult, len(results))
 	copy(sortedResults, results)
 	sort.Slice(sortedResults, func(i, j int) bool { return sortedResults[i].PolicyID < sortedResults[j].PolicyID })
@@ -753,23 +763,27 @@ func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.P
 			_, _ = fmt.Fprintf(stdout, "      ↳ %s\n", reason) //nolint:errcheck // status output
 		}
 	}
-	if skipped > 0 {
+	if c.skipped > 0 {
 		renderSkipExplanations(stdout, plan, sortedResults)
 	}
 	renderScope(stdout, scopeReport)
-	if errored > 0 {
+	if c.errored > 0 {
 		return ExitExecution
 	}
 	// An incomplete estate is a violation of the operator's own
 	// declaration, so it fails the build exactly as a failing policy
-	// does — including honouring ci.fail_on_violation. Routing it
+	// does — including honoring ci.fail_on_violation. Routing it
 	// through the same gate keeps one rule for "what turns this build
 	// red" rather than a second, invisible one.
-	if (failed > 0 || !scopeReport.Complete()) && shouldFail(ci) {
+	if (c.failed > 0 || !scopeReport.Complete()) && shouldFail(ci) {
 		return ExitViolation
 	}
 	return ExitOK
 }
+
+// maxReasonLen caps the inline reason shown under a policy in the check
+// summary.
+const maxReasonLen = 240
 
 // resultReason returns a concise, single-line reason for a fail or
 // error result, suitable for inline display under the policy in the
@@ -779,12 +793,11 @@ func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.P
 // here) or, for errors, the diagnostic recorded by the collector/
 // evaluator. The full detail always remains in the vault result.json.
 func resultReason(r *core.PolicyResult) string {
-	const maxLen = 240
 	switch r.Status {
 	case core.StatusError:
 		for _, k := range []string{"collect_error", "rule_error", "reason"} {
 			if v, ok := r.Diag[k].(string); ok && v != "" {
-				return truncateReason(v, maxLen)
+				return truncateReason(v)
 			}
 		}
 		return "evaluation error (see the run's result.json in the vault)"
@@ -793,16 +806,16 @@ func resultReason(r *core.PolicyResult) string {
 		// explaining: `all`/`none` are true of the empty set, so this
 		// reads as green while having checked no resource at all.
 		if v, ok := r.Diag["vacuous_clauses"].([]string); ok && len(v) > 0 {
-			return truncateReason(fmt.Sprintf("passed without examining any resource (slot(s) %s matched nothing) — verify this control is really in scope", strings.Join(v, ", ")), maxLen)
+			return truncateReason(fmt.Sprintf("passed without examining any resource (slot(s) %s matched nothing) — verify this control is really in scope", strings.Join(v, ", ")))
 		}
 		return ""
 	case core.StatusFail:
 		if len(r.Violations) > 0 && r.Violations[0].Reason != "" {
 			reason := r.Violations[0].Reason
 			if r.ResourcesFailed > 1 {
-				return truncateReason(fmt.Sprintf("%d of %d resources failed, e.g. %s", r.ResourcesFailed, r.ResourcesEvaluated, reason), maxLen)
+				return truncateReason(fmt.Sprintf("%d of %d resources failed, e.g. %s", r.ResourcesFailed, r.ResourcesEvaluated, reason))
 			}
-			return truncateReason(reason, maxLen)
+			return truncateReason(reason)
 		}
 		if r.ResourcesFailed > 0 {
 			return fmt.Sprintf("%d of %d resources failed", r.ResourcesFailed, r.ResourcesEvaluated)
@@ -813,15 +826,15 @@ func resultReason(r *core.PolicyResult) string {
 	}
 }
 
-// truncateReason clamps a reason string to n runes, appending an
+// truncateReason clamps a reason string to maxReasonLen runes, appending an
 // ellipsis when it overflows, so one pathological violation message
 // can't blow up the summary.
-func truncateReason(s string, n int) string {
+func truncateReason(s string) string {
 	r := []rune(s)
-	if len(r) <= n {
+	if len(r) <= maxReasonLen {
 		return s
 	}
-	return string(r[:n]) + "…"
+	return string(r[:maxReasonLen]) + "…"
 }
 
 // renderSkipExplanations prints, to stdout, why each skipped policy was

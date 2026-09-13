@@ -24,7 +24,7 @@ import (
 // apart from "this control was never looked at".
 //
 // Returns nil when nothing is unbound, so the common case adds no
-// allocation and serialises as an absent field.
+// allocation and serializes as an absent field.
 func unboundRequiredSlots(policy *core.Policy, bindings map[string][]Binding) []string {
 	var out []string
 	for name, slot := range policy.Slots {

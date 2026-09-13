@@ -14,7 +14,7 @@
 // project asserts coverage over (spec.ScopeConfig), and this package
 // checks the run against that declaration. Declaring is opt-in; when no
 // declaration is present the report is Undeclared and nothing anywhere
-// changes behaviour.
+// changes behavior.
 //
 // Everything here is vault-side. Source IDs are operator-chosen and
 // routinely embed account or environment names, so the report is written
@@ -49,16 +49,16 @@ const (
 type SourceState string
 
 const (
-	// SourceOK: configured, bound, and it produced evidence.
+	// SourceOK means configured, bound, and it produced evidence.
 	SourceOK SourceState = "ok"
-	// SourceNotConfigured: declared in scope but absent from `sources:`.
+	// SourceNotConfigured means declared in scope but absent from `sources:`.
 	// The commonest real failure — a platform nobody wired up.
 	SourceNotConfigured SourceState = "not_configured"
-	// SourceNotBound: configured, but no policy slot accepts anything it
+	// SourceNotBound means configured, but no policy slot accepts anything it
 	// emits, so it was never consulted. Usually an evidence-type version
 	// mismatch or a source wired for a framework that does not use it.
 	SourceNotBound SourceState = "not_bound"
-	// SourceNoRecords: bound but returned zero records — credentials that
+	// SourceNoRecords means bound but returned zero records — credentials that
 	// resolve to an empty account, a failed collection, or a permission
 	// that silently returns nothing.
 	SourceNoRecords SourceState = "no_records"
