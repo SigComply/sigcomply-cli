@@ -202,7 +202,13 @@ func TestCollectMembers_IncludesOutsideCollaborators(t *testing.T) {
 	if !byID["alice"].IsAdmin {
 		t.Errorf("member alice should be admin")
 	}
+	if byID["alice"].Username != "alice" {
+		t.Errorf("member alice username = %q; want login alice", byID["alice"].Username)
+	}
 	carol := byID["contractor-carol"]
+	if carol.Username != "contractor-carol" {
+		t.Errorf("collaborator username = %q; want login contractor-carol", carol.Username)
+	}
 	if !carol.IsExternal {
 		t.Errorf("outside collaborator carol should be external")
 	}

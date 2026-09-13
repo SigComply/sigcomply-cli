@@ -52,7 +52,6 @@ func TestGitHubConformance(t *testing.T) {
 	optional := []string{
 		"git_repository.created_at",
 		"directory_user.email",
-		"directory_user.username", // TODO(roster): emit login, then drop this line
 		"directory_user.mfa_factor_count",
 		"directory_user.is_service_account",
 		"directory_user.last_login_at",
@@ -121,7 +120,7 @@ func TestGitHubConformance(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing directory_user %q; got %v", cassetteAdmin, keys(users))
 	}
-	want := memberPayload{ID: cassetteAdmin, DisplayName: cassetteAdmin, IsAdmin: true, IsActive: true}
+	want := memberPayload{ID: cassetteAdmin, Username: cassetteAdmin, DisplayName: cassetteAdmin, IsAdmin: true, IsActive: true}
 	if got != want {
 		t.Errorf("%s payload = %+v; want %+v", cassetteAdmin, got, want)
 	}

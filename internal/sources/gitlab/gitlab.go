@@ -209,9 +209,11 @@ type repoPayload struct {
 // to the github/okta plugins' (the same cross-vendor evidence type). The
 // policy-read booleans are emitted unconditionally (an absent field errors
 // the consuming policy rather than reading as false); email is optional in
-// the schema and omitted when GitLab does not expose it.
+// the schema and omitted when GitLab does not expose it. username carries
+// the GitLab username (also the record id) for roster alias matching.
 type memberPayload struct {
 	ID          string `json:"id"`
+	Username    string `json:"username,omitempty"`
 	DisplayName string `json:"display_name"`
 	Email       string `json:"email,omitempty"`
 	MFAEnabled  bool   `json:"mfa_enabled"`
@@ -306,6 +308,7 @@ func (p *Plugin) collectMembers(ctx context.Context) ([]core.EvidenceRecord, err
 		m := members[i]
 		payload := memberPayload{
 			ID:          m.Username,
+			Username:    m.Username,
 			DisplayName: m.Name,
 			Email:       m.Email,
 			MFAEnabled:  m.MFAEnabled,

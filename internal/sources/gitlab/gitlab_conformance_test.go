@@ -55,7 +55,6 @@ func TestGitLabConformance(t *testing.T) {
 	repoOptional := []string{"git_repository.created_at"}
 	userOptional := []string{
 		"directory_user.email",
-		"directory_user.username", // TODO(roster): emit username, then drop this line
 		"directory_user.mfa_factor_count",
 		"directory_user.is_service_account",
 		"directory_user.is_external",
@@ -104,8 +103,8 @@ func TestGitLabConformance(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing directory_user %q; got %v", memberOwner, keys(users))
 	}
-	if !got.IsAdmin || !got.IsActive {
-		t.Errorf("%s = %+v; want is_admin && is_active", memberOwner, got)
+	if !got.IsAdmin || !got.IsActive || got.Username != memberOwner {
+		t.Errorf("%s = %+v; want is_admin && is_active && username %q", memberOwner, got, memberOwner)
 	}
 }
 

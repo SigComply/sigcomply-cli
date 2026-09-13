@@ -141,9 +141,11 @@ func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 // identity fields map to AWS IAM concepts as documented in Collect; the
 // v2 fields (is_root, has_console_access, has_programmatic_access)
 // derive from already-available ListUsers data plus a per-user
-// ListAccessKeys call.
+// ListAccessKeys call. username is the IAM UserName (what roster aliases
+// match on); the synthetic root record omits it — root has no UserName.
 type userPayload struct {
 	ID                    string    `json:"id"`
+	Username              string    `json:"username,omitempty"`
 	DisplayName           string    `json:"display_name"`
 	Email                 string    `json:"email,omitempty"`
 	MFAEnabled            bool      `json:"mfa_enabled"`
@@ -190,6 +192,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		}
 		payload := userPayload{
 			ID:          safeUserID(u),
+			Username:    safeUserName(u),
 			DisplayName: safeUserName(u),
 			MFAEnabled:  mfa,
 			IsAdmin:     isAdmin,

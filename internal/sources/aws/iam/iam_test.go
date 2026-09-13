@@ -319,6 +319,13 @@ func TestCollect_NoUsers(t *testing.T) {
 	if !pl.IsRoot {
 		t.Errorf("sole record is not the root record: %+v", pl)
 	}
+	var raw map[string]any
+	if err := json.Unmarshal(records[0].Payload, &raw); err != nil {
+		t.Fatalf("Unmarshal raw: %v", err)
+	}
+	if _, has := raw["username"]; has {
+		t.Errorf("root payload carries username %v; want omitted (root has no UserName)", raw["username"])
+	}
 }
 
 func TestCollect_RejectsWrongEvidenceType(t *testing.T) {
@@ -485,6 +492,9 @@ func TestCollect_EmitsDirectPolicyCountAndUnusedDays(t *testing.T) {
 			t.Fatalf("Unmarshal: %v", err)
 		}
 		byID[pl.DisplayName] = pl
+	}
+	if got := byID["hasdirect"].Username; got != "hasdirect" {
+		t.Errorf("hasdirect Username = %q; want UserName hasdirect", got)
 	}
 	if got := byID["hasdirect"].DirectPolicyCount; got != 2 {
 		t.Errorf("hasdirect DirectPolicyCount = %d; want 2", got)

@@ -42,7 +42,7 @@ func TestIAMConformance(t *testing.T) {
 		// Fields the IAM identity surface doesn't populate (the plugin never
 		// emits a null/sentinel for them — Inv #4).
 		OptionalFields: []string{
-			"directory_user.v2.username", // TODO(roster): emit UserName, then drop this line
+			"directory_user.v2.username", // absent only on the synthetic root record (root has no UserName); asserted below
 			"directory_user.v2.mfa_factor_count",
 			"directory_user.v2.is_service_account",
 			"directory_user.v2.is_external",
@@ -83,6 +83,7 @@ func TestIAMConformance(t *testing.T) {
 	if roots != 1 {
 		t.Errorf("is_root count = %d, want 1", roots)
 	}
+	assertUsernames(t, users)
 	if mfa != 0 {
 		t.Errorf("mfa_enabled count = %d, want 0 (account has no MFA)", mfa)
 	}
@@ -93,6 +94,21 @@ func TestIAMConformance(t *testing.T) {
 	// Root has a console password but no MFA and no access keys.
 	if !root.HasConsoleAccess || root.MFAEnabled || root.HasProgrammaticAccess {
 		t.Errorf("root = %+v; want console access, no MFA, no programmatic access", root)
+	}
+}
+
+// assertUsernames checks every real IAM user carries its UserName as
+// username and only the synthetic root record omits it.
+func assertUsernames(t *testing.T, users map[string]userPayload) {
+	t.Helper()
+	for id := range users {
+		u := users[id]
+		if u.IsRoot && u.Username != "" {
+			t.Errorf("root username = %q, want omitted", u.Username)
+		}
+		if !u.IsRoot && u.Username == "" {
+			t.Errorf("user %s has no username, want the IAM UserName", id)
+		}
 	}
 }
 

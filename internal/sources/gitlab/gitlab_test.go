@@ -174,7 +174,7 @@ func TestCollectMembers_HappyPath_SortsByID(t *testing.T) {
 		t.Fatalf("Unmarshal amy: %v", err)
 	}
 	want := memberPayload{
-		ID: "amy", DisplayName: "Amy A", Email: "amy@acme.io",
+		ID: "amy", Username: "amy", DisplayName: "Amy A", Email: "amy@acme.io",
 		MFAEnabled: true, IsAdmin: true, IsActive: true,
 	}
 	if amy != want {

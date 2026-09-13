@@ -245,12 +245,14 @@ type repoPayload struct {
 }
 
 // memberPayload is the directory_user shape this plugin emits for
-// GitHub org members. id and display_name both carry the member's
-// login (GitHub's primary identifier); mfa_enabled is the 2FA flag;
+// GitHub org members. id, username and display_name all carry the
+// member's login (GitHub's primary identifier; username is what roster
+// aliases match on); mfa_enabled is the 2FA flag;
 // is_admin reflects the org role. Email and last_login_at are
 // omitted — neither is exposed by the public org-members endpoint.
 type memberPayload struct {
 	ID          string `json:"id"`
+	Username    string `json:"username,omitempty"`
 	DisplayName string `json:"display_name"`
 	MFAEnabled  bool   `json:"mfa_enabled"`
 	IsAdmin     bool   `json:"is_admin"`
@@ -417,6 +419,7 @@ func (p *Plugin) collectMembers(ctx context.Context) ([]core.EvidenceRecord, err
 func (p *Plugin) directoryUserRecord(m Member, isAdmin, isExternal bool, now time.Time) core.EvidenceRecord {
 	payload := memberPayload{
 		ID:          m.Login,
+		Username:    m.Login,
 		DisplayName: m.Login,
 		MFAEnabled:  m.TwoFactorOn,
 		IsAdmin:     isAdmin,
