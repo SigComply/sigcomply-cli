@@ -65,6 +65,14 @@ func RegisterFactory(id string, f Factory) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
+	// Factories are registered under a base ID only: an instance is a
+	// runtime construction from config, never a separate factory.
+	// Validating here keeps the registry and the config loader on one
+	// grammar, so a plugin ID can never be legal to register yet illegal
+	// to configure.
+	if base, instance := SplitInstanceID(id); instance != "" || !ValidID(base) {
+		panic("sources: RegisterFactory: invalid source ID " + id + " (want a base ID matching " + IDPattern.String() + ")")
+	}
 	if _, dup := factories[id]; dup {
 		panic("sources: duplicate factory registration for " + id)
 	}
@@ -98,13 +106,28 @@ func IDs() []string {
 // IDs exist. Unknown IDs return a clear error pointing at the
 // project-local plugin path.
 func Build(ctx context.Context, id string, env Env) (core.SourcePlugin, error) {
-	f, ok := Lookup(id)
+	// A key may name an instance (`aws.iam[backup]`). Factories are
+	// registered under the base ID only — an instance is a second
+	// construction of the same factory with different config, not a
+	// different plugin — so resolve the base here and re-identify the
+	// result as the instance.
+	base, instance := SplitInstanceID(id)
+	f, ok := Lookup(base)
 	if !ok {
+		if instance != "" {
+			return nil, fmt.Errorf("source %q names instance %q of %q, but %q is not registered (compiled-in IDs: %v; "+
+				"project-local plugins under .sigcomply/plugins/ are compiled in via `sigcomply build`)",
+				id, instance, base, base, IDs())
+		}
 		return nil, fmt.Errorf("source %q is not registered (compiled-in IDs: %v; "+
 			"project-local plugins under .sigcomply/plugins/ are compiled in via `sigcomply build`)",
 			id, IDs())
 	}
-	return f(ctx, env)
+	plugin, err := f(ctx, env)
+	if err != nil {
+		return nil, err
+	}
+	return asInstance(plugin, id), nil
 }
 
 // reset is exported only for tests in this package. Production code

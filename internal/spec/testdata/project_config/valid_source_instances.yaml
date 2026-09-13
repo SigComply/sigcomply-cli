@@ -1,0 +1,14 @@
+schema_version: project.v1
+framework: soc2
+vault:
+  backend: local
+  path: ./vault
+sources:
+  aws.iam:
+    region: us-east-1
+  "aws.iam[staging]":
+    region: us-east-1
+    role_arn: arn:aws:iam::000000000000:role/SigComplyAudit
+  "github[labs]":
+    org: acme-labs
+    token_env: GITHUB_TOKEN_LABS

@@ -10,23 +10,30 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
-// lookupSourcePlugin tolerates an "[instance]" suffix on the key by
-// falling back to the base ID.
-func TestLookupSourcePlugin_InstanceSuffixFallback(t *testing.T) {
+// lookupSourcePlugin is exact, including for instance keys. Every
+// configured source is registered under its exact key, so a miss means
+// the key names nothing real. A base-ID fallback would make a typo'd
+// instance silently resolve to a different instance's plugin —
+// collecting the wrong account and then labeling the evidence with the
+// typo'd name.
+func TestLookupSourcePlugin_IsExact(t *testing.T) {
 	set := registry.NewSet()
 	registerSource(t, set, "aws.iam", "directory_user")
+	registerSource(t, set, "aws.iam[backup]", "directory_user")
 
 	if p := lookupSourcePlugin(set.Sources, "aws.iam"); p == nil {
 		t.Fatal("exact key lookup failed")
 	}
-	if p := lookupSourcePlugin(set.Sources, "aws.iam[prod]"); p == nil {
-		t.Error("instance-suffixed key should fall back to base ID")
+	if p := lookupSourcePlugin(set.Sources, "aws.iam[backup]"); p == nil {
+		t.Error("a registered instance key must resolve")
+	} else if p.ID() != "aws.iam[backup]" {
+		t.Errorf("instance resolved to %q; want aws.iam[backup]", p.ID())
+	}
+	if p := lookupSourcePlugin(set.Sources, "aws.iam[typo]"); p != nil {
+		t.Error("an unregistered instance must NOT fall back to the base plugin")
 	}
 	if p := lookupSourcePlugin(set.Sources, "no.such.source"); p != nil {
 		t.Error("unknown source should return nil")
-	}
-	if p := lookupSourcePlugin(set.Sources, "no.such[inst]"); p != nil {
-		t.Error("unknown base of instance-suffixed key should return nil")
 	}
 }
 
@@ -161,4 +168,39 @@ func TestResolveControlException_NoMatch(t *testing.T) {
 	if e := resolveControlException(policy, nil); e != nil {
 		t.Errorf("no controls config should yield nil; got %+v", e)
 	}
+}
+
+// A second instance doubles the candidates for every slot it can fill.
+// Shipped frameworks only use one-or-more, so both instances bind and
+// their records union — but a project-local policy with exactly-one now
+// has an ambiguity the operator must resolve explicitly.
+func TestAutoBind_SecondInstanceAffectsCardinality(t *testing.T) {
+	set := registry.NewSet()
+	registerSource(t, set, "aws.iam", "directory_user")
+	registerSource(t, set, "aws.iam[backup]", "directory_user")
+	configured := map[string]map[string]any{"aws.iam": {}, "aws.iam[backup]": {}}
+
+	t.Run("one-or-more unions both instances", func(t *testing.T) {
+		slot := &core.Slot{Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true}
+		got, err := autoBindSlot("p1", "users", slot, set.Sources, configured)
+		if err != nil {
+			t.Fatalf("autoBindSlot: %v", err)
+		}
+		if len(got) != 2 {
+			t.Fatalf("bindings = %+v; want both instances", got)
+		}
+		// Sorted by source ID, and each binding keeps its own instance
+		// identity so the collector writes two distinct envelopes.
+		if got[0].SourceID != "aws.iam" || got[1].SourceID != "aws.iam[backup]" {
+			t.Errorf("bindings = %+v; want distinct instance IDs", got)
+		}
+	})
+
+	t.Run("exactly-one now needs an explicit binding", func(t *testing.T) {
+		slot := &core.Slot{Accepts: []string{"directory_user"}, Cardinality: core.SlotExactlyOne, Required: true}
+		_, err := autoBindSlot("p1", "users", slot, set.Sources, configured)
+		if err == nil {
+			t.Fatal("want an error: two instances make a single-source slot ambiguous")
+		}
+	})
 }

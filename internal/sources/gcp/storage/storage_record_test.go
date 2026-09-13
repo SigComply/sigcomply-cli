@@ -22,10 +22,10 @@ import (
 //  1. Seed a bucket in the test project (uniform bucket-level access +
 //     public-access-prevention + versioning; CMEK optional).
 //  2. gcloud auth application-default login \
-//       --impersonate-service-account=sigcomply-e2e-recorder@<project>.iam.gserviceaccount.com
+//     --impersonate-service-account=sigcomply-e2e-recorder@<project>.iam.gserviceaccount.com
 //  3. rm -f testdata/cassettes/buckets.yaml   # record fresh, don't append
 //  4. GCP_TEST_PROJECT=<project> go test -tags record -run TestRecordBuckets \
-//       ./internal/sources/gcp/storage/ -v
+//     ./internal/sources/gcp/storage/ -v
 //
 // Then scrub identifiers to the §4 placeholders, run `make check-fixtures`, and
 // re-run the offline conformance test to confirm it replays green.

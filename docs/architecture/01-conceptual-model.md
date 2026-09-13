@@ -472,8 +472,11 @@ described by:
   source plugins)
 - A vault (customer-owned storage; configured in `.sigcomply.yaml`)
 
-A project is single-tenant and (for v1) single-scope: one set of
-credentials, one organizational unit.
+A project is single-tenant. It was also single-scope — one set of
+credentials, one organizational unit — until source instances made a
+second account configurable; see 04-source-plugins.md §Multiple plugin
+instances. What remains deferred to v2 is multi-scope as a *per-record*
+concept (a `scope_id` on every evidence record).
 
 **One project = one framework.** Customers pursuing SOC 2 + ISO 27001
 typically use two repositories: each holds its own `.sigcomply.yaml`,

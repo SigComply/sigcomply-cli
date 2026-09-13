@@ -3,7 +3,6 @@ package github
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
@@ -18,12 +17,9 @@ func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	if org == "" {
 		return nil, fmt.Errorf("github: \"org\" required")
 	}
-	token := sources.StringOpt(env.Config, "token")
-	if token == "" {
-		token = os.Getenv("GITHUB_TOKEN")
-	}
-	if token == "" {
-		return nil, fmt.Errorf("github: token required (set config token or GITHUB_TOKEN env)")
+	token, err := sources.ResolveToken(env.Config, SourceID, "token", "GITHUB_TOKEN")
+	if err != nil {
+		return nil, err
 	}
 	return NewFromToken(ctx, org, token)
 }

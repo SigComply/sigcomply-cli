@@ -170,15 +170,27 @@ func registerProductionSources(ctx context.Context, registries *registry.Set, cf
 	extras := map[string]any{
 		manual.FrameworkCatalogKey: catalog,
 	}
-	for id, raw := range cfg.Sources {
+	// Sorted so that a config with several broken sources always reports
+	// the same one first; map order would make the error depend on the
+	// run.
+	ids := make([]string, 0, len(cfg.Sources))
+	for id := range cfg.Sources {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	for _, id := range ids {
 		env := sources.Env{
-			Config:          withRegionDefault(raw, cfg.Vault.Str("region")),
+			Config:          withRegionDefault(cfg.Sources[id], cfg.Vault.Str("region")),
 			FrameworkExtras: extras,
 		}
 		plugin, err := sources.Build(ctx, id, env)
 		if err != nil {
 			return fmt.Errorf("source %q: %w", id, err)
 		}
+		// Registered under the configured key, which for an instance is
+		// the bracketed form. sources.Build has already re-identified the
+		// plugin to match, so the registry key and plugin.ID() agree.
 		if err := registries.Sources.Register(plugin); err != nil {
 			return fmt.Errorf("register source %q: %w", id, err)
 		}
@@ -201,7 +213,7 @@ func printCollectionBanner(stdout io.Writer, cfg *spec.ProjectConfig) {
 	}
 	sort.Strings(ids)
 	vaultRegion := cfg.Vault.Str("region")
-	_, _ = fmt.Fprintf(stdout, "Collecting evidence from %d configured source(s) using ambient credentials:\n", len(ids)) //nolint:errcheck // status output
+	_, _ = fmt.Fprintf(stdout, "Collecting evidence from %d configured source(s):\n", len(ids)) //nolint:errcheck // status output
 	for _, id := range ids {
 		_, _ = fmt.Fprintf(stdout, "  - %s%s\n", id, sourceBannerDetail(id, cfg.Sources[id], vaultRegion)) //nolint:errcheck // status output
 	}
@@ -218,6 +230,19 @@ func sourceBannerDetail(id string, raw map[string]any, vaultRegion string) strin
 			backend = "local"
 		}
 		return fmt.Sprintf(" (manual evidence, backend %s)", backend)
+	}
+	// An instance that assumes a role reaches a different account, which
+	// is the one thing about a multi-account run an operator must be able
+	// to confirm at a glance. The ARN names an account, not a secret.
+	if roleARN := sources.StringOpt(raw, "role_arn"); roleARN != "" {
+		region := sources.StringOpt(raw, "region")
+		if region == "" {
+			region = vaultRegion
+		}
+		if region == "" {
+			return fmt.Sprintf(" (assuming %s)", roleARN)
+		}
+		return fmt.Sprintf(" (region %s, assuming %s)", region, roleARN)
 	}
 	region := sources.StringOpt(raw, "region")
 	if region == "" {

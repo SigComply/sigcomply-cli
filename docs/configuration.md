@@ -1150,7 +1150,7 @@ set of accepted top-level keys (`internal/spec/project_config.go`):
 | `framework` | string | Singular. `soc2` \| `iso27001` (`hipaa` is a stub that fails at runtime). |
 | `period` | `{ fiscal_calendar: { type, starts, periods[] }, time_basis }` | `type`: `calendar_quarter` \| `fiscal_year` \| `custom` (custom needs `periods:` of `{id, start, end}`). `time_basis`: `commit` \| `wall_clock`. |
 | `vault` | open `{ backend, ... }` mapping | Flat; only `backend` is interpreted, other keys pass through to the backend. See [Storage Backends](#storage-backends). |
-| `sources` | map: source id → config | Plugin configs; `manual.pdf` is the reserved manual-evidence singleton. |
+| `sources` | map: source id → config | Plugin configs, keyed by plugin ID with an optional `[instance]` suffix for a second account/org (see [Multiple instances](#multiple-instances-of-one-source)). `manual.pdf` is the reserved manual-evidence singleton and accepts no instances. Keys allow letters, digits, dot, dash and underscore only — the key becomes part of an evidence file's path in your vault. |
 | `policies` | map: policy id → `PolicyConfig` | All per-policy config, co-located per ID. `PolicyConfig` = `{ bindings: { slot: [source,...] }, parameters: { param: value }, cadence, evidence_mode, catalog_entry, exceptions: [...] }`. `evidence_mode: manual` requires `catalog_entry`; `automated` forbids it. Each exception is `{ scope: { resource_id, resource_pattern }, state (waived\|na), reason, approved_by, approved_at, expires_at }` — no `policy:` field (the map key is the policy). |
 | `controls` | map: control id → `{ applicability, reason, approved_by }` | `applicability`: `applicable` \| `not_applicable`; `not_applicable` requires `reason` and cascades `na` to every policy mapping to the control. |
 | `cloud` | `{ enabled, base_url }` | `enabled` is a `*bool` (auto-detected in CI when omitted); `base_url` overrides the endpoint. |
@@ -1159,6 +1159,52 @@ set of accepted top-level keys (`internal/spec/project_config.go`):
 | `ci_environment` | map | Free-form environment metadata recorded with the run. |
 | `extensions` | `{ path }` | Overrides extension-discovery path (default `.sigcomply/`). |
 | `experimental` | map | Forward-compat escape hatch: not-yet-stable keys live here so a newer config never breaks an older CLI. The loader itself interprets nothing here; each feature reads its own key. See [`experimental.scope`](#experimentalscope--declaring-the-estate) below. |
+
+#### Multiple instances of one source
+
+A bracket suffix on a source key configures the same plugin a second
+time — a second AWS account, a second GitHub org:
+
+```yaml
+sources:
+  aws.iam:
+    region: us-east-1
+  "aws.iam[staging]":
+    region: us-east-1
+    role_arn: arn:aws:iam::210987654321:role/SigComplyAudit   # a DIFFERENT account
+  "github[labs]":
+    org: acme-labs
+    token_env: GITHUB_TOKEN_LABS                              # a DIFFERENT token
+```
+
+The instance key is the source's identity for the whole run: it is what a
+`bindings:` entry names, what each record carries as `source_id`, and what
+appears in the evidence envelope's filename — so each account's evidence
+is independently verifiable rather than merged.
+
+**Region is not an account.** Two `aws.*` instances that differ only by
+region authenticate as the same principal and return the same account
+twice. Per-provider:
+
+| Provider | Per-instance identity | Keys |
+|----------|----------------------|------|
+| `aws.*` | Yes, via role assumption | `role_arn`, optional `external_id`, `role_session_name` |
+| `github`, `gitlab`, `okta` | Yes | `token` / `api_token`, or `token_env` naming an env var |
+| `gcp.*` | No — one ambient identity; varies only what it queries | `project_id`, `organization_id` |
+| `azure.*` | No — one ambient identity | `subscription_id` |
+
+There is no `profile` key for AWS: the credential chain resolves
+`AWS_ACCESS_KEY_ID` ahead of a shared-config profile, so in CI a profile
+would be silently ignored and both instances would scan the same account.
+A `role_arn` that cannot be assumed fails the run rather than reporting an
+empty account.
+
+Instances auto-bind like any other source, so a `one-or-more` slot (every
+slot the shipped frameworks declare) unions both instances automatically.
+A slot accepting a single source becomes ambiguous with two instances —
+add an explicit `bindings:` entry naming the one you want.
+
+`manual.pdf` accepts no instances: it is a project-level singleton.
 
 #### `experimental.scope` — declaring the estate
 

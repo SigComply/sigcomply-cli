@@ -3,7 +3,6 @@ package gitlab
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
@@ -22,12 +21,9 @@ func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	if group == "" {
 		return nil, fmt.Errorf("gitlab: \"group\" required")
 	}
-	token := sources.StringOpt(env.Config, "token")
-	if token == "" {
-		token = os.Getenv("GITLAB_TOKEN")
-	}
-	if token == "" {
-		return nil, fmt.Errorf("gitlab: token required (set config token or GITLAB_TOKEN env)")
+	token, err := sources.ResolveToken(env.Config, SourceID, "token", "GITLAB_TOKEN")
+	if err != nil {
+		return nil, err
 	}
 	baseURL := sources.StringOpt(env.Config, "base_url")
 	return NewFromToken(ctx, group, token, baseURL)

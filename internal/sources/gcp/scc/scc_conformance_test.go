@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/api/option"
 	securitycenter "google.golang.org/api/securitycenter/v1"
 	sccsettings "google.golang.org/api/securitycenter/v1beta2"
-	"google.golang.org/api/option"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/sourcetest"

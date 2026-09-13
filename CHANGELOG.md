@@ -13,6 +13,30 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **Multiple instances of one source — a project can now cover several cloud
+  accounts.** A bracket suffix on a source key (`"aws.iam[staging]"`)
+  configures the same plugin a second time. This was documented but had never
+  worked: the factory lookup was exact, so a bracketed key failed with "not
+  registered", and had it got past that, both instances would have collided on
+  the plugin's hardcoded ID. Instance identity is now real — it is the registry
+  key, what a `bindings:` entry names, each record's `source_id`, and the
+  evidence envelope's filename — so two accounts produce two independently
+  verifiable sets of evidence. An instance key naming something unconfigured is
+  a hard error, never silently resolved to the default instance.
+- **Per-instance AWS credentials (`role_arn`, `external_id`,
+  `role_session_name`).** Region is not an account boundary: every AWS plugin
+  previously resolved one ambient identity, so two instances returned the same
+  account's resources under two names. An instance now assumes its own role
+  from whatever credentials the runner holds. The role is resolved at
+  construction, so a misconfigured instance fails the run instead of reporting
+  an account that merely looks empty. There is deliberately no `profile` key —
+  the AWS chain resolves environment credentials ahead of a profile, so in CI a
+  profile would be silently ignored.
+- **`token_env` for `github`, `gitlab` and `okta`** — names a per-instance
+  environment variable for the credential. Without it a second instance falls
+  back to the same process-global `GITHUB_TOKEN` as the first and collects the
+  same org twice. A `token_env` that is set but empty is an error rather than a
+  fall-through, so an instance can never silently borrow another's identity.
 - **Declared estate / scope completeness.** A new opt-in
   `experimental.scope.required_sources` block in `.sigcomply.yaml` lets you
   declare the sources a project asserts coverage over. Any declared source that
@@ -40,6 +64,12 @@ tracks the human-curated highlights.
 
 ### Changed
 
+- **Source keys and `catalog_entry` values are now validated** against a
+  restrictive grammar (letters, digits, dot, dash, underscore, plus an optional
+  `[instance]` suffix). Both become part of an evidence file's object key in the
+  vault, and only the local backend rejects path escapes — S3, GCS and Azure
+  concatenate keys directly. Existing configs are unaffected: every shipped
+  source ID and every documented example already conforms.
 - **A `pass_when` clause naming a slot the policy does not declare is now a
   load-time error.** Previously the slot lookup missed, yielded an empty record
   set, and `all`/`none` passed vacuously — one mistyped slot name silently turned

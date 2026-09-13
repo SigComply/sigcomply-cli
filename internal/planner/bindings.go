@@ -294,18 +294,21 @@ func slotHasExactEmitter(accepts, srcIDs []string, sources *registry.Registry[co
 	return false
 }
 
-// lookupSourcePlugin resolves a configured-source key to its plugin,
-// tolerating a "[instance]" suffix on the key by falling back to the
-// base ID. Returns nil when no plugin is registered (the condition is
-// surfaced elsewhere; here we simply skip it).
+// lookupSourcePlugin resolves a configured-source key to its plugin.
+// Returns nil when no plugin is registered (the condition is surfaced
+// elsewhere; here we simply skip it).
+//
+// The lookup is deliberately exact, including for instance keys like
+// "aws.iam[backup]". Every configured source — instance or not — is
+// registered under its exact configured key, so a miss means the key
+// names something that does not exist. Falling back to the base ID
+// would make a typo ("aws.iam[bakcup]") resolve to a DIFFERENT
+// instance's plugin: the run would collect from the wrong account and
+// then stamp the typo'd name onto the records and envelope filename.
+// Fabricated provenance is worse than a hard error.
 func lookupSourcePlugin(sources *registry.Registry[core.SourcePlugin], key string) core.SourcePlugin {
 	if p, ok := sources.Lookup(key); ok {
 		return p
-	}
-	if i := strings.IndexByte(key, '['); i > 0 {
-		if p, ok := sources.Lookup(key[:i]); ok {
-			return p
-		}
 	}
 	return nil
 }

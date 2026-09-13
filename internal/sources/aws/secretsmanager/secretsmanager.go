@@ -10,11 +10,11 @@ import (
 	"sort"
 	"time"
 
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	awssm "github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	smtypes "github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/sources/aws/awscfg"
 )
 
 // EvidenceTypeID is the evidence type this plugin emits.
@@ -59,8 +59,18 @@ func New(opts Options) *Plugin {
 }
 
 // NewFromAWS constructs a Plugin backed by the real AWS SDK.
-func NewFromAWS(ctx context.Context, region string) (*Plugin, error) {
-	cfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(region))
+// The variadic opts carry per-instance credential settings (see
+// internal/sources/aws/awscfg). Omitting them keeps the previous
+// behavior: the ambient credential chain, scoped to region.
+func NewFromAWS(ctx context.Context, region string, opts ...awscfg.Options) (*Plugin, error) {
+	o := awscfg.Options{Region: region}
+	if len(opts) > 0 {
+		o = opts[0]
+		if o.Region == "" {
+			o.Region = region
+		}
+	}
+	cfg, region, err := awscfg.Load(ctx, o)
 	if err != nil {
 		return nil, fmt.Errorf("aws.secretsmanager: load AWS config: %w", err)
 	}

@@ -126,6 +126,60 @@ sources:
 - **Credentials (env):** `OKTA_API_TOKEN` (or an `api_token:` key).
 - **Required config keys:** `org_url`.
 
+## Multiple accounts, orgs or subscriptions
+
+One project can cover more than one cloud account. Configure the same
+plugin twice, distinguishing the second with a bracket suffix:
+
+```yaml
+sources:
+  aws.iam:
+    region: us-east-1                                          # the account CI already authenticates as
+  "aws.iam[staging]":
+    region: us-east-1
+    role_arn: arn:aws:iam::210987654321:role/SigComplyAudit    # a second account
+```
+
+The runner keeps one set of credentials and assumes the named role for
+the second account — the standard cross-account setup. Grant that role
+read-only access and allow your CI principal to assume it.
+
+**Adding a region is not adding an account.** Two instances that differ
+only by `region:` authenticate as the same principal and return the same
+account's resources twice. If you want a second account, it needs a
+`role_arn`. A role that cannot be assumed fails the run, so a
+misconfiguration shows up as an error rather than as an account that
+looks empty.
+
+For GitHub, GitLab and Okta, give each instance its own credential —
+either a literal `token:`, or `token_env:` naming a different environment
+variable per instance:
+
+```yaml
+sources:
+  github:
+    org: acme
+  "github[labs]":
+    org: acme-labs
+    token_env: GITHUB_TOKEN_LABS
+```
+
+Without `token_env` the second instance falls back to the same shared
+`GITHUB_TOKEN` as the first, and you collect one org twice.
+
+For GCP and Azure, a second instance changes what is queried
+(`project_id`, `subscription_id`) but still authenticates as the same
+ambient identity, so it works only where that one principal can read
+every project or subscription you list.
+
+Each instance's evidence is collected, signed and stored separately —
+records carry the instance key as their `source_id` and land in their own
+envelope file — so an auditor can tell the accounts apart. If you declare
+an estate with `experimental.scope.required_sources`, list each instance
+key separately; asserting `aws.iam` does not assert `aws.iam[staging]`.
+
+Instances auto-bind like any other source, so policies need no changes.
+
 ## A complete minimal example
 
 ```yaml

@@ -140,7 +140,13 @@ only needed to *narrow* or otherwise tune a policy.
 (`manual.pdf[x]` is rejected). A manual policy names its catalog entry
 with the structured `catalog_entry:` field (alongside `evidence_mode:
 manual`), not a `manual.pdf:<entry>` colon-string. API plugins may have
-bracketed instances (`"aws.iam[backup]"`) for multiple accounts.
+bracketed instances (`"aws.iam[staging]"`) for a second account or org.
+Reaching a second AWS *account* additionally needs a per-instance
+`role_arn` — region is not an account boundary — and the instance key
+is restricted to letters, digits, dot, dash and underscore because it
+becomes part of an evidence file's path in the vault. See
+[04-source-plugins.md](./04-source-plugins.md) §Multiple plugin
+instances.
 
 ---
 

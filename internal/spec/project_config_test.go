@@ -178,6 +178,8 @@ func TestLoadProjectConfig_RejectsInvalid(t *testing.T) {
 	}{
 		{"project_config/invalid_missing_framework.yaml", "framework"},
 		{"project_config/invalid_manual_pdf_bracket.yaml", "singleton"},
+		{"project_config/invalid_source_instance_traversal.yaml", "invalid source key"},
+		{"project_config/invalid_source_instance_empty.yaml", "invalid source key"},
 		{"project_config/invalid_bad_cadence.yaml", "invalid cadence"},
 		{"project_config/invalid_exception_no_reason.yaml", "reason"},
 		{"project_config/invalid_exception_bad_state.yaml", "state"},
@@ -345,5 +347,24 @@ func TestLoadProjectConfig_MultiCloudHybridExample(t *testing.T) {
 func TestLoadProjectConfig_EmptyInput(t *testing.T) {
 	if _, err := LoadProjectConfig(nil); err == nil {
 		t.Error("expected error on nil input")
+	}
+}
+
+// A second instance of a plugin is a second account or org, declared by
+// a bracket suffix on the source key. The key becomes part of an
+// evidence file's path in the vault, so the grammar is restrictive.
+func TestLoadProjectConfig_AcceptsSourceInstances(t *testing.T) {
+	data := readTestdata(t, "project_config/valid_source_instances.yaml")
+	cfg, err := LoadProjectConfig(data)
+	if err != nil {
+		t.Fatalf("LoadProjectConfig: %v", err)
+	}
+	for _, want := range []string{"aws.iam", "aws.iam[staging]", "github[labs]"} {
+		if _, ok := cfg.Sources[want]; !ok {
+			t.Errorf("source %q missing; got %v", want, cfg.Sources)
+		}
+	}
+	if got := cfg.Sources["aws.iam[staging]"]["role_arn"]; got != "arn:aws:iam::000000000000:role/SigComplyAudit" {
+		t.Errorf("role_arn = %v", got)
 	}
 }

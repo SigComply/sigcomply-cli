@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -419,10 +420,35 @@ func validateVault(v *VaultConfig) error {
 // /04-source-plugins.md §The manual.pdf plugin).
 var bracketedManualPDF = regexp.MustCompile(`^manual\.pdf\[.*\]$`)
 
+// vaultSafeID is the grammar for any operator-supplied identifier that
+// ends up inside a vault object key — a source key and a catalog entry
+// both land in an evidence envelope's filename (see
+// collector.envelopePath).
+//
+// The restriction exists because only the local vault backend rejects
+// path escapes; the S3, GCS and Azure backends concatenate the key
+// directly, so a `/` or `..` here would write outside the run folder.
+// Constraining the input is simpler and harder to get wrong than
+// sanitizing at every write site.
+//
+// Kept in lockstep with sources.IDPattern — registering a plugin ID that
+// could not then be configured would be its own kind of bug.
+var vaultSafeID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*(\[[A-Za-z0-9._-]{1,64}\])?$`)
+
 func validateSources(sources map[string]map[string]any) error {
+	ids := make([]string, 0, len(sources))
 	for id := range sources {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		// Checked before the general grammar so the singleton keeps its
+		// specific, actionable message rather than a generic syntax one.
 		if bracketedManualPDF.MatchString(id) {
 			return fmt.Errorf("project config: sources[%q]: manual.pdf is a project-level singleton and does not accept bracket-suffix instances", id)
+		}
+		if !vaultSafeID.MatchString(id) {
+			return fmt.Errorf("project config: sources[%q]: invalid source key. Use a plugin ID, optionally with an instance suffix — aws.iam or aws.iam[backup]. Letters, digits, dot, dash and underscore only: the key becomes part of an evidence file's path in your vault", id)
 		}
 	}
 	return nil
@@ -450,6 +476,11 @@ func validatePolicies(policies map[string]PolicyConfig) error {
 		case "manual":
 			if pc.CatalogEntry == "" {
 				return fmt.Errorf("project config: policies[%q]: catalog_entry is required when evidence_mode is \"manual\"", id)
+			}
+			// The catalog entry is the other half of the envelope
+			// filename, so it needs the same path safety as a source key.
+			if !vaultSafeID.MatchString(pc.CatalogEntry) {
+				return fmt.Errorf("project config: policies[%q].catalog_entry %q: letters, digits, dot, dash and underscore only — the value becomes part of an evidence file's path in your vault", id, pc.CatalogEntry)
 			}
 		default:
 			return fmt.Errorf("project config: policies[%q].evidence_mode: invalid value %q (want automated|manual)", id, pc.EvidenceMode)

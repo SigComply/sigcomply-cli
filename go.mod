@@ -50,6 +50,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.111.0
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.48.0
 	github.com/aws/aws-sdk-go-v2/service/securityhub v1.80.0
+	github.com/aws/aws-sdk-go-v2/service/sts v1.49.0
 	github.com/aws/smithy-go v1.28.1
 	github.com/getkin/kin-openapi v0.149.0
 	github.com/google/uuid v1.6.0
@@ -93,7 +94,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/signin v1.9.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.37.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.42.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.49.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2 // indirect

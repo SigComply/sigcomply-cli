@@ -531,41 +531,81 @@ individual uploads.
 
 ## Multiple plugin instances (API plugins only)
 
-API plugins may be instantiated multiple times with different configs.
-Each instance gets a distinct instance ID derived from the config:
+An API plugin can be configured more than once. The second configuration
+is a second *instance*, named by a bracket suffix on the source key:
 
 ```yaml
 sources:
   aws.iam:
-    region: us-east-1            # default instance: aws.iam
-  "aws.iam[backup]":
-    region: us-west-2            # second instance: aws.iam[backup]
+    region: us-east-1                 # default instance: aws.iam
+  "aws.iam[staging]":
+    region: us-east-1
+    role_arn: arn:aws:iam::210987654321:role/SigComplyAudit
 ```
 
-Bindings reference instances by ID:
+Instances auto-bind like any other configured source, so a slot with
+`cardinality: one-or-more` (which is every slot the shipped frameworks
+declare) receives the union of both instances' records and needs no
+`bindings:` block. A slot that accepts only one source becomes ambiguous
+once a second instance can fill it, and the planner says so — name the
+instance you want explicitly:
 
 ```yaml
 policies:
   soc2.cc6.1.mfa_enforced:
     bindings:
-      user_directory: [aws.iam, "aws.iam[backup]"]
+      user_directory: [aws.iam, "aws.iam[staging]"]
 ```
 
-This is how a customer with multiple AWS accounts (or multiple GitHub
-orgs) configures the CLI without multi-scope being a first-class
-v1 concept — each account is a separate plugin instance.
+**Instance identity is real, not cosmetic.** The instance key is the
+plugin's ID for the whole run: it is what the registry holds, what a
+binding names, what each collected record carries as its `source_id`, and
+what appears in the evidence envelope's filename. Two accounts therefore
+produce two independently verifiable sets of evidence rather than two
+files that happen to have different names. A key naming an instance that
+was never configured is a hard error — it is never silently resolved to
+the default instance, because collecting one account's evidence under
+another's name is worse than failing.
 
-**Exception: `manual.pdf` is a singleton.** The bracket-suffix
-instancing pattern shown above applies to API plugins (`aws.iam`,
-`gcp.iam`, `github`, `okta`, …). It does **not** apply to `manual.pdf`,
-which is fixed to exactly one instance per project. Attempting to
-declare `"manual.pdf[secondary]"` in `sources:` is rejected at config
+**Reaching a second account needs a second identity.** Region is not an
+account boundary. `aws.*` instances take `role_arn` (plus optional
+`external_id` and `role_session_name`), assumed from whatever credentials
+the runner already has — the standard cross-account pattern, and the only
+way two AWS instances authenticate as different principals. A role that
+cannot be assumed fails the run at construction rather than reporting an
+empty account. There is deliberately no `profile` key: the AWS chain
+resolves environment credentials ahead of a shared-config profile, so on
+a CI runner a profile would be silently ignored and both instances would
+scan the same account while appearing not to.
+
+`github`, `gitlab` and `okta` instances take their own `token` /
+`api_token`, or a `token_env` naming a per-instance environment variable.
+Without `token_env` a second instance would fall back to the same shared
+`GITHUB_TOKEN` as the first and collect the same org twice.
+
+`gcp.*` and `azure.*` instances vary what they query (`project_id`,
+`subscription_id`) but still authenticate as one ambient identity, so
+they span several projects or subscriptions only when that one principal
+has read access to all of them. Per-instance GCP impersonation and Azure
+per-tenant credentials are not implemented.
+
+**Exception: `manual.pdf` is a singleton.** The bracket-suffix pattern
+applies to API plugins only. `manual.pdf` is fixed to exactly one
+instance per project; `"manual.pdf[secondary]"` is rejected at config
 validation with exit 3. The rationale is in §The manual.pdf plugin.
 
-(Recall: v1 is single-scope at the run level, meaning one set of
-credentials per run. Multiple API-plugin instances with credentials
-from the same default chain do work; multi-scope as a first-class
-*per-record* concept is deferred to v2.)
+**Source keys are path-constrained.** A source key and a catalog entry
+both become part of an evidence file's object key in the vault, so both
+are restricted to letters, digits, dot, dash and underscore (with an
+optional `[instance]` suffix). Only the local vault backend rejects path
+escapes; S3, GCS and Azure concatenate keys directly, so the grammar is
+what keeps a config from writing outside its own run folder.
+
+(Multi-scope as a first-class *per-record* concept — a `scope_id` on
+every evidence record, with scope-aware aggregation — remains deferred to
+v2. An instance is a configuration-level answer to the same question:
+it distinguishes accounts by who collected the evidence, not by a field
+inside each record.)
 
 ---
 

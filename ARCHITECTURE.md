@@ -116,7 +116,11 @@ requires going back to the drawing board.
    project corresponds to exactly one repo (GitHub or GitLab) and that
    project pursues exactly one compliance framework. Customers pursuing
    multiple frameworks typically use multiple repos. The CI workflow
-   files live in the repo and are part of the audit trail.
+   files live in the repo and are part of the audit trail. Note this
+   constrains the *framework*, not the estate: one project may cover
+   several cloud accounts or orgs by configuring a plugin more than once
+   (see `docs/architecture/04-source-plugins.md` §Multiple plugin
+   instances).
 
 ---
 

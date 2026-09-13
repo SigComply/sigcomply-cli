@@ -1,0 +1,69 @@
+# Multi-account example: one project, three AWS accounts and two GitHub orgs.
+#
+# The point of this file is the `[instance]` suffix. Each suffixed key is a
+# second configuration of the same plugin, with its own identity — not just
+# its own region. Region is not an account boundary: two instances that
+# differ only by `region:` authenticate as the same principal and return the
+# same account's resources twice.
+#
+# The CI runner holds one credential (its OIDC role) and assumes each
+# account's read-only audit role from there.
+schema_version: project.v1
+framework: soc2
+
+sources:
+  # The account CI already authenticates as — no role_arn needed.
+  aws.iam:
+    region: us-east-1
+  aws.s3:
+    region: us-east-1
+
+  # Staging and dev live in separate accounts, reached by assuming a role.
+  "aws.iam[staging]":
+    region: us-east-1
+    role_arn: arn:aws:iam::210987654321:role/SigComplyAudit
+  "aws.s3[staging]":
+    region: us-east-1
+    role_arn: arn:aws:iam::210987654321:role/SigComplyAudit
+
+  "aws.iam[dev]":
+    region: us-west-2
+    role_arn: arn:aws:iam::345678901234:role/SigComplyAudit
+    external_id: acme-sigcomply          # only if the trust policy requires it
+    role_session_name: sigcomply-nightly
+
+  # Two GitHub orgs, each with its own token. Without token_env the second
+  # instance would fall back to the same GITHUB_TOKEN as the first and
+  # collect the same org twice.
+  github:
+    org: acme
+  "github[labs]":
+    org: acme-labs
+    token_env: GITHUB_TOKEN_LABS
+
+  manual.pdf:                            # singleton — accepts no instances
+    backend: s3
+    bucket: acme-compliance-evidence
+    prefix: manual/
+
+vault:
+  backend: s3
+  bucket: acme-compliance-vault
+  region: us-east-1
+
+# Declaring the estate makes a missing account a finding rather than a
+# silent omission. List each instance key separately: asserting `aws.iam`
+# does not assert `aws.iam[staging]` — that separation is the point.
+experimental:
+  scope:
+    declared_by: ciso@example.com
+    declared_at: "2026-01-15"
+    required_sources:
+      - aws.iam
+      - "aws.iam[staging]"
+      - "aws.iam[dev]"
+      - aws.s3
+      - "aws.s3[staging]"
+      - github
+      - "github[labs]"
+      - manual.pdf
