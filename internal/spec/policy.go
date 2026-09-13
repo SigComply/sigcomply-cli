@@ -3,6 +3,7 @@ package spec
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -143,6 +144,9 @@ func policyFromRaw(raw *policySpecRaw) (core.Policy, error) {
 		passWhen, err = parsePassWhen(&raw.PassWhen)
 		if err != nil {
 			return core.Policy{}, fmt.Errorf("policy spec %q: pass_when: %w", raw.ID, err)
+		}
+		if err := validateClauseSlotsDeclared(raw.ID, passWhen, slots); err != nil {
+			return core.Policy{}, err
 		}
 	}
 
@@ -540,4 +544,37 @@ var validParamTypes = map[string]struct{}{
 func isValidParamType(t string) bool {
 	_, ok := validParamTypes[t]
 	return ok
+}
+
+// validateClauseSlotsDeclared rejects a pass_when clause naming a slot
+// the policy does not declare.
+//
+// This is a silent compliance bypass, not a cosmetic typo. The evaluator
+// looks the slot up with slots[clause.Slot]; a name that matches nothing
+// yields an empty record set, and `all`/`none` over an empty set return
+// PASS. So a single mistyped slot name turns a real check into a
+// permanent green tick, with no warning anywhere and resources_evaluated
+// still reporting the untouched records from the slots that did load.
+//
+// Nothing else in the loader catches it: validatePassWhenClause checks
+// only that the name is non-empty, and cross-checking needs both halves
+// of the spec, which only exist together here.
+func validateClauseSlotsDeclared(policyID string, passWhen *core.PassWhenSpec, slots map[string]core.Slot) error {
+	if passWhen == nil {
+		return nil
+	}
+	for i := range passWhen.Clauses {
+		name := passWhen.Clauses[i].Slot
+		if _, ok := slots[name]; ok {
+			continue
+		}
+		declared := make([]string, 0, len(slots))
+		for s := range slots {
+			declared = append(declared, s)
+		}
+		sort.Strings(declared)
+		return fmt.Errorf("policy spec %q: pass_when clause %d references slot %q, which the policy does not declare (declared slots: %v). An unmatched slot name evaluates an empty record set, and all/none pass vacuously over one — so this would silently pass instead of checking anything",
+			policyID, i, name, declared)
+	}
+	return nil
 }

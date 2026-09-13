@@ -183,6 +183,48 @@ If `required: false` and the slot has no records, the rule sees an
 empty `input.slots.<name>` array; it is the rule's responsibility to
 handle the absence.
 
+### Empty-set semantics (the vacuous pass)
+
+Quantifiers do not agree on the empty set, and the disagreement is
+load-bearing:
+
+| Quantifier | Empty record set | Why |
+|------------|------------------|-----|
+| `all` | **pass** | Universal quantification over an empty set is true. |
+| `none` | **pass** | Same — there is no counterexample. |
+| `any` | **fail** | Existential quantification over an empty set is false. |
+| `count` | fail when `min_percentage > 0`, else pass | 0 of 0 is 0%. |
+
+So an `all` or `none` clause that sees no records passes. That is often
+*correct* — "no public bucket is unencrypted" holds honestly when no
+bucket is public — which is why the evaluator does not turn it into a
+failure.
+
+It is also how a check can go green without checking anything, and there
+are three ways to arrive there:
+
+1. **The slot is empty.** For `required: true` slots the evaluator skips
+   the policy before the DSL runs, so this is reachable only on a
+   `required: false` slot.
+2. **The filter matched nothing.** `filterRecords` drops any record whose
+   filter errors or whose field is absent, so a populated slot can still
+   present an empty set to the quantifier. This is reachable today.
+3. **The clause names a slot the policy does not declare.** The lookup
+   misses and yields an empty set. The loader rejects this outright — see
+   `validateClauseSlotsDeclared` — because there is no reading under
+   which it is intentional.
+
+Cases 1 and 2 are reported, not failed: the result carries
+`diag.vacuous_clauses` listing the slots whose clauses examined nothing,
+and `sigcomply check` explains such a pass inline rather than printing a
+bare green tick.
+
+This matters because `resources_evaluated` counts the records in the slot
+**before** filtering. A policy that filtered 500 records down to zero
+still reports 500 evaluated, so on its own the result reads "all 500
+resources passed" when none were examined. The diagnostic is what keeps
+that distinguishable.
+
 ### Multiple bound sources
 
 When `cardinality: one-or-more` or `optional` allows multiple sources,

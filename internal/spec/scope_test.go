@@ -146,3 +146,66 @@ func TestLoadScopeConfig_Rejects(t *testing.T) {
 		})
 	}
 }
+
+// A pass_when clause naming an undeclared slot is a silent compliance
+// bypass, not a cosmetic typo: the evaluator looks the slot up by name,
+// an unmatched name yields an empty record set, and all/none pass
+// vacuously over one. The check would report green while examining
+// nothing, so the loader must refuse it.
+func TestLoadPolicy_RejectsClauseNamingUndeclaredSlot(t *testing.T) {
+	const policy = `schema_version: policy.v1
+id: acme.test.typo
+control: SOC2.CC6.1
+severity: high
+cadence: daily
+evidence_mode: automated
+description: "Typo slot name"
+slots:
+  users:
+    accepts: [directory_user]
+    cardinality: one-or-more
+    required: true
+pass_when:
+  slot: userz
+  quantifier: all
+  condition:
+    op: eq
+    field: payload.mfa_enabled
+    value: true
+`
+	_, err := spec.LoadPolicy([]byte(policy))
+	if err == nil {
+		t.Fatal("want an error for a clause naming an undeclared slot; got nil")
+	}
+	for _, want := range []string{"userz", "does not declare", "users"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error = %v; want it to mention %q", err, want)
+		}
+	}
+}
+
+func TestLoadPolicy_AcceptsDeclaredSlot(t *testing.T) {
+	const policy = `schema_version: policy.v1
+id: acme.test.ok
+control: SOC2.CC6.1
+severity: high
+cadence: daily
+evidence_mode: automated
+description: "Correct slot name"
+slots:
+  users:
+    accepts: [directory_user]
+    cardinality: one-or-more
+    required: true
+pass_when:
+  slot: users
+  quantifier: all
+  condition:
+    op: eq
+    field: payload.mfa_enabled
+    value: true
+`
+	if _, err := spec.LoadPolicy([]byte(policy)); err != nil {
+		t.Fatalf("valid policy rejected: %v", err)
+	}
+}

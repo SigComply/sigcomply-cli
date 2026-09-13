@@ -788,6 +788,14 @@ func resultReason(r *core.PolicyResult) string {
 			}
 		}
 		return "evaluation error (see the run's result.json in the vault)"
+	case core.StatusPass:
+		// A pass whose clauses examined nothing is the one pass worth
+		// explaining: `all`/`none` are true of the empty set, so this
+		// reads as green while having checked no resource at all.
+		if v, ok := r.Diag["vacuous_clauses"].([]string); ok && len(v) > 0 {
+			return truncateReason(fmt.Sprintf("passed without examining any resource (slot(s) %s matched nothing) — verify this control is really in scope", strings.Join(v, ", ")), maxLen)
+		}
+		return ""
 	case core.StatusFail:
 		if len(r.Violations) > 0 && r.Violations[0].Reason != "" {
 			reason := r.Violations[0].Reason

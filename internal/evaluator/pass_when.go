@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
@@ -14,18 +15,51 @@ import (
 // independently; the policy passes iff all clauses pass.
 func evaluatePassWhen(spec *core.PassWhenSpec, slots map[string][]core.EvidenceRecord, params map[string]any) core.RuleResult {
 	var allViolations []core.Violation
+	var vacuous []string
 	for i := range spec.Clauses {
 		clause := &spec.Clauses[i]
-		result := evaluatePassWhenClause(clause, slots[clause.Slot], params)
+		records := slots[clause.Slot]
+		result := evaluatePassWhenClause(clause, records, params)
 		if result.Status == core.StatusError {
 			return result
+		}
+		if examinedBy(clause, records, params) == 0 {
+			vacuous = append(vacuous, clause.Slot)
 		}
 		allViolations = append(allViolations, result.Violations...)
 	}
 	if len(allViolations) > 0 {
 		return core.RuleResult{Status: core.StatusFail, Violations: allViolations}
 	}
-	return core.RuleResult{Status: core.StatusPass}
+	out := core.RuleResult{Status: core.StatusPass}
+	if len(vacuous) > 0 {
+		// `all` and `none` are true of the empty set, so a clause that
+		// examined nothing passes. Often that is correct — "no public
+		// bucket is unencrypted" holds honestly when no bucket is public
+		// — so this is reported rather than failed. But it is
+		// indistinguishable at runtime from a filter that silently
+		// matched nothing, and countResources reports the pre-filter
+		// population, so without this the result reads "all N resources
+		// passed" when N were never looked at.
+		sort.Strings(vacuous)
+		out.Diag = map[string]any{"vacuous_clauses": vacuous}
+	}
+	return out
+}
+
+// examinedBy reports how many records a clause actually evaluated, after
+// its filter. Quantifiers that already treat the empty set as a failure
+// (any, count with a minimum) need no guard, so they never report vacuity.
+func examinedBy(clause *core.PassWhenClause, records []core.EvidenceRecord, params map[string]any) int {
+	switch clause.Quantifier {
+	case core.QuantifierAll, core.QuantifierNone:
+	default:
+		return 1
+	}
+	if clause.Filter == nil {
+		return len(records)
+	}
+	return len(filterRecords(records, clause.Filter, params))
 }
 
 // evaluatePassWhenClause evaluates one clause against its slot's records.
