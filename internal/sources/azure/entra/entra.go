@@ -3,7 +3,8 @@
 // directory_user record per user, so MFA, admin, and lifecycle policies
 // (e.g. mfa_enforced_admins) evaluate against Entra identities exactly as
 // they do against AWS IAM, Okta, GitHub, GitLab, and GCP — zero policy
-// changes (Invariant #4, substitutability).
+// changes (Invariant #4, substitutability). It also emits roster_entry, so
+// Entra can be the organization's authoritative workforce roster.
 //
 // Two Graph reads, joined on the user object id:
 //   - GET /reports/authenticationMethods/userRegistrationDetails — Microsoft's
@@ -17,6 +18,12 @@
 // transitive tree, against the repo's minimal-dependency, httptest-able
 // convention (same reason github/okta call REST directly). The only Azure
 // dependency is azidentity, already vendored, for the bearer token.
+//
+// roster_entry uses a third, independent read — GET /users with the
+// roster fields (accountEnabled, userType, employeeId, employeeType) — and
+// never touches the registration report, so it needs only User.Read.All and
+// works on tenants without an Entra ID P1/P2 license. Guests are excluded:
+// they are external identities, not workforce.
 //
 // Auth: a DefaultAzureCredential (azcommon.NewCredential) mints a token for
 // the Microsoft Graph ".default" scope. The app registration needs the
@@ -48,8 +55,12 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources/azure/internal/azcommon"
 )
 
-// EvidenceTypeID is the cross-vendor evidence type this plugin emits.
-const EvidenceTypeID = "directory_user"
+// EvidenceTypeID is the cross-vendor directory_user evidence type this plugin
+// emits; EvidenceTypeRosterEntry is the cross-vendor workforce-roster type.
+const (
+	EvidenceTypeID          = "directory_user"
+	EvidenceTypeRosterEntry = "roster_entry"
+)
 
 // SourceID is the registered ID for the azure.entra plugin instance.
 const SourceID = "azure.entra"
@@ -71,11 +82,27 @@ type User struct {
 	LastLoginAt time.Time // zero when never signed in / unavailable without P1/P2
 }
 
+// RosterUser is one /users entry as the roster_entry mapping reads it. Mail
+// and UPN are kept separately so the mapping owns the email fallback.
+type RosterUser struct {
+	ID             string
+	Mail           string
+	UPN            string
+	DisplayName    string
+	AccountEnabled bool
+	UserType       string // "Member" or "Guest"
+	EmployeeID     string
+	EmployeeType   string
+}
+
 // API is the subset of Microsoft Graph this plugin uses. Defining it as an
 // interface lets tests inject a fake without hitting Graph; the real adapter
 // (realGraph) handles auth, pagination, and the two-endpoint join.
 type API interface {
 	ListUsers(ctx context.Context) ([]User, error)
+	// ListRosterUsers lists every user with the roster fields. It must not
+	// read the P1/P2-gated registration report.
+	ListRosterUsers(ctx context.Context) ([]RosterUser, error)
 }
 
 // Plugin is the in-process azure.entra source.
@@ -129,7 +156,7 @@ func NewFromGraph(cred azcore.TokenCredential, cfg azcommon.Config) *Plugin {
 func (*Plugin) ID() string { return SourceID }
 
 // Emits returns the evidence types this plugin can produce.
-func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
+func (*Plugin) Emits() []string { return []string{EvidenceTypeID, EvidenceTypeRosterEntry} }
 
 // Init is a no-op — configuration is fixed at New.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
@@ -151,9 +178,51 @@ type userPayload struct {
 	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
 }
 
-// Collect lists the tenant's users and emits one directory_user record each,
-// sorted by ID so envelope bytes are stable across runs against stable
-// directory state.
+// rosterPayload is the roster_entry shape this plugin emits. Optional strings
+// are omitted when empty: the schema requires minLength 1 and forbids
+// additional properties (data minimisation).
+type rosterPayload struct {
+	ID           string `json:"id"`
+	Status       string `json:"status"`
+	Email        string `json:"email,omitempty"`
+	DisplayName  string `json:"display_name,omitempty"`
+	EmployeeID   string `json:"employee_id,omitempty"`
+	EmployeeType string `json:"employee_type,omitempty"`
+	SourceStatus string `json:"source_status,omitempty"`
+}
+
+// Collect returns records for every evidence type in req.AcceptedTypes that
+// this plugin emits (directory_user and/or roster_entry), each group sorted by
+// ID so envelope bytes are stable across runs against stable directory state.
+func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
+	collectors := []struct {
+		typ     string
+		collect func(context.Context) ([]core.EvidenceRecord, error)
+	}{
+		{EvidenceTypeID, p.collectUsers},
+		{EvidenceTypeRosterEntry, p.collectRoster},
+	}
+	var out []core.EvidenceRecord
+	matched := false
+	for _, c := range collectors {
+		if !req.Accepts(c.typ) {
+			continue
+		}
+		matched = true
+		rs, err := c.collect(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rs...)
+	}
+	if !matched {
+		return nil, fmt.Errorf("azure.entra: slot AcceptedTypes %v does not include any of %q", req.AcceptedTypes, p.Emits())
+	}
+	return out, nil
+}
+
+// collectUsers lists the tenant's users and emits one directory_user record
+// each.
 //
 // Licensing: mfa_enabled and is_admin come from the userRegistrationDetails
 // report, which requires the AuditLog.Read.All permission and an Entra ID
@@ -162,18 +231,12 @@ type userPayload struct {
 // fabricating mfa_enabled=false for every user, which would be misleading
 // evidence. last_login_at degrades silently (omitted) when signInActivity is
 // unavailable.
-func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	if !req.Accepts(EvidenceTypeID) {
-		return nil, fmt.Errorf("azure.entra: slot AcceptedTypes %v does not include %q", req.AcceptedTypes, EvidenceTypeID)
-	}
+func (p *Plugin) collectUsers(ctx context.Context) ([]core.EvidenceRecord, error) {
 	users, err := p.api.ListUsers(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("azure.entra: list users: %w", err)
 	}
-	var scope *core.RecordScope
-	if p.tenant != "" {
-		scope = &core.RecordScope{Account: p.tenant}
-	}
+	scope := p.scope()
 	now := p.now()
 	records := make([]core.EvidenceRecord, 0, len(users))
 	for _, u := range users {
@@ -217,6 +280,71 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	return records, nil
 }
 
+// scope tags records with the tenant when one is configured.
+func (p *Plugin) scope() *core.RecordScope {
+	if p.tenant == "" {
+		return nil
+	}
+	return &core.RecordScope{Account: p.tenant}
+}
+
+// collectRoster lists the tenant's users and emits one roster_entry record per
+// member (guests excluded), sorted by ID.
+func (p *Plugin) collectRoster(ctx context.Context) ([]core.EvidenceRecord, error) {
+	users, err := p.api.ListRosterUsers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("azure.entra: list roster users: %w", err)
+	}
+	scope := p.scope()
+	now := p.now()
+	records := make([]core.EvidenceRecord, 0, len(users))
+	for i := range users {
+		u := &users[i]
+		if strings.EqualFold(strings.TrimSpace(u.UserType), "Guest") {
+			continue
+		}
+		payload := rosterPayloadFor(u)
+		body, err := json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("azure.entra: marshal roster payload: %w", err)
+		}
+		records = append(records, core.EvidenceRecord{
+			Type:        EvidenceTypeRosterEntry,
+			ID:          u.ID,
+			IdentityKey: strings.ToLower(payload.Email),
+			Payload:     body,
+			SourceID:    SourceID,
+			CollectedAt: now,
+			Scope:       scope,
+		})
+	}
+	sort.Slice(records, func(i, j int) bool { return records[i].ID < records[j].ID })
+	return records, nil
+}
+
+// rosterPayloadFor maps one Entra user to roster_entry: email is the mailbox
+// address, falling back to the userPrincipalName; status follows
+// accountEnabled (Entra has no pending state).
+func rosterPayloadFor(u *RosterUser) rosterPayload {
+	email := strings.TrimSpace(u.Mail)
+	if email == "" {
+		email = strings.TrimSpace(u.UPN)
+	}
+	status, sourceStatus := "inactive", "disabled"
+	if u.AccountEnabled {
+		status, sourceStatus = "active", "enabled"
+	}
+	return rosterPayload{
+		ID:           u.ID,
+		Status:       status,
+		Email:        email,
+		DisplayName:  strings.TrimSpace(u.DisplayName),
+		EmployeeID:   strings.TrimSpace(u.EmployeeID),
+		EmployeeType: strings.TrimSpace(u.EmployeeType),
+		SourceStatus: sourceStatus,
+	}
+}
+
 // --- real Microsoft Graph adapter ---
 
 // graphPage is the standard Graph collection envelope: a value array plus an
@@ -234,6 +362,23 @@ type graphUser struct {
 	AccountEnabled    bool            `json:"accountEnabled"`
 	SignInActivity    *signInActivity `json:"signInActivity"`
 }
+
+// graphRosterUser is the /users projection the roster reads. Nullable Graph
+// strings decode to "" (a JSON null leaves a Go string at its zero value).
+type graphRosterUser struct {
+	ID                string `json:"id"`
+	Mail              string `json:"mail"`
+	UserPrincipalName string `json:"userPrincipalName"`
+	DisplayName       string `json:"displayName"`
+	AccountEnabled    bool   `json:"accountEnabled"`
+	UserType          string `json:"userType"`
+	EmployeeID        string `json:"employeeId"`
+	EmployeeType      string `json:"employeeType"`
+}
+
+// rosterUsersPath is the roster listing: only the fields roster_entry needs,
+// at Graph's maximum page size.
+const rosterUsersPath = "/users?$select=id,mail,userPrincipalName,displayName,accountEnabled,userType,employeeId,employeeType&$top=999"
 
 type signInActivity struct {
 	LastSignInDateTime *time.Time `json:"lastSignInDateTime"`
@@ -253,59 +398,100 @@ type realGraph struct {
 	cred   azcore.TokenCredential
 }
 
-func (r *realGraph) ListUsers(ctx context.Context) ([]User, error) {
+// token mints a Microsoft Graph bearer token from the credential.
+func (r *realGraph) token(ctx context.Context) (string, error) {
 	tok, err := r.cred.GetToken(ctx, policy.TokenRequestOptions{Scopes: []string{azcommon.ScopeGraph}})
 	if err != nil {
-		return nil, fmt.Errorf("graph token: %w", err)
+		return "", fmt.Errorf("graph token: %w", err)
 	}
-	token := tok.Token
+	return tok.Token, nil
+}
+
+// graphList GETs url and follows @odata.nextLink to the end, handing each
+// element to visit in order.
+func graphList[T any](ctx context.Context, r *realGraph, token, url string, visit func(*T)) error {
+	for url != "" {
+		var page graphPage[T]
+		if err := r.get(ctx, token, url, &page); err != nil {
+			return err
+		}
+		for i := range page.Value {
+			visit(&page.Value[i])
+		}
+		url = page.NextLink
+	}
+	return nil
+}
+
+// ListRosterUsers pages /users with the roster projection. It deliberately
+// never reads userRegistrationDetails, so it needs only User.Read.All and no
+// Entra ID P1/P2 license.
+func (r *realGraph) ListRosterUsers(ctx context.Context) ([]RosterUser, error) {
+	token, err := r.token(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []RosterUser
+	err = graphList(ctx, r, token, r.base+rosterUsersPath, func(u *graphRosterUser) {
+		out = append(out, RosterUser{
+			ID:             u.ID,
+			Mail:           u.Mail,
+			UPN:            u.UserPrincipalName,
+			DisplayName:    u.DisplayName,
+			AccountEnabled: u.AccountEnabled,
+			UserType:       u.UserType,
+			EmployeeID:     u.EmployeeID,
+			EmployeeType:   u.EmployeeType,
+		})
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list roster users (needs the User.Read.All permission): %w", err)
+	}
+	return out, nil
+}
+
+func (r *realGraph) ListUsers(ctx context.Context) ([]User, error) {
+	token, err := r.token(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	// 1. Per-user MFA + admin flags, keyed by user object id. Fetched first
 	//    so a missing AuditLog.Read.All / P1/P2 fails fast with a clear hint.
 	reg := map[string]userRegistrationDetail{}
-	next := r.base + "/reports/authenticationMethods/userRegistrationDetails"
-	for next != "" {
-		var page graphPage[userRegistrationDetail]
-		if err := r.get(ctx, token, next, &page); err != nil {
-			return nil, fmt.Errorf("user registration details (needs the AuditLog.Read.All permission and an Entra ID P1/P2 license): %w", err)
-		}
-		for _, d := range page.Value {
-			reg[d.ID] = d
-		}
-		next = page.NextLink
+	err = graphList(ctx, r, token, r.base+"/reports/authenticationMethods/userRegistrationDetails", func(d *userRegistrationDetail) {
+		reg[d.ID] = *d
+	})
+	if err != nil {
+		return nil, fmt.Errorf("user registration details (needs the AuditLog.Read.All permission and an Entra ID P1/P2 license): %w", err)
 	}
 
 	// 2. Users, joined to the report on object id.
 	var out []User
-	next = r.base + "/users?$select=id,userPrincipalName,mail,displayName,accountEnabled,signInActivity&$top=500"
-	for next != "" {
-		var page graphPage[graphUser]
-		if err := r.get(ctx, token, next, &page); err != nil {
-			return nil, fmt.Errorf("list users: %w", err)
+	err = graphList(ctx, r, token, r.base+"/users?$select=id,userPrincipalName,mail,displayName,accountEnabled,signInActivity&$top=500", func(u *graphUser) {
+		usr := User{
+			ID:          u.ID,
+			UPN:         u.UserPrincipalName,
+			DisplayName: u.DisplayName,
+			IsActive:    u.AccountEnabled,
 		}
-		for _, u := range page.Value {
-			usr := User{
-				ID:          u.ID,
-				UPN:         u.UserPrincipalName,
-				DisplayName: u.DisplayName,
-				IsActive:    u.AccountEnabled,
-			}
-			if u.Mail != nil {
-				usr.Email = strings.TrimSpace(*u.Mail)
-			}
-			if u.SignInActivity != nil && u.SignInActivity.LastSignInDateTime != nil {
-				usr.LastLoginAt = u.SignInActivity.LastSignInDateTime.UTC()
-			}
-			// Users absent from the report (e.g. disabled accounts, which
-			// the report omits) keep the zero-value mfa_enabled/is_admin —
-			// an honest "not registered" rather than a fabricated value.
-			if d, ok := reg[u.ID]; ok {
-				usr.MFAEnabled = d.IsMfaRegistered
-				usr.IsAdmin = d.IsAdmin
-			}
-			out = append(out, usr)
+		if u.Mail != nil {
+			usr.Email = strings.TrimSpace(*u.Mail)
 		}
-		next = page.NextLink
+		if u.SignInActivity != nil && u.SignInActivity.LastSignInDateTime != nil {
+			usr.LastLoginAt = u.SignInActivity.LastSignInDateTime.UTC()
+		}
+		// Users absent from the report (e.g. disabled accounts, which
+		// the report omits) keep the zero-value mfa_enabled/is_admin —
+		// an honest "not registered" rather than a fabricated value.
+		if d, ok := reg[u.ID]; ok {
+			usr.MFAEnabled = d.IsMfaRegistered
+			usr.IsAdmin = d.IsAdmin
+		}
+		out = append(out, usr)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
 	}
 	return out, nil
 }

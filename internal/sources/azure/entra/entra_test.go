@@ -20,9 +20,19 @@ import (
 
 // fakeAPI is the in-memory API seam for Collect-level tests.
 type fakeAPI struct {
-	users []User
-	err   error
-	calls int
+	users       []User
+	roster      []RosterUser
+	err         error
+	calls       int
+	rosterCalls int
+}
+
+func (f *fakeAPI) ListRosterUsers(context.Context) ([]RosterUser, error) {
+	f.rosterCalls++
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.roster, nil
 }
 
 func (f *fakeAPI) ListUsers(context.Context) ([]User, error) {
@@ -45,8 +55,8 @@ func TestPlugin_IDAndEmits(t *testing.T) {
 	if got := p.ID(); got != "azure.entra" {
 		t.Errorf("ID() = %q, want azure.entra", got)
 	}
-	if got := p.Emits(); !reflect.DeepEqual(got, []string{"directory_user"}) {
-		t.Errorf("Emits() = %v, want [directory_user]", got)
+	if got := p.Emits(); !reflect.DeepEqual(got, []string{"directory_user", "roster_entry"}) {
+		t.Errorf("Emits() = %v, want [directory_user roster_entry]", got)
 	}
 }
 

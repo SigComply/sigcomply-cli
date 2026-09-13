@@ -16,11 +16,7 @@ import (
 // CLAUDE.local.md rather than recorded live. Joins the report rows with /users:
 // one admin with MFA + one standard user without.
 func TestAzureEntraConformance(t *testing.T) {
-	fixedNow := time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC)
-	newPlugin := func() core.SourcePlugin {
-		adapter := &realGraph{base: graphBaseURL, client: sourcetest.ReplayClient(t, "testdata/cassettes/directory"), cred: fakeCred{}}
-		return New(Options{API: adapter, Now: func() time.Time { return fixedNow }})
-	}
+	newPlugin := func() core.SourcePlugin { return newCassettePlugin(t) }
 	recs := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes: sourcetest.BuiltinEvidenceTypes(t),
@@ -48,5 +44,50 @@ func TestAzureEntraConformance(t *testing.T) {
 	}
 	if admins != 1 || mfa != 1 {
 		t.Errorf("admins=%d mfa=%d, want 1/1", admins, mfa)
+	}
+}
+
+// newCassettePlugin builds the real adapter around the hand-authored cassette.
+func newCassettePlugin(t *testing.T) core.SourcePlugin {
+	t.Helper()
+	fixedNow := time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC)
+	adapter := &realGraph{base: graphBaseURL, client: sourcetest.ReplayClient(t, "testdata/cassettes/directory"), cred: fakeCred{}}
+	return New(Options{API: adapter, Now: func() time.Time { return fixedNow }})
+}
+
+// TestAzureEntraRosterConformance replays the roster interaction of the same
+// hand-authored cassette (the literal /users roster projection URL): two
+// members (one with employee fields, one disabled without a mailbox) and one
+// guest, which must be excluded.
+func TestAzureEntraRosterConformance(t *testing.T) {
+	recs := sourcetest.RunConformance(t, &sourcetest.Options{
+		Plugin: newCassettePlugin(t), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeRosterEntry}},
+		EvidenceTypes: sourcetest.BuiltinEvidenceTypes(t),
+		OptionalFields: []string{
+			"roster_entry.is_service_account", // Entra users carry no service-account flag
+			"roster_entry.employee_id",        // employeeId is optional per user
+			"roster_entry.employee_type",      // employeeType is optional per user
+		},
+	})
+	want := map[string]rosterPayload{
+		"u-alice": {ID: "u-alice", Status: "active", Email: "alice@example.com", DisplayName: "Alice Admin",
+			EmployeeID: "E100", EmployeeType: "Employee", SourceStatus: "enabled"},
+		"u-carol": {ID: "u-carol", Status: "inactive", Email: "carol@example.com", DisplayName: "Carol Leaver",
+			SourceStatus: "disabled"},
+	}
+	if len(recs) != len(want) {
+		t.Fatalf("roster_entry records = %d, want %d (guest excluded)", len(recs), len(want))
+	}
+	for _, r := range recs {
+		var p rosterPayload
+		if err := json.Unmarshal(r.Payload, &p); err != nil {
+			t.Fatal(err)
+		}
+		if p != want[r.ID] {
+			t.Errorf("%s = %+v, want %+v", r.ID, p, want[r.ID])
+		}
+		if r.IdentityKey != p.Email {
+			t.Errorf("%s IdentityKey = %q, want %q", r.ID, r.IdentityKey, p.Email)
+		}
 	}
 }

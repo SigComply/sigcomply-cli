@@ -66,3 +66,38 @@ interactions:
         status: 200 OK
         code: 200
         duration: 167µs
+    - id: 2
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56632
+        form:
+            $select:
+                - id,mail,userPrincipalName,displayName,accountEnabled,userType,employeeId,employeeType
+            $top:
+                - "999"
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+        url: https://graph.microsoft.com/v1.0/users?$select=id,mail,userPrincipalName,displayName,accountEnabled,userType,employeeId,employeeType&$top=999
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 600
+        body: '{"value":[{"id":"u-alice","mail":"alice@example.com","userPrincipalName":"alice@example.com","displayName":"Alice Admin","accountEnabled":true,"userType":"Member","employeeId":"E100","employeeType":"Employee"},{"id":"u-carol","mail":null,"userPrincipalName":"carol@example.com","displayName":"Carol Leaver","accountEnabled":false,"userType":"Member","employeeId":null,"employeeType":null},{"id":"u-guest","mail":"guest@example.org","userPrincipalName":"guest_example.org#EXT#@example.com","displayName":"Guest Partner","accountEnabled":true,"userType":"Guest","employeeId":null,"employeeType":null}]}'
+        headers:
+            Content-Length:
+                - "600"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:21:20 GMT
+        status: 200 OK
+        code: 200
+        duration: 170µs
