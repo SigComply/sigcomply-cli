@@ -21,7 +21,7 @@ func TestPassWhen_Condition_NotIn(t *testing.T) {
 			makeRecord("r2", map[string]any{"visibility": "public"}), // in disallowed set → fails not_in
 		},
 	}
-	result := evaluatePassWhen(spec, records, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusFail {
 		t.Errorf("status = %q; want fail (r2 is public)", result.Status)
 	}
@@ -48,7 +48,7 @@ func TestPassWhen_InWithNonListRHS_Errors(t *testing.T) {
 			records := map[string][]core.EvidenceRecord{
 				"repos": {makeRecord("r1", map[string]any{"visibility": "private"})},
 			}
-			result := evaluatePassWhen(spec, records, nil)
+			result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 			if result.Status != core.StatusError {
 				t.Errorf("status = %q; want error (%s needs a list value)", result.Status, op)
 			}
@@ -66,7 +66,7 @@ func TestPassWhen_InWithListRHS_Matches(t *testing.T) {
 	records := map[string][]core.EvidenceRecord{
 		"repos": {makeRecord("r1", map[string]any{"visibility": "private"})},
 	}
-	if got := evaluatePassWhen(spec, records, nil); got.Status != core.StatusPass {
+	if got := evaluatePassWhen(spec, newEvalCtx(records, nil, nil)); got.Status != core.StatusPass {
 		t.Errorf("status = %q; want pass", got.Status)
 	}
 }
@@ -82,7 +82,7 @@ func TestPassWhen_UnknownOperator_Errors(t *testing.T) {
 	records := map[string][]core.EvidenceRecord{
 		"repos": {makeRecord("r1", map[string]any{"x": float64(1)})},
 	}
-	result := evaluatePassWhen(spec, records, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusError {
 		t.Errorf("status = %q; want error for unknown operator", result.Status)
 	}
@@ -99,7 +99,7 @@ func TestPassWhen_UnknownQuantifier_Errors(t *testing.T) {
 	records := map[string][]core.EvidenceRecord{
 		"repos": {makeRecord("r1", map[string]any{"x": float64(1)})},
 	}
-	result := evaluatePassWhen(spec, records, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusError {
 		t.Errorf("status = %q; want error for unknown quantifier", result.Status)
 	}
@@ -114,7 +114,7 @@ func TestPassWhen_Any_EmptyRecordSet_Fails(t *testing.T) {
 		Condition:    &core.PassWhenCondition{Op: "eq", Field: "payload.enabled", Value: true},
 		ViolationMsg: "no detector enabled",
 	}}}
-	result := evaluatePassWhen(spec, map[string][]core.EvidenceRecord{}, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(map[string][]core.EvidenceRecord{}, nil, nil))
 	if result.Status != core.StatusFail {
 		t.Fatalf("status = %q; want fail (any over empty set)", result.Status)
 	}
@@ -134,7 +134,7 @@ func TestPassWhen_Any_ConditionError(t *testing.T) {
 	records := map[string][]core.EvidenceRecord{
 		"detectors": {makeRecord("d1", map[string]any{"present": true})}, // absent field
 	}
-	result := evaluatePassWhen(spec, records, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusError {
 		t.Errorf("status = %q; want error (absent field in any condition)", result.Status)
 	}
@@ -150,7 +150,7 @@ func TestPassWhen_Count_ZeroRecords_NonZeroMin_Fails(t *testing.T) {
 		MinPercentage: minPct(50),
 		Condition:     &core.PassWhenCondition{Op: "eq", Field: "payload.rotated", Value: true},
 	}}}
-	result := evaluatePassWhen(spec, map[string][]core.EvidenceRecord{}, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(map[string][]core.EvidenceRecord{}, nil, nil))
 	if result.Status != core.StatusFail {
 		t.Errorf("status = %q; want fail (0 records, min 50%%)", result.Status)
 	}
@@ -164,7 +164,7 @@ func TestPassWhen_Count_ZeroRecords_ZeroMin_Passes(t *testing.T) {
 		// MinPercentage nil → 0 → vacuous pass.
 		Condition: &core.PassWhenCondition{Op: "eq", Field: "payload.rotated", Value: true},
 	}}}
-	result := evaluatePassWhen(spec, map[string][]core.EvidenceRecord{}, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(map[string][]core.EvidenceRecord{}, nil, nil))
 	if result.Status != core.StatusPass {
 		t.Errorf("status = %q; want pass (0 records, min 0%%)", result.Status)
 	}
@@ -181,7 +181,7 @@ func TestPassWhen_Count_ConditionError(t *testing.T) {
 	records := map[string][]core.EvidenceRecord{
 		"keys": {makeRecord("k1", map[string]any{"age": "not-a-number"})},
 	}
-	result := evaluatePassWhen(spec, records, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusError {
 		t.Errorf("status = %q; want error (non-numeric in count condition)", result.Status)
 	}
@@ -198,7 +198,7 @@ func TestPassWhen_None_ConditionError(t *testing.T) {
 	records := map[string][]core.EvidenceRecord{
 		"users": {makeRecord("u1", map[string]any{"present": true})},
 	}
-	result := evaluatePassWhen(spec, records, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusError {
 		t.Errorf("status = %q; want error", result.Status)
 	}
@@ -218,7 +218,7 @@ func TestPassWhen_None_DedupByIdentityKey(t *testing.T) {
 			makeRecord("u1b", map[string]any{"is_admin": true, "email": "a@x.com"}), // dup email
 		},
 	}
-	result := evaluatePassWhen(spec, records, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusFail {
 		t.Fatalf("status = %q; want fail", result.Status)
 	}
@@ -251,7 +251,7 @@ func TestPassWhen_TopLevelFields(t *testing.T) {
 			records := map[string][]core.EvidenceRecord{
 				"users": {makeRecord("u1", map[string]any{})}, // type=directory_user, source=aws.iam
 			}
-			result := evaluatePassWhen(spec, records, nil)
+			result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 			if result.Status != c.want {
 				t.Errorf("field %q: status = %q; want %q", c.field, result.Status, c.want)
 			}
@@ -272,7 +272,7 @@ func TestPassWhen_NestedPayloadPath(t *testing.T) {
 			makeRecord("b2", map[string]any{"encryption": map[string]any{"algorithm": "none"}}),
 		},
 	}
-	result := evaluatePassWhen(spec, records, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusFail {
 		t.Errorf("status = %q; want fail (b2 not AES256)", result.Status)
 	}
@@ -289,7 +289,7 @@ func TestPassWhen_NestedPathThroughScalar_Errors(t *testing.T) {
 	records := map[string][]core.EvidenceRecord{
 		"buckets": {makeRecord("b1", map[string]any{"name": "flat-string"})}, // name is scalar, not object
 	}
-	result := evaluatePassWhen(spec, records, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusError {
 		t.Errorf("status = %q; want error (cannot descend into scalar)", result.Status)
 	}
@@ -306,7 +306,7 @@ func TestPassWhen_ParamsOnFieldSide_Errors(t *testing.T) {
 	records := map[string][]core.EvidenceRecord{
 		"buckets": {makeRecord("b1", map[string]any{"region": "us-east-1"})},
 	}
-	result := evaluatePassWhen(spec, records, map[string]any{"region": "us-east-1"})
+	result := evaluatePassWhen(spec, newEvalCtx(records, map[string]any{"region": "us-east-1"}, nil))
 	if result.Status != core.StatusError {
 		t.Errorf("status = %q; want error ($params not valid on Field side)", result.Status)
 	}
@@ -326,7 +326,7 @@ func TestPassWhen_UnresolvedParamRef_FallsThroughToLiteral(t *testing.T) {
 	}
 	// With no params map, "$params.missing" stays literal; the record's
 	// region equals that literal, so all pass.
-	result := evaluatePassWhen(spec, records, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusPass {
 		t.Errorf("status = %q; want pass (literal compare)", result.Status)
 	}
@@ -345,7 +345,7 @@ func TestPassWhen_IntVsFloat_Equal(t *testing.T) {
 	records := map[string][]core.EvidenceRecord{
 		"keys": {makeRecord("k1", map[string]any{"count": float64(3)})}, // JSON float64
 	}
-	result := evaluatePassWhen(spec, records, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusPass {
 		t.Errorf("status = %q; want pass (int 3 == float64 3)", result.Status)
 	}
@@ -361,7 +361,7 @@ func TestPassWhen_BoolEquality(t *testing.T) {
 	records := map[string][]core.EvidenceRecord{
 		"flags": {makeRecord("f1", map[string]any{"on": true})},
 	}
-	result := evaluatePassWhen(spec, records, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusPass {
 		t.Errorf("status = %q; want pass (true != false)", result.Status)
 	}
@@ -378,7 +378,7 @@ func TestPassWhen_EmptyPayload_FieldAbsentErrors(t *testing.T) {
 	records := map[string][]core.EvidenceRecord{
 		"users": {{ID: "u1", Type: "directory_user"}}, // nil payload
 	}
-	result := evaluatePassWhen(spec, records, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusError {
 		t.Errorf("status = %q; want error (empty payload, field absent)", result.Status)
 	}
@@ -396,7 +396,7 @@ func TestPassWhen_NumericComparison_Int64Param(t *testing.T) {
 		"keys": {makeRecord("k1", map[string]any{"age": float64(10)})},
 	}
 	// int64 RHS exercises the int64 case of toFloat64.
-	result := evaluatePassWhen(spec, records, map[string]any{"max_age": int64(90)})
+	result := evaluatePassWhen(spec, newEvalCtx(records, map[string]any{"max_age": int64(90)}, nil))
 	if result.Status != core.StatusPass {
 		t.Errorf("status = %q; want pass (10 < 90)", result.Status)
 	}
@@ -414,7 +414,7 @@ func TestPassWhen_IdentityKeyAbsent_FallsBackToID(t *testing.T) {
 	records := map[string][]core.EvidenceRecord{
 		"users": {makeRecord("u-fallback", map[string]any{"ok": false})}, // no email
 	}
-	result := evaluatePassWhen(spec, records, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusFail {
 		t.Fatalf("status = %q; want fail", result.Status)
 	}
@@ -434,7 +434,7 @@ func TestPassWhen_ViolationMsg_UnresolvedTokenKept(t *testing.T) {
 	records := map[string][]core.EvidenceRecord{
 		"users": {makeRecord("u1", map[string]any{"ok": false})},
 	}
-	result := evaluatePassWhen(spec, records, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	want := "user u1 field {{.payload.missing}}"
 	if result.Violations[0].Reason != want {
 		t.Errorf("Reason = %q; want %q (unresolved token kept)", result.Violations[0].Reason, want)
@@ -460,7 +460,7 @@ func TestPassWhen_MultipleClauses_ViolationsAccumulate(t *testing.T) {
 		"users":   {makeRecord("u1", map[string]any{"mfa": false})},
 		"buckets": {makeRecord("b1", map[string]any{"encrypted": false})},
 	}
-	result := evaluatePassWhen(spec, records, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusFail {
 		t.Fatalf("status = %q; want fail", result.Status)
 	}
@@ -488,7 +488,7 @@ func TestPassWhen_EarlyClauseError_ShortCircuits(t *testing.T) {
 		"users":   {makeRecord("u1", map[string]any{"present": true})}, // absent field → error
 		"buckets": {makeRecord("b1", map[string]any{"encrypted": true})},
 	}
-	result := evaluatePassWhen(spec, records, nil)
+	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusError {
 		t.Errorf("status = %q; want error (clause 1 errors)", result.Status)
 	}

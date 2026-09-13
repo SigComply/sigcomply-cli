@@ -54,6 +54,8 @@ type slotSpecRaw struct {
 	Cardinality string   `yaml:"cardinality"`
 	Required    bool     `yaml:"required"`
 	Description string   `yaml:"description"`
+	// Role is "" (ordinary), "roster" or "roster_subject". See core.SlotRole.
+	Role string `yaml:"role"`
 }
 
 type paramSpecRaw struct {
@@ -84,6 +86,11 @@ type passWhenConditionRaw struct {
 	Field      string                  `yaml:"field"`
 	Value      any                     `yaml:"value"`
 	Conditions []*passWhenConditionRaw `yaml:"conditions"`
+	// matches_in only.
+	InSlot      string                `yaml:"in_slot"`
+	RemoteField string                `yaml:"remote_field"`
+	Normalize   string                `yaml:"normalize"`
+	Where       *passWhenConditionRaw `yaml:"where"`
 }
 
 // LoadPolicy parses a policy.yaml document and returns the L1
@@ -122,6 +129,7 @@ func policyFromRaw(raw *policySpecRaw) (core.Policy, error) {
 			Cardinality: core.SlotCardinality(s.Cardinality),
 			Required:    s.Required,
 			Description: s.Description,
+			Role:        core.SlotRole(s.Role),
 		}
 	}
 	params := make(map[string]core.ParameterSpec, len(raw.Parameters))
@@ -145,12 +153,9 @@ func policyFromRaw(raw *policySpecRaw) (core.Policy, error) {
 		if err != nil {
 			return core.Policy{}, fmt.Errorf("policy spec %q: pass_when: %w", raw.ID, err)
 		}
-		if err := validateClauseSlotsDeclared(raw.ID, passWhen, slots); err != nil {
-			return core.Policy{}, err
-		}
 	}
 
-	return core.Policy{
+	p := core.Policy{
 		ID:           raw.ID,
 		Controls:     []core.ControlRef{{ControlID: raw.Control, Relationship: core.RelationshipEqual}},
 		Description:  raw.Description,
@@ -166,7 +171,11 @@ func policyFromRaw(raw *policySpecRaw) (core.Policy, error) {
 		EvidenceMode: core.EvidenceMode(raw.EvidenceMode),
 		PassWhen:     passWhen,
 		CatalogEntry: raw.CatalogEntry,
-	}, nil
+	}
+	if err := ValidatePassWhen(p); err != nil {
+		return core.Policy{}, err
+	}
+	return p, nil
 }
 
 // defaultOnPush returns OnPush honoring an explicit YAML value when
@@ -333,133 +342,54 @@ func parsePassWhen(node *yaml.Node) (*core.PassWhenSpec, error) {
 }
 
 // decodePassWhenClause decodes one mapping node into a PassWhenClause.
+// Decoding is strict: the policy-level decoder's KnownFields does not
+// reach inside the pass_when node, and a typo such as "normalise:" would
+// otherwise be dropped silently, leaving a check that compares exactly.
+// Semantic validation happens afterwards, in ValidatePassWhen.
 func decodePassWhenClause(node *yaml.Node) (core.PassWhenClause, error) {
 	var raw passWhenClauseRaw
-	if err := node.Decode(&raw); err != nil {
+	if err := decodeNodeStrict(node, &raw); err != nil {
 		return core.PassWhenClause{}, fmt.Errorf("decode clause: %w", err)
-	}
-	if err := validatePassWhenClause(&raw); err != nil {
-		return core.PassWhenClause{}, err
-	}
-	cond, err := convertCondition(raw.Condition)
-	if err != nil {
-		return core.PassWhenClause{}, fmt.Errorf("condition: %w", err)
-	}
-	filter, err := convertCondition(raw.Filter)
-	if err != nil {
-		return core.PassWhenClause{}, fmt.Errorf("filter: %w", err)
 	}
 	return core.PassWhenClause{
 		Slot:          raw.Slot,
 		Quantifier:    core.PassWhenQuantifier(raw.Quantifier),
-		Condition:     cond,
-		Filter:        filter,
+		Condition:     convertCondition(raw.Condition),
+		Filter:        convertCondition(raw.Filter),
 		ViolationMsg:  raw.ViolationMsg,
 		IdentityKey:   raw.IdentityKey,
 		MinPercentage: raw.MinPercentage,
 	}, nil
 }
 
-var validPassWhenQuantifiers = map[string]struct{}{
-	"all":   {},
-	"none":  {},
-	"any":   {},
-	"count": {},
+// decodeNodeStrict decodes node into out, rejecting unknown keys.
+func decodeNodeStrict(node *yaml.Node, out any) error {
+	b, err := yaml.Marshal(node)
+	if err != nil {
+		return err
+	}
+	dec := yaml.NewDecoder(bytes.NewReader(b))
+	dec.KnownFields(true)
+	return dec.Decode(out)
 }
 
-var validPassWhenOps = map[string]struct{}{
-	"eq":     {},
-	"neq":    {},
-	"lt":     {},
-	"lte":    {},
-	"gt":     {},
-	"gte":    {},
-	"in":     {},
-	"not_in": {},
-	"is_set": {},
-	"all_of": {},
-	"any_of": {},
-}
-
-func validatePassWhenClause(raw *passWhenClauseRaw) error {
-	if raw.Slot == "" {
-		return fmt.Errorf("pass_when clause missing required field \"slot\"")
-	}
-	if raw.Quantifier == "" {
-		return fmt.Errorf("pass_when clause missing required field \"quantifier\"")
-	}
-	if _, ok := validPassWhenQuantifiers[raw.Quantifier]; !ok {
-		return fmt.Errorf("pass_when clause invalid quantifier %q (want all|none|any|count)", raw.Quantifier)
-	}
-	if raw.Quantifier == "count" && raw.MinPercentage == nil {
-		return fmt.Errorf("pass_when clause quantifier \"count\" requires \"min_percentage\"")
-	}
-	if raw.Quantifier != "count" && raw.MinPercentage != nil {
-		return fmt.Errorf("pass_when clause \"min_percentage\" is only valid with quantifier \"count\"")
-	}
-	if raw.Condition == nil {
-		return fmt.Errorf("pass_when clause missing required field \"condition\"")
-	}
-	// Validate the filter too. An invalid filter op (e.g. a typo like
-	// "contains") otherwise loads cleanly and only fails at run time, once
-	// per run, on evidence the operator has already paid to collect. The
-	// runtime is no longer permissive about it — an unevaluable filter
-	// errors the policy rather than excluding every record and passing
-	// vacuously — but catching it at load time still turns a failed run
-	// into a rejected policy file.
-	if raw.Filter != nil {
-		if err := validatePassWhenCondition(raw.Filter); err != nil {
-			return fmt.Errorf("filter: %w", err)
-		}
-	}
-	return validatePassWhenCondition(raw.Condition)
-}
-
-func validatePassWhenCondition(raw *passWhenConditionRaw) error {
-	if raw.Op == "" {
-		return fmt.Errorf("pass_when condition missing required field \"op\"")
-	}
-	if _, ok := validPassWhenOps[raw.Op]; !ok {
-		return fmt.Errorf("pass_when condition invalid op %q", raw.Op)
-	}
-	switch raw.Op {
-	case "all_of", "any_of":
-		if len(raw.Conditions) == 0 {
-			return fmt.Errorf("pass_when condition op %q requires at least one sub-condition in \"conditions\"", raw.Op)
-		}
-		for i, sub := range raw.Conditions {
-			if err := validatePassWhenCondition(sub); err != nil {
-				return fmt.Errorf("conditions[%d]: %w", i, err)
-			}
-		}
-	default:
-		if raw.Field == "" {
-			return fmt.Errorf("pass_when condition op %q requires \"field\"", raw.Op)
-		}
-		if raw.Op != "is_set" && raw.Value == nil {
-			return fmt.Errorf("pass_when condition op %q requires \"value\"", raw.Op)
-		}
-	}
-	return nil
-}
-
-func convertCondition(raw *passWhenConditionRaw) (*core.PassWhenCondition, error) {
+func convertCondition(raw *passWhenConditionRaw) *core.PassWhenCondition {
 	if raw == nil {
-		return nil, nil
+		return nil
 	}
 	cond := &core.PassWhenCondition{
-		Op:    raw.Op,
-		Field: raw.Field,
-		Value: raw.Value,
+		Op:          raw.Op,
+		Field:       raw.Field,
+		Value:       raw.Value,
+		InSlot:      raw.InSlot,
+		RemoteField: raw.RemoteField,
+		Normalize:   raw.Normalize,
+		Where:       convertCondition(raw.Where),
 	}
-	for i, sub := range raw.Conditions {
-		converted, err := convertCondition(sub)
-		if err != nil {
-			return nil, fmt.Errorf("conditions[%d]: %w", i, err)
-		}
-		cond.Conditions = append(cond.Conditions, converted)
+	for _, sub := range raw.Conditions {
+		cond.Conditions = append(cond.Conditions, convertCondition(sub))
 	}
-	return cond, nil
+	return cond
 }
 
 var validCadences = map[string]struct{}{
@@ -549,35 +479,225 @@ func isValidParamType(t string) bool {
 	return ok
 }
 
-// validateClauseSlotsDeclared rejects a pass_when clause naming a slot
-// the policy does not declare.
+// ValidatePassWhen checks a policy's pass_when clauses and slot roles
+// against the DSL's semantic rules. The YAML loader calls it for every
+// project-local policy; each built-in framework's tests call it for every
+// Go-built policy, which never pass through the loader.
 //
-// This is a silent compliance bypass, not a cosmetic typo. The evaluator
-// looks the slot up with slots[clause.Slot]; a name that matches nothing
-// yields an empty record set, and `all`/`none` over an empty set return
-// PASS. So a single mistyped slot name turns a real check into a
-// permanent green tick, with no warning anywhere and resources_evaluated
-// still reporting the untouched records from the slots that did load.
+// It checks: every clause slot and every matches_in in_slot (in
+// condition, filter and nested trees) is declared; operators, fields and
+// values are well-formed; matches_in has in_slot and remote_field, a
+// known normalize, and no matches_in inside its where; the matches_in-only
+// keys appear on no other operator; slot roles are valid, at most one
+// slot is the roster, a roster_subject slot needs a roster slot, and role
+// slots accept disjoint evidence types (a record's envelope path carries
+// no slot name, so an overlap would be ambiguous).
 //
-// Nothing else in the loader catches it: validatePassWhenClause checks
-// only that the name is non-empty, and cross-checking needs both halves
-// of the spec, which only exist together here.
-func validateClauseSlotsDeclared(policyID string, passWhen *core.PassWhenSpec, slots map[string]core.Slot) error {
-	if passWhen == nil {
+//nolint:gocritic // hugeParam: validation-time only; the value signature keeps callers simple.
+func ValidatePassWhen(p core.Policy) error {
+	if err := validateSlotRoles(p.Slots); err != nil {
+		return fmt.Errorf("policy spec %q: %w", p.ID, err)
+	}
+	if p.PassWhen == nil {
 		return nil
 	}
-	for i := range passWhen.Clauses {
-		name := passWhen.Clauses[i].Slot
-		if _, ok := slots[name]; ok {
-			continue
+	for i := range p.PassWhen.Clauses {
+		clause := &p.PassWhen.Clauses[i]
+		if _, ok := p.Slots[clause.Slot]; clause.Slot != "" && !ok {
+			// A silent compliance bypass, not a cosmetic typo: the
+			// evaluator looks the slot up by name, an unmatched name
+			// yields an empty record set, and all/none pass vacuously
+			// over one.
+			return fmt.Errorf("policy spec %q: pass_when clause %d references slot %q, which the policy does not declare (declared slots: %v). An unmatched slot name evaluates an empty record set, and all/none pass vacuously over one — so this would silently pass instead of checking anything",
+				p.ID, i, clause.Slot, declaredSlotNames(p.Slots))
 		}
-		declared := make([]string, 0, len(slots))
-		for s := range slots {
-			declared = append(declared, s)
+		if err := validateClause(clause, p.Slots); err != nil {
+			return fmt.Errorf("policy spec %q: pass_when clause %d: %w", p.ID, i, err)
 		}
-		sort.Strings(declared)
-		return fmt.Errorf("policy spec %q: pass_when clause %d references slot %q, which the policy does not declare (declared slots: %v). An unmatched slot name evaluates an empty record set, and all/none pass vacuously over one — so this would silently pass instead of checking anything",
-			policyID, i, name, declared)
 	}
 	return nil
+}
+
+var validPassWhenQuantifiers = map[core.PassWhenQuantifier]struct{}{
+	core.QuantifierAll:   {},
+	core.QuantifierNone:  {},
+	core.QuantifierAny:   {},
+	core.QuantifierCount: {},
+}
+
+var validPassWhenOps = map[string]struct{}{
+	"eq":             {},
+	"neq":            {},
+	"lt":             {},
+	"lte":            {},
+	"gt":             {},
+	"gte":            {},
+	"in":             {},
+	"not_in":         {},
+	"is_set":         {},
+	"all_of":         {},
+	"any_of":         {},
+	core.OpMatchesIn: {},
+}
+
+func validateClause(clause *core.PassWhenClause, slots map[string]core.Slot) error {
+	if clause.Slot == "" {
+		return fmt.Errorf("pass_when clause missing required field \"slot\"")
+	}
+	if clause.Quantifier == "" {
+		return fmt.Errorf("pass_when clause missing required field \"quantifier\"")
+	}
+	if _, ok := validPassWhenQuantifiers[clause.Quantifier]; !ok {
+		return fmt.Errorf("pass_when clause invalid quantifier %q (want all|none|any|count)", clause.Quantifier)
+	}
+	if clause.Quantifier == core.QuantifierCount && clause.MinPercentage == nil {
+		return fmt.Errorf("pass_when clause quantifier \"count\" requires \"min_percentage\"")
+	}
+	if clause.Quantifier != core.QuantifierCount && clause.MinPercentage != nil {
+		return fmt.Errorf("pass_when clause \"min_percentage\" is only valid with quantifier \"count\"")
+	}
+	if clause.Condition == nil {
+		return fmt.Errorf("pass_when clause missing required field \"condition\"")
+	}
+	// Validate the filter too. An invalid filter op (e.g. a typo like
+	// "contains") otherwise loads cleanly and only fails at run time, once
+	// per run, on evidence the operator has already paid to collect. The
+	// runtime is no longer permissive about it — an unevaluable filter
+	// errors the policy rather than excluding every record and passing
+	// vacuously — but catching it at load time still turns a failed run
+	// into a rejected policy file.
+	if clause.Filter != nil {
+		if err := validateCondition(clause.Filter, slots, false); err != nil {
+			return fmt.Errorf("filter: %w", err)
+		}
+	}
+	if err := validateCondition(clause.Condition, slots, false); err != nil {
+		return fmt.Errorf("condition: %w", err)
+	}
+	return nil
+}
+
+// validateCondition validates one condition tree. inWhere is true inside
+// a matches_in where, where matches_in itself is forbidden: an index may
+// not depend on another index.
+func validateCondition(cond *core.PassWhenCondition, slots map[string]core.Slot, inWhere bool) error {
+	if cond == nil {
+		return fmt.Errorf("pass_when condition is empty")
+	}
+	if cond.Op == "" {
+		return fmt.Errorf("pass_when condition missing required field \"op\"")
+	}
+	if _, ok := validPassWhenOps[cond.Op]; !ok {
+		return fmt.Errorf("pass_when condition invalid op %q", cond.Op)
+	}
+	switch cond.Op {
+	case "all_of", "any_of":
+		if len(cond.Conditions) == 0 {
+			return fmt.Errorf("pass_when condition op %q requires at least one sub-condition in \"conditions\"", cond.Op)
+		}
+		for i, sub := range cond.Conditions {
+			if err := validateCondition(sub, slots, inWhere); err != nil {
+				return fmt.Errorf("conditions[%d]: %w", i, err)
+			}
+		}
+	case core.OpMatchesIn:
+		return validateMatchesIn(cond, slots, inWhere)
+	default:
+		if err := validateLeaf(cond); err != nil {
+			return err
+		}
+	}
+	if cond.InSlot != "" || cond.RemoteField != "" || cond.Normalize != "" || cond.Where != nil {
+		return fmt.Errorf("pass_when condition op %q does not take in_slot, remote_field, normalize or where (only matches_in does)", cond.Op)
+	}
+	return nil
+}
+
+// validateLeaf checks a comparison or is_set condition.
+func validateLeaf(cond *core.PassWhenCondition) error {
+	if cond.Field == "" {
+		return fmt.Errorf("pass_when condition op %q requires \"field\"", cond.Op)
+	}
+	if cond.Op != "is_set" && cond.Value == nil {
+		return fmt.Errorf("pass_when condition op %q requires \"value\"", cond.Op)
+	}
+	return nil
+}
+
+func validateMatchesIn(cond *core.PassWhenCondition, slots map[string]core.Slot, inWhere bool) error {
+	if inWhere {
+		return fmt.Errorf("pass_when condition op %q is not allowed inside where", core.OpMatchesIn)
+	}
+	for _, req := range []struct{ name, value string }{
+		{"field", cond.Field}, {"in_slot", cond.InSlot}, {"remote_field", cond.RemoteField},
+	} {
+		if req.value == "" {
+			return fmt.Errorf("pass_when condition op %q requires %q", core.OpMatchesIn, req.name)
+		}
+	}
+	if _, ok := slots[cond.InSlot]; !ok {
+		return fmt.Errorf("matches_in in_slot %q is not a slot the policy declares (declared slots: %v)", cond.InSlot, declaredSlotNames(slots))
+	}
+	if cond.Normalize != "" && cond.Normalize != core.NormalizeLowerTrim {
+		return fmt.Errorf("matches_in invalid normalize %q (want %q or omit it)", cond.Normalize, core.NormalizeLowerTrim)
+	}
+	if cond.Where != nil {
+		if err := validateCondition(cond.Where, slots, true); err != nil {
+			return fmt.Errorf("where: %w", err)
+		}
+	}
+	return nil
+}
+
+// validateSlotRoles enforces the roster role rules across a policy's slots.
+func validateSlotRoles(slots map[string]core.Slot) error {
+	var roster, roleSlots []string
+	hasSubject := false
+	for _, name := range declaredSlotNames(slots) {
+		switch role := slots[name].Role; role {
+		case core.SlotRoleNone:
+			continue
+		case core.SlotRoleRoster:
+			roster = append(roster, name)
+		case core.SlotRoleRosterSubject:
+			hasSubject = true
+		default:
+			return fmt.Errorf("slot %q invalid role %q (want %q, %q or omit it)", name, role, core.SlotRoleRoster, core.SlotRoleRosterSubject)
+		}
+		roleSlots = append(roleSlots, name)
+	}
+	if len(roster) > 1 {
+		return fmt.Errorf("at most one slot may have role %q (found %v)", core.SlotRoleRoster, roster)
+	}
+	if hasSubject && len(roster) == 0 {
+		return fmt.Errorf("a slot with role %q requires a slot with role %q", core.SlotRoleRosterSubject, core.SlotRoleRoster)
+	}
+	for i, a := range roleSlots {
+		for _, b := range roleSlots[i+1:] {
+			if t, ok := sharedType(slots[a].Accepts, slots[b].Accepts); ok {
+				return fmt.Errorf("slots %q and %q both have a roster role and both accept %q; role slots must accept disjoint evidence types", a, b, t)
+			}
+		}
+	}
+	return nil
+}
+
+func sharedType(a, b []string) (string, bool) {
+	for _, x := range a {
+		for _, y := range b {
+			if x == y {
+				return x, true
+			}
+		}
+	}
+	return "", false
+}
+
+func declaredSlotNames(slots map[string]core.Slot) []string {
+	names := make([]string, 0, len(slots))
+	for s := range slots {
+		names = append(names, s)
+	}
+	sort.Strings(names)
+	return names
 }

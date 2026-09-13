@@ -25,7 +25,7 @@ func TestPassWhen_FilteredToEmpty_IsReportedVacuous(t *testing.T) {
 		makeRecord("u2", map[string]any{"mfa": false, "kind": "service"}),
 	}}
 	spec := allClause(&core.PassWhenCondition{Op: "eq", Field: "payload.kind", Value: "admin"})
-	got := evaluatePassWhen(spec, recs, nil)
+	got := evaluatePassWhen(spec, newEvalCtx(recs, nil, nil))
 
 	if got.Status != core.StatusPass {
 		t.Fatalf("status = %q; want pass (empty set is still vacuously true)", got.Status)
@@ -37,7 +37,7 @@ func TestPassWhen_FilteredToEmpty_IsReportedVacuous(t *testing.T) {
 }
 
 func TestPassWhen_EmptySlot_IsReportedVacuous(t *testing.T) {
-	got := evaluatePassWhen(allClause(nil), map[string][]core.EvidenceRecord{"users": {}}, nil)
+	got := evaluatePassWhen(allClause(nil), newEvalCtx(map[string][]core.EvidenceRecord{"users": {}}, nil, nil))
 	if got.Status != core.StatusPass {
 		t.Fatalf("status = %q; want pass", got.Status)
 	}
@@ -50,7 +50,7 @@ func TestPassWhen_EmptySlot_IsReportedVacuous(t *testing.T) {
 // diagnostic is noise on every passing run.
 func TestPassWhen_RealEvaluation_NotVacuous(t *testing.T) {
 	recs := map[string][]core.EvidenceRecord{"users": {makeRecord("u1", map[string]any{"mfa": true})}}
-	got := evaluatePassWhen(allClause(nil), recs, nil)
+	got := evaluatePassWhen(allClause(nil), newEvalCtx(recs, nil, nil))
 	if got.Status != core.StatusPass {
 		t.Fatalf("status = %q; want pass", got.Status)
 	}
@@ -66,7 +66,7 @@ func TestPassWhen_AnyQuantifier_NotReportedVacuous(t *testing.T) {
 		Quantifier: core.QuantifierAny,
 		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.mfa", Value: true},
 	}}}
-	got := evaluatePassWhen(spec, map[string][]core.EvidenceRecord{"users": {}}, nil)
+	got := evaluatePassWhen(spec, newEvalCtx(map[string][]core.EvidenceRecord{"users": {}}, nil, nil))
 	if got.Status != core.StatusFail {
 		t.Fatalf("status = %q; want fail", got.Status)
 	}

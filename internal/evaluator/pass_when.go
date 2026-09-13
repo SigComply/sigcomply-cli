@@ -13,29 +13,35 @@ import (
 // evaluatePassWhen implements Path B: the pass_when: declarative DSL for
 // evidence_mode: automated policies. Each clause in the spec is evaluated
 // independently; the policy passes iff all clauses pass.
-func evaluatePassWhen(spec *core.PassWhenSpec, slots map[string][]core.EvidenceRecord, params map[string]any) core.RuleResult {
+func evaluatePassWhen(spec *core.PassWhenSpec, ec *evalCtx) core.RuleResult {
 	var allViolations []core.Violation
 	var vacuous []string
 	for i := range spec.Clauses {
 		clause := &spec.Clauses[i]
-		records := slots[clause.Slot]
+		// Every matches_in index is built before any record loop, so an
+		// index that cannot be built errors the policy — even when the
+		// operator sits in a filter.
+		emptyRemote, err := ec.buildIndexes(clause)
+		if err != nil {
+			return conditionErr(err)
+		}
+		records := ec.slots[clause.Slot]
 
 		// Scope first. A filter that cannot be evaluated leaves the
 		// clause's scope unknown, which is an error — see filterRecords.
 		included := records
 		if clause.Filter != nil {
-			var err error
-			included, err = filterRecords(records, clause.Filter, params)
+			included, err = ec.filterRecords(records, clause.Filter)
 			if err != nil {
 				return filterErr(clause, err)
 			}
 		}
 
-		result := evaluateQuantifier(clause, included, params)
+		result := ec.evaluateQuantifier(clause, included)
 		if result.Status == core.StatusError {
 			return result
 		}
-		if reportsVacuity(clause.Quantifier) && len(included) == 0 {
+		if emptyRemote || (reportsVacuity(clause.Quantifier) && len(included) == 0) {
 			vacuous = append(vacuous, clause.Slot)
 		}
 		allViolations = append(allViolations, result.Violations...)
@@ -52,7 +58,9 @@ func evaluatePassWhen(spec *core.PassWhenSpec, slots map[string][]core.EvidenceR
 		// indistinguishable at runtime from a filter that silently
 		// matched nothing, and countResources reports the pre-filter
 		// population, so without this the result reads "all N resources
-		// passed" when N were never looked at.
+		// passed" when N were never looked at. A clause matched against
+		// an empty in_slot is reported for the same reason: it compared
+		// against nothing.
 		sort.Strings(vacuous)
 		out.Diag = map[string]any{"vacuous_clauses": vacuous}
 	}
@@ -70,7 +78,7 @@ func reportsVacuity(q core.PassWhenQuantifier) bool {
 // evaluateQuantifier applies a clause's quantifier to the records that
 // survived its filter. Filtering happens once, in evaluatePassWhen, so
 // the records handed here are already the in-scope set.
-func evaluateQuantifier(clause *core.PassWhenClause, included []core.EvidenceRecord, params map[string]any) core.RuleResult {
+func (ec *evalCtx) evaluateQuantifier(clause *core.PassWhenClause, included []core.EvidenceRecord) core.RuleResult {
 	identityKey := clause.IdentityKey
 	if identityKey == "" {
 		identityKey = "id"
@@ -78,13 +86,13 @@ func evaluateQuantifier(clause *core.PassWhenClause, included []core.EvidenceRec
 
 	switch clause.Quantifier {
 	case core.QuantifierAll:
-		return evaluateAll(clause, included, params, identityKey)
+		return ec.evaluateMatching(clause, included, identityKey, false)
 	case core.QuantifierNone:
-		return evaluateNone(clause, included, params, identityKey)
+		return ec.evaluateMatching(clause, included, identityKey, true)
 	case core.QuantifierAny:
-		return evaluateAny(clause, included, params)
+		return ec.evaluateAny(clause, included)
 	case core.QuantifierCount:
-		return evaluateCount(clause, included, params)
+		return ec.evaluateCount(clause, included)
 	default:
 		return core.RuleResult{
 			Status: core.StatusError,
@@ -93,55 +101,30 @@ func evaluateQuantifier(clause *core.PassWhenClause, included []core.EvidenceRec
 	}
 }
 
-// evaluateAll: policy passes iff every included record satisfies the condition.
-func evaluateAll(clause *core.PassWhenClause, records []core.EvidenceRecord, params map[string]any, identityKey string) core.RuleResult {
+// evaluateMatching implements all (violatesOn=false: a record violates
+// when the condition is false) and none (violatesOn=true: a record
+// violates when the condition is true), deduplicating by identityKey.
+func (ec *evalCtx) evaluateMatching(clause *core.PassWhenClause, records []core.EvidenceRecord, identityKey string, violatesOn bool) core.RuleResult {
 	var violations []core.Violation
 	seen := map[string]struct{}{}
 	for i := range records {
 		rec := &records[i]
-		ok, err := evalCondition(clause.Condition, rec, params)
+		ok, err := ec.evalCondition(clause.Condition, rec)
 		if err != nil {
 			return conditionErr(err)
 		}
-		if !ok {
-			key := recordIdentity(rec, identityKey)
-			if _, dup := seen[key]; dup {
-				continue
-			}
-			seen[key] = struct{}{}
-			violations = append(violations, core.Violation{
-				ResourceID: key,
-				Reason:     renderMsg(clause.ViolationMsg, rec),
-			})
+		if ok != violatesOn {
+			continue
 		}
-	}
-	if len(violations) > 0 {
-		return core.RuleResult{Status: core.StatusFail, Violations: violations}
-	}
-	return core.RuleResult{Status: core.StatusPass}
-}
-
-// evaluateNone: policy passes iff no included record satisfies the condition.
-func evaluateNone(clause *core.PassWhenClause, records []core.EvidenceRecord, params map[string]any, identityKey string) core.RuleResult {
-	var violations []core.Violation
-	seen := map[string]struct{}{}
-	for i := range records {
-		rec := &records[i]
-		ok, err := evalCondition(clause.Condition, rec, params)
-		if err != nil {
-			return conditionErr(err)
+		key := ec.recordIdentity(rec, identityKey)
+		if _, dup := seen[key]; dup {
+			continue
 		}
-		if ok {
-			key := recordIdentity(rec, identityKey)
-			if _, dup := seen[key]; dup {
-				continue
-			}
-			seen[key] = struct{}{}
-			violations = append(violations, core.Violation{
-				ResourceID: key,
-				Reason:     renderMsg(clause.ViolationMsg, rec),
-			})
-		}
+		seen[key] = struct{}{}
+		violations = append(violations, core.Violation{
+			ResourceID: key,
+			Reason:     ec.renderMsg(clause.ViolationMsg, rec),
+		})
 	}
 	if len(violations) > 0 {
 		return core.RuleResult{Status: core.StatusFail, Violations: violations}
@@ -150,17 +133,17 @@ func evaluateNone(clause *core.PassWhenClause, records []core.EvidenceRecord, pa
 }
 
 // evaluateAny: policy passes iff at least one included record satisfies the condition.
-func evaluateAny(clause *core.PassWhenClause, records []core.EvidenceRecord, params map[string]any) core.RuleResult {
+func (ec *evalCtx) evaluateAny(clause *core.PassWhenClause, records []core.EvidenceRecord) core.RuleResult {
 	if len(records) == 0 {
 		return core.RuleResult{
 			Status: core.StatusFail,
 			Violations: []core.Violation{
-				{Reason: renderMsg(clause.ViolationMsg, nil)},
+				{Reason: ec.renderMsg(clause.ViolationMsg, nil)},
 			},
 		}
 	}
 	for i := range records {
-		ok, err := evalCondition(clause.Condition, &records[i], params)
+		ok, err := ec.evalCondition(clause.Condition, &records[i])
 		if err != nil {
 			return conditionErr(err)
 		}
@@ -177,7 +160,7 @@ func evaluateAny(clause *core.PassWhenClause, records []core.EvidenceRecord, par
 }
 
 // evaluateCount: policy passes iff at least MinPercentage% of records satisfy the condition.
-func evaluateCount(clause *core.PassWhenClause, records []core.EvidenceRecord, params map[string]any) core.RuleResult {
+func (ec *evalCtx) evaluateCount(clause *core.PassWhenClause, records []core.EvidenceRecord) core.RuleResult {
 	if len(records) == 0 {
 		// 0 records: 0% pass, which fails any min_percentage > 0.
 		if clause.MinPercentage != nil && *clause.MinPercentage > 0 {
@@ -190,7 +173,7 @@ func evaluateCount(clause *core.PassWhenClause, records []core.EvidenceRecord, p
 	}
 	passing := 0
 	for i := range records {
-		ok, err := evalCondition(clause.Condition, &records[i], params)
+		ok, err := ec.evalCondition(clause.Condition, &records[i])
 		if err != nil {
 			return conditionErr(err)
 		}
@@ -236,10 +219,10 @@ func conditionErr(err error) core.RuleResult {
 // fails to evaluate on every record turns the policy green without
 // examining anything. A filter that legitimately tolerates an absent
 // field says so with is_set, which returns false rather than erroring.
-func filterRecords(records []core.EvidenceRecord, filter *core.PassWhenCondition, params map[string]any) ([]core.EvidenceRecord, error) {
+func (ec *evalCtx) filterRecords(records []core.EvidenceRecord, filter *core.PassWhenCondition) ([]core.EvidenceRecord, error) {
 	out := make([]core.EvidenceRecord, 0, len(records))
 	for i := range records {
-		ok, err := evalCondition(filter, &records[i], params)
+		ok, err := ec.evalCondition(filter, &records[i])
 		if err != nil {
 			return nil, err
 		}
@@ -274,11 +257,11 @@ func filterErr(clause *core.PassWhenClause, err error) core.RuleResult {
 // false rather than erroring. The guard belongs wherever the field is
 // read: a clause filter is not itself an excuse, because an unevaluable
 // filter is an error too (see filterRecords).
-func evalCondition(cond *core.PassWhenCondition, rec *core.EvidenceRecord, params map[string]any) (bool, error) {
+func (ec *evalCtx) evalCondition(cond *core.PassWhenCondition, rec *core.EvidenceRecord) (bool, error) {
 	switch cond.Op {
 	case "all_of":
 		for _, sub := range cond.Conditions {
-			ok, err := evalCondition(sub, rec, params)
+			ok, err := ec.evalCondition(sub, rec)
 			if err != nil {
 				return false, err
 			}
@@ -289,7 +272,7 @@ func evalCondition(cond *core.PassWhenCondition, rec *core.EvidenceRecord, param
 		return true, nil
 	case "any_of":
 		for _, sub := range cond.Conditions {
-			ok, err := evalCondition(sub, rec, params)
+			ok, err := ec.evalCondition(sub, rec)
 			if err != nil {
 				return false, err
 			}
@@ -299,18 +282,20 @@ func evalCondition(cond *core.PassWhenCondition, rec *core.EvidenceRecord, param
 		}
 		return false, nil
 	case "is_set":
-		v, ok := getField(rec, cond.Field)
+		v, ok := ec.getField(rec, cond.Field)
 		return ok && v != nil, nil
+	case core.OpMatchesIn:
+		return ec.matchesIn(cond, rec)
 	}
 
-	lhs, ok := getField(rec, cond.Field)
+	lhs, ok := ec.getField(rec, cond.Field)
 	if !ok {
 		return false, fmt.Errorf(
 			"policy references field %q which is not present on record %q (type %q) — "+
 				"reference a field the evidence type guarantees, or guard it with is_set",
 			cond.Field, rec.ID, rec.Type)
 	}
-	rhs := resolveValue(cond.Value, params)
+	rhs := resolveValue(cond.Value, ec.params)
 	return evalComparisonOp(cond.Op, lhs, rhs)
 }
 
@@ -356,13 +341,17 @@ func evalComparisonOp(op string, lhs, rhs any) (bool, error) {
 // Supported paths:
 //   - "id", "type", "source_id" — top-level record fields
 //   - "payload.<key>.<...>" — dot-path into the JSON payload
+//   - "account.<name>" — virtual account-link fields (see accountlink.go)
 //
 // $params.<name> is NOT resolved here: parameters are only valid on the
 // Value (RHS) side of a condition, where resolveValue expands them. A
 // "$params.*" Field would fall through to the not-found path and error.
-func getField(rec *core.EvidenceRecord, path string) (any, bool) {
+func (ec *evalCtx) getField(rec *core.EvidenceRecord, path string) (any, bool) {
 	if rec == nil {
 		return nil, false
+	}
+	if strings.HasPrefix(path, accountFieldPrefix) {
+		return ec.accountField(rec, strings.TrimPrefix(path, accountFieldPrefix))
 	}
 	switch path {
 	case "id":
@@ -504,11 +493,11 @@ func containsValue(lhs any, list []any) bool {
 
 // recordIdentity returns the value of the identityKey field, falling back
 // to rec.ID when the field is absent or empty.
-func recordIdentity(rec *core.EvidenceRecord, identityKey string) string {
+func (ec *evalCtx) recordIdentity(rec *core.EvidenceRecord, identityKey string) string {
 	if identityKey == "id" || identityKey == "" {
 		return rec.ID
 	}
-	v, ok := getField(rec, identityKey)
+	v, ok := ec.getField(rec, identityKey)
 	if !ok || v == nil {
 		return rec.ID
 	}
@@ -520,7 +509,7 @@ var templateVar = regexp.MustCompile(`\{\{\.([^}]+)\}\}`)
 
 // renderMsg executes a violation_message template against the record context.
 // rec may be nil (e.g. for any/count failures with no specific record).
-func renderMsg(tmpl string, rec *core.EvidenceRecord) string {
+func (ec *evalCtx) renderMsg(tmpl string, rec *core.EvidenceRecord) string {
 	if tmpl == "" || rec == nil {
 		return tmpl
 	}
@@ -536,6 +525,7 @@ func renderMsg(tmpl string, rec *core.EvidenceRecord) string {
 			ctx["payload"] = payload
 		}
 	}
+	ctx["account"] = ec.accountContext(rec)
 	return templateVar.ReplaceAllStringFunc(tmpl, func(match string) string {
 		path := match[3 : len(match)-2] // strip {{ . and }}
 		val, ok := navigateContext(ctx, strings.Split(path, "."))

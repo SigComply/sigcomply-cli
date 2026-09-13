@@ -102,7 +102,9 @@ func evaluateOne(ctx context.Context, pp *planner.PlannedPolicy, in *Input) core
 				result.Diag = map[string]any{"reason": "required slot has no records"}
 				return result
 			}
-			ruleOut = evaluatePassWhen(pp.Spec.PassWhen, slots, pp.Parameters)
+			ec := newEvalCtx(slots, pp.Parameters, pp.Roster)
+			ec.declared = pp.Spec.Slots
+			ruleOut = evaluatePassWhen(pp.Spec.PassWhen, ec)
 		} else {
 			// Path C: rule: escape hatch.
 			if !requiredSlotsPopulated(pp, slots) {
@@ -125,7 +127,7 @@ func evaluateOne(ctx context.Context, pp *planner.PlannedPolicy, in *Input) core
 	if ruleOut.Diag != nil {
 		result.Diag = ruleOut.Diag
 	}
-	result.ResourcesEvaluated, result.ResourcesFailed = countResources(slots, ruleOut.Violations)
+	result.ResourcesEvaluated, result.ResourcesFailed = countResources(slots, ruleOut.Violations, inSlotOnlySlots(pp.Spec.PassWhen))
 	applyResourceException(&result, pp.Exception)
 	return result
 }
@@ -143,10 +145,15 @@ func requiredSlotsPopulated(pp *planner.PlannedPolicy, slots map[string][]core.E
 }
 
 // countResources returns (evaluated, failed) where evaluated is the sum
-// of record counts across all slots and failed is the number of unique
+// of record counts across all slots except those in lookupOnly (slots a
+// pass_when reads only as a matches_in in_slot — a lookup table, not
+// resources under evaluation), and failed is the number of unique
 // resource IDs that appear in violations.
-func countResources(slots map[string][]core.EvidenceRecord, violations []core.Violation) (evaluated, failed int) {
-	for _, recs := range slots {
+func countResources(slots map[string][]core.EvidenceRecord, violations []core.Violation, lookupOnly map[string]struct{}) (evaluated, failed int) {
+	for name, recs := range slots {
+		if _, skip := lookupOnly[name]; skip {
+			continue
+		}
 		evaluated += len(recs)
 	}
 	failedIDs := map[string]struct{}{}
