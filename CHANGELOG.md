@@ -77,6 +77,10 @@ tracks the human-curated highlights.
   `iso27001.8.24.kms_key_rotation`, `iso27001.5.16.inactive_user_accounts`);
   none change verdict on today's sources, which all populate the fields in
   question. A new build-failing test keeps a fourth from appearing.
+- **`in` / `not_in` with a non-list value now errors** rather than matching
+  nothing. `not_in` with a scalar (`value: "write"` instead of
+  `value: ["write"]`) previously returned true for every record, passing the
+  policy without comparing anything. No shipped policy was affected.
 - **Source keys and `catalog_entry` values are now validated** against a
   restrictive grammar (letters, digits, dot, dash, underscore, plus an optional
   `[instance]` suffix). Both become part of an evidence file's object key in the

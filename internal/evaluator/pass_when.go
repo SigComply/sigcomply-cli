@@ -341,10 +341,13 @@ func evalComparisonOp(op string, lhs, rhs any) (bool, error) {
 		default: // gte
 			return cmp >= 0, nil
 		}
-	case "in":
-		return containsValue(lhs, rhs), nil
-	case "not_in":
-		return !containsValue(lhs, rhs), nil
+	case "in", "not_in":
+		list, ok := rhs.([]any)
+		if !ok {
+			return false, fmt.Errorf("operator %q requires a list value, got %T", op, rhs)
+		}
+		found := containsValue(lhs, list)
+		return op == "in" == found, nil
 	}
 	return false, fmt.Errorf("unknown comparison operator %q", op)
 }
@@ -481,14 +484,16 @@ func compareNumeric(a, b any) (int, bool) {
 	}
 }
 
-// containsValue checks whether lhs appears in rhs (which must be a
-// []interface{} for in/not_in semantics). Each element of rhs is compared
-// with deepEqual.
-func containsValue(lhs, rhs any) bool {
-	list, ok := rhs.([]any)
-	if !ok {
-		return false
-	}
+// containsValue checks whether lhs appears in list, comparing each
+// element with deepEqual.
+//
+// The list type is checked by the caller rather than absorbed here. It
+// used to be absorbed — a non-list value simply meant "no match" — which
+// made `not_in` with a scalar value (`value: "write"` instead of
+// `value: ["write"]`) return true for every record, passing the policy
+// without comparing anything. A malformed operand is an authoring error,
+// not a match result.
+func containsValue(lhs any, list []any) bool {
 	for _, item := range list {
 		if deepEqual(lhs, item) {
 			return true

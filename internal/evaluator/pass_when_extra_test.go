@@ -30,22 +30,44 @@ func TestPassWhen_Condition_NotIn(t *testing.T) {
 	}
 }
 
-// in/not_in where the RHS is not a list: containsValue returns false, so
-// `in` never matches (every record violates an `all` of `in`) and
-// `not_in` always matches.
-func TestPassWhen_InWithNonListRHS_NeverMatches(t *testing.T) {
+// in/not_in where the RHS is not a list is an authoring error, not a
+// match result.
+//
+// It used to be absorbed as "no match", which is harmless-looking for
+// `in` but silently inverts `not_in`: writing `value: "write"` instead of
+// `value: ["write"]` made every record satisfy not_in, so the policy
+// passed without comparing anything. Both halves now error.
+func TestPassWhen_InWithNonListRHS_Errors(t *testing.T) {
+	for _, op := range []string{"in", "not_in"} {
+		t.Run(op, func(t *testing.T) {
+			spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+				Slot:       "repos",
+				Quantifier: core.QuantifierAll,
+				Condition:  &core.PassWhenCondition{Op: op, Field: "payload.visibility", Value: "private"}, // RHS not a list
+			}}}
+			records := map[string][]core.EvidenceRecord{
+				"repos": {makeRecord("r1", map[string]any{"visibility": "private"})},
+			}
+			result := evaluatePassWhen(spec, records, nil)
+			if result.Status != core.StatusError {
+				t.Errorf("status = %q; want error (%s needs a list value)", result.Status, op)
+			}
+		})
+	}
+}
+
+// The well-formed list case still evaluates normally.
+func TestPassWhen_InWithListRHS_Matches(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
 		Slot:       "repos",
-		Quantifier: core.QuantifierAny,
-		Condition:  &core.PassWhenCondition{Op: "in", Field: "payload.visibility", Value: "private"}, // RHS not a list
+		Quantifier: core.QuantifierAll,
+		Condition:  &core.PassWhenCondition{Op: "not_in", Field: "payload.visibility", Value: []any{"public"}},
 	}}}
 	records := map[string][]core.EvidenceRecord{
 		"repos": {makeRecord("r1", map[string]any{"visibility": "private"})},
 	}
-	result := evaluatePassWhen(spec, records, nil)
-	// `in` against a non-list RHS can never be satisfied → any fails.
-	if result.Status != core.StatusFail {
-		t.Errorf("status = %q; want fail (in against non-list is never true)", result.Status)
+	if got := evaluatePassWhen(spec, records, nil); got.Status != core.StatusPass {
+		t.Errorf("status = %q; want pass", got.Status)
 	}
 }
 
