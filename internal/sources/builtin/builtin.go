@@ -15,6 +15,7 @@
 package builtin
 
 import (
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/activedirectory"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/accesskeys"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/acm"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/backup"
