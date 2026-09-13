@@ -68,14 +68,14 @@ sigcomply report --period 2026-Q1 --view latest
 | Flag | Values | Notes |
 |------|--------|-------|
 | `--period <id>` | e.g. `2026-Q1` | **Required**; missing → exit 3 |
-| `--view <name>` | `latest` \| `exceptions` \| `integrity` | Default `latest` |
+| `--view <name>` | `latest` \| `exceptions` \| `integrity` \| `scope` | Default `latest` |
 | `--format <fmt>` | `text` \| `json` \| `csv` \| `pdf` | Default `text`; `pdf` is deferred → exit 3 if used |
 | `--out <file>` | path | **Required for non-`text` formats** (else exit 3); `text` prints to stdout |
 | `--vault <uri>` | path, `s3://`, `gs://`, `az://`, `file://` | Point at an external vault |
 | `-f/--framework` | framework id | Defaults to the config framework |
 | `-c/--config <path>` | path | Config file |
 
-### The three views
+### The four views
 
 - **`latest`** — the current pass/fail state for each policy.
 - **`exceptions`** — the register of waivers and not-applicable (NA)
@@ -83,6 +83,11 @@ sigcomply report --period 2026-Q1 --view latest
 - **`integrity`** — run-by-run verification of every signature and the run
   manifest. This is the view an auditor uses to confirm nothing in the vault
   has drifted.
+- **`scope`** — what the run was supposed to cover, and what it actually
+  evaluated: the declared estate (when `experimental.scope` is set) plus
+  every control the run skipped, with the reason. Use it to check that a
+  passing score covers the whole estate rather than the part that happened
+  to be wired up.
 
 ### Examples
 

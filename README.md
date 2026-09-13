@@ -110,7 +110,7 @@ a new source for an existing type needs no policy edits.
 | `sigcomply init` | Scaffold a starter `.sigcomply.yaml` for the chosen framework. |
 | `sigcomply init-ci` | Scaffold per-cadence CI workflow files (SOC 2 in v1-alpha). |
 | `sigcomply build` | Compile a project-tailored binary with `.sigcomply/` Go extensions. |
-| `sigcomply report` | Read-only auditor snapshot of the vault. |
+| `sigcomply report` | Read-only auditor snapshot of the vault (`--view latest\|exceptions\|integrity\|scope`). |
 | `sigcomply evidence catalog` | Print the manual-evidence catalog (`-o text\|json`). |
 | `sigcomply version` | Print version, commit, and build time. |
 

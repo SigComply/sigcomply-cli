@@ -46,7 +46,7 @@ func newReportCmd() *cobra.Command {
 	cmd.Flags().StringVar(&flags.vaultURI, "vault", "", "Vault URI (overrides project config). Supports paths and s3://, gs://, az:// URIs.")
 	cmd.Flags().StringVarP(&flags.framework, "framework", "f", "", "Framework to report on (defaults to project config's framework)")
 	cmd.Flags().StringVar(&flags.period, "period", "", "Period ID (e.g. 2026-Q1). Required.")
-	cmd.Flags().StringVar(&flags.view, "view", "latest", "View: latest | exceptions | integrity")
+	cmd.Flags().StringVar(&flags.view, "view", "latest", "View: latest | exceptions | integrity | scope")
 	cmd.Flags().StringVar(&flags.format, "format", "text", "Output format: text | json | csv | pdf (pdf deferred to v1.x)")
 	cmd.Flags().StringVar(&flags.out, "out", "", "Output file (required for non-text formats; default stdout for text)")
 	return cmd
@@ -188,12 +188,12 @@ func splitBucketPrefix(raw string) (bucket, prefix string) {
 
 func parseView(s string) (report.View, error) {
 	switch report.View(s) {
-	case report.ViewLatest, report.ViewExceptions, report.ViewIntegrity:
+	case report.ViewLatest, report.ViewExceptions, report.ViewIntegrity, report.ViewScope:
 		return report.View(s), nil
 	case "":
 		return report.ViewLatest, nil
 	default:
-		return "", fmt.Errorf("report: invalid --view %q (want latest|exceptions|integrity)", s)
+		return "", fmt.Errorf("report: invalid --view %q (want latest|exceptions|integrity|scope)", s)
 	}
 }
 

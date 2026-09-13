@@ -387,7 +387,7 @@ framework, so exactly one `manual.pdf` source and one bucket per project
 | `sigcomply init` | Wired | Scaffold a starter `.sigcomply.yaml` (`-f` framework, `-o` out path, `--force`); refuses to overwrite without `--force` |
 | `sigcomply init-ci` | Wired | Scaffold CI workflow files calibrated to a framework's cadence distribution (SOC 2 only in v1-alpha; other frameworks exit 3) |
 | `sigcomply build` | Wired | Compile a project-tailored binary with `.sigcomply/` Go extensions |
-| `sigcomply report` | Wired | Read-only auditor snapshot of the vault (`--view latest\|exceptions\|integrity`) |
+| `sigcomply report` | Wired | Read-only auditor snapshot of the vault (`--view latest\|exceptions\|integrity\|scope`) |
 | `sigcomply evidence catalog` | Wired | Print the manual-evidence catalog (`-o text\|json`); `-o json` matches the Evidence SPA contract. Standalone, no project config. `-f` defaults to `$SIGCOMPLY_FRAMEWORK` then `soc2` |
 | `sigcomply version` | Wired | Print version + commit + build time |
 | `sigcomply collect` / `evaluate` | Planned | Collect-only / offline-evaluate modes |

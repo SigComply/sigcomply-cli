@@ -29,6 +29,8 @@ func FormatCSV(w io.Writer, snap *Snapshot) error {
 		return formatCSVExceptions(cw, snap.Exceptions)
 	case ViewIntegrity:
 		return formatCSVIntegrity(cw, snap.Integrity)
+	case ViewScope:
+		return formatCSVScope(cw, snap.Scope)
 	default:
 		return fmt.Errorf("format csv: unsupported view %q", snap.View)
 	}
@@ -111,6 +113,29 @@ func formatCSVIntegrity(cw *csv.Writer, v *IntegrityView) error {
 			row.Error,
 		}
 		if err := cw.Write(out); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// formatCSVScope emits one flat table covering both halves of the view:
+// declared-source rows and skipped-control rows, distinguished by the
+// "kind" column so the file stays a single rectangular CSV.
+func formatCSVScope(cw *csv.Writer, v *ScopeView) error {
+	if err := cw.Write([]string{"kind", "id", "state_or_reason", "status", "declared_by", "declared_at", "run_id"}); err != nil {
+		return err
+	}
+	if v == nil {
+		return nil
+	}
+	for _, s := range v.Sources {
+		if err := cw.Write([]string{"declared_source", s.SourceID, s.State, v.Status, v.DeclaredBy, v.DeclaredAt, v.RunID}); err != nil {
+			return err
+		}
+	}
+	for _, s := range v.Skipped {
+		if err := cw.Write([]string{"skipped_policy", s.PolicyID, oneLine(s.Reason), s.Status, "", "", v.RunID}); err != nil {
 			return err
 		}
 	}

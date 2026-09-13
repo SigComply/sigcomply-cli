@@ -114,11 +114,19 @@ Read-only vault snapshot. Never writes to the vault, never calls the cloud, neve
 | `--vault <uri>` | | | Vault location — paths or `s3://`, `gs://`, `az://`, `file://` |
 | `--framework <value>` | `-f` | Config framework | Framework |
 | `--period <id>` | | | **Required** (e.g. `2026-Q1`); missing → exit 3 |
-| `--view <value>` | | `latest` | `latest`, `exceptions`, or `integrity` |
+| `--view <value>` | | `latest` | `latest`, `exceptions`, `integrity`, or `scope` |
 | `--format <value>` | | `text` | `text`, `json`, `csv`, `pdf` (`pdf` deferred to v1.x → exit 3 if used) |
 | `--out <file>` | | | Required for non-text formats (else exit 3); text goes to stdout |
 
-Views: `latest` = current pass/fail state per policy; `exceptions` = the waivers/NA register; `integrity` = run-by-run signature/manifest verification.
+Views: `latest` = current pass/fail state per policy; `exceptions` = the waivers/NA register; `integrity` = run-by-run signature/manifest verification; `scope` = what the run was supposed to cover and what it actually evaluated.
+
+`--view scope` answers the question the other views assume away: *did this
+run look at everything it should have?* It shows the declared estate and
+how each declared source fared (for projects that set
+`experimental.scope`), plus every control the latest run did **not**
+evaluate, with the reason. That second half renders whether or not an
+estate was declared — a skipped control leaves the compliance-score
+denominator entirely, so it is exactly what an all-green run can hide.
 
 ## `sigcomply evidence catalog`
 

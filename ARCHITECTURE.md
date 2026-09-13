@@ -22,7 +22,7 @@ The product ships as two intentionally decoupled pieces:
 - **The CLI (open source, free)** — what this document specifies. Runs
   per-invocation: collect → check → write vault → submit counts. Stateless;
   no DB; no shared state across runs. Snapshot reporting against the vault
-  (`sigcomply report --view latest|exceptions|integrity`).
+  (`sigcomply report --view latest|exceptions|integrity|scope`).
 - **SigComply Cloud / Rails app (paid)** — receives per-run aggregated
   counts via the privacy-preserving `SubmissionPayload`, stores them over
   time in a Rails-backed DB (stripped of all sensitive information per the

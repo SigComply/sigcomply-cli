@@ -31,6 +31,8 @@ func FormatText(w io.Writer, snap *Snapshot) error {
 		return formatTextExceptions(w, snap.Exceptions)
 	case ViewIntegrity:
 		return formatTextIntegrity(w, snap.Integrity)
+	case ViewScope:
+		return formatTextScope(w, snap.Scope)
 	default:
 		return fmt.Errorf("format text: unsupported view %q", snap.View)
 	}
@@ -119,4 +121,56 @@ func dash(s string) string {
 // in a single tabwriter row.
 func oneLine(s string) string {
 	return strings.NewReplacer("\n", " ", "\r", " ", "\t", " ").Replace(s)
+}
+
+func formatTextScope(w io.Writer, v *ScopeView) error {
+	if v == nil {
+		_, err := fmt.Fprintln(w, "(no runs in this period)")
+		return err
+	}
+
+	if !v.Declared {
+		if _, err := fmt.Fprintln(w, "Declared estate: none (experimental.scope not set)"); err != nil {
+			return err
+		}
+	} else {
+		if _, err := fmt.Fprintf(w, "Declared estate: %s (by %s on %s)\n",
+			dash(v.Status), dash(v.DeclaredBy), dash(v.DeclaredAt)); err != nil {
+			return err
+		}
+		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+		if _, err := fmt.Fprintln(tw, "SOURCE\tSTATE"); err != nil {
+			return err
+		}
+		for _, s := range v.Sources {
+			if _, err := fmt.Fprintf(tw, "%s\t%s\n", s.SourceID, s.State); err != nil {
+				return err
+			}
+		}
+		if err := tw.Flush(); err != nil {
+			return err
+		}
+	}
+
+	if len(v.Skipped) == 0 {
+		_, err := fmt.Fprintln(w, "\nEvery control in the latest run was evaluated.")
+		return err
+	}
+
+	// Skips are the half that matters even with no declaration: they
+	// leave the compliance-score denominator, so they are precisely what
+	// a green run can hide.
+	if _, err := fmt.Fprintf(w, "\n%d control(s) NOT evaluated in the latest run (excluded from the compliance score):\n", len(v.Skipped)); err != nil {
+		return err
+	}
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	if _, err := fmt.Fprintln(tw, "POLICY\tREASON"); err != nil {
+		return err
+	}
+	for _, s := range v.Skipped {
+		if _, err := fmt.Fprintf(tw, "%s\t%s\n", s.PolicyID, oneLine(s.Reason)); err != nil {
+			return err
+		}
+	}
+	return tw.Flush()
 }

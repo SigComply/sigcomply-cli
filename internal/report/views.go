@@ -35,6 +35,7 @@ const (
 	ViewLatest     View = "latest"
 	ViewExceptions View = "exceptions"
 	ViewIntegrity  View = "integrity"
+	ViewScope      View = "scope"
 )
 
 // Snapshot is the top-level result of Build. Exactly one of the
@@ -52,6 +53,52 @@ type Snapshot struct {
 	Latest     *LatestView     `json:",omitempty"`
 	Exceptions *ExceptionsView `json:",omitempty"`
 	Integrity  *IntegrityView  `json:",omitempty"`
+	Scope      *ScopeView      `json:",omitempty"`
+}
+
+// ScopeView answers "what was this run supposed to cover, and did it?"
+//
+// Two independent things live here because they answer the same auditor
+// question from opposite ends. Sources is the estate the operator
+// declared and how each declared entry actually fared — present only for
+// projects that opted in by declaring one. Skipped is every control the
+// run did not evaluate, with the reason, which is available for every
+// project whether or not an estate was declared.
+//
+// The second matters on its own: a skipped control leaves the
+// compliance-score denominator entirely, so a run can go green while
+// quietly evaluating nothing.
+type ScopeView struct {
+	// Declared reports whether the run carried an estate declaration.
+	// False for runs written before scope existed, and for projects that
+	// have not opted in.
+	Declared bool
+	// Status is the run-level verdict: complete, incomplete, or empty
+	// when nothing was declared.
+	Status string
+	// DeclaredBy/DeclaredAt are the operator's audit trail.
+	DeclaredBy string
+	DeclaredAt string
+	// RunID is the run this verdict came from — the latest in the period.
+	RunID string
+
+	// Sources is one row per declared source, sorted by ID.
+	Sources []ScopeSource
+	// Skipped is one row per unevaluated control, sorted by policy ID.
+	Skipped []SkippedPolicy
+}
+
+// ScopeSource is one declared source and how it fared.
+type ScopeSource struct {
+	SourceID string
+	State    string
+}
+
+// SkippedPolicy is one control the run did not evaluate.
+type SkippedPolicy struct {
+	PolicyID string
+	Status   string
+	Reason   string
 }
 
 // LatestView is the latest-wins per-policy roll-up for the period. One

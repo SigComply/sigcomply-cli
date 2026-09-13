@@ -71,8 +71,14 @@ func Build(ctx context.Context, in *Input) (*Snapshot, error) {
 		snap.Exceptions = buildExceptions(runs)
 	case ViewIntegrity:
 		snap.Integrity = buildIntegrity(ctx, in.Vault, runs)
+	case ViewScope:
+		v, err := buildScope(ctx, in.Vault, runs)
+		if err != nil {
+			return nil, err
+		}
+		snap.Scope = v
 	default:
-		return nil, fmt.Errorf("%w: %q (want latest|exceptions|integrity)", ErrUnknownView, in.View)
+		return nil, fmt.Errorf("%w: %q (want latest|exceptions|integrity|scope)", ErrUnknownView, in.View)
 	}
 	return snap, nil
 }
