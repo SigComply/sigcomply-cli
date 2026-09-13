@@ -194,7 +194,15 @@ reports) flow through the same path.
 **What it explicitly does NOT do** (all deliberate — content review is
 the auditor's job): no PDF content audit / text extraction / signature
 or expiry parsing; no semantic-correctness check (wrong-but-valid PDF
-passes); no scope/completeness check; no fraud detection.
+passes); no check that the *contents* of a document cover the control's
+full scope; no fraud detection.
+
+(That last point is about document contents only. Estate-level
+completeness — "was every source this project claims to cover actually
+reached?" — is a separate, opt-in, run-level check; see
+`internal/scope` and `experimental.scope` in
+[docs/configuration.md](./docs/configuration.md). It never inspects a
+PDF.)
 
 **Why v1 stops here:** the product is custody-of-evidence, not
 content-validator. Richer inspection (text extraction, etc.) is exactly

@@ -86,3 +86,7 @@ credentials.json
 
 # Build artifacts
 __debug_bin
+
+# Internal architectural backlog — competitive analysis and paid-tier
+# strategy. This repo is public: never commit it.
+issues_to_fix.md

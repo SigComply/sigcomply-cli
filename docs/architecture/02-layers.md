@@ -371,7 +371,10 @@ evaluation declaration the policy carries.
 
 1. Skip if the policy is fully covered by a `na` or `waived` exception.
 2. Skip with status `skip` if required slots have no records (e.g.
-   collector returned empty for an automated policy).
+   collector returned empty for an automated policy). Note this reads
+   *records*, not bindings, so it cannot distinguish "no source was
+   configured" from "a configured source returned nothing" — L9 recovers
+   that distinction from the plan for the scope report.
 3. Mark `error` if any of the policy's source bindings produced an
    error in L4.
 4. Otherwise — evaluate via the appropriate path:

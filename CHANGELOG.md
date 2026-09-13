@@ -13,6 +13,21 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **Declared estate / scope completeness.** A new opt-in
+  `experimental.scope.required_sources` block in `.sigcomply.yaml` lets you
+  declare the sources a project asserts coverage over. Any declared source that
+  is not configured, not bound by a policy slot, or returns no records makes the
+  run report `SCOPE INCOMPLETE` and exit `1`. This closes a false-green: because
+  a policy with no configured source is skipped and skips leave the
+  compliance-score denominator, forgetting to wire a platform previously *raised*
+  your score instead of lowering it. Entirely opt-in — with no declaration there
+  is no new output, no new exit code, and `summary.json` keeps its previous
+  shape. The verdict is written to `summary.json` (covered by the run manifest
+  signature) and never crosses the aggregation boundary.
+- **`sigcomply report --view scope`.** Shows the declared estate and how each
+  declared source fared, plus every control the latest run did *not* evaluate
+  and why. The skip half renders even with no declaration — skipped controls
+  leave the compliance score, so they are exactly what an all-green run hides.
 - `check` now prints a short banner naming the sources it will collect from (and
   their region/backend) before making any API call, so it's clear the run reaches
   real infrastructure. Credentials are never printed.
@@ -25,6 +40,19 @@ tracks the human-curated highlights.
 
 ### Changed
 
+- **A `pass_when` clause naming a slot the policy does not declare is now a
+  load-time error.** Previously the slot lookup missed, yielded an empty record
+  set, and `all`/`none` passed vacuously — one mistyped slot name silently turned
+  a real check into a permanent green tick. Affects customer-authored policies
+  under `.sigcomply/policies/` only; every shipped policy sets the slot name
+  itself and cannot hit this.
+- **Passes that examined no resource are now reported.** `all`/`none` are true of
+  the empty set, so a clause whose slot is empty or whose filter matched nothing
+  passes. That is often correct ("no public bucket is unencrypted" when none are
+  public), so it is still a pass — but results now carry
+  `diag.vacuous_clauses` and `check` explains such a pass inline. Previously
+  `resources_evaluated` reported the *pre-filter* population, so a policy that
+  filtered 500 records to zero rendered as "all 500 resources passed".
 - CI examples and `init-ci` templates now default `SIGCOMPLY_VERSION` to a pinned
   release tag instead of `latest`, so a new release can't auto-propagate to every
   tester's next CI run. Set it to `latest` to opt back into always-newest.

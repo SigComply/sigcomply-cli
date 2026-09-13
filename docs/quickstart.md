@@ -127,7 +127,13 @@ address, which is **normal and expected on a first run**. In particular:
 - **Controls whose source you haven't configured are `skip`ped** (e.g. GitHub or
   GCP checks when you only wired AWS). Skipped controls are listed separately and
   are **not** counted in the compliance score — a green run that skips controls is
-  not a passing audit.
+  not a passing audit. Note the direction of that effect: because skipped
+  controls leave the denominator, forgetting a platform *raises* your score
+  rather than lowering it. Once your sources are wired, declare the estate
+  under [`experimental.scope`](./configuration.md#experimentalscope--declaring-the-estate)
+  so a source that goes missing becomes a finding instead of silence, and
+  run `sigcomply report --view scope` to see exactly what a run did not
+  evaluate.
 
 A fresh `sigcomply init -f soc2 && sigcomply check` therefore exits `1` (findings
 to remediate), never `2` — every control either evaluates, fails with an
