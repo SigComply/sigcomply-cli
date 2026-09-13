@@ -59,7 +59,10 @@ pre-push:
   commands:
     lint:
       name: golangci-lint
-      run: golangci-lint run ./...
+      # Via make so it uses the mise-pinned binary (see Makefile GOLINT).
+      # A bare `golangci-lint` here picked up whatever was on $PATH, which
+      # for a Go 1.26 module means a hard config error on every push.
+      run: make lint
 
     test:
       name: Unit tests

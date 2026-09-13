@@ -17,8 +17,14 @@ GOTEST := $(GOCMD) test
 GOMOD := $(GOCMD) mod
 GOFMT := gofmt
 # Needs golangci-lint >= v2.11 (the version CI pins in test.yml): older
-# builds are compiled with Go 1.25 and refuse to load this Go 1.26 module.
-GOLINT := golangci-lint
+# builds are compiled with Go 1.25 and refuse to load this Go 1.26 module
+# at all, failing with a config error before it reads a line of code. A
+# bare $(PATH) lookup therefore made `make lint` — and both git hooks
+# that call it — fail on every invocation regardless of the code, which
+# only taught people to pass --no-verify. Prefer the version pinned in
+# mise.toml; fall back to $(PATH), and override with
+# `make lint GOLINT=/path/to/golangci-lint`.
+GOLINT ?= $(shell mise which golangci-lint 2>/dev/null || command -v golangci-lint)
 
 # Default target
 .DEFAULT_GOAL := help

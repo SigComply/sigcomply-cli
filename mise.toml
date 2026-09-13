@@ -1,2 +1,8 @@
+# Pinned toolchain. Keep in lockstep with .github/workflows/test.yml —
+# a local lint against an older golangci-lint is worse than none: builds
+# before v2.11 are compiled with Go 1.25 and refuse to load this module
+# outright, which is what made the git hooks fail on every push
+# regardless of the code.
 [tools]
-go = "1.22.6"
+go = "1.26"
+golangci-lint = "2.11.4"
