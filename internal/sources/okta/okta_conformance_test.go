@@ -14,6 +14,9 @@ import (
 // sanitized go-vcr cassette recorded against a real Okta org through the real
 // deserializer and the shared sourcetest harness — schema, completeness,
 // determinism, metadata — for directory_user and okta_app records, offline.
+// roster_entry replays a separate hand-authored cassette (roster_collect) —
+// the seeded org has no deprovisioned user, and org_collect stays a faithful
+// recording — covering both listing passes and every status bucket.
 //
 // Re-record (maintainer step; the SSWS auth header is scrubbed on save):
 // build an httpAPI around sourcetest.RecordClient and Collect against a live
@@ -23,16 +26,20 @@ const (
 	cassetteOrg  = "example.okta.com"
 )
 
-func TestOktaConformance(t *testing.T) {
+// newCassettePlugin builds the real plugin around a replayed cassette.
+func newCassettePlugin(t *testing.T, cassette string) core.SourcePlugin {
+	t.Helper()
 	fixedNow := time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC)
-	newPlugin := func() core.SourcePlugin {
-		api := &httpAPI{
-			base:   cassetteBase,
-			token:  "test-token", // ignored on replay (auth header is REDACTED)
-			client: sourcetest.ReplayClient(t, "testdata/cassettes/org_collect"),
-		}
-		return New(Options{API: api, Org: cassetteOrg, Now: func() time.Time { return fixedNow }})
+	api := &httpAPI{
+		base:   cassetteBase,
+		token:  "test-token", // ignored on replay (auth header is REDACTED)
+		client: sourcetest.ReplayClient(t, cassette),
 	}
+	return New(Options{API: api, Org: cassetteOrg, Now: func() time.Time { return fixedNow }})
+}
+
+func TestOktaConformance(t *testing.T) {
+	newPlugin := func() core.SourcePlugin { return newCassettePlugin(t, "testdata/cassettes/org_collect") }
 	types := sourcetest.BuiltinEvidenceTypes(t)
 
 	// directory_user: Okta's user/factor/role endpoints don't expose these
@@ -74,9 +81,10 @@ func TestOktaConformance(t *testing.T) {
 	assertFederatedApps(t, apps)
 }
 
-// assertUserAggregates checks the seeded-org invariants: 3 users, exactly one
-// active (only status ACTIVE maps to is_active), at least one admin, and
-// exactly one MFA-enrolled (the org is seeded with a single MFA user).
+// assertUserAggregates checks the seeded-org invariants: 3 users, two active
+// (ACTIVE and PASSWORD_EXPIRED map to is_active; PROVISIONED does not), at
+// least one admin, and exactly one MFA-enrolled (the org is seeded with a
+// single MFA user).
 func assertUserAggregates(t *testing.T, users map[string]userPayload) {
 	t.Helper()
 	var active, admins, mfa int
@@ -95,12 +103,55 @@ func assertUserAggregates(t *testing.T, users map[string]userPayload) {
 	switch {
 	case len(users) != 3:
 		t.Errorf("directory_user records = %d, want 3", len(users))
-	case active != 1:
-		t.Errorf("active users = %d, want 1 (only status ACTIVE maps to is_active)", active)
+	case active != 2:
+		t.Errorf("active users = %d, want 2 (ACTIVE + PASSWORD_EXPIRED map to is_active; PROVISIONED does not)", active)
 	case admins < 1:
 		t.Errorf("admin users = %d, want >= 1 (org has an admin)", admins)
 	case mfa != 1:
 		t.Errorf("mfa-enabled users = %d, want 1 (org seeded with 1 MFA user)", mfa)
+	}
+}
+
+// TestOktaRosterConformance replays roster_collect: a two-page default listing
+// (ACTIVE, STAGED, SUSPENDED, LOCKED_OUT) plus the DEPROVISIONED filter pass,
+// with no per-user factor/role calls recorded — any such call would miss the
+// cassette and fail the replay.
+func TestOktaRosterConformance(t *testing.T) {
+	recs := sourcetest.RunConformance(t, &sourcetest.Options{
+		Plugin:        newCassettePlugin(t, "testdata/cassettes/roster_collect"),
+		Request:       core.SlotRequest{AcceptedTypes: []string{EvidenceTypeRosterEntry}},
+		EvidenceTypes: sourcetest.BuiltinEvidenceTypes(t),
+		OptionalFields: []string{
+			"roster_entry.is_service_account", // Okta has no service-account flag on users
+			"roster_entry.employee_id",        // employeeNumber is optional per user
+			"roster_entry.employee_type",      // userType is optional per user
+		},
+	})
+	want := map[string]struct{ status, sourceStatus, displayName string }{
+		"00uRosterActive00698": {rosterActive, "ACTIVE", "Ada Example"},
+		"00uRosterStaged00698": {rosterPending, "STAGED", "Carol Example"},
+		"00uRosterSuspend0698": {rosterInactive, "SUSPENDED", "Dave Example"},
+		"00uRosterLocked00698": {rosterActive, "LOCKED_OUT", "frank@example.com"}, // no names → login
+		"00uRosterDeprov00698": {rosterInactive, "DEPROVISIONED", "Erin Example"},
+	}
+	if len(recs) != len(want) {
+		t.Fatalf("roster_entry records = %d, want %d", len(recs), len(want))
+	}
+	for _, r := range recs {
+		var p rosterPayload
+		mustUnmarshal(t, r.Payload, &p)
+		w, ok := want[r.ID]
+		if !ok {
+			t.Errorf("unexpected roster entry %q", r.ID)
+			continue
+		}
+		if p.Status != w.status || p.SourceStatus != w.sourceStatus || p.DisplayName != w.displayName {
+			t.Errorf("%s = %s/%s/%q, want %s/%s/%q", r.ID, p.Status, p.SourceStatus, p.DisplayName,
+				w.status, w.sourceStatus, w.displayName)
+		}
+		if r.IdentityKey == "" || r.IdentityKey != p.Email {
+			t.Errorf("%s IdentityKey = %q, want lowercased email %q", r.ID, r.IdentityKey, p.Email)
+		}
 	}
 }
 

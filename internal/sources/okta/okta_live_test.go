@@ -13,8 +13,9 @@ import (
 
 // okta_live_test.go: L4a Okta live drift test (WU-4.4). Runs the real plugin
 // against a live Okta org and schema-validates every record (users, MFA factors,
-// SAML/OIDC apps), catching upstream shape changes and mapper regressions on the
-// scheduled run. Gated on credentials; skips cleanly without them.
+// SAML/OIDC apps, roster entries incl. the DEPROVISIONED filter pass), catching
+// upstream shape changes and mapper regressions on the scheduled run. Gated on
+// credentials; skips cleanly without them.
 //
 //	OKTA_TEST_TOKEN    a long-lived Okta API token (SSWS scheme)
 //	OKTA_TEST_ORG_URL  the org base URL, e.g. https://example.okta.com
@@ -51,5 +52,10 @@ func TestOktaLive(t *testing.T) {
 	}
 	if counts[EvidenceTypeApp] < 1 {
 		t.Errorf("okta_app = %d, want >= 1", counts[EvidenceTypeApp])
+	}
+	// roster_entry comes from the lean two-pass listing (okta.users.read only);
+	// the org's own users guarantee at least one entry.
+	if counts[EvidenceTypeRosterEntry] < 1 {
+		t.Errorf("roster_entry = %d, want >= 1", counts[EvidenceTypeRosterEntry])
 	}
 }

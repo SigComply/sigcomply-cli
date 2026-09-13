@@ -15,13 +15,24 @@ import (
 
 // fakeAPI drives the plugin without real network calls.
 type fakeAPI struct {
-	users   []User
-	apps    []App
-	userErr error
-	appErr  error
+	users     []User
+	apps      []App
+	roster    []RosterUser
+	userErr   error
+	appErr    error
+	rosterErr error
 
-	listUsersCount int
-	listAppsCount  int
+	listUsersCount  int
+	listAppsCount   int
+	listRosterCount int
+}
+
+func (f *fakeAPI) ListRosterUsers(_ context.Context) ([]RosterUser, error) {
+	f.listRosterCount++
+	if f.rosterErr != nil {
+		return nil, f.rosterErr
+	}
+	return f.roster, nil
 }
 
 func (f *fakeAPI) ListUsers(_ context.Context) ([]User, error) {
@@ -46,7 +57,7 @@ func TestPlugin_IDAndEmits(t *testing.T) {
 		t.Errorf("ID = %q; want %q", p.ID(), SourceID)
 	}
 	em := p.Emits()
-	if len(em) != 2 || em[0] != EvidenceTypeDirectoryUser || em[1] != EvidenceTypeApp {
+	if len(em) != 3 || em[0] != EvidenceTypeDirectoryUser || em[1] != EvidenceTypeApp || em[2] != EvidenceTypeRosterEntry {
 		t.Errorf("Emits = %v", em)
 	}
 }
@@ -163,7 +174,7 @@ func TestCollectApps_HappyPath_SortsByID(t *testing.T) {
 
 func TestCollect_NoData(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
-	for _, et := range []string{EvidenceTypeDirectoryUser, EvidenceTypeApp} {
+	for _, et := range []string{EvidenceTypeDirectoryUser, EvidenceTypeApp, EvidenceTypeRosterEntry} {
 		recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{et}})
 		if err != nil {
 			t.Fatalf("Collect %s: %v", et, err)

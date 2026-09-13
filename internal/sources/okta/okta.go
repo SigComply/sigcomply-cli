@@ -1,7 +1,8 @@
 // Package okta implements the okta source plugin: lists users and
-// applications from a single Okta organization and emits two evidence
-// types — okta_user and okta_app — suitable for SOC 2 MFA coverage
-// policies.
+// applications from a single Okta organization and emits three evidence
+// types — directory_user and okta_app (SOC 2 MFA coverage policies) and
+// roster_entry (Okta as the organization's authoritative workforce roster,
+// including deprovisioned users).
 //
 // Per the KISS-no-DRY axiom (docs/architecture/04-source-plugins.md
 // §The plugin contract), the plugin caches nothing across Collect
@@ -34,10 +35,20 @@ import (
 // Okta is one of several substitutable directory sources (AWS IAM,
 // GitHub, future Azure AD/LDAP). EvidenceTypeApp is Okta-specific —
 // SAML/OIDC app catalogs differ enough across vendors that no
-// cross-vendor abstraction exists yet.
+// cross-vendor abstraction exists yet. EvidenceTypeRosterEntry is the
+// cross-vendor workforce-roster shape (one entry per person, with a
+// normalized lifecycle status).
 const (
 	EvidenceTypeDirectoryUser = "directory_user"
 	EvidenceTypeApp           = "okta_app"
+	EvidenceTypeRosterEntry   = "roster_entry"
+)
+
+// Normalized roster_entry status values (the schema's closed enum).
+const (
+	rosterActive   = "active"
+	rosterPending  = "pending"
+	rosterInactive = "inactive"
 )
 
 // SourceID is the registered ID for the okta plugin instance.
@@ -67,6 +78,30 @@ type App struct {
 	Label       string
 	SignOnMode  string
 	MFARequired bool
+}
+
+// RosterUser is the subset of an Okta user the roster_entry mapping reads.
+// It is deliberately lean (no factors, no roles): the roster path makes no
+// per-user calls. Status is Okta's raw lifecycle status (ACTIVE, STAGED,
+// DEPROVISIONED, …).
+type RosterUser struct {
+	ID             string
+	Status         string
+	Email          string
+	FirstName      string
+	LastName       string
+	Login          string
+	EmployeeNumber string
+	UserType       string
+}
+
+// RosterAPI lists every user in the org for the roster, including
+// DEPROVISIONED users (which Okta's default user listing omits). It is a
+// separate interface from API so existing API implementations (test stubs in
+// other packages) keep compiling; the concrete *httpAPI satisfies both, and
+// Collect type-asserts for it only when a slot accepts roster_entry.
+type RosterAPI interface {
+	ListRosterUsers(ctx context.Context) ([]RosterUser, error)
 }
 
 // API is the subset of the Okta API the plugin uses. Defining it as
@@ -132,7 +167,7 @@ func (*Plugin) ID() string { return SourceID }
 
 // Emits returns the evidence types this plugin can produce.
 func (*Plugin) Emits() []string {
-	return []string{EvidenceTypeDirectoryUser, EvidenceTypeApp}
+	return []string{EvidenceTypeDirectoryUser, EvidenceTypeApp, EvidenceTypeRosterEntry}
 }
 
 // Init is a no-op; configuration arrives via the constructor.
@@ -141,7 +176,11 @@ func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 // userPayload is the directory_user shape this plugin emits. Cross-
 // vendor fields map to Okta concepts as follows:
 //   - mfa_enabled: derived from MFAFactorCount > 0
-//   - is_active:   derived from Status == "ACTIVE"
+//   - is_active:   true when Status is one in which the user can still sign
+//     in — ACTIVE, RECOVERY, PASSWORD_EXPIRED, LOCKED_OUT — the same set that
+//     maps to roster_entry status=active (see rosterStatus). A locked-out or
+//     password-expired account is still a live credential; STAGED,
+//     PROVISIONED, SUSPENDED and DEPROVISIONED are not active.
 //   - is_admin:    derived from len(AdminRoles) > 0 (any Okta admin-role
 //     assignment — SUPER_ADMIN, ORG_ADMIN, READ_ONLY_ADMIN, …)
 //   - display_name: best-effort, falls back to email
@@ -183,32 +222,49 @@ type appPayload struct {
 	MFARequired bool   `json:"mfa_required"`
 }
 
+// rosterPayload is the roster_entry shape this plugin emits. Optional
+// strings are omitted when empty: the schema requires minLength 1 and
+// forbids additional properties (data minimisation).
+type rosterPayload struct {
+	ID           string `json:"id"`
+	Status       string `json:"status"`
+	Email        string `json:"email,omitempty"`
+	DisplayName  string `json:"display_name,omitempty"`
+	EmployeeID   string `json:"employee_id,omitempty"`
+	EmployeeType string `json:"employee_type,omitempty"`
+	SourceStatus string `json:"source_status,omitempty"`
+}
+
 // Collect returns records for every evidence type in req.AcceptedTypes
-// that this plugin emits. A slot whose Accepts list includes both
-// okta types gets records for both in a single call. Records are
+// that this plugin emits. A slot whose Accepts list includes several
+// okta types gets records for each in a single call. Records are
 // sorted by ID within each type group; the collector splits them by
 // Type for envelope writing.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	wantUsers := req.Accepts(EvidenceTypeDirectoryUser)
-	wantApps := req.Accepts(EvidenceTypeApp)
-	if !wantUsers && !wantApps {
-		return nil, fmt.Errorf("okta: AcceptedTypes %v does not include emitted types %q,%q",
-			req.AcceptedTypes, EvidenceTypeDirectoryUser, EvidenceTypeApp)
+	collectors := []struct {
+		typ     string
+		collect func(context.Context) ([]core.EvidenceRecord, error)
+	}{
+		{EvidenceTypeDirectoryUser, p.collectUsers},
+		{EvidenceTypeApp, p.collectApps},
+		{EvidenceTypeRosterEntry, p.collectRoster},
 	}
 	var out []core.EvidenceRecord
-	if wantUsers {
-		rs, err := p.collectUsers(ctx)
+	matched := false
+	for _, c := range collectors {
+		if !req.Accepts(c.typ) {
+			continue
+		}
+		matched = true
+		rs, err := c.collect(ctx)
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, rs...)
 	}
-	if wantApps {
-		rs, err := p.collectApps(ctx)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, rs...)
+	if !matched {
+		return nil, fmt.Errorf("okta: AcceptedTypes %v does not include emitted types %q",
+			req.AcceptedTypes, p.Emits())
 	}
 	return out, nil
 }
@@ -229,7 +285,7 @@ func (p *Plugin) collectUsers(ctx context.Context) ([]core.EvidenceRecord, error
 			Email:          u.Email,
 			MFAEnabled:     u.MFAFactorCount > 0,
 			MFAFactorCount: u.MFAFactorCount,
-			IsActive:       strings.EqualFold(u.Status, "ACTIVE"),
+			IsActive:       rosterStatus(u.Status) == rosterActive,
 			IsAdmin:        len(u.AdminRoles) > 0,
 			LastLoginAt:    u.LastLogin,
 		}
@@ -276,6 +332,76 @@ func (p *Plugin) collectApps(ctx context.Context) ([]core.EvidenceRecord, error)
 	return records, nil
 }
 
+func (p *Plugin) collectRoster(ctx context.Context) ([]core.EvidenceRecord, error) {
+	ra, ok := p.api.(RosterAPI)
+	if !ok {
+		return nil, fmt.Errorf("okta: API implementation %T cannot list roster users", p.api)
+	}
+	users, err := ra.ListRosterUsers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("okta: list roster users: %w", err)
+	}
+	now := p.now()
+	records := make([]core.EvidenceRecord, 0, len(users))
+	for i := range users {
+		rec, err := rosterRecord(&users[i], now)
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, rec)
+	}
+	sort.Slice(records, func(i, j int) bool { return records[i].ID < records[j].ID })
+	return records, nil
+}
+
+// rosterRecord maps one Okta user to a roster_entry record. email is the
+// join key, so IdentityKey is its lowercased form (empty when absent).
+func rosterRecord(u *RosterUser, now time.Time) (core.EvidenceRecord, error) {
+	email := strings.TrimSpace(u.Email)
+	displayName := strings.TrimSpace(strings.TrimSpace(u.FirstName) + " " + strings.TrimSpace(u.LastName))
+	if displayName == "" {
+		displayName = strings.TrimSpace(u.Login)
+	}
+	payload := rosterPayload{
+		ID:           u.ID,
+		Status:       rosterStatus(u.Status),
+		Email:        email,
+		DisplayName:  displayName,
+		EmployeeID:   strings.TrimSpace(u.EmployeeNumber),
+		EmployeeType: strings.TrimSpace(u.UserType),
+		SourceStatus: strings.TrimSpace(u.Status),
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return core.EvidenceRecord{}, fmt.Errorf("okta: marshal roster payload: %w", err)
+	}
+	return core.EvidenceRecord{
+		Type:        EvidenceTypeRosterEntry,
+		ID:          u.ID,
+		IdentityKey: strings.ToLower(email),
+		Payload:     body,
+		SourceID:    SourceID,
+		CollectedAt: now,
+	}, nil
+}
+
+// rosterStatus normalizes Okta's raw user status to the roster_entry enum.
+// active = the user can still sign in (a locked-out or password-expired
+// account is a live credential awaiting self-service); pending = created or
+// provisioned but never activated (a joiner); everything else — SUSPENDED,
+// DEPROVISIONED, and any status Okta adds later — is inactive (fail-safe:
+// an unknown status never vouches for an account).
+func rosterStatus(raw string) string {
+	switch strings.ToUpper(strings.TrimSpace(raw)) {
+	case "ACTIVE", "RECOVERY", "PASSWORD_EXPIRED", "LOCKED_OUT":
+		return rosterActive
+	case "STAGED", "PROVISIONED":
+		return rosterPending
+	default:
+		return rosterInactive
+	}
+}
+
 // --- Real HTTP adapter -----------------------------------------------------
 
 // httpAPI is the production implementation of API. It hits the customer's
@@ -283,7 +409,9 @@ func (p *Plugin) collectApps(ctx context.Context) ([]core.EvidenceRecord, error)
 // github.com/okta/okta-sdk-golang/v5 (which would add a sizable dependency
 // tree). Endpoints used:
 //
-//	GET /api/v1/users                  — paged listing of users
+//	GET /api/v1/users                  — paged listing of users (omits DEPROVISIONED)
+//	GET /api/v1/users?filter=status eq "DEPROVISIONED"
+//	                                   — roster only: the deprovisioned users
 //	GET /api/v1/users/{id}/factors     — per-user enrolled factors
 //	GET /api/v1/users/{id}/roles       — per-user admin-role assignments
 //	GET /api/v1/apps                   — paged listing of applications
@@ -297,7 +425,9 @@ func (p *Plugin) collectApps(ctx context.Context) ([]core.EvidenceRecord, error)
 // the user listing's limit=200 paging and Okta's own 429 responses
 // (surfaced as errors via getJSON) rather than proactive backoff; a
 // budget-aware throttle is deferred to the testing revamp. Reading roles
-// requires an admin token / okta.roles.read scope.
+// requires an admin token / okta.roles.read scope. The roster path
+// (ListRosterUsers) makes only the two paged listing calls — no per-user
+// requests — and needs only okta.users.read.
 type httpAPI struct {
 	base   string
 	token  string
@@ -309,7 +439,12 @@ type oktaUser struct {
 	Status    string `json:"status"`
 	LastLogin string `json:"lastLogin"`
 	Profile   struct {
-		Email string `json:"email"`
+		Email          string `json:"email"`
+		FirstName      string `json:"firstName"`
+		LastName       string `json:"lastName"`
+		Login          string `json:"login"`
+		EmployeeNumber string `json:"employeeNumber"`
+		UserType       string `json:"userType"`
 	} `json:"profile"`
 }
 
@@ -330,43 +465,94 @@ type oktaApp struct {
 	Status     string `json:"status"`
 }
 
-func (h *httpAPI) ListUsers(ctx context.Context) ([]User, error) {
-	var out []User
-	path := "/api/v1/users?limit=200"
-	for {
-		var page []oktaUser
+// usersQuery is the default user listing query. rosterDeprovisionedQuery is
+// the roster's second pass: Okta's default listing omits DEPROVISIONED users,
+// so they are fetched explicitly with a status filter.
+var (
+	usersQuery               = url.Values{"limit": {"200"}}
+	rosterDeprovisionedQuery = url.Values{"limit": {"200"}, "filter": {`status eq "DEPROVISIONED"`}}
+)
+
+// pageAll GETs path and every rel="next" page after it, decoding each page
+// as a JSON array and handing each element to visit in order.
+func pageAll[T any](ctx context.Context, h *httpAPI, path string, visit func(T) error) error {
+	for path != "" {
+		var page []T
 		next, err := h.getJSON(ctx, path, &page)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		for _, u := range page {
-			usr := User{
-				ID:     u.ID,
-				Email:  u.Profile.Email,
-				Status: u.Status,
+		for _, item := range page {
+			if err := visit(item); err != nil {
+				return err
 			}
-			if u.LastLogin != "" {
-				if t, err := time.Parse(time.RFC3339, u.LastLogin); err == nil {
-					usr.LastLogin = t
-				}
-			}
-			n, err := h.countActiveFactors(ctx, u.ID)
-			if err != nil {
-				return nil, err
-			}
-			usr.MFAFactorCount = n
-			roles, err := h.listAdminRoles(ctx, u.ID)
-			if err != nil {
-				return nil, err
-			}
-			usr.AdminRoles = roles
-			out = append(out, usr)
-		}
-		if next == "" {
-			return out, nil
 		}
 		path = next
 	}
+	return nil
+}
+
+func (h *httpAPI) ListUsers(ctx context.Context) ([]User, error) {
+	var out []User
+	err := pageAll(ctx, h, "/api/v1/users?"+usersQuery.Encode(), func(u oktaUser) error {
+		usr := User{
+			ID:     u.ID,
+			Email:  u.Profile.Email,
+			Status: u.Status,
+		}
+		if u.LastLogin != "" {
+			if t, err := time.Parse(time.RFC3339, u.LastLogin); err == nil {
+				usr.LastLogin = t
+			}
+		}
+		n, err := h.countActiveFactors(ctx, u.ID)
+		if err != nil {
+			return err
+		}
+		usr.MFAFactorCount = n
+		roles, err := h.listAdminRoles(ctx, u.ID)
+		if err != nil {
+			return err
+		}
+		usr.AdminRoles = roles
+		out = append(out, usr)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ListRosterUsers lists every user for the roster in two paged passes — the
+// default listing, then the DEPROVISIONED users it omits — de-duplicated by
+// id (first occurrence wins). No per-user factor or role calls are made.
+func (h *httpAPI) ListRosterUsers(ctx context.Context) ([]RosterUser, error) {
+	var out []RosterUser
+	seen := map[string]bool{}
+	visit := func(u oktaUser) error {
+		if seen[u.ID] {
+			return nil
+		}
+		seen[u.ID] = true
+		out = append(out, RosterUser{
+			ID:             u.ID,
+			Status:         u.Status,
+			Email:          u.Profile.Email,
+			FirstName:      u.Profile.FirstName,
+			LastName:       u.Profile.LastName,
+			Login:          u.Profile.Login,
+			EmployeeNumber: u.Profile.EmployeeNumber,
+			UserType:       u.Profile.UserType,
+		})
+		return nil
+	}
+	for _, q := range []url.Values{usersQuery, rosterDeprovisionedQuery} {
+		if err := pageAll(ctx, h, "/api/v1/users?"+q.Encode(), visit); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }
 
 func (h *httpAPI) countActiveFactors(ctx context.Context, userID string) (int, error) {
@@ -407,30 +593,23 @@ func (h *httpAPI) listAdminRoles(ctx context.Context, userID string) ([]string, 
 
 func (h *httpAPI) ListApps(ctx context.Context) ([]App, error) {
 	var out []App
-	path := "/api/v1/apps?limit=200"
-	for {
-		var page []oktaApp
-		next, err := h.getJSON(ctx, path, &page)
-		if err != nil {
-			return nil, err
-		}
-		for _, a := range page {
-			out = append(out, App{
-				ID:         a.ID,
-				Label:      a.Label,
-				SignOnMode: a.SignOnMode,
-				// Heuristic: federated sign-on modes (SAML, OIDC) and
-				// secure_sign_on_mode are taken to enforce MFA at the IdP
-				// layer; password-based modes are not. Full sign-on policy
-				// inspection is deferred — see Okta sign-on policy rules.
-				MFARequired: federatedMFA(a.SignOnMode),
-			})
-		}
-		if next == "" {
-			return out, nil
-		}
-		path = next
+	err := pageAll(ctx, h, "/api/v1/apps?limit=200", func(a oktaApp) error {
+		out = append(out, App{
+			ID:         a.ID,
+			Label:      a.Label,
+			SignOnMode: a.SignOnMode,
+			// Heuristic: federated sign-on modes (SAML, OIDC) and
+			// secure_sign_on_mode are taken to enforce MFA at the IdP
+			// layer; password-based modes are not. Full sign-on policy
+			// inspection is deferred — see Okta sign-on policy rules.
+			MFARequired: federatedMFA(a.SignOnMode),
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
+	return out, nil
 }
 
 func federatedMFA(mode string) bool {
@@ -498,4 +677,8 @@ func nextLinkPath(link, base string) string {
 	return ""
 }
 
-var _ core.SourcePlugin = (*Plugin)(nil)
+var (
+	_ core.SourcePlugin = (*Plugin)(nil)
+	_ API               = (*httpAPI)(nil)
+	_ RosterAPI         = (*httpAPI)(nil)
+)

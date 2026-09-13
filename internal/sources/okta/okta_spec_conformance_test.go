@@ -56,7 +56,31 @@ func oktaSpecRoute(method, rawURL string) (component string, matched bool) {
 
 func TestOktaSpecConformance(t *testing.T) {
 	spec := sourcetest.NewSpecValidator(t, oktaSpecSlice)
-	interactions := sourcetest.LoadCassetteInteractions(t, "testdata/cassettes/org_collect")
+	cases := []struct {
+		cassette    string
+		wantAtLeast map[string]int
+	}{
+		{"testdata/cassettes/org_collect", map[string]int{
+			compUser:       3, // the three seeded users
+			compUserFactor: 1, // the one MFA-enrolled user's factor
+		}},
+		// Hand-authored roster cassette: both listing passes must stay on-spec.
+		{"testdata/cassettes/roster_collect", map[string]int{
+			compUser: 5, // four from the paged default listing + one DEPROVISIONED
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.cassette, func(t *testing.T) {
+			checkCassetteAgainstSpec(t, spec, c.cassette, c.wantAtLeast)
+		})
+	}
+}
+
+// checkCassetteAgainstSpec validates every spec-routed 2xx body in cassette
+// and asserts each component was exercised at least wantAtLeast times.
+func checkCassetteAgainstSpec(t *testing.T, spec *sourcetest.SpecValidator, cassette string, wantAtLeast map[string]int) {
+	t.Helper()
+	interactions := sourcetest.LoadCassetteInteractions(t, cassette)
 
 	validated := map[string]int{}
 	for _, in := range interactions {
@@ -82,10 +106,6 @@ func TestOktaSpecConformance(t *testing.T) {
 		}
 	}
 
-	wantAtLeast := map[string]int{
-		compUser:       3, // the three seeded users
-		compUserFactor: 1, // the one MFA-enrolled user's factor
-	}
 	for component, min := range wantAtLeast {
 		if validated[component] < min {
 			t.Errorf("validated %d %q bodies against spec, want >= %d (cassette no longer covers this operation?)",
