@@ -42,6 +42,7 @@ func TestOktaConformance(t *testing.T) {
 		Request:       core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDirectoryUser}},
 		EvidenceTypes: types,
 		OptionalFields: []string{
+			"directory_user.username", // login is email-shaped
 			"directory_user.is_service_account",
 			"directory_user.is_external",
 			"directory_user.created_at",

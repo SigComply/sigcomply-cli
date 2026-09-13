@@ -8,6 +8,7 @@
   "required": ["id", "mfa_enabled", "is_root", "has_console_access", "has_programmatic_access"],
   "properties": {
     "id":                     { "type": "string", "description": "Unique within the emitting source." },
+    "username":           { "type": "string", "minLength": 1, "description": "Login name unique within the source (AWS IAM UserName, GitHub login, GitLab username). Roster alias entries match on it. Omit when the source has no username distinct from email." },
     "display_name":           { "type": "string" },
     "email":                  { "type": "string" },
     "mfa_enabled":            { "type": "boolean", "description": "User has MFA enrolled and required at sign-on." },

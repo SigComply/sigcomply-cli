@@ -8,6 +8,7 @@
   "required": ["id", "mfa_enabled"],
   "properties": {
     "id":                 { "type": "string", "description": "Unique within the emitting source (AWS IAM UserId, Okta user id, GitHub login, LDAP DN, …)." },
+    "username":           { "type": "string", "minLength": 1, "description": "Login name unique within the source (AWS IAM UserName, GitHub login, GitLab username). Roster alias entries match on it. Omit when the source has no username distinct from email." },
     "display_name":       { "type": "string", "description": "Human-readable identifier (username, login, full name). Plugins populate the most useful single string for violation messages." },
     "email":              { "type": "string", "format": "email", "description": "When known; not every directory exposes email." },
     "mfa_enabled":        { "type": "boolean", "description": "True iff the identity has at least one MFA factor enrolled and required at sign-on. Plugins compute this from provider-specific MFA state." },

@@ -52,6 +52,7 @@ func TestGitHubConformance(t *testing.T) {
 	optional := []string{
 		"git_repository.created_at",
 		"directory_user.email",
+		"directory_user.username", // TODO(roster): emit login, then drop this line
 		"directory_user.mfa_factor_count",
 		"directory_user.is_service_account",
 		"directory_user.last_login_at",

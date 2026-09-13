@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/roster_entry/v1.json",
+  "title": "roster_entry",
+  "version": 1,
+  "description": "One identity in the organization's authoritative workforce directory — the directory the project designates as its roster (Okta, Microsoft Entra ID, Google Workspace, Active Directory). Lifecycle policies check accounts in other systems against these entries. status: active = can sign in; pending = provisioned but cannot sign in yet (a joiner); inactive = suspended, disabled, deprovisioned or expired. email is the join key: an entry without one can never vouch for an account, so that person's accounts surface as unlinked rather than passing. additionalProperties is false on purpose: this is personnel data, so plugins emit only the fields listed here (data minimisation).",
+  "type": "object",
+  "required": ["id", "status"],
+  "properties": {
+    "id":                 { "type": "string", "minLength": 1, "description": "Stable identifier within the emitting directory (Okta user id, Entra object id, Google user id, AD objectGUID)." },
+    "status":             { "type": "string", "enum": ["active", "pending", "inactive"], "description": "Normalized account state; see the type description." },
+    "email":              { "type": "string", "minLength": 1, "description": "Primary work email, or the user principal name when the directory has no mailbox address. Not format-validated because UPNs need not be deliverable." },
+    "display_name":       { "type": "string", "minLength": 1, "description": "Human-readable name for violation messages." },
+    "employee_id":        { "type": "string", "minLength": 1, "description": "Organization-assigned employee identifier, when the directory carries one." },
+    "employee_type":      { "type": "string", "minLength": 1, "description": "Organization-to-person relationship as recorded by the directory (employee, contractor, …)." },
+    "is_service_account": { "type": "boolean", "description": "The entry is a non-human identity. Omitted when the directory has no signal." },
+    "source_status":      { "type": "string", "minLength": 1, "description": "The directory's own status value the normalized status was derived from, for auditability (e.g. Okta SUSPENDED, AD disabled)." }
+  },
+  "additionalProperties": false
+}

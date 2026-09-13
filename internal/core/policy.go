@@ -76,7 +76,31 @@ type Slot struct {
 	Cardinality SlotCardinality
 	Required    bool
 	Description string
+	// Role marks a slot that takes part in roster matching. Empty (the
+	// common case) means an ordinary slot bound by type intersection.
+	// See SlotRole.
+	Role SlotRole
 }
+
+// SlotRole is the part a slot plays in roster matching.
+//
+// A roster slot holds the organization's authoritative list of people.
+// It is never auto-bound: it binds only to the source the project
+// designates (experimental.roster.source) or to an explicit per-policy
+// binding. A roster_subject slot holds the accounts checked against the
+// roster; it auto-binds as usual, except that no source bound to the
+// policy's roster slot may bind to it — a directory cannot vouch for
+// its own accounts.
+type SlotRole string
+
+const (
+	// SlotRoleNone is an ordinary slot.
+	SlotRoleNone SlotRole = ""
+	// SlotRoleRoster is the authoritative list of people.
+	SlotRoleRoster SlotRole = "roster"
+	// SlotRoleRosterSubject holds the accounts checked against the roster.
+	SlotRoleRosterSubject SlotRole = "roster_subject"
+)
 
 // ParameterSpec describes a tunable per-project value on a policy.
 // Default/Min/Max/Enum are typed `any` because the value's static type

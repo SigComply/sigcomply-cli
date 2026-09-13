@@ -87,8 +87,25 @@ type PlannedPolicy struct {
 	// distinguishable from a passing one. Empty for the common case.
 	UnboundRequiredSlots []string
 
+	// Roster carries the project's roster declarations for policies that
+	// have a roster-role slot; nil otherwise. The evaluator uses it to
+	// resolve account.* fields (aliases, non-human accounts).
+	Roster *RosterLink
+
 	PriorState  *core.PolicyState
 	ContentHash string
+}
+
+// RosterLink is the project's experimental.roster block as the evaluator
+// needs it. Account names are lowercased; they match a record's id or its
+// payload.username.
+type RosterLink struct {
+	// Source is the designated roster source ID.
+	Source string
+	// Aliases maps source ID → account name → roster email.
+	Aliases map[string]map[string]string
+	// NonHuman maps source ID → account names that are not people.
+	NonHuman map[string][]string
 }
 
 // CoverageGap flags a required slot that resolved to zero bindings even

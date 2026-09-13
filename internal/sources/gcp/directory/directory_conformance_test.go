@@ -29,6 +29,7 @@ func TestGCPDirectoryConformance(t *testing.T) {
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes: sourcetest.BuiltinEvidenceTypes(t),
 		OptionalFields: []string{
+			"directory_user.username", // primaryEmail is the only login
 			"directory_user.mfa_factor_count", "directory_user.is_service_account",
 			"directory_user.is_external", "directory_user.last_login_at", "directory_user.created_at",
 		},

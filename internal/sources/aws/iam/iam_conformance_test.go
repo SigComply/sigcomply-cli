@@ -42,6 +42,7 @@ func TestIAMConformance(t *testing.T) {
 		// Fields the IAM identity surface doesn't populate (the plugin never
 		// emits a null/sentinel for them — Inv #4).
 		OptionalFields: []string{
+			"directory_user.v2.username", // TODO(roster): emit UserName, then drop this line
 			"directory_user.v2.mfa_factor_count",
 			"directory_user.v2.is_service_account",
 			"directory_user.v2.is_external",

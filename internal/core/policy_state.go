@@ -141,11 +141,16 @@ func canonicalizePolicy(p *Policy, schemaDigests map[string]string) any {
 	for name, s := range p.Slots {
 		accepts := append([]string(nil), s.Accepts...)
 		sort.Strings(accepts)
-		sortedSlots = append(sortedSlots, kv{K: name, V: map[string]any{
+		slot := map[string]any{
 			"accepts":     accepts,
 			"cardinality": string(s.Cardinality),
 			"required":    s.Required,
-		}})
+		}
+		if s.Role != SlotRoleNone {
+			// Only when set, so existing policies keep their hash.
+			slot["role"] = string(s.Role)
+		}
+		sortedSlots = append(sortedSlots, kv{K: name, V: slot})
 	}
 	sort.Slice(sortedSlots, func(i, j int) bool { return sortedSlots[i].K < sortedSlots[j].K })
 

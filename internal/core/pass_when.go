@@ -73,4 +73,23 @@ type PassWhenCondition struct {
 	Value any
 	// Conditions is the sub-condition list for all_of / any_of operators.
 	Conditions []*PassWhenCondition
+
+	// InSlot, RemoteField, Normalize and Where configure the matches_in
+	// operator: true when the record's Field value, normalized, equals
+	// the RemoteField value of some record in slot InSlot that satisfies
+	// Where. Ignored by every other operator. See
+	// docs/architecture/03-policy-spec.md §matches_in.
+	InSlot      string
+	RemoteField string
+	// Normalize is "" (exact comparison) or NormalizeLowerTrim.
+	Normalize string
+	// Where optionally restricts which InSlot records can match.
+	Where *PassWhenCondition
 }
+
+// OpMatchesIn is the cross-slot matching operator.
+const OpMatchesIn = "matches_in"
+
+// NormalizeLowerTrim lowercases and trims surrounding whitespace before
+// comparing matches_in keys.
+const NormalizeLowerTrim = "lower_trim"

@@ -25,6 +25,7 @@ func TestAzureEntraConformance(t *testing.T) {
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes: sourcetest.BuiltinEvidenceTypes(t),
 		OptionalFields: []string{
+			"directory_user.username", // UPN doubles as email
 			"directory_user.mfa_factor_count", "directory_user.is_service_account",
 			"directory_user.is_external", "directory_user.created_at",
 		},

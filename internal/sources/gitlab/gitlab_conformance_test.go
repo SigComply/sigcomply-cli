@@ -55,6 +55,7 @@ func TestGitLabConformance(t *testing.T) {
 	repoOptional := []string{"git_repository.created_at"}
 	userOptional := []string{
 		"directory_user.email",
+		"directory_user.username", // TODO(roster): emit username, then drop this line
 		"directory_user.mfa_factor_count",
 		"directory_user.is_service_account",
 		"directory_user.is_external",
