@@ -129,6 +129,25 @@ func parseURL(m map[string]any, cfg *Config) error {
 	return nil
 }
 
+// resolveBindPassword follows the same order as sources.ResolveToken —
+// token_env (so each [instance] can bind with its own password instead of
+// sharing a process-global variable), then SIGCOMPLY_AD_BIND_PASSWORD —
+// with password-specific error messages.
+func resolveBindPassword(m map[string]any) (string, error) {
+	if name := sources.StringOpt(m, "token_env"); name != "" {
+		if pw := os.Getenv(name); pw != "" {
+			return pw, nil
+		}
+		// Never fall through to the shared variable: this instance would
+		// bind as some other instance's account and report success.
+		return "", fmt.Errorf("token_env names %s, which is empty or unset", name)
+	}
+	if pw := os.Getenv(BindPasswordEnv); pw != "" {
+		return pw, nil
+	}
+	return "", fmt.Errorf("bind password required (set bind_password, token_env, or %s); anonymous binds are refused", BindPasswordEnv)
+}
+
 func parseBind(m map[string]any, cfg *Config) error {
 	bindDN, err := stringOpt(m, "bind_dn")
 	if err != nil {
@@ -142,12 +161,9 @@ func parseBind(m map[string]any, cfg *Config) error {
 		return err
 	}
 	if password == "" {
-		// ResolveToken honours token_env, so each [instance] of this
-		// source can bind with its own password instead of sharing the
-		// process-global SIGCOMPLY_AD_BIND_PASSWORD.
-		password, err = sources.ResolveToken(m, SourceID, "bind_password", BindPasswordEnv)
+		password, err = resolveBindPassword(m)
 		if err != nil {
-			return fmt.Errorf("bind password required; anonymous/unauthenticated binds are refused: %w", err)
+			return err
 		}
 	}
 	cfg.BindDN = bindDN

@@ -99,6 +99,20 @@ func TestParseConfigOverrides(t *testing.T) {
 	}
 }
 
+// token_env lets each [instance] bind with its own password; it wins over
+// the shared SIGCOMPLY_AD_BIND_PASSWORD so instances never share a bind.
+func TestParseConfigPasswordFromTokenEnv(t *testing.T) {
+	t.Setenv(BindPasswordEnv, "shared")
+	t.Setenv("SIGCOMPLY_AD_TEST_INSTANCE_PW", "per-instance")
+	cfg, err := parseConfig(withKeys(map[string]any{"bind_password": nil, "token_env": "SIGCOMPLY_AD_TEST_INSTANCE_PW"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.BindPassword != "per-instance" {
+		t.Errorf("password = %q, want the token_env value", cfg.BindPassword)
+	}
+}
+
 func TestParseConfigPasswordFromEnv(t *testing.T) {
 	t.Setenv(BindPasswordEnv, "from-env")
 	cfg, err := parseConfig(withKeys(map[string]any{"bind_password": nil}))
@@ -171,6 +185,7 @@ func TestParseConfigErrors(t *testing.T) {
 		{"missing bind_dn", withKeys(map[string]any{"bind_dn": nil}), `"bind_dn" required`},
 		{"missing password", withKeys(map[string]any{"bind_password": nil}), "bind password required"},
 		{"empty password", withKeys(map[string]any{"bind_password": ""}), "bind password required"},
+		{"token_env names an unset variable", withKeys(map[string]any{"bind_password": nil, "token_env": "SIGCOMPLY_AD_TEST_UNSET_PW"}), "token_env names SIGCOMPLY_AD_TEST_UNSET_PW, which is empty or unset"},
 		{"bad base_dn", withKeys(map[string]any{"base_dn": "not a dn"}), `"base_dn"`},
 		{"bad filter", withKeys(map[string]any{"user_filter": "(objectClass=user"}), `"user_filter"`},
 		{"page_size wrong type", withKeys(map[string]any{"page_size": "big"}), "must be an integer"},
