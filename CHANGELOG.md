@@ -13,6 +13,43 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **Identity roster — check every system's accounts against your list of
+  people.** A new opt-in `experimental.roster` block designates the one source
+  that holds the organization's people (`okta`, `azure.entra`, `gcp.directory`
+  or `active_directory`), with per-source `aliases` (account → roster email)
+  and `non_human` account lists. Four new policies use it:
+  `soc2.cc6.2.accounts_linked_to_roster` / `iso27001.5.16.accounts_linked_to_roster`
+  (every active human account in GitHub, GitLab, AWS IAM, … belongs to someone
+  in the roster) and `soc2.cc6.2.no_active_accounts_for_inactive_personnel` /
+  `iso27001.5.18.no_active_accounts_for_inactive_personnel` (no active account
+  belongs to someone the roster marks inactive). The roster source is never
+  auto-bound and never checked against itself — a directory cannot vouch for
+  its own accounts. Without the block the policies skip with a message naming
+  the key to set. Violations identify accounts as `source_id/id`, the value a
+  waiver's `resource_id` takes. Guide: `docs/guides/identity-roster.md`.
+- **`roster_entry` evidence type** — one record per person in the
+  authoritative workforce directory (`status`: `active` | `pending` |
+  `inactive`), emitted by `okta` (including deprovisioned users), `azure.entra`
+  (needs only `User.Read.All`, no Entra ID P1/P2), `gcp.directory`, and the new
+  `active_directory` source. `additionalProperties: false`: plugins emit only
+  the minimal personnel fields.
+- **`active_directory` source** — reads on-prem Active Directory over LDAPS or
+  StartTLS (plain LDAP is refused; TLS 1.2+, verified) with a simple bind and
+  paged search, and emits `roster_entry`. Status comes from the
+  ACCOUNTDISABLE flag and `accountExpires`; `service_account_ous` and
+  `servicePrincipalName` mark service accounts.
+- **`matches_in` cross-slot operator and `account.*` fields in `pass_when`.**
+  `{op: matches_in, field, in_slot, remote_field, normalize: lower_trim, where}`
+  expresses "this record's key appears in another slot" without the `rule:`
+  escape hatch. Virtual `account.ref` / `.key` / `.linked_by` / `.non_human` /
+  `.active` resolve aliases, non-human declarations and AWS root. Slots can
+  declare `role: roster | roster_subject`; clause and condition keys are now
+  decoded strictly, so a typo such as `normalise:` fails to load.
+- **`gcp.directory` impersonation for CI** — optional `target_service_account`
+  (ADC impersonates that service account) and `impersonate_subject`
+  (domain-wide delegation; requires `target_service_account`).
+- `directory_user.username` is emitted by `github` (login), `gitlab` (username)
+  and `aws.iam` (`UserName`), so roster aliases can name accounts by login.
 - **Multiple instances of one source — a project can now cover several cloud
   accounts.** A bracket suffix on a source key (`"aws.iam[staging]"`)
   configures the same plugin a second time. This was documented but had never
@@ -100,6 +137,12 @@ tracks the human-curated highlights.
   `diag.vacuous_clauses` and `check` explains such a pass inline. Previously
   `resources_evaluated` reported the *pre-filter* population, so a policy that
   filtered 500 records to zero rendered as "all 500 resources passed".
+- **`okta` `directory_user.is_active` is now true for `RECOVERY`,
+  `PASSWORD_EXPIRED` and `LOCKED_OUT`** as well as `ACTIVE` — those accounts
+  are still live logins. **`gcp.directory` `is_active` is now false for
+  archived users** as well as suspended ones.
+- `resources_evaluated` no longer counts slots a policy reads only as a
+  `matches_in` lookup table (the roster's people are not resources under test).
 - CI examples and `init-ci` templates now default `SIGCOMPLY_VERSION` to a pinned
   release tag instead of `latest`, so a new release can't auto-propagate to every
   tester's next CI run. Set it to `latest` to opt back into always-newest.
@@ -110,6 +153,9 @@ tracks the human-curated highlights.
 
 - A fresh `sigcomply init -f <framework> && sigcomply check` now exits `1`
   (findings to remediate), not `2`, and prints zero `[error]` lines.
+- `sigcomply check` now exits `3`, not `2`, when planning rejects the config
+  (for example an unknown roster source or an invalid binding) — the documented
+  exit code for configuration errors.
 - `init-ci` with a missing required `--ci` flag now exits `3` (configuration error)
   to match the exit-code taxonomy, instead of cobra's default `2`.
 - `--cloud` with no `cloud.base_url` (or `--cloud-url`) configured now warns that

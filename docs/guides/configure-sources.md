@@ -29,7 +29,9 @@ policies:
       evidence: [okta]     # narrow this policy to the okta source
 ```
 
-> Do not key bindings on names like `user_directory` or `access_keys` — those slot names do not exist and cause a config error (exit 3). If you override, key on `evidence`.
+> Do not key bindings on names like `user_directory` or `access_keys` — those slot names do not exist and cause a config error (exit 3). If you override, key on `evidence` — except for the identity-roster policies, whose slots are `roster` and `accounts` (see [Identity roster](identity-roster.md)).
+
+The one slot that **never** auto-binds is a roster slot: which directory holds your organization's people is your decision, made once with `experimental.roster.source`.
 
 ### Credentials come from the environment, never the config file
 
@@ -126,6 +128,24 @@ sources:
 - **Credentials (env):** `OKTA_API_TOKEN` (or an `api_token:` key).
 - **Required config keys:** `org_url`.
 
+### Active Directory (`active_directory`)
+
+```yaml
+sources:
+  active_directory:
+    url: ldaps://dc01.corp.example.com
+    bind_dn: CN=sc-reader,OU=Service Accounts,DC=corp,DC=example,DC=com
+    ca_cert: ./corp-ca.pem          # optional; else system roots
+experimental:
+  roster:
+    source: active_directory        # AD exists to be the identity roster
+```
+
+- **Credentials (env):** `SIGCOMPLY_AD_BIND_PASSWORD` (or a `bind_password:` key). A dedicated non-admin bind user is enough.
+- **Required config keys:** `url` (`ldaps://…`, or `ldap://…` with `start_tls: true` — plaintext LDAP is refused) and `bind_dn`.
+- **Network:** domain controllers are rarely internet-facing; run the check on a self-hosted runner inside the network.
+- Emits only the roster (`roster_entry`), so it is useful only as `experimental.roster.source`. Full key list: [configuration reference](../configuration.md#active-directory).
+
 ## Multiple accounts, orgs or subscriptions
 
 One project can cover more than one cloud account. Configure the same
@@ -151,9 +171,10 @@ account's resources twice. If you want a second account, it needs a
 misconfiguration shows up as an error rather than as an account that
 looks empty.
 
-For GitHub, GitLab and Okta, give each instance its own credential —
-either a literal `token:`, or `token_env:` naming a different environment
-variable per instance:
+For GitHub, GitLab, Okta and Active Directory, give each instance its own credential —
+either a literal `token:` (`api_token:` for Okta, `bind_password:` for Active
+Directory), or `token_env:` naming a different environment variable per
+instance:
 
 ```yaml
 sources:

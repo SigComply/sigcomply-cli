@@ -212,46 +212,47 @@ The matrix below is the authoritative at-a-glance view of which provider
 emits which cloud-neutral evidence type. A ✓ means at least one built-in
 plugin for that provider emits that type; because policies bind to the
 *type* and never to a vendor (Invariant #4), any ✓ in a row is fully
-substitutable for any other ✓ in the same row. **59 built-in plugins
-emit 28 distinct evidence types** (AWS 23 · GCP 18 · Azure 14 · GitHub 1 ·
-GitLab 1 · Okta 1 · Manual 1).
+substitutable for any other ✓ in the same row. **60 built-in plugins
+emit 29 distinct evidence types** (AWS 23 · GCP 18 · Azure 14 · GitHub 1 ·
+GitLab 1 · Okta 1 · Active Directory 1 · Manual 1).
 
-| Evidence type | AWS | Azure | GCP | GitHub | GitLab | Okta | Manual |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| `directory_user` | ✓¹ | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| `iam_access_key` | ✓ | | | | | | |
-| `iam_binding` | | | ✓ | | | | |
-| `password_policy` | ✓ | | | | | | |
-| `okta_app` | | | | | | ✓ | |
-| `compute_instance` | ✓ | ✓ | ✓ | | | | |
-| `serverless_function` | ✓ | | | | | | |
-| `kubernetes_cluster` | ✓ | ✓ | ✓ | | | | |
-| `container_registry` | ✓ | ✓ | ✓ | | | | |
-| `object_storage_bucket` | ✓ | ✓ | ✓ | | | | |
-| `managed_database_instance` | ✓ | ✓ | ✓ | | | | |
-| `nosql_table` | ✓ | ✓ | ✓ | | | | |
-| `backup_plan` | ✓ | ✓ | ✓ | | | | |
-| `network` | ✓ | ✓ | ✓ | | | | |
-| `firewall_rule` | ✓ | ✓ | ✓ | | | | |
-| `kms_key` | ✓ | ✓ | ✓ | | | | |
-| `secret` | ✓ | ✓ | ✓ | | | | |
-| `tls_certificate` | ✓ | ✓ | ✓ | | | | |
-| `log_group` | ✓ | ✓ | ✓ | | | | |
-| `audit_log_trail` | ✓ | ✓ | ✓ | | | | |
-| `config_change_tracking` | ✓ | ✓ | ✓ | | | | |
-| `threat_detection_service` | ✓ | ✓ | ✓ | | | | |
-| `security_service` | ✓ | ✓ | ✓ | | | | |
-| `vulnerability_finding` | ✓ | ✓ | ✓ | ✓ | | | |
-| `security_alert` | ✓ | | | | | | |
-| `git_repository` | | | | ✓ | ✓ | | |
-| `source_control_org_policy` | | | | ✓ | | | |
-| `signed_document` | | | | | | | ✓ |
+| Evidence type | AWS | Azure | GCP | GitHub | GitLab | Okta | Active Directory | Manual |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| `directory_user` | ✓¹ | ✓ | ✓ | ✓ | ✓ | ✓ | | |
+| `roster_entry` | | ✓ | ✓ | | | ✓ | ✓ | |
+| `iam_access_key` | ✓ | | | | | | | |
+| `iam_binding` | | | ✓ | | | | | |
+| `password_policy` | ✓ | | | | | | | |
+| `okta_app` | | | | | | ✓ | | |
+| `compute_instance` | ✓ | ✓ | ✓ | | | | | |
+| `serverless_function` | ✓ | | | | | | | |
+| `kubernetes_cluster` | ✓ | ✓ | ✓ | | | | | |
+| `container_registry` | ✓ | ✓ | ✓ | | | | | |
+| `object_storage_bucket` | ✓ | ✓ | ✓ | | | | | |
+| `managed_database_instance` | ✓ | ✓ | ✓ | | | | | |
+| `nosql_table` | ✓ | ✓ | ✓ | | | | | |
+| `backup_plan` | ✓ | ✓ | ✓ | | | | | |
+| `network` | ✓ | ✓ | ✓ | | | | | |
+| `firewall_rule` | ✓ | ✓ | ✓ | | | | | |
+| `kms_key` | ✓ | ✓ | ✓ | | | | | |
+| `secret` | ✓ | ✓ | ✓ | | | | | |
+| `tls_certificate` | ✓ | ✓ | ✓ | | | | | |
+| `log_group` | ✓ | ✓ | ✓ | | | | | |
+| `audit_log_trail` | ✓ | ✓ | ✓ | | | | | |
+| `config_change_tracking` | ✓ | ✓ | ✓ | | | | | |
+| `threat_detection_service` | ✓ | ✓ | ✓ | | | | | |
+| `security_service` | ✓ | ✓ | ✓ | | | | | |
+| `vulnerability_finding` | ✓ | ✓ | ✓ | ✓ | | | | |
+| `security_alert` | ✓ | | | | | | | |
+| `git_repository` | | | | ✓ | ✓ | | | |
+| `source_control_org_policy` | | | | ✓ | | | | |
+| `signed_document` | | | | | | | | ✓ |
 
 ¹ AWS IAM emits the `directory_user.v2` schema variant of the
 `directory_user` type; the other five sources emit `directory_user`.
 Both satisfy a slot that accepts the directory-user family.
 
-Cross-cloud reach: 18 of the 28 types are emitted identically by all
+Cross-cloud reach: 18 of the 29 types are emitted identically by all
 three major clouds (AWS + Azure + GCP), so the bulk of a SOC 2 / ISO
 27001 estate is covered by one policy set regardless of provider.
 
@@ -265,13 +266,13 @@ complete list).
 
 | Plugin ID | Emits (real type IDs) | Notes |
 |---|---|---|
-| `aws.iam` | `directory_user.v2` | One AWS account per instance. Multiple instances via separate config blocks. |
+| `aws.iam` | `directory_user.v2` | One AWS account per instance. Multiple instances via separate config blocks. `username` ← IAM `UserName` (record id is the `UserId`; the synthetic root record has none). |
 | `aws.iam_access_key` | `iam_access_key` | |
 | `aws.s3` | `object_storage_bucket` | Same neutral type as `gcp.storage` and `azure.storage`. |
 | `aws.cloudtrail` | `audit_log_trail` | |
 | `aws.kms` | `kms_key` | |
 | `gcp.storage` | `object_storage_bucket` | Same neutral type as `aws.s3` and `azure.storage`. |
-| `gcp.directory` | `directory_user` | Google Workspace / Cloud Identity users via the Admin SDK Directory API. Account/customer-scoped (optional `customer_id`, default `my_customer`). Same neutral type as `aws.iam`/`okta`/`github`/`gitlab`. |
+| `gcp.directory` | `directory_user`, `roster_entry` | Google Workspace / Cloud Identity users via the Admin SDK Directory API. Account/customer-scoped (optional `customer_id`, default `my_customer`; optional `target_service_account` + `impersonate_subject` for impersonation / domain-wide delegation). `is_active` false when suspended or archived. **roster_entry** from the same listing: status inactive when `suspended`/`archived`; `employee_id` ← first `externalIds[type=organization]`. Same neutral type as `aws.iam`/`okta`/`github`/`gitlab`. |
 | `gcp.firewall` | `firewall_rule` | VPC firewall rules (Compute `firewalls.list`), flattened to one record per protocol/port-range. Same neutral type as `aws.security_group`. |
 | `gcp.kms` | `kms_key` | Cloud KMS crypto keys (CloudKMS `cryptoKeys.list`), walked across all project locations; `rotation_enabled` ← rotationPeriod set. Same neutral type as `aws.kms`. |
 | `gcp.logging` | `log_group` | Cloud Logging log buckets (Logging `buckets.list`, all locations), one record per bucket; `retention_set` ← `retentionDays > 0`, `retention_days` ← `retentionDays` (every GCP bucket has finite retention — no "never expire"); `kms_encrypted` ← CMEK on `cmekSettings`. Same neutral type as `aws.cloudwatch`. |
@@ -285,7 +286,7 @@ complete list).
 | `gcp.network` | `network` | VPC Networks (Compute `networks.list`), one record per network; `flow_logs_enabled` aggregated from subnetworks (all-must-be-on). Same neutral type as `aws.vpc`. |
 | `gcp.secretmanager` | `secret` | Secret Manager secrets (`secrets.list`); `rotation_enabled` ← rotation policy attached; `kms_encrypted` ← CMEK on replication; `never_rotated`/`last_rotated_days` ← per-secret `versions.list` (no last-rotation timestamp on the resource). Same neutral type as `aws.secretsmanager`. |
 | `gcp.scc` | `threat_detection_service`, `security_service`, `vulnerability_finding` | **Org-scoped** (`organization_id`, not `project_id`; needs org-level `securitycenter.findingsViewer`+`settingsViewer`). Security Command Center: ETD enablement → `threat_detection_service` (`aws.guardduty` analog); SHA enablement → `security_service` `service_type: "siem"` (`aws.security_services` analog); active `VULNERABILITY`/`MISCONFIGURATION` findings → `vulnerability_finding` (`aws.inspector` analog), severity/status mapped to the schema enums. Reads `sources/-/findings` (v1) + v1beta2 settings (`serviceEnablementState`). |
-| `azure.entra` | `directory_user` | Microsoft Entra ID (Azure AD) users via Microsoft Graph (raw REST, not `msgraph-sdk-go`). Graph-plane (optional `tenant_id`, no `subscription_id`). `mfa_enabled` ← `userRegistrationDetails.isMfaRegistered`; `is_admin` ← `userRegistrationDetails.isAdmin` (Microsoft's computed flag — no `directoryRoles` traversal); `is_active` ← `users.accountEnabled`; `email` ← `users.mail` only; `last_login_at` ← `users.signInActivity.lastSignInDateTime` (omitted if absent). Needs `User.Read.All` + `AuditLog.Read.All` + Entra ID P1/P2; errors (not false MFA) when the report is inaccessible. Same neutral type as `aws.iam`/`okta`/`github`/`gitlab`/`gcp.directory`. |
+| `azure.entra` | `directory_user`, `roster_entry` | Microsoft Entra ID (Azure AD) users via Microsoft Graph (raw REST, not `msgraph-sdk-go`). Graph-plane (optional `tenant_id`, no `subscription_id`). `mfa_enabled` ← `userRegistrationDetails.isMfaRegistered`; `is_admin` ← `userRegistrationDetails.isAdmin` (Microsoft's computed flag — no `directoryRoles` traversal); `is_active` ← `users.accountEnabled`; `email` ← `users.mail` only; `last_login_at` ← `users.signInActivity.lastSignInDateTime` (omitted if absent). Needs `User.Read.All` + `AuditLog.Read.All` + Entra ID P1/P2; errors (not false MFA) when the report is inaccessible. **roster_entry** reads only `GET /users` (`User.Read.All`, no P1/P2): guests excluded; status ← `accountEnabled`; `email` ← `mail` → UPN. Same neutral type as `aws.iam`/`okta`/`github`/`gitlab`/`gcp.directory`. |
 | `azure.storage` | `object_storage_bucket` | Azure Storage accounts (armstorage `AccountsClient.NewListPager`). **ARM-plane** (`subscription_id` required). `encryption_at_rest_enabled` ← always `true` (Azure SSE is always-on; CMEK distinction in `kms_managed` ← `Encryption.keySource == Microsoft.Keyvault`); `public_access_blocked` ← `allowBlobPublicAccess == false` (nil ⇒ not blocked); `versioning_enabled` ← blob versioning OR blob soft-delete (per-account `blobServices/default` GET — an N+1, RG parsed from the account id). Errors (not false versioning) on a blob-service read failure. Same neutral type as `aws.s3` and `gcp.storage`. |
 | `azure.sql` | `managed_database_instance` | Azure's three managed-database services in one plugin (mirrors `aws.rds`). **ARM-plane** (`subscription_id` required). **Azure SQL** (`armsql`): one record per database (excludes `master`); `storage_encrypted` ← real `current` TDE state (N+1+1: servers → databases → TDE); `ssl_required` ← `true` (encrypted connections enforced); `multi_az` ← `database.zoneRedundant`. **PostgreSQL/MySQL Flexible**: one record per server; `storage_encrypted` ← always `true` (at-rest encryption always-on; CMEK in the `cmek_enabled` extra); `ssl_required` omitted (server-parameter, not readable here); `multi_az` ← `highAvailability.mode == ZoneRedundant`. All three: `publicly_accessible` ← server `publicNetworkAccess == Enabled`; `backup_enabled` ← always `true`; `deletion_protection` ← always `false` (no DB property; ARM resource locks are the mechanism). Same neutral type as `aws.rds` and `gcp.sql`. |
 | `azure.compute` | `compute_instance` | Azure Virtual Machines (armcompute `VirtualMachinesClient.NewListAllPager` with `StatusOnly` so power state rides along). **ARM-plane** (`subscription_id` required). `is_running` ← power state `PowerState/running`; `has_public_ip` ← any attached NIC has an IP config referencing a public IP (per-NIC `armnetwork` GET — an N+1; presence of the reference is sufficient); `root_volume_encrypted` ← always `true` (managed-disk SSE is always-on; the platform/customer-key distinction is in the `cmek_enabled` extra). `monitoring_enabled` is **omitted** (no per-VM signal; `is_set`-guarded policies scope Azure out — same gap as `gcp.compute`). Same neutral type as `aws.ec2` and `gcp.compute`. |
@@ -299,9 +300,10 @@ complete list).
 | `azure.backup` | `backup_plan` | Azure Recovery Services backup protection policies (`armrecoveryservices` `VaultsClient.NewListBySubscriptionIDPager` → per-vault `armrecoveryservicesbackup` `BackupPoliciesClient.NewListPager` — an N+1, policies are a child of a vault with no subscription-wide list). **ARM-plane** (`subscription_id` required). One record per policy. `is_active` ← `ProtectedItemsCount > 0` (a policy has no enabled flag; one protecting zero items provides no coverage — the honest signal, like `gcp.backup`'s `State==ACTIVE`, stronger than `aws.backup`'s "listed == active"); `has_retention_rule` ← resolved retention yields `> 0` days; `retention_days` ← max retention across the policy's schedules/sub-policies, with Weeks/Months/Years converted at 7/30/365-day approximations (Azure stores count+unit, not raw days); `covers_resource_types` ← the `BackupManagementType` discriminator (e.g. `AzureIaasVM`). Same neutral type as `aws.backup` and `gcp.backup`. |
 | `azure.certs` | `tls_certificate` | Azure certificates from two subscription-wide ARM management-plane reads, merged: App Service certificates (`armappservice` `CertificatesClient.NewListPager` — imported / Key-Vault-referenced, `is_managed=false`, `auto_renew` omitted) and App Service certificate orders (`armcertificateregistration` `AppServiceCertificateOrdersClient.NewListPager` — provider-managed, `is_managed=true`, real `auto_renew` from the order's `autoRenew`). **ARM-plane** (`subscription_id` required). `not_after` ← App Service cert `expirationDate` / order `expirationTime` (RFC3339 UTC); `days_until_expiry` derived from it (negative once expired); `domain` ← cert `subjectName` (else first host name) / order distinguished-name CN; `status` ← honest enum (expired→`EXPIRED`, else cert `valid`/Key Vault secret status, order `CertificateOrderStatus`). **Key Vault certificate objects deliberately NOT collected** — their expiry/auto-renew policy is data-plane only (`azcertificates`, per-vault RBAC beyond Reader), breaking the ARM-plane/Reader-only model; covered via exception/manual evidence like `azure.keyvault` secret rotation. Same neutral type as `aws.acm` and `gcp.certs`. |
 | `azure.policy` | `config_change_tracking` | Azure Policy assignments (`armpolicy` `AssignmentsClient.NewListPager` — a single subscription-wide call, no N+1), reduced to one record per subscription (like `aws.config` per account, `gcp.asset` per project). **ARM-plane** (`subscription_id` required). Azure has no literal config-recorder toggle; a policy **assignment** is the deliberately-configured artifact that makes Azure continuously evaluate/record resource-config compliance (the analog of an AWS Config recorder / GCP Cloud Asset feed). `is_recording` ← `len(assignments) > 0` (a fresh subscription honestly reports `false`, like `gcp.asset`'s `len(feeds) > 0`); `all_resource_types` ← at least one assignment is scoped at the subscription root (Azure Policy has no per-assignment resource-type list, so scope breadth stands in for AWS Config's `allSupported`). Auditable count extras: `assignment_count`/`enforced_count`/`subscription_scoped_count`. Compliance-state counts (`armpolicyinsights`) are a deliberate future enhancement (no schema field needs them). Same neutral type as `aws.config` and `gcp.asset`. |
-| `github` | `git_repository`, `directory_user`, `source_control_org_policy`, `vulnerability_finding` | Single org per instance. `source_control_org_policy` ← org-level security settings (2FA requirement, default member permissions); `vulnerability_finding` ← Dependabot alerts (same neutral type as `aws.inspector`/`gcp.scc`/`azure.defender`). |
-| `gitlab` | `git_repository`, `directory_user` | Single group per instance (`include_subgroups`); self-managed via `base_url`. Same neutral types as `github`. |
-| `okta` | `directory_user`, `okta_app` | |
+| `github` | `git_repository`, `directory_user`, `source_control_org_policy`, `vulnerability_finding` | Single org per instance. `directory_user.username` ← member login. `source_control_org_policy` ← org-level security settings (2FA requirement, default member permissions); `vulnerability_finding` ← Dependabot alerts (same neutral type as `aws.inspector`/`gcp.scc`/`azure.defender`). |
+| `gitlab` | `git_repository`, `directory_user` | Single group per instance (`include_subgroups`); self-managed via `base_url`. `directory_user.username` ← username. Same neutral types as `github`. |
+| `okta` | `directory_user`, `okta_app`, `roster_entry` | **roster_entry** pages `/api/v1/users` plus a second `status eq "DEPROVISIONED"` pass (the default listing omits deprovisioned users); no per-user calls. Status: ACTIVE/RECOVERY/PASSWORD_EXPIRED/LOCKED_OUT → active (also `directory_user.is_active`), STAGED/PROVISIONED → pending, else inactive. |
+| `active_directory` | `roster_entry` | On-prem AD over LDAPS/StartTLS (go-ldap), simple bind, RootDSE base-DN fallback, paged search. id ← objectGUID; status ← UAC ACCOUNTDISABLE / accountExpires (source_status enabled/disabled/expired); email ← mail → primary SMTP proxyAddress → UPN; is_service_account ← SPN or `service_account_ous`. Never emits `directory_user` (AD has no MFA signal). |
 | `manual.pdf` | `signed_document` | **Project-level singleton.** Exactly one instance per project. See §The manual.pdf plugin. |
 
 Note the cross-vendor pattern: `aws.s3`, `gcp.storage`, and `azure.storage`
@@ -309,7 +311,10 @@ all emit the single neutral `object_storage_bucket` type (the "reuse the
 existing type" path, one type across three clouds), and `aws.iam`, `okta`,
 `github`, `gitlab`, `gcp.directory`, and `azure.entra` all emit
 `directory_user` (one type, six sources across IdP, code host, and three
-clouds). The same pattern now spans
+clouds). Likewise `okta`, `azure.entra`, `gcp.directory`, and
+`active_directory` all emit `roster_entry`, so whichever directory holds
+an organization's people can be designated the roster
+(`experimental.roster.source`) with no policy change. The same pattern now spans
 git hosts: `github` and `gitlab` both emit the neutral `git_repository`
 type, so every branch-protection policy works against either without
 change. AWS, GCP, and Azure now emit the full cross-cloud type set shown
@@ -746,3 +751,12 @@ acceptable bootstrap (see §16 of the strategy doc). For providers whose
 spec is too thin for L3 (GitLab) or whose live recording is blocked
 (GCP / Entra P2), the contract path is a hand-authored, spec-validated
 cassette — same deliverables, only the live layer deferred.
+
+**Non-HTTP exemption (`active_directory`).** Deliverables (b) cassette and
+(c) `contracts/` snapshot don't apply — LDAP is BER over TCP (no go-vcr
+transport, no vendor OpenAPI). They are replaced by an **L2 stand-in**: a
+scripted BER responder
+([`fakedc_test.go`](../../internal/sources/activedirectory/fakedc_test.go))
+driven by the real adapter over `net.Pipe` / loopback TLS, with
+`RunConformance` on top. Redaction (d) is trivially met (no recorded
+fixture). L4a is a `//go:build live` test against a Samba AD DC container.

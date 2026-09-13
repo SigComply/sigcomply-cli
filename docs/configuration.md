@@ -72,21 +72,23 @@ provider's ambient credential chain (env vars, IAM roles, ADC, OIDC /
 workload-identity federation). The keys below mostly identify *what* to scan
 (account / project / subscription / org), not *how* to authenticate. The
 exceptions are the token-based sources: `github`/`gitlab` accept an optional
-`token`, and `okta` an optional `api_token`, each falling back to
-`GITHUB_TOKEN` / `GITLAB_TOKEN` / `OKTA_API_TOKEN` when the config key is
+`token`, `okta` an optional `api_token`, and `active_directory` an optional
+`bind_password`, each falling back to `GITHUB_TOKEN` / `GITLAB_TOKEN` /
+`OKTA_API_TOKEN` / `SIGCOMPLY_AD_BIND_PASSWORD` when the config key is
 omitted (see the source tables below).
 
 | Source ID(s) | Required keys | Optional keys | Credential chain |
 |--------------|---------------|---------------|------------------|
 | **`aws.*`** — all 23 AWS sources (`aws.iam`, `aws.s3`, `aws.ec2`, `aws.rds`, `aws.kms`, `aws.cloudtrail`, `aws.config`, `aws.dynamodb`, `aws.ecr`, `aws.eks`, `aws.acm`, `aws.backup`, `aws.cloudwatch`, `aws.guardduty`, `aws.inspector`, `aws.lambda`, `aws.secretsmanager`, `aws.vpc`, `aws.iam_access_key`, `aws.password_policy`, `aws.security_alert`, `aws.security_group`, `aws.security_services`) | — | `region` | AWS SDK default chain (env → profile → IAM role → OIDC/IRSA); `region` falls back to `AWS_REGION` then the SDK default |
 | **`gcp.*`** — project-scoped (`gcp.compute`, `gcp.iam`, `gcp.sql`, `gcp.storage`, `gcp.firewall`, `gcp.network`, `gcp.kms`, `gcp.secretmanager`, `gcp.logging`, `gcp.audit`, `gcp.asset`, `gcp.artifactregistry`, `gcp.gke`, `gcp.firestore`, `gcp.backup`, `gcp.certs`) | `project_id` | — | Application Default Credentials (ADC) |
-| `gcp.directory` | — | `customer_id` (defaults to the `my_customer` alias) | ADC — Admin SDK Directory API; needs a Workspace-admin context (account/customer-scoped, **not** project-scoped) |
+| `gcp.directory` | — | `customer_id` (defaults to the `my_customer` alias), `target_service_account`, `impersonate_subject` (requires `target_service_account`) | ADC — Admin SDK Directory API; needs a Workspace-admin context (account/customer-scoped, **not** project-scoped) |
 | `gcp.scc` | `organization_id` | — | ADC — Security Command Center; **org-scoped**, needs org-level SCC IAM |
 | **`azure.*`** — ARM plane, all except `azure.entra` (`azure.storage`, `azure.sql`, `azure.network`, `azure.compute`, `azure.keyvault`, `azure.monitor`, `azure.defender`, `azure.acr`, `azure.aks`, `azure.cosmos`, `azure.backup`, `azure.certs`, `azure.policy`) | `subscription_id` | — | `DefaultAzureCredential` (env → managed identity → Azure CLI → OIDC federation) |
 | `azure.entra` | — | `tenant_id` | `DefaultAzureCredential` — Microsoft Graph plane (directory/tenant-scoped) |
 | `github` | `org` | — | `token` config key or `GITHUB_TOKEN` env |
 | `gitlab` | `group` | `base_url` (self-managed; default `https://gitlab.com`) | `token` config key or `GITLAB_TOKEN` env |
 | `okta` | `org_url` | — | `api_token` config key or `OKTA_API_TOKEN` env |
+| `active_directory` | `url`, `bind_dn` | `bind_password`, `token_env`, `base_dn`, `start_tls`, `ca_cert`, `tls_server_name`, `user_filter`, `page_size`, `timeout`, `service_account_ous` | `bind_password` config key → `token_env` (names an env var) → `SIGCOMPLY_AD_BIND_PASSWORD` env |
 | `manual.pdf` | per backend: `local`→ `path`; `s3`→ `bucket`, `region`; `gcs`→ `bucket`; `azure_blob`→ `account`, `container` | `backend` (default `local`), `prefix`, plus `endpoint` + `force_path_style` (on-prem `s3`) | the selected backend's own chain (matches `aws.*` / `gcp.*` / `azure.*`) |
 
 > The five AWS sources whose **source ID differs from their package
@@ -113,6 +115,13 @@ The CLI uses the standard [AWS SDK credential chain](https://aws.github.io/aws-s
 | **AWS CLI profile** | Local development | `aws configure`, then `AWS_PROFILE=name` |
 | **IAM role** | EC2, ECS, Lambda | Attach role to instance/task — no env vars needed |
 | **OIDC / IRSA** | GitHub Actions, EKS | Configure OIDC provider + role trust policy |
+
+`aws.iam` emits each IAM user's `UserName` as `directory_user.username`
+(the record id is the `UserId`; the synthetic root-account record has no
+username). The source emits no email for IAM users, so for the
+[identity roster](guides/identity-roster.md) they link only through
+`experimental.roster.aliases` keyed by that username (or are declared in
+`non_human`); the root account is treated as non-human automatically.
 
 **Minimum IAM permissions required:**
 
@@ -153,6 +162,8 @@ The CLI uses the standard [AWS SDK credential chain](https://aws.github.io/aws-s
 
 **Required token scopes:** `read:org`, `repo` (for private repos), `admin:org` (for 2FA status visibility).
 
+Each member's `directory_user` carries `username` ← the login (also the record id). The org-members endpoint exposes no email, so for the [identity roster](guides/identity-roster.md) every GitHub account links only through `experimental.roster.aliases` keyed by login (or is declared in `non_human`).
+
 The token is read in the GitHub collector's `Init()` method. If `GITHUB_TOKEN` is not set and no token is provided via `WithToken()`, initialization fails with a clear error.
 
 ### GitLab
@@ -163,7 +174,7 @@ The token is read in the GitHub collector's `Init()` method. If `GITHUB_TOKEN` i
 
 Config keys (under `sources.gitlab`): `group` (group ID or full path, e.g. `my-group/sub-group`) is required; `token` may be supplied here or via `GITLAB_TOKEN`; `base_url` is optional and targets a self-managed instance (default `https://gitlab.com`). A complete worked example — one `gitlab` source supplying both `git_repository` and `directory_user`, bound to real SOC 2 policies on a self-managed instance — is at [`docs/architecture/examples/gitlab-selfmanaged.sigcomply.yaml`](architecture/examples/gitlab-selfmanaged.sigcomply.yaml).
 
-**Required token scope:** `read_api`. The collector enumerates the group's projects (`include_subgroups`) and emits one `git_repository` record per project — substitutable for GitHub repositories in every branch-protection / code-review policy. Per project it reads branch-protection, approval-rule, approval-config, and push-rule state. It also lists the group's members and emits one `directory_user` record per member — substitutable for GitHub / Okta / AWS IAM identities in every MFA / admin / lifecycle policy. Mapping: `is_admin` ← group role ≥ Maintainer **or** instance admin; `is_active` ← member state `active`; `mfa_enabled` ← the user's `two_factor_enabled`; `id`/`identity_key` ← username.
+**Required token scope:** `read_api`. The collector enumerates the group's projects (`include_subgroups`) and emits one `git_repository` record per project — substitutable for GitHub repositories in every branch-protection / code-review policy. Per project it reads branch-protection, approval-rule, approval-config, and push-rule state. It also lists the group's members and emits one `directory_user` record per member — substitutable for GitHub / Okta / AWS IAM identities in every MFA / admin / lifecycle policy. Mapping: `is_admin` ← group role ≥ Maintainer **or** instance admin; `is_active` ← member state `active`; `mfa_enabled` ← the user's `two_factor_enabled`; `id`/`identity_key`/`username` ← username (roster aliases match on it).
 
 **Known limitations (v1):** some signals are premium/ultimate features and degrade gracefully to `false` on free tier (the endpoint 404s): `requires_signed_commits` (push rule `reject_unsigned_commits`) and `require_code_owner_reviews`. Pipeline SAST / Secret Detection / Dependency scanning have **no read-only project-settings API** (they are configured in `.gitlab-ci.yml`), so `secret_scanning_enabled`, `code_scanning_enabled`, and `dependabot_alerts_enabled` are always emitted as `false`; `push_protection_enabled` maps to GitLab's pre-receive secret detection. For `directory_user`, `mfa_enabled` and instance-admin status are only readable with a **group-owner / instance-admin token** (via the Users API); with a lesser-privileged token the per-member read is forbidden and `mfa_enabled` is best-effort `false` — provision an owner/admin token where MFA-enforcement policies matter. Member email is likewise only exposed to elevated tokens, so the optional `email` field may be omitted.
 
@@ -179,15 +190,92 @@ Config keys (under `sources.okta`): `org_url` (the full tenant URL, e.g. `https:
 
 **Known limitation (v1):** `is_admin` is derived from **directly-assigned** admin roles. A user who is an administrator *only* through a group-role assignment may read as `is_admin=false`; group-inherited admin resolution is deferred. The roles call is per-user (N+1 over the user list) and draws from Okta's org-wide `/api/v1/users/*` rate-limit bucket.
 
+**`directory_user.is_active`:** true for `ACTIVE`, `RECOVERY`, `PASSWORD_EXPIRED` and `LOCKED_OUT` (previously only `ACTIVE`) — a locked-out or password-expired account is still a live login.
+
+**roster_entry** (when a slot accepts it, i.e. `experimental.roster.source: okta` — see [identity roster](guides/identity-roster.md)): lists users in two paged passes — the default `/api/v1/users` listing, then `filter=status eq "DEPROVISIONED"` (the default listing omits deprovisioned users). No per-user calls; the roster needs only `okta.users.read`.
+
+| `roster_entry` field | Okta |
+|---|---|
+| `status` | `active` ← ACTIVE, RECOVERY, PASSWORD_EXPIRED, LOCKED_OUT · `pending` ← STAGED, PROVISIONED · `inactive` ← SUSPENDED, DEPROVISIONED, anything else |
+| `source_status` | raw Okta status |
+| `email` | `profile.email` |
+| `display_name` | `firstName lastName`, else `login` |
+| `employee_id` | `profile.employeeNumber` |
+| `employee_type` | `profile.userType` |
+
+Users hard-deleted from Okta vanish from the roster; their accounts elsewhere surface via `accounts_linked_to_roster` (unlinked), not the inactive-personnel policy.
+
+### Active Directory
+
+Config keys (under `sources.active_directory`). The source emits `roster_entry` only — AD has no MFA signal, so it never emits `directory_user`; it exists to be the [identity roster](guides/identity-roster.md).
+
+```yaml
+sources:
+  active_directory:
+    url: ldaps://dc01.corp.example.com
+    bind_dn: CN=sc-reader,OU=Service Accounts,DC=corp,DC=example,DC=com
+    # bind_password: from SIGCOMPLY_AD_BIND_PASSWORD
+    ca_cert: ./corp-ca.pem
+    service_account_ous: ["OU=Service Accounts,DC=corp,DC=example,DC=com"]
+experimental:
+  roster:
+    source: active_directory
+```
+
+| Key | Rule |
+|---|---|
+| `url` | Required. `ldaps://` (default port 636), or `ldap://` (389) **only** with `start_tls: true`. Plain `ldap://`, `ldaps://` + `start_tls`, and other schemes are rejected. |
+| `start_tls` | Bool, default `false`. |
+| `bind_dn` | Required. |
+| `bind_password` | The bind password. Resolution order: this key → `token_env` → env `SIGCOMPLY_AD_BIND_PASSWORD`. Empty is rejected — no anonymous binds. |
+| `token_env` | Names an environment variable holding the bind password — use it for per-instance passwords. Set but empty is an error, never a fall-through. |
+| `base_dn` | Optional; must parse as a DN. Empty → RootDSE `defaultNamingContext`. |
+| `user_filter` | Default `(&(objectCategory=person)(objectClass=user))`; must compile. |
+| `page_size` | Default 500, clamped to 1..1000. |
+| `timeout` | Default `30s` (duration string or whole seconds); bounds the dial, TLS handshake and each LDAP request. |
+| `ca_cert` | PEM path; else system roots. |
+| `tls_server_name` | Default: the URL host (set it when connecting by IP). |
+| `service_account_ous` | List of DNs; accounts at or under one are `is_service_account`. |
+
+Wrong-typed values are config errors (exit 3). All validation happens without connecting.
+
+**TLS is mandatory:** TLS 1.2+, verified against `ca_cert` or system roots; there is no skip-verify option. **Least privilege:** a dedicated non-admin, non-interactive user — Authenticated Users can read the requested attributes by default, and nothing is written. **CI reachability:** domain controllers are rarely internet-facing, so run on a self-hosted runner inside the network (or over a VPN). **LDAP signing / channel binding** (default on Windows Server 2025) refuses simple binds on unsigned plain LDAP; LDAPS/StartTLS satisfy it, and this plugin never uses plain LDAP. `lastLogonTimestamp` is not read.
+
+| `roster_entry` field | Active Directory |
+|---|---|
+| `id` | `objectGUID`, Microsoft string form, lowercase |
+| `email` | `mail` → primary `SMTP:` `proxyAddresses` → `userPrincipalName` |
+| `display_name` | `displayName` → "givenName sn" → `sAMAccountName` |
+| `status` / `source_status` | UAC ACCOUNTDISABLE (0x2) → `inactive`/`disabled`; else `accountExpires` in the past → `inactive`/`expired` (0 and 0x7FFFFFFFFFFFFFFF mean never); else `active`/`enabled` |
+| `employee_id` / `employee_type` | `employeeID` → `employeeNumber` / `employeeType` |
+| `is_service_account` | `servicePrincipalName` present, or DN at/under a `service_account_ous` entry |
+
+A malformed `userAccountControl`/`accountExpires` fails the collection rather than guessing. **Deleted accounts vanish** from the roster (tombstones are not read), so their downstream accounts surface via `accounts_linked_to_roster`. The default filter excludes computers and gMSAs. Verified against a Samba AD DC (LDAPS and StartTLS).
+
 ### GCP
 
 GCP sources use [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials) (ADC) — no SigComply-specific credential config. Set ADC up in your CI workflow (`google-github-actions/auth` via Workload Identity Federation, or `gcloud auth application-default login` locally) before running `sigcomply check`. Project-scoped GCP sources (`gcp.storage`, `gcp.iam`, `gcp.compute`, `gcp.sql`, and the rest) take a `project_id` config key; the two exceptions are `gcp.directory` (account/customer-scoped — `customer_id`) and `gcp.scc` (organization-scoped — `organization_id`). A full worked GCP-only SOC 2 config — the gcp.* source family covering identity, network, encryption, logging, change-tracking, and security posture, with the password-policy controls deferred to manual evidence (see WU-0.3) — lives at [`docs/architecture/examples/gcp-project.sigcomply.yaml`](architecture/examples/gcp-project.sigcomply.yaml).
 
 The `gcp.directory` source is the exception: it reads Google Workspace / Cloud Identity users via the **Admin SDK Directory API**, which is **account/customer-scoped, not project-scoped**. Config keys (under `sources.gcp.directory`): `customer_id` is optional and defaults to the `my_customer` alias (resolves to the credential's own organization); set it to an explicit `C0...` customer ID only to target a different account.
 
-It enumerates all users and emits one `directory_user` record each — substitutable for AWS IAM / Okta / GitHub / GitLab identities in every MFA / admin / lifecycle policy. Mapping: `mfa_enabled` ← the user's 2-step-verification enrollment (`isEnrolledIn2Sv`); `is_admin` ← super-admin **or** delegated admin; `is_active` ← not `suspended`; `id` ← the directory user id; `email`/`identity_key` ← `primaryEmail`; `display_name` ← full name.
+It enumerates all users and emits one `directory_user` record each — substitutable for AWS IAM / Okta / GitHub / GitLab identities in every MFA / admin / lifecycle policy. Mapping: `mfa_enabled` ← the user's 2-step-verification enrollment (`isEnrolledIn2Sv`); `is_admin` ← super-admin **or** delegated admin; `is_active` ← neither `suspended` nor `archived`; `id` ← the directory user id; `email`/`identity_key` ← `primaryEmail`; `display_name` ← full name. Per-user 2SV enrollment is only meaningfully populated for users in the customer's own domain(s).
 
-**Required scope & privilege:** the read-only scope `https://www.googleapis.com/auth/admin.directory.user.readonly`. The Admin SDK has **no anonymous service-account access** — the ADC identity must be a Workspace admin, or a service account with **domain-wide delegation** authorized for that scope and impersonating an admin subject. Without an admin context the API returns 403 and the source errors. Per-user 2SV enrollment is only meaningfully populated for users in the customer's own domain(s).
+When a slot accepts `roster_entry` (`experimental.roster.source: gcp.directory` — see [identity roster](guides/identity-roster.md)), it also emits one roster entry per user from the same listing. Workspace has no pending state, so `pending`, `employee_type` and `is_service_account` are never emitted.
+
+| `roster_entry` field | Workspace |
+|---|---|
+| `id` | `id` |
+| `status` / `source_status` | `suspended` → `inactive`/`suspended`; else `archived` → `inactive`/`archived`; else `active`/`active` |
+| `email` | `primaryEmail` |
+| `display_name` | `name.fullName` |
+| `employee_id` | first `externalIds` entry with `type: organization` and a non-empty value |
+
+**Credentials.** The plugin requests only `https://www.googleapis.com/auth/admin.directory.user.readonly`. The Admin SDK additionally needs a Workspace admin context, in one of two ways:
+
+- **Recommended — service account with a Workspace admin role.** In the Admin console (Account → Admin roles) create a custom role with **Admin API privileges → Users → Read** and assign it to the service account's email. In CI obtain ADC via Workload Identity Federation (`google-github-actions/auth` with `workload_identity_provider` + `service_account`) — no key file. If the ADC identity is not that service account, set `target_service_account` to it and ADC impersonates it (ADC needs `roles/iam.serviceAccountTokenCreator` on it). Set `customer_id` to your `C0…` customer ID explicitly (Admin console → Account settings): `my_customer` may not resolve for a non-domain identity.
+- **Alternative — domain-wide delegation.** Set `target_service_account` (the delegated service account) and `impersonate_subject` (a Workspace admin's email); `impersonate_subject` requires `target_service_account`. The ADC identity needs `roles/iam.serviceAccountTokenCreator` on the target, the IAM Service Account Credentials API must be enabled in its project, and a super admin must allow-list the service account's OAuth client ID for the readonly scope (Security → API controls → Domain-wide delegation).
+
+Without an admin context the API returns 403 and the source errors.
 
 The `gcp.firewall` source is project-scoped (`project_id` required, under `sources.gcp.firewall`). It lists VPC firewall rules via the Compute `firewalls.list` API (read-only scope `https://www.googleapis.com/auth/compute.readonly`) and emits one `firewall_rule` record per protocol/port-range — the same neutral type as `aws.security_group`, so network-exposure policies (open ports, unrestricted-source) span both clouds with no policy change. A GCP firewall holds either an `allowed` or a `denied` set; the plugin flattens each into individual rules. Mapping: `direction` ← `INGRESS`/`EGRESS` (lowercased); `protocol`/`from_port`/`to_port` ← each allowed/denied entry's protocol and port range (empty ports ⇒ all ports, `from_port = -1`); `is_unrestricted_ipv4`/`_ipv6` ← `0.0.0.0/0` / `::/0` in the direction's range list (`sourceRanges` for ingress, `destinationRanges` for egress); GCP extras `action` (allow/deny), `network`, `priority`, `disabled` ride in `additionalProperties`.
 
@@ -317,6 +405,18 @@ P1 or P2 license**. If those are missing the source returns a clear error
 for every user — that tags only the Entra-bound policies `error`, never a run
 crash. `last_login_at` degrades silently (omitted) when `signInActivity` is
 unavailable.
+
+**roster_entry** (when a slot accepts it, i.e. `experimental.roster.source: azure.entra` — see [identity roster](guides/identity-roster.md)): pages `GET /users` selecting only roster fields; it never reads the MFA registration report, so it needs only the Graph application permission `User.Read.All` and works **without Entra ID P1/P2**. Guests (`userType == Guest`) are excluded.
+
+| `roster_entry` field | Entra |
+| --- | --- |
+| `status` / `source_status` | `active`/`enabled` when `accountEnabled`, else `inactive`/`disabled` (no pending state) |
+| `email` | `mail`, else `userPrincipalName` |
+| `display_name` | `displayName` |
+| `employee_id` | `employeeId` |
+| `employee_type` | `employeeType` |
+
+Users deleted from Entra vanish from the roster; their accounts elsewhere surface as unlinked (`accounts_linked_to_roster`).
 
 > **Implementation note:** `azure.entra` calls Microsoft Graph over raw REST
 > (with a bearer token from `DefaultAzureCredential`), not the
@@ -1158,7 +1258,7 @@ set of accepted top-level keys (`internal/spec/project_config.go`):
 | `ci` | `{ fail_on_violation, fail_severity }` | Config-only; no equivalent flags. |
 | `ci_environment` | map | Free-form environment metadata recorded with the run. |
 | `extensions` | `{ path }` | Overrides extension-discovery path (default `.sigcomply/`). |
-| `experimental` | map | Forward-compat escape hatch: not-yet-stable keys live here so a newer config never breaks an older CLI. The loader itself interprets nothing here; each feature reads its own key. See [`experimental.scope`](#experimentalscope--declaring-the-estate) below. |
+| `experimental` | map | Forward-compat escape hatch: not-yet-stable keys live here so a newer config never breaks an older CLI. The loader itself interprets nothing here; each feature reads its own key. See [`experimental.scope`](#experimentalscope--declaring-the-estate) and [`experimental.roster`](#experimentalroster--designating-the-identity-roster) below. |
 
 #### Multiple instances of one source
 
@@ -1190,6 +1290,7 @@ twice. Per-provider:
 |----------|----------------------|------|
 | `aws.*` | Yes, via role assumption | `role_arn`, optional `external_id`, `role_session_name` |
 | `github`, `gitlab`, `okta` | Yes | `token` / `api_token`, or `token_env` naming an env var |
+| `active_directory` | Yes | `bind_dn` + `bind_password`, or `token_env` naming an env var (not usable as `experimental.roster.source` when bracketed) |
 | `gcp.*` | No — one ambient identity; varies only what it queries | `project_id`, `organization_id` |
 | `azure.*` | No — one ambient identity | `subscription_id` |
 
@@ -1255,6 +1356,49 @@ It lives under `experimental:` rather than at the top level because the
 loader runs with `KnownFields(true)`: a brand-new top-level key would
 hard-fail every CLI released before it. It graduates to a first-class key in
 a later release.
+
+#### `experimental.roster` — designating the identity roster
+
+Optional. Designates the one source that holds your organization's roster
+(the authoritative list of people) for the policies that check accounts in
+*other* systems against it (`soc2.cc6.2.accounts_linked_to_roster`,
+`soc2.cc6.2.no_active_accounts_for_inactive_personnel`, and the ISO 27001
+A.5.16 / A.5.18 equivalents). Walkthrough:
+[Identity roster guide](guides/identity-roster.md).
+
+```yaml
+experimental:
+  roster:
+    source: okta                      # required when the block is present
+    aliases:                          # optional: account → roster email, per source
+      github: { jdoe: jane@acme.com }
+      aws.iam: { jane.doe: jane@acme.com }
+    non_human:                        # optional: accounts that are not people
+      github: [acme-ci-bot]
+      aws.iam: [terraform-deployer]
+```
+
+| Key | Required | Meaning |
+|-----|----------|---------|
+| `source` | yes | One configured source ID (no `[instance]` suffix) that emits a type roster slots accept (`roster_entry`): `okta`, `azure.entra`, `gcp.directory`, or `active_directory`. |
+| `aliases` | no | `{source_id: {account: roster_email}}` for accounts with no email or a different one. Matched against the account's `id` or `username`, case-insensitively. |
+| `non_human` | no | `{source_id: [account, …]}` — bots, deploy users and other accounts that are not people. Matched the same way. |
+
+**A directory cannot vouch for its own accounts.** Any source bound to a
+policy's roster slot is never bound to that policy's accounts slot. The
+roster is never auto-bound: without this block the roster policies skip
+("no roster source designated — set experimental.roster.source …"). A
+per-policy `bindings: {roster: [...]}` overrides `source` for that policy
+(and that source is the one excluded); explicitly binding a roster source
+to the accounts slot is an error.
+
+**Errors (exit 3):** `source` missing, bracketed, not configured, or
+emitting nothing a roster slot accepts; an `aliases` / `non_human` key that
+is not a configured source; an empty alias; the same account aliased twice
+(case-insensitively) to different emails. Unknown sub-keys, and a roster
+designated for a framework with no roster policy, only warn. Nothing in
+this block leaves your environment — aliases are identity data and never
+reach SigComply Cloud.
 
 ---
 

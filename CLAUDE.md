@@ -35,7 +35,9 @@ exactly like any other unregistered name (nothing registers under it).
 **Policies are Go, not Rego.** There are zero `.rego` policy files. Each
 policy is an `autoPolicy{...}.policy()` builder under
 `internal/frameworks/<fw>/policies_*.go` carrying a declarative
-`pass_when:` clause (`all`/`allWhere`/`leaf`/`anyWhere`). As of the
+`pass_when:` clause (`all`/`allWhere`/`leaf`/`anyWhere`); the four
+identity-roster policies use `rosterPolicy{...}` — two slots (`roster`,
+`accounts`) joined by the `matches_in` operator. As of the
 security_alert reconception, **no shipped policy uses the `rule:` escape
 hatch** — both SOC 2 and ISO 27001 are 100% `pass_when:` (each
 framework's `Rules()` returns nil). The escape-hatch infrastructure
@@ -330,9 +332,10 @@ the patterns to catch in review.
   [`04a-evidence-type-registry.md`](./docs/architecture/04a-evidence-type-registry.md) §Schema design.)
 - **`pass_when:` is the primary path; `rule:` is the escape hatch.** ~95%
   of checks are a quantifier (all/none/any/count) over a field condition
-  on one slot — that's `pass_when:`, no Go/Rego. Reach for `rule:` only
-  for cross-slot joins, complex aggregations, or what the DSL can't
-  express. Manual policies use neither.
+  on one slot — that's `pass_when:`, no Go/Rego. Cross-slot key joins
+  are `pass_when:` too (`matches_in` + `in_slot`, e.g. accounts vs the
+  roster). Reach for `rule:` only for complex aggregations or what the
+  DSL can't express. Manual policies use neither.
 - **The evaluator never guesses.** A `pass_when` reference to a field the
   record does not carry is `status=error`, in a clause `filter` as much as
   in a `condition` — an undecidable filter leaves the clause's *scope*

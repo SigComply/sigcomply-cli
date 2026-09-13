@@ -303,7 +303,9 @@ ones. (There is no `--policies` filter flag; select the run set with
 
 ### When `pass_when:` isn't enough: the `rule:` escape hatch
 
-For cross-slot joins or aggregations the DSL can't express, an automated
+For aggregations or joins the DSL can't express (a key lookup across
+slots is `pass_when:`'s `matches_in` — see
+[`03-policy-spec.md`](03-policy-spec.md) §Multi-slot policies), an automated
 policy may instead carry `rule: <rule_id>` (mutually exclusive with
 `pass_when:`). Today the only **wired** project-local rule mechanism is a
 `rule.rego` alongside the policy:

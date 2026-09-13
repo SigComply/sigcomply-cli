@@ -394,7 +394,8 @@ There are two ways to express it, and they are **mutually exclusive**
   `Rules()` returns nil.**
 - **`rule:` (the escape hatch — present but unused).** A Go or inline
   Rego rule, for the rare check the DSL genuinely cannot express
-  (cross-slot joins, complex aggregations). The infrastructure remains
+  (complex aggregations; cross-slot key joins are `pass_when:`'s
+  `matches_in`). The infrastructure remains
   available and OPA stays a dependency for it, but no shipped policy
   reaches for it. Rego rules run in OPA's sandbox; Go rules are
   reviewed for side-effect-freedom at PR time.

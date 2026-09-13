@@ -227,7 +227,7 @@ config-string lookup.
 **Status.** Many in-tree sources ship today (AWS across IAM/S3/EC2/RDS/
 KMS/CloudTrail/CloudWatch/Config/EKS/GuardDuty/…; Azure across
 Entra/Storage/Compute/SQL/KeyVault/Defender/…; GCP across
-IAM/Storage/Compute/SQL/…; GitHub; GitLab; Okta). The evidence-type schemas for
+IAM/Storage/Compute/SQL/Directory/…; GitHub; GitLab; Okta; Active Directory over LDAP). The evidence-type schemas for
 the records they emit (e.g. `directory_user`, `object_storage_bucket`,
 `signed_document`) are embedded via `go:embed` and validated at
 collection time. Third parties add custom sources via `RegisterFactory`

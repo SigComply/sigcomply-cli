@@ -1,0 +1,199 @@
+# Identity roster
+
+How to designate the directory that lists your organization's people, and check that every account in your other systems belongs to one of them — and to no one who has left.
+
+> Docs hub: [../README.md](../README.md)
+
+## What the roster is, and why
+
+Access-control criteria (SOC 2 CC6.2, ISO 27001 A.5.16 and A.5.18) ask two questions about every account in every system:
+
+1. **Does it belong to a real person in the organization?**
+2. **Has it been removed when that person left or was suspended?**
+
+Checking accounts system by system can't answer either. A GitHub member with MFA on is still a problem if nobody knows who they are. The answer needs an outside reference: an authoritative list of people. SigComply calls that list the **roster**. You pick one directory as the roster, and the CLI checks the accounts in every *other* configured identity source against it.
+
+The roster is personnel data, so the CLI reads only the fields it needs (id, email, name, employee id/type, status, service-account flag). As with all evidence, it stays in your vault and never reaches SigComply Cloud. The Cloud dashboard only gets the counts.
+
+## Prerequisites
+
+- A working `.sigcomply.yaml` with at least one account source configured — `github`, `gitlab`, `aws.iam`, `okta`, `azure.entra` or `gcp.directory` (see [Configure sources](configure-sources.md)).
+- Read access to the directory you will designate as the roster.
+
+## Choosing the roster source
+
+Four sources can be the roster:
+
+| Directory | Source ID | Roster credential |
+|---|---|---|
+| Okta | `okta` | API token that can read users (`okta.users.read`) |
+| Microsoft Entra ID | `azure.entra` | Graph application permission `User.Read.All` — **no Entra ID P1/P2 needed** for the roster |
+| Google Workspace / Cloud Identity | `gcp.directory` | Workspace admin context with Users → Read |
+| Active Directory (on-prem) | `active_directory` | A non-admin bind user over LDAPS / StartTLS |
+
+**Pick the directory where accounts are created** — the one HR onboarding and offboarding actually touches first. In a hybrid setup where Active Directory syncs to Entra ID, which then provisions Okta, the origin is Active Directory. Designate that. A downstream copy can lag behind the origin, or miss someone the sync skipped.
+
+Credentials and field mappings for each source are in the [configuration reference](../configuration.md): [Okta](../configuration.md#okta), [Entra ID](../configuration.md#azureentra--directory_user), [Google Workspace](../configuration.md#gcp), [Active Directory](../configuration.md#active-directory).
+
+Only one roster source is supported per project, and it must be a plain source ID (no `[instance]` suffix).
+
+## A directory cannot vouch for its own accounts
+
+The roster must come from a system other than the one being checked. Once you designate a source as the roster, the CLI **never** checks that source's own accounts against the roster, because a directory that lists a person would trivially "prove" that person's account there.
+
+What that means in practice:
+
+- **If Okta is the roster**, GitHub, GitLab, AWS IAM, Entra and Google Workspace accounts are checked against it. Okta accounts are not.
+- **Deprovisioning *inside* the roster directory is still manual evidence.** The CLI can't attest that a leaver was removed from Okta using Okta as the reference. Keep providing the manual evidence your framework's catalog asks for (for example a quarterly access review or offboarding records).
+
+## Configure it
+
+Start with the source and the one-line designation:
+
+```yaml
+sources:
+  okta:
+    org_url: https://acme.okta.com
+  github:
+    org: acme
+  aws.iam:
+    region: us-east-1
+
+experimental:
+  roster:
+    source: okta
+```
+
+Accounts link to people by **email**, compared case-insensitively. Some accounts have no email, or a different one. Link them with `aliases`, and mark accounts that aren't people with `non_human`:
+
+```yaml
+experimental:
+  roster:
+    source: okta
+    aliases:                          # account → the person's roster email
+      github:
+        jdoe: jane.doe@acme.com       # GitHub login
+        octo-sam: sam@acme.com
+      aws.iam:
+        jane.doe: jane.doe@acme.com   # IAM UserName
+    non_human:                        # bots, deploy users, break-glass accounts
+      github: [acme-ci-bot]
+      aws.iam: [terraform-deployer]
+```
+
+Rules for both maps:
+
+- The top-level keys are **source keys exactly as written under `sources:`**, including any `[instance]` suffix on account sources (`"github[labs]"`).
+- An account name matches the account's **id or username**, case-insensitively. It never matches a display name, because free-text names aren't unique.
+- An alias must be a non-empty email. The same account listed twice with different emails is an error.
+
+### GitHub and AWS accounts need aliases
+
+Some sources can't supply an email, so their accounts link **only** through `aliases`:
+
+- **GitHub** — the org-members API exposes no email. Alias each login.
+- **AWS IAM** — IAM users carry no email. Alias each `UserName`. The AWS **root** account is recognized automatically and treated as non-human, so you don't need to list it.
+- **GitLab** — member email is visible only to a group-owner or instance-admin token. With a lesser token, alias the usernames.
+
+Okta, Entra ID and Google Workspace accounts carry emails and usually link without aliases.
+
+### Overriding the roster for one policy
+
+A per-policy binding overrides `source` for that one policy. Excluding the roster source from the accounts works as usual:
+
+```yaml
+policies:
+  soc2.cc6.2.accounts_linked_to_roster:
+    bindings:
+      roster: [azure.entra]           # this policy uses Entra as its roster
+```
+
+Explicitly binding the roster source to the same policy's `accounts` slot is a configuration error.
+
+## The policies
+
+Each framework ships two roster policies. Both run daily and on push, and both skip until a roster is designated.
+
+| Framework | Policy | Severity | Asserts |
+|---|---|---|---|
+| SOC 2 | `soc2.cc6.2.accounts_linked_to_roster` | high | Every active human account belongs to someone in the roster. |
+| SOC 2 | `soc2.cc6.2.no_active_accounts_for_inactive_personnel` | critical | No active account belongs to someone the roster marks inactive. |
+| ISO 27001 | `iso27001.5.16.accounts_linked_to_roster` | high | Same as the SOC 2 linked check (A.5.16 identity management). |
+| ISO 27001 | `iso27001.5.18.no_active_accounts_for_inactive_personnel` | critical | Same as the SOC 2 inactive check (A.5.18 access rights). |
+
+**Linked to roster** looks at active accounts that aren't non-human (disabled accounts and declared bots are skipped). An account passes when its alias (or, failing that, its email) equals the email of **any** roster entry, whether that person is active, pending or inactive.
+
+**No active accounts for inactive personnel** looks at active accounts whose alias or email equals the email of a roster entry with status `inactive` (suspended, disabled, deprovisioned or expired).
+
+A person who is `pending` (provisioned but not yet able to sign in, such as a new joiner in Okta's STAGED state) counts as linked and isn't treated as inactive.
+
+### Reading violations
+
+Violations name the account as `source_id/id`, called the **account ref**:
+
+```
+account github/octo-sam is not linked to anyone in the roster
+account aws.iam/AIDAEXAMPLE0000000000 belongs to sam@acme.com, who is inactive in the roster
+```
+
+The ref is unique across sources, so GitHub `jdoe` and GitLab `jdoe` are reported separately. For `aws.iam` the id is the IAM `UserId`, not the user name. The full violation list lives in your vault. The Cloud dashboard sees only the counts.
+
+For each violation, either fix the account (remove it, or disable it where the person left) or fix the link (add an alias or a `non_human` entry). To accept a finding for a while, waive it with the account ref as `resource_id`:
+
+```yaml
+policies:
+  soc2.cc6.2.accounts_linked_to_roster:
+    exceptions:
+      - scope: { resource_id: "github/octo-sam" }
+        state: waived
+        reason: "External contractor under MSA-2291; offboarding tracked in JIRA-812."
+        approved_by: ciso@acme.com
+        expires_at: 2026-12-31
+```
+
+### Deleted vs. inactive people
+
+The two policies catch leavers in different ways, depending on how the roster directory records a departure:
+
+- **Suspended / disabled / deprovisioned** (the person is still listed, with status `inactive`): their remaining accounts elsewhere fail **no active accounts for inactive personnel**. Okta keeps DEPROVISIONED users listed, and the CLI reads them.
+- **Deleted outright** (the person disappears from the directory: an Entra or Workspace deletion, an AD object deletion, an Okta hard delete): the roster no longer lists them, so their remaining accounts fail **linked to roster** instead.
+
+So **waiving an unlinked account on the linked policy can hide a leaver** whose directory entry was deleted. Only waive accounts you have identified.
+
+## Limits
+
+- **No HR system.** The roster is a directory, not an HRIS (BambooHR, Workday, …). If your directory isn't kept in step with HR, the check is only as good as the directory.
+- **Current state only.** Each run checks accounts as they are now. It doesn't measure how quickly an account was removed after a departure (for example "within 24 hours"). Keep that evidence manually.
+- **One roster source, no instances.** A bracketed source (`"okta[emea]"`) can't be the roster, and two rosters can't be merged.
+- **Email is the join key.** A roster entry with no email can't vouch for any account (fail-safe), and an account with neither email nor alias is always unlinked.
+- **Each roster policy collects its own evidence.** Nothing is cached between policies, so the roster directory is read once per roster policy in a run — for a large Active Directory, that is one full paged search per policy.
+- **Entra ID MFA policies still need P1/P2.** Reading the roster from `azure.entra` needs only `User.Read.All`. The MFA policies that bind the same source's `directory_user` records still need the Entra ID P1/P2 registration report.
+
+## Troubleshooting
+
+**The roster policies are skipped with "no roster source designated — set experimental.roster.source …".** No roster is designated, or the policy's `roster` binding is empty. Add `experimental.roster.source`.
+
+**Exit `3` with an `experimental.roster` error.** The config is rejected before any collection. Common causes:
+
+| Message contains | Fix |
+|---|---|
+| `experimental.roster.source is required` | Add `source:` to the block. |
+| `bracketed multi-instance source IDs are not supported` | Use a plain source ID. |
+| `is not configured in the sources: block` | Configure that source under `sources:`, or fix the typo. The same applies to keys under `aliases` / `non_human`. |
+| `none of which a roster slot accepts` | The source can't be a roster (e.g. `github`). Use `okta`, `azure.entra`, `gcp.directory` or `active_directory`. |
+| `alias must be a non-empty roster email` / `is listed more than once` | Fix the alias entry. |
+| `cannot also feed the accounts checked against it` | A `bindings:` override puts the roster source on the `accounts` slot. Remove it. |
+
+**Every GitHub or AWS account is unlinked.** Those sources carry no email. Add `aliases` (see above).
+
+**A warning `ignoring unrecognized key experimental.roster.<key>`.** A typo in the block. Unknown keys are tolerated so newer configs load on older CLIs, but they do nothing.
+
+**The roster policies report `error`.** The roster source failed to collect — a missing Okta token, an LDAPS certificate that doesn't verify, a Workspace 403 — and the result carries the source's own message. See the source's section in the [configuration reference](../configuration.md).
+
+## See also
+
+- [Configuration reference — `experimental.roster`](../configuration.md#experimentalroster--designating-the-identity-roster)
+- [Configure sources](configure-sources.md)
+- [Frameworks](../reference/frameworks.md)
+- [Policy spec — multi-slot policies and `matches_in`](../architecture/03-policy-spec.md#multi-slot-policies)
+- [Docs hub](../README.md)

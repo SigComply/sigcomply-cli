@@ -58,7 +58,7 @@ Key rules:
 
 - The framework key is **singular**: `framework:` — never `frameworks:`.
 - Policies **auto-bind** to any configured source that emits the evidence type they need. You do **not** need a `bindings:` block to start.
-- If you ever must override a binding, key it on the slot named `evidence` and a real source id, e.g. `bindings: { evidence: [okta] }`. Slot names like `user_directory` or `access_keys` **do not exist** and cause exit `3`.
+- If you ever must override a binding, key it on the policy's real slot name and a real source id. Almost every shipped automated policy has one slot named `evidence`, e.g. `bindings: { evidence: [okta] }`. The exceptions are the identity-roster policies (`*.accounts_linked_to_roster`, `*.no_active_accounts_for_inactive_personnel`), whose slots are `roster` and `accounts`. Slot names like `user_directory` or `access_keys` **do not exist** and cause exit `3`.
 
 ## 4. Add sources and credentials
 
@@ -72,8 +72,9 @@ List each source you want under `sources:` — the CLI does **not** auto-registe
 | `github` | `GITHUB_TOKEN` (or config `token`) | `org` |
 | `gitlab` | `GITLAB_TOKEN` (or config `token`) | `group` (optional `base_url`) |
 | `okta` | `OKTA_API_TOKEN` (or config `api_token`) | `org_url` |
+| `active_directory` | `SIGCOMPLY_AD_BIND_PASSWORD` (or config `bind_password`) | `url` (`ldaps://…`, or `ldap://…` with `start_tls: true`), `bind_dn` |
 
-All collectors are read-only (Describe/List/Get). For AWS, attach `ReadOnlyAccess` or a scoped read policy to the assumed role. Detailed per-source RBAC is in [configuration.md](configuration.md).
+All collectors are read-only (Describe/List/Get). To check accounts against the organization's people, designate the directory that holds them with `experimental.roster.source` (`okta`, `azure.entra`, `gcp.directory` or `active_directory`); without it the roster policies skip. See [Identity roster](guides/identity-roster.md). For AWS, attach `ReadOnlyAccess` or a scoped read policy to the assumed role. Detailed per-source RBAC is in [configuration.md](configuration.md).
 
 ## 5. Scaffold CI
 
@@ -131,9 +132,9 @@ sigcomply report --period <id> --view latest
 ## Common mistakes to avoid
 
 - **Framework key is singular** — `framework: soc2`, never `frameworks: [soc2]`.
-- **The binding slot is `evidence`** — not `user_directory` or `access_keys`. Those slot names do not exist and cause exit `3`.
+- **The binding slot is usually `evidence`** — not `user_directory` or `access_keys`, which do not exist and cause exit `3`. Roster policies use `roster` and `accounts`.
 - **`check` has no `--framework` flag** and ignores `SIGCOMPLY_FRAMEWORK`; it reads the framework from config only.
-- **Never put identifiers in any cloud-facing config** — no ARNs, emails, usernames, or account IDs. The model is non-custodial; only counts leave your environment.
+- **Never put identifiers in any cloud-facing config** — no ARNs, emails, usernames, or account IDs. The model is non-custodial; only counts leave your environment. (`experimental.roster.aliases` in `.sigcomply.yaml` does hold emails; that file stays in the repo and is never sent.)
 - **`collect`, `evaluate`, and `config` commands do not exist.** Do not invent them. Wired commands are `check`, `init`, `init-ci`, `build`, `report`, `evidence catalog`, `version`.
 - **HIPAA is not registered.** Only `soc2` and `iso27001` exist; any other framework name fails.
 - **`go install` names the binary `sigcomply-cli`** — symlink it to `sigcomply`.
@@ -177,7 +178,7 @@ Exit codes: 0 passed · 1 violations · 2 execution error · 3 config error.
   cloud-facing config. The model is non-custodial — only counts leave.
 - Do not use `frameworks:` (plural) — the key is singular `framework:`.
 - Do not key a `bindings:` block on `user_directory`/`access_keys`; the
-  slot is `evidence`.
+  slot is `evidence` (roster policies: `roster` / `accounts`).
 - Do not pass `--framework` to `check`; it reads config only.
 - Do not use `collect`, `evaluate`, or `config` — they are not wired.
 - Do not select `hipaa` — only `soc2` and `iso27001` are registered.

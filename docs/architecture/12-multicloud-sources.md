@@ -23,10 +23,11 @@ This yields the substitutability property: one "object storage encrypted at rest
 | **Azure** | management plane + Entra/Graph | DefaultAzureCredential / OIDC (Entra via raw Graph REST) | 14 plugins (mature) |
 | **GitHub** | SaaS | token | 1 plugin → `git_repository`, `directory_user`, `source_control_org_policy`, `vulnerability_finding` |
 | **GitLab** | SaaS / self-managed | token | 1 plugin → `git_repository`, `directory_user` |
-| **Okta** | SaaS | token | 1 plugin → `directory_user`, `okta_app` |
+| **Okta** | SaaS | token | 1 plugin → `directory_user`, `okta_app`, `roster_entry` |
+| **Active Directory** | on-prem (LDAPS / StartTLS) | bind DN + password | 1 plugin (`active_directory`) → `roster_entry` |
 | **Manual** | customer bucket | n/a | 1 plugin (`manual.pdf`, project singleton) |
 
-Totals: **59 plugins** (AWS 23 · GCP 18 · Azure 14 · GitHub 1 · GitLab 1 · Okta 1 · Manual 1) emitting **28 distinct cloud-neutral evidence types**. The full provider × evidence-type matrix lives in [04-source-plugins.md](04-source-plugins.md); see the plan's gap matrix for per-evidence-type history.
+Totals: **60 plugins** (AWS 23 · GCP 18 · Azure 14 · GitHub 1 · GitLab 1 · Okta 1 · Active Directory 1 · Manual 1) emitting **29 distinct cloud-neutral evidence types**. The full provider × evidence-type matrix lives in [04-source-plugins.md](04-source-plugins.md); see the plan's gap matrix for per-evidence-type history.
 
 ---
 
@@ -34,7 +35,7 @@ Totals: **59 plugins** (AWS 23 · GCP 18 · Azure 14 · GitHub 1 · GitLab 1 · 
 
 Source IDs follow **`<provider>`** for single-service providers and **`<provider>.<service>`** for multi-service providers:
 
-- Single-service (one plugin per provider): `github`, `okta`, `gitlab`.
+- Single-service (one plugin per provider): `github`, `okta`, `gitlab`, `active_directory`.
 - Multi-service (one plugin per service): `aws.s3`, `aws.iam`, `gcp.storage`, `gcp.sql`, `azure.storage`, `azure.entra`.
 
 The `<service>` segment names the underlying cloud service, not the evidence type — one plugin may emit several types (e.g. `azure.keyvault` → `kms_key` + `secret`; `gcp.scc` → `threat_detection_service` + `security_service` + `vulnerability_finding`). Keep a plugin to one underlying service.
@@ -46,7 +47,7 @@ The `<service>` segment names the underlying cloud service, not the evidence typ
 Plugins live under `internal/sources/`:
 
 - **Multi-service providers nest per service:** `internal/sources/<provider>/<service>/` (e.g. `aws/s3/`, `gcp/storage/`, `azure/storage/`). Each service is its own Go package and its own source ID.
-- **Single-plugin providers are flat:** `internal/sources/<provider>/` (e.g. `github/`, `okta/`, `gitlab/`).
+- **Single-plugin providers are flat:** `internal/sources/<provider>/` (e.g. `github/`, `okta/`, `gitlab/`, `activedirectory/` — the package drops the underscore; the source ID keeps it).
 
 Each package ships the canonical file set:
 
@@ -96,7 +97,7 @@ Per-provider config keys and required scopes are catalogued in `docs/configurati
 
 ## Cross-vendor identity contract (`directory_user`) — settled (WU-0.2)
 
-Every identity source — AWS IAM, GitHub, Okta, GitLab, GCP, Azure Entra — emits into the cloud-neutral `directory_user` type. Two questions had to be settled so that adding a non-AWS identity source is mechanical and so the cross-vendor admin-MFA policies actually fire. Both are now decided.
+Every account-bearing identity source — AWS IAM, GitHub, Okta, GitLab, GCP, Azure Entra — emits into the cloud-neutral `directory_user` type. (Active Directory has no MFA signal and emits only `roster_entry`, the list-of-people type that roster policies match those accounts against.) Two questions had to be settled so that adding a non-AWS identity source is mechanical and so the cross-vendor admin-MFA policies actually fire. Both are now decided.
 
 **Decision 1 — non-AWS identity sources emit `directory_user` (v1), not v2.**
 `directory_user.v2` adds three **required** AWS-centric fields — `is_root`, `has_console_access`, `has_programmatic_access` (`internal/evidence_types/schemas/directory_user.v2.json`). Those have no honest analog on GitHub, Okta, GitLab, Cloud Identity, or Entra, so non-AWS sources **must not** fabricate them. v1 requires only `id` + `mfa_enabled` and exposes the cross-vendor fields (`is_admin`, `is_active`, `email`, `mfa_enabled`, `last_login_at`, `display_name`) as optional. AWS keeps emitting v2; everyone else emits v1. GitHub already does this (`internal/sources/github/github.go` emits `"directory_user"` / v1).

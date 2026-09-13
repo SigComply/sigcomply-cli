@@ -31,7 +31,7 @@ The dashboard learns that three resources failed a check — never which three. 
 
 Every policy declares exactly one of two evidence flows via `evidence_mode`.
 
-- **Automated** (`evidence_mode: automated`) — an API source plugin collects JSON from a provider (AWS, GCP, Azure, GitHub, GitLab, Okta) using your read-only credentials. The records are validated against an evidence-type schema, then evaluated by the declarative `pass_when` DSL. Example: "every IAM user has MFA enabled."
+- **Automated** (`evidence_mode: automated`) — an API source plugin collects JSON from a provider (AWS, GCP, Azure, GitHub, GitLab, Okta, Active Directory) using your read-only credentials. The records are validated against an evidence-type schema, then evaluated by the declarative `pass_when` DSL. Example: "every IAM user has MFA enabled."
 
 - **Manual** (`evidence_mode: manual`) — for evidence that can't come from an API (a signed NDA, a quarterly access-review export, a training certificate). You upload one or more files to a folder in your bucket; the CLI scans the folder, converts images to PDF, merges everything into one PDF, and runs a **presence** check: is a valid PDF present within the audit period's temporal window? The CLI deliberately does **not** read the PDF's contents — no text extraction, no signature parsing. Reviewing what the document actually says is the auditor's job.
 
@@ -59,7 +59,7 @@ The CLI does **not** configure any of this, and local filesystem vaults are dev/
 
 Policies and source plugins never reference each other. A policy declares the **evidence types** it accepts; a source plugin declares the evidence types it **emits**. An evidence-type registry — versioned JSON Schemas — is the only thing in between. The planner binds a source to a policy when their types intersect.
 
-The payoff is substitutability. A single "MFA enforced on admins" policy is satisfied by AWS IAM, Okta, Azure AD, or an internal directory — whichever emits the matching evidence type — with **zero** changes to the policy. Adding a new provider for an evidence type you already check is a one-line configuration change, not a policy fork. The conventional slot name a policy binds against is `evidence`. Full design: [evidence-type registry](architecture/04a-evidence-type-registry.md).
+The payoff is substitutability. A single "MFA enforced on admins" policy is satisfied by AWS IAM, Okta, Azure AD, or an internal directory — whichever emits the matching evidence type — with **zero** changes to the policy. Adding a new provider for an evidence type you already check is a one-line configuration change, not a policy fork. The conventional slot name a policy binds against is `evidence`; the identity-roster policies are the exception, with a `roster` slot (the organization's people, from the one directory you designate) and an `accounts` slot (accounts in every other system) — see [Identity roster](guides/identity-roster.md). Full design: [evidence-type registry](architecture/04a-evidence-type-registry.md).
 
 ## See also
 

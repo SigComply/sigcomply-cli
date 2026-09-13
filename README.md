@@ -81,7 +81,7 @@ lands in `./.sigcomply/vault`. Full walkthrough:
 
 ## Supported sources
 
-The CLI ships built-in source plugins across seven providers, all
+The CLI ships built-in source plugins across eight providers, all
 self-registering and compiled in. **Each source you want must be listed in the
 `sources:` block of your config** — credentials are read from the ambient
 environment, but the CLI does not auto-register a source just because
@@ -90,17 +90,21 @@ credentials exist.
 | Provider | Coverage |
 |---|---|
 | **AWS** | IAM, access keys, password policy, S3, RDS, DynamoDB, EC2, Lambda, EKS, ECR, KMS, Secrets Manager, CloudTrail, CloudWatch, Config, VPC, security groups, ACM, Backup, GuardDuty, Inspector, Security Hub, security alerts |
-| **GCP** | Cloud Identity, IAM, Compute, GKE, Cloud SQL, Firestore, Cloud Storage, KMS, Secret Manager, Logging, Audit Logs, Cloud Asset, VPC, firewall, Artifact Registry, Backup & DR, Certificate Manager, Security Command Center |
-| **Azure** | Entra ID, Storage, SQL, Cosmos DB, VMs, AKS, ACR, Key Vault, Monitor, Network, Backup, certificates, Defender for Cloud, Policy |
+| **GCP** | Cloud Identity / Google Workspace (users + identity roster), IAM, Compute, GKE, Cloud SQL, Firestore, Cloud Storage, KMS, Secret Manager, Logging, Audit Logs, Cloud Asset, VPC, firewall, Artifact Registry, Backup & DR, Certificate Manager, Security Command Center |
+| **Azure** | Entra ID (users + identity roster), Storage, SQL, Cosmos DB, VMs, AKS, ACR, Key Vault, Monitor, Network, Backup, certificates, Defender for Cloud, Policy |
 | **GitHub** | repositories, org members, org security policy, Dependabot findings |
 | **GitLab** | repositories, group members |
-| **Okta** | directory users, assigned apps |
+| **Okta** | directory users, assigned apps, identity roster |
+| **Active Directory** | identity roster (on-prem, over LDAPS / StartTLS) |
 | **Manual** | PDF/image evidence from any S3 / GCS / Azure Blob / local folder |
 
 Because policies bind to a cloud-neutral *evidence type* and never to a vendor, a
 control like "MFA enforced on admins" or "object storage encrypted at rest" is
 satisfied identically by AWS, GCP, or Azure with zero policy changes — and adding
-a new source for an existing type needs no policy edits.
+a new source for an existing type needs no policy edits. Designate the directory
+that lists your people as the identity roster (`experimental.roster.source`) and
+the account-lifecycle checks verify every other system's accounts against it —
+see [docs/guides/identity-roster.md](docs/guides/identity-roster.md).
 
 ## Commands
 

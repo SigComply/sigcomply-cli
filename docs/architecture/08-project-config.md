@@ -135,6 +135,24 @@ substitutable without touching policies (see
 intersects the slot — the substitutability default; a `policies:` entry is
 only needed to *narrow* or otherwise tune a policy.
 
+**Slot roles.** A slot may declare `role: roster` or `role:
+roster_subject` (see [`03-policy-spec.md`](03-policy-spec.md) §Multi-slot
+policies). The planner resolves roster slots first. A `roster` slot is
+**never auto-bound** — which configured source is the organization's
+authoritative list of people is a decision only the operator can make: it
+binds to its explicit `bindings:` entry, else `experimental.roster.source`,
+else nothing, and is always `exactly-one` (matching against a union of
+rosters would let a person absent from the real roster pass because some
+other directory lists them). A `roster_subject` slot auto-binds as usual
+**minus every source bound to a roster slot of the same policy** — a
+directory cannot vouch for its own accounts; naming such a source
+explicitly is a plan error (exit 3). When a required roster slot stays
+unbound, the policy's other bindings are dropped (nothing is collected or
+signed for a policy that will skip) and the skip reads "no roster source
+designated — set experimental.roster.source …". Roster declarations
+(aliases, non-human accounts) reach the evaluator via
+`PlannedPolicy.Roster`, not parameters.
+
 `manual.pdf` is a **project-level singleton** — exactly one
 `sources.manual.pdf` entry, no bracket-suffix instance variants
 (`manual.pdf[x]` is rejected). A manual policy names its catalog entry
@@ -345,6 +363,19 @@ top-level section — and the rule above holds without a `v2`.
 it could not be folded into an existing per-ID object — and a new
 top-level `scope:` key would hard-fail every CLI released before it. It
 therefore ships under the hatch first and graduates later.
+
+`experimental.roster` follows the same path. It designates the one source
+whose people are the roster (`source`), plus per-source `aliases`
+(account → roster email) and `non_human` account lists; the planner
+reads it for policies with a roster slot. Shape errors and cross-checks —
+`source` missing, bracketed, not configured, or emitting nothing a roster
+slot accepts; an `aliases` / `non_human` key that is not a configured
+source — fail the plan (exit 3), because a roster the operator named but
+the CLI cannot use would silently skip every roster control. Unknown
+subkeys, and a roster designated for a framework with no roster slot,
+only warn. Nothing in it crosses the aggregation boundary: aliases are
+identity data. Customer guide:
+[`../guides/identity-roster.md`](../guides/identity-roster.md).
 
 One consequence is easy to get wrong: because the hatch's promise is that
 older CLIs *tolerate and ignore* subkeys they do not understand,

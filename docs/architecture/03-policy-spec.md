@@ -7,8 +7,8 @@ condition that determines pass/fail.
 The primary evaluation mechanism is the `pass_when:` declarative
 condition DSL — a condition tree that expresses "all records must
 satisfy X" without a separate rule file. For the rare case that
-`pass_when:` cannot express the logic (multi-slot joins, complex time
-math, cross-record aggregations), a `rule:` escape hatch remains
+`pass_when:` cannot express the logic (complex time math, cross-record
+aggregations — key-lookup joins across slots are `matches_in`), a `rule:` escape hatch remains
 available. **No shipped policy uses `rule:` today** — both SOC 2 and
 ISO 27001 are 100% `pass_when:` (each framework's `Rules()` returns
 nil). The escape-hatch infrastructure stays available for a future
@@ -27,7 +27,8 @@ There are two ways a policy reaches the registry, and they are not
 symmetric:
 
 - **Framework-shipped policies are authored in Go**, not YAML. Each is
-  an `autoPolicy{...}.policy()` (or `manualPolicy{...}.policy()`)
+  an `autoPolicy{...}.policy()` (or `manualPolicy{...}.policy()`, or
+  `rosterPolicy{...}.policy()` for the two-slot roster checks)
   builder under `internal/frameworks/<fw>/policies_*.go`, using the
   compact clause builders in `builders.go`
   (`leaf`/`all`/`none`/`anyRec`/`allWhere`/`noneWhere`/`anyWhere`/
@@ -216,19 +217,24 @@ are three ways to arrive there:
    `filterRecords`.
 3. **The clause names a slot the policy does not declare.** The lookup
    misses and yields an empty set. The loader rejects this outright — see
-   `validateClauseSlotsDeclared` — because there is no reading under
-   which it is intentional.
+   `spec.ValidatePassWhen` — because there is no reading under which it
+   is intentional. The same check covers every `matches_in` `in_slot`.
 
 Cases 1 and 2 are reported, not failed: the result carries
 `diag.vacuous_clauses` listing the slots whose clauses examined nothing,
 and `sigcomply check` explains such a pass inline rather than printing a
-bare green tick.
+bare green tick. A clause whose `matches_in` reads an **empty `in_slot`**
+is reported the same way: it compared every record against nothing.
 
-This matters because `resources_evaluated` counts the records in the slot
-**before** filtering. A policy that filtered 500 records down to zero
-still reports 500 evaluated, so on its own the result reads "all 500
-resources passed" when none were examined. The diagnostic is what keeps
-that distinguishable.
+This matters because `resources_evaluated` counts the records in the
+policy's slots **before** filtering. A policy that filtered 500 records
+down to zero still reports 500 evaluated, so on its own the result reads
+"all 500 resources passed" when none were examined. The diagnostic is
+what keeps that distinguishable. Slots that `pass_when` reads **only**
+through a `matches_in` `in_slot` (lookup tables such as the roster) are
+excluded from the count — the roster's people are not resources under
+test, the accounts are. A slot that is also some clause's own `slot:`
+still counts. Rule-path policies count every slot.
 
 ### Multiple bound sources
 
@@ -415,9 +421,11 @@ is not expected on every commit. When `evidence_mode: automated`,
 must satisfy X" directly, no separate rule file. The evaluator
 interprets it against the collected records from the policy's slot.
 
-For logic the DSL cannot express (multi-slot joins, cross-record
-aggregations, complex date computations not pre-computable by the
-plugin), the `rule:` escape hatch is available (see §Escape-hatch rule
+Cross-slot joins ("every account must belong to someone in the roster")
+are expressible with the `matches_in` operator (§Multi-slot policies).
+For logic the DSL still cannot express (cross-record aggregations,
+complex date computations not pre-computable by the plugin), the
+`rule:` escape hatch is available (see §Escape-hatch rule
 implementations). In practice, pre-computing derived fields in the
 source plugin (e.g. emitting `age_days` instead of `last_rotation_at`)
 eliminates most needs for the escape hatch — which is why no shipped
@@ -490,10 +498,40 @@ conditions:
 ```
 
 The full operator set is `eq`, `neq`, `lt`, `lte`, `gt`, `gte`, `in`,
-`not_in`, `is_set`, `all_of`, `any_of`.
+`not_in`, `is_set`, `all_of`, `any_of`, and the cross-slot `matches_in`.
+
+```yaml
+# Cross-slot lookup — true when this record's field (normalized) equals
+# remote_field on some record in in_slot that satisfies where
+{ op: matches_in, field: account.key, in_slot: roster, remote_field: payload.email,
+  normalize: lower_trim, where: { op: eq, field: payload.status, value: inactive } }
+```
+
+`matches_in` rules:
+
+- `normalize` is omitted (exact comparison) or `lower_trim`. `value` is
+  not used.
+- `in_slot` and `remote_field` are required, and `in_slot` must be a
+  declared slot. `in_slot`, `remote_field`, `normalize` and `where` on any
+  other operator are rejected at load.
+- `where` is optional and **strict**: a field missing there is a policy
+  **error**, not a silent drop. `matches_in` is not allowed inside `where`.
+- A local record whose `field` is missing, non-string or empty never
+  matches (false, not an error) — an account without a key can never be
+  proven linked. Remote records without a usable `remote_field` are left
+  out of the lookup (fail-safe).
+- Every lookup is built before any record is evaluated, so a lookup that
+  cannot be built makes the policy `error` — even when the operator sits
+  inside a `filter`.
+- An empty `in_slot` adds the clause to `diag.vacuous_clauses`
+  (§Empty-set semantics).
+
+Clause and condition keys are decoded strictly: a typo such as
+`normalise:` fails to load rather than being ignored.
 
 **Field paths are explicit and prefixed.** A condition's `field`
-resolves only `id`, `type`, `source_id`, or `payload.<dot.path>` (with
+resolves only `id`, `type`, `source_id`, the virtual `account.*` fields
+(below), or `payload.<dot.path>` (with
 dot notation for nested payload fields, e.g.
 `payload.encryption.key_id`). A bare field name without the `payload.`
 prefix is *not found* and surfaces the policy as `error` — there is no
@@ -526,6 +564,24 @@ the string `"$params.<name>"` on the `value` side. There is no
 `{param: ...}` key, and the `field`/LHS side may never be a
 `$params.*` reference.
 
+**Virtual `account.*` fields.** Always defined on every record, so an
+account-lifecycle policy can link accounts from any identity source to
+the roster without naming vendors:
+
+| Field | Value |
+|---|---|
+| `account.ref` | `source_id/id`. Unique across sources (GitHub `jdoe` and GitLab `jdoe` never collapse); use it as `identity_key` and as a waiver's `resource_id`. |
+| `account.key` | lower-trimmed alias, else `payload.email`, else `""`. |
+| `account.linked_by` | `alias` \| `email` \| `none`. |
+| `account.non_human` | listed in `experimental.roster.non_human[source_id]`, or `payload.is_root == true`. |
+| `account.active` | `payload.is_active`; `true` when absent. |
+
+Aliases and `non_human` entries match the record's `id` or
+`payload.username`, case-insensitively, per source — never
+`display_name` (free-text names aren't unique). With no
+`experimental.roster` block, `account.key` is the lower-trimmed email and
+`account.non_human` is `payload.is_root`.
+
 ### The `count` quantifier
 
 ```yaml
@@ -549,8 +605,9 @@ shipped check is `all`/`none`/`any`).
 
 `violation_message` is a Go-template string. Substitution tokens are
 `{{.payload.<field>}}` for payload fields (dot notation for nested
-fields) and `{{.id}}` / `{{.type}}` / `{{.source_id}}` for the
-top-level record fields. Unresolved tokens are left verbatim. There is
+fields), `{{.id}}` / `{{.type}}` / `{{.source_id}}` for the
+top-level record fields, and `{{.account.<field>}}` for the virtual
+account fields. Unresolved tokens are left verbatim. There is
 **no** `{token}` brace-only form and **no** parameter interpolation in
 messages.
 
@@ -575,9 +632,60 @@ pass_when:
     condition: { op: eq, field: payload.enabled, value: true }
 ```
 
-A clause evaluates against a single slot. Genuine cross-slot
-conditions (e.g. "every user in slot A must appear in slot B") cannot
-be expressed in the DSL and require the `rule:` escape hatch.
+Each clause quantifies over its own `slot:`. A condition reads other
+slots through `matches_in` `in_slot`, which is how cross-slot conditions
+("every account in slot A must belong to someone in slot B") are
+expressed without `rule:`:
+
+```yaml
+slots:
+  roster:
+    accepts: [roster_entry]
+    cardinality: exactly-one
+    required: true
+    role: roster
+  accounts:
+    accepts: [directory_user, directory_user.v2]
+    cardinality: one-or-more
+    required: true
+    role: roster_subject
+pass_when:
+  slot: accounts
+  quantifier: all
+  identity_key: account.ref
+  filter:
+    op: all_of
+    conditions:
+      - { op: eq, field: account.active,    value: true }
+      - { op: eq, field: account.non_human, value: false }
+  condition:
+    op: matches_in
+    field: account.key
+    in_slot: roster
+    remote_field: payload.email
+    normalize: lower_trim
+  violation_message: "account {{.account.ref}} is not linked to anyone in the roster"
+```
+
+**Slot roles.** `role: roster` marks the organization's list of people;
+`role: roster_subject` marks the accounts checked against it.
+
+- A `roster` slot is **never auto-bound**: it binds to the policy's
+  explicit `bindings:` entry, else `experimental.roster.source`, else
+  nothing (the policy skips). Its cardinality is forced to
+  `exactly-one`. At most one `roster` slot per policy.
+- A `roster_subject` slot requires a `roster` slot. It auto-binds as
+  usual **minus every source bound to the policy's roster slot** — the
+  roster must come from a system other than the one being checked (a
+  directory cannot vouch for its own accounts). Explicitly binding the
+  roster source to it is a plan error (exit 3).
+- Role slots must accept disjoint evidence types (a record's envelope
+  path carries no slot name, so an overlap would be ambiguous).
+
+See [`08-project-config.md`](08-project-config.md) §Binding model and the
+customer guide [`guides/identity-roster.md`](../guides/identity-roster.md).
+Built-in Go policies are checked by the same validator as project-local
+YAML (`spec.ValidatePassWhen`, asserted per framework in tests).
 
 ### Worked examples
 
@@ -667,7 +775,9 @@ The `RuleRegistry` resolves a reference to a `Rule` interface
 implementation regardless of which language the rule is authored in.
 
 **When to reach for `rule:` instead of `pass_when:`:**
-- Cross-slot conditions: "every user in slot A must also exist in slot B"
+- Cross-slot conditions that are not a key lookup. "Every user in slot A
+  must also exist in slot B" is a `matches_in` (§Multi-slot policies);
+  joins needing more than equality on one normalized key still need `rule:`
 - Computations the plugin could not pre-compute: multi-record
   aggregations, cross-field derivations
 - Complex pass/fail logic that cannot be composed from the DSL's

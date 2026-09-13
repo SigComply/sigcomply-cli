@@ -12,7 +12,8 @@ Key facts for agents: the framework key is singular (`framework: soc2`, never `f
 ## How-to guides
 
 - [Install](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/install.md): Install via script or Go, pin a version, verify.
-- [Configure sources](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/configure-sources.md): Declare sources and supply read-only credentials for AWS, GCP, Azure, GitHub, GitLab, Okta.
+- [Configure sources](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/configure-sources.md): Declare sources and supply read-only credentials for AWS, GCP, Azure, GitHub, GitLab, Okta, Active Directory.
+- [Identity roster](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/identity-roster.md): Designate the directory that lists your people and check every other system's accounts against it.
 - [CI on GitHub](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/ci-github.md): Scaffold and wire per-cadence GitHub Actions workflows with OIDC.
 - [CI on GitLab](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/ci-gitlab.md): Scaffold `.gitlab-ci.yml`, pipeline schedules, and OIDC (incl. the id-token caveat).
 - [Manual evidence](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/manual-evidence.md): Upload PDF/image evidence to a bucket folder and consume it from a policy.

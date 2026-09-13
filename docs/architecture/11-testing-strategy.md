@@ -253,6 +253,17 @@ Decided once; obeyed everywhere.
    sweepers can find and delete leaks safely.
 8. **Drift jobs are alert-only.** They open/update a GitHub issue; they
    do **not** block PRs (they run on a schedule, not on PRs).
+9. **Non-HTTP sources.** A source whose protocol isn't HTTP (e.g.
+   `active_directory`, LDAP) cannot use go-vcr cassettes or an L3
+   spec-diff contract. Its L2 layer is a scripted in-process protocol
+   responder behind an unexported dial seam: it decodes the client's real
+   wire requests and replays canned responses, so the production adapter
+   and library decoder run unmodified, with `sourcetest.RunConformance`
+   over it (`internal/sources/activedirectory/fakedc_test.go`). There is
+   no L3 drift detector; drift is caught by the `//go:build live` test
+   against a disposable server container (a Samba AD DC for AD). See the
+   exemption in [`04-source-plugins.md`](04-source-plugins.md) §Testing a
+   source plugin.
 
 ### Where a new plugin's test artifacts go (worked layout)
 
@@ -379,6 +390,7 @@ secret names can't begin with `GITHUB_`).
 | GitLab  | `GITLAB_TEST_TOKEN`, `GITLAB_TEST_GROUP`, `GITLAB_TEST_BASE_URL` (optional) | same names | gitlab.com free group; a **classic** `read_api` PAT (fine-grained tokens 403 on `/user`). Base URL blank = gitlab.com. |
 | Okta    | `OKTA_TEST_TOKEN`, `OKTA_TEST_ORG_URL` | same names | Okta Integrator Free Plan org; an API token (Security → API → Tokens), SSWS scheme; org URL e.g. `https://trial-xxximes.okta.com`. |
 | Entra   | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | same names | Free Azure tenant; an app registration with **application** Graph permissions `User.Read.All` + `AuditLog.Read.All` (admin-consented) + a client secret. The MFA registration report needs Entra **P1/P2**; without it the test skips after proving auth (`Authentication_RequestFromNonPremiumTenantOrB2CTenant`). |
+| Active Directory | `SIGCOMPLY_AD_TEST_URL`, `SIGCOMPLY_AD_TEST_BIND_DN`, `SIGCOMPLY_AD_TEST_PASSWORD` (+ optional `…_CA_CERT`, `…_TLS_SERVER_NAME`, `…_START_TLS`, `…_BASE_DN`, `…_PAGE_SIZE`, `…_SEEDED`) | none — not in the nightly workflow | A local `diegogslomp/samba-ad-dc` container with a non-admin bind user and its CA (`/usr/local/samba/private/tls/ca.pem`); see the header of `activedirectory_live_test.go`. |
 
 **Drift signal & remediation.** A live test failing on the nightly run opens a
 `live-drift` issue (alert-only; PRs never run it). Cassette **re-record is

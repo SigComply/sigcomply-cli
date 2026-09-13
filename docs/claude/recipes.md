@@ -79,6 +79,16 @@ declares via `Emits()`. It never references a policy. Live example:
    [`docs/architecture/04-source-plugins.md`](../architecture/04-source-plugins.md);
    `CONTRIBUTING.md` gates it in review.
 
+   **Non-HTTP protocols** (e.g. `internal/sources/activedirectory/`,
+   LDAP): go-vcr cassettes and `contracts/` snapshots don't apply. Put the
+   connection behind an unexported dial seam and write a scripted
+   in-process protocol responder (`fakedc_test.go`) that decodes the
+   client's real wire requests and replays canned responses, so the
+   production adapter and library decoder run unmodified; run
+   `RunConformance` over it, and add a `//go:build live` test against a
+   disposable server container. See the non-HTTP exemption in the
+   checklist above and `11-testing-strategy.md` §4.
+
 6. **No policy changes** are needed if the plugin emits an existing
    evidence type — every policy already accepting that type can now bind
    to this source (the substitutability property).
@@ -147,7 +157,8 @@ reach for the `rule:` escape hatch only for logic the DSL can't express.
    type need no guard.
 
 3. **For a `rule:` escape-hatch policy** (e.g. substring matching the DSL
-   lacks), register a `core.Rule` (see `rules.go` `alarmRules()` using
+   lacks; cross-slot key joins do **not** need it — see the roster recipe
+   below), register a `core.Rule` (see `rules.go` `alarmRules()` using
    `evaluator.GoRule`, or an inline OPA module via
    `evaluator.NewRegoRule`) and reference it with
    `rulePolicy{... ruleRef: "rules.soc2.<name>.v1"}.policy()`. Add the
@@ -159,7 +170,38 @@ reach for the `rule:` escape hatch only for logic the DSL can't express.
 
 5. The framework tests enforce: unique IDs, `soc2.`/`iso27001.` namespace,
    non-empty `evidence_mode`, every `accepts:` type is registered, every
-   `ruleRef` resolves. Run `make test`.
+   `ruleRef` resolves, and every policy passes `spec.ValidatePassWhen`
+   (`pass_when_validation_test.go` — declared slots, `matches_in` shape,
+   slot roles). Run `make test`.
+
+### Two-slot roster policy (accounts checked against the roster)
+
+For an account-lifecycle check that compares accounts in every identity
+source against the designated roster (`experimental.roster.source`), use
+`rosterPolicy` in `builders.go` rather than `autoPolicy`. It declares the
+`roster` slot (`roster_entry`, `role: roster`, exactly-one, never
+auto-bound) and the `accounts` slot (`directory_user` family,
+`role: roster_subject` — the planner excludes the roster source from it),
+and sets `identity_key: account.ref`, cadence `daily`, category `access`:
+
+```go
+rosterPolicy{
+    id: "soc2.cc6.2.accounts_linked_to_roster", control: "CC6.2", severity: core.SeverityHigh,
+    desc: "...", rem: "...",
+    clause: allWhere(
+        allOf(leaf("account.active", "eq", true), leaf("account.non_human", "eq", false)),
+        inRoster(nil), // matches_in account.key in roster.payload.email, lower_trim
+        "account {{.account.ref}} is not linked to anyone in the roster"),
+}.policy(),
+```
+
+`inRoster(where)` narrows the roster side, e.g.
+`inRoster(leaf("payload.status", "eq", "inactive"))` with `noneWhere` for
+"no active account belongs to an inactive person". Filter and message on
+the virtual `account.*` fields (`ref`, `key`, `linked_by`, `non_human`,
+`active`) so aliases, `non_human` declarations and AWS root are honored —
+not on raw `payload.email`. Spec: `03-policy-spec.md` §Multi-slot policies;
+end-to-end test model: `internal/orchestrator/roster_e2e_test.go`.
 
 ---
 
