@@ -30,33 +30,140 @@ import (
 // blank-imported builtins — but a source the operator never configured
 // has no credentials and must not be bound).
 func resolveBindings(policy *core.Policy, projectBindings map[string][]spec.BindingEntry, sources *registry.Registry[core.SourcePlugin], configuredSources map[string]map[string]any) (map[string][]Binding, error) {
+	return resolveBindingsWithRoster(policy, projectBindings, sources, configuredSources, "")
+}
+
+// resolveBindingsWithRoster is resolveBindings with the project's
+// designated roster source (experimental.roster.source; "" when none).
+//
+// Slots are resolved in a deterministic order with roster-role slots
+// first, because a roster_subject slot's candidates depend on what the
+// roster slots bound: every source bound to a roster slot is excluded
+// from the policy's roster_subject slots — a directory cannot vouch for
+// its own accounts. See resolveRosterSlot and resolveRosterSubjectSlot.
+func resolveBindingsWithRoster(policy *core.Policy, projectBindings map[string][]spec.BindingEntry, sources *registry.Registry[core.SourcePlugin], configuredSources map[string]map[string]any, rosterSource string) (map[string][]Binding, error) {
+	// Project-config bindings for slots the policy does not declare
+	// are a configuration error. Checked in sorted order so the reported
+	// slot is stable when several are wrong.
+	var unknown []string
+	for slotName := range projectBindings {
+		if _, declared := policy.Slots[slotName]; !declared {
+			unknown = append(unknown, slotName)
+		}
+	}
+	if len(unknown) > 0 {
+		sort.Strings(unknown)
+		return nil, fmt.Errorf("planner: policy %q: binding for unknown slot %q", policy.ID, unknown[0])
+	}
+
 	out := make(map[string][]Binding, len(policy.Slots))
-	for slotName, slot := range policy.Slots {
+	// rosterBound maps each source bound to a roster slot to that slot's
+	// name (the first, in resolution order), for the exclusion error.
+	rosterBound := map[string]string{}
+	for _, slotName := range orderedSlotNames(policy.Slots) {
+		slot := policy.Slots[slotName]
 		entries := projectBindings[slotName]
-		bindings, err := resolveSlot(policy.ID, slotName, &slot, entries, sources, configuredSources)
+		var bindings []Binding
+		var err error
+		switch slot.Role {
+		case core.SlotRoleRoster:
+			bindings, err = resolveRosterSlot(policy.ID, slotName, &slot, entries, sources, rosterSource)
+			for i := range bindings {
+				if _, seen := rosterBound[bindings[i].SourceID]; !seen {
+					rosterBound[bindings[i].SourceID] = slotName
+				}
+			}
+		case core.SlotRoleRosterSubject:
+			bindings, err = resolveRosterSubjectSlot(policy.ID, slotName, &slot, entries, sources, configuredSources, rosterBound)
+		default:
+			bindings, err = resolveSlot(policy.ID, slotName, &slot, entries, sources, configuredSources)
+		}
 		if err != nil {
 			return nil, err
 		}
 		out[slotName] = bindings
 	}
-	// Project-config bindings for slots the policy does not declare
-	// are a configuration error.
-	for slotName := range projectBindings {
-		if _, declared := policy.Slots[slotName]; !declared {
-			return nil, fmt.Errorf("planner: policy %q: binding for unknown slot %q", policy.ID, slotName)
+	return out, nil
+}
+
+// orderedSlotNames returns the policy's slot names with roster-role slots
+// first, each group sorted by name.
+func orderedSlotNames(slots map[string]core.Slot) []string {
+	names := make([]string, 0, len(slots))
+	for name := range slots {
+		names = append(names, name)
+	}
+	sort.Slice(names, func(i, j int) bool {
+		ri, rj := slots[names[i]].Role == core.SlotRoleRoster, slots[names[j]].Role == core.SlotRoleRoster
+		if ri != rj {
+			return ri
+		}
+		return names[i] < names[j]
+	})
+	return names
+}
+
+// resolveRosterSlot binds a roster-role slot. A roster slot is never
+// auto-bound — which configured source is the organization's
+// authoritative list of people is a decision only the operator can make,
+// and guessing it would let any directory vouch for any account. It
+// binds to the per-policy bindings: entry when present, else to the
+// designated experimental.roster.source, else to nothing (the policy is
+// skipped). The cardinality is exactly-one whatever the slot declares:
+// matching against a union of rosters would let a person absent from the
+// real roster pass because some other directory lists them.
+func resolveRosterSlot(policyID, slotName string, slot *core.Slot, entries []spec.BindingEntry, sources *registry.Registry[core.SourcePlugin], rosterSource string) ([]Binding, error) {
+	if len(slot.Accepts) == 0 {
+		return nil, emptyAcceptsError(policyID, slotName)
+	}
+	single := *slot
+	single.Cardinality = core.SlotExactlyOne
+	if len(entries) > 0 {
+		return resolveExplicitSlot(policyID, slotName, &single, entries, sources)
+	}
+	if rosterSource == "" {
+		return nil, nil
+	}
+	bindings, err := resolveExplicitSlot(policyID, slotName, &single, []spec.BindingEntry{{Source: rosterSource}}, sources)
+	if err != nil {
+		return nil, fmt.Errorf("%w (source designated by experimental.roster.source)", err)
+	}
+	return bindings, nil
+}
+
+// resolveRosterSubjectSlot binds a roster_subject slot: as an ordinary
+// slot, except that no source bound to one of the policy's roster slots
+// may feed it. An explicit binding naming such a source is a plan error;
+// auto-binding silently leaves it out.
+func resolveRosterSubjectSlot(policyID, slotName string, slot *core.Slot, entries []spec.BindingEntry, sources *registry.Registry[core.SourcePlugin], configuredSources map[string]map[string]any, rosterBound map[string]string) ([]Binding, error) {
+	if len(slot.Accepts) == 0 {
+		return nil, emptyAcceptsError(policyID, slotName)
+	}
+	if len(entries) == 0 {
+		return autoBindSlot(policyID, slotName, slot, sources, configuredSources, rosterBound)
+	}
+	for i, e := range entries {
+		sourceID, _ := parseBindingSource(e.Source)
+		if rosterSlot, isRoster := rosterBound[sourceID]; isRoster {
+			return nil, fmt.Errorf("planner: policy %q slot %q binding[%d]: source %q is bound to the roster slot %q and cannot also feed the accounts checked against it — a directory cannot vouch for its own accounts",
+				policyID, slotName, i, sourceID, rosterSlot)
 		}
 	}
-	return out, nil
+	return resolveExplicitSlot(policyID, slotName, slot, entries, sources)
+}
+
+func emptyAcceptsError(policyID, slotName string) error {
+	return fmt.Errorf("planner: policy %q slot %q: slot.Accepts is empty (must list at least one evidence type)", policyID, slotName)
 }
 
 func resolveSlot(policyID, slotName string, slot *core.Slot, entries []spec.BindingEntry, sources *registry.Registry[core.SourcePlugin], configuredSources map[string]map[string]any) ([]Binding, error) {
 	if len(slot.Accepts) == 0 {
-		return nil, fmt.Errorf("planner: policy %q slot %q: slot.Accepts is empty (must list at least one evidence type)", policyID, slotName)
+		return nil, emptyAcceptsError(policyID, slotName)
 	}
 	if len(entries) > 0 {
 		return resolveExplicitSlot(policyID, slotName, slot, entries, sources)
 	}
-	return autoBindSlot(policyID, slotName, slot, sources, configuredSources)
+	return autoBindSlot(policyID, slotName, slot, sources, configuredSources, nil)
 }
 
 // resolveExplicitSlot resolves the operator-named sources for a slot. An
@@ -108,9 +215,17 @@ func resolveExplicitSlot(policyID, slotName string, slot *core.Slot, entries []s
 // slots (exactly-one / at-most-one) more than one candidate is genuinely
 // ambiguous — the planner refuses to guess and asks for an explicit
 // binding rather than picking arbitrarily.
-func autoBindSlot(policyID, slotName string, slot *core.Slot, sources *registry.Registry[core.SourcePlugin], configuredSources map[string]map[string]any) ([]Binding, error) {
+//
+// Sources keyed in exclude are never candidates (a roster_subject slot
+// excludes the policy's roster sources). They are dropped before the
+// ambiguity check, so an excluded source cannot make a single-source
+// slot ambiguous.
+func autoBindSlot(policyID, slotName string, slot *core.Slot, sources *registry.Registry[core.SourcePlugin], configuredSources map[string]map[string]any, exclude map[string]string) ([]Binding, error) {
 	srcIDs := make([]string, 0, len(configuredSources))
 	for id := range configuredSources {
+		if _, excluded := exclude[id]; excluded {
+			continue
+		}
 		srcIDs = append(srcIDs, id)
 	}
 	sort.Strings(srcIDs)

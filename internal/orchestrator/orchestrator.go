@@ -154,6 +154,7 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 		return Result{ExitCode: ExitConfig}, fmt.Errorf("plan: %w", err)
 	}
 	emitPlanWarnings(opts.Logger, plan, startedAt)
+	emitRosterWarnings(opts.Logger, opts.Config, opts.Registries)
 
 	runRoot := buildRunRoot(plan.Framework, plan.Period.ID, startedAt, runID)
 	rec := newRecordingVault(opts.Vault)
@@ -890,8 +891,12 @@ func renderSkipExplanations(stdout io.Writer, plan *planner.RunPlan, sortedResul
 // skipDetail summarizes, for one skipped policy, the unbound required
 // slots (and the evidence types each needs) versus required slots that
 // were bound but yielded no records.
+//
+// An unbound roster slot is explained on its own: the planner drops the
+// policy's other bindings when its roster slot is unbound, so listing
+// those slots too would blame sources that are configured and fine.
 func skipDetail(pp *planner.PlannedPolicy) string {
-	var unbound, empty []string
+	var unbound, empty, roster []string
 	slotNames := make([]string, 0, len(pp.Spec.Slots))
 	for name := range pp.Spec.Slots {
 		slotNames = append(slotNames, name)
@@ -902,13 +907,18 @@ func skipDetail(pp *planner.PlannedPolicy) string {
 		if !slot.Required {
 			continue
 		}
-		if len(pp.Bindings[name]) == 0 {
+		switch {
+		case len(pp.Bindings[name]) == 0 && slot.Role == core.SlotRoleRoster:
+			roster = append(roster, fmt.Sprintf("no roster source designated — set experimental.roster.source to the source that holds your roster (slot %q)", name))
+		case len(pp.Bindings[name]) == 0:
 			unbound = append(unbound, fmt.Sprintf("no configured source emits %v (slot %q)", slot.Accepts, name))
-		} else {
+		default:
 			empty = append(empty, fmt.Sprintf("bound source(s) returned no evidence records (slot %q)", name))
 		}
 	}
 	switch {
+	case len(roster) > 0:
+		return strings.Join(roster, "; ")
 	case len(unbound) > 0:
 		return strings.Join(unbound, "; ")
 	case len(empty) > 0:

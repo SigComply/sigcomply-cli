@@ -83,11 +83,15 @@ func Plan(in *Input) (*RunPlan, error) {
 	if err := validateProjectReferences(in.Config, framework, in.Registries); err != nil {
 		return nil, err
 	}
+	roster, err := loadRoster(in.Config, framework, in.Registries)
+	if err != nil {
+		return nil, err
+	}
 	period, err := DerivePeriod(&in.Config.Period, in.CommitTime)
 	if err != nil {
 		return nil, err
 	}
-	policies, err := planPolicies(framework, in)
+	policies, err := planPolicies(framework, in, roster)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +125,7 @@ func validateFilter(f *Filter) error {
 	return nil
 }
 
-func planPolicies(framework core.Framework, in *Input) ([]PlannedPolicy, error) {
+func planPolicies(framework core.Framework, in *Input, roster *spec.RosterConfig) ([]PlannedPolicy, error) {
 	// The framework's own policies plus any project-local policies
 	// discovered at bootstrap (.sigcomply/policies/*/policy.yaml). One
 	// project = one framework, so every project-local policy belongs to
@@ -145,7 +149,7 @@ func planPolicies(framework core.Framework, in *Input) ([]PlannedPolicy, error) 
 		if !filterAccepts(&policy, &in.Filter, in.Config) {
 			continue
 		}
-		pp, err := planOne(&policy, in)
+		pp, err := planOne(&policy, in, roster)
 		if err != nil {
 			return nil, err
 		}
@@ -154,7 +158,7 @@ func planPolicies(framework core.Framework, in *Input) ([]PlannedPolicy, error) 
 	return planned, nil
 }
 
-func planOne(policy *core.Policy, in *Input) (PlannedPolicy, error) {
+func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig) (PlannedPolicy, error) {
 	// Apply project-level evidence_mode override before binding resolution.
 	// Work on a local copy so we never mutate the registry entry.
 	originalMode := policy.EvidenceMode
@@ -169,6 +173,7 @@ func planOne(policy *core.Policy, in *Input) (PlannedPolicy, error) {
 	var bindings map[string][]Binding
 	var coverageGaps []CoverageGap
 	var unbound []string
+	var rosterLink *RosterLink
 	if policy.EvidenceMode == core.EvidenceModeManual {
 		// Manual policies have no configurable slots. The planner creates a
 		// synthetic "_manual" binding pointing to the manual.pdf singleton,
@@ -179,12 +184,20 @@ func planOne(policy *core.Policy, in *Input) (PlannedPolicy, error) {
 		}
 		bindings = resolveManualBinding(policy)
 	} else {
-		bindings, err = resolveBindings(policy, in.Config.BindingsFor(policy.ID), in.Registries.Sources, in.Config.Sources)
+		rosterSource := ""
+		if roster != nil {
+			rosterSource = roster.Source
+		}
+		bindings, err = resolveBindingsWithRoster(policy, in.Config.BindingsFor(policy.ID), in.Registries.Sources, in.Config.Sources, rosterSource)
 		if err != nil {
 			return PlannedPolicy{}, err
 		}
 		coverageGaps = detectCoverageGaps(policy, bindings, in.Config.Sources, in.Registries.Sources)
+		// Recorded before dropping, so an unbound roster slot is reported
+		// as the one gap rather than every slot it takes down with it.
 		unbound = unboundRequiredSlots(policy, bindings)
+		dropBindingsIfRosterUnbound(policy, bindings)
+		rosterLink = rosterLinkFor(policy, roster)
 	}
 	// Control-level applicability takes precedence over policy-level
 	// exceptions: a control marked not_applicable cascades a single na to
@@ -211,6 +224,7 @@ func planOne(policy *core.Policy, in *Input) (PlannedPolicy, error) {
 		EvidenceModeOverridden: policy.EvidenceMode != originalMode,
 		CoverageGaps:           coverageGaps,
 		UnboundRequiredSlots:   unbound,
+		Roster:                 rosterLink,
 		PriorState:             priorState,
 		ContentHash:            contentHash,
 	}, nil

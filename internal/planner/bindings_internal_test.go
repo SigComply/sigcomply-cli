@@ -188,7 +188,7 @@ func TestAutoBind_SecondInstanceAffectsCardinality(t *testing.T) {
 
 	t.Run("one-or-more unions both instances", func(t *testing.T) {
 		slot := &core.Slot{Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true}
-		got, err := autoBindSlot("p1", "users", slot, set.Sources, configured)
+		got, err := autoBindSlot("p1", "users", slot, set.Sources, configured, nil)
 		if err != nil {
 			t.Fatalf("autoBindSlot: %v", err)
 		}
@@ -204,7 +204,7 @@ func TestAutoBind_SecondInstanceAffectsCardinality(t *testing.T) {
 
 	t.Run("exactly-one now needs an explicit binding", func(t *testing.T) {
 		slot := &core.Slot{Accepts: []string{"directory_user"}, Cardinality: core.SlotExactlyOne, Required: true}
-		_, err := autoBindSlot("p1", "users", slot, set.Sources, configured)
+		_, err := autoBindSlot("p1", "users", slot, set.Sources, configured, nil)
 		if err == nil {
 			t.Fatal("want an error: two instances make a single-source slot ambiguous")
 		}
