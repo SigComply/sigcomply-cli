@@ -9,9 +9,11 @@
 // §The plugin contract), the plugin caches nothing across Collect calls.
 //
 // Auth: Application Default Credentials with the read-only directory
-// scope. The Admin SDK has no anonymous service-account access — ADC must
-// resolve to a Workspace admin, or to a service account with domain-wide
-// delegation impersonating an admin. See docs/configuration.md §GCP.
+// scope. The Admin SDK needs a Workspace admin context: either the ADC
+// identity holds an admin role itself, or (config target_service_account
+// + impersonate_subject) ADC impersonates a service account that uses
+// domain-wide delegation to act as an admin user. See AuthConfig and
+// docs/configuration.md §GCP.
 //
 // Test injection: the API interface is the single seam; the real adapter
 // wraps *admin.Service and unit tests inject an in-memory fake. The real
@@ -27,7 +29,6 @@ import (
 	"time"
 
 	admin "google.golang.org/api/admin/directory/v1"
-	"google.golang.org/api/option"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
@@ -86,11 +87,15 @@ func New(opts Options) *Plugin {
 }
 
 // NewFromGCP constructs a Plugin backed by the real Admin SDK Directory
-// API using Application Default Credentials with the read-only user
-// scope. The credentials must carry a Workspace admin context (see the
-// package doc). An empty customer defaults to the "my_customer" alias.
-func NewFromGCP(ctx context.Context, customer string) (*Plugin, error) {
-	svc, err := admin.NewService(ctx, option.WithScopes(admin.AdminDirectoryUserReadonlyScope))
+// API with the read-only user scope, authenticating per auth (see
+// AuthConfig). The credentials must carry a Workspace admin context (see
+// the package doc). An empty customer defaults to the "my_customer" alias.
+func NewFromGCP(ctx context.Context, customer string, auth AuthConfig) (*Plugin, error) {
+	opts, err := clientOptions(ctx, auth)
+	if err != nil {
+		return nil, err
+	}
+	svc, err := admin.NewService(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("gcp.directory: new service: %w", err)
 	}
