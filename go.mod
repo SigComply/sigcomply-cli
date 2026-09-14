@@ -3,7 +3,7 @@ module github.com/sigcomply/sigcomply-cli
 go 1.26.0
 
 require (
-	cloud.google.com/go/storage v1.67.0
+	cloud.google.com/go/storage v1.67.1
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.1
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/appservice/armappservice/v6 v6.0.0
