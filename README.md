@@ -116,6 +116,7 @@ see [docs/guides/identity-roster.md](docs/guides/identity-roster.md).
 | `sigcomply build` | Compile a project-tailored binary with `.sigcomply/` Go extensions. |
 | `sigcomply report` | Read-only auditor snapshot of the vault (`--view latest\|exceptions\|integrity\|scope`). |
 | `sigcomply evidence catalog` | Print the manual-evidence catalog (`-o text\|json`). |
+| `sigcomply evidence due` | List manual entries with no file for the current period. Advisory; always exits 0. |
 | `sigcomply version` | Print version, commit, and build time. |
 
 Full flag reference: [docs/reference/commands.md](docs/reference/commands.md).

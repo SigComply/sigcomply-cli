@@ -139,6 +139,33 @@ s3://my-evidence-bucket/manual/security_awareness_training/2026-Q1/
 Put any number of supported files in that folder — they are all merged
 into one PDF before evaluation.
 
+### Which period, and by when
+
+The period is the one containing your **HEAD commit's timestamp**, not
+today's date. Two consequences worth internalising:
+
+- **Evidence cannot be staged ahead.** A file's upload time must fall in
+  `[period.Start, period.End + grace]`. Dropping next quarter's PDF into
+  next quarter's folder today makes it *fail* when that quarter arrives
+  ("uploaded outside the configured temporal window"), because its upload
+  time predates the period. Upload during the period the evidence covers.
+- **The practical deadline is the period's end.** Once the period closes
+  and HEAD moves on, runs derive the next period and stop reading this
+  folder. The grace period extends the window only for a run that still
+  derives the old period.
+
+To see what is outstanding without waiting for a cadence run to fail:
+
+```bash
+sigcomply evidence due
+```
+
+It lists every catalog entry whose current-period folder is still empty,
+reports only genuinely empty folders (so it goes quiet as soon as you
+upload), and always exits 0 — `sigcomply init-ci` wires it into the daily
+workflow as a non-failing step. See
+[commands.md](../reference/commands.md#sigcomply-evidence-due).
+
 ## Step 3 — Wire a policy to a manual entry
 
 A policy consumes manual evidence when you set `evidence_mode: manual` and

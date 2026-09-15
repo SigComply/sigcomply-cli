@@ -43,3 +43,13 @@ jobs:
           audience: https://api.sigcomply.com
       - name: Run SigComply
         run: sigcomply check --cadence daily
+
+      # Advisory only. Lists manual-evidence entries whose folder for the
+      # current period is still empty, so the upload happens before a
+      # cadence run needs it. Read-only (LIST calls only) and always exits
+      # 0; continue-on-error keeps it structurally incapable of failing
+      # the job even if the config is wrong.
+      - name: Manual evidence due soon
+        if: always()
+        continue-on-error: true
+        run: sigcomply evidence due --within-days 30

@@ -408,6 +408,39 @@ fabricate retroactive evaluations — auditors will see the gap in the
 period history, which is the correct posture (compare Airflow's
 `catchup=false`).
 
+### Manual evidence due (advisory, `sigcomply evidence due`)
+
+```
+manual evidence: 3 of 47 entries have no file for period 2026-Q3 (ends 2026-09-30)
+  ENTRY                     CADENCE    DUE IN  UPLOAD TO
+  access_review_quarterly   quarterly  14d     s3://acme-evidence/manual/access_review_quarterly/2026-Q3/
+```
+
+Manual evidence used to have exactly one deadline signal: a red CI job on
+the day the evidence was already needed. `sigcomply evidence due` is the
+earlier one. It lists catalog entries whose current-period folder is still
+empty and is wired into the scaffolded daily workflow as a **non-failing**
+step.
+
+Two properties make it worth reading rather than muting:
+
+- **It reports only genuinely empty folders.** Once the file is uploaded
+  the entry disappears. A notice that keeps firing after the operator has
+  complied is a notice people learn to ignore.
+- **It never changes an exit code.** The scan exits 0 even when evidence
+  is overdue, and a storage failure degrades to "could not verify" rather
+  than inventing deadlines it cannot substantiate.
+
+Unlike the three warnings above it is a separate command, not part of a
+`check` run: the per-cadence crons filter the plan (`--cadence daily`
+excludes quarterly policies entirely, `internal/planner/planner.go`), so a
+daily `check` cannot see the manual policies that need warning about.
+
+Note it is computed from the catalog and the period, **not** from
+`PolicyState.NextDueAt`: that field is only written after a policy passes
+(`AdvancePolicyState`, `internal/orchestrator/state.go`), so a policy that
+has never passed — precisely the one needing a warning — has none.
+
 ### State-write-failed (warning-level in v1)
 
 A `WritePolicyState` failure is logged at warning level. The next

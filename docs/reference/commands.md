@@ -18,6 +18,7 @@ Back to the [documentation hub](../README.md).
 | Command | How the framework is chosen |
 |---|---|
 | `init`, `evidence catalog` | `-f/--framework` flag → `SIGCOMPLY_FRAMEWORK` env → `soc2` default |
+| `evidence due` | `-f/--framework` flag → `framework:` from config → `SIGCOMPLY_FRAMEWORK` env → `soc2` default |
 | `check` | `framework:` from the loaded config **only** (no flag, ignores `SIGCOMPLY_FRAMEWORK`); missing → exit 3 |
 | `init-ci`, `report` | Default framework from config |
 
@@ -140,6 +141,49 @@ Prints the framework's manual-evidence catalog. Works without a project config. 
 |---|---|---|---|
 | `--framework <value>` | `-f` | `$SIGCOMPLY_FRAMEWORK` → `soc2` | Framework |
 | `--output <value>` | `-o` | `text` | `text` or `json` |
+
+## `sigcomply evidence due`
+
+```bash
+sigcomply evidence due [-c <config>] [-f <framework>] [-o <text|json>] [--within-days <n>] [--all]
+```
+
+Lists manual-evidence catalog entries whose folder for the **current period** is
+still empty, so the upload can happen before a scheduled run needs it.
+
+An entry is reported only when its folder is genuinely empty. Once the file is
+uploaded the entry disappears from the report — the notice never nags about work
+already done, which is what keeps it worth reading.
+
+The period is derived from the HEAD commit's timestamp, exactly as `check`
+derives it, so the folder reported here is the folder the next run will read.
+
+| Flag | Shorthand | Default | Meaning |
+|---|---|---|---|
+| `--config <path>` | `-c` | `.sigcomply.yaml` | Project config |
+| `--framework <value>` | `-f` | config → `$SIGCOMPLY_FRAMEWORK` → `soc2` | Framework |
+| `--output <value>` | `-o` | `text` | `text` or `json` |
+| `--within-days <n>` | | `30` | Only report entries whose period ends within this many days. Overdue entries always report. |
+| `--all` | | `false` | Report every entry with an empty folder, ignoring `--within-days` |
+
+**Exit codes.** `0` whenever the scan completes, *including* when evidence is
+overdue — this command is advisory and is never the reason a build goes red.
+`3` for a missing or invalid config, an unknown framework, or a bad `-o`. If the
+evidence store cannot be opened or listed (missing credentials, for instance) it
+says so and still exits `0`: an unverifiable folder is an unknown, and reporting
+unknowns as deadlines is how a warning loses its meaning.
+
+**Access.** Read-only. It issues `LIST` calls only — no file bytes are
+downloaded, nothing is written, no cloud API is contacted, and no OIDC token is
+needed.
+
+Under GitHub Actions (`GITHUB_ACTIONS=true`) it additionally emits `::warning`
+annotations, capped at GitHub's ten-per-step limit with an overflow line, and
+appends a Markdown table to `$GITHUB_STEP_SUMMARY`. Annotations never change a
+job's conclusion. GitLab has no workflow-command equivalent, so there the output
+stays plain text.
+
+`sigcomply init-ci` wires this into the daily workflow as a non-failing step.
 
 ## `sigcomply version`
 

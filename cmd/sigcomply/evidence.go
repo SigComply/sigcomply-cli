@@ -28,9 +28,10 @@ type evidenceFlags struct {
 	output    string
 }
 
-// newEvidenceCmd builds the `evidence` parent and its subcommands. Today
-// only `catalog` is wired — it exports the descriptive manual-evidence
-// catalog consumed by the Evidence SPA (scripts/fetch-catalogs.ts).
+// newEvidenceCmd builds the `evidence` parent and its subcommands:
+// `catalog` exports the descriptive manual-evidence catalog consumed by
+// the Evidence SPA (scripts/fetch-catalogs.ts), and `due` reports which
+// entries have no file for the current period.
 func newEvidenceCmd() *cobra.Command {
 	var flags evidenceFlags
 	cmd := &cobra.Command{
@@ -45,6 +46,7 @@ func newEvidenceCmd() *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&flags.output, "output", "o", outputText,
 		"Output format: text | json")
 	cmd.AddCommand(newEvidenceCatalogCmd(&flags))
+	cmd.AddCommand(newEvidenceDueCmd(&flags))
 	return cmd
 }
 

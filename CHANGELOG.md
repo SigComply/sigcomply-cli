@@ -13,6 +13,22 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **`sigcomply evidence due` — know manual evidence is needed before CI goes
+  red.** Until now the only signal that a quarterly access review or an annual
+  policy acknowledgement was missing was a failed cadence run on the day it was
+  already needed. The new command lists every manual-evidence entry whose folder
+  for the current period is still empty, and `sigcomply init-ci` wires it into
+  the daily workflow as a **non-failing** step (`continue-on-error: true` on
+  GitHub, `|| true` on GitLab). It reports only genuinely empty folders, so it
+  goes quiet the moment the upload lands rather than nagging about work already
+  done, and it **always exits 0** when the scan completes — including when
+  evidence is overdue. If the store cannot be reached it says so and still exits
+  0 instead of inventing deadlines. Read-only: `LIST` calls only, no file bytes
+  downloaded, no cloud API, no OIDC. Under GitHub Actions it also emits
+  `::warning` annotations (capped at GitHub's ten-per-step limit, with an
+  overflow line) and a `$GITHUB_STEP_SUMMARY` table. Flags: `-c`, `-f`, `-o
+  text|json`, `--within-days` (default 30), `--all`.
+
 - **Identity roster — check every system's accounts against your list of
   people.** A new opt-in `experimental.roster` block designates the one source
   that holds the organization's people (`okta`, `azure.entra`, `gcp.directory`
@@ -100,6 +116,20 @@ tracks the human-curated highlights.
   ("evidence not found") rather than erroring out.
 
 ### Changed
+
+- **The scaffolded quarterly and annual crons now fire inside the period, not on
+  its boundary** — `0 2 20 3,6,9,12 *` (Mar/Jun/Sep/Dec 20) and `0 2 20 12 *`
+  (Dec 20), replacing `0 2 1 1,4,7,10 *` and `0 2 1 1 *`. The audit period is
+  derived from the HEAD commit's timestamp, so a run at 02:00 on the first day of
+  a period landed in whichever period HEAD fell in: usually the one that just
+  closed (correct), but the *new* one if anyone pushed to `main` in the
+  intervening hours — and a newly-opened period's evidence folder cannot
+  legitimately hold anything, since the temporal-window check requires
+  `uploadedAt >= period.Start`. Firing before the period closes makes the derived
+  period unambiguous, keeps essentially the whole period available for uploads,
+  and removes the race. Existing scaffolds are unaffected until re-run;
+  `docs/architecture/09-ci-execution-model.md` explains the commit-time basis,
+  which was load-bearing and previously undocumented.
 
 - **A `pass_when` filter that cannot be evaluated now errors the policy instead
   of silently dropping the record.** `filterRecords` treated "the filter says

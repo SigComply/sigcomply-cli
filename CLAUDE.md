@@ -408,12 +408,15 @@ framework, so exactly one `manual.pdf` source and one bucket per project
 | `sigcomply build` | Wired | Compile a project-tailored binary with `.sigcomply/` Go extensions |
 | `sigcomply report` | Wired | Read-only auditor snapshot of the vault (`--view latest\|exceptions\|integrity\|scope`) |
 | `sigcomply evidence catalog` | Wired | Print the manual-evidence catalog (`-o text\|json`); `-o json` matches the Evidence SPA contract. Standalone, no project config. `-f` defaults to `$SIGCOMPLY_FRAMEWORK` then `soc2` |
+| `sigcomply evidence due` | Wired | List manual entries whose current-period folder is empty (`-c`, `-f`, `-o text\|json`, `--within-days`, `--all`). Read-only LIST calls; **always exits 0** when the scan completes, so it is safe as a non-failing CI step. Wired into the scaffolded daily workflow |
 | `sigcomply version` | Wired | Print version + commit + build time |
 | `sigcomply collect` / `evaluate` | Planned | Collect-only / offline-evaluate modes |
 | `sigcomply evidence {init, path}` | Removed | Old period-scaffolding / upload-URI subcommands; only `catalog` returned |
 
 Framework resolution differs by command: `init` and `evidence catalog`
-resolve `-f/--framework` → `SIGCOMPLY_FRAMEWORK` → `soc2` default. **`check`
+resolve `-f/--framework` → `SIGCOMPLY_FRAMEWORK` → `soc2` default;
+`evidence due` inserts the config's `framework:` between the flag and the
+env var (it already loads the config). **`check`
 reads `framework:` from the loaded config only** — it has no `--framework`
 flag and ignores `SIGCOMPLY_FRAMEWORK`; a missing `framework:` is a config
 error (exit 3), not a `soc2` default.

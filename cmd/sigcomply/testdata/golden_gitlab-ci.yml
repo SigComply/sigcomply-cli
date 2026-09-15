@@ -53,6 +53,11 @@ compliance:daily:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $CADENCE == "daily"'
   script:
     - sigcomply check --cadence daily
+    # Advisory only: lists manual-evidence entries whose folder for the
+    # current period is still empty, so the upload happens before a cadence
+    # run needs it. Read-only and always exits 0; `|| true` keeps it from
+    # affecting the job even on a config error.
+    - sigcomply evidence due --within-days 30 || true
 
 compliance:weekly:
   extends: .sigcomply_base
