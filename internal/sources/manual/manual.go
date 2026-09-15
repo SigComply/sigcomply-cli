@@ -188,7 +188,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	periodStart := timeParam(req.Params, "period_start")
 	periodEnd := timeParam(req.Params, "period_end")
 
-	folderPrefix := fmt.Sprintf("%s%s/%s/", p.prefix, entry.EvidenceID, periodID)
+	folderPrefix := FolderPrefix(p.prefix, entry.EvidenceID, periodID)
 	folderURI := p.buildURI(folderPrefix)
 
 	items, err := p.reader.List(ctx, folderPrefix)
@@ -222,7 +222,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 
 	if len(mergeFailures) == 0 && len(validationFailures) == 0 {
 		if priorID := stringParam(req.Params, "prior_period_id"); priorID != "" {
-			priorFolder := fmt.Sprintf("%s%s/%s/", p.prefix, entry.EvidenceID, priorID)
+			priorFolder := FolderPrefix(p.prefix, entry.EvidenceID, priorID)
 			if f := p.checkPriorPeriod(ctx, sourceFiles, priorFolder, priorID); f != "" {
 				validationFailures = append(validationFailures, f)
 			}
@@ -345,20 +345,11 @@ func (p *Plugin) checkPriorPeriod(ctx context.Context, currentFiles []sourceFile
 	return ""
 }
 
+// buildURI renders an already-built object-key prefix as a display URI.
+// The scheme/bucket switch lives in FolderURI so that read-only callers
+// outside this package render byte-identical paths.
 func (p *Plugin) buildURI(relPath string) string {
-	switch p.scheme {
-	case "s3":
-		return fmt.Sprintf("s3://%s/%s", p.bucket, relPath)
-	case "gs":
-		return fmt.Sprintf("gs://%s/%s", p.bucket, relPath)
-	case "azure":
-		return fmt.Sprintf("azure://%s/%s", p.bucket, relPath)
-	default:
-		if p.bucket == "" {
-			return relPath
-		}
-		return fmt.Sprintf("file://%s/%s", p.bucket, relPath)
-	}
+	return uriForScheme(p.scheme, p.bucket, relPath)
 }
 
 func isInTemporalWindow(uploadedAt, start, end time.Time, grace time.Duration) bool {
