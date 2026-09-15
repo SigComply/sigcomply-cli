@@ -137,7 +137,7 @@ manual-evidence checks (which default to `on_push: false`) are excluded.
 `--scheduled`, a quarterly policy carries forward from its prior signed
 envelope until it is due, even if the workflow runs nightly. Under the
 scaffolded per-cadence crons, the cron *is* the schedule (the quarterly
-cron only fires on the quarter boundaries). Either way the CI cron is the
+cron fires once per quarter, shortly before it closes). Either way the CI cron is the
 **upper bound** on cadence (you can't evaluate quarterly if you never run).
 
 ### What about re-running after a fix?
@@ -173,8 +173,8 @@ the CLI scaffolds one standalone workflow file per cadence into
    compliance-daily.yml        # 02:00 UTC daily cron
    compliance-weekly.yml       # 02:00 UTC every Monday
    compliance-monthly.yml      # 02:00 UTC on the 1st of every month
-   compliance-quarterly.yml    # 02:00 UTC on Jan 1 / Apr 1 / Jul 1 / Oct 1
-   compliance-annual.yml       # 02:00 UTC on January 1
+   compliance-quarterly.yml    # 02:00 UTC on Mar 20 / Jun 20 / Sep 20 / Dec 20
+   compliance-annual.yml       # 02:00 UTC on December 20
 ```
 
 Each is a fully self-contained workflow — there is **no** reusable
@@ -203,8 +203,8 @@ The shipped cron expressions are exactly:
 | `compliance-daily.yml` | `0 2 * * *` | `--cadence daily` |
 | `compliance-weekly.yml` | `0 2 * * 1` | `--cadence weekly` |
 | `compliance-monthly.yml` | `0 2 1 * *` | `--cadence monthly` |
-| `compliance-quarterly.yml` | `0 2 1 1,4,7,10 *` | `--cadence quarterly` |
-| `compliance-annual.yml` | `0 2 1 1 *` | `--cadence annual` |
+| `compliance-quarterly.yml` | `0 2 20 3,6,9,12 *` | `--cadence quarterly` |
+| `compliance-annual.yml` | `0 2 20 12 *` | `--cadence annual` |
 | `compliance-on-push.yml` | `push` + `pull_request` | `--on-push` |
 
 `continuous` and `hourly` policies fold into the on-push / daily workflows;
@@ -269,11 +269,43 @@ step (`sigcomply check --on-push`). Manual-evidence policies are excluded
 from on-push runs because they default to `on_push: false` — uploading a
 PDF on every PR is not the workflow.
 
+#### Why the cadence crons fire *inside* the period, not on its boundary
+
+The audit period is derived from the **HEAD commit's timestamp**, not the
+wall clock — `planner.DerivePeriod(&cfg.Period, in.CommitTime)`, where
+`CommitTime` resolves to `GITHUB_EVENT_HEAD_COMMIT_TIMESTAMP`, else
+`git show -s --format=%cI HEAD`, else `time.Now()`. This is load-bearing
+and easy to miss.
+
+A cron that fires at 02:00 on the first day of a quarter therefore lands
+in whichever period HEAD's commit falls in. Usually that is the quarter
+that just closed, which is the desired behavior. But if anyone pushes to
+`main` in the couple of hours between the boundary and the cron, HEAD
+moves into the *new* period, and the run looks for manual evidence in a
+folder that cannot legitimately hold anything yet: the temporal-window
+check requires `uploadedAt >= period.Start`, so evidence staged ahead of
+a period is rejected, not credited. The result is a hard, non-obvious
+failure that no operator action could have prevented.
+
+The quarterly and annual crons therefore fire a few days **before** the
+period closes (the 20th of the quarter's last month). HEAD is then
+unambiguously inside the period being evaluated, the operator still has
+essentially the whole period to upload, and the boundary race disappears.
+
+#### Missing manual evidence
+
 If the quarterly access-review PDF is missing when `compliance-quarterly.yml`
 runs, the CLI fails the job with exit code 1 and a missing-evidence message
 (see [`04-source-plugins.md`](04-source-plugins.md) §Missing evidence).
 Operators upload the PDF and re-run via `workflow_dispatch` — the framework
 does not assume the quarterly cron date is when the human action happens.
+
+That failure is no longer the *first* signal, though. `compliance-daily.yml`
+runs `sigcomply evidence due --within-days 30` as a non-failing step
+(`continue-on-error: true`; `|| true` on GitLab), which lists every manual
+entry whose current-period folder is still empty. It reports an entry only
+while the folder is genuinely empty, so it stops the moment the upload
+lands — see [`commands.md`](../reference/commands.md) §`sigcomply evidence due`.
 
 ### GitLab CI
 
