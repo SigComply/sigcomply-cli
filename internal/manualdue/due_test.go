@@ -57,6 +57,8 @@ func baseInput(t *testing.T, files map[string]manual.InMemoryFile, now time.Time
 		Prefix:    "manual/",
 		Period:    q1(t),
 		Now:       now,
+		// Most tests care about the emptiness gate, not the lead window.
+		Unfiltered: true,
 	}
 }
 
@@ -136,6 +138,7 @@ func TestScan_DaysLeftAndWindowClose(t *testing.T) {
 
 func TestScan_WithinFiltersDistantDeadlines(t *testing.T) {
 	in := baseInput(t, map[string]manual.InMemoryFile{}, mustTime(t, "2026-01-05T00:00:00Z"))
+	in.Unfiltered = false
 	in.Within = 30 * 24 * time.Hour
 	rep, err := manualdue.Scan(context.Background(), &in)
 	if err != nil {
@@ -156,6 +159,7 @@ func TestScan_WithinFiltersDistantDeadlines(t *testing.T) {
 // --within is a lead-time window, not a two-sided filter.
 func TestScan_OverdueAlwaysReported(t *testing.T) {
 	in := baseInput(t, map[string]manual.InMemoryFile{}, mustTime(t, "2026-04-20T00:00:00Z"))
+	in.Unfiltered = false
 	in.Within = 24 * time.Hour
 	rep, err := manualdue.Scan(context.Background(), &in)
 	if err != nil {
@@ -300,5 +304,25 @@ func TestFormatGitHubAnnotations_CapsAtLimit(t *testing.T) {
 	}
 	if !strings.Contains(out, "6 more") {
 		t.Errorf("missing overflow line:\n%s", out)
+	}
+}
+
+// --within-days 0 must mean "only what is already late", not "no filter".
+// The natural reading of a zero lead time is the strict one, and silently
+// widening it would report 47 entries to someone who asked for the few
+// that are genuinely overdue.
+func TestScan_ZeroWithinReportsOnlyOverdue(t *testing.T) {
+	in := baseInput(t, map[string]manual.InMemoryFile{}, mustTime(t, "2026-03-17T00:00:00Z"))
+	in.Unfiltered = false
+	in.Within = 0
+	rep, err := manualdue.Scan(context.Background(), &in)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	if len(rep.Missing) != 0 {
+		t.Errorf("Missing = %d; want 0 — nothing is overdue on 2026-03-17", len(rep.Missing))
+	}
+	if rep.Suppressed != 2 {
+		t.Errorf("Suppressed = %d; want 2", rep.Suppressed)
 	}
 }

@@ -46,9 +46,13 @@ type Input struct {
 	Now       time.Time
 
 	// Within limits the report to entries whose deadline falls inside
-	// this lead time. Zero means no filter. Overdue entries are always
-	// reported regardless.
+	// this lead time. Overdue entries are always reported regardless, so
+	// a Within of zero means "only what is already late" — not "no
+	// filter". Set Unfiltered for that.
 	Within time.Duration
+
+	// Unfiltered reports every empty folder, ignoring Within.
+	Unfiltered bool
 }
 
 // Entry is one catalog entry with no evidence for the current period.
@@ -121,7 +125,7 @@ func Scan(ctx context.Context, in *Input) (*Report, error) {
 			DaysLeft:     int(remaining.Hours() / 24),
 			Overdue:      remaining < 0,
 		}
-		if in.Within > 0 && !e.Overdue && remaining > in.Within {
+		if !in.Unfiltered && !e.Overdue && remaining > in.Within {
 			rep.Suppressed++
 			continue
 		}

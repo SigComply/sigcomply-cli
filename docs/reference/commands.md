@@ -163,7 +163,7 @@ derives it, so the folder reported here is the folder the next run will read.
 | `--config <path>` | `-c` | `.sigcomply.yaml` | Project config |
 | `--framework <value>` | `-f` | config → `$SIGCOMPLY_FRAMEWORK` → `soc2` | Framework |
 | `--output <value>` | `-o` | `text` | `text` or `json` |
-| `--within-days <n>` | | `30` | Only report entries whose period ends within this many days. Overdue entries always report. |
+| `--within-days <n>` | | `30` | Only report entries whose period ends within this many days. `0` reports only what is already overdue; a negative value reports everything. Overdue entries always report. |
 | `--all` | | `false` | Report every entry with an empty folder, ignoring `--within-days` |
 
 **Exit codes.** `0` whenever the scan completes, *including* when evidence is

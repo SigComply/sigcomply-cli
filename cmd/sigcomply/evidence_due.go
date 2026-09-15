@@ -51,7 +51,7 @@ func newEvidenceDueCmd(parent *evidenceFlags) *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&flags.config, "config", "c", ".sigcomply.yaml", "Path to project config")
 	cmd.Flags().IntVar(&flags.withinDays, "within-days", defaultWithinDays,
-		"Only report entries whose period ends within this many days (overdue entries always report)")
+		"Only report entries whose period ends within this many days; 0 reports only overdue entries, negative reports all (overdue entries always report)")
 	cmd.Flags().BoolVar(&flags.all, "all", false, "Report every entry with an empty folder, ignoring --within-days")
 	return cmd
 }
@@ -109,7 +109,8 @@ func runEvidenceDue(ctx context.Context, stdout io.Writer, parent *evidenceFlags
 		Period:    period,
 		Now:       time.Now().UTC(),
 	}
-	if !flags.all && flags.withinDays > 0 {
+	in.Unfiltered = flags.all || flags.withinDays < 0
+	if flags.withinDays > 0 {
 		in.Within = time.Duration(flags.withinDays) * 24 * time.Hour
 	}
 
