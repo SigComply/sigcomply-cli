@@ -26,6 +26,15 @@ type Input struct {
 	Framework string
 	PeriodID  string
 	View      View
+
+	// Controls and Policies are the framework's catalog, resolved by the
+	// command layer and passed in so this package never imports
+	// internal/frameworks — Build stays a reader of vault bytes plus
+	// whatever its caller hands it. Required by the coverage view, which
+	// must name controls that produced no result at all; ignored by
+	// every other view.
+	Controls []core.Control
+	Policies []core.Policy
 }
 
 // Build walks the vault for the requested {framework}/{period_id}
@@ -77,8 +86,14 @@ func Build(ctx context.Context, in *Input) (*Snapshot, error) {
 			return nil, err
 		}
 		snap.Scope = v
+	case ViewCoverage:
+		v, err := buildCoverage(ctx, in.Vault, runs, in.Controls, in.Policies)
+		if err != nil {
+			return nil, err
+		}
+		snap.Coverage = v
 	default:
-		return nil, fmt.Errorf("%w: %q (want latest|exceptions|integrity|scope)", ErrUnknownView, in.View)
+		return nil, fmt.Errorf("%w: %q (want latest|exceptions|integrity|scope|coverage)", ErrUnknownView, in.View)
 	}
 	return snap, nil
 }

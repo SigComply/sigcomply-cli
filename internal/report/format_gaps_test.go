@@ -310,7 +310,7 @@ func TestFormatText_ExceptionMultiLineReason(t *testing.T) {
 func TestFormatJSON_AnyViewSucceeds(t *testing.T) {
 	// FormatJSON encodes the Snapshot as-is regardless of View — verify
 	// it does not error for known views.
-	for _, view := range []report.View{report.ViewLatest, report.ViewExceptions, report.ViewIntegrity} {
+	for _, view := range []report.View{report.ViewLatest, report.ViewExceptions, report.ViewIntegrity, report.ViewScope, report.ViewCoverage} {
 		snap := &report.Snapshot{View: view, Framework: "soc2", PeriodID: "2026-Q1"}
 		var b bytes.Buffer
 		if err := report.FormatJSON(&b, snap); err != nil {

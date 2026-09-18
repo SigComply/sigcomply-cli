@@ -31,6 +31,8 @@ func FormatCSV(w io.Writer, snap *Snapshot) error {
 		return formatCSVIntegrity(cw, snap.Integrity)
 	case ViewScope:
 		return formatCSVScope(cw, snap.Scope)
+	case ViewCoverage:
+		return formatCSVCoverage(cw, snap.Coverage)
 	default:
 		return fmt.Errorf("format csv: unsupported view %q", snap.View)
 	}
@@ -136,6 +138,32 @@ func formatCSVScope(cw *csv.Writer, v *ScopeView) error {
 	}
 	for _, s := range v.Skipped {
 		if err := cw.Write([]string{"skipped_policy", s.PolicyID, oneLine(s.Reason), s.Status, "", "", v.RunID}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// formatCSVCoverage emits one row per declared control. Header first, so
+// a nil view still yields a well-formed header-only file.
+func formatCSVCoverage(cw *csv.Writer, v *CoverageView) error {
+	if err := cw.Write([]string{
+		"control_id", "assurance", "automated_policies", "manual_policies",
+		"evaluated", "policies", "status", "overridden", "note",
+	}); err != nil {
+		return err
+	}
+	if v == nil {
+		return nil
+	}
+	for i := range v.Rows {
+		r := &v.Rows[i]
+		if err := cw.Write([]string{
+			r.ControlID, r.Assurance,
+			strconv.Itoa(r.AutomatedPolicies), strconv.Itoa(r.ManualPolicies),
+			strconv.Itoa(r.Evaluated), strconv.Itoa(r.Policies),
+			r.Status, strconv.FormatBool(r.Overridden), oneLine(r.Note),
+		}); err != nil {
 			return err
 		}
 	}

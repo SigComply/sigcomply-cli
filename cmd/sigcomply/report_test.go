@@ -307,6 +307,11 @@ func TestParseView(t *testing.T) {
 	if v, err := parseView("exceptions"); err != nil || v != "exceptions" {
 		t.Errorf("exceptions → %q err=%v", v, err)
 	}
+	for _, name := range []string{"scope", "coverage"} {
+		if v, err := parseView(name); err != nil || string(v) != name {
+			t.Errorf("parseView(%q) = %v, %v; want the view and no error", name, v, err)
+		}
+	}
 	if v, err := parseView("integrity"); err != nil || v != "integrity" {
 		t.Errorf("integrity → %q err=%v", v, err)
 	}

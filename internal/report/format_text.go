@@ -33,6 +33,8 @@ func FormatText(w io.Writer, snap *Snapshot) error {
 		return formatTextIntegrity(w, snap.Integrity)
 	case ViewScope:
 		return formatTextScope(w, snap.Scope)
+	case ViewCoverage:
+		return formatTextCoverage(w, snap.Coverage)
 	default:
 		return fmt.Errorf("format text: unsupported view %q", snap.View)
 	}
@@ -173,4 +175,70 @@ func formatTextScope(w io.Writer, v *ScopeView) error {
 		}
 	}
 	return tw.Flush()
+}
+
+// formatTextCoverage renders what stands behind each control.
+//
+// The headline is the point of the view: a framework can be 100%
+// "covered" while most of that coverage is documents nobody read. The
+// per-control table is the detail an operator needs to decide where the
+// next month of work goes.
+func formatTextCoverage(w io.Writer, v *CoverageView) error {
+	if v == nil {
+		_, err := fmt.Fprintln(w, "(no runs in this period)")
+		return err
+	}
+	if err := writeCoverageHeadline(w, v); err != nil {
+		return err
+	}
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	if _, err := fmt.Fprintln(tw, "CONTROL\tASSURANCE\tAUTOMATED\tMANUAL\tEVALUATED\tSTATUS\tNOTE"); err != nil {
+		return err
+	}
+	for i := range v.Rows {
+		r := &v.Rows[i]
+		assurance := r.Assurance
+		if r.Overridden {
+			assurance += " (overridden)"
+		}
+		if _, err := fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%d of %d\t%s\t%s\n",
+			r.ControlID, assurance, r.AutomatedPolicies, r.ManualPolicies,
+			r.Evaluated, r.Policies, r.Status, oneLine(r.Note)); err != nil {
+			return err
+		}
+	}
+	return tw.Flush()
+}
+
+func writeCoverageHeadline(w io.Writer, v *CoverageView) error {
+	if _, err := fmt.Fprintf(w, "%d of %d controls have a check\n", v.Automated+v.Manual, v.Controls); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "  %d automated  — verified by inspecting your infrastructure\n", v.Automated); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "  %d manual     — a document is on file; its contents are not inspected\n", v.Manual); err != nil {
+		return err
+	}
+	if v.Uncovered > 0 {
+		if _, err := fmt.Fprintf(w, "  %d uncovered  — no policy implements the control\n", v.Uncovered); err != nil {
+			return err
+		}
+	}
+	if _, err := fmt.Fprintf(w, "\nThis period\n  %d evaluated, %d not evaluated\n", v.Evaluated, v.NotEvaluated); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "  %d manual control(s) with evidence on file, %d without\n", v.ManualOnFile, v.ManualMissing); err != nil {
+		return err
+	}
+	if v.Overridden > 0 {
+		if _, err := fmt.Fprintf(w, "  %d control(s) running in a mode the project overrode\n", v.Overridden); err != nil {
+			return err
+		}
+	}
+	// A cadence longer than the audit period produces no result for
+	// three quarters out of four. Say so, or every Q1-Q3 report reads
+	// like an outage.
+	_, err := fmt.Fprint(w, "\nA control whose cadence is longer than this period (annual, in a quarterly\nperiod) is expected to show \"not evaluated\" here — the NOTE column names\nthe cadence so you can tell that apart from a check that should have run.\n\n")
+	return err
 }

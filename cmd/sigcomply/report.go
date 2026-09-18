@@ -9,7 +9,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/frameworks"
+	_ "github.com/sigcomply/sigcomply-cli/internal/frameworks/builtin" // side-effect: registers every in-tree framework factory
 	"github.com/sigcomply/sigcomply-cli/internal/orchestrator"
+	"github.com/sigcomply/sigcomply-cli/internal/registry"
 	"github.com/sigcomply/sigcomply-cli/internal/report"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 	"github.com/sigcomply/sigcomply-cli/internal/vault"
@@ -34,8 +38,12 @@ func newReportCmd() *cobra.Command {
 		Use:   "report",
 		Short: "Read-only auditor snapshot of the vault",
 		Long: "`sigcomply report` produces snapshot views of the vault: latest-state,\n" +
-			"exceptions register, and run-by-run integrity verification. Read-only —\n" +
-			"never writes to the vault, never calls the cloud, never requires OIDC.\n\n" +
+			"exceptions register, run-by-run integrity verification, run scope, and\n" +
+			"control coverage. Read-only — never writes to the vault, never calls the\n" +
+			"cloud, never requires OIDC.\n\n" +
+			"`--view coverage` answers what a compliance score cannot: for each control,\n" +
+			"is it verified by inspecting your infrastructure, or satisfied merely by a\n" +
+			"document being on file?\n\n" +
 			"Time-series analytics (drift, deviation timelines, continuous-monitoring\n" +
 			"alerts) are paid SigComply Cloud features and intentionally absent here.\n",
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -46,7 +54,7 @@ func newReportCmd() *cobra.Command {
 	cmd.Flags().StringVar(&flags.vaultURI, "vault", "", "Vault URI (overrides project config). Supports paths and s3://, gs://, az:// URIs.")
 	cmd.Flags().StringVarP(&flags.framework, "framework", "f", "", "Framework to report on (defaults to project config's framework)")
 	cmd.Flags().StringVar(&flags.period, "period", "", "Period ID (e.g. 2026-Q1). Required.")
-	cmd.Flags().StringVar(&flags.view, "view", "latest", "View: latest | exceptions | integrity | scope")
+	cmd.Flags().StringVar(&flags.view, "view", "latest", "View: latest | exceptions | integrity | scope | coverage")
 	cmd.Flags().StringVar(&flags.format, "format", "text", "Output format: text | json | csv | pdf (pdf deferred to v1.x)")
 	cmd.Flags().StringVar(&flags.out, "out", "", "Output file (required for non-text formats; default stdout for text)")
 	return cmd
@@ -92,11 +100,28 @@ func runReport(ctx context.Context, stdout io.Writer, flags *reportFlags) error 
 		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
 	}
 
+	// The coverage view must name controls that produced no result at
+	// all, so it needs the framework's catalog rather than only what the
+	// vault happens to contain. Resolving it here keeps internal/report
+	// free of a frameworks import. Registration is pure in-process — no
+	// config, no network — so `report` still works with just --vault and
+	// --framework.
+	var controls []core.Control
+	var policies []core.Policy
+	if view == report.ViewCoverage {
+		controls, policies, err = frameworkCatalog(framework)
+		if err != nil {
+			return &exitCodeError{code: orchestrator.ExitConfig, err: err}
+		}
+	}
+
 	snap, err := report.Build(ctx, &report.Input{
 		Vault:     v,
 		Framework: framework,
 		PeriodID:  flags.period,
 		View:      view,
+		Controls:  controls,
+		Policies:  policies,
 	})
 	if err != nil {
 		return &exitCodeError{code: orchestrator.ExitExecution, err: err}
@@ -188,13 +213,39 @@ func splitBucketPrefix(raw string) (bucket, prefix string) {
 
 func parseView(s string) (report.View, error) {
 	switch report.View(s) {
-	case report.ViewLatest, report.ViewExceptions, report.ViewIntegrity, report.ViewScope:
+	case report.ViewLatest, report.ViewExceptions, report.ViewIntegrity, report.ViewScope, report.ViewCoverage:
 		return report.View(s), nil
 	case "":
 		return report.ViewLatest, nil
 	default:
-		return "", fmt.Errorf("report: invalid --view %q (want latest|exceptions|integrity|scope)", s)
+		return "", fmt.Errorf("report: invalid --view %q (want latest|exceptions|integrity|scope|coverage)", s)
 	}
+}
+
+// frameworkCatalog resolves a framework's declared controls and the
+// policies mapped to them, straight from the compiled registries.
+func frameworkCatalog(id string) ([]core.Control, []core.Policy, error) {
+	factory, ok := frameworks.Lookup(id)
+	if !ok {
+		return nil, nil, fmt.Errorf("report: framework %q not supported (registered: %v)", id, frameworks.IDs())
+	}
+	set := registry.NewSet()
+	if err := factory.Register(set); err != nil {
+		return nil, nil, fmt.Errorf("report: register %s: %w", id, err)
+	}
+	fw, ok := set.Frameworks.Lookup(id)
+	if !ok {
+		return nil, nil, fmt.Errorf("report: framework %q did not register itself", id)
+	}
+	policies := make([]core.Policy, 0, len(fw.Policies()))
+	for _, ref := range fw.Policies() {
+		p, ok := set.Policies.Lookup(ref.PolicyID)
+		if !ok {
+			continue
+		}
+		policies = append(policies, p)
+	}
+	return fw.Controls(), policies, nil
 }
 
 // writeReport routes the snapshot through the requested formatter
