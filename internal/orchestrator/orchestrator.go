@@ -760,7 +760,7 @@ func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.P
 		// digging into the vault result.json. This is local stdout in the
 		// operator's own environment — identifiers here are fine; only the
 		// cloud payload is counts-only.
-		if reason := resultReason(r); reason != "" {
+		if reason := core.ResultReason(r); reason != "" {
 			_, _ = fmt.Fprintf(stdout, "      ↳ %s\n", reason) //nolint:errcheck // status output
 		}
 	}
@@ -780,62 +780,6 @@ func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.P
 		return ExitViolation
 	}
 	return ExitOK
-}
-
-// maxReasonLen caps the inline reason shown under a policy in the check
-// summary.
-const maxReasonLen = 240
-
-// resultReason returns a concise, single-line reason for a fail or
-// error result, suitable for inline display under the policy in the
-// check summary. Returns "" for any other status (pass/skip/na/…), so
-// the caller prints nothing. It reads the first violation's reason (the
-// manual-evidence "not found; expected files in: <path>" message lands
-// here) or, for errors, the diagnostic recorded by the collector/
-// evaluator. The full detail always remains in the vault result.json.
-func resultReason(r *core.PolicyResult) string {
-	switch r.Status {
-	case core.StatusError:
-		for _, k := range []string{"collect_error", "rule_error", "reason"} {
-			if v, ok := r.Diag[k].(string); ok && v != "" {
-				return truncateReason(v)
-			}
-		}
-		return "evaluation error (see the run's result.json in the vault)"
-	case core.StatusPass:
-		// A pass whose clauses examined nothing is the one pass worth
-		// explaining: `all`/`none` are true of the empty set, so this
-		// reads as green while having checked no resource at all.
-		if v, ok := r.Diag["vacuous_clauses"].([]string); ok && len(v) > 0 {
-			return truncateReason(fmt.Sprintf("passed without examining any resource (slot(s) %s matched nothing) — verify this control is really in scope", strings.Join(v, ", ")))
-		}
-		return ""
-	case core.StatusFail:
-		if len(r.Violations) > 0 && r.Violations[0].Reason != "" {
-			reason := r.Violations[0].Reason
-			if r.ResourcesFailed > 1 {
-				return truncateReason(fmt.Sprintf("%d of %d resources failed, e.g. %s", r.ResourcesFailed, r.ResourcesEvaluated, reason))
-			}
-			return truncateReason(reason)
-		}
-		if r.ResourcesFailed > 0 {
-			return fmt.Sprintf("%d of %d resources failed", r.ResourcesFailed, r.ResourcesEvaluated)
-		}
-		return "policy failed"
-	default:
-		return ""
-	}
-}
-
-// truncateReason clamps a reason string to maxReasonLen runes, appending an
-// ellipsis when it overflows, so one pathological violation message
-// can't blow up the summary.
-func truncateReason(s string) string {
-	r := []rune(s)
-	if len(r) <= maxReasonLen {
-		return s
-	}
-	return string(r[:maxReasonLen]) + "…"
 }
 
 // renderSkipExplanations prints, to stdout, why each skipped policy was
