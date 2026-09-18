@@ -59,6 +59,12 @@ func evaluateOne(ctx context.Context, pp *planner.PlannedPolicy, in *Input) core
 		EvidenceEnvelopes: in.EnvelopesByPolicy[pp.Spec.ID],
 		ConfiguredCadence: pp.Cadence,
 		PolicyContentHash: pp.ContentHash,
+		// Record how this result was reached on every row, including
+		// the ones that return before a rule ever runs (carry-forward,
+		// exception, collector error, skip). A row that stands for a
+		// control in a report must say what is behind it.
+		EvidenceMode:           pp.Spec.EvidenceMode,
+		EvidenceModeOverridden: pp.EvidenceModeOverridden,
 	}
 	// Carry-forward: the planner decided this run does not re-evaluate
 	// the policy. Emit a carry-forward result referencing the prior

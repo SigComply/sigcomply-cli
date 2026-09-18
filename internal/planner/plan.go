@@ -66,8 +66,10 @@ type PlannedPolicy struct {
 
 	// EvidenceModeOverridden is true when the project config's
 	// policy_overrides section changed this policy's evidence_mode from
-	// what the framework spec declared. Surfaced in result.json so
-	// auditors can see which policies are running in an overridden mode.
+	// what the framework spec declared. Copied onto the PolicyResult by
+	// the evaluator and persisted in result.json, so an auditor can see
+	// which controls are running in an overridden mode — nearly always
+	// an automated check downgraded to a document upload.
 	EvidenceModeOverridden bool
 
 	// CoverageGaps lists version-skew near-misses: required slots that

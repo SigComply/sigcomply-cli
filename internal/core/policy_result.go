@@ -23,6 +23,25 @@ type PolicyResult struct {
 	RuleVersion        string
 	Diag               map[string]any
 
+	// EvidenceMode is how this result was actually reached: automated
+	// (live infrastructure was inspected) or manual (a document was
+	// confirmed present in the right folder, in the temporal window,
+	// and parseable — its contents were never read).
+	//
+	// Both modes emit StatusPass, so without this field a run resting
+	// entirely on uploaded documents is indistinguishable from one that
+	// verified everything. Recorded per result rather than derived from
+	// the framework catalog because a project can override a policy's
+	// mode, and the catalog would then describe something the run did
+	// not do.
+	EvidenceMode EvidenceMode
+
+	// EvidenceModeOverridden is true when the project's config changed
+	// this policy's evidence mode from the framework default — almost
+	// always an automated check downgraded to a document upload. A
+	// legitimate escape hatch, but one an auditor must be able to see.
+	EvidenceModeOverridden bool
+
 	// ConfiguredCadence is the cadence string in effect at this run
 	// (e.g., "daily" or "every:6h"). Captured on every result so the
 	// framework summary and the audit ledger can show the cadence
