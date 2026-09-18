@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+
+	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
 // FormatCSV writes a CSV rendering of snap to w. One row per policy
@@ -39,7 +41,7 @@ func FormatCSV(w io.Writer, snap *Snapshot) error {
 }
 
 func formatCSVLatest(cw *csv.Writer, v *LatestView) error {
-	header := []string{"policy_id", "control_id", "status", "severity", "category", "last_evaluated", "run_id", "exception_id"}
+	header := []string{"policy_id", "control_id", "status", "severity", "category", "last_evaluated", "run_id", "exception_id", "reason"}
 	if err := cw.Write(header); err != nil {
 		return err
 	}
@@ -57,6 +59,7 @@ func formatCSVLatest(cw *csv.Writer, v *LatestView) error {
 			p.LastEvaluated.Format("2006-01-02T15:04:05Z"),
 			p.RunID,
 			p.ExceptionID,
+			oneLine(p.Reason),
 		}
 		if err := cw.Write(row); err != nil {
 			return err
@@ -137,7 +140,11 @@ func formatCSVScope(cw *csv.Writer, v *ScopeView) error {
 		}
 	}
 	for _, s := range v.Skipped {
-		if err := cw.Write([]string{"skipped_policy", s.PolicyID, oneLine(s.Reason), s.Status, "", "", v.RunID}); err != nil {
+		kind := "skipped_policy"
+		if s.Status == string(core.StatusError) {
+			kind = "errored_policy"
+		}
+		if err := cw.Write([]string{kind, s.PolicyID, oneLine(s.Reason), s.Status, "", "", v.RunID}); err != nil {
 			return err
 		}
 	}

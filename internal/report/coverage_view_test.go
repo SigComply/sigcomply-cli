@@ -228,3 +228,77 @@ func TestBuildCoverage_RunRecordOutranksTheCatalog(t *testing.T) {
 		t.Errorf("totals = %+v; want the override reflected in the headline", snap.Coverage)
 	}
 }
+
+// TestBuildScope_ShowsErroredPolicies is the regression for a gap in the
+// scope view: it listed only skipped controls, so an errored policy —
+// semantically an unevaluated control, and one that stays in the
+// compliance-score denominator counting against it — was invisible
+// exactly where a reader goes to find unevaluated controls.
+func TestBuildScope_ShowsErroredPolicies(t *testing.T) {
+	v, _ := makeVault(t, []runSeed{{
+		framework: "soc2", periodID: "2026-Q2", runID: "run-aaaa",
+		timestamp:   time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		completedAt: time.Date(2026, 4, 1, 0, 5, 0, 0, time.UTC),
+		policies: []core.PolicyResult{
+			{PolicyID: "p.skipped", Status: core.StatusSkip, Diag: map[string]any{"reason": "required slot has no records"}},
+			{PolicyID: "p.errored", Status: core.StatusError, Diag: map[string]any{"collect_error": "aws.iam: access denied"}},
+			{PolicyID: "p.passed", Status: core.StatusPass},
+		},
+	}})
+
+	snap, err := report.Build(context.Background(), &report.Input{
+		Vault: v, Framework: "soc2", PeriodID: "2026-Q2", View: report.ViewScope,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snap.Scope.Skipped) != 2 {
+		t.Fatalf("got %d unevaluated rows; want 2 (the skip and the error)", len(snap.Scope.Skipped))
+	}
+
+	byID := map[string]report.SkippedPolicy{}
+	for _, s := range snap.Scope.Skipped {
+		byID[s.PolicyID] = s
+	}
+	e, ok := byID["p.errored"]
+	if !ok {
+		t.Fatal("the errored policy is missing from the scope view")
+	}
+	if e.Status != "error" {
+		t.Errorf("status = %q; want error — a skip and an error must be distinguishable", e.Status)
+	}
+	if e.Reason != "aws.iam: access denied" {
+		t.Errorf("reason = %q; want the collector's diagnostic, not a generic placeholder", e.Reason)
+	}
+}
+
+// TestBuildLatest_CarriesTheReason closes the other half: `--view latest`
+// printed a bare "error" while the explanation sat unread in the vault.
+func TestBuildLatest_CarriesTheReason(t *testing.T) {
+	v, _ := makeVault(t, []runSeed{{
+		framework: "soc2", periodID: "2026-Q2", runID: "run-aaaa",
+		timestamp:   time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		completedAt: time.Date(2026, 4, 1, 0, 5, 0, 0, time.UTC),
+		policies: []core.PolicyResult{
+			{PolicyID: "p.errored", Status: core.StatusError, Diag: map[string]any{"collect_error": "aws.iam: access denied"}},
+		},
+	}})
+
+	snap, err := report.Build(context.Background(), &report.Input{
+		Vault: v, Framework: "soc2", PeriodID: "2026-Q2", View: report.ViewLatest,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := snap.Latest.Policies[0].Reason; got != "aws.iam: access denied" {
+		t.Errorf("Reason = %q; want the collector's diagnostic", got)
+	}
+
+	var buf bytes.Buffer
+	if err := report.FormatText(&buf, snap); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "access denied") {
+		t.Errorf("the reason must reach the rendered table:\n%s", buf.String())
+	}
+}

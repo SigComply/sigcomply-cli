@@ -46,7 +46,7 @@ func formatTextLatest(w io.Writer, v *LatestView) error {
 		return err
 	}
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	if _, err := fmt.Fprintln(tw, "POLICY_ID\tCONTROL\tSTATUS\tSEVERITY\tLAST_EVALUATED\tEXCEPTION"); err != nil {
+	if _, err := fmt.Fprintln(tw, "POLICY_ID\tCONTROL\tSTATUS\tSEVERITY\tLAST_EVALUATED\tEXCEPTION\tREASON"); err != nil {
 		return err
 	}
 	for i := range v.Policies {
@@ -55,9 +55,9 @@ func formatTextLatest(w io.Writer, v *LatestView) error {
 		if exc == "" {
 			exc = "-"
 		}
-		if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+		if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			p.PolicyID, dash(p.ControlID), p.Status, dash(p.Severity),
-			p.LastEvaluated.Format("2006-01-02T15:04:05Z"), exc); err != nil {
+			p.LastEvaluated.Format("2006-01-02T15:04:05Z"), exc, oneLine(p.Reason)); err != nil {
 			return err
 		}
 	}
@@ -162,15 +162,15 @@ func formatTextScope(w io.Writer, v *ScopeView) error {
 	// Skips are the half that matters even with no declaration: they
 	// leave the compliance-score denominator, so they are precisely what
 	// a green run can hide.
-	if _, err := fmt.Fprintf(w, "\n%d control(s) NOT evaluated in the latest run (excluded from the compliance score):\n", len(v.Skipped)); err != nil {
+	if _, err := fmt.Fprintf(w, "\n%d control(s) NOT evaluated in the latest run (skips are excluded from the compliance score; errors count against it):\n", len(v.Skipped)); err != nil {
 		return err
 	}
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	if _, err := fmt.Fprintln(tw, "POLICY\tREASON"); err != nil {
+	if _, err := fmt.Fprintln(tw, "POLICY\tSTATUS\tREASON"); err != nil {
 		return err
 	}
 	for _, s := range v.Skipped {
-		if _, err := fmt.Fprintf(tw, "%s\t%s\n", s.PolicyID, oneLine(s.Reason)); err != nil {
+		if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\n", s.PolicyID, s.Status, oneLine(s.Reason)); err != nil {
 			return err
 		}
 	}

@@ -202,6 +202,12 @@ type LatestPolicy struct {
 	// design uses the policy_id as the exception's primary key — the
 	// exceptions view is the place to look up details.
 	ExceptionID string
+	// Reason is the one-line explanation for a fail or error, the same
+	// projection `check` prints inline. Empty for a plain pass. Without
+	// it this view showed a bare "error" with the diagnostic stranded in
+	// the vault's result.json, which is the least useful place for it.
+	// Full detail still lives there.
+	Reason string
 }
 
 // ExceptionsView is the centralized register of every waiver/NA in

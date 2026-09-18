@@ -233,6 +233,7 @@ func buildLatest(ctx context.Context, v core.Vault, runs []runRecord) (*LatestVi
 			Category:      e.policy.Category,
 			LastEvaluated: e.completedAt.UTC(),
 			RunID:         e.runID,
+			Reason:        core.ResultReason(&e.policy),
 		}
 		if _, hasExc := exceptionsByPolicy[policyID]; hasExc {
 			row.ExceptionID = policyID

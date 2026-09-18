@@ -72,7 +72,12 @@ func buildScope(ctx context.Context, v core.Vault, runs []runRecord) (*ScopeView
 			// matching how the other views degrade.
 			continue
 		}
-		if r.Status != core.StatusSkip {
+		// Skips and errors both mean the control was not evaluated.
+		// An errored policy is arguably the more urgent of the two: a
+		// skip at least leaves the compliance-score denominator, while
+		// an error stays in it and counts against the score, so it is
+		// an unevaluated control wearing a failure's clothes.
+		if r.Status != core.StatusSkip && r.Status != core.StatusError {
 			continue
 		}
 		id := r.PolicyID
@@ -89,13 +94,20 @@ func buildScope(ctx context.Context, v core.Vault, runs []runRecord) (*ScopeView
 	return out, nil
 }
 
-// skipReasonOf pulls the evaluator's diagnostic off a skipped result,
-// falling back to a plain statement rather than an empty cell.
+// skipReasonOf pulls the evaluator's diagnostic off an unevaluated
+// result, falling back to a plain statement rather than an empty cell.
+//
+// The planner's own "reason" wins for a skip; an error carries its
+// explanation elsewhere in Diag, so core.ResultReason — the same
+// projection `check` prints — handles that half.
 func skipReasonOf(r *core.PolicyResult) string {
 	if r.Diag != nil {
 		if v, ok := r.Diag["reason"].(string); ok && v != "" {
 			return v
 		}
+	}
+	if reason := core.ResultReason(r); reason != "" {
+		return reason
 	}
 	return "not evaluated"
 }
