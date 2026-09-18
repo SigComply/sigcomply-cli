@@ -21,32 +21,25 @@ type coverage struct {
 	catalogEntries       int
 }
 
+// measure derives the published figures from the compiled framework.
+//
+// The per-control half delegates to core.ClassifyControls — the same
+// function `sigcomply report --view coverage` renders. That shared call
+// is the point: when the doc figures and the product view were computed
+// by two separate pieces of code, nothing stopped them disagreeing, and
+// a coverage claim drifting from the coverage screen is precisely the
+// failure this test exists to prevent.
 func measure(controls []core.Control, policies []core.Policy, entries int) coverage {
 	c := coverage{controls: len(controls), policies: len(policies), catalogEntries: entries}
-	best := map[string]string{}
 	for i := range policies {
-		p := &policies[i]
-		auto := p.EvidenceMode == core.EvidenceModeAutomated
-		if auto {
+		if policies[i].EvidenceMode == core.EvidenceModeAutomated {
 			c.automated++
 		} else {
 			c.manual++
 		}
-		id := core.PrimaryControlID(p.Controls)
-		if auto {
-			best[id] = "auto"
-		} else if best[id] == "" {
-			best[id] = "manual"
-		}
 	}
-	for _, ctl := range controls {
-		switch best[ctl.ID] {
-		case "auto":
-			c.ctrlAuto++
-		case "manual":
-			c.ctrlManual++
-		}
-	}
+	totals := core.CoverageTotals(core.ClassifyControls(controls, policies))
+	c.ctrlAuto, c.ctrlManual = totals.Automated, totals.Manual
 	return c
 }
 
