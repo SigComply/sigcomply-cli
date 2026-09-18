@@ -462,7 +462,8 @@ state of every policy is recoverable forever. A reader walking
 order has the full timeline.
 
 **The free CLI does not ship an analyzer for this.** `sigcomply report`
-produces only snapshot views (latest, exceptions, integrity) — it
+produces only snapshot views (latest, exceptions, integrity, scope,
+coverage) — it
 does not compute deviation timelines, drift, or continuous-monitoring
 narratives.
 
@@ -490,6 +491,8 @@ with signed integrity guarantees.
 | "What's the state of control X at period close?" | Free CLI: `sigcomply report --view latest`. Vault-readable. |
 | "What was waived during the period?" | Free CLI: `sigcomply report --view exceptions`. Vault-readable. |
 | "Has any evidence been tampered with?" | Free CLI: `sigcomply report --view integrity`. Vault-readable. |
+| "Did this run look at everything it should have?" | Free CLI: `sigcomply report --view scope`. Vault-readable. |
+| "Is control X actually inspected, or does it just have a PDF?" | Free CLI: `sigcomply report --view coverage`. Vault + framework catalog. |
 | "Did control X operate effectively *throughout* the period?" | **Paid Rails app.** Computes deviation timeline from accumulated per-run submissions. |
 | "Has compliance posture drifted year-over-year?" | **Paid Rails app.** Cross-period analytics. |
 | "Alert me when MFA enforcement state changes." | **Paid Rails app.** Continuous-monitoring alerts. |

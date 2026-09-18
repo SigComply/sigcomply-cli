@@ -13,6 +13,40 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **`sigcomply report --view coverage` — what is actually behind the green.**
+  A compliance score is a pass rate over the policies that ran, and a policy
+  satisfied by a document sitting in your evidence folder counts exactly as
+  much as one that inspected live infrastructure. Both pass. Nothing in the
+  product distinguished them, so a run whose controls rest on uploaded PDFs
+  read identically to one that verified everything — for SOC 2 that is 27 of
+  43 criteria, the whole CC1–CC5 governance spine plus vendor risk and
+  privacy. The new view reports, per control, which kind of check stands
+  behind it, how many of each, and whether that evidence exists for the
+  period. It is framework-scoped rather than run-scoped on purpose: cadence
+  is independent of the audit period, so a control checked annually writes no
+  result at all in three quarters out of four, and a view built only from the
+  period folder would show a clean bill of health over whatever happened to
+  run. A control with no result says so and names its cadence, so "annual,
+  expected" is distinguishable from "daily, broken". Flags: `--view coverage`,
+  with `--format text|json|csv`. Reference: `docs/reference/commands.md`.
+
+- **`sigcomply check` now says what earned the passes.** `pass=84` is the
+  number a reader over-trusts. The summary now breaks passing policies into
+  those verified by inspection and those satisfied by a document being
+  present, and says plainly that a document-presence pass means the file was
+  there, not that its contents were checked.
+
+- **The effective evidence mode is recorded everywhere a result goes.** Every
+  `PolicyResult` carries the mode it was actually evaluated under, plus
+  whether the project overrode the framework default — persisted in
+  `result.json` and submitted on the wire as `evidence_mode` /
+  `evidence_mode_overridden`. This closes a documented-but-unimplemented gap:
+  a project could downgrade an automated check to a document upload and no
+  artifact anywhere recorded that it happened. Bumps the cloud schema to
+  `sigcomply.cloud.v4` (both fields are non-identifying — a two-value enum
+  and a boolean). **Deploy the Rails side first**: an unknown field is
+  silently dropped by strong params and the request still returns 201.
+
 - **`sigcomply evidence due` — know manual evidence is needed before CI goes
   red.** Until now the only signal that a quarterly access review or an annual
   policy acknowledgement was missing was a failed cadence run on the day it was
@@ -180,6 +214,21 @@ tracks the human-curated highlights.
   error; the one-line message is shown on its own (`SilenceUsage`).
 
 ### Fixed
+
+- **`sigcomply report` no longer hides errored policies.** `--view scope`
+  listed only skipped controls, so an errored policy — an unevaluated control
+  that, unlike a skip, stays in the compliance-score denominator and counts
+  against it — was invisible in the very view meant to name unevaluated
+  controls. Errors now appear alongside skips with a status column. The scope
+  header also no longer claims both kinds are excluded from the score; that
+  was true of skips and false of errors.
+
+- **`--view latest` now explains a failure or error inline.** It printed a
+  bare `error` with the diagnostic stranded in the vault's `result.json`. It
+  now carries the same one-line reason `check` prints. A related bug meant a
+  vacuous pass (a clause that examined no resources) rendered as a blank cell
+  in a report while `check` explained it correctly — the diagnostic did not
+  survive the JSON round-trip out of the vault.
 
 - A fresh `sigcomply init -f <framework> && sigcomply check` now exits `1`
   (findings to remediate), not `2`, and prints zero `[error]` lines.

@@ -115,11 +115,11 @@ Read-only vault snapshot. Never writes to the vault, never calls the cloud, neve
 | `--vault <uri>` | | | Vault location — paths or `s3://`, `gs://`, `az://`, `file://` |
 | `--framework <value>` | `-f` | Config framework | Framework |
 | `--period <id>` | | | **Required** (e.g. `2026-Q1`); missing → exit 3 |
-| `--view <value>` | | `latest` | `latest`, `exceptions`, `integrity`, or `scope` |
+| `--view <value>` | | `latest` | `latest`, `exceptions`, `integrity`, `scope`, or `coverage` |
 | `--format <value>` | | `text` | `text`, `json`, `csv`, `pdf` (`pdf` deferred to v1.x → exit 3 if used) |
 | `--out <file>` | | | Required for non-text formats (else exit 3); text goes to stdout |
 
-Views: `latest` = current pass/fail state per policy; `exceptions` = the waivers/NA register; `integrity` = run-by-run signature/manifest verification; `scope` = what the run was supposed to cover and what it actually evaluated.
+Views: `latest` = current pass/fail state per policy; `exceptions` = the waivers/NA register; `integrity` = run-by-run signature/manifest verification; `scope` = what the run was supposed to cover and what it actually evaluated; `coverage` = what kind of check stands behind each control.
 
 `--view scope` answers the question the other views assume away: *did this
 run look at everything it should have?* It shows the declared estate and
@@ -128,6 +128,37 @@ how each declared source fared (for projects that set
 evaluate, with the reason. That second half renders whether or not an
 estate was declared — a skipped control leaves the compliance-score
 denominator entirely, so it is exactly what an all-green run can hide.
+
+`--view coverage` answers what the compliance score cannot: *is this
+control actually inspected, or does it merely have a document on file?*
+A policy satisfied by a PDF sitting in the evidence folder and one that
+inspected live infrastructure both pass, and both count the same toward
+the score. For SOC 2, 27 of 43 criteria are the first kind — the whole
+CC1–CC5 governance spine. The view reports, per control, which kind of
+check stands behind it, how many of each, and whether the evidence exists
+for this period.
+
+It is framework-scoped rather than run-scoped on purpose. Cadence is
+independent of the audit period: a control checked annually produces no
+result at all in three quarters out of four, so a view built only from the
+period folder would show a clean bill of health over whatever happened to
+run. Every declared control gets a row; one with no result says so and
+names its cadence, so "annual, expected" is distinguishable from "daily,
+broken". A control whose evidence mode the project overrode is marked.
+
+```bash
+sigcomply report --period 2026-Q3 --view coverage
+```
+
+```
+43 of 43 controls have a check
+  16 automated  — verified by inspecting your infrastructure
+  27 manual     — a document is on file; its contents are not inspected
+
+This period
+  41 evaluated, 2 not evaluated
+  0 manual control(s) with evidence on file, 27 without
+```
 
 ## `sigcomply evidence catalog`
 

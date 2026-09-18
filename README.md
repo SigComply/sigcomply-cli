@@ -114,7 +114,7 @@ see [docs/guides/identity-roster.md](docs/guides/identity-roster.md).
 | `sigcomply init` | Scaffold a starter `.sigcomply.yaml` for the chosen framework. |
 | `sigcomply init-ci` | Scaffold per-cadence CI workflow files (SOC 2 in v1-alpha). |
 | `sigcomply build` | Compile a project-tailored binary with `.sigcomply/` Go extensions. |
-| `sigcomply report` | Read-only auditor snapshot of the vault (`--view latest\|exceptions\|integrity\|scope`). |
+| `sigcomply report` | Read-only auditor snapshot of the vault (`--view latest\|exceptions\|integrity\|scope\|coverage`). |
 | `sigcomply evidence catalog` | Print the manual-evidence catalog (`-o text\|json`). |
 | `sigcomply evidence due` | List manual entries with no file for the current period. Advisory; always exits 0. |
 | `sigcomply version` | Print version, commit, and build time. |

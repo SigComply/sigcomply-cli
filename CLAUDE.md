@@ -128,7 +128,8 @@ non-custodial model.
   `SubmissionPayload`): per-policy `policy_id`, `controls[]`
   (framework taxonomy, no identity), pass/fail,
   severity, `resources_evaluated`, `resources_failed`, `message`
-  (count-based, no IDs), `category`; run summary
+  (count-based, no IDs), `category`, `evidence_mode` (`automated`/`manual`)
+  and `evidence_mode_overridden`; run summary
   (total/passed/failed/skipped, compliance score); environment (`ci`,
   `ci_provider`, `repository`, `branch`, `commit_sha`, `cli_version`).
 - **Stays in customer storage, always:** raw API responses, PDF bytes,
@@ -160,8 +161,11 @@ default silently.
   `in_temporal_window`, `file_valid`). `pass_when:`/`rule:` are ignored.
 
 Projects can override the framework's `evidence_mode` default per policy
-via `policy_overrides` in `.sigcomply.yaml` (same policy ID; audit trail
-records which path ran) — the migration path for customers on manual
+via `policy_overrides` in `.sigcomply.yaml` (same policy ID). The audit
+trail records which path ran: every `PolicyResult` carries the effective
+`EvidenceMode` plus `EvidenceModeOverridden`, persisted in `result.json`
+and submitted on the wire, so a downgraded control is visible rather than
+silent — the migration path for customers on manual
 processes today who wire up APIs later.
 
 There are **no** `checklist`/`declaration`/`document_upload` sub-types in
@@ -402,11 +406,11 @@ framework, so exactly one `manual.pdf` source and one bucket per project
 
 | Command | Status | Notes |
 |---------|--------|-------|
-| `sigcomply check` | Wired | Main entry — plan → collect → evaluate → aggregate → sign/store → submit |
+| `sigcomply check` | Wired | Main entry — plan → collect → evaluate → aggregate → sign/store → submit. Summary breaks passes down by what earned them (inspection vs document presence) |
 | `sigcomply init` | Wired | Scaffold a starter `.sigcomply.yaml` (`-f` framework, `-o` out path, `--force`); refuses to overwrite without `--force` |
 | `sigcomply init-ci` | Wired | Scaffold CI workflow files calibrated to a framework's cadence distribution (SOC 2 only in v1-alpha; other frameworks exit 3) |
 | `sigcomply build` | Wired | Compile a project-tailored binary with `.sigcomply/` Go extensions |
-| `sigcomply report` | Wired | Read-only auditor snapshot of the vault (`--view latest\|exceptions\|integrity\|scope`) |
+| `sigcomply report` | Wired | Read-only auditor snapshot of the vault (`--view latest\|exceptions\|integrity\|scope\|coverage`) |
 | `sigcomply evidence catalog` | Wired | Print the manual-evidence catalog (`-o text\|json`); `-o json` matches the Evidence SPA contract. Standalone, no project config. `-f` defaults to `$SIGCOMPLY_FRAMEWORK` then `soc2` |
 | `sigcomply evidence due` | Wired | List manual entries whose current-period folder is empty (`-c`, `-f`, `-o text\|json`, `--within-days`, `--all`). Read-only LIST calls; **always exits 0** when the scan completes, so it is safe as a non-failing CI step. Wired into the scaffolded daily workflow |
 | `sigcomply version` | Wired | Print version + commit + build time |

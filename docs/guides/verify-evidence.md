@@ -68,14 +68,14 @@ sigcomply report --period 2026-Q1 --view latest
 | Flag | Values | Notes |
 |------|--------|-------|
 | `--period <id>` | e.g. `2026-Q1` | **Required**; missing → exit 3 |
-| `--view <name>` | `latest` \| `exceptions` \| `integrity` \| `scope` | Default `latest` |
+| `--view <name>` | `latest` \| `exceptions` \| `integrity` \| `scope` \| `coverage` | Default `latest` |
 | `--format <fmt>` | `text` \| `json` \| `csv` \| `pdf` | Default `text`; `pdf` is deferred → exit 3 if used |
 | `--out <file>` | path | **Required for non-`text` formats** (else exit 3); `text` prints to stdout |
 | `--vault <uri>` | path, `s3://`, `gs://`, `az://`, `file://` | Point at an external vault |
 | `-f/--framework` | framework id | Defaults to the config framework |
 | `-c/--config <path>` | path | Config file |
 
-### The four views
+### The five views
 
 - **`latest`** — the current pass/fail state for each policy.
 - **`exceptions`** — the register of waivers and not-applicable (NA)
@@ -88,6 +88,14 @@ sigcomply report --period 2026-Q1 --view latest
   every control the run skipped, with the reason. Use it to check that a
   passing score covers the whole estate rather than the part that happened
   to be wired up.
+- **`coverage`** — what kind of check stands behind each control: verified
+  by inspecting your infrastructure, or satisfied by a document being on
+  file whose contents were never read. Both kinds pass identically and
+  count the same toward the score, so this is the only view that separates
+  a verified estate from a folder of PDFs. For SOC 2, 27 of 43 criteria are
+  document-backed. It also reports whether that document actually exists
+  for the period, and marks any control whose evidence mode the project
+  overrode.
 
 ### Examples
 

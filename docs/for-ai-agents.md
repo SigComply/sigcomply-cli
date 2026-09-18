@@ -125,6 +125,7 @@ You can scope a run to one cadence, e.g. `sigcomply check --cadence daily`. The 
 
 ```bash
 sigcomply report --period <id> --view latest
+sigcomply report --period <id> --view coverage   # what kind of check backs each control
 ```
 
 `--period` is required (e.g. `2026-Q1`); missing → exit `3`.
@@ -135,7 +136,7 @@ sigcomply report --period <id> --view latest
 - **The binding slot is usually `evidence`** — not `user_directory` or `access_keys`, which do not exist and cause exit `3`. Roster policies use `roster` and `accounts`.
 - **`check` has no `--framework` flag** and ignores `SIGCOMPLY_FRAMEWORK`; it reads the framework from config only.
 - **Never put identifiers in any cloud-facing config** — no ARNs, emails, usernames, or account IDs. The model is non-custodial; only counts leave your environment. (`experimental.roster.aliases` in `.sigcomply.yaml` does hold emails; that file stays in the repo and is never sent.)
-- **`collect`, `evaluate`, and `config` commands do not exist.** Do not invent them. Wired commands are `check`, `init`, `init-ci`, `build`, `report`, `evidence catalog`, `version`.
+- **`collect`, `evaluate`, and `config` commands do not exist.** Do not invent them. Wired commands are `check`, `init`, `init-ci`, `build`, `report`, `evidence catalog`, `evidence due`, `version`.
 - **HIPAA is not registered.** Only `soc2` and `iso27001` exist; any other framework name fails.
 - **`go install` names the binary `sigcomply-cli`** — symlink it to `sigcomply`.
 - **There is no Homebrew package.**
