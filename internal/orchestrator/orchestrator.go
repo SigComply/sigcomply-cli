@@ -745,10 +745,47 @@ func countStatuses(results []core.PolicyResult) statusCounts {
 	return c
 }
 
+// renderAssurance breaks the passing policies down by what actually
+// earned the pass.
+//
+// A manual policy passes when a document is present in the right folder,
+// inside the temporal window, and parseable — its contents are never
+// read. An automated policy passes after inspecting live infrastructure.
+// Both print as "pass", so a run resting entirely on uploaded documents
+// reads identically to one that verified everything, and the bare
+// "pass=84" above is exactly the number a reader over-trusts.
+//
+// Printed only when something passed, and the caveat only when some of
+// those passes were documents — there is nothing to warn about
+// otherwise.
+func renderAssurance(stdout io.Writer, results []core.PolicyResult) {
+	var automated, manual int
+	for i := range results {
+		if results[i].Status != core.StatusPass && results[i].Status != core.StatusCarriedForward {
+			continue
+		}
+		if results[i].EvidenceMode == core.EvidenceModeManual {
+			manual++
+			continue
+		}
+		automated++
+	}
+	if automated+manual == 0 {
+		return
+	}
+	_, _ = fmt.Fprintf(stdout, "  of %d passing: %d verified by inspection, %d by document presence\n", //nolint:errcheck // status output
+		automated+manual, automated, manual)
+	if manual > 0 {
+		_, _ = fmt.Fprintln(stdout, "  a document-presence pass means the file was there, not that its contents were checked") //nolint:errcheck // status output
+		_, _ = fmt.Fprintln(stdout, "  `sigcomply report --view coverage` shows which controls rest on which")                 //nolint:errcheck // status output
+	}
+}
+
 func renderAndExitCode(stdout io.Writer, plan *planner.RunPlan, results []core.PolicyResult, ci spec.CIConfig, scopeReport *scope.Report) int {
 	c := countStatuses(results)
 	_, _ = fmt.Fprintf(stdout, "SigComply check %s/%s — %d policies\n", plan.Framework, plan.Period.ID, len(results))                                                  //nolint:errcheck // status output
 	_, _ = fmt.Fprintf(stdout, "  pass=%d fail=%d carried=%d skip=%d error=%d na=%d waived=%d\n", c.passed, c.failed, c.carried, c.skipped, c.errored, c.na, c.waived) //nolint:errcheck // status output
+	renderAssurance(stdout, results)
 	sortedResults := make([]core.PolicyResult, len(results))
 	copy(sortedResults, results)
 	sort.Slice(sortedResults, func(i, j int) bool { return sortedResults[i].PolicyID < sortedResults[j].PolicyID })
