@@ -18,10 +18,18 @@ dist/
 # Test binary, built with `go test -c`
 *.test
 
-# Code coverage profiles and other test artifacts
+# Code coverage profiles and other test artifacts.
+# NOTE: do not use a bare `coverage.*` here — it matches Go SOURCE files
+# named coverage.go, which is how internal/report/coverage.go silently
+# failed to commit (its tests landed, the implementation did not, and the
+# release build broke on `undefined: buildCoverage`). List the artifact
+# extensions explicitly instead.
 *.out
 coverage/
-coverage.*
+coverage.html
+coverage.json
+coverage.txt
+coverage.xml
 *.coverprofile
 profile.cov
 
