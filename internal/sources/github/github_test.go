@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -22,17 +23,26 @@ type fakeAPI struct {
 	collaborators []Member
 	orgPolicy     OrgPolicy
 	alerts        []DependabotAlert
+	pulls         []PullRequest
+	deployments   []Deployment
 	repoErr       error
 	memErr        error
 	collabErr     error
 	orgErr        error
 	alertErr      error
+	pullErr       error
+	deployErr     error
 
-	listReposCount    int
-	listMembersCount  int
-	listCollabCount   int
-	getOrgPolicyCount int
-	listAlertsCount   int
+	listReposCount       int
+	listMembersCount     int
+	listCollabCount      int
+	getOrgPolicyCount    int
+	listAlertsCount      int
+	listPullsCount       int
+	listDeploymentsCount int
+
+	// Window the plugin resolved on the last period-scoped call.
+	gotStart, gotEnd time.Time
 }
 
 func (f *fakeAPI) ListRepos(_ context.Context) ([]Repo, error) {
@@ -75,14 +85,33 @@ func (f *fakeAPI) ListDependabotAlerts(_ context.Context) ([]DependabotAlert, er
 	return f.alerts, nil
 }
 
+func (f *fakeAPI) ListMergedPullRequests(_ context.Context, start, end time.Time) ([]PullRequest, error) {
+	f.listPullsCount++
+	f.gotStart, f.gotEnd = start, end
+	if f.pullErr != nil {
+		return nil, f.pullErr
+	}
+	return f.pulls, nil
+}
+
+func (f *fakeAPI) ListDeployments(_ context.Context, start, end time.Time) ([]Deployment, error) {
+	f.listDeploymentsCount++
+	f.gotStart, f.gotEnd = start, end
+	if f.deployErr != nil {
+		return nil, f.deployErr
+	}
+	return f.deployments, nil
+}
+
 func TestPlugin_IDAndEmits(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}, Org: "acme"})
 	if p.ID() != SourceID {
 		t.Errorf("ID = %q; want %q", p.ID(), SourceID)
 	}
 	em := p.Emits()
-	if len(em) != 4 || em[0] != EvidenceTypeRepository || em[1] != EvidenceTypeDirectoryUser ||
-		em[2] != EvidenceTypeOrgPolicy || em[3] != EvidenceTypeVulnerability {
+	if len(em) != 6 || em[0] != EvidenceTypeRepository || em[1] != EvidenceTypeDirectoryUser ||
+		em[2] != EvidenceTypeOrgPolicy || em[3] != EvidenceTypeVulnerability ||
+		em[4] != EvidenceTypePullRequest || em[5] != EvidenceTypeDeployment {
 		t.Errorf("Emits = %v", em)
 	}
 }
@@ -852,5 +881,618 @@ func TestCollectRepos_EmitsAllPolicyReadFields(t *testing.T) {
 		if _, ok := m[field]; !ok {
 			t.Errorf("emitted payload missing policy-read field %q", field)
 		}
+	}
+}
+
+// --- pull_request ----------------------------------------------------------
+
+// prWindow is the audit window the period-scoped tests pass as slot params.
+var (
+	prWindowStart = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	prWindowEnd   = time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+)
+
+// periodRequest builds a SlotRequest carrying the period params the
+// orchestrator injects as native time.Time values.
+func periodRequest(evidenceType string) core.SlotRequest {
+	return core.SlotRequest{
+		AcceptedTypes: []string{evidenceType},
+		Params: map[string]any{
+			"period_start": prWindowStart,
+			"period_end":   prWindowEnd,
+			"now":          prWindowEnd,
+		},
+	}
+}
+
+func TestCollectPullRequests_HappyPath_MapsAndSorts(t *testing.T) {
+	merged := time.Date(2026, 2, 1, 10, 0, 0, 0, time.UTC)
+	fake := &fakeAPI{pulls: []PullRequest{
+		{
+			Repository: "acme/web", Number: 3, Author: testLoginAlice, MergedBy: "bob",
+			TargetBranch: "main", MergeCommitSHA: "abc123", MergedAt: merged,
+			Reviews: []Review{
+				{User: testLoginAlice, State: "APPROVED", SubmittedAt: merged.Add(-48 * time.Hour)},
+				{User: "bob", State: "APPROVED", SubmittedAt: merged.Add(-24 * time.Hour)},
+			},
+			CheckRuns: []CheckRun{{Status: "completed", Conclusion: "success"}},
+		},
+		{
+			// Self-approved with no CI: the failing side of both derived
+			// booleans, and an unattributed merge with no merge commit.
+			Repository: "acme/api", Number: 12, Author: "carol",
+			TargetBranch: "main", MergedAt: merged.Add(24 * time.Hour),
+			Reviews: []Review{{User: "carol", State: "APPROVED", SubmittedAt: merged}},
+		},
+	}}
+	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return now }})
+	records, err := p.Collect(context.Background(), periodRequest(EvidenceTypePullRequest))
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if len(records) != 2 {
+		t.Fatalf("len = %d; want 2", len(records))
+	}
+	// Sorted by ID: "acme/api#12" < "acme/web#3".
+	if records[0].ID != "acme/api#12" || records[1].ID != "acme/web#3" {
+		t.Errorf("not sorted by ID: %v", recordIDs(records))
+	}
+	assertRecordMeta(t, &records[1], EvidenceTypePullRequest, now)
+
+	got := unmarshalPayload[pullRequestPayload](t, records[1].Payload)
+	want := pullRequestPayload{
+		Repository: "acme/web", Number: 3, Author: testLoginAlice, MergedBy: "bob",
+		TargetBranch: "main", MergeCommitSHA: "abc123", MergedAt: "2026-02-01T10:00:00Z",
+		ApprovalCount: 2, IndependentApprovalCount: 1, ApprovedBeforeMerge: true, ChecksPassed: true,
+	}
+	if got != want {
+		t.Errorf("web payload = %+v; want %+v", got, want)
+	}
+	gotSelf := unmarshalPayload[pullRequestPayload](t, records[0].Payload)
+	wantSelf := pullRequestPayload{
+		Repository: "acme/api", Number: 12, Author: "carol", TargetBranch: "main",
+		MergedAt: "2026-02-02T10:00:00Z", ApprovalCount: 1,
+	}
+	if gotSelf != wantSelf {
+		t.Errorf("self-approved payload = %+v; want %+v", gotSelf, wantSelf)
+	}
+}
+func TestApprovalState_LatestReviewPerUserDecides(t *testing.T) {
+	merged := time.Date(2026, 2, 1, 10, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name            string
+		author          string
+		reviews         []Review
+		wantApprovals   int
+		wantIndependent int
+		wantBeforeMerge bool
+	}{
+		{
+			name: "dismissed approval does not count", author: testLoginAlice,
+			reviews: []Review{
+				{User: "dave", State: "APPROVED", SubmittedAt: merged.Add(-2 * time.Hour)},
+				{User: "dave", State: "DISMISSED", SubmittedAt: merged.Add(-time.Hour)},
+			},
+		},
+		{
+			name: "changes requested supersedes an earlier approval", author: testLoginAlice,
+			reviews: []Review{
+				{User: "dave", State: "APPROVED", SubmittedAt: merged.Add(-2 * time.Hour)},
+				{User: "dave", State: "CHANGES_REQUESTED", SubmittedAt: merged.Add(-time.Hour)},
+			},
+		},
+		{
+			name: "comment after approval is ignored", author: testLoginAlice,
+			reviews: []Review{
+				{User: "dave", State: "APPROVED", SubmittedAt: merged.Add(-2 * time.Hour)},
+				{User: "dave", State: "COMMENTED", SubmittedAt: merged.Add(-time.Hour)},
+			},
+			wantApprovals: 1, wantIndependent: 1, wantBeforeMerge: true,
+		},
+		{
+			name: "duplicate approvals count once", author: testLoginAlice,
+			reviews: []Review{
+				{User: "dave", State: "APPROVED", SubmittedAt: merged.Add(-2 * time.Hour)},
+				{User: "dave", State: "APPROVED", SubmittedAt: merged.Add(-time.Hour)},
+			},
+			wantApprovals: 1, wantIndependent: 1, wantBeforeMerge: true,
+		},
+		{
+			name: "self approval is not independent", author: testLoginAlice,
+			reviews: []Review{
+				{User: testLoginAlice, State: "APPROVED", SubmittedAt: merged.Add(-time.Hour)},
+			},
+			wantApprovals: 1,
+		},
+		{
+			name: "retroactive approval counts but not before merge", author: testLoginAlice,
+			reviews: []Review{
+				{User: "eve", State: "APPROVED", SubmittedAt: merged.Add(time.Hour)},
+			},
+			wantApprovals: 1, wantIndependent: 1,
+		},
+		{
+			name: "approval exactly at merge counts as before merge", author: testLoginAlice,
+			reviews: []Review{
+				{User: "eve", State: "APPROVED", SubmittedAt: merged},
+			},
+			wantApprovals: 1, wantIndependent: 1, wantBeforeMerge: true,
+		},
+		{
+			name: "no reviews at all", author: testLoginAlice,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			pr := PullRequest{Author: tc.author, MergedAt: merged, Reviews: tc.reviews}
+			gotA, gotI, gotB := approvalState(&pr)
+			if gotA != tc.wantApprovals || gotI != tc.wantIndependent || gotB != tc.wantBeforeMerge {
+				t.Errorf("approvalState = (%d, %d, %v); want (%d, %d, %v)",
+					gotA, gotI, gotB, tc.wantApprovals, tc.wantIndependent, tc.wantBeforeMerge)
+			}
+		})
+	}
+}
+
+func TestChecksPassed(t *testing.T) {
+	tests := []struct {
+		name string
+		runs []CheckRun
+		want bool
+	}{
+		{name: "no checks configured is not a pass"},
+		{name: "all success", runs: []CheckRun{
+			{Status: "completed", Conclusion: "success"},
+			{Status: "completed", Conclusion: "success"},
+		}, want: true},
+		{name: "neutral and skipped count as success", runs: []CheckRun{
+			{Status: "completed", Conclusion: "neutral"},
+			{Status: "completed", Conclusion: "skipped"},
+		}, want: true},
+		{name: "one failure", runs: []CheckRun{
+			{Status: "completed", Conclusion: "success"},
+			{Status: "completed", Conclusion: "failure"},
+		}},
+		{name: "still running", runs: []CheckRun{{Status: "in_progress"}}},
+		{name: "canceled", runs: []CheckRun{{Status: "completed", Conclusion: "canceled"}}},
+		{name: "timed out", runs: []CheckRun{{Status: "completed", Conclusion: "timed_out"}}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := checksPassed(tc.runs); got != tc.want {
+				t.Errorf("checksPassed(%v) = %v; want %v", tc.runs, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCollectPullRequests_DropsMergesOutsideWindow(t *testing.T) {
+	fake := &fakeAPI{pulls: []PullRequest{
+		{Repository: "acme/web", Number: 1, MergedAt: prWindowStart.Add(-time.Hour)},
+		{Repository: "acme/web", Number: 2, MergedAt: prWindowEnd.Add(time.Hour)},
+		{Repository: "acme/web", Number: 3}, // never merged: zero timestamp
+		{Repository: "acme/web", Number: 4, MergedAt: prWindowStart.Add(time.Hour)},
+	}}
+	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return prWindowEnd }})
+	records, err := p.Collect(context.Background(), periodRequest(EvidenceTypePullRequest))
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if len(records) != 1 || records[0].ID != "acme/web#4" {
+		t.Fatalf("records = %v; want only acme/web#4", recordIDs(records))
+	}
+}
+
+func TestCollectPullRequests_EmitsAllSchemaFields(t *testing.T) {
+	fake := &fakeAPI{pulls: []PullRequest{
+		{Repository: "acme/web", Number: 1, MergedAt: prWindowStart.Add(time.Hour)},
+	}}
+	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return prWindowEnd }})
+	recs, err := p.Collect(context.Background(), periodRequest(EvidenceTypePullRequest))
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	assertPayloadHasFields(t, recs[0].Payload, []string{
+		"repository", "number", "author", "merged_by", "target_branch", "merge_commit_sha",
+		"merged_at", "approval_count", "independent_approval_count", "approved_before_merge",
+		"checks_passed",
+	})
+}
+
+func TestCollectPullRequests_ErrorPropagates(t *testing.T) {
+	p := New(Options{API: &fakeAPI{pullErr: errors.New("rate limit")}, Org: "acme"})
+	_, err := p.Collect(context.Background(), periodRequest(EvidenceTypePullRequest))
+	if err == nil || !strings.Contains(err.Error(), "list merged pull requests") {
+		t.Errorf("want list merged pull requests error; got %v", err)
+	}
+}
+
+// --- deployment ------------------------------------------------------------
+
+func TestCollectDeployments_HappyPath_MapsAndSorts(t *testing.T) {
+	created := time.Date(2026, 2, 2, 8, 30, 0, 0, time.UTC)
+	fake := &fakeAPI{deployments: []Deployment{
+		{
+			Repository: "acme/web", ID: "10", SHA: "abc123", Environment: "production",
+			Creator: "bob", CreatedAt: created, State: "success",
+		},
+		{
+			// No production signal, no creator and no status entries.
+			Repository: "acme/api", ID: "5", Environment: "staging",
+			CreatedAt: created.Add(24 * time.Hour),
+		},
+	}}
+	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return now }})
+	records, err := p.Collect(context.Background(), periodRequest(EvidenceTypeDeployment))
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if len(records) != 2 {
+		t.Fatalf("len = %d; want 2", len(records))
+	}
+	// Sorted by ID: "acme/api/deployments/5" < "acme/web/deployments/10".
+	if records[0].ID != "acme/api/deployments/5" || records[1].ID != "acme/web/deployments/10" {
+		t.Errorf("not sorted by ID: %v", recordIDs(records))
+	}
+	assertRecordMeta(t, &records[1], EvidenceTypeDeployment, now)
+
+	got := unmarshalPayload[deploymentPayload](t, records[1].Payload)
+	want := deploymentPayload{
+		Repository: "acme/web", DeploymentID: "10", Environment: "production",
+		IsProduction: true, DeployedBy: "bob", DeployedAt: "2026-02-02T08:30:00Z",
+		CommitSHA: "abc123", Status: "success",
+	}
+	if got != want {
+		t.Errorf("production payload = %+v; want %+v", got, want)
+	}
+	// Absent production_environment plus a non-production name leaves
+	// is_production false; an empty statuses list yields "unknown", never
+	// pending and never failure.
+	gotStaging := unmarshalPayload[deploymentPayload](t, records[0].Payload)
+	wantStaging := deploymentPayload{
+		Repository: "acme/api", DeploymentID: "5", Environment: "staging",
+		DeployedAt: "2026-02-03T08:30:00Z", Status: "unknown",
+	}
+	if gotStaging != wantStaging {
+		t.Errorf("staging payload = %+v; want %+v", gotStaging, wantStaging)
+	}
+}
+func TestIsProductionEnvironment(t *testing.T) {
+	tests := []struct {
+		flag bool
+		env  string
+		want bool
+	}{
+		{flag: true, env: "staging", want: true}, // explicit flag wins
+		{env: "production", want: true},
+		{env: "Prod", want: true},
+		{env: "LIVE", want: true},
+		{env: " production ", want: true},
+		{env: "staging"},
+		{env: "prod-canary"}, // not a conventional name: not production
+		{env: ""},
+	}
+	for _, tc := range tests {
+		if got := isProductionEnvironment(tc.flag, tc.env); got != tc.want {
+			t.Errorf("isProductionEnvironment(%v, %q) = %v; want %v", tc.flag, tc.env, got, tc.want)
+		}
+	}
+}
+
+func TestNormalizeDeploymentState(t *testing.T) {
+	states := map[string]string{
+		"success": "success", "error": "failure", "failure": "failure",
+		"pending": "pending", "queued": "pending", "in_progress": "pending",
+		"inactive": "unknown", "": "unknown", "weird": "unknown",
+	}
+	for in, want := range states {
+		if got := normalizeDeploymentState(in); got != want {
+			t.Errorf("normalizeDeploymentState(%q) = %q; want %q", in, got, want)
+		}
+	}
+}
+
+func TestCollectDeployments_DropsCreationsOutsideWindow(t *testing.T) {
+	fake := &fakeAPI{deployments: []Deployment{
+		{Repository: "acme/web", ID: "1", CreatedAt: prWindowStart.Add(-time.Hour)},
+		{Repository: "acme/web", ID: "2", CreatedAt: prWindowEnd.Add(time.Hour)},
+		{Repository: "acme/web", ID: "3"}, // zero timestamp
+		{Repository: "acme/web", ID: "4", CreatedAt: prWindowStart.Add(time.Hour)},
+	}}
+	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return prWindowEnd }})
+	records, err := p.Collect(context.Background(), periodRequest(EvidenceTypeDeployment))
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if len(records) != 1 || records[0].ID != "acme/web/deployments/4" {
+		t.Fatalf("records = %v; want only acme/web/deployments/4", recordIDs(records))
+	}
+}
+
+func TestCollectDeployments_EmitsAllSchemaFields(t *testing.T) {
+	fake := &fakeAPI{deployments: []Deployment{
+		{Repository: "acme/web", ID: "1", CreatedAt: prWindowStart.Add(time.Hour)},
+	}}
+	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return prWindowEnd }})
+	recs, err := p.Collect(context.Background(), periodRequest(EvidenceTypeDeployment))
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	assertPayloadHasFields(t, recs[0].Payload, []string{
+		"repository", "deployment_id", "environment", "is_production",
+		"deployed_by", "deployed_at", "commit_sha", "status",
+	})
+}
+
+func TestCollectDeployments_ErrorPropagates(t *testing.T) {
+	p := New(Options{API: &fakeAPI{deployErr: errors.New("forbidden")}, Org: "acme"})
+	_, err := p.Collect(context.Background(), periodRequest(EvidenceTypeDeployment))
+	if err == nil || !strings.Contains(err.Error(), "list deployments") {
+		t.Errorf("want list deployments error; got %v", err)
+	}
+}
+
+// --- period window ---------------------------------------------------------
+
+func TestPeriodWindow_UsesInjectedParams(t *testing.T) {
+	fake := &fakeAPI{}
+	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return prWindowEnd }})
+	if _, err := p.Collect(context.Background(), periodRequest(EvidenceTypePullRequest)); err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if !fake.gotStart.Equal(prWindowStart) || !fake.gotEnd.Equal(prWindowEnd) {
+		t.Errorf("window = [%v, %v]; want [%v, %v]", fake.gotStart, fake.gotEnd, prWindowStart, prWindowEnd)
+	}
+}
+
+func TestPeriodWindow_FallsBackToTrailingYearOnInjectedClock(t *testing.T) {
+	fake := &fakeAPI{}
+	now := time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC)
+	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return now }})
+	// No Params at all — the shape sourcetest.RunConformance passes.
+	if _, err := p.Collect(context.Background(),
+		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDeployment}}); err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if !fake.gotEnd.Equal(now) {
+		t.Errorf("end = %v; want the injected clock %v", fake.gotEnd, now)
+	}
+	if want := now.AddDate(-1, 0, 0); !fake.gotStart.Equal(want) {
+		t.Errorf("start = %v; want %v", fake.gotStart, want)
+	}
+}
+
+func TestPeriodWindow_BothTypesShareOneWindow(t *testing.T) {
+	fake := &fakeAPI{}
+	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return prWindowEnd }})
+	req := core.SlotRequest{
+		AcceptedTypes: []string{EvidenceTypePullRequest, EvidenceTypeDeployment},
+		Params:        map[string]any{"period_start": prWindowStart, "period_end": prWindowEnd},
+	}
+	if _, err := p.Collect(context.Background(), req); err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if fake.listPullsCount != 1 || fake.listDeploymentsCount != 1 {
+		t.Errorf("calls = pulls %d, deployments %d; want 1 each",
+			fake.listPullsCount, fake.listDeploymentsCount)
+	}
+}
+
+// --- shared test helpers ---------------------------------------------------
+
+func unmarshalPayload[T any](t *testing.T, payload []byte) T {
+	t.Helper()
+	var v T
+	if err := json.Unmarshal(payload, &v); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	return v
+}
+
+// assertRecordMeta checks the envelope metadata every emitted record must
+// carry. IdentityKey stays empty on both period-scoped types — neither is a
+// directory identity the roster join matches on.
+func assertRecordMeta(t *testing.T, r *core.EvidenceRecord, wantType string, wantNow time.Time) {
+	t.Helper()
+	if r.Type != wantType || r.CollectedAt != wantNow ||
+		r.SourceID != SourceID || r.IdentityKey != "" {
+		t.Errorf("record meta = %+v", r)
+	}
+}
+
+func recordIDs(records []core.EvidenceRecord) []string {
+	out := make([]string, 0, len(records))
+	for i := range records {
+		out = append(out, records[i].ID)
+	}
+	return out
+}
+
+func assertPayloadHasFields(t *testing.T, payload []byte, fields []string) {
+	t.Helper()
+	var m map[string]any
+	if err := json.Unmarshal(payload, &m); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	for _, f := range fields {
+		if _, ok := m[f]; !ok {
+			t.Errorf("emitted payload missing field %q", f)
+		}
+	}
+}
+
+// --- httpAPI: period-scoped endpoints --------------------------------------
+
+// pullsTestHandler serves the repos / pulls / detail / reviews / check-runs
+// endpoints ListMergedPullRequests walks, including one repo whose pulls
+// listing is denied.
+func pullsTestHandler(t *testing.T) http.Handler {
+	t.Helper()
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/orgs/acme/repos":
+			_, _ = w.Write([]byte(`[{"name":"web","default_branch":"main"},` + //nolint:errcheck // test handler
+				`{"name":"denied","default_branch":"main"},` +
+				`{"name":"nobranch"}]`))
+		case "/repos/acme/web/pulls":
+			assertPullsQuery(t, r)
+			_, _ = w.Write([]byte(`[` + //nolint:errcheck // test handler
+				// Merged inside the window.
+				`{"number":3,"merged_at":"2026-02-01T10:00:00Z","updated_at":"2026-02-01T10:00:00Z",` +
+				`"merge_commit_sha":"abc123","user":{"login":"alice"},` +
+				`"base":{"ref":"main"},"head":{"sha":"headsha"}},` +
+				// Closed without merging: not a change.
+				`{"number":4,"merged_at":null,"updated_at":"2026-01-20T10:00:00Z",` +
+				`"user":{"login":"bob"},"base":{"ref":"main"},"head":{"sha":"x"}},` +
+				// Older than the window: stops pagination.
+				`{"number":1,"merged_at":"2025-11-01T10:00:00Z","updated_at":"2025-11-01T10:00:00Z",` +
+				`"user":{"login":"carol"},"base":{"ref":"main"},"head":{"sha":"y"}}]`))
+		case "/repos/acme/web/pulls/3":
+			_, _ = w.Write([]byte(`{"merged_by":{"login":"bob"}}`)) //nolint:errcheck // test handler
+		case "/repos/acme/web/pulls/3/reviews":
+			_, _ = w.Write([]byte(`[{"state":"APPROVED","submitted_at":"2026-01-31T10:00:00Z",` + //nolint:errcheck // test handler
+				`"user":{"login":"bob"}}]`))
+		case "/repos/acme/web/commits/headsha/check-runs":
+			_, _ = w.Write([]byte(`{"total_count":1,"check_runs":[{"status":"completed","conclusion":"success"}]}`)) //nolint:errcheck // test handler
+		case "/repos/acme/denied/pulls":
+			http.Error(w, "forbidden", http.StatusForbidden)
+		default:
+			t.Errorf("unexpected request: %s", r.URL.Path)
+		}
+	})
+}
+
+// assertPullsQuery checks the listing is requested closed-on-default-branch,
+// newest-updated-first — the ordering the pagination stop depends on.
+func assertPullsQuery(t *testing.T, r *http.Request) {
+	t.Helper()
+	q := r.URL.Query()
+	want := map[string]string{"state": "closed", "base": "main", "sort": "updated", "direction": "desc"}
+	for k, v := range want {
+		if q.Get(k) != v {
+			t.Errorf("pulls query %s = %q; want %q", k, q.Get(k), v)
+		}
+	}
+}
+
+func TestHTTPAPI_ListMergedPullRequests_HappyPath(t *testing.T) {
+	srv := httptest.NewServer(pullsTestHandler(t))
+	defer srv.Close()
+
+	api := &httpAPI{org: "acme", token: "tok", base: srv.URL, client: srv.Client()}
+	prs, err := api.ListMergedPullRequests(context.Background(),
+		time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("ListMergedPullRequests: %v", err)
+	}
+	// The inaccessible repo is skipped, the branch-less repo never queried,
+	// and the unmerged and out-of-window items dropped.
+	want := []PullRequest{{
+		Repository: "acme/web", Number: 3, Author: testLoginAlice, MergedBy: "bob",
+		TargetBranch: "main", MergeCommitSHA: "abc123",
+		MergedAt: time.Date(2026, 2, 1, 10, 0, 0, 0, time.UTC),
+		Reviews: []Review{{
+			User: "bob", State: "APPROVED",
+			SubmittedAt: time.Date(2026, 1, 31, 10, 0, 0, 0, time.UTC),
+		}},
+		CheckRuns: []CheckRun{{Status: "completed", Conclusion: "success"}},
+	}}
+	if !reflect.DeepEqual(prs, want) {
+		t.Errorf("ListMergedPullRequests = %+v; want %+v", prs, want)
+	}
+}
+func TestHTTPAPI_ListMergedPullRequests_TolerantSubResources(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/orgs/acme/repos"):
+			_, _ = w.Write([]byte(`[{"name":"web","default_branch":"main"}]`)) //nolint:errcheck // test handler
+		case r.URL.Path == "/repos/acme/web/pulls":
+			_, _ = w.Write([]byte(`[{"number":3,"merged_at":"2026-02-01T10:00:00Z",` + //nolint:errcheck // test handler
+				`"updated_at":"2026-02-01T10:00:00Z","user":null,` +
+				`"base":{"ref":"main"},"head":{"sha":""}}]`))
+		default:
+			// Detail + reviews are denied; check-runs is never called
+			// because the head SHA is empty.
+			http.Error(w, "forbidden", http.StatusForbidden)
+		}
+	}))
+	defer srv.Close()
+
+	api := &httpAPI{org: "acme", token: "tok", base: srv.URL, client: srv.Client()}
+	prs, err := api.ListMergedPullRequests(context.Background(),
+		time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("ListMergedPullRequests: %v", err)
+	}
+	if len(prs) != 1 {
+		t.Fatalf("len = %d; want 1", len(prs))
+	}
+	// A null author and denied sub-resources degrade to empty values rather
+	// than failing the collection; checksPassed then reads false.
+	if prs[0].Author != "" || prs[0].MergedBy != "" ||
+		len(prs[0].Reviews) != 0 || len(prs[0].CheckRuns) != 0 {
+		t.Errorf("pull = %+v", prs[0])
+	}
+}
+
+// deploymentsTestHandler serves the repos / deployments / statuses endpoints
+// ListDeployments walks, including one repo whose listing is denied.
+func deploymentsTestHandler(t *testing.T) http.Handler {
+	t.Helper()
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/orgs/acme/repos":
+			_, _ = w.Write([]byte(`[{"name":"web","default_branch":"main"},` + //nolint:errcheck // test handler
+				`{"name":"denied","default_branch":"main"}]`))
+		case "/repos/acme/web/deployments":
+			_, _ = w.Write([]byte(`[` + //nolint:errcheck // test handler
+				// production_environment ABSENT: must read as false.
+				`{"id":10,"sha":"abc123","environment":"production",` +
+				`"created_at":"2026-02-02T08:30:00Z","creator":{"login":"bob"}},` +
+				// creator null and no statuses.
+				`{"id":5,"sha":"def456","environment":"staging",` +
+				`"created_at":"2026-02-03T08:30:00Z","creator":null},` +
+				// Older than the window: stops pagination.
+				`{"id":1,"environment":"staging","created_at":"2025-11-01T00:00:00Z"}]`))
+		case "/repos/acme/web/deployments/10/statuses":
+			_, _ = w.Write([]byte(`[{"state":"success"},{"state":"pending"}]`)) //nolint:errcheck // test handler
+		case "/repos/acme/web/deployments/5/statuses":
+			_, _ = w.Write([]byte(`[]`)) //nolint:errcheck // test handler
+		case "/repos/acme/denied/deployments":
+			http.Error(w, "forbidden", http.StatusForbidden)
+		default:
+			t.Errorf("unexpected request: %s", r.URL.Path)
+		}
+	})
+}
+
+func TestHTTPAPI_ListDeployments_HappyPath(t *testing.T) {
+	srv := httptest.NewServer(deploymentsTestHandler(t))
+	defer srv.Close()
+
+	api := &httpAPI{org: "acme", token: "tok", base: srv.URL, client: srv.Client()}
+	deployments, err := api.ListDeployments(context.Background(),
+		time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("ListDeployments: %v", err)
+	}
+	// The newest status wins; an empty statuses list leaves State empty
+	// (normalized to "unknown" by the collector), and the denied repo is
+	// skipped rather than failing the org walk.
+	want := []Deployment{
+		{
+			Repository: "acme/web", ID: "10", SHA: "abc123", Environment: "production",
+			Creator: "bob", CreatedAt: time.Date(2026, 2, 2, 8, 30, 0, 0, time.UTC),
+			State: "success",
+		},
+		{
+			Repository: "acme/web", ID: "5", SHA: "def456", Environment: "staging",
+			CreatedAt: time.Date(2026, 2, 3, 8, 30, 0, 0, time.UTC),
+		},
+	}
+	if !reflect.DeepEqual(deployments, want) {
+		t.Errorf("ListDeployments = %+v; want %+v", deployments, want)
 	}
 }

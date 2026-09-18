@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/deployment/v1.json",
+  "title": "deployment",
+  "version": 1,
+  "description": "One release of code to a running environment during the audit period — a GitHub Deployment, a GitLab deployment to an environment. Paired with pull_request it answers the question a configuration snapshot cannot: did the code now running in production come through the reviewed path? Plugins emit one record per deployment whose creation timestamp falls inside the collection window, including failed ones — a failed production deployment is still a change event an auditor may ask about. Environment naming is vendor- and customer-specific (`production`, `prod`, `live`), so the plugin normalizes the classification into is_production rather than leaving policies to pattern-match strings. status is likewise normalized to a small closed vocabulary because GitHub reports deployment state through a separate statuses sub-resource while GitLab carries it on the deployment itself.",
+  "type": "object",
+  "required": [
+    "repository",
+    "deployment_id",
+    "environment",
+    "is_production",
+    "deployed_by",
+    "deployed_at",
+    "commit_sha",
+    "status"
+  ],
+  "properties": {
+    "repository": {
+      "type": "string",
+      "description": "Repository the deployment came from, in the same form git_repository uses for `name` (typically `org/repo`)."
+    },
+    "deployment_id": {
+      "type": "string",
+      "description": "Vendor-native deployment identifier, as a string so numeric and opaque IDs share one shape."
+    },
+    "environment": {
+      "type": "string",
+      "description": "Environment name exactly as the vendor reports it, preserved verbatim for the audit trail. Do not branch policies on this — use is_production, which is normalized."
+    },
+    "is_production": {
+      "type": "boolean",
+      "description": "True when this deployment targeted production. Derived by the plugin from whatever signal the vendor offers — GitHub's production_environment flag or an environment name of production/prod/live; GitLab's environment tier of `production`. Normalizing here keeps the customer's local naming conventions out of the policy set."
+    },
+    "deployed_by": {
+      "type": "string",
+      "description": "Username that triggered the deployment. Empty string when the vendor attributes it to no user (a deleted account, or a pipeline running under a project token)."
+    },
+    "deployed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the deployment was created."
+    },
+    "commit_sha": {
+      "type": "string",
+      "description": "Commit SHA that was deployed. Joins to pull_request.merge_commit_sha to trace a running release back to the change that was reviewed. Empty string when the vendor reports none, which fails the trace closed."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "failure", "pending", "unknown"],
+      "description": "Normalized terminal state. `success` — the deployment reported success. `failure` — it errored, failed, or was cancelled. `pending` — created, queued, or still running. `unknown` — the vendor reported no state at all (a GitHub deployment with no status entries), which is distinct from pending and must not be read as either success or failure."
+    }
+  },
+  "additionalProperties": true
+}

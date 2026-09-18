@@ -55,6 +55,7 @@ func (*Framework) Policies() []core.PolicyRef {
 func Policies() []core.Policy {
 	out := make([]core.Policy, 0, 130)
 	out = append(out, technologicalPolicies()...)
+	out = append(out, changeEvidencePolicies()...)
 	out = append(out, organizationalAutomatedPolicies()...)
 	out = append(out, manualPolicies()...)
 	return out

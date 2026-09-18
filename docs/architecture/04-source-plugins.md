@@ -213,7 +213,7 @@ emits which cloud-neutral evidence type. A ✓ means at least one built-in
 plugin for that provider emits that type; because policies bind to the
 *type* and never to a vendor (Invariant #4), any ✓ in a row is fully
 substitutable for any other ✓ in the same row. **60 built-in plugins
-emit 29 distinct evidence types** (AWS 23 · GCP 18 · Azure 14 · GitHub 1 ·
+emit 31 distinct evidence types** (AWS 23 · GCP 18 · Azure 14 · GitHub 1 ·
 GitLab 1 · Okta 1 · Active Directory 1 · Manual 1).
 
 | Evidence type | AWS | Azure | GCP | GitHub | GitLab | Okta | Active Directory | Manual |
@@ -246,13 +246,15 @@ GitLab 1 · Okta 1 · Active Directory 1 · Manual 1).
 | `security_alert` | ✓ | | | | | | | |
 | `git_repository` | | | | ✓ | ✓ | | | |
 | `source_control_org_policy` | | | | ✓ | | | | |
+| `pull_request` | | | | ✓ | ✓ | | | |
+| `deployment` | | | | ✓ | ✓ | | | |
 | `signed_document` | | | | | | | | ✓ |
 
 ¹ AWS IAM emits the `directory_user.v2` schema variant of the
 `directory_user` type; the other five sources emit `directory_user`.
 Both satisfy a slot that accepts the directory-user family.
 
-Cross-cloud reach: 18 of the 29 types are emitted identically by all
+Cross-cloud reach: 18 of the 31 types are emitted identically by all
 three major clouds (AWS + Azure + GCP), so the bulk of a SOC 2 / ISO
 27001 estate is covered by one policy set regardless of provider.
 
@@ -300,8 +302,8 @@ complete list).
 | `azure.backup` | `backup_plan` | Azure Recovery Services backup protection policies (`armrecoveryservices` `VaultsClient.NewListBySubscriptionIDPager` → per-vault `armrecoveryservicesbackup` `BackupPoliciesClient.NewListPager` — an N+1, policies are a child of a vault with no subscription-wide list). **ARM-plane** (`subscription_id` required). One record per policy. `is_active` ← `ProtectedItemsCount > 0` (a policy has no enabled flag; one protecting zero items provides no coverage — the honest signal, like `gcp.backup`'s `State==ACTIVE`, stronger than `aws.backup`'s "listed == active"); `has_retention_rule` ← resolved retention yields `> 0` days; `retention_days` ← max retention across the policy's schedules/sub-policies, with Weeks/Months/Years converted at 7/30/365-day approximations (Azure stores count+unit, not raw days); `covers_resource_types` ← the `BackupManagementType` discriminator (e.g. `AzureIaasVM`). Same neutral type as `aws.backup` and `gcp.backup`. |
 | `azure.certs` | `tls_certificate` | Azure certificates from two subscription-wide ARM management-plane reads, merged: App Service certificates (`armappservice` `CertificatesClient.NewListPager` — imported / Key-Vault-referenced, `is_managed=false`, `auto_renew` omitted) and App Service certificate orders (`armcertificateregistration` `AppServiceCertificateOrdersClient.NewListPager` — provider-managed, `is_managed=true`, real `auto_renew` from the order's `autoRenew`). **ARM-plane** (`subscription_id` required). `not_after` ← App Service cert `expirationDate` / order `expirationTime` (RFC3339 UTC); `days_until_expiry` derived from it (negative once expired); `domain` ← cert `subjectName` (else first host name) / order distinguished-name CN; `status` ← honest enum (expired→`EXPIRED`, else cert `valid`/Key Vault secret status, order `CertificateOrderStatus`). **Key Vault certificate objects deliberately NOT collected** — their expiry/auto-renew policy is data-plane only (`azcertificates`, per-vault RBAC beyond Reader), breaking the ARM-plane/Reader-only model; covered via exception/manual evidence like `azure.keyvault` secret rotation. Same neutral type as `aws.acm` and `gcp.certs`. |
 | `azure.policy` | `config_change_tracking` | Azure Policy assignments (`armpolicy` `AssignmentsClient.NewListPager` — a single subscription-wide call, no N+1), reduced to one record per subscription (like `aws.config` per account, `gcp.asset` per project). **ARM-plane** (`subscription_id` required). Azure has no literal config-recorder toggle; a policy **assignment** is the deliberately-configured artifact that makes Azure continuously evaluate/record resource-config compliance (the analog of an AWS Config recorder / GCP Cloud Asset feed). `is_recording` ← `len(assignments) > 0` (a fresh subscription honestly reports `false`, like `gcp.asset`'s `len(feeds) > 0`); `all_resource_types` ← at least one assignment is scoped at the subscription root (Azure Policy has no per-assignment resource-type list, so scope breadth stands in for AWS Config's `allSupported`). Auditable count extras: `assignment_count`/`enforced_count`/`subscription_scoped_count`. Compliance-state counts (`armpolicyinsights`) are a deliberate future enhancement (no schema field needs them). Same neutral type as `aws.config` and `gcp.asset`. |
-| `github` | `git_repository`, `directory_user`, `source_control_org_policy`, `vulnerability_finding` | Single org per instance. `directory_user.username` ← member login. `source_control_org_policy` ← org-level security settings (2FA requirement, default member permissions); `vulnerability_finding` ← Dependabot alerts (same neutral type as `aws.inspector`/`gcp.scc`/`azure.defender`). |
-| `gitlab` | `git_repository`, `directory_user` | Single group per instance (`include_subgroups`); self-managed via `base_url`. `directory_user.username` ← username. Same neutral types as `github`. |
+| `github` | `git_repository`, `directory_user`, `source_control_org_policy`, `vulnerability_finding`, `pull_request`, `deployment` | Single org per instance. `directory_user.username` ← member login. `source_control_org_policy` ← org-level security settings (2FA requirement, default member permissions); `vulnerability_finding` ← Dependabot alerts (same neutral type as `aws.inspector`/`gcp.scc`/`azure.defender`). `pull_request` ← merged PRs in the period, one detail + reviews + check-runs call each; `deployment` ← Deployments plus one statuses call each. Both are period-scoped: they read `period_start`/`period_end` from the slot params. |
+| `gitlab` | `git_repository`, `directory_user`, `pull_request`, `deployment` | Single group per instance (`include_subgroups`); self-managed via `base_url`. `directory_user.username` ← username. Same neutral types as `github` — a GitLab merge request is emitted as `pull_request`, the vendor-neutral shape. Approver lists are readable on GitLab Free; approval *rules* are Premium and degrade to zero rather than failing. |
 | `okta` | `directory_user`, `okta_app`, `roster_entry` | **roster_entry** pages `/api/v1/users` plus a second `status eq "DEPROVISIONED"` pass (the default listing omits deprovisioned users); no per-user calls. Status: ACTIVE/RECOVERY/PASSWORD_EXPIRED/LOCKED_OUT → active (also `directory_user.is_active`), STAGED/PROVISIONED → pending, else inactive. |
 | `active_directory` | `roster_entry` | On-prem AD over LDAPS/StartTLS (go-ldap), simple bind, RootDSE base-DN fallback, paged search. id ← objectGUID; status ← UAC ACCOUNTDISABLE / accountExpires (source_status enabled/disabled/expired); email ← mail → primary SMTP proxyAddress → UPN; is_service_account ← SPN or `service_account_ous`. Never emits `directory_user` (AD has no MFA signal). |
 | `manual.pdf` | `signed_document` | **Project-level singleton.** Exactly one instance per project. See §The manual.pdf plugin. |

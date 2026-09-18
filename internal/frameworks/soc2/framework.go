@@ -62,6 +62,7 @@ func Policies() []core.Policy {
 	out = append(out, cc6OrgGovernancePolicies()...)
 	out = append(out, cc7Policies()...)
 	out = append(out, cc8Policies()...)
+	out = append(out, cc8ChangeEvidencePolicies()...)
 	out = append(out, availabilityPolicies()...)
 	out = append(out, confidentialityPolicies()...)
 	out = append(out, manualPolicies()...)

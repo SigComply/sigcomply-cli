@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.sigcomply.io/evidence_types/pull_request/v1.json",
+  "title": "pull_request",
+  "version": 1,
+  "description": "One code change that was merged into a repository during the audit period — a GitHub pull request, a GitLab merge request, a Bitbucket pull request. This is the CHANGE ITSELF, not the guardrail configured around it: git_repository answers 'is review required?', pull_request answers 'did this change actually get reviewed?'. Auditors testing SOC 2 CC8.1 / ISO A.8.32 sample a population of changes from the period and inspect each one, which a configuration snapshot structurally cannot answer. Plugins emit one record per MERGED change whose merge timestamp falls inside the collection window; unmerged and closed-without-merge changes are not evidence of a change and are omitted. Approval semantics are normalized here rather than in policies: the review models differ per vendor (GitHub records a state machine of reviews per user, GitLab records a flat approver list with no timestamp), so the plugin reduces both to counts and booleans. independent_approval_count is the load-bearing field — it excludes the author, so a self-approved change reads as zero.",
+  "type": "object",
+  "required": [
+    "repository",
+    "number",
+    "author",
+    "merged_by",
+    "target_branch",
+    "merge_commit_sha",
+    "merged_at",
+    "approval_count",
+    "independent_approval_count",
+    "approved_before_merge",
+    "checks_passed"
+  ],
+  "properties": {
+    "repository": {
+      "type": "string",
+      "description": "Repository this change was merged into, in the same form the git_repository type uses for `name` (typically `org/repo`), so the two types join."
+    },
+    "number": {
+      "type": "integer",
+      "description": "Vendor-native change number within the repository — GitHub PR number, GitLab MR iid. Stable and human-quotable in an audit sample."
+    },
+    "author": {
+      "type": "string",
+      "description": "Username of the person who authored the change. Never an email — usernames are the cross-vendor identifier and carry less PII."
+    },
+    "merged_by": {
+      "type": "string",
+      "description": "Username of the person who performed the merge. Empty string when the vendor does not attribute the merge (for example an automation-performed merge with no acting user). Note that authoring and merging your own change is normal practice once it has been independently approved; this field exists for attribution, not as a violation signal."
+    },
+    "target_branch": {
+      "type": "string",
+      "description": "Branch the change was merged into (`main`, `master`, `release/*`). Lets a policy scope to protected or production branches."
+    },
+    "merge_commit_sha": {
+      "type": "string",
+      "description": "Commit SHA this change produced on the target branch. Empty string when the vendor does not expose one. This is the join key that lets a deployment record be traced back to the change it shipped — matches_in skips records whose key is empty, so an absent SHA fails closed rather than matching arbitrarily."
+    },
+    "merged_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the change was merged. Recorded for the audit trail; policies do not order timestamps (the pass_when DSL has no date arithmetic), which is why approved_before_merge is pre-computed."
+    },
+    "approval_count": {
+      "type": "integer",
+      "description": "Distinct users whose latest review on this change is an approval, the author included. Counted per user, not per review: a reviewer who approves twice counts once, and an approval later dismissed or superseded by a change-request does not count."
+    },
+    "independent_approval_count": {
+      "type": "integer",
+      "description": "As approval_count, but excluding the change's own author. This is the field CC8.1 / A.8.32 actually turn on — a change approved only by the person who wrote it has independent_approval_count 0 and is not independently reviewed."
+    },
+    "approved_before_merge": {
+      "type": "boolean",
+      "description": "True when at least one independent approval was recorded at or before the merge. False for a change merged unapproved, and false for an approval added retroactively after the merge. Pre-computed because the DSL cannot order two date-time fields. Vendors that expose no approval timestamp (GitLab) report true whenever an independent approval exists, since an approval there cannot be recorded after the merge."
+    },
+    "checks_passed": {
+      "type": "boolean",
+      "description": "True when the automated checks associated with the merged commit all succeeded. False when any check failed, when checks were still pending at merge, or when the repository runs no checks at all — a change merged with nothing verifying it is the condition CC8.1 asks about, so 'no CI configured' is deliberately not treated as a pass."
+    }
+  },
+  "additionalProperties": true
+}

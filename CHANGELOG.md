@@ -13,6 +13,62 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **Change management is now evidenced from the changes themselves, not just
+  the guardrail around them.** Two new evidence types — `pull_request` and
+  `deployment` — collected from GitHub and GitLab over the audit period, with
+  four new policies per framework (SOC 2 CC8.1, ISO 27001 A.8.32): every merged
+  change had an independent approval, passed its automated checks, and was
+  approved *before* it was merged; and every production deployment traces back
+  to an approved change.
+
+  The eight CC8.1 policies that shipped before this read `git_repository` —
+  branch protection on, reviews required, force-push off. That is a photograph
+  of the configuration at the instant the run executes, and it answers "is
+  review required?". It cannot answer "did the changes that actually shipped
+  get reviewed?", because a protection setting can be bypassed by an admin,
+  disabled and re-enabled between runs, or simply not apply to everyone, and
+  none of that leaves a trace in the setting. An auditor testing CC8.1 asks for
+  the population of changes in the period and samples it. Until now we could
+  not produce that population at all. Both halves are kept — the guardrail
+  check and the outcome check are different assertions.
+
+  This is the first policy family that reads what *happened during* the period
+  rather than what is true right now. The plumbing already existed: the
+  orchestrator has been injecting `period_start`/`period_end` into every slot
+  request since the manual-evidence work, and only the manual plugin was
+  reading them.
+
+  Three notes on what these policies deliberately do **not** claim. They do not
+  check that the merger differs from the author — merging your own change after
+  an independent approval is normal practice, and Vanta and Drata both check
+  the approver, not the merger. They do not compare the deployer against the
+  merger: that is a field-to-field comparison across two slots, which the
+  `pass_when` DSL cannot express, so the deployment policy asserts traceability
+  to an approved change instead. And they do not claim ISO A.8.31 (separation
+  of development, test and production environments) — a deployment record
+  proves who released what, not that the environments are separated, and
+  claiming it would be exactly the kind of overclaim the coverage work exists
+  to prevent. A.8.31 stays manual evidence.
+
+  For a change that legitimately merged without an approval — a production
+  hotfix, an automated dependency bump — waive it with the existing scoped
+  exception mechanism, keyed on the record ID the policy reports
+  (`acme/api#1234`). The waiver then lives in your repository, version
+  controlled and reviewable, which is stronger evidence than a justification
+  typed into a vendor's dashboard.
+
+  No wire or dashboard change: these are ordinary policy results carrying the
+  existing per-policy counts, so `resources_evaluated` is the number of merged
+  changes in the period and `resources_failed` the number that fell short.
+  **No Rails deploy is needed for this one.**
+
+  Requires wider read scopes than before. GitHub: *Pull requests: read*,
+  *Deployments: read*, *Checks: read*, *Commit statuses: read* alongside the
+  existing repository scopes. GitLab: `read_api` already covers it, but the
+  token's user needs at least Reporter on each project. Approver lists are
+  readable on GitLab Free; approval *rules* are Premium-only and degrade to
+  zero rather than failing the run.
+
 - **`sigcomply report --view coverage` — what is actually behind the green.**
   A compliance score is a pass rate over the policies that ran, and a policy
   satisfied by a document sitting in your evidence folder counts exactly as

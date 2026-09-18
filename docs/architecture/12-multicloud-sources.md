@@ -8,7 +8,7 @@ It complements [04-source-plugins.md](04-source-plugins.md) (the factory contrac
 
 ## Why multicloud is mostly mechanical
 
-A policy accepts an **evidence type**, not a vendor. The evidence-type schemas are already **cloud-neutral** — `object_storage_bucket`, `managed_database_instance`, `directory_user`, `firewall_rule`, etc. — and cover every type the policy set consumes (28 distinct types in the shipped registry). So a new provider almost always **reuses an existing schema** and emits records into it; new schemas are the exception, not the rule.
+A policy accepts an **evidence type**, not a vendor. The evidence-type schemas are already **cloud-neutral** — `object_storage_bucket`, `managed_database_instance`, `directory_user`, `firewall_rule`, etc. — and cover every type the policy set consumes (31 distinct types in the shipped registry). So a new provider almost always **reuses an existing schema** and emits records into it; new schemas are the exception, not the rule.
 
 This yields the substitutability property: one "object storage encrypted at rest" policy spans AWS S3, GCS, and Azure Blob because all three emit the single `object_storage_bucket` type. Adding a new source for an existing type needs **zero policy changes**.
 
@@ -21,13 +21,13 @@ This yields the substitutability property: one "object storage encrypted at rest
 | **AWS** | management plane (per region/account) | SDK default chain | 23 plugins (mature) |
 | **GCP** | management plane (per project) | Application Default Credentials | 18 plugins (mature) |
 | **Azure** | management plane + Entra/Graph | DefaultAzureCredential / OIDC (Entra via raw Graph REST) | 14 plugins (mature) |
-| **GitHub** | SaaS | token | 1 plugin → `git_repository`, `directory_user`, `source_control_org_policy`, `vulnerability_finding` |
-| **GitLab** | SaaS / self-managed | token | 1 plugin → `git_repository`, `directory_user` |
+| **GitHub** | SaaS | token | 1 plugin → `git_repository`, `directory_user`, `source_control_org_policy`, `vulnerability_finding`, `pull_request`, `deployment` |
+| **GitLab** | SaaS / self-managed | token | 1 plugin → `git_repository`, `directory_user`, `pull_request`, `deployment` |
 | **Okta** | SaaS | token | 1 plugin → `directory_user`, `okta_app`, `roster_entry` |
 | **Active Directory** | on-prem (LDAPS / StartTLS) | bind DN + password | 1 plugin (`active_directory`) → `roster_entry` |
 | **Manual** | customer bucket | n/a | 1 plugin (`manual.pdf`, project singleton) |
 
-Totals: **60 plugins** (AWS 23 · GCP 18 · Azure 14 · GitHub 1 · GitLab 1 · Okta 1 · Active Directory 1 · Manual 1) emitting **29 distinct cloud-neutral evidence types**. The full provider × evidence-type matrix lives in [04-source-plugins.md](04-source-plugins.md); see the plan's gap matrix for per-evidence-type history.
+Totals: **60 plugins** (AWS 23 · GCP 18 · Azure 14 · GitHub 1 · GitLab 1 · Okta 1 · Active Directory 1 · Manual 1) emitting **31 distinct cloud-neutral evidence types**. The full provider × evidence-type matrix lives in [04-source-plugins.md](04-source-plugins.md); see the plan's gap matrix for per-evidence-type history.
 
 ---
 

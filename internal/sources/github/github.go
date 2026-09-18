@@ -1,8 +1,13 @@
-// Package github implements the github source plugin: lists
-// repositories and organization members from a single GitHub
-// organization and emits two evidence types — github_repository and
-// github_org_member — suitable for SOC 2 branch-protection and 2FA
-// coverage policies.
+// Package github implements the github source plugin: it reads a single
+// GitHub organization and emits six cloud-neutral evidence types —
+// git_repository, directory_user, source_control_org_policy,
+// vulnerability_finding, pull_request and deployment — suitable for
+// SOC 2 branch-protection, 2FA-coverage and change-management policies.
+//
+// The first four are point-in-time configuration snapshots. The last two
+// are PERIOD-SCOPED: they report what happened between the audit
+// window's period_start and period_end (injected as native time.Time
+// slot params by the orchestrator), not what is configured now.
 //
 // Per the KISS-no-DRY axiom (docs/architecture/04-source-plugins.md
 // §The plugin contract), the plugin caches nothing across Collect
@@ -44,11 +49,19 @@ import (
 // EvidenceTypeVulnerability is the cross-vendor vulnerability_finding
 // shape — one record per open Dependabot alert; GitHub is one of
 // several substitutable finding sources (AWS Inspector, GCP SCC).
+// EvidenceTypePullRequest is the cross-vendor pull_request shape — one
+// record per change MERGED during the audit period (GitHub PR, GitLab
+// MR, Bitbucket PR). It answers "did this change actually get
+// reviewed?", which the git_repository configuration snapshot cannot.
+// EvidenceTypeDeployment is the cross-vendor deployment shape — one
+// record per release to a running environment during the period.
 const (
 	EvidenceTypeRepository    = "git_repository"
 	EvidenceTypeDirectoryUser = "directory_user"
 	EvidenceTypeOrgPolicy     = "source_control_org_policy"
 	EvidenceTypeVulnerability = "vulnerability_finding"
+	EvidenceTypePullRequest   = "pull_request"
+	EvidenceTypeDeployment    = "deployment"
 )
 
 // SourceID is the registered ID for the github plugin instance.
@@ -128,6 +141,67 @@ type DependabotAlert struct {
 	PatchAvailable bool
 }
 
+// Review is one review a user submitted on a pull request. State carries
+// GitHub's raw vocabulary (APPROVED / CHANGES_REQUESTED / COMMENTED /
+// DISMISSED / PENDING); the plugin reduces the per-user review history to
+// the approval counts the pull_request evidence type declares.
+// SubmittedAt is the zero value when the vendor reports no timestamp.
+type Review struct {
+	User        string
+	State       string
+	SubmittedAt time.Time
+}
+
+// CheckRun is one automated check associated with a pull request's head
+// commit. Status is GitHub's lifecycle state (queued / in_progress /
+// completed) and Conclusion its outcome (success / failure / neutral /
+// canceled / skipped / timed_out / action_required).
+type CheckRun struct {
+	Status     string
+	Conclusion string
+}
+
+// PullRequest is one change MERGED into a repository during the audit
+// period. The adapter supplies the raw vendor facts (including the full
+// review history and the head commit's check runs); the plugin derives
+// approval_count / independent_approval_count / approved_before_merge /
+// checks_passed from them, so the normalization is unit-testable without
+// a network.
+type PullRequest struct {
+	// Repository is the `org/repo` form, matching git_repository.name.
+	Repository     string
+	Number         int
+	Author         string
+	MergedBy       string
+	TargetBranch   string
+	MergeCommitSHA string
+	MergedAt       time.Time
+	Reviews        []Review
+	CheckRuns      []CheckRun
+}
+
+// Deployment is one release of code to a running environment during the
+// audit period, including failed ones. State carries the raw latest
+// GitHub deployment-status state (success / error / failure / pending /
+// queued / in_progress / inactive) and is empty when the deployment has
+// no status entries at all; the plugin normalizes it to the evidence
+// type's closed vocabulary.
+type Deployment struct {
+	Repository string
+	// ID is the vendor-native deployment identifier as a string.
+	ID          string
+	SHA         string
+	Environment string
+	// ProductionEnvironment is GitHub's production_environment flag. The
+	// field is frequently absent from the API response; the adapter
+	// treats absent as false and the plugin falls back to the
+	// environment name when deriving is_production.
+	ProductionEnvironment bool
+	Creator               string
+	CreatedAt             time.Time
+	State                 string
+}
+
 // API is the subset of the GitHub REST API the plugin uses. Defining
 // it as an interface lets tests inject a fake without making real
 // network calls; the concrete *httpAPI satisfies it.
@@ -154,6 +228,17 @@ type API interface {
 	// reported by the dependabot_alerts_enabled policy instead of failing
 	// the run.
 	ListDependabotAlerts(ctx context.Context) ([]DependabotAlert, error)
+	// ListMergedPullRequests returns the org's pull requests merged into
+	// each repository's default branch with a merge timestamp inside
+	// [start, end]. GitHub's pulls listing has no date filter, so
+	// implementations paginate newest-updated-first and stop once a page
+	// predates start. A repository the token cannot read is skipped, not
+	// an error — one inaccessible repo must not fail the whole run.
+	ListMergedPullRequests(ctx context.Context, start, end time.Time) ([]PullRequest, error)
+	// ListDeployments returns the org's deployments created inside
+	// [start, end], including failed ones. Same pagination and
+	// per-repository error tolerance as ListMergedPullRequests.
+	ListDeployments(ctx context.Context, start, end time.Time) ([]Deployment, error)
 }
 
 // Plugin is the in-process github source.
@@ -212,7 +297,10 @@ func (*Plugin) ID() string { return SourceID }
 
 // Emits returns the evidence types this plugin can produce.
 func (*Plugin) Emits() []string {
-	return []string{EvidenceTypeRepository, EvidenceTypeDirectoryUser, EvidenceTypeOrgPolicy, EvidenceTypeVulnerability}
+	return []string{
+		EvidenceTypeRepository, EvidenceTypeDirectoryUser, EvidenceTypeOrgPolicy,
+		EvidenceTypeVulnerability, EvidenceTypePullRequest, EvidenceTypeDeployment,
+	}
 }
 
 // Init is a no-op; the constructor has already received configuration.
@@ -298,50 +386,111 @@ type vulnFindingPayload struct {
 	RemediationAvailable bool    `json:"remediation_available"`
 }
 
+// pullRequestPayload is the pull_request shape this plugin emits — one
+// record per merged change. Every property the schema declares is
+// emitted unconditionally (no omitempty): the four derived fields are
+// policy-read, and an absent field errors the consuming policy rather
+// than reading as false/zero. merged_at is RFC3339 UTC.
+type pullRequestPayload struct {
+	Repository               string `json:"repository"`
+	Number                   int    `json:"number"`
+	Author                   string `json:"author"`
+	MergedBy                 string `json:"merged_by"`
+	TargetBranch             string `json:"target_branch"`
+	MergeCommitSHA           string `json:"merge_commit_sha"`
+	MergedAt                 string `json:"merged_at"`
+	ApprovalCount            int    `json:"approval_count"`
+	IndependentApprovalCount int    `json:"independent_approval_count"`
+	ApprovedBeforeMerge      bool   `json:"approved_before_merge"`
+	ChecksPassed             bool   `json:"checks_passed"`
+}
+
+// deploymentPayload is the deployment shape this plugin emits — one
+// record per deployment created in the period. Every schema property is
+// emitted unconditionally; environment is verbatim vendor text while
+// is_production and status are normalized by the plugin.
+type deploymentPayload struct {
+	Repository   string `json:"repository"`
+	DeploymentID string `json:"deployment_id"`
+	Environment  string `json:"environment"`
+	IsProduction bool   `json:"is_production"`
+	DeployedBy   string `json:"deployed_by"`
+	DeployedAt   string `json:"deployed_at"`
+	CommitSHA    string `json:"commit_sha"`
+	Status       string `json:"status"`
+}
+
 // Collect returns records for every evidence type in req.AcceptedTypes
-// that this plugin emits. A slot whose Accepts list includes both
-// github types gets records for both in a single call. Records are
+// that this plugin emits. A slot whose Accepts list names several github
+// types gets records for all of them in a single call. Records are
 // sorted by ID within each type group; the collector splits them by
 // Type for envelope writing.
 func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
-	wantRepos := req.Accepts(EvidenceTypeRepository)
-	wantMembers := req.Accepts(EvidenceTypeDirectoryUser)
-	wantOrgPolicy := req.Accepts(EvidenceTypeOrgPolicy)
-	wantVulns := req.Accepts(EvidenceTypeVulnerability)
-	if !wantRepos && !wantMembers && !wantOrgPolicy && !wantVulns {
-		return nil, fmt.Errorf("github: AcceptedTypes %v does not include emitted types %q,%q,%q,%q",
-			req.AcceptedTypes, EvidenceTypeRepository, EvidenceTypeDirectoryUser, EvidenceTypeOrgPolicy, EvidenceTypeVulnerability)
+	// The period window is resolved once so a slot accepting both
+	// period-scoped types sees one identical [start, end].
+	start, end := p.periodWindow(req)
+	collectors := []struct {
+		typeID  string
+		collect func(context.Context) ([]core.EvidenceRecord, error)
+	}{
+		{EvidenceTypeRepository, p.collectRepos},
+		{EvidenceTypeDirectoryUser, p.collectMembers},
+		{EvidenceTypeOrgPolicy, p.collectOrgPolicy},
+		{EvidenceTypeVulnerability, p.collectVulnerabilities},
+		{EvidenceTypePullRequest, func(ctx context.Context) ([]core.EvidenceRecord, error) {
+			return p.collectPullRequests(ctx, start, end)
+		}},
+		{EvidenceTypeDeployment, func(ctx context.Context) ([]core.EvidenceRecord, error) {
+			return p.collectDeployments(ctx, start, end)
+		}},
 	}
 	var out []core.EvidenceRecord
-	if wantRepos {
-		rs, err := p.collectRepos(ctx)
+	matched := false
+	for _, c := range collectors {
+		if !req.Accepts(c.typeID) {
+			continue
+		}
+		matched = true
+		rs, err := c.collect(ctx)
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, rs...)
 	}
-	if wantMembers {
-		rs, err := p.collectMembers(ctx)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, rs...)
-	}
-	if wantOrgPolicy {
-		rs, err := p.collectOrgPolicy(ctx)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, rs...)
-	}
-	if wantVulns {
-		rs, err := p.collectVulnerabilities(ctx)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, rs...)
+	if !matched {
+		return nil, fmt.Errorf("github: AcceptedTypes %v does not include emitted types %q,%q,%q,%q,%q,%q",
+			req.AcceptedTypes, EvidenceTypeRepository, EvidenceTypeDirectoryUser, EvidenceTypeOrgPolicy,
+			EvidenceTypeVulnerability, EvidenceTypePullRequest, EvidenceTypeDeployment)
 	}
 	return out, nil
+}
+
+// periodWindow resolves the audit window for the period-scoped evidence
+// types. The orchestrator injects period_start/period_end as native
+// time.Time slot params; callers that pass none (the conformance
+// harness, an ad-hoc Collect) get a trailing one-year window ending at
+// the injected clock, never time.Now() — two Collects must agree.
+func (p *Plugin) periodWindow(req core.SlotRequest) (start, end time.Time) {
+	start = timeParam(req.Params, "period_start")
+	end = timeParam(req.Params, "period_end")
+	if end.IsZero() {
+		end = p.now()
+	}
+	if start.IsZero() {
+		start = end.AddDate(-1, 0, 0)
+	}
+	return start, end
+}
+
+// timeParam reads a time.Time slot parameter, returning the zero value
+// when missing or the wrong type. Slot params are map[string]any by
+// design. (Duplicated from internal/sources/manual per the plugin
+// KISS-no-DRY axiom — source plugins share no helper package.)
+func timeParam(m map[string]any, key string) time.Time {
+	if v, ok := m[key].(time.Time); ok {
+		return v
+	}
+	return time.Time{}
 }
 
 func (p *Plugin) collectRepos(ctx context.Context) ([]core.EvidenceRecord, error) {
@@ -552,6 +701,221 @@ func normalizeAlertState(state string) string {
 	}
 }
 
+// collectPullRequests returns one pull_request record per change merged
+// inside [start, end]. Record IDs are "{org}/{repo}#{number}" — the form
+// a customer writes in a YAML waiver's resource_id, so it must stay
+// stable and human-writable. The window is re-applied here (the adapter
+// already filters) so the plugin owns the period semantics regardless of
+// which API implementation is wired in.
+func (p *Plugin) collectPullRequests(ctx context.Context, start, end time.Time) ([]core.EvidenceRecord, error) {
+	prs, err := p.api.ListMergedPullRequests(ctx, start, end)
+	if err != nil {
+		return nil, fmt.Errorf("github: list merged pull requests: %w", err)
+	}
+	now := p.now()
+	records := make([]core.EvidenceRecord, 0, len(prs))
+	for i := range prs {
+		pr := prs[i]
+		if pr.MergedAt.IsZero() || pr.MergedAt.Before(start) || pr.MergedAt.After(end) {
+			continue
+		}
+		id := fmt.Sprintf("%s#%d", pr.Repository, pr.Number)
+		approvals, independent, beforeMerge := approvalState(&pr)
+		payload := pullRequestPayload{
+			Repository:               pr.Repository,
+			Number:                   pr.Number,
+			Author:                   pr.Author,
+			MergedBy:                 pr.MergedBy,
+			TargetBranch:             pr.TargetBranch,
+			MergeCommitSHA:           pr.MergeCommitSHA,
+			MergedAt:                 pr.MergedAt.UTC().Format(time.RFC3339),
+			ApprovalCount:            approvals,
+			IndependentApprovalCount: independent,
+			ApprovedBeforeMerge:      beforeMerge,
+			ChecksPassed:             checksPassed(pr.CheckRuns),
+		}
+		body, err := json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("github: marshal pull request payload: %w", err)
+		}
+		records = append(records, core.EvidenceRecord{
+			Type:        EvidenceTypePullRequest,
+			ID:          id,
+			Payload:     body,
+			SourceID:    SourceID,
+			CollectedAt: now,
+		})
+	}
+	sort.Slice(records, func(i, j int) bool { return records[i].ID < records[j].ID })
+	return records, nil
+}
+
+// approvalState reduces a pull request's review history to the three
+// approval fields the pull_request evidence type declares.
+//
+// Counting rule: a user's LATEST non-COMMENTED review decides their
+// verdict — a reviewer who approves twice counts once, and an approval
+// later DISMISSED or superseded by CHANGES_REQUESTED does not count.
+// approvalCount includes the author; independentCount excludes them.
+// approvedBeforeMerge is true when at least one counted INDEPENDENT
+// approval was submitted at or before the merge, so a retroactive
+// approval added after the merge does not rescue the change.
+func approvalState(pr *PullRequest) (approvalCount, independentCount int, approvedBeforeMerge bool) {
+	latest := map[string]Review{}
+	order := make([]string, 0, len(pr.Reviews))
+	for _, rv := range pr.Reviews {
+		if rv.User == "" || strings.EqualFold(rv.State, "COMMENTED") {
+			continue
+		}
+		prev, seen := latest[rv.User]
+		if !seen {
+			order = append(order, rv.User)
+		}
+		// Ties and zero timestamps resolve to the later list position;
+		// GitHub returns reviews in submission order.
+		if !seen || !rv.SubmittedAt.Before(prev.SubmittedAt) {
+			latest[rv.User] = rv
+		}
+	}
+	for _, user := range order {
+		rv := latest[user]
+		if !strings.EqualFold(rv.State, "APPROVED") {
+			continue
+		}
+		approvalCount++
+		if user == pr.Author {
+			continue
+		}
+		independentCount++
+		if !pr.MergedAt.IsZero() && rv.SubmittedAt.After(pr.MergedAt) {
+			continue
+		}
+		approvedBeforeMerge = true
+	}
+	return approvalCount, independentCount, approvedBeforeMerge
+}
+
+// checksPassed reports whether every automated check on the merged
+// commit succeeded. A repository that runs NO checks reports false: the
+// schema states explicitly that "no CI configured" is not a pass, since
+// a change merged with nothing verifying it is the condition CC8.1 asks
+// about. neutral and skipped conclusions count as success (a check that
+// deliberately did not apply is not a failure).
+func checksPassed(runs []CheckRun) bool {
+	if len(runs) == 0 {
+		return false
+	}
+	for _, r := range runs {
+		if !strings.EqualFold(r.Status, "completed") {
+			return false
+		}
+		if !checkConclusionPasses[strings.ToLower(r.Conclusion)] {
+			return false
+		}
+	}
+	return true
+}
+
+// collectDeployments returns one deployment record per deployment
+// created inside [start, end], failed ones included. Record IDs are
+// "{org}/{repo}/deployments/{id}" — waiver-writable, like the
+// pull_request form.
+func (p *Plugin) collectDeployments(ctx context.Context, start, end time.Time) ([]core.EvidenceRecord, error) {
+	deployments, err := p.api.ListDeployments(ctx, start, end)
+	if err != nil {
+		return nil, fmt.Errorf("github: list deployments: %w", err)
+	}
+	now := p.now()
+	records := make([]core.EvidenceRecord, 0, len(deployments))
+	for i := range deployments {
+		d := deployments[i]
+		if d.CreatedAt.IsZero() || d.CreatedAt.Before(start) || d.CreatedAt.After(end) {
+			continue
+		}
+		id := fmt.Sprintf("%s/deployments/%s", d.Repository, d.ID)
+		payload := deploymentPayload{
+			Repository:   d.Repository,
+			DeploymentID: d.ID,
+			Environment:  d.Environment,
+			IsProduction: isProductionEnvironment(d.ProductionEnvironment, d.Environment),
+			DeployedBy:   d.Creator,
+			DeployedAt:   d.CreatedAt.UTC().Format(time.RFC3339),
+			CommitSHA:    d.SHA,
+			Status:       normalizeDeploymentState(d.State),
+		}
+		body, err := json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("github: marshal deployment payload: %w", err)
+		}
+		records = append(records, core.EvidenceRecord{
+			Type:        EvidenceTypeDeployment,
+			ID:          id,
+			Payload:     body,
+			SourceID:    SourceID,
+			CollectedAt: now,
+		})
+	}
+	sort.Slice(records, func(i, j int) bool { return records[i].ID < records[j].ID })
+	return records, nil
+}
+
+// isProductionEnvironment normalizes GitHub's two production signals:
+// the explicit production_environment flag (frequently absent from the
+// response, hence false), or a conventional environment name. Keeping
+// the customer's local naming out of policies is the point of
+// is_production.
+func isProductionEnvironment(flag bool, environment string) bool {
+	if flag {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(environment)) {
+	case "production", "prod", "live":
+		return true
+	default:
+		return false
+	}
+}
+
+// The deployment evidence type's closed status vocabulary. Named
+// because the enum is the contract policies read, distinct from the raw
+// vendor states the switch below matches on.
+const (
+	deploymentStatusSuccess = "success"
+	deploymentStatusFailure = "failure"
+	deploymentStatusPending = "pending"
+	deploymentStatusUnknown = "unknown"
+)
+
+// checkConclusionPasses lists the check-run conclusions that do not block a
+// merge: an outright success plus the two outcomes GitHub itself treats as
+// non-failing. Anything else — failure, timed_out, action_required, stale,
+// canceled, or a run still in flight — means the change merged without its
+// checks having passed.
+var checkConclusionPasses = map[string]bool{
+	deploymentStatusSuccess: true,
+	"neutral":               true,
+	"skipped":               true,
+}
+
+// normalizeDeploymentState maps the latest GitHub deployment-status
+// state to the deployment status enum. An empty state means the
+// deployment carries no status entries at all, which the schema
+// distinguishes from pending: "unknown" must never be read as either
+// success or failure. An unrecognized vocabulary also maps to unknown
+// rather than guessing a terminal outcome.
+func normalizeDeploymentState(state string) string {
+	switch strings.ToLower(state) {
+	case "success":
+		return deploymentStatusSuccess
+	case "error", "failure":
+		return deploymentStatusFailure
+	case "pending", "queued", "in_progress":
+		return deploymentStatusPending
+	default:
+		return deploymentStatusUnknown
+	}
+}
+
 // --- Real HTTP adapter -----------------------------------------------------
 
 // httpAPI is the production implementation of API. It hits api.github.com
@@ -562,6 +926,12 @@ func normalizeAlertState(state string) string {
 //	GET /repos/{org}/{repo}/branches/{br}/protection  — branch protection
 //	GET /orgs/{org}/members?filter=2fa_disabled       — 2FA-off members
 //	GET /orgs/{org}/members                — full member roster + role
+//	GET /repos/{org}/{repo}/pulls          — closed PRs on the default branch
+//	GET /repos/{org}/{repo}/pulls/{n}      — merged_by (absent from the listing)
+//	GET /repos/{org}/{repo}/pulls/{n}/reviews         — approval history
+//	GET /repos/{org}/{repo}/commits/{sha}/check-runs  — CI outcome
+//	GET /repos/{org}/{repo}/deployments    — deployments, newest first
+//	GET /repos/{org}/{repo}/deployments/{id}/statuses — latest state
 //
 // The adapter respects GitHub's `Link` header for pagination but is
 // otherwise minimal; integration coverage is deferred.
@@ -861,6 +1231,331 @@ func (h *httpAPI) ListDependabotAlerts(ctx context.Context) ([]DependabotAlert, 
 		next = n
 	}
 	return out, nil
+}
+
+// --- Period-scoped endpoints (pull requests, deployments) ------------------
+
+// repoRef is the minimum a period-scoped listing needs about a repo: its
+// name and the default branch PRs must target.
+type repoRef struct {
+	name          string
+	defaultBranch string
+}
+
+// ghPull is the subset of a pulls LIST item the adapter reads. MergedAt
+// is nil for a PR closed without merging; UpdatedAt drives the
+// pagination stop (the listing is sorted by updated desc and GitHub
+// offers no date filter). The list item does NOT carry merged_by — that
+// needs the per-PR detail call.
+type ghPull struct {
+	Number         int        `json:"number"`
+	MergedAt       *time.Time `json:"merged_at"`
+	UpdatedAt      *time.Time `json:"updated_at"`
+	MergeCommitSHA string     `json:"merge_commit_sha"`
+	User           *struct {
+		Login string `json:"login"`
+	} `json:"user"`
+	Base struct {
+		Ref string `json:"ref"`
+	} `json:"base"`
+	Head struct {
+		SHA string `json:"sha"`
+	} `json:"head"`
+}
+
+// ghPullDetail is the subset of GET /repos/{o}/{r}/pulls/{n} the adapter
+// reads: merged_by is absent from the listing and nil when the vendor
+// attributes the merge to no user.
+type ghPullDetail struct {
+	MergedBy *struct {
+		Login string `json:"login"`
+	} `json:"merged_by"`
+}
+
+type ghReview struct {
+	State       string     `json:"state"`
+	SubmittedAt *time.Time `json:"submitted_at"`
+	User        *struct {
+		Login string `json:"login"`
+	} `json:"user"`
+}
+
+type ghCheckRunList struct {
+	TotalCount int `json:"total_count"`
+	CheckRuns  []struct {
+		Status     string `json:"status"`
+		Conclusion string `json:"conclusion"`
+	} `json:"check_runs"`
+}
+
+// ghDeployment is the subset of a deployments LIST item the adapter
+// reads. production_environment is frequently ABSENT from the response,
+// so its zero value (false) is the correct "not flagged" reading;
+// creator is nil for a deleted account or a token-driven deployment.
+type ghDeployment struct {
+	ID                    int64     `json:"id"`
+	SHA                   string    `json:"sha"`
+	Environment           string    `json:"environment"`
+	ProductionEnvironment bool      `json:"production_environment"`
+	CreatedAt             time.Time `json:"created_at"`
+	Creator               *struct {
+		Login string `json:"login"`
+	} `json:"creator"`
+}
+
+type ghDeploymentStatus struct {
+	State string `json:"state"`
+}
+
+// listRepoRefs pages the org's repo listing for just the names and
+// default branches the period-scoped endpoints need. It deliberately
+// skips the per-repo protection/Dependabot probes ListRepos performs.
+func (h *httpAPI) listRepoRefs(ctx context.Context) ([]repoRef, error) {
+	var out []repoRef
+	page := 1
+	for {
+		path := fmt.Sprintf("/orgs/%s/repos?per_page=100&page=%d", url.PathEscape(h.org), page)
+		var repos []ghRepo
+		hasMore, err := h.getJSON(ctx, path, &repos)
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range repos {
+			out = append(out, repoRef{name: r.Name, defaultBranch: r.DefaultBranch})
+		}
+		if !hasMore {
+			return out, nil
+		}
+		page++
+	}
+}
+
+// ListMergedPullRequests walks every repo in the org and collects the
+// changes merged into its default branch inside the window. A repo whose
+// pulls listing errors is skipped (same tolerance idiom as
+// fetchProtection) so one inaccessible repository does not fail the run.
+func (h *httpAPI) ListMergedPullRequests(ctx context.Context, start, end time.Time) ([]PullRequest, error) {
+	repos, err := h.listRepoRefs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []PullRequest
+	for _, r := range repos {
+		if r.defaultBranch == "" {
+			continue
+		}
+		prs, err := h.listRepoMergedPulls(ctx, r, start, end)
+		if err != nil {
+			continue // inaccessible repo: skip, do not fail the org collection
+		}
+		out = append(out, prs...)
+	}
+	return out, nil
+}
+
+func (h *httpAPI) listRepoMergedPulls(ctx context.Context, r repoRef, start, end time.Time) ([]PullRequest, error) {
+	full := h.org + "/" + r.name
+	var out []PullRequest
+	page := 1
+	for {
+		q := url.Values{}
+		q.Set("state", "closed")
+		q.Set("base", r.defaultBranch)
+		q.Set("sort", "updated")
+		q.Set("direction", "desc")
+		q.Set("per_page", "100")
+		q.Set("page", strconv.Itoa(page))
+		path := fmt.Sprintf("/repos/%s/%s/pulls?%s", url.PathEscape(h.org), url.PathEscape(r.name), q.Encode())
+		var pulls []ghPull
+		hasMore, err := h.getJSON(ctx, path, &pulls)
+		if err != nil {
+			return nil, err
+		}
+		exhausted := false
+		for i := range pulls {
+			p := pulls[i]
+			// The listing is updated-desc and has no date filter: once an
+			// item predates the window nothing further can qualify.
+			if p.UpdatedAt != nil && p.UpdatedAt.Before(start) {
+				exhausted = true
+				break
+			}
+			if p.MergedAt == nil {
+				continue // closed without merging: not a change
+			}
+			merged := p.MergedAt.UTC()
+			if merged.Before(start) || merged.After(end) {
+				continue
+			}
+			pr := PullRequest{
+				Repository:     full,
+				Number:         p.Number,
+				TargetBranch:   p.Base.Ref,
+				MergeCommitSHA: p.MergeCommitSHA,
+				MergedAt:       merged,
+				MergedBy:       h.fetchPullMergedBy(ctx, r.name, p.Number),
+				Reviews:        h.fetchPullReviews(ctx, r.name, p.Number),
+				CheckRuns:      h.fetchCheckRuns(ctx, r.name, p.Head.SHA),
+			}
+			if p.User != nil {
+				pr.Author = p.User.Login
+			}
+			out = append(out, pr)
+		}
+		if exhausted || !hasMore {
+			return out, nil
+		}
+		page++
+	}
+}
+
+// fetchPullMergedBy resolves the merging user via the per-PR detail
+// endpoint (the listing omits it). An error or a null merged_by yields
+// "" — the schema's documented "vendor does not attribute the merge".
+func (h *httpAPI) fetchPullMergedBy(ctx context.Context, repo string, number int) string {
+	path := fmt.Sprintf("/repos/%s/%s/pulls/%d", url.PathEscape(h.org), url.PathEscape(repo), number)
+	var d ghPullDetail
+	if _, err := h.getJSON(ctx, path, &d); err != nil || d.MergedBy == nil {
+		return ""
+	}
+	return d.MergedBy.Login
+}
+
+// fetchPullReviews pages a PR's review history. An error yields no
+// reviews, which reads as an unapproved change — failing closed is the
+// correct bias for a review-evidence type.
+func (h *httpAPI) fetchPullReviews(ctx context.Context, repo string, number int) []Review {
+	var out []Review
+	page := 1
+	for {
+		path := fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews?per_page=100&page=%d",
+			url.PathEscape(h.org), url.PathEscape(repo), number, page)
+		var reviews []ghReview
+		hasMore, err := h.getJSON(ctx, path, &reviews)
+		if err != nil {
+			return out
+		}
+		for _, rv := range reviews {
+			r := Review{State: rv.State}
+			if rv.User != nil {
+				r.User = rv.User.Login
+			}
+			if rv.SubmittedAt != nil {
+				r.SubmittedAt = rv.SubmittedAt.UTC()
+			}
+			out = append(out, r)
+		}
+		if !hasMore {
+			return out
+		}
+		page++
+	}
+}
+
+// fetchCheckRuns pages the check runs attached to the PR's head commit.
+// An error or an empty head SHA yields no runs, which checksPassed reads
+// as false (deliberately: "no CI configured" is not a pass).
+func (h *httpAPI) fetchCheckRuns(ctx context.Context, repo, headSHA string) []CheckRun {
+	if headSHA == "" {
+		return nil
+	}
+	var out []CheckRun
+	page := 1
+	for {
+		path := fmt.Sprintf("/repos/%s/%s/commits/%s/check-runs?per_page=100&page=%d",
+			url.PathEscape(h.org), url.PathEscape(repo), url.PathEscape(headSHA), page)
+		var list ghCheckRunList
+		hasMore, err := h.getJSON(ctx, path, &list)
+		if err != nil {
+			return out
+		}
+		for _, cr := range list.CheckRuns {
+			out = append(out, CheckRun{Status: cr.Status, Conclusion: cr.Conclusion})
+		}
+		if !hasMore {
+			return out
+		}
+		page++
+	}
+}
+
+// ListDeployments walks every repo in the org and collects the
+// deployments created inside the window, failed ones included. Same
+// per-repo error tolerance as ListMergedPullRequests.
+func (h *httpAPI) ListDeployments(ctx context.Context, start, end time.Time) ([]Deployment, error) {
+	repos, err := h.listRepoRefs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []Deployment
+	for _, r := range repos {
+		ds, err := h.listRepoDeployments(ctx, r, start, end)
+		if err != nil {
+			continue // inaccessible repo: skip, do not fail the org collection
+		}
+		out = append(out, ds...)
+	}
+	return out, nil
+}
+
+func (h *httpAPI) listRepoDeployments(ctx context.Context, r repoRef, start, end time.Time) ([]Deployment, error) {
+	full := h.org + "/" + r.name
+	var out []Deployment
+	page := 1
+	for {
+		path := fmt.Sprintf("/repos/%s/%s/deployments?per_page=100&page=%d",
+			url.PathEscape(h.org), url.PathEscape(r.name), page)
+		var deployments []ghDeployment
+		hasMore, err := h.getJSON(ctx, path, &deployments)
+		if err != nil {
+			return nil, err
+		}
+		exhausted := false
+		for _, d := range deployments {
+			created := d.CreatedAt.UTC()
+			// The listing is created-desc with no date filter.
+			if created.Before(start) {
+				exhausted = true
+				break
+			}
+			if created.After(end) {
+				continue
+			}
+			id := strconv.FormatInt(d.ID, 10)
+			dep := Deployment{
+				Repository:            full,
+				ID:                    id,
+				SHA:                   d.SHA,
+				Environment:           d.Environment,
+				ProductionEnvironment: d.ProductionEnvironment,
+				CreatedAt:             created,
+				State:                 h.fetchLatestDeploymentState(ctx, r.name, id),
+			}
+			if d.Creator != nil {
+				dep.Creator = d.Creator.Login
+			}
+			out = append(out, dep)
+		}
+		if exhausted || !hasMore {
+			return out, nil
+		}
+		page++
+	}
+}
+
+// fetchLatestDeploymentState returns the newest deployment-status state,
+// or "" when the deployment has none (normalized to "unknown", which the
+// schema keeps distinct from pending). The statuses listing is
+// newest-first. An error also yields "": the plugin must not invent a
+// terminal outcome it could not read.
+func (h *httpAPI) fetchLatestDeploymentState(ctx context.Context, repo, deploymentID string) string {
+	path := fmt.Sprintf("/repos/%s/%s/deployments/%s/statuses?per_page=100",
+		url.PathEscape(h.org), url.PathEscape(repo), url.PathEscape(deploymentID))
+	var statuses []ghDeploymentStatus
+	if _, err := h.getJSON(ctx, path, &statuses); err != nil || len(statuses) == 0 {
+		return ""
+	}
+	return statuses[0].State
 }
 
 func (h *httpAPI) fetchMembershipRole(ctx context.Context, login string) (string, error) {

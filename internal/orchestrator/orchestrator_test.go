@@ -556,6 +556,8 @@ type stubGitHubAPI struct {
 	collaborators []ghsource.Member
 	orgPolicy     ghsource.OrgPolicy
 	alerts        []ghsource.DependabotAlert
+	pulls         []ghsource.PullRequest
+	deployments   []ghsource.Deployment
 }
 
 func (s *stubGitHubAPI) ListRepos(context.Context) ([]ghsource.Repo, error) {
@@ -576,6 +578,17 @@ func (s *stubGitHubAPI) GetOrgPolicy(context.Context) (ghsource.OrgPolicy, error
 
 func (s *stubGitHubAPI) ListDependabotAlerts(context.Context) ([]ghsource.DependabotAlert, error) {
 	return s.alerts, nil
+}
+
+// The two period-scoped listings take the audit window the orchestrator
+// injects as slot params; this stub returns nothing for them — the
+// orchestrator fixtures exercise the configuration-snapshot types.
+func (s *stubGitHubAPI) ListMergedPullRequests(context.Context, time.Time, time.Time) ([]ghsource.PullRequest, error) {
+	return s.pulls, nil
+}
+
+func (s *stubGitHubAPI) ListDeployments(context.Context, time.Time, time.Time) ([]ghsource.Deployment, error) {
+	return s.deployments, nil
 }
 
 // stubOktaAPI satisfies the okta source plugin's API interface

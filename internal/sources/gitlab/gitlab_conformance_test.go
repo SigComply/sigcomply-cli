@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 	"time"
 
@@ -132,4 +133,88 @@ func keys[V any](m map[string]V) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+// TestGitLabPeriodTypesConformance is the conformance gate for the two
+// period-scoped evidence types (pull_request, deployment). It runs the shared
+// harness against a FAKE-API-backed plugin rather than the cassette: the group
+// merge-requests, approvals, MR-pipelines and deployments endpoints are not in
+// the committed cassette, and hand-writing interactions for them would assert
+// our own guesses about GitLab's response shapes rather than the real ones.
+// Cassette coverage is therefore DEFERRED until a live re-record against the
+// test group can capture genuine responses.
+//
+// What this still gates, which is most of the value: determinism across two
+// Collects, ID-ascending sort order, JSON Schema validation of every emitted
+// payload, and payload completeness (no schema-declared property dropped).
+// The vendor-JSON → domain-struct mapping in sdkAPI is covered by the httptest
+// unit tests in gitlab_test.go.
+func TestGitLabPeriodTypesConformance(t *testing.T) {
+	fixedNow := time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC)
+	merged := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+	deployed := time.Date(2026, 3, 2, 9, 15, 0, 0, time.UTC)
+
+	// RunConformance passes no slot params, so the plugin falls back to a
+	// trailing one-year window ending at the injected clock; every fixture
+	// timestamp below sits inside it.
+	api := &fakeAPI{
+		pulls: []PullRequest{
+			{
+				Repository: repoProtected, Number: 42, Author: memberOwner,
+				MergedBy: "e2e-reviewer", TargetBranch: "main",
+				MergeCommitSHA: "e2e00000000000000000000000000000000000ab", MergedAt: merged,
+				Approvers: []string{"e2e-reviewer"}, ChecksPassed: true,
+			},
+			{
+				// Self-approved, no pipeline: the failing side of both
+				// derived booleans.
+				Repository: repoUnprotected, Number: 7, Author: memberOwner,
+				TargetBranch: "main", MergedAt: merged.Add(24 * time.Hour),
+				Approvers: []string{memberOwner},
+			},
+		},
+		deployments: []Deployment{
+			{
+				Repository: repoProtected, ID: "900",
+				SHA: "e2e00000000000000000000000000000000000ab", Environment: "production",
+				EnvironmentTier: "production", Creator: memberOwner,
+				CreatedAt: deployed, Status: "success",
+			},
+			{
+				// No user, no tier, no status: empty deployed_by, name-based
+				// is_production=false, and an "unknown" status.
+				Repository: repoUnprotected, ID: "12",
+				Environment: "staging", CreatedAt: deployed.Add(time.Hour),
+			},
+		},
+	}
+	types := sourcetest.BuiltinEvidenceTypes(t)
+	newFakePlugin := func() core.SourcePlugin {
+		return New(Options{API: api, Now: func() time.Time { return fixedNow }})
+	}
+
+	prRecs := sourcetest.RunConformance(t, &sourcetest.Options{
+		Plugin:        newFakePlugin(),
+		Request:       core.SlotRequest{AcceptedTypes: []string{EvidenceTypePullRequest}},
+		EvidenceTypes: types,
+	})
+	deployRecs := sourcetest.RunConformance(t, &sourcetest.Options{
+		Plugin:        newFakePlugin(),
+		Request:       core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDeployment}},
+		EvidenceTypes: types,
+	})
+
+	// Record IDs are the strings a customer writes in a waiver's resource_id,
+	// so they are part of the contract, not an implementation detail.
+	wantPRIDs := []string{repoProtected + "#42", repoUnprotected + "#7"}
+	if got := recordIDs(prRecs); !reflect.DeepEqual(got, wantPRIDs) {
+		t.Errorf("pull_request IDs = %v; want %v", got, wantPRIDs)
+	}
+	wantDeployIDs := []string{
+		repoProtected + "/deployments/900",
+		repoUnprotected + "/deployments/12",
+	}
+	if got := recordIDs(deployRecs); !reflect.DeepEqual(got, wantDeployIDs) {
+		t.Errorf("deployment IDs = %v; want %v", got, wantDeployIDs)
+	}
 }

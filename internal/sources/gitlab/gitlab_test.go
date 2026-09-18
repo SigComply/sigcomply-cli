@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +22,16 @@ type fakeAPI struct {
 	repoErr   error
 	members   []Member
 	memberErr error
+
+	pulls       []PullRequest
+	pullErr     error
+	deployments []Deployment
+	deployErr   error
+
+	// gotStart/gotEnd record the window the plugin resolved and passed
+	// down, so the period-param plumbing is assertable.
+	gotStart time.Time
+	gotEnd   time.Time
 
 	listReposCount   int
 	listMembersCount int
@@ -42,14 +53,33 @@ func (f *fakeAPI) ListMembers(_ context.Context) ([]Member, error) {
 	return f.members, nil
 }
 
+func (f *fakeAPI) ListMergedPullRequests(_ context.Context, start, end time.Time) ([]PullRequest, error) {
+	f.gotStart, f.gotEnd = start, end
+	if f.pullErr != nil {
+		return nil, f.pullErr
+	}
+	return f.pulls, nil
+}
+
+func (f *fakeAPI) ListDeployments(_ context.Context, start, end time.Time) ([]Deployment, error) {
+	f.gotStart, f.gotEnd = start, end
+	if f.deployErr != nil {
+		return nil, f.deployErr
+	}
+	return f.deployments, nil
+}
+
 func TestPlugin_IDAndEmits(t *testing.T) {
 	p := New(Options{API: &fakeAPI{}})
 	if p.ID() != SourceID {
 		t.Errorf("ID = %q; want %q", p.ID(), SourceID)
 	}
-	em := p.Emits()
-	if len(em) != 2 || em[0] != EvidenceTypeRepository || em[1] != EvidenceTypeDirectoryUser {
-		t.Errorf("Emits = %v; want [%q %q]", em, EvidenceTypeRepository, EvidenceTypeDirectoryUser)
+	want := []string{
+		EvidenceTypeRepository, EvidenceTypeDirectoryUser,
+		EvidenceTypePullRequest, EvidenceTypeDeployment,
+	}
+	if got := p.Emits(); !reflect.DeepEqual(got, want) {
+		t.Errorf("Emits = %v; want %v", got, want)
 	}
 }
 
@@ -463,4 +493,486 @@ func TestSDKAPI_ListMembers_HappyPath(t *testing.T) {
 	if byName["bob"].Email != "bob@acme.io" {
 		t.Errorf("bob.Email = %q; want bob@acme.io", byName["bob"].Email)
 	}
+}
+
+// --- Period-scoped types: pull_request / deployment ------------------------
+
+// The fixed clock and audit window the period-scoped tests share. The
+// window is passed explicitly as slot params so the tests never depend
+// on the trailing-one-year fallback (which the conformance run covers).
+var (
+	periodNow      = time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC)
+	periodStart    = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	periodEnd      = time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	insidePeriod   = time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+	beforePeriod   = time.Date(2025, 11, 5, 8, 0, 0, 0, time.UTC)
+	periodSlotArgs = map[string]any{"period_start": periodStart, "period_end": periodEnd}
+)
+
+// collectPeriodType runs Collect for one period-scoped evidence type
+// over the shared window.
+func collectPeriodType(t *testing.T, api API, typeID string) []core.EvidenceRecord {
+	t.Helper()
+	p := New(Options{API: api, Now: func() time.Time { return periodNow }})
+	recs, err := p.Collect(context.Background(), core.SlotRequest{
+		AcceptedTypes: []string{typeID},
+		Params:        periodSlotArgs,
+		PolicyID:      "p1",
+	})
+	if err != nil {
+		t.Fatalf("Collect(%s): %v", typeID, err)
+	}
+	return recs
+}
+
+// recordIDs is the list of record IDs, in emission order.
+func recordIDs(recs []core.EvidenceRecord) []string {
+	out := make([]string, 0, len(recs))
+	for i := range recs {
+		out = append(out, recs[i].ID)
+	}
+	return out
+}
+
+// assertRecordMeta checks the non-payload envelope fields of a
+// period-scoped record. Neither type carries an IdentityKey — a merge
+// request and a deployment are events, not identities.
+func assertRecordMeta(t *testing.T, rec *core.EvidenceRecord, wantType string) {
+	t.Helper()
+	if rec.Type != wantType {
+		t.Errorf("record %s: Type = %q; want %q", rec.ID, rec.Type, wantType)
+	}
+	if rec.SourceID != SourceID {
+		t.Errorf("record %s: SourceID = %q; want %q", rec.ID, rec.SourceID, SourceID)
+	}
+	if rec.CollectedAt != periodNow {
+		t.Errorf("record %s: CollectedAt = %v; want %v", rec.ID, rec.CollectedAt, periodNow)
+	}
+	if rec.IdentityKey != "" {
+		t.Errorf("record %s: IdentityKey = %q; want empty", rec.ID, rec.IdentityKey)
+	}
+}
+
+// TestCollectPullRequests_HappyPath_SortsByID pins the record ID form
+// ("{group}/{project}#{iid}" — the string a customer writes in a
+// waiver's resource_id) and the full emitted payload.
+func TestCollectPullRequests_HappyPath_SortsByID(t *testing.T) {
+	fake := &fakeAPI{pulls: []PullRequest{
+		{
+			Repository: "acme-group/web", Number: 9, Author: "dave",
+			MergedBy: "erin", TargetBranch: "release/1.0",
+			MergeCommitSHA: "sq1", MergedAt: insidePeriod.Add(24 * time.Hour),
+			Approvers: []string{"erin"}, ChecksPassed: false,
+		},
+		{
+			Repository: "acme-group/api", Number: 42, Author: "bob",
+			MergedBy: "carol", TargetBranch: "main",
+			MergeCommitSHA: "abc123", MergedAt: insidePeriod,
+			Approvers: []string{"carol", "dave"}, ChecksPassed: true,
+		},
+	}}
+	recs := collectPeriodType(t, fake, EvidenceTypePullRequest)
+
+	wantIDs := []string{"acme-group/api#42", "acme-group/web#9"}
+	if got := recordIDs(recs); !reflect.DeepEqual(got, wantIDs) {
+		t.Fatalf("record IDs = %v; want %v (ascending)", got, wantIDs)
+	}
+	for i := range recs {
+		assertRecordMeta(t, &recs[i], EvidenceTypePullRequest)
+	}
+	var got pullRequestPayload
+	mustUnmarshal(t, recs[0].Payload, &got)
+	want := pullRequestPayload{
+		Repository: "acme-group/api", Number: 42, Author: "bob",
+		MergedBy: "carol", TargetBranch: "main", MergeCommitSHA: "abc123",
+		MergedAt:      insidePeriod.Format(time.RFC3339),
+		ApprovalCount: 2, IndependentApprovalCount: 2,
+		ApprovedBeforeMerge: true, ChecksPassed: true,
+	}
+	if got != want {
+		t.Errorf("payload = %+v; want %+v", got, want)
+	}
+	if fake.gotStart != periodStart || fake.gotEnd != periodEnd {
+		t.Errorf("window passed to API = [%v, %v]; want [%v, %v]",
+			fake.gotStart, fake.gotEnd, periodStart, periodEnd)
+	}
+}
+
+// TestCollectPullRequests_ApprovalDerivation covers the three derived
+// approval fields. GitLab exposes no approval timestamp, so
+// approved_before_merge is exactly "an independent approval exists" —
+// an approval cannot be recorded there after the merge.
+func TestCollectPullRequests_ApprovalDerivation(t *testing.T) {
+	type derived struct {
+		Approvals   int
+		Independent int
+		BeforeMerge bool
+	}
+	cases := []struct {
+		name      string
+		author    string
+		approvers []string
+		want      derived
+	}{
+		{"independent approval", "bob", []string{"carol"}, derived{1, 1, true}},
+		{"self-approval only", "bob", []string{"bob"}, derived{1, 0, false}},
+		{"self plus independent", "bob", []string{"bob", "carol"}, derived{2, 1, true}},
+		{"duplicate approvers counted once", "bob", []string{"carol", "carol"}, derived{1, 1, true}},
+		{"blank approvers ignored", "bob", []string{"", "   ", "carol"}, derived{1, 1, true}},
+		{"no approvers", "bob", nil, derived{0, 0, false}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := &fakeAPI{pulls: []PullRequest{{
+				Repository: "acme-group/api", Number: 1, Author: tc.author,
+				MergedAt: insidePeriod, Approvers: tc.approvers,
+			}}}
+			recs := collectPeriodType(t, fake, EvidenceTypePullRequest)
+			if len(recs) != 1 {
+				t.Fatalf("len = %d; want 1", len(recs))
+			}
+			var p pullRequestPayload
+			mustUnmarshal(t, recs[0].Payload, &p)
+			got := derived{p.ApprovalCount, p.IndependentApprovalCount, p.ApprovedBeforeMerge}
+			if got != tc.want {
+				t.Errorf("derived = %+v; want %+v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestCollectPullRequests_WindowFilter asserts the plugin re-applies the
+// window itself rather than trusting the adapter's server-side filter.
+func TestCollectPullRequests_WindowFilter(t *testing.T) {
+	fake := &fakeAPI{pulls: []PullRequest{
+		{Repository: "acme-group/api", Number: 1, MergedAt: insidePeriod},
+		{Repository: "acme-group/api", Number: 2, MergedAt: beforePeriod},
+		{Repository: "acme-group/api", Number: 3, MergedAt: periodEnd.Add(time.Hour)},
+		{Repository: "acme-group/api", Number: 4}, // never merged
+	}}
+	recs := collectPeriodType(t, fake, EvidenceTypePullRequest)
+	if got := recordIDs(recs); !reflect.DeepEqual(got, []string{"acme-group/api#1"}) {
+		t.Errorf("record IDs = %v; want only the in-window merge", got)
+	}
+}
+
+// TestCollectPullRequests_EmitsRequiredFields guards the null-trap:
+// every schema-declared property must be present in the emitted JSON
+// (an absent field errors the consuming policy rather than reading as
+// false/zero).
+func TestCollectPullRequests_EmitsRequiredFields(t *testing.T) {
+	fake := &fakeAPI{pulls: []PullRequest{
+		{Repository: "acme-group/api", Number: 1, MergedAt: insidePeriod},
+	}}
+	recs := collectPeriodType(t, fake, EvidenceTypePullRequest)
+	assertPayloadFields(t, recs[0].Payload, []string{
+		"repository", "number", "author", "merged_by", "target_branch",
+		"merge_commit_sha", "merged_at", "approval_count",
+		"independent_approval_count", "approved_before_merge", "checks_passed",
+	})
+}
+
+func TestCollectPullRequests_ErrorPropagates(t *testing.T) {
+	p := New(Options{API: &fakeAPI{pullErr: errors.New("rate limit")}})
+	_, err := p.Collect(context.Background(),
+		core.SlotRequest{AcceptedTypes: []string{EvidenceTypePullRequest}})
+	if err == nil || !strings.Contains(err.Error(), "list merged merge requests") {
+		t.Errorf("want 'list merged merge requests' error; got %v", err)
+	}
+}
+
+// TestCollectDeployments_HappyPath_SortsByID pins the record ID form
+// and the full emitted payload.
+func TestCollectDeployments_HappyPath_SortsByID(t *testing.T) {
+	fake := &fakeAPI{deployments: []Deployment{
+		{
+			Repository: "acme-group/web", ID: "12", Environment: "staging",
+			EnvironmentTier: "staging", CreatedAt: insidePeriod.Add(time.Hour),
+			Status: "failed",
+		},
+		{
+			Repository: "acme-group/api", ID: "900", SHA: "abc123",
+			Environment: "production", EnvironmentTier: "production",
+			Creator: "bob", CreatedAt: insidePeriod, Status: "success",
+		},
+	}}
+	recs := collectPeriodType(t, fake, EvidenceTypeDeployment)
+
+	wantIDs := []string{"acme-group/api/deployments/900", "acme-group/web/deployments/12"}
+	if got := recordIDs(recs); !reflect.DeepEqual(got, wantIDs) {
+		t.Fatalf("record IDs = %v; want %v (ascending)", got, wantIDs)
+	}
+	for i := range recs {
+		assertRecordMeta(t, &recs[i], EvidenceTypeDeployment)
+	}
+	var got deploymentPayload
+	mustUnmarshal(t, recs[0].Payload, &got)
+	want := deploymentPayload{
+		Repository: "acme-group/api", DeploymentID: "900", Environment: "production",
+		IsProduction: true, DeployedBy: "bob",
+		DeployedAt: insidePeriod.Format(time.RFC3339), CommitSHA: "abc123",
+		Status: "success",
+	}
+	if got != want {
+		t.Errorf("payload = %+v; want %+v", got, want)
+	}
+}
+
+// TestCollectDeployments_DerivedFields covers the two normalizations the
+// plugin owns: is_production (tier authoritative in both directions,
+// name only as fallback) and the closed status vocabulary.
+func TestCollectDeployments_DerivedFields(t *testing.T) {
+	type derived struct {
+		IsProduction bool
+		Status       string
+	}
+	cases := []struct {
+		name    string
+		tier    string
+		envName string
+		status  string
+		want    derived
+	}{
+		{"production tier", "production", "blue-prod-1", "success", derived{true, "success"}},
+		{"non-production tier beats production-looking name", "staging", "prod", "success", derived{false, "success"}},
+		{"no tier, name prod", "", "prod", "running", derived{true, "pending"}},
+		{"no tier, name Production cased", "", "Production", "created", derived{true, "pending"}},
+		{"no tier, name live", "", "live", "blocked", derived{true, "pending"}},
+		{"no tier, name staging", "", "staging", "failed", derived{false, "failure"}},
+		{"canceled is failure", "", "staging", "canceled", derived{false, "failure"}},
+		{"unrecognized status is unknown", "", "staging", "skipped", derived{false, "unknown"}},
+		{"empty status is unknown", "", "staging", "", derived{false, "unknown"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := &fakeAPI{deployments: []Deployment{{
+				Repository: "acme-group/api", ID: "1", Environment: tc.envName,
+				EnvironmentTier: tc.tier, CreatedAt: insidePeriod, Status: tc.status,
+			}}}
+			recs := collectPeriodType(t, fake, EvidenceTypeDeployment)
+			if len(recs) != 1 {
+				t.Fatalf("len = %d; want 1", len(recs))
+			}
+			var p deploymentPayload
+			mustUnmarshal(t, recs[0].Payload, &p)
+			got := derived{p.IsProduction, p.Status}
+			if got != tc.want {
+				t.Errorf("derived = %+v; want %+v", got, tc.want)
+			}
+			if p.Environment != tc.envName {
+				t.Errorf("environment = %q; want verbatim %q", p.Environment, tc.envName)
+			}
+		})
+	}
+}
+
+// TestCollectDeployments_WindowFilter asserts the plugin re-applies the
+// window itself.
+func TestCollectDeployments_WindowFilter(t *testing.T) {
+	fake := &fakeAPI{deployments: []Deployment{
+		{Repository: "acme-group/api", ID: "1", CreatedAt: insidePeriod},
+		{Repository: "acme-group/api", ID: "2", CreatedAt: beforePeriod},
+		{Repository: "acme-group/api", ID: "3", CreatedAt: periodEnd.Add(time.Hour)},
+		{Repository: "acme-group/api", ID: "4"},
+	}}
+	recs := collectPeriodType(t, fake, EvidenceTypeDeployment)
+	if got := recordIDs(recs); !reflect.DeepEqual(got, []string{"acme-group/api/deployments/1"}) {
+		t.Errorf("record IDs = %v; want only the in-window deployment", got)
+	}
+}
+
+// TestCollectDeployments_EmitsRequiredFields guards the null-trap for
+// the deployment payload.
+func TestCollectDeployments_EmitsRequiredFields(t *testing.T) {
+	fake := &fakeAPI{deployments: []Deployment{
+		{Repository: "acme-group/api", ID: "1", CreatedAt: insidePeriod},
+	}}
+	recs := collectPeriodType(t, fake, EvidenceTypeDeployment)
+	assertPayloadFields(t, recs[0].Payload, []string{
+		"repository", "deployment_id", "environment", "is_production",
+		"deployed_by", "deployed_at", "commit_sha", "status",
+	})
+}
+
+func TestCollectDeployments_ErrorPropagates(t *testing.T) {
+	p := New(Options{API: &fakeAPI{deployErr: errors.New("rate limit")}})
+	_, err := p.Collect(context.Background(),
+		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDeployment}})
+	if err == nil || !strings.Contains(err.Error(), "list deployments") {
+		t.Errorf("want 'list deployments' error; got %v", err)
+	}
+}
+
+// assertPayloadFields asserts every named property is present as a key
+// in the emitted JSON.
+func assertPayloadFields(t *testing.T, payload []byte, fields []string) {
+	t.Helper()
+	var m map[string]any
+	mustUnmarshal(t, payload, &m)
+	for _, field := range fields {
+		if _, ok := m[field]; !ok {
+			t.Errorf("emitted payload missing field %q", field)
+		}
+	}
+}
+
+// TestPeriodWindow covers both window sources: explicit slot params, and
+// the trailing-one-year fallback anchored on the INJECTED clock (never
+// time.Now(), which would break the harness's two-Collect determinism
+// check).
+func TestPeriodWindow(t *testing.T) {
+	p := New(Options{API: &fakeAPI{}, Now: func() time.Time { return periodNow }})
+	gotStart, gotEnd := p.periodWindow(core.SlotRequest{Params: periodSlotArgs})
+	if gotStart != periodStart || gotEnd != periodEnd {
+		t.Errorf("params window = [%v, %v]; want [%v, %v]", gotStart, gotEnd, periodStart, periodEnd)
+	}
+	gotStart, gotEnd = p.periodWindow(core.SlotRequest{})
+	if gotEnd != periodNow || gotStart != periodNow.AddDate(-1, 0, 0) {
+		t.Errorf("fallback window = [%v, %v]; want [%v, %v]",
+			gotStart, gotEnd, periodNow.AddDate(-1, 0, 0), periodNow)
+	}
+	// A wrongly-typed param is ignored, not coerced.
+	gotStart, gotEnd = p.periodWindow(core.SlotRequest{
+		Params: map[string]any{"period_start": "2026-01-01", "period_end": 42},
+	})
+	if gotEnd != periodNow || gotStart != periodNow.AddDate(-1, 0, 0) {
+		t.Errorf("bad-typed params window = [%v, %v]; want the fallback", gotStart, gotEnd)
+	}
+}
+
+// TestSDKAPI_ListMergedPullRequests_HappyPath exercises the real GitLab
+// SDK adapter against an httptest server, covering the group-wide MR
+// listing, the projectID→path index, and the per-MR follow-up reads:
+//   - acme/web!42: merge_user set, one approver, a successful pipeline
+//   - acme/api!7:  no merge_user (deprecated merged_by fallback), squash
+//     merge (empty merge_commit_sha), approvals 403 (Premium-gated —
+//     degrades to no approvers), no pipelines
+//   - an MR from a project outside the group listing, which is skipped
+func TestSDKAPI_ListMergedPullRequests_HappyPath(t *testing.T) {
+	responses := map[string]string{
+		"/api/v4/groups/acme/projects": `[` +
+			`{"id":7,"path_with_namespace":"acme/web"},` +
+			`{"id":8,"path_with_namespace":"acme/api"}]`,
+		"/api/v4/groups/acme/merge_requests": `[` +
+			`{"iid":42,"project_id":7,"target_branch":"main","author":{"username":"bob"},` +
+			`"merge_user":{"username":"carol"},"merged_at":"2026-03-01T12:00:00Z",` +
+			`"merge_commit_sha":"abc123"},` +
+			`{"iid":7,"project_id":8,"target_branch":"develop","author":{"username":"dave"},` +
+			`"merged_by":{"username":"erin"},"merged_at":"2026-03-02T09:00:00Z",` +
+			`"merge_commit_sha":"","squash_commit_sha":"sq1"},` +
+			`{"iid":5,"project_id":99,"author":{"username":"mallory"},` +
+			`"merged_at":"2026-03-03T09:00:00Z"}]`,
+		"/api/v4/projects/7/merge_requests/42/approvals": `{"approved_by":[{"user":{"username":"carol"}}]}`,
+		"/api/v4/projects/7/merge_requests/42/pipelines": `[{"id":1,"status":"success"},{"id":0,"status":"failed"}]`,
+		"/api/v4/projects/8/merge_requests/7/pipelines":  `[]`,
+	}
+	forbidden := map[string]bool{"/api/v4/projects/8/merge_requests/7/approvals": true}
+	api := newTestSDKAPI(t, responses, forbidden)
+
+	got, err := api.ListMergedPullRequests(context.Background(), periodStart, periodEnd)
+	if err != nil {
+		t.Fatalf("ListMergedPullRequests: %v", err)
+	}
+	want := []PullRequest{
+		{
+			Repository: "acme/web", Number: 42, Author: "bob", MergedBy: "carol",
+			TargetBranch: "main", MergeCommitSHA: "abc123",
+			MergedAt:  time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC),
+			Approvers: []string{"carol"}, ChecksPassed: true,
+		},
+		{
+			// Squash merge → squash_commit_sha stands in for the absent
+			// merge commit; approvals 403 → no approvers, non-fatal; no
+			// pipelines → checks_passed false.
+			Repository: "acme/api", Number: 7, Author: "dave", MergedBy: "erin",
+			TargetBranch: "develop", MergeCommitSHA: "sq1",
+			MergedAt: time.Date(2026, 3, 2, 9, 0, 0, 0, time.UTC),
+		},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("ListMergedPullRequests =\n%+v\nwant\n%+v", got, want)
+	}
+}
+
+// TestSDKAPI_ListDeployments_HappyPath exercises the per-project
+// deployments listing (GitLab has no group-level route): projects are
+// visited in ascending-ID order, the id falls back to iid when absent,
+// and a deployment created outside the window is dropped.
+func TestSDKAPI_ListDeployments_HappyPath(t *testing.T) {
+	responses := map[string]string{
+		"/api/v4/groups/acme/projects": `[` +
+			`{"id":8,"path_with_namespace":"acme/api"},` +
+			`{"id":7,"path_with_namespace":"acme/web"}]`,
+		"/api/v4/projects/7/deployments": `[` +
+			`{"id":900,"iid":3,"sha":"abc123","status":"success",` +
+			`"created_at":"2026-03-01T12:00:00Z","user":{"username":"bob"},` +
+			`"environment":{"name":"production","tier":"production"}}]`,
+		"/api/v4/projects/8/deployments": `[` +
+			`{"id":0,"iid":12,"status":"failed","created_at":"2026-03-02T09:00:00Z",` +
+			`"environment":{"name":"prod"}},` +
+			`{"id":5,"status":"success","created_at":"2020-01-01T00:00:00Z"}]`,
+	}
+	api := newTestSDKAPI(t, responses, nil)
+
+	got, err := api.ListDeployments(context.Background(), periodStart, periodEnd)
+	if err != nil {
+		t.Fatalf("ListDeployments: %v", err)
+	}
+	want := []Deployment{
+		{
+			Repository: "acme/web", ID: "900", SHA: "abc123", Environment: "production",
+			EnvironmentTier: "production", Creator: "bob",
+			CreatedAt: time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC), Status: "success",
+		},
+		{
+			// id omitted → iid is the fallback identifier.
+			Repository: "acme/api", ID: "12", Environment: "prod",
+			CreatedAt: time.Date(2026, 3, 2, 9, 0, 0, 0, time.UTC), Status: "failed",
+		},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("ListDeployments =\n%+v\nwant\n%+v", got, want)
+	}
+}
+
+func TestSDKAPI_ListMergedPullRequests_ErrorPropagates(t *testing.T) {
+	api := newTestSDKAPI(t, nil, map[string]bool{"/api/v4/groups/acme/projects": true})
+	if _, err := api.ListMergedPullRequests(context.Background(), periodStart, periodEnd); err == nil {
+		t.Error("want error when the project listing fails")
+	}
+}
+
+func TestSDKAPI_ListDeployments_ErrorPropagates(t *testing.T) {
+	responses := map[string]string{
+		"/api/v4/groups/acme/projects": `[{"id":7,"path_with_namespace":"acme/web"}]`,
+	}
+	api := newTestSDKAPI(t, responses,
+		map[string]bool{"/api/v4/projects/7/deployments": true})
+	if _, err := api.ListDeployments(context.Background(), periodStart, periodEnd); err == nil {
+		t.Error("want error when a project's deployment listing fails")
+	}
+}
+
+// newTestSDKAPI builds an sdkAPI against an httptest server serving the
+// given path→body table; paths in denied return 403 (the adapter's
+// degrade-gracefully / error path), and any other path fails the test.
+func newTestSDKAPI(t *testing.T, responses map[string]string, denied map[string]bool) *sdkAPI {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if body, ok := responses[r.URL.Path]; ok {
+			_, _ = w.Write([]byte(body)) //nolint:errcheck // test handler
+			return
+		}
+		if denied[r.URL.Path] {
+			http.Error(w, "403 Forbidden", http.StatusForbidden)
+			return
+		}
+		t.Errorf("unexpected request: %s", r.URL.Path)
+	}))
+	t.Cleanup(srv.Close)
+	client, err := gitlab.NewClient("tok", gitlab.WithBaseURL(srv.URL))
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	return &sdkAPI{client: client, group: "acme"}
 }

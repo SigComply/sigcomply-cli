@@ -114,7 +114,34 @@ null placeholders.
    `accepts:`. v2-only fields stay out of v1 consumers.
 
 3. Reference the new type ID from a source's `Emits()` and a policy
-   slot's `accepts:`.
+   slot's `accepts:`. These must land in the **same change**:
+   `TestEmitterCoverage_EveryAcceptedTypeHasAnEmitter` fails when a policy
+   accepts a type no in-tree plugin emits, and `VerifyRegistrations` exits 3
+   at bootstrap when a plugin emits a type with no registered schema.
+
+4. **Pre-compute anything the DSL cannot do.** `pass_when` has no
+   field-to-field comparison, no array length, and no date arithmetic —
+   `lt`/`gt` error on non-numeric operands. So a check like "the author is
+   not among the approvers" or "approved before merged" must arrive as a
+   scalar the plugin already derived (`independent_approval_count`,
+   `approved_before_merge`), exactly as `age_days` and `unused_days` do.
+   Decide this while designing the schema; retrofitting it means a v2.
+
+5. **Every declared property is a mapper obligation.** The source
+   conformance harness asserts every key in `properties` is present in the
+   emitted payload — not just the `required` ones — unless listed in
+   `Options.OptionalFields`. And any *filter* reading a field that is not in
+   `required` must be `is_set`-guarded inside an `all_of`, or
+   `TestEveryFilterGuardsOptionalFields` fails the build.
+
+6. **Update the counts, which are pinned by tests.** Adding a type changes
+   published figures in `docs/architecture/04-source-plugins.md` (the
+   "N built-in plugins emit N distinct evidence types" line, the provider ×
+   evidence-type matrix, and the per-plugin table),
+   `docs/architecture/12-multicloud-sources.md` (two count lines plus the
+   per-provider row), and the root `CLAUDE.md`. If you also added policies,
+   `TestDocFiguresMatchCode` will fail with the exact string to write into
+   `docs/reference/frameworks.md` — run it and paste what it asks for.
 
 ---
 
