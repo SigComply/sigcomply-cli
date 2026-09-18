@@ -475,7 +475,7 @@ header. The shipped templates assume:
 ## Identity: project, run, evidence
 
 The CI layer establishes three identities the CLI consumes. The cloud
-`SubmissionPayload` (schema `sigcomply.cloud.v3`,
+`SubmissionPayload` (schema `sigcomply.cloud.v4`,
 [`internal/core/cloud.go`](../../internal/core/cloud.go)) carries them as:
 
 - **Project identity** (`org/name` from the CI's repo metadata) →

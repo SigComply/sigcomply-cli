@@ -74,10 +74,11 @@ func goldenPayload() core.SubmissionPayload {
 
 	results := []core.PolicyResult{
 		{
-			PolicyID: "shared.mfa_enforced",
-			Status:   core.StatusPass,
-			Severity: core.SeverityHigh,
-			Category: "access_control",
+			PolicyID:     "shared.mfa_enforced",
+			EvidenceMode: core.EvidenceModeAutomated,
+			Status:       core.StatusPass,
+			Severity:     core.SeverityHigh,
+			Category:     "access_control",
 			Controls: []core.ControlRef{
 				{Framework: "soc2", FrameworkVersion: "soc2-2017@1.0.0", ControlID: "CC6.1", Relationship: core.RelationshipEqual},
 				{Framework: "iso27001", FrameworkVersion: "iso27001-2022@1.0.0", ControlID: "A.8.5", Relationship: core.RelationshipSubsetOf},
@@ -91,6 +92,7 @@ func goldenPayload() core.SubmissionPayload {
 		},
 		{
 			PolicyID:           "soc2.cc7.2.audit_logging",
+			EvidenceMode:       core.EvidenceModeAutomated,
 			Status:             core.StatusFail,
 			Severity:           core.SeverityCritical,
 			Category:           "logging",
@@ -102,6 +104,7 @@ func goldenPayload() core.SubmissionPayload {
 		},
 		{
 			PolicyID:          "soc2.cc6.6.firewall_rules",
+			EvidenceMode:      core.EvidenceModeAutomated,
 			Status:            core.StatusSkip,
 			Severity:          core.SeverityMedium,
 			Category:          "network",
@@ -110,6 +113,7 @@ func goldenPayload() core.SubmissionPayload {
 		},
 		{
 			PolicyID:          "soc2.cc8.1.change_management",
+			EvidenceMode:      core.EvidenceModeAutomated,
 			Status:            core.StatusError,
 			Severity:          core.SeverityHigh,
 			Category:          "change_management",
@@ -117,16 +121,18 @@ func goldenPayload() core.SubmissionPayload {
 			ConfiguredCadence: "daily",
 		},
 		{
-			PolicyID: "iso27001.a8.physical_media",
-			Status:   core.StatusNA,
-			Severity: core.SeverityLow,
-			Category: "physical_security",
+			PolicyID:     "iso27001.a8.physical_media",
+			EvidenceMode: core.EvidenceModeManual,
+			Status:       core.StatusNA,
+			Severity:     core.SeverityLow,
+			Category:     "physical_security",
 			Controls: []core.ControlRef{
 				{Framework: "iso27001", FrameworkVersion: "iso27001-2022@1.0.0", ControlID: "A.7.10", Relationship: core.RelationshipIntersects},
 			},
 		},
 		{
 			PolicyID:           "soc2.cc1.4.background_checks",
+			EvidenceMode:       core.EvidenceModeManual,
 			Status:             core.StatusWaived,
 			Severity:           core.SeverityMedium,
 			Category:           "hr",
@@ -135,13 +141,17 @@ func goldenPayload() core.SubmissionPayload {
 			ResourcesFailed:    1,
 		},
 		{
-			PolicyID:          "soc2.cc6.1.password_policy",
-			Status:            core.StatusCarriedForward,
-			Severity:          core.SeverityHigh,
-			Category:          "access_control",
-			Controls:          []core.ControlRef{{Framework: "soc2", ControlID: "CC6.1"}},
-			ConfiguredCadence: "quarterly",
-			PolicyContentHash: "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+			PolicyID: "soc2.cc6.1.password_policy",
+			// An automated check the project downgraded to a document
+			// upload — the shape that must never be silent on the wire.
+			EvidenceMode:           core.EvidenceModeManual,
+			EvidenceModeOverridden: true,
+			Status:                 core.StatusCarriedForward,
+			Severity:               core.SeverityHigh,
+			Category:               "access_control",
+			Controls:               []core.ControlRef{{Framework: "soc2", ControlID: "CC6.1"}},
+			ConfiguredCadence:      "quarterly",
+			PolicyContentHash:      "sha256:2222222222222222222222222222222222222222222222222222222222222222",
 			// NextDueAt intentionally zero — must be omitted from the wire.
 			CarryForward: &core.CarryForwardRef{
 				LastEvaluatedAt: priorEval,

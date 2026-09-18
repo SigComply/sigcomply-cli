@@ -396,7 +396,7 @@ func TestSubmit_BodyIsCountsOnly(t *testing.T) {
 	defer srv.Close()
 
 	payload := &core.SubmissionPayload{
-		Schema:    "sigcomply.cloud.v3",
+		Schema:    "sigcomply.cloud.v4",
 		RunID:     "r1",
 		Framework: "soc2",
 		Summary:   core.RunSummary{PoliciesTotal: 2, PoliciesPassed: 1, PoliciesFailed: 1},

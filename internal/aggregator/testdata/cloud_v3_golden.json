@@ -1,5 +1,5 @@
 {
-  "schema": "sigcomply.cloud.v3",
+  "schema": "sigcomply.cloud.v4",
   "run_id": "20260622T100000Z-abc123",
   "framework": "soc2",
   "period_id": "2026-Q2",
@@ -58,7 +58,8 @@
       "configured_cadence": "daily",
       "last_evaluated_at": "2026-06-22T10:00:00Z",
       "next_due_at": "2026-06-23T10:00:00Z",
-      "policy_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      "policy_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "evidence_mode": "automated"
     },
     {
       "policy_id": "soc2.cc7.2.audit_logging",
@@ -78,7 +79,8 @@
       "message": "3 of 10 resources failed.",
       "rule_version": "2",
       "configured_cadence": "daily",
-      "last_evaluated_at": "2026-06-22T10:00:00Z"
+      "last_evaluated_at": "2026-06-22T10:00:00Z",
+      "evidence_mode": "automated"
     },
     {
       "policy_id": "soc2.cc6.6.firewall_rules",
@@ -95,7 +97,8 @@
       "resources_failed": 0,
       "message": "No matching resources to evaluate.",
       "configured_cadence": "weekly",
-      "last_evaluated_at": "2026-06-22T10:00:00Z"
+      "last_evaluated_at": "2026-06-22T10:00:00Z",
+      "evidence_mode": "automated"
     },
     {
       "policy_id": "soc2.cc8.1.change_management",
@@ -112,7 +115,8 @@
       "resources_failed": 0,
       "message": "Evaluation error; see customer vault for diagnostics.",
       "configured_cadence": "daily",
-      "last_evaluated_at": "2026-06-22T10:00:00Z"
+      "last_evaluated_at": "2026-06-22T10:00:00Z",
+      "evidence_mode": "automated"
     },
     {
       "policy_id": "iso27001.a8.physical_media",
@@ -130,7 +134,8 @@
       "resources_evaluated": 0,
       "resources_failed": 0,
       "message": "Not applicable to this project.",
-      "last_evaluated_at": "2026-06-22T10:00:00Z"
+      "last_evaluated_at": "2026-06-22T10:00:00Z",
+      "evidence_mode": "manual"
     },
     {
       "policy_id": "soc2.cc1.4.background_checks",
@@ -147,7 +152,8 @@
       "resources_evaluated": 5,
       "resources_failed": 1,
       "message": "Waived by exception (1 of 5 resources affected).",
-      "last_evaluated_at": "2026-06-22T10:00:00Z"
+      "last_evaluated_at": "2026-06-22T10:00:00Z",
+      "evidence_mode": "manual"
     },
     {
       "policy_id": "soc2.cc6.1.password_policy",
@@ -166,7 +172,9 @@
       "configured_cadence": "quarterly",
       "last_evaluated_at": "2026-06-21T10:00:00Z",
       "is_carried_forward": true,
-      "policy_content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      "policy_content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "evidence_mode": "manual",
+      "evidence_mode_overridden": true
     }
   ]
 }

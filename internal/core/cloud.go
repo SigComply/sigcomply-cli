@@ -25,7 +25,7 @@ type CloudClient interface {
 //  2. Demonstration that the field cannot carry identity in any
 //     deployment.
 //  3. Review by >=2 maintainers including the security owner.
-//  4. Schema-version bump (current: sigcomply.cloud.v3).
+//  4. Schema-version bump (current: sigcomply.cloud.v4).
 //
 // The reflection test in cloud_test.go enforces "no freeform fields"
 // structurally — adding interface{}, json.RawMessage, or
@@ -145,4 +145,26 @@ type AggregatedPolicy struct {
 	// it to detect a bundle bump that may invalidate prior
 	// evaluations.
 	PolicyContentHash string `json:"policy_content_hash,omitempty"`
+
+	// EvidenceMode is how this result was reached: "automated" (live
+	// infrastructure was inspected) or "manual" (a document was
+	// confirmed present in the right folder, in the temporal window,
+	// and parseable — its contents were never read).
+	//
+	// Without it the dashboard cannot distinguish the two, so a
+	// customer whose controls rest entirely on uploaded documents sees
+	// the same 100% as one that verified everything. That is the
+	// overclaim this field exists to end.
+	//
+	// Non-identifying by construction: a two-value enum that is the
+	// same for every deployment and names nothing about the customer's
+	// estate. It carries strictly less information than Category, which
+	// has been on the wire since v1.
+	EvidenceMode EvidenceMode `json:"evidence_mode,omitempty"`
+
+	// EvidenceModeOverridden is true when the project reconfigured this
+	// policy away from the framework's declared mode — nearly always an
+	// automated check downgraded to a document upload. A boolean; it
+	// says that a change was made, never what to.
+	EvidenceModeOverridden bool `json:"evidence_mode_overridden,omitempty"`
 }

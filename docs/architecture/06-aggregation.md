@@ -49,7 +49,7 @@ package core
 // maintainers including the security owner. Adding a freeform field
 // is a non-custodial regression and must be explicitly justified.
 type SubmissionPayload struct {
-    Schema      string         `json:"schema"`        // "sigcomply.cloud.v3"
+    Schema      string         `json:"schema"`        // "sigcomply.cloud.v4"
 
     RunID       string         `json:"run_id"`        // UUID
     Framework   string         `json:"framework"`     // "soc2"
@@ -125,6 +125,8 @@ type AggregatedPolicy struct {
     NextDueAt          *time.Time `json:"next_due_at,omitempty"`            // when cadence next elapses
     IsCarriedForward   bool       `json:"is_carried_forward,omitempty"`
     PolicyContentHash  string     `json:"policy_content_hash,omitempty"`    // SHA-256(policy + schemas)
+    EvidenceMode           EvidenceMode `json:"evidence_mode,omitempty"`            // "automated" | "manual"
+    EvidenceModeOverridden bool         `json:"evidence_mode_overridden,omitempty"` // project changed it
     // LastEvaluatedAt / NextDueAt are pointers so omitempty drops a zero
     // value instead of serializing "0001-01-01T00:00:00Z" (encoding/json
     // does not omit a zero time.Time struct).
@@ -170,8 +172,8 @@ If a maintainer believes a new field is needed, they must:
 2. Demonstrate that the field cannot carry a resource identifier in
    any deployment.
 3. Get review from ≥ 2 maintainers including the security owner.
-4. Bump the schema version (current is `sigcomply.cloud.v3`; next would
-   be `sigcomply.cloud.v4`) so existing deployments are aware of the
+4. Bump the schema version (current is `sigcomply.cloud.v4`; next would
+   be `sigcomply.cloud.v5`) so existing deployments are aware of the
    change.
 
 This is friction, by design. Every loosening of the contract erodes
@@ -193,7 +195,7 @@ transcription:
 func Build(results []core.PolicyResult, env *Environment) core.SubmissionPayload {
 
     out := core.SubmissionPayload{
-        Schema:      SchemaVersion,        // "sigcomply.cloud.v3"
+        Schema:      SchemaVersion,        // "sigcomply.cloud.v4"
         RunID:       env.RunID,
         Framework:   env.Framework,
         PeriodID:    env.PeriodID,
@@ -228,6 +230,8 @@ func Build(results []core.PolicyResult, env *Environment) core.SubmissionPayload
             NextDueAt:         r.NextDueAt,
             IsCarriedForward:  r.Status == core.StatusCarriedForward,
             PolicyContentHash: r.PolicyContentHash,
+            EvidenceMode:      r.EvidenceMode,
+            EvidenceModeOverridden: r.EvidenceModeOverridden,
         })
     }
 
@@ -549,28 +553,34 @@ makes that drift visible.
 
 ## Versioning the contract
 
-`Schema: "sigcomply.cloud.v3"` is stamped into every payload (the
+`Schema: "sigcomply.cloud.v4"` is stamped into every payload (the
 constant `aggregator.SchemaVersion`). The receiver (cloud or self-hosted
 dashboard) keys behavior off it. v3 replaced the per-policy scalar
 `control_id` with a `controls []ControlRef` list so one check can map to
 controls across many frameworks; the cadence scalars added in v2 are
-unchanged.
+unchanged. v4 adds `evidence_mode` and `evidence_mode_overridden` — a
+policy satisfied by a document being on file and one that inspected live
+infrastructure both submit as `pass`, so without them the dashboard
+cannot distinguish a fully-verified estate from a folder of PDFs.
 
 Breaking changes (renames, semantic shifts in existing fields) bump the
 version. The CLI emits one version per release; the receiver typically
 accepts a range. Coexistence rules:
 
 - The Rails receiver is **shape-driven, not version-gated**: it stores
-  the `schema` string verbatim and accepts `v1`/`v2`/`v3` payloads
+  the `schema` string verbatim and accepts `v1`/`v2`/`v3`/`v4` payloads
   simultaneously. A policy carrying a non-empty `controls[]` is treated
   as v3; one carrying only a scalar `control_id` is read as v2 and
   synthesized into a single-element `controls` list. See the Rails app's
   `Cli::RunSubmissionService#normalize_controls`.
 - An old CLI (v2) talking to a new cloud sends a scalar `control_id`; the
   receiver up-converts it to a one-element list.
-- A new CLI (v3) talking to an old cloud that predates the `controls`
-  field would have that field dropped by strong-params; deploy the Rails
-  side first.
+- A new CLI talking to an old cloud has the unknown field dropped by
+  strong-params — the request still returns 201 and the rest of the
+  payload stores normally, so the failure is silent. **Deploy the Rails
+  side first.** A v4 payload reaching a pre-v4 receiver loses only the
+  evidence-mode distinction, which is precisely the information the bump
+  exists to carry.
 
 The transition cost of bumping is intentional. The privacy boundary
 is not a place for casual evolution.

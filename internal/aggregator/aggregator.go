@@ -29,13 +29,21 @@ import (
 // the dashboard can render staleness and next-due badges without
 // recomputing locally.
 //
-// v3 (current): replaces the per-policy scalar ControlID with a
+// v3: replaces the per-policy scalar ControlID with a
 // Controls []ControlRef list so one check can map to controls across
 // multiple frameworks, each ControlRef carrying framework,
 // framework_version, control_id, and a relationship type. All fields
 // are non-identifying scalars and pass the structural counts-only test
 // in core/cloud_test.go.
-const SchemaVersion = "sigcomply.cloud.v3"
+//
+// v4 (current): adds per-policy EvidenceMode and EvidenceModeOverridden.
+// A policy satisfied by a document being on file and one that inspected
+// live infrastructure both submit as "pass", so without these the
+// dashboard cannot tell a fully-verified estate from a folder of PDFs —
+// and for SOC 2 that is 27 of 43 criteria. Both are non-identifying: a
+// two-value enum and a boolean, identical across deployments, naming
+// nothing about the customer's estate.
+const SchemaVersion = "sigcomply.cloud.v4"
 
 // Environment captures the CI-runtime metadata stamped on the payload.
 // The CLI's orchestrator (L9) populates it from environment variables
@@ -94,6 +102,9 @@ func Build(results []core.PolicyResult, env *Environment) core.SubmissionPayload
 			NextDueAt:          timePtrOrNil(r.NextDueAt),
 			IsCarriedForward:   r.Status == core.StatusCarriedForward,
 			PolicyContentHash:  r.PolicyContentHash,
+
+			EvidenceMode:           r.EvidenceMode,
+			EvidenceModeOverridden: r.EvidenceModeOverridden,
 		})
 	}
 	return out

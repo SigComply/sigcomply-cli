@@ -452,7 +452,7 @@ this to a hard error in CI mode.
 
 ## Cloud payload cadence fields
 
-The submission schema is `sigcomply.cloud.v3`. These five non-identifying
+The submission schema is `sigcomply.cloud.v4`. These five non-identifying
 scalars per policy (added in v2, retained unchanged in v3) let the
 dashboard render staleness and next-due badges without recomputing
 locally:
