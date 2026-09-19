@@ -23,7 +23,7 @@ import (
 func TestGitHubLive(t *testing.T) {
 	env := sourcetest.RequireEnv(t, "GITHUB_TEST_TOKEN", "GITHUB_TEST_ORG")
 	ctx := context.Background()
-	p, err := NewFromToken(ctx, env["GITHUB_TEST_ORG"], env["GITHUB_TEST_TOKEN"])
+	p, err := NewFromToken(ctx, env["GITHUB_TEST_ORG"], env["GITHUB_TEST_TOKEN"], os.Getenv("GITHUB_TEST_BASE_URL"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -65,7 +65,7 @@ Any number of supported files (PDF, JPEG, PNG, GIF, TIFF, WebP, BMP) may go in t
 
 The period is the one containing your **HEAD commit's timestamp**, not today's date, so evidence cannot be staged into a future period's folder ahead of time. See [Manual evidence — which period, and by when](manual-evidence.md#which-period-and-by-when).
 
-To see the whole ISO catalog (86 entries, of which these 16 are the clause ones):
+To see the whole ISO catalog (87 entries, of which these 16 are the clause ones):
 
 ```bash
 sigcomply evidence catalog -f iso27001 -o text

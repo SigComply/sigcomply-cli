@@ -71,3 +71,42 @@ func TestPassWhen_AnyQuantifier_NotReportedVacuous(t *testing.T) {
 		t.Fatalf("status = %q; want fail", got.Status)
 	}
 }
+
+// `count` with a zero minimum passes over the empty set exactly as
+// `all` does, so it belongs under the same guard. Without this the
+// clause is a green tick over an estate nobody examined, with no
+// vacuous_clauses diag to say so.
+func TestPassWhen_CountZeroMin_IsReportedVacuous(t *testing.T) {
+	for name, min := range map[string]*float64{"absent": nil, "explicit zero": minPct(0)} {
+		t.Run(name, func(t *testing.T) {
+			spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+				Slot:          slotUsers,
+				Quantifier:    core.QuantifierCount,
+				MinPercentage: min,
+				Condition:     &core.PassWhenCondition{Op: "eq", Field: fieldPayloadMFA, Value: true},
+			}}}
+			got := evaluatePassWhen(spec, newEvalCtx(map[string][]core.EvidenceRecord{slotUsers: {}}, nil, nil))
+			if got.Status != core.StatusPass {
+				t.Fatalf("status = %q; want pass", got.Status)
+			}
+			v, ok := got.Diag["vacuous_clauses"].([]string)
+			if !ok || len(v) != 1 || v[0] != slotUsers {
+				t.Errorf("Diag[vacuous_clauses] = %v; want [users]", got.Diag["vacuous_clauses"])
+			}
+		})
+	}
+}
+
+// A real minimum already fails the empty set, so it must stay clean.
+func TestPassWhen_CountPositiveMin_NotReportedVacuous(t *testing.T) {
+	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+		Slot:          slotUsers,
+		Quantifier:    core.QuantifierCount,
+		MinPercentage: minPct(50),
+		Condition:     &core.PassWhenCondition{Op: "eq", Field: fieldPayloadMFA, Value: true},
+	}}}
+	got := evaluatePassWhen(spec, newEvalCtx(map[string][]core.EvidenceRecord{slotUsers: {}}, nil, nil))
+	if got.Status != core.StatusFail {
+		t.Fatalf("status = %q; want fail", got.Status)
+	}
+}

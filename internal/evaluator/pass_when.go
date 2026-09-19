@@ -45,7 +45,7 @@ func evaluatePassWhen(spec *core.PassWhenSpec, ec *evalCtx) core.RuleResult {
 		if result.Status == core.StatusError {
 			return result
 		}
-		if emptyRemote || (reportsVacuity(clause.Quantifier) && len(included) == 0) {
+		if emptyRemote || (reportsVacuity(clause) && len(included) == 0) {
 			vacuous = append(vacuous, clause.Slot)
 		}
 		allViolations = append(allViolations, result.Violations...)
@@ -71,12 +71,25 @@ func evaluatePassWhen(spec *core.PassWhenSpec, ec *evalCtx) core.RuleResult {
 	return out
 }
 
-// reportsVacuity reports whether a quantifier needs the empty-set guard.
+// reportsVacuity reports whether a clause needs the empty-set guard.
 // `all` and `none` are true of the empty set, so a clause that examined
-// nothing passes and has to be reported. Quantifiers that already treat
-// the empty set as a failure (any, count with a minimum) need no guard.
-func reportsVacuity(q core.PassWhenQuantifier) bool {
-	return q == core.QuantifierAll || q == core.QuantifierNone
+// nothing passes and has to be reported. `any` always fails on the empty
+// set and needs no guard.
+//
+// `count` depends on its minimum, which is why this takes the clause
+// rather than the quantifier: evaluateCount fails the empty set only
+// when min_percentage > 0. At a minimum of zero, 0 of 0 is a pass over
+// nothing — the same green tick over an unexamined estate the guard
+// exists to surface — so it is reported too.
+func reportsVacuity(clause *core.PassWhenClause) bool {
+	switch clause.Quantifier {
+	case core.QuantifierAll, core.QuantifierNone:
+		return true
+	case core.QuantifierCount:
+		return clause.MinPercentage == nil || *clause.MinPercentage == 0
+	default:
+		return false
+	}
 }
 
 // evaluateQuantifier applies a clause's quantifier to the records that

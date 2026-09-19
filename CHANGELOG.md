@@ -13,6 +13,38 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **GitHub Enterprise Server is reachable.** `sources.github` accepts an
+  optional `base_url` (default `https://api.github.com`), mirroring the
+  key GitLab already had for self-managed instances. Give the API root,
+  usually `https://<host>/api/v3`.
+- **Vendor onboarding and termination have an entry.** New annual manual
+  entries `soc2.cc9.2.vendor_lifecycle_process` and
+  `iso27001.5.19.supplier_lifecycle_process`, covering the documented
+  procedure plus the period's onboarding/termination records. Deliberately
+  flat rather than fanned out: a terminated vendor is one you delete from
+  the register, so a per-member folder set can never hold evidence for the
+  relationship that ended.
+- **Vendor contracts and supplier agreements fan out per vendor.**
+  `soc2.cc9.2.vendor_contracts_reviewed` and
+  `iso27001.5.20.supplier_security_agreements` now collect one folder per
+  register member, like assurance reports — a contract is a
+  per-relationship artifact and auditors sample them per vendor.
+  **Breaking for projects that already declared `experimental.vendors`:**
+  evidence at `{prefix}/vendor_contracts_reviewed/{period_id}/` is no
+  longer scanned; copy it into each vendor's folder.
+- **The third-party register is checked against the sources you configured.**
+  A register entry may declare `providers:` naming the sources it supplies;
+  a configured source no entry claims now produces a plan-time warning.
+  Advisory, never fatal, and it discovers nothing — it cross-checks the
+  register against the estate you already declared. Unrecognized
+  `experimental.vendors` subkeys are now reported too (they were parsed and
+  silently dropped).
+- **Configured-but-unused sources are named.** A source no policy slot binds
+  (an `active_directory` source with no `experimental.roster`, say) was
+  listed in the collection banner as though it were being read. The banner
+  still prints before planning, by design; a new `unbound-source:` warning
+  after the plan says which of those were never consulted.
+
 - **Vendor and third-party risk collects per vendor, not per folder.** A manual
   catalog entry can now fan out over a set the project declares in
   `experimental.vendors`: one evidence folder per vendor
@@ -371,6 +403,23 @@ tracks the human-curated highlights.
 
 ### Changed
 
+- **A release is now gated on the test suite.** `auto-release.yml` calls
+  `test.yml` and waits for it, instead of racing it on the same push. The
+  E2E repos install `releases/latest` and resolve it at run time, so an
+  ungated tag reached them the moment it was pushed.
+- **The scaffolded monthly cron moved off the period boundary**, `0 2 1 * *`
+  → `0 2 20 * *`, joining the quarterly and annual crons inside the period.
+  On the 1st it collided with the calendar-quarter boundary four times a
+  year, which is the race the other two were moved to avoid.
+- **`sigcomply init-ci` scaffolds a current release pin.** The embedded
+  templates still pinned `v0.64.38` while the copy-paste examples had moved
+  on; both are now `v0.73.2`.
+- **`examples/github-actions/multi-environment.yml` no longer uses a CI
+  matrix** over accounts. Multi-account estates are bracketed source
+  instances in `.sigcomply.yaml`, and one run covers them — a matrix
+  produced N independent runs, each asserting the whole framework from one
+  account's data.
+
 - **The scaffolded quarterly and annual crons now fire inside the period, not on
   its boundary** — `0 2 20 3,6,9,12 *` (Mar/Jun/Sep/Dec 20) and `0 2 20 12 *`
   (Dec 20), replacing `0 2 1 1,4,7,10 *` and `0 2 1 1 *`. The audit period is
@@ -434,6 +483,22 @@ tracks the human-curated highlights.
   error; the one-line message is shown on its own (`SilenceUsage`).
 
 ### Fixed
+
+- **`count` with `min_percentage: 0` is no longer exempt from the vacuity
+  guard.** It passes over the empty set exactly as `all`/`none` do, but
+  reported no `vacuous_clauses` diagnostic — a green tick over an estate
+  nobody examined, with nothing to say so.
+- **`sources.Env` no longer carries an unused `Vault` field.** Nothing read
+  it and nothing set it; its doc comment claimed `manual.pdf` needed it for
+  attachments, which was never true — `manual.pdf` configures its own
+  backend.
+- **Corrected a documented workaround that did not exist.**
+  `docs/architecture/12-multicloud-sources.md` told GCP-/Azure-only
+  customers they could cover the six password policies "via the manual
+  evidence flow". No such catalog entry exists and one cannot be added
+  without obliging every AWS customer to upload a PDF they do not need. The
+  doc now shows the per-policy `exceptions: {state: na}` path that actually
+  works, and is explicit that it does not repair the score denominator.
 
 - **A configured source with no credentials now fails the run at startup
   (exit `3`) instead of failing during collection.** `sources:` is the

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -136,6 +137,25 @@ type Vendor struct {
 	// artifact. Optional (but encouraged) elsewhere.
 	TierRationale string
 	ApprovedBy    string
+
+	// Providers names the configured sources this vendor supplies —
+	// either a provider token ("aws", "github") or a full source ID
+	// ("aws.iam"). It exists for one purpose: to let the planner check
+	// the register against something observable.
+	//
+	// Nothing else can. A vendor the operator simply leaves out is
+	// invisible, because the register is a declaration with no
+	// counterpart to diff. But every *configured source* is itself a
+	// vendor the project demonstrably depends on, so the sources block
+	// is a baseline the register must at least cover. Joining the two
+	// needs a field, and this is it.
+	//
+	// Advisory, never fatal, and it discovers nothing: it cross-checks
+	// the register against sources the operator already declared, so it
+	// stays inside the operator-chosen estate. Optional — a vendor that
+	// supplies no configured source (a payroll processor, a law firm)
+	// leaves it empty, and that is the normal case.
+	Providers []string
 }
 
 // RequiresEvidence reports whether this vendor must have a document on
@@ -185,14 +205,15 @@ type vendorsRaw struct {
 }
 
 type vendorRaw struct {
-	ID                 string `yaml:"id"`
-	Name               string `yaml:"name"`
-	Tier               string `yaml:"tier"`
-	Subservice         bool   `yaml:"subservice"`
-	Services           string `yaml:"services"`
-	AssurancePeriodEnd string `yaml:"assurance_period_end"`
-	TierRationale      string `yaml:"tier_rationale"`
-	ApprovedBy         string `yaml:"approved_by"`
+	ID                 string   `yaml:"id"`
+	Name               string   `yaml:"name"`
+	Tier               string   `yaml:"tier"`
+	Subservice         bool     `yaml:"subservice"`
+	Services           string   `yaml:"services"`
+	AssurancePeriodEnd string   `yaml:"assurance_period_end"`
+	TierRationale      string   `yaml:"tier_rationale"`
+	ApprovedBy         string   `yaml:"approved_by"`
+	Providers          []string `yaml:"providers"`
 }
 
 // knownVendorsKeys is the set vendorsRaw understands, used to report the
@@ -295,7 +316,8 @@ func validateVendorRegister(raw []vendorRaw) ([]Vendor, error) {
 	}
 	out := make([]Vendor, 0, len(raw))
 	seen := make(map[string]struct{}, len(raw))
-	for i, v := range raw {
+	for i := range raw {
+		v := &raw[i]
 		if v.ID == "" {
 			return nil, fmt.Errorf("project config: experimental.vendors.register[%d]: missing required field \"id\"", i)
 		}
@@ -330,11 +352,16 @@ func validateVendorRegister(raw []vendorRaw) ([]Vendor, error) {
 		if err := validateOptionalDate(v.AssurancePeriodEnd); err != nil {
 			return nil, fmt.Errorf("project config: experimental.vendors.register[%d] (%s): assurance_period_end: %w", i, v.ID, err)
 		}
+		for j, p := range v.Providers {
+			if strings.TrimSpace(p) == "" {
+				return nil, fmt.Errorf("project config: experimental.vendors.register[%d] (%s): providers[%d] is empty (name a configured source, e.g. \"aws\" or \"aws.iam\")", i, v.ID, j)
+			}
+		}
 		// vendorRaw and Vendor are field-identical by construction:
 		// the YAML shape and the loaded shape are the same data, and
 		// keeping them as separate types is about which layer owns the
 		// tags, not about the fields diverging.
-		out = append(out, Vendor(v))
+		out = append(out, Vendor(*v))
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out, nil

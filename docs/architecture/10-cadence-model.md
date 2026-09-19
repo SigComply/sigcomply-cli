@@ -411,7 +411,7 @@ period history, which is the correct posture (compare Airflow's
 ### Manual evidence due (advisory, `sigcomply evidence due`)
 
 ```
-manual evidence: 3 of 49 entries have no file for period 2026-Q3 (ends 2026-09-30)
+manual evidence: 3 of 50 entries have no file for period 2026-Q3 (ends 2026-09-30)
   ENTRY                     CADENCE    DUE IN  UPLOAD TO
   access_review_quarterly   quarterly  14d     s3://acme-evidence/manual/access_review_quarterly/2026-Q3/
 ```

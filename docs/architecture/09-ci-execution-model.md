@@ -202,7 +202,7 @@ The shipped cron expressions are exactly:
 |---|---|---|
 | `compliance-daily.yml` | `0 2 * * *` | `--cadence daily` |
 | `compliance-weekly.yml` | `0 2 * * 1` | `--cadence weekly` |
-| `compliance-monthly.yml` | `0 2 1 * *` | `--cadence monthly` |
+| `compliance-monthly.yml` | `0 2 20 * *` | `--cadence monthly` |
 | `compliance-quarterly.yml` | `0 2 20 3,6,9,12 *` | `--cadence quarterly` |
 | `compliance-annual.yml` | `0 2 20 12 *` | `--cadence annual` |
 | `compliance-on-push.yml` | `push` + `pull_request` | `--on-push` |

@@ -6,7 +6,7 @@ How to declare your third-party register and collect assurance evidence for each
 
 ## The problem this solves
 
-Before this release, vendor risk was three folders: one for the vendor risk assessment, one for the due-diligence process, one for reviewed contracts. That is a reasonable shape for "do you have a process" and a useless shape for "is it operating".
+Before this release, vendor risk was three folders: one for the vendor risk assessment, one for the due-diligence process, one for reviewed contracts — all of them flat. That is a reasonable shape for "do you have a process" and a useless shape for "is it operating".
 
 A company with three infrastructure providers and twelve SaaS vendors had **one place to put one PDF**. There was no way to say that eleven vendors are current and one has not sent a report in two years — and that is precisely what an auditor samples. **One entry was not N vendors.**
 
@@ -107,13 +107,21 @@ A stale assurance report is the single most common CC9.2 finding, and it is invi
 
 **This date is declared, never parsed.** SigComply does not open the PDF and does not claim to — see [what this does not do](#what-this-does-not-do). What it gives an auditor is an assertion recorded in version control and re-checked on every run. Leave the field out and the freshness check simply does not run for that vendor.
 
-## The two entries
+## The entries
 
 | Framework | Catalog entry | Control | Fans out over |
 |---|---|---|---|
 | SOC 2 | `vendor_assurance` | CC9.2 | every vendor in the register |
+| SOC 2 | `vendor_contracts_reviewed` | CC9.2 | every vendor in the register |
 | SOC 2 | `cuec_mapping` | CC9.2 | vendors with `subservice: true` |
+| SOC 2 | `vendor_lifecycle_process` | CC9.2 | — (one folder) |
 | ISO 27001 | `supplier_assurance` | A.5.19 | every supplier in the register |
+| ISO 27001 | `supplier_security_agreements` | A.5.20 | every supplier in the register |
+| ISO 27001 | `supplier_lifecycle_process` | A.5.19 | — (one folder) |
+
+**Contracts and agreements fan out** for the same reason assurance reports do: each vendor has its own contract, and an auditor samples them per vendor. A single consolidated PDF cannot show that the one vendor they asked about is covered.
+
+**The lifecycle entries deliberately do not fan out.** The artifact is the documented procedure — how a third party is onboarded and, critically, how its access and data are removed when the relationship ends — plus the period's onboarding and termination records. It *cannot* fan out over the register, because a terminated vendor is by definition one you delete from the register: a per-member folder set can never hold evidence for the relationship that actually ended.
 
 **CUEC mapping** is the complementary user entity controls listed in a subservice organization's own report — the controls *their* report assumes *you* operate. It fans out over subservice organizations because AWS's CUECs are not GCP's. Note these are CUECs, not **CSOCs** (complementary subservice organization controls, which are what you expect of them); the two get conflated constantly and auditors ask about them separately.
 
@@ -130,10 +138,19 @@ Consistent with every manual entry, SigComply checks that a document is **on fil
 - It does **not** read the vendor's report, extract text, or parse a date out of it. `assurance_period_end` is your declaration.
 - It does **not** check the auditor's opinion is unqualified.
 - It does **not** check the report's scope covers the services you actually consume, or that the report is for the right entity.
-- It does **not** verify your register is complete. Nothing compares it against the vendors you really use — a vendor you leave out is invisible.
-- It does **not** track vendor onboarding or termination.
+- It does **not** fully verify your register is complete. Nothing can compare it against the vendors you *really* use — that set exists only in your head and your invoices. What it does do is check the register against the one baseline it can observe: every source in your `sources:` block is itself a third party, so a configured source no register entry claims is warned about at plan time (`vendors: source "github" is configured but no register entry claims it`). Tag an entry with the sources it supplies to satisfy the check:
 
-Four of the five most common CC9.2 findings live in that list. The check is real and it is narrow: *each vendor you declared has a current document on file, and you have said what period it covers.* Read the documents.
+  ```yaml
+  register:
+    - id: github
+      name: GitHub
+      tier: high
+      providers: [github]          # or a full source ID, e.g. aws.iam
+  ```
+
+  The warning is advisory and never fails a run — whether a source belongs in your third-party register is your call, and a vendor that supplies no configured source (a payroll processor, a law firm) simply leaves `providers:` empty.
+
+Three of the five most common CC9.2 findings live in that list. The check is real and it is narrow: *each vendor you declared has a current document on file, and you have said what period it covers.* Read the documents.
 
 ## See also
 

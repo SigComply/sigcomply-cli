@@ -194,9 +194,11 @@ load-bearing:
 | `all` | **pass** | Universal quantification over an empty set is true. |
 | `none` | **pass** | Same — there is no counterexample. |
 | `any` | **fail** | Existential quantification over an empty set is false. |
-| `count` | fail when `min_percentage > 0`, else pass | 0 of 0 is 0%. |
+| `count` | fail when `min_percentage > 0`, else **pass** | 0 of 0 is 0%. |
 
-So an `all` or `none` clause that sees no records passes. That is often
+So an `all` or `none` clause that sees no records passes — and so does a
+`count` clause whose `min_percentage` is zero, which is the same vacuous
+pass wearing a different quantifier. That is often
 *correct* — "no public bucket is unencrypted" holds honestly when no
 bucket is public — which is why the evaluator does not turn it into a
 failure.
@@ -221,8 +223,12 @@ are three ways to arrive there:
    is intentional. The same check covers every `matches_in` `in_slot`.
 
 Cases 1 and 2 are reported, not failed: the result carries
-`diag.vacuous_clauses` listing the slots whose clauses examined nothing,
-and `sigcomply check` explains such a pass inline rather than printing a
+`diag.vacuous_clauses` listing the slots whose clauses examined nothing.
+The guard covers every quantifier that can pass over the empty set —
+`all`, `none`, and `count` with `min_percentage: 0` (or absent). `any`
+and `count` with a real minimum already fail there and are left clean, so
+the diagnostic stays signal rather than noise on every passing run.
+`sigcomply check` explains such a pass inline rather than printing a
 bare green tick. A clause whose `matches_in` reads an **empty `in_slot`**
 is reported the same way: it compared every record against nothing.
 

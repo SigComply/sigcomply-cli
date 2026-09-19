@@ -100,10 +100,11 @@ sources:
 sources:
   github:
     org: my-org
+    # base_url: https://ghe.example.com/api/v3   # optional, for GitHub Enterprise Server
 ```
 
 - **Credentials (env):** `GITHUB_TOKEN` (or a `token:` key in the source config). In GitHub Actions the workflow's built-in token can supply this.
-- **Required config keys:** `org`.
+- **Required config keys:** `org`. Optional `base_url` for GitHub Enterprise Server — give the API root (usually `https://<host>/api/v3`), not the web host.
 
 ### GitLab (`gitlab`)
 

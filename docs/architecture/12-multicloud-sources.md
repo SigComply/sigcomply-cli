@@ -78,7 +78,7 @@ Auth is **read-only** and, in CI, prefers keyless federation (OIDC / workload id
 - **GCP** — Application Default Credentials (ADC): the existing pattern (`storage.NewClient(ctx)`, service clients via `google.golang.org/api/...`). In CI, Workload Identity Federation. Config key: `project_id`.
 - **Azure** — `azidentity.NewDefaultAzureCredential(nil)`: OIDC / workload-identity federation in CI (no secrets), falling back to `AZURE_TENANT_ID` / `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET`. `azcommon.NewCredential(ctx, scope)` mints one token to prove the credential works before any plugin is returned, so a missing identity is exit 3 at startup rather than a failure at the first API call; the verified credential is memoized per scope (ARM / Graph), so 13 ARM sources cost one token request, not 13. The cache key is the scope alone because `DefaultAzureCredential` resolves one ambient identity per process — if per-tenant credentials are ever added, that key must grow a tenant component. Management plane via `armXXX` clients scoped to a `subscription_id`; **Entra / Microsoft Graph** via the Graph v1.0 REST API (raw `net/http`, no vendor SDK) with the *same* credential. Config keys: `subscription_id`, `tenant_id` (Graph). Required Graph scopes and the Entra ID P1/P2 caveat for per-user MFA reporting are documented per the relevant WU.
 - **GitLab** — token from config `token` or `GITLAB_TOKEN`; client `gitlab.com/gitlab-org/api/client-go`; scope `read_api`. Config key: `group` (or `instance`); `base_url` (default `https://gitlab.com`) for self-managed.
-- **GitHub** / **Okta** — unchanged: token from config or env (`GITHUB_TOKEN`/`GH_TOKEN`, `OKTA_API_TOKEN`), direct HTTP (no vendor SDK).
+- **GitHub** / **Okta** — unchanged: token from config or env (`GITHUB_TOKEN`/`GH_TOKEN`, `OKTA_API_TOKEN`), direct HTTP (no vendor SDK). GitHub config keys: `org`; `base_url` (default `https://api.github.com`) for GitHub Enterprise Server, mirroring GitLab's self-managed key above.
 
 Per-provider config keys and required scopes are catalogued in `docs/configuration.md` as each plugin lands.
 
@@ -123,7 +123,25 @@ The `password_policy.v1` schema is **AWS-IAM-shaped**: eight required fields —
 - **GCP (Cloud Identity / Workspace).** Cloud IAM has no password policy at all (it governs authorization, not human credentials — confirmed). A Workspace password policy *exists* (min/max length, expiry, "enforce strong password") but is **Admin-Console-only**: the Admin SDK Directory API exposes **no** policy object — `Customer`/`Domain` carry no `passwordPolicy`, no length, no expiry, no reuse. "Strong password" is a single opaque Google rating, not four complexity booleans, and there is **no** reuse/history concept. A Go collector cannot honestly populate *any* field automatically.
 - **Azure (Entra ID).** For cloud-only accounts, length (8) and complexity (fixed "3 of 4 character classes") are **Microsoft constants**, not tenant-readable settings — hard-coding them would fabricate the four-boolean shape (and "3 of 4" is structurally not four independent booleans). History is depth-1 on change / unenforced on reset, with no numeric count. The **only** genuinely API-readable knob is expiration: `domain.passwordValidityPeriodInDays` (+ `passwordNotificationWindowInDays`) via Graph, plus per-user `user.passwordPolicies`. One real field out of eight required ⇒ cannot faithfully populate the schema.
 
-**Consequence for the plan.** WU-4.6 (`gcp.passwordpolicy`) and WU-5.15 (`azure.entra` pwpolicy) are **dropped** (stay `[!]`/skipped in the dashboard). No new source ID is created for them; `coverage_test` is unaffected because no policy's `accepts:` is broadened — `password_policy` remains an AWS-only emitter and GCP-/Azure-only customers simply do not satisfy the six password policies via automated evidence (they can cover those controls via the **manual** evidence flow — a screenshot/export of the Workspace/Entra password settings — exactly the gap manual evidence exists to fill).
+**Consequence for the plan.** WU-4.6 (`gcp.passwordpolicy`) and WU-5.15 (`azure.entra` pwpolicy) are **dropped** (stay `[!]`/skipped in the dashboard). No new source ID is created for them; `coverage_test` is unaffected because no policy's `accepts:` is broadened — `password_policy` remains an AWS-only emitter and GCP-/Azure-only customers simply do not satisfy the six password policies via automated evidence.
+
+**How a GCP-/Azure-only customer actually covers this today — corrected.** An earlier version of this paragraph said those customers "can cover those controls via the manual evidence flow — a screenshot/export of the Workspace/Entra password settings". **That was an overclaim, and it is not expressible.** A manual catalog entry is 1:1 with a manual *policy* and is structurally unconditional, so no password entry exists to point a `catalog_entry:` override at, and `manual.pdf` hard-fails on a `catalog_entry` the framework does not declare. Adding one would also oblige every AWS customer — who already has automated coverage — to upload a PDF they do not need, and a manual entry with an empty folder **fails**, it does not skip.
+
+What works today is a per-policy exception, which is what the worked configs actually show (`docs/architecture/examples/gcp-project.sigcomply.yaml`, `azure-subscription.sigcomply.yaml`):
+
+```yaml
+policies:
+  soc2.cc6.1.password_min_length_14:
+    exceptions:
+      - state: na
+        reason: >-
+          Google Workspace does not expose password-policy settings via any
+          API. Settings are screenshotted quarterly and held with the
+          access-review evidence.
+    # (Same for the other password_* CC6.1 / ISO 8.5 policies.)
+```
+
+Be clear about what that buys and what it does not. `na` is subtracted from the score denominator exactly as `skip` is (`internal/aggregator/aggregator.go`), so it does **not** repair the arithmetic — an unanswerable control still leaves the denominator either way. What it buys is that the exclusion is explicit, reasoned, attributable and auditor-visible in the config, instead of a silent skip nobody declared. The real fix for the arithmetic is the `authentication_policy` type below.
 
 **Future option (not now): a separate `authentication_policy` type.** If automated coverage of these controls becomes a priority, the clean path is a *new, append-only* evidence type modeling what Entra/Workspace actually expose (password expiration ± a platform-enforced-complexity attestation, MFA/auth-strength) — **not** forcing the AWS shape and **not** mutating `password_policy.v1` (Invariant #4: schemas are designed top-down from the concept, every field satisfiable by all sources without sentinels). That would be its own future WU with its own policies; it is explicitly out of scope for this plan.
 

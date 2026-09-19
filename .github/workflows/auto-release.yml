@@ -1,5 +1,13 @@
 # Auto-release workflow for SigComply CLI
-# Bumps version, creates a tag, and runs GoReleaser on every push to main.
+# Bumps version, creates a tag, and runs GoReleaser on every push to main
+# whose test suite is green.
+#
+# The gate is not optional decoration. The E2E repos install
+# releases/latest and resolve it at run time, so an ungated tag reaches
+# them the moment it is pushed. Calling test.yml (rather than racing it,
+# or chaining off workflow_run) keeps the push event — and with it
+# head_commit.message for the [skip release] marker, paths-ignore, and a
+# checkout of the exact commit that was pushed.
 # Uses conventional commit prefixes to determine version bump:
 #   feat: -> minor bump
 #   fix:, refactor:, perf:, etc. -> patch bump
@@ -23,9 +31,20 @@ permissions:
   contents: read
 
 jobs:
+  # Must pass before anything is tagged.
+  test:
+    name: Test
+    uses: ./.github/workflows/test.yml
+    # A called workflow cannot exceed the caller's grant, and test.yml's
+    # unit-tests job asks for pull-requests: write for its coverage comment.
+    permissions:
+      contents: read
+      pull-requests: write
+
   auto-release:
     name: Version Bump and Build
     runs-on: ubuntu-latest
+    needs: test
     if: "!contains(github.event.head_commit.message, '[skip release]') && !contains(github.event.head_commit.message, 'chore(release)')"
     permissions:
       contents: write

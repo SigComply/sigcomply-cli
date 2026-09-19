@@ -271,21 +271,29 @@ func New(opts Options) *Plugin {
 	}
 }
 
+// defaultBaseURL is the github.com REST endpoint; GitHub Enterprise
+// Server instances pass their own (typically https://ghe.example.com/api/v3).
+const defaultBaseURL = "https://api.github.com"
+
 // NewFromToken constructs a Plugin backed by the real GitHub REST API
-// using the supplied personal-access or app token. The plugin issues
-// requests against api.github.com. Live integration tests are deferred.
-func NewFromToken(_ context.Context, org, token string) (*Plugin, error) {
+// using the supplied personal-access or app token. A blank baseURL
+// defaults to github.com; GitHub Enterprise Server instances pass their
+// own URL. Live integration tests are deferred.
+func NewFromToken(_ context.Context, org, token, baseURL string) (*Plugin, error) {
 	if org == "" {
 		return nil, fmt.Errorf("github: org is required")
 	}
 	if token == "" {
 		return nil, fmt.Errorf("github: token is required")
 	}
+	if baseURL == "" {
+		baseURL = defaultBaseURL
+	}
 	return New(Options{
 		API: &httpAPI{
 			org:    org,
 			token:  token,
-			base:   "https://api.github.com",
+			base:   strings.TrimSuffix(baseURL, "/"),
 			client: &http.Client{Timeout: 30 * time.Second},
 		},
 		Org: org,

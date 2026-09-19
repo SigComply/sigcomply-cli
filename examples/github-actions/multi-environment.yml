@@ -1,14 +1,29 @@
-# Example: Multi-Environment Compliance Checks (standalone workflow)
+# Example: One compliance run across several AWS accounts (standalone workflow)
 #
-# Runs `sigcomply check` across multiple AWS accounts/regions using a
-# matrix. SigComply ships no reusable workflow — each matrix leg installs
-# the released binary via curl and runs the CLI directly. One repo = one
-# framework; the framework is read from `framework:` in .sigcomply.yaml.
+# SigComply ships no reusable workflow — this installs the released
+# binary via curl and runs the CLI directly. One repo = one framework;
+# the framework is read from `framework:` in .sigcomply.yaml.
 #
-# Copy to .github/workflows/compliance-multi-env.yml and set the per-env
-# role ARNs as repo secrets (AWS_ROLE_ARN_PROD, …).
+# There is deliberately NO matrix here. Multi-account estates are
+# expressed in .sigcomply.yaml as bracketed source instances, and one
+# `sigcomply check` covers all of them — see the config sketch below.
+#
+# Why that matters, and why the older matrix version of this example was
+# wrong: every slot the shipped frameworks declare is `one-or-more`, so
+# all instances union into a single evaluation. One run therefore
+# produces ONE framework verdict over the whole estate, one vault run
+# folder, and one submission. A matrix produces three independent runs,
+# each asserting the entire framework from one account's data and each
+# submitting separately — three partial claims an auditor cannot
+# compose into "this organization is compliant".
+#
+# Per-account evidence stays independently verifiable either way: the
+# instance key rides in `source_id` and in the envelope filename
+# (`{evidence_type}__{source_id}.json`).
+#
+# Copy to .github/workflows/compliance-multi-account.yml.
 
-name: Multi-Environment Compliance
+name: Compliance — Multi-Account
 
 on:
   push:
@@ -21,28 +36,16 @@ permissions:
   contents: read
 
 env:
-  SIGCOMPLY_VERSION: v0.73.1    # pinned release; bump to a newer tag, or set to "latest" for the newest
+  SIGCOMPLY_VERSION: v0.73.2    # pinned release; bump to a newer tag, or set to "latest" for the newest
 
 jobs:
   compliance:
-    name: Check ${{ matrix.environment }}
+    name: Check
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false  # Continue checking other environments if one fails
-      matrix:
-        include:
-          - environment: production
-            aws-region: us-east-1
-            role-secret: AWS_ROLE_ARN_PROD
-          - environment: staging
-            aws-region: us-east-1
-            role-secret: AWS_ROLE_ARN_STAGING
-          - environment: development
-            aws-region: us-west-2
-            role-secret: AWS_ROLE_ARN_DEV
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+
       - name: Install SigComply CLI
         run: |
           set -eu
@@ -56,23 +59,54 @@ jobs:
           curl -fsSL "https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply_${ver}_linux_amd64.tar.gz" -o /tmp/sigcomply.tar.gz
           tar -xzf /tmp/sigcomply.tar.gz -C /usr/local/bin sigcomply
           chmod +x /usr/local/bin/sigcomply
+
+      # The runner holds ONE credential — its own OIDC role, the hub.
+      # Each account's read-only audit role is assumed from there, via
+      # the per-instance `role_arn` in .sigcomply.yaml. The spoke ARNs
+      # are account identifiers, not secrets, so they live in the config
+      # in version control rather than in repo secrets.
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets[matrix.role-secret] }}
-          aws-region: ${{ matrix.aws-region }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
           audience: https://api.sigcomply.com
+
       - name: Run SigComply
         run: sigcomply check
 
-  summary:
-    name: Compliance Summary
-    needs: compliance
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Generate summary
-        run: |
-          echo "## Multi-Environment Compliance Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Compliance checks completed for all environments." >> $GITHUB_STEP_SUMMARY
-          echo "Check individual job results for details." >> $GITHUB_STEP_SUMMARY
+# ---------------------------------------------------------------------
+# The .sigcomply.yaml side of this example. Full worked config:
+#   docs/architecture/examples/multi-account.sigcomply.yaml
+# Reference:
+#   docs/configuration.md §Multiple instances of one source
+#
+#   sources:
+#     "aws.iam[prod]":
+#       region: us-east-1
+#       role_arn: arn:aws:iam::111111111111:role/SigComplyAudit
+#     "aws.s3[prod]":
+#       region: us-east-1
+#       role_arn: arn:aws:iam::111111111111:role/SigComplyAudit
+#     "aws.iam[staging]":
+#       region: us-east-1
+#       role_arn: arn:aws:iam::222222222222:role/SigComplyAudit
+#     "aws.iam[dev]":
+#       region: us-west-2
+#       role_arn: arn:aws:iam::333333333333:role/SigComplyAudit
+#
+#   # The part a matrix genuinely cannot express: name every instance
+#   # that must be reached, so an account silently dropped from the
+#   # config becomes a finding instead of silence.
+#   experimental:
+#     scope:
+#       required_sources:
+#         - "aws.iam[prod]"
+#         - "aws.s3[prod]"
+#         - "aws.iam[staging]"
+#         - "aws.iam[dev]"
+#
+# Note: this pattern is AWS-specific. GCP and Azure instances vary WHAT
+# is queried (project_id / subscription_id), not WHO asks — they share
+# one ambient identity — so a "multi-subscription" variant is not
+# symmetric with this one.
+# ---------------------------------------------------------------------

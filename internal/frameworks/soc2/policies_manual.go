@@ -97,7 +97,19 @@ func manualSpecs() []manualPolicy {
 		// CC9 — Vendor / third-party risk.
 		{id: "soc2.cc9.1.vendor_risk_assessment", control: "CC9.1", cadence: cadenceAnnual, catalog: "vendor_risk_assessment", desc: "Third-party / vendor risk is assessed.", rem: "Upload the vendor risk assessment.", tsc: tscSecurity},
 		{id: "soc2.cc9.1.due_diligence_process", control: "CC9.1", cadence: cadenceAnnual, catalog: "due_diligence_process", desc: "A vendor due-diligence process is documented.", rem: "Upload the vendor due-diligence process.", tsc: tscSecurity},
-		{id: "soc2.cc9.2.vendor_contracts_reviewed", control: ctrlCC92, cadence: cadenceAnnual, catalog: "vendor_contracts_reviewed", desc: "Vendor contracts include security clauses.", rem: "Upload reviewed vendor contracts with security clauses.", tsc: tscSecurity},
+		// Fans out for the same reason vendor_assurance does: a contract
+		// is a per-relationship artifact. Each vendor has its own, an
+		// auditor samples them per vendor, and one consolidated PDF
+		// cannot show that the vendor you were asked about is covered.
+		{id: "soc2.cc9.2.vendor_contracts_reviewed", control: ctrlCC92, cadence: cadenceAnnual, catalog: "vendor_contracts_reviewed", fanOut: manual.FanOutVendors, name: "Vendor Contracts Reviewed", desc: "Each vendor in the third-party register has a reviewed contract with security clauses on file.", rem: "For each vendor, upload the current contract (or the reviewed security addendum / DPA) showing its security clauses into that vendor's folder.", tsc: tscSecurity},
+		// Deliberately flat, unlike its neighbors. The lifecycle
+		// artifact is the documented procedure — how a third party is
+		// onboarded and, critically, how its access and data are
+		// removed when the relationship ends. It cannot fan out over
+		// the register: a terminated vendor is by definition one you
+		// delete from the register, so a per-member folder set can
+		// never hold evidence for the vendor that actually left.
+		{id: "soc2.cc9.2.vendor_lifecycle_process", control: ctrlCC92, cadence: cadenceAnnual, catalog: "vendor_lifecycle_process", name: "Vendor Onboarding and Termination Process", desc: "A documented process governs vendor onboarding and termination, including revoking access and returning or destroying data.", rem: "Upload the vendor onboarding/termination procedure, plus records for any third party onboarded or terminated during the period showing access was revoked and data returned or destroyed.", tsc: tscSecurity},
 		// Fans out over the project's third-party register: one folder
 		// per vendor, so "we have a vendor assessment" becomes "we have
 		// one for each vendor that needs it". Without a register

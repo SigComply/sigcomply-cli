@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Called by auto-release.yml so a release is gated on this suite.
+  # The push trigger stays: a docs-only push is path-ignored by
+  # auto-release and would otherwise run no tests at all, and
+  # TestDocFiguresMatchCode pins catalog counts into the docs.
+  workflow_call:
 
 permissions:
   contents: read

@@ -30,14 +30,17 @@ import (
 // rest.
 //
 // Config is the raw map from cfg.Sources[id] in the project YAML.
-// Vault is the active core.Vault (some plugins, like manual.pdf, need
-// it to fetch attachments). FrameworkExtras is an escape hatch for
-// data that is framework-specific rather than project-specific (e.g.,
-// the manual catalog the active framework provides); a key/value
-// convention is documented in each consuming source's package doc.
+// FrameworkExtras is an escape hatch for data that is
+// framework-specific rather than project-specific (e.g., the manual
+// catalog the active framework provides); a key/value convention is
+// documented in each consuming source's package doc.
+//
+// There is deliberately no Vault field. manual.pdf reads its own
+// backend/bucket/prefix block — the evidence bucket is a project-level
+// singleton configured apart from vault:, so a plugin that needs
+// storage configures it rather than borrowing the run's vault.
 type Env struct {
 	Config          map[string]any
-	Vault           core.Vault
 	FrameworkExtras map[string]any
 }
 

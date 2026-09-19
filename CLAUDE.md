@@ -106,8 +106,12 @@ the rules below are the summary.
   launch; `CONTRIBUTING.md` and the PR template already govern external
   contributions). No backward-compat/backfill burden for local state, but
   cross-repo contracts (Inv #1) still stay in lockstep.
-- **A push to `main` auto-cuts a release.** `auto-release.yml` runs on every
-  push, bumps the version from your commit's conventional-commit prefix
+- **A push to `main` auto-cuts a release — if the tests pass.**
+  `auto-release.yml` calls `test.yml` (`workflow_call`) and waits for it
+  before tagging; it used to race it on the same push, and the E2E repos
+  resolve `releases/latest` at run time, so a red push reached them
+  immediately. It then bumps the version from your commit's
+  conventional-commit prefix
   (`feat`→minor, `fix`/`refactor`/`perf`→patch, `BREAKING CHANGE` in the
   body→major), tags, and runs GoReleaser to publish binaries to GitHub
   Releases. The commit *type* is therefore load-bearing, not cosmetic.
@@ -406,6 +410,10 @@ the patterns to catch in review.
 - **HIPAA isn't a thing yet.** No HIPAA examples in docs, no HIPAA
   defaults in code paths — it's a stub string in `config.go` that fails
   at runtime.
+- **`sources.Env` has two fields: `Config` and `FrameworkExtras`.** There
+  is no `Vault` field — a plugin that needs storage configures its own
+  backend the way `manual.pdf` does. One was declared and never read;
+  don't reintroduce it.
 - **A source factory must resolve its credentials, not just build a
   client.** `sources:` is the operator's declaration of what the project
   audits, so a listed source whose credentials are missing is a *config*

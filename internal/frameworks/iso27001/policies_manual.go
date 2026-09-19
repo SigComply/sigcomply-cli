@@ -106,7 +106,16 @@ func organizationalManualSpecs() []manualPolicy {
 		// question — ongoing service-delivery review, not the standing
 		// assurance each relationship rests on.
 		{id: "iso27001.5.19.supplier_assurance", control: ctrlSupplierRelationships, cadence: cadenceAnnual, catalog: "supplier_assurance", fanOut: manual.FanOutVendors, name: "Supplier Assurance Evidence", desc: "Each supplier in the third-party register has current assurance evidence on file.", rem: "For each supplier, upload their current ISO 27001 certificate, SOC 2 Type II report, penetration-test summary, or completed security questionnaire into that supplier's folder."},
-		{id: "iso27001.5.20.supplier_security_agreements", control: "A.5.20", cadence: cadenceAnnual, catalog: "supplier_security_agreements", desc: "Supplier agreements address information security.", rem: "Upload supplier agreements with security clauses."},
+		// Fans out for the same reason supplier_assurance does: an
+		// agreement is a per-relationship artifact, sampled per
+		// supplier.
+		{id: "iso27001.5.20.supplier_security_agreements", control: "A.5.20", cadence: cadenceAnnual, catalog: "supplier_security_agreements", fanOut: manual.FanOutVendors, name: "Supplier Security Agreements", desc: "Each supplier in the third-party register has an agreement addressing information security on file.", rem: "For each supplier, upload the current agreement (or its security addendum / DPA) showing the information-security clauses into that supplier's folder."},
+		// Deliberately flat: A.5.19's lifecycle half. A terminated
+		// supplier is one you remove from the register, so a fan-out
+		// over the current register can never carry evidence for the
+		// relationship that ended. The artifact is the procedure plus
+		// the period's onboarding/termination records.
+		{id: "iso27001.5.19.supplier_lifecycle_process", control: ctrlSupplierRelationships, cadence: cadenceAnnual, catalog: "supplier_lifecycle_process", name: "Supplier Onboarding and Termination Process", desc: "A documented process governs supplier onboarding and termination, including revoking access and returning or destroying information.", rem: "Upload the supplier onboarding/termination procedure, plus records for any supplier onboarded or terminated during the period showing access was revoked and information returned or destroyed (A.5.19; see also A.5.11 asset return)."},
 		{id: "iso27001.5.21.ict_supply_chain_security", control: "A.5.21", cadence: cadenceAnnual, catalog: "ict_supply_chain_security", desc: "Information security is managed across the ICT supply chain.", rem: "Upload the ICT supply chain security policy."},
 		{id: "iso27001.5.22.supplier_service_monitoring", control: "A.5.22", cadence: cadenceAnnual, catalog: "supplier_service_monitoring", desc: "Supplier service delivery is monitored.", rem: "Upload supplier service monitoring evidence."},
 		{id: "iso27001.5.23.cloud_services_security", control: "A.5.23", cadence: cadenceAnnual, catalog: "cloud_services_security", desc: "Information security requirements for the use of cloud services are defined.", rem: "Upload the cloud services security policy."},

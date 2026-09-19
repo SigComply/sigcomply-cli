@@ -147,7 +147,7 @@ func Evaluate(in *Input) *Report {
 		return &Report{Status: StatusUndeclared, PoliciesUnbound: unbound}
 	}
 
-	bound := boundSources(in.Plan)
+	bound := BoundSources(in.Plan)
 	producing := producingSources(in.RecordsByPolicy)
 
 	rep := &Report{
@@ -185,9 +185,10 @@ func classify(id string, configured map[string]map[string]any, bound, producing 
 	return SourceOK
 }
 
-// boundSources is the set of source IDs the planner actually bound to at
-// least one slot.
-func boundSources(plan *planner.RunPlan) map[string]struct{} {
+// BoundSources is the set of source IDs the planner actually bound to at
+// least one slot. Exported because the orchestrator warns about
+// configured sources missing from it, independently of experimental.scope.
+func BoundSources(plan *planner.RunPlan) map[string]struct{} {
 	out := map[string]struct{}{}
 	if plan == nil {
 		return out

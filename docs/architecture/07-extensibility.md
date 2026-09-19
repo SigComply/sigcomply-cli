@@ -384,8 +384,10 @@ The `SourcePlugin` interface (`internal/core/source.go`) is `ID()`,
 `Emits() []string`, `Init(ctx, cfg map[string]any) error`, and
 `Collect(ctx, req core.SlotRequest) ([]core.EvidenceRecord, error)`. The
 factory registered in `init()` takes an **`sources.Env`** struct (not a
-bare `map[string]any`): `Env{ Config map[string]any, Vault core.Vault,
-FrameworkExtras map[string]any }`.
+bare `map[string]any`): `Env{ Config map[string]any, FrameworkExtras
+map[string]any }`. There is deliberately no `Vault` field — a plugin
+that needs storage configures its own backend, the way `manual.pdf`
+does, rather than borrowing the run's evidence vault.
 
 ```go
 // .sigcomply/plugins/acme.internal_iam/plugin.go

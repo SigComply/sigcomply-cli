@@ -85,7 +85,7 @@ omitted (see the source tables below).
 | `gcp.scc` | `organization_id` | — | ADC — Security Command Center; **org-scoped**, needs org-level SCC IAM |
 | **`azure.*`** — ARM plane, all except `azure.entra` (`azure.storage`, `azure.sql`, `azure.network`, `azure.compute`, `azure.keyvault`, `azure.monitor`, `azure.defender`, `azure.acr`, `azure.aks`, `azure.cosmos`, `azure.backup`, `azure.certs`, `azure.policy`) | `subscription_id` | — | `DefaultAzureCredential` (env → managed identity → Azure CLI → OIDC federation) |
 | `azure.entra` | — | `tenant_id` | `DefaultAzureCredential` — Microsoft Graph plane (directory/tenant-scoped) |
-| `github` | `org` | — | `token` config key or `GITHUB_TOKEN` env |
+| `github` | `org` | `base_url` (GitHub Enterprise Server; default `https://api.github.com`) | `token` config key or `GITHUB_TOKEN` env |
 | `gitlab` | `group` | `base_url` (self-managed; default `https://gitlab.com`) | `token` config key or `GITLAB_TOKEN` env |
 | `okta` | `org_url` | — | `api_token` config key or `OKTA_API_TOKEN` env |
 | `active_directory` | `url`, `bind_dn` | `bind_password`, `token_env`, `base_dn`, `start_tls`, `ca_cert`, `tls_server_name`, `user_filter`, `page_size`, `timeout`, `service_account_ous` | `bind_password` config key → `token_env` (names an env var) → `SIGCOMPLY_AD_BIND_PASSWORD` env |
@@ -1382,6 +1382,7 @@ experimental:
         subservice: true            # optional: a SOC 2 subservice organization
         services: Production hosting
         assurance_period_end: "2026-03-31"   # optional, see below
+        providers: [aws]            # optional: configured sources this vendor supplies
 
       - id: zeta_news
         name: Zeta Newsletter
@@ -1389,6 +1390,14 @@ experimental:
         tier_rationale: Marketing email only; no customer data.  # required for low
         approved_by: ciso@example.com                            # required for low
 ```
+
+**`providers:`** names the configured sources this vendor supplies — a
+provider token (`aws`, `github`) or a full source ID (`aws.iam`). It exists so
+the register has something observable to be checked against: every source in
+your `sources:` block is itself a third party, so a configured source no entry
+claims produces a plan-time warning. Advisory only, never fatal, and it
+discovers nothing new — it reads the sources you already declared. Optional: a
+vendor that supplies no configured source leaves it empty.
 
 **Tier decides which artifact is owed, never whether one is owed.**
 `critical`/`high` owe independent assurance (SOC 2 Type II, ISO certificate,

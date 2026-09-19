@@ -69,7 +69,7 @@ List each source you want under `sources:` — the CLI does **not** auto-registe
 | `aws.*` | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_PROFILE`, `AWS_REGION`; or IAM role / OIDC | `region` (optional; falls back to vault region) |
 | `gcp.*` | ADC: `GOOGLE_APPLICATION_CREDENTIALS` or `gcloud auth application-default login` | `project_id` (or `customer_id`, `organization_id`) |
 | `azure.*` | `az login` / managed identity / `AZURE_*` service principal | `subscription_id` / `tenant_id` |
-| `github` | `GITHUB_TOKEN` (or config `token`) | `org` |
+| `github` | `GITHUB_TOKEN` (or config `token`) | `org` (optional `base_url`) |
 | `gitlab` | `GITLAB_TOKEN` (or config `token`) | `group` (optional `base_url`) |
 | `okta` | `OKTA_API_TOKEN` (or config `api_token`) | `org_url` |
 | `active_directory` | `SIGCOMPLY_AD_BIND_PASSWORD` (or config `bind_password`) | `url` (`ldaps://…`, or `ldap://…` with `start_tls: true`), `bind_dn` |

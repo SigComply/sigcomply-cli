@@ -516,18 +516,43 @@ func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 }
 
 func TestNewFromToken_ValidatesArgs(t *testing.T) {
-	if _, err := NewFromToken(context.Background(), "", testToken); err == nil {
+	if _, err := NewFromToken(context.Background(), "", testToken, ""); err == nil {
 		t.Error("want error for empty org")
 	}
-	if _, err := NewFromToken(context.Background(), testOrg, ""); err == nil {
+	if _, err := NewFromToken(context.Background(), testOrg, "", ""); err == nil {
 		t.Error("want error for empty token")
 	}
-	p, err := NewFromToken(context.Background(), testOrg, testToken)
+	p, err := NewFromToken(context.Background(), testOrg, testToken, "")
 	if err != nil {
 		t.Fatalf("NewFromToken: %v", err)
 	}
 	if p.ID() != SourceID {
 		t.Errorf("ID = %q", p.ID())
+	}
+}
+
+// A blank base_url must keep pointing at github.com; a GitHub Enterprise
+// Server URL must be used verbatim, minus any trailing slash (every call
+// site concatenates base + "/path").
+func TestNewFromToken_BaseURL(t *testing.T) {
+	const ghes = "https://ghe.example.com/api/v3"
+	cases := []struct{ in, want string }{
+		{"", defaultBaseURL},
+		{ghes, ghes},
+		{ghes + "/", ghes},
+	}
+	for _, c := range cases {
+		p, err := NewFromToken(context.Background(), testOrg, testToken, c.in)
+		if err != nil {
+			t.Fatalf("NewFromToken(%q): %v", c.in, err)
+		}
+		api, ok := p.api.(*httpAPI)
+		if !ok {
+			t.Fatalf("NewFromToken(%q): api is %T, want *httpAPI", c.in, p.api)
+		}
+		if api.base != c.want {
+			t.Errorf("base for %q = %q; want %q", c.in, api.base, c.want)
+		}
 	}
 }
 
