@@ -26,14 +26,14 @@ func organizationalAutomatedPolicies() []core.Policy {
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.5.3.no_broad_admin_bindings", control: "A.5.3", severity: core.SeverityHigh, category: catAccess, cadence: cadenceDaily,
-			accepts: []string{"iam_binding"},
+			accepts: []string{etIAMBinding},
 			desc:    "No individual user holds an unconditional broad-admin role (segregation of duties).",
 			rem:     "Grant admin roles to conditional group bindings, not directly to users.",
 			clause:  noneWhere(leaf("payload.principal_type", "eq", "user"), allOf(leaf("payload.is_broad_admin_role", "eq", true), leaf("payload.has_condition", "eq", false)), "user {{.payload.principal_id}} holds unconditional broad-admin role {{.payload.role}}"),
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.5.16.inactive_user_accounts", control: ctrlIdentityManagement, severity: core.SeverityMedium, category: catAccess, cadence: cadenceDaily,
-			accepts: []string{"directory_user.v2"},
+			accepts: []string{etDirectoryUserV2},
 			desc:    "No active user account has been unused for more than 90 days (identity management).",
 			rem:     "Disable accounts unused for more than 90 days; investigate never-logged-in accounts.",
 			// is_active is is_set-guarded because it is optional in
@@ -68,19 +68,19 @@ func organizationalAutomatedPolicies() []core.Policy {
 		// that directory still needs manual A.5.18 evidence.
 		rosterPolicy{
 			id: "iso27001.5.16.accounts_linked_to_roster", control: ctrlIdentityManagement, severity: core.SeverityHigh,
-			desc: "Every active human account in the bound identity sources (GitHub, GitLab, AWS IAM, …) belongs to a person in the designated roster directory, matched by email or a declared alias (identity management). " +
-				"Accounts in the roster directory itself are not checked. A person deleted from the roster directory drops out of the roster, so their remaining accounts are reported here.",
-			rem: "Remove accounts that belong to no one in the roster. Link an account whose email is absent or differs from the roster's with experimental.roster.aliases, and declare bots and deploy users in experimental.roster.non_human.",
+			desc: "Every active human identity in the bound sources — an account (GitHub, GitLab, AWS IAM, …) or a cloud IAM role granted to a principal — belongs to a person in the designated roster directory, matched by email or a declared alias (identity management). " +
+				"Accounts in the roster directory itself are not checked. A person deleted from the roster directory drops out of the roster, so their remaining accounts and grants are reported here.",
+			rem: "Remove the account, or revoke the role grant, for identities that belong to no one in the roster. Link one whose email is absent or differs from the roster's with experimental.roster.aliases, and declare bots and deploy users in experimental.roster.non_human.",
 			clause: allWhere(allOf(leaf("account.active", "eq", true), leaf("account.non_human", "eq", false)), inRoster(nil),
-				"account {{.account.ref}} is not linked to anyone in the roster"),
+				"identity {{.account.ref}} is not linked to anyone in the roster"),
 		}.policy(),
 		rosterPolicy{
 			id: "iso27001.5.18.no_active_accounts_for_inactive_personnel", control: ctrlAccessRights, severity: core.SeverityCritical,
-			desc: "No active account in the bound identity sources belongs to a person the designated roster directory marks inactive: suspended, disabled or deprovisioned (access rights). " +
+			desc: "No active account, and no cloud IAM role grant, in the bound sources belongs to a person the designated roster directory marks inactive: suspended, disabled or deprovisioned (access rights). " +
 				"This does not attest removal from the roster directory itself (keep providing manual evidence for that), and people deleted outright from the roster are reported by iso27001.5.16.accounts_linked_to_roster instead.",
-			rem: "Disable or remove the accounts of people who are inactive in the roster, in every system where they still have access.",
+			rem: "Disable or remove the accounts, and revoke the role grants, of people who are inactive in the roster, in every system where they still have access.",
 			clause: noneWhere(leaf("account.active", "eq", true), inRoster(leaf("payload.status", "eq", "inactive")),
-				"account {{.account.ref}} belongs to {{.account.key}}, who is inactive in the roster"),
+				"identity {{.account.ref}} belongs to {{.account.key}}, who is inactive in the roster"),
 		}.policy(),
 	}
 }

@@ -201,13 +201,13 @@ reach for the `rule:` escape hatch only for logic the DSL can't express.
    (`pass_when_validation_test.go` — declared slots, `matches_in` shape,
    slot roles). Run `make test`.
 
-### Two-slot roster policy (accounts checked against the roster)
+### Two-slot roster policy (identities checked against the roster)
 
-For an account-lifecycle check that compares accounts in every identity
+For an access-lifecycle check that compares identities in every other
 source against the designated roster (`experimental.roster.source`), use
 `rosterPolicy` in `builders.go` rather than `autoPolicy`. It declares the
 `roster` slot (`roster_entry`, `role: roster`, exactly-one, never
-auto-bound) and the `accounts` slot (`directory_user` family,
+auto-bound) and the `accounts` slot (`rosterSubjectTypes`,
 `role: roster_subject` — the planner excludes the roster source from it),
 and sets `identity_key: account.ref`, cadence `daily`, category `access`:
 
@@ -224,10 +224,20 @@ rosterPolicy{
 
 `inRoster(where)` narrows the roster side, e.g.
 `inRoster(leaf("payload.status", "eq", "inactive"))` with `noneWhere` for
-"no active account belongs to an inactive person". Filter and message on
+"no active identity belongs to an inactive person". Filter and message on
 the virtual `account.*` fields (`ref`, `key`, `linked_by`, `non_human`,
-`active`) so aliases, `non_human` declarations and AWS root are honored —
-not on raw `payload.email`. Spec: `03-policy-spec.md` §Multi-slot policies;
+`active`) so aliases, `non_human` declarations, AWS root and non-person
+IAM principals are honored — not on raw `payload.email`.
+
+**Widening what a roster policy sees is a slot edit, not a new policy.**
+`rosterSubjectTypes` carries the `directory_user` family plus
+`iam_binding`; a new identity shape joins by being added there and by
+`resolveAccount` learning to derive `account.key` from it. Do not add a
+parallel policy per evidence type: it fights the substitutability model,
+and — because a policy with no emitting source *skips*, and `statusRank`
+ranks `skip` worse than `pass` while `soaStatus` counts it as evaluated
+but not passed — it silently downgrades that control's coverage row and
+its Statement of Applicability entry for every estate lacking the source. Spec: `03-policy-spec.md` §Multi-slot policies;
 end-to-end test model: `internal/orchestrator/roster_e2e_test.go`.
 
 ---

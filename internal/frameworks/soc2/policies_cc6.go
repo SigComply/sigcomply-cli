@@ -390,19 +390,19 @@ func cc6RosterPolicies() []core.Policy {
 	return []core.Policy{
 		rosterPolicy{
 			id: "soc2.cc6.2.accounts_linked_to_roster", control: ctrlCC62, severity: core.SeverityHigh,
-			desc: "Every active human account in the bound identity sources (GitHub, GitLab, AWS IAM, …) belongs to a person in the designated roster directory, matched by email or a declared alias. " +
-				"Accounts in the roster directory itself are not checked. A person deleted from the roster directory drops out of the roster, so their remaining accounts are reported here.",
-			rem: "Remove accounts that belong to no one in the roster. Link an account whose email is absent or differs from the roster's with experimental.roster.aliases, and declare bots and deploy users in experimental.roster.non_human.",
+			desc: "Every active human identity in the bound sources — an account (GitHub, GitLab, AWS IAM, …) or a cloud IAM role granted to a principal — belongs to a person in the designated roster directory, matched by email or a declared alias. " +
+				"Accounts in the roster directory itself are not checked. A person deleted from the roster directory drops out of the roster, so their remaining accounts and grants are reported here.",
+			rem: "Remove the account, or revoke the role grant, for identities that belong to no one in the roster. Link one whose email is absent or differs from the roster's with experimental.roster.aliases, and declare bots and deploy users in experimental.roster.non_human.",
 			clause: allWhere(allOf(leaf("account.active", "eq", true), leaf("account.non_human", "eq", false)), inRoster(nil),
-				"account {{.account.ref}} is not linked to anyone in the roster"),
+				"identity {{.account.ref}} is not linked to anyone in the roster"),
 		}.policy(),
 		rosterPolicy{
 			id: "soc2.cc6.2.no_active_accounts_for_inactive_personnel", control: ctrlCC62, severity: core.SeverityCritical,
-			desc: "No active account in the bound identity sources belongs to a person the designated roster directory marks inactive (suspended, disabled or deprovisioned). " +
+			desc: "No active account, and no cloud IAM role grant, in the bound sources belongs to a person the designated roster directory marks inactive (suspended, disabled or deprovisioned). " +
 				"This does not attest removal from the roster directory itself (keep providing manual evidence for that), and people deleted outright from the roster are reported by soc2.cc6.2.accounts_linked_to_roster instead.",
-			rem: "Disable or remove the accounts of people who are inactive in the roster, in every system where they still have access.",
+			rem: "Disable or remove the accounts, and revoke the role grants, of people who are inactive in the roster, in every system where they still have access.",
 			clause: noneWhere(leaf("account.active", "eq", true), inRoster(leaf("payload.status", "eq", "inactive")),
-				"account {{.account.ref}} belongs to {{.account.key}}, who is inactive in the roster"),
+				"identity {{.account.ref}} belongs to {{.account.key}}, who is inactive in the roster"),
 		}.policy(),
 	}
 }

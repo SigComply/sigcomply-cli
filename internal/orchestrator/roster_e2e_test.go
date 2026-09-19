@@ -28,6 +28,9 @@ const (
 	sourceOkta   = "okta"
 	sourceGitHub = "github"
 
+	carlEmail       = "carl@acme.com"
+	keyRosterSource = "source"
+
 	// Evidence-record field names the roster policies read.
 	fieldEmail      = "email"
 	fieldUsername   = "username"
@@ -89,7 +92,7 @@ func rosterFakes(t *testing.T) (okta, github, aws *rosterFakeSource) {
 	okta = &rosterFakeSource{id: sourceOkta, records: []core.EvidenceRecord{
 		fakeRecord(t, sourceOkta, "roster_entry", map[string]any{"id": "p-jane", fieldEmail: "Jane@Acme.com", fieldStatus: "active"}),
 		fakeRecord(t, sourceOkta, "roster_entry", map[string]any{"id": "p-bob", fieldEmail: bobEmail, fieldStatus: "inactive"}),
-		fakeRecord(t, sourceOkta, "roster_entry", map[string]any{"id": "p-carl", fieldEmail: "carl@acme.com", fieldStatus: "pending"}),
+		fakeRecord(t, sourceOkta, "roster_entry", map[string]any{"id": "p-carl", fieldEmail: carlEmail, fieldStatus: "pending"}),
 		// Would fail the linked policy if the roster source were ever
 		// checked against itself.
 		fakeRecord(t, sourceOkta, "directory_user", map[string]any{"id": "00u-stray", fieldEmail: "stray@acme.com", fieldMFAEnabled: true}),
@@ -99,7 +102,7 @@ func rosterFakes(t *testing.T) (okta, github, aws *rosterFakeSource) {
 		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "102", fieldUsername: "bobby", fieldMFAEnabled: true}),                                             // alias → bob (inactive)
 		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "103", fieldUsername: "acme-ci-bot", fieldMFAEnabled: false}),                                      // non_human
 		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "104", fieldUsername: "mallory", fieldEmail: "mallory@example.com", fieldMFAEnabled: true}),        // unlinked
-		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "105", fieldUsername: "carl", fieldEmail: "carl@acme.com", fieldMFAEnabled: true}),                 // pending person
+		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "105", fieldUsername: "carl", fieldEmail: carlEmail, fieldMFAEnabled: true}),                       // pending person
 		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "106", fieldUsername: "bob-old", fieldEmail: bobEmail, fieldMFAEnabled: true, "is_active": false}), // disabled
 	}}
 	aws = &rosterFakeSource{id: "aws.iam", records: []core.EvidenceRecord{
@@ -166,9 +169,9 @@ func readPolicyResult(t *testing.T, v core.Vault, runRoot, policyID string) core
 func TestE2E_RosterPolicies(t *testing.T) {
 	okta, github, aws := rosterFakes(t)
 	res, stdout, v, err := runRosterCheck(t, map[string]any{slotRoster: map[string]any{
-		"source":    sourceOkta,
-		"aliases":   map[string]any{sourceGitHub: map[string]any{"jdoe": "jane@acme.com", "bobby": bobEmail}},
-		"non_human": map[string]any{sourceGitHub: []any{"acme-ci-bot"}},
+		keyRosterSource: sourceOkta,
+		"aliases":       map[string]any{sourceGitHub: map[string]any{"jdoe": "jane@acme.com", "bobby": bobEmail}},
+		"non_human":     map[string]any{sourceGitHub: []any{"acme-ci-bot"}},
 	}}, okta, github, aws)
 	if err != nil {
 		t.Fatalf("Run: %v\n%s", err, stdout)
@@ -182,11 +185,11 @@ func TestE2E_RosterPolicies(t *testing.T) {
 	const accounts = 8
 
 	assertRosterFailure(t, v, res.RunRoot, linkedPolicy, accounts, map[string]string{
-		"aws.iam/AIDANOEMAIL": "account aws.iam/AIDANOEMAIL is not linked to anyone in the roster",
-		"github/104":          "account github/104 is not linked to anyone in the roster",
+		"aws.iam/AIDANOEMAIL": "identity aws.iam/AIDANOEMAIL is not linked to anyone in the roster",
+		"github/104":          "identity github/104 is not linked to anyone in the roster",
 	})
 	assertRosterFailure(t, v, res.RunRoot, inactivePolicy, accounts, map[string]string{
-		"github/102": "account github/102 belongs to bob@acme.com, who is inactive in the roster",
+		"github/102": "identity github/102 belongs to bob@acme.com, who is inactive in the roster",
 	})
 
 	for _, s := range []*rosterFakeSource{okta, github, aws} {
@@ -229,7 +232,7 @@ func TestE2E_RosterPolicies_SkipWithoutDesignatedRoster(t *testing.T) {
 // error (exit 3), not a silent skip.
 func TestE2E_RosterPolicies_UnconfiguredRosterSource(t *testing.T) {
 	_, github, aws := rosterFakes(t)
-	res, _, _, err := runRosterCheck(t, map[string]any{slotRoster: map[string]any{"source": sourceOkta}}, github, aws)
+	res, _, _, err := runRosterCheck(t, map[string]any{slotRoster: map[string]any{keyRosterSource: sourceOkta}}, github, aws)
 	if err == nil || res.ExitCode != orchestrator.ExitConfig {
 		t.Fatalf("exit = %d err = %v; want exit %d with an error", res.ExitCode, err, orchestrator.ExitConfig)
 	}
@@ -256,4 +259,70 @@ func assertRosterFailure(t *testing.T, v core.Vault, runRoot, policyID string, e
 	if pr.ResourcesEvaluated != evaluated || pr.ResourcesFailed != len(want) {
 		t.Errorf("%s evaluated=%d failed=%d; want %d and %d", policyID, pr.ResourcesEvaluated, pr.ResourcesFailed, evaluated, len(want))
 	}
+}
+
+const sourceGCPIAM = "gcp.iam"
+
+// gcpIAMFake emits iam_binding records shaped the way gcp.iam does: the
+// record id names the grant ("<role>|<member>"), and the person — when
+// the principal is one — is in payload.principal_id. allUsers has no
+// colon in its member string, so its principal_type is "" (see
+// principalType in internal/sources/gcp/iam), which is why it stays in
+// the checked population rather than being inferred non-human.
+func gcpIAMFake(t *testing.T) *rosterFakeSource {
+	t.Helper()
+	bind := func(role, member, principalID, principalType string) core.EvidenceRecord {
+		return fakeRecord(t, sourceGCPIAM, "iam_binding", map[string]any{
+			"id": role + "|" + member, "role": role,
+			"principal_id": principalID, "principal_type": principalType,
+			"is_broad_admin_role": false, "has_condition": false,
+		})
+	}
+	return &rosterFakeSource{id: sourceGCPIAM, records: []core.EvidenceRecord{
+		bind("roles/owner", "user:Jane@Acme.com", "Jane@Acme.com", "user"),              // linked by principal
+		bind("roles/viewer", "user:bob@acme.com", bobEmail, "user"),                     // inactive in the roster
+		bind("roles/editor", "user:mallory@example.com", "mallory@example.com", "user"), // unlinked
+		bind("roles/viewer", "user:mallory@example.com", "mallory@example.com", "user"), // unlinked, second role
+		bind("roles/storage.admin", "user:c@personal.test", "c@personal.test", "user"),  // aliased → carl
+		bind("roles/owner", "serviceAccount:ci@p.iam.gserviceaccount.com", "ci@p.iam.gserviceaccount.com", "service_account"),
+		bind("roles/viewer", "group:eng@acme.com", "eng@acme.com", "group"),
+		bind("roles/viewer", "domain:partner.example", "partner.example", "domain"),
+		bind("roles/viewer", "allUsers", "allUsers", ""),
+	}}
+}
+
+// The roster join is type-agnostic: a cloud IAM grant is checked against
+// the roster exactly as an account is. This is the blind spot the
+// account side cannot see — a role held by a principal that was never an
+// account in any bound directory, which is how access outlives a
+// departure.
+func TestE2E_RosterPolicies_IAMGrants(t *testing.T) {
+	okta, _, _ := rosterFakes(t)
+	res, stdout, v, err := runRosterCheck(t, map[string]any{slotRoster: map[string]any{
+		keyRosterSource: sourceOkta,
+		"aliases":       map[string]any{sourceGCPIAM: map[string]any{"c@personal.test": carlEmail}},
+	}}, okta, gcpIAMFake(t))
+	if err != nil {
+		t.Fatalf("Run: %v\n%s", err, stdout)
+	}
+	if res.ExitCode != orchestrator.ExitViolation {
+		t.Errorf("exit = %d; want %d\n%s", res.ExitCode, orchestrator.ExitViolation, stdout)
+	}
+
+	// All 9 bindings are evaluated: the roster slot is a lookup table
+	// and never counts. Findings are per grant, because a grant is what
+	// you revoke — mallory's two roles are two revocations.
+	const grants = 9
+
+	assertRosterFailure(t, v, res.RunRoot, linkedPolicy, grants, map[string]string{
+		"gcp.iam/roles/editor|user:mallory@example.com": "identity gcp.iam/roles/editor|user:mallory@example.com is not linked to anyone in the roster",
+		"gcp.iam/roles/viewer|user:mallory@example.com": "identity gcp.iam/roles/viewer|user:mallory@example.com is not linked to anyone in the roster",
+		// A public grant names no person, so it can never link. The
+		// fail-safe on an unclassifiable principal_type is what keeps
+		// the most dangerous binding in GCP inside the population.
+		"gcp.iam/roles/viewer|allUsers": "identity gcp.iam/roles/viewer|allUsers is not linked to anyone in the roster",
+	})
+	assertRosterFailure(t, v, res.RunRoot, inactivePolicy, grants, map[string]string{
+		"gcp.iam/roles/viewer|user:bob@acme.com": "identity gcp.iam/roles/viewer|user:bob@acme.com belongs to bob@acme.com, who is inactive in the roster",
+	})
 }

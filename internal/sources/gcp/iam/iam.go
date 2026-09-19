@@ -158,9 +158,13 @@ const principalTypeUser = "user"
 
 // principalType maps a GCP member prefix to the cross-vendor
 // iam_binding principal_type enum (user, group, service_account).
-// Non-standard prefixes (domain, allUsers, allAuthenticatedUsers) pass
-// through unchanged — least-privilege policies filter on principal_type
-// == "user", so they simply don't match.
+// A non-standard prefix passes through unchanged, so "domain:acme.com"
+// becomes "domain". Note that allUsers and allAuthenticatedUsers carry
+// no colon, so memberType returns "" for them and this returns "" too —
+// they are not self-naming. Least-privilege policies filter on
+// principal_type == "user", so neither matches; the roster join instead
+// treats an unclassifiable principal as a person, which is what keeps a
+// public binding in the population rather than silently excusing it.
 func principalType(memberPrefix string) string {
 	switch memberPrefix {
 	case "serviceAccount":

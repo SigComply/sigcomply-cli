@@ -105,8 +105,9 @@ control like "MFA enforced on admins" or "object storage encrypted at rest" is
 satisfied identically by AWS, GCP, or Azure with zero policy changes — and adding
 a new source for an existing type needs no policy edits. Designate the directory
 that lists your people as the identity roster (`experimental.roster.source`) and
-the account-lifecycle checks verify every other system's accounts against it —
-see [docs/guides/identity-roster.md](docs/guides/identity-roster.md).
+the access-lifecycle checks verify every other system's accounts — and its cloud
+IAM role grants — against it. See
+[docs/guides/identity-roster.md](docs/guides/identity-roster.md).
 
 ## Commands
 

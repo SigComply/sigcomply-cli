@@ -46,7 +46,10 @@ const (
 	etAuditLogTrail           = "audit_log_trail"
 	etComputeInstance         = "compute_instance"
 	etFirewallRule            = "firewall_rule"
+	etDirectoryUser           = "directory_user"
+	etDirectoryUserV2         = "directory_user.v2"
 	etGitRepository           = "git_repository"
+	etIAMBinding              = "iam_binding"
 	etManagedDatabaseInstance = "managed_database_instance"
 	etObjectStorageBucket     = "object_storage_bucket"
 	etPullRequest             = "pull_request"
@@ -101,8 +104,19 @@ func (a autoPolicy) policy() core.Policy {
 	}
 }
 
-// rosterPolicy is the authoring shape for an account-lifecycle policy
-// that checks accounts in other systems against the designated roster
+// rosterSubjectTypes are the identity shapes a roster can vouch for: an
+// account in another system, or a cloud IAM role granted to a principal.
+//
+// Deliberately wider than directoryUserTypes rather than an extension of
+// it. The MFA and account-lifecycle policies that read directory_user
+// records ask questions a grant cannot answer — a binding has no MFA
+// state and no last-login — so widening the shared set would break them.
+// Only the roster join is type-agnostic, because "does this identity
+// belong to someone on the roster" is the same question either way.
+var rosterSubjectTypes = []string{etDirectoryUser, etDirectoryUserV2, etIAMBinding}
+
+// rosterPolicy is the authoring shape for an access-lifecycle policy
+// that checks identities in other systems against the designated roster
 // (experimental.roster.source). The roster slot is never auto-bound, and
 // the planner never binds the roster source to the accounts slot: a
 // directory cannot vouch for its own accounts.
@@ -122,14 +136,15 @@ func (r rosterPolicy) policy() core.Policy {
 		EvidenceMode: core.EvidenceModeAutomated,
 		Slots: map[string]core.Slot{
 			"roster":   {Accepts: []string{"roster_entry"}, Cardinality: core.SlotExactlyOne, Required: true, Role: core.SlotRoleRoster, Description: "people in the designated roster directory"},
-			"accounts": {Accepts: directoryUserTypes, Cardinality: core.SlotOneOrMore, Required: true, Role: core.SlotRoleRosterSubject, Description: "accounts in every other identity source"},
+			"accounts": {Accepts: rosterSubjectTypes, Cardinality: core.SlotOneOrMore, Required: true, Role: core.SlotRoleRosterSubject, Description: "accounts and cloud IAM grants in every other identity source"},
 		},
 		PassWhen: &core.PassWhenSpec{Clauses: []core.PassWhenClause{clause}},
 	}
 }
 
-// inRoster matches an account whose key (alias, else email) equals the
-// email of a roster entry satisfying where (nil: any entry).
+// inRoster matches an identity whose key (alias, else email, else IAM
+// principal) equals the email of a roster entry satisfying where
+// (nil: any entry).
 func inRoster(where *core.PassWhenCondition) *core.PassWhenCondition {
 	return &core.PassWhenCondition{Op: core.OpMatchesIn, Field: "account.key", InSlot: "roster", RemoteField: "payload.email", Normalize: core.NormalizeLowerTrim, Where: where}
 }

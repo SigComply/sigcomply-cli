@@ -34,7 +34,7 @@ func TestRosterPolicies_ShapeAndControls(t *testing.T) {
 		cadence: "daily", category: "access", mode: core.EvidenceModeAutomated,
 		slot: "accounts", identityKey: "account.ref", op: core.OpMatchesIn, in: "roster",
 		roster:   "roster|exactly-one|required|roster_entry",
-		accounts: "roster_subject|one-or-more|required|directory_user,directory_user.v2",
+		accounts: "roster_subject|one-or-more|required|directory_user,directory_user.v2,iam_binding",
 	}
 	linked, inactive := base, base
 	linked.control, linked.severity, linked.quantifier = "A.5.16", core.SeverityHigh, core.QuantifierAll

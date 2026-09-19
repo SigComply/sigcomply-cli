@@ -577,16 +577,26 @@ the roster without naming vendors:
 | Field | Value |
 |---|---|
 | `account.ref` | `source_id/id`. Unique across sources (GitHub `jdoe` and GitLab `jdoe` never collapse); use it as `identity_key` and as a waiver's `resource_id`. |
-| `account.key` | lower-trimmed alias, else `payload.email`, else `""`. |
-| `account.linked_by` | `alias` \| `email` \| `none`. |
-| `account.non_human` | listed in `experimental.roster.non_human[source_id]`, or `payload.is_root == true`. |
+| `account.key` | lower-trimmed alias, else `payload.email`, else `payload.principal_id`, else `""`. |
+| `account.linked_by` | `alias` \| `email` \| `principal` \| `none`. |
+| `account.non_human` | listed in `experimental.roster.non_human[source_id]`, `payload.is_root == true`, or a `payload.principal_type` naming something other than a person. |
 | `account.active` | `payload.is_active`; `true` when absent. |
 
-Aliases and `non_human` entries match the record's `id` or
-`payload.username`, case-insensitively, per source — never
-`display_name` (free-text names aren't unique). With no
+Aliases and `non_human` entries match the record's `id`,
+`payload.username` or `payload.principal_id`, case-insensitively, per
+source — never `display_name` (free-text names aren't unique). With no
 `experimental.roster` block, `account.key` is the lower-trimmed email and
 `account.non_human` is `payload.is_root`.
+
+`payload.principal_id` is what lets an IAM grant join the roster. An
+`iam_binding` record carries neither an email nor a username, and its id
+is `<role>|<member>` — the name of a grant, not of a person — so the
+principal is the only name in it an operator would recognise. Its
+`payload.principal_type` decides `account.non_human`: `user` is a person,
+and `service_account`, `group`, `domain` and `allUsers` are not, because
+no workforce directory lists them. An empty `principal_type` counts as a
+person on purpose — reporting a grant that can't be classified is
+fail-safe, dropping it silently is not.
 
 ### The `count` quantifier
 

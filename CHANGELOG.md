@@ -13,6 +13,18 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **The identity-roster check now covers cloud IAM grants, not just accounts.**
+  The roster policies' subject slot accepts `iam_binding` alongside the
+  `directory_user` family, so a GCP project role held by someone who was never
+  an account in any bound directory — a personal Google account, a partner-domain
+  user — is joined to the roster and reported like any other unlinked identity.
+  `account.key` falls back to `payload.principal_id`, so
+  `experimental.roster.aliases` and `non_human` work for `gcp.iam` principals;
+  service-account, group and domain principals are excluded automatically, while
+  an unclassifiable principal (`allUsers`) stays in the population on purpose.
+  No new policy and no new control: adding a source that emits `iam_binding`
+  widens what the existing checks see.
+
 - **GitHub Enterprise Server is reachable.** `sources.github` accepts an
   optional `base_url` (default `https://api.github.com`), mirroring the
   key GitLab already had for self-managed instances. Give the API root,

@@ -470,8 +470,9 @@ therefore ships under the hatch first and graduates later.
 
 `experimental.roster` follows the same path. It designates the one source
 whose people are the roster (`source`), plus per-source `aliases`
-(account → roster email) and `non_human` account lists; the planner
-reads it for policies with a roster slot. Shape errors and cross-checks —
+(identity → roster email, matched on the record's `id`, `username` or
+`principal_id`) and `non_human` account lists; the planner reads it for
+policies with a roster slot. Shape errors and cross-checks —
 `source` missing, bracketed, not configured, or emitting nothing a roster
 slot accepts; an `aliases` / `non_human` key that is not a configured
 source — fail the plan (exit 3), because a roster the operator named but

@@ -3,7 +3,7 @@ package iso27001
 import "github.com/sigcomply/sigcomply-cli/internal/core"
 
 // directoryUserTypes is the substitutability set for identity policies.
-var directoryUserTypes = []string{"directory_user", "directory_user.v2"}
+var directoryUserTypes = []string{etDirectoryUser, etDirectoryUserV2}
 
 // technologicalPolicies returns the Theme D (8.x) automated control
 // policies. ISO 27001 reuses the same evidence types as SOC 2 with
@@ -51,7 +51,7 @@ func techAccessPolicies() []core.Policy {
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.8.3.no_broad_admin_iam_bindings", control: ctrlAccessRestriction, severity: core.SeverityHigh, category: catAccess, cadence: cadenceDaily,
-			accepts: []string{"iam_binding"},
+			accepts: []string{etIAMBinding},
 			desc:    "No individual user holds an unconditional broad-admin role.",
 			rem:     "Grant admin roles to groups with conditions, not directly to users.",
 			clause:  noneWhere(leaf("payload.principal_type", "eq", "user"), allOf(leaf("payload.is_broad_admin_role", "eq", true), leaf("payload.has_condition", "eq", false)), "user {{.payload.principal_id}} holds unconditional broad-admin role {{.payload.role}}"),

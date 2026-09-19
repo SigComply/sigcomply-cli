@@ -1432,8 +1432,8 @@ single-folder manual entry — this is purely additive.
 #### `experimental.roster` — designating the identity roster
 
 Optional. Designates the one source that holds your organization's roster
-(the authoritative list of people) for the policies that check accounts in
-*other* systems against it (`soc2.cc6.2.accounts_linked_to_roster`,
+(the authoritative list of people) for the policies that check accounts and
+cloud IAM grants in *other* systems against it (`soc2.cc6.2.accounts_linked_to_roster`,
 `soc2.cc6.2.no_active_accounts_for_inactive_personnel`, and the ISO 27001
 A.5.16 / A.5.18 equivalents). Walkthrough:
 [Identity roster guide](guides/identity-roster.md).
@@ -1445,6 +1445,7 @@ experimental:
     aliases:                          # optional: account → roster email, per source
       github: { jdoe: jane@acme.com }
       aws.iam: { jane.doe: jane@acme.com }
+      gcp.iam: { c@personal.test: carl@acme.com }
     non_human:                        # optional: accounts that are not people
       github: [acme-ci-bot]
       aws.iam: [terraform-deployer]
@@ -1453,8 +1454,8 @@ experimental:
 | Key | Required | Meaning |
 |-----|----------|---------|
 | `source` | yes | One configured source ID (no `[instance]` suffix) that emits a type roster slots accept (`roster_entry`): `okta`, `azure.entra`, `gcp.directory`, or `active_directory`. |
-| `aliases` | no | `{source_id: {account: roster_email}}` for accounts with no email or a different one. Matched against the account's `id` or `username`, case-insensitively. |
-| `non_human` | no | `{source_id: [account, …]}` — bots, deploy users and other accounts that are not people. Matched the same way. |
+| `aliases` | no | `{source_id: {account: roster_email}}` for identities with no email or a different one. Matched against the record's `id`, `username` or — for a cloud IAM grant — `principal_id`, case-insensitively. |
+| `non_human` | no | `{source_id: [account, …]}` — bots, deploy users and other accounts that are not people. Matched the same way. Service-account, group and domain IAM principals are excluded automatically and need no entry. |
 
 **A directory cannot vouch for its own accounts.** Any source bound to a
 policy's roster slot is never bound to that policy's accounts slot. The

@@ -32,7 +32,7 @@ Task-focused recipes for a specific goal.
 |---|---|
 | [Install](guides/install.md) | Install the CLI (script or Go), pin a version, verify. |
 | [Configure sources](guides/configure-sources.md) | Declare sources and supply read-only credentials for AWS, GCP, Azure, GitHub, GitLab, Okta, Active Directory. |
-| [Identity roster](guides/identity-roster.md) | Designate the directory that lists your people (Okta, Entra ID, Google Workspace, Active Directory) and check every other system's accounts against it. |
+| [Identity roster](guides/identity-roster.md) | Designate the directory that lists your people (Okta, Entra ID, Google Workspace, Active Directory) and check every other system's accounts and cloud IAM grants against it. |
 | [CI on GitHub](guides/ci-github.md) | Scaffold and wire per-cadence GitHub Actions workflows with OIDC. |
 | [CI on GitLab](guides/ci-gitlab.md) | Scaffold `.gitlab-ci.yml`, pipeline schedules, and OIDC (incl. the id-token caveat). |
 | [Manual evidence](guides/manual-evidence.md) | Upload PDF/image evidence to a bucket folder and consume it from a policy. |

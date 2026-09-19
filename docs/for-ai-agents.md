@@ -58,7 +58,7 @@ Key rules:
 
 - The framework key is **singular**: `framework:` — never `frameworks:`.
 - Policies **auto-bind** to any configured source that emits the evidence type they need. You do **not** need a `bindings:` block to start.
-- If you ever must override a binding, key it on the policy's real slot name and a real source id. Almost every shipped automated policy has one slot named `evidence`, e.g. `bindings: { evidence: [okta] }`. The exceptions are the identity-roster policies (`*.accounts_linked_to_roster`, `*.no_active_accounts_for_inactive_personnel`), whose slots are `roster` and `accounts`. Slot names like `user_directory` or `access_keys` **do not exist** and cause exit `3`.
+- If you ever must override a binding, key it on the policy's real slot name and a real source id. Almost every shipped automated policy has one slot named `evidence`, e.g. `bindings: { evidence: [okta] }`. The exceptions are the identity-roster policies (`*.accounts_linked_to_roster`, `*.no_active_accounts_for_inactive_personnel`), whose slots are `roster` and `accounts` (the `accounts` slot takes `directory_user`, `directory_user.v2` and `iam_binding`). Slot names like `user_directory` or `access_keys` **do not exist** and cause exit `3`.
 
 ## 4. Add sources and credentials
 

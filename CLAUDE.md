@@ -42,7 +42,12 @@ policy is an `autoPolicy{...}.policy()` builder under
 `internal/frameworks/<fw>/policies_*.go` carrying a declarative
 `pass_when:` clause (`all`/`allWhere`/`leaf`/`anyWhere`); the four
 identity-roster policies use `rosterPolicy{...}` — two slots (`roster`,
-`accounts`) joined by the `matches_in` operator. As of the
+`accounts`) joined by the `matches_in` operator. The `accounts` slot
+accepts `rosterSubjectTypes` (the `directory_user` family **plus**
+`iam_binding`), not `directoryUserTypes`: the roster join is the one
+identity question a cloud IAM grant can answer, while the MFA and
+lifecycle policies that read `directory_user` cannot be asked of a
+grant. Widen `rosterSubjectTypes`, never `directoryUserTypes`. As of the
 security_alert reconception, **no shipped policy uses the `rule:` escape
 hatch** — both SOC 2 and ISO 27001 are 100% `pass_when:` (each
 framework's `Rules()` returns nil). The escape-hatch infrastructure

@@ -112,12 +112,12 @@ Explicitly binding the roster source to the same policy's `accounts` slot is a c
 
 ## The policies
 
-Each framework ships two roster policies. Both run daily and on push, and both skip until a roster is designated.
+Each framework ships two roster policies. Both run daily and on push, and both skip until a roster is designated. Both check **accounts and cloud IAM grants** — see [Accounts and grants](#accounts-and-grants) below.
 
 | Framework | Policy | Severity | Asserts |
 |---|---|---|---|
-| SOC 2 | `soc2.cc6.2.accounts_linked_to_roster` | high | Every active human account belongs to someone in the roster. |
-| SOC 2 | `soc2.cc6.2.no_active_accounts_for_inactive_personnel` | critical | No active account belongs to someone the roster marks inactive. |
+| SOC 2 | `soc2.cc6.2.accounts_linked_to_roster` | high | Every active human identity — account or IAM grant — belongs to someone in the roster. |
+| SOC 2 | `soc2.cc6.2.no_active_accounts_for_inactive_personnel` | critical | No active identity belongs to someone the roster marks inactive. |
 | ISO 27001 | `iso27001.5.16.accounts_linked_to_roster` | high | Same as the SOC 2 linked check (A.5.16 identity management). |
 | ISO 27001 | `iso27001.5.18.no_active_accounts_for_inactive_personnel` | critical | Same as the SOC 2 inactive check (A.5.18 access rights). |
 
@@ -127,16 +127,44 @@ Each framework ships two roster policies. Both run daily and on push, and both s
 
 A person who is `pending` (provisioned but not yet able to sign in, such as a new joiner in Okta's STAGED state) counts as linked and isn't treated as inactive.
 
+### Accounts and grants
+
+The roster slot accepts two shapes of identity, and asks both the same question:
+
+| Shape | Evidence type | Emitted by | Joins on |
+|---|---|---|---|
+| An account in another system | `directory_user`, `directory_user.v2` | GitHub, GitLab, AWS IAM, Okta, Entra, Workspace, AD | alias, else `email` |
+| A cloud IAM role granted to a principal | `iam_binding` | `gcp.iam` | alias, else `principal_id` |
+
+Both are checked by the *same two policies* — there is no separate grant policy. Adding a source that emits `iam_binding` widens what the existing checks see; it adds no new control, no new obligation, and nothing skips for a project that has no such source.
+
+This matters because the two shapes hide different things. A cloud role can be granted to a principal that was never an account in any directory you collect — a personal Google account, a user from a partner's domain. It appears in no `directory_user` record, so an account-only check gives a clean run while an ex-contractor still holds `roles/storage.admin`. The binding itself is the evidence.
+
+**Findings are per grant, not per person.** Someone holding three unlinked roles is three findings, because three grants have to be revoked.
+
+**Which principals are checked.** Only those the roster could plausibly vouch for:
+
+| Principal | `principal_type` | Checked? |
+|---|---|---|
+| `user:someone@…` | `user` | yes |
+| `serviceAccount:…` | `service_account` | no — non-human by construction |
+| `group:…` | `group` | no — see Limits |
+| `domain:acme.com` | `domain` | no — names a domain, not a person |
+| `allUsers`, `allAuthenticatedUsers` | `""` | **yes** — see below |
+
+`allUsers` carries no prefix, so its `principal_type` is empty. An unclassifiable principal counts as a person on purpose: it can never match a roster entry, so it is reported. Dropping the most dangerous binding in GCP because its type was unrecognised is the failure mode worth avoiding.
+
 ### Reading violations
 
-Violations name the account as `source_id/id`, called the **account ref**:
+Violations name the identity as `source_id/id`, called the **account ref**:
 
 ```
-account github/octo-sam is not linked to anyone in the roster
-account aws.iam/AIDAEXAMPLE0000000000 belongs to sam@acme.com, who is inactive in the roster
+identity github/octo-sam is not linked to anyone in the roster
+identity aws.iam/AIDAEXAMPLE0000000000 belongs to sam@acme.com, who is inactive in the roster
+identity gcp.iam/roles/editor|user:sam@personal.test is not linked to anyone in the roster
 ```
 
-The ref is unique across sources, so GitHub `jdoe` and GitLab `jdoe` are reported separately. For `aws.iam` the id is the IAM `UserId`, not the user name. The full violation list lives in your vault. The Cloud dashboard sees only the counts.
+The ref is unique across sources, so GitHub `jdoe` and GitLab `jdoe` are reported separately. For `aws.iam` the id is the IAM `UserId`, not the user name. For `gcp.iam` the id is the grant — `<role>|<member>` — so the same person appears once per role they hold. The full violation list lives in your vault. The Cloud dashboard sees only the counts.
 
 For each violation, either fix the account (remove it, or disable it where the person left) or fix the link (add an alias or a `non_human` entry). To accept a finding for a while, waive it with the account ref as `resource_id`:
 
@@ -150,6 +178,10 @@ policies:
         approved_by: ciso@acme.com
         expires_at: 2026-12-31
 ```
+
+### A Workspace roster still checks GCP grants
+
+"A directory cannot vouch for its own accounts" is enforced per **source ID**, and `gcp.directory` (Google Workspace, which emits the roster) and `gcp.iam` (project IAM bindings) are different sources. So designating Workspace as your roster excludes only its own `directory_user` records — your GCP IAM grants are still checked against it. That is the intended asymmetry: Workspace saying "Jane is an employee" is exactly what should vouch for Jane holding `roles/editor`.
 
 ### Deleted vs. inactive people
 
@@ -165,7 +197,9 @@ So **waiving an unlinked account on the linked policy can hide a leaver** whose 
 - **No HR system.** The roster is a directory, not an HRIS (BambooHR, Workday, …). If your directory isn't kept in step with HR, the check is only as good as the directory.
 - **Current state only.** Each run checks accounts as they are now. It doesn't measure how quickly an account was removed after a departure (for example "within 24 hours"). Keep that evidence manually.
 - **One roster source, no instances.** A bracketed source (`"okta[emea]"`) can't be the roster, and two rosters can't be merged.
-- **Email is the join key.** A roster entry with no email can't vouch for any account (fail-safe), and an account with neither email nor alias is always unlinked.
+- **Email is the join key.** A roster entry with no email can't vouch for any account (fail-safe), and an identity with neither email nor alias is always unlinked. For an IAM grant the join uses `principal_id`, which for a `user:` member is already an email.
+- **Group grants are opaque.** A role granted to a group is not checked, and the CLI does not enumerate group membership — so access held *through* a group is outside this check. Review group membership separately.
+- **GCP only, for now.** `iam_binding` is emitted by `gcp.iam` alone. AWS policy attachments and Azure role assignments are the same cross-vendor shape and would be picked up by these policies the day a plugin emits them — no policy change needed.
 - **Each roster policy collects its own evidence.** Nothing is cached between policies, so the roster directory is read once per roster policy in a run — for a large Active Directory, that is one full paged search per policy.
 - **Entra ID MFA policies still need P1/P2.** Reading the roster from `azure.entra` needs only `User.Read.All`. The MFA policies that bind the same source's `directory_user` records still need the Entra ID P1/P2 registration report.
 
@@ -185,6 +219,8 @@ So **waiving an unlinked account on the linked policy can hide a leaver** whose 
 | `cannot also feed the accounts checked against it` | A `bindings:` override puts the roster source on the `accounts` slot. Remove it. |
 
 **Every GitHub or AWS account is unlinked.** Those sources carry no email. Add `aliases` (see above).
+
+**A GCP IAM grant is unlinked but the person is in the roster.** The principal's address differs from their roster email (a personal or partner-domain account). Alias it under the `gcp.iam` source key: `aliases: { gcp.iam: { c@personal.test: carl@acme.com } }`.
 
 **A warning `ignoring unrecognized key experimental.roster.<key>`.** A typo in the block. Unknown keys are tolerated so newer configs load on older CLIs, but they do nothing.
 
