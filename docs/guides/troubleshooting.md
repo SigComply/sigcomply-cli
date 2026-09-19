@@ -115,6 +115,8 @@ state this check exists to refuse.
 Note the failure is deliberately *early*. Before, a missing credential
 surfaced at the first API call, after the collector had retried a
 permanent failure through its whole backoff budget, once per binding.
+A credential that resolves but is then *rejected* mid-collection is the
+neighbouring case below — it is also no longer retried.
 
 ### Wrong or under-permissioned credentials
 
@@ -131,6 +133,24 @@ are read-only.
 **Fix:** grant read-only access (e.g. `ReadOnlyAccess` or a scoped read
 policy for AWS). See [configure-sources.md](configure-sources.md) and
 [../configuration.md](../configuration.md).
+
+**You should see this fast.** The collector classifies a collection
+failure before deciding whether to retry it. A permanent rejection —
+`401`, `403`, `404`, `400`, an AWS `AccessDenied*` / `ExpiredToken*` /
+`UnauthorizedOperation`, an LDAP bind or ACL refusal — is reported after
+a *single* attempt, because the answer will not change. Only transient
+failures spend the retry budget: `429`, `408`, any `5xx`, AWS
+throttling codes, connection errors and timeouts.
+
+That budget is per binding and collection is sequential, so the
+distinction is the difference between a report in seconds and one after
+minutes of silence: on a PR run the policy is five attempts and roughly
+three minutes of sleep *per binding*, and a single mis-scoped credential
+hits every binding on that source. If a permission failure still seems
+to hang, it is a failure shape the classifier does not yet recognise —
+unrecognised errors are deliberately treated as retryable so that adding
+a classifier can only ever shorten a doomed loop, never cut short one
+that might have succeeded. Report it with the error text.
 
 ## Cloud submission
 

@@ -415,7 +415,10 @@ func (p *Plugin) periodWindow(req core.SlotRequest) (start, end time.Time) {
 // timeParam reads a time.Time slot parameter, returning the zero value
 // when missing or the wrong type. Slot params are map[string]any by
 // design. (Duplicated from internal/sources/manual per the plugin
-// KISS-no-DRY axiom — source plugins share no helper package.)
+// KISS-no-DRY axiom: plugins do not share vendor-neutral helpers.
+// The one shared thing is internal/sources/errors.go, because the
+// collector needs a single retry classification for every plugin —
+// see the note at the top of that file.)
 func timeParam(m map[string]any, key string) time.Time {
 	if v, ok := m[key].(time.Time); ok {
 		return v

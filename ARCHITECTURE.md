@@ -67,7 +67,8 @@ requires going back to the drawing board.
    The one exception, and its bounds: a scheduled run reads a small
    per-policy **state shard** from `{vault}/state/` — mutable, outside
    the Object-Locked evidence prefix — carrying `LastPassAt`,
-   `LastRunStatus`, `NextDueAt` and the policy content hash. It exists
+   `LastRunStatus`, `NextDueAt` and the policy content hash (which covers
+   the policy's `pass_when` logic, not just its wiring). It exists
    solely so the planner can answer "is this policy due?"
    (`planner.IsDue`) and emit a carry-forward result when it is not.
    Losing the whole `state/` tree is recoverable: the next run treats

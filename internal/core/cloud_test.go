@@ -323,7 +323,7 @@ func TestSubmissionPayload_JSONRoundTrip(t *testing.T) {
 	in := SubmissionPayload{
 		Schema:     "sigcomply.cloud.v4",
 		RunID:      "run-1",
-		Framework:  "soc2",
+		Framework:  testFrameworkSOC2,
 		PeriodID:   "2026-Q1",
 		CommitSHA:  "deadbeef",
 		CommitTime: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),

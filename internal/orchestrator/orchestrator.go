@@ -166,6 +166,10 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 		return Result{ExitCode: ExitExecution}, err
 	}
 
+	// Which roster keys actually met an account is only knowable once
+	// every policy has been evaluated, so the accumulator is allocated
+	// here and read after Evaluate returns.
+	rosterUsage := evaluator.NewRosterUsage()
 	results, err := evaluator.Evaluate(ctx, &evaluator.Input{
 		Plan:                  plan,
 		Rules:                 opts.Registries.Rules,
@@ -173,10 +177,12 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 		EnvelopesByPolicy:     collectOut.EnvelopesByPolicy,
 		CollectErrorsByPolicy: collectOut.CollectErrorsByPolicy,
 		Now:                   startedAt,
+		RosterUsage:           rosterUsage,
 	})
 	if err != nil {
 		return Result{ExitCode: ExitExecution}, fmt.Errorf("evaluate: %w", err)
 	}
+	emitRosterUsageWarnings(opts.Stdout, rosterUsage)
 
 	scopeReport := evaluateScope(opts, plan, collectOut.RecordsByPolicy)
 

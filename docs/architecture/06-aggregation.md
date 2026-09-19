@@ -124,7 +124,7 @@ type AggregatedPolicy struct {
     LastEvaluatedAt    *time.Time `json:"last_evaluated_at,omitempty"`      // most recent ACTUAL eval
     NextDueAt          *time.Time `json:"next_due_at,omitempty"`            // when cadence next elapses
     IsCarriedForward   bool       `json:"is_carried_forward,omitempty"`
-    PolicyContentHash  string     `json:"policy_content_hash,omitempty"`    // SHA-256(policy + schemas)
+    PolicyContentHash  string     `json:"policy_content_hash,omitempty"`    // SHA-256(policy incl. pass_when + schemas)
     EvidenceMode           EvidenceMode `json:"evidence_mode,omitempty"`            // "automated" | "manual"
     EvidenceModeOverridden bool         `json:"evidence_mode_overridden,omitempty"` // project changed it
     // LastEvaluatedAt / NextDueAt are pointers so omitempty drops a zero

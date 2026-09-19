@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
 
 // Evidence type IDs this plugin emits.
@@ -639,9 +640,18 @@ func (h *httpAPI) getJSON(ctx context.Context, path string, out any) (string, er
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
-			return "", fmt.Errorf("okta: %s: %s: %w", path, resp.Status, readErr)
+			return "", &sources.APIError{
+				Source:     SourceID,
+				StatusCode: resp.StatusCode,
+				Message:    fmt.Sprintf("%s: %s: %v", path, resp.Status, readErr),
+				Err:        readErr,
+			}
 		}
-		return "", fmt.Errorf("okta: %s: %s: %s", path, resp.Status, strings.TrimSpace(string(body)))
+		return "", &sources.APIError{
+			Source:     SourceID,
+			StatusCode: resp.StatusCode,
+			Message:    fmt.Sprintf("%s: %s: %s", path, resp.Status, strings.TrimSpace(string(body))),
+		}
 	}
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 		return "", fmt.Errorf("okta: decode %s: %w", path, err)

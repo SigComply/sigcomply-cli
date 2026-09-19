@@ -79,7 +79,7 @@ omitted (see the source tables below).
 
 | Source ID(s) | Required keys | Optional keys | Credential chain |
 |--------------|---------------|---------------|------------------|
-| **`aws.*`** — all 23 AWS sources (`aws.iam`, `aws.s3`, `aws.ec2`, `aws.rds`, `aws.kms`, `aws.cloudtrail`, `aws.config`, `aws.dynamodb`, `aws.ecr`, `aws.eks`, `aws.acm`, `aws.backup`, `aws.cloudwatch`, `aws.guardduty`, `aws.inspector`, `aws.lambda`, `aws.secretsmanager`, `aws.vpc`, `aws.iam_access_key`, `aws.password_policy`, `aws.security_alert`, `aws.security_group`, `aws.security_services`) | — | `region` | AWS SDK default chain (env → profile → IAM role → OIDC/IRSA); `region` falls back to `AWS_REGION` then the SDK default |
+| **`aws.*`** — all 24 AWS sources (`aws.iam`, `aws.identity_center`, `aws.s3`, `aws.ec2`, `aws.rds`, `aws.kms`, `aws.cloudtrail`, `aws.config`, `aws.dynamodb`, `aws.ecr`, `aws.eks`, `aws.acm`, `aws.backup`, `aws.cloudwatch`, `aws.guardduty`, `aws.inspector`, `aws.lambda`, `aws.secretsmanager`, `aws.vpc`, `aws.iam_access_key`, `aws.password_policy`, `aws.security_alert`, `aws.security_group`, `aws.security_services`) | — | `region`; `identity_store_id` (`aws.identity_center` only) | AWS SDK default chain (env → profile → IAM role → OIDC/IRSA); `region` falls back to `AWS_REGION` then the SDK default |
 | **`gcp.*`** — project-scoped (`gcp.compute`, `gcp.iam`, `gcp.sql`, `gcp.storage`, `gcp.firewall`, `gcp.network`, `gcp.kms`, `gcp.secretmanager`, `gcp.logging`, `gcp.audit`, `gcp.asset`, `gcp.artifactregistry`, `gcp.gke`, `gcp.firestore`, `gcp.backup`, `gcp.certs`) | `project_id` | — | Application Default Credentials (ADC) |
 | `gcp.directory` | — | `customer_id` (defaults to the `my_customer` alias), `target_service_account`, `impersonate_subject` (requires `target_service_account`) | ADC — Admin SDK Directory API; needs a Workspace-admin context (account/customer-scoped, **not** project-scoped) |
 | `gcp.scc` | `organization_id` | — | ADC — Security Command Center; **org-scoped**, needs org-level SCC IAM |
@@ -91,8 +91,9 @@ omitted (see the source tables below).
 | `active_directory` | `url`, `bind_dn` | `bind_password`, `token_env`, `base_dn`, `start_tls`, `ca_cert`, `tls_server_name`, `user_filter`, `page_size`, `timeout`, `service_account_ous` | `bind_password` config key → `token_env` (names an env var) → `SIGCOMPLY_AD_BIND_PASSWORD` env |
 | `manual.pdf` | per backend: `local`→ `path`; `s3`→ `bucket`, `region`; `gcs`→ `bucket`; `azure_blob`→ `account`, `container` | `backend` (default `local`), `prefix`, plus `endpoint` + `force_path_style` (on-prem `s3`) | the selected backend's own chain (matches `aws.*` / `gcp.*` / `azure.*`) |
 
-> The five AWS sources whose **source ID differs from their package
+> The six AWS sources whose **source ID differs from their package
 > directory** are `aws.iam_access_key` (dir `accesskeys`),
+> `aws.identity_center` (dir `identitycenter`),
 > `aws.password_policy` (dir `passwordpolicy`), `aws.security_alert` (dir
 > `securityalert`), `aws.security_group` (dir `securitygroups`), and
 > `aws.security_services` (dir `securityservices`). Use the dotted ID in
@@ -122,6 +123,33 @@ username). The source emits no email for IAM users, so for the
 [identity roster](guides/identity-roster.md) they link only through
 `experimental.roster.aliases` keyed by that username (or are declared in
 `non_human`); the root account is treated as non-human automatically.
+
+**If human access runs through IAM Identity Center (SSO), add
+`aws.identity_center` instead of aliasing IAM users.** Identity Center
+identities carry emails, so they join the roster directly and the
+`aws.iam:` alias block becomes unnecessary:
+
+```yaml
+sources:
+  aws.identity_center:
+    region: us-east-1
+    # identity_store_id: d-1234567890   # optional; discovered via
+    #                                   # sso-admin:ListInstances when omitted,
+    #                                   # required only if >1 instance is visible
+```
+
+It emits `directory_user` (v1) and `roster_entry` from one listing, and
+needs `identitystore:ListUsers` plus `sso:ListInstances`. Note the
+region must be the one the Identity Center instance lives in.
+
+> **Two honest gaps.** Identity Center publishes no per-user MFA
+> enrollment, so `mfa_enabled` is emitted best-effort `false` and
+> `soc2.cc6.1.mfa_enforced_all_users` will fail against this source. It
+> is `false` rather than `true` deliberately — a wrong answer that
+> *fails* a control is recoverable, one that passes it is not. `is_admin`
+> is omitted (it would need a permission-set traversal), which makes the
+> admin-MFA policy `error`. For both, bind those policies to the IdP that
+> actually holds the MFA state with a per-policy `bindings:` override.
 
 **Minimum IAM permissions required:**
 
@@ -1786,7 +1814,10 @@ sigcomply check --scheduled
 There is no `--policies` flag to force-run individual policies — scope is
 controlled by the cadence/`on_push` filter flags above plus the per-policy
 state shards. To force a re-evaluation of a specific policy, change its
-content (which busts the content-hash) or its cadence.
+content (which busts the content-hash) or its cadence. The hash covers
+the policy's `pass_when` logic as well as its wiring, so editing a
+clause, a threshold or an operator is enough — it no longer waits for
+the next cadence boundary.
 
 Per-policy state shards live at
 `{vault}/state/{framework}/policies/{policy_id}.json`. The shards

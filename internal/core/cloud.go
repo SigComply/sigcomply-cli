@@ -140,10 +140,12 @@ type AggregatedPolicy struct {
 	// evaluation rather than a fresh one in this run.
 	IsCarriedForward bool `json:"is_carried_forward,omitempty"`
 
-	// PolicyContentHash is the SHA-256 hash of the policy spec +
+	// PolicyContentHash is the SHA-256 hash of the canonicalized
+	// policy spec — including its full pass_when body — plus the
 	// referenced evidence-type schemas at this run. The cloud uses
 	// it to detect a bundle bump that may invalidate prior
-	// evaluations.
+	// evaluations. It is a digest of public policy text, never of
+	// evidence: it carries no identity.
 	PolicyContentHash string `json:"policy_content_hash,omitempty"`
 
 	// EvidenceMode is how this result was reached: "automated" (live

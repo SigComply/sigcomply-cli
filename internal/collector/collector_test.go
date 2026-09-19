@@ -11,6 +11,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/planner"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 	"github.com/sigcomply/sigcomply-cli/internal/sign"
+	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
 
 const (
@@ -18,6 +19,8 @@ const (
 	testTypeDirectoryUser = "directory_user"
 	testTypeSignedDoc     = "signed_document"
 	testRecordID          = "AID1"
+	testSourceOkta        = "okta"
+	testSourceGitHub      = "github"
 )
 
 // stubSource lets us drive Collect with canned records / errors.
@@ -155,12 +158,12 @@ func TestCollect_WritesSignedEnvelopePerSlotSource(t *testing.T) {
 func TestCollect_UnionsMultipleBindingsForOneSlot(t *testing.T) {
 	srcA := &stubSource{id: testSourceAWSIAM, emits: []string{testTypeDirectoryUser},
 		records: []core.EvidenceRecord{{Type: testTypeDirectoryUser, ID: testRecordID}}}
-	srcB := &stubSource{id: "okta", emits: []string{testTypeDirectoryUser},
+	srcB := &stubSource{id: testSourceOkta, emits: []string{testTypeDirectoryUser},
 		records: []core.EvidenceRecord{{Type: testTypeDirectoryUser, ID: "OKT1"}}}
 	reg := registry.NewSet()
 	mustRegister(t, reg.Sources.Register(srcA))
 	mustRegister(t, reg.Sources.Register(srcB))
-	pp := makePolicy("p1", "u", testTypeDirectoryUser, testSourceAWSIAM, "okta")
+	pp := makePolicy("p1", "u", testTypeDirectoryUser, testSourceAWSIAM, testSourceOkta)
 	vault := newMemVault()
 	out, err := Collect(context.Background(), &Input{
 		Plan: &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}}, Sources: reg.Sources, Vault: vault, RunRoot: "r",
@@ -310,4 +313,68 @@ func recordIDs(rs []core.EvidenceRecord) []string {
 		out[i] = rs[i].ID
 	}
 	return out
+}
+
+// TestCollect_TerminalSourceErrorIsNotRetried drives the real
+// plugin.Collect path with a RetryPolicy set — the rest of this file
+// leaves Input.RetryPolicy zero, so nothing else here exercises it.
+// A rejected credential must cost one call, not the whole budget.
+func TestCollect_TerminalSourceErrorIsNotRetried(t *testing.T) {
+	src := &stubSource{
+		id:    testSourceAWSIAM,
+		emits: []string{testTypeDirectoryUser},
+		err:   &sources.APIError{Source: testSourceGitHub, StatusCode: 403, Message: "403 Forbidden: insufficient scope"},
+	}
+	reg := registry.NewSet()
+	mustRegister(t, reg.Sources.Register(src))
+	pp := makePolicy("p1", "u", testTypeDirectoryUser, testSourceAWSIAM)
+
+	start := time.Now()
+	out, err := Collect(context.Background(), &Input{
+		Plan:    &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
+		Sources: reg.Sources, Vault: newMemVault(), RunRoot: "r",
+		// The most generous budget in the product: five attempts,
+		// ~8 minutes of sleep if the classification fails to fire.
+		RetryPolicy: RetryPR,
+	})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if out.CollectErrorsByPolicy["p1"] == nil {
+		t.Fatal("expected collect error tag")
+	}
+	if src.calls != 1 {
+		t.Errorf("Collect calls = %d; want 1 (403 must not be retried)", src.calls)
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Errorf("Collect took %v; a terminal error must not sleep the backoff", elapsed)
+	}
+}
+
+// TestCollect_RetryableSourceErrorUsesFullBudget is the other half of
+// the pair: a transient status still gets every attempt.
+func TestCollect_RetryableSourceErrorUsesFullBudget(t *testing.T) {
+	src := &stubSource{
+		id:    testSourceAWSIAM,
+		emits: []string{testTypeDirectoryUser},
+		err:   &sources.APIError{Source: testSourceOkta, StatusCode: 503, Message: "503 Service Unavailable"},
+	}
+	reg := registry.NewSet()
+	mustRegister(t, reg.Sources.Register(src))
+	pp := makePolicy("p1", "u", testTypeDirectoryUser, testSourceAWSIAM)
+
+	out, err := Collect(context.Background(), &Input{
+		Plan:    &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
+		Sources: reg.Sources, Vault: newMemVault(), RunRoot: "r",
+		RetryPolicy: RetryPolicy{MaxAttempts: 3, Backoff: []time.Duration{0, 0}},
+	})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if out.CollectErrorsByPolicy["p1"] == nil {
+		t.Fatal("expected collect error tag")
+	}
+	if src.calls != 3 {
+		t.Errorf("Collect calls = %d; want 3 (503 is transient)", src.calls)
+	}
 }

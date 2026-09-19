@@ -26,7 +26,8 @@ import (
 // at plan time. Used by PolicyContentHash so a schema bump
 // invalidates prior evaluations of every policy referencing the
 // bumped schema. Pass nil to disable schema-hash discrimination
-// (the policy-spec content still contributes to the hash).
+// (the policy-spec content — including the full pass_when body —
+// still contributes to the hash).
 type Input struct {
 	Config        *spec.ProjectConfig
 	Registries    *registry.Set
@@ -236,11 +237,13 @@ func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig) (Planned
 //  1. Explicit operator filter (--policies, --cadences, --on-push)
 //     → forced evaluation; cadence gating is bypassed entirely.
 //  2. PolicyStates absent (nil map) → no gating; evaluate.
-//  3. Content-hash mismatch → bundle update or schema bump invalidated
+//  3. Current content hash unavailable (empty) → the gate cannot prove
+//     the policy is unchanged, so it must not carry forward; evaluate.
+//  4. Content-hash mismatch → bundle update or schema bump invalidated
 //     prior evaluation; evaluate.
-//  4. Cadence elapsed via planner.IsDue (which also handles
+//  5. Cadence elapsed via planner.IsDue (which also handles
 //     on_fail_retry and first-run) → evaluate.
-//  5. Otherwise → carry forward; SkipReason explains why.
+//  6. Otherwise → carry forward; SkipReason explains why.
 func decideEvaluation(filter *Filter, cadence, contentHash string, prior *core.PolicyState, now time.Time) (shouldEvaluate bool, skipReason string) {
 	if filter.IsExplicit() {
 		return true, ""
@@ -248,7 +251,14 @@ func decideEvaluation(filter *Filter, cadence, contentHash string, prior *core.P
 	if prior == nil {
 		return true, ""
 	}
-	if contentHash != "" && prior.LastPolicyHash != "" && contentHash != prior.LastPolicyHash {
+	if contentHash == "" {
+		// core.PolicyContentHash could not canonicalize this policy.
+		// Fail closed: an unknown hash cannot establish that the
+		// policy is unchanged, and carrying forward on it would
+		// re-certify old evidence under a spec we cannot identify.
+		return true, "policy content hash unavailable; evaluating rather than carrying forward on an unverifiable spec"
+	}
+	if prior.LastPolicyHash != "" && contentHash != prior.LastPolicyHash {
 		return true, "policy bundle or referenced schema changed since last evaluation; content_hash mismatch"
 	}
 	if IsDue(cadence, prior, now) {

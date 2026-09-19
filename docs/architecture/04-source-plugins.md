@@ -139,7 +139,10 @@ appends every sub-credential whose constructor failed to the chain wrapped
 in an error reporter, so it never returns an error either. Without the
 eager step the operator learns nothing until the first API call — by which
 point the collector has retried a permanent failure through its whole
-backoff budget, per binding, sequentially. Both checks are memoized
+backoff budget, per binding, sequentially. (Retry classification has
+since made a *rejected* credential terminal too — but only a resolved
+credential can be rejected, so the eager check below is still what
+catches a missing one.) Both checks are memoized
 (per `awscfg.Options`, per Azure scope) so N plugins on one instance cost
 one resolution, neither caches a failure, and both are bounded by a 60s
 timeout so a blackholed credential endpoint cannot stall startup.
@@ -239,14 +242,14 @@ The matrix below is the authoritative at-a-glance view of which provider
 emits which cloud-neutral evidence type. A ✓ means at least one built-in
 plugin for that provider emits that type; because policies bind to the
 *type* and never to a vendor (Invariant #4), any ✓ in a row is fully
-substitutable for any other ✓ in the same row. **60 built-in plugins
-emit 31 distinct evidence types** (AWS 23 · GCP 18 · Azure 14 · GitHub 1 ·
+substitutable for any other ✓ in the same row. **61 built-in plugins
+emit 31 distinct evidence types** (AWS 24 · GCP 18 · Azure 14 · GitHub 1 ·
 GitLab 1 · Okta 1 · Active Directory 1 · Manual 1).
 
 | Evidence type | AWS | Azure | GCP | GitHub | GitLab | Okta | Active Directory | Manual |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | `directory_user` | ✓¹ | ✓ | ✓ | ✓ | ✓ | ✓ | | |
-| `roster_entry` | | ✓ | ✓ | | | ✓ | ✓ | |
+| `roster_entry` | ✓² | ✓ | ✓ | | | ✓ | ✓ | |
 | `iam_access_key` | ✓ | | | | | | | |
 | `iam_binding` | | | ✓ | | | | | |
 | `password_policy` | ✓ | | | | | | | |
@@ -277,25 +280,43 @@ GitLab 1 · Okta 1 · Active Directory 1 · Manual 1).
 | `deployment` | | | | ✓ | ✓ | | | |
 | `signed_document` | | | | | | | | ✓ |
 
-¹ AWS IAM emits the `directory_user.v2` schema variant of the
-`directory_user` type; the other five sources emit `directory_user`.
-Both satisfy a slot that accepts the directory-user family.
+¹ `aws.iam` emits the `directory_user.v2` schema variant of the
+`directory_user` type; the other six sources emit `directory_user`.
+Both satisfy a slot that accepts the directory-user family. Note the
+rule is about the *identities*, not the provider: `aws.identity_center`
+is an AWS source that emits v1, because v2's required `is_root` /
+`has_console_access` / `has_programmatic_access` describe an IAM
+account and have no honest analog for an SSO identity.
 
-Cross-cloud reach: 18 of the 31 types are emitted identically by all
-three major clouds (AWS + Azure + GCP), so the bulk of a SOC 2 / ISO
+² `aws.identity_center` is the only AWS emitter of `roster_entry`.
+It is a genuine roster candidate when Identity Center is the directory
+of record; when an upstream IdP (Okta, Entra) SCIM-syncs into it,
+designate the upstream IdP as the roster and use Identity Center as an
+account source — the emails line up and no `aliases` are needed.
+**Caveat:** Identity Center publishes no per-user MFA enrollment, so
+`mfa_enabled` is best-effort `false` and `soc2.cc6.1.mfa_enforced_all_users`
+will fail against it. Pin that policy's slot to the real IdP with a
+`bindings:` override. `is_admin` is omitted for the same reason, which
+makes the admin-MFA policy `error` — the sanctioned coverage-gap signal.
+
+Cross-cloud reach: 19 of the 31 types are emitted identically by all
+three major clouds (AWS + Azure + GCP) — `roster_entry` joined them when
+`aws.identity_center` shipped — so the bulk of a SOC 2 / ISO
 27001 estate is covered by one policy set regardless of provider.
 
 ### Per-plugin detail
 
 The table below gives the per-plugin emitted-type detail and modeling
 notes. GCP, Azure, source-control, and manual plugins are listed in full;
-the AWS rows are a representative slice (all 23 AWS plugins follow the
-same one-type-per-plugin pattern — consult each `Emits()` for the
-complete list).
+the AWS rows are a representative slice (consult each `Emits()` for the
+complete list of 24). Every AWS plugin but `aws.identity_center` emits a
+single type; that one emits two from a single listing, the way
+`gcp.directory` does.
 
 | Plugin ID | Emits (real type IDs) | Notes |
 |---|---|---|
 | `aws.iam` | `directory_user.v2` | One AWS account per instance. Multiple instances via separate config blocks. `username` ← IAM `UserName` (record id is the `UserId`; the synthetic root record has none). |
+| `aws.identity_center` | `directory_user`, `roster_entry` | AWS IAM Identity Center (SSO) via `identitystore:ListUsers`; `identity_store_id` is optional (discovered from `sso-admin:ListInstances`), `region` is the instance's region. Emits **v1, not v2** — an SSO identity has no root flag and no access keys, so the three v2-only IAM policies would pass trivially over it. `email` ← the primary `Emails[]` entry, which is the roster join key, so no `aliases` are needed; `is_active` ← `UserStatus`; `username` ← `UserName`. **`mfa_enabled` is best-effort `false`** (no public per-user MFA API) and **`is_admin` is omitted** (needs a permission-set traversal) — see the caveat below the table. `roster_entry` comes from the same listing: `status` ← `UserStatus` (fail-safe `inactive` on anything unrecognized), `employee_type` ← SCIM `UserType`. |
 | `aws.iam_access_key` | `iam_access_key` | |
 | `aws.s3` | `object_storage_bucket` | Same neutral type as `gcp.storage` and `azure.storage`. |
 | `aws.cloudtrail` | `audit_log_trail` | |
@@ -769,6 +790,17 @@ A plugin author must guarantee:
   `Init`, applied inside each `Collect`. Plugins MAY return an
   `error` after exhausting retries, which becomes `error` status on
   the consuming policies — not a silent partial-result.
+- **Classify the errors you return.** The collector's `withRetry`
+  decides whether to spend the backoff budget on an error, and it can
+  only do that if the error says so. Return a `*sources.APIError`
+  (or implement `Retryable() bool`) rather than flattening an HTTP
+  status into a formatted string: 429/5xx/timeouts are retryable,
+  401/403/404 and schema failures are terminal and must stop the
+  binding immediately. Errors from a typed SDK already work — they
+  are wrapped with `%w` and classified via `errors.As`, so most
+  plugins need no change. **An unclassified error is treated as
+  retryable**, so this is an obligation you can adopt incrementally
+  without breaking anything. See `internal/sources/errors.go`.
 
 ---
 

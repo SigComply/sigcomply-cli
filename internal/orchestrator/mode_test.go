@@ -32,6 +32,10 @@ const (
 	sourceGitHub = "github"
 	sourceAWSIAM = "aws.iam"
 
+	// testNameCIBot is the non_human account name the roster fixtures
+	// declare and the fake sources emit.
+	testNameCIBot = "acme-ci-bot"
+
 	// evidenceTypeDirectoryUser is the evidence type the fixture sources
 	// emit and the fixture policies accept.
 	evidenceTypeDirectoryUser = "directory_user"

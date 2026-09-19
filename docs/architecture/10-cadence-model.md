@@ -210,7 +210,7 @@ state, which is the correct outcome.
 ## The decision rule
 
 For each policy in the plan, the planner answers ShouldEvaluate. The
-logic is split across **two functions** — a five-branch outer gate
+logic is split across **two functions** — a six-branch outer gate
 (`planner.decideEvaluation`, `internal/planner/planner.go`) that
 delegates the cadence question to `planner.IsDue`
 (`internal/planner/cadence.go`). Read them together:
@@ -228,14 +228,20 @@ decideEvaluation(filter, cadence, contentHash, prior, now):
      or this is a genuine first run):
        → evaluate
 
-  3. content-hash mismatch (prior.LastPolicyHash != current hash):
+  3. current content hash is empty (PolicyContentHash could not
+     canonicalize the policy):
+       → evaluate
+       (Fail closed. An unknown hash cannot establish that the policy
+       is unchanged, so it must never license a carry-forward.)
+
+  4. content-hash mismatch (prior.LastPolicyHash != current hash):
        → evaluate
        (Bundle update or schema bump invalidated prior evaluation.)
 
-  4. IsDue(cadence, prior, now):
+  5. IsDue(cadence, prior, now):
        → evaluate
 
-  5. else:
+  6. else:
        → carry forward; SkipReason = DueReason(cadence, prior, now)
        → Status becomes StatusCarriedForward.
 ```
@@ -265,11 +271,52 @@ quarterly interval shows as `2159h0m0s`, not `89d23h`.)
 ### Content-hash invalidation
 
 `PolicyContentHash` is the SHA-256 of canonicalized
-(policy spec + referenced evidence-type schemas). When a bundle
-update or schema bump changes the hash, every affected policy
-becomes due regardless of cadence. The planner emits an info-level
-notice naming the count of newly-due policies so the customer is not
-surprised by a longer run.
+(policy spec + referenced evidence-type schemas). The canonical
+projection (`canonicalizePolicy`, `internal/core/policy_state.go`)
+covers:
+
+| Key | Source |
+|-----|--------|
+| `id` | `Policy.ID` |
+| `control` | primary `ControlRef.ControlID` |
+| `rule` | `Policy.RuleRef` (the escape hatch) |
+| `pass_when` | the whole `PassWhenSpec` tree |
+| `severity`, `cadence`, `on_push` | the scheduling/triage scalars |
+| `slots` | per slot: sorted `accepts`, cardinality, required, role |
+| `parameters` | per parameter: type + default |
+| `schemas` | the referenced evidence-type schema digests |
+
+**`pass_when` is the load-bearing entry.** Every shipped policy is
+`pass_when:`-driven and none uses the `rule:` escape hatch, so a
+projection that omitted it would be blind to essentially every real
+policy edit — changing an operator, a threshold, a filter or a clause's
+order would leave the hash identical, the gate would see no mismatch,
+and the policy would carry its old signed envelope forward until the
+next cadence boundary. The projection therefore descends the full
+expression tree: every clause (in order), its quantifier, slot,
+`violation_msg`, `identity_key` and `min_percentage`, and both its
+`condition` and `filter` down through nested `all_of`/`any_of`
+sub-conditions and the `matches_in` fields (`in_slot`, `remote_field`,
+`normalize`, `where`). Clause and sub-condition order is semantic and
+is never sorted; the map-valued parts (slots, parameters, schema
+digests) are flattened to sorted key/value pairs so marshaling is
+deterministic.
+
+The projection is built by hand, not by marshaling the Go structs:
+none of the `pass_when` types carry `json:` tags, so `encoding/json`
+would key on Go field names and a behavior-neutral field rename would
+silently rotate every policy's hash.
+
+When a bundle update or schema bump changes the hash, every affected
+policy becomes due regardless of cadence. The planner emits an
+info-level notice naming the count of newly-due policies so the
+customer is not surprised by a longer run.
+
+An empty hash is **not** a "no change" signal. `PolicyContentHash`
+returns `""` for a nil policy and for a policy it cannot marshal (a
+`pass_when` `value:` holding something JSON cannot represent); branch 3
+of the decision rule turns that into "evaluate" rather than letting it
+fall through to the cadence check.
 
 This is the structural guard against silently re-certifying old
 evidence with new rules.

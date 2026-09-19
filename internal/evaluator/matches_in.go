@@ -24,6 +24,10 @@ type evalCtx struct {
 	// index maps each matches_in condition to the normalized remote keys
 	// it matches against.
 	index map[*core.PassWhenCondition]map[string]struct{}
+	// usage is the run-scoped accumulator of roster keys that matched an
+	// account. Nil is a no-op: only `sigcomply check` cares, and only
+	// across the whole run — see RosterUsage.
+	usage *RosterUsage
 }
 
 func newEvalCtx(slots map[string][]core.EvidenceRecord, params map[string]any, roster *planner.RosterLink) *evalCtx {

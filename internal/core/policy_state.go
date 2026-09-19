@@ -102,17 +102,29 @@ func (p *PolicyState) IsFirstRun() bool {
 
 // PolicyContentHash computes the SHA-256 of a canonicalized policy
 // spec plus its referenced evidence-type schema digests. A change to
-// the policy YAML (rule reference, severity, slot accepts list,
-// parameters) or any referenced schema produces a different hash;
-// the planner treats hash mismatch with PolicyState.LastPolicyHash
-// as "due regardless of cadence" so a bundle update can never
-// silently re-certify old evidence with new rules.
+// any of the hashed fields — the policy's ID, primary control, rule
+// reference, **pass_when body** (every clause, quantifier, filter,
+// operator, field, value and threshold, in order), severity, cadence,
+// on_push flag, slot definitions or parameters — or to any referenced
+// schema produces a different hash; the planner treats hash mismatch
+// with PolicyState.LastPolicyHash as "due regardless of cadence" so a
+// bundle update can never silently re-certify old evidence with new
+// rules.
+//
+// pass_when is load-bearing here, not incidental: every shipped policy
+// is pass_when-driven and none uses the rule: escape hatch, so a hash
+// that omitted it would be blind to essentially every real policy edit.
 //
 // schemaDigests is a map keyed by evidence-type ID; values are the
 // digests of the corresponding JSON Schema as registered. An empty
 // map is acceptable (callers without schema-digest access pass nil)
 // — the hash will still discriminate policy-spec changes, just not
 // schema bumps.
+//
+// Returns "" for a nil policy, and for the one case a real policy can
+// fail to marshal: a pass_when Value holding something encoding/json
+// cannot represent. An empty hash is not a "no change" signal — the
+// planner must (and does) treat it as "evaluate".
 func PolicyContentHash(p *Policy, schemaDigests map[string]string) string {
 	if p == nil {
 		return ""
@@ -120,9 +132,10 @@ func PolicyContentHash(p *Policy, schemaDigests map[string]string) string {
 	canon := canonicalizePolicy(p, schemaDigests)
 	body, err := json.Marshal(canon)
 	if err != nil {
-		// json.Marshal on a hand-built canonical struct should not
-		// fail; if it does, return the empty hash and let the caller
-		// treat the policy as "due" defensively.
+		// Reachable only through a pass_when Value that encoding/json
+		// cannot represent (the rest of the projection is hand-built
+		// from strings and bools). Return the empty hash; the planner
+		// forces evaluation on it rather than comparing.
 		return ""
 	}
 	sum := sha256.Sum256(body)
@@ -173,11 +186,84 @@ func canonicalizePolicy(p *Policy, schemaDigests map[string]string) any {
 		"id":         p.ID,
 		"control":    PrimaryControlID(p.Controls),
 		"rule":       p.RuleRef,
+		"pass_when":  canonicalizePassWhen(p.PassWhen),
 		"severity":   string(p.Severity),
 		"cadence":    p.Cadence,
 		"on_push":    p.OnPush,
 		"slots":      sortedSlots,
 		"parameters": sortedParams,
 		"schemas":    sortedSchemas,
+	}
+}
+
+// canonicalizePassWhen projects a PassWhenSpec into a stable shape for
+// hashing. Nil spec → nil (marshaled as JSON null), so every policy's
+// projection carries the key whether or not it has a pass_when block.
+//
+// The projection is built by hand rather than marshaling PassWhenSpec
+// directly because none of the pass_when types carry `json:` tags:
+// encoding/json would key on Go field names, silently rotating every
+// policy's hash on a field rename that changes no behavior. The literal
+// key names below are the wire contract; rename a Go field freely, these
+// stay put.
+//
+// Clause order and sub-condition order are semantic (they decide which
+// slot is evaluated first and how a compound short-circuits), so lists
+// are never sorted.
+func canonicalizePassWhen(pw *PassWhenSpec) any {
+	if pw == nil {
+		return nil
+	}
+	clauses := make([]any, 0, len(pw.Clauses))
+	for i := range pw.Clauses {
+		c := &pw.Clauses[i]
+		// MinPercentage is emitted as a key always — null when unset —
+		// so "threshold removed" cannot canonicalize to the same bytes
+		// as "threshold absent from the start".
+		var minPct any
+		if c.MinPercentage != nil {
+			minPct = *c.MinPercentage
+		}
+		clauses = append(clauses, map[string]any{
+			"slot":           c.Slot,
+			"quantifier":     string(c.Quantifier),
+			"condition":      canonicalizeCondition(c.Condition),
+			"filter":         canonicalizeCondition(c.Filter),
+			"violation_msg":  c.ViolationMsg,
+			"identity_key":   c.IdentityKey,
+			"min_percentage": minPct,
+		})
+	}
+	return map[string]any{"clauses": clauses}
+}
+
+// canonicalizeCondition projects one pass_when condition (and, through
+// Conditions / Where, the whole expression tree below it). Value is an
+// untyped `any` fed by Go policy builders and by gopkg.in/yaml.v3 —
+// scalars, []any and map[string]any — all of which encoding/json
+// renders deterministically (object keys are sorted on marshal). It is
+// carried through as-is: the hash must discriminate a threshold change
+// from a threshold typo, and only the value itself can do that.
+func canonicalizeCondition(c *PassWhenCondition) any {
+	if c == nil {
+		return nil
+	}
+	var subs any
+	if c.Conditions != nil {
+		list := make([]any, 0, len(c.Conditions))
+		for _, sub := range c.Conditions {
+			list = append(list, canonicalizeCondition(sub))
+		}
+		subs = list
+	}
+	return map[string]any{
+		"op":           c.Op,
+		"field":        c.Field,
+		"value":        c.Value,
+		"conditions":   subs,
+		"in_slot":      c.InSlot,
+		"remote_field": c.RemoteField,
+		"normalize":    c.Normalize,
+		"where":        canonicalizeCondition(c.Where),
 	}
 }

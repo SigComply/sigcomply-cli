@@ -210,7 +210,7 @@ func TestRegisterProjectLocal_RosterPolicyEvaluates(t *testing.T) {
 		Roster: &planner.RosterLink{
 			Source:   sourceOkta,
 			Aliases:  map[string]map[string]string{sourceGitHub: {"jdoe": "jane@acme.com"}},
-			NonHuman: map[string][]string{sourceGitHub: {"acme-ci-bot"}},
+			NonHuman: map[string][]string{sourceGitHub: {testNameCIBot}},
 		},
 	}
 	records := map[string][]core.EvidenceRecord{
@@ -220,7 +220,7 @@ func TestRegisterProjectLocal_RosterPolicyEvaluates(t *testing.T) {
 		},
 		slotAccounts: {
 			jsonRecord(t, sourceGitHub, evidenceTypeDirectoryUser, "1", map[string]any{"username": "JDoe"}),
-			jsonRecord(t, sourceGitHub, evidenceTypeDirectoryUser, "2", map[string]any{"username": "acme-ci-bot"}),
+			jsonRecord(t, sourceGitHub, evidenceTypeDirectoryUser, "2", map[string]any{"username": testNameCIBot}),
 			jsonRecord(t, sourceAWSIAM, evidenceTypeDirectoryUser, "root", map[string]any{"is_root": true}),
 			jsonRecord(t, "gitlab", evidenceTypeDirectoryUser, "9", map[string]any{fieldEmail: "left@acme.com"}),
 		},

@@ -20,6 +20,19 @@ const (
 	testSourceGitHub = "github"
 	testEmailJane    = "jane@acme.com"
 	testEmailJdoe    = "jdoe@acme.com"
+
+	// Payload keys the account link reads off a record.
+	fieldIsRoot   = "is_root"
+	fieldUsername = "username"
+
+	// Account names the roster fixtures declare aliases and
+	// non_human entries for. Case-varied spellings ("JDoe",
+	// "Jane.Doe", "ACME-CI-bot") stay inline: they are the point of
+	// the case-insensitivity assertions.
+	testNameJdoe     = "jdoe"
+	testNameJaneDoe  = "jane.doe"
+	testNameCIBot    = "acme-ci-bot"
+	testNameDeployer = "deployer"
 )
 
 func field(t *testing.T, ec *evalCtx, r *core.EvidenceRecord, path string) any {
@@ -46,7 +59,7 @@ func TestAccountFields_NoRoster(t *testing.T) {
 			t.Errorf("%s = %v; want %v", path, got, want)
 		}
 	}
-	none := account(testSourceGitHub, "x", map[string]any{"is_active": false, "is_root": true})
+	none := account(testSourceGitHub, "x", map[string]any{"is_active": false, fieldIsRoot: true})
 	if got := field(t, ec, &none, "account.linked_by"); got != linkedByNone {
 		t.Errorf("linked_by = %v; want none", got)
 	}
@@ -68,14 +81,14 @@ func TestAccountFields_AliasByIDAndUsername(t *testing.T) {
 	roster := &planner.RosterLink{
 		Source: "okta",
 		Aliases: map[string]map[string]string{
-			testSourceGitHub: {"jdoe": "Jane@acme.com"},
-			testSourceAWSIAM: {"jane.doe": testEmailJane},
+			testSourceGitHub: {testNameJdoe: "Jane@acme.com"},
+			testSourceAWSIAM: {testNameJaneDoe: testEmailJane},
 		},
-		NonHuman: map[string][]string{testSourceGitHub: {"acme-ci-bot"}, testSourceAWSIAM: {"deployer"}},
+		NonHuman: map[string][]string{testSourceGitHub: {testNameCIBot}, testSourceAWSIAM: {testNameDeployer}},
 	}
 	ec := newEvalCtx(nil, nil, roster)
 
-	byID := account(testSourceGitHub, "JDoe", map[string]any{linkedByEmail: "other@acme.com", "display_name": "acme-ci-bot"})
+	byID := account(testSourceGitHub, "JDoe", map[string]any{linkedByEmail: "other@acme.com", "display_name": testNameCIBot})
 	if got := field(t, ec, &byID, "account.key"); got != testEmailJane {
 		t.Errorf("alias by id: key = %v", got)
 	}
@@ -87,18 +100,18 @@ func TestAccountFields_AliasByIDAndUsername(t *testing.T) {
 		t.Errorf("display_name must not match non_human; got %v", got)
 	}
 
-	byUsername := account(testSourceAWSIAM, "AIDA123", map[string]any{"username": "Jane.Doe"})
+	byUsername := account(testSourceAWSIAM, "AIDA123", map[string]any{fieldUsername: "Jane.Doe"})
 	if got := field(t, ec, &byUsername, "account.key"); got != testEmailJane {
 		t.Errorf("alias by username: key = %v", got)
 	}
 
 	// Aliases are scoped per source: a github alias does not apply to gitlab.
-	otherSource := account("gitlab", "jdoe", map[string]any{})
+	otherSource := account("gitlab", testNameJdoe, map[string]any{})
 	if got := field(t, ec, &otherSource, "account.linked_by"); got != linkedByNone {
 		t.Errorf("alias leaked across sources: linked_by = %v", got)
 	}
 
-	bot := account(testSourceGitHub, "12", map[string]any{"username": "ACME-CI-bot"})
+	bot := account(testSourceGitHub, "12", map[string]any{fieldUsername: "ACME-CI-bot"})
 	if got := field(t, ec, &bot, fieldAccountNonHuman); got != true {
 		t.Errorf("non_human by username = %v; want true", got)
 	}
@@ -110,7 +123,7 @@ func TestAccountFields_AliasByIDAndUsername(t *testing.T) {
 
 func TestAccountFields_RenderMsg(t *testing.T) {
 	ec := newEvalCtx(nil, nil, nil)
-	r := account(testSourceGitHub, "jdoe", map[string]any{linkedByEmail: "Jane@acme.com"})
+	r := account(testSourceGitHub, testNameJdoe, map[string]any{linkedByEmail: "Jane@acme.com"})
 	got := ec.renderMsg("{{.account.ref}} / {{.account.key}} / {{.account.linked_by}} / {{.payload.email}}", &r)
 	if want := "github/jdoe / jane@acme.com / email / Jane@acme.com"; got != want {
 		t.Errorf("renderMsg = %q; want %q", got, want)
@@ -122,9 +135,9 @@ func TestAccountFields_RenderMsg(t *testing.T) {
 func TestAccountRef_IdentityKeyDedupAcrossSources(t *testing.T) {
 	slots := map[string][]core.EvidenceRecord{
 		slotAccounts: {
-			account(testSourceGitHub, "jdoe", map[string]any{linkedByEmail: testEmailJdoe}),
-			account("gitlab", "jdoe", map[string]any{linkedByEmail: testEmailJdoe}),
-			account(testSourceGitHub, "jdoe", map[string]any{linkedByEmail: testEmailJdoe}),
+			account(testSourceGitHub, testNameJdoe, map[string]any{linkedByEmail: testEmailJdoe}),
+			account("gitlab", testNameJdoe, map[string]any{linkedByEmail: testEmailJdoe}),
+			account(testSourceGitHub, testNameJdoe, map[string]any{linkedByEmail: testEmailJdoe}),
 		},
 		slotRoster: {},
 	}
@@ -149,7 +162,7 @@ func TestAccountFields_FilterActiveHumans(t *testing.T) {
 	slots := map[string][]core.EvidenceRecord{
 		slotAccounts: {
 			account(testSourceGitHub, "bot", map[string]any{}),
-			account(testSourceAWSIAM, "root", map[string]any{"is_root": true}),
+			account(testSourceAWSIAM, "root", map[string]any{fieldIsRoot: true}),
 			account(testSourceGitHub, "gone", map[string]any{"is_active": false}),
 			account(testSourceGitHub, "real", map[string]any{linkedByEmail: "nobody@acme.com"}),
 		},

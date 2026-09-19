@@ -66,7 +66,7 @@ List each source you want under `sources:` — the CLI does **not** auto-registe
 
 | Source id prefix | Credentials (from env) | Required config keys |
 |---|---|---|
-| `aws.*` | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_PROFILE`, `AWS_REGION`; or IAM role / OIDC | `region` (optional; falls back to vault region) |
+| `aws.*` | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_PROFILE`, `AWS_REGION`; or IAM role / OIDC | `region` (optional; falls back to vault region); `identity_store_id` (optional, `aws.identity_center` only — discovered via `sso-admin:ListInstances` when omitted) |
 | `gcp.*` | ADC: `GOOGLE_APPLICATION_CREDENTIALS` or `gcloud auth application-default login` | `project_id` (or `customer_id`, `organization_id`) |
 | `azure.*` | `az login` / managed identity / `AZURE_*` service principal | `subscription_id` / `tenant_id` |
 | `github` | `GITHUB_TOKEN` (or config `token`) | `org` (optional `base_url`) |

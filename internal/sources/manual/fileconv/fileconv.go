@@ -84,6 +84,14 @@ func (e *UnsupportedTypeError) Error() string {
 	)
 }
 
+// Retryable implements sources.RetryableError: an extension this
+// package cannot convert will not become convertible on a second
+// attempt, so the collector must not spend its retry budget on it.
+// Declared as a method rather than taught to the classifier so the
+// knowledge stays next to the error (and so fileconv keeps its
+// stdlib-plus-gofpdf dependency set).
+func (e *UnsupportedTypeError) Retryable() bool { return false }
+
 // ToPDF converts data (a file named filename with the given lowercase ext)
 // to PDF bytes. If the file is already a PDF, it is returned as-is with
 // converted=false. Images are wrapped in a single A4 page with the image

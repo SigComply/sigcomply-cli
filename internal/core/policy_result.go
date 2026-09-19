@@ -49,9 +49,11 @@ type PolicyResult struct {
 	ConfiguredCadence string
 
 	// PolicyContentHash is the SHA-256 of the canonicalized policy
-	// spec plus referenced evidence-type schemas at this run.
-	// Auditors comparing two runs can detect a policy/schema update
-	// by comparing this field.
+	// spec — pass_when clauses, conditions, thresholds and all —
+	// plus referenced evidence-type schemas at this run. Auditors
+	// comparing two runs can detect a policy/schema update by
+	// comparing this field; an edit to a single pass_when operator
+	// or threshold changes it.
 	PolicyContentHash string
 
 	// NextDueAt is the wall-clock time after which the policy is due

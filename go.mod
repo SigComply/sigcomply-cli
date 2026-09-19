@@ -42,6 +42,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/eks v1.99.0
 	github.com/aws/aws-sdk-go-v2/service/guardduty v1.93.0
 	github.com/aws/aws-sdk-go-v2/service/iam v1.64.0
+	github.com/aws/aws-sdk-go-v2/service/identitystore v1.44.0
 	github.com/aws/aws-sdk-go-v2/service/inspector2 v1.60.0
 	github.com/aws/aws-sdk-go-v2/service/kms v1.61.0
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.108.0
@@ -50,6 +51,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.113.1
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.50.0
 	github.com/aws/aws-sdk-go-v2/service/securityhub v1.82.0
+	github.com/aws/aws-sdk-go-v2/service/ssoadmin v1.48.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.0
 	github.com/aws/smithy-go v1.28.2
 	github.com/getkin/kin-openapi v0.149.0

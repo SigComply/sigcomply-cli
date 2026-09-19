@@ -68,6 +68,8 @@ const (
 	// bobEmail is the fixture personnel/account email shared by the Okta
 	// and roster fixtures.
 	bobEmail = "bob@acme.com"
+	// janeEmail is the roster address the github alias fixtures map to.
+	janeEmail = "jane@acme.com"
 )
 
 // --- empty stub APIs for the four infrastructure plugins.

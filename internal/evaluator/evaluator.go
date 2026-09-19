@@ -32,6 +32,13 @@ type Input struct {
 	EnvelopesByPolicy     map[string][]string
 	CollectErrorsByPolicy map[string]error
 	Now                   time.Time
+
+	// RosterUsage, when set, accumulates which experimental.roster
+	// account names actually matched a collected account. It is the one
+	// run-scoped output of evaluation: the caller allocates it, reads it
+	// after Evaluate returns, and warns about the keys that matched
+	// nothing. Nil disables the bookkeeping entirely.
+	RosterUsage *RosterUsage
 }
 
 // Evaluate runs the rule for every planned policy and returns the
@@ -96,6 +103,13 @@ func evaluateOne(ctx context.Context, pp *planner.PlannedPolicy, in *Input) core
 	}
 	slots := in.RecordsByPolicy[pp.Spec.ID]
 
+	// Declare before the dispatch, not inside it: a run whose accounts
+	// slot bound nothing still evaluated the roster declaration and
+	// proved every key unmatched. Only the returns above — carry-forward,
+	// whole-policy exception, collector error — declare nothing, because
+	// they look at no account at all.
+	in.RosterUsage.Declare(pp.Roster)
+
 	// Dispatch to the appropriate evaluation path based on evidence_mode.
 	var ruleOut core.RuleResult
 	switch pp.Spec.EvidenceMode {
@@ -114,6 +128,7 @@ func evaluateOne(ctx context.Context, pp *planner.PlannedPolicy, in *Input) core
 			}
 			ec := newEvalCtx(slots, pp.Parameters, pp.Roster)
 			ec.declared = pp.Spec.Slots
+			ec.usage = in.RosterUsage
 			ruleOut = evaluatePassWhen(pp.Spec.PassWhen, ec)
 		} else {
 			// Path C: rule: escape hatch.

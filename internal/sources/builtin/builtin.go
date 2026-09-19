@@ -28,6 +28,7 @@ import (
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/eks"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/guardduty"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/iam"
+	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/identitycenter"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/inspector"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/kms"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/aws/lambda"

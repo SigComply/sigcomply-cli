@@ -52,6 +52,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/sources"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/azure/internal/azcommon"
 )
 
@@ -514,9 +515,18 @@ func (r *realGraph) get(ctx context.Context, token, url string, out any) error {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
-			return fmt.Errorf("%s: %w", resp.Status, readErr)
+			return &sources.APIError{
+				Source:     SourceID,
+				StatusCode: resp.StatusCode,
+				Message:    fmt.Sprintf("%s: %v", resp.Status, readErr),
+				Err:        readErr,
+			}
 		}
-		return fmt.Errorf("%s: %s", resp.Status, strings.TrimSpace(string(body)))
+		return &sources.APIError{
+			Source:     SourceID,
+			StatusCode: resp.StatusCode,
+			Message:    fmt.Sprintf("%s: %s", resp.Status, strings.TrimSpace(string(body))),
+		}
 	}
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 		return fmt.Errorf("decode: %w", err)

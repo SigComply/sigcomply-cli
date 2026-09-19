@@ -146,6 +146,8 @@ github.com/aws/aws-sdk-go-v2/service/guardduty v1.93.0 h1:ehvWF/jfIvpwzteIS+ndLQ
 github.com/aws/aws-sdk-go-v2/service/guardduty v1.93.0/go.mod h1:iBAZYc2/+kVLQfBOODIa92wJbw17spv2zxK1CHHR7z0=
 github.com/aws/aws-sdk-go-v2/service/iam v1.64.0 h1:CjgiPuyW26WQeQ934DxMNuwkDg6+ziqgPN9lHQ5rwYA=
 github.com/aws/aws-sdk-go-v2/service/iam v1.64.0/go.mod h1:TI7OT5XlpXfs4BM4Y5NXcHTiyBwkqv6NpGiM4/usn5A=
+github.com/aws/aws-sdk-go-v2/service/identitystore v1.44.0 h1:x4sA2rwmexnuvlSntnL8qPyknSB5LPBVHZYlopUOpD4=
+github.com/aws/aws-sdk-go-v2/service/identitystore v1.44.0/go.mod h1:TNxbXIVvzChoKoA2fnjLTZjMM13dCPxaBNmsS8S16Zc=
 github.com/aws/aws-sdk-go-v2/service/inspector2 v1.60.0 h1:gPt12lRsOi5xVdUMHbu7iYPfsq0GjHjf37LtQqrtJ+8=
 github.com/aws/aws-sdk-go-v2/service/inspector2 v1.60.0/go.mod h1:inHEN5b6oJYCm0Bfjcb1E73PyPL1lJi8/1Y4B45lm+o=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.19 h1:bAdDl/HkGCcGPoe25ToSHEw23VIxt6CT5fLcg111BKg=
@@ -176,6 +178,8 @@ github.com/aws/aws-sdk-go-v2/service/signin v1.10.0 h1:ZD5qFpWcaOKdTuhBi431pIDkC
 github.com/aws/aws-sdk-go-v2/service/signin v1.10.0/go.mod h1:8Nuuf+tR346PjJ3MvZPh9pekbLiLQFWJhzMXfwy7alA=
 github.com/aws/aws-sdk-go-v2/service/sso v1.38.0 h1:JGeeBcMlhg1xtOXYpeCaTQBZObtXMPQCUqBcmr65NRA=
 github.com/aws/aws-sdk-go-v2/service/sso v1.38.0/go.mod h1:XwteswG9EOMRFm73UT0t+MbTwyLxMrEXkU6e+v92Lzo=
+github.com/aws/aws-sdk-go-v2/service/ssoadmin v1.48.0 h1:FiZmAmDYNLAGJ8vnyU3LK0NAYB4Mp0CA39NdczI/NsY=
+github.com/aws/aws-sdk-go-v2/service/ssoadmin v1.48.0/go.mod h1:6VzFFvN2B3Thw7z2CBXbDHdVx+/O+8tfUamxJv7S4A4=
 github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.0 h1:obhahQXDEdVEv8y5bTKXR30LVaxYe1kyYM0L7l2Iq+k=
 github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.0/go.mod h1:6twZZ/aXHNy1vXUO8koUbp++MYzMASkOgEBdkbJYmO0=
 github.com/aws/aws-sdk-go-v2/service/sts v1.51.0 h1:Zpnqa6XtrNzXZnwbdCqHOXpXhMsa01ql/pcRQ1sb4hk=

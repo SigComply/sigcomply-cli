@@ -175,10 +175,11 @@ func NextDueAt(cadence string, lastPass time.Time) time.Time {
 //     cadence.
 //  3. Cadence elapsed: now - LastPassAt >= CadenceInterval(cadence) → due.
 //
-// Content-hash invalidation (LastPolicyHash mismatch with current
-// hash) is handled by the planner outside this function so the same
-// logic also drives why-is-this-skipped introspection without
-// needing the current hash.
+// Content-hash invalidation (LastPolicyHash mismatch with the current
+// core.PolicyContentHash — which covers the policy's pass_when body
+// and its referenced schema digests) is handled by decideEvaluation
+// outside this function, so the same logic also drives
+// why-is-this-skipped introspection without needing the current hash.
 func IsDue(cadence string, state *core.PolicyState, now time.Time) bool {
 	if state == nil || state.IsFirstRun() {
 		return true

@@ -13,6 +13,49 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **`aws.identity_center` — an AWS IAM Identity Center (SSO) source.**
+  Emits `directory_user` (v1) and `roster_entry` from one
+  `identitystore:ListUsers` listing. Modern AWS human access runs through
+  Identity Center rather than IAM users, so on such an estate the roster
+  policies were checking the wrong population; Identity Center identities
+  carry emails, so they join the roster directly and the `aws.iam:`
+  `aliases` block becomes unnecessary. **Zero policy changes were needed** —
+  it emits existing cloud-neutral types, which is the substitutability
+  property working as designed. `identity_store_id` is optional and
+  discovered from `sso-admin:ListInstances`. It emits **v1, not v2**:
+  v2's required `is_root` / `has_console_access` /
+  `has_programmatic_access` describe an IAM account, and emitting them
+  would make the three v2-only IAM policies pass trivially over SSO users
+  — inflating the score. Two honest gaps: Identity Center publishes no
+  per-user MFA enrollment, so `mfa_enabled` is best-effort `false` (which
+  can only fail a control, never pass one) and `is_admin` is omitted,
+  which makes the admin-MFA policy `error`. Bind those policies to the
+  IdP that actually holds the MFA state. **The L2 cassette is derived from
+  the published Smithy service models, not recorded against a live tenant
+  — it needs a live re-record before it can be trusted as a contract test.**
+- **Declared-but-never-matched roster keys are now reported.** An
+  `experimental.roster.aliases` or `non_human` entry naming an account no
+  source returned was silent — a perfectly valid entry for an account that
+  does not exist. Runs now print `unused-alias:` / `unused-non-human:`
+  naming each key. Usage is accumulated run-scoped across every roster
+  policy, because the alias map is shared by reference while each policy
+  gets its own evaluation context, so a per-policy verdict would report a
+  key as unused in the policy whose slot never bound that source. Printed
+  to stdout rather than the logger, whose redaction would rewrite an
+  email-shaped alias key. Carried-forward and skipped policies declare
+  nothing, so a daily run cannot false-alarm on annual roster policies.
+- **Collector errors are classified as retryable or terminal.** A
+  rejected or under-permissioned credential used to be retried as
+  patiently as a 429 — per binding, sequentially — so one mis-scoped
+  credential could spend the whole ~8 min PR budget against every binding
+  on that source before the run said anything. 429/5xx/timeouts still
+  spend the budget; 401/403/404 and schema failures now fail the binding
+  at once. Most plugins needed no change: their SDK errors were already
+  wrapped with `%w` and are classified via `errors.As`. **An unclassified
+  error is still treated as retryable**, so this is non-breaking and
+  adoptable incrementally. New shared contract in
+  `internal/sources/errors.go`.
+
 - **The identity-roster check now covers cloud IAM grants, not just accounts.**
   The roster policies' subject slot accepts `iam_binding` alongside the
   `directory_user` family, so a GCP project role held by someone who was never
@@ -415,6 +458,18 @@ tracks the human-curated highlights.
 
 ### Changed
 
+- **The policy content hash now covers `pass_when`.** It previously
+  covered only a policy's wiring (id, control, rule reference, severity,
+  cadence, slots, parameters, schema digests), so editing a clause, an
+  operator or a threshold left the hash unchanged and the policy carried
+  the old signed envelope forward until its next cadence boundary. Since
+  every shipped policy is `pass_when`-driven, the guard against
+  "silently re-certifying old evidence with new rules" was not actually
+  covering the rules. **Every stored policy hash rotates once**, so the
+  first run after upgrading re-evaluates every policy; that is expected
+  and self-correcting. The canonical projection is hand-built rather than
+  a struct marshal, so renaming a Go field cannot rotate hashes.
+
 - **A release is now gated on the test suite.** `auto-release.yml` calls
   `test.yml` and waits for it, instead of racing it on the same push. The
   E2E repos install `releases/latest` and resolve it at run time, so an
@@ -495,6 +550,16 @@ tracks the human-curated highlights.
   error; the one-line message is shown on its own (`SilenceUsage`).
 
 ### Fixed
+
+- **An unhashable policy no longer fails open.** `PolicyContentHash`
+  returns `""` when canonicalization fails, and the planner's
+  content-hash gate was written as `contentHash != "" && ...`, which
+  *skipped* the mismatch check rather than forcing evaluation — the
+  opposite of the "treat the policy as due defensively" claim in its own
+  comment. The empty case now forces evaluation. Latent before this
+  release (the projection held only strings, bools and slices, so the
+  marshal could not fail); pulling the user-supplied `pass_when` `value`
+  into the hash makes it reachable.
 
 - **`count` with `min_percentage: 0` is no longer exempt from the vacuity
   guard.** It passes over the empty set exactly as `all`/`none` do, but

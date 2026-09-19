@@ -503,7 +503,10 @@ internally:
   or `--on-push`; the CLI does the policy filtering. Don't enumerate
   policies in YAML.
 - **Per-policy retry.** The CLI handles partial failures; CI doesn't
-  need retry logic at the job level.
+  need retry logic at the job level. It also classifies them: a 429 or
+  5xx spends the backoff budget, a 401/403 fails the binding at once, so
+  a job-level retry would only re-run a failure the CLI already judged
+  permanent.
 - **Evidence collection coordination.** No shared evidence cache, no
   pre-fetch step. The CLI fetches per-policy inside the same job.
 - **Period derivation.** The CLI computes the period from commit time

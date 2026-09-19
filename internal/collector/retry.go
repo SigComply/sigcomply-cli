@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
 
 // RetryPolicy controls per-slot retry behavior in the collector. The
@@ -51,6 +53,15 @@ var (
 // succeeds; returns a wrapped error after the last attempt fails.
 // Respects ctx cancellation during backoff (the next failure is
 // reported with the cancellation cause).
+//
+// A failure sources.Terminal classifies as permanent — a rejected or
+// under-permissioned credential, an unconvertible file — returns
+// immediately and unwrapped. Collection is sequential, so without
+// this one mis-scoped credential multiplies the per-slot budget
+// (~3 min on a PR run) by every binding on that source before the run
+// says a word, and the answer never changes. The classifier defaults
+// to retryable, so an error it does not recognize still burns the
+// full budget exactly as it did before.
 func withRetry(ctx context.Context, p RetryPolicy, fn func() error) error {
 	attempts := p.MaxAttempts
 	if attempts < 1 {
@@ -70,6 +81,11 @@ func withRetry(ctx context.Context, p RetryPolicy, fn func() error) error {
 		}
 		if err := fn(); err != nil {
 			lastErr = err
+			if sources.Terminal(err) {
+				// Permanent: return the error as it came, never
+				// wrapped as though N attempts had been spent.
+				return err
+			}
 			continue
 		}
 		return nil

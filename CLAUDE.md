@@ -339,7 +339,8 @@ design: [`docs/architecture/04a-evidence-type-registry.md`](./docs/architecture/
 Per-policy decision rule (strictly layered — full design in
 [`docs/architecture/10-cadence-model.md`](./docs/architecture/10-cadence-model.md)):
 explicit operator filter → evaluate; PolicyStates nil → evaluate; prior
-state nil → evaluate (first-run); content-hash changed → evaluate; prior
+state nil → evaluate (first-run); content-hash changed → evaluate (the
+hash covers `pass_when`, so editing a clause is enough); prior
 terminal status ≠ pass → evaluate; `now - LastPassAt >= CadenceInterval`
 → evaluate; else carry-forward (pointer to the prior signed envelope, no
 re-sign).
@@ -352,10 +353,12 @@ original signature; the auditor verifies it at
 `CarryForward.LastEnvelopeRef`. The cadence model added five
 non-identifying per-policy scalars to the cloud payload in v2 —
 `ConfiguredCadence`/`LastEvaluatedAt`/`NextDueAt`/`IsCarriedForward`/`PolicyContentHash`
-— retained unchanged in the current `sigcomply.cloud.v3` schema (the
+— retained unchanged in the current `sigcomply.cloud.v4` schema (the
 counts-only test still guards). (v3 itself swapped the per-policy scalar
 `control_id` for a `controls []ControlRef` list — multi-framework
-mapping; see `docs/architecture/06-aggregation.md`.) State
+mapping; v4 then added the `evidence_mode` / `evidence_mode_overridden`
+pair, without which the dashboard cannot tell a verified estate from a
+folder of PDFs; see `docs/architecture/06-aggregation.md`.) State
 writes use a monotonic guard (accept iff newer `LastRunAt`, or equal-and-
 greater `LastRunID`) so concurrent CI runs can't regress state.
 
@@ -374,7 +377,12 @@ the patterns to catch in review.
   `record.Type`. The urge to add "this policy only works with AWS" /
   "this plugin behaves differently for SOC 2" means an evidence-type
   contract is missing — add the type or extend `accepts:`, not a special
-  case. (Inv #4)
+  case. (Inv #4) **Error *classification* is not behavior dispatch.**
+  `internal/sources/errors.go` is a shared `Retryable() bool` /
+  `sources.APIError` contract so the collector can tell a 429 from a 403;
+  it reads vendor error shapes via `errors.As` and changes only whether
+  the backoff budget is spent, never what is collected or mapped. An
+  unclassified error stays retryable, so adopting it is incremental.
 - **Design evidence-type schemas top-down from the semantic concept, not
   from a vendor API.** Every field must be satisfiable by all plausible
   sources without null/sentinel. The plugin owns 100% of
@@ -397,6 +405,17 @@ the patterns to catch in review.
   schema-optional field must be `is_set`-guarded inside an `all_of`;
   `TestEveryFilterGuardsOptionalFields` (`internal/manualcatalog/`) fails
   the build otherwise.
+- **Declared-but-never-matched roster keys are reported, not ignored.**
+  An `experimental.roster.aliases` / `non_human` entry naming an account
+  no source returned is a silent typo — a perfectly valid entry for an
+  account that does not exist. `internal/evaluator/rosterusage.go`
+  accumulates which keys actually matched, **run-scoped across every
+  roster policy** (the `Aliases` map is shared by reference while each
+  policy gets its own `evalCtx`, so a per-policy verdict would be wrong),
+  and the orchestrator prints `unused-alias:` / `unused-non-human:` to
+  **stdout** — not `logger.Warnf`, whose `Redact()` would rewrite an
+  email-shaped alias key to `<redacted:email>`. The source-ID half of the
+  same typo stays fatal at plan time (`checkRosterSourceKeys`).
 - **Don't invent evidence sub-types in the evaluator.** Only `automated`
   and `manual` exist as flows; catalog `type` values are SPA hints. (Inv #2)
 - **Don't grow `validatePDF` into a parser.** Stdlib-only byte-level
@@ -413,7 +432,7 @@ the patterns to catch in review.
   **config-independent**: fan-out members are resolved onto the *runtime*
   catalog in `internal/vendorfanout`, never onto the exported
   `manualcatalog.Entry`, whose field count is pinned by a test and whose
-  entry count is pinned into five docs by `TestDocFiguresMatchCode`.
+  entry count is pinned into nine docs by `TestDocFiguresMatchCode`.
 - **Run paths use basic ISO 8601 (no colons):** `20260325T100000Z`, not
   `2026-03-25T10:00:00Z` — some S3-compatible tools choke on colons.
 - **Framework YAML key is singular:** `framework: soc2`, never
@@ -542,7 +561,7 @@ When changing these in the CLI, check the matching place in the Rails app
 |----------|--------------------|----------|
 | Aggregator / Submitter (`SubmissionPayload`) | `Api::V1::RunsController` (`POST /api/v1/runs`, strong params) | Counts-only run payload |
 | OIDC token helpers | Rails OIDC token validator | Token format, claim names (`repository`, `namespace_path`/`project_path`) |
-| Manual evidence catalog | SPA `scripts/fetch-catalogs.ts` | SPA pre-builds catalogs via `sigcomply evidence catalog --framework <fw> -o json`; `ManualCatalogExport()` emits the SPA's `Catalog`/`CatalogEntry` contract verbatim. Changing entry fields or JSON tags means updating `sigcomply-evidence-spa/src/types/catalog.ts`. |
+| Manual evidence catalog | SPA `scripts/fetch-catalogs.ts` | The SPA's deploy installs the released CLI and regenerates catalogs via `sigcomply evidence catalog --framework <fw> -o json` on every deploy (it used to run a bare `npx vite build`, which skipped the `prebuild` hook and served committed JSON forever). `ManualCatalogExport()` emits the SPA's `Catalog`/`CatalogEntry` contract verbatim. Changing entry fields or JSON tags means updating `sigcomply-evidence-spa/src/types/catalog.ts`. A catalog change now reaches the site on the SPA's next deploy, but only once this repo has cut the release the SPA resolves as `releases/latest`. |
 
 Older Rails CLI endpoints (`/api/v1/cli/policy_evaluations`,
 `compliance_status`, `heartbeat`, `health`) are legacy — new work goes

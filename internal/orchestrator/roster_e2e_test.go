@@ -27,6 +27,13 @@ const (
 	// Source IDs of the fake sources wired into the roster e2e runs.
 	sourceOkta   = "okta"
 	sourceGitHub = "github"
+	sourceAWSIAM = "aws.iam"
+
+	// testNameCIBot is the non_human account name the github fake emits.
+	testNameCIBot = "acme-ci-bot"
+
+	// keyAliases is the experimental.roster config key the fixtures fill.
+	keyAliases = "aliases"
 
 	carlEmail       = "carl@acme.com"
 	keyRosterSource = "source"
@@ -100,14 +107,14 @@ func rosterFakes(t *testing.T) (okta, github, aws *rosterFakeSource) {
 	github = &rosterFakeSource{id: sourceGitHub, records: []core.EvidenceRecord{
 		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "101", fieldUsername: "JDoe", fieldMFAEnabled: true}),                                              // alias → jane
 		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "102", fieldUsername: "bobby", fieldMFAEnabled: true}),                                             // alias → bob (inactive)
-		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "103", fieldUsername: "acme-ci-bot", fieldMFAEnabled: false}),                                      // non_human
+		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "103", fieldUsername: testNameCIBot, fieldMFAEnabled: false}),                                      // non_human
 		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "104", fieldUsername: "mallory", fieldEmail: "mallory@example.com", fieldMFAEnabled: true}),        // unlinked
 		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "105", fieldUsername: "carl", fieldEmail: carlEmail, fieldMFAEnabled: true}),                       // pending person
 		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "106", fieldUsername: "bob-old", fieldEmail: bobEmail, fieldMFAEnabled: true, "is_active": false}), // disabled
 	}}
-	aws = &rosterFakeSource{id: "aws.iam", records: []core.EvidenceRecord{
-		fakeRecord(t, "aws.iam", "directory_user.v2", map[string]any{"id": "root", "is_root": true, fieldMFAEnabled: true, "has_console_access": true, "has_programmatic_access": false}),
-		fakeRecord(t, "aws.iam", "directory_user.v2", map[string]any{"id": "AIDANOEMAIL", fieldUsername: "deploy-legacy", "is_root": false, fieldMFAEnabled: false, "has_console_access": false, "has_programmatic_access": true}),
+	aws = &rosterFakeSource{id: sourceAWSIAM, records: []core.EvidenceRecord{
+		fakeRecord(t, sourceAWSIAM, "directory_user.v2", map[string]any{"id": "root", "is_root": true, fieldMFAEnabled: true, "has_console_access": true, "has_programmatic_access": false}),
+		fakeRecord(t, sourceAWSIAM, "directory_user.v2", map[string]any{"id": "AIDANOEMAIL", fieldUsername: "deploy-legacy", "is_root": false, fieldMFAEnabled: false, "has_console_access": false, "has_programmatic_access": true}),
 	}}
 	return okta, github, aws
 }
@@ -170,8 +177,8 @@ func TestE2E_RosterPolicies(t *testing.T) {
 	okta, github, aws := rosterFakes(t)
 	res, stdout, v, err := runRosterCheck(t, map[string]any{slotRoster: map[string]any{
 		keyRosterSource: sourceOkta,
-		"aliases":       map[string]any{sourceGitHub: map[string]any{"jdoe": "jane@acme.com", "bobby": bobEmail}},
-		"non_human":     map[string]any{sourceGitHub: []any{"acme-ci-bot"}},
+		keyAliases:      map[string]any{sourceGitHub: map[string]any{"jdoe": janeEmail, "bobby": bobEmail}},
+		"non_human":     map[string]any{sourceGitHub: []any{testNameCIBot}},
 	}}, okta, github, aws)
 	if err != nil {
 		t.Fatalf("Run: %v\n%s", err, stdout)
@@ -300,7 +307,7 @@ func TestE2E_RosterPolicies_IAMGrants(t *testing.T) {
 	okta, _, _ := rosterFakes(t)
 	res, stdout, v, err := runRosterCheck(t, map[string]any{slotRoster: map[string]any{
 		keyRosterSource: sourceOkta,
-		"aliases":       map[string]any{sourceGCPIAM: map[string]any{"c@personal.test": carlEmail}},
+		keyAliases:      map[string]any{sourceGCPIAM: map[string]any{"c@personal.test": carlEmail}},
 	}}, okta, gcpIAMFake(t))
 	if err != nil {
 		t.Fatalf("Run: %v\n%s", err, stdout)
@@ -325,4 +332,47 @@ func TestE2E_RosterPolicies_IAMGrants(t *testing.T) {
 	assertRosterFailure(t, v, res.RunRoot, inactivePolicy, grants, map[string]string{
 		"gcp.iam/roles/viewer|user:bob@acme.com": "identity gcp.iam/roles/viewer|user:bob@acme.com belongs to bob@acme.com, who is inactive in the roster",
 	})
+}
+
+// A declared alias or non_human account name no collected account
+// carries is the other half of a typo — the source-ID half already fails
+// the plan — and it is silent without this. It is reported once per run,
+// on stdout, after every roster policy has had its chance to use it.
+func TestE2E_RosterPolicies_UnusedKeysWarn(t *testing.T) {
+	okta, github, aws := rosterFakes(t)
+	_, stdout, _, err := runRosterCheck(t, map[string]any{slotRoster: map[string]any{
+		keyRosterSource: sourceOkta,
+		keyAliases: map[string]any{
+			sourceGitHub: map[string]any{"jdoe": janeEmail, "jdoee": janeEmail},
+			sourceAWSIAM: map[string]any{"deploy-legacy": bobEmail},
+		},
+		"non_human": map[string]any{
+			sourceGitHub: []any{testNameCIBot, "acme-ci-bott"},
+			sourceAWSIAM: []any{"root"},
+		},
+	}}, okta, github, aws)
+	if err != nil {
+		t.Fatalf("Run: %v\n%s", err, stdout)
+	}
+	for _, want := range []string{
+		`unused-alias: experimental.roster.aliases["github"]["jdoee"]`,
+		`unused-non-human: experimental.roster.non_human["github"]["acme-ci-bott"]`,
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("stdout lacks %q:\n%s", want, stdout)
+		}
+	}
+	// Used keys stay quiet — including ones only one of the two roster
+	// policies could have matched, and a non_human entry for an account
+	// that is already non-human by construction (the AWS root user).
+	for _, used := range []string{
+		`unused-alias: experimental.roster.aliases["github"]["jdoe"]`,
+		`unused-alias: experimental.roster.aliases["aws.iam"]["deploy-legacy"]`,
+		`unused-non-human: experimental.roster.non_human["github"]["acme-ci-bot"]`,
+		`unused-non-human: experimental.roster.non_human["aws.iam"]["root"]`,
+	} {
+		if strings.Contains(stdout, used) {
+			t.Errorf("stdout reports a used key as unused (%s):\n%s", used, stdout)
+		}
+	}
 }

@@ -69,8 +69,37 @@ Common AWS source ids you can list under `sources:` include:
 | `aws.rds` | Database encryption settings |
 | `aws.ec2` | Security groups, EBS encryption |
 | `aws.guardduty` | Threat detection enablement |
+| `aws.identity_center` | IAM Identity Center (SSO) workforce identities — the roster and the people it vouches for |
 
 List only the sources whose evidence your framework's policies need; unused ones add no value. The [README supported-sources table](../../README.md) enumerates the full set.
+
+#### AWS IAM Identity Center (`aws.identity_center`)
+
+Most modern AWS estates give people access through IAM Identity Center (formerly AWS SSO) rather than long-lived IAM users. List this source when yours does:
+
+```yaml
+sources:
+  aws.identity_center:
+    region: us-east-1          # the region the Identity Center instance lives in
+    # identity_store_id: d-1234567890   # optional — see below
+```
+
+- **Why it matters for the identity roster.** Identity Center users carry real email addresses, so the [identity-roster](identity-roster.md) policies join them to your roster directly. IAM users do not — linking those needs hand-maintained `experimental.roster.aliases` entries keyed on the IAM user name, where a typo fails silently. If your people sign in through Identity Center, list this source and drop the aliases.
+- **`identity_store_id` is optional.** Leave it out and the CLI discovers it from the single Identity Center instance your credentials can see (`sso:ListInstances`). Set it explicitly only when the run can see more than one instance — the CLI refuses to guess and tells you to pick.
+- **Region matters.** An Identity Center instance lives in exactly one region. Point `region` at that region or the discovery call finds nothing and the run fails with a config error; `region` otherwise falls back to the vault's.
+- **Least privilege:** `identitystore:ListUsers` plus `sso:ListInstances`. Both are read-only; `ReadOnlyAccess` covers them.
+- **It emits** `directory_user` (the v1 cross-vendor shape) and `roster_entry`, so it can serve either side of a roster check: the accounts being checked, or — with `experimental.roster.source: aws.identity_center` — the roster itself.
+
+**Caveat: Identity Center cannot prove MFA.** No public API exposes per-user MFA enrollment — MFA is either an instance-level setting or, when your identity source is an external IdP synced over SCIM, enforced by that IdP. The `mfa_enabled` field is required by the evidence schema, so the CLI emits it as `false` rather than guessing `true`: a wrong `false` can only fail a check, never pass one. The practical consequence is that `soc2.cc6.1.mfa_enforced_all_users` will report every Identity Center user as lacking MFA. If you also run the real identity source, pin that policy to it:
+
+```yaml
+policies:
+  soc2.cc6.1.mfa_enforced_all_users:
+    bindings:
+      evidence: [okta]        # or azure.entra / gcp.directory — the IdP that actually enforces MFA
+```
+
+Identity Center also does not report whether a user is an administrator: that is a permission-set question, not a user attribute, and the CLI omits `is_admin` rather than fabricating `false` (which would hide a real SSO admin). A policy that filters on `is_admin` — `soc2.cc6.1.mfa_enforced_admins` — therefore reports `error` against this source rather than passing silently. Pin it to your IdP the same way.
 
 ### GCP (`gcp.*`)
 

@@ -1,0 +1,1023 @@
+{
+ "smithy": "2.0",
+ "shapes": {
+  "com.amazonaws.identitystore#AWSIdentityStore": {
+   "type": "service",
+   "version": "2020-06-15",
+   "operations": [
+    {
+     "target": "com.amazonaws.identitystore#ListUsers"
+    }
+   ],
+   "errors": [
+    {
+     "target": "com.amazonaws.identitystore#AccessDeniedException"
+    },
+    {
+     "target": "com.amazonaws.identitystore#InternalServerException"
+    },
+    {
+     "target": "com.amazonaws.identitystore#ThrottlingException"
+    }
+   ],
+   "traits": {
+    "aws.api#service": {
+     "sdkId": "identitystore",
+     "arnNamespace": "identitystore",
+     "cloudFormationName": "IdentityStore",
+     "cloudTrailEventSource": "identitystore.amazonaws.com",
+     "endpointPrefix": "identitystore"
+    },
+    "aws.auth#sigv4": {
+     "name": "identitystore"
+    },
+    "aws.protocols#awsJson1_1": {},
+    "smithy.api#title": "AWS SSO Identity Store",
+    "smithy.rules#endpointBdd": {
+     "version": "1.1",
+     "parameters": {
+      "Region": {
+       "builtIn": "AWS::Region",
+       "required": false,
+       "documentation": "The AWS region used to dispatch the request.",
+       "type": "string"
+      },
+      "UseDualStack": {
+       "builtIn": "AWS::UseDualStack",
+       "required": true,
+       "default": false,
+       "documentation": "When true, use the dual-stack endpoint. If the configured endpoint does not support dual-stack, dispatching the request MAY return an error.",
+       "type": "boolean"
+      },
+      "UseFIPS": {
+       "builtIn": "AWS::UseFIPS",
+       "required": true,
+       "default": false,
+       "documentation": "When true, send this request to the FIPS-compliant regional endpoint. If the configured endpoint does not have a FIPS compliant endpoint, dispatching the request will return an error.",
+       "type": "boolean"
+      },
+      "Endpoint": {
+       "builtIn": "SDK::Endpoint",
+       "required": false,
+       "documentation": "Override the endpoint used to send this request",
+       "type": "string"
+      }
+     },
+     "conditions": [
+      {
+       "fn": "isSet",
+       "argv": [
+        {
+         "ref": "Endpoint"
+        }
+       ]
+      },
+      {
+       "fn": "isSet",
+       "argv": [
+        {
+         "ref": "Region"
+        }
+       ]
+      },
+      {
+       "fn": "aws.partition",
+       "argv": [
+        {
+         "ref": "Region"
+        }
+       ],
+       "assign": "PartitionResult"
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "ref": "UseFIPS"
+        },
+        true
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "ref": "UseDualStack"
+        },
+        true
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "supportsDualStack"
+         ]
+        },
+        true
+       ]
+      },
+      {
+       "fn": "booleanEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "supportsFIPS"
+         ]
+        },
+        true
+       ]
+      },
+      {
+       "fn": "stringEquals",
+       "argv": [
+        {
+         "fn": "getAttr",
+         "argv": [
+          {
+           "ref": "PartitionResult"
+          },
+          "name"
+         ]
+        },
+        "aws-us-gov"
+       ]
+      }
+     ],
+     "results": [
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: FIPS and custom endpoint are not supported",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: Dualstack and custom endpoint are not supported",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": {
+         "ref": "Endpoint"
+        },
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://identitystore-fips.{Region}.{PartitionResult#dualStackDnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "FIPS and DualStack are enabled, but this partition does not support one or both",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://identitystore.{Region}.amazonaws.com",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://identitystore-fips.{Region}.{PartitionResult#dnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "FIPS is enabled but this partition does not support FIPS",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://identitystore.{Region}.{PartitionResult#dualStackDnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "DualStack is enabled but this partition does not support DualStack",
+       "type": "error"
+      },
+      {
+       "conditions": [],
+       "endpoint": {
+        "url": "https://identitystore.{Region}.{PartitionResult#dnsSuffix}",
+        "properties": {},
+        "headers": {}
+       },
+       "type": "endpoint"
+      },
+      {
+       "conditions": [],
+       "error": "Invalid Configuration: Missing Region",
+       "type": "error"
+      }
+     ],
+     "root": 2,
+     "nodeCount": 14,
+     "nodes": "/////wAAAAH/////AAAAAAAAAA0AAAADAAAAAQAAAAQF9eEMAAAAAgAAAAUF9eEMAAAAAwAAAAgAAAAGAAAABAAAAAcF9eELAAAABQX14QkF9eEKAAAABAAAAAsAAAAJAAAABgAAAAoF9eEIAAAABwX14QYF9eEHAAAABQAAAAwF9eEFAAAABgX14QQF9eEFAAAAAwX14QEAAAAOAAAABAX14QIF9eED"
+    }
+   }
+  },
+  "com.amazonaws.identitystore#Address": {
+   "type": "structure",
+   "members": {
+    "StreetAddress": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Locality": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Region": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "PostalCode": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Country": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Formatted": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Type": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Primary": {
+     "target": "com.amazonaws.identitystore#BooleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.identitystore#Addresses": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.identitystore#Address"
+   },
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 1
+    }
+   }
+  },
+  "com.amazonaws.identitystore#AttributePath": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 255
+    },
+    "smithy.api#pattern": "^(?:\\p{L}+:\\p{L}+:\\p{L}+(?:\\.\\p{L}+){0,3}|\\p{L}+(?:\\.\\p{L}+){0,2})$"
+   }
+  },
+  "com.amazonaws.identitystore#AttributeValue": {
+   "type": "document",
+   "traits": {}
+  },
+  "com.amazonaws.identitystore#BooleanType": {
+   "type": "boolean",
+   "traits": {
+    "smithy.api#default": false
+   }
+  },
+  "com.amazonaws.identitystore#DateType": {
+   "type": "timestamp"
+  },
+  "com.amazonaws.identitystore#Email": {
+   "type": "structure",
+   "members": {
+    "Value": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Type": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Primary": {
+     "target": "com.amazonaws.identitystore#BooleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.identitystore#Emails": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.identitystore#Email"
+   },
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 1
+    }
+   }
+  },
+  "com.amazonaws.identitystore#ExceptionMessage": {
+   "type": "string"
+  },
+  "com.amazonaws.identitystore#ExtensionName": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 50
+    },
+    "smithy.api#pattern": "^aws:identitystore:[a-z]{1,20}$"
+   }
+  },
+  "com.amazonaws.identitystore#ExtensionNames": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.identitystore#ExtensionName"
+   },
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 10
+    },
+    "smithy.api#uniqueItems": {}
+   }
+  },
+  "com.amazonaws.identitystore#Extensions": {
+   "type": "map",
+   "key": {
+    "target": "com.amazonaws.identitystore#ExtensionName"
+   },
+   "value": {
+    "target": "com.amazonaws.identitystore#AttributeValue"
+   },
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 10
+    }
+   }
+  },
+  "com.amazonaws.identitystore#ExternalId": {
+   "type": "structure",
+   "members": {
+    "Issuer": {
+     "target": "com.amazonaws.identitystore#ExternalIdIssuer",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "Id": {
+     "target": "com.amazonaws.identitystore#ExternalIdIdentifier",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.identitystore#ExternalIdIdentifier": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 256
+    },
+    "smithy.api#pattern": "^[\\p{L}\\p{M}\\p{S}\\p{N}\\p{P}]+$",
+    "smithy.api#sensitive": {}
+   }
+  },
+  "com.amazonaws.identitystore#ExternalIdIssuer": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 256
+    },
+    "smithy.api#pattern": "^[\\p{L}\\p{M}\\p{S}\\p{N}\\p{P}]+$",
+    "smithy.api#sensitive": {}
+   }
+  },
+  "com.amazonaws.identitystore#ExternalIds": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.identitystore#ExternalId"
+   },
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 10
+    }
+   }
+  },
+  "com.amazonaws.identitystore#Filter": {
+   "type": "structure",
+   "members": {
+    "AttributePath": {
+     "target": "com.amazonaws.identitystore#AttributePath",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "AttributeValue": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.identitystore#Filters": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.identitystore#Filter"
+   },
+   "traits": {
+    "smithy.api#length": {
+     "min": 0,
+     "max": 1
+    }
+   }
+  },
+  "com.amazonaws.identitystore#IdentityStoreId": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 36
+    },
+    "smithy.api#pattern": "^d-[0-9a-f]{10}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+   }
+  },
+  "com.amazonaws.identitystore#ListUsers": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.identitystore#ListUsersRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.identitystore#ListUsersResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.identitystore#ResourceNotFoundException"
+    },
+    {
+     "target": "com.amazonaws.identitystore#ValidationException"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "NextToken",
+     "items": "Users",
+     "outputToken": "NextToken",
+     "pageSize": "MaxResults"
+    },
+    "smithy.api#readonly": {}
+   }
+  },
+  "com.amazonaws.identitystore#ListUsersRequest": {
+   "type": "structure",
+   "members": {
+    "IdentityStoreId": {
+     "target": "com.amazonaws.identitystore#IdentityStoreId",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "Extensions": {
+     "target": "com.amazonaws.identitystore#ExtensionNames",
+     "traits": {}
+    },
+    "MaxResults": {
+     "target": "com.amazonaws.identitystore#MaxResults",
+     "traits": {
+      "smithy.api#addedDefault": {},
+      "smithy.api#clientOptional": {},
+      "smithy.api#default": 100
+     }
+    },
+    "NextToken": {
+     "target": "com.amazonaws.identitystore#NextToken",
+     "traits": {}
+    },
+    "Filters": {
+     "target": "com.amazonaws.identitystore#Filters",
+     "traits": {
+      "smithy.api#deprecated": {
+       "message": "Using filters with ListUsers API is deprecated, please use GetGroupId API instead."
+      }
+     }
+    }
+   }
+  },
+  "com.amazonaws.identitystore#ListUsersResponse": {
+   "type": "structure",
+   "members": {
+    "Users": {
+     "target": "com.amazonaws.identitystore#Users",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "NextToken": {
+     "target": "com.amazonaws.identitystore#NextToken",
+     "traits": {}
+    }
+   }
+  },
+  "com.amazonaws.identitystore#MaxResults": {
+   "type": "integer",
+   "traits": {
+    "smithy.api#range": {
+     "min": 1,
+     "max": 100
+    }
+   }
+  },
+  "com.amazonaws.identitystore#Name": {
+   "type": "structure",
+   "members": {
+    "Formatted": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "FamilyName": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "GivenName": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "MiddleName": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "HonorificPrefix": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "HonorificSuffix": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.identitystore#NextToken": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 65535
+    },
+    "smithy.api#pattern": "^[-a-zA-Z0-9+=/:_]*$"
+   }
+  },
+  "com.amazonaws.identitystore#PhoneNumber": {
+   "type": "structure",
+   "members": {
+    "Value": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Type": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Primary": {
+     "target": "com.amazonaws.identitystore#BooleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.identitystore#PhoneNumbers": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.identitystore#PhoneNumber"
+   },
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 1
+    }
+   }
+  },
+  "com.amazonaws.identitystore#Photo": {
+   "type": "structure",
+   "members": {
+    "Value": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "Type": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Display": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Primary": {
+     "target": "com.amazonaws.identitystore#BooleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.identitystore#Photos": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.identitystore#Photo"
+   },
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 3
+    }
+   }
+  },
+  "com.amazonaws.identitystore#RequestId": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 36
+    },
+    "smithy.api#pattern": "^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$"
+   }
+  },
+  "com.amazonaws.identitystore#ResourceId": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 47
+    },
+    "smithy.api#pattern": "^([0-9a-f]{10}-|)[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$"
+   }
+  },
+  "com.amazonaws.identitystore#ResourceNotFoundException": {
+   "type": "structure",
+   "members": {
+    "ResourceType": {
+     "target": "com.amazonaws.identitystore#ResourceType",
+     "traits": {}
+    },
+    "ResourceId": {
+     "target": "com.amazonaws.identitystore#ResourceId",
+     "traits": {}
+    },
+    "Reason": {
+     "target": "com.amazonaws.identitystore#ResourceNotFoundExceptionReason",
+     "traits": {}
+    },
+    "Message": {
+     "target": "com.amazonaws.identitystore#ExceptionMessage"
+    },
+    "RequestId": {
+     "target": "com.amazonaws.identitystore#RequestId",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 404
+   }
+  },
+  "com.amazonaws.identitystore#ResourceNotFoundExceptionReason": {
+   "type": "enum",
+   "members": {
+    "KMS_KEY_NOT_FOUND": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "KMS_KEY_NOT_FOUND"
+     }
+    }
+   }
+  },
+  "com.amazonaws.identitystore#ResourceType": {
+   "type": "enum",
+   "members": {
+    "GROUP": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "GROUP"
+     }
+    },
+    "USER": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "USER"
+     }
+    },
+    "IDENTITY_STORE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "IDENTITY_STORE"
+     }
+    },
+    "GROUP_MEMBERSHIP": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "GROUP_MEMBERSHIP"
+     }
+    },
+    "RESOURCE_POLICY": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "RESOURCE_POLICY"
+     }
+    }
+   }
+  },
+  "com.amazonaws.identitystore#Role": {
+   "type": "structure",
+   "members": {
+    "Value": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Type": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Primary": {
+     "target": "com.amazonaws.identitystore#BooleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.identitystore#Roles": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.identitystore#Role"
+   },
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 1
+    }
+   }
+  },
+  "com.amazonaws.identitystore#SensitiveStringType": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 1024
+    },
+    "smithy.api#pattern": "^[\\p{L}\\p{M}\\p{S}\\p{N}\\p{P}\\t\\n\\r \u00a0\u3000]+$",
+    "smithy.api#sensitive": {}
+   }
+  },
+  "com.amazonaws.identitystore#StringType": {
+   "type": "string"
+  },
+  "com.amazonaws.identitystore#User": {
+   "type": "structure",
+   "members": {
+    "IdentityStoreId": {
+     "target": "com.amazonaws.identitystore#IdentityStoreId",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "UserId": {
+     "target": "com.amazonaws.identitystore#ResourceId",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "UserName": {
+     "target": "com.amazonaws.identitystore#UserName",
+     "traits": {}
+    },
+    "ExternalIds": {
+     "target": "com.amazonaws.identitystore#ExternalIds",
+     "traits": {}
+    },
+    "Name": {
+     "target": "com.amazonaws.identitystore#Name",
+     "traits": {}
+    },
+    "DisplayName": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "NickName": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "ProfileUrl": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Emails": {
+     "target": "com.amazonaws.identitystore#Emails",
+     "traits": {}
+    },
+    "Addresses": {
+     "target": "com.amazonaws.identitystore#Addresses",
+     "traits": {}
+    },
+    "PhoneNumbers": {
+     "target": "com.amazonaws.identitystore#PhoneNumbers",
+     "traits": {}
+    },
+    "UserType": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Title": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "PreferredLanguage": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Locale": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Timezone": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "UserStatus": {
+     "target": "com.amazonaws.identitystore#UserStatus",
+     "traits": {}
+    },
+    "Photos": {
+     "target": "com.amazonaws.identitystore#Photos",
+     "traits": {}
+    },
+    "Website": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Birthdate": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "Roles": {
+     "target": "com.amazonaws.identitystore#Roles",
+     "traits": {}
+    },
+    "CreatedAt": {
+     "target": "com.amazonaws.identitystore#DateType",
+     "traits": {}
+    },
+    "CreatedBy": {
+     "target": "com.amazonaws.identitystore#StringType",
+     "traits": {}
+    },
+    "UpdatedAt": {
+     "target": "com.amazonaws.identitystore#DateType",
+     "traits": {}
+    },
+    "UpdatedBy": {
+     "target": "com.amazonaws.identitystore#StringType",
+     "traits": {}
+    },
+    "Extensions": {
+     "target": "com.amazonaws.identitystore#Extensions",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.identitystore#UserName": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 128
+    },
+    "smithy.api#pattern": "^[\\p{L}\\p{M}\\p{S}\\p{N}\\p{P}]+$",
+    "smithy.api#sensitive": {}
+   }
+  },
+  "com.amazonaws.identitystore#UserStatus": {
+   "type": "enum",
+   "members": {
+    "ENABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ENABLED"
+     }
+    },
+    "DISABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "DISABLED"
+     }
+    }
+   }
+  },
+  "com.amazonaws.identitystore#Users": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.identitystore#User"
+   }
+  },
+  "com.amazonaws.identitystore#ValidationException": {
+   "type": "structure",
+   "members": {
+    "Message": {
+     "target": "com.amazonaws.identitystore#ExceptionMessage"
+    },
+    "RequestId": {
+     "target": "com.amazonaws.identitystore#RequestId",
+     "traits": {}
+    },
+    "Reason": {
+     "target": "com.amazonaws.identitystore#ValidationExceptionReason",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 400
+   }
+  },
+  "com.amazonaws.identitystore#ValidationExceptionReason": {
+   "type": "enum",
+   "members": {
+    "KMS_INVALID_ARN": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "KMS_INVALID_ARN"
+     }
+    },
+    "KMS_INVALID_KEY_USAGE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "KMS_INVALID_KEY_USAGE"
+     }
+    },
+    "KMS_INVALID_STATE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "KMS_INVALID_STATE"
+     }
+    },
+    "KMS_DISABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "KMS_DISABLED"
+     }
+    }
+   }
+  }
+ }
+}

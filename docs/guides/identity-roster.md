@@ -17,12 +17,12 @@ The roster is personnel data, so the CLI reads only the fields it needs (id, ema
 
 ## Prerequisites
 
-- A working `.sigcomply.yaml` with at least one account source configured — `github`, `gitlab`, `aws.iam`, `okta`, `azure.entra` or `gcp.directory` (see [Configure sources](configure-sources.md)).
+- A working `.sigcomply.yaml` with at least one account source configured — `github`, `gitlab`, `aws.iam`, `aws.identity_center`, `okta`, `azure.entra` or `gcp.directory` (see [Configure sources](configure-sources.md)).
 - Read access to the directory you will designate as the roster.
 
 ## Choosing the roster source
 
-Four sources can be the roster:
+Five sources can be the roster:
 
 | Directory | Source ID | Roster credential |
 |---|---|---|
@@ -30,6 +30,12 @@ Four sources can be the roster:
 | Microsoft Entra ID | `azure.entra` | Graph application permission `User.Read.All` — **no Entra ID P1/P2 needed** for the roster |
 | Google Workspace / Cloud Identity | `gcp.directory` | Workspace admin context with Users → Read |
 | Active Directory (on-prem) | `active_directory` | A non-admin bind user over LDAPS / StartTLS |
+| AWS IAM Identity Center | `aws.identity_center` | `identitystore:ListUsers` + `sso:ListInstances` |
+
+Identity Center is the roster only when it is the directory of record. If an
+upstream IdP SCIM-syncs into it, designate the upstream IdP instead and use
+`aws.identity_center` as an *account* source — that is the case the rule below
+is about.
 
 **Pick the directory where accounts are created** — the one HR onboarding and offboarding actually touches first. In a hybrid setup where Active Directory syncs to Entra ID, which then provisions Okta, the origin is Active Directory. Designate that. A downstream copy can lag behind the origin, or miss someone the sync skipped.
 
@@ -92,10 +98,12 @@ Rules for both maps:
 Some sources can't supply an email, so their accounts link **only** through `aliases`:
 
 - **GitHub** — the org-members API exposes no email. Alias each login.
-- **AWS IAM** — IAM users carry no email. Alias each `UserName`. The AWS **root** account is recognized automatically and treated as non-human, so you don't need to list it.
+- **AWS IAM** — IAM users carry no email. Alias each `UserName`. The AWS **root** account is recognized automatically and treated as non-human, so you don't need to list it. **If your humans sign in through IAM Identity Center rather than as IAM users, add `aws.identity_center` and delete the `aws.iam:` alias block** — SSO identities carry emails and link directly, which removes the whole class of silent alias typos described below.
 - **GitLab** — member email is visible only to a group-owner or instance-admin token. With a lesser token, alias the usernames.
 
-Okta, Entra ID and Google Workspace accounts carry emails and usually link without aliases.
+A misspelled login is silent in the config — it is a perfectly valid entry for an account that does not exist — so check the run output for `unused-alias:` lines after adding aliases (see [Troubleshooting](#troubleshooting)).
+
+Okta, Entra ID, Google Workspace and AWS IAM Identity Center accounts carry emails and usually link without aliases.
 
 ### Overriding the roster for one policy
 
@@ -223,6 +231,18 @@ So **waiving an unlinked account on the linked policy can hide a leaver** whose 
 **A GCP IAM grant is unlinked but the person is in the roster.** The principal's address differs from their roster email (a personal or partner-domain account). Alias it under the `gcp.iam` source key: `aliases: { gcp.iam: { c@personal.test: carl@acme.com } }`.
 
 **A warning `ignoring unrecognized key experimental.roster.<key>`.** A typo in the block. Unknown keys are tolerated so newer configs load on older CLIs, but they do nothing.
+
+**A warning `unused-alias:` or `unused-non-human:` naming an account.** The account name is spelled in a way no collected account carries — the other half of the typo the exit `3` above catches on the *source* key. The run prints, after evaluation:
+
+```
+unused-alias: experimental.roster.aliases["github"]["jdoee"] matched no collected account — no record from github carries that id, username or principal_id
+```
+
+The entry did nothing: the account it was meant to link is still unlinked (or still counted as a person). Fix the spelling, or drop the entry if the account is gone. The name is matched against the account's **id**, its **username**, or — for an IAM grant — its **principal_id**, never a display name.
+
+It is a warning, never a failure, and it is decided across the whole run: a name used by one roster policy is used. Two cases produce no warning at all even when an entry is wrong, because the run proved nothing about it — the roster policies were carried forward by their cadence, or they skipped (no roster designated, the source failed to collect). A run that collected no account at all reports every declared name.
+
+These lines go to stdout, not the log, because the log redacts anything email-shaped and roster keys are often emails. They stay local: account names never reach the cloud payload.
 
 **The roster policies report `error`.** The roster source failed to collect — a missing Okta token, an LDAPS certificate that doesn't verify, a Workspace 403 — and the result carries the source's own message. See the source's section in the [configuration reference](../configuration.md).
 

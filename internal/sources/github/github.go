@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
 
 // Evidence type IDs this plugin emits.
@@ -493,7 +494,10 @@ func (p *Plugin) periodWindow(req core.SlotRequest) (start, end time.Time) {
 // timeParam reads a time.Time slot parameter, returning the zero value
 // when missing or the wrong type. Slot params are map[string]any by
 // design. (Duplicated from internal/sources/manual per the plugin
-// KISS-no-DRY axiom — source plugins share no helper package.)
+// KISS-no-DRY axiom: plugins do not share vendor-neutral helpers.
+// The one shared thing is internal/sources/errors.go, because the
+// collector needs a single retry classification for every plugin —
+// see the note at the top of that file.)
 func timeParam(m map[string]any, key string) time.Time {
 	if v, ok := m[key].(time.Time); ok {
 		return v
@@ -1603,14 +1607,27 @@ func (h *httpAPI) getJSONStatus(ctx context.Context, fullURL string, out any) (n
 	}
 	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // best-effort close
 	if resp.StatusCode == http.StatusNotFound {
-		return "", resp.StatusCode, fmt.Errorf("github: %s: %s", fullURL, resp.Status)
+		return "", resp.StatusCode, &sources.APIError{
+			Source:     SourceID,
+			StatusCode: resp.StatusCode,
+			Message:    fmt.Sprintf("%s: %s", fullURL, resp.Status),
+		}
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
-			return "", resp.StatusCode, fmt.Errorf("github: %s: %s: %w", fullURL, resp.Status, readErr)
+			return "", resp.StatusCode, &sources.APIError{
+				Source:     SourceID,
+				StatusCode: resp.StatusCode,
+				Message:    fmt.Sprintf("%s: %s: %v", fullURL, resp.Status, readErr),
+				Err:        readErr,
+			}
 		}
-		return "", resp.StatusCode, fmt.Errorf("github: %s: %s: %s", fullURL, resp.Status, strings.TrimSpace(string(body)))
+		return "", resp.StatusCode, &sources.APIError{
+			Source:     SourceID,
+			StatusCode: resp.StatusCode,
+			Message:    fmt.Sprintf("%s: %s: %s", fullURL, resp.Status, strings.TrimSpace(string(body))),
+		}
 	}
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 		return "", resp.StatusCode, fmt.Errorf("github: decode %s: %w", fullURL, err)

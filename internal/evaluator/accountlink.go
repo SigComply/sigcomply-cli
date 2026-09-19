@@ -83,9 +83,12 @@ func (ec *evalCtx) resolveAccount(rec *core.EvidenceRecord) accountLink {
 	if pt, ok := payload["principal_type"].(string); ok && lowerTrim(pt) != "" && lowerTrim(pt) != principalTypeUser {
 		link.nonHuman = true
 	}
-	if !link.nonHuman && ec.roster != nil {
-		listed := ec.roster.NonHuman[rec.SourceID]
-		link.nonHuman = slices.ContainsFunc(names, func(n string) bool { return slices.Contains(listed, n) })
+	// Consulted even when the record is already non-human by
+	// construction (is_root, a non-person principal_type): a declared
+	// name that matched a real account is used, and skipping the lookup
+	// would report it as a typo it is not.
+	if ec.nonHumanListed(rec.SourceID, names) {
+		link.nonHuman = true
 	}
 	if active, ok := payload["is_active"].(bool); ok {
 		link.active = active
@@ -108,17 +111,50 @@ func accountNames(rec *core.EvidenceRecord, payload map[string]any) []string {
 	return names
 }
 
+// aliasFor returns the roster email declared for any of the record's
+// names, and records every key that matched. Every matching name is
+// marked, not just the first: a key shadowed by an earlier name still
+// names a real account, and reporting it as unused would be a lie.
 func (ec *evalCtx) aliasFor(sourceID string, names []string) string {
 	if ec.roster == nil {
 		return ""
 	}
 	aliases := ec.roster.Aliases[sourceID]
+	if len(aliases) == 0 {
+		return ""
+	}
+	found := ""
 	for _, n := range names {
-		if email := lowerTrim(aliases[n]); email != "" {
-			return email
+		email, declared := aliases[n]
+		if !declared {
+			continue
+		}
+		ec.usage.markAlias(sourceID, n)
+		if normalized := lowerTrim(email); normalized != "" && found == "" {
+			found = normalized
 		}
 	}
-	return ""
+	return found
+}
+
+// nonHumanListed reports whether any of the record's names is declared
+// non-human for its source, recording each key that matched.
+func (ec *evalCtx) nonHumanListed(sourceID string, names []string) bool {
+	if ec.roster == nil {
+		return false
+	}
+	listed := ec.roster.NonHuman[sourceID]
+	if len(listed) == 0 {
+		return false
+	}
+	hit := false
+	for _, n := range names {
+		if slices.Contains(listed, n) {
+			ec.usage.markNonHuman(sourceID, n)
+			hit = true
+		}
+	}
+	return hit
 }
 
 // accountField resolves account.<name>; ok is false for an unknown name.

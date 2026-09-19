@@ -1,0 +1,149 @@
+# PROVENANCE — NOT RECORDED AGAINST A LIVE TENANT.
+#
+# SigComply has no AWS IAM Identity Center tenant, so this cassette could not
+# be recorded from real traffic. It was CONSTRUCTED:
+#
+#   * the REQUEST side (URL, method, X-Amz-Target, body) is genuine — produced
+#     by driving the real aws-sdk-go-v2 identitystore + ssoadmin clients, whose
+#     serializers are generated from the published Smithy models
+#     (aws/aws-sdk-go-v2 codegen/sdk-codegen/aws-models/{identitystore,sso-admin}.json),
+#     through a canned transport while go-vcr recorded.
+#   * the RESPONSE bodies are hand-transcribed from those same service models'
+#     User / InstanceMetadata shapes (awsJson1_1: epoch-second timestamps).
+#
+# It therefore proves the plugin's mapping against the SHAPE the model declares,
+# not against what a real tenant returns. Re-record it against a live Identity
+# Center instance before treating it as a contract test. Identities use the
+# house placeholders (docs/architecture/11-testing-strategy.md §4).
+---
+version: 2
+interactions:
+    - id: 0
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 2
+        host: ""
+        body: '{}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - cb988b9a-9508-4422-a7dc-597688f3a7e8
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.47.0 ua/2.1 os/macos lang/go#1.27.0 md/GOOS#darwin md/GOARCH#arm64 api/ssoadmin#1.48.0 m/e
+            X-Amz-Date:
+                - 20260919T201007Z
+            X-Amz-Target:
+                - SWBExternalService.ListInstances
+        url: https://sso.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 215
+        body: '{"Instances":[{"CreatedDate":1.7182944E9,"IdentityStoreId":"d-9067012345","InstanceArn":"arn:aws:sso:::instance/ssoins-7223bcdeffedcbaa","Name":"example-instance","OwnerAccountId":"000000000000","Status":"ACTIVE"}]}'
+        headers:
+            Content-Length:
+                - "215"
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sat, 19 Sep 2026 00:00:00 GMT
+            X-Amzn-Requestid:
+                - 1c3d6934-e473-4309-b499-2a3cf3011901
+        status: 200 OK
+        code: 200
+        duration: 13.959µs
+    - id: 1
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 34
+        host: ""
+        body: '{"IdentityStoreId":"d-9067012345"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 09033caa-018d-4521-ac1c-7a2de868bec3
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.47.0 ua/2.1 os/macos lang/go#1.27.0 md/GOOS#darwin md/GOARCH#arm64 api/identitystore#1.44.0 m/e
+            X-Amz-Date:
+                - 20260919T201007Z
+            X-Amz-Target:
+                - AWSIdentityStore.ListUsers
+        url: https://identitystore.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 684
+        body: '{"NextToken":"eyJwYWdlIjoyfQ","Users":[{"CreatedAt":1.7182944E9,"DisplayName":"Ada Example","Emails":[{"Primary":true,"Type":"work","Value":"user-a1b2c3@example.com"}],"IdentityStoreId":"d-9067012345","Name":{"FamilyName":"Example","Formatted":"Ada Example","GivenName":"Ada"},"UserId":"90677c50-e0f1-70ab-7e94-1a2b3c4d5e6f","UserName":"example-user","UserStatus":"ENABLED","UserType":"employee"},{"CreatedAt":1.7204832E9,"Emails":[{"Primary":true,"Type":"work","Value":"user-d4e5f6@example.com"}],"IdentityStoreId":"d-9067012345","Name":{"FamilyName":"Example","GivenName":"Dana"},"UserId":"b0e7fc40-a021-7033-1b55-6f7e8d9c0a1b","UserName":"example-user-2","UserStatus":"DISABLED"}]}'
+        headers:
+            Content-Length:
+                - "684"
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sat, 19 Sep 2026 00:00:00 GMT
+            X-Amzn-Requestid:
+                - 1c3d6934-e473-4309-b499-2a3cf3011901
+        status: 200 OK
+        code: 200
+        duration: 45.625µs
+    - id: 2
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 63
+        host: ""
+        body: '{"IdentityStoreId":"d-9067012345","NextToken":"eyJwYWdlIjoyfQ"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - bdfc0ce8-321c-4e73-a086-86d448cb1403
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.47.0 ua/2.1 os/macos lang/go#1.27.0 md/GOOS#darwin md/GOARCH#arm64 api/identitystore#1.44.0 m/e
+            X-Amz-Date:
+                - 20260919T000000Z
+            X-Amz-Target:
+                - AWSIdentityStore.ListUsers
+        url: https://identitystore.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 145
+        body: '{"Users":[{"IdentityStoreId":"d-9067012345","UserId":"c1f81a90-30b1-7093-4c66-7a8b9c0d1e2f","UserName":"example-user-3","UserStatus":"ENABLED"}]}'
+        headers:
+            Content-Length:
+                - "145"
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sat, 19 Sep 2026 00:00:00 GMT
+            X-Amzn-Requestid:
+                - 1c3d6934-e473-4309-b499-2a3cf3011901
+        status: 200 OK
+        code: 200
+        duration: 3.375µs
