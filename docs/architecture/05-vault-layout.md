@@ -273,8 +273,10 @@ One signed envelope file **per evidence type** within a (slot, source)
 binding (`collector.groupByType` — when a source emits a single accepted
 type this is one envelope per (slot, source)). The filename convention is
 `{evidence_type}__{source_id}.json`, with a `_{catalog_id}` suffix when
-the binding carries a catalog entry (the manual flow always does). For
-the manual flow:
+the binding carries a catalog entry (the manual flow always does). A
+fan-out entry does **not** multiply envelopes: it stays one binding and
+one record, so one envelope carries every member's verdict, and the
+merged PDFs sidecar per member. For the manual flow:
 
 ```
 policies/soc2.cc6.3.access_review_quarterly/envelopes/signed_document__manual.pdf_access_review_quarterly.json

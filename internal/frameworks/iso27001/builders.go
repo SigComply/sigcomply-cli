@@ -121,6 +121,13 @@ type manualPolicy struct {
 	declarationText string
 	category        string
 	tsc             string
+
+	// fanOut names the set this entry's evidence multiplies over (see
+	// the manual.FanOut* constants). It reaches the runtime catalog
+	// only — the SPA-facing export stays a flat, config-independent
+	// contract, because the members come from the project's config and
+	// the export is framework-static.
+	fanOut string
 }
 
 // entry expands the policy into its descriptive catalog entry for the

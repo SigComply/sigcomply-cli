@@ -343,6 +343,60 @@ experimental:
     required_sources: [aws.iam, github, okta]
 ```
 
+### `experimental.vendors` — the third-party register as a fan-out set
+
+`experimental.vendors` is the second operator-declared set, and the first
+one that multiplies evidence rather than checking it.
+
+A manual catalog entry normally resolves to exactly one folder. A vendor
+requirement does not fit that shape: "each vendor has current assurance
+evidence" is one control over N third parties, and collapsing it into one
+folder makes eleven current vendors and one two-year-old report
+indistinguishable.
+
+The register supplies the set:
+
+```yaml
+experimental:
+  vendors:
+    declared_by: ciso@example.com
+    register:
+      - {id: acme_cloud, name: Acme Cloud, tier: critical, subservice: true}
+      - {id: zeta_news, name: Zeta, tier: low, tier_rationale: "...", approved_by: "..."}
+```
+
+**The fan-out happens on the folder, not on the policy.** A framework
+declares `fanOut` on the catalog entry; `internal/vendorfanout` resolves
+the members from config at wiring time; the `manual.pdf` plugin scans one
+folder per member and emits **one** signed record carrying every member's
+verdict. There is still one policy ID, one binding, one envelope, one
+state shard.
+
+That choice is load-bearing. Minting one policy per vendor would make the
+vendor slug a first-class identity that four other subsystems key off —
+state shards (`loadPolicyStates` builds its ID list from
+`framework.Policies()`), project-config overrides and
+`validateProjectReferences`, the `evidence due` catalog, and the
+framework-sourced policy list that `report --view coverage` and
+`--view soa` join against. Three of those four would break, two of them
+silently: the coverage view would report the control as "no policy ran in
+this period" while N vendor checks had just passed.
+
+It would also put the customer's vendor list on the wire, since
+`policy_id` is submitted. Keeping one policy means the aggregation
+boundary does what it already does — the evaluator reduces N verdicts to
+`resources_evaluated` / `resources_failed` before anything is sent.
+
+The set is also what makes the tier mechanical: every tier but `low`
+obliges a folder, and `low` requires a recorded rationale and approver.
+A tier that removed the obligation outright would repeat the failure mode
+`experimental.scope` exists to prevent — an operator-chosen value that
+quietly shrinks the denominator.
+
+Full field reference:
+[configuration.md](../configuration.md#experimentalvendors--declaring-the-third-party-register).
+Operator guide: [Vendor and third-party risk](../guides/vendor-risk.md).
+
 A declared source must clear three bars to count as covered — configured,
 bound by some policy slot, and returning at least one record. Stopping at
 the first would reduce this to a lint on a single file: it would report

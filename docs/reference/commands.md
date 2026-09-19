@@ -250,6 +250,13 @@ already done, which is what keeps it worth reading.
 The period is derived from the HEAD commit's timestamp, exactly as `check`
 derives it, so the folder reported here is the folder the next run will read.
 
+A **fan-out** entry is listed once per member of its declared set, named so the
+row says which one is missing (`vendor_assurance [Acme Cloud Platform]`) rather
+than that one of them is. Members that owe no artifact — a `low`-tier vendor,
+which discharges its obligation with a recorded rationale and approver — have no
+deadline and are not listed. See
+[Vendor and third-party risk](../guides/vendor-risk.md).
+
 | Flag | Shorthand | Default | Meaning |
 |---|---|---|---|
 | `--config <path>` | `-c` | `.sigcomply.yaml` | Project config |

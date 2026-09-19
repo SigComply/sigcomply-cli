@@ -16,6 +16,8 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/planner"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/manual/builtin" // side-effect: registers the s3/gcs/azure_blob manual backends
+	"github.com/sigcomply/sigcomply-cli/internal/spec"
+	"github.com/sigcomply/sigcomply-cli/internal/vendorfanout"
 )
 
 // manualSourceID is the project-level singleton manual evidence source.
@@ -70,6 +72,19 @@ func runEvidenceDue(ctx context.Context, stdout io.Writer, parent *evidenceFlags
 	catalog, fwID, err := manualCatalogFor(parent.framework, cfg.Framework)
 	if err != nil {
 		return err
+	}
+
+	// Expand fan-out entries exactly as `check` does, so the folders
+	// reported empty here are byte-identical to the ones the next run
+	// reads. Only when the resolved framework is the project's own —
+	// a -f pointing elsewhere would mix one framework's catalog with
+	// another project's register.
+	if fwID == cfg.Framework {
+		vendorReg, vErr := spec.LoadVendorRegister(cfg)
+		if vErr != nil {
+			return &exitCodeError{code: orchestrator.ExitConfig, err: fmt.Errorf("evidence due: %w", vErr)}
+		}
+		catalog = vendorfanout.Apply(catalog, vendorReg)
 	}
 
 	raw, configured := cfg.Sources[manualSourceID]

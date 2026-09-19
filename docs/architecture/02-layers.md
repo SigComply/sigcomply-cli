@@ -112,7 +112,7 @@ type Policy struct {
     Parameters                   map[string]ParameterSpec
     PassWhen                     *Condition      // primary evaluation path
     Rule                         string          // escape hatch; unused by shipped policies
-    CatalogEntry                 string          // manual only
+    CatalogEntry                 string          // manual only (may fan out over a config-declared set)
 }
 
 type Slot struct {

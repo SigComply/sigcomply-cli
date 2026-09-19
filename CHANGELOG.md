@@ -13,6 +13,29 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **Vendor and third-party risk collects per vendor, not per folder.** A manual
+  catalog entry can now fan out over a set the project declares in
+  `experimental.vendors`: one evidence folder per vendor
+  (`{prefix}{evidence_id}.{vendor_id}/{period_id}/`), each checked
+  independently, all reported as a single policy. Three new manual policies —
+  `soc2.cc9.2.vendor_assurance`, `soc2.cc9.2.cuec_mapping` (fans out over
+  subservice organizations only) and `iso27001.5.19.supplier_assurance`.
+  Each vendor may declare `assurance_period_end`, the last day its own
+  assurance report covers, which fails the check once it is more than 15
+  months before the audit period — the only way to catch a stale report,
+  since the temporal window proves upload time alone. The date is **declared,
+  never parsed**: the CLI still does not read document contents. Risk tier
+  decides *which* artifact a vendor owes, never *whether* one is owed; a `low`
+  tier is an approved exemption requiring `tier_rationale` and `approved_by`,
+  not a silent opt-out. Vendor names, rationales and approver addresses stay
+  vault-side — the evaluator reduces the register to two counts before
+  submission, so the cloud never learns which third parties a customer uses.
+  **Behavior change: a project that declares a register gains one evidence
+  obligation per vendor, and those policies fail until each vendor's document
+  is uploaded.** Projects that declare no register are unaffected — the
+  entries behave as ordinary single-folder manual entries. See
+  [Vendor and third-party risk](docs/guides/vendor-risk.md).
+
 - **ISO 27001 now covers the management system, not just Annex A — and
   generates the Statement of Applicability.** **Behavior change: existing ISO
   27001 projects gain 16 manual policies that fail until the documents are

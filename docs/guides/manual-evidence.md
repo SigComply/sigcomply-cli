@@ -53,6 +53,12 @@ evidence bucket per project**, configured once under `sources.manual.pdf`.
 There is no per-framework or per-entry bucket. Every manual entry lives in
 its own subfolder of that one bucket.
 
+The singleton is the *bucket*, not the folder count. A **fan-out** entry
+still uses that one bucket but claims one subfolder per member — for
+example one per vendor in the third-party register, at
+`{prefix}{evidence_id}.{vendor_id}/{period_id}/`. See
+[Vendor and third-party risk](vendor-risk.md).
+
 ## Step 1 — Discover the required entries
 
 List the framework's manual-evidence catalog. This works without any
@@ -62,10 +68,10 @@ project config:
 sigcomply evidence catalog -f soc2 -o text
 ```
 
-The SOC 2 catalog has **47 entries**. Abbreviated output:
+The SOC 2 catalog has **49 entries**. Abbreviated output:
 
 ```
-Manual Evidence Catalog: soc2 (v1.0) — 47 entries
+Manual Evidence Catalog: soc2 (v1.0) — 49 entries
 
 ID                               CONTROL  TYPE             FREQUENCY  NAME
 access_review_quarterly          CC6.3    document_upload  quarterly  Access Review Quarterly

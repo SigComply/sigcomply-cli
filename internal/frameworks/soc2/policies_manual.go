@@ -3,6 +3,7 @@ package soc2
 import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/manualcatalog"
+	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 )
 
 // manualPolicies returns every manual-evidence SOC 2 policy as a
@@ -97,6 +98,16 @@ func manualSpecs() []manualPolicy {
 		{id: "soc2.cc9.1.vendor_risk_assessment", control: "CC9.1", cadence: "annual", catalog: "vendor_risk_assessment", desc: "Third-party / vendor risk is assessed.", rem: "Upload the vendor risk assessment.", tsc: "security"},
 		{id: "soc2.cc9.1.due_diligence_process", control: "CC9.1", cadence: "annual", catalog: "due_diligence_process", desc: "A vendor due-diligence process is documented.", rem: "Upload the vendor due-diligence process.", tsc: "security"},
 		{id: "soc2.cc9.2.vendor_contracts_reviewed", control: "CC9.2", cadence: "annual", catalog: "vendor_contracts_reviewed", desc: "Vendor contracts include security clauses.", rem: "Upload reviewed vendor contracts with security clauses.", tsc: "security"},
+		// Fans out over the project's third-party register: one folder
+		// per vendor, so "we have a vendor assessment" becomes "we have
+		// one for each vendor that needs it". Without a register
+		// declared this behaves exactly like any other single-folder
+		// entry. See docs/guides/vendor-risk.md.
+		{id: "soc2.cc9.2.vendor_assurance", control: "CC9.2", cadence: "annual", catalog: "vendor_assurance", fanOut: manual.FanOutVendors, name: "Vendor Assurance Evidence", desc: "Each vendor in the third-party register has current assurance evidence on file.", rem: "For each vendor, upload their current SOC 2 Type II report, ISO 27001 certificate, penetration-test summary, or completed security questionnaire into that vendor's folder.", tsc: "security"},
+		// Fans out over the subservice organizations only: CUECs are
+		// the controls a subservice organization's own report assumes
+		// *you* operate, so they are per-organization by nature.
+		{id: "soc2.cc9.2.cuec_mapping", control: "CC9.2", cadence: "annual", catalog: "cuec_mapping", fanOut: manual.FanOutSubserviceVendors, name: "Complementary User Entity Controls Mapping", desc: "Complementary user entity controls (CUECs) from each subservice organization's report are mapped to controls this organization operates.", rem: "For each subservice organization, upload a mapping of the CUECs listed in their report to the controls you operate. Note these are CUECs — what their report expects you to do — not complementary subservice organization controls (CSOCs), which are what you expect of them.", tsc: "security"},
 
 		// A1 — Availability (manual portions).
 		{id: "soc2.a1.2.business_continuity_plan", control: "A1.2", cadence: "annual", catalog: "business_continuity_plan", desc: "A business continuity plan exists.", rem: "Upload the business continuity plan.", tsc: "availability"},

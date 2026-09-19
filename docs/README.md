@@ -36,6 +36,7 @@ Task-focused recipes for a specific goal.
 | [CI on GitHub](guides/ci-github.md) | Scaffold and wire per-cadence GitHub Actions workflows with OIDC. |
 | [CI on GitLab](guides/ci-gitlab.md) | Scaffold `.gitlab-ci.yml`, pipeline schedules, and OIDC (incl. the id-token caveat). |
 | [Manual evidence](guides/manual-evidence.md) | Upload PDF/image evidence to a bucket folder and consume it from a policy. |
+| [Vendor & third-party risk](guides/vendor-risk.md) | Declare your third-party register and collect assurance evidence per vendor, with a freshness check on each. |
 | [ISMS clauses & the SoA](guides/isms-clauses.md) | Satisfy ISO 27001's 16 clause 4-10 management-system requirements and generate the Statement of Applicability. |
 | [Cloud dashboard](guides/cloud-dashboard.md) | Connect a repo, start the Pro trial, and manage auditor seats. |
 | [Verify evidence](guides/verify-evidence.md) | Use the six `report` views — including `soa`, the ISO 27001 Statement of Applicability — and the `/verify` SPA to check signatures and integrity. |

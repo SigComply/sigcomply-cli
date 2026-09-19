@@ -20,7 +20,36 @@
       "items": { "type": "string" },
       "description": "Human-readable list of failed checks. Each entry is prefixed with the failure code: unsupported_file_type, conversion_failed, merge_failed, file_too_small, missing_pdf_header, no_pages, or copy_paste_of_prior_period."
     },
-    "expected_uri":        { "type": "string", "description": "Resolved {scheme}://{bucket}/{prefix}/{evidence_id}/{period}/ folder URI where files are expected." },
+    "expected_uri":        { "type": "string", "description": "Resolved {scheme}://{bucket}/{prefix}/{evidence_id}/{period}/ folder URI where files are expected. For a fan-out entry this is the parent path; each instance carries its own." },
+    "instances_total":     { "type": "integer", "description": "Number of fan-out members examined. Absent for a single-folder entry." },
+    "instances_satisfied": { "type": "integer", "description": "How many fan-out members were satisfied — an approved exemption counts as satisfied." },
+    "instances": {
+      "type": "array",
+      "description": "Per-member breakdown for a fan-out entry (one catalog entry, one folder per member — today, one per vendor in the project's third-party register). Absent for a single-folder entry. Vault-side only: the evaluator reduces this to two counts before anything crosses the aggregation boundary, so no member identifier ever reaches the cloud payload.",
+      "items": {
+        "type": "object",
+        "required": ["id", "satisfied"],
+        "properties": {
+          "id":                  { "type": "string", "description": "Member slug, appended to evidence_id to form this member's folder." },
+          "name":                { "type": "string", "description": "Human label for the member." },
+          "tier":                { "type": "string", "description": "Declared risk tier: critical, high, moderate, or low." },
+          "required":            { "type": "boolean", "description": "False when the member is an approved exemption that owes a justification rather than an artifact." },
+          "satisfied":           { "type": "boolean", "description": "True when the member's evidence is present, in-window and valid — or when it is an approved exemption." },
+          "file_present":        { "type": "boolean" },
+          "file_hash":           { "type": "string" },
+          "file_size":           { "type": "integer" },
+          "uploaded_at":         { "type": "string", "format": "date-time" },
+          "in_temporal_window":  { "type": "boolean" },
+          "file_valid":          { "type": "boolean" },
+          "validation_failures": { "type": "array", "items": { "type": "string" }, "description": "Adds assurance_out_of_date to the single-folder codes: the member's declared assurance coverage ended too long before the audit period." },
+          "expected_uri":        { "type": "string" },
+          "source_files":        { "type": "array", "items": { "type": "object" } },
+          "exemption_reason":    { "type": "string", "description": "Why this member owes no artifact. Required by the config loader when the tier is low." },
+          "approved_by":         { "type": "string", "description": "Who signed off the exemption." },
+          "assurance_period_end":{ "type": "string", "description": "Declared last day the member's own assurance report covers (YYYY-MM-DD). Declared by the operator, never parsed out of the document." }
+        }
+      }
+    },
     "source_files": {
       "type": "array",
       "description": "Per-file audit trail. Each entry records the original filename, file type, SHA-256 of the original bytes (before any conversion), upload time, and whether the file was converted from an image format.",

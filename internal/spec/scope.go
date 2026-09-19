@@ -76,6 +76,11 @@ var knownScopeKeys = map[string]struct{}{
 // Validation here is shape-only. Whether a declared source ID actually
 // exists is a cross-reference question that needs the registries, and so
 // belongs to the planner (see the layering note on LoadProjectConfig).
+//
+// This shares its shape with LoadVendorRegister by design: both implement
+// the experimental: hatch contract, and the duplication is the contract.
+//
+//nolint:dupl // see the note above
 func LoadScopeConfig(cfg *ProjectConfig) (*ScopeConfig, error) {
 	if cfg == nil || cfg.Experimental == nil {
 		return nil, nil

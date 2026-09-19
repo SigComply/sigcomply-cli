@@ -74,6 +74,8 @@ List each source you want under `sources:` — the CLI does **not** auto-registe
 | `okta` | `OKTA_API_TOKEN` (or config `api_token`) | `org_url` |
 | `active_directory` | `SIGCOMPLY_AD_BIND_PASSWORD` (or config `bind_password`) | `url` (`ldaps://…`, or `ldap://…` with `start_tls: true`), `bind_dn` |
 
+To collect vendor assurance evidence per vendor rather than one folder for all of them, declare the third-party register under `experimental.vendors`; each entry needs `id`, `name` and `tier`, and a `low` tier additionally requires `tier_rationale` and `approved_by` or the config fails to load (exit `3`). Evidence then goes to `{prefix}{evidence_id}.{vendor_id}/{period_id}/`. See [Vendor and third-party risk](guides/vendor-risk.md).
+
 All collectors are read-only (Describe/List/Get). To check accounts against the organization's people, designate the directory that holds them with `experimental.roster.source` (`okta`, `azure.entra`, `gcp.directory` or `active_directory`); without it the roster policies skip. See [Identity roster](guides/identity-roster.md). For AWS, attach `ReadOnlyAccess` or a scoped read policy to the assumed role. Detailed per-source RBAC is in [configuration.md](configuration.md).
 
 ## 5. Scaffold CI
@@ -136,7 +138,7 @@ sigcomply report --period <id> --view soa        # ISO 27001 Statement of Applic
 - **Framework key is singular** — `framework: soc2`, never `frameworks: [soc2]`.
 - **The binding slot is usually `evidence`** — not `user_directory` or `access_keys`, which do not exist and cause exit `3`. Roster policies use `roster` and `accounts`.
 - **`check` has no `--framework` flag** and ignores `SIGCOMPLY_FRAMEWORK`; it reads the framework from config only.
-- **Never put identifiers in any cloud-facing config** — no ARNs, emails, usernames, or account IDs. The model is non-custodial; only counts leave your environment. (`experimental.roster.aliases` in `.sigcomply.yaml` does hold emails; that file stays in the repo and is never sent.)
+- **Never put identifiers in any cloud-facing config** — no ARNs, emails, usernames, or account IDs. The model is non-custodial; only counts leave your environment. (`experimental.roster.aliases` and `experimental.vendors` in `.sigcomply.yaml` do hold emails and third-party names; that file stays in the repo and is never sent, and vendor results are reduced to two counts before submission.)
 - **`collect`, `evaluate`, and `config` commands do not exist.** Do not invent them. Wired commands are `check`, `init`, `init-ci`, `build`, `report`, `evidence catalog`, `evidence due`, `version`.
 - **HIPAA is not registered.** Only `soc2` and `iso27001` exist; any other framework name fails.
 - **`go install` names the binary `sigcomply-cli`** — symlink it to `sigcomply`.

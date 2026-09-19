@@ -103,6 +103,30 @@ func TestDocFiguresMatchCode(t *testing.T) {
 		{"docs/quickstart.md", []string{
 			fmt.Sprintf("SOC 2 ships %d catalog entries", s.catalogEntries),
 		}},
+		// The four below were drifting unguarded — every one of them
+		// was stale or about to be. A published figure with no test is
+		// a claim nobody re-derives (Theme C: none of the live
+		// discrepancies was caught by review; they were caught by
+		// deriving the truth mechanically and diffing it against the
+		// prose).
+		{"docs/guides/isms-clauses.md", []string{
+			fmt.Sprintf("%d Annex A controls** — the selectable catalog. %d have an automated check; %d are manual-only.", i.controls, i.ctrlAuto, i.ctrlManual),
+			fmt.Sprintf("To see the whole ISO catalog (%d entries", i.catalogEntries),
+			fmt.Sprintf("%d of %d catalog controls have a check", i.controls, i.controls),
+			fmt.Sprintf("%d automated  — verified by inspecting your infrastructure", i.ctrlAuto),
+			fmt.Sprintf("%d manual     — satisfied by a document being on file", i.ctrlManual),
+		}},
+		{"docs/reference/commands.md", []string{
+			fmt.Sprintf("For SOC 2, %d of %d criteria are the first kind", s.ctrlManual, s.controls),
+			// The sample coverage output in this file is a SOC 2 run.
+			fmt.Sprintf("%d of %d catalog controls have a check", s.controls, s.controls),
+		}},
+		{"docs/guides/verify-evidence.md", []string{
+			fmt.Sprintf("For SOC 2, %d of %d criteria are", s.ctrlManual, s.controls),
+		}},
+		{"docs/architecture/10-cadence-model.md", []string{
+			fmt.Sprintf("of %d entries have no file for period", s.catalogEntries),
+		}},
 	} {
 		t.Run(tc.doc, func(t *testing.T) {
 			path := filepath.Join("..", "..", tc.doc)

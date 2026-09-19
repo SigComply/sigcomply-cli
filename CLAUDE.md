@@ -70,6 +70,7 @@ public document. It is gitignored and absent in some environments.
 - **[TESTING.md](./TESTING.md)** / **[docs/architecture/11-testing-strategy.md](./docs/architecture/11-testing-strategy.md)** — testing strategy: layered tests (L0–L4b), CLI-vs-E2E repo split, cassette/contract conventions
 - **[docs/claude/development-workflow.md](./docs/claude/development-workflow.md)** — the end-to-end change loop: plan → tests-first → implement → verify (`make test && make lint` + exercise the built CLI) → update docs → commit to `main`. Read before starting any task.
 - **[docs/claude/auth.md](./docs/claude/auth.md)** — OIDC authentication
+- **[docs/guides/vendor-risk.md](./docs/guides/vendor-risk.md)** — the third-party register and fan-out catalog entries
 - **[docs/claude/recipes.md](./docs/claude/recipes.md)** — step-by-step guides for common tasks (adding a source/policy/evidence type/framework/backend)
 - **[README.md](./README.md)** — public-facing intro
 
@@ -201,6 +202,34 @@ reports) flow through the same path.
    byte-identical to prior → `copy_paste_of_prior_period`. Missing prior
    folder is not a failure.
 8. **Sign** the manifest with a fresh ephemeral keypair (Invariant #3).
+
+**Fan-out entries (one entry, N folders).** A catalog entry may declare
+`fanOut` naming a set the project declares in config — today
+`experimental.vendors`, the third-party register. The plugin then scans
+`{prefix}{evidence_catalog_id}.{instance_id}/{period_id}/` once per
+member and emits **one** record carrying every member's verdict plus
+`instances_total`/`instances_satisfied`; the evaluator fails the policy
+if any *required* member is unsatisfied and sets
+`resources_evaluated`/`resources_failed` from the counts.
+
+This is deliberately **not** a third evidence flow (Inv #2 still holds:
+only `automated` and `manual` exist). It multiplies the *folder*, never
+the policy — one policy ID, one binding, one envelope, one state shard.
+Minting one policy per member would make the member slug a first-class
+identity that state shards, project-config overrides, `evidence due` and
+the framework-sourced policy list in `report --view coverage`/`soa` all
+key off, and would put the member list on the wire via `policy_id`.
+Members stay vault-side; the aggregation boundary sees two integers.
+Resolution lives in `internal/vendorfanout`, never in a framework (the
+static catalog cannot see project config, and must not — the SPA export
+and the published coverage figures depend on it staying config-free).
+An entry with no members behaves exactly like a single-folder entry.
+
+A fan-out member may also declare `assurance_period_end`: the last day
+its own assurance report covers. Compared arithmetically against the
+period, it is the only thing that catches a stale report, since the
+temporal window proves upload time only. **Declared, never parsed** —
+do not grow this into document inspection (see below).
 
 **What it explicitly does NOT do** (all deliberate — content review is
 the auditor's job): no PDF content audit / text extraction / signature
@@ -365,7 +394,11 @@ the patterns to catch in review.
   (SPA-facing, `internal/manualcatalog`) so policy and catalog metadata
   can't drift. No embedded `catalogs/*.yaml`, no
   `internal/core/manual/catalogs/`. The export shape must stay in lockstep
-  with `sigcomply-evidence-spa/src/types/catalog.ts`.
+  with `sigcomply-evidence-spa/src/types/catalog.ts` — and must stay
+  **config-independent**: fan-out members are resolved onto the *runtime*
+  catalog in `internal/vendorfanout`, never onto the exported
+  `manualcatalog.Entry`, whose field count is pinned by a test and whose
+  entry count is pinned into five docs by `TestDocFiguresMatchCode`.
 - **Run paths use basic ISO 8601 (no colons):** `20260325T100000Z`, not
   `2026-03-25T10:00:00Z` — some S3-compatible tools choke on colons.
 - **Framework YAML key is singular:** `framework: soc2`, never
@@ -404,6 +437,8 @@ load-bearing rules:
 **Manual evidence is a project-level singleton:** one repo = one
 framework, so exactly one `manual.pdf` source and one bucket per project
 (never per-framework). Multi-framework customers use multiple repos.
+(The singleton is the *source and bucket*. A fan-out entry still uses
+that one bucket — it multiplies folders inside it, not sources.)
 
 ---
 

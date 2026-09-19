@@ -26,6 +26,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/submitter"
 	"github.com/sigcomply/sigcomply-cli/internal/vault"
 	_ "github.com/sigcomply/sigcomply-cli/internal/vault/builtin" // side-effect: registers every in-tree vault backend
+	"github.com/sigcomply/sigcomply-cli/internal/vendorfanout"
 )
 
 type checkFlags struct {
@@ -87,7 +88,15 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 	if err := fw.Register(registries); err != nil {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: fmt.Errorf("register %s: %w", cfg.Framework, err)}
 	}
-	manualCatalog := fw.ManualCatalog()
+	// Expand fan-out catalog entries against the project's third-party
+	// register before any source is wired: the manual.pdf plugin reads
+	// this map to resolve folders, so the instances must be present
+	// before collection, not after.
+	vendorReg, err := spec.LoadVendorRegister(cfg)
+	if err != nil {
+		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
+	}
+	manualCatalog := vendorfanout.Apply(fw.ManualCatalog(), vendorReg)
 
 	if err := registerProductionSources(ctx, registries, cfg, manualCatalog); err != nil {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: err}

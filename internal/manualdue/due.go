@@ -73,6 +73,14 @@ type Entry struct {
 
 	DaysLeft int  `json:"days_left"`
 	Overdue  bool `json:"overdue"`
+
+	// Instance and InstanceName are set when the entry fans out over a
+	// set — today, one vendor in the project's third-party register.
+	// They name which member's folder is empty, so the operator is told
+	// "Acme Cloud has no assurance document" rather than the useless
+	// "one of your vendors does".
+	Instance     string `json:"instance,omitempty"`
+	InstanceName string `json:"instance_name,omitempty"`
 }
 
 // Report is the result of one scan.
@@ -105,39 +113,83 @@ func Scan(ctx context.Context, in *Input) (*Report, error) {
 	}
 	for _, id := range manual.SortedCatalogIDs(in.Catalog) {
 		entry := in.Catalog[id]
-		prefix := manual.FolderPrefix(in.Prefix, entry.EvidenceID, in.Period.ID)
-		items, err := in.Reader.List(ctx, prefix)
+
+		// A fan-out entry has no folder of its own — its evidence lives
+		// one folder per instance. Scanning the parent as well would
+		// report a path nothing ever writes to as permanently overdue.
+		if len(entry.Instances) > 0 {
+			for i := range entry.Instances {
+				inst := &entry.Instances[i]
+				if !inst.Required {
+					// An approved exemption owes no artifact, so it has
+					// no deadline to warn about.
+					continue
+				}
+				e, err := in.scanOne(ctx, &entry, inst.FolderID(entry.EvidenceID), rep)
+				if err != nil {
+					return nil, err
+				}
+				if e == nil {
+					continue
+				}
+				e.Instance = inst.ID
+				e.InstanceName = inst.Name
+				rep.Missing = append(rep.Missing, *e)
+			}
+			continue
+		}
+
+		e, err := in.scanOne(ctx, &entry, entry.EvidenceID, rep)
 		if err != nil {
-			return nil, fmt.Errorf("manualdue: list %s: %w", prefix, err)
+			return nil, err
 		}
-		rep.Checked++
-		if len(items) > 0 {
+		if e == nil {
 			continue
 		}
-		remaining := in.Period.End.Sub(in.Now)
-		e := Entry{
-			CatalogID:    entry.EvidenceID,
-			Cadence:      entry.Cadence,
-			FolderURI:    manual.FolderURI(in.Scheme, in.Bucket, in.Prefix, entry.EvidenceID, in.Period.ID),
-			PeriodID:     in.Period.ID,
-			PeriodEnd:    in.Period.End,
-			WindowCloses: in.Period.End.Add(entry.GracePeriod),
-			DaysLeft:     int(remaining.Hours() / 24),
-			Overdue:      remaining < 0,
-		}
-		if !in.Unfiltered && !e.Overdue && remaining > in.Within {
-			rep.Suppressed++
-			continue
-		}
-		rep.Missing = append(rep.Missing, e)
+		rep.Missing = append(rep.Missing, *e)
 	}
 	sort.Slice(rep.Missing, func(i, j int) bool {
 		if rep.Missing[i].DaysLeft != rep.Missing[j].DaysLeft {
 			return rep.Missing[i].DaysLeft < rep.Missing[j].DaysLeft
 		}
-		return rep.Missing[i].CatalogID < rep.Missing[j].CatalogID
+		if rep.Missing[i].CatalogID != rep.Missing[j].CatalogID {
+			return rep.Missing[i].CatalogID < rep.Missing[j].CatalogID
+		}
+		return rep.Missing[i].Instance < rep.Missing[j].Instance
 	})
 	return rep, nil
+}
+
+// scanOne lists one folder and returns the Entry to report when it is
+// empty and inside the warning horizon, or nil when there is nothing to
+// say. It always counts the folder as checked, so "nothing due" stays
+// distinguishable from "nothing examined".
+func (in *Input) scanOne(ctx context.Context, entry *manual.CatalogEntry, folderID string, rep *Report) (*Entry, error) {
+	prefix := manual.FolderPrefix(in.Prefix, folderID, in.Period.ID)
+	items, err := in.Reader.List(ctx, prefix)
+	if err != nil {
+		return nil, fmt.Errorf("manualdue: list %s: %w", prefix, err)
+	}
+	rep.Checked++
+	if len(items) > 0 {
+		return nil, nil
+	}
+	remaining := in.Period.End.Sub(in.Now)
+	e := &Entry{
+		CatalogID:    entry.EvidenceID,
+		Cadence:      entry.Cadence,
+		FolderURI:    manual.FolderURI(in.Scheme, in.Bucket, in.Prefix, folderID, in.Period.ID),
+		PeriodID:     in.Period.ID,
+		PeriodEnd:    in.Period.End,
+		WindowCloses: in.Period.End.Add(entry.GracePeriod),
+		DaysLeft:     int(remaining.Hours() / 24),
+		Overdue:      remaining < 0,
+	}
+	if !in.Unfiltered && !e.Overdue && remaining > in.Within {
+		rep.Suppressed++
+		return nil, nil
+	}
+	return e, nil
 }
 
 // FormatText writes the operator-facing block. It is advisory output:
@@ -165,7 +217,7 @@ func FormatText(w io.Writer, rep *Report) error {
 	for i := range rep.Missing {
 		e := &rep.Missing[i]
 		if _, err := fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n",
-			e.CatalogID, dash(e.Cadence), dueIn(e), e.FolderURI); err != nil {
+			entryLabel(e), dash(e.Cadence), dueIn(e), e.FolderURI); err != nil {
 			return err
 		}
 	}
@@ -273,4 +325,17 @@ func dash(s string) string {
 		return "-"
 	}
 	return s
+}
+
+// entryLabel names a row. A fan-out row must say which member is
+// missing — "vendor_assurance" alone would leave the operator to guess
+// which of their vendors has no document on file.
+func entryLabel(e *Entry) string {
+	if e.Instance == "" {
+		return e.CatalogID
+	}
+	if e.InstanceName != "" {
+		return fmt.Sprintf("%s [%s]", e.CatalogID, e.InstanceName)
+	}
+	return fmt.Sprintf("%s [%s]", e.CatalogID, e.Instance)
 }

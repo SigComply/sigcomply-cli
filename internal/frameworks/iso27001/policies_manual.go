@@ -3,6 +3,7 @@ package iso27001
 import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/manualcatalog"
+	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 )
 
 // manualPolicies returns every manual-evidence ISO 27001 policy as a
@@ -98,6 +99,13 @@ func organizationalManualSpecs() []manualPolicy {
 		{id: "iso27001.5.14.information_transfer_policy", control: "A.5.14", cadence: "annual", catalog: "information_transfer_policy", desc: "An information transfer policy exists.", rem: "Upload the information transfer policy."},
 		{id: "iso27001.5.18.access_rights_review", control: "A.5.18", cadence: "quarterly", catalog: "access_rights_review", desc: "A periodic access rights review is performed.", rem: "Upload the access rights review evidence."},
 		{id: "iso27001.5.19.supplier_security_policy", control: "A.5.19", cadence: "annual", catalog: "supplier_security_policy", desc: "A supplier security policy exists.", rem: "Upload the supplier security policy."},
+		// Fans out over the project's third-party register: one folder
+		// per supplier. Filed under A.5.19 (information security in
+		// supplier relationships) rather than A.5.22, which is already
+		// covered by supplier_service_monitoring and asks a different
+		// question — ongoing service-delivery review, not the standing
+		// assurance each relationship rests on.
+		{id: "iso27001.5.19.supplier_assurance", control: "A.5.19", cadence: "annual", catalog: "supplier_assurance", fanOut: manual.FanOutVendors, name: "Supplier Assurance Evidence", desc: "Each supplier in the third-party register has current assurance evidence on file.", rem: "For each supplier, upload their current ISO 27001 certificate, SOC 2 Type II report, penetration-test summary, or completed security questionnaire into that supplier's folder."},
 		{id: "iso27001.5.20.supplier_security_agreements", control: "A.5.20", cadence: "annual", catalog: "supplier_security_agreements", desc: "Supplier agreements address information security.", rem: "Upload supplier agreements with security clauses."},
 		{id: "iso27001.5.21.ict_supply_chain_security", control: "A.5.21", cadence: "annual", catalog: "ict_supply_chain_security", desc: "Information security is managed across the ICT supply chain.", rem: "Upload the ICT supply chain security policy."},
 		{id: "iso27001.5.22.supplier_service_monitoring", control: "A.5.22", cadence: "annual", catalog: "supplier_service_monitoring", desc: "Supplier service delivery is monitored.", rem: "Upload supplier service monitoring evidence."},

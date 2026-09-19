@@ -133,7 +133,11 @@ func evaluateOne(ctx context.Context, pp *planner.PlannedPolicy, in *Input) core
 	if ruleOut.Diag != nil {
 		result.Diag = ruleOut.Diag
 	}
-	result.ResourcesEvaluated, result.ResourcesFailed = countResources(slots, ruleOut.Violations, inSlotOnlySlots(pp.Spec.PassWhen))
+	if ruleOut.Counts != nil {
+		result.ResourcesEvaluated, result.ResourcesFailed = ruleOut.Counts.Evaluated, ruleOut.Counts.Failed
+	} else {
+		result.ResourcesEvaluated, result.ResourcesFailed = countResources(slots, ruleOut.Violations, inSlotOnlySlots(pp.Spec.PassWhen))
+	}
 	applyResourceException(&result, pp.Exception)
 	return result
 }

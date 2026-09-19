@@ -386,6 +386,20 @@ folder under the project's single configured bucket:
 {bucket}/{prefix}/{evidence_catalog_id}/{period_id}/
 ```
 
+An entry that declares a **fan-out** resolves one folder per member of
+the set instead, the member slug appended to the catalog ID:
+
+```
+{bucket}/{prefix}/{evidence_catalog_id}.{member_id}/{period_id}/
+```
+
+The plugin scans each, and returns a single record carrying every
+member's verdict plus the satisfied/total counts — one binding, one
+record, one envelope. Members come from project config
+(`experimental.vendors`), resolved in `internal/vendorfanout` and handed
+to the plugin on `manual.CatalogEntry.Instances`; the framework's static
+catalog never sees them.
+
 Default `prefix` is `manual/`. For AcmeCorp's quarterly access review
 in Q1 2026, the plugin lists everything under:
 

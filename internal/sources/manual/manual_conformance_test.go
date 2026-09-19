@@ -53,8 +53,17 @@ func TestManualConformance(t *testing.T) {
 			AcceptedTypes: []string{EvidenceTypeID},
 			Params:        manualParams("e2e_doc_single"),
 		},
-		EvidenceTypes:  sourcetest.BuiltinEvidenceTypes(t),
-		OptionalFields: []string{"signed_document.validation_failures"},
+		EvidenceTypes: sourcetest.BuiltinEvidenceTypes(t),
+		// The instance fields appear only for a fan-out entry (one
+		// catalog entry, one folder per member). A single-folder entry
+		// legitimately omits all three — see instances_test.go for the
+		// fan-out side.
+		OptionalFields: []string{
+			"signed_document.validation_failures",
+			"signed_document.instances",
+			"signed_document.instances_total",
+			"signed_document.instances_satisfied",
+		},
 	})
 	if len(recs) != 1 {
 		t.Fatalf("signed_document records = %d, want 1", len(recs))

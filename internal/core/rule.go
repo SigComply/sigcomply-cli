@@ -29,6 +29,25 @@ type RuleResult struct {
 	Status     PolicyStatus
 	Violations []Violation
 	Diag       map[string]any
+
+	// Counts, when non-nil, overrides the evaluator's default
+	// resources_evaluated / resources_failed arithmetic.
+	//
+	// The default counts records in the slots, which is right for an
+	// automated policy where one record is one resource. It is wrong
+	// for a fan-out manual entry, where a single record carries N
+	// instances: the default would report "1 evaluated" for a check
+	// that examined twelve vendors' folders. These are the two numbers
+	// that cross the aggregation boundary, so getting them wrong
+	// understates the work on the dashboard.
+	Counts *ResourceCounts
+}
+
+// ResourceCounts is an explicit resources_evaluated / resources_failed
+// pair supplied by a rule that knows better than the record arithmetic.
+type ResourceCounts struct {
+	Evaluated int
+	Failed    int
 }
 
 // Violation is one record-level failure produced by a rule. Lives

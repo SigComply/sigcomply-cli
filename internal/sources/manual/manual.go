@@ -124,6 +124,24 @@ type CatalogEntry struct {
 	Cadence      string
 	TemporalRule string
 	GracePeriod  time.Duration
+
+	// FanOut names the set this entry multiplies over ("" for none).
+	// It is declared by the framework; the members are resolved from
+	// project config at wiring time. See the FanOut* constants.
+	FanOut string
+
+	// Instances turns this entry into a fan-out: instead of one folder
+	// at {prefix}{evidence_id}/{period}/, the plugin scans one folder
+	// per instance at {prefix}{evidence_id}.{instance_id}/{period}/ and
+	// emits a single record carrying every instance's verdict plus the
+	// counts. Empty (the default) keeps the original single-folder
+	// behavior exactly.
+	//
+	// This field is deliberately on the runtime entry only. The
+	// SPA-facing manualcatalog.Entry stays a flat 15-field contract —
+	// fan-out instances come from the project's config, which the
+	// framework-static catalog export cannot see.
+	Instances []Instance
 }
 
 // Plugin is the in-process manual.pdf source. One instance per
@@ -187,51 +205,145 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	}
 	periodStart := timeParam(req.Params, "period_start")
 	periodEnd := timeParam(req.Params, "period_end")
+	priorID := stringParam(req.Params, "prior_period_id")
 
-	folderPrefix := FolderPrefix(p.prefix, entry.EvidenceID, periodID)
-	folderURI := p.buildURI(folderPrefix)
+	// Fan-out entry: one folder per instance, one record out. Checked
+	// first so the single-folder path below stays byte-identical for
+	// every entry that is not a fan-out.
+	if len(entry.Instances) > 0 {
+		return p.collectInstances(ctx, &entry, periodID, priorID, periodStart, periodEnd, now)
+	}
+
+	scan := p.scanFolder(ctx, entry.EvidenceID, periodID, priorID, periodStart, periodEnd, entry.GracePeriod)
+	if scan.err != nil {
+		return nil, scan.err
+	}
+	rec, encErr := buildRecord(entry.EvidenceID, periodID, scan.uri, scan.hash, scan.size, scan.uploadedAt,
+		scan.present, scan.inWindow, scan.failures, scan.sourceFiles, now)
+	if encErr != nil {
+		return nil, encErr
+	}
+	return []core.EvidenceRecord{rec}, nil
+}
+
+// folderScan is the result of examining one period folder. It is the
+// unit both the single-entry and the fan-out paths are built from, so
+// the two cannot drift in how they hash, merge or window-check.
+type folderScan struct {
+	uri         string
+	hash        string
+	size        int
+	uploadedAt  time.Time
+	present     bool
+	inWindow    bool
+	failures    []string
+	sourceFiles []sourceFile
+	err         error
+}
+
+// scanFolder performs the v1 manual-evidence algorithm against a single
+// folder: list, classify, fetch/hash/convert, merge, validate, window,
+// prior-period fingerprint.
+func (p *Plugin) scanFolder(ctx context.Context, folderID, periodID, priorID string, periodStart, periodEnd time.Time, grace time.Duration) folderScan {
+	folderPrefix := FolderPrefix(p.prefix, folderID, periodID)
+	out := folderScan{uri: p.buildURI(folderPrefix)}
 
 	items, err := p.reader.List(ctx, folderPrefix)
 	if err != nil {
-		return nil, fmt.Errorf("manual.pdf: list %s: %w", folderPrefix, err)
+		out.err = fmt.Errorf("manual.pdf: list %s: %w", folderPrefix, err)
+		return out
 	}
 	if len(items) == 0 {
-		rec, encErr := buildRecord(entry.EvidenceID, periodID, folderURI, "", 0, time.Time{}, false, false, nil, nil, now)
-		if encErr != nil {
-			return nil, encErr
-		}
-		return []core.EvidenceRecord{rec}, nil
+		return out
 	}
 
 	pdfParts, sourceFiles, validationFailures, latestAt, fetchErr := p.fetchAndConvert(ctx, items)
 	if fetchErr != nil {
-		return nil, fetchErr
+		out.err = fetchErr
+		return out
 	}
+	out.present = true
+	out.uploadedAt = latestAt
+	out.sourceFiles = sourceFiles
+	out.failures = validationFailures
 	if len(pdfParts) == 0 {
-		rec, encErr := buildRecord(entry.EvidenceID, periodID, folderURI, "", 0, latestAt, true, false, validationFailures, nil, now)
-		if encErr != nil {
-			return nil, encErr
-		}
-		return []core.EvidenceRecord{rec}, nil
+		return out
 	}
 
 	mergedHash, mergedSize, mergeFailures := mergeAndValidate(pdfParts)
-	validationFailures = append(validationFailures, mergeFailures...)
+	out.hash, out.size = mergedHash, mergedSize
+	out.failures = append(out.failures, mergeFailures...)
+	out.inWindow = isInTemporalWindow(latestAt, periodStart, periodEnd, grace)
 
-	inWindow := isInTemporalWindow(latestAt, periodStart, periodEnd, entry.GracePeriod)
-
-	if len(mergeFailures) == 0 && len(validationFailures) == 0 {
-		if priorID := stringParam(req.Params, "prior_period_id"); priorID != "" {
-			priorFolder := FolderPrefix(p.prefix, entry.EvidenceID, priorID)
-			if f := p.checkPriorPeriod(ctx, sourceFiles, priorFolder, priorID); f != "" {
-				validationFailures = append(validationFailures, f)
-			}
+	if len(out.failures) == 0 && priorID != "" {
+		priorFolder := FolderPrefix(p.prefix, folderID, priorID)
+		if f := p.checkPriorPeriod(ctx, sourceFiles, priorFolder, priorID); f != "" {
+			out.failures = append(out.failures, f)
 		}
 	}
+	return out
+}
 
-	rec, encErr := buildRecord(entry.EvidenceID, periodID, folderURI, mergedHash, mergedSize, latestAt, true, inWindow, validationFailures, sourceFiles, now)
-	if encErr != nil {
-		return nil, encErr
+// collectInstances scans one folder per declared instance and reduces
+// them to a single signed record. Instance order follows the catalog
+// entry, which the config loader already sorted, so the record is
+// deterministic across runs (Core Principle #7 — auditors diff runs).
+func (p *Plugin) collectInstances(ctx context.Context, entry *CatalogEntry, periodID, priorID string, periodStart, periodEnd, now time.Time) ([]core.EvidenceRecord, error) {
+	instances := make([]instanceManifest, 0, len(entry.Instances))
+	satisfied := 0
+
+	for i := range entry.Instances {
+		inst := &entry.Instances[i]
+		im := instanceManifest{
+			ID:                 inst.ID,
+			Name:               inst.Name,
+			Tier:               inst.Tier,
+			Required:           inst.Required,
+			ExemptionReason:    inst.ExemptionReason,
+			ApprovedBy:         inst.ApprovedBy,
+			AssurancePeriodEnd: inst.AssurancePeriodEnd,
+		}
+
+		// A non-required instance owes a justification rather than an
+		// artifact. Record it and move on without a LIST call — there
+		// is no folder to scan and inventing one would report it as
+		// perpetually overdue.
+		if !inst.Required {
+			im.ExpectedURI = ""
+			im.Satisfied = true
+			satisfied++
+			instances = append(instances, im)
+			continue
+		}
+
+		scan := p.scanFolder(ctx, inst.FolderID(entry.EvidenceID), periodID, priorID, periodStart, periodEnd, entry.GracePeriod)
+		if scan.err != nil {
+			return nil, scan.err
+		}
+		im.ExpectedURI = scan.uri
+		im.FilePresent = scan.present
+		im.FileHash = scan.hash
+		im.FileSize = scan.size
+		im.UploadedAt = scan.uploadedAt
+		im.InTemporalWindow = scan.inWindow
+		im.ValidationFailures = scan.failures
+		im.SourceFiles = scan.sourceFiles
+
+		if stale, reason := assuranceStale(inst.AssurancePeriodEnd, periodStart); stale {
+			im.ValidationFailures = append(im.ValidationFailures, reason)
+		}
+		im.FileValid = scan.present && len(im.ValidationFailures) == 0
+		im.Satisfied = im.FilePresent && im.InTemporalWindow && im.FileValid
+		if im.Satisfied {
+			satisfied++
+		}
+		instances = append(instances, im)
+	}
+
+	rec, err := buildInstanceRecord(entry.EvidenceID, periodID,
+		p.buildURI(FolderPrefix(p.prefix, entry.EvidenceID, periodID)), instances, satisfied, now)
+	if err != nil {
+		return nil, err
 	}
 	return []core.EvidenceRecord{rec}, nil
 }
@@ -392,6 +504,98 @@ type manualManifest struct {
 	ValidationFailures []string     `json:"validation_failures,omitempty"`
 	ExpectedURI        string       `json:"expected_uri"`           // folder URI
 	SourceFiles        []sourceFile `json:"source_files,omitempty"` // per-file audit trail
+
+	// Instances is populated only for a fan-out entry. When present it
+	// is the authoritative breakdown and the scalar fields above are
+	// the conjunction over the *required* instances, so a consumer that
+	// predates fan-out still reads a truthful summary rather than a
+	// blank one.
+	Instances          []instanceManifest `json:"instances,omitempty"`
+	InstancesTotal     int                `json:"instances_total,omitempty"`
+	InstancesSatisfied int                `json:"instances_satisfied,omitempty"`
+}
+
+// instanceManifest is one fan-out member's verdict inside the signed
+// record — the per-vendor detail an auditor needs, kept vault-side.
+// None of it crosses the aggregation boundary: the evaluator reduces
+// these to two counts before anything is submitted.
+type instanceManifest struct {
+	ID                 string       `json:"id"`
+	Name               string       `json:"name,omitempty"`
+	Tier               string       `json:"tier,omitempty"`
+	Required           bool         `json:"required"`
+	FilePresent        bool         `json:"file_present"`
+	FileHash           string       `json:"file_hash,omitempty"`
+	FileSize           int          `json:"file_size,omitempty"`
+	UploadedAt         time.Time    `json:"uploaded_at,omitempty"`
+	InTemporalWindow   bool         `json:"in_temporal_window"`
+	FileValid          bool         `json:"file_valid"`
+	ValidationFailures []string     `json:"validation_failures,omitempty"`
+	ExpectedURI        string       `json:"expected_uri,omitempty"`
+	SourceFiles        []sourceFile `json:"source_files,omitempty"`
+
+	// Satisfied is the single verdict for this instance: the artifact
+	// is present, in-window and valid — or the instance is an approved
+	// exemption, in which case ExemptionReason and ApprovedBy say so.
+	Satisfied          bool   `json:"satisfied"`
+	ExemptionReason    string `json:"exemption_reason,omitempty"`
+	ApprovedBy         string `json:"approved_by,omitempty"`
+	AssurancePeriodEnd string `json:"assurance_period_end,omitempty"`
+}
+
+// buildInstanceRecord reduces a fan-out entry's per-instance scans to
+// one signed_document record.
+func buildInstanceRecord(evidenceID, periodID, parentURI string, instances []instanceManifest, satisfied int, now time.Time) (core.EvidenceRecord, error) {
+	manifest := manualManifest{
+		EvidenceID:         evidenceID,
+		PeriodID:           periodID,
+		ExpectedURI:        parentURI,
+		Instances:          instances,
+		InstancesTotal:     len(instances),
+		InstancesSatisfied: satisfied,
+	}
+
+	// The scalar fields are the conjunction over required instances.
+	// Vacuously true when nothing is required, which is correct: a
+	// register whose every member is an approved exemption has nothing
+	// outstanding.
+	allPresent, allInWindow, allValid := true, true, true
+	var failures []string
+	for i := range instances {
+		im := &instances[i]
+		if !im.Required {
+			continue
+		}
+		if !im.FilePresent {
+			allPresent = false
+		}
+		if !im.InTemporalWindow {
+			allInWindow = false
+		}
+		if !im.FileValid {
+			allValid = false
+		}
+		for _, f := range im.ValidationFailures {
+			failures = append(failures, im.ID+": "+f)
+		}
+	}
+	manifest.FilePresent = allPresent
+	manifest.InTemporalWindow = allInWindow
+	manifest.FileValid = allValid
+	manifest.ValidationFailures = failures
+
+	payload, err := json.Marshal(manifest)
+	if err != nil {
+		return core.EvidenceRecord{}, fmt.Errorf("manual.pdf: marshal manifest: %w", err)
+	}
+	return core.EvidenceRecord{
+		Type:        EvidenceTypeID,
+		ID:          fmt.Sprintf("%s/%s", evidenceID, periodID),
+		IdentityKey: "",
+		Payload:     payload,
+		SourceID:    SourceID,
+		CollectedAt: now,
+	}, nil
 }
 
 func buildRecord(evidenceID, periodID, uri, hash string, size int, uploadedAt time.Time, present, inWindow bool, validationFailures []string, sourceFiles []sourceFile, now time.Time) (core.EvidenceRecord, error) {

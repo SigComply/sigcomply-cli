@@ -239,6 +239,9 @@ catalog-resolved folder `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/`
 within the temporal window. The CLI converts images to PDF, merges, and
 runs byte-level sanity checks — it never reads PDF *contents*.
 
+An entry can also **fan out** over a set the project declares in config —
+see step 4 below.
+
 1. **Add a `manualPolicy{...}` to `manualSpecs()`** in
    `internal/frameworks/<fw>/policies_manual.go` (the single authoring
    list — `manualPolicies()` and the catalog export both derive from it):
@@ -274,6 +277,34 @@ runs byte-level sanity checks — it never reads PDF *contents*.
    every manual policy's `CatalogEntry` resolves, and the command test
    asserts the export satisfies the SPA contract. If you change the export
    shape, update `sigcomply-evidence-spa/src/types/catalog.ts` too.
+
+4. **Fan-out entries (one entry, N folders) — optional.** Set `fanOut` on
+   the spec to make the entry collect one folder per member of a set the
+   project declares in config:
+   ```go
+   {
+       id: "soc2.cc9.2.vendor_assurance", control: "CC9.2",
+       cadence: "annual", catalog: "vendor_assurance",
+       fanOut: manual.FanOutVendors,   // or manual.FanOutSubserviceVendors
+       desc:   "Each vendor in the third-party register has current assurance evidence on file.",
+       rem:    "For each vendor, upload their current report into that vendor's folder.",
+       tsc:    "security",
+   },
+   ```
+   The plugin then scans
+   `{prefix}{catalog}.{member_id}/{period_id}/` once per member and emits
+   **one** record carrying every member's verdict. Members are resolved in
+   `internal/vendorfanout` from `experimental.vendors` — never in the
+   framework, which must stay config-free so the SPA export and the
+   published coverage figures remain deterministic. `fanOut` reaches
+   `manual.CatalogEntry` only; `manualcatalog.Entry` (the SPA contract) is
+   untouched, and its 15-field shape is pinned by a test.
+
+   Do **not** mint one policy per member. The member slug would become an
+   identity that state shards, project-config overrides, `evidence due`
+   and the `report --view coverage`/`soa` control join all key off — and
+   it would put the member list on the wire via `policy_id`. One policy,
+   N folders, two counts at the boundary.
 
 ---
 

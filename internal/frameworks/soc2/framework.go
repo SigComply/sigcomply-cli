@@ -118,6 +118,15 @@ func ManualCatalogExport() manualcatalog.Catalog {
 // follow the policy's declared cadence.
 func ManualCatalog() map[string]manual.CatalogEntry {
 	out := make(map[string]manual.CatalogEntry)
+	// Fan-out is authored on the spec, not the policy, so pick it up
+	// from the same list the policies were built from.
+	fanOutByCatalog := make(map[string]string)
+	allSpecs := manualSpecs()
+	for i := range allSpecs {
+		if allSpecs[i].fanOut != "" {
+			fanOutByCatalog[allSpecs[i].catalog] = allSpecs[i].fanOut
+		}
+	}
 	mp := manualPolicies()
 	for i := range mp {
 		p := &mp[i]
@@ -134,6 +143,7 @@ func ManualCatalog() map[string]manual.CatalogEntry {
 			Cadence:      p.Cadence,
 			TemporalRule: "retrospective",
 			GracePeriod:  grace,
+			FanOut:       fanOutByCatalog[p.CatalogEntry],
 		}
 	}
 	return out

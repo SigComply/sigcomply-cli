@@ -411,7 +411,7 @@ period history, which is the correct posture (compare Airflow's
 ### Manual evidence due (advisory, `sigcomply evidence due`)
 
 ```
-manual evidence: 3 of 47 entries have no file for period 2026-Q3 (ends 2026-09-30)
+manual evidence: 3 of 49 entries have no file for period 2026-Q3 (ends 2026-09-30)
   ENTRY                     CADENCE    DUE IN  UPLOAD TO
   access_review_quarterly   quarterly  14d     s3://acme-evidence/manual/access_review_quarterly/2026-Q3/
 ```
@@ -436,7 +436,8 @@ Unlike the three warnings above it is a separate command, not part of a
 excludes quarterly policies entirely, `internal/planner/planner.go`), so a
 daily `check` cannot see the manual policies that need warning about.
 
-Note it is computed from the catalog and the period, **not** from
+Note it is computed from the catalog and the period (and, for a fan-out entry, once
+per member of the declared set rather than once for the entry), **not** from
 `PolicyState.NextDueAt`: that field is only written after a policy passes
 (`AdvancePolicyState`, `internal/orchestrator/state.go`), so a policy that
 has never passed — precisely the one needing a warning — has none.

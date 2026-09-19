@@ -1264,7 +1264,7 @@ set of accepted top-level keys (`internal/spec/project_config.go`):
 | `ci` | `{ fail_on_violation, fail_severity }` | Config-only; no equivalent flags. |
 | `ci_environment` | map | Free-form environment metadata recorded with the run. |
 | `extensions` | `{ path }` | Overrides extension-discovery path (default `.sigcomply/`). |
-| `experimental` | map | Forward-compat escape hatch: not-yet-stable keys live here so a newer config never breaks an older CLI. The loader itself interprets nothing here; each feature reads its own key. See [`experimental.scope`](#experimentalscope--declaring-the-estate) and [`experimental.roster`](#experimentalroster--designating-the-identity-roster) below. |
+| `experimental` | map | Forward-compat escape hatch: not-yet-stable keys live here so a newer config never breaks an older CLI. The loader itself interprets nothing here; each feature reads its own key. See [`experimental.scope`](#experimentalscope--declaring-the-estate), [`experimental.roster`](#experimentalroster--designating-the-identity-roster) and [`experimental.vendors`](#experimentalvendors--declaring-the-third-party-register) below. |
 
 #### Multiple instances of one source
 
@@ -1362,6 +1362,63 @@ It lives under `experimental:` rather than at the top level because the
 loader runs with `KnownFields(true)`: a brand-new top-level key would
 hard-fail every CLI released before it. It graduates to a first-class key in
 a later release.
+
+#### `experimental.vendors` — declaring the third-party register
+
+Optional. Declares the vendors and suppliers this project depends on, so the
+vendor-assurance entries collect **one evidence folder per vendor** instead of
+one folder for all of them. Walkthrough:
+[Vendor and third-party risk](guides/vendor-risk.md).
+
+```yaml
+experimental:
+  vendors:
+    declared_by: ciso@example.com   # optional audit trail
+    declared_at: "2026-09-19"       # optional, ISO 8601 (YYYY-MM-DD)
+    register:
+      - id: acme_cloud              # required: 1-40 chars of [a-z0-9_-]
+        name: Acme Cloud Platform   # required
+        tier: critical              # required: critical|high|moderate|low
+        subservice: true            # optional: a SOC 2 subservice organization
+        services: Production hosting
+        assurance_period_end: "2026-03-31"   # optional, see below
+
+      - id: zeta_news
+        name: Zeta Newsletter
+        tier: low
+        tier_rationale: Marketing email only; no customer data.  # required for low
+        approved_by: ciso@example.com                            # required for low
+```
+
+**Tier decides which artifact is owed, never whether one is owed.**
+`critical`/`high` owe independent assurance (SOC 2 Type II, ISO certificate,
+pen-test report); `moderate` owes a lighter artifact (questionnaire, DPA);
+`low` owes no upload but **must** carry `tier_rationale` and `approved_by` —
+the config fails to load otherwise. That asymmetry is deliberate: a tier that
+silently removed an obligation would let under-declaring the estate raise the
+compliance score.
+
+**`assurance_period_end`** is the last day the vendor's own report covers. When
+set, the check fails once that date is more than 15 months before the audit
+period begins — which is the only way to catch a stale report, since the
+temporal window only proves when the file was *uploaded*. It is **declared, not
+parsed**: the CLI never reads the document's contents.
+
+Evidence folders are per vendor, formed by appending the vendor ID to the
+catalog entry:
+
+```
+{bucket}/{prefix}/vendor_assurance.acme_cloud/{period_id}/
+{bucket}/{prefix}/cuec_mapping.acme_cloud/{period_id}/
+```
+
+Vendor names, rationales and approver addresses stay **vault-side**. The
+evaluator reduces the register to two counts (how many examined, how many fell
+short) before anything is submitted, so the cloud never learns which third
+parties you use.
+
+Omit the block entirely and every vendor entry behaves as an ordinary
+single-folder manual entry — this is purely additive.
 
 #### `experimental.roster` — designating the identity roster
 
