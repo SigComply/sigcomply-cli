@@ -9,6 +9,12 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/frameworks/soc2"
 )
 
+// Framework IDs that the cross-framework table tests below iterate over.
+const (
+	fwSOC2     = "soc2"
+	fwISO27001 = "iso27001"
+)
+
 // TestEveryControlHasAPolicy keeps a declared control from shipping with
 // nothing behind it.
 //
@@ -33,8 +39,8 @@ func TestEveryControlHasAPolicy(t *testing.T) {
 		controls func() []core.Control
 		policies func() []core.Policy
 	}{
-		{"soc2", soc2.Controls, soc2.Policies},
-		{"iso27001", iso27001.Controls, iso27001.Policies},
+		{fwSOC2, soc2.Controls, soc2.Policies},
+		{fwISO27001, iso27001.Controls, iso27001.Policies},
 	} {
 		t.Run(fw.id, func(t *testing.T) {
 			covered := make(map[string]bool)

@@ -21,14 +21,14 @@ func acceptRoster() core.SlotRequest {
 func TestCollectRoster_MapsExcludesGuestsSortsAndValidates(t *testing.T) {
 	t.Parallel()
 	api := &fakeAPI{roster: []RosterUser{
-		{ID: "u-zed", Mail: "", UPN: "Zed@Contoso.com", DisplayName: "Zed", AccountEnabled: false, UserType: "Member"},
-		{ID: "u-amy", Mail: " Amy@Contoso.com ", UPN: "amy@contoso.onmicrosoft.com", DisplayName: "Amy A",
-			AccountEnabled: true, UserType: "Member", EmployeeID: "E1", EmployeeType: "Contractor"},
-		{ID: "u-guest", Mail: "partner@fabrikam.com", UPN: "partner_fabrikam.com#EXT#@contoso.com", AccountEnabled: true, UserType: "Guest"},
+		{ID: userIDZed, Mail: "", UPN: "Zed@Contoso.com", DisplayName: "Zed", AccountEnabled: false, UserType: userTypeMember},
+		{ID: userIDAmy, Mail: " Amy@Contoso.com ", UPN: "amy@contoso.onmicrosoft.com", DisplayName: "Amy A",
+			AccountEnabled: true, UserType: userTypeMember, EmployeeID: "E1", EmployeeType: "Contractor"},
+		{ID: userIDGuest, Mail: "partner@fabrikam.com", UPN: "partner_fabrikam.com#EXT#@contoso.com", AccountEnabled: true, UserType: userTypeGuest},
 		{ID: "u-guest2", Mail: "p2@fabrikam.com", AccountEnabled: true, UserType: "guest"},
-		{ID: "u-bare", UPN: "bare@contoso.com", AccountEnabled: true}, // userType unknown → kept
+		{ID: userIDBare, UPN: "bare@contoso.com", AccountEnabled: true}, // userType unknown → kept
 	}}
-	p := New(Options{API: api, Tenant: "tenant-123", Now: fixedNow})
+	p := New(Options{API: api, Tenant: testTenantID, Now: fixedNow})
 	recs, err := p.Collect(context.Background(), acceptRoster())
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
@@ -37,14 +37,14 @@ func TestCollectRoster_MapsExcludesGuestsSortsAndValidates(t *testing.T) {
 		t.Errorf("roster collect called ListUsers (registration report path) %d times; want 0", api.calls)
 	}
 	want := map[string]struct{ identity, payload string }{
-		"u-amy":  {"amy@contoso.com", `{"id":"u-amy","status":"active","email":"Amy@Contoso.com","display_name":"Amy A","employee_id":"E1","employee_type":"Contractor","source_status":"enabled"}`},
-		"u-bare": {"bare@contoso.com", `{"id":"u-bare","status":"active","email":"bare@contoso.com","source_status":"enabled"}`},
-		"u-zed":  {"zed@contoso.com", `{"id":"u-zed","status":"inactive","email":"Zed@Contoso.com","display_name":"Zed","source_status":"disabled"}`},
+		userIDAmy:  {"amy@contoso.com", `{"id":"u-amy","status":"active","email":"Amy@Contoso.com","display_name":"Amy A","employee_id":"E1","employee_type":"Contractor","source_status":"enabled"}`},
+		userIDBare: {"bare@contoso.com", `{"id":"u-bare","status":"active","email":"bare@contoso.com","source_status":"enabled"}`},
+		userIDZed:  {"zed@contoso.com", `{"id":"u-zed","status":"inactive","email":"Zed@Contoso.com","display_name":"Zed","source_status":"disabled"}`},
 	}
 	if len(recs) != len(want) {
 		t.Fatalf("records = %d, want %d (guests excluded)", len(recs), len(want))
 	}
-	if recs[0].ID != "u-amy" || recs[1].ID != "u-bare" || recs[2].ID != "u-zed" {
+	if recs[0].ID != userIDAmy || recs[1].ID != userIDBare || recs[2].ID != userIDZed {
 		t.Errorf("not sorted by ID: %s %s %s", recs[0].ID, recs[1].ID, recs[2].ID)
 	}
 	et, ok := sourcetest.BuiltinEvidenceTypes(t).Lookup(EvidenceTypeRosterEntry)
@@ -70,7 +70,7 @@ func assertRosterRecord(t *testing.T, r *core.EvidenceRecord, identity, payload 
 	if r.Type != EvidenceTypeRosterEntry || r.SourceID != SourceID || !r.CollectedAt.Equal(fixedNow()) {
 		t.Errorf("%s metadata = %q/%q/%v", r.ID, r.Type, r.SourceID, r.CollectedAt)
 	}
-	if r.Scope == nil || r.Scope.Account != "tenant-123" {
+	if r.Scope == nil || r.Scope.Account != testTenantID {
 		t.Errorf("%s Scope = %v, want tenant-123", r.ID, r.Scope)
 	}
 	if err := evidencetypes.Validate(schema, r.Payload); err != nil {
@@ -81,8 +81,8 @@ func assertRosterRecord(t *testing.T, r *core.EvidenceRecord, identity, payload 
 func TestCollect_BothTypesInOneCall(t *testing.T) {
 	t.Parallel()
 	api := &fakeAPI{
-		users:  []User{{ID: "u1", UPN: "a@contoso.com", Email: "a@contoso.com", IsActive: true}},
-		roster: []RosterUser{{ID: "u1", Mail: "a@contoso.com", AccountEnabled: true, UserType: "Member"}},
+		users:  []User{{ID: "u1", UPN: emailUser1, Email: emailUser1, IsActive: true}},
+		roster: []RosterUser{{ID: "u1", Mail: emailUser1, AccountEnabled: true, UserType: userTypeMember}},
 	}
 	p := New(Options{API: api, Now: fixedNow})
 	recs, err := p.Collect(context.Background(),
@@ -135,18 +135,18 @@ func TestRealGraph_ListRosterUsers_PaginatesWithoutRegistrationReport(t *testing
 		}
 		queries = append(queries, r.URL.RawQuery)
 		if r.URL.Query().Get("page") == "2" {
-			writeJSON(t, w, map[string]any{"value": []map[string]any{
-				{"id": "u-guest", "mail": "g@fabrikam.com", "userPrincipalName": "g_fabrikam.com#EXT#@contoso.com", "accountEnabled": true, "userType": "Guest"},
+			writeJSON(t, w, map[string]any{graphKeyValue: []map[string]any{
+				{"id": userIDGuest, graphKeyMail: "g@fabrikam.com", graphKeyUPN: "g_fabrikam.com#EXT#@contoso.com", graphKeyAccountEnabled: true, graphKeyUserType: userTypeGuest},
 			}})
 			return
 		}
 		writeJSON(t, w, map[string]any{
 			"@odata.nextLink": srv.URL + "/users?page=2",
-			"value": []map[string]any{
-				{"id": "u-adele", "mail": "adele@contoso.com", "userPrincipalName": "adele@contoso.com", "displayName": "Adele",
-					"accountEnabled": true, "userType": "Member", "employeeId": "E7", "employeeType": "Employee"},
-				{"id": "u-carol", "mail": nil, "userPrincipalName": "carol@contoso.com", "displayName": "Carol",
-					"accountEnabled": false, "userType": "Member", "employeeId": nil, "employeeType": nil},
+			graphKeyValue: []map[string]any{
+				{"id": userIDAdele, graphKeyMail: emailAdele, graphKeyUPN: emailAdele, graphKeyDisplayName: displayNameAdele,
+					graphKeyAccountEnabled: true, graphKeyUserType: userTypeMember, "employeeId": "E7", "employeeType": employeeTypeEmployee},
+				{"id": userIDCarol, graphKeyMail: nil, graphKeyUPN: emailCarol, graphKeyDisplayName: displayNameCarol,
+					graphKeyAccountEnabled: false, graphKeyUserType: userTypeMember, "employeeId": nil, "employeeType": nil},
 			},
 		})
 	}))
@@ -161,10 +161,10 @@ func TestRealGraph_ListRosterUsers_PaginatesWithoutRegistrationReport(t *testing
 		t.Errorf("queries = %q, want [%q page=2]", queries, wantFirst)
 	}
 	want := []RosterUser{
-		{ID: "u-adele", Mail: "adele@contoso.com", UPN: "adele@contoso.com", DisplayName: "Adele", AccountEnabled: true,
-			UserType: "Member", EmployeeID: "E7", EmployeeType: "Employee"},
-		{ID: "u-carol", UPN: "carol@contoso.com", DisplayName: "Carol", UserType: "Member"},
-		{ID: "u-guest", Mail: "g@fabrikam.com", UPN: "g_fabrikam.com#EXT#@contoso.com", AccountEnabled: true, UserType: "Guest"},
+		{ID: userIDAdele, Mail: emailAdele, UPN: emailAdele, DisplayName: displayNameAdele, AccountEnabled: true,
+			UserType: userTypeMember, EmployeeID: "E7", EmployeeType: employeeTypeEmployee},
+		{ID: userIDCarol, UPN: emailCarol, DisplayName: displayNameCarol, UserType: userTypeMember},
+		{ID: userIDGuest, Mail: "g@fabrikam.com", UPN: "g_fabrikam.com#EXT#@contoso.com", AccountEnabled: true, UserType: userTypeGuest},
 	}
 	if len(users) != len(want) {
 		t.Fatalf("users = %d, want %d", len(users), len(want))

@@ -39,12 +39,12 @@ func TestResultReason(t *testing.T) {
 		},
 		{
 			name:   "fail reports the first violation",
-			result: core.PolicyResult{Status: core.StatusFail, ResourcesFailed: 1, ResourcesEvaluated: 3, Violations: []core.Violation{{Reason: "bucket is public"}}},
-			want:   "bucket is public",
+			result: core.PolicyResult{Status: core.StatusFail, ResourcesFailed: 1, ResourcesEvaluated: 3, Violations: []core.Violation{{Reason: testViolationBucketOpen}}},
+			want:   testViolationBucketOpen,
 		},
 		{
 			name:   "fail with several violations counts them",
-			result: core.PolicyResult{Status: core.StatusFail, ResourcesFailed: 2, ResourcesEvaluated: 9, Violations: []core.Violation{{Reason: "bucket is public"}}},
+			result: core.PolicyResult{Status: core.StatusFail, ResourcesFailed: 2, ResourcesEvaluated: 9, Violations: []core.Violation{{Reason: testViolationBucketOpen}}},
 			want:   "2 of 9 resources failed, e.g. bucket is public",
 		},
 		{

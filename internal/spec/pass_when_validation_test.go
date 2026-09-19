@@ -8,6 +8,9 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
+// testSlotRoster is the slot name used by the roster fixtures below.
+const testSlotRoster = "roster"
+
 const rosterPolicyHead = `schema_version: policy.v1
 id: acme.roster.linked
 control: SOC2.CC6.2
@@ -55,11 +58,11 @@ func TestLoadPolicy_MatchesInAndRoles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadPolicy: %v", err)
 	}
-	if p.Slots["roster"].Role != core.SlotRoleRoster || p.Slots["accounts"].Role != core.SlotRoleRosterSubject {
-		t.Errorf("roles = %q, %q", p.Slots["roster"].Role, p.Slots["accounts"].Role)
+	if p.Slots[testSlotRoster].Role != core.SlotRoleRoster || p.Slots["accounts"].Role != core.SlotRoleRosterSubject {
+		t.Errorf("roles = %q, %q", p.Slots[testSlotRoster].Role, p.Slots["accounts"].Role)
 	}
 	c := p.PassWhen.Clauses[0].Condition
-	if c.Op != core.OpMatchesIn || c.InSlot != "roster" || c.RemoteField != "payload.email" || c.Normalize != core.NormalizeLowerTrim {
+	if c.Op != core.OpMatchesIn || c.InSlot != testSlotRoster || c.RemoteField != "payload.email" || c.Normalize != core.NormalizeLowerTrim {
 		t.Errorf("condition = %+v", c)
 	}
 	if c.Where == nil || c.Where.Field != "payload.status" || c.Where.Value != "inactive" {
@@ -144,14 +147,14 @@ func TestValidatePassWhen_CorePolicy(t *testing.T) {
 		return core.Policy{
 			ID: "p",
 			Slots: map[string]core.Slot{
-				"roster":   {Accepts: []string{"roster_entry"}, Role: core.SlotRoleRoster},
-				"accounts": {Accepts: []string{"directory_user"}, Role: core.SlotRoleRosterSubject},
+				testSlotRoster: {Accepts: []string{"roster_entry"}, Role: core.SlotRoleRoster},
+				"accounts":     {Accepts: []string{"directory_user"}, Role: core.SlotRoleRosterSubject},
 			},
 			PassWhen: &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
 				Slot:       "accounts",
 				Quantifier: core.QuantifierAll,
 				Condition: &core.PassWhenCondition{
-					Op: core.OpMatchesIn, Field: "account.key", InSlot: "roster", RemoteField: "payload.email",
+					Op: core.OpMatchesIn, Field: "account.key", InSlot: testSlotRoster, RemoteField: "payload.email",
 				},
 			}}},
 		}
@@ -169,13 +172,13 @@ func TestValidatePassWhen_CorePolicy(t *testing.T) {
 		"missing field":          func(p *core.Policy) { p.PassWhen.Clauses[0].Condition.Field = "" },
 		"matches_in nested in where": func(p *core.Policy) {
 			p.PassWhen.Clauses[0].Condition.Where = &core.PassWhenCondition{Op: "all_of", Conditions: []*core.PassWhenCondition{
-				{Op: core.OpMatchesIn, Field: "id", InSlot: "roster", RemoteField: "id"},
+				{Op: core.OpMatchesIn, Field: "id", InSlot: testSlotRoster, RemoteField: "id"},
 			}}
 		},
 		"invalid op": func(p *core.Policy) {
 			p.PassWhen.Clauses[0].Condition = &core.PassWhenCondition{Op: "contains", Field: "id", Value: 1}
 		},
-		"bad role": func(p *core.Policy) { s := p.Slots["roster"]; s.Role = "boss"; p.Slots["roster"] = s },
+		"bad role": func(p *core.Policy) { s := p.Slots[testSlotRoster]; s.Role = "boss"; p.Slots[testSlotRoster] = s },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {

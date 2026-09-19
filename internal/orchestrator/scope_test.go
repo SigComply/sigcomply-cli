@@ -16,8 +16,8 @@ import (
 func incompleteReport() *scope.Report {
 	return &scope.Report{
 		Status:  scope.StatusIncomplete,
-		Sources: []scope.SourceReport{{SourceID: "okta", State: scope.SourceNotConfigured}, {SourceID: "github", State: scope.SourceOK}},
-		Missing: []string{"okta"},
+		Sources: []scope.SourceReport{{SourceID: sourceOkta, State: scope.SourceNotConfigured}, {SourceID: sourceGitHub, State: scope.SourceOK}},
+		Missing: []string{sourceOkta},
 	}
 }
 
@@ -29,7 +29,7 @@ func passingResults() []core.PolicyResult {
 // it never looked at an estate the operator declared.
 func TestRenderAndExitCode_IncompleteScopeFailsAnAllPassingRun(t *testing.T) {
 	var buf bytes.Buffer
-	plan := &planner.RunPlan{Framework: "soc2"}
+	plan := &planner.RunPlan{Framework: testFramework}
 	code := renderAndExitCode(&buf, plan, passingResults(), spec.CIConfig{}, incompleteReport())
 	if code != ExitViolation {
 		t.Fatalf("exit = %d; want %d (ExitViolation)", code, ExitViolation)
@@ -38,7 +38,7 @@ func TestRenderAndExitCode_IncompleteScopeFailsAnAllPassingRun(t *testing.T) {
 	if !strings.Contains(out, "SCOPE INCOMPLETE") {
 		t.Errorf("stdout missing the scope banner:\n%s", out)
 	}
-	if !strings.Contains(out, "okta") {
+	if !strings.Contains(out, sourceOkta) {
 		t.Errorf("stdout does not name the uncovered source:\n%s", out)
 	}
 	// The covered source must not be listed as a problem.
@@ -65,7 +65,7 @@ func TestRenderAndExitCode_CompleteAndUndeclaredAreSilent(t *testing.T) {
 	for _, rep := range []*scope.Report{
 		nil,
 		{Status: scope.StatusUndeclared},
-		{Status: scope.StatusComplete, Sources: []scope.SourceReport{{SourceID: "github", State: scope.SourceOK}}},
+		{Status: scope.StatusComplete, Sources: []scope.SourceReport{{SourceID: sourceGitHub, State: scope.SourceOK}}},
 	} {
 		var buf bytes.Buffer
 		code := renderAndExitCode(&buf, &planner.RunPlan{}, passingResults(), spec.CIConfig{}, rep)
@@ -94,7 +94,7 @@ func TestRenderAndExitCode_ErrorOutranksScope(t *testing.T) {
 // returns a non-nil "undeclared" report, and assigning that into the
 // `any` field defeats omitempty — which is exactly the bug this covers.
 func TestSummaryFromResults_ScopeOmittedWhenUndeclared(t *testing.T) {
-	plan := &planner.RunPlan{Framework: "soc2", Period: planner.Period{ID: "2026-Q1"}}
+	plan := &planner.RunPlan{Framework: testFramework, Period: planner.Period{ID: testPeriodID}}
 	for _, rep := range []*scope.Report{
 		nil,
 		{Status: scope.StatusUndeclared, PoliciesUnbound: 82},
@@ -111,7 +111,7 @@ func TestSummaryFromResults_ScopeOmittedWhenUndeclared(t *testing.T) {
 }
 
 func TestSummaryFromResults_ScopePersisted(t *testing.T) {
-	plan := &planner.RunPlan{Framework: "soc2", Period: planner.Period{ID: "2026-Q1"}}
+	plan := &planner.RunPlan{Framework: testFramework, Period: planner.Period{ID: testPeriodID}}
 	s := summaryFromResults(passingResults(), "run1", plan, time.Now(), incompleteReport())
 	body, err := json.Marshal(s)
 	if err != nil {
@@ -126,7 +126,7 @@ func TestSummaryFromResults_ScopePersisted(t *testing.T) {
 	if back.Scope.Status != scope.StatusIncomplete {
 		t.Errorf("persisted status = %q; want incomplete", back.Scope.Status)
 	}
-	if len(back.Scope.Missing) != 1 || back.Scope.Missing[0] != "okta" {
+	if len(back.Scope.Missing) != 1 || back.Scope.Missing[0] != sourceOkta {
 		t.Errorf("persisted Missing = %v", back.Scope.Missing)
 	}
 }

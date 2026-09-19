@@ -9,6 +9,9 @@ import (
 	"gopkg.in/dnaeon/go-vcr.v4/pkg/cassette"
 )
 
+// contentTypeJSON is the media type the recorded fixtures carry.
+const contentTypeJSON = "application/json"
+
 func TestReplayClient_ReplaysOffline(t *testing.T) {
 	client := ReplayClient(t, "testdata/cassettes/sample")
 
@@ -77,14 +80,14 @@ func TestMethodURLMatcher(t *testing.T) {
 func TestRedactInteraction(t *testing.T) {
 	i := &cassette.Interaction{
 		Request: cassette.Request{
-			Method:  "POST",
+			Method:  http.MethodPost,
 			URL:     "https://api.example.com/q?token=Bearer%20abcDEF123456",
-			Headers: http.Header{"Authorization": {"Bearer sk_live_abcdef123456"}, "Private-Token": {"glpat-realsecrettoken1234"}, "Accept": {"application/json"}},
+			Headers: http.Header{"Authorization": {"Bearer sk_live_abcdef123456"}, "Private-Token": {"glpat-realsecrettoken1234"}, "Accept": {contentTypeJSON}},
 			Body:    `{"actor":"alice@acmecorp.com"}`,
 			Form:    map[string][]string{"AccessKeyId": {"AKIAIOSFODNN7EXAMPLE9"}},
 		},
 		Response: cassette.Response{
-			Headers: http.Header{"Set-Cookie": {"session=deadbeef"}, "Content-Type": {"application/json"}},
+			Headers: http.Header{"Set-Cookie": {"session=deadbeef"}, "Content-Type": {contentTypeJSON}},
 			Body: `{"key":"AKIAIOSFODNN7EXAMPLE1","arn":"arn:aws:iam::123456789012:user/bob",` +
 				`"account":"210987654321","maxSizeBytes":107374182400,"owner":"carol@acmecorp.com","auth":"Bearer ghp_secrettoken123"}`,
 		},
@@ -115,7 +118,7 @@ func assertHeadersRedacted(t *testing.T, i *cassette.Interaction) {
 			t.Errorf("%s = %q; want %s", h.name, h.got, redacted)
 		}
 	}
-	if got := i.Request.Headers.Get("Accept"); got != "application/json" {
+	if got := i.Request.Headers.Get("Accept"); got != contentTypeJSON {
 		t.Errorf("Accept = %q; want preserved", got)
 	}
 }
@@ -201,9 +204,9 @@ func checkScrubbed(t *testing.T, label, s string) {
 
 func TestAWSMatcher(t *testing.T) {
 	const iamURL = "https://iam.amazonaws.com/"
-	listUsers := cassette.Request{Method: "POST", URL: iamURL, Body: "Action=ListUsers&Version=2010-05-08"}
+	listUsers := cassette.Request{Method: http.MethodPost, URL: iamURL, Body: "Action=ListUsers&Version=2010-05-08"}
 	dynamo := cassette.Request{
-		Method:  "POST",
+		Method:  http.MethodPost,
 		URL:     "https://dynamodb.us-east-1.amazonaws.com/",
 		Headers: http.Header{"X-Amz-Target": {"DynamoDB_20120810.DescribeTable"}},
 		Body:    `{"TableName":"a"}`,
@@ -225,13 +228,13 @@ func TestAWSMatcher(t *testing.T) {
 	// release, so bodies must match by decoded value, not by bytes.
 	const cborURL = "https://monitoring.us-east-1.amazonaws.com/service/GraniteServiceVersion20100801/operation/DescribeAlarms"
 	cborRec := cassette.Request{
-		Method:  "POST",
+		Method:  http.MethodPost,
 		URL:     cborURL,
 		Headers: http.Header{"Content-Type": {"application/cbor"}},
 		Body:    "\xa0",
 	}
 	newCBORReq := func(body string) *http.Request {
-		r := newReq("POST", cborURL, body, "")
+		r := newReq(http.MethodPost, cborURL, body, "")
 		r.Header.Set("Content-Type", "application/cbor")
 		return r
 	}
@@ -243,22 +246,22 @@ func TestAWSMatcher(t *testing.T) {
 		want bool
 	}{
 		// Query protocol: same URL, disambiguated by body.
-		{"query match", newReq("POST", iamURL, "Action=ListUsers&Version=2010-05-08", ""), listUsers, true},
-		{"query body mismatch", newReq("POST", iamURL, "Action=ListRoles&Version=2010-05-08", ""), listUsers, false},
+		{"query match", newReq(http.MethodPost, iamURL, "Action=ListUsers&Version=2010-05-08", ""), listUsers, true},
+		{"query body mismatch", newReq(http.MethodPost, iamURL, "Action=ListRoles&Version=2010-05-08", ""), listUsers, false},
 		{"method mismatch", newReq("GET", iamURL, "Action=ListUsers&Version=2010-05-08", ""), listUsers, false},
-		{"url mismatch", newReq("POST", "https://iam.amazonaws.com/other", "Action=ListUsers&Version=2010-05-08", ""), listUsers, false},
+		{"url mismatch", newReq(http.MethodPost, "https://iam.amazonaws.com/other", "Action=ListUsers&Version=2010-05-08", ""), listUsers, false},
 		// json protocol: same op (X-Amz-Target) on different resources differs
 		// only in body, so body must be compared too.
-		{"json full match", newReq("POST", dynamo.URL, `{"TableName":"a"}`, "DynamoDB_20120810.DescribeTable"), dynamo, true},
-		{"json target mismatch", newReq("POST", dynamo.URL, `{"TableName":"a"}`, "DynamoDB_20120810.Scan"), dynamo, false},
-		{"json same-op different resource (body) mismatch", newReq("POST", dynamo.URL, `{"TableName":"b"}`, "DynamoDB_20120810.DescribeTable"), dynamo, false},
+		{"json full match", newReq(http.MethodPost, dynamo.URL, `{"TableName":"a"}`, "DynamoDB_20120810.DescribeTable"), dynamo, true},
+		{"json target mismatch", newReq(http.MethodPost, dynamo.URL, `{"TableName":"a"}`, "DynamoDB_20120810.Scan"), dynamo, false},
+		{"json same-op different resource (body) mismatch", newReq(http.MethodPost, dynamo.URL, `{"TableName":"b"}`, "DynamoDB_20120810.DescribeTable"), dynamo, false},
 		// cbor: byte-identical, and re-encoded-equal but byte-different.
 		{"cbor identical bytes", newCBORReq("\xa0"), cborRec, true},
 		{"cbor indefinite vs definite empty map", newCBORReq("\xbf\xff"), cborRec, true},
 		{"cbor different value", newCBORReq("\xa1\x61a\x01"), cborRec, false},
 		{"cbor undecodable body", newCBORReq("not cbor at all"), cborRec, false},
 		// Without the CBOR content type the bytes must match exactly.
-		{"non-cbor body is compared bytewise", newReq("POST", cborURL, "\xbf\xff", ""), cassette.Request{Method: "POST", URL: cborURL, Body: "\xa0"}, false},
+		{"non-cbor body is compared bytewise", newReq(http.MethodPost, cborURL, "\xbf\xff", ""), cassette.Request{Method: http.MethodPost, URL: cborURL, Body: "\xa0"}, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -271,11 +274,11 @@ func TestAWSMatcher(t *testing.T) {
 
 func TestAWSMatcherRestoresBody(t *testing.T) {
 	const body = "Action=ListUsers&Version=2010-05-08"
-	r, err := http.NewRequestWithContext(t.Context(), "POST", "https://iam.amazonaws.com/", strings.NewReader(body))
+	r, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "https://iam.amazonaws.com/", strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = AWSMatcher(r, cassette.Request{Method: "POST", URL: "https://iam.amazonaws.com/", Body: body})
+	_ = AWSMatcher(r, cassette.Request{Method: http.MethodPost, URL: "https://iam.amazonaws.com/", Body: body})
 	// The body must still be readable after matching (go-vcr calls the matcher
 	// once per interaction against the same request, then sends it on a miss).
 	got, err := io.ReadAll(r.Body)

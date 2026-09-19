@@ -17,6 +17,15 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testRepoPublicImages = "projects/p/locations/us/repositories/public-images"
+	testRepoApp          = "projects/p/locations/us/repositories/app"
+	testRepoX            = "projects/p/locations/us/repositories/x"
+	testFormatDocker     = "DOCKER"
+	testModeStandard     = "STANDARD_REPOSITORY"
+)
+
 // fakeAPI drives the plugin without hitting GCP. It records the project
 // argument and call counts to assert plumbing and the KISS-no-DRY axiom.
 type fakeAPI struct {
@@ -85,16 +94,16 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	fake := &fakeAPI{
 		repos: []*artifactregistry.Repository{
 			{ // public, scanning off, Google-managed, mutable.
-				Name:                        "projects/p/locations/us/repositories/public-images",
-				Format:                      "DOCKER",
-				Mode:                        "STANDARD_REPOSITORY",
+				Name:                        testRepoPublicImages,
+				Format:                      testFormatDocker,
+				Mode:                        testModeStandard,
 				RegistryUri:                 "us-docker.pkg.dev/p/public-images",
 				VulnerabilityScanningConfig: &artifactregistry.VulnerabilityScanningConfig{EnablementState: "SCANNING_DISABLED"},
 			},
 			{ // hardened: scanning active, CMEK, immutable tags, private.
-				Name:                        "projects/p/locations/us/repositories/app",
-				Format:                      "DOCKER",
-				Mode:                        "STANDARD_REPOSITORY",
+				Name:                        testRepoApp,
+				Format:                      testFormatDocker,
+				Mode:                        testModeStandard,
 				RegistryUri:                 "us-docker.pkg.dev/p/app",
 				KmsKeyName:                  "projects/p/locations/us/keyRings/r/cryptoKeys/k",
 				DockerConfig:                &artifactregistry.DockerRepositoryConfig{ImmutableTags: true},
@@ -102,10 +111,10 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 			},
 		},
 		policies: map[string]*artifactregistry.Policy{
-			"projects/p/locations/us/repositories/public-images": {Bindings: []*artifactregistry.Binding{
-				{Role: "roles/artifactregistry.reader", Members: []string{"allUsers"}},
+			testRepoPublicImages: {Bindings: []*artifactregistry.Binding{
+				{Role: "roles/artifactregistry.reader", Members: []string{memberAllUsers}},
 			}},
-			"projects/p/locations/us/repositories/app": {Bindings: []*artifactregistry.Binding{
+			testRepoApp: {Bindings: []*artifactregistry.Binding{
 				{Role: "roles/artifactregistry.reader", Members: []string{"user:dev@example.com"}},
 			}},
 		},
@@ -124,8 +133,8 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 		t.Fatalf("len = %d; want 2", len(records))
 	}
 	// Sorted by ID (full resource name): "...app" before "...public-images".
-	if records[0].ID != "projects/p/locations/us/repositories/app" ||
-		records[1].ID != "projects/p/locations/us/repositories/public-images" {
+	if records[0].ID != testRepoApp ||
+		records[1].ID != testRepoPublicImages {
 		t.Fatalf("IDs = %q,%q; want app before public-images", records[0].ID, records[1].ID)
 	}
 	for i := range records {
@@ -141,9 +150,9 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	}
 
 	wantApp := registryPayload{
-		ID: "projects/p/locations/us/repositories/app", Name: "app", Provider: "gcp",
+		ID: testRepoApp, Name: "app", Provider: "gcp",
 		ScanOnPushEnabled: true, ImageImmutabilityEnabled: true, IsPublic: false, EncryptionEnabled: true,
-		Format: "DOCKER", Mode: "STANDARD_REPOSITORY", IsCustomerManaged: true,
+		Format: testFormatDocker, Mode: testModeStandard, IsCustomerManaged: true,
 		KMSKeyName: "projects/p/locations/us/keyRings/r/cryptoKeys/k", ScanningState: "SCANNING_ACTIVE",
 		RegistryURI: "us-docker.pkg.dev/p/app",
 	}
@@ -152,9 +161,9 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	}
 
 	wantPublic := registryPayload{
-		ID: "projects/p/locations/us/repositories/public-images", Name: "public-images", Provider: "gcp",
+		ID: testRepoPublicImages, Name: "public-images", Provider: "gcp",
 		ScanOnPushEnabled: false, ImageImmutabilityEnabled: false, IsPublic: true, EncryptionEnabled: true,
-		Format: "DOCKER", Mode: "STANDARD_REPOSITORY", IsCustomerManaged: false,
+		Format: testFormatDocker, Mode: testModeStandard, IsCustomerManaged: false,
 		ScanningState: "SCANNING_DISABLED", RegistryURI: "us-docker.pkg.dev/p/public-images",
 	}
 	if got := decodePayload(t, &records[1]); !reflect.DeepEqual(got, wantPublic) {
@@ -184,13 +193,13 @@ func TestIsPublic(t *testing.T) {
 		policy *artifactregistry.Policy
 		want   bool
 	}{
-		"nil policy":            {nil, false},
-		"no bindings":           {&artifactregistry.Policy{}, false},
-		"allUsers":              {&artifactregistry.Policy{Bindings: []*artifactregistry.Binding{{Members: []string{"allUsers"}}}}, true},
-		"allAuthenticatedUsers": {&artifactregistry.Policy{Bindings: []*artifactregistry.Binding{{Members: []string{"allAuthenticatedUsers"}}}}, true},
-		"only named members":    {&artifactregistry.Policy{Bindings: []*artifactregistry.Binding{{Members: []string{"user:a@b.com", "group:g@b.com"}}}}, false},
-		"nil binding skipped":   {&artifactregistry.Policy{Bindings: []*artifactregistry.Binding{nil, {Members: []string{"allUsers"}}}}, true},
-		"public in 2nd binding": {&artifactregistry.Policy{Bindings: []*artifactregistry.Binding{{Members: []string{"user:a@b.com"}}, {Members: []string{"allAuthenticatedUsers"}}}}, true},
+		"nil policy":                {nil, false},
+		"no bindings":               {&artifactregistry.Policy{}, false},
+		memberAllUsers:              {&artifactregistry.Policy{Bindings: []*artifactregistry.Binding{{Members: []string{memberAllUsers}}}}, true},
+		memberAllAuthenticatedUsers: {&artifactregistry.Policy{Bindings: []*artifactregistry.Binding{{Members: []string{memberAllAuthenticatedUsers}}}}, true},
+		"only named members":        {&artifactregistry.Policy{Bindings: []*artifactregistry.Binding{{Members: []string{"user:a@b.com", "group:g@b.com"}}}}, false},
+		"nil binding skipped":       {&artifactregistry.Policy{Bindings: []*artifactregistry.Binding{nil, {Members: []string{memberAllUsers}}}}, true},
+		"public in 2nd binding":     {&artifactregistry.Policy{Bindings: []*artifactregistry.Binding{{Members: []string{"user:a@b.com"}}, {Members: []string{memberAllAuthenticatedUsers}}}}, true},
 	}
 	for name, c := range cases {
 		if got := isPublic(c.policy); got != c.want {
@@ -236,7 +245,7 @@ func TestCollect_PropagatesListError(t *testing.T) {
 func TestCollect_PropagatesIamPolicyError(t *testing.T) {
 	wantErr := errors.New("iam boom")
 	fake := &fakeAPI{
-		repos:     []*artifactregistry.Repository{{Name: "projects/p/locations/us/repositories/x"}},
+		repos:     []*artifactregistry.Repository{{Name: testRepoX}},
 		policyErr: wantErr,
 	}
 	p := New(Options{API: fake})
@@ -248,9 +257,9 @@ func TestCollect_PropagatesIamPolicyError(t *testing.T) {
 
 func TestCollect_KISS_NoDRY_EachCallReFetches(t *testing.T) {
 	fake := &fakeAPI{
-		repos: []*artifactregistry.Repository{{Name: "projects/p/locations/us/repositories/x"}},
+		repos: []*artifactregistry.Repository{{Name: testRepoX}},
 		policies: map[string]*artifactregistry.Policy{
-			"projects/p/locations/us/repositories/x": {},
+			testRepoX: {},
 		},
 	}
 	p := New(Options{API: fake})
@@ -313,7 +322,7 @@ func TestRealAR_ListRepositories(t *testing.T) {
 // TestRealAR_GetIamPolicy exercises the per-repository IAM policy read.
 func TestRealAR_GetIamPolicy(t *testing.T) {
 	policy := mustMarshal(t, artifactregistry.Policy{
-		Bindings: []*artifactregistry.Binding{{Role: "roles/viewer", Members: []string{"allUsers"}}},
+		Bindings: []*artifactregistry.Binding{{Role: "roles/viewer", Members: []string{memberAllUsers}}},
 	})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

@@ -16,11 +16,16 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/recoveryservices/armrecoveryservices"
-	armbackup "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/recoveryservices/armrecoveryservicesbackup/v4"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/recoveryservices/armrecoveryservices/v3"
+	armbackup "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/recoveryservices/armrecoveryservicesbackup/v5"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
+)
+
+const (
+	providerAzure = "azure"
+	vaultProd     = "z-prod"
 )
 
 var fixedNow = time.Date(2026, 6, 17, 12, 0, 0, 0, time.UTC)
@@ -100,13 +105,13 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 	// policy.
 	f := &fakeAPI{
 		vaults: []*armrecoveryservices.Vault{
-			{ID: vaultID("z-prod"), Name: to.Ptr("z-prod"), Location: to.Ptr("eastus")},
+			{ID: vaultID(vaultProd), Name: to.Ptr(vaultProd), Location: to.Ptr("eastus")},
 			{ID: vaultID("a-dev"), Name: to.Ptr("a-dev"), Location: to.Ptr("westus")},
 		},
 		policies: map[string][]*armbackup.ProtectionPolicyResource{
-			"z-prod": {
+			vaultProd: {
 				{
-					ID:       policyID("z-prod", "vm-weekly"),
+					ID:       policyID(vaultProd, "vm-weekly"),
 					Name:     to.Ptr("vm-weekly"),
 					Location: to.Ptr("eastus"),
 					Properties: &armbackup.AzureIaaSVMProtectionPolicy{
@@ -119,7 +124,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 					},
 				},
 				{
-					ID:       policyID("z-prod", "sql-unused"),
+					ID:       policyID(vaultProd, "sql-unused"),
 					Name:     to.Ptr("sql-unused"),
 					Location: to.Ptr("eastus"),
 					Properties: &armbackup.AzureSQLProtectionPolicy{
@@ -157,7 +162,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 		t.Fatalf("got %d records, want 3", len(recs))
 	}
 	// Sorted by ID across vaults: a-dev/files-daily, z-prod/sql-unused, z-prod/vm-weekly.
-	wantOrder := []string{*policyID("a-dev", "files-daily"), *policyID("z-prod", "sql-unused"), *policyID("z-prod", "vm-weekly")}
+	wantOrder := []string{*policyID("a-dev", "files-daily"), *policyID(vaultProd, "sql-unused"), *policyID(vaultProd, "vm-weekly")}
 	for i, want := range wantOrder {
 		if recs[i].ID != want {
 			t.Fatalf("record %d ID = %s, want %s", i, recs[i].ID, want)
@@ -181,7 +186,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 	wantFiles := policyPayload{
 		ID:                  *policyID("a-dev", "files-daily"),
 		Name:                "files-daily",
-		Provider:            "azure",
+		Provider:            providerAzure,
 		IsActive:            true,
 		HasRetentionRule:    true,
 		RetentionDays:       to.Ptr[int64](45),
@@ -199,16 +204,16 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 	var sql policyPayload
 	mustUnmarshal(t, recs[1].Payload, &sql)
 	wantSQL := policyPayload{
-		ID:                  *policyID("z-prod", "sql-unused"),
+		ID:                  *policyID(vaultProd, "sql-unused"),
 		Name:                "sql-unused",
-		Provider:            "azure",
+		Provider:            providerAzure,
 		IsActive:            false,
 		HasRetentionRule:    true,
 		RetentionDays:       to.Ptr[int64](15),
 		CoversResourceTypes: []string{"AzureSql"},
 		Location:            "eastus",
 		ResourceGroup:       "rg",
-		VaultName:           "z-prod",
+		VaultName:           vaultProd,
 		ProtectedItemsCount: 0,
 	}
 	if !reflect.DeepEqual(sql, wantSQL) {
@@ -219,16 +224,16 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 	var vm policyPayload
 	mustUnmarshal(t, recs[2].Payload, &vm)
 	wantVM := policyPayload{
-		ID:                  *policyID("z-prod", "vm-weekly"),
+		ID:                  *policyID(vaultProd, "vm-weekly"),
 		Name:                "vm-weekly",
-		Provider:            "azure",
+		Provider:            providerAzure,
 		IsActive:            true,
 		HasRetentionRule:    true,
 		RetentionDays:       to.Ptr[int64](84),
 		CoversResourceTypes: []string{"AzureIaasVM"},
 		Location:            "eastus",
 		ResourceGroup:       "rg",
-		VaultName:           "z-prod",
+		VaultName:           vaultProd,
 		ProtectedItemsCount: 5,
 	}
 	if !reflect.DeepEqual(vm, wantVM) {

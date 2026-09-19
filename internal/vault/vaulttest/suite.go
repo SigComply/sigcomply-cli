@@ -18,6 +18,9 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sign"
 )
 
+// evidenceTypeUserRecord is the evidence type the suite's fixtures carry.
+const evidenceTypeUserRecord = "user_record"
+
 // Factory constructs a fresh, isolated Vault for one sub-test. The
 // returned Vault is already Init'd. Backends that need cleanup should
 // register a t.Cleanup inside the factory.
@@ -79,7 +82,7 @@ func testPutBinaryMetadata(t *testing.T, factory Factory) {
 	v := factory(t)
 	ctx := context.Background()
 	err := v.PutBinary(ctx, "blobs/meta.bin", []byte("x"), map[string]string{
-		"sigcomply-evidence-type": "user_record",
+		"sigcomply-evidence-type": evidenceTypeUserRecord,
 	})
 	if err != nil {
 		t.Fatalf("PutBinary with metadata: %v", err)
@@ -204,7 +207,7 @@ func sampleEnvelope() core.Envelope {
 		ProducedAt:    time.Date(2026, 5, 23, 14, 0, 0, 0, time.UTC),
 		Records: []core.EvidenceRecord{
 			{
-				Type:        "user_record",
+				Type:        evidenceTypeUserRecord,
 				ID:          "alice",
 				IdentityKey: "alice@acme.com",
 				Payload:     json.RawMessage(`{"mfa_enabled":true}`),
@@ -228,7 +231,7 @@ func sampleUnsignedEnvelope() core.Envelope {
 		ProducedAt:    time.Date(2026, 5, 23, 14, 0, 0, 0, time.UTC),
 		Records: []core.EvidenceRecord{
 			{
-				Type:        "user_record",
+				Type:        evidenceTypeUserRecord,
 				ID:          "alice",
 				IdentityKey: "alice@acme.com",
 				Payload:     json.RawMessage(`{"mfa_enabled":true}`),

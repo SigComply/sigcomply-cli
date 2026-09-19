@@ -17,16 +17,16 @@ import (
 func TestSkipDetail_UnboundRosterSlot(t *testing.T) {
 	pp := &planner.PlannedPolicy{
 		Spec: core.Policy{Slots: map[string]core.Slot{
-			"roster":   {Accepts: []string{"roster_entry"}, Required: true, Role: core.SlotRoleRoster},
-			"accounts": {Accepts: []string{"directory_user"}, Required: true, Role: core.SlotRoleRosterSubject},
+			slotRoster:   {Accepts: []string{"roster_entry"}, Required: true, Role: core.SlotRoleRoster},
+			slotAccounts: {Accepts: []string{evidenceTypeDirectoryUser}, Required: true, Role: core.SlotRoleRosterSubject},
 		}},
-		Bindings: map[string][]planner.Binding{"roster": nil, "accounts": nil},
+		Bindings: map[string][]planner.Binding{slotRoster: nil, slotAccounts: nil},
 	}
 	got := skipDetail(pp)
 	if !strings.Contains(got, "no roster source designated") || !strings.Contains(got, "experimental.roster.source") {
 		t.Errorf("skipDetail = %q; want it to name experimental.roster.source", got)
 	}
-	if strings.Contains(got, "no configured source emits") || strings.Contains(got, "accounts") {
+	if strings.Contains(got, "no configured source emits") || strings.Contains(got, slotAccounts) {
 		t.Errorf("skipDetail = %q; must not blame the emptied accounts slot", got)
 	}
 }
@@ -34,9 +34,9 @@ func TestSkipDetail_UnboundRosterSlot(t *testing.T) {
 func TestEmitRosterWarnings_UnknownKey(t *testing.T) {
 	var buf bytes.Buffer
 	cfg := &spec.ProjectConfig{
-		Framework:    "soc2",
-		Sources:      map[string]map[string]any{"okta": {}},
-		Experimental: map[string]any{"roster": map[string]any{"source": "okta", "nonhuman": []any{"bot"}}},
+		Framework:    testFramework,
+		Sources:      map[string]map[string]any{sourceOkta: {}},
+		Experimental: map[string]any{slotRoster: map[string]any{"source": sourceOkta, "nonhuman": []any{"bot"}}},
 	}
 	emitRosterWarnings(log.New(&buf, false), cfg, registry.NewSet())
 	if !strings.Contains(buf.String(), "roster: ignoring unrecognized key experimental.roster.nonhuman") {

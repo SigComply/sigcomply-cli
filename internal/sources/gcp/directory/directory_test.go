@@ -16,6 +16,15 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testCustomerID = "C01abc"
+	testAliceEmail = "alice@acme.com"
+	testAliceName  = "Alice Adams"
+	testBobEmail   = "bob@acme.com"
+	testUserEmail  = "a@acme.com"
+)
+
 // fakeAPI lets tests drive the plugin without hitting Google. It records
 // the customer argument so we can assert the default-alias behavior.
 type fakeAPI struct {
@@ -76,8 +85,8 @@ func TestCollect_HappyPath_SortsByID_AndMapsFields(t *testing.T) {
 		},
 		{ // Alice: no 2SV, super-admin, suspended.
 			Id:           "100",
-			PrimaryEmail: "alice@acme.com",
-			Name:         &admin.UserName{FullName: "Alice Adams"},
+			PrimaryEmail: testAliceEmail,
+			Name:         &admin.UserName{FullName: testAliceName},
 			IsAdmin:      true,
 			Suspended:    true,
 		},
@@ -97,10 +106,10 @@ func TestCollect_HappyPath_SortsByID_AndMapsFields(t *testing.T) {
 		t.Fatalf("not sorted by ID: %q, %q", records[0].ID, records[1].ID)
 	}
 
-	wantRecordMeta(t, &records[0], "alice@acme.com", now)
+	wantRecordMeta(t, &records[0], testAliceEmail, now)
 	wantRecordMeta(t, &records[1], "zoe@acme.com", now)
 
-	wantAlice := userPayload{ID: "100", DisplayName: "Alice Adams", Email: "alice@acme.com", MFAEnabled: false, IsAdmin: true, IsActive: false}
+	wantAlice := userPayload{ID: "100", DisplayName: testAliceName, Email: testAliceEmail, MFAEnabled: false, IsAdmin: true, IsActive: false}
 	if got := decodePayload(t, &records[0]); !reflect.DeepEqual(got, wantAlice) {
 		t.Errorf("alice payload = %+v; want %+v", got, wantAlice)
 	}
@@ -185,7 +194,7 @@ func TestCollect_PropagatesAPIError(t *testing.T) {
 }
 
 func TestCollect_KISS_NoDRY_EachCallReFetches(t *testing.T) {
-	fake := &fakeAPI{users: []*admin.User{{Id: "1", PrimaryEmail: "a@acme.com"}}}
+	fake := &fakeAPI{users: []*admin.User{{Id: "1", PrimaryEmail: testUserEmail}}}
 	p := New(Options{API: fake})
 	for range 3 {
 		if _, err := p.Collect(context.Background(), directoryReq()); err != nil {
@@ -210,11 +219,11 @@ func TestCollect_DefaultsCustomerAlias(t *testing.T) {
 
 func TestCollect_HonorsExplicitCustomer(t *testing.T) {
 	fake := &fakeAPI{}
-	p := New(Options{API: fake, Customer: "C01abc"})
+	p := New(Options{API: fake, Customer: testCustomerID})
 	if _, err := p.Collect(context.Background(), directoryReq()); err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
-	if fake.customer != "C01abc" {
+	if fake.customer != testCustomerID {
 		t.Errorf("customer = %q; want C01abc", fake.customer)
 	}
 }
@@ -225,7 +234,7 @@ func TestCollect_HonorsExplicitCustomer(t *testing.T) {
 // real SDK path the fakeAPI tests skip.
 func TestRealDirectory_ListUsers_Pagination(t *testing.T) {
 	page1, err := json.Marshal(admin.Users{
-		Users:         []*admin.User{{Id: "1", PrimaryEmail: "a@acme.com"}},
+		Users:         []*admin.User{{Id: "1", PrimaryEmail: testUserEmail}},
 		NextPageToken: "page2",
 	})
 	if err != nil {

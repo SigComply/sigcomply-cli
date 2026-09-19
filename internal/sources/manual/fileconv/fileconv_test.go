@@ -14,6 +14,20 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual/fileconv"
 )
 
+// The file extensions fileconv accepts, named so the tables below read
+// as a set rather than as repeated literals.
+const (
+	extPDF  = ".pdf"
+	extJPG  = ".jpg"
+	extJPEG = ".jpeg"
+	extPNG  = ".png"
+	extGIF  = ".gif"
+	extTIF  = ".tif"
+	extTIFF = ".tiff"
+	extWebP = ".webp"
+	extBMP  = ".bmp"
+)
+
 // tinyImage is a 2×2 image used to encode real bytes for each format.
 func tinyImage() image.Image {
 	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
@@ -48,10 +62,10 @@ func TestToPDF_ImageFormats(t *testing.T) {
 		ext  string
 		data []byte
 	}{
-		{"gif.gif", ".gif", gifBuf.Bytes()},
-		{"scan.tif", ".tif", tiffBuf.Bytes()},
-		{"scan.tiff", ".tiff", tiffBuf.Bytes()},
-		{"image.bmp", ".bmp", bmpBuf.Bytes()},
+		{"gif.gif", extGIF, gifBuf.Bytes()},
+		{"scan.tif", extTIF, tiffBuf.Bytes()},
+		{"scan.tiff", extTIFF, tiffBuf.Bytes()},
+		{"image.bmp", extBMP, bmpBuf.Bytes()},
 	}
 	for _, c := range cases {
 		out, converted, err := fileconv.ToPDF(c.name, c.ext, c.data)
@@ -69,7 +83,7 @@ func TestToPDF_ImageFormats(t *testing.T) {
 }
 
 func TestSupportedExt(t *testing.T) {
-	supported := []string{".pdf", ".jpg", ".jpeg", ".png", ".gif", ".tif", ".tiff", ".webp", ".bmp"}
+	supported := []string{extPDF, extJPG, extJPEG, extPNG, extGIF, extTIF, extTIFF, extWebP, extBMP}
 	for _, ext := range supported {
 		if !fileconv.SupportedExt(ext) {
 			t.Errorf("SupportedExt(%q) = false; want true", ext)
@@ -84,19 +98,19 @@ func TestSupportedExt(t *testing.T) {
 }
 
 func TestIsPDF(t *testing.T) {
-	if !fileconv.IsPDF(".pdf") {
+	if !fileconv.IsPDF(extPDF) {
 		t.Error("IsPDF(.pdf) = false")
 	}
-	if fileconv.IsPDF(".png") {
+	if fileconv.IsPDF(extPNG) {
 		t.Error("IsPDF(.png) = true")
 	}
 }
 
 func TestNormalizeExt(t *testing.T) {
 	cases := []struct{ in, want string }{
-		{"evidence.PDF", ".pdf"},
-		{"scan.JPEG", ".jpeg"},
-		{"image.PNG", ".png"},
+		{"evidence.PDF", extPDF},
+		{"scan.JPEG", extJPEG},
+		{"image.PNG", extPNG},
 		{"noext", ""},
 	}
 	for _, tc := range cases {
@@ -109,7 +123,7 @@ func TestNormalizeExt(t *testing.T) {
 
 func TestToPDF_PassThrough(t *testing.T) {
 	data := minimalPDF()
-	out, converted, err := fileconv.ToPDF("evidence.pdf", ".pdf", data)
+	out, converted, err := fileconv.ToPDF("evidence.pdf", extPDF, data)
 	if err != nil {
 		t.Fatalf("ToPDF PDF pass-through: %v", err)
 	}
@@ -122,7 +136,7 @@ func TestToPDF_PassThrough(t *testing.T) {
 }
 
 func TestToPDF_JPEG(t *testing.T) {
-	out, converted, err := fileconv.ToPDF("screenshot.jpg", ".jpg", minimalJPEG())
+	out, converted, err := fileconv.ToPDF("screenshot.jpg", extJPG, minimalJPEG())
 	if err != nil {
 		t.Fatalf("ToPDF JPEG: %v", err)
 	}
@@ -139,7 +153,7 @@ func TestToPDF_JPEG(t *testing.T) {
 }
 
 func TestToPDF_PNG(t *testing.T) {
-	out, converted, err := fileconv.ToPDF("image.png", ".png", minimalPNG())
+	out, converted, err := fileconv.ToPDF("image.png", extPNG, minimalPNG())
 	if err != nil {
 		t.Fatalf("ToPDF PNG: %v", err)
 	}
@@ -163,14 +177,14 @@ func TestToPDF_UnsupportedType(t *testing.T) {
 	if ute.Ext != ".docx" {
 		t.Errorf("UnsupportedTypeError.Ext = %q; want .docx", ute.Ext)
 	}
-	if !strings.Contains(err.Error(), ".pdf") {
+	if !strings.Contains(err.Error(), extPDF) {
 		t.Errorf("error message should list supported exts; got %q", err.Error())
 	}
 }
 
 func TestSupportedExtsList(t *testing.T) {
 	list := fileconv.SupportedExtsList()
-	for _, ext := range []string{".pdf", ".jpg", ".png", ".gif", ".tiff", ".webp", ".bmp"} {
+	for _, ext := range []string{extPDF, extJPG, extPNG, extGIF, extTIFF, extWebP, extBMP} {
 		if !strings.Contains(list, ext) {
 			t.Errorf("SupportedExtsList() missing %q; got %q", ext, list)
 		}

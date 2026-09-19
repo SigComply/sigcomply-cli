@@ -16,22 +16,22 @@ import "github.com/sigcomply/sigcomply-cli/internal/core"
 func changeEvidencePolicies() []core.Policy {
 	return []core.Policy{
 		autoPolicy{
-			id: "iso27001.8.32.changes_independently_approved", control: "A.8.32", severity: core.SeverityHigh, category: "change-management", cadence: "daily",
-			accepts: []string{"pull_request"},
+			id: "iso27001.8.32.changes_independently_approved", control: ctrlChangeManagement, severity: core.SeverityHigh, category: catChangeManagement, cadence: cadenceDaily,
+			accepts: []string{etPullRequest},
 			desc:    "Every change merged during the period was approved by someone other than its author.",
 			rem:     "Require an independent approval before merge. For a change that legitimately merged without one (a production hotfix, an automated dependency bump), record a scoped exception naming the change.",
 			clause:  all(leaf("payload.independent_approval_count", "gte", 1), "change {{.payload.repository}}#{{.payload.number}} by {{.payload.author}} was merged without an independent approval"),
 		}.policy(),
 		autoPolicy{
-			id: "iso27001.8.32.changes_passed_checks", control: "A.8.32", severity: core.SeverityMedium, category: "change-management", cadence: "daily",
-			accepts: []string{"pull_request"},
+			id: "iso27001.8.32.changes_passed_checks", control: ctrlChangeManagement, severity: core.SeverityMedium, category: catChangeManagement, cadence: cadenceDaily,
+			accepts: []string{etPullRequest},
 			desc:    "Every change merged during the period passed its automated checks.",
 			rem:     "Require status checks to pass before merge, and ensure each repository runs at least one check.",
 			clause:  all(leaf("payload.checks_passed", "eq", true), "change {{.payload.repository}}#{{.payload.number}} was merged without passing automated checks"),
 		}.policy(),
 		autoPolicy{
-			id: "iso27001.8.32.approval_precedes_merge", control: "A.8.32", severity: core.SeverityHigh, category: "change-management", cadence: "daily",
-			accepts: []string{"pull_request"},
+			id: "iso27001.8.32.approval_precedes_merge", control: ctrlChangeManagement, severity: core.SeverityHigh, category: catChangeManagement, cadence: cadenceDaily,
+			accepts: []string{etPullRequest},
 			desc:    "Approvals were recorded before the merge, not after it.",
 			rem:     "Approve changes before merging them. An approval added after the fact does not evidence review of what shipped.",
 			// Scoped to changes carrying an independent approval; one with
@@ -40,17 +40,17 @@ func changeEvidencePolicies() []core.Policy {
 		}.policy(),
 		{
 			ID:           "iso27001.8.32.production_deploys_from_approved_changes",
-			Controls:     controlRefs("A.8.32"),
+			Controls:     controlRefs(ctrlChangeManagement),
 			Description:  "Every production deployment during the period shipped an independently approved change.",
 			Remediation:  "Deploy to production only from the reviewed branch, so each release traces back to an approved change. A deployment of a commit with no corresponding approved change is an unreviewed production release.",
 			Severity:     core.SeverityHigh,
-			Category:     "change-management",
-			Cadence:      "daily",
+			Category:     catChangeManagement,
+			Cadence:      cadenceDaily,
 			OnPush:       true,
 			EvidenceMode: core.EvidenceModeAutomated,
 			Slots: map[string]core.Slot{
 				"deployments": {Accepts: []string{"deployment"}, Cardinality: core.SlotOneOrMore, Required: true, Description: "deployments performed during the period"},
-				"changes":     {Accepts: []string{"pull_request"}, Cardinality: core.SlotOneOrMore, Required: true, Description: "changes merged during the period"},
+				"changes":     {Accepts: []string{etPullRequest}, Cardinality: core.SlotOneOrMore, Required: true, Description: "changes merged during the period"},
 			},
 			// Traceability, not segregation of duties between merger and
 			// deployer: comparing two fields across two slots is not

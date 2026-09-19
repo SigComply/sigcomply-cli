@@ -6,6 +6,11 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+const (
+	testControlCC11         = "CC1.1"
+	testViolationBucketOpen = "bucket is public"
+)
+
 func auto(id, control string) core.Policy {
 	return core.Policy{ID: id, EvidenceMode: core.EvidenceModeAutomated, Controls: []core.ControlRef{{ControlID: control}}}
 }
@@ -15,12 +20,12 @@ func manual(id, control string) core.Policy {
 }
 
 func TestClassifyControls(t *testing.T) {
-	controls := []core.Control{{ID: "CC2.1"}, {ID: "CC1.1"}, {ID: "CC6.1"}, {ID: "CC9.9"}}
+	controls := []core.Control{{ID: "CC2.1"}, {ID: testControlCC11}, {ID: "CC6.1"}, {ID: "CC9.9"}}
 	policies := []core.Policy{
 		auto("a1", "CC6.1"),
 		manual("m1", "CC6.1"), // a control can hold both; the automated check wins
-		manual("m2", "CC1.1"),
-		manual("m3", "CC1.1"),
+		manual("m2", testControlCC11),
+		manual("m3", testControlCC11),
 		auto("a2", "CC2.1"),
 	}
 
@@ -30,7 +35,7 @@ func TestClassifyControls(t *testing.T) {
 		t.Fatalf("got %d rows; want one per declared control (4)", len(got))
 	}
 	// Sorted by control ID, so the output is stable across runs.
-	want := []string{"CC1.1", "CC2.1", "CC6.1", "CC9.9"}
+	want := []string{testControlCC11, "CC2.1", "CC6.1", "CC9.9"}
 	for i, id := range want {
 		if got[i].ControlID != id {
 			t.Fatalf("row %d = %q; want %q (rows must sort by control ID)", i, got[i].ControlID, id)
@@ -45,7 +50,7 @@ func TestClassifyControls(t *testing.T) {
 	if c := byID["CC6.1"]; c.Assurance != core.AssuranceAutomated || c.AutomatedPolicies != 1 || c.ManualPolicies != 1 {
 		t.Errorf("CC6.1 = %+v; want automated with 1 automated + 1 manual policy — one real check outranks any number of documents", c)
 	}
-	if c := byID["CC1.1"]; c.Assurance != core.AssuranceManual || c.ManualPolicies != 2 {
+	if c := byID[testControlCC11]; c.Assurance != core.AssuranceManual || c.ManualPolicies != 2 {
 		t.Errorf("CC1.1 = %+v; want manual with 2 manual policies", c)
 	}
 	if c := byID["CC2.1"]; c.Assurance != core.AssuranceAutomated {
@@ -63,8 +68,8 @@ func TestClassifyControls(t *testing.T) {
 // TestEveryControlHasAPolicy.
 func TestClassifyControls_IgnoresPoliciesForUnknownControls(t *testing.T) {
 	got := core.ClassifyControls(
-		[]core.Control{{ID: "CC1.1"}},
-		[]core.Policy{auto("a1", "CC1.1"), auto("a2", "NOT-A-CONTROL")},
+		[]core.Control{{ID: testControlCC11}},
+		[]core.Policy{auto("a1", testControlCC11), auto("a2", "NOT-A-CONTROL")},
 	)
 	if len(got) != 1 {
 		t.Fatalf("got %d rows; want 1 — only declared controls get a row", len(got))

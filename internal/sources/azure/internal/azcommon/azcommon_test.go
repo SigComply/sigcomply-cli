@@ -13,7 +13,16 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resourcegraph/armresourcegraph"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions/v2"
+)
+
+const (
+	cfgKeySubscriptionID = "subscription_id"
+	cfgKeyTenantID       = "tenant_id"
+	rgColumnName         = "name"
+
+	testSubscriptionID = "sub-1"
+	testTenantID       = "ten-1"
 )
 
 // --- ParseConfig ---------------------------------------------------------
@@ -29,33 +38,33 @@ func TestParseConfig(t *testing.T) {
 	}{
 		{
 			name:       "arm source with subscription and tenant",
-			raw:        map[string]any{"subscription_id": "sub-1", "tenant_id": "ten-1"},
+			raw:        map[string]any{cfgKeySubscriptionID: testSubscriptionID, cfgKeyTenantID: testTenantID},
 			requireSub: true,
-			wantSub:    "sub-1",
-			wantTenant: "ten-1",
+			wantSub:    testSubscriptionID,
+			wantTenant: testTenantID,
 		},
 		{
 			name:       "arm source missing subscription errors",
-			raw:        map[string]any{"tenant_id": "ten-1"},
+			raw:        map[string]any{cfgKeyTenantID: testTenantID},
 			requireSub: true,
 			wantErr:    true,
 		},
 		{
 			name:       "graph source needs no subscription",
-			raw:        map[string]any{"tenant_id": "ten-1"},
+			raw:        map[string]any{cfgKeyTenantID: testTenantID},
 			requireSub: false,
-			wantTenant: "ten-1",
+			wantTenant: testTenantID,
 		},
 		{
 			name:       "values are trimmed",
-			raw:        map[string]any{"subscription_id": "  sub-2  ", "tenant_id": " ten-2 "},
+			raw:        map[string]any{cfgKeySubscriptionID: "  sub-2  ", cfgKeyTenantID: " ten-2 "},
 			requireSub: true,
 			wantSub:    "sub-2",
 			wantTenant: "ten-2",
 		},
 		{
 			name:       "empty subscription string still errors when required",
-			raw:        map[string]any{"subscription_id": "   "},
+			raw:        map[string]any{cfgKeySubscriptionID: "   "},
 			requireSub: true,
 			wantErr:    true,
 		},
@@ -228,14 +237,14 @@ func rgPage(skip *string, rows ...map[string]any) armresourcegraph.ClientResourc
 
 func TestQueryResourceGraph_PagesViaSkipToken(t *testing.T) {
 	f := &fakeRG{pages: []armresourcegraph.ClientResourcesResponse{
-		rgPage(to.Ptr("more"), map[string]any{"name": "vm1"}),
-		rgPage(nil, map[string]any{"name": "vm2"}, map[string]any{"name": "vm3"}),
+		rgPage(to.Ptr("more"), map[string]any{rgColumnName: "vm1"}),
+		rgPage(nil, map[string]any{rgColumnName: "vm2"}, map[string]any{rgColumnName: "vm3"}),
 	}}
 	got, err := queryResourceGraph(context.Background(), f, "Resources | project name", []string{"s1", "s2"})
 	if err != nil {
 		t.Fatalf("queryResourceGraph() error: %v", err)
 	}
-	want := []map[string]any{{"name": "vm1"}, {"name": "vm2"}, {"name": "vm3"}}
+	want := []map[string]any{{rgColumnName: "vm1"}, {rgColumnName: "vm2"}, {rgColumnName: "vm3"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("queryResourceGraph() = %+v; want %+v", got, want)
 	}
@@ -247,7 +256,7 @@ func TestQueryResourceGraph_PagesViaSkipToken(t *testing.T) {
 func TestQueryResourceGraph_EmptySkipTokenStops(t *testing.T) {
 	// An empty-string SkipToken must terminate paging just like nil.
 	f := &fakeRG{pages: []armresourcegraph.ClientResourcesResponse{
-		rgPage(to.Ptr(""), map[string]any{"name": "only"}),
+		rgPage(to.Ptr(""), map[string]any{rgColumnName: "only"}),
 	}}
 	got, err := queryResourceGraph(context.Background(), f, "Resources", nil)
 	if err != nil {

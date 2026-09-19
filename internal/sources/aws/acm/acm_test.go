@@ -14,6 +14,9 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// certARNA is the certificate ARN shared by this file's fixtures.
+const certARNA = "arn:a"
+
 type fakeCert struct {
 	arn      string
 	domain   string
@@ -229,10 +232,10 @@ func TestCollect_ExpiredCertNegativeDays(t *testing.T) {
 func TestCollect_PaginatesListCertificates(t *testing.T) {
 	exp := fixedNow.Add(60 * 24 * time.Hour)
 	fake := &pagingAPI{
-		pages: [][]string{{"arn:a"}, {"arn:b"}},
+		pages: [][]string{{certARNA}, {"arn:b"}},
 		details: map[string]acmtypes.CertificateDetail{
-			"arn:a": {CertificateArn: ptr("arn:a"), DomainName: ptr("a"), NotAfter: &exp, Status: acmtypes.CertificateStatusIssued, Type: acmtypes.CertificateTypeAmazonIssued},
-			"arn:b": {CertificateArn: ptr("arn:b"), DomainName: ptr("b"), NotAfter: &exp, Status: acmtypes.CertificateStatusIssued, Type: acmtypes.CertificateTypeAmazonIssued},
+			certARNA: {CertificateArn: ptr(certARNA), DomainName: ptr("a"), NotAfter: &exp, Status: acmtypes.CertificateStatusIssued, Type: acmtypes.CertificateTypeAmazonIssued},
+			"arn:b":  {CertificateArn: ptr("arn:b"), DomainName: ptr("b"), NotAfter: &exp, Status: acmtypes.CertificateStatusIssued, Type: acmtypes.CertificateTypeAmazonIssued},
 		},
 	}
 	p := New(Options{API: fake, Now: func() time.Time { return fixedNow }})
@@ -293,7 +296,7 @@ func TestCollect_ListError(t *testing.T) {
 }
 
 func TestCollect_DescribeError(t *testing.T) {
-	fake := &fakeAPI{certs: []fakeCert{{arn: "arn:a"}}, descErr: errors.New("boom")}
+	fake := &fakeAPI{certs: []fakeCert{{arn: certARNA}}, descErr: errors.New("boom")}
 	p := New(Options{API: fake})
 	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err == nil || !strings.Contains(err.Error(), "describe certificate") {
@@ -303,7 +306,7 @@ func TestCollect_DescribeError(t *testing.T) {
 
 func TestCollect_DefaultNowIsUsed(t *testing.T) {
 	exp := time.Now().Add(100 * 24 * time.Hour)
-	fake := &fakeAPI{certs: []fakeCert{{arn: "arn:a", notAfter: &exp, certType: acmtypes.CertificateTypeAmazonIssued}}}
+	fake := &fakeAPI{certs: []fakeCert{{arn: certARNA, notAfter: &exp, certType: acmtypes.CertificateTypeAmazonIssued}}}
 	p := New(Options{API: fake})
 	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {

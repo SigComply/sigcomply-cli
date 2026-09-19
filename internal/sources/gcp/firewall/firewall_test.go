@@ -16,6 +16,12 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testDirectionIngress = "INGRESS"
+	testProtocolTCP      = "tcp"
+)
+
 // fakeAPI drives the plugin without hitting GCP. It records the project
 // argument and call count to assert plumbing and the KISS-no-DRY axiom.
 type fakeAPI struct {
@@ -95,12 +101,12 @@ func TestCollect_FlattensAndSorts(t *testing.T) {
 	fake := &fakeAPI{firewalls: []*gce.Firewall{
 		{ // allow-web: open to the internet on tcp 80 and 443.
 			Name:         "allow-web",
-			Direction:    "INGRESS",
+			Direction:    testDirectionIngress,
 			Network:      "projects/p/global/networks/default",
 			Priority:     1000,
 			SourceRanges: []string{"0.0.0.0/0"},
 			Allowed: []*gce.FirewallAllowed{
-				{IPProtocol: "tcp", Ports: []string{"80", "443"}},
+				{IPProtocol: testProtocolTCP, Ports: []string{"80", "443"}},
 				{IPProtocol: "icmp"},
 			},
 		},
@@ -125,7 +131,7 @@ func TestCollect_FlattensAndSorts(t *testing.T) {
 
 	want0 := rulePayload{
 		ID: "allow-web:ingress:0", Name: "allow-web ingress rule", Provider: "gcp",
-		GroupID: "allow-web", Direction: "ingress", Protocol: "tcp",
+		GroupID: "allow-web", Direction: "ingress", Protocol: testProtocolTCP,
 		FromPort: 80, ToPort: 80, IsUnrestrictedIPv4: true, IsUnrestrictedIPv6: false,
 		SourceCIDR: "0.0.0.0/0", Action: "allow", Network: "default", Priority: 1000, Disabled: false,
 	}
@@ -133,7 +139,7 @@ func TestCollect_FlattensAndSorts(t *testing.T) {
 		t.Errorf("records[0] payload = %+v; want %+v", got, want0)
 	}
 	// Second port of the tcp entry.
-	if got := decodePayload(t, &records[1]); got.FromPort != 443 || got.ToPort != 443 || got.Protocol != "tcp" {
+	if got := decodePayload(t, &records[1]); got.FromPort != 443 || got.ToPort != 443 || got.Protocol != testProtocolTCP {
 		t.Errorf("records[1] = %+v; want tcp 443/443", got)
 	}
 	// icmp entry has no ports → all-ports sentinel.
@@ -146,8 +152,8 @@ func TestCollect_FlattensAndSorts(t *testing.T) {
 // TestCollect_PortRange verifies a "80-443" range maps to from/to.
 func TestCollect_PortRange(t *testing.T) {
 	fake := &fakeAPI{firewalls: []*gce.Firewall{{
-		Name: "fw", Direction: "INGRESS", SourceRanges: []string{"10.0.0.0/8"},
-		Allowed: []*gce.FirewallAllowed{{IPProtocol: "tcp", Ports: []string{"80-443"}}},
+		Name: "fw", Direction: testDirectionIngress, SourceRanges: []string{"10.0.0.0/8"},
+		Allowed: []*gce.FirewallAllowed{{IPProtocol: testProtocolTCP, Ports: []string{"80-443"}}},
 	}}}
 	p := New(Options{API: fake})
 	records, err := p.Collect(context.Background(), fwReq())
@@ -199,7 +205,7 @@ func TestCollect_EgressDeny(t *testing.T) {
 func TestCollect_NilFirewallSkipped(t *testing.T) {
 	fake := &fakeAPI{firewalls: []*gce.Firewall{
 		nil,
-		{Name: "fw", Direction: "INGRESS", Allowed: []*gce.FirewallAllowed{{IPProtocol: "tcp", Ports: []string{"22"}}}},
+		{Name: "fw", Direction: testDirectionIngress, Allowed: []*gce.FirewallAllowed{{IPProtocol: testProtocolTCP, Ports: []string{"22"}}}},
 	}}
 	p := New(Options{API: fake})
 	records, err := p.Collect(context.Background(), fwReq())
@@ -230,7 +236,7 @@ func TestCollect_PropagatesAPIError(t *testing.T) {
 
 func TestCollect_KISS_NoDRY_EachCallReFetches(t *testing.T) {
 	fake := &fakeAPI{firewalls: []*gce.Firewall{
-		{Name: "fw", Direction: "INGRESS", Allowed: []*gce.FirewallAllowed{{IPProtocol: "tcp", Ports: []string{"22"}}}},
+		{Name: "fw", Direction: testDirectionIngress, Allowed: []*gce.FirewallAllowed{{IPProtocol: testProtocolTCP, Ports: []string{"22"}}}},
 	}}
 	p := New(Options{API: fake})
 	for range 3 {

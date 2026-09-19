@@ -77,9 +77,9 @@ func TestGCPDirectoryRosterConformance(t *testing.T) {
 		},
 	})
 	want := []rosterPayload{
-		{ID: "100200300", Status: "active", SourceStatus: "active", Email: "alice@example.com", DisplayName: "Alice Admin", EmployeeID: "E-1001"},
-		{ID: "100200301", Status: "active", SourceStatus: "active", Email: "bob@example.com", DisplayName: "Bob User"},
-		{ID: "100200302", Status: "inactive", SourceStatus: "archived", Email: "carol@example.com", DisplayName: "Carol Former", EmployeeID: "E-1002"},
+		{ID: "100200300", Status: rosterActive, SourceStatus: rosterActive, Email: "alice@example.com", DisplayName: "Alice Admin", EmployeeID: "E-1001"},
+		{ID: "100200301", Status: rosterActive, SourceStatus: rosterActive, Email: "bob@example.com", DisplayName: "Bob User"},
+		{ID: "100200302", Status: rosterInactive, SourceStatus: "archived", Email: "carol@example.com", DisplayName: "Carol Former", EmployeeID: "E-1002"},
 	}
 	if len(recs) != len(want) {
 		t.Fatalf("roster_entry records = %d, want %d", len(recs), len(want))

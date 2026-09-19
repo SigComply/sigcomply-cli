@@ -8,11 +8,16 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/vendorfanout"
 )
 
+const (
+	cadenceAnnual = "annual"
+	testEntryOdd  = "odd"
+)
+
 func baseCatalog() map[string]manual.CatalogEntry {
 	return map[string]manual.CatalogEntry{
-		"vendor_assurance": {EvidenceID: "vendor_assurance", Cadence: "annual", FanOut: manual.FanOutVendors},
-		"cuec_mapping":     {EvidenceID: "cuec_mapping", Cadence: "annual", FanOut: manual.FanOutSubserviceVendors},
-		"security_policy":  {EvidenceID: "security_policy", Cadence: "annual"},
+		"vendor_assurance": {EvidenceID: "vendor_assurance", Cadence: cadenceAnnual, FanOut: manual.FanOutVendors},
+		"cuec_mapping":     {EvidenceID: "cuec_mapping", Cadence: cadenceAnnual, FanOut: manual.FanOutSubserviceVendors},
+		"security_policy":  {EvidenceID: "security_policy", Cadence: cadenceAnnual},
 	}
 }
 
@@ -129,14 +134,14 @@ func TestApply_NoOpCases(t *testing.T) {
 // into a pass.
 func TestApply_UnknownFanOutKindFallsBackToSingleFolder(t *testing.T) {
 	cat := map[string]manual.CatalogEntry{
-		"odd": {EvidenceID: "odd", FanOut: "not_a_real_set"},
+		testEntryOdd: {EvidenceID: testEntryOdd, FanOut: "not_a_real_set"},
 	}
 	got := vendorfanout.Apply(cat, register(t, fullRegister))
-	if len(got["odd"].Instances) != 0 {
-		t.Fatalf("unknown fan-out kind expanded: %+v", got["odd"])
+	if len(got[testEntryOdd].Instances) != 0 {
+		t.Fatalf("unknown fan-out kind expanded: %+v", got[testEntryOdd])
 	}
-	if got["odd"].EvidenceID != "odd" {
-		t.Fatalf("entry mangled: %+v", got["odd"])
+	if got[testEntryOdd].EvidenceID != testEntryOdd {
+		t.Fatalf("entry mangled: %+v", got[testEntryOdd])
 	}
 }
 

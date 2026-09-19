@@ -15,6 +15,12 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// findingARNZ is the second finding ARN shared by this file's fixtures.
+const findingARNZ = "arn:z"
+
+// findingARNA is the finding ARN shared by this file's fixtures.
+const findingARNA = "arn:a"
+
 // fakeAPI returns a fixed set of findings, optionally split across pages via
 // pageTokens to exercise NextToken pagination.
 type fakeAPI struct {
@@ -96,7 +102,7 @@ func TestCollect_HappyPath_SortsByIDAndMapsFields(t *testing.T) {
 	fake := &fakeAPI{
 		findings: []inspector2types.Finding{
 			{
-				FindingArn: ptr("arn:z"),
+				FindingArn: ptr(findingARNZ),
 				Title:      ptr("Zeta vuln"),
 				Severity:   inspector2types.SeverityHigh,
 				Status:     inspector2types.FindingStatusActive,
@@ -110,7 +116,7 @@ func TestCollect_HappyPath_SortsByIDAndMapsFields(t *testing.T) {
 				},
 			},
 			{
-				FindingArn: ptr("arn:a"),
+				FindingArn: ptr(findingARNA),
 				Severity:   inspector2types.SeverityCritical,
 				Status:     inspector2types.FindingStatusClosed,
 				Resources:  []inspector2types.Resource{{Id: ptr("i-aaa"), Type: inspector2types.ResourceTypeAwsEcrContainerImage}},
@@ -126,13 +132,13 @@ func TestCollect_HappyPath_SortsByIDAndMapsFields(t *testing.T) {
 	if len(records) != 2 {
 		t.Fatalf("len(records) = %d; want 2", len(records))
 	}
-	if records[0].ID != "arn:a" || records[1].ID != "arn:z" {
+	if records[0].ID != findingARNA || records[1].ID != findingARNZ {
 		t.Fatalf("records not sorted by ID: got %v", []string{records[0].ID, records[1].ID})
 	}
 
 	want := map[string]findingPayload{
-		"arn:a": {ID: "arn:a", ResourceID: "i-aaa", ResourceType: "AWS_ECR_CONTAINER_IMAGE", Severity: severityCritical, Status: statusResolved, RemediationAvailable: false, Provider: "aws"},
-		"arn:z": {ID: "arn:z", ResourceID: "i-zzz", ResourceType: "AWS_EC2_INSTANCE", Title: "Zeta vuln", Severity: severityHigh, Status: statusActive, CVEID: "CVE-2026-0001", Score: &score, RemediationAvailable: true, Provider: "aws"},
+		findingARNA: {ID: findingARNA, ResourceID: "i-aaa", ResourceType: "AWS_ECR_CONTAINER_IMAGE", Severity: severityCritical, Status: statusResolved, RemediationAvailable: false, Provider: "aws"},
+		findingARNZ: {ID: findingARNZ, ResourceID: "i-zzz", ResourceType: "AWS_EC2_INSTANCE", Title: "Zeta vuln", Severity: severityHigh, Status: statusActive, CVEID: "CVE-2026-0001", Score: &score, RemediationAvailable: true, Provider: "aws"},
 	}
 	got := decodePayloads(t, records)
 	for id, w := range want {

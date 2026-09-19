@@ -12,6 +12,19 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 )
 
+// The synthetic manual slot and the keys of the manual collector's
+// payload, as read by the manual evaluation path.
+const (
+	slotManual = "_manual"
+
+	keyFilePresent      = "file_present"
+	keyFileValid        = "file_valid"
+	keyInTemporalWindow = "in_temporal_window"
+	keyExpectedURI      = "expected_uri"
+
+	policyIDManual = "p.manual.1"
+)
+
 // makeRule returns a GoRule producing the given canned result.
 func makeRule(id string, result core.RuleResult, err error) *GoRule { //nolint:unparam // id is the same in every test today but the param documents intent
 	return &GoRule{
@@ -25,7 +38,7 @@ func makeRule(id string, result core.RuleResult, err error) *GoRule { //nolint:u
 func makePlannedPolicy(id, control, ruleRef string, requiredSlots ...string) planner.PlannedPolicy { //nolint:unparam // id is fixed in every test today but the param documents intent
 	slots := map[string]core.Slot{}
 	for _, s := range requiredSlots {
-		slots[s] = core.Slot{Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true}
+		slots[s] = core.Slot{Accepts: []string{testTypeDirectoryUser}, Cardinality: core.SlotOneOrMore, Required: true}
 	}
 	return planner.PlannedPolicy{
 		Spec: core.Policy{
@@ -260,12 +273,12 @@ func TestEvaluate_PatternResourceWaiverSuppressesAll(t *testing.T) {
 }
 
 func TestEvaluate_ManualPathA_Pass(t *testing.T) {
-	pp := makePlannedPolicyManual("p.manual.1", "C1")
+	pp := makePlannedPolicyManual(policyIDManual, "C1")
 	payload, err := json.Marshal(map[string]any{
-		"file_present":       true,
-		"in_temporal_window": true,
-		"file_valid":         true,
-		"expected_uri":       "s3://bucket/manual/access_review_quarterly/2026-Q1/evidence.pdf",
+		keyFilePresent:      true,
+		keyInTemporalWindow: true,
+		keyFileValid:        true,
+		keyExpectedURI:      "s3://bucket/manual/access_review_quarterly/2026-Q1/evidence.pdf",
 	})
 	if err != nil {
 		t.Fatalf("json.Marshal: %v", err)
@@ -274,7 +287,7 @@ func TestEvaluate_ManualPathA_Pass(t *testing.T) {
 		Plan:  &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
 		Rules: nil, // manual Path A doesn't need rules
 		RecordsByPolicy: map[string]map[string][]core.EvidenceRecord{
-			"p.manual.1": {"_manual": {{ID: "access_review_quarterly/2026-Q1", Payload: payload}}},
+			policyIDManual: {slotManual: {{ID: "access_review_quarterly/2026-Q1", Payload: payload}}},
 		},
 		Now: time.Now(),
 	}
@@ -288,12 +301,12 @@ func TestEvaluate_ManualPathA_Pass(t *testing.T) {
 }
 
 func TestEvaluate_ManualPathA_MissingFile(t *testing.T) {
-	pp := makePlannedPolicyManual("p.manual.1", "C1")
+	pp := makePlannedPolicyManual(policyIDManual, "C1")
 	payload, err := json.Marshal(map[string]any{
-		"file_present":       false,
-		"in_temporal_window": false,
-		"file_valid":         false,
-		"expected_uri":       "s3://bucket/manual/access_review_quarterly/2026-Q1/evidence.pdf",
+		keyFilePresent:      false,
+		keyInTemporalWindow: false,
+		keyFileValid:        false,
+		keyExpectedURI:      "s3://bucket/manual/access_review_quarterly/2026-Q1/evidence.pdf",
 	})
 	if err != nil {
 		t.Fatalf("json.Marshal: %v", err)
@@ -302,7 +315,7 @@ func TestEvaluate_ManualPathA_MissingFile(t *testing.T) {
 		Plan:  &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
 		Rules: nil,
 		RecordsByPolicy: map[string]map[string][]core.EvidenceRecord{
-			"p.manual.1": {"_manual": {{ID: "access_review_quarterly/2026-Q1", Payload: payload}}},
+			policyIDManual: {slotManual: {{ID: "access_review_quarterly/2026-Q1", Payload: payload}}},
 		},
 		Now: time.Now(),
 	}
@@ -316,12 +329,12 @@ func TestEvaluate_ManualPathA_MissingFile(t *testing.T) {
 }
 
 func TestEvaluate_ManualPathA_OutsideWindow(t *testing.T) {
-	pp := makePlannedPolicyManual("p.manual.1", "C1")
+	pp := makePlannedPolicyManual(policyIDManual, "C1")
 	payload, err := json.Marshal(map[string]any{
-		"file_present":       true,
-		"in_temporal_window": false,
-		"file_valid":         true,
-		"expected_uri":       "s3://bucket/manual/q1/evidence.pdf",
+		keyFilePresent:      true,
+		keyInTemporalWindow: false,
+		keyFileValid:        true,
+		keyExpectedURI:      "s3://bucket/manual/q1/evidence.pdf",
 	})
 	if err != nil {
 		t.Fatalf("json.Marshal: %v", err)
@@ -330,7 +343,7 @@ func TestEvaluate_ManualPathA_OutsideWindow(t *testing.T) {
 		Plan:  &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
 		Rules: nil,
 		RecordsByPolicy: map[string]map[string][]core.EvidenceRecord{
-			"p.manual.1": {"_manual": {{ID: "q1/evidence", Payload: payload}}},
+			policyIDManual: {slotManual: {{ID: "q1/evidence", Payload: payload}}},
 		},
 		Now: time.Now(),
 	}
@@ -344,13 +357,13 @@ func TestEvaluate_ManualPathA_OutsideWindow(t *testing.T) {
 }
 
 func TestEvaluate_ManualPathA_InvalidPDF(t *testing.T) {
-	pp := makePlannedPolicyManual("p.manual.1", "C1")
+	pp := makePlannedPolicyManual(policyIDManual, "C1")
 	payload, err := json.Marshal(map[string]any{
-		"file_present":        true,
-		"in_temporal_window":  true,
-		"file_valid":          false,
+		keyFilePresent:        true,
+		keyInTemporalWindow:   true,
+		keyFileValid:          false,
 		"validation_failures": []string{"missing_pdf_header"},
-		"expected_uri":        "s3://bucket/manual/q1/evidence.pdf",
+		keyExpectedURI:        "s3://bucket/manual/q1/evidence.pdf",
 	})
 	if err != nil {
 		t.Fatalf("json.Marshal: %v", err)
@@ -359,7 +372,7 @@ func TestEvaluate_ManualPathA_InvalidPDF(t *testing.T) {
 		Plan:  &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
 		Rules: nil,
 		RecordsByPolicy: map[string]map[string][]core.EvidenceRecord{
-			"p.manual.1": {"_manual": {{ID: "q1/evidence", Payload: payload}}},
+			policyIDManual: {slotManual: {{ID: "q1/evidence", Payload: payload}}},
 		},
 		Now: time.Now(),
 	}

@@ -10,7 +10,7 @@ interactions:
         host: management.azure.com
         form:
             api-version:
-                - "2025-03-01"
+                - "2026-06-01"
         headers:
             Accept:
                 - application/json
@@ -18,7 +18,7 @@ interactions:
                 - REDACTED
             User-Agent:
                 - azsdk-go-armpolicy/v1.0.0 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/policyAssignments?api-version=2025-03-01
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/policyAssignments?api-version=2026-06-01
         method: GET
       response:
         proto: HTTP/2.0

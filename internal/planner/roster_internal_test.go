@@ -27,22 +27,22 @@ func TestOrderedSlotNames_RosterFirst(t *testing.T) {
 // ambiguous — okta was never a candidate.
 func TestResolveBindingsWithRoster_ExclusionPrecedesAmbiguity(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, srcOkta, "directory_user", "roster_entry")
-	registerSource(t, set, "github", "directory_user")
+	registerSource(t, set, srcOkta, evDirectoryUser, "roster_entry")
+	registerSource(t, set, srcGitHub, evDirectoryUser)
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"accounts": {Accepts: []string{"directory_user"}, Cardinality: core.SlotExactlyOne, Required: true, Role: core.SlotRoleRosterSubject},
-			"roster":   {Accepts: []string{"roster_entry"}, Cardinality: core.SlotExactlyOne, Required: true, Role: core.SlotRoleRoster},
+			slotAccounts: {Accepts: []string{evDirectoryUser}, Cardinality: core.SlotExactlyOne, Required: true, Role: core.SlotRoleRosterSubject},
+			slotRoster:   {Accepts: []string{"roster_entry"}, Cardinality: core.SlotExactlyOne, Required: true, Role: core.SlotRoleRoster},
 		},
 	}
-	configured := map[string]map[string]any{srcOkta: {}, "github": {}}
+	configured := map[string]map[string]any{srcOkta: {}, srcGitHub: {}}
 	bindings, err := resolveBindingsWithRoster(policy, map[string][]spec.BindingEntry{}, set.Sources, configured, srcOkta)
 	if err != nil {
 		t.Fatalf("resolveBindingsWithRoster: %v", err)
 	}
-	if len(bindings["accounts"]) != 1 || bindings["accounts"][0].SourceID != "github" {
-		t.Errorf("accounts = %v; want [github]", bindings["accounts"])
+	if len(bindings[slotAccounts]) != 1 || bindings[slotAccounts][0].SourceID != srcGitHub {
+		t.Errorf("accounts = %v; want [github]", bindings[slotAccounts])
 	}
 }
 
@@ -50,12 +50,12 @@ func TestResolveBindingsWithRoster_ExclusionPrecedesAmbiguity(t *testing.T) {
 // bindings down with it.
 func TestDropBindingsIfRosterUnbound_OnlyRequiredRoster(t *testing.T) {
 	policy := &core.Policy{Slots: map[string]core.Slot{
-		"roster":   {Role: core.SlotRoleRoster, Required: false},
-		"accounts": {Role: core.SlotRoleRosterSubject, Required: true},
+		slotRoster:   {Role: core.SlotRoleRoster, Required: false},
+		slotAccounts: {Role: core.SlotRoleRosterSubject, Required: true},
 	}}
-	bindings := map[string][]Binding{"roster": nil, "accounts": {{SourceID: "github"}}}
+	bindings := map[string][]Binding{slotRoster: nil, slotAccounts: {{SourceID: srcGitHub}}}
 	dropBindingsIfRosterUnbound(policy, bindings)
-	if len(bindings["accounts"]) != 1 {
-		t.Errorf("accounts = %v; want kept (roster slot is optional)", bindings["accounts"])
+	if len(bindings[slotAccounts]) != 1 {
+		t.Errorf("accounts = %v; want kept (roster slot is optional)", bindings[slotAccounts])
 	}
 }

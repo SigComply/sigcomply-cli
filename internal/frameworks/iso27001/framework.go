@@ -120,7 +120,7 @@ func ManualCatalog() map[string]manual.CatalogEntry {
 			continue
 		}
 		grace := 30 * 24 * time.Hour
-		if p.Cadence == "quarterly" {
+		if p.Cadence == cadenceQuarterly {
 			grace = 15 * 24 * time.Hour
 		}
 		out[p.CatalogEntry] = manual.CatalogEntry{

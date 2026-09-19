@@ -42,14 +42,14 @@ func standInPages() [][]fakeUser {
 		{
 			{dn: "CN=Jane Doe,OU=Staff,DC=corp,DC=example,DC=com", attrs: []fakeAttr{
 				{attrObjectGUID, []string{string(guidJane)}},
-				{attrSAMAccountName, []string{"jdoe"}},
+				{attrSAMAccountName, []string{testSAMJane}},
 				{attrUserPrincipalName, []string{"jdoe@corp.example.com"}},
 				{attrMail, []string{"Jane.Doe@corp.example.com"}},
-				{attrDisplayName, []string{"Jane Doe"}},
+				{attrDisplayName, []string{testDisplayNameJane}},
 				{attrUserAccountControl, []string{"512"}},
 				{attrAccountExpires, []string{"0"}},
 				{attrEmployeeID, []string{"1001"}},
-				{attrEmployeeType, []string{"employee"}},
+				{attrEmployeeType, []string{testEmployeeTypeEmployee}},
 			}},
 			{dn: "CN=Bob Smith,OU=Contractors,DC=corp,DC=example,DC=com", attrs: []fakeAttr{
 				{"OBJECTGUID", []string{string(guidBob)}}, // server echoes a different case
@@ -60,7 +60,7 @@ func standInPages() [][]fakeUser {
 				{attrUserAccountControl, []string{"514"}},
 				{attrAccountExpires, []string{never}},
 				{attrEmployeeNumber, []string{"C-2002"}},
-				{attrEmployeeType, []string{"contractor"}},
+				{attrEmployeeType, []string{testEmployeeTypeContractor}},
 			}},
 		},
 		{
@@ -71,7 +71,7 @@ func standInPages() [][]fakeUser {
 				{attrUserAccountControl, []string{"512"}},
 				{attrAccountExpires, []string{"134247456000000000"}}, // 2026-06-01, before standInNow
 				{attrEmployeeID, []string{"1003"}},
-				{attrEmployeeType, []string{"employee"}},
+				{attrEmployeeType, []string{testEmployeeTypeEmployee}},
 			}},
 			{dn: "CN=svc-sql,CN=Users,DC=corp,DC=example,DC=com", attrs: []fakeAttr{
 				{attrObjectGUID, []string{string(guidSQL)}},
@@ -94,26 +94,26 @@ func standInPages() [][]fakeUser {
 
 // standInWant is the expected roster_entry set, keyed by ID.
 var standInWant = map[string]rosterPayload{
-	"6f9619ff-8b86-d011-b42d-00c04fc964ff": {ID: "6f9619ff-8b86-d011-b42d-00c04fc964ff", Status: "active",
-		Email: "Jane.Doe@corp.example.com", DisplayName: "Jane Doe", EmployeeID: "1001", EmployeeType: "employee", SourceStatus: "enabled"},
-	"33221100-5544-7766-8899-aabbccddeeff": {ID: "33221100-5544-7766-8899-aabbccddeeff", Status: "inactive",
-		Email: "bob.smith@corp.example.com", DisplayName: "Bob Smith", EmployeeID: "C-2002", EmployeeType: "contractor", SourceStatus: "disabled"},
-	"ccddeeff-aabb-8899-7766-554433221100": {ID: "ccddeeff-aabb-8899-7766-554433221100", Status: "inactive",
-		Email: "cwhite@corp.example.com", DisplayName: "cwhite", EmployeeID: "1003", EmployeeType: "employee", SourceStatus: "expired"},
-	"76543210-ba98-fedc-0123-456789abcdef": {ID: "76543210-ba98-fedc-0123-456789abcdef", Status: "active",
-		Email: "svc-sql@corp.example.com", DisplayName: "svc-sql", IsServiceAccount: true, SourceStatus: "enabled"},
-	"00000080-0000-0000-0000-000000000001": {ID: "00000080-0000-0000-0000-000000000001", Status: "active",
-		Email: "svc-backup@corp.example.com", DisplayName: "Backup Service", IsServiceAccount: true, SourceStatus: "enabled"},
+	"6f9619ff-8b86-d011-b42d-00c04fc964ff": {ID: "6f9619ff-8b86-d011-b42d-00c04fc964ff", Status: statusActive,
+		Email: "Jane.Doe@corp.example.com", DisplayName: testDisplayNameJane, EmployeeID: "1001", EmployeeType: testEmployeeTypeEmployee, SourceStatus: sourceStatusEnabled},
+	"33221100-5544-7766-8899-aabbccddeeff": {ID: "33221100-5544-7766-8899-aabbccddeeff", Status: statusInactive,
+		Email: "bob.smith@corp.example.com", DisplayName: "Bob Smith", EmployeeID: "C-2002", EmployeeType: testEmployeeTypeContractor, SourceStatus: sourceStatusDisabled},
+	"ccddeeff-aabb-8899-7766-554433221100": {ID: "ccddeeff-aabb-8899-7766-554433221100", Status: statusInactive,
+		Email: "cwhite@corp.example.com", DisplayName: "cwhite", EmployeeID: "1003", EmployeeType: testEmployeeTypeEmployee, SourceStatus: "expired"},
+	"76543210-ba98-fedc-0123-456789abcdef": {ID: "76543210-ba98-fedc-0123-456789abcdef", Status: statusActive,
+		Email: "svc-sql@corp.example.com", DisplayName: "svc-sql", IsServiceAccount: true, SourceStatus: sourceStatusEnabled},
+	"00000080-0000-0000-0000-000000000001": {ID: "00000080-0000-0000-0000-000000000001", Status: statusActive,
+		Email: "svc-backup@corp.example.com", DisplayName: "Backup Service", IsServiceAccount: true, SourceStatus: sourceStatusEnabled},
 }
 
 // standInConfig is the raw source config the stand-in tests start from.
 func standInConfig(extra map[string]any) map[string]any {
 	m := map[string]any{
-		"url":                 "ldaps://" + fakeServerName,
-		"bind_dn":             fakeBindDN,
-		"bind_password":       fakeBindPassword,
-		"page_size":           2,
-		"service_account_ous": []any{fakeServiceAccountsOU},
+		cfgKeyURL:               "ldaps://" + fakeServerName,
+		cfgKeyBindDN:            fakeBindDN,
+		cfgKeyBindPassword:      fakeBindPassword,
+		cfgKeyPageSize:          2,
+		cfgKeyServiceAccountOUs: []any{fakeServiceAccountsOU},
 	}
 	for k, v := range extra {
 		m[k] = v
@@ -216,8 +216,8 @@ func TestStandInConformance(t *testing.T) {
 func TestStandInConfiguredBaseDNSkipsRootDSE(t *testing.T) {
 	pages := standInPages()
 	dc := &fakeDC{pages: pages}
-	base := "OU=Staff,DC=corp,DC=example,DC=com"
-	p := newStandInPlugin(t, standInConfig(map[string]any{"base_dn": base, "user_filter": "(objectClass=user)"}), dc)
+	base := testStaffOU
+	p := newStandInPlugin(t, standInConfig(map[string]any{cfgKeyBaseDN: base, cfgKeyUserFilter: testUserFilter}), dc)
 	if _, err := p.Collect(context.Background(), rosterReq); err != nil {
 		t.Fatal(err)
 	}
@@ -227,14 +227,14 @@ func TestStandInConfiguredBaseDNSkipsRootDSE(t *testing.T) {
 	if dc.rootDSE != 0 {
 		t.Errorf("rootDSE reads = %d, want 0 when base_dn is set", dc.rootDSE)
 	}
-	if len(dc.searches) == 0 || dc.searches[0].base != base || dc.searches[0].filter != "(objectClass=user)" {
+	if len(dc.searches) == 0 || dc.searches[0].base != base || dc.searches[0].filter != testUserFilter {
 		t.Errorf("searches = %+v", dc.searches)
 	}
 }
 
 func TestStandInBindFailure(t *testing.T) {
 	dc := &fakeDC{pages: standInPages()}
-	p := newStandInPlugin(t, standInConfig(map[string]any{"bind_password": "wrong-password"}), dc)
+	p := newStandInPlugin(t, standInConfig(map[string]any{cfgKeyBindPassword: "wrong-password"}), dc)
 	_, err := p.Collect(context.Background(), rosterReq)
 	if err == nil || !strings.Contains(err.Error(), "bind as") || !strings.Contains(err.Error(), "49") {
 		t.Fatalf("err = %v, want a bind error carrying result code 49", err)
@@ -253,7 +253,7 @@ func TestStandInContextCancelClosesConnection(t *testing.T) {
 	dc := &fakeDC{pages: standInPages(), stallOnPage: 2, stalled: make(chan struct{})}
 	// A long request timeout proves it is the context, not go-ldap's timer,
 	// that unblocks the stalled page.
-	p := newStandInPlugin(t, standInConfig(map[string]any{"timeout": "10m"}), dc)
+	p := newStandInPlugin(t, standInConfig(map[string]any{cfgKeyTimeout: "10m"}), dc)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
@@ -289,7 +289,7 @@ func TestStandInLDAPS(t *testing.T) {
 	addr := dc.listen(t, &tls.Config{Certificates: []tls.Certificate{pair}, MinVersion: tls.VersionTLS12})
 
 	p := newStandInPlugin(t, standInConfig(map[string]any{
-		"url": "ldaps://" + addr, "ca_cert": caPath, "tls_server_name": fakeServerName, "timeout": "5s",
+		cfgKeyURL: "ldaps://" + addr, cfgKeyCACert: caPath, cfgKeyTLSServerName: fakeServerName, cfgKeyTimeout: "5s",
 	}), nil)
 	recs, err := p.Collect(context.Background(), rosterReq)
 	if err != nil {
@@ -302,14 +302,14 @@ func TestStandInLDAPS(t *testing.T) {
 
 	// Certificate not trusted (system roots only) → handshake error.
 	untrusted := newStandInPlugin(t, standInConfig(map[string]any{
-		"url": "ldaps://" + addr, "tls_server_name": fakeServerName, "timeout": "5s",
+		cfgKeyURL: "ldaps://" + addr, cfgKeyTLSServerName: fakeServerName, cfgKeyTimeout: "5s",
 	}), nil)
 	if _, err := untrusted.Collect(context.Background(), rosterReq); err == nil || !strings.Contains(err.Error(), "tls handshake") {
 		t.Errorf("untrusted cert: err = %v, want tls handshake failure", err)
 	}
 	// Trusted CA but wrong name (URL host 127.0.0.1 is not in the SANs).
 	wrongName := newStandInPlugin(t, standInConfig(map[string]any{
-		"url": "ldaps://" + addr, "ca_cert": caPath, "timeout": "5s",
+		cfgKeyURL: "ldaps://" + addr, cfgKeyCACert: caPath, cfgKeyTimeout: "5s",
 	}), nil)
 	if _, err := wrongName.Collect(context.Background(), rosterReq); err == nil || !strings.Contains(err.Error(), "tls handshake") {
 		t.Errorf("name mismatch: err = %v, want tls handshake failure", err)
@@ -328,7 +328,7 @@ func TestStandInStartTLS(t *testing.T) {
 	addr := dc.listen(t, nil)
 
 	p := newStandInPlugin(t, standInConfig(map[string]any{
-		"url": "ldap://" + addr, "start_tls": true, "ca_cert": caPath, "tls_server_name": fakeServerName, "timeout": "5s",
+		cfgKeyURL: "ldap://" + addr, cfgKeyStartTLS: true, cfgKeyCACert: caPath, cfgKeyTLSServerName: fakeServerName, cfgKeyTimeout: "5s",
 	}), nil)
 	recs, err := p.Collect(context.Background(), rosterReq)
 	if err != nil {
@@ -342,7 +342,7 @@ func TestStandInStartTLS(t *testing.T) {
 
 func TestStandInDialFailure(t *testing.T) {
 	t.Setenv(BindPasswordEnv, "")
-	p := newStandInPlugin(t, standInConfig(map[string]any{"url": "ldaps://127.0.0.1:1", "timeout": "2s"}), nil)
+	p := newStandInPlugin(t, standInConfig(map[string]any{cfgKeyURL: "ldaps://127.0.0.1:1", cfgKeyTimeout: "2s"}), nil)
 	if _, err := p.Collect(context.Background(), rosterReq); err == nil || !strings.Contains(err.Error(), "dial 127.0.0.1:1") {
 		t.Errorf("err = %v, want dial error", err)
 	}

@@ -17,6 +17,11 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testPurposeEncryptDecrypt = "ENCRYPT_DECRYPT"
+)
+
 // fakeAPI drives the plugin without hitting GCP. It records the project
 // argument and call count to assert plumbing and the KISS-no-DRY axiom.
 type fakeAPI struct {
@@ -73,7 +78,7 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	fake := &fakeAPI{keys: []*cloudkms.CryptoKey{
 		{ // symmetric, rotated every 90 days, enabled primary.
 			Name:            "projects/p/locations/us/keyRings/r/cryptoKeys/sym",
-			Purpose:         "ENCRYPT_DECRYPT",
+			Purpose:         testPurposeEncryptDecrypt,
 			RotationPeriod:  "7776000s",
 			Primary:         &cloudkms.CryptoKeyVersion{State: "ENABLED"},
 			VersionTemplate: &cloudkms.CryptoKeyVersionTemplate{ProtectionLevel: "HSM"},
@@ -116,7 +121,7 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	wantSym := keyPayload{
 		KeyID:      "projects/p/locations/us/keyRings/r/cryptoKeys/sym",
 		KeyManager: "CUSTOMER", IsCustomerManaged: true, Enabled: true, RotationEnabled: true,
-		Provider: "gcp", Purpose: "ENCRYPT_DECRYPT", ProtectionLevel: "HSM",
+		Provider: "gcp", Purpose: testPurposeEncryptDecrypt, ProtectionLevel: "HSM",
 		RotationPeriodDays: 90, PrimaryState: "ENABLED",
 	}
 	if got := decodePayload(t, &records[1]); !reflect.DeepEqual(got, wantSym) {
@@ -139,7 +144,7 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 func TestCollect_DisabledPrimary(t *testing.T) {
 	fake := &fakeAPI{keys: []*cloudkms.CryptoKey{{
 		Name:    "projects/p/locations/us/keyRings/r/cryptoKeys/k",
-		Purpose: "ENCRYPT_DECRYPT",
+		Purpose: testPurposeEncryptDecrypt,
 		Primary: &cloudkms.CryptoKeyVersion{State: "DISABLED"},
 	}}}
 	p := New(Options{API: fake})

@@ -9,22 +9,41 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
+// Fiscal-calendar settings and the period/date identifiers they derive.
+const (
+	fiscalCalendarQuarter = "calendar_quarter"
+	fiscalYear            = "fiscal_year"
+	fiscalCustom          = "custom"
+	fiscalStartsApril     = "april"
+
+	period2026P01 = "2026-P01"
+	period2026Q1  = "2026-Q1"
+	period2026Q2  = "2026-Q2"
+	period2026Q4  = "2026-Q4"
+	period2026P02 = "2026-P02"
+	periodFY2025  = "FY2025"
+	periodFY2026  = "FY2026"
+
+	date2026Jan04 = "2026-01-04"
+	date2026Jan31 = "2026-01-31"
+)
+
 func TestDerivePeriod_CalendarQuarter(t *testing.T) {
 	cases := []struct {
 		commit string
 		want   string
 	}{
-		{"2026-01-15T13:55:00Z", "2026-Q1"},
-		{"2026-02-15T13:55:00Z", "2026-Q1"},
-		{"2026-03-31T23:59:59Z", "2026-Q1"},
-		{"2026-04-01T00:01:00Z", "2026-Q2"},
-		{"2026-06-30T00:00:00Z", "2026-Q2"},
+		{"2026-01-15T13:55:00Z", period2026Q1},
+		{"2026-02-15T13:55:00Z", period2026Q1},
+		{"2026-03-31T23:59:59Z", period2026Q1},
+		{"2026-04-01T00:01:00Z", period2026Q2},
+		{"2026-06-30T00:00:00Z", period2026Q2},
 		{"2026-07-01T00:00:00Z", "2026-Q3"},
-		{"2026-10-01T00:00:00Z", "2026-Q4"},
-		{"2026-12-31T23:59:59Z", "2026-Q4"},
+		{"2026-10-01T00:00:00Z", period2026Q4},
+		{"2026-12-31T23:59:59Z", period2026Q4},
 	}
 	cfg := &spec.PeriodConfig{
-		FiscalCalendar: spec.FiscalCalendarConfig{Type: "calendar_quarter"},
+		FiscalCalendar: spec.FiscalCalendarConfig{Type: fiscalCalendarQuarter},
 		TimeBasis:      "commit",
 	}
 	for _, tc := range cases {
@@ -54,7 +73,7 @@ func TestDerivePeriod_DefaultsToCalendarQuarter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DerivePeriod: %v", err)
 	}
-	if p.ID != "2026-Q1" {
+	if p.ID != period2026Q1 {
 		t.Errorf("ID = %q; want 2026-Q1", p.ID)
 	}
 }
@@ -64,15 +83,15 @@ func TestDerivePeriod_FiscalYearApril(t *testing.T) {
 		commit string
 		want   string
 	}{
-		{"2026-04-01T00:00:00Z", "FY2026"},
-		{"2026-03-31T23:59:59Z", "FY2025"},
-		{"2026-12-31T23:59:59Z", "FY2026"},
-		{"2027-03-15T00:00:00Z", "FY2026"},
+		{"2026-04-01T00:00:00Z", periodFY2026},
+		{"2026-03-31T23:59:59Z", periodFY2025},
+		{"2026-12-31T23:59:59Z", periodFY2026},
+		{"2027-03-15T00:00:00Z", periodFY2026},
 	}
 	cfg := &spec.PeriodConfig{
 		FiscalCalendar: spec.FiscalCalendarConfig{
-			Type:   "fiscal_year",
-			Starts: "april",
+			Type:   fiscalYear,
+			Starts: fiscalStartsApril,
 		},
 		TimeBasis: "commit",
 	}
@@ -96,10 +115,10 @@ func TestDerivePeriod_FiscalYearApril(t *testing.T) {
 func TestDerivePeriod_Custom(t *testing.T) {
 	cfg := &spec.PeriodConfig{
 		FiscalCalendar: spec.FiscalCalendarConfig{
-			Type: "custom",
+			Type: fiscalCustom,
 			Periods: []spec.CustomPeriod{
-				{ID: "2026-P01", Start: "2026-01-04", End: "2026-01-31"},
-				{ID: "2026-P02", Start: "2026-02-01", End: "2026-02-28"},
+				{ID: period2026P01, Start: date2026Jan04, End: date2026Jan31},
+				{ID: period2026P02, Start: "2026-02-01", End: "2026-02-28"},
 			},
 		},
 	}
@@ -111,7 +130,7 @@ func TestDerivePeriod_Custom(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DerivePeriod: %v", err)
 	}
-	if p.ID != "2026-P02" {
+	if p.ID != period2026P02 {
 		t.Errorf("ID = %q; want 2026-P02", p.ID)
 	}
 }
@@ -122,11 +141,11 @@ func TestDerivePeriod_PriorID_CalendarQuarter(t *testing.T) {
 		wantID    string
 		wantPrior string
 	}{
-		{"2026-02-15T00:00:00Z", "2026-Q1", "2025-Q4"},
-		{"2026-05-15T00:00:00Z", "2026-Q2", "2026-Q1"},
-		{"2026-11-15T00:00:00Z", "2026-Q4", "2026-Q3"},
+		{"2026-02-15T00:00:00Z", period2026Q1, "2025-Q4"},
+		{"2026-05-15T00:00:00Z", period2026Q2, period2026Q1},
+		{"2026-11-15T00:00:00Z", period2026Q4, "2026-Q3"},
 	}
-	cfg := &spec.PeriodConfig{FiscalCalendar: spec.FiscalCalendarConfig{Type: "calendar_quarter"}}
+	cfg := &spec.PeriodConfig{FiscalCalendar: spec.FiscalCalendarConfig{Type: fiscalCalendarQuarter}}
 	for _, tc := range cases {
 		t.Run(tc.commit, func(t *testing.T) {
 			commit, err := time.Parse(time.RFC3339, tc.commit)
@@ -145,7 +164,7 @@ func TestDerivePeriod_PriorID_CalendarQuarter(t *testing.T) {
 }
 
 func TestDerivePeriod_PriorID_FiscalYear(t *testing.T) {
-	cfg := &spec.PeriodConfig{FiscalCalendar: spec.FiscalCalendarConfig{Type: "fiscal_year", Starts: "april"}}
+	cfg := &spec.PeriodConfig{FiscalCalendar: spec.FiscalCalendarConfig{Type: fiscalYear, Starts: fiscalStartsApril}}
 	commit, err := time.Parse(time.RFC3339, "2026-06-15T00:00:00Z")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
@@ -154,7 +173,7 @@ func TestDerivePeriod_PriorID_FiscalYear(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DerivePeriod: %v", err)
 	}
-	if p.ID != "FY2026" || p.PriorID != "FY2025" {
+	if p.ID != periodFY2026 || p.PriorID != periodFY2025 {
 		t.Errorf("ID=%q PriorID=%q; want FY2026 / FY2025", p.ID, p.PriorID)
 	}
 }
@@ -162,10 +181,10 @@ func TestDerivePeriod_PriorID_FiscalYear(t *testing.T) {
 func TestDerivePeriod_PriorID_CustomFirstHasEmptyPrior(t *testing.T) {
 	cfg := &spec.PeriodConfig{
 		FiscalCalendar: spec.FiscalCalendarConfig{
-			Type: "custom",
+			Type: fiscalCustom,
 			Periods: []spec.CustomPeriod{
-				{ID: "2026-P01", Start: "2026-01-04", End: "2026-01-31"},
-				{ID: "2026-P02", Start: "2026-02-01", End: "2026-02-28"},
+				{ID: period2026P01, Start: date2026Jan04, End: date2026Jan31},
+				{ID: period2026P02, Start: "2026-02-01", End: "2026-02-28"},
 			},
 		},
 	}
@@ -191,7 +210,7 @@ func TestDerivePeriod_PriorID_CustomFirstHasEmptyPrior(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DerivePeriod: %v", err)
 		}
-		if p.PriorID != "2026-P01" {
+		if p.PriorID != period2026P01 {
 			t.Errorf("PriorID = %q; want 2026-P01", p.PriorID)
 		}
 	})
@@ -200,9 +219,9 @@ func TestDerivePeriod_PriorID_CustomFirstHasEmptyPrior(t *testing.T) {
 func TestDerivePeriod_CustomNoMatch(t *testing.T) {
 	cfg := &spec.PeriodConfig{
 		FiscalCalendar: spec.FiscalCalendarConfig{
-			Type: "custom",
+			Type: fiscalCustom,
 			Periods: []spec.CustomPeriod{
-				{ID: "2026-P01", Start: "2026-01-04", End: "2026-01-31"},
+				{ID: period2026P01, Start: date2026Jan04, End: date2026Jan31},
 			},
 		},
 	}

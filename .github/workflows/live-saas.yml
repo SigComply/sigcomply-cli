@@ -43,7 +43,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.26'
+          go-version: '1.27'
 
       # Secret names cannot start with GITHUB_, so the GitHub token/org are stored
       # as GH_TEST_* and mapped onto the GITHUB_TEST_* env the tests read. Any

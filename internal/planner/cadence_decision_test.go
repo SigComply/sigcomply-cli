@@ -9,6 +9,9 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
+// reasonFirstRun is the DueReason substring for an unevaluated policy.
+const reasonFirstRun = "first run"
+
 // ---- DueReason: deterministic human-readable strings, no identifiers ----
 // (IsDue itself is covered by cadence_sync_test.go::TestIsDue.)
 
@@ -20,25 +23,25 @@ func TestDueReason_AllBranches(t *testing.T) {
 		state   *core.PolicyState
 		want    string // substring
 	}{
-		{"first run", "daily", nil, "first run"},
-		{"zero state first run", "daily", &core.PolicyState{}, "first run"},
+		{reasonFirstRun, cadenceDaily, nil, reasonFirstRun},
+		{"zero state first run", cadenceDaily, &core.PolicyState{}, reasonFirstRun},
 		{
-			"prior non-pass", "daily",
+			"prior non-pass", cadenceDaily,
 			&core.PolicyState{LastRunAt: now.Add(-time.Hour), LastRunStatus: core.StatusFail},
 			"on_fail_retry",
 		},
 		{
-			"zero interval cadence", "hourly",
+			"zero interval cadence", cadenceHourly,
 			&core.PolicyState{LastRunAt: now.Add(-time.Hour), LastRunStatus: core.StatusPass, LastPassAt: now.Add(-time.Hour)},
 			"always due",
 		},
 		{
-			"interval elapsed", "daily",
+			"interval elapsed", cadenceDaily,
 			&core.PolicyState{LastRunAt: now.Add(-48 * time.Hour), LastRunStatus: core.StatusPass, LastPassAt: now.Add(-48 * time.Hour)},
 			"exceeds cadence interval",
 		},
 		{
-			"not yet due", "daily",
+			"not yet due", cadenceDaily,
 			&core.PolicyState{LastRunAt: now.Add(-time.Hour), LastRunStatus: core.StatusPass, LastPassAt: now.Add(-time.Hour)},
 			"not yet elapsed",
 		},
@@ -61,16 +64,16 @@ func TestDueReason_AllBranches(t *testing.T) {
 func TestNextDueAt(t *testing.T) {
 	lastPass := time.Date(2026, 5, 24, 9, 0, 0, 0, time.UTC)
 	// Never-run → zero.
-	if got := planner.NextDueAt("daily", time.Time{}); !got.IsZero() {
+	if got := planner.NextDueAt(cadenceDaily, time.Time{}); !got.IsZero() {
 		t.Errorf("NextDueAt(zero lastPass) = %v; want zero", got)
 	}
 	// Continuous (interval 0) → zero.
-	if got := planner.NextDueAt("continuous", lastPass); !got.IsZero() {
+	if got := planner.NextDueAt(cadenceContinuous, lastPass); !got.IsZero() {
 		t.Errorf("NextDueAt(continuous) = %v; want zero", got)
 	}
 	// Daily → lastPass + 23h.
 	want := lastPass.Add(23 * time.Hour).UTC()
-	if got := planner.NextDueAt("daily", lastPass); !got.Equal(want) {
+	if got := planner.NextDueAt(cadenceDaily, lastPass); !got.Equal(want) {
 		t.Errorf("NextDueAt(daily) = %v; want %v", got, want)
 	}
 	// every:6h → exact duration, no slack.
@@ -103,7 +106,7 @@ func TestPlan_CadenceGate_CarriesForwardWhenNotDue(t *testing.T) {
 	now := commit
 	states := map[string]*core.PolicyState{
 		pid: {
-			Framework:      "soc2",
+			Framework:      fwSOC2,
 			PolicyID:       pid,
 			LastRunAt:      now.Add(-1 * time.Hour),
 			LastPassAt:     now.Add(-1 * time.Hour),
@@ -140,7 +143,7 @@ func TestPlan_CadenceGate_ContentHashMismatchForcesEvaluate(t *testing.T) {
 	now := commit
 	states := map[string]*core.PolicyState{
 		pid: {
-			Framework:      "soc2",
+			Framework:      fwSOC2,
 			PolicyID:       pid,
 			LastRunAt:      now.Add(-1 * time.Hour),
 			LastPassAt:     now.Add(-1 * time.Hour),
@@ -176,7 +179,7 @@ func TestPlan_ExplicitFilterBypassesCadenceGate(t *testing.T) {
 	now := commit
 	states := map[string]*core.PolicyState{
 		pid: {
-			Framework: "soc2", PolicyID: pid,
+			Framework: fwSOC2, PolicyID: pid,
 			LastRunAt:      now.Add(-1 * time.Minute),
 			LastPassAt:     now.Add(-1 * time.Minute),
 			LastRunStatus:  core.StatusPass,
@@ -209,7 +212,7 @@ func TestPlan_CadenceGate_PriorFailForcesEvaluate(t *testing.T) {
 	now := commit
 	states := map[string]*core.PolicyState{
 		pid: {
-			Framework: "soc2", PolicyID: pid,
+			Framework: fwSOC2, PolicyID: pid,
 			LastRunAt:      now.Add(-1 * time.Minute),
 			LastRunStatus:  core.StatusFail,
 			LastPolicyHash: bootstrap.Policies[0].ContentHash,
@@ -231,9 +234,9 @@ func TestPlan_CadenceGate_PriorFailForcesEvaluate(t *testing.T) {
 // well-formed and reaches the cadence gate.
 func minimalPlanConfig() *spec.ProjectConfig {
 	return &spec.ProjectConfig{
-		SchemaVersion: "project.v1", Framework: "soc2",
+		SchemaVersion: schemaProjectV1, Framework: fwSOC2,
 		Policies: map[string]spec.PolicyConfig{
-			"soc2.cc6.1.mfa_enforced": {Bindings: map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}}},
+			ordinaryPolicyID: {Bindings: map[string][]spec.BindingEntry{slotUserDirectory: {{Source: srcAWSIAMID}}}},
 		},
 	}
 }

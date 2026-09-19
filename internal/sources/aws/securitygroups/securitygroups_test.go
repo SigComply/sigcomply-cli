@@ -15,6 +15,13 @@ import (
 )
 
 const (
+	fieldProtocol           = "Protocol"
+	fieldFromPort           = "FromPort"
+	fieldToPort             = "ToPort"
+	fieldIsUnrestrictedIPv4 = "IsUnrestrictedIPv4"
+)
+
+const (
 	cidrAllIPv4 = "0.0.0.0/0"
 	protoAll    = "all"
 )
@@ -152,10 +159,10 @@ func assertRuleSSH(t *testing.T, ssh *rulePayload) {
 		got, want any
 	}{
 		{"Direction", ssh.Direction, "ingress"},
-		{"Protocol", ssh.Protocol, "tcp"},
-		{"FromPort", ssh.FromPort, 22},
-		{"ToPort", ssh.ToPort, 22},
-		{"IsUnrestrictedIPv4", ssh.IsUnrestrictedIPv4, true},
+		{fieldProtocol, ssh.Protocol, "tcp"},
+		{fieldFromPort, ssh.FromPort, 22},
+		{fieldToPort, ssh.ToPort, 22},
+		{fieldIsUnrestrictedIPv4, ssh.IsUnrestrictedIPv4, true},
 		{"IsUnrestrictedIPv6", ssh.IsUnrestrictedIPv6, false},
 		{"SourceCIDR", ssh.SourceCIDR, cidrAllIPv4},
 		{"DestCIDR", ssh.DestCIDR, ""},
@@ -190,10 +197,10 @@ func assertRuleAll(t *testing.T, all *rulePayload) {
 		name      string
 		got, want any
 	}{
-		{"Protocol", all.Protocol, protoAll},
-		{"FromPort", all.FromPort, -1},
-		{"ToPort", all.ToPort, -1},
-		{"IsUnrestrictedIPv4", all.IsUnrestrictedIPv4, false},
+		{fieldProtocol, all.Protocol, protoAll},
+		{fieldFromPort, all.FromPort, -1},
+		{fieldToPort, all.ToPort, -1},
+		{fieldIsUnrestrictedIPv4, all.IsUnrestrictedIPv4, false},
 		{"IsUnrestrictedIPv6", all.IsUnrestrictedIPv6, true},
 	}
 	for _, c := range checks {
@@ -211,10 +218,10 @@ func assertRuleEgress(t *testing.T, egress *rulePayload) {
 		got, want any
 	}{
 		{"Direction", egress.Direction, "egress"},
-		{"Protocol", egress.Protocol, protoAll},
-		{"FromPort", egress.FromPort, -1},
-		{"ToPort", egress.ToPort, -1},
-		{"IsUnrestrictedIPv4", egress.IsUnrestrictedIPv4, true},
+		{fieldProtocol, egress.Protocol, protoAll},
+		{fieldFromPort, egress.FromPort, -1},
+		{fieldToPort, egress.ToPort, -1},
+		{fieldIsUnrestrictedIPv4, egress.IsUnrestrictedIPv4, true},
 		{"DestCIDR", egress.DestCIDR, cidrAllIPv4},
 		{"SourceCIDR", egress.SourceCIDR, ""},
 	}

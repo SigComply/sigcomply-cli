@@ -17,17 +17,17 @@ import (
 // and one management-system clause.
 func soaCatalog() ([]core.Control, []core.Policy) {
 	controls := []core.Control{
-		{ID: "A.5.1", Name: "Policies for information security"},
-		{ID: "A.7.1", Name: "Physical security perimeters"},
-		{ID: "C.9.2", Name: "Internal audit", Kind: core.ControlKindManagementSystem},
+		{ID: ctrlA51, Name: "Policies for information security"},
+		{ID: ctrlA71, Name: "Physical security perimeters"},
+		{ID: ctrlC92, Name: "Internal audit", Kind: core.ControlKindManagementSystem},
 	}
 	policies := []core.Policy{
-		{ID: "iso27001.5.1.policies", EvidenceMode: core.EvidenceModeAutomated, Cadence: "daily",
-			Controls: []core.ControlRef{{ControlID: "A.5.1"}}},
-		{ID: "iso27001.7.1.perimeters", EvidenceMode: core.EvidenceModeManual, Cadence: "annual",
-			Controls: []core.ControlRef{{ControlID: "A.7.1"}}},
-		{ID: "iso27001.clause.9.2.internal_audit", EvidenceMode: core.EvidenceModeManual, Cadence: "annual",
-			Controls: []core.ControlRef{{ControlID: "C.9.2"}}},
+		{ID: testPolicyISOPolicies, EvidenceMode: core.EvidenceModeAutomated, Cadence: cadenceDaily,
+			Controls: []core.ControlRef{{ControlID: ctrlA51}}},
+		{ID: "iso27001.7.1.perimeters", EvidenceMode: core.EvidenceModeManual, Cadence: cadenceAnnual,
+			Controls: []core.ControlRef{{ControlID: ctrlA71}}},
+		{ID: "iso27001.clause.9.2.internal_audit", EvidenceMode: core.EvidenceModeManual, Cadence: cadenceAnnual,
+			Controls: []core.ControlRef{{ControlID: ctrlC92}}},
 	}
 	return controls, policies
 }
@@ -35,16 +35,16 @@ func soaCatalog() ([]core.Control, []core.Policy) {
 func buildSoASnapshot(t *testing.T, controlCfg map[string]spec.ControlConfig) *report.Snapshot {
 	t.Helper()
 	v, _ := makeVault(t, []runSeed{{
-		framework: "iso27001", periodID: "2026-Q2", runID: "run-aaaa",
+		framework: frameworkISO27001, periodID: testPeriodQ2, runID: testRunID,
 		timestamp:   time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
 		completedAt: time.Date(2026, 4, 1, 0, 5, 0, 0, time.UTC),
 		policies: []core.PolicyResult{
-			{PolicyID: "iso27001.5.1.policies", Status: core.StatusPass, EvidenceMode: core.EvidenceModeAutomated},
+			{PolicyID: testPolicyISOPolicies, Status: core.StatusPass, EvidenceMode: core.EvidenceModeAutomated},
 		},
 	}})
 	controls, policies := soaCatalog()
 	snap, err := report.Build(context.Background(), &report.Input{
-		Vault: v, Framework: "iso27001", PeriodID: "2026-Q2", View: report.ViewSoA,
+		Vault: v, Framework: frameworkISO27001, PeriodID: testPeriodQ2, View: report.ViewSoA,
 		Controls: controls, Policies: policies, ControlConfigs: controlCfg,
 	})
 	if err != nil {
@@ -67,7 +67,7 @@ func TestBuildSoA_OmitsManagementSystemRequirements(t *testing.T) {
 		t.Errorf("ManagementSystem = %d; want 1 counted but not listed", v.ManagementSystem)
 	}
 	for i := range v.Rows {
-		if v.Rows[i].ControlID == "C.9.2" {
+		if v.Rows[i].ControlID == ctrlC92 {
 			t.Error("a management-system requirement must never appear as a SoA row")
 		}
 	}
@@ -81,7 +81,7 @@ func TestBuildSoA_OmitsManagementSystemRequirements(t *testing.T) {
 // it must be the operator's words, not ours.
 func TestBuildSoA_ExclusionCarriesTheOperatorsReason(t *testing.T) {
 	v := buildSoASnapshot(t, map[string]spec.ControlConfig{
-		"A.7.1": {Applicability: "not_applicable", Reason: "fully remote; no premises in scope", ApprovedBy: "ciso@example.com"},
+		ctrlA71: {Applicability: "not_applicable", Reason: reasonFullyRemote, ApprovedBy: testApprover},
 	}).SoA
 
 	if v.Applicable != 1 || v.Excluded != 1 {
@@ -89,7 +89,7 @@ func TestBuildSoA_ExclusionCarriesTheOperatorsReason(t *testing.T) {
 	}
 	var row *report.SoARow
 	for i := range v.Rows {
-		if v.Rows[i].ControlID == "A.7.1" {
+		if v.Rows[i].ControlID == ctrlA71 {
 			row = &v.Rows[i]
 		}
 	}
@@ -102,13 +102,13 @@ func TestBuildSoA_ExclusionCarriesTheOperatorsReason(t *testing.T) {
 	if row.Status != "excluded" {
 		t.Errorf("status = %q; want excluded", row.Status)
 	}
-	if row.Justification != "fully remote; no premises in scope" {
+	if row.Justification != reasonFullyRemote {
 		t.Errorf("justification = %q; want the operator's own reason verbatim", row.Justification)
 	}
 	if row.JustificationDerived {
 		t.Error("an operator-authored reason must not be marked derived")
 	}
-	if row.ApprovedBy != "ciso@example.com" {
+	if row.ApprovedBy != testApprover {
 		t.Errorf("ApprovedBy = %q; want the recorded approver", row.ApprovedBy)
 	}
 }
@@ -118,19 +118,19 @@ func TestBuildSoA_ExclusionCarriesTheOperatorsReason(t *testing.T) {
 // deliberation from boilerplate.
 func TestBuildSoA_InclusionJustificationPrefersTheOperator(t *testing.T) {
 	v := buildSoASnapshot(t, map[string]spec.ControlConfig{
-		"A.5.1": {Applicability: "applicable", Justification: "central to our risk treatment plan"},
+		ctrlA51: {Applicability: "applicable", Justification: "central to our risk treatment plan"},
 	}).SoA
 
 	byID := map[string]report.SoARow{}
 	for _, r := range v.Rows {
 		byID[r.ControlID] = r
 	}
-	authored := byID["A.5.1"]
+	authored := byID[ctrlA51]
 	if authored.Justification != "central to our risk treatment plan" || authored.JustificationDerived {
 		t.Errorf("A.5.1 = %q (derived=%v); want the operator's words, not derived",
 			authored.Justification, authored.JustificationDerived)
 	}
-	derived := byID["A.7.1"]
+	derived := byID[ctrlA71]
 	if !derived.JustificationDerived {
 		t.Error("A.7.1 has no authored justification and must be marked derived")
 	}
@@ -156,11 +156,11 @@ func TestBuildSoA_UnevaluatedIsNotImplemented(t *testing.T) {
 	for _, r := range v.Rows {
 		byID[r.ControlID] = r
 	}
-	if got := byID["A.5.1"].Status; got != "implemented" {
+	if got := byID[ctrlA51].Status; got != statusImplemented {
 		t.Errorf("A.5.1 status = %q; want implemented — its check ran and passed", got)
 	}
-	if got := byID["A.7.1"].Status; got != "not evaluated" {
-		t.Errorf("A.7.1 status = %q; want %q — its annual document produced no result this period", got, "not evaluated")
+	if got := byID[ctrlA71].Status; got != statusNotEvaluated {
+		t.Errorf("A.7.1 status = %q; want %q — its annual document produced no result this period", got, statusNotEvaluated)
 	}
 	if v.Implemented != 1 || v.NotEvaluated != 1 {
 		t.Errorf("Implemented/NotEvaluated = %d/%d; want 1/1", v.Implemented, v.NotEvaluated)
@@ -175,8 +175,8 @@ func TestBuildSoA_StatusRollup(t *testing.T) {
 		statuses []core.PolicyStatus
 		want     string
 	}{
-		"all pass":             {[]core.PolicyStatus{core.StatusPass, core.StatusPass}, "implemented"},
-		"waived counts as met": {[]core.PolicyStatus{core.StatusPass, core.StatusWaived}, "implemented"},
+		"all pass":             {[]core.PolicyStatus{core.StatusPass, core.StatusPass}, statusImplemented},
+		"waived counts as met": {[]core.PolicyStatus{core.StatusPass, core.StatusWaived}, statusImplemented},
 		"mixed":                {[]core.PolicyStatus{core.StatusPass, core.StatusFail}, "partially implemented"},
 		"all fail":             {[]core.PolicyStatus{core.StatusFail, core.StatusFail}, "not implemented"},
 	} {
@@ -187,17 +187,17 @@ func TestBuildSoA_StatusRollup(t *testing.T) {
 				id := string(rune('a'+i)) + ".policy"
 				results = append(results, core.PolicyResult{PolicyID: id, Status: st, EvidenceMode: core.EvidenceModeAutomated})
 				policies = append(policies, core.Policy{ID: id, EvidenceMode: core.EvidenceModeAutomated,
-					Controls: []core.ControlRef{{ControlID: "A.5.1"}}})
+					Controls: []core.ControlRef{{ControlID: ctrlA51}}})
 			}
 			v, _ := makeVault(t, []runSeed{{
-				framework: "iso27001", periodID: "2026-Q2", runID: "run-aaaa",
+				framework: frameworkISO27001, periodID: testPeriodQ2, runID: testRunID,
 				timestamp:   time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
 				completedAt: time.Date(2026, 4, 1, 0, 5, 0, 0, time.UTC),
 				policies:    results,
 			}})
 			snap, err := report.Build(context.Background(), &report.Input{
-				Vault: v, Framework: "iso27001", PeriodID: "2026-Q2", View: report.ViewSoA,
-				Controls: []core.Control{{ID: "A.5.1", Name: "Policies"}}, Policies: policies,
+				Vault: v, Framework: frameworkISO27001, PeriodID: testPeriodQ2, View: report.ViewSoA,
+				Controls: []core.Control{{ID: ctrlA51, Name: "Policies"}}, Policies: policies,
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -211,19 +211,19 @@ func TestBuildSoA_StatusRollup(t *testing.T) {
 
 func soaSnapshot() *report.Snapshot {
 	return &report.Snapshot{
-		View: report.ViewSoA, Framework: "iso27001", PeriodID: "2026-Q2",
+		View: report.ViewSoA, Framework: frameworkISO27001, PeriodID: testPeriodQ2,
 		SoA: &report.SoAView{
 			Controls: 2, ManagementSystem: 16, Applicable: 1, Excluded: 1,
 			Implemented: 1, Derived: 1,
 			Note: "16 management-system requirements (clauses 4-10) are outside the Statement of Applicability and cannot be excluded",
 			Rows: []report.SoARow{
-				{ControlID: "A.5.1", Name: "Policies for information security", Applicable: true,
+				{ControlID: ctrlA51, Name: "Policies for information security", Applicable: true,
 					Justification:        "Applicable — no exclusion declared. Verified by 1 automated check.",
-					JustificationDerived: true, Status: "implemented", Assurance: "automated",
-					Evaluated: 1, Policies: []string{"iso27001.5.1.policies"}},
-				{ControlID: "A.7.1", Name: "Physical security perimeters", Applicable: false,
-					Justification: "fully remote; no premises in scope", Status: "excluded",
-					Assurance: "manual", ApprovedBy: "ciso@example.com"},
+					JustificationDerived: true, Status: statusImplemented, Assurance: "automated",
+					Evaluated: 1, Policies: []string{testPolicyISOPolicies}},
+				{ControlID: ctrlA71, Name: "Physical security perimeters", Applicable: false,
+					Justification: reasonFullyRemote, Status: "excluded",
+					Assurance: assuranceManual, ApprovedBy: testApprover},
 			},
 		},
 	}
@@ -238,9 +238,9 @@ func TestFormatTextSoA_ShowsTheFourThingsISORequires(t *testing.T) {
 	for _, want := range []string{
 		"2 catalog controls: 1 applicable, 1 excluded",
 		"1 implemented",
-		"A.5.1", "A.7.1",
+		ctrlA51, ctrlA71,
 		"(derived)",
-		"fully remote; no premises in scope",
+		reasonFullyRemote,
 		"cannot be excluded",
 	} {
 		if !strings.Contains(out, want) {
@@ -257,7 +257,7 @@ func TestFormatSoA_NilViewDoesNotPanic(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			var buf bytes.Buffer
-			if err := fn(&buf, &report.Snapshot{View: report.ViewSoA, Framework: "iso27001"}); err != nil {
+			if err := fn(&buf, &report.Snapshot{View: report.ViewSoA, Framework: frameworkISO27001}); err != nil {
 				t.Fatalf("nil SoA view: %v", err)
 			}
 		})
@@ -299,7 +299,7 @@ func TestFormatCSVSoA_CarriesJustificationAndStatus(t *testing.T) {
 			t.Errorf("header %q is missing %q", header, want)
 		}
 	}
-	if rows[2][2] != "false" || rows[2][3] != "fully remote; no premises in scope" {
+	if rows[2][2] != "false" || rows[2][3] != reasonFullyRemote {
 		t.Errorf("excluded row = %v; want applicable=false with the operator's reason", rows[2])
 	}
 }

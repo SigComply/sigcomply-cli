@@ -22,6 +22,11 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
 
+const (
+	vulnStatusActive = "ACTIVE"
+	testCVEID        = "CVE-2024-1234"
+)
+
 var fixedNow = time.Date(2026, 6, 17, 12, 0, 0, 0, time.UTC)
 
 func mustUnmarshal(t *testing.T, raw json.RawMessage, dst any) {
@@ -156,7 +161,7 @@ func TestCollect_ThreatService_MapsSortsFullPayload(t *testing.T) {
 	var vm threatServicePayload
 	mustUnmarshal(t, recs[1].Payload, &vm)
 	wantVM := threatServicePayload{
-		ID: *pricingID("VirtualMachines"), Name: "VirtualMachines", Provider: "azure",
+		ID: *pricingID("VirtualMachines"), Name: "VirtualMachines", Provider: providerAzure,
 		IsEnabled: true, PricingTier: "Standard", SubPlan: "P2",
 	}
 	if !reflect.DeepEqual(vm, wantVM) {
@@ -165,7 +170,7 @@ func TestCollect_ThreatService_MapsSortsFullPayload(t *testing.T) {
 	var st threatServicePayload
 	mustUnmarshal(t, recs[0].Payload, &st)
 	wantST := threatServicePayload{
-		ID: *pricingID("StorageAccounts"), Name: "StorageAccounts", Provider: "azure",
+		ID: *pricingID("StorageAccounts"), Name: "StorageAccounts", Provider: providerAzure,
 		IsEnabled: false, PricingTier: "Free",
 	}
 	if !reflect.DeepEqual(st, wantST) {
@@ -192,7 +197,7 @@ func TestCollect_SecurityService_FullPayload(t *testing.T) {
 	var p securityServicePayload
 	mustUnmarshal(t, recs[0].Payload, &p)
 	want := securityServicePayload{
-		ID: "azure-defender-for-cloud", Name: "Microsoft Defender for Cloud", Provider: "azure",
+		ID: "azure-defender-for-cloud", Name: "Microsoft Defender for Cloud", Provider: providerAzure,
 		ServiceType: "cspm", IsEnabled: true, EnabledPlanCount: 1, TotalPlanCount: 2,
 	}
 	if !reflect.DeepEqual(p, want) {
@@ -217,7 +222,7 @@ func TestCollect_VulnFindings_MapsSortsFullPayload(t *testing.T) {
 	f := &fakeAPI{subs: []*armsecurity.SubAssessment{
 		subAssessment("a", armsecurity.SeverityCritical, armsecurity.SubAssessmentStatusCodeUnhealthy,
 			"/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1",
-			"VM has a critical vuln", "CVE-2024-1234", "Apply patch KB123", "Vulnerabilities"),
+			"VM has a critical vuln", testCVEID, "Apply patch KB123", "Vulnerabilities"),
 		subAssessment("b", armsecurity.SeverityLow, armsecurity.SubAssessmentStatusCodeHealthy,
 			"", "", "", "", ""),
 	}}
@@ -239,8 +244,8 @@ func TestCollect_VulnFindings_MapsSortsFullPayload(t *testing.T) {
 		ResourceID:   "/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1",
 		ResourceType: "Microsoft.Compute/virtualMachines",
 		Title:        "VM has a critical vuln",
-		Severity:     "CRITICAL", Status: "ACTIVE", CVEID: "CVE-2024-1234",
-		RemediationAvailable: true, Provider: "azure", Category: "Vulnerabilities",
+		Severity:     "CRITICAL", Status: vulnStatusActive, CVEID: testCVEID,
+		RemediationAvailable: true, Provider: providerAzure, Category: "Vulnerabilities",
 	}
 	if !reflect.DeepEqual(a, wantA) {
 		t.Errorf("finding a = %+v, want %+v", a, wantA)
@@ -251,7 +256,7 @@ func TestCollect_VulnFindings_MapsSortsFullPayload(t *testing.T) {
 		ID:           "/subscriptions/sub-1/providers/Microsoft.Security/subAssessments/b",
 		ResourceID:   "",
 		ResourceType: resourceTypeFallback,
-		Severity:     "LOW", Status: "RESOLVED", RemediationAvailable: false, Provider: "azure",
+		Severity:     "LOW", Status: "RESOLVED", RemediationAvailable: false, Provider: providerAzure,
 	}
 	if !reflect.DeepEqual(b, wantB) {
 		t.Errorf("finding b = %+v, want %+v", b, wantB)
@@ -365,7 +370,7 @@ func TestMapStatus_Table(t *testing.T) {
 		in   *armsecurity.SubAssessmentStatusCode
 		want string
 	}{
-		{&unhealthy, "ACTIVE"}, {&healthy, "RESOLVED"}, {&na, "SUPPRESSED"}, {nil, "ACTIVE"},
+		{&unhealthy, vulnStatusActive}, {&healthy, "RESOLVED"}, {&na, "SUPPRESSED"}, {nil, vulnStatusActive},
 	}
 	for _, c := range cases {
 		if got := mapStatus(c.in); got != c.want {
@@ -396,7 +401,7 @@ func TestCVEID_Table(t *testing.T) {
 		vulnID string
 		want   string
 	}{
-		{"CVE-2024-1234", "CVE-2024-1234"},
+		{testCVEID, testCVEID},
 		{"cve-2024-9999", "cve-2024-9999"},
 		{"12345", ""},
 		{"", ""},

@@ -14,6 +14,11 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+const (
+	fieldIsInVPC        = "is_in_vpc"
+	fieldTracingEnabled = "tracing_enabled"
+)
+
 type fakeAPI struct {
 	// pages is returned one page per ListFunctions call; the last page must
 	// have an empty NextMarker to terminate paging.
@@ -101,8 +106,8 @@ func TestCollect_HappyPath_SortsByIDAndMapsFields(t *testing.T) {
 		{"provider", alpha.Provider, "aws"},
 		{"name", alpha.Name, "alpha"},
 		{"runtime", alpha.Runtime, "nodejs18.x"},
-		{"is_in_vpc", alpha.IsInVPC, true},
-		{"tracing_enabled", alpha.TracingEnabled, true},
+		{fieldIsInVPC, alpha.IsInVPC, true},
+		{fieldTracingEnabled, alpha.TracingEnabled, true},
 		{"env_encrypted", alpha.EnvironmentVariablesEncrypted, true},
 	}
 	for _, c := range cases {
@@ -119,8 +124,8 @@ func TestCollect_HappyPath_SortsByIDAndMapsFields(t *testing.T) {
 		name string
 		got  bool
 	}{
-		{"is_in_vpc", zeta.IsInVPC},
-		{"tracing_enabled", zeta.TracingEnabled},
+		{fieldIsInVPC, zeta.IsInVPC},
+		{fieldTracingEnabled, zeta.TracingEnabled},
 		{"env_encrypted", zeta.EnvironmentVariablesEncrypted},
 	}
 	for _, c := range zCases {
@@ -165,7 +170,7 @@ func TestCollect_EmitsEveryPolicyReadFieldOnEveryRecord(t *testing.T) {
 	if err := json.Unmarshal(records[0].Payload, &raw); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	for _, key := range []string{"id", "name", "provider", "runtime", "is_in_vpc", "tracing_enabled", "environment_variables_encrypted"} {
+	for _, key := range []string{"id", "name", "provider", "runtime", fieldIsInVPC, fieldTracingEnabled, "environment_variables_encrypted"} {
 		if _, ok := raw[key]; !ok {
 			t.Errorf("payload missing required field %q", key)
 		}

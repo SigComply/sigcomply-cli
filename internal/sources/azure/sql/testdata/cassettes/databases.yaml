@@ -254,7 +254,7 @@ interactions:
         host: management.azure.com
         form:
             api-version:
-                - "2021-05-01"
+                - "2024-12-30"
         headers:
             Accept:
                 - application/json
@@ -262,7 +262,7 @@ interactions:
                 - REDACTED
             User-Agent:
                 - azsdk-go-armmysqlflexibleservers/v1.2.0 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.DBforMySQL/flexibleServers?api-version=2021-05-01
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.DBforMySQL/flexibleServers?api-version=2024-12-30
         method: GET
       response:
         proto: HTTP/2.0

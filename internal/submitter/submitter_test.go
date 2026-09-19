@@ -12,6 +12,11 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+const (
+	testBaseURL            = "https://x"
+	testEnvActionsTokenURL = "ACTIONS_ID_TOKEN_REQUEST_URL"
+)
+
 type stubProvider struct {
 	token, provider string
 	err             error
@@ -31,14 +36,14 @@ func TestDecide(t *testing.T) {
 		hasOIDC, inCI bool
 		wantDecision  Decision
 	}{
-		{"disable", Options{Disable: true, BaseURL: "https://x"}, true, true, DecisionSkip},
+		{"disable", Options{Disable: true, BaseURL: testBaseURL}, true, true, DecisionSkip},
 		{"no-url", Options{}, true, true, DecisionSkip},
-		{"force-ok", Options{Force: true, BaseURL: "https://x"}, true, false, DecisionSubmit},
-		{"force-no-token", Options{Force: true, BaseURL: "https://x"}, false, false, DecisionMissingToken},
+		{"force-ok", Options{Force: true, BaseURL: testBaseURL}, true, false, DecisionSubmit},
+		{"force-no-token", Options{Force: true, BaseURL: testBaseURL}, false, false, DecisionMissingToken},
 		{"force-no-baseurl", Options{Force: true}, true, true, DecisionMissingBaseURL},
-		{"default-ci-with-token", Options{BaseURL: "https://x"}, true, true, DecisionSubmit},
-		{"default-ci-no-token", Options{BaseURL: "https://x"}, false, true, DecisionSkip},
-		{"default-local", Options{BaseURL: "https://x"}, true, false, DecisionSkip},
+		{"default-ci-with-token", Options{BaseURL: testBaseURL}, true, true, DecisionSubmit},
+		{"default-ci-no-token", Options{BaseURL: testBaseURL}, false, true, DecisionSkip},
+		{"default-local", Options{BaseURL: testBaseURL}, true, false, DecisionSkip},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -81,7 +86,7 @@ func TestSubmit_PostsPayloadWithHeaders(t *testing.T) {
 	resp, err := Submit(context.Background(), Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
-		TokenProvider: &stubProvider{token: "jwt-x", provider: "github"},
+		TokenProvider: &stubProvider{token: "jwt-x", provider: providerGitHub},
 		CLIVersion:    "1.0.0",
 	}, payload)
 	if err != nil {
@@ -99,7 +104,7 @@ func TestSubmit_PostsPayloadWithHeaders(t *testing.T) {
 	if gotAuth != "Bearer jwt-x" {
 		t.Errorf("auth header = %q", gotAuth)
 	}
-	if gotOIDCHdr != "github" {
+	if gotOIDCHdr != providerGitHub {
 		t.Errorf("oidc provider header = %q", gotOIDCHdr)
 	}
 	if gotCLIHdr != "1.0.0" {
@@ -136,7 +141,7 @@ func TestSubmit_ServerError(t *testing.T) {
 	_, err := Submit(context.Background(), Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
-		TokenProvider: &stubProvider{token: "x", provider: "github"},
+		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
 	}, &core.SubmissionPayload{})
 	if err == nil || !strings.Contains(err.Error(), "500") {
 		t.Errorf("want 5xx error; got %v", err)
@@ -154,20 +159,20 @@ func TestGitHubActionsProvider_FetchesTokenFromIDP(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(ghActionsResponse{Value: "minted-jwt"}) //nolint:errcheck // test handler
 	}))
 	defer srv.Close()
-	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", srv.URL)
+	t.Setenv(testEnvActionsTokenURL, srv.URL)
 	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "secret")
 	p := &githubActionsProvider{httpClient: srv.Client()}
 	tok, name, err := p.Token(context.Background(), "https://api.sigcomply.com")
 	if err != nil {
 		t.Fatalf("Token: %v", err)
 	}
-	if tok != "minted-jwt" || name != "github" {
+	if tok != "minted-jwt" || name != providerGitHub {
 		t.Errorf("got token=%q provider=%q", tok, name)
 	}
 }
 
 func TestGitHubActionsProvider_NoEnvIsNoToken(t *testing.T) {
-	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", "")
+	t.Setenv(testEnvActionsTokenURL, "")
 	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "")
 	p := &githubActionsProvider{}
 	_, _, err := p.Token(context.Background(), "")
@@ -182,7 +187,7 @@ func TestGitHubActionsProvider_BadStatus(t *testing.T) {
 		_, _ = w.Write([]byte("denied")) //nolint:errcheck // test handler
 	}))
 	defer srv.Close()
-	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", srv.URL)
+	t.Setenv(testEnvActionsTokenURL, srv.URL)
 	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "x")
 	p := &githubActionsProvider{httpClient: srv.Client()}
 	_, _, err := p.Token(context.Background(), "")
@@ -199,7 +204,7 @@ func TestGitLabCIProvider_ReadsSigComplyVarFirst(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Token: %v", err)
 	}
-	if tok != "first" || name != "gitlab" {
+	if tok != "first" || name != providerGitLab {
 		t.Errorf("got token=%q provider=%q", tok, name)
 	}
 }
@@ -231,14 +236,14 @@ func TestChainProvider_PicksFirstSuccess(t *testing.T) {
 	c := &chainProvider{
 		providers: []TokenProvider{
 			&stubProvider{err: ErrNoToken},
-			&stubProvider{token: "second", provider: "gitlab"},
+			&stubProvider{token: "second", provider: providerGitLab},
 		},
 	}
 	tok, name, err := c.Token(context.Background(), "")
 	if err != nil {
 		t.Fatalf("Token: %v", err)
 	}
-	if tok != "second" || name != "gitlab" {
+	if tok != "second" || name != providerGitLab {
 		t.Errorf("got tok=%q name=%q", tok, name)
 	}
 }
@@ -264,12 +269,12 @@ func TestHasOIDC(t *testing.T) {
 		{map[string]string{}, false},
 		{map[string]string{"SIGCOMPLY_ID_TOKEN": "x"}, true},
 		{map[string]string{"ID_TOKEN": "x"}, true},
-		{map[string]string{"ACTIONS_ID_TOKEN_REQUEST_URL": "u", "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "t"}, true},
-		{map[string]string{"ACTIONS_ID_TOKEN_REQUEST_URL": "u"}, false},
+		{map[string]string{testEnvActionsTokenURL: "u", "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "t"}, true},
+		{map[string]string{testEnvActionsTokenURL: "u"}, false},
 	}
 	for i, c := range cases {
 		t.Run("", func(t *testing.T) {
-			for _, k := range []string{"SIGCOMPLY_ID_TOKEN", "ID_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_URL", "ACTIONS_ID_TOKEN_REQUEST_TOKEN"} {
+			for _, k := range []string{"SIGCOMPLY_ID_TOKEN", "ID_TOKEN", testEnvActionsTokenURL, "ACTIONS_ID_TOKEN_REQUEST_TOKEN"} {
 				t.Setenv(k, "")
 			}
 			for k, v := range c.env {
@@ -296,7 +301,7 @@ func TestInCI(t *testing.T) {
 }
 
 func TestSubmit_NilPayload(t *testing.T) {
-	_, err := Submit(context.Background(), Options{BaseURL: "https://x"}, nil)
+	_, err := Submit(context.Background(), Options{BaseURL: testBaseURL}, nil)
 	if err == nil || !strings.Contains(err.Error(), "nil payload") {
 		t.Errorf("want nil-payload error; got %v", err)
 	}
@@ -310,7 +315,7 @@ func TestSubmit_NetworkFailure(t *testing.T) {
 	_, err := Submit(context.Background(), Options{
 		BaseURL:       url,
 		HTTPClient:    &http.Client{},
-		TokenProvider: &stubProvider{token: "x", provider: "github"},
+		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
 	}, &core.SubmissionPayload{})
 	if err == nil || !strings.Contains(err.Error(), "post ") {
 		t.Errorf("want post/network error; got %v", err)
@@ -327,7 +332,7 @@ func TestSubmit_TrimsTrailingSlashInBaseURL(t *testing.T) {
 	_, err := Submit(context.Background(), Options{
 		BaseURL:       srv.URL + "/",
 		HTTPClient:    srv.Client(),
-		TokenProvider: &stubProvider{token: "x", provider: "github"},
+		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
 	}, &core.SubmissionPayload{})
 	if err != nil {
 		t.Fatalf("Submit: %v", err)
@@ -346,7 +351,7 @@ func TestSubmit_SuccessReturnsResponseBody(t *testing.T) {
 	resp, err := Submit(context.Background(), Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
-		TokenProvider: &stubProvider{token: "x", provider: "gitlab"},
+		TokenProvider: &stubProvider{token: "x", provider: providerGitLab},
 	}, &core.SubmissionPayload{})
 	if err != nil {
 		t.Fatalf("Submit: %v", err)
@@ -371,7 +376,7 @@ func TestSubmit_NoCLIVersionHeaderWhenUnset(t *testing.T) {
 	_, err := Submit(context.Background(), Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
-		TokenProvider: &stubProvider{token: "x", provider: "github"},
+		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
 	}, &core.SubmissionPayload{})
 	if err != nil {
 		t.Fatalf("Submit: %v", err)
@@ -411,7 +416,7 @@ func TestSubmit_BodyIsCountsOnly(t *testing.T) {
 	_, err := Submit(context.Background(), Options{
 		BaseURL:       srv.URL,
 		HTTPClient:    srv.Client(),
-		TokenProvider: &stubProvider{token: "x", provider: "github"},
+		TokenProvider: &stubProvider{token: "x", provider: providerGitHub},
 	}, payload)
 	if err != nil {
 		t.Fatalf("Submit: %v", err)
@@ -451,7 +456,7 @@ func TestGitHubActionsProvider_AppendsAudienceToURLWithQuery(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(ghActionsResponse{Value: "tok"}) //nolint:errcheck // test handler
 	}))
 	defer srv.Close()
-	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", srv.URL+"?existing=1")
+	t.Setenv(testEnvActionsTokenURL, srv.URL+"?existing=1")
 	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "secret")
 	p := &githubActionsProvider{httpClient: srv.Client()}
 	_, _, err := p.Token(context.Background(), "aud://x")
@@ -468,7 +473,7 @@ func TestGitHubActionsProvider_EmptyTokenInResponse(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(ghActionsResponse{Value: ""}) //nolint:errcheck // test handler
 	}))
 	defer srv.Close()
-	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", srv.URL)
+	t.Setenv(testEnvActionsTokenURL, srv.URL)
 	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "x")
 	p := &githubActionsProvider{httpClient: srv.Client()}
 	_, _, err := p.Token(context.Background(), "")
@@ -482,7 +487,7 @@ func TestGitHubActionsProvider_MalformedJSON(t *testing.T) {
 		_, _ = w.Write([]byte("not json")) //nolint:errcheck // test handler
 	}))
 	defer srv.Close()
-	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", srv.URL)
+	t.Setenv(testEnvActionsTokenURL, srv.URL)
 	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "x")
 	p := &githubActionsProvider{httpClient: srv.Client()}
 	_, _, err := p.Token(context.Background(), "")

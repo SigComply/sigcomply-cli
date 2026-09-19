@@ -13,6 +13,22 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// Shared literals for the Okta plugin tests: raw Okta API enum values and
+// the fake org/token/user identifiers the fixtures reuse.
+const (
+	oktaStatusActive        = "ACTIVE"
+	oktaStatusStaged        = "STAGED"
+	oktaStatusSuspended     = "SUSPENDED"
+	oktaStatusLockedOut     = "LOCKED_OUT"
+	oktaStatusDeprovisioned = "DEPROVISIONED"
+	signOnModeSAML          = "SAML_2_0"
+
+	testOrgURL    = "https://acme.okta.com"
+	testToken     = "tok"
+	testEmailUser = "u@acme.com"
+	testEmailAmy  = "amy@acme.com"
+)
+
 // fakeAPI drives the plugin without real network calls.
 type fakeAPI struct {
 	users     []User
@@ -52,7 +68,7 @@ func (f *fakeAPI) ListApps(_ context.Context) ([]App, error) {
 }
 
 func TestPlugin_IDAndEmits(t *testing.T) {
-	p := New(Options{API: &fakeAPI{}, Org: "https://acme.okta.com"})
+	p := New(Options{API: &fakeAPI{}, Org: testOrgURL})
 	if p.ID() != SourceID {
 		t.Errorf("ID = %q; want %q", p.ID(), SourceID)
 	}
@@ -63,7 +79,7 @@ func TestPlugin_IDAndEmits(t *testing.T) {
 }
 
 func TestPlugin_InitNoOp(t *testing.T) {
-	p := New(Options{API: &fakeAPI{}, Org: "https://acme.okta.com"})
+	p := New(Options{API: &fakeAPI{}, Org: testOrgURL})
 	if err := p.Init(context.Background(), nil); err != nil {
 		t.Errorf("Init: %v", err)
 	}
@@ -73,8 +89,8 @@ func TestCollectUsers_HappyPath_SortsByID(t *testing.T) {
 	last := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
 	fake := &fakeAPI{
 		users: []User{
-			{ID: "u_zzz", Email: "z@acme.com", Status: "ACTIVE", MFAFactorCount: 1, LastLogin: last},
-			{ID: "u_aaa", Email: "a@acme.com", Status: "ACTIVE", MFAFactorCount: 0},
+			{ID: "u_zzz", Email: "z@acme.com", Status: oktaStatusActive, MFAFactorCount: 1, LastLogin: last},
+			{ID: "u_aaa", Email: "a@acme.com", Status: oktaStatusActive, MFAFactorCount: 0},
 		},
 	}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
@@ -113,9 +129,9 @@ func TestCollectUsers_HappyPath_SortsByID(t *testing.T) {
 func TestCollectUsers_AdminMapping(t *testing.T) {
 	fake := &fakeAPI{
 		users: []User{
-			{ID: "u_admin", Email: "admin@acme.com", Status: "ACTIVE", AdminRoles: []string{"SUPER_ADMIN"}},
-			{ID: "u_ro", Email: "ro@acme.com", Status: "ACTIVE", AdminRoles: []string{"READ_ONLY_ADMIN"}},
-			{ID: "u_plain", Email: "plain@acme.com", Status: "ACTIVE", AdminRoles: nil},
+			{ID: "u_admin", Email: "admin@acme.com", Status: oktaStatusActive, AdminRoles: []string{"SUPER_ADMIN"}},
+			{ID: "u_ro", Email: "ro@acme.com", Status: oktaStatusActive, AdminRoles: []string{"READ_ONLY_ADMIN"}},
+			{ID: "u_plain", Email: "plain@acme.com", Status: oktaStatusActive, AdminRoles: nil},
 		},
 	}
 	p := New(Options{API: fake})
@@ -146,7 +162,7 @@ func TestCollectUsers_AdminMapping(t *testing.T) {
 func TestCollectApps_HappyPath_SortsByID(t *testing.T) {
 	fake := &fakeAPI{
 		apps: []App{
-			{ID: "0oab", Label: "Slack", SignOnMode: "SAML_2_0", MFARequired: true},
+			{ID: "0oab", Label: "Slack", SignOnMode: signOnModeSAML, MFARequired: true},
 			{ID: "0oaa", Label: "Legacy", SignOnMode: "AUTO_LOGIN", MFARequired: false},
 		},
 	}
@@ -210,7 +226,7 @@ func TestCollectApps_ErrorPropagates(t *testing.T) {
 }
 
 func TestCollect_DefaultNowIsInjected(t *testing.T) {
-	fake := &fakeAPI{users: []User{{ID: "u1", Email: "u@acme.com", Status: "ACTIVE"}}}
+	fake := &fakeAPI{users: []User{{ID: "u1", Email: testEmailUser, Status: oktaStatusActive}}}
 	p := New(Options{API: fake})
 	recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDirectoryUser}})
 	if err != nil {
@@ -223,8 +239,8 @@ func TestCollect_DefaultNowIsInjected(t *testing.T) {
 
 func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 	fake := &fakeAPI{
-		users: []User{{ID: "u1", Email: "u@acme.com", Status: "ACTIVE"}},
-		apps:  []App{{ID: "0oa1", Label: "X", SignOnMode: "SAML_2_0", MFARequired: true}},
+		users: []User{{ID: "u1", Email: testEmailUser, Status: oktaStatusActive}},
+		apps:  []App{{ID: "0oa1", Label: "X", SignOnMode: signOnModeSAML, MFARequired: true}},
 	}
 	p := New(Options{API: fake})
 	for range 3 {
@@ -243,13 +259,13 @@ func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 }
 
 func TestNewFromConfig_ValidatesArgs(t *testing.T) {
-	if _, err := NewFromConfig(context.Background(), "", "tok"); err == nil {
+	if _, err := NewFromConfig(context.Background(), "", testToken); err == nil {
 		t.Error("want error for empty orgURL")
 	}
-	if _, err := NewFromConfig(context.Background(), "https://acme.okta.com", ""); err == nil {
+	if _, err := NewFromConfig(context.Background(), testOrgURL, ""); err == nil {
 		t.Error("want error for empty token")
 	}
-	p, err := NewFromConfig(context.Background(), "https://acme.okta.com/", "tok")
+	p, err := NewFromConfig(context.Background(), "https://acme.okta.com/", testToken)
 	if err != nil {
 		t.Fatalf("NewFromConfig: %v", err)
 	}
@@ -263,7 +279,7 @@ func TestFederatedMFA(t *testing.T) {
 		mode string
 		want bool
 	}{
-		{"SAML_2_0", true},
+		{signOnModeSAML, true},
 		{"OPENID_CONNECT", true},
 		{"SECURE_PASSWORD_STORE", true},
 		{"AUTO_LOGIN", false},
@@ -279,7 +295,7 @@ func TestFederatedMFA(t *testing.T) {
 }
 
 func TestNextLinkPath(t *testing.T) {
-	base := "https://acme.okta.com"
+	base := testOrgURL
 	cases := []struct {
 		in   string
 		want string
@@ -319,7 +335,7 @@ func TestHTTPAPI_ListUsers_HappyPath(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
-	api := &httpAPI{base: srv.URL, token: "tok", client: srv.Client()}
+	api := &httpAPI{base: srv.URL, token: testToken, client: srv.Client()}
 	users, err := api.ListUsers(context.Background())
 	if err != nil {
 		t.Fatalf("ListUsers: %v", err)
@@ -355,7 +371,7 @@ func TestHTTPAPI_ListApps_HappyPath(t *testing.T) {
 		_, _ = w.Write([]byte(body)) //nolint:errcheck // test handler
 	}))
 	defer srv.Close()
-	api := &httpAPI{base: srv.URL, token: "tok", client: srv.Client()}
+	api := &httpAPI{base: srv.URL, token: testToken, client: srv.Client()}
 	apps, err := api.ListApps(context.Background())
 	if err != nil {
 		t.Fatalf("ListApps: %v", err)
@@ -393,7 +409,7 @@ func TestHTTPAPI_GetJSON_Non2xxError(t *testing.T) {
 		http.Error(w, "rate limit", http.StatusTooManyRequests)
 	}))
 	defer srv.Close()
-	api := &httpAPI{base: srv.URL, token: "tok", client: srv.Client()}
+	api := &httpAPI{base: srv.URL, token: testToken, client: srv.Client()}
 	_, err := api.ListUsers(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "429") {
 		t.Errorf("want 429 error; got %v", err)
@@ -405,7 +421,7 @@ func TestHTTPAPI_GetJSON_DecodeError(t *testing.T) {
 		_, _ = w.Write([]byte(`not-json`)) //nolint:errcheck // test handler
 	}))
 	defer srv.Close()
-	api := &httpAPI{base: srv.URL, token: "tok", client: srv.Client()}
+	api := &httpAPI{base: srv.URL, token: testToken, client: srv.Client()}
 	_, err := api.ListApps(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "decode") {
 		t.Errorf("want decode error; got %v", err)
@@ -428,7 +444,7 @@ func TestHTTPAPI_ListUsers_Pagination(t *testing.T) {
 	}))
 	defer srv.Close()
 	base = srv.URL
-	api := &httpAPI{base: srv.URL, token: "tok", client: srv.Client()}
+	api := &httpAPI{base: srv.URL, token: testToken, client: srv.Client()}
 	users, err := api.ListUsers(context.Background())
 	if err != nil {
 		t.Fatalf("ListUsers: %v", err)
@@ -444,7 +460,7 @@ func TestHTTPAPI_RequestCtxCancel(t *testing.T) {
 		_, _ = w.Write([]byte(`[]`)) //nolint:errcheck // test handler
 	}))
 	defer srv.Close()
-	api := &httpAPI{base: srv.URL, token: "tok", client: srv.Client()}
+	api := &httpAPI{base: srv.URL, token: testToken, client: srv.Client()}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	if _, err := api.ListApps(ctx); err == nil {

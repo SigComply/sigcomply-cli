@@ -147,7 +147,7 @@ func TestCollect_ServiceTypeLiteralsMatchPolicies(t *testing.T) {
 		if pl.ServiceType != c.serviceType {
 			t.Errorf("%s service_type = %q; want %q", c.id, pl.ServiceType, c.serviceType)
 		}
-		if pl.Provider != "aws" {
+		if pl.Provider != providerAWS {
 			t.Errorf("%s provider = %q; want aws", c.id, pl.Provider)
 		}
 		if pl.Name == "" {

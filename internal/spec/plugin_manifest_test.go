@@ -14,7 +14,7 @@ func TestLoadPluginManifest_ValidAWSIAM(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadPluginManifest: %v", err)
 	}
-	if m.ID != "aws.iam" {
+	if m.ID != testSourceAWSIAM {
 		t.Errorf("ID = %q; want aws.iam", m.ID)
 	}
 	if m.DisplayName != "AWS IAM" {
@@ -48,7 +48,7 @@ func TestLoadPluginManifest_ValidManualPDF(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadPluginManifest: %v", err)
 	}
-	if m.ID != "manual.pdf" {
+	if m.ID != testSourceManualPDF {
 		t.Errorf("ID = %q; want manual.pdf", m.ID)
 	}
 	if !m.Singleton {

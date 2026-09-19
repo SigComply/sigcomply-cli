@@ -12,7 +12,14 @@ import (
 
 // isoFW is the ISO 27001 identifier — bound here so the goconst linter
 // doesn't trip on the repeated literal across the cmd test files.
-const isoFW = "iso27001"
+const (
+	isoFW = "iso27001"
+	// testAWSRegion is the AWS region used by the source-banner and
+	// vault-region fixtures.
+	testAWSRegion = "us-east-1"
+	// testBinaryName is argv[0] as the CLI sees it.
+	testBinaryName = "sigcomply"
+)
 
 // TestInit_ScaffoldsValidConfig is the load-bearing guarantee: whatever
 // `sigcomply init` writes must parse and validate through the real spec
@@ -39,7 +46,7 @@ func TestInit_ScaffoldsValidConfig(t *testing.T) {
 		t.Errorf("Framework = %q; want %s", cfg.Framework, defaultFW)
 	}
 	// Vault defaults must be present (the active block sets local).
-	if cfg.Vault.Backend != "local" {
+	if cfg.Vault.Backend != backendLocal {
 		t.Errorf("Vault.Backend = %q; want local", cfg.Vault.Backend)
 	}
 	// aws.iam is the active example source.

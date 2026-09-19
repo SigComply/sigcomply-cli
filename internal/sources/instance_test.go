@@ -7,17 +7,24 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+const (
+	testSourceAWSIAM         = "aws.iam"
+	testSourceAWSIAMInstance = "aws.iam[backup]"
+	testSourceGitHub         = "github"
+	testInstanceSuffix       = "[backup]"
+)
+
 func TestSplitInstanceID(t *testing.T) {
 	cases := []struct{ key, base, instance string }{
-		{"aws.iam", "aws.iam", ""},
-		{"aws.iam[backup]", "aws.iam", "backup"},
-		{"github", "github", ""},
+		{testSourceAWSIAM, testSourceAWSIAM, ""},
+		{testSourceAWSIAMInstance, testSourceAWSIAM, "backup"},
+		{testSourceGitHub, testSourceGitHub, ""},
 		{"gcp.storage[eu-project]", "gcp.storage", "eu-project"},
 		{"aws.iam_access_key[prod]", "aws.iam_access_key", "prod"},
 		// Malformed keys are returned whole; the grammar rejects them
 		// before they reach here.
 		{"aws.iam[", "aws.iam[", ""},
-		{"[backup]", "[backup]", ""},
+		{testInstanceSuffix, testInstanceSuffix, ""},
 	}
 	for _, c := range cases {
 		base, instance := SplitInstanceID(c.key)
@@ -29,7 +36,7 @@ func TestSplitInstanceID(t *testing.T) {
 
 func TestValidID(t *testing.T) {
 	valid := []string{
-		"aws.iam", "aws.iam[backup]", "manual.pdf", "github", "okta",
+		testSourceAWSIAM, testSourceAWSIAMInstance, "manual.pdf", testSourceGitHub, "okta",
 		"aws.iam_access_key", "acme.internal_iam", "gcp.scc[org-2]",
 		"aws.s3[a.b-c_d]",
 	}
@@ -43,7 +50,7 @@ func TestValidID(t *testing.T) {
 	invalid := []string{
 		"", "aws.iam[]", "aws.iam[a/b]", "aws.iam[../../etc]",
 		"aws/iam", "../aws.iam", "aws.iam[a][b]", "aws.iam[a",
-		"aws.iam]", "[backup]", ".aws.iam", "aws:iam",
+		"aws.iam]", testInstanceSuffix, ".aws.iam", "aws:iam",
 		"aws.iam[with space]",
 	}
 	for _, id := range invalid {
@@ -69,8 +76,8 @@ func (s *stubPlugin) Collect(context.Context, core.SlotRequest) ([]core.Evidence
 // A plain key must produce the plugin unchanged — same identity, same
 // record bytes — so adopting instancing cannot alter an existing run.
 func TestAsInstance_PlainKeyIsUntouched(t *testing.T) {
-	inner := &stubPlugin{id: "aws.iam", recs: []core.EvidenceRecord{{ID: "u1", SourceID: "aws.iam"}}}
-	got := asInstance(inner, "aws.iam")
+	inner := &stubPlugin{id: testSourceAWSIAM, recs: []core.EvidenceRecord{{ID: "u1", SourceID: testSourceAWSIAM}}}
+	got := asInstance(inner, testSourceAWSIAM)
 	if got != core.SourcePlugin(inner) {
 		t.Fatal("a non-instance key must return the original plugin, unwrapped")
 	}
@@ -78,12 +85,12 @@ func TestAsInstance_PlainKeyIsUntouched(t *testing.T) {
 
 func TestAsInstance_StampsProvenance(t *testing.T) {
 	inner := &stubPlugin{
-		id:   "aws.iam",
-		recs: []core.EvidenceRecord{{ID: "u1", SourceID: "aws.iam"}, {ID: "u2", SourceID: "aws.iam"}},
+		id:   testSourceAWSIAM,
+		recs: []core.EvidenceRecord{{ID: "u1", SourceID: testSourceAWSIAM}, {ID: "u2", SourceID: testSourceAWSIAM}},
 	}
-	got := asInstance(inner, "aws.iam[backup]")
+	got := asInstance(inner, testSourceAWSIAMInstance)
 
-	if got.ID() != "aws.iam[backup]" {
+	if got.ID() != testSourceAWSIAMInstance {
 		t.Errorf("ID() = %q; want aws.iam[backup]", got.ID())
 	}
 	if len(got.Emits()) != 1 || got.Emits()[0] != "directory_user" {
@@ -97,15 +104,15 @@ func TestAsInstance_StampsProvenance(t *testing.T) {
 	// Without this the evidence of two accounts is indistinguishable:
 	// same source_id in the signed records, same envelope filename.
 	for i := range recs {
-		if recs[i].SourceID != "aws.iam[backup]" {
+		if recs[i].SourceID != testSourceAWSIAMInstance {
 			t.Errorf("record %d SourceID = %q; want aws.iam[backup]", i, recs[i].SourceID)
 		}
 	}
 }
 
 func TestAsInstance_PropagatesCollectError(t *testing.T) {
-	inner := &stubPlugin{id: "aws.iam", err: context.Canceled}
-	if _, err := asInstance(inner, "aws.iam[backup]").Collect(context.Background(), core.SlotRequest{}); err == nil {
+	inner := &stubPlugin{id: testSourceAWSIAM, err: context.Canceled}
+	if _, err := asInstance(inner, testSourceAWSIAMInstance).Collect(context.Background(), core.SlotRequest{}); err == nil {
 		t.Fatal("Collect error must propagate through the wrapper")
 	}
 }

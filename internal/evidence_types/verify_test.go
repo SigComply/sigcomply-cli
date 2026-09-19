@@ -26,13 +26,13 @@ func TestVerifyRegistrations_HappyPath(t *testing.T) {
 	if err := Register(set); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
-	if err := set.Sources.Register(&fakeSource{id: "aws.iam", emits: []string{"directory_user"}}); err != nil {
+	if err := set.Sources.Register(&fakeSource{id: "aws.iam", emits: []string{testTypeDirectoryUser}}); err != nil {
 		t.Fatalf("Sources.Register: %v", err)
 	}
 	if err := set.Policies.Register(core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"users": {Accepts: []string{"directory_user"}},
+			"users": {Accepts: []string{testTypeDirectoryUser}},
 		},
 	}); err != nil {
 		t.Fatalf("Policies.Register: %v", err)

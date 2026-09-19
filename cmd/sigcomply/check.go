@@ -242,7 +242,7 @@ func sourceBannerDetail(id string, raw map[string]any, vaultRegion string) strin
 	if id == manual.SourceID {
 		backend := sources.StringOpt(raw, "backend")
 		if backend == "" {
-			backend = "local"
+			backend = backendLocal
 		}
 		return fmt.Sprintf(" (manual evidence, backend %s)", backend)
 	}

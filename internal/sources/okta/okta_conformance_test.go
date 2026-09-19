@@ -128,11 +128,11 @@ func TestOktaRosterConformance(t *testing.T) {
 		},
 	})
 	want := map[string]struct{ status, sourceStatus, displayName string }{
-		"00uRosterActive00698": {rosterActive, "ACTIVE", "Ada Example"},
-		"00uRosterStaged00698": {rosterPending, "STAGED", "Carol Example"},
-		"00uRosterSuspend0698": {rosterInactive, "SUSPENDED", "Dave Example"},
-		"00uRosterLocked00698": {rosterActive, "LOCKED_OUT", "frank@example.com"}, // no names → login
-		"00uRosterDeprov00698": {rosterInactive, "DEPROVISIONED", "Erin Example"},
+		"00uRosterActive00698": {rosterActive, oktaStatusActive, "Ada Example"},
+		"00uRosterStaged00698": {rosterPending, oktaStatusStaged, "Carol Example"},
+		"00uRosterSuspend0698": {rosterInactive, oktaStatusSuspended, "Dave Example"},
+		"00uRosterLocked00698": {rosterActive, oktaStatusLockedOut, "frank@example.com"}, // no names → login
+		"00uRosterDeprov00698": {rosterInactive, oktaStatusDeprovisioned, "Erin Example"},
 	}
 	if len(recs) != len(want) {
 		t.Fatalf("roster_entry records = %d, want %d", len(recs), len(want))
@@ -164,7 +164,7 @@ func assertFederatedApps(t *testing.T, apps map[string]appPayload) {
 	}
 	var sawFederated bool
 	for _, a := range apps {
-		if a.SignOnMode != "SAML_2_0" && a.SignOnMode != "OPENID_CONNECT" {
+		if a.SignOnMode != signOnModeSAML && a.SignOnMode != "OPENID_CONNECT" {
 			continue
 		}
 		sawFederated = true

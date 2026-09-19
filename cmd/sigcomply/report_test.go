@@ -19,6 +19,18 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/vault/local"
 )
 
+const (
+	// testPeriodID is the period the fixture vault is seeded for; every
+	// report invocation in this file asks for it.
+	testPeriodID = "2026-Q1"
+	// viewLatest and viewSoA are `report --view` names.
+	viewLatest = "latest"
+	viewSoA    = "soa"
+	// formatYAML is the unsupported --format / --output value the
+	// negative-path tests pass.
+	formatYAML = "yaml"
+)
+
 // seedFixtureVault writes a tiny vault containing one signed run with
 // one passing policy. Returns the vault root path so callers can pass
 // it to --vault. The framework / period_id are SOC 2 / 2026-Q1 to
@@ -48,7 +60,7 @@ func seedFixtureVault(t *testing.T) string {
 	when := time.Date(2026, 2, 15, 14, 0, 0, 0, time.UTC)
 	h := sha256.Sum256(body)
 	manifest := &core.Manifest{
-		SchemaVersion: "run.v1", RunID: "aaaaaaaa-1111", Framework: "soc2", PeriodID: "2026-Q1",
+		SchemaVersion: "run.v1", RunID: "aaaaaaaa-1111", Framework: defaultFW, PeriodID: testPeriodID,
 		StartedAt: when, CompletedAt: when,
 		FileHashes: map[string]string{
 			"policies/soc2.cc6.1.mfa/result.json": "sha256:" + hex.EncodeToString(h[:]),
@@ -97,7 +109,7 @@ func TestRunReport_RequiresPeriod(t *testing.T) {
 
 func TestRunReport_PDFFormatDeferred(t *testing.T) {
 	err := runReport(context.Background(), &bytes.Buffer{}, &reportFlags{
-		period: "2026-Q1", format: "pdf",
+		period: testPeriodID, format: "pdf",
 	})
 	if err == nil {
 		t.Fatal("want PDF-deferred error")
@@ -111,7 +123,7 @@ func TestRunReport_InvalidView(t *testing.T) {
 	vaultPath := seedFixtureVault(t)
 	configPath := writeReportConfig(t, vaultPath)
 	err := runReport(context.Background(), &bytes.Buffer{}, &reportFlags{
-		config: configPath, period: "2026-Q1", view: "drift", format: "text",
+		config: configPath, period: testPeriodID, view: "drift", format: outputText,
 	})
 	if err == nil {
 		t.Fatal("want error on bad --view")
@@ -125,13 +137,13 @@ func TestRunReport_InvalidFormat(t *testing.T) {
 	vaultPath := seedFixtureVault(t)
 	configPath := writeReportConfig(t, vaultPath)
 	err := runReport(context.Background(), &bytes.Buffer{}, &reportFlags{
-		config: configPath, period: "2026-Q1", format: "yaml",
+		config: configPath, period: testPeriodID, format: formatYAML,
 		out: filepath.Join(t.TempDir(), "out.yaml"),
 	})
 	if err == nil {
 		t.Fatal("want error on bad --format")
 	}
-	if !strings.Contains(err.Error(), "yaml") {
+	if !strings.Contains(err.Error(), formatYAML) {
 		t.Errorf("err should name the bad format; got %v", err)
 	}
 }
@@ -140,7 +152,7 @@ func TestRunReport_NonTextRequiresOut(t *testing.T) {
 	vaultPath := seedFixtureVault(t)
 	configPath := writeReportConfig(t, vaultPath)
 	err := runReport(context.Background(), &bytes.Buffer{}, &reportFlags{
-		config: configPath, period: "2026-Q1", format: "json",
+		config: configPath, period: testPeriodID, format: outputJSON,
 	})
 	if err == nil {
 		t.Fatal("want --out required error for json format")
@@ -155,7 +167,7 @@ func TestRunReport_LatestTextE2E(t *testing.T) {
 	configPath := writeReportConfig(t, vaultPath)
 	var stdout bytes.Buffer
 	err := runReport(context.Background(), &stdout, &reportFlags{
-		config: configPath, period: "2026-Q1", view: "latest", format: "text",
+		config: configPath, period: testPeriodID, view: viewLatest, format: outputText,
 	})
 	if err != nil {
 		t.Fatalf("runReport: %v", err)
@@ -174,7 +186,7 @@ func TestRunReport_JSONToFile(t *testing.T) {
 	configPath := writeReportConfig(t, vaultPath)
 	outPath := filepath.Join(t.TempDir(), "out.json")
 	err := runReport(context.Background(), &bytes.Buffer{}, &reportFlags{
-		config: configPath, period: "2026-Q1", view: "latest", format: "json", out: outPath,
+		config: configPath, period: testPeriodID, view: viewLatest, format: outputJSON, out: outPath,
 	})
 	if err != nil {
 		t.Fatalf("runReport: %v", err)
@@ -196,7 +208,7 @@ func TestRunReport_CSVToFile(t *testing.T) {
 	configPath := writeReportConfig(t, vaultPath)
 	outPath := filepath.Join(t.TempDir(), "out.csv")
 	err := runReport(context.Background(), &bytes.Buffer{}, &reportFlags{
-		config: configPath, period: "2026-Q1", view: "latest", format: "csv", out: outPath,
+		config: configPath, period: testPeriodID, view: viewLatest, format: "csv", out: outPath,
 	})
 	if err != nil {
 		t.Fatalf("runReport: %v", err)
@@ -217,10 +229,10 @@ func TestRunReport_VaultOverrideFromCLI(t *testing.T) {
 	err := runReport(context.Background(), &stdout, &reportFlags{
 		config:    filepath.Join(t.TempDir(), "does-not-exist.yaml"), // explicitly unused
 		vaultURI:  vaultPath,
-		framework: "soc2",
-		period:    "2026-Q1",
+		framework: defaultFW,
+		period:    testPeriodID,
 		view:      "integrity",
-		format:    "text",
+		format:    outputText,
 	})
 	if err != nil {
 		t.Fatalf("runReport: %v", err)
@@ -233,7 +245,7 @@ func TestRunReport_VaultOverrideFromCLI(t *testing.T) {
 func TestRunReport_MissingConfig(t *testing.T) {
 	err := runReport(context.Background(), &bytes.Buffer{}, &reportFlags{
 		config: filepath.Join(t.TempDir(), "missing.yaml"),
-		period: "2026-Q1",
+		period: testPeriodID,
 	})
 	if err == nil {
 		t.Fatal("want error on missing config")
@@ -255,8 +267,8 @@ func TestVaultConfigFromURI(t *testing.T) {
 		cont    string
 		wantErr bool
 	}{
-		{in: "/var/sigcomply/vault", backend: "local", path: "/var/sigcomply/vault"},
-		{in: "file:///tmp/v", backend: "local", path: "/tmp/v"},
+		{in: "/var/sigcomply/vault", backend: backendLocal, path: "/var/sigcomply/vault"},
+		{in: "file:///tmp/v", backend: backendLocal, path: "/tmp/v"},
 		{in: "s3://acme-evidence/sigcomply", backend: "s3", bucket: "acme-evidence", prefix: "sigcomply"},
 		{in: "s3://only-bucket", backend: "s3", bucket: "only-bucket"},
 		{in: "gs://acme/p1/p2", backend: "gcs", bucket: "acme", prefix: "p1/p2"},
@@ -299,16 +311,16 @@ func TestVaultConfigFromURI(t *testing.T) {
 }
 
 func TestParseView(t *testing.T) {
-	if v, err := parseView(""); err != nil || v != "latest" {
+	if v, err := parseView(""); err != nil || v != viewLatest {
 		t.Errorf("empty → %q err=%v; want latest", v, err)
 	}
-	if v, err := parseView("latest"); err != nil || v != "latest" {
+	if v, err := parseView(viewLatest); err != nil || v != viewLatest {
 		t.Errorf("latest → %q err=%v", v, err)
 	}
 	if v, err := parseView("exceptions"); err != nil || v != "exceptions" {
 		t.Errorf("exceptions → %q err=%v", v, err)
 	}
-	for _, name := range []string{"scope", "coverage", "soa"} {
+	for _, name := range []string{"scope", "coverage", viewSoA} {
 		if v, err := parseView(name); err != nil || string(v) != name {
 			t.Errorf("parseView(%q) = %v, %v; want the view and no error", name, v, err)
 		}
@@ -341,14 +353,14 @@ func TestRunReport_SoARequiresProjectConfig(t *testing.T) {
 	err := runReport(context.Background(), io.Discard, &reportFlags{
 		config:    filepath.Join(t.TempDir(), "absent.yaml"),
 		vaultURI:  t.TempDir(),
-		framework: "iso27001",
+		framework: isoFW,
 		period:    "2026-Q2",
-		view:      "soa",
+		view:      viewSoA,
 	})
 	if err == nil {
 		t.Fatal("want an error when --view soa is run without a project config")
 	}
-	for _, want := range []string{"soa", "applicability", ".sigcomply.yaml"} {
+	for _, want := range []string{viewSoA, "applicability", ".sigcomply.yaml"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not mention %q", err, want)
 		}

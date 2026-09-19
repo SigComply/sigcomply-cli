@@ -70,7 +70,7 @@ func TestRegisterProjectLocal_RegistersAllThreeKinds(t *testing.T) {
 	dir := t.TempDir()
 	writeProjectLocal(t, dir)
 
-	cfg := &spec.ProjectConfig{Framework: "soc2"}
+	cfg := &spec.ProjectConfig{Framework: testFramework}
 	set := registry.NewSet()
 
 	if err := registerProjectLocal(dir, cfg, set); err != nil {
@@ -96,7 +96,7 @@ func TestRegisterProjectLocal_RegistersAllThreeKinds(t *testing.T) {
 
 func TestRegisterProjectLocal_NoSigcomplyDirIsNoOp(t *testing.T) {
 	dir := t.TempDir() // no .sigcomply/
-	cfg := &spec.ProjectConfig{Framework: "soc2"}
+	cfg := &spec.ProjectConfig{Framework: testFramework}
 	set := registry.NewSet()
 	if err := registerProjectLocal(dir, cfg, set); err != nil {
 		t.Fatalf("registerProjectLocal on empty project: %v", err)
@@ -111,7 +111,7 @@ func TestRegisterProjectLocal_MalformedPolicyIsConfigError(t *testing.T) {
 	mustMkdir(t, filepath.Join(dir, ".sigcomply", "policies", "bad"))
 	mustWrite(t, filepath.Join(dir, ".sigcomply", "policies", "bad", "policy.yaml"), "schema_version: policy.v1\nid: bad\n")
 
-	cfg := &spec.ProjectConfig{Framework: "soc2"}
+	cfg := &spec.ProjectConfig{Framework: testFramework}
 	if err := registerProjectLocal(dir, cfg, registry.NewSet()); err == nil {
 		t.Error("expected a configuration error for a malformed policy.yaml")
 	}
@@ -195,7 +195,7 @@ func TestRegisterProjectLocal_RosterPolicyEvaluates(t *testing.T) {
 	mustWrite(t, filepath.Join(dir, ".sigcomply", "policies", "acme.custom.accounts_linked", "policy.yaml"), projectLocalRosterPolicyYAML)
 
 	set := registry.NewSet()
-	if err := registerProjectLocal(dir, &spec.ProjectConfig{Framework: "soc2"}, set); err != nil {
+	if err := registerProjectLocal(dir, &spec.ProjectConfig{Framework: testFramework}, set); err != nil {
 		t.Fatalf("registerProjectLocal: %v", err)
 	}
 	pol, ok := set.Policies.Lookup("acme.custom.accounts_linked")
@@ -208,21 +208,21 @@ func TestRegisterProjectLocal_RosterPolicyEvaluates(t *testing.T) {
 		Spec:           pol,
 		ShouldEvaluate: true,
 		Roster: &planner.RosterLink{
-			Source:   "okta",
-			Aliases:  map[string]map[string]string{"github": {"jdoe": "jane@acme.com"}},
-			NonHuman: map[string][]string{"github": {"acme-ci-bot"}},
+			Source:   sourceOkta,
+			Aliases:  map[string]map[string]string{sourceGitHub: {"jdoe": "jane@acme.com"}},
+			NonHuman: map[string][]string{sourceGitHub: {"acme-ci-bot"}},
 		},
 	}
 	records := map[string][]core.EvidenceRecord{
-		"roster": {
-			jsonRecord(t, "okta", "roster_entry", "p1", map[string]any{"email": "Jane@Acme.com", "status": "active"}),
-			jsonRecord(t, "okta", "roster_entry", "p2", map[string]any{"email": "left@acme.com", "status": "inactive"}),
+		slotRoster: {
+			jsonRecord(t, sourceOkta, "roster_entry", "p1", map[string]any{fieldEmail: "Jane@Acme.com", "status": "active"}),
+			jsonRecord(t, sourceOkta, "roster_entry", "p2", map[string]any{fieldEmail: "left@acme.com", "status": "inactive"}),
 		},
-		"accounts": {
-			jsonRecord(t, "github", "directory_user", "1", map[string]any{"username": "JDoe"}),
-			jsonRecord(t, "github", "directory_user", "2", map[string]any{"username": "acme-ci-bot"}),
-			jsonRecord(t, "aws.iam", "directory_user", "root", map[string]any{"is_root": true}),
-			jsonRecord(t, "gitlab", "directory_user", "9", map[string]any{"email": "left@acme.com"}),
+		slotAccounts: {
+			jsonRecord(t, sourceGitHub, evidenceTypeDirectoryUser, "1", map[string]any{"username": "JDoe"}),
+			jsonRecord(t, sourceGitHub, evidenceTypeDirectoryUser, "2", map[string]any{"username": "acme-ci-bot"}),
+			jsonRecord(t, sourceAWSIAM, evidenceTypeDirectoryUser, "root", map[string]any{"is_root": true}),
+			jsonRecord(t, "gitlab", evidenceTypeDirectoryUser, "9", map[string]any{fieldEmail: "left@acme.com"}),
 		},
 	}
 	res, err := evaluator.Evaluate(context.Background(), &evaluator.Input{

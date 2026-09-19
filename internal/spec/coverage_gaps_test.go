@@ -732,7 +732,7 @@ policies:
 		t.Fatalf("string binding should parse; got %v", err)
 	}
 	entries := cfg.BindingsFor("soc2.cc6.1.mfa")["users"]
-	if len(entries) != 1 || entries[0].Source != "aws.iam" {
+	if len(entries) != 1 || entries[0].Source != testSourceAWSIAM {
 		t.Errorf("entries = %+v", entries)
 	}
 }

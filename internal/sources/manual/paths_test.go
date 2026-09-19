@@ -6,7 +6,7 @@ import (
 )
 
 func TestFolderPrefix(t *testing.T) {
-	got := FolderPrefix(defaultPrefix, "access_review_quarterly", "2026-Q1")
+	got := FolderPrefix(defaultPrefix, testCatalogID, testPeriodID)
 	want := "manual/access_review_quarterly/2026-Q1/"
 	if got != want {
 		t.Errorf("FolderPrefix = %q; want %q", got, want)
@@ -14,7 +14,7 @@ func TestFolderPrefix(t *testing.T) {
 }
 
 func TestFolderPrefix_EmptyPrefix(t *testing.T) {
-	if got, want := FolderPrefix("", "e1", "2026-Q1"), "e1/2026-Q1/"; got != want {
+	if got, want := FolderPrefix("", "e1", testPeriodID), "e1/2026-Q1/"; got != want {
 		t.Errorf("FolderPrefix = %q; want %q", got, want)
 	}
 }
@@ -27,13 +27,13 @@ func TestFolderURI(t *testing.T) {
 	}{
 		{"s3", "s3", "eb", "s3://eb/manual/e1/2026-Q1/"},
 		{"gcs", "gs", "eb", "gs://eb/manual/e1/2026-Q1/"},
-		{"azure", "azure", "ct", "azure://ct/manual/e1/2026-Q1/"},
-		{"local with bucket", "file", "/srv", "file:///srv/manual/e1/2026-Q1/"},
-		{"local no bucket", "file", "", "manual/e1/2026-Q1/"},
+		{"azure", azureScheme, "ct", "azure://ct/manual/e1/2026-Q1/"},
+		{"local with bucket", localScheme, "/srv", "file:///srv/manual/e1/2026-Q1/"},
+		{"local no bucket", localScheme, "", "manual/e1/2026-Q1/"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := FolderURI(tc.scheme, tc.bucket, defaultPrefix, "e1", "2026-Q1")
+			got := FolderURI(tc.scheme, tc.bucket, defaultPrefix, "e1", testPeriodID)
 			if got != tc.want {
 				t.Errorf("FolderURI = %q; want %q", got, tc.want)
 			}
@@ -47,12 +47,12 @@ func TestFolderURI(t *testing.T) {
 // cross-repo contract break, so it is asserted rather than assumed.
 func TestFolderURI_MatchesCollectExpectedURI(t *testing.T) {
 	p := newTestPlugin(map[string]InMemoryFile{})
-	recs, err := p.Collect(context.Background(), baseReq("2026-Q1", nil))
+	recs, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
 	m := unmarshalManifest(t, recs)
-	want := FolderURI("s3", "acme-evidence", defaultPrefix, "access_review_quarterly", "2026-Q1")
+	want := FolderURI("s3", testBucket, defaultPrefix, testCatalogID, testPeriodID)
 	if m.ExpectedURI != want {
 		t.Errorf("Collect expected_uri = %q; FolderURI = %q", m.ExpectedURI, want)
 	}
@@ -75,7 +75,7 @@ func readerFor(t *testing.T, raw map[string]any) (Reader, error) {
 
 func TestNewReaderFromConfig_DefaultsToLocal(t *testing.T) {
 	dir := t.TempDir()
-	reader, _, bucket, prefix, err := NewReaderFromConfig(map[string]any{"path": dir})
+	reader, _, bucket, prefix, err := NewReaderFromConfig(map[string]any{keyPath: dir})
 	if err != nil {
 		t.Fatalf("NewReaderFromConfig: %v", err)
 	}

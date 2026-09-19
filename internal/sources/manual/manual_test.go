@@ -16,6 +16,35 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual/fileconv"
 )
 
+// Shared literals for the manual.pdf plugin's tests: the slot-request
+// parameter keys the plugin reads, and the fixture identifiers and object
+// keys the test bucket is populated with.
+const (
+	keyPath          = "path"
+	keyCatalogID     = "catalog_id"
+	keyPeriodID      = "period_id"
+	keyPeriodStart   = "period_start"
+	keyPeriodEnd     = "period_end"
+	keyNow           = "now"
+	keyPriorPeriodID = "prior_period_id"
+
+	azureScheme = "azure"
+
+	testBucket          = "acme-evidence"
+	testCatalogID       = "access_review_quarterly"
+	testFanOutCatalogID = "vendor_assurance"
+	testVendorID        = "acme_cloud"
+	testVendorName      = "Acme Cloud"
+	testTierCritical    = "critical"
+	testPeriodID        = "2026-Q1"
+
+	testEvidencePathQ1 = "manual/access_review_quarterly/2026-Q1/evidence.pdf"
+	testReportPathQ1   = "manual/access_review_quarterly/2026-Q1/report.docx"
+	testEvidencePathQ2 = "manual/access_review_quarterly/2026-Q2/evidence.pdf"
+	testEvPathA        = "manual/ev/2026-Q1/a.pdf"
+	testEvPathB        = "manual/ev/2026-Q1/b.png"
+)
+
 // realPDF creates a genuine, pdfcpu-compatible PDF via fileconv so
 // that merge tests work correctly. Using this instead of a hand-crafted
 // byte sequence ensures the merged PDF passes both validatePDF and
@@ -67,12 +96,12 @@ func minimalPNG() []byte {
 func newTestPlugin(files map[string]InMemoryFile) *Plugin {
 	return New(Options{
 		Reader: &InMemoryReader{Files: files},
-		Bucket: "acme-evidence",
-		Prefix: "manual/",
+		Bucket: testBucket,
+		Prefix: defaultPrefix,
 		Scheme: "s3",
 		Catalog: map[string]CatalogEntry{
-			"access_review_quarterly": {
-				EvidenceID:   "access_review_quarterly",
+			testCatalogID: {
+				EvidenceID:   testCatalogID,
 				Filename:     "evidence.pdf", // kept for compat; ignored in collection
 				Cadence:      "quarterly",
 				TemporalRule: "retrospective",
@@ -84,11 +113,11 @@ func newTestPlugin(files map[string]InMemoryFile) *Plugin {
 
 func baseReq(periodID string, extra map[string]any) core.SlotRequest {
 	params := map[string]any{
-		"catalog_id":   "access_review_quarterly",
-		"period_id":    periodID,
-		"period_start": mustTime("2026-01-01T00:00:00Z"),
-		"period_end":   mustTime("2026-03-31T23:59:59Z"),
-		"now":          mustTime("2026-04-01T00:00:00Z"),
+		keyCatalogID:   testCatalogID,
+		keyPeriodID:    periodID,
+		keyPeriodStart: mustTime("2026-01-01T00:00:00Z"),
+		keyPeriodEnd:   mustTime("2026-03-31T23:59:59Z"),
+		keyNow:         mustTime("2026-04-01T00:00:00Z"),
 	}
 	for k, v := range extra {
 		params[k] = v
@@ -135,12 +164,12 @@ func TestPlugin_InitNoOp(t *testing.T) {
 func TestCollect_PresentInWindow(t *testing.T) {
 	uploadedAt := mustTime("2026-02-15T10:00:00Z")
 	p := newTestPlugin(map[string]InMemoryFile{
-		"manual/access_review_quarterly/2026-Q1/evidence.pdf": {
+		testEvidencePathQ1: {
 			Data:       realPDF(t),
 			UploadedAt: uploadedAt,
 		},
 	})
-	records, err := p.Collect(context.Background(), baseReq("2026-Q1", nil))
+	records, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -185,7 +214,7 @@ func TestCollect_PresentInWindow(t *testing.T) {
 // TestCollect_Missing: empty folder → file_present=false.
 func TestCollect_Missing(t *testing.T) {
 	p := newTestPlugin(map[string]InMemoryFile{})
-	records, err := p.Collect(context.Background(), baseReq("2026-Q1", nil))
+	records, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -206,12 +235,12 @@ func TestCollect_Missing(t *testing.T) {
 func TestCollect_PresentOutsideWindow(t *testing.T) {
 	uploadedAt := mustTime("2025-11-15T10:00:00Z") // before period start
 	p := newTestPlugin(map[string]InMemoryFile{
-		"manual/access_review_quarterly/2026-Q1/evidence.pdf": {
+		testEvidencePathQ1: {
 			Data:       realPDF(t),
 			UploadedAt: uploadedAt,
 		},
 	})
-	records, err := p.Collect(context.Background(), baseReq("2026-Q1", nil))
+	records, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -237,7 +266,7 @@ func TestCollect_MultipleFiles(t *testing.T) {
 			UploadedAt: uploadedAt,
 		},
 	})
-	records, err := p.Collect(context.Background(), baseReq("2026-Q1", nil))
+	records, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -280,7 +309,7 @@ func TestCollect_ImageOnlyFolder(t *testing.T) {
 			UploadedAt: uploadedAt,
 		},
 	})
-	records, err := p.Collect(context.Background(), baseReq("2026-Q1", nil))
+	records, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -301,16 +330,16 @@ func TestCollect_ImageOnlyFolder(t *testing.T) {
 func TestCollect_UnsupportedFileType(t *testing.T) {
 	uploadedAt := mustTime("2026-02-15T10:00:00Z")
 	p := newTestPlugin(map[string]InMemoryFile{
-		"manual/access_review_quarterly/2026-Q1/evidence.pdf": {
+		testEvidencePathQ1: {
 			Data:       realPDF(t),
 			UploadedAt: uploadedAt,
 		},
-		"manual/access_review_quarterly/2026-Q1/report.docx": {
+		testReportPathQ1: {
 			Data:       []byte("PK...fake docx..."),
 			UploadedAt: uploadedAt,
 		},
 	})
-	records, err := p.Collect(context.Background(), baseReq("2026-Q1", nil))
+	records, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -339,12 +368,12 @@ func TestCollect_UnsupportedFileType(t *testing.T) {
 func TestCollect_AllUnsupportedTypes(t *testing.T) {
 	uploadedAt := mustTime("2026-02-15T10:00:00Z")
 	p := newTestPlugin(map[string]InMemoryFile{
-		"manual/access_review_quarterly/2026-Q1/report.docx": {
+		testReportPathQ1: {
 			Data:       []byte("PK...fake docx..."),
 			UploadedAt: uploadedAt,
 		},
 	})
-	records, err := p.Collect(context.Background(), baseReq("2026-Q1", nil))
+	records, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -361,12 +390,12 @@ func TestCollect_AllUnsupportedTypes(t *testing.T) {
 func TestCollect_PresentButEmpty(t *testing.T) {
 	uploadedAt := mustTime("2026-02-15T10:00:00Z")
 	p := newTestPlugin(map[string]InMemoryFile{
-		"manual/access_review_quarterly/2026-Q1/evidence.pdf": {
+		testEvidencePathQ1: {
 			Data:       []byte{},
 			UploadedAt: uploadedAt,
 		},
 	})
-	records, err := p.Collect(context.Background(), baseReq("2026-Q1", nil))
+	records, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -387,12 +416,12 @@ func TestCollect_PresentButNotPDF(t *testing.T) {
 	nonPDF := append([]byte("This is not a PDF, just plain text. "), bytes.Repeat([]byte("x"), minPDFBytes)...)
 	uploadedAt := mustTime("2026-02-15T10:00:00Z")
 	p := newTestPlugin(map[string]InMemoryFile{
-		"manual/access_review_quarterly/2026-Q1/evidence.pdf": {
+		testEvidencePathQ1: {
 			Data:       nonPDF,
 			UploadedAt: uploadedAt,
 		},
 	})
-	records, err := p.Collect(context.Background(), baseReq("2026-Q1", nil))
+	records, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -415,19 +444,19 @@ func TestCollect_PresentButNotPDF(t *testing.T) {
 func TestCollect_DetectsCopyPasteOfPriorPeriod(t *testing.T) {
 	body := realPDF(t)
 	p := newTestPlugin(map[string]InMemoryFile{
-		"manual/access_review_quarterly/2026-Q1/evidence.pdf": {
+		testEvidencePathQ1: {
 			Data:       body,
 			UploadedAt: mustTime("2026-02-15T10:00:00Z"),
 		},
-		"manual/access_review_quarterly/2026-Q2/evidence.pdf": {
+		testEvidencePathQ2: {
 			Data:       body,
 			UploadedAt: mustTime("2026-05-15T10:00:00Z"),
 		},
 	})
 	req := baseReq("2026-Q2", map[string]any{
-		"prior_period_id": "2026-Q1",
-		"period_start":    mustTime("2026-04-01T00:00:00Z"),
-		"period_end":      mustTime("2026-06-30T23:59:59Z"),
+		keyPriorPeriodID: testPeriodID,
+		keyPeriodStart:   mustTime("2026-04-01T00:00:00Z"),
+		keyPeriodEnd:     mustTime("2026-06-30T23:59:59Z"),
 	})
 	records, err := p.Collect(context.Background(), req)
 	if err != nil {
@@ -451,13 +480,13 @@ func TestCollect_DetectsCopyPasteOfPriorPeriod(t *testing.T) {
 // TestCollect_PriorPeriodMissingIsNotAFailure: no Q4 files exist, Q1 should still pass.
 func TestCollect_PriorPeriodMissingIsNotAFailure(t *testing.T) {
 	p := newTestPlugin(map[string]InMemoryFile{
-		"manual/access_review_quarterly/2026-Q1/evidence.pdf": {
+		testEvidencePathQ1: {
 			Data:       realPDF(t),
 			UploadedAt: mustTime("2026-02-15T10:00:00Z"),
 		},
 	})
-	req := baseReq("2026-Q1", map[string]any{
-		"prior_period_id": "2025-Q4",
+	req := baseReq(testPeriodID, map[string]any{
+		keyPriorPeriodID: "2025-Q4",
 	})
 	records, err := p.Collect(context.Background(), req)
 	if err != nil {
@@ -484,7 +513,7 @@ func TestCollect_LatestUploadTimeUsed(t *testing.T) {
 			UploadedAt: mustTime("2026-02-20T00:00:00Z"),
 		},
 	})
-	records, err := p.Collect(context.Background(), baseReq("2026-Q1", nil))
+	records, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -534,7 +563,7 @@ func TestCollect_MissingCatalogID(t *testing.T) {
 	p := newTestPlugin(nil)
 	_, err := p.Collect(context.Background(), core.SlotRequest{
 		AcceptedTypes: []string{EvidenceTypeID},
-		Params:        map[string]any{"period_id": "2026-Q1"},
+		Params:        map[string]any{keyPeriodID: testPeriodID},
 	})
 	if err == nil || !strings.Contains(err.Error(), "catalog_id missing") {
 		t.Errorf("want catalog_id missing error; got %v", err)
@@ -546,8 +575,8 @@ func TestCollect_UnknownCatalogEntry(t *testing.T) {
 	_, err := p.Collect(context.Background(), core.SlotRequest{
 		AcceptedTypes: []string{EvidenceTypeID},
 		Params: map[string]any{
-			"catalog_id": "does_not_exist",
-			"period_id":  "2026-Q1",
+			keyCatalogID: "does_not_exist",
+			keyPeriodID:  testPeriodID,
 		},
 	})
 	if err == nil || !strings.Contains(err.Error(), "not declared") {
@@ -559,7 +588,7 @@ func TestCollect_MissingPeriodID(t *testing.T) {
 	p := newTestPlugin(nil)
 	_, err := p.Collect(context.Background(), core.SlotRequest{
 		AcceptedTypes: []string{EvidenceTypeID},
-		Params:        map[string]any{"catalog_id": "access_review_quarterly"},
+		Params:        map[string]any{keyCatalogID: testCatalogID},
 	})
 	if err == nil || !strings.Contains(err.Error(), "period_id missing") {
 		t.Errorf("want period_id missing error; got %v", err)
@@ -567,14 +596,14 @@ func TestCollect_MissingPeriodID(t *testing.T) {
 }
 
 func TestBuildURI_AllSchemes(t *testing.T) {
-	for _, sc := range []string{"s3", "gs", "azure", "file", ""} {
-		p := New(Options{Bucket: "b", Prefix: "manual/", Scheme: sc})
+	for _, sc := range []string{"s3", "gs", azureScheme, localScheme, ""} {
+		p := New(Options{Bucket: "b", Prefix: defaultPrefix, Scheme: sc})
 		got := p.buildURI("manual/x/y/z/")
 		if got == "" {
 			t.Errorf("scheme %q produced empty URI", sc)
 		}
 	}
-	pNoBucket := New(Options{Scheme: "file"})
+	pNoBucket := New(Options{Scheme: localScheme})
 	if got := pNoBucket.buildURI("manual/x/"); got != "manual/x/" {
 		t.Errorf("no-bucket file URI = %q", got)
 	}
@@ -592,8 +621,8 @@ func TestSortedCatalogIDs(t *testing.T) {
 
 func TestInMemoryReader_List(t *testing.T) {
 	r := &InMemoryReader{Files: map[string]InMemoryFile{
-		"manual/ev/2026-Q1/a.pdf": {Data: []byte("a")},
-		"manual/ev/2026-Q1/b.png": {Data: []byte("b")},
+		testEvPathA:               {Data: []byte("a")},
+		testEvPathB:               {Data: []byte("b")},
 		"manual/ev/2026-Q2/c.pdf": {Data: []byte("c")},
 	}}
 	items, err := r.List(context.Background(), "manual/ev/2026-Q1/")
@@ -603,10 +632,10 @@ func TestInMemoryReader_List(t *testing.T) {
 	if len(items) != 2 {
 		t.Fatalf("len(items) = %d; want 2", len(items))
 	}
-	if items[0].Key != "manual/ev/2026-Q1/a.pdf" {
+	if items[0].Key != testEvPathA {
 		t.Errorf("items[0].Key = %q; want a.pdf", items[0].Key)
 	}
-	if items[1].Key != "manual/ev/2026-Q1/b.png" {
+	if items[1].Key != testEvPathB {
 		t.Errorf("items[1].Key = %q; want b.png", items[1].Key)
 	}
 }
@@ -735,11 +764,11 @@ func TestTimeParam_PresentAndAbsent(t *testing.T) {
 func TestInMemoryReader_Get_FoundAndMissing(t *testing.T) {
 	uploadedAt := mustTime("2026-02-15T10:00:00Z")
 	r := &InMemoryReader{Files: map[string]InMemoryFile{
-		"manual/ev/2026-Q1/a.pdf": {Data: []byte("body"), UploadedAt: uploadedAt},
+		testEvPathA: {Data: []byte("body"), UploadedAt: uploadedAt},
 	}}
 
 	// present key
-	data, ts, err := r.Get(context.Background(), "manual/ev/2026-Q1/a.pdf")
+	data, ts, err := r.Get(context.Background(), testEvPathA)
 	if err != nil {
 		t.Fatalf("Get (present): %v", err)
 	}
@@ -781,15 +810,15 @@ func TestCollect_FetchErrorPropagates(t *testing.T) {
 	sentinel := errors.New("synthetic transport failure")
 	p := New(Options{
 		Reader: &errOnGetReader{
-			listItems: []FileInfo{{Key: "manual/access_review_quarterly/2026-Q1/evidence.pdf", UploadedAt: uploadedAt}},
+			listItems: []FileInfo{{Key: testEvidencePathQ1, UploadedAt: uploadedAt}},
 			getErr:    sentinel,
 		},
-		Bucket:  "acme-evidence",
-		Prefix:  "manual/",
+		Bucket:  testBucket,
+		Prefix:  defaultPrefix,
 		Scheme:  "s3",
-		Catalog: map[string]CatalogEntry{"access_review_quarterly": {EvidenceID: "access_review_quarterly", GracePeriod: 0}},
+		Catalog: map[string]CatalogEntry{testCatalogID: {EvidenceID: testCatalogID, GracePeriod: 0}},
 	})
-	_, err := p.Collect(context.Background(), baseReq("2026-Q1", nil))
+	_, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
 	if err == nil {
 		t.Fatal("Collect: expected error, got nil")
 	}
@@ -804,7 +833,7 @@ func TestCollect_FetchErrorPropagates(t *testing.T) {
 
 func TestLocalReader_List_Success(t *testing.T) {
 	tmp := t.TempDir()
-	subdir := filepath.Join(tmp, "manual", "ev", "2026-Q1")
+	subdir := filepath.Join(tmp, "manual", "ev", testPeriodID)
 	if err := os.MkdirAll(subdir, 0o750); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
@@ -827,10 +856,10 @@ func TestLocalReader_List_Success(t *testing.T) {
 		t.Fatalf("len(items) = %d; want 2", len(items))
 	}
 	// Items must be sorted by key.
-	if items[0].Key != "manual/ev/2026-Q1/a.pdf" {
+	if items[0].Key != testEvPathA {
 		t.Errorf("items[0].Key = %q; want manual/ev/2026-Q1/a.pdf", items[0].Key)
 	}
-	if items[1].Key != "manual/ev/2026-Q1/b.png" {
+	if items[1].Key != testEvPathB {
 		t.Errorf("items[1].Key = %q; want manual/ev/2026-Q1/b.png", items[1].Key)
 	}
 	// UploadedAt must be non-zero (taken from os.Stat ModTime).
@@ -925,14 +954,14 @@ func TestCollect_ListErrorPropagates(t *testing.T) {
 	sentinel := errors.New("synthetic list transport error")
 	p := New(Options{
 		Reader: &errListReader{listErr: sentinel},
-		Bucket: "acme-evidence",
-		Prefix: "manual/",
+		Bucket: testBucket,
+		Prefix: defaultPrefix,
 		Scheme: "s3",
 		Catalog: map[string]CatalogEntry{
-			"access_review_quarterly": {EvidenceID: "access_review_quarterly"},
+			testCatalogID: {EvidenceID: testCatalogID},
 		},
 	})
-	_, err := p.Collect(context.Background(), baseReq("2026-Q1", nil))
+	_, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
 	if err == nil {
 		t.Fatal("Collect: expected error from List, got nil")
 	}
@@ -949,16 +978,16 @@ func TestCollect_NowDefaultsToCurrentTime(t *testing.T) {
 	// Omit "now" from params. parseCollectParams should default to time.Now().
 	before := time.Now().UTC()
 	p := newTestPlugin(map[string]InMemoryFile{
-		"manual/access_review_quarterly/2026-Q1/evidence.pdf": {
+		testEvidencePathQ1: {
 			Data:       realPDF(t),
 			UploadedAt: mustTime("2026-02-15T10:00:00Z"),
 		},
 	})
 	params := map[string]any{
-		"catalog_id":   "access_review_quarterly",
-		"period_id":    "2026-Q1",
-		"period_start": mustTime("2026-01-01T00:00:00Z"),
-		"period_end":   mustTime("2026-03-31T23:59:59Z"),
+		keyCatalogID:   testCatalogID,
+		keyPeriodID:    testPeriodID,
+		keyPeriodStart: mustTime("2026-01-01T00:00:00Z"),
+		keyPeriodEnd:   mustTime("2026-03-31T23:59:59Z"),
 		// Deliberately omit "now".
 	}
 	records, err := p.Collect(context.Background(), core.SlotRequest{
@@ -1019,7 +1048,7 @@ func TestCollect_ConversionFailureRecordedAsValidationFailure(t *testing.T) {
 	// continue — not abort the Collect call.
 	uploadedAt := mustTime("2026-02-15T10:00:00Z")
 	p := newTestPlugin(map[string]InMemoryFile{
-		"manual/access_review_quarterly/2026-Q1/evidence.pdf": {
+		testEvidencePathQ1: {
 			Data:       realPDF(t),
 			UploadedAt: uploadedAt,
 		},
@@ -1028,7 +1057,7 @@ func TestCollect_ConversionFailureRecordedAsValidationFailure(t *testing.T) {
 			UploadedAt: uploadedAt,
 		},
 	})
-	records, err := p.Collect(context.Background(), baseReq("2026-Q1", nil))
+	records, err := p.Collect(context.Background(), baseReq(testPeriodID, nil))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -1057,19 +1086,19 @@ func TestCollect_PriorPeriodUnsupportedFileSkipped(t *testing.T) {
 	// The prior-period check must not flag a copy-paste (no matching hashes).
 	body := realPDF(t)
 	p := newTestPlugin(map[string]InMemoryFile{
-		"manual/access_review_quarterly/2026-Q2/evidence.pdf": {
+		testEvidencePathQ2: {
 			Data:       body,
 			UploadedAt: mustTime("2026-05-15T10:00:00Z"),
 		},
-		"manual/access_review_quarterly/2026-Q1/report.docx": {
+		testReportPathQ1: {
 			Data:       []byte("PK fake docx"),
 			UploadedAt: mustTime("2026-02-15T10:00:00Z"),
 		},
 	})
 	req := baseReq("2026-Q2", map[string]any{
-		"prior_period_id": "2026-Q1",
-		"period_start":    mustTime("2026-04-01T00:00:00Z"),
-		"period_end":      mustTime("2026-06-30T23:59:59Z"),
+		keyPriorPeriodID: testPeriodID,
+		keyPeriodStart:   mustTime("2026-04-01T00:00:00Z"),
+		keyPeriodEnd:     mustTime("2026-06-30T23:59:59Z"),
 	})
 	records, err := p.Collect(context.Background(), req)
 	if err != nil {
@@ -1093,11 +1122,11 @@ func TestCollect_PriorPeriodGetErrorSkipped(t *testing.T) {
 	// fails. The check should silently skip that file and not flag copy-paste.
 	body := realPDF(t)
 	baseFiles := map[string]InMemoryFile{
-		"manual/access_review_quarterly/2026-Q2/evidence.pdf": {
+		testEvidencePathQ2: {
 			Data:       body,
 			UploadedAt: mustTime("2026-05-15T10:00:00Z"),
 		},
-		"manual/access_review_quarterly/2026-Q1/evidence.pdf": {
+		testEvidencePathQ1: {
 			Data:       body,
 			UploadedAt: mustTime("2026-02-15T10:00:00Z"),
 		},
@@ -1106,20 +1135,20 @@ func TestCollect_PriorPeriodGetErrorSkipped(t *testing.T) {
 		Reader: &selectiveGetReader{
 			files: baseFiles,
 			failKeys: map[string]bool{
-				"manual/access_review_quarterly/2026-Q1/evidence.pdf": true,
+				testEvidencePathQ1: true,
 			},
 		},
-		Bucket: "acme-evidence",
-		Prefix: "manual/",
+		Bucket: testBucket,
+		Prefix: defaultPrefix,
 		Scheme: "s3",
 		Catalog: map[string]CatalogEntry{
-			"access_review_quarterly": {EvidenceID: "access_review_quarterly", GracePeriod: 15 * 24 * time.Hour},
+			testCatalogID: {EvidenceID: testCatalogID, GracePeriod: 15 * 24 * time.Hour},
 		},
 	})
 	req := baseReq("2026-Q2", map[string]any{
-		"prior_period_id": "2026-Q1",
-		"period_start":    mustTime("2026-04-01T00:00:00Z"),
-		"period_end":      mustTime("2026-06-30T23:59:59Z"),
+		keyPriorPeriodID: testPeriodID,
+		keyPeriodStart:   mustTime("2026-04-01T00:00:00Z"),
+		keyPeriodEnd:     mustTime("2026-06-30T23:59:59Z"),
 	})
 	records, err := p.Collect(context.Background(), req)
 	if err != nil {

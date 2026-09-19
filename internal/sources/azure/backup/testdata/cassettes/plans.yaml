@@ -10,7 +10,7 @@ interactions:
         host: management.azure.com
         form:
             api-version:
-                - "2023-04-01"
+                - "2026-07-01"
         headers:
             Accept:
                 - application/json
@@ -18,7 +18,7 @@ interactions:
                 - REDACTED
             User-Agent:
                 - azsdk-go-armrecoveryservices/v1.6.0 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.RecoveryServices/vaults?api-version=2023-04-01
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.RecoveryServices/vaults?api-version=2026-07-01
         method: GET
       response:
         proto: HTTP/2.0
@@ -73,7 +73,7 @@ interactions:
         host: management.azure.com
         form:
             api-version:
-                - "2025-02-01"
+                - "2026-08-01"
         headers:
             Accept:
                 - application/json
@@ -81,7 +81,7 @@ interactions:
                 - REDACTED
             User-Agent:
                 - azsdk-go-armrecoveryservicesbackup/v4.2.0 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.RecoveryServices/vaults/sigcomply-e2e-rsv/backupPolicies?api-version=2025-02-01
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.RecoveryServices/vaults/sigcomply-e2e-rsv/backupPolicies?api-version=2026-08-01
         method: GET
       response:
         proto: HTTP/2.0

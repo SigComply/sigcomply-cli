@@ -10,6 +10,13 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// Header cells shared by more than one of the CSV renderings below.
+const (
+	csvColControlID = "control_id"
+	csvColRunID     = "run_id"
+	csvColStatus    = "status"
+)
+
 // FormatCSV writes a CSV rendering of snap to w. One row per policy
 // for the latest view, one row per exception for the exceptions view,
 // one row per run for the integrity view. Designed to play well with
@@ -44,7 +51,7 @@ func FormatCSV(w io.Writer, snap *Snapshot) error {
 }
 
 func formatCSVLatest(cw *csv.Writer, v *LatestView) error {
-	header := []string{"policy_id", "control_id", "status", "severity", "category", "last_evaluated", "run_id", "exception_id", "reason"}
+	header := []string{"policy_id", csvColControlID, csvColStatus, "severity", "category", "last_evaluated", csvColRunID, "exception_id", "reason"}
 	if err := cw.Write(header); err != nil {
 		return err
 	}
@@ -100,7 +107,7 @@ func formatCSVExceptions(cw *csv.Writer, v *ExceptionsView) error {
 }
 
 func formatCSVIntegrity(cw *csv.Writer, v *IntegrityView) error {
-	header := []string{"run_path", "run_id", "completed_at", "status", "signature_valid", "files_verified", "files_total", "first_mismatch_path", "error"}
+	header := []string{"run_path", csvColRunID, "completed_at", csvColStatus, "signature_valid", "files_verified", "files_total", "first_mismatch_path", "error"}
 	if err := cw.Write(header); err != nil {
 		return err
 	}
@@ -131,7 +138,7 @@ func formatCSVIntegrity(cw *csv.Writer, v *IntegrityView) error {
 // declared-source rows and skipped-control rows, distinguished by the
 // "kind" column so the file stays a single rectangular CSV.
 func formatCSVScope(cw *csv.Writer, v *ScopeView) error {
-	if err := cw.Write([]string{"kind", "id", "state_or_reason", "status", "declared_by", "declared_at", "run_id"}); err != nil {
+	if err := cw.Write([]string{"kind", "id", "state_or_reason", csvColStatus, "declared_by", "declared_at", csvColRunID}); err != nil {
 		return err
 	}
 	if v == nil {
@@ -158,8 +165,8 @@ func formatCSVScope(cw *csv.Writer, v *ScopeView) error {
 // a nil view still yields a well-formed header-only file.
 func formatCSVCoverage(cw *csv.Writer, v *CoverageView) error {
 	if err := cw.Write([]string{
-		"control_id", "kind", "assurance", "automated_policies", "manual_policies",
-		"evaluated", "policies", "status", "overridden", "note",
+		csvColControlID, "kind", "assurance", "automated_policies", "manual_policies",
+		"evaluated", "policies", csvColStatus, "overridden", "note",
 	}); err != nil {
 		return err
 	}
@@ -189,8 +196,8 @@ func formatCSVCoverage(cw *csv.Writer, v *CoverageView) error {
 // well-formed header-only file.
 func formatCSVSoA(cw *csv.Writer, v *SoAView) error {
 	if err := cw.Write([]string{
-		"control_id", "name", "applicable", "justification", "justification_derived",
-		"status", "assurance", "evaluated", "policies", "approved_by",
+		csvColControlID, "name", "applicable", "justification", "justification_derived",
+		csvColStatus, "assurance", "evaluated", "policies", "approved_by",
 	}); err != nil {
 		return err
 	}

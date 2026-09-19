@@ -63,8 +63,8 @@ func TestEveryFilterGuardsOptionalFields(t *testing.T) {
 		id       string
 		policies func() []core.Policy
 	}{
-		{"soc2", soc2.Policies},
-		{"iso27001", iso27001.Policies},
+		{fwSOC2, soc2.Policies},
+		{fwISO27001, iso27001.Policies},
 	} {
 		for _, pol := range fw.policies() {
 			if pol.PassWhen == nil {

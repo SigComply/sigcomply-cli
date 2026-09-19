@@ -71,8 +71,8 @@ func TestAzureEntraRosterConformance(t *testing.T) {
 	})
 	want := map[string]rosterPayload{
 		"u-alice": {ID: "u-alice", Status: "active", Email: "alice@example.com", DisplayName: "Alice Admin",
-			EmployeeID: "E100", EmployeeType: "Employee", SourceStatus: "enabled"},
-		"u-carol": {ID: "u-carol", Status: "inactive", Email: "carol@example.com", DisplayName: "Carol Leaver",
+			EmployeeID: "E100", EmployeeType: employeeTypeEmployee, SourceStatus: "enabled"},
+		userIDCarol: {ID: userIDCarol, Status: "inactive", Email: "carol@example.com", DisplayName: "Carol Leaver",
 			SourceStatus: "disabled"},
 	}
 	if len(recs) != len(want) {

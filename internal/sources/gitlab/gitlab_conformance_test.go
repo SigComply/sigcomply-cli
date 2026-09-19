@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	gitlab "gitlab.com/gitlab-org/api/client-go"
+	gitlab "gitlab.com/gitlab-org/api/client-go/v3"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/sourcetest"
@@ -161,7 +161,7 @@ func TestGitLabPeriodTypesConformance(t *testing.T) {
 		pulls: []PullRequest{
 			{
 				Repository: repoProtected, Number: 42, Author: memberOwner,
-				MergedBy: "e2e-reviewer", TargetBranch: "main",
+				MergedBy: "e2e-reviewer", TargetBranch: branchMain,
 				MergeCommitSHA: "e2e00000000000000000000000000000000000ab", MergedAt: merged,
 				Approvers: []string{"e2e-reviewer"}, ChecksPassed: true,
 			},
@@ -169,22 +169,22 @@ func TestGitLabPeriodTypesConformance(t *testing.T) {
 				// Self-approved, no pipeline: the failing side of both
 				// derived booleans.
 				Repository: repoUnprotected, Number: 7, Author: memberOwner,
-				TargetBranch: "main", MergedAt: merged.Add(24 * time.Hour),
+				TargetBranch: branchMain, MergedAt: merged.Add(24 * time.Hour),
 				Approvers: []string{memberOwner},
 			},
 		},
 		deployments: []Deployment{
 			{
 				Repository: repoProtected, ID: "900",
-				SHA: "e2e00000000000000000000000000000000000ab", Environment: "production",
-				EnvironmentTier: "production", Creator: memberOwner,
-				CreatedAt: deployed, Status: "success",
+				SHA: "e2e00000000000000000000000000000000000ab", Environment: environmentTierProduction,
+				EnvironmentTier: environmentTierProduction, Creator: memberOwner,
+				CreatedAt: deployed, Status: deploymentStatusSuccess,
 			},
 			{
 				// No user, no tier, no status: empty deployed_by, name-based
 				// is_production=false, and an "unknown" status.
 				Repository: repoUnprotected, ID: "12",
-				Environment: "staging", CreatedAt: deployed.Add(time.Hour),
+				Environment: environmentTierStaging, CreatedAt: deployed.Add(time.Hour),
 			},
 		},
 	}

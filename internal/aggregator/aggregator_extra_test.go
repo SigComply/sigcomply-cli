@@ -118,16 +118,16 @@ func TestBuild_CadenceScalarsAndControlsPassThrough(t *testing.T) {
 		PolicyID: "p1",
 		Status:   core.StatusPass,
 		Controls: []core.ControlRef{
-			{Framework: "soc2", ControlID: "SOC2.CC6.1"},
-			{Framework: "iso27001", ControlID: "A.9.4.2"},
+			{Framework: testFrameworkSOC2, ControlID: "SOC2.CC6.1"},
+			{Framework: testFrameworkISO27001, ControlID: "A.9.4.2"},
 		},
-		ConfiguredCadence: "daily",
+		ConfiguredCadence: testCadenceDaily,
 		NextDueAt:         nextDue,
 		PolicyContentHash: "sha256:abc",
 	}}
 	got := Build(results, &Environment{StartedAt: time.Now()})
 	ap := got.Policies[0]
-	if ap.ConfiguredCadence != "daily" {
+	if ap.ConfiguredCadence != testCadenceDaily {
 		t.Errorf("ConfiguredCadence = %q", ap.ConfiguredCadence)
 	}
 	if ap.NextDueAt == nil || !ap.NextDueAt.Equal(nextDue) {
@@ -139,7 +139,7 @@ func TestBuild_CadenceScalarsAndControlsPassThrough(t *testing.T) {
 	if len(ap.Controls) != 2 {
 		t.Fatalf("Controls = %d; want 2", len(ap.Controls))
 	}
-	if ap.Controls[1].Framework != "iso27001" {
+	if ap.Controls[1].Framework != testFrameworkISO27001 {
 		t.Errorf("Controls[1].Framework = %q; want iso27001", ap.Controls[1].Framework)
 	}
 }

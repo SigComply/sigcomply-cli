@@ -69,7 +69,7 @@ func TestLoadScopeConfig_Full(t *testing.T) {
 		t.Errorf("DeclaredAt = %q", sc.DeclaredAt)
 	}
 	// Sorted for determinism (Core Principle #7) regardless of file order.
-	if len(sc.RequiredSources) != 2 || sc.RequiredSources[0] != "aws.iam" || sc.RequiredSources[1] != "github" {
+	if len(sc.RequiredSources) != 2 || sc.RequiredSources[0] != testSourceAWSIAM || sc.RequiredSources[1] != testSourceGitHub {
 		t.Errorf("RequiredSources = %v; want sorted [aws.iam github]", sc.RequiredSources)
 	}
 }

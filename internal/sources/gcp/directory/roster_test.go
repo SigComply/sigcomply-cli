@@ -12,6 +12,23 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	rosterKeyStatus = "status"
+)
+
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	externalIDKeyValue    = "value"
+	rosterKeySourceStatus = "source_status"
+)
+
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	externalIDKeyType = "type"
+	rosterKeyEmail    = "email"
+)
+
 func rosterReq() core.SlotRequest {
 	return core.SlotRequest{AcceptedTypes: []string{RosterEvidenceTypeID}, PolicyID: "p1"}
 }
@@ -31,14 +48,14 @@ func TestCollect_Roster_MapsStatusEmailNameEmployeeID(t *testing.T) {
 	fake := &fakeAPI{users: []*admin.User{
 		{Id: "300", PrimaryEmail: "Carol@Acme.com", Archived: true},
 		{
-			Id: "100", PrimaryEmail: "alice@acme.com", Name: &admin.UserName{FullName: "Alice Adams"},
+			Id: "100", PrimaryEmail: testAliceEmail, Name: &admin.UserName{FullName: testAliceName},
 			ExternalIds: []any{
-				map[string]any{"type": "custom", "customType": "badge", "value": "B-1"},
-				map[string]any{"type": "organization", "value": "E-100"},
-				map[string]any{"type": "organization", "value": "E-999"},
+				map[string]any{externalIDKeyType: "custom", "customType": "badge", externalIDKeyValue: "B-1"},
+				map[string]any{externalIDKeyType: externalIDTypeOrganization, externalIDKeyValue: "E-100"},
+				map[string]any{externalIDKeyType: externalIDTypeOrganization, externalIDKeyValue: "E-999"},
 			},
 		},
-		{Id: "200", PrimaryEmail: "bob@acme.com", Suspended: true, Archived: true},
+		{Id: "200", PrimaryEmail: testBobEmail, Suspended: true, Archived: true},
 	}}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	p := New(Options{API: fake, Now: func() time.Time { return now }})
@@ -54,15 +71,15 @@ func TestCollect_Roster_MapsStatusEmailNameEmployeeID(t *testing.T) {
 		id, identity string
 		payload      map[string]any
 	}{
-		{"100", "alice@acme.com", map[string]any{
-			"id": "100", "status": "active", "source_status": "active",
-			"email": "alice@acme.com", "display_name": "Alice Adams", "employee_id": "E-100",
+		{"100", testAliceEmail, map[string]any{
+			"id": "100", rosterKeyStatus: rosterActive, rosterKeySourceStatus: rosterActive,
+			rosterKeyEmail: testAliceEmail, "display_name": testAliceName, "employee_id": "E-100",
 		}},
-		{"200", "bob@acme.com", map[string]any{
-			"id": "200", "status": "inactive", "source_status": "suspended", "email": "bob@acme.com",
+		{"200", testBobEmail, map[string]any{
+			"id": "200", rosterKeyStatus: rosterInactive, rosterKeySourceStatus: "suspended", rosterKeyEmail: testBobEmail,
 		}},
 		{"300", "carol@acme.com", map[string]any{
-			"id": "300", "status": "inactive", "source_status": "archived", "email": "Carol@Acme.com",
+			"id": "300", rosterKeyStatus: rosterInactive, rosterKeySourceStatus: "archived", rosterKeyEmail: "Carol@Acme.com",
 		}},
 	}
 	for i, w := range want {
@@ -88,7 +105,7 @@ func TestCollect_Roster_NoEmailOmitsOptionalsAndIdentity(t *testing.T) {
 	if records[0].IdentityKey != "" {
 		t.Errorf("IdentityKey = %q; want empty without email", records[0].IdentityKey)
 	}
-	want := map[string]any{"id": "1", "status": "active", "source_status": "active"}
+	want := map[string]any{"id": "1", rosterKeyStatus: rosterActive, rosterKeySourceStatus: rosterActive}
 	if got := decodeJSONMap(t, records[0].Payload); !reflect.DeepEqual(got, want) {
 		t.Errorf("payload = %v; want %v (empty optionals omitted)", got, want)
 	}
@@ -97,7 +114,7 @@ func TestCollect_Roster_NoEmailOmitsOptionalsAndIdentity(t *testing.T) {
 func TestCollect_BothTypes_OneListing_StableSortedByID(t *testing.T) {
 	fake := &fakeAPI{users: []*admin.User{
 		{Id: "2", PrimaryEmail: "b@acme.com"},
-		{Id: "1", PrimaryEmail: "a@acme.com"},
+		{Id: "1", PrimaryEmail: testUserEmail},
 	}}
 	p := New(Options{API: fake})
 	records, err := p.Collect(context.Background(), core.SlotRequest{
@@ -120,7 +137,7 @@ func TestCollect_BothTypes_OneListing_StableSortedByID(t *testing.T) {
 }
 
 func TestCollect_DirectoryUserOnly_NoRosterRecords(t *testing.T) {
-	p := New(Options{API: &fakeAPI{users: []*admin.User{{Id: "1", PrimaryEmail: "a@acme.com"}}}})
+	p := New(Options{API: &fakeAPI{users: []*admin.User{{Id: "1", PrimaryEmail: testUserEmail}}}})
 	records, err := p.Collect(context.Background(), directoryReq())
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
@@ -131,7 +148,7 @@ func TestCollect_DirectoryUserOnly_NoRosterRecords(t *testing.T) {
 }
 
 func TestCollect_ArchivedUser_DirectoryUserInactive(t *testing.T) {
-	p := New(Options{API: &fakeAPI{users: []*admin.User{{Id: "1", PrimaryEmail: "a@acme.com", Archived: true}}}})
+	p := New(Options{API: &fakeAPI{users: []*admin.User{{Id: "1", PrimaryEmail: testUserEmail, Archived: true}}}})
 	records, err := p.Collect(context.Background(), directoryReq())
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
@@ -148,21 +165,21 @@ func TestOrganizationEmployeeID_Shapes(t *testing.T) {
 		want string
 	}{
 		{"nil", nil, ""},
-		{"not a slice", map[string]any{"type": "organization", "value": "E1"}, ""},
+		{"not a slice", map[string]any{externalIDKeyType: externalIDTypeOrganization, externalIDKeyValue: "E1"}, ""},
 		{"string", "E1", ""},
 		{"empty slice", []any{}, ""},
-		{"non-map items skipped", []any{"E1", 42, nil, map[string]any{"type": "organization", "value": "E2"}}, "E2"},
-		{"non-string type", []any{map[string]any{"type": 1, "value": "E1"}}, ""},
-		{"non-string value", []any{map[string]any{"type": "organization", "value": 7}}, ""},
-		{"missing value", []any{map[string]any{"type": "organization"}}, ""},
+		{"non-map items skipped", []any{"E1", 42, nil, map[string]any{externalIDKeyType: externalIDTypeOrganization, externalIDKeyValue: "E2"}}, "E2"},
+		{"non-string type", []any{map[string]any{externalIDKeyType: 1, externalIDKeyValue: "E1"}}, ""},
+		{"non-string value", []any{map[string]any{externalIDKeyType: externalIDTypeOrganization, externalIDKeyValue: 7}}, ""},
+		{"missing value", []any{map[string]any{externalIDKeyType: externalIDTypeOrganization}}, ""},
 		{"empty value skipped", []any{
-			map[string]any{"type": "organization", "value": ""},
-			map[string]any{"type": "organization", "value": "E3"},
+			map[string]any{externalIDKeyType: externalIDTypeOrganization, externalIDKeyValue: ""},
+			map[string]any{externalIDKeyType: externalIDTypeOrganization, externalIDKeyValue: "E3"},
 		}, "E3"},
-		{"only other types", []any{map[string]any{"type": "account", "value": "A1"}}, ""},
-		{"typed pointer slice", []*admin.UserExternalId{nil, {Type: "custom", Value: "X"}, {Type: "organization", Value: "E4"}}, "E4"},
-		{"typed value slice", []admin.UserExternalId{{Type: "organization", Value: "E5"}}, "E5"},
-		{"map slice type not []any", []map[string]any{{"type": "organization", "value": "E6"}}, ""},
+		{"only other types", []any{map[string]any{externalIDKeyType: "account", externalIDKeyValue: "A1"}}, ""},
+		{"typed pointer slice", []*admin.UserExternalId{nil, {Type: "custom", Value: "X"}, {Type: externalIDTypeOrganization, Value: "E4"}}, "E4"},
+		{"typed value slice", []admin.UserExternalId{{Type: externalIDTypeOrganization, Value: "E5"}}, "E5"},
+		{"map slice type not []any", []map[string]any{{externalIDKeyType: externalIDTypeOrganization, externalIDKeyValue: "E6"}}, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

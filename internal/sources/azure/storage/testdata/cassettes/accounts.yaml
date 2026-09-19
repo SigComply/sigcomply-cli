@@ -10,7 +10,7 @@ interactions:
         host: management.azure.com
         form:
             api-version:
-                - "2024-01-01"
+                - "2026-04-01"
         headers:
             Accept:
                 - application/json
@@ -18,7 +18,7 @@ interactions:
                 - REDACTED
             User-Agent:
                 - azsdk-go-armstorage/v1.8.1 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Storage/storageAccounts?api-version=2024-01-01
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Storage/storageAccounts?api-version=2026-04-01
         method: GET
       response:
         proto: HTTP/2.0
@@ -71,7 +71,7 @@ interactions:
         host: management.azure.com
         form:
             api-version:
-                - "2024-01-01"
+                - "2026-04-01"
         headers:
             Accept:
                 - application/json
@@ -79,7 +79,7 @@ interactions:
                 - REDACTED
             User-Agent:
                 - azsdk-go-armstorage/v1.8.1 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.Storage/storageAccounts/sigcomplye2e1cd72616/blobServices/default?api-version=2024-01-01
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.Storage/storageAccounts/sigcomplye2e1cd72616/blobServices/default?api-version=2026-04-01
         method: GET
       response:
         proto: HTTP/2.0

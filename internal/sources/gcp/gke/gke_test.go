@@ -16,6 +16,13 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testClusterOpen     = "open"
+	testClusterHardened = "hardened"
+	testStatusRunning   = "RUNNING"
+)
+
 // fakeAPI drives the plugin without hitting GCP. It records the project
 // argument and call count to assert plumbing and the KISS-no-DRY axiom.
 type fakeAPI struct {
@@ -74,12 +81,12 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	fake := &fakeAPI{
 		clusters: []*container.Cluster{
 			{ // open cluster, sorts second by SelfLink.
-				Name:                 "open",
+				Name:                 testClusterOpen,
 				SelfLink:             "https://container.googleapis.com/v1/projects/p/zones/us-central1-a/clusters/open",
 				Location:             "us-central1-a",
-				Status:               "RUNNING",
+				Status:               testStatusRunning,
 				CurrentMasterVersion: "1.29.5-gke.100",
-				LoggingService:       "none",
+				LoggingService:       loggingDisabled,
 				DatabaseEncryption:   &container.DatabaseEncryption{State: "DECRYPTED"},
 				NodePools: []*container.NodePool{
 					{Name: "default", Management: &container.NodeManagement{AutoUpgrade: true}},
@@ -87,10 +94,10 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 				},
 			},
 			{ // hardened cluster, sorts first by SelfLink.
-				Name:                 "hardened",
+				Name:                 testClusterHardened,
 				SelfLink:             "https://container.googleapis.com/v1/projects/p/locations/us-central1/clusters/hardened",
 				Location:             "us-central1",
-				Status:               "RUNNING",
+				Status:               testStatusRunning,
 				CurrentMasterVersion: "1.30.1-gke.200",
 				DatabaseEncryption: &container.DatabaseEncryption{
 					State:        "ENCRYPTED",
@@ -126,7 +133,7 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	}
 	// Sorted by ID (SelfLink): ".../locations/us-central1/clusters/hardened"
 	// sorts before ".../zones/us-central1-a/clusters/open".
-	if n0, n1 := decodePayload(t, &records[0]).Name, decodePayload(t, &records[1]).Name; n0 != "hardened" || n1 != "open" {
+	if n0, n1 := decodePayload(t, &records[0]).Name, decodePayload(t, &records[1]).Name; n0 != testClusterHardened || n1 != testClusterOpen {
 		t.Fatalf("order = %q,%q; want hardened before open", n0, n1)
 	}
 	for i := range records {
@@ -143,9 +150,9 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 
 	wantHardened := clusterPayload{
 		ID:   "https://container.googleapis.com/v1/projects/p/locations/us-central1/clusters/hardened",
-		Name: "hardened", Provider: "gcp", Version: "1.30.1-gke.200",
+		Name: testClusterHardened, Provider: "gcp", Version: "1.30.1-gke.200",
 		SecretsEncryptionEnabled: true, LoggingEnabled: true, IsPrivateEndpoint: true, NodeAutoUpgradeEnabled: true,
-		Location: "us-central1", Status: "RUNNING",
+		Location: "us-central1", Status: testStatusRunning,
 		KMSKeyName:      "projects/p/locations/us-central1/keyRings/r/cryptoKeys/k",
 		EncryptionState: "ENCRYPTED", CurrentState: "CURRENT_STATE_ENCRYPTED", ReleaseChannel: "REGULAR",
 	}
@@ -155,9 +162,9 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 
 	wantOpen := clusterPayload{
 		ID:   "https://container.googleapis.com/v1/projects/p/zones/us-central1-a/clusters/open",
-		Name: "open", Provider: "gcp", Version: "1.29.5-gke.100",
+		Name: testClusterOpen, Provider: "gcp", Version: "1.29.5-gke.100",
 		SecretsEncryptionEnabled: false, LoggingEnabled: false, IsPrivateEndpoint: false, NodeAutoUpgradeEnabled: false,
-		Location: "us-central1-a", Status: "RUNNING", EncryptionState: "DECRYPTED",
+		Location: "us-central1-a", Status: testStatusRunning, EncryptionState: "DECRYPTED",
 	}
 	if got := decodePayload(t, &records[1]); !reflect.DeepEqual(got, wantOpen) {
 		t.Errorf("open payload = %+v; want %+v", got, wantOpen)
@@ -193,9 +200,9 @@ func TestLoggingEnabled(t *testing.T) {
 			LoggingService: "logging.googleapis.com/kubernetes"}, true},
 		"granular empty, legacy none": {&container.Cluster{
 			LoggingConfig:  &container.LoggingConfig{ComponentConfig: &container.LoggingComponentConfig{}},
-			LoggingService: "none"}, false},
+			LoggingService: loggingDisabled}, false},
 		"legacy on, no config":   {&container.Cluster{LoggingService: "logging.googleapis.com/kubernetes"}, true},
-		"legacy none, no config": {&container.Cluster{LoggingService: "none"}, false},
+		"legacy none, no config": {&container.Cluster{LoggingService: loggingDisabled}, false},
 		"nothing set":            {&container.Cluster{}, false},
 	}
 	for name, c := range cases {

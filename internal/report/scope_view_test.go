@@ -13,11 +13,11 @@ import (
 // that half is what a green run hides regardless of any declaration.
 func TestFormatTextScope_UndeclaredStillShowsSkips(t *testing.T) {
 	snap := &report.Snapshot{
-		View: report.ViewScope, Framework: "soc2", PeriodID: "2026-Q1",
+		View: report.ViewScope, Framework: frameworkSOC2, PeriodID: testPeriodQ1,
 		Scope: &report.ScopeView{
 			Declared: false,
 			Skipped: []report.SkippedPolicy{
-				{PolicyID: "soc2.cc6.1.mfa", Status: "skip", Reason: "required slot has no records"},
+				{PolicyID: testPolicyMFA, Status: "skip", Reason: reasonNoRecords},
 			},
 		},
 	}
@@ -29,20 +29,20 @@ func TestFormatTextScope_UndeclaredStillShowsSkips(t *testing.T) {
 	if !strings.Contains(out, "Declared estate: none") {
 		t.Errorf("missing undeclared line:\n%s", out)
 	}
-	if !strings.Contains(out, "soc2.cc6.1.mfa") || !strings.Contains(out, "excluded from the compliance score") {
+	if !strings.Contains(out, testPolicyMFA) || !strings.Contains(out, "excluded from the compliance score") {
 		t.Errorf("skipped controls not surfaced:\n%s", out)
 	}
 }
 
 func TestFormatTextScope_DeclaredRendersSourcesAndVerdict(t *testing.T) {
 	snap := &report.Snapshot{
-		View: report.ViewScope, Framework: "soc2", PeriodID: "2026-Q1",
+		View: report.ViewScope, Framework: frameworkSOC2, PeriodID: testPeriodQ1,
 		Scope: &report.ScopeView{
-			Declared: true, Status: "incomplete",
-			DeclaredBy: "ciso@example.com", DeclaredAt: "2026-09-13",
+			Declared: true, Status: statusIncomplete,
+			DeclaredBy: testApprover, DeclaredAt: "2026-09-13",
 			Sources: []report.ScopeSource{
 				{SourceID: "github", State: "ok"},
-				{SourceID: "okta", State: "not_configured"},
+				{SourceID: testSourceOkta, State: stateNotConfigured},
 			},
 		},
 	}
@@ -51,7 +51,7 @@ func TestFormatTextScope_DeclaredRendersSourcesAndVerdict(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"incomplete", "ciso@example.com", "okta", "not_configured", "Every control in the latest run was evaluated."} {
+	for _, want := range []string{statusIncomplete, testApprover, testSourceOkta, stateNotConfigured, "Every control in the latest run was evaluated."} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output missing %q:\n%s", want, out)
 		}
@@ -60,11 +60,11 @@ func TestFormatTextScope_DeclaredRendersSourcesAndVerdict(t *testing.T) {
 
 func TestFormatCSVScope_RowsAndHeader(t *testing.T) {
 	snap := &report.Snapshot{
-		View: report.ViewScope, Framework: "soc2", PeriodID: "2026-Q1",
+		View: report.ViewScope, Framework: frameworkSOC2, PeriodID: testPeriodQ1,
 		Scope: &report.ScopeView{
-			Declared: true, Status: "incomplete", RunID: "r1",
-			Sources: []report.ScopeSource{{SourceID: "okta", State: "not_configured"}},
-			Skipped: []report.SkippedPolicy{{PolicyID: "p1", Status: "skip", Reason: "required slot has no records"}},
+			Declared: true, Status: statusIncomplete, RunID: "r1",
+			Sources: []report.ScopeSource{{SourceID: testSourceOkta, State: stateNotConfigured}},
+			Skipped: []report.SkippedPolicy{{PolicyID: "p1", Status: "skip", Reason: reasonNoRecords}},
 		},
 	}
 	var buf bytes.Buffer
@@ -87,7 +87,7 @@ func TestFormatCSVScope_RowsAndHeader(t *testing.T) {
 }
 
 func TestFormatScope_NilViewDoesNotPanic(t *testing.T) {
-	snap := &report.Snapshot{View: report.ViewScope, Framework: "soc2", PeriodID: "2026-Q1"}
+	snap := &report.Snapshot{View: report.ViewScope, Framework: frameworkSOC2, PeriodID: testPeriodQ1}
 	var text, csv bytes.Buffer
 	if err := report.FormatText(&text, snap); err != nil {
 		t.Fatal(err)
@@ -103,9 +103,9 @@ func TestFormatScope_NilViewDoesNotPanic(t *testing.T) {
 // Auditors diff runs, so repeated formatting must be byte-identical.
 func TestFormatTextScope_Deterministic(t *testing.T) {
 	snap := &report.Snapshot{
-		View: report.ViewScope, Framework: "soc2", PeriodID: "2026-Q1",
+		View: report.ViewScope, Framework: frameworkSOC2, PeriodID: testPeriodQ1,
 		Scope: &report.ScopeView{
-			Declared: true, Status: "incomplete",
+			Declared: true, Status: statusIncomplete,
 			Sources: []report.ScopeSource{{SourceID: "a", State: "ok"}, {SourceID: "b", State: "no_records"}},
 			Skipped: []report.SkippedPolicy{{PolicyID: "p1", Reason: "x"}, {PolicyID: "p2", Reason: "y"}},
 		},

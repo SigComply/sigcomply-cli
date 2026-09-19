@@ -18,6 +18,38 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources/azure/internal/azcommon"
 )
 
+const (
+	testTenantID = "tenant-123"
+
+	userTypeMember       = "Member"
+	userTypeGuest        = "Guest"
+	employeeTypeEmployee = "Employee"
+
+	userIDAdele = "u-adele"
+	userIDAmy   = "u-amy"
+	userIDBare  = "u-bare"
+	userIDBob   = "u-bob"
+	userIDCarol = "u-carol"
+	userIDGuest = "u-guest"
+	userIDZed   = "u-zed"
+
+	displayNameAdele = "Adele"
+	displayNameCarol = "Carol"
+
+	emailAdele  = "adele@contoso.com"
+	emailBob    = "bob@contoso.com"
+	emailCarol  = "carol@contoso.com"
+	emailUser1  = "a@contoso.com"
+	upnGuestExt = "guest_ext#EXT#@contoso.com"
+
+	graphKeyValue          = "value"
+	graphKeyAccountEnabled = "accountEnabled"
+	graphKeyMail           = "mail"
+	graphKeyUPN            = "userPrincipalName"
+	graphKeyDisplayName    = "displayName"
+	graphKeyUserType       = "userType"
+)
+
 // fakeAPI is the in-memory API seam for Collect-level tests.
 type fakeAPI struct {
 	users       []User
@@ -79,12 +111,12 @@ func TestCollect_MapsSortsAndScopes(t *testing.T) {
 			DisplayName: "Zelda Z", IsActive: false, IsAdmin: false, MFAEnabled: false,
 		},
 		{
-			ID: "u-adele", UPN: "adele@contoso.com", Email: "adele@contoso.com",
+			ID: userIDAdele, UPN: emailAdele, Email: emailAdele,
 			DisplayName: "Adele V", IsActive: true, IsAdmin: true, MFAEnabled: true,
 			LastLoginAt: login,
 		},
 	}}
-	p := New(Options{API: api, Tenant: "tenant-123", Now: fixedNow})
+	p := New(Options{API: api, Tenant: testTenantID, Now: fixedNow})
 
 	records, err := p.Collect(context.Background(), acceptDirectoryUser())
 	if err != nil {
@@ -93,12 +125,12 @@ func TestCollect_MapsSortsAndScopes(t *testing.T) {
 	if len(records) != 2 {
 		t.Fatalf("got %d records, want 2", len(records))
 	}
-	if records[0].ID != "u-adele" || records[1].ID != "u-zelda" {
+	if records[0].ID != userIDAdele || records[1].ID != "u-zelda" {
 		t.Fatalf("records not sorted by ID: %q, %q", records[0].ID, records[1].ID)
 	}
 
 	adele := records[0]
-	if adele.IdentityKey != "adele@contoso.com" {
+	if adele.IdentityKey != emailAdele {
 		t.Errorf("IdentityKey = %q, want adele@contoso.com", adele.IdentityKey)
 	}
 	if adele.SourceID != "azure.entra" || adele.Type != "directory_user" {
@@ -107,7 +139,7 @@ func TestCollect_MapsSortsAndScopes(t *testing.T) {
 	if !adele.CollectedAt.Equal(fixedNow()) {
 		t.Errorf("CollectedAt = %v, want %v", adele.CollectedAt, fixedNow())
 	}
-	if adele.Scope == nil || adele.Scope.Account != "tenant-123" {
+	if adele.Scope == nil || adele.Scope.Account != testTenantID {
 		t.Errorf("Scope.Account = %v, want tenant-123", adele.Scope)
 	}
 
@@ -116,9 +148,9 @@ func TestCollect_MapsSortsAndScopes(t *testing.T) {
 		t.Fatalf("unmarshal payload: %v", err)
 	}
 	want := userPayload{
-		ID:          "u-adele",
+		ID:          userIDAdele,
 		DisplayName: "Adele V",
-		Email:       "adele@contoso.com",
+		Email:       emailAdele,
 		MFAEnabled:  true,
 		IsAdmin:     true,
 		IsActive:    true,
@@ -139,7 +171,7 @@ func TestCollect_EmailFallbackToUPN(t *testing.T) {
 	// Guest with no mailbox: Email empty → IdentityKey falls back to UPN,
 	// and the email field is omitted from the payload (no format:email risk).
 	api := &fakeAPI{users: []User{
-		{ID: "u-guest", UPN: "guest_ext#EXT#@contoso.com", DisplayName: "", IsActive: true},
+		{ID: userIDGuest, UPN: upnGuestExt, DisplayName: "", IsActive: true},
 	}}
 	p := New(Options{API: api, Now: fixedNow})
 	records, err := p.Collect(context.Background(), acceptDirectoryUser())
@@ -147,7 +179,7 @@ func TestCollect_EmailFallbackToUPN(t *testing.T) {
 		t.Fatalf("Collect: %v", err)
 	}
 	rec := records[0]
-	if rec.IdentityKey != "guest_ext#EXT#@contoso.com" {
+	if rec.IdentityKey != upnGuestExt {
 		t.Errorf("IdentityKey = %q, want UPN fallback", rec.IdentityKey)
 	}
 	if strings.Contains(string(rec.Payload), "\"email\"") {
@@ -158,7 +190,7 @@ func TestCollect_EmailFallbackToUPN(t *testing.T) {
 	if err := json.Unmarshal(rec.Payload, &got); err != nil {
 		t.Fatalf("unmarshal payload: %v", err)
 	}
-	if got.DisplayName != "guest_ext#EXT#@contoso.com" {
+	if got.DisplayName != upnGuestExt {
 		t.Errorf("DisplayName = %q, want UPN fallback", got.DisplayName)
 	}
 }
@@ -216,21 +248,21 @@ func newGraphFixture(t *testing.T) *httptest.Server {
 		}
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/reports/authenticationMethods/userRegistrationDetails"):
-			writeJSON(t, w, map[string]any{"value": []map[string]any{
-				{"id": "u-adele", "isAdmin": true, "isMfaRegistered": true},
-				{"id": "u-bob", "isAdmin": false, "isMfaRegistered": false},
+			writeJSON(t, w, map[string]any{graphKeyValue: []map[string]any{
+				{"id": userIDAdele, "isAdmin": true, "isMfaRegistered": true},
+				{"id": userIDBob, "isAdmin": false, "isMfaRegistered": false},
 			}})
 		case strings.HasPrefix(r.URL.Path, "/users") && r.URL.Query().Get("page") == "2":
-			writeJSON(t, w, map[string]any{"value": []map[string]any{
-				{"id": "u-carol", "userPrincipalName": "carol@contoso.com", "mail": nil, "displayName": "Carol", "accountEnabled": false},
+			writeJSON(t, w, map[string]any{graphKeyValue: []map[string]any{
+				{"id": userIDCarol, graphKeyUPN: emailCarol, graphKeyMail: nil, graphKeyDisplayName: displayNameCarol, graphKeyAccountEnabled: false},
 			}})
 		case strings.HasPrefix(r.URL.Path, "/users"):
 			writeJSON(t, w, map[string]any{
 				"@odata.nextLink": srv.URL + "/users?page=2",
-				"value": []map[string]any{
-					{"id": "u-adele", "userPrincipalName": "adele@contoso.com", "mail": "adele@contoso.com", "displayName": "Adele", "accountEnabled": true,
+				graphKeyValue: []map[string]any{
+					{"id": userIDAdele, graphKeyUPN: emailAdele, graphKeyMail: emailAdele, graphKeyDisplayName: displayNameAdele, graphKeyAccountEnabled: true,
 						"signInActivity": map[string]any{"lastSignInDateTime": "2026-05-01T09:30:00Z"}},
-					{"id": "u-bob", "userPrincipalName": "bob@contoso.com", "mail": "bob@contoso.com", "displayName": "Bob", "accountEnabled": true},
+					{"id": userIDBob, graphKeyUPN: emailBob, graphKeyMail: emailBob, graphKeyDisplayName: "Bob", graphKeyAccountEnabled: true},
 				},
 			})
 		default:
@@ -258,11 +290,11 @@ func TestRealGraph_ListUsers_MergesAndPaginates(t *testing.T) {
 	}
 
 	want := []User{
-		{ID: "u-adele", Email: "adele@contoso.com", MFAEnabled: true, IsAdmin: true, IsActive: true, LastLoginAt: time.Date(2026, 5, 1, 9, 30, 0, 0, time.UTC)},
+		{ID: userIDAdele, Email: emailAdele, MFAEnabled: true, IsAdmin: true, IsActive: true, LastLoginAt: time.Date(2026, 5, 1, 9, 30, 0, 0, time.UTC)},
 		// Bob present in the report (non-mfa, non-admin), never signed in.
-		{ID: "u-bob", Email: "bob@contoso.com", IsActive: true},
+		{ID: userIDBob, Email: emailBob, IsActive: true},
 		// Carol absent from the report → honest false flags; nil mail → empty email.
-		{ID: "u-carol"},
+		{ID: userIDCarol},
 	}
 	for i := range want {
 		got := byID[want[i].ID]
@@ -313,7 +345,7 @@ func TestRealGraph_UsersError(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/reports/") {
-			writeJSON(t, w, map[string]any{"value": []map[string]any{}})
+			writeJSON(t, w, map[string]any{graphKeyValue: []map[string]any{}})
 			return
 		}
 		http.Error(w, "forbidden", http.StatusForbidden)

@@ -13,6 +13,13 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sign"
 )
 
+const (
+	testSourceAWSIAM      = "aws.iam"
+	testTypeDirectoryUser = "directory_user"
+	testTypeSignedDoc     = "signed_document"
+	testRecordID          = "AID1"
+)
+
 // stubSource lets us drive Collect with canned records / errors.
 type stubSource struct {
 	id      string
@@ -101,18 +108,18 @@ func makePolicy(id, slot, evType string, sourceIDs ...string) planner.PlannedPol
 
 func TestCollect_WritesSignedEnvelopePerSlotSource(t *testing.T) {
 	src := &stubSource{
-		id:    "aws.iam",
-		emits: []string{"directory_user"},
+		id:    testSourceAWSIAM,
+		emits: []string{testTypeDirectoryUser},
 		records: []core.EvidenceRecord{
-			{Type: "directory_user", ID: "AID2", SourceID: "aws.iam"},
-			{Type: "directory_user", ID: "AID1", SourceID: "aws.iam"},
+			{Type: testTypeDirectoryUser, ID: "AID2", SourceID: testSourceAWSIAM},
+			{Type: testTypeDirectoryUser, ID: testRecordID, SourceID: testSourceAWSIAM},
 		},
 	}
 	reg := registry.NewSet()
 	if err := reg.Sources.Register(src); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
-	pp := makePolicy("soc2.cc6.1.mfa", "u", "directory_user", "aws.iam")
+	pp := makePolicy("soc2.cc6.1.mfa", "u", testTypeDirectoryUser, testSourceAWSIAM)
 	vault := newMemVault()
 	out, err := Collect(context.Background(), &Input{
 		Plan:    &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
@@ -129,7 +136,7 @@ func TestCollect_WritesSignedEnvelopePerSlotSource(t *testing.T) {
 	}
 	// Two records, sorted by ID: AID1 before AID2.
 	got := out.RecordsByPolicy["soc2.cc6.1.mfa"]["u"]
-	if len(got) != 2 || got[0].ID != "AID1" {
+	if len(got) != 2 || got[0].ID != testRecordID {
 		t.Errorf("records not sorted: got %v", recordIDs(got))
 	}
 	if len(vault.envelopes) != 1 {
@@ -146,14 +153,14 @@ func TestCollect_WritesSignedEnvelopePerSlotSource(t *testing.T) {
 }
 
 func TestCollect_UnionsMultipleBindingsForOneSlot(t *testing.T) {
-	srcA := &stubSource{id: "aws.iam", emits: []string{"directory_user"},
-		records: []core.EvidenceRecord{{Type: "directory_user", ID: "AID1"}}}
-	srcB := &stubSource{id: "okta", emits: []string{"directory_user"},
-		records: []core.EvidenceRecord{{Type: "directory_user", ID: "OKT1"}}}
+	srcA := &stubSource{id: testSourceAWSIAM, emits: []string{testTypeDirectoryUser},
+		records: []core.EvidenceRecord{{Type: testTypeDirectoryUser, ID: testRecordID}}}
+	srcB := &stubSource{id: "okta", emits: []string{testTypeDirectoryUser},
+		records: []core.EvidenceRecord{{Type: testTypeDirectoryUser, ID: "OKT1"}}}
 	reg := registry.NewSet()
 	mustRegister(t, reg.Sources.Register(srcA))
 	mustRegister(t, reg.Sources.Register(srcB))
-	pp := makePolicy("p1", "u", "directory_user", "aws.iam", "okta")
+	pp := makePolicy("p1", "u", testTypeDirectoryUser, testSourceAWSIAM, "okta")
 	vault := newMemVault()
 	out, err := Collect(context.Background(), &Input{
 		Plan: &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}}, Sources: reg.Sources, Vault: vault, RunRoot: "r",
@@ -170,10 +177,10 @@ func TestCollect_UnionsMultipleBindingsForOneSlot(t *testing.T) {
 }
 
 func TestCollect_SourceErrorTagsPolicy(t *testing.T) {
-	src := &stubSource{id: "aws.iam", emits: []string{"directory_user"}, err: errors.New("api down")}
+	src := &stubSource{id: testSourceAWSIAM, emits: []string{testTypeDirectoryUser}, err: errors.New("api down")}
 	reg := registry.NewSet()
 	mustRegister(t, reg.Sources.Register(src))
-	pp := makePolicy("p1", "u", "directory_user", "aws.iam")
+	pp := makePolicy("p1", "u", testTypeDirectoryUser, testSourceAWSIAM)
 	out, err := Collect(context.Background(), &Input{
 		Plan: &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}}, Sources: reg.Sources, Vault: newMemVault(), RunRoot: "r",
 	})
@@ -187,7 +194,7 @@ func TestCollect_SourceErrorTagsPolicy(t *testing.T) {
 
 func TestCollect_UnregisteredSourceTagsPolicy(t *testing.T) {
 	reg := registry.NewSet()
-	pp := makePolicy("p1", "u", "directory_user", "aws.iam")
+	pp := makePolicy("p1", "u", testTypeDirectoryUser, testSourceAWSIAM)
 	out, err := Collect(context.Background(), &Input{
 		Plan: &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}}, Sources: reg.Sources, Vault: newMemVault(), RunRoot: "r",
 	})
@@ -201,10 +208,10 @@ func TestCollect_UnregisteredSourceTagsPolicy(t *testing.T) {
 }
 
 func TestCollect_WholePolicyExceptionSkipsFetch(t *testing.T) {
-	src := &stubSource{id: "aws.iam", emits: []string{"directory_user"}}
+	src := &stubSource{id: testSourceAWSIAM, emits: []string{testTypeDirectoryUser}}
 	reg := registry.NewSet()
 	mustRegister(t, reg.Sources.Register(src))
-	pp := makePolicy("p1", "u", "directory_user", "aws.iam")
+	pp := makePolicy("p1", "u", testTypeDirectoryUser, testSourceAWSIAM)
 	pp.Exception = &planner.Exception{State: core.StatusNA}
 	_, err := Collect(context.Background(), &Input{
 		Plan: &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}}, Sources: reg.Sources, Vault: newMemVault(), RunRoot: "r",
@@ -218,12 +225,12 @@ func TestCollect_WholePolicyExceptionSkipsFetch(t *testing.T) {
 }
 
 func TestCollect_KISSNoDRY_TwoPoliciesSameSourceTwoFetches(t *testing.T) {
-	src := &stubSource{id: "aws.iam", emits: []string{"directory_user"},
-		records: []core.EvidenceRecord{{Type: "directory_user", ID: "AID1"}}}
+	src := &stubSource{id: testSourceAWSIAM, emits: []string{testTypeDirectoryUser},
+		records: []core.EvidenceRecord{{Type: testTypeDirectoryUser, ID: testRecordID}}}
 	reg := registry.NewSet()
 	mustRegister(t, reg.Sources.Register(src))
-	p1 := makePolicy("p1", "u", "directory_user", "aws.iam")
-	p2 := makePolicy("p2", "u", "directory_user", "aws.iam")
+	p1 := makePolicy("p1", "u", testTypeDirectoryUser, testSourceAWSIAM)
+	p2 := makePolicy("p2", "u", testTypeDirectoryUser, testSourceAWSIAM)
 	_, err := Collect(context.Background(), &Input{
 		Plan: &planner.RunPlan{Policies: []planner.PlannedPolicy{p1, p2}}, Sources: reg.Sources, Vault: newMemVault(), RunRoot: "r",
 	})
@@ -236,19 +243,19 @@ func TestCollect_KISSNoDRY_TwoPoliciesSameSourceTwoFetches(t *testing.T) {
 }
 
 func TestCollect_PassesSlotParamsAndExtras(t *testing.T) {
-	src := &stubSource{id: "manual.pdf", emits: []string{"signed_document"},
-		records: []core.EvidenceRecord{{Type: "signed_document", ID: "e/p"}}}
+	src := &stubSource{id: "manual.pdf", emits: []string{testTypeSignedDoc},
+		records: []core.EvidenceRecord{{Type: testTypeSignedDoc, ID: "e/p"}}}
 	reg := registry.NewSet()
 	mustRegister(t, reg.Sources.Register(src))
 	pp := planner.PlannedPolicy{
 		Spec: core.Policy{
 			ID: "p1",
 			Slots: map[string]core.Slot{
-				"doc": {Accepts: []string{"signed_document"}, Cardinality: core.SlotExactlyOne, Required: true},
+				"doc": {Accepts: []string{testTypeSignedDoc}, Cardinality: core.SlotExactlyOne, Required: true},
 			},
 		},
 		Bindings: map[string][]planner.Binding{
-			"doc": {{SourceID: "manual.pdf", AcceptedTypes: []string{"signed_document"}, CatalogID: "access_review_quarterly", SlotParams: map[string]any{"custom": 42}}},
+			"doc": {{SourceID: "manual.pdf", AcceptedTypes: []string{testTypeSignedDoc}, CatalogID: "access_review_quarterly", SlotParams: map[string]any{"custom": 42}}},
 		},
 		ShouldEvaluate: true,
 	}
@@ -272,18 +279,18 @@ func TestCollect_PassesSlotParamsAndExtras(t *testing.T) {
 	if got["custom"] != 42 {
 		t.Errorf("custom slot param dropped: %v", got)
 	}
-	if !src.lastReq.Accepts("signed_document") {
+	if !src.lastReq.Accepts(testTypeSignedDoc) {
 		t.Errorf("AcceptedTypes = %v; want to include signed_document", src.lastReq.AcceptedTypes)
 	}
 }
 
 func TestEnvelopePath_FormatsConsistently(t *testing.T) {
-	got := envelopePath("soc2/2026-Q1/run_x", "p1", "directory_user", "aws.iam", "")
+	got := envelopePath("soc2/2026-Q1/run_x", "p1", testTypeDirectoryUser, testSourceAWSIAM, "")
 	want := "soc2/2026-Q1/run_x/policies/p1/envelopes/directory_user__aws.iam.json"
 	if got != want {
 		t.Errorf("envelopePath = %q; want %q", got, want)
 	}
-	got = envelopePath("r", "p1", "signed_document", "manual.pdf", "access_review_quarterly")
+	got = envelopePath("r", "p1", testTypeSignedDoc, "manual.pdf", "access_review_quarterly")
 	want = "r/policies/p1/envelopes/signed_document__manual.pdf_access_review_quarterly.json"
 	if got != want {
 		t.Errorf("envelopePath catalog = %q; want %q", got, want)

@@ -13,7 +13,10 @@ import (
 
 // --- in-package fake plugin + synthetic evidence type ----------------------
 
-const widgetType = "test_widget"
+const (
+	widgetType   = "test_widget"
+	testSourceID = "test"
+)
 
 var fixedTime = time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 
@@ -61,7 +64,7 @@ func widgetRecord(name, region string, enabled bool) core.EvidenceRecord {
 		Type:        widgetType,
 		ID:          name,
 		Payload:     mustJSON(widget{Name: name, Region: region, Enabled: enabled}),
-		SourceID:    "test",
+		SourceID:    testSourceID,
 		CollectedAt: fixedTime,
 	}
 }
@@ -72,7 +75,7 @@ func rawRecord(id, typeID, payload string) core.EvidenceRecord {
 		Type:        typeID,
 		ID:          id,
 		Payload:     json.RawMessage(payload),
-		SourceID:    "test",
+		SourceID:    testSourceID,
 		CollectedAt: fixedTime,
 	}
 }
@@ -86,7 +89,7 @@ type fakePlugin struct {
 	runs   int
 }
 
-func (f *fakePlugin) ID() string                                 { return "test" }
+func (f *fakePlugin) ID() string                                 { return testSourceID }
 func (f *fakePlugin) Emits() []string                            { return f.emits }
 func (f *fakePlugin) Init(context.Context, map[string]any) error { return nil }
 

@@ -11,9 +11,30 @@ import (
 	"testing"
 	"time"
 
-	gitlab "gitlab.com/gitlab-org/api/client-go"
+	gitlab "gitlab.com/gitlab-org/api/client-go/v3"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+)
+
+// Shared literals for the GitLab plugin tests: raw GitLab API values and
+// the fake group/repo/member identifiers the fixtures reuse.
+const (
+	branchMain             = "main"
+	environmentTierStaging = "staging"
+	environmentNameProd    = "prod"
+	gitlabStatusFailed     = "failed"
+
+	testGroup     = "acme"
+	testRepoR1    = "acme/r1"
+	testRepoAPI   = "acme-group/api"
+	testMergeSHA  = "abc123"
+	testUserAmy   = "amy"
+	testUserBob   = "bob"
+	testUserCarol = "carol"
+	testUserDave  = "dave"
+	testUserErin  = "erin"
+
+	pathGroupProjects = "/api/v4/groups/acme/projects"
 )
 
 // fakeAPI drives the plugin without real network calls.
@@ -93,8 +114,8 @@ func TestPlugin_InitNoOp(t *testing.T) {
 func TestCollectRepos_HappyPath_SortsByID(t *testing.T) {
 	fake := &fakeAPI{
 		repos: []Repo{
-			{Name: "acme/zeta", DefaultBranch: "main", ProtectionOn: false, RequiredReviews: 0},
-			{Name: "acme/alpha", DefaultBranch: "main", ProtectionOn: true, RequiredReviews: 2},
+			{Name: "acme/zeta", DefaultBranch: branchMain, ProtectionOn: false, RequiredReviews: 0},
+			{Name: "acme/alpha", DefaultBranch: branchMain, ProtectionOn: true, RequiredReviews: 2},
 		},
 	}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
@@ -134,7 +155,7 @@ func TestCollectRepos_HappyPath_SortsByID(t *testing.T) {
 // policy-read property must be present in the emitted JSON (an absent
 // field errors the consuming policy rather than reading as false).
 func TestCollectRepos_EmitsRequiredFields(t *testing.T) {
-	fake := &fakeAPI{repos: []Repo{{Name: "acme/r1", DefaultBranch: "main"}}}
+	fake := &fakeAPI{repos: []Repo{{Name: testRepoR1, DefaultBranch: branchMain}}}
 	p := New(Options{API: fake})
 	recs, err := p.Collect(context.Background(),
 		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeRepository}})
@@ -180,7 +201,7 @@ func TestCollectMembers_HappyPath_SortsByID(t *testing.T) {
 	fake := &fakeAPI{
 		members: []Member{
 			{Username: "zoe", Name: "Zoe Z", Email: "zoe@acme.io", MFAEnabled: false, IsAdmin: false, IsActive: true},
-			{Username: "amy", Name: "Amy A", Email: "amy@acme.io", MFAEnabled: true, IsAdmin: true, IsActive: true},
+			{Username: testUserAmy, Name: "Amy A", Email: "amy@acme.io", MFAEnabled: true, IsAdmin: true, IsActive: true},
 		},
 	}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
@@ -193,7 +214,7 @@ func TestCollectMembers_HappyPath_SortsByID(t *testing.T) {
 	if len(records) != 2 {
 		t.Fatalf("len = %d; want 2", len(records))
 	}
-	if records[0].ID != "amy" || records[1].ID != "zoe" {
+	if records[0].ID != testUserAmy || records[1].ID != "zoe" {
 		t.Errorf("not sorted by ID: %v %v", records[0].ID, records[1].ID)
 	}
 	for i := range records {
@@ -204,7 +225,7 @@ func TestCollectMembers_HappyPath_SortsByID(t *testing.T) {
 		t.Fatalf("Unmarshal amy: %v", err)
 	}
 	want := memberPayload{
-		ID: "amy", Username: "amy", DisplayName: "Amy A", Email: "amy@acme.io",
+		ID: testUserAmy, Username: testUserAmy, DisplayName: "Amy A", Email: "amy@acme.io",
 		MFAEnabled: true, IsAdmin: true, IsActive: true,
 	}
 	if amy != want {
@@ -265,7 +286,7 @@ func TestCollectMembers_ErrorPropagates(t *testing.T) {
 // receives repos and members together in one call.
 func TestCollect_BothTypes(t *testing.T) {
 	fake := &fakeAPI{
-		repos:   []Repo{{Name: "acme/r1", DefaultBranch: "main"}},
+		repos:   []Repo{{Name: testRepoR1, DefaultBranch: branchMain}},
 		members: []Member{{Username: "u1", IsActive: true}},
 	}
 	p := New(Options{API: fake})
@@ -289,7 +310,7 @@ func TestCollect_BothTypes(t *testing.T) {
 }
 
 func TestCollect_DefaultNowIsInjected(t *testing.T) {
-	fake := &fakeAPI{repos: []Repo{{Name: "acme/r1", DefaultBranch: "main"}}}
+	fake := &fakeAPI{repos: []Repo{{Name: testRepoR1, DefaultBranch: branchMain}}}
 	p := New(Options{API: fake}) // Now nil → time.Now().UTC()
 	before := time.Now().UTC()
 	recs, err := p.Collect(context.Background(),
@@ -305,7 +326,7 @@ func TestCollect_DefaultNowIsInjected(t *testing.T) {
 // TestCollect_KISSNoDRY_EachCallReFetches asserts the plugin caches
 // nothing across Collect calls.
 func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
-	fake := &fakeAPI{repos: []Repo{{Name: "acme/r1", DefaultBranch: "main"}}}
+	fake := &fakeAPI{repos: []Repo{{Name: testRepoR1, DefaultBranch: branchMain}}}
 	p := New(Options{API: fake})
 	for range 3 {
 		if _, err := p.Collect(context.Background(),
@@ -322,10 +343,10 @@ func TestNewFromToken_ValidatesArgs(t *testing.T) {
 	if _, err := NewFromToken(context.Background(), "", "tok", ""); err == nil {
 		t.Error("want error for empty group")
 	}
-	if _, err := NewFromToken(context.Background(), "acme", "", ""); err == nil {
+	if _, err := NewFromToken(context.Background(), testGroup, "", ""); err == nil {
 		t.Error("want error for empty token")
 	}
-	if _, err := NewFromToken(context.Background(), "acme", "tok", ""); err != nil {
+	if _, err := NewFromToken(context.Background(), testGroup, "tok", ""); err != nil {
 		t.Errorf("valid args: %v", err)
 	}
 }
@@ -340,7 +361,7 @@ func TestSDKAPI_ListRepos_HappyPath(t *testing.T) {
 	// adapter's degrade-gracefully path for unprotected branches / no
 	// push rule on free tier).
 	responses := map[string]string{
-		"/api/v4/groups/acme/projects": `[` +
+		pathGroupProjects: `[` +
 			`{"id":7,"path_with_namespace":"acme/web","default_branch":"main",` +
 			`"visibility":"private","archived":false,"merge_method":"ff",` +
 			`"pre_receive_secret_detection_enabled":true},` +
@@ -375,7 +396,7 @@ func TestSDKAPI_ListRepos_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
-	api := &sdkAPI{client: client, group: "acme"}
+	api := &sdkAPI{client: client, group: testGroup}
 	repos, err := api.ListRepos(context.Background())
 	if err != nil {
 		t.Fatalf("ListRepos: %v", err)
@@ -459,7 +480,7 @@ func TestSDKAPI_ListMembers_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
-	api := &sdkAPI{client: client, group: "acme"}
+	api := &sdkAPI{client: client, group: testGroup}
 	members, err := api.ListMembers(context.Background())
 	if err != nil {
 		t.Fatalf("ListMembers: %v", err)
@@ -476,11 +497,11 @@ func TestSDKAPI_ListMembers_HappyPath(t *testing.T) {
 		got  bool
 		want bool
 	}{
-		{"bob.IsAdmin", byName["bob"].IsAdmin, true}, // Owner role
-		{"bob.MFAEnabled", byName["bob"].MFAEnabled, true},
-		{"bob.IsActive", byName["bob"].IsActive, true},
-		{"carol.IsAdmin", byName["carol"].IsAdmin, true}, // instance admin folded in
-		{"carol.MFAEnabled", byName["carol"].MFAEnabled, false},
+		{"bob.IsAdmin", byName[testUserBob].IsAdmin, true}, // Owner role
+		{"bob.MFAEnabled", byName[testUserBob].MFAEnabled, true},
+		{"bob.IsActive", byName[testUserBob].IsActive, true},
+		{"carol.IsAdmin", byName[testUserCarol].IsAdmin, true}, // instance admin folded in
+		{"carol.MFAEnabled", byName[testUserCarol].MFAEnabled, false},
 		{"dan.IsAdmin", byName["dan"].IsAdmin, false},       // Developer, 403 read
 		{"dan.MFAEnabled", byName["dan"].MFAEnabled, false}, // best-effort on 403
 		{"dan.IsActive", byName["dan"].IsActive, true},
@@ -490,8 +511,8 @@ func TestSDKAPI_ListMembers_HappyPath(t *testing.T) {
 			t.Errorf("%s = %v; want %v", c.name, c.got, c.want)
 		}
 	}
-	if byName["bob"].Email != "bob@acme.io" {
-		t.Errorf("bob.Email = %q; want bob@acme.io", byName["bob"].Email)
+	if byName[testUserBob].Email != "bob@acme.io" {
+		t.Errorf("bob.Email = %q; want bob@acme.io", byName[testUserBob].Email)
 	}
 }
 
@@ -559,16 +580,16 @@ func assertRecordMeta(t *testing.T, rec *core.EvidenceRecord, wantType string) {
 func TestCollectPullRequests_HappyPath_SortsByID(t *testing.T) {
 	fake := &fakeAPI{pulls: []PullRequest{
 		{
-			Repository: "acme-group/web", Number: 9, Author: "dave",
-			MergedBy: "erin", TargetBranch: "release/1.0",
+			Repository: "acme-group/web", Number: 9, Author: testUserDave,
+			MergedBy: testUserErin, TargetBranch: "release/1.0",
 			MergeCommitSHA: "sq1", MergedAt: insidePeriod.Add(24 * time.Hour),
-			Approvers: []string{"erin"}, ChecksPassed: false,
+			Approvers: []string{testUserErin}, ChecksPassed: false,
 		},
 		{
-			Repository: "acme-group/api", Number: 42, Author: "bob",
-			MergedBy: "carol", TargetBranch: "main",
-			MergeCommitSHA: "abc123", MergedAt: insidePeriod,
-			Approvers: []string{"carol", "dave"}, ChecksPassed: true,
+			Repository: testRepoAPI, Number: 42, Author: testUserBob,
+			MergedBy: testUserCarol, TargetBranch: branchMain,
+			MergeCommitSHA: testMergeSHA, MergedAt: insidePeriod,
+			Approvers: []string{testUserCarol, testUserDave}, ChecksPassed: true,
 		},
 	}}
 	recs := collectPeriodType(t, fake, EvidenceTypePullRequest)
@@ -583,8 +604,8 @@ func TestCollectPullRequests_HappyPath_SortsByID(t *testing.T) {
 	var got pullRequestPayload
 	mustUnmarshal(t, recs[0].Payload, &got)
 	want := pullRequestPayload{
-		Repository: "acme-group/api", Number: 42, Author: "bob",
-		MergedBy: "carol", TargetBranch: "main", MergeCommitSHA: "abc123",
+		Repository: testRepoAPI, Number: 42, Author: testUserBob,
+		MergedBy: testUserCarol, TargetBranch: branchMain, MergeCommitSHA: testMergeSHA,
 		MergedAt:      insidePeriod.Format(time.RFC3339),
 		ApprovalCount: 2, IndependentApprovalCount: 2,
 		ApprovedBeforeMerge: true, ChecksPassed: true,
@@ -614,17 +635,17 @@ func TestCollectPullRequests_ApprovalDerivation(t *testing.T) {
 		approvers []string
 		want      derived
 	}{
-		{"independent approval", "bob", []string{"carol"}, derived{1, 1, true}},
-		{"self-approval only", "bob", []string{"bob"}, derived{1, 0, false}},
-		{"self plus independent", "bob", []string{"bob", "carol"}, derived{2, 1, true}},
-		{"duplicate approvers counted once", "bob", []string{"carol", "carol"}, derived{1, 1, true}},
-		{"blank approvers ignored", "bob", []string{"", "   ", "carol"}, derived{1, 1, true}},
-		{"no approvers", "bob", nil, derived{0, 0, false}},
+		{"independent approval", testUserBob, []string{testUserCarol}, derived{1, 1, true}},
+		{"self-approval only", testUserBob, []string{testUserBob}, derived{1, 0, false}},
+		{"self plus independent", testUserBob, []string{testUserBob, testUserCarol}, derived{2, 1, true}},
+		{"duplicate approvers counted once", testUserBob, []string{testUserCarol, testUserCarol}, derived{1, 1, true}},
+		{"blank approvers ignored", testUserBob, []string{"", "   ", testUserCarol}, derived{1, 1, true}},
+		{"no approvers", testUserBob, nil, derived{0, 0, false}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			fake := &fakeAPI{pulls: []PullRequest{{
-				Repository: "acme-group/api", Number: 1, Author: tc.author,
+				Repository: testRepoAPI, Number: 1, Author: tc.author,
 				MergedAt: insidePeriod, Approvers: tc.approvers,
 			}}}
 			recs := collectPeriodType(t, fake, EvidenceTypePullRequest)
@@ -645,10 +666,10 @@ func TestCollectPullRequests_ApprovalDerivation(t *testing.T) {
 // window itself rather than trusting the adapter's server-side filter.
 func TestCollectPullRequests_WindowFilter(t *testing.T) {
 	fake := &fakeAPI{pulls: []PullRequest{
-		{Repository: "acme-group/api", Number: 1, MergedAt: insidePeriod},
-		{Repository: "acme-group/api", Number: 2, MergedAt: beforePeriod},
-		{Repository: "acme-group/api", Number: 3, MergedAt: periodEnd.Add(time.Hour)},
-		{Repository: "acme-group/api", Number: 4}, // never merged
+		{Repository: testRepoAPI, Number: 1, MergedAt: insidePeriod},
+		{Repository: testRepoAPI, Number: 2, MergedAt: beforePeriod},
+		{Repository: testRepoAPI, Number: 3, MergedAt: periodEnd.Add(time.Hour)},
+		{Repository: testRepoAPI, Number: 4}, // never merged
 	}}
 	recs := collectPeriodType(t, fake, EvidenceTypePullRequest)
 	if got := recordIDs(recs); !reflect.DeepEqual(got, []string{"acme-group/api#1"}) {
@@ -662,7 +683,7 @@ func TestCollectPullRequests_WindowFilter(t *testing.T) {
 // false/zero).
 func TestCollectPullRequests_EmitsRequiredFields(t *testing.T) {
 	fake := &fakeAPI{pulls: []PullRequest{
-		{Repository: "acme-group/api", Number: 1, MergedAt: insidePeriod},
+		{Repository: testRepoAPI, Number: 1, MergedAt: insidePeriod},
 	}}
 	recs := collectPeriodType(t, fake, EvidenceTypePullRequest)
 	assertPayloadFields(t, recs[0].Payload, []string{
@@ -686,14 +707,14 @@ func TestCollectPullRequests_ErrorPropagates(t *testing.T) {
 func TestCollectDeployments_HappyPath_SortsByID(t *testing.T) {
 	fake := &fakeAPI{deployments: []Deployment{
 		{
-			Repository: "acme-group/web", ID: "12", Environment: "staging",
-			EnvironmentTier: "staging", CreatedAt: insidePeriod.Add(time.Hour),
-			Status: "failed",
+			Repository: "acme-group/web", ID: "12", Environment: environmentTierStaging,
+			EnvironmentTier: environmentTierStaging, CreatedAt: insidePeriod.Add(time.Hour),
+			Status: gitlabStatusFailed,
 		},
 		{
-			Repository: "acme-group/api", ID: "900", SHA: "abc123",
-			Environment: "production", EnvironmentTier: "production",
-			Creator: "bob", CreatedAt: insidePeriod, Status: "success",
+			Repository: testRepoAPI, ID: "900", SHA: testMergeSHA,
+			Environment: environmentTierProduction, EnvironmentTier: environmentTierProduction,
+			Creator: testUserBob, CreatedAt: insidePeriod, Status: deploymentStatusSuccess,
 		},
 	}}
 	recs := collectPeriodType(t, fake, EvidenceTypeDeployment)
@@ -708,10 +729,10 @@ func TestCollectDeployments_HappyPath_SortsByID(t *testing.T) {
 	var got deploymentPayload
 	mustUnmarshal(t, recs[0].Payload, &got)
 	want := deploymentPayload{
-		Repository: "acme-group/api", DeploymentID: "900", Environment: "production",
-		IsProduction: true, DeployedBy: "bob",
-		DeployedAt: insidePeriod.Format(time.RFC3339), CommitSHA: "abc123",
-		Status: "success",
+		Repository: testRepoAPI, DeploymentID: "900", Environment: environmentTierProduction,
+		IsProduction: true, DeployedBy: testUserBob,
+		DeployedAt: insidePeriod.Format(time.RFC3339), CommitSHA: testMergeSHA,
+		Status: deploymentStatusSuccess,
 	}
 	if got != want {
 		t.Errorf("payload = %+v; want %+v", got, want)
@@ -733,20 +754,20 @@ func TestCollectDeployments_DerivedFields(t *testing.T) {
 		status  string
 		want    derived
 	}{
-		{"production tier", "production", "blue-prod-1", "success", derived{true, "success"}},
-		{"non-production tier beats production-looking name", "staging", "prod", "success", derived{false, "success"}},
-		{"no tier, name prod", "", "prod", "running", derived{true, "pending"}},
-		{"no tier, name Production cased", "", "Production", "created", derived{true, "pending"}},
-		{"no tier, name live", "", "live", "blocked", derived{true, "pending"}},
-		{"no tier, name staging", "", "staging", "failed", derived{false, "failure"}},
-		{"canceled is failure", "", "staging", "canceled", derived{false, "failure"}},
-		{"unrecognized status is unknown", "", "staging", "skipped", derived{false, "unknown"}},
-		{"empty status is unknown", "", "staging", "", derived{false, "unknown"}},
+		{"production tier", environmentTierProduction, "blue-prod-1", deploymentStatusSuccess, derived{true, deploymentStatusSuccess}},
+		{"non-production tier beats production-looking name", environmentTierStaging, environmentNameProd, deploymentStatusSuccess, derived{false, deploymentStatusSuccess}},
+		{"no tier, name prod", "", environmentNameProd, "running", derived{true, deploymentStatusPending}},
+		{"no tier, name Production cased", "", "Production", "created", derived{true, deploymentStatusPending}},
+		{"no tier, name live", "", "live", "blocked", derived{true, deploymentStatusPending}},
+		{"no tier, name staging", "", environmentTierStaging, gitlabStatusFailed, derived{false, "failure"}},
+		{"canceled is failure", "", environmentTierStaging, "canceled", derived{false, "failure"}},
+		{"unrecognized status is unknown", "", environmentTierStaging, "skipped", derived{false, "unknown"}},
+		{"empty status is unknown", "", environmentTierStaging, "", derived{false, "unknown"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			fake := &fakeAPI{deployments: []Deployment{{
-				Repository: "acme-group/api", ID: "1", Environment: tc.envName,
+				Repository: testRepoAPI, ID: "1", Environment: tc.envName,
 				EnvironmentTier: tc.tier, CreatedAt: insidePeriod, Status: tc.status,
 			}}}
 			recs := collectPeriodType(t, fake, EvidenceTypeDeployment)
@@ -770,10 +791,10 @@ func TestCollectDeployments_DerivedFields(t *testing.T) {
 // window itself.
 func TestCollectDeployments_WindowFilter(t *testing.T) {
 	fake := &fakeAPI{deployments: []Deployment{
-		{Repository: "acme-group/api", ID: "1", CreatedAt: insidePeriod},
-		{Repository: "acme-group/api", ID: "2", CreatedAt: beforePeriod},
-		{Repository: "acme-group/api", ID: "3", CreatedAt: periodEnd.Add(time.Hour)},
-		{Repository: "acme-group/api", ID: "4"},
+		{Repository: testRepoAPI, ID: "1", CreatedAt: insidePeriod},
+		{Repository: testRepoAPI, ID: "2", CreatedAt: beforePeriod},
+		{Repository: testRepoAPI, ID: "3", CreatedAt: periodEnd.Add(time.Hour)},
+		{Repository: testRepoAPI, ID: "4"},
 	}}
 	recs := collectPeriodType(t, fake, EvidenceTypeDeployment)
 	if got := recordIDs(recs); !reflect.DeepEqual(got, []string{"acme-group/api/deployments/1"}) {
@@ -785,7 +806,7 @@ func TestCollectDeployments_WindowFilter(t *testing.T) {
 // the deployment payload.
 func TestCollectDeployments_EmitsRequiredFields(t *testing.T) {
 	fake := &fakeAPI{deployments: []Deployment{
-		{Repository: "acme-group/api", ID: "1", CreatedAt: insidePeriod},
+		{Repository: testRepoAPI, ID: "1", CreatedAt: insidePeriod},
 	}}
 	recs := collectPeriodType(t, fake, EvidenceTypeDeployment)
 	assertPayloadFields(t, recs[0].Payload, []string{
@@ -850,7 +871,7 @@ func TestPeriodWindow(t *testing.T) {
 //   - an MR from a project outside the group listing, which is skipped
 func TestSDKAPI_ListMergedPullRequests_HappyPath(t *testing.T) {
 	responses := map[string]string{
-		"/api/v4/groups/acme/projects": `[` +
+		pathGroupProjects: `[` +
 			`{"id":7,"path_with_namespace":"acme/web"},` +
 			`{"id":8,"path_with_namespace":"acme/api"}]`,
 		"/api/v4/groups/acme/merge_requests": `[` +
@@ -875,16 +896,16 @@ func TestSDKAPI_ListMergedPullRequests_HappyPath(t *testing.T) {
 	}
 	want := []PullRequest{
 		{
-			Repository: "acme/web", Number: 42, Author: "bob", MergedBy: "carol",
-			TargetBranch: "main", MergeCommitSHA: "abc123",
+			Repository: "acme/web", Number: 42, Author: testUserBob, MergedBy: testUserCarol,
+			TargetBranch: branchMain, MergeCommitSHA: testMergeSHA,
 			MergedAt:  time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC),
-			Approvers: []string{"carol"}, ChecksPassed: true,
+			Approvers: []string{testUserCarol}, ChecksPassed: true,
 		},
 		{
 			// Squash merge → squash_commit_sha stands in for the absent
 			// merge commit; approvals 403 → no approvers, non-fatal; no
 			// pipelines → checks_passed false.
-			Repository: "acme/api", Number: 7, Author: "dave", MergedBy: "erin",
+			Repository: "acme/api", Number: 7, Author: testUserDave, MergedBy: testUserErin,
 			TargetBranch: "develop", MergeCommitSHA: "sq1",
 			MergedAt: time.Date(2026, 3, 2, 9, 0, 0, 0, time.UTC),
 		},
@@ -900,7 +921,7 @@ func TestSDKAPI_ListMergedPullRequests_HappyPath(t *testing.T) {
 // and a deployment created outside the window is dropped.
 func TestSDKAPI_ListDeployments_HappyPath(t *testing.T) {
 	responses := map[string]string{
-		"/api/v4/groups/acme/projects": `[` +
+		pathGroupProjects: `[` +
 			`{"id":8,"path_with_namespace":"acme/api"},` +
 			`{"id":7,"path_with_namespace":"acme/web"}]`,
 		"/api/v4/projects/7/deployments": `[` +
@@ -920,14 +941,14 @@ func TestSDKAPI_ListDeployments_HappyPath(t *testing.T) {
 	}
 	want := []Deployment{
 		{
-			Repository: "acme/web", ID: "900", SHA: "abc123", Environment: "production",
-			EnvironmentTier: "production", Creator: "bob",
-			CreatedAt: time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC), Status: "success",
+			Repository: "acme/web", ID: "900", SHA: testMergeSHA, Environment: environmentTierProduction,
+			EnvironmentTier: environmentTierProduction, Creator: testUserBob,
+			CreatedAt: time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC), Status: deploymentStatusSuccess,
 		},
 		{
 			// id omitted → iid is the fallback identifier.
-			Repository: "acme/api", ID: "12", Environment: "prod",
-			CreatedAt: time.Date(2026, 3, 2, 9, 0, 0, 0, time.UTC), Status: "failed",
+			Repository: "acme/api", ID: "12", Environment: environmentNameProd,
+			CreatedAt: time.Date(2026, 3, 2, 9, 0, 0, 0, time.UTC), Status: gitlabStatusFailed,
 		},
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -936,7 +957,7 @@ func TestSDKAPI_ListDeployments_HappyPath(t *testing.T) {
 }
 
 func TestSDKAPI_ListMergedPullRequests_ErrorPropagates(t *testing.T) {
-	api := newTestSDKAPI(t, nil, map[string]bool{"/api/v4/groups/acme/projects": true})
+	api := newTestSDKAPI(t, nil, map[string]bool{pathGroupProjects: true})
 	if _, err := api.ListMergedPullRequests(context.Background(), periodStart, periodEnd); err == nil {
 		t.Error("want error when the project listing fails")
 	}
@@ -944,7 +965,7 @@ func TestSDKAPI_ListMergedPullRequests_ErrorPropagates(t *testing.T) {
 
 func TestSDKAPI_ListDeployments_ErrorPropagates(t *testing.T) {
 	responses := map[string]string{
-		"/api/v4/groups/acme/projects": `[{"id":7,"path_with_namespace":"acme/web"}]`,
+		pathGroupProjects: `[{"id":7,"path_with_namespace":"acme/web"}]`,
 	}
 	api := newTestSDKAPI(t, responses,
 		map[string]bool{"/api/v4/projects/7/deployments": true})
@@ -974,5 +995,5 @@ func newTestSDKAPI(t *testing.T, responses map[string]string, denied map[string]
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
-	return &sdkAPI{client: client, group: "acme"}
+	return &sdkAPI{client: client, group: testGroup}
 }

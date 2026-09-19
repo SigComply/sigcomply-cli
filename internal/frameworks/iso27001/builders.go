@@ -19,6 +19,40 @@ import (
 
 const slotName = "evidence"
 
+// Cadences the policy tables schedule against.
+const (
+	cadenceDaily     = "daily"
+	cadenceQuarterly = "quarterly"
+	cadenceAnnual    = "annual"
+)
+
+// Policy categories — the grouping axis carried into results and the
+// cloud payload.
+const (
+	catAccess           = "access"
+	catAvailability     = "availability"
+	catChangeManagement = "change-management"
+	catDataProtection   = "data-protection"
+	catGovernance       = "governance"
+	catLogging          = "logging"
+	catMonitoring       = "monitoring"
+	catNetwork          = "network"
+)
+
+// Evidence-type IDs accepted by more than one policy. These are the
+// registry's wire IDs — the only mediator between a policy and the
+// source plugins that emit the type.
+const (
+	etAuditLogTrail           = "audit_log_trail"
+	etComputeInstance         = "compute_instance"
+	etFirewallRule            = "firewall_rule"
+	etGitRepository           = "git_repository"
+	etManagedDatabaseInstance = "managed_database_instance"
+	etObjectStorageBucket     = "object_storage_bucket"
+	etPullRequest             = "pull_request"
+	etSourceControlOrgPolicy  = "source_control_org_policy"
+)
+
 // controlRefs wraps a single ISO 27001 Annex A control ID into the
 // framework-namespaced ControlRef list every policy carries. The
 // framework ID and version qualify the bare control ID (e.g. "A.8.9")
@@ -84,7 +118,7 @@ func (r rosterPolicy) policy() core.Policy {
 	clause.Slot, clause.IdentityKey = "accounts", "account.ref"
 	return core.Policy{
 		ID: r.id, Controls: controlRefs(r.control), Description: r.desc, Remediation: r.rem,
-		Severity: r.severity, Category: "access", Cadence: "daily", OnPush: true,
+		Severity: r.severity, Category: catAccess, Cadence: cadenceDaily, OnPush: true,
 		EvidenceMode: core.EvidenceModeAutomated,
 		Slots: map[string]core.Slot{
 			"roster":   {Accepts: []string{"roster_entry"}, Cardinality: core.SlotExactlyOne, Required: true, Role: core.SlotRoleRoster, Description: "people in the designated roster directory"},
@@ -172,7 +206,7 @@ func (m manualPolicy) policy() core.Policy {
 		Description:  m.desc,
 		Remediation:  m.rem,
 		Severity:     core.SeverityMedium,
-		Category:     "governance",
+		Category:     catGovernance,
 		Cadence:      m.cadence,
 		OnPush:       false,
 		EvidenceMode: core.EvidenceModeManual,

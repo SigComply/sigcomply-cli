@@ -26,7 +26,7 @@ func TestBuild_FanOutVendorIdentifiersNeverReachTheWire(t *testing.T) {
 	results := []core.PolicyResult{{
 		PolicyID: "soc2.cc9.2.vendor_assurance",
 		Controls: []core.ControlRef{{
-			Framework: "soc2", FrameworkVersion: "soc2-2017@1.0.0",
+			Framework: testFrameworkSOC2, FrameworkVersion: testFrameworkVersionSOC2,
 			ControlID: "CC9.2", Relationship: core.RelationshipEqual,
 		}},
 		Status:             core.StatusFail,
@@ -44,7 +44,7 @@ func TestBuild_FanOutVendorIdentifiersNeverReachTheWire(t *testing.T) {
 
 	payload := Build(results, &Environment{
 		RunID:     "run_1",
-		Framework: "soc2",
+		Framework: testFrameworkSOC2,
 		PeriodID:  "2026-Q3",
 	})
 

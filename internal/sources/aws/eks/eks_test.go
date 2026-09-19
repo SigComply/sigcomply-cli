@@ -14,6 +14,12 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// clusterZeta is the second cluster name shared by this file's fixtures.
+const clusterZeta = "zeta"
+
+// clusterAlpha is the cluster name shared by this file's fixtures.
+const clusterAlpha = "alpha"
+
 type fakeAPI struct {
 	clusters    []string
 	descByName  map[string]*ekstypes.Cluster
@@ -65,10 +71,10 @@ func TestPlugin_InitNoOp(t *testing.T) {
 
 func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	fake := &fakeAPI{
-		clusters: []string{"zeta", "alpha"},
+		clusters: []string{clusterZeta, clusterAlpha},
 		descByName: map[string]*ekstypes.Cluster{
-			"alpha": {
-				Name:    ptr("alpha"),
+			clusterAlpha: {
+				Name:    ptr(clusterAlpha),
 				Arn:     ptr("arn:aws:eks::1:cluster/alpha"),
 				Status:  ekstypes.ClusterStatusActive,
 				Version: ptr("1.30"),
@@ -77,8 +83,8 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 					Provider:  &ekstypes.Provider{KeyArn: ptr("arn:aws:kms:::key/abc")},
 				}},
 			},
-			"zeta": {
-				Name:    ptr("zeta"),
+			clusterZeta: {
+				Name:    ptr(clusterZeta),
 				Arn:     ptr("arn:aws:eks::1:cluster/zeta"),
 				Status:  ekstypes.ClusterStatusActive,
 				Version: ptr("1.30"),
@@ -94,7 +100,7 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	if len(records) != 2 {
 		t.Fatalf("len(records) = %d; want 2", len(records))
 	}
-	if records[0].ID != "alpha" || records[1].ID != "zeta" {
+	if records[0].ID != clusterAlpha || records[1].ID != clusterZeta {
 		t.Errorf("records not sorted by ID: got %v", []string{records[0].ID, records[1].ID})
 	}
 	var alpha clusterPayload

@@ -19,6 +19,14 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testServiceAll      = "allServices"
+	testLogTypeDataRead = "DATA_READ"
+	testCMEKKey         = "projects/p/locations/us/keyRings/r/cryptoKeys/k"
+	testProjectID       = "proj-1"
+)
+
 // fakeAPI drives the plugin without hitting GCP. It records the project
 // argument and per-method call counts to assert plumbing and the
 // KISS-no-DRY axiom.
@@ -88,23 +96,23 @@ func TestCollect_SingletonRecord(t *testing.T) {
 	fake := &fakeAPI{
 		configs: []*cloudresourcemanager.AuditConfig{
 			{
-				Service: "allServices",
+				Service: testServiceAll,
 				AuditLogConfigs: []*cloudresourcemanager.AuditLogConfig{
 					{LogType: "ADMIN_READ"},
-					{LogType: "DATA_READ"},
+					{LogType: testLogTypeDataRead},
 				},
 			},
 		},
-		cmekKey: "projects/p/locations/us/keyRings/r/cryptoKeys/k",
+		cmekKey: testCMEKKey,
 	}
 	now := time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC)
-	p := New(Options{API: fake, ProjectID: "proj-1", Now: func() time.Time { return now }})
+	p := New(Options{API: fake, ProjectID: testProjectID, Now: func() time.Time { return now }})
 
 	records, err := p.Collect(context.Background(), auditReq())
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
-	if fake.project != "proj-1" {
+	if fake.project != testProjectID {
 		t.Errorf("project = %q; want proj-1", fake.project)
 	}
 	if len(records) != 1 {
@@ -126,7 +134,7 @@ func TestCollect_SingletonRecord(t *testing.T) {
 
 	want := trailPayload{
 		ID:                       "projects/proj-1/cloudAuditLogs",
-		Name:                     "proj-1",
+		Name:                     testProjectID,
 		Provider:                 "gcp",
 		IsEnabled:                true,
 		IsMultiRegion:            true,
@@ -134,7 +142,7 @@ func TestCollect_SingletonRecord(t *testing.T) {
 		KMSEncrypted:             true,
 		DataAccessLoggingEnabled: true,
 		AuditedServices:          1,
-		KMSKeyName:               "projects/p/locations/us/keyRings/r/cryptoKeys/k",
+		KMSKeyName:               testCMEKKey,
 	}
 	if got := decodePayload(t, &r); !reflect.DeepEqual(got, want) {
 		t.Errorf("payload = %+v; want %+v", got, want)
@@ -178,12 +186,12 @@ func TestDataAccessLoggingEnabled(t *testing.T) {
 		{"nil entry skipped", []*cloudresourcemanager.AuditConfig{nil}, false},
 		{
 			"data_read no exemptions",
-			[]*cloudresourcemanager.AuditConfig{{AuditLogConfigs: []*cloudresourcemanager.AuditLogConfig{{LogType: "DATA_READ"}}}},
+			[]*cloudresourcemanager.AuditConfig{{AuditLogConfigs: []*cloudresourcemanager.AuditLogConfig{{LogType: testLogTypeDataRead}}}},
 			true,
 		},
 		{
 			"data_read but fully exempted",
-			[]*cloudresourcemanager.AuditConfig{{AuditLogConfigs: []*cloudresourcemanager.AuditLogConfig{{LogType: "DATA_READ", ExemptedMembers: []string{"user:x@e.com"}}}}},
+			[]*cloudresourcemanager.AuditConfig{{AuditLogConfigs: []*cloudresourcemanager.AuditLogConfig{{LogType: testLogTypeDataRead, ExemptedMembers: []string{"user:x@e.com"}}}}},
 			false,
 		},
 		{
@@ -210,8 +218,8 @@ func TestAuditedServiceCount(t *testing.T) {
 	configs := []*cloudresourcemanager.AuditConfig{
 		nil,
 		{Service: "empty"}, // no AuditLogConfigs → not counted
-		{Service: "storage.googleapis.com", AuditLogConfigs: []*cloudresourcemanager.AuditLogConfig{{LogType: "DATA_READ"}}},
-		{Service: "allServices", AuditLogConfigs: []*cloudresourcemanager.AuditLogConfig{{LogType: "ADMIN_READ"}}},
+		{Service: "storage.googleapis.com", AuditLogConfigs: []*cloudresourcemanager.AuditLogConfig{{LogType: testLogTypeDataRead}}},
+		{Service: testServiceAll, AuditLogConfigs: []*cloudresourcemanager.AuditLogConfig{{LogType: "ADMIN_READ"}}},
 	}
 	if got := auditedServiceCount(configs); got != 2 {
 		t.Errorf("auditedServiceCount = %d; want 2", got)
@@ -263,7 +271,7 @@ func TestCollect_KISS_NoDRY_EachCallReFetches(t *testing.T) {
 func TestRealAudit_GetAuditConfigs(t *testing.T) {
 	body := mustMarshal(t, cloudresourcemanager.Policy{
 		AuditConfigs: []*cloudresourcemanager.AuditConfig{
-			{Service: "allServices", AuditLogConfigs: []*cloudresourcemanager.AuditLogConfig{{LogType: "DATA_READ"}}},
+			{Service: testServiceAll, AuditLogConfigs: []*cloudresourcemanager.AuditLogConfig{{LogType: testLogTypeDataRead}}},
 		},
 	})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -281,7 +289,7 @@ func TestRealAudit_GetAuditConfigs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetAuditConfigs: %v", err)
 	}
-	if len(configs) != 1 || configs[0].Service != "allServices" {
+	if len(configs) != 1 || configs[0].Service != testServiceAll {
 		t.Fatalf("configs = %+v; want one allServices config", configs)
 	}
 }
@@ -301,7 +309,7 @@ func TestRealAudit_GetAuditConfigs_Error(t *testing.T) {
 // TestRealAudit_GetCMEKKeyName exercises the production adapter against an
 // httptest server, verifying it reads the project CMEK settings.
 func TestRealAudit_GetCMEKKeyName(t *testing.T) {
-	body := mustMarshal(t, logging.CmekSettings{KmsKeyName: "projects/p/locations/us/keyRings/r/cryptoKeys/k"})
+	body := mustMarshal(t, logging.CmekSettings{KmsKeyName: testCMEKKey})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(r.URL.Path, "/cmekSettings") {
 			http.Error(w, "unexpected path "+r.URL.Path, http.StatusBadRequest)
@@ -317,7 +325,7 @@ func TestRealAudit_GetCMEKKeyName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetCMEKKeyName: %v", err)
 	}
-	if key != "projects/p/locations/us/keyRings/r/cryptoKeys/k" {
+	if key != testCMEKKey {
 		t.Fatalf("key = %q; want the configured CMEK key", key)
 	}
 }

@@ -203,7 +203,7 @@ func TestEvaluate_ManualDispatch_NoRequiredSlotCheck(t *testing.T) {
 			// gate on requiredSlotsPopulated — it handles missing records
 			// inside evaluateManual.
 			Slots: map[string]core.Slot{
-				"_manual": {Accepts: []string{"signed_document"}, Required: true, Cardinality: core.SlotExactlyOne},
+				slotManual: {Accepts: []string{"signed_document"}, Required: true, Cardinality: core.SlotExactlyOne},
 			},
 		},
 		ShouldEvaluate: true,
@@ -284,8 +284,8 @@ result := {"status": "pass"} if {
 		PolicyID: "p1",
 		Now:      time.Date(2026, 2, 15, 0, 0, 0, 0, time.UTC),
 		Slots: map[string][]core.EvidenceRecord{
-			"users": {
-				{ID: "u1", SourceID: "aws.iam", Payload: json.RawMessage(`{"mfa_enabled": false}`)},
+			slotUsers: {
+				{ID: "u1", SourceID: testSourceAWSIAM, Payload: json.RawMessage(`{"mfa_enabled": false}`)},
 			},
 		},
 	}
@@ -321,7 +321,7 @@ result := {"status": "pass"}
 	}
 	in := core.RuleInput{
 		Slots: map[string][]core.EvidenceRecord{
-			"users": {{ID: "u1", Payload: json.RawMessage(`{not valid`)}},
+			slotUsers: {{ID: "u1", Payload: json.RawMessage(`{not valid`)}},
 		},
 	}
 	if _, evalErr := rule.Evaluate(context.Background(), in); evalErr == nil {

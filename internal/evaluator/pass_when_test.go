@@ -11,6 +11,55 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/planner"
 )
 
+// Slot names, operators, field paths, payload keys and payload values
+// shared by the pass_when test files.
+const (
+	slotUsers     = "users"
+	slotRepos     = "repos"
+	slotBuckets   = "buckets"
+	slotKeys      = "keys"
+	slotDetectors = "detectors"
+	slotInstances = "instances"
+
+	opNeq   = "neq"
+	opAllOf = "all_of"
+	opIsSet = "is_set"
+	opNotIn = "not_in"
+
+	fieldPayloadMFA        = "payload.mfa"
+	fieldPayloadMFAEnabled = "payload.mfa_enabled"
+	fieldPayloadIsAdmin    = "payload.is_admin"
+	fieldPayloadEnabled    = "payload.enabled"
+	fieldPayloadRotated    = "payload.rotated"
+	fieldPayloadVisibility = "payload.visibility"
+	fieldPayloadEmail      = "payload.email"
+	fieldPayloadAbsent     = "payload.absent"
+	fieldPayloadCompliant  = "payload.compliant"
+	fieldPayloadIsInScope  = "payload.is_in_scope"
+
+	keyMFA              = "mfa"
+	keyMFAEnabled       = "mfa_enabled"
+	keyIsAdmin          = "is_admin"
+	keyIsServiceAccount = "is_service_account"
+	keyEnabled          = "enabled"
+	keyRotated          = "rotated"
+	keyVisibility       = "visibility"
+	keyName             = "name"
+	keyRegion           = "region"
+	keyPresent          = "present"
+	keyStatus           = "status"
+
+	testSourceAWSIAM      = "aws.iam"
+	testTypeDirectoryUser = "directory_user"
+	testEmailAlice        = "alice@example.com"
+
+	regionUSEast1     = "us-east-1"
+	statusActive      = "active"
+	statusInactive    = "inactive"
+	visibilityPrivate = "private"
+	visibilityPublic  = "public"
+)
+
 // makeRecord builds an EvidenceRecord with a JSON payload from a map.
 func makeRecord(id string, payload map[string]any) core.EvidenceRecord {
 	p, err := json.Marshal(payload)
@@ -19,8 +68,8 @@ func makeRecord(id string, payload map[string]any) core.EvidenceRecord {
 	}
 	return core.EvidenceRecord{
 		ID:          id,
-		Type:        "directory_user",
-		SourceID:    "aws.iam",
+		Type:        testTypeDirectoryUser,
+		SourceID:    testSourceAWSIAM,
 		Payload:     p,
 		CollectedAt: time.Now(),
 	}
@@ -36,12 +85,12 @@ func minPct(v float64) *float64 { return &v }
 func TestPassWhen_GteOnNonNumericField_Errors(t *testing.T) {
 	for _, op := range []string{"gte", "lte", "gt", "lt"} {
 		spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-			Slot:       "users",
+			Slot:       slotUsers,
 			Quantifier: core.QuantifierAll,
 			Condition:  &core.PassWhenCondition{Op: op, Field: "payload.tier", Value: 0},
 		}}}
 		records := map[string][]core.EvidenceRecord{
-			"users": {makeRecord("u1", map[string]any{"tier": "unknown"})},
+			slotUsers: {makeRecord("u1", map[string]any{"tier": "unknown"})},
 		}
 		result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 		if result.Status != core.StatusError {
@@ -54,12 +103,12 @@ func TestPassWhen_GteOnNonNumericField_Errors(t *testing.T) {
 // types are distinct, so "5" != 5.
 func TestPassWhen_EqStringVsNumber_NotEqual(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "users",
+		Slot:       slotUsers,
 		Quantifier: core.QuantifierAll,
 		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.count", Value: 5},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"users": {makeRecord("u1", map[string]any{"count": "5"})},
+		slotUsers: {makeRecord("u1", map[string]any{"count": "5"})},
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusFail {
@@ -71,14 +120,14 @@ func TestPassWhen_EqStringVsNumber_NotEqual(t *testing.T) {
 
 func TestPassWhen_All_AllPass(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "users",
+		Slot:       slotUsers,
 		Quantifier: core.QuantifierAll,
-		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.mfa_enabled", Value: true},
+		Condition:  &core.PassWhenCondition{Op: "eq", Field: fieldPayloadMFAEnabled, Value: true},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"users": {
-			makeRecord("u1", map[string]any{"mfa_enabled": true}),
-			makeRecord("u2", map[string]any{"mfa_enabled": true}),
+		slotUsers: {
+			makeRecord("u1", map[string]any{keyMFAEnabled: true}),
+			makeRecord("u2", map[string]any{keyMFAEnabled: true}),
 		},
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
@@ -89,17 +138,17 @@ func TestPassWhen_All_AllPass(t *testing.T) {
 
 func TestPassWhen_All_SomeFail(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:         "users",
+		Slot:         slotUsers,
 		Quantifier:   core.QuantifierAll,
-		Condition:    &core.PassWhenCondition{Op: "eq", Field: "payload.mfa_enabled", Value: true},
+		Condition:    &core.PassWhenCondition{Op: "eq", Field: fieldPayloadMFAEnabled, Value: true},
 		ViolationMsg: "User {{.id}} has no MFA",
 		IdentityKey:  "id",
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"users": {
-			makeRecord("u1", map[string]any{"mfa_enabled": true}),
-			makeRecord("u2", map[string]any{"mfa_enabled": false}),
-			makeRecord("u3", map[string]any{"mfa_enabled": false}),
+		slotUsers: {
+			makeRecord("u1", map[string]any{keyMFAEnabled: true}),
+			makeRecord("u2", map[string]any{keyMFAEnabled: false}),
+			makeRecord("u3", map[string]any{keyMFAEnabled: false}),
 		},
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
@@ -116,9 +165,9 @@ func TestPassWhen_All_SomeFail(t *testing.T) {
 
 func TestPassWhen_All_EmptyRecords_Pass(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "users",
+		Slot:       slotUsers,
 		Quantifier: core.QuantifierAll,
-		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.mfa_enabled", Value: true},
+		Condition:  &core.PassWhenCondition{Op: "eq", Field: fieldPayloadMFAEnabled, Value: true},
 	}}}
 	result := evaluatePassWhen(spec, newEvalCtx(map[string][]core.EvidenceRecord{}, nil, nil))
 	// All of zero records satisfy the condition — vacuously true.
@@ -131,14 +180,14 @@ func TestPassWhen_All_EmptyRecords_Pass(t *testing.T) {
 
 func TestPassWhen_None_AllPass(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "users",
+		Slot:       slotUsers,
 		Quantifier: core.QuantifierNone,
-		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.is_admin", Value: true},
+		Condition:  &core.PassWhenCondition{Op: "eq", Field: fieldPayloadIsAdmin, Value: true},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"users": {
-			makeRecord("u1", map[string]any{"is_admin": false}),
-			makeRecord("u2", map[string]any{"is_admin": false}),
+		slotUsers: {
+			makeRecord("u1", map[string]any{keyIsAdmin: false}),
+			makeRecord("u2", map[string]any{keyIsAdmin: false}),
 		},
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
@@ -149,14 +198,14 @@ func TestPassWhen_None_AllPass(t *testing.T) {
 
 func TestPassWhen_None_SomeFail(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "users",
+		Slot:       slotUsers,
 		Quantifier: core.QuantifierNone,
-		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.is_admin", Value: true},
+		Condition:  &core.PassWhenCondition{Op: "eq", Field: fieldPayloadIsAdmin, Value: true},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"users": {
-			makeRecord("u1", map[string]any{"is_admin": false}),
-			makeRecord("u2", map[string]any{"is_admin": true}),
+		slotUsers: {
+			makeRecord("u1", map[string]any{keyIsAdmin: false}),
+			makeRecord("u2", map[string]any{keyIsAdmin: true}),
 		},
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
@@ -172,14 +221,14 @@ func TestPassWhen_None_SomeFail(t *testing.T) {
 
 func TestPassWhen_Any_AtLeastOnePass(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "detectors",
+		Slot:       slotDetectors,
 		Quantifier: core.QuantifierAny,
-		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.enabled", Value: true},
+		Condition:  &core.PassWhenCondition{Op: "eq", Field: fieldPayloadEnabled, Value: true},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"detectors": {
-			makeRecord("d1", map[string]any{"enabled": false}),
-			makeRecord("d2", map[string]any{"enabled": true}),
+		slotDetectors: {
+			makeRecord("d1", map[string]any{keyEnabled: false}),
+			makeRecord("d2", map[string]any{keyEnabled: true}),
 		},
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
@@ -190,13 +239,13 @@ func TestPassWhen_Any_AtLeastOnePass(t *testing.T) {
 
 func TestPassWhen_Any_NoneFail(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "detectors",
+		Slot:       slotDetectors,
 		Quantifier: core.QuantifierAny,
-		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.enabled", Value: true},
+		Condition:  &core.PassWhenCondition{Op: "eq", Field: fieldPayloadEnabled, Value: true},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"detectors": {
-			makeRecord("d1", map[string]any{"enabled": false}),
+		slotDetectors: {
+			makeRecord("d1", map[string]any{keyEnabled: false}),
 		},
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
@@ -209,18 +258,18 @@ func TestPassWhen_Any_NoneFail(t *testing.T) {
 
 func TestPassWhen_Count_SufficientPercentage(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:          "keys",
+		Slot:          slotKeys,
 		Quantifier:    core.QuantifierCount,
 		MinPercentage: minPct(80),
-		Condition:     &core.PassWhenCondition{Op: "eq", Field: "payload.rotated", Value: true},
+		Condition:     &core.PassWhenCondition{Op: "eq", Field: fieldPayloadRotated, Value: true},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"keys": {
-			makeRecord("k1", map[string]any{"rotated": true}),
-			makeRecord("k2", map[string]any{"rotated": true}),
-			makeRecord("k3", map[string]any{"rotated": true}),
-			makeRecord("k4", map[string]any{"rotated": true}),
-			makeRecord("k5", map[string]any{"rotated": false}),
+		slotKeys: {
+			makeRecord("k1", map[string]any{keyRotated: true}),
+			makeRecord("k2", map[string]any{keyRotated: true}),
+			makeRecord("k3", map[string]any{keyRotated: true}),
+			makeRecord("k4", map[string]any{keyRotated: true}),
+			makeRecord("k5", map[string]any{keyRotated: false}),
 		},
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
@@ -231,16 +280,16 @@ func TestPassWhen_Count_SufficientPercentage(t *testing.T) {
 
 func TestPassWhen_Count_InsufficientPercentage(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:          "keys",
+		Slot:          slotKeys,
 		Quantifier:    core.QuantifierCount,
 		MinPercentage: minPct(90),
-		Condition:     &core.PassWhenCondition{Op: "eq", Field: "payload.rotated", Value: true},
+		Condition:     &core.PassWhenCondition{Op: "eq", Field: fieldPayloadRotated, Value: true},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"keys": {
-			makeRecord("k1", map[string]any{"rotated": true}),
-			makeRecord("k2", map[string]any{"rotated": false}),
-			makeRecord("k3", map[string]any{"rotated": false}),
+		slotKeys: {
+			makeRecord("k1", map[string]any{keyRotated: true}),
+			makeRecord("k2", map[string]any{keyRotated: false}),
+			makeRecord("k3", map[string]any{keyRotated: false}),
 		},
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
@@ -253,16 +302,16 @@ func TestPassWhen_Count_InsufficientPercentage(t *testing.T) {
 
 func TestPassWhen_Filter_ExcludesServiceAccounts(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "users",
+		Slot:       slotUsers,
 		Quantifier: core.QuantifierAll,
-		Filter:     &core.PassWhenCondition{Op: "neq", Field: "payload.is_service_account", Value: true},
-		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.mfa_enabled", Value: true},
+		Filter:     &core.PassWhenCondition{Op: opNeq, Field: "payload.is_service_account", Value: true},
+		Condition:  &core.PassWhenCondition{Op: "eq", Field: fieldPayloadMFAEnabled, Value: true},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"users": {
-			makeRecord("u1", map[string]any{"mfa_enabled": true, "is_service_account": false}),
-			makeRecord("u2", map[string]any{"mfa_enabled": false, "is_service_account": true}), // excluded
-			makeRecord("u3", map[string]any{"mfa_enabled": true, "is_service_account": false}),
+		slotUsers: {
+			makeRecord("u1", map[string]any{keyMFAEnabled: true, keyIsServiceAccount: false}),
+			makeRecord("u2", map[string]any{keyMFAEnabled: false, keyIsServiceAccount: true}), // excluded
+			makeRecord("u3", map[string]any{keyMFAEnabled: true, keyIsServiceAccount: false}),
 		},
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
@@ -276,14 +325,14 @@ func TestPassWhen_Filter_ExcludesServiceAccounts(t *testing.T) {
 
 func TestPassWhen_Condition_Neq(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "users",
+		Slot:       slotUsers,
 		Quantifier: core.QuantifierAll,
-		Condition:  &core.PassWhenCondition{Op: "neq", Field: "payload.status", Value: "inactive"},
+		Condition:  &core.PassWhenCondition{Op: opNeq, Field: "payload.status", Value: statusInactive},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"users": {
-			makeRecord("u1", map[string]any{"status": "active"}),
-			makeRecord("u2", map[string]any{"status": "inactive"}),
+		slotUsers: {
+			makeRecord("u1", map[string]any{keyStatus: statusActive}),
+			makeRecord("u2", map[string]any{keyStatus: statusInactive}),
 		},
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
@@ -294,14 +343,14 @@ func TestPassWhen_Condition_Neq(t *testing.T) {
 
 func TestPassWhen_Condition_In(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "repos",
+		Slot:       slotRepos,
 		Quantifier: core.QuantifierAll,
-		Condition:  &core.PassWhenCondition{Op: "in", Field: "payload.visibility", Value: []any{"private", "internal"}},
+		Condition:  &core.PassWhenCondition{Op: "in", Field: fieldPayloadVisibility, Value: []any{visibilityPrivate, "internal"}},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"repos": {
-			makeRecord("r1", map[string]any{"visibility": "private"}),
-			makeRecord("r2", map[string]any{"visibility": "public"}),
+		slotRepos: {
+			makeRecord("r1", map[string]any{keyVisibility: visibilityPrivate}),
+			makeRecord("r2", map[string]any{keyVisibility: visibilityPublic}),
 		},
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
@@ -312,13 +361,13 @@ func TestPassWhen_Condition_In(t *testing.T) {
 
 func TestPassWhen_Condition_IsSet(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "users",
+		Slot:       slotUsers,
 		Quantifier: core.QuantifierAll,
-		Condition:  &core.PassWhenCondition{Op: "is_set", Field: "payload.email"},
+		Condition:  &core.PassWhenCondition{Op: opIsSet, Field: fieldPayloadEmail},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"users": {
-			makeRecord("u1", map[string]any{"email": "alice@example.com"}),
+		slotUsers: {
+			makeRecord("u1", map[string]any{linkedByEmail: testEmailAlice}),
 			makeRecord("u2", map[string]any{}), // no email field
 		},
 	}
@@ -330,10 +379,10 @@ func TestPassWhen_Condition_IsSet(t *testing.T) {
 
 func TestPassWhen_Condition_AllOf(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "buckets",
+		Slot:       slotBuckets,
 		Quantifier: core.QuantifierAll,
 		Condition: &core.PassWhenCondition{
-			Op: "all_of",
+			Op: opAllOf,
 			Conditions: []*core.PassWhenCondition{
 				{Op: "eq", Field: "payload.encryption_at_rest_enabled", Value: true},
 				{Op: "eq", Field: "payload.public_access_blocked", Value: true},
@@ -341,7 +390,7 @@ func TestPassWhen_Condition_AllOf(t *testing.T) {
 		},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"buckets": {
+		slotBuckets: {
 			makeRecord("b1", map[string]any{"encryption_at_rest_enabled": true, "public_access_blocked": true}),
 			makeRecord("b2", map[string]any{"encryption_at_rest_enabled": true, "public_access_blocked": false}),
 		},
@@ -354,7 +403,7 @@ func TestPassWhen_Condition_AllOf(t *testing.T) {
 
 func TestPassWhen_Condition_AnyOf(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "instances",
+		Slot:       slotInstances,
 		Quantifier: core.QuantifierAll,
 		Condition: &core.PassWhenCondition{
 			Op: "any_of",
@@ -365,7 +414,7 @@ func TestPassWhen_Condition_AnyOf(t *testing.T) {
 		},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"instances": {
+		slotInstances: {
 			makeRecord("i1", map[string]any{"monitoring_enabled": true, "logging_enabled": false}),
 			makeRecord("i2", map[string]any{"monitoring_enabled": false, "logging_enabled": false}),
 		},
@@ -380,12 +429,12 @@ func TestPassWhen_Condition_AnyOf(t *testing.T) {
 
 func TestPassWhen_Condition_Gte(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "keys",
+		Slot:       slotKeys,
 		Quantifier: core.QuantifierAll,
 		Condition:  &core.PassWhenCondition{Op: "lt", Field: "payload.age_days", Value: 90},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"keys": {
+		slotKeys: {
 			makeRecord("k1", map[string]any{"age_days": float64(30)}),  // JSON numbers are float64
 			makeRecord("k2", map[string]any{"age_days": float64(100)}), // fails
 		},
@@ -400,17 +449,17 @@ func TestPassWhen_Condition_Gte(t *testing.T) {
 
 func TestPassWhen_Condition_ParamRef(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "buckets",
+		Slot:       slotBuckets,
 		Quantifier: core.QuantifierAll,
 		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.region", Value: "$params.required_region"},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"buckets": {
-			makeRecord("b1", map[string]any{"region": "us-east-1"}),
-			makeRecord("b2", map[string]any{"region": "eu-west-1"}),
+		slotBuckets: {
+			makeRecord("b1", map[string]any{keyRegion: regionUSEast1}),
+			makeRecord("b2", map[string]any{keyRegion: "eu-west-1"}),
 		},
 	}
-	params := map[string]any{"required_region": "us-east-1"}
+	params := map[string]any{"required_region": regionUSEast1}
 	result := evaluatePassWhen(spec, newEvalCtx(records, params, nil))
 	if result.Status != core.StatusFail {
 		t.Errorf("status = %q; want fail (b2 is in wrong region)", result.Status)
@@ -432,12 +481,12 @@ func TestEvaluate_PassWhenPathB(t *testing.T) {
 			Severity:     core.SeverityHigh,
 			EvidenceMode: core.EvidenceModeAutomated,
 			Slots: map[string]core.Slot{
-				"users": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true},
+				slotUsers: {Accepts: []string{testTypeDirectoryUser}, Cardinality: core.SlotOneOrMore, Required: true},
 			},
 			PassWhen: &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-				Slot:       "users",
+				Slot:       slotUsers,
 				Quantifier: core.QuantifierAll,
-				Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.mfa_enabled", Value: true},
+				Condition:  &core.PassWhenCondition{Op: "eq", Field: fieldPayloadMFAEnabled, Value: true},
 			}}},
 		},
 		Parameters:     map[string]any{},
@@ -447,9 +496,9 @@ func TestEvaluate_PassWhenPathB(t *testing.T) {
 		Plan:  &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
 		Rules: nil, // Path B doesn't touch the rule registry
 		RecordsByPolicy: map[string]map[string][]core.EvidenceRecord{
-			"p1": {"users": {
-				makeRecord("u1", map[string]any{"mfa_enabled": true}),
-				makeRecord("u2", map[string]any{"mfa_enabled": false}),
+			"p1": {slotUsers: {
+				makeRecord("u1", map[string]any{keyMFAEnabled: true}),
+				makeRecord("u2", map[string]any{keyMFAEnabled: false}),
 			}},
 		},
 		Now: time.Now(),
@@ -470,15 +519,15 @@ func TestEvaluate_PassWhenPathB(t *testing.T) {
 
 func TestPassWhen_IdentityKey_Dedup(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:        "users",
+		Slot:        slotUsers,
 		Quantifier:  core.QuantifierAll,
-		Condition:   &core.PassWhenCondition{Op: "eq", Field: "payload.mfa_enabled", Value: true},
-		IdentityKey: "payload.email",
+		Condition:   &core.PassWhenCondition{Op: "eq", Field: fieldPayloadMFAEnabled, Value: true},
+		IdentityKey: fieldPayloadEmail,
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"users": {
-			makeRecord("u1", map[string]any{"mfa_enabled": false, "email": "alice@example.com"}),
-			makeRecord("u1b", map[string]any{"mfa_enabled": false, "email": "alice@example.com"}), // same email → dedup
+		slotUsers: {
+			makeRecord("u1", map[string]any{keyMFAEnabled: false, linkedByEmail: testEmailAlice}),
+			makeRecord("u1b", map[string]any{keyMFAEnabled: false, linkedByEmail: testEmailAlice}), // same email → dedup
 		},
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
@@ -494,14 +543,14 @@ func TestPassWhen_IdentityKey_Dedup(t *testing.T) {
 
 func TestPassWhen_ViolationMsgTemplate(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:         "users",
+		Slot:         slotUsers,
 		Quantifier:   core.QuantifierAll,
-		Condition:    &core.PassWhenCondition{Op: "eq", Field: "payload.mfa_enabled", Value: true},
+		Condition:    &core.PassWhenCondition{Op: "eq", Field: fieldPayloadMFAEnabled, Value: true},
 		ViolationMsg: "User {{.id}} ({{.payload.email}}) has no MFA",
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"users": {
-			makeRecord("alice", map[string]any{"mfa_enabled": false, "email": "alice@example.com"}),
+		slotUsers: {
+			makeRecord("alice", map[string]any{keyMFAEnabled: false, linkedByEmail: testEmailAlice}),
 		},
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
@@ -522,12 +571,12 @@ func TestPassWhen_ViolationMsgTemplate(t *testing.T) {
 // report non-compliance.
 func TestPassWhen_AbsentField_Errors(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "repos",
+		Slot:       slotRepos,
 		Quantifier: core.QuantifierAll,
 		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.secret_scanning_enabled", Value: true},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"repos": {makeRecord("r1", map[string]any{"name": "r1"})}, // field absent
+		slotRepos: {makeRecord("r1", map[string]any{keyName: "r1"})}, // field absent
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusError {
@@ -539,15 +588,15 @@ func TestPassWhen_AbsentField_Errors(t *testing.T) {
 // on the is_set=false branch before the comparison is reached.
 func TestPassWhen_AbsentField_IsSetGuardDoesNotError(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "repos",
+		Slot:       slotRepos,
 		Quantifier: core.QuantifierAll,
-		Condition: &core.PassWhenCondition{Op: "all_of", Conditions: []*core.PassWhenCondition{
-			{Op: "is_set", Field: "payload.optional_flag"},
+		Condition: &core.PassWhenCondition{Op: opAllOf, Conditions: []*core.PassWhenCondition{
+			{Op: opIsSet, Field: "payload.optional_flag"},
 			{Op: "eq", Field: "payload.optional_flag", Value: true},
 		}},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"repos": {makeRecord("r1", map[string]any{"name": "r1"})}, // optional_flag absent
+		slotRepos: {makeRecord("r1", map[string]any{keyName: "r1"})}, // optional_flag absent
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusFail {
@@ -565,20 +614,20 @@ func TestPassWhen_AbsentField_IsSetGuardDoesNotError(t *testing.T) {
 // Scope that cannot be decided is an error, so the run stops instead.
 func TestPassWhen_AbsentField_FilterErrors(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "repos",
+		Slot:       slotRepos,
 		Quantifier: core.QuantifierAll,
-		Filter:     &core.PassWhenCondition{Op: "eq", Field: "payload.is_in_scope", Value: true},
-		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.compliant", Value: true},
+		Filter:     &core.PassWhenCondition{Op: "eq", Field: fieldPayloadIsInScope, Value: true},
+		Condition:  &core.PassWhenCondition{Op: "eq", Field: fieldPayloadCompliant, Value: true},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"repos": {makeRecord("r1", map[string]any{"name": "r1"})}, // is_in_scope absent
+		slotRepos: {makeRecord("r1", map[string]any{keyName: "r1"})}, // is_in_scope absent
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusError {
 		t.Fatalf("status = %q; want error (filter could not be evaluated)", result.Status)
 	}
-	reason := fmt.Sprint(result.Diag["reason"])
-	if !strings.Contains(reason, "repos") || !strings.Contains(reason, "could not be evaluated") {
+	reason := fmt.Sprint(result.Diag[diagReason])
+	if !strings.Contains(reason, slotRepos) || !strings.Contains(reason, "could not be evaluated") {
 		t.Errorf("Diag[reason] = %q; want it to name the slot and the undecidable filter", reason)
 	}
 	if _, ok := result.Diag["vacuous_clauses"]; ok {
@@ -592,16 +641,16 @@ func TestPassWhen_AbsentField_FilterErrors(t *testing.T) {
 // instead of erroring.
 func TestPassWhen_AbsentField_IsSetGuardedFilterExcludes(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "repos",
+		Slot:       slotRepos,
 		Quantifier: core.QuantifierAll,
-		Filter: &core.PassWhenCondition{Op: "all_of", Conditions: []*core.PassWhenCondition{
-			{Op: "is_set", Field: "payload.is_in_scope"},
-			{Op: "eq", Field: "payload.is_in_scope", Value: true},
+		Filter: &core.PassWhenCondition{Op: opAllOf, Conditions: []*core.PassWhenCondition{
+			{Op: opIsSet, Field: fieldPayloadIsInScope},
+			{Op: "eq", Field: fieldPayloadIsInScope, Value: true},
 		}},
-		Condition: &core.PassWhenCondition{Op: "eq", Field: "payload.compliant", Value: true},
+		Condition: &core.PassWhenCondition{Op: "eq", Field: fieldPayloadCompliant, Value: true},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"repos": {makeRecord("r1", map[string]any{"name": "r1"})}, // is_in_scope absent
+		slotRepos: {makeRecord("r1", map[string]any{keyName: "r1"})}, // is_in_scope absent
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusPass {
@@ -616,13 +665,13 @@ func TestPassWhen_AbsentField_IsSetGuardedFilterExcludes(t *testing.T) {
 // violation of the condition it was never judged against.
 func TestPassWhen_FilterErrorDoesNotLeakViolations(t *testing.T) {
 	spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
-		Slot:       "repos",
+		Slot:       slotRepos,
 		Quantifier: core.QuantifierNone,
 		Filter:     &core.PassWhenCondition{Op: "eq", Field: "payload.missing", Value: true},
-		Condition:  &core.PassWhenCondition{Op: "eq", Field: "payload.compliant", Value: false},
+		Condition:  &core.PassWhenCondition{Op: "eq", Field: fieldPayloadCompliant, Value: false},
 	}}}
 	records := map[string][]core.EvidenceRecord{
-		"repos": {makeRecord("r1", map[string]any{"compliant": false})},
+		slotRepos: {makeRecord("r1", map[string]any{"compliant": false})},
 	}
 	result := evaluatePassWhen(spec, newEvalCtx(records, nil, nil))
 	if result.Status != core.StatusError {

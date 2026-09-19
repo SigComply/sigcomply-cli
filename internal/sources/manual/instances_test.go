@@ -14,12 +14,12 @@ import (
 func fanOutPlugin(files map[string]InMemoryFile, instances []Instance) *Plugin {
 	return New(Options{
 		Reader: &InMemoryReader{Files: files},
-		Bucket: "acme-evidence",
-		Prefix: "manual/",
+		Bucket: testBucket,
+		Prefix: defaultPrefix,
 		Scheme: "s3",
 		Catalog: map[string]CatalogEntry{
-			"vendor_assurance": {
-				EvidenceID:   "vendor_assurance",
+			testFanOutCatalogID: {
+				EvidenceID:   testFanOutCatalogID,
 				Cadence:      "annual",
 				TemporalRule: "retrospective",
 				GracePeriod:  30 * 24 * time.Hour,
@@ -36,17 +36,17 @@ func fanOutReq() core.SlotRequest {
 		AcceptedTypes: []string{EvidenceTypeID},
 		SlotName:      "_manual",
 		Params: map[string]any{
-			"catalog_id":   "vendor_assurance",
-			"period_id":    "2026-Q1",
-			"period_start": mustTime("2026-01-01T00:00:00Z"),
-			"period_end":   mustTime("2026-03-31T23:59:59Z"),
-			"now":          mustTime("2026-02-01T00:00:00Z"),
+			keyCatalogID:   testFanOutCatalogID,
+			keyPeriodID:    testPeriodID,
+			keyPeriodStart: mustTime("2026-01-01T00:00:00Z"),
+			keyPeriodEnd:   mustTime("2026-03-31T23:59:59Z"),
+			keyNow:         mustTime("2026-02-01T00:00:00Z"),
 		},
 	}
 }
 
 var threeVendors = []Instance{
-	{ID: "acme_cloud", Name: "Acme Cloud", Tier: "critical", Required: true},
+	{ID: testVendorID, Name: testVendorName, Tier: testTierCritical, Required: true},
 	{ID: "initech", Name: "Initech", Tier: "high", Required: true},
 	{ID: "zeta", Name: "Zeta", Tier: "low", Required: false,
 		ExemptionReason: "Newsletter tool; no customer data.", ApprovedBy: "ciso@example.com"},
@@ -78,8 +78,8 @@ func TestCollect_FanOut_PerVendorFolders(t *testing.T) {
 	for _, i := range m.Instances {
 		byID[i.ID] = i
 	}
-	if !byID["acme_cloud"].Satisfied || !byID["acme_cloud"].FilePresent {
-		t.Fatalf("acme_cloud = %+v; want satisfied and present", byID["acme_cloud"])
+	if !byID[testVendorID].Satisfied || !byID[testVendorID].FilePresent {
+		t.Fatalf("acme_cloud = %+v; want satisfied and present", byID[testVendorID])
 	}
 	if byID["initech"].Satisfied || byID["initech"].FilePresent {
 		t.Fatalf("initech = %+v; want unsatisfied and absent", byID["initech"])
@@ -98,8 +98,8 @@ func TestCollect_FanOut_PerVendorFolders(t *testing.T) {
 		t.Fatalf("FilePresent = true; want false while initech has no file")
 	}
 	// Each required instance points at its own folder.
-	if !strings.Contains(byID["acme_cloud"].ExpectedURI, "vendor_assurance.acme_cloud/2026-Q1/") {
-		t.Fatalf("acme_cloud.ExpectedURI = %q", byID["acme_cloud"].ExpectedURI)
+	if !strings.Contains(byID[testVendorID].ExpectedURI, "vendor_assurance.acme_cloud/2026-Q1/") {
+		t.Fatalf("acme_cloud.ExpectedURI = %q", byID[testVendorID].ExpectedURI)
 	}
 }
 
@@ -128,7 +128,7 @@ func TestCollect_FanOut_StaleAssuranceFails(t *testing.T) {
 		"manual/vendor_assurance.acme_cloud/2026-Q1/old.pdf": {Data: fakePDF(), UploadedAt: uploaded},
 	}
 	stale := []Instance{
-		{ID: "acme_cloud", Name: "Acme Cloud", Tier: "critical", Required: true,
+		{ID: testVendorID, Name: testVendorName, Tier: testTierCritical, Required: true,
 			AssurancePeriodEnd: "2022-12-31"},
 	}
 	recs, err := fanOutPlugin(files, stale).Collect(context.Background(), fanOutReq())
@@ -155,7 +155,7 @@ func TestCollect_FanOut_CurrentAssurancePasses(t *testing.T) {
 		"manual/vendor_assurance.acme_cloud/2026-Q1/cur.pdf": {Data: fakePDF(), UploadedAt: uploaded},
 	}
 	fresh := []Instance{
-		{ID: "acme_cloud", Name: "Acme Cloud", Tier: "critical", Required: true,
+		{ID: testVendorID, Name: testVendorName, Tier: testTierCritical, Required: true,
 			AssurancePeriodEnd: "2025-12-31"},
 	}
 	recs, err := fanOutPlugin(files, fresh).Collect(context.Background(), fanOutReq())
@@ -202,8 +202,8 @@ func TestAssuranceStale_ZeroPeriodStart(t *testing.T) {
 }
 
 func TestInstance_FolderID(t *testing.T) {
-	i := Instance{ID: "acme_cloud"}
-	if got := i.FolderID("vendor_assurance"); got != "vendor_assurance.acme_cloud" {
+	i := Instance{ID: testVendorID}
+	if got := i.FolderID(testFanOutCatalogID); got != "vendor_assurance.acme_cloud" {
 		t.Fatalf("FolderID = %q", got)
 	}
 }

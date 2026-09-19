@@ -198,6 +198,10 @@ func loadReportConfig(flags *reportFlags) (*spec.ProjectConfig, error) {
 	return &cfg, nil
 }
 
+// prefixConfigKey is the spec.VaultConfig key holding the object-store
+// key prefix for the bucket-backed vault backends.
+const prefixConfigKey = "prefix"
+
 // vaultConfigFromURI maps a CLI-supplied --vault value onto a
 // spec.VaultConfig the factory can consume. Supports:
 //
@@ -213,10 +217,10 @@ func vaultConfigFromURI(uri string) (spec.VaultConfig, error) {
 	switch {
 	case strings.HasPrefix(uri, "s3://"):
 		bucket, prefix := splitBucketPrefix(strings.TrimPrefix(uri, "s3://"))
-		return spec.VaultConfig{Backend: "s3", Config: map[string]any{"bucket": bucket, "prefix": prefix}}, nil
+		return spec.VaultConfig{Backend: "s3", Config: map[string]any{"bucket": bucket, prefixConfigKey: prefix}}, nil
 	case strings.HasPrefix(uri, "gs://"):
 		bucket, prefix := splitBucketPrefix(strings.TrimPrefix(uri, "gs://"))
-		return spec.VaultConfig{Backend: "gcs", Config: map[string]any{"bucket": bucket, "prefix": prefix}}, nil
+		return spec.VaultConfig{Backend: "gcs", Config: map[string]any{"bucket": bucket, prefixConfigKey: prefix}}, nil
 	case strings.HasPrefix(uri, "az://"):
 		rest := strings.TrimPrefix(uri, "az://")
 		parts := strings.SplitN(rest, "/", 3)
@@ -227,11 +231,11 @@ func vaultConfigFromURI(uri string) (spec.VaultConfig, error) {
 		if len(parts) == 3 {
 			prefix = parts[2]
 		}
-		return spec.VaultConfig{Backend: "azure_blob", Config: map[string]any{"account": parts[0], "container": parts[1], "prefix": prefix}}, nil
+		return spec.VaultConfig{Backend: "azure_blob", Config: map[string]any{"account": parts[0], "container": parts[1], prefixConfigKey: prefix}}, nil
 	case strings.HasPrefix(uri, "file://"):
-		return spec.VaultConfig{Backend: "local", Config: map[string]any{"path": strings.TrimPrefix(uri, "file://")}}, nil
+		return spec.VaultConfig{Backend: backendLocal, Config: map[string]any{"path": strings.TrimPrefix(uri, "file://")}}, nil
 	default:
-		return spec.VaultConfig{Backend: "local", Config: map[string]any{"path": uri}}, nil
+		return spec.VaultConfig{Backend: backendLocal, Config: map[string]any{"path": uri}}, nil
 	}
 }
 

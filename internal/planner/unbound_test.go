@@ -10,9 +10,9 @@ func TestUnboundRequiredSlots(t *testing.T) {
 	twoSlots := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"users": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true},
-			"repos": {Accepts: []string{"repository"}, Cardinality: core.SlotOneOrMore, Required: true},
-			"extra": {Accepts: []string{"whatever"}, Cardinality: core.SlotOptional, Required: false},
+			slotUsers: {Accepts: []string{evDirectoryUser}, Cardinality: core.SlotOneOrMore, Required: true},
+			slotRepos: {Accepts: []string{"repository"}, Cardinality: core.SlotOneOrMore, Required: true},
+			"extra":   {Accepts: []string{"whatever"}, Cardinality: core.SlotOptional, Required: false},
 		},
 	}
 
@@ -24,20 +24,20 @@ func TestUnboundRequiredSlots(t *testing.T) {
 		{
 			name:     "no bindings at all",
 			bindings: map[string][]Binding{},
-			want:     []string{"repos", "users"},
+			want:     []string{slotRepos, slotUsers},
 		},
 		{
 			name: "one required slot bound",
 			bindings: map[string][]Binding{
-				"users": {{SourceID: "aws.iam"}},
+				slotUsers: {{SourceID: srcAWSIAM}},
 			},
-			want: []string{"repos"},
+			want: []string{slotRepos},
 		},
 		{
 			name: "all required slots bound",
 			bindings: map[string][]Binding{
-				"users": {{SourceID: "aws.iam"}},
-				"repos": {{SourceID: "github"}},
+				slotUsers: {{SourceID: srcAWSIAM}},
+				slotRepos: {{SourceID: srcGitHub}},
 			},
 			want: nil,
 		},
@@ -46,9 +46,9 @@ func TestUnboundRequiredSlots(t *testing.T) {
 			// the policy is designed to run without it.
 			name: "optional slot unbound is not a gap",
 			bindings: map[string][]Binding{
-				"users": {{SourceID: "aws.iam"}},
-				"repos": {{SourceID: "github"}},
-				"extra": nil,
+				slotUsers: {{SourceID: srcAWSIAM}},
+				slotRepos: {{SourceID: srcGitHub}},
+				"extra":   nil,
 			},
 			want: nil,
 		},

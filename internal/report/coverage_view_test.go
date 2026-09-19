@@ -13,18 +13,18 @@ import (
 
 func coverageSnapshot() *report.Snapshot {
 	return &report.Snapshot{
-		View: report.ViewCoverage, Framework: "soc2", PeriodID: "2026-Q2",
+		View: report.ViewCoverage, Framework: frameworkSOC2, PeriodID: testPeriodQ2,
 		Coverage: &report.CoverageView{
 			Controls: 3, Automated: 1, Manual: 2,
 			Evaluated: 1, NotEvaluated: 2,
 			ManualOnFile: 0, ManualMissing: 2,
 			Rows: []report.CoverageRow{
-				{ControlID: "CC1.1", Assurance: "manual", ManualPolicies: 2, Policies: 2,
-					Status: "not evaluated", Note: "no policy ran in this period (cadence: annual)"},
-				{ControlID: "CC3.1", Assurance: "manual", ManualPolicies: 1, Policies: 1,
-					Status: "not evaluated", Note: "no policy ran in this period (cadence: annual)"},
-				{ControlID: "CC6.1", Assurance: "automated", AutomatedPolicies: 4, ManualPolicies: 1,
-					Evaluated: 4, Policies: 5, Status: "pass"},
+				{ControlID: ctrlCC11, Assurance: assuranceManual, ManualPolicies: 2, Policies: 2,
+					Status: statusNotEvaluated, Note: "no policy ran in this period (cadence: annual)"},
+				{ControlID: "CC3.1", Assurance: assuranceManual, ManualPolicies: 1, Policies: 1,
+					Status: statusNotEvaluated, Note: "no policy ran in this period (cadence: annual)"},
+				{ControlID: ctrlCC61, Assurance: "automated", AutomatedPolicies: 4, ManualPolicies: 1,
+					Evaluated: 4, Policies: 5, Status: statusPass},
 			},
 		},
 	}
@@ -150,22 +150,22 @@ func TestFormatTextCoverage_Deterministic(t *testing.T) {
 // run, which is the deception in miniature.
 func TestBuildCoverage_NamesControlsThatNeverRan(t *testing.T) {
 	v, _ := makeVault(t, []runSeed{{
-		framework: "soc2", periodID: "2026-Q2", runID: "run-aaaa",
+		framework: frameworkSOC2, periodID: testPeriodQ2, runID: testRunID,
 		timestamp:   time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
 		completedAt: time.Date(2026, 4, 1, 0, 5, 0, 0, time.UTC),
 		policies: []core.PolicyResult{
-			{PolicyID: "soc2.cc6.1.mfa", Status: core.StatusPass, EvidenceMode: core.EvidenceModeAutomated},
+			{PolicyID: testPolicyMFA, Status: core.StatusPass, EvidenceMode: core.EvidenceModeAutomated},
 		},
 	}})
 
 	snap, err := report.Build(context.Background(), &report.Input{
-		Vault: v, Framework: "soc2", PeriodID: "2026-Q2", View: report.ViewCoverage,
-		Controls: []core.Control{{ID: "CC1.1"}, {ID: "CC6.1"}},
+		Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ2, View: report.ViewCoverage,
+		Controls: []core.Control{{ID: ctrlCC11}, {ID: ctrlCC61}},
 		Policies: []core.Policy{
-			{ID: "soc2.cc6.1.mfa", EvidenceMode: core.EvidenceModeAutomated, Cadence: "daily",
-				Controls: []core.ControlRef{{ControlID: "CC6.1"}}},
-			{ID: "soc2.cc1.1.training", EvidenceMode: core.EvidenceModeManual, Cadence: "annual",
-				Controls: []core.ControlRef{{ControlID: "CC1.1"}}},
+			{ID: testPolicyMFA, EvidenceMode: core.EvidenceModeAutomated, Cadence: cadenceDaily,
+				Controls: []core.ControlRef{{ControlID: ctrlCC61}}},
+			{ID: "soc2.cc1.1.training", EvidenceMode: core.EvidenceModeManual, Cadence: cadenceAnnual,
+				Controls: []core.ControlRef{{ControlID: ctrlCC11}}},
 		},
 	})
 	if err != nil {
@@ -182,13 +182,13 @@ func TestBuildCoverage_NamesControlsThatNeverRan(t *testing.T) {
 	if cov.ManualMissing != 1 {
 		t.Errorf("ManualMissing = %d; want 1 — the annual control has no document this period", cov.ManualMissing)
 	}
-	if len(cov.Rows) != 2 || cov.Rows[0].ControlID != "CC1.1" {
+	if len(cov.Rows) != 2 || cov.Rows[0].ControlID != ctrlCC11 {
 		t.Fatalf("rows = %+v; want one per control, sorted by control ID", cov.Rows)
 	}
-	if cov.Rows[0].Status != "not evaluated" {
-		t.Errorf("CC1.1 status = %q; want %q", cov.Rows[0].Status, "not evaluated")
+	if cov.Rows[0].Status != statusNotEvaluated {
+		t.Errorf("CC1.1 status = %q; want %q", cov.Rows[0].Status, statusNotEvaluated)
 	}
-	if !strings.Contains(cov.Rows[0].Note, "annual") {
+	if !strings.Contains(cov.Rows[0].Note, cadenceAnnual) {
 		t.Errorf("CC1.1 note = %q; want it to name the cadence so a reader can tell expected from broken", cov.Rows[0].Note)
 	}
 }
@@ -199,26 +199,26 @@ func TestBuildCoverage_NamesControlsThatNeverRan(t *testing.T) {
 // happen.
 func TestBuildCoverage_RunRecordOutranksTheCatalog(t *testing.T) {
 	v, _ := makeVault(t, []runSeed{{
-		framework: "soc2", periodID: "2026-Q2", runID: "run-aaaa",
+		framework: frameworkSOC2, periodID: testPeriodQ2, runID: testRunID,
 		timestamp:   time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
 		completedAt: time.Date(2026, 4, 1, 0, 5, 0, 0, time.UTC),
 		policies: []core.PolicyResult{{
-			PolicyID: "soc2.cc6.1.mfa", Status: core.StatusPass,
+			PolicyID: testPolicyMFA, Status: core.StatusPass,
 			EvidenceMode: core.EvidenceModeManual, EvidenceModeOverridden: true,
 		}},
 	}})
 
 	snap, err := report.Build(context.Background(), &report.Input{
-		Vault: v, Framework: "soc2", PeriodID: "2026-Q2", View: report.ViewCoverage,
-		Controls: []core.Control{{ID: "CC6.1"}},
+		Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ2, View: report.ViewCoverage,
+		Controls: []core.Control{{ID: ctrlCC61}},
 		// The catalog says this control is automated.
-		Policies: []core.Policy{{ID: "soc2.cc6.1.mfa", EvidenceMode: core.EvidenceModeAutomated,
-			Controls: []core.ControlRef{{ControlID: "CC6.1"}}}},
+		Policies: []core.Policy{{ID: testPolicyMFA, EvidenceMode: core.EvidenceModeAutomated,
+			Controls: []core.ControlRef{{ControlID: ctrlCC61}}}},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := snap.Coverage.Rows[0].Assurance; got != "manual" {
+	if got := snap.Coverage.Rows[0].Assurance; got != assuranceManual {
 		t.Errorf("assurance = %q; want manual — the run downgraded this check to a document", got)
 	}
 	if !snap.Coverage.Rows[0].Overridden || snap.Coverage.Overridden != 1 {
@@ -236,18 +236,18 @@ func TestBuildCoverage_RunRecordOutranksTheCatalog(t *testing.T) {
 // exactly where a reader goes to find unevaluated controls.
 func TestBuildScope_ShowsErroredPolicies(t *testing.T) {
 	v, _ := makeVault(t, []runSeed{{
-		framework: "soc2", periodID: "2026-Q2", runID: "run-aaaa",
+		framework: frameworkSOC2, periodID: testPeriodQ2, runID: testRunID,
 		timestamp:   time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
 		completedAt: time.Date(2026, 4, 1, 0, 5, 0, 0, time.UTC),
 		policies: []core.PolicyResult{
-			{PolicyID: "p.skipped", Status: core.StatusSkip, Diag: map[string]any{"reason": "required slot has no records"}},
-			{PolicyID: "p.errored", Status: core.StatusError, Diag: map[string]any{"collect_error": "aws.iam: access denied"}},
+			{PolicyID: "p.skipped", Status: core.StatusSkip, Diag: map[string]any{"reason": reasonNoRecords}},
+			{PolicyID: "p.errored", Status: core.StatusError, Diag: map[string]any{"collect_error": reasonAccessDenied}},
 			{PolicyID: "p.passed", Status: core.StatusPass},
 		},
 	}})
 
 	snap, err := report.Build(context.Background(), &report.Input{
-		Vault: v, Framework: "soc2", PeriodID: "2026-Q2", View: report.ViewScope,
+		Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ2, View: report.ViewScope,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -267,7 +267,7 @@ func TestBuildScope_ShowsErroredPolicies(t *testing.T) {
 	if e.Status != "error" {
 		t.Errorf("status = %q; want error — a skip and an error must be distinguishable", e.Status)
 	}
-	if e.Reason != "aws.iam: access denied" {
+	if e.Reason != reasonAccessDenied {
 		t.Errorf("reason = %q; want the collector's diagnostic, not a generic placeholder", e.Reason)
 	}
 }
@@ -276,21 +276,21 @@ func TestBuildScope_ShowsErroredPolicies(t *testing.T) {
 // printed a bare "error" while the explanation sat unread in the vault.
 func TestBuildLatest_CarriesTheReason(t *testing.T) {
 	v, _ := makeVault(t, []runSeed{{
-		framework: "soc2", periodID: "2026-Q2", runID: "run-aaaa",
+		framework: frameworkSOC2, periodID: testPeriodQ2, runID: testRunID,
 		timestamp:   time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
 		completedAt: time.Date(2026, 4, 1, 0, 5, 0, 0, time.UTC),
 		policies: []core.PolicyResult{
-			{PolicyID: "p.errored", Status: core.StatusError, Diag: map[string]any{"collect_error": "aws.iam: access denied"}},
+			{PolicyID: "p.errored", Status: core.StatusError, Diag: map[string]any{"collect_error": reasonAccessDenied}},
 		},
 	}})
 
 	snap, err := report.Build(context.Background(), &report.Input{
-		Vault: v, Framework: "soc2", PeriodID: "2026-Q2", View: report.ViewLatest,
+		Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ2, View: report.ViewLatest,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := snap.Latest.Policies[0].Reason; got != "aws.iam: access denied" {
+	if got := snap.Latest.Policies[0].Reason; got != reasonAccessDenied {
 		t.Errorf("Reason = %q; want the collector's diagnostic", got)
 	}
 
@@ -314,25 +314,25 @@ func TestBuildLatest_CarriesTheReason(t *testing.T) {
 // must not read as the gap widening, so the two are counted apart.
 func TestBuildCoverage_CountsManagementSystemApart(t *testing.T) {
 	v, _ := makeVault(t, []runSeed{{
-		framework: "iso27001", periodID: "2026-Q2", runID: "run-aaaa",
+		framework: frameworkISO27001, periodID: testPeriodQ2, runID: testRunID,
 		timestamp:   time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
 		completedAt: time.Date(2026, 4, 1, 0, 5, 0, 0, time.UTC),
 		policies: []core.PolicyResult{
-			{PolicyID: "iso27001.5.1.policies", Status: core.StatusPass, EvidenceMode: core.EvidenceModeAutomated},
+			{PolicyID: testPolicyISOPolicies, Status: core.StatusPass, EvidenceMode: core.EvidenceModeAutomated},
 		},
 	}})
 
 	snap, err := report.Build(context.Background(), &report.Input{
-		Vault: v, Framework: "iso27001", PeriodID: "2026-Q2", View: report.ViewCoverage,
+		Vault: v, Framework: frameworkISO27001, PeriodID: testPeriodQ2, View: report.ViewCoverage,
 		Controls: []core.Control{
-			{ID: "A.5.1"},
-			{ID: "C.9.2", Kind: core.ControlKindManagementSystem},
+			{ID: ctrlA51},
+			{ID: ctrlC92, Kind: core.ControlKindManagementSystem},
 		},
 		Policies: []core.Policy{
-			{ID: "iso27001.5.1.policies", EvidenceMode: core.EvidenceModeAutomated, Cadence: "daily",
-				Controls: []core.ControlRef{{ControlID: "A.5.1"}}},
-			{ID: "iso27001.clause.9.2.internal_audit", EvidenceMode: core.EvidenceModeManual, Cadence: "annual",
-				Controls: []core.ControlRef{{ControlID: "C.9.2"}}},
+			{ID: testPolicyISOPolicies, EvidenceMode: core.EvidenceModeAutomated, Cadence: cadenceDaily,
+				Controls: []core.ControlRef{{ControlID: ctrlA51}}},
+			{ID: "iso27001.clause.9.2.internal_audit", EvidenceMode: core.EvidenceModeManual, Cadence: cadenceAnnual,
+				Controls: []core.ControlRef{{ControlID: ctrlC92}}},
 		},
 	})
 	if err != nil {
@@ -352,10 +352,10 @@ func TestBuildCoverage_CountsManagementSystemApart(t *testing.T) {
 	if len(cov.Rows) != 2 {
 		t.Fatalf("rows = %d; want one per control — the clause requirement is the point of the view, not an appendix", len(cov.Rows))
 	}
-	if cov.Rows[0].ControlID != "A.5.1" || cov.Rows[0].ManagementSystem {
+	if cov.Rows[0].ControlID != ctrlA51 || cov.Rows[0].ManagementSystem {
 		t.Errorf("row 0 = %+v; want the catalog control first, unflagged", cov.Rows[0])
 	}
-	if cov.Rows[1].ControlID != "C.9.2" || !cov.Rows[1].ManagementSystem {
+	if cov.Rows[1].ControlID != ctrlC92 || !cov.Rows[1].ManagementSystem {
 		t.Errorf("row 1 = %+v; want the clause requirement flagged", cov.Rows[1])
 	}
 

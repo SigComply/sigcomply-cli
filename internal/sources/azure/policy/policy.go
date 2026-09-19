@@ -65,7 +65,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
-	armpolicy "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
+	armpolicy "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy/v2"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/azure/internal/azcommon"

@@ -91,6 +91,9 @@ const serviceTypeSIEM = "siem"
 // type (the schema requires a non-empty resource_type).
 const resourceTypeFallback = "gcp_resource"
 
+// providerGCP is the cloud-neutral provider label every record carries.
+const providerGCP = "gcp"
+
 // Finding is the plugin-local projection of an SCC finding (decoupled from
 // the SDK type so the API seam stays fakeable). The real adapter fills it
 // from securitycenter/v1's Finding plus its ListFindingsResult.Resource.
@@ -262,7 +265,7 @@ func (p *Plugin) collectThreatService(ctx context.Context) ([]core.EvidenceRecor
 	payload := threatServicePayload{
 		ID:                     fmt.Sprintf("organizations/%s/eventThreatDetectionSettings", p.orgID),
 		Name:                   "Event Threat Detection",
-		Provider:               "gcp",
+		Provider:               providerGCP,
 		IsEnabled:              state == enablementStateEnabled,
 		ServiceEnablementState: state,
 	}
@@ -279,7 +282,7 @@ func (p *Plugin) collectSecurityService(ctx context.Context) ([]core.EvidenceRec
 	payload := securityServicePayload{
 		ID:                     fmt.Sprintf("organizations/%s/securityHealthAnalyticsSettings", p.orgID),
 		Name:                   "Google Security Command Center",
-		Provider:               "gcp",
+		Provider:               providerGCP,
 		ServiceType:            serviceTypeSIEM,
 		IsEnabled:              state == enablementStateEnabled,
 		ServiceEnablementState: state,
@@ -312,7 +315,7 @@ func (p *Plugin) collectFindings(ctx context.Context) ([]core.EvidenceRecord, er
 			CVEID:                f.CVEID,
 			Score:                f.CVSSScore,
 			RemediationAvailable: f.HasRemediation,
-			Provider:             "gcp",
+			Provider:             providerGCP,
 			FindingClass:         f.FindingClass,
 		}
 		body, err := json.Marshal(payload)

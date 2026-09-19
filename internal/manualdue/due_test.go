@@ -13,6 +13,12 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 )
 
+const (
+	testPeriodQ1        = "2026-Q1"
+	testCatalogAccess   = "access_review_quarterly"
+	testCatalogTraining = "security_awareness_training"
+)
+
 func mustTime(t *testing.T, s string) time.Time {
 	t.Helper()
 	v, err := time.Parse(time.RFC3339, s)
@@ -24,7 +30,7 @@ func mustTime(t *testing.T, s string) time.Time {
 
 func q1(t *testing.T) planner.Period {
 	return planner.Period{
-		ID:      "2026-Q1",
+		ID:      testPeriodQ1,
 		PriorID: "2025-Q4",
 		Start:   mustTime(t, "2026-01-01T00:00:00Z"),
 		End:     mustTime(t, "2026-03-31T23:59:59Z"),
@@ -33,13 +39,13 @@ func q1(t *testing.T) planner.Period {
 
 func catalog() map[string]manual.CatalogEntry {
 	return map[string]manual.CatalogEntry{
-		"access_review_quarterly": {
-			EvidenceID:  "access_review_quarterly",
+		testCatalogAccess: {
+			EvidenceID:  testCatalogAccess,
 			Cadence:     "quarterly",
 			GracePeriod: 15 * 24 * time.Hour,
 		},
-		"security_awareness_training": {
-			EvidenceID:  "security_awareness_training",
+		testCatalogTraining: {
+			EvidenceID:  testCatalogTraining,
 			Cadence:     "annual",
 			GracePeriod: 30 * 24 * time.Hour,
 		},
@@ -74,7 +80,7 @@ func TestScan_EmptyFoldersAreMissing(t *testing.T) {
 	if len(rep.Missing) != 2 {
 		t.Fatalf("Missing = %d; want 2", len(rep.Missing))
 	}
-	if rep.PeriodID != "2026-Q1" {
+	if rep.PeriodID != testPeriodQ1 {
 		t.Errorf("PeriodID = %q; want 2026-Q1", rep.PeriodID)
 	}
 }
@@ -97,7 +103,7 @@ func TestScan_PopulatedFolderIsNotMissing(t *testing.T) {
 	if len(rep.Missing) != 1 {
 		t.Fatalf("Missing = %d; want 1", len(rep.Missing))
 	}
-	if rep.Missing[0].CatalogID != "security_awareness_training" {
+	if rep.Missing[0].CatalogID != testCatalogTraining {
 		t.Errorf("Missing[0] = %q; want security_awareness_training", rep.Missing[0].CatalogID)
 	}
 }
@@ -204,9 +210,9 @@ func TestScan_FolderURIMatchesCollectScheme(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
 	}
-	want := manual.FolderURI("s3", "acme-evidence", "manual/", "access_review_quarterly", "2026-Q1")
+	want := manual.FolderURI("s3", "acme-evidence", "manual/", testCatalogAccess, testPeriodQ1)
 	for _, e := range rep.Missing {
-		if e.CatalogID == "access_review_quarterly" && e.FolderURI != want {
+		if e.CatalogID == testCatalogAccess && e.FolderURI != want {
 			t.Errorf("FolderURI = %q; want %q", e.FolderURI, want)
 		}
 	}
@@ -233,7 +239,7 @@ func TestScan_ListErrorIsAnError(t *testing.T) {
 }
 
 func TestFormatText_NothingDue(t *testing.T) {
-	rep := &manualdue.Report{Framework: "soc2", PeriodID: "2026-Q1", Checked: 2}
+	rep := &manualdue.Report{Framework: "soc2", PeriodID: testPeriodQ1, Checked: 2}
 	var buf bytes.Buffer
 	if err := manualdue.FormatText(&buf, rep); err != nil {
 		t.Fatalf("FormatText: %v", err)
@@ -254,7 +260,7 @@ func TestFormatText_ListsEntries(t *testing.T) {
 		t.Fatalf("FormatText: %v", err)
 	}
 	out := buf.String()
-	for _, want := range []string{"access_review_quarterly", "2026-Q1", "s3://acme-evidence/manual/"} {
+	for _, want := range []string{testCatalogAccess, testPeriodQ1, "s3://acme-evidence/manual/"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output missing %q:\n%s", want, out)
 		}

@@ -7,6 +7,17 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/planner"
 )
 
+// The cadence vocabulary, shared by every cadence test.
+const (
+	cadenceContinuous = "continuous"
+	cadenceHourly     = "hourly"
+	cadenceDaily      = "daily"
+	cadenceWeekly     = "weekly"
+	cadenceMonthly    = "monthly"
+	cadenceQuarterly  = "quarterly"
+	cadenceAnnual     = "annual"
+)
+
 func TestDueCadences_EmptyStateAllDue(t *testing.T) {
 	now := time.Date(2026, 5, 25, 0, 0, 0, 0, time.UTC)
 	got := planner.DueCadences(nil, now)
@@ -25,19 +36,19 @@ func TestDueCadences_ContinuousAndHourlyAlwaysDue(t *testing.T) {
 	now := time.Date(2026, 5, 25, 0, 0, 0, 0, time.UTC)
 	// Just ran every cadence five seconds ago.
 	last := map[string]time.Time{
-		"continuous": now.Add(-5 * time.Second),
-		"hourly":     now.Add(-5 * time.Second),
-		"daily":      now.Add(-5 * time.Second),
-		"weekly":     now.Add(-5 * time.Second),
-		"monthly":    now.Add(-5 * time.Second),
-		"quarterly":  now.Add(-5 * time.Second),
-		"annual":     now.Add(-5 * time.Second),
+		cadenceContinuous: now.Add(-5 * time.Second),
+		cadenceHourly:     now.Add(-5 * time.Second),
+		cadenceDaily:      now.Add(-5 * time.Second),
+		cadenceWeekly:     now.Add(-5 * time.Second),
+		cadenceMonthly:    now.Add(-5 * time.Second),
+		cadenceQuarterly:  now.Add(-5 * time.Second),
+		cadenceAnnual:     now.Add(-5 * time.Second),
 	}
 	got := planner.DueCadences(last, now)
-	if !containsAll(got, []string{"continuous", "hourly"}) {
+	if !containsAll(got, []string{cadenceContinuous, cadenceHourly}) {
 		t.Errorf("continuous + hourly must always fire; got %v", got)
 	}
-	for _, c := range []string{"daily", "weekly", "monthly", "quarterly", "annual"} {
+	for _, c := range []string{cadenceDaily, cadenceWeekly, cadenceMonthly, cadenceQuarterly, cadenceAnnual} {
 		if contains(got, c) {
 			t.Errorf("cadence %q should NOT be due so soon after last success; got %v", c, got)
 		}
@@ -57,8 +68,8 @@ func TestDueCadences_DailyDueAfter23h(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := planner.DueCadences(map[string]time.Time{"daily": tc.last}, now)
-			has := contains(got, "daily")
+			got := planner.DueCadences(map[string]time.Time{cadenceDaily: tc.last}, now)
+			has := contains(got, cadenceDaily)
 			if has != tc.due {
 				t.Errorf("daily due=%v; want %v (last=%v, now=%v)", has, tc.due, tc.last, now)
 			}
@@ -72,8 +83,8 @@ func TestDueCadences_WeeklyRespectsCronDrift(t *testing.T) {
 	// 00:07 UTC. State-based scheduling must NOT skip the week.
 	lastSundayMidnight := time.Date(2026, 5, 17, 0, 0, 0, 0, time.UTC)
 	nextRunDriftedLate := time.Date(2026, 5, 24, 0, 7, 0, 0, time.UTC)
-	got := planner.DueCadences(map[string]time.Time{"weekly": lastSundayMidnight}, nextRunDriftedLate)
-	if !contains(got, "weekly") {
+	got := planner.DueCadences(map[string]time.Time{cadenceWeekly: lastSundayMidnight}, nextRunDriftedLate)
+	if !contains(got, cadenceWeekly) {
 		t.Errorf("weekly must fire across a 7d cron-drift gap; got %v", got)
 	}
 }
@@ -81,14 +92,14 @@ func TestDueCadences_WeeklyRespectsCronDrift(t *testing.T) {
 func TestDueCadences_QuarterlyVsAnnualDifferentiation(t *testing.T) {
 	now := time.Date(2026, 5, 25, 0, 0, 0, 0, time.UTC)
 	last := map[string]time.Time{
-		"quarterly": now.Add(-100 * 24 * time.Hour), // >89d23h → due
-		"annual":    now.Add(-100 * 24 * time.Hour), // <364d23h → NOT due
+		cadenceQuarterly: now.Add(-100 * 24 * time.Hour), // >89d23h → due
+		cadenceAnnual:    now.Add(-100 * 24 * time.Hour), // <364d23h → NOT due
 	}
 	got := planner.DueCadences(last, now)
-	if !contains(got, "quarterly") {
+	if !contains(got, cadenceQuarterly) {
 		t.Errorf("quarterly should be due at 100d; got %v", got)
 	}
-	if contains(got, "annual") {
+	if contains(got, cadenceAnnual) {
 		t.Errorf("annual should NOT be due at 100d; got %v", got)
 	}
 }
@@ -98,8 +109,8 @@ func TestDueCadences_ZeroTimeTreatedAsNeverRun(t *testing.T) {
 	// Key exists but timestamp is zero — defensively treated as
 	// never-run (matches what a freshly-deserialized state file with
 	// a missing nested field would produce).
-	got := planner.DueCadences(map[string]time.Time{"weekly": {}}, now)
-	if !contains(got, "weekly") {
+	got := planner.DueCadences(map[string]time.Time{cadenceWeekly: {}}, now)
+	if !contains(got, cadenceWeekly) {
 		t.Errorf("zero-time should be treated as never-run; got %v", got)
 	}
 }
@@ -109,13 +120,13 @@ func TestCadenceInterval_KnownCadences(t *testing.T) {
 		cadence string
 		want    time.Duration
 	}{
-		{"continuous", 0},
-		{"hourly", 0},
-		{"daily", 23 * time.Hour},
-		{"weekly", 6*24*time.Hour + 23*time.Hour},
-		{"monthly", 29*24*time.Hour + 23*time.Hour},
-		{"quarterly", 89*24*time.Hour + 23*time.Hour},
-		{"annual", 364*24*time.Hour + 23*time.Hour},
+		{cadenceContinuous, 0},
+		{cadenceHourly, 0},
+		{cadenceDaily, 23 * time.Hour},
+		{cadenceWeekly, 6*24*time.Hour + 23*time.Hour},
+		{cadenceMonthly, 29*24*time.Hour + 23*time.Hour},
+		{cadenceQuarterly, 89*24*time.Hour + 23*time.Hour},
+		{cadenceAnnual, 364*24*time.Hour + 23*time.Hour},
 		{"unknown-cadence", 0},
 	}
 	for _, tc := range cases {

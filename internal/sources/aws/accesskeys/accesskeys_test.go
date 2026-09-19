@@ -14,6 +14,9 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// testUserAlice is the IAM user name every fixture in this file uses.
+const testUserAlice = "alice"
+
 // fakeAPI drives the plugin without real AWS calls.
 type fakeAPI struct {
 	users    []iamtypes.User
@@ -89,13 +92,13 @@ func TestCollect_HappyPath(t *testing.T) {
 
 	fake := &fakeAPI{
 		users: []iamtypes.User{
-			{UserName: ptr("alice"), UserId: ptr("AIDA1")},
+			{UserName: ptr(testUserAlice), UserId: ptr("AIDA1")},
 			{UserName: ptr("bob"), UserId: ptr("AIDA2")},
 		},
 		keysByUN: map[string][]iamtypes.AccessKeyMetadata{
-			"alice": {
-				{AccessKeyId: ptr("AKIA_ACTIVE_USED"), Status: iamtypes.StatusTypeActive, CreateDate: ptr(created), UserName: ptr("alice")},
-				{AccessKeyId: ptr("AKIA_NEVER_USED"), Status: iamtypes.StatusTypeActive, CreateDate: ptr(created), UserName: ptr("alice")},
+			testUserAlice: {
+				{AccessKeyId: ptr("AKIA_ACTIVE_USED"), Status: iamtypes.StatusTypeActive, CreateDate: ptr(created), UserName: ptr(testUserAlice)},
+				{AccessKeyId: ptr("AKIA_NEVER_USED"), Status: iamtypes.StatusTypeActive, CreateDate: ptr(created), UserName: ptr(testUserAlice)},
 			},
 			"bob": {
 				{AccessKeyId: ptr("AKIA_INACTIVE"), Status: iamtypes.StatusTypeInactive, CreateDate: ptr(created), UserName: ptr("bob")},
@@ -150,7 +153,7 @@ func assertRecordMeta(t *testing.T, records []core.EvidenceRecord, wantOrder []s
 func assertActiveUsedKey(t *testing.T, rec *core.EvidenceRecord) {
 	t.Helper()
 	used := decode(t, rec.Payload)
-	if used.UserID != "alice" || used.AgeDays != 100 || used.NeverUsed || !used.IsActive {
+	if used.UserID != testUserAlice || used.AgeDays != 100 || used.NeverUsed || !used.IsActive {
 		t.Errorf("active-used payload wrong: %+v", used)
 	}
 	if !rawHasField(t, rec.Payload, "last_used_days") {
@@ -223,7 +226,7 @@ func TestCollect_ListUsersError(t *testing.T) {
 
 func TestCollect_ListAccessKeysError(t *testing.T) {
 	fake := &fakeAPI{
-		users:   []iamtypes.User{{UserName: ptr("alice"), UserId: ptr("AIDA1")}},
+		users:   []iamtypes.User{{UserName: ptr(testUserAlice), UserId: ptr("AIDA1")}},
 		keysErr: errors.New("denied"),
 	}
 	p := New(Options{API: fake})
@@ -235,9 +238,9 @@ func TestCollect_ListAccessKeysError(t *testing.T) {
 
 func TestCollect_GetLastUsedError(t *testing.T) {
 	fake := &fakeAPI{
-		users: []iamtypes.User{{UserName: ptr("alice"), UserId: ptr("AIDA1")}},
+		users: []iamtypes.User{{UserName: ptr(testUserAlice), UserId: ptr("AIDA1")}},
 		keysByUN: map[string][]iamtypes.AccessKeyMetadata{
-			"alice": {{AccessKeyId: ptr("AKIA1"), Status: iamtypes.StatusTypeActive, CreateDate: ptr(time.Now())}},
+			testUserAlice: {{AccessKeyId: ptr("AKIA1"), Status: iamtypes.StatusTypeActive, CreateDate: ptr(time.Now())}},
 		},
 		usedErr: errors.New("throttled"),
 	}

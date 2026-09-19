@@ -23,6 +23,13 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
 
+const (
+	providerAzure        = "azure"
+	logCategoryGuard     = "guard"
+	logCategoryKubeAudit = "kube-audit"
+	caseNilProperties    = "nil-properties"
+)
+
 var fixedNow = time.Date(2026, 6, 17, 12, 0, 0, 0, time.UTC)
 
 func mustUnmarshal(t *testing.T, raw json.RawMessage, dst any) {
@@ -156,8 +163,8 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 			*aksID("z-prod"): {
 				// kube-audit + guard enabled, kube-audit-admin disabled → ["guard","kube-audit"].
 				{Properties: &armmonitor.DiagnosticSettings{Logs: []*armmonitor.LogSettings{
-					{Category: to.Ptr("kube-audit"), Enabled: to.Ptr(true)},
-					{Category: to.Ptr("guard"), Enabled: to.Ptr(true)},
+					{Category: to.Ptr(logCategoryKubeAudit), Enabled: to.Ptr(true)},
+					{Category: to.Ptr(logCategoryGuard), Enabled: to.Ptr(true)},
 					{Category: to.Ptr("kube-audit-admin"), Enabled: to.Ptr(false)},
 				}}},
 			},
@@ -195,7 +202,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 	wantDev := clusterPayload{
 		ID:                       *aksID("a-dev"),
 		Name:                     "a-dev",
-		Provider:                 "azure",
+		Provider:                 providerAzure,
 		Version:                  "1.28.0",
 		SecretsEncryptionEnabled: false,
 		LoggingEnabled:           false,
@@ -220,7 +227,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 	wantProd := clusterPayload{
 		ID:                       *aksID("z-prod"),
 		Name:                     "z-prod",
-		Provider:                 "azure",
+		Provider:                 providerAzure,
 		Version:                  "1.29.2",
 		SecretsEncryptionEnabled: true,
 		LoggingEnabled:           true,
@@ -237,7 +244,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 		KMSKeyID:                 keyURI,
 		DiskEncryptionSetID:      desID,
 		EncryptionAtHost:         true,
-		AuditLogCategories:       []string{"guard", "kube-audit"},
+		AuditLogCategories:       []string{logCategoryGuard, logCategoryKubeAudit},
 		AuthorizedIPRanges:       2,
 	}
 	if !reflect.DeepEqual(prod, wantProd) {
@@ -261,7 +268,7 @@ func TestCollect_BarePropertiesStillRequiredFields(t *testing.T) {
 	if got.SecretsEncryptionEnabled || got.LoggingEnabled || got.IsPrivateEndpoint || got.NodeAutoUpgradeEnabled {
 		t.Errorf("bare cluster: want all-false load-bearing fields, got %+v", got)
 	}
-	if got.ID == "" || got.Name != "bare" || got.Provider != "azure" {
+	if got.ID == "" || got.Name != "bare" || got.Provider != providerAzure {
 		t.Errorf("bare cluster: missing required fields, got %+v", got)
 	}
 }
@@ -339,7 +346,7 @@ func TestKMSSecretsEncryptionEnabled_Table(t *testing.T) {
 		{"nil-enabled", mk(&armcontainerservice.ManagedClusterProperties{SecurityProfile: &armcontainerservice.ManagedClusterSecurityProfile{AzureKeyVaultKms: &armcontainerservice.AzureKeyVaultKms{}}}), false},
 		{"nil-kms", mk(&armcontainerservice.ManagedClusterProperties{SecurityProfile: &armcontainerservice.ManagedClusterSecurityProfile{}}), false},
 		{"nil-securityprofile", mk(&armcontainerservice.ManagedClusterProperties{}), false},
-		{"nil-properties", &armcontainerservice.ManagedCluster{}, false},
+		{caseNilProperties, &armcontainerservice.ManagedCluster{}, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -375,7 +382,7 @@ func TestAutoUpgradeEnabled_Table(t *testing.T) {
 		{"none", mk(to.Ptr(armcontainerservice.UpgradeChannelNone)), false},
 		{"nil-channel", mk(nil), false},
 		{"nil-profile", &armcontainerservice.ManagedCluster{Properties: &armcontainerservice.ManagedClusterProperties{}}, false},
-		{"nil-properties", &armcontainerservice.ManagedCluster{}, false},
+		{caseNilProperties, &armcontainerservice.ManagedCluster{}, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -403,7 +410,7 @@ func TestAllPoolsEncryptionAtHost_Table(t *testing.T) {
 		{"nil-flag", mk(&armcontainerservice.ManagedClusterAgentPoolProfile{}), false},
 		{"nil-pool", mk(nil), false},
 		{"empty-pools", mk(), false},
-		{"nil-properties", &armcontainerservice.ManagedCluster{}, false},
+		{caseNilProperties, &armcontainerservice.ManagedCluster{}, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -430,16 +437,16 @@ func TestAuditLoggingEnabled_Table(t *testing.T) {
 		wantOn   bool
 		wantCats []string
 	}{
-		{"kube-audit", logs(cat("kube-audit", true)), true, []string{"kube-audit"}},
+		{logCategoryKubeAudit, logs(cat(logCategoryKubeAudit, true)), true, []string{logCategoryKubeAudit}},
 		{"kube-audit-admin", logs(cat("kube-audit-admin", true)), true, []string{"kube-audit-admin"}},
-		{"guard", logs(cat("guard", true)), true, []string{"guard"}},
+		{logCategoryGuard, logs(cat(logCategoryGuard, true)), true, []string{logCategoryGuard}},
 		{"audit-group", logs(group("audit", true)), true, []string{"audit"}},
 		{"allLogs-group", logs(group("allLogs", true)), true, []string{"allLogs"}},
-		{"disabled-audit", logs(cat("kube-audit", false)), false, nil},
+		{"disabled-audit", logs(cat(logCategoryKubeAudit, false)), false, nil},
 		{"non-audit-category", logs(cat("cluster-autoscaler", true)), false, nil},
-		{"dedup-and-sort", logs(cat("kube-audit", true), cat("guard", true), cat("kube-audit", true)), true, []string{"guard", "kube-audit"}},
+		{"dedup-and-sort", logs(cat(logCategoryKubeAudit, true), cat(logCategoryGuard, true), cat(logCategoryKubeAudit, true)), true, []string{logCategoryGuard, logCategoryKubeAudit}},
 		{"nil-settings", nil, false, nil},
-		{"nil-properties", []*armmonitor.DiagnosticSettingsResource{{}}, false, nil},
+		{caseNilProperties, []*armmonitor.DiagnosticSettingsResource{{}}, false, nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -514,7 +521,7 @@ func TestRealAKS_HappyPath(t *testing.T) {
 		}},
 	}})
 	diagBody := mustMarshal(t, armmonitor.DiagnosticSettingsResourceCollection{Value: []*armmonitor.DiagnosticSettingsResource{
-		auditLogs("kube-audit"),
+		auditLogs(logCategoryKubeAudit),
 	}})
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -542,7 +549,7 @@ func TestRealAKS_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListClusterDiagnosticSettings: %v", err)
 	}
-	if on, cats := auditLoggingEnabled(settings); !on || len(cats) != 1 || cats[0] != "kube-audit" {
+	if on, cats := auditLoggingEnabled(settings); !on || len(cats) != 1 || cats[0] != logCategoryKubeAudit {
 		t.Errorf("expected audit logging enabled, got on=%v cats=%v", on, cats)
 	}
 }

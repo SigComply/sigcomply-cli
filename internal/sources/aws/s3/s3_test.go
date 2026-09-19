@@ -16,6 +16,9 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// testRegion is the AWS region used by this file's fixtures.
+const testRegion = "us-east-1"
+
 type fakeAPI struct {
 	buckets         []s3types.Bucket
 	pages           [][]s3types.Bucket
@@ -127,12 +130,12 @@ func TestCollect_PaginatesAllBuckets(t *testing.T) {
 	created := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	fake := &fakeAPI{
 		pages: [][]s3types.Bucket{
-			{{Name: ptr("page0-a"), BucketRegion: ptr("us-east-1"), CreationDate: &created}},
-			{{Name: ptr("page1-a"), BucketRegion: ptr("us-east-1"), CreationDate: &created}},
-			{{Name: ptr("page2-a"), BucketRegion: ptr("us-east-1"), CreationDate: &created}},
+			{{Name: ptr("page0-a"), BucketRegion: ptr(testRegion), CreationDate: &created}},
+			{{Name: ptr("page1-a"), BucketRegion: ptr(testRegion), CreationDate: &created}},
+			{{Name: ptr("page2-a"), BucketRegion: ptr(testRegion), CreationDate: &created}},
 		},
 	}
-	p := New(Options{API: fake, Region: "us-east-1"})
+	p := New(Options{API: fake, Region: testRegion})
 	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
@@ -150,8 +153,8 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	created := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	fake := &fakeAPI{
 		buckets: []s3types.Bucket{
-			{Name: ptr("zeta"), BucketRegion: ptr("us-east-1"), CreationDate: &created},
-			{Name: ptr("alpha"), BucketRegion: ptr("us-east-1"), CreationDate: &created},
+			{Name: ptr("zeta"), BucketRegion: ptr(testRegion), CreationDate: &created},
+			{Name: ptr("alpha"), BucketRegion: ptr(testRegion), CreationDate: &created},
 		},
 		enc: map[string]*s3types.ServerSideEncryptionConfiguration{
 			"alpha": {Rules: []s3types.ServerSideEncryptionRule{{
@@ -163,7 +166,7 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 		},
 	}
 	now := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
-	p := New(Options{API: fake, Region: "us-east-1", Now: func() time.Time { return now }})
+	p := New(Options{API: fake, Region: testRegion, Now: func() time.Time { return now }})
 	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}, PolicyID: "p1", SlotName: "buckets"})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
@@ -296,20 +299,20 @@ func TestSafeHelpers_NilSafe(t *testing.T) {
 	if safeBucketName(nil) != "" {
 		t.Errorf("nil name not empty")
 	}
-	if safeBucketRegion(nil, "us-east-1") != "us-east-1" {
+	if safeBucketRegion(nil, testRegion) != testRegion {
 		t.Errorf("nil region didn't fall back")
 	}
 	if !safeCreatedAt(nil).IsZero() {
 		t.Errorf("nil createdAt not zero")
 	}
 	// Region populated → wins over fallback.
-	if got := safeBucketRegion(&s3types.Bucket{BucketRegion: ptr("eu-west-1")}, "us-east-1"); got != "eu-west-1" {
+	if got := safeBucketRegion(&s3types.Bucket{BucketRegion: ptr("eu-west-1")}, testRegion); got != "eu-west-1" {
 		t.Errorf("region = %q", got)
 	}
 }
 
 func TestNewFromAWS_SmokeTest(t *testing.T) {
-	p, err := NewFromAWS(context.Background(), "us-east-1")
+	p, err := NewFromAWS(context.Background(), testRegion)
 	if err != nil {
 		t.Logf("NewFromAWS errored (acceptable in CI): %v", err)
 		return

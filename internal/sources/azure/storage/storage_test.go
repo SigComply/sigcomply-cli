@@ -16,10 +16,15 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage/v4"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
+)
+
+const (
+	accountAlpha = "alpha"
+	accountBeta  = "beta"
 )
 
 var fixedNow = time.Date(2026, 6, 16, 12, 0, 0, 0, time.UTC)
@@ -78,8 +83,8 @@ func TestCollect_RejectsNonEmittedType(t *testing.T) {
 
 func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 	alpha := &armstorage.Account{
-		Name:     to.Ptr("alpha"),
-		ID:       idOf("sub-1", "rg-a", "alpha"),
+		Name:     to.Ptr(accountAlpha),
+		ID:       idOf("sub-1", "rg-a", accountAlpha),
 		Location: to.Ptr("eastus"),
 		Properties: &armstorage.AccountProperties{
 			AllowBlobPublicAccess: to.Ptr(false),
@@ -97,8 +102,8 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 		},
 	}
 	beta := &armstorage.Account{
-		Name:     to.Ptr("beta"),
-		ID:       idOf("sub-1", "rg-b", "beta"),
+		Name:     to.Ptr(accountBeta),
+		ID:       idOf("sub-1", "rg-b", accountBeta),
 		Location: to.Ptr("westus"),
 		Properties: &armstorage.AccountProperties{
 			AllowBlobPublicAccess: to.Ptr(true),
@@ -108,8 +113,8 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 	f := &fakeAPI{
 		accounts: []*armstorage.Account{beta, alpha}, // unsorted on purpose
 		blob: map[string]*armstorage.BlobServicePropertiesProperties{
-			"alpha": {IsVersioningEnabled: to.Ptr(true)},
-			"beta": {
+			accountAlpha: {IsVersioningEnabled: to.Ptr(true)},
+			accountBeta: {
 				IsVersioningEnabled:   to.Ptr(false),
 				DeleteRetentionPolicy: &armstorage.DeleteRetentionPolicy{Enabled: to.Ptr(true), Days: to.Ptr[int32](7)},
 			},
@@ -124,7 +129,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 	if len(recs) != 2 {
 		t.Fatalf("got %d records, want 2", len(recs))
 	}
-	if recs[0].ID != "alpha" || recs[1].ID != "beta" {
+	if recs[0].ID != accountAlpha || recs[1].ID != accountBeta {
 		t.Fatalf("records not sorted by ID: %s, %s", recs[0].ID, recs[1].ID)
 	}
 
@@ -144,7 +149,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 	}
 
 	wantAlpha := bucketPayload{
-		Name:                    "alpha",
+		Name:                    accountAlpha,
 		RegionOrLocation:        "eastus",
 		EncryptionAtRestEnabled: true,
 		KMSManaged:              true,
@@ -158,7 +163,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 		PublicNetworkAccess:     "Enabled",
 	}
 	wantBeta := bucketPayload{
-		Name:                    "beta",
+		Name:                    accountBeta,
 		RegionOrLocation:        "westus",
 		EncryptionAtRestEnabled: true,
 		PublicAccessBlocked:     false,
@@ -386,7 +391,7 @@ func realStoragePointedAt(t *testing.T, srv *httptest.Server) *realStorage {
 
 func TestRealStorage_ListAndBlob_HappyPath(t *testing.T) {
 	accountsBody := mustMarshal(t, armstorage.AccountListResult{Value: []*armstorage.Account{
-		{Name: to.Ptr("alpha"), ID: idOf("sub-1", "rg-a", "alpha"), Location: to.Ptr("eastus"),
+		{Name: to.Ptr(accountAlpha), ID: idOf("sub-1", "rg-a", accountAlpha), Location: to.Ptr("eastus"),
 			Properties: &armstorage.AccountProperties{AllowBlobPublicAccess: to.Ptr(false)}},
 	}})
 	blobBody := mustMarshal(t, armstorage.BlobServiceProperties{
@@ -414,10 +419,10 @@ func TestRealStorage_ListAndBlob_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListAccounts: %v", err)
 	}
-	if len(accounts) != 1 || deref(accounts[0].Name) != "alpha" {
+	if len(accounts) != 1 || deref(accounts[0].Name) != accountAlpha {
 		t.Fatalf("unexpected accounts: %+v", accounts)
 	}
-	bp, err := rs.GetBlobProperties(context.Background(), "rg-a", "alpha")
+	bp, err := rs.GetBlobProperties(context.Background(), "rg-a", accountAlpha)
 	if err != nil {
 		t.Fatalf("GetBlobProperties: %v", err)
 	}

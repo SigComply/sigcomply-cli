@@ -75,7 +75,7 @@ func seedState(t *testing.T, v *listVault, framework, policyID string, at time.T
 }
 
 func TestPolicyStatePrefix_Shape(t *testing.T) {
-	if got := PolicyStatePrefix("soc2"); got != "state/soc2/policies/" {
+	if got := PolicyStatePrefix(testFramework); got != "state/soc2/policies/" {
 		t.Errorf("PolicyStatePrefix = %q", got)
 	}
 }
@@ -83,25 +83,25 @@ func TestPolicyStatePrefix_Shape(t *testing.T) {
 func TestListPolicyStates_EnumeratesShards(t *testing.T) {
 	v := newListVault()
 	at := time.Date(2026, 5, 24, 9, 0, 0, 0, time.UTC)
-	seedState(t, v, "soc2", "soc2.cc6.1.mfa", at)
-	seedState(t, v, "soc2", "soc2.cc7.2.logging", at)
+	seedState(t, v, testFramework, testPolicyID, at)
+	seedState(t, v, testFramework, "soc2.cc7.2.logging", at)
 	// A non-shard key under the same prefix must be skipped.
 	v.data["state/soc2/policies/README.txt"] = []byte("ignore me")
 
-	got, err := ListPolicyStates(context.Background(), v, "soc2")
+	got, err := ListPolicyStates(context.Background(), v, testFramework)
 	if err != nil {
 		t.Fatalf("ListPolicyStates: %v", err)
 	}
 	if len(got) != 2 {
 		t.Fatalf("got %d shards; want 2 (%v)", len(got), keysOf(got))
 	}
-	if got["soc2.cc6.1.mfa"] == nil || got["soc2.cc7.2.logging"] == nil {
+	if got[testPolicyID] == nil || got["soc2.cc7.2.logging"] == nil {
 		t.Errorf("expected both shards present: %v", keysOf(got))
 	}
 }
 
 func TestListPolicyStates_NilVaultErrors(t *testing.T) {
-	if _, err := ListPolicyStates(context.Background(), nil, "soc2"); err == nil {
+	if _, err := ListPolicyStates(context.Background(), nil, testFramework); err == nil {
 		t.Error("want nil-vault error")
 	}
 }
@@ -109,7 +109,7 @@ func TestListPolicyStates_NilVaultErrors(t *testing.T) {
 func TestListPolicyStates_ListErrorPropagates(t *testing.T) {
 	v := newListVault()
 	v.listErr = errors.New("backend down")
-	if _, err := ListPolicyStates(context.Background(), v, "soc2"); err == nil {
+	if _, err := ListPolicyStates(context.Background(), v, testFramework); err == nil {
 		t.Error("want list error to propagate")
 	}
 }
@@ -122,7 +122,7 @@ func TestPolicyIDFromStatePath(t *testing.T) {
 		want string
 	}{
 		{"state/soc2/policies/p1.json", "p1"},
-		{"state/soc2/policies/soc2.cc6.1.mfa.json", "soc2.cc6.1.mfa"},
+		{"state/soc2/policies/soc2.cc6.1.mfa.json", testPolicyID},
 		{"state/soc2/policies/notjson.txt", ""},
 		{"state/other/policies/p1.json", ""}, // wrong prefix
 	}
@@ -137,7 +137,7 @@ func TestPolicyIDFromStatePath(t *testing.T) {
 // registered (degrades to "treat as first run").
 func TestLoadPolicyStates_UnregisteredFramework(t *testing.T) {
 	opts := &Options{
-		Config:     &spec.ProjectConfig{Framework: "soc2"},
+		Config:     &spec.ProjectConfig{Framework: testFramework},
 		Registries: registry.NewSet(), // no framework registered
 		Vault:      newListVault(),
 		Logger:     log.New(&strings.Builder{}, false),
@@ -152,7 +152,7 @@ func TestLoadPolicyStates_UnregisteredFramework(t *testing.T) {
 func TestLoadPolicyStates_ReadsRegisteredPolicies(t *testing.T) {
 	v := newListVault()
 	at := time.Date(2026, 5, 24, 9, 0, 0, 0, time.UTC)
-	seedState(t, v, "soc2", "p1", at)
+	seedState(t, v, testFramework, "p1", at)
 	// p2 has no shard → present-but-nil in the result.
 
 	regs := registry.NewSet()
@@ -162,7 +162,7 @@ func TestLoadPolicyStates_ReadsRegisteredPolicies(t *testing.T) {
 		t.Fatal(err)
 	}
 	opts := &Options{
-		Config:     &spec.ProjectConfig{Framework: "soc2"},
+		Config:     &spec.ProjectConfig{Framework: testFramework},
 		Registries: regs,
 		Vault:      v,
 		Logger:     log.New(&strings.Builder{}, false),
@@ -184,7 +184,7 @@ type stateFramework struct {
 	policies []core.PolicyRef
 }
 
-func (*stateFramework) ID() string                   { return "soc2" }
+func (*stateFramework) ID() string                   { return testFramework }
 func (*stateFramework) Version() string              { return "v0" }
 func (*stateFramework) Controls() []core.Control     { return nil }
 func (f *stateFramework) Policies() []core.PolicyRef { return f.policies }

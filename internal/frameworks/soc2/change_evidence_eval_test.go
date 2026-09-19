@@ -12,6 +12,19 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/planner"
 )
 
+const (
+	// testRepo is the repository every synthetic change and deployment
+	// belongs to; testApprover merges and deploys them (the author is
+	// always someone else, which is what the independence checks turn on).
+	testRepo        = "acme/api"
+	testApprover    = "carol"
+	testSHAApproved = "sha-approved"
+
+	// fieldRepository is the pull_request / deployment payload field the
+	// two-slot matches_in join keys on.
+	fieldRepository = "repository"
+)
+
 // The CC8.1 change-evidence policies are the first that read what happened
 // *during* the period rather than current configuration, and three of their
 // four pass_when expressions are shapes no shipped policy used before: a
@@ -48,8 +61,8 @@ func deployRecord(t *testing.T, id string, payload map[string]any) core.Evidence
 //nolint:unparam // author is fixed in every case today, but naming it keeps
 func mergedChange(number int, author string) map[string]any {
 	return map[string]any{
-		"repository": "acme/api", "number": number, "author": author,
-		"merged_by": "carol", "target_branch": "main",
+		fieldRepository: testRepo, "number": number, "author": author,
+		"merged_by": testApprover, "target_branch": "main",
 		"merge_commit_sha": "sha-ok", "merged_at": "2026-08-01T10:00:00Z",
 		"approval_count": 1, "independent_approval_count": 1,
 		"approved_before_merge": true, "checks_passed": true,
@@ -155,7 +168,7 @@ func TestDeploymentTraceability(t *testing.T) {
 	const id = "soc2.cc8.1.production_deploys_from_approved_changes"
 
 	approvedChange := mergedChange(7, "alice")
-	approvedChange["merge_commit_sha"] = "sha-approved"
+	approvedChange["merge_commit_sha"] = testSHAApproved
 
 	unapprovedChange := mergedChange(8, "alice")
 	unapprovedChange["merge_commit_sha"] = "sha-unapproved"
@@ -168,8 +181,8 @@ func TestDeploymentTraceability(t *testing.T) {
 
 	prodDeploy := func(sha string) map[string]any {
 		return map[string]any{
-			"repository": "acme/api", "deployment_id": "900", "environment": "production",
-			"is_production": true, "deployed_by": "carol",
+			fieldRepository: testRepo, "deployment_id": "900", "environment": "production",
+			"is_production": true, "deployed_by": testApprover,
 			"deployed_at": "2026-08-02T10:00:00Z", "commit_sha": sha, "status": "success",
 		}
 	}
@@ -179,7 +192,7 @@ func TestDeploymentTraceability(t *testing.T) {
 		deployment map[string]any
 		wantStatus core.PolicyStatus
 	}{
-		{"production deploy of an approved change passes", prodDeploy("sha-approved"), core.StatusPass},
+		{"production deploy of an approved change passes", prodDeploy(testSHAApproved), core.StatusPass},
 		{"production deploy of an unapproved change fails", prodDeploy("sha-unapproved"), core.StatusFail},
 		{"production deploy of an unknown commit fails", prodDeploy("sha-nowhere"), core.StatusFail},
 		// An empty join key must fail closed, never match arbitrarily.
@@ -208,12 +221,12 @@ func TestDeploymentTraceability(t *testing.T) {
 // counting it would report "2 of 3 resources passed" for one deployment.
 func TestDeploymentTraceability_LookupSlotNotCountedAsResources(t *testing.T) {
 	change := mergedChange(7, "alice")
-	change["merge_commit_sha"] = "sha-approved"
+	change["merge_commit_sha"] = testSHAApproved
 	got := evalPolicy(t, "soc2.cc8.1.production_deploys_from_approved_changes", map[string][]core.EvidenceRecord{
 		"deployments": {deployRecord(t, "acme/api/deployments/900", map[string]any{
-			"repository": "acme/api", "deployment_id": "900", "environment": "production",
-			"is_production": true, "deployed_by": "carol",
-			"deployed_at": "2026-08-02T10:00:00Z", "commit_sha": "sha-approved", "status": "success",
+			fieldRepository: testRepo, "deployment_id": "900", "environment": "production",
+			"is_production": true, "deployed_by": testApprover,
+			"deployed_at": "2026-08-02T10:00:00Z", "commit_sha": testSHAApproved, "status": "success",
 		})},
 		"changes": {prRecord(t, "acme/api#7", change)},
 	})

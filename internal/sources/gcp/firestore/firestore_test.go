@@ -16,6 +16,19 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testAnalyticsDBShortName = "analytics"
+)
+
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testDefaultDBName      = "projects/p/databases/(default)"
+	testAnalyticsDBName    = "projects/p/databases/analytics"
+	testDBTypeNative       = "FIRESTORE_NATIVE"
+	testDefaultDBShortName = "(default)"
+)
+
 // fakeAPI drives the plugin without hitting GCP. It records the project
 // argument and call count to assert plumbing and the KISS-no-DRY axiom.
 type fakeAPI struct {
@@ -74,16 +87,16 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	fake := &fakeAPI{
 		databases: []*firestore.GoogleFirestoreAdminV1Database{
 			{ // open default database, sorts second by Name.
-				Name:                          "projects/p/databases/(default)",
+				Name:                          testDefaultDBName,
 				LocationId:                    "nam5",
-				Type:                          "FIRESTORE_NATIVE",
+				Type:                          testDBTypeNative,
 				PointInTimeRecoveryEnablement: "POINT_IN_TIME_RECOVERY_DISABLED",
 				DeleteProtectionState:         "DELETE_PROTECTION_STATE_UNSPECIFIED",
 			},
 			{ // hardened named database, sorts first by Name.
-				Name:                          "projects/p/databases/analytics",
+				Name:                          testAnalyticsDBName,
 				LocationId:                    "us-central1",
-				Type:                          "FIRESTORE_NATIVE",
+				Type:                          testDBTypeNative,
 				PointInTimeRecoveryEnablement: "POINT_IN_TIME_RECOVERY_ENABLED",
 				DeleteProtectionState:         "DELETE_PROTECTION_ENABLED",
 				CmekConfig: &firestore.GoogleFirestoreAdminV1CmekConfig{
@@ -107,7 +120,7 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	}
 	// Sorted by ID (full resource name): ".../databases/(default)" sorts
 	// before ".../databases/analytics" ('(' is ASCII 40, 'a' is 97).
-	if n0, n1 := decodePayload(t, &records[0]).Name, decodePayload(t, &records[1]).Name; n0 != "(default)" || n1 != "analytics" {
+	if n0, n1 := decodePayload(t, &records[0]).Name, decodePayload(t, &records[1]).Name; n0 != testDefaultDBShortName || n1 != testAnalyticsDBShortName {
 		t.Fatalf("order = %q,%q; want (default) before analytics", n0, n1)
 	}
 	for i := range records {
@@ -123,10 +136,10 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	}
 
 	wantHardened := databasePayload{
-		ID:   "projects/p/databases/analytics",
-		Name: "analytics", Provider: "gcp",
+		ID:   testAnalyticsDBName,
+		Name: testAnalyticsDBShortName, Provider: "gcp",
 		EncryptionEnabled: true, PointInTimeRecoveryEnabled: true, DeletionProtection: true,
-		Location: "us-central1", DatabaseType: "FIRESTORE_NATIVE",
+		Location: "us-central1", DatabaseType: testDBTypeNative,
 		IsCustomerManaged:       true,
 		KMSKeyName:              "projects/p/locations/us-central1/keyRings/r/cryptoKeys/k",
 		PITRState:               "POINT_IN_TIME_RECOVERY_ENABLED",
@@ -137,10 +150,10 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	}
 
 	wantOpen := databasePayload{
-		ID:   "projects/p/databases/(default)",
-		Name: "(default)", Provider: "gcp",
+		ID:   testDefaultDBName,
+		Name: testDefaultDBShortName, Provider: "gcp",
 		EncryptionEnabled: true, PointInTimeRecoveryEnabled: false, DeletionProtection: false,
-		Location: "nam5", DatabaseType: "FIRESTORE_NATIVE",
+		Location: "nam5", DatabaseType: testDBTypeNative,
 		PITRState:               "POINT_IN_TIME_RECOVERY_DISABLED",
 		DeletionProtectionState: "DELETE_PROTECTION_STATE_UNSPECIFIED",
 	}
@@ -154,8 +167,8 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 // stays true — Firestore always encrypts) and leaves the customer-managed
 // extras empty.
 func TestBuildPayload_BareDatabase(t *testing.T) {
-	got := buildPayload(&firestore.GoogleFirestoreAdminV1Database{Name: "projects/p/databases/(default)"})
-	if got.ID != "projects/p/databases/(default)" || got.Name != "(default)" {
+	got := buildPayload(&firestore.GoogleFirestoreAdminV1Database{Name: testDefaultDBName})
+	if got.ID != testDefaultDBName || got.Name != testDefaultDBShortName {
 		t.Errorf("id/name = %q/%q; want full-name / (default)", got.ID, got.Name)
 	}
 	if !got.EncryptionEnabled {
@@ -173,10 +186,10 @@ func TestBuildPayload_BareDatabase(t *testing.T) {
 // "(default)" literal and the fallback when "/databases/" is absent.
 func TestDatabaseShortName(t *testing.T) {
 	cases := map[string]string{
-		"projects/p/databases/(default)": "(default)",
-		"projects/p/databases/analytics": "analytics",
-		"analytics":                      "analytics",
-		"":                               ".",
+		testDefaultDBName:        testDefaultDBShortName,
+		testAnalyticsDBName:      testAnalyticsDBShortName,
+		testAnalyticsDBShortName: testAnalyticsDBShortName,
+		"":                       ".",
 	}
 	for in, want := range cases {
 		if got := databaseShortName(in); got != want {
@@ -232,8 +245,8 @@ func TestCollect_KISS_NoDRY_EachCallReFetches(t *testing.T) {
 func TestRealFirestore_ListDatabases(t *testing.T) {
 	body := mustMarshal(t, firestore.GoogleFirestoreAdminV1ListDatabasesResponse{
 		Databases: []*firestore.GoogleFirestoreAdminV1Database{
-			{Name: "projects/p/databases/(default)"},
-			{Name: "projects/p/databases/analytics"},
+			{Name: testDefaultDBName},
+			{Name: testAnalyticsDBName},
 		},
 	})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -256,7 +269,7 @@ func TestRealFirestore_ListDatabases(t *testing.T) {
 // partial result: any unreachable location is an error, not a silent drop.
 func TestRealFirestore_UnreachableErrors(t *testing.T) {
 	body := mustMarshal(t, firestore.GoogleFirestoreAdminV1ListDatabasesResponse{
-		Databases:   []*firestore.GoogleFirestoreAdminV1Database{{Name: "projects/p/databases/(default)"}},
+		Databases:   []*firestore.GoogleFirestoreAdminV1Database{{Name: testDefaultDBName}},
 		Unreachable: []string{"eur3"},
 	})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

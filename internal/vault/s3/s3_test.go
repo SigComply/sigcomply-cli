@@ -18,6 +18,9 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/vault/vaulttest"
 )
 
+// testBucket is the bucket name every fixture in this file uses.
+const testBucket = "test-bucket"
+
 // fakeS3 is an in-memory stand-in for the subset of the S3 API the
 // vault uses. Each test gets a fresh fakeS3 so isolation is automatic.
 type fakeS3 struct {
@@ -72,7 +75,7 @@ func TestS3Vault_Contract(t *testing.T) {
 		t.Helper()
 		v := &s3.Vault{
 			Client: newFakeS3(),
-			Bucket: "test-bucket",
+			Bucket: testBucket,
 			Prefix: "sigcomply/",
 		}
 		if err := v.Init(context.Background()); err != nil {
@@ -86,7 +89,7 @@ func TestS3Vault_PrefixApplied(t *testing.T) {
 	fake := newFakeS3()
 	v := &s3.Vault{
 		Client: fake,
-		Bucket: "test-bucket",
+		Bucket: testBucket,
 		Prefix: "vault-root/",
 	}
 	if err := v.PutBinary(context.Background(), "policies/foo/result.json", []byte("x"), nil); err != nil {
@@ -101,7 +104,7 @@ func TestS3Vault_PrefixWithoutTrailingSlash(t *testing.T) {
 	fake := newFakeS3()
 	v := &s3.Vault{
 		Client: fake,
-		Bucket: "test-bucket",
+		Bucket: testBucket,
 		Prefix: "vault-root", // no trailing slash
 	}
 	if err := v.PutBinary(context.Background(), "key.bin", []byte("x"), nil); err != nil {
@@ -152,7 +155,7 @@ func TestS3Vault_NoPrefix(t *testing.T) {
 	fake := newFakeS3()
 	v := &s3.Vault{
 		Client: fake,
-		Bucket: "test-bucket",
+		Bucket: testBucket,
 		// Prefix intentionally empty.
 	}
 	if err := v.PutBinary(context.Background(), "bare/key.bin", []byte("hello"), nil); err != nil {
@@ -174,13 +177,13 @@ func TestS3Vault_InitError(t *testing.T) {
 	sentinel := errors.New("probe failed")
 	v := &s3.Vault{
 		Client: &errS3{listErr: sentinel},
-		Bucket: "test-bucket",
+		Bucket: testBucket,
 	}
 	err := v.Init(context.Background())
 	if err == nil {
 		t.Fatal("Init: expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "test-bucket") {
+	if !strings.Contains(err.Error(), testBucket) {
 		t.Errorf("Init error %q does not mention bucket name", err.Error())
 	}
 }
@@ -189,7 +192,7 @@ func TestS3Vault_PutError(t *testing.T) {
 	sentinel := errors.New("network error")
 	v := &s3.Vault{
 		Client: &errS3{putErr: sentinel},
-		Bucket: "test-bucket",
+		Bucket: testBucket,
 	}
 	for _, tc := range []struct {
 		name string
@@ -211,7 +214,7 @@ func TestS3Vault_GetBinaryError_NonNotFound(t *testing.T) {
 	sentinel := errors.New("internal S3 error")
 	v := &s3.Vault{
 		Client: &errS3{getErr: sentinel},
-		Bucket: "test-bucket",
+		Bucket: testBucket,
 	}
 	_, err := v.GetBinary(context.Background(), "any.bin")
 	if err == nil {
@@ -226,7 +229,7 @@ func TestS3Vault_GetBinary_NotFound_NoSuchKey(t *testing.T) {
 	// NoSuchKey typed error → should be wrapped as not found.
 	v := &s3.Vault{
 		Client: &errS3{getErr: &types.NoSuchKey{}},
-		Bucket: "test-bucket",
+		Bucket: testBucket,
 	}
 	_, err := v.GetBinary(context.Background(), "missing.bin")
 	if err == nil {
@@ -254,7 +257,7 @@ func TestS3Vault_GetBinary_NotFound_SmithyCodes(t *testing.T) {
 		t.Run(code, func(t *testing.T) {
 			v := &s3.Vault{
 				Client: &errS3{getErr: smithyAPIError{code: code}},
-				Bucket: "test-bucket",
+				Bucket: testBucket,
 			}
 			_, err := v.GetBinary(context.Background(), "missing.bin")
 			if err == nil {
@@ -272,7 +275,7 @@ func TestS3Vault_GetBinary_NotFound_SmithyCodeUnknown(t *testing.T) {
 	// branch — it should be returned as a plain get error.
 	v := &s3.Vault{
 		Client: &errS3{getErr: smithyAPIError{code: "InternalError"}},
-		Bucket: "test-bucket",
+		Bucket: testBucket,
 	}
 	_, err := v.GetBinary(context.Background(), "any.bin")
 	if err == nil {
@@ -287,7 +290,7 @@ func TestS3Vault_ListError(t *testing.T) {
 	sentinel := errors.New("list error")
 	v := &s3.Vault{
 		Client: &errS3{listErr: sentinel},
-		Bucket: "test-bucket",
+		Bucket: testBucket,
 	}
 	_, err := v.List(context.Background(), "prefix/")
 	if err == nil {
@@ -371,7 +374,7 @@ func TestS3Vault_ListPagination(t *testing.T) {
 	}
 	v := &s3.Vault{
 		Client: p,
-		Bucket: "test-bucket",
+		Bucket: testBucket,
 		Prefix: prefix,
 	}
 	got, err := v.List(context.Background(), "")
@@ -393,7 +396,7 @@ func TestS3Vault_PutEnvelope_UnsignedEnvelopeErrors(t *testing.T) {
 	// An unsigned envelope should be rejected before any network call.
 	v := &s3.Vault{
 		Client: newFakeS3(),
-		Bucket: "test-bucket",
+		Bucket: testBucket,
 	}
 	env := core.Envelope{FormatVersion: "envelope.v1"}
 	// Deliberately NOT calling sign.Envelope — signature is empty.
@@ -411,7 +414,7 @@ func TestS3Vault_PutJSON_MarshalError(t *testing.T) {
 	// json.Marshal fails on channels — inject one to trigger the error path.
 	v := &s3.Vault{
 		Client: newFakeS3(),
-		Bucket: "test-bucket",
+		Bucket: testBucket,
 	}
 	err := v.PutJSON(context.Background(), "bad.json", make(chan int))
 	if err == nil {
@@ -439,7 +442,7 @@ func (n *nilKeyS3) ListObjectsV2(_ context.Context, _ *awss3.ListObjectsV2Input,
 func TestS3Vault_ListSkipsNilKeys(t *testing.T) {
 	v := &s3.Vault{
 		Client: &nilKeyS3{fakeS3: newFakeS3()},
-		Bucket: "test-bucket",
+		Bucket: testBucket,
 	}
 	got, err := v.List(context.Background(), "")
 	if err != nil {
@@ -469,7 +472,7 @@ func (e *errBodyS3) GetObject(_ context.Context, _ *awss3.GetObjectInput, _ ...f
 func TestS3Vault_GetBinary_BodyReadError(t *testing.T) {
 	v := &s3.Vault{
 		Client: &errBodyS3{fakeS3: newFakeS3()},
-		Bucket: "test-bucket",
+		Bucket: testBucket,
 	}
 	_, err := v.GetBinary(context.Background(), "any.bin")
 	if err == nil {

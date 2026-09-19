@@ -12,6 +12,13 @@ import (
 const (
 	testFrameworkSOC2 = "soc2"
 	testSourceAWSIAM  = "aws.iam"
+
+	testSourceManualPDF    = "manual.pdf"
+	testSourceGCPDirectory = "gcp.directory"
+	testSourceAzureEntra   = "azure.entra"
+
+	testFieldCatalogEntry = "catalog_entry"
+	testNotApplicable     = "not_applicable"
 )
 
 func TestLoadProjectConfig_Minimal(t *testing.T) {
@@ -106,7 +113,7 @@ func TestLoadProjectConfig_AcmeCorpExample(t *testing.T) {
 	if cfg.Vault.Backend != "s3" || cfg.Vault.Str("bucket") != "acme-evidence" {
 		t.Errorf("Vault = %+v; want s3 / acme-evidence", cfg.Vault)
 	}
-	if _, ok := cfg.Sources["manual.pdf"]; !ok {
+	if _, ok := cfg.Sources[testSourceManualPDF]; !ok {
 		t.Error("expected manual.pdf in sources")
 	}
 	if _, ok := cfg.Sources["acme.internal_iam"]; !ok {
@@ -127,7 +134,7 @@ func TestLoadProjectConfig_AcmeCorpExample(t *testing.T) {
 		t.Errorf("waf exceptions = %d; want 1", n)
 	}
 	// Control-level applicability: CC6.4 is not_applicable (inherited).
-	if cc := cfg.Controls["CC6.4"]; cc.Applicability != "not_applicable" {
+	if cc := cfg.Controls["CC6.4"]; cc.Applicability != testNotApplicable {
 		t.Errorf("controls[CC6.4].applicability = %q; want not_applicable", cc.Applicability)
 	}
 	if cfg.CI.FailSeverity != core.SeverityHigh {
@@ -186,9 +193,9 @@ func TestLoadProjectConfig_RejectsInvalid(t *testing.T) {
 		{"project_config/invalid_exception_bad_date.yaml", "ISO 8601"},
 		{"project_config/invalid_bad_output_format.yaml", "output.format"},
 		{"project_config/invalid_unknown_top_level.yaml", "mystery_section"},
-		{"project_config/invalid_policy_override_no_catalog.yaml", "catalog_entry"},
+		{"project_config/invalid_policy_override_no_catalog.yaml", testFieldCatalogEntry},
 		{"project_config/invalid_policy_override_bad_mode.yaml", "invalid value"},
-		{"project_config/invalid_policy_override_automated_with_catalog.yaml", "catalog_entry"},
+		{"project_config/invalid_policy_override_automated_with_catalog.yaml", testFieldCatalogEntry},
 		{"project_config/invalid_policy_override_empty_mode.yaml", "catalog_entry must not be set"},
 	}
 	for _, tc := range cases {
@@ -251,13 +258,13 @@ func TestLoadProjectConfig_GCPExample(t *testing.T) {
 	if cfg.Framework != testFrameworkSOC2 {
 		t.Errorf("Framework = %q; want %q", cfg.Framework, testFrameworkSOC2)
 	}
-	for _, src := range []string{"gcp.directory", "gcp.firewall", "gcp.scc", "manual.pdf"} {
+	for _, src := range []string{testSourceGCPDirectory, "gcp.firewall", "gcp.scc", testSourceManualPDF} {
 		if _, ok := cfg.Sources[src]; !ok {
 			t.Errorf("expected %q in sources", src)
 		}
 	}
 	// gcp.directory supplies the identity (directory_user) evidence.
-	if b := cfg.BindingsFor("soc2.cc6.1.mfa_enforced_admins")["evidence"]; len(b) != 1 || b[0].Source != "gcp.directory" {
+	if b := cfg.BindingsFor("soc2.cc6.1.mfa_enforced_admins")["evidence"]; len(b) != 1 || b[0].Source != testSourceGCPDirectory {
 		t.Errorf("mfa_enforced_admins evidence binding = %v; want [gcp.directory]", b)
 	}
 	// The org-scoped gcp.scc source emits three types; one binding shown here.
@@ -285,13 +292,13 @@ func TestLoadProjectConfig_AzureExample(t *testing.T) {
 	if cfg.Framework != testFrameworkSOC2 {
 		t.Errorf("Framework = %q; want %q", cfg.Framework, testFrameworkSOC2)
 	}
-	for _, src := range []string{"azure.entra", "azure.storage", "azure.defender", "azure.policy", "manual.pdf"} {
+	for _, src := range []string{testSourceAzureEntra, "azure.storage", "azure.defender", "azure.policy", testSourceManualPDF} {
 		if _, ok := cfg.Sources[src]; !ok {
 			t.Errorf("expected %q in sources", src)
 		}
 	}
 	// azure.entra supplies the identity (directory_user) evidence.
-	if b := cfg.BindingsFor("soc2.cc6.1.mfa_enforced_admins")["evidence"]; len(b) != 1 || b[0].Source != "azure.entra" {
+	if b := cfg.BindingsFor("soc2.cc6.1.mfa_enforced_admins")["evidence"]; len(b) != 1 || b[0].Source != testSourceAzureEntra {
 		t.Errorf("mfa_enforced_admins evidence binding = %v; want [azure.entra]", b)
 	}
 	// The subscription-scoped azure.defender source emits three types; one
@@ -322,14 +329,14 @@ func TestLoadProjectConfig_MultiCloudHybridExample(t *testing.T) {
 		t.Errorf("Framework = %q; want %q", cfg.Framework, testFrameworkSOC2)
 	}
 	// One source from each cloud, plus manual evidence.
-	for _, src := range []string{"aws.iam", "aws.s3", "gcp.kms", "gcp.logging", "azure.entra", "azure.network", "manual.pdf"} {
+	for _, src := range []string{testSourceAWSIAM, "aws.s3", "gcp.kms", "gcp.logging", testSourceAzureEntra, "azure.network", testSourceManualPDF} {
 		if _, ok := cfg.Sources[src]; !ok {
 			t.Errorf("expected %q in sources", src)
 		}
 	}
 	// The substitutability demonstration: all three clouds' identity sources
 	// bound to one slot of the same MFA policy.
-	want := []string{"aws.iam", "gcp.directory", "azure.entra"}
+	want := []string{testSourceAWSIAM, testSourceGCPDirectory, testSourceAzureEntra}
 	for _, pol := range []string{"soc2.cc6.1.mfa_enforced_admins", "soc2.cc6.1.mfa_enforced_all_users"} {
 		b := cfg.BindingsFor(pol)["evidence"]
 		if len(b) != len(want) {
@@ -359,7 +366,7 @@ func TestLoadProjectConfig_AcceptsSourceInstances(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadProjectConfig: %v", err)
 	}
-	for _, want := range []string{"aws.iam", "aws.iam[staging]", "github[labs]"} {
+	for _, want := range []string{testSourceAWSIAM, "aws.iam[staging]", "github[labs]"} {
 		if _, ok := cfg.Sources[want]; !ok {
 			t.Errorf("source %q missing; got %v", want, cfg.Sources)
 		}
@@ -386,10 +393,10 @@ func TestValidateControls_JustificationIsForInclusionOnly(t *testing.T) {
 			control: ControlConfig{Justification: "required by the risk treatment plan"},
 		},
 		"reason on an excluded control": {
-			control: ControlConfig{Applicability: "not_applicable", Reason: "no physical premises"},
+			control: ControlConfig{Applicability: testNotApplicable, Reason: "no physical premises"},
 		},
 		"justification on an excluded control": {
-			control: ControlConfig{Applicability: "not_applicable", Reason: "no physical premises", Justification: "kept anyway"},
+			control: ControlConfig{Applicability: testNotApplicable, Reason: "no physical premises", Justification: "kept anyway"},
 			wantErr: true,
 		},
 	} {

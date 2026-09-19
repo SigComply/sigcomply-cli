@@ -24,7 +24,15 @@ import (
 
 var fixedNow = time.Date(2026, 6, 17, 12, 0, 0, 0, time.UTC)
 
-const subID = "sub-1"
+const (
+	subID  = "sub-1"
+	rgName = "rg1"
+	vaultA = "kv-a"
+
+	providerAzure      = "azure"
+	protectionHSM      = "HSM"
+	protectionSoftware = "SOFTWARE"
+)
 
 // --- id builders ---
 
@@ -38,7 +46,7 @@ func keyID(rg, vault, name string) *string {
 
 // secretID builds a secret resource id; every secret fixture lives in rg1/kv-a.
 func secretID(name string) *string {
-	return to.Ptr(*vaultID("rg1", "kv-a") + "/secrets/" + name)
+	return to.Ptr(*vaultID(rgName, vaultA) + "/secrets/" + name)
 }
 
 // --- fakeAPI ---
@@ -155,7 +163,7 @@ func TestPlugin_IDAndEmits(t *testing.T) {
 	if p.ID() != "azure.keyvault" {
 		t.Errorf("ID() = %q", p.ID())
 	}
-	if got := p.Emits(); !reflect.DeepEqual(got, []string{"kms_key", "secret"}) {
+	if got := p.Emits(); !reflect.DeepEqual(got, []string{EvidenceTypeKMSKey, EvidenceTypeSecret}) {
 		t.Errorf("Emits() = %v", got)
 	}
 }
@@ -171,19 +179,19 @@ func TestCollect_RejectsWhenNoEmittedTypeAccepted(t *testing.T) {
 func TestCollect_Keys_MapsSortsFullPayload(t *testing.T) {
 	f := &fakeAPI{
 		vaults: []*armkeyvault.Vault{
-			{ID: vaultID("rg1", "kv-a"), Name: to.Ptr("kv-a")},
+			{ID: vaultID(rgName, vaultA), Name: to.Ptr(vaultA)},
 			{ID: vaultID("rg2", "kv-b"), Name: to.Ptr("kv-b")},
 		},
 		keys: map[string][]*armkeyvault.Key{
-			"kv-a": {{ID: keyID("rg1", "kv-a", "k-rotate"), Name: to.Ptr("k-rotate")}},
+			vaultA: {{ID: keyID(rgName, vaultA, "k-rotate"), Name: to.Ptr("k-rotate")}},
 			"kv-b": {{ID: keyID("rg2", "kv-b", "k-plain"), Name: to.Ptr("k-plain")}},
 		},
 		fullKeys: map[string]*armkeyvault.Key{
-			"k-rotate": rotatingHSMKey("rg1", "kv-a", "k-rotate"),
+			"k-rotate": rotatingHSMKey(rgName, vaultA, "k-rotate"),
 			"k-plain":  plainSoftwareKey("rg2", "kv-b", "k-plain"),
 		},
 	}
-	recs, err := newPlugin(f).Collect(context.Background(), req("kms_key"))
+	recs, err := newPlugin(f).Collect(context.Background(), req(EvidenceTypeKMSKey))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -195,7 +203,7 @@ func TestCollect_Keys_MapsSortsFullPayload(t *testing.T) {
 		t.Errorf("records not sorted by ID: %q, %q", recs[0].ID, recs[1].ID)
 	}
 	for _, r := range recs {
-		if r.Type != "kms_key" || r.SourceID != "azure.keyvault" || !r.CollectedAt.Equal(fixedNow) {
+		if r.Type != EvidenceTypeKMSKey || r.SourceID != "azure.keyvault" || !r.CollectedAt.Equal(fixedNow) {
 			t.Errorf("record envelope wrong: %+v", r)
 		}
 		if r.Scope == nil || r.Scope.Account != subID {
@@ -205,17 +213,17 @@ func TestCollect_Keys_MapsSortsFullPayload(t *testing.T) {
 
 	gotRotate := unmarshalKey(t, recs[0].Payload)
 	wantRotate := keyPayload{
-		KeyID:             *keyID("rg1", "kv-a", "k-rotate"),
+		KeyID:             *keyID(rgName, vaultA, "k-rotate"),
 		KeyManager:        "CUSTOMER",
 		IsCustomerManaged: true,
 		Enabled:           true,
 		RotationEnabled:   true,
-		Provider:          "azure",
-		ProtectionLevel:   "HSM",
+		Provider:          providerAzure,
+		ProtectionLevel:   protectionHSM,
 		KeyType:           "RSA-HSM",
 		RotationPeriod:    "P90D",
-		VaultName:         "kv-a",
-		ResourceGroup:     "rg1",
+		VaultName:         vaultA,
+		ResourceGroup:     rgName,
 	}
 	if !reflect.DeepEqual(gotRotate, wantRotate) {
 		t.Errorf("rotate key payload\n got %+v\nwant %+v", gotRotate, wantRotate)
@@ -228,8 +236,8 @@ func TestCollect_Keys_MapsSortsFullPayload(t *testing.T) {
 		IsCustomerManaged: true,
 		Enabled:           false,
 		RotationEnabled:   false,
-		Provider:          "azure",
-		ProtectionLevel:   "SOFTWARE",
+		Provider:          providerAzure,
+		ProtectionLevel:   protectionSoftware,
 		KeyType:           "RSA",
 		VaultName:         "kv-b",
 		ResourceGroup:     "rg2",
@@ -243,9 +251,9 @@ func TestCollect_Secrets_MapsSortsFullPayload(t *testing.T) {
 	created := fixedNow.Add(-30 * 24 * time.Hour)
 	updated := fixedNow.Add(-5 * 24 * time.Hour)
 	f := &fakeAPI{
-		vaults: []*armkeyvault.Vault{{ID: vaultID("rg1", "kv-a"), Name: to.Ptr("kv-a")}},
+		vaults: []*armkeyvault.Vault{{ID: vaultID(rgName, vaultA), Name: to.Ptr(vaultA)}},
 		secrets: map[string][]*armkeyvault.Secret{
-			"kv-a": {
+			vaultA: {
 				{ID: secretID("s-old"), Name: to.Ptr("s-old"), Properties: &armkeyvault.SecretProperties{
 					ContentType: to.Ptr("text/plain"),
 					Attributes:  &armkeyvault.SecretAttributes{Enabled: to.Ptr(true), Created: &created, Updated: &created},
@@ -256,7 +264,7 @@ func TestCollect_Secrets_MapsSortsFullPayload(t *testing.T) {
 			},
 		},
 	}
-	recs, err := newPlugin(f).Collect(context.Background(), req("secret"))
+	recs, err := newPlugin(f).Collect(context.Background(), req(EvidenceTypeSecret))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -264,7 +272,7 @@ func TestCollect_Secrets_MapsSortsFullPayload(t *testing.T) {
 		t.Fatalf("len(recs) = %d, want 2", len(recs))
 	}
 	for _, r := range recs {
-		if r.Type != "secret" {
+		if r.Type != EvidenceTypeSecret {
 			t.Errorf("record type = %q, want secret", r.Type)
 		}
 	}
@@ -274,15 +282,15 @@ func TestCollect_Secrets_MapsSortsFullPayload(t *testing.T) {
 	wantOld := secretPayload{
 		ID:              *secretID("s-old"),
 		Name:            "s-old",
-		Provider:        "azure",
+		Provider:        providerAzure,
 		RotationEnabled: false,
 		KMSEncrypted:    true,
 		NeverRotated:    true,
 		LastRotatedDays: nil,
 		ContentType:     "text/plain",
 		Enabled:         true,
-		VaultName:       "kv-a",
-		ResourceGroup:   "rg1",
+		VaultName:       vaultA,
+		ResourceGroup:   rgName,
 	}
 	if !reflect.DeepEqual(gotOld, wantOld) {
 		t.Errorf("never-rotated secret payload\n got %+v\nwant %+v", gotOld, wantOld)
@@ -292,14 +300,14 @@ func TestCollect_Secrets_MapsSortsFullPayload(t *testing.T) {
 	wantRot := secretPayload{
 		ID:              *secretID("s-rot"),
 		Name:            "s-rot",
-		Provider:        "azure",
+		Provider:        providerAzure,
 		RotationEnabled: false,
 		KMSEncrypted:    true,
 		NeverRotated:    false,
 		LastRotatedDays: to.Ptr(5),
 		Enabled:         true,
-		VaultName:       "kv-a",
-		ResourceGroup:   "rg1",
+		VaultName:       vaultA,
+		ResourceGroup:   rgName,
 	}
 	if !reflect.DeepEqual(gotRot, wantRot) {
 		t.Errorf("rotated secret payload\n got %+v\nwant %+v", gotRot, wantRot)
@@ -308,22 +316,22 @@ func TestCollect_Secrets_MapsSortsFullPayload(t *testing.T) {
 
 func TestCollect_BothTypes_GroupedInEmitsOrder(t *testing.T) {
 	f := &fakeAPI{
-		vaults: []*armkeyvault.Vault{{ID: vaultID("rg1", "kv-a"), Name: to.Ptr("kv-a")}},
+		vaults: []*armkeyvault.Vault{{ID: vaultID(rgName, vaultA), Name: to.Ptr(vaultA)}},
 		keys: map[string][]*armkeyvault.Key{
-			"kv-a": {{ID: keyID("rg1", "kv-a", "k1"), Name: to.Ptr("k1")}},
+			vaultA: {{ID: keyID(rgName, vaultA, "k1"), Name: to.Ptr("k1")}},
 		},
-		fullKeys: map[string]*armkeyvault.Key{"k1": plainSoftwareKey("rg1", "kv-a", "k1")},
+		fullKeys: map[string]*armkeyvault.Key{"k1": plainSoftwareKey(rgName, vaultA, "k1")},
 		secrets: map[string][]*armkeyvault.Secret{
-			"kv-a": {{ID: secretID("s1"), Name: to.Ptr("s1"), Properties: &armkeyvault.SecretProperties{
+			vaultA: {{ID: secretID("s1"), Name: to.Ptr("s1"), Properties: &armkeyvault.SecretProperties{
 				Attributes: &armkeyvault.SecretAttributes{Enabled: to.Ptr(true)},
 			}}},
 		},
 	}
-	recs, err := newPlugin(f).Collect(context.Background(), req("kms_key", "secret"))
+	recs, err := newPlugin(f).Collect(context.Background(), req(EvidenceTypeKMSKey, EvidenceTypeSecret))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
-	if len(recs) != 2 || recs[0].Type != "kms_key" || recs[1].Type != "secret" {
+	if len(recs) != 2 || recs[0].Type != EvidenceTypeKMSKey || recs[1].Type != EvidenceTypeSecret {
 		t.Fatalf("expected [kms_key, secret] in Emits order, got %+v", recs)
 	}
 	// Vaults listed once even though both collectors need them.
@@ -333,8 +341,8 @@ func TestCollect_BothTypes_GroupedInEmitsOrder(t *testing.T) {
 }
 
 func TestCollect_OnlyKeys_DoesNotListSecrets(t *testing.T) {
-	f := &fakeAPI{vaults: []*armkeyvault.Vault{{ID: vaultID("rg1", "kv-a"), Name: to.Ptr("kv-a")}}}
-	if _, err := newPlugin(f).Collect(context.Background(), req("kms_key")); err != nil {
+	f := &fakeAPI{vaults: []*armkeyvault.Vault{{ID: vaultID(rgName, vaultA), Name: to.Ptr(vaultA)}}}
+	if _, err := newPlugin(f).Collect(context.Background(), req(EvidenceTypeKMSKey)); err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
 	if f.listKeyCalls != 1 || f.secretCalls != 0 {
@@ -343,8 +351,8 @@ func TestCollect_OnlyKeys_DoesNotListSecrets(t *testing.T) {
 }
 
 func TestCollect_OnlySecrets_DoesNotListOrGetKeys(t *testing.T) {
-	f := &fakeAPI{vaults: []*armkeyvault.Vault{{ID: vaultID("rg1", "kv-a"), Name: to.Ptr("kv-a")}}}
-	if _, err := newPlugin(f).Collect(context.Background(), req("secret")); err != nil {
+	f := &fakeAPI{vaults: []*armkeyvault.Vault{{ID: vaultID(rgName, vaultA), Name: to.Ptr(vaultA)}}}
+	if _, err := newPlugin(f).Collect(context.Background(), req(EvidenceTypeSecret)); err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
 	if f.secretCalls != 1 || f.listKeyCalls != 0 || f.getKeyCalls != 0 {
@@ -354,16 +362,16 @@ func TestCollect_OnlySecrets_DoesNotListOrGetKeys(t *testing.T) {
 
 func TestCollect_NilEntriesSkipped(t *testing.T) {
 	f := &fakeAPI{
-		vaults: []*armkeyvault.Vault{nil, {ID: vaultID("rg1", "kv-a"), Name: to.Ptr("kv-a")}},
+		vaults: []*armkeyvault.Vault{nil, {ID: vaultID(rgName, vaultA), Name: to.Ptr(vaultA)}},
 		keys: map[string][]*armkeyvault.Key{
-			"kv-a": {nil, {ID: keyID("rg1", "kv-a", "k1"), Name: to.Ptr("k1")}},
+			vaultA: {nil, {ID: keyID(rgName, vaultA, "k1"), Name: to.Ptr("k1")}},
 		},
 		fullKeys: map[string]*armkeyvault.Key{"k1": nil}, // GetKey returns nil → skipped
 		secrets: map[string][]*armkeyvault.Secret{
-			"kv-a": {nil},
+			vaultA: {nil},
 		},
 	}
-	recs, err := newPlugin(f).Collect(context.Background(), req("kms_key", "secret"))
+	recs, err := newPlugin(f).Collect(context.Background(), req(EvidenceTypeKMSKey, EvidenceTypeSecret))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -375,13 +383,13 @@ func TestCollect_NilEntriesSkipped(t *testing.T) {
 func TestCollect_ErrorPropagation(t *testing.T) {
 	base := func() *fakeAPI {
 		return &fakeAPI{
-			vaults: []*armkeyvault.Vault{{ID: vaultID("rg1", "kv-a"), Name: to.Ptr("kv-a")}},
+			vaults: []*armkeyvault.Vault{{ID: vaultID(rgName, vaultA), Name: to.Ptr(vaultA)}},
 			keys: map[string][]*armkeyvault.Key{
-				"kv-a": {{ID: keyID("rg1", "kv-a", "k1"), Name: to.Ptr("k1")}},
+				vaultA: {{ID: keyID(rgName, vaultA, "k1"), Name: to.Ptr("k1")}},
 			},
-			fullKeys: map[string]*armkeyvault.Key{"k1": plainSoftwareKey("rg1", "kv-a", "k1")},
+			fullKeys: map[string]*armkeyvault.Key{"k1": plainSoftwareKey(rgName, vaultA, "k1")},
 			secrets: map[string][]*armkeyvault.Secret{
-				"kv-a": {{ID: secretID("s1"), Name: to.Ptr("s1"), Properties: &armkeyvault.SecretProperties{}}},
+				vaultA: {{ID: secretID("s1"), Name: to.Ptr("s1"), Properties: &armkeyvault.SecretProperties{}}},
 			},
 		}
 	}
@@ -391,10 +399,10 @@ func TestCollect_ErrorPropagation(t *testing.T) {
 		mutate  func(*fakeAPI)
 		accepts []string
 	}{
-		{"vaults", func(f *fakeAPI) { f.vaultsErr = boom }, []string{"kms_key"}},
-		{"keys", func(f *fakeAPI) { f.keysErr = boom }, []string{"kms_key"}},
-		{"getKey", func(f *fakeAPI) { f.getKeyErr = boom }, []string{"kms_key"}},
-		{"secrets", func(f *fakeAPI) { f.secretsErr = boom }, []string{"secret"}},
+		{"vaults", func(f *fakeAPI) { f.vaultsErr = boom }, []string{EvidenceTypeKMSKey}},
+		{"keys", func(f *fakeAPI) { f.keysErr = boom }, []string{EvidenceTypeKMSKey}},
+		{"getKey", func(f *fakeAPI) { f.getKeyErr = boom }, []string{EvidenceTypeKMSKey}},
+		{"secrets", func(f *fakeAPI) { f.secretsErr = boom }, []string{EvidenceTypeSecret}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -408,26 +416,26 @@ func TestCollect_ErrorPropagation(t *testing.T) {
 }
 
 func TestCollect_BadResourceGroupID(t *testing.T) {
-	f := &fakeAPI{vaults: []*armkeyvault.Vault{{ID: to.Ptr("/no/resource/group/here"), Name: to.Ptr("kv-a")}}}
-	if _, err := newPlugin(f).Collect(context.Background(), req("kms_key")); err == nil {
+	f := &fakeAPI{vaults: []*armkeyvault.Vault{{ID: to.Ptr("/no/resource/group/here"), Name: to.Ptr(vaultA)}}}
+	if _, err := newPlugin(f).Collect(context.Background(), req(EvidenceTypeKMSKey)); err == nil {
 		t.Fatal("expected error for malformed vault ID")
 	}
 }
 
 func TestCollect_KISSNoDRY_RefetchesEachCall(t *testing.T) {
 	f := &fakeAPI{
-		vaults: []*armkeyvault.Vault{{ID: vaultID("rg1", "kv-a"), Name: to.Ptr("kv-a")}},
+		vaults: []*armkeyvault.Vault{{ID: vaultID(rgName, vaultA), Name: to.Ptr(vaultA)}},
 		keys: map[string][]*armkeyvault.Key{
-			"kv-a": {{ID: keyID("rg1", "kv-a", "k1"), Name: to.Ptr("k1")}},
+			vaultA: {{ID: keyID(rgName, vaultA, "k1"), Name: to.Ptr("k1")}},
 		},
-		fullKeys: map[string]*armkeyvault.Key{"k1": plainSoftwareKey("rg1", "kv-a", "k1")},
+		fullKeys: map[string]*armkeyvault.Key{"k1": plainSoftwareKey(rgName, vaultA, "k1")},
 		secrets: map[string][]*armkeyvault.Secret{
-			"kv-a": {{ID: secretID("s1"), Name: to.Ptr("s1"), Properties: &armkeyvault.SecretProperties{}}},
+			vaultA: {{ID: secretID("s1"), Name: to.Ptr("s1"), Properties: &armkeyvault.SecretProperties{}}},
 		},
 	}
 	p := newPlugin(f)
 	for i := 0; i < 3; i++ {
-		if _, err := p.Collect(context.Background(), req("kms_key", "secret")); err != nil {
+		if _, err := p.Collect(context.Background(), req(EvidenceTypeKMSKey, EvidenceTypeSecret)); err != nil {
 			t.Fatalf("Collect #%d: %v", i, err)
 		}
 	}
@@ -471,7 +479,7 @@ func TestRotationEnabled(t *testing.T) {
 }
 
 func TestProtectionLevel(t *testing.T) {
-	cases := map[string]string{"RSA": "SOFTWARE", "EC": "SOFTWARE", "RSA-HSM": "HSM", "EC-HSM": "HSM"}
+	cases := map[string]string{"RSA": protectionSoftware, "EC": protectionSoftware, "RSA-HSM": protectionHSM, "EC-HSM": protectionHSM}
 	for kty, want := range cases {
 		if got := protectionLevel(kty); got != want {
 			t.Errorf("protectionLevel(%q) = %q, want %q", kty, got, want)
@@ -593,12 +601,12 @@ func realKeyvaultPointedAt(t *testing.T, srv *httptest.Server) *realKeyvault {
 
 func TestRealKeyvault_HappyPath(t *testing.T) {
 	vaultsBody := mustMarshal(t, armkeyvault.VaultListResult{Value: []*armkeyvault.Vault{
-		{ID: vaultID("rg1", "kv-a"), Name: to.Ptr("kv-a")},
+		{ID: vaultID(rgName, vaultA), Name: to.Ptr(vaultA)},
 	}})
 	keysBody := mustMarshal(t, armkeyvault.KeyListResult{Value: []*armkeyvault.Key{
-		{ID: keyID("rg1", "kv-a", "k1"), Name: to.Ptr("k1")},
+		{ID: keyID(rgName, vaultA, "k1"), Name: to.Ptr("k1")},
 	}})
-	keyBody := mustMarshal(t, rotatingHSMKey("rg1", "kv-a", "k1"))
+	keyBody := mustMarshal(t, rotatingHSMKey(rgName, vaultA, "k1"))
 	secretsBody := mustMarshal(t, armkeyvault.SecretListResult{Value: []*armkeyvault.Secret{
 		{ID: secretID("s1"), Name: to.Ptr("s1"), Properties: &armkeyvault.SecretProperties{}},
 	}})
@@ -615,24 +623,24 @@ func TestRealKeyvault_HappyPath(t *testing.T) {
 	ctx := context.Background()
 	t.Run("vaults", func(t *testing.T) {
 		vaults, err := rk.ListVaults(ctx)
-		if err != nil || len(vaults) != 1 || deref(vaults[0].Name) != "kv-a" {
+		if err != nil || len(vaults) != 1 || deref(vaults[0].Name) != vaultA {
 			t.Fatalf("ListVaults = %+v, err %v", vaults, err)
 		}
 	})
 	t.Run("keys", func(t *testing.T) {
-		keys, err := rk.ListKeys(ctx, "rg1", "kv-a")
+		keys, err := rk.ListKeys(ctx, rgName, vaultA)
 		if err != nil || len(keys) != 1 || deref(keys[0].Name) != "k1" {
 			t.Fatalf("ListKeys = %+v, err %v", keys, err)
 		}
 	})
 	t.Run("getKey", func(t *testing.T) {
-		key, err := rk.GetKey(ctx, "rg1", "kv-a", "k1")
+		key, err := rk.GetKey(ctx, rgName, vaultA, "k1")
 		if err != nil || key == nil || !rotationEnabled(key) {
 			t.Fatalf("GetKey = %+v, err %v", key, err)
 		}
 	})
 	t.Run("secrets", func(t *testing.T) {
-		secrets, err := rk.ListSecrets(ctx, "rg1", "kv-a")
+		secrets, err := rk.ListSecrets(ctx, rgName, vaultA)
 		if err != nil || len(secrets) != 1 || deref(secrets[0].Name) != "s1" {
 			t.Fatalf("ListSecrets = %+v, err %v", secrets, err)
 		}

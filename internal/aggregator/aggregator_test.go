@@ -9,10 +9,17 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+const (
+	testFrameworkSOC2        = "soc2"
+	testFrameworkISO27001    = "iso27001"
+	testFrameworkVersionSOC2 = "soc2-2017@1.0.0"
+	testCadenceDaily         = "daily"
+)
+
 func TestBuild_StampsSchemaAndMetadata(t *testing.T) {
 	env := Environment{
 		RunID:       "run-1",
-		Framework:   "soc2",
+		Framework:   testFrameworkSOC2,
 		PeriodID:    "2026-Q1",
 		CommitSHA:   "deadbeef",
 		CommitTime:  time.Date(2026, 2, 15, 13, 55, 0, 0, time.UTC),
@@ -27,7 +34,7 @@ func TestBuild_StampsSchemaAndMetadata(t *testing.T) {
 	if got.Schema != SchemaVersion {
 		t.Errorf("Schema = %q; want %q", got.Schema, SchemaVersion)
 	}
-	if got.RunID != "run-1" || got.Framework != "soc2" || got.PeriodID != "2026-Q1" {
+	if got.RunID != "run-1" || got.Framework != testFrameworkSOC2 || got.PeriodID != "2026-Q1" {
 		t.Errorf("metadata mismatch: %+v", got)
 	}
 }
@@ -146,7 +153,7 @@ func TestBuild_NoFreeformFieldsInJSONOutput(t *testing.T) {
 		{PolicyID: "p1", Status: core.StatusFail, ResourcesEvaluated: 1, ResourcesFailed: 1,
 			Violations: []core.Violation{{ResourceID: "x", Reason: "y"}}},
 	}
-	payload := Build(results, &Environment{Framework: "soc2"})
+	payload := Build(results, &Environment{Framework: testFrameworkSOC2})
 	b, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)

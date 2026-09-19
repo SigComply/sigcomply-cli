@@ -23,6 +23,19 @@ import (
 const (
 	linkedPolicy   = "soc2.cc6.2.accounts_linked_to_roster"
 	inactivePolicy = "soc2.cc6.2.no_active_accounts_for_inactive_personnel"
+
+	// Source IDs of the fake sources wired into the roster e2e runs.
+	sourceOkta   = "okta"
+	sourceGitHub = "github"
+
+	// Evidence-record field names the roster policies read.
+	fieldEmail      = "email"
+	fieldUsername   = "username"
+	fieldMFAEnabled = "mfa_enabled"
+	fieldStatus     = "status"
+
+	// slotRoster is the roster slot's name in the policy binding.
+	slotRoster = "roster"
 )
 
 // rosterFakeSource emits fixed records, returning only those of the
@@ -73,25 +86,25 @@ func fakeRecord(t *testing.T, source, typ string, payload map[string]any) core.E
 // directory users), a GitHub-like and an AWS-IAM-like account source.
 func rosterFakes(t *testing.T) (okta, github, aws *rosterFakeSource) {
 	t.Helper()
-	okta = &rosterFakeSource{id: "okta", records: []core.EvidenceRecord{
-		fakeRecord(t, "okta", "roster_entry", map[string]any{"id": "p-jane", "email": "Jane@Acme.com", "status": "active"}),
-		fakeRecord(t, "okta", "roster_entry", map[string]any{"id": "p-bob", "email": "bob@acme.com", "status": "inactive"}),
-		fakeRecord(t, "okta", "roster_entry", map[string]any{"id": "p-carl", "email": "carl@acme.com", "status": "pending"}),
+	okta = &rosterFakeSource{id: sourceOkta, records: []core.EvidenceRecord{
+		fakeRecord(t, sourceOkta, "roster_entry", map[string]any{"id": "p-jane", fieldEmail: "Jane@Acme.com", fieldStatus: "active"}),
+		fakeRecord(t, sourceOkta, "roster_entry", map[string]any{"id": "p-bob", fieldEmail: bobEmail, fieldStatus: "inactive"}),
+		fakeRecord(t, sourceOkta, "roster_entry", map[string]any{"id": "p-carl", fieldEmail: "carl@acme.com", fieldStatus: "pending"}),
 		// Would fail the linked policy if the roster source were ever
 		// checked against itself.
-		fakeRecord(t, "okta", "directory_user", map[string]any{"id": "00u-stray", "email": "stray@acme.com", "mfa_enabled": true}),
+		fakeRecord(t, sourceOkta, "directory_user", map[string]any{"id": "00u-stray", fieldEmail: "stray@acme.com", fieldMFAEnabled: true}),
 	}}
-	github = &rosterFakeSource{id: "github", records: []core.EvidenceRecord{
-		fakeRecord(t, "github", "directory_user", map[string]any{"id": "101", "username": "JDoe", "mfa_enabled": true}),                                                 // alias → jane
-		fakeRecord(t, "github", "directory_user", map[string]any{"id": "102", "username": "bobby", "mfa_enabled": true}),                                                // alias → bob (inactive)
-		fakeRecord(t, "github", "directory_user", map[string]any{"id": "103", "username": "acme-ci-bot", "mfa_enabled": false}),                                         // non_human
-		fakeRecord(t, "github", "directory_user", map[string]any{"id": "104", "username": "mallory", "email": "mallory@example.com", "mfa_enabled": true}),              // unlinked
-		fakeRecord(t, "github", "directory_user", map[string]any{"id": "105", "username": "carl", "email": "carl@acme.com", "mfa_enabled": true}),                       // pending person
-		fakeRecord(t, "github", "directory_user", map[string]any{"id": "106", "username": "bob-old", "email": "bob@acme.com", "mfa_enabled": true, "is_active": false}), // disabled
+	github = &rosterFakeSource{id: sourceGitHub, records: []core.EvidenceRecord{
+		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "101", fieldUsername: "JDoe", fieldMFAEnabled: true}),                                              // alias → jane
+		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "102", fieldUsername: "bobby", fieldMFAEnabled: true}),                                             // alias → bob (inactive)
+		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "103", fieldUsername: "acme-ci-bot", fieldMFAEnabled: false}),                                      // non_human
+		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "104", fieldUsername: "mallory", fieldEmail: "mallory@example.com", fieldMFAEnabled: true}),        // unlinked
+		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "105", fieldUsername: "carl", fieldEmail: "carl@acme.com", fieldMFAEnabled: true}),                 // pending person
+		fakeRecord(t, sourceGitHub, "directory_user", map[string]any{"id": "106", fieldUsername: "bob-old", fieldEmail: bobEmail, fieldMFAEnabled: true, "is_active": false}), // disabled
 	}}
 	aws = &rosterFakeSource{id: "aws.iam", records: []core.EvidenceRecord{
-		fakeRecord(t, "aws.iam", "directory_user.v2", map[string]any{"id": "root", "is_root": true, "mfa_enabled": true, "has_console_access": true, "has_programmatic_access": false}),
-		fakeRecord(t, "aws.iam", "directory_user.v2", map[string]any{"id": "AIDANOEMAIL", "username": "deploy-legacy", "is_root": false, "mfa_enabled": false, "has_console_access": false, "has_programmatic_access": true}),
+		fakeRecord(t, "aws.iam", "directory_user.v2", map[string]any{"id": "root", "is_root": true, fieldMFAEnabled: true, "has_console_access": true, "has_programmatic_access": false}),
+		fakeRecord(t, "aws.iam", "directory_user.v2", map[string]any{"id": "AIDANOEMAIL", fieldUsername: "deploy-legacy", "is_root": false, fieldMFAEnabled: false, "has_console_access": false, "has_programmatic_access": true}),
 	}}
 	return okta, github, aws
 }
@@ -103,7 +116,7 @@ func runRosterCheck(t *testing.T, experimental map[string]any, sources ...*roste
 		t.Fatalf("register soc2: %v", err)
 	}
 	cfg := &spec.ProjectConfig{
-		Framework:    "soc2",
+		Framework:    testFramework,
 		Sources:      map[string]map[string]any{},
 		Experimental: experimental,
 	}
@@ -152,10 +165,10 @@ func readPolicyResult(t *testing.T, v core.Vault, runRoot, policyID string) core
 // itself.
 func TestE2E_RosterPolicies(t *testing.T) {
 	okta, github, aws := rosterFakes(t)
-	res, stdout, v, err := runRosterCheck(t, map[string]any{"roster": map[string]any{
-		"source":    "okta",
-		"aliases":   map[string]any{"github": map[string]any{"jdoe": "jane@acme.com", "bobby": "bob@acme.com"}},
-		"non_human": map[string]any{"github": []any{"acme-ci-bot"}},
+	res, stdout, v, err := runRosterCheck(t, map[string]any{slotRoster: map[string]any{
+		"source":    sourceOkta,
+		"aliases":   map[string]any{sourceGitHub: map[string]any{"jdoe": "jane@acme.com", "bobby": bobEmail}},
+		"non_human": map[string]any{sourceGitHub: []any{"acme-ci-bot"}},
 	}}, okta, github, aws)
 	if err != nil {
 		t.Fatalf("Run: %v\n%s", err, stdout)
@@ -178,7 +191,7 @@ func TestE2E_RosterPolicies(t *testing.T) {
 
 	for _, s := range []*rosterFakeSource{okta, github, aws} {
 		for _, slot := range s.slots {
-			if (s == okta) != (slot == "roster") {
+			if (s == okta) != (slot == slotRoster) {
 				t.Errorf("source %s collected for slot %q", s.id, slot)
 			}
 		}
@@ -216,11 +229,11 @@ func TestE2E_RosterPolicies_SkipWithoutDesignatedRoster(t *testing.T) {
 // error (exit 3), not a silent skip.
 func TestE2E_RosterPolicies_UnconfiguredRosterSource(t *testing.T) {
 	_, github, aws := rosterFakes(t)
-	res, _, _, err := runRosterCheck(t, map[string]any{"roster": map[string]any{"source": "okta"}}, github, aws)
+	res, _, _, err := runRosterCheck(t, map[string]any{slotRoster: map[string]any{"source": sourceOkta}}, github, aws)
 	if err == nil || res.ExitCode != orchestrator.ExitConfig {
 		t.Fatalf("exit = %d err = %v; want exit %d with an error", res.ExitCode, err, orchestrator.ExitConfig)
 	}
-	if !strings.Contains(err.Error(), "okta") {
+	if !strings.Contains(err.Error(), sourceOkta) {
 		t.Errorf("error %q does not name the roster source", err)
 	}
 }

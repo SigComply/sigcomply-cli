@@ -13,20 +13,20 @@ import (
 
 func TestBuildReader_DefaultsToLocal(t *testing.T) {
 	tmp := t.TempDir()
-	r, scheme, bucket, prefix, err := buildReader(map[string]any{"path": tmp})
+	r, scheme, bucket, prefix, err := buildReader(map[string]any{keyPath: tmp})
 	if err != nil {
 		t.Fatalf("buildReader: %v", err)
 	}
 	if r == nil {
 		t.Fatal("nil reader")
 	}
-	if scheme != "file" {
+	if scheme != localScheme {
 		t.Errorf("scheme = %q; want file", scheme)
 	}
 	if bucket != tmp {
 		t.Errorf("bucket = %q; want %q (default to path)", bucket, tmp)
 	}
-	if prefix != "manual/" {
+	if prefix != defaultPrefix {
 		t.Errorf("prefix = %q; want manual/", prefix)
 	}
 }
@@ -44,14 +44,14 @@ func TestBuildReader_PathRequired(t *testing.T) {
 func TestBuildReader_ExplicitBucketAndPrefix(t *testing.T) {
 	tmp := t.TempDir()
 	_, _, bucket, prefix, err := buildReader(map[string]any{
-		"path":   tmp,
-		"bucket": "acme-evidence",
+		keyPath:  tmp,
+		"bucket": testBucket,
 		"prefix": "ev/",
 	})
 	if err != nil {
 		t.Fatalf("buildReader: %v", err)
 	}
-	if bucket != "acme-evidence" {
+	if bucket != testBucket {
 		t.Errorf("bucket = %q", bucket)
 	}
 	if prefix != "ev/" {
@@ -67,7 +67,7 @@ func TestBuildReader_UnregisteredBackend(t *testing.T) {
 	// This test confirms the registry surfaces a clear error for a
 	// genuinely unknown backend name.
 	const unknown = "definitely-not-a-real-backend"
-	r, scheme, bucket, prefix, err := buildReader(map[string]any{"backend": unknown, "path": "/x"})
+	r, scheme, bucket, prefix, err := buildReader(map[string]any{"backend": unknown, keyPath: "/x"})
 	if err == nil || !strings.Contains(err.Error(), "not registered") {
 		t.Errorf("want \"not registered\" error; got %v", err)
 	}

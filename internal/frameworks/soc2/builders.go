@@ -27,6 +27,42 @@ import (
 // map share one constant.
 const slotName = "evidence"
 
+// Cadences the policy tables schedule their checks on.
+const (
+	cadenceDaily     = "daily"
+	cadenceQuarterly = "quarterly"
+	cadenceAnnual    = "annual"
+)
+
+// Trust Services Criteria a manual catalog entry is filed under. This is
+// the SPA-facing taxonomy, which is why tscAvailability and tscPrivacy
+// repeat the spelling of the like-named control categories.
+const (
+	tscSecurity        = "security"
+	tscAvailability    = "availability"
+	tscConfidentiality = "confidentiality"
+	tscPrivacy         = "privacy"
+)
+
+// Evidence-type IDs more than one policy accepts. A type a single policy
+// accepts stays spelled out at its one call site.
+const (
+	etAuditLogTrail           = "audit_log_trail"
+	etContainerRegistry       = "container_registry"
+	etDirectoryUser           = "directory_user"
+	etDirectoryUserV2         = "directory_user.v2"
+	etFirewallRule            = "firewall_rule"
+	etGitRepository           = "git_repository"
+	etIAMAccessKey            = "iam_access_key"
+	etManagedDatabaseInstance = "managed_database_instance"
+	etNoSQLTable              = "nosql_table"
+	etObjectStorageBucket     = "object_storage_bucket"
+	etPasswordPolicy          = "password_policy"
+	etPullRequest             = "pull_request"
+	etSecurityService         = "security_service"
+	etVulnerabilityFinding    = "vulnerability_finding"
+)
+
 // controlRefs wraps a single SOC 2 control ID into the framework-
 // namespaced ControlRef list every policy carries. The framework ID and
 // version qualify the bare control ID (e.g. "CC6.1") so results and the
@@ -95,7 +131,7 @@ func (r rosterPolicy) policy() core.Policy {
 	clause.Slot, clause.IdentityKey = "accounts", "account.ref"
 	return core.Policy{
 		ID: r.id, Controls: controlRefs(r.control), Description: r.desc, Remediation: r.rem,
-		Severity: r.severity, Category: "access", Cadence: "daily", OnPush: true,
+		Severity: r.severity, Category: catAccess, Cadence: cadenceDaily, OnPush: true,
 		EvidenceMode: core.EvidenceModeAutomated,
 		Slots: map[string]core.Slot{
 			"roster":   {Accepts: []string{"roster_entry"}, Cardinality: core.SlotExactlyOne, Required: true, Role: core.SlotRoleRoster, Description: "people in the designated roster directory"},
@@ -184,7 +220,7 @@ func (m manualPolicy) policy() core.Policy {
 		Description:  m.desc,
 		Remediation:  m.rem,
 		Severity:     core.SeverityMedium,
-		Category:     "governance",
+		Category:     catGovernance,
 		Cadence:      m.cadence,
 		OnPush:       false,
 		EvidenceMode: core.EvidenceModeManual,

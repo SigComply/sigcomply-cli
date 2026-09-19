@@ -15,8 +15,13 @@ import (
 )
 
 const (
-	tblAlpha = "alpha"
-	tblZeta  = "zeta"
+	tblAlpha       = "alpha"
+	tblZeta        = "zeta"
+	tblAllOff      = "all-off"
+	tblDelProtOn   = "delprot-on"
+	tblEncExplicit = "enc-explicit"
+	tblEncDefault  = "enc-default"
+	tblPITROn      = "pitr-on"
 )
 
 // fakeAPI drives the plugin without real AWS calls.
@@ -166,17 +171,17 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 
 func TestCollect_FieldMapping(t *testing.T) {
 	fake := &fakeAPI{
-		names: []string{"enc-explicit", "enc-default", "pitr-on", "delprot-on", "all-off"},
+		names: []string{tblEncExplicit, tblEncDefault, tblPITROn, tblDelProtOn, tblAllOff},
 		describe: map[string]*awsdynamodb.DescribeTableOutput{
-			"enc-explicit": describeOut("enc-explicit", false, &ddbtypes.SSEDescription{Status: ddbtypes.SSEStatusEnabled}),
-			"enc-default":  describeOut("enc-default", false, nil),
-			"pitr-on":      describeOut("pitr-on", false, &ddbtypes.SSEDescription{Status: ddbtypes.SSEStatusDisabled}),
-			"delprot-on":   describeOut("delprot-on", true, nil),
-			"all-off":      describeOut("all-off", false, &ddbtypes.SSEDescription{Status: ddbtypes.SSEStatusDisabled}),
+			tblEncExplicit: describeOut(tblEncExplicit, false, &ddbtypes.SSEDescription{Status: ddbtypes.SSEStatusEnabled}),
+			tblEncDefault:  describeOut(tblEncDefault, false, nil),
+			tblPITROn:      describeOut(tblPITROn, false, &ddbtypes.SSEDescription{Status: ddbtypes.SSEStatusDisabled}),
+			tblDelProtOn:   describeOut(tblDelProtOn, true, nil),
+			tblAllOff:      describeOut(tblAllOff, false, &ddbtypes.SSEDescription{Status: ddbtypes.SSEStatusDisabled}),
 		},
 		backups: map[string]*awsdynamodb.DescribeContinuousBackupsOutput{
-			"pitr-on": backupsOut(ddbtypes.PointInTimeRecoveryStatusEnabled),
-			"all-off": backupsOut(ddbtypes.PointInTimeRecoveryStatusDisabled),
+			tblPITROn: backupsOut(ddbtypes.PointInTimeRecoveryStatusEnabled),
+			tblAllOff: backupsOut(ddbtypes.PointInTimeRecoveryStatusDisabled),
 		},
 	}
 	byID := collectByID(t, fake, time.Time{})
@@ -188,11 +193,11 @@ func TestCollect_FieldMapping(t *testing.T) {
 		gotDel, wantDel   bool
 		gotProvider       string
 	}{
-		{"enc-explicit", byID["enc-explicit"].EncryptionEnabled, true, byID["enc-explicit"].PointInTimeRecoveryEnabled, false, byID["enc-explicit"].DeletionProtection, false, byID["enc-explicit"].Provider},
-		{"enc-default", byID["enc-default"].EncryptionEnabled, true, byID["enc-default"].PointInTimeRecoveryEnabled, false, byID["enc-default"].DeletionProtection, false, byID["enc-default"].Provider},
-		{"pitr-on", byID["pitr-on"].EncryptionEnabled, false, byID["pitr-on"].PointInTimeRecoveryEnabled, true, byID["pitr-on"].DeletionProtection, false, byID["pitr-on"].Provider},
-		{"delprot-on", byID["delprot-on"].EncryptionEnabled, true, byID["delprot-on"].PointInTimeRecoveryEnabled, false, byID["delprot-on"].DeletionProtection, true, byID["delprot-on"].Provider},
-		{"all-off", byID["all-off"].EncryptionEnabled, false, byID["all-off"].PointInTimeRecoveryEnabled, false, byID["all-off"].DeletionProtection, false, byID["all-off"].Provider},
+		{tblEncExplicit, byID[tblEncExplicit].EncryptionEnabled, true, byID[tblEncExplicit].PointInTimeRecoveryEnabled, false, byID[tblEncExplicit].DeletionProtection, false, byID[tblEncExplicit].Provider},
+		{tblEncDefault, byID[tblEncDefault].EncryptionEnabled, true, byID[tblEncDefault].PointInTimeRecoveryEnabled, false, byID[tblEncDefault].DeletionProtection, false, byID[tblEncDefault].Provider},
+		{tblPITROn, byID[tblPITROn].EncryptionEnabled, false, byID[tblPITROn].PointInTimeRecoveryEnabled, true, byID[tblPITROn].DeletionProtection, false, byID[tblPITROn].Provider},
+		{tblDelProtOn, byID[tblDelProtOn].EncryptionEnabled, true, byID[tblDelProtOn].PointInTimeRecoveryEnabled, false, byID[tblDelProtOn].DeletionProtection, true, byID[tblDelProtOn].Provider},
+		{tblAllOff, byID[tblAllOff].EncryptionEnabled, false, byID[tblAllOff].PointInTimeRecoveryEnabled, false, byID[tblAllOff].DeletionProtection, false, byID[tblAllOff].Provider},
 	}
 	for _, c := range cases {
 		if c.gotEnc != c.wantEnc {

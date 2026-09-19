@@ -39,7 +39,7 @@ func TestPasswordPolicyConformance(t *testing.T) {
 	if err := json.Unmarshal(recs[0].Payload, &p); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if recs[0].ID != "account" || p.Provider == "" {
+	if recs[0].ID != singletonID || p.Provider == "" {
 		t.Errorf("record id=%q provider=%q; want account / non-empty provider", recs[0].ID, p.Provider)
 	}
 	// No policy → weakest posture.

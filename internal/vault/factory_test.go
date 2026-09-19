@@ -11,6 +11,9 @@ import (
 	_ "github.com/sigcomply/sigcomply-cli/internal/vault/builtin" // registers every in-tree backend via init()
 )
 
+// cfgKeyBucket is the vault config key every object-store backend requires.
+const cfgKeyBucket = "bucket"
+
 func TestFromConfig_LocalSucceeds(t *testing.T) {
 	v, err := vault.FromConfig(context.Background(), &spec.VaultConfig{
 		Backend: "local",
@@ -35,9 +38,9 @@ func TestFromConfig_BackendRequiredFields(t *testing.T) {
 		cfg     spec.VaultConfig
 		wantSub string
 	}{
-		{"s3 missing bucket", spec.VaultConfig{Backend: "s3", Config: map[string]any{"region": "us-east-1"}}, "bucket"},
-		{"s3 missing region", spec.VaultConfig{Backend: "s3", Config: map[string]any{"bucket": "b"}}, "region"},
-		{"gcs missing bucket", spec.VaultConfig{Backend: "gcs", Config: map[string]any{}}, "bucket"},
+		{"s3 missing bucket", spec.VaultConfig{Backend: "s3", Config: map[string]any{"region": "us-east-1"}}, cfgKeyBucket},
+		{"s3 missing region", spec.VaultConfig{Backend: "s3", Config: map[string]any{cfgKeyBucket: "b"}}, "region"},
+		{"gcs missing bucket", spec.VaultConfig{Backend: "gcs", Config: map[string]any{}}, cfgKeyBucket},
 		{"azure missing container", spec.VaultConfig{Backend: "azure_blob", Config: map[string]any{"account": "a"}}, "container"},
 	}
 	for _, tc := range cases {

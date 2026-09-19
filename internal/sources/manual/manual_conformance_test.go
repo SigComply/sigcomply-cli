@@ -25,7 +25,7 @@ import (
 func manualPlugin(t *testing.T, catalogID string) core.SourcePlugin {
 	t.Helper()
 	reader, scheme, bucket, prefix, err := buildLocalReader(map[string]any{
-		"path": "testdata/store", "prefix": "manual/",
+		keyPath: "testdata/store", "prefix": defaultPrefix,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -38,11 +38,11 @@ func manualPlugin(t *testing.T, catalogID string) core.SourcePlugin {
 
 func manualParams(catalogID string) map[string]any {
 	return map[string]any{
-		"catalog_id":   catalogID,
-		"period_id":    "2026-Q1",
-		"period_start": time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
-		"period_end":   time.Date(2099, 12, 31, 0, 0, 0, 0, time.UTC),
-		"now":          time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC),
+		keyCatalogID:   catalogID,
+		keyPeriodID:    testPeriodID,
+		keyPeriodStart: time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
+		keyPeriodEnd:   time.Date(2099, 12, 31, 0, 0, 0, 0, time.UTC),
+		keyNow:         time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC),
 	}
 }
 

@@ -58,7 +58,7 @@ func evaluateManual(slots map[string][]core.EvidenceRecord) core.RuleResult {
 	if len(records) == 0 {
 		return core.RuleResult{
 			Status: core.StatusError,
-			Diag:   map[string]any{"reason": "manual evidence: no record collected (source not configured or collection failed)"},
+			Diag:   map[string]any{diagReason: "manual evidence: no record collected (source not configured or collection failed)"},
 		}
 	}
 	rec := records[0]
@@ -66,7 +66,7 @@ func evaluateManual(slots map[string][]core.EvidenceRecord) core.RuleResult {
 	if err := json.Unmarshal(rec.Payload, &p); err != nil {
 		return core.RuleResult{
 			Status: core.StatusError,
-			Diag:   map[string]any{"reason": fmt.Sprintf("manual evidence: failed to parse collector record: %v", err)},
+			Diag:   map[string]any{diagReason: fmt.Sprintf("manual evidence: failed to parse collector record: %v", err)},
 		}
 	}
 

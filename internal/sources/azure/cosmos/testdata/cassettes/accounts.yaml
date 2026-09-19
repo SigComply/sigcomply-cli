@@ -10,7 +10,7 @@ interactions:
         host: management.azure.com
         form:
             api-version:
-                - "2025-10-15"
+                - "2026-03-15"
         headers:
             Accept:
                 - application/json
@@ -18,7 +18,7 @@ interactions:
                 - REDACTED
             User-Agent:
                 - azsdk-go-armcosmos/v3.4.0 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.DocumentDB/databaseAccounts?api-version=2025-10-15
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.DocumentDB/databaseAccounts?api-version=2026-03-15
         method: GET
       response:
         proto: HTTP/2.0

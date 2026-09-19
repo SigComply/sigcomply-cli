@@ -31,10 +31,13 @@ import (
 	_ "golang.org/x/image/webp"
 )
 
+// extPDF is the one extension that is passed through unconverted.
+const extPDF = ".pdf"
+
 // supportedExts is the canonical set of extensions this package handles.
 // Order is preserved for error messages; checked via the map below.
 var supportedExts = []string{
-	".pdf",
+	extPDF,
 	".jpg", ".jpeg",
 	".png",
 	".gif",
@@ -58,7 +61,7 @@ func SupportedExt(ext string) bool {
 }
 
 // IsPDF reports whether ext is ".pdf".
-func IsPDF(ext string) bool { return ext == ".pdf" }
+func IsPDF(ext string) bool { return ext == extPDF }
 
 // SupportedExtsList returns the supported extensions joined with spaces
 // for use in error messages.
@@ -89,7 +92,7 @@ func (e *UnsupportedTypeError) Error() string {
 // Returns UnsupportedTypeError for unrecognized extensions.
 func ToPDF(filename, ext string, data []byte) (pdf []byte, converted bool, err error) {
 	switch ext {
-	case ".pdf":
+	case extPDF:
 		return data, false, nil
 	case ".jpg", ".jpeg":
 		out, e := imageToPDF(filename, "JPEG", data)

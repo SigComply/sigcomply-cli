@@ -12,9 +12,9 @@ import (
 )
 
 func TestEvidenceCatalog_JSONMatchesSPAContract(t *testing.T) {
-	for _, fw := range []string{"soc2", "iso27001"} {
+	for _, fw := range []string{defaultFW, isoFW} {
 		var out bytes.Buffer
-		if err := runEvidenceCatalog(&out, &evidenceFlags{framework: fw, output: "json"}); err != nil {
+		if err := runEvidenceCatalog(&out, &evidenceFlags{framework: fw, output: outputJSON}); err != nil {
 			t.Fatalf("%s: runEvidenceCatalog: %v", fw, err)
 		}
 		var cat manualcatalog.Catalog
@@ -66,7 +66,7 @@ func TestEvidenceCatalog_CoversEveryManualPolicy(t *testing.T) {
 	// The export's entry IDs must equal the framework's manual-policy
 	// catalog IDs — no drift between the policy library and the catalog.
 	var out bytes.Buffer
-	if err := runEvidenceCatalog(&out, &evidenceFlags{framework: "soc2", output: "json"}); err != nil {
+	if err := runEvidenceCatalog(&out, &evidenceFlags{framework: defaultFW, output: outputJSON}); err != nil {
 		t.Fatalf("runEvidenceCatalog: %v", err)
 	}
 	var cat manualcatalog.Catalog
@@ -89,7 +89,7 @@ func TestEvidenceCatalog_CoversEveryManualPolicy(t *testing.T) {
 }
 
 func TestEvidenceCatalog_UnknownFramework(t *testing.T) {
-	err := runEvidenceCatalog(&bytes.Buffer{}, &evidenceFlags{framework: "hipaa", output: "json"})
+	err := runEvidenceCatalog(&bytes.Buffer{}, &evidenceFlags{framework: "hipaa", output: outputJSON})
 	var ec *exitCodeError
 	if !errors.As(err, &ec) || ec.code != orchestrator.ExitConfig {
 		t.Fatalf("want ExitConfig error; got %v", err)
@@ -97,7 +97,7 @@ func TestEvidenceCatalog_UnknownFramework(t *testing.T) {
 }
 
 func TestEvidenceCatalog_InvalidOutput(t *testing.T) {
-	err := runEvidenceCatalog(&bytes.Buffer{}, &evidenceFlags{framework: "soc2", output: "yaml"})
+	err := runEvidenceCatalog(&bytes.Buffer{}, &evidenceFlags{framework: defaultFW, output: formatYAML})
 	var ec *exitCodeError
 	if !errors.As(err, &ec) || ec.code != orchestrator.ExitConfig {
 		t.Fatalf("want ExitConfig error; got %v", err)
@@ -106,7 +106,7 @@ func TestEvidenceCatalog_InvalidOutput(t *testing.T) {
 
 func TestEvidenceCatalog_TextOutput(t *testing.T) {
 	var out bytes.Buffer
-	if err := runEvidenceCatalog(&out, &evidenceFlags{framework: "soc2", output: "text"}); err != nil {
+	if err := runEvidenceCatalog(&out, &evidenceFlags{framework: defaultFW, output: outputText}); err != nil {
 		t.Fatalf("runEvidenceCatalog: %v", err)
 	}
 	s := out.String()
@@ -119,15 +119,15 @@ func TestEvidenceCatalog_TextOutput(t *testing.T) {
 }
 
 func TestResolveFramework(t *testing.T) {
-	if got := resolveFramework("iso27001"); got != "iso27001" {
+	if got := resolveFramework(isoFW); got != isoFW {
 		t.Errorf("flag precedence: got %q", got)
 	}
-	t.Setenv("SIGCOMPLY_FRAMEWORK", "iso27001")
-	if got := resolveFramework(""); got != "iso27001" {
+	t.Setenv("SIGCOMPLY_FRAMEWORK", isoFW)
+	if got := resolveFramework(""); got != isoFW {
 		t.Errorf("env fallback: got %q", got)
 	}
 	t.Setenv("SIGCOMPLY_FRAMEWORK", "")
-	if got := resolveFramework(""); got != "soc2" {
+	if got := resolveFramework(""); got != defaultFW {
 		t.Errorf("default: got %q", got)
 	}
 }

@@ -17,11 +17,13 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	armmonitor "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/monitor/armmonitor"
-	armoi "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/operationalinsights/armoperationalinsights/v2"
+	armoi "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/operationalinsights/armoperationalinsights/v3"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
+
+const subID = "sub-1"
 
 var fixedNow = time.Date(2026, 6, 17, 12, 0, 0, 0, time.UTC)
 
@@ -120,7 +122,7 @@ func TestCollect_BothTypes_MapsSortsAndFullPayload(t *testing.T) {
 			},
 		}},
 	}
-	p := New(Options{API: f, SubscriptionID: "sub-1", Now: func() time.Time { return fixedNow }})
+	p := New(Options{API: f, SubscriptionID: subID, Now: func() time.Time { return fixedNow }})
 
 	recs, err := p.Collect(context.Background(), bothReq())
 	if err != nil {
@@ -137,7 +139,7 @@ func TestCollect_BothTypes_MapsSortsAndFullPayload(t *testing.T) {
 		if r.SourceID != SourceID || !r.CollectedAt.Equal(fixedNow) {
 			t.Errorf("record %s: SourceID/CollectedAt = %s/%v", r.ID, r.SourceID, r.CollectedAt)
 		}
-		if r.Scope == nil || r.Scope.Account != "sub-1" {
+		if r.Scope == nil || r.Scope.Account != subID {
 			t.Errorf("record %s: scope = %+v", r.ID, r.Scope)
 		}
 		if r.IdentityKey != "" {
@@ -237,7 +239,7 @@ func TestCollect_NilEntriesSkipped(t *testing.T) {
 			{Properties: &armmonitor.DiagnosticSettings{Logs: []*armmonitor.LogSettings{nil}}},
 		},
 	}
-	recs, err := New(Options{API: f, SubscriptionID: "sub-1"}).Collect(context.Background(), bothReq())
+	recs, err := New(Options{API: f, SubscriptionID: subID}).Collect(context.Background(), bothReq())
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -270,7 +272,7 @@ func TestCollect_KISSNoDRY_RefetchesEachCollect(t *testing.T) {
 	f := &fakeAPI{
 		workspaces: []*armoi.Workspace{workspace("rg", "w", "eastus", 30)},
 	}
-	p := New(Options{API: f, SubscriptionID: "sub-1"})
+	p := New(Options{API: f, SubscriptionID: subID})
 	for i := 0; i < 3; i++ {
 		if _, err := p.Collect(context.Background(), bothReq()); err != nil {
 			t.Fatalf("Collect %d: %v", i, err)
@@ -426,7 +428,7 @@ func realMonitorPointedAt(t *testing.T, srv *httptest.Server) *realMonitor {
 		}},
 		Transport: srv.Client(),
 	}}
-	rm, err := newRealMonitor("sub-1", fakeCred{}, opts)
+	rm, err := newRealMonitor(subID, fakeCred{}, opts)
 	if err != nil {
 		t.Fatalf("newRealMonitor: %v", err)
 	}

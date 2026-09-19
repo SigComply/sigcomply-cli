@@ -78,6 +78,9 @@ const SourceID = "azure.defender"
 // parsed from its id (e.g. an on-premise sub-assessment resource).
 const resourceTypeFallback = "azure_resource"
 
+// providerAzure is the cloud-provider name stamped on every emitted record.
+const providerAzure = "azure"
+
 // API is the subset of the Defender for Cloud management plane this plugin uses.
 // It returns raw SDK types so the vendor→canonical mapping is exercised by
 // fakeAPI unit tests; the real adapter (realDefender) wraps the armsecurity
@@ -243,7 +246,7 @@ func threatRecords(pricings []*armsecurity.Pricing, now time.Time, scope *core.R
 		payload := threatServicePayload{
 			ID:          planID(pr),
 			Name:        name,
-			Provider:    "azure",
+			Provider:    providerAzure,
 			IsEnabled:   planEnabled(pr),
 			PricingTier: pricingTier(pr),
 			SubPlan:     subPlan(pr),
@@ -275,7 +278,7 @@ func securityRecord(pricings []*armsecurity.Pricing, now time.Time, scope *core.
 	payload := securityServicePayload{
 		ID:               "azure-defender-for-cloud",
 		Name:             "Microsoft Defender for Cloud",
-		Provider:         "azure",
+		Provider:         providerAzure,
 		ServiceType:      "cspm",
 		IsEnabled:        enabled > 0,
 		EnabledPlanCount: enabled,
@@ -305,7 +308,7 @@ func (p *Plugin) collectFindings(ctx context.Context, now time.Time, scope *core
 			Status:               mapStatus(statusCodeOf(sa)),
 			CVEID:                cveID(sa),
 			RemediationAvailable: hasRemediation(sa),
-			Provider:             "azure",
+			Provider:             providerAzure,
 			Category:             category(sa),
 		}
 		rec, err := record(EvidenceTypeVulnFinding, payload, payload.ID, now, scope)

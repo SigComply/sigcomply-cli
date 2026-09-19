@@ -19,11 +19,34 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
 
+// Option keys of the Active Directory source config, as they appear in a
+// project's sources map.
+const (
+	cfgKeyURL               = "url"
+	cfgKeyBaseDN            = "base_dn"
+	cfgKeyUserFilter        = "user_filter"
+	cfgKeyBindDN            = "bind_dn"
+	cfgKeyBindPassword      = "bind_password"
+	cfgKeyPageSize          = "page_size"
+	cfgKeyServiceAccountOUs = "service_account_ous"
+	cfgKeyTimeout           = "timeout"
+	cfgKeyCACert            = "ca_cert"
+	cfgKeyStartTLS          = "start_tls"
+	cfgKeyTLSServerName     = "tls_server_name"
+)
+
+// Fixture values shared by the config tests.
+const (
+	testStaffOU    = "OU=Staff,DC=corp,DC=example,DC=com"
+	testUserFilter = "(objectClass=user)"
+	testLDAPURL    = "ldap://dc01"
+)
+
 func baseConfig() map[string]any {
 	return map[string]any{
-		"url":           "ldaps://dc01.corp.example.com",
-		"bind_dn":       "CN=svc-sigcomply,OU=Service Accounts,DC=corp,DC=example,DC=com",
-		"bind_password": "test-password",
+		cfgKeyURL:          "ldaps://dc01.corp.example.com",
+		cfgKeyBindDN:       "CN=svc-sigcomply,OU=Service Accounts,DC=corp,DC=example,DC=com",
+		cfgKeyBindPassword: "test-password",
 	}
 }
 
@@ -57,7 +80,7 @@ func TestParseConfigDefaults(t *testing.T) {
 	case cfg.Timeout != DefaultTimeout:
 		t.Errorf("timeout = %v", cfg.Timeout)
 	}
-	if cfg.TLS.MinVersion != tls.VersionTLS12 || cfg.TLS.ServerName != "dc01.corp.example.com" ||
+	if cfg.TLS.MinVersion != tls.VersionTLS12 || cfg.TLS.ServerName != fakeServerName ||
 		cfg.TLS.RootCAs != nil || cfg.TLS.InsecureSkipVerify {
 		t.Errorf("tls = min %x server %q roots %v insecure %v",
 			cfg.TLS.MinVersion, cfg.TLS.ServerName, cfg.TLS.RootCAs, cfg.TLS.InsecureSkipVerify)
@@ -68,15 +91,15 @@ func TestParseConfigOverrides(t *testing.T) {
 	t.Setenv(BindPasswordEnv, "")
 	caPath := writeTestCA(t)
 	cfg, err := parseConfig(withKeys(map[string]any{
-		"url":                 "ldap://10.0.0.5:3268",
-		"start_tls":           true,
-		"base_dn":             "OU=Staff,DC=corp,DC=example,DC=com",
-		"user_filter":         "(objectClass=user)",
-		"page_size":           250,
-		"timeout":             "5s",
-		"ca_cert":             caPath,
-		"tls_server_name":     "dc01.corp.example.com",
-		"service_account_ous": []any{"OU=Service Accounts,DC=corp,DC=example,DC=com"},
+		cfgKeyURL:               "ldap://10.0.0.5:3268",
+		cfgKeyStartTLS:          true,
+		cfgKeyBaseDN:            testStaffOU,
+		cfgKeyUserFilter:        testUserFilter,
+		cfgKeyPageSize:          250,
+		cfgKeyTimeout:           "5s",
+		cfgKeyCACert:            caPath,
+		cfgKeyTLSServerName:     fakeServerName,
+		cfgKeyServiceAccountOUs: []any{"OU=Service Accounts,DC=corp,DC=example,DC=com"},
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -84,17 +107,17 @@ func TestParseConfigOverrides(t *testing.T) {
 	if cfg.Scheme != schemeLDAP || !cfg.StartTLS || cfg.Addr != "10.0.0.5:3268" {
 		t.Errorf("transport = %s %s start_tls=%v", cfg.Scheme, cfg.Addr, cfg.StartTLS)
 	}
-	if cfg.BaseDN != "OU=Staff,DC=corp,DC=example,DC=com" || cfg.UserFilter != "(objectClass=user)" ||
+	if cfg.BaseDN != testStaffOU || cfg.UserFilter != testUserFilter ||
 		cfg.PageSize != 250 || cfg.Timeout != 5*time.Second {
 		t.Errorf("search = %q %q %d %v", cfg.BaseDN, cfg.UserFilter, cfg.PageSize, cfg.Timeout)
 	}
-	if cfg.TLS.ServerName != "dc01.corp.example.com" || cfg.TLS.RootCAs == nil {
+	if cfg.TLS.ServerName != fakeServerName || cfg.TLS.RootCAs == nil {
 		t.Errorf("tls server %q roots %v", cfg.TLS.ServerName, cfg.TLS.RootCAs)
 	}
 	if len(cfg.ServiceAccountOUs) != 1 {
 		t.Errorf("service_account_ous = %v", cfg.ServiceAccountOUs)
 	}
-	if cfg2, err := parseConfig(withKeys(map[string]any{"url": "ldap://dc01", "start_tls": true})); err != nil || cfg2.Addr != "dc01:389" {
+	if cfg2, err := parseConfig(withKeys(map[string]any{cfgKeyURL: testLDAPURL, cfgKeyStartTLS: true})); err != nil || cfg2.Addr != "dc01:389" {
 		t.Errorf("ldap default port: cfg=%+v err=%v", cfg2, err)
 	}
 }
@@ -104,7 +127,7 @@ func TestParseConfigOverrides(t *testing.T) {
 func TestParseConfigPasswordFromTokenEnv(t *testing.T) {
 	t.Setenv(BindPasswordEnv, "shared")
 	t.Setenv("SIGCOMPLY_AD_TEST_INSTANCE_PW", "per-instance")
-	cfg, err := parseConfig(withKeys(map[string]any{"bind_password": nil, "token_env": "SIGCOMPLY_AD_TEST_INSTANCE_PW"}))
+	cfg, err := parseConfig(withKeys(map[string]any{cfgKeyBindPassword: nil, "token_env": "SIGCOMPLY_AD_TEST_INSTANCE_PW"}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +138,7 @@ func TestParseConfigPasswordFromTokenEnv(t *testing.T) {
 
 func TestParseConfigPasswordFromEnv(t *testing.T) {
 	t.Setenv(BindPasswordEnv, "from-env")
-	cfg, err := parseConfig(withKeys(map[string]any{"bind_password": nil}))
+	cfg, err := parseConfig(withKeys(map[string]any{cfgKeyBindPassword: nil}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +164,7 @@ func TestPageSizeClamp(t *testing.T) {
 		{int64(1) << 40, 1000}, {uint64(1) << 63, 1000}, {float64(20), 20},
 	}
 	for _, tc := range cases {
-		cfg, err := parseConfig(withKeys(map[string]any{"page_size": tc.in}))
+		cfg, err := parseConfig(withKeys(map[string]any{cfgKeyPageSize: tc.in}))
 		if err != nil {
 			t.Errorf("page_size %v: %v", tc.in, err)
 			continue
@@ -155,7 +178,7 @@ func TestPageSizeClamp(t *testing.T) {
 func TestTimeoutForms(t *testing.T) {
 	t.Setenv(BindPasswordEnv, "")
 	for in, want := range map[any]time.Duration{"2m": 2 * time.Minute, 45: 45 * time.Second} {
-		cfg, err := parseConfig(withKeys(map[string]any{"timeout": in}))
+		cfg, err := parseConfig(withKeys(map[string]any{cfgKeyTimeout: in}))
 		if err != nil || cfg.Timeout != want {
 			t.Errorf("timeout %v → %v (err %v), want %v", in, cfg, err, want)
 		}
@@ -174,30 +197,30 @@ func TestParseConfigErrors(t *testing.T) {
 		cfg  map[string]any
 		want string
 	}{
-		{"missing url", withKeys(map[string]any{"url": nil}), `"url" required`},
-		{"url wrong type", withKeys(map[string]any{"url": 5}), "must be a string"},
-		{"no host", withKeys(map[string]any{"url": "ldaps://"}), "no host"},
-		{"plaintext ldap", withKeys(map[string]any{"url": "ldap://dc01.corp.example.com"}), "plaintext ldap:// refused"},
-		{"plaintext ldap start_tls false", withKeys(map[string]any{"url": "ldap://dc01", "start_tls": false}), "plaintext"},
-		{"ldaps plus start_tls", withKeys(map[string]any{"start_tls": true}), "cannot be combined"},
-		{"unsupported scheme", withKeys(map[string]any{"url": "https://dc01"}), "unsupported"},
-		{"start_tls wrong type", withKeys(map[string]any{"url": "ldap://dc01", "start_tls": "yes"}), "must be a boolean"},
-		{"missing bind_dn", withKeys(map[string]any{"bind_dn": nil}), `"bind_dn" required`},
-		{"missing password", withKeys(map[string]any{"bind_password": nil}), "bind password required"},
-		{"empty password", withKeys(map[string]any{"bind_password": ""}), "bind password required"},
-		{"token_env names an unset variable", withKeys(map[string]any{"bind_password": nil, "token_env": "SIGCOMPLY_AD_TEST_UNSET_PW"}), "token_env names SIGCOMPLY_AD_TEST_UNSET_PW, which is empty or unset"},
-		{"bad base_dn", withKeys(map[string]any{"base_dn": "not a dn"}), `"base_dn"`},
-		{"bad filter", withKeys(map[string]any{"user_filter": "(objectClass=user"}), `"user_filter"`},
-		{"page_size wrong type", withKeys(map[string]any{"page_size": "big"}), "must be an integer"},
-		{"page_size fractional", withKeys(map[string]any{"page_size": 1.5}), "must be an integer"},
-		{"timeout garbage", withKeys(map[string]any{"timeout": "soon"}), `"timeout"`},
-		{"timeout zero", withKeys(map[string]any{"timeout": "0s"}), "must be positive"},
-		{"timeout wrong type", withKeys(map[string]any{"timeout": true}), "duration string"},
-		{"ca_cert missing file", withKeys(map[string]any{"ca_cert": missingCA}), `"ca_cert"`},
-		{"ca_cert not PEM", withKeys(map[string]any{"ca_cert": notPEM}), "no PEM certificates"},
-		{"service OUs wrong type", withKeys(map[string]any{"service_account_ous": "OU=x"}), "list of strings"},
-		{"service OU item wrong type", withKeys(map[string]any{"service_account_ous": []any{1}}), "must be a string"},
-		{"service OU invalid", withKeys(map[string]any{"service_account_ous": []any{"garbage"}}), "not a valid DN"},
+		{"missing url", withKeys(map[string]any{cfgKeyURL: nil}), `"url" required`},
+		{"url wrong type", withKeys(map[string]any{cfgKeyURL: 5}), "must be a string"},
+		{"no host", withKeys(map[string]any{cfgKeyURL: "ldaps://"}), "no host"},
+		{"plaintext ldap", withKeys(map[string]any{cfgKeyURL: "ldap://dc01.corp.example.com"}), "plaintext ldap:// refused"},
+		{"plaintext ldap start_tls false", withKeys(map[string]any{cfgKeyURL: testLDAPURL, cfgKeyStartTLS: false}), "plaintext"},
+		{"ldaps plus start_tls", withKeys(map[string]any{cfgKeyStartTLS: true}), "cannot be combined"},
+		{"unsupported scheme", withKeys(map[string]any{cfgKeyURL: "https://dc01"}), "unsupported"},
+		{"start_tls wrong type", withKeys(map[string]any{cfgKeyURL: testLDAPURL, cfgKeyStartTLS: "yes"}), "must be a boolean"},
+		{"missing bind_dn", withKeys(map[string]any{cfgKeyBindDN: nil}), `"bind_dn" required`},
+		{"missing password", withKeys(map[string]any{cfgKeyBindPassword: nil}), "bind password required"},
+		{"empty password", withKeys(map[string]any{cfgKeyBindPassword: ""}), "bind password required"},
+		{"token_env names an unset variable", withKeys(map[string]any{cfgKeyBindPassword: nil, "token_env": "SIGCOMPLY_AD_TEST_UNSET_PW"}), "token_env names SIGCOMPLY_AD_TEST_UNSET_PW, which is empty or unset"},
+		{"bad base_dn", withKeys(map[string]any{cfgKeyBaseDN: "not a dn"}), `"base_dn"`},
+		{"bad filter", withKeys(map[string]any{cfgKeyUserFilter: "(objectClass=user"}), `"user_filter"`},
+		{"page_size wrong type", withKeys(map[string]any{cfgKeyPageSize: "big"}), "must be an integer"},
+		{"page_size fractional", withKeys(map[string]any{cfgKeyPageSize: 1.5}), "must be an integer"},
+		{"timeout garbage", withKeys(map[string]any{cfgKeyTimeout: "soon"}), `"timeout"`},
+		{"timeout zero", withKeys(map[string]any{cfgKeyTimeout: "0s"}), "must be positive"},
+		{"timeout wrong type", withKeys(map[string]any{cfgKeyTimeout: true}), "duration string"},
+		{"ca_cert missing file", withKeys(map[string]any{cfgKeyCACert: missingCA}), `"ca_cert"`},
+		{"ca_cert not PEM", withKeys(map[string]any{cfgKeyCACert: notPEM}), "no PEM certificates"},
+		{"service OUs wrong type", withKeys(map[string]any{cfgKeyServiceAccountOUs: "OU=x"}), "list of strings"},
+		{"service OU item wrong type", withKeys(map[string]any{cfgKeyServiceAccountOUs: []any{1}}), "must be a string"},
+		{"service OU invalid", withKeys(map[string]any{cfgKeyServiceAccountOUs: []any{"garbage"}}), "not a valid DN"},
 	}
 	for _, tc := range cases {
 		_, err := parseConfig(tc.cfg)
@@ -219,7 +242,7 @@ func TestParseConfigErrors(t *testing.T) {
 func TestFactoryNeverDials(t *testing.T) {
 	t.Setenv(BindPasswordEnv, "")
 	p, err := sources.Build(context.Background(), SourceID, sources.Env{Config: withKeys(map[string]any{
-		"url": "ldaps://192.0.2.1:636", // TEST-NET-1: never answers
+		cfgKeyURL: "ldaps://192.0.2.1:636", // TEST-NET-1: never answers
 	})})
 	if err != nil {
 		t.Fatal(err)

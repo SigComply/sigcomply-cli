@@ -16,6 +16,20 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testSelfCertName      = "projects/p/locations/us-east1/certificates/self-cert"
+	testManagedCertName   = "projects/p/locations/us-central1/certificates/managed-cert"
+	testSelfCertExpiry    = "2026-06-26T00:00:00Z"
+	testManagedCertExpiry = "2026-09-14T00:00:00Z"
+	testPastExpiry        = "2026-06-06T00:00:00Z"
+	testDomainAPI         = "api.example.com"
+	testDomainWWW         = "www.example.com"
+	testStateActive       = "ACTIVE"
+	testStatusIssued      = "ISSUED"
+	testStatusExpired     = "EXPIRED"
+)
+
 // fakeAPI drives the plugin without hitting GCP. It records the project
 // argument and call count to assert plumbing and the KISS-no-DRY axiom.
 type fakeAPI struct {
@@ -84,17 +98,17 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	fake := &fakeAPI{
 		certs: []*certificatemanager.Certificate{
 			{ // self-managed, sorts second by Name (us-east1 > us-central1).
-				Name:        "projects/p/locations/us-east1/certificates/self-cert",
-				ExpireTime:  "2026-06-26T00:00:00Z",
-				SanDnsnames: []string{"api.example.com"},
+				Name:        testSelfCertName,
+				ExpireTime:  testSelfCertExpiry,
+				SanDnsnames: []string{testDomainAPI},
 				SelfManaged: &certificatemanager.SelfManagedCertificate{PemCertificate: "-----BEGIN-----"},
 			},
 			{ // managed, sorts first by Name.
-				Name:        "projects/p/locations/us-central1/certificates/managed-cert",
-				ExpireTime:  "2026-09-14T00:00:00Z",
-				SanDnsnames: []string{"www.example.com", "example.com"},
+				Name:        testManagedCertName,
+				ExpireTime:  testManagedCertExpiry,
+				SanDnsnames: []string{testDomainWWW, "example.com"},
 				Scope:       "DEFAULT",
-				Managed:     &certificatemanager.ManagedCertificate{State: "ACTIVE", Domains: []string{"www.example.com"}},
+				Managed:     &certificatemanager.ManagedCertificate{State: testStateActive, Domains: []string{testDomainWWW}},
 			},
 		},
 	}
@@ -116,8 +130,8 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	if id0, id1 := decodePayload(t, &records[0]).ID, decodePayload(t, &records[1]).ID; !reflect.DeepEqual(
 		[]string{id0, id1},
 		[]string{
-			"projects/p/locations/us-central1/certificates/managed-cert",
-			"projects/p/locations/us-east1/certificates/self-cert",
+			testManagedCertName,
+			testSelfCertName,
 		}) {
 		t.Fatalf("order = %q,%q; want managed-cert before self-cert", id0, id1)
 	}
@@ -134,17 +148,17 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	}
 
 	wantManaged := certPayload{
-		ID:              "projects/p/locations/us-central1/certificates/managed-cert",
-		Domain:          "www.example.com",
+		ID:              testManagedCertName,
+		Domain:          testDomainWWW,
 		Provider:        "gcp",
-		Status:          "ISSUED",
-		NotAfter:        "2026-09-14T00:00:00Z",
+		Status:          testStatusIssued,
+		NotAfter:        testManagedCertExpiry,
 		DaysUntilExpiry: 90,
 		IsManaged:       true,
 		AutoRenew:       ptrBool(true),
 		Location:        "us-central1",
-		SanDNSNames:     []string{"www.example.com", "example.com"},
-		ManagedState:    "ACTIVE",
+		SanDNSNames:     []string{testDomainWWW, "example.com"},
+		ManagedState:    testStateActive,
 		Scope:           "DEFAULT",
 	}
 	if got := decodePayload(t, &records[0]); !reflect.DeepEqual(got, wantManaged) {
@@ -152,15 +166,15 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	}
 
 	wantSelf := certPayload{
-		ID:              "projects/p/locations/us-east1/certificates/self-cert",
-		Domain:          "api.example.com",
+		ID:              testSelfCertName,
+		Domain:          testDomainAPI,
 		Provider:        "gcp",
-		Status:          "ISSUED",
-		NotAfter:        "2026-06-26T00:00:00Z",
+		Status:          testStatusIssued,
+		NotAfter:        testSelfCertExpiry,
 		DaysUntilExpiry: 10,
 		IsManaged:       false,
 		Location:        "us-east1",
-		SanDNSNames:     []string{"api.example.com"},
+		SanDNSNames:     []string{testDomainAPI},
 	}
 	if got := decodePayload(t, &records[1]); !reflect.DeepEqual(got, wantSelf) {
 		t.Errorf("self-managed payload = %+v; want %+v", got, wantSelf)
@@ -181,17 +195,17 @@ func TestBuildPayload_Expired(t *testing.T) {
 	now := time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC)
 	got := buildPayload(&certificatemanager.Certificate{
 		Name:        "projects/p/locations/us-central1/certificates/old",
-		ExpireTime:  "2026-06-06T00:00:00Z", // 10 days ago
+		ExpireTime:  testPastExpiry, // 10 days ago
 		SanDnsnames: []string{"old.example.com"},
-		Managed:     &certificatemanager.ManagedCertificate{State: "ACTIVE"},
+		Managed:     &certificatemanager.ManagedCertificate{State: testStateActive},
 	}, now)
-	if got.Status != "EXPIRED" {
+	if got.Status != testStatusExpired {
 		t.Errorf("status = %q; want EXPIRED", got.Status)
 	}
 	if got.DaysUntilExpiry != -10 {
 		t.Errorf("days_until_expiry = %d; want -10", got.DaysUntilExpiry)
 	}
-	if got.NotAfter != "2026-06-06T00:00:00Z" {
+	if got.NotAfter != testPastExpiry {
 		t.Errorf("not_after = %q; want 2026-06-06T00:00:00Z", got.NotAfter)
 	}
 }
@@ -209,14 +223,14 @@ func TestMapStatus(t *testing.T) {
 		expired bool
 		want    string
 	}{
-		{"managed active", managed("ACTIVE"), false, "ISSUED"},
+		{"managed active", managed(testStateActive), false, testStatusIssued},
 		{"managed provisioning", managed("PROVISIONING"), false, "PENDING_VALIDATION"},
 		{"managed failed", managed("FAILED"), false, "FAILED"},
 		{"managed unspecified", managed("STATE_UNSPECIFIED"), false, "INACTIVE"},
 		{"managed empty", managed(""), false, "INACTIVE"},
-		{"managed expired overrides active", managed("ACTIVE"), true, "EXPIRED"},
-		{"self-managed present", self, false, "ISSUED"},
-		{"self-managed expired", self, true, "EXPIRED"},
+		{"managed expired overrides active", managed(testStateActive), true, testStatusExpired},
+		{"self-managed present", self, false, testStatusIssued},
+		{"self-managed expired", self, true, testStatusExpired},
 	}
 	for _, c := range cases {
 		if got := mapStatus(c.cert, c.expired); got != c.want {
@@ -259,9 +273,9 @@ func TestExpiry(t *testing.T) {
 		wantDays     int
 		wantExpired  bool
 	}{
-		{"future 90d", "2026-09-14T00:00:00Z", "2026-09-14T00:00:00Z", 90, false},
-		{"past 10d", "2026-06-06T00:00:00Z", "2026-06-06T00:00:00Z", -10, true},
-		{"offset normalized to UTC", "2026-06-26T02:00:00+02:00", "2026-06-26T00:00:00Z", 10, false},
+		{"future 90d", testManagedCertExpiry, testManagedCertExpiry, 90, false},
+		{"past 10d", testPastExpiry, testPastExpiry, -10, true},
+		{"offset normalized to UTC", "2026-06-26T02:00:00+02:00", testSelfCertExpiry, 10, false},
 		{"empty", "", "", 0, false},
 		{"unparseable passthrough", "not-a-time", "not-a-time", 0, false},
 	}

@@ -8,6 +8,16 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/scope"
 )
 
+const (
+	testSlotUsers    = "users"
+	testSourceAWSIAM = "aws.iam"
+	testSourceGitHub = "github"
+	testSourceOkta   = "okta"
+	testSourceAlpha  = "alpha"
+	testSourceMid    = "mid"
+	testSourceZeta   = "zeta"
+)
+
 func planWith(bindings map[string][]planner.Binding, unbound []string) *planner.RunPlan {
 	return &planner.RunPlan{Policies: []planner.PlannedPolicy{{
 		Spec:                 core.Policy{ID: "p1"},
@@ -21,13 +31,13 @@ func recordsFrom(sourceIDs ...string) map[string]map[string][]core.EvidenceRecor
 	for _, id := range sourceIDs {
 		recs = append(recs, core.EvidenceRecord{SourceID: id})
 	}
-	return map[string]map[string][]core.EvidenceRecord{"p1": {"users": recs}}
+	return map[string]map[string][]core.EvidenceRecord{"p1": {testSlotUsers: recs}}
 }
 
 func TestEvaluate_Undeclared(t *testing.T) {
 	got := scope.Evaluate(&scope.Input{
-		Configured: map[string]map[string]any{"aws.iam": {}},
-		Plan:       planWith(nil, []string{"users"}),
+		Configured: map[string]map[string]any{testSourceAWSIAM: {}},
+		Plan:       planWith(nil, []string{testSlotUsers}),
 	})
 	if got.Status != scope.StatusUndeclared {
 		t.Errorf("Status = %q; want undeclared", got.Status)
@@ -44,10 +54,10 @@ func TestEvaluate_Undeclared(t *testing.T) {
 
 func TestEvaluate_Complete(t *testing.T) {
 	got := scope.Evaluate(&scope.Input{
-		Declared:        []string{"aws.iam", "github"},
-		Configured:      map[string]map[string]any{"aws.iam": {}, "github": {}},
-		Plan:            planWith(map[string][]planner.Binding{"users": {{SourceID: "aws.iam"}, {SourceID: "github"}}}, nil),
-		RecordsByPolicy: recordsFrom("aws.iam", "github"),
+		Declared:        []string{testSourceAWSIAM, testSourceGitHub},
+		Configured:      map[string]map[string]any{testSourceAWSIAM: {}, testSourceGitHub: {}},
+		Plan:            planWith(map[string][]planner.Binding{testSlotUsers: {{SourceID: testSourceAWSIAM}, {SourceID: testSourceGitHub}}}, nil),
+		RecordsByPolicy: recordsFrom(testSourceAWSIAM, testSourceGitHub),
 	})
 	if got.Status != scope.StatusComplete {
 		t.Fatalf("Status = %q; want complete (sources=%+v)", got.Status, got.Sources)
@@ -72,33 +82,33 @@ func TestEvaluate_ClassifiesEachFailure(t *testing.T) {
 		{
 			name: "declared but absent from sources:",
 			in: &scope.Input{
-				Declared:   []string{"okta"},
-				Configured: map[string]map[string]any{"aws.iam": {}},
-				Plan:       planWith(map[string][]planner.Binding{"users": {{SourceID: "aws.iam"}}}, nil),
+				Declared:   []string{testSourceOkta},
+				Configured: map[string]map[string]any{testSourceAWSIAM: {}},
+				Plan:       planWith(map[string][]planner.Binding{testSlotUsers: {{SourceID: testSourceAWSIAM}}}, nil),
 			},
 			want:  scope.SourceNotConfigured,
-			which: "okta",
+			which: testSourceOkta,
 		},
 		{
 			name: "configured but no slot bound it",
 			in: &scope.Input{
-				Declared:   []string{"okta"},
-				Configured: map[string]map[string]any{"okta": {}},
-				Plan:       planWith(map[string][]planner.Binding{"users": {{SourceID: "aws.iam"}}}, nil),
+				Declared:   []string{testSourceOkta},
+				Configured: map[string]map[string]any{testSourceOkta: {}},
+				Plan:       planWith(map[string][]planner.Binding{testSlotUsers: {{SourceID: testSourceAWSIAM}}}, nil),
 			},
 			want:  scope.SourceNotBound,
-			which: "okta",
+			which: testSourceOkta,
 		},
 		{
 			name: "bound but returned nothing",
 			in: &scope.Input{
-				Declared:        []string{"okta"},
-				Configured:      map[string]map[string]any{"okta": {}},
-				Plan:            planWith(map[string][]planner.Binding{"users": {{SourceID: "okta"}}}, nil),
+				Declared:        []string{testSourceOkta},
+				Configured:      map[string]map[string]any{testSourceOkta: {}},
+				Plan:            planWith(map[string][]planner.Binding{testSlotUsers: {{SourceID: testSourceOkta}}}, nil),
 				RecordsByPolicy: recordsFrom(),
 			},
 			want:  scope.SourceNoRecords,
-			which: "okta",
+			which: testSourceOkta,
 		},
 	}
 
@@ -125,18 +135,18 @@ func TestEvaluate_ClassifiesEachFailure(t *testing.T) {
 // depend on map iteration order.
 func TestEvaluate_Deterministic(t *testing.T) {
 	in := &scope.Input{
-		Declared:   []string{"zeta", "alpha", "mid"},
-		Configured: map[string]map[string]any{"mid": {}},
-		Plan:       planWith(map[string][]planner.Binding{"users": {{SourceID: "mid"}}}, nil),
+		Declared:   []string{testSourceZeta, testSourceAlpha, testSourceMid},
+		Configured: map[string]map[string]any{testSourceMid: {}},
+		Plan:       planWith(map[string][]planner.Binding{testSlotUsers: {{SourceID: testSourceMid}}}, nil),
 	}
 	for i := 0; i < 20; i++ {
 		got := scope.Evaluate(in)
-		if got.Sources[0].SourceID != "alpha" || got.Sources[1].SourceID != "mid" || got.Sources[2].SourceID != "zeta" {
+		if got.Sources[0].SourceID != testSourceAlpha || got.Sources[1].SourceID != testSourceMid || got.Sources[2].SourceID != testSourceZeta {
 			t.Fatalf("Sources not sorted: %+v", got.Sources)
 		}
 		// All three fall short here: alpha/zeta are unconfigured, and mid
 		// is configured and bound but produced no records.
-		if len(got.Missing) != 3 || got.Missing[0] != "alpha" || got.Missing[1] != "mid" || got.Missing[2] != "zeta" {
+		if len(got.Missing) != 3 || got.Missing[0] != testSourceAlpha || got.Missing[1] != testSourceMid || got.Missing[2] != testSourceZeta {
 			t.Fatalf("Missing not sorted: %v", got.Missing)
 		}
 	}
@@ -144,12 +154,12 @@ func TestEvaluate_Deterministic(t *testing.T) {
 
 func TestEvaluate_AuditTrailPassedThrough(t *testing.T) {
 	got := scope.Evaluate(&scope.Input{
-		Declared:        []string{"github"},
+		Declared:        []string{testSourceGitHub},
 		DeclaredBy:      "ciso@example.com",
 		DeclaredAt:      "2026-09-13",
-		Configured:      map[string]map[string]any{"github": {}},
-		Plan:            planWith(map[string][]planner.Binding{"repos": {{SourceID: "github"}}}, nil),
-		RecordsByPolicy: recordsFrom("github"),
+		Configured:      map[string]map[string]any{testSourceGitHub: {}},
+		Plan:            planWith(map[string][]planner.Binding{"repos": {{SourceID: testSourceGitHub}}}, nil),
+		RecordsByPolicy: recordsFrom(testSourceGitHub),
 	})
 	if got.DeclaredBy != "ciso@example.com" || got.DeclaredAt != "2026-09-13" {
 		t.Errorf("audit trail = %q/%q", got.DeclaredBy, got.DeclaredAt)

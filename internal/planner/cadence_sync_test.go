@@ -47,7 +47,7 @@ pass_when:
 // accept/reject.
 func TestCadenceValidation_SpecMatchesPlanner(t *testing.T) {
 	inputs := []string{
-		"continuous", "hourly", "daily", "weekly", "monthly", "quarterly", "annual",
+		cadenceContinuous, cadenceHourly, cadenceDaily, cadenceWeekly, cadenceMonthly, cadenceQuarterly, cadenceAnnual,
 		"every:5m", "every:6h", "every:2h30m", "every:24h",
 		"every:1m", "every:0s", "every:-1h", "every:", "every:abc",
 		"24h", "yearly", "biweekly",
@@ -78,10 +78,10 @@ func TestCadenceInterval_EveryForms(t *testing.T) {
 		{"every:6h", 6 * time.Hour},
 		{"every:2h30m", 2*time.Hour + 30*time.Minute},
 		{"every:5m", 5 * time.Minute},
-		{"every:1m", 0},   // below floor → 0 (always due)
-		{"every:abc", 0},  // unparseable → 0 (loud, always due)
-		{"continuous", 0}, // always due
-		{"hourly", 0},     // sub-daily named cadence → always due
+		{"every:1m", 0},        // below floor → 0 (always due)
+		{"every:abc", 0},       // unparseable → 0 (loud, always due)
+		{cadenceContinuous, 0}, // always due
+		{cadenceHourly, 0},     // sub-daily named cadence → always due
 	}
 	for _, c := range cases {
 		if got := planner.CadenceInterval(c.cadence); got != c.want {
@@ -94,10 +94,10 @@ func TestCadenceInterval_EveryForms(t *testing.T) {
 // the exact every:<duration> add.
 func TestNextDueAt_EveryAndContinuous(t *testing.T) {
 	base := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
-	if got := planner.NextDueAt("continuous", base); !got.IsZero() {
+	if got := planner.NextDueAt(cadenceContinuous, base); !got.IsZero() {
 		t.Errorf("NextDueAt(continuous) = %v; want zero (always due)", got)
 	}
-	if got := planner.NextDueAt("daily", time.Time{}); !got.IsZero() {
+	if got := planner.NextDueAt(cadenceDaily, time.Time{}); !got.IsZero() {
 		t.Errorf("NextDueAt with zero lastPass = %v; want zero", got)
 	}
 	if got := planner.NextDueAt("every:6h", base); !got.Equal(base.Add(6 * time.Hour)) {
@@ -111,7 +111,7 @@ func TestNextDueAt_EveryAndContinuous(t *testing.T) {
 // invariant and was previously exercised by no direct test.
 func TestIsDue(t *testing.T) {
 	now := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
-	dailyInterval := planner.CadenceInterval("daily") // 23h with cron slack
+	dailyInterval := planner.CadenceInterval(cadenceDaily) // 23h with cron slack
 
 	cases := []struct {
 		name    string
@@ -119,41 +119,41 @@ func TestIsDue(t *testing.T) {
 		state   *core.PolicyState
 		want    bool
 	}{
-		{"nil state is first-run → due", "daily", nil, true},
-		{"zero LastRunAt is first-run → due", "daily", &core.PolicyState{}, true},
+		{"nil state is first-run → due", cadenceDaily, nil, true},
+		{"zero LastRunAt is first-run → due", cadenceDaily, &core.PolicyState{}, true},
 		{
 			"prior fail forces due regardless of cadence",
-			"annual",
+			cadenceAnnual,
 			&core.PolicyState{LastRunAt: now.Add(-time.Hour), LastRunStatus: core.StatusFail, LastPassAt: now.Add(-time.Hour)},
 			true,
 		},
 		{
 			"prior error forces due",
-			"annual",
+			cadenceAnnual,
 			&core.PolicyState{LastRunAt: now.Add(-time.Hour), LastRunStatus: core.StatusError},
 			true,
 		},
 		{
 			"passed within interval → not due",
-			"daily",
+			cadenceDaily,
 			&core.PolicyState{LastRunAt: now.Add(-time.Hour), LastRunStatus: core.StatusPass, LastPassAt: now.Add(-time.Hour)},
 			false,
 		},
 		{
 			"passed exactly interval ago → due (>=)",
-			"daily",
+			cadenceDaily,
 			&core.PolicyState{LastRunAt: now.Add(-dailyInterval), LastRunStatus: core.StatusPass, LastPassAt: now.Add(-dailyInterval)},
 			true,
 		},
 		{
 			"passed just under interval → not due",
-			"daily",
+			cadenceDaily,
 			&core.PolicyState{LastRunAt: now, LastRunStatus: core.StatusPass, LastPassAt: now.Add(-dailyInterval + time.Minute)},
 			false,
 		},
 		{
 			"continuous cadence is always due even right after a pass",
-			"continuous",
+			cadenceContinuous,
 			&core.PolicyState{LastRunAt: now, LastRunStatus: core.StatusPass, LastPassAt: now},
 			true,
 		},

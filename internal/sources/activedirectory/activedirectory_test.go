@@ -72,8 +72,8 @@ func TestCollectMapsAndSorts(t *testing.T) {
 	}
 
 	assertExactPayload(t, recs[0].Payload, map[string]any{
-		"id": "10000000-0000-0000-0000-000000000000", "status": "inactive", "display_name": "backup",
-		"is_service_account": true, "source_status": "disabled",
+		"id": "10000000-0000-0000-0000-000000000000", "status": statusInactive, "display_name": "backup",
+		"is_service_account": true, "source_status": sourceStatusDisabled,
 	})
 }
 

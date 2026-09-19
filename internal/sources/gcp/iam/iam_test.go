@@ -13,6 +13,11 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testRoleViewer = "roles/viewer"
+)
+
 // fakeAPI lets tests drive the plugin without real GCP calls.
 type fakeAPI struct {
 	policy *crm.Policy
@@ -50,7 +55,7 @@ func TestPlugin_InitNoOp(t *testing.T) {
 func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	fake := &fakeAPI{policy: &crm.Policy{
 		Bindings: []*crm.Binding{
-			{Role: "roles/viewer", Members: []string{"user:alice@acme.com", "user:bob@acme.com"}},
+			{Role: testRoleViewer, Members: []string{"user:alice@acme.com", "user:bob@acme.com"}},
 			{Role: "roles/owner", Members: []string{"user:carol@acme.com"}},
 		},
 	}}
@@ -164,7 +169,7 @@ func TestCollect_GetIamPolicyError(t *testing.T) {
 
 func TestCollect_DefaultNowIsUsedWhenNotInjected(t *testing.T) {
 	fake := &fakeAPI{policy: &crm.Policy{
-		Bindings: []*crm.Binding{{Role: "roles/viewer", Members: []string{"user:a@b.com"}}},
+		Bindings: []*crm.Binding{{Role: testRoleViewer, Members: []string{"user:a@b.com"}}},
 	}}
 	p := New(Options{API: fake})
 	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
@@ -218,7 +223,7 @@ func TestNewFromGCP_SmokeTest(t *testing.T) {
 
 func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 	fake := &fakeAPI{policy: &crm.Policy{
-		Bindings: []*crm.Binding{{Role: "roles/viewer", Members: []string{"user:a@b.com"}}},
+		Bindings: []*crm.Binding{{Role: testRoleViewer, Members: []string{"user:a@b.com"}}},
 	}}
 	p := New(Options{API: fake})
 	for range 3 {

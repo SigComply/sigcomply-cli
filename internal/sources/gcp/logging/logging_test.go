@@ -17,6 +17,13 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testDefaultBucketName = "projects/p/locations/global/buckets/_Default"
+	testAuditBucketName   = "projects/p/locations/us-east1/buckets/audit"
+	testLifecycleActive   = "ACTIVE"
+)
+
 // fakeAPI drives the plugin without hitting GCP. It records the project
 // argument and call count to assert plumbing and the KISS-no-DRY axiom.
 type fakeAPI struct {
@@ -74,15 +81,15 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	fake := &fakeAPI{
 		buckets: []*logging.LogBucket{
 			{ // _Default: 30-day, Google-managed — honestly fails ≥90/≥365.
-				Name:           "projects/p/locations/global/buckets/_Default",
+				Name:           testDefaultBucketName,
 				RetentionDays:  30,
-				LifecycleState: "ACTIVE",
+				LifecycleState: testLifecycleActive,
 			},
 			{ // long-retention, locked, CMEK regional bucket.
-				Name:           "projects/p/locations/us-east1/buckets/audit",
+				Name:           testAuditBucketName,
 				RetentionDays:  400,
 				Locked:         true,
-				LifecycleState: "ACTIVE",
+				LifecycleState: testLifecycleActive,
 				CmekSettings:   &logging.CmekSettings{KmsKeyName: "projects/p/locations/us-east1/keyRings/r/cryptoKeys/k"},
 			},
 		},
@@ -101,7 +108,7 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 		t.Fatalf("len = %d; want 2", len(records))
 	}
 	// Sorted by ID (full resource name): "..._Default" before "...audit".
-	if records[0].ID != "projects/p/locations/global/buckets/_Default" || records[1].ID != "projects/p/locations/us-east1/buckets/audit" {
+	if records[0].ID != testDefaultBucketName || records[1].ID != testAuditBucketName {
 		t.Fatalf("IDs = %q,%q; want _Default before audit", records[0].ID, records[1].ID)
 	}
 	for i := range records {
@@ -117,18 +124,18 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	}
 
 	wantDefault := logGroupPayload{
-		ID: "projects/p/locations/global/buckets/_Default", Name: "_Default", Provider: "gcp",
+		ID: testDefaultBucketName, Name: "_Default", Provider: "gcp",
 		RetentionSet: true, RetentionDays: 30, KMSEncrypted: false,
-		Location: "global", Locked: false, LifecycleState: "ACTIVE",
+		Location: "global", Locked: false, LifecycleState: testLifecycleActive,
 	}
 	if got := decodePayload(t, &records[0]); !reflect.DeepEqual(got, wantDefault) {
 		t.Errorf("_Default payload = %+v; want %+v", got, wantDefault)
 	}
 
 	wantAudit := logGroupPayload{
-		ID: "projects/p/locations/us-east1/buckets/audit", Name: "audit", Provider: "gcp",
+		ID: testAuditBucketName, Name: "audit", Provider: "gcp",
 		RetentionSet: true, RetentionDays: 400, KMSEncrypted: true,
-		Location: "us-east1", Locked: true, LifecycleState: "ACTIVE",
+		Location: "us-east1", Locked: true, LifecycleState: testLifecycleActive,
 		KMSKeyName: "projects/p/locations/us-east1/keyRings/r/cryptoKeys/k",
 	}
 	if got := decodePayload(t, &records[1]); !reflect.DeepEqual(got, wantAudit) {
@@ -140,7 +147,7 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 // (no retention configured) → retention_set=false, retention_days=0.
 func TestRetentionSet_NeverExpire(t *testing.T) {
 	fake := &fakeAPI{buckets: []*logging.LogBucket{
-		{Name: "projects/p/locations/global/buckets/_Default", RetentionDays: 0},
+		{Name: testDefaultBucketName, RetentionDays: 0},
 	}}
 	p := New(Options{API: fake})
 	records, err := p.Collect(context.Background(), logReq())
@@ -202,10 +209,10 @@ func TestCollect_KISS_NoDRY_EachCallReFetches(t *testing.T) {
 
 func TestLocationFromName(t *testing.T) {
 	cases := map[string]string{
-		"projects/p/locations/global/buckets/_Default": "global",
-		"projects/p/locations/us-east1/buckets/audit":  "us-east1",
-		"projects/p/locations/eu":                      "eu",
-		"no-locations-segment":                         "",
+		testDefaultBucketName:     "global",
+		testAuditBucketName:       "us-east1",
+		"projects/p/locations/eu": "eu",
+		"no-locations-segment":    "",
 	}
 	for name, want := range cases {
 		if got := locationFromName(name); got != want {
@@ -219,8 +226,8 @@ func TestLocationFromName(t *testing.T) {
 func TestRealLogging_ListBuckets(t *testing.T) {
 	body := mustMarshal(t, logging.ListBucketsResponse{
 		Buckets: []*logging.LogBucket{
-			{Name: "projects/p/locations/global/buckets/_Default", RetentionDays: 30},
-			{Name: "projects/p/locations/us-east1/buckets/audit", RetentionDays: 400},
+			{Name: testDefaultBucketName, RetentionDays: 30},
+			{Name: testAuditBucketName, RetentionDays: 400},
 		},
 	})
 

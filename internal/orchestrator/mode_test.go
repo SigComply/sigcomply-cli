@@ -14,10 +14,35 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
-// testFramework is used as the framework ID in every mode-resolution
-// test below. Kept as a file-local const so adding more tests
-// doesn't trip goconst.
-const testFramework = "soc2"
+// Shared fixture values for the orchestrator package tests. Kept as
+// package-level consts so adding more tests doesn't trip goconst.
+const (
+	// testFramework is the framework ID every test run uses.
+	testFramework = "soc2"
+	// testPeriodID is the audit period the run/scope fixtures report on.
+	testPeriodID = "2026-Q1"
+	// testPolicyID is the policy the state fixtures read and write.
+	testPolicyID = "soc2.cc6.1.mfa"
+	// cadenceDaily is the cadence used by the mode-resolution and
+	// scheduled-run fixtures.
+	cadenceDaily = "daily"
+
+	// Source plugin IDs referenced by the fake sources and fixtures.
+	sourceOkta   = "okta"
+	sourceGitHub = "github"
+	sourceAWSIAM = "aws.iam"
+
+	// evidenceTypeDirectoryUser is the evidence type the fixture sources
+	// emit and the fixture policies accept.
+	evidenceTypeDirectoryUser = "directory_user"
+
+	// Slot names of the roster-shaped fixture policies.
+	slotRoster   = "roster"
+	slotAccounts = "accounts"
+
+	// fieldEmail is the record field the roster join keys on.
+	fieldEmail = "email"
+)
 
 func newModeOptions(t *testing.T, mode Mode, filter *planner.Filter, v core.Vault) *Options {
 	t.Helper()
@@ -90,11 +115,11 @@ func TestResolveMode_ScheduledExplicitFilterSkipsStateLoad(t *testing.T) {
 }
 
 func TestResolveMode_ManualUnchanged(t *testing.T) {
-	opts := newModeOptions(t, ModeManual, &planner.Filter{Cadence: "daily"}, newInMem())
+	opts := newModeOptions(t, ModeManual, &planner.Filter{Cadence: cadenceDaily}, newInMem())
 	now := time.Date(2026, 5, 25, 12, 0, 0, 0, time.UTC)
 
 	filter, retry, rt := resolveMode(context.Background(), opts, now)
-	if filter.Cadence != "daily" {
+	if filter.Cadence != cadenceDaily {
 		t.Errorf("manual mode must pass filter through unchanged; got %q", filter.Cadence)
 	}
 	if retry.MaxAttempts > 1 {

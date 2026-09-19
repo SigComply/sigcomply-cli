@@ -9,6 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// backendLocal is the "local" backend identifier, shared by the
+// filesystem vault backend and the manual-evidence reader backend.
+const backendLocal = "local"
+
 var (
 	cliVersion   = "dev"
 	cliCommit    = "unknown"

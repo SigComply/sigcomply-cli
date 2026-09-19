@@ -12,6 +12,19 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
+// Identifiers repeated across the planner_test package.
+const (
+	fwSOC2          = "soc2"
+	schemaProjectV1 = "project.v1"
+	ctrlSOC2CC61    = "SOC2.CC6.1"
+
+	slotUserDirectory = "user_directory"
+	evDirectoryUser   = "directory_user"
+	evRosterEntry     = "roster_entry"
+
+	catalogMFAAttestation = "mfa_attestation"
+)
+
 // fakeFramework + fakeSource keep the test self-contained; the real
 // loaders are exercised in their own packages.
 type fakeFramework struct {
@@ -52,16 +65,16 @@ func setUp(t *testing.T) *registry.Set {
 	t.Helper()
 	set := registry.NewSet()
 	policy := core.Policy{
-		ID:          "soc2.cc6.1.mfa_enforced",
-		Controls:    []core.ControlRef{{ControlID: "SOC2.CC6.1"}},
+		ID:          ordinaryPolicyID,
+		Controls:    []core.ControlRef{{ControlID: ctrlSOC2CC61}},
 		Description: "MFA",
 		Severity:    core.SeverityHigh,
-		Cadence:     "daily",
+		Cadence:     cadenceDaily,
 		OnPush:      true,
 		RuleRef:     "rules.mfa_enforced.v1",
 		Slots: map[string]core.Slot{
-			"user_directory": {
-				Accepts:     []string{"directory_user"},
+			slotUserDirectory: {
+				Accepts:     []string{evDirectoryUser},
 				Cardinality: core.SlotOneOrMore,
 				Required:    true,
 			},
@@ -74,17 +87,17 @@ func setUp(t *testing.T) *registry.Set {
 		t.Fatalf("register policy: %v", err)
 	}
 	fw := &fakeFramework{
-		id: "soc2", version: "2017",
+		id: fwSOC2, version: "2017",
 		policies: []core.PolicyRef{{PolicyID: policy.ID}},
-		controls: []core.Control{{ID: "SOC2.CC6.1", Name: "Logical Access"}},
+		controls: []core.Control{{ID: ctrlSOC2CC61, Name: "Logical Access"}},
 	}
 	if err := set.Frameworks.Register(fw); err != nil {
 		t.Fatalf("register framework: %v", err)
 	}
-	if err := set.Sources.Register(&fakeSource{id: "aws.iam", emits: []string{"directory_user"}}); err != nil {
+	if err := set.Sources.Register(&fakeSource{id: srcAWSIAMID, emits: []string{evDirectoryUser}}); err != nil {
 		t.Fatalf("register aws.iam: %v", err)
 	}
-	if err := set.Sources.Register(&fakeSource{id: "okta", emits: []string{"directory_user"}}); err != nil {
+	if err := set.Sources.Register(&fakeSource{id: srcOktaID, emits: []string{evDirectoryUser}}); err != nil {
 		t.Fatalf("register okta: %v", err)
 	}
 	return set
@@ -99,14 +112,14 @@ func TestPlan_PopulatesCoverageGaps(t *testing.T) {
 	set := registry.NewSet()
 	policy := core.Policy{
 		ID:           "soc2.cc6.1.mfa_enforced_admins",
-		Controls:     []core.ControlRef{{ControlID: "SOC2.CC6.1"}},
+		Controls:     []core.ControlRef{{ControlID: ctrlSOC2CC61}},
 		Description:  "MFA on admins",
 		Severity:     core.SeverityHigh,
-		Cadence:      "daily",
+		Cadence:      cadenceDaily,
 		EvidenceMode: core.EvidenceModeAutomated,
 		RuleRef:      "rules.mfa_enforced_admins.v1",
 		Slots: map[string]core.Slot{
-			"user_directory": {
+			slotUserDirectory: {
 				Accepts:     []string{"directory_user.v2"},
 				Cardinality: core.SlotOneOrMore,
 				Required:    true,
@@ -117,22 +130,22 @@ func TestPlan_PopulatesCoverageGaps(t *testing.T) {
 		t.Fatalf("register policy: %v", err)
 	}
 	fw := &fakeFramework{
-		id: "soc2", version: "2017",
+		id: fwSOC2, version: "2017",
 		policies: []core.PolicyRef{{PolicyID: policy.ID}},
-		controls: []core.Control{{ID: "SOC2.CC6.1", Name: "Logical Access"}},
+		controls: []core.Control{{ID: ctrlSOC2CC61, Name: "Logical Access"}},
 	}
 	if err := set.Frameworks.Register(fw); err != nil {
 		t.Fatalf("register framework: %v", err)
 	}
-	if err := set.Sources.Register(&fakeSource{id: "okta", emits: []string{"directory_user", "okta_app"}}); err != nil {
+	if err := set.Sources.Register(&fakeSource{id: srcOktaID, emits: []string{evDirectoryUser, "okta_app"}}); err != nil {
 		t.Fatalf("register okta: %v", err)
 	}
 
 	cfg := &spec.ProjectConfig{
-		SchemaVersion: "project.v1",
-		Framework:     "soc2",
-		Period:        spec.PeriodConfig{FiscalCalendar: spec.FiscalCalendarConfig{Type: "calendar_quarter"}},
-		Sources:       map[string]map[string]any{"okta": {}},
+		SchemaVersion: schemaProjectV1,
+		Framework:     fwSOC2,
+		Period:        spec.PeriodConfig{FiscalCalendar: spec.FiscalCalendarConfig{Type: fiscalCalendarQuarter}},
+		Sources:       map[string]map[string]any{srcOktaID: {}},
 		// No bindings: the slot cannot bind okta (v1) and stays empty.
 	}
 	commit := commitFixture(t)
@@ -147,7 +160,7 @@ func TestPlan_PopulatesCoverageGaps(t *testing.T) {
 	if len(gaps) != 1 {
 		t.Fatalf("CoverageGaps = %d; want 1 (%+v)", len(gaps), gaps)
 	}
-	if gaps[0].Source != "okta" || gaps[0].Slot != "user_directory" {
+	if gaps[0].Source != srcOktaID || gaps[0].Slot != slotUserDirectory {
 		t.Errorf("gap = %+v; want source=okta slot=user_directory", gaps[0])
 	}
 }
@@ -155,16 +168,16 @@ func TestPlan_PopulatesCoverageGaps(t *testing.T) {
 func TestPlan_HappyPath(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
-		SchemaVersion: "project.v1",
-		Framework:     "soc2",
+		SchemaVersion: schemaProjectV1,
+		Framework:     fwSOC2,
 		Period: spec.PeriodConfig{
-			FiscalCalendar: spec.FiscalCalendarConfig{Type: "calendar_quarter"},
+			FiscalCalendar: spec.FiscalCalendarConfig{Type: fiscalCalendarQuarter},
 		},
 		Policies: map[string]spec.PolicyConfig{
-			"soc2.cc6.1.mfa_enforced": {
-				Bindings:   map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}, {Source: "okta"}}},
+			ordinaryPolicyID: {
+				Bindings:   map[string][]spec.BindingEntry{slotUserDirectory: {{Source: srcAWSIAMID}, {Source: srcOktaID}}},
 				Parameters: map[string]any{"exempt_service_accounts": false},
-				Cadence:    "hourly",
+				Cadence:    cadenceHourly,
 			},
 		},
 	}
@@ -178,25 +191,25 @@ func TestPlan_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Plan: %v", err)
 	}
-	if plan.Period.ID != "2026-Q1" {
+	if plan.Period.ID != period2026Q1 {
 		t.Errorf("Period.ID = %q; want 2026-Q1", plan.Period.ID)
 	}
 	if len(plan.Policies) != 1 {
 		t.Fatalf("Policies length = %d; want 1", len(plan.Policies))
 	}
 	pp := plan.Policies[0]
-	if pp.Cadence != "hourly" {
+	if pp.Cadence != cadenceHourly {
 		t.Errorf("Cadence = %q; want hourly", pp.Cadence)
 	}
 	exempt, ok := pp.Parameters["exempt_service_accounts"].(bool)
 	if !ok || exempt {
 		t.Errorf("override not applied: %v", pp.Parameters["exempt_service_accounts"])
 	}
-	bs := pp.Bindings["user_directory"]
+	bs := pp.Bindings[slotUserDirectory]
 	if len(bs) != 2 {
 		t.Fatalf("bindings count = %d; want 2", len(bs))
 	}
-	if bs[0].SourceID != "aws.iam" || bs[1].SourceID != "okta" {
+	if bs[0].SourceID != srcAWSIAMID || bs[1].SourceID != srcOktaID {
 		t.Errorf("binding order/sources mismatched: %+v", bs)
 	}
 }
@@ -204,11 +217,11 @@ func TestPlan_HappyPath(t *testing.T) {
 func TestPlan_RejectsUnknownSource(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
-		SchemaVersion: "project.v1", Framework: "soc2",
+		SchemaVersion: schemaProjectV1, Framework: fwSOC2,
 		Vault: spec.VaultConfig{Backend: "local", Config: map[string]any{"path": "."}},
 		Policies: map[string]spec.PolicyConfig{
-			"soc2.cc6.1.mfa_enforced": {Bindings: map[string][]spec.BindingEntry{
-				"user_directory": {{Source: "mystery.source"}},
+			ordinaryPolicyID: {Bindings: map[string][]spec.BindingEntry{
+				slotUserDirectory: {{Source: "mystery.source"}},
 			}},
 		},
 	}
@@ -226,11 +239,11 @@ func TestPlan_RejectsSourceWrongEvidenceType(t *testing.T) {
 		t.Fatalf("register gcs.storage: %v", err)
 	}
 	cfg := &spec.ProjectConfig{
-		SchemaVersion: "project.v1", Framework: "soc2",
+		SchemaVersion: schemaProjectV1, Framework: fwSOC2,
 		Vault: spec.VaultConfig{Backend: "local", Config: map[string]any{"path": "."}},
 		Policies: map[string]spec.PolicyConfig{
-			"soc2.cc6.1.mfa_enforced": {Bindings: map[string][]spec.BindingEntry{
-				"user_directory": {{Source: "gcs.storage"}},
+			ordinaryPolicyID: {Bindings: map[string][]spec.BindingEntry{
+				slotUserDirectory: {{Source: "gcs.storage"}},
 			}},
 		},
 	}
@@ -248,9 +261,9 @@ func TestPlan_RejectsUnknownPolicyKey(t *testing.T) {
 	// did-you-mean suggestion. (P1.1 cross-reference validation.)
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
-		SchemaVersion: "project.v1", Framework: "soc2",
+		SchemaVersion: schemaProjectV1, Framework: fwSOC2,
 		Policies: map[string]spec.PolicyConfig{
-			"soc2.cc6.1.mfa_enforce": {Cadence: "hourly"}, // missing trailing 'd'
+			"soc2.cc6.1.mfa_enforce": {Cadence: cadenceHourly}, // missing trailing 'd'
 		},
 	}
 	_, err := planner.Plan(&planner.Input{
@@ -262,7 +275,7 @@ func TestPlan_RejectsUnknownPolicyKey(t *testing.T) {
 	if !strings.Contains(err.Error(), "no such policy") || !strings.Contains(err.Error(), "did you mean") {
 		t.Errorf("error = %q; want 'no such policy' with a did-you-mean suggestion", err.Error())
 	}
-	if !strings.Contains(err.Error(), "soc2.cc6.1.mfa_enforced") {
+	if !strings.Contains(err.Error(), ordinaryPolicyID) {
 		t.Errorf("error = %q; want it to suggest the correct policy ID", err.Error())
 	}
 }
@@ -270,7 +283,7 @@ func TestPlan_RejectsUnknownPolicyKey(t *testing.T) {
 func TestPlan_RejectsUnknownControlKey(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
-		SchemaVersion: "project.v1", Framework: "soc2",
+		SchemaVersion: schemaProjectV1, Framework: fwSOC2,
 		Controls: map[string]spec.ControlConfig{
 			"CC99.9": {Applicability: "not_applicable", Reason: "typo'd control"},
 		},
@@ -286,9 +299,9 @@ func TestPlan_RejectsUnknownControlKey(t *testing.T) {
 func TestPlan_FilterByPolicy(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
-		SchemaVersion: "project.v1", Framework: "soc2",
+		SchemaVersion: schemaProjectV1, Framework: fwSOC2,
 		Policies: map[string]spec.PolicyConfig{
-			"soc2.cc6.1.mfa_enforced": {Bindings: map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}}},
+			ordinaryPolicyID: {Bindings: map[string][]spec.BindingEntry{slotUserDirectory: {{Source: srcAWSIAMID}}}},
 		},
 	}
 	commit := commitFixture(t)
@@ -307,15 +320,15 @@ func TestPlan_FilterByPolicy(t *testing.T) {
 func TestPlan_FilterByCadence(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
-		SchemaVersion: "project.v1", Framework: "soc2",
+		SchemaVersion: schemaProjectV1, Framework: fwSOC2,
 		Policies: map[string]spec.PolicyConfig{
-			"soc2.cc6.1.mfa_enforced": {Bindings: map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}}},
+			ordinaryPolicyID: {Bindings: map[string][]spec.BindingEntry{slotUserDirectory: {{Source: srcAWSIAMID}}}},
 		},
 	}
 	commit := commitFixture(t)
 	plan, err := planner.Plan(&planner.Input{
 		Config: cfg, Registries: set, CommitTime: commit, Now: commit,
-		Filter: planner.Filter{Cadence: "daily"},
+		Filter: planner.Filter{Cadence: cadenceDaily},
 	})
 	if err != nil {
 		t.Fatalf("Plan: %v", err)
@@ -325,7 +338,7 @@ func TestPlan_FilterByCadence(t *testing.T) {
 	}
 	plan, err = planner.Plan(&planner.Input{
 		Config: cfg, Registries: set, CommitTime: commit, Now: commit,
-		Filter: planner.Filter{Cadence: "weekly"},
+		Filter: planner.Filter{Cadence: cadenceWeekly},
 	})
 	if err != nil {
 		t.Fatalf("Plan: %v", err)
@@ -338,9 +351,9 @@ func TestPlan_FilterByCadence(t *testing.T) {
 func TestPlan_FilterByCadences_SetIntersection(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
-		SchemaVersion: "project.v1", Framework: "soc2",
+		SchemaVersion: schemaProjectV1, Framework: fwSOC2,
 		Policies: map[string]spec.PolicyConfig{
-			"soc2.cc6.1.mfa_enforced": {Bindings: map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}}},
+			ordinaryPolicyID: {Bindings: map[string][]spec.BindingEntry{slotUserDirectory: {{Source: srcAWSIAMID}}}},
 		},
 	}
 	commit := commitFixture(t)
@@ -351,11 +364,11 @@ func TestPlan_FilterByCadences_SetIntersection(t *testing.T) {
 		cadences []string
 		want     int
 	}{
-		{"matches daily via Cadences", []string{"daily"}, 1},
+		{"matches daily via Cadences", []string{cadenceDaily}, 1},
 		{"matches on_push via Cadences", []string{core.CadenceOnPush}, 1},
-		{"matches when at least one element intersects", []string{"weekly", "daily"}, 1},
-		{"no match when set disjoint", []string{"weekly", "monthly"}, 0},
-		{"matches on_push even when scheduled-only cadences listed", []string{"weekly", core.CadenceOnPush}, 1},
+		{"matches when at least one element intersects", []string{cadenceWeekly, cadenceDaily}, 1},
+		{"no match when set disjoint", []string{cadenceWeekly, cadenceMonthly}, 0},
+		{"matches on_push even when scheduled-only cadences listed", []string{cadenceWeekly, core.CadenceOnPush}, 1},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -376,12 +389,12 @@ func TestPlan_FilterByCadences_SetIntersection(t *testing.T) {
 func TestPlan_FilterByCadences_RespectsOverride(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
-		SchemaVersion: "project.v1", Framework: "soc2",
+		SchemaVersion: schemaProjectV1, Framework: fwSOC2,
 		Policies: map[string]spec.PolicyConfig{
 			// Override base cadence from daily → hourly.
-			"soc2.cc6.1.mfa_enforced": {
-				Bindings: map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}},
-				Cadence:  "hourly",
+			ordinaryPolicyID: {
+				Bindings: map[string][]spec.BindingEntry{slotUserDirectory: {{Source: srcAWSIAMID}}},
+				Cadence:  cadenceHourly,
 			},
 		},
 	}
@@ -390,7 +403,7 @@ func TestPlan_FilterByCadences_RespectsOverride(t *testing.T) {
 	// With the override, {daily} no longer matches but {hourly} does.
 	plan, err := planner.Plan(&planner.Input{
 		Config: cfg, Registries: set, CommitTime: commit, Now: commit,
-		Filter: planner.Filter{Cadences: []string{"daily"}},
+		Filter: planner.Filter{Cadences: []string{cadenceDaily}},
 	})
 	if err != nil {
 		t.Fatalf("Plan: %v", err)
@@ -400,7 +413,7 @@ func TestPlan_FilterByCadences_RespectsOverride(t *testing.T) {
 	}
 	plan, err = planner.Plan(&planner.Input{
 		Config: cfg, Registries: set, CommitTime: commit, Now: commit,
-		Filter: planner.Filter{Cadences: []string{"hourly"}},
+		Filter: planner.Filter{Cadences: []string{cadenceHourly}},
 	})
 	if err != nil {
 		t.Fatalf("Plan: %v", err)
@@ -413,13 +426,13 @@ func TestPlan_FilterByCadences_RespectsOverride(t *testing.T) {
 func TestPlan_FilterMutualExclusionEnforced(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
-		SchemaVersion: "project.v1", Framework: "soc2",
+		SchemaVersion: schemaProjectV1, Framework: fwSOC2,
 	}
 	_, err := planner.Plan(&planner.Input{
 		Config: cfg, Registries: set, CommitTime: time.Now(), Now: time.Now(),
 		Filter: planner.Filter{
 			Policies: []string{"x"},
-			Cadence:  "daily",
+			Cadence:  cadenceDaily,
 		},
 	})
 	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
@@ -430,10 +443,10 @@ func TestPlan_FilterMutualExclusionEnforced(t *testing.T) {
 func TestPlan_ExceptionApplied(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
-		SchemaVersion: "project.v1", Framework: "soc2",
+		SchemaVersion: schemaProjectV1, Framework: fwSOC2,
 		Policies: map[string]spec.PolicyConfig{
-			"soc2.cc6.1.mfa_enforced": {
-				Bindings:   map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}},
+			ordinaryPolicyID: {
+				Bindings:   map[string][]spec.BindingEntry{slotUserDirectory: {{Source: srcAWSIAMID}}},
 				Exceptions: []spec.PolicyException{{State: "waived", Reason: "Legacy."}},
 			},
 		},
@@ -460,12 +473,12 @@ func TestPlan_PolicyOverride_AutomatedToManual(t *testing.T) {
 	// project config.
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
-		SchemaVersion: "project.v1",
-		Framework:     "soc2",
+		SchemaVersion: schemaProjectV1,
+		Framework:     fwSOC2,
 		Policies: map[string]spec.PolicyConfig{
-			"soc2.cc6.1.mfa_enforced": {
+			ordinaryPolicyID: {
 				EvidenceMode: "manual",
-				CatalogEntry: "mfa_attestation",
+				CatalogEntry: catalogMFAAttestation,
 			},
 		},
 	}
@@ -483,7 +496,7 @@ func TestPlan_PolicyOverride_AutomatedToManual(t *testing.T) {
 	if pp.Spec.EvidenceMode != core.EvidenceModeManual {
 		t.Errorf("Spec.EvidenceMode = %q; want manual", pp.Spec.EvidenceMode)
 	}
-	if pp.Spec.CatalogEntry != "mfa_attestation" {
+	if pp.Spec.CatalogEntry != catalogMFAAttestation {
 		t.Errorf("Spec.CatalogEntry = %q; want mfa_attestation", pp.Spec.CatalogEntry)
 	}
 	if !pp.EvidenceModeOverridden {
@@ -496,7 +509,7 @@ func TestPlan_PolicyOverride_AutomatedToManual(t *testing.T) {
 	if manualBindings[0].SourceID != "manual.pdf" {
 		t.Errorf("Binding.SourceID = %q; want manual.pdf", manualBindings[0].SourceID)
 	}
-	if manualBindings[0].CatalogID != "mfa_attestation" {
+	if manualBindings[0].CatalogID != catalogMFAAttestation {
 		t.Errorf("Binding.CatalogID = %q; want mfa_attestation", manualBindings[0].CatalogID)
 	}
 }
@@ -506,13 +519,13 @@ func TestPlan_PolicyOverride_AutomatedToManual_RejectsExplicitBindings(t *testin
 	// error — the planner creates the synthetic _manual binding itself.
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
-		SchemaVersion: "project.v1",
-		Framework:     "soc2",
+		SchemaVersion: schemaProjectV1,
+		Framework:     fwSOC2,
 		Policies: map[string]spec.PolicyConfig{
-			"soc2.cc6.1.mfa_enforced": {
+			ordinaryPolicyID: {
 				EvidenceMode: "manual",
-				CatalogEntry: "mfa_attestation",
-				Bindings:     map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}},
+				CatalogEntry: catalogMFAAttestation,
+				Bindings:     map[string][]spec.BindingEntry{slotUserDirectory: {{Source: srcAWSIAMID}}},
 			},
 		},
 	}
@@ -530,13 +543,13 @@ func TestPlan_PolicyOverride_ManualToAutomated(t *testing.T) {
 	set := setUp(t)
 	manualPolicy := core.Policy{
 		ID:           "soc2.cc6.1.access_review",
-		Controls:     []core.ControlRef{{ControlID: "SOC2.CC6.1"}},
+		Controls:     []core.ControlRef{{ControlID: ctrlSOC2CC61}},
 		EvidenceMode: core.EvidenceModeManual,
 		CatalogEntry: "access_review_quarterly",
-		Cadence:      "quarterly",
+		Cadence:      cadenceQuarterly,
 		Slots: map[string]core.Slot{
 			"review_doc": {
-				Accepts:     []string{"directory_user"},
+				Accepts:     []string{evDirectoryUser},
 				Cardinality: core.SlotOneOrMore,
 				Required:    true,
 			},
@@ -546,7 +559,7 @@ func TestPlan_PolicyOverride_ManualToAutomated(t *testing.T) {
 		t.Fatalf("register manual policy: %v", err)
 	}
 	fw := &fakeFramework{
-		id: "soc2", version: "2017",
+		id: fwSOC2, version: "2017",
 		policies: []core.PolicyRef{{PolicyID: manualPolicy.ID}},
 	}
 	// Replace the framework so only the manual policy is exercised.
@@ -557,17 +570,17 @@ func TestPlan_PolicyOverride_ManualToAutomated(t *testing.T) {
 	if err := set2.Frameworks.Register(fw); err != nil {
 		t.Fatalf("register framework: %v", err)
 	}
-	if err := set2.Sources.Register(&fakeSource{id: "aws.iam", emits: []string{"directory_user"}}); err != nil {
+	if err := set2.Sources.Register(&fakeSource{id: srcAWSIAMID, emits: []string{evDirectoryUser}}); err != nil {
 		t.Fatalf("register source: %v", err)
 	}
 
 	cfg := &spec.ProjectConfig{
-		SchemaVersion: "project.v1",
-		Framework:     "soc2",
+		SchemaVersion: schemaProjectV1,
+		Framework:     fwSOC2,
 		Policies: map[string]spec.PolicyConfig{
 			"soc2.cc6.1.access_review": {
 				EvidenceMode: "automated",
-				Bindings:     map[string][]spec.BindingEntry{"review_doc": {{Source: "aws.iam"}}},
+				Bindings:     map[string][]spec.BindingEntry{"review_doc": {{Source: srcAWSIAMID}}},
 			},
 		},
 	}
@@ -597,10 +610,10 @@ func TestPlan_PolicyOverride_NotOverridden_WhenNoEntry(t *testing.T) {
 	// Policies with no override entry should have EvidenceModeOverridden=false.
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
-		SchemaVersion: "project.v1",
-		Framework:     "soc2",
+		SchemaVersion: schemaProjectV1,
+		Framework:     fwSOC2,
 		Policies: map[string]spec.PolicyConfig{
-			"soc2.cc6.1.mfa_enforced": {Bindings: map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}}},
+			ordinaryPolicyID: {Bindings: map[string][]spec.BindingEntry{slotUserDirectory: {{Source: srcAWSIAMID}}}},
 		},
 	}
 	commit := commitFixture(t)
@@ -618,10 +631,10 @@ func TestPlan_PolicyOverride_NotOverridden_WhenNoEntry(t *testing.T) {
 func TestPlan_ExpiredExceptionSkipped(t *testing.T) {
 	set := setUp(t)
 	cfg := &spec.ProjectConfig{
-		SchemaVersion: "project.v1", Framework: "soc2",
+		SchemaVersion: schemaProjectV1, Framework: fwSOC2,
 		Policies: map[string]spec.PolicyConfig{
-			"soc2.cc6.1.mfa_enforced": {
-				Bindings:   map[string][]spec.BindingEntry{"user_directory": {{Source: "aws.iam"}}},
+			ordinaryPolicyID: {
+				Bindings:   map[string][]spec.BindingEntry{slotUserDirectory: {{Source: srcAWSIAMID}}},
 				Exceptions: []spec.PolicyException{{State: "waived", Reason: "Expired.", ExpiresAt: "2025-01-01"}},
 			},
 		},

@@ -15,6 +15,12 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testDWDServiceAccount = "dwd@proj.iam.gserviceaccount.com"
+	testAdminSubject      = "admin@acme.com"
+)
+
 // stubTokenSource swaps the newTokenSource seam for the test's duration
 // and returns a pointer to the captured config plus a call counter.
 func stubTokenSource(t *testing.T, err error) (got *impersonate.CredentialsConfig, calls *int) {
@@ -76,16 +82,16 @@ func TestClientOptions_TargetServiceAccount(t *testing.T) {
 func TestClientOptions_DomainWideDelegationSubject(t *testing.T) {
 	got, _ := stubTokenSource(t, nil)
 	_, err := clientOptions(context.Background(), AuthConfig{
-		TargetServiceAccount: "dwd@proj.iam.gserviceaccount.com",
-		ImpersonateSubject:   "admin@acme.com",
+		TargetServiceAccount: testDWDServiceAccount,
+		ImpersonateSubject:   testAdminSubject,
 	})
 	if err != nil {
 		t.Fatalf("clientOptions: %v", err)
 	}
 	want := impersonate.CredentialsConfig{
-		TargetPrincipal: "dwd@proj.iam.gserviceaccount.com",
+		TargetPrincipal: testDWDServiceAccount,
 		Scopes:          []string{admin.AdminDirectoryUserReadonlyScope},
-		Subject:         "admin@acme.com",
+		Subject:         testAdminSubject,
 	}
 	if !reflect.DeepEqual(*got, want) {
 		t.Errorf("config = %+v; want %+v", *got, want)
@@ -94,7 +100,7 @@ func TestClientOptions_DomainWideDelegationSubject(t *testing.T) {
 
 func TestClientOptions_SubjectWithoutTarget_ConfigError(t *testing.T) {
 	_, calls := stubTokenSource(t, nil)
-	_, err := clientOptions(context.Background(), AuthConfig{ImpersonateSubject: "admin@acme.com"})
+	_, err := clientOptions(context.Background(), AuthConfig{ImpersonateSubject: testAdminSubject})
 	if !errors.Is(err, errSubjectWithoutTarget) {
 		t.Fatalf("err = %v; want errSubjectWithoutTarget", err)
 	}
@@ -115,7 +121,7 @@ func TestClientOptions_TokenSourceError_Wrapped(t *testing.T) {
 func TestBuild_SubjectWithoutTarget_ConfigError(t *testing.T) {
 	_, calls := stubTokenSource(t, nil)
 	_, err := build(context.Background(), sources.Env{Config: map[string]any{
-		"impersonate_subject": "admin@acme.com",
+		"impersonate_subject": testAdminSubject,
 	}})
 	if err == nil || !strings.Contains(err.Error(), "target_service_account") {
 		t.Fatalf("err = %v; want config error naming target_service_account", err)
@@ -128,17 +134,17 @@ func TestBuild_SubjectWithoutTarget_ConfigError(t *testing.T) {
 func TestBuild_PassesImpersonationConfig(t *testing.T) {
 	got, _ := stubTokenSource(t, nil)
 	p, err := build(context.Background(), sources.Env{Config: map[string]any{
-		"customer_id":            "C01abc",
-		"target_service_account": "dwd@proj.iam.gserviceaccount.com",
-		"impersonate_subject":    "admin@acme.com",
+		"customer_id":            testCustomerID,
+		"target_service_account": testDWDServiceAccount,
+		"impersonate_subject":    testAdminSubject,
 	}})
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
-	if got.TargetPrincipal != "dwd@proj.iam.gserviceaccount.com" || got.Subject != "admin@acme.com" {
+	if got.TargetPrincipal != testDWDServiceAccount || got.Subject != testAdminSubject {
 		t.Errorf("config = %+v; want target + subject from config", *got)
 	}
-	if dp, ok := p.(*Plugin); !ok || dp.customer != "C01abc" {
+	if dp, ok := p.(*Plugin); !ok || dp.customer != testCustomerID {
 		t.Errorf("plugin customer = %v; want C01abc", p)
 	}
 }

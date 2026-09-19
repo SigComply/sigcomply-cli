@@ -33,14 +33,14 @@ func rosterSet(t *testing.T) *registry.Set {
 		ID:       rosterPolicyID,
 		Controls: []core.ControlRef{{ControlID: "CC6.2"}},
 		Severity: core.SeverityHigh,
-		Cadence:  "daily",
+		Cadence:  cadenceDaily,
 		Slots: map[string]core.Slot{
 			slotRoster: {
-				Accepts: []string{"roster_entry"}, Cardinality: core.SlotOneOrMore, // forced to exactly-one
+				Accepts: []string{evRosterEntry}, Cardinality: core.SlotOneOrMore, // forced to exactly-one
 				Required: true, Role: core.SlotRoleRoster,
 			},
 			slotAccounts: {
-				Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore,
+				Accepts: []string{evDirectoryUser}, Cardinality: core.SlotOneOrMore,
 				Required: true, Role: core.SlotRoleRosterSubject,
 			},
 		},
@@ -49,9 +49,9 @@ func rosterSet(t *testing.T) *registry.Set {
 		ID:       ordinaryPolicyID,
 		Controls: []core.ControlRef{{ControlID: "CC6.1"}},
 		Severity: core.SeverityHigh,
-		Cadence:  "daily",
+		Cadence:  cadenceDaily,
 		Slots: map[string]core.Slot{
-			"user_directory": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true},
+			slotUserDirectory: {Accepts: []string{evDirectoryUser}, Cardinality: core.SlotOneOrMore, Required: true},
 		},
 	}
 	for _, p := range []*core.Policy{&rosterPolicy, &ordinary} {
@@ -59,14 +59,14 @@ func rosterSet(t *testing.T) *registry.Set {
 			t.Fatalf("register policy: %v", err)
 		}
 	}
-	fw := &fakeFramework{id: "soc2", version: "2017", policies: []core.PolicyRef{{PolicyID: rosterPolicyID}, {PolicyID: ordinaryPolicyID}}}
+	fw := &fakeFramework{id: fwSOC2, version: "2017", policies: []core.PolicyRef{{PolicyID: rosterPolicyID}, {PolicyID: ordinaryPolicyID}}}
 	if err := set.Frameworks.Register(fw); err != nil {
 		t.Fatalf("register framework: %v", err)
 	}
 	for _, s := range []*fakeSource{
-		{id: srcOktaID, emits: []string{"directory_user", "roster_entry"}},
-		{id: srcGitHubID, emits: []string{"directory_user"}},
-		{id: srcAWSIAMID, emits: []string{"directory_user"}},
+		{id: srcOktaID, emits: []string{evDirectoryUser, evRosterEntry}},
+		{id: srcGitHubID, emits: []string{evDirectoryUser}},
+		{id: srcAWSIAMID, emits: []string{evDirectoryUser}},
 		{id: srcHRID, emits: []string{"hr_record"}},
 	} {
 		if err := set.Sources.Register(s); err != nil {
@@ -155,7 +155,7 @@ func TestPlanRoster_OrdinaryPolicyUnchanged(t *testing.T) {
 		plan := mustPlanRoster(t, set, rosterConfig(t, body))
 		pp := plannedByID(t, plan, ordinaryPolicyID)
 		want := []string{srcAWSIAMID, srcGitHubID, srcOktaID}
-		if got := boundIDs(pp.Bindings["user_directory"]); !reflect.DeepEqual(got, want) {
+		if got := boundIDs(pp.Bindings[slotUserDirectory]); !reflect.DeepEqual(got, want) {
 			t.Errorf("roster %q: user_directory bound %v; want %v", body, got, want)
 		}
 		if pp.Roster != nil {
@@ -185,7 +185,7 @@ func TestPlanRoster_DesignatedSourceBindsAndIsExcludedFromSubject(t *testing.T) 
 	if got := boundIDs(pp.Bindings[slotRoster]); !reflect.DeepEqual(got, []string{srcOktaID}) {
 		t.Errorf("roster bound %v; want [okta]", got)
 	}
-	if got := pp.Bindings[slotRoster][0].AcceptedTypes; !reflect.DeepEqual(got, []string{"roster_entry"}) {
+	if got := pp.Bindings[slotRoster][0].AcceptedTypes; !reflect.DeepEqual(got, []string{evRosterEntry}) {
 		t.Errorf("roster AcceptedTypes = %v; want [roster_entry]", got)
 	}
 	if got := boundIDs(pp.Bindings[slotAccounts]); !reflect.DeepEqual(got, []string{srcAWSIAMID, srcGitHubID}) {
@@ -208,7 +208,7 @@ func TestPlanRoster_DesignatedSourceBindsAndIsExcludedFromSubject(t *testing.T) 
 // that source is the one excluded from the accounts slot.
 func TestPlanRoster_ExplicitRosterBindingExcludedFromSubject(t *testing.T) {
 	set := rosterSet(t)
-	if err := set.Sources.Register(&fakeSource{id: "azure.entra", emits: []string{"directory_user", "roster_entry"}}); err != nil {
+	if err := set.Sources.Register(&fakeSource{id: "azure.entra", emits: []string{evDirectoryUser, evRosterEntry}}); err != nil {
 		t.Fatal(err)
 	}
 	cfg := rosterConfig(t, `  azure.entra: {}
@@ -371,7 +371,7 @@ func TestRosterWarnings(t *testing.T) {
 	// A framework with no roster slot: the roster is configured for nothing.
 	plain := setUp(t)
 	cfg := &spec.ProjectConfig{
-		Framework:    "soc2",
+		Framework:    fwSOC2,
 		Sources:      map[string]map[string]any{srcOktaID: {}},
 		Experimental: map[string]any{"roster": map[string]any{"source": srcOktaID}},
 	}
@@ -380,7 +380,7 @@ func TestRosterWarnings(t *testing.T) {
 		t.Errorf("warnings = %v; want the unused-roster warning", w)
 	}
 	// ...and it still plans (nothing to check emits against).
-	cfg.Period = spec.PeriodConfig{FiscalCalendar: spec.FiscalCalendarConfig{Type: "calendar_quarter"}}
+	cfg.Period = spec.PeriodConfig{FiscalCalendar: spec.FiscalCalendarConfig{Type: fiscalCalendarQuarter}}
 	if _, err := planRoster(t, plain, cfg); err != nil {
 		t.Errorf("Plan with an unused roster: %v", err)
 	}

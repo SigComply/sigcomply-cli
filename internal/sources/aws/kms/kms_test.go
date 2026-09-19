@@ -14,6 +14,9 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// keyAAA is the KMS key ID shared by this file's fixtures.
+const keyAAA = "aaa-key"
+
 type fakeAPI struct {
 	keys     []kmstypes.KeyListEntry
 	metadata map[string]*kmstypes.KeyMetadata
@@ -81,13 +84,13 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	fake := &fakeAPI{
 		keys: []kmstypes.KeyListEntry{
 			{KeyId: ptr("zzz-key")},
-			{KeyId: ptr("aaa-key")},
+			{KeyId: ptr(keyAAA)},
 		},
 		metadata: map[string]*kmstypes.KeyMetadata{
-			"aaa-key": {KeyId: ptr("aaa-key"), Arn: ptr("arn:a"), KeyManager: kmstypes.KeyManagerTypeCustomer, Enabled: true},
+			keyAAA:    {KeyId: ptr(keyAAA), Arn: ptr("arn:a"), KeyManager: kmstypes.KeyManagerTypeCustomer, Enabled: true},
 			"zzz-key": {KeyId: ptr("zzz-key"), Arn: ptr("arn:z"), KeyManager: kmstypes.KeyManagerTypeAws, Enabled: true},
 		},
-		rotation: map[string]bool{"aaa-key": true},
+		rotation: map[string]bool{keyAAA: true},
 	}
 	now := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
 	p := New(Options{API: fake, Now: func() time.Time { return now }})
@@ -98,7 +101,7 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	if len(records) != 2 {
 		t.Fatalf("len(records) = %d; want 2", len(records))
 	}
-	if records[0].ID != "aaa-key" || records[1].ID != "zzz-key" {
+	if records[0].ID != keyAAA || records[1].ID != "zzz-key" {
 		t.Errorf("records not sorted by ID: got %v", []string{records[0].ID, records[1].ID})
 	}
 	var aaa keyPayload

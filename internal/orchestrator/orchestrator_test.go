@@ -60,6 +60,16 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/vault/local"
 )
 
+const (
+	// testFramework is the framework ID every run in this package uses.
+	testFramework = "soc2"
+	// testProjectID is the GCP project the stubbed GCP plugins report on.
+	testProjectID = "example-project"
+	// bobEmail is the fixture personnel/account email shared by the Okta
+	// and roster fixtures.
+	bobEmail = "bob@acme.com"
+)
+
 // --- empty stub APIs for the four infrastructure plugins.
 // They exist solely to satisfy plugin construction at registration
 // time; their Collect calls return zero records, which exercises the
@@ -372,28 +382,28 @@ func registerGCPStubs(t *testing.T, regs *registry.Set, now time.Time) {
 	t.Helper()
 	if err := regs.Sources.Register(gcpiam.New(gcpiam.Options{
 		API:       &stubGCPIAMAPI{},
-		ProjectID: "example-project",
+		ProjectID: testProjectID,
 		Now:       func() time.Time { return now },
 	})); err != nil {
 		t.Fatalf("register gcp.iam: %v", err)
 	}
 	if err := regs.Sources.Register(gcpstorage.New(gcpstorage.Options{
 		API:       &stubGCPStorageAPI{},
-		ProjectID: "example-project",
+		ProjectID: testProjectID,
 		Now:       func() time.Time { return now },
 	})); err != nil {
 		t.Fatalf("register gcp.storage: %v", err)
 	}
 	if err := regs.Sources.Register(gcpcompute.New(gcpcompute.Options{
 		API:       &stubGCPComputeAPI{},
-		ProjectID: "example-project",
+		ProjectID: testProjectID,
 		Now:       func() time.Time { return now },
 	})); err != nil {
 		t.Fatalf("register gcp.compute: %v", err)
 	}
 	if err := regs.Sources.Register(gcpsql.New(gcpsql.Options{
 		API:       &stubGCPSQLAPI{},
-		ProjectID: "example-project",
+		ProjectID: testProjectID,
 		Now:       func() time.Time { return now },
 	})); err != nil {
 		t.Fatalf("register gcp.sql: %v", err)
@@ -534,7 +544,7 @@ func registerIdentityStubs(t *testing.T, regs *registry.Set, now time.Time) {
 		API: &stubOktaAPI{
 			users: []oktasource.User{
 				{ID: "u_alice", Email: "alice@acme.com", Status: "ACTIVE", MFAFactorCount: 2},
-				{ID: "u_bob", Email: "bob@acme.com", Status: "ACTIVE", MFAFactorCount: 0},
+				{ID: "u_bob", Email: bobEmail, Status: "ACTIVE", MFAFactorCount: 0},
 			},
 			apps: []oktasource.App{
 				{ID: "0oa1", Label: "Slack", SignOnMode: "SAML_2_0", MFARequired: true},
@@ -732,12 +742,12 @@ func TestE2E_NoPoliciesPassThroughGracefully(t *testing.T) {
 		t.Fatalf("init vault: %v", err)
 	}
 	regs := bootstrapWithRegistries(&spec.ProjectConfig{
-		Framework: "soc2",
+		Framework: testFramework,
 		Vault:     spec.VaultConfig{Backend: "local", Config: map[string]any{"path": filepath.Join(tmp, "vault")}},
 	})
 	// Don't register soc2 — no policies → plan empty.
 	res, err := orchestrator.Run(context.Background(), &orchestrator.Options{
-		Config:     &spec.ProjectConfig{Framework: "soc2"},
+		Config:     &spec.ProjectConfig{Framework: testFramework},
 		Registries: regs,
 		Vault:      v,
 		Stdout:     &bytes.Buffer{},

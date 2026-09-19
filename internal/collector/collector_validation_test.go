@@ -26,7 +26,7 @@ const directoryUserSchema = `{
 func registerDirectoryUserType(t *testing.T, reg *registry.Set) {
 	t.Helper()
 	if err := reg.EvidenceTypes.Register(core.EvidenceType{
-		ID:      "directory_user",
+		ID:      testTypeDirectoryUser,
 		Version: 1,
 		Schema:  json.RawMessage(directoryUserSchema),
 	}); err != nil {
@@ -40,13 +40,13 @@ func TestCollect_SchemaValidation_ConformingRecordPasses(t *testing.T) {
 	reg := registry.NewSet()
 	registerDirectoryUserType(t, reg)
 	src := &stubSource{
-		id: "aws.iam", emits: []string{"directory_user"},
+		id: testSourceAWSIAM, emits: []string{testTypeDirectoryUser},
 		records: []core.EvidenceRecord{
-			{Type: "directory_user", ID: "u1", SourceID: "aws.iam", Payload: json.RawMessage(`{"mfa_enabled": true}`)},
+			{Type: testTypeDirectoryUser, ID: "u1", SourceID: testSourceAWSIAM, Payload: json.RawMessage(`{"mfa_enabled": true}`)},
 		},
 	}
 	mustRegister(t, reg.Sources.Register(src))
-	pp := makePolicy("p1", "u", "directory_user", "aws.iam")
+	pp := makePolicy("p1", "u", testTypeDirectoryUser, testSourceAWSIAM)
 	out, err := Collect(context.Background(), &Input{
 		Plan:          &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
 		Sources:       reg.Sources,
@@ -71,14 +71,14 @@ func TestCollect_SchemaValidation_NonConformingRecordTagsPolicy(t *testing.T) {
 	reg := registry.NewSet()
 	registerDirectoryUserType(t, reg)
 	src := &stubSource{
-		id: "aws.iam", emits: []string{"directory_user"},
+		id: testSourceAWSIAM, emits: []string{testTypeDirectoryUser},
 		records: []core.EvidenceRecord{
 			// mfa_enabled is a string, schema requires boolean → fails.
-			{Type: "directory_user", ID: "u1", SourceID: "aws.iam", Payload: json.RawMessage(`{"mfa_enabled": "yes"}`)},
+			{Type: testTypeDirectoryUser, ID: "u1", SourceID: testSourceAWSIAM, Payload: json.RawMessage(`{"mfa_enabled": "yes"}`)},
 		},
 	}
 	mustRegister(t, reg.Sources.Register(src))
-	pp := makePolicy("p1", "u", "directory_user", "aws.iam")
+	pp := makePolicy("p1", "u", testTypeDirectoryUser, testSourceAWSIAM)
 	out, err := Collect(context.Background(), &Input{
 		Plan:          &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
 		Sources:       reg.Sources,
@@ -102,13 +102,13 @@ func TestCollect_SchemaValidation_UnregisteredTypeTagsPolicy(t *testing.T) {
 	// Note: directory_user is NOT registered as an evidence type, but the
 	// source emits it and the binding accepts it.
 	src := &stubSource{
-		id: "aws.iam", emits: []string{"directory_user"},
+		id: testSourceAWSIAM, emits: []string{testTypeDirectoryUser},
 		records: []core.EvidenceRecord{
-			{Type: "directory_user", ID: "u1", SourceID: "aws.iam", Payload: json.RawMessage(`{}`)},
+			{Type: testTypeDirectoryUser, ID: "u1", SourceID: testSourceAWSIAM, Payload: json.RawMessage(`{}`)},
 		},
 	}
 	mustRegister(t, reg.Sources.Register(src))
-	pp := makePolicy("p1", "u", "directory_user", "aws.iam")
+	pp := makePolicy("p1", "u", testTypeDirectoryUser, testSourceAWSIAM)
 	out, err := Collect(context.Background(), &Input{
 		Plan:          &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
 		Sources:       reg.Sources,
@@ -130,13 +130,13 @@ func TestCollect_SchemaValidation_UnregisteredTypeTagsPolicy(t *testing.T) {
 func TestCollect_RecordOutsideAcceptedTypes_TagsPolicy(t *testing.T) {
 	reg := registry.NewSet()
 	src := &stubSource{
-		id: "aws.iam", emits: []string{"directory_user"},
+		id: testSourceAWSIAM, emits: []string{testTypeDirectoryUser},
 		records: []core.EvidenceRecord{
-			{Type: "unexpected_type", ID: "u1", SourceID: "aws.iam"},
+			{Type: "unexpected_type", ID: "u1", SourceID: testSourceAWSIAM},
 		},
 	}
 	mustRegister(t, reg.Sources.Register(src))
-	pp := makePolicy("p1", "u", "directory_user", "aws.iam")
+	pp := makePolicy("p1", "u", testTypeDirectoryUser, testSourceAWSIAM)
 	out, err := Collect(context.Background(), &Input{
 		Plan:    &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
 		Sources: reg.Sources,
@@ -163,11 +163,11 @@ func (failingVault) PutEnvelope(context.Context, string, *core.Envelope) error {
 func TestCollect_EnvelopeWriteFailure_TagsPolicy(t *testing.T) {
 	reg := registry.NewSet()
 	src := &stubSource{
-		id: "aws.iam", emits: []string{"directory_user"},
-		records: []core.EvidenceRecord{{Type: "directory_user", ID: "u1", SourceID: "aws.iam"}},
+		id: testSourceAWSIAM, emits: []string{testTypeDirectoryUser},
+		records: []core.EvidenceRecord{{Type: testTypeDirectoryUser, ID: "u1", SourceID: testSourceAWSIAM}},
 	}
 	mustRegister(t, reg.Sources.Register(src))
-	pp := makePolicy("p1", "u", "directory_user", "aws.iam")
+	pp := makePolicy("p1", "u", testTypeDirectoryUser, testSourceAWSIAM)
 	out, err := Collect(context.Background(), &Input{
 		Plan:    &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
 		Sources: reg.Sources,
@@ -200,10 +200,10 @@ func TestCollect_NilVaultErrors(t *testing.T) {
 // no plugin call, no envelope.
 func TestCollect_CarryForwardSkipsCollection(t *testing.T) {
 	reg := registry.NewSet()
-	src := &stubSource{id: "aws.iam", emits: []string{"directory_user"},
-		records: []core.EvidenceRecord{{Type: "directory_user", ID: "u1"}}}
+	src := &stubSource{id: testSourceAWSIAM, emits: []string{testTypeDirectoryUser},
+		records: []core.EvidenceRecord{{Type: testTypeDirectoryUser, ID: "u1"}}}
 	mustRegister(t, reg.Sources.Register(src))
-	pp := makePolicy("p1", "u", "directory_user", "aws.iam")
+	pp := makePolicy("p1", "u", testTypeDirectoryUser, testSourceAWSIAM)
 	pp.ShouldEvaluate = false
 	vault := newMemVault()
 	if _, err := Collect(context.Background(), &Input{

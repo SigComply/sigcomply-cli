@@ -14,6 +14,17 @@ import (
 const (
 	srcAWSIAM       = "aws.iam"
 	srcAWSIAMBackup = "aws.iam[backup]"
+	srcGitHub       = "github"
+
+	evDirectoryUser   = "directory_user"
+	evDirectoryUserV2 = "directory_user.v2"
+
+	slotUsers    = "users"
+	slotRepos    = "repos"
+	slotAccounts = "accounts"
+	slotRoster   = "roster"
+
+	ctrlCC64 = "CC6.4"
 )
 
 // lookupSourcePlugin is exact, including for instance keys. Every
@@ -24,8 +35,8 @@ const (
 // typo'd name.
 func TestLookupSourcePlugin_IsExact(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, srcAWSIAM, "directory_user")
-	registerSource(t, set, srcAWSIAMBackup, "directory_user")
+	registerSource(t, set, srcAWSIAM, evDirectoryUser)
+	registerSource(t, set, srcAWSIAMBackup, evDirectoryUser)
 
 	if p := lookupSourcePlugin(set.Sources, srcAWSIAM); p == nil {
 		t.Fatal("exact key lookup failed")
@@ -142,10 +153,10 @@ func TestResolveException_Empty(t *testing.T) {
 func TestResolveControlException_NotApplicableCascades(t *testing.T) {
 	policy := &core.Policy{
 		ID:       "soc2.cc6.4.physical_access",
-		Controls: []core.ControlRef{{ControlID: "CC6.4"}},
+		Controls: []core.ControlRef{{ControlID: ctrlCC64}},
 	}
 	controls := map[string]spec.ControlConfig{
-		"CC6.4": {Applicability: "not_applicable", Reason: "inherited from AWS"},
+		ctrlCC64: {Applicability: applicabilityNotApplicable, Reason: "inherited from AWS"},
 	}
 	e := resolveControlException(policy, controls)
 	if e == nil {
@@ -166,7 +177,7 @@ func TestResolveControlException_NoMatch(t *testing.T) {
 		Controls: []core.ControlRef{{ControlID: "CC6.1"}},
 	}
 	controls := map[string]spec.ControlConfig{
-		"CC6.4": {Applicability: "not_applicable", Reason: "inherited"},
+		ctrlCC64: {Applicability: applicabilityNotApplicable, Reason: "inherited"},
 	}
 	if e := resolveControlException(policy, controls); e != nil {
 		t.Errorf("a policy not under the excluded control should get nil; got %+v", e)
@@ -182,13 +193,13 @@ func TestResolveControlException_NoMatch(t *testing.T) {
 // has an ambiguity the operator must resolve explicitly.
 func TestAutoBind_SecondInstanceAffectsCardinality(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, srcAWSIAM, "directory_user")
-	registerSource(t, set, srcAWSIAMBackup, "directory_user")
+	registerSource(t, set, srcAWSIAM, evDirectoryUser)
+	registerSource(t, set, srcAWSIAMBackup, evDirectoryUser)
 	configured := map[string]map[string]any{srcAWSIAM: {}, srcAWSIAMBackup: {}}
 
 	t.Run("one-or-more unions both instances", func(t *testing.T) {
-		slot := &core.Slot{Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true}
-		got, err := autoBindSlot("p1", "users", slot, set.Sources, configured, nil)
+		slot := &core.Slot{Accepts: []string{evDirectoryUser}, Cardinality: core.SlotOneOrMore, Required: true}
+		got, err := autoBindSlot("p1", slotUsers, slot, set.Sources, configured, nil)
 		if err != nil {
 			t.Fatalf("autoBindSlot: %v", err)
 		}
@@ -203,8 +214,8 @@ func TestAutoBind_SecondInstanceAffectsCardinality(t *testing.T) {
 	})
 
 	t.Run("exactly-one now needs an explicit binding", func(t *testing.T) {
-		slot := &core.Slot{Accepts: []string{"directory_user"}, Cardinality: core.SlotExactlyOne, Required: true}
-		_, err := autoBindSlot("p1", "users", slot, set.Sources, configured, nil)
+		slot := &core.Slot{Accepts: []string{evDirectoryUser}, Cardinality: core.SlotExactlyOne, Required: true}
+		_, err := autoBindSlot("p1", slotUsers, slot, set.Sources, configured, nil)
 		if err == nil {
 			t.Fatal("want an error: two instances make a single-source slot ambiguous")
 		}

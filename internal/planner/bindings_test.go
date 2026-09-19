@@ -35,11 +35,11 @@ func registerSource(t *testing.T, set *registry.Set, id string, emits ...string)
 
 func TestResolveBindings_ExactlyOne_AllowsAtMostOne(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, "aws.iam", "directory_user")
+	registerSource(t, set, srcAWSIAM, evDirectoryUser)
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotExactlyOne, Required: true},
+			"u": {Accepts: []string{evDirectoryUser}, Cardinality: core.SlotExactlyOne, Required: true},
 		},
 	}
 	// Zero bindings is allowed (deferred-source model: the policy plans
@@ -54,7 +54,7 @@ func TestResolveBindings_ExactlyOne_AllowsAtMostOne(t *testing.T) {
 	}
 	// Two bindings for exactly-one is still a configuration error.
 	_, err = resolveBindings(policy, map[string][]spec.BindingEntry{
-		"u": {{Source: "aws.iam"}, {Source: "aws.iam"}},
+		"u": {{Source: srcAWSIAM}, {Source: srcAWSIAM}},
 	}, set.Sources, nil)
 	if err == nil || !strings.Contains(err.Error(), "at most 1 binding, got 2") {
 		t.Errorf("want at-most-1 error; got %v", err)
@@ -63,11 +63,11 @@ func TestResolveBindings_ExactlyOne_AllowsAtMostOne(t *testing.T) {
 
 func TestResolveBindings_AtMostOne(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, "aws.iam", "directory_user")
+	registerSource(t, set, srcAWSIAM, evDirectoryUser)
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotAtMostOne, Required: false},
+			"u": {Accepts: []string{evDirectoryUser}, Cardinality: core.SlotAtMostOne, Required: false},
 		},
 	}
 	// Zero is fine.
@@ -76,7 +76,7 @@ func TestResolveBindings_AtMostOne(t *testing.T) {
 	}
 	// Two is not.
 	_, err := resolveBindings(policy, map[string][]spec.BindingEntry{
-		"u": {{Source: "aws.iam"}, {Source: "aws.iam"}},
+		"u": {{Source: srcAWSIAM}, {Source: srcAWSIAM}},
 	}, set.Sources, nil)
 	if err == nil || !strings.Contains(err.Error(), "at most 1 binding") {
 		t.Errorf("want at-most-one error; got %v", err)
@@ -88,7 +88,7 @@ func TestResolveBindings_Optional(t *testing.T) {
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOptional, Required: false},
+			"u": {Accepts: []string{evDirectoryUser}, Cardinality: core.SlotOptional, Required: false},
 		},
 	}
 	bindings, err := resolveBindings(policy, nil, set.Sources, nil)
@@ -106,23 +106,23 @@ func TestResolveBindings_Optional(t *testing.T) {
 // bindings: block written by the operator.
 func TestAutoBind_NoExplicitBinding_BindsConfiguredSource(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, "aws.iam", "directory_user")
+	registerSource(t, set, srcAWSIAM, evDirectoryUser)
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true},
+			"u": {Accepts: []string{evDirectoryUser}, Cardinality: core.SlotOneOrMore, Required: true},
 		},
 	}
 	// No bindings: entry at all; aws.iam is configured under sources:.
-	bindings, err := resolveBindings(policy, nil, set.Sources, map[string]map[string]any{"aws.iam": {}})
+	bindings, err := resolveBindings(policy, nil, set.Sources, map[string]map[string]any{srcAWSIAM: {}})
 	if err != nil {
 		t.Fatalf("auto-bind: %v", err)
 	}
 	got := bindings["u"]
-	if len(got) != 1 || got[0].SourceID != "aws.iam" {
+	if len(got) != 1 || got[0].SourceID != srcAWSIAM {
 		t.Fatalf("auto-bind result = %+v; want one binding to aws.iam", got)
 	}
-	if len(got[0].AcceptedTypes) != 1 || got[0].AcceptedTypes[0] != "directory_user" {
+	if len(got[0].AcceptedTypes) != 1 || got[0].AcceptedTypes[0] != evDirectoryUser {
 		t.Errorf("AcceptedTypes = %v; want [directory_user]", got[0].AcceptedTypes)
 	}
 }
@@ -132,17 +132,17 @@ func TestAutoBind_NoExplicitBinding_BindsConfiguredSource(t *testing.T) {
 // sorted order for deterministic plans.
 func TestAutoBind_OneOrMore_UnionsAllMatchingSources(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, srcOkta, "directory_user")
-	registerSource(t, set, "aws.iam", "directory_user")
+	registerSource(t, set, srcOkta, evDirectoryUser)
+	registerSource(t, set, srcAWSIAM, evDirectoryUser)
 	registerSource(t, set, "aws.s3", "object_storage_bucket") // unrelated; must not bind
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true},
+			"u": {Accepts: []string{evDirectoryUser}, Cardinality: core.SlotOneOrMore, Required: true},
 		},
 	}
 	bindings, err := resolveBindings(policy, nil, set.Sources,
-		map[string]map[string]any{srcOkta: {}, "aws.iam": {}, "aws.s3": {}})
+		map[string]map[string]any{srcOkta: {}, srcAWSIAM: {}, "aws.s3": {}})
 	if err != nil {
 		t.Fatalf("auto-bind: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestAutoBind_OneOrMore_UnionsAllMatchingSources(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("auto-bind result = %+v; want 2 bindings (aws.iam, okta)", got)
 	}
-	if got[0].SourceID != "aws.iam" || got[1].SourceID != srcOkta {
+	if got[0].SourceID != srcAWSIAM || got[1].SourceID != srcOkta {
 		t.Errorf("auto-bind order = [%s %s]; want sorted [aws.iam okta]", got[0].SourceID, got[1].SourceID)
 	}
 }
@@ -160,18 +160,18 @@ func TestAutoBind_OneOrMore_UnionsAllMatchingSources(t *testing.T) {
 // explicit list is authoritative (the narrowing escape hatch).
 func TestAutoBind_ExplicitBindingOverridesAutoBind(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, srcOkta, "directory_user")
-	registerSource(t, set, "aws.iam", "directory_user")
+	registerSource(t, set, srcOkta, evDirectoryUser)
+	registerSource(t, set, srcAWSIAM, evDirectoryUser)
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true},
+			"u": {Accepts: []string{evDirectoryUser}, Cardinality: core.SlotOneOrMore, Required: true},
 		},
 	}
 	// Both configured, but the operator narrows the slot to okta only.
 	bindings, err := resolveBindings(policy,
 		map[string][]spec.BindingEntry{"u": {{Source: srcOkta}}},
-		set.Sources, map[string]map[string]any{srcOkta: {}, "aws.iam": {}})
+		set.Sources, map[string]map[string]any{srcOkta: {}, srcAWSIAM: {}})
 	if err != nil {
 		t.Fatalf("explicit override: %v", err)
 	}
@@ -186,16 +186,16 @@ func TestAutoBind_ExplicitBindingOverridesAutoBind(t *testing.T) {
 // refuses to guess and tells the operator to add an explicit binding.
 func TestAutoBind_SingleCardinalityAmbiguity_Errors(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, srcOkta, "directory_user")
-	registerSource(t, set, "aws.iam", "directory_user")
+	registerSource(t, set, srcOkta, evDirectoryUser)
+	registerSource(t, set, srcAWSIAM, evDirectoryUser)
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotExactlyOne, Required: true},
+			"u": {Accepts: []string{evDirectoryUser}, Cardinality: core.SlotExactlyOne, Required: true},
 		},
 	}
 	_, err := resolveBindings(policy, nil, set.Sources,
-		map[string]map[string]any{srcOkta: {}, "aws.iam": {}})
+		map[string]map[string]any{srcOkta: {}, srcAWSIAM: {}})
 	if err == nil || !strings.Contains(err.Error(), "add an explicit binding") {
 		t.Fatalf("want ambiguity error asking for explicit binding; got %v", err)
 	}
@@ -215,11 +215,11 @@ func TestAutoBind_SingleCardinalityAmbiguity_Errors(t *testing.T) {
 // operator never configured) must not be auto-bound — it has no creds.
 func TestAutoBind_UnconfiguredSourceNotBound(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, "aws.iam", "directory_user")
+	registerSource(t, set, srcAWSIAM, evDirectoryUser)
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true},
+			"u": {Accepts: []string{evDirectoryUser}, Cardinality: core.SlotOneOrMore, Required: true},
 		},
 	}
 	// aws.iam is registered but NOT in configuredSources → no auto-bind.
@@ -257,16 +257,16 @@ func TestResolveBindings_ManualColonSuffixParsed(t *testing.T) {
 
 func TestResolveBindings_RejectsBindingForUndeclaredSlot(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, "aws.iam", "directory_user")
+	registerSource(t, set, srcAWSIAM, evDirectoryUser)
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Accepts: []string{"directory_user"}, Cardinality: core.SlotOneOrMore, Required: true},
+			"u": {Accepts: []string{evDirectoryUser}, Cardinality: core.SlotOneOrMore, Required: true},
 		},
 	}
 	_, err := resolveBindings(policy, map[string][]spec.BindingEntry{
-		"u":            {{Source: "aws.iam"}},
-		"phantom_slot": {{Source: "aws.iam"}},
+		"u":            {{Source: srcAWSIAM}},
+		"phantom_slot": {{Source: srcAWSIAM}},
 	}, set.Sources, nil)
 	if err == nil || !strings.Contains(err.Error(), "phantom_slot") {
 		t.Errorf("want unknown-slot error; got %v", err)
@@ -275,9 +275,9 @@ func TestResolveBindings_RejectsBindingForUndeclaredSlot(t *testing.T) {
 
 func TestEvidenceTypeFamily(t *testing.T) {
 	cases := []struct{ in, want string }{
-		{"directory_user", "directory_user"},
-		{"directory_user.v2", "directory_user"},
-		{"directory_user.v10", "directory_user"},
+		{evDirectoryUser, evDirectoryUser},
+		{evDirectoryUserV2, evDirectoryUser},
+		{"directory_user.v10", evDirectoryUser},
 		{"object_storage_bucket", "object_storage_bucket"},
 		{"gcp_service_account_key", "gcp_service_account_key"}, // underscores, no version
 		{"foo.bar", "foo.bar"},                                 // ".bar" is not ".vN"
@@ -297,15 +297,15 @@ func TestEvidenceTypeFamily(t *testing.T) {
 // configured source emits directory_user (v1) is the canonical gap.
 func TestDetectCoverageGaps(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, srcOkta, "directory_user", "okta_app")
-	registerSource(t, set, "aws.iam", "directory_user.v2")
+	registerSource(t, set, srcOkta, evDirectoryUser, "okta_app")
+	registerSource(t, set, srcAWSIAM, evDirectoryUserV2)
 	registerSource(t, set, "aws.s3", "object_storage_bucket")
 
 	v2Only := func() *core.Policy {
 		return &core.Policy{
 			ID: "p1",
 			Slots: map[string]core.Slot{
-				"users": {Accepts: []string{"directory_user.v2"}, Cardinality: core.SlotOneOrMore, Required: true},
+				slotUsers: {Accepts: []string{evDirectoryUserV2}, Cardinality: core.SlotOneOrMore, Required: true},
 			},
 		}
 	}
@@ -316,10 +316,10 @@ func TestDetectCoverageGaps(t *testing.T) {
 			t.Fatalf("gaps = %d; want 1 (%+v)", len(gaps), gaps)
 		}
 		g := gaps[0]
-		if g.Slot != "users" || g.Source != srcOkta {
+		if g.Slot != slotUsers || g.Source != srcOkta {
 			t.Errorf("gap = %+v; want slot=users source=okta", g)
 		}
-		if len(g.SourceEmits) != 1 || g.SourceEmits[0] != "directory_user" {
+		if len(g.SourceEmits) != 1 || g.SourceEmits[0] != evDirectoryUser {
 			t.Errorf("SourceEmits = %v; want [directory_user]", g.SourceEmits)
 		}
 	})
@@ -327,14 +327,14 @@ func TestDetectCoverageGaps(t *testing.T) {
 	t.Run("no gap when an exactly-accepted source is configured", func(t *testing.T) {
 		// aws.iam emits directory_user.v2 exactly — the operator can bind
 		// it; absence of a binding is a plain unbound slot, not skew.
-		gaps := detectCoverageGaps(v2Only(), map[string][]Binding{}, map[string]map[string]any{srcOkta: {}, "aws.iam": {}}, set.Sources)
+		gaps := detectCoverageGaps(v2Only(), map[string][]Binding{}, map[string]map[string]any{srcOkta: {}, srcAWSIAM: {}}, set.Sources)
 		if len(gaps) != 0 {
 			t.Fatalf("gaps = %+v; want none (an exact emitter is configured)", gaps)
 		}
 	})
 
 	t.Run("no gap when slot already bound", func(t *testing.T) {
-		bound := map[string][]Binding{"users": {{SourceID: "aws.iam", AcceptedTypes: []string{"directory_user.v2"}}}}
+		bound := map[string][]Binding{slotUsers: {{SourceID: srcAWSIAM, AcceptedTypes: []string{evDirectoryUserV2}}}}
 		gaps := detectCoverageGaps(v2Only(), bound, map[string]map[string]any{srcOkta: {}}, set.Sources)
 		if len(gaps) != 0 {
 			t.Fatalf("gaps = %+v; want none (slot is bound)", gaps)
@@ -343,9 +343,9 @@ func TestDetectCoverageGaps(t *testing.T) {
 
 	t.Run("no gap for non-required slot", func(t *testing.T) {
 		p := v2Only()
-		s := p.Slots["users"]
+		s := p.Slots[slotUsers]
 		s.Required = false
-		p.Slots["users"] = s
+		p.Slots[slotUsers] = s
 		gaps := detectCoverageGaps(p, map[string][]Binding{}, map[string]map[string]any{srcOkta: {}}, set.Sources)
 		if len(gaps) != 0 {
 			t.Fatalf("gaps = %+v; want none (slot not required)", gaps)
@@ -372,11 +372,11 @@ func TestDetectCoverageGaps(t *testing.T) {
 // actionable message rather than a bare type-mismatch.
 func TestResolveSlot_VersionSkewHint(t *testing.T) {
 	set := registry.NewSet()
-	registerSource(t, set, srcOkta, "directory_user")
+	registerSource(t, set, srcOkta, evDirectoryUser)
 	policy := &core.Policy{
 		ID: "p1",
 		Slots: map[string]core.Slot{
-			"u": {Accepts: []string{"directory_user.v2"}, Cardinality: core.SlotOneOrMore, Required: true},
+			"u": {Accepts: []string{evDirectoryUserV2}, Cardinality: core.SlotOneOrMore, Required: true},
 		},
 	}
 	_, err := resolveBindings(policy, map[string][]spec.BindingEntry{

@@ -6,6 +6,55 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// Annex A control IDs referenced by more than one policy. The catalog
+// tables below stay the canonical list of all 93; these only name the
+// entries the policy tables point at, so each reference is written once.
+const (
+	ctrlIdentityManagement      = "A.5.16" // Identity management
+	ctrlAccessRights            = "A.5.18" // Access rights
+	ctrlSupplierRelationships   = "A.5.19" // Information security in supplier relationships
+	ctrlProtectionOfRecords     = "A.5.33" // Protection of records
+	ctrlAccessRestriction       = "A.8.3"  // Information access restriction
+	ctrlSourceCodeAccess        = "A.8.4"  // Access to source code
+	ctrlSecureAuthentication    = "A.8.5"  // Secure authentication
+	ctrlMalwareProtection       = "A.8.7"  // Protection against malware
+	ctrlVulnerabilityManagement = "A.8.8"  // Management of technical vulnerabilities
+	ctrlConfigurationManagement = "A.8.9"  // Configuration management
+	ctrlDataLeakagePrevention   = "A.8.12" // Data leakage prevention
+	ctrlInformationBackup       = "A.8.13" // Information backup
+	ctrlLoggingControl          = "A.8.15" // Logging
+	ctrlMonitoringActivities    = "A.8.16" // Monitoring activities
+	ctrlNetworksSecurity        = "A.8.20" // Networks security
+	ctrlNetworkServicesSecurity = "A.8.21" // Security of network services
+	ctrlNetworkSegregation      = "A.8.22" // Segregation of networks
+	ctrlCryptography            = "A.8.24" // Use of cryptography
+	ctrlSecureDevelopment       = "A.8.25" // Secure development life cycle
+	ctrlSecureCoding            = "A.8.28" // Secure coding
+	ctrlSecurityTesting         = "A.8.29" // Security testing in development and acceptance
+	ctrlChangeManagement        = "A.8.32" // Change management
+)
+
+// Management-system clause IDs, referenced by the clause evidence
+// policies. ismsClauses below carries the full list with its titles.
+const (
+	clauseContext               = "C.4.1-4.2" // Context and interested parties
+	clauseScope                 = "C.4.3"     // ISMS scope
+	clauseSecurityPolicy        = "C.5.2"     // Information security policy
+	clauseRoles                 = "C.5.3"     // Roles, responsibilities and authorities
+	clauseRiskAssessmentProcess = "C.6.1.2"   // Risk assessment process
+	clauseRiskTreatmentProcess  = "C.6.1.3"   // Risk treatment process
+	clauseObjectives            = "C.6.2"     // Information security objectives
+	clauseCompetence            = "C.7.2"     // Competence
+	clauseDocumentedInformation = "C.7.5"     // Documented information
+	clauseOperationalPlanning   = "C.8.1"     // Operational planning and control
+	clauseRiskAssessmentResults = "C.8.2"     // Risk assessment results
+	clauseRiskTreatmentResults  = "C.8.3"     // Risk treatment results
+	clauseMonitoringMeasurement = "C.9.1"     // Monitoring, measurement, analysis and evaluation
+	clauseInternalAudit         = "C.9.2"     // Internal audit
+	clauseManagementReview      = "C.9.3"     // Management review
+	clauseNonconformity         = "C.10.2"    // Nonconformity and corrective action
+)
+
 // Controls returns the full ISO/IEC 27001:2022 control catalog: the 93
 // Annex A controls across the four themes (Organizational 5.x, People
 // 6.x, Physical 7.x, Technological 8.x), plus the 16 management-system
@@ -28,8 +77,8 @@ import (
 // and still belong in the SoA.
 func Controls() []core.Control {
 	out := make([]core.Control, 0, 93+len(ismsClauses))
-	out = append(out, themeControls("Organizational", "governance", organizational)...)
-	out = append(out, themeControls("People", "governance", people)...)
+	out = append(out, themeControls("Organizational", catGovernance, organizational)...)
+	out = append(out, themeControls("People", catGovernance, people)...)
 	out = append(out, themeControls("Physical", "physical", physical)...)
 	out = append(out, themeControls("Technological", "technical", technological)...)
 	out = append(out, clauseControls()...)

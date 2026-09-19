@@ -20,8 +20,8 @@ type frameworkUnderTest struct {
 
 func frameworks() []frameworkUnderTest {
 	return []frameworkUnderTest{
-		{"soc2", soc2.ManualCatalogExport, soc2.Policies},
-		{"iso27001", iso27001.ManualCatalogExport, iso27001.Policies},
+		{fwSOC2, soc2.ManualCatalogExport, soc2.Policies},
+		{fwISO27001, iso27001.ManualCatalogExport, iso27001.Policies},
 	}
 }
 

@@ -10,6 +10,10 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// fieldSourceID is the top-level record field naming the source that
+// produced a record (also the key used when exposing it to templates).
+const fieldSourceID = "source_id"
+
 // evaluatePassWhen implements Path B: the pass_when: declarative DSL for
 // evidence_mode: automated policies. Each clause in the spec is evaluated
 // independently; the policy passes iff all clauses pass.
@@ -96,7 +100,7 @@ func (ec *evalCtx) evaluateQuantifier(clause *core.PassWhenClause, included []co
 	default:
 		return core.RuleResult{
 			Status: core.StatusError,
-			Diag:   map[string]any{"reason": fmt.Sprintf("pass_when: unknown quantifier %q", clause.Quantifier)},
+			Diag:   map[string]any{diagReason: fmt.Sprintf("pass_when: unknown quantifier %q", clause.Quantifier)},
 		}
 	}
 }
@@ -203,7 +207,7 @@ func (ec *evalCtx) evaluateCount(clause *core.PassWhenClause, records []core.Evi
 func conditionErr(err error) core.RuleResult {
 	return core.RuleResult{
 		Status: core.StatusError,
-		Diag:   map[string]any{"reason": err.Error()},
+		Diag:   map[string]any{diagReason: err.Error()},
 	}
 }
 
@@ -240,7 +244,7 @@ func (ec *evalCtx) filterRecords(records []core.EvidenceRecord, filter *core.Pas
 func filterErr(clause *core.PassWhenClause, err error) core.RuleResult {
 	return core.RuleResult{
 		Status: core.StatusError,
-		Diag: map[string]any{"reason": fmt.Sprintf(
+		Diag: map[string]any{diagReason: fmt.Sprintf(
 			"pass_when: the filter for slot %q could not be evaluated, so the records in scope are unknown: %v",
 			clause.Slot, err)},
 	}
@@ -358,7 +362,7 @@ func (ec *evalCtx) getField(rec *core.EvidenceRecord, path string) (any, bool) {
 		return rec.ID, true
 	case "type":
 		return rec.Type, true
-	case "source_id":
+	case fieldSourceID:
 		return rec.SourceID, true
 	}
 	if strings.HasPrefix(path, "payload.") {
@@ -515,9 +519,9 @@ func (ec *evalCtx) renderMsg(tmpl string, rec *core.EvidenceRecord) string {
 	}
 	// Build a flat context map: top-level fields + decoded payload fields.
 	ctx := map[string]any{
-		"id":        rec.ID,
-		"type":      rec.Type,
-		"source_id": rec.SourceID,
+		"id":          rec.ID,
+		"type":        rec.Type,
+		fieldSourceID: rec.SourceID,
 	}
 	if len(rec.Payload) > 0 {
 		var payload map[string]any

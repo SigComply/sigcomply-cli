@@ -11,7 +11,7 @@ import (
 
 func TestReadPolicyState_MissingShardReturnsNil(t *testing.T) {
 	v := newInMem()
-	got, err := ReadPolicyState(context.Background(), v, "soc2", "soc2.cc6.1.mfa")
+	got, err := ReadPolicyState(context.Background(), v, testFramework, testPolicyID)
 	if err != nil {
 		t.Fatalf("ReadPolicyState: %v", err)
 	}
@@ -23,7 +23,7 @@ func TestReadPolicyState_MissingShardReturnsNil(t *testing.T) {
 func TestReadPolicyState_ReadErrorPropagates(t *testing.T) {
 	v := newInMem()
 	v.getErr = errors.New("disk on fire") // does not contain "not found"
-	_, err := ReadPolicyState(context.Background(), v, "soc2", "p1")
+	_, err := ReadPolicyState(context.Background(), v, testFramework, "p1")
 	if err == nil {
 		t.Fatal("expected error from broken vault Get; got nil")
 	}
@@ -31,8 +31,8 @@ func TestReadPolicyState_ReadErrorPropagates(t *testing.T) {
 
 func TestReadPolicyState_CorruptShardReturnsError(t *testing.T) {
 	v := newInMem()
-	v.bins[PolicyStatePath("soc2", "p1")] = []byte("not json at all")
-	_, err := ReadPolicyState(context.Background(), v, "soc2", "p1")
+	v.bins[PolicyStatePath(testFramework, "p1")] = []byte("not json at all")
+	_, err := ReadPolicyState(context.Background(), v, testFramework, "p1")
 	if err == nil {
 		t.Fatal("expected parse error; got nil")
 	}
@@ -42,8 +42,8 @@ func TestWritePolicyState_WritesAndRoundTrips(t *testing.T) {
 	v := newInMem()
 	at := time.Date(2026, 5, 24, 0, 3, 12, 0, time.UTC)
 	ps := &core.PolicyState{
-		Framework:       "soc2",
-		PolicyID:        "soc2.cc6.1.mfa",
+		Framework:       testFramework,
+		PolicyID:        testPolicyID,
 		LastRunAt:       at,
 		LastPassAt:      at,
 		LastRunStatus:   core.StatusPass,
@@ -55,9 +55,9 @@ func TestWritePolicyState_WritesAndRoundTrips(t *testing.T) {
 		t.Fatalf("Write: %v", err)
 	}
 	// Mirror the JSON write so subsequent GetBinary can find it.
-	v.bins[PolicyStatePath("soc2", "soc2.cc6.1.mfa")] = v.jsons[PolicyStatePath("soc2", "soc2.cc6.1.mfa")]
+	v.bins[PolicyStatePath(testFramework, testPolicyID)] = v.jsons[PolicyStatePath(testFramework, testPolicyID)]
 
-	got, err := ReadPolicyState(context.Background(), v, "soc2", "soc2.cc6.1.mfa")
+	got, err := ReadPolicyState(context.Background(), v, testFramework, testPolicyID)
 	if err != nil {
 		t.Fatalf("Read: %v", err)
 	}
@@ -82,18 +82,18 @@ func TestWritePolicyState_MonotonicGuardRejectsOlderRun(t *testing.T) {
 
 	// Write the LATE state first.
 	late := &core.PolicyState{
-		Framework: "soc2", PolicyID: "p1",
+		Framework: testFramework, PolicyID: "p1",
 		LastRunAt: tLate, LastRunID: "run-late",
 		LastRunStatus: core.StatusPass, LastPassAt: tLate,
 	}
 	if err := WritePolicyState(context.Background(), v, late); err != nil {
 		t.Fatalf("write late: %v", err)
 	}
-	v.bins[PolicyStatePath("soc2", "p1")] = v.jsons[PolicyStatePath("soc2", "p1")]
+	v.bins[PolicyStatePath(testFramework, "p1")] = v.jsons[PolicyStatePath(testFramework, "p1")]
 
 	// Try to write the EARLY state — should be rejected silently.
 	early := &core.PolicyState{
-		Framework: "soc2", PolicyID: "p1",
+		Framework: testFramework, PolicyID: "p1",
 		LastRunAt: tEarly, LastRunID: "run-early",
 		LastRunStatus: core.StatusFail, LastFailAt: tEarly,
 	}
@@ -101,8 +101,8 @@ func TestWritePolicyState_MonotonicGuardRejectsOlderRun(t *testing.T) {
 		t.Fatalf("write early returned error (should be silently rejected): %v", err)
 	}
 	// Re-read: must still see LATE.
-	v.bins[PolicyStatePath("soc2", "p1")] = v.jsons[PolicyStatePath("soc2", "p1")]
-	got, err := ReadPolicyState(context.Background(), v, "soc2", "p1")
+	v.bins[PolicyStatePath(testFramework, "p1")] = v.jsons[PolicyStatePath(testFramework, "p1")]
+	got, err := ReadPolicyState(context.Background(), v, testFramework, "p1")
 	if err != nil {
 		t.Fatalf("read after rejected write: %v", err)
 	}
@@ -116,21 +116,21 @@ func TestWritePolicyState_RunIDTiebreakOnExactTimestamp(t *testing.T) {
 	tEq := time.Date(2026, 5, 24, 9, 0, 0, 0, time.UTC)
 
 	// Write run-AAA first.
-	a := &core.PolicyState{Framework: "soc2", PolicyID: "p1",
+	a := &core.PolicyState{Framework: testFramework, PolicyID: "p1",
 		LastRunAt: tEq, LastRunID: "run-AAA", LastRunStatus: core.StatusPass, LastPassAt: tEq}
 	if err := WritePolicyState(context.Background(), v, a); err != nil {
 		t.Fatalf("write A: %v", err)
 	}
-	v.bins[PolicyStatePath("soc2", "p1")] = v.jsons[PolicyStatePath("soc2", "p1")]
+	v.bins[PolicyStatePath(testFramework, "p1")] = v.jsons[PolicyStatePath(testFramework, "p1")]
 
 	// run-ZZZ with same timestamp sorts higher → wins.
-	z := &core.PolicyState{Framework: "soc2", PolicyID: "p1",
+	z := &core.PolicyState{Framework: testFramework, PolicyID: "p1",
 		LastRunAt: tEq, LastRunID: "run-ZZZ", LastRunStatus: core.StatusPass, LastPassAt: tEq}
 	if err := WritePolicyState(context.Background(), v, z); err != nil {
 		t.Fatalf("write Z: %v", err)
 	}
-	v.bins[PolicyStatePath("soc2", "p1")] = v.jsons[PolicyStatePath("soc2", "p1")]
-	got, err := ReadPolicyState(context.Background(), v, "soc2", "p1")
+	v.bins[PolicyStatePath(testFramework, "p1")] = v.jsons[PolicyStatePath(testFramework, "p1")]
+	got, err := ReadPolicyState(context.Background(), v, testFramework, "p1")
 	if err != nil {
 		t.Fatalf("read after tiebreaker: %v", err)
 	}
@@ -149,14 +149,14 @@ func TestWritePolicyState_RejectsEmptyFields(t *testing.T) {
 func TestBulkReadPolicyStates_HandlesMixedPresence(t *testing.T) {
 	v := newInMem()
 	at := time.Date(2026, 5, 24, 9, 0, 0, 0, time.UTC)
-	ps := &core.PolicyState{Framework: "soc2", PolicyID: "have",
+	ps := &core.PolicyState{Framework: testFramework, PolicyID: "have",
 		LastRunAt: at, LastRunID: "r", LastRunStatus: core.StatusPass, LastPassAt: at}
 	if err := WritePolicyState(context.Background(), v, ps); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	v.bins[PolicyStatePath("soc2", "have")] = v.jsons[PolicyStatePath("soc2", "have")]
+	v.bins[PolicyStatePath(testFramework, "have")] = v.jsons[PolicyStatePath(testFramework, "have")]
 
-	got, errs := BulkReadPolicyStates(context.Background(), v, "soc2",
+	got, errs := BulkReadPolicyStates(context.Background(), v, testFramework,
 		[]string{"have", "missing"})
 	if len(errs) != 0 {
 		t.Errorf("unexpected errors: %v", errs)
@@ -172,7 +172,7 @@ func TestBulkReadPolicyStates_HandlesMixedPresence(t *testing.T) {
 func TestAdvancePolicyState_PassSetsLastPassAndNextDue(t *testing.T) {
 	startedAt := time.Date(2026, 5, 24, 9, 0, 0, 0, time.UTC)
 	interval := 6 * time.Hour
-	ps := AdvancePolicyState("soc2", "p1", "run-1", "2026-Q2", "every:6h", "sha256:x", "vault/envelopes/x.json",
+	ps := AdvancePolicyState(testFramework, "p1", "run-1", "2026-Q2", "every:6h", "sha256:x", "vault/envelopes/x.json",
 		core.StatusPass, startedAt, interval)
 	if !ps.LastPassAt.Equal(startedAt) {
 		t.Errorf("LastPassAt = %v; want %v", ps.LastPassAt, startedAt)
@@ -188,7 +188,7 @@ func TestAdvancePolicyState_PassSetsLastPassAndNextDue(t *testing.T) {
 
 func TestAdvancePolicyState_FailSetsLastFailAndNoNextDue(t *testing.T) {
 	startedAt := time.Date(2026, 5, 24, 9, 0, 0, 0, time.UTC)
-	ps := AdvancePolicyState("soc2", "p1", "run-1", "2026-Q2", "daily", "sha256:x", "vault/x.json",
+	ps := AdvancePolicyState(testFramework, "p1", "run-1", "2026-Q2", cadenceDaily, "sha256:x", "vault/x.json",
 		core.StatusFail, startedAt, 24*time.Hour)
 	if !ps.LastFailAt.Equal(startedAt) {
 		t.Errorf("LastFailAt = %v", ps.LastFailAt)
@@ -199,7 +199,7 @@ func TestAdvancePolicyState_FailSetsLastFailAndNoNextDue(t *testing.T) {
 }
 
 func TestPolicyStatePath_Shape(t *testing.T) {
-	got := PolicyStatePath("soc2", "soc2.cc6.1.mfa_enforced")
+	got := PolicyStatePath(testFramework, "soc2.cc6.1.mfa_enforced")
 	want := "state/soc2/policies/soc2.cc6.1.mfa_enforced.json"
 	if got != want {
 		t.Errorf("got %q; want %q", got, want)

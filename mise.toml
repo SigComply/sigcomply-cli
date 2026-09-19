@@ -1,8 +1,9 @@
 # Pinned toolchain. Keep in lockstep with .github/workflows/test.yml —
-# a local lint against an older golangci-lint is worse than none: builds
-# before v2.11 are compiled with Go 1.25 and refuse to load this module
-# outright, which is what made the git hooks fail on every push
-# regardless of the code.
+# a local lint against an older golangci-lint is worse than none:
+# golangci-lint refuses to load a module whose `go` directive is newer
+# than the Go it was itself built with, which is what made the git hooks
+# fail on every push regardless of the code. go.mod targets 1.27, and
+# 2.13.x is the first golangci-lint line built with go1.27.
 [tools]
-go = "1.26"
-golangci-lint = "2.11.4"
+go = "1.27"
+golangci-lint = "2.13.2"

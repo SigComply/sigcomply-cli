@@ -15,12 +15,20 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/submitter"
 )
 
+const (
+	// vaultBackendLocal is the spec.VaultConfig backend ID for the
+	// filesystem vault the run fixtures configure.
+	vaultBackendLocal = "local"
+	// slotEvidence is the evidence slot name of the fixture policies.
+	slotEvidence = "evidence"
+)
+
 // minimalConfig returns the smallest ProjectConfig that lets Run reach
 // the planner; the framework registration is handled in each test.
 func minimalConfig() *spec.ProjectConfig {
 	return &spec.ProjectConfig{
-		Framework: "soc2",
-		Vault:     spec.VaultConfig{Backend: "local", Config: map[string]any{"path": "/tmp/x"}},
+		Framework: testFramework,
+		Vault:     spec.VaultConfig{Backend: vaultBackendLocal, Config: map[string]any{"path": "/tmp/x"}},
 	}
 }
 
@@ -67,7 +75,7 @@ func TestRun_PlanErrorIsExitConfig(t *testing.T) {
 // instantiates and calls it inline; we cover the branches directly.
 func TestRenderAndExitCode_PassExitOK(t *testing.T) {
 	var buf bytes.Buffer
-	plan := &planner.RunPlan{Framework: "soc2", Period: planner.Period{ID: "2026-Q1"}}
+	plan := &planner.RunPlan{Framework: testFramework, Period: planner.Period{ID: testPeriodID}}
 	results := []core.PolicyResult{
 		{PolicyID: "p1", Status: core.StatusPass},
 		{PolicyID: "p2", Status: core.StatusNA},
@@ -82,7 +90,7 @@ func TestRenderAndExitCode_PassExitOK(t *testing.T) {
 }
 
 func TestRenderAndExitCode_FailWithDefaultsIsViolation(t *testing.T) {
-	plan := &planner.RunPlan{Framework: "soc2"}
+	plan := &planner.RunPlan{Framework: testFramework}
 	results := []core.PolicyResult{{PolicyID: "p1", Status: core.StatusFail}}
 	code := renderAndExitCode(&bytes.Buffer{}, plan, results, spec.CIConfig{}, nil)
 	if code != ExitViolation {
@@ -91,7 +99,7 @@ func TestRenderAndExitCode_FailWithDefaultsIsViolation(t *testing.T) {
 }
 
 func TestRenderAndExitCode_FailWithFailOnViolationDisabled(t *testing.T) {
-	plan := &planner.RunPlan{Framework: "soc2"}
+	plan := &planner.RunPlan{Framework: testFramework}
 	results := []core.PolicyResult{{PolicyID: "p1", Status: core.StatusFail}}
 	disabled := false
 	code := renderAndExitCode(&bytes.Buffer{}, plan, results, spec.CIConfig{FailOnViolation: &disabled}, nil)
@@ -101,7 +109,7 @@ func TestRenderAndExitCode_FailWithFailOnViolationDisabled(t *testing.T) {
 }
 
 func TestRenderAndExitCode_ErrorWinsOverFail(t *testing.T) {
-	plan := &planner.RunPlan{Framework: "soc2"}
+	plan := &planner.RunPlan{Framework: testFramework}
 	results := []core.PolicyResult{
 		{PolicyID: "p1", Status: core.StatusError},
 		{PolicyID: "p2", Status: core.StatusFail},
@@ -120,22 +128,22 @@ func TestRenderAndExitCode_SkipExplanationsAreLoud(t *testing.T) {
 	unboundSlot := core.Policy{
 		ID: "soc2.cc6.1.unbound",
 		Slots: map[string]core.Slot{
-			"evidence": {Accepts: []string{"directory_user"}, Required: true, Cardinality: core.SlotOneOrMore},
+			slotEvidence: {Accepts: []string{evidenceTypeDirectoryUser}, Required: true, Cardinality: core.SlotOneOrMore},
 		},
 	}
 	boundSlot := core.Policy{
 		ID: "soc2.cc7.2.empty",
 		Slots: map[string]core.Slot{
-			"evidence": {Accepts: []string{"audit_log_trail"}, Required: true, Cardinality: core.SlotOneOrMore},
+			slotEvidence: {Accepts: []string{"audit_log_trail"}, Required: true, Cardinality: core.SlotOneOrMore},
 		},
 	}
 	plan := &planner.RunPlan{
-		Framework: "soc2",
-		Period:    planner.Period{ID: "2026-Q1"},
+		Framework: testFramework,
+		Period:    planner.Period{ID: testPeriodID},
 		Policies: []planner.PlannedPolicy{
 			{Spec: unboundSlot, Bindings: map[string][]planner.Binding{}},
 			{Spec: boundSlot, Bindings: map[string][]planner.Binding{
-				"evidence": {{SourceID: "aws.cloudtrail", AcceptedTypes: []string{"audit_log_trail"}}},
+				slotEvidence: {{SourceID: "aws.cloudtrail", AcceptedTypes: []string{"audit_log_trail"}}},
 			}},
 		},
 	}
@@ -167,7 +175,7 @@ func TestRenderAndExitCode_SkipExplanationsAreLoud(t *testing.T) {
 // the cloud-decision switch.
 type emptyFramework struct{}
 
-func (*emptyFramework) ID() string                 { return "soc2" }
+func (*emptyFramework) ID() string                 { return testFramework }
 func (*emptyFramework) Version() string            { return "v0" }
 func (*emptyFramework) Controls() []core.Control   { return nil }
 func (*emptyFramework) Policies() []core.PolicyRef { return nil }
@@ -266,8 +274,8 @@ func TestEmitPlanWarnings_CoverageSkew(t *testing.T) {
 					{
 						Slot:        "user_directory",
 						Accepts:     []string{"directory_user.v2"},
-						Source:      "okta",
-						SourceEmits: []string{"directory_user"},
+						Source:      sourceOkta,
+						SourceEmits: []string{evidenceTypeDirectoryUser},
 					},
 				},
 			},
@@ -278,7 +286,7 @@ func TestEmitPlanWarnings_CoverageSkew(t *testing.T) {
 	if !strings.Contains(out, "coverage-skew") {
 		t.Fatalf("expected coverage-skew warning; got:\n%s", out)
 	}
-	if !strings.Contains(out, "okta") || !strings.Contains(out, "soc2.cc6.1.mfa_enforced_admins") {
+	if !strings.Contains(out, sourceOkta) || !strings.Contains(out, "soc2.cc6.1.mfa_enforced_admins") {
 		t.Errorf("warning should name the source and policy; got:\n%s", out)
 	}
 }

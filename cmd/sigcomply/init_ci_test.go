@@ -43,7 +43,7 @@ func runInitCIIn(t *testing.T, dir string, args ...string) (string, error) {
 
 func TestInitCI_GitHub_WritesExpectedFileSet(t *testing.T) {
 	dir := t.TempDir()
-	_, err := runInitCIIn(t, dir, "--ci", "github")
+	_, err := runInitCIIn(t, dir, "--ci", ciGitHub)
 	if err != nil {
 		t.Fatalf("init-ci: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestInitCI_RejectsExistingFiles_WithoutForce(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(workflows, "compliance-daily.yml"), []byte("# pre-existing\n"), 0o600); err != nil {
 		t.Fatalf("seed file: %v", err)
 	}
-	_, err := runInitCIIn(t, dir, "--ci", "github")
+	_, err := runInitCIIn(t, dir, "--ci", ciGitHub)
 	if err == nil {
 		t.Fatal("want error when target file exists and --force is not set")
 	}
@@ -120,7 +120,7 @@ func TestInitCI_ForceOverwritesExisting(t *testing.T) {
 	if err := os.WriteFile(target, []byte("# old\n"), 0o600); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	if _, err := runInitCIIn(t, dir, "--ci", "github", "--force"); err != nil {
+	if _, err := runInitCIIn(t, dir, "--ci", ciGitHub, "--force"); err != nil {
 		t.Fatalf("init-ci --force: %v", err)
 	}
 	body, err := os.ReadFile(target)
@@ -162,7 +162,7 @@ func TestInitCI_GoldenCompare_GitHub(t *testing.T) {
 	goldenDaily := absTestdata(t, "golden_compliance-daily.yml")
 	goldenOnPush := absTestdata(t, "golden_compliance-on-push.yml")
 	dir := t.TempDir()
-	if _, err := runInitCIIn(t, dir, "--ci", "github"); err != nil {
+	if _, err := runInitCIIn(t, dir, "--ci", ciGitHub); err != nil {
 		t.Fatalf("init-ci: %v", err)
 	}
 	cases := []struct {
@@ -221,7 +221,7 @@ func absTestdata(t *testing.T, name string) string {
 func TestInitCI_OutDirOverride(t *testing.T) {
 	dir := t.TempDir()
 	custom := filepath.Join(dir, "ci", "workflows")
-	if _, err := runInitCIIn(t, dir, "--ci", "github", "--out", custom); err != nil {
+	if _, err := runInitCIIn(t, dir, "--ci", ciGitHub, "--out", custom); err != nil {
 		t.Fatalf("init-ci: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(custom, "compliance-daily.yml")); err != nil {
@@ -231,7 +231,7 @@ func TestInitCI_OutDirOverride(t *testing.T) {
 
 func TestInitCI_StdoutSummary(t *testing.T) {
 	dir := t.TempDir()
-	out, err := runInitCIIn(t, dir, "--ci", "github")
+	out, err := runInitCIIn(t, dir, "--ci", ciGitHub)
 	if err != nil {
 		t.Fatalf("init-ci: %v", err)
 	}
@@ -247,9 +247,9 @@ func TestScanFrameworkLine(t *testing.T) {
 		body string
 		want string
 	}{
-		{"framework: iso27001\n", "iso27001"},
-		{"framework: \"soc2\"\n", "soc2"},
-		{"  framework:   soc2\nother: x\n", "soc2"},
+		{"framework: iso27001\n", isoFW},
+		{"framework: \"soc2\"\n", defaultFW},
+		{"  framework:   soc2\nother: x\n", defaultFW},
 		{"name: x\n", ""},
 		{"", ""},
 	}
@@ -294,11 +294,11 @@ const defaultFW = defaultFramework
 
 func TestInitCI_RejectsUnsupportedFramework(t *testing.T) {
 	dir := t.TempDir()
-	_, err := runInitCIIn(t, dir, "--ci", "github", "--framework", "iso27001")
+	_, err := runInitCIIn(t, dir, "--ci", ciGitHub, "--framework", isoFW)
 	if err == nil {
 		t.Fatal("want error for unsupported framework")
 	}
-	if !strings.Contains(err.Error(), "iso27001") {
+	if !strings.Contains(err.Error(), isoFW) {
 		t.Errorf("error should reference framework: %v", err)
 	}
 }

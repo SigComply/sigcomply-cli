@@ -14,6 +14,9 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/vault/vaulttest"
 )
 
+// testBucket is the bucket name every fixture in this file uses.
+const testBucket = "test-bucket"
+
 type fakeGCS struct {
 	mu      sync.Mutex
 	objects map[string][]byte
@@ -57,7 +60,7 @@ func TestGCSVault_Contract(t *testing.T) {
 		t.Helper()
 		v := &gcs.Vault{
 			Client: newFakeGCS(),
-			Bucket: "test-bucket",
+			Bucket: testBucket,
 			Prefix: "sigcomply/",
 		}
 		if err := v.Init(context.Background()); err != nil {
@@ -71,7 +74,7 @@ func TestGCSVault_PrefixApplied(t *testing.T) {
 	fake := newFakeGCS()
 	v := &gcs.Vault{
 		Client: fake,
-		Bucket: "test-bucket",
+		Bucket: testBucket,
 		Prefix: "vault-root/",
 	}
 	if err := v.PutBinary(context.Background(), "policies/foo/result.json", []byte("x"), nil); err != nil {
@@ -93,7 +96,7 @@ func TestGCSVault_PrefixWithoutTrailingSlash(t *testing.T) {
 	fake := newFakeGCS()
 	v := &gcs.Vault{
 		Client: fake,
-		Bucket: "test-bucket",
+		Bucket: testBucket,
 		Prefix: "vault-root", // no trailing slash
 	}
 	if err := v.PutBinary(context.Background(), "key.bin", []byte("x"), nil); err != nil {
@@ -117,7 +120,7 @@ func TestGCSVault_NoPrefix(t *testing.T) {
 	fake := newFakeGCS()
 	v := &gcs.Vault{
 		Client: fake,
-		Bucket: "test-bucket",
+		Bucket: testBucket,
 	}
 	if err := v.PutBinary(context.Background(), "bare/key.bin", []byte("hello"), nil); err != nil {
 		t.Fatalf("PutBinary: %v", err)

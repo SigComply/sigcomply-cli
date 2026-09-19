@@ -62,7 +62,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
-	armmysql "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/mysql/armmysqlflexibleservers"
+	armmysql "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/mysql/armmysqlflexibleservers/v2"
 	armpg "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/postgresql/armpostgresqlflexibleservers/v5"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/sql/armsql"
 
@@ -77,6 +77,9 @@ const EvidenceTypeID = "managed_database_instance"
 
 // SourceID is the registered ID for the azure.sql plugin instance.
 const SourceID = "azure.sql"
+
+// providerAzure is the cloud-provider name stamped on every emitted record.
+const providerAzure = "azure"
 
 // API is the subset of the Azure management plane this plugin uses across the
 // three managed-database services. It returns raw SDK types so the
@@ -249,7 +252,7 @@ func (p *Plugin) collectSQL(ctx context.Context, now time.Time, scope *core.Reco
 			payload := instancePayload{
 				ID:                  deref(db.ID),
 				Name:                serverName + "/" + dbName,
-				Provider:            "azure",
+				Provider:            providerAzure,
 				Engine:              "sqlserver",
 				EngineVersion:       sqlServerVersion(srv),
 				StorageEncrypted:    tdeEnabled(tde),
@@ -288,7 +291,7 @@ func (p *Plugin) collectPostgres(ctx context.Context, now time.Time, scope *core
 		payload := instancePayload{
 			ID:                 deref(srv.ID),
 			Name:               deref(srv.Name),
-			Provider:           "azure",
+			Provider:           providerAzure,
 			Engine:             "postgres",
 			EngineVersion:      pgVersion(srv),
 			StorageEncrypted:   true, // flexible-server at-rest encryption is always-on.
@@ -326,7 +329,7 @@ func (p *Plugin) collectMySQL(ctx context.Context, now time.Time, scope *core.Re
 		payload := instancePayload{
 			ID:                 deref(srv.ID),
 			Name:               deref(srv.Name),
-			Provider:           "azure",
+			Provider:           providerAzure,
 			Engine:             "mysql",
 			EngineVersion:      mysqlVersion(srv),
 			StorageEncrypted:   true, // flexible-server at-rest encryption is always-on.

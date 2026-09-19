@@ -51,7 +51,7 @@ import (
 	"strings"
 	"time"
 
-	gitlab "gitlab.com/gitlab-org/api/client-go"
+	gitlab "gitlab.com/gitlab-org/api/client-go/v3"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
@@ -694,7 +694,7 @@ type sdkAPI struct {
 func (s *sdkAPI) ListRepos(ctx context.Context) ([]Repo, error) {
 	opt := &gitlab.ListGroupProjectsOptions{
 		ListOptions:      gitlab.ListOptions{PerPage: 100, Page: 1},
-		IncludeSubGroups: gitlab.Ptr(true),
+		IncludeSubGroups: new(true),
 	}
 	var out []Repo
 	for {
@@ -826,7 +826,7 @@ func (s *sdkAPI) mapMember(ctx context.Context, m *gitlab.GroupMember) Member {
 	// token. Any error (403 insufficient privilege, 404) leaves mfa_enabled
 	// best-effort false rather than failing the listing — documented as a
 	// known v1 visibility gap in docs/configuration.md.
-	if u, _, err := s.client.Users.GetUser(m.ID, gitlab.GetUsersOptions{}, gitlab.WithContext(ctx)); err == nil && u != nil {
+	if u, _, err := s.client.Users.GetUser(m.ID, &gitlab.GetUserOptions{}, gitlab.WithContext(ctx)); err == nil && u != nil {
 		mem.MFAEnabled = u.TwoFactorEnabled
 		if u.IsAdmin {
 			mem.IsAdmin = true
@@ -851,7 +851,7 @@ const mergeRequestStateMerged = "merged"
 func (s *sdkAPI) projectIndex(ctx context.Context) (paths map[int64]string, ids []int64, err error) {
 	opt := &gitlab.ListGroupProjectsOptions{
 		ListOptions:      gitlab.ListOptions{PerPage: 100, Page: 1},
-		IncludeSubGroups: gitlab.Ptr(true),
+		IncludeSubGroups: new(true),
 	}
 	paths = map[int64]string{}
 	for {
@@ -885,7 +885,7 @@ func (s *sdkAPI) ListMergedPullRequests(ctx context.Context, start, end time.Tim
 	}
 	opt := &gitlab.ListGroupMergeRequestsOptions{
 		ListOptions:  gitlab.ListOptions{PerPage: 100, Page: 1},
-		State:        gitlab.Ptr(mergeRequestStateMerged),
+		State:        new(mergeRequestStateMerged),
 		UpdatedAfter: &start,
 	}
 	var out []PullRequest

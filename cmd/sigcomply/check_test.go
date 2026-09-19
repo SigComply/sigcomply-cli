@@ -21,7 +21,7 @@ func TestRegisterProductionSources_ManualOnly(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := &spec.ProjectConfig{
 		Sources: map[string]map[string]any{
-			"manual.pdf": {"backend": "local", "path": tmp},
+			"manual.pdf": {"backend": backendLocal, "path": tmp},
 		},
 	}
 	regs := registry.NewSet()
@@ -149,7 +149,7 @@ func TestRunCheck_EndToEndWithManualOnly(t *testing.T) {
 func TestExecute_Help(t *testing.T) {
 	saved := os.Args
 	t.Cleanup(func() { os.Args = saved })
-	os.Args = []string{"sigcomply", "--help"}
+	os.Args = []string{testBinaryName, "--help"}
 	if got := Execute(); got != 0 {
 		t.Errorf("Execute --help = %d; want 0", got)
 	}
@@ -158,7 +158,7 @@ func TestExecute_Help(t *testing.T) {
 func TestExecute_UnknownCommand(t *testing.T) {
 	saved := os.Args
 	t.Cleanup(func() { os.Args = saved })
-	os.Args = []string{"sigcomply", "does-not-exist"}
+	os.Args = []string{testBinaryName, "does-not-exist"}
 	if got := Execute(); got == 0 {
 		t.Errorf("Execute unknown command = 0; want non-zero")
 	}
@@ -250,14 +250,14 @@ func TestWithRegionDefault(t *testing.T) {
 		{
 			name:        "vault region fills in missing region",
 			raw:         map[string]any{"bucket": "b"},
-			vaultRegion: "us-east-1",
-			wantRegion:  "us-east-1",
+			vaultRegion: testAWSRegion,
+			wantRegion:  testAWSRegion,
 			wantPresent: true,
 		},
 		{
 			name:        "explicit region is preserved over vault default",
 			raw:         map[string]any{"region": "eu-west-1"},
-			vaultRegion: "us-east-1",
+			vaultRegion: testAWSRegion,
 			wantRegion:  "eu-west-1",
 			wantPresent: true,
 		},

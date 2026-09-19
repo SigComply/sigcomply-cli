@@ -14,6 +14,12 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// detectorZeta is the second detector ID shared by this file's fixtures.
+const detectorZeta = "det-zeta"
+
+// detectorAlpha is the detector ID shared by this file's fixtures.
+const detectorAlpha = "det-alpha"
+
 // fakeAPI lets tests drive the plugin without real AWS calls.
 type fakeAPI struct {
 	listPages [][]string
@@ -103,10 +109,10 @@ func TestPlugin_InitNoOp(t *testing.T) {
 
 func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	fake := &fakeAPI{
-		listPages: [][]string{{"det-zeta", "det-alpha"}},
+		listPages: [][]string{{detectorZeta, detectorAlpha}},
 		detectors: map[string]*gd.GetDetectorOutput{
-			"det-zeta":  {Status: gdtypes.DetectorStatusEnabled, ServiceRole: ptr("arn:role/zeta"), CreatedAt: ptr("2026-01-01")},
-			"det-alpha": {Status: gdtypes.DetectorStatusDisabled, ServiceRole: ptr("arn:role/alpha")},
+			detectorZeta:  {Status: gdtypes.DetectorStatusEnabled, ServiceRole: ptr("arn:role/zeta"), CreatedAt: ptr("2026-01-01")},
+			detectorAlpha: {Status: gdtypes.DetectorStatusDisabled, ServiceRole: ptr("arn:role/alpha")},
 		},
 	}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
@@ -118,7 +124,7 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	if len(records) != 2 {
 		t.Fatalf("len(records) = %d; want 2", len(records))
 	}
-	if records[0].ID != "det-alpha" || records[1].ID != "det-zeta" {
+	if records[0].ID != detectorAlpha || records[1].ID != detectorZeta {
 		t.Errorf("records not sorted: %v", []string{records[0].ID, records[1].ID})
 	}
 	for i := range records {

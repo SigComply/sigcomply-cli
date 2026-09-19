@@ -51,7 +51,7 @@ func goldenPayload() core.SubmissionPayload {
 
 	env := &Environment{
 		RunID:      "20260622T100000Z-abc123",
-		Framework:  "soc2",
+		Framework:  testFrameworkSOC2,
 		PeriodID:   "2026-Q2",
 		CommitSHA:  "deadbeef0000000000000000000000000000beef",
 		CommitTime: commitTime,
@@ -80,13 +80,13 @@ func goldenPayload() core.SubmissionPayload {
 			Severity:     core.SeverityHigh,
 			Category:     "access_control",
 			Controls: []core.ControlRef{
-				{Framework: "soc2", FrameworkVersion: "soc2-2017@1.0.0", ControlID: "CC6.1", Relationship: core.RelationshipEqual},
-				{Framework: "iso27001", FrameworkVersion: "iso27001-2022@1.0.0", ControlID: "A.8.5", Relationship: core.RelationshipSubsetOf},
+				{Framework: testFrameworkSOC2, FrameworkVersion: testFrameworkVersionSOC2, ControlID: "CC6.1", Relationship: core.RelationshipEqual},
+				{Framework: testFrameworkISO27001, FrameworkVersion: "iso27001-2022@1.0.0", ControlID: "A.8.5", Relationship: core.RelationshipSubsetOf},
 			},
 			ResourcesEvaluated: 42,
 			ResourcesFailed:    0,
 			RuleVersion:        "1",
-			ConfiguredCadence:  "daily",
+			ConfiguredCadence:  testCadenceDaily,
 			NextDueAt:          nextDue,
 			PolicyContentHash:  "sha256:1111111111111111111111111111111111111111111111111111111111111111",
 		},
@@ -96,11 +96,11 @@ func goldenPayload() core.SubmissionPayload {
 			Status:             core.StatusFail,
 			Severity:           core.SeverityCritical,
 			Category:           "logging",
-			Controls:           []core.ControlRef{{Framework: "soc2", FrameworkVersion: "soc2-2017@1.0.0", ControlID: "CC7.2", Relationship: core.RelationshipEqual}},
+			Controls:           []core.ControlRef{{Framework: testFrameworkSOC2, FrameworkVersion: testFrameworkVersionSOC2, ControlID: "CC7.2", Relationship: core.RelationshipEqual}},
 			ResourcesEvaluated: 10,
 			ResourcesFailed:    3,
 			RuleVersion:        "2",
-			ConfiguredCadence:  "daily",
+			ConfiguredCadence:  testCadenceDaily,
 		},
 		{
 			PolicyID:          "soc2.cc6.6.firewall_rules",
@@ -108,7 +108,7 @@ func goldenPayload() core.SubmissionPayload {
 			Status:            core.StatusSkip,
 			Severity:          core.SeverityMedium,
 			Category:          "network",
-			Controls:          []core.ControlRef{{Framework: "soc2", ControlID: "CC6.6"}},
+			Controls:          []core.ControlRef{{Framework: testFrameworkSOC2, ControlID: "CC6.6"}},
 			ConfiguredCadence: "weekly",
 		},
 		{
@@ -117,8 +117,8 @@ func goldenPayload() core.SubmissionPayload {
 			Status:            core.StatusError,
 			Severity:          core.SeverityHigh,
 			Category:          "change_management",
-			Controls:          []core.ControlRef{{Framework: "soc2", ControlID: "CC8.1"}},
-			ConfiguredCadence: "daily",
+			Controls:          []core.ControlRef{{Framework: testFrameworkSOC2, ControlID: "CC8.1"}},
+			ConfiguredCadence: testCadenceDaily,
 		},
 		{
 			PolicyID:     "iso27001.a8.physical_media",
@@ -127,7 +127,7 @@ func goldenPayload() core.SubmissionPayload {
 			Severity:     core.SeverityLow,
 			Category:     "physical_security",
 			Controls: []core.ControlRef{
-				{Framework: "iso27001", FrameworkVersion: "iso27001-2022@1.0.0", ControlID: "A.7.10", Relationship: core.RelationshipIntersects},
+				{Framework: testFrameworkISO27001, FrameworkVersion: "iso27001-2022@1.0.0", ControlID: "A.7.10", Relationship: core.RelationshipIntersects},
 			},
 		},
 		{
@@ -136,7 +136,7 @@ func goldenPayload() core.SubmissionPayload {
 			Status:             core.StatusWaived,
 			Severity:           core.SeverityMedium,
 			Category:           "hr",
-			Controls:           []core.ControlRef{{Framework: "soc2", ControlID: "CC1.4", Relationship: core.RelationshipSupersetOf}},
+			Controls:           []core.ControlRef{{Framework: testFrameworkSOC2, ControlID: "CC1.4", Relationship: core.RelationshipSupersetOf}},
 			ResourcesEvaluated: 5,
 			ResourcesFailed:    1,
 		},
@@ -149,7 +149,7 @@ func goldenPayload() core.SubmissionPayload {
 			Status:                 core.StatusCarriedForward,
 			Severity:               core.SeverityHigh,
 			Category:               "access_control",
-			Controls:               []core.ControlRef{{Framework: "soc2", ControlID: "CC6.1"}},
+			Controls:               []core.ControlRef{{Framework: testFrameworkSOC2, ControlID: "CC6.1"}},
 			ConfiguredCadence:      "quarterly",
 			PolicyContentHash:      "sha256:2222222222222222222222222222222222222222222222222222222222222222",
 			// NextDueAt intentionally zero — must be omitted from the wire.

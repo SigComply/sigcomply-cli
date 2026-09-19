@@ -16,13 +16,15 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	armmysql "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/mysql/armmysqlflexibleservers"
+	armmysql "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/mysql/armmysqlflexibleservers/v2"
 	armpg "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/postgresql/armpostgresqlflexibleservers/v5"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/sql/armsql"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
+
+const publicNetworkAccessEnabled = "Enabled"
 
 var fixedNow = time.Date(2026, 6, 17, 12, 0, 0, 0, time.UTC)
 
@@ -207,7 +209,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 	wantMySQL := instancePayload{
 		ID:                  *mysqlServerID(),
 		Name:                "mysqlsrv",
-		Provider:            "azure",
+		Provider:            providerAzure,
 		Engine:              "mysql",
 		EngineVersion:       "8.0.21",
 		StorageEncrypted:    true,
@@ -216,13 +218,13 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 		MultiAZ:             false,
 		DeletionProtection:  false,
 		Location:            "centralus",
-		PublicNetworkAccess: "Enabled",
+		PublicNetworkAccess: publicNetworkAccessEnabled,
 		BackupRetentionDays: 7,
 	}
 	wantPG := instancePayload{
 		ID:                  *pgServerID("sub-1", "rg-pg", "pgsrv"),
 		Name:                "pgsrv",
-		Provider:            "azure",
+		Provider:            providerAzure,
 		Engine:              "postgres",
 		EngineVersion:       "16",
 		StorageEncrypted:    true,
@@ -238,7 +240,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 	wantSQL := instancePayload{
 		ID:                  *sqlDatabaseID("sub-1", "rg-sql", "sqlsrv", "appdb"),
 		Name:                "sqlsrv/appdb",
-		Provider:            "azure",
+		Provider:            providerAzure,
 		Engine:              "sqlserver",
 		EngineVersion:       "12.0",
 		StorageEncrypted:    true,
@@ -249,7 +251,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 		DeletionProtection:  false,
 		Location:            "eastus",
 		State:               "Ready",
-		PublicNetworkAccess: "Enabled",
+		PublicNetworkAccess: publicNetworkAccessEnabled,
 		MinimumTLSVersion:   "1.2",
 	}
 	assertPayload(t, recs[0].Payload, &wantMySQL)
@@ -377,7 +379,7 @@ func TestSQLPublicAccess_Table(t *testing.T) {
 	}{
 		{"nil-server", nil, false, ""},
 		{"nil-props", &armsql.Server{}, false, ""},
-		{"enabled", &armsql.Server{Properties: &armsql.ServerProperties{PublicNetworkAccess: to.Ptr(armsql.ServerNetworkAccessFlagEnabled)}}, true, "Enabled"},
+		{"enabled", &armsql.Server{Properties: &armsql.ServerProperties{PublicNetworkAccess: to.Ptr(armsql.ServerNetworkAccessFlagEnabled)}}, true, publicNetworkAccessEnabled},
 		{"disabled", &armsql.Server{Properties: &armsql.ServerProperties{PublicNetworkAccess: to.Ptr(armsql.ServerNetworkAccessFlagDisabled)}}, false, "Disabled"},
 	}
 	for _, c := range cases {

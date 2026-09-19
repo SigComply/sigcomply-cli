@@ -8,6 +8,13 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
+// testSourceAWSIAM is the stand-in source key used across the external
+// spec_test package fixtures.
+const (
+	testSourceAWSIAM = "aws.iam"
+	testSourceGitHub = "github"
+)
+
 func loadRoster(t *testing.T, body string) (*spec.RosterConfig, error) {
 	t.Helper()
 	cfg, err := spec.LoadProjectConfig([]byte(scopeBase + body))
@@ -52,15 +59,15 @@ func TestLoadRosterConfig_Full(t *testing.T) {
 		t.Errorf("Source = %q; want okta", rc.Source)
 	}
 	wantAliases := map[string]map[string]string{
-		"github":  {"jdoe": "jane@acme.com", "1234": "numeric@acme.com"},
-		"aws.iam": {"jane.doe": "jane@acme.com"},
+		testSourceGitHub: {"jdoe": "jane@acme.com", "1234": "numeric@acme.com"},
+		testSourceAWSIAM: {"jane.doe": "jane@acme.com"},
 	}
 	if !reflect.DeepEqual(rc.Aliases, wantAliases) {
 		t.Errorf("Aliases = %v; want %v", rc.Aliases, wantAliases)
 	}
 	wantNonHuman := map[string][]string{
-		"github":  {"acme-ci-bot", "deploy"},
-		"aws.iam": {"terraform-deployer"},
+		testSourceGitHub: {"acme-ci-bot", "deploy"},
+		testSourceAWSIAM: {"terraform-deployer"},
 	}
 	if !reflect.DeepEqual(rc.NonHuman, wantNonHuman) {
 		t.Errorf("NonHuman = %v; want %v (lowercased, de-duplicated, sorted)", rc.NonHuman, wantNonHuman)

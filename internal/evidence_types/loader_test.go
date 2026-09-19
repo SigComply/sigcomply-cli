@@ -7,12 +7,17 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 )
 
+const (
+	testTypeDirectoryUser = "directory_user"
+	testFieldSeverity     = "severity"
+)
+
 func TestRegister_LoadsEmbeddedSchemas(t *testing.T) {
 	set := registry.NewSet()
 	if err := Register(set); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
-	for _, want := range []string{"directory_user", "signed_document", "object_storage_bucket", "okta_app"} {
+	for _, want := range []string{testTypeDirectoryUser, "signed_document", "object_storage_bucket", "okta_app"} {
 		if _, ok := set.EvidenceTypes.Lookup(want); !ok {
 			t.Errorf("expected %s in EvidenceTypes registry", want)
 		}
@@ -30,7 +35,7 @@ func TestValidate_HappyPath(t *testing.T) {
 	if err := Register(set); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
-	et, ok := set.EvidenceTypes.Lookup("directory_user")
+	et, ok := set.EvidenceTypes.Lookup(testTypeDirectoryUser)
 	if !ok {
 		t.Fatal("directory_user missing")
 	}
@@ -45,7 +50,7 @@ func TestValidate_RejectsMissingRequired(t *testing.T) {
 	if err := Register(set); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
-	et, _ := set.EvidenceTypes.Lookup("directory_user")
+	et, _ := set.EvidenceTypes.Lookup(testTypeDirectoryUser)
 	payload := json.RawMessage(`{"id":"u-1"}`) // missing mfa_enabled
 	err := Validate(et.Schema, payload)
 	if err == nil {
@@ -58,7 +63,7 @@ func TestValidate_RejectsWrongFieldType(t *testing.T) {
 	if err := Register(set); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
-	et, _ := set.EvidenceTypes.Lookup("directory_user")
+	et, _ := set.EvidenceTypes.Lookup(testTypeDirectoryUser)
 	payload := json.RawMessage(`{"id":"u-1","mfa_enabled":"yes"}`) // string, not bool
 	err := Validate(et.Schema, payload)
 	if err == nil {
@@ -71,7 +76,7 @@ func TestValidate_AllowsExtraFields(t *testing.T) {
 	if err := Register(set); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
-	et, _ := set.EvidenceTypes.Lookup("directory_user")
+	et, _ := set.EvidenceTypes.Lookup(testTypeDirectoryUser)
 	payload := json.RawMessage(`{"id":"u-1","mfa_enabled":true,"unknown_field":42}`)
 	if err := Validate(et.Schema, payload); err != nil {
 		t.Errorf("additional properties should be allowed; got %v", err)
@@ -83,7 +88,7 @@ func TestValidate_RejectsNonObjectPayload(t *testing.T) {
 	if err := Register(set); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
-	et, _ := set.EvidenceTypes.Lookup("directory_user")
+	et, _ := set.EvidenceTypes.Lookup(testTypeDirectoryUser)
 	err := Validate(et.Schema, json.RawMessage(`[1,2,3]`))
 	if err == nil {
 		t.Fatal("expected error for non-object payload")

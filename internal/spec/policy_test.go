@@ -172,7 +172,7 @@ func TestLoadPolicy_RejectsInvalid(t *testing.T) {
 		{"policy/invalid_missing_rule.yaml", "rule"},
 		{"policy/invalid_missing_evidence_mode.yaml", "evidence_mode"},
 		{"policy/invalid_manual_with_slots.yaml", "slots"},
-		{"policy/invalid_manual_missing_catalog_entry.yaml", "catalog_entry"},
+		{"policy/invalid_manual_missing_catalog_entry.yaml", testFieldCatalogEntry},
 		{"policy/invalid_bad_cadence.yaml", "cadence"},
 		{"policy/invalid_bad_severity.yaml", "severity"},
 		{"policy/invalid_bad_cardinality.yaml", "cardinality"},

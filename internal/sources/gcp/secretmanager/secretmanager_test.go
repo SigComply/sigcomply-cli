@@ -17,6 +17,14 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testSecretAPIKeyName  = "projects/p/secrets/api-key"
+	testSecretDBPassName  = "projects/p/secrets/db-pass"
+	testSecretXName       = "projects/p/secrets/x"
+	testVersionCreateTime = "2026-01-01T00:00:00Z"
+)
+
 // fakeAPI drives the plugin without hitting GCP. It records the project
 // argument and call counts to assert plumbing and the KISS-no-DRY axiom.
 type fakeAPI struct {
@@ -87,11 +95,11 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	fake := &fakeAPI{
 		secrets: []*secretmanager.Secret{
 			{ // never rotated, Google-managed encryption, no rotation policy.
-				Name:        "projects/p/secrets/api-key",
+				Name:        testSecretAPIKeyName,
 				Replication: &secretmanager.Replication{Automatic: &secretmanager.Automatic{}},
 			},
 			{ // rotation policy + automatic CMEK + two versions.
-				Name:     "projects/p/secrets/db-pass",
+				Name:     testSecretDBPassName,
 				Rotation: &secretmanager.Rotation{NextRotationTime: "2026-09-01T00:00:00Z"},
 				Replication: &secretmanager.Replication{Automatic: &secretmanager.Automatic{
 					CustomerManagedEncryption: &secretmanager.CustomerManagedEncryption{
@@ -101,10 +109,10 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 			},
 		},
 		versions: map[string][]*secretmanager.SecretVersion{
-			"projects/p/secrets/api-key": {
-				{Name: "projects/p/secrets/api-key/versions/1", CreateTime: "2026-01-01T00:00:00Z"},
+			testSecretAPIKeyName: {
+				{Name: "projects/p/secrets/api-key/versions/1", CreateTime: testVersionCreateTime},
 			},
-			"projects/p/secrets/db-pass": {
+			testSecretDBPassName: {
 				{Name: "projects/p/secrets/db-pass/versions/2", CreateTime: "2026-06-06T00:00:00Z"},
 				{Name: "projects/p/secrets/db-pass/versions/1", CreateTime: "2026-03-01T00:00:00Z"},
 			},
@@ -124,7 +132,7 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 		t.Fatalf("len = %d; want 2", len(records))
 	}
 	// Sorted by ID (full resource name): "...api-key" before "...db-pass".
-	if records[0].ID != "projects/p/secrets/api-key" || records[1].ID != "projects/p/secrets/db-pass" {
+	if records[0].ID != testSecretAPIKeyName || records[1].ID != testSecretDBPassName {
 		t.Fatalf("IDs = %q,%q; want api-key before db-pass", records[0].ID, records[1].ID)
 	}
 	for i := range records {
@@ -140,7 +148,7 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	}
 
 	wantAPIKey := secretPayload{
-		ID: "projects/p/secrets/api-key", Name: "api-key", Provider: "gcp",
+		ID: testSecretAPIKeyName, Name: "api-key", Provider: "gcp",
 		RotationEnabled: false, KMSEncrypted: false, NeverRotated: true,
 		LastRotatedDays: nil, VersionCount: 1,
 	}
@@ -149,7 +157,7 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	}
 
 	wantDBPass := secretPayload{
-		ID: "projects/p/secrets/db-pass", Name: "db-pass", Provider: "gcp",
+		ID: testSecretDBPassName, Name: "db-pass", Provider: "gcp",
 		RotationEnabled: true, KMSEncrypted: true, NeverRotated: false,
 		LastRotatedDays: ptr(10), VersionCount: 2, // newest version 2026-06-06 → 10 days before 06-16
 	}
@@ -186,7 +194,7 @@ func TestCollect_NilSecretSkipped(t *testing.T) {
 	fake := &fakeAPI{
 		secrets: []*secretmanager.Secret{nil, {Name: "projects/p/secrets/real"}},
 		versions: map[string][]*secretmanager.SecretVersion{
-			"projects/p/secrets/real": {{Name: "projects/p/secrets/real/versions/1", CreateTime: "2026-01-01T00:00:00Z"}},
+			"projects/p/secrets/real": {{Name: "projects/p/secrets/real/versions/1", CreateTime: testVersionCreateTime}},
 		},
 	}
 	p := New(Options{API: fake})
@@ -219,7 +227,7 @@ func TestCollect_PropagatesListError(t *testing.T) {
 func TestCollect_PropagatesVersionsError(t *testing.T) {
 	wantErr := errors.New("versions boom")
 	fake := &fakeAPI{
-		secrets: []*secretmanager.Secret{{Name: "projects/p/secrets/x"}},
+		secrets: []*secretmanager.Secret{{Name: testSecretXName}},
 		verErr:  wantErr,
 	}
 	p := New(Options{API: fake})
@@ -231,9 +239,9 @@ func TestCollect_PropagatesVersionsError(t *testing.T) {
 
 func TestCollect_KISS_NoDRY_EachCallReFetches(t *testing.T) {
 	fake := &fakeAPI{
-		secrets: []*secretmanager.Secret{{Name: "projects/p/secrets/x"}},
+		secrets: []*secretmanager.Secret{{Name: testSecretXName}},
 		versions: map[string][]*secretmanager.SecretVersion{
-			"projects/p/secrets/x": {{Name: "projects/p/secrets/x/versions/1", CreateTime: "2026-01-01T00:00:00Z"}},
+			testSecretXName: {{Name: "projects/p/secrets/x/versions/1", CreateTime: testVersionCreateTime}},
 		},
 	}
 	p := New(Options{API: fake})
@@ -251,7 +259,7 @@ func TestCollect_KISS_NoDRY_EachCallReFetches(t *testing.T) {
 // an httptest server, verifying it lists secrets and per-secret versions.
 func TestRealSM_ListSecretsAndVersions(t *testing.T) {
 	secrets := mustMarshal(t, secretmanager.ListSecretsResponse{
-		Secrets: []*secretmanager.Secret{{Name: "projects/p/secrets/x"}},
+		Secrets: []*secretmanager.Secret{{Name: testSecretXName}},
 	})
 	versions := mustMarshal(t, secretmanager.ListSecretVersionsResponse{
 		Versions: []*secretmanager.SecretVersion{
@@ -283,7 +291,7 @@ func TestRealSM_ListSecretsAndVersions(t *testing.T) {
 	if len(gotSecrets) != 1 {
 		t.Fatalf("len secrets = %d; want 1", len(gotSecrets))
 	}
-	gotVersions, err := r.ListSecretVersions(context.Background(), "projects/p/secrets/x")
+	gotVersions, err := r.ListSecretVersions(context.Background(), testSecretXName)
 	if err != nil {
 		t.Fatalf("ListSecretVersions: %v", err)
 	}

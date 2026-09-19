@@ -38,7 +38,7 @@ func TestValidate_EnforcesDraft07Constraints(t *testing.T) {
 		{
 			name:    "enum violation",
 			payload: `{"id":"a","severity":"CRITICAL","score":7,"owner":{"email":"x@y.z"},"tags":[]}`,
-			wantErr: "severity",
+			wantErr: testFieldSeverity,
 		},
 		{
 			name:    "minimum violation",

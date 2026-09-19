@@ -10,7 +10,7 @@ interactions:
         host: management.azure.com
         form:
             api-version:
-                - "2025-04-01"
+                - "2026-04-01"
             statusOnly:
                 - "true"
         headers:
@@ -20,7 +20,7 @@ interactions:
                 - REDACTED
             User-Agent:
                 - azsdk-go-armcompute/v7.3.0 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/virtualMachines?api-version=2025-04-01&statusOnly=true
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Compute/virtualMachines?api-version=2026-04-01&statusOnly=true
         method: GET
       response:
         proto: HTTP/2.0

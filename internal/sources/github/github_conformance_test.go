@@ -102,14 +102,14 @@ func TestGitHubConformance(t *testing.T) {
 	// Branch-protection present: e2e-protected has a protection rule with one
 	// required reviewer and Dependabot alerts on (204 probe).
 	assertRepo(t, repos, repoProtected, repoPayload{
-		Name: repoProtected, DefaultBranch: "main",
+		Name: repoProtected, DefaultBranch: testBranchMain,
 		DefaultBranchProtected: true, RequiredReviewersCount: 1,
 		DependabotAlertsEnabled: true, IsPrivate: false,
 	})
 	// Branch-protection absent: e2e-unprotected (private repo, protection
 	// endpoint denied) has no protection and Dependabot alerts off (404 probe).
 	assertRepo(t, repos, repoUnprotected, repoPayload{
-		Name: repoUnprotected, DefaultBranch: "main",
+		Name: repoUnprotected, DefaultBranch: testBranchMain,
 		DefaultBranchProtected: false, RequiredReviewersCount: 0,
 		DependabotAlertsEnabled: false, IsPrivate: true,
 	})
@@ -192,33 +192,33 @@ func TestGitHubPeriodTypesConformance(t *testing.T) {
 		pulls: []PullRequest{
 			{
 				Repository: cassetteOrg + "/" + repoProtected, Number: 42,
-				Author: cassetteAdmin, MergedBy: "e2e-reviewer", TargetBranch: "main",
+				Author: cassetteAdmin, MergedBy: "e2e-reviewer", TargetBranch: testBranchMain,
 				MergeCommitSHA: "e2e00000000000000000000000000000000000ab", MergedAt: merged,
 				Reviews: []Review{
-					{User: "e2e-reviewer", State: "APPROVED", SubmittedAt: merged.Add(-time.Hour)},
+					{User: "e2e-reviewer", State: testReviewApproved, SubmittedAt: merged.Add(-time.Hour)},
 				},
-				CheckRuns: []CheckRun{{Status: "completed", Conclusion: "success"}},
+				CheckRuns: []CheckRun{{Status: testCheckCompleted, Conclusion: deploymentStatusSuccess}},
 			},
 			{
 				// Self-approved, no CI: the failing side of both derived booleans.
 				Repository: cassetteOrg + "/" + repoUnprotected, Number: 7,
-				Author: cassetteAdmin, TargetBranch: "main", MergedAt: merged.Add(24 * time.Hour),
+				Author: cassetteAdmin, TargetBranch: testBranchMain, MergedAt: merged.Add(24 * time.Hour),
 				Reviews: []Review{
-					{User: cassetteAdmin, State: "APPROVED", SubmittedAt: merged},
+					{User: cassetteAdmin, State: testReviewApproved, SubmittedAt: merged},
 				},
 			},
 		},
 		deployments: []Deployment{
 			{
 				Repository: cassetteOrg + "/" + repoProtected, ID: "900",
-				SHA: "e2e00000000000000000000000000000000000ab", Environment: "production",
+				SHA: "e2e00000000000000000000000000000000000ab", Environment: testEnvProduction,
 				ProductionEnvironment: true, Creator: cassetteAdmin,
-				CreatedAt: deployed, State: "success",
+				CreatedAt: deployed, State: deploymentStatusSuccess,
 			},
 			{
 				// No creator, no statuses: empty deployed_by and "unknown" status.
 				Repository: cassetteOrg + "/" + repoUnprotected, ID: "12",
-				Environment: "staging", CreatedAt: deployed.Add(time.Hour),
+				Environment: testEnvStaging, CreatedAt: deployed.Add(time.Hour),
 			},
 		},
 	}
@@ -272,11 +272,11 @@ func TestGitHubPeriodTypesConformance(t *testing.T) {
 		deploys[r.ID] = d
 	}
 	prod := deploys[cassetteOrg+"/"+repoProtected+"/deployments/900"]
-	if !prod.IsProduction || prod.Status != "success" {
+	if !prod.IsProduction || prod.Status != deploymentStatusSuccess {
 		t.Errorf("production deployment = %+v", prod)
 	}
 	staging := deploys[cassetteOrg+"/"+repoUnprotected+"/deployments/12"]
-	if staging.IsProduction || staging.Status != "unknown" || staging.DeployedBy != "" {
+	if staging.IsProduction || staging.Status != deploymentStatusUnknown || staging.DeployedBy != "" {
 		t.Errorf("staging deployment = %+v", staging)
 	}
 }

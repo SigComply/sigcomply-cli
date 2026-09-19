@@ -9,6 +9,9 @@ import (
 
 // miniSpec is a minimal self-contained OpenAPI 3.0 doc: one component with a
 // required integer and a nullable string, enough to exercise the validator.
+// specComponent is the one component name declared by miniSpec below.
+const specComponent = "widget"
+
 const miniSpec = `{
   "openapi": "3.0.3",
   "info": {"title": "t", "version": "1"},
@@ -54,10 +57,10 @@ func TestSpecValidatorCheck(t *testing.T) {
 		body      string
 		wantErr   bool
 	}{
-		{"valid", "widget", `{"id": 1, "name": "w"}`, false},
-		{"nullable field null", "widget", `{"id": 2, "name": null}`, false},
-		{"missing required", "widget", `{"name": "w"}`, true},
-		{"wrong type", "widget", `{"id": "nope"}`, true},
+		{"valid", specComponent, `{"id": 1, "name": "w"}`, false},
+		{"nullable field null", specComponent, `{"id": 2, "name": null}`, false},
+		{"missing required", specComponent, `{"name": "w"}`, true},
+		{"wrong type", specComponent, `{"id": "nope"}`, true},
 		{"unknown component", "gadget", `{"id": 1}`, true},
 	}
 	for _, tc := range cases {
@@ -73,13 +76,13 @@ func TestSpecValidatorCheck(t *testing.T) {
 func TestSpecValidatorCheckArray(t *testing.T) {
 	v := NewSpecValidator(t, writeSpec(t))
 
-	if err := v.CheckArray("widget", jsonValue(t, `[{"id": 1}, {"id": 2}]`)); err != nil {
+	if err := v.CheckArray(specComponent, jsonValue(t, `[{"id": 1}, {"id": 2}]`)); err != nil {
 		t.Errorf("valid array should pass, got %v", err)
 	}
-	if err := v.CheckArray("widget", jsonValue(t, `[{"id": 1}, {"name": "x"}]`)); err == nil {
+	if err := v.CheckArray(specComponent, jsonValue(t, `[{"id": 1}, {"name": "x"}]`)); err == nil {
 		t.Error("array with an off-spec element should fail")
 	}
-	if err := v.CheckArray("widget", jsonValue(t, `{"id": 1}`)); err == nil {
+	if err := v.CheckArray(specComponent, jsonValue(t, `{"id": 1}`)); err == nil {
 		t.Error("non-array value should fail CheckArray")
 	}
 }

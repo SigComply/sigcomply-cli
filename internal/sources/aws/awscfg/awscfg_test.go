@@ -8,6 +8,9 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
 
+// testRegion is the AWS region used by this file's fixtures.
+const testRegion = "us-east-1"
+
 func TestFromEnv(t *testing.T) {
 	got := FromEnv(sources.Env{Config: map[string]any{
 		"region":            "us-west-2",
@@ -51,9 +54,9 @@ func TestCacheKeyDistinguishesInstances(t *testing.T) {
 	Reset()
 	t.Cleanup(Reset)
 
-	a := Options{Region: "us-east-1", RoleARN: "arn:aws:iam::000000000000:role/A"}
-	b := Options{Region: "us-east-1", RoleARN: "arn:aws:iam::000000000000:role/B"}
-	sameAsA := Options{Region: "us-east-1", RoleARN: "arn:aws:iam::000000000000:role/A"}
+	a := Options{Region: testRegion, RoleARN: "arn:aws:iam::000000000000:role/A"}
+	b := Options{Region: testRegion, RoleARN: "arn:aws:iam::000000000000:role/B"}
+	sameAsA := Options{Region: testRegion, RoleARN: "arn:aws:iam::000000000000:role/A"}
 
 	// Exercise the real cache map rather than comparing literals: what
 	// matters is whether one instance can read another's entry.

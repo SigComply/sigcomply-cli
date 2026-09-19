@@ -16,7 +16,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	armpolicy "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy"
+	armpolicy "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armpolicy/v2"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
@@ -64,8 +64,11 @@ func assignment(name, scope string, mode *armpolicy.EnforcementMode) *armpolicy.
 }
 
 const (
+	subID    = "sub-1"
 	subScope = "/subscriptions/sub-1"
 	rgScope  = "/subscriptions/sub-1/resourceGroups/rg1"
+
+	changeTrackingID = "subscriptions/sub-1/configChangeTracking"
 )
 
 func TestIDAndEmits(t *testing.T) {
@@ -95,7 +98,7 @@ func TestCollect_MapsFullPayload(t *testing.T) {
 		assignment("rg-audit", rgScope, donot),       // rg-scoped, audit-only
 		assignment("sub-default", subScope+"/", nil), // subscription-scoped (trailing slash), nil mode → enforced
 	}}
-	p := New(Options{API: f, SubscriptionID: "sub-1", Now: func() time.Time { return fixedNow }})
+	p := New(Options{API: f, SubscriptionID: subID, Now: func() time.Time { return fixedNow }})
 
 	recs, err := p.Collect(context.Background(), req())
 	if err != nil {
@@ -108,21 +111,21 @@ func TestCollect_MapsFullPayload(t *testing.T) {
 	if r.Type != EvidenceTypeID || r.SourceID != SourceID || !r.CollectedAt.Equal(fixedNow) {
 		t.Errorf("record Type/SourceID/CollectedAt = %s/%s/%v", r.Type, r.SourceID, r.CollectedAt)
 	}
-	if r.Scope == nil || r.Scope.Account != "sub-1" {
+	if r.Scope == nil || r.Scope.Account != subID {
 		t.Errorf("scope = %+v, want Account=sub-1", r.Scope)
 	}
 	if r.IdentityKey != "" {
 		t.Errorf("unexpected IdentityKey %q", r.IdentityKey)
 	}
-	if r.ID != "subscriptions/sub-1/configChangeTracking" {
+	if r.ID != changeTrackingID {
 		t.Errorf("ID = %q", r.ID)
 	}
 
 	var got trackingPayload
 	mustUnmarshal(t, r.Payload, &got)
 	want := trackingPayload{
-		ID:                      "subscriptions/sub-1/configChangeTracking",
-		Name:                    "sub-1",
+		ID:                      changeTrackingID,
+		Name:                    subID,
 		Provider:                "azure",
 		IsRecording:             true,
 		AllResourceTypes:        true,
@@ -137,7 +140,7 @@ func TestCollect_MapsFullPayload(t *testing.T) {
 
 func TestCollect_NoAssignments(t *testing.T) {
 	f := &fakeAPI{assignments: nil}
-	p := New(Options{API: f, SubscriptionID: "sub-1", Now: func() time.Time { return fixedNow }})
+	p := New(Options{API: f, SubscriptionID: subID, Now: func() time.Time { return fixedNow }})
 	recs, err := p.Collect(context.Background(), req())
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
@@ -145,8 +148,8 @@ func TestCollect_NoAssignments(t *testing.T) {
 	var got trackingPayload
 	mustUnmarshal(t, recs[0].Payload, &got)
 	want := trackingPayload{
-		ID:       "subscriptions/sub-1/configChangeTracking",
-		Name:     "sub-1",
+		ID:       changeTrackingID,
+		Name:     subID,
 		Provider: "azure",
 		// is_recording / all_resource_types honestly false on a fresh subscription.
 	}
@@ -159,7 +162,7 @@ func TestCollect_OnlyRGScoped_AllResourceTypesFalse(t *testing.T) {
 	f := &fakeAPI{assignments: []*armpolicy.Assignment{
 		assignment("rg-only", rgScope, nil),
 	}}
-	recs, err := New(Options{API: f, SubscriptionID: "sub-1"}).Collect(context.Background(), req())
+	recs, err := New(Options{API: f, SubscriptionID: subID}).Collect(context.Background(), req())
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -179,7 +182,7 @@ func TestCollect_NilEntriesSkipped(t *testing.T) {
 		assignment("ok", subScope, nil),
 		nil,
 	}}
-	recs, err := New(Options{API: f, SubscriptionID: "sub-1"}).Collect(context.Background(), req())
+	recs, err := New(Options{API: f, SubscriptionID: subID}).Collect(context.Background(), req())
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -211,7 +214,7 @@ func TestCollect_NoScopeWhenSubscriptionEmpty(t *testing.T) {
 // caching nothing across calls.
 func TestCollect_ReFetch(t *testing.T) {
 	f := &fakeAPI{assignments: []*armpolicy.Assignment{assignment("a", subScope, nil)}}
-	p := New(Options{API: f, SubscriptionID: "sub-1"})
+	p := New(Options{API: f, SubscriptionID: subID})
 	for i := 0; i < 3; i++ {
 		if _, err := p.Collect(context.Background(), req()); err != nil {
 			t.Fatalf("Collect %d: %v", i, err)
@@ -301,7 +304,7 @@ func realPolicyPointedAt(t *testing.T, srv *httptest.Server) *realPolicy {
 		}},
 		Transport: srv.Client(),
 	}}
-	rp, err := newRealPolicy("sub-1", fakeCred{}, opts)
+	rp, err := newRealPolicy(subID, fakeCred{}, opts)
 	if err != nil {
 		t.Fatalf("newRealPolicy: %v", err)
 	}

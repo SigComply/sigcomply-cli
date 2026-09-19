@@ -138,7 +138,7 @@ func TestEvidenceDue_UnknownFrameworkExits3(t *testing.T) {
 
 func TestEvidenceDue_BadOutputFormatExits3(t *testing.T) {
 	_, cfg := writeDueProject(t)
-	_, err := runDue(t, cfg, &evidenceFlags{output: "yaml"}, &evidenceDueFlags{})
+	_, err := runDue(t, cfg, &evidenceFlags{output: formatYAML}, &evidenceDueFlags{})
 	assertExitCode(t, err, orchestrator.ExitConfig)
 }
 

@@ -16,6 +16,11 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testNetworkProd = "prod"
+)
+
 // fakeAPI drives the plugin without hitting GCP. It records call counts to
 // assert plumbing and the KISS-no-DRY axiom.
 type fakeAPI struct {
@@ -93,19 +98,19 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	fake := &fakeAPI{
 		networks: []*gce.Network{
 			{ // custom-mode "prod" VPC, regional routing, one subnet logged one not.
-				Name:          "prod",
+				Name:          testNetworkProd,
 				RoutingConfig: &gce.NetworkRoutingConfig{RoutingMode: "REGIONAL"},
 			},
 			{ // auto-mode default VPC, all subnets logged.
-				Name:                  "default",
+				Name:                  defaultNetworkName,
 				AutoCreateSubnetworks: true,
 				RoutingConfig:         &gce.NetworkRoutingConfig{RoutingMode: "GLOBAL"},
 			},
 		},
 		subnets: []*gce.Subnetwork{
-			subnet("prod", true),
-			subnet("prod", false),
-			subnet("default", true),
+			subnet(testNetworkProd, true),
+			subnet(testNetworkProd, false),
+			subnet(defaultNetworkName, true),
 		},
 	}
 	now := time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC)
@@ -122,7 +127,7 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 		t.Fatalf("len = %d; want 2", len(records))
 	}
 	// Sorted by ID: "default" before "prod".
-	if records[0].ID != "default" || records[1].ID != "prod" {
+	if records[0].ID != defaultNetworkName || records[1].ID != testNetworkProd {
 		t.Fatalf("IDs = %q,%q; want default,prod", records[0].ID, records[1].ID)
 	}
 	for i := range records {
@@ -138,7 +143,7 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	}
 
 	wantDefault := networkPayload{
-		ID: "default", Name: "default", Provider: "gcp",
+		ID: defaultNetworkName, Name: defaultNetworkName, Provider: "gcp",
 		FlowLogsEnabled: true, IsDefault: true,
 		AutoCreateSubnetworks: true, RoutingMode: "GLOBAL", IsLegacy: false, SubnetCount: 1,
 	}
@@ -147,7 +152,7 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 	}
 
 	wantProd := networkPayload{
-		ID: "prod", Name: "prod", Provider: "gcp",
+		ID: testNetworkProd, Name: testNetworkProd, Provider: "gcp",
 		FlowLogsEnabled: false, IsDefault: false,
 		AutoCreateSubnetworks: false, RoutingMode: "REGIONAL", IsLegacy: false, SubnetCount: 2,
 	}
@@ -252,8 +257,8 @@ func TestCollect_KISS_NoDRY_EachCallReFetches(t *testing.T) {
 
 func TestShortName(t *testing.T) {
 	cases := map[string]string{
-		"projects/p/global/networks/default": "default",
-		"default":                            "default",
+		"projects/p/global/networks/default": defaultNetworkName,
+		defaultNetworkName:                   defaultNetworkName,
 		"":                                   "",
 	}
 	for in, want := range cases {

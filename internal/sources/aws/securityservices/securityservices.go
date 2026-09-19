@@ -40,6 +40,9 @@ const (
 // active service.
 const statusEnabled = "ENABLED"
 
+// providerAWS is the cloud-neutral provider tag stamped on every record.
+const providerAWS = "aws"
+
 // Per-service record identifiers and human-readable names.
 const (
 	idMacie       = "aws-macie"
@@ -170,9 +173,9 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	}
 
 	payloads := []servicePayload{
-		{ID: idMacie, Name: nameMacie, Provider: "aws", ServiceType: serviceTypeDLP, IsEnabled: macieEnabled},
-		{ID: idInspector, Name: nameInspector, Provider: "aws", ServiceType: serviceTypeVulnerabilityScanner, IsEnabled: inspectorEnabled},
-		{ID: idSecurityHub, Name: nameSecurityHub, Provider: "aws", ServiceType: serviceTypeSIEM, IsEnabled: securityHubEnabled},
+		{ID: idMacie, Name: nameMacie, Provider: providerAWS, ServiceType: serviceTypeDLP, IsEnabled: macieEnabled},
+		{ID: idInspector, Name: nameInspector, Provider: providerAWS, ServiceType: serviceTypeVulnerabilityScanner, IsEnabled: inspectorEnabled},
+		{ID: idSecurityHub, Name: nameSecurityHub, Provider: providerAWS, ServiceType: serviceTypeSIEM, IsEnabled: securityHubEnabled},
 	}
 
 	now := p.now()

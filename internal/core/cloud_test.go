@@ -89,7 +89,7 @@ func walkType(ty reflect.Type, path string, seen map[reflect.Type]bool) []string
 		return nil
 	}
 	switch ty.Kind() {
-	case reflect.Struct, reflect.Map, reflect.Slice, reflect.Array, reflect.Ptr:
+	case reflect.Struct, reflect.Map, reflect.Slice, reflect.Array, reflect.Pointer:
 		seen[ty] = true
 	}
 
@@ -113,7 +113,7 @@ func walkType(ty reflect.Type, path string, seen map[reflect.Type]bool) []string
 			return out
 		}
 		out = append(out, walkType(ty.Elem(), path+"[*]", seen)...)
-	case reflect.Ptr:
+	case reflect.Pointer:
 		out = append(out, walkType(ty.Elem(), "*"+path, seen)...)
 	default:
 		if !allowedScalarKinds[ty.Kind()] {
@@ -284,7 +284,7 @@ func TestSubmissionPayload_NoViolationsSlice(t *testing.T) {
 			return
 		}
 		switch ty.Kind() {
-		case reflect.Struct, reflect.Map, reflect.Slice, reflect.Array, reflect.Ptr:
+		case reflect.Struct, reflect.Map, reflect.Slice, reflect.Array, reflect.Pointer:
 			seen[ty] = true
 		}
 		switch ty.Kind() {
@@ -296,7 +296,7 @@ func TestSubmissionPayload_NoViolationsSlice(t *testing.T) {
 				}
 				walk(f.Type)
 			}
-		case reflect.Slice, reflect.Array, reflect.Ptr:
+		case reflect.Slice, reflect.Array, reflect.Pointer:
 			walk(ty.Elem())
 		case reflect.Map:
 			walk(ty.Elem())

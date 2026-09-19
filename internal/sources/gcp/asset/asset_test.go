@@ -18,6 +18,12 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testAssetTypeInstance = "compute.googleapis.com/Instance"
+	testProjectID         = "proj-1"
+)
+
 // fakeAPI drives the plugin without hitting GCP. It records the project
 // argument and call count to assert plumbing and the KISS-no-DRY axiom.
 type fakeAPI struct {
@@ -73,18 +79,18 @@ func TestInit_NoOp(t *testing.T) {
 func TestCollect_Recording(t *testing.T) {
 	fake := &fakeAPI{
 		feeds: []*cloudasset.Feed{
-			{Name: "projects/123/feeds/scoped", AssetTypes: []string{"compute.googleapis.com/Instance"}},
+			{Name: "projects/123/feeds/scoped", AssetTypes: []string{testAssetTypeInstance}},
 			{Name: "projects/123/feeds/all", AssetTypes: []string{".*"}},
 		},
 	}
 	now := time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC)
-	p := New(Options{API: fake, ProjectID: "proj-1", Now: func() time.Time { return now }})
+	p := New(Options{API: fake, ProjectID: testProjectID, Now: func() time.Time { return now }})
 
 	records, err := p.Collect(context.Background(), assetReq())
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
-	if fake.project != "proj-1" {
+	if fake.project != testProjectID {
 		t.Errorf("project = %q; want proj-1", fake.project)
 	}
 	if len(records) != 1 {
@@ -106,7 +112,7 @@ func TestCollect_Recording(t *testing.T) {
 
 	want := trackingPayload{
 		ID:               "projects/proj-1/configChangeTracking",
-		Name:             "proj-1",
+		Name:             testProjectID,
 		Provider:         "gcp",
 		IsRecording:      true,
 		AllResourceTypes: true,
@@ -169,8 +175,8 @@ func TestFeedCoversAllTypes(t *testing.T) {
 		{"dot-star wildcard", &cloudasset.Feed{AssetTypes: []string{".*"}}, true},
 		{"star wildcard", &cloudasset.Feed{AssetTypes: []string{"*"}}, true},
 		{"wildcard with padding", &cloudasset.Feed{AssetTypes: []string{" .* "}}, true},
-		{"specific type only", &cloudasset.Feed{AssetTypes: []string{"compute.googleapis.com/Instance"}}, false},
-		{"mixed specific then wildcard", &cloudasset.Feed{AssetTypes: []string{"compute.googleapis.com/Instance", "*"}}, true},
+		{"specific type only", &cloudasset.Feed{AssetTypes: []string{testAssetTypeInstance}}, false},
+		{"mixed specific then wildcard", &cloudasset.Feed{AssetTypes: []string{testAssetTypeInstance, "*"}}, true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

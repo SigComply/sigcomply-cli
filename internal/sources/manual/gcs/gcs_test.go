@@ -15,6 +15,9 @@ import (
 	gcsreader "github.com/sigcomply/sigcomply-cli/internal/sources/manual/gcs"
 )
 
+// testBucket is the fixture bucket every fake GCS reader is wired with.
+const testBucket = "test-bucket"
+
 type fakeFile struct {
 	data       []byte
 	uploadedAt time.Time
@@ -68,7 +71,7 @@ func TestReader_Get_Success(t *testing.T) {
 		data:       want,
 		uploadedAt: wantTime,
 	}
-	r := &gcsreader.Reader{Client: fake, Bucket: "test-bucket"}
+	r := &gcsreader.Reader{Client: fake, Bucket: testBucket}
 
 	got, gotTime, err := r.Get(context.Background(), "manual/access_review/2026Q1/evidence.pdf")
 	if err != nil {
@@ -84,7 +87,7 @@ func TestReader_Get_Success(t *testing.T) {
 
 func TestReader_Get_NotFound(t *testing.T) {
 	fake := newFakeGCS()
-	r := &gcsreader.Reader{Client: fake, Bucket: "test-bucket"}
+	r := &gcsreader.Reader{Client: fake, Bucket: testBucket}
 
 	_, _, err := r.Get(context.Background(), "manual/missing/2026Q1/evidence.pdf")
 	if err == nil {
@@ -99,7 +102,7 @@ func TestReader_Get_OtherErrorSurfaces(t *testing.T) {
 	sentinel := errors.New("synthetic gcs transport failure")
 	fake := newFakeGCS()
 	fake.err = sentinel
-	r := &gcsreader.Reader{Client: fake, Bucket: "test-bucket"}
+	r := &gcsreader.Reader{Client: fake, Bucket: testBucket}
 
 	_, _, err := r.Get(context.Background(), "manual/whatever/2026Q1/evidence.pdf")
 	if err == nil {
@@ -140,7 +143,7 @@ func TestReader_List_ReturnsMatchingKeys(t *testing.T) {
 	fake.files["manual/ev/2026-Q1/scan.jpg"] = fakeFile{data: []byte("y"), uploadedAt: uploaded}
 	fake.files["manual/ev/2026-Q2/other.pdf"] = fakeFile{data: []byte("z"), uploadedAt: uploaded}
 
-	r := &gcsreader.Reader{Client: fake, Bucket: "test-bucket"}
+	r := &gcsreader.Reader{Client: fake, Bucket: testBucket}
 	items, err := r.List(context.Background(), "manual/ev/2026-Q1/")
 	if err != nil {
 		t.Fatalf("List: %v", err)
@@ -156,7 +159,7 @@ func TestReader_List_ReturnsMatchingKeys(t *testing.T) {
 }
 
 func TestReader_List_Empty(t *testing.T) {
-	r := &gcsreader.Reader{Client: newFakeGCS(), Bucket: "test-bucket"}
+	r := &gcsreader.Reader{Client: newFakeGCS(), Bucket: testBucket}
 	items, err := r.List(context.Background(), "manual/ev/2026-Q1/")
 	if err != nil {
 		t.Fatalf("List: %v", err)
@@ -170,7 +173,7 @@ func TestReader_List_ErrorSurfaces(t *testing.T) {
 	sentinel := errors.New("synthetic list error")
 	fake := newFakeGCS()
 	fake.err = sentinel
-	r := &gcsreader.Reader{Client: fake, Bucket: "test-bucket"}
+	r := &gcsreader.Reader{Client: fake, Bucket: testBucket}
 	_, err := r.List(context.Background(), "manual/ev/2026-Q1/")
 	if err == nil {
 		t.Fatal("List: expected error, got nil")
@@ -236,7 +239,7 @@ func TestReader_Get_ErrorPrefix(t *testing.T) {
 	sentinel := errors.New("synthetic transport error")
 	fake := newFakeGCS()
 	fake.err = sentinel
-	r := &gcsreader.Reader{Client: fake, Bucket: "test-bucket"}
+	r := &gcsreader.Reader{Client: fake, Bucket: testBucket}
 	_, _, err := r.Get(context.Background(), "manual/whatever/2026Q1/evidence.pdf")
 	if err == nil {
 		t.Fatal("Get: expected error, got nil")
@@ -251,7 +254,7 @@ func TestReader_List_ErrorPrefix(t *testing.T) {
 	sentinel := errors.New("synthetic list transport error")
 	fake := newFakeGCS()
 	fake.err = sentinel
-	r := &gcsreader.Reader{Client: fake, Bucket: "test-bucket"}
+	r := &gcsreader.Reader{Client: fake, Bucket: testBucket}
 	_, err := r.List(context.Background(), "manual/ev/2026-Q1/")
 	if err == nil {
 		t.Fatal("List: expected error, got nil")
@@ -267,7 +270,7 @@ func TestReader_List_TimestampPreserved(t *testing.T) {
 	fake := newFakeGCS()
 	fake.files["manual/ev/2026-Q1/report.pdf"] = fakeFile{data: []byte("x"), uploadedAt: want}
 
-	r := &gcsreader.Reader{Client: fake, Bucket: "test-bucket"}
+	r := &gcsreader.Reader{Client: fake, Bucket: testBucket}
 	items, err := r.List(context.Background(), "manual/ev/2026-Q1/")
 	if err != nil {
 		t.Fatalf("List: %v", err)

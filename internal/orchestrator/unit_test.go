@@ -16,6 +16,14 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
+// Repository / environment provider IDs reported by the CI detectors.
+// These name where code is hosted and which CI is running, a different
+// namespace from the source-plugin IDs above.
+const (
+	providerGitHub = "github"
+	providerLocal  = "local"
+)
+
 // inMemVault is a tiny core.Vault used by the unit tests to exercise
 // the recordingVault wrapper without touching the filesystem.
 type inMemVault struct {
@@ -66,13 +74,13 @@ func (v *inMemVault) List(_ context.Context, _ string) ([]string, error) {
 }
 
 func TestBuildRunRoot_FormatsBasicISO8601(t *testing.T) {
-	got := buildRunRoot("soc2", "2026-Q1", time.Date(2026, 2, 15, 14, 0, 0, 0, time.UTC), "a3f8b2c1-9d4e-4b23-8f7a-1e5c2d8a9b0f")
+	got := buildRunRoot(testFramework, testPeriodID, time.Date(2026, 2, 15, 14, 0, 0, 0, time.UTC), "a3f8b2c1-9d4e-4b23-8f7a-1e5c2d8a9b0f")
 	want := "soc2/2026-Q1/run_20260215T140000Z_a3f8b2c1"
 	if got != want {
 		t.Errorf("got %q; want %q", got, want)
 	}
 	// Short run IDs are accepted verbatim.
-	got = buildRunRoot("soc2", "2026-Q1", time.Date(2026, 2, 15, 14, 0, 0, 0, time.UTC), "abc")
+	got = buildRunRoot(testFramework, testPeriodID, time.Date(2026, 2, 15, 14, 0, 0, 0, time.UTC), "abc")
 	if !strings.HasSuffix(got, "_abc") {
 		t.Errorf("short id suffix: %q", got)
 	}
@@ -137,7 +145,7 @@ func TestDetectRepository_PrefersGitHubEnv(t *testing.T) {
 	t.Setenv("GITHUB_REPOSITORY", "acme/infra")
 	t.Setenv("CI_PROJECT_PATH", "")
 	r := detectRepository()
-	if r.Provider != "github" || r.NameSlug != "acme/infra" {
+	if r.Provider != providerGitHub || r.NameSlug != "acme/infra" {
 		t.Errorf("got %+v", r)
 	}
 }
@@ -156,7 +164,7 @@ func TestDetectRepository_LocalDefault(t *testing.T) {
 	t.Setenv("GITHUB_REPOSITORY", "")
 	t.Setenv("CI_PROJECT_PATH", "")
 	r := detectRepository()
-	if r.Provider != "local" {
+	if r.Provider != providerLocal {
 		t.Errorf("got %+v", r)
 	}
 }
@@ -194,7 +202,7 @@ func TestDetectCIEnvironment_LocalDefault(t *testing.T) {
 	t.Setenv("GITHUB_ACTIONS", "")
 	t.Setenv("GITLAB_CI", "")
 	env := detectCIEnvironment()
-	if env.Provider != "local" {
+	if env.Provider != providerLocal {
 		t.Errorf("Provider = %q", env.Provider)
 	}
 }

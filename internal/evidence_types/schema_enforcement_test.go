@@ -78,7 +78,7 @@ func TestValidate_VulnerabilityFinding_EnumEnforced(t *testing.T) {
 		{
 			name:    "invalid_severity_enum",
 			payload: `{"id":"f1","resource_id":"r","resource_type":"EC2","severity":"EXTREME","status":"ACTIVE"}`,
-			wantErr: "severity",
+			wantErr: testFieldSeverity,
 		},
 		{
 			name:    "invalid_status_enum",
@@ -88,7 +88,7 @@ func TestValidate_VulnerabilityFinding_EnumEnforced(t *testing.T) {
 		{
 			name:    "missing_required_severity",
 			payload: `{"id":"f1","resource_id":"r","resource_type":"EC2","status":"ACTIVE"}`,
-			wantErr: "severity",
+			wantErr: testFieldSeverity,
 		},
 	}
 	for _, tc := range cases {

@@ -13,6 +13,17 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual/azureblob"
 )
 
+// Shared literals: the config keys the Azure Blob reader factory reads,
+// and the fixture account/container names the fakes are wired with.
+const (
+	keyAccount   = "account"
+	keyContainer = "container"
+
+	testAccountName     = "acct"
+	testContainerName   = "cnt"
+	testConfigContainer = "mycontainer"
+)
+
 type fakeFile struct {
 	data       []byte
 	uploadedAt time.Time
@@ -62,7 +73,7 @@ func TestReader_Get_Success(t *testing.T) {
 			},
 		},
 	}
-	r := &azureblob.Reader{Client: fake, Account: "acct", Container: "cnt"}
+	r := &azureblob.Reader{Client: fake, Account: testAccountName, Container: testContainerName}
 	data, ts, err := r.Get(context.Background(), "manual/access_review/2026Q1/evidence.pdf")
 	if err != nil {
 		t.Fatalf("Get: %v", err)
@@ -77,7 +88,7 @@ func TestReader_Get_Success(t *testing.T) {
 
 func TestReader_Get_NotFound(t *testing.T) {
 	fake := &fakeAzure{files: map[string]fakeFile{}}
-	r := &azureblob.Reader{Client: fake, Account: "acct", Container: "cnt"}
+	r := &azureblob.Reader{Client: fake, Account: testAccountName, Container: testContainerName}
 	_, _, err := r.Get(context.Background(), "missing/path.pdf")
 	if err == nil {
 		t.Fatal("Get: expected error, got nil")
@@ -90,7 +101,7 @@ func TestReader_Get_NotFound(t *testing.T) {
 func TestReader_Get_OtherErrorSurfaces(t *testing.T) {
 	synthetic := errors.New("synthetic transport failure")
 	fake := &fakeAzure{files: map[string]fakeFile{}, err: synthetic}
-	r := &azureblob.Reader{Client: fake, Account: "acct", Container: "cnt"}
+	r := &azureblob.Reader{Client: fake, Account: testAccountName, Container: testContainerName}
 	_, _, err := r.Get(context.Background(), "any/key.pdf")
 	if err == nil {
 		t.Fatal("Get: expected error, got nil")
@@ -114,11 +125,11 @@ func TestBuild_RejectsMissingAccount(t *testing.T) {
 	if !ok {
 		t.Fatal("azure_blob factory not registered")
 	}
-	_, _, _, _, err := f(map[string]any{"container": "c"})
+	_, _, _, _, err := f(map[string]any{keyContainer: "c"})
 	if err == nil {
 		t.Fatal("build: expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "account") {
+	if !strings.Contains(err.Error(), keyAccount) {
 		t.Errorf("err = %v, want it to mention \"account\"", err)
 	}
 }
@@ -128,11 +139,11 @@ func TestBuild_RejectsMissingContainer(t *testing.T) {
 	if !ok {
 		t.Fatal("azure_blob factory not registered")
 	}
-	_, _, _, _, err := f(map[string]any{"account": "a"})
+	_, _, _, _, err := f(map[string]any{keyAccount: "a"})
 	if err == nil {
 		t.Fatal("build: expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "container") {
+	if !strings.Contains(err.Error(), keyContainer) {
 		t.Errorf("err = %v, want it to mention \"container\"", err)
 	}
 }
@@ -144,7 +155,7 @@ func TestReader_List_ReturnsMatchingKeys(t *testing.T) {
 		"manual/ev/2026-Q1/scan.jpg":   {data: []byte("y"), uploadedAt: uploaded},
 		"manual/ev/2026-Q2/other.pdf":  {data: []byte("z"), uploadedAt: uploaded},
 	}}
-	r := &azureblob.Reader{Client: fake, Account: "acct", Container: "cnt"}
+	r := &azureblob.Reader{Client: fake, Account: testAccountName, Container: testContainerName}
 	items, err := r.List(context.Background(), "manual/ev/2026-Q1/")
 	if err != nil {
 		t.Fatalf("List: %v", err)
@@ -160,7 +171,7 @@ func TestReader_List_ReturnsMatchingKeys(t *testing.T) {
 }
 
 func TestReader_List_Empty(t *testing.T) {
-	r := &azureblob.Reader{Client: &fakeAzure{files: map[string]fakeFile{}}, Account: "acct", Container: "cnt"}
+	r := &azureblob.Reader{Client: &fakeAzure{files: map[string]fakeFile{}}, Account: testAccountName, Container: testContainerName}
 	items, err := r.List(context.Background(), "manual/ev/2026-Q1/")
 	if err != nil {
 		t.Fatalf("List: %v", err)
@@ -173,7 +184,7 @@ func TestReader_List_Empty(t *testing.T) {
 func TestReader_List_ErrorSurfaces(t *testing.T) {
 	sentinel := errors.New("synthetic list error")
 	fake := &fakeAzure{files: map[string]fakeFile{}, err: sentinel}
-	r := &azureblob.Reader{Client: fake, Account: "acct", Container: "cnt"}
+	r := &azureblob.Reader{Client: fake, Account: testAccountName, Container: testContainerName}
 	_, err := r.List(context.Background(), "manual/ev/2026-Q1/")
 	if err == nil {
 		t.Fatal("List: expected error, got nil")
@@ -190,8 +201,8 @@ func TestBuild_DefaultsPrefix(t *testing.T) {
 	}
 	// Azure SDK creates the client without connecting; New() succeeds here.
 	r, scheme, bucket, prefix, err := f(map[string]any{
-		"account":   "myaccount",
-		"container": "mycontainer",
+		keyAccount:   "myaccount",
+		keyContainer: testConfigContainer,
 	})
 	if err != nil {
 		t.Fatalf("build with valid config: %v", err)
@@ -202,7 +213,7 @@ func TestBuild_DefaultsPrefix(t *testing.T) {
 	if scheme != "azure" {
 		t.Errorf("scheme = %q; want azure", scheme)
 	}
-	if bucket != "mycontainer" {
+	if bucket != testConfigContainer {
 		t.Errorf("bucket = %q; want mycontainer (container name)", bucket)
 	}
 	if prefix != "manual/" {
@@ -216,9 +227,9 @@ func TestBuild_ExplicitPrefix(t *testing.T) {
 		t.Fatal("azure_blob factory not registered")
 	}
 	_, _, _, prefix, err := f(map[string]any{
-		"account":   "myaccount",
-		"container": "mycontainer",
-		"prefix":    "evidence/",
+		keyAccount:   "myaccount",
+		keyContainer: testConfigContainer,
+		"prefix":     "evidence/",
 	})
 	if err != nil {
 		t.Fatalf("build with explicit prefix: %v", err)
@@ -238,7 +249,7 @@ func TestBuild_RejectsMissingAccountAndContainer(t *testing.T) {
 	if err == nil {
 		t.Fatal("build with no config: expected error")
 	}
-	if !strings.Contains(err.Error(), "account") || !strings.Contains(err.Error(), "container") {
+	if !strings.Contains(err.Error(), keyAccount) || !strings.Contains(err.Error(), keyContainer) {
 		t.Errorf("error should mention both account and container: %v", err)
 	}
 }
@@ -248,7 +259,7 @@ func TestReader_Get_ErrorPrefix(t *testing.T) {
 	// backend prefix so operators can identify which backend failed.
 	sentinel := errors.New("synthetic azure transport error")
 	fake := &fakeAzure{files: map[string]fakeFile{}, err: sentinel}
-	r := &azureblob.Reader{Client: fake, Account: "acct", Container: "cnt"}
+	r := &azureblob.Reader{Client: fake, Account: testAccountName, Container: testContainerName}
 	_, _, err := r.Get(context.Background(), "manual/ev/2026Q1/evidence.pdf")
 	if err == nil {
 		t.Fatal("Get: expected error, got nil")
@@ -262,7 +273,7 @@ func TestReader_List_ErrorPrefix(t *testing.T) {
 	// Verify that Reader.List wraps errors with the expected backend prefix.
 	sentinel := errors.New("synthetic azure list transport error")
 	fake := &fakeAzure{files: map[string]fakeFile{}, err: sentinel}
-	r := &azureblob.Reader{Client: fake, Account: "acct", Container: "cnt"}
+	r := &azureblob.Reader{Client: fake, Account: testAccountName, Container: testContainerName}
 	_, err := r.List(context.Background(), "manual/ev/2026-Q1/")
 	if err == nil {
 		t.Fatal("List: expected error, got nil")
@@ -278,7 +289,7 @@ func TestReader_List_TimestampPreserved(t *testing.T) {
 	fake := &fakeAzure{files: map[string]fakeFile{
 		"manual/ev/2026-Q1/report.pdf": {data: []byte("x"), uploadedAt: want},
 	}}
-	r := &azureblob.Reader{Client: fake, Account: "acct", Container: "cnt"}
+	r := &azureblob.Reader{Client: fake, Account: testAccountName, Container: testContainerName}
 	items, err := r.List(context.Background(), "manual/ev/2026-Q1/")
 	if err != nil {
 		t.Fatalf("List: %v", err)
@@ -298,7 +309,7 @@ func TestReader_Get_ByteExact(t *testing.T) {
 	fake := &fakeAzure{files: map[string]fakeFile{
 		"manual/ev/2026-Q1/exact.pdf": {data: want, uploadedAt: time.Now()},
 	}}
-	r := &azureblob.Reader{Client: fake, Account: "acct", Container: "cnt"}
+	r := &azureblob.Reader{Client: fake, Account: testAccountName, Container: testContainerName}
 	got, _, err := r.Get(context.Background(), "manual/ev/2026-Q1/exact.pdf")
 	if err != nil {
 		t.Fatalf("Get: %v", err)

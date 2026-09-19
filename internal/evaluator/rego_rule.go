@@ -55,7 +55,7 @@ func (r *RegoRule) Evaluate(ctx context.Context, in core.RuleInput) (core.RuleRe
 		return core.RuleResult{}, fmt.Errorf("evaluator: rule %s: eval: %w", r.idValue, err)
 	}
 	if len(rs) == 0 || len(rs[0].Expressions) == 0 {
-		return core.RuleResult{Status: core.StatusError, Diag: map[string]any{"reason": "rego query produced no result"}}, nil
+		return core.RuleResult{Status: core.StatusError, Diag: map[string]any{diagReason: "rego query produced no result"}}, nil
 	}
 	val := rs[0].Expressions[0].Value
 	return projectRegoResult(val), nil
@@ -78,7 +78,7 @@ func toRegoInput(in core.RuleInput) (any, error) {
 			out = append(out, map[string]any{
 				"id":           rec.ID,
 				"identity_key": rec.IdentityKey,
-				"source_id":    rec.SourceID,
+				fieldSourceID:  rec.SourceID,
 				"payload":      payload,
 			})
 		}
@@ -97,7 +97,7 @@ func projectRegoResult(v any) core.RuleResult {
 	if !ok {
 		return core.RuleResult{
 			Status: core.StatusError,
-			Diag:   map[string]any{"reason": fmt.Sprintf("rego rule returned non-object: %T", v)},
+			Diag:   map[string]any{diagReason: fmt.Sprintf("rego rule returned non-object: %T", v)},
 		}
 	}
 	status, ok := doc["status"].(string)
@@ -115,7 +115,7 @@ func projectRegoResult(v any) core.RuleResult {
 		if s, ok := vm["resource_id"].(string); ok {
 			v.ResourceID = s
 		}
-		if s, ok := vm["reason"].(string); ok {
+		if s, ok := vm[diagReason].(string); ok {
 			v.Reason = s
 		}
 		if d, ok := vm["details"].(map[string]any); ok {

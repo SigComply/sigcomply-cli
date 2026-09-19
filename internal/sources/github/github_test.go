@@ -16,6 +16,36 @@ import (
 
 const testLoginAlice = "alice"
 
+// Fixture identities, repositories and API values shared by the GitHub
+// plugin tests.
+const (
+	testLoginBob   = "bob"
+	testLoginCarol = "carol"
+	testLoginDave  = "dave"
+
+	testOrg     = "acme"
+	testRepoWeb = "acme/web"
+	testRepoAPI = "acme/api"
+
+	testToken      = "tok"
+	testBranchMain = "main"
+	testCommitSHA  = "abc123"
+
+	testRoleAdmin         = "admin"
+	testPermissionRead    = "read"
+	testResourceTypeRepo  = "repository"
+	testAlertStatusActive = "ACTIVE"
+	testCVEID             = "CVE-2020-8203"
+	testSeverityHigh      = "high"
+	testAlertStateOpen    = "open"
+
+	testReviewApproved = "APPROVED"
+	testCheckCompleted = "completed"
+
+	testEnvProduction = "production"
+	testEnvStaging    = "staging"
+)
+
 // fakeAPI drives the plugin without real network calls.
 type fakeAPI struct {
 	repos         []Repo
@@ -104,7 +134,7 @@ func (f *fakeAPI) ListDeployments(_ context.Context, start, end time.Time) ([]De
 }
 
 func TestPlugin_IDAndEmits(t *testing.T) {
-	p := New(Options{API: &fakeAPI{}, Org: "acme"})
+	p := New(Options{API: &fakeAPI{}, Org: testOrg})
 	if p.ID() != SourceID {
 		t.Errorf("ID = %q; want %q", p.ID(), SourceID)
 	}
@@ -117,7 +147,7 @@ func TestPlugin_IDAndEmits(t *testing.T) {
 }
 
 func TestPlugin_InitNoOp(t *testing.T) {
-	p := New(Options{API: &fakeAPI{}, Org: "acme"})
+	p := New(Options{API: &fakeAPI{}, Org: testOrg})
 	if err := p.Init(context.Background(), nil); err != nil {
 		t.Errorf("Init: %v", err)
 	}
@@ -126,12 +156,12 @@ func TestPlugin_InitNoOp(t *testing.T) {
 func TestCollectRepos_HappyPath_SortsByID(t *testing.T) {
 	fake := &fakeAPI{
 		repos: []Repo{
-			{Name: "zeta", DefaultBranch: "main", ProtectionOn: false, RequiredReviews: 0},
-			{Name: "alpha", DefaultBranch: "main", ProtectionOn: true, RequiredReviews: 2},
+			{Name: "zeta", DefaultBranch: testBranchMain, ProtectionOn: false, RequiredReviews: 0},
+			{Name: "alpha", DefaultBranch: testBranchMain, ProtectionOn: true, RequiredReviews: 2},
 		},
 	}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return now }})
+	p := New(Options{API: fake, Org: testOrg, Now: func() time.Time { return now }})
 	records, err := p.Collect(context.Background(),
 		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeRepository}, PolicyID: "p1"})
 	if err != nil {
@@ -166,12 +196,12 @@ func TestCollectRepos_HappyPath_SortsByID(t *testing.T) {
 func TestCollectMembers_HappyPath_SortsByID(t *testing.T) {
 	fake := &fakeAPI{
 		members: []Member{
-			{Login: "bob", TwoFactorOn: false, Role: "member"},
-			{Login: "alice", TwoFactorOn: true, Role: "admin"},
+			{Login: testLoginBob, TwoFactorOn: false, Role: "member"},
+			{Login: testLoginAlice, TwoFactorOn: true, Role: testRoleAdmin},
 		},
 	}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return now }})
+	p := New(Options{API: fake, Org: testOrg, Now: func() time.Time { return now }})
 	records, err := p.Collect(context.Background(),
 		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDirectoryUser}, PolicyID: "p2"})
 	if err != nil {
@@ -180,7 +210,7 @@ func TestCollectMembers_HappyPath_SortsByID(t *testing.T) {
 	if len(records) != 2 {
 		t.Fatalf("len = %d; want 2", len(records))
 	}
-	if records[0].ID != testLoginAlice || records[1].ID != "bob" {
+	if records[0].ID != testLoginAlice || records[1].ID != testLoginBob {
 		t.Errorf("not sorted: %v %v", records[0].ID, records[1].ID)
 	}
 	if records[0].IdentityKey != testLoginAlice {
@@ -203,12 +233,12 @@ func TestCollectMembers_HappyPath_SortsByID(t *testing.T) {
 
 func TestCollectMembers_IncludesOutsideCollaborators(t *testing.T) {
 	fake := &fakeAPI{
-		members: []Member{{Login: "alice", TwoFactorOn: true, Role: "admin"}},
+		members: []Member{{Login: testLoginAlice, TwoFactorOn: true, Role: testRoleAdmin}},
 		collaborators: []Member{
 			{Login: "contractor-carol", TwoFactorOn: false},
 		},
 	}
-	p := New(Options{API: fake, Org: "acme"})
+	p := New(Options{API: fake, Org: testOrg})
 	records, err := p.Collect(context.Background(),
 		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDirectoryUser}})
 	if err != nil {
@@ -225,14 +255,14 @@ func TestCollectMembers_IncludesOutsideCollaborators(t *testing.T) {
 		}
 		byID[r.ID] = m
 	}
-	if byID["alice"].IsExternal {
+	if byID[testLoginAlice].IsExternal {
 		t.Errorf("member alice should not be external")
 	}
-	if !byID["alice"].IsAdmin {
+	if !byID[testLoginAlice].IsAdmin {
 		t.Errorf("member alice should be admin")
 	}
-	if byID["alice"].Username != "alice" {
-		t.Errorf("member alice username = %q; want login alice", byID["alice"].Username)
+	if byID[testLoginAlice].Username != testLoginAlice {
+		t.Errorf("member alice username = %q; want login alice", byID[testLoginAlice].Username)
 	}
 	carol := byID["contractor-carol"]
 	if carol.Username != "contractor-carol" {
@@ -253,7 +283,7 @@ func TestCollectMembers_IncludesOutsideCollaborators(t *testing.T) {
 }
 
 func TestCollectMembers_OutsideCollaboratorErrorPropagates(t *testing.T) {
-	p := New(Options{API: &fakeAPI{collabErr: errors.New("forbidden")}, Org: "acme"})
+	p := New(Options{API: &fakeAPI{collabErr: errors.New("forbidden")}, Org: testOrg})
 	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDirectoryUser}})
 	if err == nil || !strings.Contains(err.Error(), "list outside collaborators") {
 		t.Errorf("want list outside collaborators error; got %v", err)
@@ -263,11 +293,11 @@ func TestCollectMembers_OutsideCollaboratorErrorPropagates(t *testing.T) {
 func TestCollectOrgPolicy_HappyPath(t *testing.T) {
 	fake := &fakeAPI{orgPolicy: OrgPolicy{
 		TwoFactorRequired:      true,
-		DefaultRepoPermission:  "read",
+		DefaultRepoPermission:  testPermissionRead,
 		SecretScanningNewRepos: true,
 	}}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return now }})
+	p := New(Options{API: fake, Org: testOrg, Now: func() time.Time { return now }})
 	records, err := p.Collect(context.Background(),
 		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeOrgPolicy}, PolicyID: "p3"})
 	if err != nil {
@@ -277,15 +307,15 @@ func TestCollectOrgPolicy_HappyPath(t *testing.T) {
 		t.Fatalf("len = %d; want 1 (singleton)", len(records))
 	}
 	r := records[0]
-	if r.ID != "acme" || r.Type != EvidenceTypeOrgPolicy || r.SourceID != SourceID || r.CollectedAt != now {
+	if r.ID != testOrg || r.Type != EvidenceTypeOrgPolicy || r.SourceID != SourceID || r.CollectedAt != now {
 		t.Errorf("record meta = %+v", r)
 	}
 	var op orgPolicyPayload
 	if err := json.Unmarshal(r.Payload, &op); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	if op.ID != "acme" || op.Provider != "github" || !op.TwoFactorRequired ||
-		op.DefaultMemberRepositoryPermission != "read" || !op.SecretScanningEnabledNewRepos {
+	if op.ID != testOrg || op.Provider != "github" || !op.TwoFactorRequired ||
+		op.DefaultMemberRepositoryPermission != testPermissionRead || !op.SecretScanningEnabledNewRepos {
 		t.Errorf("payload = %+v", op)
 	}
 }
@@ -295,7 +325,7 @@ func TestCollectOrgPolicy_HappyPath(t *testing.T) {
 // always be present in the emitted payload.
 func TestCollectOrgPolicy_EmitsRequiredFields(t *testing.T) {
 	fake := &fakeAPI{orgPolicy: OrgPolicy{DefaultRepoPermission: "none"}}
-	p := New(Options{API: fake, Org: "acme"})
+	p := New(Options{API: fake, Org: testOrg})
 	recs, err := p.Collect(context.Background(),
 		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeOrgPolicy}})
 	if err != nil {
@@ -313,7 +343,7 @@ func TestCollectOrgPolicy_EmitsRequiredFields(t *testing.T) {
 }
 
 func TestCollectOrgPolicy_ErrorPropagates(t *testing.T) {
-	p := New(Options{API: &fakeAPI{orgErr: errors.New("forbidden")}, Org: "acme"})
+	p := New(Options{API: &fakeAPI{orgErr: errors.New("forbidden")}, Org: testOrg})
 	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeOrgPolicy}})
 	if err == nil || !strings.Contains(err.Error(), "get org policy") {
 		t.Errorf("want get org policy error; got %v", err)
@@ -322,13 +352,13 @@ func TestCollectOrgPolicy_ErrorPropagates(t *testing.T) {
 
 func TestCollectVulnerabilities_HappyPath_MapsAndSorts(t *testing.T) {
 	fake := &fakeAPI{alerts: []DependabotAlert{
-		{Number: 7, RepoFullName: "acme/web", PackageName: "lodash", Summary: "Prototype pollution",
-			Severity: "high", State: "open", CVEID: "CVE-2020-8203", CVSSScore: 7.4, PatchAvailable: true},
-		{Number: 3, RepoFullName: "acme/api", PackageName: "left-pad", Summary: "ReDoS",
-			Severity: "critical", State: "open"},
+		{Number: 7, RepoFullName: testRepoWeb, PackageName: "lodash", Summary: "Prototype pollution",
+			Severity: testSeverityHigh, State: testAlertStateOpen, CVEID: testCVEID, CVSSScore: 7.4, PatchAvailable: true},
+		{Number: 3, RepoFullName: testRepoAPI, PackageName: "left-pad", Summary: "ReDoS",
+			Severity: "critical", State: testAlertStateOpen},
 	}}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return now }})
+	p := New(Options{API: fake, Org: testOrg, Now: func() time.Time { return now }})
 	records, err := p.Collect(context.Background(),
 		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeVulnerability}})
 	if err != nil {
@@ -347,12 +377,12 @@ func TestCollectVulnerabilities_HappyPath_MapsAndSorts(t *testing.T) {
 	}
 	want := vulnFindingPayload{
 		ID:                   "acme/web/7",
-		ResourceID:           "acme/web",
-		ResourceType:         "repository",
+		ResourceID:           testRepoWeb,
+		ResourceType:         testResourceTypeRepo,
 		Title:                "lodash: Prototype pollution",
 		Severity:             "HIGH",
-		Status:               "ACTIVE",
-		CVEID:                "CVE-2020-8203",
+		Status:               testAlertStatusActive,
+		CVEID:                testCVEID,
 		Score:                7.4,
 		RemediationAvailable: true,
 	}
@@ -366,7 +396,7 @@ func TestCollectVulnerabilities_HappyPath_MapsAndSorts(t *testing.T) {
 
 func TestNormalizeSeverityAndState(t *testing.T) {
 	sev := map[string]string{
-		"critical": "CRITICAL", "high": "HIGH", "medium": "MEDIUM", "moderate": "MEDIUM",
+		"critical": "CRITICAL", testSeverityHigh: "HIGH", "medium": "MEDIUM", "moderate": "MEDIUM",
 		"low": "LOW", "weird": "INFORMATIONAL", "": "INFORMATIONAL",
 	}
 	for in, want := range sev {
@@ -375,8 +405,8 @@ func TestNormalizeSeverityAndState(t *testing.T) {
 		}
 	}
 	state := map[string]string{
-		"open": "ACTIVE", "fixed": "RESOLVED", "dismissed": "SUPPRESSED",
-		"auto_dismissed": "SUPPRESSED", "unknown": "ACTIVE",
+		testAlertStateOpen: testAlertStatusActive, "fixed": "RESOLVED", "dismissed": "SUPPRESSED",
+		"auto_dismissed": "SUPPRESSED", deploymentStatusUnknown: testAlertStatusActive,
 	}
 	for in, want := range state {
 		if got := normalizeAlertState(in); got != want {
@@ -386,8 +416,8 @@ func TestNormalizeSeverityAndState(t *testing.T) {
 }
 
 func TestCollectVulnerabilities_EmitsRequiredFields(t *testing.T) {
-	fake := &fakeAPI{alerts: []DependabotAlert{{Number: 1, RepoFullName: "acme/x", Severity: "low", State: "open"}}}
-	p := New(Options{API: fake, Org: "acme"})
+	fake := &fakeAPI{alerts: []DependabotAlert{{Number: 1, RepoFullName: "acme/x", Severity: "low", State: testAlertStateOpen}}}
+	p := New(Options{API: fake, Org: testOrg})
 	recs, err := p.Collect(context.Background(),
 		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeVulnerability}})
 	if err != nil {
@@ -405,7 +435,7 @@ func TestCollectVulnerabilities_EmitsRequiredFields(t *testing.T) {
 }
 
 func TestCollectVulnerabilities_ErrorPropagates(t *testing.T) {
-	p := New(Options{API: &fakeAPI{alertErr: errors.New("rate limit")}, Org: "acme"})
+	p := New(Options{API: &fakeAPI{alertErr: errors.New("rate limit")}, Org: testOrg})
 	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeVulnerability}})
 	if err == nil || !strings.Contains(err.Error(), "list dependabot alerts") {
 		t.Errorf("want list dependabot alerts error; got %v", err)
@@ -413,7 +443,7 @@ func TestCollectVulnerabilities_ErrorPropagates(t *testing.T) {
 }
 
 func TestCollect_NoData(t *testing.T) {
-	p := New(Options{API: &fakeAPI{}, Org: "acme"})
+	p := New(Options{API: &fakeAPI{}, Org: testOrg})
 	for _, et := range []string{EvidenceTypeRepository, EvidenceTypeDirectoryUser} {
 		recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{et}})
 		if err != nil {
@@ -426,7 +456,7 @@ func TestCollect_NoData(t *testing.T) {
 }
 
 func TestCollect_RejectsUnknownEvidenceType(t *testing.T) {
-	p := New(Options{API: &fakeAPI{}, Org: "acme"})
+	p := New(Options{API: &fakeAPI{}, Org: testOrg})
 	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{"s3_bucket"}})
 	if err == nil || !strings.Contains(err.Error(), "does not include") {
 		t.Errorf("want error; got %v", err)
@@ -434,7 +464,7 @@ func TestCollect_RejectsUnknownEvidenceType(t *testing.T) {
 }
 
 func TestCollectRepos_ErrorPropagates(t *testing.T) {
-	p := New(Options{API: &fakeAPI{repoErr: errors.New("rate limit")}, Org: "acme"})
+	p := New(Options{API: &fakeAPI{repoErr: errors.New("rate limit")}, Org: testOrg})
 	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeRepository}})
 	if err == nil || !strings.Contains(err.Error(), "list repos") {
 		t.Errorf("want list repos error; got %v", err)
@@ -442,7 +472,7 @@ func TestCollectRepos_ErrorPropagates(t *testing.T) {
 }
 
 func TestCollectMembers_ErrorPropagates(t *testing.T) {
-	p := New(Options{API: &fakeAPI{memErr: errors.New("forbidden")}, Org: "acme"})
+	p := New(Options{API: &fakeAPI{memErr: errors.New("forbidden")}, Org: testOrg})
 	_, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDirectoryUser}})
 	if err == nil || !strings.Contains(err.Error(), "list org members") {
 		t.Errorf("want list org members error; got %v", err)
@@ -450,8 +480,8 @@ func TestCollectMembers_ErrorPropagates(t *testing.T) {
 }
 
 func TestCollect_DefaultNowIsInjected(t *testing.T) {
-	fake := &fakeAPI{repos: []Repo{{Name: "r1", DefaultBranch: "main"}}}
-	p := New(Options{API: fake, Org: "acme"})
+	fake := &fakeAPI{repos: []Repo{{Name: "r1", DefaultBranch: testBranchMain}}}
+	p := New(Options{API: fake, Org: testOrg})
 	recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeRepository}})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
@@ -463,10 +493,10 @@ func TestCollect_DefaultNowIsInjected(t *testing.T) {
 
 func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 	fake := &fakeAPI{
-		repos:   []Repo{{Name: "r1", DefaultBranch: "main"}},
-		members: []Member{{Login: "alice", TwoFactorOn: true}},
+		repos:   []Repo{{Name: "r1", DefaultBranch: testBranchMain}},
+		members: []Member{{Login: testLoginAlice, TwoFactorOn: true}},
 	}
-	p := New(Options{API: fake, Org: "acme"})
+	p := New(Options{API: fake, Org: testOrg})
 	for range 3 {
 		if _, err := p.Collect(context.Background(),
 			core.SlotRequest{AcceptedTypes: []string{EvidenceTypeRepository}}); err != nil {
@@ -486,13 +516,13 @@ func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 }
 
 func TestNewFromToken_ValidatesArgs(t *testing.T) {
-	if _, err := NewFromToken(context.Background(), "", "tok"); err == nil {
+	if _, err := NewFromToken(context.Background(), "", testToken); err == nil {
 		t.Error("want error for empty org")
 	}
-	if _, err := NewFromToken(context.Background(), "acme", ""); err == nil {
+	if _, err := NewFromToken(context.Background(), testOrg, ""); err == nil {
 		t.Error("want error for empty token")
 	}
-	p, err := NewFromToken(context.Background(), "acme", "tok")
+	p, err := NewFromToken(context.Background(), testOrg, testToken)
 	if err != nil {
 		t.Fatalf("NewFromToken: %v", err)
 	}
@@ -547,7 +577,7 @@ func TestHTTPAPI_ListRepos_HappyPath(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	api := &httpAPI{org: "acme", token: "tok", base: srv.URL, client: srv.Client()}
+	api := &httpAPI{org: testOrg, token: testToken, base: srv.URL, client: srv.Client()}
 	repos, err := api.ListRepos(context.Background())
 	if err != nil {
 		t.Fatalf("ListRepos: %v", err)
@@ -596,7 +626,7 @@ func TestHTTPAPI_ListOrgMembers_HappyPath(t *testing.T) {
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/orgs/acme/memberships/"):
 			login := strings.TrimPrefix(r.URL.Path, "/orgs/acme/memberships/")
-			if login == "alice" {
+			if login == testLoginAlice {
 				_, _ = w.Write([]byte(`{"role":"admin"}`)) //nolint:errcheck // test handler
 			} else {
 				_, _ = w.Write([]byte(`{"role":"member"}`)) //nolint:errcheck // test handler
@@ -613,7 +643,7 @@ func TestHTTPAPI_ListOrgMembers_HappyPath(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	api := &httpAPI{org: "acme", token: "tok", base: srv.URL, client: srv.Client()}
+	api := &httpAPI{org: testOrg, token: testToken, base: srv.URL, client: srv.Client()}
 	members, err := api.ListOrgMembers(context.Background())
 	if err != nil {
 		t.Fatalf("ListOrgMembers: %v", err)
@@ -622,14 +652,14 @@ func TestHTTPAPI_ListOrgMembers_HappyPath(t *testing.T) {
 	for _, m := range members {
 		byLogin[m.Login] = m
 	}
-	if !byLogin["alice"].TwoFactorOn {
+	if !byLogin[testLoginAlice].TwoFactorOn {
 		t.Errorf("alice should have 2fa on")
 	}
-	if byLogin["bob"].TwoFactorOn {
+	if byLogin[testLoginBob].TwoFactorOn {
 		t.Errorf("bob should have 2fa off")
 	}
-	if byLogin["alice"].Role != "admin" {
-		t.Errorf("alice.Role = %q", byLogin["alice"].Role)
+	if byLogin[testLoginAlice].Role != testRoleAdmin {
+		t.Errorf("alice.Role = %q", byLogin[testLoginAlice].Role)
 	}
 }
 
@@ -645,7 +675,7 @@ func TestHTTPAPI_ListOutsideCollaborators_HappyPath(t *testing.T) {
 		_, _ = w.Write([]byte(`[{"login":"carol"},{"login":"dave"}]`)) //nolint:errcheck // test handler
 	}))
 	defer srv.Close()
-	api := &httpAPI{org: "acme", token: "tok", base: srv.URL, client: srv.Client()}
+	api := &httpAPI{org: testOrg, token: testToken, base: srv.URL, client: srv.Client()}
 	collabs, err := api.ListOutsideCollaborators(context.Background())
 	if err != nil {
 		t.Fatalf("ListOutsideCollaborators: %v", err)
@@ -657,14 +687,14 @@ func TestHTTPAPI_ListOutsideCollaborators_HappyPath(t *testing.T) {
 	if len(byLogin) != 2 {
 		t.Fatalf("want 2 collaborators; got %d", len(byLogin))
 	}
-	if byLogin["carol"].TwoFactorOn {
+	if byLogin[testLoginCarol].TwoFactorOn {
 		t.Errorf("carol should have 2FA off")
 	}
-	if !byLogin["dave"].TwoFactorOn {
+	if !byLogin[testLoginDave].TwoFactorOn {
 		t.Errorf("dave should have 2FA on")
 	}
-	if byLogin["carol"].Role != "" {
-		t.Errorf("outside collaborators carry no role; got %q", byLogin["carol"].Role)
+	if byLogin[testLoginCarol].Role != "" {
+		t.Errorf("outside collaborators carry no role; got %q", byLogin[testLoginCarol].Role)
 	}
 }
 
@@ -679,12 +709,12 @@ func TestHTTPAPI_GetOrgPolicy_HappyPath(t *testing.T) {
 			`"secret_scanning_enabled_for_new_repositories":true}`))
 	}))
 	defer srv.Close()
-	api := &httpAPI{org: "acme", token: "tok", base: srv.URL, client: srv.Client()}
+	api := &httpAPI{org: testOrg, token: testToken, base: srv.URL, client: srv.Client()}
 	op, err := api.GetOrgPolicy(context.Background())
 	if err != nil {
 		t.Fatalf("GetOrgPolicy: %v", err)
 	}
-	if !op.TwoFactorRequired || op.DefaultRepoPermission != "read" ||
+	if !op.TwoFactorRequired || op.DefaultRepoPermission != testPermissionRead ||
 		op.MembersCanCreatePublicRepos || !op.SecretScanningNewRepos {
 		t.Errorf("OrgPolicy = %+v", op)
 	}
@@ -697,7 +727,7 @@ func TestHTTPAPI_GetOrgPolicy_NullTwoFactor(t *testing.T) {
 		_, _ = w.Write([]byte(`{"two_factor_requirement_enabled":null,"default_repository_permission":"none"}`)) //nolint:errcheck // test handler
 	}))
 	defer srv.Close()
-	api := &httpAPI{org: "acme", token: "tok", base: srv.URL, client: srv.Client()}
+	api := &httpAPI{org: testOrg, token: testToken, base: srv.URL, client: srv.Client()}
 	op, err := api.GetOrgPolicy(context.Background())
 	if err != nil {
 		t.Fatalf("GetOrgPolicy: %v", err)
@@ -712,7 +742,7 @@ func TestHTTPAPI_ListDependabotAlerts_HappyPath(t *testing.T) {
 		if r.URL.Path != "/orgs/acme/dependabot/alerts" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		if r.URL.Query().Get("state") != "open" {
+		if r.URL.Query().Get("state") != testAlertStateOpen {
 			t.Errorf("want state=open; got %q", r.URL.Query().Get("state"))
 		}
 		_, _ = w.Write([]byte(`[{"number":7,"state":"open",` + //nolint:errcheck // test handler
@@ -722,7 +752,7 @@ func TestHTTPAPI_ListDependabotAlerts_HappyPath(t *testing.T) {
 			`"repository":{"full_name":"acme/web"}}]`))
 	}))
 	defer srv.Close()
-	api := &httpAPI{org: "acme", token: "tok", base: srv.URL, client: srv.Client()}
+	api := &httpAPI{org: testOrg, token: testToken, base: srv.URL, client: srv.Client()}
 	alerts, err := api.ListDependabotAlerts(context.Background())
 	if err != nil {
 		t.Fatalf("ListDependabotAlerts: %v", err)
@@ -731,8 +761,8 @@ func TestHTTPAPI_ListDependabotAlerts_HappyPath(t *testing.T) {
 		t.Fatalf("len = %d; want 1", len(alerts))
 	}
 	a := alerts[0]
-	if a.Number != 7 || a.RepoFullName != "acme/web" || a.PackageName != "lodash" ||
-		a.Severity != "high" || a.CVEID != "CVE-2020-8203" || a.CVSSScore != 7.4 || !a.PatchAvailable {
+	if a.Number != 7 || a.RepoFullName != testRepoWeb || a.PackageName != "lodash" ||
+		a.Severity != testSeverityHigh || a.CVEID != testCVEID || a.CVSSScore != 7.4 || !a.PatchAvailable {
 		t.Errorf("alert = %+v", a)
 	}
 }
@@ -745,7 +775,7 @@ func TestHTTPAPI_ListDependabotAlerts_ForbiddenIsEmpty(t *testing.T) {
 		http.Error(w, "Dependabot alerts are disabled", http.StatusForbidden)
 	}))
 	defer srv.Close()
-	api := &httpAPI{org: "acme", token: "tok", base: srv.URL, client: srv.Client()}
+	api := &httpAPI{org: testOrg, token: testToken, base: srv.URL, client: srv.Client()}
 	alerts, err := api.ListDependabotAlerts(context.Background())
 	if err != nil {
 		t.Fatalf("ListDependabotAlerts: %v", err)
@@ -763,7 +793,7 @@ func TestHTTPAPI_AuthHeaderSet(t *testing.T) {
 		_, _ = w.Write([]byte(`[]`)) //nolint:errcheck // test handler
 	}))
 	defer srv.Close()
-	api := &httpAPI{org: "acme", token: "sekrit", base: srv.URL, client: srv.Client()}
+	api := &httpAPI{org: testOrg, token: "sekrit", base: srv.URL, client: srv.Client()}
 	if _, err := api.ListRepos(context.Background()); err != nil {
 		t.Fatalf("ListRepos: %v", err)
 	}
@@ -780,7 +810,7 @@ func TestHTTPAPI_GetJSON_Non2xxError(t *testing.T) {
 		http.Error(w, "server fault", http.StatusInternalServerError)
 	}))
 	defer srv.Close()
-	api := &httpAPI{org: "acme", token: "tok", base: srv.URL, client: srv.Client()}
+	api := &httpAPI{org: testOrg, token: testToken, base: srv.URL, client: srv.Client()}
 	_, err := api.ListRepos(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "500") {
 		t.Errorf("want 500 error; got %v", err)
@@ -792,7 +822,7 @@ func TestHTTPAPI_GetJSON_DecodeError(t *testing.T) {
 		_, _ = w.Write([]byte(`not-json`)) //nolint:errcheck // test handler
 	}))
 	defer srv.Close()
-	api := &httpAPI{org: "acme", token: "tok", base: srv.URL, client: srv.Client()}
+	api := &httpAPI{org: testOrg, token: testToken, base: srv.URL, client: srv.Client()}
 	_, err := api.ListRepos(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "decode") {
 		t.Errorf("want decode error; got %v", err)
@@ -815,7 +845,7 @@ func TestHTTPAPI_ListRepos_Pagination(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
-	api := &httpAPI{org: "acme", token: "tok", base: srv.URL, client: srv.Client()}
+	api := &httpAPI{org: testOrg, token: testToken, base: srv.URL, client: srv.Client()}
 	repos, err := api.ListRepos(context.Background())
 	if err != nil {
 		t.Fatalf("ListRepos: %v", err)
@@ -831,7 +861,7 @@ func TestHTTPAPI_RequestCtxCancel(t *testing.T) {
 		_, _ = w.Write([]byte(`[]`)) //nolint:errcheck // test handler
 	}))
 	defer srv.Close()
-	api := &httpAPI{org: "acme", token: "tok", base: srv.URL, client: srv.Client()}
+	api := &httpAPI{org: testOrg, token: testToken, base: srv.URL, client: srv.Client()}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	if _, err := api.ListRepos(ctx); err == nil {
@@ -842,7 +872,7 @@ func TestHTTPAPI_RequestCtxCancel(t *testing.T) {
 // Tiny smoke test that confirms json roundtrip of the payload shapes — the
 // marshal path inside Collect is otherwise covered by the happy-path tests.
 func TestPayloadJSONRoundTrip(t *testing.T) {
-	rp := repoPayload{Name: "r", DefaultBranch: "main", DefaultBranchProtected: true, RequiredReviewersCount: 1}
+	rp := repoPayload{Name: "r", DefaultBranch: testBranchMain, DefaultBranchProtected: true, RequiredReviewersCount: 1}
 	b, err := json.Marshal(rp)
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
@@ -861,8 +891,8 @@ func TestPayloadJSONRoundTrip(t *testing.T) {
 // CC6.5 policies read must be present in the emitted payload, or the
 // evaluator now errors the policy (absent field != false).
 func TestCollectRepos_EmitsAllPolicyReadFields(t *testing.T) {
-	fake := &fakeAPI{repos: []Repo{{Name: "r1", DefaultBranch: "main"}}}
-	p := New(Options{API: fake, Org: "acme"})
+	fake := &fakeAPI{repos: []Repo{{Name: "r1", DefaultBranch: testBranchMain}}}
+	p := New(Options{API: fake, Org: testOrg})
 	recs, err := p.Collect(context.Background(),
 		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeRepository}})
 	if err != nil {
@@ -909,24 +939,24 @@ func TestCollectPullRequests_HappyPath_MapsAndSorts(t *testing.T) {
 	merged := time.Date(2026, 2, 1, 10, 0, 0, 0, time.UTC)
 	fake := &fakeAPI{pulls: []PullRequest{
 		{
-			Repository: "acme/web", Number: 3, Author: testLoginAlice, MergedBy: "bob",
-			TargetBranch: "main", MergeCommitSHA: "abc123", MergedAt: merged,
+			Repository: testRepoWeb, Number: 3, Author: testLoginAlice, MergedBy: testLoginBob,
+			TargetBranch: testBranchMain, MergeCommitSHA: testCommitSHA, MergedAt: merged,
 			Reviews: []Review{
-				{User: testLoginAlice, State: "APPROVED", SubmittedAt: merged.Add(-48 * time.Hour)},
-				{User: "bob", State: "APPROVED", SubmittedAt: merged.Add(-24 * time.Hour)},
+				{User: testLoginAlice, State: testReviewApproved, SubmittedAt: merged.Add(-48 * time.Hour)},
+				{User: testLoginBob, State: testReviewApproved, SubmittedAt: merged.Add(-24 * time.Hour)},
 			},
-			CheckRuns: []CheckRun{{Status: "completed", Conclusion: "success"}},
+			CheckRuns: []CheckRun{{Status: testCheckCompleted, Conclusion: deploymentStatusSuccess}},
 		},
 		{
 			// Self-approved with no CI: the failing side of both derived
 			// booleans, and an unattributed merge with no merge commit.
-			Repository: "acme/api", Number: 12, Author: "carol",
-			TargetBranch: "main", MergedAt: merged.Add(24 * time.Hour),
-			Reviews: []Review{{User: "carol", State: "APPROVED", SubmittedAt: merged}},
+			Repository: testRepoAPI, Number: 12, Author: testLoginCarol,
+			TargetBranch: testBranchMain, MergedAt: merged.Add(24 * time.Hour),
+			Reviews: []Review{{User: testLoginCarol, State: testReviewApproved, SubmittedAt: merged}},
 		},
 	}}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return now }})
+	p := New(Options{API: fake, Org: testOrg, Now: func() time.Time { return now }})
 	records, err := p.Collect(context.Background(), periodRequest(EvidenceTypePullRequest))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
@@ -942,8 +972,8 @@ func TestCollectPullRequests_HappyPath_MapsAndSorts(t *testing.T) {
 
 	got := unmarshalPayload[pullRequestPayload](t, records[1].Payload)
 	want := pullRequestPayload{
-		Repository: "acme/web", Number: 3, Author: testLoginAlice, MergedBy: "bob",
-		TargetBranch: "main", MergeCommitSHA: "abc123", MergedAt: "2026-02-01T10:00:00Z",
+		Repository: testRepoWeb, Number: 3, Author: testLoginAlice, MergedBy: testLoginBob,
+		TargetBranch: testBranchMain, MergeCommitSHA: testCommitSHA, MergedAt: "2026-02-01T10:00:00Z",
 		ApprovalCount: 2, IndependentApprovalCount: 1, ApprovedBeforeMerge: true, ChecksPassed: true,
 	}
 	if got != want {
@@ -951,7 +981,7 @@ func TestCollectPullRequests_HappyPath_MapsAndSorts(t *testing.T) {
 	}
 	gotSelf := unmarshalPayload[pullRequestPayload](t, records[0].Payload)
 	wantSelf := pullRequestPayload{
-		Repository: "acme/api", Number: 12, Author: "carol", TargetBranch: "main",
+		Repository: testRepoAPI, Number: 12, Author: testLoginCarol, TargetBranch: testBranchMain,
 		MergedAt: "2026-02-02T10:00:00Z", ApprovalCount: 1,
 	}
 	if gotSelf != wantSelf {
@@ -971,51 +1001,51 @@ func TestApprovalState_LatestReviewPerUserDecides(t *testing.T) {
 		{
 			name: "dismissed approval does not count", author: testLoginAlice,
 			reviews: []Review{
-				{User: "dave", State: "APPROVED", SubmittedAt: merged.Add(-2 * time.Hour)},
-				{User: "dave", State: "DISMISSED", SubmittedAt: merged.Add(-time.Hour)},
+				{User: testLoginDave, State: testReviewApproved, SubmittedAt: merged.Add(-2 * time.Hour)},
+				{User: testLoginDave, State: "DISMISSED", SubmittedAt: merged.Add(-time.Hour)},
 			},
 		},
 		{
 			name: "changes requested supersedes an earlier approval", author: testLoginAlice,
 			reviews: []Review{
-				{User: "dave", State: "APPROVED", SubmittedAt: merged.Add(-2 * time.Hour)},
-				{User: "dave", State: "CHANGES_REQUESTED", SubmittedAt: merged.Add(-time.Hour)},
+				{User: testLoginDave, State: testReviewApproved, SubmittedAt: merged.Add(-2 * time.Hour)},
+				{User: testLoginDave, State: "CHANGES_REQUESTED", SubmittedAt: merged.Add(-time.Hour)},
 			},
 		},
 		{
 			name: "comment after approval is ignored", author: testLoginAlice,
 			reviews: []Review{
-				{User: "dave", State: "APPROVED", SubmittedAt: merged.Add(-2 * time.Hour)},
-				{User: "dave", State: "COMMENTED", SubmittedAt: merged.Add(-time.Hour)},
+				{User: testLoginDave, State: testReviewApproved, SubmittedAt: merged.Add(-2 * time.Hour)},
+				{User: testLoginDave, State: "COMMENTED", SubmittedAt: merged.Add(-time.Hour)},
 			},
 			wantApprovals: 1, wantIndependent: 1, wantBeforeMerge: true,
 		},
 		{
 			name: "duplicate approvals count once", author: testLoginAlice,
 			reviews: []Review{
-				{User: "dave", State: "APPROVED", SubmittedAt: merged.Add(-2 * time.Hour)},
-				{User: "dave", State: "APPROVED", SubmittedAt: merged.Add(-time.Hour)},
+				{User: testLoginDave, State: testReviewApproved, SubmittedAt: merged.Add(-2 * time.Hour)},
+				{User: testLoginDave, State: testReviewApproved, SubmittedAt: merged.Add(-time.Hour)},
 			},
 			wantApprovals: 1, wantIndependent: 1, wantBeforeMerge: true,
 		},
 		{
 			name: "self approval is not independent", author: testLoginAlice,
 			reviews: []Review{
-				{User: testLoginAlice, State: "APPROVED", SubmittedAt: merged.Add(-time.Hour)},
+				{User: testLoginAlice, State: testReviewApproved, SubmittedAt: merged.Add(-time.Hour)},
 			},
 			wantApprovals: 1,
 		},
 		{
 			name: "retroactive approval counts but not before merge", author: testLoginAlice,
 			reviews: []Review{
-				{User: "eve", State: "APPROVED", SubmittedAt: merged.Add(time.Hour)},
+				{User: "eve", State: testReviewApproved, SubmittedAt: merged.Add(time.Hour)},
 			},
 			wantApprovals: 1, wantIndependent: 1,
 		},
 		{
 			name: "approval exactly at merge counts as before merge", author: testLoginAlice,
 			reviews: []Review{
-				{User: "eve", State: "APPROVED", SubmittedAt: merged},
+				{User: "eve", State: testReviewApproved, SubmittedAt: merged},
 			},
 			wantApprovals: 1, wantIndependent: 1, wantBeforeMerge: true,
 		},
@@ -1043,20 +1073,20 @@ func TestChecksPassed(t *testing.T) {
 	}{
 		{name: "no checks configured is not a pass"},
 		{name: "all success", runs: []CheckRun{
-			{Status: "completed", Conclusion: "success"},
-			{Status: "completed", Conclusion: "success"},
+			{Status: testCheckCompleted, Conclusion: deploymentStatusSuccess},
+			{Status: testCheckCompleted, Conclusion: deploymentStatusSuccess},
 		}, want: true},
 		{name: "neutral and skipped count as success", runs: []CheckRun{
-			{Status: "completed", Conclusion: "neutral"},
-			{Status: "completed", Conclusion: "skipped"},
+			{Status: testCheckCompleted, Conclusion: "neutral"},
+			{Status: testCheckCompleted, Conclusion: "skipped"},
 		}, want: true},
 		{name: "one failure", runs: []CheckRun{
-			{Status: "completed", Conclusion: "success"},
-			{Status: "completed", Conclusion: "failure"},
+			{Status: testCheckCompleted, Conclusion: deploymentStatusSuccess},
+			{Status: testCheckCompleted, Conclusion: deploymentStatusFailure},
 		}},
 		{name: "still running", runs: []CheckRun{{Status: "in_progress"}}},
-		{name: "canceled", runs: []CheckRun{{Status: "completed", Conclusion: "canceled"}}},
-		{name: "timed out", runs: []CheckRun{{Status: "completed", Conclusion: "timed_out"}}},
+		{name: "canceled", runs: []CheckRun{{Status: testCheckCompleted, Conclusion: "canceled"}}},
+		{name: "timed out", runs: []CheckRun{{Status: testCheckCompleted, Conclusion: "timed_out"}}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1069,12 +1099,12 @@ func TestChecksPassed(t *testing.T) {
 
 func TestCollectPullRequests_DropsMergesOutsideWindow(t *testing.T) {
 	fake := &fakeAPI{pulls: []PullRequest{
-		{Repository: "acme/web", Number: 1, MergedAt: prWindowStart.Add(-time.Hour)},
-		{Repository: "acme/web", Number: 2, MergedAt: prWindowEnd.Add(time.Hour)},
-		{Repository: "acme/web", Number: 3}, // never merged: zero timestamp
-		{Repository: "acme/web", Number: 4, MergedAt: prWindowStart.Add(time.Hour)},
+		{Repository: testRepoWeb, Number: 1, MergedAt: prWindowStart.Add(-time.Hour)},
+		{Repository: testRepoWeb, Number: 2, MergedAt: prWindowEnd.Add(time.Hour)},
+		{Repository: testRepoWeb, Number: 3}, // never merged: zero timestamp
+		{Repository: testRepoWeb, Number: 4, MergedAt: prWindowStart.Add(time.Hour)},
 	}}
-	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return prWindowEnd }})
+	p := New(Options{API: fake, Org: testOrg, Now: func() time.Time { return prWindowEnd }})
 	records, err := p.Collect(context.Background(), periodRequest(EvidenceTypePullRequest))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
@@ -1086,22 +1116,22 @@ func TestCollectPullRequests_DropsMergesOutsideWindow(t *testing.T) {
 
 func TestCollectPullRequests_EmitsAllSchemaFields(t *testing.T) {
 	fake := &fakeAPI{pulls: []PullRequest{
-		{Repository: "acme/web", Number: 1, MergedAt: prWindowStart.Add(time.Hour)},
+		{Repository: testRepoWeb, Number: 1, MergedAt: prWindowStart.Add(time.Hour)},
 	}}
-	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return prWindowEnd }})
+	p := New(Options{API: fake, Org: testOrg, Now: func() time.Time { return prWindowEnd }})
 	recs, err := p.Collect(context.Background(), periodRequest(EvidenceTypePullRequest))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
 	assertPayloadHasFields(t, recs[0].Payload, []string{
-		"repository", "number", "author", "merged_by", "target_branch", "merge_commit_sha",
+		testResourceTypeRepo, "number", "author", "merged_by", "target_branch", "merge_commit_sha",
 		"merged_at", "approval_count", "independent_approval_count", "approved_before_merge",
 		"checks_passed",
 	})
 }
 
 func TestCollectPullRequests_ErrorPropagates(t *testing.T) {
-	p := New(Options{API: &fakeAPI{pullErr: errors.New("rate limit")}, Org: "acme"})
+	p := New(Options{API: &fakeAPI{pullErr: errors.New("rate limit")}, Org: testOrg})
 	_, err := p.Collect(context.Background(), periodRequest(EvidenceTypePullRequest))
 	if err == nil || !strings.Contains(err.Error(), "list merged pull requests") {
 		t.Errorf("want list merged pull requests error; got %v", err)
@@ -1114,17 +1144,17 @@ func TestCollectDeployments_HappyPath_MapsAndSorts(t *testing.T) {
 	created := time.Date(2026, 2, 2, 8, 30, 0, 0, time.UTC)
 	fake := &fakeAPI{deployments: []Deployment{
 		{
-			Repository: "acme/web", ID: "10", SHA: "abc123", Environment: "production",
-			Creator: "bob", CreatedAt: created, State: "success",
+			Repository: testRepoWeb, ID: "10", SHA: testCommitSHA, Environment: testEnvProduction,
+			Creator: testLoginBob, CreatedAt: created, State: deploymentStatusSuccess,
 		},
 		{
 			// No production signal, no creator and no status entries.
-			Repository: "acme/api", ID: "5", Environment: "staging",
+			Repository: testRepoAPI, ID: "5", Environment: testEnvStaging,
 			CreatedAt: created.Add(24 * time.Hour),
 		},
 	}}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return now }})
+	p := New(Options{API: fake, Org: testOrg, Now: func() time.Time { return now }})
 	records, err := p.Collect(context.Background(), periodRequest(EvidenceTypeDeployment))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
@@ -1140,9 +1170,9 @@ func TestCollectDeployments_HappyPath_MapsAndSorts(t *testing.T) {
 
 	got := unmarshalPayload[deploymentPayload](t, records[1].Payload)
 	want := deploymentPayload{
-		Repository: "acme/web", DeploymentID: "10", Environment: "production",
-		IsProduction: true, DeployedBy: "bob", DeployedAt: "2026-02-02T08:30:00Z",
-		CommitSHA: "abc123", Status: "success",
+		Repository: testRepoWeb, DeploymentID: "10", Environment: testEnvProduction,
+		IsProduction: true, DeployedBy: testLoginBob, DeployedAt: "2026-02-02T08:30:00Z",
+		CommitSHA: testCommitSHA, Status: deploymentStatusSuccess,
 	}
 	if got != want {
 		t.Errorf("production payload = %+v; want %+v", got, want)
@@ -1152,8 +1182,8 @@ func TestCollectDeployments_HappyPath_MapsAndSorts(t *testing.T) {
 	// pending and never failure.
 	gotStaging := unmarshalPayload[deploymentPayload](t, records[0].Payload)
 	wantStaging := deploymentPayload{
-		Repository: "acme/api", DeploymentID: "5", Environment: "staging",
-		DeployedAt: "2026-02-03T08:30:00Z", Status: "unknown",
+		Repository: testRepoAPI, DeploymentID: "5", Environment: testEnvStaging,
+		DeployedAt: "2026-02-03T08:30:00Z", Status: deploymentStatusUnknown,
 	}
 	if gotStaging != wantStaging {
 		t.Errorf("staging payload = %+v; want %+v", gotStaging, wantStaging)
@@ -1165,12 +1195,12 @@ func TestIsProductionEnvironment(t *testing.T) {
 		env  string
 		want bool
 	}{
-		{flag: true, env: "staging", want: true}, // explicit flag wins
-		{env: "production", want: true},
+		{flag: true, env: testEnvStaging, want: true}, // explicit flag wins
+		{env: testEnvProduction, want: true},
 		{env: "Prod", want: true},
 		{env: "LIVE", want: true},
 		{env: " production ", want: true},
-		{env: "staging"},
+		{env: testEnvStaging},
 		{env: "prod-canary"}, // not a conventional name: not production
 		{env: ""},
 	}
@@ -1183,9 +1213,9 @@ func TestIsProductionEnvironment(t *testing.T) {
 
 func TestNormalizeDeploymentState(t *testing.T) {
 	states := map[string]string{
-		"success": "success", "error": "failure", "failure": "failure",
-		"pending": "pending", "queued": "pending", "in_progress": "pending",
-		"inactive": "unknown", "": "unknown", "weird": "unknown",
+		deploymentStatusSuccess: deploymentStatusSuccess, "error": deploymentStatusFailure, deploymentStatusFailure: deploymentStatusFailure,
+		deploymentStatusPending: deploymentStatusPending, "queued": deploymentStatusPending, "in_progress": deploymentStatusPending,
+		"inactive": deploymentStatusUnknown, "": deploymentStatusUnknown, "weird": deploymentStatusUnknown,
 	}
 	for in, want := range states {
 		if got := normalizeDeploymentState(in); got != want {
@@ -1196,12 +1226,12 @@ func TestNormalizeDeploymentState(t *testing.T) {
 
 func TestCollectDeployments_DropsCreationsOutsideWindow(t *testing.T) {
 	fake := &fakeAPI{deployments: []Deployment{
-		{Repository: "acme/web", ID: "1", CreatedAt: prWindowStart.Add(-time.Hour)},
-		{Repository: "acme/web", ID: "2", CreatedAt: prWindowEnd.Add(time.Hour)},
-		{Repository: "acme/web", ID: "3"}, // zero timestamp
-		{Repository: "acme/web", ID: "4", CreatedAt: prWindowStart.Add(time.Hour)},
+		{Repository: testRepoWeb, ID: "1", CreatedAt: prWindowStart.Add(-time.Hour)},
+		{Repository: testRepoWeb, ID: "2", CreatedAt: prWindowEnd.Add(time.Hour)},
+		{Repository: testRepoWeb, ID: "3"}, // zero timestamp
+		{Repository: testRepoWeb, ID: "4", CreatedAt: prWindowStart.Add(time.Hour)},
 	}}
-	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return prWindowEnd }})
+	p := New(Options{API: fake, Org: testOrg, Now: func() time.Time { return prWindowEnd }})
 	records, err := p.Collect(context.Background(), periodRequest(EvidenceTypeDeployment))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
@@ -1213,21 +1243,21 @@ func TestCollectDeployments_DropsCreationsOutsideWindow(t *testing.T) {
 
 func TestCollectDeployments_EmitsAllSchemaFields(t *testing.T) {
 	fake := &fakeAPI{deployments: []Deployment{
-		{Repository: "acme/web", ID: "1", CreatedAt: prWindowStart.Add(time.Hour)},
+		{Repository: testRepoWeb, ID: "1", CreatedAt: prWindowStart.Add(time.Hour)},
 	}}
-	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return prWindowEnd }})
+	p := New(Options{API: fake, Org: testOrg, Now: func() time.Time { return prWindowEnd }})
 	recs, err := p.Collect(context.Background(), periodRequest(EvidenceTypeDeployment))
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
 	assertPayloadHasFields(t, recs[0].Payload, []string{
-		"repository", "deployment_id", "environment", "is_production",
+		testResourceTypeRepo, "deployment_id", "environment", "is_production",
 		"deployed_by", "deployed_at", "commit_sha", "status",
 	})
 }
 
 func TestCollectDeployments_ErrorPropagates(t *testing.T) {
-	p := New(Options{API: &fakeAPI{deployErr: errors.New("forbidden")}, Org: "acme"})
+	p := New(Options{API: &fakeAPI{deployErr: errors.New("forbidden")}, Org: testOrg})
 	_, err := p.Collect(context.Background(), periodRequest(EvidenceTypeDeployment))
 	if err == nil || !strings.Contains(err.Error(), "list deployments") {
 		t.Errorf("want list deployments error; got %v", err)
@@ -1238,7 +1268,7 @@ func TestCollectDeployments_ErrorPropagates(t *testing.T) {
 
 func TestPeriodWindow_UsesInjectedParams(t *testing.T) {
 	fake := &fakeAPI{}
-	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return prWindowEnd }})
+	p := New(Options{API: fake, Org: testOrg, Now: func() time.Time { return prWindowEnd }})
 	if _, err := p.Collect(context.Background(), periodRequest(EvidenceTypePullRequest)); err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
@@ -1250,7 +1280,7 @@ func TestPeriodWindow_UsesInjectedParams(t *testing.T) {
 func TestPeriodWindow_FallsBackToTrailingYearOnInjectedClock(t *testing.T) {
 	fake := &fakeAPI{}
 	now := time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC)
-	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return now }})
+	p := New(Options{API: fake, Org: testOrg, Now: func() time.Time { return now }})
 	// No Params at all — the shape sourcetest.RunConformance passes.
 	if _, err := p.Collect(context.Background(),
 		core.SlotRequest{AcceptedTypes: []string{EvidenceTypeDeployment}}); err != nil {
@@ -1266,7 +1296,7 @@ func TestPeriodWindow_FallsBackToTrailingYearOnInjectedClock(t *testing.T) {
 
 func TestPeriodWindow_BothTypesShareOneWindow(t *testing.T) {
 	fake := &fakeAPI{}
-	p := New(Options{API: fake, Org: "acme", Now: func() time.Time { return prWindowEnd }})
+	p := New(Options{API: fake, Org: testOrg, Now: func() time.Time { return prWindowEnd }})
 	req := core.SlotRequest{
 		AcceptedTypes: []string{EvidenceTypePullRequest, EvidenceTypeDeployment},
 		Params:        map[string]any{"period_start": prWindowStart, "period_end": prWindowEnd},
@@ -1369,7 +1399,7 @@ func pullsTestHandler(t *testing.T) http.Handler {
 func assertPullsQuery(t *testing.T, r *http.Request) {
 	t.Helper()
 	q := r.URL.Query()
-	want := map[string]string{"state": "closed", "base": "main", "sort": "updated", "direction": "desc"}
+	want := map[string]string{"state": "closed", "base": testBranchMain, "sort": "updated", "direction": "desc"}
 	for k, v := range want {
 		if q.Get(k) != v {
 			t.Errorf("pulls query %s = %q; want %q", k, q.Get(k), v)
@@ -1381,7 +1411,7 @@ func TestHTTPAPI_ListMergedPullRequests_HappyPath(t *testing.T) {
 	srv := httptest.NewServer(pullsTestHandler(t))
 	defer srv.Close()
 
-	api := &httpAPI{org: "acme", token: "tok", base: srv.URL, client: srv.Client()}
+	api := &httpAPI{org: testOrg, token: testToken, base: srv.URL, client: srv.Client()}
 	prs, err := api.ListMergedPullRequests(context.Background(),
 		time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC))
 	if err != nil {
@@ -1390,14 +1420,14 @@ func TestHTTPAPI_ListMergedPullRequests_HappyPath(t *testing.T) {
 	// The inaccessible repo is skipped, the branch-less repo never queried,
 	// and the unmerged and out-of-window items dropped.
 	want := []PullRequest{{
-		Repository: "acme/web", Number: 3, Author: testLoginAlice, MergedBy: "bob",
-		TargetBranch: "main", MergeCommitSHA: "abc123",
+		Repository: testRepoWeb, Number: 3, Author: testLoginAlice, MergedBy: testLoginBob,
+		TargetBranch: testBranchMain, MergeCommitSHA: testCommitSHA,
 		MergedAt: time.Date(2026, 2, 1, 10, 0, 0, 0, time.UTC),
 		Reviews: []Review{{
-			User: "bob", State: "APPROVED",
+			User: testLoginBob, State: testReviewApproved,
 			SubmittedAt: time.Date(2026, 1, 31, 10, 0, 0, 0, time.UTC),
 		}},
-		CheckRuns: []CheckRun{{Status: "completed", Conclusion: "success"}},
+		CheckRuns: []CheckRun{{Status: testCheckCompleted, Conclusion: deploymentStatusSuccess}},
 	}}
 	if !reflect.DeepEqual(prs, want) {
 		t.Errorf("ListMergedPullRequests = %+v; want %+v", prs, want)
@@ -1420,7 +1450,7 @@ func TestHTTPAPI_ListMergedPullRequests_TolerantSubResources(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	api := &httpAPI{org: "acme", token: "tok", base: srv.URL, client: srv.Client()}
+	api := &httpAPI{org: testOrg, token: testToken, base: srv.URL, client: srv.Client()}
 	prs, err := api.ListMergedPullRequests(context.Background(),
 		time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC))
 	if err != nil {
@@ -1472,7 +1502,7 @@ func TestHTTPAPI_ListDeployments_HappyPath(t *testing.T) {
 	srv := httptest.NewServer(deploymentsTestHandler(t))
 	defer srv.Close()
 
-	api := &httpAPI{org: "acme", token: "tok", base: srv.URL, client: srv.Client()}
+	api := &httpAPI{org: testOrg, token: testToken, base: srv.URL, client: srv.Client()}
 	deployments, err := api.ListDeployments(context.Background(),
 		time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC))
 	if err != nil {
@@ -1483,12 +1513,12 @@ func TestHTTPAPI_ListDeployments_HappyPath(t *testing.T) {
 	// skipped rather than failing the org walk.
 	want := []Deployment{
 		{
-			Repository: "acme/web", ID: "10", SHA: "abc123", Environment: "production",
-			Creator: "bob", CreatedAt: time.Date(2026, 2, 2, 8, 30, 0, 0, time.UTC),
-			State: "success",
+			Repository: testRepoWeb, ID: "10", SHA: testCommitSHA, Environment: testEnvProduction,
+			Creator: testLoginBob, CreatedAt: time.Date(2026, 2, 2, 8, 30, 0, 0, time.UTC),
+			State: deploymentStatusSuccess,
 		},
 		{
-			Repository: "acme/web", ID: "5", SHA: "def456", Environment: "staging",
+			Repository: testRepoWeb, ID: "5", SHA: "def456", Environment: testEnvStaging,
 			CreatedAt: time.Date(2026, 2, 3, 8, 30, 0, 0, time.UTC),
 		},
 	}

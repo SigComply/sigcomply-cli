@@ -22,6 +22,8 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
 
+const statusEnabled = "enabled"
+
 var fixedNow = time.Date(2026, 6, 17, 12, 0, 0, 0, time.UTC)
 
 func mustUnmarshal(t *testing.T, raw json.RawMessage, dst any) {
@@ -151,7 +153,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 		SKU:                 "Basic",
 		LoginServer:         "adev.azurecr.io",
 		PublicNetworkAccess: "Disabled",
-		EncryptionStatus:    "enabled",
+		EncryptionStatus:    statusEnabled,
 		ResourceGroup:       "rg",
 	}
 	if !reflect.DeepEqual(dev, wantDev) {
@@ -175,9 +177,9 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 		AdminUserEnabled:       true,
 		CMEKEnabled:            true,
 		KMSKeyID:               keyURI,
-		EncryptionStatus:       "enabled",
+		EncryptionStatus:       statusEnabled,
 		ZoneRedundancy:         "Enabled",
-		QuarantinePolicyStatus: "enabled",
+		QuarantinePolicyStatus: statusEnabled,
 		ResourceGroup:          "rg",
 	}
 	if !reflect.DeepEqual(prod, wantProd) {
@@ -265,7 +267,7 @@ func TestQuarantineEnabled_Table(t *testing.T) {
 		reg  *armcontainerregistry.Registry
 		want bool
 	}{
-		{"enabled", mk(&armcontainerregistry.RegistryProperties{Policies: &armcontainerregistry.Policies{QuarantinePolicy: &armcontainerregistry.QuarantinePolicy{Status: to.Ptr(armcontainerregistry.PolicyStatusEnabled)}}}), true},
+		{statusEnabled, mk(&armcontainerregistry.RegistryProperties{Policies: &armcontainerregistry.Policies{QuarantinePolicy: &armcontainerregistry.QuarantinePolicy{Status: to.Ptr(armcontainerregistry.PolicyStatusEnabled)}}}), true},
 		{"disabled", mk(&armcontainerregistry.RegistryProperties{Policies: &armcontainerregistry.Policies{QuarantinePolicy: &armcontainerregistry.QuarantinePolicy{Status: to.Ptr(armcontainerregistry.PolicyStatusDisabled)}}}), false},
 		{"nil-status", mk(&armcontainerregistry.RegistryProperties{Policies: &armcontainerregistry.Policies{QuarantinePolicy: &armcontainerregistry.QuarantinePolicy{}}}), false},
 		{"nil-quarantine", mk(&armcontainerregistry.RegistryProperties{Policies: &armcontainerregistry.Policies{}}), false},

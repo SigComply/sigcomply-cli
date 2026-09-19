@@ -16,11 +16,16 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	armcompute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
-	armnetwork "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
+	armcompute "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
+	armnetwork "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v12"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
+)
+
+const (
+	powerStateRunning     = "running"
+	powerStateDeallocated = "deallocated"
 )
 
 var fixedNow = time.Date(2026, 6, 17, 12, 0, 0, 0, time.UTC)
@@ -195,7 +200,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 		IsRunning:           false,
 		HasPublicIP:         false,
 		RootVolumeEncrypted: true,
-		PowerState:          "deallocated",
+		PowerState:          powerStateDeallocated,
 		OSType:              "Windows",
 		CMEKEnabled:         false,
 		EncryptionAtHost:    true,
@@ -215,7 +220,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 		IsRunning:           true,
 		HasPublicIP:         true,
 		RootVolumeEncrypted: true,
-		PowerState:          "running",
+		PowerState:          powerStateRunning,
 		VMSize:              "Standard_D2s_v3",
 		OSType:              "Linux",
 		CMEKEnabled:         true,
@@ -360,8 +365,8 @@ func TestPowerState_Table(t *testing.T) {
 		vm   *armcompute.VirtualMachine
 		want string
 	}{
-		{"running", mk("ProvisioningState/succeeded", "PowerState/running"), "running"},
-		{"deallocated", mk("PowerState/deallocated"), "deallocated"},
+		{powerStateRunning, mk("ProvisioningState/succeeded", "PowerState/running"), powerStateRunning},
+		{powerStateDeallocated, mk("PowerState/deallocated"), powerStateDeallocated},
 		{"stopped", mk("PowerState/stopped"), "stopped"},
 		{"no-power-status", mk("ProvisioningState/succeeded"), ""},
 		{"no-instance-view", &armcompute.VirtualMachine{Properties: &armcompute.VirtualMachineProperties{}}, ""},

@@ -17,6 +17,16 @@ import (
 	manuals3 "github.com/sigcomply/sigcomply-cli/internal/sources/manual/s3"
 )
 
+// Shared literals: the config keys the S3 reader factory reads, and the
+// fixture bucket every fake S3 reader is wired with.
+const (
+	keyBucket = "bucket"
+	keyRegion = "region"
+
+	testBucket = "test-bucket"
+	testRegion = "us-east-1"
+)
+
 func boolPtr(b bool) *bool           { return &b }
 func strPtr(s string) *string        { return &s }
 func timePtr(t time.Time) *time.Time { return &t }
@@ -94,7 +104,7 @@ func TestReader_Get_Success(t *testing.T) {
 	want := []byte("hello-pdf-bytes")
 	fake.objects["k"] = fakeObj{data: want, lastModified: uploaded}
 
-	r := &manuals3.Reader{Client: fake, Bucket: "test-bucket"}
+	r := &manuals3.Reader{Client: fake, Bucket: testBucket}
 	got, ts, err := r.Get(context.Background(), "k")
 	if err != nil {
 		t.Fatalf("Get: %v", err)
@@ -109,7 +119,7 @@ func TestReader_Get_Success(t *testing.T) {
 
 func TestReader_Get_NotFound(t *testing.T) {
 	fake := newFakeS3()
-	r := &manuals3.Reader{Client: fake, Bucket: "test-bucket"}
+	r := &manuals3.Reader{Client: fake, Bucket: testBucket}
 	_, _, err := r.Get(context.Background(), "missing")
 	if !errors.Is(err, manual.ErrNotFound) {
 		t.Fatalf("expected manual.ErrNotFound, got %v", err)
@@ -118,7 +128,7 @@ func TestReader_Get_NotFound(t *testing.T) {
 
 func TestReader_Get_OtherErrorSurfaces(t *testing.T) {
 	sentinel := errors.New("boom: synthetic transport error")
-	r := &manuals3.Reader{Client: &errorAPI{err: sentinel}, Bucket: "test-bucket"}
+	r := &manuals3.Reader{Client: &errorAPI{err: sentinel}, Bucket: testBucket}
 	_, _, err := r.Get(context.Background(), "k")
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -145,11 +155,11 @@ func TestBuild_RejectsMissingBucket(t *testing.T) {
 	if !ok {
 		t.Fatal("s3 reader not registered")
 	}
-	_, _, _, _, err := f(map[string]any{"region": "us-east-1"})
+	_, _, _, _, err := f(map[string]any{keyRegion: testRegion})
 	if err == nil {
 		t.Fatal("expected error for missing bucket")
 	}
-	if !strings.Contains(err.Error(), "bucket") {
+	if !strings.Contains(err.Error(), keyBucket) {
 		t.Errorf("error should mention \"bucket\", got %v", err)
 	}
 }
@@ -159,11 +169,11 @@ func TestBuild_RejectsMissingRegion(t *testing.T) {
 	if !ok {
 		t.Fatal("s3 reader not registered")
 	}
-	_, _, _, _, err := f(map[string]any{"bucket": "b"})
+	_, _, _, _, err := f(map[string]any{keyBucket: "b"})
 	if err == nil {
 		t.Fatal("expected error for missing region")
 	}
-	if !strings.Contains(err.Error(), "region") {
+	if !strings.Contains(err.Error(), keyRegion) {
 		t.Errorf("error should mention \"region\", got %v", err)
 	}
 }
@@ -174,8 +184,8 @@ func TestBuild_DefaultsPrefix(t *testing.T) {
 		t.Fatal("s3 reader not registered")
 	}
 	_, scheme, bucket, prefix, err := f(map[string]any{
-		"bucket": "b",
-		"region": "us-east-1",
+		keyBucket: "b",
+		keyRegion: testRegion,
 	})
 	if err != nil {
 		t.Fatalf("build: %v", err)
@@ -197,8 +207,8 @@ func TestBuild_PassesEndpointAndPathStyle(t *testing.T) {
 		t.Fatal("s3 reader not registered")
 	}
 	_, _, _, _, err := f(map[string]any{
-		"bucket":           "b",
-		"region":           "us-east-1",
+		keyBucket:          "b",
+		keyRegion:          testRegion,
 		"endpoint":         "https://minio.local:9000",
 		"force_path_style": true,
 	})
@@ -214,7 +224,7 @@ func TestReader_List_ReturnsMatchingKeys(t *testing.T) {
 	fake.objects["manual/ev/2026-Q1/scan.jpg"] = fakeObj{data: []byte("y"), lastModified: uploaded}
 	fake.objects["manual/ev/2026-Q2/other.pdf"] = fakeObj{data: []byte("z"), lastModified: uploaded}
 
-	r := &manuals3.Reader{Client: fake, Bucket: "test-bucket"}
+	r := &manuals3.Reader{Client: fake, Bucket: testBucket}
 	items, err := r.List(context.Background(), "manual/ev/2026-Q1/")
 	if err != nil {
 		t.Fatalf("List: %v", err)
@@ -230,7 +240,7 @@ func TestReader_List_ReturnsMatchingKeys(t *testing.T) {
 }
 
 func TestReader_List_Empty(t *testing.T) {
-	r := &manuals3.Reader{Client: newFakeS3(), Bucket: "test-bucket"}
+	r := &manuals3.Reader{Client: newFakeS3(), Bucket: testBucket}
 	items, err := r.List(context.Background(), "manual/ev/2026-Q1/")
 	if err != nil {
 		t.Fatalf("List: %v", err)
@@ -242,7 +252,7 @@ func TestReader_List_Empty(t *testing.T) {
 
 func TestReader_List_ErrorSurfaces(t *testing.T) {
 	sentinel := errors.New("synthetic list error")
-	r := &manuals3.Reader{Client: &errorAPI{err: sentinel}, Bucket: "test-bucket"}
+	r := &manuals3.Reader{Client: &errorAPI{err: sentinel}, Bucket: testBucket}
 	_, err := r.List(context.Background(), "manual/ev/2026-Q1/")
 	if err == nil {
 		t.Fatal("List: expected error, got nil")

@@ -15,6 +15,12 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// userPlain is the non-admin IAM user name shared by this file's fixtures.
+const userPlain = "plain-user"
+
+// policyReadOnlyAccess is the managed-policy name shared by this file's fixtures.
+const policyReadOnlyAccess = "ReadOnlyAccess"
+
 // fakeAPI lets tests drive the plugin without real AWS calls.
 type fakeAPI struct {
 	users    []iamtypes.User
@@ -163,19 +169,19 @@ func TestCollect_IsAdmin_DetectedDirectlyAndViaGroup(t *testing.T) {
 		users: []iamtypes.User{
 			{UserName: ptr("direct-admin"), UserId: ptr("A1")},
 			{UserName: ptr("group-admin"), UserId: ptr("A2")},
-			{UserName: ptr("plain-user"), UserId: ptr("A3")},
+			{UserName: ptr(userPlain), UserId: ptr("A3")},
 		},
 		userPolicies: map[string][]string{
 			"direct-admin": {"AdministratorAccess"},
-			"plain-user":   {"ReadOnlyAccess"},
+			userPlain:      {policyReadOnlyAccess},
 		},
 		userGroups: map[string][]string{
 			"group-admin": {"admins"},
-			"plain-user":  {"devs"},
+			userPlain:     {"devs"},
 		},
 		groupPolicies: map[string][]string{
 			"admins": {"AdministratorAccess"},
-			"devs":   {"ReadOnlyAccess"},
+			"devs":   {policyReadOnlyAccess},
 		},
 	}
 	p := New(Options{API: fake})
@@ -183,7 +189,7 @@ func TestCollect_IsAdmin_DetectedDirectlyAndViaGroup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
 	}
-	want := map[string]bool{"direct-admin": true, "group-admin": true, "plain-user": false}
+	want := map[string]bool{"direct-admin": true, "group-admin": true, userPlain: false}
 	for _, r := range records {
 		var pl userPayload
 		if err := json.Unmarshal(r.Payload, &pl); err != nil {
@@ -477,7 +483,7 @@ func TestCollect_EmitsDirectPolicyCountAndUnusedDays(t *testing.T) {
 			{UserName: ptr("neverloggedin"), UserId: ptr("A2")},
 		},
 		userPolicies: map[string][]string{
-			"hasdirect": {"ReadOnlyAccess", "SomeOtherPolicy"},
+			"hasdirect": {policyReadOnlyAccess, "SomeOtherPolicy"},
 		},
 	}
 	p := New(Options{API: fake, Now: func() time.Time { return now }})

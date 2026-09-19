@@ -16,6 +16,68 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/vault/local"
 )
 
+// Fixture values shared by the package's report tests. Repeated
+// literals live here so a period, control or policy ID is spelled
+// once; statusFail is declared alongside its siblings in
+// format_gaps_test.go.
+const (
+	// Audit periods the seeded runs are written into.
+	testPeriodQ1 = "2026-Q1"
+	testPeriodQ2 = "2026-Q2"
+
+	frameworkSOC2     = "soc2"
+	frameworkISO27001 = "iso27001"
+
+	// Statuses and states as they appear in rendered output.
+	statusPass         = "pass"
+	statusWaived       = "waived"
+	statusIncomplete   = "incomplete"
+	statusImplemented  = "implemented"
+	statusNotEvaluated = "not evaluated"
+	stateNotConfigured = "not_configured"
+
+	// Exception scopes: whole-policy, a single resource, a pattern.
+	scopePolicy          = "policy"
+	scopeLegacyIAMUser   = "iam_user_legacy"
+	scopeServiceUserARNs = "arn:aws:iam::*:user/svc-*"
+
+	// Exception approval metadata.
+	testApprovedAt = "2026-01-15"
+	testExpiresAt  = "2026-07-15"
+	testApprover   = "ciso@example.com"
+
+	// Policies under test and their categories.
+	testPolicyMFA          = "soc2.cc6.1.mfa"
+	testPolicyAccessReview = "soc2.cc6.3.review"
+	testPolicyISOPolicies  = "iso27001.5.1.policies"
+	testCategoryAccess     = "access"
+
+	// Controls: SOC 2 criteria, ISO 27001 Annex A, ISO clause.
+	ctrlCC11     = "CC1.1"
+	ctrlCC61     = "CC6.1"
+	ctrlSOC2CC61 = "SOC2.CC6.1"
+	ctrlA51      = "A.5.1"
+	ctrlA71      = "A.7.1"
+	ctrlC92      = "C.9.2"
+
+	cadenceDaily  = "daily"
+	cadenceAnnual = "annual"
+
+	assuranceManual = "manual"
+
+	testRunID       = "run-aaaa"
+	testRunPathA    = "soc2/2026-Q1/run_a"
+	summaryFileName = "summary.json"
+
+	testSourceOkta = "okta"
+
+	// Reasons carried through from evaluation diagnostics and from
+	// the project config's applicability decisions.
+	reasonNoRecords    = "required slot has no records"
+	reasonAccessDenied = "aws.iam: access denied"
+	reasonFullyRemote  = "fully remote; no premises in scope"
+)
+
 // runSeed describes a single run we want to materialize into the test
 // vault. The helper writes a per-run manifest (signed) plus one
 // result.json per policy. Keeping the helper here (rather than
@@ -125,23 +187,23 @@ func TestBuild_Latest_LatestWinsAcrossRuns(t *testing.T) {
 
 	v, _ := makeVault(t, []runSeed{
 		{
-			framework: "soc2", periodID: "2026-Q1",
+			framework: frameworkSOC2, periodID: testPeriodQ1,
 			runID: "earlierr", timestamp: earlier, completedAt: earlier,
 			policies: []core.PolicyResult{
-				{PolicyID: "soc2.cc6.1.mfa", Controls: []core.ControlRef{{ControlID: "SOC2.CC6.1"}}, Status: core.StatusFail, Severity: core.SeverityHigh, Category: "access"},
+				{PolicyID: testPolicyMFA, Controls: []core.ControlRef{{ControlID: ctrlSOC2CC61}}, Status: core.StatusFail, Severity: core.SeverityHigh, Category: testCategoryAccess},
 			},
 		},
 		{
-			framework: "soc2", periodID: "2026-Q1",
+			framework: frameworkSOC2, periodID: testPeriodQ1,
 			runID: "laterr00", timestamp: later, completedAt: later,
 			policies: []core.PolicyResult{
-				{PolicyID: "soc2.cc6.1.mfa", Controls: []core.ControlRef{{ControlID: "SOC2.CC6.1"}}, Status: core.StatusPass, Severity: core.SeverityHigh, Category: "access"},
+				{PolicyID: testPolicyMFA, Controls: []core.ControlRef{{ControlID: ctrlSOC2CC61}}, Status: core.StatusPass, Severity: core.SeverityHigh, Category: testCategoryAccess},
 			},
 		},
 	})
 
 	snap, err := report.Build(context.Background(), &report.Input{
-		Vault: v, Framework: "soc2", PeriodID: "2026-Q1", View: report.ViewLatest,
+		Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ1, View: report.ViewLatest,
 	})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -150,7 +212,7 @@ func TestBuild_Latest_LatestWinsAcrossRuns(t *testing.T) {
 		t.Fatalf("Latest.Policies = %#v", snap.Latest)
 	}
 	got := snap.Latest.Policies[0]
-	if got.Status != "pass" {
+	if got.Status != statusPass {
 		t.Errorf("Status = %q; want pass (latest run wins)", got.Status)
 	}
 	if got.RunID != "laterr00" {
@@ -165,7 +227,7 @@ func TestBuild_Latest_LatestWinsAcrossRuns(t *testing.T) {
 func TestBuild_Latest_EmptyPeriodIsNotAnError(t *testing.T) {
 	v, _ := makeVault(t, nil)
 	snap, err := report.Build(context.Background(), &report.Input{
-		Vault: v, Framework: "soc2", PeriodID: "2026-Q1", View: report.ViewLatest,
+		Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ1, View: report.ViewLatest,
 	})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -184,22 +246,22 @@ func TestBuild_Exceptions_DedupedAcrossRuns(t *testing.T) {
 	t3 := time.Date(2026, 2, 20, 0, 0, 0, 0, time.UTC)
 
 	exc := core.AppliedException{
-		PolicyID:   "soc2.cc6.1.mfa",
-		State:      "waived",
-		ResourceID: "iam_user_legacy",
+		PolicyID:   testPolicyMFA,
+		State:      statusWaived,
+		ResourceID: scopeLegacyIAMUser,
 		Reason:     "Service account; rotation in progress",
 		ApprovedBy: "jane@acme.com",
-		ApprovedAt: "2026-01-15",
-		ExpiresAt:  "2026-07-15",
+		ApprovedAt: testApprovedAt,
+		ExpiresAt:  testExpiresAt,
 	}
 	v, _ := makeVault(t, []runSeed{
-		{framework: "soc2", periodID: "2026-Q1", runID: "first000", timestamp: t1, completedAt: t1, exceptions: []core.AppliedException{exc}},
-		{framework: "soc2", periodID: "2026-Q1", runID: "mid00000", timestamp: t2, completedAt: t2, exceptions: []core.AppliedException{exc}},
-		{framework: "soc2", periodID: "2026-Q1", runID: "lastrr00", timestamp: t3, completedAt: t3, exceptions: []core.AppliedException{exc}},
+		{framework: frameworkSOC2, periodID: testPeriodQ1, runID: "first000", timestamp: t1, completedAt: t1, exceptions: []core.AppliedException{exc}},
+		{framework: frameworkSOC2, periodID: testPeriodQ1, runID: "mid00000", timestamp: t2, completedAt: t2, exceptions: []core.AppliedException{exc}},
+		{framework: frameworkSOC2, periodID: testPeriodQ1, runID: "lastrr00", timestamp: t3, completedAt: t3, exceptions: []core.AppliedException{exc}},
 	})
 
 	snap, err := report.Build(context.Background(), &report.Input{
-		Vault: v, Framework: "soc2", PeriodID: "2026-Q1", View: report.ViewExceptions,
+		Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ1, View: report.ViewExceptions,
 	})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -211,10 +273,10 @@ func TestBuild_Exceptions_DedupedAcrossRuns(t *testing.T) {
 	if e.FirstSeenRunID != "first000" || e.LastSeenRunID != "lastrr00" {
 		t.Errorf("FirstSeen=%q LastSeen=%q; want first000/lastrr00", e.FirstSeenRunID, e.LastSeenRunID)
 	}
-	if e.Scope != "iam_user_legacy" {
+	if e.Scope != scopeLegacyIAMUser {
 		t.Errorf("Scope = %q; want iam_user_legacy", e.Scope)
 	}
-	if e.State != "waived" || e.ApprovedBy != "jane@acme.com" {
+	if e.State != statusWaived || e.ApprovedBy != "jane@acme.com" {
 		t.Errorf("waiver shape lost: %#v", e)
 	}
 }
@@ -224,17 +286,17 @@ func TestBuild_Exceptions_DedupedAcrossRuns(t *testing.T) {
 func TestBuild_Exceptions_PolicyScopeLabel(t *testing.T) {
 	t1 := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
 	v, _ := makeVault(t, []runSeed{
-		{framework: "soc2", periodID: "2026-Q1", runID: "rrunaaaa", timestamp: t1, completedAt: t1, exceptions: []core.AppliedException{
-			{PolicyID: "soc2.cc6.3.review", State: "na", Reason: "Out of scope"},
+		{framework: frameworkSOC2, periodID: testPeriodQ1, runID: "rrunaaaa", timestamp: t1, completedAt: t1, exceptions: []core.AppliedException{
+			{PolicyID: testPolicyAccessReview, State: "na", Reason: "Out of scope"},
 		}},
 	})
 	snap, err := report.Build(context.Background(), &report.Input{
-		Vault: v, Framework: "soc2", PeriodID: "2026-Q1", View: report.ViewExceptions,
+		Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ1, View: report.ViewExceptions,
 	})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
-	if snap.Exceptions.Exceptions[0].Scope != "policy" {
+	if snap.Exceptions.Exceptions[0].Scope != scopePolicy {
 		t.Errorf("Scope = %q; want \"policy\"", snap.Exceptions.Exceptions[0].Scope)
 	}
 }
@@ -246,16 +308,16 @@ func TestBuild_Integrity_PassesOnUnmodifiedRun(t *testing.T) {
 	t1 := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
 	v, _ := makeVault(t, []runSeed{
 		{
-			framework: "soc2", periodID: "2026-Q1", runID: "intg0000",
+			framework: frameworkSOC2, periodID: testPeriodQ1, runID: "intg0000",
 			timestamp: t1, completedAt: t1,
 			policies: []core.PolicyResult{
 				{PolicyID: "p1", Controls: []core.ControlRef{{ControlID: "C1"}}, Status: core.StatusPass},
 			},
-			extraFiles: map[string][]byte{"summary.json": []byte(`{"ok":true}`)},
+			extraFiles: map[string][]byte{summaryFileName: []byte(`{"ok":true}`)},
 		},
 	})
 	snap, err := report.Build(context.Background(), &report.Input{
-		Vault: v, Framework: "soc2", PeriodID: "2026-Q1", View: report.ViewIntegrity,
+		Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ1, View: report.ViewIntegrity,
 	})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -264,7 +326,7 @@ func TestBuild_Integrity_PassesOnUnmodifiedRun(t *testing.T) {
 		t.Fatalf("Integrity.Runs len = %d", len(snap.Integrity.Runs))
 	}
 	row := snap.Integrity.Runs[0]
-	if row.Status() != "pass" {
+	if row.Status() != statusPass {
 		t.Errorf("Status() = %q; want pass — err=%q firstMismatch=%q", row.Status(), row.Error, row.FirstMismatchPath)
 	}
 	if row.FilesVerified != row.FilesTotal {
@@ -279,9 +341,9 @@ func TestBuild_Integrity_DetectsTamperedFile(t *testing.T) {
 	t1 := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
 	v, roots := makeVault(t, []runSeed{
 		{
-			framework: "soc2", periodID: "2026-Q1", runID: "tampered",
+			framework: frameworkSOC2, periodID: testPeriodQ1, runID: "tampered",
 			timestamp: t1, completedAt: t1,
-			extraFiles: map[string][]byte{"summary.json": []byte(`{"ok":true}`)},
+			extraFiles: map[string][]byte{summaryFileName: []byte(`{"ok":true}`)},
 		},
 	})
 	// Overwrite summary.json with new bytes — this changes its SHA-256
@@ -291,7 +353,7 @@ func TestBuild_Integrity_DetectsTamperedFile(t *testing.T) {
 		t.Fatalf("tamper write: %v", err)
 	}
 	snap, err := report.Build(context.Background(), &report.Input{
-		Vault: v, Framework: "soc2", PeriodID: "2026-Q1", View: report.ViewIntegrity,
+		Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ1, View: report.ViewIntegrity,
 	})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -300,7 +362,7 @@ func TestBuild_Integrity_DetectsTamperedFile(t *testing.T) {
 	if row.Status() != statusFail {
 		t.Errorf("Status() = %q; want fail (file was tampered)", row.Status())
 	}
-	if row.FirstMismatchPath != "summary.json" {
+	if row.FirstMismatchPath != summaryFileName {
 		t.Errorf("FirstMismatchPath = %q; want summary.json", row.FirstMismatchPath)
 	}
 }
@@ -310,7 +372,7 @@ func TestBuild_Integrity_DetectsTamperedFile(t *testing.T) {
 func TestBuild_RejectsUnknownView(t *testing.T) {
 	v, _ := makeVault(t, nil)
 	_, err := report.Build(context.Background(), &report.Input{
-		Vault: v, Framework: "soc2", PeriodID: "2026-Q1", View: "made-up",
+		Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ1, View: "made-up",
 	})
 	if err == nil {
 		t.Fatal("want error on unknown view")
@@ -326,13 +388,13 @@ func TestBuild_RejectsBadInputs(t *testing.T) {
 		t.Error("Build(nil) = nil; want error")
 	}
 	v, _ := makeVault(t, nil)
-	if _, err := report.Build(context.Background(), &report.Input{Framework: "soc2", PeriodID: "2026-Q1"}); err == nil {
+	if _, err := report.Build(context.Background(), &report.Input{Framework: frameworkSOC2, PeriodID: testPeriodQ1}); err == nil {
 		t.Error("Build without Vault = nil; want error")
 	}
-	if _, err := report.Build(context.Background(), &report.Input{Vault: v, PeriodID: "2026-Q1"}); err == nil {
+	if _, err := report.Build(context.Background(), &report.Input{Vault: v, PeriodID: testPeriodQ1}); err == nil {
 		t.Error("Build without Framework = nil; want error")
 	}
-	if _, err := report.Build(context.Background(), &report.Input{Vault: v, Framework: "soc2"}); err == nil {
+	if _, err := report.Build(context.Background(), &report.Input{Vault: v, Framework: frameworkSOC2}); err == nil {
 		t.Error("Build without PeriodID = nil; want error")
 	}
 }
@@ -398,21 +460,21 @@ func TestFormatCSV_RowsHaveExpectedColumns(t *testing.T) {
 // formatters so we know they don't choke on representative data.
 func TestFormatText_ExceptionsAndIntegrity(t *testing.T) {
 	snapExc := &report.Snapshot{
-		View: report.ViewExceptions, Framework: "soc2", PeriodID: "2026-Q1",
+		View: report.ViewExceptions, Framework: frameworkSOC2, PeriodID: testPeriodQ1,
 		Exceptions: &report.ExceptionsView{Exceptions: []report.ExceptionEntry{
-			{PolicyID: "p1", Scope: "policy", State: "waived", ApprovedBy: "x@y", ApprovedAt: "2026-01-15", ExpiresAt: "2026-07-15", Reason: "ok"},
+			{PolicyID: "p1", Scope: scopePolicy, State: statusWaived, ApprovedBy: "x@y", ApprovedAt: testApprovedAt, ExpiresAt: testExpiresAt, Reason: "ok"},
 		}},
 	}
 	var b bytes.Buffer
 	if err := report.FormatText(&b, snapExc); err != nil {
 		t.Fatalf("text exceptions: %v", err)
 	}
-	if !strings.Contains(b.String(), "p1") || !strings.Contains(b.String(), "waived") {
+	if !strings.Contains(b.String(), "p1") || !strings.Contains(b.String(), statusWaived) {
 		t.Errorf("exceptions text missing data: %q", b.String())
 	}
 
 	snapInt := &report.Snapshot{
-		View: report.ViewIntegrity, Framework: "soc2", PeriodID: "2026-Q1",
+		View: report.ViewIntegrity, Framework: frameworkSOC2, PeriodID: testPeriodQ1,
 		Integrity: &report.IntegrityView{Runs: []report.IntegrityRow{
 			{RunPath: "soc2/2026-Q1/run_x", RunID: "r1", SignatureValid: true, FilesVerified: 3, FilesTotal: 3},
 		}},
@@ -421,7 +483,7 @@ func TestFormatText_ExceptionsAndIntegrity(t *testing.T) {
 	if err := report.FormatText(&b, snapInt); err != nil {
 		t.Fatalf("text integrity: %v", err)
 	}
-	if !strings.Contains(b.String(), "pass") || !strings.Contains(b.String(), "3/3") {
+	if !strings.Contains(b.String(), statusPass) || !strings.Contains(b.String(), "3/3") {
 		t.Errorf("integrity text missing data: %q", b.String())
 	}
 }
@@ -496,10 +558,10 @@ func TestFormatters_RejectUnsupportedView(t *testing.T) {
 func sampleLatestSnapshot() *report.Snapshot {
 	when := time.Date(2026, 2, 15, 14, 0, 0, 0, time.UTC)
 	return &report.Snapshot{
-		View: report.ViewLatest, Framework: "soc2", PeriodID: "2026-Q1",
+		View: report.ViewLatest, Framework: frameworkSOC2, PeriodID: testPeriodQ1,
 		Latest: &report.LatestView{Policies: []report.LatestPolicy{
-			{PolicyID: "soc2.cc6.1.mfa", ControlID: "SOC2.CC6.1", Status: "pass", Severity: "high", Category: "access", LastEvaluated: when, RunID: "abcd1234"},
-			{PolicyID: "soc2.cc6.3.review", ControlID: "SOC2.CC6.3", Status: statusFail, Severity: "medium", Category: "access", LastEvaluated: when, RunID: "abcd1234", ExceptionID: "soc2.cc6.3.review"},
+			{PolicyID: testPolicyMFA, ControlID: ctrlSOC2CC61, Status: statusPass, Severity: "high", Category: testCategoryAccess, LastEvaluated: when, RunID: "abcd1234"},
+			{PolicyID: testPolicyAccessReview, ControlID: "SOC2.CC6.3", Status: statusFail, Severity: "medium", Category: testCategoryAccess, LastEvaluated: when, RunID: "abcd1234", ExceptionID: testPolicyAccessReview},
 		}},
 	}
 }
@@ -519,7 +581,7 @@ func TestBuild_Integrity_HandlesMissingManifest(t *testing.T) {
 		t.Fatalf("plant file: %v", err)
 	}
 	snap, err := report.Build(context.Background(), &report.Input{
-		Vault: v, Framework: "soc2", PeriodID: "2026-Q1", View: report.ViewIntegrity,
+		Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ1, View: report.ViewIntegrity,
 	})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -533,10 +595,10 @@ func TestBuild_Integrity_HandlesMissingManifest(t *testing.T) {
 // header + one row per exception with the configured columns.
 func TestFormatCSV_Exceptions(t *testing.T) {
 	snap := &report.Snapshot{
-		View: report.ViewExceptions, Framework: "soc2", PeriodID: "2026-Q1",
+		View: report.ViewExceptions, Framework: frameworkSOC2, PeriodID: testPeriodQ1,
 		Exceptions: &report.ExceptionsView{Exceptions: []report.ExceptionEntry{
-			{PolicyID: "p1", Scope: "iam_user_legacy", State: "waived", ApprovedBy: "x@y", ApprovedAt: "2026-01-15", ExpiresAt: "2026-07-15", Reason: "needs rotation", FirstSeenRunID: "r1", LastSeenRunID: "r3"},
-			{PolicyID: "p2", Scope: "policy", State: "na", Reason: "out of scope"},
+			{PolicyID: "p1", Scope: scopeLegacyIAMUser, State: statusWaived, ApprovedBy: "x@y", ApprovedAt: testApprovedAt, ExpiresAt: testExpiresAt, Reason: "needs rotation", FirstSeenRunID: "r1", LastSeenRunID: "r3"},
+			{PolicyID: "p2", Scope: scopePolicy, State: "na", Reason: "out of scope"},
 		}},
 	}
 	var b bytes.Buffer
@@ -550,7 +612,7 @@ func TestFormatCSV_Exceptions(t *testing.T) {
 	if !strings.HasPrefix(lines[0], "policy_id,scope,state,approved_by") {
 		t.Errorf("header = %q", lines[0])
 	}
-	if !strings.Contains(lines[1], "waived") || !strings.Contains(lines[1], "needs rotation") {
+	if !strings.Contains(lines[1], statusWaived) || !strings.Contains(lines[1], "needs rotation") {
 		t.Errorf("row 1 missing data: %q", lines[1])
 	}
 }
@@ -559,10 +621,10 @@ func TestFormatCSV_Exceptions(t *testing.T) {
 // per run with a parseable status / files / mismatch path.
 func TestFormatCSV_Integrity(t *testing.T) {
 	snap := &report.Snapshot{
-		View: report.ViewIntegrity, Framework: "soc2", PeriodID: "2026-Q1",
+		View: report.ViewIntegrity, Framework: frameworkSOC2, PeriodID: testPeriodQ1,
 		Integrity: &report.IntegrityView{Runs: []report.IntegrityRow{
-			{RunPath: "soc2/2026-Q1/run_a", RunID: "r1", SignatureValid: true, FilesVerified: 5, FilesTotal: 5},
-			{RunPath: "soc2/2026-Q1/run_b", RunID: "r2", SignatureValid: true, FilesVerified: 2, FilesTotal: 3, FirstMismatchPath: "summary.json", Error: "hash mismatch"},
+			{RunPath: testRunPathA, RunID: "r1", SignatureValid: true, FilesVerified: 5, FilesTotal: 5},
+			{RunPath: "soc2/2026-Q1/run_b", RunID: "r2", SignatureValid: true, FilesVerified: 2, FilesTotal: 3, FirstMismatchPath: summaryFileName, Error: "hash mismatch"},
 		}},
 	}
 	var b bytes.Buffer
@@ -570,10 +632,10 @@ func TestFormatCSV_Integrity(t *testing.T) {
 		t.Fatalf("FormatCSV: %v", err)
 	}
 	out := b.String()
-	if !strings.Contains(out, "pass") || !strings.Contains(out, statusFail) {
+	if !strings.Contains(out, statusPass) || !strings.Contains(out, statusFail) {
 		t.Errorf("integrity CSV missing pass+fail rows: %q", out)
 	}
-	if !strings.Contains(out, "summary.json") {
+	if !strings.Contains(out, summaryFileName) {
 		t.Errorf("integrity CSV missing first_mismatch_path: %q", out)
 	}
 }
@@ -597,14 +659,14 @@ func TestBuild_Deterministic_LatestJSON_E2E(t *testing.T) {
 	t2 := time.Date(2026, 2, 5, 10, 0, 0, 0, time.UTC)
 	seeds := []runSeed{
 		{
-			framework: "soc2", periodID: "2026-Q1", runID: "runaaaaa", timestamp: t1, completedAt: t1,
+			framework: frameworkSOC2, periodID: testPeriodQ1, runID: "runaaaaa", timestamp: t1, completedAt: t1,
 			policies: []core.PolicyResult{
 				{PolicyID: "p2", Controls: []core.ControlRef{{ControlID: "C2"}}, Status: core.StatusPass, Severity: core.SeverityMedium},
 				{PolicyID: "p1", Controls: []core.ControlRef{{ControlID: "C1"}}, Status: core.StatusFail, Severity: core.SeverityHigh},
 			},
 		},
 		{
-			framework: "soc2", periodID: "2026-Q1", runID: "runbbbbb", timestamp: t2, completedAt: t2,
+			framework: frameworkSOC2, periodID: testPeriodQ1, runID: "runbbbbb", timestamp: t2, completedAt: t2,
 			policies: []core.PolicyResult{
 				{PolicyID: "p1", Controls: []core.ControlRef{{ControlID: "C1"}}, Status: core.StatusPass, Severity: core.SeverityHigh},
 				{PolicyID: "p3", Controls: []core.ControlRef{{ControlID: "C3"}}, Status: core.StatusSkip, Severity: core.SeverityLow},
@@ -617,7 +679,7 @@ func TestBuild_Deterministic_LatestJSON_E2E(t *testing.T) {
 	outs := make([]string, runs)
 	for i := 0; i < runs; i++ {
 		snap, err := report.Build(context.Background(), &report.Input{
-			Vault: v, Framework: "soc2", PeriodID: "2026-Q1", View: report.ViewLatest,
+			Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ1, View: report.ViewLatest,
 		})
 		if err != nil {
 			t.Fatalf("Build %d: %v", i, err)
@@ -648,11 +710,11 @@ func TestBuild_Deterministic_LatestJSON_E2E(t *testing.T) {
 func TestBuild_DefaultViewIsLatest(t *testing.T) {
 	t1 := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
 	v, _ := makeVault(t, []runSeed{
-		{framework: "soc2", periodID: "2026-Q1", runID: "default0", timestamp: t1, completedAt: t1,
+		{framework: frameworkSOC2, periodID: testPeriodQ1, runID: "default0", timestamp: t1, completedAt: t1,
 			policies: []core.PolicyResult{{PolicyID: "p1", Status: core.StatusPass}}},
 	})
 	snap, err := report.Build(context.Background(), &report.Input{
-		Vault: v, Framework: "soc2", PeriodID: "2026-Q1", // no View
+		Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ1, // no View
 	})
 	if err != nil {
 		t.Fatalf("Build: %v", err)

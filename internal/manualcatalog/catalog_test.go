@@ -6,6 +6,32 @@ import (
 	"testing"
 )
 
+// Cadence inputs. These are CLI cadence-DSL values, not SPA Frequency
+// values — FrequencyFromCadence maps one to the other (and "annual" and
+// "yearly" both map to FrequencyYearly), so they stay plain strings
+// rather than reusing the typed Frequency constants under test.
+const (
+	cadenceDaily     = "daily"
+	cadenceWeekly    = "weekly"
+	cadenceMonthly   = "monthly"
+	cadenceQuarterly = "quarterly"
+	cadenceYearly    = "yearly"
+	cadenceAnnual    = "annual"
+)
+
+// JSON keys of the SPA-facing Entry contract that more than one
+// assertion below names.
+const (
+	keyControl      = "control"
+	keyType         = "type"
+	keyFrequency    = "frequency"
+	keyTemporalRule = "temporal_rule"
+	keyGracePeriod  = "grace_period"
+	keyName         = "name"
+	keyDescription  = "description"
+	keySeverity     = "severity"
+)
+
 // TestEntry_JSONTagsMatchSPAContract pins every json tag on Entry to the
 // exact field name the Evidence SPA's src/types/catalog.ts CatalogEntry
 // interface depends on. Changing a tag here silently breaks the SPA's
@@ -14,14 +40,14 @@ import (
 func TestEntry_JSONTagsMatchSPAContract(t *testing.T) {
 	want := map[string]string{
 		"ID":              "id",
-		"Control":         "control",
-		"Type":            "type",
-		"Frequency":       "frequency",
-		"TemporalRule":    "temporal_rule",
-		"GracePeriod":     "grace_period",
-		"Name":            "name",
-		"Description":     "description",
-		"Severity":        "severity",
+		"Control":         keyControl,
+		"Type":            keyType,
+		"Frequency":       keyFrequency,
+		"TemporalRule":    keyTemporalRule,
+		"GracePeriod":     keyGracePeriod,
+		"Name":            keyName,
+		"Description":     keyDescription,
+		"Severity":        keySeverity,
 		"AcceptedFormats": "accepted_formats,omitempty",
 		"Items":           "items,omitempty",
 		"DeclarationText": "declaration_text,omitempty",
@@ -126,8 +152,8 @@ func TestEntry_JSONRoundTrip(t *testing.T) {
 		t.Fatalf("unmarshal: %v", err)
 	}
 	for _, k := range []string{
-		"id", "control", "type", "frequency", "temporal_rule", "grace_period",
-		"name", "description", "severity", "accepted_formats", "items",
+		"id", keyControl, keyType, keyFrequency, keyTemporalRule, keyGracePeriod,
+		keyName, keyDescription, keySeverity, "accepted_formats", "items",
 		"declaration_text", "category", "tsc", "optional",
 	} {
 		if _, ok := generic[k]; !ok {
@@ -161,7 +187,7 @@ func TestEntry_JSONRoundTrip(t *testing.T) {
 		}
 	}
 	// Required (non-omitempty) keys must always be present.
-	for _, k := range []string{"id", "control", "type", "frequency", "temporal_rule", "grace_period", "name", "description", "severity"} {
+	for _, k := range []string{"id", keyControl, keyType, keyFrequency, keyTemporalRule, keyGracePeriod, keyName, keyDescription, keySeverity} {
 		if _, ok := mgeneric[k]; !ok {
 			t.Errorf("minimal entry missing required key %q", k)
 		}
@@ -194,12 +220,12 @@ func TestFrequencyFromCadence(t *testing.T) {
 		cadence string
 		want    Frequency
 	}{
-		{"annual", FrequencyYearly},
-		{"yearly", FrequencyYearly},
-		{"quarterly", FrequencyQuarterly},
-		{"monthly", FrequencyMonthly},
-		{"weekly", FrequencyWeekly},
-		{"daily", FrequencyDaily},
+		{cadenceAnnual, FrequencyYearly},
+		{cadenceYearly, FrequencyYearly},
+		{cadenceQuarterly, FrequencyQuarterly},
+		{cadenceMonthly, FrequencyMonthly},
+		{cadenceWeekly, FrequencyWeekly},
+		{cadenceDaily, FrequencyDaily},
 		{"hourly", FrequencyDaily},
 		{"continuous", FrequencyDaily},
 		{"every:6h", FrequencyYearly},
@@ -221,8 +247,8 @@ func TestFrequencyFromCadence_AlwaysSPAValid(t *testing.T) {
 		FrequencyQuarterly: true, FrequencyYearly: true,
 	}
 	for _, cadence := range []string{
-		"continuous", "hourly", "daily", "weekly", "monthly", "quarterly",
-		"annual", "yearly", "every:5m", "every:24h", "", "garbage",
+		"continuous", "hourly", cadenceDaily, cadenceWeekly, cadenceMonthly, cadenceQuarterly,
+		cadenceAnnual, cadenceYearly, "every:5m", "every:24h", "", "garbage",
 	} {
 		if got := FrequencyFromCadence(cadence); !valid[got] {
 			t.Errorf("FrequencyFromCadence(%q) = %q is not a valid SPA Frequency", cadence, got)
@@ -231,10 +257,10 @@ func TestFrequencyFromCadence_AlwaysSPAValid(t *testing.T) {
 }
 
 func TestGraceForCadence(t *testing.T) {
-	if got := GraceForCadence("quarterly"); got != "15d" {
+	if got := GraceForCadence(cadenceQuarterly); got != "15d" {
 		t.Errorf("GraceForCadence(quarterly) = %q; want 15d", got)
 	}
-	for _, cadence := range []string{"annual", "monthly", "weekly", "daily", "", "every:6h"} {
+	for _, cadence := range []string{cadenceAnnual, cadenceMonthly, cadenceWeekly, cadenceDaily, "", "every:6h"} {
 		if got := GraceForCadence(cadence); got != "30d" {
 			t.Errorf("GraceForCadence(%q) = %q; want 30d", cadence, got)
 		}

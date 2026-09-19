@@ -16,6 +16,11 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testPlanDaily = "daily"
+)
+
 // fakeAPI drives the plugin without hitting GCP. It records the project
 // argument and call count to assert plumbing and the KISS-no-DRY axiom.
 type fakeAPI struct {
@@ -84,7 +89,7 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 			},
 			{ // active compute plan, sorts first by Name.
 				Name:         "projects/p/locations/us-central1/backupPlans/daily-compute",
-				State:        "ACTIVE",
+				State:        stateActive,
 				ResourceType: "compute.googleapis.com/Instance",
 				BackupVault:  "projects/p/locations/us-central1/backupVaults/v1",
 				BackupRules: []*backupdr.BackupRule{
@@ -129,7 +134,7 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 		Name: "daily-compute", Provider: "gcp",
 		IsActive: true, HasRetentionRule: true, RetentionDays: ptrInt64(30),
 		CoversResourceTypes: []string{"compute.googleapis.com/Instance"},
-		State:               "ACTIVE",
+		State:               stateActive,
 		BackupVault:         "projects/p/locations/us-central1/backupVaults/v1",
 		RuleCount:           2,
 	}
@@ -156,7 +161,7 @@ func TestCollect_SortsAndPopulates(t *testing.T) {
 func TestBuildPayload_NoRetention(t *testing.T) {
 	got := buildPayload(&backupdr.BackupPlan{
 		Name:  "projects/p/locations/us-central1/backupPlans/empty",
-		State: "ACTIVE",
+		State: stateActive,
 	})
 	if got.ID != "projects/p/locations/us-central1/backupPlans/empty" || got.Name != "empty" {
 		t.Errorf("id/name = %q/%q; want full-name / empty", got.ID, got.Name)
@@ -229,9 +234,9 @@ func deref(p *int64) any {
 // TestBackupPlanShortName covers the trailing-id parse and the fallback.
 func TestBackupPlanShortName(t *testing.T) {
 	cases := map[string]string{
-		"projects/p/locations/us-central1/backupPlans/daily": "daily",
-		"daily": "daily",
-		"":      "",
+		"projects/p/locations/us-central1/backupPlans/daily": testPlanDaily,
+		testPlanDaily: testPlanDaily,
+		"":            "",
 	}
 	for in, want := range cases {
 		if got := backupPlanShortName(in); got != want {

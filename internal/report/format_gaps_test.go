@@ -35,7 +35,7 @@ const statusFail = "fail"
 
 func TestFormatCSV_NilLatestView(t *testing.T) {
 	// A Snapshot.Latest == nil with ViewLatest should emit only the header row.
-	snap := &report.Snapshot{View: report.ViewLatest, Framework: "soc2", PeriodID: "2026-Q1", Latest: nil}
+	snap := &report.Snapshot{View: report.ViewLatest, Framework: frameworkSOC2, PeriodID: testPeriodQ1, Latest: nil}
 	var b bytes.Buffer
 	if err := report.FormatCSV(&b, snap); err != nil {
 		t.Fatalf("FormatCSV nil Latest: %v", err)
@@ -50,7 +50,7 @@ func TestFormatCSV_NilLatestView(t *testing.T) {
 }
 
 func TestFormatCSV_NilExceptionsView(t *testing.T) {
-	snap := &report.Snapshot{View: report.ViewExceptions, Framework: "soc2", PeriodID: "2026-Q1", Exceptions: nil}
+	snap := &report.Snapshot{View: report.ViewExceptions, Framework: frameworkSOC2, PeriodID: testPeriodQ1, Exceptions: nil}
 	var b bytes.Buffer
 	if err := report.FormatCSV(&b, snap); err != nil {
 		t.Fatalf("FormatCSV nil Exceptions: %v", err)
@@ -65,7 +65,7 @@ func TestFormatCSV_NilExceptionsView(t *testing.T) {
 }
 
 func TestFormatCSV_NilIntegrityView(t *testing.T) {
-	snap := &report.Snapshot{View: report.ViewIntegrity, Framework: "soc2", PeriodID: "2026-Q1", Integrity: nil}
+	snap := &report.Snapshot{View: report.ViewIntegrity, Framework: frameworkSOC2, PeriodID: testPeriodQ1, Integrity: nil}
 	var b bytes.Buffer
 	if err := report.FormatCSV(&b, snap); err != nil {
 		t.Fatalf("FormatCSV nil Integrity: %v", err)
@@ -92,10 +92,10 @@ func TestBuild_Exceptions_PatternScopeLabel(t *testing.T) {
 	_, _ = makeVault(t, nil) // side-effect: ensure makeVault helper is exercised
 	_, roots := makeVault(t, []runSeed{
 		{
-			framework: "soc2", periodID: "2026-Q1", runID: "pattrn00", timestamp: t1, completedAt: t1,
+			framework: frameworkSOC2, periodID: testPeriodQ1, runID: "pattrn00", timestamp: t1, completedAt: t1,
 			exceptions: []core.AppliedException{
-				{PolicyID: "p1", State: "waived", Reason: "pattern-scoped",
-					ResourcePattern: "arn:aws:iam::*:user/svc-*"},
+				{PolicyID: "p1", State: statusWaived, Reason: "pattern-scoped",
+					ResourcePattern: scopeServiceUserARNs},
 			},
 		},
 	})
@@ -104,15 +104,15 @@ func TestBuild_Exceptions_PatternScopeLabel(t *testing.T) {
 	// Use the vault that was actually seeded (makeVault returns its own vault).
 	vv, _ := makeVault(t, []runSeed{
 		{
-			framework: "soc2", periodID: "2026-Q1", runID: "pattrn00", timestamp: t1, completedAt: t1,
+			framework: frameworkSOC2, periodID: testPeriodQ1, runID: "pattrn00", timestamp: t1, completedAt: t1,
 			exceptions: []core.AppliedException{
-				{PolicyID: "p1", State: "waived", Reason: "pattern-scoped",
-					ResourcePattern: "arn:aws:iam::*:user/svc-*"},
+				{PolicyID: "p1", State: statusWaived, Reason: "pattern-scoped",
+					ResourcePattern: scopeServiceUserARNs},
 			},
 		},
 	})
 	snap, err := report.Build(context.Background(), &report.Input{
-		Vault: vv, Framework: "soc2", PeriodID: "2026-Q1", View: report.ViewExceptions,
+		Vault: vv, Framework: frameworkSOC2, PeriodID: testPeriodQ1, View: report.ViewExceptions,
 	})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -121,7 +121,7 @@ func TestBuild_Exceptions_PatternScopeLabel(t *testing.T) {
 		t.Fatalf("expected 1 exception row")
 	}
 	e := snap.Exceptions.Exceptions[0]
-	if e.Scope != "arn:aws:iam::*:user/svc-*" {
+	if e.Scope != scopeServiceUserARNs {
 		t.Errorf("Scope = %q; want resource_pattern", e.Scope)
 	}
 }
@@ -132,9 +132,9 @@ func TestBuild_Exceptions_PatternScopeLabel(t *testing.T) {
 
 func TestFormatJSON_ExceptionsView(t *testing.T) {
 	snap := &report.Snapshot{
-		View: report.ViewExceptions, Framework: "soc2", PeriodID: "2026-Q1",
+		View: report.ViewExceptions, Framework: frameworkSOC2, PeriodID: testPeriodQ1,
 		Exceptions: &report.ExceptionsView{Exceptions: []report.ExceptionEntry{
-			{PolicyID: "p1", Scope: "policy", State: "na", Reason: "not applicable"},
+			{PolicyID: "p1", Scope: scopePolicy, State: "na", Reason: "not applicable"},
 		}},
 	}
 	var b bytes.Buffer
@@ -155,9 +155,9 @@ func TestFormatJSON_ExceptionsView(t *testing.T) {
 
 func TestFormatJSON_IntegrityView(t *testing.T) {
 	snap := &report.Snapshot{
-		View: report.ViewIntegrity, Framework: "soc2", PeriodID: "2026-Q1",
+		View: report.ViewIntegrity, Framework: frameworkSOC2, PeriodID: testPeriodQ1,
 		Integrity: &report.IntegrityView{Runs: []report.IntegrityRow{
-			{RunPath: "soc2/2026-Q1/run_a", RunID: "r1", SignatureValid: true, FilesVerified: 2, FilesTotal: 2},
+			{RunPath: testRunPathA, RunID: "r1", SignatureValid: true, FilesVerified: 2, FilesTotal: 2},
 		}},
 	}
 	var b bytes.Buffer
@@ -191,7 +191,7 @@ func TestBuild_Integrity_MalformedManifestJSON(t *testing.T) {
 		t.Fatalf("plant malformed manifest: %v", err)
 	}
 	snap, err := report.Build(ctx, &report.Input{
-		Vault: v, Framework: "soc2", PeriodID: "2026-Q1", View: report.ViewIntegrity,
+		Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ1, View: report.ViewIntegrity,
 	})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -215,12 +215,12 @@ func TestBuild_Integrity_MalformedManifestJSON(t *testing.T) {
 func TestFormatText_LatestShowsExceptionIndicator(t *testing.T) {
 	when := time.Date(2026, 2, 15, 14, 0, 0, 0, time.UTC)
 	snap := &report.Snapshot{
-		View: report.ViewLatest, Framework: "soc2", PeriodID: "2026-Q1",
+		View: report.ViewLatest, Framework: frameworkSOC2, PeriodID: testPeriodQ1,
 		Latest: &report.LatestView{Policies: []report.LatestPolicy{
-			{PolicyID: "soc2.cc6.1.mfa", ControlID: "SOC2.CC6.1", Status: "waived",
-				Severity: "high", Category: "access", LastEvaluated: when, RunID: "run1",
-				ExceptionID: "soc2.cc6.1.mfa"}, // exception present
-			{PolicyID: "soc2.cc6.3.review", ControlID: "SOC2.CC6.3", Status: "pass",
+			{PolicyID: testPolicyMFA, ControlID: ctrlSOC2CC61, Status: statusWaived,
+				Severity: "high", Category: testCategoryAccess, LastEvaluated: when, RunID: "run1",
+				ExceptionID: testPolicyMFA}, // exception present
+			{PolicyID: testPolicyAccessReview, ControlID: "SOC2.CC6.3", Status: statusPass,
 				Severity: "medium", LastEvaluated: when, RunID: "run1",
 				ExceptionID: ""}, // no exception → "-" in output
 		}},
@@ -230,7 +230,7 @@ func TestFormatText_LatestShowsExceptionIndicator(t *testing.T) {
 		t.Fatalf("FormatText: %v", err)
 	}
 	out := b.String()
-	if !strings.Contains(out, "soc2.cc6.1.mfa") {
+	if !strings.Contains(out, testPolicyMFA) {
 		t.Errorf("exception ID missing from output: %q", out)
 	}
 	// The "-" dash placeholder must appear for the policy without an exception.
@@ -245,10 +245,10 @@ func TestFormatText_LatestShowsExceptionIndicator(t *testing.T) {
 
 func TestFormatText_IntegrityDetailPaths(t *testing.T) {
 	snap := &report.Snapshot{
-		View: report.ViewIntegrity, Framework: "soc2", PeriodID: "2026-Q1",
+		View: report.ViewIntegrity, Framework: frameworkSOC2, PeriodID: testPeriodQ1,
 		Integrity: &report.IntegrityView{Runs: []report.IntegrityRow{
 			// run with mismatch path (detail = "mismatch: <path>")
-			{RunPath: "soc2/2026-Q1/run_a", RunID: "r1", SignatureValid: true,
+			{RunPath: testRunPathA, RunID: "r1", SignatureValid: true,
 				FilesVerified: 1, FilesTotal: 2, FirstMismatchPath: "policies/p1/result.json"},
 			// run with signature error only (detail = oneLine(error))
 			{RunPath: "soc2/2026-Q1/run_b", RunID: "r2", SignatureValid: false,
@@ -269,7 +269,7 @@ func TestFormatText_IntegrityDetailPaths(t *testing.T) {
 	if !strings.Contains(out, "signature verification failed") {
 		t.Errorf("error detail missing: %q", out)
 	}
-	if !strings.Contains(out, "pass") {
+	if !strings.Contains(out, statusPass) {
 		t.Errorf("pass status missing: %q", out)
 	}
 }
@@ -280,9 +280,9 @@ func TestFormatText_IntegrityDetailPaths(t *testing.T) {
 
 func TestFormatText_ExceptionMultiLineReason(t *testing.T) {
 	snap := &report.Snapshot{
-		View: report.ViewExceptions, Framework: "soc2", PeriodID: "2026-Q1",
+		View: report.ViewExceptions, Framework: frameworkSOC2, PeriodID: testPeriodQ1,
 		Exceptions: &report.ExceptionsView{Exceptions: []report.ExceptionEntry{
-			{PolicyID: "p1", Scope: "policy", State: "na",
+			{PolicyID: "p1", Scope: scopePolicy, State: "na",
 				Reason: "Line one.\nLine two.\tTabbed."},
 		}},
 	}
@@ -311,7 +311,7 @@ func TestFormatJSON_AnyViewSucceeds(t *testing.T) {
 	// FormatJSON encodes the Snapshot as-is regardless of View — verify
 	// it does not error for known views.
 	for _, view := range []report.View{report.ViewLatest, report.ViewExceptions, report.ViewIntegrity, report.ViewScope, report.ViewCoverage} {
-		snap := &report.Snapshot{View: view, Framework: "soc2", PeriodID: "2026-Q1"}
+		snap := &report.Snapshot{View: view, Framework: frameworkSOC2, PeriodID: testPeriodQ1}
 		var b bytes.Buffer
 		if err := report.FormatJSON(&b, snap); err != nil {
 			t.Errorf("FormatJSON(%s): %v", view, err)
@@ -329,7 +329,7 @@ func TestIntegrityRow_StatusBranches(t *testing.T) {
 		row  report.IntegrityRow
 		want string
 	}{
-		{"pass", report.IntegrityRow{SignatureValid: true, FilesVerified: 2, FilesTotal: 2}, "pass"},
+		{statusPass, report.IntegrityRow{SignatureValid: true, FilesVerified: 2, FilesTotal: 2}, statusPass},
 		{"fail_no_sig", report.IntegrityRow{SignatureValid: false, Error: "bad sig"}, statusFail},
 		{"fail_mismatch", report.IntegrityRow{SignatureValid: true, FirstMismatchPath: "x"}, statusFail},
 		{"fail_error_only", report.IntegrityRow{SignatureValid: true, Error: "file missing"}, statusFail},

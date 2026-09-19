@@ -17,17 +17,17 @@ import (
 
 func TestRosterStatus(t *testing.T) {
 	cases := map[string]string{
-		"ACTIVE":           rosterActive,
-		"RECOVERY":         rosterActive,
-		"PASSWORD_EXPIRED": rosterActive,
-		"LOCKED_OUT":       rosterActive,
-		"active":           rosterActive,
-		"STAGED":           rosterPending,
-		"PROVISIONED":      rosterPending,
-		"SUSPENDED":        rosterInactive,
-		"DEPROVISIONED":    rosterInactive,
-		"SOMETHING_NEW":    rosterInactive,
-		"":                 rosterInactive,
+		oktaStatusActive:        rosterActive,
+		"RECOVERY":              rosterActive,
+		"PASSWORD_EXPIRED":      rosterActive,
+		oktaStatusLockedOut:     rosterActive,
+		"active":                rosterActive,
+		oktaStatusStaged:        rosterPending,
+		"PROVISIONED":           rosterPending,
+		oktaStatusSuspended:     rosterInactive,
+		oktaStatusDeprovisioned: rosterInactive,
+		"SOMETHING_NEW":         rosterInactive,
+		"":                      rosterInactive,
 	}
 	for raw, want := range cases {
 		if got := rosterStatus(raw); got != want {
@@ -38,7 +38,7 @@ func TestRosterStatus(t *testing.T) {
 
 // directory_user.is_active uses the same active set as roster_entry.
 func TestCollectUsers_IsActiveMatchesRosterActiveSet(t *testing.T) {
-	statuses := []string{"ACTIVE", "RECOVERY", "PASSWORD_EXPIRED", "LOCKED_OUT", "STAGED", "PROVISIONED", "SUSPENDED", "DEPROVISIONED"}
+	statuses := []string{oktaStatusActive, "RECOVERY", "PASSWORD_EXPIRED", oktaStatusLockedOut, oktaStatusStaged, "PROVISIONED", oktaStatusSuspended, oktaStatusDeprovisioned}
 	users := make([]User, 0, len(statuses))
 	for _, st := range statuses {
 		users = append(users, User{ID: st, Email: strings.ToLower(st) + "@acme.com", Status: st})
@@ -61,11 +61,11 @@ func TestCollectUsers_IsActiveMatchesRosterActiveSet(t *testing.T) {
 func TestCollectRoster_MapsSortsAndValidates(t *testing.T) {
 	now := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	fake := &fakeAPI{roster: []RosterUser{
-		{ID: "u_zed", Status: "DEPROVISIONED", Email: "Zed@Acme.com", FirstName: "Zed", LastName: "Z", Login: "zed@acme.com"},
-		{ID: "u_amy", Status: "ACTIVE", Email: "amy@acme.com", FirstName: "Amy", LastName: "Adams", Login: "amy@acme.com",
+		{ID: "u_zed", Status: oktaStatusDeprovisioned, Email: "Zed@Acme.com", FirstName: "Zed", LastName: "Z", Login: "zed@acme.com"},
+		{ID: "u_amy", Status: oktaStatusActive, Email: testEmailAmy, FirstName: "Amy", LastName: "Adams", Login: testEmailAmy,
 			EmployeeNumber: "E100", UserType: "Employee"},
-		{ID: "u_joe", Status: "STAGED", Email: "joe@acme.com", Login: "joe.login"},
-		{ID: "u_noemail", Status: "SUSPENDED", Login: "svc"},
+		{ID: "u_joe", Status: oktaStatusStaged, Email: "joe@acme.com", Login: "joe.login"},
+		{ID: "u_noemail", Status: oktaStatusSuspended, Login: "svc"},
 	}}
 	p := New(Options{API: fake, Now: func() time.Time { return now }})
 	recs, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeRosterEntry}})
@@ -87,7 +87,7 @@ func TestCollectRoster_MapsSortsAndValidates(t *testing.T) {
 		identity string
 		payload  string
 	}{
-		"u_amy":     {"amy@acme.com", `{"id":"u_amy","status":"active","email":"amy@acme.com","display_name":"Amy Adams","employee_id":"E100","employee_type":"Employee","source_status":"ACTIVE"}`},
+		"u_amy":     {testEmailAmy, `{"id":"u_amy","status":"active","email":"amy@acme.com","display_name":"Amy Adams","employee_id":"E100","employee_type":"Employee","source_status":"ACTIVE"}`},
 		"u_joe":     {"joe@acme.com", `{"id":"u_joe","status":"pending","email":"joe@acme.com","display_name":"joe.login","source_status":"STAGED"}`},
 		"u_noemail": {"", `{"id":"u_noemail","status":"inactive","display_name":"svc","source_status":"SUSPENDED"}`},
 		"u_zed":     {"zed@acme.com", `{"id":"u_zed","status":"inactive","email":"Zed@Acme.com","display_name":"Zed Z","source_status":"DEPROVISIONED"}`},
@@ -115,8 +115,8 @@ func TestCollectRoster_MapsSortsAndValidates(t *testing.T) {
 
 func TestCollect_MultiTypeIncludesRoster(t *testing.T) {
 	fake := &fakeAPI{
-		users:  []User{{ID: "u1", Email: "u@acme.com", Status: "ACTIVE"}},
-		roster: []RosterUser{{ID: "u1", Email: "u@acme.com", Status: "ACTIVE"}},
+		users:  []User{{ID: "u1", Email: testEmailUser, Status: oktaStatusActive}},
+		roster: []RosterUser{{ID: "u1", Email: testEmailUser, Status: oktaStatusActive}},
 	}
 	p := New(Options{API: fake})
 	recs, err := p.Collect(context.Background(),
@@ -181,7 +181,7 @@ func TestHTTPAPI_ListRosterUsers_TwoPassesPagedDeduped(t *testing.T) {
 	}))
 	defer srv.Close()
 	base = srv.URL
-	api := &httpAPI{base: srv.URL, token: "tok", client: srv.Client()}
+	api := &httpAPI{base: srv.URL, token: testToken, client: srv.Client()}
 	users, err := api.ListRosterUsers(context.Background())
 	if err != nil {
 		t.Fatalf("ListRosterUsers: %v", err)
@@ -193,11 +193,11 @@ func TestHTTPAPI_ListRosterUsers_TwoPassesPagedDeduped(t *testing.T) {
 	if len(users) != 3 {
 		t.Fatalf("len = %d; want 3 (u2 de-duplicated)", len(users))
 	}
-	want := RosterUser{ID: "u1", Status: "ACTIVE", Email: "a@x.com", FirstName: "Ann", LastName: "A", Login: "a@x.com", EmployeeNumber: "E1", UserType: "Employee"}
+	want := RosterUser{ID: "u1", Status: oktaStatusActive, Email: "a@x.com", FirstName: "Ann", LastName: "A", Login: "a@x.com", EmployeeNumber: "E1", UserType: "Employee"}
 	if users[0] != want {
 		t.Errorf("u1 = %+v; want %+v", users[0], want)
 	}
-	if users[2].ID != "u3" || users[2].Status != "DEPROVISIONED" {
+	if users[2].ID != "u3" || users[2].Status != oktaStatusDeprovisioned {
 		t.Errorf("third user = %+v; want deprovisioned u3", users[2])
 	}
 }
@@ -211,7 +211,7 @@ func TestHTTPAPI_ListRosterUsers_ErrorOnFilterPass(t *testing.T) {
 		_, _ = w.Write([]byte(`[]`)) //nolint:errcheck // test handler
 	}))
 	defer srv.Close()
-	api := &httpAPI{base: srv.URL, token: "tok", client: srv.Client()}
+	api := &httpAPI{base: srv.URL, token: testToken, client: srv.Client()}
 	if _, err := api.ListRosterUsers(context.Background()); err == nil || !strings.Contains(err.Error(), "403") {
 		t.Errorf("want 403 error; got %v", err)
 	}

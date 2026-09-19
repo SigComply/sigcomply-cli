@@ -13,6 +13,11 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testSSLModeEncryptedOnly = "ENCRYPTED_ONLY"
+)
+
 // fakeAPI lets tests drive the plugin without real Cloud SQL calls.
 type fakeAPI struct {
 	instances []*sqladmin.DatabaseInstance
@@ -67,7 +72,7 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 			Region:          "europe-west1",
 			State:           "RUNNABLE",
 			Settings: &sqladmin.Settings{
-				IpConfiguration:           &sqladmin.IpConfiguration{RequireSsl: true, SslMode: "ENCRYPTED_ONLY", Ipv4Enabled: false},
+				IpConfiguration:           &sqladmin.IpConfiguration{RequireSsl: true, SslMode: testSSLModeEncryptedOnly, Ipv4Enabled: false},
 				BackupConfiguration:       &sqladmin.BackupConfiguration{Enabled: true, PointInTimeRecoveryEnabled: true},
 				AvailabilityType:          "REGIONAL",
 				DeletionProtectionEnabled: true,
@@ -113,7 +118,7 @@ func TestSSLRequired_SslModeOnly(t *testing.T) {
 		mode string
 		want bool
 	}{
-		{"ENCRYPTED_ONLY", true},
+		{testSSLModeEncryptedOnly, true},
 		{"TRUSTED_CLIENT_CERTIFICATE_REQUIRED", true},
 		{"ALLOW_UNENCRYPTED_AND_ENCRYPTED", false},
 		{"", false},
@@ -137,7 +142,7 @@ func assertAlphaPayload(t *testing.T, rec *core.EvidenceRecord) {
 	if !alpha.SSLRequired {
 		t.Errorf("alpha.SSLRequired = false; want true")
 	}
-	if alpha.SSLMode != "ENCRYPTED_ONLY" {
+	if alpha.SSLMode != testSSLModeEncryptedOnly {
 		t.Errorf("alpha.SSLMode = %q", alpha.SSLMode)
 	}
 	if !alpha.BackupEnabled {

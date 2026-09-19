@@ -16,6 +16,10 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 )
 
+// diagReason is the RuleResult.Diag key carrying the human-readable
+// explanation of a non-pass verdict.
+const diagReason = "reason"
+
 // Input is the per-run input to Evaluate. RecordsByPolicy is keyed by
 // PolicyID; the inner map is keyed by slot name. CollectErrorsByPolicy
 // holds collector-side errors (network, auth, schema-validation); a
@@ -105,7 +109,7 @@ func evaluateOne(ctx context.Context, pp *planner.PlannedPolicy, in *Input) core
 			// Path B: pass_when: declarative DSL.
 			if !requiredSlotsPopulated(pp, slots) {
 				result.Status = core.StatusSkip
-				result.Diag = map[string]any{"reason": "required slot has no records"}
+				result.Diag = map[string]any{diagReason: "required slot has no records"}
 				return result
 			}
 			ec := newEvalCtx(slots, pp.Parameters, pp.Roster)
@@ -115,7 +119,7 @@ func evaluateOne(ctx context.Context, pp *planner.PlannedPolicy, in *Input) core
 			// Path C: rule: escape hatch.
 			if !requiredSlotsPopulated(pp, slots) {
 				result.Status = core.StatusSkip
-				result.Diag = map[string]any{"reason": "required slot has no records"}
+				result.Diag = map[string]any{diagReason: "required slot has no records"}
 				return result
 			}
 			ruleOut = evaluateRuleRef(ctx, pp, in, slots)
@@ -124,7 +128,7 @@ func evaluateOne(ctx context.Context, pp *planner.PlannedPolicy, in *Input) core
 	default:
 		// evidence_mode missing or unknown — should have been caught at spec load time.
 		result.Status = core.StatusError
-		result.Diag = map[string]any{"reason": fmt.Sprintf("policy %q has unrecognized evidence_mode %q", pp.Spec.ID, pp.Spec.EvidenceMode)}
+		result.Diag = map[string]any{diagReason: fmt.Sprintf("policy %q has unrecognized evidence_mode %q", pp.Spec.ID, pp.Spec.EvidenceMode)}
 		return result
 	}
 
@@ -261,11 +265,11 @@ func matchesScope(resourceID string, exc *planner.Exception) bool {
 // the rule returns an error.
 func evaluateRuleRef(ctx context.Context, pp *planner.PlannedPolicy, in *Input, slots map[string][]core.EvidenceRecord) core.RuleResult {
 	if in.Rules == nil {
-		return core.RuleResult{Status: core.StatusError, Diag: map[string]any{"reason": "rule registry is nil; cannot evaluate rule: policy"}}
+		return core.RuleResult{Status: core.StatusError, Diag: map[string]any{diagReason: "rule registry is nil; cannot evaluate rule: policy"}}
 	}
 	rule, ok := in.Rules.Lookup(pp.Spec.RuleRef)
 	if !ok {
-		return core.RuleResult{Status: core.StatusError, Diag: map[string]any{"reason": fmt.Sprintf("rule %q not registered", pp.Spec.RuleRef)}}
+		return core.RuleResult{Status: core.StatusError, Diag: map[string]any{diagReason: fmt.Sprintf("rule %q not registered", pp.Spec.RuleRef)}}
 	}
 	ruleOut, err := rule.Evaluate(ctx, core.RuleInput{
 		PolicyID: pp.Spec.ID,

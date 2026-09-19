@@ -81,7 +81,7 @@ func TestCollect_HappyPath(t *testing.T) {
 		name      string
 		got, want any
 	}{
-		{"ID", r.ID, "account"},
+		{"ID", r.ID, singletonID},
 		{"Type", r.Type, EvidenceTypeID},
 		{"SourceID", r.SourceID, SourceID},
 		{"CollectedAt", r.CollectedAt, now()},
@@ -155,7 +155,7 @@ func TestCollect_NoSuchEntity_WeakestPosture(t *testing.T) {
 	if err := json.Unmarshal(records[0].Payload, &pl); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	if pl.ID != "account" || pl.Provider != "aws" {
+	if pl.ID != singletonID || pl.Provider != "aws" {
 		t.Errorf("id/provider = %q/%q", pl.ID, pl.Provider)
 	}
 	if pl.MinLength != 0 || pl.MaxAgeDays != 0 || pl.ReusePreventionCount != 0 {

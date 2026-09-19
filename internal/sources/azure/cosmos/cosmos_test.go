@@ -16,11 +16,13 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	armcosmos "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/cosmos/armcosmos/v3"
+	armcosmos "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/cosmos/armcosmos/v4"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
+
+const backupPolicyContinuous = "Continuous"
 
 var fixedNow = time.Date(2026, 6, 17, 12, 0, 0, 0, time.UTC)
 
@@ -171,7 +173,7 @@ func TestCollect_MapsSortsAndFullPayload(t *testing.T) {
 		Kind:                       "MongoDB",
 		Location:                   "eastus",
 		ResourceGroup:              "rg",
-		BackupPolicyType:           "Continuous",
+		BackupPolicyType:           backupPolicyContinuous,
 		ContinuousBackupTier:       "Continuous30Days",
 		CMEKEnabled:                true,
 		KMSKeyID:                   keyURI,
@@ -287,8 +289,8 @@ func TestBackupPolicyTypeAndTier_Table(t *testing.T) {
 		wantType string
 		wantTier string
 	}{
-		{"continuous-7d", mk(&armcosmos.ContinuousModeBackupPolicy{Type: to.Ptr(armcosmos.BackupPolicyTypeContinuous), ContinuousModeProperties: &armcosmos.ContinuousModeProperties{Tier: to.Ptr(armcosmos.ContinuousTierContinuous7Days)}}), "Continuous", "Continuous7Days"},
-		{"continuous-no-tier", mk(&armcosmos.ContinuousModeBackupPolicy{Type: to.Ptr(armcosmos.BackupPolicyTypeContinuous)}), "Continuous", ""},
+		{"continuous-7d", mk(&armcosmos.ContinuousModeBackupPolicy{Type: to.Ptr(armcosmos.BackupPolicyTypeContinuous), ContinuousModeProperties: &armcosmos.ContinuousModeProperties{Tier: to.Ptr(armcosmos.ContinuousTierContinuous7Days)}}), backupPolicyContinuous, "Continuous7Days"},
+		{"continuous-no-tier", mk(&armcosmos.ContinuousModeBackupPolicy{Type: to.Ptr(armcosmos.BackupPolicyTypeContinuous)}), backupPolicyContinuous, ""},
 		{"periodic", mk(&armcosmos.PeriodicModeBackupPolicy{Type: to.Ptr(armcosmos.BackupPolicyTypePeriodic)}), "Periodic", ""},
 		{"nil-policy", mk(nil), "", ""},
 		{"nil-properties", &armcosmos.DatabaseAccountGetResults{}, "", ""},

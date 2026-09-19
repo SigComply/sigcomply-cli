@@ -9,6 +9,19 @@ import (
 	"github.com/go-ldap/ldap/v3"
 )
 
+// Fixture attribute values for the "Jane Doe" directory entry that most
+// mapping tests are built from.
+const (
+	testSAMJane                = "jdoe"
+	testGivenNameJane          = "Jane"
+	testDisplayNameJane        = "Jane Doe"
+	testSurnameDoe             = "Doe"
+	testUPNJane                = "jane@corp.local"
+	testEmployeeNumberJane     = "E-100"
+	testEmployeeTypeEmployee   = "employee"
+	testEmployeeTypeContractor = "contractor"
+)
+
 // testNow is the fixed clock for every mapping test.
 var testNow = time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
 
@@ -147,7 +160,7 @@ func TestEntryStatus(t *testing.T) {
 	}{
 		{"enabled never expires", "512", "0", statusActive, sourceStatusEnabled},
 		{"enabled future expiry", "512", toFileTime(testNow.Add(time.Hour)), statusActive, sourceStatusEnabled},
-		{"disabled", "514", "9223372036854775807", statusInactive, sourceStatusDisabled},
+		{sourceStatusDisabled, "514", "9223372036854775807", statusInactive, sourceStatusDisabled},
 		{"expired", "512", past, statusInactive, sourceStatusExpired},
 		{"disabled wins over expired", "514", past, statusInactive, sourceStatusDisabled},
 	}
@@ -175,17 +188,17 @@ func TestEntryEmailFallbacks(t *testing.T) {
 	}{
 		{"mail wins", map[string][]string{
 			attrMail: {"jane@corp.example.com"}, attrProxyAddresses: {"SMTP:other@corp.example.com"},
-			attrUserPrincipalName: {"jane@corp.local"},
+			attrUserPrincipalName: {testUPNJane},
 		}, "jane@corp.example.com"},
 		{"primary SMTP proxy address, not secondary", map[string][]string{
 			attrProxyAddresses:    {"smtp:alias@corp.example.com", "SMTP:primary@corp.example.com", "X500:/o=corp"},
-			attrUserPrincipalName: {"jane@corp.local"},
+			attrUserPrincipalName: {testUPNJane},
 		}, "primary@corp.example.com"},
 		{"only secondary proxy falls through to UPN", map[string][]string{
 			attrProxyAddresses:    {"smtp:alias@corp.example.com"},
-			attrUserPrincipalName: {"jane@corp.local"},
-		}, "jane@corp.local"},
-		{"UPN", map[string][]string{attrUserPrincipalName: {"jane@corp.local"}}, "jane@corp.local"},
+			attrUserPrincipalName: {testUPNJane},
+		}, testUPNJane},
+		{"UPN", map[string][]string{attrUserPrincipalName: {testUPNJane}}, testUPNJane},
 		{"none", map[string][]string{attrSAMAccountName: {"jane"}}, ""},
 	}
 	for _, tc := range cases {
@@ -202,11 +215,11 @@ func TestEntryDisplayNameFallbacks(t *testing.T) {
 		attrs map[string][]string
 		want  string
 	}{
-		{"displayName", map[string][]string{attrDisplayName: {"Jane Doe"}, attrGivenName: {"J"}, attrSAMAccountName: {"jdoe"}}, "Jane Doe"},
-		{"given + sn", map[string][]string{attrGivenName: {"Jane"}, attrSn: {"Doe"}, attrSAMAccountName: {"jdoe"}}, "Jane Doe"},
-		{"given only", map[string][]string{attrGivenName: {"Jane"}, attrSAMAccountName: {"jdoe"}}, "Jane"},
-		{"sn only", map[string][]string{attrSn: {"Doe"}}, "Doe"},
-		{"sAMAccountName", map[string][]string{attrSAMAccountName: {"jdoe"}}, "jdoe"},
+		{"displayName", map[string][]string{attrDisplayName: {testDisplayNameJane}, attrGivenName: {"J"}, attrSAMAccountName: {testSAMJane}}, testDisplayNameJane},
+		{"given + sn", map[string][]string{attrGivenName: {testGivenNameJane}, attrSn: {testSurnameDoe}, attrSAMAccountName: {testSAMJane}}, testDisplayNameJane},
+		{"given only", map[string][]string{attrGivenName: {testGivenNameJane}, attrSAMAccountName: {testSAMJane}}, testGivenNameJane},
+		{"sn only", map[string][]string{attrSn: {testSurnameDoe}}, testSurnameDoe},
+		{"sAMAccountName", map[string][]string{attrSAMAccountName: {testSAMJane}}, testSAMJane},
 		{"none", map[string][]string{}, ""},
 	}
 	for _, tc := range cases {
@@ -257,11 +270,11 @@ func TestMapEntry(t *testing.T) {
 	t.Parallel()
 	e := newEntry("CN=Jane Doe,OU=Staff,DC=corp,DC=example,DC=com", knownGUIDBytes, map[string][]string{
 		attrMail:               {"Jane.Doe@Corp.Example.com"},
-		attrDisplayName:        {"Jane Doe"},
+		attrDisplayName:        {testDisplayNameJane},
 		attrUserAccountControl: {"512"},
 		attrAccountExpires:     {"0"},
-		attrEmployeeNumber:     {"E-100"},
-		attrEmployeeType:       {"contractor"},
+		attrEmployeeNumber:     {testEmployeeNumberJane},
+		attrEmployeeType:       {testEmployeeTypeContractor},
 	})
 	got, err := mapEntry(e, testNow, nil)
 	if err != nil {
@@ -269,7 +282,7 @@ func TestMapEntry(t *testing.T) {
 	}
 	want := rosterPayload{
 		ID: knownGUID, Status: statusActive, Email: "Jane.Doe@Corp.Example.com",
-		DisplayName: "Jane Doe", EmployeeID: "E-100", EmployeeType: "contractor",
+		DisplayName: testDisplayNameJane, EmployeeID: testEmployeeNumberJane, EmployeeType: testEmployeeTypeContractor,
 		SourceStatus: sourceStatusEnabled,
 	}
 	if got != want {
@@ -278,7 +291,7 @@ func TestMapEntry(t *testing.T) {
 
 	// employeeID takes precedence over employeeNumber.
 	e2 := newEntry("CN=x", knownGUIDBytes, map[string][]string{
-		attrUserAccountControl: {"512"}, attrEmployeeID: {"42"}, attrEmployeeNumber: {"E-100"},
+		attrUserAccountControl: {"512"}, attrEmployeeID: {"42"}, attrEmployeeNumber: {testEmployeeNumberJane},
 	})
 	if got, err := mapEntry(e2, testNow, nil); err != nil || got.EmployeeID != "42" {
 		t.Errorf("employee_id = %q (err %v), want 42", got.EmployeeID, err)

@@ -24,9 +24,15 @@ import (
 //go:embed templates/github/*.yml templates/gitlab/.gitlab-ci.yml
 var templatesFS embed.FS
 
+// CI provider identifiers accepted by --ci.
+const (
+	ciGitHub = "github"
+	ciGitLab = "gitlab"
+)
+
 // supportedCIs is the canonical list. Kept in sync with templatesFS;
 // the post-M6 work plan calls out that other providers are v1.x.
-var supportedCIs = []string{"github", "gitlab"}
+var supportedCIs = []string{ciGitHub, ciGitLab}
 
 // frameworkSupported reports whether init-ci will scaffold for the
 // framework. Today only soc2 has the cadence distribution baked into
@@ -158,9 +164,9 @@ type scaffoldFile struct {
 
 func scaffoldPlan(ci, outDir string) ([]scaffoldFile, error) {
 	switch ci {
-	case "github":
+	case ciGitHub:
 		return scaffoldPlanGitHub(outDir)
-	case "gitlab":
+	case ciGitLab:
 		return scaffoldPlanGitLab(outDir)
 	default:
 		// Already validated upstream; defensive.
@@ -249,10 +255,10 @@ func printSummary(stdout io.Writer, framework, ci string, written []string) {
 	b.WriteString("  2. SIGCOMPLY_VERSION is pinned to a tagged release; bump it to adopt a\n")
 	b.WriteString("     newer version (or set it to \"latest\" to always track the newest).\n")
 	switch ci {
-	case "gitlab":
+	case ciGitLab:
 		b.WriteString("  3. Create one GitLab pipeline schedule per cadence (daily, weekly,\n")
 		b.WriteString("     monthly, quarterly, annual) and set the CADENCE variable accordingly.\n")
-	case "github":
+	case ciGitHub:
 		b.WriteString("  3. Commit the workflow files; cron schedules will fire automatically.\n")
 	}
 	_, _ = stdout.Write([]byte(b.String())) //nolint:errcheck // status output; nothing useful to do on failure

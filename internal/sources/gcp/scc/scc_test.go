@@ -19,6 +19,26 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
 )
 
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	statusSuppressed = "SUPPRESSED"
+)
+
+// Shared fixture literals, named so goconst stays quiet.
+const (
+	testCategoryPublicIP  = "PUBLIC_IP_ADDRESS"
+	testFindingAAAName    = "organizations/o/sources/s/findings/aaa"
+	severityCritical      = "CRITICAL"
+	severityHigh          = "HIGH"
+	severityMedium        = "MEDIUM"
+	severityLow           = "LOW"
+	severityInformational = "INFORMATIONAL"
+	muteUnmuted           = "UNMUTED"
+	muteMuted             = "MUTED"
+	statusResolved        = "RESOLVED"
+	stateDisabled         = "DISABLED"
+)
+
 // Shared literals (goconst: these recur across the table-driven cases).
 const (
 	stateActive    = "ACTIVE"
@@ -112,21 +132,21 @@ func twoFindings() []Finding {
 			Name:           "organizations/o/sources/s/findings/zzz",
 			ResourceName:   "//compute.googleapis.com/projects/p/instances/i",
 			ResourceType:   "google.compute.Instance",
-			Category:       "PUBLIC_IP_ADDRESS",
-			Severity:       "HIGH",
+			Category:       testCategoryPublicIP,
+			Severity:       severityHigh,
 			State:          stateActive,
-			Mute:           "UNMUTED",
+			Mute:           muteUnmuted,
 			FindingClass:   classMisconfig,
 			HasRemediation: true,
 		},
 		{
-			Name:         "organizations/o/sources/s/findings/aaa",
+			Name:         testFindingAAAName,
 			ResourceName: "//container.googleapis.com/projects/p/images/x",
 			ResourceType: "google.cloud.container.Image",
 			Category:     "OS_VULNERABILITY",
-			Severity:     "CRITICAL",
+			Severity:     severityCritical,
 			State:        stateActive,
-			Mute:         "UNMUTED",
+			Mute:         muteUnmuted,
 			FindingClass: classVuln,
 			CVEID:        "CVE-2024-9999",
 			CVSSScore:    9.8,
@@ -181,7 +201,7 @@ func TestCollect_AllThreeTypes_ShapeAndOrder(t *testing.T) {
 		}
 	}
 	// Findings sorted by ID: aaa before zzz.
-	if records[2].ID != "organizations/o/sources/s/findings/aaa" || records[3].ID != "organizations/o/sources/s/findings/zzz" {
+	if records[2].ID != testFindingAAAName || records[3].ID != "organizations/o/sources/s/findings/zzz" {
 		t.Errorf("findings not sorted: %q, %q", records[2].ID, records[3].ID)
 	}
 }
@@ -197,7 +217,7 @@ func TestCollect_ThreatServicePayload(t *testing.T) {
 	want := threatServicePayload{
 		ID:                     "organizations/1234567890/eventThreatDetectionSettings",
 		Name:                   "Event Threat Detection",
-		Provider:               "gcp",
+		Provider:               providerGCP,
 		IsEnabled:              true,
 		ServiceEnablementState: stateEnabled,
 	}
@@ -217,7 +237,7 @@ func TestCollect_SecurityServicePayload(t *testing.T) {
 	want := securityServicePayload{
 		ID:                     "organizations/1234567890/securityHealthAnalyticsSettings",
 		Name:                   "Google Security Command Center",
-		Provider:               "gcp",
+		Provider:               providerGCP,
 		ServiceType:            "siem",
 		IsEnabled:              true,
 		ServiceEnablementState: stateEnabled,
@@ -237,16 +257,16 @@ func TestCollect_FindingPayload(t *testing.T) {
 	// records[0] is aaa (sorted): a critical vulnerability with CVE/score.
 	got := decodeVuln(t, &records[0])
 	want := vulnFindingPayload{
-		ID:                   "organizations/o/sources/s/findings/aaa",
+		ID:                   testFindingAAAName,
 		ResourceID:           "//container.googleapis.com/projects/p/images/x",
 		ResourceType:         "google.cloud.container.Image",
 		Title:                "OS_VULNERABILITY",
-		Severity:             "CRITICAL",
+		Severity:             severityCritical,
 		Status:               stateActive,
 		CVEID:                "CVE-2024-9999",
 		Score:                9.8,
 		RemediationAvailable: false,
-		Provider:             "gcp",
+		Provider:             providerGCP,
 		FindingClass:         classVuln,
 	}
 	if got != want {
@@ -254,10 +274,10 @@ func TestCollect_FindingPayload(t *testing.T) {
 	}
 	// records[1] is zzz: a high misconfiguration with next-steps remediation.
 	zzz := decodeVuln(t, &records[1])
-	if zzz.Severity != "HIGH" || zzz.Status != stateActive || zzz.FindingClass != classMisconfig {
+	if zzz.Severity != severityHigh || zzz.Status != stateActive || zzz.FindingClass != classMisconfig {
 		t.Errorf("zzz payload = %+v", zzz)
 	}
-	if !zzz.RemediationAvailable || zzz.Title != "PUBLIC_IP_ADDRESS" {
+	if !zzz.RemediationAvailable || zzz.Title != testCategoryPublicIP {
 		t.Errorf("zzz remediation/title off: %+v", zzz)
 	}
 }
@@ -266,7 +286,7 @@ func TestCollect_FindingPayload(t *testing.T) {
 // ETD, INHERITED for SHA) mapping to is_enabled=false while the raw state
 // is preserved for auditability.
 func TestCollect_ServicesDisabled(t *testing.T) {
-	fake := &fakeAPI{etdState: "DISABLED", shaState: "INHERITED"}
+	fake := &fakeAPI{etdState: stateDisabled, shaState: "INHERITED"}
 	p := New(Options{API: fake, OrgID: "o"})
 	records, err := p.Collect(context.Background(), reqAll())
 	if err != nil {
@@ -276,7 +296,7 @@ func TestCollect_ServicesDisabled(t *testing.T) {
 		t.Fatalf("len = %d; want 2", len(records))
 	}
 	threat := decodeThreat(t, &records[0])
-	if threat.IsEnabled || threat.ServiceEnablementState != "DISABLED" {
+	if threat.IsEnabled || threat.ServiceEnablementState != stateDisabled {
 		t.Errorf("threat = %+v; want is_enabled=false state=DISABLED", threat)
 	}
 	sec := decodeSecurity(t, &records[1])
@@ -287,13 +307,13 @@ func TestCollect_ServicesDisabled(t *testing.T) {
 
 func TestMapSeverity(t *testing.T) {
 	cases := map[string]string{
-		"CRITICAL":             "CRITICAL",
-		"HIGH":                 "HIGH",
-		"MEDIUM":               "MEDIUM",
-		"LOW":                  "LOW",
-		"SEVERITY_UNSPECIFIED": "INFORMATIONAL",
-		"":                     "INFORMATIONAL",
-		"SOMETHING_ELSE":       "INFORMATIONAL",
+		severityCritical:       severityCritical,
+		severityHigh:           severityHigh,
+		severityMedium:         severityMedium,
+		severityLow:            severityLow,
+		"SEVERITY_UNSPECIFIED": severityInformational,
+		"":                     severityInformational,
+		"SOMETHING_ELSE":       severityInformational,
 	}
 	for in, want := range cases {
 		if got := mapSeverity(in); got != want {
@@ -306,12 +326,12 @@ func TestMapStatus(t *testing.T) {
 	cases := []struct {
 		state, mute, want string
 	}{
-		{stateActive, "UNMUTED", stateActive},
-		{stateActive, "MUTED", "SUPPRESSED"}, // mute wins over state
-		{"INACTIVE", "UNMUTED", "RESOLVED"},
-		{"INACTIVE", "MUTED", "SUPPRESSED"},
-		{"STATE_UNSPECIFIED", "UNDEFINED", "RESOLVED"},
-		{"", "", "RESOLVED"},
+		{stateActive, muteUnmuted, stateActive},
+		{stateActive, muteMuted, statusSuppressed}, // mute wins over state
+		{"INACTIVE", muteUnmuted, statusResolved},
+		{"INACTIVE", muteMuted, statusSuppressed},
+		{"STATE_UNSPECIFIED", "UNDEFINED", statusResolved},
+		{"", "", statusResolved},
 	}
 	for _, c := range cases {
 		if got := mapStatus(c.state, c.mute); got != c.want {
@@ -329,9 +349,9 @@ func TestCollect_Findings_ResourceTypeFallback(t *testing.T) {
 			Name:         "organizations/o/sources/s/findings/f1",
 			ResourceName: "//foo/bar",
 			ResourceType: "", // wrapper omitted it
-			Severity:     "MEDIUM",
+			Severity:     severityMedium,
 			State:        stateActive,
-			Mute:         "MUTED",
+			Mute:         muteMuted,
 			FindingClass: classVuln,
 		}},
 	}
@@ -348,10 +368,10 @@ func TestCollect_Findings_ResourceTypeFallback(t *testing.T) {
 	if v.ResourceType != resourceTypeFallback {
 		t.Errorf("ResourceType = %q; want %q", v.ResourceType, resourceTypeFallback)
 	}
-	if v.Status != "SUPPRESSED" {
+	if v.Status != statusSuppressed {
 		t.Errorf("Status = %q; want SUPPRESSED (muted)", v.Status)
 	}
-	if v.Severity != "MEDIUM" {
+	if v.Severity != severityMedium {
 		t.Errorf("Severity = %q; want MEDIUM", v.Severity)
 	}
 	if v.CVEID != "" || v.Score != 0 || v.Title != "" {
@@ -363,7 +383,7 @@ func TestCollect_Findings_ResourceTypeFallback(t *testing.T) {
 // single type triggers only that type's API calls.
 func TestCollect_Dispatch_OnlyRequestedType(t *testing.T) {
 	// Only vulnerability_finding requested → no settings calls.
-	fake := &fakeAPI{findings: []Finding{{Name: "x", ResourceName: "r", ResourceType: "t", Severity: "LOW", State: stateActive, FindingClass: classVuln}}}
+	fake := &fakeAPI{findings: []Finding{{Name: "x", ResourceName: "r", ResourceType: "t", Severity: severityLow, State: stateActive, FindingClass: classVuln}}}
 	p := New(Options{API: fake, OrgID: "o"})
 	records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeVulnFinding}})
 	if err != nil {
@@ -509,10 +529,10 @@ func TestRealSCC_ListFindings_HappyPath(t *testing.T) {
 		Name:           "organizations/123/sources/5/findings/abc",
 		ResourceName:   "//compute.googleapis.com/projects/p/instances/i",
 		ResourceType:   "google.compute.Instance",
-		Category:       "PUBLIC_IP_ADDRESS",
-		Severity:       "HIGH",
+		Category:       testCategoryPublicIP,
+		Severity:       severityHigh,
 		State:          stateActive,
-		Mute:           "UNMUTED",
+		Mute:           muteUnmuted,
 		FindingClass:   classMisconfig,
 		CVEID:          "CVE-2024-1",
 		CVSSScore:      7.5,
@@ -549,7 +569,7 @@ func TestRealSCC_Settings_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SecurityHealthAnalyticsState: %v", err)
 	}
-	if sha != "DISABLED" {
+	if sha != stateDisabled {
 		t.Errorf("sha = %q; want DISABLED", sha)
 	}
 }

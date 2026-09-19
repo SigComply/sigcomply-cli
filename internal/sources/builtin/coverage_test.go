@@ -18,6 +18,10 @@ import (
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/builtin"
 )
 
+// testDummyID is the placeholder account/org/group identifier the dummy
+// factory config uses for every provider.
+const testDummyID = "coverage-test"
+
 // emittableTypes builds the universe of evidence types any in-tree source
 // can emit. Factories are built with a best-effort env carrying the
 // common config keys (region/project_id); a factory that still cannot be
@@ -31,9 +35,9 @@ func emittableTypes(t *testing.T) (emittable map[string]bool, failed map[string]
 	// (gcp.* call google ADC) fail here and are handled below.
 	env := sources.Env{Config: map[string]any{
 		"region":     "us-east-1",
-		"project_id": "coverage-test",
-		"org":        "coverage-test",
-		"group":      "coverage-test",
+		"project_id": testDummyID,
+		"org":        testDummyID,
+		"group":      testDummyID,
 		"token":      "dummy",
 		"org_url":    "https://example.okta.com",
 		"api_token":  "dummy",

@@ -9,6 +9,19 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
+// Parameter names and values reused across the resolveParameters tests.
+const (
+	paramCutoff     = "cutoff"
+	paramMaxAgeDays = "max_age_days"
+	paramRegion     = "region"
+	paramThreshold  = "threshold"
+
+	regionUSEast1 = "us-east-1"
+	regionUSWest2 = "us-west-2"
+
+	cadenceHourly = "hourly"
+)
+
 // paramAs is a test helper that fetches a parameter and type-asserts
 // it in one step, failing the test with a clear message on either
 // missing key or wrong type.
@@ -30,7 +43,7 @@ func makePolicy() *core.Policy {
 	return &core.Policy{
 		ID: "soc2.cc6.1.access_key_rotation",
 		Parameters: map[string]core.ParameterSpec{
-			"max_age_days": {Type: "int", Default: 90, Min: 1, Max: 365},
+			paramMaxAgeDays: {Type: "int", Default: 90, Min: 1, Max: 365},
 			"approved_kms_keys": {
 				Type:    "list_of_string",
 				Default: []any{},
@@ -47,7 +60,7 @@ func TestResolveParameters_DefaultsWhenNoOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveParameters: %v", err)
 	}
-	if got := paramAs[int](t, params, "max_age_days"); got != 90 {
+	if got := paramAs[int](t, params, paramMaxAgeDays); got != 90 {
 		t.Errorf("max_age_days = %v; want 90", got)
 	}
 	if got := paramAs[bool](t, params, "enforce_in_grace_period"); got {
@@ -61,13 +74,13 @@ func TestResolveParameters_DefaultsWhenNoOverrides(t *testing.T) {
 func TestResolveParameters_OverridesApplied(t *testing.T) {
 	p := makePolicy()
 	params, err := resolveParameters(p, map[string]any{
-		"max_age_days":            60,
+		paramMaxAgeDays:           60,
 		"enforce_in_grace_period": true,
 	})
 	if err != nil {
 		t.Fatalf("resolveParameters: %v", err)
 	}
-	if got := paramAs[int](t, params, "max_age_days"); got != 60 {
+	if got := paramAs[int](t, params, paramMaxAgeDays); got != 60 {
 		t.Errorf("max_age_days = %v; want 60", got)
 	}
 	if got := paramAs[bool](t, params, "enforce_in_grace_period"); !got {
@@ -80,7 +93,7 @@ func TestResolveParameters_OverridesApplied(t *testing.T) {
 
 func TestResolveParameters_RejectsOutOfBounds(t *testing.T) {
 	p := makePolicy()
-	_, err := resolveParameters(p, map[string]any{"max_age_days": 500})
+	_, err := resolveParameters(p, map[string]any{paramMaxAgeDays: 500})
 	if err == nil {
 		t.Fatal("expected error for out-of-bounds value")
 	}
@@ -104,17 +117,17 @@ func TestResolveParameters_StringEnum(t *testing.T) {
 	p := &core.Policy{
 		ID: "test.string_enum",
 		Parameters: map[string]core.ParameterSpec{
-			"region": {
+			paramRegion: {
 				Type:    "string",
-				Default: "us-east-1",
-				Enum:    []any{"us-east-1", "us-west-2"},
+				Default: regionUSEast1,
+				Enum:    []any{regionUSEast1, regionUSWest2},
 			},
 		},
 	}
-	if _, err := resolveParameters(p, map[string]any{"region": "eu-west-1"}); err == nil {
+	if _, err := resolveParameters(p, map[string]any{paramRegion: "eu-west-1"}); err == nil {
 		t.Error("expected enum-violation error")
 	}
-	if _, err := resolveParameters(p, map[string]any{"region": "us-west-2"}); err != nil {
+	if _, err := resolveParameters(p, map[string]any{paramRegion: regionUSWest2}); err != nil {
 		t.Errorf("expected enum-match to succeed: %v", err)
 	}
 }
@@ -139,20 +152,20 @@ func TestResolveParameters_Float(t *testing.T) {
 	p := &core.Policy{
 		ID: "test.float",
 		Parameters: map[string]core.ParameterSpec{
-			"threshold": {Type: "float", Default: 0.95, Min: 0.0, Max: 1.0},
+			paramThreshold: {Type: "float", Default: 0.95, Min: 0.0, Max: 1.0},
 		},
 	}
-	params, err := resolveParameters(p, map[string]any{"threshold": 0.75})
+	params, err := resolveParameters(p, map[string]any{paramThreshold: 0.75})
 	if err != nil {
 		t.Fatalf("resolveParameters: %v", err)
 	}
-	if got := paramAs[float64](t, params, "threshold"); got != 0.75 {
+	if got := paramAs[float64](t, params, paramThreshold); got != 0.75 {
 		t.Errorf("threshold = %v; want 0.75", got)
 	}
-	if _, err := resolveParameters(p, map[string]any{"threshold": 2.0}); err == nil {
+	if _, err := resolveParameters(p, map[string]any{paramThreshold: 2.0}); err == nil {
 		t.Error("expected above-max error")
 	}
-	if _, err := resolveParameters(p, map[string]any{"threshold": -0.1}); err == nil {
+	if _, err := resolveParameters(p, map[string]any{paramThreshold: -0.1}); err == nil {
 		t.Error("expected below-min error")
 	}
 }
@@ -161,18 +174,18 @@ func TestResolveParameters_Date(t *testing.T) {
 	p := &core.Policy{
 		ID: "test.date",
 		Parameters: map[string]core.ParameterSpec{
-			"cutoff": {Type: "date", Default: "2026-01-01"},
+			paramCutoff: {Type: "date", Default: "2026-01-01"},
 		},
 	}
-	params, err := resolveParameters(p, map[string]any{"cutoff": "2026-06-15"})
+	params, err := resolveParameters(p, map[string]any{paramCutoff: "2026-06-15"})
 	if err != nil {
 		t.Fatalf("resolveParameters: %v", err)
 	}
-	got := paramAs[time.Time](t, params, "cutoff")
+	got := paramAs[time.Time](t, params, paramCutoff)
 	if got.Year() != 2026 || got.Month() != 6 || got.Day() != 15 {
 		t.Errorf("cutoff = %v; want 2026-06-15", got)
 	}
-	if _, err := resolveParameters(p, map[string]any{"cutoff": "06/15/2026"}); err == nil {
+	if _, err := resolveParameters(p, map[string]any{paramCutoff: "06/15/2026"}); err == nil {
 		t.Error("expected error for non-ISO date")
 	}
 }
@@ -198,10 +211,10 @@ func TestResolveParameters_ListOfString(t *testing.T) {
 	p := &core.Policy{
 		ID: "test.ls",
 		Parameters: map[string]core.ParameterSpec{
-			"regions": {Type: "list_of_string", Default: []any{"us-east-1"}},
+			"regions": {Type: "list_of_string", Default: []any{regionUSEast1}},
 		},
 	}
-	params, err := resolveParameters(p, map[string]any{"regions": []any{"us-west-2", "eu-west-1"}})
+	params, err := resolveParameters(p, map[string]any{"regions": []any{regionUSWest2, "eu-west-1"}})
 	if err != nil {
 		t.Fatalf("resolveParameters: %v", err)
 	}
@@ -225,11 +238,11 @@ func TestResolveParameters_UnsupportedType(t *testing.T) {
 
 func TestResolveCadence(t *testing.T) {
 	const cadenceDaily = "daily"
-	withOverride := &spec.ProjectConfig{Policies: map[string]spec.PolicyConfig{"p1": {Cadence: "hourly"}}}
-	if c := resolveCadence("p1", cadenceDaily, withOverride); c != "hourly" {
+	withOverride := &spec.ProjectConfig{Policies: map[string]spec.PolicyConfig{"p1": {Cadence: cadenceHourly}}}
+	if c := resolveCadence("p1", cadenceDaily, withOverride); c != cadenceHourly {
 		t.Errorf("override not applied: got %q want hourly", c)
 	}
-	otherPolicy := &spec.ProjectConfig{Policies: map[string]spec.PolicyConfig{"p2": {Cadence: "hourly"}}}
+	otherPolicy := &spec.ProjectConfig{Policies: map[string]spec.PolicyConfig{"p2": {Cadence: cadenceHourly}}}
 	if c := resolveCadence("p1", cadenceDaily, otherPolicy); c != cadenceDaily {
 		t.Errorf("default lost: got %q want %s", c, cadenceDaily)
 	}
