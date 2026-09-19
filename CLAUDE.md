@@ -106,6 +106,12 @@ the rules below are the summary.
   launch; `CONTRIBUTING.md` and the PR template already govern external
   contributions). No backward-compat/backfill burden for local state, but
   cross-repo contracts (Inv #1) still stay in lockstep.
+- **Never write the literal skip marker in a commit body.** The release
+  job's `if:` runs `contains()` over the *whole* commit message, not just
+  the subject, so quoting the marker anywhere — even while explaining it,
+  as this file does — silently skips the release. Say "the skip marker"
+  in prose; the real string belongs only on a subject line that means it.
+  (Learned the hard way in `02d4d09`, which shipped unreleased.)
 - **A push to `main` auto-cuts a release — if the tests pass.**
   `auto-release.yml` calls `test.yml` (`workflow_call`) and waits for it
   before tagging; it used to race it on the same push, and the E2E repos

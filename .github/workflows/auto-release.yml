@@ -26,6 +26,11 @@ on:
       - 'docs/**'
       - 'LICENSE'
       - '.gitignore'
+  # Manual escape hatch for a release that was missed — a push whose only
+  # changes were path-ignored, or one whose commit body tripped the skip
+  # marker. There is no head_commit on a dispatch, so the skip condition
+  # is vacuously false and the release proceeds.
+  workflow_dispatch:
 
 permissions:
   contents: read
