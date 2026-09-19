@@ -38,12 +38,16 @@ func newReportCmd() *cobra.Command {
 		Use:   "report",
 		Short: "Read-only auditor snapshot of the vault",
 		Long: "`sigcomply report` produces snapshot views of the vault: latest-state,\n" +
-			"exceptions register, run-by-run integrity verification, run scope, and\n" +
-			"control coverage. Read-only — never writes to the vault, never calls the\n" +
-			"cloud, never requires OIDC.\n\n" +
+			"exceptions register, run-by-run integrity verification, run scope,\n" +
+			"control coverage, and the Statement of Applicability. Read-only — never\n" +
+			"writes to the vault, never calls the cloud, never requires OIDC.\n\n" +
 			"`--view coverage` answers what a compliance score cannot: for each control,\n" +
 			"is it verified by inspecting your infrastructure, or satisfied merely by a\n" +
 			"document being on file?\n\n" +
+			"`--view soa` generates the Statement of Applicability that ISO/IEC\n" +
+			"27001:2022 6.1.3 d requires and a Stage 1 auditor asks for first: per\n" +
+			"catalog control, whether it applies, why, and whether it is implemented.\n" +
+			"`--format csv` gives the spreadsheet auditors expect.\n\n" +
 			"Time-series analytics (drift, deviation timelines, continuous-monitoring\n" +
 			"alerts) are paid SigComply Cloud features and intentionally absent here.\n",
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -54,7 +58,7 @@ func newReportCmd() *cobra.Command {
 	cmd.Flags().StringVar(&flags.vaultURI, "vault", "", "Vault URI (overrides project config). Supports paths and s3://, gs://, az:// URIs.")
 	cmd.Flags().StringVarP(&flags.framework, "framework", "f", "", "Framework to report on (defaults to project config's framework)")
 	cmd.Flags().StringVar(&flags.period, "period", "", "Period ID (e.g. 2026-Q1). Required.")
-	cmd.Flags().StringVar(&flags.view, "view", "latest", "View: latest | exceptions | integrity | scope | coverage")
+	cmd.Flags().StringVar(&flags.view, "view", "latest", "View: latest | exceptions | integrity | scope | coverage | soa")
 	cmd.Flags().StringVar(&flags.format, "format", "text", "Output format: text | json | csv | pdf (pdf deferred to v1.x)")
 	cmd.Flags().StringVar(&flags.out, "out", "", "Output file (required for non-text formats; default stdout for text)")
 	return cmd
@@ -100,34 +104,65 @@ func runReport(ctx context.Context, stdout io.Writer, flags *reportFlags) error 
 		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
 	}
 
-	// The coverage view must name controls that produced no result at
-	// all, so it needs the framework's catalog rather than only what the
-	// vault happens to contain. Resolving it here keeps internal/report
-	// free of a frameworks import. Registration is pure in-process — no
-	// config, no network — so `report` still works with just --vault and
-	// --framework.
+	// The coverage and soa views must name controls that produced no
+	// result at all, so they need the framework's catalog rather than
+	// only what the vault happens to contain. Resolving it here keeps
+	// internal/report free of a frameworks import. Registration is pure
+	// in-process — no config, no network — so `report` still works with
+	// just --vault and --framework.
 	var controls []core.Control
 	var policies []core.Policy
-	if view == report.ViewCoverage {
+	if view == report.ViewCoverage || view == report.ViewSoA {
 		controls, policies, err = frameworkCatalog(framework)
 		if err != nil {
 			return &exitCodeError{code: orchestrator.ExitConfig, err: err}
 		}
 	}
 
+	// The applicability decisions are authored in the project config,
+	// not observed in the vault — the one half of a Statement of
+	// Applicability that has nowhere else to come from.
+	//
+	// The config is otherwise optional here: an auditor holding only a
+	// vault path can read every other view without the customer's
+	// .sigcomply.yaml. The SoA is the exception, because without it the
+	// report would show every control as applicable and silently turn a
+	// deliberate exclusion into an inclusion — on the one deliverable a
+	// certification auditor reads first. Refusing is the honest answer;
+	// a footnote nobody reads in a CSV is not.
+	var controlConfigs map[string]spec.ControlConfig
+	if view == report.ViewSoA {
+		if !configLoaded(flags) {
+			return &exitCodeError{code: orchestrator.ExitConfig, err: fmt.Errorf(
+				"report: --view soa needs the project config for its applicability decisions — "+
+					"pass -c <path to .sigcomply.yaml>, or drop --vault/--framework so %s is read",
+				flags.config)}
+		}
+		controlConfigs = cfg.Controls
+	}
+
 	snap, err := report.Build(ctx, &report.Input{
-		Vault:     v,
-		Framework: framework,
-		PeriodID:  flags.period,
-		View:      view,
-		Controls:  controls,
-		Policies:  policies,
+		Vault:          v,
+		Framework:      framework,
+		PeriodID:       flags.period,
+		View:           view,
+		Controls:       controls,
+		Policies:       policies,
+		ControlConfigs: controlConfigs,
 	})
 	if err != nil {
 		return &exitCodeError{code: orchestrator.ExitExecution, err: err}
 	}
 
 	return writeReport(stdout, flags, snap)
+}
+
+// configLoaded reports whether loadReportConfig actually read the
+// project file, rather than synthesizing an empty config from the
+// command line. Kept next to loadReportConfig so the two conditions
+// cannot drift apart.
+func configLoaded(flags *reportFlags) bool {
+	return flags.vaultURI == "" || flags.framework == ""
 }
 
 // loadReportConfig reads the project config and, when --vault is
@@ -213,12 +248,13 @@ func splitBucketPrefix(raw string) (bucket, prefix string) {
 
 func parseView(s string) (report.View, error) {
 	switch report.View(s) {
-	case report.ViewLatest, report.ViewExceptions, report.ViewIntegrity, report.ViewScope, report.ViewCoverage:
+	case report.ViewLatest, report.ViewExceptions, report.ViewIntegrity, report.ViewScope,
+		report.ViewCoverage, report.ViewSoA:
 		return report.View(s), nil
 	case "":
 		return report.ViewLatest, nil
 	default:
-		return "", fmt.Errorf("report: invalid --view %q (want latest|exceptions|integrity|scope|coverage)", s)
+		return "", fmt.Errorf("report: invalid --view %q (want latest|exceptions|integrity|scope|coverage|soa)", s)
 	}
 }
 

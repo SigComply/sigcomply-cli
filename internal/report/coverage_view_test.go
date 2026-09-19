@@ -39,7 +39,7 @@ func TestFormatTextCoverage_HeadlineSeparatesInspectionFromPaperwork(t *testing.
 	}
 	out := buf.String()
 	for _, want := range []string{
-		"3 of 3 controls have a check",
+		"3 of 3 catalog controls have a check",
 		"1 automated",
 		"verified by inspecting your infrastructure",
 		"2 manual",
@@ -93,10 +93,10 @@ func TestFormatCSVCoverage_RowsAndHeader(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	if !strings.HasPrefix(out, "control_id,assurance,automated_policies,manual_policies") {
+	if !strings.HasPrefix(out, "control_id,kind,assurance,automated_policies,manual_policies") {
 		t.Errorf("unexpected CSV header:\n%s", out)
 	}
-	if !strings.Contains(out, "CC6.1,automated,4,1,4,5,pass,false,") {
+	if !strings.Contains(out, "CC6.1,catalog,automated,4,1,4,5,pass,false,") {
 		t.Errorf("CC6.1 row missing or malformed:\n%s", out)
 	}
 }
@@ -300,5 +300,76 @@ func TestBuildLatest_CarriesTheReason(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "access denied") {
 		t.Errorf("the reason must reach the rendered table:\n%s", buf.String())
+	}
+}
+
+// TestBuildCoverage_CountsManagementSystemApart is the regression for a
+// headline that gets more flattering as the honest gap is closed.
+//
+// ISO 27001 shipped with its 93 Annex A controls and none of the
+// clause 4-10 requirements, and this view reported 93 of 93 covered.
+// Adding the sixteen missing requirements — with no evidence on file
+// for any of them — would, if they were simply folded into the same
+// universe, have moved that headline to 109 of 109. The gap closing
+// must not read as the gap widening, so the two are counted apart.
+func TestBuildCoverage_CountsManagementSystemApart(t *testing.T) {
+	v, _ := makeVault(t, []runSeed{{
+		framework: "iso27001", periodID: "2026-Q2", runID: "run-aaaa",
+		timestamp:   time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		completedAt: time.Date(2026, 4, 1, 0, 5, 0, 0, time.UTC),
+		policies: []core.PolicyResult{
+			{PolicyID: "iso27001.5.1.policies", Status: core.StatusPass, EvidenceMode: core.EvidenceModeAutomated},
+		},
+	}})
+
+	snap, err := report.Build(context.Background(), &report.Input{
+		Vault: v, Framework: "iso27001", PeriodID: "2026-Q2", View: report.ViewCoverage,
+		Controls: []core.Control{
+			{ID: "A.5.1"},
+			{ID: "C.9.2", Kind: core.ControlKindManagementSystem},
+		},
+		Policies: []core.Policy{
+			{ID: "iso27001.5.1.policies", EvidenceMode: core.EvidenceModeAutomated, Cadence: "daily",
+				Controls: []core.ControlRef{{ControlID: "A.5.1"}}},
+			{ID: "iso27001.clause.9.2.internal_audit", EvidenceMode: core.EvidenceModeManual, Cadence: "annual",
+				Controls: []core.ControlRef{{ControlID: "C.9.2"}}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cov := snap.Coverage
+	if cov.Controls != 1 {
+		t.Errorf("Controls = %d; want 1 — the management-system requirement is not a catalog control", cov.Controls)
+	}
+	if cov.ManagementSystem != 1 {
+		t.Errorf("ManagementSystem = %d; want 1", cov.ManagementSystem)
+	}
+	if cov.ManagementSystemOnFile != 0 {
+		t.Errorf("ManagementSystemOnFile = %d; want 0 — nothing was uploaded this period", cov.ManagementSystemOnFile)
+	}
+	if len(cov.Rows) != 2 {
+		t.Fatalf("rows = %d; want one per control — the clause requirement is the point of the view, not an appendix", len(cov.Rows))
+	}
+	if cov.Rows[0].ControlID != "A.5.1" || cov.Rows[0].ManagementSystem {
+		t.Errorf("row 0 = %+v; want the catalog control first, unflagged", cov.Rows[0])
+	}
+	if cov.Rows[1].ControlID != "C.9.2" || !cov.Rows[1].ManagementSystem {
+		t.Errorf("row 1 = %+v; want the clause requirement flagged", cov.Rows[1])
+	}
+
+	var buf bytes.Buffer
+	if err := report.FormatText(&buf, snap); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"1 of 1 catalog controls have a check",
+		"1 management-system requirements (counted apart — they are not selectable)",
+		"0 with evidence on file this period, 1 without",
+	} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("headline missing %q:\n%s", want, buf.String())
+		}
 	}
 }

@@ -9,7 +9,7 @@ Back to the [documentation hub](../README.md).
 | ID | Standard | Status | Coverage |
 |---|---|---|---|
 | `soc2` | SOC 2 — 2017 Trust Services Criteria | Production-ready, **default** | 43 / 43 criteria have a check — 16 automated, 27 manual-only. 135 policies: 88 automated + 47 manual catalog entries. |
-| `iso27001` | ISO/IEC 27001:2022 | Shipped | 93 / 93 Annex A controls have a check — 26 automated, 67 manual-only. 133 policies: 64 automated + 69 manual catalog entries. |
+| `iso27001` | ISO/IEC 27001:2022 | Shipped | 109 controls: 93 Annex A + 16 management-system. 93 / 93 Annex A controls have a check — 26 automated, 67 manual-only. 149 policies: 64 automated + 85 manual catalog entries. The 16 management-system requirements (clauses 4-10), all manual, are counted apart from Annex A and are covered only once you upload the documents. |
 
 Select a framework in `.sigcomply.yaml` with the singular key `framework:` (never `frameworks:`):
 
@@ -36,7 +36,36 @@ Each framework is a set of policies, and every policy declares an `evidence_mode
 | `automated` | API source plugins (AWS, GCP, Azure, GitHub, GitLab, Okta) collect JSON, validated against an evidence-type schema | The declarative `pass_when` DSL |
 | `manual` | Files uploaded to a bucket folder, resolved from a manual-evidence catalog entry | A PDF-presence check (file present, in the temporal window, valid PDF) |
 
-Each policy maps to one or more framework controls (SOC 2 TSC criteria, or ISO 27001 Annex A controls). Automated policies produce their result from live infrastructure state; manual policies attest that the required evidence file exists for the audit period. Both evidence flows are explained in [Concepts](../concepts.md#the-two-evidence-flows).
+Each policy maps to one or more framework controls (SOC 2 TSC criteria, or ISO 27001 Annex A controls and clause 4-10 management-system requirements). Automated policies produce their result from live infrastructure state; manual policies attest that the required evidence file exists for the audit period. Both evidence flows are explained in [Concepts](../concepts.md#the-two-evidence-flows).
+
+### ISO 27001 control IDs: `A.` versus `C.`
+
+ISO 27001 controls carry one of two prefixes, and the difference is not cosmetic:
+
+- **`A.` — Annex A controls** (`A.5.1`, `A.8.5`, …). The 93 controls an
+  organization selects from. One can be declared `not_applicable` in
+  `.sigcomply.yaml` with a `reason`, and every one of them — included or
+  excluded — appears in the Statement of Applicability
+  (`sigcomply report --view soa`).
+- **`C.` — clause 4-10 management-system requirements** (`C.4.3`, `C.9.2`, …).
+  The 16 requirements of the ISMS itself: its scope, its risk assessment and
+  treatment processes, its internal audit program, its management review.
+  Certification is granted against the management system, so an organization
+  cannot decline one: `applicability: not_applicable` against a `C.` control is
+  a config error (exit 3), and `C.` controls never appear in the Statement of
+  Applicability.
+
+The prefix exists because the numbering collides. Clause 5.2 (the information
+security policy) and Annex A 5.2 (information security roles) are different
+requirements an auditor checks separately, so they are `C.5.2` and `A.5.2`.
+
+All 16 `C.` requirements are manual, annual document uploads — a scope
+statement, a risk register, internal audit findings, management review minutes.
+They are documents you produce and upload; until you do, they are not covered,
+and `report --view coverage` counts them apart from Annex A so that never reads
+as coverage you have. The one piece of ISO's mandatory documented information
+SigComply produces rather than asks for is the Statement of Applicability itself
+(clause 6.1.3 d) — see [`report --view soa`](commands.md#sigcomply-report).
 
 ## Inspecting a framework
 

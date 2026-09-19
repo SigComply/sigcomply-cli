@@ -243,6 +243,15 @@ type ControlConfig struct {
 	Applicability string `yaml:"applicability"` // "" | applicable | not_applicable
 	Reason        string `yaml:"reason"`
 	ApprovedBy    string `yaml:"approved_by"`
+	// Justification is the reason a control is *included*, the other
+	// half of what ISO/IEC 27001:2022 6.1.3 d asks a Statement of
+	// Applicability to record. Reason answers "why not this control";
+	// Justification answers "why this one". Optional: when it is absent
+	// `report --view soa` derives one from the checks standing behind
+	// the control, which is accurate but generic — an auditor reading a
+	// control the organization reasoned carefully about deserves that
+	// reasoning.
+	Justification string `yaml:"justification"`
 }
 
 // BindingsFor returns the slot→entries map a project declared for a
@@ -527,6 +536,14 @@ func validateControls(controls map[string]ControlConfig) error {
 		case "not_applicable":
 			if strings.TrimSpace(c.Reason) == "" {
 				return fmt.Errorf("project config: controls[%q]: reason is required when applicability is \"not_applicable\"", id)
+			}
+			// Keep the two halves of the SoA unambiguous: an excluded
+			// control has a reason for its exclusion and nothing else.
+			// Accepting both would put an inclusion justification on a
+			// row the SoA reports as excluded.
+			if strings.TrimSpace(c.Justification) != "" {
+				return fmt.Errorf("project config: controls[%q]: justification records why a control is included; "+
+					"use reason for an exclusion", id)
 			}
 		default:
 			return fmt.Errorf("project config: controls[%q].applicability: invalid value %q (want applicable|not_applicable)", id, c.Applicability)

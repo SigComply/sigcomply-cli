@@ -1202,11 +1202,17 @@ policies:
         reason: "API-only product; no public web app requiring a WAF."
 
 # Controls — control-level decisions (coarse, per-control). not_applicable
-# cascades na to every policy mapping to the control.
+# cascades na to every policy mapping to the control. Both keys feed the ISO
+# 27001 Statement of Applicability (`sigcomply report --view soa`): `reason`
+# says why a control was left out, `justification` why one was kept in.
 controls:
   CC6.4:
     applicability: not_applicable
     reason: "Cloud-only; physical security inherited from AWS."
+    approved_by: ciso@example.com
+  CC6.1:
+    applicability: applicable
+    justification: "Central to the risk treatment plan; covers all customer data paths."
     approved_by: ciso@example.com
 
 # SigComply Cloud submission (OIDC-only; auto-enables in CI).
@@ -1252,7 +1258,7 @@ set of accepted top-level keys (`internal/spec/project_config.go`):
 | `vault` | open `{ backend, ... }` mapping | Flat; only `backend` is interpreted, other keys pass through to the backend. See [Storage Backends](#storage-backends). |
 | `sources` | map: source id → config | Plugin configs, keyed by plugin ID with an optional `[instance]` suffix for a second account/org (see [Multiple instances](#multiple-instances-of-one-source)). `manual.pdf` is the reserved manual-evidence singleton and accepts no instances. Keys allow letters, digits, dot, dash and underscore only — the key becomes part of an evidence file's path in your vault. |
 | `policies` | map: policy id → `PolicyConfig` | All per-policy config, co-located per ID. `PolicyConfig` = `{ bindings: { slot: [source,...] }, parameters: { param: value }, cadence, evidence_mode, catalog_entry, exceptions: [...] }`. `evidence_mode: manual` requires `catalog_entry`; `automated` forbids it. Each exception is `{ scope: { resource_id, resource_pattern }, state (waived\|na), reason, approved_by, approved_at, expires_at }` — no `policy:` field (the map key is the policy). |
-| `controls` | map: control id → `{ applicability, reason, approved_by }` | `applicability`: `applicable` \| `not_applicable`; `not_applicable` requires `reason` and cascades `na` to every policy mapping to the control. |
+| `controls` | map: control id → `{ applicability, reason, justification, approved_by }` | `applicability`: `applicable` \| `not_applicable`; `not_applicable` requires `reason` and cascades `na` to every policy mapping to the control. `justification` records why a control is *included* and is read by `report --view soa`; setting it alongside `not_applicable` is a config error (use `reason`). A **management-system** control — ISO 27001's `C.`-prefixed clause 4-10 requirements — cannot be declared `not_applicable` at all: certification is granted against the management system, so the cascade would mark every policy under the clause `na` and raise the score for declining to have an ISMS. Exit 3. |
 | `cloud` | `{ enabled, base_url }` | `enabled` is a `*bool` (auto-detected in CI when omitted); `base_url` overrides the endpoint. |
 | `output` | `{ format, json_path, verbose }` | `format`: `text` \| `json` \| `junit` (validated; only `report` renders json/csv; `junit` has no formatter yet; `sarif` rejected). |
 | `ci` | `{ fail_on_violation, fail_severity }` | Config-only; no equivalent flags. |

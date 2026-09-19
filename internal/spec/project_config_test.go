@@ -368,3 +368,39 @@ func TestLoadProjectConfig_AcceptsSourceInstances(t *testing.T) {
 		t.Errorf("role_arn = %v", got)
 	}
 }
+
+// TestValidateControls_JustificationIsForInclusionOnly keeps the two
+// halves of a Statement of Applicability row unambiguous: reason says
+// why a control was left out, justification says why one was kept in.
+// Accepting both on an excluded control would print an inclusion
+// justification on a row the SoA reports as excluded.
+func TestValidateControls_JustificationIsForInclusionOnly(t *testing.T) {
+	for name, tc := range map[string]struct {
+		control ControlConfig
+		wantErr bool
+	}{
+		"justification on an included control": {
+			control: ControlConfig{Applicability: "applicable", Justification: "required by the risk treatment plan"},
+		},
+		"justification with no applicability set": {
+			control: ControlConfig{Justification: "required by the risk treatment plan"},
+		},
+		"reason on an excluded control": {
+			control: ControlConfig{Applicability: "not_applicable", Reason: "no physical premises"},
+		},
+		"justification on an excluded control": {
+			control: ControlConfig{Applicability: "not_applicable", Reason: "no physical premises", Justification: "kept anyway"},
+			wantErr: true,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := validateControls(map[string]ControlConfig{"A.7.1": tc.control})
+			if tc.wantErr && err == nil {
+				t.Fatal("want an error, got none")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}

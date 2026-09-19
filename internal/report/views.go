@@ -3,7 +3,7 @@
 // {framework}/{period_id}/run_*/ tree and produces deterministic
 // views of the data — no collection, no evaluation, no cloud calls.
 //
-// Five views ship today:
+// Six views ship today:
 //
 //   - latest: per-policy roll-up using the latest run that produced a
 //     result for each policy. Answers "what was the state at period close?"
@@ -15,6 +15,9 @@
 //   - coverage: per control, whether it is verified by inspecting
 //     infrastructure or merely by a document being on file, and whether
 //     that evidence exists this period. Answers "what is behind the green?"
+//   - soa: the Statement of Applicability — per catalog control, whether
+//     it is applicable, why, and whether it is implemented. Answers the
+//     first thing an ISO 27001 Stage 1 auditor asks for.
 //
 // Each view is independently structured and independently formattable
 // (text, json, csv). PDF is deferred to v1.x — the formatter layer
@@ -41,6 +44,7 @@ const (
 	ViewIntegrity  View = "integrity"
 	ViewScope      View = "scope"
 	ViewCoverage   View = "coverage"
+	ViewSoA        View = "soa"
 )
 
 // Snapshot is the top-level result of Build. Exactly one of the
@@ -60,6 +64,7 @@ type Snapshot struct {
 	Integrity  *IntegrityView  `json:",omitempty"`
 	Scope      *ScopeView      `json:",omitempty"`
 	Coverage   *CoverageView   `json:",omitempty"`
+	SoA        *SoAView        `json:",omitempty"`
 }
 
 // CoverageView answers the question a compliance score cannot: what is
@@ -80,12 +85,22 @@ type Snapshot struct {
 // exists to close. So every declared control gets a row, and the row says
 // what happened to it in this period, including "nothing".
 type CoverageView struct {
-	// Controls/Automated/Manual/Uncovered describe the framework itself
-	// and do not vary by period.
+	// Controls/Automated/Manual/Uncovered describe the framework's
+	// selectable control catalog and do not vary by period.
 	Controls  int
 	Automated int
 	Manual    int
 	Uncovered int
+
+	// ManagementSystem counts the framework's management-system
+	// requirements — ISO 27001's clauses 4-10 — and
+	// ManagementSystemOnFile how many have their document for this
+	// period. They are counted apart from the catalog because blending
+	// them flatters the headline exactly as the gap closes: adding
+	// sixteen clause requirements that nobody has uploaded yet would
+	// otherwise turn "93 of 93 covered" into "109 of 109 covered".
+	ManagementSystem       int
+	ManagementSystemOnFile int
 
 	// Evaluated counts controls with at least one policy result in this
 	// period. NotEvaluated is the rest — see the type doc for why that
@@ -125,6 +140,9 @@ type CoverageRow struct {
 	// in this period; Policies is how many exist.
 	Evaluated int
 	Policies  int
+	// ManagementSystem marks a row as a management-system requirement
+	// rather than a selectable catalog control.
+	ManagementSystem bool
 	// Status is the roll-up over this period's results — the worst of
 	// them, or "not evaluated" when there are none.
 	Status string
@@ -262,4 +280,89 @@ func (r *IntegrityRow) Status() string {
 		return "pass"
 	}
 	return "fail"
+}
+
+// SoAView is a Statement of Applicability: the document ISO/IEC
+// 27001:2022 6.1.3 d requires, and the first thing a Stage 1 auditor
+// asks for.
+//
+// It answers four questions per control — is it necessary, why, is it
+// implemented, and if it was left out, why — by joining three things
+// SigComply already held separately: the framework's control catalog,
+// the project's applicability decisions, and the period's results.
+//
+// Management-system requirements are counted but never listed. A
+// Statement of Applicability is about the control catalog an
+// organization selects from; ISO's clauses 4-10 are not selectable, and
+// putting them in a table of include/exclude decisions would invite an
+// exclusion that the standard does not permit and the planner refuses.
+type SoAView struct {
+	// Controls is the number of catalog controls — the rows below.
+	// ManagementSystem is what was deliberately left out.
+	Controls         int
+	ManagementSystem int
+
+	// Applicable and Excluded split the catalog by the project's
+	// applicability decisions.
+	Applicable int
+	Excluded   int
+
+	// Implemented, Partial, NotImplemented and NotEvaluated split the
+	// applicable controls by what this period's results showed. They sum
+	// to Applicable.
+	Implemented    int
+	Partial        int
+	NotImplemented int
+	NotEvaluated   int
+
+	// Derived counts applicable controls whose inclusion justification
+	// SigComply wrote rather than the organization. Surfaced because the
+	// difference matters to a reader: a derived justification is
+	// accurate but says nothing about why this organization kept the
+	// control.
+	Derived int
+
+	// Rows is one entry per catalog control, sorted by control ID.
+	Rows []SoARow
+
+	// Note names what the table omits and what its statuses do not mean.
+	Note string
+}
+
+// SoARow is one control's entry in the Statement of Applicability.
+type SoARow struct {
+	ControlID string
+	Name      string
+
+	// Applicable is false only where the project declared the control
+	// not_applicable.
+	Applicable bool
+
+	// Justification is the organization's reason for including the
+	// control, or — for an excluded one — its reason for leaving it out.
+	// JustificationDerived says SigComply wrote it rather than the
+	// operator.
+	Justification        string
+	JustificationDerived bool
+
+	// Status is "implemented", "partially implemented", "not
+	// implemented", "not evaluated" or "excluded". It is derived from
+	// this period's results and never from the catalog: a control whose
+	// checks did not run is reported as unevaluated, not as passing.
+	Status string
+
+	// Assurance is "automated", "manual" or "none" — the strongest check
+	// behind the control. An implemented control evidenced only by a
+	// document on file is a weaker claim than one where infrastructure
+	// was inspected, and the SoA should not flatten the two.
+	Assurance string
+
+	// Evaluated is how many of this control's policies produced a result
+	// in this period; Policies names them all.
+	Evaluated int
+	Policies  []string
+
+	// ApprovedBy carries the project config's approver for the
+	// applicability decision, where one is recorded.
+	ApprovedBy string
 }

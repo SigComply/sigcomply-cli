@@ -25,7 +25,12 @@ architecture in the [parent CLAUDE.md](../CLAUDE.md).
 | **CLI E2E (GitLab CI)** | `../sigcomply-cli-testing-project-gitlab/` | `git@gitlab-personal:sigcomply/sigcomply-cli-testing-project-gitlab.git` |
 
 **Frameworks shipped:** SOC 2 (production-ready) and ISO/IEC 27001:2022
-(all 93 Annex A controls, 26 automated), both Go-native and self-registering via
+(all 93 Annex A controls, 26 automated, plus the
+16 clause 4-10 management-system requirements as manual annual document
+uploads — `C.`-prefixed controls that carry
+`core.ControlKindManagementSystem`, cannot be declared `not_applicable`,
+and are counted apart from Annex A everywhere a coverage figure is
+rendered), both Go-native and self-registering via
 `internal/frameworks/builtin`. HIPAA is a future goal — no package, no
 policies, and (contrary to older notes) **no `hipaa` string anywhere in
 the Go code**: framework validation is purely dynamic via
@@ -410,7 +415,7 @@ framework, so exactly one `manual.pdf` source and one bucket per project
 | `sigcomply init` | Wired | Scaffold a starter `.sigcomply.yaml` (`-f` framework, `-o` out path, `--force`); refuses to overwrite without `--force` |
 | `sigcomply init-ci` | Wired | Scaffold CI workflow files calibrated to a framework's cadence distribution (SOC 2 only in v1-alpha; other frameworks exit 3) |
 | `sigcomply build` | Wired | Compile a project-tailored binary with `.sigcomply/` Go extensions |
-| `sigcomply report` | Wired | Read-only auditor snapshot of the vault (`--view latest\|exceptions\|integrity\|scope\|coverage`) |
+| `sigcomply report` | Wired | Read-only auditor snapshot of the vault (`--view latest\|exceptions\|integrity\|scope\|coverage\|soa`). `--view soa` renders the ISO 27001 Statement of Applicability and is the one view that requires the project config — the applicability decisions live only there, so it exits 3 rather than reporting every control as applicable |
 | `sigcomply evidence catalog` | Wired | Print the manual-evidence catalog (`-o text\|json`); `-o json` matches the Evidence SPA contract. Standalone, no project config. `-f` defaults to `$SIGCOMPLY_FRAMEWORK` then `soc2` |
 | `sigcomply evidence due` | Wired | List manual entries whose current-period folder is empty (`-c`, `-f`, `-o text\|json`, `--within-days`, `--all`). Read-only LIST calls; **always exits 0** when the scan completes, so it is safe as a non-failing CI step. Wired into the scaffolded daily workflow |
 | `sigcomply version` | Wired | Print version + commit + build time |

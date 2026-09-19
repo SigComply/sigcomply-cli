@@ -98,3 +98,43 @@ func TestLoadFramework_EmptyInput(t *testing.T) {
 		t.Error("expected error on nil input")
 	}
 }
+
+// TestFrameworkSpec_ControlKindRoundTrips: without a kind on the spec,
+// a project-local framework extension cannot declare a management-
+// system requirement, and the guard that stops one being declared
+// not_applicable can never protect it. Strict decoding also means an
+// unrecognized kind must be rejected outright rather than read as the
+// default.
+func TestFrameworkSpec_ControlKindRoundTrips(t *testing.T) {
+	const body = `schema_version: "framework.v1"
+id: custom
+version: "1.0"
+controls:
+  - id: X.1
+    name: A selectable control
+  - id: C.9.2
+    name: Internal audit
+    kind: management_system
+policies:
+  - id: custom.x1
+`
+	fw, err := LoadFramework([]byte(body))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	controls := fw.Controls()
+	if len(controls) != 2 {
+		t.Fatalf("got %d controls; want 2", len(controls))
+	}
+	if controls[0].IsManagementSystem() {
+		t.Error("a control with no kind must default to the selectable catalog")
+	}
+	if !controls[1].IsManagementSystem() {
+		t.Error("kind: management_system did not survive decoding")
+	}
+
+	bad := strings.Replace(body, "kind: management_system", "kind: mandatory", 1)
+	if _, err := LoadFramework([]byte(bad)); err == nil {
+		t.Error("an unrecognized kind must be rejected, not silently defaulted")
+	}
+}

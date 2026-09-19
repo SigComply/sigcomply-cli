@@ -68,14 +68,14 @@ sigcomply report --period 2026-Q1 --view latest
 | Flag | Values | Notes |
 |------|--------|-------|
 | `--period <id>` | e.g. `2026-Q1` | **Required**; missing → exit 3 |
-| `--view <name>` | `latest` \| `exceptions` \| `integrity` \| `scope` \| `coverage` | Default `latest` |
+| `--view <name>` | `latest` \| `exceptions` \| `integrity` \| `scope` \| `coverage` \| `soa` | Default `latest` |
 | `--format <fmt>` | `text` \| `json` \| `csv` \| `pdf` | Default `text`; `pdf` is deferred → exit 3 if used |
 | `--out <file>` | path | **Required for non-`text` formats** (else exit 3); `text` prints to stdout |
 | `--vault <uri>` | path, `s3://`, `gs://`, `az://`, `file://` | Point at an external vault |
 | `-f/--framework` | framework id | Defaults to the config framework |
 | `-c/--config <path>` | path | Config file |
 
-### The five views
+### The six views
 
 - **`latest`** — the current pass/fail state for each policy.
 - **`exceptions`** — the register of waivers and not-applicable (NA)
@@ -95,7 +95,18 @@ sigcomply report --period 2026-Q1 --view latest
   a verified estate from a folder of PDFs. For SOC 2, 27 of 43 criteria are
   document-backed. It also reports whether that document actually exists
   for the period, and marks any control whose evidence mode the project
-  overrode.
+  overrode. For ISO 27001 the 16 clause 4-10 management-system
+  requirements are counted apart from the 93 Annex A controls, so ISMS
+  documents that have not been uploaded never read as Annex A coverage.
+- **`soa`** — the ISO 27001 Statement of Applicability (clause 6.1.3 d),
+  the first document a Stage 1 auditor asks for. Per Annex A control:
+  whether it applies, the justification for including it (or the reason
+  for leaving it out), whether this period's results show it implemented,
+  and which checks stand behind it. `--format csv` gives the spreadsheet
+  auditors expect. This is the only view that needs the project config —
+  the applicability decisions live in `.sigcomply.yaml` and nowhere else,
+  so without it the report would turn every deliberate exclusion into a
+  silent inclusion; it exits 3 instead.
 
 ### Examples
 
@@ -108,6 +119,9 @@ sigcomply report --period 2026-Q1 --view integrity --format json --out integrity
 
 # Verify a vault stored in S3
 sigcomply report --period 2026-Q1 --view integrity --vault s3://my-vault-bucket
+
+# Statement of Applicability as a spreadsheet (needs the project config)
+sigcomply report --period 2026-Q1 --view soa --format csv --out soa.csv
 ```
 
 ## Part B — The Evidence SPA `/verify` page

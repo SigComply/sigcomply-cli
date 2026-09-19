@@ -36,8 +36,9 @@ Task-focused recipes for a specific goal.
 | [CI on GitHub](guides/ci-github.md) | Scaffold and wire per-cadence GitHub Actions workflows with OIDC. |
 | [CI on GitLab](guides/ci-gitlab.md) | Scaffold `.gitlab-ci.yml`, pipeline schedules, and OIDC (incl. the id-token caveat). |
 | [Manual evidence](guides/manual-evidence.md) | Upload PDF/image evidence to a bucket folder and consume it from a policy. |
+| [ISMS clauses & the SoA](guides/isms-clauses.md) | Satisfy ISO 27001's 16 clause 4-10 management-system requirements and generate the Statement of Applicability. |
 | [Cloud dashboard](guides/cloud-dashboard.md) | Connect a repo, start the Pro trial, and manage auditor seats. |
-| [Verify evidence](guides/verify-evidence.md) | Use `report` views and the `/verify` SPA to check signatures and integrity. |
+| [Verify evidence](guides/verify-evidence.md) | Use the six `report` views — including `soa`, the ISO 27001 Statement of Applicability — and the `/verify` SPA to check signatures and integrity. |
 | [Troubleshooting](guides/troubleshooting.md) | Diagnose common errors, exit codes, and the GitLab cloud caveat. |
 
 ## Reference
@@ -47,7 +48,7 @@ Exhaustive, dry lookup.
 | Doc | Contents |
 |---|---|
 | [Commands](reference/commands.md) | Every command, flag, default, and exit code. |
-| [Frameworks](reference/frameworks.md) | Shipped frameworks, policy counts, and manual catalog overview. |
+| [Frameworks](reference/frameworks.md) | Shipped frameworks, policy counts, manual catalog overview, and ISO 27001's `A.` Annex A controls versus its `C.` clause 4-10 management-system requirements. |
 | [Configuration](configuration.md) | Full `.sigcomply.yaml` schema, env vars, and precedence. |
 
 ## Explanation

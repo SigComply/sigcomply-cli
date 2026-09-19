@@ -9,7 +9,7 @@ import "strings"
 func TitleFromID(id string) string {
 	acronyms := map[string]string{
 		"nda": "NDA", "pii": "PII", "ict": "ICT", "sdlc": "SDLC",
-		"bcp": "BCP", "soc2": "SOC 2", "iso": "ISO",
+		"bcp": "BCP", "soc2": "SOC 2", "iso": "ISO", "isms": "ISMS",
 	}
 	parts := strings.Split(id, "_")
 	for i, p := range parts {

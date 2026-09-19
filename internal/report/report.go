@@ -12,6 +12,7 @@ import (
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 	"github.com/sigcomply/sigcomply-cli/internal/sign"
+	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
 // ErrUnknownView is returned by Build when an unknown view string is
@@ -35,6 +36,20 @@ type Input struct {
 	// every other view.
 	Controls []core.Control
 	Policies []core.Policy
+
+	// ControlConfigs carries the project's per-control applicability
+	// decisions, keyed by control ID — the half of a Statement of
+	// Applicability that lives in .sigcomply.yaml rather than in the
+	// vault or the framework. Only the soa view reads it.
+	//
+	// This is the package's one import of internal/spec, and a
+	// deliberate exception to its "pure reader of vault bytes"
+	// property: an applicability decision is authored, not observed, so
+	// there is nowhere in the vault to read it from. spec is a
+	// dependency-free leaf, so the coupling is narrow and acyclic —
+	// unlike internal/frameworks, which this package still must not
+	// import.
+	ControlConfigs map[string]spec.ControlConfig
 }
 
 // Build walks the vault for the requested {framework}/{period_id}
@@ -45,17 +60,8 @@ type Input struct {
 // files. It never writes, never opens network connections, and never
 // requires OIDC.
 func Build(ctx context.Context, in *Input) (*Snapshot, error) {
-	if in == nil {
-		return nil, fmt.Errorf("report: nil Input")
-	}
-	if in.Vault == nil {
-		return nil, fmt.Errorf("report: nil Vault")
-	}
-	if in.Framework == "" {
-		return nil, fmt.Errorf("report: Framework required")
-	}
-	if in.PeriodID == "" {
-		return nil, fmt.Errorf("report: PeriodID required")
+	if err := validateInput(in); err != nil {
+		return nil, err
 	}
 
 	view := in.View
@@ -69,33 +75,52 @@ func Build(ctx context.Context, in *Input) (*Snapshot, error) {
 	}
 
 	snap := &Snapshot{View: view, Framework: in.Framework, PeriodID: in.PeriodID}
+	if err := fillView(ctx, in, view, runs, snap); err != nil {
+		return nil, err
+	}
+	return snap, nil
+}
+
+func validateInput(in *Input) error {
+	switch {
+	case in == nil:
+		return fmt.Errorf("report: nil Input")
+	case in.Vault == nil:
+		return fmt.Errorf("report: nil Vault")
+	case in.Framework == "":
+		return fmt.Errorf("report: Framework required")
+	case in.PeriodID == "":
+		return fmt.Errorf("report: PeriodID required")
+	}
+	return nil
+}
+
+// fillView populates the one Snapshot field the requested view owns.
+func fillView(ctx context.Context, in *Input, view View, runs []runRecord, snap *Snapshot) error {
+	var err error
 	switch view {
 	case ViewLatest:
-		v, err := buildLatest(ctx, in.Vault, runs)
-		if err != nil {
-			return nil, err
-		}
-		snap.Latest = v
+		snap.Latest, err = buildLatest(ctx, in.Vault, runs)
 	case ViewExceptions:
 		snap.Exceptions = buildExceptions(runs)
 	case ViewIntegrity:
 		snap.Integrity = buildIntegrity(ctx, in.Vault, runs)
 	case ViewScope:
-		v, err := buildScope(ctx, in.Vault, runs)
-		if err != nil {
-			return nil, err
-		}
-		snap.Scope = v
+		snap.Scope, err = buildScope(ctx, in.Vault, runs)
 	case ViewCoverage:
-		v, err := buildCoverage(ctx, in.Vault, runs, in.Controls, in.Policies)
-		if err != nil {
-			return nil, err
+		snap.Coverage, err = buildCoverage(ctx, in.Vault, runs, in.Controls, in.Policies)
+	case ViewSoA:
+		// An empty catalog would render a Statement of Applicability
+		// with no controls in it and no error — a blank deliverable that
+		// reads as "nothing applies". Fail instead of publishing one.
+		if len(in.Controls) == 0 {
+			return fmt.Errorf("report: the soa view needs the framework's control catalog; none was supplied")
 		}
-		snap.Coverage = v
+		snap.SoA, err = buildSoA(ctx, in.Vault, runs, in.Controls, in.Policies, in.ControlConfigs)
 	default:
-		return nil, fmt.Errorf("%w: %q (want latest|exceptions|integrity|scope|coverage)", ErrUnknownView, in.View)
+		return fmt.Errorf("%w: %q (want latest|exceptions|integrity|scope|coverage|soa)", ErrUnknownView, in.View)
 	}
-	return snap, nil
+	return err
 }
 
 // runRecord is the internal per-run bundle: the manifest and the run's

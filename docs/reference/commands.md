@@ -115,11 +115,11 @@ Read-only vault snapshot. Never writes to the vault, never calls the cloud, neve
 | `--vault <uri>` | | | Vault location — paths or `s3://`, `gs://`, `az://`, `file://` |
 | `--framework <value>` | `-f` | Config framework | Framework |
 | `--period <id>` | | | **Required** (e.g. `2026-Q1`); missing → exit 3 |
-| `--view <value>` | | `latest` | `latest`, `exceptions`, `integrity`, `scope`, or `coverage` |
+| `--view <value>` | | `latest` | `latest`, `exceptions`, `integrity`, `scope`, `coverage`, or `soa` |
 | `--format <value>` | | `text` | `text`, `json`, `csv`, `pdf` (`pdf` deferred to v1.x → exit 3 if used) |
 | `--out <file>` | | | Required for non-text formats (else exit 3); text goes to stdout |
 
-Views: `latest` = current pass/fail state per policy; `exceptions` = the waivers/NA register; `integrity` = run-by-run signature/manifest verification; `scope` = what the run was supposed to cover and what it actually evaluated; `coverage` = what kind of check stands behind each control.
+Views: `latest` = current pass/fail state per policy; `exceptions` = the waivers/NA register; `integrity` = run-by-run signature/manifest verification; `scope` = what the run was supposed to cover and what it actually evaluated; `coverage` = what kind of check stands behind each control; `soa` = the ISO 27001 Statement of Applicability.
 
 `--view scope` answers the question the other views assume away: *did this
 run look at everything it should have?* It shows the declared estate and
@@ -151,7 +151,7 @@ sigcomply report --period 2026-Q3 --view coverage
 ```
 
 ```
-43 of 43 controls have a check
+43 of 43 catalog controls have a check
   16 automated  — verified by inspecting your infrastructure
   27 manual     — a document is on file; its contents are not inspected
 
@@ -159,6 +159,67 @@ This period
   41 evaluated, 2 not evaluated
   0 manual control(s) with evidence on file, 27 without
 ```
+
+The `KIND` column separates the two things a framework calls a control. For
+ISO 27001 it is `catalog` for the 93 Annex A controls and `mgmt-system` for the
+16 clause 4-10 requirements, and the headline counts them apart — sixteen ISMS
+documents nobody has uploaded must not read as coverage of the Annex A catalog.
+SOC 2 has no management-system requirements, so every row there is `catalog`.
+
+`--view soa` generates the **Statement of Applicability** that ISO/IEC
+27001:2022 clause 6.1.3 d requires and a Stage 1 auditor asks for first. It
+answers four questions per Annex A control — is it necessary, why, is it
+implemented, and if it was left out, why — by joining the framework's control
+catalog, the project's applicability decisions, and the period's results.
+
+Only catalog controls are listed. The clause 4-10 management-system
+requirements are not selectable — an organization cannot decline to have an
+internal audit program — so they are counted in the note and never given a
+row. Status is derived from this period's results and never from the catalog: a
+control whose checks did not run reports `not evaluated`, which is not the same
+as implemented.
+
+**`--view soa` requires the project config.** The applicability decisions are
+authored in `.sigcomply.yaml` and exist nowhere else — not in the vault, not in
+the framework — so a run with only `--vault` and `--framework` would report
+every control as applicable and silently turn a deliberate exclusion into an
+inclusion. It exits `3` instead. Pass `-c <path to .sigcomply.yaml>`, or drop
+`--vault`/`--framework` so the config is read.
+
+Record the inclusion reasoning with `controls.<id>.justification` in
+`.sigcomply.yaml`; where it is absent SigComply derives one from the checks
+standing behind the control and marks it `(derived)`, so an auditor can tell a
+reasoned inclusion from a default one. An excluded control uses `reason`
+instead — setting both is a config error.
+
+```bash
+sigcomply report --period 2026-Q3 --view soa
+sigcomply report --period 2026-Q3 --view soa --format csv --out soa.csv
+```
+
+```
+93 catalog controls: 91 applicable, 2 excluded
+
+Of the 91 applicable
+  24 implemented           — every check that ran passed
+   2 partially implemented — some checks passed, some did not
+   3 not implemented       — every check that ran failed
+  62 not evaluated         — no check ran this period
+
+Note: 16 management-system requirements (clauses 4-10) are outside the Statement of Applicability and cannot be excluded; see report --view coverage. 62 applicable controls produced no result this period — not evaluated is not implemented. 88 inclusions carry a derived justification; set controls.<id>.justification to record the organization's own reasoning.
+
+CONTROL  NAME                               APPLICABLE  STATUS           ASSURANCE  JUSTIFICATION
+A.5.1    Policies for information security  yes         implemented      manual     (derived) Applicable — no exclusion declared. Evidenced by 1 manual evidence item.
+A.5.15   Access control                     yes         not implemented  automated  (derived) Applicable — no exclusion declared. Verified by 2 automated checks.
+A.7.1    Physical security perimeters       no          excluded         none       Fully remote; no corporate premises in scope.
+A.8.5    Secure authentication              yes         implemented      automated  MFA on the cloud console is our primary control against credential theft.
+...
+```
+
+`--format csv` gives the spreadsheet auditors expect: one row per Annex A
+control with `control_id`, `name`, `applicable`, `justification`,
+`justification_derived`, `status`, `assurance`, `evaluated`, `policies`, and
+`approved_by`.
 
 ## `sigcomply evidence catalog`
 

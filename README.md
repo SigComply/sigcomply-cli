@@ -8,7 +8,9 @@ locally into your **own** storage. Only aggregated **counts** and pass/fail
 scores — never raw evidence, never identifiers — are (optionally) submitted to a
 private cloud dashboard. Ships **SOC 2** (2017 Trust Services Criteria,
 production-ready, default) and **ISO/IEC 27001:2022** (all 93 Annex A controls,
-26 of them with an automated check; the rest prompt for manual evidence).
+26 of them with an automated check, the rest prompting for manual evidence —
+plus the 16 management-system requirements of clauses 4-10, which prompt for the
+ISMS documents a Stage 1 audit reviews).
 
 **One project = one source-control repo = one compliance framework = one evidence vault.**
 
@@ -114,7 +116,7 @@ see [docs/guides/identity-roster.md](docs/guides/identity-roster.md).
 | `sigcomply init` | Scaffold a starter `.sigcomply.yaml` for the chosen framework. |
 | `sigcomply init-ci` | Scaffold per-cadence CI workflow files (SOC 2 in v1-alpha). |
 | `sigcomply build` | Compile a project-tailored binary with `.sigcomply/` Go extensions. |
-| `sigcomply report` | Read-only auditor snapshot of the vault (`--view latest\|exceptions\|integrity\|scope\|coverage`). |
+| `sigcomply report` | Read-only auditor snapshot of the vault (`--view latest\|exceptions\|integrity\|scope\|coverage\|soa`). `soa` generates the ISO 27001 Statement of Applicability. |
 | `sigcomply evidence catalog` | Print the manual-evidence catalog (`-o text\|json`). |
 | `sigcomply evidence due` | List manual entries with no file for the current period. Advisory; always exits 0. |
 | `sigcomply version` | Print version, commit, and build time. |

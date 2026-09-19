@@ -126,6 +126,7 @@ You can scope a run to one cadence, e.g. `sigcomply check --cadence daily`. The 
 ```bash
 sigcomply report --period <id> --view latest
 sigcomply report --period <id> --view coverage   # what kind of check backs each control
+sigcomply report --period <id> --view soa        # ISO 27001 Statement of Applicability; needs the project config (-c)
 ```
 
 `--period` is required (e.g. `2026-Q1`); missing → exit `3`.

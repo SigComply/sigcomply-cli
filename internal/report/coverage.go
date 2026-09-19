@@ -30,8 +30,17 @@ func buildCoverage(ctx context.Context, v core.Vault, runs []runRecord, controls
 		return nil, err
 	}
 
+	// Catalog controls and management-system requirements are counted
+	// apart. Blending them makes the headline read better every time
+	// the honest gap is closed — 93/93 Annex A becomes 109/109 "controls"
+	// the moment sixteen clause requirements with no evidence on file
+	// are added — which is the exact drift this view exists to catch.
+	catalog, mgmtSystem := partitionByKind(controls)
+	out.ManagementSystem = len(mgmtSystem)
+
 	// The catalog's view of each control, then the run's corrections.
-	classified := core.ClassifyControls(controls, effectiveModes(policies, results))
+	effective := effectiveModes(policies, results)
+	classified := core.ClassifyControls(catalog, effective)
 	policiesByControl := groupPoliciesByControl(policies)
 
 	out.Rows = make([]CoverageRow, 0, len(classified))
@@ -41,10 +50,43 @@ func buildCoverage(ctx context.Context, v core.Vault, runs []runRecord, controls
 
 	totals := core.CoverageTotals(classified)
 	out.Controls, out.Automated, out.Manual, out.Uncovered = totals.Controls, totals.Automated, totals.Manual, totals.Uncovered
+
+	// Management-system requirements get rows too — they are the point
+	// of the view, not an appendix — but their own counters, so a
+	// reader can never mistake an ISMS document on file for a control
+	// that was inspected.
+	msClassified := core.ClassifyControls(mgmtSystem, effective)
+	for i := range msClassified {
+		row := coverageRow(&msClassified[i], policiesByControl[msClassified[i].ControlID], results)
+		row.ManagementSystem = true
+		out.Rows = append(out.Rows, row)
+	}
+	sort.Slice(out.Rows, func(a, b int) bool { return out.Rows[a].ControlID < out.Rows[b].ControlID })
+
 	for i := range out.Rows {
+		if out.Rows[i].ManagementSystem {
+			if out.Rows[i].Status == statusPass {
+				out.ManagementSystemOnFile++
+			}
+			continue
+		}
 		tallyRow(out, &out.Rows[i])
 	}
 	return out, nil
+}
+
+// partitionByKind splits a framework's controls into the selectable
+// catalog and the management-system requirements.
+func partitionByKind(controls []core.Control) (catalog, mgmtSystem []core.Control) {
+	catalog = make([]core.Control, 0, len(controls))
+	for i := range controls {
+		if controls[i].IsManagementSystem() {
+			mgmtSystem = append(mgmtSystem, controls[i])
+			continue
+		}
+		catalog = append(catalog, controls[i])
+	}
+	return catalog, mgmtSystem
 }
 
 // tallyRow folds one row into the view's headline counts.

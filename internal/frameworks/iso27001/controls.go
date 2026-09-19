@@ -1,17 +1,106 @@
 package iso27001
 
-import "github.com/sigcomply/sigcomply-cli/internal/core"
+import (
+	"strings"
 
-// Controls returns the full ISO/IEC 27001:2022 Annex A control catalog:
-// 93 controls across the four themes (Organizational 5.x, People 6.x,
-// Physical 7.x, Technological 8.x).
+	"github.com/sigcomply/sigcomply-cli/internal/core"
+)
+
+// Controls returns the full ISO/IEC 27001:2022 control catalog: the 93
+// Annex A controls across the four themes (Organizational 5.x, People
+// 6.x, Physical 7.x, Technological 8.x), plus the 16 management-system
+// requirements of clauses 4-10.
+//
+// Certification is granted against the management system, not against
+// Annex A in isolation: a Stage 1 audit is a documentation review of
+// clauses 4-10, and an organization that satisfies every Annex A control
+// and none of the clauses fails it. Shipping Annex A alone — as this
+// framework did until the clauses were added — advertised a readiness it
+// could not back, and, because every coverage surface is built on this
+// function, reported 93/93 over a universe that was missing a third of
+// what the auditor asks for.
+//
+// The two are distinguishable by ControlKind rather than by parsing the
+// ID prefix: clause controls are ControlKindManagementSystem, cannot be
+// declared not_applicable, and never appear in a Statement of
+// Applicability. Reading the prefix instead would be wrong as well as
+// brittle — a project-local extension's controls carry neither prefix
+// and still belong in the SoA.
 func Controls() []core.Control {
-	out := make([]core.Control, 0, 93)
+	out := make([]core.Control, 0, 93+len(ismsClauses))
 	out = append(out, themeControls("Organizational", "governance", organizational)...)
 	out = append(out, themeControls("People", "governance", people)...)
 	out = append(out, themeControls("Physical", "physical", physical)...)
 	out = append(out, themeControls("Technological", "technical", technological)...)
+	out = append(out, clauseControls()...)
 	return out
+}
+
+// AnnexAControls returns only the Annex A catalog — the controls an
+// organization selects from and that a Statement of Applicability
+// reports on.
+func AnnexAControls() []core.Control {
+	all := Controls()
+	out := make([]core.Control, 0, len(all))
+	for i := range all {
+		if !all[i].IsManagementSystem() {
+			out = append(out, all[i])
+		}
+	}
+	return out
+}
+
+// clauseControls expands the management-system clauses into controls.
+// The ID carries a "C." prefix so it cannot be read as an Annex A
+// reference: clause 5.2 (the information security policy) and A.5.2
+// (information security roles) are different requirements that an
+// auditor checks separately.
+func clauseControls() []core.Control {
+	out := make([]core.Control, 0, len(ismsClauses))
+	for _, d := range ismsClauses {
+		out = append(out, core.Control{
+			ID:               d.id,
+			Name:             d.name,
+			Description:      d.name + " (ISO/IEC 27001:2022 clause " + strings.TrimPrefix(d.id, "C.") + ", management system).",
+			Category:         "isms",
+			BaselineSeverity: core.SeverityMedium,
+			Kind:             core.ControlKindManagementSystem,
+		})
+	}
+	return out
+}
+
+// ismsClauses is the Stage 1 reading list: the documented information
+// ISO/IEC 27001:2022 requires of the management system itself, plus the
+// three records every certification audit asks for without the standard
+// strictly mandating a document — C.4.1-4.2 (the context and
+// interested-parties analysis, whose output 6.1.1 and 9.3.2 b consume),
+// C.5.3 (the assignment of ISMS roles) and C.7.5 (the document
+// register). They are included because an auditor will ask, and
+// labeled honestly here because a set that claims to be "the mandatory
+// documented information" while quietly exceeding it would be the same
+// species of overclaim this framework is being fixed for.
+//
+// Clause numbers are the standard's own. 6.1.3's Statement of
+// Applicability is absent on purpose: SigComply generates it (report
+// --view soa) rather than asking for it to be uploaded.
+var ismsClauses = []ctrlDef{
+	{"C.4.1-4.2", "Organizational context and the needs of interested parties"},
+	{"C.4.3", "Scope of the information security management system"},
+	{"C.5.2", "Information security policy"},
+	{"C.5.3", "Organizational roles, responsibilities and authorities"},
+	{"C.6.1.2", "Information security risk assessment process"},
+	{"C.6.1.3", "Information security risk treatment process"},
+	{"C.6.2", "Information security objectives and planning to achieve them"},
+	{"C.7.2", "Competence"},
+	{"C.7.5", "Documented information"},
+	{"C.8.1", "Operational planning and control"},
+	{"C.8.2", "Information security risk assessment results"},
+	{"C.8.3", "Information security risk treatment results"},
+	{"C.9.1", "Monitoring, measurement, analysis and evaluation"},
+	{"C.9.2", "Internal audit"},
+	{"C.9.3", "Management review"},
+	{"C.10.2", "Nonconformity and corrective action"},
 }
 
 type ctrlDef struct {

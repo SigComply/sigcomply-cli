@@ -39,6 +39,36 @@ func validateProjectReferences(cfg *spec.ProjectConfig, framework core.Framework
 				id, framework.ID(), didYouMean(id, controlIDs))
 		}
 	}
+	return validateApplicability(cfg, framework)
+}
+
+// validateApplicability rejects an applicability exclusion against a
+// management-system requirement.
+//
+// Applicability is a Statement-of-Applicability concept and the SoA is
+// about the control catalog: ISO/IEC 27001:2022 6.1.3 d asks which
+// controls are necessary and why any were left out. Clauses 4-10 are
+// not on that menu — certification is granted against the
+// management system, so declining one is declining to have an ISMS. The
+// cascade in resolveControlException would otherwise honor it
+// silently, turning every policy under the clause into an N/A and
+// lifting the compliance score for it, which is the most expensive way
+// this could fail.
+func validateApplicability(cfg *spec.ProjectConfig, framework core.Framework) error {
+	controls := framework.Controls()
+	for i := range controls {
+		if !controls[i].IsManagementSystem() {
+			continue
+		}
+		cc, ok := cfg.Controls[controls[i].ID]
+		if !ok || cc.Applicability != "not_applicable" {
+			continue
+		}
+		return fmt.Errorf("project config: controls[%q]: %q is a management-system requirement of %s "+
+			"(%s) and cannot be declared not_applicable — certification is granted against the "+
+			"management system, not against a subset of it",
+			controls[i].ID, controls[i].ID, framework.ID(), controls[i].Name)
+	}
 	return nil
 }
 

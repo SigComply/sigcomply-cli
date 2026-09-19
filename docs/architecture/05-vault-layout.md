@@ -493,6 +493,7 @@ with signed integrity guarantees.
 | "Has any evidence been tampered with?" | Free CLI: `sigcomply report --view integrity`. Vault-readable. |
 | "Did this run look at everything it should have?" | Free CLI: `sigcomply report --view scope`. Vault-readable. |
 | "Is control X actually inspected, or does it just have a PDF?" | Free CLI: `sigcomply report --view coverage`. Vault + framework catalog. |
+| "Which controls did you decide apply, why, and are they implemented?" | Free CLI: `sigcomply report --view soa`. Vault + framework catalog + the project config's applicability decisions. |
 | "Did control X operate effectively *throughout* the period?" | **Paid Rails app.** Computes deviation timeline from accumulated per-run submissions. |
 | "Has compliance posture drifted year-over-year?" | **Paid Rails app.** Cross-period analytics. |
 | "Alert me when MFA enforcement state changes." | **Paid Rails app.** Continuous-monitoring alerts. |

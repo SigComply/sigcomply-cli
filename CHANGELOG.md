@@ -13,6 +13,147 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **ISO 27001 now covers the management system, not just Annex A — and
+  generates the Statement of Applicability.** **Behavior change: existing ISO
+  27001 projects gain 16 manual policies that fail until the documents are
+  uploaded.** See the migration note at the end of this entry.
+
+  The ISO framework shipped the 93 Annex A controls and nothing for clauses
+  4–10. Certification is not granted against Annex A; it is granted against the
+  information security management system, and a Stage 1 audit is in practice a
+  documentation review of exactly those clauses — is the scope written down, is
+  there a risk assessment process, were internal audits conducted, did top
+  management review the ISMS. So a customer could pass every SigComply check,
+  read a clean coverage report, and fail Stage 1, with nothing in the product
+  having hinted at the gap. Worse, the gap was invisible by construction: the
+  universe coverage was measured over was itself missing a third of what the
+  auditor asks for, so no number computed inside it could reveal the omission.
+  That was an ISO readiness claim we could not back.
+
+  Sixteen management-system requirements now ship as manual `document_upload`
+  entries on an annual cadence: `C.4.1-4.2` (context and interested parties),
+  `C.4.3` (ISMS scope), `C.5.2` (information security policy), `C.5.3` (ISMS
+  roles), `C.6.1.2` (risk assessment process), `C.6.1.3` (risk treatment
+  process), `C.6.2` (objectives), `C.7.2` (competence), `C.7.5` (documented
+  information), `C.8.1` (operational planning), `C.8.2` (risk assessment
+  results), `C.8.3` (risk treatment results), `C.9.1` (monitoring), `C.9.2`
+  (internal audit), `C.9.3` (management review), `C.10.2` (corrective action).
+  Policy IDs are `iso27001.clause.<n>.<slug>`. The `C.` prefix exists so a
+  clause can never be read as an Annex A reference — clause 5.2 and A.5.2 are
+  different requirements an auditor tests separately.
+
+  **The 93 and the 16 are never added together.** They are different kinds of
+  control and a blended total flatters the headline at exactly the moment the
+  honest gap is closed: "93 of 93 covered" would become "109 of 109 covered" on
+  the day sixteen requirements nobody has uploaded evidence for were added.
+  `core.Control` therefore carries a `Kind` (`catalog`, the default, or
+  `management_system`) with an `IsManagementSystem()` predicate; `--view
+  coverage` gained a `KIND` column and its own `ManagementSystem` /
+  `ManagementSystemOnFile` counters; and the doc-figures test that pins
+  published counts to the compiled framework now splits them too. Project-local
+  framework extensions carry the same field as `kind:` on a control, decoded
+  strictly so an unrecognized value is rejected rather than read as the default.
+
+  The kind lives on the control rather than in an ID-prefix check for two
+  reasons. `internal/report` is deliberately framework-registry-free — it reads
+  vault bytes plus a catalog handed to it, and must not import
+  `internal/frameworks` — so a `"C."` test would smuggle one framework's ID
+  convention into a package that is not allowed to know which framework it is
+  rendering. And a project-local extension's controls carry neither an `A.` nor
+  a `C.` prefix, yet belong in the Statement of Applicability like any other
+  selectable control.
+
+  **A management-system requirement cannot be declared `not_applicable`.**
+  `validateApplicability` rejects it at config load (exit 3). Nothing would have
+  *failed* without this check, which is the problem: control-level applicability
+  cascades, so an accepted exclusion would mark every policy under the clause
+  `na`, drop them out of the compliance-score denominator, and *raise* the score
+  for declining to have an ISMS. Excluding an Annex A control is untouched — it
+  is exactly what applicability is for.
+
+- **`sigcomply report --view soa` — the Statement of Applicability, generated.**
+  ISO/IEC 27001:2022 6.1.3 d) requires one and it is the first document a Stage
+  1 auditor asks for. It must state, per control, which are necessary, why each
+  is included, whether it is implemented, and the justification for any
+  exclusion. SigComply already held all four — the catalog in the framework, the
+  applicability decision and its reasoning in `.sigcomply.yaml`, the
+  implementation status in the vault — and had no surface that joined them, so
+  the one document the auditor reads first had to be maintained by hand
+  alongside the tool that knew the answer. A hand-maintained copy of a derived
+  artifact drifts the moment a control is excluded or a check starts failing,
+  silently, because nothing compares the two.
+
+  Text, JSON and CSV; CSV is the spreadsheet auditors actually work in. Status
+  is derived from the period's results and never asserted — `implemented` only
+  when every check that ran passed, then `partially implemented`, `not
+  implemented`, and `not evaluated` when nothing ran. A control whose annual
+  policy has not run this quarter says so rather than borrowing a pass from the
+  catalog. Each row also carries its assurance (`automated` / `manual` /
+  `none`), because an implemented control evidenced only by a PDF on file is a
+  weaker claim than one where infrastructure was inspected, and a document
+  handed to a certification body should not flatten the two.
+
+  The view lists the selectable control catalog and never the management-system
+  clauses. Note that this is wider than Annex A: 6.1.3 b) NOTE 1 lets an
+  organization design controls from any source, and Annex A is the cross-check
+  list rather than the menu — so a project-local extension's own controls belong
+  in the SoA too. The filter is `!IsManagementSystem()`, not an `A.` prefix
+  test.
+
+  **`--view soa` is the one report view that requires the project config** and
+  exits 3 without it. Every other view is a pure reader of vault bytes, so an
+  auditor holding only a vault path can produce them. The applicability
+  decisions are authored, not observed — there is nowhere in the vault to read
+  them from — and degrading gracefully would render every control as applicable,
+  turning a deliberate, approved exclusion into a silent inclusion on the single
+  document a certification auditor reads first. Refusing is the honest answer; a
+  footnote at the bottom of a CSV nobody scrolls to is not.
+
+- **New `.sigcomply.yaml` key: `controls.<id>.justification`.** The *inclusion*
+  justification — the other half of what 6.1.3 d) asks for, alongside the
+  existing exclusion `reason`. `--view soa` prints it verbatim. Where it is
+  absent the view derives one from the checks standing behind the control
+  ("Applicable — no exclusion declared. Verified by 3 automated checks.") and
+  marks it `(derived)`, so an auditor can tell deliberation from boilerplate and
+  the headline note can say how many inclusions still carry a default. Setting
+  both `justification` and an exclusion `reason` on one control is a config
+  error: a row the SoA reports as excluded must not also carry an inclusion
+  justification.
+
+  Three of the sixteen — `C.4.1-4.2`, `C.5.3` and `C.7.5` — are **not strictly
+  mandatory documented information** under the 2022 text. Clauses 4.1/4.2
+  require the determination to be made rather than documented, 5.3 requires
+  roles to be assigned and communicated, and 7.5 governs how documented
+  information is controlled. They are included because every certification audit
+  asks for them, and the source and the docs both say so: a set advertised as
+  "ISO's mandatory documented information" that quietly exceeds it would be the
+  same species of overclaim this change exists to fix.
+
+  All sixteen are `document_upload` rather than Evidence SPA click-through
+  forms. These are documents an auditor reads — a scope statement, a risk
+  register, internal audit findings, management review minutes — and rendering a
+  management review as a set of checkboxes someone ticks would reproduce, one
+  layer down, the exact overclaim being retired. The SPA already filters
+  `document_upload` entries out of its dashboard, so all sixteen are correctly
+  absent from it and no SPA change was needed. Clause 6.1.3's own mandatory
+  output, the SoA, is deliberately not one of the sixteen — SigComply generates
+  it; `C.6.1.3` covers the risk treatment process and plan, which the SoA does
+  not replace.
+
+  **Migration — what an existing ISO 27001 project will see.** On the next
+  annual run, 16 new manual policies fail because their evidence folders are
+  empty: `sigcomply check --cadence annual` exits `1`, the compliance score
+  drops (16 policies enter the denominator, none pass), and the Cloud dashboard
+  shows the same drop. That is a correction to a score previously computed over
+  an incomplete universe, not a regression in posture. No config key is
+  required, no existing control's behavior moves, and the daily and quarterly
+  workflows are unaffected since all sixteen are annual. `sigcomply evidence
+  due` lists every clause folder still empty for the current period with the
+  exact upload URI for each, and always exits 0. To keep the build green while
+  working through the backlog, waive the policies with a reason and an
+  `expires_at` — the control cannot be excluded. Guide:
+  `docs/guides/isms-clauses.md`. Design: `docs/architecture/13-isms-clauses-and-soa.md`.
+
 - **Change management is now evidenced from the changes themselves, not just
   the guardrail around them.** Two new evidence types — `pull_request` and
   `deployment` — collected from GitHub and GitLab over the audit period, with
@@ -150,7 +291,7 @@ tracks the human-curated highlights.
   escape hatch. Virtual `account.ref` / `.key` / `.linked_by` / `.non_human` /
   `.active` resolve aliases, non-human declarations and AWS root. Slots can
   declare `role: roster | roster_subject`; clause and condition keys are now
-  decoded strictly, so a typo such as `normalise:` fails to load.
+  decoded strictly, so a typo such as `normalize:` fails to load.
 - **`gcp.directory` impersonation for CI** — optional `target_service_account`
   (ADC impersonates that service account) and `impersonate_subject`
   (domain-wide delegation; requires `target_service_account`).

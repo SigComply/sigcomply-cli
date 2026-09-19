@@ -53,7 +53,7 @@ func (*Framework) Policies() []core.PolicyRef {
 
 // Policies returns the full ISO 27001 policy library.
 func Policies() []core.Policy {
-	out := make([]core.Policy, 0, 130)
+	out := make([]core.Policy, 0, 150)
 	out = append(out, technologicalPolicies()...)
 	out = append(out, changeEvidencePolicies()...)
 	out = append(out, organizationalAutomatedPolicies()...)

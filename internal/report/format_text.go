@@ -3,6 +3,7 @@ package report
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 )
@@ -35,6 +36,8 @@ func FormatText(w io.Writer, snap *Snapshot) error {
 		return formatTextScope(w, snap.Scope)
 	case ViewCoverage:
 		return formatTextCoverage(w, snap.Coverage)
+	case ViewSoA:
+		return formatTextSoA(w, snap.SoA)
 	default:
 		return fmt.Errorf("format text: unsupported view %q", snap.View)
 	}
@@ -192,17 +195,21 @@ func formatTextCoverage(w io.Writer, v *CoverageView) error {
 		return err
 	}
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	if _, err := fmt.Fprintln(tw, "CONTROL\tASSURANCE\tAUTOMATED\tMANUAL\tEVALUATED\tSTATUS\tNOTE"); err != nil {
+	if _, err := fmt.Fprintln(tw, "CONTROL\tKIND\tASSURANCE\tAUTOMATED\tMANUAL\tEVALUATED\tSTATUS\tNOTE"); err != nil {
 		return err
 	}
 	for i := range v.Rows {
 		r := &v.Rows[i]
+		kind := "catalog"
+		if r.ManagementSystem {
+			kind = "mgmt-system"
+		}
 		assurance := r.Assurance
 		if r.Overridden {
 			assurance += " (overridden)"
 		}
-		if _, err := fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%d of %d\t%s\t%s\n",
-			r.ControlID, assurance, r.AutomatedPolicies, r.ManualPolicies,
+		if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%d\t%d of %d\t%s\t%s\n",
+			r.ControlID, kind, assurance, r.AutomatedPolicies, r.ManualPolicies,
 			r.Evaluated, r.Policies, r.Status, oneLine(r.Note)); err != nil {
 			return err
 		}
@@ -211,7 +218,7 @@ func formatTextCoverage(w io.Writer, v *CoverageView) error {
 }
 
 func writeCoverageHeadline(w io.Writer, v *CoverageView) error {
-	if _, err := fmt.Fprintf(w, "%d of %d controls have a check\n", v.Automated+v.Manual, v.Controls); err != nil {
+	if _, err := fmt.Fprintf(w, "%d of %d catalog controls have a check\n", v.Automated+v.Manual, v.Controls); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "  %d automated  — verified by inspecting your infrastructure\n", v.Automated); err != nil {
@@ -222,6 +229,14 @@ func writeCoverageHeadline(w io.Writer, v *CoverageView) error {
 	}
 	if v.Uncovered > 0 {
 		if _, err := fmt.Fprintf(w, "  %d uncovered  — no policy implements the control\n", v.Uncovered); err != nil {
+			return err
+		}
+	}
+	if v.ManagementSystem > 0 {
+		if _, err := fmt.Fprintf(w,
+			"\n%d management-system requirements (counted apart — they are not selectable)\n"+
+				"  %d with evidence on file this period, %d without\n",
+			v.ManagementSystem, v.ManagementSystemOnFile, v.ManagementSystem-v.ManagementSystemOnFile); err != nil {
 			return err
 		}
 	}
@@ -240,5 +255,82 @@ func writeCoverageHeadline(w io.Writer, v *CoverageView) error {
 	// three quarters out of four. Say so, or every Q1-Q3 report reads
 	// like an outage.
 	_, err := fmt.Fprint(w, "\nA control whose cadence is longer than this period (annual, in a quarterly\nperiod) is expected to show \"not evaluated\" here — the NOTE column names\nthe cadence so you can tell that apart from a check that should have run.\n\n")
+	return err
+}
+
+// formatTextSoA renders the Statement of Applicability.
+//
+// The headline splits the catalog the way an auditor reads it —
+// included versus excluded first, then what the included controls
+// actually achieved — because "93 applicable" says nothing until you
+// know how many of them were implemented. The note under it carries
+// what the table cannot: what it omits, and that an unevaluated control
+// is not a passing one.
+func formatTextSoA(w io.Writer, v *SoAView) error {
+	if v == nil {
+		_, err := fmt.Fprintln(w, "(no runs in this period)")
+		return err
+	}
+	if err := writeSoAHeadline(w, v); err != nil {
+		return err
+	}
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	if _, err := fmt.Fprintln(tw, "CONTROL\tNAME\tAPPLICABLE\tSTATUS\tASSURANCE\tJUSTIFICATION"); err != nil {
+		return err
+	}
+	for i := range v.Rows {
+		r := &v.Rows[i]
+		applicable := "yes"
+		if !r.Applicable {
+			applicable = "no"
+		}
+		justification := oneLine(r.Justification)
+		if r.JustificationDerived {
+			justification = "(derived) " + justification
+		}
+		if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+			r.ControlID, oneLine(r.Name), applicable, r.Status, r.Assurance, justification); err != nil {
+			return err
+		}
+	}
+	return tw.Flush()
+}
+
+func writeSoAHeadline(w io.Writer, v *SoAView) error {
+	if _, err := fmt.Fprintf(w, "%d catalog controls: %d applicable, %d excluded\n",
+		v.Controls, v.Applicable, v.Excluded); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "\nOf the %d applicable\n", v.Applicable); err != nil {
+		return err
+	}
+	lines := []struct {
+		n   int
+		lbl string
+	}{
+		{v.Implemented, "implemented           — every check that ran passed"},
+		{v.Partial, "partially implemented — some checks passed, some did not"},
+		{v.NotImplemented, "not implemented       — every check that ran failed"},
+		{v.NotEvaluated, "not evaluated         — no check ran this period"},
+	}
+	// Right-align the counts so the labels and their dashes line up
+	// whether a number is 0 or 93.
+	width := 1
+	for _, line := range lines {
+		if w := len(strconv.Itoa(line.n)); w > width {
+			width = w
+		}
+	}
+	for _, line := range lines {
+		if _, err := fmt.Fprintf(w, "  %*d %s\n", width, line.n, line.lbl); err != nil {
+			return err
+		}
+	}
+	if v.Note != "" {
+		if _, err := fmt.Fprintf(w, "\nNote: %s.\n", v.Note); err != nil {
+			return err
+		}
+	}
+	_, err := fmt.Fprintln(w)
 	return err
 }

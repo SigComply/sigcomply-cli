@@ -19,6 +19,13 @@ type coverage struct {
 	automated, manual    int // policies, by evidence mode
 	ctrlAuto, ctrlManual int // controls, by the strongest check behind them
 	catalogEntries       int
+	// mgmtSystem counts the controls that are management-system
+	// requirements rather than selectable catalog controls. Split out
+	// because a claim about "Annex A controls" that silently counts ISO
+	// 27001's clause 4-10 requirements too is the same category of
+	// overclaim this file exists to catch — one that gets *more*
+	// flattering as the honest gap is closed.
+	mgmtSystem int
 }
 
 // measure derives the published figures from the compiled framework.
@@ -30,7 +37,16 @@ type coverage struct {
 // a coverage claim drifting from the coverage screen is precisely the
 // failure this test exists to prevent.
 func measure(controls []core.Control, policies []core.Policy, entries int) coverage {
-	c := coverage{controls: len(controls), policies: len(policies), catalogEntries: entries}
+	c := coverage{policies: len(policies), catalogEntries: entries}
+	catalog := make([]core.Control, 0, len(controls))
+	for i := range controls {
+		if controls[i].IsManagementSystem() {
+			c.mgmtSystem++
+			continue
+		}
+		catalog = append(catalog, controls[i])
+	}
+	c.controls = len(catalog)
 	for i := range policies {
 		if policies[i].EvidenceMode == core.EvidenceModeAutomated {
 			c.automated++
@@ -38,7 +54,7 @@ func measure(controls []core.Control, policies []core.Policy, entries int) cover
 			c.manual++
 		}
 	}
-	totals := core.CoverageTotals(core.ClassifyControls(controls, policies))
+	totals := core.CoverageTotals(core.ClassifyControls(catalog, policies))
 	c.ctrlAuto, c.ctrlManual = totals.Automated, totals.Manual
 	return c
 }
@@ -69,13 +85,16 @@ func TestDocFiguresMatchCode(t *testing.T) {
 			fmt.Sprintf("%d policies: %d automated + %d manual catalog entries", s.policies, s.automated, s.catalogEntries),
 			fmt.Sprintf("%d / %d Annex A controls have a check — %d automated, %d manual-only", i.controls, i.controls, i.ctrlAuto, i.ctrlManual),
 			fmt.Sprintf("%d policies: %d automated + %d manual catalog entries", i.policies, i.automated, i.catalogEntries),
+			fmt.Sprintf("%d management-system requirements (clauses 4-10), all manual", i.mgmtSystem),
 		}},
 		{"README.md", []string{
 			fmt.Sprintf("all %d Annex A controls,", i.controls),
 			fmt.Sprintf("%d of them with an automated check", i.ctrlAuto),
+			fmt.Sprintf("the %d management-system requirements of clauses 4-10", i.mgmtSystem),
 		}},
 		{"CLAUDE.md", []string{
 			fmt.Sprintf("all %d Annex A controls, %d automated", i.controls, i.ctrlAuto),
+			fmt.Sprintf("%d clause 4-10 management-system requirements", i.mgmtSystem),
 		}},
 		{"docs/guides/manual-evidence.md", []string{
 			fmt.Sprintf("The SOC 2 catalog has **%d entries**", s.catalogEntries),

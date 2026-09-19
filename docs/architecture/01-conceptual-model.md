@@ -56,12 +56,36 @@ not redefine what SOC 2 means.
 **Definition.** A single requirement inside a framework — `SOC2.CC6.1`
 ("logical access controls in place"), `ISO27001.A.9.2.1` ("user
 registration and de-registration"). Controls have an identifier,
-description, severity baseline, and category. Each control is verified
-by zero or more policies.
+description, severity baseline, category, and a **kind**. Each control
+is verified by zero or more policies.
 
 **Example.** `CC6.1` in SOC 2 is verified (in part) by:
 `soc2.cc6.1.mfa_enforced`, `soc2.cc6.1.access_key_rotation`,
 `soc2.cc6.1.inactive_users_disabled`, and others.
+
+**Two kinds.** `Control.Kind` separates the two things a framework calls
+a control, and the distinction is load-bearing:
+
+- **Catalog** (`ControlKindCatalog`, the zero value) — a control the
+  organization *selects*. It can be included with a justification or
+  declared `not_applicable` with a reason. ISO 27001's 93 Annex A
+  controls and the SOC 2 Trust Services Criteria are both this, and only
+  these appear in a Statement of Applicability.
+- **Management system** (`ControlKindManagementSystem`) — a requirement
+  of the management system itself. ISO 27001's clauses 4–10 are the 16
+  shipped examples. Certification is granted against the management
+  system, so an organization cannot decline one: declaring it
+  `not_applicable` is a config error, not a honored exclusion, and it
+  never appears in a Statement of Applicability. `Control.Kind` carries
+  this rather than an ID prefix, because a prefix rule would misclassify
+  a project-local extension's own controls and would put one framework's
+  ID convention inside a reporting package that must not know which
+  framework it is rendering. See
+  [13-isms-clauses-and-soa.md](13-isms-clauses-and-soa.md).
+
+The two kinds are always counted apart. "93 Annex A controls and 16
+management-system requirements" is the correct form; a blended total is
+not.
 
 **What it is *not*.** A control is not the policy. A single control
 typically requires many policies to fully verify; a single policy

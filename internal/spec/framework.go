@@ -39,6 +39,14 @@ type ControlSpec struct {
 	Description      string        `yaml:"description"`
 	Category         string        `yaml:"category"`
 	BaselineSeverity core.Severity `yaml:"baseline_severity"`
+	// Kind is "catalog" (the default) or "management_system". A
+	// project-local framework extension needs this for the same reason
+	// the shipped ones do: without it a management-system requirement
+	// can be declared not_applicable, which cascades every policy under
+	// it to N/A and raises the compliance score for declining to have a
+	// management system. Decoding is strict, so an unrecognized value
+	// is rejected rather than silently read as the default.
+	Kind core.ControlKind `yaml:"kind"`
 }
 
 // PolicyRefSpec is one entry in the framework's policies list — a
@@ -63,6 +71,7 @@ func (f *FrameworkSpec) Controls() []core.Control {
 			Description:      c.Description,
 			Category:         c.Category,
 			BaselineSeverity: c.BaselineSeverity,
+			Kind:             c.Kind,
 		}
 	}
 	return out
@@ -123,6 +132,12 @@ func validateFramework(f *FrameworkSpec) error {
 		seenControl[c.ID] = struct{}{}
 		if c.BaselineSeverity != "" && !isValidSeverity(c.BaselineSeverity) {
 			return fmt.Errorf("framework spec %q: controls[%d] (%q): invalid baseline_severity %q", f.IDValue, i, c.ID, c.BaselineSeverity)
+		}
+		switch c.Kind {
+		case "", core.ControlKindCatalog, core.ControlKindManagementSystem:
+		default:
+			return fmt.Errorf("framework spec %q: controls[%d] (%q): invalid kind %q (want catalog|management_system)",
+				f.IDValue, i, c.ID, c.Kind)
 		}
 	}
 	seenPolicy := make(map[string]struct{}, len(f.PoliciesList))

@@ -10,6 +10,42 @@ type Framework interface {
 	Policies() []PolicyRef
 }
 
+// ControlKind separates the two things a framework calls a "control".
+//
+// Most are catalog controls: an organization selects from them and may
+// declare one inapplicable with a justification. ISO 27001 Annex A and
+// the SOC 2 Trust Services Criteria are both this.
+//
+// ISO 27001 clauses 4-10 are not. They are requirements of the
+// management system itself — the thing certification is granted
+// against — and an organization cannot decline one. Recording the
+// difference on the control is what lets a surface that knows nothing
+// about any particular framework still get two things right: a
+// Statement of Applicability lists the necessary controls and never the
+// management-system clauses (ISO 27001:2022 6.1.3 d), and an
+// applicability exclusion against a management-system requirement is a
+// config error rather than a silently honored N/A.
+//
+// Note that "the necessary controls" is wider than Annex A: 6.1.3 b)
+// NOTE 1 lets an organization design controls from any source, and
+// Annex A is the cross-check list rather than the menu. So the
+// distinction that belongs on a control is selectable-or-not, never
+// came-from-Annex-A — a project-local extension's own controls belong
+// in the SoA too.
+type ControlKind string
+
+// ControlKind values. The zero value is ControlKindCatalog, so a
+// framework that has only catalog controls declares nothing.
+const (
+	// ControlKindCatalog is a control an organization includes or
+	// excludes, with a justification either way.
+	ControlKindCatalog ControlKind = "catalog"
+	// ControlKindManagementSystem is a requirement of the management
+	// system itself. It cannot be excluded and never appears in a
+	// Statement of Applicability.
+	ControlKindManagementSystem ControlKind = "management_system"
+)
+
 // Control is one item in a framework's control catalog.
 type Control struct {
 	ID               string
@@ -17,6 +53,15 @@ type Control struct {
 	Description      string
 	Category         string
 	BaselineSeverity Severity
+	// Kind says whether this control is selectable. Empty means
+	// ControlKindCatalog — see ControlKind.
+	Kind ControlKind
+}
+
+// IsManagementSystem reports whether the control is a management-system
+// requirement rather than a selectable catalog control.
+func (c *Control) IsManagementSystem() bool {
+	return c.Kind == ControlKindManagementSystem
 }
 
 // PolicyRef points from a framework to a registered policy by ID.

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
@@ -35,6 +36,8 @@ func FormatCSV(w io.Writer, snap *Snapshot) error {
 		return formatCSVScope(cw, snap.Scope)
 	case ViewCoverage:
 		return formatCSVCoverage(cw, snap.Coverage)
+	case ViewSoA:
+		return formatCSVSoA(cw, snap.SoA)
 	default:
 		return fmt.Errorf("format csv: unsupported view %q", snap.View)
 	}
@@ -155,7 +158,7 @@ func formatCSVScope(cw *csv.Writer, v *ScopeView) error {
 // a nil view still yields a well-formed header-only file.
 func formatCSVCoverage(cw *csv.Writer, v *CoverageView) error {
 	if err := cw.Write([]string{
-		"control_id", "assurance", "automated_policies", "manual_policies",
+		"control_id", "kind", "assurance", "automated_policies", "manual_policies",
 		"evaluated", "policies", "status", "overridden", "note",
 	}); err != nil {
 		return err
@@ -165,11 +168,42 @@ func formatCSVCoverage(cw *csv.Writer, v *CoverageView) error {
 	}
 	for i := range v.Rows {
 		r := &v.Rows[i]
+		kind := "catalog"
+		if r.ManagementSystem {
+			kind = "management_system"
+		}
 		if err := cw.Write([]string{
-			r.ControlID, r.Assurance,
+			r.ControlID, kind, r.Assurance,
 			strconv.Itoa(r.AutomatedPolicies), strconv.Itoa(r.ManualPolicies),
 			strconv.Itoa(r.Evaluated), strconv.Itoa(r.Policies),
 			r.Status, strconv.FormatBool(r.Overridden), oneLine(r.Note),
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// formatCSVSoA emits one row per catalog control — the spreadsheet an
+// auditor asks for. Header first, so a nil view still yields a
+// well-formed header-only file.
+func formatCSVSoA(cw *csv.Writer, v *SoAView) error {
+	if err := cw.Write([]string{
+		"control_id", "name", "applicable", "justification", "justification_derived",
+		"status", "assurance", "evaluated", "policies", "approved_by",
+	}); err != nil {
+		return err
+	}
+	if v == nil {
+		return nil
+	}
+	for i := range v.Rows {
+		r := &v.Rows[i]
+		if err := cw.Write([]string{
+			r.ControlID, oneLine(r.Name), strconv.FormatBool(r.Applicable),
+			oneLine(r.Justification), strconv.FormatBool(r.JustificationDerived),
+			r.Status, r.Assurance, strconv.Itoa(r.Evaluated),
+			strings.Join(r.Policies, " "), r.ApprovedBy,
 		}); err != nil {
 			return err
 		}

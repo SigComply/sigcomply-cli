@@ -16,9 +16,12 @@ import (
 // (every policy references a registered control), so an orphaned control
 // — declared in controls.go, implemented by no policy — was structurally
 // invisible. An audit found 33 of them (SOC 2 7, ISO 27001 26). That gap
-// is not cosmetic: a customer reads "all 93 Annex A controls" as
-// coverage, and an auditor who asks about an orphaned control finds the
-// tool never once prompted for its evidence.
+// is not cosmetic: a customer reads a published control count — "all 93
+// Annex A controls", "16 management-system requirements" — as coverage,
+// and an auditor who asks about an orphaned control finds the tool never
+// once prompted for its evidence. This runs over every declared control,
+// management-system requirements included: a clause 4-10 requirement with
+// no policy behind it is the same silent hole.
 //
 // Adding a control without a policy now fails the build. Closing a gap
 // does not require automation — a manual-evidence policy that prompts for

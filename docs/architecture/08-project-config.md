@@ -208,6 +208,9 @@ controls:
     applicability: not_applicable
     reason: "Cloud-only; physical security inherited from AWS."
     approved_by: ciso@acme.com
+  A.5.7:
+    justification: "Threat intel consumed from the CISA KEV feed; triaged weekly."
+    approved_by: ciso@acme.com
 ```
 
 A control marked `not_applicable` **cascades**: every policy that maps to
@@ -221,6 +224,53 @@ are reserved for later — additive fields under the same key.
 The two axes compose: `controls:` for coarse "this whole requirement is
 out of scope / inherited," `policies.<id>.exceptions` for the fine,
 resource-scoped waiver.
+
+### `justification` — the other half of the SoA
+
+`reason` answers "why *not* this control." `justification` answers "why
+this one," which is the other thing ISO/IEC 27001:2022 6.1.3 d) requires
+a Statement of Applicability to record. It is optional and applies only
+to an *included* control: `sigcomply report --view soa` prints it
+verbatim, and where it is absent derives one from the checks standing
+behind the control, marked `(derived)` so an auditor can tell
+deliberation from boilerplate.
+
+Setting both on one control is a configuration error —
+
+```
+project config: controls["A.7.4"]: justification records why a control is
+included; use reason for an exclusion
+```
+
+— because a row the SoA reports as excluded must not also carry an
+inclusion justification.
+
+### Applicability does not apply to every control
+
+Frameworks distinguish two kinds of control (`core.Control.Kind`, and
+`kind:` on a control in a project-local framework spec). Applicability is
+a Statement-of-Applicability concept, and the SoA is about the
+**selectable catalog** — Annex A, the Trust Services Criteria, a
+project-local extension's own controls. ISO 27001's clauses 4–10 are
+**management-system requirements**: certification is granted against the
+management system, so declining one is declining to have an ISMS.
+
+`validateApplicability` (`internal/planner/references.go`) therefore
+rejects the config before the plan is built:
+
+```
+project config: controls["C.9.2"]: "C.9.2" is a management-system requirement
+of iso27001 (Internal audit) and cannot be declared not_applicable —
+certification is granted against the management system, not against a subset
+of it
+```
+
+Marking one `applicable`, or recording only an `approved_by` against it,
+is allowed. Rejecting the exclusion outright is what matters, because the
+cascade above would otherwise honor it silently: every policy under the
+clause becomes `na`, leaves the compliance-score denominator, and the
+score *rises* for the omission. Full rationale:
+[13-isms-clauses-and-soa.md](13-isms-clauses-and-soa.md).
 
 ---
 

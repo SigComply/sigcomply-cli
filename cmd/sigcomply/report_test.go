@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -307,7 +308,7 @@ func TestParseView(t *testing.T) {
 	if v, err := parseView("exceptions"); err != nil || v != "exceptions" {
 		t.Errorf("exceptions → %q err=%v", v, err)
 	}
-	for _, name := range []string{"scope", "coverage"} {
+	for _, name := range []string{"scope", "coverage", "soa"} {
 		if v, err := parseView(name); err != nil || string(v) != name {
 			t.Errorf("parseView(%q) = %v, %v; want the view and no error", name, v, err)
 		}
@@ -325,6 +326,31 @@ func TestNewReportCmd_FlagsRegistered(t *testing.T) {
 	for _, want := range []string{"config", "vault", "framework", "period", "view", "format", "out"} {
 		if cmd.Flags().Lookup(want) == nil {
 			t.Errorf("flag --%s not registered", want)
+		}
+	}
+}
+
+// TestRunReport_SoARequiresProjectConfig: every other view works from a
+// bare --vault + --framework, which is deliberate — an auditor holding
+// only a vault path should be able to read it. The SoA cannot, because
+// the applicability decisions live only in the project config: without
+// them it would render every control as applicable and turn a
+// deliberate exclusion into an inclusion, on the one deliverable a
+// certification auditor reads first.
+func TestRunReport_SoARequiresProjectConfig(t *testing.T) {
+	err := runReport(context.Background(), io.Discard, &reportFlags{
+		config:    filepath.Join(t.TempDir(), "absent.yaml"),
+		vaultURI:  t.TempDir(),
+		framework: "iso27001",
+		period:    "2026-Q2",
+		view:      "soa",
+	})
+	if err == nil {
+		t.Fatal("want an error when --view soa is run without a project config")
+	}
+	for _, want := range []string{"soa", "applicability", ".sigcomply.yaml"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not mention %q", err, want)
 		}
 	}
 }
