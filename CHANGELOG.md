@@ -435,6 +435,45 @@ tracks the human-curated highlights.
 
 ### Fixed
 
+- **A configured source with no credentials now fails the run at startup
+  (exit `3`) instead of failing during collection.** `sources:` is the
+  operator's declaration of what a project audits, so a source listed there
+  that nothing in the environment can authenticate as is a configuration
+  error, not a collection outcome. **Behavior change:** a run that previously
+  limped to a per-policy execution error (exit `2`) now stops before
+  collecting anything, naming the source and the environment variables to
+  set. Token sources (`github`, `gitlab`, `okta`, `active_directory`) and all
+  `gcp.*` sources already behaved this way; the four paths that did not are
+  now fixed:
+  - `aws.*` — `awscfg.Load` retrieved credentials eagerly only when
+    `role_arn` was set. `LoadDefaultConfig` assembles a *lazy* provider chain
+    and succeeds with no credentials at all, so the ambient path built
+    cleanly and failed at the first API call — after `withRetry` had retried
+    a permanent failure through its whole backoff budget, per binding,
+    sequentially.
+  - `azure.*` — factories constructed a `DefaultAzureCredential` and never
+    requested a token. That constructor cannot fail: a sub-credential whose
+    own constructor fails is still appended to the chain wrapped in an error
+    reporter. `azcommon.NewCredential(ctx, scope)` now mints one token to
+    prove the credential works, memoized per scope so 13 ARM sources cost one
+    request rather than 13.
+  - `manual.pdf` on the `s3` and `azure_blob` backends — each builds its own
+    client outside the shared credential helpers and had the same two holes.
+    manual.pdf is a project-level singleton, so this turned one configuration
+    error into a collection error on every manual policy in the run.
+  - The `s3` and `azure_blob` **vault** backends, for the same reason. The
+    vault is where a run puts its signed evidence, so an unresolvable
+    credential there previously surfaced only after the run had collected and
+    evaluated everything.
+
+  Resolution is memoized per AWS `Options` / per Azure scope, and a failure is
+  never cached, so a credential that appears mid-run is picked up. Every eager
+  resolve is bounded by a 60s timeout so a blackholed credential endpoint
+  cannot stall startup — well above any legitimate resolve, so the operator
+  still sees the real error rather than a timeout hiding it. AWS error
+  wrapping also drops a now-inaccurate `load AWS config:` prefix — the config
+  loaded fine; the credentials did not resolve.
+
 - **`sigcomply report` no longer hides errored policies.** `--view scope`
   listed only skipped controls, so an errored policy — an unevaluated control
   that, unlike a skip, stays in the compliance-score denominator and counts

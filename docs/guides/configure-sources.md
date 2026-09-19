@@ -17,7 +17,7 @@ How to declare evidence sources in `.sigcomply.yaml` and supply their credential
 
 Two rules drive source configuration:
 
-1. **Sources do not auto-register from credentials.** Having `AWS_ACCESS_KEY_ID` in your environment is not enough — you must list each source explicitly under `sources:`. Credentials are resolved from the ambient environment at collection time; the config file names *which* sources to run.
+1. **Sources do not auto-register from credentials.** Having `AWS_ACCESS_KEY_ID` in your environment is not enough — you must list each source explicitly under `sources:`. The config file names *which* sources to run; credentials still come from the ambient environment, never from the config file. **`sources:` is the source of truth**, so the reverse also holds: a source you list whose credentials are missing fails the run at startup (exit `3`) rather than being skipped. Listing a source is a claim that this project audits it.
 2. **Policies auto-bind by evidence type.** Every policy declares the evidence type it needs and the CLI's planner binds it to any configured source that emits that type. You do **not** need a `bindings:` block to start.
 
 The conventional slot name is `evidence`. You only add a binding override when more than one configured source emits the same type and you want to pin the policy to one of them:
@@ -169,7 +169,8 @@ only by `region:` authenticate as the same principal and return the same
 account's resources twice. If you want a second account, it needs a
 `role_arn`. A role that cannot be assumed fails the run, so a
 misconfiguration shows up as an error rather than as an account that
-looks empty.
+looks empty. The same is true of the default (no `role_arn`) path: if the
+ambient chain resolves nothing, the run stops at startup.
 
 For GitHub, GitLab, Okta and Active Directory, give each instance its own credential —
 either a literal `token:` (`api_token:` for Okta, `bind_password:` for Active
@@ -216,7 +217,9 @@ vault:
   path: ./.sigcomply/vault
 ```
 
-With `AWS_*` and `GITHUB_TOKEN` present in the environment, `sigcomply check` will plan, collect from both sources, and auto-bind every policy whose evidence type they emit. A missing required credential surfaces as a policy `error` (exit `2`/`3`), not a silent skip.
+With `AWS_*` and `GITHUB_TOKEN` present in the environment, `sigcomply check` will plan, collect from both sources, and auto-bind every policy whose evidence type they emit.
+
+A **missing** credential for a configured source is a configuration error: the run stops before collecting anything and exits `3`, naming the source and the environment variables to set. A credential that is present but **rejected or under-permissioned** still surfaces during collection as an execution error (exit `2`) — that one cannot be known until the API answers. Neither is ever a silent skip.
 
 ## Next steps
 

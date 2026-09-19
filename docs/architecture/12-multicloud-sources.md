@@ -67,7 +67,7 @@ Each plugin self-registers in its `init()` via `sources.RegisterFactory`. A pack
 _ "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/firewall"
 ```
 
-No central registry edit is needed: `internal/sources/builtin/coverage_test.go` auto-discovers factories and fails the build if any accepted evidence type lacks an emitter. (A plugin that cannot build without credentials uses the hardcoded-`Emits()` fallback pattern in `coverage_test.go`.)
+No central registry edit is needed: `internal/sources/builtin/coverage_test.go` auto-discovers factories and fails the build if any accepted evidence type lacks an emitter. (A plugin that cannot build without credentials uses the hardcoded-`Emits()` fallback pattern in `coverage_test.go` — `gcp.iam` and `azure.entra` are the two that need it. The AWS plugins construct there under static dummy credentials, which the SDK's env provider resolves in-process with no network call.)
 
 ---
 
@@ -76,7 +76,7 @@ No central registry edit is needed: `internal/sources/builtin/coverage_test.go` 
 Auth is **read-only** and, in CI, prefers keyless federation (OIDC / workload identity) over long-lived secrets.
 
 - **GCP** — Application Default Credentials (ADC): the existing pattern (`storage.NewClient(ctx)`, service clients via `google.golang.org/api/...`). In CI, Workload Identity Federation. Config key: `project_id`.
-- **Azure** — `azidentity.NewDefaultAzureCredential(nil)`: OIDC / workload-identity federation in CI (no secrets), falling back to `AZURE_TENANT_ID` / `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET`. Management plane via `armXXX` clients scoped to a `subscription_id`; **Entra / Microsoft Graph** via the Graph v1.0 REST API (raw `net/http`, no vendor SDK) with the *same* credential. Config keys: `subscription_id`, `tenant_id` (Graph). Required Graph scopes and the Entra ID P1/P2 caveat for per-user MFA reporting are documented per the relevant WU.
+- **Azure** — `azidentity.NewDefaultAzureCredential(nil)`: OIDC / workload-identity federation in CI (no secrets), falling back to `AZURE_TENANT_ID` / `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET`. `azcommon.NewCredential(ctx, scope)` mints one token to prove the credential works before any plugin is returned, so a missing identity is exit 3 at startup rather than a failure at the first API call; the verified credential is memoized per scope (ARM / Graph), so 13 ARM sources cost one token request, not 13. The cache key is the scope alone because `DefaultAzureCredential` resolves one ambient identity per process — if per-tenant credentials are ever added, that key must grow a tenant component. Management plane via `armXXX` clients scoped to a `subscription_id`; **Entra / Microsoft Graph** via the Graph v1.0 REST API (raw `net/http`, no vendor SDK) with the *same* credential. Config keys: `subscription_id`, `tenant_id` (Graph). Required Graph scopes and the Entra ID P1/P2 caveat for per-user MFA reporting are documented per the relevant WU.
 - **GitLab** — token from config `token` or `GITLAB_TOKEN`; client `gitlab.com/gitlab-org/api/client-go`; scope `read_api`. Config key: `group` (or `instance`); `base_url` (default `https://gitlab.com`) for self-managed.
 - **GitHub** / **Okta** — unchanged: token from config or env (`GITHUB_TOKEN`/`GH_TOKEN`, `OKTA_API_TOKEN`), direct HTTP (no vendor SDK).
 

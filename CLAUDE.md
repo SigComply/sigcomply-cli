@@ -406,6 +406,22 @@ the patterns to catch in review.
 - **HIPAA isn't a thing yet.** No HIPAA examples in docs, no HIPAA
   defaults in code paths — it's a stub string in `config.go` that fails
   at runtime.
+- **A source factory must resolve its credentials, not just build a
+  client.** `sources:` is the operator's declaration of what the project
+  audits, so a listed source whose credentials are missing is a *config*
+  error (exit 3, before collection), never a collection outcome. Neither
+  cloud SDK fails on its own — `awsconfig.LoadDefaultConfig` builds a lazy
+  chain and succeeds with nothing, and `azidentity.NewDefaultAzureCredential`
+  never errors because failed sub-credentials are appended wrapped in an
+  error reporter — so the eager step is explicit: `awscfg.Load` retrieves,
+  `azcommon.NewCredential(ctx, scope)` mints one token. Both memoize (per
+  `Options` / per scope), neither caches a failure, and both bound the
+  resolve with a 60s timeout. A new backend that builds its own client owes
+  the same check — `manual.pdf`'s `s3`/`azure_blob` readers and the
+  `s3`/`azure_blob` **vault** backends each carry their own copy for exactly
+  that reason (Go's internal-visibility rule puts `azcommon` out of reach
+  for all four). The same rule covers the vault: a run that cannot write its
+  evidence should say so before collecting, not after.
 - **Editing `cmd/sigcomply/check.go` flag descriptions** requires
   matching updates in `docs/configuration.md` and the command table
   below. `hipaa` is omitted from `--framework`'s help text.

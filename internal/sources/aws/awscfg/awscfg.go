@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -80,6 +81,22 @@ var (
 	cached = map[Options]aws.Config{}
 )
 
+// credentialTimeout bounds the eager resolve. The SDK bounds its own IMDS
+// probe (~5s), but an AssumeRole call to a blackholed STS endpoint is not
+// bounded by anything, and nothing upstream sets a deadline — check.go
+// passes the command's context straight down. Without this a run could
+// stall at startup forever, which is a worse failure than the late one
+// this package exists to prevent. Set well above any legitimate resolve so
+// the operator sees the real error rather than a timeout hiding it.
+const credentialTimeout = 60 * time.Second
+
+// retrieveCredentials is the seam over the resolved provider's Retrieve,
+// so tests can exercise both outcomes without an ambient credential
+// chain. Mirrors newTokenSource in internal/sources/gcp/directory/auth.go.
+var retrieveCredentials = func(ctx context.Context, p aws.CredentialsProvider) (aws.Credentials, error) {
+	return p.Retrieve(ctx)
+}
+
 // Load resolves the SDK config for one instance, assuming RoleARN when
 // one is configured. The returned region is the effective one, which
 // callers store on the plugin for record tagging.
@@ -107,15 +124,28 @@ func Load(ctx context.Context, opts Options) (aws.Config, string, error) {
 			}
 		})
 		cfg.Credentials = aws.NewCredentialsCache(provider)
+	}
 
-		// Resolve the credentials now rather than on the first API call.
-		// A role that cannot be assumed must fail the run, not degrade it
-		// to "this instance returned no records" — which the scope report
-		// would otherwise render as an empty account rather than a
-		// misconfiguration.
-		if _, err := cfg.Credentials.Retrieve(ctx); err != nil {
-			return aws.Config{}, "", fmt.Errorf("assume role %s: %w", opts.RoleARN, err)
-		}
+	// Resolve the credentials now rather than on the first API call. A
+	// credential that cannot be resolved must fail the run, not degrade
+	// it to "this instance returned no records" — which the scope report
+	// would otherwise render as an empty account rather than a
+	// misconfiguration.
+	//
+	// This covers the ambient path as much as the assume-role one.
+	// LoadDefaultConfig succeeds with no credentials whatsoever — it only
+	// assembles a lazy provider chain — so without this the operator
+	// learns nothing until the first API call, by which point the
+	// collector has retried a permanent failure through its whole backoff
+	// budget, per binding, sequentially.
+	//
+	// A failed resolve is deliberately not cached: the cache write below
+	// is reached only on success, so a credential that appears mid-run (a
+	// refreshed SSO session) is picked up rather than shadowed.
+	rctx, cancel := context.WithTimeout(ctx, credentialTimeout)
+	defer cancel()
+	if _, err := retrieveCredentials(rctx, cfg.Credentials); err != nil {
+		return aws.Config{}, "", credentialError(opts, err)
 	}
 
 	cached[opts] = cfg
@@ -127,4 +157,18 @@ func Reset() {
 	mu.Lock()
 	defer mu.Unlock()
 	cached = map[Options]aws.Config{}
+}
+
+// credentialError explains an unresolvable credential in terms of the knob
+// the operator actually has. The two paths fail for different reasons and
+// must not share a message: someone who set role_arn needs to hear that the
+// role was refused, not to go hunting for environment variables.
+func credentialError(opts Options, err error) error {
+	if opts.RoleARN != "" {
+		return fmt.Errorf("assume role %s: %w", opts.RoleARN, err)
+	}
+	return fmt.Errorf("no usable AWS credentials: export AWS_ACCESS_KEY_ID and "+
+		"AWS_SECRET_ACCESS_KEY, run on a role-bearing CI identity (OIDC web "+
+		"identity or an instance role), or add role_arn to this source to "+
+		"assume an audit role: %w", err)
 }

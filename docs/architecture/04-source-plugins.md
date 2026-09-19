@@ -122,6 +122,33 @@ config is parsed into typed fields before the factory runs. If config
 is missing required fields or has invalid values, the factory returns
 an error and the orchestrator exits with code 3.
 
+**A factory must resolve its credentials, not just build a client.**
+`sources:` is the operator's declaration of what this project audits, so a
+source listed there whose credentials are missing is a *configuration*
+error — exit 3, before collection starts — not a collection outcome. Every
+provider family honors this: token sources (`github`, `gitlab`, `okta`,
+`active_directory`) fail in `sources.ResolveToken`; `gcp.*` fail because
+`NewService`/`NewClient` resolve Application Default Credentials inline;
+`aws.*` fail in `awscfg.Load`, which retrieves from the resolved provider;
+`azure.*` fail in `azcommon.NewCredential`, which mints one token.
+
+The two cloud SDKs need the explicit step because neither fails on its
+own: `awsconfig.LoadDefaultConfig` assembles a *lazy* provider chain and
+succeeds with no credentials at all, and `azidentity.NewDefaultAzureCredential`
+appends every sub-credential whose constructor failed to the chain wrapped
+in an error reporter, so it never returns an error either. Without the
+eager step the operator learns nothing until the first API call — by which
+point the collector has retried a permanent failure through its whole
+backoff budget, per binding, sequentially. Both checks are memoized
+(per `awscfg.Options`, per Azure scope) so N plugins on one instance cost
+one resolution, neither caches a failure, and both are bounded by a 60s
+timeout so a blackholed credential endpoint cannot stall startup.
+
+The same obligation applies outside `sources:`. The `s3` and `azure_blob`
+**vault** backends build their own clients and carry their own copy of the
+check: a run that cannot write its signed evidence should fail before
+collecting, not after.
+
 **Why factories rather than constructors.** A factory produces a
 configured plugin instance from the typed `Env`. This is the only way
 to keep the orchestrator generic: it never imports `iam.New`, never
@@ -594,7 +621,8 @@ account boundary. `aws.*` instances take `role_arn` (plus optional
 the runner already has — the standard cross-account pattern, and the only
 way two AWS instances authenticate as different principals. A role that
 cannot be assumed fails the run at construction rather than reporting an
-empty account. There is deliberately no `profile` key: the AWS chain
+empty account — as does an *ambient* credential that cannot be resolved,
+for the same reason. There is deliberately no `profile` key: the AWS chain
 resolves environment credentials ahead of a shared-config profile, so on
 a CI runner a profile would be silently ignored and both instances would
 scan the same account while appearing not to.

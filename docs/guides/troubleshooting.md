@@ -90,17 +90,46 @@ sources:
 See [configure-sources.md](configure-sources.md) for the per-source
 required keys.
 
-### Missing or wrong credentials
+### A configured source has no credentials
 
-**Problem:** a source errors (exit 2) with an auth/permission failure.
+**Problem:** the run stops immediately with exit `3` and a message like:
 
-**Cause:** credentials come from the ambient environment, never the config
-file (`AWS_*`, `GITHUB_TOKEN`, GCP ADC, `OKTA_API_TOKEN`, …). All collectors
+```
+Error: source "aws.iam": aws.iam: no usable AWS credentials: export
+AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, run on a role-bearing CI
+identity (OIDC web identity or an instance role), or add role_arn to this
+source to assume an audit role: ...
+```
+
+**Cause:** the source is listed under `sources:` but nothing in the
+environment can authenticate as anyone. Because `sources:` is the
+operator's declaration of what this project audits, that is a
+configuration error, and it is caught before any collection starts.
+
+**Fix:** either supply the credential (see
+[configure-sources.md](configure-sources.md) for the variables each
+provider reads) or remove the source from `sources:` if it is genuinely
+not in scope. Do not leave it listed and uncredentialed — that is the
+state this check exists to refuse.
+
+Note the failure is deliberately *early*. Before, a missing credential
+surfaced at the first API call, after the collector had retried a
+permanent failure through its whole backoff budget, once per binding.
+
+### Wrong or under-permissioned credentials
+
+**Problem:** a source errors (exit 2) with an auth/permission failure
+partway through the run.
+
+**Cause:** a credential was resolved — so the startup check passed — but
+the API rejected it, or it lacks read access to the resource. Whether a
+credential is *sufficient* cannot be known until the API answers.
+Credentials come from the ambient environment, never the config file
+(`AWS_*`, `GITHUB_TOKEN`, GCP ADC, `OKTA_API_TOKEN`, …). All collectors
 are read-only.
 
-**Fix:** provide the credential in the environment and grant read-only
-access (e.g. `ReadOnlyAccess` or a scoped read policy for AWS). See
-[configure-sources.md](configure-sources.md) and
+**Fix:** grant read-only access (e.g. `ReadOnlyAccess` or a scoped read
+policy for AWS). See [configure-sources.md](configure-sources.md) and
 [../configuration.md](../configuration.md).
 
 ## Cloud submission

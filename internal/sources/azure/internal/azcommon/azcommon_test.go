@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -93,15 +94,91 @@ func TestParseConfig(t *testing.T) {
 
 // --- NewCredential -------------------------------------------------------
 
+// stubCredential replaces the azidentity seam for one test and counts how
+// many chains NewCredential built.
+func stubCredential(t *testing.T, cred azcore.TokenCredential) *int {
+	t.Helper()
+	ResetCredentialCache()
+	t.Cleanup(ResetCredentialCache)
+	builds := 0
+	orig := newDefaultCredential
+	t.Cleanup(func() { newDefaultCredential = orig })
+	newDefaultCredential = func() (azcore.TokenCredential, error) {
+		builds++
+		return cred, nil
+	}
+	return &builds
+}
+
 func TestNewCredential(t *testing.T) {
-	// DefaultAzureCredential constructs its chain lazily — no creds needed to
-	// build it; a missing identity only surfaces at GetToken time.
-	cred, err := NewCredential()
+	stubCredential(t, fakeCred{})
+
+	cred, err := NewCredential(context.Background(), ScopeARM)
 	if err != nil {
 		t.Fatalf("NewCredential() error: %v", err)
 	}
 	if cred == nil {
 		t.Fatal("NewCredential() returned nil credential")
+	}
+}
+
+// DefaultAzureCredential cannot fail at construction — every sub-credential
+// whose constructor fails is still appended to the chain wrapped in an error
+// reporter, so the chain is never empty. Only a token request can tell an
+// operator that nothing in the environment can authenticate, and `sources:`
+// is the source of truth, so that has to be a configuration error rather
+// than a collection outcome.
+func TestNewCredential_UnusableCredentialIsAnError(t *testing.T) {
+	stubCredential(t, fakeCred{err: errors.New("no identity found in the chain")})
+
+	_, err := NewCredential(context.Background(), ScopeARM)
+	if err == nil {
+		t.Fatal("NewCredential with an unusable credential = nil error; want an error")
+	}
+	// The message has to name the knob the operator actually has.
+	for _, want := range []string{"AZURE_CLIENT_ID", "az login"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("NewCredential error = %q; want it to mention %q", err, want)
+		}
+	}
+}
+
+// A run with 13 ARM sources configured must build and verify one chain, not
+// 13 — on an unauthenticated runner the probe costs ~30s each.
+func TestNewCredential_VerifiesOncePerScope(t *testing.T) {
+	builds := stubCredential(t, fakeCred{})
+
+	for i := 0; i < 5; i++ {
+		if _, err := NewCredential(context.Background(), ScopeARM); err != nil {
+			t.Fatalf("call %d: NewCredential() error: %v", i, err)
+		}
+	}
+	if *builds != 1 {
+		t.Errorf("built %d credential chains; want 1 (memoized per scope)", *builds)
+	}
+
+	// A different plane is a different token, so it must not reuse the
+	// ARM entry.
+	if _, err := NewCredential(context.Background(), ScopeGraph); err != nil {
+		t.Fatalf("NewCredential(Graph) error: %v", err)
+	}
+	if *builds != 2 {
+		t.Errorf("built %d credential chains; want 2 (one per scope)", *builds)
+	}
+}
+
+// A failed verification must not be cached — a credential that appears
+// mid-run (a refreshed session) has to be picked up, not shadowed.
+func TestNewCredential_FailureIsNotCached(t *testing.T) {
+	builds := stubCredential(t, fakeCred{err: errors.New("boom")})
+
+	for i := 0; i < 2; i++ {
+		if _, err := NewCredential(context.Background(), ScopeARM); err == nil {
+			t.Fatalf("call %d: NewCredential = nil error; want an error", i)
+		}
+	}
+	if *builds != 2 {
+		t.Errorf("built %d credential chains; want 2 (a failure must not be cached)", *builds)
 	}
 }
 
@@ -311,7 +388,7 @@ func TestLive_CredentialAndSubscriptions(t *testing.T) {
 		t.Skip("SIGCOMPLY_AZURE_LIVE not set; skipping live Azure credential smoke test")
 	}
 	ctx := context.Background()
-	cred, err := NewCredential()
+	cred, err := NewCredential(ctx, ScopeARM)
 	if err != nil {
 		t.Fatalf("NewCredential() error: %v", err)
 	}

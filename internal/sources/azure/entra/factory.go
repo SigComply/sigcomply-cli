@@ -16,12 +16,12 @@ func init() {
 // source, so no subscription_id is required (ParseConfig false); the optional
 // tenant_id tags record scope. Credentials come from the shared
 // DefaultAzureCredential (see docs/configuration.md §Azure).
-func build(_ context.Context, env sources.Env) (core.SourcePlugin, error) {
+func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	cfg, err := azcommon.ParseConfig(env.Config, false)
 	if err != nil {
 		return nil, err
 	}
-	cred, err := azcommon.NewCredential()
+	cred, err := azcommon.NewCredential(ctx, azcommon.ScopeGraph)
 	if err != nil {
 		return nil, err
 	}

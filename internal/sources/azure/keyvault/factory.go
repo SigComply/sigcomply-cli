@@ -17,12 +17,12 @@ func init() {
 // Credentials come from the shared DefaultAzureCredential (see
 // docs/configuration.md §Azure). All reads stay on the management plane —
 // Reader RBAC, no Key Vault data-plane access policies.
-func build(_ context.Context, env sources.Env) (core.SourcePlugin, error) {
+func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	cfg, err := azcommon.ParseConfig(env.Config, true)
 	if err != nil {
 		return nil, err
 	}
-	cred, err := azcommon.NewCredential()
+	cred, err := azcommon.NewCredential(ctx, azcommon.ScopeARM)
 	if err != nil {
 		return nil, err
 	}

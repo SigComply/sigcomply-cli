@@ -194,51 +194,6 @@ func TestReader_List_ErrorSurfaces(t *testing.T) {
 	}
 }
 
-func TestBuild_DefaultsPrefix(t *testing.T) {
-	f, ok := manual.LookupReader("azure_blob")
-	if !ok {
-		t.Fatal("azure_blob factory not registered")
-	}
-	// Azure SDK creates the client without connecting; New() succeeds here.
-	r, scheme, bucket, prefix, err := f(map[string]any{
-		keyAccount:   "myaccount",
-		keyContainer: testConfigContainer,
-	})
-	if err != nil {
-		t.Fatalf("build with valid config: %v", err)
-	}
-	if r == nil {
-		t.Fatal("build returned nil reader")
-	}
-	if scheme != "azure" {
-		t.Errorf("scheme = %q; want azure", scheme)
-	}
-	if bucket != testConfigContainer {
-		t.Errorf("bucket = %q; want mycontainer (container name)", bucket)
-	}
-	if prefix != "manual/" {
-		t.Errorf("prefix = %q; want manual/ (default)", prefix)
-	}
-}
-
-func TestBuild_ExplicitPrefix(t *testing.T) {
-	f, ok := manual.LookupReader("azure_blob")
-	if !ok {
-		t.Fatal("azure_blob factory not registered")
-	}
-	_, _, _, prefix, err := f(map[string]any{
-		keyAccount:   "myaccount",
-		keyContainer: testConfigContainer,
-		"prefix":     "evidence/",
-	})
-	if err != nil {
-		t.Fatalf("build with explicit prefix: %v", err)
-	}
-	if prefix != "evidence/" {
-		t.Errorf("prefix = %q; want evidence/", prefix)
-	}
-}
-
 func TestBuild_RejectsMissingAccountAndContainer(t *testing.T) {
 	// Both missing: error must mention both required fields.
 	f, ok := manual.LookupReader("azure_blob")

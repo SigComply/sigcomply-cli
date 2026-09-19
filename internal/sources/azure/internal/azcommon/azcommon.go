@@ -16,6 +16,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -58,16 +60,85 @@ func ParseConfig(raw map[string]any, requireSubscription bool) (Config, error) {
 	return cfg, nil
 }
 
+// credentialTimeout bounds the single token request NewCredential makes.
+// DefaultAzureCredential probes IMDS (~1s) and then shells out to az / azd /
+// pwsh at 10s each, so an unauthenticated workstation can take ~30s to
+// conclude it has nothing. That is a diagnosis, not a hang, and the cache
+// below means we pay it at most once per scope — this bound exists only so a
+// blackholed endpoint cannot stall the run forever, and is deliberately well
+// above the chain's own worst case so the operator sees the real error rather
+// than a timeout that hides it.
+const credentialTimeout = 60 * time.Second
+
+// newDefaultCredential is the seam over azidentity so tests can exercise
+// NewCredential without a real identity chain. Mirrors newTokenSource in
+// internal/sources/gcp/directory/auth.go.
+var newDefaultCredential = func() (azcore.TokenCredential, error) {
+	return azidentity.NewDefaultAzureCredential(nil)
+}
+
+// credCache memoizes one verified credential per scope.
+//
+// Every azure.* factory asks for a credential, so without this a run with 13
+// ARM sources configured would build 13 independent DefaultAzureCredential
+// chains and make 13 token requests — and on an unauthenticated runner would
+// pay the ~30s probe 13 times before reporting the same failure once.
+//
+// Keyed by scope alone, because DefaultAzureCredential resolves ONE ambient
+// identity per process: tenant_id is parsed but does not select an identity
+// (see docs/architecture/12-multicloud-sources.md). If per-tenant credentials
+// ever land, this key MUST grow a tenant component — the awscfg cache is
+// keyed by the whole Options value for exactly that reason, and collapsing
+// two identities into one cache entry is the failure that package exists to
+// prevent.
+var (
+	credMu    sync.Mutex
+	credCache = map[string]azcore.TokenCredential{}
+)
+
 // NewCredential builds a DefaultAzureCredential — the env / workload-identity /
-// managed-identity / Azure-CLI chain. The credential mints tokens lazily, so
-// construction rarely fails; auth problems surface at the first GetToken (use
-// VerifyCredential to fail early with a clear message).
-func NewCredential() (azcore.TokenCredential, error) {
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
+// managed-identity / Azure-CLI chain — and proves it can mint a token for
+// scope before returning it.
+//
+// The verification is the point. NewDefaultAzureCredential cannot fail in
+// practice: every sub-credential whose constructor fails is still appended to
+// the chain wrapped in an error reporter, so the chain is never empty and
+// construction always succeeds. Without a token request, a source configured
+// in `sources:` with no Azure identity anywhere in the environment would
+// build cleanly and fail at its first Graph/ARM call — after the collector
+// had retried a permanent failure through its whole backoff budget.
+// `sources:` is the operator's declaration of scope, so an unusable
+// credential is a configuration error, caught before collection starts.
+//
+// A failed verification is not cached: the cache write is reached only on
+// success, so a credential that appears mid-run is picked up rather than
+// shadowed.
+func NewCredential(ctx context.Context, scope string) (azcore.TokenCredential, error) {
+	credMu.Lock()
+	defer credMu.Unlock()
+	if cred, ok := credCache[scope]; ok {
+		return cred, nil
+	}
+	cred, err := newDefaultCredential()
 	if err != nil {
 		return nil, fmt.Errorf("azure: building default credential: %w", err)
 	}
+	vctx, cancel := context.WithTimeout(ctx, credentialTimeout)
+	defer cancel()
+	if err := VerifyCredential(vctx, cred, scope); err != nil {
+		return nil, fmt.Errorf("no usable Azure credentials: export AZURE_TENANT_ID, "+
+			"AZURE_CLIENT_ID and AZURE_CLIENT_SECRET, use workload-identity "+
+			"federation in CI, or run `az login` locally: %w", err)
+	}
+	credCache[scope] = cred
 	return cred, nil
+}
+
+// ResetCredentialCache clears the memoized credentials. Test-only.
+func ResetCredentialCache() {
+	credMu.Lock()
+	defer credMu.Unlock()
+	credCache = map[string]azcore.TokenCredential{}
 }
 
 // VerifyCredential confirms the credential can mint a token for scope (ScopeARM

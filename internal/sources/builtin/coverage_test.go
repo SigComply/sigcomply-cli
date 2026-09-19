@@ -10,6 +10,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/frameworks"
 	"github.com/sigcomply/sigcomply-cli/internal/registry"
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
+	"github.com/sigcomply/sigcomply-cli/internal/sources/azure/entra"
 	gcpiam "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/iam"
 
 	// Side-effect imports: register every in-tree framework and source
@@ -29,10 +30,21 @@ const testDummyID = "coverage-test"
 // can explain a gap rather than silently undercount.
 func emittableTypes(t *testing.T) (emittable map[string]bool, failed map[string]error) {
 	t.Helper()
-	// Rich dummy config so every network-free factory constructs (the AWS
-	// plugins build lazily; github/okta need org+token but make no calls
-	// at construction). Plugins whose construction needs live credentials
-	// (gcp.* call google ADC) fail here and are handled below.
+	// Static dummy AWS credentials. AWS factories resolve credentials at
+	// construction (awscfg.Load) so that a source configured in `sources:`
+	// with no credentials fails the run rather than reporting an empty
+	// account — which means they no longer build on a bare runner. The env
+	// provider is first in the SDK's chain and resolves in-process, so this
+	// keeps the factories constructible here with no network call; IMDS is
+	// disabled so a miss can never reach for the metadata endpoint.
+	t.Setenv("AWS_ACCESS_KEY_ID", "AKIAIOSFODNN7EXAMPLE")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
+	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+
+	// Rich dummy config so every network-free factory constructs
+	// (github/okta need org+token but make no calls at construction).
+	// Plugins whose construction needs live credentials (gcp.* call google
+	// ADC; azure.* mint a token) fail here and are handled below.
 	env := sources.Env{Config: map[string]any{
 		"region":     "us-east-1",
 		"project_id": testDummyID,
@@ -45,6 +57,15 @@ func emittableTypes(t *testing.T) (emittable map[string]bool, failed map[string]
 	emittable = map[string]bool{}
 	failed = map[string]error{}
 	for _, id := range sources.IDs() {
+		// azure.entra is the one Azure factory that needs no subscription_id,
+		// so it is the only one that reaches the credential step — where it
+		// would probe the real identity chain (env, IMDS, then the az / azd /
+		// pwsh CLIs as subprocesses). Its siblings fail instantly on config.
+		// Building it here would make a hermetic unit test depend on external
+		// tooling and the network; its Emits() is read statically below.
+		if id == entra.SourceID {
+			continue
+		}
 		p, err := sources.Build(context.Background(), id, env)
 		if err != nil {
 			failed[id] = err
@@ -60,6 +81,15 @@ func emittableTypes(t *testing.T) (emittable map[string]bool, failed map[string]
 	// emit cross-vendor types (object_storage_bucket, compute_instance,
 	// managed_database_instance) already covered by their AWS counterparts.
 	for _, et := range gcpiam.New(gcpiam.Options{}).Emits() {
+		emittable[et] = true
+	}
+	// azure.entra is in the same position since its factory started minting
+	// a token to prove the credential works: it cannot be built here, but
+	// its Emits() is a static constant. Without this, a policy accepting an
+	// Entra-only type would be reported as having no emitter when it has
+	// one. Its ARM-plane siblings need a subscription_id and have always
+	// failed this loop; every type they emit is cross-vendor.
+	for _, et := range entra.New(entra.Options{}).Emits() {
 		emittable[et] = true
 	}
 	return emittable, failed

@@ -24,7 +24,7 @@ func TestRecordCompute(t *testing.T) {
 	if sub == "" {
 		t.Skip("set AZURE_TEST_SUBSCRIPTION to record against a live subscription")
 	}
-	cred, err := azcommon.NewCredential()
+	cred, err := azcommon.NewCredential(t.Context(), azcommon.ScopeARM)
 	if err != nil {
 		t.Fatalf("credential: %v", err)
 	}

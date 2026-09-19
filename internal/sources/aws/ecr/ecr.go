@@ -77,7 +77,7 @@ func NewFromAWS(ctx context.Context, region string, opts ...awscfg.Options) (*Pl
 	}
 	cfg, region, err := awscfg.Load(ctx, o)
 	if err != nil {
-		return nil, fmt.Errorf("aws.ecr: load AWS config: %w", err)
+		return nil, fmt.Errorf("aws.ecr: %w", err)
 	}
 	return New(Options{
 		API:    awsecr.NewFromConfig(cfg),

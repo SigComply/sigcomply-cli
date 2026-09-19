@@ -70,7 +70,7 @@ func NewFromAWS(ctx context.Context, region string, opts ...awscfg.Options) (*Pl
 	}
 	cfg, region, err := awscfg.Load(ctx, o)
 	if err != nil {
-		return nil, fmt.Errorf("aws.backup: load AWS config: %w", err)
+		return nil, fmt.Errorf("aws.backup: %w", err)
 	}
 	return New(Options{
 		API:    awsbackup.NewFromConfig(cfg),

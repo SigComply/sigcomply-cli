@@ -15,12 +15,12 @@ func init() {
 // build constructs the azure.sql plugin from config. SQL is an ARM-plane
 // source, so subscription_id is required (ParseConfig true). Credentials come
 // from the shared DefaultAzureCredential (see docs/configuration.md §Azure).
-func build(_ context.Context, env sources.Env) (core.SourcePlugin, error) {
+func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	cfg, err := azcommon.ParseConfig(env.Config, true)
 	if err != nil {
 		return nil, err
 	}
-	cred, err := azcommon.NewCredential()
+	cred, err := azcommon.NewCredential(ctx, azcommon.ScopeARM)
 	if err != nil {
 		return nil, err
 	}

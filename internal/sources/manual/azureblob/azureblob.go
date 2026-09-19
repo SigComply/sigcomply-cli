@@ -8,6 +8,8 @@ import (
 	"io"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
@@ -37,11 +39,51 @@ type Options struct {
 	Prefix    string
 }
 
-// New constructs a Reader using DefaultAzureCredential.
-func New(_ context.Context, opts Options) (*Reader, error) {
+// credentialTimeout bounds the one token request New makes. The identity
+// chain probes IMDS and then shells out to az / azd / pwsh, so an
+// unauthenticated workstation takes ~30s to conclude it has nothing; this
+// sits well above that so the operator sees the real error, and exists only
+// so a blackholed endpoint cannot stall the run forever.
+const credentialTimeout = 60 * time.Second
+
+// verifyCredential is the seam over the credential's token request so tests
+// can exercise both outcomes without a real identity chain.
+//
+// This backend cannot reuse azure/internal/azcommon: Go's internal-visibility
+// rule restricts that package to importers rooted at internal/sources/azure/,
+// and manual.pdf is not one. The check is therefore duplicated here
+// deliberately — keep the two in step.
+var verifyCredential = func(ctx context.Context, cred azcore.TokenCredential) error {
+	_, err := cred.GetToken(ctx, policy.TokenRequestOptions{Scopes: []string{storageScope}})
+	return err
+}
+
+// storageScope is the OAuth scope for the Azure Storage data plane, which is
+// what this Reader actually calls — verifying against ARM instead would
+// prove the wrong thing.
+const storageScope = "https://storage.azure.com/.default"
+
+// New constructs a Reader using DefaultAzureCredential, proving the
+// credential can mint a Storage token before returning.
+//
+// NewDefaultAzureCredential cannot fail in practice — a sub-credential whose
+// constructor fails is still appended to the chain wrapped in an error
+// reporter, so the chain is never empty. Only a token request can tell an
+// operator that nothing in the environment can authenticate, and manual.pdf
+// is a project-level singleton, so without this every manual policy in the
+// run reports a collection error instead of the one configuration error it
+// actually is.
+func New(ctx context.Context, opts Options) (*Reader, error) {
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
 		return nil, fmt.Errorf("manual.pdf azureblob: credentials: %w", err)
+	}
+	vctx, cancel := context.WithTimeout(ctx, credentialTimeout)
+	defer cancel()
+	if err := verifyCredential(vctx, cred); err != nil {
+		return nil, fmt.Errorf("manual.pdf azureblob: no usable Azure credentials: "+
+			"export AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET, use "+
+			"workload-identity federation in CI, or run `az login` locally: %w", err)
 	}
 	serviceURL := fmt.Sprintf("https://%s.blob.core.windows.net/", opts.Account)
 	svc, err := azblob.NewClient(serviceURL, cred, nil)

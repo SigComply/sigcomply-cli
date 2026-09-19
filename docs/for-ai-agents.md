@@ -120,8 +120,12 @@ sigcomply check
 
 - Exit `0` — all policies passed.
 - Exit `1` — violations found (only when `ci.fail_on_violation` is set in config).
-- Exit `2` — execution error.
-- Exit `3` — configuration error (e.g. a missing `framework:`).
+- Exit `2` — execution error (including a credential the provider rejected,
+  or one lacking read access — that can only be known once the API answers).
+- Exit `3` — configuration error: a missing `framework:`, or a source listed
+  under `sources:` whose credentials are absent from the environment. The
+  run stops before collecting anything and names the source and the
+  variables to set.
 
 You can scope a run to one cadence, e.g. `sigcomply check --cadence daily`. The run writes signed evidence to the vault. Inspect it read-only with:
 

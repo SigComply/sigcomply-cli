@@ -65,7 +65,7 @@ func TestEntraLiveRoster(t *testing.T) {
 func newLivePlugin(ctx context.Context, t *testing.T) *Plugin {
 	t.Helper()
 	env := sourcetest.RequireEnv(t, "AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET")
-	cred, err := azcommon.NewCredential()
+	cred, err := azcommon.NewCredential(ctx, azcommon.ScopeGraph)
 	if err != nil {
 		t.Fatal(err)
 	}

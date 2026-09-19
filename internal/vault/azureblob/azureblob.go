@@ -8,7 +8,10 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
@@ -42,11 +45,42 @@ type Options struct {
 	Prefix    string
 }
 
-// New constructs a Vault using DefaultAzureCredential.
-func New(_ context.Context, opts Options) (*Vault, error) {
+// credentialTimeout bounds the one token request New makes, so a
+// blackholed identity endpoint cannot stall the run at startup.
+const credentialTimeout = 60 * time.Second
+
+// storageScope is the OAuth scope for the Azure Storage data plane, which
+// is what this Vault actually calls — verifying against ARM would prove the
+// wrong thing.
+const storageScope = "https://storage.azure.com/.default"
+
+// verifyCredential is the seam over the credential's token request so tests
+// can exercise both outcomes without a real identity chain.
+var verifyCredential = func(ctx context.Context, cred azcore.TokenCredential) error {
+	_, err := cred.GetToken(ctx, policy.TokenRequestOptions{Scopes: []string{storageScope}})
+	return err
+}
+
+// New constructs a Vault using DefaultAzureCredential, proving the
+// credential can mint a Storage token before returning.
+//
+// NewDefaultAzureCredential cannot fail in practice — a sub-credential whose
+// constructor fails is still appended to the chain wrapped in an error
+// reporter — so only a token request can tell an operator that nothing in
+// the environment can authenticate. The vault is where every run puts its
+// signed evidence, so that is worth knowing before collection rather than
+// after it.
+func New(ctx context.Context, opts Options) (*Vault, error) {
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
 		return nil, fmt.Errorf("azure blob vault: credentials: %w", err)
+	}
+	vctx, cancel := context.WithTimeout(ctx, credentialTimeout)
+	defer cancel()
+	if err := verifyCredential(vctx, cred); err != nil {
+		return nil, fmt.Errorf("azure blob vault: no usable Azure credentials: "+
+			"export AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET, use "+
+			"workload-identity federation in CI, or run `az login` locally: %w", err)
 	}
 	serviceURL := fmt.Sprintf("https://%s.blob.core.windows.net/", opts.Account)
 	svc, err := azblob.NewClient(serviceURL, cred, nil)

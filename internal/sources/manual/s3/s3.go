@@ -8,6 +8,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -44,12 +45,39 @@ type Options struct {
 	ForcePathStyle bool
 }
 
+// credentialTimeout bounds the eager resolve, so a blackholed credential
+// endpoint cannot stall the run at startup. See awscfg for the reasoning.
+const credentialTimeout = 60 * time.Second
+
+// retrieveCredentials is the seam over the resolved provider's Retrieve so
+// tests can exercise the eager-failure path without an ambient credential
+// chain. This backend builds its own aws.Config rather than going through
+// internal/sources/aws/awscfg — it needs endpoint / path-style options that
+// package does not model — so it carries its own copy of the check.
+var retrieveCredentials = func(ctx context.Context, p aws.CredentialsProvider) (aws.Credentials, error) {
+	return p.Retrieve(ctx)
+}
+
 // New constructs a Reader with credentials and config from the AWS SDK
 // default chain plus the given region/endpoint/path-style settings.
+//
+// Credentials are resolved here rather than at the first Get/List.
+// LoadDefaultConfig succeeds with no credentials at all — it only assembles
+// a lazy provider chain — and manual.pdf is a project-level singleton, so
+// an unresolvable credential would otherwise turn every manual policy in
+// the run into a collection error instead of the one configuration error it
+// actually is.
 func New(ctx context.Context, opts Options) (*Reader, error) {
 	cfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(opts.Region))
 	if err != nil {
 		return nil, fmt.Errorf("manual.pdf s3: load AWS config: %w", err)
+	}
+	rctx, cancel := context.WithTimeout(ctx, credentialTimeout)
+	defer cancel()
+	if _, err := retrieveCredentials(rctx, cfg.Credentials); err != nil {
+		return nil, fmt.Errorf("manual.pdf s3: no usable AWS credentials: export "+
+			"AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, or run on a role-bearing "+
+			"CI identity: %w", err)
 	}
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		if opts.Endpoint != "" {

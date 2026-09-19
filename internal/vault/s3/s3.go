@@ -12,7 +12,9 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -41,12 +43,36 @@ type Vault struct {
 	ForcePathStyle bool
 }
 
+// credentialTimeout bounds the eager resolve so a blackholed credential
+// endpoint cannot stall the run at startup.
+const credentialTimeout = 60 * time.Second
+
+// retrieveCredentials is the seam over the resolved provider's Retrieve so
+// tests can exercise the eager-failure path without an ambient credential
+// chain.
+var retrieveCredentials = func(ctx context.Context, p aws.CredentialsProvider) (aws.Credentials, error) {
+	return p.Retrieve(ctx)
+}
+
 // New constructs a Vault with credentials and config from the AWS SDK
 // default chain plus the given region/endpoint/path-style settings.
+//
+// Credentials are resolved here rather than at the first write. The vault
+// is where every run puts its signed evidence, so an unresolvable
+// credential means the run cannot record anything — better said before
+// collection than after it, and LoadDefaultConfig will not say it at all:
+// it assembles a lazy provider chain and succeeds with nothing.
 func New(ctx context.Context, opts Options) (*Vault, error) {
 	cfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(opts.Region))
 	if err != nil {
 		return nil, fmt.Errorf("s3 vault: load AWS config: %w", err)
+	}
+	rctx, cancel := context.WithTimeout(ctx, credentialTimeout)
+	defer cancel()
+	if _, err := retrieveCredentials(rctx, cfg.Credentials); err != nil {
+		return nil, fmt.Errorf("s3 vault: no usable AWS credentials: export "+
+			"AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, or run on a role-bearing "+
+			"CI identity: %w", err)
 	}
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		if opts.Endpoint != "" {

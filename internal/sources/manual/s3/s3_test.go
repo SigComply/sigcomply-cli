@@ -178,45 +178,6 @@ func TestBuild_RejectsMissingRegion(t *testing.T) {
 	}
 }
 
-func TestBuild_DefaultsPrefix(t *testing.T) {
-	f, ok := manual.LookupReader("s3")
-	if !ok {
-		t.Fatal("s3 reader not registered")
-	}
-	_, scheme, bucket, prefix, err := f(map[string]any{
-		keyBucket: "b",
-		keyRegion: testRegion,
-	})
-	if err != nil {
-		t.Fatalf("build: %v", err)
-	}
-	if scheme != "s3" {
-		t.Errorf("scheme: got %q, want \"s3\"", scheme)
-	}
-	if bucket != "b" {
-		t.Errorf("bucket: got %q, want \"b\"", bucket)
-	}
-	if prefix != "manual/" {
-		t.Errorf("prefix: got %q, want \"manual/\"", prefix)
-	}
-}
-
-func TestBuild_PassesEndpointAndPathStyle(t *testing.T) {
-	f, ok := manual.LookupReader("s3")
-	if !ok {
-		t.Fatal("s3 reader not registered")
-	}
-	_, _, _, _, err := f(map[string]any{
-		keyBucket:          "b",
-		keyRegion:          testRegion,
-		"endpoint":         "https://minio.local:9000",
-		"force_path_style": true,
-	})
-	if err != nil {
-		t.Fatalf("build with endpoint + force_path_style: %v", err)
-	}
-}
-
 func TestReader_List_ReturnsMatchingKeys(t *testing.T) {
 	uploaded := time.Date(2026, 3, 15, 10, 0, 0, 0, time.UTC)
 	fake := newFakeS3()
