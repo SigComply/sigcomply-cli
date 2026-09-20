@@ -21,6 +21,10 @@ const (
 	testRecordID          = "AID1"
 	testSourceOkta        = "okta"
 	testSourceGitHub      = "github"
+	testSourceManualPDF   = "manual.pdf"
+	testSlotDoc           = "doc"
+	testParamPeriodID     = "period_id"
+	testRunPeriodQ4       = "2026-Q4"
 )
 
 // stubSource lets us drive Collect with canned records / errors.
@@ -246,7 +250,7 @@ func TestCollect_KISSNoDRY_TwoPoliciesSameSourceTwoFetches(t *testing.T) {
 }
 
 func TestCollect_PassesSlotParamsAndExtras(t *testing.T) {
-	src := &stubSource{id: "manual.pdf", emits: []string{testTypeSignedDoc},
+	src := &stubSource{id: testSourceManualPDF, emits: []string{testTypeSignedDoc},
 		records: []core.EvidenceRecord{{Type: testTypeSignedDoc, ID: "e/p"}}}
 	reg := registry.NewSet()
 	mustRegister(t, reg.Sources.Register(src))
@@ -254,11 +258,11 @@ func TestCollect_PassesSlotParamsAndExtras(t *testing.T) {
 		Spec: core.Policy{
 			ID: "p1",
 			Slots: map[string]core.Slot{
-				"doc": {Accepts: []string{testTypeSignedDoc}, Cardinality: core.SlotExactlyOne, Required: true},
+				testSlotDoc: {Accepts: []string{testTypeSignedDoc}, Cardinality: core.SlotExactlyOne, Required: true},
 			},
 		},
 		Bindings: map[string][]planner.Binding{
-			"doc": {{SourceID: "manual.pdf", AcceptedTypes: []string{testTypeSignedDoc}, CatalogID: "access_review_quarterly", SlotParams: map[string]any{"custom": 42}}},
+			testSlotDoc: {{SourceID: testSourceManualPDF, AcceptedTypes: []string{testTypeSignedDoc}, CatalogID: "access_review_quarterly", SlotParams: map[string]any{"custom": 42}}},
 		},
 		ShouldEvaluate: true,
 	}
@@ -267,7 +271,7 @@ func TestCollect_PassesSlotParamsAndExtras(t *testing.T) {
 		Sources:          reg.Sources,
 		Vault:            newMemVault(),
 		RunRoot:          "r",
-		SlotParamsExtras: map[string]any{"period_id": "2026-Q1"},
+		SlotParamsExtras: map[string]any{testParamPeriodID: "2026-Q1"},
 	})
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
@@ -276,7 +280,7 @@ func TestCollect_PassesSlotParamsAndExtras(t *testing.T) {
 	if got["catalog_id"] != "access_review_quarterly" {
 		t.Errorf("catalog_id missing: %v", got)
 	}
-	if got["period_id"] != "2026-Q1" {
+	if got[testParamPeriodID] != "2026-Q1" {
 		t.Errorf("period_id missing: %v", got)
 	}
 	if got["custom"] != 42 {
@@ -293,7 +297,7 @@ func TestEnvelopePath_FormatsConsistently(t *testing.T) {
 	if got != want {
 		t.Errorf("envelopePath = %q; want %q", got, want)
 	}
-	got = envelopePath("r", "p1", testTypeSignedDoc, "manual.pdf", "access_review_quarterly")
+	got = envelopePath("r", "p1", testTypeSignedDoc, testSourceManualPDF, "access_review_quarterly")
 	want = "r/policies/p1/envelopes/signed_document__manual.pdf_access_review_quarterly.json"
 	if got != want {
 		t.Errorf("envelopePath catalog = %q; want %q", got, want)
@@ -376,5 +380,101 @@ func TestCollect_RetryableSourceErrorUsesFullBudget(t *testing.T) {
 	}
 	if src.calls != 3 {
 		t.Errorf("Collect calls = %d; want 3 (503 is transient)", src.calls)
+	}
+}
+
+// A manual binding carries its own cadence-aligned window. It has to win
+// over the run-level extras, and all four fields have to arrive together
+// — a folder from one period with a temporal window from another would
+// fail every entry it touched.
+func TestCollect_ManualBindingPeriodOverridesRunExtras(t *testing.T) {
+	src := &stubSource{id: testSourceManualPDF, emits: []string{testTypeSignedDoc},
+		records: []core.EvidenceRecord{{Type: testTypeSignedDoc, ID: "e/p"}}}
+	reg := registry.NewSet()
+	mustRegister(t, reg.Sources.Register(src))
+	start := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(1, 0, 0).Add(-time.Nanosecond)
+	pp := planner.PlannedPolicy{
+		Spec: core.Policy{
+			ID: "p1",
+			Slots: map[string]core.Slot{
+				testSlotDoc: {Accepts: []string{testTypeSignedDoc}, Cardinality: core.SlotExactlyOne, Required: true},
+			},
+		},
+		Bindings: map[string][]planner.Binding{
+			testSlotDoc: {{
+				SourceID:      testSourceManualPDF,
+				AcceptedTypes: []string{testTypeSignedDoc},
+				CatalogID:     "security_awareness_training",
+				Period:        &planner.Period{ID: "2026", PriorID: "2025", Start: start, End: end},
+			}},
+		},
+		ShouldEvaluate: true,
+	}
+	_, err := Collect(context.Background(), &Input{
+		Plan:    &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
+		Sources: reg.Sources,
+		Vault:   newMemVault(),
+		RunRoot: "r",
+		SlotParamsExtras: map[string]any{
+			testParamPeriodID: testRunPeriodQ4,
+			"prior_period_id": "2026-Q3",
+			"period_start":    time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC),
+			"period_end":      time.Date(2026, time.December, 31, 23, 59, 59, 0, time.UTC),
+			"now":             start,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	got := src.lastReq.Params
+	if got[testParamPeriodID] != "2026" {
+		t.Errorf("period_id = %v; want the binding's 2026", got[testParamPeriodID])
+	}
+	if got["prior_period_id"] != "2025" {
+		t.Errorf("prior_period_id = %v; want 2025", got["prior_period_id"])
+	}
+	if ps, ok := got["period_start"].(time.Time); !ok || !ps.Equal(start) {
+		t.Errorf("period_start = %v; want %s", got["period_start"], start)
+	}
+	if pe, ok := got["period_end"].(time.Time); !ok || !pe.Equal(end) {
+		t.Errorf("period_end = %v; want %s", got["period_end"], end)
+	}
+	if got["now"] != any(start) {
+		t.Errorf("now = %v; want the run extras to survive", got["now"])
+	}
+}
+
+// An automated binding has no folder, so the run-level period must reach
+// it untouched.
+func TestCollect_AutomatedBindingKeepsRunPeriod(t *testing.T) {
+	src := &stubSource{id: testSourceAWSIAM, emits: []string{testTypeDirectoryUser},
+		records: []core.EvidenceRecord{{Type: testTypeDirectoryUser, ID: "u1"}}}
+	reg := registry.NewSet()
+	mustRegister(t, reg.Sources.Register(src))
+	pp := planner.PlannedPolicy{
+		Spec: core.Policy{
+			ID: "p1",
+			Slots: map[string]core.Slot{
+				"users": {Accepts: []string{testTypeDirectoryUser}, Cardinality: core.SlotOneOrMore, Required: true},
+			},
+		},
+		Bindings: map[string][]planner.Binding{
+			"users": {{SourceID: testSourceAWSIAM, AcceptedTypes: []string{testTypeDirectoryUser}}},
+		},
+		ShouldEvaluate: true,
+	}
+	_, err := Collect(context.Background(), &Input{
+		Plan:             &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
+		Sources:          reg.Sources,
+		Vault:            newMemVault(),
+		RunRoot:          "r",
+		SlotParamsExtras: map[string]any{testParamPeriodID: testRunPeriodQ4},
+	})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if got := src.lastReq.Params[testParamPeriodID]; got != testRunPeriodQ4 {
+		t.Errorf("period_id = %v; want the run's 2026-Q4", got)
 	}
 }

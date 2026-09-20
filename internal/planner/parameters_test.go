@@ -18,8 +18,6 @@ const (
 
 	regionUSEast1 = "us-east-1"
 	regionUSWest2 = "us-west-2"
-
-	cadenceHourly = "hourly"
 )
 
 // paramAs is a test helper that fetches a parameter and type-asserts
@@ -237,7 +235,6 @@ func TestResolveParameters_UnsupportedType(t *testing.T) {
 }
 
 func TestResolveCadence(t *testing.T) {
-	const cadenceDaily = "daily"
 	withOverride := &spec.ProjectConfig{Policies: map[string]spec.PolicyConfig{"p1": {Cadence: cadenceHourly}}}
 	if c := resolveCadence("p1", cadenceDaily, withOverride); c != cadenceHourly {
 		t.Errorf("override not applied: got %q want hourly", c)

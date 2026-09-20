@@ -113,6 +113,10 @@ policies:
   soc2.cc6.3.access_review_quarterly:
     evidence_mode: manual
     catalog_entry: access_review_quarterly
+    # A cadence override changes how often the policy is re-checked, not
+    # where the evidence lives: the upload folder stays
+    # manual/access_review_quarterly/{quarter}/ because the framework
+    # catalog declares this entry quarterly.
     cadence: monthly
 
   # Annual security awareness training certificate — manual PDF.

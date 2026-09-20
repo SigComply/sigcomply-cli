@@ -13,14 +13,26 @@ import (
 // PR mode's axis, not a scheduled-mode cadence. The `every:<dur>`
 // form is parsed separately and never appears in this list.
 var scheduledCadences = []string{
-	"continuous",
-	"hourly",
-	"daily",
-	"weekly",
-	"monthly",
-	"quarterly",
-	"annual",
+	cadenceContinuous,
+	cadenceHourly,
+	cadenceDaily,
+	cadenceWeekly,
+	cadenceMonthly,
+	cadenceQuarterly,
+	cadenceAnnual,
 }
+
+// The named cadences, spelled as the cadence DSL spells them. Kept in
+// sync with spec.validateCadenceSpec by TestCadenceVocabularyInSync.
+const (
+	cadenceContinuous = "continuous"
+	cadenceHourly     = "hourly"
+	cadenceDaily      = "daily"
+	cadenceWeekly     = "weekly"
+	cadenceMonthly    = "monthly"
+	cadenceQuarterly  = "quarterly"
+	cadenceAnnual     = "annual"
+)
 
 // everyCadencePrefix is the prefix for custom interval cadences. The
 // stored form is "every:<duration>" with no space, so YAML parsers
@@ -70,17 +82,17 @@ func CadenceInterval(cadence string) time.Duration {
 		return 0
 	}
 	switch cadence {
-	case "continuous", "hourly":
+	case cadenceContinuous, cadenceHourly:
 		return 0
-	case "daily":
+	case cadenceDaily:
 		return 23 * time.Hour
-	case "weekly":
+	case cadenceWeekly:
 		return 6*24*time.Hour + 23*time.Hour
-	case "monthly":
+	case cadenceMonthly:
 		return 29*24*time.Hour + 23*time.Hour
-	case "quarterly":
+	case cadenceQuarterly:
 		return 89*24*time.Hour + 23*time.Hour
-	case "annual":
+	case cadenceAnnual:
 		return 364*24*time.Hour + 23*time.Hour
 	}
 	return 0

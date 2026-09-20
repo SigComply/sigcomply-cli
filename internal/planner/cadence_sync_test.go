@@ -48,7 +48,7 @@ pass_when:
 func TestCadenceValidation_SpecMatchesPlanner(t *testing.T) {
 	inputs := []string{
 		cadenceContinuous, cadenceHourly, cadenceDaily, cadenceWeekly, cadenceMonthly, cadenceQuarterly, cadenceAnnual,
-		"every:5m", "every:6h", "every:2h30m", "every:24h",
+		"every:5m", cadenceEvery6h, "every:2h30m", "every:24h",
 		"every:1m", "every:0s", "every:-1h", "every:", "every:abc",
 		"24h", "yearly", "biweekly",
 	}
@@ -75,7 +75,7 @@ func TestCadenceInterval_EveryForms(t *testing.T) {
 		cadence string
 		want    time.Duration
 	}{
-		{"every:6h", 6 * time.Hour},
+		{cadenceEvery6h, 6 * time.Hour},
 		{"every:2h30m", 2*time.Hour + 30*time.Minute},
 		{"every:5m", 5 * time.Minute},
 		{"every:1m", 0},        // below floor → 0 (always due)
@@ -100,7 +100,7 @@ func TestNextDueAt_EveryAndContinuous(t *testing.T) {
 	if got := planner.NextDueAt(cadenceDaily, time.Time{}); !got.IsZero() {
 		t.Errorf("NextDueAt with zero lastPass = %v; want zero", got)
 	}
-	if got := planner.NextDueAt("every:6h", base); !got.Equal(base.Add(6 * time.Hour)) {
+	if got := planner.NextDueAt(cadenceEvery6h, base); !got.Equal(base.Add(6 * time.Hour)) {
 		t.Errorf("NextDueAt(every:6h) = %v; want %v", got, base.Add(6*time.Hour))
 	}
 }

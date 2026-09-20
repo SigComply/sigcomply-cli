@@ -11,9 +11,9 @@ import (
 )
 
 // Input collects everything the planner needs to compute a Plan.
-// CommitTime is the basis for period derivation; pass commit time
-// when time_basis == "commit" (the default) and wall-clock when
-// the project opts into wall_clock.
+// CommitTime and Now are both handed to the planner as they are; the
+// project's period.time_basis picks between them (see PeriodTime), so
+// no caller has to remember which clock a period is measured on.
 //
 // PolicyStates is keyed by policy_id and provides the per-policy
 // scheduling state read from the vault. A nil map disables cadence
@@ -88,7 +88,7 @@ func Plan(in *Input) (*RunPlan, error) {
 	if err != nil {
 		return nil, err
 	}
-	period, err := DerivePeriod(&in.Config.Period, in.CommitTime)
+	period, err := DerivePeriod(&in.Config.Period, PeriodTime(&in.Config.Period, in.CommitTime, in.Now))
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +183,10 @@ func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig) (Planned
 		if len(in.Config.BindingsFor(policy.ID)) > 0 {
 			return PlannedPolicy{}, fmt.Errorf("planner: policy %q (evidence_mode: manual) must not declare bindings in project config", policy.ID)
 		}
-		bindings = resolveManualBinding(policy)
+		bindings, err = resolveManualBinding(policy, in)
+		if err != nil {
+			return PlannedPolicy{}, err
+		}
 	} else {
 		rosterSource := ""
 		if roster != nil {
@@ -341,14 +344,26 @@ func containsString(list []string, target string) bool {
 // resolveManualBinding creates the synthetic binding for a manual policy.
 // The collector uses the "_manual" slot name to route to the manual.pdf
 // source; the CatalogID drives path resolution inside the plugin.
-func resolveManualBinding(policy *core.Policy) map[string][]Binding {
+//
+// The binding's period is derived from the policy's *declared* cadence,
+// deliberately not the project-override-resolved one: a cadence override
+// is a scheduling knob (how often to re-check), and must not relocate
+// the folder a customer uploads to. `evidence due` reads the same
+// declared cadence off the catalog entry, which is how the folder it
+// reports stays byte-identical to the one Collect reads.
+func resolveManualBinding(policy *core.Policy, in *Input) (map[string][]Binding, error) {
+	period, err := CadencePeriod(&in.Config.Period, PeriodTime(&in.Config.Period, in.CommitTime, in.Now), policy.Cadence)
+	if err != nil {
+		return nil, err
+	}
 	return map[string][]Binding{
 		spec.ManualSlotName: {{
 			SourceID:      "manual.pdf",
 			AcceptedTypes: []string{"signed_document"},
 			CatalogID:     policy.CatalogEntry,
+			Period:        &period,
 		}},
-	}
+	}, nil
 }
 
 // applyEvidenceModeOverride returns a copy of p with EvidenceMode and

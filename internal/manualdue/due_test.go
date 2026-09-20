@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/manualdue"
-	"github.com/sigcomply/sigcomply-cli/internal/planner"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
+	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
 const (
@@ -26,15 +26,6 @@ func mustTime(t *testing.T, s string) time.Time {
 		t.Fatalf("parse %q: %v", s, err)
 	}
 	return v
-}
-
-func q1(t *testing.T) planner.Period {
-	return planner.Period{
-		ID:      testPeriodQ1,
-		PriorID: "2025-Q4",
-		Start:   mustTime(t, "2026-01-01T00:00:00Z"),
-		End:     mustTime(t, "2026-03-31T23:59:59Z"),
-	}
 }
 
 func catalog() map[string]manual.CatalogEntry {
@@ -61,8 +52,8 @@ func baseInput(t *testing.T, files map[string]manual.InMemoryFile, now time.Time
 		Scheme:    "s3",
 		Bucket:    "acme-evidence",
 		Prefix:    "manual/",
-		Period:    q1(t),
-		Now:       now,
+		PeriodCfg: spec.PeriodConfig{},
+		Reference: now,
 		// Most tests care about the emptiness gate, not the lead window.
 		Unfiltered: true,
 	}
@@ -136,7 +127,7 @@ func TestScan_DaysLeftAndWindowClose(t *testing.T) {
 	}
 	// quarterly grace is 15d, so the last moment an upload still counts
 	// is period end + 15d.
-	wantClose := mustTime(t, "2026-04-15T23:59:59Z")
+	wantClose := mustTime(t, "2026-03-31T23:59:59Z").Add(time.Second - time.Nanosecond).Add(15 * 24 * time.Hour)
 	if !got.WindowCloses.Equal(wantClose) {
 		t.Errorf("WindowCloses = %s; want %s", got.WindowCloses, wantClose)
 	}
@@ -145,7 +136,7 @@ func TestScan_DaysLeftAndWindowClose(t *testing.T) {
 func TestScan_WithinFiltersDistantDeadlines(t *testing.T) {
 	in := baseInput(t, map[string]manual.InMemoryFile{}, mustTime(t, "2026-01-05T00:00:00Z"))
 	in.Unfiltered = false
-	in.Within = 30 * 24 * time.Hour
+	in.WithinDays = 30
 	rep, err := manualdue.Scan(context.Background(), &in)
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
@@ -161,24 +152,26 @@ func TestScan_WithinFiltersDistantDeadlines(t *testing.T) {
 	}
 }
 
-// An overdue entry is always reported, however far past the deadline —
-// --within is a lead-time window, not a two-sided filter.
-func TestScan_OverdueAlwaysReported(t *testing.T) {
-	in := baseInput(t, map[string]manual.InMemoryFile{}, mustTime(t, "2026-04-20T00:00:00Z"))
+// An entry whose window closes today is reported however tight the lead
+// time — --within-days 0 means "only what closes today", not "nothing".
+func TestScan_ClosingTodayIsAlwaysReported(t *testing.T) {
+	in := baseInput(t, map[string]manual.InMemoryFile{}, mustTime(t, "2026-03-31T09:00:00Z"))
 	in.Unfiltered = false
-	in.Within = 24 * time.Hour
+	in.WithinDays = 0
 	rep, err := manualdue.Scan(context.Background(), &in)
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
 	}
-	if len(rep.Missing) != 2 {
-		t.Fatalf("Missing = %d; want 2", len(rep.Missing))
+	// Only the quarterly entry closes today; the annual one's window
+	// runs to the end of the year.
+	if len(rep.Missing) != 1 {
+		t.Fatalf("Missing = %d; want 1", len(rep.Missing))
 	}
-	if rep.Missing[0].DaysLeft >= 0 {
-		t.Errorf("DaysLeft = %d; want negative (overdue)", rep.Missing[0].DaysLeft)
+	if rep.Missing[0].CatalogID != testCatalogAccess {
+		t.Errorf("CatalogID = %q; want the quarterly entry", rep.Missing[0].CatalogID)
 	}
-	if !rep.Missing[0].Overdue {
-		t.Error("Overdue = false; want true")
+	if rep.Missing[0].DaysLeft != 0 {
+		t.Errorf("DaysLeft = %d; want 0", rep.Missing[0].DaysLeft)
 	}
 }
 
@@ -313,14 +306,14 @@ func TestFormatGitHubAnnotations_CapsAtLimit(t *testing.T) {
 	}
 }
 
-// --within-days 0 must mean "only what is already late", not "no filter".
+// --within-days 0 must mean "only what closes today", not "no filter".
 // The natural reading of a zero lead time is the strict one, and silently
 // widening it would report 47 entries to someone who asked for the few
-// that are genuinely overdue.
-func TestScan_ZeroWithinReportsOnlyOverdue(t *testing.T) {
+// that are genuinely urgent.
+func TestScan_ZeroWithinReportsOnlyWhatClosesToday(t *testing.T) {
 	in := baseInput(t, map[string]manual.InMemoryFile{}, mustTime(t, "2026-03-17T00:00:00Z"))
 	in.Unfiltered = false
-	in.Within = 0
+	in.WithinDays = 0
 	rep, err := manualdue.Scan(context.Background(), &in)
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
@@ -330,5 +323,103 @@ func TestScan_ZeroWithinReportsOnlyOverdue(t *testing.T) {
 	}
 	if rep.Suppressed != 2 {
 		t.Errorf("Suppressed = %d; want 2", rep.Suppressed)
+	}
+}
+
+// An annual entry's folder is the year, not whichever quarter the run
+// happens to land in — the folder `check` will read, and the folder the
+// Evidence SPA tells the customer to upload to.
+func TestScan_FolderFollowsTheEntryCadence(t *testing.T) {
+	in := baseInput(t, map[string]manual.InMemoryFile{}, mustTime(t, "2026-03-17T00:00:00Z"))
+	rep, err := manualdue.Scan(context.Background(), &in)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	want := map[string]string{
+		testCatalogAccess:   testPeriodQ1,
+		testCatalogTraining: "2026",
+	}
+	for _, e := range rep.Missing {
+		wantPeriod, ok := want[e.CatalogID]
+		if !ok {
+			t.Fatalf("unexpected entry %q", e.CatalogID)
+		}
+		if e.PeriodID != wantPeriod {
+			t.Errorf("%s: PeriodID = %q; want %q", e.CatalogID, e.PeriodID, wantPeriod)
+		}
+		wantURI := manual.FolderURI("s3", "acme-evidence", "manual/", e.CatalogID, wantPeriod)
+		if e.FolderURI != wantURI {
+			t.Errorf("%s: FolderURI = %q; want %q", e.CatalogID, e.FolderURI, wantURI)
+		}
+	}
+}
+
+// An annual upload made in January satisfies the folder a December run
+// reads, so it must not still be reported as due in December.
+func TestScan_AnnualUploadSatisfiesTheWholeYear(t *testing.T) {
+	in := baseInput(t, map[string]manual.InMemoryFile{
+		"manual/security_awareness_training/2026/evidence.pdf": {Data: []byte("x")},
+	}, mustTime(t, "2026-12-20T00:00:00Z"))
+	rep, err := manualdue.Scan(context.Background(), &in)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	for _, e := range rep.Missing {
+		if e.CatalogID == testCatalogTraining {
+			t.Errorf("%s reported as due despite a January upload in %s", e.CatalogID, e.FolderURI)
+		}
+	}
+}
+
+// Deadlines are measured on the clock the period was derived from. A
+// stale HEAD used to report the previous quarter as overdue by however
+// many days the wall clock had moved on.
+func TestScan_DeadlineUsesThePeriodReferenceClock(t *testing.T) {
+	in := baseInput(t, map[string]manual.InMemoryFile{}, mustTime(t, "2026-03-17T00:00:00Z"))
+	rep, err := manualdue.Scan(context.Background(), &in)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	var quarterly *manualdue.Entry
+	for i := range rep.Missing {
+		if rep.Missing[i].CatalogID == testCatalogAccess {
+			quarterly = &rep.Missing[i]
+		}
+	}
+	if quarterly == nil {
+		t.Fatal("quarterly entry not reported")
+	}
+	if quarterly.DaysLeft < 0 {
+		t.Errorf("DaysLeft = %d; want a non-negative count — 2026-03-17 is inside 2026-Q1", quarterly.DaysLeft)
+	}
+	if quarterly.DaysLeft != 14 {
+		t.Errorf("DaysLeft = %d; want 14", quarterly.DaysLeft)
+	}
+}
+
+// A custom calendar cannot be subdivided, so every entry keeps the run's
+// period whatever its cadence.
+func TestScan_CustomCalendarKeepsOnePeriodForEveryEntry(t *testing.T) {
+	in := baseInput(t, map[string]manual.InMemoryFile{}, mustTime(t, "2026-02-10T00:00:00Z"))
+	in.PeriodCfg = spec.PeriodConfig{
+		FiscalCalendar: spec.FiscalCalendarConfig{
+			Type: "custom",
+			Periods: []spec.CustomPeriod{
+				{ID: "2026-P01", Start: "2026-01-04", End: "2026-01-31"},
+				{ID: "2026-P02", Start: "2026-02-01", End: "2026-02-28"},
+			},
+		},
+	}
+	rep, err := manualdue.Scan(context.Background(), &in)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	if len(rep.Missing) != 2 {
+		t.Fatalf("Missing = %d; want 2", len(rep.Missing))
+	}
+	for _, e := range rep.Missing {
+		if e.PeriodID != "2026-P02" {
+			t.Errorf("%s: PeriodID = %q; want the run period 2026-P02", e.CatalogID, e.PeriodID)
+		}
 	}
 }

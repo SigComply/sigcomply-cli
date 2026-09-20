@@ -237,7 +237,9 @@ manual evidence not found; expected files in: s3://acme-evidence/manual/contract
 ```
 
 That reason is the folder URI the CLI expected — shape
-`s3://{bucket}/{prefix}{catalog_id}/{period_id}/`. It appears in the
+`s3://{bucket}/{prefix}{catalog_id}/{period_id}/`, where `{period_id}`
+is the entry's own cadence window (this project-local entry is
+quarterly; an annual entry would read `.../2026/`). It appears in the
 policy's `result.json` in the vault and in the violation `reason`
 field. The cloud submission includes a counts-only summary:
 `resources_evaluated: 1, resources_failed: 1, message: "1 of 1

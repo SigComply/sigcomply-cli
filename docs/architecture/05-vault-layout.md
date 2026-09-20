@@ -54,7 +54,8 @@ recovery story.
 - **framework** is the framework ID for that run (`soc2`,
   `iso27001`). Each framework lives in its own subtree; framework runs
   never interleave at the file level.
-- **period_id** is the period stamp computed at run time
+- **period_id** in a vault *path* is always the **run's** period stamp
+  computed at run time
   (`2026-Q1`, `FY2026`, custom). Path encodes membership; metadata in
   each run folder is the authoritative period reference.
 - **run folder name** is `run_{YYYYMMDDTHHMMSSZ}_{first8charsofrunid}`,
@@ -351,6 +352,16 @@ file_size, uploaded_at, in_temporal_window, file_valid,
 validation_failures, expected_uri, source_files}` — where `file_hash`
 is the SHA-256 of the merged PDF and `expected_uri` is the customer's
 upload **folder** URI (`{scheme}://{bucket}/{prefix}{evidence_id}/{period_id}/`).
+
+> The `period_id` in a `signed_document` payload (and in its
+> `expected_uri`) is the **entry's own cadence window** — `2026` for an
+> annual attestation, `2026-Q1` for a quarterly review — not the run's
+> period. It names the window the document covers, which is what an
+> auditor reading one envelope needs. The run's period is the folder the
+> envelope is filed under and the `period_id` in `manifest.json` and
+> `summary.json`. See
+> [`10-cadence-model.md`](10-cadence-model.md) §Manual evidence periods.
+
 The PDF bytes themselves are not persisted to the vault today (see the
 "Not yet implemented" attachments note above); the hash inside the
 signed record is what an auditor re-checks against the customer's copy.

@@ -87,12 +87,25 @@ choices matter:
 - **`time_basis`** is `commit` (default) or `wall_clock`. `commit` ties
   the period to the evidence-bearing commit so re-running an old commit
   reproduces the same period — the audit-reproducibility choice.
+  `wall_clock` ties it to the run's start instead, for projects whose
+  checks are scheduled posture scans rather than per-commit gates.
+  `planner.PeriodTime` picks between the two, and every period in the
+  run — the run's own and each manual entry's — is measured on whichever
+  it returns.
 
-The period is frozen per-run by the planner (`DerivePeriod`): every policy
-in one run shares one `period_id`, with no mid-run rollover. This is the
-"Period" axis of the two-axis cadence model — distinct from the mutable,
-never-signed cadence state. See [`01-conceptual-model.md`](01-conceptual-model.md)
-§Period and [`10-cadence-model.md`](10-cadence-model.md).
+The run's period is frozen per-run by the planner (`DerivePeriod`): every
+policy in one run shares one `period_id`, with no mid-run rollover. This
+is the "Period" axis of the two-axis cadence model — distinct from the
+mutable, never-signed cadence state. See
+[`01-conceptual-model.md`](01-conceptual-model.md) §Period and
+[`10-cadence-model.md`](10-cadence-model.md).
+
+One carve-out: a **manual** entry's *upload folder* is keyed by its own
+cadence window (`planner.CadencePeriod`), not by the run's period — an
+annual attestation belongs in a yearly folder however many quarterly runs
+read it. That period never leaves the evidence record and the folder
+path; the run's period is what everything else is stamped with. See
+[`10-cadence-model.md`](10-cadence-model.md) §Manual evidence periods.
 
 ---
 

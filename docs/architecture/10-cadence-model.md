@@ -44,7 +44,9 @@ conflated. Mixing them is dbt's most-imitated lesson.
 - **Period** is a per-run compliance concern. It answers "what audit
   window does this run's evidence belong to?" The period is frozen
   at run-start by the planner and shared by every policy in the run.
-  No mid-run rollover — see §Period freeze rule.
+  No mid-run rollover — see §Period freeze rule. (A manual entry's
+  *upload folder* is keyed by its own cadence window instead; the run's
+  period is unaffected — see §Manual evidence periods.)
 
 A daily-cadence policy evaluated 124 times across `2026-Q2` produces
 124 signed envelopes, all stamped `period_id: 2026-Q2`. A quarterly-
@@ -356,8 +358,9 @@ not from anything the CLI claims about it.
 ## Period freeze rule
 
 The audit period (`2026-Q1`, `FY2026`, custom) is computed once at
-run-start by `planner.DerivePeriod`. Every policy in the run shares
-the same `period_id`. A run that begins at `2026-03-31T23:55:00Z`
+run-start by `planner.DerivePeriod`, from the clock
+`planner.PeriodTime` selects for the project's `time_basis`. Every
+policy in the run shares the same `period_id`. A run that begins at `2026-03-31T23:55:00Z`
 and takes twenty minutes still stamps every result with `2026-Q1`,
 even though the wall clock crosses into Q2 mid-run. There is no
 mid-run rollover.
@@ -367,6 +370,56 @@ summary.json` is rebuilt on every run whose `startedAt` falls inside
 that period. The first run whose `startedAt` lands in a new period
 writes a fresh summary in the new period and never touches the
 previous period's summary again.
+
+---
+
+## Manual evidence periods
+
+There is exactly one carve-out from the freeze rule, and it never
+touches a run artifact: a **manual** entry's *upload folder* is keyed by
+the entry's own cadence window, not by the run's period.
+
+```
+{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/
+                                         ^^^^^^^^^
+                    daily 2026-01-15 · weekly 2026-W03 · monthly 2026-01
+                    quarterly 2026-Q1 · annual 2026
+```
+
+The reason is arithmetic. `isInTemporalWindow` is closed at both ends,
+so a file only satisfies a run whose period contains its upload time.
+Keying an annual attestation's folder on the run's quarter means the
+January upload is invisible to the April, July and October runs — each
+derives a different, empty folder and fails the policy. Since `init-ci`
+scaffolds `compliance-annual.yml` as `sigcomply check --cadence annual`,
+and an explicit cadence filter bypasses carry-forward, that failure is a
+real `exit 1` rather than a stale-evidence warning.
+
+What does **not** move: the vault run root, `manifest.json`,
+`summary.json`, the cloud payload's `period_id` and
+`PolicyState.LastPeriodID` are all still the run's period. What does: the
+folder path, the temporal window checked against it, and the
+`period_id` inside the signed evidence record — which now names the
+window the document actually covers. All four period fields
+(`period_id`, `period_start`, `period_end`, `prior_period_id`) are
+stamped onto the slot request from one `planner.Period`
+(`collector.buildSlotRequest`), so they cannot disagree.
+
+`planner.CadencePeriod` is the single derivation. `sigcomply evidence
+due` calls it with the same inputs, which is how the folder it reports
+stays byte-identical to the one `Collect` reads. A `fiscal_year`
+calendar keeps `FY2026` for the annual cadence; a `custom` calendar, and
+the cadences with no calendar window (`continuous`, `hourly`,
+`every:<duration>`), keep the run's period. Full table:
+[`../configuration.md`](../configuration.md) §Folder layout per evidence
+ID.
+
+One consequence worth knowing before it surprises you: the
+prior-period duplication check now has a folder to compare against for
+annual entries (last year's, rather than last quarter's, which was
+always empty). Re-uploading a byte-identical document year over year is
+what that check exists to catch; genuinely static evidence is declared
+as an exception in `.sigcomply.yaml`.
 
 ---
 
@@ -458,10 +511,15 @@ period history, which is the correct posture (compare Airflow's
 ### Manual evidence due (advisory, `sigcomply evidence due`)
 
 ```
-manual evidence: 3 of 50 entries have no file for period 2026-Q3 (ends 2026-09-30)
-  ENTRY                     CADENCE    DUE IN  UPLOAD TO
-  access_review_quarterly   quarterly  14d     s3://acme-evidence/manual/access_review_quarterly/2026-Q3/
+manual evidence: 3 of 50 entries have an empty folder (run period 2026-Q3)
+  ENTRY                        CADENCE    PERIOD   DUE IN  UPLOAD TO
+  access_review_quarterly      quarterly  2026-Q3  14d     s3://acme-evidence/manual/access_review_quarterly/2026-Q3/
+  security_awareness_training  annual     2026     105d    s3://acme-evidence/manual/security_awareness_training/2026/
 ```
+
+The PERIOD column is per entry, not per run: an entry's folder follows
+its own cadence window (§Manual evidence periods). The run's period is
+printed once, as context.
 
 Manual evidence used to have exactly one deadline signal: a red CI job on
 the day the evidence was already needed. `sigcomply evidence due` is the
@@ -474,9 +532,17 @@ Two properties make it worth reading rather than muting:
 - **It reports only genuinely empty folders.** Once the file is uploaded
   the entry disappears. A notice that keeps firing after the operator has
   complied is a notice people learn to ignore.
-- **It never changes an exit code.** The scan exits 0 even when evidence
-  is overdue, and a storage failure degrades to "could not verify" rather
-  than inventing deadlines it cannot substantiate.
+- **It never changes an exit code.** The scan exits 0 whatever it finds,
+  and a storage failure degrades to "could not verify" rather than
+  inventing deadlines it cannot substantiate.
+
+`DAYS LEFT` counts down to the entry's period end on the same clock the
+period was derived from — the HEAD commit's, under the default
+`time_basis`. Measuring it on the wall clock instead would report a repo
+with a stale HEAD as months overdue for a period the next run will
+happily read, which is a false alarm rather than an early warning. For
+the same reason there is no "overdue" state: the run that reads this
+folder derives this same period and reads it while the window is open.
 
 Unlike the three warnings above it is a separate command, not part of a
 `check` run: the per-cadence crons filter the plan (`--cadence daily`

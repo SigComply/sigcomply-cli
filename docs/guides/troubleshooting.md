@@ -208,7 +208,10 @@ writes, and signing are unaffected — only submission is gated. See
 files for the period.
 
 **Fix:** upload a supported file (PDF, JPEG, PNG, GIF, TIFF, WebP, BMP) to
-exactly that folder, within the entry's temporal window. See
+exactly that folder, within the entry's temporal window. Copy the path
+from the message rather than composing it: `{period_id}` is the entry's
+**cadence** window (`2026` for an annual entry, `2026-Q1` for a quarterly
+one), not the `--period` you pass to `sigcomply report`. See
 [manual-evidence.md](manual-evidence.md).
 
 ### Manual evidence isn't being read at all

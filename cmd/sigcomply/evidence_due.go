@@ -95,12 +95,13 @@ func runEvidenceDue(ctx context.Context, stdout io.Writer, parent *evidenceFlags
 		return nil
 	}
 
-	// The period must be derived exactly as `check` derives it, from the
-	// HEAD commit time rather than the wall clock — otherwise this would
-	// report on a different folder than the one the next run reads.
+	// Periods must be derived exactly as `check` derives them — from the
+	// HEAD commit time under the default time_basis, and per entry from
+	// its own cadence — otherwise this would report on a different folder
+	// than the one the next run reads.
 	_, commitTime := gitContext(ctx, log.New(io.Discard, false))
-	period, err := planner.DerivePeriod(&cfg.Period, commitTime)
-	if err != nil {
+	reference := planner.PeriodTime(&cfg.Period, commitTime, time.Now().UTC())
+	if _, err := planner.DerivePeriod(&cfg.Period, reference); err != nil {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: fmt.Errorf("evidence due: %w", err)}
 	}
 
@@ -121,13 +122,11 @@ func runEvidenceDue(ctx context.Context, stdout io.Writer, parent *evidenceFlags
 		Scheme:    scheme,
 		Bucket:    bucket,
 		Prefix:    prefix,
-		Period:    period,
-		Now:       time.Now().UTC(),
+		PeriodCfg: cfg.Period,
+		Reference: reference,
 	}
 	in.Unfiltered = flags.all || flags.withinDays < 0
-	if flags.withinDays > 0 {
-		in.Within = time.Duration(flags.withinDays) * 24 * time.Hour
-	}
+	in.WithinDays = flags.withinDays
 
 	rep, err := manualdue.Scan(ctx, &in)
 	if err != nil {

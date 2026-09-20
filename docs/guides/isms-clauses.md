@@ -55,11 +55,13 @@ The folder scheme is the ordinary manual-evidence one — nothing about these 16
 {bucket}/{prefix}/{catalog_entry}/{period_id}/
 ```
 
-With the config below, the ISMS scope statement for period `2026-Q3` goes to:
+`{period_id}` follows the entry's cadence. All 16 clause entries are annual, so with the config below the ISMS scope statement for 2026 goes to:
 
 ```
-s3://acme-evidence/manual/isms_scope/2026-Q3/
+s3://acme-evidence/manual/isms_scope/2026/
 ```
+
+One upload covers the year — every run in 2026 reads that same folder, whatever quarter it lands in.
 
 Any number of supported files (PDF, JPEG, PNG, GIF, TIFF, WebP, BMP) may go in the folder; they are converted to PDF where needed and merged into one before evaluation. The CLI checks that supported files are **present**, **valid**, and **uploaded inside the temporal window** (the period plus a 30-day grace). It does not read the document — reviewing what it says is the auditor's job.
 

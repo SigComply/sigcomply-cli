@@ -141,11 +141,18 @@ type CoverageGap struct {
 // which of its emitted types the slot will accept. A binding always
 // has at least one AcceptedTypes entry (the planner rejects a
 // binding whose intersection is empty).
+//
+// Period is non-nil only for manual bindings, and carries the
+// cadence-aligned window this entry's evidence is filed under —
+// CadencePeriod's answer, not the run's. The collector stamps its four
+// fields onto the slot request together, so the folder, the temporal
+// window and the prior-period comparison can never disagree.
 type Binding struct {
 	SourceID      string
 	AcceptedTypes []string
 	CatalogID     string // non-empty only for manual sources (e.g. manual.pdf:access_review_quarterly)
 	SlotParams    map[string]any
+	Period        *Period
 }
 
 // Exception is the resolved waiver / N/A declaration applied to a

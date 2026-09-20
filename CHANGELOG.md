@@ -11,6 +11,64 @@ tracks the human-curated highlights.
 
 ## [Unreleased]
 
+### Changed
+
+- **Manual-evidence folders are now keyed by the entry's cadence, not by
+  the run's audit period.** `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/`
+  where `{period_id}` is daily `2026-01-15`, weekly `2026-W03` (ISO),
+  monthly `2026-01`, quarterly `2026-Q1`, annual `2026` — the table
+  `docs/configuration.md` has documented since before the code produced
+  it, and the keys the Evidence SPA has been telling customers to upload
+  to all along.
+  **This was a live `exit 1`, not a cosmetic mismatch.** All but four of
+  the 137 shipped catalog entries are annual. Their evidence was being
+  read from whichever quarter folder the run derived, and
+  `isInTemporalWindow` is closed at both ends, so a January upload was
+  invisible to the April, July and October runs — including the
+  `compliance-annual.yml` workflow `sigcomply init-ci` itself scaffolds,
+  where an explicit `--cadence annual` filter bypasses carry-forward.
+  **Migration:** if you already have uploads under the old scheme, move
+  `…/{entry}/2026-Qn/` to `…/{entry}/2026/` for every annual entry.
+  `sigcomply evidence due` prints the folder each entry now reads. There
+  is deliberately no compatibility read across periods: re-reading the
+  old folder would trip the temporal window, and from the following
+  period onward would trip `copy_paste_of_prior_period`, turning a
+  missing-evidence failure into a fraud-shaped one.
+  Under `fiscal_calendar.type: fiscal_year` the annual cadence keeps
+  `FY2026`; under `custom`, and for cadences with no calendar window
+  (`continuous`, `hourly`, `every:<duration>`), nothing changes. A
+  per-policy `cadence:` override does not move the folder — the
+  framework catalog's declared cadence does.
+  The **run's** period is untouched: the vault run root, `manifest.json`,
+  `summary.json`, the cloud payload's `period_id` and
+  `PolicyState.LastPeriodID` are all as before, so there is no schema
+  bump and no dashboard change. What does move is the `period_id` inside
+  a `signed_document` record (and its `id` and `expected_uri`), which now
+  names the window the document actually covers.
+- **The prior-period duplication check now has a folder to compare
+  against for annual entries** — last year's, where it used to be last
+  quarter's, which was always empty. Re-uploading a byte-identical
+  document year over year now fails with `copy_paste_of_prior_period`,
+  which is what that check exists to catch. Evidence that legitimately
+  does not change between periods is declared as an exception in
+  `.sigcomply.yaml`.
+- **`period.time_basis` is honored.** It has been accepted by the
+  validator and read by nothing: every period was derived from the HEAD
+  commit's timestamp whatever the config said. `wall_clock` now derives
+  from the run's start clock, which for a project that sets it moves the
+  run's `period_id` — and therefore the vault run root — whenever HEAD
+  sits in an earlier period than the run. `commit` (the default) is
+  unchanged.
+- **`sigcomply evidence due` reports a period per entry.** The text and
+  step-summary output gain a `PERIOD` column and the header names the
+  run's period as context rather than claiming every entry shares it.
+  Deadlines are now measured on the same clock the period was derived
+  from, so a repo with a stale HEAD is no longer told it is months
+  overdue for a period the next run will read quite happily. With one
+  consistent clock there is no reachable "overdue" state, so the
+  `overdue` field is gone from the JSON output and `--within-days 0` now
+  means "only what closes today" rather than "only what is already late".
+
 ### Added
 
 - **`aws.identity_center` now enumerates permission-set assignments**, which

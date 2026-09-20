@@ -84,12 +84,15 @@ Any number of files may go in each folder; images are converted to PDF and every
 `sigcomply evidence due` names each vendor individually, so you are told which vendor is missing rather than that one of them is:
 
 ```
-manual evidence: 3 of 50 entries have no file for period 2026-Q3 (ends 2026-09-30)
-  ENTRY                                   CADENCE  DUE IN  UPLOAD TO
-  cuec_mapping [Acme Cloud Platform]      annual   11d     s3://acme-eu/manual/cuec_mapping.acme_cloud/2026-Q3/
-  vendor_assurance [Acme Cloud Platform]  annual   11d     s3://acme-eu/manual/vendor_assurance.acme_cloud/2026-Q3/
-  vendor_assurance [Initech Payments]     annual   11d     s3://acme-eu/manual/vendor_assurance.initech_pay/2026-Q3/
+manual evidence: 3 of 50 entries have an empty folder (run period 2026-Q3)
+  ENTRY                                   CADENCE  PERIOD  DUE IN  UPLOAD TO
+  cuec_mapping [Acme Cloud Platform]      annual   2026    102d    s3://acme-eu/manual/cuec_mapping.acme_cloud/2026/
+  vendor_assurance [Acme Cloud Platform]  annual   2026    102d    s3://acme-eu/manual/vendor_assurance.acme_cloud/2026/
+  vendor_assurance [Initech Payments]     annual   2026    102d    s3://acme-eu/manual/vendor_assurance.initech_pay/2026/
 ```
+
+Both entries are annual, so `{period_id}` is the year — one upload per
+vendor per year, read by every run in that year.
 
 A `low`-tier vendor never appears here. It owes no artifact, so it has no deadline.
 

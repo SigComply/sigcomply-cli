@@ -1192,6 +1192,9 @@ period:
     type: calendar_quarter        # calendar_quarter | fiscal_year | custom
                                   # (custom requires a periods: list)
   time_basis: commit              # commit | wall_clock
+                                  # commit: derive every period from the HEAD
+                                  # commit's timestamp (reproducible reruns).
+                                  # wall_clock: derive from the run's start.
 
 # Evidence vault — where signed envelopes, results, and the run manifest land.
 vault:
@@ -1292,7 +1295,7 @@ set of accepted top-level keys (`internal/spec/project_config.go`):
 |-----|-------|-------|
 | `schema_version` | string | Required; currently always `project.v1`. |
 | `framework` | string | Singular. `soc2` \| `iso27001` (`hipaa` is a stub that fails at runtime). |
-| `period` | `{ fiscal_calendar: { type, starts, periods[] }, time_basis }` | `type`: `calendar_quarter` \| `fiscal_year` \| `custom` (custom needs `periods:` of `{id, start, end}`). `time_basis`: `commit` \| `wall_clock`. |
+| `period` | `{ fiscal_calendar: { type, starts, periods[] }, time_basis }` | `type`: `calendar_quarter` \| `fiscal_year` \| `custom` (custom needs `periods:` of `{id, start, end}`). `time_basis`: `commit` (default — derive every period from the HEAD commit's timestamp, so replaying an old commit reproduces its period) \| `wall_clock` (derive from the run's start clock instead; moves the run's `period_id`, and therefore the vault run root, for runs whose HEAD sits in an earlier period). |
 | `vault` | open `{ backend, ... }` mapping | Flat; only `backend` is interpreted, other keys pass through to the backend. See [Storage Backends](#storage-backends). |
 | `sources` | map: source id → config | Plugin configs, keyed by plugin ID with an optional `[instance]` suffix for a second account/org (see [Multiple instances](#multiple-instances-of-one-source)). `manual.pdf` is the reserved manual-evidence singleton and accepts no instances. Keys allow letters, digits, dot, dash and underscore only — the key becomes part of an evidence file's path in your vault. |
 | `policies` | map: policy id → `PolicyConfig` | All per-policy config, co-located per ID. `PolicyConfig` = `{ bindings: { slot: [source,...] }, parameters: { param: value }, cadence, evidence_mode, catalog_entry, exceptions: [...] }`. `evidence_mode: manual` requires `catalog_entry`; `automated` forbids it. Each exception is `{ scope: { resource_id, resource_pattern }, state (waived\|na), reason, approved_by, approved_at, expires_at }` — no `policy:` field (the map key is the policy). |
@@ -1637,15 +1640,48 @@ canonical full path is `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/`):
 {prefix}{evidence_catalog_id}/{period_id}/
 ```
 
-Where `{period_id}` matches the entry's frequency:
+`{period_id}` is **the entry's own cadence window, not the run's audit
+period**. An annual attestation uploaded in January has to satisfy a
+December run, which it could not do from a folder that turns over every
+quarter. The run's period is unchanged by this — it still stamps the
+vault run root, `manifest.json`, `summary.json` and the cloud payload.
 
-| Frequency | `{period_id}` example |
-|-----------|-----------------------|
-| daily | `2026-01-15` |
-| weekly | `2026-W03` |
-| monthly | `2026-01` |
-| quarterly | `2026-Q1` |
-| yearly | `2026` |
+| Cadence | `{period_id}` example |
+|---------|-----------------------|
+| `daily` | `2026-01-15` |
+| `weekly` | `2026-W03` (ISO week, Monday-anchored) |
+| `monthly` | `2026-01` |
+| `quarterly` | `2026-Q1` |
+| `annual` | `2026` |
+
+(The catalog export consumed by the Evidence SPA spells `annual` as
+`yearly` in its `frequency` field; the cadence DSL itself only accepts
+`annual`.)
+
+Three rules qualify the table:
+
+- **`fiscal_calendar.type: fiscal_year`** — the annual cadence uses the
+  fiscal year (`FY2026`), because that is the annual window the project
+  declared. Nothing in the config subdivides a fiscal year, so shorter
+  cadences stay calendar-aligned exactly as above.
+- **`fiscal_calendar.type: custom`** — a custom calendar names its own
+  windows and cannot be subdivided, so every entry keeps the run's
+  period whatever its cadence.
+- **`continuous`, `hourly` and `every:<duration>`** name no calendar
+  window, so they too keep the run's period.
+
+A per-policy `cadence:` override under `policy_overrides` does **not**
+move the folder. A cadence override is a scheduling knob — how often to
+re-check — and relocating a customer's upload folder as a side effect of
+changing a schedule would be a trap. The folder follows the cadence the
+framework catalog declares for the entry, which is also what
+`sigcomply evidence due` reports.
+
+The **Evidence SPA** derives the same keys client-side so its "upload
+to" hint matches. It reads no period configuration, so that match holds
+for the default `calendar_quarter` calendar only — under `fiscal_year`
+or `custom`, take the path from `sigcomply evidence due` (or from the
+violation message) rather than from the SPA.
 
 Upload any number of files to the folder — **any filename is accepted**.
 Supported formats: PDF (pass-through), JPEG, PNG, GIF, TIFF, WebP, BMP.
@@ -1658,7 +1694,7 @@ exactly which file to replace.
 
 When evidence is missing, the CLI surfaces the exact folder URI in the
 violation message (e.g.
-`s3://my-evidence/manual/quarterly_access_review/2026-Q1/`). To see the
+`s3://my-evidence/manual/access_review_quarterly/2026-Q1/`). To see the
 full manual-evidence catalog (every `evidence_catalog_id` and its
 metadata), run:
 

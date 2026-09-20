@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -48,8 +49,13 @@ func TestEvidenceDue_ReportsEmptyFolders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("runEvidenceDue: %v", err)
 	}
-	if !strings.Contains(out, "have no file for period") {
+	if !strings.Contains(out, "have an empty folder") {
 		t.Errorf("expected a due block, got:\n%s", out)
+	}
+	// Every SOC 2 entry but three is annual, and an annual entry's
+	// folder is the year — not the quarter the run lands in.
+	if !regexp.MustCompile(`security_awareness_training/\d{4}/`).MatchString(out) {
+		t.Errorf("annual entry not reported under its year folder, got:\n%s", out)
 	}
 }
 

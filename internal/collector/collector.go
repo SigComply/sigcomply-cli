@@ -198,6 +198,16 @@ func buildSlotRequest(pp *planner.PlannedPolicy, slotName string, b *planner.Bin
 	if b.CatalogID != "" {
 		params["catalog_id"] = b.CatalogID
 	}
+	// A manual binding files its evidence under its own cadence-aligned
+	// window, not the run's. The four fields are stamped together so the
+	// folder, the temporal window and the prior-period comparison can
+	// never come from different periods.
+	if b.Period != nil {
+		params["period_id"] = b.Period.ID
+		params["prior_period_id"] = b.Period.PriorID
+		params["period_start"] = b.Period.Start
+		params["period_end"] = b.Period.End
+	}
 	return core.SlotRequest{
 		PolicyID:      pp.Spec.ID,
 		AcceptedTypes: append([]string(nil), b.AcceptedTypes...),

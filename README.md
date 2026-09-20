@@ -143,6 +143,11 @@ exports), the CLI scans a folder in your storage:
 {bucket}/{prefix}/{evidence_catalog_id}/{period_id}/
 ```
 
+`{period_id}` follows the entry's cadence (annual `2026`, quarterly
+`2026-Q1`, monthly `2026-01`, weekly `2026-W03`, daily `2026-01-15`), so
+an annual document is uploaded once a year. `sigcomply evidence due`
+prints the exact folder for every entry.
+
 Upload any number of files — PDF, JPEG, PNG, GIF, TIFF, WebP, or BMP. Images are
 auto-converted to PDF and all files are merged into one before evaluation. The
 CLI checks only that supported files are present within the temporal window; it

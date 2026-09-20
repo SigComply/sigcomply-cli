@@ -135,12 +135,19 @@ The CLI scans this folder for each manual entry:
 {bucket}/{prefix}/{evidence_catalog_id}/{period_id}/
 ```
 
-So for the entry `security_awareness_training` in period `2026-Q1`, with
-the config above, you upload files to:
+`{period_id}` follows **the entry's cadence**, not the run's audit
+period. `security_awareness_training` is annual, so with the config
+above you upload to:
 
 ```
-s3://my-evidence-bucket/manual/security_awareness_training/2026-Q1/
+s3://my-evidence-bucket/manual/security_awareness_training/2026/
 ```
+
+while a quarterly entry such as `access_review_quarterly` goes to
+`…/access_review_quarterly/2026-Q1/`. The full table is in
+[configuration.md](../configuration.md#folder-layout-per-evidence-id):
+daily `2026-01-15`, weekly `2026-W03`, monthly `2026-01`, quarterly
+`2026-Q1`, annual `2026`.
 
 Put any number of supported files in that folder — they are all merged
 into one PDF before evaluation.
@@ -148,17 +155,37 @@ into one PDF before evaluation.
 ### Which period, and by when
 
 The period is the one containing your **HEAD commit's timestamp**, not
-today's date. Two consequences worth internalising:
+today's date (unless you set `period.time_basis: wall_clock`). Three
+consequences worth internalising:
 
+- **An annual entry is uploaded once a year, not once a quarter.** The
+  window is the whole year, so a January upload still satisfies a
+  December run. This is why the folder is keyed by cadence: were it
+  keyed by the run's quarter, every quarterly run would derive a
+  different empty folder and fail the policy.
 - **Evidence cannot be staged ahead.** A file's upload time must fall in
-  `[period.Start, period.End + grace]`. Dropping next quarter's PDF into
-  next quarter's folder today makes it *fail* when that quarter arrives
+  `[period.Start, period.End + grace]`. Dropping next year's PDF into
+  next year's folder today makes it *fail* when that year arrives
   ("uploaded outside the configured temporal window"), because its upload
   time predates the period. Upload during the period the evidence covers.
 - **The practical deadline is the period's end.** Once the period closes
   and HEAD moves on, runs derive the next period and stop reading this
   folder. The grace period extends the window only for a run that still
   derives the old period.
+
+If your project sets `fiscal_calendar.type` to `fiscal_year` or
+`custom`, the folders differ — an annual entry lands in `FY2026` under a
+fiscal year, and a custom calendar uses its own period IDs for every
+entry. The Evidence SPA cannot see your period config, so in those
+projects take the path from `sigcomply evidence due` rather than from
+the SPA's "upload to" hint.
+
+**Do not re-upload last period's file unchanged.** If every file in the
+folder is byte-identical to the previous period's, the run reports
+`copy_paste_of_prior_period` and the policy fails. For an annual entry
+that means last year's document. Evidence that legitimately does not
+change between periods is declared as an exception in `.sigcomply.yaml`,
+not silently re-uploaded.
 
 To see what is outstanding without waiting for a cadence run to fail:
 

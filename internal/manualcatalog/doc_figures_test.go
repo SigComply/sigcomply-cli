@@ -125,7 +125,7 @@ func TestDocFiguresMatchCode(t *testing.T) {
 			fmt.Sprintf("For SOC 2, %d of %d criteria are", s.ctrlManual, s.controls),
 		}},
 		{"docs/architecture/10-cadence-model.md", []string{
-			fmt.Sprintf("of %d entries have no file for period", s.catalogEntries),
+			fmt.Sprintf("of %d entries have an empty folder", s.catalogEntries),
 		}},
 	} {
 		t.Run(tc.doc, func(t *testing.T) {

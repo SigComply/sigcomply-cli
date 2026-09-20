@@ -262,11 +262,11 @@ deadline and are not listed. See
 | `--config <path>` | `-c` | `.sigcomply.yaml` | Project config |
 | `--framework <value>` | `-f` | config → `$SIGCOMPLY_FRAMEWORK` → `soc2` | Framework |
 | `--output <value>` | `-o` | `text` | `text` or `json` |
-| `--within-days <n>` | | `30` | Only report entries whose period ends within this many days. `0` reports only what is already overdue; a negative value reports everything. Overdue entries always report. |
+| `--within-days <n>` | | `30` | Only report entries whose period ends within this many days. `0` reports only what closes today; a negative value reports everything. Each entry's period is its own cadence window — an annual entry's ends 31 December, a quarterly entry's ends with the quarter. |
 | `--all` | | `false` | Report every entry with an empty folder, ignoring `--within-days` |
 
-**Exit codes.** `0` whenever the scan completes, *including* when evidence is
-overdue — this command is advisory and is never the reason a build goes red.
+**Exit codes.** `0` whenever the scan completes, whatever it finds — this
+command is advisory and is never the reason a build goes red.
 `3` for a missing or invalid config, an unknown framework, or a bad `-o`. If the
 evidence store cannot be opened or listed (missing credentials, for instance) it
 says so and still exits `0`: an unverifiable folder is an unknown, and reporting

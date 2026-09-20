@@ -200,6 +200,21 @@ reports) flow through the same path.
 **What the CLI does (v1):** for the catalog-resolved folder
 `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/` —
 
+**`{period_id}` is the entry's cadence window, not the run's period.**
+`planner.CadencePeriod` maps daily→`2026-01-15`, weekly→`2026-W03`
+(ISO), monthly→`2026-01`, quarterly→`2026-Q1`, annual→`2026`; a
+`fiscal_year` calendar keeps `FY2026` for annual, and a `custom`
+calendar (plus `continuous`/`hourly`/`every:<dur>`) keeps the run's
+period. The planner stamps all four period fields onto the manual
+binding (`Binding.Period`) and `collector.buildSlotRequest` applies them
+together, so folder, temporal window and prior-period comparison can
+never disagree. Selection uses the policy's **declared** cadence, not
+the `policy_overrides`-resolved one — a scheduling override must not
+relocate a customer's upload folder, and `evidence due` keys off the
+catalog entry's cadence, which is the same value. Everything else —
+vault run root, `manifest.json`, `summary.json`, the wire `period_id`,
+`PolicyState.LastPeriodID` — is still the **run's** period.
+
 1. **Folder-scan**; no files → fail with a structured "expected files in: <folder>".
 2. **Classify by extension** (PDF, JPEG, PNG, GIF, TIFF, WebP, BMP).
    Unsupported (e.g. `.docx`) → `unsupported_file_type` in
@@ -212,7 +227,8 @@ reports) flow through the same path.
    `%PDF-` magic prefix, ≥1 `/Page` object. Stdlib-only, no PDF parser.
 6. **Temporal window:** latest upload timestamp must lie in
    `[period_start, period_end + grace]`.
-7. **Prior-period duplication:** if planner supplied `prior_period_id`,
+7. **Prior-period duplication:** if planner supplied `prior_period_id`
+   (the prior *cadence* period — last year for an annual entry),
    compute a `sourceFingerprint` (SHA-256 of sorted `filename:sha256`);
    byte-identical to prior → `copy_paste_of_prior_period`. Missing prior
    folder is not a failure.
@@ -334,7 +350,14 @@ design: [`docs/architecture/04a-evidence-type-registry.md`](./docs/architecture/
   NEVER an audit deliverable, loss recoverable (next run = first-run).
 - **Period** — "which audit window?" Per-run, frozen at run-start by the
   planner; every policy in a run shares one `period_id`. No mid-run
-  rollover, ever.
+  rollover, ever. The clock it is measured on is
+  `planner.PeriodTime` — HEAD's commit timestamp by default, the run's
+  start under `period.time_basis: wall_clock`. **One carve-out, and it
+  touches no run artifact:** a manual entry's *upload folder* (and the
+  temporal window checked against it, and the `period_id` inside its
+  evidence record) is keyed by the entry's own cadence —
+  `planner.CadencePeriod`. An annual attestation belongs in `…/2026/`,
+  not in whichever quarter read it.
 
 Per-policy decision rule (strictly layered — full design in
 [`docs/architecture/10-cadence-model.md`](./docs/architecture/10-cadence-model.md)):
@@ -506,7 +529,7 @@ that one bucket — it multiplies folders inside it, not sources.)
 | `sigcomply build` | Wired | Compile a project-tailored binary with `.sigcomply/` Go extensions |
 | `sigcomply report` | Wired | Read-only auditor snapshot of the vault (`--view latest\|exceptions\|integrity\|scope\|coverage\|soa`). `--view soa` renders the ISO 27001 Statement of Applicability and is the one view that requires the project config — the applicability decisions live only there, so it exits 3 rather than reporting every control as applicable |
 | `sigcomply evidence catalog` | Wired | Print the manual-evidence catalog (`-o text\|json`); `-o json` matches the Evidence SPA contract. Standalone, no project config. `-f` defaults to `$SIGCOMPLY_FRAMEWORK` then `soc2` |
-| `sigcomply evidence due` | Wired | List manual entries whose current-period folder is empty (`-c`, `-f`, `-o text\|json`, `--within-days`, `--all`). Read-only LIST calls; **always exits 0** when the scan completes, so it is safe as a non-failing CI step. Wired into the scaffolded daily workflow |
+| `sigcomply evidence due` | Wired | List manual entries whose current-period folder is empty (`-c`, `-f`, `-o text\|json`, `--within-days`, `--all`). Each entry's period is its own cadence window, derived by the same `planner.CadencePeriod` call `check` makes. Read-only LIST calls; **always exits 0** when the scan completes, so it is safe as a non-failing CI step. Wired into the scaffolded daily workflow |
 | `sigcomply version` | Wired | Print version + commit + build time |
 | `sigcomply collect` / `evaluate` | Planned | Collect-only / offline-evaluate modes |
 | `sigcomply evidence {init, path}` | Removed | Old period-scaffolding / upload-URI subcommands; only `catalog` returned |

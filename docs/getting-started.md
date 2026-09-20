@@ -150,6 +150,11 @@ your storage:
 {bucket}/{prefix}/{evidence_catalog_id}/{period_id}/
 ```
 
+`{period_id}` follows the entry's cadence — `2026` for an annual
+attestation, `2026-Q1` for a quarterly review — so an annual document is
+uploaded once a year, not once a quarter. Run `sigcomply evidence due`
+to be told the exact folder for every entry.
+
 Configure the manual source once (it's a project-level singleton):
 
 ```yaml

@@ -881,7 +881,8 @@ must:
   cannot rearrange directory structure or change file names.
 - **Run identity scheme.** Customers cannot inject custom run IDs or
   alter how `period_id` is derived. The fiscal calendar config tunes
-  the derivation; the derivation algorithm itself is fixed.
+  the derivation (and, for a manual entry's upload folder, the entry's
+  cadence selects the window); the derivation algorithm itself is fixed.
 
 These restrictions exist because they're the contracts external
 parties (auditors, the cloud, the verification SPA) rely on. Customers

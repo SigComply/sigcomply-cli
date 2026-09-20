@@ -536,9 +536,18 @@ calendar, sources, bindings, and vault prefix.
 ### 13. Period
 
 **Definition.** A first-class audit window — `2026-Q1`, `FY2026`, or a
-custom range — derived from a pure function `f(commit_time,
-fiscal_calendar)` defined in project config. Every run is stamped with
-its period. The vault layout groups runs by period.
+custom range — derived from a pure function `f(time, fiscal_calendar)`
+defined in project config, where `time` is the HEAD commit's timestamp
+or the run's start clock according to `period.time_basis`. Every run is
+stamped with its period. The vault layout groups runs by period.
+
+A manual evidence entry adds one input to that function — its own
+cadence — and uses the answer for one thing: the folder the customer
+uploads to, and the temporal window checked against it. An annual
+attestation belongs in `…/2026/`, not in whichever quarter happened to
+read it. Nothing else moves: the run is still stamped with the run's
+period. See [`10-cadence-model.md`](10-cadence-model.md) §Manual
+evidence periods.
 
 **Example.** Project config:
 
@@ -567,7 +576,7 @@ state is derived from the union of runs in the period folder.
 - `run_id`: a UUID minted at invocation start
 - `project`: the customer's project identity
 - `framework`: the selected framework
-- `period_id`: derived from commit time + fiscal calendar
+- `period_id`: derived from the period reference time + fiscal calendar
 - `commit_sha`, `commit_time`: from the git context
 - `invocation_id`: a CI-provided identifier when available
 - A set of policies it evaluated (which may be a subset, if filters were

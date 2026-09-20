@@ -272,10 +272,12 @@ PDF on every PR is not the workflow.
 #### Why the cadence crons fire *inside* the period, not on its boundary
 
 The audit period is derived from the **HEAD commit's timestamp**, not the
-wall clock — `planner.DerivePeriod(&cfg.Period, in.CommitTime)`, where
-`CommitTime` resolves to `GITHUB_EVENT_HEAD_COMMIT_TIMESTAMP`, else
-`git show -s --format=%cI HEAD`, else `time.Now()`. This is load-bearing
-and easy to miss.
+wall clock — `planner.DerivePeriod(&cfg.Period, planner.PeriodTime(...))`,
+where `PeriodTime` returns `CommitTime` under the default
+`period.time_basis: commit` (and the run's start clock under
+`wall_clock`), and `CommitTime` resolves to
+`GITHUB_EVENT_HEAD_COMMIT_TIMESTAMP`, else `git show -s --format=%cI HEAD`,
+else `time.Now()`. This is load-bearing and easy to miss.
 
 A cron that fires at 02:00 on the first day of a quarter therefore lands
 in whichever period HEAD's commit falls in. Usually that is the quarter

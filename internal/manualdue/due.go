@@ -25,6 +25,7 @@ import (
 
 	"github.com/sigcomply/sigcomply-cli/internal/planner"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
+	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
 // githubAnnotationLimit is GitHub's per-step cap on warning
@@ -42,16 +43,28 @@ type Input struct {
 	Scheme    string
 	Bucket    string
 	Prefix    string
-	Period    planner.Period
-	Now       time.Time
 
-	// Within limits the report to entries whose deadline falls inside
-	// this lead time. Overdue entries are always reported regardless, so
-	// a Within of zero means "only what is already late" — not "no
-	// filter". Set Unfiltered for that.
-	Within time.Duration
+	// PeriodCfg is the project's period block. Each entry's folder is
+	// resolved from it and the entry's own cadence via
+	// planner.CadencePeriod — the same call the planner makes when it
+	// builds the run's manual bindings, which is what keeps the folder
+	// this command reports byte-identical to the one `check` reads.
+	PeriodCfg spec.PeriodConfig
 
-	// Unfiltered reports every empty folder, ignoring Within.
+	// Reference is the instant every period in this scan is derived
+	// from: the HEAD commit's timestamp under the default time_basis.
+	// Deadlines are measured on it too, and deliberately not on the wall
+	// clock — a stale HEAD would otherwise report the period the next
+	// run will actually evaluate as already overdue.
+	Reference time.Time
+
+	// WithinDays limits the report to entries whose period closes inside
+	// this lead time. Zero means "only what closes today" — the strict
+	// reading of a zero lead time, not "no filter". Set Unfiltered for
+	// that.
+	WithinDays int
+
+	// Unfiltered reports every empty folder, ignoring WithinDays.
 	Unfiltered bool
 }
 
@@ -71,8 +84,13 @@ type Entry struct {
 	// check, for a run that still derives this period.
 	WindowCloses time.Time `json:"window_closes"`
 
-	DaysLeft int  `json:"days_left"`
-	Overdue  bool `json:"overdue"`
+	// DaysLeft counts down to PeriodEnd from the same reference clock the
+	// period was derived from, so it is never negative: the run that will
+	// read this folder derives this same period and reads it while the
+	// window is still open. There is no "overdue" state for the period
+	// being scanned — the one this command used to report came from
+	// comparing a wall clock against a commit-derived period.
+	DaysLeft int `json:"days_left"`
 
 	// Instance and InstanceName are set when the entry fans out over a
 	// set — today, one vendor in the project's third-party register.
@@ -85,10 +103,16 @@ type Entry struct {
 
 // Report is the result of one scan.
 type Report struct {
-	Framework string    `json:"framework"`
+	Framework string `json:"framework"`
+
+	// PeriodID and PeriodEnd describe the RUN's period — the one a
+	// `sigcomply check` on this commit would stamp its results with.
+	// They are context only: each missing entry carries the period of
+	// its own folder, which follows the entry's cadence.
 	PeriodID  string    `json:"period_id"`
 	PeriodEnd time.Time `json:"period_end"`
-	Checked   int       `json:"checked"`
+
+	Checked int `json:"checked"`
 
 	// Suppressed counts entries that are missing but whose deadline is
 	// further out than Within. Reported so a quiet run is visibly
@@ -106,10 +130,14 @@ type Report struct {
 // unknowns as deadlines would manufacture exactly the false warnings
 // this package is built to avoid.
 func Scan(ctx context.Context, in *Input) (*Report, error) {
+	runPeriod, err := planner.DerivePeriod(&in.PeriodCfg, in.Reference)
+	if err != nil {
+		return nil, fmt.Errorf("manualdue: %w", err)
+	}
 	rep := &Report{
 		Framework: in.Framework,
-		PeriodID:  in.Period.ID,
-		PeriodEnd: in.Period.End,
+		PeriodID:  runPeriod.ID,
+		PeriodEnd: runPeriod.End,
 	}
 	for _, id := range manual.SortedCatalogIDs(in.Catalog) {
 		entry := in.Catalog[id]
@@ -165,7 +193,11 @@ func Scan(ctx context.Context, in *Input) (*Report, error) {
 // say. It always counts the folder as checked, so "nothing due" stays
 // distinguishable from "nothing examined".
 func (in *Input) scanOne(ctx context.Context, entry *manual.CatalogEntry, folderID string, rep *Report) (*Entry, error) {
-	prefix := manual.FolderPrefix(in.Prefix, folderID, in.Period.ID)
+	period, err := planner.CadencePeriod(&in.PeriodCfg, in.Reference, entry.Cadence)
+	if err != nil {
+		return nil, fmt.Errorf("manualdue: %s: %w", entry.EvidenceID, err)
+	}
+	prefix := manual.FolderPrefix(in.Prefix, folderID, period.ID)
 	items, err := in.Reader.List(ctx, prefix)
 	if err != nil {
 		return nil, fmt.Errorf("manualdue: list %s: %w", prefix, err)
@@ -174,18 +206,17 @@ func (in *Input) scanOne(ctx context.Context, entry *manual.CatalogEntry, folder
 	if len(items) > 0 {
 		return nil, nil
 	}
-	remaining := in.Period.End.Sub(in.Now)
+	daysLeft := int(period.End.Sub(in.Reference).Hours() / 24)
 	e := &Entry{
 		CatalogID:    entry.EvidenceID,
 		Cadence:      entry.Cadence,
-		FolderURI:    manual.FolderURI(in.Scheme, in.Bucket, in.Prefix, folderID, in.Period.ID),
-		PeriodID:     in.Period.ID,
-		PeriodEnd:    in.Period.End,
-		WindowCloses: in.Period.End.Add(entry.GracePeriod),
-		DaysLeft:     int(remaining.Hours() / 24),
-		Overdue:      remaining < 0,
+		FolderURI:    manual.FolderURI(in.Scheme, in.Bucket, in.Prefix, folderID, period.ID),
+		PeriodID:     period.ID,
+		PeriodEnd:    period.End,
+		WindowCloses: period.End.Add(entry.GracePeriod),
+		DaysLeft:     daysLeft,
 	}
-	if !in.Unfiltered && !e.Overdue && remaining > in.Within {
+	if !in.Unfiltered && daysLeft > in.WithinDays {
 		rep.Suppressed++
 		return nil, nil
 	}
@@ -200,24 +231,27 @@ func FormatText(w io.Writer, rep *Report) error {
 	}
 	if len(rep.Missing) == 0 {
 		_, err := fmt.Fprintf(w,
-			"manual evidence: no manual evidence is due — %d entr%s checked for period %s\n",
+			"manual evidence: no manual evidence is due — %d entr%s checked, run period %s\n",
 			rep.Checked, plural(rep.Checked), rep.PeriodID)
 		return err
 	}
+	// Each entry has its own period — an annual entry's folder is the
+	// year, a quarterly entry's is the quarter — so the count line names
+	// the run's period only as context and the PERIOD column carries the
+	// one that matters per row.
 	if _, err := fmt.Fprintf(w,
-		"manual evidence: %d of %d entr%s have no file for period %s (ends %s)\n",
-		len(rep.Missing), rep.Checked, plural(rep.Checked),
-		rep.PeriodID, rep.PeriodEnd.UTC().Format("2006-01-02")); err != nil {
+		"manual evidence: %d of %d entr%s have an empty folder (run period %s)\n",
+		len(rep.Missing), rep.Checked, plural(rep.Checked), rep.PeriodID); err != nil {
 		return err
 	}
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	if _, err := fmt.Fprintln(tw, "  ENTRY\tCADENCE\tDUE IN\tUPLOAD TO"); err != nil {
+	if _, err := fmt.Fprintln(tw, "  ENTRY\tCADENCE\tPERIOD\tDUE IN\tUPLOAD TO"); err != nil {
 		return err
 	}
 	for i := range rep.Missing {
 		e := &rep.Missing[i]
-		if _, err := fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n",
-			entryLabel(e), dash(e.Cadence), dueIn(e), e.FolderURI); err != nil {
+		if _, err := fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\t%s\n",
+			entryLabel(e), dash(e.Cadence), e.PeriodID, dueIn(e), e.FolderURI); err != nil {
 			return err
 		}
 	}
@@ -225,7 +259,7 @@ func FormatText(w io.Writer, rep *Report) error {
 		return err
 	}
 	_, err := fmt.Fprintf(w,
-		"manual evidence: upload before the period ends; this notice does not fail the build.\n")
+		"manual evidence: deadlines are measured from the HEAD commit's period; this notice does not fail the build.\n")
 	return err
 }
 
@@ -254,8 +288,8 @@ func FormatGitHubAnnotations(w io.Writer, rep *Report) error {
 	}
 	for i := range shown {
 		e := &shown[i]
-		if _, err := fmt.Fprintf(w, "::warning title=Manual evidence %s::%s (%s) has no file for period %s — %s. Upload to %s\n",
-			overdueWord(e), e.CatalogID, dash(e.Cadence), e.PeriodID, dueIn(e), e.FolderURI); err != nil {
+		if _, err := fmt.Fprintf(w, "::warning title=Manual evidence due::%s (%s) has no file for period %s — %s. Upload to %s\n",
+			e.CatalogID, dash(e.Cadence), e.PeriodID, dueIn(e), e.FolderURI); err != nil {
 			return err
 		}
 	}
@@ -275,20 +309,19 @@ func FormatMarkdown(w io.Writer, rep *Report) error {
 		return nil
 	}
 	if len(rep.Missing) == 0 {
-		_, err := fmt.Fprintf(w, "## Manual evidence\n\nNothing due — %d entr%s checked for period `%s`.\n",
+		_, err := fmt.Fprintf(w, "## Manual evidence\n\nNothing due — %d entr%s checked, run period `%s`.\n",
 			rep.Checked, plural(rep.Checked), rep.PeriodID)
 		return err
 	}
 	if _, err := fmt.Fprintf(w,
-		"## Manual evidence due\n\n%d of %d entr%s have no file for period `%s` (ends %s).\n\n| Entry | Cadence | Due in | Upload to |\n|---|---|---|---|\n",
-		len(rep.Missing), rep.Checked, plural(rep.Checked),
-		rep.PeriodID, rep.PeriodEnd.UTC().Format("2006-01-02")); err != nil {
+		"## Manual evidence due\n\n%d of %d entr%s have an empty folder (run period `%s`).\n\n| Entry | Cadence | Period | Due in | Upload to |\n|---|---|---|---|---|\n",
+		len(rep.Missing), rep.Checked, plural(rep.Checked), rep.PeriodID); err != nil {
 		return err
 	}
 	for i := range rep.Missing {
 		e := &rep.Missing[i]
-		if _, err := fmt.Fprintf(w, "| `%s` | %s | %s | `%s` |\n",
-			e.CatalogID, dash(e.Cadence), dueIn(e), e.FolderURI); err != nil {
+		if _, err := fmt.Fprintf(w, "| `%s` | %s | `%s` | %s | `%s` |\n",
+			e.CatalogID, dash(e.Cadence), e.PeriodID, dueIn(e), e.FolderURI); err != nil {
 			return err
 		}
 	}
@@ -296,21 +329,10 @@ func FormatMarkdown(w io.Writer, rep *Report) error {
 }
 
 func dueIn(e *Entry) string {
-	switch {
-	case e.Overdue:
-		return fmt.Sprintf("overdue by %dd", -e.DaysLeft)
-	case e.DaysLeft == 0:
+	if e.DaysLeft == 0 {
 		return "today"
-	default:
-		return fmt.Sprintf("%dd", e.DaysLeft)
 	}
-}
-
-func overdueWord(e *Entry) string {
-	if e.Overdue {
-		return "overdue"
-	}
-	return "due"
+	return fmt.Sprintf("%dd", e.DaysLeft)
 }
 
 func plural(n int) string {

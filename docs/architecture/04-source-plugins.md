@@ -473,6 +473,14 @@ folder under the project's single configured bucket:
 {bucket}/{prefix}/{evidence_catalog_id}/{period_id}/
 ```
 
+`{period_id}` here is the entry's **cadence** window — `2026` for an
+annual attestation, `2026-Q1` for a quarterly review — not the run's
+audit period. The planner stamps it onto the binding
+(`planner.CadencePeriod`) together with `period_start`, `period_end` and
+`prior_period_id`, so the folder and the temporal window checked against
+it always come from the same period. See
+[`10-cadence-model.md`](10-cadence-model.md) §Manual evidence periods.
+
 An entry that declares a **fan-out** resolves one folder per member of
 the set instead, the member slug appended to the catalog ID:
 
