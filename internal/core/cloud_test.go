@@ -321,7 +321,7 @@ func normalizeFieldName(s string) string {
 // auditors and self-hosted backends rely on.
 func TestSubmissionPayload_JSONRoundTrip(t *testing.T) {
 	in := SubmissionPayload{
-		Schema:     "sigcomply.cloud.v4",
+		Schema:     "sigcomply.cloud.v5",
 		RunID:      "run-1",
 		Framework:  testFrameworkSOC2,
 		PeriodID:   "2026-Q1",

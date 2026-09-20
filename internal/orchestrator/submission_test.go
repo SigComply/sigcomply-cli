@@ -49,7 +49,7 @@ func TestHandleSubmission_SubmitsSuccessfully(t *testing.T) {
 			TokenProvider: stubTokenProvider{},
 		},
 	}
-	payload := &core.SubmissionPayload{Schema: "sigcomply.cloud.v4", RunID: "r1"}
+	payload := &core.SubmissionPayload{Schema: "sigcomply.cloud.v5", RunID: "r1"}
 	completedAt := time.Date(2026, 5, 24, 9, 0, 0, 0, time.UTC)
 
 	submitted, at := handleSubmission(context.Background(), opts, payload, completedAt)

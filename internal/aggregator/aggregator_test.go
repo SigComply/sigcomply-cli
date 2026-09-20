@@ -262,3 +262,77 @@ func TestBuild_VacuityOnlyChangesThePassSentence(t *testing.T) {
 		}
 	}
 }
+
+// The v5 half of the same signal. The message says it in prose; the bool
+// says it in a form a dashboard can filter, count and trend.
+func TestBuild_VacuousPassIsCarriedAsABool(t *testing.T) {
+	payload := Build([]core.PolicyResult{
+		{
+			PolicyID: "p-vacuous", Status: core.StatusPass, ResourcesEvaluated: 500,
+			Diag: map[string]any{core.DiagVacuousClauses: []string{testSlotEvidence}},
+		},
+		{PolicyID: "p-thorough", Status: core.StatusPass, ResourcesEvaluated: 500},
+	}, nil)
+
+	byID := map[string]core.AggregatedPolicy{}
+	for _, p := range payload.Policies {
+		byID[p.PolicyID] = p
+	}
+	if !byID["p-vacuous"].Vacuous {
+		t.Error("a pass that examined nothing must report vacuous")
+	}
+	if byID["p-thorough"].Vacuous {
+		t.Error("a pass that examined 500 resources must not report vacuous")
+	}
+	// The bool and the sentence are derived once, so they cannot disagree
+	// about the same run.
+	if strings.Contains(byID["p-vacuous"].Message, "All 500") {
+		t.Errorf("message and bool disagree: %q", byID["p-vacuous"].Message)
+	}
+}
+
+// Replayed out of the vault, Diag decodes with []any values. The bool
+// must not silently revert to false.
+func TestBuild_VacuousBoolSurvivesTheVaultJSONShape(t *testing.T) {
+	payload := Build([]core.PolicyResult{{
+		PolicyID: "p1", Status: core.StatusPass, ResourcesEvaluated: 500,
+		Diag: map[string]any{core.DiagVacuousClauses: []any{testSlotEvidence}},
+	}}, nil)
+
+	if !payload.Policies[0].Vacuous {
+		t.Error("vacuous bool lost for a []any diag shape")
+	}
+}
+
+// VacuousSlots is status-blind: a failing policy can carry the diagnostic
+// for one clause while failing on another. Reporting that as a vacuous
+// pass would be false twice over - it did not pass, and it did examine
+// something.
+func TestBuild_VacuousIsNeverTrueForANonPass(t *testing.T) {
+	diag := map[string]any{core.DiagVacuousClauses: []string{testSlotEvidence}}
+	for _, status := range []core.PolicyStatus{
+		core.StatusFail, core.StatusSkip, core.StatusError,
+		core.StatusNA, core.StatusWaived, core.StatusCarriedForward,
+	} {
+		payload := Build([]core.PolicyResult{{
+			PolicyID: "p1", Status: status, ResourcesEvaluated: 5, ResourcesFailed: 1, Diag: diag,
+		}}, nil)
+		if payload.Policies[0].Vacuous {
+			t.Errorf("status %q reported vacuous", status)
+		}
+	}
+}
+
+// omitempty: an ordinary pass must not gain a key on the wire.
+func TestBuild_VacuousOmittedWhenFalse(t *testing.T) {
+	payload := Build([]core.PolicyResult{
+		{PolicyID: "p1", Status: core.StatusPass, ResourcesEvaluated: 5},
+	}, nil)
+	raw, err := json.Marshal(payload.Policies[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "vacuous") {
+		t.Errorf("non-vacuous policy carries the key: %s", raw)
+	}
+}

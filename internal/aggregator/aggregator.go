@@ -36,14 +36,21 @@ import (
 // are non-identifying scalars and pass the structural counts-only test
 // in core/cloud_test.go.
 //
-// v4 (current): adds per-policy EvidenceMode and EvidenceModeOverridden.
+// v4: adds per-policy EvidenceMode and EvidenceModeOverridden.
 // A policy satisfied by a document being on file and one that inspected
 // live infrastructure both submit as "pass", so without these the
 // dashboard cannot tell a fully-verified estate from a folder of PDFs —
 // and for SOC 2 that is 27 of 43 criteria. Both are non-identifying: a
 // two-value enum and a boolean, identical across deployments, naming
 // nothing about the customer's estate.
-const SchemaVersion = "sigcomply.cloud.v4"
+//
+// v5 (current): adds the per-policy Vacuous boolean. A policy whose
+// clauses filtered every resource away passes exactly like one that
+// inspected five hundred — v4 said so in the message string, which
+// cannot be filtered, counted or trended. A bool can. It reports that a
+// filter matched nothing, never what the filter was looking for, so the
+// slot names stay vault-side.
+const SchemaVersion = "sigcomply.cloud.v5"
 
 // Environment captures the CI-runtime metadata stamped on the payload.
 // The CLI's orchestrator (L9) populates it from environment variables
@@ -105,6 +112,7 @@ func Build(results []core.PolicyResult, env *Environment) core.SubmissionPayload
 
 			EvidenceMode:           r.EvidenceMode,
 			EvidenceModeOverridden: r.EvidenceModeOverridden,
+			Vacuous:                vacuousPass(r),
 		})
 	}
 	return out
@@ -172,6 +180,18 @@ func buildSummary(results []core.PolicyResult) core.RunSummary {
 	return s
 }
 
+// vacuousPass reports whether this policy passed without examining
+// anything. One home for the derivation, so the wire bool and the wire
+// sentence can never disagree about the same run.
+//
+// Status-gated deliberately. VacuousSlots() is status-blind — it reports
+// whichever clauses matched nothing, and a *failing* policy can carry the
+// diagnostic for one clause while failing on another. Reporting that as a
+// vacuous pass would be false twice over.
+func vacuousPass(r *core.PolicyResult) bool {
+	return r.Status == core.StatusPass && len(r.VacuousSlots()) > 0
+}
+
 // generateMessage produces a count-only summary string. It NEVER
 // receives the rule's violation text — the rule's text may name
 // resources, and resource identifiers do not cross the privacy
@@ -183,7 +203,7 @@ func generateMessage(r *core.PolicyResult) string {
 		// claim as a pass that inspected them, and "All 500 resources
 		// passed." is indistinguishable between the two. The slot names
 		// behind the diagnostic stay in the CLI; only the sentence crosses.
-		if len(r.VacuousSlots()) > 0 {
+		if vacuousPass(r) {
 			return "Passed, but no resources matched the filter — verify this control is in scope."
 		}
 		return fmt.Sprintf("All %d resources passed.", r.ResourcesEvaluated)

@@ -25,7 +25,7 @@ type CloudClient interface {
 //  2. Demonstration that the field cannot carry identity in any
 //     deployment.
 //  3. Review by >=2 maintainers including the security owner.
-//  4. Schema-version bump (current: sigcomply.cloud.v4).
+//  4. Schema-version bump (current: sigcomply.cloud.v5).
 //
 // The reflection test in cloud_test.go enforces "no freeform fields"
 // structurally — adding interface{}, json.RawMessage, or
@@ -169,4 +169,22 @@ type AggregatedPolicy struct {
 	// automated check downgraded to a document upload. A boolean; it
 	// says that a change was made, never what to.
 	EvidenceModeOverridden bool `json:"evidence_mode_overridden,omitempty"`
+
+	// Vacuous is true when this policy passed without examining anything:
+	// every resource was filtered out before the check ran.
+	//
+	// "No public bucket is unencrypted" is honestly true when no bucket is
+	// public. It is not evidence that encryption works, and it submits as
+	// the same "pass" as a check that inspected five hundred buckets. The
+	// message string has said so in prose since v4, but prose cannot be
+	// filtered, counted or trended — so the dashboard could read the
+	// difference and never act on it.
+	//
+	// Non-identifying: it says a filter matched nothing, never what the
+	// filter was or what it was looking for. The slot names behind it stay
+	// in the customer's vault (see PolicyResult.VacuousSlots).
+	//
+	// Only ever true on a pass. A failing policy examined something — that
+	// is how it failed.
+	Vacuous bool `json:"vacuous,omitempty"`
 }

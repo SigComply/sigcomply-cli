@@ -13,6 +13,28 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **A vacuous pass is now distinguishable on the wire (`sigcomply.cloud.v5`).**
+  A policy whose clauses filter every resource away passes, and submits as
+  `pass`, exactly like one that inspected five hundred resources and found
+  them all conformant. *"No public bucket is unencrypted"* is honestly true
+  when no bucket is public — it is not evidence that encryption works.
+  The CLI has known the difference since the evaluator started recording
+  `vacuous_clauses`, and the previous release made the submitted `message`
+  say so in prose. Prose cannot be filtered, counted or trended, so the
+  dashboard could read the difference and never act on it. The new per-policy
+  `vacuous` boolean carries the same signal in a form it can.
+  Both are derived from one helper, so the flag and the sentence cannot
+  disagree about the same run, and both are gated on a passing status:
+  `VacuousSlots()` is status-blind, and a *failing* policy can carry the
+  diagnostic for one clause while failing on another — reporting that as a
+  vacuous pass would be false twice over.
+  Non-identifying: it reports that a filter matched nothing, never what the
+  filter was looking for. The slot names stay in the customer's vault.
+  **Rails was deployed first**, as the contract requires — an unpermitted key
+  is dropped silently and the request still returns 201, so a v5 payload
+  reaching a pre-v5 receiver would lose exactly the information the bump
+  exists to carry, with no error anywhere.
+
 - **A risk register, and the risk→control edge in the Statement of
   Applicability.** `report --view soa` already discharged three of the four
   things ISO/IEC 27001:2022 6.1.3 d) asks for: which controls are necessary,

@@ -159,6 +159,27 @@ func goldenPayload() core.SubmissionPayload {
 				LastKnownStatus: core.StatusPass,
 			},
 		},
+		{
+			// A vacuous pass: the clause filtered every resource away, so
+			// this passed without examining anything. It submits as "pass"
+			// exactly like shared.mfa_enforced above, which is the whole
+			// reason v5 carries the bool - the two are indistinguishable
+			// on the wire without it.
+			PolicyID:     "soc2.cc6.6.public_bucket_encryption",
+			EvidenceMode: core.EvidenceModeAutomated,
+			Status:       core.StatusPass,
+			Severity:     core.SeverityMedium,
+			Category:     "data_protection",
+			Controls: []core.ControlRef{
+				{Framework: testFrameworkSOC2, FrameworkVersion: testFrameworkVersionSOC2, ControlID: "CC6.6", Relationship: core.RelationshipEqual},
+			},
+			ResourcesEvaluated: 12,
+			ResourcesFailed:    0,
+			RuleVersion:        "1",
+			ConfiguredCadence:  testCadenceDaily,
+			NextDueAt:          nextDue,
+			Diag:               map[string]any{core.DiagVacuousClauses: []string{"evidence"}},
+		},
 	}
 
 	return Build(results, env)

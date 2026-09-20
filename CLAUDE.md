@@ -376,7 +376,7 @@ original signature; the auditor verifies it at
 `CarryForward.LastEnvelopeRef`. The cadence model added five
 non-identifying per-policy scalars to the cloud payload in v2 —
 `ConfiguredCadence`/`LastEvaluatedAt`/`NextDueAt`/`IsCarriedForward`/`PolicyContentHash`
-— retained unchanged in the current `sigcomply.cloud.v4` schema (the
+— retained unchanged in the current `sigcomply.cloud.v5` schema (the
 counts-only test still guards). (v3 itself swapped the per-policy scalar
 `control_id` for a `controls []ControlRef` list — multi-framework
 mapping; v4 then added the `evidence_mode` / `evidence_mode_overridden`

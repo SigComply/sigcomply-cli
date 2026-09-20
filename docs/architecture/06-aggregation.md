@@ -49,7 +49,7 @@ package core
 // maintainers including the security owner. Adding a freeform field
 // is a non-custodial regression and must be explicitly justified.
 type SubmissionPayload struct {
-    Schema      string         `json:"schema"`        // "sigcomply.cloud.v4"
+    Schema      string         `json:"schema"`        // "sigcomply.cloud.v5"
 
     RunID       string         `json:"run_id"`        // UUID
     Framework   string         `json:"framework"`     // "soc2"
@@ -127,6 +127,7 @@ type AggregatedPolicy struct {
     PolicyContentHash  string     `json:"policy_content_hash,omitempty"`    // SHA-256(policy incl. pass_when + schemas)
     EvidenceMode           EvidenceMode `json:"evidence_mode,omitempty"`            // "automated" | "manual"
     EvidenceModeOverridden bool         `json:"evidence_mode_overridden,omitempty"` // project changed it
+    Vacuous                bool         `json:"vacuous,omitempty"`                   // passed, examined nothing
     // LastEvaluatedAt / NextDueAt are pointers so omitempty drops a zero
     // value instead of serializing "0001-01-01T00:00:00Z" (encoding/json
     // does not omit a zero time.Time struct).
@@ -172,8 +173,8 @@ If a maintainer believes a new field is needed, they must:
 2. Demonstrate that the field cannot carry a resource identifier in
    any deployment.
 3. Get review from ≥ 2 maintainers including the security owner.
-4. Bump the schema version (current is `sigcomply.cloud.v4`; next would
-   be `sigcomply.cloud.v5`) so existing deployments are aware of the
+4. Bump the schema version (current is `sigcomply.cloud.v5`; next would
+   be `sigcomply.cloud.v6`) so existing deployments are aware of the
    change.
 
 This is friction, by design. Every loosening of the contract erodes
@@ -195,7 +196,7 @@ transcription:
 func Build(results []core.PolicyResult, env *Environment) core.SubmissionPayload {
 
     out := core.SubmissionPayload{
-        Schema:      SchemaVersion,        // "sigcomply.cloud.v4"
+        Schema:      SchemaVersion,        // "sigcomply.cloud.v5"
         RunID:       env.RunID,
         Framework:   env.Framework,
         PeriodID:    env.PeriodID,
@@ -232,6 +233,7 @@ func Build(results []core.PolicyResult, env *Environment) core.SubmissionPayload
             PolicyContentHash: r.PolicyContentHash,
             EvidenceMode:      r.EvidenceMode,
             EvidenceModeOverridden: r.EvidenceModeOverridden,
+            Vacuous:                vacuousPass(r),
         })
     }
 
@@ -245,7 +247,7 @@ func generateMessage(r core.PolicyResult) string {
     case core.StatusPass:
         // A pass whose clauses filtered every record away is not the
         // same claim as one that inspected them.
-        if len(r.VacuousSlots()) > 0 {
+        if vacuousPass(r) {
             return "Passed, but no resources matched the filter — verify this control is in scope."
         }
         return fmt.Sprintf("All %d resources passed.", r.ResourcesEvaluated)
@@ -275,8 +277,15 @@ are true of the empty set. Without the vacuity branch the dashboard
 receives *"All 500 resources passed."* for a control that examined
 nothing, indistinguishable from one that examined everything. The slot
 names behind `vacuous_clauses` stay in the CLI; only the sentence
-crosses, so the aggregation boundary is untouched and `message` is an
-existing wire field — no schema bump.
+crosses, so the aggregation boundary is untouched.
+
+v5 carries the same signal a second way, as the `vacuous` boolean, because
+prose cannot be filtered, counted or trended — a dashboard can read the
+sentence but cannot chart how many vacuous passes an estate has. Both are
+derived from one helper (`vacuousPass`), so the flag and the sentence can
+never disagree about the same run, and both are gated on `StatusPass`:
+`VacuousSlots()` is status-blind, and a failing policy can carry the
+diagnostic for one clause while failing on another.
 
 The critical design choice: `Message` is **regenerated** from counts.
 The rule's violation text (which may say "MFA disabled for
@@ -569,7 +578,7 @@ makes that drift visible.
 
 ## Versioning the contract
 
-`Schema: "sigcomply.cloud.v4"` is stamped into every payload (the
+`Schema: "sigcomply.cloud.v5"` is stamped into every payload (the
 constant `aggregator.SchemaVersion`). The receiver (cloud or self-hosted
 dashboard) keys behavior off it. v3 replaced the per-policy scalar
 `control_id` with a `controls []ControlRef` list so one check can map to
@@ -577,14 +586,17 @@ controls across many frameworks; the cadence scalars added in v2 are
 unchanged. v4 adds `evidence_mode` and `evidence_mode_overridden` — a
 policy satisfied by a document being on file and one that inspected live
 infrastructure both submit as `pass`, so without them the dashboard
-cannot distinguish a fully-verified estate from a folder of PDFs.
+cannot distinguish a fully-verified estate from a folder of PDFs. v5 adds
+`vacuous` — a policy whose clauses filtered every resource away passes
+exactly like one that inspected five hundred, and v4 said so only in the
+`message` string, which cannot be filtered, counted or trended.
 
 Breaking changes (renames, semantic shifts in existing fields) bump the
 version. The CLI emits one version per release; the receiver typically
 accepts a range. Coexistence rules:
 
 - The Rails receiver is **shape-driven, not version-gated**: it stores
-  the `schema` string verbatim and accepts `v1`/`v2`/`v3`/`v4` payloads
+  the `schema` string verbatim and accepts `v1`/`v2`/`v3`/`v4`/`v5` payloads
   simultaneously. A policy carrying a non-empty `controls[]` is treated
   as v3; one carrying only a scalar `control_id` is read as v2 and
   synthesized into a single-element `controls` list. See the Rails app's
@@ -594,9 +606,9 @@ accepts a range. Coexistence rules:
 - A new CLI talking to an old cloud has the unknown field dropped by
   strong-params — the request still returns 201 and the rest of the
   payload stores normally, so the failure is silent. **Deploy the Rails
-  side first.** A v4 payload reaching a pre-v4 receiver loses only the
-  evidence-mode distinction, which is precisely the information the bump
-  exists to carry.
+  side first.** A v5 payload reaching a pre-v5 receiver loses only the
+  vacuity flag, which is precisely the information the bump exists to
+  carry.
 
 The transition cost of bumping is intentional. The privacy boundary
 is not a place for casual evolution.
