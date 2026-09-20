@@ -106,7 +106,7 @@ type RunSummary struct {
 // (Named PolicyResult in earlier docs; the wire type is
 // core.AggregatedPolicy.)
 type AggregatedPolicy struct {
-    PolicyID           string       `json:"policy_id"`         // "soc2.cc6.1.mfa_enforced"
+    PolicyID           string       `json:"policy_id"`         // "soc2.cc6.1.mfa_enforced_all_users"
     Controls           []ControlRef `json:"controls"`          // v3: one check ↦ many frameworks
     Status             PolicyStatus `json:"status"`            // pass|fail|skip|error|na|waived|carried_forward
     Severity           Severity     `json:"severity"`          // info|low|medium|high|critical
@@ -243,6 +243,11 @@ func Build(results []core.PolicyResult, env *Environment) core.SubmissionPayload
 func generateMessage(r core.PolicyResult) string {
     switch r.Status {
     case core.StatusPass:
+        // A pass whose clauses filtered every record away is not the
+        // same claim as one that inspected them.
+        if len(r.VacuousSlots()) > 0 {
+            return "Passed, but no resources matched the filter — verify this control is in scope."
+        }
         return fmt.Sprintf("All %d resources passed.", r.ResourcesEvaluated)
     case core.StatusFail:
         return fmt.Sprintf("%d of %d resources failed.", r.ResourcesFailed, r.ResourcesEvaluated)
@@ -261,6 +266,17 @@ func generateMessage(r core.PolicyResult) string {
     return ""
 }
 ```
+
+**Why the pass branch reads `Diag`.** `resources_evaluated` counts a
+policy's records **before** its clauses filter them (see
+[`03-policy-spec.md`](03-policy-spec.md) §Vacuity), so a policy that
+filtered 500 records down to zero still reports 500 — and `all`/`none`
+are true of the empty set. Without the vacuity branch the dashboard
+receives *"All 500 resources passed."* for a control that examined
+nothing, indistinguishable from one that examined everything. The slot
+names behind `vacuous_clauses` stay in the CLI; only the sentence
+crosses, so the aggregation boundary is untouched and `message` is an
+existing wire field — no schema bump.
 
 The critical design choice: `Message` is **regenerated** from counts.
 The rule's violation text (which may say "MFA disabled for

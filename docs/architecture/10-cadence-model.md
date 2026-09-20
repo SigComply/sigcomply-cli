@@ -112,9 +112,9 @@ Customers override the framework default in `.sigcomply.yaml`:
 
 ```yaml
 policies:
-  soc2.cc6.1.mfa_enforced_admin:
+  soc2.cc6.1.mfa_enforced_admins:
     cadence: every:6h
-  soc2.cc7.2.annual_pentest:
+  soc2.cc8.1.penetration_test_annual:
     cadence: annual
 ```
 
@@ -332,8 +332,8 @@ result.json that references the prior signed envelope:
 
 ```json
 {
-  "PolicyID": "soc2.cc1.board_review_quarterly",
-  "Controls": [{ "control_id": "SOC2.CC1.1" }],
+  "PolicyID": "soc2.cc6.3.access_review_quarterly",
+  "Controls": [{ "control_id": "CC6.3" }],
   "Status": "carried_forward",
   "ConfiguredCadence": "quarterly",
   "PolicyContentHash": "sha256:...",

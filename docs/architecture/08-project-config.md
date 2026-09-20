@@ -117,9 +117,9 @@ evidence-mode override, and scoped exceptions, co-located:
 
 ```yaml
 policies:
-  soc2.cc6.1.mfa_enforced:
+  soc2.cc6.1.mfa_enforced_all_users:
     bindings:
-      user_directory: [okta, acme.internal_iam]
+      evidence: [okta, acme.internal_iam]
     parameters:
       exempt_service_accounts: false
     cadence: hourly

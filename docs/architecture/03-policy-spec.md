@@ -54,7 +54,7 @@ project authors, the YAML *is* the artifact.
 ```yaml
 schema_version: policy.v1
 
-id: soc2.cc6.1.mfa_enforced
+id: soc2.cc6.1.mfa_enforced_all_users
 
 control: SOC2.CC6.1
 severity: high               # info | low | medium | high | critical
@@ -72,7 +72,7 @@ remediation: |
   Enable MFA for affected users via the relevant identity provider.
 
 slots:
-  user_directory:
+  evidence:
     accepts: [directory_user]    # evidence type IDs this slot consumes
     cardinality: one-or-more
     required: true
@@ -86,7 +86,7 @@ parameters:
       When true, records where is_service_account == true are skipped.
 
 pass_when:
-  slot: user_directory
+  slot: evidence
   quantifier: all
   filter:
     op: eq
@@ -141,7 +141,7 @@ this slot will consume. The in-memory shape is
 
 ```yaml
 slots:
-  user_directory:
+  evidence:
     accepts: [directory_user]                # single-type slot, many sources
   buckets:
     accepts: [object_storage_bucket]         # single neutral type spans S3/GCS/Azure
@@ -236,7 +236,11 @@ This matters because `resources_evaluated` counts the records in the
 policy's slots **before** filtering. A policy that filtered 500 records
 down to zero still reports 500 evaluated, so on its own the result reads
 "all 500 resources passed" when none were examined. The diagnostic is
-what keeps that distinguishable. Slots that `pass_when` reads **only**
+what keeps that distinguishable — locally in `sigcomply check` and
+`report`, which print the slot names, and on the wire, where the
+aggregator swaps the count sentence for *"Passed, but no resources
+matched the filter — verify this control is in scope."* (slot names stay
+in the CLI; only the sentence crosses). Slots that `pass_when` reads **only**
 through a `matches_in` `in_slot` (lookup tables such as the roster) are
 excluded from the count — the roster's people are not resources under
 test, the accounts are. A slot that is also some clause's own `slot:`
@@ -303,7 +307,7 @@ the plugins normalize consistently:
 
 ```yaml
 pass_when:
-  slot: user_directory
+  slot: evidence
   quantifier: all
   identity_key: payload.email      # collapse the same human across sources
   condition:
@@ -397,7 +401,7 @@ Projects can override the framework default for any policy in
 
 ```yaml
 policies:
-  soc2.cc6.1.mfa_enforced:
+  soc2.cc6.1.mfa_enforced_all_users:
     evidence_mode: manual          # customer has no IAM integration yet
     catalog_entry: mfa_attestation # which catalog entry to use for the PDF
 ```
@@ -405,7 +409,7 @@ policies:
 When overriding to `manual`, `catalog_entry` names the catalog entry
 that resolves to the PDF path. If omitted, it defaults to the policy's
 short name (the last segment of its ID: `mfa_enforced` for
-`soc2.cc6.1.mfa_enforced`).
+`soc2.cc6.1.mfa_enforced_all_users`).
 
 The project config override is the mechanism for customers who rely on
 manual processes today and plan to wire up API integrations later. The
@@ -911,11 +915,11 @@ A project can override a shipped policy's cadence in its
 
 ```yaml
 policies:
-  soc2.cc6.1.mfa_enforced:
+  soc2.cc6.1.mfa_enforced_all_users:
     cadence: hourly                     # tighten — we care about drift
-  soc2.cc6.6.public_access_blocked:
+  soc2.cc6.7.storage_public_access_blocked:
     cadence: continuous
-  soc2.cc1.2.code_of_conduct_attested:
+  soc2.cc1.1.code_of_conduct_acknowledgment:
     cadence: annual                     # loosen — we attest yearly
 ```
 
@@ -927,8 +931,8 @@ cadence filter flags) lives in [`08-project-config.md`](08-project-config.md).
 ```yaml
 schema_version: policy.v1
 
-id: soc2.cc1.4.quarterly_access_review
-control: SOC2.CC1.4
+id: soc2.cc6.3.access_review_quarterly
+control: CC6.3
 severity: medium
 category: governance
 

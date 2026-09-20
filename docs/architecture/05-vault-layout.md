@@ -119,15 +119,15 @@ sign every file in the folder. Its fields:
 
   "file_hashes": {
     "summary.json":      "sha256:7f3a9c8e...",
-    "policies/soc2.cc6.1.mfa_enforced/result.json":
+    "policies/soc2.cc6.1.mfa_enforced_all_users/result.json":
       "sha256:c9d4f2a1...",
-    "policies/soc2.cc6.1.mfa_enforced/envelopes/directory_user__aws.iam.json":
+    "policies/soc2.cc6.1.mfa_enforced_all_users/envelopes/directory_user__aws.iam.json":
       "sha256:e3b0c442..."
   },
 
   "exceptions_applied": [
     {
-      "policy_id":   "soc2.cc6.1.mfa_enforced",
+      "policy_id":   "soc2.cc6.1.mfa_enforced_all_users",
       "resource_id": "iam_user_legacy_svc",
       "state":       "waived",
       "approved_by": "jane.doe@acme.com",

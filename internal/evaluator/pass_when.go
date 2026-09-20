@@ -66,7 +66,7 @@ func evaluatePassWhen(spec *core.PassWhenSpec, ec *evalCtx) core.RuleResult {
 		// an empty in_slot is reported for the same reason: it compared
 		// against nothing.
 		sort.Strings(vacuous)
-		out.Diag = map[string]any{"vacuous_clauses": vacuous}
+		out.Diag = map[string]any{core.DiagVacuousClauses: vacuous}
 	}
 	return out
 }

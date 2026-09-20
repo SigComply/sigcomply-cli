@@ -240,7 +240,7 @@ migration windows:
 ```yaml
 # during migration, accept both
 slots:
-  user_directory:
+  evidence:
     accepts: [directory_user.v1, directory_user.v2]
 ```
 

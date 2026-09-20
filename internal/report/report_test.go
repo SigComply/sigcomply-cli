@@ -33,6 +33,7 @@ const (
 	statusWaived       = "waived"
 	statusIncomplete   = "incomplete"
 	statusImplemented  = "implemented"
+	statusNotImplmntd  = "not implemented"
 	statusNotEvaluated = "not evaluated"
 	stateNotConfigured = "not_configured"
 

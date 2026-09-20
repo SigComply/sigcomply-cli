@@ -1227,20 +1227,20 @@ sources:
 # bindings, parameters, cadence, evidence_mode, and scoped exceptions.
 # Omit a policy entirely to take framework defaults + auto-binding.
 policies:
-  soc2.cc6.1.mfa_enforced:
+  soc2.cc6.1.mfa_enforced_all_users:
     bindings:
       evidence: [okta, aws.iam]          # narrow the slot to chosen sources
     cadence: hourly                      # override the framework cadence
-  soc2.cc6.1.access_key_rotation:
+  soc2.cc6.1.access_keys_rotated_90d:
     parameters:
       max_age_days: 60                   # tune a policy parameter
-  soc2.cc6.1.access_review_quarterly:
+  soc2.cc6.3.access_review_quarterly:
     evidence_mode: manual                # automated <-> manual migration
     catalog_entry: access_review_quarterly
-  soc2.cc6.7.waf_in_front_of_web_app:
+  soc2.cc6.7.storage_public_access_blocked:
     exceptions:                          # waivers / N/A, versioned in git
       - state: na                        # waived | na
-        reason: "API-only product; no public web app requiring a WAF."
+        reason: "No object storage in scope; all assets served from the CDN."
 
 # Controls — control-level decisions (coarse, per-control). not_applicable
 # cascades na to every policy mapping to the control. Both keys feed the ISO
@@ -1835,9 +1835,9 @@ LastPassAt and drifts time-of-day across runs.
 # .sigcomply.yaml
 framework: soc2
 policies:
-  soc2.cc6.1.mfa_enforced_admin:
+  soc2.cc6.1.mfa_enforced_admins:
     cadence: every:6h
-  soc2.cc7.2.annual_pentest:
+  soc2.cc8.1.penetration_test_annual:
     cadence: annual
 ```
 

@@ -178,7 +178,26 @@ func TestBuildSoA_StatusRollup(t *testing.T) {
 		"all pass":             {[]core.PolicyStatus{core.StatusPass, core.StatusPass}, statusImplemented},
 		"waived counts as met": {[]core.PolicyStatus{core.StatusPass, core.StatusWaived}, statusImplemented},
 		"mixed":                {[]core.PolicyStatus{core.StatusPass, core.StatusFail}, "partially implemented"},
-		"all fail":             {[]core.PolicyStatus{core.StatusFail, core.StatusFail}, "not implemented"},
+		"all fail":             {[]core.PolicyStatus{core.StatusFail, core.StatusFail}, statusNotImplmntd},
+		// A skip is a check that could not run, so on its own it leaves
+		// the control with nothing to show for itself.
+		"all skip": {[]core.PolicyStatus{core.StatusSkip, core.StatusSkip}, statusNotImplmntd},
+
+		// `na` is a check that never ran: it must not vote either way.
+		// Counting it as met turned the documented remedy for a control
+		// you cannot satisfy into "implemented" on the one document an
+		// auditor reads as an assertion.
+		"na alone is not evaluated":       {[]core.PolicyStatus{core.StatusNA}, "not evaluated"},
+		"na abstains beside a pass":       {[]core.PolicyStatus{core.StatusPass, core.StatusNA}, statusImplemented},
+		"na abstains beside a failure":    {[]core.PolicyStatus{core.StatusFail, core.StatusNA}, statusNotImplmntd},
+		"na does not manufacture partial": {[]core.PolicyStatus{core.StatusNA, core.StatusNA}, "not evaluated"},
+
+		// Carry-forward inherits a prior pass — the compliance score and
+		// the coverage view both count it as one, and the SoA used to be
+		// the only surface calling it statusNotImplmntd.
+		"carried forward is a pass":        {[]core.PolicyStatus{core.StatusCarriedForward}, statusImplemented},
+		"carried forward beside a pass":    {[]core.PolicyStatus{core.StatusPass, core.StatusCarriedForward}, statusImplemented},
+		"carried forward beside a failure": {[]core.PolicyStatus{core.StatusCarriedForward, core.StatusFail}, "partially implemented"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			results := make([]core.PolicyResult, 0, len(tc.statuses))

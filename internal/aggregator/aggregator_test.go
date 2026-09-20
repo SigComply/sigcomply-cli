@@ -14,6 +14,7 @@ const (
 	testFrameworkISO27001    = "iso27001"
 	testFrameworkVersionSOC2 = "soc2-2017@1.0.0"
 	testCadenceDaily         = "daily"
+	testSlotEvidence         = "evidence"
 )
 
 func TestBuild_StampsSchemaAndMetadata(t *testing.T) {
@@ -188,5 +189,76 @@ func TestBuild_AggregatedPolicyOmitsRuleVersionWhenEmpty(t *testing.T) {
 	}
 	if strings.Contains(string(b), "rule_version") {
 		t.Errorf("rule_version emitted when empty: %s", b)
+	}
+}
+
+// A vacuous pass — one whose clauses filtered every record away — has to
+// read differently on the wire from a thorough one. `all`/`none` are true
+// of the empty set, so both would otherwise arrive at the dashboard as
+// "All 500 resources passed."
+func TestBuild_VacuousPassIsDistinguishableFromAThoroughOne(t *testing.T) {
+	thorough := generateMessage(&core.PolicyResult{
+		Status: core.StatusPass, ResourcesEvaluated: 500,
+	})
+	if !strings.Contains(thorough, "All 500 resources passed") {
+		t.Errorf("thorough pass message = %q; want the count sentence", thorough)
+	}
+
+	vacuous := generateMessage(&core.PolicyResult{
+		Status:             core.StatusPass,
+		ResourcesEvaluated: 500,
+		Diag:               map[string]any{core.DiagVacuousClauses: []string{testSlotEvidence}},
+	})
+	if vacuous == thorough {
+		t.Fatalf("vacuous pass message is identical to a thorough one: %q", vacuous)
+	}
+	if !strings.Contains(vacuous, "no resources matched") {
+		t.Errorf("vacuous pass message = %q; want it to say nothing matched", vacuous)
+	}
+	if !strings.Contains(vacuous, "in scope") {
+		t.Errorf("vacuous pass message = %q; want the in-scope prompt", vacuous)
+	}
+	// Slot names are the CLI's vocabulary and stay there: only the
+	// generated sentence crosses the aggregation boundary.
+	if strings.Contains(vacuous, testSlotEvidence) {
+		t.Errorf("vacuous pass message leaked a slot name: %q", vacuous)
+	}
+	// Rails validates message length at 500 characters.
+	if len(vacuous) > 500 {
+		t.Errorf("message is %d chars; Rails caps it at 500", len(vacuous))
+	}
+}
+
+// Read back out of the vault, Diag decodes as map[string]any with []any
+// values. The wire message must not silently revert to the thorough
+// sentence for a replayed result.
+func TestBuild_VacuousPassSurvivesTheVaultJSONShape(t *testing.T) {
+	got := generateMessage(&core.PolicyResult{
+		Status:             core.StatusPass,
+		ResourcesEvaluated: 500,
+		Diag:               map[string]any{core.DiagVacuousClauses: []any{testSlotEvidence}},
+	})
+	if !strings.Contains(got, "no resources matched") {
+		t.Errorf("message = %q; want the vacuous sentence for a []any diag", got)
+	}
+}
+
+// Only a pass is ambiguous. A fail already names counts that cannot be
+// mistaken for thoroughness.
+func TestBuild_VacuityOnlyChangesThePassSentence(t *testing.T) {
+	diag := map[string]any{core.DiagVacuousClauses: []string{testSlotEvidence}}
+	for _, status := range []core.PolicyStatus{
+		core.StatusFail, core.StatusSkip, core.StatusError,
+		core.StatusNA, core.StatusWaived, core.StatusCarriedForward,
+	} {
+		withDiag := generateMessage(&core.PolicyResult{
+			Status: status, ResourcesEvaluated: 5, ResourcesFailed: 1, Diag: diag,
+		})
+		without := generateMessage(&core.PolicyResult{
+			Status: status, ResourcesEvaluated: 5, ResourcesFailed: 1,
+		})
+		if withDiag != without {
+			t.Errorf("status %q: diag changed the message (%q vs %q)", status, withDiag, without)
+		}
 	}
 }

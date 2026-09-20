@@ -11,6 +11,56 @@ tracks the human-curated highlights.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`na` no longer reads as "implemented" in the Statement of Applicability.**
+  `soaStatus` counted `na` alongside pass and waived, so following the
+  documented remedy for a control you cannot satisfy
+  (`exceptions: [{state: na}]`) turned "never examined" into an assertion of
+  implementation on the one document an auditor reads as exactly that — worse
+  than the `not implemented` it replaced. An `na` policy never reached its
+  rule, so it now abstains from the roll-up entirely: a control with nothing
+  but `na` policies reports **not evaluated**. This also closes a quieter leak,
+  where a policy mapping to both a `not_applicable` control and an applicable
+  one cascaded its `na` onto the applicable control's row.
+  Use `state: waived` when you mean "this applies and we are accepting the
+  gap" — that still counts as met, with your reason and expiry on the row.
+- **A carried-forward control no longer reads as "not implemented" in the
+  SoA.** `soaStatus` was the only roll-up in the CLI that did not treat
+  carry-forward as the pass it inherits — the compliance score counts it in
+  the numerator and `report --view coverage` ranks it with pass. A control
+  whose checks were simply not due for re-evaluation this period was reported
+  to the auditor as failing.
+- **A vacuous pass is now distinguishable from a thorough one on the wire.**
+  `resources_evaluated` counts a policy's records *before* its clauses filter
+  them, and `all`/`none` are true of the empty set, so a policy that filtered
+  500 records down to zero submitted *"All 500 resources passed."* — identical
+  to one that inspected all 500. The dashboard could not tell them apart and
+  could not be fixed from its side. The aggregator now emits *"Passed, but no
+  resources matched the filter — verify this control is in scope."* for such a
+  pass. `message` is an existing wire field, so there is **no schema bump and
+  no migration**; the slot names behind the diagnostic stay in the CLI, and
+  only the sentence crosses the aggregation boundary.
+- **Config examples that failed when copied.** Eight `bindings:` examples
+  across the docs and one Go doc comment keyed on a slot named
+  `user_directory`, which no shipped policy declares — `planner: binding for
+  unknown slot "user_directory"`, exit 3. The conventional slot is `evidence`;
+  the other four are `roster` (`exactly-one`), `accounts`, `deployments` and
+  `changes`. A further fifteen examples named policy IDs that do not exist
+  (`soc2.cc6.1.mfa_enforced`, `soc2.cc6.1.access_key_rotation`,
+  `soc2.cc7.2.annual_pentest`, …), which is also exit 3 — `project config:
+  policies[…]: no such policy in framework`. Every example now names a real
+  slot and a real policy. `04-source-plugins.md` also claimed one-or-more was
+  the cardinality of "every slot the shipped frameworks declare"; `roster` is
+  `exactly-one`.
+- **`tenant_id` is documented as optional, which is what it is.**
+  `docs/guides/configure-sources.md` and `docs/for-ai-agents.md` listed it as a
+  *required* config key for Microsoft Graph sources. It is neither required nor
+  auth-bearing: the Graph token is scoped by the credential's home tenant, and
+  `tenant_id` only tags each record's provenance. (Deriving that provenance
+  from the credential instead of trusting the declaration is separate, larger
+  work.)
+
 ### Changed
 
 - **Manual-evidence folders are now keyed by the entry's cadence, not by

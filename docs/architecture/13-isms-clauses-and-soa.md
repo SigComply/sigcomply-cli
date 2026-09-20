@@ -273,6 +273,18 @@ reports `not evaluated`; it never borrows a pass from the catalog. A
 partially implemented control that reads as implemented is the failure
 mode worth avoiding on this particular document.
 
+**"That ran" decides the two awkward statuses.** A policy resolved to
+`na` — by a policy-level `exceptions: [{state: na}]`, or by the cascade
+from a `not_applicable` control onto a *different* control it also maps
+to — never reached its rule. It is left out of the roll-up entirely
+rather than counted as met, so a control with nothing but `na` policies
+reports `not evaluated`. Counting it as met was the sharper version of
+exactly the failure mode above: it turned the documented remedy for a
+control you cannot satisfy into an assertion that you had implemented
+it. A **carried-forward** policy is the mirror case — it did run, in an
+earlier period, and it passed — so it counts as met, as it already does
+in the compliance score and the coverage view.
+
 **Assurance travels with the row.** Each row carries `automated`,
 `manual` or `none` — the strongest kind of check behind the control, the
 same classification `--view coverage` renders. An implemented control

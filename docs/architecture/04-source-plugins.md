@@ -660,17 +660,19 @@ sources:
 ```
 
 Instances auto-bind like any other configured source, so a slot with
-`cardinality: one-or-more` (which is every slot the shipped frameworks
-declare) receives the union of both instances' records and needs no
-`bindings:` block. A slot that accepts only one source becomes ambiguous
-once a second instance can fill it, and the planner says so — name the
-instance you want explicitly:
+`cardinality: one-or-more` receives the union of both instances' records
+and needs no `bindings:` block. That covers four of the five slot names
+the shipped frameworks declare — `evidence` (the conventional slot on
+every automated policy), `accounts`, `deployments` and `changes`. The
+fifth, `roster`, is `exactly-one`: it becomes ambiguous the moment a
+second instance can fill it, and the planner says so — name the instance
+you want explicitly:
 
 ```yaml
 policies:
-  soc2.cc6.1.mfa_enforced:
+  soc2.cc6.1.mfa_enforced_all_users:
     bindings:
-      user_directory: [aws.iam, "aws.iam[staging]"]
+      evidence: [aws.iam, "aws.iam[staging]"]
 ```
 
 **Instance identity is real, not cosmetic.** The instance key is the
@@ -732,9 +734,9 @@ A binding can pass per-slot parameters to the plugin:
 
 ```yaml
 policies:
-  soc2.cc6.1.admin_mfa_enforced:
+  soc2.cc6.1.mfa_enforced_admins:
     bindings:
-      user_directory:
+      evidence:
         - source: aws.iam
           slot_params:
             filter_admins_only: true

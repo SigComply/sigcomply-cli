@@ -195,11 +195,13 @@ A.7.4    Physical security monitoring        no          excluded     none      
 |---|---|
 | `CONTROL` / `NAME` | The catalog control. Only Annex A and any project-local catalog controls appear — never the 16 clause requirements. |
 | `APPLICABLE` | `no` only where you declared `applicability: not_applicable`. Everything else is `yes`. |
-| `STATUS` | Derived from **this period's** results: `implemented` (every check that ran passed), `partially implemented`, `not implemented`, `not evaluated` (no check ran), or `excluded`. |
+| `STATUS` | Derived from **this period's** results: `implemented` (every check that ran passed, counting a carried-forward check as the pass it inherits), `partially implemented`, `not implemented`, `not evaluated` (no check ran), or `excluded`. A policy resolved to `na` never ran, so it abstains rather than voting either way — a control with nothing but `na` policies reports `not evaluated`. |
 | `ASSURANCE` | `automated` (infrastructure was inspected), `manual` (a document is on file), or `none` (no check implements this control). An implemented control evidenced only by a PDF is a weaker claim, and the SoA does not flatten the two. |
 | `JUSTIFICATION` | Your `justification` for an included control, or your `reason` for an excluded one. Prefixed `(derived)` where SigComply wrote it rather than you. |
 
 CSV carries the same rows plus `justification_derived`, `evaluated`, `policies` and `approved_by`.
+
+**A waiver and an N/A are not the same claim here.** `state: waived` says "this control applies to us and we are knowingly accepting the gap", so it counts toward `implemented` — the reason and expiry are on the row for the auditor to weigh. `state: na` says "no check ran", so it counts toward nothing and the control falls back to whatever its other policies showed, or to `not evaluated`. If you want a control to read as addressed, waive it and say why; declaring it N/A will not manufacture a pass.
 
 Two things the statuses deliberately do not do. **`not evaluated` is not a pass** — an annual control writes no result in three quarters out of four, so a Q2 SoA will legitimately show many of them; generate the SoA from a period in which the annual cadence ran if you want those rows filled in. And **a derived justification is not your reasoning** — it is accurate ("Verified by 3 automated checks") and says nothing about why *your* organization kept the control. Fill in `controls.<id>.justification` for anything you actually deliberated over; the note counts how many are still derived.
 

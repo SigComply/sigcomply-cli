@@ -112,6 +112,12 @@ func soaRow(
 // verdict ISO asks for. Anything short of "every check that ran passed"
 // is reported as short of implemented — a partially implemented control
 // that reads as implemented is the failure mode worth avoiding.
+//
+// "That ran" is load-bearing and decides the two interesting statuses:
+// an `na` policy never ran, so it is left out of the roll-up entirely
+// (a control with nothing but `na` policies reports "not evaluated"),
+// while a carried-forward policy did run — in an earlier period, and it
+// passed — so it counts as met.
 func soaStatus(policies []core.Policy, results map[string]core.PolicyResult) (status string, evaluated int) {
 	passed := 0
 	for i := range policies {
@@ -119,9 +125,22 @@ func soaStatus(policies []core.Policy, results map[string]core.PolicyResult) (st
 		if !ok {
 			continue
 		}
+		// `na` is a check that never ran — the evaluator short-circuits
+		// before the rule — so it neither implements the control nor
+		// fails it. Counting it as met made the documented remedy for a
+		// control you cannot satisfy read as "implemented" on the one
+		// document an auditor reads as an assertion; counting it as
+		// unmet would be the opposite lie. It abstains.
+		if r.Status == core.StatusNA {
+			continue
+		}
 		evaluated++
 		switch r.Status {
-		case core.StatusPass, core.StatusWaived, core.StatusNA:
+		// Carry-forward is a pass: it points at a prior passing envelope
+		// and is in the compliance score's numerator and the coverage
+		// view's pass rank. The SoA was the only surface that called a
+		// control whose checks were simply not due yet "not implemented".
+		case core.StatusPass, core.StatusWaived, core.StatusCarriedForward:
 			passed++
 		}
 	}

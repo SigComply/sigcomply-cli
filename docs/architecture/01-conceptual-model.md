@@ -60,8 +60,8 @@ description, severity baseline, category, and a **kind**. Each control
 is verified by zero or more policies.
 
 **Example.** `CC6.1` in SOC 2 is verified (in part) by:
-`soc2.cc6.1.mfa_enforced`, `soc2.cc6.1.access_key_rotation`,
-`soc2.cc6.1.inactive_users_disabled`, and others.
+`soc2.cc6.1.mfa_enforced_all_users`, `soc2.cc6.1.access_keys_rotated_90d`,
+`soc2.cc6.2.no_active_accounts_for_inactive_personnel`, and others.
 
 **Two kinds.** `Control.Kind` separates the two things a framework calls
 a control, and the distinction is load-bearing:
@@ -115,9 +115,9 @@ declare a `catalog_entry:` and carry neither slots nor `pass_when:`. A
 project may override the framework's default per policy via
 `policies.<id>.evidence_mode` in `.sigcomply.yaml` (same policy ID).
 
-**Example.** `soc2.cc6.1.mfa_enforced` (`evidence_mode: automated`)
+**Example.** `soc2.cc6.1.mfa_enforced_all_users` (`evidence_mode: automated`)
 asserts "every user in the configured user-directory source has MFA
-enabled." It has one slot (`user_directory`) accepting `directory_user`,
+enabled." It has one slot (`evidence`) accepting `directory_user`,
 no parameters, and a `pass_when:` clause requiring
 `payload.mfa_enabled == true` across all records.
 
@@ -154,7 +154,7 @@ identity.
 **Example.** A policy spec declares:
 
 ```yaml
-id: soc2.cc6.1.mfa_enforced
+id: soc2.cc6.1.mfa_enforced_all_users
 cadence: daily
 on_push: true
 ```
@@ -163,7 +163,7 @@ A project may override per policy in `.sigcomply.yaml`:
 
 ```yaml
 policies:
-  soc2.cc6.1.mfa_enforced:
+  soc2.cc6.1.mfa_enforced_all_users:
     cadence: hourly
 ```
 
@@ -188,7 +188,7 @@ legal and the CLI will execute it.
 ### 5. Slot
 
 **Definition.** A named, multi-typed input on a policy. A slot declares:
-a name (`user_directory`), the **set** of evidence types it accepts
+a name (`evidence`), the **set** of evidence types it accepts
 (`accepts: [directory_user]`, or a multi-type slot such as
 `accepts: [directory_user]` bound to several user sources), a
 cardinality (`exactly-one` | `one-or-more` | `optional` |
@@ -197,11 +197,11 @@ between a policy and the data it needs, and the only abstraction that
 knows about evidence types — neither policies nor sources mention each
 other by ID.
 
-**Example.** `soc2.cc6.1.mfa_enforced` declares:
+**Example.** `soc2.cc6.1.mfa_enforced_all_users` declares:
 
 ```yaml
 slots:
-  user_directory:
+  evidence:
     accepts: [directory_user]
     cardinality: one-or-more
     required: true
@@ -432,7 +432,7 @@ check (see #3, `evidence_mode: manual`).
 ```yaml
 pass_when:
   quantifier: all
-  slot: user_directory
+  slot: evidence
   condition: { op: eq, field: "payload.mfa_enabled", value: true }
 violation_message: "MFA disabled for {{.payload.email}}"
 ```
@@ -463,17 +463,19 @@ rule input.
 
 ```yaml
 policies:
-  soc2.cc6.1.mfa_enforced:
+  soc2.cc6.1.mfa_enforced_all_users:
     bindings:
-      user_directory: [aws.iam, okta]
-  soc2.cc6.1.access_key_rotation:
+      evidence: [aws.iam, okta]
+  soc2.cc6.1.access_keys_rotated_90d:
     bindings:
-      access_keys: [aws.iam_access_key]
+      evidence: [aws.iam]
 ```
 
-For `mfa_enforced`, AcmeCorp wants both AWS IAM users and Okta users
-checked under the same policy. Both plugins emit `directory_user`, so
-the evaluation operates on the union.
+For `mfa_enforced_all_users`, AcmeCorp wants both AWS IAM users and Okta
+users checked under the same policy. Both plugins emit `directory_user`,
+so the evaluation operates on the union. (`evidence` is the conventional
+slot name on every automated policy in both shipped frameworks; the
+others are `roster`, `accounts`, `deployments` and `changes`.)
 
 **What it is *not*.** A binding is not a source configuration. The
 source's credentials and scope live in the `sources:` section of the
@@ -643,7 +645,7 @@ requires a code change at the boundary, which is a code-review gate.
 
 ```json
 {
-  "policy_id":          "soc2.cc6.1.mfa_enforced",
+  "policy_id":          "soc2.cc6.1.mfa_enforced_all_users",
   "controls":           [{ "framework": "soc2", "control_id": "CC6.1", "relationship": "equal" }],
   "status":             "fail",
   "severity":           "high",
@@ -686,8 +688,8 @@ special-case "which plugin produced this?", and policies have no syntax
 to name a source.
 
 **The canonical example: MFA enforced on admin users.** SigComply
-ships one policy: `soc2.cc6.1.admin_mfa_enforced`, declaring a single
-slot `user_directory` with `accepts: [directory_user]`. AcmeCorp uses
+ships one policy: `soc2.cc6.1.mfa_enforced_admins`, declaring a single
+slot `evidence` with `accepts: [directory_user]`. AcmeCorp uses
 AWS IAM; their `.sigcomply.yaml` binds `aws.iam` to that slot. BetaCorp
 uses Okta; their config binds `okta`. GammaCorp uses both; theirs
 binds `[aws.iam, okta]`. DeltaCorp uses an internal LDAP and writes a
@@ -838,20 +840,20 @@ MFA enabled. They have users in both AWS IAM and Okta.
 **Step 1 — Policy spec (shipped with the framework):**
 
 ```yaml
-id: soc2.cc6.1.admin_mfa_enforced
+id: soc2.cc6.1.mfa_enforced_admins
 control: CC6.1
 severity: high
 evidence_mode: automated
 description: "All admin users must have MFA enabled."
 slots:
-  user_directory:
+  evidence:
     accepts: [directory_user]
     cardinality: one-or-more
     required: true
 parameters: {}
 pass_when:
   quantifier: all
-  slot: user_directory
+  slot: evidence
   condition: { op: eq, field: "payload.mfa_enabled", value: true }
 violation_message: "MFA disabled for {{.payload.email}}"
 ```
@@ -869,17 +871,17 @@ sources:
   okta:    { domain: acme.okta.com }
 
 policies:
-  soc2.cc6.1.admin_mfa_enforced:
+  soc2.cc6.1.mfa_enforced_admins:
     bindings:
-      user_directory: [aws.iam, okta]
+      evidence: [aws.iam, okta]
 ```
 
 **Step 3 — At run time, the planner produces:**
 
 ```
-Policy:  soc2.cc6.1.admin_mfa_enforced  (evidence_mode: automated)
-  Slot user_directory binds to: [aws.iam, okta]
-  Evaluation: pass_when (all user_directory records mfa_enabled == true)
+Policy:  soc2.cc6.1.mfa_enforced_admins  (evidence_mode: automated)
+  Slot evidence binds to: [aws.iam, okta]
+  Evaluation: pass_when (all evidence records mfa_enabled == true)
   Parameters: {}
 ```
 
@@ -890,13 +892,13 @@ Policy:  soc2.cc6.1.admin_mfa_enforced  (evidence_mode: automated)
 - okta.Collect()    → 17 directory_user envelopes
 - Each envelope signed with its own ephemeral Ed25519 keypair
 - All envelopes written to:
-    soc2/2026-Q1/run_.../policies/soc2.cc6.1.admin_mfa_enforced/envelopes/
+    soc2/2026-Q1/run_.../policies/soc2.cc6.1.mfa_enforced_admins/envelopes/
 ```
 
 **Step 5 — The evaluator runs the `pass_when:` clause in-process:**
 
 ```
-quantifier=all over user_directory: payload.mfa_enabled == true
+quantifier=all over evidence: payload.mfa_enabled == true
   evaluated against [<47 directory_user records>]
 → status: fail
   violations: [
@@ -909,7 +911,7 @@ quantifier=all over user_directory: payload.mfa_enabled == true
 **Step 6 — Persistence writes:**
 
 ```
-policies/soc2.cc6.1.admin_mfa_enforced/result.json
+policies/soc2.cc6.1.mfa_enforced_admins/result.json
   { status: fail, violations: [...] }   # full fidelity, stays in vault
 ```
 
@@ -917,7 +919,7 @@ policies/soc2.cc6.1.admin_mfa_enforced/result.json
 
 ```
 {
-  policy_id:           "soc2.cc6.1.admin_mfa_enforced",
+  policy_id:           "soc2.cc6.1.mfa_enforced_admins",
   controls:            [{ framework: "soc2", control_id: "CC6.1", relationship: "equal" }],
   status:              "fail",
   severity:            "high",

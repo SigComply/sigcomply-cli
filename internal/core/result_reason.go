@@ -36,7 +36,7 @@ func ResultReason(r *PolicyResult) string {
 		// A pass whose clauses examined nothing is the one pass worth
 		// explaining: `all`/`none` are true of the empty set, so this
 		// reads as green while having checked no resource at all.
-		if slots := diagStrings(r.Diag, "vacuous_clauses"); len(slots) > 0 {
+		if slots := r.VacuousSlots(); len(slots) > 0 {
 			return truncateReason(fmt.Sprintf("passed without examining any resource (slot(s) %s matched nothing) — verify this control is really in scope", strings.Join(slots, ", ")))
 		}
 		return ""
@@ -55,6 +55,21 @@ func ResultReason(r *PolicyResult) string {
 	default:
 		return ""
 	}
+}
+
+// DiagVacuousClauses is the Diag key under which the evaluator records
+// the slots whose clauses matched nothing on a passing policy. It is the
+// only signal separating a thorough pass from a vacuous one, so both the
+// operator-facing reason and the cloud payload's message key off it.
+const DiagVacuousClauses = "vacuous_clauses"
+
+// VacuousSlots names the slots whose clauses matched no resource. It is
+// non-empty only on a passing policy — a pass that examined nothing.
+//
+// Callers outside core need this to tell the two kinds of pass apart
+// without reaching into Diag and re-deriving the shape handling below.
+func (r *PolicyResult) VacuousSlots() []string {
+	return diagStrings(r.Diag, DiagVacuousClauses)
 }
 
 // diagStrings reads a string-list diagnostic out of Diag, tolerating

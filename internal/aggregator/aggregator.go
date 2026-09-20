@@ -179,6 +179,13 @@ func buildSummary(results []core.PolicyResult) core.RunSummary {
 func generateMessage(r *core.PolicyResult) string {
 	switch r.Status {
 	case core.StatusPass:
+		// A pass whose clauses filtered every record away is not the same
+		// claim as a pass that inspected them, and "All 500 resources
+		// passed." is indistinguishable between the two. The slot names
+		// behind the diagnostic stay in the CLI; only the sentence crosses.
+		if len(r.VacuousSlots()) > 0 {
+			return "Passed, but no resources matched the filter — verify this control is in scope."
+		}
 		return fmt.Sprintf("All %d resources passed.", r.ResourcesEvaluated)
 	case core.StatusFail:
 		return fmt.Sprintf("%d of %d resources failed.", r.ResourcesFailed, r.ResourcesEvaluated)

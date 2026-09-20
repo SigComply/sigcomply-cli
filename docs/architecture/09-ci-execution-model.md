@@ -86,9 +86,9 @@ Project config can override per policy:
 ```yaml
 # .sigcomply.yaml (excerpt)
 policies:
-  soc2.cc6.1.mfa_enforced:
+  soc2.cc6.1.mfa_enforced_all_users:
     cadence: every:6h       # tighter than the shipped default (daily)
-  soc2.cc6.1.access_review:
+  soc2.cc6.3.access_review_quarterly:
     cadence: monthly        # stricter than the shipped default (quarterly)
 ```
 

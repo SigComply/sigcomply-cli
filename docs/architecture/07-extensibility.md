@@ -244,11 +244,11 @@ severity: high
 category: access_control
 description: Every user in the directory must have MFA enabled.
 slots:
-  user_directory:
+  evidence:
     accepts: [directory_user]
     cardinality: one-or-more
 pass_when:
-  slot: user_directory
+  slot: evidence
   quantifier: all
   # condition node is a {op, field, value} triple; field paths are
   # rooted at payload.* (a bare field name errors the policy).
@@ -480,12 +480,12 @@ sources:
     token_env: "ACME_IAM_TOKEN"
 
 policies:
-  soc2.cc6.1.mfa_enforced:
+  soc2.cc6.1.mfa_enforced_all_users:
     bindings:
-      user_directory: [acme.internal_iam]
-  soc2.cc6.1.admin_mfa_enforced:
+      evidence: [acme.internal_iam]
+  soc2.cc6.1.mfa_enforced_admins:
     bindings:
-      user_directory: [acme.internal_iam, aws.iam]   # mix and match
+      evidence: [acme.internal_iam, aws.iam]   # mix and match
 ```
 
 ### Step 4 — Build and run

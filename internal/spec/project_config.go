@@ -195,9 +195,9 @@ func (b *BindingEntry) UnmarshalYAML(node *yaml.Node) error {
 // entry means "framework defaults, auto-bound sources, no exceptions."
 //
 //	policies:
-//	  soc2.cc6.1.mfa_enforced:
+//	  soc2.cc6.1.mfa_enforced_all_users:
 //	    cadence: hourly
-//	    bindings: { user_directory: [okta, acme.internal_iam] }
+//	    bindings: { evidence: [okta, acme.internal_iam] }
 //	    parameters: { exempt_service_accounts: false }
 //	    exceptions:
 //	      - scope: { resource_id: "okta_user:bot@acme.com" }

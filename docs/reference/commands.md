@@ -177,7 +177,9 @@ requirements are not selectable — an organization cannot decline to have an
 internal audit program — so they are counted in the note and never given a
 row. Status is derived from this period's results and never from the catalog: a
 control whose checks did not run reports `not evaluated`, which is not the same
-as implemented.
+as implemented. A policy resolved to `na` counts as a check that did not run and
+abstains from the roll-up; a carried-forward policy counts as the pass it
+inherits.
 
 **`--view soa` requires the project config.** The applicability decisions are
 authored in `.sigcomply.yaml` and exist nowhere else — not in the vault, not in
