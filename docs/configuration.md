@@ -99,6 +99,26 @@ omitted (see the source tables below).
 > `aws.security_services` (dir `securityservices`). Use the dotted ID in
 > `.sigcomply.yaml`, never the directory name.
 
+**Mistyped keys are reported.** The config loader rejects an unknown key
+everywhere in the file *except* inside a `sources:` entry, whose inner block is
+deliberately untyped so a newer config never breaks an older CLI. Each source
+therefore declares the keys it reads, and a run warns about anything else:
+
+```
+[warn] source-config: sources.aws.iam: unrecognized key "role_am", so it was ignored; aws.iam reads [external_id region role_arn role_session_name]
+[warn] source-config: sources.azure.storage: unrecognized key "role_arn", so it was ignored; azure.storage reads [subscription_id tenant_id]
+[warn] source-config: sources.gcp.compute: "project_id" is int, not a string, so it reads as unset; quote it (project_id: "12345")
+```
+
+The third kind is the one a key list alone would miss: a value of the wrong
+YAML type reads as *absent* to every source, so an unquoted `project_id: 12345`
+behaves exactly as if you had not set it. Warnings print **before** credentials
+are resolved, because a mistyped key is often why the credential check that
+follows fails.
+
+Advisory, never fatal — the same tolerance the `experimental:` hatch exists for.
+A project-local plugin that declares no keys is never warned about.
+
 ---
 
 ## Source caveats

@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	sources.RegisterFactory(SourceID, build)
+	sources.RegisterFactory(SourceID, build, "org_url", "api_token", "token_env")
 }
 
 func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {

@@ -13,6 +13,25 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **A mistyped key under `sources:` is now reported instead of ignored.** The
+  config loader runs with `KnownFields(true)` and rejects an unknown key
+  everywhere in the file — except inside a `sources:` entry, whose inner block
+  is deliberately a `map[string]any` so a newer config never breaks an older
+  pinned CLI. The cost of that tolerance was silence: `tenat_id`, or `role_arn`
+  on an Azure source, produced no output at all and the run proceeded with the
+  value ignored.
+  Every in-tree source now declares the keys it reads, and a run warns about
+  anything else. It also catches the half a key list alone would miss: a value
+  of the wrong YAML type reads as *absent* to every factory, so an unquoted
+  `project_id: 12345` behaves exactly as if it were unset.
+  Warnings print **before** credentials are resolved, because a mistyped key is
+  often precisely why the credential check that follows fails — reported
+  afterwards, the operator would never see them.
+  Shared key sets live beside the parser that consumes them (`awscfg.ConfigKeys`,
+  `azcommon.ConfigKeys`), so the ~25 AWS and 14 Azure factories cannot drift from
+  what their shared parser reads. Advisory, never fatal, and fail-open for a
+  project-local plugin that declares nothing.
+
 - **A vacuous pass is now distinguishable on the wire (`sigcomply.cloud.v5`).**
   A policy whose clauses filter every resource away passes, and submits as
   `pass`, exactly like one that inspected five hundred resources and found

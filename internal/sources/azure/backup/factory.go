@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	sources.RegisterFactory(SourceID, build)
+	sources.RegisterFactory(SourceID, build, azcommon.ConfigKeys...)
 }
 
 // build constructs the azure.backup plugin from config. Recovery Services is an

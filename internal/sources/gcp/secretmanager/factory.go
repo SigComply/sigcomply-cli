@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	sources.RegisterFactory(SourceID, build)
+	sources.RegisterFactory(SourceID, build, "project_id")
 }
 
 // build constructs the gcp.secretmanager plugin from config. Secrets are

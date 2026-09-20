@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	sources.RegisterFactory(SourceID, build)
+	sources.RegisterFactory(SourceID, build, "project_id")
 }
 
 // build constructs the gcp.backup plugin from config. Backup and DR backup

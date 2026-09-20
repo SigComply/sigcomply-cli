@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	sources.RegisterFactory(SourceID, build)
+	sources.RegisterFactory(SourceID, build, "base_url", "org", "token", "token_env")
 }
 
 // build reads "org" and "token" (or GITHUB_TOKEN). Optional "base_url"

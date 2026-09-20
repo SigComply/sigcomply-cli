@@ -52,6 +52,9 @@ type Factory func(ctx context.Context, env Env) (core.SourcePlugin, error)
 var (
 	mu        sync.RWMutex
 	factories = map[string]Factory{}
+	// configKeys records the config keys each source understands, so a
+	// typo in `sources:` can be reported instead of silently ignored.
+	configKeys = map[string][]string{}
 )
 
 // RegisterFactory adds a factory under id. Intended to be called from
@@ -59,7 +62,19 @@ var (
 // duplicates among in-tree plugins are a programming error, and a
 // project-local plugin claiming a reserved ID is a misconfiguration
 // the build should not let through.
-func RegisterFactory(id string, f Factory) {
+//
+// keys names every config key the factory reads. It exists because the
+// project config loader runs with KnownFields(true) but stops at the
+// source key: the inner bag is a map[string]any, so `tenat_id`, or
+// `role_arn` on an Azure source, produces no output at all. Declaring
+// the keys is what lets the planner say so.
+//
+// Optional and fail-open: a factory that declares none is never warned
+// about, which is what keeps a project-local plugin working without
+// knowing this exists. Shared sets live beside their parsers —
+// awscfg.ConfigKeys, azcommon.ConfigKeys — so a plugin using one cannot
+// drift from what that parser actually reads.
+func RegisterFactory(id string, f Factory, keys ...string) {
 	if id == "" {
 		panic("sources: RegisterFactory: empty ID")
 	}
@@ -80,6 +95,19 @@ func RegisterFactory(id string, f Factory) {
 		panic("sources: duplicate factory registration for " + id)
 	}
 	factories[id] = f
+	if len(keys) > 0 {
+		out := append([]string(nil), keys...)
+		sort.Strings(out)
+		configKeys[id] = out
+	}
+}
+
+// ConfigKeys returns the config keys the source registered as
+// understood, sorted, or nil when it declared none.
+func ConfigKeys(id string) []string {
+	mu.RLock()
+	defer mu.RUnlock()
+	return configKeys[id]
 }
 
 // Lookup returns the factory registered under id, or (nil, false).

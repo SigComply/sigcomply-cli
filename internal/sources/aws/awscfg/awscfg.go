@@ -53,6 +53,11 @@ type Options struct {
 	SessionName string
 }
 
+// ConfigKeys are the config keys FromEnv reads. Declared here rather
+// than in each of the ~25 AWS factories so the list cannot drift from
+// the parser that actually consumes it.
+var ConfigKeys = []string{"region", "role_arn", "external_id", "role_session_name"}
+
 // FromEnv reads the AWS options out of a source instance's config bag.
 //
 // Note there is deliberately no `profile` key. LoadDefaultConfig resolves

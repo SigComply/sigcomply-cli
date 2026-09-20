@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	sources.RegisterFactory(SourceID, build)
+	sources.RegisterFactory(SourceID, build, azcommon.ConfigKeys...)
 }
 
 // build constructs the azure.entra plugin from config. Entra is a Graph-plane

@@ -159,3 +159,23 @@ func failedIDs(failed map[string]error) []string {
 	sort.Strings(ids)
 	return ids
 }
+
+// Every in-tree source must declare the config keys it reads, or the
+// source-config warning silently stops covering it — and a plugin that
+// forgets is exactly the one whose typos go unreported.
+//
+// Fail-open is right for a project-local plugin, which the CLI does not
+// ship and cannot police. It is wrong for ours.
+func TestEverySourceDeclaresItsConfigKeys(t *testing.T) {
+	var missing []string
+	for _, id := range sources.IDs() {
+		if len(sources.ConfigKeys(id)) == 0 {
+			missing = append(missing, id)
+		}
+	}
+	if len(missing) > 0 {
+		t.Errorf("sources declaring no config keys: %v\n"+
+			"Pass them as the variadic argument to sources.RegisterFactory — "+
+			"awscfg.ConfigKeys / azcommon.ConfigKeys for the shared sets.", missing)
+	}
+}

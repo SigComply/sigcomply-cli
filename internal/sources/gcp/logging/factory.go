@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	sources.RegisterFactory(SourceID, build)
+	sources.RegisterFactory(SourceID, build, "project_id")
 }
 
 // build constructs the gcp.logging plugin from config. Log buckets are

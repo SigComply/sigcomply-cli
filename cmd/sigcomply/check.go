@@ -98,6 +98,14 @@ func runCheck(ctx context.Context, stdout io.Writer, flags *checkFlags) error {
 	}
 	manualCatalog := vendorfanout.Apply(fw.ManualCatalog(), vendorReg)
 
+	// Before any source is built, not after: a mistyped key is often the
+	// reason the credential resolution that follows fails, and reporting
+	// it afterwards would mean the operator never sees it — the eager
+	// credential check stops the run first.
+	for _, w := range planner.SourceConfigWarnings(cfg) {
+		logger.Warnf("source-config: %s", w)
+	}
+
 	if err := registerProductionSources(ctx, registries, cfg, manualCatalog); err != nil {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
 	}

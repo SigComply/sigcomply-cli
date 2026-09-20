@@ -28,7 +28,7 @@ const (
 )
 
 func init() {
-	sources.RegisterFactory(SourceID, build)
+	sources.RegisterFactory(SourceID, build, "backend", "bucket", "prefix", "path")
 	RegisterReader("local", buildLocalReader)
 }
 

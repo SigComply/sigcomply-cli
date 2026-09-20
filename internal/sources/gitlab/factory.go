@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	sources.RegisterFactory(SourceID, build)
+	sources.RegisterFactory(SourceID, build, "base_url", "group", "token", "token_env")
 }
 
 // build constructs the gitlab plugin from source config. Required:

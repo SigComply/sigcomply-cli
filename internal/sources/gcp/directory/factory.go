@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	sources.RegisterFactory(SourceID, build)
+	sources.RegisterFactory(SourceID, build, "customer_id", "target_service_account", "impersonate_subject")
 }
 
 // build constructs the gcp.directory plugin from config. The directory

@@ -8,7 +8,8 @@ import (
 )
 
 func init() {
-	sources.RegisterFactory(SourceID, build)
+	sources.RegisterFactory(SourceID, build, "url", "bind_dn", "bind_password", "token_env", "base_dn", "user_filter",
+		"service_account_ous", "page_size", "timeout", "start_tls", "ca_cert", "tls_server_name")
 }
 
 // build validates sources.active_directory and constructs the plugin. It

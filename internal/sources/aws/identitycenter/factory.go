@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	sources.RegisterFactory(SourceID, build)
+	sources.RegisterFactory(SourceID, build, append(awscfg.ConfigKeys, "identity_store_id")...)
 }
 
 // build resolves credentials eagerly (awscfg.Load, inside NewFromAWS) so a

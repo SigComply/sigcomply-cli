@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	sources.RegisterFactory(SourceID, build)
+	sources.RegisterFactory(SourceID, build, "organization_id")
 }
 
 // build constructs the gcp.scc plugin from config. Security Command Center

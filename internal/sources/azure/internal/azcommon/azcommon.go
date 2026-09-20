@@ -45,6 +45,10 @@ type Config struct {
 	TenantID       string // optional; used by the Graph plane (azure.entra)
 }
 
+// ConfigKeys are the config keys ParseConfig reads. Declared beside the
+// parser so the fourteen azure.* factories cannot drift from it.
+var ConfigKeys = []string{"subscription_id", "tenant_id"}
+
 // ParseConfig reads subscription_id / tenant_id from a source config map. When
 // requireSubscription is true (every ARM-plane source) a missing/empty
 // subscription_id is an error; Graph-only sources (azure.entra) pass false and

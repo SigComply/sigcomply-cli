@@ -67,6 +67,27 @@ each other.
 3. The collector calls `Collect` once per (policy, slot) binding.
 4. The plugin instance is discarded at run end.
 
+**Declaring config keys.** `RegisterFactory` takes the config keys the factory
+reads as a variadic tail:
+
+```go
+func init() { sources.RegisterFactory(SourceID, build, awscfg.ConfigKeys...) }
+```
+
+The project config loader runs with `KnownFields(true)`, which catches a typo
+everywhere in the file *except* inside a `sources:` entry — the inner bag is a
+`map[string]any` by design, so `tenat_id`, or `role_arn` on an Azure source,
+produces no output at all. The declared list is what lets the planner say so,
+and it also catches a key whose value is the wrong YAML type (`project_id:
+12345` reads as absent to `StringOpt`, indistinguishable from unset).
+
+Shared sets live beside the parser that consumes them — `awscfg.ConfigKeys`,
+`azcommon.ConfigKeys` — so the ~25 AWS and 14 Azure factories cannot drift from
+what their shared parser actually reads. Fail-open: a factory declaring no keys
+is never warned about, which keeps a project-local plugin working. In-tree
+plugins do not get that latitude — `TestEverySourceDeclaresItsConfigKeys` fails
+the build for one that forgets.
+
 **Optional: `core.CaveatedSource`.** A plugin that emits a field it cannot
 actually observe declares it, so the planner can warn instead of leaving the
 operator to discover it in a source comment:
