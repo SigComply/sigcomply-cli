@@ -69,7 +69,7 @@ Common AWS source ids you can list under `sources:` include:
 | `aws.rds` | Database encryption settings |
 | `aws.ec2` | Security groups, EBS encryption |
 | `aws.guardduty` | Threat detection enablement |
-| `aws.identity_center` | IAM Identity Center (SSO) workforce identities — the roster and the people it vouches for |
+| `aws.identity_center` | IAM Identity Center (SSO) workforce identities and permission-set grants — the roster, the people it vouches for, and who holds admin |
 
 List only the sources whose evidence your framework's policies need; unused ones add no value. The [README supported-sources table](../../README.md) enumerates the full set.
 
@@ -87,8 +87,9 @@ sources:
 - **Why it matters for the identity roster.** Identity Center users carry real email addresses, so the [identity-roster](identity-roster.md) policies join them to your roster directly. IAM users do not — linking those needs hand-maintained `experimental.roster.aliases` entries keyed on the IAM user name, where a typo fails silently. If your people sign in through Identity Center, list this source and drop the aliases.
 - **`identity_store_id` is optional.** Leave it out and the CLI discovers it from the single Identity Center instance your credentials can see (`sso:ListInstances`). Set it explicitly only when the run can see more than one instance — the CLI refuses to guess and tells you to pick.
 - **Region matters.** An Identity Center instance lives in exactly one region. Point `region` at that region or the discovery call finds nothing and the run fails with a config error; `region` otherwise falls back to the vault's.
-- **Least privilege:** `identitystore:ListUsers` plus `sso:ListInstances`. Both are read-only; `ReadOnlyAccess` covers them.
-- **It emits** `directory_user` (the v1 cross-vendor shape) and `roster_entry`, so it can serve either side of a roster check: the accounts being checked, or — with `experimental.roster.source: aws.identity_center` — the roster itself.
+- **Least privilege:** `identitystore:ListUsers`, `identitystore:DescribeGroup`, `identitystore:ListGroupMemberships`, `sso:ListInstances`, `sso:ListPermissionSets`, `sso:DescribePermissionSet`, `sso:ListManagedPoliciesInPermissionSet`, `sso:ListAccountsForProvisionedPermissionSet` and `sso:ListAccountAssignments`. All are read-only; `ReadOnlyAccess` covers them. The `sso:*` and group actions are needed only for the permission-set traversal — if you designate this source **purely as the roster**, `identitystore:ListUsers` plus `sso:ListInstances` is still enough, because a roster-only slot skips the traversal.
+- **It costs API calls proportional to (permission sets × AWS accounts).** On a large organization this is the slowest part of a run. When a policy asks only for user records, permission sets that are not broadly administrative are skipped before that fan-out.
+- **It emits** `directory_user` (the v1 cross-vendor shape), `roster_entry` and `iam_binding`, so it can serve either side of a roster check — the accounts being checked, or (with `experimental.roster.source: aws.identity_center`) the roster itself — **and** the least-privilege checks that until now only a GCP estate could answer: `iso27001.5.3.no_broad_admin_bindings` and `iso27001.8.3.no_broad_admin_iam_bindings`. One `iam_binding` record per permission-set assignment, with `role` = the permission-set name and `account_id` = the AWS account it opens.
 
 **Caveat: Identity Center cannot prove MFA.** No public API exposes per-user MFA enrollment — MFA is either an instance-level setting or, when your identity source is an external IdP synced over SCIM, enforced by that IdP. The `mfa_enabled` field is required by the evidence schema, so the CLI emits it as `false` rather than guessing `true`: a wrong `false` can only fail a check, never pass one. The practical consequence is that `soc2.cc6.1.mfa_enforced_all_users` will report every Identity Center user as lacking MFA. If you also run the real identity source, pin that policy to it:
 
@@ -99,7 +100,11 @@ policies:
       evidence: [okta]        # or azure.entra / gcp.directory — the IdP that actually enforces MFA
 ```
 
-Identity Center also does not report whether a user is an administrator: that is a permission-set question, not a user attribute, and the CLI omits `is_admin` rather than fabricating `false` (which would hide a real SSO admin). A policy that filters on `is_admin` — `soc2.cc6.1.mfa_enforced_admins` — therefore reports `error` against this source rather than passing silently. Pin it to your IdP the same way.
+**Who counts as an administrator is answered, and it follows groups.** `is_admin` comes from the permission-set traversal, not from a user attribute — Identity Center has none. A person holding `AdministratorAccess` only through a group is `is_admin: true`, which is the case a per-user view of the directory cannot see. So `soc2.cc6.1.mfa_enforced_admins` evaluates against this source rather than erroring. (It will still *fail*, because `mfa_enabled` is `false` for the reason above — pin that policy to your IdP.)
+
+A permission set counts as broadly administrative if the AWS-managed `AdministratorAccess` policy is attached to it, **or** if its name contains "admin". Both signals err toward flagging: a wrong flag fails a control, which you can investigate, while a missed one would quietly pass. The gap that leaves: a permission set that reaches admin only through an *inline* or customer-managed policy, under a name that gives nothing away, is not flagged. If you have a break-glass set like that, put "admin" in its name.
+
+**Group grants are reported as group grants.** An assignment to a group produces one `iam_binding` with `principal_type: group` — it is not expanded into one record per member. That is deliberate: `iso27001.5.3.no_broad_admin_bindings` asks that admin *not* be granted directly to individuals, and its remediation tells you to grant through groups. Expanding group grants would report the recommended pattern as a violation. Because the roster join treats a non-`user` principal as non-human, group grants are also not checked against the roster — the people in them are, through their own user records.
 
 ### GCP (`gcp.*`)
 

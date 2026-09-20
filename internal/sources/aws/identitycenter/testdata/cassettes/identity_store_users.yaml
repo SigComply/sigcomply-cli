@@ -9,12 +9,29 @@
 #     (aws/aws-sdk-go-v2 codegen/sdk-codegen/aws-models/{identitystore,sso-admin}.json),
 #     through a canned transport while go-vcr recorded.
 #   * the RESPONSE bodies are hand-transcribed from those same service models'
-#     User / InstanceMetadata shapes (awsJson1_1: epoch-second timestamps).
+#     User / InstanceMetadata / PermissionSet / AccountAssignment shapes
+#     (awsJson1_1: epoch-second timestamps).
 #
 # It therefore proves the plugin's mapping against the SHAPE the model declares,
 # not against what a real tenant returns. Re-record it against a live Identity
 # Center instance before treating it as a contract test. Identities use the
 # house placeholders (docs/architecture/11-testing-strategy.md §4).
+#
+# REGENERATING IT is no longer a feat of memory — the construction procedure is
+# identitycenter_cassette_test.go (build tag `cassette`), which holds every
+# transcribed response body:
+#
+#   rm -f internal/sources/aws/identitycenter/testdata/cassettes/identity_store_users.yaml
+#   go test -tags cassette -run TestConstructCassette ./internal/sources/aws/identitycenter/
+#
+# go-vcr writes the YAML and drops leading comments, so paste this block back
+# afterwards.
+#
+# The fixture models one estate: three users (Ada, Dana, and one with no
+# email), two permission sets, one AWS account. AdministratorAccess is held by
+# the group "Platform Admins", whose only member is Ada — so Ada is is_admin
+# through group membership while the iam_binding for that grant stays a GROUP
+# principal. Dana holds ReadOnly directly.
 ---
 version: 2
 interactions:
@@ -28,7 +45,7 @@ interactions:
         body: '{}'
         headers:
             Amz-Sdk-Invocation-Id:
-                - cb988b9a-9508-4422-a7dc-597688f3a7e8
+                - 4ef2f411-2bca-46b4-ad7f-61bc4d86b248
             Amz-Sdk-Request:
                 - attempt=1; max=1
             Authorization:
@@ -38,7 +55,7 @@ interactions:
             User-Agent:
                 - aws-sdk-go-v2/1.47.0 ua/2.1 os/macos lang/go#1.27.0 md/GOOS#darwin md/GOARCH#arm64 api/ssoadmin#1.48.0 m/e
             X-Amz-Date:
-                - 20260919T201007Z
+                - 20260920T100452Z
             X-Amz-Target:
                 - SWBExternalService.ListInstances
         url: https://sso.us-east-1.amazonaws.com/
@@ -50,8 +67,6 @@ interactions:
         content_length: 215
         body: '{"Instances":[{"CreatedDate":1.7182944E9,"IdentityStoreId":"d-9067012345","InstanceArn":"arn:aws:sso:::instance/ssoins-7223bcdeffedcbaa","Name":"example-instance","OwnerAccountId":"000000000000","Status":"ACTIVE"}]}'
         headers:
-            Content-Length:
-                - "215"
             Content-Type:
                 - application/x-amz-json-1.1
             Date:
@@ -60,7 +75,7 @@ interactions:
                 - 1c3d6934-e473-4309-b499-2a3cf3011901
         status: 200 OK
         code: 200
-        duration: 13.959µs
+        duration: 6.625µs
     - id: 1
       request:
         proto: ""
@@ -71,7 +86,7 @@ interactions:
         body: '{"IdentityStoreId":"d-9067012345"}'
         headers:
             Amz-Sdk-Invocation-Id:
-                - 09033caa-018d-4521-ac1c-7a2de868bec3
+                - f80c29e6-0a9d-497a-b2ad-f90cd4b85d55
             Amz-Sdk-Request:
                 - attempt=1; max=1
             Authorization:
@@ -81,7 +96,7 @@ interactions:
             User-Agent:
                 - aws-sdk-go-v2/1.47.0 ua/2.1 os/macos lang/go#1.27.0 md/GOOS#darwin md/GOARCH#arm64 api/identitystore#1.44.0 m/e
             X-Amz-Date:
-                - 20260919T201007Z
+                - 20260920T100452Z
             X-Amz-Target:
                 - AWSIdentityStore.ListUsers
         url: https://identitystore.us-east-1.amazonaws.com/
@@ -93,8 +108,6 @@ interactions:
         content_length: 684
         body: '{"NextToken":"eyJwYWdlIjoyfQ","Users":[{"CreatedAt":1.7182944E9,"DisplayName":"Ada Example","Emails":[{"Primary":true,"Type":"work","Value":"user-a1b2c3@example.com"}],"IdentityStoreId":"d-9067012345","Name":{"FamilyName":"Example","Formatted":"Ada Example","GivenName":"Ada"},"UserId":"90677c50-e0f1-70ab-7e94-1a2b3c4d5e6f","UserName":"example-user","UserStatus":"ENABLED","UserType":"employee"},{"CreatedAt":1.7204832E9,"Emails":[{"Primary":true,"Type":"work","Value":"user-d4e5f6@example.com"}],"IdentityStoreId":"d-9067012345","Name":{"FamilyName":"Example","GivenName":"Dana"},"UserId":"b0e7fc40-a021-7033-1b55-6f7e8d9c0a1b","UserName":"example-user-2","UserStatus":"DISABLED"}]}'
         headers:
-            Content-Length:
-                - "684"
             Content-Type:
                 - application/x-amz-json-1.1
             Date:
@@ -103,7 +116,7 @@ interactions:
                 - 1c3d6934-e473-4309-b499-2a3cf3011901
         status: 200 OK
         code: 200
-        duration: 45.625µs
+        duration: 4.375µs
     - id: 2
       request:
         proto: ""
@@ -114,7 +127,7 @@ interactions:
         body: '{"IdentityStoreId":"d-9067012345","NextToken":"eyJwYWdlIjoyfQ"}'
         headers:
             Amz-Sdk-Invocation-Id:
-                - bdfc0ce8-321c-4e73-a086-86d448cb1403
+                - 2a36ec22-ef7f-4cb6-8670-63deb1b96a26
             Amz-Sdk-Request:
                 - attempt=1; max=1
             Authorization:
@@ -136,8 +149,416 @@ interactions:
         content_length: 145
         body: '{"Users":[{"IdentityStoreId":"d-9067012345","UserId":"c1f81a90-30b1-7093-4c66-7a8b9c0d1e2f","UserName":"example-user-3","UserStatus":"ENABLED"}]}'
         headers:
-            Content-Length:
-                - "145"
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sat, 19 Sep 2026 00:00:00 GMT
+            X-Amzn-Requestid:
+                - 1c3d6934-e473-4309-b499-2a3cf3011901
+        status: 200 OK
+        code: 200
+        duration: 2.834µs
+    - id: 3
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 64
+        host: ""
+        body: '{"InstanceArn":"arn:aws:sso:::instance/ssoins-7223bcdeffedcbaa"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 05637c1e-95d4-416e-a9c2-94a7abdfd6ca
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.47.0 ua/2.1 os/macos lang/go#1.27.0 md/GOOS#darwin md/GOARCH#arm64 api/ssoadmin#1.48.0 m/e
+            X-Amz-Date:
+                - 20260919T000000Z
+            X-Amz-Target:
+                - SWBExternalService.ListPermissionSets
+        url: https://sso.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 168
+        body: '{"PermissionSets":["arn:aws:sso:::permissionSet/ssoins-7223bcdeffedcbaa/ps-1111111111111111","arn:aws:sso:::permissionSet/ssoins-7223bcdeffedcbaa/ps-2222222222222222"]}'
+        headers:
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sat, 19 Sep 2026 00:00:00 GMT
+            X-Amzn-Requestid:
+                - 1c3d6934-e473-4309-b499-2a3cf3011901
+        status: 200 OK
+        code: 200
+        duration: 2.583µs
+    - id: 4
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 157
+        host: ""
+        body: '{"InstanceArn":"arn:aws:sso:::instance/ssoins-7223bcdeffedcbaa","PermissionSetArn":"arn:aws:sso:::permissionSet/ssoins-7223bcdeffedcbaa/ps-1111111111111111"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - b2e3cb59-e73b-4bb7-9535-500c8cf9e2a4
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.47.0 ua/2.1 os/macos lang/go#1.27.0 md/GOOS#darwin md/GOARCH#arm64 api/ssoadmin#1.48.0 m/e
+            X-Amz-Date:
+                - 20260919T000000Z
+            X-Amz-Target:
+                - SWBExternalService.DescribePermissionSet
+        url: https://sso.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 235
+        body: '{"PermissionSet":{"CreatedDate":1.7182944E9,"Description":"Full administrative access","Name":"AdministratorAccess","PermissionSetArn":"arn:aws:sso:::permissionSet/ssoins-7223bcdeffedcbaa/ps-1111111111111111","SessionDuration":"PT8H"}}'
+        headers:
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sat, 19 Sep 2026 00:00:00 GMT
+            X-Amzn-Requestid:
+                - 1c3d6934-e473-4309-b499-2a3cf3011901
+        status: 200 OK
+        code: 200
+        duration: 7.667µs
+    - id: 5
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 157
+        host: ""
+        body: '{"InstanceArn":"arn:aws:sso:::instance/ssoins-7223bcdeffedcbaa","PermissionSetArn":"arn:aws:sso:::permissionSet/ssoins-7223bcdeffedcbaa/ps-1111111111111111"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 9be748aa-ed62-4144-994e-5b05d255e401
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.47.0 ua/2.1 os/macos lang/go#1.27.0 md/GOOS#darwin md/GOARCH#arm64 api/ssoadmin#1.48.0 m/e
+            X-Amz-Date:
+                - 20260919T000000Z
+            X-Amz-Target:
+                - SWBExternalService.ListManagedPoliciesInPermissionSet
+        url: https://sso.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 112
+        body: '{"AttachedManagedPolicies":[{"Arn":"arn:aws:iam::aws:policy/AdministratorAccess","Name":"AdministratorAccess"}]}'
+        headers:
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sat, 19 Sep 2026 00:00:00 GMT
+            X-Amzn-Requestid:
+                - 1c3d6934-e473-4309-b499-2a3cf3011901
+        status: 200 OK
+        code: 200
+        duration: 3.458µs
+    - id: 6
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 157
+        host: ""
+        body: '{"InstanceArn":"arn:aws:sso:::instance/ssoins-7223bcdeffedcbaa","PermissionSetArn":"arn:aws:sso:::permissionSet/ssoins-7223bcdeffedcbaa/ps-2222222222222222"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - ddd999e4-b2b5-485d-b1a7-04e27b0f1b16
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.47.0 ua/2.1 os/macos lang/go#1.27.0 md/GOOS#darwin md/GOARCH#arm64 api/ssoadmin#1.48.0 m/e
+            X-Amz-Date:
+                - 20260919T000000Z
+            X-Amz-Target:
+                - SWBExternalService.DescribePermissionSet
+        url: https://sso.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 214
+        body: '{"PermissionSet":{"CreatedDate":1.7182944E9,"Description":"Read-only access","Name":"ReadOnly","PermissionSetArn":"arn:aws:sso:::permissionSet/ssoins-7223bcdeffedcbaa/ps-2222222222222222","SessionDuration":"PT8H"}}'
+        headers:
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sat, 19 Sep 2026 00:00:00 GMT
+            X-Amzn-Requestid:
+                - 1c3d6934-e473-4309-b499-2a3cf3011901
+        status: 200 OK
+        code: 200
+        duration: 3.875µs
+    - id: 7
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 157
+        host: ""
+        body: '{"InstanceArn":"arn:aws:sso:::instance/ssoins-7223bcdeffedcbaa","PermissionSetArn":"arn:aws:sso:::permissionSet/ssoins-7223bcdeffedcbaa/ps-2222222222222222"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 191f4c62-5b12-4ddc-9904-f0e5e65b49f0
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.47.0 ua/2.1 os/macos lang/go#1.27.0 md/GOOS#darwin md/GOARCH#arm64 api/ssoadmin#1.48.0 m/e
+            X-Amz-Date:
+                - 20260919T000000Z
+            X-Amz-Target:
+                - SWBExternalService.ListManagedPoliciesInPermissionSet
+        url: https://sso.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 102
+        body: '{"AttachedManagedPolicies":[{"Arn":"arn:aws:iam::aws:policy/ReadOnlyAccess","Name":"ReadOnlyAccess"}]}'
+        headers:
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sat, 19 Sep 2026 00:00:00 GMT
+            X-Amzn-Requestid:
+                - 1c3d6934-e473-4309-b499-2a3cf3011901
+        status: 200 OK
+        code: 200
+        duration: 3.458µs
+    - id: 8
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 157
+        host: ""
+        body: '{"InstanceArn":"arn:aws:sso:::instance/ssoins-7223bcdeffedcbaa","PermissionSetArn":"arn:aws:sso:::permissionSet/ssoins-7223bcdeffedcbaa/ps-1111111111111111"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - b3b63058-dd0d-40a6-8b29-27967596ab54
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.47.0 ua/2.1 os/macos lang/go#1.27.0 md/GOOS#darwin md/GOARCH#arm64 api/ssoadmin#1.48.0 m/e
+            X-Amz-Date:
+                - 20260919T000000Z
+            X-Amz-Target:
+                - SWBExternalService.ListAccountsForProvisionedPermissionSet
+        url: https://sso.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 31
+        body: '{"AccountIds":["000000000000"]}'
+        headers:
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sat, 19 Sep 2026 00:00:00 GMT
+            X-Amzn-Requestid:
+                - 1c3d6934-e473-4309-b499-2a3cf3011901
+        status: 200 OK
+        code: 200
+        duration: 3.083µs
+    - id: 9
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 184
+        host: ""
+        body: '{"AccountId":"000000000000","InstanceArn":"arn:aws:sso:::instance/ssoins-7223bcdeffedcbaa","PermissionSetArn":"arn:aws:sso:::permissionSet/ssoins-7223bcdeffedcbaa/ps-1111111111111111"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 69ab6e82-bc3e-48e5-8ee3-c7f96cf720e1
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.47.0 ua/2.1 os/macos lang/go#1.27.0 md/GOOS#darwin md/GOARCH#arm64 api/ssoadmin#1.48.0 m/e
+            X-Amz-Date:
+                - 20260919T000000Z
+            X-Amz-Target:
+                - SWBExternalService.ListAccountAssignments
+        url: https://sso.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 223
+        body: '{"AccountAssignments":[{"AccountId":"000000000000","PermissionSetArn":"arn:aws:sso:::permissionSet/ssoins-7223bcdeffedcbaa/ps-1111111111111111","PrincipalId":"9067abcd-1111-2222-3333-000000000000","PrincipalType":"GROUP"}]}'
+        headers:
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sat, 19 Sep 2026 00:00:00 GMT
+            X-Amzn-Requestid:
+                - 1c3d6934-e473-4309-b499-2a3cf3011901
+        status: 200 OK
+        code: 200
+        duration: 11.584µs
+    - id: 10
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 83
+        host: ""
+        body: '{"GroupId":"9067abcd-1111-2222-3333-000000000000","IdentityStoreId":"d-9067012345"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 0825086d-34d5-4f7a-84db-e6d0b4a4f51a
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.47.0 ua/2.1 os/macos lang/go#1.27.0 md/GOOS#darwin md/GOARCH#arm64 api/identitystore#1.44.0 m/e
+            X-Amz-Date:
+                - 20260919T000000Z
+            X-Amz-Target:
+                - AWSIdentityStore.ListGroupMemberships
+        url: https://identitystore.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 221
+        body: '{"GroupMemberships":[{"GroupId":"9067abcd-1111-2222-3333-000000000000","IdentityStoreId":"d-9067012345","MemberId":{"UserId":"90677c50-e0f1-70ab-7e94-1a2b3c4d5e6f"},"MembershipId":"90671111-2222-3333-4444-000000000000"}]}'
+        headers:
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sat, 19 Sep 2026 00:00:00 GMT
+            X-Amzn-Requestid:
+                - 1c3d6934-e473-4309-b499-2a3cf3011901
+        status: 200 OK
+        code: 200
+        duration: 3.208µs
+    - id: 11
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 83
+        host: ""
+        body: '{"GroupId":"9067abcd-1111-2222-3333-000000000000","IdentityStoreId":"d-9067012345"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - a8960640-6159-4250-a663-41f2e77856a3
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.47.0 ua/2.1 os/macos lang/go#1.27.0 md/GOOS#darwin md/GOARCH#arm64 api/identitystore#1.44.0 m/e
+            X-Amz-Date:
+                - 20260919T000000Z
+            X-Amz-Target:
+                - AWSIdentityStore.DescribeGroup
+        url: https://identitystore.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 115
+        body: '{"DisplayName":"Platform Admins","GroupId":"9067abcd-1111-2222-3333-000000000000","IdentityStoreId":"d-9067012345"}'
+        headers:
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sat, 19 Sep 2026 00:00:00 GMT
+            X-Amzn-Requestid:
+                - 1c3d6934-e473-4309-b499-2a3cf3011901
+        status: 200 OK
+        code: 200
+        duration: 4.042µs
+    - id: 12
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 157
+        host: ""
+        body: '{"InstanceArn":"arn:aws:sso:::instance/ssoins-7223bcdeffedcbaa","PermissionSetArn":"arn:aws:sso:::permissionSet/ssoins-7223bcdeffedcbaa/ps-2222222222222222"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - f04f4c46-7bb2-4dca-b92e-7d990e3691ff
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.47.0 ua/2.1 os/macos lang/go#1.27.0 md/GOOS#darwin md/GOARCH#arm64 api/ssoadmin#1.48.0 m/e
+            X-Amz-Date:
+                - 20260919T000000Z
+            X-Amz-Target:
+                - SWBExternalService.ListAccountsForProvisionedPermissionSet
+        url: https://sso.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 31
+        body: '{"AccountIds":["000000000000"]}'
+        headers:
             Content-Type:
                 - application/x-amz-json-1.1
             Date:
@@ -147,3 +568,44 @@ interactions:
         status: 200 OK
         code: 200
         duration: 3.375µs
+    - id: 13
+      request:
+        proto: ""
+        proto_major: 0
+        proto_minor: 0
+        content_length: 184
+        host: ""
+        body: '{"AccountId":"000000000000","InstanceArn":"arn:aws:sso:::instance/ssoins-7223bcdeffedcbaa","PermissionSetArn":"arn:aws:sso:::permissionSet/ssoins-7223bcdeffedcbaa/ps-2222222222222222"}'
+        headers:
+            Amz-Sdk-Invocation-Id:
+                - 486d53cd-37cb-431a-b078-968a05cf65e4
+            Amz-Sdk-Request:
+                - attempt=1; max=1
+            Authorization:
+                - REDACTED
+            Content-Type:
+                - application/x-amz-json-1.1
+            User-Agent:
+                - aws-sdk-go-v2/1.47.0 ua/2.1 os/macos lang/go#1.27.0 md/GOOS#darwin md/GOARCH#arm64 api/ssoadmin#1.48.0 m/e
+            X-Amz-Date:
+                - 20260919T000000Z
+            X-Amz-Target:
+                - SWBExternalService.ListAccountAssignments
+        url: https://sso.us-east-1.amazonaws.com/
+        method: POST
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 222
+        body: '{"AccountAssignments":[{"AccountId":"000000000000","PermissionSetArn":"arn:aws:sso:::permissionSet/ssoins-7223bcdeffedcbaa/ps-2222222222222222","PrincipalId":"b0e7fc40-a021-7033-1b55-6f7e8d9c0a1b","PrincipalType":"USER"}]}'
+        headers:
+            Content-Type:
+                - application/x-amz-json-1.1
+            Date:
+                - Sat, 19 Sep 2026 00:00:00 GMT
+            X-Amzn-Requestid:
+                - 1c3d6934-e473-4309-b499-2a3cf3011901
+        status: 200 OK
+        code: 200
+        duration: 2.75µs

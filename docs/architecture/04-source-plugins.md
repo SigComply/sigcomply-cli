@@ -251,7 +251,7 @@ GitLab 1 · Okta 1 · Active Directory 1 · Manual 1).
 | `directory_user` | ✓¹ | ✓ | ✓ | ✓ | ✓ | ✓ | | |
 | `roster_entry` | ✓² | ✓ | ✓ | | | ✓ | ✓ | |
 | `iam_access_key` | ✓ | | | | | | | |
-| `iam_binding` | | | ✓ | | | | | |
+| `iam_binding` | ✓³ | | ✓ | | | | | |
 | `password_policy` | ✓ | | | | | | | |
 | `okta_app` | | | | | | ✓ | | |
 | `compute_instance` | ✓ | ✓ | ✓ | | | | | |
@@ -288,6 +288,14 @@ is an AWS source that emits v1, because v2's required `is_root` /
 `has_console_access` / `has_programmatic_access` describe an IAM
 account and have no honest analog for an SSO identity.
 
+³ `aws.identity_center` emits `iam_binding` from IAM Identity Center
+permission-set assignments — the AWS analog of a GCP project IAM
+binding. It is the second emitter of the type, and it needed **zero**
+policy or framework edits: `iso27001.5.3.no_broad_admin_bindings`,
+`iso27001.8.3.no_broad_admin_iam_bindings` and the roster policies'
+`accounts` slot all already accepted it. On an AWS-only estate those two
+least-privilege policies previously had no emitter at all.
+
 ² `aws.identity_center` is the only AWS emitter of `roster_entry`.
 It is a genuine roster candidate when Identity Center is the directory
 of record; when an upstream IdP (Okta, Entra) SCIM-syncs into it,
@@ -296,8 +304,38 @@ account source — the emails line up and no `aliases` are needed.
 **Caveat:** Identity Center publishes no per-user MFA enrollment, so
 `mfa_enabled` is best-effort `false` and `soc2.cc6.1.mfa_enforced_all_users`
 will fail against it. Pin that policy's slot to the real IdP with a
-`bindings:` override. `is_admin` is omitted for the same reason, which
-makes the admin-MFA policy `error` — the sanctioned coverage-gap signal.
+`bindings:` override. `is_admin` is **no longer** in that position: the
+permission-set traversal answers it, resolving group membership as well
+as direct assignment, so the admin-MFA policy evaluates rather than
+erroring.
+
+**The two questions the permission-set traversal answers, and why they
+are answered differently.** `iam_binding` mirrors each assignment *as it
+was made*: a group assignment stays a `group` principal. The two
+least-privilege policies are phrased
+`none(principal_type == "user" AND is_broad_admin_role AND NOT has_condition)`
+and their remediation text says to grant admin through groups — so
+expanding a group grant into per-member records would report the
+recommended pattern as a violation of the policy that recommends it, and
+would mis-key the roster join, whose `account.non_human` is derived from
+`principal_type`. `directory_user.is_admin` asks something else — *does
+this person hold elevated privileges* — which does not care how the
+grant was made, so it **does** resolve group membership. This is exactly
+the split `internal/sources/aws/iam` already makes: `userPrivilege`
+consults group-attached policies for `is_admin`, while
+`direct_policy_count` counts only directly-attached ones.
+
+**What the traversal costs, and its one blind spot.** It is
+O(permission sets × accounts) API calls, the slowest part of a
+collection on a large organization; when a slot asks only for
+`directory_user`, permission sets that are not broadly administrative
+are dropped before their account fan-out, since they cannot change
+`is_admin`. `is_broad_admin_role` reads only AWS-managed policies and
+the permission-set name, so a set that reaches admin through an *inline*
+or customer-managed policy under a name that says nothing reads as
+not-broad. That is the one under-reporting direction left; closing it
+means parsing IAM policy documents, which is a larger change than this
+type warrants.
 
 Cross-cloud reach: 19 of the 31 types are emitted identically by all
 three major clouds (AWS + Azure + GCP) — `roster_entry` joined them when
@@ -310,13 +348,13 @@ The table below gives the per-plugin emitted-type detail and modeling
 notes. GCP, Azure, source-control, and manual plugins are listed in full;
 the AWS rows are a representative slice (consult each `Emits()` for the
 complete list of 24). Every AWS plugin but `aws.identity_center` emits a
-single type; that one emits two from a single listing, the way
-`gcp.directory` does.
+single type; that one emits three — two from a single user listing, the
+way `gcp.directory` does, plus `iam_binding` from a second traversal.
 
 | Plugin ID | Emits (real type IDs) | Notes |
 |---|---|---|
 | `aws.iam` | `directory_user.v2` | One AWS account per instance. Multiple instances via separate config blocks. `username` ← IAM `UserName` (record id is the `UserId`; the synthetic root record has none). |
-| `aws.identity_center` | `directory_user`, `roster_entry` | AWS IAM Identity Center (SSO) via `identitystore:ListUsers`; `identity_store_id` is optional (discovered from `sso-admin:ListInstances`), `region` is the instance's region. Emits **v1, not v2** — an SSO identity has no root flag and no access keys, so the three v2-only IAM policies would pass trivially over it. `email` ← the primary `Emails[]` entry, which is the roster join key, so no `aliases` are needed; `is_active` ← `UserStatus`; `username` ← `UserName`. **`mfa_enabled` is best-effort `false`** (no public per-user MFA API) and **`is_admin` is omitted** (needs a permission-set traversal) — see the caveat below the table. `roster_entry` comes from the same listing: `status` ← `UserStatus` (fail-safe `inactive` on anything unrecognized), `employee_type` ← SCIM `UserType`. |
+| `aws.identity_center` | `directory_user`, `roster_entry`, `iam_binding` | AWS IAM Identity Center (SSO) via `identitystore:ListUsers`; `identity_store_id` is optional (discovered from `sso-admin:ListInstances`), `region` is the instance's region. Emits **v1, not v2** — an SSO identity has no root flag and no access keys, so the three v2-only IAM policies would pass trivially over it. `email` ← the primary `Emails[]` entry, which is the roster join key, so no `aliases` are needed; `is_active` ← `UserStatus`; `username` ← `UserName`. **`mfa_enabled` is best-effort `false`** (no public per-user MFA API) — see the caveat below the table. `roster_entry` comes from the same listing: `status` ← `UserStatus` (fail-safe `inactive` on anything unrecognized), `employee_type` ← SCIM `UserType`. **`iam_binding` and `is_admin` both come from a second traversal** — `sso:ListPermissionSets` → `DescribePermissionSet` + `ListManagedPoliciesInPermissionSet` → `ListAccountsForProvisionedPermissionSet` → `ListAccountAssignments` — one record per assignment: `role` ← the permission-set name (falling back to the ARN's `ps-…` segment), `principal_id` ← the holder's email for a USER assignment and the group's display name for a GROUP one, `principal_type` ← `user`/`group`, `is_broad_admin_role` ← `AdministratorAccess` attached **or** a name containing "admin", `has_condition` ← always `false` (an assignment carries no IAM condition), plus the extras `account_id` / `permission_set_arn` / `identity_store_id`. `Scope.Account` on a binding is the AWS account the grant opens, not the identity store. **Group assignments are not expanded into per-member bindings** — see the two-questions note below. A roster-only slot skips the traversal entirely and needs none of the `sso:*` permissions. |
 | `aws.iam_access_key` | `iam_access_key` | |
 | `aws.s3` | `object_storage_bucket` | Same neutral type as `gcp.storage` and `azure.storage`. |
 | `aws.cloudtrail` | `audit_log_trail` | |

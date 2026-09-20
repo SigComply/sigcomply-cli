@@ -91,7 +91,7 @@ credentials exist.
 
 | Provider | Coverage |
 |---|---|
-| **AWS** | IAM, IAM Identity Center / SSO (users + identity roster), access keys, password policy, S3, RDS, DynamoDB, EC2, Lambda, EKS, ECR, KMS, Secrets Manager, CloudTrail, CloudWatch, Config, VPC, security groups, ACM, Backup, GuardDuty, Inspector, Security Hub, security alerts |
+| **AWS** | IAM, IAM Identity Center / SSO (users, permission-set grants + identity roster), access keys, password policy, S3, RDS, DynamoDB, EC2, Lambda, EKS, ECR, KMS, Secrets Manager, CloudTrail, CloudWatch, Config, VPC, security groups, ACM, Backup, GuardDuty, Inspector, Security Hub, security alerts |
 | **GCP** | Cloud Identity / Google Workspace (users + identity roster), IAM, Compute, GKE, Cloud SQL, Firestore, Cloud Storage, KMS, Secret Manager, Logging, Audit Logs, Cloud Asset, VPC, firewall, Artifact Registry, Backup & DR, Certificate Manager, Security Command Center |
 | **Azure** | Entra ID (users + identity roster), Storage, SQL, Cosmos DB, VMs, AKS, ACR, Key Vault, Monitor, Network, Backup, certificates, Defender for Cloud, Policy |
 | **GitHub** | repositories, org members, org security policy, Dependabot findings |

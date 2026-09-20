@@ -122,8 +122,9 @@ fetch_smithy dynamodb dynamodb ListTables DescribeTable DescribeContinuousBackup
 fetch_smithy kms kms ListKeys DescribeKey GetKeyRotationStatus
 fetch_smithy secretsmanager secrets-manager ListSecrets
 fetch_smithy backup backup ListBackupPlans GetBackupPlan
-fetch_smithy identitystore identitystore ListUsers
-fetch_smithy sso-admin sso-admin ListInstances
+fetch_smithy identitystore identitystore ListUsers DescribeGroup ListGroupMemberships
+fetch_smithy sso-admin sso-admin ListInstances ListPermissionSets DescribePermissionSet \
+    ListManagedPoliciesInPermissionSet ListAccountsForProvisionedPermissionSet ListAccountAssignments
 
 echo "GCP (public Discovery Docs; sliced to response-schema closure):"
 # Foundation (WU-2.7)

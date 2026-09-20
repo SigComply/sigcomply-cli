@@ -6,6 +6,12 @@
    "version": "2020-06-15",
    "operations": [
     {
+     "target": "com.amazonaws.identitystore#DescribeGroup"
+    },
+    {
+     "target": "com.amazonaws.identitystore#ListGroupMemberships"
+    },
+    {
      "target": "com.amazonaws.identitystore#ListUsers"
     }
    ],
@@ -322,6 +328,88 @@
   "com.amazonaws.identitystore#DateType": {
    "type": "timestamp"
   },
+  "com.amazonaws.identitystore#DescribeGroup": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.identitystore#DescribeGroupRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.identitystore#DescribeGroupResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.identitystore#ResourceNotFoundException"
+    },
+    {
+     "target": "com.amazonaws.identitystore#ValidationException"
+    }
+   ],
+   "traits": {
+    "smithy.api#readonly": {}
+   }
+  },
+  "com.amazonaws.identitystore#DescribeGroupRequest": {
+   "type": "structure",
+   "members": {
+    "IdentityStoreId": {
+     "target": "com.amazonaws.identitystore#IdentityStoreId",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "GroupId": {
+     "target": "com.amazonaws.identitystore#ResourceId",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    }
+   }
+  },
+  "com.amazonaws.identitystore#DescribeGroupResponse": {
+   "type": "structure",
+   "members": {
+    "GroupId": {
+     "target": "com.amazonaws.identitystore#ResourceId",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "DisplayName": {
+     "target": "com.amazonaws.identitystore#GroupDisplayName",
+     "traits": {}
+    },
+    "ExternalIds": {
+     "target": "com.amazonaws.identitystore#ExternalIds",
+     "traits": {}
+    },
+    "Description": {
+     "target": "com.amazonaws.identitystore#SensitiveStringType",
+     "traits": {}
+    },
+    "CreatedAt": {
+     "target": "com.amazonaws.identitystore#DateType",
+     "traits": {}
+    },
+    "UpdatedAt": {
+     "target": "com.amazonaws.identitystore#DateType",
+     "traits": {}
+    },
+    "CreatedBy": {
+     "target": "com.amazonaws.identitystore#StringType",
+     "traits": {}
+    },
+    "UpdatedBy": {
+     "target": "com.amazonaws.identitystore#StringType",
+     "traits": {}
+    },
+    "IdentityStoreId": {
+     "target": "com.amazonaws.identitystore#IdentityStoreId",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    }
+   }
+  },
   "com.amazonaws.identitystore#Email": {
    "type": "structure",
    "members": {
@@ -477,6 +565,63 @@
     }
    }
   },
+  "com.amazonaws.identitystore#GroupDisplayName": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 1024
+    },
+    "smithy.api#pattern": "^[\\p{L}\\p{M}\\p{S}\\p{N}\\p{P}\\t\\n\\r \u00a0]+$",
+    "smithy.api#sensitive": {}
+   }
+  },
+  "com.amazonaws.identitystore#GroupMembership": {
+   "type": "structure",
+   "members": {
+    "IdentityStoreId": {
+     "target": "com.amazonaws.identitystore#IdentityStoreId",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "MembershipId": {
+     "target": "com.amazonaws.identitystore#ResourceId",
+     "traits": {}
+    },
+    "GroupId": {
+     "target": "com.amazonaws.identitystore#ResourceId",
+     "traits": {}
+    },
+    "MemberId": {
+     "target": "com.amazonaws.identitystore#MemberId",
+     "traits": {}
+    },
+    "CreatedAt": {
+     "target": "com.amazonaws.identitystore#DateType",
+     "traits": {}
+    },
+    "UpdatedAt": {
+     "target": "com.amazonaws.identitystore#DateType",
+     "traits": {}
+    },
+    "CreatedBy": {
+     "target": "com.amazonaws.identitystore#StringType",
+     "traits": {}
+    },
+    "UpdatedBy": {
+     "target": "com.amazonaws.identitystore#StringType",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.identitystore#GroupMemberships": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.identitystore#GroupMembership"
+   }
+  },
   "com.amazonaws.identitystore#IdentityStoreId": {
    "type": "string",
    "traits": {
@@ -485,6 +630,76 @@
      "max": 36
     },
     "smithy.api#pattern": "^d-[0-9a-f]{10}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+   }
+  },
+  "com.amazonaws.identitystore#ListGroupMemberships": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.identitystore#ListGroupMembershipsRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.identitystore#ListGroupMembershipsResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.identitystore#ResourceNotFoundException"
+    },
+    {
+     "target": "com.amazonaws.identitystore#ValidationException"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "NextToken",
+     "items": "GroupMemberships",
+     "outputToken": "NextToken",
+     "pageSize": "MaxResults"
+    },
+    "smithy.api#readonly": {}
+   }
+  },
+  "com.amazonaws.identitystore#ListGroupMembershipsRequest": {
+   "type": "structure",
+   "members": {
+    "IdentityStoreId": {
+     "target": "com.amazonaws.identitystore#IdentityStoreId",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "GroupId": {
+     "target": "com.amazonaws.identitystore#ResourceId",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "MaxResults": {
+     "target": "com.amazonaws.identitystore#MaxResults",
+     "traits": {
+      "smithy.api#addedDefault": {},
+      "smithy.api#clientOptional": {},
+      "smithy.api#default": 100
+     }
+    },
+    "NextToken": {
+     "target": "com.amazonaws.identitystore#NextToken",
+     "traits": {}
+    }
+   }
+  },
+  "com.amazonaws.identitystore#ListGroupMembershipsResponse": {
+   "type": "structure",
+   "members": {
+    "GroupMemberships": {
+     "target": "com.amazonaws.identitystore#GroupMemberships",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "NextToken": {
+     "target": "com.amazonaws.identitystore#NextToken",
+     "traits": {}
+    }
    }
   },
   "com.amazonaws.identitystore#ListUsers": {
@@ -571,6 +786,16 @@
      "max": 100
     }
    }
+  },
+  "com.amazonaws.identitystore#MemberId": {
+   "type": "union",
+   "members": {
+    "UserId": {
+     "target": "com.amazonaws.identitystore#ResourceId",
+     "traits": {}
+    }
+   },
+   "traits": {}
   },
   "com.amazonaws.identitystore#Name": {
    "type": "structure",

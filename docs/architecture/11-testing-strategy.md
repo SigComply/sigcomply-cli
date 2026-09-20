@@ -394,11 +394,29 @@ secret names can't begin with `GITHUB_`).
 
 **Drift signal & remediation.** A live test failing on the nightly run opens a
 `live-drift` issue (alert-only; PRs never run it). Cassette **re-record is
-manual** by design — the recorders are throwaway `//go:build record` drivers, not
-committed — so triage is: reproduce with `make test-live`, fix the mapper/schema,
+manual** by design — the recorders are throwaway `//go:build record` drivers,
+mostly not committed — so triage is: reproduce with `make test-live`, fix the mapper/schema,
 re-record the affected cassette with a throwaway driver, and (if the upstream
 shape moved) re-baseline the L3 snapshot via `make contracts-fetch`. The two
 drift jobs are complementary: **Contract Drift** (L3) catches spec-shape changes
 with zero accounts; **Live SaaS Drift** (L4a) catches behavioral changes a spec
 diff can't see (and GitLab, whose published spec is too thin for L3, relies on it
 entirely).
+
+**One exception to "not committed": a cassette that was never recorded.**
+`internal/sources/aws/identitycenter/testdata/cassettes/identity_store_users.yaml`
+could not be recorded — SigComply has no Identity Center tenant — so it was
+*constructed*: real SDK-serialized requests paired with response bodies
+transcribed from the published Smithy models. That kind of cassette has no live
+source of truth to go back to, so its driver **is** committed, at
+`identitycenter_cassette_test.go` behind a `cassette` build tag, holding every
+transcribed body:
+
+```
+rm -f internal/sources/aws/identitycenter/testdata/cassettes/identity_store_users.yaml
+go test -tags cassette -run TestConstructCassette ./internal/sources/aws/identitycenter/
+```
+
+go-vcr writes the YAML itself and drops leading comments, so the provenance
+header at the top of the cassette must be pasted back afterwards. It remains a
+**shape** test until someone re-records it against a real tenant.

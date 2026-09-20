@@ -30,7 +30,7 @@ Five sources can be the roster:
 | Microsoft Entra ID | `azure.entra` | Graph application permission `User.Read.All` — **no Entra ID P1/P2 needed** for the roster |
 | Google Workspace / Cloud Identity | `gcp.directory` | Workspace admin context with Users → Read |
 | Active Directory (on-prem) | `active_directory` | A non-admin bind user over LDAPS / StartTLS |
-| AWS IAM Identity Center | `aws.identity_center` | `identitystore:ListUsers` + `sso:ListInstances` |
+| AWS IAM Identity Center | `aws.identity_center` | `identitystore:ListUsers` + `sso:ListInstances` (a roster-only binding skips the permission-set traversal, so it needs none of the `sso:*` grant actions) |
 
 Identity Center is the roster only when it is the directory of record. If an
 upstream IdP SCIM-syncs into it, designate the upstream IdP instead and use
@@ -142,7 +142,7 @@ The roster slot accepts two shapes of identity, and asks both the same question:
 | Shape | Evidence type | Emitted by | Joins on |
 |---|---|---|---|
 | An account in another system | `directory_user`, `directory_user.v2` | GitHub, GitLab, AWS IAM, Okta, Entra, Workspace, AD | alias, else `email` |
-| A cloud IAM role granted to a principal | `iam_binding` | `gcp.iam` | alias, else `principal_id` |
+| A cloud IAM role granted to a principal | `iam_binding` | `gcp.iam`, `aws.identity_center` | alias, else `principal_id` |
 
 Both are checked by the *same two policies* — there is no separate grant policy. Adding a source that emits `iam_binding` widens what the existing checks see; it adds no new control, no new obligation, and nothing skips for a project that has no such source.
 
@@ -206,8 +206,8 @@ So **waiving an unlinked account on the linked policy can hide a leaver** whose 
 - **Current state only.** Each run checks accounts as they are now. It doesn't measure how quickly an account was removed after a departure (for example "within 24 hours"). Keep that evidence manually.
 - **One roster source, no instances.** A bracketed source (`"okta[emea]"`) can't be the roster, and two rosters can't be merged.
 - **Email is the join key.** A roster entry with no email can't vouch for any account (fail-safe), and an identity with neither email nor alias is always unlinked. For an IAM grant the join uses `principal_id`, which for a `user:` member is already an email.
-- **Group grants are opaque.** A role granted to a group is not checked, and the CLI does not enumerate group membership — so access held *through* a group is outside this check. Review group membership separately.
-- **GCP only, for now.** `iam_binding` is emitted by `gcp.iam` alone. AWS policy attachments and Azure role assignments are the same cross-vendor shape and would be picked up by these policies the day a plugin emits them — no policy change needed.
+- **Group grants are reported, but not attributed to their members.** A role or permission set granted to a group produces an `iam_binding` whose `principal_type` is `group`, which the roster join treats as non-human and does not check — the people in that group are checked through their own user records instead. Expanding a group grant into one record per member would be worse, not better: `iso27001.5.3.no_broad_admin_bindings` exists to push admin grants *onto* groups, so attributing them back to individuals would report the recommended pattern as a violation. One exception is worth knowing: `aws.identity_center` **does** resolve Identity Center group membership for `directory_user.is_admin`, so a person who holds `AdministratorAccess` only through a group is still flagged as an admin by the admin-MFA policies. Review group membership itself separately.
+- **GCP and AWS, not Azure yet.** `iam_binding` is emitted by `gcp.iam` (project IAM bindings) and by `aws.identity_center` (IAM Identity Center permission-set assignments — `principal_id` is the holder's email, so those grants join the roster with no aliases). Azure role assignments are the same cross-vendor shape and would be picked up by these policies the day a plugin emits them — no policy change needed. AWS *IAM-user* policy attachments are still not emitted; `aws.iam` reports privilege through `directory_user.is_admin` instead.
 - **Each roster policy collects its own evidence.** Nothing is cached between policies, so the roster directory is read once per roster policy in a run — for a large Active Directory, that is one full paged search per policy.
 - **Entra ID MFA policies still need P1/P2.** Reading the roster from `azure.entra` needs only `User.Read.All`. The MFA policies that bind the same source's `directory_user` records still need the Entra ID P1/P2 registration report.
 

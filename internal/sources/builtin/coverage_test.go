@@ -75,11 +75,15 @@ func emittableTypes(t *testing.T) (emittable map[string]bool, failed map[string]
 			emittable[et] = true
 		}
 	}
-	// gcp.iam is the only emitter of a GCP-only type (iam_binding) that
-	// cannot be built here (crm.NewService requires ADC). Its Emits() is a
-	// static constant, so read it from a bare instance. Other gcp.* plugins
-	// emit cross-vendor types (object_storage_bucket, compute_instance,
-	// managed_database_instance) already covered by their AWS counterparts.
+	// gcp.iam cannot be built here (crm.NewService requires ADC), so its
+	// Emits() is read from a bare instance — its Emits() is a static
+	// constant. It is no longer the *only* emitter of iam_binding
+	// (aws.identity_center emits it too, from permission-set assignments,
+	// and that plugin does build in the loop above), but reading it here
+	// keeps the coverage check independent of which emitters happen to be
+	// constructible. Other gcp.* plugins emit cross-vendor types
+	// (object_storage_bucket, compute_instance, managed_database_instance)
+	// already covered by their AWS counterparts.
 	for _, et := range gcpiam.New(gcpiam.Options{}).Emits() {
 		emittable[et] = true
 	}

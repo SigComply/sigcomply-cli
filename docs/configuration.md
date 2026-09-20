@@ -138,18 +138,28 @@ sources:
     #                                   # required only if >1 instance is visible
 ```
 
-It emits `directory_user` (v1) and `roster_entry` from one listing, and
-needs `identitystore:ListUsers` plus `sso:ListInstances`. Note the
-region must be the one the Identity Center instance lives in.
+It emits `directory_user` (v1) and `roster_entry` from one listing,
+plus `iam_binding` from a permission-set traversal. Note the region must
+be the one the Identity Center instance lives in.
 
-> **Two honest gaps.** Identity Center publishes no per-user MFA
+Permissions, all read-only: `identitystore:ListUsers` and
+`sso:ListInstances` for the listing; `identitystore:DescribeGroup`,
+`identitystore:ListGroupMemberships`, `sso:ListPermissionSets`,
+`sso:DescribePermissionSet`,
+`sso:ListManagedPoliciesInPermissionSet`,
+`sso:ListAccountsForProvisionedPermissionSet` and
+`sso:ListAccountAssignments` for the traversal. A binding used **only**
+as the roster skips the traversal and needs just the first two.
+
+> **One honest gap.** Identity Center publishes no per-user MFA
 > enrollment, so `mfa_enabled` is emitted best-effort `false` and
 > `soc2.cc6.1.mfa_enforced_all_users` will fail against this source. It
 > is `false` rather than `true` deliberately — a wrong answer that
-> *fails* a control is recoverable, one that passes it is not. `is_admin`
-> is omitted (it would need a permission-set traversal), which makes the
-> admin-MFA policy `error`. For both, bind those policies to the IdP that
-> actually holds the MFA state with a per-policy `bindings:` override.
+> *fails* a control is recoverable, one that passes it is not. Bind the
+> MFA policies to the IdP that actually holds that state with a
+> per-policy `bindings:` override. `is_admin` used to be the second gap;
+> the permission-set traversal now answers it, resolving group
+> membership, so the admin-MFA policy evaluates instead of erroring.
 
 **Minimum IAM permissions required:**
 

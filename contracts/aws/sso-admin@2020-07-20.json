@@ -6,7 +6,22 @@
    "version": "2020-07-20",
    "operations": [
     {
+     "target": "com.amazonaws.ssoadmin#DescribePermissionSet"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ListAccountAssignments"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ListAccountsForProvisionedPermissionSet"
+    },
+    {
      "target": "com.amazonaws.ssoadmin#ListInstances"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ListManagedPoliciesInPermissionSet"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ListPermissionSets"
     }
    ],
    "traits": {
@@ -266,6 +281,34 @@
     }
    }
   },
+  "com.amazonaws.ssoadmin#AccountAssignment": {
+   "type": "structure",
+   "members": {
+    "AccountId": {
+     "target": "com.amazonaws.ssoadmin#AccountId",
+     "traits": {}
+    },
+    "PermissionSetArn": {
+     "target": "com.amazonaws.ssoadmin#PermissionSetArn",
+     "traits": {}
+    },
+    "PrincipalType": {
+     "target": "com.amazonaws.ssoadmin#PrincipalType",
+     "traits": {}
+    },
+    "PrincipalId": {
+     "target": "com.amazonaws.ssoadmin#PrincipalId",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.ssoadmin#AccountAssignmentList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.ssoadmin#AccountAssignment"
+   }
+  },
   "com.amazonaws.ssoadmin#AccountId": {
    "type": "string",
    "traits": {
@@ -276,8 +319,103 @@
     "smithy.api#pattern": "^\\d{12}$"
    }
   },
+  "com.amazonaws.ssoadmin#AccountList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.ssoadmin#AccountId"
+   }
+  },
+  "com.amazonaws.ssoadmin#AttachedManagedPolicy": {
+   "type": "structure",
+   "members": {
+    "Name": {
+     "target": "com.amazonaws.ssoadmin#Name",
+     "traits": {}
+    },
+    "Arn": {
+     "target": "com.amazonaws.ssoadmin#ManagedPolicyArn",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.ssoadmin#AttachedManagedPolicyList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.ssoadmin#AttachedManagedPolicy"
+   }
+  },
   "com.amazonaws.ssoadmin#Date": {
    "type": "timestamp"
+  },
+  "com.amazonaws.ssoadmin#DescribePermissionSet": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.ssoadmin#DescribePermissionSetRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.ssoadmin#DescribePermissionSetResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.ssoadmin#AccessDeniedException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#InternalServerException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ResourceNotFoundException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ThrottlingException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ValidationException"
+    }
+   ],
+   "traits": {}
+  },
+  "com.amazonaws.ssoadmin#DescribePermissionSetRequest": {
+   "type": "structure",
+   "members": {
+    "InstanceArn": {
+     "target": "com.amazonaws.ssoadmin#InstanceArn",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "PermissionSetArn": {
+     "target": "com.amazonaws.ssoadmin#PermissionSetArn",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.ssoadmin#DescribePermissionSetResponse": {
+   "type": "structure",
+   "members": {
+    "PermissionSet": {
+     "target": "com.amazonaws.ssoadmin#PermissionSet",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.ssoadmin#Duration": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 100
+    },
+    "smithy.api#pattern": "^(-?)P(?=\\d|T\\d)(?:(\\d+)Y)?(?:(\\d+)M)?(?:(\\d+)([DW]))?(?:T(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+(?:\\.\\d+)?)S)?)?$"
+   }
   },
   "com.amazonaws.ssoadmin#Id": {
    "type": "string",
@@ -403,6 +541,172 @@
     "smithy.api#default": false
    }
   },
+  "com.amazonaws.ssoadmin#ListAccountAssignments": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.ssoadmin#ListAccountAssignmentsRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.ssoadmin#ListAccountAssignmentsResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.ssoadmin#AccessDeniedException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#InternalServerException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ResourceNotFoundException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ThrottlingException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ValidationException"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "NextToken",
+     "outputToken": "NextToken",
+     "pageSize": "MaxResults",
+     "items": "AccountAssignments"
+    }
+   }
+  },
+  "com.amazonaws.ssoadmin#ListAccountAssignmentsRequest": {
+   "type": "structure",
+   "members": {
+    "InstanceArn": {
+     "target": "com.amazonaws.ssoadmin#InstanceArn",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "AccountId": {
+     "target": "com.amazonaws.ssoadmin#TargetId",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "PermissionSetArn": {
+     "target": "com.amazonaws.ssoadmin#PermissionSetArn",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "MaxResults": {
+     "target": "com.amazonaws.ssoadmin#MaxResults",
+     "traits": {}
+    },
+    "NextToken": {
+     "target": "com.amazonaws.ssoadmin#Token",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.ssoadmin#ListAccountAssignmentsResponse": {
+   "type": "structure",
+   "members": {
+    "AccountAssignments": {
+     "target": "com.amazonaws.ssoadmin#AccountAssignmentList",
+     "traits": {}
+    },
+    "NextToken": {
+     "target": "com.amazonaws.ssoadmin#Token",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.ssoadmin#ListAccountsForProvisionedPermissionSet": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.ssoadmin#ListAccountsForProvisionedPermissionSetRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.ssoadmin#ListAccountsForProvisionedPermissionSetResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.ssoadmin#AccessDeniedException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#InternalServerException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ResourceNotFoundException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ThrottlingException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ValidationException"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "NextToken",
+     "outputToken": "NextToken",
+     "pageSize": "MaxResults",
+     "items": "AccountIds"
+    }
+   }
+  },
+  "com.amazonaws.ssoadmin#ListAccountsForProvisionedPermissionSetRequest": {
+   "type": "structure",
+   "members": {
+    "InstanceArn": {
+     "target": "com.amazonaws.ssoadmin#InstanceArn",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "PermissionSetArn": {
+     "target": "com.amazonaws.ssoadmin#PermissionSetArn",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "ProvisioningStatus": {
+     "target": "com.amazonaws.ssoadmin#ProvisioningStatus",
+     "traits": {}
+    },
+    "MaxResults": {
+     "target": "com.amazonaws.ssoadmin#MaxResults",
+     "traits": {}
+    },
+    "NextToken": {
+     "target": "com.amazonaws.ssoadmin#Token",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.ssoadmin#ListAccountsForProvisionedPermissionSetResponse": {
+   "type": "structure",
+   "members": {
+    "AccountIds": {
+     "target": "com.amazonaws.ssoadmin#AccountList",
+     "traits": {}
+    },
+    "NextToken": {
+     "target": "com.amazonaws.ssoadmin#Token",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
   "com.amazonaws.ssoadmin#ListInstances": {
    "type": "operation",
    "input": {
@@ -466,10 +770,179 @@
     "smithy.api#output": {}
    }
   },
+  "com.amazonaws.ssoadmin#ListManagedPoliciesInPermissionSet": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.ssoadmin#ListManagedPoliciesInPermissionSetRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.ssoadmin#ListManagedPoliciesInPermissionSetResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.ssoadmin#AccessDeniedException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#InternalServerException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ResourceNotFoundException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ThrottlingException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ValidationException"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "NextToken",
+     "outputToken": "NextToken",
+     "pageSize": "MaxResults",
+     "items": "AttachedManagedPolicies"
+    }
+   }
+  },
+  "com.amazonaws.ssoadmin#ListManagedPoliciesInPermissionSetRequest": {
+   "type": "structure",
+   "members": {
+    "InstanceArn": {
+     "target": "com.amazonaws.ssoadmin#InstanceArn",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "PermissionSetArn": {
+     "target": "com.amazonaws.ssoadmin#PermissionSetArn",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "MaxResults": {
+     "target": "com.amazonaws.ssoadmin#MaxResults",
+     "traits": {}
+    },
+    "NextToken": {
+     "target": "com.amazonaws.ssoadmin#Token",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.ssoadmin#ListManagedPoliciesInPermissionSetResponse": {
+   "type": "structure",
+   "members": {
+    "AttachedManagedPolicies": {
+     "target": "com.amazonaws.ssoadmin#AttachedManagedPolicyList",
+     "traits": {}
+    },
+    "NextToken": {
+     "target": "com.amazonaws.ssoadmin#Token",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.ssoadmin#ListPermissionSets": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.ssoadmin#ListPermissionSetsRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.ssoadmin#ListPermissionSetsResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.ssoadmin#AccessDeniedException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#InternalServerException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ResourceNotFoundException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ThrottlingException"
+    },
+    {
+     "target": "com.amazonaws.ssoadmin#ValidationException"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "NextToken",
+     "outputToken": "NextToken",
+     "pageSize": "MaxResults",
+     "items": "PermissionSets"
+    }
+   }
+  },
+  "com.amazonaws.ssoadmin#ListPermissionSetsRequest": {
+   "type": "structure",
+   "members": {
+    "InstanceArn": {
+     "target": "com.amazonaws.ssoadmin#InstanceArn",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "NextToken": {
+     "target": "com.amazonaws.ssoadmin#Token",
+     "traits": {}
+    },
+    "MaxResults": {
+     "target": "com.amazonaws.ssoadmin#MaxResults",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.ssoadmin#ListPermissionSetsResponse": {
+   "type": "structure",
+   "members": {
+    "PermissionSets": {
+     "target": "com.amazonaws.ssoadmin#PermissionSetList",
+     "traits": {}
+    },
+    "NextToken": {
+     "target": "com.amazonaws.ssoadmin#Token",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.ssoadmin#ManagedPolicyArn": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 20,
+     "max": 2048
+    },
+    "smithy.api#pattern": "^arn:aws(-[a-z]{1,5}){0,3}:iam::aws:policy((/[A-Za-z0-9\\.,\\+@=_-]+)*)/([A-Za-z0-9\\.,\\+=@_-]+)$"
+   }
+  },
   "com.amazonaws.ssoadmin#MaxResults": {
    "type": "integer",
    "traits": {
     "smithy.api#range": {
+     "min": 1,
+     "max": 100
+    }
+   }
+  },
+  "com.amazonaws.ssoadmin#Name": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
      "min": 1,
      "max": 100
     }
@@ -483,6 +956,116 @@
      "max": 255
     },
     "smithy.api#pattern": "^[\\w+=,.@-]+$"
+   }
+  },
+  "com.amazonaws.ssoadmin#PermissionSet": {
+   "type": "structure",
+   "members": {
+    "Name": {
+     "target": "com.amazonaws.ssoadmin#PermissionSetName",
+     "traits": {}
+    },
+    "PermissionSetArn": {
+     "target": "com.amazonaws.ssoadmin#PermissionSetArn",
+     "traits": {}
+    },
+    "Description": {
+     "target": "com.amazonaws.ssoadmin#PermissionSetDescription",
+     "traits": {}
+    },
+    "CreatedDate": {
+     "target": "com.amazonaws.ssoadmin#Date",
+     "traits": {}
+    },
+    "SessionDuration": {
+     "target": "com.amazonaws.ssoadmin#Duration",
+     "traits": {}
+    },
+    "RelayState": {
+     "target": "com.amazonaws.ssoadmin#RelayState",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.ssoadmin#PermissionSetArn": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 10,
+     "max": 1224
+    },
+    "smithy.api#pattern": "^arn:aws(-[a-z]{1,5}){0,3}:sso:::permissionSet/(sso)?ins-[a-zA-Z0-9-.]{16}/ps-[a-zA-Z0-9-./]{16}$"
+   }
+  },
+  "com.amazonaws.ssoadmin#PermissionSetDescription": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 700
+    },
+    "smithy.api#pattern": "^[\\u0009\\u000A\\u000D\\u0020-\\u007E\\u00A1-\\u00FF]*$"
+   }
+  },
+  "com.amazonaws.ssoadmin#PermissionSetList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.ssoadmin#PermissionSetArn"
+   }
+  },
+  "com.amazonaws.ssoadmin#PermissionSetName": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 32
+    },
+    "smithy.api#pattern": "^[\\w+=,.@-]+$"
+   }
+  },
+  "com.amazonaws.ssoadmin#PrincipalId": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 47
+    },
+    "smithy.api#pattern": "^([0-9a-f]{10}-|)[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$"
+   }
+  },
+  "com.amazonaws.ssoadmin#PrincipalType": {
+   "type": "enum",
+   "members": {
+    "USER": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "USER"
+     }
+    },
+    "GROUP": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "GROUP"
+     }
+    }
+   }
+  },
+  "com.amazonaws.ssoadmin#ProvisioningStatus": {
+   "type": "enum",
+   "members": {
+    "LATEST_PERMISSION_SET_PROVISIONED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "LATEST_PERMISSION_SET_PROVISIONED"
+     }
+    },
+    "LATEST_PERMISSION_SET_NOT_PROVISIONED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "LATEST_PERMISSION_SET_NOT_PROVISIONED"
+     }
+    }
    }
   },
   "com.amazonaws.ssoadmin#Reason": {
@@ -552,6 +1135,56 @@
       "smithy.api#enumValue": "REMOVING"
      }
     }
+   }
+  },
+  "com.amazonaws.ssoadmin#RelayState": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 240
+    },
+    "smithy.api#pattern": "^[a-zA-Z0-9&$@#\\\\\\/%?=~\\-_'\"|!:,.;*+\\[\\]\\ \\(\\)\\{\\}]+$"
+   }
+  },
+  "com.amazonaws.ssoadmin#ResourceNotFoundException": {
+   "type": "structure",
+   "members": {
+    "Message": {
+     "target": "com.amazonaws.ssoadmin#ResourceNotFoundMessage"
+    },
+    "Reason": {
+     "target": "com.amazonaws.ssoadmin#ResourceNotFoundExceptionReason",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 404
+   }
+  },
+  "com.amazonaws.ssoadmin#ResourceNotFoundExceptionReason": {
+   "type": "enum",
+   "members": {
+    "KMS_NOT_FOUND_EXCEPTION": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "KMS_NotFoundException"
+     }
+    }
+   }
+  },
+  "com.amazonaws.ssoadmin#ResourceNotFoundMessage": {
+   "type": "string"
+  },
+  "com.amazonaws.ssoadmin#TargetId": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 12,
+     "max": 12
+    },
+    "smithy.api#pattern": "^\\d{12}$"
    }
   },
   "com.amazonaws.ssoadmin#ThrottlingException": {

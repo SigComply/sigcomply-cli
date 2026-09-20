@@ -13,6 +13,45 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **`aws.identity_center` now enumerates permission-set assignments**, which
+  makes it the second emitter of `iam_binding` and closes the `is_admin`
+  gap it shipped with. The traversal is `sso:ListPermissionSets` →
+  `DescribePermissionSet` + `ListManagedPoliciesInPermissionSet` →
+  `ListAccountsForProvisionedPermissionSet` → `ListAccountAssignments`,
+  plus `identitystore:DescribeGroup` / `ListGroupMemberships`.
+  **Zero policy or framework changes were needed** — substitutability
+  again: `iso27001.5.3.no_broad_admin_bindings` and
+  `iso27001.8.3.no_broad_admin_iam_bindings` already accepted
+  `iam_binding` and simply had no emitter on an AWS-only estate, and the
+  roster policies' `accounts` slot already accepted it too.
+  **The design decision worth keeping:** an `iam_binding` mirrors the
+  assignment *as it was made* — a group assignment stays a `group`
+  principal and is **not** expanded into per-member records, because the
+  least-privilege policies are phrased
+  `none(principal_type == "user" AND is_broad_admin_role AND NOT has_condition)`
+  and their remediation says to grant admin through groups; expanding
+  would report the recommended pattern as a violation of the policy that
+  recommends it, and would mis-key the roster join, whose
+  `account.non_human` derives from `principal_type`. `is_admin` asks a
+  different question — does this *person* hold elevated privileges — so it
+  **does** resolve group membership. `internal/sources/aws/iam` already
+  split the two the same way. `is_broad_admin_role` is `AdministratorAccess`
+  attached **or** a permission-set name containing "admin", and
+  `has_condition` is a flat `false` (an assignment carries no IAM
+  condition) — both err toward failing a control rather than passing one.
+  Remaining blind spot: a permission set reaching admin only through an
+  inline or customer-managed policy under a non-obvious name reads as
+  not-broad. The traversal costs O(permission sets x accounts) API calls;
+  a slot asking only for `directory_user` skips the account fan-out for
+  non-admin sets, and a roster-only slot skips the traversal entirely and
+  needs none of the `sso:*` permissions. **Breaking for existing
+  configs:** a binding that collects `directory_user` or `iam_binding` now
+  requires the new read actions above, and a run whose credentials lack
+  them fails loudly rather than quietly omitting `is_admin`.
+  The L2 cassette gained the new interactions and is now regenerable from
+  a committed `//go:build cassette` driver — it is still constructed from
+  the published Smithy models, not recorded against a live tenant.
+
 - **`aws.identity_center` — an AWS IAM Identity Center (SSO) source.**
   Emits `directory_user` (v1) and `roster_entry` from one
   `identitystore:ListUsers` listing. Modern AWS human access runs through
@@ -26,11 +65,12 @@ tracks the human-curated highlights.
   v2's required `is_root` / `has_console_access` /
   `has_programmatic_access` describe an IAM account, and emitting them
   would make the three v2-only IAM policies pass trivially over SSO users
-  — inflating the score. Two honest gaps: Identity Center publishes no
+  — inflating the score. One honest gap: Identity Center publishes no
   per-user MFA enrollment, so `mfa_enabled` is best-effort `false` (which
-  can only fail a control, never pass one) and `is_admin` is omitted,
-  which makes the admin-MFA policy `error`. Bind those policies to the
-  IdP that actually holds the MFA state. **The L2 cassette is derived from
+  can only fail a control, never pass one). Bind the MFA policies to the
+  IdP that actually holds that state. (`is_admin` was the second gap in
+  this entry as first written; the permission-set traversal below now
+  answers it.) **The L2 cassette is derived from
   the published Smithy service models, not recorded against a live tenant
   — it needs a live re-record before it can be trusted as a contract test.**
 - **Declared-but-never-matched roster keys are now reported.** An
