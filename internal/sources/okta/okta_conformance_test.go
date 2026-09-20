@@ -183,3 +183,64 @@ func mustUnmarshal(t *testing.T, b []byte, v any) {
 		t.Fatalf("unmarshal payload: %v", err)
 	}
 }
+
+// TestOktaPasswordPolicyConformance replays an org with three PASSWORD
+// policies — a permissive default, a stricter engineering policy, and a
+// deactivated one — across two pages. It pins the three things that make
+// this emitter honest: the ACTIVE filter, Okta's 0/1 counts read as the
+// canonical booleans, and a null complexity field never inventing a value.
+func TestOktaPasswordPolicyConformance(t *testing.T) {
+	recs := sourcetest.RunConformance(t, &sourcetest.Options{
+		Plugin:        newCassettePlugin(t, "testdata/cassettes/password_policy_collect"),
+		Request:       core.SlotRequest{AcceptedTypes: []string{EvidenceTypePasswordPolicy}},
+		EvidenceTypes: sourcetest.BuiltinEvidenceTypes(t),
+		// MFA is a separate Okta policy type, not a password attribute —
+		// the same exemption the AWS emitter takes.
+		OptionalFields: []string{"password_policy.mfa_required"},
+	})
+
+	if len(recs) != 2 {
+		t.Fatalf("records = %d; want 2 — the INACTIVE policy governs nobody and is skipped", len(recs))
+	}
+
+	got := map[string]passwordPolicyPayload{}
+	for _, r := range recs {
+		var p passwordPolicyPayload
+		mustUnmarshal(t, r.Payload, &p)
+		got[r.ID] = p
+	}
+	if _, ok := got["00pRetired0000000698"]; ok {
+		t.Error("the INACTIVE policy was emitted; it is not in force")
+	}
+
+	// The default policy carries Okta's own example shape: minNumber null
+	// and minSymbol an explicit 0. Both mean "not required", and neither
+	// may be read as a configured minimum length.
+	for _, tc := range []struct {
+		id   string
+		want passwordPolicyPayload
+	}{
+		{"00pDefault0000000698", passwordPolicyPayload{
+			ID: "00pDefault0000000698", Provider: passwordPolicyProvider,
+			MinLength: 8, MaxAgeDays: 0, ReusePreventionCount: 4,
+			RequiresUppercase: true, RequiresLowercase: true,
+			RequiresNumbers: false, RequiresSymbols: false,
+		}},
+		{"00pEngineering000698", passwordPolicyPayload{
+			ID: "00pEngineering000698", Provider: passwordPolicyProvider,
+			MinLength: 14, MaxAgeDays: 90, ReusePreventionCount: 24,
+			RequiresUppercase: true, RequiresLowercase: true,
+			RequiresNumbers: true, RequiresSymbols: true,
+		}},
+	} {
+		t.Run(tc.id, func(t *testing.T) {
+			p, ok := got[tc.id]
+			if !ok {
+				t.Fatalf("policy %s missing from %v", tc.id, recs)
+			}
+			if p != tc.want {
+				t.Errorf("payload = %+v; want %+v", p, tc.want)
+			}
+		})
+	}
+}

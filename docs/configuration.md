@@ -243,6 +243,22 @@ Config keys (under `sources.okta`): `org_url` (the full tenant URL, e.g. `https:
 
 Users hard-deleted from Okta vanish from the roster; their accounts elsewhere surface via `accounts_linked_to_roster` (unlinked), not the inactive-personnel policy.
 
+**password_policy** (when a slot accepts it — the six `password_*` policies under SOC 2 CC6.1 and ISO 8.5): lists `/api/v1/policies?type=PASSWORD`, paged. Needs **policy read** — the `okta.policies.read` OAuth scope, or a token whose owner holds a read-only administrator role. Okta publishes no resource-set ORN for `PASSWORD` policies, so a custom role cannot be scoped down to them; a standard role is required, and `ORG_ADMIN` is the documented fallback if a given org rejects read-only. A 403 here surfaces as a collection error, **not** as "no policies configured" — every org has an undeletable Default Policy, so zero readable policies means a permissions problem.
+
+One record is emitted **per ACTIVE policy**, not one per org. Okta assigns password policies per group, so an org normally has several (Default, plus any group, Active Directory or LDAP policies), and the consuming policies quantify `all`: the verdict is *"every password policy in this org meets the bar"*. Grading only the highest-priority or the Default policy would silently pass an org that attaches a permissive policy to a group. INACTIVE policies are skipped — one that is not in force governs nobody.
+
+| `password_policy` field | Okta |
+|---|---|
+| `id` | the Okta policy id |
+| `provider` | `okta` |
+| `min_length` | `settings.password.complexity.minLength` |
+| `max_age_days` | `settings.password.age.maxAgeDays` (`0` = no expiry, as in the schema) |
+| `reuse_prevention_count` | `settings.password.age.historyCount` (`0` = no restriction) |
+| `requires_uppercase` / `_lowercase` / `_numbers` / `_symbols` | `complexity.minUpperCase` / `minLowerCase` / `minNumber` / `minSymbol` ≥ 1 — Okta documents each as a count where `0` is no and `1` is yes |
+| `mfa_required` | not emitted: MFA is a separate Okta policy type, not a password attribute |
+
+A complexity field Okta reports as `null` (its own published example does this for `minNumber`) reads as "not required" for the booleans, and never as a configured `0` for `min_length` — an unread value is not evidence of a weak setting.
+
 ### Active Directory
 
 Config keys (under `sources.active_directory`). The source emits `roster_entry` only — AD has no MFA signal, so it never emits `directory_user`; it exists to be the [identity roster](guides/identity-roster.md).
@@ -1549,7 +1565,7 @@ from `SIGCOMPLY_*` keys.
 | `AWS_PROFILE` | AWS | Named profile from `~/.aws/credentials` |
 | `AWS_REGION` / `AWS_DEFAULT_REGION` | AWS | Default region (used by SDK auto-detect) |
 | `GITHUB_TOKEN` | GitHub | Personal access token or app token |
-| `OKTA_API_TOKEN` | Okta | Admin API token (SSWS); needs role-read to populate `is_admin` |
+| `OKTA_API_TOKEN` | Okta | Admin API token (SSWS); needs role-read to populate `is_admin` and policy-read for `password_policy` |
 
 ---
 

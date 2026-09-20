@@ -145,6 +145,9 @@ type usersOnlyAPI struct{}
 
 func (usersOnlyAPI) ListUsers(context.Context) ([]User, error) { return nil, nil }
 func (usersOnlyAPI) ListApps(context.Context) ([]App, error)   { return nil, nil }
+func (usersOnlyAPI) ListPasswordPolicies(context.Context) ([]PasswordPolicy, error) {
+	return nil, nil
+}
 
 func TestCollectRoster_APIWithoutRosterSupport(t *testing.T) {
 	p := New(Options{API: usersOnlyAPI{}})

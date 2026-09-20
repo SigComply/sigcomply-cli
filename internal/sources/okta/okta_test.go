@@ -34,13 +34,24 @@ type fakeAPI struct {
 	users     []User
 	apps      []App
 	roster    []RosterUser
+	policies  []PasswordPolicy
 	userErr   error
 	appErr    error
 	rosterErr error
+	policyErr error
 
 	listUsersCount  int
 	listAppsCount   int
 	listRosterCount int
+	listPolicyCount int
+}
+
+func (f *fakeAPI) ListPasswordPolicies(_ context.Context) ([]PasswordPolicy, error) {
+	f.listPolicyCount++
+	if f.policyErr != nil {
+		return nil, f.policyErr
+	}
+	return f.policies, nil
 }
 
 func (f *fakeAPI) ListRosterUsers(_ context.Context) ([]RosterUser, error) {
@@ -73,8 +84,15 @@ func TestPlugin_IDAndEmits(t *testing.T) {
 		t.Errorf("ID = %q; want %q", p.ID(), SourceID)
 	}
 	em := p.Emits()
-	if len(em) != 3 || em[0] != EvidenceTypeDirectoryUser || em[1] != EvidenceTypeApp || em[2] != EvidenceTypeRosterEntry {
-		t.Errorf("Emits = %v", em)
+	want := []string{EvidenceTypeDirectoryUser, EvidenceTypeApp, EvidenceTypeRosterEntry, EvidenceTypePasswordPolicy}
+	if len(em) != len(want) {
+		t.Fatalf("Emits = %v; want %v", em, want)
+	}
+	for i := range want {
+		if em[i] != want[i] {
+			t.Errorf("Emits = %v; want %v", em, want)
+			break
+		}
 	}
 }
 

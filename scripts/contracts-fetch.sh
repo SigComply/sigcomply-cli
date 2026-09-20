@@ -109,7 +109,8 @@ fetch_openapi_yaml \
     "GET:/api/v1/users" \
     "GET:/api/v1/users/{userId}/factors" \
     "GET:/api/v1/users/{userId}/roles" \
-    "GET:/api/v1/apps"
+    "GET:/api/v1/apps" \
+    "GET:/api/v1/policies"
 
 echo "AWS:"
 fetch_smithy iam iam \

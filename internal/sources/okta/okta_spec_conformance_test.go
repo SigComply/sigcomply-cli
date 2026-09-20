@@ -33,6 +33,17 @@ const (
 //     against it yields false positives, so the okta_app mapping relies on the
 //     conformance test (okta_conformance_test.go) instead. The contract slice
 //     still ships the Application schema for the scheduled L3 drift job.
+//   - /policies (PasswordPolicy): the same inaccuracy, this time on a field the
+//     plugin *does* consume. Okta's schema declares
+//     settings.password.complexity.min{Number,Symbol,…} as plain `integer`,
+//     while Okta's own published example response for this very endpoint
+//     returns `"minNumber": null`. Validating against the spec would mean
+//     editing the fixture to something Okta does not actually send, i.e.
+//     fitting the evidence to a spec we know to be wrong. The null is covered
+//     instead by the mapping unit tests and by
+//     TestOktaPasswordPolicyConformance, and the contract slice still ships
+//     PasswordPolicy for the scheduled L3 drift job — which is where an
+//     upstream shape change should surface anyway.
 //
 // Both are covered by conformance; User and UserFactor (whose schemas are
 // accurate) carry the L2 fixture-vs-spec guard here.

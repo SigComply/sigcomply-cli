@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Okta Management API (sigcomply contract slice)",
-    "version": "2026.06.2",
+    "version": "2026.08.4",
     "x-source": "okta/okta-management-openapi-spec dist/current/management-minimal.yaml",
     "x-slice": "operations consumed by internal/sources/okta; see okta_spec_conformance_test.go"
   },
@@ -112,10 +112,62 @@
           }
         }
       }
+    },
+    "/api/v1/policies": {
+      "get": {
+        "operationId": "listPolicies",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Policy"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AccessPolicy": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Policy"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "conditions": {
+                "type": "string",
+                "description": "Policy conditions aren't supported. Conditions are applied at the rule level for this policy type.",
+                "default": null,
+                "nullable": true
+              },
+              "_embedded": {
+                "type": "object",
+                "properties": {
+                  "resourceType": {
+                    "type": "string",
+                    "description": "The resource that this policy controls. For the [Okta account management policy](https://developer.okta.com/docs/guides/okta-account-management-policy/main/#example-response), `END_USER_ACCOUNT_MANAGEMENT` is returned. For other policies, `APP` is returned."
+                  }
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          }
+        ]
+      },
       "AccessPolicyLink": {
         "x-okta-ignore-redocly-rules-for-sdk": true,
         "allOf": [
@@ -870,6 +922,168 @@
         },
         "readOnly": true
       },
+      "AuthenticatorEnrollmentPolicy": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Policy"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "conditions": {
+                "$ref": "#/components/schemas/AuthenticatorEnrollmentPolicyConditions"
+              },
+              "settings": {
+                "$ref": "#/components/schemas/AuthenticatorEnrollmentPolicySettings"
+              }
+            }
+          }
+        ]
+      },
+      "AuthenticatorEnrollmentPolicyAuthenticatorSettings": {
+        "type": "object",
+        "properties": {
+          "constraints": {
+            "description": "Constraints for the authenticator",
+            "nullable": true,
+            "minimum": 0,
+            "type": "object",
+            "properties": {
+              "aaguidGroups": {
+                "type": "array",
+                "description": "The list of Passkey (FIDO2 WebAuthn) authenticator groups allowed for enrollment. The authenticators in the group are based on FIDO Alliance Metadata Service that's identified by name or the Authenticator Attestation Global Unique Identifier ([AAGUID](https://support.yubico.com/hc/en-us/articles/360016648959-YubiKey-Hardware-FIDO2-AAGUIDs)) number.\nThese groups are defined in the [Passkey (FIDO2 WebAuthn) authenticator method settings](https://developer.okta.com/docs/api/openapi/okta-management/management/tag/Authenticator/#tag/Authenticator/operation/listAuthenticatorMethods).",
+                "items": {
+                  "type": "string",
+                  "uniqueItems": true
+                }
+              }
+            },
+            "x-okta-lifecycle": {
+              "lifecycle": "GA",
+              "isGenerallyAvailable": false,
+              "SKUs": []
+            }
+          },
+          "enroll": {
+            "type": "object",
+            "description": "Enrollment requirements for the authenticator",
+            "properties": {
+              "self": {
+                "$ref": "#/components/schemas/AuthenticatorEnrollmentPolicyAuthenticatorStatus"
+              },
+              "autoEnroll": {
+                "type": "boolean",
+                "nullable": true,
+                "description": "<x-lifecycle class=\"oie\"></x-lifecycle> Controls whether the email authenticator is automatically enrolled for users during sign-up, user account creation, or if the user's profile email address is changed or updated.  \n\n* `true` or `null`: The email authenticator is auto-enrolled. This is the default behavior for the email authenticator in Identity Engine.  \n* `false`: The email authenticator auto-enrollment is skipped. Users see email as an optional authenticator during enrollment and can choose to skip it.  \n\n> **Note:** `autoEnroll` can only be set to `false` when [`self`](/openapi/okta-management/management/tags/policy/other/createpolicy#other/createpolicy/t=request&path=&d=1/settings/authenticators/enroll/self) is `OPTIONAL` or `NOT_ALLOWED`. This property is only available if the Email auto-enrollment and recovery control [self-service EA](/openapi/okta-management/guides/release-lifecycle/#early-access-ea) feature is enabled.  ",
+                "x-okta-lifecycle": {
+                  "lifecycle": "GA",
+                  "isGenerallyAvailable": true
+                }
+              },
+              "gracePeriod": {
+                "$ref": "#/components/schemas/EnrollmentPolicyAuthenticatorGracePeriod"
+              }
+            }
+          },
+          "id": {
+            "type": "string",
+            "description": "The authenticator ID for `custom_app`, `custom_otp` or `external_idp`. Use this property to select a specific `custom_app`, `custom_otp` or `external_idp` authenticator."
+          },
+          "key": {
+            "$ref": "#/components/schemas/AuthenticatorEnrollmentPolicyAuthenticatorType"
+          }
+        }
+      },
+      "AuthenticatorEnrollmentPolicyAuthenticatorStatus": {
+        "description": "Requirements for the user-initiated enrollment",
+        "default": "NOT_ALLOWED",
+        "type": "string",
+        "enum": [
+          "NOT_ALLOWED",
+          "OPTIONAL",
+          "REQUIRED"
+        ]
+      },
+      "AuthenticatorEnrollmentPolicyAuthenticatorType": {
+        "description": "A label that identifies the authenticator",
+        "type": "string",
+        "enum": [
+          "custom_app",
+          "custom_otp",
+          "duo",
+          "external_idp",
+          "google_otp",
+          "okta_email",
+          "okta_password",
+          "okta_verify",
+          "onprem_mfa",
+          "phone_number",
+          "rsa_token",
+          "security_question",
+          "symantec_vip",
+          "webauthn",
+          "yubikey_token"
+        ]
+      },
+      "AuthenticatorEnrollmentPolicyConditions": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "type": "object"
+          },
+          {
+            "description": "Specifies the conditions that must be met during policy evaluation to apply the policy"
+          },
+          {
+            "properties": {
+              "people": {
+                "type": "object",
+                "description": "Identifies users and groups that are used together",
+                "properties": {
+                  "groups": {
+                    "type": "object",
+                    "description": "Specifies a set of groups whose users are to be included or excluded",
+                    "properties": {
+                      "include": {
+                        "type": "array",
+                        "description": "Groups to be included",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "AuthenticatorEnrollmentPolicySettings": {
+        "description": "Specifies the policy level settings\n\n> **Note:** In Identity Engine, the Multifactor (MFA) Enrollment policy name has changed to authenticator enrollment policy. The policy type of `MFA_ENROLL` remains unchanged. However, the `settings` data is updated for authenticators. Policy `settings` are included only for those authenticators that are enabled.",
+        "type": "object",
+        "properties": {
+          "authenticators": {
+            "description": "List of authenticator policy settings\n\n<x-lifecycle class=\"oie\"></x-lifecycle> For orgs with the Authenticator enrollment policy feature enabled, the new default authenticator enrollment policy created by Okta contains the `authenticators` property in the policy settings. Existing default authenticator enrollment policies from a migrated Classic Engine org remain unchanged. The policies still use the `factors` property in their settings. The `authenticators` parameter allows you to configure all available authenticators, including authentication and recovery. The `factors` parameter only allows you to configure multifactor authentication.\n",
+            "items": {
+              "$ref": "#/components/schemas/AuthenticatorEnrollmentPolicyAuthenticatorSettings"
+            },
+            "type": "array"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AuthenticatorEnrollmentPolicySettingsType"
+          }
+        }
+      },
+      "AuthenticatorEnrollmentPolicySettingsType": {
+        "description": "Type of policy configuration object\n\n<x-lifecycle class=\"oie\"></x-lifecycle> The `type` property in the policy `settings` is only applicable to the authenticator enrollment policy available in Identity Engine.\n",
+        "default": "FACTORS",
+        "type": "string",
+        "enum": [
+          "AUTHENTICATORS",
+          "FACTORS"
+        ]
+      },
       "AutoLoginApplication": {
         "allOf": [
           {
@@ -1086,6 +1300,45 @@
           }
         ]
       },
+      "ByDateTimeAuthenticatorGracePeriodExpiry": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EnrollmentPolicyAuthenticatorGracePeriod"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "expiry": {
+                "type": "string",
+                "description": "The expiry date for a `BY_DATE_TIME` grace period type. Valid format: `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'`\n\nFor example, `2025-01-01T18:30:45.000Z`"
+              }
+            }
+          }
+        ]
+      },
+      "BySkipCountAuthenticatorGracePeriod": {
+        "x-okta-lifecycle": {
+          "lifecycle": "LIMITED_GA",
+          "isGenerallyAvailable": false,
+          "SKUs": []
+        },
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EnrollmentPolicyAuthenticatorGracePeriod"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "skipCount": {
+                "type": "integer",
+                "description": "The number of times the user can skip enrolling the corresponding authenticator before it becomes mandatory",
+                "minimum": 1,
+                "maximum": 10
+              }
+            }
+          }
+        ]
+      },
       "CatalogApplication": {
         "description": "An app in the OIN catalog",
         "type": "object",
@@ -1176,6 +1429,24 @@
           "INACTIVE"
         ]
       },
+      "ClientUpdatePolicy": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Policy"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "conditions": {
+                "type": "string",
+                "description": "Policy conditions aren't supported for this policy type.",
+                "default": null,
+                "nullable": true
+              }
+            }
+          }
+        ]
+      },
       "CustomRole": {
         "title": "Custom role assignment",
         "x-okta-ignore-redocly-rules-for-sdk": true,
@@ -1237,6 +1508,38 @@
           "type"
         ]
       },
+      "DeviceSignalCollectionPolicy": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Policy"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "conditions": {
+                "type": "string",
+                "description": "Policy conditions aren't supported. Conditions are applied at the rule level for this policy type.",
+                "default": null,
+                "nullable": true
+              },
+              "_embedded": {
+                "type": "object",
+                "properties": {
+                  "resourceType": {
+                    "type": "string",
+                    "description": "The resource that this policy controls. For the [Okta account management policy](https://developer.okta.com/docs/guides/okta-account-management-policy/main/#example-response), `END_USER_ACCOUNT_MANAGEMENT` is returned. For other policies, `APP` is returned."
+                  }
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          }
+        ]
+      },
       "DigestAlgorithm": {
         "description": "Algorithm used to generate the key. Only required for the PBKDF2 algorithm.",
         "type": "string",
@@ -1244,6 +1547,47 @@
           "SHA256_HMAC",
           "SHA512_HMAC"
         ]
+      },
+      "EnrollmentPolicyAuthenticatorGracePeriod": {
+        "description": "Specifies the [grace period](https://developer.okta.com/docs/concepts/policies/#authenticator-enrollment-policies) configuration for completing an authenticator enrollment or setup",
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Grace period type\n\n* `BY_DATE_TIME`: The grace period is defined by a specific date and time.\n* `BY_SKIP_COUNT`: The grace period is defined by the number of times the user can skip enrolling the corresponding authenticator.",
+            "enum": [
+              "BY_DATE_TIME",
+              "BY_DATE_TIME",
+              "BY_SKIP_COUNT"
+            ]
+          }
+        },
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "BY_DATE_TIME": "#/components/schemas/ByDateTimeAuthenticatorGracePeriodExpiry",
+            "BY_SKIP_COUNT": "#/components/schemas/BySkipCountAuthenticatorGracePeriod"
+          }
+        }
+      },
+      "EntityRiskPolicy": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Policy"
+          },
+          {
+            "type": "object"
+          }
+        ],
+        "properties": {
+          "conditions": {
+            "type": "string",
+            "description": "Policy conditions aren't supported for this policy type.",
+            "default": null,
+            "nullable": true
+          }
+        }
       },
       "GrantType": {
         "description": "Determines the mechanism Okta uses to authorize the creation of the tokens.",
@@ -1539,6 +1883,17 @@
           }
         ]
       },
+      "HrefObjectMappingsLink": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HrefObject"
+          },
+          {
+            "description": "Link to the mappings resource"
+          }
+        ]
+      },
       "HrefObjectMemberLink": {
         "x-okta-ignore-redocly-rules-for-sdk": true,
         "allOf": [
@@ -1583,6 +1938,17 @@
           }
         ]
       },
+      "HrefObjectRulesLink": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HrefObject"
+          },
+          {
+            "description": "Link to the rules resource"
+          }
+        ]
+      },
       "HrefObjectSelfLink": {
         "x-okta-ignore-redocly-rules-for-sdk": true,
         "allOf": [
@@ -1614,6 +1980,50 @@
           "RSA-OAEP-256",
           "RSA-OAEP-384",
           "RSA-OAEP-512"
+        ]
+      },
+      "IdentityClaimSourcingPolicy": {
+        "x-okta-lifecycle": {
+          "lifecycle": "EA",
+          "isGenerallyAvailable": false,
+          "SKUs": [
+            "Okta Identity Engine"
+          ]
+        },
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Policy"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "conditions": {
+                "type": "string",
+                "description": "Policy conditions aren't supported for this policy type.",
+                "default": null,
+                "nullable": true
+              }
+            }
+          }
+        ]
+      },
+      "IdpDiscoveryPolicy": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Policy"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "conditions": {
+                "type": "string",
+                "description": "Policy conditions aren't supported for this policy type.",
+                "default": null,
+                "nullable": true
+              }
+            }
+          }
         ]
       },
       "LifecycleStatus": {
@@ -2155,6 +2565,53 @@
           }
         }
       },
+      "OktaSignOnPolicy": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Policy"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "conditions": {
+                "$ref": "#/components/schemas/OktaSignOnPolicyConditions"
+              }
+            }
+          }
+        ]
+      },
+      "OktaSignOnPolicyConditions": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "type": "object"
+          },
+          {
+            "description": "Specifies the conditions that must be met during policy evaluation to apply the policy",
+            "properties": {
+              "people": {
+                "type": "object",
+                "description": "Identifies users and groups that are used together",
+                "properties": {
+                  "groups": {
+                    "type": "object",
+                    "description": "Specifies a set of groups whose users are to be included or excluded",
+                    "properties": {
+                      "include": {
+                        "type": "array",
+                        "description": "Groups to be included",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
       "OktaUserGroupProfile": {
         "description": "Profile for any group that is not imported from Active Directory. Specifies the standard\nand custom profile properties for a group.\n\nThe `objectClass` for these groups is `okta:user_group`.\n\nYou can extend group profiles with custom properties, but you must first add the properties to the group profile schema before you can reference them. Use the Profile Editor in the Admin Console or the [Schemas API](https://developer.okta.com/docs/api/openapi/okta-management/management/tag/Schema/) to manage schema extensions.\n\nCustom properties can contain HTML tags. It is the client's responsibility to escape or encode this data before displaying it. Use [best-practices](https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html) to prevent cross-site scripting.",
         "type": "object",
@@ -2661,6 +3118,615 @@
             "description": "The type of password inline hook. Currently, must be set to default."
           }
         }
+      },
+      "PasswordDictionary": {
+        "description": "Weak password dictionary lookup settings",
+        "type": "object",
+        "properties": {
+          "common": {
+            "$ref": "#/components/schemas/PasswordDictionaryCommon"
+          }
+        }
+      },
+      "PasswordDictionaryCommon": {
+        "description": "Lookup settings for commonly used passwords",
+        "type": "object",
+        "properties": {
+          "exclude": {
+            "type": "boolean",
+            "description": "Indicates whether to check passwords against the common password dictionary",
+            "default": false
+          }
+        }
+      },
+      "PasswordPolicy": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Policy"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "conditions": {
+                "$ref": "#/components/schemas/PasswordPolicyConditions"
+              },
+              "settings": {
+                "$ref": "#/components/schemas/PasswordPolicySettings"
+              }
+            }
+          }
+        ]
+      },
+      "PasswordPolicyAuthenticationProviderCondition": {
+        "description": "Specifies an authentication provider that's the source of some or all users",
+        "type": "object",
+        "properties": {
+          "include": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "provider": {
+            "$ref": "#/components/schemas/PasswordPolicyAuthenticationProviderType"
+          }
+        }
+      },
+      "PasswordPolicyAuthenticationProviderType": {
+        "type": "string",
+        "enum": [
+          "ACTIVE_DIRECTORY",
+          "ANY",
+          "LDAP",
+          "OKTA"
+        ]
+      },
+      "PasswordPolicyConditions": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "allOf": [
+          {
+            "type": "object"
+          },
+          {
+            "description": "Specifies the conditions that must be met during policy evaluation to apply the policy"
+          },
+          {
+            "properties": {
+              "authProvider": {
+                "$ref": "#/components/schemas/PasswordPolicyAuthenticationProviderCondition"
+              },
+              "people": {
+                "type": "object",
+                "description": "Identifies users and groups that are used together",
+                "properties": {
+                  "groups": {
+                    "type": "object",
+                    "description": "Specifies a set of groups whose users are to be included or excluded",
+                    "properties": {
+                      "include": {
+                        "type": "array",
+                        "description": "Groups to be included",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "PasswordPolicyDelegationSettings": {
+        "description": "Specifies how to handle password delegation",
+        "type": "object",
+        "properties": {
+          "options": {
+            "$ref": "#/components/schemas/PasswordPolicyDelegationSettingsOptions"
+          }
+        }
+      },
+      "PasswordPolicyDelegationSettingsOptions": {
+        "type": "object",
+        "properties": {
+          "skipUnlock": {
+            "type": "boolean",
+            "description": "Indicates if, when performing an unlock operation on an Active Directory sourced User who is locked out of Okta, the system should also attempt to unlock the User's Windows account",
+            "default": false
+          }
+        }
+      },
+      "PasswordPolicyPasswordSettings": {
+        "description": "Specifies the password settings for the policy",
+        "type": "object",
+        "properties": {
+          "age": {
+            "$ref": "#/components/schemas/PasswordPolicyPasswordSettingsAge"
+          },
+          "complexity": {
+            "$ref": "#/components/schemas/PasswordPolicyPasswordSettingsComplexity"
+          },
+          "lockout": {
+            "$ref": "#/components/schemas/PasswordPolicyPasswordSettingsLockout"
+          },
+          "breachedProtection": {
+            "$ref": "#/components/schemas/PasswordPolicyPasswordSettingsBreachedProtection"
+          }
+        }
+      },
+      "PasswordPolicyPasswordSettingsAge": {
+        "description": "Age settings",
+        "type": "object",
+        "properties": {
+          "expireWarnDays": {
+            "type": "integer",
+            "description": "Specifies the number of days prior to password expiration when a User is warned to reset their password: `0` indicates no warning",
+            "default": 0
+          },
+          "historyCount": {
+            "type": "integer",
+            "description": "Specifies the number of distinct passwords that a User must create before they can reuse a previous password: `0` indicates none",
+            "default": 0
+          },
+          "maxAgeDays": {
+            "type": "integer",
+            "description": "Specifies how long (in days) a password remains valid before it expires: `0` indicates no limit",
+            "default": 0
+          },
+          "minAgeMinutes": {
+            "type": "integer",
+            "description": "Specifies the minimum time interval (in minutes) between password changes: `0` indicates no limit",
+            "default": 0
+          }
+        }
+      },
+      "PasswordPolicyPasswordSettingsBreachedProtection": {
+        "x-okta-lifecycle": {
+          "lifecycle": "GA",
+          "isGenerallyAvailable": true
+        },
+        "description": "Breached Protection settings",
+        "type": "object",
+        "properties": {
+          "delegatedWorkflowId": {
+            "type": "string",
+            "description": "The `id` of the workflow that runs when a breached password is found during a sign-in attempt.",
+            "default": null,
+            "nullable": true
+          },
+          "expireAfterDays": {
+            "type": "integer",
+            "description": "Specifies the number of days after a breached password is found during a sign-in attempt that the user's password should expire.\nValid values: 0 through 10. If set to 0, it happens immediately.",
+            "default": null,
+            "nullable": true
+          },
+          "logoutEnabled": {
+            "type": "boolean",
+            "description": "(Optional, default is false) If true, you must also specify a value for `expireAfterDays`. When enabled, the user's session(s)\nare terminated immediately the first time the user's credentials are detected as part of a breach.",
+            "default": false,
+            "nullable": true
+          }
+        }
+      },
+      "PasswordPolicyPasswordSettingsComplexity": {
+        "description": "Complexity settings",
+        "type": "object",
+        "properties": {
+          "dictionary": {
+            "$ref": "#/components/schemas/PasswordDictionary"
+          },
+          "excludeAttributes": {
+            "type": "array",
+            "description": "The User profile attributes whose values must be excluded from the password: currently only supports `firstName` and `lastName`",
+            "default": [],
+            "items": {
+              "type": "string"
+            }
+          },
+          "excludeUsername": {
+            "type": "boolean",
+            "description": "Indicates if the Username must be excluded from the password",
+            "default": true
+          },
+          "maxConsecutiveCharacters": {
+            "type": "integer",
+            "description": "<x-lifecycle-container><x-lifecycle class=\"oie\"></x-lifecycle></x-lifecycle-container>Specifies the maximum number of consecutive repeating characters that can be used in a password",
+            "maximum": 72,
+            "minimum": 1,
+            "x-okta-lifecycle": {
+              "lifecycle": "LIMITED_GA",
+              "isGenerallyAvailable": false,
+              "SKUs": [
+                "Okta Identity Engine"
+              ]
+            }
+          },
+          "minLength": {
+            "type": "integer",
+            "description": "Minimum password length",
+            "default": 8
+          },
+          "minLowerCase": {
+            "type": "integer",
+            "description": "Indicates if a password must contain at least one lower case letter: `0` indicates no, `1` indicates yes",
+            "default": 1
+          },
+          "minNumber": {
+            "type": "integer",
+            "description": "Indicates if a password must contain at least one number: `0` indicates no, `1` indicates yes",
+            "default": 1
+          },
+          "minSymbol": {
+            "type": "integer",
+            "description": "Indicates if a password must contain at least one symbol (For example: !@#$%^&*): `0` indicates no, `1` indicates yes",
+            "default": 1
+          },
+          "minUpperCase": {
+            "type": "integer",
+            "description": "Indicates if a password must contain at least one upper case letter: `0` indicates no, `1` indicates yes",
+            "default": 1
+          },
+          "oelStatement": {
+            "type": "string",
+            "description": "<x-lifecycle-container><x-lifecycle class=\"oie\"></x-lifecycle></x-lifecycle-container>Use an [Expression Language](https://developer.okta.com/docs/reference/okta-expression-language-in-identity-engine/) expression to block a word from being used in a password. You can only block one word per expression. Use the `OR` operator to connect multiple expressions to block multiple words.",
+            "example": [
+              "password.value.contains('Word1') OR password.value.contains('Word2')"
+            ],
+            "x-okta-lifecycle": {
+              "lifecycle": "LIMITED_GA",
+              "isGenerallyAvailable": false,
+              "SKUs": [
+                "Okta Identity Engine"
+              ]
+            }
+          }
+        }
+      },
+      "PasswordPolicyPasswordSettingsLockout": {
+        "description": "Lockout settings",
+        "type": "object",
+        "properties": {
+          "autoUnlockMinutes": {
+            "type": "integer",
+            "description": "Specifies the time interval (in minutes) a locked account remains locked before it is automatically unlocked: `0` indicates no limit",
+            "default": 0
+          },
+          "maxAttempts": {
+            "type": "integer",
+            "description": "Specifies the number of times Users can attempt to sign in to their accounts with an invalid password before their accounts are locked: `0` indicates no limit",
+            "default": 10
+          },
+          "showLockoutFailures": {
+            "type": "boolean",
+            "description": "Indicates if the User should be informed when their account is locked",
+            "default": false
+          },
+          "userLockoutNotificationChannels": {
+            "type": "array",
+            "description": "How the user is notified when their account becomes locked. The only acceptable values are `[]` and `['EMAIL']`.",
+            "default": [],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PasswordPolicyRecoveryEmail": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "properties": {
+            "$ref": "#/components/schemas/PasswordPolicyRecoveryEmailProperties"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LifecycleStatus"
+              },
+              {
+                "description": "Whether or not the factor is active"
+              }
+            ]
+          }
+        }
+      },
+      "PasswordPolicyRecoveryEmailProperties": {
+        "type": "object",
+        "properties": {
+          "recoveryToken": {
+            "$ref": "#/components/schemas/PasswordPolicyRecoveryEmailRecoveryToken"
+          }
+        }
+      },
+      "PasswordPolicyRecoveryEmailRecoveryToken": {
+        "type": "object",
+        "properties": {
+          "tokenLifetimeMinutes": {
+            "description": "Lifetime (in minutes) of the recovery token",
+            "type": "integer",
+            "default": 10080
+          }
+        }
+      },
+      "PasswordPolicyRecoveryFactorSettings": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LifecycleStatus"
+              },
+              {
+                "description": "Whether or not the factor is active"
+              }
+            ]
+          }
+        }
+      },
+      "PasswordPolicyRecoveryFactors": {
+        "description": "Settings for the factors that can be used for recovery",
+        "type": "object",
+        "properties": {
+          "okta_call": {
+            "description": "Okta voice call",
+            "$ref": "#/components/schemas/PasswordPolicyRecoveryFactorSettings"
+          },
+          "okta_email": {
+            "description": "Okta email",
+            "$ref": "#/components/schemas/PasswordPolicyRecoveryEmail"
+          },
+          "okta_sms": {
+            "description": "Okta SMS",
+            "$ref": "#/components/schemas/PasswordPolicyRecoveryFactorSettings"
+          },
+          "recovery_question": {
+            "description": "Okta security question",
+            "$ref": "#/components/schemas/PasswordPolicyRecoveryQuestion"
+          }
+        }
+      },
+      "PasswordPolicyRecoveryQuestion": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "properties": {
+            "$ref": "#/components/schemas/PasswordPolicyRecoveryQuestionProperties"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LifecycleStatus"
+              },
+              {
+                "description": "Whether or not the factor is active"
+              }
+            ]
+          }
+        }
+      },
+      "PasswordPolicyRecoveryQuestionComplexity": {
+        "type": "object",
+        "properties": {
+          "minLength": {
+            "description": "Minimum length of the password recovery question answer",
+            "type": "integer",
+            "readOnly": true,
+            "default": 4
+          }
+        }
+      },
+      "PasswordPolicyRecoveryQuestionProperties": {
+        "type": "object",
+        "properties": {
+          "complexity": {
+            "$ref": "#/components/schemas/PasswordPolicyRecoveryQuestionComplexity"
+          }
+        }
+      },
+      "PasswordPolicyRecoverySettings": {
+        "description": "Specifies the password recovery settings for the policy\n> **Note:** With Identity Engine, you can specify recovery factors inside the password policy rule instead of in the policy settings object. Recovery factors for the rule are defined inside the [`selfServicePasswordReset` action](https://developer.okta.com/docs/api/openapi/okta-management/management/tags/policy/#tag/Policy/operation/createPolicyRule!path=1/actions/selfServicePasswordReset&t=request).",
+        "type": "object",
+        "properties": {
+          "factors": {
+            "$ref": "#/components/schemas/PasswordPolicyRecoveryFactors"
+          }
+        }
+      },
+      "PasswordPolicySettings": {
+        "description": "Specifies the policy level settings",
+        "type": "object",
+        "properties": {
+          "delegation": {
+            "$ref": "#/components/schemas/PasswordPolicyDelegationSettings"
+          },
+          "password": {
+            "$ref": "#/components/schemas/PasswordPolicyPasswordSettings"
+          },
+          "recovery": {
+            "$ref": "#/components/schemas/PasswordPolicyRecoverySettings"
+          }
+        }
+      },
+      "Policy": {
+        "x-okta-ignore-redocly-rules-for-sdk": true,
+        "type": "object",
+        "properties": {
+          "created": {
+            "description": "Timestamp when the policy was created",
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true,
+            "default": "Assigned"
+          },
+          "description": {
+            "description": "Description of the policy",
+            "type": "string",
+            "default": null
+          },
+          "id": {
+            "description": "Identifier of the policy",
+            "type": "string",
+            "readOnly": true,
+            "default": "Assigned"
+          },
+          "lastUpdated": {
+            "description": "Timestamp when the policy was last modified",
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true,
+            "default": "Assigned"
+          },
+          "name": {
+            "description": "Name of the policy",
+            "type": "string"
+          },
+          "priority": {
+            "description": "Specifies the order in which this policy is evaluated in relation to the other policies",
+            "type": "integer",
+            "default": "Last / Lowest Priority, for example `1`"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LifecycleStatus"
+              },
+              {
+                "description": "Whether or not the policy is active. Use the `activate` query parameter to set the status of a policy."
+              }
+            ]
+          },
+          "system": {
+            "description": "Specifies whether Okta created the policy",
+            "type": "boolean",
+            "default": false
+          },
+          "type": {
+            "$ref": "#/components/schemas/PolicyType"
+          },
+          "_embedded": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            },
+            "readOnly": true
+          },
+          "_links": {
+            "$ref": "#/components/schemas/PolicyLinks"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "ACCESS_POLICY": "#/components/schemas/AccessPolicy",
+            "IDP_DISCOVERY": "#/components/schemas/IdpDiscoveryPolicy",
+            "MFA_ENROLL": "#/components/schemas/AuthenticatorEnrollmentPolicy",
+            "OKTA_SIGN_ON": "#/components/schemas/OktaSignOnPolicy",
+            "PASSWORD": "#/components/schemas/PasswordPolicy",
+            "PROFILE_ENROLLMENT": "#/components/schemas/ProfileEnrollmentPolicy",
+            "POST_AUTH_SESSION": "#/components/schemas/PostAuthSessionPolicy",
+            "ENTITY_RISK": "#/components/schemas/EntityRiskPolicy",
+            "SESSION_VIOLATION_DETECTION": "#/components/schemas/SessionViolationDetectionPolicy",
+            "DEVICE_SIGNAL_COLLECTION": "#/components/schemas/DeviceSignalCollectionPolicy",
+            "CLIENT_UPDATE": "#/components/schemas/ClientUpdatePolicy",
+            "IDENTITY_CLAIM_SOURCING": "#/components/schemas/IdentityClaimSourcingPolicy"
+          }
+        }
+      },
+      "PolicyLinks": {
+        "type": "object",
+        "properties": {
+          "activate": {
+            "$ref": "#/components/schemas/HrefObjectActivateLink"
+          },
+          "deactivate": {
+            "$ref": "#/components/schemas/HrefObjectDeactivateLink"
+          },
+          "mappings": {
+            "$ref": "#/components/schemas/HrefObjectMappingsLink"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/HrefObjectRulesLink"
+          },
+          "self": {
+            "$ref": "#/components/schemas/HrefObjectSelfLink"
+          }
+        },
+        "readOnly": true
+      },
+      "PolicyType": {
+        "description": "All Okta orgs contain only one IdP discovery policy with an immutable default rule routing to your org's sign-in page. All Okta orgs also contain just one entity risk policy, one session protection policy, and one identity claims sourcing policy.",
+        "type": "string",
+        "enum": [
+          "ACCESS_POLICY",
+          "ENTITY_RISK",
+          "IDP_DISCOVERY",
+          "MFA_ENROLL",
+          "OKTA_SIGN_ON",
+          "PASSWORD",
+          "POST_AUTH_SESSION",
+          "PROFILE_ENROLLMENT",
+          "DEVICE_SIGNAL_COLLECTION",
+          "SESSION_VIOLATION_DETECTION",
+          "CLIENT_UPDATE",
+          "IDENTITY_CLAIM_SOURCING"
+        ],
+        "x-enumDescriptions": {
+          "ACCESS_POLICY": "<x-lifecycle class=\"oie\"></x-lifecycle>App sign-in policy",
+          "MFA_ENROLL": "Authenticator enrollment policy",
+          "ENTITY_RISK": "<x-lifecycle class=\"oie\"></x-lifecycle>(Read-only) Entity risk policy",
+          "OKTA_SIGN_ON": "Global session policy",
+          "IDP_DISCOVERY": "(Read-only) IdP discovery policy",
+          "POST_AUTH_SESSION": "<x-lifecycle class=\"oie\"></x-lifecycle>(Read-only) Session violation enforcement policy",
+          "PASSWORD": "Password policy",
+          "PROFILE_ENROLLMENT": "<x-lifecycle class=\"oie\"></x-lifecycle>User profile policy",
+          "DEVICE_SIGNAL_COLLECTION": "<x-lifecycle class=\"oie\"></x-lifecycle><x-lifecycle class=\"ea\"></x-lifecycle>Device signal collection policy",
+          "SESSION_VIOLATION_DETECTION": "<x-lifecycle class=\"oie\"></x-lifecycle>(Read-only) Session violation detection policy",
+          "CLIENT_UPDATE": "<x-lifecycle class=\"oie\"></x-lifecycle>(Read-only) Client update policy",
+          "IDENTITY_CLAIM_SOURCING": "<x-lifecycle class=\"oie\"></x-lifecycle><x-lifecycle class=\"ea\"></x-lifecycle>(Read-only) Identity claims sourcing policy"
+        }
+      },
+      "PostAuthSessionPolicy": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Policy"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "conditions": {
+                "type": "string",
+                "description": "Policy conditions aren't supported for this policy type",
+                "default": null,
+                "nullable": true
+              }
+            }
+          }
+        ]
+      },
+      "ProfileEnrollmentPolicy": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Policy"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "conditions": {
+                "type": "string",
+                "description": "Policy conditions aren't supported for this policy type",
+                "default": null,
+                "nullable": true
+              }
+            }
+          }
+        ]
       },
       "RecoveryQuestionCredential": {
         "description": "Specifies a secret question and answer that's validated (case insensitive) when a user forgets their\npassword or unlocks their account. The answer property is write-only.",
@@ -3290,6 +4356,29 @@
           "passwordField",
           "url",
           "usernameField"
+        ]
+      },
+      "SessionViolationDetectionPolicy": {
+        "x-okta-lifecycle": {
+          "lifecycle": "LIMITED_GA",
+          "isGenerallyAvailable": false,
+          "SKUs": []
+        },
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Policy"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "conditions": {
+                "type": "string",
+                "description": "Policy conditions aren't supported for this policy type",
+                "default": null,
+                "nullable": true
+              }
+            }
+          }
         ]
       },
       "SignOnInlineHook": {

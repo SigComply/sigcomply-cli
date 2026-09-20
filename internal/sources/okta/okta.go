@@ -40,9 +40,10 @@ import (
 // cross-vendor workforce-roster shape (one entry per person, with a
 // normalized lifecycle status).
 const (
-	EvidenceTypeDirectoryUser = "directory_user"
-	EvidenceTypeApp           = "okta_app"
-	EvidenceTypeRosterEntry   = "roster_entry"
+	EvidenceTypeDirectoryUser  = "directory_user"
+	EvidenceTypeApp            = "okta_app"
+	EvidenceTypeRosterEntry    = "roster_entry"
+	EvidenceTypePasswordPolicy = "password_policy"
 )
 
 // Normalized roster_entry status values (the schema's closed enum).
@@ -50,6 +51,13 @@ const (
 	rosterActive   = "active"
 	rosterPending  = "pending"
 	rosterInactive = "inactive"
+)
+
+// oktaPolicyActive is the lifecycle status of a policy that is actually in
+// force; passwordPolicyProvider is the schema's short name for this IdP.
+const (
+	oktaPolicyActive       = "ACTIVE"
+	passwordPolicyProvider = "okta"
 )
 
 // SourceID is the registered ID for the okta plugin instance.
@@ -108,9 +116,17 @@ type RosterAPI interface {
 // API is the subset of the Okta API the plugin uses. Defining it as
 // an interface lets tests inject a fake without making real network
 // calls; the concrete *httpAPI satisfies it.
+//
+// ListPasswordPolicies is deliberately part of API rather than a narrow
+// opt-in interface like RosterAPI. A type assertion would turn a stub that
+// predates the method into a *runtime* "cannot list" error, which the
+// collector classifies as retryable and the evaluator reports as a policy
+// error (exit 2) — for a plugin whose job is producing evidence, that is a
+// worse failure than a compile error in the one place a stub is defined.
 type API interface {
 	ListUsers(ctx context.Context) ([]User, error)
 	ListApps(ctx context.Context) ([]App, error)
+	ListPasswordPolicies(ctx context.Context) ([]PasswordPolicy, error)
 }
 
 // Plugin is the in-process okta source.
@@ -168,7 +184,7 @@ func (*Plugin) ID() string { return SourceID }
 
 // Emits returns the evidence types this plugin can produce.
 func (*Plugin) Emits() []string {
-	return []string{EvidenceTypeDirectoryUser, EvidenceTypeApp, EvidenceTypeRosterEntry}
+	return []string{EvidenceTypeDirectoryUser, EvidenceTypeApp, EvidenceTypeRosterEntry, EvidenceTypePasswordPolicy}
 }
 
 // Init is a no-op; configuration arrives via the constructor.
@@ -249,6 +265,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		{EvidenceTypeDirectoryUser, p.collectUsers},
 		{EvidenceTypeApp, p.collectApps},
 		{EvidenceTypeRosterEntry, p.collectRoster},
+		{EvidenceTypePasswordPolicy, p.collectPasswordPolicies},
 	}
 	var out []core.EvidenceRecord
 	matched := false
@@ -656,12 +673,34 @@ func (h *httpAPI) getJSON(ctx context.Context, path string, out any) (string, er
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 		return "", fmt.Errorf("okta: decode %s: %w", path, err)
 	}
-	return nextLinkPath(resp.Header.Get("Link"), h.base), nil
+	return nextLinkFromHeader(resp.Header, h.base), nil
 }
 
 // nextLinkPath extracts the relative path of the rel="next" link, or
 // empty string if no next page. Okta's Link header format matches
 // RFC 5988 — comma-separated, each part wrapped in angle brackets.
+// nextLinkFromHeader finds the rel="next" link across every Link header on
+// the response.
+//
+// Okta documents sending the pagination links as separate header lines —
+//
+//	link: <…?limit=20>; rel="self"
+//	link: <…?after=…>; rel="next"
+//
+// — and http.Header.Get returns only the first of those. Reading just that
+// one ends pagination after page one whenever "self" is sent first, which
+// truncates collection silently: the run looks complete, and an `all`
+// quantifier passes on the records it never saw. Both encodings (separate
+// lines and one comma-joined value) are legal HTTP, so scan all of them.
+func nextLinkFromHeader(h http.Header, base string) string {
+	for _, link := range h.Values("Link") {
+		if next := nextLinkPath(link, base); next != "" {
+			return next
+		}
+	}
+	return ""
+}
+
 func nextLinkPath(link, base string) string {
 	if link == "" {
 		return ""
@@ -692,3 +731,138 @@ var (
 	_ API               = (*httpAPI)(nil)
 	_ RosterAPI         = (*httpAPI)(nil)
 )
+
+// PasswordPolicy is the subset of an Okta PASSWORD policy the plugin reads.
+// Okta returns the settings inline on the list response, so one paged call
+// answers the whole org.
+//
+// Every complexity and age field is a pointer because Okta's own published
+// example returns `"minNumber": null`. The difference matters for
+// MinLength: a null read as 0 would sign "this org has no minimum" into
+// evidence when what we actually know is that Okta reported nothing.
+type PasswordPolicy struct {
+	ID       string                 `json:"id"`
+	Name     string                 `json:"name"`
+	Status   string                 `json:"status"`
+	Priority int                    `json:"priority"`
+	Settings passwordPolicySettings `json:"settings"`
+}
+
+type passwordPolicySettings struct {
+	Password passwordSettings `json:"password"`
+}
+
+type passwordSettings struct {
+	Complexity passwordComplexity `json:"complexity"`
+	Age        passwordAge        `json:"age"`
+}
+
+// Okta documents each min* field as a count in which 0 means "no" and 1
+// means "yes", so the canonical booleans are a faithful read rather than a
+// squeeze.
+type passwordComplexity struct {
+	MinLength    *int `json:"minLength"`
+	MinLowerCase *int `json:"minLowerCase"`
+	MinUpperCase *int `json:"minUpperCase"`
+	MinNumber    *int `json:"minNumber"`
+	MinSymbol    *int `json:"minSymbol"`
+}
+
+// Okta documents 0 as "no limit" for MaxAgeDays and "none" for
+// HistoryCount — the same meaning password_policy.v1 gives them, and the
+// same meaning an unset AWS policy carries.
+type passwordAge struct {
+	MaxAgeDays   *int `json:"maxAgeDays"`
+	HistoryCount *int `json:"historyCount"`
+}
+
+// passwordPolicyPayload is the canonical password_policy shape. The json
+// tags match the AWS emitter's exactly — policies bind to the type, never
+// to a vendor.
+type passwordPolicyPayload struct {
+	ID                   string `json:"id"`
+	Provider             string `json:"provider"`
+	MinLength            int    `json:"min_length"`
+	MaxAgeDays           int    `json:"max_age_days"`
+	ReusePreventionCount int    `json:"reuse_prevention_count"`
+	RequiresUppercase    bool   `json:"requires_uppercase"`
+	RequiresLowercase    bool   `json:"requires_lowercase"`
+	RequiresNumbers      bool   `json:"requires_numbers"`
+	RequiresSymbols      bool   `json:"requires_symbols"`
+}
+
+// collectPasswordPolicies emits one record per ACTIVE password policy.
+//
+// An Okta org legitimately has several, group-assigned and ranked by
+// priority, where an AWS account has exactly one. That is fine as evidence:
+// the consuming policies quantify `all` over the slot, so N records read as
+// "every password policy in this org meets the bar" — the verdict an
+// auditor wants, and true by construction. Emitting only the default policy
+// would hide a weaker override; synthesizing one worst-case record would be
+// fabricating evidence rather than reading it.
+//
+// INACTIVE policies are skipped: an inactive policy governs nobody, so
+// failing a control on a rule that is not in force would be a false finding.
+func (p *Plugin) collectPasswordPolicies(ctx context.Context) ([]core.EvidenceRecord, error) {
+	policies, err := p.api.ListPasswordPolicies(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("okta: list password policies: %w", err)
+	}
+	now := p.now()
+	records := make([]core.EvidenceRecord, 0, len(policies))
+	for i := range policies {
+		pol := &policies[i]
+		if !strings.EqualFold(pol.Status, oktaPolicyActive) {
+			continue
+		}
+		c := pol.Settings.Password.Complexity
+		body, err := json.Marshal(passwordPolicyPayload{
+			ID:                   pol.ID,
+			Provider:             passwordPolicyProvider,
+			MinLength:            intOrZero(c.MinLength),
+			MaxAgeDays:           intOrZero(pol.Settings.Password.Age.MaxAgeDays),
+			ReusePreventionCount: intOrZero(pol.Settings.Password.Age.HistoryCount),
+			RequiresUppercase:    requiredClass(c.MinUpperCase),
+			RequiresLowercase:    requiredClass(c.MinLowerCase),
+			RequiresNumbers:      requiredClass(c.MinNumber),
+			RequiresSymbols:      requiredClass(c.MinSymbol),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("okta: marshal password policy payload: %w", err)
+		}
+		records = append(records, core.EvidenceRecord{
+			Type:        EvidenceTypePasswordPolicy,
+			ID:          pol.ID,
+			Payload:     body,
+			SourceID:    SourceID,
+			CollectedAt: now,
+		})
+	}
+	sort.Slice(records, func(i, j int) bool { return records[i].ID < records[j].ID })
+	return records, nil
+}
+
+// requiredClass reads Okta's 0/1 count as the canonical boolean. A field
+// Okta did not report is not a requirement we can claim.
+func requiredClass(v *int) bool { return v != nil && *v >= 1 }
+
+func intOrZero(v *int) int {
+	if v == nil {
+		return 0
+	}
+	return *v
+}
+
+// ListPasswordPolicies returns the org's PASSWORD policies. Okta requires
+// the type filter and pages the result like every other collection.
+func (h *httpAPI) ListPasswordPolicies(ctx context.Context) ([]PasswordPolicy, error) {
+	var out []PasswordPolicy
+	err := pageAll(ctx, h, "/api/v1/policies?type=PASSWORD&limit=200", func(pol PasswordPolicy) error {
+		out = append(out, pol)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}

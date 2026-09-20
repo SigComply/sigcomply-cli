@@ -11,7 +11,41 @@ tracks the human-curated highlights.
 
 ## [Unreleased]
 
+### Added
+
+- **Okta emits `password_policy`.** The six password controls under SOC 2
+  CC6.1 and ISO 8.5 — minimum length, expiry, reuse prevention and the four
+  character classes — had exactly one emitter, `aws.password_policy`, so any
+  estate without AWS IAM could only answer them by declaring an exception.
+  Okta's `/api/v1/policies?type=PASSWORD` answers all eight required fields
+  essentially 1:1, so **no schema change was needed** and no policy changed:
+  every policy already accepting `password_policy` binds to Okta the moment
+  it is configured. Okta states each `complexity.min*` as a count where `0`
+  and `1` mean no and yes, and uses `0` for "no limit"/"none" on
+  `age.maxAgeDays`/`historyCount` — the same meaning the schema and the AWS
+  emitter give them.
+  **One record per ACTIVE policy, not one per org.** Okta assigns password
+  policies per group, so an org normally has several; the consuming policies
+  quantify `all`, making the verdict "every password policy in this org meets
+  the bar". Grading only the Default or highest-priority policy would silently
+  pass an org that attaches a permissive policy to a group. INACTIVE policies
+  are skipped — one that is not in force governs nobody.
+  Requires policy read (`okta.policies.read`, or a read-only admin token). A
+  403 surfaces as a collection error rather than "no policies configured":
+  every org has an undeletable Default Policy, so zero readable policies means
+  a permissions problem.
+
 ### Fixed
+
+- **Okta pagination could stop after the first page.** The `Link` header was
+  read with `http.Header.Get`, which returns only the *first* header line —
+  and Okta documents sending the pagination links as separate lines
+  (`link: …; rel="self"` then `link: …; rel="next"`). Whenever `self` came
+  first the run stopped after page one, silently truncating collection: for an
+  `all` quantifier the records never fetched cannot fail, so an org past one
+  page could pass a control on users nobody looked at. Both encodings are legal
+  HTTP and both are now scanned. Found while adding the password-policy
+  collector, which pages the same way.
 
 - **`na` no longer reads as "implemented" in the Statement of Applicability.**
   `soaStatus` counted `na` alongside pass and waived, so following the

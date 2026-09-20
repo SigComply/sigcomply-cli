@@ -23,7 +23,7 @@ This yields the substitutability property: one "object storage encrypted at rest
 | **Azure** | management plane + Entra/Graph | DefaultAzureCredential / OIDC (Entra via raw Graph REST) | 14 plugins (mature) |
 | **GitHub** | SaaS | token | 1 plugin → `git_repository`, `directory_user`, `source_control_org_policy`, `vulnerability_finding`, `pull_request`, `deployment` |
 | **GitLab** | SaaS / self-managed | token | 1 plugin → `git_repository`, `directory_user`, `pull_request`, `deployment` |
-| **Okta** | SaaS | token | 1 plugin → `directory_user`, `okta_app`, `roster_entry` |
+| **Okta** | SaaS | token | 1 plugin → `directory_user`, `okta_app`, `roster_entry`, `password_policy` |
 | **Active Directory** | on-prem (LDAPS / StartTLS) | bind DN + password | 1 plugin (`active_directory`) → `roster_entry` |
 | **Manual** | customer bucket | n/a | 1 plugin (`manual.pdf`, project singleton) |
 
@@ -122,6 +122,23 @@ Optional vendor-specific fields (`email`, `is_external`, `is_service_account`, `
 
 ## `password_policy` schema fit for GCP / Azure — settled (WU-0.3): DEFER both
 
+> **Partially superseded.** Two things below are no longer true.
+> **(1) `password_policy` is not AWS-only.** Okta emits it as of the Okta
+> password-policy collector — its API answers all eight required fields
+> essentially 1:1, so no schema work was needed. Any Okta-backed estate now has
+> automated coverage of the six password policies, and the `state: na` recipe at
+> the end of this section is for estates with neither AWS nor Okta.
+> **(2) The GCP half of the rationale has expired.** Google's Cloud Identity
+> **Policy API reached GA on 2026-02-20** and exposes setting type
+> `security.password` (`minimumLength`, `allowedStrength`, `allowReuse`,
+> `expirationDuration`), so "a Go collector cannot honestly populate *any*
+> field" is stale. It does **not** follow that GCP can fill *this* schema:
+> `allowedStrength` is a two-value enum and cannot answer four independent
+> per-class booleans, so mapping `STRONG` → "all four true" would be exactly the
+> fabrication this section rejects. GCP therefore still does not emit
+> `password_policy.v1`; it is waiting on a `v2` with a complexity abstraction.
+> The Azure/Entra analysis below stands unchanged.
+
 The `password_policy.v1` schema is **AWS-IAM-shaped**: eight required fields — `min_length`, `max_age_days`, `reuse_prevention_count`, and four discrete complexity booleans (`requires_uppercase`/`_lowercase`/`_numbers`/`_symbols`). The AWS plugin (`internal/sources/aws/passwordpolicy/`) fills these from `IAM GetAccountPasswordPolicy`. Six policies consume it — `soc2.cc6.1.password_{min_length_14,expiry_90d,reuse_prevention,complexity}` and `iso27001.8.5.password_{minimum_length,complexity}` — referencing `min_length`, `max_age_days`, `reuse_prevention_count`, and all four complexity booleans. Because every consumed field is schema-`required`, a partial/half-populated record is not viable: the evaluator errors (exit 3) on any referenced field a record omits (`evalCondition` in `internal/evaluator/pass_when.go`), and emitting zeros/false for unknowable fields would be **misleading evidence**, not missing evidence.
 
 **Decision: neither GCP nor Azure emits `password_policy`. Defer.** Neither provider exposes the AWS-shaped policy via a readable API:
@@ -129,9 +146,9 @@ The `password_policy.v1` schema is **AWS-IAM-shaped**: eight required fields —
 - **GCP (Cloud Identity / Workspace).** Cloud IAM has no password policy at all (it governs authorization, not human credentials — confirmed). A Workspace password policy *exists* (min/max length, expiry, "enforce strong password") but is **Admin-Console-only**: the Admin SDK Directory API exposes **no** policy object — `Customer`/`Domain` carry no `passwordPolicy`, no length, no expiry, no reuse. "Strong password" is a single opaque Google rating, not four complexity booleans, and there is **no** reuse/history concept. A Go collector cannot honestly populate *any* field automatically.
 - **Azure (Entra ID).** For cloud-only accounts, length (8) and complexity (fixed "3 of 4 character classes") are **Microsoft constants**, not tenant-readable settings — hard-coding them would fabricate the four-boolean shape (and "3 of 4" is structurally not four independent booleans). History is depth-1 on change / unenforced on reset, with no numeric count. The **only** genuinely API-readable knob is expiration: `domain.passwordValidityPeriodInDays` (+ `passwordNotificationWindowInDays`) via Graph, plus per-user `user.passwordPolicies`. One real field out of eight required ⇒ cannot faithfully populate the schema.
 
-**Consequence for the plan.** WU-4.6 (`gcp.passwordpolicy`) and WU-5.15 (`azure.entra` pwpolicy) are **dropped** (stay `[!]`/skipped in the dashboard). No new source ID is created for them; `coverage_test` is unaffected because no policy's `accepts:` is broadened — `password_policy` remains an AWS-only emitter and GCP-/Azure-only customers simply do not satisfy the six password policies via automated evidence.
+**Consequence for the plan.** WU-4.6 (`gcp.passwordpolicy`) and WU-5.15 (`azure.entra` pwpolicy) are **dropped** (stay `[!]`/skipped in the dashboard). No new source ID is created for them; `coverage_test` is unaffected because no policy's `accepts:` is broadened. Customers with **neither AWS nor Okta** simply do not satisfy the six password policies via automated evidence. (Okta does now emit the type — see the note at the top of this section — so "AWS-only emitter", as this paragraph originally read, no longer holds.)
 
-**How a GCP-/Azure-only customer actually covers this today — corrected.** An earlier version of this paragraph said those customers "can cover those controls via the manual evidence flow — a screenshot/export of the Workspace/Entra password settings". **That was an overclaim, and it is not expressible.** A manual catalog entry is 1:1 with a manual *policy* and is structurally unconditional, so no password entry exists to point a `catalog_entry:` override at, and `manual.pdf` hard-fails on a `catalog_entry` the framework does not declare. Adding one would also oblige every AWS customer — who already has automated coverage — to upload a PDF they do not need, and a manual entry with an empty folder **fails**, it does not skip.
+**How a customer with no `password_policy` emitter actually covers this today — corrected.** An earlier version of this paragraph said those customers "can cover those controls via the manual evidence flow — a screenshot/export of the Workspace/Entra password settings". **That was an overclaim, and it is not expressible.** A manual catalog entry is 1:1 with a manual *policy* and is structurally unconditional, so no password entry exists to point a `catalog_entry:` override at, and `manual.pdf` hard-fails on a `catalog_entry` the framework does not declare. Adding one would also oblige every AWS customer — who already has automated coverage — to upload a PDF they do not need, and a manual entry with an empty folder **fails**, it does not skip.
 
 What works today is a per-policy exception, which is what the worked configs actually show (`docs/architecture/examples/gcp-project.sigcomply.yaml`, `azure-subscription.sigcomply.yaml`):
 

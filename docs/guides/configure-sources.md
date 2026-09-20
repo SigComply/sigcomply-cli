@@ -162,6 +162,7 @@ sources:
 
 - **Credentials (env):** `OKTA_API_TOKEN` (or an `api_token:` key).
 - **Required config keys:** `org_url`.
+- **Privileges:** reading user role assignments (for `directory_user.is_admin`) and reading policies (for `password_policy`) — the `okta.roles.read` and `okta.policies.read` scopes, or an admin token that covers both. The roster alone needs only `okta.users.read`. See the [configuration reference](../configuration.md#okta).
 
 ### Active Directory (`active_directory`)
 

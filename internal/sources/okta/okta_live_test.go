@@ -58,4 +58,12 @@ func TestOktaLive(t *testing.T) {
 	if counts[EvidenceTypeRosterEntry] < 1 {
 		t.Errorf("roster_entry = %d, want >= 1", counts[EvidenceTypeRosterEntry])
 	}
+	// Every org has a Default Policy, which Okta will not let you delete or
+	// deactivate — so an org that reports none is a permissions problem
+	// (the token needs okta.policies.read / a read-only admin role), not an
+	// org without password rules.
+	if counts[EvidenceTypePasswordPolicy] < 1 {
+		t.Errorf("password_policy = %d, want >= 1 (the undeletable Default Policy); "+
+			"a zero here usually means the token cannot read policies", counts[EvidenceTypePasswordPolicy])
+	}
 }

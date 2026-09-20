@@ -3,8 +3,10 @@
 // password_policy evidence record describing minimum length, expiry,
 // reuse prevention, and the four character-class requirements.
 //
-// password_policy is a project/account-level singleton: this plugin
-// always emits exactly one record. When no password policy is
+// An AWS account has exactly one password policy, so this plugin always
+// emits exactly one record — that is a property of IAM, not of the
+// evidence type: an IdP source may emit several (Okta assigns password
+// policies per group). When no password policy is
 // configured, AWS returns NoSuchEntityException; the plugin treats that
 // as the weakest posture (all-false / zero) rather than an error, so the
 // consuming policies correctly flag the missing policy.

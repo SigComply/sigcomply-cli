@@ -81,9 +81,16 @@ scan "AWS access keys (AKIA…)" \
 # *substring* of a longer token — a 64-hex sha256 hash, a hex commit SHA — does
 # not false-positive. grep -o keeps the delimiter chars, so the allow pattern
 # tolerates them around the zero placeholder.
+# One further allowance, deliberately written as an exact literal rather than
+# a pattern so it can only ever permit this single value: /360016648959- is a
+# Yubico support-article number inside a prose "description" in the Okta API
+# spec slice, reached via the $ref closure of GET /api/v1/policies. Vendor
+# specs carry no customer data by construction; broadening the rule (e.g.
+# "digits inside a URL path") would also excuse a console link that really did
+# carry an account ID.
 scan "AWS account IDs (12 digits)" \
     '(^|[^0-9A-Za-z])[0-9]{12}([^0-9A-Za-z]|$)' \
-    '(^|[^0-9])0{12}([^0-9]|$)'
+    '(^|[^0-9])0{12}([^0-9]|$)|/360016648959-'
 
 # ARNs carrying a real (non-zero) account ID.
 scan "ARNs with a real account ID" \

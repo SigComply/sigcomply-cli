@@ -606,12 +606,17 @@ func (s *stubGitHubAPI) ListDeployments(context.Context, time.Time, time.Time) (
 // stubOktaAPI satisfies the okta source plugin's API interface
 // without touching the network.
 type stubOktaAPI struct {
-	users []oktasource.User
-	apps  []oktasource.App
+	users    []oktasource.User
+	apps     []oktasource.App
+	policies []oktasource.PasswordPolicy
 }
 
 func (s *stubOktaAPI) ListUsers(context.Context) ([]oktasource.User, error) {
 	return s.users, nil
+}
+
+func (s *stubOktaAPI) ListPasswordPolicies(context.Context) ([]oktasource.PasswordPolicy, error) {
+	return s.policies, nil
 }
 
 func (s *stubOktaAPI) ListApps(context.Context) ([]oktasource.App, error) {
