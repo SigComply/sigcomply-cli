@@ -273,17 +273,31 @@ func (*Plugin) Emits() []string {
 
 // Caveats declares the fields this plugin can emit without observing them.
 //
-// Conditional, unlike aws.identity_center's: two_factor_enabled IS readable —
-// but only by a group-owner / instance-admin token, via the Users API. A
-// lesser-privileged token gets a 403 that mapMember deliberately swallows so
-// the listing still succeeds, which leaves mfa_enabled at false with nothing
-// in the run to say the read never happened. The caveat is what says it.
+// Two different limits live in this one list, and the Detail text says which
+// applies, because the operator's remedy is completely different:
 //
-// Declared unconditionally because privilege is not known at plan time: the
-// per-member read happens during collection, long after the planner has to
-// decide whether to warn. Over-warning a correctly-privileged token is the
-// cheaper error — the operator checks the token scope and moves on, where the
-// silent case grades an MFA control on a value nobody read.
+//   - ABSOLUTE — the three pipeline-scanning booleans. GitLab configures SAST,
+//     Secret Detection and Dependency Scanning in .gitlab-ci.yml, not as a
+//     project-settings field, so there is no read-only API to ask and the
+//     plugin hardcodes false (see mapProject). Their policies therefore cannot
+//     pass on a GitLab estate — only ever fail — so the honest remedy is a
+//     documented exception or a compensating check, not a token change.
+//   - CONDITIONAL — mfa_enabled, and the three protection/approval fields. The
+//     read IS possible; a lesser-privileged token or a free-tier project just
+//     gets a 403/404 that the sdkAPI deliberately swallows so the listing still
+//     succeeds. What is left behind is the zero value, which is indistinguishable
+//     from a measured "not configured". Provisioning the right token (or tier)
+//     makes the value real.
+//
+// The conditional ones are declared unconditionally because privilege and tier
+// are not known at plan time: those reads happen during collection, long after
+// the planner has to decide whether to warn. Over-warning a correctly-privileged
+// token is the cheaper error — the operator checks the scope and moves on, where
+// the silent case grades a control on a value nobody read.
+//
+// Every field here is read by at least one shipped SOC 2 / ISO 27001 policy;
+// a field GitLab cannot observe but no policy consumes costs nothing and is
+// deliberately absent, so the planner's warnings stay worth reading.
 func (*Plugin) Caveats() []core.SourceCaveat {
 	return []core.SourceCaveat{{
 		EvidenceType: EvidenceTypeDirectoryUser,
@@ -291,6 +305,42 @@ func (*Plugin) Caveats() []core.SourceCaveat {
 		Detail: "GitLab exposes two_factor_enabled only to a group-owner / instance-admin token; " +
 			"with a lesser-privileged token the per-member read is refused and mfa_enabled falls " +
 			"back to false, so provision an owner token where MFA policies matter",
+	}, {
+		EvidenceType: EvidenceTypeRepository,
+		Field:        "secret_scanning_enabled",
+		Detail: "GitLab configures Secret Detection in .gitlab-ci.yml and publishes no project-settings " +
+			"API to read it, so this is always emitted as false and its policy can never pass on a " +
+			"GitLab estate — treat the finding as a documented exception, not a token problem",
+	}, {
+		EvidenceType: EvidenceTypeRepository,
+		Field:        "code_scanning_enabled",
+		Detail: "GitLab configures SAST in .gitlab-ci.yml and publishes no project-settings API to read " +
+			"it, so this is always emitted as false and its policy can never pass on a GitLab estate — " +
+			"treat the finding as a documented exception, not a token problem",
+	}, {
+		EvidenceType: EvidenceTypeRepository,
+		Field:        "dependabot_alerts_enabled",
+		Detail: "GitLab configures Dependency Scanning in .gitlab-ci.yml and publishes no project-settings " +
+			"API to read it, so this is always emitted as false and its policy can never pass on a GitLab " +
+			"estate — treat the finding as a documented exception, not a token problem",
+	}, {
+		EvidenceType: EvidenceTypeRepository,
+		Field:        "requires_signed_commits",
+		Detail: "signed-commit enforcement is a Premium push rule; on Free tier, or when no push rule " +
+			"exists, the push-rules endpoint 404s and requires_signed_commits falls back to false, so " +
+			"confirm the project's tier before treating a failure as a real gap",
+	}, {
+		EvidenceType: EvidenceTypeRepository,
+		Field:        "require_code_owner_reviews",
+		Detail: "code-owner approval is read from the default branch's protection rule; a token without " +
+			"privilege to read it gets a 403 that leaves require_code_owner_reviews false, so give the " +
+			"token Maintainer on each project where this policy matters",
+	}, {
+		EvidenceType: EvidenceTypeRepository,
+		Field:        "required_reviewers_count",
+		Detail: "approval rules (approvals_required) are a Premium feature whose endpoint 403/404s on " +
+			"Free tier, leaving required_reviewers_count at 0 even where reviews are in fact required, " +
+			"so check the project's tier before treating a failure as a real gap",
 	}}
 }
 

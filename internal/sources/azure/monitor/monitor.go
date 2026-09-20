@@ -135,6 +135,36 @@ func (*Plugin) ID() string { return SourceID }
 // Emits returns the evidence types this plugin can produce.
 func (*Plugin) Emits() []string { return []string{EvidenceTypeLogGroup, EvidenceTypeAuditLogTrail} }
 
+// Caveats declares the one field this plugin emits without observing it.
+// See the package doc: the Activity Log's native platform retention uses
+// Microsoft-managed keys and reports no customer-managed key state, so
+// audit_log_trail.kms_encrypted is emitted as a constant false. CMEK for the
+// Activity Log means routing it (via a diagnostic setting) to a CMEK-enabled
+// destination and resolving that destination's key state, which v1 does not
+// do — so an estate that HAS routed its Activity Log to a CMEK destination
+// still fails. The planner turns this into a warning when an
+// audit-log-encryption policy binds this source.
+//
+// Scoped to audit_log_trail on purpose. The log_group records this plugin also
+// emits OMIT kms_encrypted rather than fabricating it (Log Analytics CMEK is a
+// per-cluster feature, not a per-workspace property), and an omitted field is
+// not a caveat: the policies is_set-guard it and skip the record, which is
+// already the honest outcome. Caveating log_group would flag the one place
+// this plugin gets it right.
+//
+// Unconditional: no credential and no permission makes the native Activity
+// Log report a customer-managed key, because it does not use one.
+func (*Plugin) Caveats() []core.SourceCaveat {
+	return []core.SourceCaveat{{
+		EvidenceType: EvidenceTypeAuditLogTrail,
+		Field:        "kms_encrypted",
+		Detail: "the Azure Activity Log's native platform retention uses Microsoft-managed keys and " +
+			"exposes no customer-managed-key state, so kms_encrypted is emitted as a constant false " +
+			"and can only ever fail an audit-log-encryption policy; cover the control by routing the " +
+			"Activity Log to a CMEK-enabled destination plus a .sigcomply.yaml exception or manual evidence",
+	}}
+}
+
 // Init is a no-op — configuration is fixed at New.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 

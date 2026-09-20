@@ -1551,3 +1551,49 @@ func TestHTTPAPI_ListDeployments_HappyPath(t *testing.T) {
 		t.Errorf("ListDeployments = %+v; want %+v", deployments, want)
 	}
 }
+
+// GitHub's org-wide 2FA flag is a tri-state the adapter flattens: a token
+// without admin:org sees null and the plugin emits false, with nothing in the
+// run to distinguish "2FA is not enforced" from "we were not allowed to look".
+// That is the same shape as gitlab's mfa_enabled — conditional, not absolute —
+// and two shipped policies grade a control on it, so the plugin must say so.
+func TestCaveats_DeclaresTheOrg2FAPrivilegeGap(t *testing.T) {
+	var p core.SourcePlugin = New(Options{})
+	c, ok := p.(core.CaveatedSource)
+	if !ok {
+		t.Fatal("github must implement core.CaveatedSource")
+	}
+	cav := c.Caveats()
+
+	// Looked up by (type, field), never by index: another caveat may join this
+	// one, and the assertion must keep testing the same thing when it does.
+	var found *core.SourceCaveat
+	for i := range cav {
+		if cav[i].EvidenceType == EvidenceTypeOrgPolicy && cav[i].Field == "two_factor_required" {
+			found = &cav[i]
+		}
+	}
+	if found == nil {
+		t.Fatalf("Caveats() = %+v; want source_control_org_policy.two_factor_required", cav)
+	}
+	if found.Detail == "" {
+		t.Error("a caveat with no detail tells the operator nothing to act on")
+	}
+}
+
+// mfa_enabled must NOT be caveated: the per-user 2FA listing needs the same
+// admin:org scope, but its failure is RETURNED as an error rather than
+// swallowed, so a run without the scope errors the policy instead of grading
+// it on a fabricated false. A caveat there would warn about a gap that cannot
+// silently occur.
+func TestCaveats_DoesNotCaveatDirectoryUserMFA(t *testing.T) {
+	c, ok := core.SourcePlugin(New(Options{})).(core.CaveatedSource)
+	if !ok {
+		t.Fatal("github must implement core.CaveatedSource")
+	}
+	for _, cv := range c.Caveats() {
+		if cv.EvidenceType == EvidenceTypeDirectoryUser && cv.Field == "mfa_enabled" {
+			t.Errorf("caveat %+v declared, but the 2FA listing error is returned, not swallowed", cv)
+		}
+	}
+}

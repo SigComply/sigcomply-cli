@@ -105,13 +105,31 @@ type SourceCaveat struct {
 ```
 
 Implement it when the honest value is a safe default rather than a
-measurement — `aws.identity_center.mfa_enabled` (no API exists) and
-`gitlab.mfa_enabled` (the token may not be privileged enough to read it).
-Do **not** implement it for a platform constant that is true by definition
-(`gcp.firestore.encryption_enabled`), and prefer *omitting* a field over
-fabricating one where the schema allows it — `azure.compute` and `gcp.compute`
-leave `monitoring_enabled` unset for exactly this reason, and an `is_set`
-guard in the policy scopes them out honestly.
+measurement, **and** a shipped policy actually reads the field. Both halves
+matter. The first is the gap; the second is what keeps the warning channel
+worth reading — a caveat on a field no policy reads can never fire, so it
+costs a reader's attention and buys nothing. `aws.eks.node_auto_upgrade_enabled`
+and `azure.keyvault.never_rotated` are both emitted without being observed and
+are both deliberately **un**caveated for exactly this reason; if a policy ever
+starts reading one, the caveat is owed then.
+
+Three neighbouring classes look similar and must **not** be caveated:
+
+- A **platform constant true by definition** — `gcp.firestore.encryption_enabled`.
+  Nothing is being guessed; the platform guarantees it.
+- A field the plugin **omits rather than fabricates**, where the schema allows
+  it — `azure.compute` and `gcp.compute` leave `monitoring_enabled` unset for
+  exactly this reason, and an `is_set` guard in the policy scopes them out
+  honestly. `azure.monitor` does both at once: it omits `kms_encrypted` on
+  `log_group` (no caveat) and emits a constant `false` on `audit_log_trail`
+  (caveated). Omission is already honest; fabrication is what needs declaring.
+- A value that is **conservative but correct**, not unobservable —
+  `aws.identity_center.has_condition` is `false` because an Identity Center
+  assignment carries no IAM condition expression at all. That is a true
+  statement about the grant, and it fails rather than excuses a broad grant.
+
+The shipped caveats and whether each limit is absolute or conditional are
+listed in [configuration.md §Source caveats](../configuration.md#source-caveats).
 
 The planner warns only when all three hold: the source is bound, the binding
 accepts the caveated type, and the policy's `pass_when` actually reads that
@@ -824,6 +842,17 @@ What the shipped plugins stamp:
 | `azure.*` — the 13 ARM-plane sources | `Account: <subscription_id>` | The subscription is passed into the client; a wrong value 403s |
 | `azure.entra` | `Account: <observed tenant>` | Resolved from the credential via `GET /organization`, never from config |
 | `aws.identity_center` | `Account` + `Region` | The identity-store id (discovered from `ListInstances`) on identity records; the **target AWS account** on each `iam_binding`, which is the account the grant opens |
+
+`aws.identity_center` is the one plugin whose `Scope.Account` carries two
+different **kinds** of boundary in a single run, and it does so deliberately:
+the identity store is the boundary `ListUsers` is addressed to, while a grant's
+boundary is the account it opens. Resolving both onto one kind would cost an
+`sts:GetCallerIdentity` the plugin does not otherwise need, and the roster-only
+slot is advertised as a two-permission operation. This is safe *because* scope
+is provenance and nothing joins on it — if per-record scope ever becomes part
+of identity (the v2 item above), this is the first inconsistency to resolve,
+and it is also why this plugin cannot use `sourcetest.Options.WantScope`, which
+asserts one scope for every record a plugin emits.
 
 Every other plugin leaves it nil today. When adding one, assert it in the
 plugin's conformance run: `sourcetest.Options.WantScope` fails the build if any

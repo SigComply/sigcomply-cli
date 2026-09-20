@@ -16,7 +16,7 @@ func caveatPlan(policyIDs, alternatives []string) *planner.RunPlan {
 		plan.Policies = append(plan.Policies, planner.PlannedPolicy{
 			Spec: core.Policy{ID: id},
 			SourceCaveats: []planner.SourceCaveatWarning{{
-				Slot: "evidence", SourceID: "aws.identity_center",
+				Slot: slotEvidence, SourceID: "aws.identity_center",
 				EvidenceType: "directory_user", Field: "mfa_enabled",
 				Detail:       "AWS publishes no per-user MFA API",
 				Alternatives: alternatives,
@@ -31,7 +31,7 @@ func caveatPlan(policyIDs, alternatives []string) *planner.RunPlan {
 func TestEmitSourceCaveatWarnings_NamesThePin(t *testing.T) {
 	var buf bytes.Buffer
 	emitSourceCaveatWarnings(log.New(&buf, false), caveatPlan(
-		[]string{"soc2.cc6.1.mfa_enforced_all_users", "soc2.cc6.1.mfa_enforced_admins"},
+		[]string{"soc2.cc6.1.mfa_enforced_all_users", policyMFAAdmins},
 		[]string{"okta"},
 	))
 	got := buf.String()

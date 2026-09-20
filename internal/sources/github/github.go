@@ -312,6 +312,38 @@ func (*Plugin) Emits() []string {
 	}
 }
 
+// Caveats declares the one field this plugin can emit without observing it.
+//
+// Conditional, not absolute: GitHub really does publish the org-wide 2FA
+// requirement, but GET /orgs/{org} returns two_factor_requirement_enabled as a
+// tri-state — true, false, or null when the caller lacks the admin:org scope.
+// GetOrgPolicy flattens null to false (the field is a bool on the wire type and
+// a policy reading an absent field is an error, so some value must be chosen),
+// and it does so silently: no error is returned and nothing is logged, because
+// the rest of the org record is still perfectly usable. What that leaves is a
+// false that an org-wide-MFA policy grades as a real "2FA is not enforced",
+// with nothing in the run to distinguish it from "we were not allowed to look".
+// The caveat is what says it.
+//
+// Declared unconditionally because token scope is not known at plan time: the
+// org read happens during collection, long after the planner has to decide
+// whether to warn. Over-warning a correctly-scoped token is the cheaper error.
+//
+// Deliberately NOT declared for directory_user.mfa_enabled, which needs the
+// same scope: there the 2fa_disabled listing's failure is RETURNED from
+// ListOrgMembers, so an unscoped token errors the policy instead of quietly
+// grading it on a fabricated value. A caveat warns about a silent gap; that one
+// is not silent, and warning about it would dilute the ones that are.
+func (*Plugin) Caveats() []core.SourceCaveat {
+	return []core.SourceCaveat{{
+		EvidenceType: EvidenceTypeOrgPolicy,
+		Field:        "two_factor_required",
+		Detail: "GitHub reports the org-wide 2FA requirement only to a token holding the admin:org " +
+			"scope; without it the flag comes back null and is normalized to false, so grant the " +
+			"token admin:org before treating this as a real enforcement gap",
+	}}
+}
+
 // Init is a no-op; the constructor has already received configuration.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 

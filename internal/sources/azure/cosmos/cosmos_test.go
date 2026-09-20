@@ -416,3 +416,28 @@ func TestRealCosmos_ListError(t *testing.T) {
 		t.Fatal("expected error on 403, got nil")
 	}
 }
+
+// The plugin must declare the deletion-protection limit its package doc
+// describes, so the planner warns the operator rather than grading the
+// deletion-protection controls on a constant. Cosmos DB exposes no
+// account-level deletion-protection property at all; the real Azure mechanism
+// is an ARM resource lock, a separate plane this plugin does not read. The
+// limit is absolute — no credential or permission makes it readable from the
+// Cosmos data plane — so the caveat is unconditional.
+func TestCaveats_DeclaresTheDeletionProtectionGap(t *testing.T) {
+	var p core.SourcePlugin = New(Options{})
+	c, ok := p.(core.CaveatedSource)
+	if !ok {
+		t.Fatal("azure.cosmos must implement core.CaveatedSource")
+	}
+	cav := c.Caveats()
+	if len(cav) != 1 {
+		t.Fatalf("Caveats() = %+v; want exactly the deletion_protection caveat", cav)
+	}
+	if cav[0].EvidenceType != EvidenceTypeID || cav[0].Field != "deletion_protection" {
+		t.Errorf("Caveats()[0] = %+v; want nosql_table.deletion_protection", cav[0])
+	}
+	if cav[0].Detail == "" {
+		t.Error("a caveat with no detail tells the operator nothing to act on")
+	}
+}

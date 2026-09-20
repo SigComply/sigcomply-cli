@@ -328,6 +328,18 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		return nil, fmt.Errorf("aws.identity_center: list users: %w", err)
 	}
 	now := p.now()
+	// Scope for the identity records (directory_user, roster_entry):
+	// Account is the identity STORE id, not an AWS account. The store is
+	// the boundary ListUsers is addressed to, and an Identity Center
+	// directory has no single owning account its users belong to —
+	// resolving one would cost an sts:GetCallerIdentity this plugin
+	// deliberately does not need (a roster-only slot is a two-permission
+	// operation). bindingRecord stamps a different kind of Account on
+	// purpose: a grant's boundary is the AWS account it opens. This is
+	// the one plugin where Scope.Account means two things in one run,
+	// which is safe precisely because Scope is provenance and nothing
+	// joins on it (see core.EvidenceRecord.Scope); it is the first thing
+	// to resolve if that ever changes.
 	scope := &core.RecordScope{Account: storeID, Region: p.region}
 
 	grants := &grantIndex{admin: map[string]bool{}}

@@ -327,6 +327,45 @@ func stampNextDue(results []core.PolicyResult, plan *planner.RunPlan, startedAt 
 	}
 }
 
+// coverageGapLines describes the policy's required slots that no
+// configured source can fill at all — the plain case, as opposed to the
+// version-skew near-miss CoverageGaps already reports.
+//
+// This is the strictly worse condition of the two and until now it was
+// the quieter one: a skew warned at plan time, while "nothing emits this
+// type in any version" said nothing until renderSkipExplanations printed
+// after the run. That asymmetry matters because a skipped policy leaves
+// the compliance-score denominator (aggregator: total-skipped-na), so an
+// estate whose provider cannot answer six password controls submits a
+// HIGHER score than one that answers and fails them. The operator has to
+// learn that before the numbers are believed, not after.
+//
+// Two slots are deliberately excluded. A slot already reported as a skew
+// would otherwise be named twice with contradictory remedies. And a
+// roster slot unbound means no experimental.roster.source was designated
+// — a different remedy, which skipDetail already explains separately.
+//
+// Advisory only, like every other plan warning: the exit code is
+// unchanged. Making an unbound required slot fatal was considered and
+// rejected — error maps to exit 2, is not suppressible by
+// ci.fail_on_violation, and would permanently break CI for an estate
+// whose provider structurally cannot satisfy the control.
+func coverageGapLines(pp *planner.PlannedPolicy, skewed map[string]bool) []string {
+	var out []string
+	for _, name := range pp.UnboundRequiredSlots {
+		if skewed[name] {
+			continue
+		}
+		slot, ok := pp.Spec.Slots[name]
+		if !ok || slot.Role == core.SlotRoleRoster {
+			continue
+		}
+		out = append(out, fmt.Sprintf("%s slot %q accepts %v but no configured source emits any of them; policy will be SKIPPED and excluded from the compliance score",
+			pp.Spec.ID, name, slot.Accepts))
+	}
+	return out
+}
+
 // emitPlanWarnings surfaces day-1 conditions the operator must see:
 // first-run policies (will run now and not again until the cadence
 // elapses) and gap-detected (last evaluation was long ago). The
@@ -340,13 +379,17 @@ func emitPlanWarnings(logger *log.Logger, plan *planner.RunPlan, now time.Time) 
 	var firstRun []string
 	var gapped []string
 	var skews []string
+	var uncovered []string
 	const gapThreshold = 30 * 24 * time.Hour // 30 days
 	for i := range plan.Policies {
 		pp := &plan.Policies[i]
+		skewed := make(map[string]bool, len(pp.CoverageGaps))
 		for _, g := range pp.CoverageGaps {
+			skewed[g.Slot] = true
 			skews = append(skews, fmt.Sprintf("%s slot %q accepts %v but configured source %q emits %v (different version); slot stays unbound, policy will be SKIPPED",
 				pp.Spec.ID, g.Slot, g.Accepts, g.Source, g.SourceEmits))
 		}
+		uncovered = append(uncovered, coverageGapLines(pp, skewed)...)
 		if pp.PriorState == nil || pp.PriorState.IsFirstRun() {
 			if pp.ShouldEvaluate {
 				firstRun = append(firstRun, pp.Spec.ID)
@@ -372,6 +415,14 @@ func emitPlanWarnings(logger *log.Logger, plan *planner.RunPlan, now time.Time) 
 		logger.Warnf("coverage-skew: extend the slot's accepts: to include the emitted version, or wire a source that emits the accepted version")
 		for _, s := range skews {
 			logger.Debugf("coverage-skew: %s", s)
+		}
+	}
+	if len(uncovered) > 0 {
+		sort.Strings(uncovered)
+		logger.Warnf("coverage-gap: %d required slot(s) have no configured source emitting an accepted evidence type; the affected policies will be SKIPPED and leave the compliance score denominator, so the score is computed over fewer controls than the framework has", len(uncovered))
+		logger.Warnf("coverage-gap: configure a source that emits the listed evidence types, or mark the control not_applicable with a reason so the exclusion is recorded rather than silent")
+		for _, s := range uncovered {
+			logger.Debugf("coverage-gap: %s", s)
 		}
 	}
 	if len(firstRun) > 0 {

@@ -31,9 +31,9 @@ sigcomply check --verbose
 
 Verbose mode turns on **debug-level** logging (to stderr) on top of the
 default info/warn output. It surfaces the detail behind the summary — the
-per-policy first-run and gap-detection notes, coverage-skew diagnostics, the
-git commit-time parse, and the individual policy IDs behind each aggregated
-warning. Redaction is always on regardless of verbosity: emails, ARNs, access
+per-policy first-run and gap-detection notes, coverage-skew and coverage-gap
+diagnostics, the git commit-time parse, and the individual policy IDs behind
+each aggregated warning. Redaction is always on regardless of verbosity: emails, ARNs, access
 keys, UUIDs, and JWTs are stripped before anything is written, so `--verbose`
 is safe to enable in CI logs.
 
@@ -286,6 +286,58 @@ filter:
 
 For a field the type marks `required`, a record missing it is a source
 bug — check the plugin, not the policy.
+
+### Controls are SKIPPED — and the compliance score went *up*
+
+**Problem:** `check` exits `0`, and at the end prints
+
+```
+6 control(s) were SKIPPED and are NOT counted in the compliance score:
+  soc2.cc6.1.password_min_length_14 — no configured source emits
+    [password_policy] (slot "evidence")
+  …
+```
+
+At plan time the same run warns:
+
+```
+[warn] coverage-gap: 6 required slot(s) have no configured source emitting
+  an accepted evidence type; the affected policies will be SKIPPED and leave
+  the compliance score denominator …
+```
+
+**Cause:** the score is `(passed + waived + carried_forward) / (total −
+skipped − na)`. A skipped control leaves the **denominator**, so controls
+nobody could answer *raise* the ratio rather than lowering it. Six
+unanswerable password controls on a GCP- or Azure-only estate turn
+"34 of 40" into "34 of 34". The run is still green and still exits `0`,
+which is why the warning exists: **a green run that skips controls is not
+a passing audit.**
+
+The usual cause is that no configured source emits the evidence type the
+slot accepts — `password_policy`, for instance, is emitted today only by
+`aws.password_policy` and `okta`. A near neighbour is `coverage-skew`,
+where a source *does* emit the right family but a different **version**;
+that one is fixed by extending the slot's `accepts:`, not by wiring a new
+source.
+
+**Fix:** configure a source that emits the listed type. If the estate's
+provider genuinely cannot answer the control, declare the decision instead
+of leaving it implicit:
+
+```yaml
+controls:
+  CC6.1:
+    applicability: not_applicable
+    reason: "Google Workspace exposes no per-class password policy"
+```
+
+That cascades `na` to every policy mapping to the control. It does not
+improve the score — `na` leaves the denominator exactly as `skip` does —
+but it turns a silent absence into a recorded decision with a reason, which
+is what `report --view soa` prints and what an auditor can actually read.
+(ISO 27001's `C.`-prefixed management-system controls cannot be declared
+`not_applicable`; that is a config error, exit 3.)
 
 ## Frameworks
 

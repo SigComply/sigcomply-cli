@@ -998,20 +998,54 @@ func newTestSDKAPI(t *testing.T, responses map[string]string, denied map[string]
 	return &sdkAPI{client: client, group: testGroup}
 }
 
-// GitLab's mfa_enabled gap is conditional — a privileged token reads the real
-// value — but the plugin must still declare it, because plan time cannot know
-// which kind of token it has.
-func TestCaveats_DeclaresTheMFAPrivilegeGap(t *testing.T) {
+// Every field the plugin emits without observing it must be declared, because
+// a shipped policy reads each one and would otherwise grade a control on a
+// value nobody measured. The set is asserted by (type, field) lookup rather
+// than by index: caveats are a growing list, and an index-keyed assertion
+// breaks — or worse, silently checks the wrong entry — the next time one is
+// added.
+func TestCaveats_DeclaresEveryUnobservedField(t *testing.T) {
 	var p core.SourcePlugin = New(Options{})
 	c, ok := p.(core.CaveatedSource)
 	if !ok {
 		t.Fatal("gitlab must implement core.CaveatedSource")
 	}
 	cav := c.Caveats()
-	if len(cav) != 1 || cav[0].EvidenceType != EvidenceTypeDirectoryUser || cav[0].Field != "mfa_enabled" {
-		t.Fatalf("Caveats() = %+v; want directory_user.mfa_enabled", cav)
+
+	got := map[[2]string]core.SourceCaveat{}
+	for _, cv := range cav {
+		key := [2]string{cv.EvidenceType, cv.Field}
+		if _, dup := got[key]; dup {
+			t.Errorf("caveat %v declared twice; the planner would warn twice for one gap", key)
+		}
+		got[key] = cv
 	}
-	if cav[0].Detail == "" {
-		t.Error("a caveat with no detail tells the operator nothing to act on")
+
+	want := [][2]string{
+		// Conditional: readable only by a group-owner / instance-admin token.
+		{EvidenceTypeDirectoryUser, "mfa_enabled"},
+		// Absolute: pipeline scanning lives in .gitlab-ci.yml, so these three
+		// can only ever fail their policy, never pass it.
+		{EvidenceTypeRepository, "secret_scanning_enabled"},
+		{EvidenceTypeRepository, "code_scanning_enabled"},
+		{EvidenceTypeRepository, "dependabot_alerts_enabled"},
+		// Conditional: premium endpoints that 403/404 for a free-tier project
+		// or a lesser-privileged token, leaving the zero value behind.
+		{EvidenceTypeRepository, "requires_signed_commits"},
+		{EvidenceTypeRepository, "require_code_owner_reviews"},
+		{EvidenceTypeRepository, "required_reviewers_count"},
+	}
+	for _, key := range want {
+		cv, ok := got[key]
+		if !ok {
+			t.Errorf("no caveat declared for %s.%s; a shipped policy reads it", key[0], key[1])
+			continue
+		}
+		if cv.Detail == "" {
+			t.Errorf("caveat %v has no detail; it tells the operator nothing to act on", key)
+		}
+	}
+	if len(cav) != len(want) {
+		t.Errorf("Caveats() = %d entries, want %d: %+v", len(cav), len(want), cav)
 	}
 }

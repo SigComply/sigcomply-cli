@@ -483,3 +483,33 @@ func TestRealMonitor_ListError(t *testing.T) {
 		t.Fatal("expected error on 403, got nil")
 	}
 }
+
+// The plugin must declare the Activity Log encryption limit its package doc
+// describes, so the planner warns the operator rather than grading the
+// audit-log-encryption controls on a constant false. The caveat is scoped to
+// audit_log_trail ONLY: on log_group the plugin OMITS kms_encrypted rather
+// than fabricating it, and an omitted field is not a caveat — the policies
+// is_set-guard it and skip. Caveating log_group would mislabel the one place
+// this plugin gets it right. The audit_log_trail limit is absolute: native
+// Activity Log platform retention uses Microsoft-managed keys, and no API
+// reports a customer-managed key for it.
+func TestCaveats_DeclaresTheAuditLogEncryptionGap(t *testing.T) {
+	var p core.SourcePlugin = New(Options{})
+	c, ok := p.(core.CaveatedSource)
+	if !ok {
+		t.Fatal("azure.monitor must implement core.CaveatedSource")
+	}
+	cav := c.Caveats()
+	if len(cav) != 1 {
+		t.Fatalf("Caveats() = %+v; want exactly the audit_log_trail kms_encrypted caveat", cav)
+	}
+	if cav[0].EvidenceType != EvidenceTypeAuditLogTrail || cav[0].Field != "kms_encrypted" {
+		t.Errorf("Caveats()[0] = %+v; want audit_log_trail.kms_encrypted", cav[0])
+	}
+	if cav[0].EvidenceType == EvidenceTypeLogGroup {
+		t.Error("log_group omits kms_encrypted rather than fabricating it; it must not be caveated")
+	}
+	if cav[0].Detail == "" {
+		t.Error("a caveat with no detail tells the operator nothing to act on")
+	}
+}

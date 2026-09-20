@@ -122,6 +122,29 @@ func (*Plugin) ID() string { return SourceID }
 // Emits returns the evidence types this plugin can produce.
 func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 
+// Caveats declares the one field this plugin emits without observing it.
+// See the package doc: Cosmos DB exposes no account-level deletion-protection
+// property, so deletion_protection is emitted as a constant false. The real
+// Azure mechanism is an ARM resource lock (Microsoft.Authorization/locks) — a
+// separate plane this plugin deliberately does not read — so a customer whose
+// accounts ARE lock-protected still fails the policy. The planner turns this
+// into a warning when a deletion-protection policy binds this source, instead
+// of letting the control be graded on a constant nobody can move.
+//
+// Unconditional: no credential and no permission makes this readable from the
+// Cosmos resource — the property does not exist.
+func (*Plugin) Caveats() []core.SourceCaveat {
+	return []core.SourceCaveat{{
+		EvidenceType: EvidenceTypeID,
+		Field:        "deletion_protection",
+		Detail: "Cosmos DB exposes no account-level deletion-protection property — the Azure " +
+			"mechanism is an ARM resource lock on a separate plane this plugin does not read — so " +
+			"deletion_protection is emitted as a constant false and can only ever fail a " +
+			"deletion-protection policy; cover the control with a resource lock plus a " +
+			".sigcomply.yaml exception or manual evidence",
+	}}
+}
+
 // Init is a no-op — configuration is fixed at New.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 

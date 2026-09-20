@@ -138,6 +138,10 @@ type EvidenceRecord struct {
     Payload     json.RawMessage
     SourceID    string
     CollectedAt time.Time
+    Scope       *RecordScope    // optional account/region/project provenance.
+                                // Signed into the envelope, never read by the
+                                // evaluator or aggregator, never on the wire.
+                                // See 04-source-plugins.md §Record scope.
 }
 
 type Envelope struct {

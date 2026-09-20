@@ -140,6 +140,31 @@ func (*Plugin) ID() string { return SourceID }
 // Emits returns the evidence types this plugin can produce.
 func (*Plugin) Emits() []string { return []string{EvidenceTypeKMSKey, EvidenceTypeSecret} }
 
+// Caveats declares the one field this plugin emits without observing it.
+// See the package doc: Azure Key Vault exposes no API-readable native
+// secret-rotation policy — rotation is implemented externally, via Event Grid
+// near-expiry events plus a Function — so a secret's rotation_enabled is
+// emitted as an honest false rather than a guessed true. The planner turns
+// this into a warning when a secrets-rotation policy binds this source;
+// without it the operator sees a fail that looks like a finding about their
+// estate rather than a limit of the management plane.
+//
+// Scoped to the secret type on purpose: the kms_key rotation_enabled this
+// plugin also emits IS observed, read from the key's real rotation policy.
+//
+// Unconditional: no credential and no permission makes this readable — the
+// property does not exist in the API, on either plane.
+func (*Plugin) Caveats() []core.SourceCaveat {
+	return []core.SourceCaveat{{
+		EvidenceType: EvidenceTypeSecret,
+		Field:        "rotation_enabled",
+		Detail: "Azure Key Vault exposes no API-readable native secret-rotation policy (rotation " +
+			"is implemented externally via Event Grid near-expiry events plus a Function), so " +
+			"rotation_enabled is emitted as an honest false and can only ever fail a secrets-rotation " +
+			"policy, never pass one; cover the control with a .sigcomply.yaml exception or manual evidence",
+	}}
+}
+
 // Init is a no-op — configuration is fixed at New.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 

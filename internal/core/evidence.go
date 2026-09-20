@@ -27,14 +27,26 @@ type EvidenceRecord struct {
 	CollectedAt time.Time       `json:"collected_at"`
 	// Scope records which account/region/project this observation was
 	// collected from. Sovereignty buyers are multi-account/multi-region
-	// by regulatory necessity (data residency), so scope is a
-	// first-class dimension of evidence identity — two records with the
-	// same ID but different Scope are distinct observations. Optional
-	// and pointer-typed so records that don't set it serialize
+	// by regulatory necessity (data residency), so an auditor reading a
+	// single envelope has to be able to tell which account it describes.
+	//
+	// Provenance only — NOT a dimension of identity. Nothing reads this
+	// field: no collector, evaluator, aggregator or report branches on
+	// it, and the pass_when DSL cannot reach it (getField resolves id,
+	// type, source_id, payload.* and account.*, but no scope.*). Record
+	// dedup is the clause IdentityKey, defaulting to ID, so two records
+	// with the same ID and different Scope collapse into one — the
+	// opposite of what a reader might assume. Scope as a per-record
+	// dimension of identity is deferred to v2 along with multi-scope
+	// projects; see docs/architecture/04-source-plugins.md §"Record
+	// scope: provenance, not configuration" and 01-conceptual-model.md.
+	//
+	// Optional and pointer-typed so records that don't set it serialize
 	// byte-identically to pre-scope envelopes (no signature churn);
 	// source plugins populate it incrementally as they gain
-	// scope-awareness. Scope stays vault-side — it never crosses the
-	// aggregation boundary into the Cloud SubmissionPayload.
+	// scope-awareness, so most records carry nil today. Scope stays
+	// vault-side — it never crosses the aggregation boundary into the
+	// Cloud SubmissionPayload.
 	Scope *RecordScope `json:"scope,omitempty"`
 }
 

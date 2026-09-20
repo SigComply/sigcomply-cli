@@ -21,6 +21,11 @@ const (
 	vaultBackendLocal = "local"
 	// slotEvidence is the evidence slot name of the fixture policies.
 	slotEvidence = "evidence"
+	// policyMFAAdmins, slotUserDirectory and typeDirectoryUserV2 name the
+	// skew fixture reused by the plan-warning tests.
+	policyMFAAdmins     = "soc2.cc6.1.mfa_enforced_admins"
+	slotUserDirectory   = "user_directory"
+	typeDirectoryUserV2 = "directory_user.v2"
 )
 
 // minimalConfig returns the smallest ProjectConfig that lets Run reach
@@ -269,11 +274,11 @@ func TestEmitPlanWarnings_CoverageSkew(t *testing.T) {
 	plan := &planner.RunPlan{
 		Policies: []planner.PlannedPolicy{
 			{
-				Spec: core.Policy{ID: "soc2.cc6.1.mfa_enforced_admins"},
+				Spec: core.Policy{ID: policyMFAAdmins},
 				CoverageGaps: []planner.CoverageGap{
 					{
-						Slot:        "user_directory",
-						Accepts:     []string{"directory_user.v2"},
+						Slot:        slotUserDirectory,
+						Accepts:     []string{typeDirectoryUserV2},
 						Source:      sourceOkta,
 						SourceEmits: []string{evidenceTypeDirectoryUser},
 					},
@@ -286,7 +291,99 @@ func TestEmitPlanWarnings_CoverageSkew(t *testing.T) {
 	if !strings.Contains(out, "coverage-skew") {
 		t.Fatalf("expected coverage-skew warning; got:\n%s", out)
 	}
-	if !strings.Contains(out, sourceOkta) || !strings.Contains(out, "soc2.cc6.1.mfa_enforced_admins") {
+	if !strings.Contains(out, sourceOkta) || !strings.Contains(out, policyMFAAdmins) {
 		t.Errorf("warning should name the source and policy; got:\n%s", out)
+	}
+}
+
+func TestEmitPlanWarnings_UncoveredRequiredSlot(t *testing.T) {
+	var buf bytes.Buffer
+	logger := log.New(&buf, true) // verbose: include Debugf detail lines
+	plan := &planner.RunPlan{
+		Policies: []planner.PlannedPolicy{
+			{
+				Spec: core.Policy{
+					ID: "soc2.cc6.1.password_min_length_14",
+					Slots: map[string]core.Slot{
+						slotEvidence: {Accepts: []string{"password_policy"}, Required: true},
+					},
+				},
+				UnboundRequiredSlots: []string{"evidence"},
+			},
+		},
+	}
+	emitPlanWarnings(logger, plan, time.Now().UTC())
+	out := buf.String()
+	if !strings.Contains(out, "coverage-gap") {
+		t.Fatalf("expected coverage-gap warning; got:\n%s", out)
+	}
+	if !strings.Contains(out, "password_policy") || !strings.Contains(out, "soc2.cc6.1.password_min_length_14") {
+		t.Errorf("warning should name the accepted type and the policy; got:\n%s", out)
+	}
+	if !strings.Contains(out, "compliance score") {
+		t.Errorf("warning should say the policy leaves the score; got:\n%s", out)
+	}
+}
+
+// A skew gap is already reported as coverage-skew with a fixable remedy
+// (extend accepts:). Reporting the same slot again as coverage-gap would
+// tell the operator to wire a source they have already wired.
+func TestEmitPlanWarnings_SkewSlotNotReportedTwice(t *testing.T) {
+	var buf bytes.Buffer
+	logger := log.New(&buf, true)
+	plan := &planner.RunPlan{
+		Policies: []planner.PlannedPolicy{
+			{
+				Spec: core.Policy{
+					ID: policyMFAAdmins,
+					Slots: map[string]core.Slot{
+						slotUserDirectory: {Accepts: []string{typeDirectoryUserV2}, Required: true},
+					},
+				},
+				CoverageGaps: []planner.CoverageGap{
+					{
+						Slot:        slotUserDirectory,
+						Accepts:     []string{typeDirectoryUserV2},
+						Source:      sourceOkta,
+						SourceEmits: []string{evidenceTypeDirectoryUser},
+					},
+				},
+				UnboundRequiredSlots: []string{slotUserDirectory},
+			},
+		},
+	}
+	emitPlanWarnings(logger, plan, time.Now().UTC())
+	out := buf.String()
+	if !strings.Contains(out, "coverage-skew") {
+		t.Fatalf("expected coverage-skew warning; got:\n%s", out)
+	}
+	if strings.Contains(out, "coverage-gap") {
+		t.Errorf("skew slot should not also be reported as coverage-gap; got:\n%s", out)
+	}
+}
+
+// An unbound roster slot means no roster source was designated, which has
+// its own remedy (experimental.roster.source) and its own explanation in
+// renderSkipExplanations. Telling the operator to "configure a source that
+// emits roster_entry" would send them the wrong way.
+func TestEmitPlanWarnings_RosterSlotIsNotACoverageGap(t *testing.T) {
+	var buf bytes.Buffer
+	logger := log.New(&buf, true)
+	plan := &planner.RunPlan{
+		Policies: []planner.PlannedPolicy{
+			{
+				Spec: core.Policy{
+					ID: "soc2.cc6.2.accounts_match_roster",
+					Slots: map[string]core.Slot{
+						"roster": {Accepts: []string{"roster_entry"}, Required: true, Role: core.SlotRoleRoster},
+					},
+				},
+				UnboundRequiredSlots: []string{"roster"},
+			},
+		},
+	}
+	emitPlanWarnings(logger, plan, time.Now().UTC())
+	if out := buf.String(); strings.Contains(out, "coverage-gap") {
+		t.Errorf("roster slot should not be reported as coverage-gap; got:\n%s", out)
 	}
 }

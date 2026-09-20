@@ -659,3 +659,28 @@ func TestRealKeyvault_ListError(t *testing.T) {
 		t.Fatal("expected error on 403, got nil")
 	}
 }
+
+// The plugin must declare the secret-rotation limit its package doc describes,
+// so the planner warns the operator instead of leaving the gap to be
+// discovered by reading source comments. Azure Key Vault publishes no
+// API-readable native secret-rotation policy at all — rotation is implemented
+// externally (Event Grid near-expiry events + a Function) — so the limit is
+// absolute and the caveat is unconditional. Only `secret` is caveated:
+// kms_key.rotation_enabled IS observed, from the key's real rotation policy.
+func TestCaveats_DeclaresTheRotationGap(t *testing.T) {
+	var p core.SourcePlugin = New(Options{})
+	c, ok := p.(core.CaveatedSource)
+	if !ok {
+		t.Fatal("azure.keyvault must implement core.CaveatedSource")
+	}
+	cav := c.Caveats()
+	if len(cav) != 1 {
+		t.Fatalf("Caveats() = %+v; want exactly the secret rotation_enabled caveat", cav)
+	}
+	if cav[0].EvidenceType != EvidenceTypeSecret || cav[0].Field != "rotation_enabled" {
+		t.Errorf("Caveats()[0] = %+v; want secret.rotation_enabled", cav[0])
+	}
+	if cav[0].Detail == "" {
+		t.Error("a caveat with no detail tells the operator nothing to act on")
+	}
+}

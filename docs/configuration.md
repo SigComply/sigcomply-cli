@@ -164,12 +164,39 @@ payload. It is a warning, not a grade: a read the CLI cannot complete is an
 operator problem to fix now, not a quality axis to report. Runs are unaffected
 in every other respect.
 
+**Absolute vs Conditional** is the difference between two remedies. An
+*absolute* caveat means no API exposes the value to anyone: no token, no
+permission and no tier change will make the control pass, so the honest
+resolution is a recorded exception or manual evidence. A *conditional* caveat
+means the value **is** readable — by a more privileged credential, or on a
+higher product tier — so the remedy is to fix the credential and re-run.
+
 Shipped caveats:
 
 | Source | Field | Kind | Why |
 |---|---|---|---|
 | `aws.identity_center` | `directory_user.mfa_enabled` | Absolute | AWS publishes no per-user MFA API for Identity Center — the per-user and instance-level MFA actions are console-only, with no SDK model, CLI command, Terraform resource or CloudFormation type |
 | `gitlab` | `directory_user.mfa_enabled` | Conditional | `two_factor_enabled` is readable only by a group-owner / instance-admin token; a lesser-privileged token's per-member read is refused and the value falls back to `false`. Declared unconditionally because plan time cannot know the token's privilege — the per-member read happens during collection |
+| `gitlab` | `git_repository.secret_scanning_enabled` | Absolute | GitLab configures Secret Detection in `.gitlab-ci.yml` and publishes no project-settings API to read it |
+| `gitlab` | `git_repository.code_scanning_enabled` | Absolute | Same shape, for SAST |
+| `gitlab` | `git_repository.dependabot_alerts_enabled` | Absolute | Same shape, for Dependency Scanning |
+| `gitlab` | `git_repository.requires_signed_commits` | Conditional | Signed-commit enforcement is a Premium push rule; on Free tier, or where no push rule exists, the endpoint 404s and the value falls back to `false` |
+| `gitlab` | `git_repository.require_code_owner_reviews` | Conditional | Read from the default branch's protection rule; a token without privilege to read it gets a 403 that leaves the value `false`. Give the token Maintainer on each project where this policy matters |
+| `gitlab` | `git_repository.required_reviewers_count` | Conditional | Approval rules are a Premium feature whose endpoint 403/404s on Free tier, leaving the count at `0` even where reviews are in fact required |
+| `github` | `source_control_org_policy.two_factor_required` | Conditional | GitHub reports the org-wide 2FA requirement only to a token holding `admin:org`; without it the flag comes back null and is normalized to `false` |
+| `azure.keyvault` | `secret.rotation_enabled` | Absolute | Key Vault exposes no API-readable native secret-rotation policy — rotation is implemented externally via Event Grid near-expiry events plus a Function. (`kms_key.rotation_enabled` from the same plugin **is** observed, and is not caveated.) |
+| `azure.cosmos` | `nosql_table.deletion_protection` | Absolute | Cosmos DB exposes no account-level deletion-protection property; the Azure mechanism is an ARM resource lock on a separate plane this plugin does not read |
+| `azure.sql` | `managed_database_instance.deletion_protection` | Absolute | No Azure managed database (Azure SQL, PostgreSQL / MySQL flexible server) exposes a deletion-protection property; the mechanism is again an ARM resource lock |
+| `azure.monitor` | `audit_log_trail.kms_encrypted` | Absolute | The Activity Log's native platform retention uses Microsoft-managed keys and exposes no customer-managed-key state. (On `log_group` the plugin **omits** the field rather than fabricating it, so no caveat is owed there.) |
+
+Two nearby cases are deliberately **not** caveated, and should stay that way.
+`github`'s `directory_user.mfa_enabled` is not, because the underlying listing
+error is returned rather than swallowed — a failed read fails the run instead
+of quietly reporting `false`. And a field no shipped policy reads is not
+caveated either (`aws.eks.node_auto_upgrade_enabled`,
+`azure.keyvault.never_rotated`): the warning fires only when a policy actually
+reads the field, so a caveat on an unread one can never fire and would cost a
+reader's attention for nothing.
 
 ---
 
@@ -279,6 +306,8 @@ Each member's `directory_user` carries `username` ← the login (also the record
 
 The token is read in the GitHub collector's `Init()` method. If `GITHUB_TOKEN` is not set and no token is provided via `WithToken()`, initialization fails with a clear error.
 
+**Known limitation (v1):** the org-wide 2FA requirement (`two_factor_required`) is reported only to a token holding `admin:org`; without that scope GitHub returns null and the plugin normalizes it to `false`, which fails the org-2FA policies whether or not 2FA is actually enforced. This is declared as a [source caveat](#source-caveats) so a run warns at plan time — grant `admin:org` before treating the failure as a real enforcement gap. Per-member `mfa_enabled` is deliberately **not** caveated: there the underlying listing error is returned, so an unreadable value fails the run rather than quietly reporting `false`.
+
 ### GitLab
 
 | Variable | Required | Description |
@@ -289,7 +318,7 @@ Config keys (under `sources.gitlab`): `group` (group ID or full path, e.g. `my-g
 
 **Required token scope:** `read_api`; the token's user needs at least **Reporter** on each project for the merge-request, pipeline and deployment reads. The collector enumerates the group's projects (`include_subgroups`) and emits one `git_repository` record per project — substitutable for GitHub repositories in every branch-protection / code-review policy. Per project it reads branch-protection, approval-rule, approval-config, and push-rule state. It also lists the group's members and emits one `directory_user` record per member — substitutable for GitHub / Okta / AWS IAM identities in every MFA / admin / lifecycle policy. Mapping: `is_admin` ← group role ≥ Maintainer **or** instance admin; `is_active` ← member state `active`; `mfa_enabled` ← the user's `two_factor_enabled`; `id`/`identity_key`/`username` ← username (roster aliases match on it).
 
-**Known limitations (v1):** some signals are premium/ultimate features and degrade gracefully to `false` on free tier (the endpoint 404s): `requires_signed_commits` (push rule `reject_unsigned_commits`) and `require_code_owner_reviews`. Pipeline SAST / Secret Detection / Dependency scanning have **no read-only project-settings API** (they are configured in `.gitlab-ci.yml`), so `secret_scanning_enabled`, `code_scanning_enabled`, and `dependabot_alerts_enabled` are always emitted as `false`; `push_protection_enabled` maps to GitLab's pre-receive secret detection. For `pull_request`, the approver list (`approved_by`) **is** readable on Free, which is what the change-approval policies evaluate — but approval *rules* (`approvals_required`, per-rule configuration) are Premium/Ultimate and the endpoints 403/404 on Free, degrading to zero rather than failing the run. GitLab exposes no approval timestamp at all, so `approved_before_merge` is true whenever an independent approval exists (an approval cannot be recorded there after the merge). For `directory_user`, `mfa_enabled` and instance-admin status are only readable with a **group-owner / instance-admin token** (via the Users API); with a lesser-privileged token the per-member read is forbidden and `mfa_enabled` is best-effort `false` — provision an owner/admin token where MFA-enforcement policies matter. This is declared as a [source caveat](#source-caveats), so a run that binds `gitlab` to an MFA policy warns rather than leaving you to find it here; the warning fires whatever the token's privilege, because plan time cannot know which kind it has. Member email is likewise only exposed to elevated tokens, so the optional `email` field may be omitted.
+**Known limitations (v1):** some signals are premium/ultimate features and degrade gracefully to `false` on free tier (the endpoint 404s): `requires_signed_commits` (push rule `reject_unsigned_commits`) and `require_code_owner_reviews`. Pipeline SAST / Secret Detection / Dependency scanning have **no read-only project-settings API** (they are configured in `.gitlab-ci.yml`), so `secret_scanning_enabled`, `code_scanning_enabled`, and `dependabot_alerts_enabled` are always emitted as `false`; `push_protection_enabled` maps to GitLab's pre-receive secret detection. For `pull_request`, the approver list (`approved_by`) **is** readable on Free, which is what the change-approval policies evaluate — but approval *rules* (`approvals_required`, per-rule configuration) are Premium/Ultimate and the endpoints 403/404 on Free, degrading to zero rather than failing the run. GitLab exposes no approval timestamp at all, so `approved_before_merge` is true whenever an independent approval exists (an approval cannot be recorded there after the merge). For `directory_user`, `mfa_enabled` and instance-admin status are only readable with a **group-owner / instance-admin token** (via the Users API); with a lesser-privileged token the per-member read is forbidden and `mfa_enabled` is best-effort `false` — provision an owner/admin token where MFA-enforcement policies matter. All six of these limits — the three pipeline-scanning flags, `requires_signed_commits`, `require_code_owner_reviews` and `required_reviewers_count` — plus `mfa_enabled` are declared as [source caveats](#source-caveats), so a run that binds `gitlab` to a policy reading one warns at plan time rather than leaving you to find it here; the warnings fire whatever the token's privilege and tier, because plan time cannot know either. Note the remedies differ: the pipeline-scanning trio is **absolute** (no token or tier makes it readable, so the honest resolution is a recorded exception or manual evidence), while the rest are **conditional** on the token or the project's tier. Member email is likewise only exposed to elevated tokens, so the optional `email` field may be omitted.
 
 ### Okta
 

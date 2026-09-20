@@ -13,6 +13,64 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **A required slot nothing can fill now warns at plan time, not only after the
+  run.** The planner already reported the narrow *version-skew* near-miss — a
+  configured source emits a sibling version of an accepted type — as
+  `coverage-skew`. The strictly worse case said nothing: when **no** configured
+  source emits an accepted type in any version, the slot went unbound, the
+  policy was skipped, and the operator learned about it only from
+  `renderSkipExplanations` after collection had already run. That asymmetry
+  matters because a skipped control leaves the compliance-score *denominator*
+  (`total − skipped − na`), so an estate whose provider cannot answer six
+  password controls submits a **higher** score than one that answers and fails
+  them. `emitPlanWarnings` now reads `PlannedPolicy.UnboundRequiredSlots` and
+  emits `coverage-gap:` — the count, the accepted types, and the score
+  consequence, with per-policy detail under `--verbose`. Roster slots are
+  excluded (an unbound roster means no `experimental.roster.source` was
+  designated, a different remedy that `skipDetail` already explains) and so are
+  slots already reported as skew, which would otherwise be named twice with
+  contradictory fixes. **Advisory only** — the exit code is unchanged. Making
+  an unbound required slot fatal was considered and rejected: `error` maps to
+  exit 2, is not suppressible by `ci.fail_on_violation`, and would permanently
+  break CI for an estate whose provider structurally cannot satisfy the
+  control.
+
+- **Eleven more fields a source emits without observing are now declared.**
+  `core.CaveatedSource` shipped with two declarations — `aws.identity_center`
+  and `gitlab`, both `mfa_enabled`. The same class was much larger: four Azure
+  plugins and six more GitLab fields emit a hardcoded value because no API
+  exposes the real one, plus GitHub's org-wide 2FA flag, which a token without
+  `admin:org` silently reads as `false`. Each grades a shipped control on a
+  value nobody measured. Now declared: `azure.keyvault`
+  `secret.rotation_enabled`; `azure.cosmos` `nosql_table.deletion_protection`;
+  `azure.sql` `managed_database_instance.deletion_protection`; `azure.monitor`
+  `audit_log_trail.kms_encrypted`; `gitlab`'s `secret_scanning_enabled`,
+  `code_scanning_enabled`, `dependabot_alerts_enabled`,
+  `requires_signed_commits`, `require_code_owner_reviews` and
+  `required_reviewers_count`; and `github`
+  `source_control_org_policy.two_factor_required`.
+
+  The selection rule is now explicit in the architecture doc, because it has
+  two halves and only the first was written down: the value must be a safe
+  default rather than a measurement, **and a shipped policy must actually read
+  the field**. A caveat on an unread field can never fire, so it costs a
+  reader's attention and buys nothing — which is why
+  `aws.eks.node_auto_upgrade_enabled` and `azure.keyvault.never_rotated`, both
+  emitted without being observed, stay deliberately uncaveated. Three
+  neighbouring classes stay out for their own reasons: platform constants true
+  by definition (`gcp.firestore.encryption_enabled`), fields a plugin omits
+  rather than fabricates (`azure.compute.monitoring_enabled`, and
+  `azure.monitor`'s `kms_encrypted` on `log_group`), and values that are
+  conservative but *correct* — `aws.identity_center.has_condition` is `false`
+  because an Identity Center assignment carries no IAM condition expression at
+  all, which is a true statement, not a guess.
+
+  **Advisory only**, as before: no status, no count and nothing on the wire
+  changes. Operator-facing detail, including which limits are absolute (no
+  token or tier will ever make them readable — record an exception) and which
+  are conditional (fix the credential and re-run), is in
+  `docs/configuration.md` §Source caveats.
+
 - **A mistyped key under `sources:` is now reported instead of ignored.** The
   config loader runs with `KnownFields(true)` and rejects an unknown key
   everywhere in the file — except inside a `sources:` entry, whose inner block
@@ -157,6 +215,34 @@ tracks the human-curated highlights.
   a permissions problem.
 
 ### Fixed
+
+- **`core.EvidenceRecord.Scope`'s doc comment described a mechanism that does
+  not exist.** It asserted, in the present tense, that "scope is a first-class
+  dimension of evidence identity — two records with the same ID but different
+  Scope are distinct observations". Nothing implements that. No collector,
+  evaluator, aggregator or report branches on `Scope`; the `pass_when` DSL
+  cannot even reach it (`getField` resolves `id`, `type`, `source_id`,
+  `payload.*` and `account.*`, but no `scope.*`); and dedup is the clause
+  `IdentityKey`, defaulting to `ID` — so two records with the same ID and
+  different Scope collapse into one, the exact opposite of the claim. The
+  comment also contradicted three architecture docs that correctly describe
+  per-record scope as provenance with identity-scope deferred to v2. A comment
+  in `internal/core/` outranks a doc in a reader's attention order, so this was
+  worth more than a stale-docs note. Behaviour is unchanged; the comment now
+  says what the code does, and `docs/architecture/02-layers.md` gained the
+  `Scope` field its `EvidenceRecord` listing had been missing.
+
+- **`aws.identity_center` documents why its `Scope.Account` means two different
+  things in one run.** The identity records carry the identity-**store** id,
+  while each `iam_binding` carries the AWS **account** the grant opens. Only the
+  second site said so. Both values are correct — the store is the boundary
+  `ListUsers` is addressed to, and resolving a single owning account would cost
+  an `sts:GetCallerIdentity` the plugin deliberately avoids so a roster-only
+  slot stays a two-permission operation. This is safe *because* scope is
+  provenance and nothing joins on it; the comment now records that, and that
+  this is the first inconsistency to resolve if per-record scope ever becomes
+  part of identity. No emitted value changed, so no signed envelope bytes
+  changed.
 
 - **`azure.entra` no longer signs a tenant it did not read.** `tenant_id` was
   accepted without validation, never reached the credential or the token

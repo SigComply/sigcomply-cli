@@ -572,3 +572,30 @@ func TestRealSQL_ListError(t *testing.T) {
 		t.Fatal("expected error on 403, got nil")
 	}
 }
+
+// The plugin must declare the deletion-protection limit its package doc
+// describes, so the planner warns the operator rather than grading the
+// deletion-protection controls on a constant. deletion_protection is
+// hardcoded false at three emit sites (Azure SQL, PostgreSQL flexible server,
+// MySQL flexible server) but there is exactly ONE caveat: the caveat is keyed
+// by evidence type and field, not by emit site, and all three families emit
+// the same managed_database_instance type. The limit is absolute — none of
+// the three services exposes such a property; the Azure mechanism is an ARM
+// resource lock on a plane this plugin does not read.
+func TestCaveats_DeclaresTheDeletionProtectionGap(t *testing.T) {
+	var p core.SourcePlugin = New(Options{})
+	c, ok := p.(core.CaveatedSource)
+	if !ok {
+		t.Fatal("azure.sql must implement core.CaveatedSource")
+	}
+	cav := c.Caveats()
+	if len(cav) != 1 {
+		t.Fatalf("Caveats() = %+v; want exactly one deletion_protection caveat for the type, not one per family", cav)
+	}
+	if cav[0].EvidenceType != EvidenceTypeID || cav[0].Field != "deletion_protection" {
+		t.Errorf("Caveats()[0] = %+v; want managed_database_instance.deletion_protection", cav[0])
+	}
+	if cav[0].Detail == "" {
+		t.Error("a caveat with no detail tells the operator nothing to act on")
+	}
+}

@@ -146,6 +146,35 @@ func (*Plugin) ID() string { return SourceID }
 // Emits returns the evidence types this plugin can produce.
 func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 
+// Caveats declares the one field this plugin emits without observing it.
+// See the package doc: none of the three managed-database families — Azure
+// SQL, PostgreSQL flexible server, MySQL flexible server — exposes a
+// deletion-protection property, so deletion_protection is emitted as a
+// constant false at all three emit sites. The Azure mechanism is an ARM
+// resource lock (CanNotDelete), which is not a database property and is not
+// read here, so a customer whose databases ARE lock-protected still fails the
+// policy. The planner turns this into a warning when a deletion-protection
+// policy binds this source.
+//
+// One caveat, not three: a caveat is keyed by evidence type and field, and all
+// three families emit the same managed_database_instance type. Per-emit-site
+// caveats would repeat one warning three times and imply a per-family
+// distinction that does not exist.
+//
+// Unconditional: no credential and no permission makes this readable from the
+// database resource — the property does not exist on any of the three.
+func (*Plugin) Caveats() []core.SourceCaveat {
+	return []core.SourceCaveat{{
+		EvidenceType: EvidenceTypeID,
+		Field:        "deletion_protection",
+		Detail: "no Azure managed database (Azure SQL, PostgreSQL flexible server, MySQL flexible " +
+			"server) exposes a deletion-protection property — the Azure mechanism is an ARM resource " +
+			"lock this plugin does not read — so deletion_protection is emitted as a constant false " +
+			"and can only ever fail a deletion-protection policy; cover the control with a resource " +
+			"lock plus a .sigcomply.yaml exception or manual evidence",
+	}}
+}
+
 // Init is a no-op — configuration is fixed at New.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
