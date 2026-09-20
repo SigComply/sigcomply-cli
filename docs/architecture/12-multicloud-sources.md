@@ -129,15 +129,32 @@ Optional vendor-specific fields (`email`, `is_external`, `is_service_account`, `
 > automated coverage of the six password policies, and the `state: na` recipe at
 > the end of this section is for estates with neither AWS nor Okta.
 > **(2) The GCP half of the rationale has expired.** Google's Cloud Identity
-> **Policy API reached GA on 2026-02-20** and exposes setting type
-> `security.password` (`minimumLength`, `allowedStrength`, `allowReuse`,
-> `expirationDuration`), so "a Go collector cannot honestly populate *any*
-> field" is stale. It does **not** follow that GCP can fill *this* schema:
-> `allowedStrength` is a two-value enum and cannot answer four independent
-> per-class booleans, so mapping `STRONG` → "all four true" would be exactly the
-> fabrication this section rejects. GCP therefore still does not emit
-> `password_policy.v1`; it is waiting on a `v2` with a complexity abstraction.
-> The Azure/Entra analysis below stands unchanged.
+> **Policy API reached GA on 2025-02-20** (open beta 2024-10-24) and exposes
+> setting type `settings/security.password` with six fields: `minimumLength`,
+> `maximumLength`, `allowedStrength`, `allowReuse`, `expirationDuration` and
+> `enforceRequirementsAtLogin`. So "a Go collector cannot honestly populate
+> *any* field" is stale. It does **not** follow that GCP can fill *this*
+> schema: `allowedStrength` is a two-value enum (`STRONG`/`WEAK`), and Google
+> states in its own admin documentation that *"a strong password doesn't need
+> to have a specific number of characters of a specific type"* — `STRONG` is
+> entropy plus breach and common-password screening, explicitly **not** a
+> character-class rule. Mapping `STRONG` → "all four true" would therefore be
+> exactly the fabrication this section rejects, and Google says so itself.
+> GCP still does not emit `password_policy.v1`; it is waiting on a `v2` with a
+> complexity abstraction. The Azure/Entra analysis below stands unchanged.
+>
+> Three things a future collector must handle, all verified against Google's
+> own reference and none of them obvious: the API returns only policies where a
+> value was **explicitly set**, and an omitted field carries a documented
+> default (`allowedStrength` STRONG, `minimumLength` 8, `maximumLength` 100,
+> `allowReuse` false, `expirationDuration` 0) — Go zero values are the wrong
+> answer. There is **no effective-policy endpoint**: several policies apply per
+> org-unit and group, and reduction is the caller's job, field by field, with
+> the highest `policyQuery.sortOrder` winning. And the quota is **1 QPS per
+> customer, not increasable**, so the collector must not parallelize.
+> Access is **super-admin only**, via domain-wide delegation with the scope
+> `cloud-identity.policies.readonly` allowlisted verbatim — a broader scope is
+> rejected.
 
 The `password_policy.v1` schema is **AWS-IAM-shaped**: eight required fields — `min_length`, `max_age_days`, `reuse_prevention_count`, and four discrete complexity booleans (`requires_uppercase`/`_lowercase`/`_numbers`/`_symbols`). The AWS plugin (`internal/sources/aws/passwordpolicy/`) fills these from `IAM GetAccountPasswordPolicy`. Six policies consume it — `soc2.cc6.1.password_{min_length_14,expiry_90d,reuse_prevention,complexity}` and `iso27001.8.5.password_{minimum_length,complexity}` — referencing `min_length`, `max_age_days`, `reuse_prevention_count`, and all four complexity booleans. Because every consumed field is schema-`required`, a partial/half-populated record is not viable: the evaluator errors (exit 3) on any referenced field a record omits (`evalCondition` in `internal/evaluator/pass_when.go`), and emitting zeros/false for unknowable fields would be **misleading evidence**, not missing evidence.
 
