@@ -25,5 +25,5 @@ func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewFromGraph(cred, cfg), nil
+	return NewFromGraph(ctx, cred, cfg)
 }

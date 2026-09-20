@@ -101,6 +101,10 @@ type RosterUser struct {
 // (realGraph) handles auth, pagination, and the two-endpoint join.
 type API interface {
 	ListUsers(ctx context.Context) ([]User, error)
+	// TenantID returns the directory the credential actually reads, as
+	// Graph reports it. It is the observed half of the provenance check
+	// in newVerifiedPlugin.
+	TenantID(ctx context.Context) (string, error)
 	// ListRosterUsers lists every user with the roster fields. It must not
 	// read the P1/P2-gated registration report.
 	ListRosterUsers(ctx context.Context) ([]RosterUser, error)
@@ -142,15 +146,56 @@ func New(opts Options) *Plugin {
 
 // NewFromGraph constructs a Plugin backed by the real Microsoft Graph API
 // using the given credential (a DefaultAzureCredential) for bearer tokens.
-func NewFromGraph(cred azcore.TokenCredential, cfg azcommon.Config) *Plugin {
-	return New(Options{
+// NewFromGraph builds the plugin against real Graph and resolves the
+// tenant it will actually read before returning.
+func NewFromGraph(ctx context.Context, cred azcore.TokenCredential, cfg azcommon.Config) (*Plugin, error) {
+	return newVerifiedPlugin(ctx, Options{
 		API: &realGraph{
 			base:   graphBaseURL,
 			client: &http.Client{Timeout: 30 * time.Second},
 			cred:   cred,
 		},
-		Tenant: cfg.TenantID,
-	})
+	}, cfg)
+}
+
+// newVerifiedPlugin resolves the tenant the credential actually reads and
+// stamps that on every record, rather than whatever the operator declared.
+//
+// The Graph plane makes this necessary in a way the ARM plane does not. An
+// ARM plugin passes subscription_id into its client, so the label and the
+// data are the same string by construction and a wrong value 403s. Graph's
+// /v1.0 base carries no tenant segment — the token decides the directory —
+// so a declared tenant_id was pure metadata that nothing compared against
+// anything. Set it to a tenant your credential does not belong to and the
+// run read directory Y, stamped the records "X", schema-validated them and
+// Ed25519-signed them into the vault, with no error, no warning and no log
+// line. That is signed evidence asserting a false directory boundary, which
+// is worse than not supporting multiple tenants at all.
+//
+// A declared tenant_id is now an assertion that gets checked: it must equal
+// what Graph reports, or the run stops as a config error (exit 3) before it
+// signs anything. This is the idiom planner.VendorWarnings calls "an
+// observed baseline checking a declared one" — except here disagreement is
+// fatal rather than advisory, because the artifact is signed.
+func newVerifiedPlugin(ctx context.Context, opts Options, cfg azcommon.Config) (*Plugin, error) {
+	observed, err := opts.API.TenantID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("azure.entra: resolve tenant from credential: %w", err)
+	}
+	if observed == "" {
+		return nil, fmt.Errorf("azure.entra: Graph reported no tenant for this credential")
+	}
+	// Never fall back to the declared value on failure: that unverified
+	// string is exactly what stopped being trustworthy.
+	if declared := strings.TrimSpace(cfg.TenantID); declared != "" && !strings.EqualFold(declared, observed) {
+		return nil, fmt.Errorf(
+			"azure.entra: configured tenant_id %q is not the tenant these credentials read (%q); "+
+				"evidence would be signed with a directory boundary it did not come from — "+
+				"correct tenant_id, or drop it and let the credential speak for itself",
+			declared, observed)
+	}
+	opts.Tenant = observed
+	return New(opts), nil
 }
 
 // ID returns the registered plugin ID.
@@ -410,6 +455,26 @@ func (r *realGraph) token(ctx context.Context) (string, error) {
 
 // graphList GETs url and follows @odata.nextLink to the end, handing each
 // element to visit in order.
+// TenantID reads the directory the token belongs to. Graph answers this
+// for the caller's own tenant with no tenant id in the request, which is
+// the point: the response cannot be steered by configuration.
+func (r *realGraph) TenantID(ctx context.Context) (string, error) {
+	token, err := r.token(ctx)
+	if err != nil {
+		return "", err
+	}
+	var page graphPage[struct {
+		ID string `json:"id"`
+	}]
+	if err := r.get(ctx, token, r.base+"/organization?$select=id", &page); err != nil {
+		return "", err
+	}
+	if len(page.Value) == 0 {
+		return "", fmt.Errorf("azure.entra: /organization returned no tenant")
+	}
+	return page.Value[0].ID, nil
+}
+
 func graphList[T any](ctx context.Context, r *realGraph, token, url string, visit func(*T)) error {
 	for url != "" {
 		var page graphPage[T]

@@ -126,7 +126,7 @@ sources:
 ```
 
 - **Credentials (env):** the Azure SDK chain — `az login`, a managed identity, or an `AZURE_*` service principal (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`).
-- **Required config keys:** `subscription_id`, for ARM-based sources only. Microsoft Graph-based sources (`azure.entra`) require nothing: the Graph token is scoped by the credential's home tenant, so `tenant_id` is **optional and not auth-bearing** — setting it does not select a directory, it only tags each record's provenance. Setting it to a tenant your credential does not belong to therefore mislabels the evidence rather than failing.
+- **Required config keys:** `subscription_id`, for ARM-based sources only. Microsoft Graph-based sources (`azure.entra`) require nothing: the Graph token is scoped by the credential's home tenant, so `tenant_id` is **optional and not auth-bearing** — setting it does not select a directory. Each record's scope is filled in from the tenant the credential actually reads, and a declared `tenant_id` that disagrees with it is a configuration error (exit 3) rather than a silently mislabelled run.
 
 ### GitHub (`github`)
 

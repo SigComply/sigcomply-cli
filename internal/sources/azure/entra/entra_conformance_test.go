@@ -1,11 +1,13 @@
 package entra
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
+	"github.com/sigcomply/sigcomply-cli/internal/sources/azure/internal/azcommon"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/sourcetest"
 )
 
@@ -19,12 +21,8 @@ func TestAzureEntraConformance(t *testing.T) {
 	newPlugin := func() core.SourcePlugin { return newCassettePlugin(t) }
 	recs := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
-		EvidenceTypes: sourcetest.BuiltinEvidenceTypes(t),
-		OptionalFields: []string{
-			"directory_user.username", // UPN doubles as email
-			"directory_user.mfa_factor_count", "directory_user.is_service_account",
-			"directory_user.is_external", "directory_user.created_at",
-		},
+		EvidenceTypes:  sourcetest.BuiltinEvidenceTypes(t),
+		OptionalFields: conformanceOptionalUserFields,
 	})
 	if len(recs) != 2 {
 		t.Fatalf("directory_user records = %d, want 2", len(recs))
@@ -47,12 +45,50 @@ func TestAzureEntraConformance(t *testing.T) {
 	}
 }
 
-// newCassettePlugin builds the real adapter around the hand-authored cassette.
+// conformanceOptionalUserFields are the directory_user fields Graph's user
+// projection does not carry.
+var conformanceOptionalUserFields = []string{
+	"directory_user.username", // UPN doubles as email
+	"directory_user.mfa_factor_count", "directory_user.is_service_account",
+	"directory_user.is_external", "directory_user.created_at",
+}
+
+// cassetteTenant is the tenant the cassette's /organization response
+// reports. Nothing declares it in config — that is the point.
+const cassetteTenant = "9f8a7b6c-5d4e-3f2a-1b0c-9d8e7f6a5b4c"
+
+// newCassettePlugin builds the real adapter around the hand-authored
+// cassette, through the same constructor production uses — so the replay
+// exercises the /organization lookup and the records carry the tenant Graph
+// reported rather than one a test made up.
 func newCassettePlugin(t *testing.T) core.SourcePlugin {
 	t.Helper()
 	fixedNow := time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC)
 	adapter := &realGraph{base: graphBaseURL, client: sourcetest.ReplayClient(t, "testdata/cassettes/directory"), cred: fakeCred{}}
-	return New(Options{API: adapter, Now: func() time.Time { return fixedNow }})
+	p, err := newVerifiedPlugin(context.Background(), Options{
+		API: adapter, Now: func() time.Time { return fixedNow },
+	}, azcommon.Config{})
+	if err != nil {
+		t.Fatalf("newVerifiedPlugin: %v", err)
+	}
+	return p
+}
+
+// The observed tenant reaches the signed record, which is the whole
+// provenance claim: an auditor reading one envelope learns which directory
+// it came from, and that answer came from Graph, not from config.
+func TestAzureEntraConformance_StampsTheObservedTenant(t *testing.T) {
+	recs := sourcetest.RunConformance(t, &sourcetest.Options{
+		Plugin:         newCassettePlugin(t),
+		Request:        core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
+		EvidenceTypes:  sourcetest.BuiltinEvidenceTypes(t),
+		OptionalFields: conformanceOptionalUserFields,
+	})
+	for i := range recs {
+		if recs[i].Scope == nil || recs[i].Scope.Account != cassetteTenant {
+			t.Errorf("record %s scope = %+v; want Account %q", recs[i].ID, recs[i].Scope, cassetteTenant)
+		}
+	}
 }
 
 // TestAzureEntraRosterConformance replays the roster interaction of the same

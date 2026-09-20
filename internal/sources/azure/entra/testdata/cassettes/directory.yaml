@@ -101,3 +101,33 @@ interactions:
         status: 200 OK
         code: 200
         duration: 170µs
+    - id: 3
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56632
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+        url: https://graph.microsoft.com/v1.0/organization?$select=id
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 121
+        body: '{"value":[{"id":"9f8a7b6c-5d4e-3f2a-1b0c-9d8e7f6a5b4c"}]}'
+        headers:
+            Content-Length:
+                - "121"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:21:20 GMT
+        status: 200 OK
+        code: 200
+        duration: 732.042µs

@@ -73,7 +73,15 @@ func newLivePlugin(ctx context.Context, t *testing.T) *Plugin {
 	if err := azcommon.VerifyCredential(ctx, cred, azcommon.ScopeGraph); err != nil {
 		t.Fatalf("graph credential: %v", err)
 	}
-	return NewFromGraph(cred, azcommon.Config{TenantID: env["AZURE_TENANT_ID"]})
+	// Declaring AZURE_TENANT_ID here is not decoration: NewFromGraph now
+	// checks it against the tenant Graph reports, so the live run also
+	// asserts that the SP's credentials really belong to the tenant the
+	// test environment claims.
+	p, err := NewFromGraph(ctx, cred, azcommon.Config{TenantID: env["AZURE_TENANT_ID"]})
+	if err != nil {
+		t.Fatalf("build entra plugin: %v", err)
+	}
+	return p
 }
 
 // validateLiveRecords schema-validates every record against its evidence type.

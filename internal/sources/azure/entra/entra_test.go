@@ -19,7 +19,9 @@ import (
 )
 
 const (
-	testTenantID = "tenant-123"
+	testTenantID   = "tenant-123"
+	testTenantT1   = "t-1"
+	testTenantSame = "same-guid"
 
 	userTypeMember       = "Member"
 	userTypeGuest        = "Guest"
@@ -54,9 +56,18 @@ const (
 type fakeAPI struct {
 	users       []User
 	roster      []RosterUser
+	tenant      string
+	tenantErr   error
 	err         error
 	calls       int
 	rosterCalls int
+}
+
+func (f *fakeAPI) TenantID(context.Context) (string, error) {
+	if f.tenantErr != nil {
+		return "", f.tenantErr
+	}
+	return f.tenant, nil
 }
 
 func (f *fakeAPI) ListRosterUsers(context.Context) ([]RosterUser, error) {
@@ -367,18 +378,45 @@ func TestRealGraph_TokenError(t *testing.T) {
 	}
 }
 
-func TestNewFromGraph_UsesGraphBaseAndTenant(t *testing.T) {
+// NewFromGraph now resolves the tenant from Graph before returning, so a
+// declared tenant_id can no longer be copied through unchecked. The
+// fixture serves /organization; the declared value agrees with it.
+func TestNewFromGraph_UsesGraphBaseAndTheObservedTenant(t *testing.T) {
 	t.Parallel()
-	p := NewFromGraph(fakeCred{}, azcommon.Config{TenantID: "t-1"})
-	if p.tenant != "t-1" {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/organization") {
+			t.Errorf("unexpected path %q", r.URL.Path)
+		}
+		writeJSON(t, w, map[string]any{"value": []any{map[string]any{"id": testTenantT1}}})
+	}))
+	defer srv.Close()
+
+	p, err := newVerifiedPlugin(context.Background(), Options{
+		API: &realGraph{base: srv.URL, client: srv.Client(), cred: fakeCred{}},
+	}, azcommon.Config{TenantID: testTenantT1})
+	if err != nil {
+		t.Fatalf("newVerifiedPlugin: %v", err)
+	}
+	if p.tenant != testTenantT1 {
 		t.Errorf("tenant = %q, want t-1", p.tenant)
 	}
 	rg, ok := p.api.(*realGraph)
 	if !ok {
 		t.Fatalf("api type = %T, want *realGraph", p.api)
 	}
-	if rg.base != graphBaseURL {
-		t.Errorf("base = %q, want %q", rg.base, graphBaseURL)
+	if rg.base != srv.URL {
+		t.Errorf("base = %q, want %q", rg.base, srv.URL)
+	}
+}
+
+// The production constructor still points at the real Graph base.
+func TestNewFromGraph_PointsAtTheGraphBase(t *testing.T) {
+	t.Parallel()
+	// The credential fails, so construction stops at the tenant lookup —
+	// which is itself the assertion that the lookup now happens here.
+	_, err := NewFromGraph(context.Background(), fakeCred{err: errors.New("no creds")}, azcommon.Config{})
+	if err == nil || !strings.Contains(err.Error(), "resolve tenant") {
+		t.Fatalf("want the tenant resolution to run and fail, got %v", err)
 	}
 }
 
@@ -387,5 +425,74 @@ func writeJSON(t *testing.T, w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(v); err != nil {
 		t.Fatalf("encode response: %v", err)
+	}
+}
+
+// The tenant stamped on every record is the directory the evidence was
+// actually read from, not a string the operator typed. The Graph token
+// carries its own tenant and the /v1.0 base has no tenant segment, so a
+// declared tenant_id that disagrees describes evidence that was never
+// collected — and it would be signed that way.
+func TestResolveTenant_StampsTheObservedTenant(t *testing.T) {
+	api := &fakeAPI{tenant: "observed-tenant-guid"}
+	p, err := newVerifiedPlugin(context.Background(), Options{API: api}, azcommon.Config{})
+	if err != nil {
+		t.Fatalf("newVerifiedPlugin: %v", err)
+	}
+	if p.tenant != "observed-tenant-guid" {
+		t.Errorf("tenant = %q; want the tenant read from the credential", p.tenant)
+	}
+}
+
+func TestResolveTenant_DeclaredMatchingObservedIsAccepted(t *testing.T) {
+	api := &fakeAPI{tenant: testTenantSame}
+	p, err := newVerifiedPlugin(context.Background(), Options{API: api}, azcommon.Config{TenantID: testTenantSame})
+	if err != nil {
+		t.Fatalf("newVerifiedPlugin: %v", err)
+	}
+	if p.tenant != testTenantSame {
+		t.Errorf("tenant = %q; want same-guid", p.tenant)
+	}
+}
+
+// A mismatch is a configuration error, not a collection outcome: the run
+// must stop before it signs anything, and exit 3 is how a config error
+// reaches the operator.
+func TestResolveTenant_MismatchIsAConfigError(t *testing.T) {
+	api := &fakeAPI{tenant: "actual-guid"}
+	_, err := newVerifiedPlugin(context.Background(), Options{API: api}, azcommon.Config{TenantID: "wished-for-guid"})
+	if err == nil {
+		t.Fatal("want an error when the declared tenant is not the credential's tenant")
+	}
+	for _, want := range []string{"wished-for-guid", "actual-guid", "tenant_id"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q; want it to name %q", err, want)
+		}
+	}
+}
+
+// Case and surrounding whitespace are not a mismatch — Entra tenant GUIDs
+// are routinely pasted in either case.
+func TestResolveTenant_MatchIsCaseInsensitive(t *testing.T) {
+	api := &fakeAPI{tenant: "AAAA-BBBB"}
+	p, err := newVerifiedPlugin(context.Background(), Options{API: api}, azcommon.Config{TenantID: "  aaaa-bbbb  "})
+	if err != nil {
+		t.Fatalf("newVerifiedPlugin: %v", err)
+	}
+	if p.tenant != "AAAA-BBBB" {
+		t.Errorf("tenant = %q; want the observed spelling to win", p.tenant)
+	}
+}
+
+// If Graph cannot tell us the tenant we must not fall back to the declared
+// one — that is the unverified value this change exists to stop trusting.
+func TestResolveTenant_LookupFailureDoesNotFallBackToTheDeclaredValue(t *testing.T) {
+	api := &fakeAPI{tenantErr: errors.New("forbidden")}
+	_, err := newVerifiedPlugin(context.Background(), Options{API: api}, azcommon.Config{TenantID: "declared-guid"})
+	if err == nil {
+		t.Fatal("want the lookup failure to surface, not a silent fallback")
+	}
+	if strings.Contains(err.Error(), "declared-guid") {
+		t.Errorf("error %q leaks the declared value as if it were observed", err)
 	}
 }

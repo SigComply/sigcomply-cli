@@ -37,6 +37,23 @@ tracks the human-curated highlights.
 
 ### Fixed
 
+- **`azure.entra` no longer signs a tenant it did not read.** `tenant_id` was
+  accepted without validation, never reached the credential or the token
+  request, and was stamped verbatim onto every record's scope — while Graph's
+  `/v1.0` base has no tenant segment and reads whatever directory the ambient
+  credential belongs to. Setting it to a tenant your credentials do not belong
+  to therefore read directory B, labelled every record directory A,
+  schema-validated them and Ed25519-signed them into the vault, with no error,
+  no warning and no log line: signed evidence asserting a directory boundary it
+  never came from.
+  The tenant is now **observed, not declared** — resolved from the credential
+  via `GET /organization` at construction and stamped from there. A declared
+  `tenant_id` becomes an assertion that is checked: if it disagrees, the run
+  stops as a configuration error (exit 3) before collecting or signing
+  anything. Omitting `tenant_id` loses nothing, since the scope is filled in
+  either way. **New permission:** the credential needs to read
+  `/organization` (`Organization.Read.All`, or any of the directory read scopes
+  that already cover it).
 - **Okta pagination could stop after the first page.** The `Link` header was
   read with `http.Header.Get`, which returns only the *first* header line —
   and Okta documents sending the pagination links as separate lines

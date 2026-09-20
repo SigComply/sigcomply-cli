@@ -407,7 +407,9 @@ secret to store or rotate. One-time setup:
 Shared config keys (under each ARM-plane `sources.azure.<service>` block):
 `subscription_id` is **required** — it scopes resource collection to one
 subscription. The Entra/directory source (Microsoft Graph plane) instead takes
-an optional `tenant_id` and uses the credential's home tenant by default.
+an optional `tenant_id` and always uses the credential's home tenant, which it
+also resolves and stamps as the record scope (a declared `tenant_id` that
+disagrees is a config error — see below).
 Resource collectors enumerate across resource groups via Azure Resource Graph
 (a single fast KQL query per run), and `subscription_id` can be validated or
 discovered against the tenant-scoped Subscriptions API. Least privilege is set
@@ -432,13 +434,32 @@ evaluate against Entra identities with **zero policy changes**.
 ```yaml
 sources:
   azure.entra:
-    tenant_id: 00000000-0000-0000-0000-000000000000  # optional; provenance only
+    tenant_id: 00000000-0000-0000-0000-000000000000  # optional; checked against the credential
 ```
 
-`tenant_id` is optional — the Graph token is scoped by the credential's home
-tenant (resolved from `azure/login` / `az login` / `AZURE_TENANT_ID`); when set
-it tags each record's scope. **No `subscription_id`** (this is a Graph-plane
-source, not ARM).
+`tenant_id` is optional and **not auth-bearing** — the Graph token is scoped by
+the credential's home tenant (resolved from `azure/login` / `az login` /
+`AZURE_TENANT_ID`), and Graph's `/v1.0` base carries no tenant segment, so
+nothing you write here changes which directory is read.
+
+What it *does* do is assert which directory you expect. Every run resolves the
+tenant from the credential itself (`GET /organization`) and stamps **that** on
+each record's scope. If you also declare `tenant_id` and the two disagree, the
+run stops as a **configuration error (exit 3)** before collecting or signing
+anything:
+
+```
+azure.entra: configured tenant_id "…" is not the tenant these credentials read ("…")
+```
+
+That check exists because the failure it replaces was silent. A `tenant_id`
+naming a directory your credential does not belong to used to read tenant B's
+users, label every record tenant A, schema-validate them and Ed25519-sign them
+into the vault — signed evidence asserting a directory boundary it never came
+from, with no error and no warning. Omitting `tenant_id` is perfectly fine and
+now loses nothing: the scope is filled in from the credential either way.
+
+**No `subscription_id`** (this is a Graph-plane source, not ARM).
 
 Field mapping (two Graph reads joined on the user object id):
 
