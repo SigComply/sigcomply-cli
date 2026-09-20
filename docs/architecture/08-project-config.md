@@ -410,6 +410,48 @@ Full field reference:
 [configuration.md](../configuration.md#experimentalvendors--declaring-the-third-party-register).
 Operator guide: [Vendor and third-party risk](../guides/vendor-risk.md).
 
+### `experimental.risks` — the risk register as a traceability edge
+
+`experimental.risks` is the third operator-declared set, and the one that
+declares nothing observable at all. The vendor register can be checked
+against the `sources:` block; the scope declaration can be checked
+against what the run actually reached. A risk register has no observable
+counterpart — an organization's assessment of where it is weakest is not
+something a CLI can go and look at.
+
+That is why it does exactly one mechanical thing: it carries the
+**risk→control edge** into `report --view soa`. ISO/IEC 27001 6.1.3 b)
+asks for the controls "necessary to implement the risk treatment
+option(s) chosen" and d) asks why each is included; necessity is a claim
+about a risk, so a Statement of Applicability assembled only from the
+catalog, the config's applicability decisions and the vault's results
+can state three of the four things 6.1.3 d) wants and never the second.
+
+The shape is `experimental.vendors`' shape, deliberately: a register of
+IDs under the `experimental:` hatch, shape-validated at load, sorted on
+read, with unknown subkeys warned rather than rejected. What it
+pointedly does **not** copy is the fan-out. A risk mints no policy, owns
+no evidence folder, and touches no catalog entry — there is no
+`riskfanout`. The four subsystems that would break if a declared slug
+became a first-class policy identity (state shards, project-config
+overrides, the `evidence due` catalog, the framework-sourced control
+join) are the same four named above, and the reasoning transfers
+unchanged.
+
+Two further guardrails, both inherited:
+
+- A risk's `level` changes **which artifact is owed, never whether one
+  is owed**. Every risk owes an owner, a treatment and a residual level
+  at every level. `retain` — the one treatment that files no control —
+  owes `accepted_by` and `acceptance_rationale` instead, exactly as a
+  `low` vendor owes a rationale instead of a folder.
+- Risk descriptions and owner addresses are identity-bearing and stay
+  vault-side. The Statement of Applicability carries risk **IDs** only,
+  and nothing about a risk has any path to the submission payload.
+
+Full field reference:
+[configuration.md](../configuration.md#experimentalrisks--declaring-the-risk-register).
+
 A declared source must clear three bars to count as covered — configured,
 bound by some policy slot, and returning at least one record. Stopping at
 the first would reduce this to a lint on a single file: it would report

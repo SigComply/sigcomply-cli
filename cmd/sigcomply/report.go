@@ -131,6 +131,7 @@ func runReport(ctx context.Context, stdout io.Writer, flags *reportFlags) error 
 	// certification auditor reads first. Refusing is the honest answer;
 	// a footnote nobody reads in a CSV is not.
 	var controlConfigs map[string]spec.ControlConfig
+	var controlRisks map[string][]string
 	if view == report.ViewSoA {
 		if !configLoaded(flags) {
 			return &exitCodeError{code: orchestrator.ExitConfig, err: fmt.Errorf(
@@ -139,6 +140,17 @@ func runReport(ctx context.Context, stdout io.Writer, flags *reportFlags) error 
 				flags.config)}
 		}
 		controlConfigs = cfg.Controls
+
+		// The risk register supplies the other half of 6.1.3 d): the
+		// justification for including a control. A malformed block is a
+		// config error here for the same reason it is during a check —
+		// silently dropping it would print a Statement of Applicability
+		// that claims no risk drove any control.
+		risks, rErr := spec.LoadRiskRegister(cfg)
+		if rErr != nil {
+			return &exitCodeError{code: orchestrator.ExitConfig, err: rErr}
+		}
+		controlRisks = risks.ControlRisks()
 	}
 
 	snap, err := report.Build(ctx, &report.Input{
@@ -149,6 +161,7 @@ func runReport(ctx context.Context, stdout io.Writer, flags *reportFlags) error 
 		Controls:       controls,
 		Policies:       policies,
 		ControlConfigs: controlConfigs,
+		ControlRisks:   controlRisks,
 	})
 	if err != nil {
 		return &exitCodeError{code: orchestrator.ExitExecution, err: err}

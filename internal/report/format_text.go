@@ -275,7 +275,16 @@ func formatTextSoA(w io.Writer, v *SoAView) error {
 		return err
 	}
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	if _, err := fmt.Fprintln(tw, "CONTROL\tNAME\tAPPLICABLE\tSTATUS\tASSURANCE\tJUSTIFICATION"); err != nil {
+	// The RISKS column appears only when a register is declared. A
+	// project without one renders byte-for-byte what it rendered before
+	// the register existed, and a project with one gets the traceability
+	// edge as a column rather than buried in prose.
+	header := "CONTROL\tNAME\tAPPLICABLE\tSTATUS\tASSURANCE\tJUSTIFICATION"
+	withRisks := soaHasRisks(v)
+	if withRisks {
+		header += "\tRISKS"
+	}
+	if _, err := fmt.Fprintln(tw, header); err != nil {
 		return err
 	}
 	for i := range v.Rows {
@@ -288,12 +297,26 @@ func formatTextSoA(w io.Writer, v *SoAView) error {
 		if r.JustificationDerived {
 			justification = "(derived) " + justification
 		}
-		if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
-			r.ControlID, oneLine(r.Name), applicable, r.Status, r.Assurance, justification); err != nil {
+		line := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s",
+			r.ControlID, oneLine(r.Name), applicable, r.Status, r.Assurance, justification)
+		if withRisks {
+			line += "\t" + dash(strings.Join(r.Risks, ", "))
+		}
+		if _, err := fmt.Fprintln(tw, line); err != nil {
 			return err
 		}
 	}
 	return tw.Flush()
+}
+
+// soaHasRisks reports whether any row carries a declared risk.
+func soaHasRisks(v *SoAView) bool {
+	for i := range v.Rows {
+		if len(v.Rows[i].Risks) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func writeSoAHeadline(w io.Writer, v *SoAView) error {

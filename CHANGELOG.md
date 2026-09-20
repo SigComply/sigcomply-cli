@@ -13,6 +13,40 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **A risk register, and the risk→control edge in the Statement of
+  Applicability.** `report --view soa` already discharged three of the four
+  things ISO/IEC 27001:2022 6.1.3 d) asks for: which controls are necessary,
+  whether they are implemented, and why any were excluded. It could never
+  answer the second — *why this control is included* — with anything but the
+  operator's free text or a derived sentence counting the checks behind it.
+  Read 6.1.3 b) and d) together and a control belongs in the SoA because it is
+  "necessary to implement the risk treatment option(s) chosen": necessity is a
+  claim about a **risk**, and nothing in the framework catalog or the vault
+  carries that edge.
+  The new optional `experimental.risks` block declares it. Each risk names the
+  Annex A controls chosen to treat it; each SoA row gains a `RISKS` column (and
+  a `risks` CSV column, appended last), and a *derived* justification now leads
+  with the citation — "Necessary to treat 1 declared risk (r-001)." A
+  justification you wrote yourself is never rewritten. A project with no
+  register renders exactly as it did before.
+  Shape-validated at load, mirroring `experimental.vendors`: owner, level,
+  treatment, residual level and `assessed_at` are required; `treatment: retain`
+  — the one option that files no control — additionally requires `accepted_by`
+  and `acceptance_rationale`, the same asymmetry a `low`-tier vendor carries,
+  and for the same reason. A risk's `level` never changes whether an obligation
+  exists, only which one. Treatment uses ISO's own vocabulary
+  (`modify|retain|avoid|share`, from ISO 31000 6.5.2 via ISO/IEC 27005) and
+  accepts `accept`/`mitigate`/`reduce`/`decrease`/`transfer` as synonyms.
+  Plan-time `risks:` warnings name a risk whose control ID the framework does
+  not define (a typo would otherwise just fail to join, silently) and a register
+  nobody has reassessed in 18 months — a backstop, not a rule, since 8.2 leaves
+  the interval to the organization.
+  **Additive, never a replacement.** The four ISO clause entries for the risk
+  assessment and treatment processes (`C.6.1.2`, `C.6.1.3`, `C.8.2`, `C.8.3`)
+  still owe their document uploads. No risk mints a policy ID, and risk
+  descriptions, owner addresses and acceptance rationales stay vault-side — the
+  SoA carries opaque risk IDs only, and nothing about a risk reaches the wire.
+
 - **Sources declare what they cannot actually observe, and the planner says
   so.** `aws.identity_center` emits `mfa_enabled` as a hardcoded `false`
   because AWS publishes no per-user MFA API for Identity Center. That was

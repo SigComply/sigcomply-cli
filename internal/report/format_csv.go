@@ -198,6 +198,7 @@ func formatCSVSoA(cw *csv.Writer, v *SoAView) error {
 	if err := cw.Write([]string{
 		csvColControlID, "name", "applicable", "justification", "justification_derived",
 		csvColStatus, "assurance", "evaluated", "policies", "approved_by",
+		"risks",
 	}); err != nil {
 		return err
 	}
@@ -211,6 +212,7 @@ func formatCSVSoA(cw *csv.Writer, v *SoAView) error {
 			oneLine(r.Justification), strconv.FormatBool(r.JustificationDerived),
 			r.Status, r.Assurance, strconv.Itoa(r.Evaluated),
 			strings.Join(r.Policies, " "), r.ApprovedBy,
+			strings.Join(r.Risks, " "),
 		}); err != nil {
 			return err
 		}

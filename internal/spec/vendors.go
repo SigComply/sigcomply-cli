@@ -219,8 +219,8 @@ type vendorRaw struct {
 // knownVendorsKeys is the set vendorsRaw understands, used to report the
 // rest rather than to reject them.
 var knownVendorsKeys = map[string]struct{}{
-	"declared_by": {},
-	"declared_at": {},
+	keyDeclaredBy: {},
+	keyDeclaredAt: {},
 	"register":    {},
 }
 

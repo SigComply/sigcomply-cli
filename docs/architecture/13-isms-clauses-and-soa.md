@@ -250,15 +250,41 @@ surface that joined them:
 | What 6.1.3 d) asks | Where it lives |
 |---|---|
 | Which controls are necessary | The framework's control catalog, compiled into the binary |
-| Why this one is included | `controls.<id>.justification` in `.sigcomply.yaml` |
+| Why this one is included | `controls.<id>.justification` in `.sigcomply.yaml`, and/or the risks that name it in `experimental.risks` |
 | Why that one is excluded | `controls.<id>.applicability: not_applicable` + `reason` + `approved_by` |
 | Whether it is implemented | The period's policy results in the vault |
 
 `buildSoA` in `internal/report/soa.go` joins them. For each control that
 is **not** a management-system requirement it emits an `SoARow` with
 `ControlID`, `Name`, `Applicable`, `Justification`,
-`JustificationDerived`, `Status`, `Assurance`, `Evaluated`, `Policies`
-and `ApprovedBy`. The view counts the management-system requirements it
+`JustificationDerived`, `Status`, `Assurance`, `Evaluated`, `Policies`,
+`ApprovedBy` and `Risks`.
+
+### `Risks` — the half a config-only SoA could not fill
+
+The second row of that table understates what 6.1.3 actually asks. Read
+b) and d) together and a control is in the Statement of Applicability
+*because it is necessary to implement a chosen treatment option* — and
+necessity is a claim about a **risk**. An operator's free-text
+justification can assert it; nothing in the catalog or the vault can
+carry it, because the edge exists only in the operator's head until they
+write it down.
+
+`experimental.risks` is where they write it down. Each risk names the
+Annex A controls chosen to treat it, and `SoARow.Risks` is that edge
+inverted — the risk IDs that made this control necessary. A *derived*
+justification leads with the citation ("Necessary to treat 1 declared
+risk (r-001).") while an operator-authored one is never rewritten; the
+structured field carries the edge either way.
+
+This is deliberately **additive to the four clause entries below, never
+instead of them**. `C.6.1.2`, `C.6.1.3`, `C.8.2` and `C.8.3` still owe
+their document uploads. The argument in the next section — that
+rendering a management artifact as structured fields reproduces the
+overclaim those entries exist to retire — is why: a risk register is
+genuinely tabular where minutes are not, and the register supplements
+the document rather than standing in for it. A risk's declared level
+changes nothing about what is owed, and no risk mints a policy ID. The view counts the management-system requirements it
 skipped in `SoAView.ManagementSystem` and names them in `SoAView.Note`,
 so a reader can see what was deliberately left out rather than wondering.
 

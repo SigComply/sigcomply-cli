@@ -365,4 +365,17 @@ type SoARow struct {
 	// ApprovedBy carries the project config's approver for the
 	// applicability decision, where one is recorded.
 	ApprovedBy string
+
+	// Risks names the declared risks this control was chosen to treat,
+	// sorted, from experimental.risks. Empty when no register is
+	// declared or when no risk names this control.
+	//
+	// This is the one thing a Statement of Applicability assembled from
+	// the catalog and the vault could never say. ISO/IEC 27001 6.1.3
+	// asks an organization to determine the controls "necessary to
+	// implement the information security risk treatment option(s)
+	// chosen" — the word is necessary, and necessity is a claim about a
+	// risk. Everything else on this row is observed; this edge exists
+	// only because the operator wrote it down.
+	Risks []string
 }

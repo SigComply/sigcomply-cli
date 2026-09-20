@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/csv"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -338,5 +339,155 @@ func TestFormatSoA_Deterministic(t *testing.T) {
 		if buf.String() != first.String() {
 			t.Fatal("SoA text output is not deterministic across renders")
 		}
+	}
+}
+
+// buildSoASnapshotWithRisks is buildSoASnapshot plus a declared
+// risk→control register.
+func buildSoASnapshotWithRisks(t *testing.T, controlCfg map[string]spec.ControlConfig, risks map[string][]string) *report.Snapshot {
+	t.Helper()
+	v, _ := makeVault(t, []runSeed{{
+		framework: frameworkISO27001, periodID: testPeriodQ2, runID: testRunID,
+		timestamp:   time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		completedAt: time.Date(2026, 4, 1, 0, 5, 0, 0, time.UTC),
+		policies: []core.PolicyResult{
+			{PolicyID: testPolicyISOPolicies, Status: core.StatusPass, EvidenceMode: core.EvidenceModeAutomated},
+		},
+	}})
+	controls, policies := soaCatalog()
+	snap, err := report.Build(context.Background(), &report.Input{
+		Vault: v, Framework: frameworkISO27001, PeriodID: testPeriodQ2, View: report.ViewSoA,
+		Controls: controls, Policies: policies, ControlConfigs: controlCfg,
+		ControlRisks: risks,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return snap
+}
+
+const (
+	testRiskID      = "r-001"
+	testRiskIDOther = "r-014"
+)
+
+func soaRowByID(t *testing.T, snap *report.Snapshot, id string) report.SoARow {
+	t.Helper()
+	for i := range snap.SoA.Rows {
+		if snap.SoA.Rows[i].ControlID == id {
+			return snap.SoA.Rows[i]
+		}
+	}
+	t.Fatalf("no SoA row for %s", id)
+	return report.SoARow{}
+}
+
+// The edge the register exists for: ISO 6.1.3 b) asks for the controls
+// "necessary to implement" the chosen treatment, and necessity is a
+// claim about a risk. Nothing in the catalog or the vault can say it.
+func TestBuildSoA_CitesTheRisksAControlTreats(t *testing.T) {
+	snap := buildSoASnapshotWithRisks(t, nil, map[string][]string{ctrlA51: {testRiskID, testRiskIDOther}})
+	row := soaRowByID(t, snap, ctrlA51)
+
+	if want := []string{testRiskID, testRiskIDOther}; !reflect.DeepEqual(row.Risks, want) {
+		t.Errorf("Risks = %v; want %v", row.Risks, want)
+	}
+	if !strings.Contains(row.Justification, "Necessary to treat 2 declared risks (r-001, r-014)") {
+		t.Errorf("justification = %q; want it to lead with the risks that made the control necessary", row.Justification)
+	}
+	// The derived detail must survive the new clause, not be replaced by it.
+	if !strings.Contains(row.Justification, "automated check") {
+		t.Errorf("justification = %q; want the verification detail retained", row.Justification)
+	}
+	// A control no risk names must stay exactly as it was.
+	if other := soaRowByID(t, snap, ctrlA71); len(other.Risks) != 0 {
+		t.Errorf("unrelated control carries risks: %v", other.Risks)
+	}
+}
+
+// An operator who wrote their own justification has already said why the
+// control is there. Rewriting their words to append ours would be worse
+// than silent — the structured edge is still on the row for every
+// renderer.
+func TestBuildSoA_RiskCitationNeverRewritesOperatorJustification(t *testing.T) {
+	const own = "Required by our customer contracts."
+	snap := buildSoASnapshotWithRisks(t,
+		map[string]spec.ControlConfig{ctrlA51: {Justification: own}},
+		map[string][]string{ctrlA51: {"r-001"}})
+	row := soaRowByID(t, snap, ctrlA51)
+
+	if row.Justification != own {
+		t.Errorf("justification = %q; want the operator's text verbatim", row.Justification)
+	}
+	if row.JustificationDerived {
+		t.Error("an operator-authored justification must not be flagged derived")
+	}
+	if !reflect.DeepEqual(row.Risks, []string{testRiskID}) {
+		t.Errorf("Risks = %v; the edge must still be carried structurally", row.Risks)
+	}
+}
+
+// A project with no register must render exactly as it did before one
+// existed — no column, no clause, no empty parentheses.
+func TestBuildSoA_NoRegisterRendersUnchanged(t *testing.T) {
+	withRisks := buildSoASnapshotWithRisks(t, nil, nil)
+	plain := buildSoASnapshot(t, nil)
+
+	var a, b strings.Builder
+	if err := report.FormatText(&a, withRisks); err != nil {
+		t.Fatal(err)
+	}
+	if err := report.FormatText(&b, plain); err != nil {
+		t.Fatal(err)
+	}
+	if a.String() != b.String() {
+		t.Errorf("a nil register changed the output:\n%s\n---\n%s", a.String(), b.String())
+	}
+	if strings.Contains(a.String(), "RISKS") {
+		t.Error("RISKS column rendered with no register declared")
+	}
+}
+
+// With a register, the column appears and carries the edge for rows
+// whose justification is the operator's own.
+func TestFormatTextSoA_ShowsTheRisksColumnWhenDeclared(t *testing.T) {
+	snap := buildSoASnapshotWithRisks(t, nil, map[string][]string{ctrlA51: {"r-001"}})
+	var out strings.Builder
+	if err := report.FormatText(&out, snap); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "RISKS") || !strings.Contains(got, testRiskID) {
+		t.Errorf("text output missing the risks column:\n%s", got)
+	}
+}
+
+// CSV appends risks last, so the existing positional assertions in this
+// file keep testing the columns they were written for.
+func TestFormatCSVSoA_AppendsRisksLast(t *testing.T) {
+	snap := buildSoASnapshotWithRisks(t, nil, map[string][]string{ctrlA51: {testRiskID, testRiskIDOther}})
+	var out strings.Builder
+	if err := report.FormatCSV(&out, snap); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := csv.NewReader(strings.NewReader(out.String())).ReadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	last := len(rows[0]) - 1
+	if rows[0][last] != "risks" {
+		t.Fatalf("header = %v; want risks appended last", rows[0])
+	}
+	var found bool
+	for _, r := range rows[1:] {
+		if r[0] == ctrlA51 {
+			found = true
+			if r[last] != testRiskID+" r-014" {
+				t.Errorf("risks cell = %q; want space-joined ids", r[last])
+			}
+		}
+	}
+	if !found {
+		t.Errorf("no CSV row for %s", ctrlA51)
 	}
 }

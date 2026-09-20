@@ -1411,7 +1411,7 @@ set of accepted top-level keys (`internal/spec/project_config.go`):
 | `ci` | `{ fail_on_violation, fail_severity }` | Config-only; no equivalent flags. |
 | `ci_environment` | map | Free-form environment metadata recorded with the run. |
 | `extensions` | `{ path }` | Overrides extension-discovery path (default `.sigcomply/`). |
-| `experimental` | map | Forward-compat escape hatch: not-yet-stable keys live here so a newer config never breaks an older CLI. The loader itself interprets nothing here; each feature reads its own key. See [`experimental.scope`](#experimentalscope--declaring-the-estate), [`experimental.roster`](#experimentalroster--designating-the-identity-roster) and [`experimental.vendors`](#experimentalvendors--declaring-the-third-party-register) below. |
+| `experimental` | map | Forward-compat escape hatch: not-yet-stable keys live here so a newer config never breaks an older CLI. The loader itself interprets nothing here; each feature reads its own key. See [`experimental.scope`](#experimentalscope--declaring-the-estate), [`experimental.roster`](#experimentalroster--designating-the-identity-roster), [`experimental.vendors`](#experimentalvendors--declaring-the-third-party-register) and [`experimental.risks`](#experimentalrisks--declaring-the-risk-register) below. |
 
 #### Multiple instances of one source
 
@@ -1572,6 +1572,92 @@ Vendor names, rationales and approver addresses stay **vault-side**. The
 evaluator reduces the register to two counts (how many examined, how many fell
 short) before anything is submitted, so the cloud never learns which third
 parties you use.
+
+#### `experimental.risks` — declaring the risk register
+
+Optional, ISO 27001-oriented. Declares the information security risks this
+project has assessed and the Annex A controls chosen to treat them, so
+`report --view soa` can say **which risk made a control necessary**.
+
+```yaml
+experimental:
+  risks:
+    declared_by: ciso@example.com   # optional audit trail
+    declared_at: "2026-09-20"       # optional, ISO 8601 (YYYY-MM-DD)
+    register:
+      - id: r-001                   # required: 1-40 chars of [a-z0-9_.-]
+        description: Stolen laptop exposes unencrypted customer data.  # required
+        owner: ciso@example.com     # required: ISO 6.1.2 c) 2)
+        level: high                 # required: critical|high|moderate|low
+        treatment: modify           # required: modify|retain|avoid|share
+        controls: [A.8.1, A.5.1]    # required for `modify`: the Annex A controls
+        residual_level: low         # required
+        assessed_at: "2026-06-01"   # required, ISO 8601
+
+      - id: r-014
+        description: Supplier outage beyond our recovery objective.
+        owner: cto@example.com
+        level: moderate
+        treatment: retain                                        # accepting the risk
+        accepted_by: ceo@example.com                             # required for retain
+        acceptance_rationale: Within the board's stated appetite. # required for retain
+        residual_level: moderate
+        assessed_at: "2026-06-01"
+```
+
+**What it adds to the Statement of Applicability.** ISO/IEC 27001:2022 6.1.3 b)
+asks for the controls *"necessary to implement the risk treatment option(s)
+chosen"*, and 6.1.3 d) asks for the justification for including each one.
+Necessity is a claim about a risk, and nothing in the catalog or the vault can
+make it — so a config-only SoA could never fill that half. With a register
+declared, each control's row gains a `RISKS` column, and a *derived*
+justification leads with the citation:
+
+```
+CONTROL  NAME                    APPLICABLE  STATUS         ASSURANCE  JUSTIFICATION                                          RISKS
+A.8.1    User end point devices  yes         not evaluated  manual     (derived) Necessary to treat 1 declared risk (r-001).  r-001
+                                                                       Applicable — no exclusion declared. ...
+```
+
+A justification you wrote yourself is **never** rewritten — you have already
+said why the control is there. The risk edge is still carried structurally, in
+the `RISKS` column and the `risks` CSV column. A project with no register
+renders exactly as it did before one existed.
+
+**`treatment:` uses ISO's own vocabulary.** ISO 27001 enumerates no treatment
+options at all; the canonical four come from ISO 31000 6.5.2 via ISO/IEC 27005.
+`accept`, `mitigate`, `reduce`, `decrease` and `transfer` are accepted as
+synonyms and stored as their canonical name.
+
+**`retain` is the one option that files no control**, so it must carry
+`accepted_by` and `acceptance_rationale` — the config fails to load otherwise.
+That mirrors a low-tier vendor owing a rationale instead of an artifact, and
+exists for the same reason: an option that silently removed an obligation would
+let under-declaring the register raise the compliance score. **A risk's `level`
+changes nothing about what is owed** — every risk owes an owner, a treatment and
+a residual level at every level.
+
+**Two levels, not three.** 6.1.2 d) 3) asks for *the* level of risk and 6.1.3 f)
+separately requires acceptance of the *residual* risk. The "inherent vs
+residual" pair most templates carry is convention — the word *inherent* appears
+nowhere in the standard, and nor do *asset*, *threat* or *vulnerability*, all of
+which the 2005 edition mandated and the 2022 edition dropped.
+
+**`assessed_at` is declared, never parsed**, and compared arithmetically: a risk
+not reassessed within 18 months of the period start produces a plan-time
+`risks:` warning. That threshold is a backstop, not a rule — 8.2 says
+assessments happen "at planned intervals" and leaves the interval to you.
+A risk naming a control the framework does not define is warned about too,
+because a typo would otherwise just fail to join, silently.
+
+**The register supplements the documents, it does not replace them.** The four
+ISO clause entries for the risk assessment process, the risk treatment process
+and the retained results (`C.6.1.2`, `C.6.1.3`, `C.8.2`, `C.8.3`) still owe
+their uploads.
+
+Risk descriptions, owner addresses, acceptance rationales and approver
+addresses stay **vault-side** and never reach the cloud. Only risk **IDs** —
+opaque slugs you chose — appear in the Statement of Applicability.
 
 Omit the block entirely and every vendor entry behaves as an ordinary
 single-folder manual entry — this is purely additive.

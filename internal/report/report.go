@@ -50,6 +50,12 @@ type Input struct {
 	// unlike internal/frameworks, which this package still must not
 	// import.
 	ControlConfigs map[string]spec.ControlConfig
+
+	// ControlRisks maps a control ID to the declared risks it treats,
+	// from the project config's experimental.risks register. Optional:
+	// a nil map renders the Statement of Applicability exactly as it
+	// rendered before a register existed.
+	ControlRisks map[string][]string
 }
 
 // Build walks the vault for the requested {framework}/{period_id}
@@ -116,7 +122,7 @@ func fillView(ctx context.Context, in *Input, view View, runs []runRecord, snap 
 		if len(in.Controls) == 0 {
 			return fmt.Errorf("report: the soa view needs the framework's control catalog; none was supplied")
 		}
-		snap.SoA, err = buildSoA(ctx, in.Vault, runs, in.Controls, in.Policies, in.ControlConfigs)
+		snap.SoA, err = buildSoA(ctx, in.Vault, runs, in.Controls, in.Policies, in.ControlConfigs, in.ControlRisks)
 	default:
 		return fmt.Errorf("%w: %q (want latest|exceptions|integrity|scope|coverage|soa)", ErrUnknownView, in.View)
 	}

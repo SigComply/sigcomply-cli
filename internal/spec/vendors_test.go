@@ -185,12 +185,12 @@ func TestLoadVendorRegister_Errors(t *testing.T) {
 		{
 			name: "bad id characters",
 			body: "experimental:\n  vendors:\n    register:\n      - {id: Acme Cloud, name: Acme, tier: high}\n",
-			want: "must be 1-40 characters",
+			want: wantBadIDLength,
 		},
 		{
 			name: "id too long",
 			body: "experimental:\n  vendors:\n    register:\n      - {id: " + strings.Repeat("a", 41) + ", name: Acme, tier: high}\n",
-			want: "must be 1-40 characters",
+			want: wantBadIDLength,
 		},
 		{
 			name: "duplicate id",
@@ -228,7 +228,7 @@ func TestLoadVendorRegister_Errors(t *testing.T) {
 			want: "assurance_period_end",
 		},
 		{
-			name: "bad declared_at",
+			name: caseBadDeclaredAt,
 			body: "experimental:\n  vendors:\n    declared_at: yesterday\n    register:\n      - {id: acme, name: Acme, tier: high}\n",
 			want: "declared_at",
 		},

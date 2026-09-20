@@ -119,7 +119,7 @@ func TestLoadScopeConfig_Rejects(t *testing.T) {
 			want: "duplicate source ID \"github\"",
 		},
 		{
-			name: "bad declared_at",
+			name: caseBadDeclaredAt,
 			body: "experimental:\n  scope:\n    required_sources: [github]\n    declared_at: \"13/09/2026\"\n",
 			want: "declared_at",
 		},

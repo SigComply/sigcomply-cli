@@ -47,6 +47,7 @@ func buildSoA(
 	controls []core.Control,
 	policies []core.Policy,
 	controlConfigs map[string]spec.ControlConfig,
+	controlRisks map[string][]string,
 ) (*SoAView, error) {
 	results, err := latestResultsByPolicy(ctx, v, runs)
 	if err != nil {
@@ -63,7 +64,7 @@ func buildSoA(
 	catalog, mgmtSystem := partitionByKind(controls)
 	out := &SoAView{ManagementSystem: len(mgmtSystem), Rows: make([]SoARow, 0, len(catalog))}
 	for i := range catalog {
-		row := soaRow(&catalog[i], policiesByControl[catalog[i].ID], assurance[catalog[i].ID], results, controlConfigs[catalog[i].ID])
+		row := soaRow(&catalog[i], policiesByControl[catalog[i].ID], assurance[catalog[i].ID], results, controlConfigs[catalog[i].ID], controlRisks[catalog[i].ID])
 		out.Rows = append(out.Rows, row)
 		tallySoARow(out, &row)
 	}
@@ -81,6 +82,7 @@ func soaRow(
 	cov core.ControlCoverage,
 	results map[string]core.PolicyResult,
 	cfg spec.ControlConfig,
+	risks []string,
 ) SoARow {
 	row := SoARow{
 		ControlID:  c.ID,
@@ -89,6 +91,7 @@ func soaRow(
 		Assurance:  string(cov.Assurance),
 		ApprovedBy: cfg.ApprovedBy,
 		Policies:   policyIDs(policies),
+		Risks:      risks,
 	}
 	if cov.Assurance == "" {
 		row.Assurance = string(core.AssuranceNone)
@@ -101,7 +104,7 @@ func soaRow(
 	}
 	row.Justification = strings.TrimSpace(cfg.Justification)
 	if row.Justification == "" {
-		row.Justification = defaultJustification(cov)
+		row.Justification = defaultJustification(cov, risks)
 		row.JustificationDerived = true
 	}
 	row.Status, row.Evaluated = soaStatus(policies, results)
@@ -160,7 +163,29 @@ func soaStatus(policies []core.Policy, results map[string]core.PolicyResult) (st
 // operator has not said so themselves. It is accurate and generic, and
 // says which it is: an auditor can tell a reasoned inclusion from a
 // default one, rather than reading boilerplate as deliberation.
-func defaultJustification(cov core.ControlCoverage) string {
+func defaultJustification(cov core.ControlCoverage, risks []string) string {
+	return riskClause(risks) + baseJustification(cov)
+}
+
+// riskClause turns the declared risk→control edge into the sentence ISO
+// 6.1.3 actually asks for: why this control is *necessary*. It leads,
+// because necessity is the question and the verification detail is the
+// supporting answer.
+//
+// Only ever prefixed to a derived justification. An operator who wrote
+// their own justification has said why the control is there, and
+// rewriting their words to append ours would be worse than silent — the
+// structured edge is still on the row, in Risks, for every renderer.
+func riskClause(risks []string) string {
+	if len(risks) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("Necessary to treat %s %s. ",
+		countPhrase(len(risks), "declared risk", "declared risks"),
+		"("+strings.Join(risks, ", ")+")")
+}
+
+func baseJustification(cov core.ControlCoverage) string {
 	switch cov.Assurance {
 	case core.AssuranceAutomated:
 		return fmt.Sprintf("Applicable — no exclusion declared. Verified by %s.",

@@ -555,6 +555,13 @@ func validateControls(controls map[string]ControlConfig) error {
 // validateOptionalDate returns nil for an empty string, else verifies the
 // value is an ISO 8601 calendar date (YYYY-MM-DD). The returned error is
 // phrased to be wrapped after a field-path prefix.
+// keyDeclaredBy and keyDeclaredAt are the audit-trail subkeys every
+// experimental register shares: who declared it, and when.
+const (
+	keyDeclaredBy = "declared_by"
+	keyDeclaredAt = "declared_at"
+)
+
 func validateOptionalDate(s string) error {
 	if s == "" {
 		return nil

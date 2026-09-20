@@ -158,6 +158,7 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 	emitUnboundSourceWarnings(opts.Logger, opts.Config, plan)
 	emitSourceCaveatWarnings(opts.Logger, plan)
 	emitVendorWarnings(opts.Logger, opts.Config)
+	emitRiskWarnings(opts.Logger, opts.Config, opts.Registries, plan)
 
 	runRoot := buildRunRoot(plan.Framework, plan.Period.ID, startedAt, runID)
 	rec := newRecordingVault(opts.Vault)
