@@ -23,6 +23,51 @@ type SourcePlugin interface {
 	Collect(ctx context.Context, req SlotRequest) ([]EvidenceRecord, error)
 }
 
+// SourceCaveat is a plugin's own declaration that a field it emits is not
+// really observed — the vendor publishes no API for it, or the credential
+// cannot reach the one that exists — so the value is a safe default rather
+// than a measurement.
+//
+// It exists because the planner binds EVERY configured source whose Emits()
+// intersects a slot, and every ordinary slot is one-or-more, so cardinality
+// never forces a choice. On the common estate — an IdP SCIM-synced into AWS
+// Identity Center — both sources bind the MFA policies and their records are
+// unioned: every Identity Center user fails on a hardcoded false while the
+// Okta records beside them carry the true answer for the same humans. Nothing
+// in the run says so. A caveat lets the planner say so.
+//
+// This is a source declaring its OWN limits, which is why it does not breach
+// Invariant #4: no policy branches on a source ID, and no plugin learns which
+// policy consumes it. The planner joins the two by evidence type and field
+// name — the same contract that already mediates binding.
+//
+// It is advisory only. A caveat never changes a status, a count, or the wire
+// payload: "integration health" was considered as a result axis and rejected
+// (a degraded read is an operator problem to fix now, not a grade to report).
+type SourceCaveat struct {
+	// EvidenceType is the type ID the caveat applies to, e.g. "directory_user".
+	EvidenceType string
+	// Field is the payload field name, without the "payload." prefix,
+	// e.g. "mfa_enabled".
+	Field string
+	// Detail says what the plugin actually emits and why, in one sentence an
+	// operator can act on. It must be honest about whether the limit is
+	// absolute (no API exists) or conditional (this credential cannot read it).
+	Detail string
+}
+
+// CaveatedSource is the optional interface a SourcePlugin implements to
+// declare its SourceCaveats. Optional by design: a plugin that implements
+// nothing declares no caveats, which is the correct default and cannot break
+// a plugin that predates the interface.
+//
+// Anything wrapping a SourcePlugin must forward this method — see
+// sources.instancePlugin, where a missed forward would silently drop every
+// caveat for bracketed instance keys.
+type CaveatedSource interface {
+	Caveats() []SourceCaveat
+}
+
 // SlotRequest is the per-binding call into a plugin's Collect.
 //
 // PolicyID is for diagnostics only — plugins must not branch behavior

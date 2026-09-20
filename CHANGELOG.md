@@ -13,6 +13,30 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **Sources declare what they cannot actually observe, and the planner says
+  so.** `aws.identity_center` emits `mfa_enabled` as a hardcoded `false`
+  because AWS publishes no per-user MFA API for Identity Center. That was
+  documented in prose, which is no help in the deployment where it bites: the
+  planner binds **every** configured source whose emitted types intersect a
+  slot, and every ordinary slot is `one-or-more`, so an estate that SCIM-syncs
+  an IdP into Identity Center binds **both** to the MFA policies and unions
+  their records — every Identity Center user failing on an unverifiable
+  `false` while the Okta records beside them carry the true answer for the
+  same people. Nothing in the run said so.
+  A plugin can now implement the optional `core.CaveatedSource`, and the
+  planner warns when a caveated source is bound to a slot whose policies
+  actually read that field — naming the affected policies and printing the
+  exact `bindings:` block that pins the slot to the source holding the real
+  answer. When no other source on the slot can answer, it says that instead:
+  an estate with no IdP genuinely cannot demonstrate MFA, and failing is the
+  correct outcome rather than an artifact.
+  Declared by `aws.identity_center` (absolute — no API exists) and `gitlab`
+  (conditional — `two_factor_enabled` needs a group-owner/instance-admin
+  token, and plan time cannot know which kind it has).
+  **Advisory only.** A caveat changes no status, no count, no compliance score
+  and nothing on the wire — a read the CLI cannot complete is an operator
+  problem to fix now, not a quality grade to report.
+
 - **GCP evidence records now carry their provenance.** All 18 `gcp.*` plugins
   left `EvidenceRecord.Scope` unset, so the only trace of which project an
   envelope came from was the instance key in `source_id` — configuration, not

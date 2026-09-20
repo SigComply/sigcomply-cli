@@ -997,3 +997,21 @@ func newTestSDKAPI(t *testing.T, responses map[string]string, denied map[string]
 	}
 	return &sdkAPI{client: client, group: testGroup}
 }
+
+// GitLab's mfa_enabled gap is conditional — a privileged token reads the real
+// value — but the plugin must still declare it, because plan time cannot know
+// which kind of token it has.
+func TestCaveats_DeclaresTheMFAPrivilegeGap(t *testing.T) {
+	var p core.SourcePlugin = New(Options{})
+	c, ok := p.(core.CaveatedSource)
+	if !ok {
+		t.Fatal("gitlab must implement core.CaveatedSource")
+	}
+	cav := c.Caveats()
+	if len(cav) != 1 || cav[0].EvidenceType != EvidenceTypeDirectoryUser || cav[0].Field != "mfa_enabled" {
+		t.Fatalf("Caveats() = %+v; want directory_user.mfa_enabled", cav)
+	}
+	if cav[0].Detail == "" {
+		t.Error("a caveat with no detail tells the operator nothing to act on")
+	}
+}

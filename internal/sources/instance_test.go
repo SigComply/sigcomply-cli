@@ -8,10 +8,11 @@ import (
 )
 
 const (
-	testSourceAWSIAM         = "aws.iam"
-	testSourceAWSIAMInstance = "aws.iam[backup]"
-	testSourceGitHub         = "github"
-	testInstanceSuffix       = "[backup]"
+	testSourceAWSIAM          = "aws.iam"
+	testSourceAWSIAMInstance  = "aws.iam[backup]"
+	testSourceGitHub          = "github"
+	testInstanceSuffix        = "[backup]"
+	testEvidenceDirectoryUser = "directory_user"
 )
 
 func TestSplitInstanceID(t *testing.T) {
@@ -67,7 +68,7 @@ type stubPlugin struct {
 }
 
 func (s *stubPlugin) ID() string                                 { return s.id }
-func (s *stubPlugin) Emits() []string                            { return []string{"directory_user"} }
+func (s *stubPlugin) Emits() []string                            { return []string{testEvidenceDirectoryUser} }
 func (s *stubPlugin) Init(context.Context, map[string]any) error { return nil }
 func (s *stubPlugin) Collect(context.Context, core.SlotRequest) ([]core.EvidenceRecord, error) {
 	return s.recs, s.err
@@ -93,7 +94,7 @@ func TestAsInstance_StampsProvenance(t *testing.T) {
 	if got.ID() != testSourceAWSIAMInstance {
 		t.Errorf("ID() = %q; want aws.iam[backup]", got.ID())
 	}
-	if len(got.Emits()) != 1 || got.Emits()[0] != "directory_user" {
+	if len(got.Emits()) != 1 || got.Emits()[0] != testEvidenceDirectoryUser {
 		t.Errorf("Emits() = %v; want delegation to the inner plugin", got.Emits())
 	}
 
@@ -149,4 +150,41 @@ func TestRegisterFactory_RejectsInstanceID(t *testing.T) {
 	RegisterFactory("test.src[two]", func(_ context.Context, _ Env) (core.SourcePlugin, error) {
 		return nil, nil
 	})
+}
+
+// caveatedStub implements the optional core.CaveatedSource beside the
+// mandatory SourcePlugin methods.
+type caveatedStub struct {
+	stubPlugin
+}
+
+func (c *caveatedStub) Caveats() []core.SourceCaveat {
+	return []core.SourceCaveat{{EvidenceType: testEvidenceDirectoryUser, Field: "mfa_enabled", Detail: "no API"}}
+}
+
+// The wrapper must forward every optional interface the inner plugin
+// implements. A missed forward is silent: the type assertion in the planner
+// just fails, and aws.iam[backup] quietly loses the caveat that aws.iam
+// declares — the instanced estate, which is exactly the multi-account case
+// most likely to union two identity sources into one slot.
+func TestAsInstance_ForwardsCaveats(t *testing.T) {
+	inner := &caveatedStub{stubPlugin{id: testSourceAWSIAM}}
+	got := asInstance(inner, testSourceAWSIAMInstance)
+
+	c, ok := got.(core.CaveatedSource)
+	if !ok {
+		t.Fatal("instance wrapper dropped core.CaveatedSource; bracketed keys would silently lose their caveats")
+	}
+	if cav := c.Caveats(); len(cav) != 1 || cav[0].Field != "mfa_enabled" {
+		t.Errorf("Caveats() = %v; want the inner plugin's caveats", cav)
+	}
+}
+
+// A plugin that declares no caveats must not start claiming any just because
+// it was wrapped.
+func TestAsInstance_NoCaveatsWhenInnerDeclaresNone(t *testing.T) {
+	got := asInstance(&stubPlugin{id: testSourceAWSIAM}, testSourceAWSIAMInstance)
+	if c, ok := got.(core.CaveatedSource); ok {
+		t.Errorf("wrapper reports CaveatedSource for a plugin that is not one: %v", c.Caveats())
+	}
 }

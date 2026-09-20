@@ -271,6 +271,29 @@ func (*Plugin) Emits() []string {
 	}
 }
 
+// Caveats declares the fields this plugin can emit without observing them.
+//
+// Conditional, unlike aws.identity_center's: two_factor_enabled IS readable —
+// but only by a group-owner / instance-admin token, via the Users API. A
+// lesser-privileged token gets a 403 that mapMember deliberately swallows so
+// the listing still succeeds, which leaves mfa_enabled at false with nothing
+// in the run to say the read never happened. The caveat is what says it.
+//
+// Declared unconditionally because privilege is not known at plan time: the
+// per-member read happens during collection, long after the planner has to
+// decide whether to warn. Over-warning a correctly-privileged token is the
+// cheaper error — the operator checks the token scope and moves on, where the
+// silent case grades an MFA control on a value nobody read.
+func (*Plugin) Caveats() []core.SourceCaveat {
+	return []core.SourceCaveat{{
+		EvidenceType: EvidenceTypeDirectoryUser,
+		Field:        "mfa_enabled",
+		Detail: "GitLab exposes two_factor_enabled only to a group-owner / instance-admin token; " +
+			"with a lesser-privileged token the per-member read is refused and mfa_enabled falls " +
+			"back to false, so provision an owner token where MFA policies matter",
+	}}
+}
+
 // Init is a no-op; the constructor has already received configuration.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 

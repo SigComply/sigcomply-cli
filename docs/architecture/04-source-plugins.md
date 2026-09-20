@@ -67,6 +67,44 @@ each other.
 3. The collector calls `Collect` once per (policy, slot) binding.
 4. The plugin instance is discarded at run end.
 
+**Optional: `core.CaveatedSource`.** A plugin that emits a field it cannot
+actually observe declares it, so the planner can warn instead of leaving the
+operator to discover it in a source comment:
+
+```go
+type CaveatedSource interface {
+    Caveats() []SourceCaveat
+}
+
+type SourceCaveat struct {
+    EvidenceType string // "directory_user"
+    Field        string // "mfa_enabled" (no "payload." prefix)
+    Detail       string // one actionable sentence
+}
+```
+
+Implement it when the honest value is a safe default rather than a
+measurement — `aws.identity_center.mfa_enabled` (no API exists) and
+`gitlab.mfa_enabled` (the token may not be privileged enough to read it).
+Do **not** implement it for a platform constant that is true by definition
+(`gcp.firestore.encryption_enabled`), and prefer *omitting* a field over
+fabricating one where the schema allows it — `azure.compute` and `gcp.compute`
+leave `monitoring_enabled` unset for exactly this reason, and an `is_set`
+guard in the policy scopes them out honestly.
+
+The planner warns only when all three hold: the source is bound, the binding
+accepts the caveated type, and the policy's `pass_when` actually reads that
+field. It is advisory — no status, no count and nothing on the wire changes.
+This is a source describing **its own** limits, so Invariant #4 holds: no
+policy names a source, no plugin names a policy, and the two are joined by
+evidence type and field name — the same contract that mediates binding.
+Full operator-facing behavior: [configuration.md §Source caveats](../configuration.md#source-caveats).
+
+**Anything wrapping a `SourcePlugin` must forward this method.** `asInstance`
+(`internal/sources/instance.go`) wraps bracketed keys like `aws.iam[backup]`,
+and a missed forward fails silently — the consumer's type assertion simply
+returns false, so the instanced estate loses behavior its plain-key twin has.
+
 **Per-policy fetch, not per-run.** Per the KISS-no-DRY axiom, if ten
 policies bind the same `aws.iam` instance, `Collect` is invoked ten
 times. The plugin should not cache between invocations: each call

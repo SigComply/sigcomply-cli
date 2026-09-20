@@ -88,11 +88,36 @@ func (p *instancePlugin) Collect(ctx context.Context, req core.SlotRequest) ([]c
 	return records, nil
 }
 
+// caveatedInstancePlugin is instancePlugin for an inner plugin that also
+// implements core.CaveatedSource.
+//
+// Two types rather than one method on instancePlugin, because the optional
+// interface has to stay optional: a Caveats() method on instancePlugin would
+// make EVERY bracketed source satisfy core.CaveatedSource, so a plugin that
+// declares no caveats would start claiming an empty set — which reads the
+// same as "asked and told there are none". The wrapper must be exactly as
+// caveated as what it wraps.
+type caveatedInstancePlugin struct {
+	instancePlugin
+	caveats core.CaveatedSource
+}
+
+func (p *caveatedInstancePlugin) Caveats() []core.SourceCaveat { return p.caveats.Caveats() }
+
 // asInstance returns plugin re-identified as key, or plugin unchanged
 // when key names no instance.
+//
+// Any optional interface the inner plugin implements must be forwarded here.
+// A missed forward fails silently — the consumer's type assertion simply
+// returns false — so a bracketed key would lose behavior its plain-key twin
+// has, which is the multi-account case most likely to need it.
 func asInstance(plugin core.SourcePlugin, key string) core.SourcePlugin {
 	if _, instance := SplitInstanceID(key); instance == "" {
 		return plugin
 	}
-	return &instancePlugin{inner: plugin, id: key}
+	wrapped := instancePlugin{inner: plugin, id: key}
+	if c, ok := plugin.(core.CaveatedSource); ok {
+		return &caveatedInstancePlugin{instancePlugin: wrapped, caveats: c}
+	}
+	return &wrapped
 }

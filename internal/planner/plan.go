@@ -80,6 +80,15 @@ type PlannedPolicy struct {
 	// case. See CoverageGap.
 	CoverageGaps []CoverageGap
 
+	// SourceCaveats lists the bound sources that declared they cannot
+	// really observe a field this policy reads — e.g. an identity source
+	// with no per-user MFA API bound to an MFA policy. Advisory only: the
+	// policy plans and evaluates unchanged, and nothing here reaches the
+	// wire. The orchestrator warns so an operator learns at plan time that
+	// a control is graded partly on a value nobody measured. Empty for the
+	// common case. See SourceCaveatWarning.
+	SourceCaveats []SourceCaveatWarning
+
 	// UnboundRequiredSlots names the required slots that resolved to zero
 	// bindings, sorted. Unlike CoverageGaps (which reports only the
 	// version-skew near-miss) this is the plain "no configured source

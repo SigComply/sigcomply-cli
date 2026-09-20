@@ -173,6 +173,7 @@ func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig) (Planned
 	}
 	var bindings map[string][]Binding
 	var coverageGaps []CoverageGap
+	var sourceCaveats []SourceCaveatWarning
 	var unbound []string
 	var rosterLink *RosterLink
 	if policy.EvidenceMode == core.EvidenceModeManual {
@@ -201,6 +202,10 @@ func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig) (Planned
 		// as the one gap rather than every slot it takes down with it.
 		unbound = unboundRequiredSlots(policy, bindings)
 		dropBindingsIfRosterUnbound(policy, bindings)
+		// After the drop, so a policy whose bindings were taken down by an
+		// unbound roster does not also report a caveat on a source it will
+		// no longer consult.
+		sourceCaveats = caveatWarnings(policy, bindings, in.Registries.Sources)
 		rosterLink = rosterLinkFor(policy, roster)
 	}
 	// Control-level applicability takes precedence over policy-level
@@ -227,6 +232,7 @@ func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig) (Planned
 		SkipReason:             skipReason,
 		EvidenceModeOverridden: policy.EvidenceMode != originalMode,
 		CoverageGaps:           coverageGaps,
+		SourceCaveats:          sourceCaveats,
 		UnboundRequiredSlots:   unbound,
 		Roster:                 rosterLink,
 		PriorState:             priorState,

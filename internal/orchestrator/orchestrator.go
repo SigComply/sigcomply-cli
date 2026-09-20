@@ -156,6 +156,7 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 	emitPlanWarnings(opts.Logger, plan, startedAt)
 	emitRosterWarnings(opts.Logger, opts.Config, opts.Registries)
 	emitUnboundSourceWarnings(opts.Logger, opts.Config, plan)
+	emitSourceCaveatWarnings(opts.Logger, plan)
 	emitVendorWarnings(opts.Logger, opts.Config)
 
 	runRoot := buildRunRoot(plan.Framework, plan.Period.ID, startedAt, runID)

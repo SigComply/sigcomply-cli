@@ -250,6 +250,24 @@ func (*Plugin) Emits() []string {
 	return []string{EvidenceTypeDirectoryUser, EvidenceTypeRosterEntry, EvidenceTypeIAMBinding}
 }
 
+// Caveats declares the one field this plugin emits without observing it.
+// See the package doc: Identity Center publishes no per-user MFA state in any
+// public API, so mfa_enabled is emitted best-effort false. The planner turns
+// this into a warning when an MFA policy binds this source — without it, an
+// estate that SCIM-syncs an IdP into Identity Center silently grades its MFA
+// controls on whichever of the two unioned records loses the tie.
+//
+// Unconditional, unlike the gitlab caveat: no credential and no permission
+// makes this readable.
+func (*Plugin) Caveats() []core.SourceCaveat {
+	return []core.SourceCaveat{{
+		EvidenceType: EvidenceTypeDirectoryUser,
+		Field:        "mfa_enabled",
+		Detail: "AWS publishes no per-user MFA API for Identity Center, so mfa_enabled is " +
+			"emitted best-effort false and can only ever fail an MFA policy, never pass one",
+	}}
+}
+
 // Init is a no-op — configuration is fixed at New.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 

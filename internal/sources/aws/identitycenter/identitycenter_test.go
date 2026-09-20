@@ -1218,3 +1218,25 @@ func TestBlankPermissionSetARNIsSkipped(t *testing.T) {
 		t.Errorf("records = %d, want 1 (the blank ARN contributes none)", len(recs))
 	}
 }
+
+// The plugin must declare the MFA limit its package doc describes, so the
+// planner can warn instead of leaving the operator to read source comments.
+// Identity Center's limit is absolute — no public API exists — so the caveat
+// is unconditional.
+func TestCaveats_DeclaresTheMFAGap(t *testing.T) {
+	var p core.SourcePlugin = New(Options{})
+	c, ok := p.(core.CaveatedSource)
+	if !ok {
+		t.Fatal("aws.identity_center must implement core.CaveatedSource")
+	}
+	cav := c.Caveats()
+	if len(cav) != 1 {
+		t.Fatalf("Caveats() = %+v; want exactly the mfa_enabled caveat", cav)
+	}
+	if cav[0].EvidenceType != EvidenceTypeDirectoryUser || cav[0].Field != "mfa_enabled" {
+		t.Errorf("Caveats()[0] = %+v; want directory_user.mfa_enabled", cav[0])
+	}
+	if cav[0].Detail == "" {
+		t.Error("a caveat with no detail tells the operator nothing to act on")
+	}
+}

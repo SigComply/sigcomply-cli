@@ -137,7 +137,7 @@ func runRosterCheck(t *testing.T, experimental map[string]any, sources ...*roste
 		cfg.Sources[s.id] = map[string]any{}
 	}
 	vaultDir := filepath.Join(t.TempDir(), "vault")
-	cfg.Vault = spec.VaultConfig{Backend: "local", Config: map[string]any{"path": vaultDir}}
+	cfg.Vault = localVault(vaultDir)
 	v := local.New(vaultDir)
 	if err := v.Init(context.Background()); err != nil {
 		t.Fatalf("vault init: %v", err)

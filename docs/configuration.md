@@ -101,6 +101,58 @@ omitted (see the source tables below).
 
 ---
 
+## Source caveats
+
+Some sources emit a field they cannot actually observe. The vendor publishes
+no API for it, or the credential in use cannot reach the one that exists. The
+value is a safe default — almost always `false`, which can fail a control but
+never pass one — rather than a measurement.
+
+That is fine in isolation. It is a problem in the deployment that is most
+common: the planner binds **every** configured source whose emitted types
+intersect a slot, and every ordinary slot is `one-or-more`, so nothing forces
+a choice between two identity sources. On an estate that SCIM-syncs an IdP
+into AWS Identity Center, both bind the MFA policies and their records are
+**unioned** — every Identity Center user fails on a hardcoded `false` while
+the Okta records beside them carry the true answer for the same people.
+
+A source now declares its own limits, and the planner says so at plan time:
+
+```
+[warn] source-caveat: aws.identity_center cannot verify directory_user.mfa_enabled — AWS publishes
+       no per-user MFA API for Identity Center, so mfa_enabled is emitted best-effort false and can
+       only ever fail an MFA policy, never pass one
+[warn] source-caveat: 2 policy/policies read that field from this source:
+       soc2.cc6.1.mfa_enforced_admins, soc2.cc6.1.mfa_enforced_all_users
+[warn] source-caveat: okta also bound to slot "evidence" and not caveated here; pin the slot to
+       stop unioning an unverifiable value with a real one:
+    policies:
+      soc2.cc6.1.mfa_enforced_all_users:
+        bindings:
+          evidence: [okta]
+```
+
+Apply the printed `bindings:` block to pin the slot to the source that holds
+the real answer. When **no** other source on the slot can answer, the warning
+says so instead of suggesting a pin that does not exist — an estate with no
+IdP genuinely cannot demonstrate MFA, and failing is the correct outcome
+rather than an artifact.
+
+**What a caveat is not.** It never changes a policy's status, its counts, or
+the compliance score, and nothing about it reaches the SigComply Cloud
+payload. It is a warning, not a grade: a read the CLI cannot complete is an
+operator problem to fix now, not a quality axis to report. Runs are unaffected
+in every other respect.
+
+Shipped caveats:
+
+| Source | Field | Kind | Why |
+|---|---|---|---|
+| `aws.identity_center` | `directory_user.mfa_enabled` | Absolute | AWS publishes no per-user MFA API for Identity Center — the per-user and instance-level MFA actions are console-only, with no SDK model, CLI command, Terraform resource or CloudFormation type |
+| `gitlab` | `directory_user.mfa_enabled` | Conditional | `two_factor_enabled` is readable only by a group-owner / instance-admin token; a lesser-privileged token's per-member read is refused and the value falls back to `false`. Declared unconditionally because plan time cannot know the token's privilege — the per-member read happens during collection |
+
+---
+
 ## Credentials
 
 Credentials are **never** stored in the config file. They come from environment variables
@@ -157,7 +209,10 @@ as the roster skips the traversal and needs just the first two.
 > is `false` rather than `true` deliberately — a wrong answer that
 > *fails* a control is recoverable, one that passes it is not. Bind the
 > MFA policies to the IdP that actually holds that state with a
-> per-policy `bindings:` override. `is_admin` used to be the second gap;
+> per-policy `bindings:` override. **You no longer have to notice this
+> yourself:** the plugin declares the limit as a source caveat, and the
+> planner prints a `source-caveat:` warning naming the affected policies
+> and the exact pin — see [§Source caveats](#source-caveats). `is_admin` used to be the second gap;
 > the permission-set traversal now answers it, resolving group
 > membership, so the admin-MFA policy evaluates instead of erroring.
 
@@ -214,7 +269,7 @@ Config keys (under `sources.gitlab`): `group` (group ID or full path, e.g. `my-g
 
 **Required token scope:** `read_api`; the token's user needs at least **Reporter** on each project for the merge-request, pipeline and deployment reads. The collector enumerates the group's projects (`include_subgroups`) and emits one `git_repository` record per project — substitutable for GitHub repositories in every branch-protection / code-review policy. Per project it reads branch-protection, approval-rule, approval-config, and push-rule state. It also lists the group's members and emits one `directory_user` record per member — substitutable for GitHub / Okta / AWS IAM identities in every MFA / admin / lifecycle policy. Mapping: `is_admin` ← group role ≥ Maintainer **or** instance admin; `is_active` ← member state `active`; `mfa_enabled` ← the user's `two_factor_enabled`; `id`/`identity_key`/`username` ← username (roster aliases match on it).
 
-**Known limitations (v1):** some signals are premium/ultimate features and degrade gracefully to `false` on free tier (the endpoint 404s): `requires_signed_commits` (push rule `reject_unsigned_commits`) and `require_code_owner_reviews`. Pipeline SAST / Secret Detection / Dependency scanning have **no read-only project-settings API** (they are configured in `.gitlab-ci.yml`), so `secret_scanning_enabled`, `code_scanning_enabled`, and `dependabot_alerts_enabled` are always emitted as `false`; `push_protection_enabled` maps to GitLab's pre-receive secret detection. For `pull_request`, the approver list (`approved_by`) **is** readable on Free, which is what the change-approval policies evaluate — but approval *rules* (`approvals_required`, per-rule configuration) are Premium/Ultimate and the endpoints 403/404 on Free, degrading to zero rather than failing the run. GitLab exposes no approval timestamp at all, so `approved_before_merge` is true whenever an independent approval exists (an approval cannot be recorded there after the merge). For `directory_user`, `mfa_enabled` and instance-admin status are only readable with a **group-owner / instance-admin token** (via the Users API); with a lesser-privileged token the per-member read is forbidden and `mfa_enabled` is best-effort `false` — provision an owner/admin token where MFA-enforcement policies matter. Member email is likewise only exposed to elevated tokens, so the optional `email` field may be omitted.
+**Known limitations (v1):** some signals are premium/ultimate features and degrade gracefully to `false` on free tier (the endpoint 404s): `requires_signed_commits` (push rule `reject_unsigned_commits`) and `require_code_owner_reviews`. Pipeline SAST / Secret Detection / Dependency scanning have **no read-only project-settings API** (they are configured in `.gitlab-ci.yml`), so `secret_scanning_enabled`, `code_scanning_enabled`, and `dependabot_alerts_enabled` are always emitted as `false`; `push_protection_enabled` maps to GitLab's pre-receive secret detection. For `pull_request`, the approver list (`approved_by`) **is** readable on Free, which is what the change-approval policies evaluate — but approval *rules* (`approvals_required`, per-rule configuration) are Premium/Ultimate and the endpoints 403/404 on Free, degrading to zero rather than failing the run. GitLab exposes no approval timestamp at all, so `approved_before_merge` is true whenever an independent approval exists (an approval cannot be recorded there after the merge). For `directory_user`, `mfa_enabled` and instance-admin status are only readable with a **group-owner / instance-admin token** (via the Users API); with a lesser-privileged token the per-member read is forbidden and `mfa_enabled` is best-effort `false` — provision an owner/admin token where MFA-enforcement policies matter. This is declared as a [source caveat](#source-caveats), so a run that binds `gitlab` to an MFA policy warns rather than leaving you to find it here; the warning fires whatever the token's privilege, because plan time cannot know which kind it has. Member email is likewise only exposed to elevated tokens, so the optional `email` field may be omitted.
 
 ### Okta
 
