@@ -28,6 +28,7 @@ func TestGCPBackupConformance(t *testing.T) {
 	recs := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes:  sourcetest.BuiltinEvidenceTypes(t),
+		WantScope:      &core.RecordScope{Project: "e2e-project"},
 		OptionalFields: []string{"backup_plan.retention_days", "backup_plan.covers_resource_types"},
 	})
 	if len(recs) != 1 {

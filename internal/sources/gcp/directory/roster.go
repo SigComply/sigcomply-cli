@@ -60,7 +60,7 @@ func userDisplayName(u *admin.User) string {
 }
 
 // rosterRecord builds one roster_entry record from a Workspace user.
-func rosterRecord(u *admin.User, now time.Time) (core.EvidenceRecord, error) {
+func rosterRecord(u *admin.User, now time.Time, scope *core.RecordScope) (core.EvidenceRecord, error) {
 	status, sourceStatus := userStatus(u)
 	payload := rosterPayload{
 		ID:           u.Id,
@@ -81,6 +81,7 @@ func rosterRecord(u *admin.User, now time.Time) (core.EvidenceRecord, error) {
 		Payload:     body,
 		SourceID:    SourceID,
 		CollectedAt: now,
+		Scope:       scope,
 	}, nil
 }
 

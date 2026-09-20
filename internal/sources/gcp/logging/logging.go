@@ -109,6 +109,17 @@ func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 // Preserved for symmetry with other plugins.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
+// scope stamps every record with the project it came from. The project is not
+// a label: each API call this plugin makes is addressed to it, so the record
+// and its scope come from the same request by construction. Nil only when
+// unset, which the factory rejects.
+func (p *Plugin) scope() *core.RecordScope {
+	if p.projectID == "" {
+		return nil
+	}
+	return &core.RecordScope{Project: p.projectID}
+}
+
 // logGroupPayload is the cross-vendor log_group shape (see
 // internal/evidence_types/schemas/log_group.v1.json). The required fields
 // (id, name, retention_set, retention_days) are always emitted — the
@@ -141,6 +152,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		return nil, fmt.Errorf("gcp.logging: list log buckets: %w", err)
 	}
 	now := p.now()
+	scope := p.scope()
 	records := make([]core.EvidenceRecord, 0, len(buckets))
 	for _, b := range buckets {
 		if b == nil {
@@ -157,6 +169,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 			Payload:     body,
 			SourceID:    SourceID,
 			CollectedAt: now,
+			Scope:       scope,
 		})
 	}
 	sort.Slice(records, func(i, j int) bool { return records[i].ID < records[j].ID })

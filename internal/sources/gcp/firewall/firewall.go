@@ -116,6 +116,17 @@ func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 // Preserved for symmetry with other plugins.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
+// scope stamps every record with the project it came from. The project is not
+// a label: each API call this plugin makes is addressed to it, so the record
+// and its scope come from the same request by construction. Nil only when
+// unset, which the factory rejects.
+func (p *Plugin) scope() *core.RecordScope {
+	if p.projectID == "" {
+		return nil
+	}
+	return &core.RecordScope{Project: p.projectID}
+}
+
 // rulePayload is the cross-vendor firewall_rule shape. Every required
 // field is always emitted (never omitempty): the evaluator errors on any
 // payload that omits a field a policy clause references, and the network
@@ -163,6 +174,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		return nil, fmt.Errorf("gcp.firewall: list firewalls: %w", err)
 	}
 	now := p.now()
+	scope := p.scope()
 	records := make([]core.EvidenceRecord, 0, len(firewalls))
 	for _, fw := range firewalls {
 		if fw == nil {
@@ -181,6 +193,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 				Payload:     body,
 				SourceID:    SourceID,
 				CollectedAt: now,
+				Scope:       scope,
 			})
 		}
 	}

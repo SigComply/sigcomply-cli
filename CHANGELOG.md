@@ -13,6 +13,28 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **GCP evidence records now carry their provenance.** All 18 `gcp.*` plugins
+  left `EvidenceRecord.Scope` unset, so the only trace of which project an
+  envelope came from was the instance key in `source_id` — configuration, not
+  evidence. Each record is now stamped with the scoping key the collection call
+  was addressed to: `{"project": "<project_id>"}` for the 16 project-scoped
+  sources, `{"account": "<organization_id>"}` for the org-scoped `gcp.scc`, and
+  `{"account": "<customer_id>"}` for `gcp.directory`. Because the scope is
+  canonicalized into the Ed25519-signed envelope, an auditor holding a single
+  envelope file months later can tell which project it describes without
+  trusting the config beside it.
+  It is **observed, not asserted**: the project/org/customer is addressed in
+  every API call the plugin makes, so record and scope come from the same
+  request by construction — a project the credential cannot read errors rather
+  than quietly returning another project's data. `gcp.directory` left at the
+  default `my_customer` alias is deliberately left **unstamped**: the alias
+  means "whoever this credential is" and names no directory, so there is
+  nothing truthful to record.
+  No config change, no new API call, no new permission, and nothing new on the
+  wire — the scope stays vault-side and has no field in the cloud submission
+  payload. `sourcetest.Options.WantScope` makes the stamp a build-time
+  assertion for any plugin that adopts it.
+
 - **Okta emits `password_policy`.** The six password controls under SOC 2
   CC6.1 and ISO 8.5 — minimum length, expiry, reuse prevention and the four
   character classes — had exactly one emitter, `aws.password_policy`, so any

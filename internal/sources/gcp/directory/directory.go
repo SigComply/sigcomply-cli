@@ -120,6 +120,19 @@ func (*Plugin) Emits() []string { return []string{EvidenceTypeID, RosterEvidence
 // Preserved for symmetry with other plugins.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
+// scope stamps every record with the Workspace customer it came from — the
+// account boundary for a directory, the same role a subscription plays for
+// azure.entra. The defaultCustomer alias is deliberately NOT stamped: it means
+// "whoever this credential is", so signing it into evidence would assert a
+// directory boundary that names nothing. Provenance is recorded only when the
+// operator declared which customer they audit.
+func (p *Plugin) scope() *core.RecordScope {
+	if p.customer == "" || p.customer == defaultCustomer {
+		return nil
+	}
+	return &core.RecordScope{Account: p.customer}
+}
+
 // userPayload is the cross-vendor directory_user shape this plugin emits.
 // The policy-read booleans (mfa_enabled/is_admin/is_active) are emitted
 // unconditionally so a policy filtering on them always finds them present
@@ -149,20 +162,21 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		return nil, fmt.Errorf("gcp.directory: list users: %w", err)
 	}
 	now := p.now()
+	scope := p.scope()
 	records := make([]core.EvidenceRecord, 0, len(users))
 	for _, u := range users {
 		if u == nil {
 			continue
 		}
 		if wantUsers {
-			r, err := directoryUserRecord(u, now)
+			r, err := directoryUserRecord(u, now, scope)
 			if err != nil {
 				return nil, err
 			}
 			records = append(records, r)
 		}
 		if wantRoster {
-			r, err := rosterRecord(u, now)
+			r, err := rosterRecord(u, now, scope)
 			if err != nil {
 				return nil, err
 			}
@@ -174,7 +188,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 }
 
 // directoryUserRecord builds one directory_user record from a Workspace user.
-func directoryUserRecord(u *admin.User, now time.Time) (core.EvidenceRecord, error) {
+func directoryUserRecord(u *admin.User, now time.Time, scope *core.RecordScope) (core.EvidenceRecord, error) {
 	status, _ := userStatus(u)
 	payload := userPayload{
 		ID:          u.Id,
@@ -202,6 +216,7 @@ func directoryUserRecord(u *admin.User, now time.Time) (core.EvidenceRecord, err
 		Payload:     body,
 		SourceID:    SourceID,
 		CollectedAt: now,
+		Scope:       scope,
 	}, nil
 }
 

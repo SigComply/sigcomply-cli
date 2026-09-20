@@ -63,6 +63,14 @@ func TestGCPDirectoryConformance(t *testing.T) {
 	if admins != 1 || mfa != 2 || active != 2 {
 		t.Errorf("admins=%d mfa=%d active=%d, want 1/2/2 (archived user inactive)", admins, mfa, active)
 	}
+	// The cassette is recorded against the "my_customer" alias, which names no
+	// directory — so no scope is stamped rather than one invented. A declared
+	// customer_id is covered in directory_test.go.
+	for _, r := range recs {
+		if r.Scope != nil {
+			t.Errorf("record %s Scope = %+v; want nil for the customer alias", r.ID, r.Scope)
+		}
+	}
 }
 
 func TestGCPDirectoryRosterConformance(t *testing.T) {

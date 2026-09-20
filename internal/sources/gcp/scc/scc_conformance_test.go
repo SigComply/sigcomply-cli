@@ -35,18 +35,24 @@ func TestGCPSCCConformance(t *testing.T) {
 		return New(Options{API: &realSCC{findings: findings, settings: settings}, OrgID: "123", Now: func() time.Time { return fixedNow }})
 	}
 	types := sourcetest.BuiltinEvidenceTypes(t)
+	// gcp.scc is org-scoped, not project-scoped, so the organization is the
+	// account boundary every record is stamped with.
+	orgScope := &core.RecordScope{Account: "123"}
 
 	threat := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeThreatService}},
 		EvidenceTypes: types, OptionalFields: []string{"threat_detection_service.region"},
+		WantScope: orgScope,
 	})
 	sec := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeSecurityService}},
 		EvidenceTypes: types,
+		WantScope:     orgScope,
 	})
 	vuln := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeVulnFinding}},
 		EvidenceTypes: types, OptionalFields: []string{"vulnerability_finding.title", "vulnerability_finding.cve_id", "vulnerability_finding.score"},
+		WantScope: orgScope,
 	})
 	if len(threat) != 1 || len(sec) != 1 || len(vuln) != 1 {
 		t.Fatalf("records: threat=%d sec=%d vuln=%d, want 1/1/1", len(threat), len(sec), len(vuln))

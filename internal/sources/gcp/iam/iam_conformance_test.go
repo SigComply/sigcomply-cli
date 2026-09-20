@@ -28,6 +28,7 @@ func TestGCPIAMConformance(t *testing.T) {
 	recs := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes: sourcetest.BuiltinEvidenceTypes(t),
+		WantScope:     &core.RecordScope{Project: "e2e-project"},
 	})
 	if len(recs) != 10 {
 		t.Fatalf("iam_binding records = %d, want 10 (bindings on the seeded project's policy)", len(recs))

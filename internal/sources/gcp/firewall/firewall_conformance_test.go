@@ -28,6 +28,7 @@ func TestGCPFirewallConformance(t *testing.T) {
 	recs := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes:  sourcetest.BuiltinEvidenceTypes(t),
+		WantScope:      &core.RecordScope{Project: "e2e-project"},
 		OptionalFields: []string{"firewall_rule.source_cidr", "firewall_rule.dest_cidr"},
 	})
 	if len(recs) < 1 {

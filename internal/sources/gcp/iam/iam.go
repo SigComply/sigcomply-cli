@@ -94,6 +94,17 @@ func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 // Preserved for symmetry with other plugins.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
+// scope stamps every record with the project it came from. The project is not
+// a label: each API call this plugin makes is addressed to it, so the record
+// and its scope come from the same request by construction. Nil only when
+// unset, which the factory rejects.
+func (p *Plugin) scope() *core.RecordScope {
+	if p.projectID == "" {
+		return nil
+	}
+	return &core.RecordScope{Project: p.projectID}
+}
+
 // bindingPayload is the cross-vendor iam_binding shape.
 type bindingPayload struct {
 	ID               string `json:"id"`
@@ -118,6 +129,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		return nil, fmt.Errorf("gcp.iam: get iam policy: %w", err)
 	}
 	now := p.now()
+	scope := p.scope()
 	records := make([]core.EvidenceRecord, 0)
 	for _, b := range policy.Bindings {
 		if b == nil {
@@ -145,6 +157,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 				Payload:     body,
 				SourceID:    SourceID,
 				CollectedAt: now,
+				Scope:       scope,
 			})
 		}
 	}

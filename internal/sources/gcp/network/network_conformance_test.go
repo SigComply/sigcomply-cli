@@ -28,6 +28,7 @@ func TestGCPNetworkConformance(t *testing.T) {
 	recs := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes:  sourcetest.BuiltinEvidenceTypes(t),
+		WantScope:      &core.RecordScope{Project: "e2e-project"},
 		OptionalFields: []string{"network.region", "network.cidr_block"},
 	})
 	if len(recs) != 1 {

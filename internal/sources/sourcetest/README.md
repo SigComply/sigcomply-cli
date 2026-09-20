@@ -26,6 +26,11 @@ It backs test layers **L1, L2, and L4a** described in
   - **Determinism** — two runs produce identical, ID-sorted output.
   - **Metadata** — `Type`, `SourceID`, and `CollectedAt` are set on
     every record.
+  - **Record scope** (opt-in, `Options.WantScope`) — every record carries
+    exactly the given `core.RecordScope`. Set it for any plugin that knows
+    which account/subscription/project it queried: the scope is signed into
+    the envelope, so an unstamped record loses its provenance. Leave it nil
+    for plugins that are not scope-aware yet.
 - **Cassette wiring** — load a go-vcr v4 cassette, wrap it as an
   `http.RoundTripper`, and install the redaction `BeforeSaveHook` so
   recordings are scrubbed to the stable placeholders defined in the

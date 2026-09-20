@@ -29,6 +29,7 @@ func TestGCPArtifactRegistryConformance(t *testing.T) {
 	recs := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes: sourcetest.BuiltinEvidenceTypes(t),
+		WantScope:     &core.RecordScope{Project: "e2e-project"},
 	})
 	if len(recs) != 1 {
 		t.Fatalf("container_registry records = %d, want 1", len(recs))

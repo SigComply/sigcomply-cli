@@ -28,6 +28,7 @@ func TestGCPSecretManagerConformance(t *testing.T) {
 	recs := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes:  sourcetest.BuiltinEvidenceTypes(t),
+		WantScope:      &core.RecordScope{Project: "e2e-project"},
 		OptionalFields: []string{"secret.last_rotated_days"},
 	})
 	if len(recs) != 1 {

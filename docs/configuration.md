@@ -310,6 +310,20 @@ A malformed `userAccountControl`/`accountExpires` fails the collection rather th
 
 GCP sources use [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials) (ADC) — no SigComply-specific credential config. Set ADC up in your CI workflow (`google-github-actions/auth` via Workload Identity Federation, or `gcloud auth application-default login` locally) before running `sigcomply check`. Project-scoped GCP sources (`gcp.storage`, `gcp.iam`, `gcp.compute`, `gcp.sql`, and the rest) take a `project_id` config key; the two exceptions are `gcp.directory` (account/customer-scoped — `customer_id`) and `gcp.scc` (organization-scoped — `organization_id`). A full worked GCP-only SOC 2 config — the gcp.* source family covering identity, network, encryption, logging, change-tracking, and security posture, with the password-policy controls deferred to manual evidence (see WU-0.3) — lives at [`docs/architecture/examples/gcp-project.sigcomply.yaml`](architecture/examples/gcp-project.sigcomply.yaml).
 
+**The scoping key is also the evidence's provenance.** Every GCP record carries
+a `scope` — `{"project": "<project_id>"}` for the project-scoped sources,
+`{"account": "<organization_id>"}` for `gcp.scc`, and
+`{"account": "<customer_id>"}` for `gcp.directory` when one is declared. It is
+observed, not asserted: the scoping key is addressed in every API call the
+plugin makes, so the record and its scope come from the same request (a project
+you cannot read returns an error, never another project's data). The scope is
+canonicalized into the Ed25519-signed envelope, so an auditor reading one
+envelope file months later learns which project it came from without trusting
+the surrounding config. It stays vault-side and never crosses the aggregation
+boundary. `gcp.directory` left at the default `my_customer` alias stamps **no**
+scope: the alias means "whoever this credential is" and names no directory, so
+there is nothing truthful to record.
+
 The `gcp.directory` source is the exception: it reads Google Workspace / Cloud Identity users via the **Admin SDK Directory API**, which is **account/customer-scoped, not project-scoped**. Config keys (under `sources.gcp.directory`): `customer_id` is optional and defaults to the `my_customer` alias (resolves to the credential's own organization); set it to an explicit `C0...` customer ID only to target a different account.
 
 It enumerates all users and emits one `directory_user` record each — substitutable for AWS IAM / Okta / GitHub / GitLab identities in every MFA / admin / lifecycle policy. Mapping: `mfa_enabled` ← the user's 2-step-verification enrollment (`isEnrolledIn2Sv`); `is_admin` ← super-admin **or** delegated admin; `is_active` ← neither `suspended` nor `archived`; `id` ← the directory user id; `email`/`identity_key` ← `primaryEmail`; `display_name` ← full name. Per-user 2SV enrollment is only meaningfully populated for users in the customer's own domain(s).

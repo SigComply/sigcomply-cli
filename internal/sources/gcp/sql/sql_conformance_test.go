@@ -29,6 +29,7 @@ func TestGCPSQLConformance(t *testing.T) {
 	recs := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes:  sourcetest.BuiltinEvidenceTypes(t),
+		WantScope:      &core.RecordScope{Project: "e2e-project"},
 		OptionalFields: []string{"managed_database_instance.kms_key_id"},
 	})
 	if len(recs) != 1 {

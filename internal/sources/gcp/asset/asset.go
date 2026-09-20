@@ -128,6 +128,17 @@ func (*Plugin) Emits() []string { return []string{EvidenceTypeID} }
 // Init is a no-op for this plugin — configuration is fixed at New.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
+// scope stamps every record with the project it came from. The project is not
+// a label: each API call this plugin makes is addressed to it, so the record
+// and its scope come from the same request by construction. Nil only when
+// unset, which the factory rejects.
+func (p *Plugin) scope() *core.RecordScope {
+	if p.projectID == "" {
+		return nil
+	}
+	return &core.RecordScope{Project: p.projectID}
+}
+
 // trackingPayload is the cross-vendor config_change_tracking shape (see
 // internal/evidence_types/schemas/config_change_tracking.v1.json). The
 // required fields (id, name, is_recording) plus all_resource_types (read
@@ -165,6 +176,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		Payload:     body,
 		SourceID:    SourceID,
 		CollectedAt: p.now(),
+		Scope:       p.scope(),
 	}}, nil
 }
 

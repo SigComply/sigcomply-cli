@@ -720,11 +720,55 @@ optional `[instance]` suffix). Only the local vault backend rejects path
 escapes; S3, GCS and Azure concatenate keys directly, so the grammar is
 what keeps a config from writing outside its own run folder.
 
-(Multi-scope as a first-class *per-record* concept — a `scope_id` on
-every evidence record, with scope-aware aggregation — remains deferred to
-v2. An instance is a configuration-level answer to the same question:
-it distinguishes accounts by who collected the evidence, not by a field
-inside each record.)
+(Multi-scope as a first-class *per-record* concept — a `scope_id` that
+*aggregation* keys on — remains deferred to v2. An instance is a
+configuration-level answer to the same question: it distinguishes accounts by
+who collected the evidence. Records do carry a scope today, but only as
+provenance — see below — never as something the evaluator or aggregator
+branches on.)
+
+---
+
+## Record scope: provenance, not configuration
+
+`core.EvidenceRecord.Scope` (`*core.RecordScope`, fields `Account` /
+`Region` / `Project`, all `omitempty`) records **which account, region or
+project this observation was read from**. It is optional and
+pointer-typed, so a plugin that does not set it serializes
+byte-identically to a pre-scope envelope; plugins adopt it incrementally.
+
+Three properties make it worth setting:
+
+1. **It is inside the signature.** `sign.Envelope` canonicalizes
+   `{format_version, produced_at, records}`, so the scope is covered by the
+   envelope's Ed25519 signature alongside the payload. An auditor holding one
+   envelope file and nothing else can tell which account it came from, without
+   trusting the config that happened to sit next to it.
+2. **It must be observed, not declared.** Stamp a value the collection call
+   itself is addressed to, so label and data cannot diverge. Where they *can*
+   diverge, resolve the real one first — `azure.entra` reads `GET /organization`
+   at construction and refuses to run when a declared `tenant_id` disagrees,
+   because Graph's base URL carries no tenant and the token alone decides which
+   directory answers. Signed evidence asserting a boundary it never came from
+   is worse than no boundary at all.
+3. **It never crosses the aggregation boundary.** The scope stays vault-side;
+   `SubmissionPayload` has no field for it (Invariant #1, and
+   [`06-aggregation.md`](06-aggregation.md) §Things that do not cross).
+
+What the shipped plugins stamp:
+
+| Plugin(s) | Scope | Why it is true by construction |
+|---|---|---|
+| `gcp.*` — the 16 project-scoped sources | `Project: <project_id>` | Every API call is addressed to that project; a project the credential cannot read errors rather than returning another project's data |
+| `gcp.scc` | `Account: <organization_id>` | Org-scoped — SCC is enabled and queried at the organization |
+| `gcp.directory` | `Account: <customer_id>`, **unset** for the default `my_customer` alias | The alias means "whoever this credential is" and names no directory, so there is nothing truthful to stamp |
+| `azure.*` — the 13 ARM-plane sources | `Account: <subscription_id>` | The subscription is passed into the client; a wrong value 403s |
+| `azure.entra` | `Account: <observed tenant>` | Resolved from the credential via `GET /organization`, never from config |
+| `aws.identity_center` | `Account` + `Region` | The identity-store id (discovered from `ListInstances`) on identity records; the **target AWS account** on each `iam_binding`, which is the account the grant opens |
+
+Every other plugin leaves it nil today. When adding one, assert it in the
+plugin's conformance run: `sourcetest.Options.WantScope` fails the build if any
+record is unstamped or carries the wrong value.
 
 ---
 

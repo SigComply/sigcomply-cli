@@ -271,3 +271,55 @@ var errBoom = errBoomType("boom")
 type errBoomType string
 
 func (e errBoomType) Error() string { return string(e) }
+
+// TestCheckConformance_WantScope covers the record-scope assertion: a plugin
+// that knows which account/project it queried must stamp that onto every
+// record, because the scope is inside the signed envelope bytes.
+func TestCheckConformance_WantScope(t *testing.T) {
+	const testProject = "acme-prod"
+	scoped := func(name string, scope *core.RecordScope) core.EvidenceRecord {
+		r := widgetRecord(name, "us", true)
+		r.Scope = scope
+		return r
+	}
+	want := &core.RecordScope{Project: testProject}
+
+	t.Run("match", func(t *testing.T) {
+		opts := Options{
+			Plugin:        newPlugin(scoped("a", &core.RecordScope{Project: testProject})),
+			EvidenceTypes: testTypes(t),
+			WantScope:     want,
+		}
+		if _, errs := checkConformance(context.Background(), &opts); len(errs) != 0 {
+			t.Errorf("expected no errors, got %v", errs)
+		}
+	})
+
+	cases := []struct {
+		name   string
+		record core.EvidenceRecord
+		want   string
+	}{
+		{"unstamped", scoped("a", nil), "nil Scope"},
+		{"wrong project", scoped("a", &core.RecordScope{Project: "someone-elses-project"}), "Scope ="},
+		{"wrong field", scoped("a", &core.RecordScope{Account: testProject}), "Scope ="},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := Options{Plugin: newPlugin(tc.record), EvidenceTypes: testTypes(t), WantScope: want}
+			_, errs := checkConformance(context.Background(), &opts)
+			if !errsContain(errs, tc.want) {
+				t.Fatalf("expected an error containing %q; got %v", tc.want, errs)
+			}
+		})
+	}
+}
+
+// TestCheckConformance_NoWantScopeIgnoresScope keeps the check opt-in: plugins
+// that are not yet scope-aware are not failed by the harness.
+func TestCheckConformance_NoWantScopeIgnoresScope(t *testing.T) {
+	opts := Options{Plugin: newPlugin(widgetRecord("a", "us", true)), EvidenceTypes: testTypes(t)}
+	if _, errs := checkConformance(context.Background(), &opts); len(errs) != 0 {
+		t.Errorf("expected no errors, got %v", errs)
+	}
+}

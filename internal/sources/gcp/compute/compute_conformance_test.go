@@ -31,6 +31,7 @@ func TestGCPComputeConformance(t *testing.T) {
 	recs := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes:  sourcetest.BuiltinEvidenceTypes(t),
+		WantScope:      &core.RecordScope{Project: "e2e-project"},
 		OptionalFields: []string{"compute_instance.monitoring_enabled", "compute_instance.metadata_service_hardened"},
 	})
 	if len(recs) != 1 {

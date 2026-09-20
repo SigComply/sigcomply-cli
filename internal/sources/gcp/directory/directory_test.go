@@ -305,3 +305,44 @@ func TestRealDirectory_ListUsers_Error(t *testing.T) {
 		t.Fatal("want error from 403; got nil")
 	}
 }
+
+// TestCollect_StampsDeclaredCustomer: a declared customer_id is the Workspace
+// account every record was read from, so it becomes the record scope — on both
+// emitted types, since one listing produces both.
+func TestCollect_StampsDeclaredCustomer(t *testing.T) {
+	fake := &fakeAPI{users: []*admin.User{{Id: "100", PrimaryEmail: testAliceEmail}}}
+	p := New(Options{API: fake, Customer: testCustomerID, Now: func() time.Time { return time.Unix(0, 0).UTC() }})
+
+	for _, typeID := range []string{EvidenceTypeID, RosterEvidenceTypeID} {
+		records, err := p.Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{typeID}})
+		if err != nil {
+			t.Fatalf("Collect(%s): %v", typeID, err)
+		}
+		if len(records) != 1 {
+			t.Fatalf("Collect(%s): len = %d; want 1", typeID, len(records))
+		}
+		want := core.RecordScope{Account: testCustomerID}
+		if records[0].Scope == nil || *records[0].Scope != want {
+			t.Errorf("Collect(%s): Scope = %+v; want %+v", typeID, records[0].Scope, want)
+		}
+	}
+}
+
+// TestCollect_DoesNotStampTheCustomerAlias: "my_customer" is an alias meaning
+// "whoever this credential is", not an identifier. Signing it into evidence as
+// a provenance tag would assert a directory boundary that names nothing, so an
+// undeclared customer leaves the scope unset rather than inventing one.
+func TestCollect_DoesNotStampTheCustomerAlias(t *testing.T) {
+	for _, customer := range []string{"", defaultCustomer} {
+		fake := &fakeAPI{users: []*admin.User{{Id: "100", PrimaryEmail: testAliceEmail}}}
+		p := New(Options{API: fake, Customer: customer, Now: func() time.Time { return time.Unix(0, 0).UTC() }})
+
+		records, err := p.Collect(context.Background(), directoryReq())
+		if err != nil {
+			t.Fatalf("Collect(customer=%q): %v", customer, err)
+		}
+		if records[0].Scope != nil {
+			t.Errorf("Collect(customer=%q): Scope = %+v; want nil", customer, records[0].Scope)
+		}
+	}
+}

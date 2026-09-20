@@ -178,6 +178,18 @@ func (*Plugin) Emits() []string {
 // Init is a no-op for this plugin — configuration is fixed at New.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 
+// scope stamps every record with the organization it came from. gcp.scc is the
+// one org-scoped GCP plugin — Security Command Center is enabled and queried at
+// the organization, not the project — so the org is the account boundary here.
+// Every API call is addressed to it, so record and scope come from the same
+// request by construction. Nil only when unset, which the factory rejects.
+func (p *Plugin) scope() *core.RecordScope {
+	if p.orgID == "" {
+		return nil
+	}
+	return &core.RecordScope{Account: p.orgID}
+}
+
 // threatServicePayload is the cross-vendor threat_detection_service shape.
 type threatServicePayload struct {
 	ID        string `json:"id"`
@@ -298,6 +310,7 @@ func (p *Plugin) collectFindings(ctx context.Context) ([]core.EvidenceRecord, er
 		return nil, fmt.Errorf("gcp.scc: list findings: %w", err)
 	}
 	now := p.now()
+	scope := p.scope()
 	records := make([]core.EvidenceRecord, 0, len(findings))
 	for i := range findings {
 		f := findings[i]
@@ -328,6 +341,7 @@ func (p *Plugin) collectFindings(ctx context.Context) ([]core.EvidenceRecord, er
 			Payload:     body,
 			SourceID:    SourceID,
 			CollectedAt: now,
+			Scope:       scope,
 		})
 	}
 	sort.Slice(records, func(i, j int) bool { return records[i].ID < records[j].ID })
@@ -346,6 +360,7 @@ func (p *Plugin) singleRecord(evidenceType, id string, payload any) ([]core.Evid
 		Payload:     body,
 		SourceID:    SourceID,
 		CollectedAt: p.now(),
+		Scope:       p.scope(),
 	}}, nil
 }
 

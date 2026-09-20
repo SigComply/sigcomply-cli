@@ -49,6 +49,14 @@ type Options struct {
 	// AllowEmpty permits a Collect that emits zero records. By default an
 	// empty result is a failure — a conformance run should exercise records.
 	AllowEmpty bool
+
+	// WantScope, when set, asserts every emitted record carries exactly this
+	// core.RecordScope. A plugin that knows which account/subscription/project
+	// it queried should say so on each record: the scope is canonicalized into
+	// the signed envelope bytes, so it is the provenance an auditor reads back
+	// months later. Leave nil for plugins that are not scope-aware yet — the
+	// field is populated incrementally (see core.EvidenceRecord.Scope).
+	WantScope *core.RecordScope
 }
 
 // RunConformance collects from opts.Plugin and asserts, via t, that every
@@ -114,14 +122,14 @@ func checkConformance(ctx context.Context, opts *Options) ([]core.EvidenceRecord
 	emits := toSet(opts.Plugin.Emits())
 	exempt := toSet(opts.OptionalFields)
 	for i := range records {
-		errs = append(errs, checkRecord(i, &records[i], emits, exempt, opts.EvidenceTypes)...)
+		errs = append(errs, checkRecord(i, &records[i], emits, exempt, opts.EvidenceTypes, opts.WantScope)...)
 	}
 	return records, errs
 }
 
 // checkRecord runs the metadata + schema-conformance + completeness checks for
 // a single emitted record.
-func checkRecord(i int, r *core.EvidenceRecord, emits, exempt map[string]bool, types *registry.Registry[core.EvidenceType]) []error {
+func checkRecord(i int, r *core.EvidenceRecord, emits, exempt map[string]bool, types *registry.Registry[core.EvidenceType], wantScope *core.RecordScope) []error {
 	prefix := fmt.Sprintf("record[%d] (id=%q type=%q)", i, r.ID, r.Type)
 	var errs []error
 
@@ -139,6 +147,14 @@ func checkRecord(i int, r *core.EvidenceRecord, emits, exempt map[string]bool, t
 	}
 	if r.CollectedAt.IsZero() {
 		errs = append(errs, fmt.Errorf("%s: zero CollectedAt", prefix))
+	}
+	if wantScope != nil {
+		switch {
+		case r.Scope == nil:
+			errs = append(errs, fmt.Errorf("%s: nil Scope; want %+v (the scope is signed into the envelope — an unstamped record loses its provenance)", prefix, *wantScope))
+		case *r.Scope != *wantScope:
+			errs = append(errs, fmt.Errorf("%s: Scope = %+v, want %+v", prefix, *r.Scope, *wantScope))
+		}
 	}
 
 	et, ok := types.Lookup(r.Type)

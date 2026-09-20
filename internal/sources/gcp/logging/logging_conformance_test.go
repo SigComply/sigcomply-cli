@@ -28,6 +28,7 @@ func TestGCPLoggingConformance(t *testing.T) {
 	recs := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes: sourcetest.BuiltinEvidenceTypes(t),
+		WantScope:     &core.RecordScope{Project: "e2e-project"},
 	})
 	if len(recs) != 2 {
 		t.Fatalf("log_group records = %d, want 2 (_Default + _Required)", len(recs))
