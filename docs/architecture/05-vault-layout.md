@@ -309,10 +309,18 @@ one fresh keypair.
 
 ### Canonical structure
 
+`produced_at` is the **run's** reference time, captured once when the run
+starts and threaded through every envelope it writes — not the moment this
+file hit disk. It therefore *precedes* every `collected_at` inside it,
+which reads backwards until you know why: one `now` per run is what makes
+a re-run byte-identical (Principle #7). The honest as-of for any single
+observation is that record's own `collected_at`, and those spread across
+the run's whole duration — 15–25 minutes for a daily cadence.
+
 ```json
 {
   "format_version": "envelope.v1",
-  "produced_at":    "2026-02-15T14:00:42Z",
+  "produced_at":    "2026-02-15T13:58:30Z",
 
   "records": [
     {

@@ -266,11 +266,18 @@ it produces are its `Emits()`, and its configuration is the typed `Env`
 its factory consumes. There is no manifest file to keep in sync with
 the Go and no manifest-validation step at startup.
 
-`plugin.yaml` exists **only for project-local plugins** under
-`.sigcomply/plugins/<id>/`, where it is parsed by `LoadPluginManifest`
-so `sigcomply build` knows what to wire in (see §How third parties
-contribute a source and [`07-extensibility.md`](07-extensibility.md)).
-In-tree plugins never use it.
+`plugin.yaml` is a **project-local-only, descriptive** file under
+`.sigcomply/plugins/<id>/`. It is *not* how `sigcomply build` decides
+what to wire in: the build never opens it. Discovery is structural — a
+directory holding a non-test `.go` file whose `package` clause matches
+the directory basename — and the authoritative declaration of a
+project-local plugin's emitted types is the same `Emits()` method an
+in-tree plugin uses. `spec.LoadPluginManifest` parses the format and has
+its own tests, but no production caller; the file is reserved for a
+future validation step. Write it for your own documentation, and keep
+`Emits()` correct regardless. (See §How third parties contribute a
+source and [`07-extensibility.md`](07-extensibility.md).) In-tree
+plugins have no manifest at all.
 
 ---
 
@@ -895,17 +902,22 @@ difference is *when* the package gets compiled in.
 The short version:
 
 1. Create the directory `.sigcomply/plugins/acme.internal_iam/`.
-2. Author the project-local manifest `plugin.yaml` declaring `id`,
-   `emits`, and `config_schema`. (This project-local manifest is real;
-   in-tree plugins have none.)
+2. Optionally author the project-local manifest `plugin.yaml` declaring
+   `id`, `emits`, and `config_schema`. (This file exists only for
+   project-local plugins — in-tree plugins have none — but nothing
+   consumes it yet: `sigcomply build` never reads it, and `Emits()` in
+   step 3 is what actually declares the types.)
 3. Author `plugin.go` implementing `SourcePlugin` and calling
    `sources.RegisterFactory(...)` in `init()` — same signature, same
    registry as the in-tree plugins.
 4. If the plugin needs an evidence shape not already shipped, drop a
    JSON Schema under `.sigcomply/evidence_types/<id>.v<n>.json` (see
    [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md)).
-   **Project-local evidence types are planned (part of `sigcomply
-   build`), not yet shipped** — today only embedded in-tree types load.
+   **This is wired** — the orchestrator reads every `*.json` file
+   directly under that directory at bootstrap and registers it; no
+   recompile, and `sigcomply build` is not involved. Only JSON files
+   load: a *Go* package at `.sigcomply/evidence_types/<id>/` has no
+   registration hook and never loads.
 5. Run `sigcomply build` — this scans `.sigcomply/plugins/`, generates
    a wrapper that blank-imports each project-local package (so their
    `init()` factories register at startup), and compiles a

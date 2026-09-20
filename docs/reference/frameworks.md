@@ -21,7 +21,7 @@ framework: soc2
 
 ### `init-ci` is SOC 2 only in v1-alpha
 
-`init-ci` does not yet ship ISO 27001 cadence templates. Running it for any framework other than `soc2` exits `3` (`framework %q not supported in v1-alpha`). See [Commands](commands.md#sigcomply-init-ci).
+Running `init-ci` for any framework other than `soc2` exits `3`. The scaffolded workflows are not in fact framework-specific — nothing in them names a framework, and `check` reads the framework from your config — so the gate reflects that the set has only been validated against SOC 2, not that ISO 27001 templates are missing. For an ISO 27001 project, copy a workflow from `examples/` and adapt it; see [ci-github](../guides/ci-github.md). And see [Commands](commands.md#sigcomply-init-ci).
 
 ## HIPAA is not available
 
@@ -37,6 +37,8 @@ Each framework is a set of policies, and every policy declares an `evidence_mode
 | `manual` | Files uploaded to a bucket folder, resolved from a manual-evidence catalog entry | A PDF-presence check (file present, in the temporal window, valid PDF) |
 
 Each policy maps to one or more framework controls (SOC 2 TSC criteria, or ISO 27001 Annex A controls and clause 4-10 management-system requirements). Automated policies produce their result from live infrastructure state; manual policies attest that the required evidence file exists for the audit period. Both evidence flows are explained in [Concepts](../concepts.md#the-two-evidence-flows).
+
+**An automated check evidences a control's *configured* state, not that the arrangement was exercised.** Several controls require both. A backup that is enabled is not a restore that was tested; an incident-response plan that exists is not one that was rehearsed. Where a control has both halves, the tested half is a separate **manual** entry — `soc2.a1.3.recovery_procedures_tested`, `soc2.cc7.3.incident_response_tested`, `iso27001.5.30.ict_continuity_tested`, `iso27001.5.26.incident_response_tested`. The automated/manual counts below are per *criterion*, so a criterion backed only by configuration checks is not distinguishable from a fully-evidenced one by the count alone; `sigcomply report --view coverage` shows which kind of check backs each control. Two to know about: ISO 27001 **A.8.13** (Information backup) is automated on backup configuration only — its testing requirement is evidenced under A.5.30 — and SOC 2 **CC7.5** is backed by infrastructure recovery settings, with the recovery *activity* evidenced by `soc2.cc7.3.incident_response_tested` and `soc2.a1.3.recovery_procedures_tested`.
 
 ### ISO 27001 control IDs: `A.` versus `C.`
 

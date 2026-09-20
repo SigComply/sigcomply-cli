@@ -224,8 +224,10 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 	if len(records) != 3 {
 		t.Fatalf("len(records) = %d; want 3 (2 users + root)", len(records))
 	}
-	// Sorted by ID: "<root_account>" (0x3C) sorts before AIDA01/AIDA02.
-	if records[0].ID != rootAccountUser || records[1].ID != "AIDA01" || records[2].ID != "AIDA02" {
+	// Sorted by ID. The root record is keyed by its account-unique ARN
+	// (see collectRootRecord), and 'a' (0x61) sorts after 'A' (0x41), so
+	// it comes last rather than first.
+	if records[0].ID != "AIDA01" || records[1].ID != "AIDA02" || records[2].ID != "arn:aws:iam::1:root" {
 		t.Errorf("records not sorted by ID: got %v", []string{records[0].ID, records[1].ID, records[2].ID})
 	}
 	for i := range records {
@@ -237,18 +239,18 @@ func TestCollect_HappyPath_SortsByID(t *testing.T) {
 		}
 	}
 
-	var alice userPayload
-	if err := json.Unmarshal(records[2].Payload, &alice); err != nil {
-		t.Fatalf("Unmarshal alice: %v", err)
+	byID := map[string]userPayload{}
+	for _, rec := range records {
+		var u userPayload
+		if err := json.Unmarshal(rec.Payload, &u); err != nil {
+			t.Fatalf("Unmarshal %s: %v", rec.ID, err)
+		}
+		byID[rec.ID] = u
 	}
-	if !alice.MFAEnabled {
+	if alice := byID["AIDA02"]; !alice.MFAEnabled {
 		t.Errorf("alice.MFAEnabled = false; want true")
 	}
-	var bob userPayload
-	if err := json.Unmarshal(records[1].Payload, &bob); err != nil {
-		t.Fatalf("Unmarshal bob: %v", err)
-	}
-	if bob.MFAEnabled {
+	if bob := byID["AIDA01"]; bob.MFAEnabled {
 		t.Errorf("bob.MFAEnabled = true; want false")
 	}
 }
@@ -510,5 +512,74 @@ func TestCollect_EmitsDirectPolicyCountAndUnusedDays(t *testing.T) {
 	}
 	if got := byID["neverloggedin"].UnusedDays; got != -1 {
 		t.Errorf("neverloggedin UnusedDays = %d; want -1 (never)", got)
+	}
+}
+
+// rootReportCSVForAccount is rootReportCSV with the account number in the
+// root ARN made explicit, so a test can produce two accounts' reports.
+func rootReportCSVForAccount(account string, mfa bool) []byte {
+	header := "user,arn,mfa_active,password_enabled,access_key_1_active,access_key_2_active\n"
+	row := "<root_account>,arn:aws:iam::" + account + ":root," + strconv.FormatBool(mfa) +
+		",true,false,false\n"
+	return []byte(header + row)
+}
+
+// The credential report's user column is the same "<root_account>"
+// literal in every AWS account. Using it as the record ID made two
+// configured instances' roots indistinguishable: instancePlugin
+// re-stamps SourceID but not ID, and the evaluator dedups violations by
+// ID, so two failing roots collapsed into one violation and
+// resources_failed counted 1. The report's arn column is account-unique
+// and costs no extra API call.
+func TestCollectRootRecord_IDIsAccountUniqueNotTheSentinel(t *testing.T) {
+	ctx := context.Background()
+	collectRoot := func(account string) core.EvidenceRecord {
+		t.Helper()
+		api := &fakeAPI{credReport: rootReportCSVForAccount(account, false)}
+		p := New(Options{API: api})
+		rec, err := p.collectRootRecord(ctx, time.Now().UTC())
+		if err != nil {
+			t.Fatalf("collectRootRecord(%s): %v", account, err)
+		}
+		return rec
+	}
+
+	a := collectRoot("111111111111")
+	b := collectRoot("222222222222")
+
+	if a.ID == rootAccountUser {
+		t.Errorf("root record ID is still the per-account sentinel %q", rootAccountUser)
+	}
+	if a.ID != "arn:aws:iam::111111111111:root" {
+		t.Errorf("root record ID = %q; want the root ARN", a.ID)
+	}
+	if a.ID == b.ID {
+		t.Errorf("two accounts' root records share ID %q; they would dedup into one violation", a.ID)
+	}
+	// record.ID == payload.id is this plugin's invariant for every user.
+	var pa userPayload
+	if err := json.Unmarshal(a.Payload, &pa); err != nil {
+		t.Fatalf("unmarshal root payload: %v", err)
+	}
+	if pa.ID != a.ID {
+		t.Errorf("payload.id = %q, record.ID = %q; want equal", pa.ID, a.ID)
+	}
+	if !pa.IsRoot || pa.DisplayName != "root" {
+		t.Errorf("root payload lost its identity: %+v", pa)
+	}
+}
+
+// A report without an arn column must keep working rather than emitting
+// an empty ID, which the conformance harness rejects.
+func TestCollectRootRecord_FallsBackWhenArnColumnAbsent(t *testing.T) {
+	csv := []byte("user,mfa_active,password_enabled,access_key_1_active,access_key_2_active\n" +
+		"<root_account>,false,true,false,false\n")
+	p := New(Options{API: &fakeAPI{credReport: csv}})
+	rec, err := p.collectRootRecord(context.Background(), time.Now().UTC())
+	if err != nil {
+		t.Fatalf("collectRootRecord: %v", err)
+	}
+	if rec.ID != rootAccountUser {
+		t.Errorf("ID = %q; want the %q fallback when arn is absent", rec.ID, rootAccountUser)
 	}
 }

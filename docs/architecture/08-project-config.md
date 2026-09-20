@@ -36,6 +36,15 @@ is not supported in v1. One repo = one project = one framework (the
 config never needs to span frameworks; multi-framework customers use
 multiple repos.
 
+There is also no `include:`, `extends:` or inherit — and there cannot be
+accidentally, since the loader runs with `KnownFields(true)` and would
+reject the key. The consequence is worth stating plainly because it scales
+with the org rather than the project: **an organization with ten projects
+keeps ten complete copies of the same `sources:`, `vault:` and `controls:`
+blocks in sync by hand**, and nothing detects drift between them. Teams in
+that position template the file from their own tooling today. Config
+inheritance is deferred to v2 along with multi-scope.
+
 The top-level keys are `schema_version` (required, `project.v1`),
 `framework`, `period`, `vault`, `sources`, `policies`, `controls`,
 `cloud`, `output`, `ci`, `ci_environment`, `extensions`, and

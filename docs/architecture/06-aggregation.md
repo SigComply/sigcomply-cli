@@ -419,30 +419,34 @@ policy outcome the project has produced.
 ### What the Rails app does with that data (paid features)
 
 The free CLI handles per-run evaluation and snapshot views. The paid
-Rails app adds the **longitudinal analytical layer**:
+Rails app adds the **longitudinal analytical layer**. The Status column
+is load-bearing — this table has been read as a feature list:
 
-| Feature | Description |
-|---|---|
-| **Deviation timeline** | For each policy in each period: the sequence of pass/fail windows and time-in-violation. Required to substantiate SOC 2 Type II "operated effectively *throughout* the period" claims. |
-| **Drift detection** | Cross-period comparison ("Q1 2026 vs Q1 2025"); flagging of newly failing policies, newly waived policies, and trend lines for compliance score. |
-| **Continuous monitoring alerts** | Real-time notifications (email, Slack, webhook) when a previously-passing policy transitions to fail, or when an exception is about to expire, or when a scheduled workflow has missed its expected run. |
-| **Auditor-ready reports** | Composite Type II reports combining latest state, deviation timelines, exception register, and run-level evidence pointers into one paginated deliverable. |
-| **Multi-project rollup** | An organization with multiple repos (e.g. SOC 2 + ISO 27001 in separate projects) sees a unified compliance posture in one dashboard. |
-| **Auditor seats** | Read-only access for external auditors with scoped permissions to specific periods. |
+| Feature | Status | Description |
+|---|---|---|
+| **Drift detection** | Shipped | Cross-period comparison ("Q1 2026 vs Q1 2025"); flagging of newly failing policies, newly waived policies, and trend lines for compliance score. |
+| **Auditor seats** | Shipped | Read-only access for external auditors with scoped permissions to specific periods. |
+| **Auditor-ready reports** | Shipped | Composite reports combining latest state, the exception register and the control matrix into one paginated deliverable. |
+| **Continuous monitoring alerts** | Partial | Email only today. Slack and webhook channels are planned, not built. |
+| **Deviation timeline** | Planned | For each policy in each period: the sequence of pass/fail windows and time-in-violation. Required to substantiate SOC 2 Type II "operated effectively *throughout* the period" claims. |
+| **Multi-project rollup** | Planned | An organization with multiple repos (e.g. SOC 2 + ISO 27001 in separate projects) seeing a unified posture in one dashboard. Today the dashboard is per-project. |
 
-These are the paid product's value-add. They are not duplicated in
-the free CLI. The data the Rails app needs lives in two places: the
-aggregated per-run submissions the cloud receives (counts, statuses,
-metadata — what powers all of the above), and the customer's vault
-(raw evidence — only consulted when an auditor drills down to specific
-envelopes, via signed read-only links the Rails app can generate).
+These are the paid product's value-add. They are not duplicated in the
+free CLI. Every one of them is computed from **one** source: the
+aggregated per-run submissions the cloud receives — counts, statuses and
+public metadata. There is no second source.
 
-The Rails app **never** stores raw evidence in its own database. When
-deeper detail is needed (an auditor opens a specific failing policy
-to see the violation list), the dashboard renders the per-policy
-`result.json` directly from the customer's vault — the customer's
-infrastructure is the source of truth, the cloud is the index and
-analytics layer.
+**The dashboard cannot drill down to a resource, and never will while
+the boundary holds.** An earlier version of this section said the Rails
+app could generate signed read-only links into the customer's vault and
+render a per-policy `result.json` to show an auditor the violation list.
+That is not built, and it is not a roadmap item either: it would require
+the cloud to hold read credentials for the customer's vault, which is
+precisely the custodianship the architecture exists to avoid. Reading the
+violations behind a count is done where the violations are — `sigcomply
+report` against the vault, or the Evidence SPA for envelope verification.
+The cloud is the index and the analytics layer over counts; the
+customer's infrastructure is the only place the detail lives.
 
 ### Privacy boundary, restated for the paid context
 

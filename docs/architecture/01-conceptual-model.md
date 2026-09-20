@@ -366,7 +366,9 @@ forensics.
 Each envelope:
 
 - Carries a `format_version` string for forward-compatibility
-- Contains a `produced_at` timestamp
+- Contains a `produced_at` timestamp — the *run's* reference time, taken
+  once at run start, so it precedes every record's `collected_at` (each
+  record's own `collected_at` is its honest as-of)
 - Contains the array of evidence records
 - Carries a fresh Ed25519 public key generated at write time
 - Carries an Ed25519 signature over the canonical JSON of
@@ -380,7 +382,7 @@ immediately. The public key lives in the file forever.
 ```json
 {
   "format_version": "envelope.v1",
-  "produced_at": "2026-05-23T14:00:02Z",
+  "produced_at": "2026-05-23T13:59:30Z",
   "records": [ /* evidence records */ ],
   "signature": {
     "algorithm": "ed25519",

@@ -353,9 +353,11 @@ func techDevSecOpsPolicies() []core.Policy {
 		autoPolicy{
 			id: "iso27001.8.13.database_backup_enabled", control: ctrlInformationBackup, severity: core.SeverityHigh, category: catAvailability, cadence: cadenceDaily,
 			accepts: []string{etManagedDatabaseInstance},
-			desc:    "Managed databases have automated backups (information backup).",
-			rem:     "Enable automated backups on each database.",
-			clause:  all(leaf("payload.backup_enabled", "eq", true), "database {{.payload.name}} does not have backups enabled"),
+			desc: "Managed databases have automated backups (information backup). " +
+				"Evidences that backups are configured, not that a restore was tested — " +
+				"A.8.13's testing requirement is evidenced by the ICT continuity test under A.5.30.",
+			rem:    "Enable automated backups on each database.",
+			clause: all(leaf("payload.backup_enabled", "eq", true), "database {{.payload.name}} does not have backups enabled"),
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.8.13.database_multi_az", control: ctrlInformationBackup, severity: core.SeverityMedium, category: catAvailability, cadence: cadenceDaily,

@@ -35,9 +35,14 @@ const (
 var supportedCIs = []string{ciGitHub, ciGitLab}
 
 // frameworkSupported reports whether init-ci will scaffold for the
-// framework. Today only soc2 has the cadence distribution baked into
-// the shipped templates; ISO 27001 will land with its own template
-// set per docs/architecture/09-ci-execution-model.md.
+// framework. Today that is soc2 only — but NOT because the templates are
+// framework-specific. They are not: nothing under templates/ mentions a
+// framework, `check` has no --framework flag (it reads the framework from
+// config), and both shipped frameworks use the same three cadences, so
+// the emitted files would be byte-identical and correct for ISO 27001.
+// The gate is v1-alpha conservatism about a set that has only ever been
+// exercised against soc2. Lifting it is a one-line change here plus the
+// ~10 docs that currently state the limit.
 func frameworkSupported(framework string) bool {
 	return framework == soc2.FrameworkID
 }
@@ -54,7 +59,7 @@ func newInitCICmd() *cobra.Command {
 	var flags initCIFlags
 	cmd := &cobra.Command{
 		Use:   "init-ci",
-		Short: "Scaffold CI workflow files calibrated to a framework's cadence distribution",
+		Short: "Scaffold the per-cadence CI workflow set (github | gitlab)",
 		Long: "`sigcomply init-ci` writes the canonical workflow set for the chosen CI provider:\n" +
 			"  - GitHub Actions: one workflow per cadence under .github/workflows/.\n" +
 			"  - GitLab CI: a single .gitlab-ci.yml with cadence-keyed jobs driven by\n" +
@@ -66,7 +71,7 @@ func newInitCICmd() *cobra.Command {
 			return runInitCI(cmd.OutOrStdout(), flags)
 		},
 	}
-	cmd.Flags().StringVar(&flags.framework, "framework", "", "Framework to scaffold for (defaults to .sigcomply.yaml framework, else soc2)")
+	cmd.Flags().StringVar(&flags.framework, "framework", "", "Framework to scaffold for: soc2 only in v1-alpha (defaults to .sigcomply.yaml framework, else soc2)")
 	cmd.Flags().StringVar(&flags.ci, "ci", "", "CI provider: github | gitlab (required)")
 	cmd.Flags().StringVar(&flags.outDir, "out", "", "Output directory (defaults to .github/workflows/ for github, repo root for gitlab)")
 	cmd.Flags().BoolVar(&flags.force, "force", false, "Overwrite existing files (default: refuse if any target file exists)")
@@ -85,7 +90,9 @@ func runInitCI(stdout io.Writer, flags initCIFlags) error {
 	framework := resolveInitCIFramework(flags)
 	if !frameworkSupported(framework) {
 		return &exitCodeError{code: orchestrator.ExitConfig,
-			err: fmt.Errorf("init-ci: framework %q not supported in v1-alpha (only soc2 ships cadence templates)", framework)}
+			err: fmt.Errorf("init-ci: framework %q not scaffolded in v1-alpha "+
+				"(the shipped cadence templates are validated against soc2 only; "+
+				"copy one from examples/ and adapt it — see docs/guides/ci-github.md)", framework)}
 	}
 	plan, err := scaffoldPlan(flags.ci, flags.outDir)
 	if err != nil {

@@ -141,3 +141,32 @@ func TestResolveInitFramework(t *testing.T) {
 		t.Errorf("env = %q; want %s", got, isoFW)
 	}
 }
+
+// An ISO 27001 scaffold must not tell the operator to run a command that
+// exits 3. init-ci gates on soc2, so the next-step line has to say so
+// rather than sending them into a config error one command later.
+func TestInit_Iso27001NextStepsDoNotRecommendInitCI(t *testing.T) {
+	var out bytes.Buffer
+	if err := runInit(&out, initFlags{framework: isoFW, out: filepath.Join(t.TempDir(), "cfg.yaml")}); err != nil {
+		t.Fatalf("runInit(iso27001): %v", err)
+	}
+	got := out.String()
+	if strings.Contains(got, "sigcomply init-ci --ci github") {
+		t.Errorf("iso27001 next steps recommend init-ci, which rejects iso27001 with exit 3:\n%s", got)
+	}
+	if !strings.Contains(got, "init-ci") {
+		t.Errorf("next steps should still mention init-ci to say it is soc2-only; got:\n%s", got)
+	}
+}
+
+// The soc2 path is the one where the recommendation is correct, so it
+// must keep it — the guard above must not silence both.
+func TestInit_Soc2NextStepsRecommendInitCI(t *testing.T) {
+	var out bytes.Buffer
+	if err := runInit(&out, initFlags{framework: "soc2", out: filepath.Join(t.TempDir(), "cfg.yaml")}); err != nil {
+		t.Fatalf("runInit(soc2): %v", err)
+	}
+	if got := out.String(); !strings.Contains(got, "sigcomply init-ci --ci github") {
+		t.Errorf("soc2 next steps should recommend init-ci; got:\n%s", got)
+	}
+}

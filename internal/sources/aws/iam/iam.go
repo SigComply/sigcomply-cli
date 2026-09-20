@@ -257,8 +257,23 @@ func (p *Plugin) collectRootRecord(ctx context.Context, now time.Time) (core.Evi
 	if err != nil {
 		return core.EvidenceRecord{}, err
 	}
+	// The report's user column is the same "<root_account>" literal in
+	// every AWS account, so it cannot identify a root across two
+	// configured instances (aws.iam + aws.iam[staging]): instancePlugin
+	// re-stamps SourceID but not ID, the collector unions both bindings
+	// into one slot, and the evaluator dedups violations by record ID.
+	// Two roots without MFA therefore collapsed into a single violation
+	// with resources_failed=1, and a resource_id exception for the
+	// sentinel silently waived both accounts. The arn column is unique
+	// per account and costs no extra API call or IAM permission. Fall
+	// back to the sentinel if AWS ever omits the column, since an empty
+	// ID is rejected by the conformance harness.
+	id := row.arn
+	if id == "" {
+		id = rootAccountUser
+	}
 	payload := userPayload{
-		ID:                    rootAccountUser,
+		ID:                    id,
 		DisplayName:           "root",
 		MFAEnabled:            row.mfaActive,
 		IsAdmin:               true,
@@ -273,7 +288,7 @@ func (p *Plugin) collectRootRecord(ctx context.Context, now time.Time) (core.Evi
 	}
 	return core.EvidenceRecord{
 		Type:        EvidenceTypeID,
-		ID:          rootAccountUser,
+		ID:          id,
 		Payload:     body,
 		SourceID:    SourceID,
 		CollectedAt: now,
@@ -312,6 +327,11 @@ func (p *Plugin) credentialReport(ctx context.Context) ([]byte, error) {
 
 // rootRow is the parsed subset of the credential report's root row.
 type rootRow struct {
+	// arn is the root principal's ARN, arn:aws:iam::<account>:root. It
+	// is the only account-unique identifier the credential report hands
+	// us, and it is what the root record is keyed by — see
+	// collectRootRecord.
+	arn              string
 	mfaActive        bool
 	passwordEnabled  bool
 	accessKey1Active bool
@@ -347,6 +367,7 @@ func parseRootRow(content []byte) (rootRow, error) {
 		}
 		yes := func(name string) bool { return field(r, name) == "true" }
 		return rootRow{
+			arn:              field(r, "arn"),
 			mfaActive:        yes("mfa_active"),
 			passwordEnabled:  yes("password_enabled"),
 			accessKey1Active: yes("access_key_1_active"),

@@ -646,3 +646,57 @@ func TestReadModulePath_NoModuleDirective(t *testing.T) {
 		t.Errorf("want no-module-directive error; got %v", err)
 	}
 }
+
+// TestRunBuild_WarnsOnUnwiredExtensionKinds pins the honesty of the
+// build's own output. Two of the three kinds `sigcomply build`
+// discovers compile into the tailored binary but have nothing to
+// register themselves with: the rule registry is a per-evaluation
+// `Set` populated only from each framework's `Rules()`, and evidence
+// types are registered either from the embedded in-tree FS or from
+// `.sigcomply/evidence_types/*.json` — neither path reads a Go
+// package. Without a warning here, "built ... with 3 project-local
+// extension(s)" reads as success and the customer discovers the truth
+// much later, from a policy tagged `error`. Source plugins DO have a
+// hook (`sources.RegisterFactory` in `init()`), so they must not be
+// warned about — a warning on the one kind that works would train
+// people to ignore the line.
+func TestRunBuild_WarnsOnUnwiredExtensionKinds(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skips invoking `go` under -short")
+	}
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go toolchain unavailable")
+	}
+	tmp := t.TempDir()
+	writeGoMod(t, tmp)
+	writePluginFile(t, tmp, "myplugin", "plugin.go", "")
+	writeRuleFile(t, tmp, "acme.custom.cc6_1", "rule.go", "")
+	writeEvidenceTypeFile(t, tmp, "acme_principal", "schema.go", "")
+
+	var stdout, stderr bytes.Buffer
+	// `go build` fails here (the fixture module does not require
+	// sigcomply-cli); irrelevant — the warnings are emitted before it,
+	// so the outcome is logged rather than asserted.
+	if err := runBuild(context.Background(), &stdout, &stderr, buildFlags{
+		project: tmp,
+		output:  filepath.Join(tmp, "bin", "sigcomply"),
+	}); err == nil {
+		t.Log("build unexpectedly succeeded (fixture environment had sigcomply-cli available)")
+	}
+
+	out := stdout.String()
+	for _, want := range []string{
+		"acme.custom.cc6_1/rules (rule) is compiled in but has no registration hook",
+		"evidence_types/acme_principal (evidence_type) is compiled in but has no registration hook",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("stdout missing warning %q; got:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "plugins/myplugin (plugin) is compiled in but has no registration hook") {
+		t.Errorf("source plugins self-register and must not be warned about; got:\n%s", out)
+	}
+	if n := strings.Count(out, "warning:"); n != 2 {
+		t.Errorf("want exactly 2 warning lines; got %d:\n%s", n, out)
+	}
+}

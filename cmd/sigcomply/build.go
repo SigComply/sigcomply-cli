@@ -111,6 +111,8 @@ func runBuild(ctx context.Context, stdout, stderr io.Writer, flags buildFlags) e
 		return &exitCodeError{code: orchestratorExitConfig, err: err}
 	}
 
+	warnUnwiredExtensions(stdout, exts)
+
 	if err := runGoVet(ctx, projectAbs, exts, stderr, flags.verbose); err != nil {
 		return &exitCodeError{code: orchestratorExitConfig, err: fmt.Errorf("go vet: %w", err)}
 	}
@@ -137,6 +139,29 @@ func runBuild(ctx context.Context, stdout, stderr io.Writer, flags buildFlags) e
 
 	_, _ = fmt.Fprintf(stdout, "built %s with %d project-local extension(s)\n", outAbs, len(exts)) //nolint:errcheck // status output: nothing useful to do on stdout write failure
 	return nil
+}
+
+// warnUnwiredExtensions prints a line for every discovered extension
+// whose kind compiles into the tailored binary but has nothing to
+// register itself with. The rule registry is a per-evaluation `Set`
+// populated only from each framework's `Rules()`; evidence types are
+// registered from JSON — the embedded in-tree FS, or project-locally
+// from `.sigcomply/evidence_types/*.json` — and neither path ever runs
+// a Go package's `init()` for registration purposes. Reporting those
+// packages only through the "built %s with %d project-local
+// extension(s)" line is how a customer finds out weeks later, from a
+// policy tagged `error`, that their Go rule never ran. Warn at the
+// moment we know it rather than at the moment it bites. Source plugins
+// are deliberately excluded: `sources.RegisterFactory` in `init()` is a
+// real hook, and warning on the one kind that works would train people
+// to ignore the line.
+func warnUnwiredExtensions(stdout io.Writer, exts []Extension) {
+	for _, e := range exts {
+		if e.Kind != ExtensionKindRule && e.Kind != ExtensionKindEvidenceType {
+			continue
+		}
+		_, _ = fmt.Fprintf(stdout, "warning: %s (%s) is compiled in but has no registration hook and will not be loaded; see docs/architecture/07-extensibility.md\n", e.ImportPath, e.Kind) //nolint:errcheck // status output: nothing useful to do on stdout write failure
+	}
 }
 
 // orchestratorExitConfig and orchestratorExitExecution mirror the

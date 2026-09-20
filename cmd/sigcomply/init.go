@@ -69,11 +69,19 @@ func runInit(stdout io.Writer, flags initFlags) error {
 		return &exitCodeError{code: orchestrator.ExitExecution, err: fmt.Errorf("init: write %q: %w", flags.out, err)}
 	}
 
-	const nextSteps = "Next steps:\n" +
+	// Step 3 is framework-aware because init-ci gates on soc2: telling an
+	// ISO 27001 project to run it would send the operator straight into an
+	// exit-3 config error one command after we told them to.
+	step3 := "  3. Run `sigcomply init-ci --ci github` (or gitlab) to scaffold CI workflows."
+	if fw != defaultFramework {
+		step3 = "  3. CI scaffolding: `sigcomply init-ci` is soc2-only in v1-alpha. Copy a\n" +
+			"     workflow from examples/ and adapt it — see docs/guides/ci-github.md."
+	}
+	nextSteps := "Next steps:\n" +
 		"  1. Edit sources: to list the providers you use; credentials come from the\n" +
 		"     environment (AWS_* / GITHUB_TOKEN / GCP ADC / OKTA_API_TOKEN).\n" +
 		"  2. Run `sigcomply check` locally to see which controls evaluate.\n" +
-		"  3. Run `sigcomply init-ci --ci github` (or gitlab) to scaffold CI workflows."
+		step3
 	_, _ = fmt.Fprintf(stdout, "sigcomply init: wrote %s (framework=%s)\n\n", flags.out, fw) //nolint:errcheck // status output
 	_, _ = fmt.Fprintln(stdout, nextSteps)                                                   //nolint:errcheck // status output
 	return nil

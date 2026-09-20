@@ -1484,6 +1484,37 @@ The instance key is the source's identity for the whole run: it is what a
 appears in the evidence envelope's filename — so each account's evidence
 is independently verifiable rather than merged.
 
+**Evidence stays separate; violations do not.** The instance key namespaces
+`source_id`, not the record `id`. Violation dedup keys on the clause
+`identity_key`, which defaults to the bare record `id` with no source
+prefix — so two instances reporting a resource with the *same* id yield one
+violation and count once in `resources_failed`, while `resources_evaluated`
+counts both records. For almost every resource this never bites, because
+the id is globally unique (an AWS `AIDA…` user id, an ARM resource id, an
+S3 bucket name). It bites where a source emits a record whose id is a
+per-account constant or a name that only IaC repeats: `aws.iam`'s root
+record was one such case and is now keyed by the root ARN.
+
+The one that still bites today is **`aws.password_policy`**, whose record id
+is the constant `account` (a stable id was chosen to avoid an `sts:GetCallerIdentity`
+call purely to learn the account number). Its six policies use an `all`
+quantifier, so two instances with different password policies report one
+violation, not two.
+
+Two neighbours are **latent rather than live**, and the distinction is the
+quantifier: `aws.security_services` (`aws-macie`/`aws-inspector`/`aws-securityhub`)
+and `azure.defender` (`azure-defender-for-cloud`) also use constant ids, but
+every shipped policy over `security_service` uses `any`, which emits a single
+verdict with no resource id and never reaches dedup. The first `all`/`none`
+clause written over those types would make them live. Resource *names* that
+Terraform repeats per environment are the same shape — a GCP `default`
+network, `default-allow-ssh` firewall rules.
+
+Where you need two instances counted separately, set `identity_key:
+account.ref` on a project-local policy (it resolves to `source_id/id`, which
+the instance key does namespace), or read the per-source envelopes, which
+are always separate.
+
 **Region is not an account.** Two `aws.*` instances that differ only by
 region authenticate as the same principal and return the same account
 twice. Per-provider:

@@ -105,7 +105,13 @@ requires going back to the drawing board.
 6. **Each policy fetches its own data.** No shared collection layer
    across policies. If ten policies all need AWS IAM users, that's ten
    independent fetches. Maximally self-contained policies; runtime cost
-   is the explicit trade-off.
+   is the explicit trade-off — **and so is point-in-time consistency.**
+   A run is a stream of observations spanning its whole duration (15–25
+   minutes for a daily cadence), not a snapshot at one instant. Each
+   record's honest as-of is its own `collected_at`; a cross-slot
+   `matches_in` join such as the roster join compares observations taken
+   minutes apart, so a person on- or offboarded mid-run can be reported
+   once and not on the re-run. Re-running is the check.
 7. **Determinism wherever possible.** Given the same inputs (sources'
    responses + config + timestamp), a run produces byte-identical
    outputs modulo explicit timestamps. Auditors diff runs.

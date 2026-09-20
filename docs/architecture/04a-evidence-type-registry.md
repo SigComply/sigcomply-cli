@@ -38,7 +38,7 @@ what's wired today.
 | Schema-conformance validation | **Wired (full draft-07)** | The collector calls `evidence_types.Validate` before signing each envelope. The validator is **full JSON Schema draft-07** via `github.com/xeipuuv/gojsonschema` (`internal/evidence_types/validate.go`), content-hash cached: `enum`, `format`, `pattern`, `minimum`/`maximum`, length/range, `items`, nested-object recursion, and composition are all enforced — not just `type`/`required`. |
 | Validation failure handling | **Wired (strict)** | The collector fails the binding on the **first** non-conforming record (exit 3 via the policy's error tag). There is **no** drop-and-continue and **no** ">5% of records" threshold — that permissive mode is design-intent only, not implemented. |
 | Planner check that a slot's `accepts:` only references registered types | **Wired** | Empty `source.Emits() ∩ slot.Accepts` fails at plan time (exit 3). |
-| Project-local evidence types under `.sigcomply/evidence_types/` | **Planned** | Today only embedded in-tree types load. Shipping project-local types alongside project-local plugins is part of `sigcomply build`, not yet wired. |
+| Project-local evidence types under `.sigcomply/evidence_types/` | **Wired — JSON files only** | `loadProjectEvidenceTypes` (`internal/orchestrator/project_local.go`) reads every `*.json` file directly under the directory at bootstrap, compiles the schema, and registers it into the same registry the embedded in-tree types land in. Pinned by `TestRegisterProjectLocal_RegistersAllThreeKinds`. Per-type **Go packages** (`.sigcomply/evidence_types/<id>/`) have **no registration hook** — `sigcomply build` compiles one and warns that it will never load. |
 | Per-type `identity_key` metadata in the schema file | **Not parsed** | `EvidenceRecord.IdentityKey` is wired and set by plugins (`aws.iam`, `okta`, `github`, …), and the `pass_when:` DSL deduplicates via a clause-level `identity_key:`. A *schema-level* `identity_key` is **not parsed** — the convention lives in the schema's `description` text only. |
 
 Bottom line: the load-bearing pieces — registry, embedded loading, planner check, full draft-07 validation, per-record identity for dedup — are wired and used in production today. The remaining items above are deliberate v1 simplifications, not architectural gaps.
@@ -94,8 +94,8 @@ extension fields carry the registry metadata: `title` holds the type ID
 re-versioned types (`"directory_user.v2"`) — and `version` holds the
 integer version.
 One file per type per version. (Project-local types under
-`.sigcomply/evidence_types/` use the same JSON form; that path is
-planned, not yet shipped — see the status table.)
+`.sigcomply/evidence_types/` use the same JSON form and load at
+bootstrap — see §Project-local extension.)
 
 ```json
 {
@@ -174,11 +174,12 @@ each JSON Schema, checks it compiles, and registers each type by its
 `internal/registry/evidence_type.go`. After bootstrap the registry is
 read-only — see [`02-layers.md`](02-layers.md) §L2.
 
-Project-local types under `.sigcomply/evidence_types/` are **planned**:
-they would load the same way from the project filesystem and merge into
-the same registry, with a project-local file that redefines an in-tree
-type ID failing at bootstrap (types are append-only across the union).
-Today only the embedded in-tree set loads.
+Project-local types under `.sigcomply/evidence_types/` load the same
+way, from the project filesystem instead of the embedded FS, and merge
+into the same registry. They are registered *after* the embedded set, so
+a project-local file that redefines an in-tree type ID fails at
+bootstrap on the registry's duplicate-ID check — types are append-only
+across the union.
 
 ---
 
@@ -581,11 +582,10 @@ that converge.
 
 ---
 
-## Project-local extension (planned)
+## Project-local extension
 
-The intended design lets customers add evidence types under
-`.sigcomply/evidence_types/` using the identical JSON Schema file
-format:
+Customers add evidence types under `.sigcomply/evidence_types/` using
+the identical JSON Schema file format:
 
 ```
 .sigcomply/
@@ -593,19 +593,30 @@ format:
     acme_internal_user.v1.json         # custom shape for acme.internal_iam
 ```
 
-These would load at bootstrap alongside in-tree types and merge into
-the same registry; project-local plugins reference them in `Emits()`
-and project-local policies in `accepts:`. A project-local file
-redefining an in-tree type ID would fail at bootstrap (exit 3) —
-project-local types are append-only across the union, and the
-upstream-curated set is not overridable, so auditors can trust that a
-shipped `directory_user` means the shipped thing, not a customer-tweaked
-variant.
+These load at bootstrap alongside in-tree types and merge into the same
+registry; project-local plugins reference them in `Emits()` and
+project-local policies in `accepts:`. A project-local file redefining an
+in-tree type ID fails at bootstrap (exit 3) — project-local types are
+append-only across the union, and the upstream-curated set is not
+overridable, so auditors can trust that a shipped `directory_user` means
+the shipped thing, not a customer-tweaked variant.
 
-**This path is not yet wired** — today only the embedded in-tree set
-loads. It ships alongside project-local plugins as part of `sigcomply
-build`. The path from a project-local type to an upstream contribution
-is in [`07-extensibility.md`](07-extensibility.md).
+**This path is wired**, and it is a *data* path: no Go, no `sigcomply
+build`, no recompile. `loadProjectEvidenceTypes` reads every `*.json`
+file **directly under** `.sigcomply/evidence_types/` — subdirectories
+are skipped — parses the header, compiles the schema body so a
+structurally-invalid draft-07 document is an exit-3 config error rather
+than a collection-time surprise, and registers it. The file name is
+convention only; the type ID is the schema's `title`.
+
+A Go package at `.sigcomply/evidence_types/<id>/` is a different thing
+and is **not** wired: `sigcomply build` discovers and compiles it, but
+nothing registers it, because there is no per-`init()` hook for evidence
+types at all (`evidencetypes.Register` takes the bootstrap `Set`). The
+build prints a warning to that effect. Use the JSON file.
+
+The path from a project-local type to an upstream contribution is in
+[`07-extensibility.md`](07-extensibility.md).
 
 ---
 

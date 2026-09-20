@@ -91,7 +91,12 @@ Scaffolds CI workflow files calibrated to the framework's cadence distribution.
 sigcomply build [flags]
 ```
 
-Compiles a project-tailored binary that includes Go extensions under `.sigcomply/`; a no-op if none exist. Extensions cannot import `os/exec` or `net`/`net/*` (security boundary). Most customers never need this command.
+Compiles a project-tailored binary that includes Go extensions under `.sigcomply/`; a no-op if none exist. Extensions cannot directly import `os/exec` or `net`/`net/*` — a deny-list over the direct imports of each extension directory's top-level files, not a sandbox. Most customers never need this command.
+
+Two caveats worth knowing before you reach for it:
+
+- **Go extensions currently need a fork.** The plugin APIs a Go extension must import (`core.SourcePlugin`, `sources.RegisterFactory`, `vault.RegisterBackend`, `manual.Reader`) live under `internal/`, and this command compiles your package inside *your* module — so `go build` rejects the import. Project-local **YAML policies**, **Rego rules**, and **evidence-type JSON schemas** need no build step at all: they load at every `check`. See [`07-extensibility.md`](../architecture/07-extensibility.md) §Status.
+- **Two discovered kinds are compiled but never loaded.** A Go rule package (`.sigcomply/policies/<id>/rules/`) and a Go evidence-type package (`.sigcomply/evidence_types/<id>/`) have no registration hook, so the build prints `warning: … is compiled in but has no registration hook and will not be loaded` for each. Use a `rule.rego` and an `evidence_types/<id>.v<n>.json` instead.
 
 | Flag | Shorthand | Default | Meaning |
 |---|---|---|---|

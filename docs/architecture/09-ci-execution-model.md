@@ -172,7 +172,7 @@ the CLI scaffolds one standalone workflow file per cadence into
    compliance-on-push.yml      # push to main + pull_request
    compliance-daily.yml        # 02:00 UTC daily cron
    compliance-weekly.yml       # 02:00 UTC every Monday
-   compliance-monthly.yml      # 02:00 UTC on the 1st of every month
+   compliance-monthly.yml      # 02:00 UTC on the 20th of every month
    compliance-quarterly.yml    # 02:00 UTC on Mar 20 / Jun 20 / Sep 20 / Dec 20
    compliance-annual.yml       # 02:00 UTC on December 20
 ```
@@ -209,11 +209,24 @@ The shipped cron expressions are exactly:
 
 `continuous` and `hourly` policies fold into the on-push / daily workflows;
 the scaffold does not emit a dedicated workflow per named cadence beyond
-the six above. v1-alpha ships cadence templates for **SOC 2 only** —
-`init-ci` for any other framework (including ISO 27001) exits `3` with a
-"not supported in v1-alpha" error (`frameworkSupported()` in
-`cmd/sigcomply/init_ci.go` returns true only for `soc2`). ISO 27001
-templates are planned but not yet shipped.
+the six above. `init-ci` for any framework other than SOC 2 (including
+ISO 27001) exits `3` (`frameworkSupported()` in
+`cmd/sigcomply/init_ci.go` returns true only for `soc2`).
+
+**The gate is conservatism, not a missing artifact** — the earlier wording
+here, "ships cadence templates for SOC 2 only", was wrong and is worth
+correcting because it invites someone to go build a second template set
+that is not needed. Nothing under `cmd/sigcomply/templates/` mentions a
+framework in any form; `check` has no `--framework` flag (it reads the
+framework from the config), and both shipped frameworks declare the same
+three cadences — so the emitted files would be byte-identical, and correct,
+for an ISO 27001 project. What is missing is not templates but validation:
+the set has only ever been exercised against SOC 2. Lifting the gate is a
+one-line change plus the handful of docs that state the limit.
+
+Note also that neither framework declares a `weekly` or `monthly` policy
+today, so those two scaffolded workflows evaluate nothing until a project
+sets a per-policy `cadence:` override.
 
 ### Example: `compliance-daily.yml` (GitHub Actions, scaffolded)
 

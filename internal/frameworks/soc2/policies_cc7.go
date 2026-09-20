@@ -107,9 +107,12 @@ func cc7OperationsPolicies() []core.Policy {
 		autoPolicy{
 			id: "soc2.cc7.5.database_multi_az", control: "CC7.5", severity: core.SeverityMedium, category: catAvailability, cadence: cadenceDaily,
 			accepts: []string{etManagedDatabaseInstance},
-			desc:    "All managed databases are deployed across multiple availability zones.",
-			rem:     "Enable multi-AZ / regional high availability on each database.",
-			clause:  all(leaf("payload.multi_az", "eq", true), "database {{.payload.name}} is not multi-AZ"),
+			desc: "All managed databases are deployed across multiple availability zones. " +
+				"Evidences recovery capability configured in infrastructure, not recovery " +
+				"activity performed — for that see soc2.cc7.3.incident_response_tested and " +
+				"soc2.a1.3.recovery_procedures_tested.",
+			rem:    "Enable multi-AZ / regional high availability on each database.",
+			clause: all(leaf("payload.multi_az", "eq", true), "database {{.payload.name}} is not multi-AZ"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc7.5.database_deletion_protection", control: "CC7.5", severity: core.SeverityMedium, category: catAvailability, cadence: cadenceDaily,

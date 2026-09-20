@@ -13,6 +13,16 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **`sigcomply build` says when it compiled something that will never load.**
+  A Go `rule:` package under `.sigcomply/policies/<id>/rules/` and a Go
+  evidence-type package under `.sigcomply/evidence_types/<id>/` are discovered
+  and compiled, but neither has a registration hook — there is no
+  package-global registry an `init()` could call, the way sources, vault
+  backends and manual readers have. The build reported them in its
+  "N project-local extension(s)" count and said nothing else, so the first
+  signal was a policy tagged `error` at evaluation. It now warns per
+  extension, naming the kind and pointing at the extensibility doc.
+
 - **A required slot nothing can fill now warns at plan time, not only after the
   run.** The planner already reported the narrow *version-skew* near-miss — a
   configured source emits a sibling version of an accepted type — as
@@ -215,6 +225,106 @@ tracks the human-curated highlights.
   a permissions problem.
 
 ### Fixed
+
+- **`sigcomply init -f iso27001` recommended a command that exits 3.** The
+  scaffold's next-steps text unconditionally told the operator to run
+  `sigcomply init-ci`, which gates on soc2 — so the tool's own step 3 walked
+  an ISO 27001 project straight into a config error. Step 3 is now
+  framework-aware and points at `examples/` instead. The `--framework` flag's
+  help text also never mentioned the gate, while `init` one command earlier
+  advertises `soc2 | iso27001`; it does now.
+
+- **The `init-ci` gate was explained by a reason that is not true.** The error
+  and three docs said v1-alpha "ships cadence templates for SOC 2 only",
+  implying an ISO template set is the missing artifact. Nothing under
+  `cmd/sigcomply/templates/` mentions a framework in any form, `check` has no
+  `--framework` flag (it reads the framework from config), and both shipped
+  frameworks declare the same three cadences — the emitted files would be
+  byte-identical and correct for ISO 27001. The gate is conservatism about a
+  set only ever exercised against SOC 2. Stating it accurately matters because
+  the old wording invites someone to build a second template set that is not
+  needed. Also corrected: `09-ci-execution-model.md` said the monthly workflow
+  fires on the 1st, contradicting the cron in the same file (it is the 20th).
+
+- **`aws.iam`'s root record collided across AWS accounts.** Its ID was the
+  credential report's `<root_account>` user-column literal — byte-identical in
+  every account. With two instances configured (`aws.iam` +
+  `aws.iam[staging]`), `instancePlugin` re-stamps `SourceID` but not `ID`, the
+  collector unions both bindings into one slot, and the evaluator dedups
+  violations by record ID. Two roots without MFA therefore collapsed into
+  **one** violation with `resources_failed: 1`, the message named no account,
+  and a `resource_id: "<root_account>"` exception silently waived both. These
+  are `SeverityCritical` controls, and the blast radius was wider than the two
+  root policies: the root record shares a slot with every broad MFA policy, so
+  **seven** policies across both frameworks were affected. The record is now
+  keyed by the report's `arn` column
+  (`arn:aws:iam::<account>:root`) — account-unique, already present in the
+  CSV, and costing no extra API call or IAM permission. Falls back to the old
+  sentinel if AWS ever omits the column, since an empty ID fails conformance.
+  **Root record IDs change**, so an existing exception scoped to the sentinel
+  needs the ARN; it fails loudly rather than silently widening.
+
+- **The architecture doc promised a dashboard drilldown the boundary forbids.**
+  `06-aggregation.md` said the Rails app could generate signed read-only links
+  into the customer's vault and "renders the per-policy `result.json`" so an
+  auditor could see the violation list. None of it is built, and it is not a
+  roadmap item: it would require the cloud to hold read credentials for the
+  customer's vault — the custodianship the whole architecture exists to avoid.
+  It also contradicted the privacy section two paragraphs below it. The
+  paid-feature table now carries a Status column, because three of its six
+  rows were planned work written in the present tense.
+
+- **The extensibility guide documented a walkthrough that cannot compile.** It
+  promised extension "without forking the CLI repo", then every Go worked
+  example imported `sigcomply-cli/internal/...`. Go forbids importing an
+  `internal` path from outside its parent tree, and `sigcomply build` compiles
+  project-local extensions inside the *customer's* module — so the reader is
+  blocked at `go build`, after `sigcomply build` validated their package. The
+  doc now leads with which routes are actually wired: YAML `pass_when:`
+  policies, Rego rules and JSON evidence types are the supported no-fork
+  paths; Go plugins need a fork until a public API package exists. Related
+  corrections in the same pass: the import check is a deny-list, not the
+  "allow-list" it was called in three places, and it reads only direct stdlib
+  imports in top-level files — a third-party HTTP client passes untouched, so
+  it is a speed bump, not the isolation boundary it was described as. The
+  workaround it offered ("reach the network via a curated in-tree helper") was
+  impossible, since every helper is under `internal/`. Project-local JSON
+  evidence types were marked "planned" in three docs and one Go comment
+  despite being wired and pinned by a test; a Go evidence-type *package* was
+  documented as the registration route despite having no hook. `plugin.yaml`
+  was described as parsed by `sigcomply build`, which never opens it.
+
+- **Point-in-time consistency was never named as a trade-off.** Principle #6
+  listed only runtime cost. A run is a stream of observations spanning its
+  whole duration — 15–25 minutes for a daily cadence — and the sharp edge is
+  not the cross-policy re-fetch but the cross-*slot* join inside one policy:
+  the roster join reads `accounts` at T1 and `roster` at T2, so a person
+  on- or offboarded in that window is reported as an access-control violation
+  that was true at no single instant. Documented in the principle and, where
+  an operator will actually meet it, in the identity-roster guide, with
+  "re-run before acting" as the remedy. Also corrected: `produced_at` is the
+  run's reference time captured at start, so it *precedes* every
+  `collected_at` in the same envelope — two docs showed examples implying it
+  was write time.
+
+- **Two controls pass on configuration alone without saying so.** ISO 27001
+  A.8.13 requires backups be tested; its automated policies check only that
+  backups are enabled, with the tested half evidenced under A.5.30. SOC 2
+  CC7.5 is about recovering from incidents and is backed by two infrastructure
+  flags. Neither is wrong, but a reader of "A.8.13 · automated" would
+  reasonably conclude restore testing was evidenced. Both policy descriptions
+  now say what they do and do not evidence, and `docs/reference/frameworks.md`
+  states the configured-vs-tested distinction generally.
+
+- **Multi-instance estates: evidence stays separate, violations do not.** The
+  instance key namespaces `source_id`, not the record `id`, and violation
+  dedup keys on the bare id — so two instances reporting a resource with the
+  same id yield one violation while `resources_evaluated` counts both. Harmless
+  for globally-unique ids (the overwhelming majority) and now documented for
+  the cases where it bites, with `aws.password_policy` named as the one still
+  live and the `any`-quantified `security_service` constants named as latent.
+  Also documented: there is no config `include:`/`extends:`, so an org with
+  ten projects keeps ten copies in sync by hand.
 
 - **`core.EvidenceRecord.Scope`'s doc comment described a mechanism that does
   not exist.** It asserted, in the present tense, that "scope is a first-class
