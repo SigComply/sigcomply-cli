@@ -3,6 +3,7 @@ package entra
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"testing"
 	"time"
 
@@ -126,4 +127,92 @@ func TestAzureEntraRosterConformance(t *testing.T) {
 			t.Errorf("%s IdentityKey = %q, want %q", r.ID, r.IdentityKey, p.Email)
 		}
 	}
+}
+
+// TestAzureEntraPasswordPolicyConformance replays the /domains half of the
+// same hand-authored cassette. The fixture is built from Microsoft's
+// documented domain resource — the full property set Graph returns, not
+// just the four fields this plugin decodes — because the point of an L2
+// cassette is to exercise the real decoder against the real wire shape,
+// including the properties it must ignore.
+//
+// Four domains, three records: a managed domain with a configured 90-day
+// validity period, the tenant's initial domain set to Microsoft's
+// never-expires sentinel, an unverified domain (excluded — it governs no
+// sign-in), and a federated domain whose 60-day field is deliberately NOT
+// emitted, because an external identity provider enforces that domain's
+// passwords and Entra's number is not the rule in force.
+func TestAzureEntraPasswordPolicyConformance(t *testing.T) {
+	recs := sourcetest.RunConformance(t, &sourcetest.Options{
+		Plugin:         newCassettePlugin(t),
+		Request:        core.SlotRequest{AcceptedTypes: []string{EvidenceTypePasswordPolicy}},
+		EvidenceTypes:  sourcetest.BuiltinEvidenceTypes(t),
+		OptionalFields: conformanceOptionalPasswordPolicyFields,
+		WantScope:      &core.RecordScope{Account: cassetteTenant},
+	})
+
+	got := map[string]map[string]any{}
+	for _, r := range recs {
+		var p map[string]any
+		if err := json.Unmarshal(r.Payload, &p); err != nil {
+			t.Fatal(err)
+		}
+		got[r.ID] = p
+	}
+	if _, ok := got[domainUnverified]; ok {
+		t.Error("the unverified domain was emitted; nobody can sign in with it")
+	}
+
+	notConfigurable := []any{notConfigurableMinLength, notConfigurableReuse, notConfigurableComplexity}
+	want := map[string]map[string]any{
+		domainManaged: {
+			pwKeyID: domainManaged, pwKeyProvider: passwordPolicyProvider, pwKeyScope: scopeDomain,
+			pwKeyMaxAgeDays: float64(90), pwKeyNotConfigurable: notConfigurable,
+		},
+		domainInitial: {
+			pwKeyID: domainInitial, pwKeyProvider: passwordPolicyProvider, pwKeyScope: scopeDomain,
+			pwKeyMaxAgeDays: float64(0), pwKeyNotConfigurable: notConfigurable,
+		},
+		domainFederated: {
+			pwKeyID: domainFederated, pwKeyProvider: passwordPolicyProvider, pwKeyScope: scopeDomain,
+			pwKeyNotConfigurable: notConfigurable,
+		},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("password_policy records = %d, want %d", len(got), len(want))
+	}
+	for id, w := range want {
+		if !reflect.DeepEqual(got[id], w) {
+			t.Errorf("%s payload = %#v\nwant %#v", id, got[id], w)
+		}
+	}
+}
+
+// conformanceOptionalPasswordPolicyFields are the password_policy.v2 fields
+// an Entra record cannot carry. The list is long on purpose: it is the
+// machine-readable form of "Graph answers one password question", and
+// every entry here is a field another vendor fills and Microsoft does not
+// expose — so a future Graph capability shows up as this list shrinking
+// rather than as a silently-fabricated value.
+var conformanceOptionalPasswordPolicyFields = []string{
+	// A domain has no policy name separate from the domain itself, and
+	// per-domain policies govern disjoint populations rather than
+	// competing for one identity, so precedence is meaningless here (the
+	// schema says to omit it in exactly that case).
+	"password_policy.v2.name", "password_policy.v2.precedence",
+	// Not tenant settings in Entra at all — recorded in not_configurable,
+	// which is why their absence is structural rather than unread.
+	"password_policy.v2.min_length",
+	"password_policy.v2.reuse_prevented", "password_policy.v2.reuse_prevention_count",
+	"password_policy.v2.complexity_model", "password_policy.v2.complexity_description",
+	"password_policy.v2.requires_uppercase", "password_policy.v2.requires_lowercase",
+	"password_policy.v2.requires_numbers", "password_policy.v2.requires_symbols",
+	"password_policy.v2.password_strength",
+	// MFA is a Conditional Access concept in Entra, not an attribute of
+	// the password rule — the same exemption the AWS and Okta emitters take.
+	"password_policy.v2.mfa_required",
+	// Present on every managed domain; absent on a federated one, whose
+	// passwords Entra does not enforce. The assertions above pin which is
+	// which, so the exemption costs no coverage.
+	"password_policy.v2.max_age_days",
 }

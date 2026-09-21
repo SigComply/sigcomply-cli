@@ -27,9 +27,25 @@ func TestPasswordPolicyConformance(t *testing.T) {
 		Plugin:        newPlugin(),
 		Request:       core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes: sourcetest.BuiltinEvidenceTypes(t),
-		// mfa_required is per-user in IAM, not a password-policy attribute (a
-		// *bool with omitempty — never emitted for AWS).
-		OptionalFields: []string{"password_policy.mfa_required"},
+		OptionalFields: []string{
+			// mfa_required is per-user in IAM, not a password-policy
+			// attribute (a *bool with omitempty — never emitted for AWS).
+			"password_policy.v2.mfa_required",
+			// The recorded account has no password policy at all, so the
+			// record is complexity_model "none" and carries no per-class
+			// answer. The schema's discriminated union is what keeps a
+			// per_class record from dropping them silently.
+			"password_policy.v2.requires_uppercase",
+			"password_policy.v2.requires_lowercase",
+			"password_policy.v2.requires_numbers",
+			"password_policy.v2.requires_symbols",
+			// IAM's account password policy has no name, and every
+			// attribute of it is tenant-configurable.
+			"password_policy.v2.name",
+			"password_policy.v2.password_strength",
+			"password_policy.v2.complexity_description",
+			"password_policy.v2.not_configurable",
+		},
 	})
 
 	if len(recs) != 1 {
@@ -42,8 +58,9 @@ func TestPasswordPolicyConformance(t *testing.T) {
 	if recs[0].ID != singletonID || p.Provider == "" {
 		t.Errorf("record id=%q provider=%q; want account / non-empty provider", recs[0].ID, p.Provider)
 	}
-	// No policy → weakest posture.
-	if p.MinLength != 0 || p.RequiresUppercase || p.RequiresSymbols {
-		t.Errorf("payload = %+v; want all-zero (no policy set)", p)
+	// No policy → weakest posture: no minimum, and no strength
+	// requirement of any kind (not a per-class answer of four noes).
+	if p.MinLength != 0 || p.ComplexityModel != complexityNone {
+		t.Errorf("payload = %+v; want min_length 0 and complexity_model %q (no policy set)", p, complexityNone)
 	}
 }

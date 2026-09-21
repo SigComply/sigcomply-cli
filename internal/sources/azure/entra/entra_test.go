@@ -56,11 +56,22 @@ const (
 type fakeAPI struct {
 	users       []User
 	roster      []RosterUser
+	domains     []Domain
 	tenant      string
 	tenantErr   error
 	err         error
+	domainErr   error
 	calls       int
 	rosterCalls int
+	domainCalls int
+}
+
+func (f *fakeAPI) ListDomains(context.Context) ([]Domain, error) {
+	f.domainCalls++
+	if f.domainErr != nil {
+		return nil, f.domainErr
+	}
+	return f.domains, nil
 }
 
 func (f *fakeAPI) TenantID(context.Context) (string, error) {
@@ -98,8 +109,9 @@ func TestPlugin_IDAndEmits(t *testing.T) {
 	if got := p.ID(); got != "azure.entra" {
 		t.Errorf("ID() = %q, want azure.entra", got)
 	}
-	if got := p.Emits(); !reflect.DeepEqual(got, []string{"directory_user", "roster_entry"}) {
-		t.Errorf("Emits() = %v, want [directory_user roster_entry]", got)
+	want := []string{"directory_user", "roster_entry", "password_policy.v2"}
+	if got := p.Emits(); !reflect.DeepEqual(got, want) {
+		t.Errorf("Emits() = %v, want %v", got, want)
 	}
 }
 

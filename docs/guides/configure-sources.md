@@ -127,6 +127,7 @@ sources:
 
 - **Credentials (env):** the Azure SDK chain — `az login`, a managed identity, or an `AZURE_*` service principal (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`).
 - **Required config keys:** `subscription_id`, for ARM-based sources only. Microsoft Graph-based sources (`azure.entra`) require nothing: the Graph token is scoped by the credential's home tenant, so `tenant_id` is **optional and not auth-bearing** — setting it does not select a directory. Each record's scope is filled in from the tenant the credential actually reads, and a declared `tenant_id` that disagrees with it is a configuration error (exit 3) rather than a silently mislabelled run.
+- **Graph application permissions (`azure.entra` only):** `User.Read.All` (users + roster), `AuditLog.Read.All` (the per-user MFA registration report — also needs an Entra ID **P1/P2** license), and `Domain.Read.All` if a slot accepts `password_policy.v2` (`GET /domains`, no license needed). All admin-consented on the app registration. A missing permission fails only the policies bound to that source, never the run.
 
 ### GitHub (`github`)
 

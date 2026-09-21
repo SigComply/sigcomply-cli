@@ -300,20 +300,27 @@ policies:
           keys (WU-5.7); CMEK applies only to a routed destination. Covered
           by manual evidence of the CMEK-routed log destination under cc7.1.
 
-  # password_policy has NO honest Azure source: Microsoft Entra ID does not
-  # expose the classic IAM-password-policy shape (length/complexity are fixed
-  # platform constants; only expiry is readable), so the plan defers it
-  # (WU-0.3 / WU-5.15) and these controls are covered by manual evidence — a
-  # screenshot/export of the Entra password and authentication-method
-  # settings. Marked not-applicable for the automated flow rather than
-  # emitting a misleading record.
+  # password_policy is PARTLY answerable on Azure. `azure.entra` emits
+  # password_policy.v2 from GET /domains (needs Domain.Read.All), so
+  # soc2.cc6.1.password_expiry_90d evaluates automatically — no exception
+  # needed for it. What Entra exposes no setting for is minimum length,
+  # password history and the character-class rule: those are Microsoft
+  # platform constants for cloud-only accounts, the record says so in
+  # `not_configurable` and leaves the values absent, and the corresponding
+  # clauses therefore filter it out of scope rather than passing or failing
+  # it. Declaring them `na` turns that silent non-answer into a reasoned,
+  # auditor-visible exclusion (it does not change the score: na and skip
+  # both leave the denominator).
   soc2.cc6.1.password_min_length_14:
     exceptions:
       - state: na
         reason: |
-          Microsoft Entra ID exposes no readable IAM-style password-policy
-          object (WU-0.3/WU-5.15: defer). Covered by a manual export of the
-          Entra password / authentication-method settings under cc6.1.
+          Microsoft Entra ID exposes no tenant setting for minimum password
+          length (a platform constant for cloud-only accounts), so no
+          evidence can be collected for it. Covered by a manual export of
+          the Entra password / authentication-method settings under cc6.1.
+    # The same applies to soc2.cc6.1.password_complexity,
+    # soc2.cc6.1.password_reuse_prevention and iso27001.8.5.password_*.
 
   # Manual PDF — quarterly access review exported from the Entra / Azure
   # admin console.

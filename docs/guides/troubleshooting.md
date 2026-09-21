@@ -294,7 +294,7 @@ bug — check the plugin, not the policy.
 ```
 6 control(s) were SKIPPED and are NOT counted in the compliance score:
   soc2.cc6.1.password_min_length_14 — no configured source emits
-    [password_policy] (slot "evidence")
+    [password_policy.v2 password_policy] (slot "evidence")
   …
 ```
 

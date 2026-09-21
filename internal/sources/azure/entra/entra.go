@@ -25,6 +25,13 @@
 // works on tenants without an Entra ID P1/P2 license. Guests are excluded:
 // they are external identities, not workforce.
 //
+// password_policy.v2 uses a fourth, independent read — GET /domains — and
+// needs the Domain.Read.All application permission (no P1/P2 license). It
+// is the narrowest of the four: Entra exposes exactly ONE tenant-settable
+// password attribute, the per-domain validity period, so a record carries
+// expiry and a not_configurable list and nothing else. See
+// collectPasswordPolicies for why nothing more may be emitted.
+//
 // Auth: a DefaultAzureCredential (azcommon.NewCredential) mints a token for
 // the Microsoft Graph ".default" scope. The app registration needs the
 // application permissions User.Read.All + AuditLog.Read.All consented, and
@@ -57,11 +64,45 @@ import (
 )
 
 // EvidenceTypeID is the cross-vendor directory_user evidence type this plugin
-// emits; EvidenceTypeRosterEntry is the cross-vendor workforce-roster type.
+// emits; EvidenceTypeRosterEntry is the cross-vendor workforce-roster type;
+// EvidenceTypePasswordPolicy is the cross-vendor password-rule type (v2 only
+// — see collectPasswordPolicies for why v1 was unfillable here).
 const (
-	EvidenceTypeID          = "directory_user"
-	EvidenceTypeRosterEntry = "roster_entry"
+	EvidenceTypeID             = "directory_user"
+	EvidenceTypeRosterEntry    = "roster_entry"
+	EvidenceTypePasswordPolicy = "password_policy.v2"
 )
+
+// The password_policy.v2 vocabulary this plugin writes. Spelled as named
+// constants because each one is a claim: "entra" is the enforcing system,
+// "domain" is the population one record governs (Entra's password validity
+// period is a per-domain setting, unlike AWS's per-account singleton), and
+// the three not_configurable entries name the attributes Microsoft Graph
+// exposes no tenant setting for at all.
+const (
+	passwordPolicyProvider    = "entra"
+	scopeDomain               = "domain"
+	notConfigurableMinLength  = "min_length"
+	notConfigurableReuse      = "reuse"
+	notConfigurableComplexity = "complexity"
+)
+
+// Graph's two documented values for domain.authenticationType. "Managed"
+// means Microsoft Entra ID itself authenticates the domain's users;
+// "Federated" means an external identity provider (typically on-premises
+// AD via AD FS) does, and therefore that the external provider — not
+// Entra — enforces whatever password rule is in force there.
+const (
+	authTypeManaged   = "Managed"
+	authTypeFederated = "Federated"
+)
+
+// passwordNeverExpiresSentinel is Microsoft's documented encoding of
+// "passwords in this domain never expire": Int32.MaxValue, the value its
+// own tooling tells an administrator to set
+// (Update-MgDomain -PasswordValidityPeriodInDays 2147483647). It is a
+// sentinel, not a duration, and must never reach a clause as one.
+const passwordNeverExpiresSentinel = 2147483647
 
 // SourceID is the registered ID for the azure.entra plugin instance.
 const SourceID = "azure.entra"
@@ -96,6 +137,25 @@ type RosterUser struct {
 	EmployeeType   string
 }
 
+// Domain is one entry of GET /domains, reduced to the three fields that
+// decide what — if anything — this tenant can be said to enforce about
+// password expiry for the identities in that domain.
+type Domain struct {
+	// ID is the domain name; Graph keys the domain resource on it.
+	ID string
+	// IsVerified reports whether domain ownership was proven. An
+	// unverified domain cannot be used to sign in, so its settings govern
+	// nobody.
+	IsVerified bool
+	// AuthenticationType is "Managed" or "Federated" (see the constants).
+	AuthenticationType string
+	// PasswordValidityPeriodInDays is nil when Graph reported no value.
+	// A pointer because the difference between "unset" and a number
+	// matters: Microsoft documents a 90-day fallback for the unset case,
+	// and that documented number is not a measurement of this tenant.
+	PasswordValidityPeriodInDays *int32
+}
+
 // API is the subset of Microsoft Graph this plugin uses. Defining it as an
 // interface lets tests inject a fake without hitting Graph; the real adapter
 // (realGraph) handles auth, pagination, and the two-endpoint join.
@@ -108,6 +168,10 @@ type API interface {
 	// ListRosterUsers lists every user with the roster fields. It must not
 	// read the P1/P2-gated registration report.
 	ListRosterUsers(ctx context.Context) ([]RosterUser, error)
+	// ListDomains lists the tenant's domains, which is where Entra keeps
+	// the one password attribute it lets a tenant configure. Needs the
+	// Domain.Read.All application permission; no P1/P2 license.
+	ListDomains(ctx context.Context) ([]Domain, error)
 }
 
 // Plugin is the in-process azure.entra source.
@@ -202,7 +266,9 @@ func newVerifiedPlugin(ctx context.Context, opts Options, cfg azcommon.Config) (
 func (*Plugin) ID() string { return SourceID }
 
 // Emits returns the evidence types this plugin can produce.
-func (*Plugin) Emits() []string { return []string{EvidenceTypeID, EvidenceTypeRosterEntry} }
+func (*Plugin) Emits() []string {
+	return []string{EvidenceTypeID, EvidenceTypeRosterEntry, EvidenceTypePasswordPolicy}
+}
 
 // Init is a no-op — configuration is fixed at New.
 func (*Plugin) Init(context.Context, map[string]any) error { return nil }
@@ -247,6 +313,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	}{
 		{EvidenceTypeID, p.collectUsers},
 		{EvidenceTypeRosterEntry, p.collectRoster},
+		{EvidenceTypePasswordPolicy, p.collectPasswordPolicies},
 	}
 	var out []core.EvidenceRecord
 	matched := false
@@ -391,6 +458,153 @@ func rosterPayloadFor(u *RosterUser) rosterPayload {
 	}
 }
 
+// passwordPolicyPayload is the canonical password_policy.v2 shape as Entra
+// can fill it, which is: barely. The json tags match the AWS and Okta
+// emitters' exactly — policies bind to the evidence type, never to a
+// vendor — and every field those two carry and this one does not is
+// omitted rather than zeroed.
+//
+// MaxAgeDays is a pointer so "Graph reported no validity period" stays
+// distinguishable from an observed zero. Zero is a real answer in this
+// schema ("an observed no-expiry", which is how the never-expires
+// sentinel below arrives), so a nil must not collapse into it.
+//
+// NotConfigurable is a constant for this source rather than something
+// read: it is a statement about Graph's API surface, not a measurement,
+// which is precisely why the VALUES it names stay absent.
+type passwordPolicyPayload struct {
+	ID              string   `json:"id"`
+	Provider        string   `json:"provider"`
+	Scope           string   `json:"scope"`
+	MaxAgeDays      *int     `json:"max_age_days,omitempty"`
+	NotConfigurable []string `json:"not_configurable"`
+}
+
+// collectPasswordPolicies emits one password_policy.v2 record per VERIFIED
+// domain: Entra's password validity period is a per-domain setting, so a
+// tenant with three verified domains genuinely has three answers, and the
+// consuming clauses quantify `all` over them ("every password policy in
+// force meets the bar"). Unverified domains are skipped — ownership was
+// never proven, nobody can sign in with one, and a finding about a rule
+// that is not in force is a false finding (the same reason Okta skips
+// INACTIVE policies).
+//
+// WHAT THIS EMITS, AND WHY IT IS SO LITTLE.
+//
+// Microsoft Graph answers exactly one password question about a tenant:
+// domain.passwordValidityPeriodInDays. Minimum length, password history
+// and the character-class rule are not tenant settings at all for
+// cloud-only accounts, so there is no API to read them from — which is
+// what not_configurable records. The alternative, writing Microsoft's
+// documented constants (8 characters, "3 of 4 character classes") into
+// the payload, would sign a value read from a manual into an
+// EvidenceEnvelope as though it had been measured in this tenant. That is
+// the fabrication password_policy.v2 exists to make unnecessary: absence
+// means THIS SOURCE DID NOT OBSERVE A VALUE, and not_configurable says
+// why the absence is structural rather than an unread field.
+//
+// complexity_model: "fixed" was considered and deliberately NOT emitted,
+// even though the schema names Entra's character-class rule as its
+// example of the fixed arm. Two things rule it out. (a) It is legitimate
+// only for a rule the tenant CANNOT change, and Entra's is changeable:
+// user.passwordPolicies accepts the documented value
+// "DisableStrongPassword", which turns the complexity requirement off for
+// that account, and in a federated or password-hash-synced domain the
+// rule in force is the external directory's, which Graph does not expose
+// at all. A "constant true of every tenant by construction" it is not.
+// (b) Emitting it would make both password_complexity policies (SOC 2
+// CC6.1 and ISO 8.5) pass for every Entra tenant unconditionally — a
+// green tick earned by a string constant in this file rather than by
+// anything read from the customer. With complexity absent, those clauses
+// filter the record out of scope and the run reports a vacuous clause,
+// which is the honest "nothing here was examined".
+//
+// Lockout is not emitted either, and not because it is unreadable:
+// Graph's groupSettings "Password Rule Settings" template does carry a
+// lockout threshold and duration. password_policy.v2 has no lockout field
+// and no shipped policy reads one, so emitting it would add a Graph call,
+// a permission and signed bytes that nothing consumes — the same reason a
+// source caveat nobody reads is noise. If a lockout clause is ever
+// written, the schema gains the field first.
+func (p *Plugin) collectPasswordPolicies(ctx context.Context) ([]core.EvidenceRecord, error) {
+	domains, err := p.api.ListDomains(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("azure.entra: list domains: %w", err)
+	}
+	scope := p.scope()
+	now := p.now()
+	records := make([]core.EvidenceRecord, 0, len(domains))
+	for i := range domains {
+		d := &domains[i]
+		if !d.IsVerified {
+			continue
+		}
+		body, err := json.Marshal(passwordPolicyPayload{
+			ID:         d.ID,
+			Provider:   passwordPolicyProvider,
+			Scope:      scopeDomain,
+			MaxAgeDays: maxAgeDays(d),
+			NotConfigurable: []string{
+				notConfigurableMinLength, notConfigurableReuse, notConfigurableComplexity,
+			},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("azure.entra: marshal password policy payload: %w", err)
+		}
+		records = append(records, core.EvidenceRecord{
+			Type:        EvidenceTypePasswordPolicy,
+			ID:          d.ID,
+			Payload:     body,
+			SourceID:    SourceID,
+			CollectedAt: now,
+			Scope:       scope,
+		})
+	}
+	sort.Slice(records, func(i, j int) bool { return records[i].ID < records[j].ID })
+	return records, nil
+}
+
+// maxAgeDays translates Graph's validity period into the schema's
+// max_age_days, or returns nil when there is nothing honest to say.
+//
+// Two translations happen here, both of them the plugin's job rather than
+// a clause's (Invariant #4: vendor→canonical mapping lives in the source,
+// and policy logic must never contain a vendor sentinel or a null guard).
+//
+//  1. The never-expires sentinel becomes 0. Microsoft encodes "passwords
+//     in this domain never expire" as Int32.MaxValue; the schema encodes
+//     the same fact as max_age_days 0 — "an observed no-expiry, not
+//     unknown" — which is also what AWS and Okta emit for it. Passing the
+//     sentinel through instead would report a 2-billion-day rotation
+//     period and fail the 90-day clause, giving an Entra tenant a
+//     different verdict from an AWS account in the identical posture,
+//     which is exactly what a cloud-neutral type exists to prevent. It
+//     does mean a never-expiring tenant PASSES soc2.cc6.1.password_expiry_90d
+//     — deliberately, by that clause's own documented NIST 800-63B
+//     rationale that event-driven rotation is the better practice.
+//
+//  2. A federated domain reports nothing. Its users authenticate against
+//     an external identity provider, so whatever number sits in Entra's
+//     field is not the rule in force, and emitting it would assert an
+//     expiry that nothing enforces. The record is still emitted — the
+//     domain exists and an auditor should see that Entra does not govern
+//     its passwords — it simply carries no expiry claim, and the expiry
+//     clause's is_set guard filters it out of scope.
+//
+// A nil period is likewise left absent: Microsoft documents 90 days as
+// the fallback when the value is unset, and that documented number
+// describes the product, not this tenant.
+func maxAgeDays(d *Domain) *int {
+	if d.PasswordValidityPeriodInDays == nil || !strings.EqualFold(d.AuthenticationType, authTypeManaged) {
+		return nil
+	}
+	days := int(*d.PasswordValidityPeriodInDays)
+	if days == passwordNeverExpiresSentinel {
+		days = 0
+	}
+	return &days
+}
+
 // --- real Microsoft Graph adapter ---
 
 // graphPage is the standard Graph collection envelope: a value array plus an
@@ -421,6 +635,23 @@ type graphRosterUser struct {
 	EmployeeID        string `json:"employeeId"`
 	EmployeeType      string `json:"employeeType"`
 }
+
+// graphDomain is the /domains projection the password policy reads.
+// passwordValidityPeriodInDays is a pointer so a JSON null stays nil
+// rather than decoding to a zero that means "no expiry".
+type graphDomain struct {
+	ID                           string `json:"id"`
+	IsVerified                   bool   `json:"isVerified"`
+	AuthenticationType           string `json:"authenticationType"`
+	PasswordValidityPeriodInDays *int32 `json:"passwordValidityPeriodInDays"`
+}
+
+// domainsPath is the domain listing. Deliberately no $select: the domain
+// resource carries no identity (domain names and platform flags), so
+// there is nothing to minimize, and which OData parameters /domains
+// honors is not something this repo can verify without a tenant — an
+// unsupported $select would fail the whole read for no benefit.
+const domainsPath = "/domains"
 
 // rosterUsersPath is the roster listing: only the fields roster_entry needs,
 // at Graph's maximum page size.
@@ -512,6 +743,30 @@ func (r *realGraph) ListRosterUsers(ctx context.Context) ([]RosterUser, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list roster users (needs the User.Read.All permission): %w", err)
+	}
+	return out, nil
+}
+
+// ListDomains pages GET /domains. It needs only the Domain.Read.All
+// application permission and no Entra ID P1/P2 license, so it is
+// independent of the registration report the directory_user read depends
+// on — a tenant that cannot answer MFA can still answer expiry.
+func (r *realGraph) ListDomains(ctx context.Context) ([]Domain, error) {
+	token, err := r.token(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []Domain
+	err = graphList(ctx, r, token, r.base+domainsPath, func(d *graphDomain) {
+		out = append(out, Domain{
+			ID:                           d.ID,
+			IsVerified:                   d.IsVerified,
+			AuthenticationType:           d.AuthenticationType,
+			PasswordValidityPeriodInDays: d.PasswordValidityPeriodInDays,
+		})
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list domains (needs the Domain.Read.All permission): %w", err)
 	}
 	return out, nil
 }

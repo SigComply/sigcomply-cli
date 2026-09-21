@@ -351,17 +351,24 @@ Users hard-deleted from Okta vanish from the roster; their accounts elsewhere su
 
 One record is emitted **per ACTIVE policy**, not one per org. Okta assigns password policies per group, so an org normally has several (Default, plus any group, Active Directory or LDAP policies), and the consuming policies quantify `all`: the verdict is *"every password policy in this org meets the bar"*. Grading only the highest-priority or the Default policy would silently pass an org that attaches a permissive policy to a group. INACTIVE policies are skipped — one that is not in force governs nobody.
 
-| `password_policy` field | Okta |
+The plugin emits **`password_policy.v2`** (not v1). The six consuming policies accept both IDs, so a project-local plugin still emitting v1 keeps binding; no in-tree plugin emits both versions, because every record a binding returns lands in the same slot and two records for one policy would double the resource counts.
+
+| `password_policy.v2` field | Okta |
 |---|---|
 | `id` | the Okta policy id |
+| `name` | the policy name as shown in the admin console |
 | `provider` | `okta` |
+| `scope` | `account` when Okta marks the policy `system` (the undeletable org default, which governs everyone no other policy claims), else `group` |
+| `precedence` | `priority`, carried through unchanged — Okta evaluates `1` first, which is what `precedence` means |
 | `min_length` | `settings.password.complexity.minLength` |
 | `max_age_days` | `settings.password.age.maxAgeDays` (`0` = no expiry, as in the schema) |
-| `reuse_prevention_count` | `settings.password.age.historyCount` (`0` = no restriction) |
+| `reuse_prevented` | `historyCount >= 1` |
+| `reuse_prevention_count` | `settings.password.age.historyCount` (`0` = no history kept) |
+| `complexity_model` | always `per_class` — Okta states complexity as character-class counts |
 | `requires_uppercase` / `_lowercase` / `_numbers` / `_symbols` | `complexity.minUpperCase` / `minLowerCase` / `minNumber` / `minSymbol` ≥ 1 — Okta documents each as a count where `0` is no and `1` is yes |
-| `mfa_required` | not emitted: MFA is a separate Okta policy type, not a password attribute |
+| `password_strength`, `complexity_description`, `not_configurable`, `mfa_required` | not emitted: Okta answers per character class, every attribute is tenant-configurable, and MFA is a separate Okta policy type |
 
-A complexity field Okta reports as `null` (its own published example does this for `minNumber`) reads as "not required" for the booleans, and never as a configured `0` for `min_length` — an unread value is not evidence of a weak setting.
+A complexity field Okta reports as `null` (its own published example does this for `minNumber`) reads as "not required" for the booleans. For the numeric settings a `null` means something else entirely — nothing was reported — and v2 lets the plugin **omit** those keys rather than write a `0` it did not read. Under v1 all eight fields were required, so the plugin had to emit a fabricated `0`; a clause now filters such a record out of its scope instead of failing it on a number nobody sent.
 
 ### Active Directory
 
@@ -517,7 +524,8 @@ secret to store or rotate. One-time setup:
    `azure.defender` and **Backup Reader** for `azure.backup`), and the
    Microsoft Graph application permissions for `azure.entra`
    (`User.Read.All`, `AuditLog.Read.All` / `Reports.Read.All`,
-   `UserAuthenticationMethod.Read.All`, admin-consented).
+   `UserAuthenticationMethod.Read.All`, and `Domain.Read.All` for the
+   password-policy read — all admin-consented).
 4. **Pass** `client-id`/`tenant-id`/`subscription-id` to `azure/login` as shown
    above. No secret is ever stored — the OIDC token is exchanged for a
    short-lived Entra token per run.
@@ -538,11 +546,12 @@ additionally needs the Microsoft Graph read scopes above). A full worked
 Azure-only SOC 2 config — the azure.* source family covering identity, storage,
 database, network, compute, encryption, logging, change-tracking, security
 posture, container/Kubernetes, NoSQL, backup, and certificates, with the
-secret-rotation, audit-log-CMEK, and password-policy controls deferred to
+secret-rotation, audit-log-CMEK, and the three unreadable password-policy
+controls (length, complexity, reuse — expiry *is* collected) deferred to
 manual evidence — lives at
 [`docs/architecture/examples/azure-subscription.sigcomply.yaml`](architecture/examples/azure-subscription.sigcomply.yaml).
 
-#### `azure.entra` — directory_user
+#### `azure.entra` — directory_user, roster_entry, password_policy
 
 Lists Microsoft Entra ID (Azure AD) users via Microsoft Graph and emits one
 `directory_user` per user — the same cross-vendor type as `aws.iam`, `okta`,
@@ -591,7 +600,8 @@ Field mapping (two Graph reads joined on the user object id):
 | `last_login_at` | `users.signInActivity.lastSignInDateTime` (omitted when unavailable) |
 
 **Required Graph application permissions** (admin-consented on the app
-registration): `User.Read.All` + `AuditLog.Read.All`. The
+registration): `User.Read.All` + `AuditLog.Read.All`, plus `Domain.Read.All`
+if a slot accepts `password_policy.v2` (see below). The
 `userRegistrationDetails` report and `signInActivity` both require an **Entra ID
 P1 or P2 license**. If those are missing the source returns a clear error
 (naming `AuditLog.Read.All` + P1/P2) rather than fabricating `mfa_enabled=false`
@@ -610,6 +620,47 @@ unavailable.
 | `employee_type` | `employeeType` |
 
 Users deleted from Entra vanish from the roster; their accounts elsewhere surface as unlinked (`accounts_linked_to_roster`).
+
+**password_policy.v2** (when a slot accepts it — the six `password_*` policies
+under SOC 2 CC6.1 and ISO 8.5): reads `GET /domains`, which needs the Graph
+application permission **`Domain.Read.All`** and **no** Entra ID P1/P2 license.
+It is independent of the MFA registration report, so a tenant that cannot
+answer MFA can still answer password expiry.
+
+One record is emitted **per verified domain**, not one per tenant: Entra's
+password validity period is a per-domain setting, so a tenant with three
+verified domains genuinely has three answers and the consuming policies
+quantify `all` over them ("every password policy in force meets the bar").
+Unverified domains are skipped — nobody can sign in with one, so a finding
+against its settings would be a finding about a rule that is not in force.
+
+| `password_policy.v2` field | Entra |
+| --- | --- |
+| `id` | the domain name (Graph keys the domain resource on it) |
+| `provider` / `scope` | `entra` / `domain` |
+| `max_age_days` | `domain.passwordValidityPeriodInDays`. Microsoft's documented sentinel for "passwords never expire" is `2147483647` (`Int32.MaxValue`) and is translated to `0`, which is what the schema — and the AWS and Okta emitters — mean by an observed no-expiry. **Omitted** when Graph reported no value (Microsoft documents a 90-day fallback; that number describes the product, not your tenant) and **omitted for a federated domain**, whose passwords an external identity provider validates, so Entra's number is not the rule in force. |
+| `not_configurable` | always `[min_length, reuse, complexity]` — a statement about Graph's API surface, not a measurement |
+| `min_length`, `reuse_prevented`, `reuse_prevention_count`, `complexity_model` and the four `requires_*` booleans, `password_strength`, `complexity_description`, `name`, `precedence`, `mfa_required` | **not emitted** |
+
+**Why so little, and why no `complexity_model: fixed`.** Microsoft documents a
+minimum length of 8 and a "3 of 4 character classes" rule for cloud-only
+accounts, but neither is a tenant setting: there is no API to read them from,
+so writing them into the record would sign a value read from documentation
+into an EvidenceEnvelope as though it had been measured here. The schema's
+`fixed` complexity model is reserved for a rule the tenant *cannot* change,
+and Entra's is changeable — `user.passwordPolicies` accepts the documented
+value `DisableStrongPassword`, and in a federated or password-hash-synced
+domain the rule in force belongs to the external directory, which Graph does
+not expose at all. Emitting `fixed` would also pass both `password_complexity`
+policies for every Entra tenant unconditionally, on the strength of a constant
+in SigComply's source code. With the field absent, those clauses filter the
+record out of scope and the run reports a vacuous clause instead — the honest
+"nothing here was examined".
+
+So an Entra-only estate answers `soc2.cc6.1.password_expiry_90d` automatically
+and leaves the min-length, complexity and reuse policies unanswered; cover
+those with a per-policy `na` exception (see the worked
+[`azure-subscription.sigcomply.yaml`](architecture/examples/azure-subscription.sigcomply.yaml)).
 
 > **Implementation note:** `azure.entra` calls Microsoft Graph over raw REST
 > (with a bearer token from `DefaultAzureCredential`), not the
@@ -1484,36 +1535,31 @@ The instance key is the source's identity for the whole run: it is what a
 appears in the evidence envelope's filename — so each account's evidence
 is independently verifiable rather than merged.
 
-**Evidence stays separate; violations do not.** The instance key namespaces
-`source_id`, not the record `id`. Violation dedup keys on the clause
-`identity_key`, which defaults to the bare record `id` with no source
-prefix — so two instances reporting a resource with the *same* id yield one
-violation and count once in `resources_failed`, while `resources_evaluated`
-counts both records. For almost every resource this never bites, because
-the id is globally unique (an AWS `AIDA…` user id, an ARM resource id, an
-S3 bucket name). It bites where a source emits a record whose id is a
-per-account constant or a name that only IaC repeats: `aws.iam`'s root
-record was one such case and is now keyed by the root ARN.
+**Two instances no longer collide on a shared record id.** The instance key
+namespaces both `source_id` **and** the record `id`, so `aws.iam[prod]` and
+`aws.iam[staging]` produce distinct identities even for a record whose id is
+only unique within one account. That matters because several sources emit a
+per-account constant — `aws.password_policy` emits `account`,
+`aws.security_services` emits `aws-macie`/`aws-inspector`/`aws-securityhub`,
+`azure.defender` emits `azure-defender-for-cloud` — and resource *names* that
+Terraform repeats per environment (a GCP `default` network) behave the same
+way. Violation dedup keys on the record id, so before this two accounts
+failing one of those checks produced **one** violation naming neither, and a
+single `resource_id` exception waived both.
 
-The one that still bites today is **`aws.password_policy`**, whose record id
-is the constant `account` (a stable id was chosen to avoid an `sts:GetCallerIdentity`
-call purely to learn the account number). Its six policies use an `all`
-quantifier, so two instances with different password policies report one
-violation, not two.
+What this means in practice:
 
-Two neighbours are **latent rather than live**, and the distinction is the
-quantifier: `aws.security_services` (`aws-macie`/`aws-inspector`/`aws-securityhub`)
-and `azure.defender` (`azure-defender-for-cloud`) also use constant ids, but
-every shipped policy over `security_service` uses `any`, which emits a single
-verdict with no resource id and never reaches dedup. The first `all`/`none`
-clause written over those types would make them live. Resource *names* that
-Terraform repeats per environment are the same shape — a GCP `default`
-network, `default-allow-ssh` firewall rules.
-
-Where you need two instances counted separately, set `identity_key:
-account.ref` on a project-local policy (it resolves to `source_id/id`, which
-the instance key does namespace), or read the per-source envelopes, which
-are always separate.
+- A violation's `resource_id` for an instanced source is prefixed:
+  `aws.iam[staging]/account`. A waiver written against the bare id no longer
+  matches — it fails loudly rather than silently widening. Use
+  `resource_pattern: "aws.iam[staging]/*"` to scope a waiver to one instance.
+- `identity_key` is **not** namespaced, so a cross-source join on an email
+  still dedups one person across `okta` and `aws.iam[prod]` as before.
+- A roster `aliases:` / `non_human:` entry matches either the prefixed or the
+  bare id, so existing entries keep working.
+- **Unbracketed sources are untouched.** A plain `aws.iam` is registered
+  unwrapped and its records are byte-identical to before, so no existing
+  single-account vault or waiver moves.
 
 **Region is not an account.** Two `aws.*` instances that differ only by
 region authenticate as the same principal and return the same account

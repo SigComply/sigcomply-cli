@@ -43,7 +43,7 @@ const (
 	EvidenceTypeDirectoryUser  = "directory_user"
 	EvidenceTypeApp            = "okta_app"
 	EvidenceTypeRosterEntry    = "roster_entry"
-	EvidenceTypePasswordPolicy = "password_policy"
+	EvidenceTypePasswordPolicy = "password_policy.v2"
 )
 
 // Normalized roster_entry status values (the schema's closed enum).
@@ -58,6 +58,13 @@ const (
 const (
 	oktaPolicyActive       = "ACTIVE"
 	passwordPolicyProvider = "okta"
+)
+
+// Canonical password_policy.v2 vocabulary this plugin emits.
+const (
+	scopeAccount       = "account"
+	scopeGroup         = "group"
+	complexityPerClass = "per_class"
 )
 
 // SourceID is the registered ID for the okta plugin instance.
@@ -740,11 +747,22 @@ var (
 // example returns `"minNumber": null`. The difference matters for
 // MinLength: a null read as 0 would sign "this org has no minimum" into
 // evidence when what we actually know is that Okta reported nothing.
+// Under password_policy.v1 that distinction could be described but not
+// emitted — all eight fields were required, so the plugin had to write the
+// 0 it had just argued against. v2 makes absence expressible and the
+// mapping below now omits what Okta did not report.
+//
+// System marks Okta's undeletable default policy, the one that governs
+// every user not matched by a higher-priority group-assigned policy. It is
+// how the plugin answers v2's `scope` honestly without a second API call:
+// system true is org-wide (account scope), everything else is assigned to
+// groups.
 type PasswordPolicy struct {
 	ID       string                 `json:"id"`
 	Name     string                 `json:"name"`
 	Status   string                 `json:"status"`
 	Priority int                    `json:"priority"`
+	System   bool                   `json:"system"`
 	Settings passwordPolicySettings `json:"settings"`
 }
 
@@ -776,15 +794,33 @@ type passwordAge struct {
 	HistoryCount *int `json:"historyCount"`
 }
 
-// passwordPolicyPayload is the canonical password_policy shape. The json
-// tags match the AWS emitter's exactly — policies bind to the type, never
-// to a vendor.
+// passwordPolicyPayload is the canonical password_policy.v2 shape. The
+// json tags match the AWS emitter's exactly — policies bind to the type,
+// never to a vendor.
+//
+// Like the AWS plugin this emits v2 and only v2. A binding's Collect is
+// called once with every accepted type it can satisfy and all the records
+// it returns land in the same slot, so emitting both versions would put
+// two records describing one Okta policy into one slot: double the
+// resources_evaluated count on the wire and two signed envelopes for one
+// fact. The six consuming policies accept both IDs so a project-local
+// plugin still emitting v1 keeps binding.
+//
+// The optional numeric fields are pointers so that "Okta reported null"
+// stays distinguishable from "Okta reported zero". Zero is a real answer
+// in this API — maxAgeDays 0 means no expiry, historyCount 0 means no
+// history — which is precisely why a null must not collapse into it.
 type passwordPolicyPayload struct {
 	ID                   string `json:"id"`
+	Name                 string `json:"name,omitempty"`
 	Provider             string `json:"provider"`
-	MinLength            int    `json:"min_length"`
-	MaxAgeDays           int    `json:"max_age_days"`
-	ReusePreventionCount int    `json:"reuse_prevention_count"`
+	Scope                string `json:"scope"`
+	Precedence           *int   `json:"precedence,omitempty"`
+	MinLength            *int   `json:"min_length,omitempty"`
+	MaxAgeDays           *int   `json:"max_age_days,omitempty"`
+	ReusePrevented       *bool  `json:"reuse_prevented,omitempty"`
+	ReusePreventionCount *int   `json:"reuse_prevention_count,omitempty"`
+	ComplexityModel      string `json:"complexity_model"`
 	RequiresUppercase    bool   `json:"requires_uppercase"`
 	RequiresLowercase    bool   `json:"requires_lowercase"`
 	RequiresNumbers      bool   `json:"requires_numbers"`
@@ -818,14 +854,22 @@ func (p *Plugin) collectPasswordPolicies(ctx context.Context) ([]core.EvidenceRe
 		c := pol.Settings.Password.Complexity
 		body, err := json.Marshal(passwordPolicyPayload{
 			ID:                   pol.ID,
+			Name:                 pol.Name,
 			Provider:             passwordPolicyProvider,
-			MinLength:            intOrZero(c.MinLength),
-			MaxAgeDays:           intOrZero(pol.Settings.Password.Age.MaxAgeDays),
-			ReusePreventionCount: intOrZero(pol.Settings.Password.Age.HistoryCount),
-			RequiresUppercase:    requiredClass(c.MinUpperCase),
-			RequiresLowercase:    requiredClass(c.MinLowerCase),
-			RequiresNumbers:      requiredClass(c.MinNumber),
-			RequiresSymbols:      requiredClass(c.MinSymbol),
+			Scope:                policyScope(pol.System),
+			Precedence:           precedence(pol.Priority),
+			MinLength:            c.MinLength,
+			MaxAgeDays:           pol.Settings.Password.Age.MaxAgeDays,
+			ReusePrevented:       reusePrevented(pol.Settings.Password.Age.HistoryCount),
+			ReusePreventionCount: pol.Settings.Password.Age.HistoryCount,
+			// Okta answers complexity as character-class counts, so
+			// per_class is a faithful description of what it told us —
+			// including the classes it says are not required.
+			ComplexityModel:   complexityPerClass,
+			RequiresUppercase: requiredClass(c.MinUpperCase),
+			RequiresLowercase: requiredClass(c.MinLowerCase),
+			RequiresNumbers:   requiredClass(c.MinNumber),
+			RequiresSymbols:   requiredClass(c.MinSymbol),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("okta: marshal password policy payload: %w", err)
@@ -846,11 +890,40 @@ func (p *Plugin) collectPasswordPolicies(ctx context.Context) ([]core.EvidenceRe
 // Okta did not report is not a requirement we can claim.
 func requiredClass(v *int) bool { return v != nil && *v >= 1 }
 
-func intOrZero(v *int) int {
-	if v == nil {
-		return 0
+// policyScope maps Okta's `system` flag onto the v2 scope vocabulary.
+// The system policy is the org's undeletable default and governs everyone
+// no higher-priority policy claims; every other PASSWORD policy is
+// assigned through group conditions.
+func policyScope(system bool) string {
+	if system {
+		return scopeAccount
 	}
-	return *v
+	return scopeGroup
+}
+
+// precedence carries Okta's priority through unchanged: Okta evaluates
+// priority 1 first, which is exactly what v2's precedence means, so no
+// inversion is needed (a vendor ordering the other way, as Google's
+// sortOrder does, would be inverted in its own plugin). A missing or
+// non-positive priority is not ranked rather than reported as rank zero.
+func precedence(priority int) *int {
+	if priority < 1 {
+		return nil
+	}
+	return &priority
+}
+
+// reusePrevented derives the canonical boolean from the history depth
+// Okta discloses. A depth Okta did not report answers nothing — neither
+// "reuse is prevented" nor "it is not" — so the boolean is omitted with
+// the count rather than defaulted to false, which would report an unread
+// setting as a finding.
+func reusePrevented(historyCount *int) *bool {
+	if historyCount == nil {
+		return nil
+	}
+	prevented := *historyCount >= 1
+	return &prevented
 }
 
 // ListPasswordPolicies returns the org's PASSWORD policies. Okta requires

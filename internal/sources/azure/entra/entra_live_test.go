@@ -100,3 +100,30 @@ func validateLiveRecords(t *testing.T, recs []core.EvidenceRecord) {
 		}
 	}
 }
+
+// TestEntraLivePasswordPolicy: GET /domains needs Domain.Read.All, which
+// is a third application permission separate from the two the tests above
+// use. An app registration that predates this collector authenticates
+// fine and then 403s on the read, so that specific failure is a clean
+// skip (the token mint in newLivePlugin already proved auth) rather than
+// a red test about a consent nobody has granted yet. No P1/P2 skip: the
+// domain read is not license-gated.
+func TestEntraLivePasswordPolicy(t *testing.T) {
+	ctx := context.Background()
+	p := newLivePlugin(ctx, t)
+	recs, err := p.Collect(ctx, core.SlotRequest{AcceptedTypes: []string{EvidenceTypePasswordPolicy}})
+	if err != nil {
+		if strings.Contains(err.Error(), "Authorization_RequestDenied") {
+			t.Skipf("graph auth OK; Domain.Read.All is not consented on this app registration: %v", err)
+		}
+		t.Fatalf("collect password policies: %v", err)
+	}
+	validateLiveRecords(t, recs)
+	t.Logf("collected %d password_policy records", len(recs))
+	// Every tenant keeps a verified initial <tenant>.onmicrosoft.com
+	// domain it cannot delete, so zero records is a mapping bug, never an
+	// empty estate.
+	if len(recs) < 1 {
+		t.Errorf("password_policy = %d, want >= 1 (every tenant has a verified initial domain)", len(recs))
+	}
+}

@@ -79,22 +79,17 @@ func techAccessPolicies() []core.Policy {
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.8.5.password_minimum_length", control: ctrlSecureAuthentication, severity: core.SeverityMedium, category: catAccess, cadence: cadenceDaily,
-			accepts: []string{"password_policy"},
+			accepts: passwordPolicyTypes,
 			desc:    "The password policy requires at least 12 characters.",
 			rem:     "Set minimum password length to 12 or greater.",
-			clause:  all(leaf("payload.min_length", "gte", 12), "password policy minimum length is below 12"),
+			clause:  passwordLengthClause(12),
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.8.5.password_complexity", control: ctrlSecureAuthentication, severity: core.SeverityMedium, category: catAccess, cadence: cadenceDaily,
-			accepts: []string{"password_policy"},
-			desc:    "The password policy requires all four character classes.",
-			rem:     "Enable uppercase, lowercase, number, and symbol requirements.",
-			clause: all(allOf(
-				leaf("payload.requires_uppercase", "eq", true),
-				leaf("payload.requires_lowercase", "eq", true),
-				leaf("payload.requires_numbers", "eq", true),
-				leaf("payload.requires_symbols", "eq", true),
-			), "password policy does not require all four character classes"),
+			accepts: passwordPolicyTypes,
+			desc:    "A password-strength control is enforced — either every character class is required, or the platform's own strength rating is.",
+			rem:     "Require uppercase, lowercase, number and symbol classes, or turn on the platform's strong-password enforcement.",
+			clause:  passwordStrengthEnforcedClause(),
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.8.5.org_2fa_required", control: ctrlSecureAuthentication, severity: core.SeverityHigh, category: catAccess, cadence: cadenceDaily,

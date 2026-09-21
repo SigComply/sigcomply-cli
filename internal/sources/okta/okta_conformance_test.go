@@ -2,6 +2,7 @@ package okta
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 	"time"
 
@@ -186,26 +187,40 @@ func mustUnmarshal(t *testing.T, b []byte, v any) {
 
 // TestOktaPasswordPolicyConformance replays an org with three PASSWORD
 // policies — a permissive default, a stricter engineering policy, and a
-// deactivated one — across two pages. It pins the three things that make
+// deactivated one — across two pages. It pins the four things that make
 // this emitter honest: the ACTIVE filter, Okta's 0/1 counts read as the
-// canonical booleans, and a null complexity field never inventing a value.
+// canonical booleans, a null complexity field never inventing a value,
+// and the scope pair that tells the org-wide default apart from a
+// group-assigned override that outranks it.
+//
+// The payloads are compared as decoded JSON rather than as structs so the
+// assertion sees exactly what is signed into the envelope — including
+// which keys are absent, which is half of what v2 added.
 func TestOktaPasswordPolicyConformance(t *testing.T) {
 	recs := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin:        newCassettePlugin(t, "testdata/cassettes/password_policy_collect"),
 		Request:       core.SlotRequest{AcceptedTypes: []string{EvidenceTypePasswordPolicy}},
 		EvidenceTypes: sourcetest.BuiltinEvidenceTypes(t),
-		// MFA is a separate Okta policy type, not a password attribute —
-		// the same exemption the AWS emitter takes.
-		OptionalFields: []string{"password_policy.mfa_required"},
+		OptionalFields: []string{
+			// MFA is a separate Okta policy type, not a password attribute
+			// — the same exemption the AWS emitter takes.
+			"password_policy.v2.mfa_required",
+			// Okta answers complexity per character class, so the
+			// strength_enum and fixed arms of the union stay empty.
+			"password_policy.v2.password_strength",
+			"password_policy.v2.complexity_description",
+			// Every attribute of an Okta password policy is configurable.
+			"password_policy.v2.not_configurable",
+		},
 	})
 
 	if len(recs) != 2 {
 		t.Fatalf("records = %d; want 2 — the INACTIVE policy governs nobody and is skipped", len(recs))
 	}
 
-	got := map[string]passwordPolicyPayload{}
+	got := map[string]map[string]any{}
 	for _, r := range recs {
-		var p passwordPolicyPayload
+		var p map[string]any
 		mustUnmarshal(t, r.Payload, &p)
 		got[r.ID] = p
 	}
@@ -218,19 +233,30 @@ func TestOktaPasswordPolicyConformance(t *testing.T) {
 	// may be read as a configured minimum length.
 	for _, tc := range []struct {
 		id   string
-		want passwordPolicyPayload
+		want map[string]any
 	}{
-		{"00pDefault0000000698", passwordPolicyPayload{
-			ID: "00pDefault0000000698", Provider: passwordPolicyProvider,
-			MinLength: 8, MaxAgeDays: 0, ReusePreventionCount: 4,
-			RequiresUppercase: true, RequiresLowercase: true,
-			RequiresNumbers: false, RequiresSymbols: false,
+		{"00pDefault0000000698", map[string]any{
+			pwKeyID: "00pDefault0000000698", pwKeyName: pwNameDefaultPolicy,
+			pwKeyProvider: passwordPolicyProvider,
+			// system: true — the undeletable org default governs everyone
+			// the engineering policy does not claim, and it is outranked
+			// by it (priority 2 against 1).
+			pwKeyScope: scopeAccount, pwKeyPrecedence: float64(2),
+			pwKeyMinLength: float64(8), pwKeyMaxAgeDays: float64(0),
+			pwKeyReusePrevented: true, pwKeyReuseCount: float64(4),
+			pwKeyComplexityModel: complexityPerClass,
+			pwKeyRequiresUpper:   true, pwKeyRequiresLower: true,
+			pwKeyRequiresNumbers: false, pwKeyRequiresSymbols: false,
 		}},
-		{"00pEngineering000698", passwordPolicyPayload{
-			ID: "00pEngineering000698", Provider: passwordPolicyProvider,
-			MinLength: 14, MaxAgeDays: 90, ReusePreventionCount: 24,
-			RequiresUppercase: true, RequiresLowercase: true,
-			RequiresNumbers: true, RequiresSymbols: true,
+		{"00pEngineering000698", map[string]any{
+			pwKeyID: "00pEngineering000698", pwKeyName: "Engineering Password Policy",
+			pwKeyProvider: passwordPolicyProvider,
+			pwKeyScope:    scopeGroup, pwKeyPrecedence: float64(1),
+			pwKeyMinLength: float64(14), pwKeyMaxAgeDays: float64(90),
+			pwKeyReusePrevented: true, pwKeyReuseCount: float64(24),
+			pwKeyComplexityModel: complexityPerClass,
+			pwKeyRequiresUpper:   true, pwKeyRequiresLower: true,
+			pwKeyRequiresNumbers: true, pwKeyRequiresSymbols: true,
 		}},
 	} {
 		t.Run(tc.id, func(t *testing.T) {
@@ -238,8 +264,8 @@ func TestOktaPasswordPolicyConformance(t *testing.T) {
 			if !ok {
 				t.Fatalf("policy %s missing from %v", tc.id, recs)
 			}
-			if p != tc.want {
-				t.Errorf("payload = %+v; want %+v", p, tc.want)
+			if !reflect.DeepEqual(p, tc.want) {
+				t.Errorf("payload = %#v; want %#v", p, tc.want)
 			}
 		})
 	}

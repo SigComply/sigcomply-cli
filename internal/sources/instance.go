@@ -51,7 +51,9 @@ func SplitInstanceID(key string) (base, instance string) {
 // return. That is correct for the single-instance case and wrong for
 // every other one: two instances would collide in the source registry,
 // and their evidence would be indistinguishable once collected — same
-// ID in the envelope filename, same source_id inside the signed records.
+// ID in the envelope filename, same source_id inside the signed records,
+// and colliding record IDs wherever a plugin's id is only unique within
+// one account (see Collect).
 //
 // Wrapping is what makes an instance a first-class thing without editing
 // ~60 plugins. The wrapper answers with the instance key and re-stamps
@@ -73,10 +75,33 @@ func (p *instancePlugin) Init(ctx context.Context, cfg map[string]any) error {
 	return p.inner.Init(ctx, cfg)
 }
 
-// Collect delegates, then rewrites each record's SourceID to the
-// instance key. This runs before schema validation and before signing
-// (see collector.collectBinding), so the stamped value is the one that
-// is validated, signed, and read back by an auditor.
+// Collect delegates, then rewrites each record's SourceID *and* ID to
+// carry the instance key. This runs before schema validation and before
+// signing (see collector.collectBinding), so the stamped values are the
+// ones that are validated, signed, and read back by an auditor.
+//
+// Namespacing the ID is what closes the cross-account collision. A
+// plugin's record ID only has to be unique within the account it was
+// read from, and several are not unique across accounts at all:
+// aws.password_policy emits the constant "account" (a stable id was
+// chosen to avoid an sts:GetCallerIdentity purely to learn the account
+// number), aws.security_services emits "aws-macie" and friends,
+// azure.defender emits "azure-defender-for-cloud", and resource *names*
+// like a GCP "default" network repeat in every project by construction.
+// The collector unions both bindings into one slot and the evaluator
+// dedups violations by record ID, so two accounts failing the same check
+// collapsed into a single violation with resources_failed=1, naming
+// neither account — and one resource_id exception waived both.
+//
+// IdentityKey is deliberately NOT namespaced. It is the cross-source
+// join key (an email that okta and aws.iam both report for one person),
+// and prefixing it would break exactly the dedup it exists to perform.
+// recordIdentity prefers the clause's identity key and falls back to the
+// record ID, so a record with no cross-source identity now falls back to
+// a per-instance one rather than a colliding one — the right direction.
+//
+// Only bracketed keys reach here, so every unbracketed source's records
+// are byte-identical to what they were before instancing existed.
 func (p *instancePlugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
 	records, err := p.inner.Collect(ctx, req)
 	if err != nil {
@@ -84,6 +109,7 @@ func (p *instancePlugin) Collect(ctx context.Context, req core.SlotRequest) ([]c
 	}
 	for i := range records {
 		records[i].SourceID = p.id
+		records[i].ID = p.id + "/" + records[i].ID
 	}
 	return records, nil
 }

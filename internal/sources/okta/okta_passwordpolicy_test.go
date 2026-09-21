@@ -20,6 +20,26 @@ const (
 	policyIDSecond  = "00p2"
 )
 
+// password_policy.v2 payload keys, spelled once so the two password test
+// files in this package agree on what they are reading.
+const (
+	pwKeyID              = "id"
+	pwKeyName            = "name"
+	pwKeyProvider        = "provider"
+	pwKeyScope           = "scope"
+	pwKeyPrecedence      = "precedence"
+	pwKeyMinLength       = "min_length"
+	pwKeyMaxAgeDays      = "max_age_days"
+	pwKeyReusePrevented  = "reuse_prevented"
+	pwKeyReuseCount      = "reuse_prevention_count"
+	pwKeyComplexityModel = "complexity_model"
+	pwKeyRequiresUpper   = "requires_uppercase"
+	pwKeyRequiresLower   = "requires_lowercase"
+	pwKeyRequiresNumbers = "requires_numbers"
+	pwKeyRequiresSymbols = "requires_symbols"
+	pwNameDefaultPolicy  = "Default Policy"
+)
+
 func mustWrite(t *testing.T, w io.Writer, b []byte) {
 	t.Helper()
 	if _, err := w.Write(b); err != nil {
@@ -31,9 +51,12 @@ func mustWrite(t *testing.T, w io.Writer, b []byte) {
 // returns, including the null that example carries on minNumber.
 func oktaDefaultPolicy() PasswordPolicy {
 	return PasswordPolicy{
-		ID:     policyIDDefault,
-		Name:   "Default Policy",
-		Status: oktaStatusActive,
+		ID:   policyIDDefault,
+		Name: pwNameDefaultPolicy,
+		// Deliberately not the system policy: this fixture stands for a
+		// group-assigned policy, which is the case v1 could not describe.
+		Status:   oktaStatusActive,
+		Priority: 7,
 		Settings: passwordPolicySettings{Password: passwordSettings{
 			Complexity: passwordComplexity{
 				MinLength:    intPtr(8),
@@ -106,15 +129,24 @@ func TestCollectPasswordPolicies_MapsOktaSettings(t *testing.T) {
 
 	got := policyPayload(t, &rec)
 	want := map[string]any{
-		"id":                     policyIDDefault,
-		"provider":               "okta",
-		"min_length":             float64(8),
-		"max_age_days":           float64(0),
-		"reuse_prevention_count": float64(4),
-		"requires_uppercase":     true,
-		"requires_lowercase":     true,
-		"requires_numbers":       false, // null in Okta's own example
-		"requires_symbols":       false, // explicit 0
+		pwKeyID:       policyIDDefault,
+		pwKeyName:     pwNameDefaultPolicy,
+		pwKeyProvider: "okta",
+		// Not a system policy in this fixture, so it is one of the
+		// group-assigned policies ranked against each other.
+		pwKeyScope:      "group",
+		pwKeyPrecedence: float64(7),
+		pwKeyMinLength:  float64(8),
+		pwKeyMaxAgeDays: float64(0),
+		// The depth Okta discloses and the canonical boolean derived from
+		// it travel together; the boolean is what every vendor can answer.
+		pwKeyReusePrevented:  true,
+		pwKeyReuseCount:      float64(4),
+		pwKeyComplexityModel: "per_class",
+		pwKeyRequiresUpper:   true,
+		pwKeyRequiresLower:   true,
+		pwKeyRequiresNumbers: false, // null in Okta's own example
+		pwKeyRequiresSymbols: false, // explicit 0
 	}
 	for k, v := range want {
 		if got[k] != v {
@@ -125,11 +157,22 @@ func TestCollectPasswordPolicies_MapsOktaSettings(t *testing.T) {
 	if _, ok := got["mfa_required"]; ok {
 		t.Errorf("payload carries mfa_required; Okta cannot answer it here: %#v", got)
 	}
+	// Okta answers complexity per character class, so the other two arms
+	// of the union must stay absent rather than be filled with a guess.
+	for _, absent := range []string{"password_strength", "complexity_description", "not_configurable"} {
+		if _, ok := got[absent]; ok {
+			t.Errorf("payload carries %q; Okta answers per_class: %#v", absent, got)
+		}
+	}
 }
 
-// A null complexity field means "not required" for the booleans — but for
-// min_length a null must not be read as a configured 0, which would be a
-// fabricated weakest posture rather than an observed one.
+// A null complexity field means "not required" for the booleans — Okta
+// documents them as counts where 0 and null both mean "no". For the
+// numeric settings a null means something else entirely: nothing was
+// reported. v1 required all eight fields, so the plugin had to write a 0
+// it knew to be a fabrication; v2 lets the field be absent, and a clause
+// reading it filters the record out of scope instead of failing it on a
+// number nobody sent.
 func TestCollectPasswordPolicies_NullsAreNotFabricatedZeroes(t *testing.T) {
 	pol := oktaDefaultPolicy()
 	pol.Settings.Password.Complexity = passwordComplexity{}
@@ -137,15 +180,50 @@ func TestCollectPasswordPolicies_NullsAreNotFabricatedZeroes(t *testing.T) {
 
 	recs := collectPolicies(t, &fakeAPI{policies: []PasswordPolicy{pol}})
 	got := policyPayload(t, &recs[0])
-	for _, field := range []string{"requires_uppercase", "requires_lowercase", "requires_numbers", "requires_symbols"} {
+	for _, field := range []string{pwKeyRequiresUpper, pwKeyRequiresLower, pwKeyRequiresNumbers, pwKeyRequiresSymbols} {
 		if got[field] != false {
 			t.Errorf("payload[%q] = %#v; want false when Okta reports nothing", field, got[field])
 		}
 	}
-	// Okta documents its own default minimum as 8; absent means we did not
-	// read a value, and the honest floor is the schema's "0 = no minimum".
-	if got["min_length"] != float64(0) {
-		t.Errorf("min_length = %#v; want 0 when unreported", got["min_length"])
+	// Okta documents its own default minimum as 8, and emitting that
+	// documented default would be reading evidence out of a manual. So
+	// would emitting 0, which asserts the opposite. Absent is the only
+	// true statement available.
+	for _, unreported := range []string{pwKeyMinLength, pwKeyMaxAgeDays, pwKeyReusePrevented, pwKeyReuseCount} {
+		if v, ok := got[unreported]; ok {
+			t.Errorf("payload[%q] = %#v; want the key absent when Okta reported nothing", unreported, v)
+		}
+	}
+}
+
+// Okta's undeletable system policy is the org-wide fallback: it governs
+// every user no higher-priority policy claims, which is `account` scope.
+// Without the distinction, N records would read as interchangeable and an
+// auditor could not tell the default apart from an override.
+func TestCollectPasswordPolicies_SystemPolicyIsAccountScoped(t *testing.T) {
+	pol := oktaDefaultPolicy()
+	pol.System = true
+	pol.Priority = 1
+
+	got := policyPayload(t, &collectPolicies(t, &fakeAPI{policies: []PasswordPolicy{pol}})[0])
+	if got[pwKeyScope] != scopeAccount {
+		t.Errorf("scope = %#v; want account for the system default policy", got[pwKeyScope])
+	}
+	if got[pwKeyPrecedence] != float64(1) {
+		t.Errorf("precedence = %#v; want Okta's priority carried through unchanged (1 = evaluated first)", got[pwKeyPrecedence])
+	}
+}
+
+// A policy Okta returns without a usable priority is not ranked at all
+// rather than ranked zero — v2 reads precedence 1 as "wins", so a zero
+// would be both out of the schema's range and a claim nobody made.
+func TestCollectPasswordPolicies_UnrankedPolicyOmitsPrecedence(t *testing.T) {
+	pol := oktaDefaultPolicy()
+	pol.Priority = 0
+
+	got := policyPayload(t, &collectPolicies(t, &fakeAPI{policies: []PasswordPolicy{pol}})[0])
+	if v, ok := got[pwKeyPrecedence]; ok {
+		t.Errorf("precedence = %#v; want the key absent when Okta reported no priority", v)
 	}
 }
 

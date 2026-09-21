@@ -187,6 +187,12 @@ policies:
         expires_at: 2026-12-31
 ```
 
+The account ref is `source_id/id`. For a bracketed source the record id already
+carries the instance key, so the ref does not repeat it — an
+`aws.iam[staging]` account reads `aws.iam[staging]/AIDA1`, not the key twice.
+A roster `aliases:` or `non_human:` entry may be keyed by either the prefixed
+or the bare id; both match.
+
 ### A Workspace roster still checks GCP grants
 
 "A directory cannot vouch for its own accounts" is enforced per **source ID**, and `gcp.directory` (Google Workspace, which emits the roster) and `gcp.iam` (project IAM bindings) are different sources. So designating Workspace as your roster excludes only its own `directory_user` records — your GCP IAM grants are still checked against it. That is the intended asymmetry: Workspace saying "Jane is an employee" is exactly what should vouch for Jane holding `roles/editor`.

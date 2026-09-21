@@ -700,3 +700,165 @@ func TestRunBuild_WarnsOnUnwiredExtensionKinds(t *testing.T) {
 		t.Errorf("want exactly 2 warning lines; got %d:\n%s", n, out)
 	}
 }
+
+// publicAPIPluginSrc is a project-local source plugin written the way
+// docs/architecture/07-extensibility.md §Authoring a custom source
+// plugin teaches it: imports point at the public façade package
+// (github.com/sigcomply/sigcomply-cli/plugin), never at internal/.
+const publicAPIPluginSrc = `package acme_internal_iam
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"github.com/sigcomply/sigcomply-cli/plugin"
+)
+
+const SourceID = "acme.internal_iam"
+
+type Plugin struct {
+	endpoint string
+}
+
+func (p *Plugin) ID() string      { return SourceID }
+func (p *Plugin) Emits() []string { return []string{"directory_user"} }
+
+func (p *Plugin) Init(_ context.Context, cfg map[string]any) error {
+	endpoint, ok := cfg["endpoint"].(string)
+	if !ok || endpoint == "" {
+		return fmt.Errorf("%s: endpoint is required", SourceID)
+	}
+	p.endpoint = endpoint
+	return nil
+}
+
+func (p *Plugin) Collect(_ context.Context, req plugin.SlotRequest) ([]plugin.EvidenceRecord, error) {
+	if !req.Accepts("directory_user") {
+		return nil, nil
+	}
+	payload, err := json.Marshal(map[string]any{"id": "u-1", "mfa_enabled": true})
+	if err != nil {
+		return nil, err
+	}
+	return []plugin.EvidenceRecord{{
+		Type:        "directory_user",
+		ID:          "u-1",
+		IdentityKey: "alice@acme.example",
+		SourceID:    SourceID,
+		Payload:     payload,
+	}}, nil
+}
+
+func init() {
+	plugin.RegisterSource(SourceID, func(ctx context.Context, env plugin.Env) (plugin.SourcePlugin, error) {
+		p := &Plugin{}
+		if err := p.Init(ctx, env.Config); err != nil {
+			return nil, err
+		}
+		return p, nil
+	}, "endpoint")
+}
+`
+
+// TestRunBuild_CompilesRealPluginAgainstPublicAPI is the end-to-end the
+// suite was missing. Every other fixture in this file is an empty
+// package with no sigcomply import — which is exactly why nobody
+// noticed that the documented walkthrough could not compile: a plugin
+// that imports nothing cannot trip over the internal/ import wall. This
+// one runs the whole command (discover → validate → vet → generate
+// entrypoint → go build) over a plugin that really implements
+// core.SourcePlugin through the public package, and asserts a binary
+// comes out.
+//
+// The fixture is its own Go module joined to this repo through a
+// go.work workspace, which is what makes the test honest: the extension
+// is compiled from OUTSIDE the CLI module, at a `.sigcomply/plugins/...`
+// path whose leading-dot element the toolchain has to resolve, exactly
+// as it would in a customer repo. (`replace` plus a synthesized go.sum
+// would work too; the workspace reuses this repo's own go.sum instead.)
+func TestRunBuild_CompilesRealPluginAgainstPublicAPI(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skips invocation of `go build` under -short")
+	}
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go toolchain unavailable: " + err.Error())
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("path semantics differ on windows")
+	}
+
+	// macOS hands back a /var/folders symlink; the go command resolves
+	// it to /private/var/folders and would then refuse to believe the
+	// workspace's `use .` names the module being compiled.
+	tmp, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatalf("resolve temp dir: %v", err)
+	}
+	writeGoMod(t, tmp)
+	writeWorkspace(t, tmp)
+	writePluginFile(t, tmp, "acme.internal_iam", "plugin.go", "")
+	// writePluginFile prepends its own package clause; this fixture
+	// needs the whole file verbatim, imports included.
+	pluginPath := filepath.Join(tmp, ".sigcomply", "plugins", "acme.internal_iam", "plugin.go")
+	if err := os.WriteFile(pluginPath, []byte(publicAPIPluginSrc), 0o600); err != nil {
+		t.Fatalf("write plugin.go: %v", err)
+	}
+
+	t.Setenv("GOWORK", filepath.Join(tmp, "go.work"))
+	// No network: every dependency must already be in the local module
+	// cache, which building this repo populates.
+	t.Setenv("GOPROXY", "off")
+
+	out := filepath.Join(tmp, "bin", "sigcomply")
+	var stdout, stderr bytes.Buffer
+	if err := runBuild(context.Background(), &stdout, &stderr, buildFlags{project: tmp, output: out}); err != nil {
+		if isOfflineModuleFailure(stderr.String()) {
+			t.Skip("module cache cannot resolve the CLI's dependencies offline: " + stderr.String())
+		}
+		t.Fatalf("runBuild: %v\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
+	}
+	if _, err := os.Stat(out); err != nil {
+		t.Fatalf("tailored binary not produced: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "1 project-local extension") {
+		t.Errorf("stdout did not report the extension: %q", stdout.String())
+	}
+}
+
+// writeWorkspace joins the fixture module to this repo so `go build`
+// resolves github.com/sigcomply/sigcomply-cli from disk, with this
+// repo's go.sum covering the dependency graph.
+func writeWorkspace(t *testing.T, dir string) {
+	t.Helper()
+	body := "go 1.27.0\n\nuse (\n\t.\n\t" + repoRootFromTest(t) + "\n)\n"
+	if err := os.WriteFile(filepath.Join(dir, "go.work"), []byte(body), 0o600); err != nil {
+		t.Fatalf("write go.work: %v", err)
+	}
+}
+
+// repoRootFromTest locates the CLI module root from this test file's own
+// path: <root>/cmd/sigcomply/build_test.go.
+func repoRootFromTest(t *testing.T) string {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller(0) failed; cannot locate the repo root")
+	}
+	return filepath.Dir(filepath.Dir(filepath.Dir(file)))
+}
+
+// isOfflineModuleFailure separates "the façade is broken" from "this
+// machine has a cold module cache and no network".
+func isOfflineModuleFailure(out string) bool {
+	for _, marker := range []string{
+		"module lookup disabled by GOPROXY=off",
+		"missing go.sum entry",
+		"cannot query module",
+	} {
+		if strings.Contains(out, marker) {
+			return true
+		}
+	}
+	return false
+}

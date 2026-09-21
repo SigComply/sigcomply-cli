@@ -188,3 +188,46 @@ func TestAsInstance_NoCaveatsWhenInnerDeclaresNone(t *testing.T) {
 		t.Errorf("wrapper reports CaveatedSource for a plugin that is not one: %v", c.Caveats())
 	}
 }
+
+// The collision this namespacing exists to close: two instances of one
+// plugin emitting a record whose id is a per-account constant. Before,
+// both arrived with the same ID, the collector unioned them into one
+// slot, and the evaluator deduped violations by ID — so two failing
+// accounts produced one violation and resources_failed counted 1.
+func TestAsInstance_NamespacesRecordIDsSoTwoInstancesCannotCollide(t *testing.T) {
+	const sentinel = "account" // aws.password_policy's real record id
+	collect := func(key string) []core.EvidenceRecord {
+		t.Helper()
+		inner := &stubPlugin{id: testSourceAWSIAM, recs: []core.EvidenceRecord{{ID: sentinel, SourceID: testSourceAWSIAM}}}
+		recs, err := asInstance(inner, key).Collect(context.Background(), core.SlotRequest{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return recs
+	}
+
+	a := collect("aws.iam[prod]")
+	b := collect("aws.iam[staging]")
+	if a[0].ID == b[0].ID {
+		t.Fatalf("two instances share record ID %q; they would dedup into one violation", a[0].ID)
+	}
+	if a[0].ID != "aws.iam[prod]/"+sentinel {
+		t.Errorf("ID = %q; want the instance key prefixed", a[0].ID)
+	}
+}
+
+// IdentityKey is the cross-source join (an email shared by okta and
+// aws.iam). Namespacing it would break exactly the dedup it exists to
+// perform, so it must survive untouched.
+func TestAsInstance_LeavesIdentityKeyAlone(t *testing.T) {
+	inner := &stubPlugin{id: testSourceAWSIAM, recs: []core.EvidenceRecord{
+		{ID: "u1", IdentityKey: "alice@acme.com", SourceID: testSourceAWSIAM},
+	}}
+	recs, err := asInstance(inner, testSourceAWSIAMInstance).Collect(context.Background(), core.SlotRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recs[0].IdentityKey != "alice@acme.com" {
+		t.Errorf("IdentityKey = %q; want it unprefixed so cross-source dedup still joins", recs[0].IdentityKey)
+	}
+}

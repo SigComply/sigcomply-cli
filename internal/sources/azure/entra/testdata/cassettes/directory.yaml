@@ -131,3 +131,33 @@ interactions:
         status: 200 OK
         code: 200
         duration: 732.042µs
+    - id: 4
+      request:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 0
+        host: 127.0.0.1:56632
+        headers:
+            Accept:
+                - application/json
+            Authorization:
+                - REDACTED
+        url: https://graph.microsoft.com/v1.0/domains
+        method: GET
+      response:
+        proto: HTTP/1.1
+        proto_major: 1
+        proto_minor: 1
+        content_length: 1301
+        body: '{"value":[{"authenticationType":"Managed","availabilityStatus":null,"id":"contoso.com","isAdminManaged":true,"isDefault":true,"isInitial":false,"isRoot":true,"isVerified":true,"passwordNotificationWindowInDays":14,"passwordValidityPeriodInDays":90,"state":null,"supportedServices":["Email","OfficeCommunicationsOnline"]},{"authenticationType":"Managed","availabilityStatus":null,"id":"contoso.onmicrosoft.com","isAdminManaged":true,"isDefault":false,"isInitial":true,"isRoot":true,"isVerified":true,"passwordNotificationWindowInDays":14,"passwordValidityPeriodInDays":2147483647,"state":null,"supportedServices":["Email","OfficeCommunicationsOnline"]},{"authenticationType":"Managed","availabilityStatus":null,"id":"unverified.contoso.com","isAdminManaged":true,"isDefault":false,"isInitial":false,"isRoot":true,"isVerified":false,"passwordNotificationWindowInDays":null,"passwordValidityPeriodInDays":null,"state":{"status":"PendingActivation","lastActionDateTime":"2026-06-01T00:00:00Z"},"supportedServices":[]},{"authenticationType":"Federated","availabilityStatus":null,"id":"fabrikam.com","isAdminManaged":true,"isDefault":false,"isInitial":false,"isRoot":true,"isVerified":true,"passwordNotificationWindowInDays":14,"passwordValidityPeriodInDays":60,"state":null,"supportedServices":["Email"]}]}'
+        headers:
+            Content-Length:
+                - "1301"
+            Content-Type:
+                - application/json
+            Date:
+                - Sun, 28 Jun 2026 14:21:20 GMT
+        status: 200 OK
+        code: 200
+        duration: 210µs

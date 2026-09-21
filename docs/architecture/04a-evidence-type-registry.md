@@ -249,6 +249,26 @@ This is the same multi-type slot mechanism described in
 [`03-policy-spec.md`](03-policy-spec.md) §Slots — version migration is
 just one application of it.
 
+`password_policy.v2` is the second shipped example and shows the other
+reason to re-version: not new fields, but a schema that turned out to be
+shaped around one vendor's API. v1 required all eight of AWS IAM's
+answers, including four character-class booleans, so a platform that
+rates password strength on its own scale or fixes length as a platform
+constant could not emit a record **at all** — the schema forced a source
+to either fabricate the fields it cannot read or stay silent. v2 keeps
+v1's field names and meanings, relaxes the platform-dependent ones to
+optional so absence is expressible, and replaces the four booleans with a
+discriminated union (`complexity_model`) in which a source states which
+kind of answer it has. Two lessons generalize. **Absence must mean one
+thing**: in v2 it means "this source did not observe a value", never a
+zero, a floor, or the vendor's documented default — a default is a value
+the tenant may have overridden, so reading one out of documentation says
+nothing about the tenant and must not be signed into evidence. And
+**relaxing `required` is a breaking change for consumers, not producers**:
+every clause reading a now-optional field had to grow an `is_set` guard,
+because the evaluator errors on a reference to a field the record does
+not carry.
+
 A type is **never silently mutated.** A schema change that breaks
 existing records always coins a new ID. The vault written in 2026
 remains interpretable in 2031 because the schema referenced by

@@ -280,3 +280,35 @@ func TestAccountFields_EmailStillWinsOverPrincipal(t *testing.T) {
 		t.Errorf("linked_by = %v; want email", got)
 	}
 }
+
+// account.ref is source_id + "/" + id. Once instanced records carry a
+// namespaced id, the naive concatenation would double the prefix —
+// aws.iam[backup]/aws.iam[backup]/AIDA1 — which is still unique but is
+// the string an operator has to type into a waiver's resource_id.
+func TestAccountRef_DoesNotDoublePrefixNamespacedIDs(t *testing.T) {
+	ec := newEvalCtx(nil, nil, nil)
+	const inst = "aws.iam[backup]"
+	r := account(inst, inst+"/AIDA1", map[string]any{})
+	if got := field(t, ec, &r, fieldAccountRef); got != inst+"/AIDA1" {
+		t.Errorf("account.ref = %v; want the id used as-is, not re-prefixed", got)
+	}
+	// A plain record is unchanged: ref is still source_id + "/" + id.
+	p := account(testSourceAWSIAM, "AIDA1", map[string]any{})
+	if got := field(t, ec, &p, fieldAccountRef); got != "aws.iam/AIDA1" {
+		t.Errorf("account.ref = %v; want aws.iam/AIDA1", got)
+	}
+}
+
+// A roster alias or non_human entry is keyed by a name the operator
+// recognizes. Namespacing record ids must not silently invalidate an
+// entry keyed by the bare id — an alias that stops matching reports a
+// real account as unlinked.
+func TestAccountNames_MatchNamespacedIDByItsBareForm(t *testing.T) {
+	const inst = "aws.iam[backup]"
+	roster := &planner.RosterLink{Aliases: map[string]map[string]string{inst: {"aida1": testEmailJane}}}
+	ec := newEvalCtx(nil, nil, roster)
+	r := account(inst, inst+"/AIDA1", map[string]any{})
+	if got := field(t, ec, &r, "account.key"); got != testEmailJane {
+		t.Errorf("account.key = %v; want the alias keyed by the bare id to still match", got)
+	}
+}

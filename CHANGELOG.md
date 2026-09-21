@@ -13,6 +13,64 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **A project-local Go extension can be built without forking the CLI.** The
+  extensibility guide documented Go source plugins, vault backends and manual
+  readers, and every worked example imported `sigcomply-cli/internal/...` — a
+  path Go forbids from outside its parent tree, while `sigcomply build`
+  compiles project-local extensions inside the *customer's* module. The
+  walkthrough could not be followed. The new top-level `plugin/` package
+  re-exports exactly the three wired extension axes and nothing else: the
+  source, vault and manual interfaces plus their three `Register*` functions.
+  Everything is a type alias, so a value written against the public package
+  satisfies the internal interface identically with no conversion.
+
+  The surface is deliberately narrow, because every name in it becomes a
+  compatibility promise. Left out and documented as such: frameworks, policies
+  and the rule registry; evidence-type registration (JSON-only — no Go hook
+  exists); the aggregation contract, which is the privacy boundary; vault
+  layout, manifest and signing; and the *read* side of every registry, so an
+  extension can register itself but never enumerate or dispatch to its peers.
+
+  Two tests keep this honest, and their absence is why the bug survived: one
+  builds a real extension in a **separate module** against the façade and
+  compiles it, and a negative control asserts the same fixture importing
+  `internal/core` still fails with `use of internal package` — without it a
+  harness mistake would make the positive test pass for the wrong reason.
+  Every previous build fixture was an empty package, and one existing test
+  actively *expected* `go build` to fail.
+
+- **`password_policy.v2` — a password-policy schema that is not shaped like AWS
+  IAM.** v1 required all eight of IAM's answers, four of them character-class
+  booleans, so a platform that rates password strength on its own scale
+  (Google's `allowedStrength: STRONG|WEAK`) or fixes length as a platform
+  constant (Entra, for cloud-only accounts) could not emit a record **at all**:
+  the schema left it a choice between fabricating fields it cannot read and
+  staying silent, and silence means the six password controls skip — which
+  *raises* the compliance score, because skips leave the denominator. v2 keeps
+  v1's names and meanings and changes three things. Complexity is a
+  discriminated union: `complexity_model` names the kind of answer a source has
+  (`per_class` | `strength_enum` | `fixed` | `none`) and only that kind's fields
+  are required. Reuse is a boolean (`reuse_prevented`) with the depth
+  (`reuse_prevention_count`) as an optional refinement, because some vendors
+  block reuse without disclosing how far back. And every platform-dependent
+  field is optional, so absence is expressible — meaning exactly "this source
+  did not observe a value", never a zero and never the vendor's documented
+  default (`not_configurable` records which attributes a platform exposes no
+  setting for, while the value itself stays absent). Each record also carries
+  `scope` and `precedence`, so the N policies an Okta org or a Google directory
+  returns are not read as interchangeable. v1 stays registered and frozen for
+  project-local plugins.
+
+- **`aws.password_policy` and `okta` now emit `password_policy.v2`.** Neither
+  emits both versions: every record a binding returns lands in the same slot,
+  so dual-emitting would double the resource counts and write two signed
+  envelopes for one fact. Okta gained two honest answers it could not give
+  before — `scope` (`account` for the org's undeletable system default, else
+  `group`) and `precedence` (its `priority`, where 1 is evaluated first) — and
+  stopped writing a fabricated `0` for a setting it read as `null`. AWS reports
+  an account with no password policy as `complexity_model: none` rather than a
+  per-class answer of four noes that nobody gave.
+
 - **`sigcomply build` says when it compiled something that will never load.**
   A Go `rule:` package under `.sigcomply/policies/<id>/rules/` and a Go
   evidence-type package under `.sigcomply/evidence_types/<id>/` are discovered
@@ -202,7 +260,10 @@ tracks the human-curated highlights.
   payload. `sourcetest.Options.WantScope` makes the stamp a build-time
   assertion for any plugin that adopts it.
 
-- **Okta emits `password_policy`.** The six password controls under SOC 2
+- **Okta emits `password_policy`.** (Superseded later in this same unreleased
+  block: the plugin now emits `password_policy.v2` and gained `scope`,
+  `precedence` and a null-vs-zero distinction. The rest of this entry still
+  describes what it reads and why.) The six password controls under SOC 2
   CC6.1 and ISO 8.5 — minimum length, expiry, reuse prevention and the four
   character classes — had exactly one emitter, `aws.password_policy`, so any
   estate without AWS IAM could only answer them by declaring an exception.
@@ -224,7 +285,67 @@ tracks the human-curated highlights.
   every org has an undeletable Default Policy, so zero readable policies means
   a permissions problem.
 
+### Changed
+
+- **The two password-complexity policies now ask whether a password-strength
+  control is enforced, not whether four character classes are required.** Three
+  of the six password policies asked questions a strength-rating source
+  structurally cannot answer, and every available verdict was bad because the
+  *clause* was wrong, not the source. Google states in its own documentation
+  that a strong password "doesn't need to have a specific number of characters
+  of a specific type", so passing `STRONG` as "all four true" fabricates a claim
+  the vendor disclaims — while failing it paints a permanent red with no setting
+  anywhere to turn on, against a provider following NIST 800-63B rather than
+  defying it. `soc2.cc6.1.password_complexity` and
+  `iso27001.8.5.password_complexity` are now satisfied by a per-class source's
+  four booleans, by a strength-rating source reporting its strongest rating, or
+  by a platform-enforced rule the tenant cannot weaken; an account with no
+  strength requirement at all still fails. `soc2.cc6.1.password_reuse_prevention`
+  now asks whether reuse is prevented rather than naming a depth of 24, which no
+  vendor-neutral record can promise. **The accepted trade:** an AWS account with
+  history depth 1 now passes where "the last 24" would have failed it. A second
+  clause on the depth, guarded so it judges only sources that disclose one, is a
+  separate deferred decision. Per-class estates (AWS, Okta, AD) get exactly the
+  verdicts they got before, and no parallel per-vendor policies were minted —
+  the policy IDs, controls and cadences are unchanged.
+
+- **All six password policies accept both schema versions and guard every read.**
+  `accepts:` is now `[password_policy.v2, password_policy]` so a project-local
+  plugin still emitting v1 keeps binding, and each clause `is_set`-guards the
+  fields v2 made optional. A record that cannot answer a clause is filtered out
+  of its scope rather than failed — an unread setting is not a setting that is
+  off — and a clause left with nothing to examine is reported as vacuous instead
+  of passing as though the estate had been inspected.
+
 ### Fixed
+
+- **Two instances of one source no longer collapse into a single violation.**
+  The instance key namespaced `source_id` but not the record `id`, and
+  violation dedup keys on the id — so where a plugin's id is only unique
+  within one account, two accounts failing the same check produced **one**
+  violation naming neither, counted `1` in `resources_failed`, and could be
+  waived for both at once by a single exception. That is not a rare shape:
+  `aws.password_policy` emits the constant `account` (a stable id was chosen
+  to avoid an `sts:GetCallerIdentity` purely to learn the account number),
+  `aws.security_services` emits `aws-macie` and its siblings, `azure.defender`
+  emits `azure-defender-for-cloud`, and resource *names* such as a GCP
+  `default` network repeat in every project by construction.
+
+  `instancePlugin.Collect` now namespaces the id too. Only bracketed keys are
+  wrapped, so every unbracketed source — and every existing single-account
+  vault — is byte-identical to before; the change lands on exactly the
+  configurations that were broken. `IdentityKey` is deliberately **not**
+  namespaced and a test pins that: it is the cross-source join key, and
+  prefixing it would break the dedup it exists to perform.
+
+  Two consequences were handled rather than shipped as warts. `account.ref` is
+  `source_id/id` and would have doubled the prefix; since that string is the
+  documented value an operator types into a waiver's `resource_id`, it now
+  uses the id as-is when it already carries the key. And a roster `aliases:` /
+  `non_human:` entry keyed by the bare id would have silently stopped
+  matching — reporting a real person's account as unlinked — so both forms now
+  match. **A waiver scoped to an instanced source's bare id needs the prefix**;
+  it fails loudly rather than silently widening.
 
 - **`sigcomply init -f iso27001` recommended a command that exits 3.** The
   scaffold's next-steps text unconditionally told the operator to run
@@ -282,7 +403,8 @@ tracks the human-curated highlights.
   blocked at `go build`, after `sigcomply build` validated their package. The
   doc now leads with which routes are actually wired: YAML `pass_when:`
   policies, Rego rules and JSON evidence types are the supported no-fork
-  paths; Go plugins need a fork until a public API package exists. Related
+  paths. (The Go half was closed immediately afterwards by the `plugin/`
+  package below; this entry records why the doc said otherwise.) Related
   corrections in the same pass: the import check is a deny-list, not the
   "allow-list" it was called in three places, and it reads only direct stdlib
   imports in top-level files — a third-party HTTP client passes untouched, so
@@ -316,15 +438,12 @@ tracks the human-curated highlights.
   now say what they do and do not evidence, and `docs/reference/frameworks.md`
   states the configured-vs-tested distinction generally.
 
-- **Multi-instance estates: evidence stays separate, violations do not.** The
-  instance key namespaces `source_id`, not the record `id`, and violation
-  dedup keys on the bare id — so two instances reporting a resource with the
-  same id yield one violation while `resources_evaluated` counts both. Harmless
-  for globally-unique ids (the overwhelming majority) and now documented for
-  the cases where it bites, with `aws.password_policy` named as the one still
-  live and the `any`-quantified `security_service` constants named as latent.
-  Also documented: there is no config `include:`/`extends:`, so an org with
-  ten projects keeps ten copies in sync by hand.
+- **Multi-instance estates: there is no config `include:`/`extends:`**, so an
+  organization with ten projects keeps ten complete copies of the same
+  `sources:`, `vault:` and `controls:` blocks in sync by hand, and nothing
+  detects drift between them. Now stated in `08-project-config.md`. (This entry
+  also used to describe two instances collapsing into one violation; that was
+  fixed by the ID namespacing below.)
 
 - **`core.EvidenceRecord.Scope`'s doc comment described a mechanism that does
   not exist.** It asserted, in the present tense, that "scope is a first-class

@@ -14,49 +14,57 @@ project-local extension to an upstream contribution.
 ## Status — which routes are wired today
 
 **Read this before following any worked example below.** The
-data-driven routes are live and fork-free; the Go routes are not, and
-the difference decides which one you should reach for.
+data-driven routes and all three Go *plugin* axes are wired; Go **rules**
+and Go **evidence types** are not, and the difference decides which
+route you should reach for.
 
-**Wired, no fork needed — the data-driven routes.** Project-local **YAML
-policies** (`.sigcomply/policies/<id>/policy.yaml`, `pass_when:` clause
-included), **Rego rules** (`.sigcomply/policies/<id>/rule.rego`), and
-**evidence-type JSON Schemas** (`.sigcomply/evidence_types/*.json`) are
-discovered and registered at orchestrator bootstrap by
+**Wired, no build step at all — the data-driven routes.** Project-local
+**YAML policies** (`.sigcomply/policies/<id>/policy.yaml`, `pass_when:`
+clause included), **Rego rules** (`.sigcomply/policies/<id>/rule.rego`),
+and **evidence-type JSON Schemas** (`.sigcomply/evidence_types/*.json`)
+are discovered and registered at orchestrator bootstrap by
 `registerProjectLocal` (`internal/orchestrator/project_local.go`) on every
 `sigcomply check`. No recompile, no fork, no `sigcomply build`.
 These three cover the overwhelming majority of what customers need, and
 they are the routes this document recommends.
 
-**Project-local *Go* code currently requires the extension package to
-live inside the CLI module — i.e. a fork.** `sigcomply build` itself
-genuinely works: it discovers Go packages under `.sigcomply/`, scans
-their imports, runs `go vet`, generates a blank-import entrypoint, and
-runs `go build` (see §Loading mechanism). What does not work is the
-import. Every plugin API surface a Go extension must reach —
-`core.SourcePlugin`, `sources.Env`, `sources.RegisterFactory`,
-`vault.RegisterBackend`, `manual.Reader` / `manual.RegisterReader` —
-lives under `internal/`. Go forbids importing a path containing an
-`internal` element from outside the tree rooted at that element's
-parent, and `sigcomply build` compiles the extension **inside the
-customer's own module** (`readModulePath` reads the *project's* `go.mod`,
-and `go build` runs from the project dir). So a project-local Go plugin
-passes `sigcomply build`'s validation and *then* fails at `go build`
-with `use of internal package … not allowed`.
+**Wired — project-local Go plugins, via the public `plugin` package.**
+All three plugin axes (source plugins, vault backends,
+manual-evidence backends) are authorable from a customer repo with no
+fork. Go extensions import
+[`github.com/sigcomply/sigcomply-cli/plugin`](../../plugin/) — the
+module's one non-`internal` package, which re-exports exactly the
+interfaces and registries the three axes need, as **type aliases**, so a
+value written against it *is* the internal type with no conversion.
 
-What would lift this is a public (non-`internal`) API package exporting
-those interfaces and registries. **It is not shipped**, and creating one
-is its own piece of work, not something a customer can do from
-`.sigcomply/`. Until it exists, treat the Go worked examples below as
-**illustrations of the shape of each interface** — the method sets, the
-`init()` registration pattern, the factory signatures — rather than a
-walkthrough that compiles as-is from a customer repo. They are
-followable verbatim only from inside the CLI module, which is the
-[upstream-contribution path](#contributing-back-upstream).
+This is worth stating plainly because it used to be false, and the
+reason is structural rather than incidental. Go forbids importing a path
+containing an `internal` element from outside the tree rooted at that
+element's parent, and `sigcomply build` compiles the extension **inside
+the customer's own module** (`readModulePath` reads the *project's*
+`go.mod`, and `go build` runs from the project dir). While
+`core.SourcePlugin`, `sources.RegisterFactory`, `vault.RegisterBackend`
+and `manual.Reader` were reachable only under `internal/`, a
+project-local plugin passed `sigcomply build`'s discovery, validation and
+vet — and *then* failed the compile that same command triggered, with
+`use of internal package … not allowed`. The façade package is the door;
+`plugin/external_module_test.go` compiles a `.sigcomply/plugins/…`
+package from a separate module on every run, and
+`TestRunBuild_CompilesRealPluginAgainstPublicAPI`
+(`cmd/sigcomply/build_test.go`) runs the whole `sigcomply build` flow
+over one, so the walkthrough below cannot rot back into an illustration.
 
-**Go rules and Go evidence types have a second, independent gap.** Even
-setting the `internal/` import problem aside, neither has a registration
-hook at all. The rule registry is a per-evaluation `Set` populated
-**only** from each framework's `Rules()` — there is no
+The surface is deliberately narrow — re-exporting something makes it a
+compatibility promise. Frameworks, policies, the evaluator, the
+aggregation contract, the vault layout and the *read* side of each
+registry stay internal; see the package doc for the full list of what is
+excluded and why.
+
+**Go rules and Go evidence types remain unwired, for an unrelated
+reason.** It is not the import wall — the `plugin` package would gladly
+export a registration hook if one existed. Neither has one. The rule
+registry is a per-evaluation `Set` populated **only** from each
+framework's `Rules()` — there is no
 `rule.Register(...)` an `init()` can call. Evidence types are registered
 from JSON (embedded in-tree, or `.sigcomply/evidence_types/*.json`
 project-locally), never from a Go `init()`. A `rules/` package or an
@@ -75,9 +83,9 @@ for wiring.
 | Policy (YAML) | ✅ as `.sigcomply/policies/<id>/policy.yaml` (loaded at bootstrap, unioned into the plan) | ✅ Go `.policy()` builders in `internal/frameworks/<fw>/policies_*.go` |
 | Rego rule | ✅ as `.sigcomply/policies/<id>/rule.rego` (loaded at bootstrap) | ✅ via `framework.Rules()` (no shipped policy uses one today) |
 | Go rule | ⚠️ **not wired** — compiled by `sigcomply build`, but no registration hook feeds it into the per-`Set` rule registry | ✅ via `framework.Rules()` |
-| Source plugin (Axis C) | ⚠️ **fork required** — the package shape is `init()` → `sources.RegisterFactory`, but `sources` is under `internal/` and is not importable from a customer module (see §Status) | ✅ in `internal/sources/` (same self-registration pattern) |
-| Vault backend (Axis B) | ⚠️ **fork required** — `init()` → `vault.RegisterBackend`, same `internal/` import limitation | ✅ in `internal/vault/<id>/` (same self-registration pattern) |
-| Manual-evidence backend (Axis A) | ⚠️ **fork required** — `init()` → `manual.RegisterReader`, same `internal/` import limitation | ✅ in `internal/sources/manual/<id>/` (same self-registration pattern) |
+| Source plugin (Axis C) | ✅ as a Go package under `.sigcomply/plugins/<id>/` whose `init()` calls `plugin.RegisterSource`, compiled in by `sigcomply build` | ✅ in `internal/sources/` (same self-registration pattern, against `sources.RegisterFactory` directly) |
+| Vault backend (Axis B) | ✅ same mechanism; `init()` → `plugin.RegisterVaultBackend` | ✅ in `internal/vault/<id>/` (same self-registration pattern) |
+| Manual-evidence backend (Axis A) | ✅ same mechanism; `init()` → `plugin.RegisterManualReader` | ✅ in `internal/sources/manual/<id>/` (same self-registration pattern) |
 | Evidence type | ✅ JSON Schema file at `.sigcomply/evidence_types/<id>.v<n>.json`, loaded at bootstrap (a Go package under `.sigcomply/evidence_types/<id>/` has **no** registration hook and never loads) | ✅ in `internal/evidence_types/schemas/<id>.v<n>.json`, embedded via `go:embed` (see [`04a`](04a-evidence-type-registry.md)) |
 | Project config (`.sigcomply.yaml`) | ✅ | n/a |
 | Aggregation contract | ❌ (frozen schema) | ✅ (requires bump + security review) |
@@ -124,8 +132,9 @@ Data-driven artifacts (`policy.yaml`, `rule.rego`, and evidence-type
 `*.json`) are discovered under `.sigcomply/` at orchestrator bootstrap
 and unioned into the registries (L2) alongside in-binary artifacts. Go
 artifacts (plugins, and — were they wired — rule and evidence-type
-packages) are compiled into a tailored binary by `sigcomply build`,
-subject to the `internal/` import limitation in §Status.
+packages) are compiled into a tailored binary by `sigcomply build`; Go
+plugins import the public `plugin` package to reach the registries (see
+§The public API package).
 
 There is no in-tree `plugin.yaml` manifest for shipped plugins; a
 `plugin.yaml` only applies to project-local plugins — and even there it
@@ -149,15 +158,17 @@ Customers extend SigComply by dropping files in known directories under
 | **YAML policy** | `.sigcomply/policies/<id>/policy.yaml` | Orchestrator bootstrap — parsed and added to the plan. |
 | **Rego rule** | `.sigcomply/policies/<id>/rule.rego` | Orchestrator bootstrap — registered into the per-`Set` rule registry (OPA-backed). |
 | **Go rule** | `.sigcomply/policies/<id>/rules/` | ⚠️ Discovered + compiled by `sigcomply build`, but **not yet wired** into evaluation (no registration hook). |
-| **Source plugin** | `.sigcomply/plugins/<id>/` | `sigcomply build` blank-imports it; its `init()` calls `sources.RegisterFactory`. |
-| **Vault / manual backend** | `.sigcomply/plugins/<id>/` | `sigcomply build`; `init()` calls `vault.RegisterBackend` / `manual.RegisterReader`. |
+| **Source plugin** | `.sigcomply/plugins/<id>/` | `sigcomply build` blank-imports it; its `init()` calls `plugin.RegisterSource`. |
+| **Vault / manual backend** | `.sigcomply/plugins/<id>/` | `sigcomply build`; `init()` calls `plugin.RegisterVaultBackend` / `plugin.RegisterManualReader`. |
 | **Evidence type** | `.sigcomply/evidence_types/<id>.v<n>.json` | Orchestrator bootstrap — `loadProjectEvidenceTypes` reads every `*.json` file directly under `evidence_types/`, compiles the schema body, and registers it. Subdirectories are ignored: a **Go** package under `.sigcomply/evidence_types/<id>/` is compiled by `sigcomply build` but has no registration hook and never loads. |
 
 ## Loading mechanism for project-local Go code
 
-The CLI does not load Go plugins at runtime — Go's `plugin` package is
-fragile across versions and Linux-only. Instead, the CLI ships a
-**build wrapper** that is fully wired today:
+The CLI does not load Go plugins at runtime — the *standard library's*
+`plugin` package (`.so` loading) is fragile across versions and
+Linux-only, and is unrelated to this module's own
+`sigcomply-cli/plugin` API package. Instead, the CLI ships a **build
+wrapper** that is fully wired today:
 
 ```bash
 sigcomply build      # default output: ./bin/sigcomply
@@ -199,6 +210,19 @@ From there, `./bin/sigcomply check` runs the project-tailored binary.
 Projects with no Go extensions skip this entirely; the shipped binary
 suffices.
 
+> **`./...` will not match your extension.** The go command skips
+> directories whose name begins with `.` or `_` when expanding a
+> wildcard pattern, so `go build ./...` and `go test ./...` in your
+> project report "matched no packages" for everything under
+> `.sigcomply/` — silently, with a warning at most. Nothing is wrong:
+> the import path itself resolves fine, which is why `sigcomply build`
+> names the package explicitly (`go vet ./.sigcomply/plugins/<id>`, and
+> an explicit blank import in the generated entrypoint). Do the same in
+> your own CI: `go test ./.sigcomply/plugins/...` matches (the dot
+> element is named, not wildcarded), while `./...` and even
+> `./.sigcomply/...` come up empty — so name the `plugins` directory, or
+> your plugin's tests will quietly never run.
+
 CI integration: customers with Go extensions add a `sigcomply build` step
 before `sigcomply check`. See the example workflows under
 [`examples/`](../../examples/) and [`09-ci-execution-model.md`](09-ci-execution-model.md).
@@ -233,6 +257,42 @@ In other words it is a speed bump against a naive `import "net/http"`,
 nothing more. A `.sigcomply/` directory deserves the same code-review
 rigor as your core application code; the build wrapper will not catch a
 hostile extension, and is not trying to.
+
+---
+
+## The public API package
+
+Project-local Go code compiles against
+**`github.com/sigcomply/sigcomply-cli/plugin`** — the only non-`internal`
+Go package in the module. Everything else the CLI is made of stays under
+`internal/`, and that is on purpose: what a customer can import is what
+a major version has to keep working, so the façade re-exports the three
+plugin axes' contracts and stops there.
+
+| Axis | Implement | Register from `init()` | Supporting types |
+|---|---|---|---|
+| **C — source plugin** | `plugin.SourcePlugin` (`ID`, `Emits`, `Init`, `Collect`), optionally `plugin.CaveatedSource` | `plugin.RegisterSource(id, factory, configKeys...)` | `plugin.Env`, `plugin.SourceFactory`, `plugin.SlotRequest`, `plugin.EvidenceRecord`, `plugin.RecordScope`, `plugin.SourceCaveat` |
+| **B — vault backend** | `plugin.Vault` | `plugin.RegisterVaultBackend(id, factory)` | `plugin.VaultFactory`, `plugin.VaultConfig`, `plugin.Envelope` |
+| **A — manual backend** | `plugin.ManualReader` | `plugin.RegisterManualReader(id, factory)` | `plugin.ManualReaderFactory`, `plugin.ManualFileInfo`, `plugin.ErrManualNotFound` |
+
+Two properties are worth knowing before you write against it:
+
+- **The types are aliases, not wrappers.** `plugin.SourcePlugin` *is*
+  `core.SourcePlugin`; a record you build as a `plugin.EvidenceRecord`
+  is the exact struct the collector validates and signs. There is no
+  conversion step, no adapter layer, and therefore nothing that can fall
+  out of step between the public and internal views.
+- **Registration only.** The façade exposes the *write* side of each
+  registry. There is no public `Lookup`, `IDs`, `Build` or `FromConfig`:
+  an extension registers itself and is dispatched *to*, it never
+  enumerates or dispatches to its peers. Frameworks, policies, the
+  evaluator, evidence-type registration, the aggregation contract and the
+  vault layout are all deliberately absent — the package doc in
+  [`plugin/doc.go`](../../plugin/doc.go) lists each exclusion and why.
+
+If something you need is genuinely missing, that is a conversation about
+the contract (open an issue) rather than a reason to fork: widening the
+façade is a promise, and promises are cheaper to make than to keep.
 
 ---
 
@@ -401,14 +461,6 @@ Worked example: AcmeCorp has an internal IAM system
 (`auth.acme-internal.com`) emitting user data over a private API. No
 shipped plugin covers it. AcmeCorp authors one.
 
-> **Illustrative, not yet copy-pasteable from a customer repo.** The Go
-> below shows the *shape* of the plugin contract — the method set, the
-> factory signature, the `init()` registration. It imports
-> `internal/core` and `internal/sources`, which Go will not let a
-> package outside the CLI module import, so today this compiles only
-> from inside the CLI module (a fork / upstream contribution). See
-> §Status. The YAML in Steps 1 and 3 is unaffected.
-
 There are two paths depending on whether the data fits an existing
 evidence type:
 
@@ -462,10 +514,11 @@ manifest file.)
 
 ### Step 2 — Plugin implementation with a registered factory
 
-The `SourcePlugin` interface (`internal/core/source.go`) is `ID()`,
-`Emits() []string`, `Init(ctx, cfg map[string]any) error`, and
-`Collect(ctx, req core.SlotRequest) ([]core.EvidenceRecord, error)`. The
-factory registered in `init()` takes an **`sources.Env`** struct (not a
+The `SourcePlugin` interface (`plugin.SourcePlugin`, aliasing
+`internal/core.SourcePlugin`) is `ID()`, `Emits() []string`,
+`Init(ctx, cfg map[string]any) error`, and
+`Collect(ctx, req plugin.SlotRequest) ([]plugin.EvidenceRecord, error)`.
+The factory registered in `init()` takes a **`plugin.Env`** struct (not a
 bare `map[string]any`): `Env{ Config map[string]any, FrameworkExtras
 map[string]any }`. There is deliberately no `Vault` field — a plugin
 that needs storage configures its own backend, the way `manual.pdf`
@@ -481,8 +534,7 @@ import (
     "fmt"
     "os"
 
-    "github.com/sigcomply/sigcomply-cli/internal/core"
-    "github.com/sigcomply/sigcomply-cli/internal/sources"
+    "github.com/sigcomply/sigcomply-cli/plugin"
 )
 
 const SourceID = "acme.internal_iam"
@@ -511,7 +563,7 @@ func (p *Plugin) Init(ctx context.Context, cfg map[string]any) error {
     return nil
 }
 
-func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error) {
+func (p *Plugin) Collect(ctx context.Context, req plugin.SlotRequest) ([]plugin.EvidenceRecord, error) {
     // Fetch users from the internal IAM service and map each into a
     // directory_user payload. (In v1, `sigcomply build` rejects a
     // *direct* stdlib `net` / `net/*` import from a project-local
@@ -524,7 +576,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
     // contribute it upstream, where it lives inside the CLI module.)
     users := p.fetchUsers(ctx)
 
-    out := make([]core.EvidenceRecord, 0, len(users))
+    out := make([]plugin.EvidenceRecord, 0, len(users))
     for _, u := range users {
         payload, _ := json.Marshal(map[string]any{
             "id":          u.ID,
@@ -532,7 +584,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
             "mfa_enabled": u.MFA,
             "is_admin":    u.Admin,
         })
-        out = append(out, core.EvidenceRecord{
+        out = append(out, plugin.EvidenceRecord{
             Type:        "directory_user",
             ID:          u.ID,
             IdentityKey: u.Email,           // cross-source dedup with aws.iam, okta
@@ -543,11 +595,13 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
     return out, nil
 }
 
-// init registers this plugin's factory. The factory receives an
-// sources.Env; pull the per-instance config from env.Config. This is
-// the same pattern every in-tree plugin uses.
+// init registers this plugin's factory. The factory receives a
+// plugin.Env; pull the per-instance config from env.Config. This is
+// the same pattern every in-tree plugin uses (in-tree code calls
+// sources.RegisterFactory directly — plugin.RegisterSource forwards to
+// exactly that).
 func init() {
-    sources.RegisterFactory(SourceID, func(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
+    plugin.RegisterSource(SourceID, func(ctx context.Context, env plugin.Env) (plugin.SourcePlugin, error) {
         p := &Plugin{}
         if err := p.Init(ctx, env.Config); err != nil {
             return nil, err
@@ -592,10 +646,12 @@ sigcomply build              # generates the wrapper, blank-imports
 ./bin/sigcomply check
 ```
 
-> Per §Status, `go build` will still fail here today with `use of
-> internal package … not allowed`, because `plugin.go` imports
-> `internal/core` and `internal/sources`. The dependency step above is
-> necessary but not sufficient until a public API package ships.
+> The `go get` step is not optional: your extension imports
+> `sigcomply-cli/plugin`, and the generated entrypoint imports
+> `sigcomply-cli/cmd/sigcomply`, so the project's `go.mod` has to
+> require the CLI module. Pin the same version as the `sigcomply` binary
+> you run `build` with — the tailored binary is compiled from *that*
+> module, not from the one on your `PATH`.
 
 The `acme.internal_iam` plugin now satisfies any policy whose slots
 have `accepts: [directory_user]`. AcmeCorp can mix and match across the
@@ -667,14 +723,14 @@ emits: [directory_user, acme_principal]
 
 ```go
 // Inside Collect — emit two records per user, one of each type:
-out = append(out, core.EvidenceRecord{
+out = append(out, plugin.EvidenceRecord{
     Type:        "directory_user",         // for shipped policies
     ID:          u.ID,
     IdentityKey: u.Email,
     SourceID:    SourceID,
     Payload:     directoryUserPayload,
 })
-out = append(out, core.EvidenceRecord{
+out = append(out, plugin.EvidenceRecord{
     Type:        "acme_principal",          // for AcmeCorp policies
     ID:          u.ID,
     IdentityKey: u.Email,
@@ -732,14 +788,7 @@ extension surface is `.sigcomply/plugins/` — the same one used for
 custom source plugins. The mechanism is the same too: a Go package
 with an `init()` that calls a registry function.
 
-> **Illustrative, not yet copy-pasteable from a customer repo.** As with
-> the source-plugin example, the Go below imports `internal/` packages
-> that Go will not let a package outside the CLI module import — it shows
-> the interface shape and the `init()` registration pattern, and compiles
-> only from inside the CLI module. See §Status. The `.sigcomply.yaml` in
-> Step 3 is unaffected.
-
-### Step 1 — Implement `core.Vault`
+### Step 1 — Implement `plugin.Vault`
 
 ```go
 // .sigcomply/plugins/acme.nfs_vault/vault.go
@@ -748,7 +797,7 @@ package acme_nfs_vault
 import (
     "context"
 
-    "github.com/sigcomply/sigcomply-cli/internal/core"
+    "github.com/sigcomply/sigcomply-cli/plugin"
 )
 
 type Vault struct {
@@ -756,13 +805,13 @@ type Vault struct {
 }
 
 func (v *Vault) Init(ctx context.Context) error                                                { /* … */ return nil }
-func (v *Vault) PutEnvelope(ctx context.Context, key string, e *core.Envelope) error           { /* … */ return nil }
+func (v *Vault) PutEnvelope(ctx context.Context, key string, e *plugin.Envelope) error         { /* … */ return nil }
 func (v *Vault) PutJSON(ctx context.Context, key string, body any) error                       { /* … */ return nil }
 func (v *Vault) PutBinary(ctx context.Context, key string, body []byte, meta map[string]string) error { /* … */ return nil }
 func (v *Vault) GetBinary(ctx context.Context, key string) ([]byte, error)                     { /* … */ return nil, nil }
 func (v *Vault) List(ctx context.Context, prefix string) ([]string, error)                     { /* … */ return nil, nil }
 
-var _ core.Vault = (*Vault)(nil)
+var _ plugin.Vault = (*Vault)(nil)
 ```
 
 ### Step 2 — Register the backend
@@ -774,16 +823,16 @@ package acme_nfs_vault
 import (
     "context"
 
-    "github.com/sigcomply/sigcomply-cli/internal/core"
-    "github.com/sigcomply/sigcomply-cli/internal/spec"
-    "github.com/sigcomply/sigcomply-cli/internal/vault"
+    "github.com/sigcomply/sigcomply-cli/plugin"
 )
 
 func init() {
-    vault.RegisterBackend("acme.nfs", build)
+    plugin.RegisterVaultBackend("acme.nfs", build)
 }
 
-func build(ctx context.Context, cfg *spec.VaultConfig) (core.Vault, error) {
+// cfg is the flat `vault:` mapping: Backend is lifted out, every other
+// key stays in Config (cfg.Str / cfg.Bool read it).
+func build(ctx context.Context, cfg *plugin.VaultConfig) (plugin.Vault, error) {
     v := &Vault{ /* read fields from cfg */ }
     if err := v.Init(ctx); err != nil {
         return nil, err
@@ -832,14 +881,7 @@ This is **Axis A** of the three plugin axes (see
 mechanism mirrors Axes B and C exactly: implement an interface, call a
 registry function from `init()`.
 
-> **Illustrative, not yet copy-pasteable from a customer repo.** As with
-> the source-plugin example, the Go below imports `internal/` packages
-> that Go will not let a package outside the CLI module import — it shows
-> the interface shape and the `init()` registration pattern, and compiles
-> only from inside the CLI module. See §Status. The `.sigcomply.yaml` in
-> Step 3 is unaffected.
-
-### Step 1 — Implement `manual.Reader`
+### Step 1 — Implement `plugin.ManualReader`
 
 ```go
 // .sigcomply/plugins/acme.sftp_manual/reader.go
@@ -849,22 +891,22 @@ import (
     "context"
     "time"
 
-    "github.com/sigcomply/sigcomply-cli/internal/sources/manual"
+    "github.com/sigcomply/sigcomply-cli/plugin"
 )
 
 type Reader struct {
     // … SFTP client, base path, credentials reference, etc.
 }
 
-// manual.Reader requires both Get and List.
+// plugin.ManualReader requires both Get and List.
 func (r *Reader) Get(ctx context.Context, key string) ([]byte, time.Time, error) {
-    // … fetch over SFTP. Return manual.ErrNotFound if the path
+    // … fetch over SFTP. Return plugin.ErrManualNotFound if the path
     //    does not exist; other errors are treated as transport
     //    failures by the manual.pdf plugin.
-    return nil, time.Time{}, manual.ErrNotFound
+    return nil, time.Time{}, plugin.ErrManualNotFound
 }
 
-func (r *Reader) List(ctx context.Context, prefix string) ([]manual.FileInfo, error) {
+func (r *Reader) List(ctx context.Context, prefix string) ([]plugin.ManualFileInfo, error) {
     // … list every file under prefix, sorted by key. An empty result
     //    is not an error — the caller decides how to handle it.
     return nil, nil
@@ -880,14 +922,14 @@ package acme_sftp_manual
 import (
     "fmt"
 
-    "github.com/sigcomply/sigcomply-cli/internal/sources/manual"
+    "github.com/sigcomply/sigcomply-cli/plugin"
 )
 
 func init() {
-    manual.RegisterReader("acme.sftp", build)
+    plugin.RegisterManualReader("acme.sftp", build)
 }
 
-func build(raw map[string]any) (manual.Reader, string, string, string, error) {
+func build(raw map[string]any) (plugin.ManualReader, string, string, string, error) {
     host, _ := raw["host"].(string)
     if host == "" {
         return nil, "", "", "", fmt.Errorf("manual.pdf.acme.sftp: \"host\" required")
@@ -950,7 +992,13 @@ The contribution path:
      document as the project-local `.sigcomply/evidence_types/*.json`,
      just embedded rather than read from disk)
 3. **Adapt** import paths from the project-local package names to the
-   in-tree ones (`internal/sources/...`).
+   in-tree ones (`internal/sources/...`). In-tree code imports
+   `internal/core`, `internal/sources`, `internal/vault` and
+   `internal/sources/manual` directly rather than the public `plugin`
+   façade — the façade is for code outside the module, and the types are
+   aliases, so the swap is mechanical: `plugin.SourcePlugin` →
+   `core.SourcePlugin`, `plugin.RegisterSource` →
+   `sources.RegisterFactory`, and so on.
 4. **Add** in-tree tests under the same directory. A source plugin must
    ship the full **[testing checklist](04-source-plugins.md#testing-a-source-plugin-checklist)**:
    a `sourcetest` conformance test, sanitized cassettes, a `contracts/`
@@ -975,10 +1023,14 @@ passing, no breaking changes without a major version bump.
 ## Compatibility guarantees
 
 A project-local extension authored against CLI version `1.x` is
-guaranteed to keep working for the entire `1.x` series:
+guaranteed to keep working for the entire `1.x` series. The unit of that
+promise is the public `plugin` package: what it re-exports is what is
+guaranteed, and nothing under `internal/` is — even though an alias
+makes the two the same type, reaching a type only via the façade is what
+keeps the guarantee meaningful.
 
-- `SourcePlugin`, `Rule`, `Vault`, and other L1 interfaces are
-  append-only within a major.
+- `SourcePlugin`, `Vault`, `ManualReader`, and the value types they name
+  are append-only within a major.
 - Evidence type schemas only add optional fields within a major.
 - The aggregation contract is frozen within a major.
 - Project config schema additions are optional and default-safe.

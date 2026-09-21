@@ -510,6 +510,15 @@ load-bearing rules:
    with the four vault backends).
 3. **`internal/core/`** (L1) — frozen interfaces + shared types. Never put
    framework- or source-specific logic here.
+4. **`plugin/`** — the module's ONLY non-`internal` package: a thin façade
+   of type aliases + three `Register*` forwarders that project-local Go
+   extensions (which `sigcomply build` compiles inside the *customer's*
+   module, where `internal/` is unreachable) import. Adding an export here
+   is a compatibility promise for the whole major version, so add one only
+   when a documented extension point needs it — and never widen an
+   `internal/` API just to make a re-export easier. In-tree code keeps
+   importing `internal/…` directly; `plugin/plugin_test.go` and
+   `plugin/external_module_test.go` are the drift guards.
 
 **Manual evidence is a project-level singleton:** one repo = one
 framework, so exactly one `manual.pdf` source and one bucket per project

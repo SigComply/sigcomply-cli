@@ -59,6 +59,7 @@ const (
 	etNoSQLTable              = "nosql_table"
 	etObjectStorageBucket     = "object_storage_bucket"
 	etPasswordPolicy          = "password_policy"
+	etPasswordPolicyV2        = "password_policy.v2"
 	etPullRequest             = "pull_request"
 	etSecurityService         = "security_service"
 	etVulnerabilityFinding    = "vulnerability_finding"
@@ -125,6 +126,16 @@ func (a autoPolicy) policy() core.Policy {
 // Only the roster join is type-agnostic, because "does this identity
 // belong to someone on the roster" is the same question either way.
 var rosterSubjectTypes = []string{etDirectoryUser, etDirectoryUserV2, etIAMBinding}
+
+// passwordPolicyTypes are the password_policy versions the four CC6.1
+// password policies read. Both versions are accepted and the clauses are
+// written to read either, because the two shipped emitters (aws.iam's
+// account policy and Okta) moved to v2 while a project-local plugin may
+// still emit v1 — and a slot that accepted only one of them would leave
+// the other's records unbound, which skips the policy rather than failing
+// it. v2 is listed first so that a source emitting both (none in tree,
+// and none should) has its richer record grouped first in the envelope.
+var passwordPolicyTypes = []string{etPasswordPolicyV2, etPasswordPolicy}
 
 // rosterPolicy is the authoring shape for an access-lifecycle policy
 // that checks identities in other systems against the designated roster

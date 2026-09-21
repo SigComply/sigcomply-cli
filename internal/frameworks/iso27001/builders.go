@@ -52,6 +52,8 @@ const (
 	etIAMBinding              = "iam_binding"
 	etManagedDatabaseInstance = "managed_database_instance"
 	etObjectStorageBucket     = "object_storage_bucket"
+	etPasswordPolicy          = "password_policy"
+	etPasswordPolicyV2        = "password_policy.v2"
 	etPullRequest             = "pull_request"
 	etSourceControlOrgPolicy  = "source_control_org_policy"
 )
@@ -287,6 +289,70 @@ func unrestrictedPortClause(port int) core.PassWhenClause {
 		leaf("payload.protocol", "in", []any{"tcp", "all"}),
 	)
 	return noneWhere(filter, portCovers(port), fmt.Sprintf("firewall rule {{.payload.id}} exposes port %d to 0.0.0.0/0", port))
+}
+
+// --- password-policy clauses ---------------------------------------
+//
+// passwordPolicyTypes are the password_policy versions the two A.8.5
+// password policies read. Both are accepted: the two shipped emitters
+// (aws.iam's account policy and Okta) moved to v2, while a project-local
+// plugin may still emit v1, and a slot accepting only one version would
+// leave the other's records unbound — which skips the policy rather than
+// failing it, and a skip leaves the score denominator.
+//
+// Every field these clauses touch is optional in v2, so every read is
+// is_set-guarded: the evaluator errors on a reference to a field the
+// record does not carry, in a filter as much as in a condition. A record
+// that cannot answer a clause's question is filtered out of scope rather
+// than failed — "the source could not see this setting" is not "the
+// setting is off" — and a clause left with nothing to examine is reported
+// as vacuous (core.DiagVacuousClauses) rather than passing quietly.
+//
+// These mirror the SOC 2 builders of the same names
+// (internal/frameworks/soc2/policies_cc6.go), which carry the full
+// rationale for the reframed strength clause. The two frameworks keep
+// their own copies for the same reason they keep their own copies of
+// unrestrictedPortClause: a framework package owns its policy library.
+var passwordPolicyTypes = []string{etPasswordPolicyV2, etPasswordPolicy}
+
+// passwordLengthClause builds "every password policy in force requires at
+// least min characters", skipping policies whose platform exposes no
+// minimum length at all. A configured 0 is an observed "no minimum" and
+// fails; an absent one was never read and is not judged.
+func passwordLengthClause(minLength int) core.PassWhenClause {
+	return allWhere(isSet("payload.min_length"),
+		leaf("payload.min_length", "gte", minLength),
+		fmt.Sprintf("password policy {{.payload.id}} has a minimum length below %d", minLength))
+}
+
+// passwordStrengthEnforcedClause builds "a password-strength control is
+// enforced": all four character classes for a per-class source, the
+// platform's strongest rating for a source that rates passwords instead
+// (Google's allowedStrength, which its own documentation says is
+// deliberately not a character-class rule), or a platform-enforced rule
+// the tenant cannot weaken. complexity_model "none" — an account with no
+// password policy at all — matches nothing and fails. See the SOC 2 twin
+// for why the clause was reframed rather than the source reinterpreted.
+func passwordStrengthEnforcedClause() core.PassWhenClause {
+	answerable := anyOf(isSet("payload.complexity_model"), isSet("payload.requires_uppercase"))
+	perClass := allOf(
+		isSet("payload.requires_uppercase"), isSet("payload.requires_lowercase"),
+		isSet("payload.requires_numbers"), isSet("payload.requires_symbols"),
+		leaf("payload.requires_uppercase", "eq", true),
+		leaf("payload.requires_lowercase", "eq", true),
+		leaf("payload.requires_numbers", "eq", true),
+		leaf("payload.requires_symbols", "eq", true),
+	)
+	strengthEnum := allOf(
+		isSet("payload.password_strength"),
+		leaf("payload.password_strength", "eq", "strong"),
+	)
+	platformFixed := allOf(
+		isSet("payload.complexity_model"),
+		leaf("payload.complexity_model", "eq", "fixed"),
+	)
+	return allWhere(answerable, anyOf(perClass, strengthEnum, platformFixed),
+		"password policy {{.payload.id}} enforces no password-strength requirement")
 }
 
 // unrestrictedPortsClause flags any open ingress rule covering any of the

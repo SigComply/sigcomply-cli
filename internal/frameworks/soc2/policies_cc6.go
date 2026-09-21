@@ -96,36 +96,31 @@ func cc6AccessPolicies() []core.Policy {
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.1.password_min_length_14", control: ctrlCC61, severity: core.SeverityMedium, category: catAccess, cadence: cadenceDaily,
-			accepts: []string{etPasswordPolicy},
+			accepts: passwordPolicyTypes,
 			desc:    "The account password policy requires at least 14 characters.",
 			rem:     "Set the minimum password length to 14 or greater.",
-			clause:  all(leaf("payload.min_length", "gte", 14), "password policy minimum length is below 14"),
+			clause:  passwordLengthClause(14),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.1.password_expiry_90d", control: ctrlCC61, severity: core.SeverityMedium, category: catAccess, cadence: cadenceDaily,
-			accepts: []string{etPasswordPolicy},
+			accepts: passwordPolicyTypes,
 			desc:    "Passwords expire within 90 days (or rotation is centrally managed with no expiry).",
 			rem:     "Set password expiry to 90 days or fewer.",
-			clause:  all(anyOf(leaf("payload.max_age_days", "eq", 0), leaf("payload.max_age_days", "lte", 90)), "password policy expiry exceeds 90 days"),
+			clause:  passwordExpiryClause(90),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.1.password_reuse_prevention", control: ctrlCC61, severity: core.SeverityLow, category: catAccess, cadence: cadenceDaily,
-			accepts: []string{etPasswordPolicy},
-			desc:    "The password policy prevents reuse of the last 24 passwords.",
-			rem:     "Set password reuse prevention to 24 or greater.",
-			clause:  all(leaf("payload.reuse_prevention_count", "gte", 24), "password reuse prevention is below 24"),
+			accepts: passwordPolicyTypes,
+			desc:    "The password policy prevents password reuse.",
+			rem:     "Enable password history so a previous password cannot be set again.",
+			clause:  passwordReusePreventedClause(),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.1.password_complexity", control: ctrlCC61, severity: core.SeverityMedium, category: catAccess, cadence: cadenceDaily,
-			accepts: []string{etPasswordPolicy},
-			desc:    "The password policy requires uppercase, lowercase, numbers, and symbols.",
-			rem:     "Enable all four character-class requirements in the password policy.",
-			clause: all(allOf(
-				leaf("payload.requires_uppercase", "eq", true),
-				leaf("payload.requires_lowercase", "eq", true),
-				leaf("payload.requires_numbers", "eq", true),
-				leaf("payload.requires_symbols", "eq", true),
-			), "password policy does not require all four character classes"),
+			accepts: passwordPolicyTypes,
+			desc:    "A password-strength control is enforced — either every character class is required, or the platform's own strength rating is.",
+			rem:     "Require uppercase, lowercase, numbers and symbols, or turn on the platform's strong-password enforcement.",
+			clause:  passwordStrengthEnforcedClause(),
 		}.policy(),
 	}
 }
@@ -356,6 +351,129 @@ func unrestrictedPortClause(port int) core.PassWhenClause {
 		leaf("payload.from_port", "eq", -1),
 	)
 	return noneWhere(filter, cond, fmt.Sprintf("firewall rule {{.payload.id}} exposes port %d to 0.0.0.0/0", port))
+}
+
+// --- password-policy clauses ---------------------------------------
+//
+// All four read a password_policy record of either version. Every field
+// they touch is optional in v2 (it had to be: an Entra record can answer
+// expiry and nothing else, and v1's eight required fields are why no
+// Entra record could be emitted at all), so every one of them guards its
+// reads with is_set. That is not ceremony — the evaluator errors on a
+// reference to a field the record does not carry, in a filter as much as
+// in a condition, so an unguarded read would turn a partially-answering
+// source into exit 3 for the whole run.
+//
+// Where a record cannot answer a clause's question at all, the clause
+// filters it out of scope rather than failing it: "the source could not
+// see this setting" is not "the setting is off", and inventing a fail
+// paints a red with no remediation anywhere. When nothing in the slot can
+// answer, the clause examined nothing and the engine reports it as
+// vacuous (core.DiagVacuousClauses) instead of showing a green tick over
+// an unexamined estate.
+
+// passwordLengthClause builds "every password policy in force requires at
+// least min characters", skipping policies whose platform does not expose
+// a minimum length (Entra fixes it as a Microsoft constant with no tenant
+// setting — and reading that constant out of documentation is not
+// evidence). A configured 0 is a different thing entirely: it is an
+// observed "no minimum", and it fails.
+func passwordLengthClause(minLength int) core.PassWhenClause {
+	return allWhere(isSet("payload.min_length"),
+		leaf("payload.min_length", "gte", minLength),
+		fmt.Sprintf("password policy {{.payload.id}} has a minimum length below %d", minLength))
+}
+
+// passwordExpiryClause builds "passwords expire within maxDays, or
+// rotation is centrally managed". max_age_days 0 is the vendors' own
+// encoding of "no expiry", which NIST 800-63B now treats as correct when
+// rotation is event-driven, so it passes.
+func passwordExpiryClause(maxDays int) core.PassWhenClause {
+	return allWhere(isSet("payload.max_age_days"),
+		anyOf(leaf("payload.max_age_days", "eq", 0), leaf("payload.max_age_days", "lte", maxDays)),
+		fmt.Sprintf("password policy {{.payload.id}} expires passwords after more than %d days", maxDays))
+}
+
+// passwordReusePreventedClause builds "reuse is prevented".
+//
+// It used to read reuse_prevention_count >= 24. Not every vendor
+// discloses a depth: Google's Cloud Identity API exposes allowReuse as a
+// bare boolean and documents no history length at all, so "the last 24"
+// is not a question it can be asked — the answer could be 1. The clause
+// now asks what every source can answer truthfully, and the depth, where
+// a vendor does disclose it, is still in the signed envelope for an
+// auditor to read.
+//
+// The trade this accepts, stated plainly: an AWS account with history
+// depth 1 now passes a clause that "the last 24" would have failed. The
+// remedy for that is a SECOND clause on the depth, guarded by is_set so
+// it judges only the sources that disclose one — deferred as its own
+// decision, and deliberately not taken here by giving Google a different
+// verdict instead.
+func passwordReusePreventedClause() core.PassWhenClause {
+	answerable := anyOf(isSet("payload.reuse_prevented"), isSet("payload.reuse_prevention_count"))
+	prevented := anyOf(
+		allOf(isSet("payload.reuse_prevented"), leaf("payload.reuse_prevented", "eq", true)),
+		allOf(isSet("payload.reuse_prevention_count"), leaf("payload.reuse_prevention_count", "gte", 1)),
+	)
+	return allWhere(answerable, prevented,
+		"password policy {{.payload.id}} does not prevent password reuse")
+}
+
+// passwordStrengthEnforcedClause builds "a password-strength control is
+// enforced" — the reframed complexity check.
+//
+// It used to read "all four character classes are required", which is a
+// question only a per-class vendor can be asked. Google reports
+// allowedStrength as STRONG or WEAK and says in its own administrator
+// documentation that a strong password "doesn't need to have a specific
+// number of characters of a specific type": STRONG is entropy plus breach
+// and common-password screening, explicitly not a character-class rule.
+// So passing STRONG as "all four true" would fabricate a claim the vendor
+// itself disclaims, while failing STRONG would paint a permanent red with
+// no setting anywhere to turn on — against a provider following NIST
+// 800-63B (which deprecates composition rules) rather than defying it.
+// The clause was what was wrong, not the source.
+//
+// Each arm is therefore a true statement about what was observed:
+//
+//   - per_class — every character class is required. This is every v1
+//     record and every AWS/Okta/AD v2 record, so those estates get exactly
+//     the verdict they got before.
+//   - strength_enum — the minimum rating the platform will accept is its
+//     strongest.
+//   - fixed — the platform enforces a strength rule the tenant cannot
+//     configure or weaken, which is a property of the platform and true of
+//     the tenant by construction (unlike a default, which the tenant may
+//     have overridden and which must never be emitted).
+//
+// complexity_model "none" — an AWS account with no password policy at all
+// — matches no arm and fails, which is the whole point of spelling "none"
+// out rather than letting it be implied by absence.
+//
+// Every arm is_set-guards its fields before reading them: any_of keeps
+// evaluating after a false, so an unguarded arm would error the policy on
+// the very records the other arms exist to serve.
+func passwordStrengthEnforcedClause() core.PassWhenClause {
+	answerable := anyOf(isSet("payload.complexity_model"), isSet("payload.requires_uppercase"))
+	perClass := allOf(
+		isSet("payload.requires_uppercase"), isSet("payload.requires_lowercase"),
+		isSet("payload.requires_numbers"), isSet("payload.requires_symbols"),
+		leaf("payload.requires_uppercase", "eq", true),
+		leaf("payload.requires_lowercase", "eq", true),
+		leaf("payload.requires_numbers", "eq", true),
+		leaf("payload.requires_symbols", "eq", true),
+	)
+	strengthEnum := allOf(
+		isSet("payload.password_strength"),
+		leaf("payload.password_strength", "eq", "strong"),
+	)
+	platformFixed := allOf(
+		isSet("payload.complexity_model"),
+		leaf("payload.complexity_model", "eq", "fixed"),
+	)
+	return allWhere(answerable, anyOf(perClass, strengthEnum, platformFixed),
+		"password policy {{.payload.id}} enforces no password-strength requirement")
 }
 
 // cc6OrgGovernancePolicies — CC6.1/CC6.3 logical access governance at the

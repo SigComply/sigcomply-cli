@@ -3,6 +3,7 @@ package evaluator
 import (
 	"encoding/json"
 	"slices"
+	"strings"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
@@ -66,7 +67,7 @@ func (ec *evalCtx) resolveAccount(rec *core.EvidenceRecord) accountLink {
 	}
 	names := accountNames(rec, payload)
 	link := accountLink{
-		ref:      rec.SourceID + "/" + rec.ID,
+		ref:      accountRef(rec),
 		linkedBy: linkedByNone,
 		active:   true,
 	}
@@ -96,13 +97,38 @@ func (ec *evalCtx) resolveAccount(rec *core.EvidenceRecord) accountLink {
 	return link
 }
 
+// accountRef is the record's globally-unique identity, "source_id/id".
+//
+// An instanced source already namespaces its record IDs with the same
+// instance key (sources.instancePlugin.Collect), so concatenating again
+// would yield aws.iam[backup]/aws.iam[backup]/AIDA1. That is still
+// unique, but ref is not an internal token: it is the documented value
+// an operator types into a waiver's resource_id and the recommended
+// identity_key for a cross-source clause. Doubling it would be a wart
+// in the one place the string has to be readable.
+func accountRef(rec *core.EvidenceRecord) string {
+	if strings.HasPrefix(rec.ID, rec.SourceID+"/") {
+		return rec.ID
+	}
+	return rec.SourceID + "/" + rec.ID
+}
+
 // accountNames are the lowercased names an alias or non-human entry can
 // refer to: the record id and, when present, payload.username or
 // payload.principal_id. The principal is included because it is the only
 // name in an IAM grant an operator can recognize — the record id names
 // the grant, not the person holding it.
+//
+// An instanced record's ID carries its instance key as a prefix, so both
+// forms are offered. An operator writes the name they can see — usually
+// the bare one — and a roster entry keyed either way must match; an
+// alias that silently stopped matching would report a real person's
+// account as unlinked.
 func accountNames(rec *core.EvidenceRecord, payload map[string]any) []string {
 	names := []string{lowerTrim(rec.ID)}
+	if bare, ok := strings.CutPrefix(rec.ID, rec.SourceID+"/"); ok && lowerTrim(bare) != "" {
+		names = append(names, lowerTrim(bare))
+	}
 	for _, f := range []string{"username", "principal_id"} {
 		if v, ok := payload[f].(string); ok && lowerTrim(v) != "" {
 			names = append(names, lowerTrim(v))

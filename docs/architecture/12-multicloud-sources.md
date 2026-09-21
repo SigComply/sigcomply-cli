@@ -23,7 +23,7 @@ This yields the substitutability property: one "object storage encrypted at rest
 | **Azure** | management plane + Entra/Graph | DefaultAzureCredential / OIDC (Entra via raw Graph REST) | 14 plugins (mature) |
 | **GitHub** | SaaS | token | 1 plugin → `git_repository`, `directory_user`, `source_control_org_policy`, `vulnerability_finding`, `pull_request`, `deployment` |
 | **GitLab** | SaaS / self-managed | token | 1 plugin → `git_repository`, `directory_user`, `pull_request`, `deployment` |
-| **Okta** | SaaS | token | 1 plugin → `directory_user`, `okta_app`, `roster_entry`, `password_policy` |
+| **Okta** | SaaS | token | 1 plugin → `directory_user`, `okta_app`, `roster_entry`, `password_policy.v2` |
 | **Active Directory** | on-prem (LDAPS / StartTLS) | bind DN + password | 1 plugin (`active_directory`) → `roster_entry` |
 | **Manual** | customer bucket | n/a | 1 plugin (`manual.pdf`, project singleton) |
 
@@ -114,15 +114,81 @@ The admin-MFA policies are phrased as `none(is_admin == true AND mfa_enabled == 
 - `soc2.cc6.1.mfa_enforced_admins` — `internal/frameworks/soc2/policies_cc6.go:47`
 - `iso27001.8.2.privileged_mfa_enforced` — `internal/frameworks/iso27001/policies_8_technological.go:34`
 
-The evaluator treats a **referenced-but-absent field as a contract gap, not a pass**: `getField` miss → `status=error` (exit 3), see `evalCondition` in `internal/evaluator/pass_when.go` and `TestPassWhen_AbsentField_Errors`. So a source that omits `is_admin` does **not** silently no-op these policies — it makes them **error**, which is the intended way to surface a coverage gap (the policy comments say so explicitly). Therefore every `directory_user` emitter **must populate** `is_admin` (vendor heuristic: org owner / SuperAdmin / Owner-or-Maintainer / privileged directory-role) and **must populate** `is_active` (from the vendor's account-status field; `true` when only active identities are listable). If a source genuinely cannot compute `is_admin` yet, that is a tracked coverage gap for its WU (e.g. Okta, WU-1.2) — not a license to omit the field. **Closed (2026-09-20): `aws.identity_center` now populates `is_admin`.** Admin-ness there is a permission-set question, not a user attribute — `ListPermissionSets` → `DescribePermissionSet` + `ListManagedPoliciesInPermissionSet` → `ListAccountsForProvisionedPermissionSet` → `ListAccountAssignments` — and the plugin now walks it, resolving group membership (`identitystore:ListGroupMemberships`) so a person who is admin *only* through a group is not read as `is_admin: false`. That traversal also makes the plugin the second emitter of `iam_binding`, which needed no policy edit at all. **Two rules came out of it, and they hold for any future emitter.** (a) *The grant record mirrors the assignment as made; the person record answers about the person.* `iam_binding.principal_type` stays `group` for a group assignment, because the least-privilege policies are phrased `none(principal_type == "user" AND is_broad_admin_role AND NOT has_condition)` and their remediation says to grant admin through groups — expanding a group grant into member records would report the recommended pattern as a violation of the policy recommending it, and would mis-key the roster join, whose `account.non_human` is derived from `principal_type`. `is_admin` is not asking that question, so it does resolve membership; `internal/sources/aws/iam` already split the two this way. (b) *"Emitting zeros would be misleading evidence" is about fabricating a value you cannot compute, not about computing one conservatively.* This reconciles the rule with Decision 1's `password_policy` deferral, which it otherwise rubs against: `is_broad_admin_role` over-reports (an "admin"-named set with no admin policy is flagged) and `has_condition` is a flat `false` — both err toward *failing* a control, the recoverable direction. For `password_policy` no conservative value exists, because a zeroed `minimum_password_length` would *pass* the checks that read it. **The blind spot that remains:** a permission set reaching admin through an inline or customer-managed policy under a non-obvious name reads as not-broad; closing it means parsing IAM policy documents.
+The evaluator treats a **referenced-but-absent field as a contract gap, not a pass**: `getField` miss → `status=error` (exit 3), see `evalCondition` in `internal/evaluator/pass_when.go` and `TestPassWhen_AbsentField_Errors`. So a source that omits `is_admin` does **not** silently no-op these policies — it makes them **error**, which is the intended way to surface a coverage gap (the policy comments say so explicitly). Therefore every `directory_user` emitter **must populate** `is_admin` (vendor heuristic: org owner / SuperAdmin / Owner-or-Maintainer / privileged directory-role) and **must populate** `is_active` (from the vendor's account-status field; `true` when only active identities are listable). If a source genuinely cannot compute `is_admin` yet, that is a tracked coverage gap for its WU (e.g. Okta, WU-1.2) — not a license to omit the field. **Closed (2026-09-20): `aws.identity_center` now populates `is_admin`.** Admin-ness there is a permission-set question, not a user attribute — `ListPermissionSets` → `DescribePermissionSet` + `ListManagedPoliciesInPermissionSet` → `ListAccountsForProvisionedPermissionSet` → `ListAccountAssignments` — and the plugin now walks it, resolving group membership (`identitystore:ListGroupMemberships`) so a person who is admin *only* through a group is not read as `is_admin: false`. That traversal also makes the plugin the second emitter of `iam_binding`, which needed no policy edit at all. **Two rules came out of it, and they hold for any future emitter.** (a) *The grant record mirrors the assignment as made; the person record answers about the person.* `iam_binding.principal_type` stays `group` for a group assignment, because the least-privilege policies are phrased `none(principal_type == "user" AND is_broad_admin_role AND NOT has_condition)` and their remediation says to grant admin through groups — expanding a group grant into member records would report the recommended pattern as a violation of the policy recommending it, and would mis-key the roster join, whose `account.non_human` is derived from `principal_type`. `is_admin` is not asking that question, so it does resolve membership; `internal/sources/aws/iam` already split the two this way. (b) *"Emitting zeros would be misleading evidence" is about fabricating a value you cannot compute, not about computing one conservatively.* This reconciles the rule with Decision 1's `password_policy` deferral, which it otherwise rubs against: `is_broad_admin_role` over-reports (an "admin"-named set with no admin policy is flagged) and `has_condition` is a flat `false` — both err toward *failing* a control, the recoverable direction. For `password_policy` no *uniformly* conservative value exists — but the field named here was the wrong one, and the correction matters. A zeroed `min_length` **fails** `min_length >= 14`, which is the recoverable direction; the zero that passes is `max_age_days`, because `0` is the vendors' own encoding of "no expiry" and the expiry clause deliberately accepts it. (Consequence, still true and still open: an AWS account with **no** password policy at all passes `soc2.cc6.1.password_expiry_90d`.) The real reason zeros were not viable under v1 is simpler: v1 required all eight fields, so a source that could read two of them had to invent six, and "invent six" is not conservative in any direction. `password_policy.v2` removes that forcing — see the section below. **The blind spot that remains:** a permission set reaching admin through an inline or customer-managed policy under a non-obvious name reads as not-broad; closing it means parsing IAM policy documents.
 
 > **Schema-text caveat.** `directory_user.v1.json`'s description for `is_active` reads "Absent means assume active." That default is **aspirational** — it would only apply to a rule that opts into it with an explicit `is_set` guard. The generic evaluator does **not** apply it; a bare reference to an absent field errors, in a condition and in a filter alike. The operative contract is **populate, don't rely on the default.**
 
 Optional vendor-specific fields (`email`, `is_external`, `is_service_account`, `mfa_factor_count`, `last_login_at`) may be omitted when the vendor doesn't surface them; any policy that reads them must guard with `is_set` — in the condition *or* in the filter. A bare clause `filter` is not a guard: an unevaluable filter errors the policy rather than silently dropping the record (see `filterRecords`), which is what used to turn an omitted optional field into a vacuous pass.
 
-## `password_policy` schema fit for GCP / Azure — settled (WU-0.3): DEFER both
+## `password_policy` schema fit for GCP / Azure — `v2` shipped; the collectors are still open
 
-> **Partially superseded.** Two things below are no longer true.
+> **Status.** `password_policy.v2` ships, and so does the **Entra
+> collector**: `azure.entra` emits `password_policy.v2` from `GET /domains`
+> (permission `Domain.Read.All`, no P1/P2 license), one record per verified
+> domain. The **GCP collector is still unwritten** — it is blocked on the
+> three unverifiable wire-format details recorded under D1, not on the
+> schema. The verified vendor detail below is the input for whoever writes
+> it.
+>
+> **What the Entra collector emits, and what it refuses to.** `max_age_days`
+> ← `domain.passwordValidityPeriodInDays`, with Microsoft's documented
+> never-expires sentinel (`2147483647`) translated to the schema's `0`
+> ("an observed no-expiry"), and omitted entirely for a federated domain,
+> whose passwords an external IdP validates. Everything else is absent,
+> with `not_configurable: [min_length, reuse, complexity]` recording that
+> the absence is structural. In particular it does **not** emit
+> `complexity_model: "fixed"`, although this schema's own description names
+> Entra's character-class rule as the example of that arm. Two reasons, and
+> the second is the general one: (a) `fixed` is legitimate only for a rule
+> the tenant cannot change, and Entra's is changeable —
+> `user.passwordPolicies` accepts the documented value
+> `DisableStrongPassword`, and in a federated or hash-synced domain the rule
+> in force is the external directory's, which Graph does not expose;
+> (b) even where it holds, the rule would be read from Microsoft's
+> documentation rather than from the tenant, and `fixed` would then pass
+> both `password_complexity` policies for every Entra tenant unconditionally
+> on the strength of a string constant in our own source. Absent + vacuous
+> is the honest verdict. Net effect: an Entra-only estate answers
+> `soc2.cc6.1.password_expiry_90d` automatically; the other five stay
+> unanswered and want a reasoned `na`.
+>
+> **What v2 changes.** Complexity became a discriminated union —
+> `complexity_model` names the KIND of answer a source has (`per_class` |
+> `strength_enum` | `fixed` | `none`) and only that kind's fields are
+> required — reuse became a boolean (`reuse_prevented`) with the depth as an
+> optional refinement, every platform-dependent field became optional so
+> absence is expressible, and each record carries `scope` + `precedence` so
+> N records are not read as interchangeable. `not_configurable` names the
+> attributes a platform exposes no tenant setting for, which is how "Entra
+> does not let you set a minimum length" stops looking like "we did not read
+> one". The value itself still stays absent: a documented default is a value
+> the tenant may have overridden, so reading one out of a manual says
+> nothing about this tenant and is never signed into evidence.
+>
+> **The clauses were reframed, not the sources reinterpreted.** Three of the
+> six policies asked questions a `strength_enum` source structurally cannot
+> answer. `password_complexity` (×2) now reads *"a password-strength control
+> is enforced"* — satisfied by a per-class source's four booleans, by a
+> strength-rating source reporting its strongest rating, or by a
+> platform-enforced rule the tenant cannot weaken.
+> `password_reuse_prevention` now reads *"reuse is prevented"*, because the
+> depth is genuinely undisclosed by some vendors and the clause must not
+> claim to know it. `min_length` / `expiry` were not reframed; they only
+> learned that the field may be absent, and a record that cannot answer is
+> filtered out of the clause's scope (reported as a vacuous clause) rather
+> than failed on a setting nobody read. Accepted trade, recorded here so it
+> is not rediscovered as a bug: an AWS account with history depth 1 now
+> passes "reuse is prevented" where "the last 24" would have failed it. A
+> second clause on the depth is a separate, deferred decision.
+>
+> **Both shipped emitters moved to v2** (`internal/sources/aws/passwordpolicy`,
+> `internal/sources/okta`) and neither emits both versions: every record a
+> binding returns lands in the same slot, so dual-emitting would double the
+> resource counts and write two signed envelopes for one fact. The six
+> policies accept `password_policy` **and** `password_policy.v2` so a
+> project-local plugin still on v1 keeps binding.
+>
+> **Two things in the original analysis below are no longer true.**
 > **(1) `password_policy` is not AWS-only.** Okta emits it as of the Okta
 > password-policy collector — its API answers all eight required fields
 > essentially 1:1, so no schema work was needed. Any Okta-backed estate now has
@@ -140,8 +206,9 @@ Optional vendor-specific fields (`email`, `is_external`, `is_service_account`, `
 > entropy plus breach and common-password screening, explicitly **not** a
 > character-class rule. Mapping `STRONG` → "all four true" would therefore be
 > exactly the fabrication this section rejects, and Google says so itself.
-> GCP still does not emit `password_policy.v1`; it is waiting on a `v2` with a
-> complexity abstraction. The Azure/Entra analysis below stands unchanged.
+> GCP still emits nothing: the `v2` with a complexity abstraction it was
+> waiting on now exists (see Status above), so what is missing is the
+> collector, not the schema. The Azure/Entra analysis below stands unchanged.
 >
 > Three things a future collector must handle, all verified against Google's
 > own reference and none of them obvious: the API returns only policies where a
@@ -156,14 +223,14 @@ Optional vendor-specific fields (`email`, `is_external`, `is_service_account`, `
 > `cloud-identity.policies.readonly` allowlisted verbatim — a broader scope is
 > rejected.
 
-The `password_policy.v1` schema is **AWS-IAM-shaped**: eight required fields — `min_length`, `max_age_days`, `reuse_prevention_count`, and four discrete complexity booleans (`requires_uppercase`/`_lowercase`/`_numbers`/`_symbols`). The AWS plugin (`internal/sources/aws/passwordpolicy/`) fills these from `IAM GetAccountPasswordPolicy`. Six policies consume it — `soc2.cc6.1.password_{min_length_14,expiry_90d,reuse_prevention,complexity}` and `iso27001.8.5.password_{minimum_length,complexity}` — referencing `min_length`, `max_age_days`, `reuse_prevention_count`, and all four complexity booleans. Because every consumed field is schema-`required`, a partial/half-populated record is not viable: the evaluator errors (exit 3) on any referenced field a record omits (`evalCondition` in `internal/evaluator/pass_when.go`), and emitting zeros/false for unknowable fields would be **misleading evidence**, not missing evidence.
+The `password_policy.v1` schema is **AWS-IAM-shaped**: eight required fields — `min_length`, `max_age_days`, `reuse_prevention_count`, and four discrete complexity booleans (`requires_uppercase`/`_lowercase`/`_numbers`/`_symbols`). That is what forced v2. Because every consumed field was schema-`required`, a partial record was not viable — the evaluator errors (exit 3) on any referenced field a record omits (`evalCondition` in `internal/evaluator/pass_when.go`), and emitting zeros/false for unknowable fields is **misleading evidence**, not missing evidence — so a source that can answer two questions out of five had no way to emit anything at all. v1 stays registered and frozen (a project-local plugin may still emit it); the in-tree emitters and the six consuming policies moved to v2, which keeps v1's field names and meanings and relaxes rather than rewrites them.
 
-**Decision: neither GCP nor Azure emits `password_policy`. Defer.** Neither provider exposes the AWS-shaped policy via a readable API:
+**Original decision (superseded in part): neither GCP nor Azure emits `password_policy`.** The reasoning below is why v1 could not be filled; v2 removes the schema blocker, and the two collectors remain unwritten for the reasons recorded under D1 (a Google collector owes an L2 cassette, and its three wire-format details are unverifiable without a real tenant). The vendor facts still stand:
 
 - **GCP (Cloud Identity / Workspace).** Cloud IAM has no password policy at all (it governs authorization, not human credentials — confirmed). A Workspace password policy *exists* (min/max length, expiry, "enforce strong password") but is **Admin-Console-only**: the Admin SDK Directory API exposes **no** policy object — `Customer`/`Domain` carry no `passwordPolicy`, no length, no expiry, no reuse. "Strong password" is a single opaque Google rating, not four complexity booleans, and there is **no** reuse/history concept. A Go collector cannot honestly populate *any* field automatically.
-- **Azure (Entra ID).** For cloud-only accounts, length (8) and complexity (fixed "3 of 4 character classes") are **Microsoft constants**, not tenant-readable settings — hard-coding them would fabricate the four-boolean shape (and "3 of 4" is structurally not four independent booleans). History is depth-1 on change / unenforced on reset, with no numeric count. The **only** genuinely API-readable knob is expiration: `domain.passwordValidityPeriodInDays` (+ `passwordNotificationWindowInDays`) via Graph, plus per-user `user.passwordPolicies`. One real field out of eight required ⇒ cannot faithfully populate the schema.
+- **Azure (Entra ID).** For cloud-only accounts, length (8) and complexity (fixed "3 of 4 character classes") are **Microsoft constants**, not tenant-readable settings — hard-coding them would fabricate the four-boolean shape (and "3 of 4" is structurally not four independent booleans). History is depth-1 on change / unenforced on reset, with no numeric count. The **only** genuinely API-readable knob is expiration: `domain.passwordValidityPeriodInDays` (+ `passwordNotificationWindowInDays`) via Graph, plus per-user `user.passwordPolicies`. One real field out of eight required ⇒ cannot faithfully populate the schema. **Superseded by v2 and by the shipped collector:** one real field out of eight was fatal only while all eight were *required*. v2 made them optional, so the one readable knob is now emittable on its own and `azure.entra` emits it — see Status above. The vendor facts in this bullet are unchanged and are exactly why the record carries nothing else.
 
-**Consequence for the plan.** WU-4.6 (`gcp.passwordpolicy`) and WU-5.15 (`azure.entra` pwpolicy) are **dropped** (stay `[!]`/skipped in the dashboard). No new source ID is created for them; `coverage_test` is unaffected because no policy's `accepts:` is broadened. Customers with **neither AWS nor Okta** simply do not satisfy the six password policies via automated evidence. (Okta does now emit the type — see the note at the top of this section — so "AWS-only emitter", as this paragraph originally read, no longer holds.)
+**Consequence for the plan.** WU-4.6 (`gcp.passwordpolicy`) stays unbuilt; WU-5.15 (`azure.entra` pwpolicy) shipped — see Status above. `coverage_test` is unaffected by the widened `accepts:` because it requires an emitter for *some* accepted type, not all of them — `password_policy.v2` has two. Customers with **neither AWS nor Okta** simply do not satisfy the six password policies via automated evidence. (Okta does now emit the type — see the note at the top of this section — so "AWS-only emitter", as this paragraph originally read, no longer holds.)
 
 **How a customer with no `password_policy` emitter actually covers this today — corrected.** An earlier version of this paragraph said those customers "can cover those controls via the manual evidence flow — a screenshot/export of the Workspace/Entra password settings". **That was an overclaim, and it is not expressible.** A manual catalog entry is 1:1 with a manual *policy* and is structurally unconditional, so no password entry exists to point a `catalog_entry:` override at, and `manual.pdf` hard-fails on a `catalog_entry` the framework does not declare. Adding one would also oblige every AWS customer — who already has automated coverage — to upload a PDF they do not need, and a manual entry with an empty folder **fails**, it does not skip.
 
@@ -183,7 +250,7 @@ policies:
 
 Be clear about what that buys and what it does not. `na` is subtracted from the score denominator exactly as `skip` is (`internal/aggregator/aggregator.go`), so it does **not** repair the arithmetic — an unanswerable control still leaves the denominator either way. What it buys is that the exclusion is explicit, reasoned, attributable and auditor-visible in the config, instead of a silent skip nobody declared. The real fix for the arithmetic is the `authentication_policy` type below.
 
-**Future option (not now): a separate `authentication_policy` type.** If automated coverage of these controls becomes a priority, the clean path is a *new, append-only* evidence type modeling what Entra/Workspace actually expose (password expiration ± a platform-enforced-complexity attestation, MFA/auth-strength) — **not** forcing the AWS shape and **not** mutating `password_policy.v1` (Invariant #4: schemas are designed top-down from the concept, every field satisfiable by all sources without sentinels). That would be its own future WU with its own policies; it is explicitly out of scope for this plan.
+**The `authentication_policy` option was considered and not taken.** An earlier note proposed a separate evidence type modelling what Entra/Workspace expose, rather than forcing the AWS shape. v2 takes the other branch of the same rule (Invariant #4: design top-down from the concept, every field satisfiable by all sources without sentinels) — the concept "the rule an authentication system applies to passwords" is one concept, and a second type would have split it, forcing every consuming policy to accept both and every clause to be written twice. What the proposal was right about is preserved: nothing was forced into the AWS shape, and `password_policy.v1` was not mutated. A separate type remains the right answer for the genuinely different concept next door — sign-on / auth-strength policy, which is not a password rule at all.
 
 ---
 
