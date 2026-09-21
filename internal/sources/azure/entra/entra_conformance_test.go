@@ -215,4 +215,11 @@ var conformanceOptionalPasswordPolicyFields = []string{
 	// passwords Entra does not enforce. The assertions above pin which is
 	// which, so the exemption costs no coverage.
 	"password_policy.v2.max_age_days",
+	// `defaulted` is the mirror image of not_configurable and never
+	// applies here: it says "the platform exposes this setting, the tenant
+	// never set it, and the vendor's contract makes the omission mean the
+	// default". Entra exposes no setting for the attributes above, so
+	// their absence is structural (not_configurable) and no value is
+	// reported at all. The marker exists for Google.
+	"password_policy.v2.defaulted",
 }

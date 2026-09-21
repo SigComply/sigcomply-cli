@@ -106,6 +106,27 @@ func TestPasswordPolicyV2_EveryPlausibleSourceCanEmit(t *testing.T) {
 				"min_length":0,"max_age_days":0,"reuse_prevented":false,"reuse_prevention_count":0,
 				"complexity_model":"none"}`,
 		},
+		{
+			// Google Cloud Identity: the Policy API returns only the fields
+			// an administrator explicitly set, and Google's own contract
+			// defines an omitted field as "the documented default applies".
+			// So the value is real and is reported — with `defaulted` naming
+			// which of them came from the default rather than from a choice.
+			name: "google_defaulted_fields_carry_the_value_and_the_marker",
+			payload: `{"id":"policies/abc","provider":"google_workspace","scope":"org_unit",
+				"precedence":1,"min_length":8,"max_age_days":0,"reuse_prevented":true,
+				"complexity_model":"strength_enum","password_strength":"strong",
+				"defaulted":["min_length","max_age_days","reuse","complexity"]}`,
+		},
+		{
+			// A tenant that set everything explicitly emits no marker at
+			// all — `defaulted` is omitted, exactly as not_configurable is
+			// omitted when everything is configurable.
+			name: "google_fully_configured_carries_no_defaulted_marker",
+			payload: `{"id":"policies/abc","provider":"google_workspace","scope":"org_unit",
+				"precedence":1,"min_length":12,"max_age_days":90,"reuse_prevented":true,
+				"complexity_model":"strength_enum","password_strength":"strong"}`,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -176,6 +197,21 @@ func TestPasswordPolicyV2_UnionAndRequiredFieldsEnforced(t *testing.T) {
 			name:    "not_configurable_outside_enum",
 			payload: `{"id":"example.com","provider":"entra","scope":"domain","not_configurable":["lockout"]}`,
 			wantErr: "not_configurable",
+		},
+		{
+			// defaulted shares not_configurable's vocabulary deliberately:
+			// the two answer the same question ("why does this field read
+			// the way it does?") about the same four attributes, and a
+			// second, drifting spelling of the same names would make them
+			// impossible to read together.
+			name:    "defaulted_outside_enum",
+			payload: `{"id":"policies/abc","provider":"google_workspace","scope":"org_unit","defaulted":["maximum_length"]}`,
+			wantErr: "defaulted",
+		},
+		{
+			name:    "defaulted_repeats_an_attribute",
+			payload: `{"id":"policies/abc","provider":"google_workspace","scope":"org_unit","defaulted":["min_length","min_length"]}`,
+			wantErr: "defaulted",
 		},
 	}
 	for _, tc := range cases {

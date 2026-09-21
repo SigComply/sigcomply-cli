@@ -326,8 +326,8 @@ The matrix below is the authoritative at-a-glance view of which provider
 emits which cloud-neutral evidence type. A ✓ means at least one built-in
 plugin for that provider emits that type; because policies bind to the
 *type* and never to a vendor (Invariant #4), any ✓ in a row is fully
-substitutable for any other ✓ in the same row. **61 built-in plugins
-emit 31 distinct evidence types** (AWS 24 · GCP 18 · Azure 14 · GitHub 1 ·
+substitutable for any other ✓ in the same row. **62 built-in plugins
+emit 31 distinct evidence types** (AWS 24 · GCP 19 · Azure 14 · GitHub 1 ·
 GitLab 1 · Okta 1 · Active Directory 1 · Manual 1).
 
 | Evidence type | AWS | Azure | GCP | GitHub | GitLab | Okta | Active Directory | Manual |
@@ -336,7 +336,7 @@ GitLab 1 · Okta 1 · Active Directory 1 · Manual 1).
 | `roster_entry` | ✓² | ✓ | ✓ | | | ✓ | ✓ | |
 | `iam_access_key` | ✓ | | | | | | | |
 | `iam_binding` | ✓³ | | ✓ | | | | | |
-| `password_policy` (v2) | ✓ | ✓⁴ | | | | ✓ | | |
+| `password_policy` (v2) | ✓ | ✓⁴ | ✓⁵ | | | ✓ | | |
 | `okta_app` | | | | | | ✓ | | |
 | `compute_instance` | ✓ | ✓ | ✓ | | | | | |
 | `serverless_function` | ✓ | | | | | | | |
@@ -406,6 +406,44 @@ complexity and reuse clauses filter its records out of scope (reported as
 vacuous) rather than passing or failing them — which is the honest
 verdict, not a gap that a fabricated value would close. See the `azure.entra` row for the mapping.
 
+⁵ `gcp.cloud_identity` emits `password_policy.v2` from the **Cloud
+Identity Policy API** (`policies.list`, setting type
+`settings/security.password`, GA 2025-02-20), one record per policy the
+customer has for that setting type. Three things distinguish it from
+every other emitter in this row, and each of them is deliberate.
+**(a) Complexity is `strength_enum`, never per-class.** Google rates a
+password `STRONG` or `WEAK` and states in its own admin documentation
+that a strong password "doesn't need to have a specific number of
+characters of a specific type" — strength is entropy plus breach
+screening — so mapping `STRONG` onto four character-class booleans would
+fabricate a claim the vendor disclaims. **(b) The reduction is ours.**
+There is no effective-policy endpoint: each policy carries only the
+fields an administrator explicitly set, and Google's rule is that the
+highest `policyQuery.sortOrder` that sets a field wins. `sortOrder` runs
+the OPPOSITE way from the schema's `precedence` (1 wins), so the plugin
+sorts descending and emits the 1-based position — and it ranks
+administrator (`ADMIN`) policies above Google's `SYSTEM` baseline
+regardless of sortOrder, because a documented breaking change to SYSTEM
+policies' `name`/`sortOrder` landed 2026-09-01 and a renumbered baseline
+must not outrank an explicit setting. **(c) `defaulted`.** Because only
+explicitly-set fields come back, an omitted field means Google's
+documented default is in force (`STRONG` / 8 / 100 / `allowReuse` false /
+no expiry). The plugin reports that value AND names the field in the
+record's `defaulted` array, so an auditor sees both what is enforced and
+that nobody chose it. That is **not** the Entra category error in
+footnote ⁴: there no API call says anything about minimum length, so the
+number would be invented; here the API was called, it returned this
+tenant's policy resource, and the omission is this tenant's answer.
+Reporting absence instead would be worse — every clause is `is_set`-
+guarded, so a never-configured tenant would vacuously pass all six
+password policies. `reuse_prevention_count` is never emitted (Google
+exposes `allowReuse` as a bare boolean and documents no depth), so the
+reuse-depth policy reports vacuous for these records rather than guessing.
+Access is **super-admin only** via domain-wide delegation, the quota is
+**1 QPS per customer and not increasable** (the plugin paces its paging),
+and the plugin carries **no L2 cassette on purpose** — see
+[12-multicloud-sources.md](12-multicloud-sources.md).
+
 **The two questions the permission-set traversal answers, and why they
 are answered differently.** `iam_binding` mirrors each assignment *as it
 was made*: a group assignment stays a `group` principal. The two
@@ -458,6 +496,7 @@ way `gcp.directory` does, plus `iam_binding` from a second traversal.
 | `aws.kms` | `kms_key` | |
 | `gcp.storage` | `object_storage_bucket` | Same neutral type as `aws.s3` and `azure.storage`. |
 | `gcp.directory` | `directory_user`, `roster_entry` | Google Workspace / Cloud Identity users via the Admin SDK Directory API. Account/customer-scoped (optional `customer_id`, default `my_customer`; optional `target_service_account` + `impersonate_subject` for impersonation / domain-wide delegation). `is_active` false when suspended or archived. **roster_entry** from the same listing: status inactive when `suspended`/`archived`; `employee_id` ← first `externalIds[type=organization]`. Same neutral type as `aws.iam`/`okta`/`github`/`gitlab`. |
+| `gcp.cloud_identity` | `password_policy.v2` | Google Workspace / Cloud Identity password policies via the **Cloud Identity Policy API** (`policies.list`, setting type `settings/security.password`). Account/customer-scoped, no `project_id`; config keys `target_service_account` + `impersonate_subject` only. Named for the API rather than the setting because `settings/security.password` is one of dozens of setting types the same endpoint, credential and 1 QPS budget serve — a second setting type belongs in this plugin. One record per policy, `scope` ← `org_unit`/`group`/`account` from the `PolicyQuery`, `precedence` ← the 1-based position in **sortOrder-descending** order (Google's sortOrder runs the opposite way from the schema's precedence; `ADMIN` policies rank above the `SYSTEM` baseline, defensively, after Google's 2026-09-01 breaking change to SYSTEM `name`/`sortOrder`). Fields are reduced field-by-field down that order, because the API has no effective-policy endpoint and returns only explicitly-set values. `complexity_model: strength_enum` + `password_strength` ← `allowedStrength` (never the four per-class booleans — Google disclaims the mapping); `max_age_days` ← `expirationDuration`, decoded from **either** a protobuf Duration string or a bare integer and rounded **up** to whole days (truncating would turn a short expiry into the schema's "no expiry", which passes); `reuse_prevented` ← `NOT allowReuse`, with no depth ever emitted. Anything left unset anywhere carries Google's documented default **and** is named in `defaulted`. Zero matching policies → zero records, never a synthesized one. **No L2 cassette on purpose** — see footnote ⁵ and [12-multicloud-sources.md](12-multicloud-sources.md). |
 | `gcp.iam` | `iam_binding` | Project-level IAM policy bindings (Cloud Resource Manager `getIamPolicy`), flattened to one record per (role, member) pair; the record id is `<role>|<member>`. `principal_id` ← the member with its prefix stripped, so a `user:` member is already an email — this is the key the identity-roster policies join on, and what `experimental.roster.aliases` names under the `gcp.iam` key. `principal_type` ← `user` / `group` / `service_account`, a non-standard prefix passing through (`domain`), and **empty** for `allUsers` / `allAuthenticatedUsers`, which carry no prefix. `is_broad_admin_role` ← roles/owner, roles/editor, or any role name containing "admin". Same neutral type as an AWS managed-policy attachment or an Azure role assignment would emit. |
 | `gcp.firewall` | `firewall_rule` | VPC firewall rules (Compute `firewalls.list`), flattened to one record per protocol/port-range. Same neutral type as `aws.security_group`. |
 | `gcp.kms` | `kms_key` | Cloud KMS crypto keys (CloudKMS `cryptoKeys.list`), walked across all project locations; `rotation_enabled` ← rotationPeriod set. Same neutral type as `aws.kms`. |
@@ -876,6 +915,7 @@ What the shipped plugins stamp:
 | `gcp.*` — the 16 project-scoped sources | `Project: <project_id>` | Every API call is addressed to that project; a project the credential cannot read errors rather than returning another project's data |
 | `gcp.scc` | `Account: <organization_id>` | Org-scoped — SCC is enabled and queried at the organization |
 | `gcp.directory` | `Account: <customer_id>`, **unset** for the default `my_customer` alias | The alias means "whoever this credential is" and names no directory, so there is nothing truthful to stamp |
+| `gcp.cloud_identity` | `Account: <observed customer id>` | Read from each `Policy.customer` the API returned, never from config — an operator-declared customer could disagree with the credential's, and a provenance stamp that might be wrong is worse than none |
 | `azure.*` — the 13 ARM-plane sources | `Account: <subscription_id>` | The subscription is passed into the client; a wrong value 403s |
 | `azure.entra` | `Account: <observed tenant>` | Resolved from the credential via `GET /organization`, never from config |
 | `aws.identity_center` | `Account` + `Region` | The identity-store id (discovered from `ListInstances`) on identity records; the **target AWS account** on each `iam_binding`, which is the account the grant opens |

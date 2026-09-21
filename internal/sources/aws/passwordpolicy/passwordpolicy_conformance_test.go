@@ -45,6 +45,14 @@ func TestPasswordPolicyConformance(t *testing.T) {
 			"password_policy.v2.password_strength",
 			"password_policy.v2.complexity_description",
 			"password_policy.v2.not_configurable",
+			// `defaulted` names attributes reported at the platform's
+			// documented default because the tenant never set them. IAM
+			// answers every attribute explicitly — GetAccountPasswordPolicy
+			// returns the policy or says there is none, and both are
+			// observations — so nothing here is ever defaulted. The marker
+			// exists for Google, whose Policy API returns only
+			// explicitly-set fields.
+			"password_policy.v2.defaulted",
 		},
 	})
 

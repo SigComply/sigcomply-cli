@@ -19,7 +19,7 @@ This yields the substitutability property: one "object storage encrypted at rest
 | Provider | Hosting | Auth | Status |
 |----------|---------|------|--------|
 | **AWS** | management plane (per region/account) | SDK default chain | 24 plugins (mature) |
-| **GCP** | management plane (per project) | Application Default Credentials | 18 plugins (mature) |
+| **GCP** | management plane (per project) + Workspace / Cloud Identity | Application Default Credentials (+ domain-wide delegation for the two account-scoped plugins) | 19 plugins (mature) |
 | **Azure** | management plane + Entra/Graph | DefaultAzureCredential / OIDC (Entra via raw Graph REST) | 14 plugins (mature) |
 | **GitHub** | SaaS | token | 1 plugin → `git_repository`, `directory_user`, `source_control_org_policy`, `vulnerability_finding`, `pull_request`, `deployment` |
 | **GitLab** | SaaS / self-managed | token | 1 plugin → `git_repository`, `directory_user`, `pull_request`, `deployment` |
@@ -27,7 +27,7 @@ This yields the substitutability property: one "object storage encrypted at rest
 | **Active Directory** | on-prem (LDAPS / StartTLS) | bind DN + password | 1 plugin (`active_directory`) → `roster_entry` |
 | **Manual** | customer bucket | n/a | 1 plugin (`manual.pdf`, project singleton) |
 
-Totals: **61 plugins** (AWS 24 · GCP 18 · Azure 14 · GitHub 1 · GitLab 1 · Okta 1 · Active Directory 1 · Manual 1) emitting **31 distinct cloud-neutral evidence types**. The full provider × evidence-type matrix lives in [04-source-plugins.md](04-source-plugins.md); see the plan's gap matrix for per-evidence-type history.
+Totals: **62 plugins** (AWS 24 · GCP 19 · Azure 14 · GitHub 1 · GitLab 1 · Okta 1 · Active Directory 1 · Manual 1) emitting **31 distinct cloud-neutral evidence types**. The full provider × evidence-type matrix lives in [04-source-plugins.md](04-source-plugins.md); see the plan's gap matrix for per-evidence-type history.
 
 ---
 
@@ -120,15 +120,15 @@ The evaluator treats a **referenced-but-absent field as a contract gap, not a pa
 
 Optional vendor-specific fields (`email`, `is_external`, `is_service_account`, `mfa_factor_count`, `last_login_at`) may be omitted when the vendor doesn't surface them; any policy that reads them must guard with `is_set` — in the condition *or* in the filter. A bare clause `filter` is not a guard: an unevaluable filter errors the policy rather than silently dropping the record (see `filterRecords`), which is what used to turn an omitted optional field into a vacuous pass.
 
-## `password_policy` schema fit for GCP / Azure — `v2` shipped; the collectors are still open
+## `password_policy` schema fit for GCP / Azure — `v2` and both collectors shipped
 
-> **Status.** `password_policy.v2` ships, and so does the **Entra
-> collector**: `azure.entra` emits `password_policy.v2` from `GET /domains`
+> **Status.** `password_policy.v2` ships, and so do **both** collectors.
+> `azure.entra` emits `password_policy.v2` from `GET /domains`
 > (permission `Domain.Read.All`, no P1/P2 license), one record per verified
-> domain. The **GCP collector is still unwritten** — it is blocked on the
-> three unverifiable wire-format details recorded under D1, not on the
-> schema. The verified vendor detail below is the input for whoever writes
-> it.
+> domain. `gcp.cloud_identity` emits it from the Cloud Identity **Policy**
+> API, one record per `settings/security.password` policy — see *What the
+> GCP collector emits* below, and note the **deliberate absence of an L2
+> cassette**, which is the one thing still open here.
 >
 > **What the Entra collector emits, and what it refuses to.** `max_age_days`
 > ← `domain.passwordValidityPeriodInDays`, with Microsoft's documented
@@ -206,35 +206,96 @@ Optional vendor-specific fields (`email`, `is_external`, `is_service_account`, `
 > entropy plus breach and common-password screening, explicitly **not** a
 > character-class rule. Mapping `STRONG` → "all four true" would therefore be
 > exactly the fabrication this section rejects, and Google says so itself.
-> GCP still emits nothing: the `v2` with a complexity abstraction it was
-> waiting on now exists (see Status above), so what is missing is the
-> collector, not the schema. The Azure/Entra analysis below stands unchanged.
+> That is why `gcp.cloud_identity` emits `complexity_model: strength_enum`
+> with `password_strength: strong|weak` and never the four per-class
+> booleans. The Azure/Entra analysis below stands unchanged.
 >
-> Three things a future collector must handle, all verified against Google's
-> own reference and none of them obvious: the API returns only policies where a
-> value was **explicitly set**, and an omitted field carries a documented
-> default (`allowedStrength` STRONG, `minimumLength` 8, `maximumLength` 100,
-> `allowReuse` false, `expirationDuration` 0) — Go zero values are the wrong
-> answer. There is **no effective-policy endpoint**: several policies apply per
-> org-unit and group, and reduction is the caller's job, field by field, with
-> the highest `policyQuery.sortOrder` winning. And the quota is **1 QPS per
-> customer, not increasable**, so the collector must not parallelize.
-> Access is **super-admin only**, via domain-wide delegation with the scope
-> `cloud-identity.policies.readonly` allowlisted verbatim — a broader scope is
-> rejected.
+> **What the GCP collector emits** (`internal/sources/gcp/cloudidentity`,
+> source ID `gcp.cloud_identity` — named for the API, because
+> `settings/security.password` is one of dozens of setting types the same
+> endpoint, credential and quota serve). One record per policy returned for
+> that setting type, each with `scope` (`org_unit` / `group` / `account`,
+> from the `PolicyQuery`) and `precedence`. Four things the API forces onto
+> the caller, and how each is handled:
+>
+> 1. **Only explicitly-set values come back**, and an omitted field carries
+>    a documented default (`allowedStrength` STRONG, `minimumLength` 8,
+>    `maximumLength` 100, `allowReuse` false, `expirationDuration` 0). Go
+>    zero values are the wrong answer and so is absence. The schema gained
+>    an optional **`defaulted`** array for exactly this: the collector
+>    reports the value AND names the field as having come from the default.
+>    **This is not the Entra category error.** There, no API call says
+>    anything about minimum length, so the number would be invented
+>    wholesale; here the API was called, it returned this tenant's policy
+>    resource, and Google's own contract defines the omission as "the
+>    default applies" — the omission *is* the tenant's answer. Emitting
+>    absence instead would be worse in effect, because every clause is
+>    `is_set`-guarded and a never-configured tenant would then produce six
+>    vacuous passes, leaving exactly the gap the collector exists to close.
+> 2. **No effective-policy endpoint.** Reduction is the caller's job, field
+>    by field, highest `policyQuery.sortOrder` winning. `sortOrder` runs the
+>    OPPOSITE way from the schema's `precedence` (1 wins), so the plugin
+>    sorts descending and emits the 1-based position. It also ranks `ADMIN`
+>    policies above Google's `SYSTEM` baseline **regardless of sortOrder**,
+>    defensively: a documented breaking change to SYSTEM policies'
+>    `name`/`sortOrder` landed 2026-09-01, and a renumbered baseline must
+>    never outrank an administrator's explicit setting. *Known
+>    approximation:* completing a policy's gaps needs the org-unit tree,
+>    which this API does not return, so gaps are filled by walking down the
+>    customer-wide total order. For the usual shape (a root/SYSTEM baseline
+>    plus narrower overrides) that is exactly Google's rule; across two
+>    genuinely disjoint branches a gap could be filled from a sibling
+>    rather than a shared ancestor. Closing it means reading the OU tree
+>    from the Admin SDK — a second API and a second scope.
+> 3. **The quota is 1 QPS per customer, not increasable.** The plugin never
+>    parallelizes and paces its own paging.
+> 4. **Access is super-admin only**, via domain-wide delegation with the
+>    scope `cloud-identity.policies.readonly` allow-listed **verbatim** — a
+>    broader scope is rejected with `unauthorized_client`, because the
+>    allow-list is matched string-for-string and not by capability. The same
+>    rule applies to `gcp.directory`'s scope; delegate both if you use both.
+>
+> **The L2 cassette is deliberately absent, and this is what closes it.**
+> Every other source in the tree owes an L2 cassette. This one has none, on
+> purpose. Google publishes **no sample response body** for
+> `settings/security.password`, which leaves three details unverifiable
+> without a real tenant: whether `expirationDuration` arrives as a protobuf
+> Duration string (`"7776000s"`) or a bare integer; whether the server-side
+> `filter` regex needs the dot escaped (one production collector reports
+> `Error(7003)` for every escaped variant); and whether a tenant always
+> returns at least one `security.password` policy. A cassette hand-authored
+> from those three guesses would record our guesses and then assert them
+> against the code that made them — permanent green, zero information, and
+> indistinguishable from coverage at a glance.
+>
+> The code was engineered around all three instead, and the tests assert
+> the engineering rather than the guesses: `flexDuration`/`flexInt` accept
+> **either** wire shape and make anything outside that set a hard error
+> (never a zero — `max_age_days: 0` is an observed *no-expiry* and PASSES
+> the 90-day policy, so a silent decode failure would ship as a green tick,
+> not as a broken run); the setting-type filter is **client-side**, so an
+> escaping mistake cannot present as "this tenant has no password policy";
+> and zero matching policies emits zero records rather than a synthesized
+> one. What remains genuinely unknown is only which of the accepted shapes
+> is the real one. `cloudidentity_live_test.go` (`//go:build live`, gated on
+> `GCP_TEST_TARGET_SERVICE_ACCOUNT` + `GCP_TEST_IMPERSONATE_SUBJECT`) logs
+> the raw policy bodies it sees and schema-validates every emitted record;
+> running it once against a real Workspace tenant settles all three, and
+> recording a go-vcr cassette from that same run is what closes this gap
+> for good.
 
 The `password_policy.v1` schema is **AWS-IAM-shaped**: eight required fields — `min_length`, `max_age_days`, `reuse_prevention_count`, and four discrete complexity booleans (`requires_uppercase`/`_lowercase`/`_numbers`/`_symbols`). That is what forced v2. Because every consumed field was schema-`required`, a partial record was not viable — the evaluator errors (exit 3) on any referenced field a record omits (`evalCondition` in `internal/evaluator/pass_when.go`), and emitting zeros/false for unknowable fields is **misleading evidence**, not missing evidence — so a source that can answer two questions out of five had no way to emit anything at all. v1 stays registered and frozen (a project-local plugin may still emit it); the in-tree emitters and the six consuming policies moved to v2, which keeps v1's field names and meanings and relaxes rather than rewrites them.
 
-**Original decision (superseded in part): neither GCP nor Azure emits `password_policy`.** The reasoning below is why v1 could not be filled; v2 removes the schema blocker, and the two collectors remain unwritten for the reasons recorded under D1 (a Google collector owes an L2 cassette, and its three wire-format details are unverifiable without a real tenant). The vendor facts still stand:
+**Original decision (superseded): neither GCP nor Azure emits `password_policy`.** The reasoning below is why v1 could not be filled; v2 removed the schema blocker and both collectors now ship. The vendor facts still stand:
 
 - **GCP (Cloud Identity / Workspace).** Cloud IAM has no password policy at all (it governs authorization, not human credentials — confirmed). A Workspace password policy *exists* (min/max length, expiry, "enforce strong password") but is **Admin-Console-only**: the Admin SDK Directory API exposes **no** policy object — `Customer`/`Domain` carry no `passwordPolicy`, no length, no expiry, no reuse. "Strong password" is a single opaque Google rating, not four complexity booleans, and there is **no** reuse/history concept. A Go collector cannot honestly populate *any* field automatically.
 - **Azure (Entra ID).** For cloud-only accounts, length (8) and complexity (fixed "3 of 4 character classes") are **Microsoft constants**, not tenant-readable settings — hard-coding them would fabricate the four-boolean shape (and "3 of 4" is structurally not four independent booleans). History is depth-1 on change / unenforced on reset, with no numeric count. The **only** genuinely API-readable knob is expiration: `domain.passwordValidityPeriodInDays` (+ `passwordNotificationWindowInDays`) via Graph, plus per-user `user.passwordPolicies`. One real field out of eight required ⇒ cannot faithfully populate the schema. **Superseded by v2 and by the shipped collector:** one real field out of eight was fatal only while all eight were *required*. v2 made them optional, so the one readable knob is now emittable on its own and `azure.entra` emits it — see Status above. The vendor facts in this bullet are unchanged and are exactly why the record carries nothing else.
 
-**Consequence for the plan.** WU-4.6 (`gcp.passwordpolicy`) stays unbuilt; WU-5.15 (`azure.entra` pwpolicy) shipped — see Status above. `coverage_test` is unaffected by the widened `accepts:` because it requires an emitter for *some* accepted type, not all of them — `password_policy.v2` has two. Customers with **neither AWS nor Okta** simply do not satisfy the six password policies via automated evidence. (Okta does now emit the type — see the note at the top of this section — so "AWS-only emitter", as this paragraph originally read, no longer holds.)
+**Consequence for the plan.** WU-4.6 (the GCP password collector) shipped as `gcp.cloud_identity`, and WU-5.15 (`azure.entra` pwpolicy) shipped — see Status above. Note the source ID is not `gcp.passwordpolicy` as the WU originally named it: the Policy API is one endpoint serving dozens of setting types, and a resource-shaped name would have forced either a misnamed plugin or a second one paying the 1 QPS quota twice. `coverage_test` is unaffected by the widened `accepts:` because it requires an emitter for *some* accepted type, not all of them — `password_policy.v2` now has four emitters (`aws.password_policy`, `okta`, `azure.entra`, `gcp.cloud_identity`). The "customers with neither AWS nor Okta cannot satisfy the six password policies automatically" line that used to close this paragraph is retired: every provider the CLI supports can now answer at least part of the question, and where a provider structurally cannot answer a particular clause, the record is filtered out of that clause's scope and reported as vacuous rather than passed, failed, or excused with an `na`.
 
-**How a customer with no `password_policy` emitter actually covers this today — corrected.** An earlier version of this paragraph said those customers "can cover those controls via the manual evidence flow — a screenshot/export of the Workspace/Entra password settings". **That was an overclaim, and it is not expressible.** A manual catalog entry is 1:1 with a manual *policy* and is structurally unconditional, so no password entry exists to point a `catalog_entry:` override at, and `manual.pdf` hard-fails on a `catalog_entry` the framework does not declare. Adding one would also oblige every AWS customer — who already has automated coverage — to upload a PDF they do not need, and a manual entry with an empty folder **fails**, it does not skip.
+**How a customer with no `password_policy` emitter covered this before the collectors shipped — kept for the shape of the argument, not as current advice.** An earlier version of this paragraph said those customers "can cover those controls via the manual evidence flow — a screenshot/export of the Workspace/Entra password settings". **That was an overclaim, and it is not expressible.** A manual catalog entry is 1:1 with a manual *policy* and is structurally unconditional, so no password entry exists to point a `catalog_entry:` override at, and `manual.pdf` hard-fails on a `catalog_entry` the framework does not declare. Adding one would also oblige every AWS customer — who already has automated coverage — to upload a PDF they do not need, and a manual entry with an empty folder **fails**, it does not skip.
 
-What works today is a per-policy exception, which is what the worked configs actually show (`docs/architecture/examples/gcp-project.sigcomply.yaml`, `azure-subscription.sigcomply.yaml`):
+What *was* available instead is a per-policy exception. The GCP worked config no longer uses one — `docs/architecture/examples/gcp-project.sigcomply.yaml` binds `gcp.cloud_identity` — but the recipe still applies to any control a project genuinely cannot answer:
 
 ```yaml
 policies:
@@ -248,7 +309,7 @@ policies:
     # (Same for the other password_* CC6.1 / ISO 8.5 policies.)
 ```
 
-Be clear about what that buys and what it does not. `na` is subtracted from the score denominator exactly as `skip` is (`internal/aggregator/aggregator.go`), so it does **not** repair the arithmetic — an unanswerable control still leaves the denominator either way. What it buys is that the exclusion is explicit, reasoned, attributable and auditor-visible in the config, instead of a silent skip nobody declared. The real fix for the arithmetic is the `authentication_policy` type below.
+Be clear about what that buys and what it does not. `na` is subtracted from the score denominator exactly as `skip` is (`internal/aggregator/aggregator.go`), so it does **not** repair the arithmetic — an unanswerable control still leaves the denominator either way. What it buys is that the exclusion is explicit, reasoned, attributable and auditor-visible in the config, instead of a silent skip nobody declared. The only thing that repairs the arithmetic is an emitter, which is what the two collectors are.
 
 **The `authentication_policy` option was considered and not taken.** An earlier note proposed a separate evidence type modelling what Entra/Workspace expose, rather than forcing the AWS shape. v2 takes the other branch of the same rule (Invariant #4: design top-down from the concept, every field satisfiable by all sources without sentinels) — the concept "the rule an authentication system applies to passwords" is one concept, and a second type would have split it, forcing every consuming policy to accept both and every clause to be written twice. What the proposal was right about is preserved: nothing was forced into the AWS shape, and `password_policy.v1` was not mutated. A separate type remains the right answer for the genuinely different concept next door — sign-on / auth-strength policy, which is not a password rule at all.
 

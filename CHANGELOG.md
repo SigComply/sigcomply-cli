@@ -13,6 +13,58 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **`gcp.cloud_identity` closes the six password controls on a Google estate.**
+  The Cloud Identity Policy API answers `settings/security.password`, so a
+  GCP/Workspace estate no longer skips `password_{min_length,expiry,
+  reuse_prevention,complexity}` and no longer has six unanswerable controls
+  quietly raising its compliance score.
+
+  It was deferred because Google publishes no sample response body for that
+  setting type, leaving three wire details unverifiable — and it shipped by
+  being built not to depend on them. `expirationDuration` may be a Duration
+  string or an integer; the decoder accepts both, plus numeric strings and
+  whole floats, and **errors** on anything else rather than yielding a zero,
+  because `max_age_days: 0` is the schema's *observed no-expiry* and passes
+  the expiry clause by design. Days round **up** for the same reason —
+  truncating a sub-day expiry to `0` would turn the strictest policy into a
+  green tick. The unverified `filter` regex is not used at all: a wrong one
+  returns `Error(7003)` or, worse, silently matches nothing, which presents as
+  "this tenant has no password policy"; the collector lists and matches
+  client-side instead, which at 1 QPS costs a page or two. And a tenant with
+  no policy emits no records, which the `is_set`-guarded clauses treat as out
+  of scope rather than a verdict.
+
+  Two vendor traps are handled in the source, where they belong. Google's
+  `allowReuse` states the *permission* while the schema states the *control*,
+  so the documented default `false` means `reuse_prevented: true` — a clause
+  carrying a vendor's polarity is how substitutability rots. And `sortOrder`
+  runs opposite to `precedence` (Google's highest wins; the schema's `1`
+  wins), so the plugin sorts descending and emits the position, with `ADMIN`
+  policies outranking `SYSTEM` ones regardless of `sortOrder` — the defence
+  against the 2026-09-01 breaking change to SYSTEM `name`/`sortOrder`, since a
+  renumbered Google baseline must never outrank an administrator's setting.
+
+  **No L2 cassette, deliberately.** A fixture hand-authored from those guesses
+  would assert them against the code that made them. The live test logs the raw
+  wire bodies and schema-validates every record, so one run against a real
+  tenant settles which shapes are real and lets go-vcr record the genuine
+  thing.
+
+- **`password_policy.v2` gains an optional `defaulted` array.** Google returns
+  only explicitly-set values, and an omitted field carries a documented
+  default. v2 could say *observed value*, *absent = not observed*, and
+  *`not_configurable` = no setting exists* — none of which fits "configurable,
+  not set, so the default is in force". A record now carries the value **and**
+  marks the field as defaulted. This is not the Entra category error: there no
+  API call says anything about minimum length, so the number would be invented
+  wholesale, whereas Google's own contract defines the omission as the
+  default — the omission *is* the tenant's answer, and the marker is what stops
+  an auditor reading it as an administrator's choice. Emitting absent instead
+  would have been worse in effect, since every clause is `is_set`-guarded: a
+  never-configured tenant would have produced vacuous passes and the collector
+  would not have closed the gap it exists to close. Additive and optional, so
+  existing v2 records are unaffected.
+
 - **`soc2.cc6.1.password_reuse_depth_24` takes back what the reuse reframing
   gave up.** `password_reuse_prevention` used to require
   `reuse_prevention_count >= 24`; reframing it to "reuse is prevented at all"

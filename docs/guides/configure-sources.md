@@ -115,7 +115,22 @@ sources:
 ```
 
 - **Credentials (env):** Application Default Credentials — `GOOGLE_APPLICATION_CREDENTIALS` pointing at a service-account key, or `gcloud auth application-default login` locally.
-- **Required config keys:** `project_id`. Some sources use a different scope key — `customer_id` for `gcp.directory`, `organization_id` for `gcp.scc`.
+- **Required config keys:** `project_id`. Some sources use a different scope key — `customer_id` for `gcp.directory`, `organization_id` for `gcp.scc` — and `gcp.cloud_identity` takes no scope key at all, reading whichever customer the credential belongs to.
+
+**`gcp.cloud_identity` — the Workspace password policies, and the one setup step that catches everyone.** This source emits `password_policy.v2` from the Cloud Identity **Policy** API, which is what makes the six password controls (SOC 2 CC6.1 ×4, ISO 27001 8.5 ×2) evaluate on a GCP-only estate instead of skipping — and a skipped control leaves the score denominator, so before this source those six quietly *raised* your score.
+
+```yaml
+sources:
+  gcp.cloud_identity:
+    target_service_account: sigcomply-dwd@my-gcp-project.iam.gserviceaccount.com
+    impersonate_subject: superadmin@example.com   # a Workspace SUPER admin
+```
+
+- The API is **super-admin only** — no narrower Workspace admin role grants it — so domain-wide delegation is the normal path: a service account cannot hold the super-admin role itself, and `impersonate_subject` is how it borrows one.
+- **Allow-list the scope VERBATIM.** In the Admin console (Security → Access and data control → API controls → Domain-wide delegation) the service account's OAuth client ID must carry `https://www.googleapis.com/auth/cloud-identity.policies.readonly` exactly. **A broader scope will not do**: allow-listing `.../cloud-identity` or `.../cloud-platform` and requesting the readonly scope fails with `unauthorized_client`, because the allow-list is matched string-for-string, not by capability. If you also use `gcp.directory`, list *both* scopes — one does not imply the other.
+- ADC needs `roles/iam.serviceAccountTokenCreator` on the target service account, and the IAM Service Account Credentials API must be enabled in that account's project.
+- **Quota is 1 QPS per customer and Google does not raise it.** The plugin paces itself; keep this source on the daily cadence rather than per-push.
+- **Expect a `defaulted` marker in the evidence.** Google returns only the fields an administrator explicitly set, so anything nobody configured is reported at Google's documented default *and* flagged as having come from the default rather than from a decision. And `soc2.cc6.1.password_reuse_depth_24` reports **vacuous** against Google records: Google exposes "may passwords be reused" as a bare boolean and publishes no history depth, so the depth clause declines to judge rather than inventing a number. The sibling "reuse is prevented" policy still does.
 
 ### Azure (`azure.*`)
 

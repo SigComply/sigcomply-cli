@@ -40,11 +40,18 @@ vault:
 # Sources. One gcp.* plugin per service; each emits a distinct
 # cloud-neutral evidence type, so the planner auto-binds unambiguously
 # (the explicit bindings below are illustrative). Almost every GCP source
-# is project-scoped and takes `project_id`. Two are exceptions:
+# is project-scoped and takes `project_id`. Three are exceptions:
 #   - gcp.directory is account/customer-scoped — `customer_id` is optional
 #     and defaults to the my_customer alias (the ADC identity's own org).
 #     Needs a Workspace-admin context or a service account with
 #     domain-wide delegation for admin.directory.user.readonly.
+#   - gcp.cloud_identity is account/customer-scoped and takes NO scoping
+#     key at all: the Cloud Identity Policy API answers for the
+#     credential's own customer. It is SUPER-ADMIN only, so domain-wide
+#     delegation is the normal path, and the scope
+#     cloud-identity.policies.readonly must be allow-listed VERBATIM in
+#     the Admin console — a broader scope is rejected with
+#     unauthorized_client. Quota is 1 QPS per customer; keep it daily.
 #   - gcp.scc is ORGANIZATION-scoped — it takes `organization_id`, not
 #     project_id, and needs org-level SCC IAM (securitycenter.findingsViewer
 #     + settingsViewer). A project-scoped CI service account that works for
@@ -53,6 +60,9 @@ vault:
 sources:
   gcp.directory:
     customer_id: my_customer
+  gcp.cloud_identity:
+    target_service_account: sigcomply-dwd@cloudnova-prod.iam.gserviceaccount.com
+    impersonate_subject: superadmin@cloudnova.example
   gcp.firewall:
     project_id: cloudnova-prod
   gcp.network:
@@ -157,20 +167,28 @@ policies:
       evidence: [gcp.scc]
     cadence: hourly
 
-  # password_policy has NO honest GCP source: Cloud Identity exposes no
-  # readable IAM-password-policy object (Admin SDK surfaces no policy), so
-  # the plan defers it (WU-0.3) and these controls are covered by manual
-  # evidence — a screenshot/export of the Workspace password settings.
-  # Marked not-applicable for the automated flow rather than emitting a
-  # misleading record. (Same for the other password_* CC6.1 policies.)
+  # The six password_* controls used to be declared `na` here, because the
+  # Admin SDK exposes no password-policy object and the only honest option
+  # was a manual export. That is no longer true: the Cloud Identity POLICY
+  # API (GA 2025-02-20) reads the real settings, and gcp.cloud_identity
+  # emits password_policy.v2 from it — so these evaluate automatically,
+  # like they would on AWS or Okta. The binding is spelled out here only
+  # because it is the interesting one; the planner would find it anyway.
+  #
+  # Two things to expect in the output rather than to be surprised by.
+  # (1) Records may carry a `defaulted` array: the API returns only
+  # explicitly-set fields, so anything nobody configured is reported at
+  # Google's documented default AND flagged as having come from it.
+  # (2) soc2.cc6.1.password_reuse_depth_24 reports VACUOUS for Google
+  # records — Google exposes `allowReuse` as a bare boolean and documents
+  # no history depth, so the depth clause filters them out of scope rather
+  # than guessing a number. The sibling "reuse is prevented" policy still
+  # judges them.
   soc2.cc6.1.password_min_length_14:
-    exceptions:
-      - state: na
-        reason: |
-          GCP Cloud Identity exposes no readable password-policy object,
-          so this signal cannot be collected automatically (WU-0.3: defer).
-          Covered by a manual export of the Workspace password settings
-          under cc6.1.
+    bindings:
+      evidence: [gcp.cloud_identity]
+  # (Same binding applies to password_expiry_90d, password_reuse_prevention,
+  # password_reuse_depth_24 and password_complexity — omitted for brevity.)
 
   # Manual PDF — quarterly access review exported from the GCP/Workspace
   # admin console.

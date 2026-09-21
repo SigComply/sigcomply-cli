@@ -82,6 +82,7 @@ omitted (see the source tables below).
 | **`aws.*`** — all 24 AWS sources (`aws.iam`, `aws.identity_center`, `aws.s3`, `aws.ec2`, `aws.rds`, `aws.kms`, `aws.cloudtrail`, `aws.config`, `aws.dynamodb`, `aws.ecr`, `aws.eks`, `aws.acm`, `aws.backup`, `aws.cloudwatch`, `aws.guardduty`, `aws.inspector`, `aws.lambda`, `aws.secretsmanager`, `aws.vpc`, `aws.iam_access_key`, `aws.password_policy`, `aws.security_alert`, `aws.security_group`, `aws.security_services`) | — | `region`; `identity_store_id` (`aws.identity_center` only) | AWS SDK default chain (env → profile → IAM role → OIDC/IRSA); `region` falls back to `AWS_REGION` then the SDK default |
 | **`gcp.*`** — project-scoped (`gcp.compute`, `gcp.iam`, `gcp.sql`, `gcp.storage`, `gcp.firewall`, `gcp.network`, `gcp.kms`, `gcp.secretmanager`, `gcp.logging`, `gcp.audit`, `gcp.asset`, `gcp.artifactregistry`, `gcp.gke`, `gcp.firestore`, `gcp.backup`, `gcp.certs`) | `project_id` | — | Application Default Credentials (ADC) |
 | `gcp.directory` | — | `customer_id` (defaults to the `my_customer` alias), `target_service_account`, `impersonate_subject` (requires `target_service_account`) | ADC — Admin SDK Directory API; needs a Workspace-admin context (account/customer-scoped, **not** project-scoped) |
+| `gcp.cloud_identity` | — | `target_service_account`, `impersonate_subject` (requires `target_service_account`) | ADC — Cloud Identity **Policy** API; **super-admin only**, normally via domain-wide delegation with the readonly policies scope allow-listed verbatim (account/customer-scoped, **not** project-scoped) |
 | `gcp.scc` | `organization_id` | — | ADC — Security Command Center; **org-scoped**, needs org-level SCC IAM |
 | **`azure.*`** — ARM plane, all except `azure.entra` (`azure.storage`, `azure.sql`, `azure.network`, `azure.compute`, `azure.keyvault`, `azure.monitor`, `azure.defender`, `azure.acr`, `azure.aks`, `azure.cosmos`, `azure.backup`, `azure.certs`, `azure.policy`) | `subscription_id` | — | `DefaultAzureCredential` (env → managed identity → Azure CLI → OIDC federation) |
 | `azure.entra` | — | `tenant_id` | `DefaultAzureCredential` — Microsoft Graph plane (directory/tenant-scoped) |
@@ -419,12 +420,13 @@ A malformed `userAccountControl`/`accountExpires` fails the collection rather th
 
 ### GCP
 
-GCP sources use [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials) (ADC) — no SigComply-specific credential config. Set ADC up in your CI workflow (`google-github-actions/auth` via Workload Identity Federation, or `gcloud auth application-default login` locally) before running `sigcomply check`. Project-scoped GCP sources (`gcp.storage`, `gcp.iam`, `gcp.compute`, `gcp.sql`, and the rest) take a `project_id` config key; the two exceptions are `gcp.directory` (account/customer-scoped — `customer_id`) and `gcp.scc` (organization-scoped — `organization_id`). A full worked GCP-only SOC 2 config — the gcp.* source family covering identity, network, encryption, logging, change-tracking, and security posture, with the password-policy controls deferred to manual evidence (see WU-0.3) — lives at [`docs/architecture/examples/gcp-project.sigcomply.yaml`](architecture/examples/gcp-project.sigcomply.yaml).
+GCP sources use [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials) (ADC) — no SigComply-specific credential config. Set ADC up in your CI workflow (`google-github-actions/auth` via Workload Identity Federation, or `gcloud auth application-default login` locally) before running `sigcomply check`. Project-scoped GCP sources (`gcp.storage`, `gcp.iam`, `gcp.compute`, `gcp.sql`, and the rest) take a `project_id` config key; the three exceptions are `gcp.directory` (account/customer-scoped — `customer_id`), `gcp.cloud_identity` (account/customer-scoped, no scoping key at all — it reads the credential's own customer) and `gcp.scc` (organization-scoped — `organization_id`). A full worked GCP-only SOC 2 config — the gcp.* source family covering identity, network, encryption, logging, change-tracking, and security posture — lives at [`docs/architecture/examples/gcp-project.sigcomply.yaml`](architecture/examples/gcp-project.sigcomply.yaml).
 
 **The scoping key is also the evidence's provenance.** Every GCP record carries
 a `scope` — `{"project": "<project_id>"}` for the project-scoped sources,
 `{"account": "<organization_id>"}` for `gcp.scc`, and
-`{"account": "<customer_id>"}` for `gcp.directory` when one is declared. It is
+`{"account": "<customer_id>"}` for `gcp.directory` when one is declared and
+for `gcp.cloud_identity` whenever the API named a customer. It is
 observed, not asserted: the scoping key is addressed in every API call the
 plugin makes, so the record and its scope come from the same request (a project
 you cannot read returns an error, never another project's data). The scope is
@@ -455,6 +457,89 @@ When a slot accepts `roster_entry` (`experimental.roster.source: gcp.directory` 
 - **Alternative — domain-wide delegation.** Set `target_service_account` (the delegated service account) and `impersonate_subject` (a Workspace admin's email); `impersonate_subject` requires `target_service_account`. The ADC identity needs `roles/iam.serviceAccountTokenCreator` on the target, the IAM Service Account Credentials API must be enabled in its project, and a super admin must allow-list the service account's OAuth client ID for the readonly scope (Security → API controls → Domain-wide delegation).
 
 Without an admin context the API returns 403 and the source errors.
+
+#### `gcp.cloud_identity` — Workspace password policies
+
+`gcp.cloud_identity` reads Google Workspace / Cloud Identity **password
+policies** through the [Cloud Identity Policy
+API](https://cloud.google.com/identity/docs/reference/rest/v1/policies)
+(GA 2025-02-20) and emits `password_policy.v2`, which is what makes the
+six password controls (SOC 2 CC6.1 ×4, ISO 27001 8.5 ×2) evaluate
+automatically on a Google-backed estate instead of skipping. Skipped
+policies leave the score denominator, so before this source those six
+controls quietly *raised* a GCP-only estate's compliance score.
+
+It is named for the API rather than for the setting because
+`settings/security.password` is one of dozens of setting types the same
+endpoint, credential and quota serve — a second setting type belongs in
+this same plugin.
+
+**Config keys** (under `sources.gcp.cloud_identity`) — both optional:
+
+| Key | Meaning |
+|---|---|
+| `target_service_account` | Service account for ADC to impersonate via the IAM Credentials API. ADC needs `roles/iam.serviceAccountTokenCreator` on it. |
+| `impersonate_subject` | A Workspace **super admin's** email, for domain-wide delegation. **Requires `target_service_account`** — delegation signs as a service account — and setting it alone is a config error (exit 3). |
+
+There is deliberately **no `customer_id`**, unlike `gcp.directory`: the
+Policy API scopes itself to the credential's own customer and each
+returned policy names that customer, so the record's provenance stamp is
+read back from the API rather than declared. One fewer thing that can be
+declared wrongly.
+
+**Credentials — read this before configuring it.** The Policy API is
+**super-admin only**; there is no narrower Workspace admin role that
+grants it, which is why domain-wide delegation is the normal path (a
+service account cannot itself hold the super-admin role). Three things
+trip people up:
+
+- **The scope must be allow-listed VERBATIM.** In the Admin console
+  (Security → Access and data control → API controls → Domain-wide
+  delegation) the service account's OAuth client ID must carry
+  `https://www.googleapis.com/auth/cloud-identity.policies.readonly`,
+  character for character. **A broader scope is not accepted in its
+  place** — allow-listing `.../cloud-identity` or `.../cloud-platform`
+  and requesting the readonly scope fails with `unauthorized_client`,
+  because the allow-list is matched by exact string and not by
+  capability. (The same rule applies to `gcp.directory`'s
+  `admin.directory.user.readonly`; if you delegate both, list both.)
+- **The IAM Service Account Credentials API** must be enabled in the
+  target service account's project, and the ADC identity needs
+  `roles/iam.serviceAccountTokenCreator` on it.
+- **Credentials are resolved at plan time, not at collection.** A source
+  listed under `sources:` with no usable ADC is a *configuration* error
+  (exit 3) before anything is collected — never an empty result reported
+  as a clean estate.
+
+**Quota: 1 QPS per customer, and Google does not raise it.** The plugin
+paces its own paging accordingly and never parallelizes. Keep this source
+on the daily cadence; it is not something to run per-push.
+
+**What lands in the evidence.** One record per policy the customer has
+for `settings/security.password`, each carrying `scope`
+(`org_unit`/`group`/`account`) and `precedence` (1 wins). The API has no
+effective-policy endpoint and returns **only explicitly-set fields**, so
+the plugin does the reduction itself, field by field, down the
+sortOrder-descending order — and where a field was set by nobody, it
+reports Google's documented default **and** names that field in the
+record's `defaulted` array, so an auditor sees both the rule in force and
+that nobody chose it. Complexity is reported as
+`complexity_model: strength_enum` with `password_strength: strong|weak`
+(Google's own documentation says a strong password "doesn't need to have
+a specific number of characters of a specific type", so it is never
+translated into character-class booleans), and no reuse *depth* is ever
+emitted because Google exposes `allowReuse` as a bare boolean and
+documents no history length. A tenant with no such policy yields **no
+records** rather than a synthesized one. Full mapping and rationale:
+[`docs/architecture/04-source-plugins.md`](architecture/04-source-plugins.md)
+footnote ⁵.
+
+```yaml
+sources:
+  gcp.cloud_identity:
+    target_service_account: sigcomply-dwd@my-project.iam.gserviceaccount.com
+    impersonate_subject: superadmin@example.com
+```
 
 The `gcp.firewall` source is project-scoped (`project_id` required, under `sources.gcp.firewall`). It lists VPC firewall rules via the Compute `firewalls.list` API (read-only scope `https://www.googleapis.com/auth/compute.readonly`) and emits one `firewall_rule` record per protocol/port-range — the same neutral type as `aws.security_group`, so network-exposure policies (open ports, unrestricted-source) span both clouds with no policy change. A GCP firewall holds either an `allowed` or a `denied` set; the plugin flattens each into individual rules. Mapping: `direction` ← `INGRESS`/`EGRESS` (lowercased); `protocol`/`from_port`/`to_port` ← each allowed/denied entry's protocol and port range (empty ports ⇒ all ports, `from_port = -1`); `is_unrestricted_ipv4`/`_ipv6` ← `0.0.0.0/0` / `::/0` in the direction's range list (`sourceRanges` for ingress, `destinationRanges` for egress); GCP extras `action` (allow/deny), `network`, `priority`, `disabled` ride in `additionalProperties`.
 

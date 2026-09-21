@@ -142,7 +142,7 @@ tests.
   coverage for $0; only its *nightly behavioral* live confirmation is
   forgone. A maintainer with a live P2 tenant can record the real cassette
   to refresh it; the per-PR gate never depends on either.
-- **GCP cassettes are real live recordings (16/18 sources).** Recorded
+- **GCP cassettes are real live recordings (16/19 sources).** Recorded
   against a seeded personal-Gmail project (`project-5622825a-…`, no org
   lockdown) via `gcptest.RecordLiveOptions` (ADC from `gcloud auth
   application-default login` + go-vcr; a `//go:build record` harness per
@@ -153,7 +153,23 @@ tests.
   sources (`compute`/`network`/`firewall`) need the `/compute/v1/` endpoint.
   **Two sources stay hand-authored:** `scc` (needs an org + SCC premium + a
   real HIGH vuln scan finding — scan-latency, not cost) and `directory`
-  (needs a Cloud Identity / Workspace directory, i.e. a domain). Recording
+  (needs a Cloud Identity / Workspace directory, i.e. a domain).
+  **One source has NO L2 cassette at all, on purpose:**
+  `gcp.cloud_identity`. Google publishes no sample response body for
+  `settings/security.password`, so a hand-authored fixture would encode
+  the same three guesses the mapper makes (the JSON shape of
+  `expirationDuration`, the server-side filter's regex escaping, whether a
+  tenant always has such a policy) and then assert them against the code
+  that made them — permanent green, no information, and easy to mistake
+  for coverage. What is tested instead is the property that makes the
+  guesses harmless: the decoders accept **every** shape the unverified
+  details could take and make anything else a hard error rather than a
+  zero (a zeroed `max_age_days` is an observed *no-expiry* and PASSES the
+  expiry policy, so a silent decode failure would ship as a green tick).
+  `cloudidentity_live_test.go` logs the raw wire bodies and closes the
+  question the day someone points it at a real Workspace tenant; recording
+  a cassette from that run is what retires this exemption. Do not add a
+  hand-authored one in the meantime. Recording
   against reality caught real bugs the hand-authored guesses had masked —
   a doubled `…/databases/databases` firestore path (404), a missing
   quota-project header (Cloud Asset 403), and the `/compute/v1/` endpoint.

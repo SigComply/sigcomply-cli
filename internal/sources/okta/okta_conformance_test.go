@@ -211,6 +211,13 @@ func TestOktaPasswordPolicyConformance(t *testing.T) {
 			"password_policy.v2.complexity_description",
 			// Every attribute of an Okta password policy is configurable.
 			"password_policy.v2.not_configurable",
+			// `defaulted` names values reported at the platform's
+			// documented default because the tenant never set them. Okta's
+			// API returns the whole policy object with every attribute
+			// resolved, so nothing here is ever inferred from a default.
+			// The marker exists for Google, whose Policy API returns only
+			// explicitly-set fields.
+			"password_policy.v2.defaulted",
 		},
 	})
 
