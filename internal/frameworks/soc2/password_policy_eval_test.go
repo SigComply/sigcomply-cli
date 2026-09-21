@@ -33,6 +33,7 @@ const (
 	polMinLength  = "soc2.cc6.1.password_min_length_14"
 	polExpiry     = "soc2.cc6.1.password_expiry_90d"
 	polReuse      = "soc2.cc6.1.password_reuse_prevention"
+	polReuseDepth = "soc2.cc6.1.password_reuse_depth_24"
 	polComplexity = "soc2.cc6.1.password_complexity"
 
 	typePasswordPolicyV1 = "password_policy"
@@ -373,5 +374,52 @@ func assertVerdict(t *testing.T, got *core.PolicyResult, wantStatus core.PolicyS
 	}
 	if vacuous := len(got.VacuousSlots()) > 0; vacuous != wantVacuum {
 		t.Errorf("vacuous = %v (%v); want %v", vacuous, got.VacuousSlots(), wantVacuum)
+	}
+}
+
+// The depth clause restores what the reframing gave up. "Reuse is
+// prevented" passes an AWS account with history depth 1, which the old
+// reuse_prevention_count >= 24 would have failed. This second policy asks
+// the depth question of the sources that can answer it, and filters the
+// ones that cannot out of scope rather than guessing a verdict.
+func TestPasswordReuseDepth_JudgesOnlyDisclosedDepths(t *testing.T) {
+	tests := []struct {
+		name       string
+		typeID     string
+		payload    map[string]any
+		wantStatus core.PolicyStatus
+		wantVacuum bool
+	}{
+		{
+			name: "an adequate disclosed depth passes", typeID: typePasswordPolicyV1, payload: v1Policy(),
+			wantStatus: core.StatusPass,
+		},
+		{
+			// The case the reframing let through and this policy catches.
+			name: "a shallow disclosed depth fails", typeID: typePasswordPolicyV1,
+			payload:    mutate(v1Policy(), func(m map[string]any) { m[pwKeyReuseCount] = 1 }),
+			wantStatus: core.StatusFail,
+		},
+		{
+			name: "no reuse prevention at all fails", typeID: typePasswordPolicyV1,
+			payload:    mutate(v1Policy(), func(m map[string]any) { m[pwKeyReuseCount] = 0 }),
+			wantStatus: core.StatusFail,
+		},
+		{
+			// Google exposes allowReuse as a bare boolean and documents no
+			// history length, so the depth is not a question it can be
+			// asked. Out of scope beats a guess in either direction — and
+			// the sibling "reuse is prevented" policy still judges it.
+			name: "an undisclosed depth is out of scope", typeID: typePasswordPolicyV2, payload: v2StrengthEnum(),
+			wantStatus: core.StatusPass, wantVacuum: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := evalPolicy(t, polReuseDepth, map[string][]core.EvidenceRecord{
+				slotEvidence: {pwRecord(t, tc.typeID, "p1", tc.payload)},
+			})
+			assertVerdict(t, &got, tc.wantStatus, tc.wantVacuum)
+		})
 	}
 }

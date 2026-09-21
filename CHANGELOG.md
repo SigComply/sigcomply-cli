@@ -13,6 +13,20 @@ tracks the human-curated highlights.
 
 ### Added
 
+- **`soc2.cc6.1.password_reuse_depth_24` takes back what the reuse reframing
+  gave up.** `password_reuse_prevention` used to require
+  `reuse_prevention_count >= 24`; reframing it to "reuse is prevented at all"
+  — so that a vendor disclosing no depth would not be failed for it — meant an
+  AWS account with history depth **1** started passing a check it had been
+  failing. 24 is the maximum IAM accepts, so depth 1 is the weakest non-zero
+  posture available there. The new policy asks the depth question with an
+  `is_set` filter, judging only the sources that disclose one and leaving the
+  rest out of scope (a vacuous pass, visible as vacuous locally and on the
+  wire) rather than inventing a depth for them. Two policies rather than one
+  clause because the DSL has `is_set` but no negation, so "adequate, or not
+  disclosed" cannot be written as a single condition — the filter is the
+  mechanism that expresses it.
+
 - **A project-local Go extension can be built without forking the CLI.** The
   extensibility guide documented Go source plugins, vault backends and manual
   readers, and every worked example imported `sigcomply-cli/internal/...` — a

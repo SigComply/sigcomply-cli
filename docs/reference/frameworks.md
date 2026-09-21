@@ -8,7 +8,7 @@ Back to the [documentation hub](../README.md).
 
 | ID | Standard | Status | Coverage |
 |---|---|---|---|
-| `soc2` | SOC 2 — 2017 Trust Services Criteria | Production-ready, **default** | 43 / 43 criteria have a check — 16 automated, 27 manual-only. 138 policies: 88 automated + 50 manual catalog entries. |
+| `soc2` | SOC 2 — 2017 Trust Services Criteria | Production-ready, **default** | 43 / 43 criteria have a check — 16 automated, 27 manual-only. 139 policies: 89 automated + 50 manual catalog entries. |
 | `iso27001` | ISO/IEC 27001:2022 | Shipped | 109 controls: 93 Annex A + 16 management-system. 93 / 93 Annex A controls have a check — 26 automated, 67 manual-only. 151 policies: 64 automated + 87 manual catalog entries. The 16 management-system requirements (clauses 4-10), all manual, are counted apart from Annex A and are covered only once you upload the documents. |
 
 Select a framework in `.sigcomply.yaml` with the singular key `framework:` (never `frameworks:`):

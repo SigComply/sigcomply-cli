@@ -116,6 +116,13 @@ func cc6AccessPolicies() []core.Policy {
 			clause:  passwordReusePreventedClause(),
 		}.policy(),
 		autoPolicy{
+			id: "soc2.cc6.1.password_reuse_depth_24", control: ctrlCC61, severity: core.SeverityLow, category: catAccess, cadence: cadenceDaily,
+			accepts: passwordPolicyTypes,
+			desc:    "Where the password policy discloses a history depth, it prevents reuse of the last 24 passwords.",
+			rem:     "Raise password history to 24 previous passwords (the maximum AWS IAM accepts).",
+			clause:  passwordReuseDepthClause(24),
+		}.policy(),
+		autoPolicy{
 			id: "soc2.cc6.1.password_complexity", control: ctrlCC61, severity: core.SeverityMedium, category: catAccess, cadence: cadenceDaily,
 			accepts: passwordPolicyTypes,
 			desc:    "A password-strength control is enforced — either every character class is required, or the platform's own strength rating is.",
@@ -418,6 +425,33 @@ func passwordReusePreventedClause() core.PassWhenClause {
 	)
 	return allWhere(answerable, prevented,
 		"password policy {{.payload.id}} does not prevent password reuse")
+}
+
+// passwordReuseDepthClause builds "the disclosed history depth is at
+// least minDepth", and is the second half of what the reuse reframing
+// split in two.
+//
+// passwordReusePreventedClause asks the question every source can answer
+// — is reuse prevented at all — and deliberately accepts a depth of 1,
+// because a vendor that discloses no depth must not be failed for it.
+// That gave something up: an AWS account with history depth 1 passes a
+// check that "the last 24" used to fail, and 24 is the maximum IAM
+// accepts, so depth 1 is the weakest non-zero posture there is.
+//
+// This clause takes it back for the sources that CAN answer, and only
+// those: the filter is is_set on the depth, so a record that discloses
+// none is out of scope rather than judged. That costs a vacuous pass for
+// such a record — visible as vacuous locally and on the wire — which is
+// the honest price of not inventing a depth. The sibling "reuse is
+// prevented" policy still judges those records on what they do report.
+//
+// Two policies rather than one clause because the DSL has is_set but no
+// negation, so "adequate, or not disclosed" cannot be written as a single
+// condition; the filter is the mechanism that expresses it.
+func passwordReuseDepthClause(minDepth int) core.PassWhenClause {
+	return allWhere(isSet("payload.reuse_prevention_count"),
+		leaf("payload.reuse_prevention_count", "gte", minDepth),
+		fmt.Sprintf("password policy {{.payload.id}} allows reuse within the last %d passwords", minDepth))
 }
 
 // passwordStrengthEnforcedClause builds "a password-strength control is
