@@ -63,7 +63,7 @@ require (
 	github.com/phpdave11/gofpdf v1.4.3
 	github.com/spf13/cobra v1.10.2
 	github.com/xeipuuv/gojsonschema v1.2.0
-	gitlab.com/gitlab-org/api/client-go/v3 v3.12.0
+	gitlab.com/gitlab-org/api/client-go/v3 v3.14.0
 	golang.org/x/image v0.46.0
 	golang.org/x/oauth2 v0.37.0
 	google.golang.org/api v0.298.0
