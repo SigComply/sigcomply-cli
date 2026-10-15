@@ -5,6 +5,7 @@ package pdfmerge
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 
@@ -16,7 +17,8 @@ import (
 // PDF. Order is preserved. A single-element input is returned as-is
 // without invoking pdfcpu. Returns an error if any input cannot be
 // parsed as a valid PDF by pdfcpu (relaxed validation mode).
-func Merge(pdfs [][]byte) ([]byte, error) {
+// ctx bounds pdfcpu's merge so a canceled run stops mid-document.
+func Merge(ctx context.Context, pdfs [][]byte) ([]byte, error) {
 	if len(pdfs) == 0 {
 		return nil, fmt.Errorf("pdfmerge: no PDFs to merge")
 	}
@@ -33,7 +35,7 @@ func Merge(pdfs [][]byte) ([]byte, error) {
 	conf.ValidationMode = model.ValidationRelaxed
 
 	var out bytes.Buffer
-	if err := pdfapi.MergeRaw(rsc, &out, false, conf); err != nil {
+	if err := pdfapi.MergeRaw(ctx, rsc, &out, false, conf); err != nil {
 		return nil, fmt.Errorf("pdfmerge: merge failed: %w", err)
 	}
 	return out.Bytes(), nil

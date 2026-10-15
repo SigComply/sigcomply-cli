@@ -2,6 +2,7 @@ package pdfmerge_test
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual/fileconv"
@@ -22,7 +23,7 @@ func realPDF(t *testing.T) []byte {
 
 func TestMerge_Single(t *testing.T) {
 	data := realPDF(t)
-	out, err := pdfmerge.Merge([][]byte{data})
+	out, err := pdfmerge.Merge(context.Background(), [][]byte{data})
 	if err != nil {
 		t.Fatalf("Merge(single): %v", err)
 	}
@@ -35,7 +36,7 @@ func TestMerge_Single(t *testing.T) {
 func TestMerge_Multiple(t *testing.T) {
 	p1 := realPDF(t)
 	p2 := realPDF(t)
-	out, err := pdfmerge.Merge([][]byte{p1, p2})
+	out, err := pdfmerge.Merge(context.Background(), [][]byte{p1, p2})
 	if err != nil {
 		t.Fatalf("Merge(two PDFs): %v", err)
 	}
@@ -52,7 +53,7 @@ func TestMerge_Multiple(t *testing.T) {
 }
 
 func TestMerge_Empty(t *testing.T) {
-	_, err := pdfmerge.Merge(nil)
+	_, err := pdfmerge.Merge(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected error for empty slice; got nil")
 	}

@@ -1017,7 +1017,7 @@ func TestMergeAndValidate_MergeFailure(t *testing.T) {
 	// pdfmerge.Merge with a single PDF is a no-op pass-through; to trigger
 	// a real merge error we need ≥2 inputs that pdfcpu cannot parse.
 	bad := []byte("not a pdf at all")
-	hash, size, failures := mergeAndValidate([][]byte{bad, bad})
+	hash, size, failures := mergeAndValidate(context.Background(), [][]byte{bad, bad})
 	if hash != "" {
 		t.Errorf("hash = %q; want empty on merge failure", hash)
 	}

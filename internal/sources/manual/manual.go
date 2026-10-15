@@ -270,7 +270,7 @@ func (p *Plugin) scanFolder(ctx context.Context, folderID, periodID, priorID str
 		return out
 	}
 
-	mergedHash, mergedSize, mergeFailures := mergeAndValidate(pdfParts)
+	mergedHash, mergedSize, mergeFailures := mergeAndValidate(ctx, pdfParts)
 	out.hash, out.size = mergedHash, mergedSize
 	out.failures = append(out.failures, mergeFailures...)
 	out.inWindow = isInTemporalWindow(latestAt, periodStart, periodEnd, grace)
@@ -376,8 +376,8 @@ func (p *Plugin) parseCollectParams(req core.SlotRequest) (CatalogEntry, string,
 // mergeAndValidate merges pdfParts into one PDF and validates the result.
 // It returns the hex-encoded SHA-256 hash of the merged PDF, its byte size,
 // and any validation failures (merge errors or structural PDF failures).
-func mergeAndValidate(pdfParts [][]byte) (mergedHash string, mergedSize int, failures []string) {
-	merged, err := pdfmerge.Merge(pdfParts)
+func mergeAndValidate(ctx context.Context, pdfParts [][]byte) (mergedHash string, mergedSize int, failures []string) {
+	merged, err := pdfmerge.Merge(ctx, pdfParts)
 	if err != nil {
 		return "", 0, []string{fmt.Sprintf("merge_failed: %v", err)}
 	}
