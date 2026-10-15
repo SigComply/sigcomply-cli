@@ -6,4 +6,4 @@
 # 2.13.x is the first golangci-lint line built with go1.27.
 [tools]
 go = "1.27"
-golangci-lint = "2.13.2"
+golangci-lint = "2.14.0"
