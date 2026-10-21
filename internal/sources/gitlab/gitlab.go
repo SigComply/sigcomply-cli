@@ -1106,9 +1106,10 @@ func (s *sdkAPI) ListDeployments(ctx context.Context, start, end time.Time) ([]D
 // listing is also ordered by updated_at.
 func (s *sdkAPI) projectDeployments(ctx context.Context, projectID int64, path string,
 	start, end time.Time) ([]Deployment, error) {
+	orderBy := "updated_at"
 	opt := &gitlab.ListProjectDeploymentsOptions{
 		ListOptions:   gitlab.ListOptions{PerPage: 100, Page: 1},
-		OrderBy:       gitlab.Ptr("updated_at"),
+		OrderBy:       &orderBy,
 		UpdatedAfter:  &start,
 		UpdatedBefore: &end,
 	}

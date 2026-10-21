@@ -35,7 +35,8 @@ const (
 	testUserDave  = "dave"
 	testUserErin  = "erin"
 
-	pathGroupProjects = "/api/v4/groups/acme/projects"
+	pathGroupProjects       = "/api/v4/groups/acme/projects"
+	pathProject7Deployments = "/api/v4/projects/7/deployments"
 )
 
 // fakeAPI drives the plugin without real network calls.
@@ -925,7 +926,7 @@ func TestSDKAPI_ListDeployments_HappyPath(t *testing.T) {
 		pathGroupProjects: `[` +
 			`{"id":8,"path_with_namespace":"acme/api"},` +
 			`{"id":7,"path_with_namespace":"acme/web"}]`,
-		"/api/v4/projects/7/deployments": `[` +
+		pathProject7Deployments: `[` +
 			`{"id":900,"iid":3,"sha":"abc123","status":"success",` +
 			`"created_at":"2026-03-01T12:00:00Z","user":{"username":"bob"},` +
 			`"environment":{"name":"production","tier":"production"}}]`,
@@ -967,7 +968,7 @@ func TestSDKAPI_ListDeployments_SortsByUpdatedAt(t *testing.T) {
 		switch r.URL.Path {
 		case pathGroupProjects:
 			_, _ = w.Write([]byte(`[{"id":7,"path_with_namespace":"acme/web"}]`)) //nolint:errcheck // test handler
-		case "/api/v4/projects/7/deployments":
+		case pathProject7Deployments:
 			query = r.URL.Query()
 			_, _ = w.Write([]byte(`[]`)) //nolint:errcheck // test handler
 		default:
@@ -1004,7 +1005,7 @@ func TestSDKAPI_ListDeployments_ErrorPropagates(t *testing.T) {
 		pathGroupProjects: `[{"id":7,"path_with_namespace":"acme/web"}]`,
 	}
 	api := newTestSDKAPI(t, responses,
-		map[string]bool{"/api/v4/projects/7/deployments": true})
+		map[string]bool{pathProject7Deployments: true})
 	if _, err := api.ListDeployments(context.Background(), periodStart, periodEnd); err == nil {
 		t.Error("want error when a project's deployment listing fails")
 	}
