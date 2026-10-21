@@ -1102,11 +1102,13 @@ func (s *sdkAPI) ListDeployments(ctx context.Context, start, end time.Time) ([]D
 // merge-request endpoint this one accepts a server-side updated window,
 // which is applied as a pre-filter; the authoritative [start, end] test
 // is still made client-side against created_at, the field the deployment
-// contract records.
+// contract records. GitLab rejects the updated_* filters (400) unless the
+// listing is also ordered by updated_at.
 func (s *sdkAPI) projectDeployments(ctx context.Context, projectID int64, path string,
 	start, end time.Time) ([]Deployment, error) {
 	opt := &gitlab.ListProjectDeploymentsOptions{
 		ListOptions:   gitlab.ListOptions{PerPage: 100, Page: 1},
+		OrderBy:       gitlab.Ptr("updated_at"),
 		UpdatedAfter:  &start,
 		UpdatedBefore: &end,
 	}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"strings"
 	"testing"
@@ -953,6 +954,41 @@ func TestSDKAPI_ListDeployments_HappyPath(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("ListDeployments =\n%+v\nwant\n%+v", got, want)
+	}
+}
+
+// TestSDKAPI_ListDeployments_SortsByUpdatedAt pins the order_by GitLab
+// demands alongside the updated_* window: without it the live API answers
+// 400 "`updated_at` filter requires `updated_at` sort" (caught by the
+// nightly live-drift run, 2026-10-21).
+func TestSDKAPI_ListDeployments_SortsByUpdatedAt(t *testing.T) {
+	var query url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case pathGroupProjects:
+			_, _ = w.Write([]byte(`[{"id":7,"path_with_namespace":"acme/web"}]`)) //nolint:errcheck // test handler
+		case "/api/v4/projects/7/deployments":
+			query = r.URL.Query()
+			_, _ = w.Write([]byte(`[]`)) //nolint:errcheck // test handler
+		default:
+			t.Errorf("unexpected request: %s", r.URL.Path)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	client, err := gitlab.NewClient("tok", gitlab.WithBaseURL(srv.URL))
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	api := &sdkAPI{client: client, group: testGroup}
+
+	if _, err := api.ListDeployments(context.Background(), periodStart, periodEnd); err != nil {
+		t.Fatalf("ListDeployments: %v", err)
+	}
+	if query.Get("updated_after") == "" {
+		t.Fatal("want the updated_after pre-filter on the deployments request")
+	}
+	if got := query.Get("order_by"); got != "updated_at" {
+		t.Errorf("order_by = %q, want updated_at (required with updated_after)", got)
 	}
 }
 
