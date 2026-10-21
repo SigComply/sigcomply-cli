@@ -5,6 +5,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
