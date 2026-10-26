@@ -8,10 +8,11 @@
 # or chaining off workflow_run) keeps the push event — and with it
 # head_commit.message for the [skip release] marker, paths-ignore, and a
 # checkout of the exact commit that was pushed.
-# Uses conventional commit prefixes to determine version bump:
+# Uses conventional commit prefixes to determine version bump. Only the
+# subject line of each commit since the last tag is read, never the body:
+#   type!: or BREAKING CHANGE in a subject -> major bump
 #   feat: -> minor bump
-#   fix:, refactor:, perf:, etc. -> patch bump
-#   BREAKING CHANGE in body -> major bump
+#   anything else (fix:, refactor:, perf:, docs:, ...) -> patch bump
 #
 # Build provenance attestations are generated for all release artifacts.
 # Customers can verify with: gh attestation verify <binary> --repo SigComply/sigcomply-cli
@@ -26,6 +27,9 @@ on:
       - 'docs/**'
       - 'LICENSE'
       - '.gitignore'
+      - '.claude/**'
+      - '.vale/**'
+      - '.vale.ini'
   # Manual escape hatch for a release that was missed — a push whose only
   # changes were path-ignored, or one whose commit body tripped the skip
   # marker. There is no head_commit on a dispatch, so the skip condition
