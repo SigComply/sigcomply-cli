@@ -95,7 +95,7 @@ requires going back to the drawing board.
    tamper-resistance requires write-once / versioned object storage at
    the bucket layer. The full threat model and the required
    customer-side storage settings are the canonical subject of
-   [`SECURITY.md`](SECURITY.md) §Threat Model (see also CLAUDE.md
+   [`SECURITY.md`](SECURITY.md) §Threat Model (see also AGENTS.md
    Invariant #3).
 5. **Evidence type ≠ source plugin.** A policy depends on an evidence
    *shape* (`directory_user`, `firewall_rule`). Many source plugins can

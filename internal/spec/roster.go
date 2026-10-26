@@ -24,7 +24,7 @@ const RosterKey = "roster"
 //
 // Nothing in here crosses the aggregation boundary. Aliases carry email
 // addresses and account names — identity data that must never reach the
-// cloud payload (root CLAUDE.md §Privacy invariant).
+// cloud payload (workspace-root AGENTS.md §Privacy invariant).
 type RosterConfig struct {
 	// Source is the designated roster source ID. Required when the
 	// block is present. Bracketed multi-instance IDs are not supported.

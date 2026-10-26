@@ -1,10 +1,106 @@
-# SigComply CLI — Claude Context
+# SigComply CLI: agent instructions
 
-AI-coding context for the CLI repo: the invariants, decisions, and
-conventions an agent needs to make safe changes. Architecture lives in
-[ARCHITECTURE.md](./ARCHITECTURE.md); configuration in
-[docs/configuration.md](./docs/configuration.md). **This file does not
-restate them — it points to them.**
+Personal, machine-local instructions live in `AGENTS.local.md` (gitignored; may not exist). Read
+it if it exists; it adds to and overrides this file. @AGENTS.local.md
+
+This file points to the docs that own each topic and does not restate them (architecture:
+`ARCHITECTURE.md`; configuration: `docs/configuration.md`).
+
+## How work happens here
+
+- Agents do the whole SDLC, from research to a pushed commit with green CI and release.
+- The human sets intent, approves plans and owns the decisions listed under "When to ask the
+  human" in the `task-workflow` skill.
+- Pre-launch: commit and push straight to `main`, no PRs. Local state (cadence state files) has
+  no backward-compatibility burden; cross-repo contracts still change in lockstep (Invariant #1).
+- This repo is public, and another human contributor also commits to `main`. Everything you
+  commit is published.
+- A push to `main` runs the tests and, unless every changed file is path-ignored (docs and agent
+  files), cuts a versioned GitHub Release that the E2E repos install at once. Details in
+  `docs/claude/development-workflow.md`.
+
+## Every task
+
+Run the `task-workflow` skill (`.claude/skills/task-workflow/SKILL.md`) for every change. This
+repo's bindings (gate commands, test layers, real-product verification, what a push triggers,
+doc routing) are in `docs/claude/development-workflow.md`. Review skills: `self-review`,
+`adversarial-review`; lenses `review-security`, `review-testing`, `review-performance`; docs:
+`writing-docs`. The `.claude/` skills and agents are shared byte-for-byte with the other four
+SigComply repos (`.claude/README.md`); repo-specific rules go here or in the workflow doc, never
+in them.
+
+## Always-on rules
+
+1. Verify by running, not by reasoning: run the gate, then build the binary and run the affected
+   `sigcomply` command (stdout, exit code, vault output). Report failures and skipped steps
+   plainly.
+2. Tests first; never weaken, skip or delete a test to get green. When `TestDocFiguresMatchCode`
+   fails, fix the doc it names.
+3. Docs change with the code, agent-internal and customer-facing, in the same commit.
+4. Make the smallest change that fixes the root cause; note unrelated problems instead of fixing
+   them.
+5. Never bypass hooks (`--no-verify`, `LEFTHOOK=0`), force-push, or rewrite pushed history.
+6. No secrets, real customer data, personal emails, SSH host aliases or machine-specific paths in
+   code, fixtures, cassettes, logs or docs. The repo is public; gitleaks and
+   `make check-fixtures` catch only part of this.
+7. Breaking a Sacred Invariant below is a stop-and-ask. So is a design that feels overly complex.
+8. Fan out subagents for wide research and parallel review; keep the main context for decisions.
+9. Comments explain why, not what.
+10. Pick the commit type deliberately: it sets the release version bump (`feat` minor, any other
+    type patch, `<type>!:` major).
+11. Never write the release skip marker in a commit message unless you mean to skip the release.
+    The release job matches it anywhere in the head commit's message, so quoting it while
+    explaining it skips the release (this shipped `02d4d09` unreleased). In prose, write "the
+    skip marker".
+12. Touch one side of a cross-repo contract (cloud payload, manual catalog export, OIDC claims),
+    check and update the other in the same task (see "Cross-Repo Integration Points").
+
+## Commands
+
+| Purpose | Command | Notes |
+|---|---|---|
+| Build | `make build` | Writes `bin/sigcomply` with version, commit and build time |
+| Fast tests | `make test` | `go test -short -race -v ./...`; skips the heavy `sigcomply build` tests |
+| Full tests | `make test-full` | `go test -race ./...`, what CI runs |
+| Coverage | `make test-coverage` | Full suite plus report in `coverage/`; prints the total but does not enforce the floor |
+| L2 contract tests | `make test-contract` | Cassette and fixture-vs-spec conformance |
+| L4a live tests | `make test-live` | Calls real vendor APIs with your creds; run only when the task needs it |
+| Lint | `make lint` | mise-pinned golangci-lint (`mise.toml`) |
+| Format, vet | `make fmt`, `make fmt-check`, `make vet` | gofmt and `go vet` |
+| Fixture scan | `make check-fixtures` | Secrets and PII in `testdata/` and `contracts/` |
+| Security | `make security-deps`, `make security-code`, `make security-secrets` | govulncheck + nancy, gosec, gitleaks |
+| Local CI | `make ci`, `make pre-commit` | `deps lint test build`; `fmt-check vet lint check-fixtures test-unit`. Neither enforces coverage |
+| Workflow lint | `actionlint` | After editing `.github/workflows/*` |
+
+Lefthook pre-commit: gofmt on staged Go files, `go vet`, `make lint`, `make test` (these four
+only when Go files are staged), `go mod tidy` check (when `go.mod`/`go.sum` are staged), and
+`gitleaks protect --staged`. Pre-push: `make lint`, `go test -short -race ./...`, `gitleaks
+detect`. Only CI runs: the 80% coverage floor (`test.yml`), the cross-platform build matrix, the
+`security.yml` scanners (govulncheck, gosec, CodeQL, Semgrep, Trivy, OSV, Scorecard, SBOM,
+license check), weekly `contract-drift.yml` and nightly `live-saas.yml`.
+
+## Docs map
+
+Agent-internal (read when):
+
+- `docs/claude/development-workflow.md`: at the start of every task.
+- `ARCHITECTURE.md` and `docs/architecture/`: before changing the layer you touch.
+- `docs/claude/recipes.md`: adding a source, policy, evidence type, framework or vault backend.
+- `docs/claude/auth.md`: touching OIDC or cloud submission auth.
+- `TESTING.md` and `docs/architecture/11-testing-strategy.md`: choosing a test layer.
+- `SECURITY.md`: touching signing, the vault or the threat model.
+- `CONTRIBUTING.md`, `.github/pull_request_template.md`: human-facing contribution rules.
+
+Customer-facing (audience):
+
+- `README.md`, `docs/quickstart.md`, `docs/getting-started.md`: new users.
+- `docs/guides/*`: operators doing one task (install, sources, CI, manual evidence, verify).
+- `docs/reference/*`, `docs/configuration.md`: operators looking up a flag, key or count.
+- `docs/concepts.md`: evaluators and auditors learning the model.
+- `docs/for-ai-agents.md`, `llms.txt`: AI agents setting up a customer repo.
+- `CHANGELOG.md`, `examples/`: users upgrading or copying a CI setup.
+
+---
 
 ## Product Overview
 
@@ -14,15 +110,15 @@ CI/CD, evaluates Go-native policies against infrastructure, signs the
 resulting evidence locally, and (optionally, paid tier) submits
 aggregated counts to a private Rails dashboard. The product spans **4
 logical components across 5 sibling repos** — full cross-repo
-architecture in the [parent CLAUDE.md](../CLAUDE.md).
+architecture in the [parent AGENTS.md](../AGENTS.md).
 
-| Component | Local path | Remote |
+| Component | Local path | Repository |
 |-----------|-----------|--------|
-| **The Engine (CLI)** — this repo, Go | `./` | `git@github.com:SigComply/sigcomply-cli.git` |
-| **Compliance Dashboard** — Rails 8.1 / Ruby 3.3 (private) | `../sigcomply/` | `git@github.com:SigComply/sigcomply.git` |
-| **Manual Evidence SPA** — React 19 + TS + Vite | `../sigcomply-evidence-spa/` | `git@github.com:SigComply/sigcomply-evidence-spa.git` |
-| **CLI E2E (GitHub Actions)** | `../sigcomply-cli-testing-project-github/` | `git@github.com:SigComply/sigcomply-cli-testing-project-github.git` |
-| **CLI E2E (GitLab CI)** | `../sigcomply-cli-testing-project-gitlab/` | `git@gitlab-personal:sigcomply/sigcomply-cli-testing-project-gitlab.git` |
+| **The Engine (CLI)** — this repo, Go | `./` | https://github.com/SigComply/sigcomply-cli |
+| **Compliance Dashboard** — Rails 8.1 / Ruby 3.3 (private) | `../sigcomply/` | https://github.com/SigComply/sigcomply (private) |
+| **Manual Evidence SPA** — React 19 + TS + Vite | `../sigcomply-evidence-spa/` | https://github.com/SigComply/sigcomply-evidence-spa |
+| **CLI E2E (GitHub Actions)** | `../sigcomply-cli-testing-project-github/` | https://github.com/SigComply/sigcomply-cli-testing-project-github |
+| **CLI E2E (GitLab CI)** | `../sigcomply-cli-testing-project-gitlab/` | https://gitlab.com/sigcomply/sigcomply-cli-testing-project-gitlab |
 
 **Frameworks shipped:** SOC 2 (production-ready) and ISO/IEC 27001:2022
 (all 93 Annex A controls, 26 automated, plus the
@@ -55,81 +151,6 @@ remains available (`internal/evaluator/rego_rule.go` inline Rego,
 `go_rule.go` Go rules) for a future check the DSL genuinely cannot
 express; OPA stays a dependency for it. To count a framework's policies,
 count `.policy()` calls — not files.
-
----
-
-## IMPORTANT: Check for Local Instructions
-
-**Before starting any work, check if `CLAUDE.local.md` exists in the repo
-root.** If present, read it first and follow it — it holds private
-integration references and instructions that override or supplement this
-public document. It is gitignored and absent in some environments.
-
----
-
-## Documentation
-
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)** — system design, layer stack, types, storage, signing
-- **[docs/configuration.md](./docs/configuration.md)** — config file, env vars, flags
-- **[docs/architecture/](./docs/architecture/)** — deep design docs (layers, evidence-type registry, vault layout, aggregation, cadence, …)
-- **[TESTING.md](./TESTING.md)** / **[docs/architecture/11-testing-strategy.md](./docs/architecture/11-testing-strategy.md)** — testing strategy: layered tests (L0–L4b), CLI-vs-E2E repo split, cassette/contract conventions
-- **[docs/claude/development-workflow.md](./docs/claude/development-workflow.md)** — the end-to-end change loop: plan → tests-first → implement → verify (`make test && make lint` + exercise the built CLI) → update docs → commit to `main`. Read before starting any task.
-- **[docs/claude/auth.md](./docs/claude/auth.md)** — OIDC authentication
-- **[docs/guides/vendor-risk.md](./docs/guides/vendor-risk.md)** — the third-party register and fan-out catalog entries
-- **[docs/claude/recipes.md](./docs/claude/recipes.md)** — step-by-step guides for common tasks (adding a source/policy/evidence type/framework/backend)
-- **[README.md](./README.md)** — public-facing intro
-
----
-
-## Development Rules
-
-This SDLC is run almost entirely by **Claude Code agents** — coding,
-tests, planning, verification, and debugging. The full step-by-step loop
-(and how to manually verify a CLI with no web UI) is
-**[docs/claude/development-workflow.md](./docs/claude/development-workflow.md)**;
-the rules below are the summary.
-
-- **Ship working code.** Tested code is the measure of progress.
-- **TDD.** Unit test first → happy-path integration test → minimum code
-  to pass → `make test && make lint` green → **build & exercise the CLI**
-  (`make build`; run the affected `sigcomply` subcommand; check stdout +
-  exit code + vault) → **update the docs your change touched** → commit.
-- **Docs are part of "done".** Every change updates the focused doc it
-  affects (a recipe, `configuration.md`, an `architecture/` doc, this
-  file's command table) in the same commit — not "only when architecture
-  moves". A purely-internal change with no behavioral surface is the
-  justified exception, not the default.
-- **Architecture-first.** Read the relevant docs and plan before
-  implementing. If the design feels overly complex, **stop and ask** —
-  difficulty is a signal to pause, not push through.
-- **Small atomic commits.** One logical change, all tests passing.
-  Format `<type>: <description>` (`feat`/`fix`/`refactor`/`test`/`docs`/`chore`).
-  Include `Co-Authored-By: Claude <model> <noreply@anthropic.com>`.
-- **Pre-launch: commit directly to `main`.** The product has no users yet.
-  Once tests pass and you've verified, commit to `main` and push — no PRs,
-  no reviews for internal work (this becomes a PR + review flow at public
-  launch; `CONTRIBUTING.md` and the PR template already govern external
-  contributions). No backward-compat/backfill burden for local state, but
-  cross-repo contracts (Inv #1) still stay in lockstep.
-- **Never write the literal skip marker in a commit body.** The release
-  job's `if:` runs `contains()` over the *whole* commit message, not just
-  the subject, so quoting the marker anywhere — even while explaining it,
-  as this file does — silently skips the release. Say "the skip marker"
-  in prose; the real string belongs only on a subject line that means it.
-  (Learned the hard way in `02d4d09`, which shipped unreleased.)
-- **A push to `main` auto-cuts a release — if the tests pass.**
-  `auto-release.yml` calls `test.yml` (`workflow_call`) and waits for it
-  before tagging; it used to race it on the same push, and the E2E repos
-  resolve `releases/latest` at run time, so a red push reached them
-  immediately. It then bumps the version from your commit's
-  conventional-commit prefix
-  (`feat`→minor, `fix`/`refactor`/`perf`→patch, `BREAKING CHANGE` in the
-  body→major), tags, and runs GoReleaser to publish binaries to GitHub
-  Releases. The commit *type* is therefore load-bearing, not cosmetic.
-  Doc-only pushes (`*.md`, `docs/**`) are path-ignored and cut no release.
-- **Never break main.** `make test && make lint` before every commit;
-  after pushing, confirm CI is green (`gh run list` / `gh run view`).
-  Don't move on while CI is red.
 
 ---
 

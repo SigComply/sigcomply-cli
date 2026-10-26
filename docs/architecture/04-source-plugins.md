@@ -737,7 +737,7 @@ evaluated. If no supported files exist at all, the policy fails with
 - Whether signatures inside the PDF are present or valid
 - Any form of fraud detection — a determined customer can produce a fabricated PDF that satisfies all checks; that is and remains the auditor's job
 
-The reasoning is in [CLAUDE.md §Manual evidence design contract](../../CLAUDE.md) — the CLI is a custody-of-evidence layer, not a content reviewer. The auditor reads the PDF; the CLI gives the auditor a tamper-evident timeline of what was uploaded when.
+The reasoning is in [AGENTS.md §Manual evidence design contract](../../AGENTS.md) — the CLI is a custody-of-evidence layer, not a content reviewer. The auditor reads the PDF; the CLI gives the auditor a tamper-evident timeline of what was uploaded when.
 
 ### Missing evidence — error format
 
@@ -760,7 +760,7 @@ carries the destination folder.
 The same reason text is preserved in the policy's `result.json` under
 the failing check, so an auditor reading the run folder offline, and
 any `text`/`json` consumer, sees the exact expected location. (The CLI
-has no SARIF output; see [CLAUDE.md](../../CLAUDE.md) — `report`
+has no SARIF output; see [AGENTS.md](../../AGENTS.md) — `report`
 renders `text`/`json`/`csv` only.)
 
 ### PDF mirroring

@@ -32,7 +32,7 @@ pipeline against real cloud infrastructure in CI:
 | `make test` | fast per-change backbone (aliases `test-unit`: L0/L1/L2, `-short -race`) |
 | `make test-full` | full suite, `-race` (what CI runs) |
 | `make test-contract` | L2 cassette + fixture-vs-spec conformance |
-| `make test-coverage` | full suite with the 80% coverage floor (matches CI's enforced number) |
+| `make test-coverage` | full suite with a coverage report; prints the total but does not enforce the 80% floor (CI's `test.yml` does) |
 | `make check-fixtures` | scan `testdata/` + `contracts/` for leaked secrets/PII |
 | `make lint` | `golangci-lint` |
 | `make pre-commit` | `fmt-check vet lint check-fixtures test-unit` |

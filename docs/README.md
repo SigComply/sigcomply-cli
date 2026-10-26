@@ -71,4 +71,4 @@ Background and design rationale.
 ## See also
 
 - [Project README](../README.md) — the front-door router.
-- [CLAUDE.md](../CLAUDE.md) — context for AI coding assistants working **on** the CLI itself.
+- [AGENTS.md](../AGENTS.md) — context for AI coding assistants working **on** the CLI itself.

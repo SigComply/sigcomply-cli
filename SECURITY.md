@@ -105,7 +105,7 @@ require credentials the non-custodial model forbids.
 
 The manual-evidence flow (`internal/sources/manual/`) performs
 **presence + temporal window + cheap stdlib sanity checks** on each
-uploaded PDF. See [CLAUDE.md §Manual evidence design contract](CLAUDE.md)
+uploaded PDF. See [AGENTS.md §Manual evidence design contract](AGENTS.md)
 for the precise list of what is and is not checked. In short:
 
 - The plugin verifies the file exists at the expected path within the

@@ -182,7 +182,7 @@ Full docs are in [docs/](docs/README.md), organized by the
 | **For AI agents** | [For AI agents](docs/for-ai-agents.md) · [llms.txt](llms.txt) |
 
 Deep design docs live under [docs/architecture/](docs/architecture/); AI-coding
-context in [CLAUDE.md](CLAUDE.md).
+context in [AGENTS.md](AGENTS.md).
 
 ## License
 

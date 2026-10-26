@@ -205,7 +205,7 @@ func TestInvariant_ManifestIsSignedAndVerifiable(t *testing.T) {
 		t.Fatalf("VerifyManifest on signed manifest: %v", err)
 	}
 	// The manifest signature must be independently verifiable (auditor
-	// spot-check use case — described in CLAUDE.md Invariant #3).
+	// spot-check use case — described in AGENTS.md Invariant #3).
 	if m.Signature.Algorithm != AlgorithmEd25519 {
 		t.Errorf("Algorithm = %q; want ed25519", m.Signature.Algorithm)
 	}

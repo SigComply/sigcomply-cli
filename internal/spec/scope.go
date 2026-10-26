@@ -32,7 +32,7 @@ const ScopeKey = "scope"
 // Rolling several projects up into one view is the Cloud dashboard's job.
 //
 // Nothing in here crosses the aggregation boundary. DeclaredBy is an
-// email address and must never reach the cloud payload (root CLAUDE.md
+// email address and must never reach the cloud payload (workspace-root AGENTS.md
 // §Privacy invariant); the scope report is a vault-side artifact only.
 type ScopeConfig struct {
 	// DeclaredBy and DeclaredAt are the audit trail for the assertion,

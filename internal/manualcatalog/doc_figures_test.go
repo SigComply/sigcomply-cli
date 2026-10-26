@@ -92,7 +92,7 @@ func TestDocFiguresMatchCode(t *testing.T) {
 			fmt.Sprintf("%d of them with an automated check", i.ctrlAuto),
 			fmt.Sprintf("the %d management-system requirements of clauses 4-10", i.mgmtSystem),
 		}},
-		{"CLAUDE.md", []string{
+		{"AGENTS.md", []string{
 			fmt.Sprintf("all %d Annex A controls, %d automated", i.controls, i.ctrlAuto),
 			fmt.Sprintf("%d clause 4-10 management-system requirements", i.mgmtSystem),
 		}},
@@ -150,7 +150,7 @@ func TestDocFiguresMatchCode(t *testing.T) {
 // old docs misleading: a bare "all N controls" reads as "all N are
 // checked", and "100+ automated policies" was simply false.
 func TestNoOverclaimedCoverage(t *testing.T) {
-	for _, doc := range []string{"README.md", "CLAUDE.md", "docs/reference/frameworks.md", "docs/quickstart.md", "docs/guides/manual-evidence.md"} {
+	for _, doc := range []string{"README.md", "AGENTS.md", "docs/reference/frameworks.md", "docs/quickstart.md", "docs/guides/manual-evidence.md"} {
 		data, err := os.ReadFile(filepath.Join("..", "..", doc)) //nolint:gosec // fixed in-repo doc paths
 		if err != nil {
 			t.Fatalf("read %s: %v", doc, err)

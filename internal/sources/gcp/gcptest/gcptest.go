@@ -4,7 +4,7 @@
 // GCP source plugins can be exercised offline through the real deserializer.
 //
 // GCP has no usable test credential in this org (SA-key creation and
-// impersonation are blocked org-wide — see CLAUDE.local.md), so cassettes are
+// impersonation are blocked org-wide — see AGENTS.local.md), so cassettes are
 // hand-authored: canned Discovery-shaped JSON is served from an httptest server
 // at record time (RecordOptions, endpoint = the httptest URL), captured by the
 // recorder, then the recorded URL is rewritten to the real googleapis endpoint;

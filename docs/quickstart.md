@@ -72,7 +72,7 @@ declarations). Until you upload those files they simply report **fail**
 ("evidence not found") — see [What you'll see](#what-youll-see) — and
 [Getting started](getting-started.md) walks through producing and uploading them.
 For the declaration/checklist entries you can generate the PDF with the optional
-[Evidence SPA](guides/manual-evidence.md); externally-sourced documents (HR
+[Evidence SPA](guides/manual-evidence.md); externally sourced documents (HR
 exports, certificates) you upload directly. The SPA shows only the
 declaration/checklist entries by design.
 

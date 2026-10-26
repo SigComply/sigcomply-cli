@@ -210,7 +210,7 @@ source.Emits() ∩ slot.Accepts ≠ ∅
 A policy never names a source ID; a source never names a policy ID
 (`SlotRequest.PolicyID` is diagnostic-only). The evidence-type registry
 is the **sole** coupling point — Sacred Invariant #4 in
-[`../../CLAUDE.md`](../../CLAUDE.md).
+[`../../AGENTS.md`](../../AGENTS.md).
 
 **The plug-in mechanism.** `internal/sources` exposes a
 self-registering factory registry:

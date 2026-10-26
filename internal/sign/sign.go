@@ -30,7 +30,7 @@ type Signature struct {
 
 // Signer produces a Signature over a payload using one algorithm.
 //
-// The per-file ephemeral-keypair discipline (CLAUDE.md Invariant #3) is
+// The per-file ephemeral-keypair discipline (AGENTS.md Invariant #3) is
 // a property of the built-in ed25519Signer, NOT a requirement of this
 // interface: an HSM/KMS-backed signer legitimately holds a long-lived
 // key whose private half never leaves the device. What every Signer

@@ -5,7 +5,7 @@
 //
 // This is metadata only. The CLI evaluator never branches on Type,
 // Items, or DeclarationText — every manual policy flows through the same
-// PDF-presence check regardless (see Invariant #2 in CLAUDE.md). These
+// PDF-presence check regardless (see Invariant #2 in AGENTS.md). These
 // fields exist so the SPA can render a clickable form for declaration-
 // and checklist-style entries; document_upload entries are produced
 // externally and the SPA filters them out. Keeping the catalog here —

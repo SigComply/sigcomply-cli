@@ -16,7 +16,7 @@ import (
 // registration report (/reports/authenticationMethods/userRegistrationDetails)
 // is Entra-ID-P2-gated in this tenant (RequestFromNonPremiumTenantOrB2CTenant),
 // so the cassette is hand-authored (httptest-record) per the decision in
-// CLAUDE.local.md rather than recorded live. Joins the report rows with /users:
+// AGENTS.local.md rather than recorded live. Joins the report rows with /users:
 // one admin with MFA + one standard user without.
 func TestAzureEntraConformance(t *testing.T) {
 	newPlugin := func() core.SourcePlugin { return newCassettePlugin(t) }

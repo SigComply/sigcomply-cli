@@ -9,7 +9,7 @@ import (
 )
 
 // VerifyRegistrations enforces the evidence-type-registry-as-sole-mediator
-// invariant (CLAUDE.md §Sacred Invariant #4) at bootstrap. Two checks:
+// invariant (AGENTS.md §Sacred Invariant #4) at bootstrap. Two checks:
 //
 //  1. Source coverage — every type ID a registered source plugin emits
 //     must have a registered EvidenceType (with schema). A plugin that

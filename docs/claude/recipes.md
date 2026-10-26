@@ -55,7 +55,7 @@ declares via `Emits()`. It never references a policy. Live example:
    fails the binding and tags the policy `error` (exit 3). Do the full
    vendor→canonical translation here; **never** leave a field null
    expecting the policy to
-   guard it (see the null-trap antipattern in the CLI CLAUDE.md).
+   guard it (see the null-trap antipattern in the CLI AGENTS.md).
 
 3. **Register the factory** in a `factory.go` `init()`:
    ```go
@@ -139,7 +139,7 @@ null placeholders.
    "N built-in plugins emit N distinct evidence types" line, the provider ×
    evidence-type matrix, and the per-plugin table),
    `docs/architecture/12-multicloud-sources.md` (two count lines plus the
-   per-provider row), and the root `CLAUDE.md`. If you also added policies,
+   per-provider row), and the workspace-root `AGENTS.md`. If you also added policies,
    `TestDocFiguresMatchCode` will fail with the exact string to write into
    `docs/reference/frameworks.md` — run it and paste what it asks for.
 
@@ -378,7 +378,7 @@ same self-registering-factory pattern. In-tree backends: `local`, `s3`,
 
 4. **Write integration tests** (see `internal/vault/vaulttest/`). Write
    evidence using the period-first run layout — see the
-   [storage layout in CLAUDE.md](../../CLAUDE.md) (`{framework}/{period_id}/
+   [storage layout in AGENTS.md](../../AGENTS.md) (`{framework}/{period_id}/
    run_{timestamp}_{run_id_short}/policies/{policy_id}/...`, basic ISO 8601
    timestamps, no colons).
 

@@ -2,9 +2,10 @@
 
 Thanks for contributing! This file covers the **non-negotiable testing
 requirements**; the broader engineering rules, architecture, and invariants live
-in [`CLAUDE.md`](./CLAUDE.md) and [`docs/architecture/`](./docs/architecture/),
-and the full change loop in
+in [`AGENTS.md`](./AGENTS.md) and [`docs/architecture/`](./docs/architecture/),
+and the repo's gate, test layers and release rules in
 [`docs/claude/development-workflow.md`](./docs/claude/development-workflow.md).
+AI agents working on this repo start at `AGENTS.md`.
 
 ## Two contribution flows
 
@@ -28,7 +29,8 @@ and the full change loop in
 - **Docs are part of "done"** — a behavior/architecture change isn't
   finished until the focused doc it touches (a recipe, `configuration.md`, an
   `architecture/` doc) is updated in the same change.
-- Full rules: [`CLAUDE.md` → Development Rules](./CLAUDE.md#development-rules).
+- Full rules: [`AGENTS.md`](./AGENTS.md) and
+  [`docs/claude/development-workflow.md`](./docs/claude/development-workflow.md).
 
 ## Testing layers
 
@@ -38,7 +40,7 @@ What runs where:
 
 | Make target | Layer | When |
 |-------------|-------|------|
-| `make test` / `test-full` | L0/L1 unit + integration | every change (CI gate, 80% floor) |
+| `make test` / `test-full` | L0/L1 unit + integration | every change; CI runs the full suite with the 80% coverage floor (`test.yml`) |
 | `make test-contract` | L2 cassette + fixture-vs-spec conformance | every change |
 | `make contracts-diff` | L3 spec drift (scheduled) | `contract-drift.yml` |
 | `make test-live` | L4a live (`//go:build live`) | nightly `live-saas.yml`; skips without creds |
@@ -68,4 +70,4 @@ change:
 The canonical step-by-step is the **Testing a source plugin (checklist)**
 section of [`docs/architecture/04-source-plugins.md`](./docs/architecture/04-source-plugins.md).
 Policies and sources never reference each other —
-mediate via the evidence-type registry (Invariant #4 in `CLAUDE.md`).
+mediate via the evidence-type registry (Invariant #4 in `AGENTS.md`).
