@@ -1,9 +1,9 @@
 // Package vault is L7 of the SigComply CLI: append-only persistence
-// of envelopes, results, attachments, and run manifests to the
-// customer's storage backend. The customer's vault — never the CLI's
-// — receives every signed evidence envelope, every PDF mirror, every
-// run manifest. The CLI is the writer; auditors and the optional Cloud
-// dashboard are the readers.
+// of envelopes, results and run manifests to the customer's storage
+// backend. The customer's vault, never SigComply's, receives every
+// signed evidence envelope and every run manifest. The CLI is the
+// writer; the customer and their auditor are the readers. SigComply
+// Cloud never reads the vault.
 //
 // Backend implementations: local, s3, gcs, azure_blob — all behind the
 // core.Vault interface. Selection is by self-registering factory: each

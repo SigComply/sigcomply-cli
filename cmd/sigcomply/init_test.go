@@ -185,3 +185,13 @@ func TestInit_CloudBaseURLComment(t *testing.T) {
 		}
 	}
 }
+
+// The scaffold lands in the user's repo, where a relative docs path
+// points nowhere. It must link the published reference.
+func TestStarterConfig_LinksPublishedReference(t *testing.T) {
+	body := starterConfig("soc2")
+	const want = "https://github.com/SigComply/sigcomply-cli/blob/main/docs/configuration.md"
+	if !strings.Contains(body, want) {
+		t.Errorf("starter config should link %s", want)
+	}
+}
