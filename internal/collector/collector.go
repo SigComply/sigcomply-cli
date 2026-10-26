@@ -251,7 +251,7 @@ func groupByType(records []core.EvidenceRecord, acceptedTypes []string) []typeGr
 // checkAcceptedTypes verifies every record's Type appears in the
 // binding's AcceptedTypes set. A plugin returning a record whose Type
 // is outside the negotiated set is a contract violation surfaced as a
-// collection error (exit code 3 via the policy error tag).
+// collection error: the policy is tagged error, so the run exits 2.
 func checkAcceptedTypes(records []core.EvidenceRecord, acceptedTypes []string) error {
 	if len(records) == 0 {
 		return nil
@@ -282,7 +282,7 @@ func envelopePath(runRoot, policyID, evidenceType, sourceID, catalogID string) s
 // registered plugin emits has a registered schema; reaching a record
 // with an unregistered Type here means a plugin violated its own
 // Emits() declaration, which is a contract bug surfaced as a
-// collection error (exit code 3). A nil EvidenceTypes registry skips
+// collection error (policy error, exit 2). A nil EvidenceTypes registry skips
 // validation entirely (used by tests that don't exercise schemas).
 //
 // Returning the first failure (rather than a list) keeps callers

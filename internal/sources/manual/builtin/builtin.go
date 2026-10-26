@@ -14,7 +14,7 @@
 // manual.RegisterReader, then add one line below.
 //
 // Project-local backends under .sigcomply/plugins/ are wired in by
-// `sigcomply build` (M16) — that command generates a similar import
+// `sigcomply build`; that command generates a similar import
 // list into the project-specific binary. See
 // docs/architecture/07-extensibility.md §Custom manual-evidence
 // backends.

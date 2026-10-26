@@ -22,8 +22,9 @@ import (
 )
 
 // DefaultAudience is the OIDC token audience the CLI requests when
-// running in CI. Self-hosted deployments override via the
-// OIDC.Audience field.
+// running in CI. It is an identifier, not a host: Rails checks it
+// (Oidc::TokenValidator) and AWS IAM OIDC providers must list it as a
+// client ID when the same token assumes an AWS role. Not configurable.
 const DefaultAudience = "https://api.sigcomply.com"
 
 // Path is the cloud endpoint relative to base_url.

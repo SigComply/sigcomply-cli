@@ -12,7 +12,7 @@
 // build time, by code.
 //
 // See docs/architecture/04-source-plugins.md §The plugin contract and
-// docs/architecture/07-extensibility.md §Custom source plugins.
+// docs/architecture/07-extensibility.md §Authoring a custom source plugin.
 package sources
 
 import (

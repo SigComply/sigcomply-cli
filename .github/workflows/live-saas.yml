@@ -11,9 +11,10 @@ name: Live SaaS Drift
 # This is the behavioral half of drift detection that the L3 Contract Drift job
 # (spec-diffing) cannot see.
 #
-# Remediation when a live test fails is manual — re-record the affected cassette
-# with a throwaway //go:build record driver and re-baseline the L3 snapshot per
-# docs/architecture/11-testing-strategy.md (§7 runbook + §"L4a setup").
+# Remediation when a live test fails is manual: re-record the affected cassette
+# with the source's committed //go:build record driver and re-baseline the L3
+# snapshot per docs/architecture/11-testing-strategy.md (§6 "L3 drift triage"
+# and §7 "L4a live setup").
 
 on:
   schedule:

@@ -26,11 +26,10 @@ func calendarQuarterConfig() *spec.PeriodConfig {
 	}
 }
 
-// TestCadencePeriod_MatchesDocumentedFolderScheme pins the table in
-// docs/configuration.md §Manual evidence folder scheme, which has
-// promised a per-frequency {period_id} since before the code produced
-// one. It also pins the contract with the Evidence SPA, whose
-// currentPeriod() in src/lib/period.ts derives these same keys
+// TestCadencePeriod_MatchesDocumentedFolderScheme pins the period table
+// in docs/architecture/10-cadence-model.md (CadencePeriod) and
+// docs/guides/manual-evidence.md. It also pins the contract with the
+// Evidence SPA, whose currentPeriod() in src/lib/period.ts derives these same keys
 // client-side: a customer who uploads where the SPA tells them must
 // land in the folder the CLI reads.
 //
