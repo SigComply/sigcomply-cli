@@ -8,20 +8,21 @@
 # expressed in .sigcomply.yaml as bracketed source instances, and one
 # `sigcomply check` covers all of them — see the config sketch below.
 #
-# Why that matters, and why the older matrix version of this example was
-# wrong: every slot the shipped frameworks declare is `one-or-more`, so
-# all instances union into a single evaluation. One run therefore
-# produces ONE framework verdict over the whole estate, one vault run
-# folder, and one submission. A matrix produces three independent runs,
-# each asserting the entire framework from one account's data and each
-# submitting separately — three partial claims an auditor cannot
-# compose into "this organization is compliant".
+# Why no matrix: every slot the shipped frameworks declare, except the
+# roster slot (exactly one roster source), is `one-or-more`, so all
+# instances union into a single evaluation. One run gives one result per
+# policy over the whole estate, one vault run folder and one submission.
+# A matrix gives three independent runs, each evaluating every policy on
+# one account's data and each submitting separately: three partial
+# results an auditor cannot combine into one.
 #
 # Per-account evidence stays independently verifiable either way: the
 # instance key rides in `source_id` and in the envelope filename
 # (`{evidence_type}__{source_id}.json`).
 #
-# Copy to .github/workflows/compliance-multi-account.yml.
+# Copy to .github/workflows/compliance-multi-account.yml. Cloud
+# submission also needs `cloud.base_url: https://sigcomply.com` in
+# .sigcomply.yaml; without it the CLI sends nothing.
 
 name: Compliance — Multi-Account
 
@@ -36,7 +37,12 @@ permissions:
   contents: read
 
 env:
-  SIGCOMPLY_VERSION: v0.73.2    # pinned release; bump to a newer tag, or set to "latest" for the newest
+  # "latest" installs the newest release on every run. Pin a release tag
+  # (vX.Y.Z, see https://github.com/SigComply/sigcomply-cli/releases) for
+  # repeatable runs, and bump it when you upgrade.
+  SIGCOMPLY_VERSION: latest
+  AWS_REGION: us-east-1
+  AWS_ROLE_ARN: arn:aws:iam::000000000000:role/REPLACE_ME   # the hub role
 
 jobs:
   compliance:
@@ -64,11 +70,13 @@ jobs:
       # Each account's read-only audit role is assumed from there, via
       # the per-instance `role_arn` in .sigcomply.yaml. The spoke ARNs
       # are account identifiers, not secrets, so they live in the config
-      # in version control rather than in repo secrets.
+      # in version control rather than in repo secrets. The hub role's
+      # trust policy and IAM OIDC provider must accept the audience
+      # https://api.sigcomply.com.
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-east-1
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
           audience: https://api.sigcomply.com
 
       - name: Run SigComply

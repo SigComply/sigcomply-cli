@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -161,6 +162,7 @@ func TestInitCI_GoldenCompare_GitHub(t *testing.T) {
 	// Resolve golden paths before runInitCIIn changes cwd.
 	goldenDaily := absTestdata(t, "golden_compliance-daily.yml")
 	goldenOnPush := absTestdata(t, "golden_compliance-on-push.yml")
+	setCLIVersionForTest(t, goldenVersion)
 	dir := t.TempDir()
 	if _, err := runInitCIIn(t, dir, "--ci", ciGitHub); err != nil {
 		t.Fatalf("init-ci: %v", err)
@@ -190,6 +192,7 @@ func TestInitCI_GoldenCompare_GitHub(t *testing.T) {
 
 func TestInitCI_GoldenCompare_GitLab(t *testing.T) {
 	goldenPath := absTestdata(t, "golden_gitlab-ci.yml")
+	setCLIVersionForTest(t, goldenVersion)
 	dir := t.TempDir()
 	if _, err := runInitCIIn(t, dir, "--ci", "gitlab"); err != nil {
 		t.Fatalf("init-ci: %v", err)
@@ -206,6 +209,10 @@ func TestInitCI_GoldenCompare_GitLab(t *testing.T) {
 		t.Errorf("scaffolded .gitlab-ci.yml differs from golden\n--- got ---\n%s\n--- want ---\n%s", got, want)
 	}
 }
+
+// goldenVersion is the build version the golden files are rendered
+// with, so they don't change on every release.
+const goldenVersion = "1.2.3"
 
 // absTestdata resolves a golden-file path relative to this test
 // package while the test is still in its original cwd.
@@ -347,4 +354,225 @@ func readEmbed(path string) (string, error) {
 		return "", err
 	}
 	return string(b), nil
+}
+
+// setCLIVersionForTest pins the build version init-ci renders into the
+// scaffold, and restores it when the test ends.
+func setCLIVersionForTest(t *testing.T, v string) {
+	t.Helper()
+	prev := cliVersion
+	cliVersion = v
+	t.Cleanup(func() { cliVersion = prev })
+}
+
+// releaseTag is a sample clean release version.
+const releaseTag = "v0.88.4"
+
+func TestScaffoldVersion(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"0.88.4", releaseTag},                      // goreleaser {{.Version}}: no "v"
+		{releaseTag, releaseTag},                    // make build on a tagged commit
+		{"v10.0.12", "v10.0.12"},                    // multi-digit parts
+		{"dev", versionLatest},                      // go build without ldflags
+		{"", versionLatest},                         // defensive
+		{"v0.88.3-4-gabc1234", versionLatest},       // git describe past a tag
+		{"v0.88.3-4-gabc1234-dirty", versionLatest}, // dirty tree
+		{"v0.88.4-dirty", versionLatest},            // dirty tree on a tag
+		{"45c25e3", versionLatest},                  // git describe --always, no tags
+		{"v1.2", versionLatest},                     // not a full semver
+		{"v01.2.3", versionLatest},                  // leading zero is not semver
+		{"v1.2.3 ", versionLatest},                  // stray whitespace
+	}
+	for _, tc := range cases {
+		if got := scaffoldVersion(tc.in); got != tc.want {
+			t.Errorf("scaffoldVersion(%q) = %q; want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// readScaffold runs init-ci for ci into a fresh dir and returns every
+// written file's body keyed by base name.
+func readScaffold(t *testing.T, ci string) map[string]string {
+	t.Helper()
+	dir := t.TempDir()
+	if _, err := runInitCIIn(t, dir, "--ci", ci); err != nil {
+		t.Fatalf("init-ci --ci %s: %v", ci, err)
+	}
+	root := dir
+	if ci == ciGitHub {
+		root = filepath.Join(dir, ".github", "workflows")
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	out := map[string]string{}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(root, e.Name()))
+		if err != nil {
+			t.Fatalf("read %s: %v", e.Name(), err)
+		}
+		out[e.Name()] = string(b)
+	}
+	if len(out) == 0 {
+		t.Fatalf("init-ci --ci %s wrote no files", ci)
+	}
+	return out
+}
+
+// versionLine matches the SIGCOMPLY_VERSION assignment in either CI's
+// syntax (GitHub env: unquoted, GitLab variables: double-quoted).
+var versionLine = regexp.MustCompile(`(?m)^\s*SIGCOMPLY_VERSION:\s*"?([^"\s#]+)"?`)
+
+func TestInitCI_RendersReleaseVersion(t *testing.T) {
+	for _, ci := range supportedCIs {
+		t.Run(ci, func(t *testing.T) {
+			setCLIVersionForTest(t, "0.91.2")
+			for name, body := range readScaffold(t, ci) {
+				m := versionLine.FindStringSubmatch(body)
+				if m == nil {
+					t.Errorf("%s: no SIGCOMPLY_VERSION line", name)
+					continue
+				}
+				if m[1] != "v0.91.2" {
+					t.Errorf("%s: SIGCOMPLY_VERSION = %q; want v0.91.2 (the running binary's release)", name, m[1])
+				}
+				if strings.Contains(body, scaffoldVersionPlaceholder) {
+					t.Errorf("%s: placeholder %q left unrendered", name, scaffoldVersionPlaceholder)
+				}
+			}
+		})
+	}
+}
+
+func TestInitCI_DevBuildRendersLatest(t *testing.T) {
+	for _, ci := range supportedCIs {
+		t.Run(ci, func(t *testing.T) {
+			setCLIVersionForTest(t, "v0.88.3-4-gabc1234-dirty")
+			for name, body := range readScaffold(t, ci) {
+				m := versionLine.FindStringSubmatch(body)
+				if len(m) < 2 || m[1] != versionLatest {
+					t.Errorf("%s: SIGCOMPLY_VERSION = %v; want latest for a non-release build", name, m)
+				}
+				// The install step must resolve "latest" itself.
+				if !strings.Contains(body, `if [ "$version" = "latest" ]`) {
+					t.Errorf("%s: install step does not handle SIGCOMPLY_VERSION=latest", name)
+				}
+			}
+		})
+	}
+}
+
+func TestInitCI_StdoutVersionGuidance(t *testing.T) {
+	setCLIVersionForTest(t, "v0.91.2")
+	out, err := runInitCIIn(t, t.TempDir(), "--ci", ciGitHub)
+	if err != nil {
+		t.Fatalf("init-ci: %v", err)
+	}
+	if !strings.Contains(out, "v0.91.2") {
+		t.Errorf("stdout should name the pinned version v0.91.2: %s", out)
+	}
+
+	setCLIVersionForTest(t, "dev")
+	out, err = runInitCIIn(t, t.TempDir(), "--ci", ciGitHub)
+	if err != nil {
+		t.Fatalf("init-ci: %v", err)
+	}
+	if !strings.Contains(out, `"latest"`) || !strings.Contains(out, "pin") {
+		t.Errorf("stdout for a dev build should say the scaffold tracks \"latest\" and suggest pinning: %s", out)
+	}
+}
+
+// Cloud submission only happens when cloud.base_url is set, so the
+// next steps must say so; the OIDC audience is a fixed identifier.
+func TestInitCI_StdoutMentionsCloudBaseURL(t *testing.T) {
+	for _, ci := range supportedCIs {
+		out, err := runInitCIIn(t, t.TempDir(), "--ci", ci)
+		if err != nil {
+			t.Fatalf("init-ci --ci %s: %v", ci, err)
+		}
+		for _, want := range []string{"cloud.base_url", "https://sigcomply.com", "https://api.sigcomply.com"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("--ci %s stdout missing %q:\n%s", ci, want, out)
+			}
+		}
+	}
+}
+
+// The GitLab job must hand the AWS SDK a web-identity token: AWS_ROLE_ARN
+// alone gives the default credential chain nothing to assume the role with.
+func TestInitCI_GitLabWiresAWSWebIdentity(t *testing.T) {
+	body := readScaffold(t, ciGitLab)[".gitlab-ci.yml"]
+	for _, want := range []string{
+		"AWS_WEB_IDENTITY_TOKEN_FILE",
+		"AWS_ROLE_ARN",
+		`"$SIGCOMPLY_ID_TOKEN" >`,
+		"aud: https://api.sigcomply.com",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf(".gitlab-ci.yml missing %q", want)
+		}
+	}
+	if !strings.Contains(body, "export AWS_WEB_IDENTITY_TOKEN_FILE") {
+		t.Error(".gitlab-ci.yml must export AWS_WEB_IDENTITY_TOKEN_FILE so the CLI process sees it")
+	}
+	// Keep the token out of the job log.
+	for _, bad := range []string{"echo $SIGCOMPLY_ID_TOKEN", `echo "$SIGCOMPLY_ID_TOKEN"`, "set -x", "cat \"$AWS_WEB_IDENTITY_TOKEN_FILE\""} {
+		if strings.Contains(body, bad) {
+			t.Errorf(".gitlab-ci.yml contains %q, which would print the token", bad)
+		}
+	}
+	// Header must not cite a doc that does not exist or promise cron comments.
+	if strings.Contains(body, "10-ci-execution-model") {
+		t.Error(".gitlab-ci.yml header cites docs/architecture/10-ci-execution-model.md, which does not exist")
+	}
+	if strings.Contains(body, "example cron") {
+		t.Error(".gitlab-ci.yml header refers to cron comments it does not contain")
+	}
+}
+
+// The hand-written examples under examples/ are copied by users as-is, so
+// they must not carry a pinned release that silently goes stale, and the
+// GitLab one must give the AWS SDK the same web-identity wiring as the
+// init-ci template.
+func TestExamples_InstallLatestAndWireAWS(t *testing.T) {
+	root := filepath.Join("..", "..", "examples")
+	files := []string{
+		filepath.Join(root, "github-actions", "basic.yml"),
+		filepath.Join(root, "github-actions", "multi-environment.yml"),
+		filepath.Join(root, "gitlab-ci.yml"),
+	}
+	for _, p := range files {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatalf("read %s: %v", p, err)
+		}
+		body := string(b)
+		m := versionLine.FindStringSubmatch(body)
+		if len(m) < 2 || m[1] != versionLatest {
+			t.Errorf("%s: SIGCOMPLY_VERSION = %v; want latest (with a comment on pinning)", p, m)
+		}
+		if !strings.Contains(body, "Pin a release tag") {
+			t.Errorf("%s: missing the comment telling users to pin a release", p)
+		}
+		if !strings.Contains(body, "cloud.base_url") {
+			t.Errorf("%s: should say cloud submission needs cloud.base_url", p)
+		}
+		if strings.Contains(body, "fail_on_violation: true") {
+			t.Errorf("%s: ci.fail_on_violation already defaults to true", p)
+		}
+	}
+	gl, err := os.ReadFile(filepath.Join(root, "gitlab-ci.yml"))
+	if err != nil {
+		t.Fatalf("read gitlab example: %v", err)
+	}
+	if !strings.Contains(string(gl), "export AWS_WEB_IDENTITY_TOKEN_FILE") {
+		t.Error("examples/gitlab-ci.yml must export AWS_WEB_IDENTITY_TOKEN_FILE")
+	}
 }

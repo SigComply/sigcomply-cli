@@ -411,3 +411,56 @@ func TestValidateControls_JustificationIsForInclusionOnly(t *testing.T) {
 		})
 	}
 }
+
+// TestLoadProjectConfig_AcmeCorpDocsExample parses the documented
+// single-account SOC 2 example in docs/ (TestLoadProjectConfig_AcmeCorpExample
+// covers a separate testdata copy) so it can't drift out of the strict
+// loader's accepted shape. It also pins the cloud block to the key that
+// actually turns submission on.
+func TestLoadProjectConfig_AcmeCorpDocsExample(t *testing.T) {
+	path := filepath.Join("..", "..", "docs", "architecture", "examples", "acmecorp.sigcomply.yaml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	cfg, err := LoadProjectConfig(data)
+	if err != nil {
+		t.Fatalf("LoadProjectConfig(acmecorp example): %v", err)
+	}
+	if cfg.Framework != testFrameworkSOC2 {
+		t.Errorf("Framework = %q; want %q", cfg.Framework, testFrameworkSOC2)
+	}
+	for _, want := range []string{testSourceAWSIAM, "okta", "github", "manual.pdf"} {
+		if _, ok := cfg.Sources[want]; !ok {
+			t.Errorf("source %q missing; got %v", want, cfg.Sources)
+		}
+	}
+	if cfg.Cloud.BaseURL != "https://sigcomply.com" {
+		t.Errorf("cloud.base_url = %q; want https://sigcomply.com (submission is off without it)", cfg.Cloud.BaseURL)
+	}
+}
+
+// TestLoadProjectConfig_MultiAccountExample parses the multi-account example
+// that examples/github-actions/multi-environment.yml points users at.
+func TestLoadProjectConfig_MultiAccountExample(t *testing.T) {
+	path := filepath.Join("..", "..", "docs", "architecture", "examples", "multi-account.sigcomply.yaml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	cfg, err := LoadProjectConfig(data)
+	if err != nil {
+		t.Fatalf("LoadProjectConfig(multi-account example): %v", err)
+	}
+	for _, want := range []string{testSourceAWSIAM, "aws.iam[staging]", "aws.iam[dev]", "aws.s3[staging]", "github[labs]", "manual.pdf"} {
+		if _, ok := cfg.Sources[want]; !ok {
+			t.Errorf("source %q missing; got %v", want, cfg.Sources)
+		}
+	}
+	if got := cfg.Sources["aws.iam[dev]"]["role_arn"]; got != "arn:aws:iam::345678901234:role/SigComplyAudit" {
+		t.Errorf("aws.iam[dev] role_arn = %v", got)
+	}
+	if got := cfg.Sources["github[labs]"]["token_env"]; got != "GITHUB_TOKEN_LABS" {
+		t.Errorf("github[labs] token_env = %v", got)
+	}
+}

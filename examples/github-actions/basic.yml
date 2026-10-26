@@ -1,10 +1,14 @@
 # Example: Basic SigComply Compliance Check (standalone workflow)
 #
-# SigComply ships NO reusable `workflow_call` workflow and no composite
-# action — integration is a standalone job that installs the released
-# binary via curl and runs `sigcomply check`. This mirrors what
-# `sigcomply init-ci` scaffolds; copy it to
-# .github/workflows/compliance.yml and edit the env block.
+# SigComply ships no reusable `workflow_call` workflow and no composite
+# action. Integration is a standalone job that installs the released
+# binary with curl and runs `sigcomply check`.
+#
+# This is a single-workflow alternative to `sigcomply init-ci`, which
+# writes one workflow per cadence (`check --cadence <X>` / `--on-push`)
+# plus an `evidence due` step. Prefer `init-ci` for a SOC 2 project. To
+# use this file, copy it to .github/workflows/compliance.yml and edit the
+# env block.
 
 name: Compliance Check
 
@@ -17,11 +21,17 @@ on:
     - cron: '0 2 * * *'
 
 permissions:
-  id-token: write    # OIDC role assumption + SigComply Cloud submission
+  # OIDC token for AWS role assumption and SigComply Cloud submission.
+  # Submission also needs `cloud.base_url: https://sigcomply.com` in
+  # .sigcomply.yaml; without it the CLI sends nothing.
+  id-token: write
   contents: read
 
 env:
-  SIGCOMPLY_VERSION: v0.73.2    # pinned release; bump to a newer tag, or set to "latest" for the newest
+  # "latest" installs the newest release on every run. Pin a release tag
+  # (vX.Y.Z, see https://github.com/SigComply/sigcomply-cli/releases) for
+  # repeatable runs, and bump it when you upgrade.
+  SIGCOMPLY_VERSION: latest
   AWS_REGION: us-east-1
   AWS_ROLE_ARN: arn:aws:iam::000000000000:role/REPLACE_ME
 
@@ -44,6 +54,9 @@ jobs:
           curl -fsSL "https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply_${ver}_linux_amd64.tar.gz" -o /tmp/sigcomply.tar.gz
           tar -xzf /tmp/sigcomply.tar.gz -C /usr/local/bin sigcomply
           chmod +x /usr/local/bin/sigcomply
+      # The token is minted with audience https://api.sigcomply.com, so the
+      # IAM OIDC provider for token.actions.githubusercontent.com and the
+      # role's trust policy must accept that audience.
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
@@ -52,6 +65,7 @@ jobs:
       - name: Run SigComply
         # Framework comes from `framework:` in .sigcomply.yaml (there is no
         # --framework flag on `check`). Exit code: 0 pass, 1 violations,
-        # 2 execution error, 3 config error. To fail the job on violations,
-        # set `ci.fail_on_violation: true` in .sigcomply.yaml.
+        # 2 execution error, 3 config error. Violations fail the job by
+        # default; set `ci.fail_on_violation: false` in .sigcomply.yaml to
+        # keep it green.
         run: sigcomply check

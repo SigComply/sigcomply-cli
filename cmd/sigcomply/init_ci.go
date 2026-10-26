@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -17,12 +18,39 @@ import (
 )
 
 // templatesFS holds the workflow templates shipped with the CLI. They
-// are static YAML (no Go template substitution today) — `init-ci`
-// writes them verbatim and the customer fills in the placeholders
-// (`AWS_ROLE_ARN`, `SIGCOMPLY_VERSION`, etc.).
+// are plain YAML, not Go templates (GitHub's `${{ ... }}` would clash
+// with text/template). `init-ci` writes them verbatim except for one
+// substitution: scaffoldVersionPlaceholder becomes the release this
+// binary was built from (see scaffoldVersion). The customer fills in the
+// remaining placeholders (`AWS_ROLE_ARN`, etc.).
 //
 //go:embed templates/github/*.yml templates/gitlab/.gitlab-ci.yml
 var templatesFS embed.FS
+
+// scaffoldVersionPlaceholder marks where the templates take the CLI
+// release to install (SIGCOMPLY_VERSION).
+const scaffoldVersionPlaceholder = "__SIGCOMPLY_VERSION__"
+
+// versionLatest is the SIGCOMPLY_VERSION value the templates' install
+// step resolves to the newest GitHub release at run time.
+const versionLatest = "latest"
+
+// releaseSemver matches a clean release version as the build injects it:
+// goreleaser passes "0.88.4", `make build` on a tagged commit passes
+// "v0.88.4" (git describe). Anything else (git describe past a tag,
+// "-dirty", a bare commit hash, "dev") is not a published release.
+var releaseSemver = regexp.MustCompile(`^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$`)
+
+// scaffoldVersion returns the SIGCOMPLY_VERSION init-ci writes: the
+// running binary's release tag ("v0.88.4") when it was built from one, so
+// the workflows install the same version the user scaffolded with, and
+// "latest" otherwise, because a dev build has no release to download.
+func scaffoldVersion(buildVersion string) string {
+	if !releaseSemver.MatchString(buildVersion) {
+		return versionLatest
+	}
+	return "v" + strings.TrimPrefix(buildVersion, "v")
+}
 
 // CI provider identifiers accepted by --ci.
 const (
@@ -106,11 +134,12 @@ func runInitCI(stdout io.Writer, flags initCIFlags) error {
 				err: fmt.Errorf("init-ci: refusing to overwrite existing file %q (re-run with --force to override)", conflict)}
 		}
 	}
-	written, err := writeScaffold(plan)
+	version := scaffoldVersion(cliVersion)
+	written, err := writeScaffold(plan, version)
 	if err != nil {
 		return &exitCodeError{code: orchestrator.ExitExecution, err: err}
 	}
-	printSummary(stdout, framework, flags.ci, written)
+	printSummary(stdout, framework, flags.ci, version, written)
 	return nil
 }
 
@@ -232,13 +261,14 @@ func firstConflict(plan []scaffoldFile) (string, error) {
 	return "", nil
 }
 
-func writeScaffold(plan []scaffoldFile) ([]string, error) {
+func writeScaffold(plan []scaffoldFile, version string) ([]string, error) {
 	written := make([]string, 0, len(plan))
 	for _, f := range plan {
 		body, err := fs.ReadFile(templatesFS, f.embeddedPath)
 		if err != nil {
 			return nil, fmt.Errorf("init-ci: read embedded %q: %w", f.embeddedPath, err)
 		}
+		body = []byte(strings.ReplaceAll(string(body), scaffoldVersionPlaceholder, version))
 		if err := os.MkdirAll(filepath.Dir(f.outPath), 0o750); err != nil {
 			return nil, fmt.Errorf("init-ci: mkdir %q: %w", filepath.Dir(f.outPath), err)
 		}
@@ -250,17 +280,23 @@ func writeScaffold(plan []scaffoldFile) ([]string, error) {
 	return written, nil
 }
 
-func printSummary(stdout io.Writer, framework, ci string, written []string) {
+func printSummary(stdout io.Writer, framework, ci, version string, written []string) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "sigcomply init-ci: scaffolded %d file(s) for framework=%q ci=%q\n", len(written), framework, ci)
 	for _, p := range written {
 		fmt.Fprintf(&b, "  wrote %s\n", p)
 	}
 	b.WriteString("\nNext steps:\n")
-	b.WriteString("  1. Replace AWS_ROLE_ARN placeholders with the IAM role you've configured\n")
-	b.WriteString("     for OIDC role assumption (aud: https://api.sigcomply.com).\n")
-	b.WriteString("  2. SIGCOMPLY_VERSION is pinned to a tagged release; bump it to adopt a\n")
-	b.WriteString("     newer version (or set it to \"latest\" to always track the newest).\n")
+	b.WriteString("  1. Replace the AWS_ROLE_ARN placeholder with the IAM role CI assumes over\n")
+	b.WriteString("     OIDC. The IAM OIDC provider and the role's trust policy must accept the\n")
+	b.WriteString("     audience https://api.sigcomply.com.\n")
+	if version == versionLatest {
+		b.WriteString("  2. SIGCOMPLY_VERSION is \"latest\" because this CLI is not a release build.\n")
+		b.WriteString("     Set it to a release tag (e.g. v1.2.3) to pin the version CI installs.\n")
+	} else {
+		fmt.Fprintf(&b, "  2. SIGCOMPLY_VERSION is pinned to %s, this CLI's release. Bump it to\n", version)
+		b.WriteString("     adopt a newer release, or set it to \"latest\" to track the newest.\n")
+	}
 	switch ci {
 	case ciGitLab:
 		b.WriteString("  3. Create one GitLab pipeline schedule per cadence (daily, weekly,\n")
@@ -268,5 +304,8 @@ func printSummary(stdout io.Writer, framework, ci string, written []string) {
 	case ciGitHub:
 		b.WriteString("  3. Commit the workflow files; cron schedules will fire automatically.\n")
 	}
+	b.WriteString("  4. To send pass/fail counts to SigComply Cloud (paid plan), set\n")
+	b.WriteString("     cloud.base_url: https://sigcomply.com in .sigcomply.yaml. Without it the\n")
+	b.WriteString("     CLI does not submit anything.\n")
 	_, _ = stdout.Write([]byte(b.String())) //nolint:errcheck // status output; nothing useful to do on failure
 }

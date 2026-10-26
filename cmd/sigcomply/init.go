@@ -198,9 +198,10 @@ vault:
 #     reason: "Inherited from cloud provider; SOC 2 report on file."
 #     approved_by: ciso@example.com
 #
-# Submit aggregated counts to SigComply Cloud (paid tier; OIDC in CI):
+# Send pass/fail counts to SigComply Cloud (paid plan; runs in CI with an
+# OIDC token). Nothing is sent unless base_url is set:
 # cloud:
-#   base_url: https://api.sigcomply.com
+#   base_url: https://sigcomply.com
 #
 # ---------------------------------------------------------------------------
 # Declare the estate this project covers (uncomment to opt in)

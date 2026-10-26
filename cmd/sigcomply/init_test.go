@@ -170,3 +170,18 @@ func TestInit_Soc2NextStepsRecommendInitCI(t *testing.T) {
 		t.Errorf("soc2 next steps should recommend init-ci; got:\n%s", got)
 	}
 }
+
+// The commented cloud block must point at the host that serves
+// /api/v1/runs. api.sigcomply.com is only the OIDC audience string; it
+// does not resolve.
+func TestInit_CloudBaseURLComment(t *testing.T) {
+	for _, fw := range []string{defaultFW, isoFW} {
+		body := starterConfig(fw)
+		if !strings.Contains(body, "#   base_url: https://sigcomply.com\n") {
+			t.Errorf("%s scaffold: commented cloud.base_url should be https://sigcomply.com", fw)
+		}
+		if strings.Contains(body, "base_url: https://api.sigcomply.com") {
+			t.Errorf("%s scaffold: base_url must not be the OIDC audience https://api.sigcomply.com", fw)
+		}
+	}
+}

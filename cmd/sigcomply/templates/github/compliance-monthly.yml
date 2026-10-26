@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 env:
-  SIGCOMPLY_VERSION: v0.73.2    # pinned release; bump to a newer tag, or set to "latest" for the newest
+  SIGCOMPLY_VERSION: __SIGCOMPLY_VERSION__    # release tag to install (pin one for repeatable runs), or "latest"
   AWS_REGION: us-east-1
   AWS_ROLE_ARN: arn:aws:iam::000000000000:role/REPLACE_ME
 

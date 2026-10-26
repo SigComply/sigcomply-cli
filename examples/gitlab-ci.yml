@@ -1,8 +1,9 @@
 # SigComply CLI - GitLab CI Example
 #
-# A minimal, working GitLab CI pipeline for SigComply compliance checks.
-# This mirrors what `sigcomply init-ci --ci gitlab` scaffolds; the
-# recommended path is to run that command rather than copy this by hand.
+# A hand-written GitLab CI pipeline for SigComply compliance checks. The
+# recommended path is `sigcomply init-ci --ci gitlab`, which writes the
+# same jobs plus an `evidence due` step in the daily job and pins the
+# version of the CLI you ran it with.
 #
 # How it works:
 #   - On every push to the default branch and every merge request, the
@@ -14,14 +15,26 @@
 #
 # The framework is read from `framework:` in `.sigcomply.yaml` — there is
 # no `--framework` flag on `check`. Exit codes: 0 pass, 1 violations,
-# 2 execution error, 3 config error.
+# 2 execution error, 3 config error. Violations fail the job by default;
+# set `ci.fail_on_violation: false` in .sigcomply.yaml to keep it green.
 #
-# OIDC: the `id_tokens` block mints a JWT scoped to
-# `https://api.sigcomply.com`; the CLI uses it for SigComply Cloud
-# submission and AWS role assumption. Replace the placeholders below.
+# OIDC: `id_tokens` mints SIGCOMPLY_ID_TOKEN, a GitLab JWT with audience
+# `https://api.sigcomply.com`. It is used twice:
+#   - The CLI sends it to SigComply Cloud when `cloud.base_url:
+#     https://sigcomply.com` is set in .sigcomply.yaml. Without that key
+#     nothing is submitted.
+#   - `before_script` writes it to a private temp file and exports
+#     AWS_WEB_IDENTITY_TOKEN_FILE. With AWS_ROLE_ARN, the AWS SDK then
+#     assumes that role with web identity. The IAM OIDC provider for your
+#     GitLab host and the role's trust policy must accept the audience
+#     `https://api.sigcomply.com`.
+# Replace the AWS_ROLE_ARN placeholder below.
 
 variables:
-  SIGCOMPLY_VERSION: "v0.73.2"   # pinned release; bump to a newer tag, or set to "latest" for the newest
+  # "latest" installs the newest release on every run. Pin a release tag
+  # (vX.Y.Z, see https://github.com/SigComply/sigcomply-cli/releases) for
+  # repeatable runs, and bump it when you upgrade.
+  SIGCOMPLY_VERSION: "latest"
   AWS_REGION: "us-east-1"
   AWS_ROLE_ARN: "arn:aws:iam::000000000000:role/REPLACE_ME"
 
@@ -43,6 +56,14 @@ variables:
       curl -fsSL "https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply_${ver}_linux_amd64.tar.gz" -o /tmp/sigcomply.tar.gz
       tar -xzf /tmp/sigcomply.tar.gz -C /usr/local/bin sigcomply
       chmod +x /usr/local/bin/sigcomply
+    # AWS web identity: the SDK's default credential chain assumes
+    # AWS_ROLE_ARN with the token in this file. before_script and script
+    # share one shell, so the export reaches `sigcomply`. The file is
+    # created mode 0600 by mktemp; the token is never printed.
+    - |
+      AWS_WEB_IDENTITY_TOKEN_FILE="$(mktemp)"
+      printf '%s' "$SIGCOMPLY_ID_TOKEN" > "$AWS_WEB_IDENTITY_TOKEN_FILE"
+      export AWS_WEB_IDENTITY_TOKEN_FILE
 
 compliance:on_push:
   extends: .sigcomply_base
