@@ -378,7 +378,7 @@ same self-registering-factory pattern. In-tree backends: `local`, `s3`,
 
 4. **Write integration tests** (see `internal/vault/vaulttest/`). Write
    evidence using the period-first run layout — see the
-   [storage layout in AGENTS.md](../../AGENTS.md) (`{framework}/{period_id}/
+   [vault layout](../architecture/05-vault-layout.md#top-level-layout) (`{framework}/{period_id}/
    run_{timestamp}_{run_id_short}/policies/{policy_id}/...`, basic ISO 8601
    timestamps, no colons).
 

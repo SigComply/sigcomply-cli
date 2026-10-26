@@ -737,7 +737,7 @@ evaluated. If no supported files exist at all, the policy fails with
 - Whether signatures inside the PDF are present or valid
 - Any form of fraud detection — a determined customer can produce a fabricated PDF that satisfies all checks; that is and remains the auditor's job
 
-The reasoning is in [AGENTS.md §Manual evidence design contract](../../AGENTS.md) — the CLI is a custody-of-evidence layer, not a content reviewer. The auditor reads the PDF; the CLI gives the auditor a tamper-evident timeline of what was uploaded when.
+The reasoning is in [AGENTS.md §Manual evidence contract](../../AGENTS.md#manual-evidence-contract-read-before-touching-internalsourcesmanual-or-internalevaluatormanual_checkgo) — the CLI is a custody-of-evidence layer, not a content reviewer. The auditor reads the PDF; the CLI gives the auditor a tamper-evident timeline of what was uploaded when.
 
 ### Missing evidence — error format
 

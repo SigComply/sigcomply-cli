@@ -3,9 +3,10 @@
 // cloud.google.com/go/storage) at a go-vcr cassette instead of the live API, so
 // GCP source plugins can be exercised offline through the real deserializer.
 //
-// GCP has no usable test credential in this org (SA-key creation and
-// impersonation are blocked org-wide — see AGENTS.local.md), so cassettes are
-// hand-authored: canned Discovery-shaped JSON is served from an httptest server
+// The maintainers' GCP org blocks service-account key creation and
+// impersonation, so it yields no usable test credential. Sources that cannot be
+// recorded live (see RecordLiveOptions) use hand-authored cassettes instead:
+// canned Discovery-shaped JSON is served from an httptest server
 // at record time (RecordOptions, endpoint = the httptest URL), captured by the
 // recorder, then the recorded URL is rewritten to the real googleapis endpoint;
 // replay (ReplayOptions, endpoint = the real endpoint) matches on method+URL

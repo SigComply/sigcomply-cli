@@ -15,8 +15,9 @@ import (
 // entra_conformance_test.go: azure.directory_user L1+L2 (WU-2.13). The MFA
 // registration report (/reports/authenticationMethods/userRegistrationDetails)
 // is Entra-ID-P2-gated in this tenant (RequestFromNonPremiumTenantOrB2CTenant),
-// so the cassette is hand-authored (httptest-record) per the decision in
-// AGENTS.local.md rather than recorded live. Joins the report rows with /users:
+// so the cassette is hand-authored (httptest-record) rather than recorded live,
+// per "Entra's P2-gated surfaces are the one L4a exception" in
+// docs/architecture/11-testing-strategy.md. Joins the report rows with /users:
 // one admin with MFA + one standard user without.
 func TestAzureEntraConformance(t *testing.T) {
 	newPlugin := func() core.SourcePlugin { return newCassettePlugin(t) }

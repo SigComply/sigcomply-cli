@@ -2129,7 +2129,7 @@ inspect PDF contents:
 The CLI deliberately does **not** read PDF contents. It does not check
 internal dates, signatures inside the document, attendee lists, or
 whether the document matches the policy intent — those are the
-auditor's job. See [AGENTS.md §Manual evidence design contract](../AGENTS.md)
+auditor's job. See [AGENTS.md §Manual evidence contract](../AGENTS.md#manual-evidence-contract-read-before-touching-internalsourcesmanual-or-internalevaluatormanual_checkgo)
 for the full rationale.
 
 ### Bucket-level immutability — required for tamper-resistance

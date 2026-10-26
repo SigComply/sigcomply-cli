@@ -11,12 +11,15 @@ This file points to the docs that own each topic and does not restate them (arch
 - Agents do the whole SDLC, from research to a pushed commit with green CI and release.
 - The human sets intent, approves plans and owns the decisions listed under "When to ask the
   human" in the `task-workflow` skill.
-- Pre-launch: commit and push straight to `main`, no PRs. Local state (cadence state files) has
-  no backward-compatibility burden; cross-repo contracts still change in lockstep (Invariant #1).
+- Pre-launch, internal work by maintainers commits and pushes straight to `main`, no PRs.
+  Outside contributors open a pull request; `CONTRIBUTING.md` describes both flows. Local state
+  (cadence state files) has no backward-compatibility burden; cross-repo contracts still change in
+  lockstep (Invariant #1).
 - This repo is public, and another human contributor also commits to `main`. Everything you
   commit is published.
 - A push to `main` runs the tests and, unless every changed file is path-ignored (docs and agent
-  files), cuts a versioned GitHub Release that the E2E repos install at once. Details in
+  files), cuts a versioned GitHub Release. The GitHub E2E repo picks it up on its next daily run;
+  the GitLab E2E repo pins a version and needs a manual bump. Details in
   `docs/claude/development-workflow.md`.
 
 ## Every task
@@ -47,7 +50,8 @@ in them.
 8. Fan out subagents for wide research and parallel review; keep the main context for decisions.
 9. Comments explain why, not what.
 10. Pick the commit type deliberately: it sets the release version bump (`feat` minor, any other
-    type patch, `<type>!:` major).
+    type patch). `<type>!:` or the words "breaking change" anywhere in a subject, in any case, is
+    major, so never write them in a subject unless you mean it.
 11. Never write the release skip marker in a commit message unless you mean to skip the release.
     The release job matches it anywhere in the head commit's message, so quoting it while
     explaining it skips the release (this shipped `02d4d09` unreleased). In prose, write "the
