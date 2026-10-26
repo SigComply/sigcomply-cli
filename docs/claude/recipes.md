@@ -9,12 +9,9 @@
 > or CI run**, see
 > [development-workflow.md](./development-workflow.md).
 
-> **Architecture note**: Policies are **Go-native**, not `.rego` files.
-> There are no `.rego` policy files in the tree. The three coupling points
-> are the **source plugin** (emits evidence types), the **evidence-type
-> registry** (embedded JSON Schemas — the sole mediator), and the
-> **policy** (accepts evidence types). Sources and policies never name
-> each other. See [ARCHITECTURE.md](../../ARCHITECTURE.md) and
+> **Architecture note**: policies are Go values, not `.rego` files. The
+> source plugin emits evidence types, the policy accepts them, and the
+> evidence-type registry mediates (AGENTS.md Invariant #4). See
 > [04a-evidence-type-registry.md](../architecture/04a-evidence-type-registry.md).
 
 ---
@@ -47,25 +44,47 @@ declares via `Emits()`. It never references a policy. Live example:
        Payload:     body,                       // json.Marshal of the canonical payload shape
        SourceID:    SourceID,
        CollectedAt: now,
+       Scope:       &core.RecordScope{...},    // account/subscription/project queried, when known
    })
    ```
-   The payload must conform to the evidence type's JSON Schema — the
-   collector validates every record (full draft-07: enum/format/min/
-   nested all enforced) before signing; the first non-conforming record
-   fails the binding and tags the policy `error` (exit 3). Do the full
-   vendor→canonical translation here; **never** leave a field null
-   expecting the policy to
-   guard it (see the null-trap antipattern in the CLI AGENTS.md).
+   `Scope` is signed into the envelope; set it whenever the plugin knows
+   which account, subscription or project it queried (the conformance
+   test asserts it through `Options.WantScope`).
+   The payload must conform to the evidence type's JSON Schema. The
+   collector validates every record (full draft-07) before signing; the
+   first non-conforming record fails the binding and makes the policy
+   `error` (exit 2). Do the full vendor-to-canonical translation here;
+   never leave a field null expecting the policy to guard it (see "The
+   null trap" in
+   [04a-evidence-type-registry.md](../architecture/04a-evidence-type-registry.md)).
+
+   If a field cannot be observed with the plugin's credentials or API,
+   declare it with `core.SourceCaveat` (implement `core.CaveatedSource`).
+   Caveats are advisory: they never change a status, a count or the wire
+   payload.
 
 3. **Register the factory** in a `factory.go` `init()`:
    ```go
-   func init() { sources.RegisterFactory(SourceID, build) }
+   func init() { sources.RegisterFactory(SourceID, build, "org_url", "api_token", "token_env") }
 
    func build(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
        // pull config via sources.StringOpt(env.Config, "..."), env vars, etc.
        return NewFromConfig(ctx, ...)
    }
    ```
+   The trailing arguments name every config key the factory reads, so
+   the planner can warn about a typo in the source's config block. AWS
+   and Azure plugins pass the shared sets `awscfg.ConfigKeys` /
+   `azcommon.ConfigKeys`.
+
+   The factory must resolve credentials, not just build a client. A
+   listed source with missing credentials is a config error (exit 3)
+   before collection. The AWS and Azure SDKs don't fail on their own, so
+   use `awscfg.Load` / `azcommon.NewCredential(ctx, scope)`, which resolve
+   eagerly with a 60-second timeout. Multiple instances of one source
+   (`aws.iam[prod]`) are handled by the sources package; see
+   `sources.SplitInstanceID` and
+   [04-source-plugins.md](../architecture/04-source-plugins.md).
 
 4. **Blank-import it** in `internal/sources/builtin/builtin.go` (one
    line). `cmd/sigcomply` needs no other changes.
@@ -134,14 +153,14 @@ null placeholders.
    `required` must be `is_set`-guarded inside an `all_of`, or
    `TestEveryFilterGuardsOptionalFields` fails the build.
 
-6. **Update the counts, which are pinned by tests.** Adding a type changes
-   published figures in `docs/architecture/04-source-plugins.md` (the
-   "N built-in plugins emit N distinct evidence types" line, the provider ×
-   evidence-type matrix, and the per-plugin table),
-   `docs/architecture/12-multicloud-sources.md` (two count lines plus the
-   per-provider row), and the workspace-root `AGENTS.md`. If you also added policies,
-   `TestDocFiguresMatchCode` will fail with the exact string to write into
-   `docs/reference/frameworks.md` — run it and paste what it asks for.
+6. **Update the counts by hand; no test pins them.** Adding a type
+   changes figures in `docs/architecture/04-source-plugins.md` (the
+   plugin and evidence-type count line, the provider × evidence-type
+   matrix, the per-plugin table) and
+   `docs/architecture/12-multicloud-sources.md` (count lines and the
+   per-provider row). If you also added policies, `TestDocFiguresMatchCode`
+   fails with the exact string to write into each doc it names; run it
+   and paste what it asks for.
 
 ---
 
@@ -183,13 +202,14 @@ reach for the `rule:` escape hatch only for logic the DSL can't express.
    fails the build otherwise. Fields that are `required` in the evidence
    type need no guard.
 
-3. **For a `rule:` escape-hatch policy** (e.g. substring matching the DSL
-   lacks; cross-slot key joins do **not** need it — see the roster recipe
-   below), register a `core.Rule` (see `rules.go` `alarmRules()` using
-   `evaluator.GoRule`, or an inline OPA module via
-   `evaluator.NewRegoRule`) and reference it with
-   `rulePolicy{... ruleRef: "rules.soc2.<name>.v1"}.policy()`. Add the
-   rule to the framework's `Rules()`.
+3. **For a `rule:` escape-hatch policy** (logic the DSL cannot express;
+   cross-slot key joins do not need it, see the roster recipe below): no
+   shipped policy uses `rule:`, so there is no builder for it. Each
+   framework's `rules()` (`rules.go`) returns nil. To add one, write a
+   `core.Rule` (`evaluator.GoRule` in `internal/evaluator/go_rule.go`, or
+   inline Rego via `evaluator.NewRegoRule` in `rego_rule.go`), return it
+   from `rules()`, add a builder that sets the policy's rule reference,
+   and say why `pass_when` cannot express the check in the commit.
 
 4. **Register happens automatically** — `Policies()` aggregates every
    slice, and `Register` walks it. Just make sure your new slice is
@@ -197,7 +217,7 @@ reach for the `rule:` escape hatch only for logic the DSL can't express.
 
 5. The framework tests enforce: unique IDs, `soc2.`/`iso27001.` namespace,
    non-empty `evidence_mode`, every `accepts:` type is registered, every
-   `ruleRef` resolves, and every policy passes `spec.ValidatePassWhen`
+   rule reference resolves, and every policy passes `spec.ValidatePassWhen`
    (`pass_when_validation_test.go` — declared slots, `matches_in` shape,
    slot roles). Run `make test`.
 
@@ -245,9 +265,11 @@ end-to-end test model: `internal/orchestrator/roster_e2e_test.go`.
 ## Adding a New Manual Evidence Policy
 
 Manual policies check that customer-supplied files exist in the
-catalog-resolved folder `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/`
+catalog-resolved folder `{prefix}{evidence_catalog_id}/{period_id}/`
 within the temporal window. The CLI converts images to PDF, merges, and
-runs byte-level sanity checks — it never reads PDF *contents*.
+runs byte-level sanity checks; it never reads document contents. The
+contract (checks, fan-out, non-goals) is
+[14-manual-evidence.md](../architecture/14-manual-evidence.md).
 
 An entry can also **fan out** over a set the project declares in config —
 see step 4 below.
@@ -327,9 +349,9 @@ factory. Models: `internal/frameworks/soc2/` and `iso27001/`.
    - `framework.go` — the `core.Framework` impl (`ID`, `Version`,
      `Controls`, `Policies`), a `Policies()` aggregator, a `Register(set
      *registry.Set)` that registers the framework + rules + policies, and
-     a `ManualCatalog()` if it has manual policies.
+     `ManualCatalog()` / `ManualCatalogExport()` if it has manual policies.
    - `controls.go` — the control catalog (`[]core.Control`).
-   - `builders.go` — the `autoPolicy`/`rulePolicy`/`manualPolicy` shapes
+   - `builders.go` — the `autoPolicy`/`rosterPolicy`/`manualPolicy` shapes
      and clause helpers (copy from an existing framework; they're
      per-framework so control-ref wiring stays local).
    - `policies_*.go` — the policy slices.
@@ -338,8 +360,9 @@ factory. Models: `internal/frameworks/soc2/` and `iso27001/`.
    ```go
    func init() {
        frameworks.RegisterFactory(FrameworkID, frameworks.Factory{
-           Register:      Register,
-           ManualCatalog: ManualCatalog, // omit if no manual policies
+           Register:            Register,
+           ManualCatalog:       ManualCatalog,       // omit if no manual policies
+           ManualCatalogExport: ManualCatalogExport, // omit if no manual policies
        })
    }
    ```
@@ -348,9 +371,12 @@ factory. Models: `internal/frameworks/soc2/` and `iso27001/`.
    `internal/frameworks/builtin/builtin.go` (one line). Commands resolve
    frameworks by ID from the registry — no hardcoded switch.
 
-4. **Update** `README.md` and `docs/configuration.md` framework lists.
-   (Note: HIPAA remains a stub string only — do not add a `hipaa/`
-   package until policies exist.)
+4. **Update the docs and gates.** `README.md`,
+   `docs/reference/frameworks.md`, `docs/reference/commands.md` and
+   `docs/configuration.md`; a new case in `TestDocFiguresMatchCode` (it
+   hardcodes the frameworks it measures); and decide whether `init-ci`
+   supports the framework (`frameworkSupported` in
+   `cmd/sigcomply/init_ci.go` accepts only `soc2`).
 
 ---
 
@@ -358,7 +384,9 @@ factory. Models: `internal/frameworks/soc2/` and `iso27001/`.
 
 Vault backends are symmetric with manual-evidence readers and use the
 same self-registering-factory pattern. In-tree backends: `local`, `s3`,
-`gcs`, `azureblob` under `internal/vault/`.
+`gcs`, `azure_blob` (package `internal/vault/azureblob`). A backend that
+builds its own cloud client resolves credentials eagerly, like source
+factories (step 3 of the source recipe).
 
 1. **Implement `core.Vault`** (`internal/core/vault.go`): `Init`,
    `PutEnvelope`, `PutJSON`, `PutBinary`, `GetBinary`, `List`.
@@ -378,33 +406,15 @@ same self-registering-factory pattern. In-tree backends: `local`, `s3`,
 
 4. **Write integration tests** (see `internal/vault/vaulttest/`). Write
    evidence using the period-first run layout — see the
-   [vault layout](../architecture/05-vault-layout.md#top-level-layout) (`{framework}/{period_id}/
+   [vault layout](../architecture/05-vault-layout.md#layout) (`{framework}/{period_id}/
    run_{timestamp}_{run_id_short}/policies/{policy_id}/...`, basic ISO 8601
    timestamps, no colons).
 
 ---
 
-## CI/CD Workflows
+## Project-local extensions and manual-reader backends
 
-### `sigcomply init-ci` (wired) — the supported path
-`init-ci` scaffolds **standalone, per-cadence** workflow files calibrated
-to a framework's cadence distribution. For GitHub it writes
-`.github/workflows/compliance-{daily,weekly,monthly,quarterly,annual,on-push}.yml`,
-each of which downloads the CLI binary via `curl` from GitHub Releases and
-runs `sigcomply check --cadence <X>` (or `--on-push`); it grants
-`id-token: write` for OIDC. There is **no** reusable `workflow_call`
-workflow and no composite action — each scaffolded file is self-contained.
-For GitLab, `init-ci` uses the template at
-`cmd/sigcomply/templates/gitlab/.gitlab-ci.yml`, which gates each cadence
-with `rules: if $CI_PIPELINE_SOURCE == "schedule" && $CADENCE == ...`.
-
-### Copy-paste examples
-- GitHub: `examples/github-actions/{basic,multi-environment}.yml`
-- GitLab: `examples/gitlab-ci.yml` (a first-class packaged GitLab CI
-  component is not yet available). Use GitLab's OIDC token via the
-  `id_tokens:` block; install the CLI; run `sigcomply check`; honor exit
-  codes (0 pass / 1 violations / 2 error / 3 config).
-
-### `sigcomply build` (wired)
-`build` compiles a project-tailored binary that includes `.sigcomply/` Go
-extensions (project-local sources, policies, evidence types, backends).
+Customer-side sources, policies, evidence types, vault backends and
+manual-evidence readers live under `.sigcomply/` in the customer repo and
+are compiled in by `sigcomply build` through the `plugin/` package. See
+[07-extensibility.md](../architecture/07-extensibility.md).

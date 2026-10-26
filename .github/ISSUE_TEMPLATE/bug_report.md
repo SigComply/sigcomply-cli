@@ -30,7 +30,8 @@ posting.
 ## Command and output
 
 <!-- The exact `sigcomply ...` command, and its output + exit code.
-     Re-run with `--verbose` for more detail. Redact identifiers first. -->
+     For `check` and `build`, re-run with `--verbose` for more detail.
+     Redact identifiers first. -->
 
 ```
 $ sigcomply <command>

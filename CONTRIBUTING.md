@@ -1,73 +1,83 @@
 # Contributing to SigComply CLI
 
-Thanks for contributing! This file covers the **non-negotiable testing
-requirements**; the broader engineering rules, architecture, and invariants live
-in [`AGENTS.md`](./AGENTS.md) and [`docs/architecture/`](./docs/architecture/),
-and the repo's gate, test layers and release rules in
+This page is for anyone changing the CLI's code or docs. AI agents start at
+[`AGENTS.md`](./AGENTS.md); the gate, release rules and doc routing are in
 [`docs/claude/development-workflow.md`](./docs/claude/development-workflow.md).
-AI agents working on this repo start at `AGENTS.md`.
 
-## Two contribution flows
+## Set up
 
-- **Internal (pre-launch, now):** the product has no users yet, so internal
-  work commits **directly to `main`** once `make test && make lint` are green
-  and the change is manually verified — no PR, no review. CI must go green
-  after the push. (This becomes a PR + review flow at public launch.)
-- **External / post-launch:** open a **pull request**; the checklist in
-  [`.github/pull_request_template.md`](./.github/pull_request_template.md)
-  gates it. Everything below applies to a *change* whether it lands via a
-  direct commit or a PR.
+1. Install [mise](https://mise.jdx.dev/), then run `mise install` in the repo root. It installs the
+   Go, golangci-lint and Vale versions pinned in `mise.toml`, the same versions CI uses.
+2. Install [lefthook](https://github.com/evilmartians/lefthook) and run `make hooks-install`. The
+   hooks run formatting, vet, lint, tests and a secret scan at commit and push.
+3. Install `gitleaks`, which the hooks call. Install `actionlint` if you edit
+   `.github/workflows/`.
+4. Build and run the CLI:
 
-## Development rules (summary)
+   ```sh
+   make build
+   ./bin/sigcomply version
+   ```
 
-- **TDD + small atomic commits**, all tests passing per commit. Format
-  `<type>: <description>` (`feat`/`fix`/`refactor`/`test`/`docs`/`chore`).
-- **`make test && make lint` green before every commit; never break `main`.**
-- **Manually verify** — there's no web UI, so build and run the affected
-  command (`make build`; `sigcomply check` / `evidence catalog -o json` /
-  `report`) and confirm stdout + exit code + vault output before committing.
-- **Docs are part of "done"** — a behavior/architecture change isn't
-  finished until the focused doc it touches (a recipe, `configuration.md`, an
-  `architecture/` doc) is updated in the same change.
-- Full rules: [`AGENTS.md`](./AGENTS.md) and
-  [`docs/claude/development-workflow.md`](./docs/claude/development-workflow.md).
+## How changes land
 
-## Testing layers
+- Maintainers commit straight to `main` after the gate, a manual run of the affected command and
+  the review steps in the workflow doc pass. CI must be green after the push.
+- Outside contributors open a pull request. The checklist in
+  [`.github/pull_request_template.md`](./.github/pull_request_template.md) applies.
 
-The testing strategy is layered **L0–L4b** — see
+Every push to `main` that changes code cuts a public release, so `main` must stay green.
+
+## Commit messages
+
+Use `<type>: <description>`, with a type such as `feat`, `fix`, `refactor`, `test`, `docs` or
+`chore`. The type sets the release version: `feat` is a minor release and every other type is a
+patch. A `<type>!:` subject, or the words "breaking change" anywhere in a subject, is a major
+release, so write them only when you mean it.
+
+## Before you commit
+
+1. Write the test first, then the code. Keep commits small, with all tests passing.
+2. Run `make test && make lint`.
+3. Build the binary and run the command you changed (`sigcomply check`, `sigcomply evidence
+   catalog -o json`, `sigcomply report`). Check its output, exit code, and vault files.
+4. Update the docs the change makes wrong, in the same change. For customer-facing Markdown, run
+   `vale --minAlertLevel=error <files>`.
+
+Other checks, depending on the change:
+
+| Command | Run it when |
+|---|---|
+| `make test-full` | You touch `sigcomply build`, `plugin/` or anything its heavy tests cover. CI always runs the full suite. |
+| `make test-coverage` | You add a package or remove tests. CI fails below 80% total coverage. |
+| `make test-contract` | You change a source plugin, a cassette or `contracts/`. |
+| `make check-fixtures` | You add or change files under `testdata/` or `contracts/`. |
+| `make test-live` | You need to check a source against the real API. Needs your own credentials; each test skips without them. |
+
+The test layers and their conventions are described in
 [`docs/architecture/11-testing-strategy.md`](./docs/architecture/11-testing-strategy.md).
-What runs where:
 
-| Make target | Layer | When |
-|-------------|-------|------|
-| `make test` / `test-full` | L0/L1 unit + integration | every change; CI runs the full suite with the 80% coverage floor (`test.yml`) |
-| `make test-contract` | L2 cassette + fixture-vs-spec conformance | every change |
-| `make contracts-diff` | L3 spec drift (scheduled) | `contract-drift.yml` |
-| `make test-live` | L4a live (`//go:build live`) | nightly `live-saas.yml`; skips without creds |
-| (E2E repos) | L4b released-binary E2E | the `sigcomply-cli-testing-project-*` repos |
+## Adding a source plugin: required tests
 
-`live` and E2E are **excluded from the coverage gate** (build-tagged / separate
-repos); see §Coverage in the strategy doc.
+A change that adds, or materially changes, a plugin under `internal/sources/` includes, in the
+same change:
 
-## Adding a new source plugin — required tests
+1. Unit tests for the mapper and `Collect`, against an in-memory fake API with a fixed clock.
+2. A `*_conformance_test.go` that replays a scrubbed go-vcr cassette through
+   `sourcetest.RunConformance`. Record cassettes with a throwaway `//go:build record` driver and
+   remove secrets and personal data before you commit; `make check-fixtures` checks this.
+3. A `contracts/<provider>/<service>` spec snapshot, added to `scripts/contracts-fetch.sh`, so the
+   weekly drift job covers the new API surface.
 
-A change (direct commit or PR) that adds (or materially changes) a
-`internal/sources/<vendor>/<service>` plugin **MUST** include, in the same
-change:
+The step-by-step checklist is "Testing a source plugin (checklist)" in
+[`docs/architecture/04-source-plugins.md`](./docs/architecture/04-source-plugins.md). Policies and
+sources never reference each other: they meet only through evidence types (Invariant #4 in
+`AGENTS.md`).
 
-1. **L0/L1 unit tests** — the mapper/`Collect` against an in-memory fake `API`
-   (field mapping, edge cases, deterministic clock via the `Now` seam).
-2. **L2 conformance** — a `*_conformance_test.go` that replays a **sanitized
-   go-vcr cassette** through `sourcetest.RunConformance` (schema-validates every
-   record + completeness). Cassettes are recorded with a throwaway
-   `//go:build record` driver and **scrubbed of secrets/PII** (the
-   `check-fixtures` gate enforces this).
-3. **A `contracts/<provider>/<service>` snapshot** wired into
-   `scripts/contracts-fetch.sh`, so L3 drift detection covers the new surface.
-   (Where the vendor publishes an OpenAPI/Smithy/Discovery/Swagger spec — see the
-   existing slicers in `scripts/contracts/`.)
+## Rules that apply to every change
 
-The canonical step-by-step is the **Testing a source plugin (checklist)**
-section of [`docs/architecture/04-source-plugins.md`](./docs/architecture/04-source-plugins.md).
-Policies and sources never reference each other —
-mediate via the evidence-type registry (Invariant #4 in `AGENTS.md`).
+- Never put a resource identifier (ARN, email, username, account ID) into the cloud submission
+  payload. The [Sacred Invariants](./AGENTS.md#sacred-invariants) in `AGENTS.md` list the rules
+  that need a maintainer's sign-off to change.
+- Never commit secrets, real customer data, or personal email addresses. The repo is public.
+- Report security issues privately, as described in [`SECURITY.md`](./SECURITY.md).

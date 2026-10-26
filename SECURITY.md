@@ -1,121 +1,109 @@
-# Security Policy
+# Security policy
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-If you discover a security vulnerability in SigComply CLI, please report
-it privately via [GitHub Security Advisories](https://github.com/SigComply/sigcomply-cli/security/advisories/new)
-rather than opening a public issue.
+Report a security vulnerability in SigComply CLI privately through
+[GitHub Security Advisories](https://github.com/SigComply/sigcomply-cli/security/advisories/new),
+not in a public issue. The maintainers acknowledge reports within 48 hours and give an estimated
+timeline for a fix.
 
-We take security reports seriously and will acknowledge receipt within
-48 hours and provide an estimated timeline for a fix.
+## Supported versions
 
-## Supported Versions
+Before 1.0, only the latest tagged release receives security fixes.
 
-Pre-1.0: the latest tagged release receives security fixes. Older
-pre-releases are not supported.
-
-Post-1.0 (planned): the current major version and the previous major
-version receive security fixes for two years from the previous major's
-release. SOC 2 / ISO 27001 evidence retention requirements (typically
-7 years) mean the on-disk vault format is supported for a longer window
-than the binary itself.
+After 1.0 (planned), the current and the previous major version receive security fixes for two
+years from the previous major's release. Evidence retention requirements are often 7 years, so
+the vault format is supported for longer than the binary.
 
 ## Scope
 
 In scope:
-- The CLI binary (`sigcomply`) and its in-tree source plugins
-- The vault format and per-file Ed25519 signing
-- The cloud submission payload contract (privacy boundary)
-- The Go/Rego rule-runner escape hatch (infrastructure present; no
-  shipped policy currently uses it)
+
+- The CLI binary (`sigcomply`) and its in-tree source plugins.
+- The vault format and per-file Ed25519 signing.
+- The cloud submission payload (the privacy boundary).
+- The Go and Rego `rule:` runner. No shipped policy uses it, but project-local policies can.
 
 Out of scope (report upstream):
-- Vulnerabilities in transitive Go dependencies (open a Dependabot PR
-  or report to the upstream project)
-- Vulnerabilities in OPA itself (report to open-policy-agent/opa)
-- Vulnerabilities in cloud-provider SDKs (report to the SDK vendor)
 
-## Threat Model
+- Vulnerabilities in Go dependencies. Report them to the upstream project; Dependabot opens
+  update pull requests here.
+- Vulnerabilities in OPA itself (open-policy-agent/opa).
+- Vulnerabilities in cloud-provider SDKs (the SDK vendor).
 
-The CLI is designed under "Evidence without Access": raw evidence
-never leaves the customer environment. Threats that violate this
-boundary — e.g. a bug that causes resource identifiers to land in
-the cloud SubmissionPayload — are treated as critical.
+## Threat model
 
-The boundary is enforced structurally, not by review alone: the
-`SubmissionPayload` wire type carries no `map[string]any`, no
-`Violations` slice, and no freeform field, so it is physically
-incapable of carrying an identifier. A reflection test
-(`internal/core/cloud_test.go`) walks the type graph and fails the
-build if a freeform field is ever added. On the receiving side, Rails
-strong-params under `Api::V1::RunsController` act as a second-layer
-allow-list.
+### The privacy boundary
 
-### What the signing scheme defends against
+Raw evidence stays in the customer's environment. A bug that puts a resource identifier (ARN,
+email, username, account ID) into the cloud submission is a critical vulnerability.
 
-The per-file Ed25519 signing detects **accidental and unilateral
-post-run drift**:
+The boundary is enforced by the type, not only by review. The `SubmissionPayload` wire type has
+no `map[string]any`, no violations list and no freeform field, so it cannot carry an identifier.
+A reflection test (`TestSubmissionPayload_StructurallyCountsOnly` in
+`internal/core/cloud_test.go`) walks the type and fails the build if a freeform field is added.
+On the receiving side, the dashboard's request allow-list drops any field it doesn't expect.
 
-- A vault file corrupted by bit rot, a sync tool, or a misbehaving
-  storage backend.
-- A PDF swapped in place in the manual-evidence bucket while the
-  original envelope is left untouched — the envelope's recorded
-  `file_hash` will not match the new bytes.
-- A modification to the per-run `manifest.json` after the run (the
-  manifest is itself signed).
+To see exactly what a run would send, run `sigcomply check --capture-cloud-payload payload.json`.
+The CLI writes the payload to the file and doesn't send it.
 
-### What the signing scheme does NOT defend against
+### How evidence is signed
 
-- **Customer-side fabrication at upload time.** A customer can produce
-  a real-looking PDF whose contents do not reflect reality. The CLI
-  signs what it reads; it cannot verify that what it read was true.
-  This is and remains the auditor's job, and is out of scope for any
-  compliance tool.
-- **Determined re-signing by anyone with vault write access.** The
-  public key lives inside the envelope (`EvidenceEnvelope.Signature.
-  PublicKey`). A party with write access to the vault can generate a
-  new ephemeral Ed25519 keypair, fabricate envelope + PDF + per-run
-  manifest together, and sign all three. The result is cryptographic-
-  ally indistinguishable from an original collection. Defending
-  against this requires immutability at the storage layer, which the
-  CLI does not configure.
+- The CLI generates a new Ed25519 keypair for every evidence file and discards the private key
+  as soon as the file is signed. No key is reused across files or runs.
+- The public key and the signature are stored inside the file itself (`signature.public_key`
+  and `signature.value` in the envelope JSON). Anyone can verify one file offline, with no other
+  file and no SigComply service.
+- Each run also writes `manifest.json`, which lists a SHA-256 hash for every file the run wrote
+  to the vault. The manifest is signed with its own new keypair.
+- `sigcomply report --view integrity` checks each run's manifest signature and recomputes every
+  hash it lists. The Evidence SPA's `/verify` page checks a single envelope in the browser.
 
-### Required customer-side setup for tamper-resistance
+### What signing detects
 
-For an auditor to trust that an envelope has not been re-signed since
-the run, the storage holding the vault must enforce write-once or
-version-controlled semantics at the object layer. Recommended setup
-per backend:
+- A vault file changed or corrupted after the run (bit rot, a sync tool, a faulty backend). The
+  file's signature fails, or its hash no longer matches the manifest.
+- A change to `manifest.json` after the run. The manifest's signature fails.
+- An uploaded manual-evidence file replaced after the run. The signed record lists the SHA-256 of
+  every uploaded file (`source_files[].sha256`), so the replacement no longer matches. The CLI
+  doesn't re-read the upload bucket to compare; whoever checks the documents computes the hash.
 
-| Backend | Required setting |
-|---------|-----------------|
-| **AWS S3** | Object Lock in **compliance mode** with a retention period matching audit retention (typically 7 years). Alternatively, bucket versioning + MFA delete + restrictive bucket policy. |
-| **Google Cloud Storage** | Bucket Lock with a retention policy matching audit retention, plus Object Versioning. |
-| **Azure Blob Storage** | Immutable storage with **time-based retention policies** (locked) matching audit retention. |
-| **Local filesystem** | Not suitable for production audit retention. Use only for `sigcomply check` ad-hoc runs and ephemeral CI storage. |
+### What signing does not detect
 
-Without one of these settings, the signing scheme still detects
-accidental drift, but cannot defend against deliberate re-signing by
-a party with vault write access. This is a customer responsibility
-and a known limitation by design — the CLI explicitly does not
-attempt to enforce immutability itself, because doing so would
-require credentials the non-custodial model forbids.
+- Re-signing by anyone with write access to the vault. Because the public key is inside the
+  envelope, such a person can generate a new keypair, write new envelopes and a new manifest, and
+  sign them. The result can't be told apart from an original run. Only storage that refuses
+  overwrites and deletes prevents this.
+- Evidence that was false when it was collected. The CLI signs what it reads. It can't tell
+  whether an uploaded document is genuine or whether its contents are true. That is the
+  auditor's judgment.
 
-### Manual evidence: explicit scope
+### Storage immutability is your job
 
-The manual-evidence flow (`internal/sources/manual/`) performs
-**presence + temporal window + cheap stdlib sanity checks** on each
-uploaded PDF. See [AGENTS.md §Manual evidence contract](AGENTS.md#manual-evidence-contract-read-before-touching-internalsourcesmanual-or-internalevaluatormanual_checkgo)
-for the precise list of what is and is not checked. In short:
+For an auditor to trust that evidence wasn't re-signed after the run, the vault storage must
+prevent overwrites and deletes at the object layer. The CLI doesn't configure this: doing so would
+need permissions the CLI's read-only, non-custodial model doesn't ask for.
 
-- The plugin verifies the file exists at the expected path within the
-  configured temporal window.
-- The plugin runs byte-level sanity checks (minimum size, `%PDF-`
-  magic bytes, presence of a `/Page` token, and byte-equality with
-  the prior period's file).
-- The plugin does **not** inspect PDF contents, validate signatures
-  inside the PDF, check internal dates, or verify that the document
-  matches the policy's intent.
+| Backend | Setting |
+|---|---|
+| AWS S3 | Object Lock in compliance mode, with retention matching your audit retention. Or bucket versioning with MFA delete and a restrictive bucket policy. |
+| Google Cloud Storage | A locked retention policy (Bucket Lock) matching your audit retention, plus Object Versioning. |
+| Azure Blob Storage | Immutable storage with a locked time-based retention policy matching your audit retention. |
+| Local filesystem | Not suitable for audit retention. Use it for local trial runs and short-lived CI storage only. |
 
-The auditor reads the PDF. The CLI provides a cryptographically-
-signed timeline of what was uploaded when.
+Without one of these settings, signing still detects accidental changes, but not deliberate
+re-signing by someone with vault write access.
+
+### Manual evidence
+
+For uploaded documents the CLI checks that supported files are present in the period's folder,
+that they were uploaded inside the period's window, that the merged PDF passes byte-level checks
+(minimum size, a `%PDF-` header, at least one page marker), and that the set of files isn't
+byte-for-byte the same as the previous period's. It doesn't read document contents, validate
+signatures inside a PDF, check dates written in a document, or decide whether a document meets
+the control. The merged PDF isn't stored in the vault; the signed record holds the hashes of the
+uploaded files. The full contract is in
+[`docs/architecture/14-manual-evidence.md`](docs/architecture/14-manual-evidence.md).
+
+The auditor reads the documents. The CLI gives the auditor a signed record of which files were
+present, and when they were uploaded.

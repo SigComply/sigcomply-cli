@@ -1,233 +1,154 @@
-# SigComply CLI — Architecture
+# SigComply CLI architecture
 
-> **Status**: implemented. This document is the canonical design reference for
-> the shipped v1 CLI (`sigcomply check`/`init`/`build`/`report`/`init-ci`/`evidence
-> catalog`/`version`). Where a section describes a future capability it is
-> marked inline; treat the code as the source of truth for what is wired.
+The top-level map of the CLI. Detailed design lives in [`docs/architecture/`](docs/architecture/);
+the code is the source of truth for what is wired, and
+[`docs/reference/commands.md`](docs/reference/commands.md) lists the commands.
 
-SigComply is a zero-trust, non-custodial compliance engine. The CLI runs
-inside the customer's own CI/CD environment, evaluates compliance policies
-against their infrastructure, signs every piece of evidence locally, and —
-only when the customer opts in — sends *aggregated counts* (never raw
-evidence) to a hosted dashboard. The product positioning is "evidence
-without access."
+The CLI runs inside the customer's own CI. It has two evidence flows. Automated policies evaluate
+configuration pulled from vendor APIs with the customer's read-only credentials. Manual policies
+collect documents the customer uploads: the CLI checks that a supported file is present for the
+period, merges the files into one PDF and signs the result, but never judges what the documents
+say. Every evidence file is signed locally and written to a vault the customer owns. Only when the
+customer opts in does the CLI send per-policy counts (never identities) to the SigComply Cloud
+dashboard. The architectural point is "evidence without access".
 
-This document is the top-level map. Detailed design lives in the
-[`docs/architecture/`](docs/architecture/) tree.
+## CLI and dashboard
 
-## Free CLI / paid cloud — the product split
+- **The CLI (open source)** runs once per invocation: plan, collect, evaluate, write the vault,
+  optionally submit counts. It keeps no history across runs and has no database.
+  `sigcomply report` renders snapshot views of the vault.
+- **SigComply Cloud (paid, private Rails app)** receives the counts-only `SubmissionPayload` and
+  keeps them over time. What it does with them: [`06-aggregation.md`](docs/architecture/06-aggregation.md)
+  §What the dashboard does with it.
 
-The product ships as two intentionally decoupled pieces:
+The vault is the customer's data layer for both. Without the paid dashboard, a customer still
+collects, evaluates and signs evidence in their own vault, and `sigcomply report` reads it back.
+What the CLI alone does not provide is any view across runs.
 
-- **The CLI (open source, free)** — what this document specifies. Runs
-  per-invocation: collect → check → write vault → submit counts. Stateless;
-  no DB; no shared state across runs. Snapshot reporting against the vault
-  (`sigcomply report --view latest|exceptions|integrity|scope|coverage|soa`).
-- **SigComply Cloud / Rails app (paid)** — receives per-run aggregated
-  counts via the privacy-preserving `SubmissionPayload`, stores them over
-  time in a Rails-backed DB (stripped of all sensitive information per the
-  aggregation contract), and provides the **longitudinal analytical layer**:
-  deviation timelines, drift detection, continuous-monitoring alerts,
-  auditor-ready Type II reports, multi-project rollups, auditor seats.
+## Core principles
 
-The vault is the customer's data layer for both. The CLI is the writer.
-The paid Rails app is the index + analytics layer over the time-series of
-submissions; it never holds raw evidence or identifiers — those stay in
-the vault on the customer's side of the privacy boundary.
+Code comments cite these by number. The Sacred Invariants in [`AGENTS.md`](AGENTS.md) are the
+enforced subset.
 
-A customer who declines the paid cloud still has a fully functional
-compliance system: the CLI writes evidence to their vault, `sigcomply
-report` produces snapshot views, the reference verifier proves
-integrity. What they don't have is the throughout-period narrative
-(Type II "operated effectively throughout") or alerts — those require
-either a paid Rails subscription, a self-hosted Rails (if offered), or
-custom analytics against the vault.
+1. **The aggregation boundary.** No resource identifier leaves the customer environment. The
+   cloud submission type cannot carry ARNs, emails, usernames or file hashes: only counts,
+   statuses and policy IDs. (AGENTS.md Invariant #1; [`SECURITY.md`](SECURITY.md).)
+2. **No history across runs.** A run reads the project config and its sources. It never reads
+   prior run folders, never consults a database. The one exception is the per-policy state shard
+   under `{vault}/state/` (`LastPassAt`, `LastRunStatus`, `NextDueAt`, the policy content hash),
+   which only answers "is this policy due?" (`planner.IsDue`). Losing `state/` is recoverable: the
+   next run re-evaluates everything. Cadence scheduling is the CI cron's job; cadence enforcement
+   is the CLI's. See [`09-ci-execution-model.md`](docs/architecture/09-ci-execution-model.md) and
+   [`10-cadence-model.md`](docs/architecture/10-cadence-model.md).
+3. **Evidence is append-only.** Each run writes its own folder and never rewrites an earlier
+   one. Period-level views are derived from the runs in a period. `state/` is the one mutable
+   area, guarded by a monotonic write rule (`shouldAcceptWrite` in
+   `internal/orchestrator/state.go`).
+4. **Every evidence file is independently verifiable.** Per-file ephemeral Ed25519 signing; the
+   public key travels in the envelope, so one file can be verified offline. This detects
+   accidental drift, not deliberate re-signing by someone with vault write access. Storage-level
+   immutability is the customer's job. Threat model: [`SECURITY.md`](SECURITY.md).
+5. **Evidence type is not source plugin.** A policy depends on an evidence shape
+   (`directory_user`, `firewall_rule`); any plugin can produce it. Policies never ask which plugin
+   produced a record. (AGENTS.md Invariant #4.)
+6. **Each policy fetches its own data.** No collection cache spans policies
+   (`internal/collector/collector.go`). The cost is runtime and point-in-time consistency: a run
+   is a stream of observations, each with its own `collected_at`, so a cross-slot join such as
+   the roster join compares observations taken minutes apart.
+7. **Determinism.** Given the same source responses, config and clock, a run produces the same
+   records and results. Signatures, public keys and run IDs differ every run, because keys are
+   ephemeral. Auditors diff runs.
+8. **Project config is the customer's source of truth.** Framework, sources, exceptions,
+   parameters, fiscal calendar and cadence overrides live in `.sigcomply.yaml`, versioned in git.
+   The vault carries evidence; git carries decisions.
+9. **One project = one repository = one framework.** Customers pursuing several frameworks use
+   several repos. One project may still cover several cloud accounts or orgs by configuring a
+   source more than once (see [`04-source-plugins.md`](docs/architecture/04-source-plugins.md)).
+   Manual evidence uses one bucket per project.
 
-See [`docs/architecture/06-aggregation.md`](docs/architecture/06-aggregation.md)
-§What the paid Rails app does with the submitted data.
-
----
-
-## Core principles (non-negotiable)
-
-These hold across every layer. Any change that violates one of them
-requires going back to the drawing board.
-
-1. **The aggregation boundary is sacred.** No resource identifier ever
-   leaves the customer environment. The cloud submission struct is
-   *physically incapable* of carrying ARNs, emails, usernames, file
-   hashes, or any other identity — only counts, statuses, and policy IDs.
-2. **The CLI keeps no history across runs.** Every `sigcomply check`
-   invocation reads the project config and the external sources it's
-   bound to. It never reads prior *run folders* from the immutable
-   evidence prefix, never consults a database, never carries in-memory
-   state from a prior invocation. No trend, no accumulated result set,
-   no cross-period view — that is the Cloud dashboard's job, deliberately.
-
-   The one exception, and its bounds: a scheduled run reads a small
-   per-policy **state shard** from `{vault}/state/` — mutable, outside
-   the Object-Locked evidence prefix — carrying `LastPassAt`,
-   `LastRunStatus`, `NextDueAt` and the policy content hash (which covers
-   the policy's `pass_when` logic, not just its wiring). It exists
-   solely so the planner can answer "is this policy due?"
-   (`planner.IsDue`) and emit a carry-forward result when it is not.
-   Losing the whole `state/` tree is recoverable: the next run treats
-   every policy as a first run and re-evaluates. Evidence integrity does
-   not depend on it.
-
-   So cadence *scheduling* is the CI cron's job; cadence *enforcement*
-   is the CLI's. See
-   [`docs/architecture/09-ci-execution-model.md`](docs/architecture/09-ci-execution-model.md)
-   and [`docs/architecture/10-cadence-model.md`](docs/architecture/10-cadence-model.md).
-3. **The vault is append-only.** Each run writes its own immutable
-   folder. Period-level state is *derived* from the union of runs in a
-   period, not stored as an authoritative mutable file. There is no
-   read-modify-write on shared state.
-4. **Every evidence file is independently verifiable.** Per-file
-   ephemeral Ed25519 signing. Private key generated at write time,
-   discarded immediately. An auditor with a single envelope file and the
-   public key embedded in it can verify the file offline, with no access
-   to the CLI, the cloud, or any other piece of state.
-
-   **What this guarantees, and what it doesn't.** Embedded-public-key
-   signing detects accidental drift and unilateral PDF swaps, but not
-   deliberate re-signing by a party with vault write access; true
-   tamper-resistance requires write-once / versioned object storage at
-   the bucket layer. The full threat model and the required
-   customer-side storage settings are the canonical subject of
-   [`SECURITY.md`](SECURITY.md) §Threat Model (see also AGENTS.md
-   Invariant #3).
-5. **Evidence type ≠ source plugin.** A policy depends on an evidence
-   *shape* (`directory_user`, `firewall_rule`). Many source plugins can
-   produce the same shape. Policies never reach behind the type to ask
-   which plugin produced it; this is what makes sources interchangeable
-   per project.
-6. **Each policy fetches its own data.** No shared collection layer
-   across policies. If ten policies all need AWS IAM users, that's ten
-   independent fetches. Maximally self-contained policies; runtime cost
-   is the explicit trade-off — **and so is point-in-time consistency.**
-   A run is a stream of observations spanning its whole duration (15–25
-   minutes for a daily cadence), not a snapshot at one instant. Each
-   record's honest as-of is its own `collected_at`; a cross-slot
-   `matches_in` join such as the roster join compares observations taken
-   minutes apart, so a person on- or offboarded mid-run can be reported
-   once and not on the re-run. Re-running is the check.
-7. **Determinism wherever possible.** Given the same inputs (sources'
-   responses + config + timestamp), a run produces byte-identical
-   outputs modulo explicit timestamps. Auditors diff runs.
-8. **Project config is the customer's source of truth.** Framework
-   selection, source bindings, exceptions, parameter overrides, fiscal
-   calendar, cadence overrides — all live in `.sigcomply.yaml`,
-   versioned in git. The vault carries evidence; git carries decisions.
-9. **One project = one source-control repository = one framework.** A
-   project corresponds to exactly one repo (GitHub or GitLab) and that
-   project pursues exactly one compliance framework. Customers pursuing
-   multiple frameworks typically use multiple repos. The CI workflow
-   files live in the repo and are part of the audit trail. Note this
-   constrains the *framework*, not the estate: one project may cover
-   several cloud accounts or orgs by configuring a plugin more than once
-   (see `docs/architecture/04-source-plugins.md` §Multiple plugin
-   instances).
-
----
-
-## The layered architecture at a glance
+## Layers
 
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│  L9  Orchestrator     CLI entry; CI integration; owns exit codes   │
-│                       (0 passed · 1 violations · 2 exec · 3 config) │
-├────────────────────────────────────────────────────────────────────┤
-│  L8  Submitter        Optional cloud submission (counts only)      │
-├────────────────────────────────────────────────────────────────────┤
-│  L7  Persistence      Vault writes (envelopes, results, summaries) │
-├────────────────────────────────────────────────────────────────────┤
-│  L6  Aggregator       Privacy boundary; counts-only schema         │
-├────────────────────────────────────────────────────────────────────┤
-│  L5  Evaluator        Run each policy's rule with its evidence     │
-├────────────────────────────────────────────────────────────────────┤
-│  L4  Collector        Per-policy fetches; envelope signing         │
-├────────────────────────────────────────────────────────────────────┤
-│  L3  Planner          Resolve bindings; ordered policy list        │
-├────────────────────────────────────────────────────────────────────┤
-│  L2  Registries       Framework, Source, Rule, Policy, EvidenceType│
-├────────────────────────────────────────────────────────────────────┤
-│  L1  Core domain      Stable Go types and interfaces               │
-├────────────────────────────────────────────────────────────────────┤
-│  L0  Specifications   Framework specs, policy specs, ET schemas,   │
-│                       project config (data-as-code, all versioned) │
-└────────────────────────────────────────────────────────────────────┘
+L9  Orchestrator   cmd/sigcomply, internal/orchestrator: wiring, run summary, exit codes
+L8  Submitter      internal/submitter: optional cloud submission (counts only)
+L7  Persistence    internal/vault + orchestrator: results, summary, manifest, state
+L6  Aggregator     internal/aggregator: the privacy boundary, counts-only payload
+L5  Evaluator      internal/evaluator: pass_when, rule:, manual presence check
+L4  Collector      internal/collector: per-policy fetches, schema validation, signing
+L3  Planner        internal/planner: bindings, period, cadence decision
+L2  Registries     internal/registry: frameworks, sources, rules, evidence types, policies
+L1  Core           internal/core: stable interfaces and shared types
+L0  Specifications internal/spec: config and spec parsing and validation
 ```
 
-Detailed layer responsibilities: [`02-layers.md`](docs/architecture/02-layers.md).
+Higher layers import lower ones, never the reverse. The per-package table, including the support
+packages outside the stack (`sign`, `log`, `evidence_types`, `frameworks`, `sources`,
+`manualcatalog`, `manualdue`, `report`, `scope`, `vendorfanout`, `fixturehygiene`) and the public
+`plugin/` package, is in [`02-layers.md`](docs/architecture/02-layers.md).
 
-Several packages are cross-cutting support code and deliberately sit
-*outside* this ten-layer stack: `sign`, `log`, `manualcatalog`,
-`report`, `sources`, `frameworks`, and `evidence_types`.
+## Repository layout
 
----
+| Path | What it holds |
+|---|---|
+| `main.go`, `cmd/sigcomply/` | Cobra commands; `cmd/sigcomply/templates/` holds the `init-ci` workflow templates |
+| `internal/` | Every package above; frameworks under `internal/frameworks/<fw>/`, sources under `internal/sources/<vendor>/` |
+| `plugin/` | The only non-`internal` package: the API project-local extensions compile against |
+| `contracts/` | Vendor API spec snapshots for drift detection ([`contracts/README.md`](contracts/README.md)) |
+| `scripts/` | Fixture scan, contract fetch and diff, install script |
+| `examples/` | Copyable CI configs |
+| `docs/` | Customer docs; `docs/architecture/` and `docs/claude/` are agent and contributor docs |
 
 ## Vocabulary
 
-Used consistently across every doc and every line of code. Full
-definitions in [`01-conceptual-model.md`](docs/architecture/01-conceptual-model.md).
+Full definitions in [`01-conceptual-model.md`](docs/architecture/01-conceptual-model.md).
 
-| Term | One-line meaning |
+| Term | Meaning |
 |---|---|
-| **Framework** | A published compliance regime (SOC 2, ISO 27001). |
-| **Control** | A single requirement in a framework, e.g. `SOC2.CC6.1`. |
-| **Policy** | A verifiable assertion contributing to a control. |
-| **Policy cadence** | How often a policy must be evaluated (`continuous` … `annual`); drives CI scheduling. |
-| **Rule** | The logic deciding a policy's outcome from its evidence inputs. |
-| **Source** | Something producing evidence (`aws.iam`, `okta`, `manual.pdf`). |
-| **Evidence type** | The *shape* of a piece of evidence; a versioned schema. |
-| **Slot** | A named, typed input on a policy. |
-| **Binding** | Project-level mapping of slot → source(s). |
-| **Evidence record** | One fulfilled piece of data. |
-| **Envelope** | Signed wrapper around a batch of evidence records. |
-| **Period** | A first-class audit window (e.g. `2026-Q1`). |
-| **Run** | One CLI invocation. Owns a run ID, stamped period, commit. |
-| **Vault** | Customer-owned storage receiving envelopes, results, summaries. |
-| **Project** | The customer's deployment (config + vault + bindings). |
-
----
+| Framework | A compliance regime (SOC 2, ISO 27001). |
+| Control | One requirement in a framework, for example `CC6.1`. |
+| Policy | A verifiable assertion contributing to a control. |
+| Policy cadence | How often a policy must be evaluated: `continuous`, `hourly`, `daily`, `weekly`, `monthly`, `quarterly`, `annual` or `every:<duration>`. |
+| Rule | The logic deciding a policy's outcome: a `pass_when` clause, or a Go/Rego `rule:`. |
+| Source | Something producing evidence (`aws.iam`, `okta`, `manual.pdf`). |
+| Evidence type | The shape of a piece of evidence; a versioned JSON Schema. |
+| Slot | A named, typed input on a policy. |
+| Binding | The mapping from a slot to one or more sources. |
+| Evidence record | One piece of collected data. |
+| Envelope | A signed file wrapping a batch of evidence records. |
+| Period | An audit window, for example `2026-Q1`. |
+| Run | One CLI invocation, with a run ID, a period and a commit. |
+| Vault | Customer-owned storage for envelopes, results and summaries. |
+| Project | The customer's deployment: config, vault and bindings. |
 
 ## Document map
 
-| Doc | What it covers |
+| Doc | Covers |
 |---|---|
-| [`00-three-plugin-axes.md`](docs/architecture/00-three-plugin-axes.md) | The unified design principle: three orthogonal plugin axes (manual input storage, output vault storage, API sources) all use one self-registering factory pattern. Read this first to grok the extensibility story. |
-| [`01-conceptual-model.md`](docs/architecture/01-conceptual-model.md) | The sixteen abstractions, their relationships, and the substitutability axioms (1–6) that make the design extensible. |
-| [`02-layers.md`](docs/architecture/02-layers.md) | Each layer's responsibilities, interfaces, and the contracts between them. |
-| [`03-policy-spec.md`](docs/architecture/03-policy-spec.md) | Format of a policy spec; slots, parameters, rule references; examples in Rego, Go, and YAML DSL. |
-| [`04-source-plugins.md`](docs/architecture/04-source-plugins.md) | Source plugin contract; how to author one; how evidence types are declared and consumed. |
-| [`04a-evidence-type-registry.md`](docs/architecture/04a-evidence-type-registry.md) | The evidence-type registry: versioned JSON Schemas, the policy↔source mediation contract, schema-design rules, and the substitutability property. |
-| [`05-vault-layout.md`](docs/architecture/05-vault-layout.md) | Vault directory structure; envelope format; signing; versioning. |
-| [`06-aggregation.md`](docs/architecture/06-aggregation.md) | The privacy boundary in detail; the exact wire format; structural enforcement. |
-| [`07-extensibility.md`](docs/architecture/07-extensibility.md) | How customers add custom policies and custom source plugins; how the community contributes upstream. |
-| [`08-project-config.md`](docs/architecture/08-project-config.md) | Full `.sigcomply.yaml` schema reference. |
-| [`09-ci-execution-model.md`](docs/architecture/09-ci-execution-model.md) | How the CLI fits into a CI pipeline; cadence-driven workflow scheduling; `sigcomply init-ci` scaffolding; how statelessness survives variable run frequencies. |
-| [`10-cadence-model.md`](docs/architecture/10-cadence-model.md) | The two-axis cadence model (per-policy gating vs per-run period freeze); per-policy state shards; the `every:<duration>` DSL; carry-forward result format; day-1 warnings; the per-policy cadence scalars in the cloud payload. The canonical reference for "should this policy re-evaluate now?" |
-| [`11-testing-strategy.md`](docs/architecture/11-testing-strategy.md) | How source-API integrations are tested: the regression-vs-drift model, the six test layers (L0–L4b), the CLI-vs-E2E repo split, and the cross-cutting conventions (cassette/contract paths, redaction, build tags, coverage). See also root [`TESTING.md`](TESTING.md). |
-| [`12-multicloud-sources.md`](docs/architecture/12-multicloud-sources.md) | AWS/GCP/Azure parity across the shared evidence types, and the types deferred per provider. |
-| [`13-isms-clauses-and-soa.md`](docs/architecture/13-isms-clauses-and-soa.md) | Why Annex A alone was not ISO readiness; the two kinds of control (`core.Control.Kind`); why a management-system requirement cannot be declared not applicable; how `report --view soa` assembles the Statement of Applicability. |
-| [`examples/acmecorp-walkthrough.md`](docs/architecture/examples/acmecorp-walkthrough.md) | End-to-end worked example: AcmeCorp pursuing SOC 2 with AWS + Okta + manual evidence. Reads alongside [`examples/acmecorp.sigcomply.yaml`](docs/architecture/examples/acmecorp.sigcomply.yaml). |
-
----
+| [`00-three-plugin-axes.md`](docs/architecture/00-three-plugin-axes.md) | The three plugin axes (manual input storage, vault, API sources) and their shared factory pattern. |
+| [`01-conceptual-model.md`](docs/architecture/01-conceptual-model.md) | Glossary and the substitutability axioms. |
+| [`02-layers.md`](docs/architecture/02-layers.md) | Each layer and package, and the contracts between them. |
+| [`03-policy-spec.md`](docs/architecture/03-policy-spec.md) | Policy fields, the `pass_when` DSL, the `rule:` escape hatch. |
+| [`04-source-plugins.md`](docs/architecture/04-source-plugins.md) | The source plugin contract, the built-in plugin set, testing a plugin. |
+| [`04a-evidence-type-registry.md`](docs/architecture/04a-evidence-type-registry.md) | Evidence types, schema design rules, substitutability. |
+| [`05-vault-layout.md`](docs/architecture/05-vault-layout.md) | Vault layout, envelope format, signing and verification. |
+| [`06-aggregation.md`](docs/architecture/06-aggregation.md) | The privacy boundary, the wire format, the submission decision. |
+| [`07-extensibility.md`](docs/architecture/07-extensibility.md) | Project-local policies, sources and backends via `sigcomply build`. |
+| [`08-project-config.md`](docs/architecture/08-project-config.md) | Design rationale for `.sigcomply.yaml`. The key reference is [`docs/configuration.md`](docs/configuration.md). |
+| [`09-ci-execution-model.md`](docs/architecture/09-ci-execution-model.md) | How the CLI runs in CI; `init-ci` scaffolding. |
+| [`10-cadence-model.md`](docs/architecture/10-cadence-model.md) | Cadence and period, state shards, carry-forward, manual evidence periods. |
+| [`11-testing-strategy.md`](docs/architecture/11-testing-strategy.md) | Test layers L0 to L4b and their conventions. |
+| [`12-multicloud-sources.md`](docs/architecture/12-multicloud-sources.md) | AWS, GCP and Azure parity across shared evidence types. |
+| [`13-isms-clauses-and-soa.md`](docs/architecture/13-isms-clauses-and-soa.md) | ISO 27001 management-system controls and the Statement of Applicability. |
+| [`14-manual-evidence.md`](docs/architecture/14-manual-evidence.md) | The manual-evidence contract: folders, checks, fan-out, non-goals. |
+| [`examples/`](docs/architecture/examples/) | Example `.sigcomply.yaml` files (AcmeCorp, multi-account, GCP, Azure, GitLab self-managed, multi-cloud). |
 
 ## Reading order
 
-- **First pass (1 hour)**: this file → `00-three-plugin-axes.md` →
-  `01-conceptual-model.md` → `examples/acmecorp-walkthrough.md`.
-  You'll understand the extensibility story, the model, and see it
-  applied end to end.
-- **Implementing a layer**: this file → `02-layers.md` → the spec for
-  the layer's inputs/outputs (e.g. `03-policy-spec.md` if you're
-  implementing the planner).
-- **Adding a source plugin**: `04-source-plugins.md` →
-  `07-extensibility.md`.
-- **Defining a custom policy**: `03-policy-spec.md` →
-  `08-project-config.md`.
-- **Auditor / compliance reviewer**: this file → `06-aggregation.md`
-  (proves the privacy story) → `05-vault-layout.md` (proves the
-  verification story).
+- First pass: this file, then `00-three-plugin-axes.md`, `01-conceptual-model.md` and
+  [`examples/acmecorp.sigcomply.yaml`](docs/architecture/examples/acmecorp.sigcomply.yaml).
+- Changing a layer: `02-layers.md`, then the doc for that layer's inputs and outputs.
+- Adding a source plugin: `04-source-plugins.md`, `04a-evidence-type-registry.md`,
+  `07-extensibility.md`, and [`docs/claude/recipes.md`](docs/claude/recipes.md).
+- Adding a policy: `03-policy-spec.md` and the recipes.
+- Reviewing the privacy and verification story: `06-aggregation.md`, `05-vault-layout.md`,
+  [`SECURITY.md`](SECURITY.md).

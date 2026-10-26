@@ -1,63 +1,86 @@
-# `internal/sources/sourcetest` — shared source-plugin test harness
+# `internal/sources/sourcetest`: source-plugin test harness
 
-This package is the **one place** every source plugin's tests run
-through. It exists so that adding a plugin never means re-inventing test
-scaffolding: a plugin author feeds canned API responses in and gets
-schema-conformance, completeness, determinism, and metadata checks for
-free.
-
-It backs test layers **L1, L2, and L4a** described in
+Shared helpers for source-plugin tests: conformance checks on emitted records, go-vcr cassette
+record and replay with redaction, vendor-spec validation of recorded responses, and live-test
+gating. It backs test layers L2 and L4a in
 [`docs/architecture/11-testing-strategy.md`](../../../docs/architecture/11-testing-strategy.md).
-
-> **Status:** the harness code is built across WU-1.1 (conformance) and
-> WU-1.2 (go-vcr wiring); WU-4.1 adds the live-gating helper. This README
-> ratifies the intended API so plugin authors and those WUs share one
-> contract. Until then, plugins keep their existing `fakeAPI` unit tests.
-
-## What it provides
-
-- **`RunConformance(t, plugin, opts)`** — given a plugin and a way to
-  feed it canned responses, asserts:
-  - **Schema conformance** — every emitted `EvidenceRecord` validates
-    against its evidence-type JSON Schema (reuses
-    `internal/evidence_types`).
-  - **Completeness** — no schema-defined field is left zero/empty
-    (CloudQuery-style), so a mapper that silently drops a field fails.
-  - **Determinism** — two runs produce identical, ID-sorted output.
-  - **Metadata** — `Type`, `SourceID`, and `CollectedAt` are set on
-    every record.
-  - **Record scope** (opt-in, `Options.WantScope`) — every record carries
-    exactly the given `core.RecordScope`. Set it for any plugin that knows
-    which account/subscription/project it queried: the scope is signed into
-    the envelope, so an unstamped record loses its provenance. Leave it nil
-    for plugins that are not scope-aware yet.
-- **Cassette wiring** — load a go-vcr v4 cassette, wrap it as an
-  `http.RoundTripper`, and install the redaction `BeforeSaveHook` so
-  recordings are scrubbed to the stable placeholders defined in the
-  strategy doc §4.
-- **Live gating** — `RequireEnv(t, "GITHUB_TEST_TOKEN")` skips a
-  `//go:build live` test when its token env var is absent (`TF_ACC`-style).
-
-## How a plugin uses it
-
-A plugin's `*_test.go` (sibling to the mapper) typically:
-
-1. Builds the plugin with a transport seam pointed at a cassette under
-   `testdata/cassettes/` (per-provider seam: AWS `config.WithHTTPClient`,
-   GCP `option.WithHTTPClient`, Azure `arm.ClientOptions{Transport:…}`).
-2. Calls `sourcetest.RunConformance(t, plugin, opts)` to replay each
-   scenario cassette through the **real SDK deserializer** and assert the
-   emitted records.
-
-Cassette and contract locations, the redaction placeholder table, and a
-full worked directory layout live in
-[`docs/architecture/11-testing-strategy.md`](../../../docs/architecture/11-testing-strategy.md)
-(§4). The add-a-plugin checklist is in
+The add-a-plugin checklist is in
 [`docs/architecture/04-source-plugins.md`](../../../docs/architecture/04-source-plugins.md).
+
+## Conformance (`conformance.go`)
+
+```go
+records := sourcetest.RunConformance(t, &sourcetest.Options{
+    Plugin:        plugin,                              // built with its cassette transport
+    EvidenceTypes: sourcetest.BuiltinEvidenceTypes(t),  // embedded production schemas
+})
+```
+
+`RunConformance(t *testing.T, opts *Options) []core.EvidenceRecord` calls `Collect` twice and
+reports through `t`:
+
+- Determinism: both calls return identical output. A plugin that stamps `time.Now()` instead of
+  an injected clock fails here.
+- Non-empty: zero records fail unless `AllowEmpty` is set.
+- Ordering: records are sorted by `ID`.
+- Metadata: every record has `Type` (one of `Plugin.Emits()`), `ID`, `SourceID` and a non-zero
+  `CollectedAt`.
+- Schema: every payload validates against its evidence type's JSON Schema.
+- Completeness: every key in the schema's top-level `properties` is present in the payload,
+  optional fields included. Presence is checked, not value: a zero value passes.
+
+It returns the first call's records for scenario-specific assertions.
+
+`Options` fields:
+
+| Field | Meaning |
+|---|---|
+| `Plugin` | The plugin under test, already wired to its cassette or fake. Required. |
+| `Request` | The `SlotRequest` passed to `Collect`. Empty `AcceptedTypes` defaults to `Plugin.Emits()`. |
+| `EvidenceTypes` | Schema registry. Pass `BuiltinEvidenceTypes(t)`. Required. |
+| `OptionalFields` | Fields exempt from the completeness check, as `field` or `type.field`. |
+| `AllowEmpty` | Permit a scenario that emits no records. |
+| `WantScope` | When set, every record must carry exactly this `core.RecordScope`. Set it when the plugin knows which account, subscription or project it queried; the scope is signed into the envelope. |
+
+## Cassettes (`cassette.go`)
+
+Cassette names are paths without the `.yaml` suffix, for example
+`testdata/cassettes/list_repos`.
+
+| Function | Use |
+|---|---|
+| `ReplayClient(t, name)` | Offline replay, matching on method and URL. An unrecorded request fails. |
+| `ReplayClientWithMatcher(t, name, matcher)` | Replay with a custom matcher. |
+| `RecordClient(t, name, transport)` | Record through a real transport; used in `//go:build record` drivers. |
+| `RecordClientWithMatcher(t, name, transport, matcher)` | Record with a custom matcher. |
+| `MethodURLMatcher` | The default matcher. |
+| `AWSMatcher` | Also compares request bodies, for AWS query, JSON and CBOR protocols where operations share a URL. |
+| `RedactInteraction` | The save hook every recording uses. Scrubs credential headers, bearer tokens, emails, AWS access key IDs and 12-digit account IDs in URLs, forms and bodies. Plugin-specific fields (usernames that are not emails) need an extra hook in the plugin's driver. |
+
+Point the plugin's HTTP client at the returned `*http.Client` through its SDK seam: AWS
+`config.WithHTTPClient`, GCP `option.WithHTTPClient`, Azure `arm.ClientOptions{Transport: ...}`.
+
+## Vendor-spec validation (`spec.go`)
+
+`NewSpecValidator(t, specPath)` loads an OpenAPI slice from `contracts/`;
+`(*SpecValidator).Check` and `CheckArray` validate decoded JSON against a named component schema.
+`LoadCassetteInteractions` and `DecodeJSONBody` read recorded responses for it. GitHub and Okta
+use this (`*_spec_conformance_test.go`); other providers rely on the weekly drift job alone.
+
+## Live tests (`live.go`)
+
+```go
+//go:build live
+
+env := sourcetest.RequireEnv(t, "GITHUB_TEST_TOKEN", "GITHUB_TEST_ORG")
+```
+
+`RequireEnv(t, keys...)` skips the test unless every variable is set, and returns their values.
+Run live tests with `make test-live`.
 
 ## Rules
 
-- The harness must have **no network access** of its own; it only
-  replays cassettes or runs against an in-package fake plugin.
-- Keep it dependency-light — it is imported by every source test, so a
-  heavy import here taxes the whole suite.
+- The harness makes no network calls of its own. It replays cassettes, or the caller passes a
+  real transport while recording.
+- Keep it light on dependencies. Every source test imports it.
+- Never commit an unscrubbed cassette. `make check-fixtures` scans `testdata/`.
