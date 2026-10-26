@@ -6,7 +6,7 @@ declarations) so the CLI can collect them for SOC 2 or ISO 27001. The examples u
 
 For each manual entry the CLI checks only three things: a supported file is in the entry's
 folder, it was uploaded inside the entry's time window, and it is a readable PDF or image. It then
-merges the files into one PDF and signs a record of it. It does not read what the document says;
+merges the files into one PDF and signs a record of each file's hash and the merged PDF's hash. It does not read what the document says;
 your auditor does. Background: [Concepts](../concepts.md).
 
 ## Prerequisites

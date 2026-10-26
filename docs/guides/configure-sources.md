@@ -72,8 +72,12 @@ policies:
       evidence: [okta]
 ```
 
-The slot is named `evidence` for every policy except the identity-roster policies, which use
-`roster` and `accounts` ([Check accounts against your identity roster](identity-roster.md)).
+The slot is named `evidence` for every policy except these:
+
+| Policies | Slots |
+|---|---|
+| Identity-roster policies ([Check accounts against your identity roster](identity-roster.md)) | `roster`, `accounts` |
+| `soc2.cc8.1.production_deploys_from_approved_changes`, `iso27001.8.32.production_deploys_from_approved_changes` | `deployments`, `changes` |
 
 ## Add a second account, org or subscription
 

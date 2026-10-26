@@ -131,7 +131,7 @@ make build
 |---|---|---|
 | a source, policy or the evaluator | `sigcomply check` against a fixture or scratch project (or an E2E repo) | stdout run summary, exit code (0 pass, 1 violations, 2 execution error, 3 config error), vault artifacts under `{framework}/{period_id}/run_*/` |
 | the manual-evidence catalog or SPA contract | `sigcomply evidence catalog -o json` | JSON matches `sigcomply-evidence-spa/src/types/catalog.ts` |
-| manual evidence due-dates | `sigcomply evidence due` | lists the expected entries; exits 0 |
+| manual evidence due-dates | `sigcomply evidence due` | lists the expected entries; exits 0 whatever it finds, 3 on a config error ([commands](../reference/commands.md#sigcomply-evidence-due)) |
 | the auditor read path | `sigcomply report --view <view>` | the view renders from the vault |
 | CI scaffolding | `sigcomply init-ci` in a scratch dir | workflow files written as expected |
 | cloud payload | `sigcomply check --capture-cloud-payload <file>` | the file holds counts only |
@@ -160,7 +160,7 @@ and
 | Cloud payload, aggregation, OIDC | `docs/architecture/06-aggregation.md`, [auth.md](./auth.md), the AGENTS.md cross-repo table; note the matching Rails change | `docs/guides/cloud-dashboard.md`, `docs/concepts.md` |
 | Cadence, periods, CI scaffolding | `docs/architecture/10-cadence-model.md`, `docs/architecture/09-ci-execution-model.md` | `docs/guides/ci-github.md`, `docs/guides/ci-gitlab.md`, `examples/` |
 | Identity roster | `docs/architecture/03-policy-spec.md`, [recipes.md](./recipes.md) | `docs/guides/identity-roster.md` |
-| Errors and exit codes | | `docs/reference/commands.md`, `docs/guides/troubleshooting.md` |
+| Errors and exit codes | `docs/architecture/09-ci-execution-model.md` §Results and exit codes | `docs/reference/commands.md`, `docs/guides/troubleshooting.md`, `docs/for-ai-agents.md`, `llms.txt` |
 | Install, release, packaging | this doc | `docs/guides/install.md`, `README.md` |
 | Architecture or layer change | the owning `docs/architecture/` doc and `ARCHITECTURE.md` | `docs/concepts.md` if the model a user sees changes |
 | Test process | `docs/architecture/11-testing-strategy.md`, this doc | `CONTRIBUTING.md` |

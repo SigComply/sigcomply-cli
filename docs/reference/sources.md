@@ -362,8 +362,9 @@ Credentials come from the backend's provider chain, the same as the matching `aw
 `s3:ListBucket` and `s3:GetObject`. The `s3` vault needs `s3:ListBucket`, `s3:GetObject` and `s3:PutObject`.
 
 The CLI reads `{prefix}{evidence_catalog_id}/{period_id}/`, checks that a supported file is
-present and was uploaded in the entry's cadence window, merges the files into one PDF and signs
-the record. It does not read what the documents say. Folder layout and file types:
+present and was uploaded in the entry's cadence window, merges the files into one PDF to validate
+them, and signs a record that carries each file's hash and the merged PDF's hash. The merged PDF
+itself is neither stored nor signed. It does not read what the documents say. Folder layout and file types:
 [Manual evidence](../guides/manual-evidence.md).
 
 The source-key check wrongly warns that `region`, `endpoint`, `force_path_style`, `account` and

@@ -13,8 +13,8 @@ You need:
 - A GitHub or GitLab repository for this project. One repository holds one framework.
 - The `sigcomply` CLI installed locally ([Install](guides/install.md)).
 - An AWS account where you can create an IAM role and an S3 bucket.
-- For the dashboard only: a SigComply Cloud account. The first submission from a new
-  organization starts a trial.
+- For the dashboard only: a SigComply Cloud account on the paid plan or in its free trial. The
+  first submission from a new organization starts the trial.
 
 ## 1. Commit a config
 
@@ -85,7 +85,8 @@ sigcomply init-ci --ci github
 
 This writes six workflows to `.github/workflows/`: one each for the daily, weekly, monthly,
 quarterly and annual checks, and `compliance-on-push.yml`. The daily workflow also runs
-`sigcomply evidence due`, which lists missing documents and never fails the job.
+`sigcomply evidence due --within-days 30`, which lists documents still missing whose period ends
+within 30 days. It never fails the job.
 
 For GitLab CI, run `sigcomply init-ci --ci gitlab`. It writes one `.gitlab-ci.yml`; you then
 create a pipeline schedule per cadence. See [CI on GitLab](guides/ci-gitlab.md).
@@ -116,10 +117,16 @@ policy and the full setup.
 Commit the workflows and push. Then start the daily workflow by hand from the **Actions** tab
 (it has a `workflow_dispatch` trigger), or wait for its schedule.
 
-In the job log, `check` prints the same summary you saw in the Quickstart. The job fails
-(exit `1`) while any policy fails; that is expected until the documents are uploaded. To keep
-the job green on failing policies, set `ci.fail_on_violation: false` in `.sigcomply.yaml`. Exit codes are listed in
-[Commands](reference/commands.md#exit-codes).
+The daily workflow runs `sigcomply check --cadence daily`, so it evaluates only policies with a
+daily cadence. In the job log, `check` prints a summary line with the framework and the period,
+then one line per policy. The job fails (exit `1`) while any of those policies fails. To keep
+the job green on failing policies, set `ci.fail_on_violation: false` in `.sigcomply.yaml`. Exit
+codes are listed in [Commands](reference/commands.md#exit-codes).
+
+Document policies are not in the daily run. Each has its catalog entry's cadence (annual or
+quarterly in the shipped catalogs) and runs in the matching workflow, which fires on day 20
+of the period's last month (for example, 20 December for annual). Start that workflow by hand
+to check documents sooner. Until a document is uploaded, its policy fails in that run.
 
 If you turned on cloud submission, the run appears on the dashboard. The first submission from
 a new organization starts its trial; see [Cloud dashboard](guides/cloud-dashboard.md).
@@ -136,9 +143,9 @@ sigcomply evidence due --all
 
 Each row names a folder such as `s3://<your-evidence-bucket>/manual/nda_policy/2026/`. Upload
 one or more PDF or image files there. The workflow for the entry's cadence (the `CADENCE`
-column) checks that a file is present for the period, merges the files into one PDF and signs
-the result. It does not read the content. An annual document waits for the annual workflow, so
-start that workflow by hand to see the result right away.
+column) checks that a file is present for the period, merges the files into one PDF to validate
+them, and signs a record of each file's hash. It does not read the content. An annual document
+waits for the annual workflow, so start that workflow by hand to see the result right away.
 
 [Manual evidence](guides/manual-evidence.md) covers folder names, file formats, the Evidence
 SPA form helper and upload windows.

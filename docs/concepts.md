@@ -18,7 +18,8 @@ evidence, which is why the model is called non-custodial.
 - It does not read or judge uploaded documents. A manual policy passes when a supported file is
   in the right folder for the period, whatever the file says.
 - It does not keep a history of results. The vault holds each run's evidence, and the CLI keeps
-  only the scheduling state it needs for cadences. Trends and drift over time are SigComply
+  only the scheduling state it needs for cadences. That state lives under `state/` in the vault,
+  so a CI runner with a fresh disk still finds it when the vault is a bucket. Trends and drift over time are SigComply
   Cloud features.
 - It does not change your infrastructure. Sources make read-only API calls.
 - It does not configure your storage. Write-once retention on the evidence bucket is your

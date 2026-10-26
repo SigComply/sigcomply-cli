@@ -162,7 +162,9 @@ job exits 1. The operator uploads the file and re-runs the workflow (`workflow_d
 manual pipeline on GitLab).
 
 The earlier signal is `sigcomply evidence due` in the daily workflow. It lists entries whose
-current folder is still empty and always exits 0 ([10](10-cadence-model.md#manual-evidence-due-sigcomply-evidence-due)).
+current folder is still empty. It exits 0 whatever it finds and 3 on a config error
+([10](10-cadence-model.md#manual-evidence-due-sigcomply-evidence-due),
+[commands](../reference/commands.md#sigcomply-evidence-due)).
 
 ## Plan warnings in scaffolded runs
 

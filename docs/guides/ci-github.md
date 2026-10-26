@@ -37,9 +37,12 @@ The longer cadences run on day 20, inside the period, because the CLI takes the 
 from the commit time of `HEAD`. A run on day 1 can land in a period that just opened, whose
 manual-evidence folders cannot hold anything yet.
 
+`--on-push` evaluates the policies whose `on_push` attribute is true. In the shipped frameworks
+that is every automated policy; document policies are excluded.
+
 Every cadence workflow also has a `workflow_dispatch` trigger, so you can start it from the
-**Actions** tab. The `evidence due` step lists empty manual-evidence folders and never fails the
-job.
+**Actions** tab. The `evidence due` step lists empty manual-evidence folders whose period ends
+within 30 days. It runs with `continue-on-error: true`, so it never fails the job.
 
 `init-ci` refuses to overwrite existing files; pass `--force` to replace them. It scaffolds SOC 2
 only. For ISO 27001, see [Use another framework](#use-another-framework).
@@ -131,7 +134,8 @@ git push
    tab.
 2. Start the daily workflow (`compliance-daily.yml`) with **Run workflow**.
 3. In the **Run SigComply** step log, check that collection started for each source and the run
-   summary lists your policies. The job fails with exit code `1` when a policy fails, `2` on an
+   summary lists your daily-cadence policies. Document policies are annual or quarterly, so they
+   run in `compliance-annual.yml` or `compliance-quarterly.yml`, not here. The job fails with exit code `1` when a policy fails, `2` on an
    execution error and `3` on a configuration error ([exit codes](../reference/commands.md)).
    Set `ci.fail_on_violation: false` to keep the job green when policies fail.
 4. If you set `cloud.base_url`, the log shows `submission accepted (HTTP 201)` or a `submit:`
@@ -139,10 +143,19 @@ git push
 
 ## Use another framework
 
-`init-ci` scaffolds SOC 2 only and exits `3` for any other framework. For ISO 27001, copy
-[`examples/github-actions/basic.yml`](../../examples/github-actions/basic.yml) into
-`.github/workflows/`. The CLI reads the framework from `framework:` in `.sigcomply.yaml`, so the
-workflow needs no framework flag. Apply steps 3 to 5 above to the copied file.
+`init-ci` accepts only `--framework soc2` and exits `3` for any other value, so it also exits `3`
+when `.sigcomply.yaml` sets `framework: iso27001` and you pass no flag. The workflows it writes
+don't name a framework: `check` reads `framework:` from `.sigcomply.yaml`. For ISO 27001, keep
+`framework: iso27001` in the config and run:
+
+```sh
+sigcomply init-ci --ci github --framework soc2
+```
+
+The scaffolded set includes the `evidence due` step in the daily workflow. If you prefer a single
+workflow, copy [`examples/github-actions/basic.yml`](../../examples/github-actions/basic.yml)
+into `.github/workflows/` instead and apply steps 3 to 5 above to it; that example has no
+`evidence due` step.
 
 ## Next steps
 

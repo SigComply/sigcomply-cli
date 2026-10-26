@@ -22,7 +22,7 @@ can only be found during collection, so the affected policies end as `error` and
 |---|---|
 | `check` | `framework:` in the config only. No flag; `SIGCOMPLY_FRAMEWORK` is ignored. Missing: exit `3`. |
 | `init`, `evidence catalog` | `-f/--framework`, then `SIGCOMPLY_FRAMEWORK`, then `soc2` |
-| `evidence due` | `-f/--framework`, then `framework:` in the config, then `SIGCOMPLY_FRAMEWORK`, then `soc2` |
+| `evidence due` | `-f/--framework`, then `framework:` in the config. The config must set `framework:`, so `SIGCOMPLY_FRAMEWORK` never applies. |
 | `init-ci` | `--framework`, then the `framework:` line of the config, then `soc2` |
 | `report` | `-f/--framework`, then `framework:` in the config. Neither: exit `3`. |
 

@@ -258,7 +258,9 @@ Rules it follows (`internal/manualdue`):
 
 - It lists only entries whose current folder is empty; an entry disappears once a file lands.
   Fan-out entries are checked once per member.
-- It always exits 0. A storage failure is reported as "could not verify", not as a deadline.
+- It exits 0 whatever it finds and 3 on a config error
+  ([commands](../reference/commands.md#sigcomply-evidence-due)). A storage failure is reported
+  as "could not verify", not as a deadline, and still exits 0.
 - `PERIOD` is per entry (its cadence window). The run period is printed once as context.
 - `DUE IN` counts down to the entry's period end on the `PeriodTime` clock (HEAD commit time by
   default), not the wall clock. A stale HEAD would otherwise show a period the next run will read

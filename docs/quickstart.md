@@ -9,7 +9,8 @@ document. Nothing leaves your machine.
 You need:
 
 - AWS credentials with read-only access to one account, for example a user or role with the
-  AWS-managed `ReadOnlyAccess` policy. SigComply only makes `Describe`, `List` and `Get` calls.
+  AWS-managed `ReadOnlyAccess` policy. Sources only read: SigComply makes only `Describe`,
+  `List` and `Get` calls. The CLI writes only to the vault you configure, here a local folder.
 - A macOS or Linux shell.
 - Any PDF file, to use as a stand-in document in step 5.
 
@@ -81,7 +82,10 @@ SigComply check soc2/2026-Q4 — <n> policies
   pass=... fail=... carried=0 skip=... error=0 na=0 waived=0
 ```
 
-Note this run period (`2026-Q4` here). You need it in step 6.
+Note this run period (`2026-Q4` here). You need it in step 6. The CLI takes the period from the
+timestamp of the HEAD commit. The `sigcomply-quickstart` folder is not a git repository, so it
+uses the current UTC time instead. If you created the folder inside a git repository, the period
+comes from that repository's HEAD commit.
 
 `echo $?` prints `1` on a first run. That is expected: some policies fail. You'll see three
 kinds of lines:

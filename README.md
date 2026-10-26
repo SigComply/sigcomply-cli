@@ -5,8 +5,8 @@ SigComply is a compliance engine and evidence collector that runs in your own CI
 GitHub, GitLab, Okta and Active Directory, and evaluates it against open SOC 2 and ISO 27001
 policies. For controls no API can answer (policies, training records, reviews), it collects the
 documents you upload: it checks that a supported file is present for the period, merges the
-files into one PDF and signs it. It does not read or judge what the documents say; your auditor
-does.
+files into one PDF to validate them, and signs a record of each file's hash. It does not read or
+judge what the documents say; your auditor does.
 
 Raw evidence and results stay in storage you own. With a paid SigComply Cloud plan, the CLI also
 sends pass/fail counts per policy, never identities, and the dashboard turns them into reports

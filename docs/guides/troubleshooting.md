@@ -17,7 +17,7 @@ access keys, UUIDs and JWTs are redacted at every log level, so it is safe in CI
 | `init` or `init-ci` exits `3` with `refusing to overwrite existing file` | Pass `--force` to overwrite. |
 | `init-ci` exits `3` with `not scaffolded in v1-alpha` | `init-ci` scaffolds SOC 2 only. See [Use another framework](ci-github.md#use-another-framework). |
 | `report` exits `3` | Pass `--period`. `--format pdf` is not available. JSON and CSV need `--out <file>`. |
-| A policy fails to plan with an unknown slot in `bindings:` (exit `3`) | The slot is named `evidence` (`roster` and `accounts` for roster policies): `bindings: { evidence: [okta] }`. |
+| A policy fails to plan with an unknown slot in `bindings:` (exit `3`) | The slot is named `evidence` (`roster` and `accounts` for roster policies; `deployments` and `changes` for the two `production_deploys_from_approved_changes` policies): `bindings: { evidence: [okta] }`. |
 
 ## Sources and credentials
 

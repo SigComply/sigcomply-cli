@@ -1,6 +1,6 @@
 # SigComply CLI
 
-> SigComply is a compliance engine and evidence collector that runs in your own CI. The `sigcomply` CLI pulls configuration from AWS, GCP, Azure, GitHub, GitLab, Okta and Active Directory with read-only credentials and evaluates it against open SOC 2 and ISO 27001 policies. For controls no API can answer, it checks that uploaded documents are present for the period, merges them into one PDF and signs it; it never judges document content. Evidence stays in storage the customer owns. With a paid SigComply Cloud plan it also sends per-policy counts, never identities, to a dashboard. It does not make anyone compliant.
+> SigComply is a compliance engine and evidence collector that runs in your own CI. The `sigcomply` CLI pulls configuration from AWS, GCP, Azure, GitHub, GitLab, Okta and Active Directory with read-only credentials and evaluates it against open SOC 2 and ISO 27001 policies. For controls no API can answer, it checks that uploaded documents are present for the period, merges them into one PDF to validate them, and signs a record of the files' hashes (the merged PDF itself is neither stored nor signed); it never judges document content. Evidence stays in storage the customer owns. With a paid SigComply Cloud plan it also sends per-policy counts, never identities, to a dashboard. It does not make anyone compliant.
 
 Facts agents get wrong:
 

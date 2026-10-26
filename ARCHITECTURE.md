@@ -7,8 +7,9 @@ the code is the source of truth for what is wired, and
 The CLI runs inside the customer's own CI. It has two evidence flows. Automated policies evaluate
 configuration pulled from vendor APIs with the customer's read-only credentials. Manual policies
 collect documents the customer uploads: the CLI checks that a supported file is present for the
-period, merges the files into one PDF and signs the result, but never judges what the documents
-say. Every evidence file is signed locally and written to a vault the customer owns. Only when the
+period, merges the files into one PDF to validate it, and signs a record that carries each
+file's hash and the merged PDF's hash. It never judges what the documents say, and it neither
+stores nor signs the merged PDF itself. Every evidence file is signed locally and written to a vault the customer owns. Only when the
 customer opts in does the CLI send per-policy counts (never identities) to the SigComply Cloud
 dashboard. The architectural point is "evidence without access".
 

@@ -40,10 +40,12 @@ the audience `https://api.sigcomply.com`. It writes that token to a file and exp
 `AWS_WEB_IDENTITY_TOKEN_FILE`, so the AWS SDK inside the CLI assumes the role in `AWS_ROLE_ARN`.
 The CLI reads the same token from `SIGCOMPLY_ID_TOKEN` for cloud submission.
 
-`init-ci` refuses to overwrite an existing file; pass `--force` to replace it. It scaffolds SOC 2
-only and exits `3` for other frameworks. For ISO 27001, start from
-[`examples/gitlab-ci.yml`](../../examples/gitlab-ci.yml); the CLI reads the framework from
-`.sigcomply.yaml`.
+`init-ci` refuses to overwrite an existing file; pass `--force` to replace it. It accepts only
+`--framework soc2` and exits `3` for other values, including a config that sets
+`framework: iso27001` when you pass no flag. The scaffolded jobs don't name a framework: `check`
+reads `framework:` from `.sigcomply.yaml`. For ISO 27001, keep `framework: iso27001` and run
+`sigcomply init-ci --ci gitlab --framework soc2`; the daily job keeps its `evidence due` step.
+[`examples/gitlab-ci.yml`](../../examples/gitlab-ci.yml) is a fallback without that step.
 
 ## 2. Set the variables
 
