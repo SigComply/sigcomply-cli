@@ -1,618 +1,166 @@
-# 06 — Aggregation Contract (the Privacy Boundary)
+# 06: Aggregation contract (the privacy boundary)
 
-This document specifies the single most load-bearing component of the
-non-custodial architecture: the contract that determines what crosses
-from the customer's environment to the SigComply cloud (or any
-self-hosted dashboard). Get this wrong and the entire product
-positioning collapses.
+This page owns what crosses from the customer's environment to SigComply Cloud, how the CLI
+sends it, and how the contract is versioned. The boundary sits between L6 (aggregator) and L8
+(submitter): `aggregator.Build` reduces `[]core.PolicyResult` to a `core.SubmissionPayload`, and
+`submitter.Submit` sends it. Everything before L6 stays in the customer's vault.
 
-The contract is enforced **structurally**, not procedurally. There is
-no lint rule, no PR template, no documentation check that prevents
-leakage. There is a Go type. Adding any field to that type that could
-carry resource identity requires editing the type — a code-review
-gate.
+Rule: no resource identifier (ARN, email, user ID, account number, file hash, resource name)
+reaches the payload. A change that could carry one is a stop-and-ask (AGENTS.md Invariant #1).
 
----
+## The payload
 
-## The non-custodial promise
+The wire types are in `internal/core/cloud.go` (`SubmissionPayload`, `Repository`,
+`CIEnvironment`, `RunSummary`, `AggregatedPolicy`) and `internal/core/framework.go`
+(`ControlRef`). Read them there; don't copy them into docs. The schema string is
+`aggregator.SchemaVersion`.
 
-In SigComply's words: *"Evidence without access."* Operationally:
+What each field carries and why it is allowed:
 
-1. The customer's vault holds full-fidelity evidence: signed
-   envelopes, raw API responses, PDF bytes, violation lists with
-   resource identifiers.
-2. The SigComply cloud (or any other dashboard the customer points
-   the CLI at) holds *only counts, statuses, and metadata that the
-   customer has already published* (commit SHA, repo name, branch).
-3. No identifier (ARN, email, IAM user ID, file hash, resource name,
-   account number) crosses the boundary.
-
-The boundary is between L6 (Aggregator) and L8 (Submitter) in the
-layer stack. L6 produces a `SubmissionPayload`; L8 transmits it.
-Everything else in the system is on the customer's side.
-
----
-
-## The submission payload
-
-```go
-// internal/core/cloud.go
-
-package core
-
-// SubmissionPayload is the wire format. Every field is concretely
-// typed and represents either a count, an enum status, or
-// already-public metadata. There is no map[string]any, no
-// json.RawMessage, no string field that could carry an identifier.
-//
-// AUDIT NOTE: any change to this type must be reviewed by ≥ 2
-// maintainers including the security owner. Adding a freeform field
-// is a non-custodial regression and must be explicitly justified.
-type SubmissionPayload struct {
-    Schema      string         `json:"schema"`        // "sigcomply.cloud.v5"
-
-    RunID       string         `json:"run_id"`        // UUID
-    Framework   string         `json:"framework"`     // "soc2"
-    PeriodID    string         `json:"period_id"`     // "2026-Q1"
-
-    CommitSHA   string         `json:"commit_sha"`    // already public via git
-    CommitTime  time.Time      `json:"commit_time"`
-    Branch      string         `json:"branch"`        // already public via git
-
-    Repository  Repository     `json:"repository"`    // already public
-    Environment CIEnvironment  `json:"environment"`   // CI metadata only
-
-    CLIVersion  string         `json:"cli_version"`
-    StartedAt   time.Time      `json:"started_at"`
-    CompletedAt time.Time      `json:"completed_at"`
-
-    Summary     RunSummary     `json:"summary"`
-    Policies    []PolicyResult `json:"policies"`
-}
-
-type Repository struct {
-    Provider string `json:"provider"` // "github" | "gitlab" (where the code is hosted)
-    NameSlug string `json:"name_slug"` // e.g. "acme/infrastructure"
-    URL      string `json:"url,omitempty"`
-}
-
-type CIEnvironment struct {
-    Provider     string `json:"provider"`        // "github_actions" | "gitlab_ci" | "local"
-    Workflow     string `json:"workflow,omitempty"`
-    RunURL       string `json:"run_url,omitempty"`
-    WorkerImage  string `json:"worker_image,omitempty"`
-}
-
-type RunSummary struct {
-    PoliciesTotal          int     `json:"policies_total"`
-    PoliciesPassed         int     `json:"policies_passed"`
-    PoliciesFailed         int     `json:"policies_failed"`
-    PoliciesSkipped        int     `json:"policies_skipped"`
-    PoliciesError          int     `json:"policies_error"`
-    PoliciesNA             int     `json:"policies_na"`
-    PoliciesWaived         int     `json:"policies_waived"`
-    PoliciesCarriedForward int     `json:"policies_carried_forward"`
-    ComplianceScore        float64 `json:"compliance_score"`
-}
-
-// ComplianceScore = (PoliciesPassed + PoliciesWaived + PoliciesCarriedForward)
-//                 / (PoliciesTotal - PoliciesSkipped - PoliciesNA)
-// Carried-forward policies inherit a prior PASS (carry-forward never
-// follows a non-pass terminal status), so they count toward the
-// numerator; otherwise the steady state of sub-period cadences would
-// systematically understate the score.
-
-// AggregatedPolicy: per-policy. No identifiers permitted.
-// (Named PolicyResult in earlier docs; the wire type is
-// core.AggregatedPolicy.)
-type AggregatedPolicy struct {
-    PolicyID           string       `json:"policy_id"`         // "soc2.cc6.1.mfa_enforced_all_users"
-    Controls           []ControlRef `json:"controls"`          // v3: one check ↦ many frameworks
-    Status             PolicyStatus `json:"status"`            // pass|fail|skip|error|na|waived|carried_forward
-    Severity           Severity     `json:"severity"`          // info|low|medium|high|critical
-    Category           string       `json:"category,omitempty"`
-    ResourcesEvaluated int          `json:"resources_evaluated"`
-    ResourcesFailed    int          `json:"resources_failed"`
-    Message            string       `json:"message"`           // generated from counts
-    RuleVersion        string       `json:"rule_version,omitempty"`
-
-    // Cadence fields (added in v2, retained in v3) — non-identifying
-    // scalars for the cadence model. The dashboard uses these to render
-    // staleness / next-due badges without recomputing locally. See
-    // docs/architecture/10-cadence-model.md.
-    ConfiguredCadence  string     `json:"configured_cadence,omitempty"`     // "daily" | "every:6h" | …
-    LastEvaluatedAt    *time.Time `json:"last_evaluated_at,omitempty"`      // most recent ACTUAL eval
-    NextDueAt          *time.Time `json:"next_due_at,omitempty"`            // when cadence next elapses
-    IsCarriedForward   bool       `json:"is_carried_forward,omitempty"`
-    PolicyContentHash  string     `json:"policy_content_hash,omitempty"`    // SHA-256(policy incl. pass_when + schemas)
-    EvidenceMode           EvidenceMode `json:"evidence_mode,omitempty"`            // "automated" | "manual"
-    EvidenceModeOverridden bool         `json:"evidence_mode_overridden,omitempty"` // project changed it
-    Vacuous                bool         `json:"vacuous,omitempty"`                   // passed, examined nothing
-    // LastEvaluatedAt / NextDueAt are pointers so omitempty drops a zero
-    // value instead of serializing "0001-01-01T00:00:00Z" (encoding/json
-    // does not omit a zero time.Time struct).
-}
-
-// ControlRef maps one policy to one control in one framework. A single
-// policy commonly satisfies controls across SOC 2, ISO 27001, etc., so
-// v3 carries a list. All four fields are public framework taxonomy —
-// no customer identity. Earlier schemas (v1/v2) had a single scalar
-// `control_id` instead; v2 clients still send it and the receiver
-// synthesizes a one-element list (see Rails RunSubmissionService).
-// Defined in internal/core/framework.go (not cloud.go).
-type ControlRef struct {
-    Framework        string              `json:"framework,omitempty"`         // "soc2" | "iso27001" | …
-    FrameworkVersion string              `json:"framework_version,omitempty"` // "soc2-2017@1.0.0"
-    ControlID        string              `json:"control_id"`                  // "SOC2.CC6.1"
-    Relationship     ControlRelationship `json:"relationship,omitempty"`      // equal|subset_of|superset_of|intersects
-}
-```
-
-The cadence fields are deliberately scalars — never maps, slices, or
-interfaces — and `Controls` is a slice of a fixed, fully-typed struct
-(no freeform keys). The reflection test in `internal/core/cloud_test.go`
-walks the type graph and fails the build if a freeform-shape field
-(`interface{}`, `json.RawMessage`, `map[string]any`) is added. Adding a
-new field follows the same rules as adding any other (see §How to extend
-the type below).
-
-### What this type physically cannot express
-
-- `Violations []Violation` — there is no such field. The full
-  violation list lives only in the vault.
-- `FailedResources []string` — there is no such field. The cloud sees
-  the *count* of failed resources, never their IDs.
-- `Details map[string]any` — there is no such field. No freeform
-  extensibility hook.
-- `EvidencePreview string` — there is no such field.
-- `Diag json.RawMessage` — there is no such field.
-
-If a maintainer believes a new field is needed, they must:
-
-1. Argue the case in writing on the PR.
-2. Demonstrate that the field cannot carry a resource identifier in
-   any deployment.
-3. Get review from ≥ 2 maintainers including the security owner.
-4. Bump the schema version (current is `sigcomply.cloud.v5`; next would
-   be `sigcomply.cloud.v6`) so existing deployments are aware of the
-   change.
-
-This is friction, by design. Every loosening of the contract erodes
-the non-custodial promise.
-
----
-
-## How L6 actually builds the payload
-
-The real entry point is `aggregator.Build` — it takes the evaluated
-`PolicyResult` slice plus a `*Environment`, and computes the run summary
-internally (no `plan`/`summary` parameters are threaded in). The
-following is illustrative pseudocode of its shape, not a line-for-line
-transcription:
-
-```go
-// internal/aggregator/aggregator.go (illustrative)
-
-func Build(results []core.PolicyResult, env *Environment) core.SubmissionPayload {
-
-    out := core.SubmissionPayload{
-        Schema:      SchemaVersion,        // "sigcomply.cloud.v5"
-        RunID:       env.RunID,
-        Framework:   env.Framework,
-        PeriodID:    env.PeriodID,
-        CommitSHA:   env.CommitSHA,
-        CommitTime:  env.CommitTime,
-        Branch:      env.Branch,
-        Repository:  toRepository(env),
-        Environment: toCIEnvironment(env),
-        CLIVersion:  env.CLIVersion,
-        StartedAt:   env.StartedAt,
-        CompletedAt: time.Now(),
-        Summary:     buildSummary(results),  // counts computed here
-        Policies:    make([]core.AggregatedPolicy, 0, len(results)),
-    }
-
-    for _, r := range results {
-        out.Policies = append(out.Policies, core.AggregatedPolicy{
-            PolicyID:           r.PolicyID,
-            Controls:           r.Controls,  // []ControlRef — multi-framework mapping
-            Status:             r.Status,    // PolicyStatus
-            Severity:           r.Severity,  // Severity
-            Category:           r.Category,
-            ResourcesEvaluated: r.ResourcesEvaluated,
-            ResourcesFailed:    r.ResourcesFailed,
-            Message:            generateMessage(r),  // <-- key step
-            RuleVersion:        r.RuleVersion,
-
-            // The five non-identifying cadence scalars (see
-            // 10-cadence-model.md §Cloud payload cadence fields).
-            ConfiguredCadence: r.ConfiguredCadence,
-            LastEvaluatedAt:   lastEvaluatedAt(r, env),
-            NextDueAt:         r.NextDueAt,
-            IsCarriedForward:  r.Status == core.StatusCarriedForward,
-            PolicyContentHash: r.PolicyContentHash,
-            EvidenceMode:      r.EvidenceMode,
-            EvidenceModeOverridden: r.EvidenceModeOverridden,
-            Vacuous:                vacuousPass(r),
-        })
-    }
-
-    return out
-}
-
-// generateMessage produces a count-only summary from a PolicyResult.
-// It never copies the violation text, which may contain identities.
-func generateMessage(r core.PolicyResult) string {
-    switch r.Status {
-    case core.StatusPass:
-        // A pass whose clauses filtered every record away is not the
-        // same claim as one that inspected them.
-        if vacuousPass(r) {
-            return "Passed, but no resources matched the filter — verify this control is in scope."
-        }
-        return fmt.Sprintf("All %d resources passed.", r.ResourcesEvaluated)
-    case core.StatusFail:
-        return fmt.Sprintf("%d of %d resources failed.", r.ResourcesFailed, r.ResourcesEvaluated)
-    case core.StatusSkip:
-        return "No matching resources to evaluate."
-    case core.StatusError:
-        return "Evaluation error; see customer vault for diagnostics."
-    case core.StatusNA:
-        return "Not applicable to this project."
-    case core.StatusWaived:
-        return fmt.Sprintf("Waived by exception (%d of %d resources affected).",
-            r.ResourcesFailed, r.ResourcesEvaluated)
-    case core.StatusCarriedForward:
-        return "Carried forward from a prior passing evaluation (cadence not yet due)."
-    }
-    return ""
-}
-```
-
-**Why the pass branch reads `Diag`.** `resources_evaluated` counts a
-policy's records **before** its clauses filter them (see
-[`03-policy-spec.md`](03-policy-spec.md) §Vacuity), so a policy that
-filtered 500 records down to zero still reports 500 — and `all`/`none`
-are true of the empty set. Without the vacuity branch the dashboard
-receives *"All 500 resources passed."* for a control that examined
-nothing, indistinguishable from one that examined everything. The slot
-names behind `vacuous_clauses` stay in the CLI; only the sentence
-crosses, so the aggregation boundary is untouched.
-
-v5 carries the same signal a second way, as the `vacuous` boolean, because
-prose cannot be filtered, counted or trended — a dashboard can read the
-sentence but cannot chart how many vacuous passes an estate has. Both are
-derived from one helper (`vacuousPass`), so the flag and the sentence can
-never disagree about the same run, and both are gated on `StatusPass`:
-`VacuousSlots()` is status-blind, and a failing policy can carry the
-diagnostic for one clause while failing on another.
-
-The critical design choice: `Message` is **regenerated** from counts.
-The rule's violation text (which may say "MFA disabled for
-alice@acme.com") is *never* propagated to the cloud payload.
-
----
-
-## Wire format
-
-The payload is transmitted as JSON over HTTPS to the configured cloud
-base URL. The default is `https://api.sigcomply.com`; self-hosted
-deployments override via `cloud.base_url` in project config or the
-`SIGCOMPLY_CLOUD_URL` env var.
-
-```
-POST {cloud_base_url}/api/v1/runs
-Content-Type: application/json
-Authorization: Bearer <oidc_jwt>
-X-OIDC-Provider: github | gitlab
-X-Sigcomply-CLI-Version: 1.0.0
-
-{ /* SubmissionPayload */ }
-```
-
-### Authentication
-
-OIDC only. No API keys, no secrets stored, no long-lived credentials.
-
-- In GitHub Actions: the CLI fetches a workload-identity token from
-  `ACTIONS_ID_TOKEN_REQUEST_URL` with audience
-  `https://api.sigcomply.com` (or the configured base URL).
-- In GitLab CI: the CLI reads the JWT from `SIGCOMPLY_ID_TOKEN`
-  (falling back to `ID_TOKEN`), configured in the pipeline, with the
-  same audience.
-- Locally: no OIDC token available → cloud submission silently
-  skipped. The vault still receives all evidence.
-
-The receiving Rails app validates:
-
-- Token signature against the CI provider's public JWKS.
-- Audience matches the configured cloud URL.
-- Subject claim (`repository`, `namespace_path`, `project_path`)
-  matches a customer's registered repository.
-
-If validation fails, the cloud returns 401 and the CLI logs but does
-not block the run.
-
-### Response
-
-The Rails `RunsController` returns:
-
-```json
-{
-  "run": {
-    "id":                   "a3f8b2c1-...",
-    "policy_evaluation_id":  1234,
-    "status":               "accepted"
-  }
-}
-```
-
-There is no `accepted` boolean, `received_at`, or `dashboard_url` on
-`POST /api/v1/runs`. The CLI does **not** parse the response body — on
-success it logs `submission accepted (HTTP <code>)` and moves on
-(`submitter.Response` carries only `{StatusCode, Body}`).
-
----
-
-## Submission lifecycle
-
-| Step | Layer | Action |
+| Field | Content | Why it may cross |
 |---|---|---|
-| 1 | L6 | Build `SubmissionPayload` from `PolicyResult[]`. |
-| 2 | L9 | Decide whether to submit (see §Decision matrix). |
-| 3 | L8 | Acquire OIDC token from CI provider (if available). |
-| 4 | L8 | POST payload. |
-| 5 | L8 | Log response, return success/failure to L9. |
-| 6 | L9 | Print summary to operator; exit code reflects evaluation, not submission. |
+| `schema`, `run_id`, `framework`, `period_id` | Run identity | No customer data. |
+| `commit_sha`, `commit_time`, `branch` | Git metadata | Visible to anyone with repo access. A branch name can contain a username. |
+| `repository.{provider,name_slug,url}` | Where the code is hosted | Public via the remote URL. |
+| `environment.{provider,workflow,run_url,worker_image}` | CI metadata | CI artefacts, not evidence. |
+| `cli_version`, `started_at`, `completed_at` | Run metadata | No customer data. |
+| `summary.*` | Per-status counts and `compliance_score` | Counts. |
+| `policies[].policy_id`, `category` | Policy metadata | Framework taxonomy for shipped policies. A project-local policy sends its customer-chosen ID and category. |
+| `policies[].controls[]` (`framework`, `framework_version`, `control_id`, `relationship`) | Control mapping | Public framework taxonomy. `framework_version` exists only here. |
+| `policies[].status`, `severity`, `rule_version` | Enums and versions | No identity. |
+| `policies[].resources_evaluated`, `resources_failed` | Counts | Counts. |
+| `policies[].message` | Sentence regenerated from counts by `generateMessage` | Never copied from violation text. |
+| `policies[].configured_cadence`, `last_evaluated_at`, `next_due_at`, `is_carried_forward`, `policy_content_hash` | Cadence scalars ([`10-cadence-model.md`](10-cadence-model.md)) | Scalars about the policy. |
+| `policies[].evidence_mode`, `evidence_mode_overridden` | Which flow produced the result | Lets the dashboard tell an inspected estate from documents on file. |
+| `policies[].vacuous` | A pass whose clauses filtered every record away | Boolean. |
+
+`compliance_score = (passed + waived + carried_forward) / (total - skipped - na)`. Carry-forward
+only follows a pass, so it counts as passed.
+
+### What never crosses
+
+| Data | Where it stays |
+|---|---|
+| Violations (resource ID, reason text) | `result.json`, `summary.json` |
+| Evidence record payloads | Envelopes |
+| Effective parameters, diagnostics (`Diag`) | `result.json`, `summary.json` |
+| Uploaded manual evidence | The customer's upload bucket. Its hashes are in the envelope. |
+| Signatures and public keys | Envelopes, `manifest.json` |
+| Exception detail (scopes, approvers, reasons) | `manifest.json` |
+| `RecordScope`, the run's `scope` report | Vault only |
+
+Layout of those files: [`05-vault-layout.md`](05-vault-layout.md).
+
+### Messages and vacuity
+
+`generateMessage` (`internal/aggregator/aggregator.go`) builds `message` from the status and the
+two counts only. `resources_evaluated` counts records before clause filters run, and `all` and
+`none` are true of the empty set, so a policy that filtered 500 records to zero would otherwise
+send "All 500 resources passed." `vacuousPass` detects that case. Both the `vacuous` flag and the
+vacuous-pass message come from it, so they always agree, and both apply only to `pass`. The slot
+names behind it stay in the CLI. See [`03-policy-spec.md`](03-policy-spec.md) §Empty-set
+semantics.
+
+## How the boundary is enforced
+
+1. Types. `SubmissionPayload` has no `Violations` field, no `map[string]any`, no
+   `json.RawMessage` and no interface. `TestSubmissionPayload_StructurallyCountsOnly`
+   (`internal/core/cloud_test.go`) walks the type graph with `reflect` and fails on interfaces,
+   `json.RawMessage`, non-string map keys and non-scalar kinds.
+2. Human review. The reflection test allows any `string` and `[]string`, so a field such as
+   `FailedResources []string` would pass it. Every new field needs a review that it cannot carry
+   identity, plus a schema bump. The checklist is in the `SubmissionPayload` doc comment.
+3. What fills the strings. String fields are filled only from CI metadata, policy metadata and
+   count-generated messages.
+4. Rails strong params in `Api::V1::RunsController` are a second allow-list. They silently drop
+   unknown fields.
+5. Golden contract. `TestCloudV3_GoldenWireContract` (`internal/aggregator/golden_contract_test.go`)
+   locks the wire bytes in `internal/aggregator/testdata/cloud_v3_golden.json`. The Rails repo
+   keeps a byte-identical copy (path in the test's `railsFixtureRelPath`). Regenerate with
+   `-update` and copy the file to Rails in the same task.
+6. Payload capture. `sigcomply check --capture-cloud-payload <file>` writes the exact payload
+   and does not POST. Use it to grep a real payload for identifiers.
+
+## Sending
 
 ### Decision matrix
 
-| Flag | CI? | OIDC? | Cloud URL set? | Submit? |
-|---|---|---|---|---|
-| `--no-cloud` | any | any | any | **No** |
-| `--cloud` | any | yes | yes | **Yes** |
-| `--cloud` | any | no | yes | **No** — logs "`--cloud` set but no OIDC token detected; skipping"; exit code unaffected |
-| (default) | yes | yes | yes | **Yes** (auto) |
-| (default) | yes | no | yes | **No** (silently) |
-| (default) | no | n/a | any | **No** |
+The CLI decides per run (`submitter.Decide`, called from
+`handleSubmission` in `internal/orchestrator/orchestrator.go`):
 
-A run that does not submit is not a failure. The vault is the
-permanent record; submission is for the optional dashboard view.
-
-### Failure handling
-
-| Failure | CLI response |
+| Input | Effect |
 |---|---|
-| Network error | Retry once after backoff; if still failing, log and continue. Exit code unaffected. |
-| 401/403 | Log explanation; continue. Exit code unaffected. |
-| 4xx (validation) | Log payload, log response, continue. Exit code unaffected. The vault has the same data. |
-| 5xx | Retry up to 3 times with exponential backoff; if still failing, log and continue. |
+| `--capture-cloud-payload` | Writes the file and returns before `Decide`. Nothing is sent. |
+| `--no-cloud` | Skip. |
+| `--cloud`, no base URL | Skip with a warning naming `cloud.base_url` and `--cloud-url`. |
+| `--cloud`, base URL, no OIDC token | Skip with a warning. |
+| `--cloud`, base URL, OIDC token | Submit, in or out of CI. |
+| No flag, no base URL | Skip silently. |
+| No flag, base URL, not in CI or no OIDC token | Skip silently. |
+| No flag, base URL, in CI, OIDC token | Submit. |
 
-The principle: a cloud outage must never block a customer's CI
-pipeline. The customer has their own evidence in their own vault; the
-cloud is a convenience layer.
+- Base URL: `cloud.base_url` in config, overridden by `--cloud-url`. There is no default and no
+  environment variable. The SigComply Cloud value is `https://sigcomply.com`.
+- In CI: `CI`, `GITHUB_ACTIONS` or `GITLAB_CI` is set (`submitter.InCI`).
+- OIDC token: GitHub Actions via `ACTIONS_ID_TOKEN_REQUEST_URL` + `ACTIONS_ID_TOKEN_REQUEST_TOKEN`;
+  GitLab CI via `SIGCOMPLY_ID_TOKEN`, falling back to `ID_TOKEN` (`submitter.HasOIDC`).
+- Audience: always `submitter.DefaultAudience` (`https://api.sigcomply.com`), whatever the base
+  URL. It is an identifier, not a host. Rails checks it in `Oidc::TokenValidator`.
+- `cloud.enabled` is parsed and has no effect.
 
----
+The request:
 
-## What the paid Rails app does with the submitted data
-
-The SigComply CLI is open source and free. The SigComply Cloud /
-Rails app is a separate, **paid** product. The two are intentionally
-decoupled: the CLI works fully without the cloud (the vault is
-self-sufficient), and the cloud provides analytical value on top of
-the per-run submissions it receives.
-
-### What the Rails app stores
-
-Every `SubmissionPayload` the cloud receives is persisted in the
-Rails app's database. The schema mirrors the wire format described
-above — counts, statuses, controls, severities, run identity,
-environment metadata — and nothing else. No raw evidence, no resource
-identifiers, no violation lists, no envelopes, no PDFs. The privacy
-boundary is structural; the Rails app cannot store what the CLI
-cannot send.
-
-Submissions accumulate over time. After many runs across many
-periods, the Rails DB holds a longitudinal record of every aggregated
-policy outcome the project has produced.
-
-### What the Rails app does with that data (paid features)
-
-The free CLI handles per-run evaluation and snapshot views. The paid
-Rails app adds the **longitudinal analytical layer**. The Status column
-is load-bearing — this table has been read as a feature list:
-
-| Feature | Status | Description |
-|---|---|---|
-| **Drift detection** | Shipped | Cross-period comparison ("Q1 2026 vs Q1 2025"); flagging of newly failing policies, newly waived policies, and trend lines for compliance score. |
-| **Auditor seats** | Shipped | Read-only access for external auditors with scoped permissions to specific periods. |
-| **Auditor-ready reports** | Shipped | Composite reports combining latest state, the exception register and the control matrix into one paginated deliverable. |
-| **Continuous monitoring alerts** | Partial | Email only today. Slack and webhook channels are planned, not built. |
-| **Deviation timeline** | Planned | For each policy in each period: the sequence of pass/fail windows and time-in-violation. Required to substantiate SOC 2 Type II "operated effectively *throughout* the period" claims. |
-| **Multi-project rollup** | Planned | An organization with multiple repos (e.g. SOC 2 + ISO 27001 in separate projects) seeing a unified posture in one dashboard. Today the dashboard is per-project. |
-
-These are the paid product's value-add. They are not duplicated in the
-free CLI. Every one of them is computed from **one** source: the
-aggregated per-run submissions the cloud receives — counts, statuses and
-public metadata. There is no second source.
-
-**The dashboard cannot drill down to a resource, and never will while
-the boundary holds.** An earlier version of this section said the Rails
-app could generate signed read-only links into the customer's vault and
-render a per-policy `result.json` to show an auditor the violation list.
-That is not built, and it is not a roadmap item either: it would require
-the cloud to hold read credentials for the customer's vault, which is
-precisely the custodianship the architecture exists to avoid. Reading the
-violations behind a count is done where the violations are — `sigcomply
-report` against the vault, or the Evidence SPA for envelope verification.
-The cloud is the index and the analytics layer over counts; the
-customer's infrastructure is the only place the detail lives.
-
-### Privacy boundary, restated for the paid context
-
-Even with the paid product, the customer's data sovereignty does not
-weaken:
-
-- Resource identifiers stay in the customer's vault.
-- Raw evidence stays in the customer's vault.
-- PDF attachments stay in the customer's vault.
-- The Rails DB contains only what the `SubmissionPayload` carries —
-  counts, statuses, policy IDs, control IDs, severities, and metadata
-  that's already public (commit SHA, repo name, branch).
-- The Rails app's deviation timelines, drift analyses, and reports
-  operate **on aggregated counts over time**, not on identities.
-
-A breach of the SigComply Cloud / Rails DB would expose: a customer's
-compliance score history and which policy IDs have been failing.
-Never: who is failing, what their email is, what their AWS account
-ID is, what their evidence PDFs say.
-
----
-
-## Self-hosted dashboards
-
-The `CloudClient` interface (L1) abstracts the transport. The shipped
-implementation talks to SigComply Cloud; a customer running a
-self-hosted Rails app (if offered) or an alternative dashboard can
-configure:
-
-```yaml
-# .sigcomply.yaml
-cloud:
-  base_url: "https://compliance.acme-internal.com"
-  client:   "default"             # uses the same OIDC + payload shape
+```
+POST {base_url}/api/v1/runs
+Content-Type: application/json
+Authorization: Bearer <oidc_jwt>
+X-OIDC-Provider: github | gitlab
+X-Sigcomply-CLI-Version: <version>
 ```
 
-Self-hosted backends are responsible for their own auth scheme; if
-they don't validate OIDC, the CLI still sends the token (let the
-receiver decide). Self-hosted backends MUST honor the same
-`SubmissionPayload` schema — the contract is identical regardless of
-who receives it.
+Rails validates the token signature, the audience, and that the token's repository claim matches
+a registered project. OIDC setup for customers is in the CI and cloud dashboard guides under
+`docs/guides/`; agent-side detail is in [`docs/claude/auth.md`](../claude/auth.md).
 
-Customers who don't want any dashboard at all (free CLI only, no
-cloud submissions) simply omit `cloud.base_url`. The vault remains
-fully self-sufficient for snapshot reporting and integrity
-verification; only the longitudinal analytics layer (drift,
-deviations, alerts) is unavailable without a Rails-app-equivalent
-consumer of the submissions.
+Rails answers 201 with `{"run": {"id", "policy_evaluation_id", "status": "accepted"}}`. The CLI
+does not parse the body; it logs `submission accepted (HTTP <code>)`.
 
----
+### Failures
 
-## Auditing the boundary
+`submitter.Submit` makes one attempt with a 30-second HTTP timeout. There is no retry. Any
+failure (token, network, HTTP status 400 or above) is logged as a warning
+(`submit: <error>`, which includes the response body for an HTTP error) and the run continues.
+Submission never changes the exit code. The vault already holds everything.
 
-Two checks any reviewer (internal or external) should be able to
-perform.
+### Other receivers
 
-### 1. Static check: type inspection
+`cloud.base_url` can point at any receiver that accepts the same payload and the same OIDC
+audience. SigComply does not ship or support another receiver.
 
-Read `internal/core/cloud.go`. Verify:
+## What the dashboard does with it
 
-- No `interface{}` or `any` types in `SubmissionPayload` (transitively).
-- No `json.RawMessage` types.
-- No `map[string]X` types unless `X` is a primitive (int, float, bool,
-  string-enum, time.Time).
-- No `[]X` where `X` could carry identity (e.g. `[]string` named
-  "failed_resources" is forbidden; `[]string` named "categories" is
-  OK because category names are policy metadata, not identities).
-
-A unit test enforces this with `go/types` reflection on the package:
-
-```go
-// internal/core/cloud_test.go
-func TestSubmissionPayload_StructurallyCountsOnly(t *testing.T) {
-    walkType(t, reflect.TypeOf(SubmissionPayload{}), "SubmissionPayload")
-}
-```
-
-### 2. Dynamic check: payload capture
-
-Run any check with `--capture-cloud-payload /tmp/payload.json`:
-
-```bash
-sigcomply check --capture-cloud-payload /tmp/payload.json
-```
-
-This dumps the exact bytes that would be sent to the cloud, without
-sending them. A reviewer or auditor can:
-
-- Diff `payload.json` against the vault's `summary.json`. The
-  difference should be: violations are omitted, message is regenerated.
-- Grep for known customer identifiers (employee emails, ARNs). Should
-  return zero matches.
-
-The `--capture-cloud-payload` flag is permanent; it's the auditor's
-escape hatch for verifying the boundary on demand.
-
----
-
-## Things that DO cross the boundary, justified
-
-| Field | Why it's OK |
-|---|---|
-| `policy_id`, `controls[]` (`framework`, `framework_version`, `control_id`, `relationship`) | Public framework taxonomy; identical across all customers. |
-| `status`, `severity` | Enum; carries no identity. |
-| `category` | Policy metadata, not customer data. |
-| `resources_evaluated`, `resources_failed` | Counts, by definition non-identifying. |
-| `message` (generated) | Regenerated from counts; never copied from rule output. |
-| `commit_sha`, `commit_time`, `branch` | Already published to git; the cloud knowing them is the same as the cloud's host knowing them. |
-| `repository.name_slug` | Already public in the repo URL. |
-| `cli_version`, `framework`, `framework_version` | CLI/framework metadata, no customer specifics. |
-| `period_id` | Date label; non-identifying. |
-| OIDC subject claims (during auth, not in payload) | Standardized; the cloud sees them only to authenticate. |
-
-### Things that do *not* cross
-
-| Field | Stays in |
-|---|---|
-| Violation lists (resource_id, reason text) | Vault `result.json` only |
-| Evidence record payloads (emails, ARNs, etc.) | Vault envelopes only |
-| Source plugin diagnostics | Vault `diagnostics.json` only |
-| Manual PDF bytes | Vault `attachments/` only |
-| File hashes (`sha256` of PDFs) | Vault envelopes only |
-| Effective parameter values | Vault `manifest.json` only |
-| Envelope signatures and public keys | Vault envelopes only |
-| Exceptions detail (resource scopes, approver names) | Vault `manifest.json` only |
-| `RecordScope` / `Scope` (per-record scope on a `PolicyResult`) | Vault only — deliberately never lifted onto the wire type |
-
-A field on the "stays in" side that ever drifts to the "crosses"
-side is a privacy regression. The structural enforcement (type system)
-makes that drift visible.
-
----
+Rails stores run data from the payload only, and builds its reports and history from those
+stored counts. It cannot drill down to a resource: that would need read access to the customer's
+vault, which the architecture rules out. Reading the violations behind a count happens where they
+are, with `sigcomply report` against the vault. Dashboard features are documented in the Rails
+repo and in the customer guide `docs/guides/cloud-dashboard.md`; don't track them here.
 
 ## Versioning the contract
 
-`Schema: "sigcomply.cloud.v5"` is stamped into every payload (the
-constant `aggregator.SchemaVersion`). The receiver (cloud or self-hosted
-dashboard) keys behavior off it. v3 replaced the per-policy scalar
-`control_id` with a `controls []ControlRef` list so one check can map to
-controls across many frameworks; the cadence scalars added in v2 are
-unchanged. v4 adds `evidence_mode` and `evidence_mode_overridden` — a
-policy satisfied by a document being on file and one that inspected live
-infrastructure both submit as `pass`, so without them the dashboard
-cannot distinguish a fully-verified estate from a folder of PDFs. v5 adds
-`vacuous` — a policy whose clauses filtered every resource away passes
-exactly like one that inspected five hundred, and v4 said so only in the
-`message` string, which cannot be filtered, counted or trended.
+`aggregator.SchemaVersion` is stamped into every payload. History:
 
-Breaking changes (renames, semantic shifts in existing fields) bump the
-version. The CLI emits one version per release; the receiver typically
-accepts a range. Coexistence rules:
+| Version | Change |
+|---|---|
+| v2 | Added the five cadence scalars. |
+| v3 | Replaced the scalar `control_id` with `controls []ControlRef`, so one policy maps to controls in several frameworks. |
+| v4 | Added `evidence_mode` and `evidence_mode_overridden`. Without them a document on file and an inspected estate both look like `pass`. |
+| v5 | Added `vacuous`, so vacuous passes can be filtered and counted, not only read in `message`. |
 
-- The Rails receiver is **shape-driven, not version-gated**: it stores
-  the `schema` string verbatim and accepts `v1`/`v2`/`v3`/`v4`/`v5` payloads
-  simultaneously. A policy carrying a non-empty `controls[]` is treated
-  as v3; one carrying only a scalar `control_id` is read as v2 and
-  synthesized into a single-element `controls` list. See the Rails app's
-  `Cli::RunSubmissionService#normalize_controls`.
-- An old CLI (v2) talking to a new cloud sends a scalar `control_id`; the
-  receiver up-converts it to a one-element list.
-- A new CLI talking to an old cloud has the unknown field dropped by
-  strong-params — the request still returns 201 and the rest of the
-  payload stores normally, so the failure is silent. **Deploy the Rails
-  side first.** A v5 payload reaching a pre-v5 receiver loses only the
-  vacuity flag, which is precisely the information the bump exists to
-  carry.
+Rules:
 
-The transition cost of bumping is intentional. The privacy boundary
-is not a place for casual evolution.
+- Bump the version for any added, renamed or re-meant field.
+- Rails is shape-driven, not version-gated. It stores `schema` verbatim and accepts v1 to v5. A
+  policy with a non-empty `controls[]` is read as v3+; one with only a scalar `control_id` becomes
+  a one-element list (`Cli::RunSubmissionService#normalize_controls`).
+- Deploy the Rails side first. Strong params silently drop a field Rails does not know, the
+  request still returns 201, and the new field is lost without an error.

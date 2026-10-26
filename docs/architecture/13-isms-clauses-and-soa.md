@@ -1,10 +1,9 @@
-# 13 — ISMS Clauses and the Statement of Applicability
+# 13. ISMS clauses and the Statement of Applicability
 
-This document explains why ISO 27001 needed two things the framework did
-not have — the management-system requirements of clauses 4–10, and a
-generated Statement of Applicability — and how both are modeled.
+How the ISO 27001 framework models the management-system requirements of clauses 4-10, and how
+`sigcomply report --view soa` generates the Statement of Applicability.
 
-It is the canonical reference for `core.Control.Kind`, for the rule that
+This doc is the owner for `core.Control.Kind`, for the rule that
 a management-system requirement cannot be declared `not_applicable`, and
 for how `sigcomply report --view soa` is assembled. The per-control
 applicability keys it reads are specified in
@@ -13,14 +12,10 @@ walkthrough is [`../guides/isms-clauses.md`](../guides/isms-clauses.md).
 
 ---
 
-## Annex A alone was not ISO readiness
+## Why clauses 4-10 are controls
 
-The ISO 27001 framework shipped the 93 Annex A controls and nothing for
-clauses 4–10. Every coverage surface — `--view coverage`, the published
-figures, the compliance score — was computed over those 93, and reported
-full coverage of them.
-
-That is a claim the product could not back. Certification is granted
+Coverage measured over Annex A alone would report full coverage while omitting what a
+certification audit checks first. Certification is granted
 against the **management system**, not against Annex A. Annex A is
 normative but it is a reference set of information security controls; the
 requirements an organization must meet to be certified are clauses 4 to
@@ -28,19 +23,14 @@ requirements an organization must meet to be certified are clauses 4 to
 those clauses: is the scope defined, is there a risk assessment process,
 were internal audits conducted, did top management review the ISMS.
 
-So an organization could pass every SigComply check, read a clean
-coverage report, and fail Stage 1 without the product ever having hinted
-at the gap. Worse, the gap was invisible *by construction*: the universe
-against which coverage was measured was itself missing a third of what
-the auditor asks for, so nothing inside the measurement could reveal it.
-This is the same failure shape as the scope blind spot in
-[08-project-config.md](08-project-config.md#the-scope-model) — a score
-computed over an under-declared universe reads better, not worse, for
-being incomplete.
+Without them, an organization could pass every SigComply check, read a clean coverage report,
+and fail Stage 1, and nothing inside the measurement could reveal the gap. This is the same
+failure shape as the scope blind spot in
+[08-project-config.md](08-project-config.md#the-scope-model): a score computed over an
+under-declared universe reads better for being incomplete.
 
-The fix is 16 new controls and 16 new policies. They are listed in
-`ismsClauses` and `ismsClauseManualSpecs` in
-`internal/frameworks/iso27001/`.
+The framework therefore carries 16 management-system controls, each with one manual policy,
+listed in `ismsClauses` and `ismsClauseManualSpecs` in `internal/frameworks/iso27001/`.
 
 | Control | Clause | Catalog entry | Policy |
 |---|---|---|---|
@@ -78,8 +68,8 @@ the risk treatment *process* and plan, which the SoA does not replace.
 
 ## Two kinds of control
 
-The 16 are not ordinary controls, and modelling them as if they were
-would break two things. So `core.Control` gained a `Kind`:
+The 16 are not ordinary controls, so `core.Control` has a `Kind`
+(`internal/core/framework.go`):
 
 ```go
 type ControlKind string
@@ -94,7 +84,7 @@ const (
   include it (with a justification) or exclude it (with a reason). ISO
   27001 Annex A and the SOC 2 Trust Services Criteria are both this. It
   is the zero value, so a framework with only catalog controls declares
-  nothing and no existing framework changed.
+  nothing.
 - **`ControlKindManagementSystem`** — a requirement of the management
   system itself. It is not selectable. An organization cannot decline to
   have an internal audit program and remain certifiable.
@@ -132,7 +122,7 @@ controls:
 
 Decoding is strict, so an unrecognized `kind` is rejected rather than
 being read as the default — the failure mode there is a management-system
-requirement that silently becomes excludable.
+requirement that silently becomes something a project can exclude.
 
 ### What the SoA covers is wider than Annex A
 
@@ -193,8 +183,7 @@ click-through forms, and rendering a management review as a set of
 checkboxes someone ticks would reproduce, one layer down, the precise
 overclaim these 16 exist to retire — a clean tick where the auditor needs
 a document. The SPA filters `document_upload` entries out of its
-dashboard already, so all 16 are correctly absent from it and no SPA
-change was needed.
+dashboard, so all 16 are absent from it.
 
 Annual throughout because every one of these sits on a yearly management
 cycle in the standard. A quarterly cadence would demand, three quarters
@@ -231,8 +220,7 @@ Thirteen of the 16 are on it. Three are not, and the code says so in
 
 They are included because an auditor will ask for them. They are labeled
 here, and in the source, because a set advertised as "ISO's mandatory
-documented information" that quietly exceeds it would be the same species
-of overclaim this whole change exists to fix — smaller, but the same.
+documented information" that quietly exceeds it would be an overclaim.
 
 ---
 
@@ -244,8 +232,7 @@ things per control: which controls are necessary, why each is included,
 whether it is implemented, and the justification for excluding any
 Annex A control that was left out.
 
-SigComply already held all four, in three different places, with no
-surface that joined them:
+SigComply holds all four, in three places:
 
 | What 6.1.3 d) asks | Where it lives |
 |---|---|
@@ -329,7 +316,7 @@ at it. An auditor can then tell a reasoned inclusion from a default one,
 rather than reading boilerplate as deliberation.
 
 Output is text, JSON and CSV. CSV is the form auditors actually work in —
-one row per control, sortable, annotatable — and is why the view exists
+one row per control, easy to sort and annotate — and is why the view exists
 in a tool rather than in a slide.
 
 ### Why it is generated rather than uploaded
@@ -382,24 +369,25 @@ control catalog is resolved in `cmd/sigcomply/report.go` and passed in.
 
 ## Coverage counts them apart
 
-`--view coverage` gained a `KIND` column (`catalog` / `mgmt-system`) and
+`--view coverage` has a `KIND` column (`catalog` / `mgmt-system`) and
 two counters, `CoverageView.ManagementSystem` and
-`ManagementSystemOnFile`. Management-system requirements get rows — they
-are the point of the change, not an appendix — but their own totals:
+`ManagementSystemOnFile`. Management-system requirements get rows but
+their own totals (sample output with live figures:
+[`../guides/isms-clauses.md`](../guides/isms-clauses.md), pinned by
+`TestDocFiguresMatchCode`):
 
 ```
-93 of 93 catalog controls have a check
-  26 automated  — verified by inspecting your infrastructure
-  67 manual     — satisfied by a document being on file
+<N> of <N> catalog controls have a check
+  <a> automated  — verified by inspecting your infrastructure
+  <m> manual     — satisfied by a document being on file
 
 16 management-system requirements (counted apart — they are not selectable)
-  4 with evidence on file this period, 12 without
+  <k> with evidence on file this period, <16-k> without
 ```
 
-Blending the two into one number would flatter the headline at exactly
-the moment the honest gap is closed: "93 of 93 covered" would become "109
-of 109 covered" on the day 16 requirements with no evidence on file were
-added. A coverage view that improves when a gap is discovered is the
+Blending the two into one number would flatter the headline: "93 of 93
+covered" would become "109 of 109 covered" with 16 requirements that have
+no evidence on file. A coverage view that improves when a gap is discovered is the
 precise drift this view exists to catch, so the same split is enforced in
 `measure` in `internal/manualcatalog/doc_figures_test.go`, which pins the
 published figures to the compiled framework. **Never write a single
@@ -420,8 +408,8 @@ controls and 16 management-system requirements.
   Control entry names the two kinds.
 - [07-extensibility.md](07-extensibility.md) — project-local framework
   extensions, which carry `kind:` on a control for the same reason.
-- [10-cadence-model.md](10-cadence-model.md) — why annual cadences write
-  no result in most periods, and the advisory `sigcomply evidence due`.
+- [10-cadence-model.md](10-cadence-model.md) — the period clock, annual
+  upload folders, and the advisory `sigcomply evidence due`.
 - [`../guides/manual-evidence.md`](../guides/manual-evidence.md) — the
   manual evidence flow these 16 policies use unchanged.
 - `internal/core/framework.go` — `ControlKind`, `Control.Kind`,

@@ -1,570 +1,235 @@
-# 09 — CI Execution Model
+# 09. CI execution model
 
-The CLI is a leaf invocation: it reads project config, fetches evidence,
-evaluates policies, writes the vault, and submits aggregated counts.
-Everything *above* the CLI — when each policy runs, on what cadence, in
-which CI job — lives in CI workflow files inside the customer's repo.
+The CLI is a leaf invocation: it reads the project config, collects evidence, evaluates policies,
+writes the vault and, if cloud submission is configured, submits counts. Everything above it
+(which policies run when, in which CI job) lives in CI workflow files in the customer's repo.
+This doc covers how those pieces fit. The cadence decision rule and the period clock are owned by
+[10-cadence-model.md](10-cadence-model.md).
 
-This document specifies how the pieces fit together: the project ↔ repo
-identity, the pipeline ↔ workflow correspondence, how cadence drives
-scheduling without violating the stateless-CLI property, and the
-per-cadence workflow set `sigcomply init-ci` scaffolds.
-
----
-
-## The execution hierarchy
+## Execution hierarchy
 
 ```
-Project    = one source-control repository (GitHub or GitLab)
-   ↳ Pipelines = CI workflow files inside that repo, scheduled by cron
-       ↳ Jobs   = individual CLI invocations within a pipeline
-           ↳ Policy evaluations = per-policy fetch + check + persist
+Project    = one source-control repository (GitHub or GitLab), one framework
+   -> Pipelines = CI workflow files in that repo, scheduled by cron
+       -> Jobs   = one `sigcomply check` invocation each
+           -> Policy evaluations = per-policy collect + check + persist
 ```
 
-Reading top-down:
+- A project maps 1:1 to a repository. The repo's `org/name` is the project identity, and
+  `.sigcomply.yaml` sits at the repo root.
+- A project pursues exactly one framework (`framework:` in the config). Every workflow evaluates
+  that framework, and the vault holds evidence for it alone. A customer with two frameworks uses
+  two repositories. Two configs in one repo (`--config .sigcomply-iso.yaml`) work, but `init-ci`
+  does not scaffold that shape.
+- Each policy evaluates independently. One policy's failure never stops another.
 
-- **A project** maps 1:1 with a source-control repository. The repo's
-  `org/name` is the project identity. The project's `.sigcomply.yaml`
-  lives at the repo root. The project pursues exactly one compliance
-  framework.
-- **A project has multiple pipelines** — one per scheduling cadence
-  the framework requires. The framework spec drives which cadences
-  exist; the customer copies (or scaffolds) the matching workflow files
-  into their repo.
-- **A pipeline contains one or more jobs**. v1 ships one job per
-  pipeline. v2 may shard for parallelism (see §Sharding).
-- **A job runs one CLI invocation**. The invocation evaluates a set of
-  policies filtered by cadence or explicit list.
-- **A CLI invocation evaluates each requested policy independently**:
-  fetch → check → persist. Per-policy failures never short-circuit
-  others.
+## Cadence drives scheduling
 
----
+Each policy declares a cadence (`continuous`, `hourly`, `daily`, `weekly`, `monthly`, `quarterly`,
+`annual`, `every:<duration>`); a project overrides it under `policies.<id>.cadence`. Values and
+intervals: [10](10-cadence-model.md#cadence-dsl). To see which cadences a framework uses, grep
+`cadence:` in `internal/frameworks/<fw>/builders.go` and the `policies_*.go` files.
 
-## One project = one framework
+Two ways to turn cadence into runs:
 
-This is a hard rule for v1.
+1. **Per-cadence crons (what `init-ci` scaffolds).** One workflow per cadence, each passing
+   `--cadence <X>`. The cron decides when; `--cadence` decides which policies. No state is read.
+2. **`--scheduled` (available, not scaffolded).** One workflow on a frequent cron. The CLI loads
+   per-policy state shards and evaluates only the policies that are due, carrying the rest
+   forward ([10](10-cadence-model.md#the-decision-rule)).
 
-- A project's `.sigcomply.yaml` declares exactly one `framework:`.
-- Every workflow file in the project invokes the CLI against that one
-  framework.
-- The vault under that project holds only evidence for that framework.
+Either way the CI cron is the upper bound: a quarterly policy cannot be evaluated quarterly if
+nothing runs.
 
-Customers pursuing multiple frameworks (SOC 2 + ISO 27001, or SOC 2 +
-HIPAA) typically use **multiple repositories** — one per framework.
-This is the cleanest separation: distinct CI scopes, distinct evidence
-vaults, distinct auditor packages.
+## Filter flags
 
-The less common alternative — two configs in one repo, invoked via
-`--config .sigcomply-iso.yaml` from separate workflow files — is
-possible but not the canonical pattern. It complicates auditor review
-and risks cross-contamination between frameworks. The framework
-scaffolding (`sigcomply init-ci`) assumes the canonical one-framework
-shape.
+`check` accepts at most one of these. They are mutually exclusive through cobra
+(`MarkFlagsMutuallyExclusive` in `cmd/sigcomply/check.go`); passing two exits 2.
 
----
-
-## Cadence: the orchestration key
-
-Every policy declares its natural **cadence** — how often it must be
-evaluated. Values:
-
-| Cadence | Meaning | Typical examples |
+| Flag | Selects | Mode |
 |---|---|---|
-| `continuous` | On every commit / PR push | High-risk policies sensitive to code changes (e.g. branch protection rules) |
-| `hourly` | At least every hour | Real-time security drift checks (rarely used) |
-| `daily` | At least every day | Most automated checks: MFA enforced, encryption at rest, log forwarding |
-| `weekly` | At least every week | Audit log retention drift, access review reminders |
-| `monthly` | At least every month | Periodic config audits |
-| `quarterly` | At least every quarter | Quarterly access reviews, vendor risk assessments |
-| `annual` | At least once a year | Annual security training, BCP test, board approval of policies |
-| `every:<duration>` | Custom interval (`every:6h`, `every:90m`) | Power-user tuning: tighter than `hourly`, gentler than `daily`. Floor: 5 minutes. |
+| (none) | every in-scope policy | `ModeManual` |
+| `--cadence <X>` | policies whose effective cadence equals `<X>` exactly | `ModeManual` |
+| `--cadences <X,Y>` | effective cadence in the set; the virtual value `on_push` adds every `on_push: true` policy | `ModeManual` |
+| `--on-push` | policies with `on_push: true` | `ModeManual` |
+| `--pr` | the `on_push` set, with a longer per-slot retry budget (`collector.RetryPR`) | `ModePR` |
+| `--scheduled` | every policy, gated by state | `ModeScheduled` |
 
-Each shipped policy declares one cadence as a sensible default.
-Project config can override per policy:
+Rules that follow from `planner.filterAccepts`:
 
-```yaml
-# .sigcomply.yaml (excerpt)
-policies:
-  soc2.cc6.1.mfa_enforced_all_users:
-    cadence: every:6h       # tighter than the shipped default (daily)
-  soc2.cc6.3.access_review_quarterly:
-    cadence: monthly        # stricter than the shipped default (quarterly)
+- `--cadence` matches exactly. `--cadence daily` does not select `hourly`, `continuous` or
+  `every:` policies. No scaffolded cron selects those cadences; they run only in the on-push
+  workflow (when `on_push: true`), under `--scheduled`, or with no filter.
+- Effective cadence is the project override if set, else the framework default.
+- `on_push` defaults to `true` for automated policies and `false` for manual ones, so on-push runs
+  never require manual evidence.
+- `check` has no `--policies`, `--controls` or `--framework` flag. The framework comes from the
+  config only.
+
+## Scaffolded workflows (`sigcomply init-ci`)
+
+```bash
+sigcomply init-ci --framework soc2 --ci github   # or --ci gitlab
 ```
 
----
+- `init-ci` accepts only `soc2` (`frameworkSupported` in `cmd/sigcomply/init_ci.go`); any other
+  framework exits 3. The templates name no framework; the gate exists because only SOC 2 has
+  been exercised against them.
+- `--framework` defaults to the config's `framework:`, else `soc2`. `--out` overrides the output
+  location. `init-ci` does not write `.sigcomply.yaml`.
+- The templates live in `cmd/sigcomply/templates/` (`github/compliance-*.yml`,
+  `gitlab/.gitlab-ci.yml`), with golden copies in `cmd/sigcomply/testdata/`. Read them for the
+  exact YAML; this doc describes only the mechanism.
 
-## How cadence enforcement actually works
+### GitHub Actions
 
-Two complementary mechanisms drive cadence; the scaffolded templates
-use the **per-cadence cron** approach.
+One standalone workflow per cadence in `.github/workflows/`. There is no reusable
+`workflow_call` workflow and no composite action.
 
-1. **Per-cadence cron (what `init-ci` scaffolds).** One workflow per
-   cadence, each firing on its own cron and passing the matching
-   `--cadence <X>` filter (`--cadence daily` on the daily cron,
-   `--cadence quarterly` on the quarterly cron, and so on). The cron
-   schedule decides *when* the cadence's policy set is invoked; `--cadence`
-   selects *which* policies that invocation evaluates. The scaffolded
-   workflows do **not** pass `--scheduled`.
-2. **State-gated `--scheduled` (available, not scaffolded).** A single
-   workflow on a frequent cron can instead pass `--scheduled`: the CLI
-   reads each policy's per-policy state shard and gates by
-   cadence + content-hash + prior status, evaluating only the policies
-   that are actually due and carrying the rest forward. This collapses the
-   per-cadence template set into one workflow, at the cost of the CLI
-   consulting state. It exists today; the shipped templates simply prefer
-   the per-cadence-cron shape because it keeps each workflow stateless and
-   makes "does the quarterly check actually run quarterly?" answerable by
-   reading one cron line.
-
-Run modes interact with the planner differently:
-
-| Mode | When triggered | Loads state? | Gates by cadence? |
-|------|----------------|--------------|-------------------|
-| `--cadence <X>` | Per-cadence cron (scaffolded) | No | Selects by effective cadence; the cron is the schedule |
-| `--scheduled` | Single frequent cron (optional) | Yes | Yes — due policies evaluate, others carry forward |
-| `--on-push` | push / PR | No | No — every `on_push: true` policy runs |
-| Default (no filter) | Local invocation | No | No — every in-scope policy runs |
-
-The filter flags `--cadence`, `--cadences`, `--on-push`, `--pr`, and
-`--scheduled` are **mutually exclusive** — at most one per invocation.
-
-For PR runs, a workflow runs `sigcomply check --on-push` on every push /
-pull request — that invocation only evaluates `on_push: true` policies, so
-manual-evidence checks (which default to `on_push: false`) are excluded.
-
-**Cadence enforcement lives in the CLI + the cron together.** Under
-`--scheduled`, a quarterly policy carries forward from its prior signed
-envelope until it is due, even if the workflow runs nightly. Under the
-scaffolded per-cadence crons, the cron *is* the schedule (the quarterly
-cron fires once per quarter, shortly before it closes). Either way the CI cron is the
-**upper bound** on cadence (you can't evaluate quarterly if you never run).
-
-### What about re-running after a fix?
-
-A failed policy is re-evaluated on the next run regardless of cadence —
-under `--scheduled`, `IsDue` returns true whenever the prior terminal
-status was not `pass`, so the next scheduled run picks up the fix with no
-manual action. Under per-cadence crons, just re-run the relevant workflow
-(`workflow_dispatch`).
-
-### What about a missed CI run?
-
-If CI is broken for an extended window, the planner emits a
-`gap-detected: N policies have no evaluation in the last 30d`
-warning at the next run. The CLI does NOT fabricate retroactive
-evaluations to fill the gap. Auditors will see the gap in the
-period history, which is the correct posture (compare Airflow's
-`catchup=false`).
-
-Full design: [`10-cadence-model.md`](10-cadence-model.md).
-
----
-
-## The scaffolded workflow set per framework
-
-When a customer runs `sigcomply init-ci --framework soc2 --ci github`,
-the CLI scaffolds one standalone workflow file per cadence into
-`.github/workflows/`:
-
-```
-.github/workflows/
-   compliance-on-push.yml      # push to main + pull_request
-   compliance-daily.yml        # 02:00 UTC daily cron
-   compliance-weekly.yml       # 02:00 UTC every Monday
-   compliance-monthly.yml      # 02:00 UTC on the 20th of every month
-   compliance-quarterly.yml    # 02:00 UTC on Mar 20 / Jun 20 / Sep 20 / Dec 20
-   compliance-annual.yml       # 02:00 UTC on December 20
-```
-
-Each is a fully self-contained workflow — there is **no** reusable
-`workflow_call` workflow and **no** `.github/actions/*` composite action.
-The templates live at `cmd/sigcomply/templates/github/` and carry an
-`# Generated by sigcomply init-ci. Customize freely.` header. Each one:
-
-- Triggers on its own cron (`schedule:`) plus `workflow_dispatch`, except
-  `compliance-on-push.yml`, which triggers on `push` to the default branch
-  and `pull_request`.
-- Requests `id-token: write` + `contents: read` permissions (the OIDC
-  token for SigComply Cloud submission).
-- Installs the CLI by `curl`-ing the release tarball from GitHub Releases
-  (`https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply_${ver}_linux_amd64.tar.gz`)
-  and extracting the `sigcomply` binary, resolving `latest` via the GitHub
-  releases API when `SIGCOMPLY_VERSION` is `latest`.
-- Configures cloud credentials via `aws-actions/configure-aws-credentials@v4`
-  with `audience: https://api.sigcomply.com`.
-- Runs `sigcomply check --cadence <X>` (or `sigcomply check --on-push`
-  for the on-push workflow).
-
-The shipped cron expressions are exactly:
-
-| Workflow | Cron | Filter flag |
+| Workflow | Trigger | Command |
 |---|---|---|
-| `compliance-daily.yml` | `0 2 * * *` | `--cadence daily` |
-| `compliance-weekly.yml` | `0 2 * * 1` | `--cadence weekly` |
-| `compliance-monthly.yml` | `0 2 20 * *` | `--cadence monthly` |
-| `compliance-quarterly.yml` | `0 2 20 3,6,9,12 *` | `--cadence quarterly` |
-| `compliance-annual.yml` | `0 2 20 12 *` | `--cadence annual` |
-| `compliance-on-push.yml` | `push` + `pull_request` | `--on-push` |
+| `compliance-on-push.yml` | `push` to `main`, `pull_request` | `sigcomply check --on-push` |
+| `compliance-daily.yml` | `0 2 * * *` | `sigcomply check --cadence daily`, then `sigcomply evidence due --within-days 30` (non-failing) |
+| `compliance-weekly.yml` | `0 2 * * 1` | `sigcomply check --cadence weekly` |
+| `compliance-monthly.yml` | `0 2 20 * *` | `sigcomply check --cadence monthly` |
+| `compliance-quarterly.yml` | `0 2 20 3,6,9,12 *` | `sigcomply check --cadence quarterly` |
+| `compliance-annual.yml` | `0 2 20 12 *` | `sigcomply check --cadence annual` |
 
-`continuous` and `hourly` policies fold into the on-push / daily workflows;
-the scaffold does not emit a dedicated workflow per named cadence beyond
-the six above. `init-ci` for any framework other than SOC 2 (including
-ISO 27001) exits `3` (`frameworkSupported()` in
-`cmd/sigcomply/init_ci.go` returns true only for `soc2`).
+Every workflow:
 
-**The gate is conservatism, not a missing artifact** — the earlier wording
-here, "ships cadence templates for SOC 2 only", was wrong and is worth
-correcting because it invites someone to go build a second template set
-that is not needed. Nothing under `cmd/sigcomply/templates/` mentions a
-framework in any form; `check` has no `--framework` flag (it reads the
-framework from the config), and both shipped frameworks declare the same
-three cadences — so the emitted files would be byte-identical, and correct,
-for an ISO 27001 project. What is missing is not templates but validation:
-the set has only ever been exercised against SOC 2. Lifting the gate is a
-one-line change plus the handful of docs that state the limit.
+- runs on its cron plus `workflow_dispatch` (on-push has no `workflow_dispatch`);
+- requests `id-token: write` and `contents: read`;
+- installs the CLI by downloading the release tarball for `SIGCOMPLY_VERSION` from GitHub Releases
+  (resolving the newest tag through the releases API when the value is `latest`);
+- gets AWS credentials with `aws-actions/configure-aws-credentials` and
+  `audience: https://api.sigcomply.com`.
 
-Note also that neither framework declares a `weekly` or `monthly` policy
-today, so those two scaffolded workflows evaluate nothing until a project
-sets a per-policy `cadence:` override.
+`init-ci` renders `SIGCOMPLY_VERSION` as the running binary's own release tag (`v<semver>`) when
+the binary is a clean semver build, and as `latest` otherwise (dev builds). Golden tests set the
+version explicitly. A scaffolded project stays on the version it was scaffolded with until the
+operator edits the value.
 
-### Example: `compliance-daily.yml` (GitHub Actions, scaffolded)
-
-```yaml
-# Generated by `sigcomply init-ci`. Customize freely.
-name: Compliance — Daily
-
-on:
-  schedule:
-    - cron: '0 2 * * *'    # 02:00 UTC every day
-  workflow_dispatch:
-
-permissions:
-  id-token: write
-  contents: read
-
-env:
-  SIGCOMPLY_VERSION: latest
-  AWS_REGION: us-east-1
-  AWS_ROLE_ARN: arn:aws:iam::000000000000:role/REPLACE_ME
-
-jobs:
-  check:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install SigComply CLI
-        run: |
-          set -eu
-          version="${SIGCOMPLY_VERSION:-latest}"
-          if [ "$version" = "latest" ]; then
-            tag=$(curl -fsSL https://api.github.com/repos/SigComply/sigcomply-cli/releases/latest | jq -r .tag_name)
-          else
-            tag="$version"
-          fi
-          ver="${tag#v}"
-          curl -fsSL "https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply_${ver}_linux_amd64.tar.gz" -o /tmp/sigcomply.tar.gz
-          tar -xzf /tmp/sigcomply.tar.gz -C /usr/local/bin sigcomply
-          chmod +x /usr/local/bin/sigcomply
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ env.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-          audience: https://api.sigcomply.com
-      - name: Run SigComply
-        run: sigcomply check --cadence daily
-```
-
-The `compliance-on-push.yml` workflow is identical except for its trigger
-(`push: { branches: [main] }` + `pull_request`, no cron) and its final
-step (`sigcomply check --on-push`). Manual-evidence policies are excluded
-from on-push runs because they default to `on_push: false` — uploading a
-PDF on every PR is not the workflow.
-
-#### Why the cadence crons fire *inside* the period, not on its boundary
-
-The audit period is derived from the **HEAD commit's timestamp**, not the
-wall clock — `planner.DerivePeriod(&cfg.Period, planner.PeriodTime(...))`,
-where `PeriodTime` returns `CommitTime` under the default
-`period.time_basis: commit` (and the run's start clock under
-`wall_clock`), and `CommitTime` resolves to
-`GITHUB_EVENT_HEAD_COMMIT_TIMESTAMP`, else `git show -s --format=%cI HEAD`,
-else `time.Now()`. This is load-bearing and easy to miss.
-
-A cron that fires at 02:00 on the first day of a quarter therefore lands
-in whichever period HEAD's commit falls in. Usually that is the quarter
-that just closed, which is the desired behavior. But if anyone pushes to
-`main` in the couple of hours between the boundary and the cron, HEAD
-moves into the *new* period, and the run looks for manual evidence in a
-folder that cannot legitimately hold anything yet: the temporal-window
-check requires `uploadedAt >= period.Start`, so evidence staged ahead of
-a period is rejected, not credited. The result is a hard, non-obvious
-failure that no operator action could have prevented.
-
-The quarterly and annual crons therefore fire a few days **before** the
-period closes (the 20th of the quarter's last month). HEAD is then
-unambiguously inside the period being evaluated, the operator still has
-essentially the whole period to upload, and the boundary race disappears.
-
-#### Missing manual evidence
-
-If the quarterly access-review PDF is missing when `compliance-quarterly.yml`
-runs, the CLI fails the job with exit code 1 and a missing-evidence message
-(see [`04-source-plugins.md`](04-source-plugins.md) §Missing evidence).
-Operators upload the PDF and re-run via `workflow_dispatch` — the framework
-does not assume the quarterly cron date is when the human action happens.
-
-That failure is no longer the *first* signal, though. `compliance-daily.yml`
-runs `sigcomply evidence due --within-days 30` as a non-failing step
-(`continue-on-error: true`; `|| true` on GitLab), which lists every manual
-entry whose current-period folder is still empty. It reports an entry only
-while the folder is genuinely empty, so it stops the moment the upload
-lands — see [`commands.md`](../reference/commands.md) §`sigcomply evidence due`.
+A cadence with no policies still gets a workflow; it evaluates nothing until a project override
+moves a policy onto that cadence.
 
 ### GitLab CI
 
-`sigcomply init-ci --framework <fw> --ci gitlab` writes a single
-`.gitlab-ci.yml` (template at `cmd/sigcomply/templates/gitlab/.gitlab-ci.yml`)
-in which each cadence is one job gated by a `rules:` clause. The on-push
-job runs on merge requests and default-branch pushes; the cadence jobs run
-only on scheduled pipelines whose `CADENCE` variable matches:
+`--ci gitlab` writes one `.gitlab-ci.yml`. A shared hidden job installs the CLI and requests a
+GitLab ID token (`SIGCOMPLY_ID_TOKEN`, audience `https://api.sigcomply.com`) for cloud
+submission. Each cadence is a job gated by `rules:`:
 
-```yaml
-# excerpt — one job per cadence, all sharing an OIDC id_tokens block
-compliance:on_push:
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-  script:
-    - sigcomply check --on-push
+- `compliance:on_push` runs on merge requests and default-branch pushes.
+- `compliance:<cadence>` runs only on a scheduled pipeline whose `CADENCE` variable matches. The
+  operator creates one pipeline schedule per cadence and sets `CADENCE`.
+- The daily job also runs `sigcomply evidence due --within-days 30 || true`.
 
-compliance:daily:
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CADENCE == "daily"'
-  script:
-    - sigcomply check --cadence daily
-# … weekly / monthly / quarterly / annual jobs follow the same shape
-```
+AWS credentials come from web identity: the template writes a GitLab ID token to a file and
+exports `AWS_WEB_IDENTITY_TOKEN_FILE` with `AWS_ROLE_ARN`, which the AWS SDK default credential
+chain uses to assume the role. The CLI itself performs no `AssumeRoleWithWebIdentity` call. There
+is no packaged GitLab CI component.
 
-Operators create one GitLab pipeline schedule per cadence and set that
-schedule's `CADENCE` variable to the matching value. There is no
-first-class packaged GitLab CI component yet — this template (and the
-copy-paste example below) is the supported path.
+### What the templates assume
+
+- AWS is the cloud. GCP and Azure projects replace the credential step.
+- One AWS account and region.
+- Cloud submission happens only when the config sets `cloud.base_url` (or `--cloud-url` is
+  passed) and the job has an OIDC token; `--no-cloud` turns it off. See
+  [`../claude/auth.md`](../claude/auth.md).
 
 ### Copy-paste examples
 
-For projects that prefer to author CI by hand rather than scaffold, the
-repo ships ready-to-copy examples:
+`examples/github-actions/basic.yml`, `examples/github-actions/multi-environment.yml` and
+`examples/gitlab-ci.yml` are hand-written alternatives. They install `latest` and tell the user to
+pin a version. Only the `init-ci` templates carry the `evidence due` step.
 
-- `examples/github-actions/basic.yml` — minimal single-workflow setup.
-- `examples/github-actions/multi-environment.yml` — multiple accounts /
-  environments in one workflow.
-- `examples/gitlab-ci.yml` — GitLab pipeline mirroring the scaffolded
-  template's `rules:` structure.
+## Why the crons fire on the twentieth
 
----
+The audit period comes from the HEAD commit's timestamp, not the wall clock
+([10](10-cadence-model.md#period-freeze-rule)). A cron at 02:00 on the first day of a quarter lands
+in whichever period HEAD falls in. If someone pushed to `main` after the boundary, the run looks in
+the new period's manual folder, which cannot hold valid evidence yet: the temporal-window check
+rejects files uploaded before the period starts. The job fails and no operator action could have
+prevented it.
 
-## Filter flags: how the CLI knows what to run
+The monthly, quarterly and annual crons therefore fire on the twentieth day of the month, inside the period. HEAD is
+then inside the period being evaluated, and the operator has had most of the period to upload.
 
-Inside a job, at most one of these flags drives policy selection:
+## Missing manual evidence
 
-| Flag | What it selects |
+If a manual entry's folder is empty when its cadence run fires, the policy fails with `manual
+evidence not found; expected files in: <folder>` (`internal/evaluator/manual_check.go`) and the
+job exits 1. The operator uploads the file and re-runs the workflow (`workflow_dispatch`, or a
+manual pipeline on GitLab).
+
+The earlier signal is `sigcomply evidence due` in the daily workflow. It lists entries whose
+current folder is still empty and always exits 0 ([10](10-cadence-model.md#manual-evidence-due-sigcomply-evidence-due)).
+
+## Plan warnings in scaffolded runs
+
+Scaffolded runs never pass `--scheduled`, so no state is loaded. Every scaffolded run therefore
+logs `first-run: N policies will evaluate for the first time this run`, and never logs
+`gap-detected`. A missed cron leaves a gap in the run folders; the CLI does not back-fill it.
+Details: [10](10-cadence-model.md#day-1-warnings).
+
+## Results and exit codes
+
+| Concept | Where | Values |
+|---|---|---|
+| Policy result | `policies/<id>/result.json` in the run folder | `pass`, `fail`, `skip`, `error`, `na`, `waived`, `carried_forward` |
+| Run summary | `summary.json` in the run folder | counts |
+| Exit code | CLI process | `0`, `1`, `2`, `3` |
+
+Within one `check`:
+
+1. Every selected policy runs to completion and its result is persisted, whatever the others did.
+2. The vault receives results whether the run passed or failed.
+3. Cloud submission, if configured, happens either way.
+4. `renderAndExitCode` (`internal/orchestrator/orchestrator.go`) then picks the exit code.
+
+| Code | When |
 |---|---|
-| `--cadence <X>` | Policies whose **effective** cadence equals `<X>`. Effective cadence = project override if present, else framework default. |
-| `--cadences <X,Y,…>` | Union of multiple cadences in one invocation (e.g. `--cadences daily,weekly`). |
-| `--on-push` | Policies whose `on_push` attribute is `true`. Defaults: `true` for automated policies, `false` for manual. |
-| `--pr` | PR-feedback selection (the on-push set, run for pull-request events). |
-| `--scheduled` | All policies, gated per-policy by cadence + state (see §How cadence enforcement actually works). |
+| `0` | No policy errored, none failed, declared scope complete; or failures with `ci.fail_on_violation: false` |
+| `1` | At least one policy `fail`, or declared `required_sources` incomplete, and `ci.fail_on_violation` is true (the default) |
+| `2` | At least one policy has status `error` (checked before failures), a run-level execution failure, or invalid or conflicting flags |
+| `3` | Configuration or planning error, before collection |
 
-If none is provided, the CLI evaluates **all** in-scope policies. Useful
-for local development and full-coverage runs.
+`ci.fail_severity` is parsed and validated but has no effect: any `fail` exits 1. The customer
+reference is [`../reference/commands.md`](../reference/commands.md).
 
-There is **no** `--policies`, `--controls`, or `--framework` flag on
-`check`; the framework is fixed by config / `SIGCOMPLY_FRAMEWORK`. These
-filter flags are mutually exclusive — passing more than one is a
-configuration error (exit 3).
+Exit 1 is a successful report of failing compliance state: the vault and the submission are
+complete. Exit 2 is common in practice (for example, a 403 from a source or a `pass_when` field
+the record lacks) and means at least one result is not a verdict.
 
----
+## Identities in the payload
 
-## Policy result vs job result vs run state
+The CI layer supplies three identities, carried in `SubmissionPayload`
+([`internal/core/cloud.go`](../../internal/core/cloud.go); schema history in
+[06](06-aggregation.md)):
 
-Three distinct concepts. Confusing them produces bad CI ergonomics.
+- project: `repository.provider` (`github`, `gitlab`) and `repository.name_slug`;
+- run: `run_id` and `environment.provider` (`github_actions`, `gitlab_ci`, `local`);
+- commit: `commit_sha`, `branch`, `commit_time`, plus `cli_version`.
 
-| Concept | Where it lives | Values | Affects what |
-|---|---|---|---|
-| **Policy result** | `policies/<id>/result.json` in the vault | `pass | fail | skip | error | na | waived | carried_forward` | Period roll-up state |
-| **Run summary** | `summary.json` in the run folder | aggregate counts | Period roll-up; dashboard rendering |
-| **Job exit code** | CLI process exit | `0 | 1 | 2 | 3` | CI pipeline pass/fail UI |
+All of them are already visible through the git remote or the CI system. None is customer
+evidence.
 
-Within a CLI invocation:
+## Keep out of workflow files
 
-1. Every requested policy runs to completion: fetch → check → persist
-   envelope + result. Even when many fail, all run.
-2. The vault always receives results, whether the run "passed" or
-   "failed" overall.
-3. The cloud submission (if enabled) happens whether the run passed
-   or failed.
-4. After all policies finish, the orchestrator computes the exit code
-   from the run's aggregate statuses according to project config:
-   - `ci.fail_on_violation: false` → always exit 0
-   - `ci.fail_on_violation: true` (default) → exit 1 if any policy
-     of severity ≥ `ci.fail_severity` failed; exit 0 otherwise
-
-Exit codes:
-
-| Code | Meaning |
-|---|---|
-| `0` | All policies passed (or were NA / waived) at the configured fail threshold. |
-| `1` | At least one policy failed at-or-above the configured fail severity. |
-| `2` | Unexpected execution error (panic, network catastrophe). |
-| `3` | Configuration or planning error. |
-
-A `1` is **not** a failure of the SigComply system; it's a successful
-report of failing compliance state. The vault is fully populated. The
-cloud submission is complete. The customer sees red in CI; they fix
-the underlying issue; they re-run the workflow.
-
-A `2` or `3` *is* a failure of the system. The vault may be incomplete
-(planning errored before persistence) or the run may have crashed
-mid-flight. These are exceptional and require operator investigation.
-
----
-
-## Sharding (v1: none; v2: optional)
-
-For v1, **one cadence = one CI job**. With ~200 daily-cadence policies
-and per-policy fetching (no shared collection), a daily job typically
-runs in 15–25 minutes. Acceptable for daily cron; tight for on-push.
-
-If on-push runtime becomes an issue, a future version could shard the
-on-push set across parallel jobs — each job a separate `sigcomply check`
-invocation, each writing its own run folder, with the period roll-up
-unioning them. The vault layout already supports this (see
-[`05-vault-layout.md`](05-vault-layout.md) §Per-run folder); the CLI does
-not need to know about sharding peers. No source-prefix / shard flags exist
-on `check` today — this remains a v2 direction, not a shipped capability.
-
----
-
-## Scaffolding: `sigcomply init-ci`
-
-The CLI ships a scaffolding command:
-
-```bash
-sigcomply init-ci --framework soc2 --ci github
-```
-
-Effects:
-
-1. Writes the per-cadence `compliance-*.yml` files into
-   `.github/workflows/` (override the location with `--out`). `--framework`
-   defaults to the `.sigcomply.yaml` framework, else `soc2`.
-2. Prints next steps: replace the `AWS_ROLE_ARN` placeholder with the IAM
-   role configured for OIDC role assumption
-   (`aud: https://api.sigcomply.com`), then commit.
-
-`init-ci` does **not** generate a `.sigcomply.yaml` — the project config is
-authored separately (see [`08-project-config.md`](08-project-config.md)).
-
-For GitLab:
-
-```bash
-sigcomply init-ci --framework soc2 --ci gitlab
-```
-
-Writes a single `.gitlab-ci.yml` with one cadence-keyed job per cadence
-(driven by the `CADENCE` schedule variable, as shown above).
-
-The scaffolded files are starter templates carrying a "Customize freely"
-header. The shipped templates assume:
-
-- OIDC-based AWS credential setup (`aws-actions/configure-aws-credentials@v4`
-  with `audience: https://api.sigcomply.com`); adapt for GCP / Azure.
-- Single AWS account / region (matching the single-scope v1 design).
-- SigComply Cloud submission enabled (it auto-enables when the OIDC token
-  is present; pass `--no-cloud` to opt out).
-
----
-
-## Identity: project, run, evidence
-
-The CI layer establishes three identities the CLI consumes. The cloud
-`SubmissionPayload` (schema `sigcomply.cloud.v5`,
-[`internal/core/cloud.go`](../../internal/core/cloud.go)) carries them as:
-
-- **Project identity** (`org/name` from the CI's repo metadata) →
-  `repository.provider` (`github`/`gitlab`) and `repository.name_slug`.
-- **CI invocation identity** → top-level `run_id` on the payload, plus
-  `environment.provider` (`github_actions`/`gitlab_ci`/`local`). Lets
-  auditors correlate vault folders with CI job logs.
-- **Commit identity** → `commit_sha` and `branch` (plus `commit_time`,
-  which drives period derivation), alongside `cli_version`.
-
-These identities flow from CI → CLI via environment variables (or the CI
-provider's API) and are normalized in the orchestrator
-([`internal/orchestrator/orchestrator.go`](../../internal/orchestrator/orchestrator.go))
-before aggregation. None of these is customer evidence — every field is
-already public via the git remote or the CI system's own job metadata.
-
----
-
-## What the CI layer DOESN'T do
-
-Things to keep out of the workflow files; the CLI handles them
-internally:
-
-- **Policy selection per CI event.** Workflow files pass `--cadence <X>`
-  or `--on-push`; the CLI does the policy filtering. Don't enumerate
-  policies in YAML.
-- **Per-policy retry.** The CLI handles partial failures; CI doesn't
-  need retry logic at the job level. It also classifies them: a 429 or
-  5xx spends the backoff budget, a 401/403 fails the binding at once, so
-  a job-level retry would only re-run a failure the CLI already judged
+- Policy selection: pass a filter flag, never a list of policies.
+- Retry: the collector retries 429 and 5xx within its budget and fails 401/403 at once
+  (`internal/collector/retry.go`). A job-level retry repeats a failure the CLI already judged
   permanent.
-- **Evidence collection coordination.** No shared evidence cache, no
-  pre-fetch step. The CLI fetches per-policy inside the same job.
-- **Period derivation.** The CLI computes the period from commit time
-  and project config. Workflow files don't compute or pass the
-  period.
+- Evidence caching or pre-fetch steps: collection happens inside the job.
+- Period computation: the CLI derives the period; workflows never pass one.
 
-The principle: CI files describe *when* to run; the CLI describes
-*what* to run and *how*. Crossing this line creates implicit state
-and breaks the stateless property.
-
----
-
-## Auditor view of the CI layer
-
-When an auditor evaluates a project's compliance posture, the CI
-workflow files are part of what they review. Specifically:
-
-- **Cadence verification**: does `compliance-quarterly.yml` actually
-  run quarterly? Read the cron.
-- **Coverage verification**: do all framework-required cadences have
-  workflows in the repo? Compare against the shipped scaffold.
-- **Modification detection**: have workflows been modified to skip
-  certain policies? `git log` on the workflow files.
-- **Exception traceability**: if a quarterly policy has been "skipped"
-  for three quarters, did the workflow file change? Did a per-policy
-  `cadence:` override appear? Did an exception get added?
-
-The workflow files, like `.sigcomply.yaml` and any custom policies
-under `.sigcomply/`, are part of the project's audit trail and live
-in git.
-
----
+Workflow files describe when to run; the CLI decides what and how. They are part of the audit
+trail: an auditor reads the crons to check cadence and `git log` to see whether a workflow was
+changed to skip policies.
 
 ## See also
 
-- [`01-conceptual-model.md`](01-conceptual-model.md) — the Project,
-  Period, Run, and Policy cadence abstractions.
-- [`03-policy-spec.md`](03-policy-spec.md) — the `cadence` and `on_push`
-  fields on a policy spec.
-- [`05-vault-layout.md`](05-vault-layout.md) — how multiple runs
-  within a period interact.
-- [`08-project-config.md`](08-project-config.md) — per-policy `cadence`
-  overrides (under `policies:`) and the `check` flag reference (via
-  `docs/configuration.md`).
-- [`10-cadence-model.md`](10-cadence-model.md) — the per-policy decision
-  rule and per-policy state shards.
+- [01-conceptual-model.md](01-conceptual-model.md): project, period, run.
+- [03-policy-spec.md](03-policy-spec.md): `cadence` and `on_push` on a policy.
+- [05-vault-layout.md](05-vault-layout.md): run folders.
+- [10-cadence-model.md](10-cadence-model.md): decision rule, state shards, period clock.
+- `docs/guides/ci-github.md`, `docs/guides/ci-gitlab.md`: customer setup steps.

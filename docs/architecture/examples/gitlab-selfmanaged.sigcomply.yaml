@@ -111,12 +111,8 @@ policies:
     cadence: monthly
 
 cloud:
-  enabled: true
+  base_url: https://sigcomply.com
 
-output:
-  format: text
-  json_path: ./compliance-report.json
 
 ci:
   fail_on_violation: true
-  fail_severity: high

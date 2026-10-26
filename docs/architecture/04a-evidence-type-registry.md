@@ -1,653 +1,251 @@
-# 04a — Evidence Type Registry
+# 04a: Evidence type registry
 
-The evidence-type registry is the mediator between policies and source
-plugins. Policies declare which types they accept (`slots.*.accepts:
-[...]`); source plugins declare which types they emit
-(`Emits() []string`). Neither side knows about the other. The registry
-is the only point of contact between the policy world and the source
-world.
+The evidence-type registry is the only link between policies and source plugins. A policy
+declares the types it accepts (`slots.<name>.accepts: [...]`). A source plugin declares the
+types it emits (`Emits() []string`). Neither names the other. Because `aws.s3`, `gcp.storage`
+and `azure.storage` all emit `object_storage_bucket`, one "bucket encrypted at rest" policy
+covers all three, and a new vendor for a modelled concept is one new plugin and zero policy
+edits. The conceptual framing is [`01-conceptual-model.md`](01-conceptual-model.md) §Axiom 1.
 
-This is what makes the architecture cross-vendor. A single
-"object-storage encrypted at rest" policy is satisfied by `aws.s3` and
-`gcp.storage`, which **both emit the same neutral type**
-`object_storage_bucket` — no policy fork, no per-vendor type, no
-lowest-common-denominator schema. Adding a new vendor for an
-already-modeled concept is usually a single artifact: a source plugin
-emitting the existing type. The policies that already accept that type
-pick up the new vendor by transitivity.
+Read [`03-policy-spec.md`](03-policy-spec.md) (§Slots) and
+[`04-source-plugins.md`](04-source-plugins.md) first. This page owns how types are declared,
+loaded, validated, versioned and designed.
 
-This document specifies how evidence types are declared, embedded,
-loaded, validated, versioned, and extended. Read
-[`04-source-plugins.md`](04-source-plugins.md) and
-[`03-policy-spec.md`](03-policy-spec.md) first if you haven't —
-this document fills in the registry mechanics those two refer to.
+## Not built
 
----
-
-## Current implementation status
-
-This document describes the target design. Several pieces are simpler
-in code than they are below; this table calls out the gaps so the rest
-of the document can be read as design intent without misleading on
-what's wired today.
-
-| Aspect | Status | Notes |
-|---|---|---|
-| File format | **JSON Schema documents** | Schemas live at `internal/evidence_types/schemas/<id>.v<n>.json` — the file *is* a JSON Schema. The type ID is the schema's `title`; the version is its `version` field. There is **no** `schema_version`/`id`/`identity_key` frontmatter that is parsed. The YAML-with-frontmatter form once described below is not the shipped form; the §File format section below shows the real JSON shape. |
-| Embedding | **Wired** | `//go:embed schemas/*.json` in `internal/evidence_types/loader.go`; merged into the registry at orchestrator bootstrap. |
-| Schema-conformance validation | **Wired (full draft-07)** | The collector calls `evidence_types.Validate` before signing each envelope. The validator is **full JSON Schema draft-07** via `github.com/xeipuuv/gojsonschema` (`internal/evidence_types/validate.go`), content-hash cached: `enum`, `format`, `pattern`, `minimum`/`maximum`, length/range, `items`, nested-object recursion, and composition are all enforced — not just `type`/`required`. |
-| Validation failure handling | **Wired (strict)** | The collector fails the binding on the **first** non-conforming record (exit 3 via the policy's error tag). There is **no** drop-and-continue and **no** ">5% of records" threshold — that permissive mode is design-intent only, not implemented. |
-| Planner check that a slot's `accepts:` only references registered types | **Wired** | Empty `source.Emits() ∩ slot.Accepts` fails at plan time (exit 3). |
-| Project-local evidence types under `.sigcomply/evidence_types/` | **Wired — JSON files only** | `loadProjectEvidenceTypes` (`internal/orchestrator/project_local.go`) reads every `*.json` file directly under the directory at bootstrap, compiles the schema, and registers it into the same registry the embedded in-tree types land in. Pinned by `TestRegisterProjectLocal_RegistersAllThreeKinds`. Per-type **Go packages** (`.sigcomply/evidence_types/<id>/`) have **no registration hook** — `sigcomply build` compiles one and warns that it will never load. |
-| Per-type `identity_key` metadata in the schema file | **Not parsed** | `EvidenceRecord.IdentityKey` is wired and set by plugins (`aws.iam`, `okta`, `github`, …), and the `pass_when:` DSL deduplicates via a clause-level `identity_key:`. A *schema-level* `identity_key` is **not parsed** — the convention lives in the schema's `description` text only. |
-
-Bottom line: the load-bearing pieces — registry, embedded loading, planner check, full draft-07 validation, per-record identity for dedup — are wired and used in production today. The remaining items above are deliberate v1 simplifications, not architectural gaps.
-
----
-
-## Why evidence types are a separate artifact
-
-In an earlier iteration of the design, each source package declared
-its own `const EvidenceTypeID = "directory_user"` as a bare string and
-nothing else. There was no schema, no central registration, and
-nothing prevented two sources from disagreeing about what
-`directory_user` meant. The current design fixes this by making
-evidence types first-class artifacts:
-
-- They live in their own directory
-  (`internal/evidence_types/schemas/`), separate from the source
-  plugins.
-- They are versioned JSON Schemas.
-- They are embedded into the binary via `go:embed` so the registry is
-  trivially deterministic — no filesystem search at runtime.
-- The collector validates every emitted record's payload against the
-  registered schema. A source that emits a malformed payload causes
-  the policy depending on it to surface as `error`, not as a silent
-  pass.
-
-The separation has three consequences:
-
-1. **A new vendor for an existing check is usually one artifact.**
-   Write the source plugin emitting `object_storage_bucket` (or
-   whatever existing type fits); register it; done. The policies
-   already accepting that type pick up the new vendor with zero code
-   changes.
-2. **Two sources cannot disagree about a type.** If `aws.iam` and
-   `okta` both emit `directory_user`, both must conform to the same
-   schema. The collector enforces this — the first payload that
-   doesn't validate errors the binding (exit 3); there is no
-   silent drop.
-3. **Policies can rely on payload fields.** A policy declaring
-   `accepts: [directory_user]` is guaranteed to receive records whose
-   payloads have an `mfa_enabled` field (because the schema makes it
-   required). No defensive null checks; the schema is the precondition.
-
----
+- A schema-level `identity_key`. The cross-source key is a convention in the schema's
+  `description`; see [Cross-source identity](#cross-source-identity).
+- Evidence types as Go packages (`.sigcomply/evidence_types/<id>/`). `sigcomply build`
+  compiles one and warns that nothing registers it. Use a JSON file.
+- A permissive validation mode (drop bad records, or tolerate up to some percentage). The first
+  bad record fails the binding.
 
 ## File format
 
-Evidence types are **JSON Schema documents** under
-`internal/evidence_types/schemas/<id>.v<n>.json` (in-tree). The file
-*is* a JSON Schema — there is no separate metadata wrapper. Two
-extension fields carry the registry metadata: `title` holds the type ID
-— bare for v1 types (`"directory_user"`), version-suffixed only for
-re-versioned types (`"directory_user.v2"`) — and `version` holds the
-integer version.
-One file per type per version. (Project-local types under
-`.sigcomply/evidence_types/` use the same JSON form and load at
-bootstrap — see §Project-local extension.)
+An evidence type is a JSON Schema (draft-07) document at
+`internal/evidence_types/schemas/<id>.v<n>.json`. The file is the schema; there is no wrapper.
+`spec.LoadEvidenceType` (`internal/spec/evidence_type.go`) reads the header:
 
-```json
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.sigcomply.io/evidence_types/directory_user/v1.json",
-  "title": "directory_user",
-  "version": 1,
-  "description": "Cross-vendor identity record. A human or service-account user from an identity provider, used by policies that verify MFA enforcement, access-key hygiene, and dormant-account controls. Plugins emitting this type include aws.iam, okta, and github. Cross-source dedup key (convention only — not parsed): email.",
-  "type": "object",
-  "required": ["id", "mfa_enabled"],
-  "properties": {
-    "id":                 { "type": "string", "description": "Stable ID within the emitting source." },
-    "email":              { "type": "string" },
-    "display_name":       { "type": "string" },
-    "mfa_enabled":        { "type": "boolean" },
-    "is_service_account": { "type": "boolean" },
-    "is_admin":           { "type": "boolean" },
-    "last_login_at":      { "type": "string" },
-    "created_at":         { "type": "string" }
-  },
-  "additionalProperties": true
-}
-```
-
-### Registry metadata fields
-
-| Field | Required | Description |
+| Field | Required | Meaning |
 |---|---|---|
-| `title` | yes | The type ID. **Bare** for v1 types (`directory_user`); version-suffixed only for re-versioned types (`directory_user.v2`). This is what the registry keys on and what plugins set as `record.Type`. |
-| `version` | yes | Integer version. New versions are independent registrations (see §Versioning). |
-| `description` | yes | What this type represents, why it exists, who emits it — and, by convention, the cross-source identity field if any (there is **no** parsed `identity_key` key; see §The cross-source identity story). |
-| the schema body (`type`, `required`, `properties`, …) | yes | A standard JSON Schema draft-07 document describing the `payload` of an `EvidenceRecord` of this type. |
+| `title` | yes | The type ID, and the value plugins set as `record.Type`. Bare for a first version (`directory_user`); version-suffixed for later ones (`directory_user.v2`). |
+| `version` | yes | Positive integer. |
+| `type` | yes | Must be `"object"`: the schema describes a record's `payload`. |
+| `description` | convention | What the type represents, who emits it, and the cross-source key if any. |
 
-There is **no** `schema_version`, `id`, or `identity_key` frontmatter
-key — the file is a schema, not a wrapper around one.
+The file name is a convention only; the registry keys on `title`. Read the shipped schemas in
+`internal/evidence_types/schemas/` for real examples rather than copying one here.
 
-### Schema validation
+## Loading
 
-The collector validates payloads with a full JSON Schema draft-07
-implementation (`github.com/xeipuuv/gojsonschema`, wired in
-`internal/evidence_types/validate.go`; compiled schemas are cached by
-content hash). Every keyword a schema declares is enforced — not just
-`required`:
+- In-tree types are embedded with `//go:embed schemas/*.json` and registered at orchestrator
+  bootstrap by `evidencetypes.Register` (`internal/evidence_types/loader.go`). Registration reads
+  the header only. That every embedded schema compiles is enforced by the test
+  `TestValidate_AllEmbeddedSchemasCompile`.
+- Project-local types: `loadProjectEvidenceTypes` (`internal/orchestrator/project_local.go`)
+  reads every `*.json` file directly under `.sigcomply/evidence_types/` (subdirectories are
+  skipped), compiles the schema, and registers it after the embedded set. A schema that does not
+  compile, or a `title` that redefines a shipped type, is a config error (exit 3). No `sigcomply
+  build` is needed. Project-local mechanics are in [`07-extensibility.md`](07-extensibility.md).
+- After bootstrap the registry is read-only ([`02-layers.md`](02-layers.md) §L2).
 
-- Type predicates: `type`, `required`, `properties`,
-  `additionalProperties`, `patternProperties`, `items`, `minItems`,
-  `maxItems`, `uniqueItems` — including **recursive** validation of
-  nested objects and array items.
-- String constraints: `minLength`, `maxLength`, `pattern`, `format`.
-- Number constraints: `minimum`, `maximum`, `exclusiveMinimum`,
-  `exclusiveMaximum`, `multipleOf`.
-- Composition: `enum`, `const`, `oneOf`, `anyOf`, `allOf`, `not`,
-  `if`/`then`/`else`, and in-document `$ref`.
+## Where each check runs
 
-A schema that fails to compile fails at bootstrap (exit 3); a payload
-that violates any constraint fails the binding — the **first**
-non-conforming record tags the policy `error` (exit 3), with no
-drop-and-continue.
+| Check | Where | Outcome |
+|---|---|---|
+| Every type a registered source emits, and every type a registered policy accepts, has a schema | `evidencetypes.VerifyRegistrations`, at bootstrap | Exit 3 |
+| An explicit `bindings:` entry whose source emits nothing the slot accepts | `internal/planner/bindings.go` (explicit path), at plan time | Exit 3, with a version-skew hint when the source emits a sibling version |
+| Auto-binding finds no configured source that emits an accepted type | `autoBindSlot`, at plan time | Not an error. The slot gets no binding and the policy is skipped. |
+| A record whose `Type` is outside the binding's accepted types | `checkAcceptedTypes` (`internal/collector/collector.go`) | Policy status `error` |
+| A record whose `Type` has no schema, or whose payload fails its schema | `validateRecords` (`internal/collector/collector.go`) | Policy status `error` |
 
----
+A policy with status `error` makes `sigcomply check` exit 2 (`renderAndExitCode`:
+`c.errored > 0` returns `ExitExecution`). Exit 3 is only for bootstrap and plan errors.
 
-## Embedding and loading
+## Validation
 
-In-tree evidence types are embedded into the binary at compile time:
+`evidencetypes.Validate` (`internal/evidence_types/validate.go`) runs full draft-07 through
+`github.com/xeipuuv/gojsonschema`, with compiled schemas cached by content hash. Every keyword a
+schema declares is enforced, including `enum`, `format`, `pattern`, numeric and length bounds,
+nested objects and array items, composition (`oneOf`, `allOf`, `if`/`then`/`else`) and
+in-document `$ref`.
 
-```go
-// internal/evidence_types/loader.go
-//go:embed schemas/*.json
-var schemaFS embed.FS
-```
+The collector validates each record before it signs the envelope. The first non-conforming
+record fails the binding and tags the policy `error`. Nothing is dropped and the run continues
+with the next binding. The fix belongs in the plugin or the schema, never in a policy.
 
-At orchestrator bootstrap, the loader
-(`internal/evidence_types/loader.go`) walks the embedded FS, parses
-each JSON Schema, checks it compiles, and registers each type by its
-`title`. The registry itself lives at
-`internal/registry/evidence_type.go`. After bootstrap the registry is
-read-only — see [`02-layers.md`](02-layers.md) §L2.
+## Versioning: schemas are append-only
 
-Project-local types under `.sigcomply/evidence_types/` load the same
-way, from the project filesystem instead of the embedded FS, and merge
-into the same registry. They are registered *after* the embedded set, so
-a project-local file that redefines an in-tree type ID fails at
-bootstrap on the registry's duplicate-ID check — types are append-only
-across the union.
+Within a version a schema may only grow:
 
----
+- Add an optional property.
+- Loosen a constraint, as long as every previously valid record stays valid.
 
-## Schema-conformance validation
+These need a new version:
 
-Validation happens once per emitted record, inside the collector,
-before the record is wrapped in an envelope:
+- Remove, rename or retype a property.
+- Add a property to `required`.
+- Tighten a constraint so that a previously valid record fails.
 
-| Outcome | Action |
-|---|---|
-| Record's `Payload` validates against the schema for `Type` | Included in the envelope. |
-| Any record fails validation | The **first** non-conforming record errors the binding; the consuming policy becomes `error` (exit 3). There is no drop-and-continue and no per-call percentage threshold. |
-| `Type` not in the evidence-type registry | Plan-time error, exit 3 (caught before any `Collect` runs). |
-| `Type` not in the slot's `accepts:` list | Plan-time error, exit 3 (the planner refuses to bind a source for an unaccepted type). |
-
-This is what makes substitutability **safe**. A policy author can rely
-on the fields the schema declares because the collector refuses to
-pass through malformed records. A plugin author can refactor freely
-within the schema constraints because misalignments are caught
-deterministically at run time, not weeks later when an unexpected
-field shape silently makes a policy pass-by-vacuity.
-
-**Schema-conformance failures are configuration errors, not runtime
-errors.** They mean the plugin (or its config) is producing data the
-registered type doesn't describe. The fix is in the plugin code or in
-the schema, not at evaluation time. Exit code 3 makes this
-unambiguous to CI.
-
----
-
-## Versioning rule: schemas are append-only
-
-Within a single version, schemas may only grow:
-
-- **Adding an optional property** → same version. New plugins that
-  emit it can be consumed by old policies that ignore it; old plugins
-  that don't emit it still validate.
-- **Loosening a constraint** (raising `maxLength`, widening an
-  `enum`) → same version, as long as existing valid records remain
-  valid.
-
-Any of the following requires a new version:
-
-- Removing a property.
-- Renaming a property.
-- Changing a property's type.
-- Adding a property to `required`.
-- Tightening a constraint such that previously-valid records fail.
-
-A new version is a **new registration** with a distinct ID:
-`directory_user.v2`, registered as a separate file
-(`directory_user.v2.json`). Both `directory_user.v1` and
-`directory_user.v2` coexist in the registry — exactly the situation in
-the shipped tree today. Plugins emit one specific version per record
-(by setting `Type` to e.g. `directory_user.v2`, as `aws.iam` does).
-Policies accept one or both versions in their `accepts:` list during
-migration windows:
+A new version is a new registration with its own ID and file (`directory_user.v2` in
+`directory_user.v2.json`). The old version stays registered and frozen. A plugin emits one
+version per record. A policy accepts both during a migration, which is the multi-type slot from
+[`03-policy-spec.md`](03-policy-spec.md) §Slots:
 
 ```yaml
-# during migration, accept both
 slots:
   evidence:
-    accepts: [directory_user.v1, directory_user.v2]
+    accepts: [directory_user, directory_user.v2]   # v1's ID is the bare title
 ```
 
-This is the same multi-type slot mechanism described in
-[`03-policy-spec.md`](03-policy-spec.md) §Slots — version migration is
-just one application of it.
+`directoryUserTypes` in `internal/frameworks/soc2/policies_cc6.go` is the shipped form of this.
+Never mutate a type in a way that breaks existing records: every record in an old vault must
+still validate against the schema its `Type` names.
 
-`password_policy.v2` is the second shipped example and shows the other
-reason to re-version: not new fields, but a schema that turned out to be
-shaped around one vendor's API. v1 required all eight of AWS IAM's
-answers, including four character-class booleans, so a platform that
-rates password strength on its own scale or fixes length as a platform
-constant could not emit a record **at all** — the schema forced a source
-to either fabricate the fields it cannot read or stay silent. v2 keeps
-v1's field names and meanings, relaxes the platform-dependent ones to
-optional so absence is expressible, and replaces the four booleans with a
-discriminated union (`complexity_model`) in which a source states which
-kind of answer it has. Two lessons generalize. **Absence must mean one
-thing**: in v2 it means "this source did not observe a value", never a
-zero, a floor, or the vendor's documented default — a default is a value
-the tenant may have overridden, so reading one out of documentation says
-nothing about the tenant and must not be signed into evidence. And
-**relaxing `required` is a breaking change for consumers, not producers**:
-every clause reading a now-optional field had to grow an `is_set` guard,
-because the evaluator errors on a reference to a field the record does
-not carry.
+Relaxing `required` is a breaking change for consumers, not producers. The evaluator errors on a
+reference to a field the record does not carry, so every clause that reads a newly optional
+field must gain an `is_set` guard.
 
-A type is **never silently mutated.** A schema change that breaks
-existing records always coins a new ID. The vault written in 2026
-remains interpretable in 2031 because the schema referenced by
-`Type` in each record still loads.
+### password_policy versions
 
----
+`password_policy` (v1) required all eight answers AWS IAM gives: `min_length`, `max_age_days`,
+`reuse_prevention_count` and four character-class booleans. A platform that rates password
+strength on its own scale, or fixes length as a platform constant, could not emit a v1 record
+without inventing values. `password_policy.v2` fixes the shape, not the vendors:
 
-## The cross-source identity story
+- It keeps v1's field names and meanings and makes the platform-dependent fields optional, so
+  absence is expressible. Only `id`, `provider` and `scope` are required.
+- `complexity_model` (`per_class` | `strength_enum` | `fixed` | `none`) says which kind of
+  strength answer the record carries. `per_class` uses the four `requires_*` booleans,
+  `strength_enum` uses `password_strength`, and `fixed` uses `complexity_description`. Omit it
+  when the source cannot tell, which is different from `none`.
+- `reuse_prevented` (boolean) answers the reuse question; `reuse_prevention_count` is an
+  optional refinement.
+- `scope` and `precedence` stop N records from being read as interchangeable.
+- `not_configurable` names attributes the platform exposes no tenant setting for.
+  `defaulted` names fields whose value came from the API's documented default for an omitted
+  setting.
 
-When an evidence type represents an entity that can exist in multiple
-source systems, plugin authors set `EvidenceRecord.IdentityKey` (and/or
-emit a stable payload field like `email`) to a cross-source-stable
-value. There is **no parsed `identity_key` key in the schema file** —
-the convention is recorded in the schema's `description` text, e.g.
-"cross-source dedup key: email."
+Rules any emitter of this type follows:
 
-This convention:
+1. Absent means "this source did not observe a value". Never emit a zero, a floor or a vendor's
+   documented default read from documentation: a default is a value the tenant may have
+   overridden, so it says nothing about this tenant.
+2. `fixed` is only for a rule the tenant cannot change. `azure.entra` does not emit it, because
+   Entra's character-class rule can be disabled per user and, in a federated or synced domain,
+   the rule in force is the external directory's.
+3. `defaulted` is different from rule 1: the API was called, returned this tenant's policy, and
+   the vendor's contract defines an omitted field as "the default applies"
+   (`gcp.cloud_identity`).
+4. Emit one version per record. Dual-emitting would double resource counts and sign two
+   envelopes for one fact.
 
-1. Tells plugin authors what to put in `IdentityKey` (no ambiguity
-   between "use the email" vs "use the employee_id").
-2. Tells policy authors that records of this type may legitimately
-   appear from multiple sources for the same logical entity, so they
-   should dedupe before counting.
-3. Feeds the `pass_when:` clause-level `identity_key:` setting (default
-   `"id"`), which deduplicates the violation list — and therefore
-   `resources_failed` — by the chosen field. See
-   [`03-policy-spec.md`](03-policy-spec.md) §Cross-source dedup. (This
-   is the DSL's opt-in dedup; it does not read the schema description.)
+The consuming policies accept both versions (`passwordPolicyTypes` in
+`internal/frameworks/soc2/builders.go`) so a project-local plugin still on v1 keeps binding. Find
+the in-tree emitters with `grep -rln 'password_policy.v2' internal/sources`.
 
-For evidence types where there is no meaningful cross-source identity
-(e.g. `firewall_rule` — a rule in AWS is not the same rule as a rule
-in GCP, even if both happen to allow port 22), say nothing about it in
-the description and leave `IdentityKey` unset on records; clauses then
-dedupe by `id`, treating the union as a bag.
+## Cross-source identity
 
----
+When one entity can appear in several sources (a person in AWS IAM and in Okta), the plugin sets
+`EvidenceRecord.IdentityKey` to a cross-source-stable value, such as the email, and the schema's
+`description` names that field. A `pass_when:` clause can then dedupe violations, and so
+`resources_failed`, with its clause-level `identity_key:` (default `id`); see
+[`03-policy-spec.md`](03-policy-spec.md) §Cross-source dedup. The clause setting does not read
+the schema description.
 
-## A concrete worked example
+For a type with no cross-source identity (`firewall_rule`: an AWS rule is not the same rule as a
+GCP one), say nothing in the description and leave `IdentityKey` unset. Clauses then dedupe by
+`id`.
 
-The shipped `directory_user.v2` schema, verbatim
-(`internal/evidence_types/schemas/directory_user.v2.json`):
+## Schema design: top-down from the concept
+
+A cross-vendor type describes a concept ("a user in a directory", "an object storage bucket"),
+not one vendor's API response. Before you add a new type, read `directory_user.v1.json`,
+`object_storage_bucket.v1.json` and `git_repository.v1.json`.
+
+Wrong, modelled on the AWS IAM response:
 
 ```json
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.sigcomply.io/evidence_types/directory_user/v2.json",
-  "title": "directory_user.v2",
-  "version": 2,
-  "description": "Cross-vendor identity record (v2) — extends directory_user.v1 with privileged-access, access-key, and account-lifecycle fields needed for deeper IAM hygiene policies. Requires all v1 fields plus is_root, has_console_access, has_programmatic_access. Plugins that cannot compute optional fields should omit them.",
-  "type": "object",
-  "required": ["id", "mfa_enabled", "is_root", "has_console_access", "has_programmatic_access"],
-  "properties": {
-    "id":                     { "type": "string", "description": "Unique within the emitting source." },
-    "display_name":           { "type": "string" },
-    "email":                  { "type": "string" },
-    "mfa_enabled":            { "type": "boolean", "description": "User has MFA enrolled and required at sign-on." },
-    "mfa_factor_count":       { "type": "integer" },
-    "is_admin":               { "type": "boolean", "description": "Has account-wide elevated privileges." },
-    "is_service_account":     { "type": "boolean" },
-    "is_external":            { "type": "boolean", "description": "Identity is external to the organization (outside collaborator, guest/B2B, contractor). Optional; guard with is_set before reading it — in a filter as much as in a condition." },
-    "is_active":              { "type": "boolean" },
-    "last_login_at":          { "type": "string" },
-    "created_at":             { "type": "string" },
-    "is_root":                { "type": "boolean", "description": "This identity is the cloud provider's root or break-glass account (AWS root, GCP org admin super-admin)." },
-    "has_console_access":     { "type": "boolean", "description": "Can authenticate via the web console / GUI." },
-    "has_programmatic_access":{ "type": "boolean", "description": "Has at least one active programmatic credential (AWS access key, GCP service account key)." },
-    "direct_policy_count":    { "type": "integer", "description": "Number of IAM policies attached directly to the user (not via group). 0 is ideal; >0 violates group-based access hygiene." },
-    "unused_days":            { "type": "integer", "description": "Days since the identity last authenticated. -1 means never used / data unavailable." },
-    "groups":                 { "type": "array", "description": "Group memberships (names or IDs)." }
-  },
-  "additionalProperties": true
-}
+{ "UserName": "alice", "Arn": "arn:aws:iam::123456789012:user/alice",
+  "MFADevices": [{ "SerialNumber": "arn:aws:iam::123456789012:mfa/alice" }] }
 ```
 
-A plugin emitting this type:
-
-```go
-// inside aws.iam.Collect(...)
-records = append(records, core.EvidenceRecord{
-    Type:        "directory_user.v2",
-    ID:          "AIDAEXAMPLE01",       // AWS-local
-    IdentityKey: "alice@acme.com",       // cross-source
-    SourceID:    "aws.iam",
-    Payload:     mustMarshal(map[string]any{
-        "id":                      "AIDAEXAMPLE01",
-        "email":                   "alice@acme.com",
-        "mfa_enabled":             false,
-        "is_admin":                true,
-        "is_root":                 false,
-        "has_console_access":      true,
-        "has_programmatic_access": true,
-    }),
-})
-```
-
-The collector validates each `Payload` against the registered schema.
-The first non-conforming record errors the binding (exit 3) — there is
-no silent drop.
-
-A policy declaring `accepts: [directory_user.v2]` can rely on
-`mfa_enabled` existing and being a boolean on every record it sees. No
-defensive checks; the registry is the precondition.
-
----
-
-## Schema design: top-down from concept, not bottom-up from a vendor's API
-
-This is the most consequential design decision when defining a new
-evidence type. Getting it right makes every future source addition
-trivial. Getting it wrong silently breaks the substitutability property
-— often only discovered when a second vendor is being added and the
-original schema turns out to be shaped around one vendor's API.
-
-### The core discipline
-
-A cross-vendor evidence type represents a *semantic domain concept* —
-"a user in a directory," "an object storage bucket," "a source code
-repository." Schema fields describe **what that concept universally
-is**, not what one vendor's API happens to return.
-
-**Wrong (bottom-up — modeled directly from AWS IAM's API response):**
+Right, modelled on the concept:
 
 ```json
-{
-  "UserName": "alice",
-  "Arn": "arn:aws:iam::123456789:user/alice",
-  "MFADevices": [
-    { "SerialNumber": "arn:aws:iam::123456789:mfa/alice", "EnableDate": "2024-01-15T09:00:00Z" }
-  ],
-  "PasswordLastUsed": "2026-05-20T09:14:00Z"
-}
+{ "id": "alice", "email": "alice@example.com", "mfa_enabled": true, "is_admin": false }
 ```
-
-Okta, Azure AD, and Google Workspace cannot provide `Arn`, `MFADevices`,
-or `PasswordLastUsed` without fabricating values. Any field that only
-one vendor can populate meaningfully is the wrong level of abstraction
-for a shared schema.
-
-**Right (top-down — modeled from the concept "a directory user"):**
-
-```json
-{
-  "id": "alice",
-  "email": "alice@example.com",
-  "mfa_enabled": true,
-  "is_admin": false
-}
-```
-
-Every directory system can answer "does this user have MFA enabled?"
-The plugin for each vendor translates its native representation into
-this canonical boolean. `mfa_enabled` is universal;
-`MFADevices[].SerialNumber` is an AWS IAM artifact.
-
-The shipped schemas in `internal/evidence_types/schemas/` —
-`directory_user.v1.json`, `object_storage_bucket.v1.json`,
-`git_repository.v1.json` — are concrete examples of this discipline
-applied consistently. Read them before designing a new cross-vendor
-type.
 
 ### The universal-field test
 
-Before adding a field to a cross-vendor schema, apply this test:
+Before you add a field, ask: can every plausible implementation of this concept fill it with a
+real value? If not, make it optional and write down what "absent" means. Survey at least two
+implementations before you mark a field `required`.
 
-> Can **every** plausible implementation of this concept provide this
-> field with a meaningful, non-null value? If not, can it be safely
-> optional — with documented semantics for what "absent" means to a
-> policy consumer?
+| `directory_user` field | Universal? | Declaration |
+|---|---|---|
+| `mfa_enabled` | Yes | `required` |
+| `is_admin`, `email` | Most systems | optional |
+| `iam_path` (AWS), `okta_login` (Okta) | No | not in the shared schema |
 
-Marking a field optional puts a real obligation on every policy that
-reads it. The evaluator errors on a reference to an absent field, in a
-clause `filter` as much as in a `condition`, so an optional field is
-readable only behind an `is_set` guard. That is deliberate: the
-alternative — silently skipping the record — is how an omitted field
-turns a check into a vacuous pass. `TestEveryFilterGuardsOptionalFields`
-(`internal/manualcatalog/`) fails the build if a shipped filter reads a
-field this registry does not mark `required`.
-
-Applied to `directory_user` as illustration:
-
-| Field | Universal? | Declaration |
-|-------|-----------|-------------|
-| `mfa_enabled: boolean` | Yes — all directories have this concept | `required` |
-| `is_admin: boolean` | Yes — all directories have an elevated-privilege concept | optional (absent = unknown) |
-| `email: string` | Mostly — not every system exposes email | optional (absent = unknown) |
-| `iam_path: string` | No — AWS IAM only | does not belong in the shared schema |
-| `okta_login: string` | No — Okta only | does not belong in the shared schema |
-
-**The schema author must survey at least two or three plausible
-implementations before declaring a field required.** Designing from a
-single implementation and hoping the rest will fit is how bottom-up
-schemas happen.
+An optional field costs every reader an `is_set` guard. The evaluator errors on a reference to an
+absent field, in a `filter` as much as in a `condition`, because silently skipping the record is
+how an omitted field turns into a vacuous pass. `TestEveryFilterGuardsOptionalFields`
+(`internal/manualcatalog/`) fails the build if a shipped filter reads a non-`required` field
+without a guard.
 
 ### The normalization boundary
 
-The source plugin owns **100% of the translation** from vendor API
-shape to canonical schema shape. Zero normalization belongs in policy
-Rego.
+The plugin does all translation from vendor shape to canonical shape. Policy clauses must never:
 
-Policy code must never contain:
+- branch on the source (`record.type == "aws_iam_user"`);
+- re-derive a field the plugin should compute (`count(record.mfa_devices) > 0`);
+- gate on a vendor-specific field (`record.arn != null`).
 
-- `record.type == "aws_iam_user"` — branching on source
-- `count(record.mfa_devices) > 0` — re-deriving a computed field the
-  plugin should have computed
-- `record.arn != null` — gating on a vendor-specific field
+Each of these means vendor shape leaked into the policy. Fix the plugin. For MFA, `aws.iam`
+computes `mfa_enabled` from the user's MFA devices and `okta` from `MFAFactorCount > 0`; the
+policy reads `mfa_enabled` either way.
 
-Every one of these is a symptom that vendor-specific shape leaked into
-policy code. The fix is always in the plugin, not the Rego.
+### The null trap
 
-How the `aws.iam` plugin handles MFA:
+When a schema is designed bottom-up and a second vendor must fit it, the plugin fills a required
+field with `null`, `""`, `0` or `false`, policy authors add null guards, and the policy quietly
+behaves differently per source. If a second plugin cannot fill a required field, the schema is
+wrong. Do one of:
 
-```
-AWS IAM API returns: MFADevices: [{SerialNumber: "...", ...}]
-Plugin computes:     mfa_enabled = len(mfaDevices) > 0
-Plugin emits:        {"mfa_enabled": true}
-Policy sees:         record.mfa_enabled == true
-```
+- make the field optional and document what absent means;
+- leave it to `additionalProperties` (vendor extras no policy reads);
+- coin a vendor-specific type.
 
-How the Okta plugin handles MFA:
+Never emit a sentinel for a concept the vendor does not have.
 
-```
-Okta API returns:    factors: [{status: "ACTIVE", ...}]
-Plugin computes:     mfa_enabled = any(factor.status == "ACTIVE")
-Plugin emits:        {"mfa_enabled": true}
-Policy sees:         record.mfa_enabled == true
-```
-
-Same policy, different plugins, identical Rego. That is the whole
-point of the substitutability property.
-
-### The null-trap antipattern
-
-What happens when a schema is designed bottom-up and a second vendor
-is forced to fit it:
-
-1. A required field in the schema cannot be meaningfully populated by
-   the new vendor.
-2. The plugin author sets it to `null`, `""`, or `0` to satisfy schema
-   validation.
-3. Policy authors add `if field != null` guards to avoid false
-   failures.
-4. Those guards are implicit source-dispatching: the policy now
-   silently behaves differently depending on which source is bound.
-5. Substitutability is broken. Two sources nominally satisfying the
-   same evidence type produce semantically different policy outcomes,
-   and the discrepancy is invisible in CI.
-
-**The fix is not to add null guards in Rego.** The fix is to find the
-offending schema field and either:
-
-- Relax it to optional, with clear documentation of what "absent"
-  means for policy consumers.
-- Move it to `additionalProperties` — vendor-specific extras that no
-  policy depends on.
-- Create a vendor-specific evidence type for the source that can't
-  satisfy the universal schema (see §Two-tier type taxonomy).
-
-`"additionalProperties": true` in the schema is the sanctioned escape
-hatch for vendor-specific data that policies should never branch on.
-
-### Two-tier type taxonomy
-
-Both tiers are legitimate. The discipline is knowing which to use.
+### Two tiers of type
 
 | Tier | Naming | Example | Use when |
-|------|--------|---------|----------|
-| **Semantic** (cross-vendor) | No vendor prefix | `directory_user`, `object_storage_bucket`, `git_repository` | The concept exists in ≥2 vendors and all required fields are universally satisfiable |
-| **Vendor-specific** | Vendor prefix | `aws_cloudtrail_event`, `gcp_vpc_flow_log` | The concept is genuinely unique to one vendor's data model |
+|---|---|---|---|
+| Semantic | no vendor prefix | `directory_user`, `object_storage_bucket` | The concept exists in two or more vendors and every required field is universal. |
+| Vendor-specific | vendor prefix | `okta_app` | The concept exists in one vendor's model only. |
 
-A policy accepting a semantic type is universally portable across every
-source that emits it. A policy accepting a vendor-specific type is
-honestly scoped and can use the full native API shape without
-normalization constraints.
+Don't use a vendor-specific type to avoid designing a shared schema: each later vendor for the
+same concept then needs another type and a policy fork.
 
-**Do not use vendor-specific types as an escape hatch from schema
-design.** When a concept *could* be cross-vendor but the first
-implementation was modeled bottom-up from a single API, shipping a
-vendor-prefixed type defers the cost instead of eliminating it: every
-future vendor for the same concept requires a new type and a policy
-fork. The substitutability property costs one careful design decision
-at schema-definition time, paid back at every subsequent source
-addition.
+## Reuse a type, version it, or coin a new one
 
-### The "wrong schema" signal
+- Same entity, same fields: reuse the type. The new plugin emits it; no schema or slot change.
+- Same entity, a breaking change to the fields: coin a new version (see
+  [Versioning](#versioning-schemas-are-append-only)) and add it to the slots' `accepts:`.
+- Same entity, structurally different fields: coin a new type and add it to the relevant slots'
+  `accepts:`.
+- Different entity: a different slot. Ask whether a reviewer would describe the records together
+  ("47 buckets across our clouds") or separately ("3 firewall rules and 8 branch protections").
+  Together means one slot with several accepted types; separately means two slots.
 
-The clearest diagnostic that a schema was designed bottom-up:
-**implementing a second plugin for the same evidence type requires
-setting a required field to null or a meaningless sentinel.**
-
-If you're writing the Okta plugin and `directory_user.v1` has a
-required field `iam_path` that Okta has no equivalent for, the schema
-is wrong — not the plugin. Fix the schema (move `iam_path` to optional
-or remove it), update the AWS plugin accordingly, and coin a v2 if the
-change is breaking per §Versioning rule above.
-
-Do not paper over a bad schema by emitting `null`, `""`, `0`, or
-`false` where the vendor doesn't support the concept. That path ends
-in silent policy miscounts that are difficult to trace to their root
-cause.
-
----
-
-## Decision rubric: new type vs. extend `accepts:`
-
-This is the same rubric as in
-[`03-policy-spec.md`](03-policy-spec.md) §When to add a new evidence
-type vs. extend an existing slot's `accepts:`, repeated here for
-discoverability when reading from the evidence-type-author's angle:
-
-- **Same logical entity, same fields.** Reuse the existing type. The
-  new plugin just emits it; no schema change, no slot change.
-- **Same logical entity, structurally divergent fields.** Coin a new
-  type. The relevant slots add the new type to their `accepts:` list.
-  Rules switch on `record.Type` where they must, ignore the
-  distinction otherwise.
-- **Different logical entity.** Different slot entirely; do not lump
-  the type into someone else's slot just because the cardinality
-  feels similar.
-
-A useful test for "same entity vs. different entity": ask whether a
-human reviewing the result of a policy would naturally describe the
-records together ("47 buckets across our clouds") or describe them
-separately ("3 AWS firewall rules and 8 GitHub branch protections" —
-two separate things). The first case wants one slot with multiple
-accepted types. The second wants two slots.
-
-Coin a new type rather than overfitting an existing one when in
-doubt — types are cheap (one YAML file), and a too-broad type that
-later needs to split is far more disruptive than two narrow types
-that converge.
-
----
-
-## Project-local extension
-
-Customers add evidence types under `.sigcomply/evidence_types/` using
-the identical JSON Schema file format:
-
-```
-.sigcomply/
-  evidence_types/
-    acme_internal_user.v1.json         # custom shape for acme.internal_iam
-```
-
-These load at bootstrap alongside in-tree types and merge into the same
-registry; project-local plugins reference them in `Emits()` and
-project-local policies in `accepts:`. A project-local file redefining an
-in-tree type ID fails at bootstrap (exit 3) — project-local types are
-append-only across the union, and the upstream-curated set is not
-overridable, so auditors can trust that a shipped `directory_user` means
-the shipped thing, not a customer-tweaked variant.
-
-**This path is wired**, and it is a *data* path: no Go, no `sigcomply
-build`, no recompile. `loadProjectEvidenceTypes` reads every `*.json`
-file **directly under** `.sigcomply/evidence_types/` — subdirectories
-are skipped — parses the header, compiles the schema body so a
-structurally-invalid draft-07 document is an exit-3 config error rather
-than a collection-time surprise, and registers it. The file name is
-convention only; the type ID is the schema's `title`.
-
-A Go package at `.sigcomply/evidence_types/<id>/` is a different thing
-and is **not** wired: `sigcomply build` discovers and compiles it, but
-nothing registers it, because there is no per-`init()` hook for evidence
-types at all (`evidencetypes.Register` takes the bootstrap `Set`). The
-build prints a warning to that effect. Use the JSON file.
-
-The path from a project-local type to an upstream contribution is in
-[`07-extensibility.md`](07-extensibility.md).
-
----
+When in doubt, prefer two narrow types over one broad type that later has to split.
 
 ## See also
 
-- [`01-conceptual-model.md`](01-conceptual-model.md) §6 Evidence type
-  and §Axiom 1 — the conceptual framing.
-- [`02-layers.md`](02-layers.md) §L2 — the registry mechanism.
-- [`03-policy-spec.md`](03-policy-spec.md) §Slots — how `accepts:`
-  consumes types from this registry.
-- [`04-source-plugins.md`](04-source-plugins.md) §The factory contract
-  — how plugins produce records validated against this registry.
-- [`07-extensibility.md`](07-extensibility.md) — project-local types,
-  custom plugins, contribution path.
+- [`01-conceptual-model.md`](01-conceptual-model.md): §Glossary, §Axiom 1.
+- [`02-layers.md`](02-layers.md): §L2, the registry mechanism.
+- [`03-policy-spec.md`](03-policy-spec.md): §Slots, how `accepts:` consumes types.
+- [`04-source-plugins.md`](04-source-plugins.md): the factory contract.
+- [`07-extensibility.md`](07-extensibility.md): project-local types and plugins.

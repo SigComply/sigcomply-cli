@@ -101,7 +101,7 @@ policies:
   # mfa_enabled ← the user's authentication-method registration; is_admin
   # ← Microsoft's computed admin flag from userRegistrationDetails (so the
   # admin-MFA policy evaluates rather than erroring). Needs Entra ID P1/P2
-  # for the per-user MFA report — see configuration.md §azure.entra.
+  # for the per-user MFA report — see docs/reference/sources.md §Azure.
   soc2.cc6.1.mfa_enforced_admins:
     bindings:
       evidence: [azure.entra]
@@ -330,12 +330,8 @@ policies:
     cadence: monthly
 
 cloud:
-  enabled: true
+  base_url: https://sigcomply.com
 
-output:
-  format: text
-  json_path: ./compliance-report.json
 
 ci:
   fail_on_violation: true
-  fail_severity: high

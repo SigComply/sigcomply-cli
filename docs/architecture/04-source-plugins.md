@@ -1,334 +1,167 @@
-# 04 — Source Plugins
+# 04: Source plugins
 
-A source plugin knows how to fetch data from one external system —
-AWS IAM, Okta, BambooHR, GitHub, a customer's internal LDAP, a PDF
-deposited in a bucket — and emit evidence records of declared types.
-Plugins are the only layer that talks to external systems.
-
-This document specifies the plugin contract, evidence type declarations,
-the built-in plugin set, the canonical `manual.pdf` plugin, and how to
-author a custom plugin.
-
----
+A source plugin reads one external system (an AWS service, Okta, GitHub, an LDAP directory, a
+bucket of uploaded documents) and emits evidence records of declared types. Plugins are the only
+code that calls external systems during collection. Read this before adding or changing a plugin;
+step-by-step recipe: [`docs/claude/recipes.md`](../claude/recipes.md).
 
 ## The plugin contract
 
-A plugin is a Go type implementing `core.SourcePlugin`
-(`internal/core/source.go`):
+A plugin implements `core.SourcePlugin` (`internal/core/source.go`):
 
 ```go
 type SourcePlugin interface {
-    // ID returns the plugin's stable identifier, e.g. "aws.iam".
-    ID() string
-
-    // Emits returns the evidence type IDs this plugin can produce.
-    Emits() []string
-
-    // Init initializes the plugin with already-typed configuration.
-    // Called once per plugin instance per run. After Init, Collect may
-    // be called many times.
-    Init(...) error
-
-    // Collect fetches records for the given slot. Collect may be
-    // invoked multiple times within a run (once per policy binding,
-    // per the no-shared-collection axiom).
-    Collect(ctx context.Context, req core.SlotRequest) ([]core.EvidenceRecord, error)
+    ID() string                 // "aws.iam", or an instance key "aws.iam[staging]"
+    Emits() []string            // evidence-type IDs this plugin can produce
+    Init(ctx context.Context, cfg map[string]any) error   // never called; see below
+    Collect(ctx context.Context, req SlotRequest) ([]EvidenceRecord, error)
 }
 
 type SlotRequest struct {
-    // PolicyID is the policy this Collect call serves; diagnostic only.
-    // Never branch on it — doing so breaks substitutability.
-    PolicyID string
-
-    // AcceptedTypes is the INTERSECTION of the slot's declared accepts
-    // and this plugin's Emits() — i.e. slot.Accepts ∩ plugin.Emits(),
-    // not the raw slot.Accepts. The plugin should return records whose
-    // Type is in this set; the collector validates each payload against
-    // the registered schema for that type before signing.
-    AcceptedTypes []string
-
-    // SlotName is the slot's name on the policy.
-    SlotName string
-
-    // Params are slot-specific parameters from the binding (rare).
-    Params map[string]any
+    PolicyID      string          // logging only; never branch on it
+    AcceptedTypes []string        // slot.Accepts ∩ plugin.Emits()
+    SlotName      string
+    Params        map[string]any  // planner-stamped keys, plus binding slot_params
 }
 ```
 
-The plugin sees the *narrowed* type set, never the consuming policy's
-full `accepts:` — one more place the policy and the plugin do not name
-each other.
+Lifecycle within a run:
 
-**Lifecycle within a run:**
+1. `cmd/sigcomply/check.go` (`registerProductionSources`) builds every configured source through
+   its factory before planning. The factory parses config and resolves credentials.
+2. The collector calls `Collect` once per (policy, slot, source) binding.
+3. Instances are discarded at run end.
 
-1. The planner assembles per-(plugin, config) instances and registers
-   them in the run plan.
-2. The collector calls `Init` once per instance.
-3. The collector calls `Collect` once per (policy, slot) binding.
-4. The plugin instance is discarded at run end.
+`Init` is vestigial: no production code calls it, and every in-tree implementation is a no-op.
+Put setup in the factory.
 
-**Declaring config keys.** `RegisterFactory` takes the config keys the factory
-reads as a variadic tail:
+**KISS-no-DRY axiom.** Each policy fetches its own data: ten policies bound to `aws.iam` mean ten
+`Collect` calls. A plugin must return live state on each call and stay correct with no cache.
+
+The plugin sees only the narrowed `AcceptedTypes`, never the policy's full `accepts:`. Return
+records whose `Type` is in that set.
+
+### Declaring config keys
+
+`sources.RegisterFactory` takes the config keys the factory reads as a variadic tail:
 
 ```go
 func init() { sources.RegisterFactory(SourceID, build, awscfg.ConfigKeys...) }
 ```
 
-The project config loader runs with `KnownFields(true)`, which catches a typo
-everywhere in the file *except* inside a `sources:` entry — the inner bag is a
-`map[string]any` by design, so `tenat_id`, or `role_arn` on an Azure source,
-produces no output at all. The declared list is what lets the planner say so,
-and it also catches a key whose value is the wrong YAML type (`project_id:
-12345` reads as absent to `StringOpt`, indistinguishable from unset).
+The `sources:` entry is a free `map[string]any`, so the strict YAML decoder cannot catch a typo
+inside it. The declared keys let the planner warn about an unknown key or a key of the wrong YAML
+type. Shared sets live beside their parser (`awscfg.ConfigKeys`, `azcommon.ConfigKeys`).
+`TestEverySourceDeclaresItsConfigKeys` (`internal/sources/builtin/coverage_test.go`) fails the
+build for an in-tree plugin that declares none; a project-local plugin that declares none is
+never warned about.
 
-Shared sets live beside the parser that consumes them — `awscfg.ConfigKeys`,
-`azcommon.ConfigKeys` — so the ~25 AWS and 14 Azure factories cannot drift from
-what their shared parser actually reads. Fail-open: a factory declaring no keys
-is never warned about, which keeps a project-local plugin working. In-tree
-plugins do not get that latitude — `TestEverySourceDeclaresItsConfigKeys` fails
-the build for one that forgets.
+### Optional: `core.CaveatedSource`
 
-**Optional: `core.CaveatedSource`.** A plugin that emits a field it cannot
-actually observe declares it, so the planner can warn instead of leaving the
-operator to discover it in a source comment:
+A plugin that emits a field it cannot observe implements `Caveats() []core.SourceCaveat`
+(`EvidenceType`, `Field` without `payload.`, `Detail`). The planner warns when the source is
+bound, the binding accepts that type, and the policy's `pass_when` reads that field. The warning
+changes no status, count or wire field.
 
-```go
-type CaveatedSource interface {
-    Caveats() []SourceCaveat
-}
+Add a caveat only when both hold: the value is a safe default rather than a measurement, and a
+shipped policy reads the field. Don't caveat:
 
-type SourceCaveat struct {
-    EvidenceType string // "directory_user"
-    Field        string // "mfa_enabled" (no "payload." prefix)
-    Detail       string // one actionable sentence
-}
-```
+- a platform constant that is true by definition (`gcp.firestore` `encryption_enabled`);
+- a field the plugin omits where the schema allows it (`azure.compute` and `gcp.compute` leave
+  `monitoring_enabled` unset; policies scope them out with `is_set`);
+- a conservative but correct value (`aws.identity_center` `has_condition` is `false` because an
+  assignment has no condition).
 
-Implement it when the honest value is a safe default rather than a
-measurement, **and** a shipped policy actually reads the field. Both halves
-matter. The first is the gap; the second is what keeps the warning channel
-worth reading — a caveat on a field no policy reads can never fire, so it
-costs a reader's attention and buys nothing. `aws.eks.node_auto_upgrade_enabled`
-and `azure.keyvault.never_rotated` are both emitted without being observed and
-are both deliberately **un**caveated for exactly this reason; if a policy ever
-starts reading one, the caveat is owed then.
-
-Three neighbouring classes look similar and must **not** be caveated:
-
-- A **platform constant true by definition** — `gcp.firestore.encryption_enabled`.
-  Nothing is being guessed; the platform guarantees it.
-- A field the plugin **omits rather than fabricates**, where the schema allows
-  it — `azure.compute` and `gcp.compute` leave `monitoring_enabled` unset for
-  exactly this reason, and an `is_set` guard in the policy scopes them out
-  honestly. `azure.monitor` does both at once: it omits `kms_encrypted` on
-  `log_group` (no caveat) and emits a constant `false` on `audit_log_trail`
-  (caveated). Omission is already honest; fabrication is what needs declaring.
-- A value that is **conservative but correct**, not unobservable —
-  `aws.identity_center.has_condition` is `false` because an Identity Center
-  assignment carries no IAM condition expression at all. That is a true
-  statement about the grant, and it fails rather than excuses a broad grant.
-
-The shipped caveats and whether each limit is absolute or conditional are
-listed in [configuration.md §Source caveats](../configuration.md#source-caveats).
-
-The planner warns only when all three hold: the source is bound, the binding
-accepts the caveated type, and the policy's `pass_when` actually reads that
-field. It is advisory — no status, no count and nothing on the wire changes.
-This is a source describing **its own** limits, so Invariant #4 holds: no
-policy names a source, no plugin names a policy, and the two are joined by
-evidence type and field name — the same contract that mediates binding.
-Full operator-facing behavior: [configuration.md §Source caveats](../configuration.md#source-caveats).
-
-**Anything wrapping a `SourcePlugin` must forward this method.** `asInstance`
-(`internal/sources/instance.go`) wraps bracketed keys like `aws.iam[backup]`,
-and a missed forward fails silently — the consumer's type assertion simply
-returns false, so the instanced estate loses behavior its plain-key twin has.
-
-**Per-policy fetch, not per-run.** Per the KISS-no-DRY axiom, if ten
-policies bind the same `aws.iam` instance, `Collect` is invoked ten
-times. The plugin should not cache between invocations: each call
-must reflect the live state. (If the underlying system supports it,
-the plugin *may* maintain in-memory caches across calls within a
-single run for efficiency — but it must remain correct without them.)
-
----
+Anything that wraps a `SourcePlugin` must forward `Caveats()`; `asInstance`
+(`internal/sources/instance.go`) does. List the caveated plugins live with
+`grep -rln "func (.*) Caveats()" internal/sources`. Operator-facing list:
+[configuration.md §Source caveats](../configuration.md#source-caveats).
 
 ## The factory contract
 
-Every source plugin package self-registers a **factory** with the
-process-global `SourceRegistry` via an `init()` function. There is no
-hardcoded switch on source ID anywhere in the orchestrator; the check
-command iterates `cfg.Sources` and dispatches generically through the
-registry.
+This is the one explanation of the registry pattern. Sources, vault backends and manual-evidence
+readers all use it ([00](00-three-plugin-axes.md)).
 
-```go
-// internal/sources/aws/iam/factory.go
-package iam
+- Each plugin package calls a registry function from `init()`. No switch on IDs exists anywhere.
+- A `builtin` package blank-imports every in-tree plugin package (`internal/sources/builtin`,
+  `internal/vault/builtin`, `internal/sources/manual/builtin`); `cmd/sigcomply` blank-imports the
+  `builtin` packages. Adding an in-tree plugin is one new package plus one import line.
+- The host looks a factory up by the configured ID (`sources.Build`, `vault.FromConfig`,
+  `manual.buildReader`) and lists IDs for error messages (`sources.IDs()`).
+- Project-local plugins register through the public façade in `plugin/plugin.go`
+  (`plugin.RegisterSource`, `plugin.RegisterVaultBackend`, `plugin.RegisterManualReader`),
+  because `internal/` is not importable from the customer's module. `sigcomply build` compiles
+  them in. There is no runtime plugin loading.
 
-import (
-    "context"
-
-    "github.com/sigcomply/sigcomply-cli/internal/core"
-    "github.com/sigcomply/sigcomply-cli/internal/sources"
-)
-
-const SourceID = "aws.iam"
-
-// factory builds a configured aws.iam plugin instance from the
-// already-typed Env (which carries the parsed config for this source).
-func factory(ctx context.Context, env sources.Env) (core.SourcePlugin, error) {
-    return New(ctx, env)
-}
-
-func init() {
-    sources.RegisterFactory(SourceID, factory)
-}
-```
-
-The factory signature is fixed (`internal/sources/factory.go`):
+The source factory signature (`internal/sources/factory.go`):
 
 ```go
 type Factory func(ctx context.Context, env Env) (core.SourcePlugin, error)
 
-// In the sources package:
-func RegisterFactory(id string, f Factory)
+type Env struct {
+    Config          map[string]any // this source's block from .sigcomply.yaml
+    FrameworkExtras map[string]any // framework data, e.g. the manual catalog
+}
+
+func RegisterFactory(id string, f Factory, keys ...string)
 ```
 
-`env` is an `Env` **struct**, not a `map[string]any` — the source
-config is parsed into typed fields before the factory runs. If config
-is missing required fields or has invalid values, the factory returns
-an error and the orchestrator exits with code 3.
+Each factory parses its own `Config` map (`sources.StringOpt`, `awscfg`, `azcommon`). `Env` has
+no `Vault` field; a plugin that needs storage configures its own backend, as `manual.pdf` does. A
+factory error stops the run with exit 3.
 
-**A factory must resolve its credentials, not just build a client.**
-`sources:` is the operator's declaration of what this project audits, so a
-source listed there whose credentials are missing is a *configuration*
-error — exit 3, before collection starts — not a collection outcome. Every
-provider family honors this: token sources (`github`, `gitlab`, `okta`,
-`active_directory`) fail in `sources.ResolveToken`; `gcp.*` fail because
-`NewService`/`NewClient` resolve Application Default Credentials inline;
-`aws.*` fail in `awscfg.Load`, which retrieves from the resolved provider;
-`azure.*` fail in `azcommon.NewCredential`, which mints one token.
+### Resolve credentials in the factory
 
-The two cloud SDKs need the explicit step because neither fails on its
-own: `awsconfig.LoadDefaultConfig` assembles a *lazy* provider chain and
-succeeds with no credentials at all, and `azidentity.NewDefaultAzureCredential`
-appends every sub-credential whose constructor failed to the chain wrapped
-in an error reporter, so it never returns an error either. Without the
-eager step the operator learns nothing until the first API call — by which
-point the collector has retried a permanent failure through its whole
-backoff budget, per binding, sequentially. (Retry classification has
-since made a *rejected* credential terminal too — but only a resolved
-credential can be rejected, so the eager check below is still what
-catches a missing one.) Both checks are memoized
-(per `awscfg.Options`, per Azure scope) so N plugins on one instance cost
-one resolution, neither caches a failure, and both are bounded by a 60s
-timeout so a blackholed credential endpoint cannot stall startup.
+`sources:` declares what the project audits, so a listed source with missing credentials is a
+config error (exit 3) before collection, not a collection outcome.
 
-The same obligation applies outside `sources:`. The `s3` and `azure_blob`
-**vault** backends build their own clients and carry their own copy of the
-check: a run that cannot write its signed evidence should fail before
-collecting, not after.
+| Family | Where the check happens |
+|---|---|
+| `github`, `gitlab`, `okta`, `active_directory` | `sources.ResolveToken` |
+| `gcp.*` | `NewService`/`NewClient` resolve Application Default Credentials |
+| `aws.*` | `awscfg.Load` retrieves credentials from the resolved provider |
+| `azure.*` | `azcommon.NewCredential(ctx, scope)` mints one token |
 
-**Why factories rather than constructors.** A factory produces a
-configured plugin instance from the typed `Env`. This is the only way
-to keep the orchestrator generic: it never imports `iam.New`, never
-knows that `aws.iam` needs a region — it dispatches through the
-registered factory by source ID.
+Neither cloud SDK fails on its own: `awsconfig.LoadDefaultConfig` builds a lazy chain, and
+`azidentity.NewDefaultAzureCredential` wraps failed sub-credentials instead of returning an
+error. Both eager checks memoize (per `awscfg.Options`, per Azure scope), never cache a failure,
+and time out after 60s. A backend that builds its own client owes the same check: the `s3` and
+`azure_blob` manual readers and vault backends each carry one.
 
-**Bootstrap-time registration.** Each in-tree source package
-self-registers its factory in `init()` via `sources.RegisterFactory`.
-The registry is bootstrapped by blank-importing
-`internal/sources/builtin`, which in turn blank-imports every in-tree
-source package so their `init()` functions run:
+### plugin.yaml
 
-```go
-import _ "github.com/sigcomply/sigcomply-cli/internal/sources/builtin"
-```
+In-tree plugins have no manifest: `ID()`, `Emits()` and the factory are the declaration. A
+project-local `.sigcomply/plugins/<id>/plugin.yaml` is descriptive only. `sigcomply build` never
+reads it, and `spec.LoadPluginManifest` has no production caller.
 
-Adding a new in-tree source is: write the package, add one blank-import
-line in `builtin`. There is no central case statement to keep in sync.
-Adding a project-local plugin is the same pattern, applied through
-`sigcomply build`.
+## Evidence types
 
-**No runtime plugin loading.** Go's `plugin` package is fragile across
-versions and Linux-only; we don't use it. Every source — in-tree or
-third-party — is compiled in. `sigcomply build` is the build wrapper
-that includes project-local plugins; see
-[`07-extensibility.md`](07-extensibility.md).
+Emit records whose `Type` is a registered evidence-type ID. The collector validates every payload
+against the full draft-07 schema before signing. The first non-conforming record fails the
+binding: the policy becomes `error` and the run exits 2. Fix the plugin or the schema; don't add
+local validation. Schema design, versioning and project-local types:
+[04a](04a-evidence-type-registry.md).
 
----
+## Built-in plugins
 
-## How a plugin declares itself
+Plugins live under `internal/sources/<vendor>/<service>/` (single-plugin vendors at
+`internal/sources/<vendor>/`). The authority on what each emits is its `Emits()` method. Count
+live, from the repo root:
 
-**In-tree plugins declare everything in code — there is no in-tree
-`plugin.yaml`.** A plugin's identity is its `ID()`, the evidence types
-it produces are its `Emits()`, and its configuration is the typed `Env`
-its factory consumes. There is no manifest file to keep in sync with
-the Go and no manifest-validation step at startup.
+| Figure | Command |
+|---|---|
+| Plugins per provider directory | `grep -rl --include='*.go' "sources.RegisterFactory(" internal/sources \| grep -v _test \| sed 's#internal/sources/##' \| cut -d/ -f1 \| sort \| uniq -c` |
+| Evidence-type families | `ls internal/evidence_types/schemas \| sed 's/\.v[0-9]*\.json$//' \| sort -u \| wc -l` |
+| Schema files (versioned IDs) | `ls internal/evidence_types/schemas/*.json \| wc -l` |
+| Every accepted type has an emitter | `go test ./internal/sources/builtin/ -run TestEmitterCoverage` |
 
-`plugin.yaml` is a **project-local-only, descriptive** file under
-`.sigcomply/plugins/<id>/`. It is *not* how `sigcomply build` decides
-what to wire in: the build never opens it. Discovery is structural — a
-directory holding a non-test `.go` file whose `package` clause matches
-the directory basename — and the authoritative declaration of a
-project-local plugin's emitted types is the same `Emits()` method an
-in-tree plugin uses. `spec.LoadPluginManifest` parses the format and has
-its own tests, but no production caller; the file is reserved for a
-future validation step. Write it for your own documentation, and keep
-`Emits()` correct regardless. (See §How third parties contribute a
-source and [`07-extensibility.md`](07-extensibility.md).) In-tree
-plugins have no manifest at all.
+Don't copy these numbers into docs; customer-facing published counts are pinned by
+`TestDocFiguresMatchCode`.
 
----
+### Provider × evidence-type matrix
 
-## Evidence types — registered separately, validated by the collector
-
-A plugin declares the set of evidence types it emits via `Emits()`. A
-policy declares the types it accepts on each slot (`accepts: [...]`).
-The evidence-type registry mediates: every type ID named on either side
-must be a registered schema, and the collector validates every record's
-payload against the registered JSON Schema before signing.
-
-The full design — file format (JSON Schema documents), embedding via
-`go:embed`, schema versioning, the cross-source identity field, the
-rubric for "new type vs. extend `accepts:`," and the *planned*
-project-local extension path under `.sigcomply/evidence_types/` — lives
-in [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md).
-Read that document before authoring a plugin or a policy that needs a
-new evidence shape.
-
-The short version a plugin author needs:
-
-- Emit records with `Type` set to a registered type ID.
-- Set the record's identity field when the type has a meaningful
-  cross-source identity (e.g. email for `directory_user`); see
-  [`03-policy-spec.md`](03-policy-spec.md) §Cross-source dedup.
-- Trust the collector to validate payloads against the full draft-07
-  schema; do not invent local schema enforcement. The first
-  non-conforming record errors the binding (exit 3) — a malformed
-  payload is a bug to fix in the plugin or the schema.
-
----
-
-## Built-in plugin set (v1)
-
-The CLI ships with a set of plugins compiled in. Each lives under
-`internal/sources/<vendor>/<id>/` and self-registers a factory via
-`init()` (see §The factory contract). The in-tree set is larger than
-the table below and changes over time — **do not treat this as
-exhaustive.** The two authoritative sources are each plugin's `Emits()`
-method and the registered schemas under
-`internal/evidence_types/schemas/`.
-
-### Provider × evidence-type coverage matrix (final state)
-
-The matrix below is the authoritative at-a-glance view of which provider
-emits which cloud-neutral evidence type. A ✓ means at least one built-in
-plugin for that provider emits that type; because policies bind to the
-*type* and never to a vendor (Invariant #4), any ✓ in a row is fully
-substitutable for any other ✓ in the same row. **62 built-in plugins
-emit 31 distinct evidence types** (AWS 24 · GCP 19 · Azure 14 · GitHub 1 ·
-GitLab 1 · Okta 1 · Active Directory 1 · Manual 1).
+A ✓ means at least one plugin for that provider emits the type. Policies bind to types, so any ✓
+in a row can stand in for any other.
 
 | Evidence type | AWS | Azure | GCP | GitHub | GitLab | Okta | Active Directory | Manual |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
@@ -364,738 +197,179 @@ GitLab 1 · Okta 1 · Active Directory 1 · Manual 1).
 | `deployment` | | | | ✓ | ✓ | | | |
 | `signed_document` | | | | | | | | ✓ |
 
-¹ `aws.iam` emits the `directory_user.v2` schema variant of the
-`directory_user` type; the other six sources emit `directory_user`.
-Both satisfy a slot that accepts the directory-user family. Note the
-rule is about the *identities*, not the provider: `aws.identity_center`
-is an AWS source that emits v1, because v2's required `is_root` /
-`has_console_access` / `has_programmatic_access` describe an IAM
-account and have no honest analog for an SSO identity.
+¹ `aws.iam` emits `directory_user.v2`; every other emitter, including `aws.identity_center`,
+emits `directory_user`. v2's required `is_root` and access fields describe an IAM account and
+have no analog for an SSO identity. Slots accept both versions.
 
-³ `aws.identity_center` emits `iam_binding` from IAM Identity Center
-permission-set assignments — the AWS analog of a GCP project IAM
-binding. It is the second emitter of the type, and it needed **zero**
-policy or framework edits: `iso27001.5.3.no_broad_admin_bindings`,
-`iso27001.8.3.no_broad_admin_iam_bindings` and the roster policies'
-`accounts` slot all already accepted it. On an AWS-only estate those two
-least-privilege policies previously had no emitter at all.
+² `aws.identity_center` is the only AWS emitter of `roster_entry`. When an upstream IdP
+SCIM-syncs into Identity Center, designate the IdP as the roster and use Identity Center as an
+account source. Identity Center exposes no per-user MFA, so its `mfa_enabled` is `false` and
+caveated; bind `soc2.cc6.1.mfa_enforced_all_users` to the real IdP.
 
-² `aws.identity_center` is the only AWS emitter of `roster_entry`.
-It is a genuine roster candidate when Identity Center is the directory
-of record; when an upstream IdP (Okta, Entra) SCIM-syncs into it,
-designate the upstream IdP as the roster and use Identity Center as an
-account source — the emails line up and no `aliases` are needed.
-**Caveat:** Identity Center publishes no per-user MFA enrollment, so
-`mfa_enabled` is best-effort `false` and `soc2.cc6.1.mfa_enforced_all_users`
-will fail against it. Pin that policy's slot to the real IdP with a
-`bindings:` override. `is_admin` is **no longer** in that position: the
-permission-set traversal answers it, resolving group membership as well
-as direct assignment, so the admin-MFA policy evaluates rather than
-erroring.
+³ `aws.identity_center` emits one `iam_binding` per permission-set assignment, as made: a group
+assignment stays a `group` principal, so the least-privilege policies (which recommend granting
+admin through groups) don't flag the recommended pattern. `directory_user.is_admin` asks a
+different question and does resolve group membership. `is_broad_admin_role` reads AWS-managed
+policies and the permission-set name only, so admin reached through an inline or
+customer-managed policy under a neutral name is missed.
 
-⁴ `azure.entra` emits `password_policy.v2` from `GET /domains`, one
-record per **verified** domain — but a deliberately partial one. Entra
-exposes exactly one tenant-settable password attribute (the validity
-period); minimum length, history and the character-class rule are not
-tenant settings for cloud-only accounts, so the record names them in
-`not_configurable` and leaves the values **absent** rather than writing
-Microsoft's documented constants, which describe the product and not this
-tenant. The practical consequence: an Entra-only estate covers
-`soc2.cc6.1.password_expiry_90d` automatically, and the min-length,
-complexity and reuse clauses filter its records out of scope (reported as
-vacuous) rather than passing or failing them — which is the honest
-verdict, not a gap that a fabricated value would close. See the `azure.entra` row for the mapping.
+⁴ `azure.entra` emits one `password_policy.v2` per verified domain with only `max_age_days` set.
+Minimum length, reuse and complexity are listed in `not_configurable` and left absent, because
+they are not tenant settings; policies reading them report vacuous for Entra records. A federated
+domain carries no `max_age_days`.
 
-⁵ `gcp.cloud_identity` emits `password_policy.v2` from the **Cloud
-Identity Policy API** (`policies.list`, setting type
-`settings/security.password`, GA 2025-02-20), one record per policy the
-customer has for that setting type. Three things distinguish it from
-every other emitter in this row, and each of them is deliberate.
-**(a) Complexity is `strength_enum`, never per-class.** Google rates a
-password `STRONG` or `WEAK` and states in its own admin documentation
-that a strong password "doesn't need to have a specific number of
-characters of a specific type" — strength is entropy plus breach
-screening — so mapping `STRONG` onto four character-class booleans would
-fabricate a claim the vendor disclaims. **(b) The reduction is ours.**
-There is no effective-policy endpoint: each policy carries only the
-fields an administrator explicitly set, and Google's rule is that the
-highest `policyQuery.sortOrder` that sets a field wins. `sortOrder` runs
-the OPPOSITE way from the schema's `precedence` (1 wins), so the plugin
-sorts descending and emits the 1-based position — and it ranks
-administrator (`ADMIN`) policies above Google's `SYSTEM` baseline
-regardless of sortOrder, because a documented breaking change to SYSTEM
-policies' `name`/`sortOrder` landed 2026-09-01 and a renumbered baseline
-must not outrank an explicit setting. **(c) `defaulted`.** Because only
-explicitly-set fields come back, an omitted field means Google's
-documented default is in force (`STRONG` / 8 / 100 / `allowReuse` false /
-no expiry). The plugin reports that value AND names the field in the
-record's `defaulted` array, so an auditor sees both what is enforced and
-that nobody chose it. That is **not** the Entra category error in
-footnote ⁴: there no API call says anything about minimum length, so the
-number would be invented; here the API was called, it returned this
-tenant's policy resource, and the omission is this tenant's answer.
-Reporting absence instead would be worse — every clause is `is_set`-
-guarded, so a never-configured tenant would vacuously pass all six
-password policies. `reuse_prevention_count` is never emitted (Google
-exposes `allowReuse` as a bare boolean and documents no depth), so the
-reuse-depth policy reports vacuous for these records rather than guessing.
-Access is **super-admin only** via domain-wide delegation, the quota is
-**1 QPS per customer and not increasable** (the plugin paces its paging),
-and the plugin carries **no L2 cassette on purpose** — see
-[12-multicloud-sources.md](12-multicloud-sources.md).
+⁵ `gcp.cloud_identity` reads the Cloud Identity Policy API. Complexity is `strength_enum`, never
+per-class booleans. The plugin reduces policies by Google's precedence itself (admin policies
+above the system baseline) and lists fields that fell back to Google's documented default in
+`defaulted`. It needs super-admin domain-wide delegation, paces itself to the 1 QPS quota, and
+has no cassette ([12](12-multicloud-sources.md)).
 
-**The two questions the permission-set traversal answers, and why they
-are answered differently.** `iam_binding` mirrors each assignment *as it
-was made*: a group assignment stays a `group` principal. The two
-least-privilege policies are phrased
-`none(principal_type == "user" AND is_broad_admin_role AND NOT has_condition)`
-and their remediation text says to grant admin through groups — so
-expanding a group grant into per-member records would report the
-recommended pattern as a violation of the policy that recommends it, and
-would mis-key the roster join, whose `account.non_human` is derived from
-`principal_type`. `directory_user.is_admin` asks something else — *does
-this person hold elevated privileges* — which does not care how the
-grant was made, so it **does** resolve group membership. This is exactly
-the split `internal/sources/aws/iam` already makes: `userPrivilege`
-consults group-attached policies for `is_admin`, while
-`direct_policy_count` counts only directly-attached ones.
+### Plugins that emit more than one type
 
-**What the traversal costs, and its one blind spot.** It is
-O(permission sets × accounts) API calls, the slowest part of a
-collection on a large organization; when a slot asks only for
-`directory_user`, permission sets that are not broadly administrative
-are dropped before their account fan-out, since they cannot change
-`is_admin`. `is_broad_admin_role` reads only AWS-managed policies and
-the permission-set name, so a set that reaches admin through an *inline*
-or customer-managed policy under a name that says nothing reads as
-not-broad. That is the one under-reporting direction left; closing it
-means parsing IAM policy documents, which is a larger change than this
-type warrants.
+Every other plugin emits one type; read its `Emits()`.
 
-Cross-cloud reach: 19 of the 31 types are emitted identically by all
-three major clouds (AWS + Azure + GCP) — `roster_entry` joined them when
-`aws.identity_center` shipped — so the bulk of a SOC 2 / ISO
-27001 estate is covered by one policy set regardless of provider.
+| Plugin | Emits |
+|---|---|
+| `aws.identity_center` | `directory_user`, `roster_entry`, `iam_binding` (a roster-only slot skips the permission-set traversal) |
+| `gcp.directory` | `directory_user`, `roster_entry` |
+| `gcp.scc` | `threat_detection_service`, `security_service`, `vulnerability_finding` (org-scoped: `organization_id`) |
+| `azure.entra` | `directory_user`, `roster_entry`, `password_policy.v2` |
+| `azure.network` | `firewall_rule` (NSG Allow rules only), `network` |
+| `azure.keyvault` | `kms_key`, `secret` (management plane only) |
+| `azure.monitor` | `log_group`, `audit_log_trail` |
+| `azure.defender` | `threat_detection_service`, `security_service`, `vulnerability_finding` |
+| `github` | `git_repository`, `directory_user`, `source_control_org_policy`, `vulnerability_finding`, `pull_request`, `deployment` |
+| `gitlab` | `git_repository`, `directory_user`, `pull_request`, `deployment` |
+| `okta` | `directory_user`, `okta_app`, `roster_entry`, `password_policy.v2` |
 
-### Per-plugin detail
+`active_directory` emits only `roster_entry` (AD has no MFA signal). `manual.pdf` emits only
+`signed_document`. Per-field vendor mappings are documented in each plugin's package comment and
+code; customer-facing credentials and permissions are in
+[docs/reference/sources.md](../reference/sources.md).
 
-The table below gives the per-plugin emitted-type detail and modeling
-notes. GCP, Azure, source-control, and manual plugins are listed in full;
-the AWS rows are a representative slice (consult each `Emits()` for the
-complete list of 24). Every AWS plugin but `aws.identity_center` emits a
-single type; that one emits three — two from a single user listing, the
-way `gcp.directory` does, plus `iam_binding` from a second traversal.
+## The manual.pdf plugin
 
-| Plugin ID | Emits (real type IDs) | Notes |
-|---|---|---|
-| `aws.iam` | `directory_user.v2` | One AWS account per instance. Multiple instances via separate config blocks. `username` ← IAM `UserName` (record id is the `UserId`; the synthetic root record has none). |
-| `aws.identity_center` | `directory_user`, `roster_entry`, `iam_binding` | AWS IAM Identity Center (SSO) via `identitystore:ListUsers`; `identity_store_id` is optional (discovered from `sso-admin:ListInstances`), `region` is the instance's region. Emits **v1, not v2** — an SSO identity has no root flag and no access keys, so the three v2-only IAM policies would pass trivially over it. `email` ← the primary `Emails[]` entry, which is the roster join key, so no `aliases` are needed; `is_active` ← `UserStatus`; `username` ← `UserName`. **`mfa_enabled` is best-effort `false`** (no public per-user MFA API) — see the caveat below the table. `roster_entry` comes from the same listing: `status` ← `UserStatus` (fail-safe `inactive` on anything unrecognized), `employee_type` ← SCIM `UserType`. **`iam_binding` and `is_admin` both come from a second traversal** — `sso:ListPermissionSets` → `DescribePermissionSet` + `ListManagedPoliciesInPermissionSet` → `ListAccountsForProvisionedPermissionSet` → `ListAccountAssignments` — one record per assignment: `role` ← the permission-set name (falling back to the ARN's `ps-…` segment), `principal_id` ← the holder's email for a USER assignment and the group's display name for a GROUP one, `principal_type` ← `user`/`group`, `is_broad_admin_role` ← `AdministratorAccess` attached **or** a name containing "admin", `has_condition` ← always `false` (an assignment carries no IAM condition), plus the extras `account_id` / `permission_set_arn` / `identity_store_id`. `Scope.Account` on a binding is the AWS account the grant opens, not the identity store. **Group assignments are not expanded into per-member bindings** — see the two-questions note below. A roster-only slot skips the traversal entirely and needs none of the `sso:*` permissions. |
-| `aws.iam_access_key` | `iam_access_key` | |
-| `aws.s3` | `object_storage_bucket` | Same neutral type as `gcp.storage` and `azure.storage`. |
-| `aws.cloudtrail` | `audit_log_trail` | |
-| `aws.kms` | `kms_key` | |
-| `gcp.storage` | `object_storage_bucket` | Same neutral type as `aws.s3` and `azure.storage`. |
-| `gcp.directory` | `directory_user`, `roster_entry` | Google Workspace / Cloud Identity users via the Admin SDK Directory API. Account/customer-scoped (optional `customer_id`, default `my_customer`; optional `target_service_account` + `impersonate_subject` for impersonation / domain-wide delegation). `is_active` false when suspended or archived. **roster_entry** from the same listing: status inactive when `suspended`/`archived`; `employee_id` ← first `externalIds[type=organization]`. Same neutral type as `aws.iam`/`okta`/`github`/`gitlab`. |
-| `gcp.cloud_identity` | `password_policy.v2` | Google Workspace / Cloud Identity password policies via the **Cloud Identity Policy API** (`policies.list`, setting type `settings/security.password`). Account/customer-scoped, no `project_id`; config keys `target_service_account` + `impersonate_subject` only. Named for the API rather than the setting because `settings/security.password` is one of dozens of setting types the same endpoint, credential and 1 QPS budget serve — a second setting type belongs in this plugin. One record per policy, `scope` ← `org_unit`/`group`/`account` from the `PolicyQuery`, `precedence` ← the 1-based position in **sortOrder-descending** order (Google's sortOrder runs the opposite way from the schema's precedence; `ADMIN` policies rank above the `SYSTEM` baseline, defensively, after Google's 2026-09-01 breaking change to SYSTEM `name`/`sortOrder`). Fields are reduced field-by-field down that order, because the API has no effective-policy endpoint and returns only explicitly-set values. `complexity_model: strength_enum` + `password_strength` ← `allowedStrength` (never the four per-class booleans — Google disclaims the mapping); `max_age_days` ← `expirationDuration`, decoded from **either** a protobuf Duration string or a bare integer and rounded **up** to whole days (truncating would turn a short expiry into the schema's "no expiry", which passes); `reuse_prevented` ← `NOT allowReuse`, with no depth ever emitted. Anything left unset anywhere carries Google's documented default **and** is named in `defaulted`. Zero matching policies → zero records, never a synthesized one. **No L2 cassette on purpose** — see footnote ⁵ and [12-multicloud-sources.md](12-multicloud-sources.md). |
-| `gcp.iam` | `iam_binding` | Project-level IAM policy bindings (Cloud Resource Manager `getIamPolicy`), flattened to one record per (role, member) pair; the record id is `<role>|<member>`. `principal_id` ← the member with its prefix stripped, so a `user:` member is already an email — this is the key the identity-roster policies join on, and what `experimental.roster.aliases` names under the `gcp.iam` key. `principal_type` ← `user` / `group` / `service_account`, a non-standard prefix passing through (`domain`), and **empty** for `allUsers` / `allAuthenticatedUsers`, which carry no prefix. `is_broad_admin_role` ← roles/owner, roles/editor, or any role name containing "admin". Same neutral type as an AWS managed-policy attachment or an Azure role assignment would emit. |
-| `gcp.firewall` | `firewall_rule` | VPC firewall rules (Compute `firewalls.list`), flattened to one record per protocol/port-range. Same neutral type as `aws.security_group`. |
-| `gcp.kms` | `kms_key` | Cloud KMS crypto keys (CloudKMS `cryptoKeys.list`), walked across all project locations; `rotation_enabled` ← rotationPeriod set. Same neutral type as `aws.kms`. |
-| `gcp.logging` | `log_group` | Cloud Logging log buckets (Logging `buckets.list`, all locations), one record per bucket; `retention_set` ← `retentionDays > 0`, `retention_days` ← `retentionDays` (every GCP bucket has finite retention — no "never expire"); `kms_encrypted` ← CMEK on `cmekSettings`. Same neutral type as `aws.cloudwatch`. |
-| `gcp.artifactregistry` | `container_registry` | Artifact Registry repositories (`repositories.list`, walked across all project locations), one record per repo; `scan_on_push_enabled` ← `vulnerabilityScanningConfig.enablementState == SCANNING_ACTIVE`; `image_immutability_enabled` ← `dockerConfig.immutableTags`; `is_public` ← repo IAM policy grants `allUsers`/`allAuthenticatedUsers` (per-repo `getIamPolicy`); `encryption_enabled` ← always `true` (AR always encrypts at rest; CMEK distinction in the `is_customer_managed` extra). Same neutral type as `aws.ecr`. |
-| `gcp.firestore` | `nosql_table` | Cloud Firestore databases (Firestore Admin `Projects.Databases.List` over `projects/{p}/databases`, one non-paginated call; errors on any `unreachable` location rather than returning a partial list), one record per database; `encryption_enabled` ← always `true` (Firestore always encrypts at rest — Google-managed default or CMEK; CMEK distinction in the `is_customer_managed` extra); `point_in_time_recovery_enabled` ← `pointInTimeRecoveryEnablement == POINT_IN_TIME_RECOVERY_ENABLED`; `deletion_protection` ← `deleteProtectionState == DELETE_PROTECTION_ENABLED`. Same neutral type as `aws.dynamodb`. |
-| `gcp.gke` | `kubernetes_cluster` | GKE clusters (`Projects.Locations.Clusters.List` with the `locations/-` all-locations wildcard, one non-paginated call), one record per cluster; `secrets_encryption_enabled` ← `databaseEncryption.state == ENCRYPTED` (Application-layer Secrets Encryption with a customer KMS key — not always-on etcd-at-rest); `logging_enabled` ← `loggingConfig.componentConfig.enableComponents` non-empty or legacy `loggingService != none`; `is_private_endpoint` ← `privateClusterConfig.enablePrivateEndpoint`; `node_auto_upgrade_enabled` ← all node pools auto-upgrade. Same neutral type as `aws.eks`. |
-| `gcp.backup` | `backup_plan` | Backup and DR Service backup plans (`Projects.Locations.BackupPlans.List` with the `locations/-` all-locations wildcard, paginated; errors on any `unreachable` location), one record per plan; `is_active` ← `state == ACTIVE` (real plan-state enum, unlike `aws.backup`); `has_retention_rule` ← any backup rule has `backupRetentionDays > 0`; `retention_days` ← max `backupRetentionDays` across rules (omitted when none). The direct AWS Backup analog (broader than GKE-only Backup-for-GKE). Same neutral type as `aws.backup`. |
-| `gcp.certs` | `tls_certificate` | Certificate Manager certificates (`Projects.Locations.Certificates.List` with the `locations/-` all-locations wildcard, paginated; errors on any `unreachable` location), one record per certificate; `not_after` ← `expireTime` (RFC3339 UTC); `days_until_expiry` derived from it (negative once expired); `is_managed` ← `managed` set (vs. self-managed PEM); `auto_renew` ← `true` for managed certs, omitted for self-managed (matching `aws.acm`); `domain` ← first `sanDnsnames`; `status` ← honest enum (expired→`EXPIRED`, else `managed.state` ACTIVE→`ISSUED`/PROVISIONING→`PENDING_VALIDATION`/FAILED→`FAILED`/else `INACTIVE`, self-managed→`ISSUED`). Same neutral type as `aws.acm`. |
-| `gcp.asset` | `config_change_tracking` | One record per project modeling Cloud Asset Inventory **feeds** (the opt-in change-tracking pipeline, not the always-on inventory). `is_recording` ← ≥1 feed exists; `all_resource_types` ← ≥1 feed is unrestricted by asset type (empty `assetTypes` or `.*`/`*` wildcard). Reads `Feeds.List` (single call). Same neutral type as `aws.config`. |
-| `gcp.audit` | `audit_log_trail` | One record per project modeling the Cloud Audit Logs posture (not per-sink). `is_enabled`/`is_multi_region`/`log_file_validation_enabled` ← `true` (GCP platform constants: Admin Activity logging is always-on, global, and integrity-guaranteed via the locked `_Required` bucket); `kms_encrypted` ← CMEK on project logging `cmekSettings`. Reads CRM `GetIamPolicy` (audit configs / access) + Logging `GetCmekSettings`. Same neutral type as `aws.cloudtrail`. |
-| `gcp.network` | `network` | VPC Networks (Compute `networks.list`), one record per network; `flow_logs_enabled` aggregated from subnetworks (all-must-be-on). Same neutral type as `aws.vpc`. |
-| `gcp.secretmanager` | `secret` | Secret Manager secrets (`secrets.list`); `rotation_enabled` ← rotation policy attached; `kms_encrypted` ← CMEK on replication; `never_rotated`/`last_rotated_days` ← per-secret `versions.list` (no last-rotation timestamp on the resource). Same neutral type as `aws.secretsmanager`. |
-| `gcp.scc` | `threat_detection_service`, `security_service`, `vulnerability_finding` | **Org-scoped** (`organization_id`, not `project_id`; needs org-level `securitycenter.findingsViewer`+`settingsViewer`). Security Command Center: ETD enablement → `threat_detection_service` (`aws.guardduty` analog); SHA enablement → `security_service` `service_type: "siem"` (`aws.security_services` analog); active `VULNERABILITY`/`MISCONFIGURATION` findings → `vulnerability_finding` (`aws.inspector` analog), severity/status mapped to the schema enums. Reads `sources/-/findings` (v1) + v1beta2 settings (`serviceEnablementState`). |
-| `azure.entra` | `directory_user`, `roster_entry`, `password_policy.v2` | Microsoft Entra ID (Azure AD) users via Microsoft Graph (raw REST, not `msgraph-sdk-go`). Graph-plane (optional `tenant_id`, no `subscription_id`). `mfa_enabled` ← `userRegistrationDetails.isMfaRegistered`; `is_admin` ← `userRegistrationDetails.isAdmin` (Microsoft's computed flag — no `directoryRoles` traversal); `is_active` ← `users.accountEnabled`; `email` ← `users.mail` only; `last_login_at` ← `users.signInActivity.lastSignInDateTime` (omitted if absent). Needs `User.Read.All` + `AuditLog.Read.All` + Entra ID P1/P2; errors (not false MFA) when the report is inaccessible. **roster_entry** reads only `GET /users` (`User.Read.All`, no P1/P2): guests excluded; status ← `accountEnabled`; `email` ← `mail` → UPN. Same neutral type as `aws.iam`/`okta`/`github`/`gitlab`/`gcp.directory`. **password_policy.v2** reads only `GET /domains` (`Domain.Read.All`, no P1/P2) and emits one record per **verified** domain (`scope: domain` — Entra's validity period is a per-domain setting; unverified domains govern no sign-in and are skipped). It carries `max_age_days` ← `domain.passwordValidityPeriodInDays` (Microsoft's never-expires sentinel `2147483647` → `0`, the schema's "observed no expiry", so an Entra tenant gets the same verdict as an AWS account in the same posture) and `not_configurable: [min_length, reuse, complexity]` — **no** value for those three and **no** `complexity_model`: length (8) and the "3 of 4 character classes" rule are read from Microsoft's documentation, not from the tenant, and `fixed` is ruled out because the rule *is* weakenable (`user.passwordPolicies: DisableStrongPassword`) and is not Entra's at all in a federated or hash-synced domain. A **federated** domain's record carries no `max_age_days`: an external IdP enforces its passwords, so Entra's number is not the rule in force. |
-| `azure.storage` | `object_storage_bucket` | Azure Storage accounts (armstorage `AccountsClient.NewListPager`). **ARM-plane** (`subscription_id` required). `encryption_at_rest_enabled` ← always `true` (Azure SSE is always-on; CMEK distinction in `kms_managed` ← `Encryption.keySource == Microsoft.Keyvault`); `public_access_blocked` ← `allowBlobPublicAccess == false` (nil ⇒ not blocked); `versioning_enabled` ← blob versioning OR blob soft-delete (per-account `blobServices/default` GET — an N+1, RG parsed from the account id). Errors (not false versioning) on a blob-service read failure. Same neutral type as `aws.s3` and `gcp.storage`. |
-| `azure.sql` | `managed_database_instance` | Azure's three managed-database services in one plugin (mirrors `aws.rds`). **ARM-plane** (`subscription_id` required). **Azure SQL** (`armsql`): one record per database (excludes `master`); `storage_encrypted` ← real `current` TDE state (N+1+1: servers → databases → TDE); `ssl_required` ← `true` (encrypted connections enforced); `multi_az` ← `database.zoneRedundant`. **PostgreSQL/MySQL Flexible**: one record per server; `storage_encrypted` ← always `true` (at-rest encryption always-on; CMEK in the `cmek_enabled` extra); `ssl_required` omitted (server-parameter, not readable here); `multi_az` ← `highAvailability.mode == ZoneRedundant`. All three: `publicly_accessible` ← server `publicNetworkAccess == Enabled`; `backup_enabled` ← always `true`; `deletion_protection` ← always `false` (no DB property; ARM resource locks are the mechanism). Same neutral type as `aws.rds` and `gcp.sql`. |
-| `azure.compute` | `compute_instance` | Azure Virtual Machines (armcompute `VirtualMachinesClient.NewListAllPager` with `StatusOnly` so power state rides along). **ARM-plane** (`subscription_id` required). `is_running` ← power state `PowerState/running`; `has_public_ip` ← any attached NIC has an IP config referencing a public IP (per-NIC `armnetwork` GET — an N+1; presence of the reference is sufficient); `root_volume_encrypted` ← always `true` (managed-disk SSE is always-on; the platform/customer-key distinction is in the `cmek_enabled` extra). `monitoring_enabled` is **omitted** (no per-VM signal; `is_set`-guarded policies scope Azure out — same gap as `gcp.compute`). Same neutral type as `aws.ec2` and `gcp.compute`. |
-| `azure.network` | `firewall_rule`, `network` | NSGs + VNets in one plugin. **ARM-plane** (`subscription_id` required). **firewall_rule** ← NSG custom `securityRules`, **Allow only** (a Deny rule open to the internet would false-fail the unrestricted-traffic policies, which don't filter on action; Azure commonly has explicit Deny rules), flattened one record per destination port range; `is_unrestricted_ipv4/_ipv6` ← prefixes contain `*`/`Internet`/`Any` (both) or `0.0.0.0/0`/`::/0`; id ← `{rg}/{nsg}:{direction}:{index}`. **network** ← VNets; `is_default` ← always `false` (Azure has no default VNet); `flow_logs_enabled` ← inline VNet flow log enabled (NSG-flow-log-only setups are a v1 gap → false). Same neutral types as `aws.security_group`/`gcp.firewall` and `aws.vpc`/`gcp.network`. |
-| `azure.keyvault` | `kms_key`, `secret` | Key Vault keys + secret metadata in one plugin. **ARM-plane** (`subscription_id` required), **management plane only** (Reader RBAC, no data-plane access policies; secret values never returned). **kms_key** ← Key Vault keys; `rotation_enabled` ← rotation policy has a `rotate` action with a trigger (keys list strips the policy, so per-key `Get` — an N+1); `is_customer_managed` ← always `true`, `key_manager` ← always `"CUSTOMER"` (Key Vault keys are customer-provisioned by definition, like `gcp.kms`); `protection_level` (HSM/SOFTWARE) in extras. **secret** ← Key Vault secrets; `rotation_enabled` ← always `false` (Azure exposes no API-readable native secret-rotation policy — covered via exception/manual evidence, like `azure.sql` deletion_protection); `kms_encrypted` ← always `true` (always vault-encrypted); `never_rotated`/`last_rotated_days` ← best-effort from created-vs-updated (no mgmt-plane version history). Same neutral types as `aws.kms`/`gcp.kms` and `aws.secretsmanager`/`gcp.secretmanager`. |
-| `azure.monitor` | `log_group`, `audit_log_trail` | Azure Monitor logging surface in one plugin. **ARM-plane** (`subscription_id` required). **log_group** ← Log Analytics workspaces (`armoperationalinsights` `WorkspacesClient.NewListPager`); `retention_days` ← `retentionInDays`, `retention_set` ← positive retention; `kms_encrypted` omitted (CMEK is a per-cluster, not per-workspace, feature — no `log_group` policy reads it). **audit_log_trail** ← one record per subscription (the Activity Log, `armmonitor` `DiagnosticSettingsClient` on `/subscriptions/{id}` — pinned `armmonitor v0.11.0`; v0.12.0 dropped the subscription-scoped client); `is_enabled`/`is_multi_region`/`log_file_validation_enabled` ← always `true` (the Activity Log is always-on, subscription-wide, and platform-immutable, like `gcp.audit`); `kms_encrypted` ← always `false` (native retention uses Microsoft-managed keys — covered via routed CMEK destination + exception/manual evidence); the diagnostic settings populate the `exported`/`enabled_categories`/destination extras. Same neutral types as `aws` CloudWatch Logs/`gcp.logging` and `aws` CloudTrail/`gcp.audit`. |
-| `azure.defender` | `threat_detection_service`, `security_service`, `vulnerability_finding` | Microsoft Defender for Cloud in one plugin. **ARM-plane** (`subscription_id` required); `armsecurity` (single subscription-scoped `PricingsClient.List` + `SubAssessmentsClient.NewListAllPager`). **threat_detection_service** ← one per Defender plan; `is_enabled` ← pricing tier is `Standard` (Free → `false`), mirroring `aws.guardduty`'s per-detector granularity (all-enabled policy expects every plan on Standard; scope out unused plans via exception). **security_service** ← one record for Defender for Cloud itself; `service_type` ← always `cspm`; `is_enabled` ← any Defender plan on Standard (the deprecated auto-provisioning toggle is deliberately not the signal). The Pricings read is shared by both. **vulnerability_finding** ← one per security sub-assessment; `severity`/`status` mapped (Unhealthy → ACTIVE, Healthy → RESOLVED, NotApplicable → SUPPRESSED; missing status → ACTIVE so findings are never hidden); `resource_type` parsed from the assessed resource ARM id; `cve_id` set only for CVE-form vulnerability ids. Same neutral types as `aws.guardduty`/`gcp.scc`, `aws` SecurityHub-Macie-Inspector/`gcp.scc`, and `aws.inspector`/`gcp.scc`. |
-| `azure.acr` | `container_registry` | Azure Container Registries (`armcontainerregistry` `RegistriesClient.NewListPager` — a single subscription-wide call, no N+1). **ARM-plane** (`subscription_id` required). `is_public` ← `anonymousPullEnabled` (unauthenticated pull — NOT `publicNetworkAccess`, which only means internet-reachable-but-authenticated and would false-fail nearly every registry); `scan_on_push_enabled` ← the **quarantine policy** is enabled (the only per-registry scan-gate; ACR image scanning proper is Microsoft Defender for Containers, surfaced by `azure.defender`'s `threat_detection_service` — covered via exception/manual evidence otherwise, like `azure.keyvault` secret rotation); `encryption_enabled` ← always `true` (ACR always encrypts at rest; the platform/customer-key distinction is in the `cmek_enabled` extra). Same neutral type as `aws.ecr` and `gcp.artifactregistry`. |
-| `azure.aks` | `kubernetes_cluster` | Azure Kubernetes Service clusters (`armcontainerservice` `ManagedClustersClient.NewListPager`, subscription-wide; per-cluster `armmonitor` diagnostic-settings read for logging — an N+1). **ARM-plane** (`subscription_id` required). `secrets_encryption_enabled` ← `securityProfile.azureKeyVaultKms.enabled` (customer Key Vault KMS envelope encryption of Kubernetes Secrets — the analog of GKE app-layer secrets encryption / EKS envelope encryption; platform etcd encryption is always-on and not the signal); `logging_enabled` ← a diagnostic setting routes an enabled control-plane audit log category (`kube-audit`/`kube-audit-admin`/`guard`, or the `audit`/`allLogs` group) — the `omsagent` Container Insights addon was rejected as a proxy since it is not the control-plane audit trail; `is_private_endpoint` ← `apiServerAccessProfile.enablePrivateCluster`; `node_auto_upgrade_enabled` ← `autoUpgradeProfile.upgradeChannel` ≠ `none`. Same neutral type as `aws.eks` and `gcp.gke`. |
-| `azure.cosmos` | `nosql_table` | Azure Cosmos DB accounts (`armcosmos` `DatabaseAccountsClient.NewListPager` — a single subscription-wide call, no N+1). One record per **account** (encryption/PITR/deletion are account-level, not per-container; like `gcp.firestore`'s one-per-database). **ARM-plane** (`subscription_id` required). `encryption_enabled` ← always `true` (Cosmos always encrypts at rest; platform/customer-key distinction in the `cmek_enabled` extra); `point_in_time_recovery_enabled` ← the backup policy is continuous mode (`ContinuousModeBackupPolicy`; periodic/nil → `false`; restore window in the `continuous_backup_tier` extra); `deletion_protection` ← always `false` (no account-level property; an ARM resource lock is the mechanism, not read here — covered via exception/manual evidence, like `azure.sql`). Same neutral type as `aws.dynamodb` and `gcp.firestore`. |
-| `azure.backup` | `backup_plan` | Azure Recovery Services backup protection policies (`armrecoveryservices` `VaultsClient.NewListBySubscriptionIDPager` → per-vault `armrecoveryservicesbackup` `BackupPoliciesClient.NewListPager` — an N+1, policies are a child of a vault with no subscription-wide list). **ARM-plane** (`subscription_id` required). One record per policy. `is_active` ← `ProtectedItemsCount > 0` (a policy has no enabled flag; one protecting zero items provides no coverage — the honest signal, like `gcp.backup`'s `State==ACTIVE`, stronger than `aws.backup`'s "listed == active"); `has_retention_rule` ← resolved retention yields `> 0` days; `retention_days` ← max retention across the policy's schedules/sub-policies, with Weeks/Months/Years converted at 7/30/365-day approximations (Azure stores count+unit, not raw days); `covers_resource_types` ← the `BackupManagementType` discriminator (e.g. `AzureIaasVM`). Same neutral type as `aws.backup` and `gcp.backup`. |
-| `azure.certs` | `tls_certificate` | Azure certificates from two subscription-wide ARM management-plane reads, merged: App Service certificates (`armappservice` `CertificatesClient.NewListPager` — imported / Key-Vault-referenced, `is_managed=false`, `auto_renew` omitted) and App Service certificate orders (`armcertificateregistration` `AppServiceCertificateOrdersClient.NewListPager` — provider-managed, `is_managed=true`, real `auto_renew` from the order's `autoRenew`). **ARM-plane** (`subscription_id` required). `not_after` ← App Service cert `expirationDate` / order `expirationTime` (RFC3339 UTC); `days_until_expiry` derived from it (negative once expired); `domain` ← cert `subjectName` (else first host name) / order distinguished-name CN; `status` ← honest enum (expired→`EXPIRED`, else cert `valid`/Key Vault secret status, order `CertificateOrderStatus`). **Key Vault certificate objects deliberately NOT collected** — their expiry/auto-renew policy is data-plane only (`azcertificates`, per-vault RBAC beyond Reader), breaking the ARM-plane/Reader-only model; covered via exception/manual evidence like `azure.keyvault` secret rotation. Same neutral type as `aws.acm` and `gcp.certs`. |
-| `azure.policy` | `config_change_tracking` | Azure Policy assignments (`armpolicy` `AssignmentsClient.NewListPager` — a single subscription-wide call, no N+1), reduced to one record per subscription (like `aws.config` per account, `gcp.asset` per project). **ARM-plane** (`subscription_id` required). Azure has no literal config-recorder toggle; a policy **assignment** is the deliberately-configured artifact that makes Azure continuously evaluate/record resource-config compliance (the analog of an AWS Config recorder / GCP Cloud Asset feed). `is_recording` ← `len(assignments) > 0` (a fresh subscription honestly reports `false`, like `gcp.asset`'s `len(feeds) > 0`); `all_resource_types` ← at least one assignment is scoped at the subscription root (Azure Policy has no per-assignment resource-type list, so scope breadth stands in for AWS Config's `allSupported`). Auditable count extras: `assignment_count`/`enforced_count`/`subscription_scoped_count`. Compliance-state counts (`armpolicyinsights`) are a deliberate future enhancement (no schema field needs them). Same neutral type as `aws.config` and `gcp.asset`. |
-| `github` | `git_repository`, `directory_user`, `source_control_org_policy`, `vulnerability_finding`, `pull_request`, `deployment` | Single org per instance; GitHub Enterprise Server via `base_url`. `directory_user.username` ← member login. `source_control_org_policy` ← org-level security settings (2FA requirement, default member permissions); `vulnerability_finding` ← Dependabot alerts (same neutral type as `aws.inspector`/`gcp.scc`/`azure.defender`). `pull_request` ← merged PRs in the period, one detail + reviews + check-runs call each; `deployment` ← Deployments plus one statuses call each. Both are period-scoped: they read `period_start`/`period_end` from the slot params. |
-| `gitlab` | `git_repository`, `directory_user`, `pull_request`, `deployment` | Single group per instance (`include_subgroups`); self-managed via `base_url`. `directory_user.username` ← username. Same neutral types as `github` — a GitLab merge request is emitted as `pull_request`, the vendor-neutral shape. Approver lists are readable on GitLab Free; approval *rules* are Premium and degrade to zero rather than failing. |
-| `okta` | `directory_user`, `okta_app`, `roster_entry`, `password_policy.v2` | **password_policy.v2** lists `/api/v1/policies?type=PASSWORD` and emits **one record per ACTIVE policy** — an Okta org assigns password policies per group, so unlike an AWS account it has several, and the consuming policies quantify `all` ("every password policy in this org meets the bar"). Each record carries `scope` (`account` for Okta's `system` default policy, else `group`) and `precedence` (Okta's `priority`, where 1 is evaluated first) so the N records are not read as interchangeable. INACTIVE policies are skipped: one that is not in force governs nobody. Okta states each `complexity.min*` as a count where `0`/`1` mean no/yes, so the four canonical booleans are a faithful read and `complexity_model` is `per_class`; `age.maxAgeDays`/`historyCount` use `0` for "no limit"/"none", the same meaning the schema and the AWS emitter give them, while a `null` is omitted rather than written as a `0` nobody reported. **roster_entry** pages `/api/v1/users` plus a second `status eq "DEPROVISIONED"` pass (the default listing omits deprovisioned users); no per-user calls. Status: ACTIVE/RECOVERY/PASSWORD_EXPIRED/LOCKED_OUT → active (also `directory_user.is_active`), STAGED/PROVISIONED → pending, else inactive. |
-| `active_directory` | `roster_entry` | On-prem AD over LDAPS/StartTLS (go-ldap), simple bind, RootDSE base-DN fallback, paged search. id ← objectGUID; status ← UAC ACCOUNTDISABLE / accountExpires (source_status enabled/disabled/expired); email ← mail → primary SMTP proxyAddress → UPN; is_service_account ← SPN or `service_account_ous`. Never emits `directory_user` (AD has no MFA signal). |
-| `manual.pdf` | `signed_document` | **Project-level singleton.** Exactly one instance per project. See §The manual.pdf plugin. |
+`manual.pdf` reads uploaded documents for `evidence_mode: manual` policies. It is a
+project-level singleton: one instance, one bucket, configured under `sources.manual.pdf`;
+`"manual.pdf[secondary]"` fails config validation (exit 3). The contract (folder scheme, cadence
+window, file checks, failure codes, fan-out, what is never checked) is owned by
+[14-manual-evidence.md](14-manual-evidence.md).
 
-Note the cross-vendor pattern: `aws.s3`, `gcp.storage`, and `azure.storage`
-all emit the single neutral `object_storage_bucket` type (the "reuse the
-existing type" path, one type across three clouds), and `aws.iam`, `okta`,
-`github`, `gitlab`, `gcp.directory`, and `azure.entra` all emit
-`directory_user` (one type, six sources across IdP, code host, and three
-clouds). Likewise `okta`, `azure.entra`, `gcp.directory`, and
-`active_directory` all emit `roster_entry`, so whichever directory holds
-an organization's people can be designated the roster
-(`experimental.roster.source`) with no policy change. The same pattern now spans
-git hosts: `github` and `gitlab` both emit the neutral `git_repository`
-type, so every branch-protection policy works against either without
-change. AWS, GCP, and Azure now emit the full cross-cloud type set shown
-in the coverage matrix above; the AWS detail rows here are abbreviated —
-consult each `Emits()` for the complete 23-plugin list.
+Plugin-side facts:
 
-Additional vendors (Bitbucket, Auth0, BambooHR, Workday, …) ship as they
-land.
-
----
-
-## The `manual.pdf` plugin
-
-The `manual.pdf` plugin is a **project-level singleton.** Unlike API
-plugins (which can be instantiated multiple times with different configs
-— see §Multiple plugin instances), there is exactly one `manual.pdf`
-instance per project, pointing at one bucket. The catalog declares which
-evidence the customer provides as PDFs; the singleton resolves all of
-them to deterministic paths under that single bucket.
-
-This is a deliberate v1 simplification. Multiple manual buckets per
-project (e.g. one per framework, or one per team) are not supported.
-A project that wants stricter segregation of manual evidence runs the
-CLI from separate projects, each with its own `.sigcomply.yaml`.
-
-### Configuration
-
-`manual.pdf` emits a single type, `signed_document`, and is configured
-at the project level under `sources.manual.pdf` in `.sigcomply.yaml`
-(one bucket, one prefix, one credential set). There is no in-tree
-`plugin.yaml` — like every in-tree source it declares itself in code.
-The config shape (`backend`, `bucket`, `prefix`, `region`, `endpoint`,
-`force_path_style`, …) is the flat `VaultConfig`-style block documented
-in [`08-project-config.md`](08-project-config.md). In-tree backends are
-`local`, `s3`, `gcs`, and `azure_blob`; the `s3` backend also serves
-on-prem S3-compatible stores (MinIO, Ceph, Wasabi, …) via `endpoint` +
-`force_path_style`.
-
-Backend selection goes through a self-registering reader registry
-(`manual.RegisterReader`) — the same pattern source plugins and vault
-backends use; the `manual.pdf` source dispatches generically with no
-hardcoded switch. There is a small file-layout asymmetry: the `local`
-backend is registered inline in `factory.go`, while `s3`/`gcs`/
-`azureblob` are subpackages blank-imported via
-`internal/sources/manual/builtin`. Registration is identical for all
-four; only where the `init()` lives differs. See
-[`00-three-plugin-axes.md`](00-three-plugin-axes.md) §Axis A.
-
-### Manual catalog (generated in Go)
-
-The manual catalog is **not** an on-disk YAML file. Each framework
-generates its catalog in Go from a single list — `manualSpecs()` in
-`policies_manual.go` — which feeds both `ManualCatalog()` (runtime path
-resolution) and `ManualCatalogExport()` (the SPA-facing export). There
-is no `.sigcomply/manual_catalog/*.yaml` and no embedded
-`catalogs/*.yaml`. A catalog entry's logical fields (id, cadence, grace
-period, temporal rule, and the SPA-only presentation hints) all come
-from the framework's `manualPolicy{...}` builder. Inspect a catalog
-with `sigcomply evidence catalog -o json`.
-
-### Path resolution
-
-For each catalog entry and each period, the plugin resolves to a
-folder under the project's single configured bucket:
-
-```
-{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/
-```
-
-`{period_id}` here is the entry's **cadence** window — `2026` for an
-annual attestation, `2026-Q1` for a quarterly review — not the run's
-audit period. The planner stamps it onto the binding
-(`planner.CadencePeriod`) together with `period_start`, `period_end` and
-`prior_period_id`, so the folder and the temporal window checked against
-it always come from the same period. See
-[`10-cadence-model.md`](10-cadence-model.md) §Manual evidence periods.
-
-An entry that declares a **fan-out** resolves one folder per member of
-the set instead, the member slug appended to the catalog ID:
-
-```
-{bucket}/{prefix}/{evidence_catalog_id}.{member_id}/{period_id}/
-```
-
-The plugin scans each, and returns a single record carrying every
-member's verdict plus the satisfied/total counts — one binding, one
-record, one envelope. Members come from project config
-(`experimental.vendors`), resolved in `internal/vendorfanout` and handed
-to the plugin on `manual.CatalogEntry.Instances`; the framework's static
-catalog never sees them.
-
-Default `prefix` is `manual/`. For AcmeCorp's quarterly access review
-in Q1 2026, the plugin lists everything under:
-
-```
-s3://acme-evidence/manual/access_review_quarterly/2026-Q1/
-```
-
-Any number of files may be placed in that folder. Supported formats
-are: **PDF** (pass-through), **JPEG**, **PNG**, **GIF**, **TIFF**,
-**WebP**, and **BMP** (images are auto-converted to PDF). All files are
-merged into a single PDF before evaluation. Files with unsupported
-extensions (e.g. `.docx`, `.xlsx`) are surfaced as
-`unsupported_file_type` validation failures so CI operators receive an
-actionable error message without the policy silently ignoring files.
-
-**This scheme is canonical.** The CLI computes the folder; customers
-cannot remap it per-policy, per-catalog-entry, or per-framework. The
-only knobs are the project-level `bucket` and `prefix`. This
-determinism is what lets a missing-evidence error give the operator
-the exact upload folder, and what lets an auditor recompute the
-expected location from the catalog alone.
-
-### Emitted record
-
-```json
-{
-  "type": "signed_document",
-  "id": "access_review_quarterly/2026-Q1",
-  "source_id": "manual.pdf",
-  "collected_at": "2026-05-23T14:00:01Z",
-  "payload": {
-    "evidence_id": "access_review_quarterly",
-    "period_id":   "2026-Q1",
-    "file_present": true,
-    "file_hash":    "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "file_size":    194523,
-    "uploaded_at":  "2026-03-15T10:00:00Z",
-    "in_temporal_window": true,
-    "file_valid":   true,
-    "validation_failures": [],
-    "expected_uri": "s3://acme-evidence/manual/access_review_quarterly/2026-Q1/",
-    "source_files": [
-      {
-        "filename":   "report.pdf",
-        "type":       "pdf",
-        "sha256":     "sha256:abc123...",
-        "uploaded_at": "2026-03-14T09:00:00Z",
-        "converted":  false
-      },
-      {
-        "filename":   "screenshot.png",
-        "type":       "png",
-        "sha256":     "sha256:def456...",
-        "uploaded_at": "2026-03-15T10:00:00Z",
-        "converted":  true
-      }
-    ]
-  }
-}
-```
-
-`file_hash` and `file_size` describe the **merged** PDF (all source
-files combined). `source_files` provides a per-file audit trail so
-auditors can trace individual uploads back from the merged evidence.
-`uploaded_at` is the latest upload time across all source files — used
-for the temporal window check.
-
-A rule consuming `signed_document` records checks `file_present`,
-`in_temporal_window`, and `file_valid`. Future text-extraction
-extends the schema additively.
-
-### What the plugin checks — and what it deliberately does not
-
-The `manual.pdf` plugin runs a fixed, narrow set of checks on every
-collection. These detect upload mistakes and unsupported files, not
-content correctness:
-
-| Check | Failure code | Fails when |
-|-------|-------------|-----------|
-| **Extension filter** | `unsupported_file_type` | A file in the folder has an extension not in the supported set (pdf, jpg/jpeg, png, gif, tif/tiff, webp, bmp) |
-| **Image conversion** | `conversion_failed` | An image file cannot be decoded or wrapped as a PDF page |
-| **PDF merge** | `merge_failed` | Multiple PDF parts cannot be combined (e.g., structurally corrupt individual PDFs) |
-| **Size floor** | `file_too_small` | Merged PDF is < 100 bytes (catches 0-byte uploads and trivially corrupt files) |
-| **PDF magic bytes** | `missing_pdf_header` | Merged PDF does not start with `%PDF-` |
-| **Page-object presence** | `no_pages` | Merged PDF contains no `/Page` token |
-| **Prior-period duplication** | `copy_paste_of_prior_period` | The set of source files (identified by filename + SHA-256) is byte-identical to the prior period's folder |
-
-Failures land in `validation_failures` (a list of strings) and flip
-`file_valid` to `false`. The evaluator's universal PDF-presence check
-(`internal/evaluator/manual_check.go`, not a Rego rule) requires
-`file_valid == true` to pass; an auditor reading the envelope sees the
-specific failure reasons in the manifest.
-
-The size floor, magic bytes, and page-object checks run against the
-**merged** PDF. Unsupported-type and conversion failures are per
-individual file; the remaining supported files are still merged and
-evaluated. If no supported files exist at all, the policy fails with
-`file_valid = false` and the unsupported-type failures listed.
-
-**Deliberately not checked at v1:**
-- PDF contents (no text extraction, no `signed_by` parsing, no expiry-date detection inside the document)
-- Whether the document is the *right* document for the policy (a wrong-but-valid PDF passes)
-- Whether the population covered by the document matches the in-scope population (e.g. access review of 40 users when production has 120 — undetectable here)
-- Whether signatures inside the PDF are present or valid
-- Any form of fraud detection — a determined customer can produce a fabricated PDF that satisfies all checks; that is and remains the auditor's job
-
-The reasoning is in [AGENTS.md §Manual evidence contract](../../AGENTS.md#manual-evidence-contract-read-before-touching-internalsourcesmanual-or-internalevaluatormanual_checkgo) — the CLI is a custody-of-evidence layer, not a content reviewer. The auditor reads the PDF; the CLI gives the auditor a tamper-evident timeline of what was uploaded when.
-
-### Missing evidence — error format
-
-When the resolved folder contains no supported files (or the latest
-upload falls outside the temporal window), the universal PDF-presence
-check fails the policy with a violation whose reason names — crucially
-— the **exact expected upload path verbatim**. The canonical message
-emitted by `internal/evaluator/manual_check.go` is:
-
-```
-manual evidence not found; expected files in: <expected-uri>
-```
-
-where `<expected-uri>` is the resolved folder, e.g.
-`s3://acme-evidence/manual/access_review_quarterly/2026-Q1/`. Because
-the path is canonical (see §Path resolution), the operator can upload
-the file(s) without consulting any other documentation — the message
-carries the destination folder.
-
-The same reason text is preserved in the policy's `result.json` under
-the failing check, so an auditor reading the run folder offline, and
-any `text`/`json` consumer, sees the exact expected location. (The CLI
-has no SARIF output; see [AGENTS.md](../../AGENTS.md) — `report`
-renders `text`/`json`/`csv` only.)
-
-### PDF mirroring
-
-The collector mirrors the merged PDF into the run folder as an
-attachment:
-
-```
-soc2/2026-Q1/run_.../policies/<policy_id>/attachments/access_review_quarterly/merged.pdf
-```
-
-The attachment is sibling to the envelope. An auditor opening the run
-folder sees both the signed manifest envelope (verifiable offline) and
-the merged PDF (its SHA-256 matches `file_hash` in the manifest). The
-`source_files` array in the manifest lists each original file with its
-own SHA-256, providing a traceable link from the merged evidence back to
-individual uploads.
-
----
+- Code: `internal/sources/manual/` (`manual.go`: `scanFolder`, `validatePDF`; `factory.go`:
+  `build`, `buildReader`; `fileconv`, `pdfmerge`). Default `prefix` is `manual/`.
+- Reader backends: `local` (registered in `factory.go`), `s3`, `gcs`, `azure_blob` (subpackages
+  blank-imported by `manual/builtin`). `s3` with `endpoint` and `force_path_style` serves
+  S3-compatible stores.
+- The catalog is generated in Go from each framework's `manualSpecs()`; the runtime catalog
+  reaches the factory through `Env.FrameworkExtras`. Fan-out members are added by
+  `internal/vendorfanout` before that.
+- The plugin computes the temporal window (with the entry's `GracePeriod`) and the prior-period
+  comparison; the evaluator only reads the resulting booleans.
+- Validation failures are in the signed record's `validation_failures` and in `result.json`, not
+  in `manifest.json`. The merged PDF is not written to the vault; the record carries `file_hash`
+  and a `sha256` per source file.
+- Missing evidence fails with `manual evidence not found; expected files in: <uri>`
+  (`internal/evaluator/manual_check.go`).
 
 ## Multiple plugin instances (API plugins only)
 
-An API plugin can be configured more than once. The second configuration
-is a second *instance*, named by a bracket suffix on the source key:
+Configure a plugin again under a bracketed key to add an instance:
 
 ```yaml
 sources:
   aws.iam:
-    region: us-east-1                 # default instance: aws.iam
+    region: us-east-1
   "aws.iam[staging]":
     region: us-east-1
     role_arn: arn:aws:iam::210987654321:role/SigComplyAudit
 ```
 
-Instances auto-bind like any other configured source, so a slot with
-`cardinality: one-or-more` receives the union of both instances' records
-and needs no `bindings:` block. That covers four of the five slot names
-the shipped frameworks declare — `evidence` (the conventional slot on
-every automated policy), `accounts`, `deployments` and `changes`. The
-fifth, `roster`, is `exactly-one`: it becomes ambiguous the moment a
-second instance can fill it, and the planner says so — name the instance
-you want explicitly:
-
-```yaml
-policies:
-  soc2.cc6.1.mfa_enforced_all_users:
-    bindings:
-      evidence: [aws.iam, "aws.iam[staging]"]
-```
-
-**Instance identity is real, not cosmetic.** The instance key is the
-plugin's ID for the whole run: it is what the registry holds, what a
-binding names, what each collected record carries as its `source_id`, and
-what appears in the evidence envelope's filename. Two accounts therefore
-produce two independently verifiable sets of evidence rather than two
-files that happen to have different names. A key naming an instance that
-was never configured is a hard error — it is never silently resolved to
-the default instance, because collecting one account's evidence under
-another's name is worse than failing.
-
-The instance key namespaces the record **`id`** as well as `source_id`, and
-that half is a correctness fix rather than provenance. A plugin's record id
-only has to be unique within the account it was read from, and several are
-not unique across accounts at all — `aws.password_policy` emits the constant
-`account`, `aws.security_services` emits `aws-macie` and its siblings,
-`azure.defender` emits `azure-defender-for-cloud`, and resource *names* such
-as a GCP `default` network repeat in every project by construction. The
-collector unions a slot's bindings into one slice and the evaluator dedups
-violations by record id, so without namespacing two accounts failing the same
-check collapsed into a single violation that named neither, counted `1` in
-`resources_failed`, and could be waived for both at once by one exception.
-
-`IdentityKey` is deliberately **not** namespaced: it is the cross-source join
-key, and prefixing it would break exactly the dedup it exists to perform.
-Only bracketed keys are wrapped, so an unbracketed source's records — and
-every existing single-account vault — are byte-identical to before.
-
-**Reaching a second account needs a second identity.** Region is not an
-account boundary. `aws.*` instances take `role_arn` (plus optional
-`external_id` and `role_session_name`), assumed from whatever credentials
-the runner already has — the standard cross-account pattern, and the only
-way two AWS instances authenticate as different principals. A role that
-cannot be assumed fails the run at construction rather than reporting an
-empty account — as does an *ambient* credential that cannot be resolved,
-for the same reason. There is deliberately no `profile` key: the AWS chain
-resolves environment credentials ahead of a shared-config profile, so on
-a CI runner a profile would be silently ignored and both instances would
-scan the same account while appearing not to.
-
-`github`, `gitlab` and `okta` instances take their own `token` /
-`api_token`, or a `token_env` naming a per-instance environment variable.
-Without `token_env` a second instance would fall back to the same shared
-`GITHUB_TOKEN` as the first and collect the same org twice.
-
-`gcp.*` and `azure.*` instances vary what they query (`project_id`,
-`subscription_id`) but still authenticate as one ambient identity, so
-they span several projects or subscriptions only when that one principal
-has read access to all of them. Per-instance GCP impersonation and Azure
-per-tenant credentials are not implemented.
-
-**Exception: `manual.pdf` is a singleton.** The bracket-suffix pattern
-applies to API plugins only. `manual.pdf` is fixed to exactly one
-instance per project; `"manual.pdf[secondary]"` is rejected at config
-validation with exit 3. The rationale is in §The manual.pdf plugin.
-
-**Source keys are path-constrained.** A source key and a catalog entry
-both become part of an evidence file's object key in the vault, so both
-are restricted to letters, digits, dot, dash and underscore (with an
-optional `[instance]` suffix). Only the local vault backend rejects path
-escapes; S3, GCS and Azure concatenate keys directly, so the grammar is
-what keeps a config from writing outside its own run folder.
-
-(Multi-scope as a first-class *per-record* concept — a `scope_id` that
-*aggregation* keys on — remains deferred to v2. An instance is a
-configuration-level answer to the same question: it distinguishes accounts by
-who collected the evidence. Records do carry a scope today, but only as
-provenance — see below — never as something the evaluator or aggregator
-branches on.)
-
----
+- Instances auto-bind like any source; a `one-or-more` slot gets the union. An `exactly-one` slot
+  (such as `roster`) with two candidates is a plan error: name the instance in `bindings:`.
+- The instance key is the plugin's ID for the run: registry key, binding name, record
+  `source_id`, and part of the envelope filename. An unknown instance key is an error, never a
+  fallback to the default instance.
+- `asInstance` prefixes the record `id` with the instance key, because many IDs repeat across
+  accounts (`aws.password_policy` emits `account`; GCP's `default` network). Without it, two
+  accounts' violations would dedupe into one. `IdentityKey` is not prefixed: it is the
+  cross-source join key. Unbracketed sources are unchanged.
+- A second account needs a second identity. `aws.*` instances take `role_arn` (plus
+  `external_id`, `role_session_name`); there is no `profile` key, because environment credentials
+  outrank a profile on CI runners. `github`, `gitlab` and `okta` take their own token or
+  `token_env`. `gcp.*` and `azure.*` instances vary `project_id`/`subscription_id` but share one
+  ambient identity. Not built: per-instance GCP impersonation and Azure per-tenant credentials.
+- Source keys and catalog IDs become part of vault object keys, so both are restricted to
+  letters, digits, dot, dash and underscore (plus `[instance]`). Only the local vault rejects path
+  escapes; the grammar protects the cloud backends.
 
 ## Record scope: provenance, not configuration
 
-`core.EvidenceRecord.Scope` (`*core.RecordScope`, fields `Account` /
-`Region` / `Project`, all `omitempty`) records **which account, region or
-project this observation was read from**. It is optional and
-pointer-typed, so a plugin that does not set it serializes
-byte-identically to a pre-scope envelope; plugins adopt it incrementally.
+`core.EvidenceRecord.Scope` (`*core.RecordScope`: `Account`, `Region`, `Project`, all
+`omitempty`) records where an observation was read from.
 
-Three properties make it worth setting:
+- It is inside the envelope signature, so one envelope proves its own origin.
+- Stamp only what the API call was addressed to, or what the API returned. `azure.entra` resolves
+  the tenant from the credential (`GET /organization`) and refuses to run if a declared
+  `tenant_id` disagrees. `gcp.directory` leaves it unset for the `my_customer` alias.
+- It never crosses the aggregation boundary, and nothing evaluates or aggregates by it.
 
-1. **It is inside the signature.** `sign.Envelope` canonicalizes
-   `{format_version, produced_at, records}`, so the scope is covered by the
-   envelope's Ed25519 signature alongside the payload. An auditor holding one
-   envelope file and nothing else can tell which account it came from, without
-   trusting the config that happened to sit next to it.
-2. **It must be observed, not declared.** Stamp a value the collection call
-   itself is addressed to, so label and data cannot diverge. Where they *can*
-   diverge, resolve the real one first — `azure.entra` reads `GET /organization`
-   at construction and refuses to run when a declared `tenant_id` disagrees,
-   because Graph's base URL carries no tenant and the token alone decides which
-   directory answers. Signed evidence asserting a boundary it never came from
-   is worse than no boundary at all.
-3. **It never crosses the aggregation boundary.** The scope stays vault-side;
-   `SubmissionPayload` has no field for it (Invariant #1, and
-   [`06-aggregation.md`](06-aggregation.md) §Things that do not cross).
+Stamped by project-scoped `gcp.*` plugins (`Project`), `gcp.scc` (organization),
+`gcp.directory` and `gcp.cloud_identity` (customer), ARM-plane `azure.*` plugins (subscription),
+`azure.entra` (tenant) and `aws.identity_center` (identity store on identity records, target
+account on `iam_binding`). List live with `grep -rln "RecordScope{" internal/sources`. Assert it
+in conformance tests with `sourcetest.Options.WantScope` (not usable by `aws.identity_center`,
+which stamps two kinds of boundary).
 
-What the shipped plugins stamp:
+## Slot params
 
-| Plugin(s) | Scope | Why it is true by construction |
-|---|---|---|
-| `gcp.*` — the 16 project-scoped sources | `Project: <project_id>` | Every API call is addressed to that project; a project the credential cannot read errors rather than returning another project's data |
-| `gcp.scc` | `Account: <organization_id>` | Org-scoped — SCC is enabled and queried at the organization |
-| `gcp.directory` | `Account: <customer_id>`, **unset** for the default `my_customer` alias | The alias means "whoever this credential is" and names no directory, so there is nothing truthful to stamp |
-| `gcp.cloud_identity` | `Account: <observed customer id>` | Read from each `Policy.customer` the API returned, never from config — an operator-declared customer could disagree with the credential's, and a provenance stamp that might be wrong is worse than none |
-| `azure.*` — the 13 ARM-plane sources | `Account: <subscription_id>` | The subscription is passed into the client; a wrong value 403s |
-| `azure.entra` | `Account: <observed tenant>` | Resolved from the credential via `GET /organization`, never from config |
-| `aws.identity_center` | `Account` + `Region` | The identity-store id (discovered from `ListInstances`) on identity records; the **target AWS account** on each `iam_binding`, which is the account the grant opens |
-
-`aws.identity_center` is the one plugin whose `Scope.Account` carries two
-different **kinds** of boundary in a single run, and it does so deliberately:
-the identity store is the boundary `ListUsers` is addressed to, while a grant's
-boundary is the account it opens. Resolving both onto one kind would cost an
-`sts:GetCallerIdentity` the plugin does not otherwise need, and the roster-only
-slot is advertised as a two-permission operation. This is safe *because* scope
-is provenance and nothing joins on it — if per-record scope ever becomes part
-of identity (the v2 item above), this is the first inconsistency to resolve,
-and it is also why this plugin cannot use `sourcetest.Options.WantScope`, which
-asserts one scope for every record a plugin emits.
-
-Every other plugin leaves it nil today. When adding one, assert it in the
-plugin's conformance run: `sourcetest.Options.WantScope` fails the build if any
-record is unstamped or carries the wrong value.
-
----
-
-## Per-policy slot params
-
-A binding can pass per-slot parameters to the plugin:
-
-```yaml
-policies:
-  soc2.cc6.1.mfa_enforced_admins:
-    bindings:
-      evidence:
-        - source: aws.iam
-          slot_params:
-            filter_admins_only: true
-```
-
-`slot_params` are passed in `SlotRequest.Params` to the plugin's
-`Collect`. Most plugins ignore them; some support filters that reduce
-the records fetched.
-
-This is the only mechanism for plugin-side filtering. Policies
-themselves don't pre-filter; rules do post-filtering. Plugin
-`slot_params` is for cases where filtering at the API boundary
-materially reduces fetch cost.
-
----
+`policies.<id>.bindings.<slot>[].slot_params` is parsed and forwarded in `SlotRequest.Params`,
+but no in-tree plugin reads a user-supplied key. Plugins read only planner-stamped keys:
+`period_start`, `period_end`, `prior_period_id`, `catalog_id`, `period_id`, `now`. Not built:
+plugin-side filtering through `slot_params`.
 
 ## How third parties contribute a source
 
-Customers needing a plugin for an internal system author one
-project-locally under `.sigcomply/plugins/<id>/`. The same factory
-pattern that the in-tree plugins use applies verbatim — the only
-difference is *when* the package gets compiled in.
+1. Create `.sigcomply/plugins/<id>/` with a Go package whose name matches the directory.
+2. Implement `plugin.SourcePlugin` and call `plugin.RegisterSource(id, factory, keys...)` in
+   `init()`.
+3. If no shipped type fits, add `.sigcomply/evidence_types/<id>.v<n>.json`. JSON schemas there
+   load at startup without a rebuild (`loadProjectEvidenceTypes`).
+4. Run `sigcomply build` to produce `./bin/sigcomply` with the plugin compiled in.
 
-The short version:
-
-1. Create the directory `.sigcomply/plugins/acme.internal_iam/`.
-2. Optionally author the project-local manifest `plugin.yaml` declaring
-   `id`, `emits`, and `config_schema`. (This file exists only for
-   project-local plugins — in-tree plugins have none — but nothing
-   consumes it yet: `sigcomply build` never reads it, and `Emits()` in
-   step 3 is what actually declares the types.)
-3. Author `plugin.go` implementing `SourcePlugin` and calling
-   `sources.RegisterFactory(...)` in `init()` — same signature, same
-   registry as the in-tree plugins.
-4. If the plugin needs an evidence shape not already shipped, drop a
-   JSON Schema under `.sigcomply/evidence_types/<id>.v<n>.json` (see
-   [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md)).
-   **This is wired** — the orchestrator reads every `*.json` file
-   directly under that directory at bootstrap and registers it; no
-   recompile, and `sigcomply build` is not involved. Only JSON files
-   load: a *Go* package at `.sigcomply/evidence_types/<id>/` has no
-   registration hook and never loads.
-5. Run `sigcomply build` — this scans `.sigcomply/plugins/`, generates
-   a wrapper that blank-imports each project-local package (so their
-   `init()` factories register at startup), and compiles a
-   project-tailored binary `./bin/sigcomply`.
-6. From that point, `./bin/sigcomply check` is the same as the shipped
-   `sigcomply check` but with the project-local plugins available.
-
-There is no runtime plugin loading, no shared library, no plugin DSL,
-and no API surface beyond the `SourcePlugin` interface and the
-`sources.RegisterFactory` registration call. Full walkthrough in
-[`07-extensibility.md`](07-extensibility.md).
-
----
+Walkthrough: [07-extensibility.md](07-extensibility.md). Upstream contributions are in-tree
+plugins (§The factory contract).
 
 ## Plugin invariants (checklist)
 
-A plugin author must guarantee:
-
-- **Deterministic per-call output** (same external state + same config
-  → same returned records, ignoring fields explicitly marked as
-  timestamps). Records must be **sorted by `ID` lexicographically**
-  before returning; this makes envelope bytes stable across calls.
-- **Set `IdentityKey`** when the evidence type has a meaningful
-  cross-source identity (email, employee_id). See
-  [`03-policy-spec.md`](03-policy-spec.md) §Cross-source dedup.
-- **No state across `Init` and `Collect` calls beyond
-  initialization** (caches OK if they don't change correctness).
-- **Validates all emitted records against their evidence type
-  schema**, or relies on the collector's downstream validation to
-  reject malformed records.
-- **Owns 100% of the vendor→canonical normalization.** For
-  cross-vendor evidence types, every required field must be populated
-  with a meaningful value — never `null`, `""`, `0`, or `false` as a
-  placeholder when the vendor doesn't have the concept. If the vendor
-  API returns a complex structure (e.g. an array of MFA device objects),
-  compute the canonical boolean or count inside `Collect` and emit
-  the normalized field. If a required field is genuinely impossible to
-  populate for a given vendor, that is a schema design issue: the field
-  does not belong in the shared schema. Escalate to fix the schema
-  rather than emitting a sentinel. Sentinel values on required fields
-  break substitutability silently: policy authors add null guards, which
-  become implicit source-dispatch (see
-  [`04a-evidence-type-registry.md`](04a-evidence-type-registry.md)
-  §The null-trap antipattern).
-- **No silent failures.** Every error in `Collect` is returned; the
-  collector decides whether it's fatal for the consuming policy.
-- **No transitive credential capture.** A plugin may not log,
-  serialize, or persist credentials. The CLI's logging layer redacts
-  known credential shapes (see [`02-layers.md`](02-layers.md)
-  §Logging and redaction); plugins must use the shared logger and
-  must not bypass redaction.
-- **No mutation of external state.** `Collect` is read-only against
-  the source system. A plugin that needs to write (e.g. to enable a
-  CloudTrail event selector) is out of scope for this layer — the
-  CLI is observational, never remediating.
-- **Respect source rate limits.** Plugins SHOULD implement
-  backoff-and-retry against documented rate limits of their target
-  API (AWS IAM ~20 rps regional, Okta varies, GitHub 5000 req/hour
-  per token). The KISS-no-DRY axiom means N policies → N invocations
-  of `Collect`; the plugin is responsible for not melting the source
-  API. Recommended: a per-plugin `rate.Limiter` initialized in
-  `Init`, applied inside each `Collect`. Plugins MAY return an
-  `error` after exhausting retries, which becomes `error` status on
-  the consuming policies — not a silent partial-result.
-- **Classify the errors you return.** The collector's `withRetry`
-  decides whether to spend the backoff budget on an error, and it can
-  only do that if the error says so. Return a `*sources.APIError`
-  (or implement `Retryable() bool`) rather than flattening an HTTP
-  status into a formatted string: 429/5xx/timeouts are retryable,
-  401/403/404 and schema failures are terminal and must stop the
-  binding immediately. Errors from a typed SDK already work — they
-  are wrapped with `%w` and classified via `errors.As`, so most
-  plugins need no change. **An unclassified error is treated as
-  retryable**, so this is an obligation you can adopt incrementally
-  without breaking anything. See `internal/sources/errors.go`.
-
----
+- Return the same records for the same external state and config. The collector sorts by `ID`.
+- Set `IdentityKey` when the type has a cross-source identity
+  ([03 §Cross-source dedup](03-policy-spec.md#cross-source-dedup-clause-level-identity_key)).
+- Use `CollectedAt` for fetch time; don't add synthetic timestamps to payloads.
+- Own the whole vendor-to-canonical mapping. Never put a placeholder (`null`, `""`, `0`, `false`)
+  in a required field; if a vendor lacks the concept, fix the schema
+  ([04a §The null trap](04a-evidence-type-registry.md#the-null-trap)).
+- Return every error from `Collect`; the collector decides the policy effect. No partial results.
+- Never log, serialize or persist credentials. Return errors rather than printing.
+- Read only. The CLI never changes the systems it audits.
+- Respect vendor rate limits: create any limiter in the factory, apply it in `Collect`.
+- Classify errors: return `*sources.APIError` or implement `Retryable() bool`
+  (`internal/sources/errors.go`). 429, 5xx and timeouts retry; 401, 403, 404 and schema failures
+  stop the binding. Unclassified errors are retried.
 
 ## Testing a source plugin (checklist)
 
-Every in-tree source plugin (and every plugin contributed upstream) ships
-the layered tests below. They run through the shared harness in
-[`internal/sources/sourcetest/`](../../internal/sources/sourcetest/) so a
-new plugin never re-invents test scaffolding. The full rationale (the L0–L4b
-layer model, the CLI-vs-E2E repo split, cassette/contract conventions) is in
-[`11-testing-strategy.md`](11-testing-strategy.md); [`TESTING.md`](../../TESTING.md)
-is the entry point. **The GitHub plugin is the worked example** — copy its
-shape:
+Every in-tree plugin ships these, using `internal/sources/sourcetest`. The `github` plugin is the
+worked example. Layer model and conventions: [11-testing-strategy.md](11-testing-strategy.md).
 
-| # | Deliverable | GitHub worked example |
-|---|-------------|-----------------------|
-| a | **Conformance test** (L1+L2) via `sourcetest.RunConformance` — asserts every emitted record validates against its evidence-type JSON Schema, is complete (no schema field silently dropped), is deterministic (inject a clock, never `time.Now`), and carries `Type`/`ID`/`SourceID`/`CollectedAt`. Run it **per evidence type** (`Request.AcceptedTypes`) when the plugin emits several — records are sorted within each type group, not across. | [`github_conformance_test.go`](../../internal/sources/github/github_conformance_test.go) |
-| b | **Cassettes** — sanitized go-vcr recordings of the real API replayed offline through the real deserializer. Record once via `sourcetest.RecordClient` against a free/test account, replay via `sourcetest.ReplayClient`. One file per scenario under `internal/sources/<provider>/testdata/cassettes/` (or `<provider>/<service>/testdata/cassettes/` for multi-service providers — see §4.1 of the strategy doc). | [`testdata/cassettes/org_collect.yaml`](../../internal/sources/github/testdata/cassettes/) |
-| c | **`contracts/` snapshot entry** — a pinned slice of the vendor's own machine-readable API model (`contracts/<provider>/<service>@<version>.json`), pinning **only** the operations the plugin calls plus their `$ref` closure. A fixture-vs-spec test validates each cassette response body against it (`sourcetest.NewSpecValidator` / `Check` / `CheckArray`), so a cassette that drifts from the real shape fails. This same snapshot feeds the scheduled L3 drift job. See [`contracts/README.md`](../../contracts/README.md). | [`contracts/github/api.github.com@2026-06-28.json`](../../contracts/github/) + [`github_spec_conformance_test.go`](../../internal/sources/github/github_spec_conformance_test.go) |
-| d | **Redaction-clean fixtures** — cassettes and snapshots carry **no** real credentials or identity. `RecordClient` scrubs known secret shapes on save (auth headers, AKIA keys, account IDs, emails, bearer tokens) to stable placeholders; vendor-specific identifiers the generic hook doesn't cover (e.g. git logins, org names) are neutralized to placeholders by hand. The `scripts/check-fixtures.sh` gate scans every `testdata/` dir + `contracts/` in CI and fails the build on a leak. | scrubbed in `org_collect.yaml` (org/login → `e2e-test-org`/`e2e-admin`) |
+1. Conformance: `sourcetest.RunConformance`, once per emitted type when there are several
+   (schema-valid, complete, deterministic with an injected clock).
+2. Cassettes: recorded with `sourcetest.RecordClient`, replayed with `sourcetest.ReplayClient`,
+   under the plugin's `testdata/cassettes/`.
+3. Contract snapshot: `contracts/<provider>/<service>@<version>.json`, checked with
+   `sourcetest.NewSpecValidator` ([`contracts/README.md`](../../contracts/README.md)).
+4. Clean fixtures: no real credentials or identities; `make check-fixtures` enforces it.
 
-Cloud cassettes (AWS/GCP/Azure) are recorded during an L4b run or a one-off
-maintainer record; hand-authored fixtures from real responses are an
-acceptable bootstrap (see §16 of the strategy doc). For providers whose
-spec is too thin for L3 (GitLab) or whose live recording is blocked
-(GCP / Entra P2), the contract path is a hand-authored, spec-validated
-cassette — same deliverables, only the live layer deferred.
-
-**Non-HTTP exemption (`active_directory`).** Deliverables (b) cassette and
-(c) `contracts/` snapshot don't apply — LDAP is BER over TCP (no go-vcr
-transport, no vendor OpenAPI). They are replaced by an **L2 stand-in**: a
-scripted BER responder
-([`fakedc_test.go`](../../internal/sources/activedirectory/fakedc_test.go))
-driven by the real adapter over `net.Pipe` / loopback TLS, with
-`RunConformance` on top. Redaction (d) is trivially met (no recorded
-fixture). L4a is a `//go:build live` test against a Samba AD DC container.
+`active_directory` (LDAP, not HTTP) replaces 2 and 3 with a scripted BER responder
+(`internal/sources/activedirectory/fakedc_test.go`).

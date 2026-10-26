@@ -132,13 +132,10 @@ policies:
     parameters:
       max_contractors: 50
 
+# Send pass/fail counts to SigComply Cloud (paid plan). Submission happens
+# only in CI with an OIDC token, and only when base_url is set.
 cloud:
-  enabled: true
-
-output:
-  format: text
-  json_path: ./compliance-report.json
+  base_url: https://sigcomply.com
 
 ci:
-  fail_on_violation: true
-  fail_severity: high
+  fail_on_violation: true   # the default: exit 1 when a policy fails

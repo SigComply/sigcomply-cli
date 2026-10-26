@@ -1,438 +1,189 @@
-# 11 — Testing Strategy
+# 11. Testing strategy
 
-This document is the canonical reference for **how SigComply tests its
-evidence-source API integrations**. The CLI integrates many vendor APIs
-(GitHub, GitLab, AWS, GCP, Azure, Okta, and later others), and two
-requirements pull against each other:
+How the CLI tests itself, and in particular its vendor API integrations. This doc owns the test
+layer table; `TESTING.md` and `CONTRIBUTING.md` link here. How tests fit into a task (tests first,
+the gate, exercising the built binary) is in
+[../claude/development-workflow.md](../claude/development-workflow.md).
 
-- **Robustness** — when a vendor API changes shape or behavior, *a test
-  must fail* and tell us the CLI is broken.
-- **Cost** — we cannot afford to spin up paid cloud resources on every
-  CI run.
+## 1. Regression tests and drift detectors
 
-The answer is a **layered strategy** with a clear **repo split**: the
-per-change path is fast, free, and deterministic, and the "did the vendor
-change?" question is answered by a separate, mostly-free, scheduled
-path.
+Every test is one of two kinds:
 
-> **This doc is the test *architecture*, not the dev loop.** How tests fit
-> into a task — write the test **first** (TDD), keep `make test && make
-> lint` green, then **manually exercise the built `sigcomply` binary**
-> (there is no web UI, so automated tests alone aren't "verified"), and
-> update docs in the same change — lives in
-> [../claude/development-workflow.md](../claude/development-workflow.md).
-> Pre-launch, work commits directly to `main`; there is no PR gate yet
-> (the "per-change gate" below runs on every commit, not per-PR).
+- A **regression test** checks the code against a frozen contract (a fake, a cassette, a spec
+  snapshot). It is fast and free, and blind to vendor API changes: if the vendor moves, the frozen
+  contract does not.
+- A **drift detector** checks the frozen contract against reality. Only drift detectors catch an
+  upstream change.
 
-> **Status:** implemented. L0–L3 (unit, integration, cassette
-> conformance, spec-diff drift) and the scheduled drift
-> (`contract-drift.yml`) and live-SaaS (`live-saas.yml`) workflows are in
-> place across all providers. The one remaining gap is **L4a live**
-> coverage for the clouds: GitHub, GitLab, Okta, and Entra have live
-> tests; **AWS, GCP, and Azure-ARM are cassette-only** (no live layer
-> yet). The
-> [add-a-source-plugin testing checklist](04-source-plugins.md) and
-> [extensibility doc](07-extensibility.md) state what a *new* plugin must
-> ship today.
+Rule: a green per-change suite must be backed by a scheduled drift detector that is allowed to
+fail loudly.
 
----
+## 2. Test layers
 
-## 1. The one model: regression tests vs. drift detectors
+| Layer | Checks | Catches a vendor change? | Runs | Where | Command |
+|---|---|---|---|---|---|
+| L0 invariants | structural and privacy guarantees, such as no freeform field on the cloud wire type (`internal/core/cloud_test.go`) | n/a | every push | CLI | `make test` |
+| L1 mapping unit | fake API response to `EvidenceRecord`; fields populated; deterministic | No | every push | CLI | `make test` |
+| L2 contract | cassette replayed through the real SDK deserializer; cassette and fixtures validated against the vendor's published spec | Only on re-record or snapshot refresh | every push | CLI | `make test-contract` |
+| L3 spec-diff drift | the vendor's machine-readable API model, diffed against `contracts/` | Yes, shape changes | weekly (`contract-drift.yml`, Monday 00:00 UTC) | CLI | `make contracts-diff` |
+| L4a live SaaS | real calls to free accounts, `//go:build live` | Yes, including behaviour | nightly (`live-saas.yml`, 03:00 UTC) | CLI | `make test-live` |
+| L4b cloud and pipeline E2E | provision minimal cloud infra, run the released binary, assert per-policy outcomes, tear down | Yes, including integration | scheduled or manual | E2E repos | see the E2E repos |
 
-Every test in this codebase is exactly one of two things, and you must
-never confuse them:
+L3 covers AWS (Smithy models), Azure (`azure-rest-api-specs` Swagger), GCP (Discovery documents),
+GitHub (`github/rest-api-description`) and Okta (OpenAPI). GitLab's published spec is too thin;
+GitLab relies on L4a.
 
-- A **regression test** checks *your code against a frozen contract*. It
-  is fast and free, but **blind to API changes** — if the vendor moves,
-  the frozen contract moves with your code and the test stays green.
-- A **drift detector** checks *the contract against reality*. It is the
-  **only** thing that catches an upstream API change.
+To list which sources have live tests: `grep -rl 'go:build live' internal/sources`. AWS, GCP
+(except `gcp.cloud_identity`) and Azure ARM sources have no live layer; they rely on recorded L2
+cassettes and L4b.
 
-**Golden rule:** never let a test give *false confidence*. A green
-per-PR suite must be backed by a drift detector that is *allowed to fail
-loudly* when an upstream API changes.
+## 3. Repo split
 
----
+- `sigcomply-cli` owns L0 to L4a. These need no provisioning; L4a needs only a free account and a
+  token.
+- The E2E repos own L4b: provisioning, OIDC plumbing per CI platform, setup/teardown scripts and
+  a leak sweeper. L4b tests the released binary. In
+  `sigcomply-cli-testing-project-github`, see `scripts/assert_outcomes.py`, `scripts/setup-*.sh`,
+  `scripts/teardown-*.sh` and `scripts/sweep-aws.sh` (a custom AWS-only sweeper that deletes
+  resources named with the `sigcomply-e2e-` prefix).
+- The CLI repo never provisions cloud resources in CI. The E2E repos contain no Go unit tests of
+  mappers.
 
-## 2. The six layers
+## 4. Conventions
 
-| Layer | What it checks | Catches an API change? | Cost | Cadence | Repo |
-|------|----------------|------------------------|------|---------|------|
-| **L0 — Invariants** | structural/privacy guarantees (e.g. no freeform field on the cloud wire type) | n/a (guards *us*) | $0 | per-PR | **CLI** |
-| **L1 — Mapping unit** | fake API response → mapped `EvidenceRecord`; every schema field populated; deterministic | No (by design) | $0 | per-PR | **CLI** |
-| **L2 — Contract/fixture** | recorded cassette replayed **through the real SDK deserializer**; cassette validated against the **vendor's published spec** | Partially (on re-record / spec-snapshot update) | $0 | per-PR | **CLI** |
-| **L3 — Spec-diff drift** | diff the vendor's own machine-readable API model on a schedule | **Yes — shape/contract changes**, for $0 | $0 | scheduled (weekly) | **CLI** |
-| **L4a — SaaS/Entra live** | real calls to **free** accounts (GitHub/GitLab/Okta/Entra†) | **Yes — incl. behavioral** | ~$0 | scheduled (nightly) | **CLI** (`//go:build live`) |
-| **L4b — Cloud + pipeline E2E** | provision minimal real cloud infra, run the released binary end-to-end, **assert expected per-policy outcomes** | **Yes — incl. behavioral + integration** | bounded (~$1–5/run) | scheduled / manual | **E2E repos** |
-
-**Why L3 is the centerpiece.** AWS (Smithy models), Azure
-(`azure-rest-api-specs` OpenAPI), GCP (Discovery Documents), GitHub
-(`github/rest-api-description`), and Okta (OpenAPI) all publish the
-machine-readable model their own SDK is generated from. Diffing it on a
-schedule catches contract changes with **zero accounts and zero live
-calls**. GitLab's published spec is thin → for GitLab we lean on L4a
-cassette re-record diffs instead.
-
-† **Entra is partially live.** Non-premium Entra surfaces (users,
-`authorizationPolicy`) run as L4a live on a free Azure-account tenant; the
-**P2-gated MFA registration report** is not free to host, so it is covered
-by a spec-validated L2 cassette instead — see the Entra exception under §3
-boundary rules.
-
----
-
-## 3. Repo split — which tests go where, and why
-
-**`sigcomply-cli/` owns L0, L1, L2, L3, L4a.** These are Go tests (or
-scheduled Go tooling) that live next to the plugin code, need no
-infrastructure provisioning, and gate every CLI change. L4a (SaaS/Entra)
-lives here because those vendors are *free* and need only a token — no
-Terraform, no teardown.
-
-**L4a convention (WU-4.1).** A live test carries the `//go:build live` tag
-(so the default `go test ./...`, the coverage gate, and CI's unit job never
-compile it) and calls `sourcetest.RequireEnv(t, "GITHUB_TEST_TOKEN", …)` as
-its first line — which returns the values when every named var is set, or
-`t.Skip`s when any is absent. So `make test-live` (`go test -tags live ./...`)
-runs every live test that has credentials configured and cleanly skips the
-rest; with no secrets set (PRs, most contributors) the whole set no-ops. Live
-tests never count toward the coverage number.
-
-**The E2E repos own L4b only.** L4b needs real provisioned cloud
-infrastructure (apply → read → assert → destroy), credential/OIDC
-plumbing per CI platform, and a sweeper to garbage-collect leaks. That
-machinery already lives in the E2E repos. L4b validates the **released
-binary end-to-end**, which is a different purpose than CLI unit/contract
-tests.
-
-```
-                      ┌─────────────────────────── sigcomply-cli/ ───────────────────────────┐
-   per-PR  ──────────▶│ L0 invariants · L1 mapping · L2 cassette+spec-conformance             │
-   scheduled (weekly) │ L3 spec-diff drift  → alert-only (opens issue)                        │
-   scheduled (nightly)│ L4a SaaS/Entra live (free accounts, //go:build live) + cassette re-rec│
-                      └───────────────────────────────────────────────────────────────────────┘
-                                                   │ releases binary
-                                                   ▼
-                      ┌──────── E2E repos (github / gitlab) ────────┐
-   scheduled / manual │ L4b provision minimal cloud → run binary →  │
-                      │     ASSERT expected outcomes → destroy →    │
-                      │     sweep leaks                             │
-                      └─────────────────────────────────────────────┘
-```
-
-**Boundary rules:**
-
-- Cloud per-plugin *contract* verification (AWS/GCP/Azure) is done via
-  **L2 cassettes** in the CLI repo; the cassettes are **recorded** during
-  an L4b run (or a one-off maintainer record) so the two layers share
-  fixtures.
-- The CLI repo never provisions cloud resources in CI. The E2E repos
-  never contain Go unit tests of mappers.
-- **Entra's P2-gated surfaces are the one L4a exception.** Most Entra
-  surfaces (users, `authorizationPolicy`) are L4a-live-capable on a free
-  Azure-account tenant. But the **MFA registration report**
-  (`reports/authenticationMethods/userRegistrationDetails`) the plugin
-  reads requires an Entra ID **P2** license, which is **not free** — the
-  Microsoft 365 Developer Program is no longer self-serve, and a P2 trial
-  is time-boxed (30 days) and may require a payment method. So that single
-  surface is covered by a **hand-authored, spec-validated L2 cassette**
-  (validated against the `azure-rest-api-specs` OpenAPI like any other
-  cassette — see `mfa_registration_*.yaml`), not an L4a live call. This is
-  a deliberate, scoped fallback: the P2-gated report gets contract
-  coverage for $0; only its *nightly behavioral* live confirmation is
-  forgone. A maintainer with a live P2 tenant can record the real cassette
-  to refresh it; the per-PR gate never depends on either.
-- **GCP cassettes are real live recordings (16/19 sources).** Recorded
-  against a seeded personal-Gmail project (`project-5622825a-…`, no org
-  lockdown) via `gcptest.RecordLiveOptions` (ADC from `gcloud auth
-  application-default login` + go-vcr; a `//go:build record` harness per
-  source) and `gcptest.RecordLiveClient` (one shared recording client for
-  multi-endpoint sources like `audit`). `scripts/setup-gcp.sh` /
-  `teardown-gcp.sh` in the E2E repo provision + destroy the compliant
-  posture (an `GCP_FULL=1` tier adds VM/GKE/SQL/backup). compute-client
-  sources (`compute`/`network`/`firewall`) need the `/compute/v1/` endpoint.
-  **Two sources stay hand-authored:** `scc` (needs an org + SCC premium + a
-  real HIGH vuln scan finding — scan-latency, not cost) and `directory`
-  (needs a Cloud Identity / Workspace directory, i.e. a domain).
-  **One source has NO L2 cassette at all, on purpose:**
-  `gcp.cloud_identity`. Google publishes no sample response body for
-  `settings/security.password`, so a hand-authored fixture would encode
-  the same three guesses the mapper makes (the JSON shape of
-  `expirationDuration`, the server-side filter's regex escaping, whether a
-  tenant always has such a policy) and then assert them against the code
-  that made them — permanent green, no information, and easy to mistake
-  for coverage. What is tested instead is the property that makes the
-  guesses harmless: the decoders accept **every** shape the unverified
-  details could take and make anything else a hard error rather than a
-  zero (a zeroed `max_age_days` is an observed *no-expiry* and PASSES the
-  expiry policy, so a silent decode failure would ship as a green tick).
-  `cloudidentity_live_test.go` logs the raw wire bodies and closes the
-  question the day someone points it at a real Workspace tenant; recording
-  a cassette from that run is what retires this exemption. Do not add a
-  hand-authored one in the meantime. Recording
-  against reality caught real bugs the hand-authored guesses had masked —
-  a doubled `…/databases/databases` firestore path (404), a missing
-  quota-project header (Cloud Asset 403), and the `/compute/v1/` endpoint.
-- **Azure ARM cassettes are real live recordings (11/13 sources).** Recorded
-  against subscription `1cd72616-…` (the new tenant) via
-  `azuretest.RecordLiveOptions` (azidentity + go-vcr) after an owner
-  `az login`; multi-client sources capture into one cassette through the
-  shared recording transport. `scripts/setup-azure.sh` / `teardown-azure.sh`
-  provision + destroy the posture (an `AZURE_FULL=1` tier adds
-  VM/GKE/SQL/cosmos/backup). Regional quirks are documented in the setup
-  script: Cosmos → `eastus2`, SQL DB server → `westus3`, and the VM via an
-  ARM template (`az vm create` is broken on some az-CLI/Python builds).
-  **Two stay hand-authored:** `defender` (needs a real HIGH vuln scan
-  finding) and `certs` (needs a validated domain).
-
----
-
-## 4. Cross-cutting conventions
-
-Decided once; obeyed everywhere.
-
-1. **Cassette location** (go-vcr v4). The path mirrors the package that
-   owns the mapper, so cassettes sit next to the code they test:
-   - **Multi-service providers** (one Go package per service —
-     `aws`, `gcp`, `azure`):
-     `internal/sources/<provider>/<service>/testdata/cassettes/*.yaml`
-     (e.g. `internal/sources/aws/s3/testdata/cassettes/`).
-   - **Single-service providers** (one flat package —
-     `github`, `gitlab`, `okta`, `manual`):
-     `internal/sources/<provider>/testdata/cassettes/*.yaml`
-     (e.g. `internal/sources/github/testdata/cassettes/`).
-
-   One cassette **per scenario**, named for the behavior it captures —
-   e.g. `list_buckets_encrypted.yaml`, `list_buckets_unencrypted.yaml`,
-   `branch_protection_present.yaml`, `branch_protection_absent.yaml`.
-   `testdata/` is ignored by the Go toolchain, so cassettes never affect
-   the build.
-2. **Vendor spec snapshots ("contracts").**
-   `contracts/<provider>/<service>@<api-version>.json`. Serves **both**
-   L2 (validate cassettes against the spec) and L3 (diff over time). Pin
-   only the services we actually use.
-3. **Redaction (mandatory — privacy invariant).** The go-vcr
-   `BeforeSaveHook` scrubs secrets and identity to **stable
-   placeholders** as a cassette is recorded, so re-recording is
-   deterministic. The agreed placeholders:
+1. **Package layout.** A source package holds the mapper, its tests and its `testdata/` as
+   siblings. A typical package: `factory.go`, `<service>.go`, `<service>_test.go` (L1),
+   `<service>_conformance_test.go` (L2 replay via `sourcetest.RunConformance`), sometimes
+   `<service>_spec_conformance_test.go`, `<service>_record_test.go` (recorder) or
+   `<service>_live_test.go` (L4a), and `testdata/cassettes/`. Multi-service providers (`aws`,
+   `gcp`, `azure`) use one package per service (`internal/sources/aws/s3/`); single-service
+   providers are flat (`internal/sources/github/`). List a real package to confirm.
+2. **Cassettes.** go-vcr v4 YAML under `testdata/cassettes/`. Most sources have one cassette
+   covering their whole collect call (`aws/s3/testdata/cassettes/buckets.yaml`,
+   `github/testdata/cassettes/org_collect.yaml`). Scenario variety (encrypted vs unencrypted,
+   present vs absent) lives in L1 fakes, not in extra cassettes.
+3. **Spec snapshots.** `contracts/<provider>/<service>@<api-version>.json`, sliced to the
+   operations and fields the mapper reads. They serve L2 (validate cassettes) and L3 (diff over
+   time). See [`contracts/README.md`](../../contracts/README.md).
+4. **Redaction.** The recorder's go-vcr `BeforeSaveHook` replaces secrets and identity with stable
+   placeholders so re-recording is deterministic:
 
    | Real value | Placeholder |
    |---|---|
-   | `Authorization` / bearer token / API key headers | `REDACTED` |
+   | `Authorization`, bearer token, API key headers | `REDACTED` |
    | AWS access key (`AKIA…`) | `AKIAEXAMPLE0000000000` |
-   | AWS account ID — quoted or inside an ARN (12 digits) | `000000000000` |
-   | 12-digit **bare** JSON number (e.g. an Azure byte size) | `0` — leading zeros are invalid JSON, so bare numbers are **not** zeroed to `000000000000` |
+   | AWS account ID, quoted or in an ARN | `000000000000` |
+   | 12-digit bare JSON number | `0` (leading zeros are invalid JSON) |
    | ARN | `arn:aws:<svc>:<region>:000000000000:<resource>` |
-   | email address | `user-<hash>@example.com` — **distinct per address** (a single shared placeholder would alias distinct members in identity-bearing sources like GCP `iam` / Okta / Entra) |
-   | username / login | `example-user` |
+   | email address | `user-<hash>@example.com`, distinct per address so identity-bearing sources do not alias members |
+   | username or login | `example-user` |
 
-   A CI gate (`scripts/check-fixtures.sh`) greps every `testdata/` dir +
-   `contracts/` for `AKIA[0-9A-Z]{16}`, bare 12-digit account IDs, ARNs
-   carrying a real (non-zero) account ID, `@`-emails (other than the
-   reserved `example.{com,org,net}` domains), and bearer tokens, and
-   **fails the build on a hit**. Tokens matching the placeholders above
-   are ignored, and `*.md` docs are skipped (a README documenting the
-   `service@version.json` contract path scheme is not a fixture). It runs
-   as a first step in `test.yml`, in `make check-fixtures`, and in
-   `make pre-commit`; `internal/fixturehygiene` drives it over synthetic
-   fixtures so `go test ./...` proves it catches planted secrets and
-   passes a clean tree. A fixture that leaks identity violates the
-   non-custodial architecture, not just a style rule.
-4. **Build tags.** Live tests carry `//go:build live` as the first line
-   and additionally skip if the required env (token) is absent
-   (`TF_ACC`-style — call `sourcetest.RequireEnv(t, "GITHUB_TEST_TOKEN")`
-   at the top of the test). Because the default build (`go test ./...`,
-   no `-tags live`) never compiles a `live`-tagged file, live tests run
-   in neither the per-PR suite nor the coverage run — no extra exclusion
-   config is needed. **Corollary:** a `live` file must never be the
-   *only* test for a production mapper, or that mapper would show 0%
-   under the default build. Every mapper is covered by non-tagged L1/L2
-   tests; live is *additional* confidence.
-5. **Coverage.** Keep the existing **80% floor**. It is enforced in
-   `.github/workflows/test.yml`: CI runs
-   `go test -race -coverprofile=coverage.out -covermode=atomic ./...`
-   then fails if `go tool cover -func` `total` `< COVERAGE_THRESHOLD`
-   (currently `80`). L2 cassette replay *raises* coverage because the
-   real deserialize paths execute. Raise the floor as coverage improves;
-   never lower it silently.
-   **`live` and E2E are excluded from the gate by construction** (WU-7.4):
-   the coverage run carries no `-tags live`, so `//go:build live` tests are
-   never compiled into it (they neither raise nor dilute the number), and the
-   L4b E2E suites live in separate repos entirely. `make ci` and `make
-   pre-commit` likewise omit `-tags live`. So the floor measures exactly the
-   L0–L3 in-repo tests, which is what gates every CLI change.
-6. **Shared harness.** All source-plugin tests run through
-   `internal/sources/sourcetest/` — schema conformance + field
-   completeness + determinism + metadata checks. Adding a plugin must not
-   require re-inventing test scaffolding.
-7. **Naming for live/E2E resources.** Fixed prefix `sigcomply-e2e-` so
-   sweepers can find and delete leaks safely.
-8. **Drift jobs are alert-only.** They open/update a GitHub issue; they
-   do **not** block PRs (they run on a schedule, not on PRs).
-9. **Non-HTTP sources.** A source whose protocol isn't HTTP (e.g.
-   `active_directory`, LDAP) cannot use go-vcr cassettes or an L3
-   spec-diff contract. Its L2 layer is a scripted in-process protocol
-   responder behind an unexported dial seam: it decodes the client's real
-   wire requests and replays canned responses, so the production adapter
-   and library decoder run unmodified, with `sourcetest.RunConformance`
-   over it (`internal/sources/activedirectory/fakedc_test.go`). There is
-   no L3 drift detector; drift is caught by the `//go:build live` test
-   against a disposable server container (a Samba AD DC for AD). See the
-   exemption in [`04-source-plugins.md`](04-source-plugins.md) §Testing a
-   source plugin.
+   `scripts/check-fixtures.sh` scans every `testdata/` directory and `contracts/` for AWS keys,
+   bare account IDs, ARNs with a real account, non-`example.*` emails and bearer tokens, and fails
+   on a hit. It runs in `test.yml`, `make check-fixtures` and `make pre-commit`;
+   `internal/fixturehygiene` proves it catches planted secrets. A fixture that leaks identity
+   breaks the non-custodial architecture.
+5. **Build tags.**
+   - `live`: L4a. The test's first call is `sourcetest.RequireEnv(t, ...)`, which skips when any
+     named variable is unset. The nightly workflow runs `go test -tags live -count=1 -run Live
+     ./...`, so name every live test `Test*Live*` or it never runs nightly.
+   - `record`: committed recorders (`<service>_record_test.go`) for GCP and Azure ARM packages,
+     using `gcptest.RecordLiveOptions` / `gcptest.RecordLiveClient` and
+     `azuretest.RecordLiveOptions`. Run with live credentials:
+     `go test -tags record -run <Test> ./internal/sources/<provider>/<service>/`.
+   - `cassette`: `internal/sources/aws/identitycenter/identitycenter_cassette_test.go` constructs
+     a cassette that could not be recorded (no Identity Center tenant): real SDK-serialized
+     requests paired with response bodies transcribed from the Smithy models. Regenerate with
+     `go test -tags cassette -run TestConstructCassette ./internal/sources/aws/identitycenter/`,
+     then paste back the provenance header that go-vcr drops. It stays a shape test until
+     re-recorded against a real tenant.
+   - A tagged file must never be the only test for a production mapper: the default build does
+     not compile it, so the mapper would show 0% coverage.
+6. **Coverage.** `test.yml` runs the full suite with `-coverprofile` and fails below
+   `COVERAGE_THRESHOLD` (read the value there). Locally, `make test` runs the `-short` unit suite;
+   `make test-full` matches CI. Tagged tests and E2E never count. Raise the floor as coverage
+   improves; never lower it silently.
+7. **Shared harness.** All source tests use `internal/sources/sourcetest/` (schema conformance,
+   field completeness, determinism, metadata, go-vcr wiring, live gating). See
+   [`internal/sources/sourcetest/README.md`](../../internal/sources/sourcetest/README.md).
+8. **Resource names.** Live and E2E resources use the `sigcomply-e2e-` prefix so sweepers can
+   find leaks.
+9. **Drift jobs are alert-only.** They open or update a GitHub issue and never run on pull
+   requests or block a push.
+10. **Non-HTTP sources.** `active_directory` (LDAP) cannot use cassettes or L3. Its L2 layer is an
+    in-process protocol responder behind a package-private dial seam
+    (`internal/sources/activedirectory/fakedc_test.go`): it decodes real client requests and
+    replays canned responses, with `sourcetest.RunConformance` over it. Drift is caught by its
+    live test against a disposable Samba AD DC container. See
+    [04-source-plugins.md](04-source-plugins.md).
 
-### Where a new plugin's test artifacts go (worked layout)
+### Recorded and hand-authored cassettes
 
-A contributor adding the (illustrative) AWS S3 plugin and the GitHub
-plugin places artifacts exactly here:
+- GCP and Azure ARM cassettes are recorded from seeded test projects/subscriptions through the
+  committed `record` drivers. The setup and teardown scripts in the E2E repo
+  (`setup-gcp.sh`, `setup-azure.sh`, `teardown-gcp.sh`, `teardown-azure.sh`) provision the posture and document
+  provider quirks. To see which packages have a recorder: `grep -rl 'go:build record'
+  internal/sources`.
+- Some cassettes stay hand-authored because the posture cannot be produced cheaply: GCP `scc`
+  and `directory`, Azure `defender` and `certs`, and the Entra MFA registration report
+  (`reports/authenticationMethods/userRegistrationDetails`, in
+  `internal/sources/azure/entra/testdata/cassettes/directory.yaml`), which needs an Entra ID P1/P2
+  licence. Hand-authored cassettes are still validated against the vendor spec.
+- `gcp.cloud_identity` has no cassette on purpose. Google publishes no sample response for
+  `settings/security.password`, so a hand-written fixture would only re-assert the mapper's own
+  guesses. Its decoders accept every shape the unverified details could take and turn anything
+  else into an error, not a zero. `cloudidentity_live_test.go` logs the raw bodies; recording a
+  cassette from a real Workspace tenant retires the exemption. Do not hand-author one.
 
-```
-sigcomply-cli/
-├── contracts/
-│   ├── aws/
-│   │   └── s3@2006-03-01.json            # vendor spec snapshot  (L2 + L3)
-│   └── github/
-│       └── api.github.com@2026-06-18.json
-└── internal/
-    └── sources/
-        ├── aws/s3/                        # multi-service provider → per-service pkg
-        │   ├── s3.go                      # the mapper (production)
-        │   ├── s3_test.go                 # L1 fakeAPI unit + L2 conformance (RunConformance)
-        │   ├── s3_live_test.go            # //go:build live   (L4a, if applicable)
-        │   └── testdata/cassettes/
-        │       ├── list_buckets_encrypted.yaml
-        │       └── list_buckets_unencrypted.yaml
-        └── github/                        # single-service provider → flat pkg
-            ├── github.go
-            ├── github_test.go
-            └── testdata/cassettes/
-                ├── branch_protection_present.yaml
-                └── branch_protection_absent.yaml
-```
+## 5. Tooling
 
-Rule of thumb: **mapper, its `*_test.go`, and its `testdata/cassettes/`
-are siblings**; the matching `contracts/<provider>/<service>@<ver>.json`
-spec snapshot is the only artifact that lives outside the plugin package
-(it is shared by L2 validation and L3 drift). See
-[`contracts/README.md`](../../contracts/README.md) and
-[`internal/sources/sourcetest/README.md`](../../internal/sources/sourcetest/README.md).
+| Concern | Tool |
+|---|---|
+| HTTP record/replay | `dnaeon/go-vcr` v4 |
+| AWS test seam | fake `HTTPClient` via `config.WithHTTPClient` (runs the real deserializer); interface stubs for pure logic |
+| GCP test seam | `option.WithHTTPClient` + `option.WithoutAuthentication` |
+| Azure test seam | `arm.ClientOptions{Transport: ...}` and a fake `azcore.TokenCredential` |
+| Spec snapshots | `scripts/contracts-fetch.sh` (`make contracts-fetch`), slicing with `scripts/contracts/slice_smithy.py` (AWS), `slice_swagger.py` (Azure), `slice_discovery.py` (GCP), `slice_openapi.py` (GitHub, Okta) |
+| Spec diff | `scripts/contracts-diff.sh` (`make contracts-diff`) running `scripts/contracts/diff_contracts.py`: removed or changed operations, shapes, fields and enums the mapper reads are breaking; additions are not |
+| Spec toolchain | `curl`, `python3`, and `ruby` (Okta YAML to JSON) |
+| Schema validation | `internal/evidence_types` (`gojsonschema`) |
+| Leak sweeper | `scripts/sweep-aws.sh` in the GitHub E2E repo |
 
----
+## 6. L3 drift triage
 
-## 5. Tooling reference
+`contract-drift.yml` re-fetches every pinned spec slice and diffs it against `contracts/`. A change
+opens or comments on an issue labelled `contract-drift`. The script exits 1 on breaking drift and 2
+on a tooling failure.
 
-| Concern | Tool | Notes |
-|--------|------|-------|
-| HTTP record/replay | `dnaeon/go-vcr` v4 | transport seam for L1/L2 |
-| AWS test seam | fake `HTTPClient` via `config.WithHTTPClient` (runs the real deserializer); interface stubs for pure logic | per-protocol matcher needed for query/json APIs (IAM/EC2/STS) |
-| GCP test seam | `option.WithHTTPClient` + `option.WithoutAuthentication` → httptest / go-vcr | REST/JSON clients |
-| Azure test seam | `arm.ClientOptions{Transport: ...}`; fake `azcore.TokenCredential` | swap the transport |
-| Spec-diff (all providers) | `scripts/contracts/diff_contracts.py` (dependency-free structural JSON diff over our committed slices) | Implemented in WU-3.2; run via `make contracts-diff`. Classifies *removed/changed* (op·shape·field·enum we read) as **breaking**, *added* as non-breaking. Chosen over `oasdiff`/`smithy diff` to keep the toolchain to python3 only (no Go-binary or Java gate); the slices are deterministic JSON we control. Upgrade to `oasdiff` later if richer OpenAPI rules are wanted. |
-| Spec snapshots | `scripts/contracts-fetch.sh` (`make contracts-fetch`) | OpenAPI sliced by `slice_openapi.py` (GitHub/Okta); AWS Smithy by `slice_smithy.py`; models in `aws/aws-sdk-go-v2` `codegen/sdk-codegen/aws-models/`. |
-| Sweeper | `cloud-nuke` / `aws-nuke` | name-prefix scoped; dedicated test account |
-| Free identity tenant | Free Azure-account tenant (`*.onmicrosoft.com`) + seeded users | Covers non-premium L4a Entra (users, policies). The Microsoft 365 Developer Program is no longer self-serve free. **Entra ID P2 is not free** (time-boxed trial only) → the P2-gated MFA registration report falls back to a spec-validated L2 cassette, not L4a. |
-| Schema validation in tests | existing `internal/evidence_types` (`gojsonschema`) | reuse `Validate()` |
+1. Reproduce: `make contracts-diff`. It prints `BREAKING …` lines and an additions count; a clean
+   tree exits 0.
+2. Additions only: go to step 5.
+3. For each breaking change, find the consumer: `contracts/<provider>/<service>` maps to
+   `internal/sources/<provider>/<service>`. If the mapper and schema do not read the changed
+   field, note it and go to step 5.
+4. Fix the mapper. If the canonical shape changed, add a new evidence-type schema version in
+   `internal/evidence_types/schemas/` (never mutate one). Re-record the affected cassette with the
+   package's `record` driver, or hand-edit it from a real response. Re-run its conformance tests.
+5. Re-baseline: `make contracts-fetch`, commit the updated `contracts/` files.
+6. Close the issue once CI is green.
 
----
+Never silence drift by editing the differ.
 
-## 6. Where each layer lives (current pointers)
+## 7. L4a live setup
 
-- **L0** — `internal/core/cloud_test.go` (reflection test: no freeform
-  field on the cloud wire type).
-- **L1** — per-operation `fakeAPI` stubs + field assertions in each
-  `internal/sources/<provider>/<service>/*_test.go`.
-- **L2/L4a harness** — `internal/sources/sourcetest/` (shared
-  conformance harness + go-vcr wiring + live-gating helpers).
-- **L3** — `contracts/` snapshots + a scheduled `contract-drift`
-  workflow (mirrors the cron in `.github/workflows/security.yml`).
-- **L4b** — the E2E repos (see root [`TESTING.md`](../../TESTING.md)).
+Each live test skips unless its variables are set. In CI they come from repository secrets mapped
+in `live-saas.yml` (GitHub secrets are stored as `GH_TEST_*` because secret names cannot start with
+`GITHUB_`). A nightly failure opens a `live-drift` issue.
 
-For the per-plugin requirements when adding a new source, see
-[`04-source-plugins.md`](04-source-plugins.md) and
-[`07-extensibility.md`](07-extensibility.md).
+| Provider | Env the test reads | CI secret | Free credential |
+|---|---|---|---|
+| GitHub | `GITHUB_TEST_TOKEN`, `GITHUB_TEST_ORG` | `GH_TEST_TOKEN`, `GH_TEST_ORG` | A free org that enforces 2FA (the test asserts `two_factor_required`); classic PAT with `read:org`, `admin:org`, `repo` |
+| GitLab | `GITLAB_TEST_TOKEN`, `GITLAB_TEST_GROUP`, optional `GITLAB_TEST_BASE_URL` | same names | gitlab.com free group; classic `read_api` PAT (fine-grained tokens get 403 on `/user`) |
+| Okta | `OKTA_TEST_TOKEN`, `OKTA_TEST_ORG_URL` | same names | Okta Integrator Free Plan org; SSWS API token whose owner can read policies and roles (the test expects at least one `password_policy`, so zero means missing permission) |
+| Entra | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | same names | Free Azure tenant; app registration with admin-consented application permissions `User.Read.All`, `AuditLog.Read.All`, `Domain.Read.All`. Without P1/P2 the MFA report test skips after proving auth; the password-policy test skips on `Authorization_RequestDenied` |
+| Active Directory | `SIGCOMPLY_AD_TEST_URL`, `SIGCOMPLY_AD_TEST_BIND_DN`, `SIGCOMPLY_AD_TEST_PASSWORD`, optional `SIGCOMPLY_AD_TEST_*` | none (not in the nightly workflow) | Local `diegogslomp/samba-ad-dc` container; see the header of `activedirectory_live_test.go` |
+| GCP Cloud Identity | `GCP_TEST_TARGET_SERVICE_ACCOUNT`, `GCP_TEST_IMPERSONATE_SUBJECT` | none (not in the nightly workflow) | A Workspace or Cloud Identity tenant; see `cloudidentity_live_test.go` |
 
----
-
-## 7. Drift triage runbook (L3 alert response)
-
-The weekly `contract-drift` workflow re-fetches every pinned vendor spec
-slice and diffs it against the committed snapshot in `contracts/`. A
-change opens (or comments on) a GitHub issue labelled `contract-drift`
-with the diff report. The alert is **never** on the per-PR path — it's a
-heads-up that an upstream API moved. Triage:
-
-1. **Reproduce locally:** `make contracts-diff`. It prints, per snapshot,
-   `BREAKING …` lines (a removed/changed operation, shape, field, or enum
-   value our mapper reads) and an additions count. A clean tree exits 0.
-2. **Classify each change.**
-   - *Additions only* (new fields/operations upstream): non-breaking — we
-     ignore unknown fields. Skip to step 5 (just re-baseline the snapshot).
-   - *Breaking* (something we read was removed or changed type): continue.
-3. **Assess mapper impact.** For each breaking change, find the consuming
-   plugin (the `contracts/<provider>/<service>` path maps to
-   `internal/sources/<provider>/<service>`). Does its mapper or
-   evidence-type schema read the changed field? If not, it's breaking for
-   the vendor but inert for us — note it and proceed.
-4. **Fix what broke.** Update the mapper (and, if the canonical shape
-   changed, the evidence-type schema in `internal/evidence_types/schemas/`
-   — new version, never a mutation). Re-record the affected cassette so it
-   reflects the new response shape (re-run the plugin's `//go:build record`
-   recorder against a live/test account, or hand-author from the real
-   response). Re-run the plugin's conformance + spec test.
-5. **Re-baseline the snapshot:** `make contracts-fetch` re-slices in place;
-   commit the updated `contracts/<…>.json`. This clears the alert on the
-   next scheduled run.
-6. **Close the issue** once the snapshot (and any mapper/cassette/schema
-   changes) are committed and CI is green.
-
-Rule of thumb: a `contract-drift` issue is *informational until proven
-breaking* — most vendor changes are additive. Never silence it by editing
-the differ; re-baseline via `make contracts-fetch` so the next genuine
-drift still fires.
-
-## 8. L4a live-test setup (free-account guide)
-
-The L4a live tests (`//go:build live`, run by `make test-live` locally and the
-nightly **Live SaaS Drift** workflow, `.github/workflows/live-saas.yml`) hit
-real provider APIs. Each calls `sourcetest.RequireEnv` first, so it **skips**
-unless its credentials are present — configure only the providers you have free
-accounts for. In CI the credentials are repository **secrets**; the workflow maps
-them onto the env the tests read (GitHub's are stored as `GH_TEST_*` because
-secret names can't begin with `GITHUB_`).
-
-| Provider | Env the test reads | CI secret | How to get a free credential |
-|----------|--------------------|-----------|------------------------------|
-| GitHub  | `GITHUB_TEST_TOKEN`, `GITHUB_TEST_ORG` | `GH_TEST_TOKEN`, `GH_TEST_ORG` | A free org; a classic PAT with `read:org` + `admin:org` (org policy + member 2FA) + `repo`. The org must enforce 2FA (the test asserts `two_factor_required`). |
-| GitLab  | `GITLAB_TEST_TOKEN`, `GITLAB_TEST_GROUP`, `GITLAB_TEST_BASE_URL` (optional) | same names | gitlab.com free group; a **classic** `read_api` PAT (fine-grained tokens 403 on `/user`). Base URL blank = gitlab.com. |
-| Okta    | `OKTA_TEST_TOKEN`, `OKTA_TEST_ORG_URL` | same names | Okta Integrator Free Plan org; an API token (Security → API → Tokens), SSWS scheme; org URL e.g. `https://trial-xxximes.okta.com`. The token owner needs policy read as well as role read — the live test asserts at least one `password_policy`, which every org has (the Default Policy cannot be deleted), so a zero there is a permissions failure rather than an empty org. |
-| Entra   | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | same names | Free Azure tenant; an app registration with **application** Graph permissions `User.Read.All` + `AuditLog.Read.All` + `Domain.Read.All` (admin-consented) + a client secret. The MFA registration report needs Entra **P1/P2**; without it the test skips after proving auth (`Authentication_RequestFromNonPremiumTenantOrB2CTenant`). The password-policy test needs no license but does need `Domain.Read.All`, and skips on `Authorization_RequestDenied` so an app registration predating that collector is a skip rather than a red. |
-| Active Directory | `SIGCOMPLY_AD_TEST_URL`, `SIGCOMPLY_AD_TEST_BIND_DN`, `SIGCOMPLY_AD_TEST_PASSWORD` (+ optional `…_CA_CERT`, `…_TLS_SERVER_NAME`, `…_START_TLS`, `…_BASE_DN`, `…_PAGE_SIZE`, `…_SEEDED`) | none — not in the nightly workflow | A local `diegogslomp/samba-ad-dc` container with a non-admin bind user and its CA (`/usr/local/samba/private/tls/ca.pem`); see the header of `activedirectory_live_test.go`. |
-
-**Drift signal & remediation.** A live test failing on the nightly run opens a
-`live-drift` issue (alert-only; PRs never run it). Cassette **re-record is
-manual** by design — the recorders are throwaway `//go:build record` drivers,
-mostly not committed — so triage is: reproduce with `make test-live`, fix the mapper/schema,
-re-record the affected cassette with a throwaway driver, and (if the upstream
-shape moved) re-baseline the L3 snapshot via `make contracts-fetch`. The two
-drift jobs are complementary: **Contract Drift** (L3) catches spec-shape changes
-with zero accounts; **Live SaaS Drift** (L4a) catches behavioral changes a spec
-diff can't see (and GitLab, whose published spec is too thin for L3, relies on it
-entirely).
-
-**One exception to "not committed": a cassette that was never recorded.**
-`internal/sources/aws/identitycenter/testdata/cassettes/identity_store_users.yaml`
-could not be recorded — SigComply has no Identity Center tenant — so it was
-*constructed*: real SDK-serialized requests paired with response bodies
-transcribed from the published Smithy models. That kind of cassette has no live
-source of truth to go back to, so its driver **is** committed, at
-`identitycenter_cassette_test.go` behind a `cassette` build tag, holding every
-transcribed body:
-
-```
-rm -f internal/sources/aws/identitycenter/testdata/cassettes/identity_store_users.yaml
-go test -tags cassette -run TestConstructCassette ./internal/sources/aws/identitycenter/
-```
-
-go-vcr writes the YAML itself and drops leading comments, so the provenance
-header at the top of the cassette must be pasted back afterwards. It remains a
-**shape** test until someone re-records it against a real tenant.
+Remediating a live failure: reproduce with `make test-live`, fix the mapper or schema, re-record
+the affected cassette, and re-baseline the L3 snapshot if the upstream shape moved. L3 catches
+spec-shape changes with no accounts; L4a catches behaviour a spec diff cannot see.

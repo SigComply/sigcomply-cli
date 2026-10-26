@@ -1,514 +1,251 @@
-# 10 — Cadence Model
+# 10. Cadence model
 
-This document specifies how the CLI decides, for each policy in each
-run, whether to **re-evaluate** it now or **carry forward** its prior
-result. It is the answer to the foundational question every
-compliance-as-code customer asks:
+How the CLI decides, per policy and per run, whether to evaluate a policy now or carry its prior
+result forward, and which audit period a run and a manual upload belong to. This doc owns the
+period clock (`planner.PeriodTime`), the run period (`planner.DerivePeriod`) and the manual
+evidence cadence windows (`planner.CadencePeriod`). Other docs link here.
 
-> "MFA needs to be checked every day; the board-meeting review needs
-> to be checked every quarter. A single CI run triggers everything.
-> How do you reconcile that?"
+## Two axes: cadence and period
 
-This file is the canonical reference for the cadence design. Every
-other document in this tree refers back here for the decision rule,
-the state shape, the day-1 warnings, and the auditor-visible
-artifacts.
+- **Cadence** is per policy: "is this policy due to re-check?" Under `--scheduled` the answer
+  depends on a mutable state shard in the vault. State is never signed and is not an audit
+  deliverable; it only gates the planner.
+- **Period** is per run: "which audit window does this run's evidence belong to?" The planner
+  derives it once at run start and every policy in the run shares it. A manual entry's upload
+  folder is the one exception: it follows the entry's own cadence window (see
+  [Manual evidence periods](#manual-evidence-periods)).
 
----
-
-## The two axes
-
-Cadence design lives on two orthogonal axes that must never be
-conflated. Mixing them is dbt's most-imitated lesson.
-
-```
-                  POLICY EVALUATION DECISION
-                  =========================
-                              │
-                ┌─────────────┴──────────────┐
-                ▼                            ▼
-         CADENCE axis                  PERIOD axis
-   "should we re-evaluate now?"   "what audit window does
-                                   the result belong to?"
-                │                            │
-   per-policy gating, mutable        per-run, immutable,
-   state in vault/state/             stamped at run start,
-                                     shared across all policies
-```
-
-- **Cadence** is a per-policy scheduling concern. It answers "is this
-  policy due to re-check?" The decision depends on a mutable state
-  shard kept in the customer vault. State is never signed, never an
-  audit deliverable, never trusted by an auditor — it exists only
-  to gate the planner.
-- **Period** is a per-run compliance concern. It answers "what audit
-  window does this run's evidence belong to?" The period is frozen
-  at run-start by the planner and shared by every policy in the run.
-  No mid-run rollover — see §Period freeze rule. (A manual entry's
-  *upload folder* is keyed by its own cadence window instead; the run's
-  period is unaffected — see §Manual evidence periods.)
-
-A daily-cadence policy evaluated 124 times across `2026-Q2` produces
-124 signed envelopes, all stamped `period_id: 2026-Q2`. A quarterly-
-cadence policy evaluated once in `2026-Q2` produces one envelope.
-Both axes are visible to auditors; the framework summary makes the
-distinction explicit (see §Sub-period aggregation).
-
----
+A daily policy evaluated 90 times in `2026-Q2` produces 90 signed envelopes, all stamped
+`period_id: 2026-Q2`. A quarterly policy evaluated once produces one.
 
 ## Cadence DSL
 
-A policy's cadence is declared in its YAML spec:
+A policy declares `cadence:` in its spec; a project overrides it under `policies.<id>.cadence`.
 
-```yaml
-cadence: daily               # named cadence
-cadence: every:6h            # interval-since-last-pass
-```
+| Value | Minimum interval before due again (`planner.CadenceInterval`) |
+|---|---|
+| `continuous` | 0 (always due) |
+| `hourly` | 0 (always due) |
+| `daily` | 23h |
+| `weekly` | 6d 23h |
+| `monthly` | 29d 23h |
+| `quarterly` | 89d 23h |
+| `annual` | 364d 23h |
+| `every:<duration>` | the Go duration (`every:6h`, `every:90m`); floor 5 minutes |
 
-### Named cadences
+Rules:
 
-The seven canonical values, in ascending interval:
-
-| Value        | Minimum interval before due again |
-|--------------|-----------------------------------|
-| `continuous` | 0 (always due in any run)         |
-| `hourly`     | 0 (always due in any scheduled run) |
-| `daily`      | 23 hours                           |
-| `weekly`     | 6 days 23 hours                    |
-| `monthly`    | 29 days 23 hours                   |
-| `quarterly`  | 89 days 23 hours                   |
-| `annual`     | 364 days 23 hours                  |
-
-The 1-hour slack on every cadence absorbs CI cron drift. GitHub
-Actions and GitLab CI commonly dispatch scheduled jobs 5–15 minutes
-late under load; a strict 24h gate would silently skip days when
-drift crosses midnight.
-
-### Custom intervals: `every:<duration>`
-
-The escape hatch for power users. The value after `every:` is a
-Go-style duration (`time.ParseDuration` grammar): `6h`, `30m`,
-`2h30m`, `12h` (values below the 5-minute floor are rejected).
-Examples:
-
-```yaml
-cadence: every:6h          # every six hours since last pass
-cadence: every:90m         # every ninety minutes
-cadence: every:48h         # every two days (slightly stricter than `daily`)
-```
-
-Floor: 5 minutes. Anything tighter is rejected at plan time — CI
-runners cannot meaningfully dispatch faster, and tighter intervals
-just hammer API quotas.
-
-YAML note: the colon must be followed by a non-space character
-(`every:6h`, not `every: 6h`). YAML's mapping syntax requires
-`colon-space` to parse as a mapping; `colon-letter` parses as a
-single scalar.
-
-### Customer overrides
-
-Customers override the framework default in `.sigcomply.yaml`:
-
-```yaml
-policies:
-  soc2.cc6.1.mfa_enforced_admins:
-    cadence: every:6h
-  soc2.cc8.1.penetration_test_annual:
-    cadence: annual
-```
-
-Overrides are exact-match by policy ID. Unknown IDs are caught at
-plan time. (Globs and severity-baseline overrides are intentionally
-absent in v1 — see §What we do not do.)
-
-### `every:24h` ≠ `daily`
-
-The two are NOT equivalent. `daily` has the cron-drift slack baked in
-(23h); `every:24h` is exactly 24 hours from last pass. Over a year,
-`every:24h` will drift its time-of-day; `daily` stays anchored. A
-plain `cadence: 24h` (no `every:` prefix) is a configuration error
-with a hint to add the prefix.
-
----
+- The 1-hour slack on named cadences absorbs CI cron dispatch delay. `every:24h` has no slack, so
+  it is not the same as `daily`.
+- `every:` values below 5 minutes are rejected when the policy or config loads
+  (`parseEveryCadence`, `minEveryDuration`, `spec.validateCadenceSpec`).
+- Write `every:6h` with no space after the colon; `every: 6h` parses as a YAML mapping.
+- A bare duration (`cadence: 24h`) is a load error with a hint to add `every:`
+  (`internal/spec/policy.go`).
+- Overrides match policy IDs exactly. An unknown ID fails with "no such policy … did you mean"
+  (`planner.validateProjectReferences`). There are no glob overrides.
+- An override changes how often a policy runs. It does not move a manual entry's upload folder
+  (see [Manual evidence periods](#manual-evidence-periods)).
 
 ## Per-policy state shards
 
-State lives in the customer vault, OUTSIDE the immutable evidence
-prefix:
+The CLI writes one state file per policy under the vault prefix, next to the run folders:
 
 ```
-{vault}/
-   evidence/                                          ← signed, append-only
-      {framework}/{periodID}/run_*/...
-   state/                                             ← mutable, NOT under Object Lock
-      {framework}/policies/{policy_id}.json
+{vault prefix}/
+   {framework}/{periodID}/run_{stamp}_{id8}/...   signed run output (buildRunRoot)
+   state/{framework}/policies/{policy_id}.json    mutable state (PolicyStatePath)
 ```
 
-One file per policy. The single most important architectural
-property: **the state file is mutable by design**, so it cannot live
-under the same Object-Lock retention policy customers use for
-evidence. State loss is recoverable (worst case: the next run re-
-evaluates everything as first-run). Evidence integrity is
-unaffected — the signing scheme does not depend on state.
+State is mutable by design. If the operator puts the vault under Object Lock or a retention rule,
+they must exclude `state/`. Losing state is safe: the next `--scheduled` run treats every policy as
+a first run and evaluates it. Evidence integrity does not depend on state.
 
-### Shard schema
+The shard type is `core.PolicyState` (`internal/core/policy_state.go`): `LastRunAt`,
+`LastPassAt` (the gating key), `LastFailAt`, `LastRunStatus`, `LastPeriodID`, `LastRunID`,
+`LastPolicyHash`, `LastEnvelopeRef`, `NextDueAt`, `ConfiguredCadence`.
 
-```go
-type PolicyState struct {
-    SchemaVersion     string       // "policy-state.v1"
-    PolicyID          string
-    Framework         string
+Why one file per policy:
 
-    LastRunAt         time.Time    // any evaluation (pass/fail/skip/error)
-    LastPassAt        time.Time    // gating key — separate from LastRunAt
-    LastFailAt        time.Time
-    LastRunStatus     PolicyStatus
-    LastPeriodID      string
-    LastRunID         string       // tiebreaker in monotonic write
+- Concurrent CI runs rarely touch the same policy, so per-policy files give write isolation without
+  conditional puts.
+- Removing a policy from the bundle leaves one orphan file instead of a map entry to edit.
 
-    LastPolicyHash    string       // detects bundle/schema bumps
-    LastEnvelopeRef   string       // points carry-forward results at the original signed envelope
-    NextDueAt         time.Time    // pre-computed; planner is O(1) lookup
-    ConfiguredCadence string
-}
-```
-
-### Why per-policy shards, not one consolidated file
-
-- **Concurrent CI runs** rarely collide on the same policy; sharded
-  files give us per-policy write isolation without conditional-put
-  preconditions.
-- **`sigcomply why <policy>`** wants one file, not all 400.
-- **State garbage collection** (a policy removed from the bundle)
-  becomes a file delete, not a map mutation.
-
-Trade-off: bulk reads need List + parallel GET. We use a worker pool
-of 8 concurrent reads (`BulkReadPolicyStates`) — for 400 policies on
-S3 that's ~2 seconds.
+`BulkReadPolicyStates` (`internal/orchestrator/state.go`) issues one GET per framework policy, 8 at
+a time. It does not list the prefix.
 
 ### Monotonic write rule
 
-Two parallel CI runs against the same vault could race. The write
-guard:
+`WritePolicyState` accepts a write only if:
 
 ```
-Accept the write iff:
-   new.LastRunAt > existing.LastRunAt
+new.LastRunAt > existing.LastRunAt
 OR (new.LastRunAt == existing.LastRunAt AND new.LastRunID > existing.LastRunID)
 ```
 
-Last-writer-wins ordered by run-start time, with run-ID as the
-lexicographic tiebreaker for true ties. Defends against clock skew
-on individual runners (a slow-clock runner cannot overwrite a more-
-recent successor).
+A runner with a slow clock cannot overwrite a newer result. A rejected write returns nil: the vault
+already holds equal or newer state.
 
-A rejected write returns nil from `WritePolicyState` — the caller
-sees no error because the vault already has equivalent-or-newer
-state, which is the correct outcome.
-
----
+All modes advance state after evaluation (`advancePolicyStates`), so a passing `--on-push` run sets
+`LastPassAt` and a later `--scheduled` run can carry the policy forward. A failed state write is
+logged as a warning; the policy stays due and re-evaluates next time.
 
 ## The decision rule
 
-For each policy in the plan, the planner answers ShouldEvaluate. The
-logic is split across **two functions** — a six-branch outer gate
-(`planner.decideEvaluation`, `internal/planner/planner.go`) that
-delegates the cadence question to `planner.IsDue`
-(`internal/planner/cadence.go`). Read them together:
+`planner.decideEvaluation` (`internal/planner/planner.go`) gates each policy, and delegates the
+cadence question to `planner.IsDue` (`internal/planner/cadence.go`):
 
 ```
 decideEvaluation(filter, cadence, contentHash, prior, now):
+  1. filter.IsExplicit() (--cadence, --cadences, --on-push)  -> evaluate
+  2. prior == nil (state not loaded, or no shard yet)          -> evaluate
+  3. contentHash == ""                                         -> evaluate (fail closed)
+  4. prior.LastPolicyHash != contentHash                       -> evaluate
+  5. IsDue(cadence, prior, now)                                -> evaluate
+  6. else -> carry forward; Status = carried_forward,
+             SkipReason = DueReason(cadence, prior, now)
 
-  1. filter.IsExplicit() (--cadence, --cadences, --on-push; the
-     planner Filter also has Policies/Controls axes, not yet exposed
-     as check flags):
-       → evaluate
-       (Operator forced; cadence-gate is bypassed entirely.)
-
-  2. prior == nil (no prior state — Manual/PR mode never loads state,
-     or this is a genuine first run):
-       → evaluate
-
-  3. current content hash is empty (PolicyContentHash could not
-     canonicalize the policy):
-       → evaluate
-       (Fail closed. An unknown hash cannot establish that the policy
-       is unchanged, so it must never license a carry-forward.)
-
-  4. content-hash mismatch (prior.LastPolicyHash != current hash):
-       → evaluate
-       (Bundle update or schema bump invalidated prior evaluation.)
-
-  5. IsDue(cadence, prior, now):
-       → evaluate
-
-  6. else:
-       → carry forward; SkipReason = DueReason(cadence, prior, now)
-       → Status becomes StatusCarriedForward.
-```
-
-`IsDue` (in `cadence.go`) is where first-run and on_fail_retry live —
-the outer gate does not test them separately:
-
-```
 IsDue(cadence, state, now):
-  • state == nil OR state.IsFirstRun()  → due (first run)
-  • state.LastRunStatus != StatusPass   → due (on_fail_retry: failed
-                                           policies retry every run
-                                           until they pass)
-  • CadenceInterval(cadence) == 0       → due (continuous/hourly)
-  • LastPassAt.IsZero()                 → due
-  • now - LastPassAt >= interval        → due
-  • else                                → not due
+  state == nil or state.IsFirstRun()   -> due
+  state.LastRunStatus != pass          -> due (failed policies retry every run)
+  CadenceInterval(cadence) == 0        -> due (continuous, hourly)
+  LastPassAt.IsZero()                  -> due
+  now - LastPassAt >= interval         -> due
+  else                                 -> not due
 ```
 
-The reason string attached to a carried-forward result is
-human-readable and deterministic (`DueReason`): `"only 4h12m since
-last pass; cadence interval 6h0m0s not yet elapsed (next due
-2026-05-25T09:00:00Z)"`. (The interval renders via `time.Duration`'s
-`String()`, which never prints days and always includes seconds — so a
-quarterly interval shows as `2159h0m0s`, not `89d23h`.)
+`DueReason` produces a deterministic string such as `only 4h12m since last pass; cadence interval
+6h0m0s not yet elapsed (next due 2026-05-25T09:00:00Z)`. Intervals render with
+`time.Duration.String()`, so a quarterly interval reads `2159h0m0s`.
 
 ### Content-hash invalidation
 
-`PolicyContentHash` is the SHA-256 of canonicalized
-(policy spec + referenced evidence-type schemas). The canonical
-projection (`canonicalizePolicy`, `internal/core/policy_state.go`)
-covers:
+`PolicyContentHash` is the SHA-256 of a hand-built canonical projection (`canonicalizePolicy`,
+`internal/core/policy_state.go`) of: `id`, primary control, `rule`, the whole `pass_when` tree,
+`severity`, `cadence`, `on_push`, slots (sorted `accepts`, cardinality, required, role),
+parameters (type + default), and the digests of referenced evidence-type schemas.
 
-| Key | Source |
-|-----|--------|
-| `id` | `Policy.ID` |
-| `control` | primary `ControlRef.ControlID` |
-| `rule` | `Policy.RuleRef` (the escape hatch) |
-| `pass_when` | the whole `PassWhenSpec` tree |
-| `severity`, `cadence`, `on_push` | the scheduling/triage scalars |
-| `slots` | per slot: sorted `accepts`, cardinality, required, role |
-| `parameters` | per parameter: type + default |
-| `schemas` | the referenced evidence-type schema digests |
+- `pass_when` must stay in the projection. Shipped policies are `pass_when`-driven; without it, an
+  edited threshold or operator would leave the hash unchanged and the old signed result would be
+  carried forward. The projection walks every clause in order (quantifier, slot,
+  `violation_msg`, `identity_key`, `min_percentage`, `condition`, `filter`, nested
+  `all_of`/`any_of`, `matches_in`). Clause order is semantic and never sorted; map-valued parts are
+  flattened to sorted pairs.
+- The projection is built by hand because the `pass_when` types have no `json:` tags; marshaling
+  the structs would key on Go field names and a field rename would rotate every hash.
+- A hash change makes the policy due regardless of cadence. The carried-forward skip reason names
+  the mismatch; no run-level notice is printed.
+- An empty hash (nil policy, or a `value:` JSON cannot represent) means "evaluate", never "no
+  change" (branch 3).
 
-**`pass_when` is the load-bearing entry.** Every shipped policy is
-`pass_when:`-driven and none uses the `rule:` escape hatch, so a
-projection that omitted it would be blind to essentially every real
-policy edit — changing an operator, a threshold, a filter or a clause's
-order would leave the hash identical, the gate would see no mismatch,
-and the policy would carry its old signed envelope forward until the
-next cadence boundary. The projection therefore descends the full
-expression tree: every clause (in order), its quantifier, slot,
-`violation_msg`, `identity_key` and `min_percentage`, and both its
-`condition` and `filter` down through nested `all_of`/`any_of`
-sub-conditions and the `matches_in` fields (`in_slot`, `remote_field`,
-`normalize`, `where`). Clause and sub-condition order is semantic and
-is never sorted; the map-valued parts (slots, parameters, schema
-digests) are flattened to sorted key/value pairs so marshaling is
-deterministic.
+## Carry-forward results
 
-The projection is built by hand, not by marshaling the Go structs:
-none of the `pass_when` types carry `json:` tags, so `encoding/json`
-would key on Go field names and a behavior-neutral field rename would
-silently rotate every policy's hash.
-
-When a bundle update or schema bump changes the hash, every affected
-policy becomes due regardless of cadence. The planner emits an
-info-level notice naming the count of newly-due policies so the
-customer is not surprised by a longer run.
-
-An empty hash is **not** a "no change" signal. `PolicyContentHash`
-returns `""` for a nil policy and for a policy it cannot marshal (a
-`pass_when` `value:` holding something JSON cannot represent); branch 3
-of the decision rule turns that into "evaluate" rather than letting it
-fall through to the cadence check.
-
-This is the structural guard against silently re-certifying old
-evidence with new rules.
-
----
-
-## Carry-forward result format
-
-When ShouldEvaluate is false, the evaluator emits a carry-forward
-result.json that references the prior signed envelope:
-
-```json
-{
-  "PolicyID": "soc2.cc6.3.access_review_quarterly",
-  "Controls": [{ "control_id": "CC6.3" }],
-  "Status": "carried_forward",
-  "ConfiguredCadence": "quarterly",
-  "PolicyContentHash": "sha256:...",
-  "CarryForward": {
-    "LastEvaluatedAt": "2026-04-01T10:23:14Z",
-    "LastEvaluatedRun": "run_20260401T102314Z_a3f9",
-    "LastEnvelopeRef": "soc2/2026-Q2/run_20260401T102314Z_a3f9/policies/.../envelopes/signed_document__manual.pdf.json",
-    "LastKnownStatus": "pass",
-    "SkipReason": "only 1h42m since last pass; cadence interval 2159h0m0s not yet elapsed"
-  }
-}
-```
-
-The carry-forward result is a tiny pointer, not a re-statement. No
-new envelope is written; no new signature is generated. The auditor
-verifies the original envelope at `LastEnvelopeRef` independently —
-the carry-forward result inherits trust from the original signature,
-not from anything the CLI claims about it.
-
----
+A carried-forward `result.json` has `Status: carried_forward` and a `CarryForward`
+(`core.CarryForwardRef`) with `LastEvaluatedAt`, `LastEvaluatedRun`, `LastEnvelopeRef`,
+`LastKnownStatus` and `SkipReason`. The CLI writes no new envelope and no new signature. An auditor
+verifies the original envelope at `LastEnvelopeRef`; the carried-forward result inherits trust only
+from that signature.
 
 ## Period freeze rule
 
-The audit period (`2026-Q1`, `FY2026`, custom) is computed once at
-run-start by `planner.DerivePeriod`, from the clock
-`planner.PeriodTime` selects for the project's `time_basis`. Every
-policy in the run shares the same `period_id`. A run that begins at `2026-03-31T23:55:00Z`
-and takes twenty minutes still stamps every result with `2026-Q1`,
-even though the wall clock crosses into Q2 mid-run. There is no
-mid-run rollover.
+The run's audit period (`2026-Q1`, `FY2026`, or a custom ID) is computed once at run start:
 
-The framework's per-period summary at `{framework}/{periodID}/
-summary.json` is rebuilt on every run whose `startedAt` falls inside
-that period. The first run whose `startedAt` lands in a new period
-writes a fresh summary in the new period and never touches the
-previous period's summary again.
+```
+period = planner.DerivePeriod(&cfg.Period, planner.PeriodTime(&cfg.Period, commitTime, now))
+```
 
----
+- `planner.PeriodTime` returns the HEAD commit time under the default `period.time_basis: commit`,
+  and the run's start clock under `wall_clock`.
+- `commitTime` comes from `gitContext` (`cmd/sigcomply/check.go`):
+  `GITHUB_EVENT_HEAD_COMMIT_TIMESTAMP`, else `git show -s --format=%cI HEAD`, else `time.Now()`.
+- `period.fiscal_calendar.type` is `calendar_quarter` (default), `fiscal_year` (with `starts:
+  <month>`, any month; IDs are `FY<year>`), or `custom` (named windows).
+- Every policy in the run shares the period. A run that starts at `2026-03-31T23:55:00Z` and ends
+  in April still stamps `2026-Q1`.
+- Because the period follows the commit, a run cannot read evidence for a period its HEAD commit
+  has not reached. This is why the scaffolded crons fire inside the period
+  ([09](09-ci-execution-model.md#why-the-crons-fire-on-the-twentieth)).
+
+The CLI writes one `summary.json` per run, in the run folder. It keeps no per-period roll-up; any
+cross-run view is built by `report` from run folders or by SigComply Cloud.
 
 ## Manual evidence periods
 
-There is exactly one carve-out from the freeze rule, and it never
-touches a run artifact: a **manual** entry's *upload folder* is keyed by
-the entry's own cadence window, not by the run's period.
+A manual entry's upload folder is keyed by the entry's own cadence window, not by the run period:
 
 ```
-{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/
-                                         ^^^^^^^^^
-                    daily 2026-01-15 · weekly 2026-W03 · monthly 2026-01
-                    quarterly 2026-Q1 · annual 2026
+{bucket}/{prefix}{evidence_catalog_id}/{period_id}/
+              daily 2026-01-15 · weekly 2026-W03 · monthly 2026-01
+              quarterly 2026-Q1 · annual 2026
 ```
 
-The reason is arithmetic. `isInTemporalWindow` is closed at both ends,
-so a file only satisfies a run whose period contains its upload time.
-Keying an annual attestation's folder on the run's quarter means the
-January upload is invisible to the April, July and October runs — each
-derives a different, empty folder and fails the policy. Since `init-ci`
-scaffolds `compliance-annual.yml` as `sigcomply check --cadence annual`,
-and an explicit cadence filter bypasses carry-forward, that failure is a
-real `exit 1` rather than a stale-evidence warning.
+`planner.CadencePeriod(cfg, t, cadence)` is the single derivation. The planner
+(`resolveManualBinding`) and `sigcomply evidence due` (`internal/manualdue`) both call it with the
+same `PeriodTime` clock and the entry's declared cadence, so the folder `evidence due` reports is
+the folder `check` reads.
 
-What does **not** move: the vault run root, `manifest.json`,
-`summary.json`, the cloud payload's `period_id` and
-`PolicyState.LastPeriodID` are all still the run's period. What does: the
-folder path, the temporal window checked against it, and the
-`period_id` inside the signed evidence record — which now names the
-window the document actually covers. All four period fields
-(`period_id`, `period_start`, `period_end`, `prior_period_id`) are
-stamped onto the slot request from one `planner.Period`
-(`collector.buildSlotRequest`), so they cannot disagree.
+| cadence | `calendar_quarter` | `fiscal_year` | `custom` |
+|---|---|---|---|
+| daily | `2026-01-15` | `2026-01-15` | run period |
+| weekly | `2026-W03` | `2026-W03` | run period |
+| monthly | `2026-01` | `2026-01` | run period |
+| quarterly | `2026-Q1` | `2026-Q1` | run period |
+| annual | `2026` | `FY2026` | run period |
 
-`planner.CadencePeriod` is the single derivation. `sigcomply evidence
-due` calls it with the same inputs, which is how the folder it reports
-stays byte-identical to the one `Collect` reads. A `fiscal_year`
-calendar keeps `FY2026` for the annual cadence; a `custom` calendar, and
-the cadences with no calendar window (`continuous`, `hourly`,
-`every:<duration>`), keep the run's period. Full table:
-[`../configuration.md`](../configuration.md) §Folder layout per evidence
-ID.
+`continuous`, `hourly` and `every:<duration>` have no calendar window and use the run period.
 
-One consequence worth knowing before it surprises you: the
-prior-period duplication check now has a folder to compare against for
-annual entries (last year's, rather than last quarter's, which was
-always empty). Re-uploading a byte-identical document year over year is
-what that check exists to catch; genuinely static evidence is declared
-as an exception in `.sigcomply.yaml`.
+Why: the temporal-window check (`isInTemporalWindow`) is closed at both ends, so a file satisfies
+only a run whose window contains its upload time. If an annual attestation's folder followed the
+run's quarter, a January upload would be invisible to the April, July and October runs, and
+`--cadence annual` (an explicit filter, so no carry-forward) would fail.
 
----
+What follows the cadence window: the folder path, the temporal window, and the `period_id` in the
+signed evidence record. The collector stamps `period_id`, `period_start`, `period_end` and
+`prior_period_id` on the slot request from one `planner.Period` (`collector.buildSlotRequest`).
+What stays on the run period: the run folder, `manifest.json`, `summary.json`, the cloud payload's
+`period_id` and `PolicyState.LastPeriodID`.
+
+The resolver uses the policy's declared cadence, not a project override, so an override never
+relocates the folder (`resolveManualBinding` doc comment).
+
+Customer-facing folder rules: [`../configuration.md`](../configuration.md) §Manual evidence. The
+manual-evidence contract: [`14-manual-evidence.md`](14-manual-evidence.md).
 
 ## Sub-period aggregation
 
-For policies whose cadence is **shorter** than the period (e.g.,
-daily MFA check inside a quarterly period), "latest status" alone
-doesn't answer the auditor's real question: *did this control hold
-continuously throughout the period?*
+`PolicyResult.PeriodAggregate` (evaluations, pass/fail counts, longest failure streak, longest gap)
+is reserved. No command populates it: one run cannot see its period history without scanning the
+vault, and the CLI keeps no cross-run state beyond the gating shards.
 
-The `PeriodAggregate` field on `PolicyResult` is reserved for this
-purpose:
+## Modes and state
 
-```go
-type PeriodAggregate struct {
-    EvaluationsInPeriod          int
-    PassCount                    int
-    FailCount                    int
-    LongestFailureStreak         time.Duration
-    FirstEvaluationAt            time.Time
-    LastEvaluationAt             time.Time
-    LongestGapBetweenEvaluations time.Duration
-}
-```
+| Mode | Set by | Loads state? | Gates by cadence? | Advances state? |
+|---|---|---|---|---|
+| `ModeManual` | default, `--cadence`, `--cadences`, `--on-push` | No | No | Yes |
+| `ModePR` | `--pr` | No | No (on-push set) | Yes |
+| `ModeScheduled` | `--scheduled` | Yes | Yes | Yes |
 
-`PeriodAggregate` is a **reserved** field on `PolicyResult` populated
-by **no shipped command** today. A single run cannot know its period
-history without scanning the vault, so the single-run path always
-leaves it empty. The field is reserved so a future ledger/analysis
-command (not yet shipped) can scan the vault and populate it later
-without a schema bump.
-
-`PeriodAggregate` is omitted entirely for period-aligned cadences
-(quarterly-in-quarterly): there is only one data point to display.
-
----
-
-## Modes and state interaction
-
-| Mode | Loads state? | Gates by cadence? | Advances state? |
-|------|--------------|-------------------|-----------------|
-| `ModeManual` (default) | No | No | Yes (per-policy after eval) |
-| `ModePR` (`--pr`) | No | No (filtered to `on_push` only) | Yes |
-| `ModeScheduled` (`--scheduled`) | Yes (unless filter explicit) | Yes (unless filter explicit) | Yes |
-
-Manual and PR modes always evaluate every in-scope policy. Only
-Scheduled mode applies cadence gating. All three modes advance the
-per-policy state after evaluation — so a PR-triggered run that
-passes a daily policy correctly sets `LastPassAt`, and the next
-Scheduled run skips it as expected.
-
-When a scheduled run also carries an explicit selection filter — the
-planner's `Filter.Policies` / `Filter.Controls` axes, not yet exposed
-as `check` flags — the operator's intent wins: every matching policy
-evaluates regardless of cadence state, and state load is skipped
-entirely in that case.
-
----
+`resolveMode` (`internal/orchestrator/orchestrator.go`) loads state only in `ModeScheduled`.
+`ModeScheduled` with an explicit filter would skip the state load, but `check` makes `--scheduled`
+mutually exclusive with every filter flag, so that path is unreachable from the CLI.
 
 ## Day-1 warnings
 
-Three warnings are non-negotiable from V1 because they prevent the
-most-regretted UX failures from being silently shipped:
+`emitPlanWarnings` (`internal/orchestrator/orchestrator.go`) prints these after planning:
 
-### First-run
+- `first-run: N policies will evaluate for the first time this run`, at info level, for policies
+  with no prior state. Outside `--scheduled` no state is loaded, so this line appears on every run,
+  including every scaffolded `--cadence` and `--on-push` run.
+- `gap-detected: N policies have no evaluation in the last 30d; today's run does not backfill`,
+  at warning level. It needs prior state, so it fires only under `--scheduled`. The threshold is
+  the larger of 30 days and 1.5 × the cadence interval, although the message says 30d. The CLI
+  never back-fills missed evaluations.
+- `coverage-skew` and `coverage-gap` warnings, for slots that no configured source can bind (see
+  [04a](04a-evidence-type-registry.md)).
 
-```
-first-run: 47 policies will evaluate for the first time this run
-first-run: configure a recurring CI schedule before depending on these results
-```
+### Manual evidence due (`sigcomply evidence due`)
 
-Surfaces on the first run after a fresh install OR after a bundle
-update that adds policies. Annual policies will pass on day 1 and
-not re-evaluate for 364+ days — the warning prevents customers from
-mistaking "all-green on day one" for "compliant."
-
-### Gap-detected
-
-```
-gap-detected: 12 policies have no evaluation in the last 30d; today's
-run does not backfill
-```
-
-Surfaces when CI was broken for an extended window. The CLI does NOT
-fabricate retroactive evaluations — auditors will see the gap in the
-period history, which is the correct posture (compare Airflow's
-`catchup=false`).
-
-### Manual evidence due (advisory, `sigcomply evidence due`)
+A separate, advisory command. The scaffolded daily workflow runs it as a non-failing step.
 
 ```
 manual evidence: 3 of 50 entries have an empty folder (run period 2026-Q3)
@@ -517,109 +254,47 @@ manual evidence: 3 of 50 entries have an empty folder (run period 2026-Q3)
   security_awareness_training  annual     2026     105d    s3://acme-evidence/manual/security_awareness_training/2026/
 ```
 
-The PERIOD column is per entry, not per run: an entry's folder follows
-its own cadence window (§Manual evidence periods). The run's period is
-printed once, as context.
+Rules it follows (`internal/manualdue`):
 
-Manual evidence used to have exactly one deadline signal: a red CI job on
-the day the evidence was already needed. `sigcomply evidence due` is the
-earlier one. It lists catalog entries whose current-period folder is still
-empty and is wired into the scaffolded daily workflow as a **non-failing**
-step.
-
-Two properties make it worth reading rather than muting:
-
-- **It reports only genuinely empty folders.** Once the file is uploaded
-  the entry disappears. A notice that keeps firing after the operator has
-  complied is a notice people learn to ignore.
-- **It never changes an exit code.** The scan exits 0 whatever it finds,
-  and a storage failure degrades to "could not verify" rather than
-  inventing deadlines it cannot substantiate.
-
-`DAYS LEFT` counts down to the entry's period end on the same clock the
-period was derived from — the HEAD commit's, under the default
-`time_basis`. Measuring it on the wall clock instead would report a repo
-with a stale HEAD as months overdue for a period the next run will
-happily read, which is a false alarm rather than an early warning. For
-the same reason there is no "overdue" state: the run that reads this
-folder derives this same period and reads it while the window is open.
-
-Unlike the three warnings above it is a separate command, not part of a
-`check` run: the per-cadence crons filter the plan (`--cadence daily`
-excludes quarterly policies entirely, `internal/planner/planner.go`), so a
-daily `check` cannot see the manual policies that need warning about.
-
-Note it is computed from the catalog and the period (and, for a fan-out entry, once
-per member of the declared set rather than once for the entry), **not** from
-`PolicyState.NextDueAt`: that field is only written after a policy passes
-(`AdvancePolicyState`, `internal/orchestrator/state.go`), so a policy that
-has never passed — precisely the one needing a warning — has none.
-
-### State-write-failed (warning-level in v1)
-
-A `WritePolicyState` failure is logged at warning level. The next
-run treats the un-advanced policy as still-due and re-evaluates —
-over-run is safe; under-run is not. A future revision may upgrade
-this to a hard error in CI mode.
-
----
+- It lists only entries whose current folder is empty; an entry disappears once a file lands.
+  Fan-out entries are checked once per member.
+- It always exits 0. A storage failure is reported as "could not verify", not as a deadline.
+- `PERIOD` is per entry (its cadence window). The run period is printed once as context.
+- `DUE IN` counts down to the entry's period end on the `PeriodTime` clock (HEAD commit time by
+  default), not the wall clock. A stale HEAD would otherwise show a period the next run will read
+  as overdue. There is no "overdue" state.
+- It does not use `PolicyState.NextDueAt`: `AdvancePolicyState` sets that only after a pass, so a
+  policy that never passed has none.
+- It is not part of `check`: a `--cadence daily` run filters out quarterly and annual manual
+  policies, so it cannot see them.
 
 ## Cloud payload cadence fields
 
-The submission schema is `sigcomply.cloud.v5`. These five non-identifying
-scalars per policy (added in v2, retained unchanged in v3) let the
-dashboard render staleness and next-due badges without recomputing
-locally:
+Each `AggregatedPolicy` (`internal/core/cloud.go`) carries five scalars so the dashboard can show
+staleness without recomputing: `configured_cadence`, `last_evaluated_at`, `next_due_at`,
+`is_carried_forward`, `policy_content_hash`. They are scalars, not maps, and the reflection test in
+`internal/core/cloud_test.go` fails the build if a freeform field is added. Schema versioning is
+owned by [06](06-aggregation.md).
 
-- `ConfiguredCadence` (string)
-- `LastEvaluatedAt` (RFC3339)
-- `NextDueAt` (RFC3339)
-- `IsCarriedForward` (bool)
-- `PolicyContentHash` (string)
+## Out of scope by design
 
-(v3's own change is unrelated to cadence — it swapped the scalar
-`control_id` for a `controls []ControlRef` list; see
-[06-aggregation.md](./06-aggregation.md).)
+| Item | Reason |
+|---|---|
+| Cron strings as the cadence DSL | Named cadences plus `every:<duration>` cover the catalog. |
+| Drift detection between runs | Cross-run history is Rails work; the CLI is snapshot-based. |
+| Cadences under 5 minutes | API rate limits and cost. |
+| Glob overrides (`soc2.cc6.*`) | Not needed yet. |
+| Skip-when-evidence-unchanged, `pause_until` | Cadence plus retry-on-fail covers the need. |
+| Calling cadence-gated checks "continuous monitoring" | Auditors flag the mismatch; say "scheduled evaluation". |
+| Sending more than the five cadence scalars to Cloud | The wire type stays counts-only. |
 
-The aggregation boundary is preserved: every cadence field is a scalar,
-not a map or interface. The structural counts-only test in
-`core/cloud_test.go` enforces this — adding a freeform field fails
-the build.
+## Code map
 
-The Cloud-side staleness alarm fires when `NextDueAt < now - grace`.
-The same query covers both per-policy staleness (one policy overdue)
-and org-level absence (every policy stale because nothing has
-submitted). One query, two surfaces — see the Rails app's
-`Api::V1::RunsController`.
-
----
-
-## What we explicitly do NOT do
-
-The greenfield design is deliberately small. The following live in
-the design space but are intentionally absent in v1:
-
-| Item | Why not in v1 |
-|------|---------------|
-| Cron strings as the cadence DSL | Universally regretted at scale. Named cadences + `every:<duration>` cover 99% of catalog needs. |
-| Drift detection between runs | Paid Rails feature, not free CLI. Keep the CLI snapshot-based. |
-| Sub-5-minute cadences | API rate-limit cliff. Trapdoor for cost surprise. |
-| Glob overrides (`soc2.cc6.*: weekly`) | YAGNI. First customer with ≥10 same-prefix overrides earns this feature. |
-| `on_change_evaluate` (skip when evidence stable) | YAGNI. Cadence + on_fail_retry covers 99% of cases. |
-| `pause_until: <date>` | YAGNI. We control the policy bundle and can remove policies; pause becomes useful only with customer-owned policy lifecycles. |
-| Fiscal-calendar with non-January start (per-framework) | First customer with the need. |
-| Calling cadence-gated checks "continuous monitoring" | SOC 2 wording trap — auditors flag the mismatch. Internal: "scheduled evaluation." |
-| Sending anything more than the five new scalars to Cloud | Slippery slope into identifier leakage. The wire type stays counts-only. |
-
----
-
-## See also
-
-- `internal/core/policy_state.go` — the type
-- `internal/orchestrator/state.go` — shard reads/writes + monotonic guard
-- `internal/planner/cadence.go` — cadence parsing, NextDueAt, IsDue, DueReason
-- `internal/planner/plan.go` — `PlannedPolicy.ShouldEvaluate`
-- `internal/orchestrator/orchestrator.go` — `loadPolicyStates`, `advancePolicyStates`, `emitPlanWarnings`
-- `internal/core/cloud.go` — `AggregatedPolicy` cadence scalars
-- `docs/architecture/06-aggregation.md` — Cloud schema versioning
-- `docs/architecture/09-ci-execution-model.md` — pipeline ↔ mode mapping
+- `internal/planner/cadence.go`: `CadenceInterval`, `IsDue`, `DueReason`, `NextDueAt`.
+- `internal/planner/planner.go`: `decideEvaluation`, `filterAccepts`, `resolveManualBinding`.
+- `internal/planner/period.go`: `PeriodTime`, `DerivePeriod`, `CadencePeriod`.
+- `internal/core/policy_state.go`: `PolicyState`, `PolicyContentHash`, `canonicalizePolicy`.
+- `internal/orchestrator/state.go`: shard paths, bulk read, monotonic write, `AdvancePolicyState`.
+- `internal/orchestrator/orchestrator.go`: `resolveMode`, `loadPolicyStates`,
+  `advancePolicyStates`, `emitPlanWarnings`.
+- `internal/manualdue/due.go`: `evidence due` scan and output.
