@@ -7,3 +7,6 @@
 [tools]
 go = "1.27"
 golangci-lint = "2.14.0"
+# Same version .github/workflows/docs-lint.yml downloads, so a local
+# `vale --minAlertLevel=error` predicts the CI verdict.
+vale = "3.24.0"

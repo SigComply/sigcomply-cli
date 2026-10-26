@@ -1,6 +1,6 @@
 # Prose lint for customer-facing docs: README.md, SECURITY.md, CONTRIBUTING.md and docs/**/*.md (not docs/claude/ or docs/architecture/, which are internal).
-# Lints only the Markdown files this push or pull request changed, and fails
-# only on error-level alerts (AI-writing tells, compliance overclaims,
+# Lints the Markdown files this push or pull request changed (every customer doc
+# when the Vale config or this workflow changes), and fails only on error-level alerts (AI-writing tells, compliance overclaims,
 # spelling, -ly hyphens). Warnings and suggestions show locally with `vale <file>`.
 name: Docs Lint
 
@@ -63,6 +63,11 @@ jobs:
             git ls-files -z > "$RUNNER_TEMP/all.list"
           else
             git diff --name-only -z --diff-filter=d "$BEFORE" "$SHA" > "$RUNNER_TEMP/all.list"
+          fi
+          # A change to the Vale config or this workflow can change the verdict for
+          # every page, so lint all customer docs, not just the changed ones.
+          if grep -qzE '^(\.vale\.ini|\.vale/|\.github/workflows/docs-lint\.yml)' "$RUNNER_TEMP/all.list"; then
+            git ls-files -z > "$RUNNER_TEMP/all.list"
           fi
           { grep -zE "$include" "$RUNNER_TEMP/all.list" || true; } > "$list"
           if [ -n "$exclude" ]; then

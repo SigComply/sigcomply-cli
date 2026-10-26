@@ -2,15 +2,16 @@
 # Bumps version, creates a tag, and runs GoReleaser on every push to main
 # whose test suite is green.
 #
-# The gate is not optional decoration. The E2E repos install
-# releases/latest and resolve it at run time, so an ungated tag reaches
-# them the moment it is pushed. Calling test.yml (rather than racing it,
+# The gate is not optional decoration. The GitHub E2E repo resolves
+# releases/latest at run time on its daily cron, so an ungated tag
+# reaches it on its next run (the GitLab E2E repo pins a version). Calling test.yml (rather than racing it,
 # or chaining off workflow_run) keeps the push event — and with it
 # head_commit.message for the [skip release] marker, paths-ignore, and a
 # checkout of the exact commit that was pushed.
 # Uses conventional commit prefixes to determine version bump. Only the
 # subject line of each commit since the last tag is read, never the body:
-#   type!: or BREAKING CHANGE in a subject -> major bump
+#   type!: or the words "breaking change" anywhere in a subject, in any
+#   case -> major bump (so "fix: handle breaking changes in X" is major)
 #   feat: -> minor bump
 #   anything else (fix:, refactor:, perf:, docs:, ...) -> patch bump
 #
@@ -30,6 +31,7 @@ on:
       - '.claude/**'
       - '.vale/**'
       - '.vale.ini'
+      - '.github/workflows/docs-lint.yml'
   # Manual escape hatch for a release that was missed — a push whose only
   # changes were path-ignored, or one whose commit body tripped the skip
   # marker. There is no head_commit on a dispatch, so the skip condition

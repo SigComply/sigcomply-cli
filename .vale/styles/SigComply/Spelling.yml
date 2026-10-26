@@ -11,3 +11,4 @@ filters:
   - '^[a-z]?[A-Z]{2,}[a-z]*s$'  # gMSAs, CSOCs
   - "^\\w+'s$"                 # possessives (CLI's, commit's): Hunspell lacks most of them
   - '^(?:github|gitlab)$'      # lowercase provider values (--ci github)
+  - '^(?:GET|POST|PUT|PATCH|DELETE)(?:s|ed|ing)$'  # HTTP verbs used as verbs (POSTing)
