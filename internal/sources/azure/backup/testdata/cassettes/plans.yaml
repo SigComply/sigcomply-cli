@@ -81,7 +81,7 @@ interactions:
                 - REDACTED
             User-Agent:
                 - azsdk-go-armrecoveryservicesbackup/v4.2.0 (go1.25.8; darwin)
-        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.RecoveryServices/vaults/sigcomply-e2e-rsv/backupPolicies?api-version=2026-10-01
+        url: https://management.azure.com/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/sigcomply-e2e-rg/providers/Microsoft.RecoveryServices/vaults/sigcomply-e2e-rsv/backupPolicies?api-version=2026-08-01
         method: GET
       response:
         proto: HTTP/2.0
