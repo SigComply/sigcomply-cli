@@ -60,7 +60,7 @@ require (
 	github.com/go-asn1-ber/asn1-ber v1.5.8
 	github.com/go-ldap/ldap/v3 v3.4.15
 	github.com/google/uuid v1.6.0
-	github.com/open-policy-agent/opa v1.21.2
+	github.com/open-policy-agent/opa v1.21.3
 	github.com/pdfcpu/pdfcpu v0.16.2
 	github.com/phpdave11/gofpdf v1.4.3
 	github.com/spf13/cobra v1.10.2
