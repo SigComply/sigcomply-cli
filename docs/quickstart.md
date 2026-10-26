@@ -1,173 +1,160 @@
 # Quickstart
 
-Your first passing `sigcomply check`, start to finish, on your own machine.
+In this tutorial you run SigComply on your own machine against one AWS account, store the
+signed evidence in a local folder, and make one manual-evidence control pass by adding a
+document. Nothing leaves your machine.
 
-**Goal:** in about 10 minutes you'll have your first passing `sigcomply check`
-writing signed SOC 2 evidence to a local vault — no cloud, no CI, no credit card.
+## Before you start
 
-Everything runs locally against a read-only AWS account. When you're done, you'll
-have signed evidence in `./.sigcomply/vault` and a passing run summary.
+You need:
 
-> This is the hand-held happy path. For the fuller journey (CI, cloud dashboard,
-> manual evidence, auditors), continue to [Getting started](getting-started.md).
-> Back to the [docs hub](README.md).
+- AWS credentials with read-only access to one account, for example a user or role with the
+  AWS-managed `ReadOnlyAccess` policy. SigComply only makes `Describe`, `List` and `Get` calls.
+- A macOS or Linux shell.
+- Any PDF file, to use as a stand-in document in step 5.
 
-## Prerequisites
-
-- **An AWS account** you can read from, with credentials that have read-only
-  access (e.g. the AWS-managed `ReadOnlyAccess` policy). All SigComply collectors
-  use read-only `Describe`/`List`/`Get` calls only.
-- **The `sigcomply` CLI** installed and on your `PATH`. If you haven't yet:
-
-  ```sh
-  curl -fsSL https://raw.githubusercontent.com/SigComply/sigcomply-cli/main/scripts/install.sh | sh
-  ```
-
-  Verify it:
-
-  ```sh
-  sigcomply version
-  # sigcomply <version> (commit <c>, built <t>)
-  ```
-
-  Full install options: [guides/install.md](guides/install.md).
-
-## Step 1 — Scaffold a config
-
-From an empty directory (or your project repo), generate a ready-to-edit config:
+## 1. Install the CLI
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/SigComply/sigcomply-cli/main/scripts/install.sh | sh
+sigcomply version
+```
+
+The script installs the latest release into `/usr/local/bin` and runs `sudo` if it can't write
+there. To install somewhere else, set `SIGCOMPLY_INSTALL_DIR` first. Other options are in
+[Install](guides/install.md).
+
+## 2. Create a project and scaffold a config
+
+```sh
+mkdir sigcomply-quickstart
+cd sigcomply-quickstart
 sigcomply init -f soc2
 ```
 
-This writes `.sigcomply.yaml` and prints the path. It refuses to overwrite an
-existing file unless you pass `--force`.
-
-A minimal, known-good config looks like this — the scaffold is a commented
-superset of it:
+`init` writes `.sigcomply.yaml`, a commented SOC 2 config that works as it is. These are the
+lines that matter for this tutorial:
 
 ```yaml
-schema_version: project.v1
 framework: soc2
+
 sources:
   aws.iam:
     region: us-east-1
+  manual.pdf:
+    backend: local
+    path: ./evidence
+
 vault:
   backend: local
   path: ./.sigcomply/vault
 ```
 
-Two things to know:
+- `sources` lists where evidence comes from. `aws.iam` reads IAM users, access keys and the
+  password policy. `manual.pdf` reads documents you upload under `./evidence/manual/`
+  (`manual/` is the default prefix inside that folder).
+- `vault` is where SigComply writes signed results: here, a local folder.
 
-- **Credentials never go in this file.** They come from the ambient environment
-  (Step 2). The config only names the sources you want and where to store
-  evidence.
-- **Policies auto-bind** to any configured source that emits the evidence type
-  they need — you do **not** need a `bindings:` block to start.
+Credentials never go in this file. The CLI reads them from the environment.
 
-The full scaffold also wires a `manual.pdf` source pointing at a local
-`./evidence` folder. SOC 2 ships 50 catalog entries whose evidence is a document
-rather than an API call (access reviews, signed NDAs, training certificates, risk
-declarations). Until you upload those files they simply report **fail**
-("evidence not found") — see [What you'll see](#what-youll-see) — and
-[Getting started](getting-started.md) walks through producing and uploading them.
-For the declaration/checklist entries you can generate the PDF with the optional
-[Evidence SPA](guides/manual-evidence.md); externally sourced documents (HR
-exports, certificates) you upload directly. The SPA shows only the
-declaration/checklist entries by design.
-
-## Step 2 — Export read-only AWS credentials
-
-`sigcomply` reads AWS credentials from the environment using the standard AWS SDK
-chain:
+## 3. Export your AWS credentials
 
 ```sh
-export AWS_ACCESS_KEY_ID=AKIAEXAMPLE
-export AWS_SECRET_ACCESS_KEY=examplesecret
-export AWS_REGION=us-east-1
+export AWS_ACCESS_KEY_ID=<your-access-key-id>
+export AWS_SECRET_ACCESS_KEY=<your-secret-access-key>
 ```
 
-(You can also use `AWS_PROFILE`, `AWS_SESSION_TOKEN`, or an assumed IAM role —
-anything the AWS SDK understands.)
+`AWS_PROFILE`, `AWS_SESSION_TOKEN` and anything else the AWS SDK reads also work.
 
-## Step 3 — Run the check
+## 4. Run a check
 
 ```sh
 sigcomply check
-```
-
-`check` reads `framework: soc2` from your config (it has no `--framework` flag),
-plans the SOC 2 policies for the current period, collects evidence from the AWS
-source, evaluates each policy, and signs the results into your vault.
-
-## What you'll see
-
-Before any API call, `check` prints a short banner naming the sources it is about
-to collect from (and their region/backend) — a reminder that this is a live run
-against real infrastructure, not a dry run. Then a run summary is printed,
-followed by an exit code:
-
-- **Exit `0`** — every evaluated policy passed.
-- **Exit `1`** — the run completed but found violations (policies that failed).
-- Exit `2` = execution error, `3` = configuration error.
-
-Check the exit code with:
-
-```sh
 echo $?
 ```
 
-Both `0` and `1` mean the run worked — `1` just means there are findings to
-address, which is **normal and expected on a first run**. In particular:
+The CLI names the sources it is about to read, then prints one line per policy. The first line
+of the summary names the framework and the period, for example:
 
-- **Manual-evidence controls report `fail`** with a reason line like
-  `manual evidence not found; expected files in: file://./evidence/manual/...`.
-  That's the CLI telling you exactly where to drop each document. They pass once
-  you upload files to those folders.
-- **Controls whose source you haven't configured are `skip`ped** (e.g. GitHub or
-  GCP checks when you only wired AWS). Skipped controls are listed separately and
-  are **not** counted in the compliance score — a green run that skips controls is
-  not a passing audit. Note the direction of that effect: because skipped
-  controls leave the denominator, forgetting a platform *raises* your score
-  rather than lowering it. Once your sources are wired, declare the estate
-  under [`experimental.scope`](./configuration.md#experimentalscope--declaring-the-estate)
-  so a source that goes missing becomes a finding instead of silence, and
-  run `sigcomply report --view scope` to see exactly what a run did not
-  evaluate.
-
-A fresh `sigcomply init -f soc2 && sigcomply check` therefore exits `1` (findings
-to remediate), never `2` — every control either evaluates, fails with an
-actionable reason, or is transparently skipped.
-
-## Where your evidence landed
-
-Everything is written to the local vault you configured (`./.sigcomply/vault`):
-
-- **Signed `EvidenceEnvelope` files** — one per evidence file, each signed with a
-  fresh ephemeral Ed25519 keypair (the private key is discarded immediately; the
-  public key and signature are embedded in the envelope).
-- **A per-run `manifest.json`** — a signed list of file hashes covering the whole
-  run, so the run is integrity-verifiable from a single signature.
-
-Run paths use basic ISO 8601 timestamps without colons (e.g. `20260325T100000Z`).
-This vault is yours — raw evidence never leaves it.
-
-Take a read-only look at what was produced:
-
-```sh
-sigcomply report --period 2026-Q1
+```
+SigComply check soc2/2026-Q4 — <n> policies
+  pass=... fail=... carried=0 skip=... error=0 na=0 waived=0
 ```
 
-(Use the period ID for the current quarter.) See
-[guides/verify-evidence.md](guides/verify-evidence.md) for the available views.
+Note this run period (`2026-Q4` here). You need it in step 6.
+
+`echo $?` prints `1` on a first run. That is expected: some policies fail. You'll see three
+kinds of lines:
+
+- `[pass]` and `[fail]` lines for IAM policies, such as `soc2.cc6.1.mfa_enforced_all_users`.
+  Under a failing policy, a `↳` line says what failed.
+- `[fail]` lines for documents you haven't uploaded yet. SOC 2 ships 50 catalog entries whose
+  evidence is a document (a policy, a training record, a review), and each line names the
+  folder to put it in:
+
+  ```
+  [fail] soc2.c1.3.nda_policy — C1.3
+      ↳ manual evidence not found; expected files in: file://./evidence/manual/nda_policy/2026/
+  ```
+
+- `[skip]` lines for policies that need a source you haven't configured, such as GitHub or a
+  database. A block at the end of the output lists each skipped policy and the evidence type it
+  needs.
+
+If `check` exits `3` with `no usable AWS credentials`, the variables from step 3 aren't set in
+this shell.
+
+## 5. Add one document
+
+Make the NDA policy pass. Use the folder from its `↳` line. The last part of that path is not the
+run period from step 4: each document has its own period, set by how often it is due. The NDA
+policy is annual, so its folder is the calendar year. Replace `2026` below if your
+output shows a different year, and use the path of any PDF you have:
+
+```sh
+mkdir -p evidence/manual/nda_policy/2026
+cp /path/to/any.pdf evidence/manual/nda_policy/2026/
+sigcomply check
+```
+
+The NDA line now reads `[pass] soc2.c1.3.nda_policy — C1.3`. The CLI checked that a supported
+file is in the folder for the period. It did not read the file. Judging what a document says
+is your auditor's job. The run still exits `1`, because the other policies still fail.
+
+To list every document the framework expects and where it goes, run:
+
+```sh
+sigcomply evidence due --all
+```
+
+## 6. Look at the evidence
+
+Each run writes a folder under `.sigcomply/vault/soc2/<period>/`:
+
+```
+run_20261026T201203Z_14f82a86/
+  manifest.json          # SHA-256 hash of every file in the run, signed
+  summary.json           # status of every policy
+  policies/<policy-id>/
+    result.json          # the policy result, with the full list of failing resources
+    envelopes/           # the evidence the policy read, signed
+```
+
+Read it back with `report`, using the period ID from step 4:
+
+```sh
+sigcomply report --period 2026-Q4
+sigcomply report --period 2026-Q4 --view integrity
+```
+
+The first command lists each policy's latest status. The second re-checks every signature and
+file hash in the period's runs and prints `pass` for each intact run.
 
 ## Next steps
 
-- **[Getting started](getting-started.md)** — connect SigComply Cloud
-  (sign up at **https://sigcomply.com**), run in CI with OIDC, add manual
-  evidence, and invite an auditor.
-- **[Configure sources](guides/configure-sources.md)** — add GCP, Azure, GitHub,
-  GitLab, or Okta sources with read-only credentials.
-- **[CI on GitHub](guides/ci-github.md)** / **[CI on GitLab](guides/ci-gitlab.md)** — automate `check` on a cadence.
-- **[Configuration reference](configuration.md)** — the full `.sigcomply.yaml` schema.
-- Back to the **[docs hub](README.md)**.
+- [Run SigComply in CI](getting-started.md): run SigComply in CI on a schedule, and optionally send
+  results to the SigComply Cloud dashboard.
+- [Configure sources](guides/configure-sources.md): add GCP, Azure, GitHub, GitLab, Okta or
+  Active Directory.
+- [Concepts](concepts.md): what leaves your environment, how signing works, and what a passing
+  score does not tell you.

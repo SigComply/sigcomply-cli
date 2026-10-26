@@ -1,159 +1,165 @@
 # Commands
 
-Reference for every wired `sigcomply` command, its flags, and its exit codes.
+Every `sigcomply` command, its flags and its exit codes. `sigcomply <command> --help` prints the
+same flags.
 
-Back to the [documentation hub](../README.md).
-
-## Exit codes (all commands)
+## Exit codes
 
 | Code | Meaning |
 |---|---|
-| `0` | Passed — no violations |
-| `1` | Violations found |
-| `2` | Execution error |
-| `3` | Configuration error |
+| `0` | Success. For `check`: no policy failed, or `ci.fail_on_violation: false` is set. |
+| `1` | `check` only: a policy failed, or a source declared under `experimental.scope` is incomplete. Set `ci.fail_on_violation: false` to exit `0` instead. |
+| `2` | Execution error, including any policy with status `error`, a credential the provider rejected, and an unknown, invalid or conflicting flag. |
+| `3` | Configuration error: a missing or invalid config, an unknown framework, a listed source whose credentials are missing, or a missing required flag value such as `report --period`. |
 
-## Framework resolution differs by command
+A missing credential exits `3` before any collection starts. A credential the provider rejects
+can only be found during collection, so the affected policies end as `error` and the run exits
+`2`.
 
-| Command | How the framework is chosen |
+## Framework resolution
+
+| Command | Where the framework comes from, in order |
 |---|---|
-| `init`, `evidence catalog` | `-f/--framework` flag → `SIGCOMPLY_FRAMEWORK` env → `soc2` default |
-| `evidence due` | `-f/--framework` flag → `framework:` from config → `SIGCOMPLY_FRAMEWORK` env → `soc2` default |
-| `check` | `framework:` from the loaded config **only** (no flag, ignores `SIGCOMPLY_FRAMEWORK`); missing → exit 3 |
-| `init-ci`, `report` | Default framework from config |
+| `check` | `framework:` in the config only. No flag; `SIGCOMPLY_FRAMEWORK` is ignored. Missing: exit `3`. |
+| `init`, `evidence catalog` | `-f/--framework`, then `SIGCOMPLY_FRAMEWORK`, then `soc2` |
+| `evidence due` | `-f/--framework`, then `framework:` in the config, then `SIGCOMPLY_FRAMEWORK`, then `soc2` |
+| `init-ci` | `--framework`, then the `framework:` line of the config, then `soc2` |
+| `report` | `-f/--framework`, then `framework:` in the config. Neither: exit `3`. |
 
 ## `sigcomply check`
 
-```bash
+```sh
 sigcomply check [flags]
 ```
 
-Runs the full pipeline: plan policies for the framework and period, collect evidence from bound sources, evaluate each policy, persist signed envelopes + per-policy results + run manifest to the vault, and optionally submit aggregated counts to the cloud.
+Plans the framework's policies for the current period, collects evidence from the configured
+sources, evaluates each policy, writes signed envelopes, results and a signed run manifest to
+the vault, and submits counts to SigComply Cloud when cloud submission is on.
 
-The run-mode flags `--cadence`, `--cadences`, `--on-push`, `--pr`, and `--scheduled` are **mutually exclusive**.
+The period is taken from the timestamp of the HEAD commit (configurable with
+`period.time_basis`). The first summary line prints it, for example
+`SigComply check soc2/2026-Q4`.
 
-| Flag | Shorthand | Default | Meaning |
+| Flag | Short | Default | Meaning |
 |---|---|---|---|
-| `--cadence <value>` | | | Run one cadence: `continuous`, `hourly`, `daily`, `weekly`, `monthly`, `quarterly`, `annual` |
-| `--cadences <csv>` | | | Intersect multiple cadences (comma-separated); `on_push` is a virtual value |
-| `--on-push` | | | Push-mode run (on_push filter) |
-| `--pr` | | | PR-mode: on_push filter with a ~8 min/slot retry budget |
-| `--scheduled` | | | Consult per-framework execution state, run due cadences, advance state |
-| `--cloud` | | | Force cloud submission (requires OIDC) |
-| `--no-cloud` | | | Disable cloud submission |
-| `--cloud-url <url>` | | | Override the cloud endpoint |
-| `--capture-cloud-payload <file>` | | | Write the submission payload to a file instead of POSTing (auditor escape hatch) |
-| `--config <path>` | `-c` | `.sigcomply.yaml` | Config file path |
-| `--verbose` | `-v` | `false` | Verbose output |
+| `--cadence <value>` | | | Only evaluate policies whose effective cadence matches: `continuous`, `hourly`, `daily`, `weekly`, `monthly`, `quarterly`, `annual` |
+| `--cadences <list>` | | | Comma-separated cadence set; a policy matches if any of its cadences is in the set. `on_push` selects on-push policies. |
+| `--on-push` | | | Only evaluate policies whose `on_push` attribute is true |
+| `--pr` | | | Pull request mode: on-push policies, with a retry budget of about 8 minutes per slot |
+| `--scheduled` | | | Run whichever cadences are due according to the vault's execution state, then advance the state |
+| `--cloud` | | | Submit even outside CI. Needs an OIDC token and `cloud.base_url` (or `--cloud-url`); without a URL it warns and skips. |
+| `--no-cloud` | | | Never submit |
+| `--cloud-url <url>` | | `cloud.base_url` | SigComply Cloud base URL. Setting it turns submission on, like `cloud.base_url`. |
+| `--capture-cloud-payload <file>` | | | Write the submission payload to this file instead of sending it |
+| `--config <path>` | `-c` | `.sigcomply.yaml` | Config file |
+| `--verbose` | `-v` | `false` | Verbose logging |
 
-`check` has **no** `--framework` flag and ignores `SIGCOMPLY_FRAMEWORK`.
+`--cadence`, `--cadences`, `--on-push`, `--pr` and `--scheduled` are mutually exclusive;
+combining two exits `2`. `check` has no `--framework` flag.
 
-Exit codes: `0` passed · `1` violations (when `ci.fail_on_violation` is set) · `2` execution error · `3` config error (including a missing `framework:`).
+Without `--cloud` or `--no-cloud`, the CLI submits only when all of these hold: a base URL is
+set, the run is in GitHub Actions or GitLab CI, and an OIDC token is available. A failed
+submission does not change the exit code.
 
 ## `sigcomply init`
 
-```bash
+```sh
 sigcomply init [flags]
 ```
 
-Writes a ready-to-edit `.sigcomply.yaml` that runs out of the box (local vault, auto-binding).
+Writes a commented `.sigcomply.yaml` for the framework. It runs as written: AWS IAM as the one
+API source, a local `manual.pdf` source in `./evidence`, and a local vault.
 
-| Flag | Shorthand | Default | Meaning |
+| Flag | Short | Default | Meaning |
 |---|---|---|---|
-| `--framework <value>` | `-f` | `$SIGCOMPLY_FRAMEWORK` → `soc2` | Framework: `soc2` or `iso27001` |
+| `--framework <value>` | `-f` | `$SIGCOMPLY_FRAMEWORK`, then `soc2` | `soc2` or `iso27001` |
 | `--out <path>` | `-o` | `.sigcomply.yaml` | Output path |
-| `--force` | | `false` | Overwrite an existing file (otherwise refuses → exit 3) |
+| `--force` | | `false` | Overwrite an existing file. Without it, an existing file exits `3`. |
 
 ## `sigcomply init-ci`
 
-```bash
+```sh
 sigcomply init-ci --ci <github|gitlab> [flags]
 ```
 
-Scaffolds CI workflow files calibrated to the framework's cadence distribution.
+Writes CI files that install the CLI release and run `check` per cadence.
 
-- **GitHub**: writes one workflow per cadence under `.github/workflows/`: `compliance-daily.yml`, `compliance-weekly.yml`, `compliance-monthly.yml`, `compliance-quarterly.yml`, `compliance-annual.yml`, `compliance-on-push.yml`.
-- **GitLab**: writes a single `.gitlab-ci.yml` at the repo root with cadence-keyed jobs driven by pipeline schedules (`$CADENCE`).
+- `--ci github` writes `compliance-daily.yml`, `compliance-weekly.yml`,
+  `compliance-monthly.yml`, `compliance-quarterly.yml`, `compliance-annual.yml` and
+  `compliance-on-push.yml` to `.github/workflows/`.
+- `--ci gitlab` writes one `.gitlab-ci.yml` with a job per cadence, selected by the `CADENCE`
+  variable of a pipeline schedule.
 
-| Flag | Shorthand | Default | Meaning |
+The daily workflow (GitHub) and daily job (GitLab) also run `sigcomply evidence due` as a step
+that cannot fail the job.
+
+| Flag | Short | Default | Meaning |
 |---|---|---|---|
-| `--ci <value>` | | | **Required.** `github` or `gitlab` |
-| `--framework <value>` | | Config framework → `soc2` | Framework |
-| `--out <path>` | | `.github/workflows/` (github), repo root (gitlab) | Output location |
-| `--force` | | `false` | Overwrite existing files |
-| `--config <path>` | `-c` | `.sigcomply.yaml` | Config file path |
+| `--ci <value>` | | | Required. `github` or `gitlab`. Missing: exit `3`. |
+| `--framework <value>` | | config, then `soc2` | Framework. Only `soc2` is accepted. |
+| `--out <path>` | | `.github/workflows/` (github), repository root (gitlab) | Output directory |
+| `--force` | | `false` | Overwrite existing files. Without it, any existing target file exits `3`. |
+| `--config <path>` | `-c` | `.sigcomply.yaml` | Config used to default `--framework` |
 
-**SOC 2 only in v1-alpha.** Any other framework → exit 3 (`framework %q not supported in v1-alpha`).
+Any framework other than `soc2` exits `3`. The workflows don't name a framework (`check` reads
+it from the config), so an ISO 27001 project can run `init-ci --ci github --framework soc2` and
+keep `framework: iso27001` in its config.
 
 ## `sigcomply build`
 
-```bash
+```sh
 sigcomply build [flags]
 ```
 
-Compiles a project-tailored binary that includes Go extensions under `.sigcomply/`; a no-op if none exist. Extensions cannot directly import `os/exec` or `net`/`net/*` — a deny-list over the direct imports of each extension directory's top-level files, not a sandbox. Most customers never need this command.
+Compiles a binary that includes the Go extensions under `.sigcomply/` (source plugins, vault
+backends, manual readers). With no Go extensions it does nothing; YAML policies, Rego rules and
+evidence-type JSON schemas under `.sigcomply/` load at every `check` without a build.
 
-Two caveats worth knowing before you reach for it:
+Extensions import `github.com/sigcomply/sigcomply-cli/plugin`, and the project's `go.mod` must
+require the CLI module at the version of the binary you build with. An extension's top-level
+files may not import `os/exec`, `net` or `net/*`; this import check is not a sandbox. A Go rule
+package or Go evidence-type package compiles but is never loaded, and `build` prints a warning
+for each. Details: [Extensibility](../architecture/07-extensibility.md).
 
-- **Go extensions import the public `plugin` package, and your project must require the CLI module.** Write your plugin against `github.com/sigcomply/sigcomply-cli/plugin` (`plugin.SourcePlugin`, `plugin.RegisterSource`, `plugin.RegisterVaultBackend`, `plugin.ManualReader`) — never `internal/…`, which Go refuses to let a package outside this module import. Because this command compiles your package inside *your* module, the project needs a `go.mod` that `require`s `github.com/sigcomply/sigcomply-cli`, pinned to the same version as the `sigcomply` binary you run `build` with. Project-local **YAML policies**, **Rego rules**, and **evidence-type JSON schemas** need no build step at all: they load at every `check`. See [`07-extensibility.md`](../architecture/07-extensibility.md) §The public API package.
-- **Two discovered kinds are compiled but never loaded.** A Go rule package (`.sigcomply/policies/<id>/rules/`) and a Go evidence-type package (`.sigcomply/evidence_types/<id>/`) have no registration hook, so the build prints `warning: … is compiled in but has no registration hook and will not be loaded` for each. Use a `rule.rego` and an `evidence_types/<id>.v<n>.json` instead.
-
-| Flag | Shorthand | Default | Meaning |
+| Flag | Short | Default | Meaning |
 |---|---|---|---|
-| `--project <dir>` | | `.` | Project directory |
-| `--output <path>` | | `./bin/sigcomply` | Output binary path |
-| `--tags <csv>` | | | Extra Go build tags |
-| `--ldflags <str>` | | | Extra linker flags |
+| `--project <dir>` | | `.` | Directory that contains `.sigcomply/` |
+| `--output <path>` | | `./bin/sigcomply` | Output binary |
+| `--tags <list>` | | | Go build tags, comma-separated |
+| `--ldflags <value>` | | | Passed to `go build -ldflags` |
 | `--verbose` | `-v` | `false` | Verbose output |
 
 ## `sigcomply report`
 
-```bash
-sigcomply report [flags]
+```sh
+sigcomply report --period <period-id> [flags]
 ```
 
-Read-only vault snapshot. Never writes to the vault, never calls the cloud, never needs OIDC.
+Reads the vault and prints one view of a period. It never writes to the vault, never contacts
+SigComply Cloud and needs no OIDC token.
 
-| Flag | Shorthand | Default | Meaning |
+| Flag | Short | Default | Meaning |
 |---|---|---|---|
-| `--config <path>` | `-c` | `.sigcomply.yaml` | Config file path |
-| `--vault <uri>` | | | Vault location — paths or `s3://`, `gs://`, `az://`, `file://` |
-| `--framework <value>` | `-f` | Config framework | Framework |
-| `--period <id>` | | | **Required** (e.g. `2026-Q1`); missing → exit 3 |
-| `--view <value>` | | `latest` | `latest`, `exceptions`, `integrity`, `scope`, `coverage`, or `soa` |
-| `--format <value>` | | `text` | `text`, `json`, `csv`, `pdf` (`pdf` deferred to v1.x → exit 3 if used) |
-| `--out <file>` | | | Required for non-text formats (else exit 3); text goes to stdout |
+| `--period <id>` | | | Required. Period ID such as `2026-Q4`. Missing: exit `3`. |
+| `--view <value>` | | `latest` | `latest`, `exceptions`, `integrity`, `scope`, `coverage` or `soa` |
+| `--format <value>` | | `text` | `text`, `json`, `csv`. `pdf` is accepted by the flag but exits `3`. |
+| `--out <file>` | | stdout | Output file. Required for `json` and `csv`. |
+| `--config <path>` | `-c` | `.sigcomply.yaml` | Config file |
+| `--vault <uri>` | | config | Vault location: a path, `file://<path>`, `s3://bucket[/prefix]`, `gs://bucket[/prefix]` or `az://<account>/<container>[/prefix]` |
+| `--framework <value>` | `-f` | config | Framework |
 
-Views: `latest` = current pass/fail state per policy; `exceptions` = the waivers/NA register; `integrity` = run-by-run signature/manifest verification; `scope` = what the run was supposed to cover and what it actually evaluated; `coverage` = what kind of check stands behind each control; `soa` = the ISO 27001 Statement of Applicability.
+| View | Shows |
+|---|---|
+| `latest` | Each policy's latest status in the period, with the reason for a failure or error |
+| `exceptions` | Waivers and not-applicable declarations |
+| `integrity` | Each run's signature and manifest check, `pass` or the failing files |
+| `scope` | The declared estate (`experimental.scope`) and every control the latest run did not evaluate, with the reason |
+| `coverage` | For each control, whether automated or manual checks stand behind it and whether evidence exists for the period |
+| `soa` | The ISO 27001 Statement of Applicability: one row per Annex A control with applicability, justification and status |
 
-`--view scope` answers the question the other views assume away: *did this
-run look at everything it should have?* It shows the declared estate and
-how each declared source fared (for projects that set
-`experimental.scope`), plus every control the latest run did **not**
-evaluate, with the reason. That second half renders whether or not an
-estate was declared — a skipped control leaves the compliance-score
-denominator entirely, so it is exactly what an all-green run can hide.
-
-`--view coverage` answers what the compliance score cannot: *is this
-control actually inspected, or does it merely have a document on file?*
-A policy satisfied by a PDF sitting in the evidence folder and one that
-inspected live infrastructure both pass, and both count the same toward
-the score. For SOC 2, 27 of 43 criteria are the first kind — the whole
-CC1–CC5 governance spine. The view reports, per control, which kind of
-check stands behind it, how many of each, and whether the evidence exists
-for this period.
-
-It is framework-scoped rather than run-scoped on purpose. Cadence is
-independent of the audit period: a control checked annually produces no
-result at all in three quarters out of four, so a view built only from the
-period folder would show a clean bill of health over whatever happened to
-run. Every declared control gets a row; one with no result says so and
-names its cadence, so "annual, expected" is distinguishable from "daily,
-broken". A control whose evidence mode the project overrode is marked.
-
-```bash
-sigcomply report --period 2026-Q3 --view coverage
-```
+`--view coverage` covers every control in the framework, including controls whose cadence did
+not run this period. It splits controls into two kinds, which the score counts the same:
+satisfied by a document on file, or verified by inspecting your infrastructure. For SOC 2, 27 of 43 criteria are the first kind. Sample output:
 
 ```
 43 of 43 catalog controls have a check
@@ -161,150 +167,84 @@ sigcomply report --period 2026-Q3 --view coverage
   27 manual     — a document is on file; its contents are not inspected
 
 This period
-  41 evaluated, 2 not evaluated
-  0 manual control(s) with evidence on file, 27 without
+  43 evaluated, 0 not evaluated
+  1 manual control(s) with evidence on file, 26 without
 ```
 
-The `KIND` column separates the two things a framework calls a control. For
-ISO 27001 it is `catalog` for the 93 Annex A controls and `mgmt-system` for the
-16 clause 4-10 requirements, and the headline counts them apart — sixteen ISMS
-documents nobody has uploaded must not read as coverage of the Annex A catalog.
-SOC 2 has no management-system requirements, so every row there is `catalog`.
-
-`--view soa` generates the **Statement of Applicability** that ISO/IEC
-27001:2022 clause 6.1.3 d requires and a Stage 1 auditor asks for first. It
-answers four questions per Annex A control — is it necessary, why, is it
-implemented, and if it was left out, why — by joining the framework's control
-catalog, the project's applicability decisions, and the period's results.
-
-Only catalog controls are listed. The clause 4-10 management-system
-requirements are not selectable — an organization cannot decline to have an
-internal audit program — so they are counted in the note and never given a
-row. Status is derived from this period's results and never from the catalog: a
-control whose checks did not run reports `not evaluated`, which is not the same
-as implemented. A policy resolved to `na` counts as a check that did not run and
-abstains from the roll-up; a carried-forward policy counts as the pass it
-inherits.
-
-**`--view soa` requires the project config.** The applicability decisions are
-authored in `.sigcomply.yaml` and exist nowhere else — not in the vault, not in
-the framework — so a run with only `--vault` and `--framework` would report
-every control as applicable and silently turn a deliberate exclusion into an
-inclusion. It exits `3` instead. Pass `-c <path to .sigcomply.yaml>`, or drop
-`--vault`/`--framework` so the config is read.
-
-Record the inclusion reasoning with `controls.<id>.justification` in
-`.sigcomply.yaml`; where it is absent SigComply derives one from the checks
-standing behind the control and marks it `(derived)`, so an auditor can tell a
-reasoned inclusion from a default one. An excluded control uses `reason`
-instead — setting both is a config error.
-
-```bash
-sigcomply report --period 2026-Q3 --view soa
-sigcomply report --period 2026-Q3 --view soa --format csv --out soa.csv
-```
-
-```
-93 catalog controls: 91 applicable, 2 excluded
-
-Of the 91 applicable
-  24 implemented           — every check that ran passed
-   2 partially implemented — some checks passed, some did not
-   3 not implemented       — every check that ran failed
-  62 not evaluated         — no check ran this period
-
-Note: 16 management-system requirements (clauses 4-10) are outside the Statement of Applicability and cannot be excluded; see report --view coverage. 62 applicable controls produced no result this period — not evaluated is not implemented. 88 inclusions carry a derived justification; set controls.<id>.justification to record the organization's own reasoning.
-
-CONTROL  NAME                               APPLICABLE  STATUS           ASSURANCE  JUSTIFICATION
-A.5.1    Policies for information security  yes         implemented      manual     (derived) Applicable — no exclusion declared. Evidenced by 1 manual evidence item.
-A.5.15   Access control                     yes         not implemented  automated  (derived) Applicable — no exclusion declared. Verified by 2 automated checks.
-A.7.1    Physical security perimeters       no          excluded         none       Fully remote; no corporate premises in scope.
-A.8.5    Secure authentication              yes         implemented      automated  MFA on the cloud console is our primary control against credential theft.
-...
-```
-
-`--format csv` gives the spreadsheet auditors expect: one row per Annex A
-control with `control_id`, `name`, `applicable`, `justification`,
-`justification_derived`, `status`, `assurance`, `evaluated`, `policies`, and
-`approved_by`.
+`--view soa` needs the project config, because applicability decisions exist only in
+`.sigcomply.yaml`. If you pass both `--vault` and `--framework`, the config is not read and the
+view exits `3`; pass at most one of them.
+It is built for ISO 27001; for SOC 2 it lists the criteria. How to read and fill it:
+[ISMS clauses and the SoA](../guides/isms-clauses.md). The other views:
+[Verify evidence](../guides/verify-evidence.md).
 
 ## `sigcomply evidence catalog`
 
-```bash
-sigcomply evidence catalog [-f <framework>] [-o <text|json>]
+```sh
+sigcomply evidence catalog [-f <framework>] [-o text|json]
 ```
 
-Prints the framework's manual-evidence catalog. Works without a project config. `-o json` matches the Evidence SPA's Catalog contract.
+Prints the framework's manual-evidence catalog. Needs no project config. Text output has the
+columns `ID`, `CONTROL`, `TYPE`, `FREQUENCY` and `NAME`; `-o json` prints
+`{framework, version, entries[]}` with every field, the format the Evidence SPA reads. The
+catalog spells the annual frequency `yearly`.
 
-| Flag | Shorthand | Default | Meaning |
+The flags belong to the parent `evidence` command, so `--help` lists them as global flags.
+
+| Flag | Short | Default | Meaning |
 |---|---|---|---|
-| `--framework <value>` | `-f` | `$SIGCOMPLY_FRAMEWORK` → `soc2` | Framework |
+| `--framework <value>` | `-f` | `$SIGCOMPLY_FRAMEWORK`, then `soc2` | Framework |
 | `--output <value>` | `-o` | `text` | `text` or `json` |
 
 ## `sigcomply evidence due`
 
-```bash
-sigcomply evidence due [-c <config>] [-f <framework>] [-o <text|json>] [--within-days <n>] [--all]
+```sh
+sigcomply evidence due [flags]
 ```
 
-Lists manual-evidence catalog entries whose folder for the **current period** is
-still empty, so the upload can happen before a scheduled run needs it.
+Lists manual-evidence entries whose folder for the current period is empty, with the folder to
+upload to. An entry disappears once its folder has a file. Each entry's period is its own
+cadence window (an annual entry's runs to 31 December), measured from the HEAD commit's
+timestamp as in `check`. A per-vendor entry is listed once per vendor that owes a document.
 
-An entry is reported only when its folder is genuinely empty. Once the file is
-uploaded the entry disappears from the report — the notice never nags about work
-already done, which is what keeps it worth reading.
+It only lists the storage. It downloads nothing, writes nothing and contacts no cloud API.
 
-The period is derived from the HEAD commit's timestamp, exactly as `check`
-derives it, so the folder reported here is the folder the next run will read.
-
-A **fan-out** entry is listed once per member of its declared set, named so the
-row says which one is missing (`vendor_assurance [Acme Cloud Platform]`) rather
-than that one of them is. Members that owe no artifact — a `low`-tier vendor,
-which discharges its obligation with a recorded rationale and approver — have no
-deadline and are not listed. See
-[Vendor and third-party risk](../guides/vendor-risk.md).
-
-| Flag | Shorthand | Default | Meaning |
+| Flag | Short | Default | Meaning |
 |---|---|---|---|
-| `--config <path>` | `-c` | `.sigcomply.yaml` | Project config |
-| `--framework <value>` | `-f` | config → `$SIGCOMPLY_FRAMEWORK` → `soc2` | Framework |
+| `--config <path>` | `-c` | `.sigcomply.yaml` | Config file |
+| `--framework <value>` | `-f` | see [Framework resolution](#framework-resolution) | Framework |
 | `--output <value>` | `-o` | `text` | `text` or `json` |
-| `--within-days <n>` | | `30` | Only report entries whose period ends within this many days. `0` reports only what closes today; a negative value reports everything. Each entry's period is its own cadence window — an annual entry's ends 31 December, a quarterly entry's ends with the quarter. |
-| `--all` | | `false` | Report every entry with an empty folder, ignoring `--within-days` |
+| `--within-days <n>` | | `30` | Only list entries whose period ends within this many days. `0` lists entries whose period ends less than a day away. A negative value lists every empty folder. |
+| `--all` | | `false` | List every empty folder, ignoring `--within-days` |
 
-**Exit codes.** `0` whenever the scan completes, whatever it finds — this
-command is advisory and is never the reason a build goes red.
-`3` for a missing or invalid config, an unknown framework, or a bad `-o`. If the
-evidence store cannot be opened or listed (missing credentials, for instance) it
-says so and still exits `0`: an unverifiable folder is an unknown, and reporting
-unknowns as deadlines is how a warning loses its meaning.
+Exit codes: `0` whenever the scan completes, whatever it finds. If the storage cannot be opened
+or listed, it prints why and still exits `0`. `3` for a missing or invalid config, an unknown
+framework or an invalid `-o`.
 
-**Access.** Read-only. It issues `LIST` calls only — no file bytes are
-downloaded, nothing is written, no cloud API is contacted, and no OIDC token is
-needed.
-
-Under GitHub Actions (`GITHUB_ACTIONS=true`) it additionally emits `::warning`
-annotations, capped at GitHub's ten-per-step limit with an overflow line, and
-appends a Markdown table to `$GITHUB_STEP_SUMMARY`. Annotations never change a
-job's conclusion. GitLab has no workflow-command equivalent, so there the output
-stays plain text.
-
-`sigcomply init-ci` wires this into the daily workflow as a non-failing step.
+In GitHub Actions it also writes `::warning` annotations (at most ten) and a table to the job
+summary. Annotations don't change the job result.
 
 ## `sigcomply version`
 
-```bash
+```sh
 sigcomply version
 ```
 
-Prints version, commit, and build time. No flags.
+Prints `sigcomply <version> (commit <commit>, built <time>)`. No flags.
 
-## Not available
+## `sigcomply completion`
 
-These commands are not wired and must not be used: `collect`, `evaluate`, `config`, `evidence init`, `evidence path`.
+```sh
+sigcomply completion <bash|zsh|fish|powershell>
+```
+
+Prints a shell completion script. `sigcomply completion <shell> --help` explains how to load it.
+
+## Commands that don't exist
+
+`collect`, `evaluate`, `config`, `evidence init` and `evidence path` are not commands.
 
 ## See also
 
-- [Configuration](../configuration.md) — full `.sigcomply.yaml` schema and env vars.
-- [Frameworks](frameworks.md) — shipped frameworks and policy/catalog overview.
-- [Documentation hub](../README.md).
+- [Configuration](../configuration.md): every `.sigcomply.yaml` key and environment variable.
+- [Frameworks](frameworks.md): framework IDs and counts.

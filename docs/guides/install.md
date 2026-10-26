@@ -1,111 +1,120 @@
 # Install the SigComply CLI
 
-How to install the `sigcomply` binary on macOS or Linux, verify it, and understand the released artifacts. This is the same install used inside CI.
-
-> Docs hub: [../README.md](../README.md)
+Install the `sigcomply` binary on your machine and confirm it runs.
 
 ## Prerequisites
 
-- macOS or Linux (x86-64 or arm64). Windows and `arm` builds are published but the install script targets macOS/Linux.
-- `curl` on your PATH for the install-script method.
-- For the Go method only: a Go toolchain (`go`).
+- macOS or Linux on x86-64 (`amd64`) or ARM64 for the install script. Other platforms: see
+  [Install a release archive by hand](#install-a-release-archive-by-hand).
+- `curl` and `tar` on your `PATH`.
 
-## Install method 1 — install script (recommended)
+## Install with the script
 
-Downloads the prebuilt binary for your detected OS/arch from the latest GitHub release and places it on your PATH:
+1. Run the install script. It downloads the release archive for your OS and architecture from
+   GitHub Releases and puts `sigcomply` in `/usr/local/bin`:
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/SigComply/sigcomply-cli/main/scripts/install.sh | sh
-```
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/SigComply/sigcomply-cli/main/scripts/install.sh | sh
+   ```
 
-This is exactly how the CI templates install the CLI (a `curl` from GitHub Releases), so your local environment matches CI.
+   To pin a version, or to install without `sudo` into a directory you own, set the installer's
+   variables:
 
-### Install-script knobs
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/SigComply/sigcomply-cli/main/scripts/install.sh \
+     | SIGCOMPLY_VERSION=v0.88.4 SIGCOMPLY_INSTALL_DIR="$HOME/.local/bin" SIGCOMPLY_NO_SUDO=1 sh
+   ```
 
-These environment variables configure the **installer**, not the CLI itself:
+   | Variable | Default | Effect |
+   |---|---|---|
+   | `SIGCOMPLY_VERSION` | `latest` | Release tag to install, for example `v0.88.4`. |
+   | `SIGCOMPLY_INSTALL_DIR` | `/usr/local/bin` | Directory the binary goes into. Must be on your `PATH`. |
+   | `SIGCOMPLY_NO_SUDO` | `0` | Set to `1` to never call `sudo`. |
 
-| Variable | Default | Effect |
+2. Check the install:
+
+   ```bash
+   sigcomply version
+   ```
+
+   A release build prints its version without a leading `v`:
+
+   ```text
+   sigcomply 0.88.4 (commit 45c25e38278c8c155b2e875cf4750a42aabecefc, built 2026-10-26T19:12:08Z)
+   ```
+
+The script does not support 32-bit ARM or Windows. On 32-bit ARM it requests an archive named
+`..._linux_arm.tar.gz`, which no release has, and the download fails. Use the manual steps below
+for those platforms.
+
+## Install a release archive by hand
+
+Each [GitHub release](https://github.com/SigComply/sigcomply-cli/releases) publishes these
+archives, plus `checksums.txt` (SHA-256):
+
+| OS | Architectures | Archive |
 |---|---|---|
-| `SIGCOMPLY_VERSION` | `latest` | Install a specific release tag instead of the latest (e.g. `v1.2.3`). |
-| `SIGCOMPLY_INSTALL_DIR` | `/usr/local/bin` | Directory to install the binary into. |
-| `SIGCOMPLY_NO_SUDO` | unset | When set, do not use `sudo` to write into the install dir. |
+| Linux | `amd64`, `arm64`, `armv6`, `armv7` | `sigcomply_<version>_linux_<arch>.tar.gz` |
+| macOS | `amd64`, `arm64` | `sigcomply_<version>_darwin_<arch>.tar.gz` |
+| Windows | `amd64` | `sigcomply_<version>_windows_amd64.zip` |
 
-Example — pin a version and install without `sudo` into a user-writable directory:
+`<version>` is the tag without the `v`.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/SigComply/sigcomply-cli/main/scripts/install.sh \
-  | SIGCOMPLY_VERSION=v1.2.3 SIGCOMPLY_INSTALL_DIR="$HOME/.local/bin" SIGCOMPLY_NO_SUDO=1 sh
-```
+1. Download the archive and the checksums (Linux x86-64 shown):
 
-Make sure your chosen `SIGCOMPLY_INSTALL_DIR` is on your `PATH`.
+   ```bash
+   tag=v0.88.4; ver=${tag#v}
+   curl -fsSL -O "https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply_${ver}_linux_amd64.tar.gz"
+   curl -fsSL -O "https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/checksums.txt"
+   ```
 
-## Install method 2 — Go toolchain
+2. Check the archive against the checksums. Use `shasum -a 256` in place of `sha256sum` on macOS:
 
-```bash
-go install github.com/sigcomply/sigcomply-cli@latest
-```
+   ```bash
+   sha256sum -c checksums.txt --ignore-missing
+   ```
 
-**Caveat:** `go install` names the binary after the module's last path segment, so you get `sigcomply-cli`, not `sigcomply`. Every command in these docs calls `sigcomply`. Rename or symlink it:
+   The line for your archive must end in `OK`.
 
-```bash
-ln -sf "$(go env GOPATH)/bin/sigcomply-cli" "$(go env GOPATH)/bin/sigcomply"
-```
+3. Optional: check the build provenance with the [GitHub CLI](https://cli.github.com/). Every
+   archive carries a GitHub build attestation. Exit code `0` means it verified:
 
-Confirm `$(go env GOPATH)/bin` is on your `PATH`.
+   ```bash
+   gh attestation verify "sigcomply_${ver}_linux_amd64.tar.gz" --repo SigComply/sigcomply-cli
+   ```
 
-## Verify the install
+4. Extract the binary and move it onto your `PATH`:
 
-```bash
-sigcomply version
-```
+   ```bash
+   tar -xzf "sigcomply_${ver}_linux_amd64.tar.gz" sigcomply
+   sudo mv sigcomply /usr/local/bin/
+   ```
 
-Expected output (exact values vary):
+5. Run `sigcomply version`.
 
-```
-sigcomply v1.2.3 (commit abc1234, built 2026-01-15T10:00:00Z)
-```
+## Install with Go
 
-Exit code `0` means the CLI is installed and runnable.
+This builds from source and needs Go 1.27 or later.
 
-## GitHub Releases artifacts
+1. Install the module:
 
-Binaries are published on the [GitHub Releases page](https://github.com/SigComply/sigcomply-cli/releases). Artifact naming:
+   ```bash
+   go install github.com/sigcomply/sigcomply-cli@latest
+   ```
 
-| Item | Pattern |
-|---|---|
-| Archive (macOS/Linux) | `sigcomply_{version}_{os}_{arch}.tar.gz` |
-| Archive (Windows) | `sigcomply_{version}_{os}_{arch}.zip` |
-| Binary inside archive | `sigcomply` |
-| Checksums | `checksums.txt` (SHA-256) |
+2. `go install` names the binary `sigcomply-cli`. Every command in these docs calls `sigcomply`,
+   so link it:
 
-Supported `os` values: `linux`, `darwin`, `windows`. Supported `arch` values: `amd64`, `arm64`, `arm`.
+   ```bash
+   ln -sf "$(go env GOPATH)/bin/sigcomply-cli" "$(go env GOPATH)/bin/sigcomply"
+   ```
 
-### Verify a downloaded archive against the checksums
+3. Run `sigcomply version`. A Go build prints `dev` as its version.
 
-```bash
-# From the directory containing the downloaded .tar.gz and checksums.txt:
-sha256sum -c checksums.txt --ignore-missing
-```
-
-A line ending in `OK` confirms the archive is intact. (On macOS, use `shasum -a 256 -c checksums.txt --ignore-missing`.)
-
-To download a specific artifact by hand (Linux x86-64 shown):
-
-```bash
-tag=v1.2.3; ver=${tag#v}
-curl -fsSL "https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply_${ver}_linux_amd64.tar.gz" -o sigcomply.tar.gz
-tar -xzf sigcomply.tar.gz sigcomply
-```
-
-> There is **no Homebrew formula**. Use one of the two methods above.
+There is no Homebrew formula.
 
 ## Next steps
 
-- [Quickstart](../quickstart.md) — zero to a first passing local check.
-- [Configure sources](configure-sources.md) — declare evidence sources and credentials.
-- [Wire GitHub Actions](ci-github.md) / [Wire GitLab CI](ci-gitlab.md) — run in CI (same curl-from-Releases install).
-
-## See also
-
-- [Configuration reference](../configuration.md)
-- [Docs hub](../README.md)
+- [Quickstart](../quickstart.md): a first local run.
+- [Add an evidence source](configure-sources.md).
+- [Run in GitHub Actions](ci-github.md) or [Run in GitLab CI](ci-gitlab.md).

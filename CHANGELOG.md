@@ -5,1344 +5,169 @@ All notable changes to the SigComply CLI are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Per-release binaries and auto-generated notes are published on
-[GitHub Releases](https://github.com/SigComply/sigcomply-cli/releases); this file
-tracks the human-curated highlights.
+Every push to `main` that changes code cuts a release automatically. Per-release binaries and
+generated notes are on [GitHub Releases](https://github.com/SigComply/sigcomply-cli/releases);
+this file lists the changes a user notices.
 
 ## [Unreleased]
 
-### Added
-
-- **`gcp.cloud_identity` closes the six password controls on a Google estate.**
-  The Cloud Identity Policy API answers `settings/security.password`, so a
-  GCP/Workspace estate no longer skips `password_{min_length,expiry,
-  reuse_prevention,complexity}` and no longer has six unanswerable controls
-  quietly raising its compliance score.
-
-  It was deferred because Google publishes no sample response body for that
-  setting type, leaving three wire details unverifiable — and it shipped by
-  being built not to depend on them. `expirationDuration` may be a Duration
-  string or an integer; the decoder accepts both, plus numeric strings and
-  whole floats, and **errors** on anything else rather than yielding a zero,
-  because `max_age_days: 0` is the schema's *observed no-expiry* and passes
-  the expiry clause by design. Days round **up** for the same reason —
-  truncating a sub-day expiry to `0` would turn the strictest policy into a
-  green tick. The unverified `filter` regex is not used at all: a wrong one
-  returns `Error(7003)` or, worse, silently matches nothing, which presents as
-  "this tenant has no password policy"; the collector lists and matches
-  client-side instead, which at 1 QPS costs a page or two. And a tenant with
-  no policy emits no records, which the `is_set`-guarded clauses treat as out
-  of scope rather than a verdict.
-
-  Two vendor traps are handled in the source, where they belong. Google's
-  `allowReuse` states the *permission* while the schema states the *control*,
-  so the documented default `false` means `reuse_prevented: true` — a clause
-  carrying a vendor's polarity is how substitutability rots. And `sortOrder`
-  runs opposite to `precedence` (Google's highest wins; the schema's `1`
-  wins), so the plugin sorts descending and emits the position, with `ADMIN`
-  policies outranking `SYSTEM` ones regardless of `sortOrder` — the defence
-  against the 2026-09-01 breaking change to SYSTEM `name`/`sortOrder`, since a
-  renumbered Google baseline must never outrank an administrator's setting.
-
-  **No L2 cassette, deliberately.** A fixture hand-authored from those guesses
-  would assert them against the code that made them. The live test logs the raw
-  wire bodies and schema-validates every record, so one run against a real
-  tenant settles which shapes are real and lets go-vcr record the genuine
-  thing.
-
-- **`password_policy.v2` gains an optional `defaulted` array.** Google returns
-  only explicitly-set values, and an omitted field carries a documented
-  default. v2 could say *observed value*, *absent = not observed*, and
-  *`not_configurable` = no setting exists* — none of which fits "configurable,
-  not set, so the default is in force". A record now carries the value **and**
-  marks the field as defaulted. This is not the Entra category error: there no
-  API call says anything about minimum length, so the number would be invented
-  wholesale, whereas Google's own contract defines the omission as the
-  default — the omission *is* the tenant's answer, and the marker is what stops
-  an auditor reading it as an administrator's choice. Emitting absent instead
-  would have been worse in effect, since every clause is `is_set`-guarded: a
-  never-configured tenant would have produced vacuous passes and the collector
-  would not have closed the gap it exists to close. Additive and optional, so
-  existing v2 records are unaffected.
-
-- **`soc2.cc6.1.password_reuse_depth_24` takes back what the reuse reframing
-  gave up.** `password_reuse_prevention` used to require
-  `reuse_prevention_count >= 24`; reframing it to "reuse is prevented at all"
-  — so that a vendor disclosing no depth would not be failed for it — meant an
-  AWS account with history depth **1** started passing a check it had been
-  failing. 24 is the maximum IAM accepts, so depth 1 is the weakest non-zero
-  posture available there. The new policy asks the depth question with an
-  `is_set` filter, judging only the sources that disclose one and leaving the
-  rest out of scope (a vacuous pass, visible as vacuous locally and on the
-  wire) rather than inventing a depth for them. Two policies rather than one
-  clause because the DSL has `is_set` but no negation, so "adequate, or not
-  disclosed" cannot be written as a single condition — the filter is the
-  mechanism that expresses it.
-
-- **A project-local Go extension can be built without forking the CLI.** The
-  extensibility guide documented Go source plugins, vault backends and manual
-  readers, and every worked example imported `sigcomply-cli/internal/...` — a
-  path Go forbids from outside its parent tree, while `sigcomply build`
-  compiles project-local extensions inside the *customer's* module. The
-  walkthrough could not be followed. The new top-level `plugin/` package
-  re-exports exactly the three wired extension axes and nothing else: the
-  source, vault and manual interfaces plus their three `Register*` functions.
-  Everything is a type alias, so a value written against the public package
-  satisfies the internal interface identically with no conversion.
-
-  The surface is deliberately narrow, because every name in it becomes a
-  compatibility promise. Left out and documented as such: frameworks, policies
-  and the rule registry; evidence-type registration (JSON-only — no Go hook
-  exists); the aggregation contract, which is the privacy boundary; vault
-  layout, manifest and signing; and the *read* side of every registry, so an
-  extension can register itself but never enumerate or dispatch to its peers.
-
-  Two tests keep this honest, and their absence is why the bug survived: one
-  builds a real extension in a **separate module** against the façade and
-  compiles it, and a negative control asserts the same fixture importing
-  `internal/core` still fails with `use of internal package` — without it a
-  harness mistake would make the positive test pass for the wrong reason.
-  Every previous build fixture was an empty package, and one existing test
-  actively *expected* `go build` to fail.
-
-- **`password_policy.v2` — a password-policy schema that is not shaped like AWS
-  IAM.** v1 required all eight of IAM's answers, four of them character-class
-  booleans, so a platform that rates password strength on its own scale
-  (Google's `allowedStrength: STRONG|WEAK`) or fixes length as a platform
-  constant (Entra, for cloud-only accounts) could not emit a record **at all**:
-  the schema left it a choice between fabricating fields it cannot read and
-  staying silent, and silence means the six password controls skip — which
-  *raises* the compliance score, because skips leave the denominator. v2 keeps
-  v1's names and meanings and changes three things. Complexity is a
-  discriminated union: `complexity_model` names the kind of answer a source has
-  (`per_class` | `strength_enum` | `fixed` | `none`) and only that kind's fields
-  are required. Reuse is a boolean (`reuse_prevented`) with the depth
-  (`reuse_prevention_count`) as an optional refinement, because some vendors
-  block reuse without disclosing how far back. And every platform-dependent
-  field is optional, so absence is expressible — meaning exactly "this source
-  did not observe a value", never a zero and never the vendor's documented
-  default (`not_configurable` records which attributes a platform exposes no
-  setting for, while the value itself stays absent). Each record also carries
-  `scope` and `precedence`, so the N policies an Okta org or a Google directory
-  returns are not read as interchangeable. v1 stays registered and frozen for
-  project-local plugins.
-
-- **`aws.password_policy` and `okta` now emit `password_policy.v2`.** Neither
-  emits both versions: every record a binding returns lands in the same slot,
-  so dual-emitting would double the resource counts and write two signed
-  envelopes for one fact. Okta gained two honest answers it could not give
-  before — `scope` (`account` for the org's undeletable system default, else
-  `group`) and `precedence` (its `priority`, where 1 is evaluated first) — and
-  stopped writing a fabricated `0` for a setting it read as `null`. AWS reports
-  an account with no password policy as `complexity_model: none` rather than a
-  per-class answer of four noes that nobody gave.
-
-- **`sigcomply build` says when it compiled something that will never load.**
-  A Go `rule:` package under `.sigcomply/policies/<id>/rules/` and a Go
-  evidence-type package under `.sigcomply/evidence_types/<id>/` are discovered
-  and compiled, but neither has a registration hook — there is no
-  package-global registry an `init()` could call, the way sources, vault
-  backends and manual readers have. The build reported them in its
-  "N project-local extension(s)" count and said nothing else, so the first
-  signal was a policy tagged `error` at evaluation. It now warns per
-  extension, naming the kind and pointing at the extensibility doc.
-
-- **A required slot nothing can fill now warns at plan time, not only after the
-  run.** The planner already reported the narrow *version-skew* near-miss — a
-  configured source emits a sibling version of an accepted type — as
-  `coverage-skew`. The strictly worse case said nothing: when **no** configured
-  source emits an accepted type in any version, the slot went unbound, the
-  policy was skipped, and the operator learned about it only from
-  `renderSkipExplanations` after collection had already run. That asymmetry
-  matters because a skipped control leaves the compliance-score *denominator*
-  (`total − skipped − na`), so an estate whose provider cannot answer six
-  password controls submits a **higher** score than one that answers and fails
-  them. `emitPlanWarnings` now reads `PlannedPolicy.UnboundRequiredSlots` and
-  emits `coverage-gap:` — the count, the accepted types, and the score
-  consequence, with per-policy detail under `--verbose`. Roster slots are
-  excluded (an unbound roster means no `experimental.roster.source` was
-  designated, a different remedy that `skipDetail` already explains) and so are
-  slots already reported as skew, which would otherwise be named twice with
-  contradictory fixes. **Advisory only** — the exit code is unchanged. Making
-  an unbound required slot fatal was considered and rejected: `error` maps to
-  exit 2, is not suppressible by `ci.fail_on_violation`, and would permanently
-  break CI for an estate whose provider structurally cannot satisfy the
-  control.
-
-- **Eleven more fields a source emits without observing are now declared.**
-  `core.CaveatedSource` shipped with two declarations — `aws.identity_center`
-  and `gitlab`, both `mfa_enabled`. The same class was much larger: four Azure
-  plugins and six more GitLab fields emit a hardcoded value because no API
-  exposes the real one, plus GitHub's org-wide 2FA flag, which a token without
-  `admin:org` silently reads as `false`. Each grades a shipped control on a
-  value nobody measured. Now declared: `azure.keyvault`
-  `secret.rotation_enabled`; `azure.cosmos` `nosql_table.deletion_protection`;
-  `azure.sql` `managed_database_instance.deletion_protection`; `azure.monitor`
-  `audit_log_trail.kms_encrypted`; `gitlab`'s `secret_scanning_enabled`,
-  `code_scanning_enabled`, `dependabot_alerts_enabled`,
-  `requires_signed_commits`, `require_code_owner_reviews` and
-  `required_reviewers_count`; and `github`
-  `source_control_org_policy.two_factor_required`.
-
-  The selection rule is now explicit in the architecture doc, because it has
-  two halves and only the first was written down: the value must be a safe
-  default rather than a measurement, **and a shipped policy must actually read
-  the field**. A caveat on an unread field can never fire, so it costs a
-  reader's attention and buys nothing — which is why
-  `aws.eks.node_auto_upgrade_enabled` and `azure.keyvault.never_rotated`, both
-  emitted without being observed, stay deliberately uncaveated. Three
-  neighbouring classes stay out for their own reasons: platform constants true
-  by definition (`gcp.firestore.encryption_enabled`), fields a plugin omits
-  rather than fabricates (`azure.compute.monitoring_enabled`, and
-  `azure.monitor`'s `kms_encrypted` on `log_group`), and values that are
-  conservative but *correct* — `aws.identity_center.has_condition` is `false`
-  because an Identity Center assignment carries no IAM condition expression at
-  all, which is a true statement, not a guess.
-
-  **Advisory only**, as before: no status, no count and nothing on the wire
-  changes. Operator-facing detail, including which limits are absolute (no
-  token or tier will ever make them readable — record an exception) and which
-  are conditional (fix the credential and re-run), is in
-  `docs/configuration.md` §Source caveats.
-
-- **A mistyped key under `sources:` is now reported instead of ignored.** The
-  config loader runs with `KnownFields(true)` and rejects an unknown key
-  everywhere in the file — except inside a `sources:` entry, whose inner block
-  is deliberately a `map[string]any` so a newer config never breaks an older
-  pinned CLI. The cost of that tolerance was silence: `tenat_id`, or `role_arn`
-  on an Azure source, produced no output at all and the run proceeded with the
-  value ignored.
-  Every in-tree source now declares the keys it reads, and a run warns about
-  anything else. It also catches the half a key list alone would miss: a value
-  of the wrong YAML type reads as *absent* to every factory, so an unquoted
-  `project_id: 12345` behaves exactly as if it were unset.
-  Warnings print **before** credentials are resolved, because a mistyped key is
-  often precisely why the credential check that follows fails — reported
-  afterwards, the operator would never see them.
-  Shared key sets live beside the parser that consumes them (`awscfg.ConfigKeys`,
-  `azcommon.ConfigKeys`), so the ~25 AWS and 14 Azure factories cannot drift from
-  what their shared parser reads. Advisory, never fatal, and fail-open for a
-  project-local plugin that declares nothing.
-
-- **A vacuous pass is now distinguishable on the wire (`sigcomply.cloud.v5`).**
-  A policy whose clauses filter every resource away passes, and submits as
-  `pass`, exactly like one that inspected five hundred resources and found
-  them all conformant. *"No public bucket is unencrypted"* is honestly true
-  when no bucket is public — it is not evidence that encryption works.
-  The CLI has known the difference since the evaluator started recording
-  `vacuous_clauses`, and the previous release made the submitted `message`
-  say so in prose. Prose cannot be filtered, counted or trended, so the
-  dashboard could read the difference and never act on it. The new per-policy
-  `vacuous` boolean carries the same signal in a form it can.
-  Both are derived from one helper, so the flag and the sentence cannot
-  disagree about the same run, and both are gated on a passing status:
-  `VacuousSlots()` is status-blind, and a *failing* policy can carry the
-  diagnostic for one clause while failing on another — reporting that as a
-  vacuous pass would be false twice over.
-  Non-identifying: it reports that a filter matched nothing, never what the
-  filter was looking for. The slot names stay in the customer's vault.
-  **Rails was deployed first**, as the contract requires — an unpermitted key
-  is dropped silently and the request still returns 201, so a v5 payload
-  reaching a pre-v5 receiver would lose exactly the information the bump
-  exists to carry, with no error anywhere.
-
-- **A risk register, and the risk→control edge in the Statement of
-  Applicability.** `report --view soa` already discharged three of the four
-  things ISO/IEC 27001:2022 6.1.3 d) asks for: which controls are necessary,
-  whether they are implemented, and why any were excluded. It could never
-  answer the second — *why this control is included* — with anything but the
-  operator's free text or a derived sentence counting the checks behind it.
-  Read 6.1.3 b) and d) together and a control belongs in the SoA because it is
-  "necessary to implement the risk treatment option(s) chosen": necessity is a
-  claim about a **risk**, and nothing in the framework catalog or the vault
-  carries that edge.
-  The new optional `experimental.risks` block declares it. Each risk names the
-  Annex A controls chosen to treat it; each SoA row gains a `RISKS` column (and
-  a `risks` CSV column, appended last), and a *derived* justification now leads
-  with the citation — "Necessary to treat 1 declared risk (r-001)." A
-  justification you wrote yourself is never rewritten. A project with no
-  register renders exactly as it did before.
-  Shape-validated at load, mirroring `experimental.vendors`: owner, level,
-  treatment, residual level and `assessed_at` are required; `treatment: retain`
-  — the one option that files no control — additionally requires `accepted_by`
-  and `acceptance_rationale`, the same asymmetry a `low`-tier vendor carries,
-  and for the same reason. A risk's `level` never changes whether an obligation
-  exists, only which one. Treatment uses ISO's own vocabulary
-  (`modify|retain|avoid|share`, from ISO 31000 6.5.2 via ISO/IEC 27005) and
-  accepts `accept`/`mitigate`/`reduce`/`decrease`/`transfer` as synonyms.
-  Plan-time `risks:` warnings name a risk whose control ID the framework does
-  not define (a typo would otherwise just fail to join, silently) and a register
-  nobody has reassessed in 18 months — a backstop, not a rule, since 8.2 leaves
-  the interval to the organization.
-  **Additive, never a replacement.** The four ISO clause entries for the risk
-  assessment and treatment processes (`C.6.1.2`, `C.6.1.3`, `C.8.2`, `C.8.3`)
-  still owe their document uploads. No risk mints a policy ID, and risk
-  descriptions, owner addresses and acceptance rationales stay vault-side — the
-  SoA carries opaque risk IDs only, and nothing about a risk reaches the wire.
-
-- **Sources declare what they cannot actually observe, and the planner says
-  so.** `aws.identity_center` emits `mfa_enabled` as a hardcoded `false`
-  because AWS publishes no per-user MFA API for Identity Center. That was
-  documented in prose, which is no help in the deployment where it bites: the
-  planner binds **every** configured source whose emitted types intersect a
-  slot, and every ordinary slot is `one-or-more`, so an estate that SCIM-syncs
-  an IdP into Identity Center binds **both** to the MFA policies and unions
-  their records — every Identity Center user failing on an unverifiable
-  `false` while the Okta records beside them carry the true answer for the
-  same people. Nothing in the run said so.
-  A plugin can now implement the optional `core.CaveatedSource`, and the
-  planner warns when a caveated source is bound to a slot whose policies
-  actually read that field — naming the affected policies and printing the
-  exact `bindings:` block that pins the slot to the source holding the real
-  answer. When no other source on the slot can answer, it says that instead:
-  an estate with no IdP genuinely cannot demonstrate MFA, and failing is the
-  correct outcome rather than an artifact.
-  Declared by `aws.identity_center` (absolute — no API exists) and `gitlab`
-  (conditional — `two_factor_enabled` needs a group-owner/instance-admin
-  token, and plan time cannot know which kind it has).
-  **Advisory only.** A caveat changes no status, no count, no compliance score
-  and nothing on the wire — a read the CLI cannot complete is an operator
-  problem to fix now, not a quality grade to report.
-
-- **GCP evidence records now carry their provenance.** All 18 `gcp.*` plugins
-  left `EvidenceRecord.Scope` unset, so the only trace of which project an
-  envelope came from was the instance key in `source_id` — configuration, not
-  evidence. Each record is now stamped with the scoping key the collection call
-  was addressed to: `{"project": "<project_id>"}` for the 16 project-scoped
-  sources, `{"account": "<organization_id>"}` for the org-scoped `gcp.scc`, and
-  `{"account": "<customer_id>"}` for `gcp.directory`. Because the scope is
-  canonicalized into the Ed25519-signed envelope, an auditor holding a single
-  envelope file months later can tell which project it describes without
-  trusting the config beside it.
-  It is **observed, not asserted**: the project/org/customer is addressed in
-  every API call the plugin makes, so record and scope come from the same
-  request by construction — a project the credential cannot read errors rather
-  than quietly returning another project's data. `gcp.directory` left at the
-  default `my_customer` alias is deliberately left **unstamped**: the alias
-  means "whoever this credential is" and names no directory, so there is
-  nothing truthful to record.
-  No config change, no new API call, no new permission, and nothing new on the
-  wire — the scope stays vault-side and has no field in the cloud submission
-  payload. `sourcetest.Options.WantScope` makes the stamp a build-time
-  assertion for any plugin that adopts it.
-
-- **Okta emits `password_policy`.** (Superseded later in this same unreleased
-  block: the plugin now emits `password_policy.v2` and gained `scope`,
-  `precedence` and a null-vs-zero distinction. The rest of this entry still
-  describes what it reads and why.) The six password controls under SOC 2
-  CC6.1 and ISO 8.5 — minimum length, expiry, reuse prevention and the four
-  character classes — had exactly one emitter, `aws.password_policy`, so any
-  estate without AWS IAM could only answer them by declaring an exception.
-  Okta's `/api/v1/policies?type=PASSWORD` answers all eight required fields
-  essentially 1:1, so **no schema change was needed** and no policy changed:
-  every policy already accepting `password_policy` binds to Okta the moment
-  it is configured. Okta states each `complexity.min*` as a count where `0`
-  and `1` mean no and yes, and uses `0` for "no limit"/"none" on
-  `age.maxAgeDays`/`historyCount` — the same meaning the schema and the AWS
-  emitter give them.
-  **One record per ACTIVE policy, not one per org.** Okta assigns password
-  policies per group, so an org normally has several; the consuming policies
-  quantify `all`, making the verdict "every password policy in this org meets
-  the bar". Grading only the Default or highest-priority policy would silently
-  pass an org that attaches a permissive policy to a group. INACTIVE policies
-  are skipped — one that is not in force governs nobody.
-  Requires policy read (`okta.policies.read`, or a read-only admin token). A
-  403 surfaces as a collection error rather than "no policies configured":
-  every org has an undeletable Default Policy, so zero readable policies means
-  a permissions problem.
-
 ### Changed
 
-- **The two password-complexity policies now ask whether a password-strength
-  control is enforced, not whether four character classes are required.** Three
-  of the six password policies asked questions a strength-rating source
-  structurally cannot answer, and every available verdict was bad because the
-  *clause* was wrong, not the source. Google states in its own documentation
-  that a strong password "doesn't need to have a specific number of characters
-  of a specific type", so passing `STRONG` as "all four true" fabricates a claim
-  the vendor disclaims — while failing it paints a permanent red with no setting
-  anywhere to turn on, against a provider following NIST 800-63B rather than
-  defying it. `soc2.cc6.1.password_complexity` and
-  `iso27001.8.5.password_complexity` are now satisfied by a per-class source's
-  four booleans, by a strength-rating source reporting its strongest rating, or
-  by a platform-enforced rule the tenant cannot weaken; an account with no
-  strength requirement at all still fails. `soc2.cc6.1.password_reuse_prevention`
-  now asks whether reuse is prevented rather than naming a depth of 24, which no
-  vendor-neutral record can promise. **The accepted trade:** an AWS account with
-  history depth 1 now passes where "the last 24" would have failed it. A second
-  clause on the depth, guarded so it judges only sources that disclose one, is a
-  separate deferred decision. Per-class estates (AWS, Okta, AD) get exactly the
-  verdicts they got before, and no parallel per-vendor policies were minted —
-  the policy IDs, controls and cadences are unchanged.
-
-- **All six password policies accept both schema versions and guard every read.**
-  `accepts:` is now `[password_policy.v2, password_policy]` so a project-local
-  plugin still emitting v1 keeps binding, and each clause `is_set`-guards the
-  fields v2 made optional. A record that cannot answer a clause is filtered out
-  of its scope rather than failed — an unread setting is not a setting that is
-  off — and a clause left with nothing to examine is reported as vacuous instead
-  of passing as though the estate had been inspected.
+- Rewrote the customer docs. To submit results to SigComply Cloud, set `cloud.base_url` in
+  `.sigcomply.yaml`; without it the CLI submits nothing.
 
 ### Fixed
 
-- **Two instances of one source no longer collapse into a single violation.**
-  The instance key namespaced `source_id` but not the record `id`, and
-  violation dedup keys on the id — so where a plugin's id is only unique
-  within one account, two accounts failing the same check produced **one**
-  violation naming neither, counted `1` in `resources_failed`, and could be
-  waived for both at once by a single exception. That is not a rare shape:
-  `aws.password_policy` emits the constant `account` (a stable id was chosen
-  to avoid an `sts:GetCallerIdentity` purely to learn the account number),
-  `aws.security_services` emits `aws-macie` and its siblings, `azure.defender`
-  emits `azure-defender-for-cloud`, and resource *names* such as a GCP
-  `default` network repeat in every project by construction.
+- `init-ci` scaffolds pin the CLI release that generated them (or `latest` for a development
+  build) instead of `v0.73.2`.
+- The GitLab template passes the CI ID token to the AWS SDK for role assumption, through
+  `AWS_WEB_IDENTITY_TOKEN_FILE`.
 
-  `instancePlugin.Collect` now namespaces the id too. Only bracketed keys are
-  wrapped, so every unbracketed source — and every existing single-account
-  vault — is byte-identical to before; the change lands on exactly the
-  configurations that were broken. `IdentityKey` is deliberately **not**
-  namespaced and a test pins that: it is the cross-source join key, and
-  prefixing it would break the dedup it exists to perform.
+## [0.65.0 to 0.88.3] - 2026-07-13 to 2026-10-22
 
-  Two consequences were handled rather than shipped as warts. `account.ref` is
-  `source_id/id` and would have doubled the prefix; since that string is the
-  documented value an operator types into a waiver's `resource_id`, it now
-  uses the id as-is when it already carries the key. And a roster `aliases:` /
-  `non_human:` entry keyed by the bare id would have silently stopped
-  matching — reporting a real person's account as unlinked — so both forms now
-  match. **A waiver scoped to an instanced source's bare id needs the prefix**;
-  it fails loudly rather than silently widening.
-
-- **`sigcomply init -f iso27001` recommended a command that exits 3.** The
-  scaffold's next-steps text unconditionally told the operator to run
-  `sigcomply init-ci`, which gates on soc2 — so the tool's own step 3 walked
-  an ISO 27001 project straight into a config error. Step 3 is now
-  framework-aware and points at `examples/` instead. The `--framework` flag's
-  help text also never mentioned the gate, while `init` one command earlier
-  advertises `soc2 | iso27001`; it does now.
-
-- **The `init-ci` gate was explained by a reason that is not true.** The error
-  and three docs said v1-alpha "ships cadence templates for SOC 2 only",
-  implying an ISO template set is the missing artifact. Nothing under
-  `cmd/sigcomply/templates/` mentions a framework in any form, `check` has no
-  `--framework` flag (it reads the framework from config), and both shipped
-  frameworks declare the same three cadences — the emitted files would be
-  byte-identical and correct for ISO 27001. The gate is conservatism about a
-  set only ever exercised against SOC 2. Stating it accurately matters because
-  the old wording invites someone to build a second template set that is not
-  needed. Also corrected: `09-ci-execution-model.md` said the monthly workflow
-  fires on the 1st, contradicting the cron in the same file (it is the 20th).
-
-- **`aws.iam`'s root record collided across AWS accounts.** Its ID was the
-  credential report's `<root_account>` user-column literal — byte-identical in
-  every account. With two instances configured (`aws.iam` +
-  `aws.iam[staging]`), `instancePlugin` re-stamps `SourceID` but not `ID`, the
-  collector unions both bindings into one slot, and the evaluator dedups
-  violations by record ID. Two roots without MFA therefore collapsed into
-  **one** violation with `resources_failed: 1`, the message named no account,
-  and a `resource_id: "<root_account>"` exception silently waived both. These
-  are `SeverityCritical` controls, and the blast radius was wider than the two
-  root policies: the root record shares a slot with every broad MFA policy, so
-  **seven** policies across both frameworks were affected. The record is now
-  keyed by the report's `arn` column
-  (`arn:aws:iam::<account>:root`) — account-unique, already present in the
-  CSV, and costing no extra API call or IAM permission. Falls back to the old
-  sentinel if AWS ever omits the column, since an empty ID fails conformance.
-  **Root record IDs change**, so an existing exception scoped to the sentinel
-  needs the ARN; it fails loudly rather than silently widening.
-
-- **The architecture doc promised a dashboard drilldown the boundary forbids.**
-  `06-aggregation.md` said the Rails app could generate signed read-only links
-  into the customer's vault and "renders the per-policy `result.json`" so an
-  auditor could see the violation list. None of it is built, and it is not a
-  roadmap item: it would require the cloud to hold read credentials for the
-  customer's vault — the custodianship the whole architecture exists to avoid.
-  It also contradicted the privacy section two paragraphs below it. The
-  paid-feature table now carries a Status column, because three of its six
-  rows were planned work written in the present tense.
-
-- **The extensibility guide documented a walkthrough that cannot compile.** It
-  promised extension "without forking the CLI repo", then every Go worked
-  example imported `sigcomply-cli/internal/...`. Go forbids importing an
-  `internal` path from outside its parent tree, and `sigcomply build` compiles
-  project-local extensions inside the *customer's* module — so the reader is
-  blocked at `go build`, after `sigcomply build` validated their package. The
-  doc now leads with which routes are actually wired: YAML `pass_when:`
-  policies, Rego rules and JSON evidence types are the supported no-fork
-  paths. (The Go half was closed immediately afterwards by the `plugin/`
-  package below; this entry records why the doc said otherwise.) Related
-  corrections in the same pass: the import check is a deny-list, not the
-  "allow-list" it was called in three places, and it reads only direct stdlib
-  imports in top-level files — a third-party HTTP client passes untouched, so
-  it is a speed bump, not the isolation boundary it was described as. The
-  workaround it offered ("reach the network via a curated in-tree helper") was
-  impossible, since every helper is under `internal/`. Project-local JSON
-  evidence types were marked "planned" in three docs and one Go comment
-  despite being wired and pinned by a test; a Go evidence-type *package* was
-  documented as the registration route despite having no hook. `plugin.yaml`
-  was described as parsed by `sigcomply build`, which never opens it.
-
-- **Point-in-time consistency was never named as a trade-off.** Principle #6
-  listed only runtime cost. A run is a stream of observations spanning its
-  whole duration — 15–25 minutes for a daily cadence — and the sharp edge is
-  not the cross-policy re-fetch but the cross-*slot* join inside one policy:
-  the roster join reads `accounts` at T1 and `roster` at T2, so a person
-  on- or offboarded in that window is reported as an access-control violation
-  that was true at no single instant. Documented in the principle and, where
-  an operator will actually meet it, in the identity-roster guide, with
-  "re-run before acting" as the remedy. Also corrected: `produced_at` is the
-  run's reference time captured at start, so it *precedes* every
-  `collected_at` in the same envelope — two docs showed examples implying it
-  was write time.
-
-- **Two controls pass on configuration alone without saying so.** ISO 27001
-  A.8.13 requires backups be tested; its automated policies check only that
-  backups are enabled, with the tested half evidenced under A.5.30. SOC 2
-  CC7.5 is about recovering from incidents and is backed by two infrastructure
-  flags. Neither is wrong, but a reader of "A.8.13 · automated" would
-  reasonably conclude restore testing was evidenced. Both policy descriptions
-  now say what they do and do not evidence, and `docs/reference/frameworks.md`
-  states the configured-vs-tested distinction generally.
-
-- **Multi-instance estates: there is no config `include:`/`extends:`**, so an
-  organization with ten projects keeps ten complete copies of the same
-  `sources:`, `vault:` and `controls:` blocks in sync by hand, and nothing
-  detects drift between them. Now stated in `08-project-config.md`. (This entry
-  also used to describe two instances collapsing into one violation; that was
-  fixed by the ID namespacing below.)
-
-- **`core.EvidenceRecord.Scope`'s doc comment described a mechanism that does
-  not exist.** It asserted, in the present tense, that "scope is a first-class
-  dimension of evidence identity — two records with the same ID but different
-  Scope are distinct observations". Nothing implements that. No collector,
-  evaluator, aggregator or report branches on `Scope`; the `pass_when` DSL
-  cannot even reach it (`getField` resolves `id`, `type`, `source_id`,
-  `payload.*` and `account.*`, but no `scope.*`); and dedup is the clause
-  `IdentityKey`, defaulting to `ID` — so two records with the same ID and
-  different Scope collapse into one, the exact opposite of the claim. The
-  comment also contradicted three architecture docs that correctly describe
-  per-record scope as provenance with identity-scope deferred to v2. A comment
-  in `internal/core/` outranks a doc in a reader's attention order, so this was
-  worth more than a stale-docs note. Behaviour is unchanged; the comment now
-  says what the code does, and `docs/architecture/02-layers.md` gained the
-  `Scope` field its `EvidenceRecord` listing had been missing.
-
-- **`aws.identity_center` documents why its `Scope.Account` means two different
-  things in one run.** The identity records carry the identity-**store** id,
-  while each `iam_binding` carries the AWS **account** the grant opens. Only the
-  second site said so. Both values are correct — the store is the boundary
-  `ListUsers` is addressed to, and resolving a single owning account would cost
-  an `sts:GetCallerIdentity` the plugin deliberately avoids so a roster-only
-  slot stays a two-permission operation. This is safe *because* scope is
-  provenance and nothing joins on it; the comment now records that, and that
-  this is the first inconsistency to resolve if per-record scope ever becomes
-  part of identity. No emitted value changed, so no signed envelope bytes
-  changed.
-
-- **`azure.entra` no longer signs a tenant it did not read.** `tenant_id` was
-  accepted without validation, never reached the credential or the token
-  request, and was stamped verbatim onto every record's scope — while Graph's
-  `/v1.0` base has no tenant segment and reads whatever directory the ambient
-  credential belongs to. Setting it to a tenant your credentials do not belong
-  to therefore read directory B, labelled every record directory A,
-  schema-validated them and Ed25519-signed them into the vault, with no error,
-  no warning and no log line: signed evidence asserting a directory boundary it
-  never came from.
-  The tenant is now **observed, not declared** — resolved from the credential
-  via `GET /organization` at construction and stamped from there. A declared
-  `tenant_id` becomes an assertion that is checked: if it disagrees, the run
-  stops as a configuration error (exit 3) before collecting or signing
-  anything. Omitting `tenant_id` loses nothing, since the scope is filled in
-  either way. **New permission:** the credential needs to read
-  `/organization` (`Organization.Read.All`, or any of the directory read scopes
-  that already cover it).
-- **Okta pagination could stop after the first page.** The `Link` header was
-  read with `http.Header.Get`, which returns only the *first* header line —
-  and Okta documents sending the pagination links as separate lines
-  (`link: …; rel="self"` then `link: …; rel="next"`). Whenever `self` came
-  first the run stopped after page one, silently truncating collection: for an
-  `all` quantifier the records never fetched cannot fail, so an org past one
-  page could pass a control on users nobody looked at. Both encodings are legal
-  HTTP and both are now scanned. Found while adding the password-policy
-  collector, which pages the same way.
-
-- **`na` no longer reads as "implemented" in the Statement of Applicability.**
-  `soaStatus` counted `na` alongside pass and waived, so following the
-  documented remedy for a control you cannot satisfy
-  (`exceptions: [{state: na}]`) turned "never examined" into an assertion of
-  implementation on the one document an auditor reads as exactly that — worse
-  than the `not implemented` it replaced. An `na` policy never reached its
-  rule, so it now abstains from the roll-up entirely: a control with nothing
-  but `na` policies reports **not evaluated**. This also closes a quieter leak,
-  where a policy mapping to both a `not_applicable` control and an applicable
-  one cascaded its `na` onto the applicable control's row.
-  Use `state: waived` when you mean "this applies and we are accepting the
-  gap" — that still counts as met, with your reason and expiry on the row.
-- **A carried-forward control no longer reads as "not implemented" in the
-  SoA.** `soaStatus` was the only roll-up in the CLI that did not treat
-  carry-forward as the pass it inherits — the compliance score counts it in
-  the numerator and `report --view coverage` ranks it with pass. A control
-  whose checks were simply not due for re-evaluation this period was reported
-  to the auditor as failing.
-- **A vacuous pass is now distinguishable from a thorough one on the wire.**
-  `resources_evaluated` counts a policy's records *before* its clauses filter
-  them, and `all`/`none` are true of the empty set, so a policy that filtered
-  500 records down to zero submitted *"All 500 resources passed."* — identical
-  to one that inspected all 500. The dashboard could not tell them apart and
-  could not be fixed from its side. The aggregator now emits *"Passed, but no
-  resources matched the filter — verify this control is in scope."* for such a
-  pass. `message` is an existing wire field, so there is **no schema bump and
-  no migration**; the slot names behind the diagnostic stay in the CLI, and
-  only the sentence crosses the aggregation boundary.
-- **Config examples that failed when copied.** Eight `bindings:` examples
-  across the docs and one Go doc comment keyed on a slot named
-  `user_directory`, which no shipped policy declares — `planner: binding for
-  unknown slot "user_directory"`, exit 3. The conventional slot is `evidence`;
-  the other four are `roster` (`exactly-one`), `accounts`, `deployments` and
-  `changes`. A further fifteen examples named policy IDs that do not exist
-  (`soc2.cc6.1.mfa_enforced`, `soc2.cc6.1.access_key_rotation`,
-  `soc2.cc7.2.annual_pentest`, …), which is also exit 3 — `project config:
-  policies[…]: no such policy in framework`. Every example now names a real
-  slot and a real policy. `04-source-plugins.md` also claimed one-or-more was
-  the cardinality of "every slot the shipped frameworks declare"; `roster` is
-  `exactly-one`.
-- **`tenant_id` is documented as optional, which is what it is.**
-  `docs/guides/configure-sources.md` and `docs/for-ai-agents.md` listed it as a
-  *required* config key for Microsoft Graph sources. It is neither required nor
-  auth-bearing: the Graph token is scoped by the credential's home tenant, and
-  `tenant_id` only tags each record's provenance. (Deriving that provenance
-  from the credential instead of trusting the declaration is separate, larger
-  work.)
-
-### Changed
-
-- **Manual-evidence folders are now keyed by the entry's cadence, not by
-  the run's audit period.** `{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/`
-  where `{period_id}` is daily `2026-01-15`, weekly `2026-W03` (ISO),
-  monthly `2026-01`, quarterly `2026-Q1`, annual `2026` — the table
-  `docs/configuration.md` has documented since before the code produced
-  it, and the keys the Evidence SPA has been telling customers to upload
-  to all along.
-  **This was a live `exit 1`, not a cosmetic mismatch.** All but four of
-  the 137 shipped catalog entries are annual. Their evidence was being
-  read from whichever quarter folder the run derived, and
-  `isInTemporalWindow` is closed at both ends, so a January upload was
-  invisible to the April, July and October runs — including the
-  `compliance-annual.yml` workflow `sigcomply init-ci` itself scaffolds,
-  where an explicit `--cadence annual` filter bypasses carry-forward.
-  **Migration:** if you already have uploads under the old scheme, move
-  `…/{entry}/2026-Qn/` to `…/{entry}/2026/` for every annual entry.
-  `sigcomply evidence due` prints the folder each entry now reads. There
-  is deliberately no compatibility read across periods: re-reading the
-  old folder would trip the temporal window, and from the following
-  period onward would trip `copy_paste_of_prior_period`, turning a
-  missing-evidence failure into a fraud-shaped one.
-  Under `fiscal_calendar.type: fiscal_year` the annual cadence keeps
-  `FY2026`; under `custom`, and for cadences with no calendar window
-  (`continuous`, `hourly`, `every:<duration>`), nothing changes. A
-  per-policy `cadence:` override does not move the folder — the
-  framework catalog's declared cadence does.
-  The **run's** period is untouched: the vault run root, `manifest.json`,
-  `summary.json`, the cloud payload's `period_id` and
-  `PolicyState.LastPeriodID` are all as before, so there is no schema
-  bump and no dashboard change. What does move is the `period_id` inside
-  a `signed_document` record (and its `id` and `expected_uri`), which now
-  names the window the document actually covers.
-- **The prior-period duplication check now has a folder to compare
-  against for annual entries** — last year's, where it used to be last
-  quarter's, which was always empty. Re-uploading a byte-identical
-  document year over year now fails with `copy_paste_of_prior_period`,
-  which is what that check exists to catch. Evidence that legitimately
-  does not change between periods is declared as an exception in
-  `.sigcomply.yaml`.
-- **`period.time_basis` is honored.** It has been accepted by the
-  validator and read by nothing: every period was derived from the HEAD
-  commit's timestamp whatever the config said. `wall_clock` now derives
-  from the run's start clock, which for a project that sets it moves the
-  run's `period_id` — and therefore the vault run root — whenever HEAD
-  sits in an earlier period than the run. `commit` (the default) is
-  unchanged.
-- **`sigcomply evidence due` reports a period per entry.** The text and
-  step-summary output gain a `PERIOD` column and the header names the
-  run's period as context rather than claiming every entry shares it.
-  Deadlines are now measured on the same clock the period was derived
-  from, so a repo with a stale HEAD is no longer told it is months
-  overdue for a period the next run will read quite happily. With one
-  consistent clock there is no reachable "overdue" state, so the
-  `overdue` field is gone from the JSON output and `--within-days 0` now
-  means "only what closes today" rather than "only what is already late".
+Releases v0.65.0 through v0.88.3 were cut without per-version notes. This section lists their
+combined changes.
 
 ### Added
 
-- **`aws.identity_center` now enumerates permission-set assignments**, which
-  makes it the second emitter of `iam_binding` and closes the `is_admin`
-  gap it shipped with. The traversal is `sso:ListPermissionSets` →
-  `DescribePermissionSet` + `ListManagedPoliciesInPermissionSet` →
-  `ListAccountsForProvisionedPermissionSet` → `ListAccountAssignments`,
-  plus `identitystore:DescribeGroup` / `ListGroupMemberships`.
-  **Zero policy or framework changes were needed** — substitutability
-  again: `iso27001.5.3.no_broad_admin_bindings` and
-  `iso27001.8.3.no_broad_admin_iam_bindings` already accepted
-  `iam_binding` and simply had no emitter on an AWS-only estate, and the
-  roster policies' `accounts` slot already accepted it too.
-  **The design decision worth keeping:** an `iam_binding` mirrors the
-  assignment *as it was made* — a group assignment stays a `group`
-  principal and is **not** expanded into per-member records, because the
-  least-privilege policies are phrased
-  `none(principal_type == "user" AND is_broad_admin_role AND NOT has_condition)`
-  and their remediation says to grant admin through groups; expanding
-  would report the recommended pattern as a violation of the policy that
-  recommends it, and would mis-key the roster join, whose
-  `account.non_human` derives from `principal_type`. `is_admin` asks a
-  different question — does this *person* hold elevated privileges — so it
-  **does** resolve group membership. `internal/sources/aws/iam` already
-  split the two the same way. `is_broad_admin_role` is `AdministratorAccess`
-  attached **or** a permission-set name containing "admin", and
-  `has_condition` is a flat `false` (an assignment carries no IAM
-  condition) — both err toward failing a control rather than passing one.
-  Remaining blind spot: a permission set reaching admin only through an
-  inline or customer-managed policy under a non-obvious name reads as
-  not-broad. The traversal costs O(permission sets x accounts) API calls;
-  a slot asking only for `directory_user` skips the account fan-out for
-  non-admin sets, and a roster-only slot skips the traversal entirely and
-  needs none of the `sso:*` permissions. **Breaking for existing
-  configs:** a binding that collects `directory_user` or `iam_binding` now
-  requires the new read actions above, and a run whose credentials lack
-  them fails loudly rather than quietly omitting `is_admin`.
-  The L2 cassette gained the new interactions and is now regenerable from
-  a committed `//go:build cassette` driver — it is still constructed from
-  the published Smithy models, not recorded against a live tenant.
-
-- **`aws.identity_center` — an AWS IAM Identity Center (SSO) source.**
-  Emits `directory_user` (v1) and `roster_entry` from one
-  `identitystore:ListUsers` listing. Modern AWS human access runs through
-  Identity Center rather than IAM users, so on such an estate the roster
-  policies were checking the wrong population; Identity Center identities
-  carry emails, so they join the roster directly and the `aws.iam:`
-  `aliases` block becomes unnecessary. **Zero policy changes were needed** —
-  it emits existing cloud-neutral types, which is the substitutability
-  property working as designed. `identity_store_id` is optional and
-  discovered from `sso-admin:ListInstances`. It emits **v1, not v2**:
-  v2's required `is_root` / `has_console_access` /
-  `has_programmatic_access` describe an IAM account, and emitting them
-  would make the three v2-only IAM policies pass trivially over SSO users
-  — inflating the score. One honest gap: Identity Center publishes no
-  per-user MFA enrollment, so `mfa_enabled` is best-effort `false` (which
-  can only fail a control, never pass one). Bind the MFA policies to the
-  IdP that actually holds that state. (`is_admin` was the second gap in
-  this entry as first written; the permission-set traversal below now
-  answers it.) **The L2 cassette is derived from
-  the published Smithy service models, not recorded against a live tenant
-  — it needs a live re-record before it can be trusted as a contract test.**
-- **Declared-but-never-matched roster keys are now reported.** An
-  `experimental.roster.aliases` or `non_human` entry naming an account no
-  source returned was silent — a perfectly valid entry for an account that
-  does not exist. Runs now print `unused-alias:` / `unused-non-human:`
-  naming each key. Usage is accumulated run-scoped across every roster
-  policy, because the alias map is shared by reference while each policy
-  gets its own evaluation context, so a per-policy verdict would report a
-  key as unused in the policy whose slot never bound that source. Printed
-  to stdout rather than the logger, whose redaction would rewrite an
-  email-shaped alias key. Carried-forward and skipped policies declare
-  nothing, so a daily run cannot false-alarm on annual roster policies.
-- **Collector errors are classified as retryable or terminal.** A
-  rejected or under-permissioned credential used to be retried as
-  patiently as a 429 — per binding, sequentially — so one mis-scoped
-  credential could spend the whole ~8 min PR budget against every binding
-  on that source before the run said anything. 429/5xx/timeouts still
-  spend the budget; 401/403/404 and schema failures now fail the binding
-  at once. Most plugins needed no change: their SDK errors were already
-  wrapped with `%w` and are classified via `errors.As`. **An unclassified
-  error is still treated as retryable**, so this is non-breaking and
-  adoptable incrementally. New shared contract in
-  `internal/sources/errors.go`.
-
-- **The identity-roster check now covers cloud IAM grants, not just accounts.**
-  The roster policies' subject slot accepts `iam_binding` alongside the
-  `directory_user` family, so a GCP project role held by someone who was never
-  an account in any bound directory — a personal Google account, a partner-domain
-  user — is joined to the roster and reported like any other unlinked identity.
-  `account.key` falls back to `payload.principal_id`, so
-  `experimental.roster.aliases` and `non_human` work for `gcp.iam` principals;
-  service-account, group and domain principals are excluded automatically, while
-  an unclassifiable principal (`allUsers`) stays in the population on purpose.
-  No new policy and no new control: adding a source that emits `iam_binding`
-  widens what the existing checks see.
-
-- **GitHub Enterprise Server is reachable.** `sources.github` accepts an
-  optional `base_url` (default `https://api.github.com`), mirroring the
-  key GitLab already had for self-managed instances. Give the API root,
-  usually `https://<host>/api/v3`.
-- **Vendor onboarding and termination have an entry.** New annual manual
-  entries `soc2.cc9.2.vendor_lifecycle_process` and
-  `iso27001.5.19.supplier_lifecycle_process`, covering the documented
-  procedure plus the period's onboarding/termination records. Deliberately
-  flat rather than fanned out: a terminated vendor is one you delete from
-  the register, so a per-member folder set can never hold evidence for the
-  relationship that ended.
-- **Vendor contracts and supplier agreements fan out per vendor.**
-  `soc2.cc9.2.vendor_contracts_reviewed` and
-  `iso27001.5.20.supplier_security_agreements` now collect one folder per
-  register member, like assurance reports — a contract is a
-  per-relationship artifact and auditors sample them per vendor.
-  **Breaking for projects that already declared `experimental.vendors`:**
-  evidence at `{prefix}/vendor_contracts_reviewed/{period_id}/` is no
-  longer scanned; copy it into each vendor's folder.
-- **The third-party register is checked against the sources you configured.**
-  A register entry may declare `providers:` naming the sources it supplies;
-  a configured source no entry claims now produces a plan-time warning.
-  Advisory, never fatal, and it discovers nothing — it cross-checks the
-  register against the estate you already declared. Unrecognized
-  `experimental.vendors` subkeys are now reported too (they were parsed and
-  silently dropped).
-- **Configured-but-unused sources are named.** A source no policy slot binds
-  (an `active_directory` source with no `experimental.roster`, say) was
-  listed in the collection banner as though it were being read. The banner
-  still prints before planning, by design; a new `unbound-source:` warning
-  after the plan says which of those were never consulted.
-
-- **Vendor and third-party risk collects per vendor, not per folder.** A manual
-  catalog entry can now fan out over a set the project declares in
-  `experimental.vendors`: one evidence folder per vendor
-  (`{prefix}{evidence_id}.{vendor_id}/{period_id}/`), each checked
-  independently, all reported as a single policy. Three new manual policies —
-  `soc2.cc9.2.vendor_assurance`, `soc2.cc9.2.cuec_mapping` (fans out over
-  subservice organizations only) and `iso27001.5.19.supplier_assurance`.
-  Each vendor may declare `assurance_period_end`, the last day its own
-  assurance report covers, which fails the check once it is more than 15
-  months before the audit period — the only way to catch a stale report,
-  since the temporal window proves upload time alone. The date is **declared,
-  never parsed**: the CLI still does not read document contents. Risk tier
-  decides *which* artifact a vendor owes, never *whether* one is owed; a `low`
-  tier is an approved exemption requiring `tier_rationale` and `approved_by`,
-  not a silent opt-out. Vendor names, rationales and approver addresses stay
-  vault-side — the evaluator reduces the register to two counts before
-  submission, so the cloud never learns which third parties a customer uses.
-  **Behavior change: a project that declares a register gains one evidence
-  obligation per vendor, and those policies fail until each vendor's document
-  is uploaded.** Projects that declare no register are unaffected — the
-  entries behave as ordinary single-folder manual entries. See
-  [Vendor and third-party risk](docs/guides/vendor-risk.md).
-
-- **ISO 27001 now covers the management system, not just Annex A — and
-  generates the Statement of Applicability.** **Behavior change: existing ISO
-  27001 projects gain 16 manual policies that fail until the documents are
-  uploaded.** See the migration note at the end of this entry.
-
-  The ISO framework shipped the 93 Annex A controls and nothing for clauses
-  4–10. Certification is not granted against Annex A; it is granted against the
-  information security management system, and a Stage 1 audit is in practice a
-  documentation review of exactly those clauses — is the scope written down, is
-  there a risk assessment process, were internal audits conducted, did top
-  management review the ISMS. So a customer could pass every SigComply check,
-  read a clean coverage report, and fail Stage 1, with nothing in the product
-  having hinted at the gap. Worse, the gap was invisible by construction: the
-  universe coverage was measured over was itself missing a third of what the
-  auditor asks for, so no number computed inside it could reveal the omission.
-  That was an ISO readiness claim we could not back.
-
-  Sixteen management-system requirements now ship as manual `document_upload`
-  entries on an annual cadence: `C.4.1-4.2` (context and interested parties),
-  `C.4.3` (ISMS scope), `C.5.2` (information security policy), `C.5.3` (ISMS
-  roles), `C.6.1.2` (risk assessment process), `C.6.1.3` (risk treatment
-  process), `C.6.2` (objectives), `C.7.2` (competence), `C.7.5` (documented
-  information), `C.8.1` (operational planning), `C.8.2` (risk assessment
-  results), `C.8.3` (risk treatment results), `C.9.1` (monitoring), `C.9.2`
-  (internal audit), `C.9.3` (management review), `C.10.2` (corrective action).
-  Policy IDs are `iso27001.clause.<n>.<slug>`. The `C.` prefix exists so a
-  clause can never be read as an Annex A reference — clause 5.2 and A.5.2 are
-  different requirements an auditor tests separately.
-
-  **The 93 and the 16 are never added together.** They are different kinds of
-  control and a blended total flatters the headline at exactly the moment the
-  honest gap is closed: "93 of 93 covered" would become "109 of 109 covered" on
-  the day sixteen requirements nobody has uploaded evidence for were added.
-  `core.Control` therefore carries a `Kind` (`catalog`, the default, or
-  `management_system`) with an `IsManagementSystem()` predicate; `--view
-  coverage` gained a `KIND` column and its own `ManagementSystem` /
-  `ManagementSystemOnFile` counters; and the doc-figures test that pins
-  published counts to the compiled framework now splits them too. Project-local
-  framework extensions carry the same field as `kind:` on a control, decoded
-  strictly so an unrecognized value is rejected rather than read as the default.
-
-  The kind lives on the control rather than in an ID-prefix check for two
-  reasons. `internal/report` is deliberately framework-registry-free — it reads
-  vault bytes plus a catalog handed to it, and must not import
-  `internal/frameworks` — so a `"C."` test would smuggle one framework's ID
-  convention into a package that is not allowed to know which framework it is
-  rendering. And a project-local extension's controls carry neither an `A.` nor
-  a `C.` prefix, yet belong in the Statement of Applicability like any other
-  selectable control.
-
-  **A management-system requirement cannot be declared `not_applicable`.**
-  `validateApplicability` rejects it at config load (exit 3). Nothing would have
-  *failed* without this check, which is the problem: control-level applicability
-  cascades, so an accepted exclusion would mark every policy under the clause
-  `na`, drop them out of the compliance-score denominator, and *raise* the score
-  for declining to have an ISMS. Excluding an Annex A control is untouched — it
-  is exactly what applicability is for.
-
-- **`sigcomply report --view soa` — the Statement of Applicability, generated.**
-  ISO/IEC 27001:2022 6.1.3 d) requires one and it is the first document a Stage
-  1 auditor asks for. It must state, per control, which are necessary, why each
-  is included, whether it is implemented, and the justification for any
-  exclusion. SigComply already held all four — the catalog in the framework, the
-  applicability decision and its reasoning in `.sigcomply.yaml`, the
-  implementation status in the vault — and had no surface that joined them, so
-  the one document the auditor reads first had to be maintained by hand
-  alongside the tool that knew the answer. A hand-maintained copy of a derived
-  artifact drifts the moment a control is excluded or a check starts failing,
-  silently, because nothing compares the two.
-
-  Text, JSON and CSV; CSV is the spreadsheet auditors actually work in. Status
-  is derived from the period's results and never asserted — `implemented` only
-  when every check that ran passed, then `partially implemented`, `not
-  implemented`, and `not evaluated` when nothing ran. A control whose annual
-  policy has not run this quarter says so rather than borrowing a pass from the
-  catalog. Each row also carries its assurance (`automated` / `manual` /
-  `none`), because an implemented control evidenced only by a PDF on file is a
-  weaker claim than one where infrastructure was inspected, and a document
-  handed to a certification body should not flatten the two.
-
-  The view lists the selectable control catalog and never the management-system
-  clauses. Note that this is wider than Annex A: 6.1.3 b) NOTE 1 lets an
-  organization design controls from any source, and Annex A is the cross-check
-  list rather than the menu — so a project-local extension's own controls belong
-  in the SoA too. The filter is `!IsManagementSystem()`, not an `A.` prefix
-  test.
-
-  **`--view soa` is the one report view that requires the project config** and
-  exits 3 without it. Every other view is a pure reader of vault bytes, so an
-  auditor holding only a vault path can produce them. The applicability
-  decisions are authored, not observed — there is nowhere in the vault to read
-  them from — and degrading gracefully would render every control as applicable,
-  turning a deliberate, approved exclusion into a silent inclusion on the single
-  document a certification auditor reads first. Refusing is the honest answer; a
-  footnote at the bottom of a CSV nobody scrolls to is not.
-
-- **New `.sigcomply.yaml` key: `controls.<id>.justification`.** The *inclusion*
-  justification — the other half of what 6.1.3 d) asks for, alongside the
-  existing exclusion `reason`. `--view soa` prints it verbatim. Where it is
-  absent the view derives one from the checks standing behind the control
-  ("Applicable — no exclusion declared. Verified by 3 automated checks.") and
-  marks it `(derived)`, so an auditor can tell deliberation from boilerplate and
-  the headline note can say how many inclusions still carry a default. Setting
-  both `justification` and an exclusion `reason` on one control is a config
-  error: a row the SoA reports as excluded must not also carry an inclusion
-  justification.
-
-  Three of the sixteen — `C.4.1-4.2`, `C.5.3` and `C.7.5` — are **not strictly
-  mandatory documented information** under the 2022 text. Clauses 4.1/4.2
-  require the determination to be made rather than documented, 5.3 requires
-  roles to be assigned and communicated, and 7.5 governs how documented
-  information is controlled. They are included because every certification audit
-  asks for them, and the source and the docs both say so: a set advertised as
-  "ISO's mandatory documented information" that quietly exceeds it would be the
-  same species of overclaim this change exists to fix.
-
-  All sixteen are `document_upload` rather than Evidence SPA click-through
-  forms. These are documents an auditor reads — a scope statement, a risk
-  register, internal audit findings, management review minutes — and rendering a
-  management review as a set of checkboxes someone ticks would reproduce, one
-  layer down, the exact overclaim being retired. The SPA already filters
-  `document_upload` entries out of its dashboard, so all sixteen are correctly
-  absent from it and no SPA change was needed. Clause 6.1.3's own mandatory
-  output, the SoA, is deliberately not one of the sixteen — SigComply generates
-  it; `C.6.1.3` covers the risk treatment process and plan, which the SoA does
-  not replace.
-
-  **Migration — what an existing ISO 27001 project will see.** On the next
-  annual run, 16 new manual policies fail because their evidence folders are
-  empty: `sigcomply check --cadence annual` exits `1`, the compliance score
-  drops (16 policies enter the denominator, none pass), and the Cloud dashboard
-  shows the same drop. That is a correction to a score previously computed over
-  an incomplete universe, not a regression in posture. No config key is
-  required, no existing control's behavior moves, and the daily and quarterly
-  workflows are unaffected since all sixteen are annual. `sigcomply evidence
-  due` lists every clause folder still empty for the current period with the
-  exact upload URI for each, and always exits 0. To keep the build green while
-  working through the backlog, waive the policies with a reason and an
-  `expires_at` — the control cannot be excluded. Guide:
-  `docs/guides/isms-clauses.md`. Design: `docs/architecture/13-isms-clauses-and-soa.md`.
-
-- **Change management is now evidenced from the changes themselves, not just
-  the guardrail around them.** Two new evidence types — `pull_request` and
-  `deployment` — collected from GitHub and GitLab over the audit period, with
-  four new policies per framework (SOC 2 CC8.1, ISO 27001 A.8.32): every merged
-  change had an independent approval, passed its automated checks, and was
-  approved *before* it was merged; and every production deployment traces back
-  to an approved change.
-
-  The eight CC8.1 policies that shipped before this read `git_repository` —
-  branch protection on, reviews required, force-push off. That is a photograph
-  of the configuration at the instant the run executes, and it answers "is
-  review required?". It cannot answer "did the changes that actually shipped
-  get reviewed?", because a protection setting can be bypassed by an admin,
-  disabled and re-enabled between runs, or simply not apply to everyone, and
-  none of that leaves a trace in the setting. An auditor testing CC8.1 asks for
-  the population of changes in the period and samples it. Until now we could
-  not produce that population at all. Both halves are kept — the guardrail
-  check and the outcome check are different assertions.
-
-  This is the first policy family that reads what *happened during* the period
-  rather than what is true right now. The plumbing already existed: the
-  orchestrator has been injecting `period_start`/`period_end` into every slot
-  request since the manual-evidence work, and only the manual plugin was
-  reading them.
-
-  Three notes on what these policies deliberately do **not** claim. They do not
-  check that the merger differs from the author — merging your own change after
-  an independent approval is normal practice, and Vanta and Drata both check
-  the approver, not the merger. They do not compare the deployer against the
-  merger: that is a field-to-field comparison across two slots, which the
-  `pass_when` DSL cannot express, so the deployment policy asserts traceability
-  to an approved change instead. And they do not claim ISO A.8.31 (separation
-  of development, test and production environments) — a deployment record
-  proves who released what, not that the environments are separated, and
-  claiming it would be exactly the kind of overclaim the coverage work exists
-  to prevent. A.8.31 stays manual evidence.
-
-  For a change that legitimately merged without an approval — a production
-  hotfix, an automated dependency bump — waive it with the existing scoped
-  exception mechanism, keyed on the record ID the policy reports
-  (`acme/api#1234`). The waiver then lives in your repository, version
-  controlled and reviewable, which is stronger evidence than a justification
-  typed into a vendor's dashboard.
-
-  No wire or dashboard change: these are ordinary policy results carrying the
-  existing per-policy counts, so `resources_evaluated` is the number of merged
-  changes in the period and `resources_failed` the number that fell short.
-  **No Rails deploy is needed for this one.**
-
-  Requires wider read scopes than before. GitHub: *Pull requests: read*,
-  *Deployments: read*, *Checks: read*, *Commit statuses: read* alongside the
-  existing repository scopes. GitLab: `read_api` already covers it, but the
-  token's user needs at least Reporter on each project. Approver lists are
-  readable on GitLab Free; approval *rules* are Premium-only and degrade to
-  zero rather than failing the run.
-
-- **`sigcomply report --view coverage` — what is actually behind the green.**
-  A compliance score is a pass rate over the policies that ran, and a policy
-  satisfied by a document sitting in your evidence folder counts exactly as
-  much as one that inspected live infrastructure. Both pass. Nothing in the
-  product distinguished them, so a run whose controls rest on uploaded PDFs
-  read identically to one that verified everything — for SOC 2 that is 27 of
-  43 criteria, the whole CC1–CC5 governance spine plus vendor risk and
-  privacy. The new view reports, per control, which kind of check stands
-  behind it, how many of each, and whether that evidence exists for the
-  period. It is framework-scoped rather than run-scoped on purpose: cadence
-  is independent of the audit period, so a control checked annually writes no
-  result at all in three quarters out of four, and a view built only from the
-  period folder would show a clean bill of health over whatever happened to
-  run. A control with no result says so and names its cadence, so "annual,
-  expected" is distinguishable from "daily, broken". Flags: `--view coverage`,
-  with `--format text|json|csv`. Reference: `docs/reference/commands.md`.
-
-- **`sigcomply check` now says what earned the passes.** `pass=84` is the
-  number a reader over-trusts. The summary now breaks passing policies into
-  those verified by inspection and those satisfied by a document being
-  present, and says plainly that a document-presence pass means the file was
-  there, not that its contents were checked.
-
-- **The effective evidence mode is recorded everywhere a result goes.** Every
-  `PolicyResult` carries the mode it was actually evaluated under, plus
-  whether the project overrode the framework default — persisted in
-  `result.json` and submitted on the wire as `evidence_mode` /
-  `evidence_mode_overridden`. This closes a documented-but-unimplemented gap:
-  a project could downgrade an automated check to a document upload and no
-  artifact anywhere recorded that it happened. Bumps the cloud schema to
-  `sigcomply.cloud.v4` (both fields are non-identifying — a two-value enum
-  and a boolean). **Deploy the Rails side first**: an unknown field is
-  silently dropped by strong params and the request still returns 201.
-
-- **`sigcomply evidence due` — know manual evidence is needed before CI goes
-  red.** Until now the only signal that a quarterly access review or an annual
-  policy acknowledgement was missing was a failed cadence run on the day it was
-  already needed. The new command lists every manual-evidence entry whose folder
-  for the current period is still empty, and `sigcomply init-ci` wires it into
-  the daily workflow as a **non-failing** step (`continue-on-error: true` on
-  GitHub, `|| true` on GitLab). It reports only genuinely empty folders, so it
-  goes quiet the moment the upload lands rather than nagging about work already
-  done, and it **always exits 0** when the scan completes — including when
-  evidence is overdue. If the store cannot be reached it says so and still exits
-  0 instead of inventing deadlines. Read-only: `LIST` calls only, no file bytes
-  downloaded, no cloud API, no OIDC. Under GitHub Actions it also emits
-  `::warning` annotations (capped at GitHub's ten-per-step limit, with an
-  overflow line) and a `$GITHUB_STEP_SUMMARY` table. Flags: `-c`, `-f`, `-o
-  text|json`, `--within-days` (default 30), `--all`.
-
-- **Identity roster — check every system's accounts against your list of
-  people.** A new opt-in `experimental.roster` block designates the one source
-  that holds the organization's people (`okta`, `azure.entra`, `gcp.directory`
-  or `active_directory`), with per-source `aliases` (account → roster email)
-  and `non_human` account lists. Four new policies use it:
-  `soc2.cc6.2.accounts_linked_to_roster` / `iso27001.5.16.accounts_linked_to_roster`
-  (every active human account in GitHub, GitLab, AWS IAM, … belongs to someone
-  in the roster) and `soc2.cc6.2.no_active_accounts_for_inactive_personnel` /
-  `iso27001.5.18.no_active_accounts_for_inactive_personnel` (no active account
-  belongs to someone the roster marks inactive). The roster source is never
-  auto-bound and never checked against itself — a directory cannot vouch for
-  its own accounts. Without the block the policies skip with a message naming
-  the key to set. Violations identify accounts as `source_id/id`, the value a
-  waiver's `resource_id` takes. Guide: `docs/guides/identity-roster.md`.
-- **`roster_entry` evidence type** — one record per person in the
-  authoritative workforce directory (`status`: `active` | `pending` |
-  `inactive`), emitted by `okta` (including deprovisioned users), `azure.entra`
-  (needs only `User.Read.All`, no Entra ID P1/P2), `gcp.directory`, and the new
-  `active_directory` source. `additionalProperties: false`: plugins emit only
-  the minimal personnel fields.
-- **`active_directory` source** — reads on-prem Active Directory over LDAPS or
-  StartTLS (plain LDAP is refused; TLS 1.2+, verified) with a simple bind and
-  paged search, and emits `roster_entry`. Status comes from the
-  ACCOUNTDISABLE flag and `accountExpires`; `service_account_ous` and
-  `servicePrincipalName` mark service accounts.
-- **`matches_in` cross-slot operator and `account.*` fields in `pass_when`.**
-  `{op: matches_in, field, in_slot, remote_field, normalize: lower_trim, where}`
-  expresses "this record's key appears in another slot" without the `rule:`
-  escape hatch. Virtual `account.ref` / `.key` / `.linked_by` / `.non_human` /
-  `.active` resolve aliases, non-human declarations and AWS root. Slots can
-  declare `role: roster | roster_subject`; clause and condition keys are now
-  decoded strictly, so a typo such as `normalize:` fails to load.
-- **`gcp.directory` impersonation for CI** — optional `target_service_account`
-  (ADC impersonates that service account) and `impersonate_subject`
-  (domain-wide delegation; requires `target_service_account`).
-- `directory_user.username` is emitted by `github` (login), `gitlab` (username)
-  and `aws.iam` (`UserName`), so roster aliases can name accounts by login.
-- **Multiple instances of one source — a project can now cover several cloud
-  accounts.** A bracket suffix on a source key (`"aws.iam[staging]"`)
-  configures the same plugin a second time. This was documented but had never
-  worked: the factory lookup was exact, so a bracketed key failed with "not
-  registered", and had it got past that, both instances would have collided on
-  the plugin's hardcoded ID. Instance identity is now real — it is the registry
-  key, what a `bindings:` entry names, each record's `source_id`, and the
-  evidence envelope's filename — so two accounts produce two independently
-  verifiable sets of evidence. An instance key naming something unconfigured is
-  a hard error, never silently resolved to the default instance.
-- **Per-instance AWS credentials (`role_arn`, `external_id`,
-  `role_session_name`).** Region is not an account boundary: every AWS plugin
-  previously resolved one ambient identity, so two instances returned the same
-  account's resources under two names. An instance now assumes its own role
-  from whatever credentials the runner holds. The role is resolved at
-  construction, so a misconfigured instance fails the run instead of reporting
-  an account that merely looks empty. There is deliberately no `profile` key —
-  the AWS chain resolves environment credentials ahead of a profile, so in CI a
-  profile would be silently ignored.
-- **`token_env` for `github`, `gitlab` and `okta`** — names a per-instance
-  environment variable for the credential. Without it a second instance falls
-  back to the same process-global `GITHUB_TOKEN` as the first and collects the
-  same org twice. A `token_env` that is set but empty is an error rather than a
-  fall-through, so an instance can never silently borrow another's identity.
-- **Declared estate / scope completeness.** A new opt-in
-  `experimental.scope.required_sources` block in `.sigcomply.yaml` lets you
-  declare the sources a project asserts coverage over. Any declared source that
-  is not configured, not bound by a policy slot, or returns no records makes the
-  run report `SCOPE INCOMPLETE` and exit `1`. This closes a false-green: because
-  a policy with no configured source is skipped and skips leave the
-  compliance-score denominator, forgetting to wire a platform previously *raised*
-  your score instead of lowering it. Entirely opt-in — with no declaration there
-  is no new output, no new exit code, and `summary.json` keeps its previous
-  shape. The verdict is written to `summary.json` (covered by the run manifest
-  signature) and never crosses the aggregation boundary.
-- **`sigcomply report --view scope`.** Shows the declared estate and how each
-  declared source fared, plus every control the latest run did *not* evaluate
-  and why. The skip half renders even with no declaration — skipped controls
-  leave the compliance score, so they are exactly what an all-green run hides.
-- `check` now prints a short banner naming the sources it will collect from (and
-  their region/backend) before making any API call, so it's clear the run reaches
-  real infrastructure. Credentials are never printed.
-- `check` surfaces a concise, actionable reason line under each failing or errored
-  policy in the terminal summary (e.g. `manual evidence not found; expected files
-  in: <path>`), instead of only writing it to the vault `result.json`.
-- `sigcomply init` now scaffolds a `manual.pdf` evidence source (local `./evidence`
-  backend) so a framework's manual-evidence controls bind and report `fail`
-  ("evidence not found") rather than erroring out.
+- ISO 27001 ships the 16 clause 4-10 management-system requirements (`C.4.1-4.2` through `C.10.2`,
+  policy IDs `iso27001.clause.<n>.<slug>`) as annual manual document uploads. They cannot be
+  declared `not_applicable`. Existing ISO projects: the next annual run fails these 16 until the
+  documents are uploaded; waive them with a reason and `expires_at` while you work through them.
+- `sigcomply report --view soa` generates the ISO 27001 Statement of Applicability (text, JSON,
+  CSV). It requires the project config and exits `3` without it.
+- `controls.<id>.justification` config key: the inclusion justification printed in the SoA. Setting
+  it together with an exclusion `reason` on one control is a config error.
+- `experimental.risks` risk register: each risk names the Annex A controls that treat it, and the
+  SoA gains a `RISKS` column. Plan-time `risks:` warnings flag unknown control IDs and stale
+  registers.
+- `sigcomply report --view coverage` shows, per control, whether automated or manual checks stand
+  behind it and whether evidence exists for the period (`--format text|json|csv`). For ISO 27001
+  it counts Annex A and management-system controls separately (`KIND` column).
+- `sigcomply report --view scope` lists the declared estate, how each declared source fared, and
+  every control the latest run skipped or errored, with a status column.
+- `experimental.scope.required_sources`: a declared source that is unconfigured, unbound or returns
+  no records makes the run report `SCOPE INCOMPLETE` and exit `1`. Opt-in.
+- `sigcomply evidence due` lists manual-evidence entries whose current-period folder is empty
+  (`-c`, `-f`, `-o text|json`, `--within-days`, `--all`). Read-only, always exits `0`; emits
+  GitHub `::warning` annotations and a step-summary table. `init-ci` adds it to the daily workflow.
+- Change management evidence: `pull_request` and `deployment` evidence types from `github` and
+  `gitlab`, with four policies per framework (SOC 2 CC8.1, ISO 27001 A.8.32). GitHub tokens need
+  Pull requests, Deployments, Checks and Commit statuses read; GitLab users need Reporter.
+- Identity roster: `experimental.roster` designates one people source (`okta`, `azure.entra`,
+  `gcp.directory`, `active_directory`) with per-source `aliases` and `non_human` lists. Four
+  policies (`*.accounts_linked_to_roster`, `*.no_active_accounts_for_inactive_personnel`) check
+  accounts and `iam_binding` grants against it; they skip when the block is absent. Runs print
+  `unused-alias:` and `unused-non-human:` for roster keys that matched no account.
+- `roster_entry` evidence type, emitted by `okta`, `azure.entra`, `gcp.directory` and
+  `active_directory`. `directory_user.username` is emitted by `github`, `gitlab` and `aws.iam`.
+- `active_directory` source: on-prem AD over LDAPS or StartTLS (plain LDAP refused), emits
+  `roster_entry`; `service_account_ous` marks service accounts.
+- `matches_in` cross-slot operator and virtual `account.*` fields in `pass_when`; slots can declare
+  `role: roster | roster_subject`. Clause and condition keys are decoded strictly.
+- `aws.identity_center` source: emits `directory_user`, `roster_entry` and `iam_binding`
+  (permission-set assignments). Needs `identitystore:*` and `sso:*` read actions; `mfa_enabled`
+  is always `false` because AWS exposes no per-user MFA, so bind MFA policies to your IdP.
+- `gcp.cloud_identity` source: emits `password_policy.v2` from Cloud Identity, so the six password
+  controls evaluate on a Google Workspace estate instead of skipping.
+- `password_policy.v2` evidence type: `complexity_model` (`per_class | strength_enum | fixed |
+  none`), `reuse_prevented` with optional `reuse_prevention_count`, optional platform fields,
+  `not_configurable`, `defaulted`, `scope` and `precedence`. v1 stays registered for local plugins.
+- `aws.password_policy` and `okta` emit `password_policy.v2`. Okta emits one record per active
+  password policy and needs `okta.policies.read`.
+- `soc2.cc6.1.password_reuse_depth_24` policy: requires a reuse history of 24 from sources that
+  disclose a depth; others are out of scope.
+- Vendor risk: manual entries can fan out over `experimental.vendors`, one folder per vendor at
+  `{prefix}{evidence_id}.{vendor_id}/{period_id}/`. Policies `soc2.cc9.2.vendor_assurance`,
+  `soc2.cc9.2.cuec_mapping` and `iso27001.5.19.supplier_assurance`; a vendor's
+  `assurance_period_end` fails the check once more than 15 months old. A `low` tier requires
+  `tier_rationale` and `approved_by`. Declaring a register adds one evidence obligation per vendor.
+- Annual manual entries `soc2.cc9.2.vendor_lifecycle_process` and
+  `iso27001.5.19.supplier_lifecycle_process`.
+- `experimental.vendors` entries accept `providers:`; a configured source no entry claims produces
+  a plan-time warning. Unknown `experimental.vendors` subkeys are reported.
+- Multiple instances of one source via a bracket suffix (`"aws.iam[staging]"`), each producing its
+  own evidence. AWS instances accept `role_arn`, `external_id` and `role_session_name`; `github`,
+  `gitlab` and `okta` accept `token_env`.
+- `sources.github.base_url` for GitHub Enterprise Server (usually `https://<host>/api/v3`).
+- `gcp.directory` accepts `target_service_account` and `impersonate_subject` for CI.
+- The effective evidence mode is recorded in `result.json` and on the wire. The cloud payload is
+  `sigcomply.cloud.v5`: per-policy `evidence_mode`, `evidence_mode_overridden` and `vacuous`.
+- Plan-time warnings: `coverage-gap:` for a required slot no configured source can fill,
+  `unbound-source:` for a configured source no policy reads, a caveat warning when a source that
+  reports an unobserved field is bound to a policy that reads it (with a suggested `bindings:`
+  block), and warnings for unknown or wrongly typed keys under `sources:`. All advisory.
+- `plugin` package: project-local Go sources, vault backends and manual readers import it instead
+  of `internal/...`. `sigcomply build` warns about Go rule or evidence-type packages that never
+  register.
+- GCP evidence records carry their project, organization or customer ID as signed scope.
+- `check` prints the sources it collects from before any API call, a one-line reason under each
+  failing or errored policy, and a breakdown of passes by inspection versus document presence.
+- `sigcomply init` scaffolds a local `manual.pdf` source (`./evidence`).
 
 ### Changed
 
-- **The policy content hash now covers `pass_when`.** It previously
-  covered only a policy's wiring (id, control, rule reference, severity,
-  cadence, slots, parameters, schema digests), so editing a clause, an
-  operator or a threshold left the hash unchanged and the policy carried
-  the old signed envelope forward until its next cadence boundary. Since
-  every shipped policy is `pass_when`-driven, the guard against
-  "silently re-certifying old evidence with new rules" was not actually
-  covering the rules. **Every stored policy hash rotates once**, so the
-  first run after upgrading re-evaluates every policy; that is expected
-  and self-correcting. The canonical projection is hand-built rather than
-  a struct marshal, so renaming a Go field cannot rotate hashes.
-
-- **A release is now gated on the test suite.** `auto-release.yml` calls
-  `test.yml` and waits for it, instead of racing it on the same push. The
-  E2E repos install `releases/latest` and resolve it at run time, so an
-  ungated tag reached them the moment it was pushed.
-- **The scaffolded monthly cron moved off the period boundary**, `0 2 1 * *`
-  → `0 2 20 * *`, joining the quarterly and annual crons inside the period.
-  On the 1st it collided with the calendar-quarter boundary four times a
-  year, which is the race the other two were moved to avoid.
-- **`sigcomply init-ci` scaffolds a current release pin.** The embedded
-  templates still pinned `v0.64.38` while the copy-paste examples had moved
-  on; both are now `v0.73.2`.
-- **`examples/github-actions/multi-environment.yml` no longer uses a CI
-  matrix** over accounts. Multi-account estates are bracketed source
-  instances in `.sigcomply.yaml`, and one run covers them — a matrix
-  produced N independent runs, each asserting the whole framework from one
-  account's data.
-
-- **The scaffolded quarterly and annual crons now fire inside the period, not on
-  its boundary** — `0 2 20 3,6,9,12 *` (Mar/Jun/Sep/Dec 20) and `0 2 20 12 *`
-  (Dec 20), replacing `0 2 1 1,4,7,10 *` and `0 2 1 1 *`. The audit period is
-  derived from the HEAD commit's timestamp, so a run at 02:00 on the first day of
-  a period landed in whichever period HEAD fell in: usually the one that just
-  closed (correct), but the *new* one if anyone pushed to `main` in the
-  intervening hours — and a newly-opened period's evidence folder cannot
-  legitimately hold anything, since the temporal-window check requires
-  `uploadedAt >= period.Start`. Firing before the period closes makes the derived
-  period unambiguous, keeps essentially the whole period available for uploads,
-  and removes the race. Existing scaffolds are unaffected until re-run;
-  `docs/architecture/09-ci-execution-model.md` explains the commit-time basis,
-  which was load-bearing and previously undocumented.
-
-- **A `pass_when` filter that cannot be evaluated now errors the policy instead
-  of silently dropping the record.** `filterRecords` treated "the filter says
-  this record is out of scope" and "the filter could not be evaluated" as the
-  same outcome, and excluded both. Excluding the second biases toward passing:
-  the record is one fewer thing checked, and `all`/`none` are true of the empty
-  set — so a filter that failed to evaluate on every record returned a green
-  tick having examined nothing. One unpopulated optional field was enough. A
-  filter that legitimately tolerates an absent field must now say so with
-  `is_set`, which returns false rather than erroring. Three shipped policies
-  gained that guard (`soc2.cc6.7.kms_key_rotation_enabled`,
-  `iso27001.8.24.kms_key_rotation`, `iso27001.5.16.inactive_user_accounts`);
-  none change verdict on today's sources, which all populate the fields in
-  question. A new build-failing test keeps a fourth from appearing.
-- **`in` / `not_in` with a non-list value now errors** rather than matching
-  nothing. `not_in` with a scalar (`value: "write"` instead of
-  `value: ["write"]`) previously returned true for every record, passing the
-  policy without comparing anything. No shipped policy was affected.
-- **Source keys and `catalog_entry` values are now validated** against a
-  restrictive grammar (letters, digits, dot, dash, underscore, plus an optional
-  `[instance]` suffix). Both become part of an evidence file's object key in the
-  vault, and only the local backend rejects path escapes — S3, GCS and Azure
-  concatenate keys directly. Existing configs are unaffected: every shipped
-  source ID and every documented example already conforms.
-- **A `pass_when` clause naming a slot the policy does not declare is now a
-  load-time error.** Previously the slot lookup missed, yielded an empty record
-  set, and `all`/`none` passed vacuously — one mistyped slot name silently turned
-  a real check into a permanent green tick. Affects customer-authored policies
-  under `.sigcomply/policies/` only; every shipped policy sets the slot name
-  itself and cannot hit this.
-- **Passes that examined no resource are now reported.** `all`/`none` are true of
-  the empty set, so a clause whose slot is empty or whose filter matched nothing
-  passes. That is often correct ("no public bucket is unencrypted" when none are
-  public), so it is still a pass — but results now carry
-  `diag.vacuous_clauses` and `check` explains such a pass inline. Previously
-  `resources_evaluated` reported the *pre-filter* population, so a policy that
-  filtered 500 records to zero rendered as "all 500 resources passed".
-- **`okta` `directory_user.is_active` is now true for `RECOVERY`,
-  `PASSWORD_EXPIRED` and `LOCKED_OUT`** as well as `ACTIVE` — those accounts
-  are still live logins. **`gcp.directory` `is_active` is now false for
-  archived users** as well as suspended ones.
-- `resources_evaluated` no longer counts slots a policy reads only as a
-  `matches_in` lookup table (the roster's people are not resources under test).
-- CI examples and `init-ci` templates now default `SIGCOMPLY_VERSION` to a pinned
-  release tag instead of `latest`, so a new release can't auto-propagate to every
-  tester's next CI run. Set it to `latest` to opt back into always-newest.
-- Error output no longer dumps the full command usage/flags block after a runtime
-  error; the one-line message is shown on its own (`SilenceUsage`).
+- Manual-evidence folders are keyed by the entry's own cadence window (annual `2026`, quarterly
+  `2026-Q1` and so on), not the run's period. Migration: move annual uploads from `…/{entry}/2026-Qn/`
+  to `…/{entry}/2026/`; `sigcomply evidence due` prints each entry's folder.
+- The prior-period duplication check compares annual entries with last year's folder, so a
+  byte-identical yearly re-upload fails with `copy_paste_of_prior_period`.
+- `soc2.cc9.2.vendor_contracts_reviewed` and `iso27001.5.20.supplier_security_agreements` fan out
+  per vendor when `experimental.vendors` is set. Migration: copy existing evidence into each
+  vendor's folder.
+- `period.time_basis: wall_clock` is honored (it was ignored); `commit` remains the default.
+- `evidence due` shows a `PERIOD` column, measures deadlines on the period clock, and
+  `--within-days 0` means "closes today".
+- `soc2.cc6.1.password_complexity` and `iso27001.8.5.password_complexity` pass on per-class rules,
+  a strongest strength rating, or a platform-enforced rule. `soc2.cc6.1.password_reuse_prevention`
+  asks whether reuse is prevented, so an AWS history depth of 1 passes it.
+- The six password policies accept `password_policy.v2` and `password_policy`; a record that does
+  not report a field is out of that clause's scope, and an empty clause is reported as vacuous.
+- A pass that examined no resource (including `count` with `min_percentage: 0`) is flagged:
+  `check`, `report --view latest` and the wire `message` explain it, and `vacuous` is set.
+- The policy content hash covers `pass_when`; the first run after upgrading re-evaluates all policies.
+- A configured source whose credentials cannot be resolved stops the run at startup with exit `3`
+  (was exit `2` during collection). Covers `aws.*`, `azure.*`, `manual.pdf` and the `s3` and
+  `azure_blob` vaults.
+- Collection fails a binding immediately on 401, 403, 404 and schema errors instead of retrying.
+- A `pass_when` filter that cannot be evaluated errors the policy instead of dropping the record;
+  guard optional fields with `is_set`. `in` / `not_in` with a non-list value errors, and a clause
+  naming an undeclared slot fails to load (custom policies only).
+- Source keys and `catalog_entry` values must match letters, digits, `.`, `-`, `_` and an optional
+  `[instance]` suffix.
+- `okta` `is_active` is true for `RECOVERY`, `PASSWORD_EXPIRED` and `LOCKED_OUT`; `gcp.directory`
+  `is_active` is false for archived users.
+- `resources_evaluated` no longer counts slots used only as a `matches_in` lookup.
+- Scaffolded monthly, quarterly and annual crons fire on day 20, inside the period. Re-run
+  `init-ci` to pick this up.
+- CI examples and `init-ci` templates pin `SIGCOMPLY_VERSION` to a release (`v0.73.2`) instead of
+  `latest`; set `latest` to opt back in.
+- `examples/github-actions/multi-environment.yml` uses source instances instead of a CI matrix.
+- Runtime errors print the one-line message without the command usage block.
 
 ### Fixed
 
-- **An unhashable policy no longer fails open.** `PolicyContentHash`
-  returns `""` when canonicalization fails, and the planner's
-  content-hash gate was written as `contentHash != "" && ...`, which
-  *skipped* the mismatch check rather than forcing evaluation — the
-  opposite of the "treat the policy as due defensively" claim in its own
-  comment. The empty case now forces evaluation. Latent before this
-  release (the projection held only strings, bools and slices, so the
-  marshal could not fail); pulling the user-supplied `pass_when` `value`
-  into the hash makes it reachable.
+- Two instances of one source no longer merge into one violation. Waivers for an instanced
+  source's resource must use the prefixed ID.
+- `aws.iam` root records are keyed by `arn:aws:iam::<account>:root`, so roots in different
+  accounts no longer collide. Exceptions scoped to `<root_account>` must use the ARN.
+- `azure.entra` reads the tenant from the credential; a declared `tenant_id` that disagrees exits
+  `3`. The credential needs `Organization.Read.All` (or a directory read scope covering it).
+- Okta pagination no longer stops after the first page when the `next` link is on a second header.
+- The SoA reports a control with only `na` policies as not evaluated instead of implemented, and a
+  carried-forward control as implemented instead of not implemented.
+- `init -f iso27001` no longer recommends `init-ci`; `init-ci --framework` help says SOC 2 only.
+- A fresh `init && check` exits `1` with no `[error]` lines; `check` exits `3` when planning rejects
+  the config; `init-ci` without `--ci` exits `3`.
+- `--cloud` with no `cloud.base_url` warns that submission was skipped; malformed-YAML errors
+  include a plain-language hint.
+- Corrected several documentation errors (copyable `bindings:` examples with nonexistent slots or
+  policy IDs, `tenant_id` listed as required, the extensibility guide, the `init-ci` SOC 2 gate
+  reason, and A.8.13 / CC7.5 policy descriptions now say they check configuration, not testing).
 
-- **`count` with `min_percentage: 0` is no longer exempt from the vacuity
-  guard.** It passes over the empty set exactly as `all`/`none` do, but
-  reported no `vacuous_clauses` diagnostic — a green tick over an estate
-  nobody examined, with nothing to say so.
-- **`sources.Env` no longer carries an unused `Vault` field.** Nothing read
-  it and nothing set it; its doc comment claimed `manual.pdf` needed it for
-  attachments, which was never true — `manual.pdf` configures its own
-  backend.
-- **Corrected a documented workaround that did not exist.**
-  `docs/architecture/12-multicloud-sources.md` told GCP-/Azure-only
-  customers they could cover the six password policies "via the manual
-  evidence flow". No such catalog entry exists and one cannot be added
-  without obliging every AWS customer to upload a PDF they do not need. The
-  doc now shows the per-policy `exceptions: {state: na}` path that actually
-  works, and is explicit that it does not repair the score denominator.
+### Removed
 
-- **A configured source with no credentials now fails the run at startup
-  (exit `3`) instead of failing during collection.** `sources:` is the
-  operator's declaration of what a project audits, so a source listed there
-  that nothing in the environment can authenticate as is a configuration
-  error, not a collection outcome. **Behavior change:** a run that previously
-  limped to a per-policy execution error (exit `2`) now stops before
-  collecting anything, naming the source and the environment variables to
-  set. Token sources (`github`, `gitlab`, `okta`, `active_directory`) and all
-  `gcp.*` sources already behaved this way; the four paths that did not are
-  now fixed:
-  - `aws.*` — `awscfg.Load` retrieved credentials eagerly only when
-    `role_arn` was set. `LoadDefaultConfig` assembles a *lazy* provider chain
-    and succeeds with no credentials at all, so the ambient path built
-    cleanly and failed at the first API call — after `withRetry` had retried
-    a permanent failure through its whole backoff budget, per binding,
-    sequentially.
-  - `azure.*` — factories constructed a `DefaultAzureCredential` and never
-    requested a token. That constructor cannot fail: a sub-credential whose
-    own constructor fails is still appended to the chain wrapped in an error
-    reporter. `azcommon.NewCredential(ctx, scope)` now mints one token to
-    prove the credential works, memoized per scope so 13 ARM sources cost one
-    request rather than 13.
-  - `manual.pdf` on the `s3` and `azure_blob` backends — each builds its own
-    client outside the shared credential helpers and had the same two holes.
-    manual.pdf is a project-level singleton, so this turned one configuration
-    error into a collection error on every manual policy in the run.
-  - The `s3` and `azure_blob` **vault** backends, for the same reason. The
-    vault is where a run puts its signed evidence, so an unresolvable
-    credential there previously surfaced only after the run had collected and
-    evaluated everything.
-
-  Resolution is memoized per AWS `Options` / per Azure scope, and a failure is
-  never cached, so a credential that appears mid-run is picked up. Every eager
-  resolve is bounded by a 60s timeout so a blackholed credential endpoint
-  cannot stall startup — well above any legitimate resolve, so the operator
-  still sees the real error rather than a timeout hiding it. AWS error
-  wrapping also drops a now-inaccurate `load AWS config:` prefix — the config
-  loaded fine; the credentials did not resolve.
-
-- **`sigcomply report` no longer hides errored policies.** `--view scope`
-  listed only skipped controls, so an errored policy — an unevaluated control
-  that, unlike a skip, stays in the compliance-score denominator and counts
-  against it — was invisible in the very view meant to name unevaluated
-  controls. Errors now appear alongside skips with a status column. The scope
-  header also no longer claims both kinds are excluded from the score; that
-  was true of skips and false of errors.
-
-- **`--view latest` now explains a failure or error inline.** It printed a
-  bare `error` with the diagnostic stranded in the vault's `result.json`. It
-  now carries the same one-line reason `check` prints. A related bug meant a
-  vacuous pass (a clause that examined no resources) rendered as a blank cell
-  in a report while `check` explained it correctly — the diagnostic did not
-  survive the JSON round-trip out of the vault.
-
-- A fresh `sigcomply init -f <framework> && sigcomply check` now exits `1`
-  (findings to remediate), not `2`, and prints zero `[error]` lines.
-- `sigcomply check` now exits `3`, not `2`, when planning rejects the config
-  (for example an unknown roster source or an invalid binding) — the documented
-  exit code for configuration errors.
-- `init-ci` with a missing required `--ci` flag now exits `3` (configuration error)
-  to match the exit-code taxonomy, instead of cobra's default `2`.
-- `--cloud` with no `cloud.base_url` (or `--cloud-url`) configured now warns that
-  submission was skipped, instead of silently doing nothing.
-- Malformed-YAML config errors now include a plain-language hint (indentation,
-  tabs, unknown keys) alongside the raw parser message.
+- The `overdue` field from `sigcomply evidence due -o json`.
 
 ## [0.64.38]
 
@@ -1350,5 +175,6 @@ Baseline release for the beta-readiness changelog. For the complete history of
 earlier tags, see the auto-generated notes on
 [GitHub Releases](https://github.com/SigComply/sigcomply-cli/releases).
 
-[Unreleased]: https://github.com/SigComply/sigcomply-cli/compare/v0.64.38...HEAD
+[Unreleased]: https://github.com/SigComply/sigcomply-cli/compare/v0.88.3...HEAD
+[0.65.0 to 0.88.3]: https://github.com/SigComply/sigcomply-cli/compare/v0.64.38...v0.88.3
 [0.64.38]: https://github.com/SigComply/sigcomply-cli/releases/tag/v0.64.38

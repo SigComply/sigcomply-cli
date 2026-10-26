@@ -1,202 +1,152 @@
-# Getting started
+# Run SigComply in CI
 
-The full SOC 2 journey — from signing up on SigComply Cloud to inviting your
-auditor — with the CLI running automatically in CI.
+In this tutorial you take a SigComply project into CI. It assumes you ran the
+[Quickstart](quickstart.md); you start again in your repository. By the end,
+SigComply runs on a schedule, stores signed evidence in a bucket you own, and, if you choose,
+sends counts to the SigComply Cloud dashboard. The examples use AWS and GitHub Actions; GitLab
+differences are noted where they apply.
 
-This tutorial builds on the [Quickstart](quickstart.md), which gets you a first
-passing `check` locally. Here we go end to end: connect the cloud dashboard, run
-in CI with OIDC, add manual evidence, and hand results to an auditor. Each stage
-links to a focused how-to guide for the deep detail.
+## Before you start
 
-> If you haven't run `sigcomply check` locally yet, do the
-> [Quickstart](quickstart.md) first — it takes ~10 minutes. Back to the
-> [docs hub](README.md).
+You need:
 
-**The journey:**
+- A GitHub or GitLab repository for this project. One repository holds one framework.
+- The `sigcomply` CLI installed locally ([Install](guides/install.md)).
+- An AWS account where you can create an IAM role and an S3 bucket.
+- For the dashboard only: a SigComply Cloud account. The first submission from a new
+  organization starts a trial.
 
-1. Sign up on SigComply Cloud and connect your repo
-2. Install the CLI and scaffold a config
-3. Configure your real sources and credentials
-4. Scaffold CI and enable OIDC
-5. First CI run → starts your 2-month Pro trial
-6. View results on the dashboard
-7. Add manual evidence
-8. Invite your auditor
+## 1. Commit a config
 
-## 1. Sign up and connect your repo
-
-The cloud dashboard is the optional paid tier that turns submitted counts into
-compliance dashboards and auditor reports.
-
-1. Sign up on **SigComply Cloud** at **https://sigcomply.com**. The first user
-   becomes the organization owner.
-2. **Connect a project** by pasting your GitHub or GitLab **repo URL**. This
-   registers the repo so OIDC tokens minted by its CI are recognized on
-   submission.
-
-> If you later rename the repo, re-paste the URL on the dashboard — otherwise
-> OIDC authentication for submissions will break.
-
-Full walkthrough: [guides/cloud-dashboard.md](guides/cloud-dashboard.md).
-
-## 2. Install the CLI and scaffold a config
-
-Install the CLI (see [guides/install.md](guides/install.md)) and, from the root
-of the repo you just connected:
+In the root of the repository, scaffold the config if you haven't already, then edit it:
 
 ```sh
 sigcomply init -f soc2
 ```
 
-This writes `.sigcomply.yaml`. Commit it to the repo — CI will use it.
+Change two things in `.sigcomply.yaml`:
 
-## 3. Configure your real sources and credentials
+1. Under `sources:`, list every source you want evidence from. The CLI only reads sources you
+   list here; having credentials isn't enough. Per-source keys and permissions are in
+   [Sources](reference/sources.md).
+2. Point `vault:` and `manual.pdf` at a bucket instead of local folders, so evidence survives
+   the CI job:
 
-Edit `.sigcomply.yaml` to declare every source you want SigComply to collect from.
-**Each source must appear in the `sources:` block** — the CLI reads credentials
-from the environment but does not auto-register a source just because credentials
-exist.
+   ```yaml
+   sources:
+     aws.iam:
+       region: us-east-1
+     manual.pdf:
+       backend: s3
+       bucket: <your-evidence-bucket>
+       region: us-east-1
+       prefix: manual/
 
-For example, an AWS + GitHub project:
+   vault:
+     backend: s3
+     bucket: <your-evidence-bucket>
+     region: us-east-1
+     prefix: sigcomply/
+   ```
 
-```yaml
-schema_version: project.v1
-framework: soc2
-sources:
-  aws.iam:
-    region: us-east-1
-  aws.s3:
-    region: us-east-1
-  github:
-    org: your-org
-vault:
-  backend: s3
-  bucket: your-evidence-vault
-  region: us-east-1
-  prefix: sigcomply/
-```
+   For evidence an auditor relies on, turn on S3 Object Lock or versioning on that bucket.
+   [Concepts](concepts.md#limits-of-the-signatures) explains why.
 
-Credentials come from the environment: `AWS_*` for AWS, `GITHUB_TOKEN` for
-GitHub, GCP ADC for GCP, and so on — never from the config file. All collectors
-use read-only calls; attach `ReadOnlyAccess` or a scoped read policy.
+Commit the file.
 
-Per-source keys and least-privilege details:
-[guides/configure-sources.md](guides/configure-sources.md).
+## 2. Turn on cloud submission (dashboard users only)
 
-> For a real audit, use a durable vault (S3/GCS/Azure Blob) with write-once or
-> versioned storage — see [Verify evidence](guides/verify-evidence.md) and
-> [Concepts](concepts.md) for why. Local vaults are for dev/CI experimentation.
+Skip this step if you don't use SigComply Cloud. The CLI then keeps everything in your bucket
+and sends nothing.
 
-## 4. Scaffold CI and enable OIDC
+1. Sign up at [sigcomply.com](https://sigcomply.com) and connect the repository by its URL. See
+   [Cloud dashboard](guides/cloud-dashboard.md).
+2. Add this block to `.sigcomply.yaml` and commit it:
 
-Generate per-cadence CI workflows. **If your code is on GitHub:**
+   ```yaml
+   cloud:
+     base_url: https://sigcomply.com
+   ```
+
+The base URL is `https://sigcomply.com`. The OIDC audience you meet in step 4,
+`https://api.sigcomply.com`, is a fixed identifier, not a web address, so the two differ on
+purpose.
+
+Without `cloud.base_url`, the CLI never submits, even in CI. With it, the CLI submits when it
+runs in GitHub Actions or GitLab CI and can get an OIDC token. No API key or secret is involved.
+
+## 3. Scaffold the CI workflows
+
+For GitHub Actions:
 
 ```sh
 sigcomply init-ci --ci github
 ```
 
-This writes one workflow per cadence under `.github/workflows/`
-(`compliance-daily.yml`, `-weekly`, `-monthly`, `-quarterly`, `-annual`, and
-`-on-push.yml`). Each workflow includes the OIDC permission the runner needs:
+This writes six workflows to `.github/workflows/`: one each for the daily, weekly, monthly,
+quarterly and annual checks, and `compliance-on-push.yml`. The daily workflow also runs
+`sigcomply evidence due`, which lists missing documents and never fails the job.
 
-```yaml
-permissions:
-  id-token: write
-  contents: read
-```
+For GitLab CI, run `sigcomply init-ci --ci gitlab`. It writes one `.gitlab-ci.yml`; you then
+create a pipeline schedule per cadence. See [CI on GitLab](guides/ci-gitlab.md).
 
-No SigComply secret is required — the Actions runner mints the OIDC JWT (audience
-`https://api.sigcomply.com`), and cloud submission auto-enables in CI. You'll also
-set an `AWS_ROLE_ARN` for an IAM role whose trust policy allows the GitHub OIDC
-provider. Details: [guides/ci-github.md](guides/ci-github.md).
+`init-ci` scaffolds SOC 2 only. For another framework, see
+[Commands](reference/commands.md#sigcomply-init-ci).
 
-**If your code is on GitLab:**
+## 4. Let CI assume an AWS role
+
+The workflows get AWS credentials through OIDC, not stored keys. Each workflow requests an OIDC
+token with the audience `https://api.sigcomply.com` and uses it for both AWS and SigComply
+Cloud. In AWS:
+
+1. Create an IAM OIDC identity provider for your CI host (`token.actions.githubusercontent.com`
+   for GitHub Actions, your GitLab host such as `gitlab.com` for GitLab CI) and add
+   `https://api.sigcomply.com` as its audience. The AWS default
+   audience `sts.amazonaws.com` does not match the token the workflows request.
+2. Create a role that this provider can assume, limited to your repository, with read-only
+   access (for example `ReadOnlyAccess`) and write access to the evidence bucket.
+3. Replace the `AWS_ROLE_ARN` placeholder (`arn:aws:iam::000000000000:role/REPLACE_ME`) in each
+   scaffolded workflow with the role's ARN.
+
+[CI on GitHub](guides/ci-github.md) and [CI on GitLab](guides/ci-gitlab.md) have the trust
+policy and the full setup.
+
+## 5. Run it
+
+Commit the workflows and push. Then start the daily workflow by hand from the **Actions** tab
+(it has a `workflow_dispatch` trigger), or wait for its schedule.
+
+In the job log, `check` prints the same summary you saw in the Quickstart. The job fails
+(exit `1`) while any policy fails; that is expected until the documents are uploaded. To keep
+the job green on failing policies, set `ci.fail_on_violation: false` in `.sigcomply.yaml`. Exit codes are listed in
+[Commands](reference/commands.md#exit-codes).
+
+If you turned on cloud submission, the run appears on the dashboard. The first submission from
+a new organization starts its trial; see [Cloud dashboard](guides/cloud-dashboard.md).
+
+## 6. Upload manual evidence
+
+Policies, training records and reviews come from documents you upload to the `manual.pdf`
+bucket. To see what is missing and where each file goes, run this locally with credentials that
+can list the bucket:
 
 ```sh
-sigcomply init-ci --ci gitlab
+sigcomply evidence due --all
 ```
 
-This writes a single `.gitlab-ci.yml` with cadence-keyed jobs driven by pipeline
-schedules. GitLab OIDC needs an `id_tokens:` block with
-`aud: https://api.sigcomply.com` — the scaffolded template already names the token
-`SIGCOMPLY_ID_TOKEN`, exactly what the CLI reads, so cloud submission works out of
-the box with no hand-editing. See [guides/ci-gitlab.md](guides/ci-gitlab.md) for
-the full walkthrough.
+Each row names a folder such as `s3://<your-evidence-bucket>/manual/nda_policy/2026/`. Upload
+one or more PDF or image files there. The workflow for the entry's cadence (the `CADENCE`
+column) checks that a file is present for the period, merges the files into one PDF and signs
+the result. It does not read the content. An annual document waits for the annual workflow, so
+start that workflow by hand to see the result right away.
 
-> `init-ci` ships SOC 2 cadence templates in v1-alpha; other frameworks exit 3.
-
-## 5. First CI run starts your Pro trial
-
-Commit and push the config and workflows. On the first run that submits to the
-cloud, SigComply automatically starts a **2-month, no-credit-card Pro trial** for
-your organization. During the trial the compliance dashboard and auditor portal
-are fully available. (After the trial expires, submissions return HTTP 402 with an
-upgrade URL.)
-
-## 6. View results on the dashboard
-
-Open SigComply Cloud. The projects list and per-policy evaluations render the
-submitted counts, scores, and staleness — never raw evidence. Remember the
-privacy invariant: the cloud sees `mfa_disabled_count: 3`, never the identities
-behind it. More: [guides/cloud-dashboard.md](guides/cloud-dashboard.md).
-
-## 7. Add manual evidence
-
-Some SOC 2 evidence isn't an API call — access reviews, signed NDAs, training
-certificates, risk-acceptance declarations. For these, upload files to a folder in
-your storage:
-
-```
-{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/
-```
-
-`{period_id}` follows the entry's cadence — `2026` for an annual
-attestation, `2026-Q1` for a quarterly review — so an annual document is
-uploaded once a year, not once a quarter. Run `sigcomply evidence due`
-to be told the exact folder for every entry.
-
-Configure the manual source once (it's a project-level singleton):
-
-```yaml
-sources:
-  manual.pdf:
-    backend: s3
-    bucket: your-evidence-bucket
-    region: us-east-1
-    prefix: manual/
-```
-
-Then point a policy at a catalog entry:
-
-```yaml
-policies:
-  <policy-id>:
-    evidence_mode: manual
-    catalog_entry: <catalog-id>
-```
-
-Browse catalog entry IDs with `sigcomply evidence catalog -f soc2`. The CLI checks
-only that supported files (PDF/JPEG/PNG/GIF/TIFF/WebP/BMP) are present within the
-temporal window — it does not read PDF contents. Full guide:
-[guides/manual-evidence.md](guides/manual-evidence.md).
-
-## 8. Invite your auditor
-
-As the organization owner, invite auditor seats from the dashboard. The auditor
-receives a set-password email and logs into the auditor portal to review results
-and download reports (auditors cannot self-register).
-
-For independent spot-checks, auditors can verify any signed `EvidenceEnvelope`
-themselves — either with `sigcomply report --view integrity` against the vault, or
-with the in-browser `/verify` page of the Evidence SPA. See
-[guides/verify-evidence.md](guides/verify-evidence.md) and
-[guides/cloud-dashboard.md](guides/cloud-dashboard.md).
+[Manual evidence](guides/manual-evidence.md) covers folder names, file formats, the Evidence
+SPA form helper and upload windows.
 
 ## Next steps
 
-- **[Configure sources](guides/configure-sources.md)** — per-source keys and RBAC.
-- **[CI on GitHub](guides/ci-github.md)** / **[CI on GitLab](guides/ci-gitlab.md)** — the full CI setup.
-- **[Manual evidence](guides/manual-evidence.md)** — the complete upload-and-consume flow.
-- **[Cloud dashboard](guides/cloud-dashboard.md)** — connection, trial, and auditor management.
-- **[Concepts](concepts.md)** — why the model is non-custodial and how signing works.
-- Back to the **[docs hub](README.md)**.
+- [Verify evidence](guides/verify-evidence.md): check signatures and coverage with
+  `sigcomply report`.
+- [Identity roster](guides/identity-roster.md): check every system's accounts against your list
+  of people.
+- [Troubleshooting](guides/troubleshooting.md): common errors and what they mean.

@@ -1,39 +1,48 @@
 # SigComply CLI
 
-> Zero-trust, non-custodial compliance engine — "Evidence without Access." A Go CLI that runs in your CI/CD, evaluates open Go-native policies against your infrastructure and uploaded evidence, signs the resulting evidence locally into your own storage, and (optional, paid tier) submits only aggregated counts — never raw evidence, never identifiers — to a private cloud dashboard. Ships SOC 2 (2017 Trust Services Criteria, default) and ISO/IEC 27001:2022.
+> SigComply is a compliance engine and evidence collector that runs in your own CI. The `sigcomply` CLI pulls configuration from AWS, GCP, Azure, GitHub, GitLab, Okta and Active Directory with read-only credentials and evaluates it against open SOC 2 and ISO 27001 policies. For controls no API can answer, it checks that uploaded documents are present for the period, merges them into one PDF and signs it; it never judges document content. Evidence stays in storage the customer owns. With a paid SigComply Cloud plan it also sends per-policy counts, never identities, to a dashboard. It does not make anyone compliant.
 
-Key facts for agents: the framework key is singular (`framework: soc2`, never `frameworks:`). ISO 27001 ships 93 Annex A controls plus 16 clause 4-10 management-system requirements; the two are counted separately and only the Annex A controls can be declared not applicable. The main entry command is `sigcomply check`, which reads the framework from config and has no `--framework` flag. Exit codes are `0` passed, `1` violations, `2` execution error, `3` config error. Cloud submission is OIDC-only and auto-enables in CI. One repo = one framework = one evidence vault. A manual catalog entry may fan out over the third-party register declared in `experimental.vendors`, producing one evidence folder per vendor (`{prefix}{evidence_id}.{vendor_id}/{period_id}/`) while still reporting as a single policy; in every manual folder path `{period_id}` is the entry's own cadence window (annual `2026`, quarterly `2026-Q1`), not the run's audit period; vendor names never leave the customer's storage. Raw evidence and identifiers (ARNs, emails, usernames) always stay in the customer's storage; only counts and scores leave.
+Facts agents get wrong:
 
-## Getting started
+- The config key is singular: `framework: soc2` or `framework: iso27001`. No other framework exists.
+- `sigcomply check` reads the framework from `.sigcomply.yaml` and has no `--framework` flag.
+- Exit codes: `0` no failures; `1` a policy failed or declared scope is incomplete (the default; `ci.fail_on_violation: false` turns it off); `2` execution error, including a policy with status `error` and unknown or conflicting flags; `3` configuration error.
+- Cloud submission happens only when `cloud.base_url` (for example `https://sigcomply.com`) or `--cloud-url` is set, and the run is in CI with an OIDC token.
+- Binding slot names: `evidence` for most policies, `roster` and `accounts` for identity-roster policies, `changes` and `deployments` for change-management policies.
+- Manual evidence goes in `{prefix}{evidence_catalog_id}/{period_id}/` of the `manual.pdf` storage (default prefix `manual/`), where `{period_id}` is the entry's own cadence window (annual `2026`, quarterly `2026-Q1`). `sigcomply evidence due --all` prints every folder.
+- One repository holds one framework, one config and one evidence vault.
 
-- [Quickstart](https://github.com/SigComply/sigcomply-cli/blob/main/docs/quickstart.md): Install, `sigcomply init`, and a first passing local `check` in ~10 minutes.
-- [Getting started](https://github.com/SigComply/sigcomply-cli/blob/main/docs/getting-started.md): The full SOC 2 journey including cloud, CI/OIDC, manual evidence, and auditors.
+## Tutorials
+
+- [Quickstart](https://github.com/SigComply/sigcomply-cli/blob/main/docs/quickstart.md): First local check against one AWS account, into a local vault.
+- [Run SigComply in CI](https://github.com/SigComply/sigcomply-cli/blob/main/docs/getting-started.md): Bucket vault, CI workflows, AWS OIDC, optional cloud submission, manual evidence upload.
 
 ## How-to guides
 
-- [Install](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/install.md): Install via script or Go, pin a version, verify.
-- [Configure sources](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/configure-sources.md): Declare sources and supply read-only credentials for AWS, GCP, Azure, GitHub, GitLab, Okta, Active Directory.
-- [Identity roster](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/identity-roster.md): Designate the directory that lists your people and check every other system's accounts against it.
-- [CI on GitHub](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/ci-github.md): Scaffold and wire per-cadence GitHub Actions workflows with OIDC.
-- [CI on GitLab](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/ci-gitlab.md): Scaffold `.gitlab-ci.yml`, pipeline schedules, and OIDC (incl. the id-token caveat).
-- [Manual evidence](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/manual-evidence.md): Upload PDF/image evidence to a bucket folder and consume it from a policy.
-- [Vendor & third-party risk](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/vendor-risk.md): Declare your third-party register and collect assurance evidence per vendor, with a freshness check on each.
-- [ISMS clauses & the SoA](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/isms-clauses.md): Satisfy ISO 27001's 16 clause 4-10 management-system requirements and generate the Statement of Applicability.
-- [Cloud dashboard](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/cloud-dashboard.md): Connect a repo, start the Pro trial, and manage auditor seats.
-- [Verify evidence](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/verify-evidence.md): Use the six `report` views — including `soa`, the ISO 27001 Statement of Applicability — and the `/verify` SPA to check signatures and integrity.
-- [Troubleshooting](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/troubleshooting.md): Common errors, exit codes, and the GitLab cloud caveat.
+- [Install](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/install.md): Install the CLI, pin a version, verify.
+- [Configure sources](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/configure-sources.md): Add providers with read-only credentials.
+- [Identity roster](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/identity-roster.md): Check every system's accounts against the directory that lists your people.
+- [CI on GitHub](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/ci-github.md): Scaffolded GitHub Actions workflows and AWS OIDC.
+- [CI on GitLab](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/ci-gitlab.md): Scaffolded `.gitlab-ci.yml`, pipeline schedules and AWS OIDC.
+- [Manual evidence](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/manual-evidence.md): Upload documents and build declaration PDFs.
+- [Vendor and third-party risk](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/vendor-risk.md): Collect assurance documents per vendor.
+- [ISMS clauses and the SoA](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/isms-clauses.md): ISO 27001 clause 4-10 requirements and the Statement of Applicability.
+- [Cloud dashboard](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/cloud-dashboard.md): Connect a repository to SigComply Cloud.
+- [Verify evidence](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/verify-evidence.md): Check signatures and coverage with `sigcomply report`.
+- [Troubleshooting](https://github.com/SigComply/sigcomply-cli/blob/main/docs/guides/troubleshooting.md): Common errors.
 
 ## Reference
 
-- [Commands](https://github.com/SigComply/sigcomply-cli/blob/main/docs/reference/commands.md): Every command, flag, default, and exit code.
-- [Frameworks](https://github.com/SigComply/sigcomply-cli/blob/main/docs/reference/frameworks.md): Shipped frameworks, policy counts, manual catalog overview, and ISO 27001's `A.` Annex A controls versus its `C.` clause 4-10 management-system requirements.
-- [Configuration](https://github.com/SigComply/sigcomply-cli/blob/main/docs/configuration.md): Full `.sigcomply.yaml` schema, env vars, and precedence.
+- [Commands](https://github.com/SigComply/sigcomply-cli/blob/main/docs/reference/commands.md): Commands, flags, exit codes.
+- [Configuration](https://github.com/SigComply/sigcomply-cli/blob/main/docs/configuration.md): Every `.sigcomply.yaml` key and environment variable.
+- [Sources](https://github.com/SigComply/sigcomply-cli/blob/main/docs/reference/sources.md): Per-source keys, credentials and permissions.
+- [Frameworks](https://github.com/SigComply/sigcomply-cli/blob/main/docs/reference/frameworks.md): Framework IDs and counts.
 
 ## For AI agents
 
-- [For AI agents](https://github.com/SigComply/sigcomply-cli/blob/main/docs/for-ai-agents.md): Deterministic runbook for setting up a customer compliance repo, plus an `AGENTS.md` template.
+- [For AI agents](https://github.com/SigComply/sigcomply-cli/blob/main/docs/for-ai-agents.md): Setup runbook and an `AGENTS.md` template.
 
 ## Optional
 
-- [Concepts](https://github.com/SigComply/sigcomply-cli/blob/main/docs/concepts.md): The non-custodial model, the aggregation boundary, ephemeral signing, and the two evidence flows.
-- [Architecture](https://github.com/SigComply/sigcomply-cli/blob/main/ARCHITECTURE.md): Full system design — layers, evidence-type registry, vault layout, cadence.
+- [Concepts](https://github.com/SigComply/sigcomply-cli/blob/main/docs/concepts.md): What SigComply does and does not do, evidence flows, the aggregation boundary, signing and its limits.
+- [Changelog](https://github.com/SigComply/sigcomply-cli/blob/main/CHANGELOG.md): Changes per release.

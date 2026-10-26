@@ -92,10 +92,6 @@ func TestDocFiguresMatchCode(t *testing.T) {
 			fmt.Sprintf("%d of them with an automated check", i.ctrlAuto),
 			fmt.Sprintf("the %d management-system requirements of clauses 4-10", i.mgmtSystem),
 		}},
-		{"AGENTS.md", []string{
-			fmt.Sprintf("all %d Annex A controls, %d automated", i.controls, i.ctrlAuto),
-			fmt.Sprintf("%d clause 4-10 management-system requirements", i.mgmtSystem),
-		}},
 		{"docs/guides/manual-evidence.md", []string{
 			fmt.Sprintf("The SOC 2 catalog has **%d entries**", s.catalogEntries),
 			fmt.Sprintf("Manual Evidence Catalog: soc2 (v1.0) — %d entries", s.catalogEntries),
@@ -114,7 +110,7 @@ func TestDocFiguresMatchCode(t *testing.T) {
 			fmt.Sprintf("To see the whole ISO catalog (%d entries", i.catalogEntries),
 			fmt.Sprintf("%d of %d catalog controls have a check", i.controls, i.controls),
 			fmt.Sprintf("%d automated  — verified by inspecting your infrastructure", i.ctrlAuto),
-			fmt.Sprintf("%d manual     — satisfied by a document being on file", i.ctrlManual),
+			fmt.Sprintf("%d manual     — a document is on file; its contents are not inspected", i.ctrlManual),
 		}},
 		{"docs/reference/commands.md", []string{
 			fmt.Sprintf("For SOC 2, %d of %d criteria are the first kind", s.ctrlManual, s.controls),

@@ -1,20 +1,20 @@
-# Vendor and third-party risk
+# Collect evidence per vendor
 
-How to declare your third-party register and collect assurance evidence for each vendor separately, for SOC 2 CC9.1/CC9.2 and ISO 27001 A.5.19–A.5.23.
+Declare your third-party register in `.sigcomply.yaml` so the vendor entries of SOC 2 (CC9.2)
+and ISO 27001 (A.5.19, A.5.20) get one evidence folder per vendor, each checked on its own.
 
-> Docs hub: [../README.md](../README.md)
+Without a register these entries are ordinary single-folder manual entries. With one, an auditor
+sampling a single vendor can see that vendor's own documents, and `evidence due` names the vendor
+whose folder is empty.
 
-## The problem this solves
+## Prerequisites
 
-Before this release, vendor risk was three folders: one for the vendor risk assessment, one for the due-diligence process, one for reviewed contracts — all of them flat. That is a reasonable shape for "do you have a process" and a useless shape for "is it operating".
+- A configured manual evidence source ([Upload manual evidence](manual-evidence.md)).
+- Your list of vendors, with a tier for each.
 
-A company with three infrastructure providers and twelve SaaS vendors had **one place to put one PDF**. There was no way to say that eleven vendors are current and one has not sent a report in two years — and that is precisely what an auditor samples. **One entry was not N vendors.**
+## 1. Declare the register
 
-Now the register lives in `.sigcomply.yaml`, and two catalog entries fan out over it: one evidence folder per vendor, checked independently every run.
-
-## Declare the register
-
-Add an `experimental.vendors` block. It is the inventory CC9.2 asks you to maintain, kept as reviewable configuration rather than as a document nobody can diff:
+Add an `experimental.vendors` block:
 
 ```yaml
 experimental:
@@ -44,119 +44,102 @@ experimental:
 
 | Field | Required | Meaning |
 |---|---|---|
-| `id` | yes | Stable slug, 1–40 chars of `[a-z0-9_-]`. Names this vendor's evidence folder, so changing it re-files their evidence. |
-| `name` | yes | How a human refers to the vendor. Appears in `evidence due` and in the signed record. |
-| `tier` | yes | `critical`, `high`, `moderate` or `low`. See below — it is mechanical, not a label. |
-| `subservice` | no | True for a **subservice organization**: one that performs part of your service, not merely supplies you. Drives the CUEC mapping entry and matters for the carve-out vs inclusive method in your own report. |
-| `services` | no | Free text. Advisory, never evaluated. |
-| `assurance_period_end` | no | The last day the vendor's own report actually covers. See [Freshness](#freshness-the-most-common-cc92-finding). |
-| `tier_rationale` | for `low` | Why this vendor sits at this tier. |
-| `approved_by` | for `low` | Who signed that off. |
+| `id` | yes | 1 to 40 characters of `a-z`, `0-9`, `_` and `-`, starting with a letter or digit. It names the vendor's folders, so changing it moves their evidence. |
+| `name` | yes | Shown in `evidence due`, in failure messages and in the signed record. |
+| `tier` | yes | `critical`, `high`, `moderate` or `low`. |
+| `subservice` | no | `true` for a subservice organization (one that performs part of your service). Adds a CUEC mapping folder for the vendor. |
+| `services` | no | Free text. Not evaluated. |
+| `assurance_period_end` | no | The last day the vendor's own report covers. See step 3. |
+| `providers` | no | Configured source IDs or providers this vendor supplies, for example `[github]` or `[aws.iam]`. |
+| `tier_rationale` | for `low` | Why the vendor is low tier. |
+| `approved_by` | for `low` | Who approved the low tier. |
 
-It lives under `experimental:` for the same reason `experimental.scope` does — the config loader is strict, so a brand-new top-level key would hard-fail every older pinned CLI. See [Config evolution](../architecture/08-project-config.md#config-evolution-policy).
+What each tier owes:
 
-## What each tier owes
-
-Tier changes **which artifact** a vendor owes. It never changes **whether** one is owed.
-
-| Tier | Owes |
+| Tier | Evidence |
 |---|---|
-| `critical`, `high` | Independent assurance: a SOC 2 Type II, an ISO 27001 certificate, or a penetration-test report. |
-| `moderate` | A lighter artifact — a completed security questionnaire, a trust-page snapshot, or a DPA. |
-| `low` | No upload, but a written `tier_rationale` and an `approved_by`. The config will not load without both. |
+| `critical`, `high` | Independent assurance: a SOC 2 Type II report, an ISO 27001 certificate or a penetration-test report. |
+| `moderate` | A lighter document: a completed security questionnaire, a trust-page snapshot or a DPA. |
+| `low` | No upload. The config does not load without `tier_rationale` and `approved_by`, and both appear in the signed record. |
 
-That last row is deliberate and worth understanding. An earlier design let the lower tiers carry no obligation at all — and that would have reproduced the worst failure mode this product has: an operator-chosen value that silently deletes a requirement, leaves the compliance score untouched, and so makes **under-declaring your estate raise your score**. It is the same defect as declaring an ISO clause not applicable, which the planner refuses outright.
+All keys: [configuration reference](../configuration.md).
 
-So `low` is not an absence. It is an approved exemption, it carries a justification and a name, and it appears in the signed evidence record where an auditor reads it. Tiering everything `low` does not produce a quiet green — it produces a register full of exemptions somebody has to defend.
+## 2. Upload each vendor's documents
 
-## Where the evidence goes
+These entries fan out over the register:
 
-A fan-out entry has no folder of its own. Each vendor gets one:
-
-```
-{bucket}/{prefix}/vendor_assurance.acme_cloud/{period_id}/
-{bucket}/{prefix}/vendor_assurance.initech_pay/{period_id}/
-{bucket}/{prefix}/cuec_mapping.acme_cloud/{period_id}/
-```
-
-Any number of files may go in each folder; images are converted to PDF and everything is merged, exactly as for any other manual entry ([Manual evidence](manual-evidence.md)).
-
-`sigcomply evidence due` names each vendor individually, so you are told which vendor is missing rather than that one of them is:
-
-```
-manual evidence: 3 of 50 entries have an empty folder (run period 2026-Q3)
-  ENTRY                                   CADENCE  PERIOD  DUE IN  UPLOAD TO
-  cuec_mapping [Acme Cloud Platform]      annual   2026    102d    s3://acme-eu/manual/cuec_mapping.acme_cloud/2026/
-  vendor_assurance [Acme Cloud Platform]  annual   2026    102d    s3://acme-eu/manual/vendor_assurance.acme_cloud/2026/
-  vendor_assurance [Initech Payments]     annual   2026    102d    s3://acme-eu/manual/vendor_assurance.initech_pay/2026/
-```
-
-Both entries are annual, so `{period_id}` is the year — one upload per
-vendor per year, read by every run in that year.
-
-A `low`-tier vendor never appears here. It owes no artifact, so it has no deadline.
-
-## Freshness: the most common CC9.2 finding
-
-A stale assurance report is the single most common CC9.2 finding, and it is invisible to a presence check. The temporal window proves **when you uploaded the file**, not what the file covers — so a FY2023 SOC 2 report uploaded this morning passes, and would go on passing every year forever.
-
-`assurance_period_end` closes that. Declare the last day the vendor's report actually covers, and the check fails once that date is more than **15 months** before the audit period begins (twelve months of a Type II, plus the bridge-letter gap auditors accept):
-
-```
-[fail] soc2.cc9.2.vendor_assurance — CC9.2
-  initech_pay: Initech Payments (initech_pay): evidence failed validation:
-    [assurance_out_of_date (declared coverage ended 2019-12-31, more than 15 months before the period began)]
-```
-
-**This date is declared, never parsed.** SigComply does not open the PDF and does not claim to — see [what this does not do](#what-this-does-not-do). What it gives an auditor is an assertion recorded in version control and re-checked on every run. Leave the field out and the freshness check simply does not run for that vendor.
-
-## The entries
-
-| Framework | Catalog entry | Control | Fans out over |
+| Framework | Entry | Control | One folder per |
 |---|---|---|---|
-| SOC 2 | `vendor_assurance` | CC9.2 | every vendor in the register |
-| SOC 2 | `vendor_contracts_reviewed` | CC9.2 | every vendor in the register |
-| SOC 2 | `cuec_mapping` | CC9.2 | vendors with `subservice: true` |
-| SOC 2 | `vendor_lifecycle_process` | CC9.2 | — (one folder) |
-| ISO 27001 | `supplier_assurance` | A.5.19 | every supplier in the register |
-| ISO 27001 | `supplier_security_agreements` | A.5.20 | every supplier in the register |
-| ISO 27001 | `supplier_lifecycle_process` | A.5.19 | — (one folder) |
+| SOC 2 | `vendor_assurance` | CC9.2 | vendor |
+| SOC 2 | `vendor_contracts_reviewed` | CC9.2 | vendor |
+| SOC 2 | `cuec_mapping` | CC9.2 | vendor with `subservice: true` |
+| ISO 27001 | `supplier_assurance` | A.5.19 | supplier |
+| ISO 27001 | `supplier_security_agreements` | A.5.20 | supplier |
 
-**Contracts and agreements fan out** for the same reason assurance reports do: each vendor has its own contract, and an auditor samples them per vendor. A single consolidated PDF cannot show that the one vendor they asked about is covered.
+The lifecycle entries (`vendor_lifecycle_process` for SOC 2, `supplier_lifecycle_process` for ISO
+27001) and SOC 2's `vendor_risk_assessment` (CC9.1) keep a single folder.
 
-**The lifecycle entries deliberately do not fan out.** The artifact is the documented procedure — how a third party is onboarded and, critically, how its access and data are removed when the relationship ends — plus the period's onboarding and termination records. It *cannot* fan out over the register, because a terminated vendor is by definition one you delete from the register: a per-member folder set can never hold evidence for the relationship that actually ended.
+A fan-out folder is the entry ID, a dot and the vendor ID:
 
-**CUEC mapping** is the complementary user entity controls listed in a subservice organization's own report — the controls *their* report assumes *you* operate. It fans out over subservice organizations because AWS's CUECs are not GCP's. Note these are CUECs, not **CSOCs** (complementary subservice organization controls, which are what you expect of them); the two get conflated constantly and auditors ask about them separately.
+```text
+{prefix}vendor_assurance.acme_cloud/{period}/
+{prefix}cuec_mapping.acme_cloud/{period}/
+```
 
-ISO says "supplier" where SOC 2 says "vendor", so the entries are named accordingly. `supplier_assurance` sits under **A.5.19** (information security in supplier relationships) rather than A.5.22, which already has `supplier_service_monitoring` and asks a different question: ongoing service-delivery review, not the standing assurance the relationship rests on.
+All these entries are annual, so `{period}` is the year. Get the exact paths from:
 
-## Without a register
+```bash
+sigcomply evidence due --all
+```
 
-Every one of these entries works with no `experimental.vendors` block at all — they behave as ordinary single-folder manual entries at `{prefix}/vendor_assurance/{period_id}/`. Declaring the register is what turns one folder into one per vendor. Nothing about an existing project changes until you add it.
+```text
+  cuec_mapping [Acme Cloud Platform]               annual     2026     66d     file://./evidence/manual/cuec_mapping.acme_cloud/2026/
+  vendor_assurance [Acme Cloud Platform]           annual     2026     66d     file://./evidence/manual/vendor_assurance.acme_cloud/2026/
+  vendor_assurance [Initech Payments]              annual     2026     66d     file://./evidence/manual/vendor_assurance.initech_pay/2026/
+  vendor_contracts_reviewed [Acme Cloud Platform]  annual     2026     66d     file://./evidence/manual/vendor_contracts_reviewed.acme_cloud/2026/
+  vendor_contracts_reviewed [Initech Payments]     annual     2026     66d     file://./evidence/manual/vendor_contracts_reviewed.initech_pay/2026/
+```
 
-## What this does not do
+A `low` vendor has no folders and never appears here. File rules are the same as for any manual
+entry ([Upload manual evidence](manual-evidence.md#3-upload-the-files)).
 
-Consistent with every manual entry, SigComply checks that a document is **on file**, not what it says:
+## 3. Declare how current each report is
 
-- It does **not** read the vendor's report, extract text, or parse a date out of it. `assurance_period_end` is your declaration.
-- It does **not** check the auditor's opinion is unqualified.
-- It does **not** check the report's scope covers the services you actually consume, or that the report is for the right entity.
-- It does **not** fully verify your register is complete. Nothing can compare it against the vendors you *really* use — that set exists only in your head and your invoices. What it does do is check the register against the one baseline it can observe: every source in your `sources:` block is itself a third party, so a configured source no register entry claims is warned about at plan time (`vendors: source "github" is configured but no register entry claims it`). Tag an entry with the sources it supplies to satisfy the check:
+An upload date says when you filed a report, not what period it covers. Set
+`assurance_period_end` to the last day the vendor's report covers. The CLI fails the vendor once
+that date is more than 15 months (450 days) before the audit period starts. It does not read the
+date from the PDF; the value is your declaration. Leave it out and the CLI skips this check for
+that vendor.
 
-  ```yaml
-  register:
-    - id: github
-      name: GitHub
-      tier: high
-      providers: [github]          # or a full source ID, e.g. aws.iam
-  ```
+## 4. Run the check
 
-  The warning is advisory and never fails a run — whether a source belongs in your third-party register is your call, and a vendor that supplies no configured source (a payroll processor, a law firm) simply leaves `providers:` empty.
+```bash
+sigcomply check --cadence annual
+```
 
-Three of the five most common CC9.2 findings live in that list. The check is real and it is narrow: *each vendor you declared has a current document on file, and you have said what period it covers.* Read the documents.
+## Verify
 
-## See also
+Each fan-out policy reports the vendors that failed, by name:
 
-- [Manual evidence](manual-evidence.md) — the folder scheme, supported formats, temporal window
-- [Configuration reference](../configuration.md#experimentalvendors--declaring-the-third-party-register)
-- [Project config architecture](../architecture/08-project-config.md)
+```text
+  [fail] soc2.cc9.2.vendor_assurance — CC9.2
+      ↳ Initech Payments (initech_pay): evidence failed validation: [assurance_out_of_date (declared coverage ended 2024-06-30, more than 15 months before the period began)]
+  [fail] soc2.cc9.2.vendor_contracts_reviewed — CC9.2
+      ↳ 2 of 3 resources failed, e.g. Acme Cloud Platform (acme_cloud): no evidence found; expected files in: file://./evidence/manual/vendor_contracts_reviewed.acme_cloud/2026/
+```
+
+At plan time, the CLI warns about each configured source that no register entry claims
+(`... is configured but no register entry claims it ...`). Add the vendor, or add the source to an
+existing entry's `providers:`. The warning never fails the run.
+
+## Limits
+
+The CLI checks that each declared vendor has a document on file in the period, and that the
+coverage date you declared is recent enough. It does not read the vendor's report, check the
+auditor's opinion, check that the report's scope covers the services you use, or know about
+vendors you left out of the register. Your auditor reviews those.
+
+## Next steps
+
+- [Upload manual evidence](manual-evidence.md).
+- [Verify evidence](verify-evidence.md).

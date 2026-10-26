@@ -1,74 +1,55 @@
 # SigComply CLI documentation
 
-The complete documentation set for the `sigcomply` CLI — the zero-trust,
-non-custodial compliance engine that collects and signs SOC 2 evidence in your
-own CI/CD, keeping raw evidence in your own storage.
-
-> **New here?** Start with the **[Quickstart](quickstart.md)** — zero to your
-> first passing `sigcomply check` in about 10 minutes, entirely on your machine.
-
-> **Pointing an AI agent at these docs?** See **[for-ai-agents.md](for-ai-agents.md)**
-> and **[/llms.txt](../llms.txt)** for an agent-oriented index and a runbook you
-> can drop into your customer repo.
-
-These docs follow the [Diátaxis](https://diataxis.fr/) model: **Tutorials** teach
-by doing, **How-to guides** solve a specific task, **Reference** is dry lookup,
-and **Explanation** covers the "why".
+The `sigcomply` CLI evaluates SOC 2 and ISO 27001 policies against your infrastructure from your
+own CI, collects the documents you upload, and signs the evidence into storage you own. New to
+it? Start with the [Quickstart](quickstart.md).
 
 ## Tutorials
 
-Hand-held, start-to-finish learning paths.
-
-| Doc | What you'll do |
+| Page | What you do |
 |---|---|
-| [Quickstart](quickstart.md) | Install, `sigcomply init`, and run your first passing `check` against AWS into a local vault (~10 min). |
-| [Getting started](getting-started.md) | The full SOC 2 journey: connect SigComply Cloud, wire up CI with OIDC, add manual evidence, and invite your auditor. |
+| [Quickstart](quickstart.md) | Run a first check against one AWS account on your machine and add one document |
+| [Run SigComply in CI](getting-started.md) | Move the project to CI with a bucket vault, AWS OIDC and, optionally, the SigComply Cloud dashboard |
 
 ## How-to guides
 
-Task-focused recipes for a specific goal.
-
-| Doc | Task |
+| Guide | Task |
 |---|---|
-| [Install](guides/install.md) | Install the CLI (script or Go), pin a version, verify. |
-| [Configure sources](guides/configure-sources.md) | Declare sources and supply read-only credentials for AWS (incl. IAM Identity Center), GCP, Azure, GitHub, GitLab, Okta, Active Directory. |
-| [Identity roster](guides/identity-roster.md) | Designate the directory that lists your people (Okta, Entra ID, Google Workspace, Active Directory, AWS IAM Identity Center) and check every other system's accounts and cloud IAM grants against it. |
-| [CI on GitHub](guides/ci-github.md) | Scaffold and wire per-cadence GitHub Actions workflows with OIDC. |
-| [CI on GitLab](guides/ci-gitlab.md) | Scaffold `.gitlab-ci.yml`, pipeline schedules, and OIDC (incl. the id-token caveat). |
-| [Manual evidence](guides/manual-evidence.md) | Upload PDF/image evidence to a bucket folder and consume it from a policy. |
-| [Vendor & third-party risk](guides/vendor-risk.md) | Declare your third-party register and collect assurance evidence per vendor, with a freshness check on each. |
-| [ISMS clauses & the SoA](guides/isms-clauses.md) | Satisfy ISO 27001's 16 clause 4-10 management-system requirements and generate the Statement of Applicability. |
-| [Cloud dashboard](guides/cloud-dashboard.md) | Connect a repo, start the Pro trial, and manage auditor seats. |
-| [Verify evidence](guides/verify-evidence.md) | Use the six `report` views — including `soa`, the ISO 27001 Statement of Applicability — and the `/verify` SPA to check signatures and integrity. |
-| [Troubleshooting](guides/troubleshooting.md) | Diagnose common errors, exit codes, and the GitLab cloud caveat. |
+| [Install](guides/install.md) | Install the CLI, pin a version, verify the download |
+| [Configure sources](guides/configure-sources.md) | Add AWS, GCP, Azure, GitHub, GitLab, Okta or Active Directory with read-only credentials |
+| [Identity roster](guides/identity-roster.md) | Check every system's accounts and cloud IAM grants against the directory that lists your people |
+| [CI on GitHub](guides/ci-github.md) | Set up the scaffolded GitHub Actions workflows and AWS OIDC |
+| [CI on GitLab](guides/ci-gitlab.md) | Set up the scaffolded `.gitlab-ci.yml`, pipeline schedules and AWS OIDC |
+| [Manual evidence](guides/manual-evidence.md) | Upload documents to the right folder, and build declaration PDFs with the Evidence SPA |
+| [Vendor and third-party risk](guides/vendor-risk.md) | Declare your vendors and collect assurance documents per vendor |
+| [ISMS clauses and the SoA](guides/isms-clauses.md) | Cover ISO 27001's clause 4-10 requirements and generate the Statement of Applicability |
+| [Cloud dashboard](guides/cloud-dashboard.md) | Connect a repository to SigComply Cloud and invite your auditor |
+| [Verify evidence](guides/verify-evidence.md) | Check signatures, coverage and scope with `sigcomply report` and the `/verify` page |
+| [Troubleshooting](guides/troubleshooting.md) | Fix common errors |
 
 ## Reference
 
-Exhaustive, dry lookup.
-
-| Doc | Contents |
+| Page | Contents |
 |---|---|
-| [Commands](reference/commands.md) | Every command, flag, default, and exit code. |
-| [Frameworks](reference/frameworks.md) | Shipped frameworks, policy counts, manual catalog overview, and ISO 27001's `A.` Annex A controls versus its `C.` clause 4-10 management-system requirements. |
-| [Configuration](configuration.md) | Full `.sigcomply.yaml` schema, env vars, and precedence. |
+| [Commands](reference/commands.md) | Commands, flags, exit codes, framework resolution |
+| [Configuration](configuration.md) | Every `.sigcomply.yaml` key, environment variables, storage backends |
+| [Sources](reference/sources.md) | Per-source config keys, credentials, permissions and evidence types |
+| [Frameworks](reference/frameworks.md) | Framework IDs, policy and control counts, ISO 27001 control prefixes |
+| [Changelog](../CHANGELOG.md) | Changes per release |
 
 ## Explanation
 
-Background and design rationale.
-
-| Doc | Topic |
+| Page | Topic |
 |---|---|
-| [Concepts](concepts.md) | The non-custodial model, the aggregation boundary, ephemeral signing, and the two evidence flows. |
-| [Architecture docs](architecture/) | Deep design docs (layers, evidence-type registry, vault layout, cadence, …). |
+| [Concepts](concepts.md) | What SigComply does and doesn't do, the two evidence flows, what leaves your environment, signing and its limits, what the score hides |
+| [SECURITY.md](../SECURITY.md) | Threat model and how to report a vulnerability |
 
 ## For AI agents
 
-| Doc | Purpose |
+| Page | Purpose |
 |---|---|
-| [For AI agents](for-ai-agents.md) | Runbook for agents setting up a customer compliance repo, plus an `AGENTS.md` template. |
-| [llms.txt](../llms.txt) | Machine-readable index of these docs. |
+| [For AI agents](for-ai-agents.md) | Runbook for an agent setting up a customer repository, with an `AGENTS.md` template |
+| [llms.txt](../llms.txt) | Index of these docs for language models |
 
-## See also
-
-- [Project README](../README.md) — the front-door router.
-- [AGENTS.md](../AGENTS.md) — context for AI coding assistants working **on** the CLI itself.
+Contributors: [ARCHITECTURE.md](../ARCHITECTURE.md) and [architecture/](architecture/) describe
+the internals.

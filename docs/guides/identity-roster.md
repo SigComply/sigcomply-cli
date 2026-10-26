@@ -1,60 +1,36 @@
-# Identity roster
+# Check accounts against your identity roster
 
-How to designate the directory that lists your organization's people, and check that every account in your other systems belongs to one of them — and to no one who has left.
-
-> Docs hub: [../README.md](../README.md)
-
-## What the roster is, and why
-
-Access-control criteria (SOC 2 CC6.2, ISO 27001 A.5.16 and A.5.18) ask two questions about every account in every system:
-
-1. **Does it belong to a real person in the organization?**
-2. **Has it been removed when that person left or was suspended?**
-
-Checking accounts system by system can't answer either. A GitHub member with MFA on is still a problem if nobody knows who they are. The answer needs an outside reference: an authoritative list of people. SigComply calls that list the **roster**. You pick one directory as the roster, and the CLI checks the accounts in every *other* configured identity source against it.
-
-The roster is personnel data, so the CLI reads only the fields it needs (id, email, name, employee id/type, status, service-account flag). As with all evidence, it stays in your vault and never reaches SigComply Cloud. The Cloud dashboard only gets the counts.
+Designate one directory as the list of your organization's people (the roster). The CLI then
+checks that every active account and cloud IAM grant in your other sources belongs to someone on
+the roster, and to no one the roster marks inactive. These checks cover SOC 2 CC6.2 and ISO 27001
+A.5.16 and A.5.18.
 
 ## Prerequisites
 
-- A working `.sigcomply.yaml` with at least one account source configured — `github`, `gitlab`, `aws.iam`, `aws.identity_center`, `okta`, `azure.entra` or `gcp.directory` (see [Configure sources](configure-sources.md)).
-- Read access to the directory you will designate as the roster.
+- At least one account source configured: `github`, `gitlab`, `aws.iam`, `aws.identity_center`,
+  `okta`, `azure.entra`, `gcp.directory` or `gcp.iam` ([Add an evidence source](configure-sources.md)).
+- Read access to the directory you use as the roster.
 
-## Choosing the roster source
+## 1. Choose the roster source
 
-Five sources can be the roster:
-
-| Directory | Source ID | Roster credential |
+| Directory | Source ID | Credential for the roster |
 |---|---|---|
-| Okta | `okta` | API token that can read users (`okta.users.read`) |
-| Microsoft Entra ID | `azure.entra` | Graph application permission `User.Read.All` — **no Entra ID P1/P2 needed** for the roster |
-| Google Workspace / Cloud Identity | `gcp.directory` | Workspace admin context with Users → Read |
-| Active Directory (on-prem) | `active_directory` | A non-admin bind user over LDAPS / StartTLS |
-| AWS IAM Identity Center | `aws.identity_center` | `identitystore:ListUsers` + `sso:ListInstances` (a roster-only binding skips the permission-set traversal, so it needs none of the `sso:*` grant actions) |
+| Okta | `okta` | An API token that can read users |
+| Microsoft Entra ID | `azure.entra` | Graph application permission `User.Read.All` (no Entra ID P1/P2 license needed) |
+| Google Workspace | `gcp.directory` | A Workspace admin context that can read users |
+| Active Directory | `active_directory` | A non-admin bind user over LDAPS or StartTLS |
+| AWS IAM Identity Center | `aws.identity_center` | `identitystore:ListUsers` and `sso:ListInstances` |
 
-Identity Center is the roster only when it is the directory of record. If an
-upstream IdP SCIM-syncs into it, designate the upstream IdP instead and use
-`aws.identity_center` as an *account* source — that is the case the rule below
-is about.
+Pick the directory where accounts are created, the one HR onboarding and offboarding touch first.
+If Active Directory syncs to Entra ID, which provisions Okta, designate Active Directory. If an
+upstream IdP syncs into IAM Identity Center, designate the IdP and keep `aws.identity_center` as
+an account source.
 
-**Pick the directory where accounts are created** — the one HR onboarding and offboarding actually touches first. In a hybrid setup where Active Directory syncs to Entra ID, which then provisions Okta, the origin is Active Directory. Designate that. A downstream copy can lag behind the origin, or miss someone the sync skipped.
+Setup for each source: [sources reference](../reference/sources.md).
 
-Credentials and field mappings for each source are in the [configuration reference](../configuration.md): [Okta](../configuration.md#okta), [Entra ID](../configuration.md#azureentra--directory_user), [Google Workspace](../configuration.md#gcp), [Active Directory](../configuration.md#active-directory).
+## 2. Designate it
 
-Only one roster source is supported per project, and it must be a plain source ID (no `[instance]` suffix).
-
-## A directory cannot vouch for its own accounts
-
-The roster must come from a system other than the one being checked. Once you designate a source as the roster, the CLI **never** checks that source's own accounts against the roster, because a directory that lists a person would trivially "prove" that person's account there.
-
-What that means in practice:
-
-- **If Okta is the roster**, GitHub, GitLab, AWS IAM, Entra and Google Workspace accounts are checked against it. Okta accounts are not.
-- **Deprovisioning *inside* the roster directory is still manual evidence.** The CLI can't attest that a leaver was removed from Okta using Okta as the reference. Keep providing the manual evidence your framework's catalog asks for (for example a quarterly access review or offboarding records).
-
-## Configure it
-
-Start with the source and the one-line designation:
+List the roster source under `sources:` and name it in `experimental.roster.source`:
 
 ```yaml
 sources:
@@ -70,193 +46,141 @@ experimental:
     source: okta
 ```
 
-Accounts link to people by **email**, compared case-insensitively. Some accounts have no email, or a different one. Link them with `aliases`, and mark accounts that aren't people with `non_human`:
+The roster source must be a plain source ID, without an `[instance]` suffix. The CLI never checks
+the roster source's own accounts against itself; a directory cannot vouch for its own accounts.
+Removal of leavers from the roster directory itself stays a manual evidence item, such as your
+quarterly access review.
+
+## 3. Link accounts that have no matching email
+
+The CLI links an account to a person by email, ignoring case. Some sources carry no email:
+
+- GitHub org members: alias each login.
+- AWS IAM users: alias each `UserName`. The root account is treated as non-human automatically.
+  If your people sign in through IAM Identity Center, add `aws.identity_center` instead; its
+  users carry emails.
+- GitLab: member emails are visible only to a group-owner or instance-admin token. With a lesser
+  token, alias the usernames.
+
+Okta, Entra ID, Google Workspace and IAM Identity Center accounts carry emails and usually link
+without aliases. Add aliases, and mark accounts that are not people as `non_human`:
 
 ```yaml
 experimental:
   roster:
     source: okta
-    aliases:                          # account → the person's roster email
+    aliases:
       github:
-        jdoe: jane.doe@acme.com       # GitHub login
+        jdoe: jane.doe@acme.com
         octo-sam: sam@acme.com
       aws.iam:
-        jane.doe: jane.doe@acme.com   # IAM UserName
-    non_human:                        # bots, deploy users, break-glass accounts
+        jane.doe: jane.doe@acme.com
+    non_human:
       github: [acme-ci-bot]
       aws.iam: [terraform-deployer]
 ```
 
-Rules for both maps:
+- Top-level keys are source keys exactly as written under `sources:`, including any `[instance]`
+  suffix.
+- An account name matches the account's ID or username (or, for an IAM grant, its principal),
+  ignoring case. It never matches a display name.
+- Each alias is a non-empty email. Listing the same account twice with different emails is an
+  error.
 
-- The top-level keys are **source keys exactly as written under `sources:`**, including any `[instance]` suffix on account sources (`"github[labs]"`).
-- An account name matches the account's **id or username**, case-insensitively. It never matches a display name, because free-text names aren't unique.
-- An alias must be a non-empty email. The same account listed twice with different emails is an error.
+## 4. Run the check
 
-### GitHub and AWS accounts need aliases
-
-Some sources can't supply an email, so their accounts link **only** through `aliases`:
-
-- **GitHub** — the org-members API exposes no email. Alias each login.
-- **AWS IAM** — IAM users carry no email. Alias each `UserName`. The AWS **root** account is recognized automatically and treated as non-human, so you don't need to list it. **If your humans sign in through IAM Identity Center rather than as IAM users, add `aws.identity_center` and delete the `aws.iam:` alias block** — SSO identities carry emails and link directly, which removes the whole class of silent alias typos described below.
-- **GitLab** — member email is visible only to a group-owner or instance-admin token. With a lesser token, alias the usernames.
-
-A misspelled login is silent in the config — it is a perfectly valid entry for an account that does not exist — so check the run output for `unused-alias:` lines after adding aliases (see [Troubleshooting](#troubleshooting)).
-
-Okta, Entra ID, Google Workspace and AWS IAM Identity Center accounts carry emails and usually link without aliases.
-
-### Overriding the roster for one policy
-
-A per-policy binding overrides `source` for that one policy. Excluding the roster source from the accounts works as usual:
-
-```yaml
-policies:
-  soc2.cc6.2.accounts_linked_to_roster:
-    bindings:
-      roster: [azure.entra]           # this policy uses Entra as its roster
+```bash
+sigcomply check --cadence daily
 ```
 
-Explicitly binding the roster source to the same policy's `accounts` slot is a configuration error.
+Each framework ships two roster policies. Both run daily and on push, and both skip until a
+roster is designated:
 
-## The policies
-
-Each framework ships two roster policies. Both run daily and on push, and both skip until a roster is designated. Both check **accounts and cloud IAM grants** — see [Accounts and grants](#accounts-and-grants) below.
-
-| Framework | Policy | Severity | Asserts |
-|---|---|---|---|
-| SOC 2 | `soc2.cc6.2.accounts_linked_to_roster` | high | Every active human identity — account or IAM grant — belongs to someone in the roster. |
-| SOC 2 | `soc2.cc6.2.no_active_accounts_for_inactive_personnel` | critical | No active identity belongs to someone the roster marks inactive. |
-| ISO 27001 | `iso27001.5.16.accounts_linked_to_roster` | high | Same as the SOC 2 linked check (A.5.16 identity management). |
-| ISO 27001 | `iso27001.5.18.no_active_accounts_for_inactive_personnel` | critical | Same as the SOC 2 inactive check (A.5.18 access rights). |
-
-**Linked to roster** looks at active accounts that aren't non-human (disabled accounts and declared bots are skipped). An account passes when its alias (or, failing that, its email) equals the email of **any** roster entry, whether that person is active, pending or inactive.
-
-**No active accounts for inactive personnel** looks at active accounts whose alias or email equals the email of a roster entry with status `inactive` (suspended, disabled, deprovisioned or expired).
-
-A person who is `pending` (provisioned but not yet able to sign in, such as a new joiner in Okta's STAGED state) counts as linked and isn't treated as inactive.
-
-### Accounts and grants
-
-The roster slot accepts two shapes of identity, and asks both the same question:
-
-| Shape | Evidence type | Emitted by | Joins on |
-|---|---|---|---|
-| An account in another system | `directory_user`, `directory_user.v2` | GitHub, GitLab, AWS IAM, Okta, Entra, Workspace, AD | alias, else `email` |
-| A cloud IAM role granted to a principal | `iam_binding` | `gcp.iam`, `aws.identity_center` | alias, else `principal_id` |
-
-Both are checked by the *same two policies* — there is no separate grant policy. Adding a source that emits `iam_binding` widens what the existing checks see; it adds no new control, no new obligation, and nothing skips for a project that has no such source.
-
-This matters because the two shapes hide different things. A cloud role can be granted to a principal that was never an account in any directory you collect — a personal Google account, a user from a partner's domain. It appears in no `directory_user` record, so an account-only check gives a clean run while an ex-contractor still holds `roles/storage.admin`. The binding itself is the evidence.
-
-**Findings are per grant, not per person.** Someone holding three unlinked roles is three findings, because three grants have to be revoked.
-
-**Which principals are checked.** Only those the roster could plausibly vouch for:
-
-| Principal | `principal_type` | Checked? |
+| Policy | Severity | Fails when |
 |---|---|---|
-| `user:someone@…` | `user` | yes |
-| `serviceAccount:…` | `service_account` | no — non-human by construction |
-| `group:…` | `group` | no — see Limits |
-| `domain:acme.com` | `domain` | no — names a domain, not a person |
-| `allUsers`, `allAuthenticatedUsers` | `""` | **yes** — see below |
+| `soc2.cc6.2.accounts_linked_to_roster` | high | An active human account or grant links to no one on the roster. |
+| `soc2.cc6.2.no_active_accounts_for_inactive_personnel` | critical | An active account or grant belongs to someone the roster marks inactive. |
+| `iso27001.5.16.accounts_linked_to_roster` | high | Same as the SOC 2 linked check. |
+| `iso27001.5.18.no_active_accounts_for_inactive_personnel` | critical | Same as the SOC 2 inactive check. |
 
-`allUsers` carries no prefix, so its `principal_type` is empty. An unclassifiable principal counts as a person on purpose: it can never match a roster entry, so it is reported. Dropping the most dangerous binding in GCP because its type was unrecognised is the failure mode worth avoiding.
+A person who is pending (provisioned but not yet able to sign in) counts as linked and is not
+inactive. Disabled accounts and `non_human` accounts are not checked.
 
-### Reading violations
+## Verify
 
-Violations name the identity as `source_id/id`, called the **account ref**:
+1. Look for `unused-alias:` or `unused-non-human:` lines in the run output. Each one names an
+   entry that matched no collected account, usually a typo:
 
-```
-identity github/octo-sam is not linked to anyone in the roster
-identity aws.iam/AIDAEXAMPLE0000000000 belongs to sam@acme.com, who is inactive in the roster
-identity gcp.iam/roles/editor|user:sam@personal.test is not linked to anyone in the roster
-```
+   ```text
+   unused-alias: experimental.roster.aliases["github"]["jdoee"] matched no collected account — no record from github carries that id, username or principal_id
+   ```
 
-The ref is unique across sources, so GitHub `jdoe` and GitLab `jdoe` are reported separately. For `aws.iam` the id is the IAM `UserId`, not the user name. For `gcp.iam` the id is the grant — `<role>|<member>` — so the same person appears once per role they hold. The full violation list lives in your vault. The Cloud dashboard sees only the counts.
+   Fix the spelling, or remove the entry if the account is gone.
 
-For each violation, either fix the account (remove it, or disable it where the person left) or fix the link (add an alias or a `non_human` entry). To accept a finding for a while, waive it with the account ref as `resource_id`:
+2. Read the violations. Each names the identity as `source_id/id`:
 
-```yaml
-policies:
-  soc2.cc6.2.accounts_linked_to_roster:
-    exceptions:
-      - scope: { resource_id: "github/octo-sam" }
-        state: waived
-        reason: "External contractor under MSA-2291; offboarding tracked in JIRA-812."
-        approved_by: ciso@acme.com
-        expires_at: 2026-12-31
-```
+   ```text
+   identity github/octo-sam is not linked to anyone in the roster
+   identity aws.iam/AIDAEXAMPLE0000000000 belongs to sam@acme.com, who is inactive in the roster
+   identity gcp.iam/roles/editor|user:sam@personal.test is not linked to anyone in the roster
+   ```
 
-The account ref is `source_id/id`. For a bracketed source the record id already
-carries the instance key, so the ref does not repeat it — an
-`aws.iam[staging]` account reads `aws.iam[staging]/AIDA1`, not the key twice.
-A roster `aliases:` or `non_human:` entry may be keyed by either the prefixed
-or the bare id; both match.
+   For `aws.iam` the ID is the IAM `UserId`. For `gcp.iam` the ID is the grant (`<role>|<member>`),
+   so a person appears once per role they hold.
 
-### A Workspace roster still checks GCP grants
+3. For each violation, fix the account (remove it, or disable it if the person left) or fix the
+   link (add an alias or a `non_human` entry). To accept one for a while, waive it by its
+   `source_id/id`:
 
-"A directory cannot vouch for its own accounts" is enforced per **source ID**, and `gcp.directory` (Google Workspace, which emits the roster) and `gcp.iam` (project IAM bindings) are different sources. So designating Workspace as your roster excludes only its own `directory_user` records — your GCP IAM grants are still checked against it. That is the intended asymmetry: Workspace saying "Jane is an employee" is exactly what should vouch for Jane holding `roles/editor`.
+   ```yaml
+   policies:
+     soc2.cc6.2.accounts_linked_to_roster:
+       exceptions:
+         - scope: { resource_id: "github/octo-sam" }
+           state: waived
+           reason: "External contractor under MSA-2291; offboarding tracked in JIRA-812."
+           approved_by: ciso@acme.com
+           expires_at: 2026-12-31
+   ```
 
-### Deleted vs. inactive people
+   A person deleted from the roster directory (rather than suspended) fails the linked check, not
+   the inactive check. So a waiver on the linked policy can hide a leaver: waive only accounts you
+   have identified.
 
-The two policies catch leavers in different ways, depending on how the roster directory records a departure:
+## Fix configuration errors
 
-- **Suspended / disabled / deprovisioned** (the person is still listed, with status `inactive`): their remaining accounts elsewhere fail **no active accounts for inactive personnel**. Okta keeps DEPROVISIONED users listed, and the CLI reads them.
-- **Deleted outright** (the person disappears from the directory: an Entra or Workspace deletion, an AD object deletion, an Okta hard delete): the roster no longer lists them, so their remaining accounts fail **linked to roster** instead.
-
-So **waiving an unlinked account on the linked policy can hide a leaver** whose directory entry was deleted. Only waive accounts you have identified.
-
-## Limits
-
-- **No HR system.** The roster is a directory, not an HRIS (BambooHR, Workday, …). If your directory isn't kept in step with HR, the check is only as good as the directory.
-- **Current state only.** Each run checks accounts as they are now. It doesn't measure how quickly an account was removed after a departure (for example "within 24 hours"). Keep that evidence manually.
-- **One roster source, no instances.** A bracketed source (`"okta[emea]"`) can't be the roster, and two rosters can't be merged.
-- **Email is the join key.** A roster entry with no email can't vouch for any account (fail-safe), and an identity with neither email nor alias is always unlinked. For an IAM grant the join uses `principal_id`, which for a `user:` member is already an email.
-- **Group grants are reported, but not attributed to their members.** A role or permission set granted to a group produces an `iam_binding` whose `principal_type` is `group`, which the roster join treats as non-human and does not check — the people in that group are checked through their own user records instead. Expanding a group grant into one record per member would be worse, not better: `iso27001.5.3.no_broad_admin_bindings` exists to push admin grants *onto* groups, so attributing them back to individuals would report the recommended pattern as a violation. One exception is worth knowing: `aws.identity_center` **does** resolve Identity Center group membership for `directory_user.is_admin`, so a person who holds `AdministratorAccess` only through a group is still flagged as an admin by the admin-MFA policies. Review group membership itself separately.
-- **GCP and AWS, not Azure yet.** `iam_binding` is emitted by `gcp.iam` (project IAM bindings) and by `aws.identity_center` (IAM Identity Center permission-set assignments — `principal_id` is the holder's email, so those grants join the roster with no aliases). Azure role assignments are the same cross-vendor shape and would be picked up by these policies the day a plugin emits them — no policy change needed. AWS *IAM-user* policy attachments are still not emitted; `aws.iam` reports privilege through `directory_user.is_admin` instead.
-- **Each roster policy collects its own evidence.** Nothing is cached between policies, so the roster directory is read once per roster policy in a run — for a large Active Directory, that is one full paged search per policy.
-- **A person on- or offboarded *during* a run can be reported once.** The two halves of the join are fetched at different moments: the `accounts` slot first, the `roster` slot minutes later. If an offboarding lands in that window — the account disabled in AWS at T1.5, the person marked inactive in the directory at T2 — the run compares an account that was still active when it was read against a roster entry that is inactive by the time it is read, and reports an access-control violation that was true at no single instant. The mirror case is a person *deleted* from the roster mid-run, reported as an orphaned account. A run is a stream of observations across its whole duration, not a snapshot (see ARCHITECTURE.md Principle #6). **Re-run before acting on a surprising roster finding** — a timing artifact clears, a real one does not.
-- **Entra ID MFA policies still need P1/P2.** Reading the roster from `azure.entra` needs only `User.Read.All`. The MFA policies that bind the same source's `directory_user` records still need the Entra ID P1/P2 registration report.
-
-## Troubleshooting
-
-**The roster policies are skipped with "no roster source designated — set experimental.roster.source …".** No roster is designated, or the policy's `roster` binding is empty. Add `experimental.roster.source`.
-
-**Exit `3` with an `experimental.roster` error.** The config is rejected before any collection. Common causes:
+A roster error stops the run before collection with exit code `3`:
 
 | Message contains | Fix |
 |---|---|
 | `experimental.roster.source is required` | Add `source:` to the block. |
-| `bracketed multi-instance source IDs are not supported` | Use a plain source ID. |
-| `is not configured in the sources: block` | Configure that source under `sources:`, or fix the typo. The same applies to keys under `aliases` / `non_human`. |
-| `none of which a roster slot accepts` | The source can't be a roster (e.g. `github`). Use `okta`, `azure.entra`, `gcp.directory` or `active_directory`. |
-| `alias must be a non-empty roster email` / `is listed more than once` | Fix the alias entry. |
+| `bracketed multi-instance source IDs are not supported` | Use a plain source ID as the roster. |
+| `is not configured in the sources: block` | Configure that source under `sources:`, or fix the typo. Applies to keys under `aliases` and `non_human` too. |
+| `none of which a roster slot accepts` | The source can't be a roster (for example `github`). Use `okta`, `azure.entra`, `gcp.directory`, `active_directory` or `aws.identity_center`. |
+| `alias must be a non-empty roster email`, `is listed more than once` | Fix the alias entry. |
 | `cannot also feed the accounts checked against it` | A `bindings:` override puts the roster source on the `accounts` slot. Remove it. |
 
-**Every GitHub or AWS account is unlinked.** Those sources carry no email. Add `aliases` (see above).
+Other symptoms:
 
-**A GCP IAM grant is unlinked but the person is in the roster.** The principal's address differs from their roster email (a personal or partner-domain account). Alias it under the `gcp.iam` source key: `aliases: { gcp.iam: { c@personal.test: carl@acme.com } }`.
+- Roster policies skip with `no roster source designated`: add `experimental.roster.source`.
+- Every GitHub or AWS IAM account is unlinked: add `aliases`.
+- A GCP IAM grant is unlinked although the person is on the roster: the grant uses another
+  address. Alias it under `gcp.iam`, for example `c@personal.test: carl@acme.com`.
+- Roster policies report `error`: the roster source failed to collect. The result carries the
+  source's own message.
+- A surprising finding for someone who joined or left during the run: the CLI reads accounts and
+  the roster minutes apart. Re-run before acting.
 
-**A warning `ignoring unrecognized key experimental.roster.<key>`.** A typo in the block. Unknown keys are tolerated so newer configs load on older CLIs, but they do nothing.
+## Limits
 
-**A warning `unused-alias:` or `unused-non-human:` naming an account.** The account name is spelled in a way no collected account carries — the other half of the typo the exit `3` above catches on the *source* key. The run prints, after evaluation:
+- The roster is a directory, not an HR system. The check is as good as the directory.
+- Each run checks current state. It does not measure how quickly an account was removed.
+- One roster source per project.
+- Grants to a group are not checked against the roster; the group's members are checked through
+  their own accounts.
+- Cloud IAM grants come from `gcp.iam` and `aws.identity_center` only.
 
-```
-unused-alias: experimental.roster.aliases["github"]["jdoee"] matched no collected account — no record from github carries that id, username or principal_id
-```
+## Next steps
 
-The entry did nothing: the account it was meant to link is still unlinked (or still counted as a person). Fix the spelling, or drop the entry if the account is gone. The name is matched against the account's **id**, its **username**, or — for an IAM grant — its **principal_id**, never a display name.
-
-It is a warning, never a failure, and it is decided across the whole run: a name used by one roster policy is used. Two cases produce no warning at all even when an entry is wrong, because the run proved nothing about it — the roster policies were carried forward by their cadence, or they skipped (no roster designated, the source failed to collect). A run that collected no account at all reports every declared name.
-
-These lines go to stdout, not the log, because the log redacts anything email-shaped and roster keys are often emails. They stay local: account names never reach the cloud payload.
-
-**The roster policies report `error`.** The roster source failed to collect — a missing Okta token, an LDAPS certificate that doesn't verify, a Workspace 403 — and the result carries the source's own message. See the source's section in the [configuration reference](../configuration.md).
-
-## See also
-
-- [Configuration reference — `experimental.roster`](../configuration.md#experimentalroster--designating-the-identity-roster)
-- [Configure sources](configure-sources.md)
-- [Frameworks](../reference/frameworks.md)
-- [Policy spec — multi-slot policies and `matches_in`](../architecture/03-policy-spec.md#multi-slot-policies)
-- [Docs hub](../README.md)
+- [Configuration reference](../configuration.md) for every `experimental.roster` key.
+- [Add an evidence source](configure-sources.md).

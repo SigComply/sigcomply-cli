@@ -1,101 +1,126 @@
 # Connect to SigComply Cloud
 
-How to connect your project to the optional SigComply Cloud dashboard —
-the paid tier that turns your CI runs into per-policy dashboards and
-auditor reports. The CLI works fully without it; the vault on your own
-storage is always the source of truth.
+Send each CI run's pass/fail counts to the SigComply Cloud dashboard, generate reports from them,
+and give your auditor read access. SigComply Cloud is a paid plan with a 2-month trial. The CLI
+works fully without it: evidence and results always stay in your vault.
 
-Back to the [docs hub](../README.md).
+## What the CLI sends
 
-## What the dashboard is (and is not)
+Per run: the run's ID, framework, period, commit, branch, CLI version, repository and CI
+provider, the count of policies in each status and the compliance score. Per policy: its ID and
+mapped controls, status, severity, the number of resources evaluated and failed, a message built
+from those counts, cadence data and whether the policy ran from automated or manual evidence.
 
-SigComply Cloud receives, per run, **aggregated counts only** — never raw
-evidence, never identifiers. It renders per-policy pass/fail state,
-compliance scores, and staleness, and gives auditors a portal to review
-results and download reports.
+The CLI never sends resource IDs, ARNs, emails, usernames, file contents, file hashes, violation
+lists, envelopes or the run manifest. The payload type has no field that could hold them. To see
+exactly what a run would send, write it to a file instead of posting it:
 
-What leaves your environment: a per-policy summary such as
-`mfa_disabled_count: 3` plus pass/fail and score. What **never** leaves:
-raw API responses, PDF bytes, violation lists with ARNs/emails/usernames,
-signatures, and the per-run `manifest.json`. Those stay in your vault
-forever. See [concepts.md](../concepts.md) for the non-custodial model.
-
-The submission wire format is physically incapable of carrying an
-identifier, and the Rails strong-params allow-list is a second backstop.
+```bash
+sigcomply check --capture-cloud-payload payload.json
+```
 
 ## Prerequisites
 
-- A working local run — see [../quickstart.md](../quickstart.md).
-- Your project running in CI (GitHub Actions or GitLab CI) with OIDC wired.
-  See [ci-github.md](ci-github.md) or [ci-gitlab.md](ci-gitlab.md).
+- The project's repository on `github.com` or `gitlab.com` (GitHub Enterprise Server and
+  self-managed GitLab can't connect), running SigComply in CI with OIDC:
+  [GitHub Actions](ci-github.md) or [GitLab CI](ci-gitlab.md).
+- An email address for the account owner.
 
-## The OIDC model (no API keys)
+## 1. Create an account
 
-Cloud authentication uses **no API keys and no secrets you manage**. The
-identity is the OIDC JWT your CI platform mints for the job, with audience
-`https://api.sigcomply.com`. When you connect a project you paste its repo
-URL, which registers the repo so tokens from its CI pipeline are matched to
-your organization.
+Sign up at <https://sigcomply.com/users/sign_up>. The first user of a new organization is its
+owner. Only owners see a project's **Reports**, **Auditors** and **Settings** tabs.
 
-- **GitHub Actions**: add `permissions: { id-token: write, contents: read }`
-  to the job. The runner mints the token; nothing else to configure.
-- **GitLab CI**: add an `id_tokens:` block with `aud: https://api.sigcomply.com`.
-  The shipped template names the token `SIGCOMPLY_ID_TOKEN` — exactly what the CLI
-  reads — so cloud submission works out of the box. See [ci-gitlab.md](ci-gitlab.md).
+## 2. Connect the repository
 
-Cloud submission **auto-enables** when the CLI runs in CI, an OIDC token is
-present, and you have not passed `--no-cloud`.
+1. Go to **Projects** and select **New Project**.
+2. Paste the repository URL in **Repository URL**: `https://github.com/<owner>/<repo>` or
+   `https://gitlab.com/<group>/<subgroup>/<project>`.
+3. Select **Create Project**.
 
-## Step-by-step: connect a project
+SigComply Cloud has no API keys. It identifies a run by the OIDC token your CI mints: the
+`repository` claim on GitHub Actions, the `project_path` claim on GitLab CI. If you rename or move
+the repository, paste the new URL in the project's **Settings** tab, or submissions are refused.
 
-1. **Sign up** at the dashboard, **https://sigcomply.com**. The first user in a
-   new organization becomes the **owner**.
-2. **Create your organization** (done as part of sign-up).
-3. **Connect a project.** Paste the project's GitHub or GitLab **repository
-   URL**. This registers the repo so OIDC tokens from its CI match your org.
-   - If you later **rename or move the repository, re-paste the new URL** —
-     otherwise the OIDC identity no longer matches and submissions are
-     rejected.
-4. **Run in CI.** Your first successful submission from that repo's CI
-   pipeline **automatically starts a 2-month, no-credit-card Pro trial**.
-   All Pro features — the compliance dashboard and auditor portal — are
-   available during the trial.
-5. **View results.** The projects list and per-policy evaluations render
-   the submitted counts, compliance scores, and staleness.
-6. **Invite auditor seats** (owner only). The auditor receives a
-   set-password email and logs into the auditor portal to review results
-   and download reports. **Auditors cannot self-register** — they must be
-   invited.
+## 3. Turn on submission
 
-## After the trial
+Add to `.sigcomply.yaml`, commit and push:
 
-When the 2-month trial expires, submissions return **HTTP 402** with an
-upgrade URL. Your CLI runs, vault writes, and signing continue to work
-unchanged — only the cloud submission is gated. Upgrade to Pro from the URL
-in the response (or from the dashboard) to resume submissions.
-
-## Forcing or disabling submission
-
-Submission is auto-detected in CI, but you can be explicit:
-
-```bash
-# Force submission (requires a valid OIDC token; errors if absent)
-sigcomply check --cadence daily --cloud
-
-# Never submit, even in CI
-sigcomply check --cadence daily --no-cloud
+```yaml
+cloud:
+  base_url: https://sigcomply.com
 ```
 
-To point at a non-default endpoint, use `--cloud-url <url>` or set
-`cloud.base_url` in `.sigcomply.yaml`. To inspect exactly what would be
-sent without posting it (an auditor escape hatch), use
-`--capture-cloud-payload <file>`.
+The CLI submits only when all of these hold:
+
+- `cloud.base_url` is set (or `--cloud-url` is passed);
+- the run is in CI (`CI`, `GITHUB_ACTIONS` or `GITLAB_CI` is set);
+- an OIDC token is available: on GitHub Actions, the job has `permissions: id-token: write`; on
+  GitLab CI, `SIGCOMPLY_ID_TOKEN` (or `ID_TOKEN`) holds an ID token with
+  `aud: https://api.sigcomply.com`. The scaffolded workflows set both up.
+
+`--no-cloud` turns submission off for one run. `--cloud` makes the CLI warn when the base URL or
+the token is missing, instead of skipping without a message.
+
+## 4. Run and check the result
+
+Start a CI run (for example the daily workflow). In the log, look for:
+
+```text
+submission accepted (HTTP 201)
+```
+
+The run then appears in the project's **Overview** tab, with the compliance score, the split
+between automated and manual evidence, and a table of runs. Open a run to see each policy's
+result.
+
+A failed submission never fails the run. The CLI logs a `submit:` warning with the HTTP status
+and the response, and the exit code still reflects the policy results.
+
+## 5. Trial and plan
+
+Your organization's first authenticated run submission starts a 2-month Pro trial. No card is
+needed. When the trial ends, the dashboard answers new submissions with HTTP `402`
+(`subscription_required`) and an `upgrade_url`. Upgrade under **Settings > Subscription**.
+Runs already submitted stay in the dashboard.
+
+## 6. Generate a report
+
+1. Open the project and select **Reports**, then **Generate Report**.
+2. Choose the **Report Type**: compliance summary, drift analysis or control matrix.
+3. Choose the **Format**: PDF, CSV or JSON.
+4. Choose the **Reporting Basis**: period of time (results across the date range) or point in
+   time (the latest run as of the end date), and set **From** and **To**.
+
+Reports are built from the submitted counts. They are not an audit opinion.
+
+## 7. Invite an auditor
+
+1. Open the project and select **Auditors**, then **Grant Access**.
+2. Enter the **Auditor Email** and, optionally, an **Expiration Date**.
+
+The auditor receives an email to set a password, then sees that project's runs and results
+read-only and can download its completed reports. Access is per project. Auditors can't sign up
+on their own. To verify the evidence behind the counts, the auditor needs access to your vault:
+see [Verify evidence](verify-evidence.md).
+
+## Fix submission errors
+
+The `submit:` warning in the CI log includes the HTTP status and an error `code`:
+
+| Status | `code` | Cause | Fix |
+|---|---|---|---|
+| none | none | No `submit:` line and no `submission accepted`: the CLI skipped submission. | Set `cloud.base_url`. Run with `--cloud` to see which condition is missing. |
+| 401 | `token_expired` | The token expired before the CLI posted it. | Re-run the job. |
+| 401 | `invalid_signature` | The token's signature or signing key did not verify. | Re-run; if it persists, check the token comes from GitHub Actions or GitLab. |
+| 401 | `validation_error` | The token is malformed, has the wrong issuer, or its audience is not `https://api.sigcomply.com`. | On GitLab, set `aud: https://api.sigcomply.com` on the ID token. |
+| 403 | `unregistered_provider` | No active project in SigComply Cloud matches the token's repository. | Connect the repository (step 2), re-paste the URL after a rename, and check the project is active in **Settings**. |
+| 402 | `subscription_required` | The trial ended and there is no Pro subscription. | Upgrade from the `upgrade_url`. |
+| 422 | `validation_failed` or a message | The payload was rejected, for example because its `run_id` was already submitted. | Re-run the job; each run gets a new run ID. Check the message. |
+
+More causes: [Troubleshooting](troubleshooting.md#cloud-submission).
 
 ## Next steps
 
-- [ci-github.md](ci-github.md) / [ci-gitlab.md](ci-gitlab.md) — wire OIDC in CI.
-- [concepts.md](../concepts.md) — the non-custodial, counts-only model.
-- [verify-evidence.md](verify-evidence.md) — verify the evidence behind the
-  counts.
-- [troubleshooting.md](troubleshooting.md) — "no cloud submission happening".
-- Back to the [docs hub](../README.md).
+- [Verify evidence](verify-evidence.md).
+- [Concepts](../concepts.md): what the counts can and can't tell you.

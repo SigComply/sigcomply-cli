@@ -1,88 +1,83 @@
 # Frameworks
 
-Reference for the compliance frameworks the CLI ships and how their policies map to controls.
-
-Back to the [documentation hub](../README.md).
+The compliance frameworks the CLI ships, their counts, and the commands that list their
+contents.
 
 ## Shipped frameworks
 
-| ID | Standard | Status | Coverage |
-|---|---|---|---|
-| `soc2` | SOC 2 — 2017 Trust Services Criteria | Production-ready, **default** | 43 / 43 criteria have a check — 16 automated, 27 manual-only. 139 policies: 89 automated + 50 manual catalog entries. |
-| `iso27001` | ISO/IEC 27001:2022 | Shipped | 109 controls: 93 Annex A + 16 management-system. 93 / 93 Annex A controls have a check — 26 automated, 67 manual-only. 151 policies: 64 automated + 87 manual catalog entries. The 16 management-system requirements (clauses 4-10), all manual, are counted apart from Annex A and are covered only once you upload the documents. |
+| ID | Standard | Coverage |
+|---|---|---|
+| `soc2` | SOC 2, 2017 Trust Services Criteria. The default. | 43 / 43 criteria have a check — 16 automated, 27 manual-only. 139 policies: 89 automated + 50 manual catalog entries. |
+| `iso27001` | ISO/IEC 27001:2022 | 109 controls: 93 Annex A + 16 management-system. 93 / 93 Annex A controls have a check — 26 automated, 67 manual-only. 151 policies: 64 automated + 87 manual catalog entries. The 16 management-system requirements (clauses 4-10), all manual, are counted apart from Annex A and are covered only once you upload the documents. |
 
-Select a framework in `.sigcomply.yaml` with the singular key `framework:` (never `frameworks:`):
+A control counts as automated when at least one automated policy stands behind it, and as
+manual-only when only document uploads do. An automated check shows a control's configured
+state, not that it was exercised: a backup that is enabled is not a restore that was tested.
+Where a control needs both, the tested half is a separate manual entry, for example
+`soc2.a1.3.recovery_procedures_tested` and `iso27001.5.30.ict_continuity_tested`.
+`sigcomply report --view coverage` shows which kind of check backs each control.
+
+No other framework is registered. Any other value of `framework:` is a
+configuration error (exit `3`).
+
+## Selecting a framework
+
+Set the framework in `.sigcomply.yaml` with the singular key `framework:`:
 
 ```yaml
 framework: soc2
 ```
 
-`init` and `evidence catalog` also accept `-f/--framework`; `check` reads the framework from config only.
+One project (one repository, one config, one vault) holds one framework. For SOC 2 and ISO
+27001, use two repositories. `check` reads the framework only from the config; the commands that
+take a `--framework` flag are listed in
+[Commands](commands.md#framework-resolution).
 
-### `init-ci` is SOC 2 only in v1-alpha
+`init-ci` scaffolds SOC 2 only. The workflows don't name a framework, so an ISO 27001 project can
+use them; see [Commands](commands.md#sigcomply-init-ci).
 
-Running `init-ci` for any framework other than `soc2` exits `3`. The scaffolded workflows are not in fact framework-specific — nothing in them names a framework, and `check` reads the framework from your config — so the gate reflects that the set has only been validated against SOC 2, not that ISO 27001 templates are missing. For an ISO 27001 project, copy a workflow from `examples/` and adapt it; see [ci-github](../guides/ci-github.md). And see [Commands](commands.md#sigcomply-init-ci).
+## Evidence modes
 
-## HIPAA is not available
+Each policy has one `evidence_mode`:
 
-HIPAA is **not** a registered framework — there is no package, no policies, and no `hipaa` entry in the framework registry. Selecting `hipaa` (or any other unregistered name) fails identically at runtime.
-
-## How policies map to controls
-
-Each framework is a set of policies, and every policy declares an `evidence_mode` — the flow it consumes:
-
-| `evidence_mode` | Source of evidence | How it is evaluated |
+| `evidence_mode` | Evidence | Evaluation |
 |---|---|---|
-| `automated` | API source plugins (AWS, GCP, Azure, GitHub, GitLab, Okta) collect JSON, validated against an evidence-type schema | The declarative `pass_when` DSL |
-| `manual` | Files uploaded to a bucket folder, resolved from a manual-evidence catalog entry | A PDF-presence check (file present, in the temporal window, valid PDF) |
+| `automated` | Records from API sources (AWS, GCP, Azure, GitHub, GitLab, Okta, Active Directory), checked against an evidence-type schema | The policy's `pass_when` condition |
+| `manual` | Files uploaded to the policy's folder in the `manual.pdf` storage | A supported file is present, is a valid PDF after merging, and was uploaded within the entry's period plus grace |
 
-Each policy maps to one or more framework controls (SOC 2 TSC criteria, or ISO 27001 Annex A controls and clause 4-10 management-system requirements). Automated policies produce their result from live infrastructure state; manual policies attest that the required evidence file exists for the audit period. Both evidence flows are explained in [Concepts](../concepts.md#the-two-evidence-flows).
+Each policy maps to one or more controls: SOC 2 criteria, or ISO 27001 Annex A controls and
+clause 4-10 requirements. [Concepts](../concepts.md#the-two-evidence-flows) explains both
+modes.
 
-**An automated check evidences a control's *configured* state, not that the arrangement was exercised.** Several controls require both. A backup that is enabled is not a restore that was tested; an incident-response plan that exists is not one that was rehearsed. Where a control has both halves, the tested half is a separate **manual** entry — `soc2.a1.3.recovery_procedures_tested`, `soc2.cc7.3.incident_response_tested`, `iso27001.5.30.ict_continuity_tested`, `iso27001.5.26.incident_response_tested`. The automated/manual counts below are per *criterion*, so a criterion backed only by configuration checks is not distinguishable from a fully evidenced one by the count alone; `sigcomply report --view coverage` shows which kind of check backs each control. Two to know about: ISO 27001 **A.8.13** (Information backup) is automated on backup configuration only — its testing requirement is evidenced under A.5.30 — and SOC 2 **CC7.5** is backed by infrastructure recovery settings, with the recovery *activity* evidenced by `soc2.cc7.3.incident_response_tested` and `soc2.a1.3.recovery_procedures_tested`.
+## ISO 27001 control IDs
 
-### ISO 27001 control IDs: `A.` versus `C.`
+| Prefix | What it is | Count | Can be declared not applicable | In the Statement of Applicability |
+|---|---|---|---|---|
+| `A.` | Annex A controls, for example `A.5.1`, `A.8.5` | 93 | Yes, with a `reason` | Yes, included or excluded |
+| `C.` | Clause 4-10 management-system requirements, for example `C.4.3`, `C.9.2` | 16 | No (exit `3`) | No |
 
-ISO 27001 controls carry one of two prefixes, and the difference is not cosmetic:
-
-- **`A.` — Annex A controls** (`A.5.1`, `A.8.5`, …). The 93 controls an
-  organization selects from. One can be declared `not_applicable` in
-  `.sigcomply.yaml` with a `reason`, and every one of them — included or
-  excluded — appears in the Statement of Applicability
-  (`sigcomply report --view soa`).
-- **`C.` — clause 4-10 management-system requirements** (`C.4.3`, `C.9.2`, …).
-  The 16 requirements of the ISMS itself: its scope, its risk assessment and
-  treatment processes, its internal audit program, its management review.
-  Certification is granted against the management system, so an organization
-  cannot decline one: `applicability: not_applicable` against a `C.` control is
-  a config error (exit 3), and `C.` controls never appear in the Statement of
-  Applicability.
-
-The prefix exists because the numbering collides. Clause 5.2 (the information
-security policy) and Annex A 5.2 (information security roles) are different
-requirements an auditor checks separately, so they are `C.5.2` and `A.5.2`.
-
-All 16 `C.` requirements are manual, annual document uploads — a scope
-statement, a risk register, internal audit findings, management review minutes.
-They are documents you produce and upload; until you do, they are not covered,
-and `report --view coverage` counts them apart from Annex A so that never reads
-as coverage you have. The one piece of ISO's mandatory documented information
-SigComply produces rather than asks for is the Statement of Applicability itself
-(clause 6.1.3 d) — see [`report --view soa`](commands.md#sigcomply-report).
+The prefix exists because the numbering overlaps: clause 5.2 and Annex A 5.2 are different
+requirements, so they are `C.5.2` and `A.5.2`. All 16 `C.` requirements are annual document
+uploads. [ISMS clauses and the SoA](../guides/isms-clauses.md) explains how to satisfy them and
+generate the Statement of Applicability.
 
 ## Inspecting a framework
 
-- **Manual catalog** — list the manual-evidence entries for a framework (id, control, type, frequency, temporal rule, grace period, name, description, severity, TSC):
+List the manual-evidence entries:
 
-  ```bash
-  sigcomply evidence catalog -f soc2
-  sigcomply evidence catalog -f soc2 -o json
-  ```
+```sh
+sigcomply evidence catalog -f soc2
+sigcomply evidence catalog -f soc2 -o json
+```
 
-- **Automated policy definitions** — the open Go-native policy source lives under `internal/frameworks/<framework>/` in the [`sigcomply-cli`](https://github.com/SigComply/sigcomply-cli) repository (e.g. `internal/frameworks/soc2/`). Each policy is a Go builder carrying its `pass_when` clause, so the exact logic behind every check is readable.
+Text output shows the ID, control, type, frequency and name of each entry. JSON adds the
+description, severity, temporal rule, grace period and `tsc` (the SOC 2 criterion).
+
+The automated policies are Go code under `internal/frameworks/<framework>/` in this repository,
+for example `internal/frameworks/soc2/`. Each policy carries its `pass_when` condition, so the
+logic behind every check is readable.
 
 ## See also
 
-- [Commands](commands.md) — the `evidence catalog` and `check` reference.
-- [Concepts](../concepts.md) — the two evidence flows and the aggregation boundary.
-- [Configuration](../configuration.md) — per-policy and per-control customization.
-- [Documentation hub](../README.md).
+- [Commands](commands.md): `check`, `report` and `evidence catalog`.
+- [Configuration](../configuration.md): per-policy and per-control settings.

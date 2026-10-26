@@ -1,155 +1,89 @@
 # Verify evidence
 
-How you or your auditor independently verify the evidence SigComply wrote
-to your vault — with the read-only `report` command, and with the Evidence
-SPA `/verify` page in the browser. Both are offline: no cloud, no login.
+Check that the signed evidence in a SigComply vault has not changed since the CLI wrote it:
+the whole vault with `sigcomply report`, or one file in the browser. Both run offline, with no
+login and no SigComply Cloud.
 
-Back to the [docs hub](../README.md).
+Each run folder in the vault (for example `soc2/2026-Q4/run_20261026T201233Z_31e1022c/`) holds:
 
-## How signing works (the customer-level picture)
+- one signed envelope per evidence file, under `policies/<policy ID>/envelopes/`. Each envelope
+  is JSON with `format_version`, `produced_at`, `records` and a `signature` (`algorithm`,
+  `public_key`, `value`). The CLI signs each envelope with a fresh Ed25519 key and discards the
+  private key.
+- `manifest.json`, which lists the SHA-256 hash of every file in the run (`file_hashes`) and is
+  signed the same way.
 
-Every `sigcomply check` run writes signed evidence to your vault (your own
-storage):
+A passing check shows a file is unchanged since it was signed. It does not stop someone with
+write access to the vault from replacing a file and signing it again with a new key. For that,
+make the vault storage write-once or versioned (S3 Object Lock, GCS Bucket Lock, Azure immutable
+storage). Threat model: [`SECURITY.md`](../../SECURITY.md).
 
-- Each evidence file is wrapped in an **`EvidenceEnvelope`** — signed JSON
-  of `{timestamp, evidence}`. Signing uses a **fresh, per-file ephemeral
-  Ed25519 keypair**; the private key is discarded the instant the signature
-  is computed, and the public key + signature are embedded in the envelope.
-- Each run also writes a **`manifest.json`** listing the SHA-256 hashes of
-  every file in the run (a single-level Merkle list), itself signed with its
-  own ephemeral keypair. One signature therefore covers whole-run
-  integrity while each file stays independently checkable.
-- A manual PDF is stored alongside the envelope and referenced by its
-  SHA-256 hash.
+## Prerequisites
 
-Run folders use basic ISO 8601 timestamps without colons (e.g.
-`20260325T100000Z`) because some S3-compatible tools reject colons.
+- Read access to the vault, and the CLI installed ([install guide](install.md)) for the first
+  task.
+- The period to check, for example `2026-Q4`. Run folders are grouped by period in the vault.
 
-### What signing does and does not guarantee (read this)
+## Verify a whole period with the CLI
 
-The signing scheme **detects**: accidental envelope corruption, and a PDF
-swapped while its envelope hash is left intact.
+1. From the repository root, run the integrity view:
 
-It **does not, by itself, prevent** a party with write access to the vault
-from regenerating an envelope + PDF with a fresh keypair — because the
-public key lives inside the envelope, a re-signed file is indistinguishable
-from the original.
+   ```bash
+   sigcomply report --period 2026-Q4 --view integrity
+   ```
 
-**Real tamper-resistance requires write-once / versioned vault storage,
-which you configure at the storage layer — the CLI does not set this up:**
+   To check a vault in a bucket, or without the project config, pass the vault and framework:
 
-- **S3** — Object Lock, or versioning + MFA delete.
-- **GCS** — Object Versioning + retention, or Bucket Lock.
-- **Azure** — immutable blob storage.
-- **Local filesystem** — dev/CI-ephemeral only; not tamper-resistant.
+   ```bash
+   sigcomply report --period 2026-Q4 --view integrity --vault s3://my-vault-bucket -f soc2
+   ```
 
-Do not claim tamper-resistance your storage configuration does not deliver.
-See [concepts.md](../concepts.md) for the full model.
+2. Read the `STATUS` column. Each run in the period is one row:
 
-## Part A — Verify with `sigcomply report`
+   ```text
+   RUN_PATH                                    STATUS  FILES_OK  DETAIL
+   soc2/2026-Q4/run_20261026T201228Z_2771326f  pass    95/95     -
+   soc2/2026-Q4/run_20261026T201228Z_30e5ba7f  fail    57/95     mismatch: policies/soc2.cc7.3.incident_response_plan/result.json
+   ```
 
-`report` is a **read-only** snapshot of the vault. It never writes to the
-vault, never calls the cloud, and never needs an OIDC token.
+   `fail` names the first file whose hash no longer matches the manifest. The command exits `0`
+   whether runs pass or fail, so read the output rather than the exit code.
 
-### Prerequisites
+3. For a file you can keep, write JSON or CSV with `--out`:
 
-- A vault populated by at least one `sigcomply check` run.
-- The `--period` you want to inspect (e.g. `2026-Q1`). **`--period` is
-  required** — omitting it exits 3.
+   ```bash
+   sigcomply report --period 2026-Q4 --view integrity --format json --out integrity.json
+   ```
 
-### Usage
+Other views of the same vault (`latest`, `exceptions`, `scope`, `coverage`, `soa`) and every
+flag: [commands reference](../reference/commands.md#sigcomply-report). The `coverage` view
+separates controls checked against infrastructure from controls backed only by a document on
+file. For SOC 2, 27 of 43 criteria are backed only by documents.
 
-```bash
-sigcomply report --period 2026-Q1 --view latest
-```
+## Verify one file in the browser
 
-### Flags
+The Evidence SPA `/verify` page checks one envelope's signature in your browser. Nothing is
+uploaded.
 
-| Flag | Values | Notes |
-|------|--------|-------|
-| `--period <id>` | e.g. `2026-Q1` | **Required**; missing → exit 3 |
-| `--view <name>` | `latest` \| `exceptions` \| `integrity` \| `scope` \| `coverage` \| `soa` | Default `latest` |
-| `--format <fmt>` | `text` \| `json` \| `csv` \| `pdf` | Default `text`; `pdf` is deferred → exit 3 if used |
-| `--out <file>` | path | **Required for non-`text` formats** (else exit 3); `text` prints to stdout |
-| `--vault <uri>` | path, `s3://`, `gs://`, `az://`, `file://` | Point at an external vault |
-| `-f/--framework` | framework id | Defaults to the config framework |
-| `-c/--config <path>` | path | Config file |
+1. Copy an envelope file from the vault, for example
+   `policies/soc2.cc1.1.security_awareness_training/envelopes/signed_document__manual.pdf_security_awareness_training.json`.
+2. Open <https://sigcomply.github.io/sigcomply-evidence-spa/verify>.
+3. Drop the envelope file on the page, choose it, or paste its JSON.
+4. Read the verdict. A valid signature means the envelope is unchanged since the CLI signed it.
+5. Optional, for a manual evidence envelope: drop the original document on the PDF check. The
+   page hashes it and compares the hash with the envelope's `file_hash`.
 
-### The six views
+Limits of the PDF check:
 
-- **`latest`** — the current pass/fail state for each policy.
-- **`exceptions`** — the register of waivers and not-applicable (NA)
-  declarations in effect.
-- **`integrity`** — run-by-run verification of every signature and the run
-  manifest. This is the view an auditor uses to confirm nothing in the vault
-  has drifted.
-- **`scope`** — what the run was supposed to cover, and what it actually
-  evaluated: the declared estate (when `experimental.scope` is set) plus
-  every control the run skipped, with the reason. Use it to check that a
-  passing score covers the whole estate rather than the part that happened
-  to be wired up.
-- **`coverage`** — what kind of check stands behind each control: verified
-  by inspecting your infrastructure, or satisfied by a document being on
-  file whose contents were never read. Both kinds pass identically and
-  count the same toward the score, so this is the only view that separates
-  a verified estate from a folder of PDFs. For SOC 2, 27 of 43 criteria are
-  document-backed. It also reports whether that document actually exists
-  for the period, and marks any control whose evidence mode the project
-  overrode. For ISO 27001 the 16 clause 4-10 management-system
-  requirements are counted apart from the 93 Annex A controls, so ISMS
-  documents that have not been uploaded never read as Annex A coverage.
-- **`soa`** — the ISO 27001 Statement of Applicability (clause 6.1.3 d),
-  the first document a Stage 1 auditor asks for. Per Annex A control:
-  whether it applies, the justification for including it (or the reason
-  for leaving it out), whether this period's results show it implemented,
-  and which checks stand behind it. `--format csv` gives the spreadsheet
-  auditors expect. This is the only view that needs the project config —
-  the applicability decisions live in `.sigcomply.yaml` and nowhere else,
-  so without it the report would turn every deliberate exclusion into a
-  silent inclusion; it exits 3 instead.
-
-### Examples
-
-```bash
-# Human-readable latest state to the terminal
-sigcomply report --period 2026-Q1 --view latest
-
-# Machine-readable integrity report to a file (non-text requires --out)
-sigcomply report --period 2026-Q1 --view integrity --format json --out integrity.json
-
-# Verify a vault stored in S3
-sigcomply report --period 2026-Q1 --view integrity --vault s3://my-vault-bucket
-
-# Statement of Applicability as a spreadsheet (needs the project config)
-sigcomply report --period 2026-Q1 --view soa --format csv --out soa.csv
-```
-
-## Part B — The Evidence SPA `/verify` page
-
-The [Evidence SPA](https://github.com/SigComply/sigcomply-evidence-spa) is a
-static React app hosted on GitHub Pages. It has no backend and uploads
-nothing to any server — verification runs entirely in your browser.
-
-To verify a single evidence file:
-
-1. Open the SPA's `/verify` page.
-2. Paste a CLI-signed **`EvidenceEnvelope` JSON** (copy it from your vault).
-3. Optionally attach the referenced **PDF**.
-4. The page checks the **Ed25519 signature** on the envelope and re-hashes
-   the PDF to confirm it matches the hash in the envelope — all in-browser,
-   with no auth and no network calls.
-
-This is the fastest way for an auditor to spot-check a single file without
-installing the CLI. For whole-vault verification, use
-`report --view integrity` above.
+- The vault does not store the uploaded documents or the merged PDF. Take the file from the
+  manual evidence folder (`{prefix}{entry ID}/{period}/`).
+- The hash matches only when that folder held exactly one PDF. For several files, or images, the
+  envelope's hash is of the merged PDF, which is not stored anywhere. The envelope still lists
+  each source file's name and SHA-256 under `source_files`; compare those with `shasum -a 256`.
+- A fan-out envelope (one folder per vendor) has no top-level `file_hash`, so the page checks
+  only its signature.
 
 ## Next steps
 
-- [manual-evidence.md](manual-evidence.md) — produce PDFs the SPA can also
-  generate for declaration/checklist entries.
-- [concepts.md](../concepts.md) — signing, aggregation, and the
-  non-custodial model.
-- [cloud-dashboard.md](cloud-dashboard.md) — the optional counts-only
-  dashboard.
-- [troubleshooting.md](troubleshooting.md) — exit codes and common failures.
-- Back to the [docs hub](../README.md).
+- [Concepts](../concepts.md): what the signatures and counts do and don't prove.
+- [Upload manual evidence](manual-evidence.md).

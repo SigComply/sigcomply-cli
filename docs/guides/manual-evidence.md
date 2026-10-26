@@ -1,258 +1,190 @@
-# Manual evidence (SOC 2)
+# Upload manual evidence
 
-How to satisfy the SOC 2 evidence that no API can collect — policies, HR
-exports, signed acknowledgments, penetration-test reports — by uploading
-files to your evidence bucket.
+Supply the documents that no API can produce (policies, training records, access reviews, signed
+declarations) so the CLI can collect them for SOC 2 or ISO 27001. The examples use SOC 2; ISO
+27001 works the same way.
 
-Back to the [docs hub](../README.md).
+For each manual entry the CLI checks only three things: a supported file is in the entry's
+folder, it was uploaded inside the entry's time window, and it is a readable PDF or image. It then
+merges the files into one PDF and signs a record of it. It does not read what the document says;
+your auditor does. Background: [Concepts](../concepts.md).
 
-## Two evidence flows, in one sentence each
+## Prerequisites
 
-SigComply has exactly two evidence flows, and every policy declares which
-one it uses via `evidence_mode`:
+- The CLI installed ([install guide](install.md)), to list entries and check your uploads.
+- A `.sigcomply.yaml` with `framework:` set. `sigcomply init` writes one with a local manual
+  evidence source.
+- Write access to the storage that holds the documents: a local folder, or an S3, GCS or
+  Azure Blob bucket.
 
-- **Automated** (`evidence_mode: automated`) — a source plugin (AWS, GitHub,
-  GCP, Okta, …) calls a read-only API, the result is validated against an
-  evidence-type schema, and the policy's `pass_when` rule evaluates it.
-- **Manual** (`evidence_mode: manual`) — you upload one or more files to a
-  known folder in your own storage; the CLI checks that supported files are
-  **present**, **valid**, and **within the temporal window**.
+## 1. Configure the manual evidence source
 
-This page is about the manual flow. For the automated flow see
-[configure-sources.md](configure-sources.md).
+Each project has one manual evidence source, `manual.pdf`. `sigcomply init` writes a local one:
 
-## What the CLI actually checks (and what it does not)
+```yaml
+sources:
+  manual.pdf:
+    backend: local
+    path: ./evidence
+```
 
-For a manual policy the CLI scans the catalog-resolved folder and, if
-supported files are there, it:
+For a shared bucket, use `s3`, `gcs` or `azure_blob`:
 
-1. Accepts these file types: **PDF, JPEG, PNG, GIF, TIFF, WebP, BMP**.
-2. Converts every image to PDF and **merges everything into one PDF**.
-3. Runs a lightweight validity check (PDF magic bytes, minimum size, at
-   least one page).
-4. Checks the latest upload timestamp falls inside the temporal window
-   (period + grace period).
+```yaml
+sources:
+  manual.pdf:
+    backend: s3
+    bucket: my-evidence-bucket
+    region: us-east-1
+    prefix: manual/
+```
 
-That is the whole check. The CLI **does not read the contents of your
-PDF** — no text extraction, no signature parsing, no completeness or
-correctness check. Reviewing what the document actually says is the
-auditor's job. The presence, format, and freshness check is what
-SigComply automates.
+`prefix` defaults to `manual/`. The keys for each backend are in the
+[sources reference](../reference/sources.md#manual-evidence). The CLI reads a bucket with the
+cloud credentials of the environment it runs in, so `evidence due` and `check` need read access
+to the bucket.
 
-> **The catalog `type` field is a hint, not a behavior.** Entries carry a
-> `type` of `document_upload`, `declaration`, or `checklist`. These values
-> exist only so the optional [Evidence SPA](#producing-the-pdf) can render
-> the right form. **The CLI evaluator does not branch on `type`** — for
-> every manual entry the only question is "are supported files present in
-> the folder within the temporal window?"
+Use a bucket when the CLI runs in CI. A local path in CI is the repository checkout, where every
+file's modification time is the checkout time, not the time you added it.
 
-## Manual evidence is a project-level singleton
+You don't need a `policies:` block. Every built-in manual policy reads its own catalog entry.
 
-One repo = one framework = one evidence vault, and likewise **one manual
-evidence bucket per project**, configured once under `sources.manual.pdf`.
-There is no per-framework or per-entry bucket. Every manual entry lives in
-its own subfolder of that one bucket.
+## 2. Find what to upload
 
-The singleton is the *bucket*, not the folder count. A **fan-out** entry
-still uses that one bucket but claims one subfolder per member — for
-example one per vendor in the third-party register, at
-`{prefix}{evidence_id}.{vendor_id}/{period_id}/`. See
-[Vendor and third-party risk](vendor-risk.md).
-
-## Step 1 — Discover the required entries
-
-List the framework's manual-evidence catalog. This works without any
-project config:
+List the manual entries for your framework:
 
 ```bash
 sigcomply evidence catalog -f soc2 -o text
 ```
 
-The SOC 2 catalog has **50 entries**. Abbreviated output:
+The SOC 2 catalog has **50 entries**:
 
-```
+```text
 Manual Evidence Catalog: soc2 (v1.0) — 50 entries
 
-ID                               CONTROL  TYPE             FREQUENCY  NAME
-access_review_quarterly          CC6.3    document_upload  quarterly  Access Review Quarterly
-code_of_conduct_acknowledgment   CC1.1    declaration      yearly     Code Of Conduct Acknowledgment
-incident_response_tested         CC7.3    checklist        yearly     Incident Response Tested
-penetration_test_annual          CC8.1    document_upload  yearly     Penetration Test Annual
-security_awareness_training      CC1.1    document_upload  yearly     Security Awareness Training
+ID                                CONTROL  TYPE             FREQUENCY  NAME
+access_review_quarterly           CC6.3    document_upload  quarterly  Access Review Quarterly
+accountability_for_controls       CC1.5    declaration      yearly     Accountability For Controls
+background_check_policy           CC1.4    document_upload  yearly     Background Check Policy
 ...
 ```
 
-For the machine-readable form (the same contract the Evidence SPA
-consumes):
+`-o json` adds each entry's description, time rule (`temporal_rule`) and grace period
+(`grace_period`).
+
+To list the folders that are still empty, with the exact upload path for each:
 
 ```bash
-sigcomply evidence catalog -f soc2 -o json
+sigcomply evidence due --all
 ```
 
-Each entry looks like:
-
-```json
-{
-  "id": "security_awareness_training",
-  "control": "CC1.1",
-  "type": "document_upload",
-  "frequency": "yearly",
-  "temporal_rule": "retrospective",
-  "grace_period": "30d",
-  "name": "Security Awareness Training",
-  "description": "Employees complete security awareness training.",
-  "severity": "medium",
-  "tsc": "security"
-}
+```text
+manual evidence: 50 of 50 entries have an empty folder (run period 2026-Q4)
+  ENTRY                             CADENCE    PERIOD   DUE IN  UPLOAD TO
+  access_review_quarterly           quarterly  2026-Q4  66d     file://./evidence/manual/access_review_quarterly/2026-Q4/
+  accountability_for_controls       annual     2026     66d     file://./evidence/manual/accountability_for_controls/2026/
 ```
 
-The `id` is what you reference from a policy (Step 3). `frequency`,
-`temporal_rule`, and `grace_period` define the temporal window the upload
-must fall in.
+Without `--all`, `evidence due` lists only the folders whose period ends within 30 days
+(`--within-days` changes that). It exits `0` whenever the scan succeeds, so it is safe as a CI
+step.
 
-## Step 2 — Configure the manual evidence source
+## 3. Upload the files
 
-Add a single `manual.pdf` source to `.sigcomply.yaml`. The backend can be
-`local`, `s3`, `gcs`, or `azure_blob` (default `local`).
+Put the files in the entry's folder:
 
-```yaml
-schema_version: project.v1
-framework: soc2
-sources:
-  manual.pdf:
-    backend: s3                 # local | s3 | gcs | azure_blob
-    bucket: my-evidence-bucket
-    region: us-east-1
-    prefix: manual/
-vault:
-  backend: local
-  path: ./.sigcomply/vault
+```text
+{bucket or path}/{prefix}{entry ID}/{period}/
 ```
 
-The CLI scans this folder for each manual entry:
+`{period}` is the entry's own cadence window, not the period of the run:
 
-```
-{bucket}/{prefix}/{evidence_catalog_id}/{period_id}/
-```
+| Entry frequency | Folder | Example |
+|---|---|---|
+| daily | `YYYY-MM-DD` | `2026-01-15` |
+| weekly | ISO week | `2026-W03` |
+| monthly | `YYYY-MM` | `2026-01` |
+| quarterly | `YYYY-Qn` | `2026-Q1` |
+| yearly (`annual` in `evidence due`) | `YYYY` | `2026` |
 
-`{period_id}` follows **the entry's cadence**, not the run's audit
-period. `security_awareness_training` is annual, so with the config
-above you upload to:
+So an annual document goes in once a year: `manual/security_awareness_training/2026/` covers
+every run in 2026. If your project sets a fiscal or custom calendar, the folder names differ;
+take the path from `sigcomply evidence due`.
 
-```
-s3://my-evidence-bucket/manual/security_awareness_training/2026/
-```
+Rules for the files:
 
-while a quarterly entry such as `access_review_quarterly` goes to
-`…/access_review_quarterly/2026-Q1/`. The full table is in
-[configuration.md](../configuration.md#folder-layout-per-evidence-id):
-daily `2026-01-15`, weekly `2026-W03`, monthly `2026-01`, quarterly
-`2026-Q1`, annual `2026`.
+- Supported formats: PDF, JPEG, PNG, GIF, TIFF, WebP and BMP. The CLI converts images to PDF and
+  merges all files in the folder into one PDF. Any other file in the folder fails the policy
+  with `unsupported_file_type`.
+- Upload during the period the document covers. The upload time is the object's last-modified
+  time (a local file's modification time), so uploading a file again resets it. It must fall
+  between the start of
+  the period and its end plus the entry's grace period. A file uploaded before the period starts
+  fails as outside the window, so you can't stage next year's evidence early.
+- The CLI takes the run's period from the commit time of `HEAD`, not the clock. After the period
+  closes and new commits land, runs read the next period's folder.
+- Don't copy last period's file unchanged. If every file in the folder is byte-identical to the
+  previous period's, the policy fails with `copy_paste_of_prior_period`.
 
-Put any number of supported files in that folder — they are all merged
-into one PDF before evaluation.
+## Fill a declaration or checklist in the Evidence SPA
 
-### Which period, and by when
+For entries of type `declaration` or `checklist`, you can produce the PDF in the browser with the
+[Evidence SPA](https://sigcomply.github.io/sigcomply-evidence-spa/). It runs entirely in your
+browser and sends nothing to a server. Entries of type `document_upload` (exports, certificates,
+reports) don't appear there; produce those files yourself.
 
-The period is the one containing your **HEAD commit's timestamp**, not
-today's date (unless you set `period.time_basis: wall_clock`). Three
-consequences worth internalising:
+1. Open <https://sigcomply.github.io/sigcomply-evidence-spa/> and pick your framework.
+2. Open the entry you need.
+3. Check the period, accept the declaration or confirm each checklist step, and enter who
+   completed it.
+4. Select **Download evidence.pdf**.
+5. Upload the file to the path the SPA shows. The SPA assumes the default `manual/` prefix and
+   calendar periods; if your project sets another prefix or a fiscal or custom calendar, use the
+   path from `sigcomply evidence due` instead.
 
-- **An annual entry is uploaded once a year, not once a quarter.** The
-  window is the whole year, so a January upload still satisfies a
-  December run. This is why the folder is keyed by cadence: were it
-  keyed by the run's quarter, every quarterly run would derive a
-  different empty folder and fail the policy.
-- **Evidence cannot be staged ahead.** A file's upload time must fall in
-  `[period.Start, period.End + grace]`. Dropping next year's PDF into
-  next year's folder today makes it *fail* when that year arrives
-  ("uploaded outside the configured temporal window"), because its upload
-  time predates the period. Upload during the period the evidence covers.
-- **The practical deadline is the period's end.** Once the period closes
-  and HEAD moves on, runs derive the next period and stop reading this
-  folder. The grace period extends the window only for a run that still
-  derives the old period.
-
-If your project sets `fiscal_calendar.type` to `fiscal_year` or
-`custom`, the folders differ — an annual entry lands in `FY2026` under a
-fiscal year, and a custom calendar uses its own period IDs for every
-entry. The Evidence SPA cannot see your period config, so in those
-projects take the path from `sigcomply evidence due` rather than from
-the SPA's "upload to" hint.
-
-**Do not re-upload last period's file unchanged.** If every file in the
-folder is byte-identical to the previous period's, the run reports
-`copy_paste_of_prior_period` and the policy fails. For an annual entry
-that means last year's document. Evidence that legitimately does not
-change between periods is declared as an exception in `.sigcomply.yaml`,
-not silently re-uploaded.
-
-To see what is outstanding without waiting for a cadence run to fail:
+## 4. Run the check
 
 ```bash
-sigcomply evidence due
+sigcomply check
 ```
 
-It lists every catalog entry whose current-period folder is still empty,
-reports only genuinely empty folders (so it goes quiet as soon as you
-upload), and always exits 0 — `sigcomply init-ci` wires it into the daily
-workflow as a non-failing step. See
-[commands.md](../reference/commands.md#sigcomply-evidence-due).
+## Verify
 
-## Step 3 — Wire a policy to a manual entry
+A policy whose folder holds a valid file in its window passes:
 
-A policy consumes manual evidence when you set `evidence_mode: manual` and
-name the `catalog_entry`:
+```text
+  [pass] soc2.cc1.1.security_awareness_training — CC1.1
+```
+
+One with no file fails and names the folder it read:
+
+```text
+  [fail] soc2.a1.2.business_continuity_plan — A1.2
+      ↳ manual evidence not found; expected files in: file://./evidence/manual/business_continuity_plan/2026/
+```
+
+`sigcomply report --period 2026-Q4 --view latest` shows the same results from the vault.
+
+## Optional: run an automated policy from a document
+
+When an API can't answer a policy for your estate, you can supply a document for it instead. Set
+the policy's evidence mode and name a catalog entry:
 
 ```yaml
 policies:
-  soc2-cc1.1-security-awareness:
+  soc2.cc8.1.approval_precedes_merge:
     evidence_mode: manual
-    catalog_entry: security_awareness_training
+    catalog_entry: code_review_policy
 ```
 
-`catalog_entry` is required whenever `evidence_mode: manual`. The policy's
-`pass_when`/`rule` (if any) is ignored — manual policies only run the
-presence + temporal-window + validity check described above.
-
-## Producing the PDF
-
-There are two ways to get a file into the folder, depending on the entry:
-
-- **(a) Use the optional Evidence SPA** for `declaration` and `checklist`
-  entries. Fill in a form in the browser, click through the items, and
-  download `evidence.pdf` — then upload it to the entry's folder. The SPA
-  is static, has no backend, and uploads nothing to a server. See
-  [verify-evidence.md](verify-evidence.md#the-evidence-spa) and the SPA
-  repo: <https://github.com/SigComply/sigcomply-evidence-spa>.
-- **(b) Produce your own PDF** for everything else — HR exports, training
-  certificates, penetration-test reports, scanned signed documents. The
-  SPA hides these entry types because you generate the artifact yourself
-  outside the tool. Any supported file type works; images are converted to
-  PDF automatically.
-
-Either way the CLI treats the result identically: files in the folder,
-merged, checked for presence and freshness.
-
-## Verifying a manual upload was accepted
-
-After a run, inspect the vault:
-
-```bash
-sigcomply report --period 2026-Q1 --view latest
-```
-
-If the folder was empty or held no supported files, the manual policy
-fails with a structured message pointing at the expected folder (see
-[troubleshooting.md](troubleshooting.md#manual-evidence-expected-files)).
+The policy then checks the entry's folder and ignores its automated rule. The folder period
+follows the policy's cadence, which can differ from the entry's (a daily policy reads a daily
+folder such as `code_review_policy/2026-10-26/`), so copy the path from the failure message.
+`sigcomply report --view coverage` marks the control as `(overridden)`, so your auditor can see
+the change.
 
 ## Next steps
 
-- [verify-evidence.md](verify-evidence.md) — verify signed evidence and use
-  the Evidence SPA `/verify` page.
-- [configure-sources.md](configure-sources.md) — the automated evidence flow.
-- [cloud-dashboard.md](cloud-dashboard.md) — submit aggregated results to the
-  optional dashboard.
-- [../configuration.md](../configuration.md) — full `.sigcomply.yaml`
-  reference.
-- Back to the [docs hub](../README.md).
+- [Declare a vendor register](vendor-risk.md) to collect evidence per vendor.
+- [Collect the ISO 27001 clause documents](isms-clauses.md).
+- [Verify evidence](verify-evidence.md).

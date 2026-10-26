@@ -1,70 +1,139 @@
 # Concepts
 
-Why SigComply is built the way it is — the non-custodial model, the aggregation boundary, evidence signing, and the source-agnostic evidence model.
+SigComply is a compliance engine and evidence collector that runs in your own CI. The
+`sigcomply` CLI uses your read-only credentials to pull configuration from AWS, GCP, Azure,
+GitHub, GitLab, Okta and Active Directory, and evaluates it against open SOC 2 and ISO 27001
+policies. For controls no API can answer, it collects the documents you upload. Raw evidence and
+results stay in storage you own. With a paid SigComply Cloud plan, the CLI also sends pass/fail
+counts per policy to a dashboard.
 
-Back to the [documentation hub](README.md).
+The design goal is evidence without access: the vendor never holds your credentials, your
+infrastructure data or the identities in it. SigComply is never the custodian of your raw
+evidence, which is why the model is called non-custodial.
 
-## Evidence without Access
+## What SigComply does not do
 
-Traditional compliance platforms ask you to hand over credentials or install an agent that reads your production data into their cloud. SigComply inverts that. The CLI is a Go binary that runs **inside your own CI/CD**, uses **your own** read-only credentials, and writes every piece of raw evidence into **your own** storage. The vendor never gets access to your infrastructure, your data, or the identities within it. This is what "Evidence without Access" means and why the model is called **non-custodial**: SigComply is never the custodian of your raw evidence.
-
-The practical consequence is a hard boundary between what stays with you and what — if you opt into the paid cloud tier — leaves.
-
-## The aggregation boundary
-
-The CLI is the **only** place raw evidence is reduced to counts. Everything that could identify a person or resource is aggregated away before anything is sent anywhere.
-
-**Stays in your storage, forever:** raw API responses, PDF bytes, full violation lists with identifiers (ARNs, emails, usernames, account IDs), the ephemeral public keys and signatures, and the per-run `manifest.json`.
-
-**The only thing that leaves** (and only if you enable cloud submission): aggregated per-policy counts and pass/fail scores.
-
-The canonical example:
-
-```
-Stored in the cloud:   mfa_disabled_count: 3
-NEVER stored:          "users alice, bob, and carol have MFA disabled"
-```
-
-The dashboard learns that three resources failed a check — never which three. The submission type is designed so it *physically cannot* carry identity: there is no free-form map and no violations list on the wire, and the Rails dashboard enforces a second allow-list on top. If you want to know *which* resources failed, you read the full violation list in your own vault — it never left.
+- It does not decide whether you are compliant, and it does not certify anything. It collects
+  evidence and evaluates policies; your auditor decides.
+- It does not read or judge uploaded documents. A manual policy passes when a supported file is
+  in the right folder for the period, whatever the file says.
+- It does not keep a history of results. The vault holds each run's evidence, and the CLI keeps
+  only the scheduling state it needs for cadences. Trends and drift over time are SigComply
+  Cloud features.
+- It does not change your infrastructure. Sources make read-only API calls.
+- It does not configure your storage. Write-once retention on the evidence bucket is your
+  setting (see [Limits of the signatures](#limits-of-the-signatures)).
 
 ## The two evidence flows
 
-Every policy declares exactly one of two evidence flows via `evidence_mode`.
+Every policy declares one of two evidence modes in `evidence_mode`.
 
-- **Automated** (`evidence_mode: automated`) — an API source plugin collects JSON from a provider (AWS, GCP, Azure, GitHub, GitLab, Okta, Active Directory) using your read-only credentials. The records are validated against an evidence-type schema, then evaluated by the declarative `pass_when` DSL. Example: "every IAM user has MFA enabled."
+Automated policies (`evidence_mode: automated`) read records that a source collects from a
+provider API with your credentials. Each record is checked against a versioned schema for its
+evidence type, then the policy's `pass_when` condition is evaluated. Example: every IAM user has
+MFA enabled.
 
-- **Manual** (`evidence_mode: manual`) — for evidence that can't come from an API (a signed NDA, a quarterly access-review export, a training certificate). You upload one or more files to a folder in your bucket; the CLI scans the folder, converts images to PDF, merges everything into one PDF, and runs a **presence** check: is a valid PDF present within the audit period's temporal window? The CLI deliberately does **not** read the PDF's contents — no text extraction, no signature parsing. Reviewing what the document actually says is the auditor's job.
+Manual policies (`evidence_mode: manual`) read documents you upload, such as a signed NDA, an
+access review export or a training certificate. The CLI lists the policy's folder in your
+bucket, converts images to PDF, merges the files into one PDF, and checks three things: that a
+supported file is present, that the merged file looks like a valid PDF, and that it was
+uploaded within the entry's own period (for example the year 2026 for an annual entry) plus its
+grace period. It also fails a folder whose files are byte-identical to the previous period's. It
+does not extract text or check signatures inside the document. Reviewing what a document says
+is the auditor's job.
 
-There are only these two flows. The catalog `type` values (`document_upload`, `declaration`, `checklist`) are rendering hints for the optional [Evidence SPA](guides/verify-evidence.md); the CLI evaluator does not branch on them. See [the two evidence flows in depth](architecture/01-conceptual-model.md).
+There are only these two flows. The catalog's `type` values (`document_upload`, `declaration`,
+`checklist`) tell the optional [Evidence SPA](guides/manual-evidence.md) which entries it can
+render as a form; the CLI ignores them.
 
-## The vault and evidence signing
+## Policies and sources meet through evidence types
 
-`check` writes results to your **vault** — your own storage backend (`local`, `s3`, `gcs`, or `azure_blob`). For each evidence file it writes an **EvidenceEnvelope**: the canonical JSON of `{timestamp, evidence}` signed with a **fresh, per-file, ephemeral Ed25519 keypair**. The private key is discarded the instant the signature is computed; the public key and signature are embedded in the envelope itself, so each file is independently verifiable. Each run also writes a `manifest.json` listing the SHA-256 hashes of every file (a single-level Merkle set), itself signed with its own ephemeral keypair — so one signature covers the integrity of the whole run while each file stays independently spot-checkable. A manual PDF is stored alongside the run and referenced by its SHA-256 hash.
+A policy never names a source, and a source never names a policy. A policy declares the
+evidence types each of its slots accepts. A source declares the evidence types it emits. The
+planner binds a source to a slot when the two lists overlap.
 
-An auditor can take any single signed envelope and verify it in a browser with the [Evidence SPA `/verify` page](guides/verify-evidence.md) — no server, no account.
+So one "MFA enforced for all users" policy works with AWS IAM, Okta, Microsoft Entra ID or
+Google Workspace, because each of their sources emits the `directory_user` type. A source
+you build yourself with `sigcomply build` works the same way if it emits that type.
 
-### An honest word on tamper-resistance
+Most policies have one slot, named `evidence`. Identity-roster policies have `roster` and
+`accounts`, and change-management policies have `changes` and `deployments`. A slot that no
+configured source can fill makes the policy skip.
 
-The signing scheme detects **accidental corruption** and a **swapped PDF** (the manifest hash stops matching). It does **not**, on its own, stop deliberate tampering: because the public key lives inside the envelope, someone with write access to the vault can regenerate an envelope and PDF with a brand-new keypair, and the result is indistinguishable from an original. The CLI signs what it reads — it cannot tell fabricated-at-upload evidence from genuine.
+## The aggregation boundary
 
-Real tamper-resistance requires **write-once / versioned storage at the storage layer**, which you configure yourself:
+The CLI is the only place raw evidence is reduced to counts.
 
-- **S3** — Object Lock, or versioning + MFA delete
-- **GCS** — Object Versioning with retention, or Bucket Lock
-- **Azure** — immutable blob storage
+Stays in your storage: raw API responses, uploaded documents, the full list of failing
+resources with their identifiers (ARNs, emails, usernames, account IDs), signatures, and each
+run's `manifest.json`.
 
-The CLI does **not** configure any of this, and local filesystem vaults are dev/CI-ephemeral only. Without write-once storage the scheme still catches accidental drift, but not deliberate re-signing. Don't claim more than that to your auditor. Full design: [signing and vault layout](architecture/05-vault-layout.md).
+Leaves your environment, only when cloud submission is on: per-policy counts and status, the
+run's summary counts and score, and CI metadata (repository, branch, commit, CLI version).
 
-## Source-agnostic policies: one policy, many providers
+```
+Sent to the dashboard:   3 of 40 users failed soc2.cc6.1.mfa_enforced_all_users
+Never sent:              "alice, bob and carol have MFA disabled"
+```
 
-Policies and source plugins never reference each other. A policy declares the **evidence types** it accepts; a source plugin declares the evidence types it **emits**. An evidence-type registry — versioned JSON Schemas — is the only thing in between. The planner binds a source to a policy when their types intersect.
+The submission type has no free-form fields and no list of violations, so it cannot carry an
+identifier. To see which resources failed, read `result.json` in your own vault.
 
-The payoff is substitutability. A single "MFA enforced on admins" policy is satisfied by AWS IAM, Okta, Azure AD, or an internal directory — whichever emits the matching evidence type — with **zero** changes to the policy. Adding a new provider for an evidence type you already check is a one-line configuration change, not a policy fork. The conventional slot name a policy binds against is `evidence`; the identity-roster policies are the exception, with a `roster` slot (the organization's people, from the one directory you designate) and an `accounts` slot (accounts *and cloud IAM grants* in every other system — the one identity question both shapes can answer) — see [Identity roster](guides/identity-roster.md). Full design: [evidence-type registry](architecture/04a-evidence-type-registry.md).
+Cloud submission is off unless you set `cloud.base_url` in `.sigcomply.yaml` (or pass
+`--cloud-url`), and it only happens in CI with an OIDC token. See
+[Configuration](configuration.md).
+
+## Signing and the vault
+
+`check` writes each run to your vault: a local folder, S3, GCS or Azure Blob. For each evidence
+file it writes a signed envelope. The signature covers the canonical JSON of the envelope's
+format version, production time and records. Each envelope is signed with a new Ed25519 key
+pair; the CLI discards the private key right after signing and stores the public key and
+signature in the envelope, so anyone can verify a single file on its own.
+
+Each run also writes `manifest.json`: the SHA-256 hash of every file in the run, signed with its
+own one-time key. One check of the manifest covers the whole run.
+
+For manual evidence, the envelope records the SHA-256 hash of each uploaded source file. The
+merged PDF is not written to the vault.
+
+You can verify a run with `sigcomply report --view integrity`, or a single envelope in the
+browser on the Evidence SPA `/verify` page. See [Verify evidence](guides/verify-evidence.md).
+
+### Limits of the signatures
+
+The signatures detect accidental corruption and a file changed after the run. They do not stop
+someone with write access to the vault from creating a new envelope with a new key pair: since
+the public key lives in the envelope, the result looks like an original. The CLI also signs
+whatever it reads, so it cannot tell a fabricated document from a genuine one.
+
+Protection against deliberate changes comes from write-once storage, which you configure: S3
+Object Lock (or versioning with MFA delete), GCS Bucket Lock or retention policies, or Azure
+immutable blob storage. A local vault has none of this. The full threat model is in
+[SECURITY.md](../SECURITY.md).
+
+## What the score does not tell you
+
+The compliance score is (passed + waived + carried forward) / (total - skipped - not
+applicable). Two things can make it look better than the estate is.
+
+Skipped policies leave the denominator. A policy skips when no configured source emits the
+evidence it needs. So forgetting to configure a source raises the score instead of lowering it.
+`check` lists every skipped policy and the evidence it needs, and `sigcomply report --view scope`
+shows what a run did not evaluate. To make a missing source fail the run, declare the sources
+you expect under `experimental.scope`; see [Configuration](configuration.md).
+
+A pass can examine nothing. A rule such as "every bucket is encrypted" is true when there are no
+buckets. When a policy passes without matching any resource, `check` says
+`passed without examining any resource`, and the dashboard receives the flag `vacuous`.
+
+The score also counts a control backed by a document on file the same as one verified against
+live configuration, and an automated check shows that something is configured, not that it was
+exercised (a backup that is enabled is not a restore that was tested). `sigcomply report --view
+coverage` shows which kind of check stands behind each control.
 
 ## See also
 
-- [Frameworks](reference/frameworks.md) — how policies map to controls.
-- [Verify evidence](guides/verify-evidence.md) — report views and the `/verify` SPA.
-- [ARCHITECTURE.md](../ARCHITECTURE.md) — the full system design.
-- [Architecture deep-dives](architecture/) — layers, registry, vault, cadence, aggregation.
-- [Documentation hub](README.md).
+- [Frameworks](reference/frameworks.md): shipped frameworks and their counts.
+- [Verify evidence](guides/verify-evidence.md): report views and the `/verify` page.
+- [ARCHITECTURE.md](../ARCHITECTURE.md): the system design, for contributors.
