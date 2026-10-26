@@ -6,7 +6,7 @@
 # 2.13.x is the first golangci-lint line built with go1.27.
 [tools]
 go = "1.27"
-golangci-lint = "2.14.0"
+golangci-lint = "2.15.0"
 # Same version .github/workflows/docs-lint.yml downloads, so a local
 # `vale --minAlertLevel=error` predicts the CI verdict.
-vale = "3.24.0"
+vale = "3.25.1"

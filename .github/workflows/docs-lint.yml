@@ -83,8 +83,8 @@ jobs:
       - name: Install Vale
         if: steps.changed.outputs.count != '0'
         env:
-          VALE_VERSION: 3.24.0
-          VALE_SHA256: 867534ddb678abca7f214bc4706ead0922bd5252ffe8035fc227013f66c8b214
+          VALE_VERSION: 3.25.1
+          VALE_SHA256: 4bf5c5176b682b1da0830f471584d3494f1c2e27ee3029e1ad6f6661d4962182
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
