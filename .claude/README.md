@@ -15,7 +15,7 @@ entry point and says when each one is used.
 | `agents/lens-reviewer.md` | Read-only subagent that reviews through one lens |
 | `agents/finding-verifier.md` | Read-only subagent that tries to refute one finding |
 | `agents/adversarial-reviewer.md` | Read-only subagent that reviews commits with no task context |
-| `settings.json` | Best-effort deny rules for common force-push and hook-bypass commands. The real controls are the rules in `AGENTS.md` and the git hooks. |
+| `settings.json` | Deny rules for force pushes and hook bypasses (`--no-verify`, `-n`), with the flag anywhere in the command. Best effort: other spellings (`git -c`, env vars) get past them; the rules in `AGENTS.md` and the git hooks are the real controls. |
 
 Skills are plain Markdown. Claude Code loads them automatically; other agents can read
 `skills/<name>/SKILL.md` directly.

@@ -52,11 +52,14 @@ go.work.sum
 *.swo
 *~
 
-# AI agent files: shared ones are committed, personal ones are not
+# AI agent files: only the shared set under .claude/ is committed (an allow-list, so any
+# other file there, such as settings.local.json, worktrees or agent memory, stays local)
 !.claude/
-.claude/settings.local.json
-.claude/worktrees/
-.claude/*.lock
+.claude/*
+!.claude/README.md
+!.claude/settings.json
+!.claude/agents/
+!.claude/skills/
 AGENTS.local.md
 CLAUDE.local.md
 lefthook-local.yml
