@@ -56,7 +56,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssoadmin v1.49.4
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.4
 	github.com/aws/smithy-go v1.28.5
-	github.com/getkin/kin-openapi v0.150.0
+	github.com/getkin/kin-openapi v0.152.0
 	github.com/go-asn1-ber/asn1-ber v1.5.8
 	github.com/go-ldap/ldap/v3 v3.4.15
 	github.com/google/uuid v1.6.0
