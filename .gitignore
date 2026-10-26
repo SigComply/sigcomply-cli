@@ -52,9 +52,15 @@ go.work.sum
 *.swo
 *~
 
-# Claude Code
-.claude/
+# AI agent files: shared ones are committed, personal ones are not
+!.claude/
+.claude/settings.local.json
+.claude/worktrees/
+.claude/*.lock
+AGENTS.local.md
 CLAUDE.local.md
+lefthook-local.yml
+.lefthook-local/
 
 # OS files
 .DS_Store
@@ -98,7 +104,3 @@ __debug_bin
 # Internal architectural backlog — competitive analysis and paid-tier
 # strategy. This repo is public: never commit it.
 issues_to_fix.md
-
-# Private, machine-local files (Claude instructions, lefthook overrides)
-lefthook-local.yml
-.lefthook-local/
