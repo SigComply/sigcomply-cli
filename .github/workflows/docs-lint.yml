@@ -1,0 +1,104 @@
+# Prose lint for customer-facing docs: README.md, SECURITY.md, CONTRIBUTING.md and docs/**/*.md (not docs/claude/ or docs/architecture/, which are internal).
+# Lints only the Markdown files this push or pull request changed, and fails
+# only on error-level alerts (AI-writing tells, compliance overclaims,
+# spelling, -ly hyphens). Warnings and suggestions show locally with `vale <file>`.
+name: Docs Lint
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'README.md'
+      - 'SECURITY.md'
+      - 'CONTRIBUTING.md'
+      - 'docs/**/*.md'
+      - '!docs/claude/**'
+      - '!docs/architecture/**'
+      - '.vale.ini'
+      - '.vale/**'
+      - '.github/workflows/docs-lint.yml'
+  pull_request:
+    paths:
+      - 'README.md'
+      - 'SECURITY.md'
+      - 'CONTRIBUTING.md'
+      - 'docs/**/*.md'
+      - '!docs/claude/**'
+      - '!docs/architecture/**'
+      - '.vale.ini'
+      - '.vale/**'
+      - '.github/workflows/docs-lint.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  vale:
+    name: Vale (changed docs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Find changed customer docs
+        id: changed
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          include='^(README|SECURITY|CONTRIBUTING)\.md$|^docs/.+\.md$'
+          exclude='^docs/(claude|architecture)/'
+          list="$RUNNER_TEMP/docs.list"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git diff --name-only -z --diff-filter=d "origin/${BASE_REF}...HEAD" > "$RUNNER_TEMP/all.list"
+          elif [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
+               || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            # New branch or rewritten history: no usable base, lint every matching file.
+            git ls-files -z > "$RUNNER_TEMP/all.list"
+          else
+            git diff --name-only -z --diff-filter=d "$BEFORE" "$SHA" > "$RUNNER_TEMP/all.list"
+          fi
+          { grep -zE "$include" "$RUNNER_TEMP/all.list" || true; } > "$list"
+          if [ -n "$exclude" ]; then
+            { grep -zvE "$exclude" "$list" || true; } > "$list.tmp"
+            mv "$list.tmp" "$list"
+          fi
+          count=$(tr -cd '\0' < "$list" | wc -c | tr -d ' ')
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+          echo "Changed customer docs: $count"
+          tr '\0' '\n' < "$list"
+
+      - name: Install Vale
+        if: steps.changed.outputs.count != '0'
+        env:
+          VALE_VERSION: 3.24.0
+          VALE_SHA256: 867534ddb678abca7f214bc4706ead0922bd5252ffe8035fc227013f66c8b214
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 3 -o vale.tar.gz \
+            "https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz"
+          echo "${VALE_SHA256}  vale.tar.gz" | sha256sum -c -
+          mkdir -p vale-bin
+          tar -xzf vale.tar.gz -C vale-bin vale
+          echo "$RUNNER_TEMP/vale-bin" >> "$GITHUB_PATH"
+
+      - name: Lint changed docs (errors only)
+        env:
+          LIST: ${{ steps.changed.outputs.list }}
+          COUNT: ${{ steps.changed.outputs.count }}
+        run: |
+          set -euo pipefail
+          if [ "$COUNT" = "0" ]; then
+            echo "No customer-facing docs changed; skipping Vale."
+            exit 0
+          fi
+          vale --version
+          xargs -0 -r vale --minAlertLevel=error < "$LIST"

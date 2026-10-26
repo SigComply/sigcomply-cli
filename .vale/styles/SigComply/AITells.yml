@@ -1,0 +1,38 @@
+# Phrases that mark text as machine-written filler. Error level: CI blocks them.
+# Kept to tells with almost no legitimate use in technical docs.
+extends: existence
+message: "'%s' is a stock AI-writing phrase. Use plain words: 'use' for leverage/utilize; cut seamless, effortless and throat-clearing openers."
+level: error
+ignorecase: true
+tokens:
+  - delv(?:e|es|ed|ing)
+  - tapestry
+  - testament to
+  - seamless(?:ly)?
+  # Verb forms only. "leverage" as a noun ("financial leverage") is rare here,
+  # but the bare word is skipped to avoid that edge; inflected verb forms and
+  # "leverage the/your/our/this/these/existing" are caught.
+  - leverag(?:es|ed|ing)
+  - leverage (?:the|your|our|its|their|this|these|those|existing|a|an)\b
+  - utiliz(?:e|es|ed|ing|ation)
+  - utilis(?:e|es|ed|ing|ation)
+  - game[- ]changer
+  - game[- ]changing
+  - cutting[- ]edge
+  - best[- ]in[- ]class
+  - world[- ]class
+  - revolutionary
+  - revolutioniz(?:e|es|ed|ing)
+  - effortless(?:ly)?
+  - it'?s worth noting
+  - it is worth noting
+  - it'?s important to note
+  - it is important to note
+  - let'?s dive in
+  - dive (?:deep|into)
+  - deep dive
+  - in today'?s (?:world|landscape|fast-paced|digital|ever-changing|modern)
+  - unlock the power
+  - elevate your
+  - military[- ]grade
+  - bank[- ]grade

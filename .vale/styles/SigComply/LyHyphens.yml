@@ -1,0 +1,11 @@
+# Replaces Google.LyHyphens, which flags "SigComply-specific" because the
+# product name ends in "ly". Same rule otherwise: an -ly adverb takes no hyphen
+# ("directly assigned", not "directly-assigned").
+extends: existence
+message: "'%s' doesn't need a hyphen: an -ly adverb never takes one."
+link: "https://developers.google.com/style/hyphens"
+level: error
+ignorecase: false
+nonword: true
+tokens:
+  - '\b(?![Ss]ig[Cc]omply-|[Cc]omply-|[Aa]pply-|[Rr]eply-|[Ss]upply-|[Ff]amily-|[Aa]ssembly-|[Ee]arly-|[Oo]nly-|[Dd]aily-|[Ww]eekly-|[Mm]onthly-|[Qq]uarterly-|[Yy]early-|[Hh]ourly-|[Nn]ightly-|[Bb]iweekly-|[Ff]riendly-|[Ll]ikely-|[Tt]imely-|[Cc]ostly-|[Jj]uly-|[Ii]taly-|[Aa]lly-|[Rr]ely-|[Mm]ultiply-|[Pp]oly-|[Aa]nomaly-|[Ee]lderly-|[Oo]rderly-|[Ll]ovely-|[Uu]gly-|[Ss]illy-|[Hh]oly-|[Ff]ly-)[^\s\-`]+ly-\w+\b'

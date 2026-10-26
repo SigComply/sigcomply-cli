@@ -1,0 +1,13 @@
+# Replaces Vale.Spelling (turned off in .vale.ini) so we can filter tokens that
+# are identifiers or acronym plurals, not words. Product terms go in
+# config/vocabularies/SigComply/accept.txt.
+extends: spelling
+message: "Did you really mean '%s'? If it is a real term, add it to .vale/styles/config/vocabularies/SigComply/accept.txt."
+level: error
+filters:
+  - '^\w+_\w+$'          # snake_case identifiers (roster_entry): wrap in backticks instead
+  - '^[a-z]+[A-Z]\w*$'   # camelCase identifiers (givenName, cryptoKey)
+  - '^[A-Z]{2,}s$'      # acronym plurals (PDFs, ARNs, VMs, UUIDs)
+  - '^[a-z]?[A-Z]{2,}[a-z]*s$'  # gMSAs, CSOCs
+  - "^\\w+'s$"                 # possessives (CLI's, commit's): Hunspell lacks most of them
+  - '^(?:github|gitlab)$'      # lowercase provider values (--ci github)

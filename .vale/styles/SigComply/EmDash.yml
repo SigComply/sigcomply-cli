@@ -1,0 +1,10 @@
+# Replaces Google.EmDash. Google only objects to the spaces around a dash; its
+# fix (an unspaced em dash) keeps the dash. Plain-language docs want fewer
+# dashes, so flag every em dash and suggest a period, comma, colon or
+# parentheses. Warning, not error: the existing docs use many.
+extends: existence
+message: "Em dash: try a period, comma, colon or parentheses instead."
+level: warning
+nonword: true
+tokens:
+  - '—'

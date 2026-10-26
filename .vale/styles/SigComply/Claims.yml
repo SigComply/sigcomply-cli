@@ -1,0 +1,15 @@
+# Compliance overclaims. SigComply produces evidence and readiness signals; an
+# auditor decides compliance. Error level: CI blocks them.
+extends: existence
+message: "'%s' overclaims. SigComply collects evidence and checks controls; only an auditor can attest compliance. Say what the tool does (e.g. 'checks', 'collects evidence for')."
+level: error
+ignorecase: true
+tokens:
+  - guaranteed? (?:to be )?compliant
+  - guarantees? (?:your )?compliance
+  - makes? you compliant
+  - fully compliant
+  - 100 ?% (?:secure|compliant)
+  - fully secure
+  - audit[- ]proof
+  - pass(?:es)? (?:your|an|the) audit

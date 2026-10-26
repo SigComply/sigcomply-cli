@@ -1,0 +1,27 @@
+# Inflated words that pad prose. Warning level: reported, not blocking.
+extends: existence
+message: "'%s' is padding. Prefer a concrete word or cut it."
+level: warning
+ignorecase: true
+tokens:
+  - crucial(?:ly)?
+  - pivotal
+  - robust(?:ly|ness)?
+  - comprehensive(?:ly)?
+  - meticulous(?:ly)?
+  - landscape
+  - showcas(?:e|es|ed|ing)
+  - underscor(?:es|ed|ing)  # verb only; "underscore" alone is usually the _ character
+  - underscore (?:the|that|how|why|this|its)\b
+  - vibrant
+  - garner(?:s|ed|ing)?
+  - interplay
+  - intricate
+  - additionally
+  - moreover
+  - furthermore
+  - empower(?:s|ed|ing|ment)?
+  - streamlin(?:e|es|ed|ing)
+  - enhanc(?:e|es|ed|ing|ement|ements)
+  - plays? a (?:key|crucial|vital|pivotal) role
+  - serves as
