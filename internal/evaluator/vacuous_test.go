@@ -77,12 +77,12 @@ func TestPassWhen_AnyQuantifier_NotReportedVacuous(t *testing.T) {
 // clause is a green tick over an estate nobody examined, with no
 // vacuous_clauses diag to say so.
 func TestPassWhen_CountZeroMin_IsReportedVacuous(t *testing.T) {
-	for name, min := range map[string]*float64{"absent": nil, "explicit zero": minPct(0)} {
+	for name, floor := range map[string]*float64{"absent": nil, "explicit zero": minPct(0)} {
 		t.Run(name, func(t *testing.T) {
 			spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
 				Slot:          slotUsers,
 				Quantifier:    core.QuantifierCount,
-				MinPercentage: min,
+				MinPercentage: floor,
 				Condition:     &core.PassWhenCondition{Op: "eq", Field: fieldPayloadMFA, Value: true},
 			}}}
 			got := evaluatePassWhen(spec, newEvalCtx(map[string][]core.EvidenceRecord{slotUsers: {}}, nil, nil))

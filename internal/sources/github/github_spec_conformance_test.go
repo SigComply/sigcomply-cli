@@ -103,10 +103,10 @@ func TestGitHubSpecConformance(t *testing.T) {
 		compOrgMembership:    1, // its role lookup
 		compBranchProtection: 1, // e2e-protected (e2e-unprotected's is a 403)
 	}
-	for component, min := range wantAtLeast {
-		if validated[component] < min {
+	for component, want := range wantAtLeast {
+		if validated[component] < want {
 			t.Errorf("validated %d %q bodies against spec, want >= %d (cassette no longer covers this operation?)",
-				validated[component], component, min)
+				validated[component], component, want)
 		}
 	}
 }

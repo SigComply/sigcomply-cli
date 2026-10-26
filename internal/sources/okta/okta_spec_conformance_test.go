@@ -117,10 +117,10 @@ func checkCassetteAgainstSpec(t *testing.T, spec *sourcetest.SpecValidator, cass
 		}
 	}
 
-	for component, min := range wantAtLeast {
-		if validated[component] < min {
+	for component, want := range wantAtLeast {
+		if validated[component] < want {
 			t.Errorf("validated %d %q bodies against spec, want >= %d (cassette no longer covers this operation?)",
-				validated[component], component, min)
+				validated[component], component, want)
 		}
 	}
 }
