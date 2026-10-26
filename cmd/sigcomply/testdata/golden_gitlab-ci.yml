@@ -45,12 +45,16 @@ variables:
       chmod +x /usr/local/bin/sigcomply
     # AWS web identity: the SDK's default credential chain assumes
     # AWS_ROLE_ARN with the token in this file. before_script and script
-    # share one shell, so the export reaches `sigcomply`. The file is
-    # created mode 0600 by mktemp; the token is never printed.
+    # share one shell, so the export reaches `sigcomply`. Skipped when
+    # AWS_ROLE_ARN is empty: a set token file would override a runner's
+    # instance role. mktemp creates the file mode 0600 in the job's temp
+    # directory; the token is never printed.
     - |
-      AWS_WEB_IDENTITY_TOKEN_FILE="$(mktemp)"
-      printf '%s' "$SIGCOMPLY_ID_TOKEN" > "$AWS_WEB_IDENTITY_TOKEN_FILE"
-      export AWS_WEB_IDENTITY_TOKEN_FILE
+      if [ -n "${AWS_ROLE_ARN:-}" ]; then
+        AWS_WEB_IDENTITY_TOKEN_FILE="$(mktemp)"
+        printf '%s' "$SIGCOMPLY_ID_TOKEN" > "$AWS_WEB_IDENTITY_TOKEN_FILE"
+        export AWS_WEB_IDENTITY_TOKEN_FILE
+      fi
 
 compliance:on_push:
   extends: .sigcomply_base

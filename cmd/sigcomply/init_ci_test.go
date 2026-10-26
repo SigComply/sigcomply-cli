@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -12,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/sigcomply/sigcomply-cli/internal/orchestrator"
+	"gopkg.in/yaml.v3"
 )
 
 // runInitCIIn temporarily switches into dir, runs the subcommand with
@@ -574,5 +576,63 @@ func TestExamples_InstallLatestAndWireAWS(t *testing.T) {
 	}
 	if !strings.Contains(string(gl), "export AWS_WEB_IDENTITY_TOKEN_FILE") {
 		t.Error("examples/gitlab-ci.yml must export AWS_WEB_IDENTITY_TOKEN_FILE")
+	}
+}
+
+// webIdentitySnippet returns the before_script entry of a GitLab pipeline
+// that writes the AWS web-identity token file.
+func webIdentitySnippet(t *testing.T, pipeline []byte) string {
+	t.Helper()
+	var doc map[string]struct {
+		BeforeScript []string `yaml:"before_script"`
+	}
+	if err := yaml.Unmarshal(pipeline, &doc); err != nil {
+		t.Fatalf("parse pipeline: %v", err)
+	}
+	for _, step := range doc[".sigcomply_base"].BeforeScript {
+		if strings.Contains(step, "AWS_WEB_IDENTITY_TOKEN_FILE") {
+			return step
+		}
+	}
+	t.Fatal(".sigcomply_base before_script has no AWS_WEB_IDENTITY_TOKEN_FILE step")
+	return ""
+}
+
+// The token file must be exported only when a role is configured. A set
+// AWS_WEB_IDENTITY_TOKEN_FILE outranks the SDK's instance-role fallback and
+// fails with "role ARN is not set", so a runner that reaches an S3 vault
+// through its instance role would lose its credentials.
+func TestGitLabWebIdentity_ExportedOnlyWithRoleARN(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no sh on PATH")
+	}
+	example, err := os.ReadFile(filepath.Join("..", "..", "examples", "gitlab-ci.yml"))
+	if err != nil {
+		t.Fatalf("read example: %v", err)
+	}
+	pipelines := map[string][]byte{
+		"init-ci template":       []byte(readScaffold(t, ciGitLab)[".gitlab-ci.yml"]),
+		"examples/gitlab-ci.yml": example,
+	}
+	for name, body := range pipelines {
+		snippet := webIdentitySnippet(t, body)
+		for _, tc := range []struct {
+			roleARN    string
+			wantExport bool
+		}{
+			{"arn:aws:iam::000000000000:role/test", true},
+			{"", false},
+		} {
+			cmd := exec.CommandContext(t.Context(), "sh", "-c", snippet+"\nprintf '%s' \"${AWS_WEB_IDENTITY_TOKEN_FILE:-}\"") //nolint:gosec // runs a snippet from our own committed template
+			cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "TMPDIR=" + t.TempDir(),
+				"SIGCOMPLY_ID_TOKEN=test-token", "AWS_ROLE_ARN=" + tc.roleARN}
+			out, err := cmd.Output()
+			if err != nil {
+				t.Fatalf("%s: run snippet: %v", name, err)
+			}
+			if got := len(out) > 0; got != tc.wantExport {
+				t.Errorf("%s: AWS_ROLE_ARN=%q exported token file = %v, want %v", name, tc.roleARN, got, tc.wantExport)
+			}
+		}
 	}
 }
