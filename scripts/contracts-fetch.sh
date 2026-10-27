@@ -27,10 +27,19 @@ GH_RAW="https://raw.githubusercontent.com"
 AWS_MODELS="$GH_RAW/aws/aws-sdk-go-v2/main/codegen/sdk-codegen/aws-models"
 AZURE_SPECS="$GH_RAW/Azure/azure-rest-api-specs/main/specification"
 
+# get <url> <file>: download or fail naming the URL. curl alone reports only
+# the status code, which left a moved upstream file unidentified for weeks.
+get() {
+    if ! curl -fsSL "$1" -o "$2"; then
+        echo "contracts-fetch: GET $1 failed" >&2
+        return 1
+    fi
+}
+
 # fetch_openapi <url> <out> <title> <source> <slice> <METHOD:/path>...
 fetch_openapi() {
     local url="$1" out="$2" title="$3" source="$4" slice="$5"; shift 5
-    curl -sSL "$url" -o "$TMP/in.json"
+    get "$url" "$TMP/in.json"
     mkdir -p "$(dirname "$out")"
     python3 "$SLICE_DIR/slice_openapi.py" "$TMP/in.json" "$out" "$title" "$source" "$slice" "$@"
 }
@@ -38,7 +47,7 @@ fetch_openapi() {
 # fetch_openapi_yaml: same but the upstream is YAML (converted via ruby's stdlib).
 fetch_openapi_yaml() {
     local url="$1" out="$2" title="$3" source="$4" slice="$5"; shift 5
-    curl -sSL "$url" -o "$TMP/in.yaml"
+    get "$url" "$TMP/in.yaml"
     ruby -ryaml -rjson -e 'File.write(ARGV[1], JSON.generate(YAML.load(File.read(ARGV[0]))))' "$TMP/in.yaml" "$TMP/in.json"
     mkdir -p "$(dirname "$out")"
     python3 "$SLICE_DIR/slice_openapi.py" "$TMP/in.json" "$out" "$title" "$source" "$slice" "$@"
@@ -52,7 +61,7 @@ fetch_openapi_yaml() {
 fetch_discovery() {
     local api="$1" version="$2"; shift 2
     if ! curl -fsSL "https://www.googleapis.com/discovery/v1/apis/$api/$version/rest" -o "$TMP/disc.json" 2>/dev/null; then
-        curl -fsSL "https://$api.googleapis.com/\$discovery/rest?version=$version" -o "$TMP/disc.json"
+        get "https://$api.googleapis.com/\$discovery/rest?version=$version" "$TMP/disc.json"
     fi
     mkdir -p "$OUT_ROOT/gcp"
     python3 "$SLICE_DIR/slice_discovery.py" "$TMP/disc.json" "$OUT_ROOT/gcp/$api@$version.json" "$@"
@@ -67,7 +76,7 @@ fetch_discovery() {
 # exact wire our client speaks (that is the L2 cassette's job).
 fetch_swagger() {
     local out="$1" sub="$2" title="$3" source="$4" slice="$5"; shift 5
-    curl -fsSL "$AZURE_SPECS/$sub" -o "$TMP/az.json"
+    get "$AZURE_SPECS/$sub" "$TMP/az.json"
     mkdir -p "$OUT_ROOT/azure"
     python3 "$SLICE_DIR/slice_swagger.py" "$TMP/az.json" "$OUT_ROOT/azure/$out.json" "$title" "$source" "$slice" "$@"
 }
@@ -78,7 +87,7 @@ fetch_swagger() {
 # upstream aws-models filename (e.g. secrets-manager), which sometimes differs.
 fetch_smithy() {
     local out="$1" model="$2"; shift 2
-    curl -sSL "$AWS_MODELS/$model.json" -o "$TMP/$model.json"
+    get "$AWS_MODELS/$model.json" "$TMP/$model.json"
     local ver
     ver="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(next((v.get("version","") for v in d["shapes"].values() if v.get("type")=="service"), ""))' "$TMP/$model.json")"
     [ -n "$ver" ] || { echo "contracts-fetch: could not derive $out API version" >&2; exit 1; }
@@ -150,9 +159,9 @@ fetch_discovery certificatemanager v1 Certificate
 
 echo "Azure (azure-rest-api-specs OpenAPI-2.0 swaggers, sliced to definition closure):"
 fetch_swagger "storage@2026-04-01" \
-    "storage/resource-manager/Microsoft.Storage/stable/2026-04-01/openapi.json" \
+    "storage/resource-manager/Microsoft.Storage/Storage/stable/2026-04-01/openapi.json" \
     "Azure Storage (sigcomply slice)" \
-    "Azure/azure-rest-api-specs Microsoft.Storage/stable/2026-04-01/openapi.json" \
+    "Azure/azure-rest-api-specs Microsoft.Storage/Storage/stable/2026-04-01/openapi.json" \
     "object_storage_bucket: account + blob service properties" \
     StorageAccount BlobServiceProperties
 fetch_swagger "documentdb@2026-03-15" \
@@ -194,7 +203,7 @@ fetch_swagger "recoveryservices@2026-05-01" "recoveryservices/resource-manager/M
 fetch_swagger "recoveryservicesbackup@2026-05-01" "recoveryservicesbackup/resource-manager/Microsoft.RecoveryServices/RecoveryServicesBackup/stable/2026-05-01/bms.json" "Azure Backup (slice)" "Azure/azure-rest-api-specs Microsoft.RecoveryServices/RecoveryServicesBackup/stable/2026-05-01/bms.json" "backup_plan: protection policy" ProtectionPolicyResource
 fetch_swagger "appservice@2026-03-15" "web/resource-manager/Microsoft.Web/AppService/stable/2026-03-15/openapi.json" "Azure App Service certs (slice)" "Azure/azure-rest-api-specs Microsoft.Web/AppService/stable/2026-03-15/openapi.json" "tls_certificate: app service certificate" Certificate
 fetch_swagger "certificateregistration@2024-11-01" "certificateregistration/resource-manager/Microsoft.CertificateRegistration/CertificateRegistration/stable/2024-11-01/openapi.json" "Azure cert orders (slice)" "Azure/azure-rest-api-specs Microsoft.CertificateRegistration/CertificateRegistration/stable/2024-11-01/openapi.json" "tls_certificate: certificate order" AppServiceCertificateOrder
-fetch_swagger "postgresql@2025-08-01" "postgresql/resource-manager/Microsoft.DBforPostgreSQL/stable/2025-08-01/openapi.json" "Azure PostgreSQL flexible (slice)" "Azure/azure-rest-api-specs Microsoft.DBforPostgreSQL/stable/2025-08-01/openapi.json" "managed_database_instance: PG flexible server" Server
+fetch_swagger "postgresql@2025-08-01" "postgresql/resource-manager/Microsoft.DBforPostgreSQL/PostgreSql/stable/2025-08-01/openapi.json" "Azure PostgreSQL flexible (slice)" "Azure/azure-rest-api-specs Microsoft.DBforPostgreSQL/PostgreSql/stable/2025-08-01/openapi.json" "managed_database_instance: PG flexible server" Server
 fetch_swagger "mysql@2024-12-30" "mysql/resource-manager/Microsoft.DBforMySQL/FlexibleServers/stable/2024-12-30/openapi.json" "Azure MySQL flexible (slice)" "Azure/azure-rest-api-specs Microsoft.DBforMySQL/FlexibleServers/stable/2024-12-30/openapi.json" "managed_database_instance: MySQL flexible server" Server
 fetch_swagger "security-pricings@2024-01-01" "security/resource-manager/Microsoft.Security/Security/stable/2024-01-01/pricings.json" "Azure Defender pricings (slice)" "Azure/azure-rest-api-specs Microsoft.Security/Security/stable/2024-01-01/pricings.json" "threat_detection_service + security_service: Defender pricings" Pricing
 # Residual (not yet pinned): monitor DiagnosticSettingsResource (audit_log_trail) and
