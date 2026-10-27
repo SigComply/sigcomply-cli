@@ -71,7 +71,9 @@ To push without releasing, put the skip marker (`[skip release]`, or a `chore(re
 in the head commit's message deliberately, and only then. The job matches it anywhere in the head
 commit's full message, so never quote it in a body by accident. A release that was skipped or
 path-ignored can be cut by hand with `workflow_dispatch` on `auto-release.yml`. `release.yml` is a
-separate manual release that takes an explicit version; a version with a suffix (`v1.2.3-rc.1`)
+separate manual release that takes an explicit version. It calls `test.yml` first and builds only
+when the suite passes on the dispatched commit; unlike `auto-release.yml` it holds the `release`
+group for the whole run, tests included. A version with a suffix (`v1.2.3-rc.1`)
 stays a prerelease, any other goes through the same gate and promotion. It also tags only after
 the build, and refuses a tag that already exists at another commit; to re-release an existing tag,
 dispatch it with the tag as the ref.

@@ -7,6 +7,7 @@
 # when RELEASE_GATE is 'on'. A version with a suffix (v1.2.3-rc.1) stays a
 # prerelease and is never promoted.
 #
+# The test suite (test.yml) runs first and must pass before the build.
 # The tag is pushed only after the build and the provenance succeed, and
 # the publish job is safe to re-run (scripts/publish-release.sh). To
 # re-release an existing tag, dispatch with the tag itself as the ref: a
@@ -41,8 +42,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Same suite as auto-release.yml: nothing is built or tagged unless it
+  # passes on the dispatched commit.
+  test:
+    name: Test
+    uses: ./.github/workflows/test.yml
+    # A called workflow cannot exceed the caller's grant, and test.yml's
+    # unit-tests job asks for pull-requests: write for its coverage comment.
+    permissions:
+      contents: read
+      pull-requests: write
+
   goreleaser:
     name: Build
+    needs: test
     runs-on: ubuntu-latest
     # Read only: this job tags locally; publish pushes the tag.
     permissions:
