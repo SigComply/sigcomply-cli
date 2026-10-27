@@ -45,7 +45,7 @@ func TestFormatTextCoverage_HeadlineSeparatesInspectionFromPaperwork(t *testing.
 		"2 manual",
 		"contents are not inspected",
 		"1 evaluated, 2 not evaluated",
-		"1 automated control(s): 1 inspected, 0 skipped, 0 not evaluated or errored",
+		"1 automated control(s): 1 inspected, 0 skipped, 0 waived or not applicable, 0 not evaluated or errored",
 		"0 manual control(s) with evidence on file, 2 without",
 	} {
 		if !strings.Contains(out, want) {
@@ -287,8 +287,69 @@ func TestBuildCoverage_AutomatedControlWhoseChecksSkipped(t *testing.T) {
 	if strings.Contains(out, "verified by inspecting") {
 		t.Errorf("headline still claims every automated control was inspected:\n%s", out)
 	}
-	if !strings.Contains(out, "4 automated control(s): 1 inspected, 1 skipped, 2 not evaluated or errored") {
+	if !strings.Contains(out, "4 automated control(s): 1 inspected, 1 skipped, 0 waived or not applicable, 2 not evaluated or errored") {
 		t.Errorf("headline must split automated controls by what this period's runs did:\n%s", out)
+	}
+}
+
+// TestBuildCoverage_ExceptedControlsAreNotInspected is the regression
+// for a whole-policy waiver and a not-applicable declaration being
+// reported as an inspection and a skip. A whole-policy exception stops
+// collection and evaluation before either starts, so its waived result
+// stands for nothing examined; only a resource-scoped waiver, which is
+// applied to a real evaluation's violations, is an inspection. And na
+// is a deliberate decision, not a source that was never configured.
+func TestBuildCoverage_ExceptedControlsAreNotInspected(t *testing.T) {
+	const (
+		ctrlWholeWaiver = "CC8.1"
+		ctrlScopedWaive = "CC6.2"
+		ctrlNA          = "CC6.3"
+		ctrlCarried     = "CC6.4"
+	)
+	v, _ := makeVault(t, []runSeed{{
+		framework: frameworkSOC2, periodID: testPeriodQ2, runID: testRunID,
+		timestamp:   time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		completedAt: time.Date(2026, 4, 1, 0, 5, 0, 0, time.UTC),
+		policies: []core.PolicyResult{
+			{PolicyID: "p.whole", Status: core.StatusWaived, EvidenceMode: core.EvidenceModeAutomated},
+			{PolicyID: "p.scoped", Status: core.StatusWaived, ResourcesEvaluated: 3, EvidenceMode: core.EvidenceModeAutomated},
+			{PolicyID: "p.na", Status: core.StatusNA, EvidenceMode: core.EvidenceModeAutomated},
+			// Carried forward only ever follows a pass, so it points at
+			// a prior signed inspection.
+			{PolicyID: "p.carried", Status: core.StatusCarriedForward, EvidenceMode: core.EvidenceModeAutomated},
+		},
+	}})
+
+	auto := func(id, ctrl string) core.Policy {
+		return core.Policy{ID: id, EvidenceMode: core.EvidenceModeAutomated, Controls: []core.ControlRef{{ControlID: ctrl}}}
+	}
+	snap, err := report.Build(context.Background(), &report.Input{
+		Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ2, View: report.ViewCoverage,
+		Controls: []core.Control{{ID: ctrlWholeWaiver}, {ID: ctrlScopedWaive}, {ID: ctrlNA}, {ID: ctrlCarried}},
+		Policies: []core.Policy{
+			auto("p.whole", ctrlWholeWaiver), auto("p.scoped", ctrlScopedWaive),
+			auto("p.na", ctrlNA), auto("p.carried", ctrlCarried),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cov := snap.Coverage
+	if cov.AutomatedInspected != 2 || cov.AutomatedSkipped != 0 || cov.AutomatedExcepted != 2 {
+		t.Errorf("inspected/skipped/excepted = %d/%d/%d; want 2/0/2 (scoped waiver and carry-forward inspected; whole-policy waiver and na excepted)",
+			cov.AutomatedInspected, cov.AutomatedSkipped, cov.AutomatedExcepted)
+	}
+
+	var buf bytes.Buffer
+	if err := report.FormatText(&buf, snap); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "4 automated control(s): 2 inspected, 0 skipped, 2 waived or not applicable, 0 not evaluated or errored") {
+		t.Errorf("headline must count excepted controls apart from inspected and skipped ones:\n%s", out)
+	}
+	if !strings.Contains(out, "waived as a whole or marked not applicable in the project's exceptions") {
+		t.Errorf("footer must explain the waived-or-not-applicable count:\n%s", out)
 	}
 }
 

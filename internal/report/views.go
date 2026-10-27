@@ -109,17 +109,20 @@ type CoverageView struct {
 	Evaluated    int
 	NotEvaluated int
 
-	// AutomatedInspected and AutomatedSkipped split the automated
-	// catalog controls by what their automated checks did in this
-	// period. A control is "automated" because an automated check is
-	// mapped to it, not because that check ran: a source with no
-	// credentials skips every policy reading it. Inspected means at
-	// least one automated check reached a verdict (pass, fail, waived,
-	// or carried forward from an earlier run); skipped means every
-	// automated result was skip or na. The remainder errored or has no
-	// result this period.
+	// AutomatedInspected, AutomatedSkipped and AutomatedExcepted split
+	// the automated catalog controls by what their automated checks did
+	// in this period. A control is "automated" because an automated
+	// check is mapped to it, not because that check ran: a source with
+	// no credentials skips every policy reading it. Inspected means at
+	// least one automated check examined resources: pass, fail, a
+	// waiver applied to an evaluation's violations, or a carry-forward
+	// of an earlier pass. Skipped means no check was inspected or
+	// errored and at least one skipped. Excepted means every result was
+	// na or a whole-policy waiver, which stop the check before anything
+	// is collected. The remainder errored or has no result this period.
 	AutomatedInspected int
 	AutomatedSkipped   int
+	AutomatedExcepted  int
 
 	// ManualOnFile and ManualMissing split the manual-assurance controls
 	// by whether their document actually exists for this period.

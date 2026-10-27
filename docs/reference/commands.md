@@ -165,9 +165,13 @@ For SOC 2, 27 of 43 criteria are the first kind. The kind comes from the mapped 
 from what ran, so `This period` splits the automated controls by what their automated checks
 did:
 
-- inspected: at least one automated check ended `pass`, `fail`, `waived` or `carried_forward`.
-- skipped: every automated result was `skip` or `na`, usually because no configured source
-  emits the evidence the check reads.
+- inspected: at least one automated check examined resources. It ended `pass` or `fail`, was
+  `waived` after evaluation because every violation matched a resource-scoped exception, or
+  ended `carried_forward` from an earlier pass.
+- skipped: no automated check was inspected or errored, and at least one ended `skip`, usually
+  because no configured source emits the evidence the check reads.
+- waived or not applicable: every automated result was `na`, or `waived` by an exception that
+  covers the whole policy. Neither collects anything.
 - not evaluated or errored: the rest.
 
 Sample output from a SOC 2 project with only the manual evidence source configured:
@@ -179,7 +183,7 @@ Sample output from a SOC 2 project with only the manual evidence source configur
 
 This period
   43 evaluated, 0 not evaluated
-  16 automated control(s): 0 inspected, 16 skipped, 0 not evaluated or errored
+  16 automated control(s): 0 inspected, 16 skipped, 0 waived or not applicable, 0 not evaluated or errored
   0 manual control(s) with evidence on file, 27 without
 ```
 

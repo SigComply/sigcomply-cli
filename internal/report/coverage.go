@@ -111,16 +111,17 @@ func tallyRow(out *CoverageView, r *CoverageRow) {
 }
 
 // tallyAutomated counts the automated catalog controls whose automated
-// checks reached a verdict this period, and those whose every automated
-// result was a skip. Only automated policies are consulted: a passing
-// document beside a skipped check is not an inspection, and counting it
-// would bring back the overclaim this split exists to remove.
+// checks examined something this period, those that only skipped, and
+// those excepted outright. Only automated policies are consulted: a
+// passing document beside a skipped check is not an inspection, and
+// counting it would bring back the overclaim this split exists to
+// remove.
 func tallyAutomated(out *CoverageView, classified []core.ControlCoverage, byControl map[string][]core.Policy, results map[string]core.PolicyResult) {
 	for i := range classified {
 		if classified[i].Assurance != core.AssuranceAutomated {
 			continue
 		}
-		var inspected, skipped, other bool
+		var inspected, skipped, excepted, other bool
 		policies := byControl[classified[i].ControlID]
 		for j := range policies {
 			if policies[j].EvidenceMode != core.EvidenceModeAutomated {
@@ -130,11 +131,13 @@ func tallyAutomated(out *CoverageView, classified []core.ControlCoverage, byCont
 			if !ok {
 				continue
 			}
-			switch r.Status {
-			case core.StatusPass, core.StatusFail, core.StatusWaived, core.StatusCarriedForward:
+			switch {
+			case wasInspected(&r):
 				inspected = true
-			case core.StatusSkip, core.StatusNA:
+			case r.Status == core.StatusSkip:
 				skipped = true
+			case r.Status == core.StatusNA || r.Status == core.StatusWaived:
+				excepted = true
 			default:
 				other = true
 			}
@@ -142,9 +145,30 @@ func tallyAutomated(out *CoverageView, classified []core.ControlCoverage, byCont
 		switch {
 		case inspected:
 			out.AutomatedInspected++
-		case skipped && !other:
+		case other:
+			// Errored: counted in the remainder.
+		case skipped:
 			out.AutomatedSkipped++
+		case excepted:
+			out.AutomatedExcepted++
 		}
+	}
+}
+
+// wasInspected reports whether an automated result stands for resources
+// actually examined. A waived result does only when the waiver was
+// applied to an evaluation's violations: a whole-policy waiver stops the
+// check before anything is collected and leaves ResourcesEvaluated at
+// zero. A carry-forward counts because the planner carries forward only
+// an earlier pass, whose signed envelope it references.
+func wasInspected(r *core.PolicyResult) bool {
+	switch r.Status {
+	case core.StatusPass, core.StatusFail, core.StatusCarriedForward:
+		return true
+	case core.StatusWaived:
+		return r.ResourcesEvaluated > 0
+	default:
+		return false
 	}
 }
 

@@ -243,9 +243,9 @@ func writeCoverageHeadline(w io.Writer, v *CoverageView) error {
 	if _, err := fmt.Fprintf(w, "\nThis period\n  %d evaluated, %d not evaluated\n", v.Evaluated, v.NotEvaluated); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "  %d automated control(s): %d inspected, %d skipped, %d not evaluated or errored\n",
-		v.Automated, v.AutomatedInspected, v.AutomatedSkipped,
-		v.Automated-v.AutomatedInspected-v.AutomatedSkipped); err != nil {
+	if _, err := fmt.Fprintf(w, "  %d automated control(s): %d inspected, %d skipped, %d waived or not applicable, %d not evaluated or errored\n",
+		v.Automated, v.AutomatedInspected, v.AutomatedSkipped, v.AutomatedExcepted,
+		v.Automated-v.AutomatedInspected-v.AutomatedSkipped-v.AutomatedExcepted); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "  %d manual control(s) with evidence on file, %d without\n", v.ManualOnFile, v.ManualMissing); err != nil {
@@ -260,7 +260,7 @@ func writeCoverageHeadline(w io.Writer, v *CoverageView) error {
 	// three quarters out of four. Say so, or every Q1-Q3 report reads
 	// like an outage.
 	_, err := fmt.Fprint(w, "\nA control whose cadence is longer than this period (annual, in a quarterly\nperiod) is expected to show \"not evaluated\" here — the NOTE column names\nthe cadence so you can tell that apart from a check that should have run.\n"+
-		"An automated control counts as skipped when every automated check behind it\nskipped, usually because the source it reads is not configured; nothing was\ninspected for it.\n\n")
+		"An automated control counts as skipped when its automated checks skipped,\nusually because the source they read is not configured; nothing was inspected\nfor it. One counts as waived or not applicable when every automated check behind\nit was waived as a whole or marked not applicable in the project's exceptions;\nnothing was collected for it either.\n\n")
 	return err
 }
 
