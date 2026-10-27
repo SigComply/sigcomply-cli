@@ -161,7 +161,7 @@ jobs:
           distribution: goreleaser
           # Pinned: a new GoReleaser major or minor must not change a release
           # unreviewed. Bump deliberately (same pin in release.yml).
-          version: v2.18.3
+          version: v2.19.0
           # --parallelism 2: nine cross-compile targets at the runner's
           # default (one per vCPU) peak around 2.8 GB each and OOM-kill the
           # job silently mid-build. Two at a time fits comfortably.

@@ -99,7 +99,7 @@ jobs:
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
           distribution: goreleaser
-          version: v2.18.3 # pinned; keep in step with auto-release-pipeline.yml
+          version: v2.19.0 # pinned; keep in step with auto-release-pipeline.yml
           # --parallelism 2: nine cross-compile targets at the runner's
           # default (one per vCPU) peak around 2.8 GB each and OOM-kill the
           # job silently mid-build. Two at a time fits comfortably.
