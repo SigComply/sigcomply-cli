@@ -7,6 +7,11 @@
 # when RELEASE_GATE is 'on'. A version with a suffix (v1.2.3-rc.1) stays a
 # prerelease and is never promoted.
 #
+# The tag is pushed only after the build and the provenance succeed, and
+# the publish job is safe to re-run (scripts/publish-release.sh). To
+# re-release an existing tag, dispatch with the tag itself as the ref: a
+# tag that points at any commit other than the dispatched one fails.
+#
 # SLSA L3 provenance is generated for all release artifacts.
 # Customers can verify with: gh attestation verify <binary> --repo SigComply/sigcomply-cli
 
@@ -23,7 +28,14 @@ on:
 permissions:
   contents: read
 
-# Shares the group with auto-release.yml so two releases never interleave.
+# Shares the group with auto-release.yml's release job so two releases
+# never interleave (a separate group would let two runs promote to latest
+# out of order). GitHub keeps one running and one pending run per group and
+# cancels the pending one when another arrives, even with
+# cancel-in-progress false. So a dispatch made while an auto-release is
+# running is cancelled if a push to main reaches the group before it
+# starts. Check that this run started, and dispatch again if it was
+# cancelled.
 concurrency:
   group: release
   cancel-in-progress: false
@@ -32,8 +44,9 @@ jobs:
   goreleaser:
     name: Build
     runs-on: ubuntu-latest
+    # Read only: this job tags locally; publish pushes the tag.
     permissions:
-      contents: write  # for tag creation and artifact upload
+      contents: read
     outputs:
       hashes: ${{ steps.hash.outputs.hashes }}
     steps:
@@ -56,18 +69,24 @@ jobs:
             exit 1
           fi
 
-      - name: Create and push tag
+      - name: Tag locally (pushed after build and provenance)
         env:
           TAG: ${{ inputs.version }}
         run: |
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists"
+          # GoReleaser builds from a tag at HEAD. An existing tag must
+          # already be at HEAD, or the build would carry its name for
+          # different code.
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            if [ "$(git rev-parse "$TAG^{commit}")" != "$(git rev-parse HEAD)" ]; then
+              echo "::error::Tag $TAG exists at $(git rev-parse "$TAG^{commit}"), not at the dispatched commit $(git rev-parse HEAD). Dispatch with the tag as the ref, or pick another version."
+              exit 1
+            fi
+            echo "Tag $TAG already at HEAD; building it"
           else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git tag -a "$TAG" -m "Release $TAG"
-            git push origin "$TAG"
-            echo "Created tag: $TAG"
+            echo "Tagged $TAG locally"
           fi
 
       - name: Set up Go
@@ -80,7 +99,7 @@ jobs:
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
           distribution: goreleaser
-          version: v2.18.3 # pinned; keep in step with auto-release.yml
+          version: v2.18.3 # pinned; keep in step with auto-release-pipeline.yml
           # --parallelism 2: nine cross-compile targets at the runner's
           # default (one per vCPU) peak around 2.8 GB each and OOM-kill the
           # job silently mid-build. Two at a time fits comfortably.
@@ -140,17 +159,12 @@ jobs:
           name: ${{ needs.provenance.outputs.provenance-name }}
           path: provenance/
 
-      - name: Create GitHub prerelease
+      # Pushes the tag, then publishes a prerelease. Safe to re-run.
+      - name: Push tag and publish prerelease
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.version }}
-        run: |
-          gh release create "$TAG" \
-            --title "SigComply CLI $TAG" \
-            --generate-notes \
-            --prerelease \
-            dist/* \
-            provenance/*
+        run: ./scripts/publish-release.sh "$TAG" dist/*.tar.gz dist/*.zip dist/checksums.txt provenance/*
 
   promote:
     name: Gate and Promote

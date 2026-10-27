@@ -17,7 +17,8 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
   run does not mean no findings. Read the logs when a change touches dependencies.
 - `auto-release.yml`, unless every file changed in the push matches its `paths-ignore`: root
   `*.md`, `docs/**`, `.claude/**`, `.vale/**`, `.vale.ini`, `LICENSE`, `.gitignore`,
-  `.github/workflows/docs-lint.yml`. It calls `test.yml` and waits for it, then:
+  `.github/workflows/docs-lint.yml`. It calls `test.yml` and waits for it, then, unless the head
+  commit carries the skip marker, runs `auto-release-pipeline.yml`:
   1. Reads the subjects (not bodies) of every commit since the last final tag (prerelease tags
      such as `v1.2.3-rc.1` are skipped). `<type>!:`, or the words "breaking change" anywhere in
      a subject in any case, means major. So `fix: handle breaking changes in Okta API` is a
@@ -26,14 +27,23 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
      change" makes the next code release major.
   2. Builds with GoReleaser (pinned version) from a local tag and attests build provenance. Only
      then does it push the tag and publish the GitHub Release, as a prerelease, with notes from
-     `gh release create --generate-notes`. A failed build leaves no tag.
+     `gh release create --generate-notes` (`scripts/publish-release.sh`). A failed build leaves
+     no tag. A re-run is safe: when HEAD already carries a final tag it resumes that version
+     instead of bumping again, a tag already on origin is not pushed twice (one at another commit
+     fails the run), and an existing release only gets the assets it lacks.
   3. Promotes the prerelease to latest (`release-promote.yml`). With the repository variable
      `RELEASE_GATE` set to `on`, it first dispatches `release-gate.yml` in the GitHub E2E repo
      for that exact tag and waits up to an hour; a failed gate, or a missing `E2E_GATE_TOKEN`
      secret, leaves the release a prerelease. Without the variable it promotes at once and
      prints a warning that the release was not E2E-gated.
 
-  Releases run one at a time (`concurrency: release`, shared with `release.yml`). Customers,
+  Releases run one at a time: the release job (not the tests) holds `concurrency: release`,
+  shared with `release.yml`, from version bump to promotion. A red test run or a skip-marker push
+  never enters the group. GitHub keeps one running and one pending run per group and cancels the
+  pending one when a third arrives, whatever `cancel-in-progress` says. A cancelled pending
+  auto-release loses nothing: the newer run releases a later commit of `main`, and its bump reads
+  every commit since the last final tag. A cancelled pending `release.yml` dispatch must be
+  dispatched again. Customers,
   `install.sh` with `latest`, and the E2E repos' scheduled runs see a release only after it is
   promoted. `go install ...@latest` sees the tag as soon as it is pushed.
 - `docs-lint.yml` runs Vale on the customer-facing Markdown the push changed (`README.md`,
@@ -61,7 +71,9 @@ in the head commit's message deliberately, and only then. The job matches it any
 commit's full message, so never quote it in a body by accident. A release that was skipped or
 path-ignored can be cut by hand with `workflow_dispatch` on `auto-release.yml`. `release.yml` is a
 separate manual release that takes an explicit version; a version with a suffix (`v1.2.3-rc.1`)
-stays a prerelease, any other goes through the same gate and promotion.
+stays a prerelease, any other goes through the same gate and promotion. It also tags only after
+the build, and refuses a tag that already exists at another commit; to re-release an existing tag,
+dispatch it with the tag as the ref.
 
 A release stuck as a prerelease (gate red) is fixed forward: fix the cause, push, and the next
 release is gated again. To promote one by hand after checking the gate run, use

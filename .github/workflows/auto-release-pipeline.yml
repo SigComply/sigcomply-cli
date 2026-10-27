@@ -1,0 +1,287 @@
+# Release pipeline for SigComply CLI, called only by auto-release.yml, which
+# runs the tests, applies the skip marker and holds the `release`
+# concurrency group for the whole call. Bump the version, build with
+# GoReleaser, attest, push the tag, publish a prerelease, then promote it
+# to latest (release-promote.yml), after the E2E release gate when the
+# repository variable RELEASE_GATE is 'on'.
+#
+# Order matters: the tag is pushed only after the build and the attestation
+# succeed, so a failed build never leaves a tag without a release. The
+# release is published as a prerelease, which customers and the E2E repos
+# (they resolve releases/latest) do not see until promote runs.
+#
+# Re-runnable: when HEAD already carries a final tag (a run that pushed it
+# and then failed), the pipeline resumes that version instead of bumping
+# again, and scripts/publish-release.sh skips the steps already done.
+#
+# Uses conventional commit prefixes to determine version bump. Only the
+# subject line of each commit since the last final (non-prerelease) tag is
+# read, never the body:
+#   type!: or the words "breaking change" anywhere in a subject, in any
+#   case -> major bump (so "fix: handle breaking changes in X" is major)
+#   feat: -> minor bump
+#   anything else (fix:, refactor:, perf:, docs:, ...) -> patch bump
+#
+# Build provenance attestations are generated for all release artifacts.
+# Customers can verify with: gh attestation verify <binary> --repo SigComply/sigcomply-cli
+
+name: Auto Release Pipeline
+
+on:
+  workflow_call:
+    secrets:
+      E2E_GATE_TOKEN:
+        description: Token with Actions read/write on the GitHub E2E repo
+        required: false
+
+permissions:
+  contents: read
+
+# No concurrency here: the caller's release job holds the `release` group,
+# and declaring it again would deadlock.
+
+jobs:
+  auto-release:
+    name: Version Bump and Build
+    runs-on: ubuntu-latest
+    # Read only: this job tags locally; publish pushes the tag.
+    permissions:
+      contents: read
+    outputs:
+      new_tag: ${{ steps.bump.outputs.new_tag }}
+      latest_tag: ${{ steps.bump.outputs.latest_tag }}
+      bump: ${{ steps.bump.outputs.bump }}
+      created: ${{ steps.tag.outputs.created }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Determine version bump
+        id: bump
+        run: |
+          # Resume: HEAD already carries a final tag when an earlier run
+          # pushed it and then failed (or the whole run was re-run). Release
+          # that version again rather than bumping to a second version for
+          # the same commit; publish skips what is already done.
+          RESUME=$(git tag --points-at HEAD --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)
+          if [ -n "$RESUME" ]; then
+            {
+              echo "latest_tag=${RESUME}"
+              echo "new_tag=${RESUME}"
+              echo "bump=resume"
+            } >> "$GITHUB_OUTPUT"
+            echo "HEAD already carries ${RESUME}; resuming that release."
+            exit 0
+          fi
+
+          # The latest final tag, default to v0.0.0 if none exists. A
+          # prerelease tag (v1.2.3-rc.1, from release.yml) is skipped: its
+          # suffix would break the MAJOR.MINOR.PATCH parse below.
+          LATEST_TAG=$(git describe --tags --abbrev=0 --exclude '*-*' 2>/dev/null || echo "v0.0.0")
+          echo "latest_tag=${LATEST_TAG}" >> "$GITHUB_OUTPUT"
+
+          # Parse current version
+          VERSION="${LATEST_TAG#v}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+          # Analyze commits since last tag to determine bump type
+          COMMITS=$(git log "${LATEST_TAG}..HEAD" --pretty=format:"%s" 2>/dev/null || git log --pretty=format:"%s")
+
+          BUMP="patch"
+          if echo "$COMMITS" | grep -qiE "BREAKING CHANGE|^[a-z]+(\(.*\))?!:"; then
+            BUMP="major"
+          elif echo "$COMMITS" | grep -qE "^feat(\(.*\))?:"; then
+            BUMP="minor"
+          fi
+
+          # Calculate new version
+          case $BUMP in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "new_tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
+          echo "bump=${BUMP}" >> "$GITHUB_OUTPUT"
+          echo "Version bump: ${BUMP} (${LATEST_TAG} -> ${NEW_TAG})"
+
+      - name: Tag locally (pushed after build and attest)
+        id: tag
+        run: |
+          NEW_TAG="${{ steps.bump.outputs.new_tag }}"
+
+          # created=true means "build and publish this tag".
+          if git rev-parse -q --verify "refs/tags/$NEW_TAG" >/dev/null; then
+            if [ "$(git rev-parse "$NEW_TAG^{commit}")" = "$(git rev-parse HEAD)" ]; then
+              echo "Tag $NEW_TAG already at HEAD; resuming its release"
+              echo "created=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "::warning::Tag $NEW_TAG already exists at another commit; no release for this push."
+              echo "created=false" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
+
+          # GoReleaser builds from a tag at HEAD. This one stays local; the
+          # publish job pushes the tag once the build and attestation passed.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
+          echo "created=true" >> "$GITHUB_OUTPUT"
+          echo "Tagged $NEW_TAG locally"
+
+      - name: Set up Go
+        if: steps.tag.outputs.created == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run GoReleaser (build only, skip publish)
+        if: steps.tag.outputs.created == 'true'
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          distribution: goreleaser
+          # Pinned: a new GoReleaser major or minor must not change a release
+          # unreviewed. Bump deliberately (same pin in release.yml).
+          version: v2.18.3
+          # --parallelism 2: nine cross-compile targets at the runner's
+          # default (one per vCPU) peak around 2.8 GB each and OOM-kill the
+          # job silently mid-build. Two at a time fits comfortably.
+          args: release --clean --skip=publish --parallelism 2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ steps.bump.outputs.new_tag }}
+
+      - name: Upload build artifacts
+        if: steps.tag.outputs.created == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: artifacts
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1
+
+  attest:
+    name: Attest Artifacts
+    needs: auto-release
+    if: needs.auto-release.outputs.created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write      # required to sign attestations with OIDC
+      attestations: write  # required to store attestations
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: artifacts
+          path: dist/
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
+
+  publish:
+    name: Push Tag and Publish Prerelease
+    needs: [auto-release, attest]
+    if: needs.auto-release.outputs.created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: artifacts
+          path: dist/
+
+      # Pushes the tag, then publishes a prerelease: releases/latest does
+      # not move until release-promote.yml promotes it. Safe to re-run.
+      - name: Push tag and publish prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.auto-release.outputs.new_tag }}
+        run: ./scripts/publish-release.sh "$TAG" dist/*.tar.gz dist/*.zip dist/checksums.txt
+
+  promote:
+    name: Gate and Promote
+    needs: [auto-release, publish]
+    if: needs.auto-release.outputs.created == 'true'
+    uses: ./.github/workflows/release-promote.yml
+    with:
+      tag: ${{ needs.auto-release.outputs.new_tag }}
+    secrets:
+      E2E_GATE_TOKEN: ${{ secrets.E2E_GATE_TOKEN }}
+    permissions:
+      contents: write
+
+  summary:
+    name: Release Summary
+    needs: [auto-release, attest, publish, promote]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Write summary
+        env:
+          PREVIOUS: ${{ needs.auto-release.outputs.latest_tag }}
+          NEW: ${{ needs.auto-release.outputs.new_tag }}
+          BUMP: ${{ needs.auto-release.outputs.bump }}
+          BUILT: ${{ needs.auto-release.outputs.created }}
+          ATTEST: ${{ needs.attest.result }}
+          PUBLISH: ${{ needs.publish.result }}
+          PROMOTE: ${{ needs.promote.result }}
+        run: |
+          {
+            echo "## Auto Release"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Previous | $PREVIOUS |"
+            echo "| New | $NEW |"
+            echo "| Bump | $BUMP |"
+            echo "| Release Built | $BUILT |"
+            echo "| Attestation | $ATTEST |"
+            echo "| Published (prerelease) | $PUBLISH |"
+            echo "| Gated and promoted to latest | $PROMOTE |"
+          } >> "$GITHUB_STEP_SUMMARY"
