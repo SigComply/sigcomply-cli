@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -75,5 +76,33 @@ func TestDetectBranch_EmptyWhenNoEnv(t *testing.T) {
 	t.Setenv("GIT_BRANCH", "")
 	if got := detectBranch(); got != "" {
 		t.Errorf("detectBranch = %q; want empty", got)
+	}
+}
+
+// A command may wrap an exitCodeError (fmt.Errorf("...: %w", ec)). The
+// stamped exit code must survive the wrapping; only an unstamped error
+// falls back to 2.
+func TestExitCodeFor_WrappedExitErrorKeepsCode(t *testing.T) {
+	wrapped := fmt.Errorf("context: %w", &exitCodeError{code: 3, err: errors.New("bad config")})
+	var stderr bytes.Buffer
+	if got := exitCodeFor(wrapped, &stderr); got != 3 {
+		t.Errorf("exitCodeFor(wrapped code 3) = %d; want 3", got)
+	}
+	if !strings.Contains(stderr.String(), "bad config") {
+		t.Errorf("stderr = %q; want the wrapped message", stderr.String())
+	}
+
+	stderr.Reset()
+	bare := fmt.Errorf("outer: %w", &exitCodeError{code: 1})
+	if got := exitCodeFor(bare, &stderr); got != 1 {
+		t.Errorf("exitCodeFor(wrapped bare code 1) = %d; want 1", got)
+	}
+
+	stderr.Reset()
+	if got := exitCodeFor(errors.New("plain"), &stderr); got != 2 {
+		t.Errorf("exitCodeFor(plain) = %d; want 2", got)
+	}
+	if got := exitCodeFor(nil, &stderr); got != 0 {
+		t.Errorf("exitCodeFor(nil) = %d; want 0", got)
 	}
 }

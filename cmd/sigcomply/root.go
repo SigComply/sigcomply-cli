@@ -3,7 +3,9 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -29,23 +31,29 @@ func SetVersionInfo(version, commit, buildTime string) {
 // Execute is the CLI entrypoint. Returns the recommended exit code so
 // main can pass it to os.Exit; tests can call Execute directly.
 func Execute() int {
-	rootCmd := newRootCmd()
-	if err := rootCmd.Execute(); err != nil {
-		// The root command sets SilenceErrors, so we own the top-level
-		// error print. Honor any exit code stamped via exitCodeError,
-		// else default to 2. A bare exitCodeError (code only, no wrapped
-		// error) is a normal non-OK exit such as a policy violation — no
-		// message to print, just the code.
-		if e, ok := err.(*exitCodeError); ok {
-			if e.err != nil {
-				fmt.Fprintln(os.Stderr, "Error:", e.err)
-			}
-			return e.code
-		}
-		fmt.Fprintln(os.Stderr, "Error:", err)
-		return 2
+	return exitCodeFor(newRootCmd().Execute(), os.Stderr)
+}
+
+// exitCodeFor maps a command error to the process exit code and prints
+// it. The root command sets SilenceErrors, so this is the single
+// top-level "Error: ..." print. An exitCodeError anywhere in the chain
+// stamps the code, else 2. A bare exitCodeError (code only, no wrapped
+// error) is a normal non-OK exit such as a policy violation: no
+// message, just the code.
+func exitCodeFor(err error, stderr io.Writer) int {
+	if err == nil {
+		return 0
 	}
-	return 0
+	code := 2
+	var e *exitCodeError
+	if errors.As(err, &e) {
+		code = e.code
+		if err == error(e) && e.err == nil {
+			return code
+		}
+	}
+	_, _ = fmt.Fprintln(stderr, "Error:", err) //nolint:errcheck // nothing useful to do on stderr write failure
+	return code
 }
 
 func newRootCmd() *cobra.Command {
