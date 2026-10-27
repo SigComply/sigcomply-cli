@@ -91,17 +91,6 @@ test-coverage: ## Run the full suite with coverage report (matches CI's enforced
 	$(GOCMD) tool cover -func=$(COVERAGE_DIR)/coverage.out | tail -1
 	@echo "Coverage report: $(COVERAGE_DIR)/coverage.html"
 
-# Note: end-to-end Go tests run from the dedicated E2E repos
-# (sigcomply-cli-testing-project-{github,gitlab}), not from this module.
-# These targets only provision/tear down the AWS sandbox those runs use.
-.PHONY: e2e-setup
-e2e-setup: ## Provision AWS resources for E2E tests
-	./scripts/e2e/setup-aws.sh
-
-.PHONY: e2e-teardown
-e2e-teardown: ## Tear down AWS resources for E2E tests
-	./scripts/e2e/teardown-aws.sh
-
 ##@ Code Quality
 
 .PHONY: lint
