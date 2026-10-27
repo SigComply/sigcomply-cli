@@ -1,0 +1,128 @@
+# Promotes a published prerelease to the latest release, optionally after
+# the end-to-end release gate passes. Called by auto-release.yml and
+# release.yml after they publish a tag as a prerelease; never runs alone.
+#
+# Customers and the E2E repos resolve releases/latest, so a release reaches
+# them only when this workflow promotes it.
+#
+#   vars.RELEASE_GATE == 'on': dispatch release-gate.yml in the GitHub E2E
+#     repo for this exact tag, wait for it, and promote only when it passes.
+#     A missing E2E_GATE_TOKEN fails the gate, and the release stays a
+#     prerelease.
+#   anything else: promote at once and warn that the release was not gated.
+#
+# The callers hold the `release` concurrency group for the whole chain, so
+# this workflow must not declare the same group (it would deadlock).
+
+name: Release Promote
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to gate and promote, e.g. v1.2.3
+        type: string
+        required: true
+    secrets:
+      E2E_GATE_TOKEN:
+        description: Token with Actions read/write on the GitHub E2E repo
+        required: false
+
+permissions: {}
+
+env:
+  E2E_REPO: SigComply/sigcomply-cli-testing-project-github
+  GATE_WORKFLOW: release-gate.yml
+
+jobs:
+  e2e-gate:
+    name: E2E Release Gate
+    if: vars.RELEASE_GATE == 'on'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ secrets.E2E_GATE_TOKEN }}
+      TAG: ${{ inputs.tag }}
+      CORRELATION_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Require the gate token
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::RELEASE_GATE is on but the E2E_GATE_TOKEN secret is not set. $TAG stays a prerelease."
+            exit 1
+          fi
+
+      - name: Dispatch the release gate
+        run: |
+          gh workflow run "$GATE_WORKFLOW" --repo "$E2E_REPO" \
+            -f cli_version="$TAG" -f correlation_id="$CORRELATION_ID"
+
+      - name: Find the dispatched run
+        id: find
+        run: |
+          # The gate's run-name carries the correlation ID; a dispatch does
+          # not return the run it created.
+          for _ in $(seq 1 40); do
+            run_id=$(gh run list --repo "$E2E_REPO" --workflow "$GATE_WORKFLOW" \
+              --event workflow_dispatch --limit 30 \
+              --json databaseId,displayTitle,createdAt \
+              --jq "[.[] | select(.displayTitle | contains(\"$CORRELATION_ID\"))][0].databaseId // empty")
+            if [ -n "$run_id" ]; then
+              echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+              echo "Release gate run: https://github.com/$E2E_REPO/actions/runs/$run_id"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::No $GATE_WORKFLOW run with correlation ID $CORRELATION_ID appeared in $E2E_REPO within 10 minutes."
+          exit 1
+
+      - name: Wait for the gate
+        env:
+          RUN_ID: ${{ steps.find.outputs.run_id }}
+        run: |
+          {
+            echo "## E2E release gate for $TAG"
+            echo ""
+            echo "https://github.com/$E2E_REPO/actions/runs/$RUN_ID"
+          } >> "$GITHUB_STEP_SUMMARY"
+          timeout 60m gh run watch "$RUN_ID" --repo "$E2E_REPO" --exit-status --interval 30
+
+  promote:
+    name: Promote to Latest
+    needs: e2e-gate
+    # Runs when the gate passed, or when the gate is off (skipped). A
+    # failed or cancelled gate leaves the release a prerelease.
+    if: >-
+      !cancelled() &&
+      (needs.e2e-gate.result == 'success' ||
+       (vars.RELEASE_GATE != 'on' && needs.e2e-gate.result == 'skipped'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ inputs.tag }}
+      GATE: ${{ vars.RELEASE_GATE }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Warn when not gated
+        if: vars.RELEASE_GATE != 'on'
+        run: |
+          echo "::warning::$TAG was promoted without the E2E release gate (repository variable RELEASE_GATE is not 'on')."
+
+      - name: Promote the prerelease
+        run: |
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
+          echo "Promoted $TAG to latest (gate: ${GATE:-off})" >> "$GITHUB_STEP_SUMMARY"

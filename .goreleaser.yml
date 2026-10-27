@@ -65,7 +65,10 @@ snapshot:
 
 changelog:
   sort: asc
-  use: github
+  # git, not github: the workflows build before the tag is pushed, so the
+  # GitHub compare API cannot see the new tag yet. The published notes
+  # come from `gh release create --generate-notes`, not from this file.
+  use: git
   filters:
     exclude:
       - '^docs:'

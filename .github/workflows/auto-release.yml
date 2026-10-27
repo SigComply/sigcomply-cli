@@ -1,15 +1,22 @@
 # Auto-release workflow for SigComply CLI
-# Bumps version, creates a tag, and runs GoReleaser on every push to main
-# whose test suite is green.
+# On every push to main whose test suite is green: bump the version, build
+# with GoReleaser, attest, push the tag, publish a prerelease, then promote
+# it to latest (release-promote.yml), after the E2E release gate when the
+# repository variable RELEASE_GATE is 'on'.
 #
-# The gate is not optional decoration. The GitHub E2E repo resolves
-# releases/latest at run time on its daily cron, so an ungated tag
-# reaches it on its next run (the GitLab E2E repo pins a version). Calling test.yml (rather than racing it,
-# or chaining off workflow_run) keeps the push event — and with it
+# The test gate is not optional decoration. Calling test.yml (rather than
+# racing it, or chaining off workflow_run) keeps the push event, and with it
 # head_commit.message for the [skip release] marker, paths-ignore, and a
 # checkout of the exact commit that was pushed.
+#
+# Order matters: the tag is pushed only after the build and the attestation
+# succeed, so a failed build never leaves a tag without a release. The
+# release is published as a prerelease, which customers and the E2E repos
+# (they resolve releases/latest) do not see until promote runs.
+#
 # Uses conventional commit prefixes to determine version bump. Only the
-# subject line of each commit since the last tag is read, never the body:
+# subject line of each commit since the last final (non-prerelease) tag is
+# read, never the body:
 #   type!: or the words "breaking change" anywhere in a subject, in any
 #   case -> major bump (so "fix: handle breaking changes in X" is major)
 #   feat: -> minor bump
@@ -41,6 +48,13 @@ on:
 permissions:
   contents: read
 
+# One release at a time, end to end (tag, publish, gate, promote). A queued
+# run is not cancelled mid-release; a newer push replaces a pending one, and
+# its version bump covers every commit since the last tag anyway.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   # Must pass before anything is tagged.
   test:
@@ -57,8 +71,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     if: "!contains(github.event.head_commit.message, '[skip release]') && !contains(github.event.head_commit.message, 'chore(release)')"
+    # Read only: this job tags locally; publish pushes the tag.
     permissions:
-      contents: write
+      contents: read
     outputs:
       new_tag: ${{ steps.bump.outputs.new_tag }}
       latest_tag: ${{ steps.bump.outputs.latest_tag }}
@@ -78,8 +93,10 @@ jobs:
       - name: Determine version bump
         id: bump
         run: |
-          # Get the latest tag, default to v0.0.0 if none exists
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          # The latest final tag, default to v0.0.0 if none exists. A
+          # prerelease tag (v1.2.3-rc.1, from release.yml) is skipped: its
+          # suffix would break the MAJOR.MINOR.PATCH parse below.
+          LATEST_TAG=$(git describe --tags --abbrev=0 --exclude '*-*' 2>/dev/null || echo "v0.0.0")
           echo "latest_tag=${LATEST_TAG}" >> "$GITHUB_OUTPUT"
 
           # Parse current version
@@ -117,7 +134,7 @@ jobs:
           echo "bump=${BUMP}" >> "$GITHUB_OUTPUT"
           echo "Version bump: ${BUMP} (${LATEST_TAG} -> ${NEW_TAG})"
 
-      - name: Create and push tag
+      - name: Tag locally (pushed after build and attest)
         id: tag
         run: |
           NEW_TAG="${{ steps.bump.outputs.new_tag }}"
@@ -129,12 +146,13 @@ jobs:
             exit 0
           fi
 
+          # GoReleaser builds from a tag at HEAD. This one stays local; the
+          # publish job pushes the tag once the build and attestation passed.
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
-          git push origin "$NEW_TAG"
           echo "created=true" >> "$GITHUB_OUTPUT"
-          echo "Created and pushed tag: $NEW_TAG"
+          echo "Tagged $NEW_TAG locally"
 
       - name: Set up Go
         if: steps.tag.outputs.created == 'true'
@@ -148,7 +166,9 @@ jobs:
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
           distribution: goreleaser
-          version: latest
+          # Pinned: a new GoReleaser major or minor must not change a release
+          # unreviewed. Bump deliberately (same pin in release.yml).
+          version: v2.18.3
           # --parallelism 2: nine cross-compile targets at the runner's
           # default (one per vCPU) peak around 2.8 GB each and OOM-kill the
           # job silently mid-build. Two at a time fits comfortably.
@@ -195,7 +215,7 @@ jobs:
             dist/*.zip
 
   publish:
-    name: Publish Release
+    name: Push Tag and Publish Prerelease
     needs: [auto-release, attest]
     if: needs.auto-release.outputs.created == 'true'
     runs-on: ubuntu-latest
@@ -207,13 +227,27 @@ jobs:
         with:
           egress-policy: audit
 
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - name: Download build artifacts
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: artifacts
           path: dist/
 
-      - name: Create GitHub Release
+      - name: Push tag
+        env:
+          TAG: ${{ needs.auto-release.outputs.new_tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG"
+
+      # A prerelease: releases/latest does not move until release-promote.yml
+      # promotes it.
+      - name: Create GitHub prerelease
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.auto-release.outputs.new_tag }}
@@ -222,11 +256,25 @@ jobs:
             --repo "${{ github.repository }}" \
             --title "SigComply CLI $TAG" \
             --generate-notes \
+            --prerelease \
+            --verify-tag \
             dist/*.tar.gz dist/*.zip dist/checksums.txt
+
+  promote:
+    name: Gate and Promote
+    needs: [auto-release, publish]
+    if: needs.auto-release.outputs.created == 'true'
+    uses: ./.github/workflows/release-promote.yml
+    with:
+      tag: ${{ needs.auto-release.outputs.new_tag }}
+    secrets:
+      E2E_GATE_TOKEN: ${{ secrets.E2E_GATE_TOKEN }}
+    permissions:
+      contents: write
 
   summary:
     name: Release Summary
-    needs: [auto-release, attest, publish]
+    needs: [auto-release, attest, publish, promote]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -238,14 +286,25 @@ jobs:
           egress-policy: audit
 
       - name: Write summary
+        env:
+          PREVIOUS: ${{ needs.auto-release.outputs.latest_tag }}
+          NEW: ${{ needs.auto-release.outputs.new_tag }}
+          BUMP: ${{ needs.auto-release.outputs.bump }}
+          BUILT: ${{ needs.auto-release.outputs.created }}
+          ATTEST: ${{ needs.attest.result }}
+          PUBLISH: ${{ needs.publish.result }}
+          PROMOTE: ${{ needs.promote.result }}
         run: |
-          echo "## Auto Release" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| | |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| Previous | ${{ needs.auto-release.outputs.latest_tag }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| New | ${{ needs.auto-release.outputs.new_tag }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Bump | ${{ needs.auto-release.outputs.bump }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Tag Created | ${{ needs.auto-release.outputs.created }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Attestation | ${{ needs.attest.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Published | ${{ needs.publish.result }} |" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Auto Release"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Previous | $PREVIOUS |"
+            echo "| New | $NEW |"
+            echo "| Bump | $BUMP |"
+            echo "| Release Built | $BUILT |"
+            echo "| Attestation | $ATTEST |"
+            echo "| Published (prerelease) | $PUBLISH |"
+            echo "| Gated and promoted to latest | $PROMOTE |"
+          } >> "$GITHUB_STEP_SUMMARY"

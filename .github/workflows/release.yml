@@ -2,6 +2,11 @@
 # Use this to cut a release manually via workflow_dispatch.
 # Auto-releases on merge are handled by auto-release.yml.
 #
+# Every release is published as a prerelease. A final version (v1.2.3) is
+# then promoted to latest by release-promote.yml, after the E2E release gate
+# when RELEASE_GATE is 'on'. A version with a suffix (v1.2.3-rc.1) stays a
+# prerelease and is never promoted.
+#
 # SLSA L3 provenance is generated for all release artifacts.
 # Customers can verify with: gh attestation verify <binary> --repo SigComply/sigcomply-cli
 
@@ -17,6 +22,11 @@ on:
 
 permissions:
   contents: read
+
+# Shares the group with auto-release.yml so two releases never interleave.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   goreleaser:
@@ -70,7 +80,7 @@ jobs:
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
           distribution: goreleaser
-          version: latest
+          version: v2.18.3 # pinned; keep in step with auto-release.yml
           # --parallelism 2: nine cross-compile targets at the runner's
           # default (one per vCPU) peak around 2.8 GB each and OOM-kill the
           # job silently mid-build. Two at a time fits comfortably.
@@ -130,7 +140,7 @@ jobs:
           name: ${{ needs.provenance.outputs.provenance-name }}
           path: provenance/
 
-      - name: Create GitHub Release
+      - name: Create GitHub prerelease
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.version }}
@@ -138,8 +148,22 @@ jobs:
           gh release create "$TAG" \
             --title "SigComply CLI $TAG" \
             --generate-notes \
+            --prerelease \
             dist/* \
             provenance/*
+
+  promote:
+    name: Gate and Promote
+    needs: publish
+    # A suffixed version (v1.2.3-rc.1) stays a prerelease.
+    if: "!contains(inputs.version, '-')"
+    uses: ./.github/workflows/release-promote.yml
+    with:
+      tag: ${{ inputs.version }}
+    secrets:
+      E2E_GATE_TOKEN: ${{ secrets.E2E_GATE_TOKEN }}
+    permissions:
+      contents: write
 
   verify:
     name: Verify Installation
