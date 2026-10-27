@@ -223,6 +223,7 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 	if encErr != nil {
 		return nil, encErr
 	}
+	rec.Attachments = scan.attachment(entry.EvidenceID)
 	return []core.EvidenceRecord{rec}, nil
 }
 
@@ -238,7 +239,20 @@ type folderScan struct {
 	inWindow    bool
 	failures    []string
 	sourceFiles []sourceFile
+	merged      []byte // the merged PDF; its SHA-256 is hash
 	err         error
+}
+
+// attachment returns the merged PDF as a record attachment named after
+// its folder ID ("{evidence_id}.pdf", or "{evidence_id}.{member_id}.pdf"
+// for a fan-out member), or nil when nothing was merged. The collector
+// writes it into the run folder so the bytes behind file_hash are in
+// the vault and in the manifest's file_hashes.
+func (s *folderScan) attachment(folderID string) []core.Attachment {
+	if len(s.merged) == 0 {
+		return nil
+	}
+	return []core.Attachment{{Name: folderID + ".pdf", Data: s.merged}}
 }
 
 // scanFolder performs the v1 manual-evidence algorithm against a single
@@ -270,8 +284,8 @@ func (p *Plugin) scanFolder(ctx context.Context, folderID, periodID, priorID str
 		return out
 	}
 
-	mergedHash, mergedSize, mergeFailures := mergeAndValidate(ctx, pdfParts)
-	out.hash, out.size = mergedHash, mergedSize
+	merged, mergedHash, mergeFailures := mergeAndValidate(ctx, pdfParts)
+	out.merged, out.hash, out.size = merged, mergedHash, len(merged)
 	out.failures = append(out.failures, mergeFailures...)
 	out.inWindow = isInTemporalWindow(latestAt, periodStart, periodEnd, grace)
 
@@ -290,6 +304,7 @@ func (p *Plugin) scanFolder(ctx context.Context, folderID, periodID, priorID str
 // deterministic across runs (Core Principle #7 — auditors diff runs).
 func (p *Plugin) collectInstances(ctx context.Context, entry *CatalogEntry, periodID, priorID string, periodStart, periodEnd, now time.Time) ([]core.EvidenceRecord, error) {
 	instances := make([]instanceManifest, 0, len(entry.Instances))
+	var attachments []core.Attachment
 	satisfied := 0
 
 	for i := range entry.Instances {
@@ -316,10 +331,12 @@ func (p *Plugin) collectInstances(ctx context.Context, entry *CatalogEntry, peri
 			continue
 		}
 
-		scan := p.scanFolder(ctx, inst.FolderID(entry.EvidenceID), periodID, priorID, periodStart, periodEnd, entry.GracePeriod)
+		folderID := inst.FolderID(entry.EvidenceID)
+		scan := p.scanFolder(ctx, folderID, periodID, priorID, periodStart, periodEnd, entry.GracePeriod)
 		if scan.err != nil {
 			return nil, scan.err
 		}
+		attachments = append(attachments, scan.attachment(folderID)...)
 		im.ExpectedURI = scan.uri
 		im.FilePresent = scan.present
 		im.FileHash = scan.hash
@@ -345,6 +362,7 @@ func (p *Plugin) collectInstances(ctx context.Context, entry *CatalogEntry, peri
 	if err != nil {
 		return nil, err
 	}
+	rec.Attachments = attachments
 	return []core.EvidenceRecord{rec}, nil
 }
 
@@ -374,16 +392,17 @@ func (p *Plugin) parseCollectParams(req core.SlotRequest) (CatalogEntry, string,
 }
 
 // mergeAndValidate merges pdfParts into one PDF and validates the result.
-// It returns the hex-encoded SHA-256 hash of the merged PDF, its byte size,
-// and any validation failures (merge errors or structural PDF failures).
-func mergeAndValidate(ctx context.Context, pdfParts [][]byte) (mergedHash string, mergedSize int, failures []string) {
+// It returns the merged bytes, their "sha256:"-prefixed hex hash, and any
+// validation failures (merge errors or structural PDF failures). A failed
+// merge returns no bytes, so there is nothing to store.
+func mergeAndValidate(ctx context.Context, pdfParts [][]byte) (merged []byte, mergedHash string, failures []string) {
 	merged, err := pdfmerge.Merge(ctx, pdfParts)
 	if err != nil {
-		return "", 0, []string{fmt.Sprintf("merge_failed: %v", err)}
+		return nil, "", []string{fmt.Sprintf("merge_failed: %v", err)}
 	}
 	failures = validatePDF(merged)
 	h := sha256.Sum256(merged)
-	return "sha256:" + hex.EncodeToString(h[:]), len(merged), failures
+	return merged, "sha256:" + hex.EncodeToString(h[:]), failures
 }
 
 // fetchAndConvert lists all items, separates supported from unsupported

@@ -7,20 +7,27 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
-// resolveException returns the first non-expired exception declared for a
-// policy (the entries already belong to one policy — the map key in
-// PolicyConfig — so there is no policy matching here). Expired exceptions
+// resolveExceptions returns every non-expired exception declared for a
+// policy, in declared order (the entries already belong to one policy —
+// the map key in PolicyConfig — so there is no policy matching here).
+// Each scoped entry waives its own resources, so a policy can carry one
+// waiver per legacy resource. An entry with no scope decides the whole
+// result, so the first such entry is returned alone. Expired exceptions
 // are skipped, so the policy goes back to failing normally once a waiver
 // lapses. Returns nil when the policy has no live exception.
-func resolveException(exceptions []spec.PolicyException, now time.Time) *Exception {
+func resolveExceptions(exceptions []spec.PolicyException, now time.Time) []*Exception {
+	var live []*Exception
 	for i := range exceptions {
 		e := &exceptions[i]
 		if exceptionExpired(e.ExpiresAt, now) {
 			continue
 		}
-		return toException(e)
+		if e.Scope.ResourceID == "" && e.Scope.ResourcePattern == "" {
+			return []*Exception{toException(e)}
+		}
+		live = append(live, toException(e))
 	}
-	return nil
+	return live
 }
 
 // resolveControlException returns a whole-policy N/A exception when any

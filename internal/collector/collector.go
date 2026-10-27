@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/sigcomply/sigcomply-cli/internal/core"
@@ -98,7 +99,7 @@ func Collect(ctx context.Context, in *Input) (*Output, error) {
 			// prior envelope. See docs/architecture/10-cadence-model.md.
 			continue
 		}
-		if pp.Exception != nil && pp.Exception.ResourceID == "" && pp.Exception.ResourcePattern == "" {
+		if pp.WholePolicyException() != nil {
 			// Whole-policy exception — no need to collect.
 			continue
 		}
@@ -167,7 +168,42 @@ func collectBinding(ctx context.Context, pp *planner.PlannedPolicy, slotName str
 			return records, err
 		}
 	}
+	if err := writeAttachments(ctx, in, pp.Spec.ID, records); err != nil {
+		return records, err
+	}
 	return records, nil
+}
+
+// writeAttachments stores each record's binary attachments (today the
+// merged manual-evidence PDF) at policies/{policy_id}/attachments/{name}
+// in the run folder. Going through the run's vault puts them in the
+// manifest's file_hashes, and the record's payload already carries
+// their hash, so an auditor can match one to the other. A failed
+// write is a collection error like a failed envelope write.
+func writeAttachments(ctx context.Context, in *Input, policyID string, records []core.EvidenceRecord) error {
+	for i := range records {
+		for _, a := range records[i].Attachments {
+			if !safeAttachmentName(a.Name) {
+				return fmt.Errorf("collector: record %q: attachment name %q is not a single path segment", records[i].ID, a.Name)
+			}
+			path := AttachmentPath(in.RunRoot, policyID, a.Name)
+			if err := in.Vault.PutBinary(ctx, path, a.Data, nil); err != nil {
+				return fmt.Errorf("collector: write attachment %s: %w", path, err)
+			}
+		}
+	}
+	return nil
+}
+
+// AttachmentPath is where a record attachment lands in the vault.
+func AttachmentPath(runRoot, policyID, name string) string {
+	return fmt.Sprintf("%s/policies/%s/attachments/%s", runRoot, policyID, name)
+}
+
+// safeAttachmentName keeps a plugin-chosen name inside the policy's
+// attachments folder on every vault backend.
+func safeAttachmentName(name string) bool {
+	return name != "" && name != "." && name != ".." && !strings.ContainsAny(name, `/\`)
 }
 
 func writeEnvelope(ctx context.Context, in *Input, pp *planner.PlannedPolicy, slotName string, b *planner.Binding, group typeGroup, out *Output) error {

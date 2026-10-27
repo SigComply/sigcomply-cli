@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -679,5 +680,54 @@ func TestPassWhen_FilterErrorDoesNotLeakViolations(t *testing.T) {
 	}
 	if len(result.Violations) != 0 {
 		t.Errorf("violations = %d; want 0 (nothing was judged)", len(result.Violations))
+	}
+}
+
+// A policy whose slots are all optional must not pass when nothing is
+// bound to any of them: it examined no source, so it skips like a
+// policy whose required slot is unbound. One bound slot is enough to
+// evaluate, even when that source returned no records.
+func TestEvaluate_OptionalSlotsNothingBound_Skips(t *testing.T) {
+	optional := func() planner.PlannedPolicy {
+		return planner.PlannedPolicy{
+			Spec: core.Policy{
+				ID:           "p1",
+				EvidenceMode: core.EvidenceModeAutomated,
+				Slots: map[string]core.Slot{
+					slotUsers: {Accepts: []string{testTypeDirectoryUser}},
+					"admins":  {Accepts: []string{testTypeDirectoryUser}},
+				},
+				PassWhen: &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+					Slot:       slotUsers,
+					Quantifier: core.QuantifierAll,
+					Condition:  &core.PassWhenCondition{Op: "eq", Field: fieldPayloadMFAEnabled, Value: true},
+				}}},
+			},
+			Parameters:     map[string]any{},
+			ShouldEvaluate: true,
+		}
+	}
+	run := func(pp planner.PlannedPolicy) core.PolicyResult {
+		t.Helper()
+		res, err := Evaluate(context.Background(), &Input{
+			Plan: &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
+			Now:  time.Now(),
+		})
+		if err != nil {
+			t.Fatalf("Evaluate: %v", err)
+		}
+		return res[0]
+	}
+
+	unbound := optional()
+	unbound.Bindings = map[string][]planner.Binding{slotUsers: nil, "admins": nil}
+	if r := run(unbound); r.Status != core.StatusSkip {
+		t.Errorf("nothing bound: status = %q; want skip", r.Status)
+	}
+
+	bound := optional()
+	bound.Bindings = map[string][]planner.Binding{slotUsers: {{SourceID: "test.source"}}}
+	if r := run(bound); r.Status != core.StatusPass {
+		t.Errorf("one slot bound: status = %q; want pass (evaluated on the bound source)", r.Status)
 	}
 }

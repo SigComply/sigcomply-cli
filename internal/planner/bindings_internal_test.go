@@ -16,6 +16,8 @@ const (
 	srcAWSIAMBackup = "aws.iam[backup]"
 	srcGitHub       = "github"
 
+	stateWaived = "waived"
+
 	evDirectoryUser   = "directory_user"
 	evDirectoryUserV2 = "directory_user.v2"
 
@@ -121,29 +123,55 @@ func TestPolicyMatchesControl(t *testing.T) {
 	}
 }
 
-// resolveException returns the first non-expired entry in a policy's own
-// exception list (entries are already scoped to one policy by the map key
-// in PolicyConfig, so there is no cross-policy matching).
-func TestResolveException_FirstNonExpired(t *testing.T) {
+// resolveExceptions skips expired entries in a policy's own exception
+// list (entries are already scoped to one policy by the map key in
+// PolicyConfig, so there is no cross-policy matching).
+func TestResolveExceptions_SkipsExpired(t *testing.T) {
 	now := time.Date(2026, 5, 25, 0, 0, 0, 0, time.UTC)
 	exceptions := []spec.PolicyException{
-		{State: "waived", Reason: "expired waiver", ExpiresAt: "2026-01-01"},
+		{State: stateWaived, Reason: "expired waiver", ExpiresAt: "2026-01-01"},
 		{State: "na", Reason: "live waiver"},
 	}
-	e := resolveException(exceptions, now)
-	if e == nil {
-		t.Fatal("expected the live (non-expired) exception")
+	got := resolveExceptions(exceptions, now)
+	if len(got) != 1 || got[0].Reason != "live waiver" {
+		t.Fatalf("resolved = %+v; want only the live entry (expired entries are skipped)", got)
 	}
-	if e.Reason != "live waiver" {
-		t.Errorf("resolved reason = %q; want the live one (expired entries are skipped)", e.Reason)
+}
+
+// Every live scoped exception applies, each with its own scope: a
+// second waiver for a second legacy resource must not be dropped.
+func TestResolveExceptions_AllLiveScopedApply(t *testing.T) {
+	now := time.Date(2026, 5, 25, 0, 0, 0, 0, time.UTC)
+	exceptions := []spec.PolicyException{
+		{State: stateWaived, Reason: "a", Scope: spec.ExceptionScope{ResourceID: "res-a"}},
+		{State: stateWaived, Reason: "expired", ExpiresAt: "2026-03-01", Scope: spec.ExceptionScope{ResourceID: "res-x"}},
+		{State: stateWaived, Reason: "b", Scope: spec.ExceptionScope{ResourcePattern: "legacy-*"}},
+	}
+	got := resolveExceptions(exceptions, now)
+	if len(got) != 2 || got[0].Reason != "a" || got[1].ResourcePattern != "legacy-*" {
+		t.Fatalf("resolved = %+v; want both live scoped entries in declared order", got)
+	}
+}
+
+// A live whole-policy exception decides the result, so it is returned
+// alone even when scoped entries are declared beside it.
+func TestResolveExceptions_WholePolicyWins(t *testing.T) {
+	now := time.Date(2026, 5, 25, 0, 0, 0, 0, time.UTC)
+	exceptions := []spec.PolicyException{
+		{State: stateWaived, Reason: "scoped", Scope: spec.ExceptionScope{ResourceID: "res-b"}},
+		{State: "na", Reason: "whole"},
+	}
+	got := resolveExceptions(exceptions, now)
+	if len(got) != 1 || got[0].Reason != "whole" {
+		t.Fatalf("resolved = %+v; want only the whole-policy entry", got)
 	}
 }
 
 // An empty exception list yields no exception.
-func TestResolveException_Empty(t *testing.T) {
+func TestResolveExceptions_Empty(t *testing.T) {
 	now := time.Date(2026, 5, 25, 0, 0, 0, 0, time.UTC)
-	if e := resolveException(nil, now); e != nil {
-		t.Errorf("empty list should yield nil; got %+v", e)
+	if got := resolveExceptions(nil, now); len(got) != 0 {
+		t.Errorf("empty list should yield none; got %+v", got)
 	}
 }
 

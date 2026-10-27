@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +22,10 @@ const (
 	keyFileValid        = "file_valid"
 	keyInTemporalWindow = "in_temporal_window"
 	keyExpectedURI      = "expected_uri"
+	keyValidationFails  = "validation_failures"
+	keyFileHash         = "file_hash"
+
+	resLegacySvc = "iam_user_legacy_svc"
 
 	policyIDManual = "p.manual.1"
 )
@@ -192,7 +197,7 @@ func TestEvaluate_WholePolicyNAException(t *testing.T) {
 	rule := makeRule("rules.r.v1", core.RuleResult{Status: core.StatusFail, Violations: []core.Violation{{ResourceID: "x"}}}, nil)
 	set := setupRules(t, rule)
 	pp := makePlannedPolicy("p1", "C1", "rules.r.v1", "u")
-	pp.Exception = &planner.Exception{State: core.StatusNA, Reason: "not applicable"}
+	pp.Exceptions = []*planner.Exception{{State: core.StatusNA, Reason: "not applicable"}}
 	in := &Input{
 		Plan:  &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
 		Rules: set.Rules,
@@ -216,13 +221,13 @@ func TestEvaluate_ResourceWaiver(t *testing.T) {
 	rule := makeRule("rules.r.v1", core.RuleResult{
 		Status: core.StatusFail,
 		Violations: []core.Violation{
-			{ResourceID: "iam_user_legacy_svc"},
+			{ResourceID: resLegacySvc},
 			{ResourceID: "iam_user_alice"},
 		},
 	}, nil)
 	set := setupRules(t, rule)
 	pp := makePlannedPolicy("p1", "C1", "rules.r.v1", "u")
-	pp.Exception = &planner.Exception{State: core.StatusWaived, ResourceID: "iam_user_legacy_svc"}
+	pp.Exceptions = []*planner.Exception{{State: core.StatusWaived, ResourceID: resLegacySvc}}
 	in := &Input{
 		Plan:  &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
 		Rules: set.Rules,
@@ -255,7 +260,7 @@ func TestEvaluate_PatternResourceWaiverSuppressesAll(t *testing.T) {
 	}, nil)
 	set := setupRules(t, rule)
 	pp := makePlannedPolicy("p1", "C1", "rules.r.v1", "u")
-	pp.Exception = &planner.Exception{State: core.StatusWaived, ResourcePattern: "legacy_*"}
+	pp.Exceptions = []*planner.Exception{{State: core.StatusWaived, ResourcePattern: "legacy_*"}}
 	in := &Input{
 		Plan:  &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
 		Rules: set.Rules,
@@ -269,6 +274,41 @@ func TestEvaluate_PatternResourceWaiverSuppressesAll(t *testing.T) {
 	}
 	if res[0].Status != core.StatusWaived {
 		t.Errorf("status = %q; want waived", res[0].Status)
+	}
+}
+
+// Every live scoped exception waives its own resources: two waivers,
+// one per legacy resource, together suppress both failures.
+func TestEvaluate_MultipleScopedWaiversAllApply(t *testing.T) {
+	rule := makeRule("rules.r.v1", core.RuleResult{
+		Status: core.StatusFail,
+		Violations: []core.Violation{
+			{ResourceID: resLegacySvc},
+			{ResourceID: "old_build_bot"},
+		},
+	}, nil)
+	set := setupRules(t, rule)
+	pp := makePlannedPolicy("p1", "C1", "rules.r.v1", "u")
+	pp.Exceptions = []*planner.Exception{
+		{State: core.StatusWaived, ResourceID: resLegacySvc},
+		{State: core.StatusWaived, ResourcePattern: "old_*"},
+	}
+	in := &Input{
+		Plan:  &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}},
+		Rules: set.Rules,
+		RecordsByPolicy: map[string]map[string][]core.EvidenceRecord{
+			"p1": {"u": {{ID: "u1"}, {ID: "u2"}}},
+		},
+	}
+	res, err := Evaluate(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Evaluate: %v", err)
+	}
+	if res[0].Status != core.StatusWaived {
+		t.Errorf("status = %q; want waived (both failures covered)", res[0].Status)
+	}
+	if res[0].Diag["waived_count"] != 2 {
+		t.Errorf("waived_count = %v; want 2", res[0].Diag["waived_count"])
 	}
 }
 
@@ -335,6 +375,7 @@ func TestEvaluate_ManualPathA_OutsideWindow(t *testing.T) {
 		keyInTemporalWindow: false,
 		keyFileValid:        true,
 		keyExpectedURI:      "s3://bucket/manual/q1/evidence.pdf",
+		keyFileHash:         "sha256:00",
 	})
 	if err != nil {
 		t.Fatalf("json.Marshal: %v", err)
@@ -359,11 +400,11 @@ func TestEvaluate_ManualPathA_OutsideWindow(t *testing.T) {
 func TestEvaluate_ManualPathA_InvalidPDF(t *testing.T) {
 	pp := makePlannedPolicyManual(policyIDManual, "C1")
 	payload, err := json.Marshal(map[string]any{
-		keyFilePresent:        true,
-		keyInTemporalWindow:   true,
-		keyFileValid:          false,
-		"validation_failures": []string{"missing_pdf_header"},
-		keyExpectedURI:        "s3://bucket/manual/q1/evidence.pdf",
+		keyFilePresent:      true,
+		keyInTemporalWindow: true,
+		keyFileValid:        false,
+		keyValidationFails:  []string{"missing_pdf_header"},
+		keyExpectedURI:      "s3://bucket/manual/q1/evidence.pdf",
 	})
 	if err != nil {
 		t.Fatalf("json.Marshal: %v", err)
@@ -382,6 +423,30 @@ func TestEvaluate_ManualPathA_InvalidPDF(t *testing.T) {
 	}
 	if res[0].Status != core.StatusFail {
 		t.Errorf("status = %q; want fail", res[0].Status)
+	}
+}
+
+// When every uploaded file is unsupported there is no document to date,
+// so the plugin reports in_temporal_window=false without having judged
+// the window. The reason must name the unsupported file, not the window.
+func TestEvaluate_ManualPathA_AllUnsupported_ReportsFileType(t *testing.T) {
+	payload, err := json.Marshal(map[string]any{
+		keyFilePresent:      true,
+		keyInTemporalWindow: false,
+		keyFileValid:        false,
+		keyValidationFails:  []string{`unsupported_file_type: "review.docx"`},
+		keyExpectedURI:      "s3://bucket/manual/q1/",
+	})
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	got := evaluateManual(map[string][]core.EvidenceRecord{slotManual: {{ID: "q1", Payload: payload}}})
+	if got.Status != core.StatusFail {
+		t.Fatalf("status = %q; want fail", got.Status)
+	}
+	reason := got.Violations[0].Reason
+	if !strings.Contains(reason, "unsupported_file_type") || strings.Contains(reason, "temporal window") {
+		t.Errorf("reason = %q; want the unsupported_file_type failure, not the window", reason)
 	}
 }
 

@@ -190,10 +190,15 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 
 	completedAt := nowOrFallback(opts.Now)
 	stampNextDue(results, plan, startedAt)
-	persistResults(ctx, rec, opts.Logger, runRoot, results, runID, plan, completedAt, scopeReport)
+	// The vault is the audit record. A run whose results, summary or
+	// manifest did not land there has nothing an auditor can verify, so
+	// a failed write is an execution error (exit 2), not a warning.
+	if err := persistResults(ctx, rec, runRoot, results, runID, plan, completedAt, scopeReport); err != nil {
+		return Result{ExitCode: ExitExecution, RunID: runID, RunRoot: runRoot}, err
+	}
 
-	if err := writeManifest(ctx, rec, opts.Logger, runRoot, runID, plan, startedAt, completedAt); err != nil {
-		return Result{ExitCode: ExitExecution}, err
+	if err := writeManifest(ctx, rec, runRoot, runID, plan, startedAt, completedAt); err != nil {
+		return Result{ExitCode: ExitExecution, RunID: runID, RunRoot: runRoot}, err
 	}
 
 	advancePolicyStates(ctx, opts, plan, results, runID, runRoot, startedAt)
@@ -539,20 +544,23 @@ func runCollect(ctx context.Context, opts *Options, plan *planner.RunPlan, rec *
 	return out, nil
 }
 
-func persistResults(ctx context.Context, rec *recordingVault, logger *log.Logger, runRoot string, results []core.PolicyResult, runID string, plan *planner.RunPlan, completedAt time.Time, scopeReport *scope.Report) {
+func persistResults(ctx context.Context, rec *recordingVault, runRoot string, results []core.PolicyResult, runID string, plan *planner.RunPlan, completedAt time.Time, scopeReport *scope.Report) error {
 	for i := range results {
 		r := &results[i]
-		if err := rec.PutJSON(ctx, fmt.Sprintf("%s/policies/%s/result.json", runRoot, r.PolicyID), r); err != nil {
-			logger.Warnf("vault: write result.json for %s: %s", r.PolicyID, err.Error())
+		path := fmt.Sprintf("%s/policies/%s/result.json", runRoot, r.PolicyID)
+		if err := rec.PutJSON(ctx, path, r); err != nil {
+			return fmt.Errorf("vault: write result.json for %s at %s: %w", r.PolicyID, path, err)
 		}
 	}
 	summary := summaryFromResults(results, runID, plan, completedAt, scopeReport)
-	if err := rec.PutJSON(ctx, fmt.Sprintf("%s/summary.json", runRoot), summary); err != nil {
-		logger.Warnf("vault: write summary.json: %s", err.Error())
+	path := fmt.Sprintf("%s/summary.json", runRoot)
+	if err := rec.PutJSON(ctx, path, summary); err != nil {
+		return fmt.Errorf("vault: write summary.json at %s: %w", path, err)
 	}
+	return nil
 }
 
-func writeManifest(ctx context.Context, rec *recordingVault, logger *log.Logger, runRoot, runID string, plan *planner.RunPlan, startedAt, completedAt time.Time) error {
+func writeManifest(ctx context.Context, rec *recordingVault, runRoot, runID string, plan *planner.RunPlan, startedAt, completedAt time.Time) error {
 	manifest := &core.Manifest{
 		SchemaVersion:     ManifestSchemaVersion,
 		RunID:             runID,
@@ -568,8 +576,9 @@ func writeManifest(ctx context.Context, rec *recordingVault, logger *log.Logger,
 	}
 	// Don't include manifest.json in its own file_hashes — the signature
 	// covers the table, and the table covers every other file.
-	if err := rec.PutJSON(ctx, fmt.Sprintf("%s/manifest.json", runRoot), manifest); err != nil {
-		logger.Warnf("vault: write manifest.json: %s", err.Error())
+	path := fmt.Sprintf("%s/manifest.json", runRoot)
+	if err := rec.PutJSON(ctx, path, manifest); err != nil {
+		return fmt.Errorf("vault: write manifest.json at %s: %w", path, err)
 	}
 	return nil
 }
@@ -582,21 +591,21 @@ func collectAppliedExceptions(plan *planner.RunPlan) []core.AppliedException {
 	out := make([]core.AppliedException, 0)
 	for i := range plan.Policies {
 		pp := &plan.Policies[i]
-		if pp.Exception == nil {
-			continue
+		for _, exc := range pp.Exceptions {
+			out = append(out, core.AppliedException{
+				PolicyID:        pp.Spec.ID,
+				State:           string(exc.State),
+				Reason:          exc.Reason,
+				ApprovedBy:      exc.ApprovedBy,
+				ApprovedAt:      exc.ApprovedAt,
+				ExpiresAt:       exc.ExpiresAt,
+				ResourceID:      exc.ResourceID,
+				ResourcePattern: exc.ResourcePattern,
+			})
 		}
-		out = append(out, core.AppliedException{
-			PolicyID:        pp.Spec.ID,
-			State:           string(pp.Exception.State),
-			Reason:          pp.Exception.Reason,
-			ApprovedBy:      pp.Exception.ApprovedBy,
-			ApprovedAt:      pp.Exception.ApprovedAt,
-			ExpiresAt:       pp.Exception.ExpiresAt,
-			ResourceID:      pp.Exception.ResourceID,
-			ResourcePattern: pp.Exception.ResourcePattern,
-		})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].PolicyID < out[j].PolicyID })
+	// Stable: a policy's own exceptions keep their declared order.
+	sort.SliceStable(out, func(i, j int) bool { return out[i].PolicyID < out[j].PolicyID })
 	if len(out) == 0 {
 		return nil
 	}
@@ -657,7 +666,8 @@ func buildRunRoot(framework, periodID string, now time.Time, runID string) strin
 }
 
 // recordingVault wraps a core.Vault and captures SHA-256 hashes of every
-// byte stream written. Used to populate Manifest.FileHashes after the
+// byte stream written successfully (a failed write is never listed, so
+// the manifest cannot vouch for a file that is not there). Used to populate Manifest.FileHashes after the
 // run completes. The wrapper itself satisfies core.Vault.
 type recordingVault struct {
 	inner  core.Vault
@@ -674,20 +684,29 @@ func (v *recordingVault) PutEnvelope(ctx context.Context, path string, e *core.E
 	if err != nil {
 		return err
 	}
+	if err := v.inner.PutEnvelope(ctx, path, e); err != nil {
+		return err
+	}
 	v.record(path, body)
-	return v.inner.PutEnvelope(ctx, path, e)
+	return nil
 }
 func (v *recordingVault) PutJSON(ctx context.Context, path string, body any) error {
 	data, err := json.Marshal(body)
 	if err != nil {
 		return err
 	}
+	if err := v.inner.PutJSON(ctx, path, body); err != nil {
+		return err
+	}
 	v.record(path, data)
-	return v.inner.PutJSON(ctx, path, body)
+	return nil
 }
 func (v *recordingVault) PutBinary(ctx context.Context, path string, body []byte, meta map[string]string) error {
+	if err := v.inner.PutBinary(ctx, path, body, meta); err != nil {
+		return err
+	}
 	v.record(path, body)
-	return v.inner.PutBinary(ctx, path, body, meta)
+	return nil
 }
 func (v *recordingVault) GetBinary(ctx context.Context, path string) ([]byte, error) {
 	return v.inner.GetBinary(ctx, path)

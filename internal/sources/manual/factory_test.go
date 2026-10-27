@@ -122,3 +122,17 @@ func TestFactoryRegistration(t *testing.T) {
 		t.Fatalf("manual.pdf not registered in sources factory registry")
 	}
 }
+
+// Every key a compiled-in backend reads must be registered, or the
+// config loader warns that a valid setting is "ignored".
+func TestManualPDF_RegistersEveryBackendKey(t *testing.T) {
+	got := map[string]bool{}
+	for _, k := range sources.ConfigKeys(SourceID) {
+		got[k] = true
+	}
+	for _, k := range strings.Fields("backend path bucket prefix region endpoint force_path_style account container") {
+		if !got[k] {
+			t.Errorf("manual.pdf does not register config key %q", k)
+		}
+	}
+}

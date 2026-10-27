@@ -180,7 +180,7 @@ func TestEvaluate_WholePolicyWaivedException(t *testing.T) {
 	pp := planner.PlannedPolicy{
 		Spec:           core.Policy{ID: "p1", EvidenceMode: core.EvidenceModeAutomated},
 		ShouldEvaluate: true,
-		Exception:      &planner.Exception{State: core.StatusWaived},
+		Exceptions:     []*planner.Exception{{State: core.StatusWaived}},
 	}
 	in := &Input{Plan: &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}}}
 	res, err := Evaluate(context.Background(), in)

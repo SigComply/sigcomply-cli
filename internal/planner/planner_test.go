@@ -23,7 +23,14 @@ const (
 	evRosterEntry     = "roster_entry"
 
 	catalogMFAAttestation = "mfa_attestation"
+	catalogAccessReview   = "access_review_quarterly"
+	accessReviewPolicyID  = "soc2.cc6.1.access_review"
+	modeManual            = "manual"
 )
+
+// manualSourceConfig configures the manual.pdf singleton, which any plan
+// that runs a manual policy requires.
+var manualSourceConfig = map[string]map[string]any{"manual.pdf": {}}
 
 // fakeFramework + fakeSource keep the test self-contained; the real
 // loaders are exercised in their own packages.
@@ -458,11 +465,11 @@ func TestPlan_ExceptionApplied(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Plan: %v", err)
 	}
-	if plan.Policies[0].Exception == nil {
-		t.Fatal("expected exception applied; got nil")
+	if len(plan.Policies[0].Exceptions) != 1 {
+		t.Fatalf("expected one exception applied; got %+v", plan.Policies[0].Exceptions)
 	}
-	if plan.Policies[0].Exception.State != core.StatusWaived {
-		t.Errorf("Exception.State = %q; want waived", plan.Policies[0].Exception.State)
+	if plan.Policies[0].Exceptions[0].State != core.StatusWaived {
+		t.Errorf("Exception.State = %q; want waived", plan.Policies[0].Exceptions[0].State)
 	}
 }
 
@@ -477,10 +484,11 @@ func TestPlan_PolicyOverride_AutomatedToManual(t *testing.T) {
 		Framework:     fwSOC2,
 		Policies: map[string]spec.PolicyConfig{
 			ordinaryPolicyID: {
-				EvidenceMode: "manual",
+				EvidenceMode: modeManual,
 				CatalogEntry: catalogMFAAttestation,
 			},
 		},
+		Sources: manualSourceConfig,
 	}
 	commit := commitFixture(t)
 	plan, err := planner.Plan(&planner.Input{
@@ -514,6 +522,61 @@ func TestPlan_PolicyOverride_AutomatedToManual(t *testing.T) {
 	}
 }
 
+// A policy switched to manual reads the catalog entry's folder, so the
+// folder is keyed on the entry's cadence (quarterly here), not on the
+// switched policy's own (daily). Otherwise the run looks in a per-day
+// folder nobody uploads to.
+func TestPlan_PolicyOverride_AutomatedToManual_UsesCatalogEntryCadence(t *testing.T) {
+	set := setUp(t)
+	shipped := core.Policy{
+		ID:           accessReviewPolicyID,
+		Controls:     []core.ControlRef{{ControlID: ctrlSOC2CC61}},
+		EvidenceMode: core.EvidenceModeManual,
+		CatalogEntry: catalogAccessReview,
+		Cadence:      cadenceQuarterly,
+	}
+	if err := set.Policies.Register(shipped); err != nil {
+		t.Fatalf("register manual policy: %v", err)
+	}
+	fw, ok := set.Frameworks.Lookup(fwSOC2)
+	if !ok {
+		t.Fatal("framework not registered")
+	}
+	fake, ok := fw.(*fakeFramework)
+	if !ok {
+		t.Fatalf("framework is %T; want *fakeFramework", fw)
+	}
+	fake.policies = append(fake.policies, core.PolicyRef{PolicyID: shipped.ID})
+	cfg := &spec.ProjectConfig{
+		SchemaVersion: schemaProjectV1,
+		Framework:     fwSOC2,
+		Policies: map[string]spec.PolicyConfig{
+			ordinaryPolicyID: {EvidenceMode: modeManual, CatalogEntry: catalogAccessReview},
+		},
+		Sources: manualSourceConfig,
+	}
+	commit := commitFixture(t)
+	plan, err := planner.Plan(&planner.Input{
+		Config: cfg, Registries: set, CommitTime: commit, Now: commit,
+		// Filtered to the switched policy alone: the entry's cadence must
+		// not depend on its own policy being in the plan.
+		Filter: planner.Filter{Policies: []string{ordinaryPolicyID}},
+	})
+	if err != nil {
+		t.Fatalf("Plan: %v", err)
+	}
+	if len(plan.Policies) != 1 {
+		t.Fatalf("Policies length = %d; want 1", len(plan.Policies))
+	}
+	b := plan.Policies[0].Bindings[spec.ManualSlotName]
+	if len(b) != 1 || b[0].Period == nil {
+		t.Fatalf("expected one manual binding with a period; got %+v", b)
+	}
+	if b[0].Period.ID != period2026Q1 {
+		t.Errorf("manual folder period = %q; want %q (the catalog entry's quarterly window)", b[0].Period.ID, period2026Q1)
+	}
+}
+
 func TestPlan_PolicyOverride_AutomatedToManual_RejectsExplicitBindings(t *testing.T) {
 	// Binding entries for a manually-overridden policy are a configuration
 	// error — the planner creates the synthetic _manual binding itself.
@@ -523,7 +586,7 @@ func TestPlan_PolicyOverride_AutomatedToManual_RejectsExplicitBindings(t *testin
 		Framework:     fwSOC2,
 		Policies: map[string]spec.PolicyConfig{
 			ordinaryPolicyID: {
-				EvidenceMode: "manual",
+				EvidenceMode: modeManual,
 				CatalogEntry: catalogMFAAttestation,
 				Bindings:     map[string][]spec.BindingEntry{slotUserDirectory: {{Source: srcAWSIAMID}}},
 			},
@@ -542,10 +605,10 @@ func TestPlan_PolicyOverride_ManualToAutomated(t *testing.T) {
 	// automated binding-resolution path and clear CatalogEntry.
 	set := setUp(t)
 	manualPolicy := core.Policy{
-		ID:           "soc2.cc6.1.access_review",
+		ID:           accessReviewPolicyID,
 		Controls:     []core.ControlRef{{ControlID: ctrlSOC2CC61}},
 		EvidenceMode: core.EvidenceModeManual,
-		CatalogEntry: "access_review_quarterly",
+		CatalogEntry: catalogAccessReview,
 		Cadence:      cadenceQuarterly,
 		Slots: map[string]core.Slot{
 			"review_doc": {
@@ -578,7 +641,7 @@ func TestPlan_PolicyOverride_ManualToAutomated(t *testing.T) {
 		SchemaVersion: schemaProjectV1,
 		Framework:     fwSOC2,
 		Policies: map[string]spec.PolicyConfig{
-			"soc2.cc6.1.access_review": {
+			accessReviewPolicyID: {
 				EvidenceMode: "automated",
 				Bindings:     map[string][]spec.BindingEntry{"review_doc": {{Source: srcAWSIAMID}}},
 			},
@@ -646,7 +709,49 @@ func TestPlan_ExpiredExceptionSkipped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Plan: %v", err)
 	}
-	if plan.Policies[0].Exception != nil {
-		t.Errorf("expired exception should not apply; got %+v", plan.Policies[0].Exception)
+	if len(plan.Policies[0].Exceptions) != 0 {
+		t.Errorf("expired exception should not apply; got %+v", plan.Policies[0].Exceptions)
+	}
+}
+
+// A run that would read a manual-evidence folder with no manual.pdf
+// source configured is a config error at plan time, naming the key to
+// add, rather than an error result per manual policy.
+func TestPlan_ManualPolicyWithoutManualSource_IsConfigError(t *testing.T) {
+	set := setUp(t)
+	cfg := &spec.ProjectConfig{
+		SchemaVersion: schemaProjectV1, Framework: fwSOC2,
+		Policies: map[string]spec.PolicyConfig{
+			ordinaryPolicyID: {EvidenceMode: modeManual, CatalogEntry: catalogMFAAttestation},
+		},
+	}
+	commit := commitFixture(t)
+	_, err := planner.Plan(&planner.Input{Config: cfg, Registries: set, CommitTime: commit, Now: commit})
+	if err == nil || !strings.Contains(err.Error(), "sources.manual.pdf") {
+		t.Fatalf("err = %v; want a config error naming sources.manual.pdf", err)
+	}
+}
+
+// No manual policy runs, so no manual.pdf source is needed: an
+// automated-only run, and a manual policy a whole-policy exception
+// decides, both plan without one.
+func TestPlan_NoManualPolicyRuns_NeedsNoManualSource(t *testing.T) {
+	set := setUp(t)
+	commit := commitFixture(t)
+	automated := &spec.ProjectConfig{SchemaVersion: schemaProjectV1, Framework: fwSOC2}
+	if _, err := planner.Plan(&planner.Input{Config: automated, Registries: set, CommitTime: commit, Now: commit}); err != nil {
+		t.Errorf("automated-only run: %v", err)
+	}
+	waived := &spec.ProjectConfig{
+		SchemaVersion: schemaProjectV1, Framework: fwSOC2,
+		Policies: map[string]spec.PolicyConfig{
+			ordinaryPolicyID: {
+				EvidenceMode: modeManual, CatalogEntry: catalogMFAAttestation,
+				Exceptions: []spec.PolicyException{{State: "na", Reason: "out of scope"}},
+			},
+		},
+	}
+	if _, err := planner.Plan(&planner.Input{Config: waived, Registries: set, CommitTime: commit, Now: commit}); err != nil {
+		t.Errorf("manual policy under a whole-policy exception: %v", err)
 	}
 }

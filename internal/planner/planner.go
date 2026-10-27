@@ -96,6 +96,9 @@ func Plan(in *Input) (*RunPlan, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := requireManualSource(policies, in.Config); err != nil {
+		return nil, err
+	}
 	return &RunPlan{
 		Framework: framework.ID(),
 		Period:    period,
@@ -136,6 +139,7 @@ func planPolicies(framework core.Framework, in *Input, roster *spec.RosterConfig
 	if in.Config != nil {
 		refs = append(refs, in.Config.ProjectLocalPolicies...)
 	}
+	catalogCadences := manualCatalogCadences(refs, in.Registries)
 	planned := make([]PlannedPolicy, 0, len(refs))
 	seen := make(map[string]struct{}, len(refs))
 	for _, ref := range refs {
@@ -150,7 +154,7 @@ func planPolicies(framework core.Framework, in *Input, roster *spec.RosterConfig
 		if !filterAccepts(&policy, &in.Filter, in.Config) {
 			continue
 		}
-		pp, err := planOne(&policy, in, roster)
+		pp, err := planOne(&policy, in, roster, catalogCadences)
 		if err != nil {
 			return nil, err
 		}
@@ -159,7 +163,7 @@ func planPolicies(framework core.Framework, in *Input, roster *spec.RosterConfig
 	return planned, nil
 }
 
-func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig) (PlannedPolicy, error) {
+func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig, catalogCadences map[string]string) (PlannedPolicy, error) {
 	// Apply project-level evidence_mode override before binding resolution.
 	// Work on a local copy so we never mutate the registry entry.
 	originalMode := policy.EvidenceMode
@@ -184,7 +188,7 @@ func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig) (Planned
 		if len(in.Config.BindingsFor(policy.ID)) > 0 {
 			return PlannedPolicy{}, fmt.Errorf("planner: policy %q (evidence_mode: manual) must not declare bindings in project config", policy.ID)
 		}
-		bindings, err = resolveManualBinding(policy, in)
+		bindings, err = resolveManualBinding(policy, in, catalogCadences)
 		if err != nil {
 			return PlannedPolicy{}, err
 		}
@@ -212,9 +216,11 @@ func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig) (Planned
 	// exceptions: a control marked not_applicable cascades a single na to
 	// every policy that maps to it. Only if no control N/A applies do we
 	// resolve the policy's own scoped waivers.
-	exception := resolveControlException(policy, in.Config.Controls)
-	if exception == nil {
-		exception = resolveException(in.Config.ExceptionsFor(policy.ID), in.Now)
+	var exceptions []*Exception
+	if na := resolveControlException(policy, in.Config.Controls); na != nil {
+		exceptions = []*Exception{na}
+	} else {
+		exceptions = resolveExceptions(in.Config.ExceptionsFor(policy.ID), in.Now)
 	}
 	cadence := resolveCadence(policy.ID, policy.Cadence, in.Config)
 
@@ -227,7 +233,7 @@ func planOne(policy *core.Policy, in *Input, roster *spec.RosterConfig) (Planned
 		Cadence:                cadence,
 		Parameters:             params,
 		Bindings:               bindings,
-		Exception:              exception,
+		Exceptions:             exceptions,
 		ShouldEvaluate:         shouldEvaluate,
 		SkipReason:             skipReason,
 		EvidenceModeOverridden: policy.EvidenceMode != originalMode,
@@ -347,29 +353,84 @@ func containsString(list []string, target string) bool {
 	return false
 }
 
+// requireManualSource rejects a plan that would read a manual-evidence
+// folder with no manual.pdf source configured. Without the check every
+// such policy reaches the evaluator with no record and ends as an
+// error, which reads as a collection failure (exit 2) rather than the
+// missing config it is. Only policies the run actually collects count:
+// carried-forward ones and ones a whole-policy exception decides read
+// no folder, so a run of automated policies alone needs no bucket.
+func requireManualSource(policies []PlannedPolicy, cfg *spec.ProjectConfig) error {
+	if _, ok := cfg.Sources[manualSourceID]; ok {
+		return nil
+	}
+	var ids []string
+	for i := range policies {
+		pp := &policies[i]
+		if pp.Spec.EvidenceMode != core.EvidenceModeManual || !pp.ShouldEvaluate || pp.WholePolicyException() != nil {
+			continue
+		}
+		ids = append(ids, pp.Spec.ID)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	return fmt.Errorf("planner: %d manual-evidence policies would run (first: %q) but no manual.pdf source is configured; add a sources.manual.pdf entry to .sigcomply.yaml pointing at the storage that holds your uploaded evidence", len(ids), ids[0])
+}
+
+// manualSourceID is the manual-evidence singleton's source key.
+const manualSourceID = "manual.pdf"
+
 // resolveManualBinding creates the synthetic binding for a manual policy.
 // The collector uses the "_manual" slot name to route to the manual.pdf
 // source; the CatalogID drives path resolution inside the plugin.
 //
-// The binding's period is derived from the policy's *declared* cadence,
-// deliberately not the project-override-resolved one: a cadence override
-// is a scheduling knob (how often to re-check), and must not relocate
-// the folder a customer uploads to. `evidence due` reads the same
-// declared cadence off the catalog entry, which is how the folder it
+// The binding's period is the catalog entry's cadence window, deliberately
+// not the project-override-resolved cadence: a cadence override is a
+// scheduling knob (how often to re-check), and must not relocate the
+// folder a customer uploads to. The entry's cadence is the declared
+// cadence of the manual policy that owns it, so for a shipped manual
+// policy it is its own; a policy switched to manual reads an entry owned
+// by another policy and takes that policy's cadence. `evidence due` reads
+// the same cadence off the catalog entry, which is how the folder it
 // reports stays byte-identical to the one Collect reads.
-func resolveManualBinding(policy *core.Policy, in *Input) (map[string][]Binding, error) {
-	period, err := CadencePeriod(&in.Config.Period, PeriodTime(&in.Config.Period, in.CommitTime, in.Now), policy.Cadence)
+func resolveManualBinding(policy *core.Policy, in *Input, catalogCadences map[string]string) (map[string][]Binding, error) {
+	cadence := policy.Cadence
+	if c, ok := catalogCadences[policy.CatalogEntry]; ok {
+		cadence = c
+	}
+	period, err := CadencePeriod(&in.Config.Period, PeriodTime(&in.Config.Period, in.CommitTime, in.Now), cadence)
 	if err != nil {
 		return nil, err
 	}
 	return map[string][]Binding{
 		spec.ManualSlotName: {{
-			SourceID:      "manual.pdf",
+			SourceID:      manualSourceID,
 			AcceptedTypes: []string{"signed_document"},
 			CatalogID:     policy.CatalogEntry,
 			Period:        &period,
 		}},
 	}, nil
+}
+
+// manualCatalogCadences maps each catalog entry to the declared cadence of
+// the manual policy that owns it, read from the registered (unoverridden)
+// policies. The framework's manual catalog is built the same way, so this
+// is the cadence `evidence due` and the manual.pdf plugin see. Built from
+// every ref, before the filter, so an entry's cadence does not depend on
+// whether its owning policy is in this run.
+func manualCatalogCadences(refs []core.PolicyRef, reg *registry.Set) map[string]string {
+	out := map[string]string{}
+	for _, ref := range refs {
+		p, ok := reg.Policies.Lookup(ref.PolicyID)
+		if !ok || p.EvidenceMode != core.EvidenceModeManual || p.CatalogEntry == "" {
+			continue
+		}
+		if _, dup := out[p.CatalogEntry]; !dup {
+			out[p.CatalogEntry] = p.Cadence
+		}
+	}
+	return out
 }
 
 // applyEvidenceModeOverride returns a copy of p with EvidenceMode and

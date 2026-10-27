@@ -1,6 +1,9 @@
 package manual
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // FolderPrefix returns the object-key prefix that holds one catalog
 // entry's evidence for one period:
@@ -12,10 +15,22 @@ import "fmt"
 // `sigcomply evidence due` reuses it so that the folder it reports as
 // empty is byte-identical to the one Collect will read.
 //
-// prefix is used verbatim — a config value without a trailing slash
-// yields a run-on key, which is the documented behavior.
+// prefix is normalized to end in exactly one slash, so `manual`,
+// `manual/` and `manual//` all name the same folder; an empty prefix
+// stays empty (the bucket root).
 func FolderPrefix(prefix, evidenceID, periodID string) string {
-	return fmt.Sprintf("%s%s/%s/", prefix, evidenceID, periodID)
+	return fmt.Sprintf("%s%s/%s/", normalizePrefix(prefix), evidenceID, periodID)
+}
+
+// normalizePrefix trims trailing slashes and adds one back. Without it a
+// prefix configured as `manual` runs into the folder name
+// (`manualcode_of_conduct/`), which nobody uploads to.
+func normalizePrefix(prefix string) string {
+	trimmed := strings.TrimRight(prefix, "/")
+	if trimmed == "" {
+		return ""
+	}
+	return trimmed + "/"
 }
 
 // FolderURI renders FolderPrefix as the display URI shown to operators

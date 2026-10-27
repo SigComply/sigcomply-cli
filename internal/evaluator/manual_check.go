@@ -17,6 +17,11 @@ type manualPayload struct {
 	FileValid        bool     `json:"file_valid"`
 	ExpectedURI      string   `json:"expected_uri"`
 	ValidationFails  []string `json:"validation_failures"`
+	// FileHash is set only when a merged document exists. Without one
+	// the plugin never judged the upload window (no usable file to date),
+	// so in_temporal_window=false says nothing and the validation
+	// failures are the real reason.
+	FileHash string `json:"file_hash"`
 
 	// Instances is non-empty only for a fan-out entry (one catalog
 	// entry, N folders — today, one per vendor in the project register).
@@ -36,6 +41,7 @@ type manualInstance struct {
 	InTemporalWindow bool     `json:"in_temporal_window"`
 	ExpectedURI      string   `json:"expected_uri"`
 	ValidationFails  []string `json:"validation_failures"`
+	FileHash         string   `json:"file_hash"`
 }
 
 // evaluateManual implements Path A: the universal evidence presence check
@@ -48,7 +54,9 @@ type manualInstance struct {
 //     source not configured).
 //  2. file_present=false → status=fail with a structured message that
 //     includes the expected folder URI.
-//  3. file_present=true, in_temporal_window=false → status=fail.
+//  3. file_present=true, a merged document exists, in_temporal_window=false
+//     → status=fail. With no merged document (every file unsupported or
+//     unconvertible) the window was never judged, so step 4 reports why.
 //  4. file_present=true, file_valid=false → status=fail with the
 //     specific validation_failures listed. Unsupported file types,
 //     conversion failures, and structural PDF errors all surface here.
@@ -86,7 +94,7 @@ func evaluateManual(slots map[string][]core.EvidenceRecord) core.RuleResult {
 			},
 		}
 	}
-	if !p.InTemporalWindow {
+	if !p.InTemporalWindow && p.FileHash != "" {
 		return core.RuleResult{
 			Status: core.StatusFail,
 			Violations: []core.Violation{
@@ -167,7 +175,7 @@ func manualInstanceReason(in *manualInstance) string {
 			return fmt.Sprintf("%s: no evidence found; expected files in: %s", label, in.ExpectedURI)
 		}
 		return fmt.Sprintf("%s: no evidence found", label)
-	case !in.InTemporalWindow:
+	case !in.InTemporalWindow && in.FileHash != "":
 		return fmt.Sprintf("%s: evidence at %s was uploaded outside the configured temporal window", label, in.ExpectedURI)
 	case len(in.ValidationFails) > 0:
 		return fmt.Sprintf("%s: evidence failed validation: %v", label, in.ValidationFails)

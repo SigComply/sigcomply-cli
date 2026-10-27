@@ -92,14 +92,22 @@ func TestEvaluateManual_Instances_ReasonsMatchFailureKind(t *testing.T) {
 		{
 			name: "outside window",
 			inst: map[string]any{"id": "a", keyRequired: true, keySatisfied: false,
-				keyFilePresent: true, keyInTemporalWindow: false},
+				keyFilePresent: true, keyInTemporalWindow: false, keyFileHash: "sha256:00"},
 			want: "outside the configured temporal window",
+		},
+		{
+			// No usable file, so the window was never judged.
+			name: "all files unsupported",
+			inst: map[string]any{"id": "a", keyRequired: true, keySatisfied: false,
+				keyFilePresent: true, keyInTemporalWindow: false,
+				keyValidationFails: []string{`unsupported_file_type: "a.docx"`}},
+			want: "unsupported_file_type",
 		},
 		{
 			name: "validation failure",
 			inst: map[string]any{"id": "a", keyRequired: true, keySatisfied: false,
 				keyFilePresent: true, keyInTemporalWindow: true,
-				"validation_failures": []string{"assurance_out_of_date (declared coverage ended 2020-01-01)"}},
+				keyValidationFails: []string{"assurance_out_of_date (declared coverage ended 2020-01-01)"}},
 			want: "assurance_out_of_date",
 		},
 	} {

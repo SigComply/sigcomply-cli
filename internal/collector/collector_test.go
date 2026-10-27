@@ -219,7 +219,7 @@ func TestCollect_WholePolicyExceptionSkipsFetch(t *testing.T) {
 	reg := registry.NewSet()
 	mustRegister(t, reg.Sources.Register(src))
 	pp := makePolicy("p1", "u", testTypeDirectoryUser, testSourceAWSIAM)
-	pp.Exception = &planner.Exception{State: core.StatusNA}
+	pp.Exceptions = []*planner.Exception{{State: core.StatusNA}}
 	_, err := Collect(context.Background(), &Input{
 		Plan: &planner.RunPlan{Policies: []planner.PlannedPolicy{pp}}, Sources: reg.Sources, Vault: newMemVault(), RunRoot: "r",
 	})

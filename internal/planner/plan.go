@@ -59,7 +59,11 @@ type PlannedPolicy struct {
 	Cadence    string
 	Parameters map[string]any
 	Bindings   map[string][]Binding
-	Exception  *Exception // nil unless one applies
+	// Exceptions holds every live exception for the policy, in declared
+	// order. When one has no resource scope it is the only entry: a
+	// whole-policy waiver or N/A already decides the result, so scoped
+	// entries beside it would never be consulted. Empty when none apply.
+	Exceptions []*Exception
 
 	ShouldEvaluate bool
 	SkipReason     string // empty when ShouldEvaluate is true
@@ -162,6 +166,17 @@ type Binding struct {
 	CatalogID     string // non-empty only for manual sources (e.g. manual.pdf:access_review_quarterly)
 	SlotParams    map[string]any
 	Period        *Period
+}
+
+// WholePolicyException returns the live exception with no resource
+// scope, or nil. The planner guarantees it is then the only exception.
+func (pp *PlannedPolicy) WholePolicyException() *Exception {
+	for _, e := range pp.Exceptions {
+		if e.ResourceID == "" && e.ResourcePattern == "" {
+			return e
+		}
+	}
+	return nil
 }
 
 // Exception is the resolved waiver / N/A declaration applied to a

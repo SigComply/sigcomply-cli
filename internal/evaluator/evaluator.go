@@ -92,8 +92,8 @@ func evaluateOne(ctx context.Context, pp *planner.PlannedPolicy, in *Input) core
 	}
 	// Whole-policy exception: na → skip rule entirely; waived without
 	// a resource scope → mark waived and skip rule.
-	if pp.Exception != nil && pp.Exception.ResourceID == "" && pp.Exception.ResourcePattern == "" {
-		result.Status = pp.Exception.State
+	if exc := pp.WholePolicyException(); exc != nil {
+		result.Status = exc.State
 		return result
 	}
 	if collectErr := in.CollectErrorsByPolicy[pp.Spec.ID]; collectErr != nil {
@@ -119,6 +119,15 @@ func evaluateOne(ctx context.Context, pp *planner.PlannedPolicy, in *Input) core
 		ruleOut = evaluateManual(slots)
 
 	case core.EvidenceModeAutomated:
+		// Nothing configured can feed any slot: the policy examined no
+		// source at all, so a pass would be vacuous. Optional slots alone
+		// would otherwise let it pass on empty input. One bound slot is
+		// enough to evaluate; an empty but bound source is a real answer.
+		if len(pp.Spec.Slots) > 0 && !anySlotBound(pp, slots) {
+			result.Status = core.StatusSkip
+			result.Diag = map[string]any{diagReason: "no source bound to any slot"}
+			return result
+		}
 		if pp.Spec.PassWhen != nil {
 			// Path B: pass_when: declarative DSL.
 			if !requiredSlotsPopulated(pp, slots) {
@@ -157,8 +166,25 @@ func evaluateOne(ctx context.Context, pp *planner.PlannedPolicy, in *Input) core
 	} else {
 		result.ResourcesEvaluated, result.ResourcesFailed = countResources(slots, ruleOut.Violations, inSlotOnlySlots(pp.Spec.PassWhen))
 	}
-	applyResourceException(&result, pp.Exception)
+	applyResourceExceptions(&result, pp.Exceptions)
 	return result
+}
+
+// anySlotBound reports whether any slot has a source behind it. Records
+// count as well as bindings: in a run records only arrive through a
+// binding, and a caller that hands records in directly has fed the slot.
+func anySlotBound(pp *planner.PlannedPolicy, slots map[string][]core.EvidenceRecord) bool {
+	for _, b := range pp.Bindings {
+		if len(b) > 0 {
+			return true
+		}
+	}
+	for _, recs := range slots {
+		if len(recs) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func requiredSlotsPopulated(pp *planner.PlannedPolicy, slots map[string][]core.EvidenceRecord) bool {
@@ -200,25 +226,22 @@ func countResources(slots map[string][]core.EvidenceRecord, violations []core.Vi
 	return evaluated, failed
 }
 
-// applyResourceException reclassifies violations matching the
-// exception scope. If every violation is suppressed and the policy
-// would otherwise have failed, the status becomes waived.
-func applyResourceException(result *core.PolicyResult, exc *planner.Exception) {
-	if exc == nil {
-		return
-	}
-	if exc.ResourceID == "" && exc.ResourcePattern == "" {
+// applyResourceExceptions reclassifies violations matching any
+// exception's scope; each live exception waives its own resources. If
+// every violation is suppressed and the policy would otherwise have
+// failed, the status becomes waived.
+func applyResourceExceptions(result *core.PolicyResult, excs []*planner.Exception) {
+	if len(excs) == 0 {
 		return
 	}
 	kept := make([]core.Violation, 0, len(result.Violations))
-	waived := 0
 	for _, v := range result.Violations {
-		if matchesScope(v.ResourceID, exc) {
-			waived++
+		if matchesAnyScope(v.ResourceID, excs) {
 			continue
 		}
 		kept = append(kept, v)
 	}
+	waived := len(result.Violations) - len(kept)
 	result.Violations = kept
 	if waived > 0 && len(kept) == 0 && result.Status == core.StatusFail {
 		result.Status = core.StatusWaived
@@ -233,6 +256,18 @@ func applyResourceException(result *core.PolicyResult, exc *planner.Exception) {
 	if result.ResourcesFailed >= waived {
 		result.ResourcesFailed -= waived
 	}
+}
+
+func matchesAnyScope(resourceID string, excs []*planner.Exception) bool {
+	for _, exc := range excs {
+		if exc.ResourceID == "" && exc.ResourcePattern == "" {
+			continue
+		}
+		if matchesScope(resourceID, exc) {
+			return true
+		}
+	}
+	return false
 }
 
 // buildCarryForwardRef captures the prior evaluation pointers a

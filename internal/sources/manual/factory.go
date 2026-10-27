@@ -28,7 +28,14 @@ const (
 )
 
 func init() {
-	sources.RegisterFactory(SourceID, build, "backend", "bucket", "prefix", "path")
+	// Every key any compiled-in reader backend reads (local: path;
+	// s3: region, endpoint, force_path_style; azure_blob: account,
+	// container). An unregistered key draws an "ignored" warning from
+	// the config loader, which would be false for these.
+	sources.RegisterFactory(SourceID, build, "backend", "bucket", "prefix", "path",
+		"region", "endpoint", "force_path_style", "account", "container")
+	// A boolean: the planner must not advise quoting it.
+	sources.RegisterTypedConfigKeys(SourceID, "force_path_style")
 	RegisterReader("local", buildLocalReader)
 }
 

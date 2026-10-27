@@ -89,3 +89,13 @@ func TestNewReaderFromConfig_DefaultsToLocal(t *testing.T) {
 		t.Errorf("bucket = %q; want %q", bucket, dir)
 	}
 }
+
+// A prefix configured without its trailing slash must not run into the
+// folder name ("manualcode_of_conduct/"); extra slashes collapse to one.
+func TestFolderPrefix_NormalizesTrailingSlash(t *testing.T) {
+	for _, prefix := range []string{"manual", "manual/", "manual//"} {
+		if got, want := FolderPrefix(prefix, "e1", testPeriodID), "manual/e1/2026-Q1/"; got != want {
+			t.Errorf("FolderPrefix(%q) = %q; want %q", prefix, got, want)
+		}
+	}
+}

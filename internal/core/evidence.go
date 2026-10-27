@@ -48,6 +48,24 @@ type EvidenceRecord struct {
 	// vault-side — it never crosses the aggregation boundary into the
 	// Cloud SubmissionPayload.
 	Scope *RecordScope `json:"scope,omitempty"`
+
+	// Attachments are binary artifacts the record's payload attests to
+	// by hash — today only the merged manual-evidence PDF, whose
+	// SHA-256 is the payload's file_hash. The collector writes each one
+	// into the run folder next to the record's envelope, so it lands in
+	// the manifest's file_hashes and an auditor can re-hash it.
+	//
+	// Never serialized: the envelope signs the payload (which carries
+	// the hash), not the bytes, so envelopes stay small and a record
+	// without attachments encodes byte-identically to before.
+	Attachments []Attachment `json:"-"`
+}
+
+// Attachment is one binary artifact carried beside an EvidenceRecord.
+// Name is a single path segment; the collector rejects anything else.
+type Attachment struct {
+	Name string
+	Data []byte
 }
 
 // RecordScope is the account/region/project an EvidenceRecord was

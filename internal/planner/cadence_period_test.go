@@ -392,7 +392,7 @@ func TestPlan_ManualBindingCarriesCadencePeriod(t *testing.T) {
 				t.Fatalf("register framework: %v", err)
 			}
 			plan, err := planner.Plan(&planner.Input{
-				Config:     &spec.ProjectConfig{SchemaVersion: schemaProjectV1, Framework: fwSOC2},
+				Config:     &spec.ProjectConfig{SchemaVersion: schemaProjectV1, Framework: fwSOC2, Sources: manualSourceConfig},
 				Registries: set,
 				CommitTime: december,
 				Now:        december,

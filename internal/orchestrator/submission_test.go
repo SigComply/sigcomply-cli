@@ -109,18 +109,23 @@ func TestHandleSubmission_CaptureWriteFailureIsNonFatal(t *testing.T) {
 func TestCollectAppliedExceptions(t *testing.T) {
 	plan := &planner.RunPlan{
 		Policies: []planner.PlannedPolicy{
-			{Spec: core.Policy{ID: "p.z"}, Exception: &planner.Exception{State: core.StatusWaived, Reason: "z"}},
-			{Spec: core.Policy{ID: "p.a"}, Exception: &planner.Exception{State: core.StatusNA, Reason: "a"}},
+			{Spec: core.Policy{ID: "p.z"}, Exceptions: []*planner.Exception{
+				{State: core.StatusWaived, Reason: "z1", ResourceID: "r1"},
+				{State: core.StatusWaived, Reason: "z2", ResourceID: "r2"},
+			}},
+			{Spec: core.Policy{ID: "p.a"}, Exceptions: []*planner.Exception{{State: core.StatusNA, Reason: "a"}}},
 			{Spec: core.Policy{ID: "p.none"}}, // no exception
 		},
 	}
 	got := collectAppliedExceptions(plan)
-	if len(got) != 2 {
-		t.Fatalf("got %d applied exceptions; want 2", len(got))
+	// Every live exception is recorded, not only a policy's first.
+	if len(got) != 3 {
+		t.Fatalf("got %d applied exceptions; want 3", len(got))
 	}
-	// Sorted by policy ID: p.a before p.z.
-	if got[0].PolicyID != "p.a" || got[1].PolicyID != "p.z" {
-		t.Errorf("not sorted by policy id: %v", []string{got[0].PolicyID, got[1].PolicyID})
+	// Sorted by policy ID (p.a before p.z); a policy's own entries keep
+	// their declared order.
+	if got[0].PolicyID != "p.a" || got[1].Reason != "z1" || got[2].Reason != "z2" {
+		t.Errorf("order = %v; want p.a, then p.z's z1, z2", got)
 	}
 
 	// No exceptions → nil (so the manifest field stays absent).

@@ -3,6 +3,8 @@ package orchestrator_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -260,6 +262,7 @@ func TestE2E_WalkingSkeleton(t *testing.T) {
 		"soc2.cc6.6.no_unrestricted_ssh": core.StatusSkip,
 	})
 	assertEnvelopesVerify(t, v, res.RunRoot, "soc2.cc6.1.mfa_enforced_all_users", "soc2.cc6.3.access_review_quarterly")
+	assertMergedPDFStored(t, v, res.RunRoot, "soc2.cc6.3.access_review_quarterly", "access_review_quarterly")
 	assertCapturedPayloadPrivacy(t, capturePath)
 }
 
@@ -696,6 +699,53 @@ func assertEnvelopesVerify(t *testing.T, v core.Vault, runRoot string, policyIDs
 		for _, key := range entries {
 			verifyOneEnvelope(t, v, key)
 		}
+	}
+}
+
+// assertMergedPDFStored checks the merged manual PDF is in the run
+// folder, listed in the signed manifest, and that both hashes equal the
+// file_hash the policy's signed envelope attests to. That chain is what
+// lets an auditor go from envelope to stored document.
+func assertMergedPDFStored(t *testing.T, v core.Vault, runRoot, policyID, catalogID string) {
+	t.Helper()
+	ctx := context.Background()
+	rel := "policies/" + policyID + "/attachments/" + catalogID + ".pdf"
+	pdf, err := v.GetBinary(ctx, runRoot+"/"+rel)
+	if err != nil {
+		t.Fatalf("merged PDF not in vault at %s: %v", rel, err)
+	}
+	sum := sha256.Sum256(pdf)
+	want := "sha256:" + hex.EncodeToString(sum[:])
+
+	manifestBytes, err := v.GetBinary(ctx, runRoot+"/manifest.json")
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	var manifest core.Manifest
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		t.Fatalf("unmarshal manifest: %v", err)
+	}
+	if got := manifest.FileHashes[rel]; got != want {
+		t.Errorf("manifest file_hashes[%s] = %q; want %q", rel, got, want)
+	}
+
+	envKey := runRoot + "/policies/" + policyID + "/envelopes/signed_document__manual.pdf_" + catalogID + ".json"
+	body, err := v.GetBinary(ctx, envKey)
+	if err != nil {
+		t.Fatalf("read envelope: %v", err)
+	}
+	var env core.Envelope
+	if err := json.Unmarshal(body, &env); err != nil || len(env.Records) != 1 {
+		t.Fatalf("envelope %s: err=%v records=%d", envKey, err, len(env.Records))
+	}
+	var payload struct {
+		FileHash string `json:"file_hash"`
+	}
+	if err := json.Unmarshal(env.Records[0].Payload, &payload); err != nil {
+		t.Fatalf("unmarshal record payload: %v", err)
+	}
+	if payload.FileHash != want {
+		t.Errorf("envelope file_hash = %q; stored PDF hash = %q", payload.FileHash, want)
 	}
 }
 
