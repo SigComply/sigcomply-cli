@@ -24,8 +24,9 @@ Read every changed line, then the whole function and its callers. Look for:
   to the result. Does each caller pass what the callee expects, in the shape and units it expects?
 - Interrupted and repeated runs, and neighbouring flows that share state with this one.
 - For a change the workflow doc's real-product check covers, does the real-product record in your
-  brief show every acceptance criterion driven, or recorded as deferred or unverified with a
-  reason? Anything else fails this lens. Judge from the record; don't start the product yourself.
+  brief show every acceptance criterion that check covers (on a range of fix commits only, what
+  the fixes touch) driven, or recorded as deferred or unverified with a reason? Anything else
+  fails this lens. Judge from the record; don't start the product yourself.
 
 ## Claims
 
