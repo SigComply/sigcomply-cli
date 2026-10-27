@@ -110,14 +110,13 @@ one is added. Field list and versions: [06](06-aggregation.md).
 
 ## L7: Persistence
 
-- `persistResults` writes each `result.json` and the run's `summary.json`. A failed write is a
-  warning.
+- `persistResults` writes each `result.json` and the run's `summary.json`.
 - `writeManifest` writes `manifest.json` with the SHA-256 of every file the run wrote
-  (`recordingVault.FileHashes`) and signs it. A signing failure exits 2; a failed write is a
-  warning.
+  (`recordingVault.FileHashes`, which lists only writes that succeeded) and signs it. A signing
+  failure or a failed write of `result.json`, `summary.json` or `manifest.json` exits 2.
 - `state.go` reads and writes state shards in scheduled mode. It never reads run folders.
-- The merged manual PDF is not written to the vault. The envelope records the hashes of the
-  source files.
+- The collector writes each record's `Attachments` (the merged manual PDF) to
+  `policies/{policy_id}/attachments/{name}`, so the manifest lists them.
 
 Layout: [05](05-vault-layout.md).
 

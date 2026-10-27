@@ -150,7 +150,7 @@ A.5.1    Policies for information security   yes         not implemented  manual
 |---|---|
 | `APPLICABLE` | `no` only where you declared `not_applicable`. |
 | `STATUS` | From this period's results: `implemented`, `partially implemented`, `not implemented`, `not evaluated` (no check ran) or `excluded`. A waived policy counts as passed; an `na` policy counts for nothing. |
-| `ASSURANCE` | `automated` (the CLI inspected infrastructure), `manual` (a document is on file; its contents were not checked) or `none`. |
+| `ASSURANCE` | `automated` (an automated check is mapped to the control; `STATUS` says whether it ran), `manual` (only document checks are mapped; a document's contents are never checked) or `none`. |
 | `JUSTIFICATION` | Your `justification` or `reason`, or a derived text marked `(derived)`. |
 
 The CSV adds `justification_derived`, `evaluated`, `policies`, `approved_by` and `risks`.
@@ -166,8 +166,8 @@ sigcomply report --period 2026-Q4 --view coverage
 
 ```text
 93 of 93 catalog controls have a check
-  26 automated  — verified by inspecting your infrastructure
-  67 manual     — a document is on file; its contents are not inspected
+  26 automated  — an automated check is mapped; "This period" shows whether it ran
+  67 manual     — only document checks are mapped; their contents are not inspected
 
 16 management-system requirements (counted apart — they are not selectable)
   0 with evidence on file this period, 16 without

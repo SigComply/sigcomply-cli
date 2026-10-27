@@ -34,15 +34,16 @@ plugin axes in [`00-three-plugin-axes.md`](00-three-plugin-axes.md).
   from JSON. `sigcomply build` prints a warning for both. Use `rule.rego` and a JSON schema.
 - `plugin.yaml` in a plugin directory is never read. `spec.LoadPluginManifest` has no production
   caller. A plugin's `Emits()` is the only declaration that counts.
-- `extensions.path` in `.sigcomply.yaml` is parsed and ignored. Both `sigcomply build` and the
-  bootstrap loader use `.sigcomply/`.
+- There is no setting for the extensions directory: both `sigcomply build` and the bootstrap
+  loader use `.sigcomply/`. A config that sets the removed `extensions.path` key fails at load.
 
 ## Project-local policies
 
 Every policy needs `id`, `control`, `description`, `evidence_mode`, `severity` and `cadence`
 (`internal/spec/policy.go`), and its `id` must not clash with a shipped one. `control` is the
 active framework's control ID (`CC6.1`, not `SOC2.CC6.1`); a project has one framework, so a
-project-local policy belongs to it. Field reference and the `pass_when:` DSL:
+project-local policy belongs to it. An ID not in that framework's control catalog is a config
+error, exit 3. Field reference and the `pass_when:` DSL:
 [`03-policy-spec.md`](03-policy-spec.md).
 
 A project-local policy appears in run output and on the cloud payload like a shipped one,
@@ -93,7 +94,8 @@ pass_when:
 
 Set `required: true` on every slot the check cannot do without. A required slot with no bound
 source makes the policy `skip`. A slot that is not required evaluates over zero records, and
-`all` over nothing is a vacuous `pass`.
+`all` over nothing is a vacuous `pass`, but only while another slot is bound: when no slot has a
+bound source, the policy skips.
 
 A `filter` that reads a schema-optional field must guard it with `is_set` inside `all_of`; see
 [`03-policy-spec.md`](03-policy-spec.md) and the universal-field test in

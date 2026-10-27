@@ -24,7 +24,7 @@ For outside contributors. Maintainers push straight to main (see CONTRIBUTING.md
 
 ### If this PR changes the cloud submission (`internal/core/cloud*`, `internal/aggregator/`, `internal/submitter/`)
 
-- [ ] `TestSubmissionPayload_StructurallyCountsOnly` and `TestCloudV3_GoldenWireContract` pass.
+- [ ] `TestSubmissionPayload_StructurallyCountsOnly` and `TestCloud_GoldenWireContract` pass.
 - [ ] No field can carry a resource identifier, email or file hash.
 - [ ] A regenerated golden payload is noted, so maintainers can update the dashboard's copy.
 

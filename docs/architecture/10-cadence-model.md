@@ -205,8 +205,9 @@ signed evidence record. The collector stamps `period_id`, `period_start`, `perio
 What stays on the run period: the run folder, `manifest.json`, `summary.json`, the cloud payload's
 `period_id` and `PolicyState.LastPeriodID`.
 
-The resolver uses the policy's declared cadence, not a project override, so an override never
-relocates the folder (`resolveManualBinding` doc comment).
+The resolver uses the declared cadence of the manual policy that owns the entry, not a project
+override, so an override never relocates the folder. A policy switched to manual with
+`catalog_entry` takes that entry's cadence too (`resolveManualBinding` doc comment).
 
 Customer-facing folder rules: [`../configuration.md`](../configuration.md) §Manual evidence. The
 manual-evidence contract: [`14-manual-evidence.md`](14-manual-evidence.md).

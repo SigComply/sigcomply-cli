@@ -15,7 +15,8 @@ manual-only when only document uploads do. An automated check shows a control's 
 state, not that it was exercised: a backup that is enabled is not a restore that was tested.
 Where a control needs both, the tested half is a separate manual entry, for example
 `soc2.a1.3.recovery_procedures_tested` and `iso27001.5.30.ict_continuity_tested`.
-`sigcomply report --view coverage` shows which kind of check backs each control.
+`sigcomply report --view coverage` shows which kind of check backs each control, and how many
+automated controls were inspected or only skipped in the period.
 
 No other framework is registered. Any other value of `framework:` is a
 configuration error (exit `3`).

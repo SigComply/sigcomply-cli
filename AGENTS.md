@@ -204,7 +204,7 @@ Full package map: `ARCHITECTURE.md` and `docs/architecture/02-layers.md`.
 
 | This repo | Other side | Guard |
 |---|---|---|
-| `core.SubmissionPayload` (schema `aggregator.SchemaVersion`): run metadata (`run_id`, `framework`, `period_id`, `commit_sha`, `commit_time`, `branch`, `cli_version`, `started_at`, `completed_at`), `repository{provider,name_slug,url}`, `environment{provider,workflow,run_url,worker_image}`, `summary` (`policies_*` per status, `compliance_score`), per-policy `policy_id`, `controls[]`, `status`, `severity`, `category`, `resources_evaluated`, `resources_failed`, `message`, `rule_version`, cadence scalars, `evidence_mode`, `evidence_mode_overridden`, `vacuous` | `../sigcomply` `Api::V1::RunsController` strong params (`POST /api/v1/runs`) | `TestCloudV3_GoldenWireContract`; copy a regenerated golden to `../sigcomply/spec/fixtures/files/contract/` |
+| `core.SubmissionPayload` (schema `aggregator.SchemaVersion`): run metadata (`run_id`, `framework`, `period_id`, `commit_sha`, `commit_time`, `branch`, `cli_version`, `started_at`, `completed_at`), `repository{provider,name_slug,url}`, `environment{provider,workflow,run_url,worker_image}`, `summary` (`policies_*` per status, `compliance_score`), per-policy `policy_id`, `controls[]`, `status`, `severity`, `category`, `resources_evaluated`, `resources_failed`, `message`, `rule_version`, cadence scalars, `evidence_mode`, `evidence_mode_overridden`, `vacuous` | `../sigcomply` `Api::V1::RunsController` strong params (`POST /api/v1/runs`) | `TestCloud_GoldenWireContract`; copy a regenerated golden to `../sigcomply/spec/fixtures/files/contract/` |
 | OIDC: audience `submitter.DefaultAudience`, `X-OIDC-Provider` header | Rails `Oidc::TokenValidator` (audience, issuer, claims `repository` / `project_path`, `namespace_path`) | `docs/claude/auth.md` |
 | `sigcomply evidence catalog -o json` (`internal/manualcatalog`) | SPA `src/types/catalog.ts`, `scripts/fetch-catalogs.ts` (runs the released CLI on deploy) | `cmd/sigcomply` export tests |
 | `manual.FolderPrefix`, default prefix `manual/` | SPA `src/lib/storage-path.ts`, `public/config.json` | `internal/sources/manual/paths_test.go` |
@@ -212,5 +212,5 @@ Full package map: `ARCHITECTURE.md` and `docs/architecture/02-layers.md`.
 | Release asset names, command flags, exit codes | E2E repos `../sigcomply-cli-testing-project-{github,gitlab}` | their CI |
 
 Push order: the receiving side first. Rails strong params silently drop unknown fields, so Rails
-accepts a new field before the CLI sends it. Legacy Rails `/api/v1/cli/*` endpoints take no new
-work.
+accepts a new field before the CLI sends it. `POST /api/v1/runs` is the only Rails endpoint the
+CLI calls.

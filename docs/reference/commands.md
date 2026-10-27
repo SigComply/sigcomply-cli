@@ -8,8 +8,8 @@ same flags.
 | Code | Meaning |
 |---|---|
 | `0` | Success. For `check`: no policy failed, or `ci.fail_on_violation: false` is set. |
-| `1` | `check` only: a policy failed, or a source declared under `experimental.scope` is incomplete. Set `ci.fail_on_violation: false` to exit `0` instead. |
-| `2` | Execution error, including any policy with status `error`, a credential the provider rejected, and an unknown, invalid or conflicting flag. |
+| `1` | `check`: a policy failed, or a source declared under `experimental.scope` is incomplete. Set `ci.fail_on_violation: false` to exit `0` instead. `report --view integrity`: a run failed verification. |
+| `2` | Execution error, including any policy with status `error`, a credential the provider rejected, a failed write of the run's results, summary or manifest to the vault, and an unknown, invalid or conflicting flag. |
 | `3` | Configuration error: a missing or invalid config, an unknown framework, a listed source whose credentials are missing, or a missing required flag value such as `report --period`. |
 
 A missing credential exits `3` before any collection starts. A credential the provider rejects
@@ -112,8 +112,9 @@ sigcomply build [flags]
 ```
 
 Compiles a binary that includes the Go extensions under `.sigcomply/` (source plugins, vault
-backends, manual readers). With no Go extensions it does nothing; YAML policies, Rego rules and
-evidence-type JSON schemas under `.sigcomply/` load at every `check` without a build.
+backends, manual readers). With no Go extensions it does nothing and needs no `go.mod`; YAML
+policies, Rego rules, evidence-type JSON schemas and the local vault under `.sigcomply/` are not
+Go extensions. YAML policies, Rego rules and schemas load at every `check` without a build.
 
 Extensions import `github.com/sigcomply/sigcomply-cli/plugin`, and the project's `go.mod` must
 require the CLI module at the version of the binary you build with. An extension's top-level
@@ -144,7 +145,7 @@ SigComply Cloud and needs no OIDC token.
 | `--view <value>` | | `latest` | `latest`, `exceptions`, `integrity`, `scope`, `coverage` or `soa` |
 | `--format <value>` | | `text` | `text`, `json`, `csv`. `pdf` is accepted by the flag but exits `3`. |
 | `--out <file>` | | stdout | Output file. Required for `json` and `csv`. |
-| `--config <path>` | `-c` | `.sigcomply.yaml` | Config file |
+| `--config <path>` | `-c` | `.sigcomply.yaml` | Config file. Not read when both `--vault` and `--framework` are set, unless you pass `-c`. |
 | `--vault <uri>` | | config | Vault location: a path, `file://<path>`, `s3://bucket[/prefix]`, `gs://bucket[/prefix]` or `az://<account>/<container>[/prefix]` |
 | `--framework <value>` | `-f` | config | Framework |
 
@@ -152,28 +153,39 @@ SigComply Cloud and needs no OIDC token.
 |---|---|
 | `latest` | Each policy's latest status in the period, with the reason for a failure or error |
 | `exceptions` | Waivers and not-applicable declarations |
-| `integrity` | Each run's signature and manifest check, `pass` or the failing files |
+| `integrity` | Each run's signature and manifest check, `pass` or the failing files. Exits `1` when any run fails. |
 | `scope` | The declared estate (`experimental.scope`) and every control the latest run did not evaluate, with the reason |
-| `coverage` | For each control, whether automated or manual checks stand behind it and whether evidence exists for the period |
+| `coverage` | For each control, whether automated or manual checks are mapped to it, whether the automated checks inspected anything, and whether documents exist for the period |
 | `soa` | The ISO 27001 Statement of Applicability: one row per Annex A control with applicability, justification and status |
 
 `--view coverage` covers every control in the framework, including controls whose cadence did
-not run this period. It splits controls into two kinds, which the score counts the same:
-satisfied by a document on file, or verified by inspecting your infrastructure. For SOC 2, 27 of 43 criteria are the first kind. Sample output:
+not run this period. It splits controls into two kinds, which the score counts the same: backed
+only by document checks, or with at least one automated check mapped.
+For SOC 2, 27 of 43 criteria are the first kind. The kind comes from the mapped policies, not
+from what ran, so `This period` splits the automated controls by what their automated checks
+did:
+
+- inspected: at least one automated check ended `pass`, `fail`, `waived` or `carried_forward`.
+- skipped: every automated result was `skip` or `na`, usually because no configured source
+  emits the evidence the check reads.
+- not evaluated or errored: the rest.
+
+Sample output from a SOC 2 project with only the manual evidence source configured:
 
 ```
 43 of 43 catalog controls have a check
-  16 automated  — verified by inspecting your infrastructure
-  27 manual     — a document is on file; its contents are not inspected
+  16 automated  — an automated check is mapped; "This period" shows whether it ran
+  27 manual     — only document checks are mapped; their contents are not inspected
 
 This period
   43 evaluated, 0 not evaluated
-  1 manual control(s) with evidence on file, 26 without
+  16 automated control(s): 0 inspected, 16 skipped, 0 not evaluated or errored
+  0 manual control(s) with evidence on file, 27 without
 ```
 
 `--view soa` needs the project config, because applicability decisions exist only in
-`.sigcomply.yaml`. If you pass both `--vault` and `--framework`, the config is not read and the
-view exits `3`; pass at most one of them.
+`.sigcomply.yaml`. If you pass both `--vault` and `--framework`, the config is read only when you
+also pass `-c <path>`; without it the view exits `3`.
 It is built for ISO 27001; for SOC 2 it lists the criteria. How to read and fill it:
 [ISMS clauses and the SoA](../guides/isms-clauses.md). The other views:
 [Verify evidence](../guides/verify-evidence.md).

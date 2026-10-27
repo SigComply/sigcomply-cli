@@ -51,7 +51,10 @@ func init() { sources.RegisterFactory(SourceID, build, awscfg.ConfigKeys...) }
 
 The `sources:` entry is a free `map[string]any`, so the strict YAML decoder cannot catch a typo
 inside it. The declared keys let the planner warn about an unknown key or a key of the wrong YAML
-type. Shared sets live beside their parser (`awscfg.ConfigKeys`, `azcommon.ConfigKeys`).
+type. The type check assumes a string (`sources.StringOpt` reads any other type as unset). A key
+the factory parses as a bool, number or list must also be passed to
+`sources.RegisterTypedConfigKeys`, or the planner tells the operator to quote a value whose
+quoting breaks the source; that factory must reject a wrong type itself. Shared sets live beside their parser (`awscfg.ConfigKeys`, `azcommon.ConfigKeys`).
 `TestEverySourceDeclaresItsConfigKeys` (`internal/sources/builtin/coverage_test.go`) fails the
 build for an in-tree plugin that declares none; a project-local plugin that declares none is
 never warned about.
@@ -268,8 +271,9 @@ Plugin-side facts:
 - The plugin computes the temporal window (with the entry's `GracePeriod`) and the prior-period
   comparison; the evaluator only reads the resulting booleans.
 - Validation failures are in the signed record's `validation_failures` and in `result.json`, not
-  in `manifest.json`. The merged PDF is not written to the vault; the record carries `file_hash`
-  and a `sha256` per source file.
+  in `manifest.json`. The record carries `file_hash` and a `sha256` per source file. The merged
+  PDF rides on the record as a `core.Attachment` (never serialized) and the collector writes it
+  to `policies/{policy_id}/attachments/` (see `14-manual-evidence.md`).
 - Missing evidence fails with `manual evidence not found; expected files in: <uri>`
   (`internal/evaluator/manual_check.go`).
 

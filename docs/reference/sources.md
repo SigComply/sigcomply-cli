@@ -342,13 +342,14 @@ Caveats:
 ## Manual evidence
 
 Source ID: `manual.pdf`. Emits `signed_document`. One per project; it takes no `[instance]`
-suffix. If it is not configured, every manual policy ends with status `error` and the run exits
-`2`.
+suffix. If it is not configured and the run would collect a manual policy, `check` stops before
+collecting with a config error (exit `3`) that names `sources.manual.pdf`. A run with no manual
+policy to collect (all automated, carried forward, or excepted as a whole) does not need it.
 
 | Key | Required | Default | Effect |
 |---|---|---|---|
 | `backend` | no | `local` | `local`, `s3`, `gcs` or `azure_blob`. |
-| `prefix` | no | `manual/` | Folder prefix in the bucket, used as written. End it with `/`. |
+| `prefix` | no | `manual/` | Folder prefix in the bucket. A missing trailing `/` is added. |
 | `path` | `local` | none | Directory that holds the evidence folders. |
 | `bucket` | `s3`, `gcs` | none | Bucket name. For `local`, defaults to `path`. |
 | `region` | `s3`, unless `vault.region` is set | `vault.region` | Bucket region. |
@@ -363,9 +364,7 @@ Credentials come from the backend's provider chain, the same as the matching `aw
 
 The CLI reads `{prefix}{evidence_catalog_id}/{period_id}/`, checks that a supported file is
 present and was uploaded in the entry's cadence window, merges the files into one PDF to validate
-them, and signs a record that carries each file's hash and the merged PDF's hash. The merged PDF
-itself is neither stored nor signed. It does not read what the documents say. Folder layout and file types:
+them, and signs a record that carries each file's hash and the merged PDF's hash. It stores the
+merged PDF in the vault's run folder, listed in the signed run manifest. It does not read what
+the documents say. Folder layout and file types:
 [Manual evidence](../guides/manual-evidence.md).
-
-The source-key check wrongly warns that `region`, `endpoint`, `force_path_style`, `account` and
-`container` are ignored. They are read.

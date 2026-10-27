@@ -16,8 +16,8 @@ never leaves the vault.
 owned by [06-aggregation.md §Decision matrix](../architecture/06-aggregation.md#decision-matrix).
 The rules that matter most here: submission is opt-in, so nothing is sent without
 `cloud.base_url` (customer value `https://sigcomply.com`) or `--cloud-url`; without `--cloud`
-the run must also be in CI with an OIDC token; `cloud.enabled` has no effect; and a failed
-submission is logged as a warning and does not change the exit code.
+the run must also be in CI with an OIDC token; there is no `cloud.enabled` (setting it is a
+config error); and a failed submission is logged as a warning and does not change the exit code.
 
 ## Audience
 

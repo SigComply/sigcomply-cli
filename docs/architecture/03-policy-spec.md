@@ -51,7 +51,7 @@ pass_when:
 |---|---|---|
 | `schema_version` | yes (YAML) | `policy.v1`. |
 | `id` | yes | Unique. Convention `<framework>.<control>.<short_name>`; project-local policies use their own prefix. |
-| `control` | yes | Control ID as the framework writes it: `CC6.1`, `A.5.16`. Not validated against the framework catalog; a wrong ID maps to nothing. |
+| `control` | yes | Control ID as the framework writes it: `CC6.1`, `A.5.16`. Must be in the active framework's control catalog; otherwise the plan fails with exit 3 naming the policy and the control (`planner.validatePolicyControls`). Shipped policies are held to the same rule by `TestValidatePolicyControls_ShippedFrameworksPass`. |
 | `severity` | yes | `info`, `low`, `medium`, `high` or `critical`. |
 | `category` | no | Free-form grouping label. |
 | `evidence_mode` | yes | `automated` or `manual`. No default; missing fails the load (exit 3). See §evidence_mode. |
@@ -93,7 +93,10 @@ type, add a version or coin a new type: [04a](04a-evidence-type-registry.md).
 
 A `required: true` slot with no records makes the policy `skip` ("required slot has no
 records"). A `required: false` slot with no records reaches the DSL as an empty set (see
-§Empty-set semantics) or the rule as an empty array.
+§Empty-set semantics) or the rule as an empty array. When no slot has a bound source at all, the
+policy skips ("no source bound to any slot") even if every slot is optional: it examined nothing,
+so it cannot pass. One bound slot, even one whose source returned no records, is enough to
+evaluate.
 
 ### Multiple bound sources
 

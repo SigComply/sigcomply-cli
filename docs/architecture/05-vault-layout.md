@@ -11,9 +11,8 @@ None of these is written by the code. Don't assume one exists when reading a vau
 
 - A vault-level `manifest.json` or a per-period `summary.json`, `period_state.json` or
   `.closed` marker. Period state is derived on read (see [Period state](#period-state)).
-- An `attachments/` folder, or any copy of the merged manual PDF. `Vault.PutBinary` has no
-  production caller. The `manual.pdf` plugin hashes the files and signs the hashes; the PDF stays
-  in the customer's upload bucket.
+- A copy of the original manual uploads. They stay in the customer's upload bucket; only the
+  merged PDF is stored (see [Attachments](#attachments)).
 - A run-level `diagnostics.json`.
 - Any lifecycle feature: retention, deletion, legal hold, GDPR erasure. These are the customer's
   storage-layer settings. The CLI never deletes from the vault.
@@ -30,6 +29,7 @@ None of these is written by the code. Don't assume one exists when reading a vau
         policies/{policy_id}/
           result.json              # core.PolicyResult
           envelopes/{evidence_type}__{source_id}[_{catalog_id}].json   # envelope.v1, signed
+          attachments/{evidence_catalog_id}[.{member_id}].pdf          # merged manual PDF
   state/{framework}/policies/{policy_id}.json                          # mutable cadence state
 ```
 
@@ -47,10 +47,11 @@ None of these is written by the code. Don't assume one exists when reading a vau
 
 ### Write failures
 
-A failed envelope write fails that binding: the collector returns an error and the policy is
-tagged `error`. A failed write of `result.json`, `summary.json` or `manifest.json` is only logged
-as a warning (`persistResults`, `writeManifest` in `internal/orchestrator/orchestrator.go`), and
-the exit code ignores it. A run can therefore exit 0 with no manifest.
+A failed envelope or attachment write fails that binding: the collector returns an error and the
+policy is tagged `error`. A failed write of `result.json`, `summary.json` or `manifest.json` stops
+the run with an execution error, exit 2 (`persistResults`, `writeManifest` in
+`internal/orchestrator/orchestrator.go`); nothing is submitted. `recordingVault` lists only writes
+that succeeded, so the manifest never vouches for a file that is not there.
 
 ## Per-run manifest
 
@@ -124,6 +125,25 @@ policies/soc2.cc6.3.access_review_quarterly/envelopes/signed_document__manual.pd
 A fan-out manual entry is still one binding, one record and one envelope; the record carries
 every member's verdict.
 
+## Attachments
+
+A record can carry binary `Attachments` (`core.Attachment`, never serialized into the envelope).
+The collector writes each one with `PutBinary` to `policies/{policy_id}/attachments/{name}`, after
+the record's envelope, so the manifest's `file_hashes` lists it. Names must be a single path
+segment (`collector.safeAttachmentName`); a failed write errors the policy.
+
+Today the only attachment is the merged manual PDF:
+
+```
+policies/soc2.cc6.3.access_review_quarterly/attachments/access_review_quarterly.pdf
+policies/soc2.cc9.2.vendor_assurance/attachments/vendor_assurance.acme_cloud.pdf   # fan-out member
+```
+
+The name is the upload folder's ID plus `.pdf`: `{evidence_catalog_id}.pdf`, or
+`{evidence_catalog_id}.{member_id}.pdf` for a fan-out member. Its SHA-256 equals the record's
+`file_hash` (fan-out: the member's `instances[].file_hash`). A folder with nothing merged (empty,
+only unsupported files, or a failed merge) writes no PDF. An exempt fan-out member writes none.
+
 `core.Envelope` has four fields:
 
 ```json
@@ -152,8 +172,8 @@ every member's verdict.
   `internal/sources/manual/manual.go`). Its payload has `evidence_id`, `period_id`,
   `file_present`, `file_hash`, `file_size`, `uploaded_at`, `in_temporal_window`, `file_valid`,
   `validation_failures`, `expected_uri` (the upload folder) and `source_files` (per-file name and
-  SHA-256 of the original bytes). The merged PDF is not stored; the full manual-evidence contract
-  is in [`14-manual-evidence.md`](14-manual-evidence.md).
+  SHA-256 of the original bytes). The merged PDF is stored beside it under `attachments/`
+  (below); the full manual-evidence contract is in [`14-manual-evidence.md`](14-manual-evidence.md).
 
 ## Signing
 

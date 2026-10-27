@@ -195,7 +195,7 @@ Within one `check`:
 | `2` | At least one policy has status `error` (checked before failures), a run-level execution failure, or invalid or conflicting flags |
 | `3` | Configuration or planning error, before collection |
 
-`ci.fail_severity` is parsed and validated but has no effect: any `fail` exits 1. The customer
+Any `fail` exits 1; there is no severity threshold (`ci.fail_severity` was removed). The customer
 reference is [`../reference/commands.md`](../reference/commands.md).
 
 Exit 1 is a successful report of failing compliance state: the vault and the submission are

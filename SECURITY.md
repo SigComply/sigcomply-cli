@@ -101,8 +101,9 @@ that they were uploaded inside the period's window, that the merged PDF passes b
 (minimum size, a `%PDF-` header, at least one page marker), and that the set of files isn't
 byte-for-byte the same as the previous period's. It doesn't read document contents, validate
 signatures inside a PDF, check dates written in a document, or decide whether a document meets
-the control. The merged PDF isn't stored in the vault; the signed record holds the hashes of the
-uploaded files. The full contract is in
+the control. The merged PDF is stored in the run folder at
+`policies/{policy_id}/attachments/{evidence_catalog_id}.pdf` and listed in the signed manifest;
+the signed record holds its hash and the hashes of the uploaded files. The full contract is in
 [`docs/architecture/14-manual-evidence.md`](docs/architecture/14-manual-evidence.md).
 
 The auditor reads the documents. The CLI gives the auditor a signed record of which files were

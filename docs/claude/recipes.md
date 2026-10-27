@@ -75,7 +75,9 @@ declares via `Emits()`. It never references a policy. Live example:
    The trailing arguments name every config key the factory reads, so
    the planner can warn about a typo in the source's config block. AWS
    and Azure plugins pass the shared sets `awscfg.ConfigKeys` /
-   `azcommon.ConfigKeys`.
+   `azcommon.ConfigKeys`. A key read as anything but a string also goes
+   to `sources.RegisterTypedConfigKeys(SourceID, ...)`, and the factory
+   rejects a wrong type itself (see `activedirectory/config.go`).
 
    The factory must resolve credentials, not just build a client. A
    listed source with missing credentials is a config error (exit 3)

@@ -28,10 +28,10 @@ skipped. A full example is at the [end of this page](#full-example).
 
 | Block | Unknown key | Wrong value |
 |---|---|---|
-| Top level, `period`, `policies`, `controls`, `cloud`, `output`, `ci`, `extensions` | Config error, exit `3` | Config error, exit `3` |
-| `sources.<id>` | Warning: `unrecognized key ..., so it was ignored` | Warning for a non-string value; the source's own check may then fail with exit `3` |
+| Top level, `period`, `policies`, `controls`, `cloud`, `ci` | Config error, exit `3` | Config error, exit `3` |
+| `sources.<id>` | Warning: `unrecognized key ..., so it was ignored` | Warning for a non-string value of a string key; the source's own check may then fail with exit `3` |
 | `vault` | Ignored with no warning | The backend reports missing required keys, exit `3` |
-| `experimental.scope`, `.vendors`, `.risks`, `.roster` | Warning | See each block |
+| `experimental.scope`, `.vendors`, `.risks`, `.roster` | Warning | See each block. A malformed `experimental.scope` is a config error, exit `3`. |
 
 A policy ID or control ID that the framework does not define is a config error with a "did you
 mean" suggestion.
@@ -50,11 +50,19 @@ mean" suggestion.
 | `cloud` | map | none | SigComply Cloud submission. See [`cloud`](#cloud). |
 | `ci` | map | `fail_on_violation: true` | Exit-code behaviour. See [`ci`](#ci). |
 | `experimental` | map | none | Declarations for scope, vendors, risks, and the identity roster. See [`experimental`](#experimental). |
-| `output.format` | string | none | Accepted; has no effect. Must be `text`, `json` or `junit` if set. |
-| `output.json_path` | string | none | Accepted; has no effect. |
-| `output.verbose` | bool | `false` | Accepted; has no effect. Use the `-v` flag. |
-| `ci_environment` | map | none | Accepted; has no effect. The run's CI metadata comes from [CI variables](#ci-and-git-context). |
-| `extensions.path` | string | none | Accepted; has no effect. `sigcomply build` always reads `.sigcomply/`. |
+
+### Removed keys
+
+These keys were accepted by earlier versions but never had an effect. A file that sets one stops
+with exit `3` and `project config: "<key>" was removed and has no effect; delete it from the file`.
+
+| Key | Use instead |
+|---|---|
+| `cloud.enabled` | `cloud.base_url` and `--no-cloud` |
+| `ci.fail_severity` | None. Any failing policy exits `1`; see `ci.fail_on_violation`. |
+| `output.format`, `output.json_path`, `output.verbose` | The `-v` flag; `sigcomply report --format json` |
+| `ci_environment` | [CI variables](#ci-and-git-context) |
+| `extensions.path` | None. `sigcomply build` always reads `.sigcomply/`. |
 
 ## `period`
 
@@ -100,7 +108,7 @@ sources:
 | Settings | Each source's keys are listed in the [source reference](reference/sources.md). Values are strings unless the reference says otherwise. Quote numeric IDs: `project_id: "12345"`. |
 | Binding | The CLI binds every configured source to every policy slot that accepts a type the source emits. Narrow this with [`policies.<id>.bindings`](#policies). |
 | Credentials | Each listed source resolves its credentials before collection. Missing or unusable credentials are a config error, exit `3`. |
-| `manual.pdf` | The manual-evidence source. One per project; it takes no `[instance]` suffix. If it is not configured, every manual policy ends with status `error` and the run exits `2`. |
+| `manual.pdf` | The manual-evidence source. One per project; it takes no `[instance]` suffix. If it is not configured and the run would collect a manual policy, `check` stops before collecting with a config error (exit `3`) that names `sources.manual.pdf`. |
 | AWS region | An `aws.*` source without `region` uses `vault.region` when the vault sets one, then the AWS SDK's own region setting (`AWS_REGION`). |
 
 ### Multiple instances of one source
@@ -141,12 +149,14 @@ values that are not strings:
 [warn] source-config: sources.gcp.compute: "project_id" is int, not a string, so it reads as unset; quote it (project_id: "12345")
 ```
 
-Warnings never stop a run. Two sources produce warnings that are wrong:
+Warnings never stop a run. Keys a source reads as a boolean, number or list are not checked
+here: `active_directory`'s `start_tls`, `page_size`, `timeout` (as seconds) and
+`service_account_ous`, and `manual.pdf`'s `force_path_style`. Keep those values unquoted.
+`active_directory` rejects a quoted one with exit `3`.
 
 | Source | Warning | What to do |
 |---|---|---|
 | `manual.pdf` | `region`, `endpoint`, `force_path_style`, `account` and `container` are reported as ignored. | Ignore it. The `s3` and `azure_blob` backends read these keys. |
-| `active_directory` | `start_tls`, `page_size`, `timeout` (as seconds) and `service_account_ous` are reported as not strings. | Ignore it. Keep these values unquoted; quoting them makes the source fail with exit `3`. |
 
 ### Source caveats
 
@@ -182,7 +192,9 @@ the policy IDs it evaluated.
 
 Without a scope, the exception applies to the whole policy: the policy's status becomes `waived`
 or `na` and it is not evaluated. With a scope, matching failures are removed; if none remain, the
-status becomes `waived`. Only the first unexpired exception in the list applies.
+status becomes `waived`. Every unexpired exception in the list applies, each to its own scope,
+so you can waive several resources with one entry each. An unexpired exception with no scope
+overrides the scoped ones; if several have no scope, the first one in the list applies.
 
 ### Cadence values
 
@@ -221,7 +233,6 @@ error.
 | Key | Type | Default | Effect |
 |---|---|---|---|
 | `cloud.base_url` | string | none | SigComply Cloud endpoint. Set `https://sigcomply.com` to submit. With no value and no `--cloud-url` flag, nothing is submitted. |
-| `cloud.enabled` | bool | none | Accepted; has no effect. |
 
 A run submits when `cloud.base_url` (or `--cloud-url`, which overrides it) is set, the run is in
 CI, and an OIDC token is available. `--no-cloud` turns submission off. Only per-policy counts are
@@ -232,12 +243,11 @@ sent. Setup: [Cloud dashboard](guides/cloud-dashboard.md).
 | Key | Type | Default | Effect |
 |---|---|---|---|
 | `ci.fail_on_violation` | bool | `true` | When `true`, a failing policy or an incomplete `experimental.scope` exits `1`. When `false`, those runs exit `0`. Errors still exit `2`. |
-| `ci.fail_severity` | string | none | Accepted; has no effect. Must be `info`, `low`, `medium`, `high` or `critical` if set. |
 
 ## `experimental`
 
-The loader does not check these blocks itself; each feature reads its own key and reports its
-own errors. An unknown sub-key prints a warning.
+Each feature reads its own key and reports its own errors; the loader checks the shape of
+`experimental.scope` itself. An unknown sub-key prints a warning.
 
 <a id="experimentalscope--declaring-the-estate"></a>
 
@@ -252,9 +262,9 @@ causes skipped policies, not failures.
 | `declared_at` | string | `YYYY-MM-DD`. |
 | `required_sources` | list of source keys | Each must be configured, bound to at least one policy slot, and return at least one record. Otherwise the run prints `SCOPE INCOMPLETE` and exits `1` (see `ci.fail_on_violation`). |
 
-A malformed block (empty `required_sources`, bad date) prints
-`[warn] scope: ignoring experimental.scope` after collection and the run continues as if the
-block were absent. The verdict is written to `summary.json` and shown by
+A malformed block (not a mapping, `required_sources` empty, not a list, blank or duplicated
+entries, a bad `declared_at` date) is a config error, exit `3`, before any source is read. The
+verdict is written to `summary.json` and shown by
 `sigcomply report --view scope`.
 
 <a id="experimentalvendors--declaring-the-third-party-register"></a>
@@ -365,10 +375,10 @@ storage block takes credential keys.
 | `gcs` | `bucket` (required); `prefix` | `bucket` (required); `prefix` (default `manual/`) |
 | `azure_blob` | `account`, `container` (required); `prefix` | `account`, `container` (required); `prefix` (default `manual/`) |
 
-`backend` defaults to `local` in both blocks. The vault adds a trailing `/` to a `prefix` that
-lacks one. `manual.pdf` uses its `prefix` as written: manual evidence is read from
-`{prefix}{evidence_catalog_id}/{period_id}/` under the bucket (or `path`), so end the prefix with
-`/`. See [Manual evidence](guides/manual-evidence.md).
+`backend` defaults to `local` in both blocks. Both blocks add a trailing `/` to a `prefix` that
+lacks one. Manual evidence is read from `{prefix}{evidence_catalog_id}/{period_id}/` under the
+bucket (or `path`), so `manual` and `manual/` name the same folders. See
+[Manual evidence](guides/manual-evidence.md).
 
 ## Sources by provider
 

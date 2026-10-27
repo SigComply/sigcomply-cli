@@ -95,8 +95,8 @@ signature in the envelope, so anyone can verify a single file on its own.
 Each run also writes `manifest.json`: the SHA-256 hash of every file in the run, signed with its
 own one-time key. One check of the manifest covers the whole run.
 
-For manual evidence, the envelope records the SHA-256 hash of each uploaded source file. The
-merged PDF is not written to the vault.
+For manual evidence, the envelope records the SHA-256 hash of each uploaded source file and of
+the merged PDF. The merged PDF is written to the run folder, so the manifest covers it too.
 
 You can verify a run with `sigcomply report --view integrity`, or a single envelope in the
 browser on the Evidence SPA `/verify` page. See [Verify evidence](guides/verify-evidence.md).

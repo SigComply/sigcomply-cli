@@ -178,8 +178,9 @@ policies:
 ```
 
 The policy then checks the entry's folder and ignores its automated rule. The folder period
-follows the policy's cadence, which can differ from the entry's (a daily policy reads a daily
-folder such as `code_review_policy/2026-10-26/`), so copy the path from the failure message.
+follows the entry's cadence, not the policy's: a daily policy switched to the annual
+`code_review_policy` entry reads `code_review_policy/2026/`, the same folder the entry's own policy
+reads.
 `sigcomply report --view coverage` marks the control as `(overridden)`, so your auditor can see
 the change.
 

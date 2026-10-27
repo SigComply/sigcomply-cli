@@ -4,9 +4,10 @@ Install the `sigcomply` binary on your machine and confirm it runs.
 
 ## Prerequisites
 
-- macOS or Linux on x86-64 (`amd64`) or ARM64 for the install script. Other platforms: see
-  [Install a release archive by hand](#install-a-release-archive-by-hand).
-- `curl` and `tar` on your `PATH`.
+- A platform with a release archive: Linux on `amd64`, `arm64`, `armv6` or `armv7`, macOS on
+  `amd64` or `arm64`, or Windows on `amd64` in Git Bash, MSYS2 or Cygwin. On any other platform
+  the script stops with an error.
+- `curl` on your `PATH`, plus `tar`, or `unzip` on Windows.
 
 ## Install with the script
 
@@ -43,9 +44,10 @@ Install the `sigcomply` binary on your machine and confirm it runs.
    sigcomply 0.88.4 (commit 45c25e38278c8c155b2e875cf4750a42aabecefc, built 2026-10-26T19:12:08Z)
    ```
 
-The script does not support 32-bit ARM or Windows. On 32-bit ARM it requests an archive named
-`..._linux_arm.tar.gz`, which no release has, and the download fails. Use the manual steps below
-for those platforms.
+The script picks the archive from `uname -s` and `uname -m`. On 32-bit ARM, `armv6*` gets the
+`armv6` archive and `armv7*` or `armv8l` gets `armv7`. On Windows it downloads the `.zip` and
+installs `sigcomply.exe`. The script does not check `checksums.txt`; to check it, use the manual
+steps below.
 
 ## Install a release archive by hand
 

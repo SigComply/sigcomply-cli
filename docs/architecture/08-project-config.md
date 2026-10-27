@@ -16,9 +16,12 @@ and the code disagree, the code wins; fix both docs.
   config error (exit 3). A silently ignored typo (`framewrok:`) in a compliance config is an
   audit gap. The exceptions are the open bags (`vault:`, `sources.<id>`) and `experimental:`
   (see [Config evolution policy](#config-evolution-policy)).
-- Some keys are parsed and validated but have no effect: `cloud.enabled`, `output.*`,
-  `ci.fail_severity`, `ci_environment`, `extensions.path`. `docs/configuration.md` marks them.
-  Don't build on them.
+- Keys that were parsed but never read (`cloud.enabled`, `output.*`, `ci.fail_severity`,
+  `ci_environment`, `extensions.path`) were removed before launch. `spec.checkRemovedKeys` runs
+  before the strict decode so a file still setting one gets `"<key>" was removed and has no
+  effect` (exit 3) instead of the decoder's `field ... not found in type ...`. A key that is
+  accepted must do something; one that does nothing tells the operator a story the run does not
+  honour (`ci.fail_severity: critical` never changed which failures exited 1).
 
 ## Precedence: values, not scheduling
 
@@ -36,6 +39,7 @@ scheduler's job. See [`09-ci-execution-model.md`](09-ci-execution-model.md) and
 
 - `fiscal_calendar.type` tunes how a period is derived (`calendar_quarter`, `fiscal_year`,
   `custom` with explicit boundaries). The derivation itself is fixed.
+- `time_basis` is validated at load whether or not `fiscal_calendar.type` is set.
 - `time_basis: commit` (default) measures the period on HEAD's commit time, so re-running an old
   commit reproduces its period. `wall_clock` uses the run's start, for projects whose runs are
   scheduled posture scans. `planner.PeriodTime` chooses; every period in the run is measured on
@@ -80,8 +84,9 @@ instances.
 Exceptions live under the policy they apply to (`policies.<id>.exceptions`). They are config,
 not code, because a waiver is a governance decision an auditor must read, date and trace in git.
 
-- The planner applies only the first entry that has not expired (`planner.resolveException`).
-  Later entries are ignored, even with different scopes. Declare one live exception per policy.
+- The planner keeps every entry that has not expired (`planner.resolveExceptions`), in declared
+  order, and the evaluator applies each scoped entry to its own resources. A live entry with no
+  scope decides the whole result, so the planner keeps the first such entry alone.
 - A scoped `waived` exception runs the rule and reclassifies only the matching resource's
   failure. An exception with no scope sets the whole policy to its state; `na` skips evaluation.
 - An exception past its `expires_at` is ignored, so a stale waiver never keeps masking a
@@ -193,12 +198,14 @@ are identity data and stay vault-side.
 upgrades.
 
 - Additive only within `project.v1`. New keys are optional with a safe default; existing keys are
-  never renamed or removed. A `project.v2` is the last resort for a breaking shape change, and
+  never renamed or removed. The one exception was the pre-launch removal of the no-op keys above,
+  which fail loudly by name rather than load silently. A `project.v2` is the last resort for a breaking shape change, and
   none exists. Before shipping one, decide how configs migrate.
 - New, not-yet-stable fields go under `experimental:` first. Strict parsing would make a new
   top-level key a load error on every older CLI; `experimental:` is the one place an older CLI
-  tolerates subkeys it does not know. Each feature reads its own key; the loader interprets
-  nothing inside `experimental:`.
+  tolerates subkeys it does not know. Each feature reads its own key. The loader also runs
+  `spec.LoadScopeConfig` so a malformed `experimental.scope` is a config error (exit 3) before
+  collection; read later, it could only be a warning after the evidence was already signed.
 - Validation inside an `experimental.*` feature must warn on unknown subkeys, not reject them, or
   the forward-compatibility hazard comes back one level down. A malformed recognized key (a bad
   date, a duplicate ID) is still an error.

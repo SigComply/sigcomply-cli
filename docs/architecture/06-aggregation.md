@@ -74,8 +74,8 @@ semantics.
    count-generated messages.
 4. Rails strong params in `Api::V1::RunsController` are a second allow-list. They silently drop
    unknown fields.
-5. Golden contract. `TestCloudV3_GoldenWireContract` (`internal/aggregator/golden_contract_test.go`)
-   locks the wire bytes in `internal/aggregator/testdata/cloud_v3_golden.json`. The Rails repo
+5. Golden contract. `TestCloud_GoldenWireContract` (`internal/aggregator/golden_contract_test.go`)
+   locks the wire bytes in `internal/aggregator/testdata/cloud_golden.json`. The Rails repo
    keeps a byte-identical copy (path in the test's `railsFixtureRelPath`). Regenerate with
    `-update` and copy the file to Rails in the same task.
 6. Payload capture. `sigcomply check --capture-cloud-payload <file>` writes the exact payload
@@ -106,7 +106,8 @@ The CLI decides per run (`submitter.Decide`, called from
   GitLab CI via `SIGCOMPLY_ID_TOKEN`, falling back to `ID_TOKEN` (`submitter.HasOIDC`).
 - Audience: always `submitter.DefaultAudience` (`https://api.sigcomply.com`), whatever the base
   URL. It is an identifier, not a host. Rails checks it in `Oidc::TokenValidator`.
-- `cloud.enabled` is parsed and has no effect.
+- There is no `cloud.enabled` switch; `cloud.base_url` and `--no-cloud` decide. Setting the
+  removed key is a config error.
 
 The request:
 

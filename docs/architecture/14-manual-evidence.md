@@ -31,12 +31,14 @@ The folder for one entry and one period is built by `manual.FolderPrefix`:
 {prefix}{evidence_catalog_id}/{period_id}/
 ```
 
-- `{prefix}` is used verbatim. The default is `manual/`. A prefix without a trailing slash gives a
-  run-on key; that is documented behaviour, not a bug.
+- `{prefix}` is normalized to end in exactly one `/` (`manual`, `manual/` and `manual//` are the
+  same folder); an empty prefix stays empty. The default is `manual/`.
 - `{period_id}` is the entry's own cadence window from `planner.CadencePeriod` (annual `2026`,
   quarterly `2026-Q1`, monthly `2026-01`, weekly `2026-W03`, daily `2026-01-15`), not the run's
-  period. The planner uses the policy's declared cadence, so a `policies.<id>.cadence` override
-  never moves the folder. The mapping per calendar type is in `10-cadence-model.md`.
+  period. The planner uses the declared cadence of the manual policy that owns the entry
+  (`planner.manualCatalogCadences`, the same cadence the framework's manual catalog carries), so
+  a `policies.<id>.cadence` override never moves the folder, and a policy switched to manual
+  with `catalog_entry` reads the entry's folder, not one keyed on its own cadence. The mapping per calendar type is in `10-cadence-model.md`.
 - The bucket is not part of the key. `manual.FolderURI` adds it only for display
   (`s3://`, `gs://`, `azure://`, `file://`).
 
@@ -71,15 +73,23 @@ The record's `file_hash` and `file_size` describe the merged PDF. `file_valid` i
 files are present and `validation_failures` is empty.
 
 The evaluator (`evaluateManual`) then decides, in this order: no record is `error`;
-`file_present=false` is `fail`; `in_temporal_window=false` is `fail`; `file_valid=false` is `fail`
-with the failures listed; otherwise `pass`.
+`file_present=false` is `fail`; `in_temporal_window=false` with a merged PDF (`file_hash` set) is
+`fail`; `file_valid=false` is `fail` with the failures listed; otherwise `pass`. With no merged
+PDF (every file unsupported or unconvertible, or the merge failed) the window was never judged,
+so the failure names the `validation_failures`, such as `unsupported_file_type`.
 
 ## What is signed and stored
 
 - The collector signs the `signed_document` record into a per-file envelope (Invariant #3). The
   record carries `source_files[].sha256` for every original file and the merged PDF's hash.
-- The merged PDF is not written to the vault. `core.Vault.PutBinary` has no production caller.
-  An auditor who wants the documents reads them from the manual-evidence bucket and checks them
+- The merged PDF is written to the run folder at
+  `policies/{policy_id}/attachments/{evidence_catalog_id}.pdf`. The plugin hands the bytes to the
+  collector as a `core.Attachment` on the record (never serialized, so the envelope does not grow);
+  the collector writes it with `PutBinary`, so it is in the manifest's `file_hashes`. Its SHA-256
+  equals the record's `file_hash` and its size `file_size`. No PDF is written when nothing was
+  merged (empty folder, only unsupported files, or `merge_failed`). A failed write errors the
+  policy, like a failed envelope write.
+- The original uploads are not copied. An auditor checks them in the manual-evidence bucket
   against `source_files[].sha256`. No SigComply command re-reads the bucket to compare.
 - Nothing about the files crosses the aggregation boundary. The cloud payload gets the policy's
   status and counts only (Invariant #1).
@@ -101,6 +111,10 @@ is an approved exemption: no folder is listed, it counts as satisfied, and its
 `assurance_period_end`; if it ends more than 15 months (`manual.AssuranceMaxAge`) before the
 period start, the member gets `assurance_out_of_date`. The date is declared in config, never read
 from the PDF.
+
+Each member with a merged PDF gets its own attachment,
+`policies/{policy_id}/attachments/{evidence_catalog_id}.{member_id}.pdf`, whose SHA-256 is that
+member's `instances[].file_hash`. The record has no top-level `file_hash` for a fan-out entry.
 
 The evaluator (`evaluateManualInstances`) fails the policy if any required member is unsatisfied
 and sets `resources_evaluated` / `resources_failed` from the member counts.

@@ -107,9 +107,9 @@ Which tests to add:
   the harness is described in `internal/sources/sourcetest/README.md`.
 - Cloud submission contract (`internal/core/cloud*`, `internal/aggregator/`): the counts-only
   reflection test (`TestSubmissionPayload_StructurallyCountsOnly`) and the golden wire contract
-  (`TestCloudV3_GoldenWireContract`, fixture `internal/aggregator/testdata/cloud_v3_golden.json`)
+  (`TestCloud_GoldenWireContract`, fixture `internal/aggregator/testdata/cloud_golden.json`)
   stay green. Regenerate with
-  `go test ./internal/aggregator/ -run TestCloudV3_GoldenWireContract -update`, then copy the
+  `go test ./internal/aggregator/ -run TestCloud_GoldenWireContract -update`, then copy the
   file to `../sigcomply/spec/fixtures/files/contract/` in the same task. The cross-repo byte
   comparison runs only when the Rails repo is checked out next to this one, so CI skips it.
 - New command or flag: a test in `cmd/sigcomply/` that runs the command and checks output and
