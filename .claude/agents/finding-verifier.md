@@ -19,6 +19,8 @@ so plainly.
 ## Rules
 
 - Read-only. Never edit files, commit, push, reset or change branches. Don't spawn subagents.
+- Don't start servers, browsers or pipelines. If only the running product can settle the claim,
+  return UNCERTAIN and name the flow to drive.
 - A refutation must point at specific code or behaviour. "This seems unlikely" is not evidence.
 - If your refutation rests on absence ("nothing calls this", "this input can't occur"), search
   with at least two different handles before you rely on it, and list the searches.

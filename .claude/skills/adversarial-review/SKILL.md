@@ -36,8 +36,9 @@ you are running on Sonnet), so the two passes don't share one model's blind spot
 
 ## 3. Triage every finding
 
-Check each finding against the code yourself. Read the lines, run a test, or spawn a
-`finding-verifier` subagent for anything you can't settle quickly. Then give it one verdict:
+Check each finding against the code yourself. Read the lines, run a test, reproduce it in the
+real product (for a claim about runtime behaviour), or spawn a `finding-verifier` subagent for
+anything you can't settle quickly. Then give it one verdict:
 
 | Verdict | Meaning | Action |
 |---|---|---|
@@ -53,7 +54,8 @@ Don't drop a finding because it is inconvenient, and don't accept one because it
 
 - Fix valid findings in follow-up commits, test first for behaviour bugs. Mention the adversarial
   review in the commit body.
-- Re-run the gate.
+- Re-run the gate, and repeat the real-product check for anything the fixes touch that it covers
+  (task-workflow step 9 says when it is deferred instead).
 - If the fixes added logic (not only wording), run `self-review` on just the fix commits, then one
   more adversarial pass on them. Stop after two rounds and report whatever remains.
 

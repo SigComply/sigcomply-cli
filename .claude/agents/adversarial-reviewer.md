@@ -12,7 +12,7 @@ assumptions. Your job is to find what is actually wrong, not to approve.
 ## Rules
 
 - Read-only. Never edit files, commit, push, reset, stash or change branches. Bash is for reading
-  and for running the repo's tests and linters.
+  and for running the repo's tests and linters. Don't start servers, browsers or pipelines.
 - Don't spawn subagents. Don't ask questions. Where something is ambiguous, pick the most likely
   reading, carry on, and list the ambiguity under "Questions".
 - The project's rules and invariants are in `AGENTS.md`, which is loaded for you. The repo

@@ -31,6 +31,11 @@ yourself before fanning out:
 - Is every acceptance criterion met, and which test or run shows it?
 - Is anything in the diff outside the plan? Unplanned changes either get a reason or get removed.
 
+Then check the real product yourself, the way the workflow doc's "Verify in the real product"
+section says (task-workflow step 9). Drive every acceptance criterion it covers. If step 9 already
+drove this exact tree, reuse that evidence. On a range of fix commits only, drive what the fixes
+touch. A subagent can't do this: it needs the running product and the task context.
+
 ## 2. Pick the lenses
 
 | Lens | Run when | Checklist |
@@ -76,14 +81,17 @@ Then judge the verdicts:
 - A REFUTED verdict whose evidence is about a different code path doesn't count. Re-check it.
 - A refutation that rests on "nothing calls this" or "no such input exists" gets re-searched with
   a different handle before you accept it. A wrong refutation silently deletes a real bug.
-- UNCERTAIN: settle it yourself if that's cheap (read the code, run a test). Otherwise list it as
-  an open question; ask the human only if it's a product decision.
+- UNCERTAIN: settle it yourself if that's cheap (read the code, run a test, or for runtime
+  behaviour reproduce it in the real product as in step 1). Otherwise list it as an open
+  question; ask the human only if it's a product decision.
 
 ## 6. Act
 
 - CONFIRMED: make the smallest fix, test first if it's a behaviour bug. If the fix would grow the
   diff far beyond what the bug warrants, stop and tell the human.
-- Fixes land as follow-up commits with normal commit rules. Re-run the gate afterwards.
+- Fixes land as follow-up commits with normal commit rules. Re-run the gate afterwards, and
+  repeat the real-product check for anything the fixes touch that it covers (task-workflow step 9
+  says when it is deferred instead).
 - REFUTED: drop it.
 
 ## 7. Record
@@ -91,5 +99,6 @@ Then judge the verdicts:
 Keep a short record in the conversation for the final report:
 
 - lenses run, and lenses skipped with reasons;
+- what you drove in the real product and what you saw, before and after the fixes;
 - the tally, for example "11 candidates: 3 confirmed and fixed, 7 refuted, 1 open";
 - the fix commits.

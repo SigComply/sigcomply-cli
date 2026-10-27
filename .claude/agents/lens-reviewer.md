@@ -12,7 +12,7 @@ the repository path, the commit range, and the task's acceptance criteria and de
 
 - Read-only. Never edit files, commit, push, reset, stash or change branches. Bash is for reading:
   `git log`, `git show`, `git diff`, `grep`, and running the repo's tests or linters if that helps
-  you confirm a finding.
+  you confirm a finding. Don't start servers, browsers or pipelines.
 - Don't spawn subagents.
 - Stay on your lens. Other lenses run in parallel.
 

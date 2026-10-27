@@ -123,7 +123,12 @@ Docs are part of the change, in the same commits. Use the `writing-docs` skill. 
 Run the full gate from the workflow doc and read the results. Exit codes and output count, not
 expectations. Then check the real product the way the workflow doc says: run the CLI, drive the
 app in a browser, or run the pipeline. A user-facing change is not verified until you have
-driven it. If you can't run something, say so and mark the claim unverified.
+driven it. Steps 11 and 12 repeat this check for every fix that touches what it covers, and use
+it to reproduce findings about runtime behaviour.
+
+Where the workflow doc's check can only run after push, only with the human's approval, or only
+by the human, record it as deferred to that run, and why. Mark a claim unverified only when the
+check can't run at all; give the reason.
 
 ## 10. Quick self-review, then commit
 
@@ -157,7 +162,7 @@ commits.
 
 Run the `adversarial-review` skill. It sends the commits to a reviewer that knows nothing about
 the task, triages each finding, fixes the valid ones in follow-up commits, and re-checks those
-fixes.
+fixes, including in the real product.
 
 ## 13. Push and watch
 
@@ -172,7 +177,8 @@ job, an outage, a missing secret), re-run it once, then report it and ask.
 Tell the human:
 
 - the commits, with one line each;
-- the verification evidence (commands and results, what you drove in the product);
+- the verification evidence (commands and results, what you drove in the product, and what you
+  drove again after review fixes);
 - the review tally (lenses run, findings confirmed, refuted and fixed, adversarial triage);
 - the docs you updated;
 - anything skipped and why, and any follow-ups you did not do.
@@ -220,7 +226,8 @@ Take coordinates from a report, then check and write the conclusions yourself.
 Copy this into every plan:
 
 - [ ] Tests written first; the full gate from the workflow doc is green.
-- [ ] Verified in the real product, or marked unverified with the reason.
+- [ ] Verified in the real product, again after review fixes, or marked deferred or unverified
+      with the reason.
 - [ ] Agent-internal and customer-facing docs updated, or "none needed" stated with the reason.
 - [ ] `self-review` and `adversarial-review` done; valid findings fixed in follow-up commits.
 - [ ] Pushed to `main`; CI, and any deploy or release it triggers, observed green.
