@@ -27,7 +27,12 @@ fail loudly.
 | L2 contract | cassette replayed through the real SDK deserializer; cassette and fixtures validated against the vendor's published spec | Only on re-record or snapshot refresh | every push | CLI | `make test-contract` |
 | L3 spec-diff drift | the vendor's machine-readable API model, diffed against `contracts/` | Yes, shape changes | weekly (`contract-drift.yml`, Monday 00:00 UTC) | CLI | `make contracts-diff` |
 | L4a live SaaS | real calls to free accounts, `//go:build live` | Yes, including behaviour | nightly (`live-saas.yml`, 03:00 UTC) | CLI | `make test-live` |
-| L4b cloud and pipeline E2E | provision minimal cloud infra, run the released binary, assert per-policy outcomes, tear down | Yes, including integration | scheduled or manual | E2E repos | see the E2E repos |
+| Binary E2E | the built binary as a process: exact exit codes 0/1/2/3, vault tree, manifest and envelope signatures, the cloud submission (fake OIDC endpoint and cloud), `evidence due`, `evidence catalog`, `init-ci` (`cmd/sigcomply/e2e_test.go`). Manual-evidence configs only: real sources need vendor APIs | No | every push | CLI | `make test` |
+| Cross-repo goldens | committed fixtures the other repos copy byte for byte: the run payload (Rails), envelope vectors, the period and folder table, the manual catalogs (Evidence SPA). Regenerated with `-update`; a stale golden fails the test | n/a | every push | CLI | `make test` |
+| L4b cloud and pipeline E2E | provision minimal cloud infra, run the released binary, assert per-policy outcomes, tear down | Yes, including integration | per release candidate (gate) and scheduled | E2E repos | see the E2E repos |
+
+How these layers group into per-push, post-deploy, release and scheduled tiers, and what each
+costs: [§8](#8-system-tiers).
 
 L3 covers AWS (Smithy models), Azure (`azure-rest-api-specs` Swagger), GCP (Discovery documents),
 GitHub (`github/rest-api-description`) and Okta (OpenAPI). GitLab's published spec is too thin;
@@ -39,10 +44,11 @@ cassettes and L4b.
 
 ## 3. Repo split
 
-- `sigcomply-cli` owns L0 to L4a. These need no provisioning; L4a needs only a free account and a
-  token.
+- `sigcomply-cli` owns L0 to L4a, the binary E2E tests and the goldens. These need no
+  provisioning; L4a needs only a free account and a token.
 - The E2E repos own L4b: provisioning, OIDC plumbing per CI platform, setup/teardown scripts and
-  a leak sweeper. L4b tests the released binary. In
+  a leak sweeper. L4b tests the released binary, including the prerelease the release gate
+  checks. In
   `sigcomply-cli-testing-project-github`, see `scripts/assert_outcomes.py`, `scripts/setup-*.sh`,
   `scripts/teardown-*.sh` and `scripts/sweep-aws.sh` (a custom AWS-only sweeper that deletes
   resources named with the `sigcomply-e2e-` prefix).
@@ -153,7 +159,10 @@ cassettes and L4b.
 
 `contract-drift.yml` re-fetches every pinned spec slice and diffs it against `contracts/`. A change
 opens or comments on an issue labelled `contract-drift`. The script exits 1 on breaking drift and 2
-on a tooling failure.
+on a tooling failure; both comment on the issue, and the workflow run itself stays green. So read
+the issue, not the run's colour. A tooling failure means no spec was compared that week: the
+fetch names the URL that failed (`contracts-fetch: GET <url> failed`), usually a vendor moving a
+spec file.
 
 1. Reproduce: `make contracts-diff`. It prints `BREAKING …` lines and an additions count; a clean
    tree exits 0.
@@ -167,7 +176,10 @@ on a tooling failure.
 5. Re-baseline: `make contracts-fetch`, commit the updated `contracts/` files.
 6. Close the issue once CI is green.
 
-Never silence drift by editing the differ.
+The differ skips what never describes a shape a mapper reads: Smithy endpoint-routing rules
+(`smithy.rules#endpointBdd` and its relatives), documentation strings, and how many `../` a
+relative `$ref` starts with (`scripts/contracts_diff_test.go` pins both what is skipped and what
+still counts). Never silence real drift by editing the differ.
 
 ## 7. L4a live setup
 
@@ -187,3 +199,18 @@ in `live-saas.yml` (GitHub secrets are stored as `GH_TEST_*` because secret name
 Remediating a live failure: reproduce with `make test-live`, fix the mapper or schema, re-record
 the affected cassette, and re-baseline the L3 snapshot if the upstream shape moved. L3 catches
 spec-shape changes with no accounts; L4a catches behaviour a spec diff cannot see.
+
+## 8. System tiers
+
+The layers above sit in four tiers across the SigComply repos. Each tier runs at a different
+moment and costs a different amount.
+
+| Tier | When | What runs | Cost |
+|---|---|---|---|
+| T1 per-push gate | every push, in each repo | unit, integration, cross-repo goldens and the repo's own E2E layer. Here: L0 to L2 and the binary E2E tests in `test.yml`, which a release waits for | $0 |
+| T2 post-deploy smoke | after the dashboard or the Evidence SPA deploys | a check that the deployed site answers; owned by those repos | $0 |
+| T3 release gate | every CLI release candidate, when `RELEASE_GATE` is `on` | `release-gate.yml` in the GitHub E2E repo runs the prerelease against a small real AWS set, the GitHub source and manual evidence, asserts the exit code and every policy outcome, verifies the vault with the SPA's verifier, submits counts to SigComply Cloud and reads them back. The release becomes latest only if it passes | about $0.05 of AWS per run; SaaS accounts are free tiers |
+| T4 scheduled | daily, nightly, weekly | the release gate on `latest` daily (account and vendor drift), L4a nightly, L3 weekly, the AWS leak sweeper | about $1 a month |
+
+The full AWS, GCP and Azure tiers in the E2E repo cost far more per run and are dispatched by
+hand, never on a gate or a schedule.

@@ -28,7 +28,9 @@ overview `../AGENTS.md` exists only on maintainer machines; nothing here may dep
   is published.
 - A push to `main` runs the tests and cuts a GitHub Release unless every changed file is
   path-ignored. Nested READMEs, `llms.txt`, `examples/**` and `.github/` templates are not
-  ignored. Release mechanics: `docs/claude/development-workflow.md`.
+  ignored. The release is published as a prerelease and promoted to latest, after the E2E release
+  gate when the repository variable `RELEASE_GATE` is `on`. Release mechanics:
+  `docs/claude/development-workflow.md`.
 
 ## Every task
 
@@ -206,10 +208,10 @@ Full package map: `ARCHITECTURE.md` and `docs/architecture/02-layers.md`.
 |---|---|---|
 | `core.SubmissionPayload` (schema `aggregator.SchemaVersion`): run metadata (`run_id`, `framework`, `period_id`, `commit_sha`, `commit_time`, `branch`, `cli_version`, `started_at`, `completed_at`), `repository{provider,name_slug,url}`, `environment{provider,workflow,run_url,worker_image}`, `summary` (`policies_*` per status, `compliance_score`), per-policy `policy_id`, `controls[]`, `status`, `severity`, `category`, `resources_evaluated`, `resources_failed`, `message`, `rule_version`, cadence scalars, `evidence_mode`, `evidence_mode_overridden`, `vacuous` | `../sigcomply` `Api::V1::RunsController` strong params (`POST /api/v1/runs`) | `TestCloud_GoldenWireContract`; copy a regenerated golden to `../sigcomply/spec/fixtures/files/contract/` |
 | OIDC: audience `submitter.DefaultAudience`, `X-OIDC-Provider` header | Rails `Oidc::TokenValidator` (audience, issuer, claims `repository` / `project_path`, `namespace_path`) | `docs/claude/auth.md` |
-| `sigcomply evidence catalog -o json` (`internal/manualcatalog`) | SPA `src/types/catalog.ts`, `scripts/fetch-catalogs.ts` (runs the released CLI on deploy) | `cmd/sigcomply` export tests |
-| `manual.FolderPrefix`, default prefix `manual/` | SPA `src/lib/storage-path.ts`, `public/config.json` | `internal/sources/manual/paths_test.go` |
-| Envelope and manifest format (`internal/sign`) | SPA `/verify` page (`src/lib/verification/`) | `internal/sign` tests |
-| Release asset names, command flags, exit codes | E2E repos `../sigcomply-cli-testing-project-{github,gitlab}` | their CI |
+| `sigcomply evidence catalog -o json` (`internal/manualcatalog`) | SPA `src/types/catalog.ts`, `scripts/fetch-catalogs.ts` (runs the released CLI on deploy) | `cmd/sigcomply` export and binary E2E tests; golden `internal/manualcatalog/testdata/<framework>_golden.json`, copied to the SPA |
+| `manual.FolderPrefix`, default prefix `manual/`; manual folder periods (`planner.CadencePeriod`) | SPA `src/lib/storage-path.ts`, `src/lib/period.ts`, `public/config.json` | `internal/sources/manual/paths_test.go`; golden `internal/planner/testdata/spa-golden/periods.json`, copied to the SPA |
+| Envelope and manifest format (`internal/sign`) | SPA `/verify` page (`src/lib/verification/`) | `internal/sign` tests; golden vectors `internal/sign/testdata/spa-golden/`, copied to the SPA's `src/lib/verification/__fixtures__/golden/` |
+| Release asset names, `checksums.txt`, command flags, exit codes | E2E repos `../sigcomply-cli-testing-project-{github,gitlab}` (the GitHub one runs `release-gate.yml` per release candidate) | `cmd/sigcomply/e2e_test.go`; the release gate |
 
 Push order: the receiving side first. Rails strong params silently drop unknown fields, so Rails
 accepts a new field before the CLI sends it. `POST /api/v1/runs` is the only Rails endpoint the
