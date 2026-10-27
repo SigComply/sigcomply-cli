@@ -25,6 +25,9 @@ func validateProjectReferences(cfg *spec.ProjectConfig, framework core.Framework
 	if cfg == nil {
 		return nil
 	}
+	if err := validatePolicyControls(cfg, framework, set); err != nil {
+		return err
+	}
 	policyIDs, controlIDs := knownReferences(cfg, framework, set)
 
 	for id := range cfg.Policies {
@@ -40,6 +43,50 @@ func validateProjectReferences(cfg *spec.ProjectConfig, framework core.Framework
 		}
 	}
 	return validateApplicability(cfg, framework)
+}
+
+// validatePolicyControls checks the control a project-local policy maps
+// to against the framework's control catalog.
+//
+// A typo there ("CC6.01" for "CC6.1") is silent otherwise: the policy
+// still runs and still counts toward the score, but it joins no catalog
+// control, so coverage and the Statement of Applicability report the real
+// control as having no policy behind it.
+//
+// Shipped policies are held to the same rule by a test over every
+// built-in framework (TestValidatePolicyControls_ShippedFrameworksPass),
+// not here: a bad mapping in the binary is our bug, and failing the
+// customer's run for it would leave them nothing to fix.
+func validatePolicyControls(cfg *spec.ProjectConfig, framework core.Framework, set *registry.Set) error {
+	catalog := map[string]struct{}{}
+	for _, c := range framework.Controls() {
+		catalog[c.ID] = struct{}{}
+	}
+	return checkPolicyControls(cfg.ProjectLocalPolicies, framework.ID(), catalog, set)
+}
+
+// checkPolicyControls reports the first policy in refs that maps to a
+// control of frameworkID missing from catalog. A ref naming another
+// framework is a cross-framework mapping this catalog cannot judge, so
+// it is skipped; a ref naming none (a project-local policy's `control:`)
+// belongs to the active framework.
+func checkPolicyControls(refs []core.PolicyRef, frameworkID string, catalog map[string]struct{}, set *registry.Set) error {
+	for _, ref := range refs {
+		policy, ok := set.Policies.Lookup(ref.PolicyID)
+		if !ok {
+			continue
+		}
+		for _, cr := range policy.Controls {
+			if cr.Framework != "" && cr.Framework != frameworkID {
+				continue
+			}
+			if _, ok := catalog[cr.ControlID]; !ok {
+				return fmt.Errorf("policy %q: control %q is not in the %s control catalog%s",
+					policy.ID, cr.ControlID, frameworkID, didYouMean(cr.ControlID, catalog))
+			}
+		}
+	}
+	return nil
 }
 
 // validateApplicability rejects an applicability exclusion against a

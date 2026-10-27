@@ -19,10 +19,11 @@ import (
 func evaluateScope(opts *Options, plan *planner.RunPlan, records map[string]map[string][]core.EvidenceRecord) *scope.Report {
 	sc, err := spec.LoadScopeConfig(opts.Config)
 	if err != nil {
-		// A malformed declaration must not take the run down after the
-		// evidence has already been collected and signed. Warn and treat
-		// the estate as undeclared; the config error surfaces on the next
-		// `check` at load time anyway.
+		// spec.LoadProjectConfig rejects a malformed declaration (exit
+		// 3), so a config loaded from a file never gets here. Only a
+		// ProjectConfig built in code can, and by now the evidence is
+		// collected and signed: warn and treat the estate as undeclared
+		// rather than take the run down.
 		opts.Logger.Warnf("scope: ignoring experimental.scope: %s", err.Error())
 		sc = nil
 	}

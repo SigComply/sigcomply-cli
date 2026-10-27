@@ -55,6 +55,9 @@ var (
 	// configKeys records the config keys each source understands, so a
 	// typo in `sources:` can be reported instead of silently ignored.
 	configKeys = map[string][]string{}
+	// typedConfigKeys records the declared keys a source reads with its
+	// own typed parser (a bool, an int, a list) rather than StringOpt.
+	typedConfigKeys = map[string]map[string]struct{}{}
 )
 
 // RegisterFactory adds a factory under id. Intended to be called from
@@ -100,6 +103,47 @@ func RegisterFactory(id string, f Factory, keys ...string) {
 		sort.Strings(out)
 		configKeys[id] = out
 	}
+}
+
+// RegisterTypedConfigKeys marks declared config keys that the source
+// reads with its own type check — `start_tls: true`, `page_size: 500`, a
+// list of OUs — instead of through StringOpt.
+//
+// It exists for the planner's source-config warning. A non-string value
+// under a StringOpt key reads as unset, so the planner tells the operator
+// to quote it; under a typed key that advice is wrong, and following it is
+// what breaks the source. Keys left undeclared here are treated as
+// strings. Each key must already be declared via RegisterFactory, and
+// a typed reader must reject a wrong type itself, because nothing else
+// will.
+func RegisterTypedConfigKeys(id string, keys ...string) {
+	mu.Lock()
+	defer mu.Unlock()
+	if _, ok := factories[id]; !ok {
+		panic("sources: RegisterTypedConfigKeys: " + id + " has no registered factory")
+	}
+	declared := make(map[string]struct{}, len(configKeys[id]))
+	for _, k := range configKeys[id] {
+		declared[k] = struct{}{}
+	}
+	if typedConfigKeys[id] == nil {
+		typedConfigKeys[id] = map[string]struct{}{}
+	}
+	for _, k := range keys {
+		if _, ok := declared[k]; !ok {
+			panic("sources: RegisterTypedConfigKeys: " + id + " does not declare config key " + k)
+		}
+		typedConfigKeys[id][k] = struct{}{}
+	}
+}
+
+// IsTypedConfigKey reports whether the source reads key with its own
+// typed parser (see RegisterTypedConfigKeys).
+func IsTypedConfigKey(id, key string) bool {
+	mu.RLock()
+	defer mu.RUnlock()
+	_, ok := typedConfigKeys[id][key]
+	return ok
 }
 
 // ConfigKeys returns the config keys the source registered as

@@ -136,7 +136,11 @@ func TestLoadScopeConfig_Rejects(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			_, err := loadScope(t, scopeBase+c.body)
+			// A malformed declaration is a config error at load (exit 3),
+			// like the vendor, risk and roster registers. Found only after
+			// collection, it used to be a warning and the run carried on
+			// with the estate silently undeclared.
+			_, err := spec.LoadProjectConfig([]byte(scopeBase + c.body))
 			if err == nil {
 				t.Fatalf("want error containing %q; got nil", c.want)
 			}

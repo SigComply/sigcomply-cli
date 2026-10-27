@@ -18,6 +18,7 @@ const (
 	testSrcAzureish = "test.azureish"
 	testSrcGCPish   = "test.gcpish"
 	testSrcSilent   = "test.silent"
+	testSrcTypedish = "test.typedish"
 
 	testKeyRoleARN   = "role_arn"
 	testKeyProjectID = "project_id"
@@ -33,10 +34,13 @@ func init() {
 	sources.RegisterFactory(testSrcGCPish, noopBuild, testKeyProjectID)
 	// Declares nothing: the fail-open case.
 	sources.RegisterFactory(testSrcSilent, noopBuild)
+	// Reads some keys with its own typed parser, as active_directory does.
+	sources.RegisterFactory(testSrcTypedish, noopBuild, "url", "start_tls", "page_size", "ous")
+	sources.RegisterTypedConfigKeys(testSrcTypedish, "start_tls", "page_size", "ous")
 }
 
 func sourcesCfg(bags map[string]map[string]any) *spec.ProjectConfig {
-	return &spec.ProjectConfig{Framework: "soc2", Sources: bags}
+	return &spec.ProjectConfig{Framework: testFrameworkID, Sources: bags}
 }
 
 func TestSourceConfigWarnings_SilentOnACleanConfig(t *testing.T) {
@@ -114,5 +118,32 @@ func TestSourceConfigWarnings_SilentForAnUndeclaredSource(t *testing.T) {
 	})
 	if got := SourceConfigWarnings(cfg); got != nil {
 		t.Errorf("warnings = %v; want none for a source that declared no keys", got)
+	}
+}
+
+// A source that parses some keys itself (a bool, an int, a list) must not
+// be told to quote them: following that advice is what breaks it, since
+// its own reader then rejects the string.
+func TestSourceConfigWarnings_TypedKeysAreNotStringChecked(t *testing.T) {
+	cfg := sourcesCfg(map[string]map[string]any{
+		testSrcTypedish: {
+			"url":       "ldaps://dc.example.com",
+			"start_tls": true,
+			"page_size": 500,
+			"ous":       []any{"OU=Service,DC=example,DC=com"},
+		},
+	})
+	if got := SourceConfigWarnings(cfg); got != nil {
+		t.Errorf("warnings = %v; want none for keys the source reads with their own type", got)
+	}
+}
+
+// The string check still applies to that source's string keys.
+func TestSourceConfigWarnings_StringKeysOfATypedSourceAreStillChecked(t *testing.T) {
+	cfg := sourcesCfg(map[string]map[string]any{
+		testSrcTypedish: {"url": 389},
+	})
+	if got := strings.Join(SourceConfigWarnings(cfg), "\n"); !strings.Contains(got, `"url" is int, not a string`) {
+		t.Errorf("warnings = %q; want the string key's type mismatch named", got)
 	}
 }

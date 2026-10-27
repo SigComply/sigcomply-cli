@@ -8,7 +8,8 @@ import (
 )
 
 // SourceConfigWarnings reports keys under a `sources:` entry that the
-// source does not read, and declared keys whose value is not a string.
+// source does not read, and declared string keys whose value is not a
+// string.
 //
 // The project config loader runs with KnownFields(true), which catches a
 // typo anywhere else in the file. It stops at the source key: the inner
@@ -41,12 +42,12 @@ func SourceConfigWarnings(cfg *spec.ProjectConfig) []string {
 		if len(known) == 0 {
 			continue
 		}
-		out = append(out, sourceKeyWarnings(id, cfg.Sources[id], known)...)
+		out = append(out, sourceKeyWarnings(id, base, cfg.Sources[id], known)...)
 	}
 	return out
 }
 
-func sourceKeyWarnings(id string, bag map[string]any, known []string) []string {
+func sourceKeyWarnings(id, base string, bag map[string]any, known []string) []string {
 	set := make(map[string]struct{}, len(known))
 	for _, k := range known {
 		set[k] = struct{}{}
@@ -58,8 +59,15 @@ func sourceKeyWarnings(id string, bag map[string]any, known []string) []string {
 				id, key, id, known))
 			continue
 		}
-		// A declared key with a non-string value reads as absent to
-		// every factory in the tree, which is the silent half.
+		// A key the source parses with its own type (active_directory's
+		// start_tls, page_size, service_account_ous) is checked by that
+		// parser, which rejects a wrong type. Telling the operator to
+		// quote a bool there would turn a working value into an error.
+		if sources.IsTypedConfigKey(base, key) {
+			continue
+		}
+		// Every other declared key is read through StringOpt, where a
+		// non-string value reads as absent, which is the silent half.
 		if _, isString := bag[key].(string); !isString && bag[key] != nil {
 			out = append(out, fmt.Sprintf("sources.%s: %q is %T, not a string, so it reads as unset; quote it (%s: \"%v\")",
 				id, key, bag[key], key, bag[key]))

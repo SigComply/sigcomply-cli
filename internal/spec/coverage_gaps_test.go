@@ -578,6 +578,21 @@ period:
 	}
 }
 
+// time_basis is independent of the fiscal calendar: leaving the calendar
+// at its default must not let a typo through.
+func TestLoadProjectConfig_PeriodInvalidTimeBasisWithoutCalendarType(t *testing.T) {
+	data := []byte(`
+schema_version: project.v1
+framework: soc2
+period:
+  time_basis: runtime
+`)
+	_, err := LoadProjectConfig(data)
+	if err == nil || !strings.Contains(err.Error(), "period.time_basis") {
+		t.Errorf("expected time_basis error; got %v", err)
+	}
+}
+
 func TestLoadProjectConfig_PeriodInvalidType(t *testing.T) {
 	data := []byte(`
 schema_version: project.v1
@@ -606,39 +621,6 @@ period:
 	_, err := LoadProjectConfig(data)
 	if err == nil || !strings.Contains(err.Error(), "id") {
 		t.Errorf("expected id required error; got %v", err)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// validateCI — fail_severity validation
-// ---------------------------------------------------------------------------
-
-func TestLoadProjectConfig_CIInvalidFailSeverity(t *testing.T) {
-	data := []byte(`
-schema_version: project.v1
-framework: soc2
-ci:
-  fail_severity: extreme
-`)
-	_, err := LoadProjectConfig(data)
-	if err == nil || !strings.Contains(err.Error(), "fail_severity") {
-		t.Errorf("expected fail_severity error; got %v", err)
-	}
-}
-
-func TestLoadProjectConfig_CIValidFailSeverity(t *testing.T) {
-	data := []byte(`
-schema_version: project.v1
-framework: soc2
-ci:
-  fail_severity: medium
-`)
-	cfg, err := LoadProjectConfig(data)
-	if err != nil {
-		t.Fatalf("valid fail_severity should pass; got %v", err)
-	}
-	if cfg.CI.FailSeverity != "medium" {
-		t.Errorf("FailSeverity = %q", cfg.CI.FailSeverity)
 	}
 }
 

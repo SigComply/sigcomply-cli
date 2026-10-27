@@ -137,12 +137,7 @@ controls:
     approved_by: "ciso@example.com"
 
 cloud:
-  enabled: true
-
-output:
-  format: text
-  json_path: ./compliance-report.json
+  base_url: https://sigcomply.com
 
 ci:
   fail_on_violation: true
-  fail_severity: high

@@ -1,12 +1,11 @@
 package spec
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
 const (
@@ -137,8 +136,57 @@ func TestLoadProjectConfig_AcmeCorpExample(t *testing.T) {
 	if cc := cfg.Controls["CC6.4"]; cc.Applicability != testNotApplicable {
 		t.Errorf("controls[CC6.4].applicability = %q; want not_applicable", cc.Applicability)
 	}
-	if cfg.CI.FailSeverity != core.SeverityHigh {
-		t.Errorf("CI.FailSeverity = %q; want high", cfg.CI.FailSeverity)
+	if cfg.CI.FailOnViolation == nil || !*cfg.CI.FailOnViolation {
+		t.Errorf("CI.FailOnViolation = %v; want true", cfg.CI.FailOnViolation)
+	}
+}
+
+// Keys that were once parsed but never read. A config that still sets one
+// must fail loudly and say so: silently accepting it let an operator
+// believe, say, ci.fail_severity: critical changed which failures broke
+// the build, when every fail always did.
+func TestLoadProjectConfig_RejectsRemovedKeys(t *testing.T) {
+	cases := []struct {
+		body string
+		key  string
+	}{
+		{"cloud:\n  enabled: true\n", "cloud.enabled"},
+		{"cloud:\n  enabled: false\n  base_url: https://sigcomply.com\n", "cloud.enabled"},
+		{"output:\n  format: json\n", "output.format"},
+		{"output:\n  json_path: ./r.json\n", "output.json_path"},
+		{"output:\n  verbose: true\n", "output.verbose"},
+		{"output: {}\n", "output"},
+		{"ci:\n  fail_severity: high\n", "ci.fail_severity"},
+		{"ci:\n  fail_on_violation: true\n  fail_severity: high\n", "ci.fail_severity"},
+		{"ci_environment:\n  provider: github_actions\n", "ci_environment"},
+		{"extensions:\n  path: ./ext\n", "extensions.path"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.key, func(t *testing.T) {
+			_, err := LoadProjectConfig([]byte("schema_version: project.v1\nframework: soc2\n" + tc.body))
+			if err == nil {
+				t.Fatalf("expected an error for removed key %q, got nil", tc.key)
+			}
+			want := fmt.Sprintf("%q was removed and has no effect", tc.key)
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("error = %q; want substring %q", err.Error(), want)
+			}
+		})
+	}
+}
+
+// The keys that survive in the same sections still load.
+func TestLoadProjectConfig_KeepsLiveKeysInPrunedSections(t *testing.T) {
+	cfg, err := LoadProjectConfig([]byte("schema_version: project.v1\nframework: soc2\n" +
+		"cloud:\n  base_url: https://sigcomply.com\nci:\n  fail_on_violation: false\n"))
+	if err != nil {
+		t.Fatalf("LoadProjectConfig: %v", err)
+	}
+	if cfg.Cloud.BaseURL != "https://sigcomply.com" {
+		t.Errorf("cloud.base_url = %q", cfg.Cloud.BaseURL)
+	}
+	if cfg.CI.FailOnViolation == nil || *cfg.CI.FailOnViolation {
+		t.Errorf("ci.fail_on_violation = %v; want false", cfg.CI.FailOnViolation)
 	}
 }
 
@@ -191,7 +239,6 @@ func TestLoadProjectConfig_RejectsInvalid(t *testing.T) {
 		{"project_config/invalid_exception_no_reason.yaml", "reason"},
 		{"project_config/invalid_exception_bad_state.yaml", "state"},
 		{"project_config/invalid_exception_bad_date.yaml", "ISO 8601"},
-		{"project_config/invalid_bad_output_format.yaml", "output.format"},
 		{"project_config/invalid_unknown_top_level.yaml", "mystery_section"},
 		{"project_config/invalid_policy_override_no_catalog.yaml", testFieldCatalogEntry},
 		{"project_config/invalid_policy_override_bad_mode.yaml", "invalid value"},

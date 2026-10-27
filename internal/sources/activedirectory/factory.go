@@ -10,6 +10,9 @@ import (
 func init() {
 	sources.RegisterFactory(SourceID, build, "url", "bind_dn", "bind_password", "token_env", "base_dn", "user_filter",
 		"service_account_ous", "page_size", "timeout", "start_tls", "ca_cert", "tls_server_name")
+	// Read by the typed readers in config.go, which reject a wrong type
+	// themselves. timeout takes a duration string or whole seconds.
+	sources.RegisterTypedConfigKeys(SourceID, "service_account_ous", "page_size", "timeout", "start_tls")
 }
 
 // build validates sources.active_directory and constructs the plugin. It

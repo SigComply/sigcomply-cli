@@ -196,6 +196,47 @@ func TestRunCheck_PlanErrorExitsConfig(t *testing.T) {
 	}
 }
 
+// Config mistakes the loader catches stop the run before any source is
+// built, with exit 3 and a message naming the key.
+func TestRunCheck_LoadTimeConfigErrorsExitConfig(t *testing.T) {
+	cases := []struct {
+		name, appended, want string
+	}{
+		{"removed key", "ci:\n  fail_severity: high\n", `"ci.fail_severity" was removed and has no effect`},
+		{"malformed scope", "experimental:\n  scope:\n    required_sources: github\n", "experimental.scope.required_sources"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			tmp := t.TempDir()
+			configPath := filepath.Join(tmp, "cfg.yaml")
+			manualDir := filepath.Join(tmp, "manual")
+			if err := os.MkdirAll(manualDir, 0o750); err != nil {
+				t.Fatal(err)
+			}
+			writeManualOnlyConfig(t, configPath, filepath.Join(tmp, "vault"), manualDir)
+			f, err := os.OpenFile(configPath, os.O_APPEND|os.O_WRONLY, 0o600)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := f.WriteString(c.appended); err != nil {
+				t.Fatal(err)
+			}
+			if err := f.Close(); err != nil {
+				t.Fatal(err)
+			}
+
+			err = runCheck(context.Background(), &bytes.Buffer{}, &checkFlags{config: configPath, cloudOff: true})
+			var ec *exitCodeError
+			if !errors.As(err, &ec) || ec.code != orchestrator.ExitConfig {
+				t.Fatalf("want exitCodeError{code:3}; got %v", err)
+			}
+			if !strings.Contains(err.Error(), c.want) {
+				t.Errorf("error = %v; want it to contain %q", err, c.want)
+			}
+		})
+	}
+}
+
 func writeMinimalConfig(t *testing.T, path, framework, vaultDir string) {
 	t.Helper()
 	body := `schema_version: project.v1

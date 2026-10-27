@@ -49,11 +49,8 @@ type ProjectConfig struct {
 	// resource-scoped waivers stay under Policies[id].exceptions.
 	Controls map[string]ControlConfig `yaml:"controls"`
 
-	Cloud         CloudConfig      `yaml:"cloud"`
-	CIEnvironment map[string]any   `yaml:"ci_environment"`
-	Output        OutputConfig     `yaml:"output"`
-	CI            CIConfig         `yaml:"ci"`
-	Extensions    ExtensionsConfig `yaml:"extensions"`
+	Cloud CloudConfig `yaml:"cloud"`
+	CI    CIConfig    `yaml:"ci"`
 
 	// Experimental is the forward-compatibility escape hatch. The loader
 	// runs with KnownFields(true) so a typo in a recognized key is a loud
@@ -290,26 +287,69 @@ func (c *ProjectConfig) ExceptionsFor(policyID string) []PolicyException {
 
 // CloudConfig models the cloud submission section.
 type CloudConfig struct {
-	Enabled *bool  `yaml:"enabled"`
 	BaseURL string `yaml:"base_url"`
-}
-
-// OutputConfig models output preferences.
-type OutputConfig struct {
-	Format   string `yaml:"format"`
-	JSONPath string `yaml:"json_path"`
-	Verbose  bool   `yaml:"verbose"`
 }
 
 // CIConfig models CI exit-code behavior knobs.
 type CIConfig struct {
-	FailOnViolation *bool         `yaml:"fail_on_violation"`
-	FailSeverity    core.Severity `yaml:"fail_severity"`
+	FailOnViolation *bool `yaml:"fail_on_violation"`
 }
 
-// ExtensionsConfig overrides extension discovery paths.
-type ExtensionsConfig struct {
-	Path string `yaml:"path"`
+// removedKeys are config keys an earlier CLI accepted but never read.
+// The strict decoder would reject them anyway, as `field enabled not
+// found in type spec.CloudConfig`, which tells an operator nothing about
+// why a key that used to load no longer does. Naming the key and saying
+// it never had an effect is the actionable version.
+//
+// cloud and ci keep their other keys. The sections in removedSections are
+// gone entirely; a removed subkey of one is still named exactly
+// (output.json_path), and anything else is named by the section.
+var (
+	removedKeys = map[string][]string{
+		"cloud":      {"enabled"},
+		"ci":         {"fail_severity"},
+		"output":     {"format", "json_path", "verbose"},
+		"extensions": {"path"},
+	}
+	removedSections = map[string]bool{
+		"output":         true,
+		"extensions":     true,
+		"ci_environment": true,
+	}
+)
+
+// checkRemovedKeys reports the first removed key the document sets, in
+// file order. It runs before the strict decode so its message wins.
+func checkRemovedKeys(data []byte) error {
+	var doc yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil || len(doc.Content) == 0 {
+		// A parse error is reported by the strict decode that follows.
+		return nil //nolint:nilerr // see above
+	}
+	root := doc.Content[0]
+	if root.Kind != yaml.MappingNode {
+		return nil
+	}
+	for i := 0; i+1 < len(root.Content); i += 2 {
+		section, value := root.Content[i].Value, root.Content[i+1]
+		if value.Kind == yaml.MappingNode {
+			for j := 0; j+1 < len(value.Content); j += 2 {
+				for _, gone := range removedKeys[section] {
+					if value.Content[j].Value == gone {
+						return removedKeyError(section + "." + gone)
+					}
+				}
+			}
+		}
+		if removedSections[section] {
+			return removedKeyError(section)
+		}
+	}
+	return nil
+}
+
+func removedKeyError(key string) error {
+	return fmt.Errorf("project config: %q was removed and has no effect; delete it from the file", key)
 }
 
 // LoadProjectConfig parses a .sigcomply.yaml document. The file is the
@@ -318,6 +358,9 @@ type ExtensionsConfig struct {
 func LoadProjectConfig(data []byte) (ProjectConfig, error) {
 	if len(bytes.TrimSpace(data)) == 0 {
 		return ProjectConfig{}, fmt.Errorf("project config: empty input")
+	}
+	if err := checkRemovedKeys(data); err != nil {
+		return ProjectConfig{}, err
 	}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
@@ -354,10 +397,11 @@ func validateProjectConfig(cfg *ProjectConfig) error {
 	if err := validateControls(cfg.Controls); err != nil {
 		return err
 	}
-	if err := validateOutput(&cfg.Output); err != nil {
-		return err
-	}
-	if err := validateCI(&cfg.CI); err != nil {
+	// Shape-validated here rather than when the run reads it: found
+	// after collection, a malformed declaration could only be a warning,
+	// and the run then reported against an estate it treated as
+	// undeclared. Same rule as the other experimental registers.
+	if _, err := LoadScopeConfig(cfg); err != nil {
 		return err
 	}
 	return nil
@@ -367,6 +411,11 @@ func validateProjectConfig(cfg *ProjectConfig) error {
 const fiscalTypeCustom = "custom"
 
 func validatePeriod(p *PeriodConfig) error {
+	// time_basis is independent of the fiscal calendar, so it is checked
+	// before the early return for a defaulted calendar type.
+	if p.TimeBasis != "" && p.TimeBasis != "commit" && p.TimeBasis != "wall_clock" {
+		return fmt.Errorf("project config: period.time_basis: invalid value %q (want commit|wall_clock)", p.TimeBasis)
+	}
 	if p.FiscalCalendar.Type == "" {
 		// Default applied at planner time; loader leaves blank.
 		return nil
@@ -383,9 +432,6 @@ func validatePeriod(p *PeriodConfig) error {
 		if cp.ID == "" || cp.Start == "" || cp.End == "" {
 			return fmt.Errorf("project config: period.fiscal_calendar.periods[%d]: id, start, end are all required", i)
 		}
-	}
-	if p.TimeBasis != "" && p.TimeBasis != "commit" && p.TimeBasis != "wall_clock" {
-		return fmt.Errorf("project config: period.time_basis: invalid value %q (want commit|wall_clock)", p.TimeBasis)
 	}
 	return nil
 }
@@ -571,32 +617,6 @@ func validateOptionalDate(s string) error {
 	}
 	if _, err := time.Parse("2006-01-02", s); err != nil {
 		return fmt.Errorf("%q is not a valid date: %v", s, err)
-	}
-	return nil
-}
-
-func validateOutput(o *OutputConfig) error {
-	if o.Format == "" {
-		return nil
-	}
-	// "sarif" is intentionally NOT accepted: no SARIF formatter is wired
-	// (only the report command emits json/csv; check emits a fixed text
-	// summary). Accepting it would pass validation and then produce no
-	// SARIF output — a silent contradiction. Re-add when a formatter ships.
-	switch o.Format {
-	case "text", "json", "junit":
-		return nil
-	default:
-		return fmt.Errorf("project config: output.format: invalid value %q (want text|json|junit)", o.Format)
-	}
-}
-
-func validateCI(c *CIConfig) error {
-	if c.FailSeverity == "" {
-		return nil
-	}
-	if !isValidSeverity(c.FailSeverity) {
-		return fmt.Errorf("project config: ci.fail_severity: invalid value %q (want info|low|medium|high|critical)", c.FailSeverity)
 	}
 	return nil
 }

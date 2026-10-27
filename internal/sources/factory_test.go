@@ -60,6 +60,35 @@ func TestRegister_RejectsNilFactory(t *testing.T) {
 	RegisterFactory("acme.nil", nil)
 }
 
+func TestRegisterTypedConfigKeys(t *testing.T) {
+	t.Cleanup(reset)
+	reset()
+	f := func(context.Context, Env) (core.SourcePlugin, error) { return &fakePlugin{}, nil }
+	RegisterFactory("acme.typed", f, "url", "start_tls")
+	RegisterTypedConfigKeys("acme.typed", "start_tls")
+	if !IsTypedConfigKey("acme.typed", "start_tls") {
+		t.Error("start_tls: want typed")
+	}
+	if IsTypedConfigKey("acme.typed", "url") {
+		t.Error("url: want untyped (string)")
+	}
+}
+
+// A typed key the factory never declared would hide a typo from the
+// unrecognized-key warning, so it is a programming error.
+func TestRegisterTypedConfigKeys_RejectsUndeclaredKey(t *testing.T) {
+	t.Cleanup(reset)
+	reset()
+	f := func(context.Context, Env) (core.SourcePlugin, error) { return &fakePlugin{}, nil }
+	RegisterFactory("acme.typed2", f, "url")
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("expected panic for a typed key the factory does not declare")
+		}
+	}()
+	RegisterTypedConfigKeys("acme.typed2", "start_tls")
+}
+
 func TestRegister_RejectsDuplicate(t *testing.T) {
 	t.Cleanup(reset)
 	reset()
