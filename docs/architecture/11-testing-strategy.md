@@ -185,7 +185,8 @@ still counts). Never silence real drift by editing the differ.
 
 Each live test skips unless its variables are set. In CI they come from repository secrets mapped
 in `live-saas.yml` (GitHub secrets are stored as `GH_TEST_*` because secret names cannot start with
-`GITHUB_`). A nightly failure opens a `live-drift` issue.
+`GITHUB_`). The `live-saas.yml` run stays green even when tests fail; a failure opens or comments
+on a GitHub issue labelled `live-drift`. Read the issue, not the run's colour.
 
 | Provider | Env the test reads | CI secret | Free credential |
 |---|---|---|---|
@@ -211,6 +212,9 @@ moment and costs a different amount.
 | T2 post-deploy smoke | after the dashboard or the Evidence SPA deploys | a check that the deployed site answers; owned by those repos | $0 |
 | T3 release gate | every CLI release candidate, when `RELEASE_GATE` is `on` | `release-gate.yml` in the GitHub E2E repo runs the prerelease against a small real AWS set, the GitHub source and manual evidence, asserts the exit code and every policy outcome, verifies the vault with the SPA's verifier, submits counts to SigComply Cloud and reads them back. The release becomes latest only if it passes | about $0.05 of AWS per run; SaaS accounts are free tiers |
 | T4 scheduled | daily, nightly, weekly | the release gate on `latest` daily (account and vendor drift), L4a nightly, L3 weekly, the AWS leak sweeper | about $1 a month |
+
+The daily release-gate run on `latest` lives in the GitHub E2E repo, which is private. A failure shows
+as a red run in that repo, not as an issue here.
 
 The full AWS, GCP and Azure tiers in the E2E repo cost far more per run and are dispatched by
 hand, never on a gate or a schedule.
