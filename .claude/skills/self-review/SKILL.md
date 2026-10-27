@@ -32,9 +32,10 @@ yourself before fanning out:
 - Is anything in the diff outside the plan? Unplanned changes either get a reason or get removed.
 
 Then check the real product yourself, the way the workflow doc's "Verify in the real product"
-section says (task-workflow step 9). Drive every acceptance criterion it covers. If step 9 already
-drove this exact tree, reuse that evidence. On a range of fix commits only, drive what the fixes
-touch. A subagent can't do this: it needs the running product and the task context.
+section says. Drive every acceptance criterion that check covers, or record it as deferred
+(task-workflow step 9 says when). If step 9 already drove this exact tree, reuse that evidence.
+On a range of fix commits only, drive what the fixes touch. A subagent can't do this: it needs
+the running product and the task context.
 
 ## 2. Pick the lenses
 

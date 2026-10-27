@@ -21,7 +21,7 @@ you read both before step 1:
 
 | Size | Looks like | What runs |
 |---|---|---|
-| Trivial | Typo, comment, one-line config with no behaviour change | Steps 8-10 (step 9: the gate only), 12 (one adversarial pass), 13-14 |
+| Trivial | Typo, comment, one-line config with no behaviour change | Steps 8-10 (step 9: the gate, plus the real-product check if the workflow doc's check covers the change, such as a typo on a page), 12 (one adversarial pass), 13-14 |
 | Standard | Anything that changes behaviour, tests, CI, or more than one file | Every step |
 | Large | Several days of work, or several independent parts | Split into work units first. Each unit runs every step and ends in its own commits. Push after each unit. |
 
@@ -122,9 +122,9 @@ Docs are part of the change, in the same commits. Use the `writing-docs` skill. 
 
 Run the full gate from the workflow doc and read the results. Exit codes and output count, not
 expectations. Then check the real product the way the workflow doc says: run the CLI, drive the
-app in a browser, or run the pipeline. A user-facing change is not verified until you have
-driven it. Steps 11 and 12 repeat this check for every fix that touches what it covers, and use
-it to reproduce findings about runtime behaviour.
+app in a browser, or run the pipeline. A change the workflow doc's check covers is not verified
+until you have driven it. Steps 11 and 12 repeat this check for every fix that touches what it
+covers, and use it to reproduce findings about runtime behaviour.
 
 Where the workflow doc's check can only run after push, only with the human's approval, or only
 by the human, record it as deferred to that run, and why. Mark a claim unverified only when the
@@ -171,6 +171,9 @@ triggers (CI, deploy, release, pipeline runs). Watch it to the end. If it goes r
 your commits, fixing it comes before anything else; the fix runs through this same workflow,
 scaled to its size. If the failure predates your commits or comes from outside the repo (a flaky
 job, an outage, a missing secret), re-run it once, then report it and ask.
+
+Then run any real-product check that step 9 deferred to after the push, or ask the human for its
+approval or result, as the workflow doc says. Report the result, or say it is still pending.
 
 ## 14. Report
 
