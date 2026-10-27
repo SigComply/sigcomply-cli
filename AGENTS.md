@@ -62,6 +62,10 @@ lenses `review-security`, `review-testing`, `review-performance`; docs: `writing
     The job matches it anywhere in the head commit's message. In prose, write "the skip marker".
 12. When you touch one side of a cross-repo contract (table at the end), check and update the
     other side in the same task.
+13. Your machine may hold ambient AWS, GCP or Azure credentials. `make test` is hermetic, but
+    `make test-live`, record drivers and `./bin/sigcomply check` with a cloud source use whatever
+    they find. Run the CLI and tests inside the `env -i` wrapper in
+    `docs/claude/development-workflow.md` "Cloud credentials when running tests".
 
 ## Commands
 
@@ -70,9 +74,9 @@ lenses `review-security`, `review-testing`, `review-performance`; docs: `writing
 | Build | `make build` | Writes `bin/sigcomply` with version, commit and build time |
 | Fast tests | `make test` | `go test -short -race -v ./...`; skips the heavy `sigcomply build` tests |
 | Full tests | `make test-full` | `go test -race ./...`; CI adds coverage |
-| Coverage | `make test-coverage` | Full suite plus `coverage/`; prints the total, does not enforce 80% |
+| Coverage | `make test-coverage` | Full suite plus `coverage/`; prints the total; only CI enforces the floor |
 | L2 contract tests | `make test-contract` | Cassette conformance; fixture-vs-spec for GitHub and Okta |
-| L4a live tests | `make test-live` | Real vendor APIs with your creds; only when the task needs it |
+| L4a live tests | `make test-live` | Real vendor APIs with your creds; only when the task needs it, inside the `env -i` wrapper (rule 13) |
 | Lint | `make lint` | mise-pinned golangci-lint (`mise.toml`) |
 | Format, vet | `make fmt`, `make fmt-check`, `make vet` | gofmt and `go vet` |
 | Fixture scan | `make check-fixtures` | Secrets and PII in `testdata/` and `contracts/` |
@@ -206,13 +210,14 @@ Full package map: `ARCHITECTURE.md` and `docs/architecture/02-layers.md`.
 
 | This repo | Other side | Guard |
 |---|---|---|
-| `core.SubmissionPayload` (schema `aggregator.SchemaVersion`): run metadata (`run_id`, `framework`, `period_id`, `commit_sha`, `commit_time`, `branch`, `cli_version`, `started_at`, `completed_at`), `repository{provider,name_slug,url}`, `environment{provider,workflow,run_url,worker_image}`, `summary` (`policies_*` per status, `compliance_score`), per-policy `policy_id`, `controls[]`, `status`, `severity`, `category`, `resources_evaluated`, `resources_failed`, `message`, `rule_version`, cadence scalars, `evidence_mode`, `evidence_mode_overridden`, `vacuous` | `../sigcomply` `Api::V1::RunsController` strong params (`POST /api/v1/runs`) | `TestCloud_GoldenWireContract`; copy a regenerated golden to `../sigcomply/spec/fixtures/files/contract/` |
-| OIDC: audience `submitter.DefaultAudience`, `X-OIDC-Provider` header | Rails `Oidc::TokenValidator` (audience, issuer, claims `repository` / `project_path`, `namespace_path`) | `docs/claude/auth.md` |
-| `sigcomply evidence catalog -o json` (`internal/manualcatalog`) | SPA `src/types/catalog.ts`, `scripts/fetch-catalogs.ts` (runs the released CLI on deploy) | `cmd/sigcomply` export and binary E2E tests; golden `internal/manualcatalog/testdata/<framework>_golden.json`, copied to the SPA |
-| `manual.FolderPrefix`, default prefix `manual/`; manual folder periods (`planner.CadencePeriod`) | SPA `src/lib/storage-path.ts`, `src/lib/period.ts`, `public/config.json` | `internal/sources/manual/paths_test.go`; golden `internal/planner/testdata/spa-golden/periods.json`, copied to the SPA |
+| `core.SubmissionPayload` (schema `aggregator.SchemaVersion`): run metadata (`run_id`, `framework`, `period_id`, `commit_sha`, `commit_time`, `branch`, `cli_version`, `started_at`, `completed_at`), `repository{provider,name_slug,url}`, `environment{provider,workflow,run_url,worker_image}`, `summary` (`policies_*` per status, `compliance_score`), per-policy `policy_id`, `controls[]`, `status`, `severity`, `category`, `resources_evaluated`, `resources_failed`, `message`, `rule_version`, cadence scalars, `evidence_mode`, `evidence_mode_overridden`, `vacuous` | The dashboard's runs API (`POST /api/v1/runs`), which keeps only fields it allow-lists | `TestCloud_GoldenWireContract`; copy a regenerated golden to the dashboard repo (path in the test's `railsFixtureRelPath`) |
+| OIDC: audience `submitter.DefaultAudience`, `X-OIDC-Provider` header | The dashboard's OIDC validator (audience, issuer, claims `repository` / `project_path`, `namespace_path`) | `docs/claude/auth.md` |
+| `sigcomply evidence catalog -o json` (`internal/manualcatalog`) | SPA `src/types/catalog.ts`, `scripts/fetch-catalogs.ts` (runs the released CLI on deploy) | `cmd/sigcomply` export and binary E2E tests; golden `internal/manualcatalog/testdata/<framework>_golden.json`, copied to the SPA's `src/lib/__fixtures__/golden/` |
+| `manual.FolderPrefix`, default prefix `manual/`; manual folder periods (`planner.CadencePeriod`) | SPA `src/lib/storage-path.ts`, `src/lib/period.ts`, `public/config.json` | `internal/sources/manual/paths_test.go`; golden `internal/planner/testdata/spa-golden/periods.json`, copied to the SPA's `src/lib/__fixtures__/golden/periods.json` |
 | Envelope and manifest format (`internal/sign`) | SPA `/verify` page (`src/lib/verification/`) | `internal/sign` tests; golden vectors `internal/sign/testdata/spa-golden/`, copied to the SPA's `src/lib/verification/__fixtures__/golden/` |
 | Release asset names, `checksums.txt`, command flags, exit codes | E2E repos `../sigcomply-cli-testing-project-{github,gitlab}` (the GitHub one runs `release-gate.yml` per release candidate) | `cmd/sigcomply/e2e_test.go`; the release gate |
 
-Push order: the receiving side first. Rails strong params silently drop unknown fields, so Rails
-accepts a new field before the CLI sends it. `POST /api/v1/runs` is the only Rails endpoint the
-CLI calls.
+Push order: the receiving side first. The dashboard silently drops fields it does not allow-list,
+so it must accept a new field before the CLI sends it. Refresh the SPA copies of all three SPA
+goldens with `npm run check:goldens -- --copy` in the SPA (`npm run check:goldens` alone reports
+drift). `POST /api/v1/runs` is the only Rails endpoint the CLI calls.

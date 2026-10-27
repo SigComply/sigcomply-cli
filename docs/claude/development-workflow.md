@@ -8,10 +8,10 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
 
 ## What a push to main triggers
 
-- `test.yml` on every push: fixture scan, full suite with `-race` and the 80% coverage floor,
-  golangci-lint, and a cross-platform build matrix. On a push that also releases, it runs twice
-  (directly and through `auto-release.yml`). On a docs-only push it still runs, so
-  `TestDocFiguresMatchCode` gates docs pushes.
+- `test.yml` on every push: fixture scan, full suite with `-race` and the coverage floor
+  (`COVERAGE_THRESHOLD` in `test.yml`), golangci-lint, and a cross-platform build matrix. On a
+  push that also releases, it runs twice (directly and through `auto-release.yml`). On a
+  docs-only push it still runs, so `TestDocFiguresMatchCode` gates docs pushes.
 - `security.yml` on every push, every pull request and weekly: dependency, code and secret
   scanners. Several steps are warn-only (`continue-on-error`, `|| echo ::warning::`), so a green
   run does not mean no findings. Read the logs when a change touches dependencies.
@@ -33,10 +33,12 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
      fails the run), and an existing release only gets the assets it lacks.
   3. Promotes the prerelease to latest (`release-promote.yml`). With the repository variable
      `RELEASE_GATE` set to `on`, it first dispatches `release-gate.yml` in the GitHub E2E repo
-     for that exact tag and waits up to an hour. A cancelled gate run is dispatched once more; a
-     failed or timed-out run, a second cancel, or a missing `E2E_GATE_TOKEN` secret leaves the
-     release a prerelease. Without the variable it promotes at once and
-     prints a warning that the release was not E2E-gated.
+     for that exact tag and waits for it: up to 10 minutes for the gate run to appear, then up to
+     60 minutes for it to finish. A cancelled gate run is dispatched once more (the job is capped
+     at 150 minutes for both attempts). A failed or timed-out run, a second cancel, or a missing
+     `E2E_GATE_TOKEN` secret fails the `E2E Release Gate` job: the release run (Auto Release or
+     Release) turns red and the release stays a prerelease. Without the variable it promotes at
+     once and prints a warning that the release was not E2E-gated.
 
   Releases run one at a time: the release job (not the tests) holds `concurrency: release`,
   shared with `release.yml`, from version bump to promotion. A red test run or a skip-marker push
@@ -78,9 +80,18 @@ stays a prerelease, any other goes through the same gate and promotion. It also 
 the build, and refuses a tag that already exists at another commit; to re-release an existing tag,
 dispatch it with the tag as the ref.
 
-A release stuck as a prerelease (gate red) is fixed forward: fix the cause, push, and the next
-release is gated again. To promote one by hand after checking the gate run, use
-`gh release edit <tag> --prerelease=false --latest`.
+A release stuck as a prerelease (gate red or cancelled):
+
+1. Open the gate run linked in the failed job's summary and find the cause.
+2. If the cause was outside the release (a flaky vendor, a cancelled or broken E2E run), use
+   "Re-run failed jobs" on the release run. The gate's correlation ID includes the run attempt,
+   so the re-run dispatches a fresh gate run for the same tag.
+3. If the release itself is wrong, fix forward: fix the cause and push. The next release is gated
+   again, and the bad one stays a prerelease.
+4. Promote by hand with `gh release edit <tag> --prerelease=false --latest` only when a gate run
+   for that exact tag passed outside the release run (for example, a manual dispatch of
+   `release-gate.yml` with that `cli_version`). Link that gate run where you report the release.
+   Never promote by hand without a passing gate run for the tag.
 
 After pushing, watch the runs: `gh run list --branch main`, then `gh run watch <id>`. A red
 `main` is fixed before anything else.
@@ -97,7 +108,7 @@ Add, when the change calls for it:
 |---|---|
 | `sigcomply build`, `plugin/`, or anything the heavy tests cover | `make test-full` |
 | Source plugin, cassette, or `contracts/` | `make test-contract` and `make check-fixtures` |
-| Coverage-sensitive change (new package, large deletion of tests) | `make test-coverage` and compare the total with 80% (CI enforces it, make does not) |
+| Coverage-sensitive change (new package, large deletion of tests) | `make test-coverage` and compare the total with `COVERAGE_THRESHOLD` in `test.yml` (CI enforces it, make does not) |
 | `.github/workflows/*` | `actionlint` (install it yourself; it is not in `mise.toml`) |
 | `go.mod` / `go.sum` | `go mod tidy` and commit the result |
 | Customer-facing Markdown | `vale --minAlertLevel=error <files>` (Vale is pinned in `mise.toml`) |
@@ -109,26 +120,46 @@ gate yourself and read the output before you commit.
   only when Go files are staged), a `go mod tidy` check (when `go.mod` or `go.sum` is staged), and
   `gitleaks protect --staged`.
 - pre-push: `make lint`, `go test -short -race ./...`, `gitleaks detect`.
-- Only CI runs: the full suite without `-short`, the 80% coverage floor, the cross-platform build
+- Only CI runs: the full suite without `-short`, the coverage floor, the cross-platform build
   matrix, the `security.yml` scanners, weekly `contract-drift.yml` and nightly `live-saas.yml`.
 
 `make ci` (`deps lint test build`) and `make pre-commit` are local bundles. Neither reproduces CI:
 both use `-short` tests and neither enforces coverage.
 
+## Cloud credentials when running tests
+
+A developer machine can hold ambient cloud credentials: env vars such as `AWS_PROFILE`,
+`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` or `GOOGLE_APPLICATION_CREDENTIALS`,
+AWS profiles in `~/.aws/`, gcloud config in `~/.config/gcloud/`, and the Azure CLI cache in
+`~/.azure/`. The cloud SDKs pick these up without being asked.
+
+- Unit, contract and binary E2E tests (`make test`, `make test-full`, `make test-contract`) are
+  hermetic: fakes, cassettes and a fake cloud.
+- `make test-live` (`-tags live`), `-tags record` drivers, and a manual `sigcomply check` with a
+  cloud source or a cloud vault call real APIs with whatever credentials they find.
+
+Run the CLI and the tests with an empty environment and a throwaway home, so no ambient
+credential is visible:
+
+```sh
+S="$(mktemp -d)"
+env -i HOME="$S" PATH="$PATH" \
+  GOPATH="$(go env GOPATH)" GOCACHE="$(go env GOCACHE)" GOMODCACHE="$(go env GOMODCACHE)" \
+  AWS_CONFIG_FILE=/dev/null AWS_SHARED_CREDENTIALS_FILE=/dev/null \
+  CLOUDSDK_CONFIG="$S/gcloud" AZURE_CONFIG_DIR="$S/azure" \
+  make test
+```
+
+Replace `make test` with the command to run (`./bin/sigcomply check`, `make test-live`). For a
+live or record run, add only the test account's variables to the `env -i` line, for example
+`GITHUB_TEST_TOKEN=... GITHUB_TEST_ORG=...`. Run `make lint` outside the wrapper: it calls no
+cloud API, and mise finds the pinned golangci-lint only under your real home.
+
 ## Test layers
 
-The canonical test architecture is
-[11-testing-strategy.md](../architecture/11-testing-strategy.md) (layers L0 to L4b). Summary:
-
-| Layer | Where | Run with |
-|---|---|---|
-| L0/L1 unit and integration | `*_test.go` next to the code | `make test`, `make test-full` |
-| L2 cassette and conformance | `*_conformance_test.go`, `testdata/` cassettes; fixture-vs-spec for GitHub and Okta | `make test-contract` |
-| L3 vendor spec drift | `contracts/`, `scripts/contracts-fetch.sh` | weekly `contract-drift.yml`; `make contracts-diff` |
-| L4a live | `//go:build live` tests | nightly `live-saas.yml`; `make test-live` (needs creds) |
-| Binary end-to-end | `cmd/sigcomply/e2e_test.go`: builds the binary once, runs it as a process with manual-only configs, a local vault and a fake OIDC endpoint and cloud | `make test` |
-| Cross-repo goldens | `internal/aggregator/testdata/cloud_golden.json` (Rails), `internal/sign/testdata/spa-golden/`, `internal/planner/testdata/spa-golden/periods.json`, `internal/manualcatalog/testdata/*_golden.json` (Evidence SPA) | `make test` |
-| L4b released-binary end-to-end | `../sigcomply-cli-testing-project-github` (release gate per release candidate, daily on `latest`), `../sigcomply-cli-testing-project-gitlab` | their own CI |
+The layer table (L0 to L4b, binary end-to-end, cross-repo goldens), where each layer lives and
+what runs it are in [11-testing-strategy.md](../architecture/11-testing-strategy.md). Read it
+before you pick a layer.
 
 Which tests to add:
 
@@ -143,14 +174,17 @@ Which tests to add:
   (`TestCloud_GoldenWireContract`, fixture `internal/aggregator/testdata/cloud_golden.json`)
   stay green. Regenerate with
   `go test ./internal/aggregator/ -run TestCloud_GoldenWireContract -update`, then copy the
-  file to `../sigcomply/spec/fixtures/files/contract/` in the same task. The cross-repo byte
-  comparison runs only when the Rails repo is checked out next to this one, so CI skips it.
+  file to the dashboard repo (path in the test's `railsFixtureRelPath`) in the same task. The
+  cross-repo byte comparison runs only when the Rails repo is checked out next to this one, so CI
+  skips it.
 - Envelope, canonical JSON, manual record, period, folder or catalog change: regenerate the SPA
   goldens with `-update` (`go test ./internal/sign/ -run TestSPAGoldenEnvelopes -update`,
   `./internal/planner/ -run TestSPAGoldenPeriods`, `./internal/manualcatalog/ -run
-  TestCatalogGolden`) and copy them byte for byte to the Evidence SPA in the same task. Each
-  folder's README names the destination. A golden that changes without a matching SPA change
-  is a contract break.
+  TestCatalogGolden`) and copy them byte for byte to the Evidence SPA in the same task: run
+  `npm run check:goldens -- --copy` in the SPA, which copies all three. Each folder's README
+  (`internal/sign/testdata/spa-golden/`, `internal/planner/testdata/spa-golden/`,
+  `internal/manualcatalog/testdata/`) names its SPA destination. A golden that changes without a
+  matching SPA change is a contract break.
 - New command, flag, exit code or output: a test in `cmd/sigcomply/` that runs the command and
   checks output and exact exit code, and a case in `e2e_test.go` when the behaviour depends on
   the process (exit code mapping, environment, files written).
@@ -160,7 +194,8 @@ Which tests to add:
 
 ## Verify in the real product
 
-Verification means building the binary and running the affected command:
+Verification means building the binary and running the affected command. Run it inside the
+wrapper in "Cloud credentials when running tests":
 
 ```
 make build
@@ -221,7 +256,7 @@ The self-review "contracts and invariants" lens checks every Sacred Invariant in
 against the diff, and also:
 
 - Aggregation boundary: nothing new on `SubmissionPayload` can carry an identifier; the
-  reflection test and golden contract still pass; Rails strong-params in `../sigcomply/` match.
+  reflection test and golden contract still pass; the dashboard's runs API allow-lists every field.
 - Evidence flows: no third flow and no evidence sub-types in the evaluator; `validatePDF` stays
   stdlib byte checks.
 - Signing: per-file ephemeral keys, signatures over canonical JSON, the run manifest still

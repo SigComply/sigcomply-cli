@@ -52,10 +52,19 @@ Other checks, depending on the change:
 | `make test-coverage` | You add a package or remove tests. CI fails below 80% total coverage. |
 | `make test-contract` | You change a source plugin, a cassette or `contracts/`. |
 | `make check-fixtures` | You add or change files under `testdata/` or `contracts/`. |
-| `make test-live` | You need to check a source against the real API. Needs your own credentials; each test skips without them. |
+| `make test-live` | You need to check a source against the real API. Needs your own credentials; each test skips without them. Run it with only the test account's credentials set (see below). |
 
 The test layers and their conventions are described in
 [`docs/architecture/11-testing-strategy.md`](./docs/architecture/11-testing-strategy.md).
+
+### Cloud credentials on your machine
+
+`make test` uses fakes and recorded responses only. `make test-live`, the record drivers, and
+`./bin/sigcomply check` with a cloud source or vault use any AWS, GCP, or Azure credentials they
+find in your environment or home directory. To keep other accounts out of a run, use the `env -i`
+wrapper in "Cloud credentials when running tests" in
+[`docs/claude/development-workflow.md`](./docs/claude/development-workflow.md#cloud-credentials-when-running-tests),
+and pass only the test account's variables.
 
 ## Adding a source plugin: required tests
 
@@ -64,8 +73,9 @@ same change:
 
 1. Unit tests for the mapper and `Collect`, against an in-memory fake API with a fixed clock.
 2. A `*_conformance_test.go` that replays a scrubbed go-vcr cassette through
-   `sourcetest.RunConformance`. Record cassettes with a throwaway `//go:build record` driver and
-   remove secrets and personal data before you commit; `make check-fixtures` checks this.
+   `sourcetest.RunConformance`. Record cassettes with a `//go:build record` driver. GCP and Azure
+   ARM packages keep theirs committed as `<service>_record_test.go`, so re-run that driver to
+   re-record. Other sources have no committed driver: write one for the recording. Remove secrets and personal data before you commit; `make check-fixtures` checks this.
 3. A `contracts/<provider>/<service>` spec snapshot, added to `scripts/contracts-fetch.sh`, so the
    weekly drift job covers the new API surface.
 
