@@ -31,8 +31,9 @@ never reads that file on its own.
   above it. With the default **Project instructions** setting, any one of them makes Claude Code
   read it instead of `AGENTS.md`, with no warning. If you need one, set **Project instructions** to
   `claude-md-and-agents-md` in `/config`.
-- `AGENTS.md` doesn't load when that setting is `claude-md`, when the built-in AGENTS.md plugin is
-  disabled, or in the first session right after upgrading from v2.1.276 or earlier.
+- `AGENTS.md` doesn't load when that setting is `claude-md` or `managed-only`, or when the
+  built-in AGENTS.md plugin is disabled. It can also fail to load in the first session right after
+  upgrading from v2.1.276 or earlier.
 - To check, run `/memory` and look for this repo's `AGENTS.md` in the list.
 
 ## Shared across repos

@@ -45,9 +45,10 @@ before you rely on it. Two agents agreeing is not verification.
 
 ## 2. Plan (plan mode, think hard)
 
-Enter plan mode with the `EnterPlanMode` tool. If the tool isn't available or the run is
-headless or scheduled, write the plan into the conversation, review it (step 3), and continue
-without waiting for approval unless a "When to ask the human" trigger applies. Use ultrathink for
+Enter plan mode with the `EnterPlanMode` tool. If your harness has no plan mode, write the plan
+into the conversation, review it (step 3), and wait for the human's approval. Only in a headless
+or scheduled run, with no human to answer, continue without approval unless a "When to ask the
+human" trigger applies. Use ultrathink for
 this step. The plan contains:
 
 1. The problem in one sentence, without naming the solution, and the acceptance criteria.
