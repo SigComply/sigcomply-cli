@@ -1,0 +1,1029 @@
+{
+  "framework": "iso27001",
+  "version": "1.0",
+  "entries": [
+    {
+      "id": "information_security_policies",
+      "control": "A.5.1",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Information Security Policies",
+      "description": "A complete set of information security policies is approved by management.",
+      "severity": "medium"
+    },
+    {
+      "id": "roles_and_responsibilities",
+      "control": "A.5.2",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Roles And Responsibilities",
+      "description": "Information security roles and responsibilities are defined.",
+      "severity": "medium"
+    },
+    {
+      "id": "management_direction",
+      "control": "A.5.4",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Management Direction",
+      "description": "Management direction for information security is documented.",
+      "severity": "medium"
+    },
+    {
+      "id": "contact_with_authorities",
+      "control": "A.5.5",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Contact With Authorities",
+      "description": "Contacts with relevant authorities are maintained.",
+      "severity": "medium"
+    },
+    {
+      "id": "special_interest_groups",
+      "control": "A.5.6",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Special Interest Groups",
+      "description": "Contact with special interest groups and security forums is maintained.",
+      "severity": "medium"
+    },
+    {
+      "id": "threat_intelligence",
+      "control": "A.5.7",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Threat Intelligence",
+      "description": "Threat intelligence is collected and analyzed.",
+      "severity": "medium"
+    },
+    {
+      "id": "information_security_in_projects",
+      "control": "A.5.8",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Information Security In Projects",
+      "description": "Information security is integrated into project management.",
+      "severity": "medium"
+    },
+    {
+      "id": "asset_inventory",
+      "control": "A.5.9",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Asset Inventory",
+      "description": "An inventory of information assets is maintained.",
+      "severity": "medium"
+    },
+    {
+      "id": "acceptable_use_policy",
+      "control": "A.5.10",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Acceptable Use Policy",
+      "description": "An acceptable use policy for assets exists.",
+      "severity": "medium"
+    },
+    {
+      "id": "return_of_assets",
+      "control": "A.5.11",
+      "type": "declaration",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Return Of Assets",
+      "description": "Assets are returned when employment or engagement ends.",
+      "severity": "medium",
+      "declaration_text": "I confirm that all organizational assets issued to personnel and third parties whose employment or engagement ended during this period have been returned or verifiably wiped, and that the return has been recorded."
+    },
+    {
+      "id": "data_classification_policy",
+      "control": "A.5.12",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Data Classification Policy",
+      "description": "A data classification policy exists.",
+      "severity": "medium"
+    },
+    {
+      "id": "information_labeling_policy",
+      "control": "A.5.13",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Information Labeling Policy",
+      "description": "An information labeling policy exists.",
+      "severity": "medium"
+    },
+    {
+      "id": "information_transfer_policy",
+      "control": "A.5.14",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Information Transfer Policy",
+      "description": "An information transfer policy exists.",
+      "severity": "medium"
+    },
+    {
+      "id": "access_rights_review",
+      "control": "A.5.18",
+      "type": "document_upload",
+      "frequency": "quarterly",
+      "temporal_rule": "retrospective",
+      "grace_period": "15d",
+      "name": "Access Rights Review",
+      "description": "A periodic access rights review is performed.",
+      "severity": "medium"
+    },
+    {
+      "id": "supplier_security_policy",
+      "control": "A.5.19",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Supplier Security Policy",
+      "description": "A supplier security policy exists.",
+      "severity": "medium"
+    },
+    {
+      "id": "supplier_assurance",
+      "control": "A.5.19",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Supplier Assurance Evidence",
+      "description": "Each supplier in the third-party register has current assurance evidence on file.",
+      "severity": "medium"
+    },
+    {
+      "id": "supplier_security_agreements",
+      "control": "A.5.20",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Supplier Security Agreements",
+      "description": "Each supplier in the third-party register has an agreement addressing information security on file.",
+      "severity": "medium"
+    },
+    {
+      "id": "supplier_lifecycle_process",
+      "control": "A.5.19",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Supplier Onboarding and Termination Process",
+      "description": "A documented process governs supplier onboarding and termination, including revoking access and returning or destroying information.",
+      "severity": "medium"
+    },
+    {
+      "id": "ict_supply_chain_security",
+      "control": "A.5.21",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "ICT Supply Chain Security",
+      "description": "Information security is managed across the ICT supply chain.",
+      "severity": "medium"
+    },
+    {
+      "id": "supplier_service_monitoring",
+      "control": "A.5.22",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Supplier Service Monitoring",
+      "description": "Supplier service delivery is monitored.",
+      "severity": "medium"
+    },
+    {
+      "id": "cloud_services_security",
+      "control": "A.5.23",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Cloud Services Security",
+      "description": "Information security requirements for the use of cloud services are defined.",
+      "severity": "medium"
+    },
+    {
+      "id": "incident_management_plan",
+      "control": "A.5.24",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Incident Management Plan",
+      "description": "An incident management plan exists.",
+      "severity": "medium"
+    },
+    {
+      "id": "security_event_assessment",
+      "control": "A.5.25",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Security Event Assessment",
+      "description": "Security events are assessed and classified before being declared incidents.",
+      "severity": "medium"
+    },
+    {
+      "id": "incident_response_tested",
+      "control": "A.5.26",
+      "type": "checklist",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Incident Response Tested",
+      "description": "Incident response is tested.",
+      "severity": "medium",
+      "items": [
+        {
+          "id": "plan_tested",
+          "text": "Incident response plan was tested via tabletop exercise or simulation",
+          "required": true
+        },
+        {
+          "id": "roles_verified",
+          "text": "All incident response roles and responsibilities were verified",
+          "required": true
+        },
+        {
+          "id": "communication_tested",
+          "text": "Communication channels and escalation paths were tested",
+          "required": true
+        },
+        {
+          "id": "lessons_documented",
+          "text": "Lessons learned were documented and the plan updated accordingly",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "lessons_learned_from_incidents",
+      "control": "A.5.27",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Lessons Learned From Incidents",
+      "description": "Lessons are learned from incidents.",
+      "severity": "medium"
+    },
+    {
+      "id": "evidence_collection_procedure",
+      "control": "A.5.28",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Evidence Collection Procedure",
+      "description": "Evidence relating to security events is identified, collected, and preserved.",
+      "severity": "medium"
+    },
+    {
+      "id": "information_security_in_bcp",
+      "control": "A.5.29",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Information Security In BCP",
+      "description": "Information security is maintained during disruption.",
+      "severity": "medium"
+    },
+    {
+      "id": "ict_continuity_tested",
+      "control": "A.5.30",
+      "type": "checklist",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "ICT Continuity Tested",
+      "description": "ICT continuity is tested.",
+      "severity": "medium",
+      "items": [
+        {
+          "id": "continuity_executed",
+          "text": "ICT continuity arrangements were exercised against a representative scenario",
+          "required": true
+        },
+        {
+          "id": "objectives_met",
+          "text": "Recovery objectives (RTO/RPO) were met",
+          "required": true
+        },
+        {
+          "id": "gaps_remediated",
+          "text": "Gaps identified during the test were documented and remediated",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "legal_requirements_inventory",
+      "control": "A.5.31",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Legal Requirements Inventory",
+      "description": "Legal, statutory, and contractual requirements are inventoried.",
+      "severity": "medium"
+    },
+    {
+      "id": "intellectual_property_rights",
+      "control": "A.5.32",
+      "type": "declaration",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Intellectual Property Rights",
+      "description": "Intellectual property rights are respected.",
+      "severity": "medium",
+      "declaration_text": "I confirm that the organization complies with legislative, regulatory, and contractual requirements for intellectual property rights and software licensing, and that no unlicensed software is knowingly used on organizational systems during this period."
+    },
+    {
+      "id": "privacy_and_pii_protection",
+      "control": "A.5.34",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Privacy And PII Protection",
+      "description": "Privacy and PII protection requirements are documented.",
+      "severity": "medium"
+    },
+    {
+      "id": "independent_security_review",
+      "control": "A.5.35",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Independent Security Review",
+      "description": "Information security is independently reviewed.",
+      "severity": "medium"
+    },
+    {
+      "id": "compliance_with_policies",
+      "control": "A.5.36",
+      "type": "declaration",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Compliance With Policies",
+      "description": "Compliance with security policies is monitored and attested.",
+      "severity": "medium",
+      "declaration_text": "I confirm that compliance with the organization's information security policies and standards has been reviewed during this period and that identified non-conformities have been recorded and addressed."
+    },
+    {
+      "id": "documented_operating_procedures",
+      "control": "A.5.37",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Documented Operating Procedures",
+      "description": "Operating procedures for information processing facilities are documented.",
+      "severity": "medium"
+    },
+    {
+      "id": "personnel_screening",
+      "control": "A.6.1",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Personnel Screening",
+      "description": "Personnel are screened prior to employment.",
+      "severity": "medium"
+    },
+    {
+      "id": "terms_of_employment",
+      "control": "A.6.2",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Terms Of Employment",
+      "description": "Employment terms include security responsibilities.",
+      "severity": "medium"
+    },
+    {
+      "id": "security_awareness_training",
+      "control": "A.6.3",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Security Awareness Training",
+      "description": "Personnel complete security awareness training.",
+      "severity": "medium"
+    },
+    {
+      "id": "disciplinary_process",
+      "control": "A.6.4",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Disciplinary Process",
+      "description": "A disciplinary process for security violations exists.",
+      "severity": "medium"
+    },
+    {
+      "id": "responsibilities_on_termination",
+      "control": "A.6.5",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Responsibilities On Termination",
+      "description": "Security responsibilities persist after termination.",
+      "severity": "medium"
+    },
+    {
+      "id": "nda_confidentiality_agreement",
+      "control": "A.6.6",
+      "type": "declaration",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "NDA Confidentiality Agreement",
+      "description": "Confidentiality / non-disclosure agreements are in place.",
+      "severity": "medium",
+      "declaration_text": "I confirm that all personnel and relevant third parties with access to organizational information have signed confidentiality / non-disclosure agreements that remain in force during this period."
+    },
+    {
+      "id": "remote_working_policy",
+      "control": "A.6.7",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Remote Working Policy",
+      "description": "A remote working policy protects information accessed outside the organization's premises.",
+      "severity": "medium"
+    },
+    {
+      "id": "security_event_reporting",
+      "control": "A.6.8",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Security Event Reporting",
+      "description": "Personnel have a defined channel for reporting information security events.",
+      "severity": "medium"
+    },
+    {
+      "id": "physical_security_perimeters",
+      "control": "A.7.1",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Physical Security Perimeters",
+      "description": "Physical security perimeters are defined.",
+      "severity": "medium"
+    },
+    {
+      "id": "physical_entry_controls",
+      "control": "A.7.2",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Physical Entry Controls",
+      "description": "Physical entry controls are implemented.",
+      "severity": "medium"
+    },
+    {
+      "id": "securing_offices_and_facilities",
+      "control": "A.7.3",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Securing Offices And Facilities",
+      "description": "Offices, rooms, and facilities holding information assets are physically secured.",
+      "severity": "medium"
+    },
+    {
+      "id": "physical_security_monitoring",
+      "control": "A.7.4",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Physical Security Monitoring",
+      "description": "Physical security is monitored.",
+      "severity": "medium"
+    },
+    {
+      "id": "physical_and_environmental_threats",
+      "control": "A.7.5",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Physical And Environmental Threats",
+      "description": "Facilities holding information assets are protected against physical and environmental threats.",
+      "severity": "medium"
+    },
+    {
+      "id": "working_in_secure_areas",
+      "control": "A.7.6",
+      "type": "declaration",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Working In Secure Areas",
+      "description": "Rules for working in secure areas are defined and followed.",
+      "severity": "medium",
+      "declaration_text": "I confirm that secure areas within the organization's control are identified and that the rules for working in them are defined and followed during this period, and that where the organization operates no secure areas of its own, the hosting facilities are run by a third-party provider under its own certified controls."
+    },
+    {
+      "id": "clear_desk_clear_screen_policy",
+      "control": "A.7.7",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Clear Desk Clear Screen Policy",
+      "description": "A clear-desk / clear-screen policy exists.",
+      "severity": "medium"
+    },
+    {
+      "id": "equipment_siting_protection",
+      "control": "A.7.8",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Equipment Siting Protection",
+      "description": "Equipment holding information assets is sited and protected against physical risk.",
+      "severity": "medium"
+    },
+    {
+      "id": "assets_off_premises",
+      "control": "A.7.9",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Assets Off Premises",
+      "description": "Assets used away from the organization's premises are protected.",
+      "severity": "medium"
+    },
+    {
+      "id": "storage_media_policy",
+      "control": "A.7.10",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Storage Media Policy",
+      "description": "A storage media handling policy exists.",
+      "severity": "medium"
+    },
+    {
+      "id": "supporting_utilities",
+      "control": "A.7.11",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Supporting Utilities",
+      "description": "Information processing facilities are protected from failure of supporting utilities.",
+      "severity": "medium"
+    },
+    {
+      "id": "cabling_security",
+      "control": "A.7.12",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Cabling Security",
+      "description": "Cabling carrying power and data is protected from interception and damage.",
+      "severity": "medium"
+    },
+    {
+      "id": "equipment_maintenance",
+      "control": "A.7.13",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Equipment Maintenance",
+      "description": "Equipment is maintained so that information stays available and intact.",
+      "severity": "medium"
+    },
+    {
+      "id": "secure_disposal_policy",
+      "control": "A.7.14",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Secure Disposal Policy",
+      "description": "A secure disposal / reuse policy for equipment exists.",
+      "severity": "medium"
+    },
+    {
+      "id": "endpoint_device_policy",
+      "control": "A.8.1",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Endpoint Device Policy",
+      "description": "An endpoint / user device security policy exists.",
+      "severity": "medium"
+    },
+    {
+      "id": "capacity_management_process",
+      "control": "A.8.6",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Capacity Management Process",
+      "description": "A capacity management process exists.",
+      "severity": "medium"
+    },
+    {
+      "id": "information_deletion_policy",
+      "control": "A.8.10",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Information Deletion Policy",
+      "description": "An information deletion policy exists.",
+      "severity": "medium"
+    },
+    {
+      "id": "data_masking_policy",
+      "control": "A.8.11",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Data Masking Policy",
+      "description": "Data masking is applied where required to limit exposure of sensitive data.",
+      "severity": "medium"
+    },
+    {
+      "id": "clock_synchronization",
+      "control": "A.8.17",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Clock Synchronization",
+      "description": "System clocks are synchronized to an approved time source.",
+      "severity": "medium"
+    },
+    {
+      "id": "privileged_utility_programs",
+      "control": "A.8.18",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Privileged Utility Programs",
+      "description": "Use of privileged utility programs is restricted and controlled.",
+      "severity": "medium"
+    },
+    {
+      "id": "software_installation_policy",
+      "control": "A.8.19",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Software Installation Policy",
+      "description": "A software installation policy for operational systems exists.",
+      "severity": "medium"
+    },
+    {
+      "id": "web_filtering_policy",
+      "control": "A.8.23",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Web Filtering Policy",
+      "description": "A web filtering policy exists.",
+      "severity": "medium"
+    },
+    {
+      "id": "application_security_requirements",
+      "control": "A.8.26",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Application Security Requirements",
+      "description": "Application security requirements are defined.",
+      "severity": "medium"
+    },
+    {
+      "id": "secure_architecture_principles",
+      "control": "A.8.27",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Secure Architecture Principles",
+      "description": "Secure system architecture principles are documented.",
+      "severity": "medium"
+    },
+    {
+      "id": "outsourced_development_policy",
+      "control": "A.8.30",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Outsourced Development Policy",
+      "description": "Outsourced development is governed and monitored.",
+      "severity": "medium"
+    },
+    {
+      "id": "environment_separation",
+      "control": "A.8.31",
+      "type": "checklist",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Environment Separation",
+      "description": "Development, test, and production environments are separated.",
+      "severity": "medium",
+      "items": [
+        {
+          "id": "environments_separated",
+          "text": "Development, test, and production run as separate, isolated environments",
+          "required": true
+        },
+        {
+          "id": "access_separated",
+          "text": "Access to production is granted separately from development and test access",
+          "required": true
+        },
+        {
+          "id": "promotion_controlled",
+          "text": "Changes reach production only through a controlled promotion process",
+          "required": true
+        },
+        {
+          "id": "production_data_controlled",
+          "text": "Production data is not copied into development or test environments without approval and masking",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "test_information_policy",
+      "control": "A.8.33",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Test Information Policy",
+      "description": "Test information is protected.",
+      "severity": "medium"
+    },
+    {
+      "id": "audit_testing_protection_policy",
+      "control": "A.8.34",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Audit Testing Protection Policy",
+      "description": "Audit testing of operational systems is controlled.",
+      "severity": "medium"
+    },
+    {
+      "id": "change_management_policy",
+      "control": "A.8.32",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Change Management Policy",
+      "description": "A change management policy exists.",
+      "severity": "medium"
+    },
+    {
+      "id": "isms_context",
+      "control": "C.4.1-4.2",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "ISMS Context",
+      "description": "The internal and external issues relevant to the ISMS, and the requirements of interested parties, are determined and documented.",
+      "severity": "medium"
+    },
+    {
+      "id": "isms_scope",
+      "control": "C.4.3",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "ISMS Scope",
+      "description": "The scope of the ISMS is determined and available as documented information.",
+      "severity": "medium"
+    },
+    {
+      "id": "isms_policy",
+      "control": "C.5.2",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "ISMS Policy",
+      "description": "Top management has established an information security policy appropriate to the purpose of the organization.",
+      "severity": "medium"
+    },
+    {
+      "id": "isms_roles",
+      "control": "C.5.3",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "ISMS Roles",
+      "description": "Responsibilities and authorities for the ISMS are assigned and communicated by top management.",
+      "severity": "medium"
+    },
+    {
+      "id": "risk_assessment_process",
+      "control": "C.6.1.2",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Risk Assessment Process",
+      "description": "A documented information security risk assessment process defines the risk criteria and how risks are identified, analyzed and evaluated.",
+      "severity": "medium"
+    },
+    {
+      "id": "risk_treatment_process",
+      "control": "C.6.1.3",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Risk Treatment Process",
+      "description": "A documented information security risk treatment process selects treatment options and determines the necessary controls.",
+      "severity": "medium"
+    },
+    {
+      "id": "isms_objectives",
+      "control": "C.6.2",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "ISMS Objectives",
+      "description": "Information security objectives are established at relevant functions and levels, and are documented.",
+      "severity": "medium"
+    },
+    {
+      "id": "competence_records",
+      "control": "C.7.2",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Competence Records",
+      "description": "The competence of persons doing work affecting information security performance is determined and evidenced.",
+      "severity": "medium"
+    },
+    {
+      "id": "documented_information",
+      "control": "C.7.5",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Documented Information",
+      "description": "Documented information required by the ISMS is identified, controlled, and available where needed.",
+      "severity": "medium"
+    },
+    {
+      "id": "operational_planning",
+      "control": "C.8.1",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Operational Planning",
+      "description": "The processes needed to meet information security requirements are planned, implemented and controlled, and outsourced processes are controlled.",
+      "severity": "medium"
+    },
+    {
+      "id": "risk_assessment_results",
+      "control": "C.8.2",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Risk Assessment Results",
+      "description": "Information security risk assessments are performed at planned intervals and the results are retained.",
+      "severity": "medium"
+    },
+    {
+      "id": "risk_treatment_results",
+      "control": "C.8.3",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Risk Treatment Results",
+      "description": "The information security risk treatment plan is implemented and the results are retained.",
+      "severity": "medium"
+    },
+    {
+      "id": "isms_monitoring",
+      "control": "C.9.1",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "ISMS Monitoring",
+      "description": "The information security performance and the effectiveness of the ISMS are monitored, measured, analyzed and evaluated.",
+      "severity": "medium"
+    },
+    {
+      "id": "internal_audit",
+      "control": "C.9.2",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Internal Audit",
+      "description": "Internal audits of the ISMS are conducted at planned intervals under a defined audit program.",
+      "severity": "medium"
+    },
+    {
+      "id": "management_review",
+      "control": "C.9.3",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Management Review",
+      "description": "Top management reviews the ISMS at planned intervals and the results are retained.",
+      "severity": "medium"
+    },
+    {
+      "id": "corrective_action",
+      "control": "C.10.2",
+      "type": "document_upload",
+      "frequency": "yearly",
+      "temporal_rule": "retrospective",
+      "grace_period": "30d",
+      "name": "Corrective Action",
+      "description": "Nonconformities are reacted to, their causes evaluated, and corrective action taken and recorded.",
+      "severity": "medium"
+    }
+  ]
+}

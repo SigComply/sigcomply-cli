@@ -494,6 +494,14 @@ func TestBinaryE2E_EvidenceCatalogJSON(t *testing.T) {
 		if cat.Framework != fw || len(cat.Entries) == 0 {
 			t.Errorf("%s: framework=%q entries=%d", fw, cat.Framework, len(cat.Entries))
 		}
+		// The golden the Evidence SPA validates is what the binary prints.
+		golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "manualcatalog", "testdata", fw+"_golden.json")) //nolint:gosec // #nosec G304 -- fixed testdata path
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.stdout != string(golden) {
+			t.Errorf("%s: evidence catalog -o json differs from internal/manualcatalog/testdata/%s_golden.json", fw, fw)
+		}
 	}
 	res := runSigcomply(t, dir, nil, "evidence", "catalog", "-f", "hipaa", "-o", "json")
 	res.wantCode(t, 3)

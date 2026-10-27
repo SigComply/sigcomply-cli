@@ -1,0 +1,1 @@
+{"format_version":"envelope.v1","produced_at":"2026-02-15T14:00:00Z","records":[{"collected_at":"2026-02-15T14:00:01Z","id":"trail-1","payload":{"epoch_nanos":1771164001000000123,"max_int64":9223372036854775807,"max_uint64":18446744073709551615,"negative":-9007199254740993,"small":42,"zero":0},"source_id":"aws.cloudtrail","type":"audit_log_trail"}]}

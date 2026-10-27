@@ -495,3 +495,13 @@ func TestGitHubActionsProvider_MalformedJSON(t *testing.T) {
 		t.Errorf("want decode error; got %v", err)
 	}
 }
+
+// The audience is a cross-repo contract: Rails' Oidc::TokenValidator
+// rejects any other value, and customers list it as a client ID on their
+// AWS IAM OIDC provider. Changing it breaks every existing setup, so it
+// is pinned here and changes only together with those.
+func TestDefaultAudience_Pinned(t *testing.T) {
+	if DefaultAudience != "https://api.sigcomply.com" {
+		t.Errorf("DefaultAudience = %q; the Rails validator and customer IAM providers expect https://api.sigcomply.com", DefaultAudience)
+	}
+}
