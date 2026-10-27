@@ -20,6 +20,21 @@ entry point and says when each one is used.
 Skills are plain Markdown. Claude Code loads them automatically; other agents can read
 `skills/<name>/SKILL.md` directly.
 
+## Instruction files (Claude Code)
+
+`AGENTS.md` is the only instruction file; there is no `CLAUDE.md`. Claude Code reads `AGENTS.md`
+natively from v2.1.277 (every session type from v2.1.281). Personal, machine-local instructions go
+in the gitignored `AGENTS.local.md`, which `AGENTS.md` imports with `@AGENTS.local.md`; Claude Code
+never reads that file on its own.
+
+- Don't add a `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` in the repo or in any folder
+  above it. With the default **Project instructions** setting, any one of them makes Claude Code
+  read it instead of `AGENTS.md`, with no warning. If you need one, set **Project instructions** to
+  `claude-md-and-agents-md` in `/config`.
+- `AGENTS.md` doesn't load when that setting is `claude-md`, when the built-in AGENTS.md plugin is
+  disabled, or in the first session right after upgrading from v2.1.276 or earlier.
+- To check, run `/memory` and look for this repo's `AGENTS.md` in the list.
+
 ## Shared across repos
 
 Everything listed above is identical in all five SigComply repos (`sigcomply`, `sigcomply-cli`,

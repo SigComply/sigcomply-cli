@@ -137,8 +137,7 @@ make build
 | cloud payload | `sigcomply check --capture-cloud-payload <file>` | the file holds counts only |
 | version or build wiring | `sigcomply version` | version, commit and build time |
 
-The built-in `run` skill can drive this. No browser is involved here; any machine-specific setup
-is in `AGENTS.local.md`.
+No browser is involved here; any machine-specific setup is in `AGENTS.local.md`.
 
 For source-plugin or CI-integration changes that need real infrastructure, the L4b E2E repos run
 the released binary:
