@@ -1,12 +1,14 @@
 # Promotes a published prerelease to the latest release, optionally after
-# the end-to-end release gate passes. Called by auto-release.yml and
-# release.yml after they publish a tag as a prerelease; never runs alone.
+# the end-to-end release gate passes. Called by auto-release-pipeline.yml
+# and release.yml after they publish a tag as a prerelease; never runs alone.
 #
 # Customers and the E2E repos resolve releases/latest, so a release reaches
 # them only when this workflow promotes it.
 #
 #   vars.RELEASE_GATE == 'on': dispatch release-gate.yml in the GitHub E2E
 #     repo for this exact tag, wait for it, and promote only when it passes.
+#     A cancelled gate run is dispatched once more; a second cancel, a
+#     failure or a timeout fails the gate.
 #     A missing E2E_GATE_TOKEN fails the gate, and the release stays a
 #     prerelease.
 #   anything else: promote at once and warn that the release was not gated.
@@ -39,7 +41,8 @@ jobs:
     name: E2E Release Gate
     if: vars.RELEASE_GATE == 'on'
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    # Two attempts, each up to 10 minutes to appear and 60 to finish.
+    timeout-minutes: 150
     permissions:
       contents: read
     env:
@@ -59,41 +62,60 @@ jobs:
             exit 1
           fi
 
-      - name: Dispatch the release gate
+      # One attempt: dispatch, find the run by its correlation ID, wait.
+      # A cancelled gate run (the E2E repo's AWS concurrency group, or a
+      # person, cancelled it) says nothing about the release, so it is
+      # dispatched once more with a new ID. A failed or timed-out run fails
+      # the gate at once.
+      - name: Run the release gate
         run: |
-          gh workflow run "$GATE_WORKFLOW" --repo "$E2E_REPO" \
-            -f cli_version="$TAG" -f correlation_id="$CORRELATION_ID"
+          for attempt in 1 2; do
+            id="${CORRELATION_ID}-a${attempt}"
+            gh workflow run "$GATE_WORKFLOW" --repo "$E2E_REPO" \
+              -f cli_version="$TAG" -f correlation_id="$id"
 
-      - name: Find the dispatched run
-        id: find
-        run: |
-          # The gate's run-name carries the correlation ID; a dispatch does
-          # not return the run it created.
-          for _ in $(seq 1 40); do
-            run_id=$(gh run list --repo "$E2E_REPO" --workflow "$GATE_WORKFLOW" \
-              --event workflow_dispatch --limit 30 \
-              --json databaseId,displayTitle,createdAt \
-              --jq "[.[] | select(.displayTitle | contains(\"$CORRELATION_ID\"))][0].databaseId // empty")
-            if [ -n "$run_id" ]; then
-              echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
-              echo "Release gate run: https://github.com/$E2E_REPO/actions/runs/$run_id"
-              exit 0
+            # The gate's run-name ends with " <correlation ID>"; a dispatch
+            # does not return the run it created. Match the whole ID after
+            # the space, so ID 5-1-a1 never picks the run of ID 15-1-a1.
+            run_id=""
+            for _ in $(seq 1 40); do
+              # jq (on every runner) rather than gh --jq, which has no --arg.
+              run_id=$(gh run list --repo "$E2E_REPO" --workflow "$GATE_WORKFLOW" \
+                --event workflow_dispatch --limit 30 --json databaseId,displayTitle \
+                | jq -r --arg id "$id" \
+                  '[.[] | select(.displayTitle | endswith(" " + $id))][0].databaseId // empty')
+              [ -n "$run_id" ] && break
+              sleep 15
+            done
+            if [ -z "$run_id" ]; then
+              echo "::error::No $GATE_WORKFLOW run with correlation ID $id appeared in $E2E_REPO within 10 minutes."
+              exit 1
             fi
-            sleep 15
-          done
-          echo "::error::No $GATE_WORKFLOW run with correlation ID $CORRELATION_ID appeared in $E2E_REPO within 10 minutes."
-          exit 1
+            url="https://github.com/$E2E_REPO/actions/runs/$run_id"
+            echo "Release gate run (attempt $attempt): $url"
+            {
+              echo "## E2E release gate for $TAG, attempt $attempt"
+              echo ""
+              echo "$url"
+            } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Wait for the gate
-        env:
-          RUN_ID: ${{ steps.find.outputs.run_id }}
-        run: |
-          {
-            echo "## E2E release gate for $TAG"
-            echo ""
-            echo "https://github.com/$E2E_REPO/actions/runs/$RUN_ID"
-          } >> "$GITHUB_STEP_SUMMARY"
-          timeout 60m gh run watch "$RUN_ID" --repo "$E2E_REPO" --exit-status --interval 30
+            if timeout 60m gh run watch "$run_id" --repo "$E2E_REPO" --exit-status --interval 30; then
+              exit 0
+            else
+              rc=$?
+            fi
+            if [ "$rc" -eq 124 ]; then
+              echo "::error::The release gate run did not finish within 60 minutes: $url"
+              exit 1
+            fi
+            conclusion=$(gh run view "$run_id" --repo "$E2E_REPO" --json conclusion --jq .conclusion || true)
+            if [ "$conclusion" = "cancelled" ] && [ "$attempt" -eq 1 ]; then
+              echo "::warning::The release gate run was cancelled; dispatching it once more."
+              continue
+            fi
+            echo "::error::The release gate run concluded '${conclusion:-unknown}': $url"
+            exit 1
+          done
 
   promote:
     name: Promote to Latest

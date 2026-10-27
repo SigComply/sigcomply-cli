@@ -33,8 +33,9 @@ tracker. Don't import those assumptions from the Rails dashboard repo.
      fails the run), and an existing release only gets the assets it lacks.
   3. Promotes the prerelease to latest (`release-promote.yml`). With the repository variable
      `RELEASE_GATE` set to `on`, it first dispatches `release-gate.yml` in the GitHub E2E repo
-     for that exact tag and waits up to an hour; a failed gate, or a missing `E2E_GATE_TOKEN`
-     secret, leaves the release a prerelease. Without the variable it promotes at once and
+     for that exact tag and waits up to an hour. A cancelled gate run is dispatched once more; a
+     failed or timed-out run, a second cancel, or a missing `E2E_GATE_TOKEN` secret leaves the
+     release a prerelease. Without the variable it promotes at once and
      prints a warning that the release was not E2E-gated.
 
   Releases run one at a time: the release job (not the tests) holds `concurrency: release`,
