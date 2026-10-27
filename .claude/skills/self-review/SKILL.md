@@ -61,6 +61,7 @@ Spawn one `lens-reviewer` subagent per lens, all in one message. Each brief cont
 - the repo path and the commit range;
 - "Review each commit with `git show <sha>` and attribute every finding to a commit";
 - the plan's acceptance criteria and main design decisions (this review has context; share it);
+- what step 1 drove in the real product and what you saw, or what was deferred and why;
 - the output format from the agent definition.
 
 When the security lens runs, also run the built-in `security-review` skill yourself (it reviews

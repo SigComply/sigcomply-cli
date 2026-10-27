@@ -128,7 +128,7 @@ covers, and use it to reproduce findings about runtime behaviour.
 
 Where the workflow doc's check can only run after push, only with the human's approval, or only
 by the human, record it as deferred to that run, and why. Mark a claim unverified only when the
-check can't run at all; give the reason.
+check can't run at all or the human declines the run; give the reason.
 
 ## 10. Quick self-review, then commit
 

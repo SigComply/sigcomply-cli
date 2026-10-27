@@ -23,9 +23,9 @@ Read every changed line, then the whole function and its callers. Look for:
 - Trace one real input from the entry point (command, request, event, job) through every layer
   to the result. Does each caller pass what the callee expects, in the shape and units it expects?
 - Interrupted and repeated runs, and neighbouring flows that share state with this one.
-- For a change the workflow doc's real-product check covers, does the self-review record show it
-  was driven, and driven again after fixes, or recorded as deferred or unverified with a reason?
-  Anything else fails this lens. Judge from the record; don't start the product yourself.
+- For a change the workflow doc's real-product check covers, does the real-product record in your
+  brief show every acceptance criterion driven, or recorded as deferred or unverified with a
+  reason? Anything else fails this lens. Judge from the record; don't start the product yourself.
 
 ## Claims
 
