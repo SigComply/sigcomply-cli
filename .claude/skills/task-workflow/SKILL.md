@@ -92,6 +92,10 @@ Write the failing tests that describe the behaviour:
 
 - Unit tests for logic.
 - End-to-end tests for anything a user or another system sees (the workflow doc names the layer).
+  Automated end-to-end tests are the proof that a flow works; a manual check in a browser or a
+  terminal is extra evidence, never a substitute. A user-visible change without one is not done.
+- A change to a contract with a sibling repo regenerates the shared golden fixture and updates the
+  receiving repo's test in the same task (workspace contracts table; the workflow doc names them).
 - For a bug, the first test reproduces it.
 
 Run them and watch them fail for the right reason: a failed assertion, not a compile or setup

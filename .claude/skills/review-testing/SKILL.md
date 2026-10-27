@@ -25,6 +25,13 @@ and the gaps in them, against the changed production code.
 - Error paths: each error the code handles has a test that triggers it.
 - End-to-end: a user-visible flow (command, page, API call, pipeline) has a test at the layer
   the workflow doc names, not only unit tests.
+- End-to-end tests drive the flow the way a user does (the binary with its exit code, the page in
+  a headless browser, the API with real auth) and assert what the user sees, not internal state.
+  A changed flow whose end-to-end test still passes after reverting the change is a finding.
+- Cross-repo contracts: a change to a wire shape, path scheme, catalog or signature regenerates
+  the shared golden fixture and updates the receiving repo's test in the same task.
+- Release-gate expectations (the E2E repos' expected outcomes) change only with a stated reason,
+  never to turn a red run green.
 - Bug fixes: a regression test that fails without the fix.
 - Security-relevant behaviour is tested both ways: what is allowed and what is refused.
 
