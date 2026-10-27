@@ -471,7 +471,7 @@ func TestRunBuild_GoBuildFails_GracefulError(t *testing.T) {
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("go toolchain unavailable: " + err.Error())
 	}
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == goosWindows {
 		t.Skip("path semantics differ on windows")
 	}
 
@@ -784,7 +784,7 @@ func TestRunBuild_CompilesRealPluginAgainstPublicAPI(t *testing.T) {
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("go toolchain unavailable: " + err.Error())
 	}
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == goosWindows {
 		t.Skip("path semantics differ on windows")
 	}
 

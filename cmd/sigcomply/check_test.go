@@ -115,13 +115,11 @@ func TestRunCheck_EndToEndWithManualOnly(t *testing.T) {
 		config:   configPath,
 		cloudOff: true,
 	})
-	if err != nil {
-		// Some policies may fail/violate; the run still completes through
-		// the rendering path and reports via exitCodeError.
-		var ec *exitCodeError
-		if !errors.As(err, &ec) {
-			t.Fatalf("unexpected (non-exitCode) error: %v", err)
-		}
+	// No evidence is uploaded, so the manual policies fail: a completed
+	// run with violations, exit 1, and no error message.
+	var ec *exitCodeError
+	if !errors.As(err, &ec) || ec.code != orchestrator.ExitViolation || ec.err != nil {
+		t.Fatalf("want bare exitCodeError{code:%d}; got %v", orchestrator.ExitViolation, err)
 	}
 	// The run must have reached the rendering path and printed its summary.
 	if !strings.Contains(stdout.String(), "SigComply check") {
