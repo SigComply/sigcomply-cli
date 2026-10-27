@@ -22,9 +22,9 @@ config error); and a failed submission is logged as a warning and does not chang
 ## Audience
 
 The CLI always requests the audience `submitter.DefaultAudience` = `https://api.sigcomply.com`.
-It is an identifier, not a host: never derive it from `base_url`, and never use it as a URL. Rails
-checks the same string in `Oidc::TokenValidator.expected_audience` (overridable on the Rails side
-with `OIDC_EXPECTED_AUDIENCE` for non-production hosts). The CLI has no audience override; the
+It is an identifier, not a host: never derive it from `base_url`, and never use it as a URL. The
+dashboard's OIDC validator checks the same string (overridable on the dashboard side for
+non-production hosts). The CLI has no audience override; the
 doc comment on `DefaultAudience` that mentions an `OIDC.Audience` field is stale. Changing the
 audience is a cross-repo contract change.
 
@@ -46,9 +46,9 @@ checks that the env vars exist.
 `X-OIDC-Provider: github|gitlab`, `X-Sigcomply-CLI-Version` and a 30-second timeout. The body is
 `core.SubmissionPayload` (schema `aggregator.SchemaVersion`).
 
-Rails (`../sigcomply/app/services/oidc/token_validator.rb`) picks the provider from the token's
-`iss`, not from `X-OIDC-Provider`, verifies the signature against the provider's JWKS, checks the
-audience, and finds the project with `Project.find_for_claims`: GitHub `repository`
+The dashboard's OIDC validator picks the provider from the token's `iss`, not from
+`X-OIDC-Provider`, verifies the signature against the provider's JWKS, checks the audience, and
+finds the project by claims: GitHub `repository`
 (`owner/name`), GitLab `project_path` and `namespace_path`. Changing a claim the CLI relies on, or
 the header, means checking that file in the same task.
 

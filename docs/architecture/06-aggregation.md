@@ -72,8 +72,7 @@ semantics.
    identity, plus a schema bump. The checklist is in the `SubmissionPayload` doc comment.
 3. What fills the strings. String fields are filled only from CI metadata, policy metadata and
    count-generated messages.
-4. Rails strong params in `Api::V1::RunsController` are a second allow-list. They silently drop
-   unknown fields.
+4. The dashboard's runs API is a second allow-list. It silently drops unknown fields.
 5. Golden contract. `TestCloud_GoldenWireContract` (`internal/aggregator/golden_contract_test.go`)
    locks the wire bytes in `internal/aggregator/testdata/cloud_golden.json`. The Rails repo
    keeps a byte-identical copy (path in the test's `railsFixtureRelPath`). Regenerate with
@@ -105,7 +104,7 @@ The CLI decides per run (`submitter.Decide`, called from
 - OIDC token: GitHub Actions via `ACTIONS_ID_TOKEN_REQUEST_URL` + `ACTIONS_ID_TOKEN_REQUEST_TOKEN`;
   GitLab CI via `SIGCOMPLY_ID_TOKEN`, falling back to `ID_TOKEN` (`submitter.HasOIDC`).
 - Audience: always `submitter.DefaultAudience` (`https://api.sigcomply.com`), whatever the base
-  URL. It is an identifier, not a host. Rails checks it in `Oidc::TokenValidator`.
+  URL. It is an identifier, not a host. The dashboard's OIDC validator checks it.
 - There is no `cloud.enabled` switch; `cloud.base_url` and `--no-cloud` decide. Setting the
   removed key is a config error.
 
