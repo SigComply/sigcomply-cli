@@ -8,7 +8,9 @@
 #   curl -fsSL https://raw.githubusercontent.com/SigComply/sigcomply-cli/main/scripts/install.sh | sh
 #
 # Options (via environment variables):
-#   SIGCOMPLY_VERSION - Specific version to install (default: latest)
+#   SIGCOMPLY_VERSION - Release tag to install, e.g. v1.2.3 or a prerelease
+#                       such as v1.2.3-rc.1 (default: latest, which never
+#                       resolves to a prerelease). The leading v is optional.
 #   SIGCOMPLY_INSTALL_DIR - Installation directory (default: /usr/local/bin)
 #   SIGCOMPLY_NO_SUDO - Set to 1 to skip sudo (for non-root installs)
 
@@ -100,11 +102,49 @@ check_dependencies() {
     case "$(uname -s)" in
         MINGW*|MSYS*|CYGWIN*) extractor=unzip ;;
     esac
-    for cmd in curl "$extractor"; do
+    for cmd in curl "$extractor" awk; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             error "Required command not found: $cmd"
         fi
     done
+    if ! command -v sha256sum >/dev/null 2>&1 && ! command -v shasum >/dev/null 2>&1; then
+        error "Required command not found: sha256sum or shasum (to verify the download)"
+    fi
+}
+
+# Print a release tag for a version: "latest" as is, otherwise with a
+# leading v, so SIGCOMPLY_VERSION=1.2.3 and v1.2.3 name the same release.
+normalize_version() {
+    case "$1" in
+        latest|v*) echo "$1" ;;
+        *)         echo "v$1" ;;
+    esac
+}
+
+# Print the SHA-256 of a file with whichever tool the system has:
+# sha256sum (Linux, Git Bash) or shasum (macOS).
+sha256_file() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$1" | awk '{print $1}'
+    else
+        error "Neither sha256sum nor shasum is available to verify the download"
+    fi
+}
+
+# verify_checksum <archive> <checksums.txt>: stop unless the archive's
+# SHA-256 equals its entry in the release's checksums.txt.
+verify_checksum() {
+    _name="${1##*/}"
+    _want=$(awk -v f="$_name" '$2 == f || $2 == "*" f { print $1; exit }' "$2")
+    if [ -z "$_want" ]; then
+        error "No checksum for $_name in checksums.txt"
+    fi
+    _got=$(sha256_file "$1") || exit 1
+    if [ "$_got" != "$_want" ]; then
+        error "Checksum mismatch for $_name: checksums.txt has $_want, the download hashes to $_got"
+    fi
 }
 
 # Get latest version from GitHub API
@@ -119,6 +159,7 @@ install() {
     info "Detected OS: $(uname -s), Arch: $(uname -m)"
 
     # Get version
+    VERSION=$(normalize_version "$VERSION")
     if [ "$VERSION" = "latest" ]; then
         info "Fetching latest version..."
         VERSION=$(get_latest_version)
@@ -134,7 +175,8 @@ install() {
 
     # Construct download URL
     FILENAME=$(asset_name "$(uname -s)" "$(uname -m)" "$VERSION_NO_V") || exit 1
-    DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${VERSION}/${FILENAME}"
+    RELEASE_URL="https://github.com/${GITHUB_REPO}/releases/download/${VERSION}"
+    DOWNLOAD_URL="${RELEASE_URL}/${FILENAME}"
 
     # Create temp directory
     TMP_DIR=$(mktemp -d)
@@ -145,6 +187,13 @@ install() {
     if ! curl -fsSL "$DOWNLOAD_URL" -o "$TMP_DIR/$FILENAME"; then
         error "Failed to download $DOWNLOAD_URL"
     fi
+
+    # Verify against the release's checksums before extracting anything.
+    if ! curl -fsSL "${RELEASE_URL}/checksums.txt" -o "$TMP_DIR/checksums.txt"; then
+        error "Failed to download ${RELEASE_URL}/checksums.txt"
+    fi
+    verify_checksum "$TMP_DIR/$FILENAME" "$TMP_DIR/checksums.txt"
+    success "Checksum verified"
 
     # Extract
     info "Extracting..."
@@ -216,7 +265,7 @@ main() {
 }
 
 # SIGCOMPLY_INSTALL_LIB=1 defines the functions without installing, so
-# scripts/install_test.go can check asset_name.
+# scripts/install_test.go can test them.
 if [ "${SIGCOMPLY_INSTALL_LIB:-0}" != "1" ]; then
     main
 fi

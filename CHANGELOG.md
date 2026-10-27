@@ -18,6 +18,8 @@ this file lists the changes a user notices.
 
 ### Fixed
 
+- The install script checks the downloaded archive against the release's `checksums.txt` and stops
+  on a mismatch. `SIGCOMPLY_VERSION` accepts a version without the leading `v`.
 - `init-ci` scaffolds pin the CLI release that generated them (or `latest` for a development
   build) instead of `v0.73.2`.
 - The GitLab template passes the CI ID token to the AWS SDK for role assumption, through
