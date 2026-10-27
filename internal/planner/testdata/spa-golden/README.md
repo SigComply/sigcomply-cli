@@ -17,4 +17,6 @@ Regenerate after changing periods, cadences or the folder scheme:
 go test ./internal/planner/ -run TestSPAGoldenPeriods -update
 ```
 
-Then copy `periods.json` byte for byte to the Evidence SPA's test fixtures in the same task.
+Then copy `periods.json` byte for byte to the Evidence SPA's `src/lib/__fixtures__/golden/periods.json`
+in the same task. In the SPA, `npm run check:goldens -- --copy` does the copy and
+`npm run check:goldens` reports drift.

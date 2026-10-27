@@ -10,7 +10,8 @@ go test ./internal/sign/ -run TestSPAGoldenEnvelopes -update
 
 Then copy every file in this folder except this README, byte for byte, to the Evidence SPA's
 `src/lib/verification/__fixtures__/golden/` in the same task. The SPA's `/verify` tests read
-them from there.
+them from there. In the SPA, `npm run check:goldens -- --copy` does the copy and
+`npm run check:goldens` reports drift.
 
 | File | What it is |
 |---|---|
