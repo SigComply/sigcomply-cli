@@ -152,11 +152,8 @@ values that are not strings:
 Warnings never stop a run. Keys a source reads as a boolean, number or list are not checked
 here: `active_directory`'s `start_tls`, `page_size`, `timeout` (as seconds) and
 `service_account_ous`, and `manual.pdf`'s `force_path_style`. Keep those values unquoted.
-`active_directory` rejects a quoted one with exit `3`.
-
-| Source | Warning | What to do |
-|---|---|---|
-| `manual.pdf` | `region`, `endpoint`, `force_path_style`, `account` and `container` are reported as ignored. | Ignore it. The `s3` and `azure_blob` backends read these keys. |
+`active_directory` rejects a quoted one with exit `3`. `force_path_style` also accepts `"true"`
+or `"false"` and rejects any other value with exit `3`.
 
 ### Source caveats
 
@@ -371,7 +368,7 @@ storage block takes credential keys.
 | Backend | `vault` keys | `manual.pdf` keys |
 |---|---|---|
 | `local` | `path` (default `./.sigcomply/vault`) | `path` (required); `prefix` (default `manual/`); `bucket` (defaults to `path`; files are always read from under `path`) |
-| `s3` | `bucket`, `region` (required); `prefix` (default none); `endpoint`, `force_path_style` (bool) for S3-compatible stores | `bucket`, `region` (required; `region` falls back to `vault.region`); `prefix` (default `manual/`); `endpoint`, `force_path_style` |
+| `s3` | `bucket`, `region` (required); `prefix` (default none); `endpoint`, `force_path_style` (`true` or `false`, quoted or not) for S3-compatible stores | `bucket`, `region` (required; `region` falls back to `vault.region`); `prefix` (default `manual/`); `endpoint`, `force_path_style` |
 | `gcs` | `bucket` (required); `prefix` | `bucket` (required); `prefix` (default `manual/`) |
 | `azure_blob` | `account`, `container` (required); `prefix` | `account`, `container` (required); `prefix` (default `manual/`) |
 

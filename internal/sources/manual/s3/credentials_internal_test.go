@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"github.com/sigcomply/sigcomply-cli/internal/sources/manual"
 )
@@ -104,5 +105,60 @@ func TestBuild_PassesEndpointAndPathStyle(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("build with endpoint + force_path_style: %v", err)
+	}
+}
+
+// force_path_style is registered as a typed key, so the unknown-key
+// warning does not fire for it: a value the factory cannot read must
+// fail here, or an on-prem store quoted as "true" silently goes back to
+// virtual-hosted addressing.
+func TestBuild_ForcePathStyleAcceptsBoolOrBoolString(t *testing.T) {
+	stub(t, &aws.Credentials{AccessKeyID: testAccessKeyID}, nil)
+	f, ok := manual.LookupReader("s3")
+	if !ok {
+		t.Fatal("s3 reader not registered")
+	}
+	cases := []struct {
+		name    string
+		value   any
+		want    bool
+		wantErr bool
+	}{
+		{"absent", nil, false, false},
+		{"yaml true", true, true, false},
+		{"yaml false", false, false, false},
+		{"quoted true", "true", true, false},
+		{"quoted false", "false", false, false},
+		{"quoted yes", "yes", false, true},
+		{"number", 1, false, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			raw := map[string]any{keyBucket: "b", keyRegion: testRegion}
+			if c.value != nil {
+				raw["force_path_style"] = c.value
+			}
+			r, _, _, _, err := f(raw)
+			if c.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "force_path_style") {
+					t.Fatalf("build = %v; want an error naming force_path_style", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("build: %v", err)
+			}
+			reader, ok := r.(*Reader)
+			if !ok {
+				t.Fatalf("reader type %T; want *Reader", r)
+			}
+			client, ok := reader.Client.(*s3.Client)
+			if !ok {
+				t.Fatalf("client type %T; want *s3.Client", reader.Client)
+			}
+			if got := client.Options().UsePathStyle; got != c.want {
+				t.Errorf("UsePathStyle = %v; want %v", got, c.want)
+			}
+		})
 	}
 }

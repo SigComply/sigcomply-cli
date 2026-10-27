@@ -26,9 +26,9 @@ func build(raw map[string]any) (reader manual.Reader, scheme, bucketOut, prefixO
 		prefix = "manual/"
 	}
 	endpoint := sources.StringOpt(raw, "endpoint")
-	var forcePathStyle bool
-	if v, ok := raw["force_path_style"].(bool); ok {
-		forcePathStyle = v
+	forcePathStyle, err := boolOrString(raw, "force_path_style")
+	if err != nil {
+		return nil, "", "", "", err
 	}
 	r, buildErr := New(context.Background(), Options{
 		Bucket:         bucket,
@@ -41,4 +41,25 @@ func build(raw map[string]any) (reader manual.Reader, scheme, bucketOut, prefixO
 		return nil, "", "", "", buildErr
 	}
 	return r, "s3", bucket, prefix, nil
+}
+
+// boolOrString reads a YAML bool, or the strings "true"/"false" that a
+// quoted value decodes to. The key is registered as typed, so the
+// unknown-key warning never fires for it: anything else must be a
+// config error, not a silent false.
+func boolOrString(raw map[string]any, key string) (bool, error) {
+	switch v := raw[key].(type) {
+	case nil:
+		return false, nil
+	case bool:
+		return v, nil
+	case string:
+		switch v {
+		case "true":
+			return true, nil
+		case "false":
+			return false, nil
+		}
+	}
+	return false, fmt.Errorf("manual.pdf s3: %q must be true or false, got %v", key, raw[key])
 }

@@ -354,7 +354,7 @@ policy to collect (all automated, carried forward, or excepted as a whole) does 
 | `bucket` | `s3`, `gcs` | none | Bucket name. For `local`, defaults to `path`. |
 | `region` | `s3`, unless `vault.region` is set | `vault.region` | Bucket region. |
 | `endpoint` | no | none | `s3` only: URL of an S3-compatible store. |
-| `force_path_style` | no | `false` | `s3` only: bool, path-style addressing for S3-compatible stores. |
+| `force_path_style` | no | `false` | `s3` only: `true` or `false` (quoted or not), path-style addressing for S3-compatible stores. Any other value is a config error (exit `3`). |
 | `account` | `azure_blob` | none | Storage account name. |
 | `container` | `azure_blob` | none | Container name. |
 
