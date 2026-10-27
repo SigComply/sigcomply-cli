@@ -198,6 +198,11 @@ type Extension struct {
 // every Go package found under the three supported subtrees. Returns
 // nil with no error when the project has no extensions — the build
 // wrapper treats that as a graceful no-op.
+//
+// The project's go.mod is read only once a Go package has been found.
+// .sigcomply/ also holds things that never need a build — the default
+// local vault, YAML policies, evidence-type JSON schemas — and a project
+// with only those has no reason to be a Go module.
 func DiscoverExtensions(projectDir string) ([]Extension, error) {
 	root := filepath.Join(projectDir, ".sigcomply")
 	if _, err := os.Stat(root); err != nil {
@@ -206,52 +211,58 @@ func DiscoverExtensions(projectDir string) ([]Extension, error) {
 		}
 		return nil, fmt.Errorf("stat .sigcomply: %w", err)
 	}
+
+	var found []Extension
+	more, err := discoverPlugins(root, projectDir)
+	if err != nil {
+		return nil, err
+	}
+	found = append(found, more...)
+	more, err = discoverRules(root, projectDir)
+	if err != nil {
+		return nil, err
+	}
+	found = append(found, more...)
+	more, err = discoverEvidenceTypes(root, projectDir)
+	if err != nil {
+		return nil, err
+	}
+	found = append(found, more...)
+	if len(found) == 0 {
+		return nil, nil
+	}
+
 	modulePath, err := readModulePath(projectDir)
 	if err != nil {
 		return nil, err
 	}
-
-	var found []Extension
-	more, err := discoverPlugins(root, modulePath, projectDir)
-	if err != nil {
-		return nil, err
+	for i := range found {
+		found[i].ImportPath = modulePath + "/" + found[i].ImportPath
 	}
-	found = append(found, more...)
-	more, err = discoverRules(root, modulePath, projectDir)
-	if err != nil {
-		return nil, err
-	}
-	found = append(found, more...)
-	more, err = discoverEvidenceTypes(root, modulePath, projectDir)
-	if err != nil {
-		return nil, err
-	}
-	found = append(found, more...)
-
 	sort.Slice(found, func(i, j int) bool { return found[i].ImportPath < found[j].ImportPath })
 	return found, nil
 }
 
 // discoverPlugins finds packages under .sigcomply/plugins/<name>/.
-func discoverPlugins(root, modulePath, projectDir string) ([]Extension, error) {
-	return discoverInSubdirs(filepath.Join(root, "plugins"), ExtensionKindPlugin, modulePath, projectDir, "")
+func discoverPlugins(root, projectDir string) ([]Extension, error) {
+	return discoverInSubdirs(filepath.Join(root, "plugins"), ExtensionKindPlugin, projectDir, "")
 }
 
 // discoverRules finds packages under .sigcomply/policies/<name>/rules/.
-func discoverRules(root, modulePath, projectDir string) ([]Extension, error) {
-	return discoverInSubdirs(filepath.Join(root, "policies"), ExtensionKindRule, modulePath, projectDir, "rules")
+func discoverRules(root, projectDir string) ([]Extension, error) {
+	return discoverInSubdirs(filepath.Join(root, "policies"), ExtensionKindRule, projectDir, "rules")
 }
 
 // discoverEvidenceTypes finds packages under .sigcomply/evidence_types/.
 // Supports both per-type subdirs and the flat layout where the
 // evidence_types/ directory is itself a Go package.
-func discoverEvidenceTypes(root, modulePath, projectDir string) ([]Extension, error) {
+func discoverEvidenceTypes(root, projectDir string) ([]Extension, error) {
 	etRoot := filepath.Join(root, "evidence_types")
-	out, err := discoverInSubdirs(etRoot, ExtensionKindEvidenceType, modulePath, projectDir, "")
+	out, err := discoverInSubdirs(etRoot, ExtensionKindEvidenceType, projectDir, "")
 	if err != nil {
 		return nil, err
 	}
-	ext, ok, err := classifyDir(etRoot, ExtensionKindEvidenceType, modulePath, projectDir)
+	ext, ok, err := classifyDir(etRoot, ExtensionKindEvidenceType, projectDir)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +276,7 @@ func discoverEvidenceTypes(root, modulePath, projectDir string) ([]Extension, er
 // (optionally descending into a fixed `subdir` first — used for the
 // `policies/<name>/rules/` layout). Missing roots are not errors —
 // discovery is best-effort.
-func discoverInSubdirs(root string, kind ExtensionKind, modulePath, projectDir, subdir string) ([]Extension, error) {
+func discoverInSubdirs(root string, kind ExtensionKind, projectDir, subdir string) ([]Extension, error) {
 	subs, err := listSubdirs(root)
 	if err != nil {
 		return nil, err
@@ -276,7 +287,7 @@ func discoverInSubdirs(root string, kind ExtensionKind, modulePath, projectDir, 
 		if subdir != "" {
 			target = filepath.Join(d, subdir)
 		}
-		ext, ok, err := classifyDir(target, kind, modulePath, projectDir)
+		ext, ok, err := classifyDir(target, kind, projectDir)
 		if err != nil {
 			return nil, err
 		}
@@ -288,11 +299,13 @@ func discoverInSubdirs(root string, kind ExtensionKind, modulePath, projectDir, 
 }
 
 // classifyDir checks whether dir holds a Go package and, if so,
-// returns an Extension. A "package" here means: at least one non-test
+// returns an Extension whose ImportPath is still relative to the
+// project root (DiscoverExtensions prefixes the module path once it
+// knows there is anything to build). A "package" here means: at least one non-test
 // .go file whose `package X` declaration matches the directory's
 // basename. That naming rule keeps the generated entrypoint readable
 // and aligns with the worked examples in docs/architecture/07-extensibility.md.
-func classifyDir(dir string, kind ExtensionKind, modulePath, projectDir string) (Extension, bool, error) {
+func classifyDir(dir string, kind ExtensionKind, projectDir string) (Extension, bool, error) {
 	info, err := os.Stat(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -319,12 +332,11 @@ func classifyDir(dir string, kind ExtensionKind, modulePath, projectDir string) 
 	if err != nil {
 		return Extension{}, false, fmt.Errorf("rel %s: %w", dir, err)
 	}
-	importPath := modulePath + "/" + filepath.ToSlash(rel)
 	return Extension{
 		Kind:        kind,
 		Name:        base,
 		Dir:         dir,
-		ImportPath:  importPath,
+		ImportPath:  filepath.ToSlash(rel),
 		PackageName: pkgName,
 	}, true, nil
 }

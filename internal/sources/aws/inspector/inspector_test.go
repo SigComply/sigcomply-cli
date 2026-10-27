@@ -87,7 +87,8 @@ func TestPlugin_InitNoOp(t *testing.T) {
 func decodePayloads(t *testing.T, records []core.EvidenceRecord) map[string]findingPayload {
 	t.Helper()
 	out := make(map[string]findingPayload, len(records))
-	for _, r := range records {
+	for i := range records {
+		r := &records[i]
 		var pl findingPayload
 		if err := json.Unmarshal(r.Payload, &pl); err != nil {
 			t.Fatalf("Unmarshal %s: %v", r.ID, err)

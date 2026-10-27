@@ -862,3 +862,37 @@ func isOfflineModuleFailure(out string) bool {
 	}
 	return false
 }
+
+// TestRunBuild_NoGoExtensions_NoGoModNeeded: `sigcomply init` points the
+// default local vault at .sigcomply/vault, and YAML policies live under
+// .sigcomply/policies/ — neither is Go, and neither needs a build. A
+// project in that state has no go.mod and must get the no-op message,
+// not a demand for a Go module it has no use for.
+func TestRunBuild_NoGoExtensions_NoGoModNeeded(t *testing.T) {
+	tmp := t.TempDir()
+	for _, f := range []struct{ path, body string }{
+		{".sigcomply/vault/soc2/2026-Q1/run_x/manifest.json", "{}"},
+		{".sigcomply/policies/acme.custom/policy.yaml", "id: acme.custom\n"},
+		{".sigcomply/evidence_types/acme_thing.json", "{}"},
+	} {
+		p := filepath.Join(tmp, filepath.FromSlash(f.path))
+		if err := os.MkdirAll(filepath.Dir(p), 0o750); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		if err := os.WriteFile(p, []byte(f.body), 0o600); err != nil {
+			t.Fatalf("write %s: %v", f.path, err)
+		}
+	}
+
+	var stdout, stderr bytes.Buffer
+	err := runBuild(context.Background(), &stdout, &stderr, buildFlags{
+		project: tmp,
+		output:  filepath.Join(tmp, "bin", "sigcomply"),
+	})
+	if err != nil {
+		t.Fatalf("runBuild without go.mod and without Go extensions: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "no project-local extensions found") {
+		t.Errorf("unexpected stdout: %q", stdout.String())
+	}
+}

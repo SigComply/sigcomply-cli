@@ -99,7 +99,8 @@ func TestPlugin_InitNoOp(t *testing.T) {
 func unmarshalByID(t *testing.T, records []core.EvidenceRecord) map[string]certPayload {
 	t.Helper()
 	byID := map[string]certPayload{}
-	for _, r := range records {
+	for i := range records {
+		r := &records[i]
 		var pl certPayload
 		if err := json.Unmarshal(r.Payload, &pl); err != nil {
 			t.Fatalf("Unmarshal %s: %v", r.ID, err)

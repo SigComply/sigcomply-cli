@@ -4,18 +4,14 @@
 # Install:   lefthook install
 #   (brew install lefthook  or  go install github.com/evilmartians/lefthook@latest)
 #
-# Skip all hooks for one command:
-#   LEFTHOOK=0 git commit
-#   LEFTHOOK=0 git push
-#
-# Skip a specific hook by name:
-#   LEFTHOOK_EXCLUDE=lint git push
+# Never skip the hooks to get a commit or push through: a failing hook
+# means something is wrong, so fix it.
 
 # ── Pre-commit ──────────────────────────────────────────────────────────────
 # fmt/vet are fast; lint + test were previously pre-push only, which let
 # lint and test failures slip into local commits and only bounce at push.
 # They run here too now (gated on *.go) so a commit is never green-locally
-# but red-on-push. Skip a slow one ad-hoc with e.g. LEFTHOOK_EXCLUDE=test.
+# but red-on-push.
 pre-commit:
   parallel: true
   commands:

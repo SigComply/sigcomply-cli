@@ -221,10 +221,10 @@ func writeCoverageHeadline(w io.Writer, v *CoverageView) error {
 	if _, err := fmt.Fprintf(w, "%d of %d catalog controls have a check\n", v.Automated+v.Manual, v.Controls); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "  %d automated  — verified by inspecting your infrastructure\n", v.Automated); err != nil {
+	if _, err := fmt.Fprintf(w, "  %d automated  — an automated check is mapped; \"This period\" shows whether it ran\n", v.Automated); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "  %d manual     — a document is on file; its contents are not inspected\n", v.Manual); err != nil {
+	if _, err := fmt.Fprintf(w, "  %d manual     — only document checks are mapped; their contents are not inspected\n", v.Manual); err != nil {
 		return err
 	}
 	if v.Uncovered > 0 {
@@ -243,6 +243,11 @@ func writeCoverageHeadline(w io.Writer, v *CoverageView) error {
 	if _, err := fmt.Fprintf(w, "\nThis period\n  %d evaluated, %d not evaluated\n", v.Evaluated, v.NotEvaluated); err != nil {
 		return err
 	}
+	if _, err := fmt.Fprintf(w, "  %d automated control(s): %d inspected, %d skipped, %d not evaluated or errored\n",
+		v.Automated, v.AutomatedInspected, v.AutomatedSkipped,
+		v.Automated-v.AutomatedInspected-v.AutomatedSkipped); err != nil {
+		return err
+	}
 	if _, err := fmt.Fprintf(w, "  %d manual control(s) with evidence on file, %d without\n", v.ManualOnFile, v.ManualMissing); err != nil {
 		return err
 	}
@@ -254,7 +259,8 @@ func writeCoverageHeadline(w io.Writer, v *CoverageView) error {
 	// A cadence longer than the audit period produces no result for
 	// three quarters out of four. Say so, or every Q1-Q3 report reads
 	// like an outage.
-	_, err := fmt.Fprint(w, "\nA control whose cadence is longer than this period (annual, in a quarterly\nperiod) is expected to show \"not evaluated\" here — the NOTE column names\nthe cadence so you can tell that apart from a check that should have run.\n\n")
+	_, err := fmt.Fprint(w, "\nA control whose cadence is longer than this period (annual, in a quarterly\nperiod) is expected to show \"not evaluated\" here — the NOTE column names\nthe cadence so you can tell that apart from a check that should have run.\n"+
+		"An automated control counts as skipped when every automated check behind it\nskipped, usually because the source it reads is not configured; nothing was\ninspected for it.\n\n")
 	return err
 }
 

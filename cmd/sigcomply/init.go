@@ -133,8 +133,8 @@ sources:
   # Manual evidence (a project-level singleton). Many ` + fw + ` controls need
   # documents an API can't produce — access reviews, signed NDAs, security-
   # training certificates, risk-acceptance declarations. Without this source
-  # every such control errors out ("source manual.pdf not registered"); with
-  # it they simply report fail ("evidence not found") until you upload. Drop
+  # a run that evaluates any of those controls stops with a config error
+  # (exit 3); with it they report fail ("evidence not found") until you upload. Drop
   # the files (PDF/JPEG/PNG/GIF/TIFF/WebP/BMP) into
   #     ./evidence/manual/<evidence_catalog_id>/<period_id>/
   # List the catalog IDs with ` + "`sigcomply evidence catalog -f " + fw + "`" + `. The optional

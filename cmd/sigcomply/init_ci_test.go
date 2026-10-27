@@ -636,3 +636,48 @@ func TestGitLabWebIdentity_ExportedOnlyWithRoleARN(t *testing.T) {
 		}
 	}
 }
+
+// usesLine matches a GitHub Actions `uses:` reference; pinnedUses
+// matches one pinned to a full commit SHA with a `# vX` comment. A tag
+// such as `@v4` can be moved to different code after the fact, so a
+// workflow we hand customers must name the commit it runs.
+var (
+	usesLine   = regexp.MustCompile(`(?m)^\s*(?:-\s*)?uses:\s*(\S+)(.*)$`)
+	pinnedUses = regexp.MustCompile(`^[^@\s]+@[0-9a-f]{40}$`)
+)
+
+func TestWorkflows_PinActionsByCommitSHA(t *testing.T) {
+	plan, err := scaffoldPlanGitHub("/tmp/unused")
+	if err != nil {
+		t.Fatalf("scaffoldPlanGitHub: %v", err)
+	}
+	bodies := map[string]string{}
+	for _, f := range plan {
+		body, rErr := readEmbed(f.embeddedPath)
+		if rErr != nil {
+			t.Fatalf("read %s: %v", f.embeddedPath, rErr)
+		}
+		bodies[f.embeddedPath] = body
+	}
+	for _, p := range []string{
+		filepath.Join("..", "..", "examples", "github-actions", "basic.yml"),
+		filepath.Join("..", "..", "examples", "github-actions", "multi-environment.yml"),
+	} {
+		b, rErr := os.ReadFile(p)
+		if rErr != nil {
+			t.Fatalf("read %s: %v", p, rErr)
+		}
+		bodies[p] = string(b)
+	}
+	for path, body := range bodies {
+		matches := usesLine.FindAllStringSubmatch(body, -1)
+		if len(matches) == 0 {
+			t.Errorf("%s: no uses: lines found", path)
+		}
+		for _, m := range matches {
+			if !pinnedUses.MatchString(m[1]) || !strings.Contains(m[2], "# v") {
+				t.Errorf("%s: %q is not pinned to a full commit SHA with a `# vX` comment", path, strings.TrimSpace(m[0]))
+			}
+		}
+	}
+}

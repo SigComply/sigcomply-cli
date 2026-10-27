@@ -286,7 +286,8 @@ func TestGitHubPeriodTypesConformance(t *testing.T) {
 func assertIDs(t *testing.T, records []core.EvidenceRecord, want []string) {
 	t.Helper()
 	got := map[string]bool{}
-	for _, r := range records {
+	for i := range records {
+		r := &records[i]
 		got[r.ID] = true
 	}
 	if len(got) != len(want) {

@@ -70,7 +70,8 @@ func collectByID(t *testing.T, fake *fakeAPI) map[string]registryPayload {
 		t.Fatalf("Collect: %v", err)
 	}
 	byID := map[string]registryPayload{}
-	for _, r := range records {
+	for i := range records {
+		r := &records[i]
 		var pl registryPayload
 		if err := json.Unmarshal(r.Payload, &pl); err != nil {
 			t.Fatalf("Unmarshal %s: %v", r.ID, err)

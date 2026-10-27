@@ -26,6 +26,8 @@ const (
 	// viewLatest and viewSoA are `report --view` names.
 	viewLatest = "latest"
 	viewSoA    = "soa"
+	// viewIntegrity is the `report --view` name for run verification.
+	viewIntegrity = "integrity"
 	// formatYAML is the unsupported --format / --output value the
 	// negative-path tests pass.
 	formatYAML = "yaml"
@@ -231,7 +233,7 @@ func TestRunReport_VaultOverrideFromCLI(t *testing.T) {
 		vaultURI:  vaultPath,
 		framework: defaultFW,
 		period:    testPeriodID,
-		view:      "integrity",
+		view:      viewIntegrity,
 		format:    outputText,
 	})
 	if err != nil {
@@ -360,9 +362,95 @@ func TestRunReport_SoARequiresProjectConfig(t *testing.T) {
 	if err == nil {
 		t.Fatal("want an error when --view soa is run without a project config")
 	}
-	for _, want := range []string{viewSoA, "applicability", ".sigcomply.yaml"} {
+	for _, want := range []string{viewSoA, "applicability", "-c <path>"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not mention %q", err, want)
 		}
+	}
+}
+
+// TestRunReport_IntegrityFailureExitsOne: the integrity view is the
+// check an auditor scripts. Printing "fail" and exiting 0 lets a
+// tampered vault pass any pipeline that looks only at the exit code, so
+// a failed run must exit 1 — after the table is written, so the reader
+// still sees which run and which file.
+func TestRunReport_IntegrityFailureExitsOne(t *testing.T) {
+	vaultPath := seedFixtureVault(t)
+	tampered := filepath.Join(vaultPath, "soc2", testPeriodID, "run_20260215T140000Z_aaaaaaaa",
+		"policies", "soc2.cc6.1.mfa", "result.json")
+	if err := os.WriteFile(tampered, []byte(`{"policy_id":"tampered"}`), 0o600); err != nil {
+		t.Fatalf("tamper: %v", err)
+	}
+	var stdout bytes.Buffer
+	err := runReport(context.Background(), &stdout, &reportFlags{
+		vaultURI:  vaultPath,
+		framework: defaultFW,
+		period:    testPeriodID,
+		view:      viewIntegrity,
+		format:    outputText,
+	})
+	var ec *exitCodeError
+	if !errors.As(err, &ec) || ec.code != 1 {
+		t.Fatalf("want exitCodeError code=1 for a failed integrity check; got %v", err)
+	}
+	if !strings.Contains(stdout.String(), "fail") {
+		t.Errorf("integrity table not written before exiting: %q", stdout.String())
+	}
+}
+
+// TestRunReport_SoAWithVaultFrameworkAndExplicitConfig: when --vault and
+// --framework are both given the config is optional, but an explicit -c
+// must still be read — it is the only way to hand the SoA its
+// applicability decisions while pointing at an auditor's copy of the
+// vault. Before, -c was ignored in that case and the error told the
+// user to pass the flag they had just passed.
+func TestRunReport_SoAWithVaultFrameworkAndExplicitConfig(t *testing.T) {
+	vaultPath := t.TempDir()
+	configPath := filepath.Join(t.TempDir(), "iso.yaml")
+	body := "schema_version: project.v1\nframework: " + isoFW + "\nvault:\n  backend: local\n  path: " + t.TempDir() + "\n"
+	if err := os.WriteFile(configPath, []byte(body), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	var stdout bytes.Buffer
+	err := runReport(context.Background(), &stdout, &reportFlags{
+		config:    configPath,
+		configSet: true,
+		vaultURI:  vaultPath,
+		framework: isoFW,
+		period:    "2026-Q2",
+		view:      viewSoA,
+		format:    outputText,
+	})
+	if err != nil {
+		t.Fatalf("runReport --view soa with explicit -c: %v", err)
+	}
+	if stdout.Len() == 0 {
+		t.Error("SoA output empty")
+	}
+}
+
+// TestReportAndEvidenceHelp_Accurate pins help text that used to
+// describe behavior the code does not have.
+func TestReportAndEvidenceHelp_Accurate(t *testing.T) {
+	report := newReportCmd()
+	if u := report.Flags().Lookup("vault").Usage; !strings.Contains(u, "file://") {
+		t.Errorf("report --vault help omits file:// URIs: %q", u)
+	}
+
+	evidence := newEvidenceCmd()
+	fw := evidence.PersistentFlags().Lookup("framework").Usage
+	if !strings.Contains(fw, "config") {
+		t.Errorf("evidence --framework help omits that `due` defaults to the config's framework: %q", fw)
+	}
+	due, _, err := evidence.Find([]string{"due"})
+	if err != nil {
+		t.Fatalf("find due: %v", err)
+	}
+	within := due.Flags().Lookup("within-days").Usage
+	if strings.Contains(within, "overdue") {
+		t.Errorf("--within-days help mentions overdue entries; the current period never is: %q", within)
+	}
+	if !strings.Contains(within, "less than a day") {
+		t.Errorf("--within-days help should say 0 means the period ends in less than a day: %q", within)
 	}
 }

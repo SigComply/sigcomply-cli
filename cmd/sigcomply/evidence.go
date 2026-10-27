@@ -42,7 +42,7 @@ func newEvidenceCmd() *cobra.Command {
 			"the optional Evidence SPA to render declaration/checklist forms.\n",
 	}
 	cmd.PersistentFlags().StringVarP(&flags.framework, "framework", "f", "",
-		"Framework (defaults to $SIGCOMPLY_FRAMEWORK, then soc2)")
+		"Framework (catalog: defaults to $SIGCOMPLY_FRAMEWORK, then soc2; due: defaults to the config's framework)")
 	cmd.PersistentFlags().StringVarP(&flags.output, "output", "o", outputText,
 		"Output format: text | json")
 	cmd.AddCommand(newEvidenceCatalogCmd(&flags))

@@ -54,30 +54,53 @@ error() {
     exit 1
 }
 
-# Detect OS
-detect_os() {
-    case "$(uname -s)" in
+# Map `uname -s` to the OS in the release archive name.
+release_os() {
+    case "$1" in
         Linux*)     echo "linux" ;;
         Darwin*)    echo "darwin" ;;
         MINGW*|MSYS*|CYGWIN*) echo "windows" ;;
-        *)          error "Unsupported operating system: $(uname -s)" ;;
+        *)          error "Unsupported operating system: $1" ;;
     esac
 }
 
-# Detect architecture
-detect_arch() {
-    case "$(uname -m)" in
+# Map `uname -m` to the architecture in the release archive name. 32-bit
+# ARM releases are split by ARM version (armv6, armv7); armv8l is a
+# 32-bit userland on a 64-bit core and runs the armv7 build.
+release_arch() {
+    case "$1" in
         x86_64|amd64)   echo "amd64" ;;
         aarch64|arm64)  echo "arm64" ;;
-        armv7l|armv6l)  echo "arm" ;;
-        i386|i686)      echo "386" ;;
-        *)              error "Unsupported architecture: $(uname -m)" ;;
+        armv7*|armv8l)  echo "armv7" ;;
+        armv6*)         echo "armv6" ;;
+        *)              error "Unsupported architecture: $1" ;;
+    esac
+}
+
+# Print the release archive name for `uname -s`, `uname -m` and a
+# version without the leading v. Mirrors the archives .goreleaser.yml
+# publishes: linux amd64/arm64/armv6/armv7, darwin amd64/arm64 and
+# windows amd64, as .tar.gz except .zip on Windows.
+asset_name() {
+    _os=$(release_os "$1") || exit 1
+    _arch=$(release_arch "$2") || exit 1
+    case "${_os}_${_arch}" in
+        linux_amd64|linux_arm64|linux_armv6|linux_armv7|darwin_amd64|darwin_arm64)
+            echo "${BINARY_NAME}_${3}_${_os}_${_arch}.tar.gz" ;;
+        windows_amd64)
+            echo "${BINARY_NAME}_${3}_${_os}_${_arch}.zip" ;;
+        *)
+            error "There is no release for ${_os}/${_arch}. See https://github.com/${GITHUB_REPO}/releases" ;;
     esac
 }
 
 # Check for required commands
 check_dependencies() {
-    for cmd in curl tar; do
+    extractor=tar
+    case "$(uname -s)" in
+        MINGW*|MSYS*|CYGWIN*) extractor=unzip ;;
+    esac
+    for cmd in curl "$extractor"; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             error "Required command not found: $cmd"
         fi
@@ -93,10 +116,7 @@ get_latest_version() {
 
 # Download and install
 install() {
-    OS=$(detect_os)
-    ARCH=$(detect_arch)
-
-    info "Detected OS: $OS, Arch: $ARCH"
+    info "Detected OS: $(uname -s), Arch: $(uname -m)"
 
     # Get version
     if [ "$VERSION" = "latest" ]; then
@@ -113,7 +133,7 @@ install() {
     VERSION_NO_V="${VERSION#v}"
 
     # Construct download URL
-    FILENAME="${BINARY_NAME}_${VERSION_NO_V}_${OS}_${ARCH}.tar.gz"
+    FILENAME=$(asset_name "$(uname -s)" "$(uname -m)" "$VERSION_NO_V") || exit 1
     DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${VERSION}/${FILENAME}"
 
     # Create temp directory
@@ -128,7 +148,15 @@ install() {
 
     # Extract
     info "Extracting..."
-    tar xzf "$TMP_DIR/$FILENAME" -C "$TMP_DIR"
+    case "$FILENAME" in
+        *.zip)
+            unzip -q "$TMP_DIR/$FILENAME" -d "$TMP_DIR"
+            BINARY_NAME="${BINARY_NAME}.exe"
+            ;;
+        *)
+            tar xzf "$TMP_DIR/$FILENAME" -C "$TMP_DIR"
+            ;;
+    esac
 
     # Verify binary exists
     if [ ! -f "$TMP_DIR/$BINARY_NAME" ]; then
@@ -187,4 +215,8 @@ main() {
     echo ""
 }
 
-main
+# SIGCOMPLY_INSTALL_LIB=1 defines the functions without installing, so
+# scripts/install_test.go can check asset_name.
+if [ "${SIGCOMPLY_INSTALL_LIB:-0}" != "1" ]; then
+    main
+fi

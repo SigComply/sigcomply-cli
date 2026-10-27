@@ -16,7 +16,7 @@ func coverageSnapshot() *report.Snapshot {
 		View: report.ViewCoverage, Framework: frameworkSOC2, PeriodID: testPeriodQ2,
 		Coverage: &report.CoverageView{
 			Controls: 3, Automated: 1, Manual: 2,
-			Evaluated: 1, NotEvaluated: 2,
+			Evaluated: 1, NotEvaluated: 2, AutomatedInspected: 1,
 			ManualOnFile: 0, ManualMissing: 2,
 			Rows: []report.CoverageRow{
 				{ControlID: ctrlCC11, Assurance: assuranceManual, ManualPolicies: 2, Policies: 2,
@@ -41,10 +41,11 @@ func TestFormatTextCoverage_HeadlineSeparatesInspectionFromPaperwork(t *testing.
 	for _, want := range []string{
 		"3 of 3 catalog controls have a check",
 		"1 automated",
-		"verified by inspecting your infrastructure",
+		"an automated check is mapped",
 		"2 manual",
 		"contents are not inspected",
 		"1 evaluated, 2 not evaluated",
+		"1 automated control(s): 1 inspected, 0 skipped, 0 not evaluated or errored",
 		"0 manual control(s) with evidence on file, 2 without",
 	} {
 		if !strings.Contains(out, want) {
@@ -226,6 +227,68 @@ func TestBuildCoverage_RunRecordOutranksTheCatalog(t *testing.T) {
 	}
 	if snap.Coverage.Automated != 0 || snap.Coverage.Manual != 1 {
 		t.Errorf("totals = %+v; want the override reflected in the headline", snap.Coverage)
+	}
+}
+
+// ctrlCC66 is the control whose automated check skips beside a passing
+// document.
+const ctrlCC66 = "CC6.6"
+
+// TestBuildCoverage_AutomatedControlWhoseChecksSkipped is the regression
+// for the headline that called every automated control "verified by
+// inspecting your infrastructure". A control is automated because an
+// automated check is mapped to it; whether that check inspected
+// anything this period is a separate fact. A run with no credentials
+// for a source skips every policy that reads it, and the control must
+// be counted as skipped, not inspected.
+func TestBuildCoverage_AutomatedControlWhoseChecksSkipped(t *testing.T) {
+	v, _ := makeVault(t, []runSeed{{
+		framework: frameworkSOC2, periodID: testPeriodQ2, runID: testRunID,
+		timestamp:   time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		completedAt: time.Date(2026, 4, 1, 0, 5, 0, 0, time.UTC),
+		policies: []core.PolicyResult{
+			{PolicyID: testPolicyMFA, Status: core.StatusPass, EvidenceMode: core.EvidenceModeAutomated},
+			{PolicyID: "soc2.cc6.6.fw", Status: core.StatusSkip, EvidenceMode: core.EvidenceModeAutomated},
+			{PolicyID: "soc2.cc6.6.doc", Status: core.StatusPass, EvidenceMode: core.EvidenceModeManual},
+			{PolicyID: "soc2.cc7.1.err", Status: core.StatusError, EvidenceMode: core.EvidenceModeAutomated},
+		},
+	}})
+
+	snap, err := report.Build(context.Background(), &report.Input{
+		Vault: v, Framework: frameworkSOC2, PeriodID: testPeriodQ2, View: report.ViewCoverage,
+		Controls: []core.Control{{ID: ctrlCC61}, {ID: ctrlCC66}, {ID: "CC7.1"}, {ID: "CC7.2"}},
+		Policies: []core.Policy{
+			{ID: testPolicyMFA, EvidenceMode: core.EvidenceModeAutomated, Controls: []core.ControlRef{{ControlID: ctrlCC61}}},
+			// CC6.6: the automated check skipped; a passing document
+			// beside it must not make the control count as inspected.
+			{ID: "soc2.cc6.6.fw", EvidenceMode: core.EvidenceModeAutomated, Controls: []core.ControlRef{{ControlID: ctrlCC66}}},
+			{ID: "soc2.cc6.6.doc", EvidenceMode: core.EvidenceModeManual, Controls: []core.ControlRef{{ControlID: ctrlCC66}}},
+			{ID: "soc2.cc7.1.err", EvidenceMode: core.EvidenceModeAutomated, Controls: []core.ControlRef{{ControlID: "CC7.1"}}},
+			{ID: "soc2.cc7.2.none", EvidenceMode: core.EvidenceModeAutomated, Controls: []core.ControlRef{{ControlID: "CC7.2"}}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cov := snap.Coverage
+	if cov.Automated != 4 {
+		t.Fatalf("Automated = %d; want 4", cov.Automated)
+	}
+	if cov.AutomatedInspected != 1 || cov.AutomatedSkipped != 1 {
+		t.Errorf("AutomatedInspected/AutomatedSkipped = %d/%d; want 1/1 (CC6.1 inspected, CC6.6 skipped; CC7.1 errored, CC7.2 never ran)",
+			cov.AutomatedInspected, cov.AutomatedSkipped)
+	}
+
+	var buf bytes.Buffer
+	if err := report.FormatText(&buf, snap); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "verified by inspecting") {
+		t.Errorf("headline still claims every automated control was inspected:\n%s", out)
+	}
+	if !strings.Contains(out, "4 automated control(s): 1 inspected, 1 skipped, 2 not evaluated or errored") {
+		t.Errorf("headline must split automated controls by what this period's runs did:\n%s", out)
 	}
 }
 

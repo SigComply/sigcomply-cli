@@ -12,9 +12,10 @@
 //   - integrity: per-run signature + file-hash verification.
 //   - scope: the declared estate and how it fared, plus every control the
 //     run did not evaluate. Answers "did this run look at everything?"
-//   - coverage: per control, whether it is verified by inspecting
-//     infrastructure or merely by a document being on file, and whether
-//     that evidence exists this period. Answers "what is behind the green?"
+//   - coverage: per control, whether an automated check or only a
+//     document check is mapped to it, and what this period's runs did:
+//     whether the automated checks inspected anything or skipped, and
+//     whether the documents exist. Answers "what is behind the green?"
 //   - soa: the Statement of Applicability — per catalog control, whether
 //     it is applicable, why, and whether it is implemented. Answers the
 //     first thing an ISO 27001 Stage 1 auditor asks for.
@@ -107,6 +108,18 @@ type CoverageView struct {
 	// is routine rather than alarming for a supra-period cadence.
 	Evaluated    int
 	NotEvaluated int
+
+	// AutomatedInspected and AutomatedSkipped split the automated
+	// catalog controls by what their automated checks did in this
+	// period. A control is "automated" because an automated check is
+	// mapped to it, not because that check ran: a source with no
+	// credentials skips every policy reading it. Inspected means at
+	// least one automated check reached a verdict (pass, fail, waived,
+	// or carried forward from an earlier run); skipped means every
+	// automated result was skip or na. The remainder errored or has no
+	// result this period.
+	AutomatedInspected int
+	AutomatedSkipped   int
 
 	// ManualOnFile and ManualMissing split the manual-assurance controls
 	// by whether their document actually exists for this period.

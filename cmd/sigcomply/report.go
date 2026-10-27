@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -23,7 +24,11 @@ import (
 // reportFlags carries every flag accepted by `sigcomply report`.
 // Defaults come from the project config; explicit flags override them.
 type reportFlags struct {
-	config    string
+	config string
+	// configSet records an explicit -c. With --vault and --framework
+	// both given the config is otherwise skipped; an explicit -c is how
+	// the SoA gets its applicability decisions in that case.
+	configSet bool
 	vaultURI  string
 	framework string
 	period    string
@@ -42,8 +47,8 @@ func newReportCmd() *cobra.Command {
 			"control coverage, and the Statement of Applicability. Read-only — never\n" +
 			"writes to the vault, never calls the cloud, never requires OIDC.\n\n" +
 			"`--view coverage` answers what a compliance score cannot: for each control,\n" +
-			"is it verified by inspecting your infrastructure, or satisfied merely by a\n" +
-			"document being on file?\n\n" +
+			"is an automated check mapped to it, and did that check inspect anything in\n" +
+			"the period — or is it satisfied merely by a document being on file?\n\n" +
 			"`--view soa` generates the Statement of Applicability that ISO/IEC\n" +
 			"27001:2022 6.1.3 d requires and a Stage 1 auditor asks for first: per\n" +
 			"catalog control, whether it applies, why, and whether it is implemented.\n" +
@@ -51,11 +56,12 @@ func newReportCmd() *cobra.Command {
 			"Time-series analytics (drift, deviation timelines, continuous-monitoring\n" +
 			"alerts) are paid SigComply Cloud features and intentionally absent here.\n",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			flags.configSet = cmd.Flags().Changed("config")
 			return runReport(cmd.Context(), cmd.OutOrStdout(), &flags)
 		},
 	}
 	cmd.Flags().StringVarP(&flags.config, "config", "c", ".sigcomply.yaml", "Path to project config")
-	cmd.Flags().StringVar(&flags.vaultURI, "vault", "", "Vault URI (overrides project config). Supports paths and s3://, gs://, az:// URIs.")
+	cmd.Flags().StringVar(&flags.vaultURI, "vault", "", "Vault URI (overrides project config). Supports paths and file://, s3://, gs://, az:// URIs.")
 	cmd.Flags().StringVarP(&flags.framework, "framework", "f", "", "Framework to report on (defaults to project config's framework)")
 	cmd.Flags().StringVar(&flags.period, "period", "", "Period ID (e.g. 2026-Q1). Required.")
 	cmd.Flags().StringVar(&flags.view, "view", "latest", "View: latest | exceptions | integrity | scope | coverage | soa")
@@ -119,38 +125,13 @@ func runReport(ctx context.Context, stdout io.Writer, flags *reportFlags) error 
 		}
 	}
 
-	// The applicability decisions are authored in the project config,
-	// not observed in the vault — the one half of a Statement of
-	// Applicability that has nowhere else to come from.
-	//
-	// The config is otherwise optional here: an auditor holding only a
-	// vault path can read every other view without the customer's
-	// .sigcomply.yaml. The SoA is the exception, because without it the
-	// report would show every control as applicable and silently turn a
-	// deliberate exclusion into an inclusion — on the one deliverable a
-	// certification auditor reads first. Refusing is the honest answer;
-	// a footnote nobody reads in a CSV is not.
 	var controlConfigs map[string]spec.ControlConfig
 	var controlRisks map[string][]string
 	if view == report.ViewSoA {
-		if !configLoaded(flags) {
-			return &exitCodeError{code: orchestrator.ExitConfig, err: fmt.Errorf(
-				"report: --view soa needs the project config for its applicability decisions — "+
-					"pass -c <path to .sigcomply.yaml>, or drop --vault/--framework so %s is read",
-				flags.config)}
+		controlConfigs, controlRisks, err = soaDecisions(flags, cfg)
+		if err != nil {
+			return &exitCodeError{code: orchestrator.ExitConfig, err: err}
 		}
-		controlConfigs = cfg.Controls
-
-		// The risk register supplies the other half of 6.1.3 d): the
-		// justification for including a control. A malformed block is a
-		// config error here for the same reason it is during a check —
-		// silently dropping it would print a Statement of Applicability
-		// that claims no risk drove any control.
-		risks, rErr := spec.LoadRiskRegister(cfg)
-		if rErr != nil {
-			return &exitCodeError{code: orchestrator.ExitConfig, err: rErr}
-		}
-		controlRisks = risks.ControlRisks()
 	}
 
 	snap, err := report.Build(ctx, &report.Input{
@@ -167,15 +148,73 @@ func runReport(ctx context.Context, stdout io.Writer, flags *reportFlags) error 
 		return &exitCodeError{code: orchestrator.ExitExecution, err: err}
 	}
 
-	return writeReport(stdout, flags, snap)
+	if err := writeReport(stdout, flags, snap); err != nil {
+		return err
+	}
+	return integrityVerdict(snap)
+}
+
+// integrityVerdict turns a failed integrity check into exit 1, the
+// code `check` uses for a failed policy. The view is what an auditor
+// scripts against a vault; a "fail" row that still exits 0 passes any
+// pipeline that reads only the exit code. The table is written first,
+// so the reader still sees which run and which file failed.
+func integrityVerdict(snap *report.Snapshot) error {
+	if snap.Integrity == nil {
+		return nil
+	}
+	failed := 0
+	for i := range snap.Integrity.Runs {
+		if snap.Integrity.Runs[i].Status() != "pass" {
+			failed++
+		}
+	}
+	if failed == 0 {
+		return nil
+	}
+	return &exitCodeError{code: orchestrator.ExitViolation, err: fmt.Errorf(
+		"report: integrity verification failed for %d of %d run(s)", failed, len(snap.Integrity.Runs))}
+}
+
+// soaDecisions returns the applicability decisions and the risk
+// register's control links that a Statement of Applicability needs.
+//
+// The applicability decisions are authored in the project config, not
+// observed in the vault — the one half of a Statement of Applicability
+// that has nowhere else to come from.
+//
+// The config is otherwise optional here: an auditor holding only a
+// vault path can read every other view without the customer's
+// .sigcomply.yaml. The SoA is the exception, because without it the
+// report would show every control as applicable and silently turn a
+// deliberate exclusion into an inclusion — on the one deliverable a
+// certification auditor reads first. Refusing is the honest answer;
+// a footnote nobody reads in a CSV is not.
+func soaDecisions(flags *reportFlags, cfg *spec.ProjectConfig) (decisions map[string]spec.ControlConfig, controlRisks map[string][]string, err error) {
+	if !configLoaded(flags) {
+		return nil, nil, errors.New(
+			"report: --view soa needs the project config file, because the applicability " +
+				"decisions live there; with both --vault and --framework set it is read only " +
+				"when you pass it with -c <path>")
+	}
+	// The risk register supplies the other half of 6.1.3 d): the
+	// justification for including a control. A malformed block is a
+	// config error here for the same reason it is during a check —
+	// silently dropping it would print a Statement of Applicability
+	// that claims no risk drove any control.
+	risks, err := spec.LoadRiskRegister(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	return cfg.Controls, risks.ControlRisks(), nil
 }
 
 // configLoaded reports whether loadReportConfig actually read the
 // project file, rather than synthesizing an empty config from the
-// command line. Kept next to loadReportConfig so the two conditions
-// cannot drift apart.
+// command line. loadReportConfig calls it too, so the two cannot drift
+// apart.
 func configLoaded(flags *reportFlags) bool {
-	return flags.vaultURI == "" || flags.framework == ""
+	return flags.configSet || flags.vaultURI == "" || flags.framework == ""
 }
 
 // loadReportConfig reads the project config and, when --vault is
@@ -184,10 +223,10 @@ func configLoaded(flags *reportFlags) bool {
 // URIs (s3://, gs://, az://).
 func loadReportConfig(flags *reportFlags) (*spec.ProjectConfig, error) {
 	// The config file is optional when --vault and --framework are both
-	// provided; auditors with just a vault path don't need the customer's
-	// .sigcomply.yaml to read snapshots.
+	// provided and -c is not; auditors with just a vault path don't need
+	// the customer's .sigcomply.yaml to read snapshots.
 	var cfg spec.ProjectConfig
-	if flags.vaultURI == "" || flags.framework == "" {
+	if configLoaded(flags) {
 		data, err := os.ReadFile(flags.config)
 		if err != nil {
 			return nil, fmt.Errorf("read config: %w", err)

@@ -50,6 +50,7 @@ func buildCoverage(ctx context.Context, v core.Vault, runs []runRecord, controls
 
 	totals := core.CoverageTotals(classified)
 	out.Controls, out.Automated, out.Manual, out.Uncovered = totals.Controls, totals.Automated, totals.Manual, totals.Uncovered
+	tallyAutomated(out, classified, groupPoliciesByControl(effective), results)
 
 	// Management-system requirements get rows too — they are the point
 	// of the view, not an appendix — but their own counters, so a
@@ -107,6 +108,44 @@ func tallyRow(out *CoverageView, r *CoverageRow) {
 		return
 	}
 	out.ManualMissing++
+}
+
+// tallyAutomated counts the automated catalog controls whose automated
+// checks reached a verdict this period, and those whose every automated
+// result was a skip. Only automated policies are consulted: a passing
+// document beside a skipped check is not an inspection, and counting it
+// would bring back the overclaim this split exists to remove.
+func tallyAutomated(out *CoverageView, classified []core.ControlCoverage, byControl map[string][]core.Policy, results map[string]core.PolicyResult) {
+	for i := range classified {
+		if classified[i].Assurance != core.AssuranceAutomated {
+			continue
+		}
+		var inspected, skipped, other bool
+		policies := byControl[classified[i].ControlID]
+		for j := range policies {
+			if policies[j].EvidenceMode != core.EvidenceModeAutomated {
+				continue
+			}
+			r, ok := results[policies[j].ID]
+			if !ok {
+				continue
+			}
+			switch r.Status {
+			case core.StatusPass, core.StatusFail, core.StatusWaived, core.StatusCarriedForward:
+				inspected = true
+			case core.StatusSkip, core.StatusNA:
+				skipped = true
+			default:
+				other = true
+			}
+		}
+		switch {
+		case inspected:
+			out.AutomatedInspected++
+		case skipped && !other:
+			out.AutomatedSkipped++
+		}
+	}
 }
 
 const (

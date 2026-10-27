@@ -14,21 +14,21 @@ import (
 
 // updateGolden regenerates the committed golden wire payload. Run:
 //
-//	go test ./internal/aggregator/ -run TestCloudV3_GoldenWireContract -update
+//	go test ./internal/aggregator/ -run TestCloud_GoldenWireContract -update
 //
 // then copy the regenerated file into the Rails repo (see the drift
 // guard below for the exact destination) so both sides of the
 // POST /api/v1/runs contract are exercised against identical bytes.
 var updateGolden = flag.Bool("update", false, "regenerate the golden wire payload")
 
-const goldenPath = "testdata/cloud_v3_golden.json"
+const goldenPath = "testdata/cloud_golden.json"
 
 // railsFixtureRelPath is the sibling Rails repo's vendored copy of the
 // same golden bytes, relative to this package directory. When present
 // (local dev with both repos checked out) the test asserts the two are
 // byte-identical, catching cross-repo drift the moment it happens. It is
 // silently skipped in CI where only one repo is checked out.
-const railsFixtureRelPath = "../../../sigcomply/spec/fixtures/files/contract/cloud_v3_golden.json"
+const railsFixtureRelPath = "../../../sigcomply/spec/fixtures/files/contract/cloud_golden.json"
 
 // goldenPayload builds the canonical SubmissionPayload through the real
 // aggregator.Build path — so the golden is literally what the CLI sends
@@ -185,13 +185,13 @@ func goldenPayload() core.SubmissionPayload {
 	return Build(results, env)
 }
 
-// TestCloudV3_GoldenWireContract locks the exact JSON bytes the CLI
+// TestCloud_GoldenWireContract locks the exact JSON bytes the CLI
 // sends to Rails POST /api/v1/runs. The Rails repo POSTs a byte-
 // identical fixture (spec/requests/api/v1/runs_contract_golden_spec.rb)
 // and asserts it persists, so this golden is the single source of truth
 // for the cross-repo wire contract. A change here that is not mirrored
 // in Rails (or vice-versa) breaks one side's tests.
-func TestCloudV3_GoldenWireContract(t *testing.T) {
+func TestCloud_GoldenWireContract(t *testing.T) {
 	payload := goldenPayload()
 
 	got, err := json.MarshalIndent(payload, "", "  ")
@@ -228,12 +228,12 @@ func TestCloudV3_GoldenWireContract(t *testing.T) {
 	}
 }
 
-// TestCloudV3_Golden_NoIdentityKeys is a defense-in-depth scan over the
+// TestCloud_Golden_NoIdentityKeys is a defense-in-depth scan over the
 // actual golden bytes: no key or value that the privacy boundary forbids
 // may appear in the serialized contract sample. Complements the
 // structural reflection test in core/cloud_test.go by checking real
 // emitted JSON, not just the type graph.
-func TestCloudV3_Golden_NoIdentityKeys(t *testing.T) {
+func TestCloud_Golden_NoIdentityKeys(t *testing.T) {
 	want, err := os.ReadFile(goldenPath)
 	if err != nil {
 		t.Fatalf("read golden: %v", err)
