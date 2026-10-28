@@ -136,7 +136,7 @@ sources:
 | Roster matching | `experimental.roster` `aliases` and `non_human` entries match the prefixed or the bare ID. |
 | Separate credentials | `aws.*`: `role_arn` (plus optional `external_id`, `role_session_name`). `github`, `gitlab`, `okta`, `active_directory`: `token_env` naming an environment variable, or the token key. |
 | One identity only | `gcp.*` and `azure.*` use one ambient identity per run. Instances vary only the project, organization, or subscription queried. |
-| Region | Two `aws.*` instances that differ only by `region` read the same account twice. |
+| Region | A regional `aws.*` source reads one region, so one instance per region covers several (`"aws.ec2[eu]"` with `region: eu-west-1`). For the account-wide sources (`aws.iam`, `aws.iam_access_key`, `aws.password_policy`, `aws.s3`) an instance that differs only by `region` reads the same data twice. See [Regions](reference/sources.md#regions). |
 | Not allowed | `manual.pdf[...]`; a bracketed source as `experimental.roster.source`. |
 
 ### Source key warnings

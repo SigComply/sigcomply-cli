@@ -97,8 +97,11 @@ sources:
     token_env: GITHUB_TOKEN_LABS
 ```
 
-- AWS: the second instance needs a `role_arn` that your CI identity can assume. Two instances that
-  differ only in `region` read the same account twice.
+- AWS: the second instance needs a `role_arn` that your CI identity can assume.
+- AWS regions: most `aws.*` sources read only the region they are given. To cover a second region,
+  add an instance of each regional source with that `region`, such as `"aws.ec2[eu]"`. The
+  account-wide sources (`aws.iam`, `aws.iam_access_key`, `aws.password_policy`, `aws.s3`) need no
+  per-region instance. See [Regions](../reference/sources.md#regions).
 - GitHub, GitLab, Okta, Active Directory: give each instance its own credential with `token_env`
   (or a literal `token`, `api_token`, `bind_password`). Without it, both instances use the same
   token.

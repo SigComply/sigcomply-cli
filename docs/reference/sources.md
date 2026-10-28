@@ -45,13 +45,38 @@ Every `aws.*` source reads the same keys.
 
 | Key | Required | Default | Effect |
 |---|---|---|---|
-| `region` | no | `vault.region`, then the SDK region (`AWS_REGION`) | Region to query. |
+| `region` | no | `vault.region`, then the SDK region (`AWS_REGION`) | Region to query. A regional source reads only this region; see [Regions](#regions). |
 | `role_arn` | no | none | IAM role to assume from the ambient credentials. Use it to read a second account. A role that cannot be assumed stops the run. |
 | `external_id` | no | none | External ID for the role's trust policy. |
 | `role_session_name` | no | `sigcomply` | Session name shown in CloudTrail. |
 | `identity_store_id` | no | discovered with `sso:ListInstances` | `aws.identity_center` only. Required when more than one Identity Center instance is visible. |
 
 There is no `profile` key. In CI, `AWS_ACCESS_KEY_ID` takes precedence over a profile.
+
+### Regions
+
+`aws.iam`, `aws.iam_access_key` and `aws.password_policy` read account-wide data, and `aws.s3`
+reads every bucket in the account whatever its region. Every other `aws.*` source is regional:
+it reads only the one region its `region` key names. Resources in other regions are not
+evaluated, and nothing in the run says so.
+
+To cover more regions, add one instance of each regional source per region:
+
+```yaml
+sources:
+  aws.ec2:
+    region: us-east-1
+  "aws.ec2[eu]":
+    region: eu-west-1
+  aws.guardduty:
+    region: us-east-1
+  "aws.guardduty[eu]":
+    region: eu-west-1
+```
+
+Policies such as `soc2.cc7.2.threat_detection_all_regions` judge the regions you configure, not
+every region AWS offers. Don't add per-region instances of the account-wide sources above: they
+read the same data again.
 
 ### Credentials
 

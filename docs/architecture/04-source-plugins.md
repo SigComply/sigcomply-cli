@@ -304,6 +304,10 @@ sources:
   outrank a profile on CI runners. `github`, `gitlab` and `okta` take their own token or
   `token_env`. `gcp.*` and `azure.*` instances vary `project_id`/`subscription_id` but share one
   ambient identity. Not built: per-instance GCP impersonation and Azure per-tenant credentials.
+- A second region uses the same mechanism: regional `aws.*` plugins read only `region`
+  (`awscfg.Load`), so per-region instances (`"aws.ec2[eu]"`) are how an estate with several
+  regions is covered. There is no `regions:` list; `aws.s3` alone routes each bucket to its own
+  region inside one Collect. Customer guidance: `docs/reference/sources.md` §Regions.
 - Source keys and catalog IDs become part of vault object keys, so both are restricted to
   letters, digits, dot, dash and underscore (plus `[instance]`). Only the local vault rejects path
   escapes; the grammar protects the cloud backends.

@@ -9,8 +9,9 @@ document. Nothing leaves your machine.
 You need:
 
 - AWS credentials with read-only access to one account, for example a user or role with the
-  AWS-managed `ReadOnlyAccess` policy. Sources only read: SigComply makes only `Describe`,
-  `List` and `Get` calls. The CLI writes only to the vault you configure, here a local folder.
+  AWS-managed `ReadOnlyAccess` policy. Sources only read: SigComply makes read calls, plus
+  `iam:GenerateCredentialReport`, which asks AWS to build the account's credential report. The
+  [source reference](reference/sources.md) lists every API action. The CLI writes only to the vault you configure, here a local folder.
 - A macOS or Linux shell.
 - Any PDF file, to use as a stand-in document in step 5.
 
