@@ -2,16 +2,19 @@
 #
 # A hand-written GitLab CI pipeline for SigComply compliance checks. The
 # recommended path is `sigcomply init-ci --ci gitlab`, which writes the
-# same jobs plus an `evidence due` step in the daily job, pinned to the
-# CLI release you ran it with (`latest` from a development build).
+# same jobs pinned to the CLI release you ran it with (`latest` from a
+# development build).
 #
 # How it works:
-#   - On every push to the default branch and every merge request, the
-#     `compliance:on_push` job runs `sigcomply check --on-push`.
-#   - Cadence jobs (daily/weekly/monthly/quarterly/annual) are driven by
-#     GitLab pipeline schedules: create one schedule per cadence under
-#     Settings → CI/CD → Pipeline schedules and set the `CADENCE`
-#     variable to the matching value.
+#   - `compliance:scheduled` runs `sigcomply check --scheduled` on a
+#     GitLab pipeline schedule. Create one schedule under Settings → CI/CD →
+#     Pipeline schedules, daily (for example `0 2 * * *`). Policies whose
+#     cadence has not come due carry forward from the vault's state, so
+#     each run covers every policy; it is the run SigComply Cloud receives.
+#     Keep the vault in durable storage (s3, gcs or azure_blob).
+#   - `compliance:on_push` runs `sigcomply check --pr` on merge requests
+#     and pushes to the default branch: the on_push policies only, never
+#     submitted to SigComply Cloud.
 #
 # The framework is read from `framework:` in `.sigcomply.yaml` — there is
 # no `--framework` flag on `check`. Exit codes: 0 pass, 1 violations,
@@ -44,7 +47,7 @@ variables:
     SIGCOMPLY_ID_TOKEN:
       aud: https://api.sigcomply.com
   before_script:
-    - apt-get update -qq && apt-get install -y -qq curl jq ca-certificates tar
+    - apt-get update -qq && apt-get install -y -qq curl jq ca-certificates
     - |
       version="${SIGCOMPLY_VERSION:-latest}"
       if [ "$version" = "latest" ]; then
@@ -53,9 +56,13 @@ variables:
         tag="$version"
       fi
       ver="${tag#v}"
-      curl -fsSL "https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply_${ver}_linux_amd64.tar.gz" -o /tmp/sigcomply.tar.gz
-      tar -xzf /tmp/sigcomply.tar.gz -C /usr/local/bin sigcomply
-      chmod +x /usr/local/bin/sigcomply
+      asset="sigcomply_${ver}_linux_amd64.tar.gz"
+      base="https://github.com/SigComply/sigcomply-cli/releases/download/${tag}"
+      curl -fsSL "${base}/${asset}" -o "/tmp/${asset}"
+      curl -fsSL "${base}/checksums.txt" -o /tmp/checksums.txt
+      # Verify against the release's checksums before extracting anything.
+      (cd /tmp && grep "  ${asset}\$" checksums.txt | sha256sum -c -)
+      tar -xzf "/tmp/${asset}" -C /usr/local/bin sigcomply
     # AWS web identity: the SDK's default credential chain assumes
     # AWS_ROLE_ARN with the token in this file. before_script and script
     # share one shell, so the export reaches `sigcomply`. Skipped when
@@ -76,44 +83,17 @@ compliance:on_push:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
-    - sigcomply check --on-push
+    - sigcomply check --pr
 
-compliance:daily:
+compliance:scheduled:
   extends: .sigcomply_base
   stage: test
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CADENCE == "daily"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
   script:
-    - sigcomply check --cadence daily
-
-compliance:weekly:
-  extends: .sigcomply_base
-  stage: test
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CADENCE == "weekly"'
-  script:
-    - sigcomply check --cadence weekly
-
-compliance:monthly:
-  extends: .sigcomply_base
-  stage: test
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CADENCE == "monthly"'
-  script:
-    - sigcomply check --cadence monthly
-
-compliance:quarterly:
-  extends: .sigcomply_base
-  stage: test
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CADENCE == "quarterly"'
-  script:
-    - sigcomply check --cadence quarterly
-
-compliance:annual:
-  extends: .sigcomply_base
-  stage: test
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CADENCE == "annual"'
-  script:
-    - sigcomply check --cadence annual
+    - sigcomply check --scheduled
+    # Advisory only: lists manual-evidence entries whose folder for the
+    # current period is still empty; until a file is uploaded, the matching
+    # policy fails in every scheduled run. Read-only and always exits 0;
+    # `|| true` keeps it from affecting the job even on a config error.
+    - sigcomply evidence due --within-days 30 || true

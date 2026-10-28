@@ -217,7 +217,7 @@ the folder `check` reads.
 Why: the temporal-window check (`isInTemporalWindow`) is closed at both ends, so a file satisfies
 only a run whose window contains its upload time. If an annual attestation's folder followed the
 run's quarter, a January upload would be invisible to the April, July and October runs, and
-`--cadence annual` (an explicit filter, so no carry-forward) would fail.
+an annual policy evaluated in those runs would fail.
 
 What follows the cadence window: the folder path, the temporal window, and the `period_id` in the
 signed evidence record. The collector stamps `period_id`, `period_start`, `period_end` and
@@ -254,9 +254,11 @@ mutually exclusive with every filter flag, so that path is unreachable from the 
 
 `emitPlanWarnings` (`internal/orchestrator/orchestrator.go`) prints these after planning:
 
-- `first-run: N policies will evaluate for the first time this run`, at info level, for policies
-  with no prior state. Outside `--scheduled` no state is loaded, so this line appears on every run,
-  including every scaffolded `--cadence` and `--on-push` run.
+- Under `--scheduled` only (other modes load no state, so "first time" would be false on every
+  run), at info level: `first-run: N policies will evaluate for the first time this run` for
+  policies with no shard; or, when the vault holds no state at all, `first-run: no cadence state
+  found in the vault, …` plus a hint that a vault which does not outlive the CI job (a local
+  folder) makes every run a first run.
 - `gap-detected: N policies have no evaluation in the last 30d; today's run does not backfill`,
   at warning level. It needs prior state, so it fires only under `--scheduled`. The threshold is
   the larger of 30 days and 1.5 × the cadence interval, although the message says 30d. The CLI
@@ -287,8 +289,8 @@ Rules it follows (`internal/manualdue`):
   default), so it matches the folder the next run reads. There is no "overdue" state.
 - It does not use `PolicyState.NextDueAt`: `AdvancePolicyState` sets that only after a pass, so a
   policy that never passed has none.
-- It is not part of `check`: a `--cadence daily` run filters out quarterly and annual manual
-  policies, so it cannot see them.
+- It is not part of `check`: a `--scheduled` run carries passing manual policies forward without
+  listing their folders, and a filtered run may not select them, so `check` cannot replace it.
 
 ## Cloud payload cadence fields
 

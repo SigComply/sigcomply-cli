@@ -691,7 +691,7 @@ func TestBinaryE2E_InitCI(t *testing.T) {
 		files map[string]string // written path -> golden in testdata/
 	}{
 		{ciGitHub, map[string]string{
-			".github/workflows/compliance-daily.yml":   "golden_compliance-daily.yml",
+			".github/workflows/" + scheduledWorkflow:   "golden_compliance-scheduled.yml",
 			".github/workflows/compliance-on-push.yml": "golden_compliance-on-push.yml",
 		}},
 		{ciGitLab, map[string]string{".gitlab-ci.yml": "golden_gitlab-ci.yml"}},

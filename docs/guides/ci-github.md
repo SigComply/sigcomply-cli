@@ -22,27 +22,27 @@ From the repository root:
 sigcomply init-ci --ci github
 ```
 
-This writes six files to `.github/workflows/`:
+This writes two files to `.github/workflows/`:
 
 | File | Runs | Command |
 |---|---|---|
-| `compliance-daily.yml` | 02:00 UTC daily | `sigcomply check --cadence daily`, then `sigcomply evidence due --within-days 30` |
-| `compliance-weekly.yml` | 02:00 UTC Mondays | `sigcomply check --cadence weekly` |
-| `compliance-monthly.yml` | 02:00 UTC on day 20 of each month | `sigcomply check --cadence monthly` |
-| `compliance-quarterly.yml` | 02:00 UTC on 20 Mar, Jun, Sep, Dec | `sigcomply check --cadence quarterly` |
-| `compliance-annual.yml` | 02:00 UTC on 20 Dec | `sigcomply check --cadence annual` |
-| `compliance-on-push.yml` | Pushes to `main` and pull requests | `sigcomply check --on-push` |
+| `compliance-scheduled.yml` | 02:00 UTC daily, and **Run workflow** | `sigcomply check --scheduled`, then `sigcomply evidence due --within-days 30` |
+| `compliance-on-push.yml` | Pushes to `main` and pull requests | `sigcomply check --pr` |
 
-The longer cadences run on day 20, inside the period, because the CLI takes the audit period
-from the commit time of `HEAD`. A run on day 1 can land in a period that just opened, whose
-manual-evidence folders cannot hold anything yet.
+`--scheduled` reads each policy's state from the vault, evaluates the policies whose cadence has
+come due (or that failed last time), and carries the others forward. Every run therefore covers
+every policy, and it is the only run that sends results to SigComply Cloud. A daily run evaluates
+each policy at least once in every calendar window of its cadence, so a quarterly document is
+read every quarter. The state lives in the vault, which is why the vault must be a bucket.
 
-`--on-push` evaluates the policies whose `on_push` attribute is true. In the shipped frameworks
-that is every automated policy; document policies are excluded.
+`--pr` evaluates the policies whose `on_push` attribute is true. In the shipped frameworks that
+is every automated policy; document policies are excluded. A `--pr` run writes its results to
+the vault but never submits to SigComply Cloud and never updates the cadence state, so a pull
+request's branch and config can't become the project's recorded result.
 
-Every cadence workflow also has a `workflow_dispatch` trigger, so you can start it from the
-**Actions** tab. The `evidence due` step lists empty manual-evidence folders whose period ends
-within 30 days. It runs with `continue-on-error: true`, so it never fails the job.
+The `evidence due` step lists empty manual-evidence folders whose period ends within 30 days. A
+manual policy fails in every scheduled run until its folder for the current period has a file, so
+upload during the period. The step runs with `continue-on-error: true`, so it never fails the job.
 
 `init-ci` refuses to overwrite existing files; pass `--force` to replace them. It scaffolds SOC 2
 only. For ISO 27001, see [Use another framework](#use-another-framework).
@@ -51,7 +51,8 @@ only. For ISO 27001, see [Use another framework](#use-another-framework).
 
 Each workflow sets `SIGCOMPLY_VERSION` in its `env:` block. A release build of the CLI writes its
 own version there (for example `v0.88.4`); a build from source writes `latest`. Pin a release tag
-so every run installs the same CLI, and bump it when you upgrade.
+so every run installs the same CLI, and bump it when you upgrade. The install step checks the
+downloaded archive against the release's `checksums.txt` before extracting it.
 
 ## 3. Create the AWS OIDC provider and role
 
@@ -132,12 +133,13 @@ git push
 
 1. The push starts the on-push workflow (`compliance-on-push.yml`). Open it in the **Actions**
    tab.
-2. Start the daily workflow (`compliance-daily.yml`) with **Run workflow**.
+2. Start the scheduled workflow (`compliance-scheduled.yml`) with **Run workflow**.
 3. In the **Run SigComply** step log, check that collection started for each source and the run
-   summary lists your daily-cadence policies. Document policies are annual or quarterly, so they
-   run in `compliance-annual.yml` or `compliance-quarterly.yml`, not here. The job fails with exit code `1` when a policy fails, `2` on an
-   execution error and `3` on a configuration error ([exit codes](../reference/commands.md)).
-   Set `ci.fail_on_violation: false` to keep the job green when policies fail.
+   summary lists every policy of the framework. The first run evaluates all of them; later runs
+   list the ones not yet due as `carried`. Document policies fail until you upload their files.
+   The job fails with exit code `1` when a policy fails, `2` on an execution error and `3` on a
+   configuration error ([exit codes](../reference/commands.md)). Set
+   `ci.fail_on_violation: false` to keep the job green when policies fail.
 4. If you set `cloud.base_url`, the log shows `submission accepted (HTTP 201)` or a `submit:`
    warning ([Troubleshooting](troubleshooting.md#cloud-submission)).
 
@@ -152,9 +154,10 @@ don't name a framework: `check` reads `framework:` from `.sigcomply.yaml`. For I
 sigcomply init-ci --ci github --framework soc2
 ```
 
-The scaffolded set includes the `evidence due` step in the daily workflow. If you prefer a single
-workflow, copy [`examples/github-actions/basic.yml`](../../examples/github-actions/basic.yml)
-into `.github/workflows/` instead and apply steps 3 to 5 above to it; that example has no
+The scaffolded set includes the `evidence due` step in the scheduled workflow. If you prefer a
+single workflow, copy [`examples/github-actions/basic.yml`](../../examples/github-actions/basic.yml)
+into `.github/workflows/` instead and apply steps 3 to 5 above to it. It runs a full
+`sigcomply check` on pushes to `main` and on its schedule, `--pr` on pull requests, and has no
 `evidence due` step.
 
 ## Next steps

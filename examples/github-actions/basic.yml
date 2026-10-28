@@ -5,10 +5,15 @@
 # binary with curl and runs `sigcomply check`.
 #
 # This is a single-workflow alternative to `sigcomply init-ci`, which
-# writes one workflow per cadence (`check --cadence <X>` / `--on-push`)
-# plus an `evidence due` step. Prefer `init-ci` for a SOC 2 project. To
-# use this file, copy it to .github/workflows/compliance.yml and edit the
-# env block.
+# writes a daily `check --scheduled` workflow plus a pull-request
+# `check --pr` workflow and an `evidence due` step. Prefer `init-ci` for a
+# SOC 2 project. To use this file, copy it to
+# .github/workflows/compliance.yml and edit the env block.
+#
+# Pushes to main and the schedule run a full `sigcomply check`, which is
+# what SigComply Cloud receives. Pull requests run `check --pr`: the
+# on_push policies only, never submitted, so a branch's config cannot
+# become the dashboard's latest run.
 
 name: Compliance Check
 
@@ -51,9 +56,13 @@ jobs:
             tag="$version"
           fi
           ver="${tag#v}"
-          curl -fsSL "https://github.com/SigComply/sigcomply-cli/releases/download/${tag}/sigcomply_${ver}_linux_amd64.tar.gz" -o /tmp/sigcomply.tar.gz
-          tar -xzf /tmp/sigcomply.tar.gz -C /usr/local/bin sigcomply
-          chmod +x /usr/local/bin/sigcomply
+          asset="sigcomply_${ver}_linux_amd64.tar.gz"
+          base="https://github.com/SigComply/sigcomply-cli/releases/download/${tag}"
+          curl -fsSL "${base}/${asset}" -o "/tmp/${asset}"
+          curl -fsSL "${base}/checksums.txt" -o /tmp/checksums.txt
+          # Verify against the release's checksums before extracting anything.
+          (cd /tmp && grep "  ${asset}\$" checksums.txt | sha256sum -c -)
+          sudo tar -xzf "/tmp/${asset}" -C /usr/local/bin sigcomply
       # The token is minted with audience https://api.sigcomply.com, so the
       # IAM OIDC provider for token.actions.githubusercontent.com and the
       # role's trust policy must accept that audience.
@@ -68,4 +77,8 @@ jobs:
         # 2 execution error, 3 config error. Violations fail the job by
         # default; set `ci.fail_on_violation: false` in .sigcomply.yaml to
         # keep it green.
+        if: github.event_name != 'pull_request'
         run: sigcomply check
+      - name: Run SigComply (pull request)
+        if: github.event_name == 'pull_request'
+        run: sigcomply check --pr

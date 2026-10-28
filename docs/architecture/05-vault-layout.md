@@ -41,8 +41,8 @@ None of these is written by the code. Don't assume one exists when reading a vau
 - A run folder is written once, during one CLI invocation, and never modified.
 - `state/` is separate because state shards change every run and are never signed. Keep
   `{framework}/` under write-once retention and leave `state/` outside it. If `state/` is lost,
-  the next run treats every policy as first-run and logs an info line
-  (`first-run: N policies will evaluate for the first time this run`). Shard schema and write
+  the next `--scheduled` run treats every policy as first-run and logs
+  `first-run: no cadence state found in the vault, so all N due policies evaluate this run`. Shard schema and write
   rules: [`10-cadence-model.md`](10-cadence-model.md) §Per-policy state shards.
 
 ### Write failures

@@ -323,7 +323,7 @@ func TestEmitPlanWarnings_CoverageSkew(t *testing.T) {
 			},
 		},
 	}
-	emitPlanWarnings(logger, plan, time.Now().UTC())
+	emitPlanWarnings(logger, plan, time.Now().UTC(), nil)
 	out := buf.String()
 	if !strings.Contains(out, "coverage-skew") {
 		t.Fatalf("expected coverage-skew warning; got:\n%s", out)
@@ -349,7 +349,7 @@ func TestEmitPlanWarnings_UncoveredRequiredSlot(t *testing.T) {
 			},
 		},
 	}
-	emitPlanWarnings(logger, plan, time.Now().UTC())
+	emitPlanWarnings(logger, plan, time.Now().UTC(), nil)
 	out := buf.String()
 	if !strings.Contains(out, "coverage-gap") {
 		t.Fatalf("expected coverage-gap warning; got:\n%s", out)
@@ -389,7 +389,7 @@ func TestEmitPlanWarnings_SkewSlotNotReportedTwice(t *testing.T) {
 			},
 		},
 	}
-	emitPlanWarnings(logger, plan, time.Now().UTC())
+	emitPlanWarnings(logger, plan, time.Now().UTC(), nil)
 	out := buf.String()
 	if !strings.Contains(out, "coverage-skew") {
 		t.Fatalf("expected coverage-skew warning; got:\n%s", out)
@@ -419,7 +419,7 @@ func TestEmitPlanWarnings_RosterSlotIsNotACoverageGap(t *testing.T) {
 			},
 		},
 	}
-	emitPlanWarnings(logger, plan, time.Now().UTC())
+	emitPlanWarnings(logger, plan, time.Now().UTC(), nil)
 	if out := buf.String(); strings.Contains(out, "coverage-gap") {
 		t.Errorf("roster slot should not be reported as coverage-gap; got:\n%s", out)
 	}
@@ -458,5 +458,45 @@ func TestRun_UnboundSourceWarningJudgedOnFullPlan(t *testing.T) {
 				t.Errorf("unbound-source warning printed = %v; want %v\n%s", got, tc.want, logBuf.String())
 			}
 		})
+	}
+}
+
+// firstRunPlan has one policy with no prior state that evaluates.
+func firstRunPlan() *planner.RunPlan {
+	return &planner.RunPlan{Policies: []planner.PlannedPolicy{{Spec: core.Policy{ID: "p1"}, ShouldEvaluate: true}}}
+}
+
+// Outside --scheduled no state is loaded, so every policy looks new on
+// every run; saying "for the first time" there was false.
+func TestEmitPlanWarnings_NoFirstRunLineWithoutState(t *testing.T) {
+	var buf bytes.Buffer
+	emitPlanWarnings(log.New(&buf, false), firstRunPlan(), time.Now().UTC(), nil)
+	if strings.Contains(buf.String(), "first-run") {
+		t.Errorf("first-run line printed for a run that loads no state:\n%s", buf.String())
+	}
+}
+
+// --scheduled found no state at all: either the project's first scheduled
+// run or a vault that does not persist (a local folder in CI). The line
+// must name the second case, which is the one an operator can fix.
+func TestEmitPlanWarnings_NoStateAtAllNamesTheVault(t *testing.T) {
+	var buf bytes.Buffer
+	emitPlanWarnings(log.New(&buf, false), firstRunPlan(), time.Now().UTC(), map[string]*core.PolicyState{})
+	out := buf.String()
+	if !strings.Contains(out, "first-run") || !strings.Contains(out, "vault") {
+		t.Errorf("want a first-run line naming the vault:\n%s", out)
+	}
+	if strings.Contains(out, "configure a recurring CI schedule") {
+		t.Errorf("stale advice still printed:\n%s", out)
+	}
+}
+
+// Some state exists: only the new policies are first-run.
+func TestEmitPlanWarnings_SomeStateCountsNewPolicies(t *testing.T) {
+	var buf bytes.Buffer
+	states := map[string]*core.PolicyState{"other": {PolicyID: "other", LastRunAt: time.Now()}}
+	emitPlanWarnings(log.New(&buf, false), firstRunPlan(), time.Now().UTC(), states)
+	if !strings.Contains(buf.String(), "first-run: 1 policies will evaluate for the first time") {
+		t.Errorf("want the per-policy first-run count:\n%s", buf.String())
 	}
 }

@@ -23,19 +23,23 @@ From the repository root:
 sigcomply init-ci --ci gitlab
 ```
 
-This writes `.gitlab-ci.yml` with a hidden base job, `.sigcomply_base`, and six jobs that extend
+This writes `.gitlab-ci.yml` with a hidden base job, `.sigcomply_base`, and two jobs that extend
 it:
 
 | Job | Runs when | Command |
 |---|---|---|
-| `compliance:on_push` | Every merge request, and pushes to the default branch | `sigcomply check --on-push` |
-| `compliance:daily` | A scheduled pipeline with `CADENCE=daily` | `sigcomply check --cadence daily`, then `sigcomply evidence due --within-days 30` |
-| `compliance:weekly` | A scheduled pipeline with `CADENCE=weekly` | `sigcomply check --cadence weekly` |
-| `compliance:monthly` | A scheduled pipeline with `CADENCE=monthly` | `sigcomply check --cadence monthly` |
-| `compliance:quarterly` | A scheduled pipeline with `CADENCE=quarterly` | `sigcomply check --cadence quarterly` |
-| `compliance:annual` | A scheduled pipeline with `CADENCE=annual` | `sigcomply check --cadence annual` |
+| `compliance:scheduled` | Any scheduled pipeline | `sigcomply check --scheduled`, then `sigcomply evidence due --within-days 30` |
+| `compliance:on_push` | Every merge request, and pushes to the default branch | `sigcomply check --pr` |
 
-The base job installs the CLI release named in `SIGCOMPLY_VERSION` and mints an ID token with
+`--scheduled` reads each policy's state from the vault, evaluates the policies whose cadence has
+come due (or that failed last time), and carries the others forward. Every run therefore covers
+every policy, and it is the only run that sends results to SigComply Cloud. `--pr` evaluates the
+policies whose `on_push` attribute is true; it writes to the vault but never submits and never
+updates the cadence state. A manual policy fails in every scheduled run until its folder for the
+current period has a file, so upload during the period.
+
+The base job installs the CLI release named in `SIGCOMPLY_VERSION`, after checking the archive
+against the release's `checksums.txt`, and mints an ID token with
 the audience `https://api.sigcomply.com`. It writes that token to a file and exports
 `AWS_WEB_IDENTITY_TOKEN_FILE`, so the AWS SDK inside the CLI assumes the role in `AWS_ROLE_ARN`.
 The CLI reads the same token from `SIGCOMPLY_ID_TOKEN` for cloud submission.
@@ -44,8 +48,9 @@ The CLI reads the same token from `SIGCOMPLY_ID_TOKEN` for cloud submission.
 `--framework soc2` and exits `3` for other values, including a config that sets
 `framework: iso27001` when you pass no flag. The scaffolded jobs don't name a framework: `check`
 reads `framework:` from `.sigcomply.yaml`. For ISO 27001, keep `framework: iso27001` and run
-`sigcomply init-ci --ci gitlab --framework soc2`; the daily job keeps its `evidence due` step.
-[`examples/gitlab-ci.yml`](../../examples/gitlab-ci.yml) is a fallback without that step.
+`sigcomply init-ci --ci gitlab --framework soc2`; the scheduled job keeps its `evidence due` step.
+[`examples/gitlab-ci.yml`](../../examples/gitlab-ci.yml) is the same pipeline with
+`SIGCOMPLY_VERSION: latest`.
 
 ## 2. Set the variables
 
@@ -107,27 +112,13 @@ SigComply Cloud. AWS accepts it only if the IAM OIDC provider lists that audienc
 
 4. Put the role's ARN in `AWS_ROLE_ARN`.
 
-## 4. Create one pipeline schedule per cadence
+## 4. Create a daily pipeline schedule
 
-Cadence jobs run only in scheduled pipelines. In your project:
+`compliance:scheduled` runs only in scheduled pipelines. In your project:
 
 1. Go to **Build > Pipeline schedules > New schedule**.
-2. Enter the interval for the cadence. These match the GitHub templates:
-
-   | `CADENCE` | Interval pattern |
-   |---|---|
-   | `daily` | `0 2 * * *` |
-   | `weekly` | `0 2 * * 1` |
-   | `monthly` | `0 2 20 * *` |
-   | `quarterly` | `0 2 20 3,6,9,12 *` |
-   | `annual` | `0 2 20 12 *` |
-
-3. Under **Variables**, add `CADENCE` with the value from the first column.
-4. Save. Repeat for each cadence.
-
-The longer cadences run on day 20, inside the period, because the CLI takes the audit period
-from the commit time of `HEAD`. A run on day 1 can land in a period that just opened, whose
-manual-evidence folders cannot hold anything yet.
+2. Enter a daily interval pattern, for example `0 2 * * *` (02:00 UTC, as on GitHub).
+3. Save. One schedule is enough: each run decides which policies are due.
 
 ## 5. Optional: send results to SigComply Cloud
 
@@ -152,9 +143,10 @@ git push
 ## Verify
 
 1. The push runs `compliance:on_push` on the default branch. Open it under **Build > Pipelines**.
-2. On **Build > Pipeline schedules**, start the daily schedule with **Run pipeline schedule**.
-3. In the `compliance:daily` job log, check that collection started for each source and the run
-   summary lists your policies. The job fails with exit code `1` when a policy fails, `2` on an
+2. On **Build > Pipeline schedules**, start the schedule with **Run pipeline schedule**.
+3. In the `compliance:scheduled` job log, check that collection started for each source and the
+   run summary lists every policy of the framework; later runs list the ones not yet due as
+   `carried`. The job fails with exit code `1` when a policy fails, `2` on an
    execution error and `3` on a configuration error ([exit codes](../reference/commands.md)).
    Set `ci.fail_on_violation: false` to keep the job green when policies fail.
 4. If you set `cloud.base_url`, the log shows `submission accepted (HTTP 201)` or a `submit:`

@@ -8,12 +8,16 @@ package cmd
 //     the submitter read SIGCOMPLY_ID_TOKEN, so no GitLab run submitted.
 //   - 7c88725: the templates downloaded a release asset goreleaser never
 //     published.
-//   - 8fc0662: the quarterly and annual crons fired on the first day of a
-//     period, so a push in the hours before the run moved HEAD into a
-//     period whose manual-evidence folder could not hold anything yet.
+//   - The per-cadence workflows submitted a different subset of policies
+//     each to a dashboard that reads every run as the project's full
+//     state; weekly and monthly ones evaluated zero policies.
+//   - The install step extracted the release archive without checking it
+//     against the release's checksums.txt, which install.sh verifies.
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -28,8 +32,6 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/sigcomply/sigcomply-cli/internal/planner"
-	"github.com/sigcomply/sigcomply-cli/internal/spec"
 	"github.com/sigcomply/sigcomply-cli/internal/submitter"
 )
 
@@ -93,11 +95,15 @@ func TestInitCITemplates_GitLabIDTokenIsWhatTheSubmitterReads(t *testing.T) {
 	}
 }
 
-// releaseURL matches the archive download in a template's install step.
-var releaseURL = regexp.MustCompile(`https://github\.com/SigComply/sigcomply-cli/releases/download/([^"\s]+)`)
+// releaseBase matches the release download base in a template's install
+// step; installAsset the archive name it derives from the version.
+var (
+	releaseBase  = regexp.MustCompile(`base="https://github\.com/SigComply/sigcomply-cli/releases/download/\$\{tag\}"`)
+	installAsset = regexp.MustCompile(`asset="([^"]+)"`)
+)
 
 func TestInitCITemplates_DownloadAPublishedReleaseAsset(t *testing.T) {
-	const tag, version = "v1.2.3", "1.2.3"
+	const version = "1.2.3"
 	published := goreleaserArchiveName(t, version, "linux", "amd64")
 	installer := installScriptAsset(t, "Linux", "x86_64", version)
 	if published != installer {
@@ -109,16 +115,148 @@ func TestInitCITemplates_DownloadAPublishedReleaseAsset(t *testing.T) {
 		if !strings.Contains(body, `ver="${tag#v}"`) {
 			t.Errorf(`%s: install step does not derive ver="${tag#v}" from the tag`, path)
 		}
-		m := releaseURL.FindAllStringSubmatch(body, -1)
+		if n := len(releaseBase.FindAllString(body, -1)); n != 1 {
+			t.Errorf("%s: %d release download bases; want 1", path, n)
+		}
+		m := installAsset.FindAllStringSubmatch(body, -1)
 		if len(m) != 1 {
-			t.Errorf("%s: %d release download URLs; want 1", path, len(m))
+			t.Errorf("%s: %d asset names; want 1", path, len(m))
 			continue
 		}
-		rel := strings.NewReplacer("${tag}", tag, "${ver}", version).Replace(m[0][1])
-		if want := tag + "/" + published; rel != want {
-			t.Errorf("%s: downloads releases/download/%s; goreleaser publishes releases/download/%s", path, rel, want)
+		if got := strings.ReplaceAll(m[0][1], "${ver}", version); got != published {
+			t.Errorf("%s: downloads %s; goreleaser publishes %s", path, got, published)
+		}
+		if !strings.Contains(body, `curl -fsSL "${base}/${asset}"`) {
+			t.Errorf("%s: install step does not download ${base}/${asset}", path)
 		}
 	}
+}
+
+// installStep returns the lines of a template from the archive download
+// to the extraction, in order.
+func installStep(t *testing.T, path, body string) []string {
+	t.Helper()
+	var out []string
+	in := false
+	for _, line := range strings.Split(body, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, `curl -fsSL "${base}/${asset}"`) {
+			in = true
+		}
+		if in {
+			out = append(out, trimmed)
+		}
+		if in && (strings.HasPrefix(trimmed, "tar ") || strings.HasPrefix(trimmed, "sudo tar ")) {
+			break
+		}
+	}
+	if len(out) == 0 {
+		t.Fatalf("%s: no install step found", path)
+	}
+	return out
+}
+
+// The install step must check the archive against the release's
+// checksums.txt before extracting it, as install.sh does, and the check
+// must reject a tampered or missing archive. The verification line is run
+// for real against a matching and a tampered file.
+func TestInitCITemplates_VerifyChecksumBeforeExtracting(t *testing.T) {
+	if checksumName := goreleaserChecksumName(t); checksumName != "checksums.txt" {
+		t.Fatalf(".goreleaser.yml publishes %q; the templates download checksums.txt", checksumName)
+	}
+	if _, err := exec.LookPath("sha256sum"); err != nil {
+		t.Skip("sha256sum not on PATH")
+	}
+	bodies := shippedTemplates(t)
+	// The hand-written examples are copied as-is, so they verify too.
+	for _, p := range []string{"github-actions/basic.yml", "github-actions/multi-environment.yml", "gitlab-ci.yml"} {
+		b, err := os.ReadFile(filepath.Join("..", "..", "examples", filepath.FromSlash(p)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		bodies["examples/"+p] = string(b)
+	}
+	for path, body := range bodies {
+		lines := installStep(t, path, body)
+		verify := verifyLine(lines)
+		if verify == "" {
+			t.Errorf("%s: install step must download checksums.txt and run sha256sum -c before tar:\n%s", path, strings.Join(lines, "\n"))
+			continue
+		}
+		runVerifyLine(t, path, verify)
+	}
+}
+
+// verifyLine returns the install step's sha256sum line when the step
+// downloads checksums.txt, verifies, then extracts, in that order; "" if
+// not.
+func verifyLine(lines []string) string {
+	var verify string
+	sawChecksums := false
+	for _, l := range lines {
+		switch {
+		case strings.HasPrefix(l, `curl -fsSL "${base}/checksums.txt"`):
+			sawChecksums = true
+		case strings.Contains(l, "sha256sum -c"):
+			verify = l
+		}
+	}
+	if !sawChecksums || !strings.Contains(lines[len(lines)-1], "tar -xzf") {
+		return ""
+	}
+	return verify
+}
+
+// runVerifyLine runs a template's verification line against a matching
+// and a tampered archive.
+func runVerifyLine(t *testing.T, path, verify string) {
+	t.Helper()
+	// The snippet is written for /tmp; run it in a scratch directory.
+	verify = strings.ReplaceAll(verify, "/tmp", "$WORK")
+	for _, tc := range []struct {
+		name    string
+		content string
+		wantOK  bool
+	}{
+		{"matching archive", "release bytes", true},
+		{"tampered archive", "tampered bytes", false},
+	} {
+		dir := t.TempDir()
+		const asset = "sigcomply_1.2.3_linux_amd64.tar.gz"
+		sum := sha256.Sum256([]byte("release bytes"))
+		if err := os.WriteFile(filepath.Join(dir, "checksums.txt"),
+			[]byte(hex.EncodeToString(sum[:])+"  "+asset+"\n"+strings.Repeat("0", 64)+"  other.tar.gz\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, asset), []byte(tc.content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.CommandContext(t.Context(), "sh", "-c", verify) //nolint:gosec // runs a line from our own committed template
+		cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "WORK=" + dir, "asset=" + asset}
+		out, err := cmd.CombinedOutput()
+		if (err == nil) != tc.wantOK {
+			t.Errorf("%s: %s: verification ok = %v; want %v\n%s", path, tc.name, err == nil, tc.wantOK, out)
+		}
+	}
+}
+
+// goreleaserChecksumName reads the checksum file name .goreleaser.yml
+// publishes.
+func goreleaserChecksumName(t *testing.T) string {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join("..", "..", ".goreleaser.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg struct {
+		Checksum struct {
+			NameTemplate string `yaml:"name_template"`
+		} `yaml:"checksum"`
+	}
+	if err := yaml.Unmarshal(raw, &cfg); err != nil {
+		t.Fatalf("parse .goreleaser.yml: %v", err)
+	}
+	return cfg.Checksum.NameTemplate
 }
 
 // goreleaserArchiveName renders the archive name_template from
@@ -170,70 +308,77 @@ func installScriptAsset(t *testing.T, unameS, unameM, version string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// cadenceCron pairs a GitHub template's cron with the cadence its
-// `sigcomply check --cadence` step runs.
-var (
-	cronLine     = regexp.MustCompile(`(?m)^\s*-\s*cron:\s*'([^']+)'`)
-	cadenceCheck = regexp.MustCompile(`(?m)sigcomply check --cadence (\w+)`)
-)
+var cronLine = regexp.MustCompile(`(?m)^\s*-\s*cron:\s*'([^']+)'`)
 
-// TestInitCITemplates_SupraMonthlyCronsFireInsideThePeriod checks every
-// firing of the monthly, quarterly and annual crons over several years
-// lands at least a day after the start of both the run's period
-// (planner.DerivePeriod) and the cadence's evidence folder period
-// (planner.CadencePeriod). Daily and weekly runs are exempt: no manual
-// evidence entry has a daily or weekly cadence, so their folders never
-// gate a manual check, and a daily cron cannot avoid a boundary.
-func TestInitCITemplates_SupraMonthlyCronsFireInsideThePeriod(t *testing.T) {
-	checked := map[string]bool{}
+// Every submitted run must be a full snapshot, and a manual policy's
+// folder must be read inside every calendar window of its cadence. So the
+// scaffold has exactly one scheduled workflow, it fires every day and
+// runs `check --scheduled`, and every other check is `--pr`, which never
+// submits.
+func TestInitCITemplates_OneDailyScheduledRunAndPRChecks(t *testing.T) {
+	scheduled := 0
 	for path, body := range shippedTemplates(t) {
-		if !strings.HasPrefix(path, "templates/github/") {
-			continue // GitLab schedules are created by the customer
+		for _, m := range ciCommand.FindAllStringSubmatch(body, -1) {
+			if !isScaffoldedCheck(m[1]) {
+				t.Errorf("%s: runs `sigcomply %s`; want only %s or %s", path, m[1], scaffoldedScheduledCheck, scaffoldedPRCheck)
+			}
 		}
-		cad := cadenceCheck.FindStringSubmatch(body)
-		if cad == nil {
-			continue
+		if strings.Contains(body, "CADENCE") {
+			t.Errorf("%s: still refers to the removed CADENCE variable", path)
 		}
-		switch cadence := cad[1]; cadence {
-		case "monthly", "quarterly", "annual":
-			checkCronsInsidePeriod(t, path, body, cadence)
-			checked[cadence] = true
-		}
-	}
-	for _, want := range []string{"monthly", "quarterly", "annual"} {
-		if !checked[want] {
-			t.Errorf("no GitHub template runs `sigcomply check --cadence %s`; this test checked nothing for it", want)
+		// GitLab schedules are created by the customer.
+		if strings.HasPrefix(path, "templates/github/") && checkDailyCron(t, path, body) {
+			scheduled++
 		}
 	}
+	if scheduled != 1 {
+		t.Errorf("%d GitHub templates have a cron; want exactly one", scheduled)
+	}
+	checkGitLabScheduledJob(t)
 }
 
-func checkCronsInsidePeriod(t *testing.T, path, body, cadence string) {
+// checkDailyCron reports whether a GitHub template has a cron, and checks
+// that every cron fires daily and the workflow runs `check --scheduled`.
+func checkDailyCron(t *testing.T, path, body string) bool {
 	t.Helper()
-	cfg := &spec.PeriodConfig{} // the default calendar_quarter
 	crons := cronLine.FindAllStringSubmatch(body, -1)
 	if len(crons) == 0 {
-		t.Errorf("%s: no cron schedule", path)
+		return false
+	}
+	if !strings.Contains(body, "sigcomply "+scaffoldedScheduledCheck) {
+		t.Errorf("%s: has a cron but does not run `%s`", path, scaffoldedScheduledCheck)
 	}
 	for _, c := range crons {
-		fires := cronFirings(t, c[1], 2026, 2030)
-		if len(fires) == 0 {
-			t.Errorf("%s: cron %q never fires in 2026-2030", path, c[1])
+		if n := len(cronFirings(t, c[1], 2027, 2027)); n != 365 {
+			t.Errorf("%s: cron %q fires %d days in 2027; want every day", path, c[1], n)
 		}
-		for _, at := range fires {
-			run, err := planner.DerivePeriod(cfg, at)
-			if err != nil {
-				t.Fatal(err)
-			}
-			folder, err := planner.CadencePeriod(cfg, at, cadence)
-			if err != nil {
-				t.Fatal(err)
-			}
-			for _, p := range []planner.Period{run, folder} {
-				if at.Sub(p.Start) < 24*time.Hour {
-					t.Errorf("%s: cron %q fires %s, within a day of the start of period %s", path, c[1], at.Format(time.RFC3339), p.ID)
-				}
-			}
-		}
+	}
+	return true
+}
+
+// checkGitLabScheduledJob checks the GitLab scheduled job runs on every
+// pipeline schedule and starts with `check --scheduled`.
+func checkGitLabScheduledJob(t *testing.T) {
+	t.Helper()
+	body, err := fs.ReadFile(templatesFS, "templates/gitlab/.gitlab-ci.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]struct {
+		Rules []struct {
+			If string `yaml:"if"`
+		} `yaml:"rules"`
+		Script []string `yaml:"script"`
+	}
+	if err := yaml.Unmarshal(body, &doc); err != nil {
+		t.Fatal(err)
+	}
+	job, ok := doc["compliance:scheduled"]
+	if !ok || len(job.Rules) != 1 || job.Rules[0].If != `$CI_PIPELINE_SOURCE == "schedule"` {
+		t.Errorf("compliance:scheduled must run on every pipeline schedule; got %+v", job.Rules)
+	}
+	if len(job.Script) == 0 || job.Script[0] != "sigcomply "+scaffoldedScheduledCheck {
+		t.Errorf("compliance:scheduled script = %v; want sigcomply check --scheduled first", job.Script)
 	}
 }
 

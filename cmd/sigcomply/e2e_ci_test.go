@@ -31,11 +31,11 @@ func TestBinaryE2E_InitCI_GeneratedCommandsRun(t *testing.T) {
 	files = append(files, filepath.Join(p.dir, ".gitlab-ci.yml"))
 
 	// The fewest `sigcomply` lines each generated file holds: GitLab has
-	// on-push, five cadence jobs and the due-soon step; the GitHub daily
-	// workflow has its check and the due-soon step; every other GitHub
+	// the --pr job, the --scheduled job and the due-soon step; the GitHub
+	// scheduled workflow has its check and the due-soon step; the on-push
 	// workflow has one check. Fewer means the regexp stopped matching
 	// that file, not that it lost steps, so each file is counted alone.
-	minPerFile := map[string]int{".gitlab-ci.yml": 7, "compliance-daily.yml": 2}
+	minPerFile := map[string]int{".gitlab-ci.yml": 3, scheduledWorkflow: 2}
 	commands := map[string]bool{}
 	for _, f := range files {
 		body, err := os.ReadFile(f) //nolint:gosec // #nosec G304 -- written by init-ci in the test's own dir
@@ -56,9 +56,10 @@ func TestBinaryE2E_InitCI_GeneratedCommandsRun(t *testing.T) {
 			commands[strings.TrimSpace(strings.TrimSuffix(m[1], "|| true"))] = true
 		}
 	}
-	if len(files) < 7 {
-		t.Fatalf("init-ci wrote %d workflow files; want the six GitHub cadence workflows and .gitlab-ci.yml", len(files))
+	if len(files) != 3 {
+		t.Fatalf("init-ci wrote %d workflow files; want the two GitHub workflows and .gitlab-ci.yml", len(files))
 	}
+	assertScaffoldedCommands(t, commands)
 	sorted := make([]string, 0, len(commands))
 	for c := range commands {
 		sorted = append(sorted, c)
@@ -71,6 +72,33 @@ func TestBinaryE2E_InitCI_GeneratedCommandsRun(t *testing.T) {
 			// would mean the scaffolded command itself is broken.
 			res.wantCode(t, 0)
 		})
+	}
+}
+
+// The scaffolded `check` lines, and the predicate for them: the full
+// scheduled run, which submits, or the --pr run, which never does.
+const (
+	scaffoldedScheduledCheck = "check --scheduled"
+	scaffoldedPRCheck        = "check --pr"
+)
+
+func isScaffoldedCheck(c string) bool {
+	return !strings.HasPrefix(c, "check") || c == scaffoldedScheduledCheck || c == scaffoldedPRCheck
+}
+
+// assertScaffoldedCommands checks the init-ci workflows run exactly the
+// scheduled check, the --pr check and the due-soon step.
+func assertScaffoldedCommands(t *testing.T, commands map[string]bool) {
+	t.Helper()
+	for c := range commands {
+		if !isScaffoldedCheck(c) {
+			t.Errorf("scaffolded %q; want only `%s` and `%s`", c, scaffoldedScheduledCheck, scaffoldedPRCheck)
+		}
+	}
+	for _, want := range []string{scaffoldedScheduledCheck, scaffoldedPRCheck, "evidence due --within-days 30"} {
+		if !commands[want] {
+			t.Errorf("no workflow runs `sigcomply %s`", want)
+		}
 	}
 }
 

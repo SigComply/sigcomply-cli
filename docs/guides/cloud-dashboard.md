@@ -68,11 +68,12 @@ the token is missing, instead of skipping without a message.
 Only runs that cover every policy submit: `sigcomply check` with no filter, and
 `sigcomply check --scheduled`. A run with `--cadence`, `--cadences`, `--on-push` or `--pr` checks
 a subset, so it prints `cloud submission skipped: this run evaluates a subset of policies` and
-sends nothing. The workflows `init-ci` writes submit from the daily scheduled run only.
+sends nothing. In the workflows `init-ci` writes, only the daily scheduled run submits. The workflows `init-ci` writes submit from the daily scheduled run only.
 
 ## 4. Run and check the result
 
-Start a CI run (for example the daily workflow). In the log, look for:
+Start a CI run (the scheduled workflow, with **Run workflow** on GitHub or **Run pipeline
+schedule** on GitLab). In the log, look for:
 
 ```text
 submission accepted (HTTP 201)

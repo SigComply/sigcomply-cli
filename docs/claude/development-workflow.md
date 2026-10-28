@@ -212,9 +212,10 @@ Which tests to add:
   -update` and read the diff.
 - `init-ci` templates: `TestInitCITemplates_*` (`cmd/sigcomply/init_ci_contract_test.go`) check
   the GitLab `id_tokens` name and audience against the submitter's constants, the download URL
-  against `.goreleaser.yml` and `install.sh`, and that monthly, quarterly and annual crons fire
-  at least a day into the period. `TestBinaryE2E_InitCI_GeneratedCommandsRun` runs every
-  `sigcomply` line the workflows contain.
+  against `.goreleaser.yml` and `install.sh`, the `checksums.txt` verification before extraction
+  (run for real against a matching and a tampered archive, templates and `examples/`), and that
+  the scaffold is one daily `check --scheduled` run plus `check --pr`.
+  `TestBinaryE2E_InitCI_GeneratedCommandsRun` runs every `sigcomply` line the workflows contain.
 - Published counts: `TestDocFiguresMatchCode` (`internal/manualcatalog/doc_figures_test.go`)
   checks exact substrings in the docs it lists. It matches raw bytes, so a line wrap, `**` or a
   changed dash inside a pinned phrase breaks it. When it fails, update the doc it names.

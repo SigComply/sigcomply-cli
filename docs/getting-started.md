@@ -83,13 +83,15 @@ For GitHub Actions:
 sigcomply init-ci --ci github
 ```
 
-This writes six workflows to `.github/workflows/`: one each for the daily, weekly, monthly,
-quarterly and annual checks, and `compliance-on-push.yml`. The daily workflow also runs
+This writes two workflows to `.github/workflows/`. `compliance-scheduled.yml` runs
+`sigcomply check --scheduled` every day at 02:00 UTC: it evaluates the policies that are due and
+carries the rest forward, so each run covers every policy. It also runs
 `sigcomply evidence due --within-days 30`, which lists documents still missing whose period ends
-within 30 days. It never fails the job.
+within 30 days and never fails the job. `compliance-on-push.yml` runs `sigcomply check --pr` on
+pull requests and pushes to `main`.
 
 For GitLab CI, run `sigcomply init-ci --ci gitlab`. It writes one `.gitlab-ci.yml`; you then
-create a pipeline schedule per cadence. See [CI on GitLab](guides/ci-gitlab.md).
+create one daily pipeline schedule. See [CI on GitLab](guides/ci-gitlab.md).
 
 `init-ci` scaffolds SOC 2 only. For another framework, see
 [Commands](reference/commands.md#sigcomply-init-ci).
@@ -114,19 +116,17 @@ policy and the full setup.
 
 ## 5. Run it
 
-Commit the workflows and push. Then start the daily workflow by hand from the **Actions** tab
-(it has a `workflow_dispatch` trigger), or wait for its schedule.
+Commit the workflows and push. Then start the scheduled workflow by hand from the **Actions**
+tab (it has a `workflow_dispatch` trigger), or wait for its schedule.
 
-The daily workflow runs `sigcomply check --cadence daily`, so it evaluates only policies with a
-daily cadence. In the job log, `check` prints a summary line with the framework and the period,
-then one line per policy. The job fails (exit `1`) while any of those policies fails. To keep
+The first scheduled run evaluates every policy. In the job log, `check` prints a summary line
+with the framework and the period, then one line per policy. The job fails (exit `1`) while any of those policies fails. To keep
 the job green on failing policies, set `ci.fail_on_violation: false` in `.sigcomply.yaml`. Exit
 codes are listed in [Commands](reference/commands.md#exit-codes).
 
-Document policies are not in the daily run. Each has its catalog entry's cadence (annual or
-quarterly in the shipped catalogs) and runs in the matching workflow, which fires on day 20
-of the period's last month (for example, 20 December for annual). Start that workflow by hand
-to check documents sooner. Until a document is uploaded, its policy fails in that run.
+Document policies are part of every scheduled run. Until a document is uploaded for the
+current period, its policy fails, and it is checked again on each daily run. Once it passes, it
+carries forward until its cadence (annual or quarterly in the shipped catalogs) comes due again.
 
 If you turned on cloud submission, the run appears on the dashboard. The first submission from
 a new organization starts its trial; see [Cloud dashboard](guides/cloud-dashboard.md).
@@ -142,10 +142,10 @@ sigcomply evidence due --all
 ```
 
 Each row names a folder such as `s3://<your-evidence-bucket>/manual/nda_policy/2026/`. Upload
-one or more PDF or image files there. The workflow for the entry's cadence (the `CADENCE`
-column) checks that a file is present for the period, merges the files into one PDF to validate
-them, and signs a record of each file's hash. It does not read the content. An annual document
-waits for the annual workflow, so start that workflow by hand to see the result right away.
+one or more PDF or image files there during the period. The next scheduled run checks that a
+file is present for the period, merges the files into one PDF to validate them, and signs a
+record of each file's hash. It does not read the content. Start the scheduled workflow by hand to
+see the result right away.
 
 [Manual evidence](guides/manual-evidence.md) covers folder names, file formats, the Evidence
 SPA form helper and upload windows.

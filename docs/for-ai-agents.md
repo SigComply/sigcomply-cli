@@ -104,8 +104,9 @@ config. Then:
 1. Replace the `AWS_ROLE_ARN` placeholder with the customer's role ARN.
 2. Tell the customer that the AWS IAM OIDC provider and the role's trust policy must accept the
    audience `https://api.sigcomply.com`, which the workflows request.
-3. On GitLab, tell the customer to create one pipeline schedule per cadence with a `CADENCE`
-   variable.
+3. On GitLab, tell the customer to create one daily pipeline schedule (for example `0 2 * * *`);
+   the scheduled job runs `sigcomply check --scheduled`.
+4. Tell the customer the vault must be a bucket: `--scheduled` keeps per-policy state there.
 
 Setup details: [CI on GitHub](guides/ci-github.md), [CI on GitLab](guides/ci-gitlab.md).
 

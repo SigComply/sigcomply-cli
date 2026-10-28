@@ -66,8 +66,9 @@ var supportedCIs = []string{ciGitHub, ciGitLab}
 // framework. Today that is soc2 only — but NOT because the templates are
 // framework-specific. They are not: nothing under templates/ mentions a
 // framework, `check` has no --framework flag (it reads the framework from
-// config), and both shipped frameworks use the same three cadences, so
-// the emitted files would be byte-identical and correct for ISO 27001.
+// config), and `check --scheduled` evaluates whatever cadences the
+// framework's policies have, so the emitted files would be byte-identical
+// and correct for ISO 27001.
 // The gate is v1-alpha conservatism about a set that has only ever been
 // exercised against soc2. Lifting it is a one-line change here plus the
 // ~10 docs that currently state the limit.
@@ -87,13 +88,16 @@ func newInitCICmd() *cobra.Command {
 	var flags initCIFlags
 	cmd := &cobra.Command{
 		Use:   "init-ci",
-		Short: "Scaffold the per-cadence CI workflow set (github | gitlab)",
-		Long: "`sigcomply init-ci` writes the canonical workflow set for the chosen CI provider:\n" +
-			"  - GitHub Actions: one workflow per cadence under .github/workflows/.\n" +
-			"  - GitLab CI: a single .gitlab-ci.yml with cadence-keyed jobs driven by\n" +
-			"    pipeline schedules ($CADENCE).\n" +
+		Short: "Scaffold the scheduled and pull-request CI workflows (github | gitlab)",
+		Long: "`sigcomply init-ci` writes the workflows for the chosen CI provider:\n" +
+			"  - GitHub Actions: compliance-scheduled.yml (daily `check --scheduled`,\n" +
+			"    the run SigComply Cloud receives) and compliance-on-push.yml\n" +
+			"    (`check --pr` on pull requests and pushes to main) under\n" +
+			"    .github/workflows/.\n" +
+			"  - GitLab CI: one .gitlab-ci.yml with a scheduled job (`check --scheduled`)\n" +
+			"    and a merge-request job (`check --pr`).\n" +
 			"\n" +
-			"The scaffolded files are starter templates. Customize cron times, runner\n" +
+			"The scaffolded files are starter templates. Customize the cron time, runner\n" +
 			"types, and placeholder values (AWS_ROLE_ARN, SIGCOMPLY_VERSION) to suit.\n",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runInitCI(cmd.OutOrStdout(), flags)
@@ -299,13 +303,13 @@ func printSummary(stdout io.Writer, framework, ci, version string, written []str
 	}
 	switch ci {
 	case ciGitLab:
-		b.WriteString("  3. Create one GitLab pipeline schedule per cadence (daily, weekly,\n")
-		b.WriteString("     monthly, quarterly, annual) and set the CADENCE variable accordingly.\n")
+		b.WriteString("  3. Create one GitLab pipeline schedule (Settings > CI/CD > Pipeline\n")
+		b.WriteString("     schedules) that runs daily, for example at 02:00 UTC (0 2 * * *).\n")
 	case ciGitHub:
-		b.WriteString("  3. Commit the workflow files; cron schedules will fire automatically.\n")
+		b.WriteString("  3. Commit the workflow files; the daily schedule fires automatically.\n")
 	}
 	b.WriteString("  4. To send pass/fail counts to SigComply Cloud (paid plan), set\n")
 	b.WriteString("     cloud.base_url: https://sigcomply.com in .sigcomply.yaml. Without it the\n")
-	b.WriteString("     CLI does not submit anything.\n")
+	b.WriteString("     CLI does not submit anything. Only the scheduled run submits.\n")
 	_, _ = stdout.Write([]byte(b.String())) //nolint:errcheck // status output; nothing useful to do on failure
 }

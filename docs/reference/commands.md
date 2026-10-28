@@ -101,16 +101,19 @@ local vault.
 sigcomply init-ci --ci <github|gitlab> [flags]
 ```
 
-Writes CI files that install the CLI release and run `check` per cadence.
+Writes CI files that install the CLI release, after checking the archive against the release's
+`checksums.txt`, and run `check`.
 
-- `--ci github` writes `compliance-daily.yml`, `compliance-weekly.yml`,
-  `compliance-monthly.yml`, `compliance-quarterly.yml`, `compliance-annual.yml` and
-  `compliance-on-push.yml` to `.github/workflows/`.
-- `--ci gitlab` writes one `.gitlab-ci.yml` with a job per cadence, selected by the `CADENCE`
-  variable of a pipeline schedule.
+- `--ci github` writes `compliance-scheduled.yml` (daily at 02:00 UTC and on demand,
+  `sigcomply check --scheduled`) and `compliance-on-push.yml` (pull requests and pushes to
+  `main`, `sigcomply check --pr`) to `.github/workflows/`.
+- `--ci gitlab` writes one `.gitlab-ci.yml` with a `compliance:scheduled` job that runs
+  `sigcomply check --scheduled` in any scheduled pipeline, and a `compliance:on_push` job that
+  runs `sigcomply check --pr` on merge requests and pushes to the default branch. Create one
+  daily pipeline schedule.
 
-The daily workflow (GitHub) and daily job (GitLab) also run `sigcomply evidence due` as a step
-that cannot fail the job.
+Only the scheduled run submits to SigComply Cloud. The scheduled workflow (GitHub) and job
+(GitLab) also run `sigcomply evidence due` as a step that cannot fail the job.
 
 | Flag | Short | Default | Meaning |
 |---|---|---|---|

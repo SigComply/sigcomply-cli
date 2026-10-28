@@ -154,7 +154,7 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 	if filter.IsExplicit() {
 		fullPlan = planFull(opts, startedAt, schemaDigests, plan)
 	}
-	emitPlanWarnings(opts.Logger, plan, startedAt)
+	emitPlanWarnings(opts.Logger, plan, startedAt, runState.policyStates)
 	emitRosterWarnings(opts.Logger, opts.Config, opts.Registries)
 	emitUnboundSourceWarnings(opts.Logger, opts.Config, fullPlan)
 	emitSourceCaveatWarnings(opts.Logger, plan)
@@ -407,7 +407,11 @@ func coverageGapLines(pp *planner.PlannedPolicy, skewed map[string]bool) []strin
 // warnings are explicit so customers don't mistake "all-green on day
 // one" for "compliant" — see docs/architecture/10-cadence-model.md
 // §Day-1 warnings.
-func emitPlanWarnings(logger *log.Logger, plan *planner.RunPlan, now time.Time) {
+//
+// states is what --scheduled loaded from the vault: nil when the run
+// loads no state (every other mode), where "first time" would be false on
+// every run, so no first-run line is printed.
+func emitPlanWarnings(logger *log.Logger, plan *planner.RunPlan, now time.Time, states map[string]*core.PolicyState) {
 	if plan == nil {
 		return
 	}
@@ -460,16 +464,30 @@ func emitPlanWarnings(logger *log.Logger, plan *planner.RunPlan, now time.Time) 
 			logger.Debugf("coverage-gap: %s", s)
 		}
 	}
-	if len(firstRun) > 0 {
-		sort.Strings(firstRun)
-		logger.Infof("first-run: %d policies will evaluate for the first time this run", len(firstRun))
-		logger.Debugf("first-run policies: %s", strings.Join(firstRun, ", "))
-		logger.Infof("first-run: configure a recurring CI schedule before depending on these results")
-	}
+	emitFirstRun(logger, firstRun, states)
 	if len(gapped) > 0 {
 		sort.Strings(gapped)
 		logger.Warnf("gap-detected: %d policies have no evaluation in the last 30d; today's run does not backfill", len(gapped))
 		logger.Debugf("gap-detected policies: %s", strings.Join(gapped, ", "))
+	}
+}
+
+// emitFirstRun reports the policies evaluating with no prior state. It
+// says nothing when the run loaded no state (states nil): outside
+// --scheduled every policy would look new on every run.
+func emitFirstRun(logger *log.Logger, firstRun []string, states map[string]*core.PolicyState) {
+	switch {
+	case states == nil || len(firstRun) == 0:
+	case len(states) == 0:
+		// Nothing persisted at all: the project's first scheduled run, or
+		// a vault that does not outlive the job, in which case every run
+		// re-evaluates everything and nothing ever carries forward.
+		logger.Infof("first-run: no cadence state found in the vault, so all %d due policies evaluate this run", len(firstRun))
+		logger.Infof("first-run: if every scheduled run says this, the vault is not kept between runs (a local folder in CI); use an s3, gcs or azure_blob vault")
+	default:
+		sort.Strings(firstRun)
+		logger.Infof("first-run: %d policies will evaluate for the first time this run", len(firstRun))
+		logger.Debugf("first-run policies: %s", strings.Join(firstRun, ", "))
 	}
 }
 

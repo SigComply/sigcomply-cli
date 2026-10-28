@@ -57,7 +57,7 @@ To list the empty folders with their upload paths:
 sigcomply evidence due --all
 ```
 
-Until you upload, each clause policy fails on the annual run (`sigcomply check --cadence annual`
+Until you upload, each clause policy fails on every scheduled run (`sigcomply check --scheduled`
 exits `1`). To keep the build green while you work through them, waive the policy with a reason
 and an expiry date:
 
@@ -112,7 +112,7 @@ Setting both `justification` and `not_applicable` on a control fails with
 
 ## 3. Generate the SoA
 
-Run from the repository root, after the annual run:
+Run from the repository root, after a scheduled run:
 
 ```bash
 sigcomply report --period 2026-Q4 --view soa
@@ -155,8 +155,8 @@ A.5.1    Policies for information security   yes         not implemented  manual
 
 The CSV adds `justification_derived`, `evaluated`, `policies`, `approved_by` and `risks`.
 
-`not evaluated` is not a pass. Annual controls produce results only in the period the annual run
-happens in, so generate the SoA for that period.
+`not evaluated` is not a pass. Generate the SoA for a period that has at least one scheduled
+run.
 
 The 16 clause requirements are not SoA rows. Check them with the coverage view:
 

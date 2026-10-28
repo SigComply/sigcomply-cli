@@ -61,12 +61,8 @@ func TestInitCI_GitHub_WritesExpectedFileSet(t *testing.T) {
 	}
 	sort.Strings(got)
 	want := []string{
-		"compliance-annual.yml",
-		"compliance-daily.yml",
-		"compliance-monthly.yml",
 		"compliance-on-push.yml",
-		"compliance-quarterly.yml",
-		"compliance-weekly.yml",
+		"compliance-scheduled.yml",
 	}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("scaffolded files = %v; want %v", got, want)
@@ -89,7 +85,7 @@ func TestInitCI_RejectsExistingFiles_WithoutForce(t *testing.T) {
 	if err := os.MkdirAll(workflows, 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(workflows, "compliance-daily.yml"), []byte("# pre-existing\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(workflows, scheduledWorkflow), []byte("# pre-existing\n"), 0o600); err != nil {
 		t.Fatalf("seed file: %v", err)
 	}
 	_, err := runInitCIIn(t, dir, "--ci", ciGitHub)
@@ -100,11 +96,11 @@ func TestInitCI_RejectsExistingFiles_WithoutForce(t *testing.T) {
 	if !errors.As(err, &ec) || ec.code != orchestrator.ExitConfig {
 		t.Errorf("want exitCodeError{code:3}; got %v", err)
 	}
-	if !strings.Contains(err.Error(), "compliance-daily.yml") || !strings.Contains(err.Error(), "--force") {
+	if !strings.Contains(err.Error(), scheduledWorkflow) || !strings.Contains(err.Error(), "--force") {
 		t.Errorf("error %q should reference the conflicting file + --force hint", err.Error())
 	}
 	// Original content must be preserved.
-	body, err := os.ReadFile(filepath.Join(workflows, "compliance-daily.yml"))
+	body, err := os.ReadFile(filepath.Join(workflows, scheduledWorkflow))
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}
@@ -119,7 +115,7 @@ func TestInitCI_ForceOverwritesExisting(t *testing.T) {
 	if err := os.MkdirAll(workflows, 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	target := filepath.Join(workflows, "compliance-daily.yml")
+	target := filepath.Join(workflows, scheduledWorkflow)
 	if err := os.WriteFile(target, []byte("# old\n"), 0o600); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
@@ -130,7 +126,7 @@ func TestInitCI_ForceOverwritesExisting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}
-	if !strings.Contains(string(body), "Compliance — Daily") {
+	if !strings.Contains(string(body), "Compliance — Scheduled") {
 		t.Errorf("file not overwritten with template body: %q", body)
 	}
 }
@@ -162,7 +158,7 @@ func TestInitCI_MissingCIFlagIsRequired(t *testing.T) {
 
 func TestInitCI_GoldenCompare_GitHub(t *testing.T) {
 	// Resolve golden paths before runInitCIIn changes cwd.
-	goldenDaily := absTestdata(t, "golden_compliance-daily.yml")
+	goldenScheduled := absTestdata(t, "golden_compliance-scheduled.yml")
 	goldenOnPush := absTestdata(t, "golden_compliance-on-push.yml")
 	setCLIVersionForTest(t, goldenVersion)
 	dir := t.TempDir()
@@ -173,7 +169,7 @@ func TestInitCI_GoldenCompare_GitHub(t *testing.T) {
 		written string
 		golden  string
 	}{
-		{filepath.Join(dir, ".github", "workflows", "compliance-daily.yml"), goldenDaily},
+		{filepath.Join(dir, ".github", "workflows", scheduledWorkflow), goldenScheduled},
 		{filepath.Join(dir, ".github", "workflows", "compliance-on-push.yml"), goldenOnPush},
 	}
 	for _, tc := range cases {
@@ -212,6 +208,9 @@ func TestInitCI_GoldenCompare_GitLab(t *testing.T) {
 	}
 }
 
+// scheduledWorkflow is the GitHub workflow that runs `check --scheduled`.
+const scheduledWorkflow = "compliance-scheduled.yml"
+
 // goldenVersion is the build version the golden files are rendered
 // with, so they don't change on every release.
 const goldenVersion = "1.2.3"
@@ -233,7 +232,7 @@ func TestInitCI_OutDirOverride(t *testing.T) {
 	if _, err := runInitCIIn(t, dir, "--ci", ciGitHub, "--out", custom); err != nil {
 		t.Fatalf("init-ci: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(custom, "compliance-daily.yml")); err != nil {
+	if _, err := os.Stat(filepath.Join(custom, scheduledWorkflow)); err != nil {
 		t.Errorf("file not under --out: %v", err)
 	}
 }
@@ -324,8 +323,8 @@ func TestEmbeddedTemplates_ContainOIDCAudienceAndCLI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scaffoldPlanGitHub: %v", err)
 	}
-	if len(plan) != 6 {
-		t.Errorf("expected 6 github templates; got %d", len(plan))
+	if len(plan) != 2 {
+		t.Errorf("expected 2 github templates; got %d", len(plan))
 	}
 	all := append([]scaffoldFile(nil), plan...)
 	gitlab, err := scaffoldPlanGitLab("/tmp/unused")
