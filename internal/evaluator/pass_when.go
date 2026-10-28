@@ -203,7 +203,9 @@ func (ec *evalCtx) evaluateCount(clause *core.PassWhenClause, records []core.Evi
 	if clause.MinPercentage != nil {
 		minPct = *clause.MinPercentage
 	}
-	if pct < minPct {
+	// Compare passing*100 with minPct*n rather than the quotient: 57/100*100
+	// is 56.99999999999999 in float64 and would fail a 57% floor.
+	if float64(passing)*100 < minPct*float64(len(records)) {
 		return core.RuleResult{
 			Status: core.StatusFail,
 			Violations: []core.Violation{{

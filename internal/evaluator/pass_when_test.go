@@ -758,3 +758,21 @@ func TestPassWhen_ListParamsWorkWithIn(t *testing.T) {
 		})
 	}
 }
+
+// 57 of 100 is exactly 57%; float division gives 56.99999999999999 and
+// used to fail a min_percentage of 57.
+func TestPassWhen_CountExactThresholdPasses(t *testing.T) {
+	for _, n := range []int{29, 57} {
+		recs := make([]core.EvidenceRecord, 100)
+		for i := range recs {
+			recs[i] = makeRecord(fmt.Sprintf("u%d", i), map[string]any{keyMFA: i < n})
+		}
+		spec := &core.PassWhenSpec{Clauses: []core.PassWhenClause{{
+			Slot: slotUsers, Quantifier: core.QuantifierCount, MinPercentage: minPct(float64(n)),
+			Condition: &core.PassWhenCondition{Op: "eq", Field: fieldPayloadMFA, Value: true},
+		}}}
+		if got := evaluatePassWhen(spec, newEvalCtx(map[string][]core.EvidenceRecord{slotUsers: recs}, nil, nil)); got.Status != core.StatusPass {
+			t.Errorf("%d of 100 at min %d%%: status = %q; want pass", n, n, got.Status)
+		}
+	}
+}
