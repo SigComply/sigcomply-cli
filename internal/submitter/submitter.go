@@ -30,6 +30,15 @@ const DefaultAudience = "https://api.sigcomply.com"
 // Path is the cloud endpoint relative to base_url.
 const Path = "/api/v1/runs"
 
+// GitLabIDTokenEnv is the variable a GitLab job's `id_tokens:` block
+// must name for the CLI to find its OIDC token; GitLabIDTokenFallbackEnv
+// is read when it is unset. The init-ci GitLab template declares
+// GitLabIDTokenEnv, and a test in cmd/sigcomply checks the two agree.
+const (
+	GitLabIDTokenEnv         = "SIGCOMPLY_ID_TOKEN"
+	GitLabIDTokenFallbackEnv = "ID_TOKEN"
+)
+
 // Decision is the result of evaluating whether to submit.
 type Decision int
 
@@ -168,7 +177,7 @@ func HasOIDC() bool {
 	if os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL") != "" && os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN") != "" {
 		return true
 	}
-	if os.Getenv("SIGCOMPLY_ID_TOKEN") != "" || os.Getenv("ID_TOKEN") != "" {
+	if os.Getenv(GitLabIDTokenEnv) != "" || os.Getenv(GitLabIDTokenFallbackEnv) != "" {
 		return true
 	}
 	return false
@@ -269,10 +278,10 @@ func (p *githubActionsProvider) Token(ctx context.Context, audience string) (str
 type gitlabCIProvider struct{}
 
 func (p *gitlabCIProvider) Token(_ context.Context, _ string) (token, providerName string, err error) {
-	if t := os.Getenv("SIGCOMPLY_ID_TOKEN"); t != "" {
+	if t := os.Getenv(GitLabIDTokenEnv); t != "" {
 		return t, providerGitLab, nil
 	}
-	if t := os.Getenv("ID_TOKEN"); t != "" {
+	if t := os.Getenv(GitLabIDTokenFallbackEnv); t != "" {
 		return t, providerGitLab, nil
 	}
 	return "", "", ErrNoToken
