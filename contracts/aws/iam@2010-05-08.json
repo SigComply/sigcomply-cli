@@ -33,6 +33,9 @@
      "target": "com.amazonaws.iam#ListMFADevices"
     },
     {
+     "target": "com.amazonaws.iam#ListUserPolicies"
+    },
+    {
      "target": "com.amazonaws.iam#ListUsers"
     }
    ],
@@ -1296,6 +1299,77 @@
     "smithy.api#output": {}
    }
   },
+  "com.amazonaws.iam#ListUserPolicies": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.iam#ListUserPoliciesRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.iam#ListUserPoliciesResponse"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.iam#NoSuchEntityException"
+    },
+    {
+     "target": "com.amazonaws.iam#ServiceFailureException"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "Marker",
+     "outputToken": "Marker",
+     "items": "PolicyNames",
+     "pageSize": "MaxItems"
+    }
+   }
+  },
+  "com.amazonaws.iam#ListUserPoliciesRequest": {
+   "type": "structure",
+   "members": {
+    "UserName": {
+     "target": "com.amazonaws.iam#existingUserNameType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "Marker": {
+     "target": "com.amazonaws.iam#markerType",
+     "traits": {}
+    },
+    "MaxItems": {
+     "target": "com.amazonaws.iam#maxItemsType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.iam#ListUserPoliciesResponse": {
+   "type": "structure",
+   "members": {
+    "PolicyNames": {
+     "target": "com.amazonaws.iam#policyNameListType",
+     "traits": {
+      "smithy.api#required": {}
+     }
+    },
+    "IsTruncated": {
+     "target": "com.amazonaws.iam#booleanType",
+     "traits": {
+      "smithy.api#default": false
+     }
+    },
+    "Marker": {
+     "target": "com.amazonaws.iam#responseMarkerType",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
   "com.amazonaws.iam#ListUsers": {
    "type": "operation",
    "input": {
@@ -1764,6 +1838,13 @@
     },
     "smithy.api#pattern": "^(\\u002F)|(\\u002F[\\u0021-\\u007E]+\\u002F)$"
    }
+  },
+  "com.amazonaws.iam#policyNameListType": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.iam#policyNameType"
+   },
+   "traits": {}
   },
   "com.amazonaws.iam#policyNameType": {
    "type": "string",

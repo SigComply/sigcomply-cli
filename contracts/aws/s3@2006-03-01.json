@@ -9,6 +9,9 @@
      "target": "com.amazonaws.s3#GetBucketEncryption"
     },
     {
+     "target": "com.amazonaws.s3#GetBucketLocation"
+    },
+    {
      "target": "com.amazonaws.s3#GetBucketVersioning"
     },
     {
@@ -2654,6 +2657,239 @@
   "com.amazonaws.s3#BucketKeyEnabled": {
    "type": "boolean"
   },
+  "com.amazonaws.s3#BucketLocationConstraint": {
+   "type": "enum",
+   "members": {
+    "af_south_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "af-south-1"
+     }
+    },
+    "ap_east_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ap-east-1"
+     }
+    },
+    "ap_east_2": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ap-east-2"
+     }
+    },
+    "ap_northeast_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ap-northeast-1"
+     }
+    },
+    "ap_northeast_2": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ap-northeast-2"
+     }
+    },
+    "ap_northeast_3": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ap-northeast-3"
+     }
+    },
+    "ap_south_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ap-south-1"
+     }
+    },
+    "ap_south_2": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ap-south-2"
+     }
+    },
+    "ap_southeast_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ap-southeast-1"
+     }
+    },
+    "ap_southeast_2": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ap-southeast-2"
+     }
+    },
+    "ap_southeast_3": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ap-southeast-3"
+     }
+    },
+    "ap_southeast_4": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ap-southeast-4"
+     }
+    },
+    "ap_southeast_5": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ap-southeast-5"
+     }
+    },
+    "ap_southeast_6": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ap-southeast-6"
+     }
+    },
+    "ap_southeast_7": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ap-southeast-7"
+     }
+    },
+    "ca_central_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ca-central-1"
+     }
+    },
+    "ca_west_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "ca-west-1"
+     }
+    },
+    "cn_north_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "cn-north-1"
+     }
+    },
+    "cn_northwest_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "cn-northwest-1"
+     }
+    },
+    "EU": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "EU"
+     }
+    },
+    "eu_central_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "eu-central-1"
+     }
+    },
+    "eu_central_2": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "eu-central-2"
+     }
+    },
+    "eu_north_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "eu-north-1"
+     }
+    },
+    "eu_south_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "eu-south-1"
+     }
+    },
+    "eu_south_2": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "eu-south-2"
+     }
+    },
+    "eu_west_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "eu-west-1"
+     }
+    },
+    "eu_west_2": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "eu-west-2"
+     }
+    },
+    "eu_west_3": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "eu-west-3"
+     }
+    },
+    "il_central_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "il-central-1"
+     }
+    },
+    "me_central_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "me-central-1"
+     }
+    },
+    "me_south_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "me-south-1"
+     }
+    },
+    "mx_central_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "mx-central-1"
+     }
+    },
+    "sa_east_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "sa-east-1"
+     }
+    },
+    "us_east_2": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "us-east-2"
+     }
+    },
+    "us_gov_east_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "us-gov-east-1"
+     }
+    },
+    "us_gov_west_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "us-gov-west-1"
+     }
+    },
+    "us_west_1": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "us-west-1"
+     }
+    },
+    "us_west_2": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "us-west-2"
+     }
+    }
+   }
+  },
   "com.amazonaws.s3#BucketName": {
    "type": "string"
   },
@@ -2754,6 +2990,65 @@
    }
   },
   "com.amazonaws.s3#GetBucketEncryptionRequest": {
+   "type": "structure",
+   "members": {
+    "Bucket": {
+     "target": "com.amazonaws.s3#BucketName",
+     "traits": {
+      "smithy.api#httpLabel": {},
+      "smithy.api#required": {},
+      "smithy.rules#contextParam": {
+       "name": "Bucket"
+      }
+     }
+    },
+    "ExpectedBucketOwner": {
+     "target": "com.amazonaws.s3#AccountId",
+     "traits": {
+      "smithy.api#httpHeader": "x-amz-expected-bucket-owner"
+     }
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.s3#GetBucketLocation": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.s3#GetBucketLocationRequest"
+   },
+   "output": {
+    "target": "com.amazonaws.s3#GetBucketLocationOutput"
+   },
+   "traits": {
+    "aws.customizations#s3UnwrappedXmlOutput": {},
+    "smithy.api#http": {
+     "method": "GET",
+     "uri": "/{Bucket}?location",
+     "code": 200
+    },
+    "smithy.rules#staticContextParams": {
+     "UseS3ExpressControlEndpoint": {
+      "value": true
+     }
+    }
+   }
+  },
+  "com.amazonaws.s3#GetBucketLocationOutput": {
+   "type": "structure",
+   "members": {
+    "LocationConstraint": {
+     "target": "com.amazonaws.s3#BucketLocationConstraint",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {},
+    "smithy.api#xmlName": "LocationConstraint"
+   }
+  },
+  "com.amazonaws.s3#GetBucketLocationRequest": {
    "type": "structure",
    "members": {
     "Bucket": {

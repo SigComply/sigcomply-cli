@@ -6,6 +6,12 @@
    "version": "2014-10-31",
    "operations": [
     {
+     "target": "com.amazonaws.rds#DescribeDBClusterParameters"
+    },
+    {
+     "target": "com.amazonaws.rds#DescribeDBClusters"
+    },
+    {
      "target": "com.amazonaws.rds#DescribeDBInstances"
     },
     {
@@ -440,6 +446,15 @@
    },
    "traits": {}
   },
+  "com.amazonaws.rds#AvailabilityZones": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#String",
+    "traits": {
+     "smithy.api#xmlName": "AvailabilityZone"
+    }
+   }
+  },
   "com.amazonaws.rds#Boolean": {
    "type": "boolean"
   },
@@ -459,6 +474,602 @@
     }
    },
    "traits": {}
+  },
+  "com.amazonaws.rds#ClusterPendingModifiedValues": {
+   "type": "structure",
+   "members": {
+    "PendingCloudwatchLogsExports": {
+     "target": "com.amazonaws.rds#PendingCloudwatchLogsExports"
+    },
+    "DBClusterIdentifier": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "MasterUserPassword": {
+     "target": "com.amazonaws.rds#SensitiveString",
+     "traits": {}
+    },
+    "IAMDatabaseAuthenticationEnabled": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "EngineVersion": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "BackupRetentionPeriod": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "StorageType": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "AllocatedStorage": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "RdsCustomClusterConfiguration": {
+     "target": "com.amazonaws.rds#RdsCustomClusterConfiguration",
+     "traits": {}
+    },
+    "Iops": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "CertificateDetails": {
+     "target": "com.amazonaws.rds#CertificateDetails"
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#ClusterScalabilityType": {
+   "type": "enum",
+   "members": {
+    "STANDARD": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "standard"
+     }
+    },
+    "LIMITLESS": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "limitless"
+     }
+    }
+   }
+  },
+  "com.amazonaws.rds#DBCapacityReservationIdentifier": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 63
+    },
+    "smithy.api#pattern": "^[a-z](?:-?[a-z0-9]+){0,15}$"
+   }
+  },
+  "com.amazonaws.rds#DBCluster": {
+   "type": "structure",
+   "members": {
+    "AllocatedStorage": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "AvailabilityZones": {
+     "target": "com.amazonaws.rds#AvailabilityZones",
+     "traits": {}
+    },
+    "BackupRetentionPeriod": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "CharacterSetName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DatabaseName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DBClusterIdentifier": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DBClusterParameterGroup": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DBSubnetGroup": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Status": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "PercentProgress": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "EarliestRestorableTime": {
+     "target": "com.amazonaws.rds#TStamp",
+     "traits": {}
+    },
+    "Endpoint": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "ReaderEndpoint": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "CustomEndpoints": {
+     "target": "com.amazonaws.rds#StringList",
+     "traits": {}
+    },
+    "MultiAZ": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "Engine": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "EngineVersion": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "LatestRestorableTime": {
+     "target": "com.amazonaws.rds#TStamp",
+     "traits": {}
+    },
+    "Port": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "MasterUsername": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DBClusterOptionGroupMemberships": {
+     "target": "com.amazonaws.rds#DBClusterOptionGroupMemberships",
+     "traits": {}
+    },
+    "PreferredBackupWindow": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "PreferredMaintenanceWindow": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "UpgradeRolloutOrder": {
+     "target": "com.amazonaws.rds#UpgradeRolloutOrder",
+     "traits": {}
+    },
+    "ReplicationSourceIdentifier": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "ReadReplicaIdentifiers": {
+     "target": "com.amazonaws.rds#ReadReplicaIdentifierList",
+     "traits": {}
+    },
+    "StatusInfos": {
+     "target": "com.amazonaws.rds#DBClusterStatusInfoList",
+     "traits": {}
+    },
+    "DBClusterMembers": {
+     "target": "com.amazonaws.rds#DBClusterMemberList",
+     "traits": {}
+    },
+    "VpcSecurityGroups": {
+     "target": "com.amazonaws.rds#VpcSecurityGroupMembershipList",
+     "traits": {}
+    },
+    "HostedZoneId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "StorageEncrypted": {
+     "target": "com.amazonaws.rds#Boolean",
+     "traits": {}
+    },
+    "StorageEncryptionType": {
+     "target": "com.amazonaws.rds#StorageEncryptionType",
+     "traits": {}
+    },
+    "KmsKeyId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DbClusterResourceId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DBClusterArn": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "AssociatedRoles": {
+     "target": "com.amazonaws.rds#DBClusterRoles",
+     "traits": {}
+    },
+    "IAMDatabaseAuthenticationEnabled": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "CloneGroupId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "ClusterCreateTime": {
+     "target": "com.amazonaws.rds#TStamp",
+     "traits": {}
+    },
+    "EarliestBacktrackTime": {
+     "target": "com.amazonaws.rds#TStamp",
+     "traits": {}
+    },
+    "BacktrackWindow": {
+     "target": "com.amazonaws.rds#LongOptional",
+     "traits": {}
+    },
+    "BacktrackConsumedChangeRecords": {
+     "target": "com.amazonaws.rds#LongOptional",
+     "traits": {}
+    },
+    "EnabledCloudwatchLogsExports": {
+     "target": "com.amazonaws.rds#LogTypeList",
+     "traits": {}
+    },
+    "Capacity": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "PendingModifiedValues": {
+     "target": "com.amazonaws.rds#ClusterPendingModifiedValues",
+     "traits": {}
+    },
+    "EngineMode": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "ScalingConfigurationInfo": {
+     "target": "com.amazonaws.rds#ScalingConfigurationInfo"
+    },
+    "RdsCustomClusterConfiguration": {
+     "target": "com.amazonaws.rds#RdsCustomClusterConfiguration",
+     "traits": {}
+    },
+    "DBClusterInstanceClass": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "StorageType": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Iops": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "StorageThroughput": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "IOOptimizedNextAllowedModificationTime": {
+     "target": "com.amazonaws.rds#TStamp",
+     "traits": {}
+    },
+    "PubliclyAccessible": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "AutoMinorVersionUpgrade": {
+     "target": "com.amazonaws.rds#Boolean",
+     "traits": {}
+    },
+    "DeletionProtection": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "HttpEndpointEnabled": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "ActivityStreamMode": {
+     "target": "com.amazonaws.rds#ActivityStreamMode",
+     "traits": {}
+    },
+    "ActivityStreamStatus": {
+     "target": "com.amazonaws.rds#ActivityStreamStatus",
+     "traits": {}
+    },
+    "ActivityStreamKmsKeyId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "ActivityStreamKinesisStreamName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "CopyTagsToSnapshot": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "CrossAccountClone": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "DomainMemberships": {
+     "target": "com.amazonaws.rds#DomainMembershipList",
+     "traits": {}
+    },
+    "TagList": {
+     "target": "com.amazonaws.rds#TagList"
+    },
+    "GlobalClusterIdentifier": {
+     "target": "com.amazonaws.rds#GlobalClusterIdentifier",
+     "traits": {}
+    },
+    "GlobalWriteForwardingStatus": {
+     "target": "com.amazonaws.rds#WriteForwardingStatus",
+     "traits": {}
+    },
+    "GlobalWriteForwardingRequested": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "NetworkType": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "AutomaticRestartTime": {
+     "target": "com.amazonaws.rds#TStamp",
+     "traits": {}
+    },
+    "ServerlessV2ScalingConfiguration": {
+     "target": "com.amazonaws.rds#ServerlessV2ScalingConfigurationInfo"
+    },
+    "ServerlessV2PlatformVersion": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "MonitoringInterval": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "MonitoringRoleArn": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DatabaseInsightsMode": {
+     "target": "com.amazonaws.rds#DatabaseInsightsMode",
+     "traits": {}
+    },
+    "PerformanceInsightsEnabled": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "PerformanceInsightsKMSKeyId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "PerformanceInsightsRetentionPeriod": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "DBSystemId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "MasterUserSecret": {
+     "target": "com.amazonaws.rds#MasterUserSecret",
+     "traits": {}
+    },
+    "LocalWriteForwardingStatus": {
+     "target": "com.amazonaws.rds#LocalWriteForwardingStatus",
+     "traits": {}
+    },
+    "AwsBackupRecoveryPointArn": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "LimitlessDatabase": {
+     "target": "com.amazonaws.rds#LimitlessDatabase",
+     "traits": {}
+    },
+    "ClusterScalabilityType": {
+     "target": "com.amazonaws.rds#ClusterScalabilityType",
+     "traits": {}
+    },
+    "CertificateDetails": {
+     "target": "com.amazonaws.rds#CertificateDetails"
+    },
+    "EngineLifecycleSupport": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "VPCNetworkingEnabled": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "InternetAccessGatewayEnabled": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#DBClusterList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#DBCluster",
+    "traits": {
+     "smithy.api#xmlName": "DBCluster"
+    }
+   }
+  },
+  "com.amazonaws.rds#DBClusterMember": {
+   "type": "structure",
+   "members": {
+    "DBInstanceIdentifier": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "IsClusterWriter": {
+     "target": "com.amazonaws.rds#Boolean",
+     "traits": {}
+    },
+    "DBClusterParameterGroupStatus": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "PromotionTier": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#DBClusterMemberList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#DBClusterMember",
+    "traits": {
+     "smithy.api#xmlName": "DBClusterMember"
+    }
+   }
+  },
+  "com.amazonaws.rds#DBClusterMessage": {
+   "type": "structure",
+   "members": {
+    "Marker": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "DBClusters": {
+     "target": "com.amazonaws.rds#DBClusterList",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#output": {}
+   }
+  },
+  "com.amazonaws.rds#DBClusterNotFoundFault": {
+   "type": "structure",
+   "members": {
+    "message": {
+     "target": "com.amazonaws.rds#ExceptionMessage"
+    }
+   },
+   "traits": {
+    "aws.protocols#awsQueryError": {
+     "code": "DBClusterNotFoundFault",
+     "httpResponseCode": 404
+    },
+    "smithy.api#error": "client",
+    "smithy.api#httpError": 404
+   }
+  },
+  "com.amazonaws.rds#DBClusterOptionGroupMemberships": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#DBClusterOptionGroupStatus",
+    "traits": {
+     "smithy.api#xmlName": "DBClusterOptionGroup"
+    }
+   }
+  },
+  "com.amazonaws.rds#DBClusterOptionGroupStatus": {
+   "type": "structure",
+   "members": {
+    "DBClusterOptionGroupName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Status": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#DBClusterParameterGroupDetails": {
+   "type": "structure",
+   "members": {
+    "Parameters": {
+     "target": "com.amazonaws.rds#ParametersList",
+     "traits": {}
+    },
+    "Marker": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#DBClusterRole": {
+   "type": "structure",
+   "members": {
+    "RoleArn": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Status": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "FeatureName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#DBClusterRoles": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#DBClusterRole",
+    "traits": {
+     "smithy.api#xmlName": "DBClusterRole"
+    }
+   }
+  },
+  "com.amazonaws.rds#DBClusterStatusInfo": {
+   "type": "structure",
+   "members": {
+    "StatusType": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Normal": {
+     "target": "com.amazonaws.rds#Boolean",
+     "traits": {}
+    },
+    "Status": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Message": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#DBClusterStatusInfoList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#DBClusterStatusInfo",
+    "traits": {
+     "smithy.api#xmlName": "DBClusterStatusInfo"
+    }
+   }
   },
   "com.amazonaws.rds#DBInstance": {
    "type": "structure",
@@ -1074,6 +1685,239 @@
     }
    }
   },
+  "com.amazonaws.rds#DescribeDBClusterParameters": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.rds#DescribeDBClusterParametersMessage"
+   },
+   "output": {
+    "target": "com.amazonaws.rds#DBClusterParameterGroupDetails"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.rds#DBParameterGroupNotFoundFault"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "Marker",
+     "outputToken": "Marker",
+     "items": "Parameters",
+     "pageSize": "MaxRecords"
+    }
+   }
+  },
+  "com.amazonaws.rds#DescribeDBClusterParametersMessage": {
+   "type": "structure",
+   "members": {
+    "DBClusterParameterGroupName": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {
+      "smithy.api#clientOptional": {},
+      "smithy.api#required": {}
+     }
+    },
+    "Source": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Filters": {
+     "target": "com.amazonaws.rds#FilterList",
+     "traits": {}
+    },
+    "MaxRecords": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "Marker": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
+  "com.amazonaws.rds#DescribeDBClusters": {
+   "type": "operation",
+   "input": {
+    "target": "com.amazonaws.rds#DescribeDBClustersMessage"
+   },
+   "output": {
+    "target": "com.amazonaws.rds#DBClusterMessage"
+   },
+   "errors": [
+    {
+     "target": "com.amazonaws.rds#DBClusterNotFoundFault"
+    }
+   ],
+   "traits": {
+    "smithy.api#paginated": {
+     "inputToken": "Marker",
+     "outputToken": "Marker",
+     "items": "DBClusters",
+     "pageSize": "MaxRecords"
+    },
+    "smithy.waiters#waitable": {
+     "DBClusterAvailable": {
+      "acceptors": [
+       {
+        "state": "success",
+        "matcher": {
+         "output": {
+          "path": "DBClusters[].Status",
+          "expected": "available",
+          "comparator": "allStringEquals"
+         }
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBClusters[].Status",
+          "expected": "deleted",
+          "comparator": "anyStringEquals"
+         }
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBClusters[].Status",
+          "expected": "deleting",
+          "comparator": "anyStringEquals"
+         }
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBClusters[].Status",
+          "expected": "failed",
+          "comparator": "anyStringEquals"
+         }
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBClusters[].Status",
+          "expected": "incompatible-restore",
+          "comparator": "anyStringEquals"
+         }
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBClusters[].Status",
+          "expected": "incompatible-parameters",
+          "comparator": "anyStringEquals"
+         }
+        }
+       }
+      ],
+      "minDelay": 30,
+      "maxDelay": 1800
+     },
+     "DBClusterDeleted": {
+      "acceptors": [
+       {
+        "state": "success",
+        "matcher": {
+         "output": {
+          "path": "length(DBClusters) == `0`",
+          "expected": "true",
+          "comparator": "booleanEquals"
+         }
+        }
+       },
+       {
+        "state": "success",
+        "matcher": {
+         "errorType": "DBClusterNotFoundFault"
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBClusters[].Status",
+          "expected": "creating",
+          "comparator": "anyStringEquals"
+         }
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBClusters[].Status",
+          "expected": "modifying",
+          "comparator": "anyStringEquals"
+         }
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBClusters[].Status",
+          "expected": "rebooting",
+          "comparator": "anyStringEquals"
+         }
+        }
+       },
+       {
+        "state": "failure",
+        "matcher": {
+         "output": {
+          "path": "DBClusters[].Status",
+          "expected": "resetting-master-credentials",
+          "comparator": "anyStringEquals"
+         }
+        }
+       }
+      ],
+      "minDelay": 30,
+      "maxDelay": 1800
+     }
+    }
+   }
+  },
+  "com.amazonaws.rds#DescribeDBClustersMessage": {
+   "type": "structure",
+   "members": {
+    "DBClusterIdentifier": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "Filters": {
+     "target": "com.amazonaws.rds#FilterList",
+     "traits": {}
+    },
+    "MaxRecords": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "Marker": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "IncludeShared": {
+     "target": "com.amazonaws.rds#Boolean",
+     "traits": {}
+    }
+   },
+   "traits": {
+    "smithy.api#input": {}
+   }
+  },
   "com.amazonaws.rds#DescribeDBInstances": {
    "type": "operation",
    "input": {
@@ -1349,6 +2193,9 @@
     }
    }
   },
+  "com.amazonaws.rds#DoubleOptional": {
+   "type": "double"
+  },
   "com.amazonaws.rds#Endpoint": {
    "type": "structure",
    "members": {
@@ -1414,17 +2261,132 @@
     }
    }
   },
+  "com.amazonaws.rds#GlobalClusterIdentifier": {
+   "type": "string",
+   "traits": {
+    "smithy.api#length": {
+     "min": 1,
+     "max": 255
+    },
+    "smithy.api#pattern": "^[A-Za-z][0-9A-Za-z-:._]*$"
+   }
+  },
   "com.amazonaws.rds#Integer": {
    "type": "integer"
   },
   "com.amazonaws.rds#IntegerOptional": {
    "type": "integer"
   },
+  "com.amazonaws.rds#LimitlessDatabase": {
+   "type": "structure",
+   "members": {
+    "Status": {
+     "target": "com.amazonaws.rds#LimitlessDatabaseStatus",
+     "traits": {}
+    },
+    "MinRequiredACU": {
+     "target": "com.amazonaws.rds#DoubleOptional",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
+  "com.amazonaws.rds#LimitlessDatabaseStatus": {
+   "type": "enum",
+   "members": {
+    "ACTIVE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "active"
+     }
+    },
+    "NOT_IN_USE": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "not-in-use"
+     }
+    },
+    "ENABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "enabled"
+     }
+    },
+    "DISABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "disabled"
+     }
+    },
+    "ENABLING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "enabling"
+     }
+    },
+    "DISABLING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "disabling"
+     }
+    },
+    "MODIFYING_MAX_CAPACITY": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "modifying-max-capacity"
+     }
+    },
+    "ERROR": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "error"
+     }
+    }
+   }
+  },
+  "com.amazonaws.rds#LocalWriteForwardingStatus": {
+   "type": "enum",
+   "members": {
+    "ENABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "enabled"
+     }
+    },
+    "DISABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "disabled"
+     }
+    },
+    "ENABLING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "enabling"
+     }
+    },
+    "DISABLING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "disabling"
+     }
+    },
+    "REQUESTED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "requested"
+     }
+    }
+   }
+  },
   "com.amazonaws.rds#LogTypeList": {
    "type": "list",
    "member": {
     "target": "com.amazonaws.rds#String"
    }
+  },
+  "com.amazonaws.rds#LongOptional": {
+   "type": "long"
   },
   "com.amazonaws.rds#MasterUserSecret": {
    "type": "structure",
@@ -1673,6 +2635,24 @@
     }
    }
   },
+  "com.amazonaws.rds#RdsCustomClusterConfiguration": {
+   "type": "structure",
+   "members": {
+    "InterconnectSubnetId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "TransitGatewayMulticastDomainId": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "ReplicaMode": {
+     "target": "com.amazonaws.rds#ReplicaMode",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
   "com.amazonaws.rds#ReadReplicaDBClusterIdentifierList": {
    "type": "list",
    "member": {
@@ -1688,6 +2668,15 @@
     "target": "com.amazonaws.rds#String",
     "traits": {
      "smithy.api#xmlName": "ReadReplicaDBInstanceIdentifier"
+    }
+   }
+  },
+  "com.amazonaws.rds#ReadReplicaIdentifierList": {
+   "type": "list",
+   "member": {
+    "target": "com.amazonaws.rds#String",
+    "traits": {
+     "smithy.api#xmlName": "ReadReplicaIdentifier"
     }
    }
   },
@@ -1708,11 +2697,59 @@
     }
    }
   },
+  "com.amazonaws.rds#ScalingConfigurationInfo": {
+   "type": "structure",
+   "members": {
+    "MinCapacity": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "MaxCapacity": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "AutoPause": {
+     "target": "com.amazonaws.rds#BooleanOptional",
+     "traits": {}
+    },
+    "SecondsUntilAutoPause": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    },
+    "TimeoutAction": {
+     "target": "com.amazonaws.rds#String",
+     "traits": {}
+    },
+    "SecondsBeforeTimeout": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    }
+   },
+   "traits": {}
+  },
   "com.amazonaws.rds#SensitiveString": {
    "type": "string",
    "traits": {
     "smithy.api#sensitive": {}
    }
+  },
+  "com.amazonaws.rds#ServerlessV2ScalingConfigurationInfo": {
+   "type": "structure",
+   "members": {
+    "MinCapacity": {
+     "target": "com.amazonaws.rds#DoubleOptional",
+     "traits": {}
+    },
+    "MaxCapacity": {
+     "target": "com.amazonaws.rds#DoubleOptional",
+     "traits": {}
+    },
+    "SecondsUntilAutoPause": {
+     "target": "com.amazonaws.rds#IntegerOptional",
+     "traits": {}
+    }
+   },
+   "traits": {}
   },
   "com.amazonaws.rds#StorageEncryptionType": {
    "type": "enum",
@@ -1846,6 +2883,41 @@
     "target": "com.amazonaws.rds#VpcSecurityGroupMembership",
     "traits": {
      "smithy.api#xmlName": "VpcSecurityGroupMembership"
+    }
+   }
+  },
+  "com.amazonaws.rds#WriteForwardingStatus": {
+   "type": "enum",
+   "members": {
+    "ENABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "enabled"
+     }
+    },
+    "DISABLED": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "disabled"
+     }
+    },
+    "ENABLING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "enabling"
+     }
+    },
+    "DISABLING": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "disabling"
+     }
+    },
+    "UNKNOWN": {
+     "target": "smithy.api#Unit",
+     "traits": {
+      "smithy.api#enumValue": "unknown"
+     }
     }
    }
   }
