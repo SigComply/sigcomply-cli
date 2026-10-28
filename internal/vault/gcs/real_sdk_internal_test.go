@@ -98,3 +98,21 @@ func TestRealGCS_PutBinaryStoresMetadata(t *testing.T) {
 		t.Errorf("stored object = %+v; want the body and metadata sent", o)
 	}
 }
+
+// Object names are percent-encoded on the wire. A name that itself holds
+// a '%' must round-trip unchanged.
+func TestRealGCS_KeyWithPercentRoundTrips(t *testing.T) {
+	v, _ := sdkVault(t, 10)
+	ctx := context.Background()
+	const key = "evidence/uptime 99.9% report.pdf"
+	if err := v.PutBinary(ctx, key, []byte("%PDF-1.4"), nil); err != nil {
+		t.Fatalf("PutBinary: %v", err)
+	}
+	got, err := v.GetBinary(ctx, key)
+	if err != nil {
+		t.Fatalf("GetBinary: %v", err)
+	}
+	if string(got) != "%PDF-1.4" {
+		t.Errorf("GetBinary = %q; want the stored body", got)
+	}
+}

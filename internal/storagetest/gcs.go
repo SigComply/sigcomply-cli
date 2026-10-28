@@ -78,7 +78,7 @@ func (g *GCS) serve(w http.ResponseWriter, r *http.Request) {
 		g.upload(w, r)
 	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/"+g.bucket+"/"):
 		// XML API read, the SDK's default for NewReader.
-		g.read(w, strings.TrimPrefix(r.URL.Path, "/"+g.bucket+"/"))
+		g.read(w, strings.TrimPrefix(r.URL.EscapedPath(), "/"+g.bucket+"/"))
 	default:
 		g.t.Errorf("storagetest: unexpected GCS request %s %s", r.Method, r.URL)
 		http.Error(w, "unexpected request", http.StatusNotImplemented)

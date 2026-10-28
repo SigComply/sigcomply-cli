@@ -150,7 +150,7 @@ cassettes and L4b.
 | AWS test seam | fake `HTTPClient` via `config.WithHTTPClient` (runs the real deserializer); interface stubs for pure logic |
 | GCP test seam | `option.WithHTTPClient` + `option.WithoutAuthentication` |
 | Azure test seam | `arm.ClientOptions{Transport: ...}` and a fake `azcore.TokenCredential` |
-| Storage SDK seam (vault backends, manual-evidence readers) | `internal/storagetest`: in-memory GCS, Azure Blob and S3 servers that speak each wire protocol, so the real SDK client runs: pagination, response decoding, not-found mapping |
+| Storage SDK seam (GCS and Azure vault backends, all three manual-evidence readers) | `internal/storagetest`: in-memory GCS, Azure Blob and read-only S3 servers that speak each wire protocol, so the real SDK client runs: pagination, response decoding, not-found mapping. The S3 vault backend is still tested only behind its API interface |
 | Spec snapshots | `scripts/contracts-fetch.sh` (`make contracts-fetch`), slicing with `scripts/contracts/slice_smithy.py` (AWS), `slice_swagger.py` (Azure), `slice_discovery.py` (GCP), `slice_openapi.py` (GitHub, Okta) |
 | Spec diff | `scripts/contracts-diff.sh` (`make contracts-diff`) running `scripts/contracts/diff_contracts.py`: removed or changed operations, shapes, fields and enums the mapper reads are breaking; additions are not |
 | Spec toolchain | `curl`, `python3`, and `ruby` (Okta YAML to JSON) |
