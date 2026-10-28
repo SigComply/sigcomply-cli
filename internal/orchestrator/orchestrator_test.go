@@ -463,6 +463,10 @@ func (emptyS3API) GetBucketVersioning(context.Context, *awss3.GetBucketVersionin
 	return &awss3.GetBucketVersioningOutput{}, nil
 }
 
+func (emptyS3API) GetBucketLocation(context.Context, *awss3.GetBucketLocationInput, ...func(*awss3.Options)) (*awss3.GetBucketLocationOutput, error) {
+	return &awss3.GetBucketLocationOutput{}, nil
+}
+
 type emptyKMSAPI struct{}
 
 func (emptyKMSAPI) ListKeys(context.Context, *awskms.ListKeysInput, ...func(*awskms.Options)) (*awskms.ListKeysOutput, error) {

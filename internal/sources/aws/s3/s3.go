@@ -23,6 +23,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
@@ -46,7 +47,14 @@ type API interface {
 	GetBucketEncryption(ctx context.Context, params *awss3.GetBucketEncryptionInput, optFns ...func(*awss3.Options)) (*awss3.GetBucketEncryptionOutput, error)
 	GetPublicAccessBlock(ctx context.Context, params *awss3.GetPublicAccessBlockInput, optFns ...func(*awss3.Options)) (*awss3.GetPublicAccessBlockOutput, error)
 	GetBucketVersioning(ctx context.Context, params *awss3.GetBucketVersioningInput, optFns ...func(*awss3.Options)) (*awss3.GetBucketVersioningOutput, error)
+	GetBucketLocation(ctx context.Context, params *awss3.GetBucketLocationInput, optFns ...func(*awss3.Options)) (*awss3.GetBucketLocationOutput, error)
 }
+
+// listBucketsPageSize is sent as MaxBuckets. S3 includes each bucket's
+// BucketRegion in the ListBuckets response only when the request carries
+// at least one parameter, and the plugin needs that region to route the
+// per-bucket calls.
+const listBucketsPageSize = 1000
 
 // Plugin is the in-process aws.s3 source.
 type Plugin struct {
@@ -115,14 +123,16 @@ func (*Plugin) Init(context.Context, map[string]any) error { return nil }
 // (Object Ownership controls, bucket policy text, ACL details) are
 // intentionally omitted; adding them is additive.
 type bucketPayload struct {
-	Name                    string    `json:"name"`
-	RegionOrLocation        string    `json:"region_or_location,omitempty"`
-	EncryptionAtRestEnabled bool      `json:"encryption_at_rest_enabled"`
-	KMSManaged              bool      `json:"kms_managed,omitempty"`
-	KMSKeyID                string    `json:"kms_key_id,omitempty"`
-	PublicAccessBlocked     bool      `json:"public_access_blocked"`
-	VersioningEnabled       bool      `json:"versioning_enabled,omitempty"`
-	CreatedAt               time.Time `json:"created_at,omitempty"`
+	Name                    string `json:"name"`
+	RegionOrLocation        string `json:"region_or_location,omitempty"`
+	EncryptionAtRestEnabled bool   `json:"encryption_at_rest_enabled"`
+	KMSManaged              bool   `json:"kms_managed,omitempty"`
+	KMSKeyID                string `json:"kms_key_id,omitempty"`
+	PublicAccessBlocked     bool   `json:"public_access_blocked"`
+	// No omitempty: GetBucketVersioning was asked, so false is an
+	// observed answer, and policies read this field unguarded.
+	VersioningEnabled bool      `json:"versioning_enabled"`
+	CreatedAt         time.Time `json:"created_at,omitempty"`
 }
 
 // Collect lists S3 buckets in the configured account and returns one
@@ -145,21 +155,26 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		if name == "" {
 			continue
 		}
-		enc, kmsManaged, keyID, err := p.bucketEncryption(ctx, name)
+		region, err := p.bucketRegion(ctx, b, name)
+		if err != nil {
+			return nil, fmt.Errorf("aws.s3: region for bucket %s: %w", name, err)
+		}
+		inRegion := func(o *awss3.Options) { o.Region = region }
+		enc, kmsManaged, keyID, err := p.bucketEncryption(ctx, name, inRegion)
 		if err != nil {
 			return nil, fmt.Errorf("aws.s3: encryption for bucket %s: %w", name, err)
 		}
-		blocked, err := p.bucketPublicAccessBlocked(ctx, name)
+		blocked, err := p.bucketPublicAccessBlocked(ctx, name, inRegion)
 		if err != nil {
 			return nil, fmt.Errorf("aws.s3: public-access-block for bucket %s: %w", name, err)
 		}
-		versioning, err := p.bucketVersioningEnabled(ctx, name)
+		versioning, err := p.bucketVersioningEnabled(ctx, name, inRegion)
 		if err != nil {
 			return nil, fmt.Errorf("aws.s3: versioning for bucket %s: %w", name, err)
 		}
 		payload := bucketPayload{
 			Name:                    name,
-			RegionOrLocation:        safeBucketRegion(b, p.region),
+			RegionOrLocation:        region,
 			EncryptionAtRestEnabled: enc,
 			KMSManaged:              kmsManaged,
 			KMSKeyID:                keyID,
@@ -194,7 +209,10 @@ func (p *Plugin) listAllBuckets(ctx context.Context) ([]s3types.Bucket, error) {
 		cont *string
 	)
 	for {
-		page, err := p.api.ListBuckets(ctx, &awss3.ListBucketsInput{ContinuationToken: cont})
+		page, err := p.api.ListBuckets(ctx, &awss3.ListBucketsInput{
+			ContinuationToken: cont,
+			MaxBuckets:        aws.Int32(listBucketsPageSize),
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -206,14 +224,39 @@ func (p *Plugin) listAllBuckets(ctx context.Context) ([]s3types.Bucket, error) {
 	}
 }
 
+// bucketRegion returns the region the bucket lives in. ListBuckets
+// lists every bucket in the account whatever region the client is bound
+// to, but the per-bucket calls must reach the bucket's own regional
+// endpoint: S3 answers any other with 301 PermanentRedirect, which the
+// SDK does not follow. BucketRegion from ListBuckets is used when
+// present; otherwise GetBucketLocation, whose empty constraint means
+// us-east-1 and whose legacy "EU" means eu-west-1.
+func (p *Plugin) bucketRegion(ctx context.Context, b *s3types.Bucket, name string) (string, error) {
+	if r := safeBucketRegion(b, ""); r != "" {
+		return r, nil
+	}
+	out, err := p.api.GetBucketLocation(ctx, &awss3.GetBucketLocationInput{Bucket: &name})
+	if err != nil {
+		return "", err
+	}
+	switch c := string(out.LocationConstraint); c {
+	case "":
+		return "us-east-1", nil
+	case "EU":
+		return "eu-west-1", nil
+	default:
+		return c, nil
+	}
+}
+
 // bucketEncryption returns (encryptionEnabled, kmsManaged, kmsKeyID, error).
 // A missing default-encryption configuration is reported as
 // `ServerSideEncryptionConfigurationNotFoundError` by S3; treat that
 // as "encryption disabled" rather than fatal so policies see a clean
 // fail signal. kmsManaged is true when the configured algorithm is
 // SSE-KMS (aws:kms or aws:kms:dsse).
-func (p *Plugin) bucketEncryption(ctx context.Context, name string) (enabled, kmsManaged bool, kmsKeyID string, err error) {
-	out, err := p.api.GetBucketEncryption(ctx, &awss3.GetBucketEncryptionInput{Bucket: &name})
+func (p *Plugin) bucketEncryption(ctx context.Context, name string, inRegion func(*awss3.Options)) (enabled, kmsManaged bool, kmsKeyID string, err error) {
+	out, err := p.api.GetBucketEncryption(ctx, &awss3.GetBucketEncryptionInput{Bucket: &name}, inRegion)
 	if err != nil {
 		if isAPIErrorCode(err, "ServerSideEncryptionConfigurationNotFoundError") {
 			return false, false, "", nil
@@ -247,8 +290,8 @@ func (p *Plugin) bucketEncryption(ctx context.Context, name string) (enabled, km
 // Access Block configuration with all four flags set. Missing
 // configuration (`NoSuchPublicAccessBlockConfiguration`) → false, the
 // safe-for-policies signal that public access is NOT blocked.
-func (p *Plugin) bucketPublicAccessBlocked(ctx context.Context, name string) (bool, error) {
-	out, err := p.api.GetPublicAccessBlock(ctx, &awss3.GetPublicAccessBlockInput{Bucket: &name})
+func (p *Plugin) bucketPublicAccessBlocked(ctx context.Context, name string, inRegion func(*awss3.Options)) (bool, error) {
+	out, err := p.api.GetPublicAccessBlock(ctx, &awss3.GetPublicAccessBlockInput{Bucket: &name}, inRegion)
 	if err != nil {
 		if isAPIErrorCode(err, "NoSuchPublicAccessBlockConfiguration") {
 			return false, nil
@@ -267,10 +310,10 @@ func (p *Plugin) bucketPublicAccessBlocked(ctx context.Context, name string) (bo
 }
 
 // bucketVersioningEnabled returns true iff the bucket's versioning
-// status is "Enabled" (not "Suspended" or unset). Optional field —
-// absent versioning configuration is reported as false.
-func (p *Plugin) bucketVersioningEnabled(ctx context.Context, name string) (bool, error) {
-	out, err := p.api.GetBucketVersioning(ctx, &awss3.GetBucketVersioningInput{Bucket: &name})
+// status is "Enabled" (not "Suspended" or unset). A bucket that never
+// had versioning configured is reported as false.
+func (p *Plugin) bucketVersioningEnabled(ctx context.Context, name string, inRegion func(*awss3.Options)) (bool, error) {
+	out, err := p.api.GetBucketVersioning(ctx, &awss3.GetBucketVersioningInput{Bucket: &name}, inRegion)
 	if err != nil {
 		return false, err
 	}

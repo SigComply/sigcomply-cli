@@ -81,7 +81,7 @@ those credentials, so the ambient principal needs that permission on the target 
 | `aws.lambda` | `serverless_function` | `lambda:ListFunctions` |
 | `aws.password_policy` | `password_policy.v2` | `iam:GetAccountPasswordPolicy` |
 | `aws.rds` | `managed_database_instance` | `rds:DescribeDBInstances`, `rds:DescribeDBParameters` |
-| `aws.s3` | `object_storage_bucket` | `s3:ListAllMyBuckets`, `s3:GetEncryptionConfiguration`, `s3:GetBucketVersioning`, `s3:GetBucketPublicAccessBlock` |
+| `aws.s3` | `object_storage_bucket` | `s3:ListAllMyBuckets`, `s3:GetEncryptionConfiguration`, `s3:GetBucketVersioning`, `s3:GetBucketPublicAccessBlock`, `s3:GetBucketLocation` |
 | `aws.secretsmanager` | `secret` | `secretsmanager:ListSecrets` |
 | `aws.security_alert` | `security_alert` | `cloudwatch:DescribeAlarms`, `logs:DescribeMetricFilters` |
 | `aws.security_group` | `firewall_rule` | `ec2:DescribeSecurityGroups` |

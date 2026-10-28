@@ -29,13 +29,46 @@ type fakeAPI struct {
 	versioning      map[string]s3types.BucketVersioningStatus
 	versioningErr   map[string]error
 	listErr         error
+	location        map[string]s3types.BucketLocationConstraint
+	locationErr     map[string]error
 
 	listCount int
 	encCount  int
+	// lastListInput and callRegions record what the plugin asked for, so
+	// tests can assert the region each per-bucket call is routed to.
+	lastListInput *awss3.ListBucketsInput
+	callRegions   map[string][]string
+	locationCalls int
+}
+
+// recordRegion applies the per-call option functions to an empty
+// Options and keeps the region the plugin chose for this bucket call.
+func (f *fakeAPI) recordRegion(bucket *string, optFns []func(*awss3.Options)) {
+	var o awss3.Options
+	for _, fn := range optFns {
+		fn(&o)
+	}
+	if f.callRegions == nil {
+		f.callRegions = map[string][]string{}
+	}
+	name := ""
+	if bucket != nil {
+		name = *bucket
+	}
+	f.callRegions[name] = append(f.callRegions[name], o.Region)
+}
+
+func (f *fakeAPI) GetBucketLocation(_ context.Context, in *awss3.GetBucketLocationInput, optFns ...func(*awss3.Options)) (*awss3.GetBucketLocationOutput, error) {
+	f.locationCalls++
+	if err, ok := f.locationErr[*in.Bucket]; ok {
+		return nil, err
+	}
+	return &awss3.GetBucketLocationOutput{LocationConstraint: f.location[*in.Bucket]}, nil
 }
 
 func (f *fakeAPI) ListBuckets(_ context.Context, in *awss3.ListBucketsInput, _ ...func(*awss3.Options)) (*awss3.ListBucketsOutput, error) {
 	f.listCount++
+	f.lastListInput = in
 	if f.listErr != nil {
 		return nil, f.listErr
 	}
@@ -56,8 +89,9 @@ func (f *fakeAPI) ListBuckets(_ context.Context, in *awss3.ListBucketsInput, _ .
 	return &awss3.ListBucketsOutput{Buckets: f.buckets}, nil
 }
 
-func (f *fakeAPI) GetBucketEncryption(_ context.Context, in *awss3.GetBucketEncryptionInput, _ ...func(*awss3.Options)) (*awss3.GetBucketEncryptionOutput, error) {
+func (f *fakeAPI) GetBucketEncryption(_ context.Context, in *awss3.GetBucketEncryptionInput, optFns ...func(*awss3.Options)) (*awss3.GetBucketEncryptionOutput, error) {
 	f.encCount++
+	f.recordRegion(in.Bucket, optFns)
 	if in.Bucket == nil {
 		return &awss3.GetBucketEncryptionOutput{}, nil
 	}
@@ -68,7 +102,8 @@ func (f *fakeAPI) GetBucketEncryption(_ context.Context, in *awss3.GetBucketEncr
 	return &awss3.GetBucketEncryptionOutput{ServerSideEncryptionConfiguration: cfg}, nil
 }
 
-func (f *fakeAPI) GetPublicAccessBlock(_ context.Context, in *awss3.GetPublicAccessBlockInput, _ ...func(*awss3.Options)) (*awss3.GetPublicAccessBlockOutput, error) {
+func (f *fakeAPI) GetPublicAccessBlock(_ context.Context, in *awss3.GetPublicAccessBlockInput, optFns ...func(*awss3.Options)) (*awss3.GetPublicAccessBlockOutput, error) {
+	f.recordRegion(in.Bucket, optFns)
 	if in.Bucket == nil {
 		return &awss3.GetPublicAccessBlockOutput{}, nil
 	}
@@ -79,7 +114,8 @@ func (f *fakeAPI) GetPublicAccessBlock(_ context.Context, in *awss3.GetPublicAcc
 	return &awss3.GetPublicAccessBlockOutput{PublicAccessBlockConfiguration: cfg}, nil
 }
 
-func (f *fakeAPI) GetBucketVersioning(_ context.Context, in *awss3.GetBucketVersioningInput, _ ...func(*awss3.Options)) (*awss3.GetBucketVersioningOutput, error) {
+func (f *fakeAPI) GetBucketVersioning(_ context.Context, in *awss3.GetBucketVersioningInput, optFns ...func(*awss3.Options)) (*awss3.GetBucketVersioningOutput, error) {
+	f.recordRegion(in.Bucket, optFns)
 	if in.Bucket == nil {
 		return &awss3.GetBucketVersioningOutput{}, nil
 	}
@@ -308,6 +344,88 @@ func TestSafeHelpers_NilSafe(t *testing.T) {
 	// Region populated → wins over fallback.
 	if got := safeBucketRegion(&s3types.Bucket{BucketRegion: ptr("eu-west-1")}, testRegion); got != "eu-west-1" {
 		t.Errorf("region = %q", got)
+	}
+}
+
+// An unversioned bucket must say so: the versioning policies read
+// versioning_enabled unguarded, so an omitted false turns a plain
+// failure into a policy error (exit 2) on every run.
+func TestCollect_UnversionedBucketEmitsFalse(t *testing.T) {
+	fake := &fakeAPI{buckets: []s3types.Bucket{{Name: ptr("logs"), BucketRegion: ptr(testRegion)}}}
+	records, err := New(Options{API: fake, Region: testRegion}).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(records[0].Payload, &raw); err != nil {
+		t.Fatal(err)
+	}
+	v, ok := raw["versioning_enabled"]
+	if !ok || v != false {
+		t.Errorf("versioning_enabled = %v (present=%v); want false present", v, ok)
+	}
+}
+
+// ListBuckets returns every bucket in the account, in every region. Each
+// per-bucket call must go to the bucket's own region: S3 answers a call
+// sent to another regional endpoint with 301 PermanentRedirect, which
+// the SDK does not follow.
+func TestCollect_RoutesEachBucketToItsRegion(t *testing.T) {
+	fake := &fakeAPI{
+		buckets: []s3types.Bucket{
+			{Name: ptr("home"), BucketRegion: ptr(testRegion)},
+			{Name: ptr("eu"), BucketRegion: ptr("eu-west-2")},
+			{Name: ptr("legacy")},    // no BucketRegion: resolved via GetBucketLocation
+			{Name: ptr("legacy-us")}, // LocationConstraint "" means us-east-1
+			{Name: ptr("legacy-eu")}, // LocationConstraint "EU" means eu-west-1
+		},
+		location: map[string]s3types.BucketLocationConstraint{
+			"legacy":    "ap-south-1",
+			"legacy-us": "",
+			"legacy-eu": "EU",
+		},
+	}
+	records, err := New(Options{API: fake, Region: "us-west-2"}).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if fake.lastListInput == nil || fake.lastListInput.MaxBuckets == nil {
+		t.Errorf("ListBuckets sent without MaxBuckets; S3 omits BucketRegion unless a parameter is set")
+	}
+	want := map[string]string{"home": testRegion, "eu": "eu-west-2", "legacy": "ap-south-1", "legacy-us": "us-east-1", "legacy-eu": "eu-west-1"}
+	for name, region := range want {
+		got := fake.callRegions[name]
+		if len(got) != 3 {
+			t.Fatalf("%s: %d per-bucket calls, want 3", name, len(got))
+		}
+		for _, r := range got {
+			if r != region {
+				t.Errorf("%s: call routed to %q, want %q", name, r, region)
+			}
+		}
+	}
+	if fake.locationCalls != 3 {
+		t.Errorf("GetBucketLocation calls = %d, want 3 (only buckets without BucketRegion)", fake.locationCalls)
+	}
+	for i := range records {
+		var pl bucketPayload
+		if err := json.Unmarshal(records[i].Payload, &pl); err != nil {
+			t.Fatal(err)
+		}
+		if pl.RegionOrLocation != want[records[i].ID] {
+			t.Errorf("%s region_or_location = %q, want %q", records[i].ID, pl.RegionOrLocation, want[records[i].ID])
+		}
+	}
+}
+
+func TestCollect_BucketLocationErrorPropagates(t *testing.T) {
+	fake := &fakeAPI{
+		buckets:     []s3types.Bucket{{Name: ptr("b1")}},
+		locationErr: map[string]error{"b1": errors.New("AccessDenied")},
+	}
+	_, err := New(Options{API: fake, Region: testRegion}).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err == nil || !strings.Contains(err.Error(), "region for bucket b1") {
+		t.Errorf("want region error; got %v", err)
 	}
 }
 

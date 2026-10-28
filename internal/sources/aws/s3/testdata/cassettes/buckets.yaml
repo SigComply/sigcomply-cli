@@ -9,6 +9,8 @@ interactions:
         content_length: 0
         host: ""
         form:
+            max-buckets:
+                - "1000"
             x-id:
                 - ListBuckets
         headers:
@@ -26,7 +28,7 @@ interactions:
                 - e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
             X-Amz-Date:
                 - 20260628T084545Z
-        url: https://s3.us-east-1.amazonaws.com/?x-id=ListBuckets
+        url: https://s3.us-east-1.amazonaws.com/?max-buckets=1000&x-id=ListBuckets
         method: GET
       response:
         proto: HTTP/1.1
@@ -37,7 +39,7 @@ interactions:
         content_length: -1
         body: |-
             <?xml version="1.0" encoding="UTF-8"?>
-            <ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Owner><ID>ca62761cf331b315f0f9ea446d72135c0be3140a335a81de563710ded0dbf469</ID></Owner><Buckets><Bucket><Name>e2e-store-1472921946</Name><CreationDate>2026-06-28T08:42:01.000Z</CreationDate><BucketArn>arn:aws:s3:::e2e-store-1472921946</BucketArn></Bucket></Buckets></ListAllMyBucketsResult>
+            <ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Owner><ID>ca62761cf331b315f0f9ea446d72135c0be3140a335a81de563710ded0dbf469</ID></Owner><Buckets><Bucket><Name>e2e-store-1472921946</Name><CreationDate>2026-06-28T08:42:01.000Z</CreationDate><BucketArn>arn:aws:s3:::e2e-store-1472921946</BucketArn><BucketRegion>us-east-1</BucketRegion></Bucket></Buckets></ListAllMyBucketsResult>
         headers:
             Content-Type:
                 - application/xml
