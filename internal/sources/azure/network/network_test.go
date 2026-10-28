@@ -401,6 +401,12 @@ func TestUnrestricted_Table(t *testing.T) {
 		{"v6-only", []string{"::/0"}, false, true},
 		{"restricted", []string{"10.0.0.0/8", "VirtualNetwork"}, false, false},
 		{"mixed", []string{"10.0.0.0/8", "::/0"}, false, true},
+		// Azure treats service tags case-insensitively, so "internet" in a
+		// rule is as open as "Internet".
+		{"internet-lower", []string{"internet"}, true, true},
+		{"internet-upper", []string{"INTERNET"}, true, true},
+		{"any-lower", []string{"any"}, true, true},
+		{"virtualnetwork-lower", []string{"virtualnetwork"}, false, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

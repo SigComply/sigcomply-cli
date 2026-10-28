@@ -388,11 +388,12 @@ func mergePrefixes(single *string, multi []*string) []string {
 
 // unrestricted reports whether the prefix set opens the rule to all IPv4 / all
 // IPv6. "*", "Internet", and "Any" open both families; "0.0.0.0/0" is v4-only
-// and "::/0" is v6-only.
+// and "::/0" is v6-only. Azure matches service tags case-insensitively, so
+// the comparison does too.
 func unrestricted(prefixes []string) (v4, v6 bool) {
 	for _, p := range prefixes {
-		switch p {
-		case "*", "Internet", "Any":
+		switch strings.ToLower(p) {
+		case "*", "internet", "any":
 			v4, v6 = true, true
 		case "0.0.0.0/0":
 			v4 = true

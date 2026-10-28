@@ -37,6 +37,8 @@ this file lists the changes a user notices.
 - GCP firewall rules and AWS security group rules whose protocol is given as a number (`6` for
   TCP, `17` for UDP, `1` for ICMP) are reported by protocol name. Before, the open-port checks
   never examined a TCP rule written as `6`, so you may see new failures for such rules.
+- Azure NSG rules whose source is a service tag in another case (`internet`, `ANY`) are now
+  recognized as open to the internet, so the open-port checks flag them.
 - The install script checks the downloaded archive against the release's `checksums.txt` and stops
   on a mismatch. `SIGCOMPLY_VERSION` accepts a version without the leading `v`.
 - `init-ci` scaffolds pin the CLI release that generated them (or `latest` for a development
