@@ -127,9 +127,13 @@ func techCryptoPolicies() []core.Policy {
 		autoPolicy{
 			id: "iso27001.8.24.kms_key_rotation", control: ctrlCryptography, severity: core.SeverityHigh, category: catDataProtection, cadence: cadenceDaily,
 			accepts: []string{"kms_key"},
-			desc:    "Customer-managed KMS keys rotate automatically.",
+			desc:    "Enabled customer-managed KMS keys rotate automatically.",
 			rem:     "Enable rotation on each customer-managed key.",
-			clause:  allWhere(allOf(isSet("payload.is_customer_managed"), leaf("payload.is_customer_managed", "eq", true)), leaf("payload.rotation_enabled", "eq", true), "KMS key {{.payload.key_id}} does not have rotation enabled"),
+			// Disabled keys, and AWS keys pending deletion (reported disabled),
+			// encrypt nothing and are not rotated by the provider: out of scope.
+			clause: allWhere(allOf(isSet("payload.is_customer_managed"), leaf("payload.is_customer_managed", "eq", true),
+				isSet("payload.enabled"), leaf("payload.enabled", "eq", true)),
+				leaf("payload.rotation_enabled", "eq", true), "KMS key {{.payload.key_id}} does not have rotation enabled"),
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.8.24.secrets_rotation_enabled", control: ctrlCryptography, severity: core.SeverityMedium, category: catDataProtection, cadence: cadenceDaily,

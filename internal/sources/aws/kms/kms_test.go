@@ -14,6 +14,9 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/core"
 )
 
+// keySym is the rotatable key in the rotation-support test.
+const keySym = "sym"
+
 // keyAAA is the KMS key ID shared by this file's fixtures.
 const keyAAA = "aaa-key"
 
@@ -264,5 +267,50 @@ func TestNewFromAWS_SmokeTest(t *testing.T) {
 	}
 	if p.ID() != SourceID {
 		t.Errorf("ID = %q", p.ID())
+	}
+}
+
+// KMS supports automatic rotation only on symmetric keys with KMS-made
+// key material outside a custom key store. GetKeyRotationStatus is not
+// asked for the others (an unsupported-operation error there used to
+// abort the whole collection); their rotation_enabled is false, which is
+// what KMS does with them.
+func TestCollect_SkipsRotationStatusForKeysThatCannotRotate(t *testing.T) {
+	cmk := func(id string, spec kmstypes.KeySpec, origin kmstypes.OriginType, store *string) *kmstypes.KeyMetadata {
+		return &kmstypes.KeyMetadata{KeyId: ptr(id), KeyManager: kmstypes.KeyManagerTypeCustomer, Enabled: true,
+			KeySpec: spec, Origin: origin, CustomKeyStoreId: store}
+	}
+	fake := &fakeAPI{
+		keys: []kmstypes.KeyListEntry{{KeyId: ptr(keySym)}, {KeyId: ptr("rsa")}, {KeyId: ptr("hmac")}, {KeyId: ptr("imported")}, {KeyId: ptr("hsm")}},
+		metadata: map[string]*kmstypes.KeyMetadata{
+			keySym:     cmk(keySym, kmstypes.KeySpecSymmetricDefault, kmstypes.OriginTypeAwsKms, nil),
+			"rsa":      cmk("rsa", kmstypes.KeySpecRsa2048, kmstypes.OriginTypeAwsKms, nil),
+			"hmac":     cmk("hmac", kmstypes.KeySpecHmac256, kmstypes.OriginTypeAwsKms, nil),
+			"imported": cmk("imported", kmstypes.KeySpecSymmetricDefault, kmstypes.OriginTypeExternal, nil),
+			"hsm":      cmk("hsm", kmstypes.KeySpecSymmetricDefault, kmstypes.OriginTypeAwsCloudhsm, ptr("cks-1")),
+		},
+		rotation: map[string]bool{keySym: true},
+		rotErr: map[string]error{
+			"rsa":      errors.New("UnsupportedOperationException"),
+			"hmac":     errors.New("UnsupportedOperationException"),
+			"imported": errors.New("UnsupportedOperationException"),
+			"hsm":      errors.New("UnsupportedOperationException"),
+		},
+	}
+	recs, err := New(Options{API: fake}).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if fake.rotCount != 1 {
+		t.Errorf("GetKeyRotationStatus calls = %d; want 1 (only the symmetric KMS-origin key)", fake.rotCount)
+	}
+	for _, r := range recs {
+		var p keyPayload
+		if err := json.Unmarshal(r.Payload, &p); err != nil {
+			t.Fatal(err)
+		}
+		if want := r.ID == keySym; p.RotationEnabled != want {
+			t.Errorf("%s rotation_enabled = %v; want %v", r.ID, p.RotationEnabled, want)
+		}
 	}
 }

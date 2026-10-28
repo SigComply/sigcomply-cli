@@ -104,6 +104,11 @@ For `role_arn`, the target role's trust policy must allow the ambient principal 
   emails, so they join the roster directly. It can be the roster source. Used only as the roster,
   it needs just `sso:ListInstances` and `identitystore:ListUsers`.
 - `aws.identity_center` cannot read per-user MFA. See [Source caveats](#source-caveats).
+- `aws.kms` reports `rotation_enabled: false` for customer-managed keys that KMS cannot rotate
+  automatically (asymmetric, HMAC, imported key material, custom key store) without asking KMS.
+  The shipped rotation policies check only enabled customer-managed keys, so keys that are disabled
+  or pending deletion are left out; a key that cannot rotate still fails them. Record an
+  exception for it.
 
 ## GCP
 

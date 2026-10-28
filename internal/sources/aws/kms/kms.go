@@ -141,9 +141,10 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 			Enabled:           md != nil && md.Enabled,
 		}
 		// Rotation is only meaningful for customer-managed keys; for AWS-
-		// managed keys the API rejects the call. Skipping the call there
-		// keeps the plugin from emitting confusing errors.
-		if payload.IsCustomerManaged {
+		// managed keys the API rejects the call. Keys that cannot rotate
+		// automatically are not asked either: rotation_enabled stays false,
+		// which is what KMS does with them.
+		if payload.IsCustomerManaged && rotationSupported(md) {
 			rot, err := p.api.GetKeyRotationStatus(ctx, &awskms.GetKeyRotationStatusInput{KeyId: &keyID})
 			if err != nil {
 				return nil, fmt.Errorf("aws.kms: rotation status for %s: %w", keyID, err)
@@ -183,6 +184,24 @@ func (p *Plugin) listAllKeys(ctx context.Context) ([]kmstypes.KeyListEntry, erro
 		}
 		return out, nil
 	}
+}
+
+// rotationSupported reports whether KMS can rotate the key automatically:
+// only symmetric encryption keys whose material KMS generated, outside a
+// custom key store. Asymmetric, HMAC, imported-material and custom key
+// store keys cannot rotate, and GetKeyRotationStatus is not a reliable
+// read for them.
+func rotationSupported(md *kmstypes.KeyMetadata) bool {
+	if md == nil {
+		return true
+	}
+	if md.KeySpec != "" && md.KeySpec != kmstypes.KeySpecSymmetricDefault {
+		return false
+	}
+	if md.Origin != "" && md.Origin != kmstypes.OriginTypeAwsKms {
+		return false
+	}
+	return md.CustomKeyStoreId == nil || *md.CustomKeyStoreId == ""
 }
 
 func safeKeyID(k *kmstypes.KeyListEntry) string {

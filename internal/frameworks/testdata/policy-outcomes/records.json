@@ -477,6 +477,14 @@
       "payload": {"key_id": "key-cmk-stale", "key_manager": "CUSTOMER", "is_customer_managed": true, "enabled": true, "rotation_enabled": false}
     },
     {
+      "scenarios": ["noncompliant"],
+      "type": "kms_key",
+      "id": "key-cmk-pending-deletion",
+      "source_id": "aws.kms",
+      "why": "disabled (AWS reports a key pending deletion as disabled): out of the rotation filter",
+      "payload": {"key_id": "key-cmk-pending-deletion", "key_manager": "CUSTOMER", "is_customer_managed": true, "enabled": false, "rotation_enabled": false}
+    },
+    {
       "scenarios": ["sparse"],
       "type": "kms_key",
       "id": "projects/p/keyRings/r/cryptoKeys/k",
