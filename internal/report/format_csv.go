@@ -107,7 +107,7 @@ func formatCSVExceptions(cw *csv.Writer, v *ExceptionsView) error {
 }
 
 func formatCSVIntegrity(cw *csv.Writer, v *IntegrityView) error {
-	header := []string{"run_path", csvColRunID, "completed_at", csvColStatus, "signature_valid", "files_verified", "files_total", "first_mismatch_path", "error"}
+	header := []string{"run_path", csvColRunID, "completed_at", csvColStatus, "signature_valid", "files_verified", "files_total", "first_mismatch_path", "error", "problems"}
 	if err := cw.Write(header); err != nil {
 		return err
 	}
@@ -126,6 +126,7 @@ func formatCSVIntegrity(cw *csv.Writer, v *IntegrityView) error {
 			strconv.Itoa(row.FilesTotal),
 			row.FirstMismatchPath,
 			row.Error,
+			problemList(row.Problems),
 		}
 		if err := cw.Write(out); err != nil {
 			return err

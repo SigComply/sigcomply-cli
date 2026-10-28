@@ -9,8 +9,8 @@ same flags.
 |---|---|
 | `0` | Success. For `check`: no policy failed, or `ci.fail_on_violation: false` is set. |
 | `1` | `check`: a policy failed, or a source declared under `experimental.scope` is incomplete. Set `ci.fail_on_violation: false` to exit `0` instead. `report --view integrity`: a run failed verification. |
-| `2` | Execution error, including any policy with status `error`, a credential the provider rejected, a failed write of the run's results, summary or manifest to the vault, and an unknown, invalid or conflicting flag. |
-| `3` | Configuration error: a missing or invalid config, an unknown framework, a listed source whose credentials are missing, or a missing required flag value such as `report --period`. |
+| `2` | Execution error, including any policy with status `error`, a credential the provider rejected, a failed write of the run's results, summary or manifest to the vault, and a flag the command does not know, a flag value of the wrong type, or two flags that cannot be combined. |
+| `3` | Configuration error: a missing or invalid config, an unknown framework, a listed source whose credentials are missing, a missing required flag value such as `report --period`, or a value a flag does not accept (`report --view bogus`, `report --format xml`, `init-ci --ci jenkins`, `evidence -o csv`). For `report`, also a vault path that does not exist or a period with no runs. |
 
 A missing credential exits `3` before any collection starts. A credential the provider rejects
 can only be found during collection, so the affected policies end as `error` and the run exits
@@ -141,19 +141,19 @@ SigComply Cloud and needs no OIDC token.
 
 | Flag | Short | Default | Meaning |
 |---|---|---|---|
-| `--period <id>` | | | Required. Period ID such as `2026-Q4`. Missing: exit `3`. |
+| `--period <id>` | | | Required. Period ID such as `2026-Q4`, or `soc2/2026-Q4` as the first line of `check` prints it. Missing: exit `3`. |
 | `--view <value>` | | `latest` | `latest`, `exceptions`, `integrity`, `scope`, `coverage` or `soa` |
-| `--format <value>` | | `text` | `text`, `json`, `csv`. `pdf` is accepted by the flag but exits `3`. |
+| `--format <value>` | | `text` | `text`, `json` or `csv`. Any other value exits `3` before `--out` is opened. |
 | `--out <file>` | | stdout | Output file. Required for `json` and `csv`. |
 | `--config <path>` | `-c` | `.sigcomply.yaml` | Config file. Not read when both `--vault` and `--framework` are set, unless you pass `-c`. |
-| `--vault <uri>` | | config | Vault location: a path, `file://<path>`, `s3://bucket[/prefix]`, `gs://bucket[/prefix]` or `az://<account>/<container>[/prefix]` |
+| `--vault <uri>` | | config | Vault location: a path, `file://<path>`, `s3://bucket[/prefix][?region=<region>]`, `gs://bucket[/prefix]` or `az://<account>/<container>[/prefix]` |
 | `--framework <value>` | `-f` | config | Framework |
 
 | View | Shows |
 |---|---|
 | `latest` | Each policy's latest status in the period, with the reason for a failure or error |
 | `exceptions` | Waivers and not-applicable declarations |
-| `integrity` | Each run's signature and manifest check, `pass` or the failing files. Exits `1` when any run fails. |
+| `integrity` | Each run's signature and manifest check, `pass` or every failing file: a hash mismatch, a listed file that is missing, or a file in the run folder the manifest does not list. Exits `1` when any run fails. |
 | `scope` | The declared estate (`experimental.scope`) and every control the latest run did not evaluate, with the reason |
 | `coverage` | For each control, whether automated or manual checks are mapped to it, whether the automated checks inspected anything, and whether documents exist for the period |
 | `soa` | The ISO 27001 Statement of Applicability: one row per Annex A control with applicability, justification and status |
@@ -206,6 +206,10 @@ columns `ID`, `CONTROL`, `TYPE`, `FREQUENCY` and `NAME`; `-o json` prints
 catalog spells the annual frequency `yearly`.
 
 The flags belong to the parent `evidence` command, so `--help` lists them as global flags.
+
+`--format json`, like `result.json` in the vault, uses Go field names as keys (`PolicyID`,
+`Status`); some nested objects use `snake_case`. `--format csv` uses `snake_case` column names
+throughout.
 
 | Flag | Short | Default | Meaning |
 |---|---|---|---|

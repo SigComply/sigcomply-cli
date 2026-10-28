@@ -60,6 +60,11 @@ type Snapshot struct {
 	Framework string
 	PeriodID  string
 
+	// RunCount is the number of run folders found for the period. Not
+	// rendered: the command layer uses it to refuse an empty period
+	// instead of printing a table that reads as a clean result.
+	RunCount int `json:"-"`
+
 	Latest     *LatestView     `json:",omitempty"`
 	Exceptions *ExceptionsView `json:",omitempty"`
 	Integrity  *IntegrityView  `json:",omitempty"`
@@ -277,22 +282,42 @@ type IntegrityView struct {
 // IntegrityRow records the outcome of integrity verification for one
 // run folder.
 type IntegrityRow struct {
-	RunPath           string
-	RunID             string
-	CompletedAt       time.Time
-	SignatureValid    bool
-	FilesVerified     int
-	FilesTotal        int
+	RunPath        string
+	RunID          string
+	CompletedAt    time.Time
+	SignatureValid bool
+	FilesVerified  int
+	FilesTotal     int
+	// FirstMismatchPath is the first entry of Problems in path order,
+	// kept for readers of the CSV and JSON output that predate Problems.
 	FirstMismatchPath string
-	Error             string // populated when SignatureValid is false or a file is missing
+	// Problems lists every file that failed verification: a listed file
+	// whose hash differs or that is gone, and a file in the run folder
+	// the manifest does not list. Sorted by path.
+	Problems []IntegrityProblem `json:",omitempty"`
+	Error    string             // populated when SignatureValid is false or a file failed
 }
 
-// Status returns "pass" if the run's signature verifies and every
-// file_hashes entry matched its recomputed SHA-256; "fail" otherwise.
+// IntegrityProblem is one file that failed run verification.
+type IntegrityProblem struct {
+	Path string
+	Kind string // one of the Problem* constants
+}
+
+// Kinds of IntegrityProblem.
+const (
+	ProblemHashMismatch  = "hash mismatch"
+	ProblemMissing       = "missing"
+	ProblemNotInManifest = "not in manifest"
+)
+
+// Status returns "pass" if the run's signature verifies, every
+// file_hashes entry matched its recomputed SHA-256 and the run folder
+// holds no file the manifest does not list; "fail" otherwise.
 // Centralizing the boolean → label mapping lets every formatter render
 // the same word.
 func (r *IntegrityRow) Status() string {
-	if r.SignatureValid && r.FirstMismatchPath == "" && r.Error == "" {
+	if r.SignatureValid && r.FirstMismatchPath == "" && r.Error == "" && len(r.Problems) == 0 {
 		return "pass"
 	}
 	return "fail"

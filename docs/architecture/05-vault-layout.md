@@ -198,8 +198,10 @@ single-level Merkle tree. `result.json` and `summary.json` are unsigned but hash
 ## Verification
 
 The reference verifiers are `sign.VerifyEnvelope` and `sign.VerifyManifest`. `sigcomply report
---view integrity` verifies each run's manifest signature and recomputes its `file_hashes`
-(`buildIntegrity` in `internal/report/report.go`); it does not verify envelope signatures. The
+--view integrity` verifies each run's manifest signature, recomputes its `file_hashes`, and
+flags any file in the run folder the manifest does not list (`buildIntegrity` in
+`internal/report/report.go`). It reports every failing file, not the first. It does not verify
+envelope signatures. The other report views read only `result.json` files the manifest lists. The
 Evidence SPA's `/verify` page checks an envelope in the browser.
 
 For one envelope, with no other state:

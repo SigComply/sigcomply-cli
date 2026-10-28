@@ -153,7 +153,8 @@ Docs: https://github.com/SigComply/sigcomply-cli/blob/main/docs/README.md
 - Config: `.sigcomply.yaml`. The framework key is singular: `framework:`.
 - Credentials come from the environment, never the config file.
 - Run: `sigcomply check` (no `--framework` flag). Read results with
-  `sigcomply report --period <period-id>`; `check` prints the period ID.
+  `sigcomply report --period <period-id>`; `check` prints it as `<framework>/<period-id>`,
+  and either form works. A period with no runs exits 3.
 - Exit codes: 0 no failures, 1 failing policies or incomplete scope, 2 execution
   error, 3 configuration error.
 - Missing documents: `sigcomply evidence due --all`.

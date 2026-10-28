@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -61,11 +62,11 @@ func newReportCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&flags.config, "config", "c", ".sigcomply.yaml", "Path to project config")
-	cmd.Flags().StringVar(&flags.vaultURI, "vault", "", "Vault URI (overrides project config). Supports paths and file://, s3://, gs://, az:// URIs.")
+	cmd.Flags().StringVar(&flags.vaultURI, "vault", "", "Vault URI (overrides project config). Supports paths and file://, s3://bucket[/prefix][?region=r], gs://, az:// URIs. An s3:// URI without ?region= uses AWS_REGION, AWS_DEFAULT_REGION, then the project config's vault region.")
 	cmd.Flags().StringVarP(&flags.framework, "framework", "f", "", "Framework to report on (defaults to project config's framework)")
-	cmd.Flags().StringVar(&flags.period, "period", "", "Period ID (e.g. 2026-Q1). Required.")
+	cmd.Flags().StringVar(&flags.period, "period", "", "Period ID (e.g. 2026-Q1, or soc2/2026-Q1 as check prints it). Required.")
 	cmd.Flags().StringVar(&flags.view, "view", "latest", "View: latest | exceptions | integrity | scope | coverage | soa")
-	cmd.Flags().StringVar(&flags.format, "format", "text", "Output format: text | json | csv | pdf (pdf deferred to v1.x)")
+	cmd.Flags().StringVar(&flags.format, "format", "text", "Output format: text | json | csv")
 	cmd.Flags().StringVar(&flags.out, "out", "", "Output file (required for non-text formats; default stdout for text)")
 	return cmd
 }
@@ -78,80 +79,154 @@ func runReport(ctx context.Context, stdout io.Writer, flags *reportFlags) error 
 	if flags.period == "" {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: fmt.Errorf("report: --period is required (e.g. --period 2026-Q1)")}
 	}
-	if flags.format == "pdf" {
-		// Documented carve-out: PDF rendering is deferred to v1.x. The
-		// flag is accepted by the parser so the help text shows it, but
-		// passing it surfaces a clear actionable error rather than a
-		// silently truncated stub.
-		return &exitCodeError{code: orchestrator.ExitConfig,
-			err: fmt.Errorf("report: PDF format deferred to v1.x; use --format text or --format json (or --format csv)")}
+	if flags.format == "" {
+		flags.format = outputText
 	}
-
-	cfg, err := loadReportConfig(flags)
-	if err != nil {
+	// Checked before anything is read or opened: an invalid format
+	// found only at write time would already have truncated --out.
+	if err := validateReportFormat(flags.format); err != nil {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
-	}
-
-	v, err := vault.FromConfig(ctx, &cfg.Vault)
-	if err != nil {
-		return &exitCodeError{code: orchestrator.ExitConfig, err: fmt.Errorf("vault: %w", err)}
-	}
-
-	framework := flags.framework
-	if framework == "" {
-		framework = cfg.Framework
-	}
-	if framework == "" {
-		return &exitCodeError{code: orchestrator.ExitConfig, err: fmt.Errorf("report: framework not set (use --framework or set in %s)", flags.config)}
 	}
 
 	view, err := parseView(flags.view)
 	if err != nil {
 		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
 	}
-
-	// The coverage and soa views must name controls that produced no
-	// result at all, so they need the framework's catalog rather than
-	// only what the vault happens to contain. Resolving it here keeps
-	// internal/report free of a frameworks import. Registration is pure
-	// in-process — no config, no network — so `report` still works with
-	// just --vault and --framework.
-	var controls []core.Control
-	var policies []core.Policy
-	if view == report.ViewCoverage || view == report.ViewSoA {
-		controls, policies, err = frameworkCatalog(framework)
-		if err != nil {
-			return &exitCodeError{code: orchestrator.ExitConfig, err: err}
-		}
+	cfg, framework, periodID, err := resolveReportTarget(flags)
+	if err != nil {
+		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
+	}
+	v, err := openReportVault(ctx, &cfg.Vault)
+	if err != nil {
+		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
 	}
 
-	var controlConfigs map[string]spec.ControlConfig
-	var controlRisks map[string][]string
-	if view == report.ViewSoA {
-		controlConfigs, controlRisks, err = soaDecisions(flags, cfg)
-		if err != nil {
-			return &exitCodeError{code: orchestrator.ExitConfig, err: err}
-		}
+	in, err := viewInput(flags, cfg, framework, view)
+	if err != nil {
+		return &exitCodeError{code: orchestrator.ExitConfig, err: err}
 	}
-
-	snap, err := report.Build(ctx, &report.Input{
-		Vault:          v,
-		Framework:      framework,
-		PeriodID:       flags.period,
-		View:           view,
-		Controls:       controls,
-		Policies:       policies,
-		ControlConfigs: controlConfigs,
-		ControlRisks:   controlRisks,
-	})
+	in.Vault, in.PeriodID = v, periodID
+	snap, err := report.Build(ctx, in)
 	if err != nil {
 		return &exitCodeError{code: orchestrator.ExitExecution, err: err}
+	}
+	// The SoA is the exception: its applicability half comes from the
+	// config, and with no runs every control reads "not evaluated", so
+	// an empty period is visible in the document itself.
+	if snap.RunCount == 0 && view != report.ViewSoA {
+		return noRunsError(ctx, v, framework, periodID)
 	}
 
 	if err := writeReport(stdout, flags, snap); err != nil {
 		return err
 	}
 	return integrityVerdict(snap)
+}
+
+// viewInput resolves what the chosen view needs beyond the vault. The
+// coverage and soa views must name controls that produced no result at
+// all, so they need the framework's catalog rather than only what the
+// vault happens to contain. Resolving it here keeps internal/report free
+// of a frameworks import. Registration is pure in-process — no config,
+// no network — so `report` still works with just --vault and
+// --framework.
+func viewInput(flags *reportFlags, cfg *spec.ProjectConfig, framework string, view report.View) (*report.Input, error) {
+	in := &report.Input{Framework: framework, View: view}
+	var err error
+	if view == report.ViewCoverage || view == report.ViewSoA {
+		in.Controls, in.Policies, err = frameworkCatalog(framework)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if view == report.ViewSoA {
+		in.ControlConfigs, in.ControlRisks, err = soaDecisions(flags, cfg)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return in, nil
+}
+
+// resolveReportTarget loads the config and settles which framework and
+// period the report reads.
+func resolveReportTarget(flags *reportFlags) (cfg *spec.ProjectConfig, framework, periodID string, err error) {
+	cfg, err = loadReportConfig(flags)
+	if err != nil {
+		return nil, "", "", err
+	}
+	framework = flags.framework
+	if framework == "" {
+		framework = cfg.Framework
+	}
+	if framework == "" {
+		return nil, "", "", fmt.Errorf("report: framework not set (use --framework or set in %s)", flags.config)
+	}
+	periodID, err = normalizeReportPeriod(flags.period, framework)
+	if err != nil {
+		return nil, "", "", err
+	}
+	return cfg, framework, periodID, nil
+}
+
+// openReportVault opens the vault read-only in intent. The local backend
+// creates its root on open; report never writes, and a missing directory
+// here is a mistyped path, not an empty vault, so it is refused rather
+// than created and reported as "no runs".
+func openReportVault(ctx context.Context, vc *spec.VaultConfig) (core.Vault, error) {
+	if vc.Backend == backendLocal {
+		if _, err := os.Stat(vc.Str("path")); err != nil {
+			return nil, fmt.Errorf("report: vault path %q: %w", vc.Str("path"), err)
+		}
+	}
+	v, err := vault.FromConfig(ctx, vc)
+	if err != nil {
+		return nil, fmt.Errorf("vault: %w", err)
+	}
+	return v, nil
+}
+
+// validateReportFormat accepts the formats formatTo can write.
+func validateReportFormat(format string) error {
+	switch format {
+	case outputText, outputJSON, "csv":
+		return nil
+	case "pdf":
+		// The flag value is listed in the help text, so passing it gets
+		// an actionable error rather than a silently truncated stub.
+		return errors.New("report: PDF output is not available yet; use --format text, json or csv")
+	default:
+		return fmt.Errorf("report: invalid --format %q (want text|json|csv)", format)
+	}
+}
+
+// normalizeReportPeriod accepts the period both as the bare ID and in
+// the "<framework>/<period>" form `check` prints on its first line, so
+// the value a user copies from that line works. Any other slash is an
+// error: a period ID is one vault path segment.
+func normalizeReportPeriod(period, framework string) (string, error) {
+	id := strings.TrimPrefix(period, framework+"/")
+	if strings.Contains(id, "/") {
+		return "", fmt.Errorf("report: --period %q: pass the period ID alone (e.g. 2026-Q1), or %s/<period> for framework %s", period, framework, framework)
+	}
+	return id, nil
+}
+
+// noRunsError refuses a period with no run folders. An empty table with
+// exit 0 would let an integrity gate pass on a typo'd period or vault,
+// so the command exits 3 and lists the periods the vault does hold.
+func noRunsError(ctx context.Context, v core.Vault, framework, periodID string) error {
+	msg := fmt.Sprintf("report: no runs for %s/%s in this vault", framework, periodID)
+	periods, err := report.ListPeriods(ctx, v, framework)
+	switch {
+	case err != nil:
+		msg += fmt.Sprintf(" (listing other periods failed: %v)", err)
+	case len(periods) == 0:
+		msg += fmt.Sprintf("; it holds no %s runs at all: check --vault and --framework", framework)
+	default:
+		msg += "; periods with runs: " + strings.Join(periods, ", ")
+	}
+	return &exitCodeError{code: orchestrator.ExitConfig, err: errors.New(msg)}
 }
 
 // integrityVerdict turns a failed integrity check into exit 1, the
@@ -242,6 +317,13 @@ func loadReportConfig(flags *reportFlags) (*spec.ProjectConfig, error) {
 		if err != nil {
 			return nil, err
 		}
+		if vaultCfg.Backend == "s3" && vaultCfg.Str(regionConfigKey) == "" {
+			region := s3RegionFallback(&cfg.Vault)
+			if region == "" {
+				return nil, fmt.Errorf("--vault %s: the S3 vault needs a region: add ?region=<region> to the URI or set AWS_REGION", flags.vaultURI)
+			}
+			vaultCfg.Config[regionConfigKey] = region
+		}
 		cfg.Vault = vaultCfg
 	}
 	if flags.framework != "" {
@@ -251,15 +333,35 @@ func loadReportConfig(flags *reportFlags) (*spec.ProjectConfig, error) {
 }
 
 // prefixConfigKey is the spec.VaultConfig key holding the object-store
-// key prefix for the bucket-backed vault backends.
-const prefixConfigKey = "prefix"
+// key prefix for the bucket-backed vault backends; regionConfigKey holds
+// the S3 backend's region.
+const (
+	prefixConfigKey = "prefix"
+	regionConfigKey = "region"
+)
+
+// s3RegionFallback supplies the region an s3:// --vault URI left out:
+// the usual AWS environment variables first, then the project config's
+// vault region when that vault is S3 too. The S3 backend requires a
+// region, and before this an s3:// URI had no way to give one.
+func s3RegionFallback(projectVault *spec.VaultConfig) string {
+	for _, env := range []string{"AWS_REGION", "AWS_DEFAULT_REGION"} {
+		if r := os.Getenv(env); r != "" {
+			return r
+		}
+	}
+	if projectVault.Backend == "s3" {
+		return projectVault.Str(regionConfigKey)
+	}
+	return ""
+}
 
 // vaultConfigFromURI maps a CLI-supplied --vault value onto a
 // spec.VaultConfig the factory can consume. Supports:
 //
 //	local path:      /var/sigcomply/vault         (or ./relative/path)
 //	file scheme:     file:///var/sigcomply/vault
-//	S3 / GCS / Azure: s3://bucket[/prefix], gs://bucket[/prefix],
+//	S3 / GCS / Azure: s3://bucket[/prefix][?region=r], gs://bucket[/prefix],
 //	                  az://account/container[/prefix]
 //
 // The mapping is intentionally narrow — anything more elaborate
@@ -268,8 +370,24 @@ const prefixConfigKey = "prefix"
 func vaultConfigFromURI(uri string) (spec.VaultConfig, error) {
 	switch {
 	case strings.HasPrefix(uri, "s3://"):
-		bucket, prefix := splitBucketPrefix(strings.TrimPrefix(uri, "s3://"))
-		return spec.VaultConfig{Backend: "s3", Config: map[string]any{"bucket": bucket, prefixConfigKey: prefix}}, nil
+		rest, query, _ := strings.Cut(strings.TrimPrefix(uri, "s3://"), "?")
+		bucket, prefix := splitBucketPrefix(rest)
+		out := spec.VaultConfig{Backend: "s3", Config: map[string]any{"bucket": bucket, prefixConfigKey: prefix}}
+		if query != "" {
+			params, err := url.ParseQuery(query)
+			if err != nil {
+				return spec.VaultConfig{}, fmt.Errorf("--vault: %w", err)
+			}
+			for k := range params {
+				if k != regionConfigKey {
+					return spec.VaultConfig{}, fmt.Errorf("--vault: unsupported s3:// parameter %q (only ?region= is accepted; anything else belongs in the project config)", k)
+				}
+			}
+			if r := params.Get(regionConfigKey); r != "" {
+				out.Config[regionConfigKey] = r
+			}
+		}
+		return out, nil
 	case strings.HasPrefix(uri, "gs://"):
 		bucket, prefix := splitBucketPrefix(strings.TrimPrefix(uri, "gs://"))
 		return spec.VaultConfig{Backend: "gcs", Config: map[string]any{"bucket": bucket, prefixConfigKey: prefix}}, nil
@@ -376,7 +494,6 @@ func formatTo(sink io.Writer, format string, snap *report.Snapshot) error {
 	case "csv":
 		return report.FormatCSV(sink, snap)
 	default:
-		return &exitCodeError{code: orchestrator.ExitConfig,
-			err: fmt.Errorf("report: invalid --format %q (want text|json|csv|pdf)", format)}
+		return &exitCodeError{code: orchestrator.ExitConfig, err: validateReportFormat(format)}
 	}
 }

@@ -101,7 +101,9 @@ func formatTextIntegrity(w io.Writer, v *IntegrityView) error {
 		row := &v.Runs[i]
 		count := fmt.Sprintf("%d/%d", row.FilesVerified, row.FilesTotal)
 		detail := "-"
-		if row.FirstMismatchPath != "" {
+		if len(row.Problems) > 0 {
+			detail = problemList(row.Problems)
+		} else if row.FirstMismatchPath != "" {
 			detail = "mismatch: " + row.FirstMismatchPath
 		} else if row.Error != "" {
 			detail = oneLine(row.Error)
@@ -111,6 +113,16 @@ func formatTextIntegrity(w io.Writer, v *IntegrityView) error {
 		}
 	}
 	return tw.Flush()
+}
+
+// problemList renders every failed file of a run as
+// "<kind>: <path>; <kind>: <path>", so no failure hides behind the first.
+func problemList(problems []IntegrityProblem) string {
+	parts := make([]string, len(problems))
+	for i, p := range problems {
+		parts[i] = p.Kind + ": " + p.Path
+	}
+	return strings.Join(parts, "; ")
 }
 
 // dash returns "-" for empty strings so tabwriter columns stay aligned

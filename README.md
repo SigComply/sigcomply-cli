@@ -47,9 +47,10 @@ sigcomply check
 sigcomply report --period <period-id>
 ```
 
-`init` writes a `.sigcomply.yaml` that reads AWS IAM and stores signed results in
-`./.sigcomply/vault`. `check` prints the period ID on its first summary line, for example
-`soc2/2026-Q4`. The [Quickstart](docs/quickstart.md) walks through this run step by step.
+`init` writes a `.sigcomply.yaml` that reads AWS IAM users, access keys and the password policy,
+and stores signed results in `./.sigcomply/vault`. `check` prints the framework and period on
+its first summary line, for example `soc2/2026-Q4`; `report --period` takes `2026-Q4` or the
+whole value. The [Quickstart](docs/quickstart.md) walks through this run step by step.
 
 ## Documentation
 

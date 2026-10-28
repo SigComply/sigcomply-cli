@@ -80,7 +80,7 @@ func Build(ctx context.Context, in *Input) (*Snapshot, error) {
 		return nil, err
 	}
 
-	snap := &Snapshot{View: view, Framework: in.Framework, PeriodID: in.PeriodID}
+	snap := &Snapshot{View: view, Framework: in.Framework, PeriodID: in.PeriodID, RunCount: len(runs)}
 	if err := fillView(ctx, in, view, runs, snap); err != nil {
 		return nil, err
 	}
@@ -223,7 +223,7 @@ func buildLatest(ctx context.Context, v core.Vault, runs []runRecord) (*LatestVi
 		if r.Manifest.RunID == "" {
 			continue
 		}
-		policyResults, err := listPolicyResults(ctx, v, r.Path)
+		policyResults, err := listPolicyResults(ctx, v, r)
 		if err != nil {
 			return nil, err
 		}
@@ -276,10 +276,13 @@ func buildLatest(ctx context.Context, v core.Vault, runs []runRecord) (*LatestVi
 }
 
 // listPolicyResults returns policy_id → raw result.json bytes for every
-// policy folder under <runPath>/policies/. Missing files are skipped
-// (a run that errored out before writing some results is still readable).
-func listPolicyResults(ctx context.Context, v core.Vault, runPath string) (map[string][]byte, error) {
-	prefix := runPath + "/policies/"
+// policy folder under <runPath>/policies/ whose result.json the run's
+// manifest lists. Missing files are skipped (a run that errored out
+// before writing some results is still readable), and so is a file the
+// manifest does not vouch for: the integrity view flags it, and no
+// other view may present it as a policy outcome.
+func listPolicyResults(ctx context.Context, v core.Vault, r *runRecord) (map[string][]byte, error) {
+	prefix := r.Path + "/policies/"
 	keys, err := v.List(ctx, prefix)
 	if err != nil {
 		return nil, fmt.Errorf("report: list %s: %w", prefix, err)
@@ -295,6 +298,9 @@ func listPolicyResults(ctx context.Context, v core.Vault, runPath string) (map[s
 			continue
 		}
 		policyID := rest[:slash]
+		if _, ok := r.Manifest.FileHashes["policies/"+rest]; !ok {
+			continue
+		}
 		body, err := v.GetBinary(ctx, k)
 		if err != nil {
 			continue
@@ -367,7 +373,8 @@ func exceptionScopeLabel(e *core.AppliedException) string {
 }
 
 // buildIntegrity verifies every run's manifest signature, then
-// recomputes SHA-256 of each file under file_hashes and compares. Output
+// recomputes SHA-256 of each file under file_hashes and compares, and
+// flags any file in the run folder the manifest does not list. Output
 // is one row per run, sorted by run path (which sorts by timestamp in
 // ISO 8601 basic form so the output is reproducible).
 func buildIntegrity(ctx context.Context, v core.Vault, runs []runRecord) *IntegrityView {
@@ -392,33 +399,77 @@ func buildIntegrity(ctx context.Context, v core.Vault, runs []runRecord) *Integr
 			continue
 		}
 		row.SignatureValid = true
-		// Sort hash table keys so the first mismatch we report is
-		// deterministic across runs.
-		paths := make([]string, 0, len(r.Manifest.FileHashes))
-		for p := range r.Manifest.FileHashes {
-			paths = append(paths, p)
-		}
-		sort.Strings(paths)
-		for _, rel := range paths {
-			want := r.Manifest.FileHashes[rel]
-			body, err := v.GetBinary(ctx, r.Path+"/"+rel)
-			if err != nil {
-				row.FirstMismatchPath = rel
-				row.Error = "file missing: " + err.Error()
-				break
-			}
-			got := "sha256:" + sha256Hex(body)
-			if got != want {
-				row.FirstMismatchPath = rel
-				row.Error = "hash mismatch"
-				break
-			}
-			row.FilesVerified++
+		if err := verifyRunFiles(ctx, v, r, &row); err != nil {
+			row.Error = err.Error()
 		}
 		out.Runs = append(out.Runs, row)
 	}
 	sort.Slice(out.Runs, func(i, j int) bool { return out.Runs[i].RunPath < out.Runs[j].RunPath })
 	return out
+}
+
+// verifyRunFiles checks every file the manifest lists and every file
+// the run folder holds, recording each failure on row.Problems. It does
+// not stop at the first failure: an auditor needs the whole list, and
+// FilesVerified must count what actually matched. A returned error
+// means the run folder could not be listed at all.
+func verifyRunFiles(ctx context.Context, v core.Vault, r *runRecord, row *IntegrityRow) error {
+	for rel, want := range r.Manifest.FileHashes {
+		body, err := v.GetBinary(ctx, r.Path+"/"+rel)
+		switch {
+		case err != nil:
+			row.Problems = append(row.Problems, IntegrityProblem{Path: rel, Kind: ProblemMissing})
+		case "sha256:"+sha256Hex(body) != want:
+			row.Problems = append(row.Problems, IntegrityProblem{Path: rel, Kind: ProblemHashMismatch})
+		default:
+			row.FilesVerified++
+		}
+	}
+	keys, err := v.List(ctx, r.Path+"/")
+	if err != nil {
+		return fmt.Errorf("list run folder: %w", err)
+	}
+	for _, k := range keys {
+		rel := strings.TrimPrefix(k, r.Path+"/")
+		// A trailing slash is an object store's folder placeholder,
+		// not a file.
+		if rel == "manifest.json" || rel == "" || strings.HasSuffix(rel, "/") {
+			continue
+		}
+		if _, listed := r.Manifest.FileHashes[rel]; !listed {
+			row.Problems = append(row.Problems, IntegrityProblem{Path: rel, Kind: ProblemNotInManifest})
+		}
+	}
+	if len(row.Problems) == 0 {
+		return nil
+	}
+	sort.Slice(row.Problems, func(i, j int) bool { return row.Problems[i].Path < row.Problems[j].Path })
+	row.FirstMismatchPath = row.Problems[0].Path
+	return fmt.Errorf("%d file(s) failed verification", len(row.Problems))
+}
+
+// ListPeriods returns the period IDs under a framework that hold at
+// least one run folder, sorted. The command layer prints them when a
+// requested period has no runs, so a typo gets a list to pick from.
+func ListPeriods(ctx context.Context, v core.Vault, framework string) ([]string, error) {
+	prefix := framework + "/"
+	keys, err := v.List(ctx, prefix)
+	if err != nil {
+		return nil, fmt.Errorf("report: list %s: %w", prefix, err)
+	}
+	seen := map[string]struct{}{}
+	for _, k := range keys {
+		parts := strings.SplitN(strings.TrimPrefix(k, prefix), "/", 3)
+		if len(parts) == 3 && strings.HasPrefix(parts[1], "run_") {
+			seen[parts[0]] = struct{}{}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for p := range seen {
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return out, nil
 }
 
 func sha256Hex(body []byte) string {

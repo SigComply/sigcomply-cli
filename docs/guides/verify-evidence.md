@@ -23,6 +23,7 @@ storage). Threat model: [`SECURITY.md`](../../SECURITY.md).
 - Read access to the vault, and the CLI installed ([install guide](install.md)) for the first
   task.
 - The period to check, for example `2026-Q4`. Run folders are grouped by period in the vault.
+  `check` prints it on its first line as `soc2/2026-Q4`; `--period` takes either form.
 
 ## Verify a whole period with the CLI
 
@@ -35,19 +36,28 @@ storage). Threat model: [`SECURITY.md`](../../SECURITY.md).
    To check a vault in a bucket, or without the project config, pass the vault and framework:
 
    ```bash
-   sigcomply report --period 2026-Q4 --view integrity --vault s3://my-vault-bucket -f soc2
+   sigcomply report --period 2026-Q4 --view integrity --vault 's3://my-vault-bucket?region=us-east-1' -f soc2
    ```
+
+   Without `?region=`, the region comes from `AWS_REGION`, then `AWS_DEFAULT_REGION`. Reading an
+   S3 vault needs AWS credentials with `s3:ListBucket` and `s3:GetObject` on the bucket.
 
 2. Read the `STATUS` column. Each run in the period is one row:
 
    ```text
    RUN_PATH                                    STATUS  FILES_OK  DETAIL
    soc2/2026-Q4/run_20261026T201228Z_2771326f  pass    95/95     -
-   soc2/2026-Q4/run_20261026T201228Z_30e5ba7f  fail    57/95     mismatch: policies/soc2.cc7.3.incident_response_plan/result.json
+   soc2/2026-Q4/run_20261026T201228Z_30e5ba7f  fail    94/95     hash mismatch: policies/soc2.cc7.3.incident_response_plan/result.json
    ```
 
-   `fail` names the first file whose hash no longer matches the manifest. The command exits `1`
-   when any run fails and `0` when every run passes, so a script can rely on the exit code.
+   `fail` lists every file that failed: `hash mismatch` (the file changed), `missing` (a file
+   the manifest lists is gone) and `not in manifest` (a file was added to the run folder after
+   the run). `FILES_OK` counts the listed files that still match. Other views ignore a file the
+   manifest does not list.
+
+   The command exits `1` when any run fails and `0` when every run passes. A period with no runs,
+   or a local vault path that does not exist, exits `3` with the periods the vault holds, so a
+   typo never passes. A script can rely on the exit code.
 
 3. For a file you can keep, write JSON or CSV with `--out`:
 

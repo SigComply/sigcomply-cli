@@ -117,8 +117,8 @@ func TestRunReport_PDFFormatDeferred(t *testing.T) {
 	if err == nil {
 		t.Fatal("want PDF-deferred error")
 	}
-	if !strings.Contains(err.Error(), "PDF format deferred") {
-		t.Errorf("error should mention deferred PDF; got %v", err)
+	if !strings.Contains(err.Error(), "PDF output is not available") {
+		t.Errorf("error should say PDF is not available; got %v", err)
 	}
 }
 

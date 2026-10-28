@@ -61,7 +61,7 @@ func buildScope(ctx context.Context, v core.Vault, runs []runRecord) (*ScopeView
 		}
 	}
 
-	raw, err := listPolicyResults(ctx, v, latest.Path)
+	raw, err := listPolicyResults(ctx, v, &latest)
 	if err != nil {
 		return nil, err
 	}

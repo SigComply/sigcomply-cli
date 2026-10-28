@@ -56,8 +56,8 @@ The CLI writes the payload to the file and doesn't send it.
   file and no SigComply service.
 - Each run also writes `manifest.json`, which lists a SHA-256 hash for every file the run wrote
   to the vault. The manifest is signed with its own new keypair.
-- `sigcomply report --view integrity` checks each run's manifest signature and recomputes every
-  hash it lists. The Evidence SPA's `/verify` page checks a single envelope in the browser.
+- `sigcomply report --view integrity` checks each run's manifest signature, recomputes every
+  hash it lists, and fails a run whose folder holds a file the manifest does not list. The Evidence SPA's `/verify` page checks a single envelope in the browser.
 
 ### What signing detects
 

@@ -306,7 +306,7 @@ func latestResultsByPolicy(ctx context.Context, v core.Vault, runs []runRecord) 
 		if runs[i].Manifest.RunID == "" {
 			continue
 		}
-		bodies, err := listPolicyResults(ctx, v, runs[i].Path)
+		bodies, err := listPolicyResults(ctx, v, &runs[i])
 		if err != nil {
 			return nil, err
 		}
