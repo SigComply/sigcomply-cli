@@ -202,6 +202,46 @@ func TestRunCheck_PlanErrorExitsConfig(t *testing.T) {
 	}
 }
 
+// cadenceAnnualName is the annual cadence value as a user types it.
+const cadenceAnnualName = "annual"
+
+// A mistyped cadence used to select 0 policies and exit 0, so a CI job
+// with a typo stayed green while checking nothing.
+func TestRunCheck_UnknownCadenceExitsConfig(t *testing.T) {
+	cases := []struct {
+		name  string
+		flags checkFlags
+		bad   string
+	}{
+		{"cadence", checkFlags{cadence: "yearly"}, "yearly"},
+		{"cadences", checkFlags{cadences: []string{"daily", "bogus"}}, "bogus"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			tmp := t.TempDir()
+			configPath := filepath.Join(tmp, "cfg.yaml")
+			manualDir := filepath.Join(tmp, "manual")
+			if err := os.MkdirAll(manualDir, 0o750); err != nil {
+				t.Fatal(err)
+			}
+			writeManualOnlyConfig(t, configPath, filepath.Join(tmp, "vault"), manualDir)
+			flags := c.flags
+			flags.config = configPath
+			flags.cloudOff = true
+			err := runCheck(context.Background(), &bytes.Buffer{}, &flags)
+			var ec *exitCodeError
+			if !errors.As(err, &ec) || ec.code != orchestrator.ExitConfig {
+				t.Fatalf("want exitCodeError{code:3}; got %v", err)
+			}
+			for _, want := range []string{c.bad, cadenceAnnualName} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error = %v; want it to name %q", err, want)
+				}
+			}
+		})
+	}
+}
+
 // Config mistakes the loader catches stop the run before any source is
 // built, with exit 3 and a message naming the key.
 func TestRunCheck_LoadTimeConfigErrorsExitConfig(t *testing.T) {

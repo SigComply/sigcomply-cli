@@ -55,7 +55,9 @@ from the HEAD commit instead). The first summary line prints it, for example
 | `--verbose` | `-v` | `false` | Verbose logging |
 
 `--cadence`, `--cadences`, `--on-push`, `--pr` and `--scheduled` are mutually exclusive;
-combining two exits `2`. `check` has no `--framework` flag.
+combining two exits `2`. A `--cadence` or `--cadences` value that is not a cadence (or
+`every:<duration>`, or `on_push` in `--cadences`) exits `3` and lists the valid values. `check`
+has no `--framework` flag.
 
 Without `--cloud` or `--no-cloud`, the CLI submits only when all of these hold: a base URL is
 set, the run is in GitHub Actions or GitLab CI, and an OIDC token is available. A failed

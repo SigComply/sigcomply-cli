@@ -126,6 +126,18 @@ func validateFilter(f *Filter) error {
 	if count > 1 {
 		return fmt.Errorf("planner: --policies, --controls, --cadence, --on-push, --cadences are mutually exclusive (set %d of them)", count)
 	}
+	// A value no policy can have selects nothing, and an empty run exits 0:
+	// a typo in a CI job would stay green while checking nothing.
+	if f.Cadence != "" && !IsValidCadence(f.Cadence) {
+		return fmt.Errorf("planner: --cadence %q is not a cadence (want one of %s, or every:<duration>)",
+			f.Cadence, strings.Join(scheduledCadences, ", "))
+	}
+	for _, c := range f.Cadences {
+		if c != core.CadenceOnPush && !IsValidCadence(c) {
+			return fmt.Errorf("planner: --cadences value %q is not a cadence (want any of %s, %s, or every:<duration>)",
+				c, strings.Join(scheduledCadences, ", "), core.CadenceOnPush)
+		}
+	}
 	return nil
 }
 
