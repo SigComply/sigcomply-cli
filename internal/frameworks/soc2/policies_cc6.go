@@ -167,8 +167,8 @@ func cc6NetworkPolicies() []core.Policy {
 			id: "soc2.cc6.6.no_unrestricted_all_traffic", control: ctrlCC66, severity: core.SeverityHigh, category: catNetwork, cadence: cadenceDaily,
 			accepts: []string{etFirewallRule},
 			desc:    "No firewall rule opens all protocols to the public internet.",
-			rem:     "Remove or restrict any all-protocol rule with a 0.0.0.0/0 source.",
-			clause:  noneWhere(leaf("payload.protocol", "eq", "all"), leaf("payload.is_unrestricted_ipv4", "eq", true), "firewall rule {{.payload.id}} opens all traffic to 0.0.0.0/0"),
+			rem:     "Remove or restrict any all-protocol rule with a 0.0.0.0/0 or ::/0 source.",
+			clause:  noneWhere(leaf("payload.protocol", "eq", "all"), openToInternet(), "firewall rule {{.payload.id}} opens all traffic to the internet (0.0.0.0/0 or ::/0)"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc6.6.vpc_flow_logs_enabled", control: ctrlCC66, severity: core.SeverityMedium, category: catNetwork, cadence: cadenceDaily,
@@ -344,20 +344,30 @@ func cc6ThreatPolicies() []core.Policy {
 	}
 }
 
+// openToInternet matches a rule open to every address of either family.
+// An IPv6 ::/0 rule exposes the port as much as an IPv4 0.0.0.0/0 one does
+// on a dual-stack network, so the two are judged alike.
+func openToInternet() *core.PassWhenCondition {
+	return anyOf(
+		leaf("payload.is_unrestricted_ipv4", "eq", true),
+		leaf("payload.is_unrestricted_ipv6", "eq", true),
+	)
+}
+
 // unrestrictedPortClause builds the none-clause that flags any open
-// (0.0.0.0/0) TCP ingress rule whose port range covers the target port,
-// or that opens all ports (from_port == -1).
+// (0.0.0.0/0 or ::/0) TCP ingress rule whose port range covers the target
+// port, or that opens all ports (from_port == -1).
 func unrestrictedPortClause(port int) core.PassWhenClause {
 	filter := allOf(
 		leaf("payload.direction", "eq", "ingress"),
-		leaf("payload.is_unrestricted_ipv4", "eq", true),
+		openToInternet(),
 		leaf("payload.protocol", "in", []any{"tcp", "all"}),
 	)
 	cond := anyOf(
 		allOf(leaf("payload.from_port", "lte", port), leaf("payload.to_port", "gte", port)),
 		leaf("payload.from_port", "eq", -1),
 	)
-	return noneWhere(filter, cond, fmt.Sprintf("firewall rule {{.payload.id}} exposes port %d to 0.0.0.0/0", port))
+	return noneWhere(filter, cond, fmt.Sprintf("firewall rule {{.payload.id}} exposes port %d to the internet (0.0.0.0/0 or ::/0)", port))
 }
 
 // --- password-policy clauses ---------------------------------------

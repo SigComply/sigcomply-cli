@@ -18,6 +18,12 @@ this file lists the changes a user notices.
 
 ### Fixed
 
+- The open-port checks now also flag IPv6 rules open to `::/0`, the same as IPv4 rules open to
+  `0.0.0.0/0`, on AWS security groups, GCP firewall rules and Azure NSG rules. This covers SOC 2
+  `soc2.cc6.6.no_unrestricted_ssh`, `_rdp`, `_mysql`, `_postgres` and `_all_traffic`, and
+  ISO 27001 `iso27001.8.20.no_unrestricted_ssh`, `_rdp` and `_database_ports`. You may see new
+  failures after upgrading: each one is a port that was already reachable from the whole IPv6
+  internet.
 - The install script checks the downloaded archive against the release's `checksums.txt` and stops
   on a mismatch. `SIGCOMPLY_VERSION` accepts a version without the leading `v`.
 - `init-ci` scaffolds pin the CLI release that generated them (or `latest` for a development

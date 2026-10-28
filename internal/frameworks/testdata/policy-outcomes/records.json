@@ -345,8 +345,24 @@
       "type": "firewall_rule",
       "id": "sg-rdp-v6",
       "source_id": "aws.security_group",
-      "why": "open over IPv6 only: the port policies read IPv4 only",
+      "why": "RDP open over IPv6 only: ::/0 is an exposure like 0.0.0.0/0",
       "payload": {"provider": "aws", "is_unrestricted_ipv6": true, "id": "sg-rdp-v6", "name": "rdp-v6", "direction": "ingress", "protocol": "tcp", "from_port": 3389, "to_port": 3389, "source_cidr": "::/0", "is_unrestricted_ipv4": false}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "firewall_rule",
+      "id": "sg-all-open-v6",
+      "source_id": "aws.security_group",
+      "why": "every port and protocol open over IPv6 only: every port policy and the all-traffic policy flag it",
+      "payload": {"provider": "aws", "is_unrestricted_ipv6": true, "id": "sg-all-open-v6", "name": "all-open-v6", "direction": "ingress", "protocol": "all", "from_port": -1, "to_port": -1, "source_cidr": "::/0", "is_unrestricted_ipv4": false}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "firewall_rule",
+      "id": "sg-admin-ssh-v6",
+      "source_id": "aws.security_group",
+      "why": "SSH from a private IPv6 range",
+      "payload": {"provider": "aws", "is_unrestricted_ipv6": false, "id": "sg-admin-ssh-v6", "name": "ssh-v6-private", "direction": "ingress", "protocol": "tcp", "from_port": 22, "to_port": 22, "source_cidr": "fd00::/8", "is_unrestricted_ipv4": false}
     },
     {
       "scenarios": ["noncompliant"],

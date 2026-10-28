@@ -280,15 +280,25 @@ func portCovers(port int) *core.PassWhenCondition {
 	)
 }
 
-// unrestrictedPortClause flags any open (0.0.0.0/0) ingress rule covering
-// the target port.
+// openToInternet matches a rule open to every address of either family.
+// An IPv6 ::/0 rule exposes the port as much as an IPv4 0.0.0.0/0 one does
+// on a dual-stack network, so the two are judged alike.
+func openToInternet() *core.PassWhenCondition {
+	return anyOf(
+		leaf("payload.is_unrestricted_ipv4", "eq", true),
+		leaf("payload.is_unrestricted_ipv6", "eq", true),
+	)
+}
+
+// unrestrictedPortClause flags any open (0.0.0.0/0 or ::/0) ingress rule
+// covering the target port.
 func unrestrictedPortClause(port int) core.PassWhenClause {
 	filter := allOf(
 		leaf("payload.direction", "eq", "ingress"),
-		leaf("payload.is_unrestricted_ipv4", "eq", true),
+		openToInternet(),
 		leaf("payload.protocol", "in", []any{"tcp", "all"}),
 	)
-	return noneWhere(filter, portCovers(port), fmt.Sprintf("firewall rule {{.payload.id}} exposes port %d to 0.0.0.0/0", port))
+	return noneWhere(filter, portCovers(port), fmt.Sprintf("firewall rule {{.payload.id}} exposes port %d to the internet (0.0.0.0/0 or ::/0)", port))
 }
 
 // --- password-policy clauses ---------------------------------------
@@ -355,17 +365,17 @@ func passwordStrengthEnforcedClause() core.PassWhenClause {
 		"password policy {{.payload.id}} enforces no password-strength requirement")
 }
 
-// unrestrictedPortsClause flags any open ingress rule covering any of the
-// target ports.
+// unrestrictedPortsClause flags any open (0.0.0.0/0 or ::/0) ingress rule
+// covering any of the target ports.
 func unrestrictedPortsClause(ports ...int) core.PassWhenClause {
 	filter := allOf(
 		leaf("payload.direction", "eq", "ingress"),
-		leaf("payload.is_unrestricted_ipv4", "eq", true),
+		openToInternet(),
 		leaf("payload.protocol", "in", []any{"tcp", "all"}),
 	)
 	conds := make([]*core.PassWhenCondition, 0, len(ports))
 	for _, p := range ports {
 		conds = append(conds, portCovers(p))
 	}
-	return noneWhere(filter, anyOf(conds...), "firewall rule {{.payload.id}} exposes a restricted database port to 0.0.0.0/0")
+	return noneWhere(filter, anyOf(conds...), "firewall rule {{.payload.id}} exposes a restricted database port to the internet (0.0.0.0/0 or ::/0)")
 }

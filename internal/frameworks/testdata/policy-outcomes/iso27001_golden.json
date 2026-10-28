@@ -1796,15 +1796,16 @@
   "iso27001.8.20.no_unrestricted_database_ports": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 4,
+      "resources_evaluated": 5,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 11,
-      "resources_failed": 3,
+      "resources_evaluated": 13,
+      "resources_failed": 4,
       "violated": [
         "sg-all-open",
+        "sg-all-open-v6",
         "sg-db-range",
         "sg-mssql"
       ]
@@ -1819,16 +1820,18 @@
   "iso27001.8.20.no_unrestricted_rdp": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 4,
+      "resources_evaluated": 5,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 11,
-      "resources_failed": 2,
+      "resources_evaluated": 13,
+      "resources_failed": 4,
       "violated": [
         "sg-all-open",
-        "sg-db-range"
+        "sg-all-open-v6",
+        "sg-db-range",
+        "sg-rdp-v6"
       ]
     },
     "sparse": {
@@ -1841,15 +1844,16 @@
   "iso27001.8.20.no_unrestricted_ssh": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 4,
+      "resources_evaluated": 5,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 11,
-      "resources_failed": 2,
+      "resources_evaluated": 13,
+      "resources_failed": 3,
       "violated": [
         "sg-all-open",
+        "sg-all-open-v6",
         "sg-ssh-open"
       ]
     },

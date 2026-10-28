@@ -138,9 +138,10 @@ policies:
 
   # firewall_rule (azure.network, from NSGs) — no public SSH / RDP / open
   # all-traffic. The plugin flattens each NSG Allow rule into one record per
-  # destination port range; a source prefix of */Internet/0.0.0.0/0 →
-  # is_unrestricted_ipv4. (Deny rules are deliberately not emitted — they
-  # are the opposite of an exposure.)
+  # destination port range; a source prefix of */Internet/Any sets both
+  # is_unrestricted_ipv4 and is_unrestricted_ipv6, 0.0.0.0/0 the first and
+  # ::/0 the second. The policies flag either. (Deny rules are deliberately
+  # not emitted — they are the opposite of an exposure.)
   soc2.cc6.6.no_unrestricted_ssh:
     bindings:
       evidence: [azure.network]
