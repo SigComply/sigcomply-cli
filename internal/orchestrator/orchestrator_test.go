@@ -568,8 +568,8 @@ func registerIdentityStubs(t *testing.T, regs *registry.Set, now time.Time) {
 				{ID: "u_bob", Email: bobEmail, Status: "ACTIVE", MFAFactorCount: 0},
 			},
 			apps: []oktasource.App{
-				{ID: "0oa1", Label: "Slack", SignOnMode: "SAML_2_0", MFARequired: true},
-				{ID: "0oa2", Label: "Legacy", SignOnMode: "AUTO_LOGIN", MFARequired: false},
+				{ID: "0oa1", Label: "Slack", SignOnMode: "SAML_2_0"},
+				{ID: "0oa2", Label: "Legacy", SignOnMode: "AUTO_LOGIN"},
 			},
 		},
 		Org: "https://acme.okta.com",

@@ -181,8 +181,8 @@ func TestCollectUsers_AdminMapping(t *testing.T) {
 func TestCollectApps_HappyPath_SortsByID(t *testing.T) {
 	fake := &fakeAPI{
 		apps: []App{
-			{ID: "0oab", Label: "Slack", SignOnMode: signOnModeSAML, MFARequired: true},
-			{ID: "0oaa", Label: "Legacy", SignOnMode: "AUTO_LOGIN", MFARequired: false},
+			{ID: "0oab", Label: "Slack", SignOnMode: signOnModeSAML},
+			{ID: "0oaa", Label: "Legacy", SignOnMode: "AUTO_LOGIN"},
 		},
 	}
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
@@ -195,12 +195,12 @@ func TestCollectApps_HappyPath_SortsByID(t *testing.T) {
 	if records[0].ID != "0oaa" || records[1].ID != "0oab" {
 		t.Errorf("not sorted: %v %v", records[0].ID, records[1].ID)
 	}
-	var legacy appPayload
-	if err := json.Unmarshal(records[0].Payload, &legacy); err != nil {
-		t.Fatalf("Unmarshal: %v", err)
-	}
-	if legacy.MFARequired {
-		t.Errorf("legacy.MFARequired should be false")
+	// The sign-on mode says nothing about MFA (that is the app's sign-on
+	// policy, which is not read), so mfa_required is omitted, not guessed.
+	for i := range records {
+		if strings.Contains(string(records[i].Payload), "mfa_required") {
+			t.Errorf("app %s payload carries mfa_required: %s", records[i].ID, records[i].Payload)
+		}
 	}
 	if records[0].IdentityKey != "" {
 		t.Errorf("app records should not set IdentityKey; got %q", records[0].IdentityKey)
@@ -259,7 +259,7 @@ func TestCollect_DefaultNowIsInjected(t *testing.T) {
 func TestCollect_KISSNoDRY_EachCallReFetches(t *testing.T) {
 	fake := &fakeAPI{
 		users: []User{{ID: "u1", Email: testEmailUser, Status: oktaStatusActive}},
-		apps:  []App{{ID: "0oa1", Label: "X", SignOnMode: signOnModeSAML, MFARequired: true}},
+		apps:  []App{{ID: "0oa1", Label: "X", SignOnMode: signOnModeSAML}},
 	}
 	p := New(Options{API: fake})
 	for range 3 {
@@ -308,26 +308,6 @@ func TestNewFromConfig_ValidatesArgs(t *testing.T) {
 	}
 	if p.ID() != SourceID {
 		t.Errorf("ID = %q", p.ID())
-	}
-}
-
-func TestFederatedMFA(t *testing.T) {
-	cases := []struct {
-		mode string
-		want bool
-	}{
-		{signOnModeSAML, true},
-		{"OPENID_CONNECT", true},
-		{"SECURE_PASSWORD_STORE", true},
-		{"AUTO_LOGIN", false},
-		{"BROWSER_PLUGIN", false},
-		{"", false},
-		{"saml_2_0", true},
-	}
-	for _, c := range cases {
-		if got := federatedMFA(c.mode); got != c.want {
-			t.Errorf("federatedMFA(%q) = %v; want %v", c.mode, got, c.want)
-		}
 	}
 }
 
@@ -453,11 +433,8 @@ func TestHTTPAPI_ListApps_HappyPath(t *testing.T) {
 	for _, a := range apps {
 		byID[a.ID] = a
 	}
-	if !byID["0oa1"].MFARequired {
-		t.Errorf("Slack should be MFA required (SAML)")
-	}
-	if byID["0oa2"].MFARequired {
-		t.Errorf("Legacy should not be MFA required (AUTO_LOGIN)")
+	if byID["0oa1"].SignOnMode != signOnModeSAML || byID["0oa2"].SignOnMode != "AUTO_LOGIN" {
+		t.Errorf("sign-on modes = %+v", byID)
 	}
 }
 

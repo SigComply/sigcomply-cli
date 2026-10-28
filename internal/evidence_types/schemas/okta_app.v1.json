@@ -3,14 +3,14 @@
   "$id": "https://schemas.sigcomply.io/evidence_types/okta_app/v1.json",
   "title": "okta_app",
   "version": 1,
-  "description": "One Okta application (sign-on integration), with MFA-enforcement flag policies check today. mfa_required is derived from the sign-on mode by the plugin (federated modes imply IdP-layer MFA); full sign-on-policy-rule inspection is deferred.",
+  "description": "One Okta application (sign-on integration). Whether an app requires MFA is set by its sign-on policy rules, which the okta source does not read, so it omits mfa_required; the sign-on mode alone does not imply MFA.",
   "type": "object",
-  "required": ["id", "mfa_required"],
+  "required": ["id"],
   "properties": {
     "id":           { "type": "string" },
     "label":        { "type": "string" },
     "sign_on_mode": { "type": "string", "description": "Okta sign-on mode: SAML_2_0 | OPENID_CONNECT | SECURE_PASSWORD_STORE | BROWSER_PLUGIN | BASIC_AUTH | AUTO_LOGIN | WS_FEDERATION | …" },
-    "mfa_required": { "type": "boolean" }
+    "mfa_required": { "type": "boolean", "description": "The app's sign-on policy requires MFA. Optional: omitted by sources that do not read sign-on policy rules (the okta source today). Guard with is_set." }
   },
   "additionalProperties": true
 }

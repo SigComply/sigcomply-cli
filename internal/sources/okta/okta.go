@@ -88,12 +88,14 @@ type User struct {
 }
 
 // App is the subset of fields the plugin extracts from an Okta app
-// listing. MFARequired is derived from the app's sign-on policy rules.
+// listing. Whether an app requires MFA is decided by its sign-on policy
+// rules, which the plugin does not read, so mfa_required is not emitted:
+// the sign-on mode alone says nothing about MFA (a SAML app can sign in
+// with a password only, and SECURE_PASSWORD_STORE is password vaulting).
 type App struct {
-	ID          string
-	Label       string
-	SignOnMode  string
-	MFARequired bool
+	ID         string
+	Label      string
+	SignOnMode string
 }
 
 // RosterUser is the subset of an Okta user the roster_entry mapping reads.
@@ -259,11 +261,11 @@ type userPayload struct {
 }
 
 // appPayload is the JSON payload shape inside each okta_app record.
+// mfa_required is omitted (see App).
 type appPayload struct {
-	ID          string `json:"id"`
-	Label       string `json:"label"`
-	SignOnMode  string `json:"sign_on_mode"`
-	MFARequired bool   `json:"mfa_required"`
+	ID         string `json:"id"`
+	Label      string `json:"label"`
+	SignOnMode string `json:"sign_on_mode"`
 }
 
 // rosterPayload is the roster_entry shape this plugin emits. Optional
@@ -658,11 +660,6 @@ func (h *httpAPI) ListApps(ctx context.Context) ([]App, error) {
 			ID:         a.ID,
 			Label:      a.Label,
 			SignOnMode: a.SignOnMode,
-			// Heuristic: federated sign-on modes (SAML, OIDC) and
-			// secure_sign_on_mode are taken to enforce MFA at the IdP
-			// layer; password-based modes are not. Full sign-on policy
-			// inspection is deferred — see Okta sign-on policy rules.
-			MFARequired: federatedMFA(a.SignOnMode),
 		})
 		return nil
 	})
@@ -670,15 +667,6 @@ func (h *httpAPI) ListApps(ctx context.Context) ([]App, error) {
 		return nil, err
 	}
 	return out, nil
-}
-
-func federatedMFA(mode string) bool {
-	switch strings.ToUpper(mode) {
-	case "SAML_2_0", "OPENID_CONNECT", "SECURE_PASSWORD_STORE":
-		return true
-	default:
-		return false
-	}
 }
 
 // getJSON performs a single GET and decodes the JSON body into out.

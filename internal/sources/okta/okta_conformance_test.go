@@ -63,6 +63,8 @@ func TestOktaConformance(t *testing.T) {
 		Plugin:        newPlugin(),
 		Request:       core.SlotRequest{AcceptedTypes: []string{EvidenceTypeApp}},
 		EvidenceTypes: types,
+		// Sign-on policy rules are not read, so MFA is not claimed.
+		OptionalFields: []string{"okta_app.mfa_required"},
 	})
 
 	users := map[string]userPayload{}
@@ -156,8 +158,8 @@ func TestOktaRosterConformance(t *testing.T) {
 	}
 }
 
-// assertFederatedApps checks that at least one SAML/OIDC app is present and that
-// federating sign-on modes map to mfa_required=true.
+// assertFederatedApps checks that at least one SAML/OIDC app is present.
+// No app claims mfa_required: the sign-on mode does not imply it.
 func assertFederatedApps(t *testing.T, apps map[string]appPayload) {
 	t.Helper()
 	if len(apps) < 1 {
@@ -169,9 +171,6 @@ func assertFederatedApps(t *testing.T, apps map[string]appPayload) {
 			continue
 		}
 		sawFederated = true
-		if !a.MFARequired {
-			t.Errorf("app %q (%s) mfa_required = false, want true", a.ID, a.SignOnMode)
-		}
 	}
 	if !sawFederated {
 		t.Error("expected at least one SAML/OIDC app in the cassette")

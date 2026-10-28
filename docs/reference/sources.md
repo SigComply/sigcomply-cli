@@ -395,6 +395,8 @@ Caveats:
   device (NIST SP 800-63B). SMS and voice still count.
 - `password_policy.v2` has one record per active password policy. A 403 on the policy read is a
   collection error, not "no policies".
+- `okta_app` carries no `mfa_required`. Whether an app requires MFA is set by its sign-on policy
+  rules, which this source does not read, and the sign-on mode alone does not say.
 - Users deleted from Okta do not appear in the roster.
 
 ## Active Directory
