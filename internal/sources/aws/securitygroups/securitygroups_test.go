@@ -129,6 +129,18 @@ func TestCollect_FlattensRulesDirectionPortsAndUnrestricted(t *testing.T) {
 	assertRuleHTTPS(t, unmarshal(t, byID(records, "sg-1:ingress:1")))
 	assertRuleAll(t, unmarshal(t, byID(records, "sg-1:ingress:2")))
 	assertRuleEgress(t, unmarshal(t, byID(records, "sg-1:egress:0")))
+
+	// A security group rule can only allow traffic, so every record says so:
+	// the open-port policies skip only rules whose action is deny.
+	for i := range records {
+		var raw map[string]any
+		if err := json.Unmarshal(records[i].Payload, &raw); err != nil {
+			t.Fatalf("unmarshal %s: %v", records[i].ID, err)
+		}
+		if raw["action"] != "allow" {
+			t.Errorf("%s: action = %v; want allow", records[i].ID, raw["action"])
+		}
+	}
 }
 
 // assertRecordMeta verifies deterministic ordering and per-record metadata.

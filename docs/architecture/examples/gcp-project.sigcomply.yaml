@@ -104,7 +104,8 @@ policies:
   # firewall_rule (gcp.firewall) — no public SSH / RDP. The plugin flattens
   # each VPC firewall into one rule per protocol/port-range; 0.0.0.0/0 in
   # the direction's range list → is_unrestricted_ipv4, ::/0 →
-  # is_unrestricted_ipv6. The policies flag either.
+  # is_unrestricted_ipv6. The policies flag either, and skip deny rules
+  # (action: deny).
   soc2.cc6.6.no_unrestricted_ssh:
     bindings:
       evidence: [gcp.firewall]

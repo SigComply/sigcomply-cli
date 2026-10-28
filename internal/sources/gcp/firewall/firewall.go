@@ -144,10 +144,12 @@ type rulePayload struct {
 	IsUnrestrictedIPv6 bool   `json:"is_unrestricted_ipv6"`
 	SourceCIDR         string `json:"source_cidr,omitempty"`
 	DestCIDR           string `json:"dest_cidr,omitempty"`
-	// GCP-specific extras (additionalProperties). action distinguishes
-	// allow vs deny — GCP supports deny rules, which AWS security groups
-	// do not; a firewall populates either Allowed or Denied, never both.
-	Action   string `json:"action,omitempty"`
+	// action is "allow" or "deny" (firewall_rule.v1 field): GCP supports
+	// deny rules, which AWS security groups do not; a firewall populates
+	// either Allowed or Denied, never both. The open-port policies skip
+	// deny rules.
+	Action string `json:"action,omitempty"`
+	// GCP-specific extras (additionalProperties).
 	Network  string `json:"network,omitempty"`
 	Priority int64  `json:"priority,omitempty"`
 	Disabled bool   `json:"disabled"`

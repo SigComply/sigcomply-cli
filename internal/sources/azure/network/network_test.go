@@ -27,6 +27,21 @@ var fixedNow = time.Date(2026, 6, 17, 12, 0, 0, 0, time.UTC)
 // allProto is the firewall_rule "all protocols" value, asserted in several tests.
 const allProto = "all"
 
+// actionAllow is the firewall_rule action of every rule this plugin emits.
+const actionAllow = "allow"
+
+// assertActionAllow checks the raw payload carries action "allow": only
+// Allow rules are emitted, and the open-port policies read the
+// cross-vendor action field to skip deny rules.
+func assertActionAllow(t *testing.T, payload json.RawMessage) {
+	t.Helper()
+	var raw map[string]any
+	mustUnmarshal(t, payload, &raw)
+	if raw["action"] != actionAllow {
+		t.Errorf("rule action = %v; want %s", raw["action"], actionAllow)
+	}
+}
+
 func mustUnmarshal(t *testing.T, raw json.RawMessage, dst any) {
 	t.Helper()
 	if err := json.Unmarshal(raw, dst); err != nil {
@@ -163,6 +178,7 @@ func TestCollect_BothTypes_MapsSortsAndFullPayload(t *testing.T) {
 			t.Errorf("record %s: unexpected IdentityKey %q", r.ID, r.IdentityKey)
 		}
 	}
+	assertActionAllow(t, recs[0].Payload)
 
 	var gotRule rulePayload
 	if err := json.Unmarshal(recs[0].Payload, &gotRule); err != nil {
@@ -180,7 +196,8 @@ func TestCollect_BothTypes_MapsSortsAndFullPayload(t *testing.T) {
 		IsUnrestrictedIPv4: true,
 		IsUnrestrictedIPv6: true,
 		SourceCIDR:         "*",
-		Access:             "allow",
+		Action:             actionAllow,
+		Access:             actionAllow,
 		Priority:           100,
 	}
 	if !reflect.DeepEqual(gotRule, wantRule) {

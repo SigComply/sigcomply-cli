@@ -271,12 +271,22 @@ func anyWhere(filter, cond *core.PassWhenCondition, msg string) core.PassWhenCla
 	return core.PassWhenClause{Quantifier: core.QuantifierAny, Filter: filter, Condition: cond, ViolationMsg: msg}
 }
 
-// portCovers builds the condition matching a firewall rule whose range
-// covers the target port (or opens all ports via from_port == -1).
-func portCovers(port int) *core.PassWhenCondition {
-	return anyOf(
-		allOf(leaf("payload.from_port", "lte", port), leaf("payload.to_port", "gte", port)),
-		leaf("payload.from_port", "eq", -1),
+// deniesTraffic matches a rule whose action is deny. action is optional in
+// firewall_rule.v1 and absent means allow (AWS security groups can only
+// allow), so the read is is_set-guarded and an absent action never matches.
+// GCP rule priority is not modeled: an allow rule shadowed by a
+// higher-priority deny is still flagged. Only the deny rule itself is
+// skipped, since it opens nothing.
+func deniesTraffic() *core.PassWhenCondition {
+	return allOf(isSet("payload.action"), leaf("payload.action", "eq", "deny"))
+}
+
+// portMissed matches a rule whose range does not cover port: the exact
+// negation of "from_port <= port <= to_port, or from_port == -1 (all ports)".
+func portMissed(port int) *core.PassWhenCondition {
+	return allOf(
+		leaf("payload.from_port", "neq", -1),
+		anyOf(leaf("payload.to_port", "lt", port), leaf("payload.from_port", "gt", port)),
 	)
 }
 
@@ -291,14 +301,17 @@ func openToInternet() *core.PassWhenCondition {
 }
 
 // unrestrictedPortClause flags any open (0.0.0.0/0 or ::/0) ingress rule
-// covering the target port.
+// that allows traffic and covers the target port. Written as "every open
+// ingress rule misses the port or denies" because the DSL has no negation
+// and an absent action has to count as allow; the filter, and so the counts
+// and vacuity, are what a none-clause would have.
 func unrestrictedPortClause(port int) core.PassWhenClause {
 	filter := allOf(
 		leaf("payload.direction", "eq", "ingress"),
 		openToInternet(),
 		leaf("payload.protocol", "in", []any{"tcp", "all"}),
 	)
-	return noneWhere(filter, portCovers(port), fmt.Sprintf("firewall rule {{.payload.id}} exposes port %d to the internet (0.0.0.0/0 or ::/0)", port))
+	return allWhere(filter, anyOf(portMissed(port), deniesTraffic()), fmt.Sprintf("firewall rule {{.payload.id}} exposes port %d to the internet (0.0.0.0/0 or ::/0)", port))
 }
 
 // --- password-policy clauses ---------------------------------------
@@ -366,16 +379,17 @@ func passwordStrengthEnforcedClause() core.PassWhenClause {
 }
 
 // unrestrictedPortsClause flags any open (0.0.0.0/0 or ::/0) ingress rule
-// covering any of the target ports.
+// that allows traffic and covers any of the target ports (see
+// unrestrictedPortClause for the inverted form).
 func unrestrictedPortsClause(ports ...int) core.PassWhenClause {
 	filter := allOf(
 		leaf("payload.direction", "eq", "ingress"),
 		openToInternet(),
 		leaf("payload.protocol", "in", []any{"tcp", "all"}),
 	)
-	conds := make([]*core.PassWhenCondition, 0, len(ports))
+	missesAll := make([]*core.PassWhenCondition, 0, len(ports))
 	for _, p := range ports {
-		conds = append(conds, portCovers(p))
+		missesAll = append(missesAll, portMissed(p))
 	}
-	return noneWhere(filter, anyOf(conds...), "firewall rule {{.payload.id}} exposes a restricted database port to the internet (0.0.0.0/0 or ::/0)")
+	return allWhere(filter, anyOf(allOf(missesAll...), deniesTraffic()), "firewall rule {{.payload.id}} exposes a restricted database port to the internet (0.0.0.0/0 or ::/0)")
 }

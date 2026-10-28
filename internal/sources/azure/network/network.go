@@ -8,11 +8,9 @@
 // firewall_rule (from NSGs):
 //
 //   - Only **Allow** custom rules are emitted. An NSG Deny rule is the opposite
-//     of an exposure, and the unrestricted-SSH / all-traffic policies do not
-//     filter on action — so emitting a Deny rule open to "*"/Internet would
-//     false-fail those policies. Azure estates routinely carry explicit Deny
-//     rules (unlike GCP, which relies on implied deny), so this filter is
-//     load-bearing for correctness, not cosmetic. The platform
+//     of an exposure. The open-port policies now skip records whose action
+//     is deny, but this plugin still emits only Allow rules (action "allow"):
+//     an NSG Deny rule is not a resource the network checks judge. The platform
 //     DefaultSecurityRules are also excluded (they are not customer config).
 //   - Each rule is flattened to one record per destination port range (the
 //     NSG's filtered service port), mirroring the AWS/GCP flatteners. The
@@ -152,6 +150,8 @@ type rulePayload struct {
 	IsUnrestrictedIPv6 bool   `json:"is_unrestricted_ipv6"`
 	SourceCIDR         string `json:"source_cidr,omitempty"`
 	DestCIDR           string `json:"dest_cidr,omitempty"`
+	// Action is always "allow": Deny rules are not emitted (see the package doc).
+	Action string `json:"action"`
 
 	// Auditable Azure extras (additionalProperties).
 	Access   string `json:"access,omitempty"`
@@ -250,6 +250,7 @@ func (p *Plugin) collectFirewallRules(ctx context.Context, now time.Time, scope 
 					ToPort:             to,
 					IsUnrestrictedIPv4: v4,
 					IsUnrestrictedIPv6: v6,
+					Action:             "allow",
 					Access:             "allow",
 					Priority:           derefInt32(rp.Priority),
 				}

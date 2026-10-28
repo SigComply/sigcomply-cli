@@ -26,6 +26,9 @@ this file lists the changes a user notices.
   internet.
 - `soc2.cc6.6.no_unrestricted_all_traffic` now checks inbound rules only. Outbound all-traffic
   rules, such as the egress rule every AWS default security group has, no longer fail it.
+- The open-port and all-traffic checks no longer flag GCP firewall deny rules. A deny rule open to
+  `0.0.0.0/0` or `::/0` blocks that traffic; it does not expose a port. The `firewall_rule`
+  evidence type gains an optional `action` field (`allow` or `deny`; absent means allow).
 - The install script checks the downloaded archive against the release's `checksums.txt` and stops
   on a mismatch. `SIGCOMPLY_VERSION` accepts a version without the leading `v`.
 - `init-ci` scaffolds pin the CLI release that generated them (or `latest` for a development

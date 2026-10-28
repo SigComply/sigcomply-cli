@@ -365,6 +365,22 @@
       "payload": {"provider": "aws", "is_unrestricted_ipv6": false, "id": "sg-admin-ssh-v6", "name": "ssh-v6-private", "direction": "ingress", "protocol": "tcp", "from_port": 22, "to_port": 22, "source_cidr": "fd00::/8", "is_unrestricted_ipv4": false}
     },
     {
+      "scenarios": ["compliant", "noncompliant"],
+      "type": "firewall_rule",
+      "id": "gcp-deny-all-ingress",
+      "source_id": "gcp.firewall",
+      "why": "a GCP deny rule from 0.0.0.0/0 and ::/0 on every port: it blocks traffic, so no check flags it",
+      "payload": {"provider": "gcp", "is_unrestricted_ipv6": true, "id": "gcp-deny-all-ingress", "name": "deny-all ingress rule", "direction": "ingress", "protocol": "all", "from_port": -1, "to_port": -1, "source_cidr": "0.0.0.0/0", "is_unrestricted_ipv4": true, "action": "deny"}
+    },
+    {
+      "scenarios": ["noncompliant"],
+      "type": "firewall_rule",
+      "id": "gcp-allow-ssh",
+      "source_id": "gcp.firewall",
+      "why": "a GCP rule that says action allow, open to 0.0.0.0/0 on SSH",
+      "payload": {"provider": "gcp", "is_unrestricted_ipv6": false, "id": "gcp-allow-ssh", "name": "allow-ssh ingress rule", "direction": "ingress", "protocol": "tcp", "from_port": 22, "to_port": 22, "source_cidr": "0.0.0.0/0", "is_unrestricted_ipv4": true, "action": "allow"}
+    },
+    {
       "scenarios": ["noncompliant"],
       "type": "firewall_rule",
       "id": "sg-udp-dns",

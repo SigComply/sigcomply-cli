@@ -114,6 +114,8 @@ type rulePayload struct {
 	IsUnrestrictedIPv6 bool   `json:"is_unrestricted_ipv6"`
 	SourceCIDR         string `json:"source_cidr,omitempty"`
 	DestCIDR           string `json:"dest_cidr,omitempty"`
+	// Action is always "allow": a security group rule cannot deny.
+	Action string `json:"action"`
 }
 
 // Collect lists security groups and returns one firewall_rule record per
@@ -177,6 +179,7 @@ func buildPayload(groupID, groupName, direction string, index int, perm *ec2type
 		ToPort:             toPort,
 		IsUnrestrictedIPv4: hasUnrestrictedIPv4(perm),
 		IsUnrestrictedIPv6: hasUnrestrictedIPv6(perm),
+		Action:             "allow",
 	}
 	cidr := firstIPv4CIDR(perm)
 	if direction == "ingress" {
