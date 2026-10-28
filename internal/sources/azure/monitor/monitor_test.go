@@ -167,17 +167,16 @@ func TestCollect_BothTypes_MapsSortsAndFullPayload(t *testing.T) {
 	var gotAudit auditTrailPayload
 	mustUnmarshal(t, recs[2].Payload, &gotAudit)
 	wantAudit := auditTrailPayload{
-		ID:                       "/subscriptions/sub-1/providers/Microsoft.Insights/activityLog",
-		Name:                     "Azure Activity Log",
-		Provider:                 "azure",
-		IsEnabled:                true,
-		IsMultiRegion:            true,
-		LogFileValidationEnabled: true,
-		KMSEncrypted:             false,
-		Exported:                 true,
-		DiagnosticSettingCount:   1,
-		EnabledCategories:        []string{"Administrative", "Security"}, // sorted, disabled Alert excluded
-		DestinationWorkspaceID:   *workspaceID("rg-logs", "aworkspace"),
+		ID:                     "/subscriptions/sub-1/providers/Microsoft.Insights/activityLog",
+		Name:                   "Azure Activity Log",
+		Provider:               "azure",
+		IsEnabled:              true,
+		IsMultiRegion:          true,
+		KMSEncrypted:           false,
+		Exported:               true,
+		DiagnosticSettingCount: 1,
+		EnabledCategories:      []string{"Administrative", "Security"}, // sorted, disabled Alert excluded
+		DestinationWorkspaceID: *workspaceID("rg-logs", "aworkspace"),
 	}
 	if !reflect.DeepEqual(gotAudit, wantAudit) {
 		t.Errorf("audit_log_trail payload mismatch:\n got  %+v\n want %+v", gotAudit, wantAudit)
@@ -219,8 +218,13 @@ func TestCollect_OnlyAudit_SkipsWorkspaces_NoSettings(t *testing.T) {
 	// Activity Log is always-on even with no diagnostic settings; just not exported.
 	var got auditTrailPayload
 	mustUnmarshal(t, recs[0].Payload, &got)
-	if !got.IsEnabled || !got.IsMultiRegion || !got.LogFileValidationEnabled {
+	if !got.IsEnabled || !got.IsMultiRegion {
 		t.Errorf("Activity Log platform constants should all be true, got %+v", got)
+	}
+	// The Activity Log has no log-file validation feature: the field is
+	// omitted, never asserted true.
+	if strings.Contains(string(recs[0].Payload), "log_file_validation_enabled") {
+		t.Errorf("payload must omit log_file_validation_enabled: %s", recs[0].Payload)
 	}
 	if got.Exported || got.DiagnosticSettingCount != 0 || got.EnabledCategories != nil {
 		t.Errorf("no diagnostic settings should be exported=false count=0 no categories, got %+v", got)

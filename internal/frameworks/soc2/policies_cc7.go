@@ -29,7 +29,11 @@ func cc7LoggingPolicies() []core.Policy {
 			accepts: []string{etAuditLogTrail},
 			desc:    "Audit log file integrity validation is enabled.",
 			rem:     "Enable log file validation on each audit trail.",
-			clause:  all(leaf("payload.log_file_validation_enabled", "eq", true), "audit trail {{.payload.name}} does not have log file validation enabled"),
+			// Guarded with is_set: log file validation is a CloudTrail
+			// feature, and sources without an equivalent (GCP Cloud Audit
+			// Logs, the Azure Activity Log) omit the field per the schema.
+			// Those trails are scoped out rather than given a fabricated pass.
+			clause: allWhere(isSet("payload.log_file_validation_enabled"), leaf("payload.log_file_validation_enabled", "eq", true), "audit trail {{.payload.name}} does not have log file validation enabled"),
 		}.policy(),
 		autoPolicy{
 			id: "soc2.cc7.1.audit_log_kms_encrypted", control: ctrlCC71, severity: core.SeverityMedium, category: catLogging, cadence: cadenceDaily,

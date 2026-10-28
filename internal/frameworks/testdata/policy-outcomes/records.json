@@ -806,6 +806,14 @@
     },
     {
       "scenarios": ["compliant", "noncompliant"],
+      "type": "audit_log_trail",
+      "id": "projects/e2e-project/cloudAuditLogs",
+      "source_id": "gcp.audit",
+      "why": "GCP has no log file validation feature and omits the field; the integrity policies scope it out instead of passing or erroring it",
+      "payload": {"id": "projects/e2e-project/cloudAuditLogs", "name": "e2e-project", "provider": "gcp", "is_enabled": true, "is_multi_region": true, "kms_encrypted": true}
+    },
+    {
+      "scenarios": ["compliant", "noncompliant"],
       "type": "log_group",
       "id": "/app/api",
       "source_id": "aws.cloudwatch",

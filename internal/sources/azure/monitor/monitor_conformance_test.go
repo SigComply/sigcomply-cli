@@ -30,7 +30,7 @@ func TestAzureMonitorConformance(t *testing.T) {
 	})
 	trails := sourcetest.RunConformance(t, &sourcetest.Options{
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeAuditLogTrail}},
-		EvidenceTypes: types,
+		EvidenceTypes: types, OptionalFields: []string{"audit_log_trail.log_file_validation_enabled"},
 	})
 	if len(logs) != 1 || len(trails) != 1 {
 		t.Fatalf("records: logs=%d trails=%d, want 1/1", len(logs), len(trails))

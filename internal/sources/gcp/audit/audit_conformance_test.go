@@ -38,6 +38,8 @@ func TestGCPAuditConformance(t *testing.T) {
 		Plugin: newPlugin(), Request: core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}},
 		EvidenceTypes: sourcetest.BuiltinEvidenceTypes(t),
 		WantScope:     &core.RecordScope{Project: "e2e-project"},
+		// GCP has no log-file validation feature; the field is omitted.
+		OptionalFields: []string{"audit_log_trail.log_file_validation_enabled"},
 	})
 	if len(recs) != 1 {
 		t.Fatalf("audit_log_trail records = %d, want 1", len(recs))

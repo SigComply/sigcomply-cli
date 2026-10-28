@@ -1832,12 +1832,12 @@
   "soc2.cc7.1.audit_log_integrity_enabled": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 1,
+      "resources_evaluated": 2,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 2,
+      "resources_evaluated": 3,
       "resources_failed": 1,
       "violated": [
         "trail-regional"
@@ -1853,12 +1853,12 @@
   "soc2.cc7.1.audit_log_kms_encrypted": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 1,
+      "resources_evaluated": 2,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 2,
+      "resources_evaluated": 3,
       "resources_failed": 1,
       "violated": [
         "trail-regional"
@@ -1874,12 +1874,12 @@
   "soc2.cc7.1.audit_logging_enabled": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 1,
+      "resources_evaluated": 2,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 2,
+      "resources_evaluated": 3,
       "resources_failed": 1,
       "violated": [
         "trail-regional"

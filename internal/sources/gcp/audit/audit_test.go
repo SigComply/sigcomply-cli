@@ -138,7 +138,6 @@ func TestCollect_SingletonRecord(t *testing.T) {
 		Provider:                 "gcp",
 		IsEnabled:                true,
 		IsMultiRegion:            true,
-		LogFileValidationEnabled: true,
 		KMSEncrypted:             true,
 		DataAccessLoggingEnabled: true,
 		AuditedServices:          1,
@@ -166,13 +165,17 @@ func TestCollect_DefaultPosture(t *testing.T) {
 		Provider:                 "gcp",
 		IsEnabled:                true,
 		IsMultiRegion:            true,
-		LogFileValidationEnabled: true,
 		KMSEncrypted:             false,
 		DataAccessLoggingEnabled: false,
 		AuditedServices:          0,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("payload = %+v; want %+v", got, want)
+	}
+	// GCP has no log-file validation feature: the field is omitted, never
+	// asserted true.
+	if strings.Contains(string(records[0].Payload), "log_file_validation_enabled") {
+		t.Errorf("payload must omit log_file_validation_enabled: %s", records[0].Payload)
 	}
 }
 

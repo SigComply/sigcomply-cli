@@ -21,10 +21,12 @@
 //
 //   - Azure's Activity Log is always-on and subscription-wide — it cannot be
 //     disabled (unlike AWS CloudTrail, which is opt-in). One record is emitted per
-//     subscription: is_enabled and is_multi_region are therefore both true, and
-//     log_file_validation_enabled is true because the platform Activity Log is
-//     append-only and immutable to users (the same platform-integrity basis on
-//     which gcp.audit reports true for the locked _Required bucket).
+//     subscription: is_enabled and is_multi_region are therefore both true.
+//     log_file_validation_enabled is omitted: the Activity Log has no log-file
+//     integrity validation feature (it is append-only and immutable to users,
+//     but whether that is equivalent is the auditor's judgment, not a value
+//     this plugin can read). The schema says sources without the feature omit
+//     it, and the integrity policies scope it out.
 //   - kms_encrypted is false: the native Activity Log platform retention uses
 //     Microsoft-managed keys, not customer-managed. CMEK would require routing the
 //     log (via a diagnostic setting) to a CMEK-enabled destination; resolving that
@@ -185,18 +187,17 @@ type logGroupPayload struct {
 }
 
 // auditTrailPayload is the audit_log_trail shape this plugin emits. id, name,
-// is_enabled, is_multi_region, log_file_validation_enabled, and kms_encrypted are
-// all read by the audit-logging policies, so all are emitted unconditionally
+// is_enabled, is_multi_region, and kms_encrypted are read by the audit-logging
+// policies, so all are emitted unconditionally
 // (the evaluator errors on a referenced-but-absent field — WU-0.2). The diagnostic
 // -settings-derived fields are auditable extras.
 type auditTrailPayload struct {
-	ID                       string `json:"id"`
-	Name                     string `json:"name"`
-	Provider                 string `json:"provider"`
-	IsEnabled                bool   `json:"is_enabled"`
-	IsMultiRegion            bool   `json:"is_multi_region"`
-	LogFileValidationEnabled bool   `json:"log_file_validation_enabled"`
-	KMSEncrypted             bool   `json:"kms_encrypted"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Provider      string `json:"provider"`
+	IsEnabled     bool   `json:"is_enabled"`
+	IsMultiRegion bool   `json:"is_multi_region"`
+	KMSEncrypted  bool   `json:"kms_encrypted"`
 
 	// Auditable Azure extras (the Activity Log export configuration).
 	Exported                    bool     `json:"exported"`
@@ -289,7 +290,6 @@ func (p *Plugin) collectAuditTrails(ctx context.Context, now time.Time, scope *c
 		Provider:                    "azure",
 		IsEnabled:                   true,  // Activity Log is always-on; cannot be disabled.
 		IsMultiRegion:               true,  // Subscription-wide across all regions.
-		LogFileValidationEnabled:    true,  // Platform Activity Log is append-only / immutable to users.
 		KMSEncrypted:                false, // Native retention uses Microsoft-managed keys (see package doc).
 		Exported:                    exported,
 		DiagnosticSettingCount:      len(settings),

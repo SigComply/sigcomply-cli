@@ -21,11 +21,12 @@
 //     be disabled.
 //   - is_multi_region = true. Cloud Audit Logs are global / project-wide;
 //     GCP has no per-region trail and so no "missing region" concept.
-//   - log_file_validation_enabled = true. GCP guarantees audit-log
-//     integrity structurally: Admin Activity logs route to the _Required
-//     bucket, which is locked and immutable (fixed 400-day retention, not
-//     deletable). That is the integrity guarantee CloudTrail's digest
-//     files provide, achieved by platform design rather than a toggle.
+//   - log_file_validation_enabled is omitted. GCP has no log-file
+//     integrity validation feature (CloudTrail's digest files): Admin
+//     Activity logs land in the locked, immutable _Required bucket, but
+//     whether that is an equivalent control is the auditor's judgment, not
+//     a value this plugin can read. The schema says sources without the
+//     feature omit the field, and the integrity policies scope it out.
 //   - kms_encrypted ← a customer-managed CMEK key is configured on the
 //     project's Cloud Logging settings (Google-managed default → false,
 //     matching aws.cloudtrail reporting false for the default key).
@@ -145,18 +146,17 @@ func (p *Plugin) scope() *core.RecordScope {
 
 // trailPayload is the cross-vendor audit_log_trail shape (see
 // internal/evidence_types/schemas/audit_log_trail.v1.json). The required
-// fields (id, name, is_enabled, kms_encrypted) plus the CloudTrail-shaped
-// optionals the policies read (is_multi_region, log_file_validation_enabled)
-// are always emitted — the evaluator errors on any payload that omits a
-// field a policy references.
+// fields (id, name, is_enabled, kms_encrypted) plus is_multi_region are
+// always emitted — the evaluator errors on any payload that omits a field a
+// policy references. log_file_validation_enabled is omitted: GCP has no
+// such feature (see the package doc).
 type trailPayload struct {
-	ID                       string `json:"id"`
-	Name                     string `json:"name"`
-	Provider                 string `json:"provider"`
-	IsEnabled                bool   `json:"is_enabled"`
-	IsMultiRegion            bool   `json:"is_multi_region"`
-	LogFileValidationEnabled bool   `json:"log_file_validation_enabled"`
-	KMSEncrypted             bool   `json:"kms_encrypted"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Provider      string `json:"provider"`
+	IsEnabled     bool   `json:"is_enabled"`
+	IsMultiRegion bool   `json:"is_multi_region"`
+	KMSEncrypted  bool   `json:"kms_encrypted"`
 	// GCP-specific extras (additionalProperties).
 	// DataAccessLoggingEnabled makes the GetIamPolicy call auditable: it
 	// reports whether optional Data Access / Admin Read logging is on
@@ -204,7 +204,6 @@ func buildPayload(project string, configs []*cloudresourcemanager.AuditConfig, c
 		Provider:                 "gcp",
 		IsEnabled:                true, // Admin Activity audit logs are always-on.
 		IsMultiRegion:            true, // Cloud Audit Logs are global, not regional.
-		LogFileValidationEnabled: true, // Integrity via immutable, locked _Required bucket.
 		KMSEncrypted:             cmekKey != "",
 		DataAccessLoggingEnabled: dataAccessLoggingEnabled(configs),
 		AuditedServices:          auditedServiceCount(configs),

@@ -215,8 +215,12 @@ locally. All `gcp.*` sources share one identity per run.
 - When GCP reports that a zone or region was unreachable during a listing, `gcp.gke`, `gcp.sql`,
   `gcp.firestore`, `gcp.backup` and `gcp.certs` fail instead of evaluating the partial list.
   Policies bound to them get status `error` for that run.
-- `gcp.audit` reports `is_enabled`, `is_multi_region` and `log_file_validation_enabled` as `true`
-  because Admin Activity audit logs are always on in GCP.
+- `gcp.audit` reports `is_enabled` and `is_multi_region` as `true` because Admin Activity audit
+  logs are always on and project-wide in GCP. It omits `log_file_validation_enabled`: GCP has no
+  log file validation feature. The audit-log integrity policies check only trails that report
+  the field. With only GCP or Azure trails they pass, and `check` marks them `passed without
+  examining any resource`. Whether the locked `_Required` log bucket meets the control is for
+  your auditor.
 
 ## Azure
 
@@ -277,6 +281,9 @@ Assign roles on the subscription.
   Vault certificates.
 - `azure.storage` skips FileStorage (Premium Files) accounts. They have no blob service, so
   they are not object storage.
+- `azure.monitor` reports the Activity Log as enabled and subscription-wide, and omits
+  `log_file_validation_enabled`: the Activity Log has no log file validation feature. See the
+  `gcp.audit` caveat above for how the integrity policies treat that.
 - Field caveats for `azure.keyvault`, `azure.cosmos`, `azure.sql` and `azure.monitor` are in
   [Source caveats](#source-caveats).
 

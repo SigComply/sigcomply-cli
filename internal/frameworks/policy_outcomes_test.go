@@ -24,6 +24,7 @@ import (
 	"github.com/sigcomply/sigcomply-cli/internal/sources"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/azure/entra"
 	_ "github.com/sigcomply/sigcomply-cli/internal/sources/builtin" // registers every source factory
+	gcpaudit "github.com/sigcomply/sigcomply-cli/internal/sources/gcp/audit"
 	"github.com/sigcomply/sigcomply-cli/internal/sources/gcp/firewall"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
@@ -288,6 +289,9 @@ func fixtureSources(t *testing.T, f *outcomeFixture) map[string]core.SourcePlugi
 			// Its factory resolves Google ADC, which a hermetic test has
 			// not got; only its ID and Emits() matter here.
 			out[id] = firewall.New(firewall.Options{})
+		case id == gcpaudit.SourceID:
+			// Same: its factory needs a project and Google ADC.
+			out[id] = gcpaudit.New(gcpaudit.Options{})
 		default:
 			p, err := sources.Build(context.Background(), id, env)
 			if err != nil {

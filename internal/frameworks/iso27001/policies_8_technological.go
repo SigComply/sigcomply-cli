@@ -174,7 +174,11 @@ func techLoggingPolicies() []core.Policy {
 			accepts: []string{etAuditLogTrail},
 			desc:    "Audit log integrity validation is enabled.",
 			rem:     "Enable log file validation on each trail.",
-			clause:  all(leaf("payload.log_file_validation_enabled", "eq", true), "audit trail {{.payload.name}} does not validate log integrity"),
+			// Guarded with is_set: log file validation is a CloudTrail
+			// feature, and sources without an equivalent (GCP Cloud Audit
+			// Logs, the Azure Activity Log) omit the field per the schema.
+			// Those trails are scoped out rather than given a fabricated pass.
+			clause: allWhere(isSet("payload.log_file_validation_enabled"), leaf("payload.log_file_validation_enabled", "eq", true), "audit trail {{.payload.name}} does not validate log integrity"),
 		}.policy(),
 		autoPolicy{
 			id: "iso27001.8.15.audit_log_encrypted", control: ctrlLoggingControl, severity: core.SeverityMedium, category: catLogging, cadence: cadenceDaily,

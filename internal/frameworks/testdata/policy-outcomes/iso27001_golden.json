@@ -1561,12 +1561,12 @@
   "iso27001.8.15.audit_log_encrypted": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 1,
+      "resources_evaluated": 2,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 2,
+      "resources_evaluated": 3,
       "resources_failed": 1,
       "violated": [
         "trail-regional"
@@ -1582,12 +1582,12 @@
   "iso27001.8.15.audit_log_integrity": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 1,
+      "resources_evaluated": 2,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 2,
+      "resources_evaluated": 3,
       "resources_failed": 1,
       "violated": [
         "trail-regional"
@@ -1603,12 +1603,12 @@
   "iso27001.8.15.audit_logging_enabled": {
     "compliant": {
       "status": "pass",
-      "resources_evaluated": 1,
+      "resources_evaluated": 2,
       "resources_failed": 0
     },
     "noncompliant": {
       "status": "fail",
-      "resources_evaluated": 2,
+      "resources_evaluated": 3,
       "resources_failed": 1,
       "violated": [
         "trail-regional"
