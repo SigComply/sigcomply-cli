@@ -377,8 +377,11 @@ func TestSQLPublicAccess_Table(t *testing.T) {
 		wantAccess bool
 		wantRaw    string
 	}{
-		{"nil-server", nil, false, ""},
-		{"nil-props", &armsql.Server{}, false, ""},
+		// An unreported flag is not proof the endpoint is closed: Azure's
+		// default is a public endpoint, so absence reads as accessible.
+		{"nil-server", nil, true, ""},
+		{"nil-props", &armsql.Server{}, true, ""},
+		{"nil-flag", &armsql.Server{Properties: &armsql.ServerProperties{}}, true, ""},
 		{"enabled", &armsql.Server{Properties: &armsql.ServerProperties{PublicNetworkAccess: to.Ptr(armsql.ServerNetworkAccessFlagEnabled)}}, true, publicNetworkAccessEnabled},
 		{"disabled", &armsql.Server{Properties: &armsql.ServerProperties{PublicNetworkAccess: to.Ptr(armsql.ServerNetworkAccessFlagDisabled)}}, false, "Disabled"},
 	}
@@ -389,6 +392,21 @@ func TestSQLPublicAccess_Table(t *testing.T) {
 				t.Errorf("sqlPublicAccess = (%v,%q), want (%v,%q)", access, raw, c.wantAccess, c.wantRaw)
 			}
 		})
+	}
+}
+
+// The flexible servers read the same way: no flag, no proof of privacy.
+func TestFlexiblePublicAccess_NilIsAccessible(t *testing.T) {
+	if got, _ := pgPublicAccess(&armpg.Server{Properties: &armpg.ServerProperties{}}); !got {
+		t.Error("pgPublicAccess with no flag = false; want true")
+	}
+	if got, _ := mysqlPublicAccess(&armmysql.Server{Properties: &armmysql.ServerProperties{}}); !got {
+		t.Error("mysqlPublicAccess with no flag = false; want true")
+	}
+	disabled := armpg.ServerPublicNetworkAccessStateDisabled
+	if got, _ := pgPublicAccess(&armpg.Server{Properties: &armpg.ServerProperties{
+		Network: &armpg.Network{PublicNetworkAccess: &disabled}}}); got {
+		t.Error("pgPublicAccess Disabled = true; want false")
 	}
 }
 

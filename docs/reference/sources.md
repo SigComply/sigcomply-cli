@@ -279,6 +279,8 @@ Assign roles on the subscription.
 - `azure.entra` `roster_entry` excludes guest users.
 - `azure.certs` reads App Service certificates and certificate orders. It does not read Key
   Vault certificates.
+- `azure.sql` reads a server whose public network access flag ARM does not report as publicly
+  accessible, never as private.
 - `azure.storage` skips FileStorage (Premium Files) accounts. They have no blob service, so
   they are not object storage.
 - `azure.monitor` reports the Activity Log as enabled and subscription-wide, and omits

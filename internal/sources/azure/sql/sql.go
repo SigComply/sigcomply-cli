@@ -27,7 +27,8 @@
 //     servers always run automated backups (BackupRetentionDays has a 7-day
 //     floor). The backup_retention_days extra makes that auditable.
 //   - publicly_accessible: from the SERVER-level public-network-access flag
-//     (it gates every database on an Azure SQL logical server).
+//     (it gates every database on an Azure SQL logical server). A flag ARM
+//     does not report reads as accessible, never as private.
 //   - ssl_required: emitted as true ONLY for Azure SQL, which enforces
 //     encrypted connections unconditionally. For the flexible servers SSL
 //     enforcement is a server PARAMETER (require_secure_transport / ssl), not a
@@ -422,9 +423,13 @@ func tdeEnabled(s *armsql.TransparentDataEncryptionState) bool {
 
 // --- Azure SQL nil-safe accessors ---
 
-func sqlPublicAccess(srv *armsql.Server) (blocked bool, raw string) {
+// The three *PublicAccess helpers read an unreported flag as accessible:
+// absence is not proof the endpoint is closed, and a public endpoint is
+// Azure's default. Reading it as private would pass the no-public-access
+// policies on a value nobody read.
+func sqlPublicAccess(srv *armsql.Server) (accessible bool, raw string) {
 	if srv == nil || srv.Properties == nil || srv.Properties.PublicNetworkAccess == nil {
-		return false, ""
+		return true, ""
 	}
 	v := *srv.Properties.PublicNetworkAccess
 	return v == armsql.ServerNetworkAccessFlagEnabled, string(v)
@@ -469,7 +474,7 @@ func pgVersion(srv *armpg.Server) string {
 
 func pgPublicAccess(srv *armpg.Server) (accessible bool, raw string) {
 	if srv == nil || srv.Properties == nil || srv.Properties.Network == nil || srv.Properties.Network.PublicNetworkAccess == nil {
-		return false, ""
+		return true, ""
 	}
 	v := *srv.Properties.Network.PublicNetworkAccess
 	return v == armpg.ServerPublicNetworkAccessStateEnabled, string(v)
@@ -507,7 +512,7 @@ func mysqlVersion(srv *armmysql.Server) string {
 
 func mysqlPublicAccess(srv *armmysql.Server) (accessible bool, raw string) {
 	if srv == nil || srv.Properties == nil || srv.Properties.Network == nil || srv.Properties.Network.PublicNetworkAccess == nil {
-		return false, ""
+		return true, ""
 	}
 	v := *srv.Properties.Network.PublicNetworkAccess
 	return v == armmysql.EnableStatusEnumEnabled, string(v)
