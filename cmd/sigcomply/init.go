@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -74,17 +75,32 @@ func runInit(stdout io.Writer, flags initFlags) error {
 	// exit-3 config error one command after we told them to.
 	step3 := "  3. Run `sigcomply init-ci --ci github` (or gitlab) to scaffold CI workflows."
 	if fw != defaultFramework {
-		step3 = "  3. CI scaffolding: `sigcomply init-ci` is soc2-only in v1-alpha. Copy a\n" +
-			"     workflow from examples/ and adapt it — see docs/guides/ci-github.md."
+		step3 = "  3. CI scaffolding: `sigcomply init-ci` accepts only --framework soc2, and its\n" +
+			"     workflows read the framework from this config, so run\n" +
+			"     `sigcomply init-ci --ci github --framework soc2` (or --ci gitlab)."
 	}
 	nextSteps := "Next steps:\n" +
 		"  1. Edit sources: to list the providers you use; credentials come from the\n" +
 		"     environment (AWS_* / GITHUB_TOKEN / GCP ADC / OKTA_API_TOKEN).\n" +
-		"  2. Run `sigcomply check` locally to see which controls evaluate.\n" +
-		step3
+		"  2. Run `sigcomply check` locally to see which policies evaluate.\n" +
+		step3 + "\n" +
+		gitignoreHint(flags.out)
 	_, _ = fmt.Fprintf(stdout, "sigcomply init: wrote %s (framework=%s)\n\n", flags.out, fw) //nolint:errcheck // status output
 	_, _ = fmt.Fprintln(stdout, nextSteps)                                                   //nolint:errcheck // status output
 	return nil
+}
+
+// gitignoreHint reminds the user to keep the local vault out of git when
+// the project's .gitignore does not already mention it. A local run
+// writes hundreds of files there, and `git add .` would commit them.
+// init only prints the line: editing a file it did not create is not
+// its call.
+func gitignoreHint(configPath string) string {
+	ignore := filepath.Join(filepath.Dir(configPath), ".gitignore")
+	if data, err := os.ReadFile(ignore); err == nil && strings.Contains(string(data), ".sigcomply/") {
+		return ""
+	}
+	return "  Keep the local vault out of git: echo '.sigcomply/vault/' >> .gitignore\n"
 }
 
 // resolveInitFramework mirrors the rest of the CLI: explicit flag wins,
@@ -97,6 +113,27 @@ func resolveInitFramework(flag string) string {
 		return env
 	}
 	return defaultFramework
+}
+
+// awsSourcesCommented lists, in the order docs/reference/sources.md
+// does, every aws.* source the starter config shows commented out. With
+// the three active IAM sources it must cover every registered aws.*
+// source (TestStarterConfig_ListsEveryAWSSource), so enabling AWS fully
+// is a matter of uncommenting lines, not reading the reference.
+var awsSourcesCommented = []string{
+	"aws.acm", "aws.backup", "aws.cloudtrail", "aws.cloudwatch", "aws.config",
+	"aws.dynamodb", "aws.ec2", "aws.ecr", "aws.eks", "aws.guardduty",
+	"aws.identity_center", "aws.inspector", "aws.kms", "aws.lambda", "aws.rds",
+	"aws.s3", "aws.secretsmanager", "aws.security_alert", "aws.security_group",
+	"aws.security_services", "aws.vpc",
+}
+
+func commentedAWSSources() string {
+	var b strings.Builder
+	for _, id := range awsSourcesCommented {
+		fmt.Fprintf(&b, "  # %s: { region: us-east-1 }\n", id)
+	}
+	return b.String()
 }
 
 // starterConfig returns the scaffolded .sigcomply.yaml body for fw. It is
@@ -119,13 +156,20 @@ framework: ` + fw + `
 # environment (AWS_* / GITHUB_TOKEN / GCP ADC / OKTA_API_TOKEN) — never this
 # file. Policies AUTO-BIND to any configured source that emits the evidence
 # type they need, so you do NOT need a bindings: block to get started. Replace
-# aws.iam below with the sources you actually use.
+# the AWS sources below with the ones you actually use.
+#
+# AWS has one source per service; all read the same AWS credentials. The
+# three active ones cover IAM users, access keys and the password policy.
+# Uncomment the rest to cover every AWS service SigComply reads (what each
+# one reads and the IAM actions it needs: docs/reference/sources.md#aws).
 sources:
   aws.iam:
     region: us-east-1
-  # aws.s3: {}
-  # aws.cloudtrail: {}
-  # github:
+  aws.iam_access_key:
+    region: us-east-1
+  aws.password_policy:
+    region: us-east-1
+` + commentedAWSSources() + `  # github:
   #   org: your-org
   # okta:
   #   org_url: https://your-org.okta.com
@@ -170,9 +214,10 @@ vault:
 #     # several sources emit the same evidence type and you want one:
 #     bindings:
 #       <slot>: [okta]
-#     # Tune a policy parameter (e.g. a threshold):
+#     # Tune a parameter the policy declares. Shipped policies declare none,
+#     # so this applies to project-local policies only:
 #     parameters:
-#       max_age_days: 60
+#       <parameter>: <value>
 #     # Override the cadence
 #     # (continuous|hourly|daily|weekly|monthly|quarterly|annual or every:<dur>):
 #     cadence: weekly

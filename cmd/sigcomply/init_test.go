@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sigcomply/sigcomply-cli/internal/sources"
 	"github.com/sigcomply/sigcomply-cli/internal/spec"
 )
 
@@ -143,19 +144,81 @@ func TestResolveInitFramework(t *testing.T) {
 }
 
 // An ISO 27001 scaffold must not tell the operator to run a command that
-// exits 3. init-ci gates on soc2, so the next-step line has to say so
-// rather than sending them into a config error one command later.
-func TestInit_Iso27001NextStepsDoNotRecommendInitCI(t *testing.T) {
+// exits 3. init-ci accepts only soc2, but its workflows read the
+// framework from the config, so the next step names the --framework soc2
+// form that works rather than a bare command that fails.
+func TestInit_Iso27001NextStepsNameWorkingInitCI(t *testing.T) {
 	var out bytes.Buffer
 	if err := runInit(&out, initFlags{framework: isoFW, out: filepath.Join(t.TempDir(), "cfg.yaml")}); err != nil {
 		t.Fatalf("runInit(iso27001): %v", err)
 	}
 	got := out.String()
-	if strings.Contains(got, "sigcomply init-ci --ci github") {
-		t.Errorf("iso27001 next steps recommend init-ci, which rejects iso27001 with exit 3:\n%s", got)
+	if strings.Contains(got, "sigcomply init-ci --ci github`") {
+		t.Errorf("iso27001 next steps recommend bare init-ci, which rejects iso27001 with exit 3:\n%s", got)
 	}
-	if !strings.Contains(got, "init-ci") {
-		t.Errorf("next steps should still mention init-ci to say it is soc2-only; got:\n%s", got)
+	if !strings.Contains(got, "sigcomply init-ci --ci github --framework soc2") {
+		t.Errorf("next steps should name init-ci --framework soc2; got:\n%s", got)
+	}
+	if strings.Contains(got, "v1-alpha") {
+		t.Errorf("next steps use internal release jargon:\n%s", got)
+	}
+}
+
+// A local run writes hundreds of vault files; init points at the ignore
+// rule unless the project already has one.
+func TestInit_GitignoreHint(t *testing.T) {
+	dir := t.TempDir()
+	var out bytes.Buffer
+	if err := runInit(&out, initFlags{framework: defaultFW, out: filepath.Join(dir, ".sigcomply.yaml")}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), ".sigcomply/vault/") {
+		t.Errorf("init should suggest ignoring the local vault; got:\n%s", out.String())
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte(".sigcomply/\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if err := runInit(&out, initFlags{framework: defaultFW, out: filepath.Join(dir, ".sigcomply.yaml"), force: true}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), ".gitignore") {
+		t.Errorf("hint printed although .gitignore already covers the vault:\n%s", out.String())
+	}
+}
+
+// Enabling every AWS service must be a matter of uncommenting lines: the
+// scaffold names every registered aws.* source, active or commented.
+func TestStarterConfig_ListsEveryAWSSource(t *testing.T) {
+	body := starterConfig(defaultFW)
+	for _, id := range sources.IDs() {
+		if !strings.HasPrefix(id, "aws.") {
+			continue
+		}
+		if !strings.Contains(body, "\n  "+id+":") && !strings.Contains(body, "\n  # "+id+":") {
+			t.Errorf("starter config does not list %s", id)
+		}
+	}
+}
+
+// The commented parameters example must not be one that fails on every
+// shipped policy, and uncommenting the AWS lines must still validate.
+func TestStarterConfig_ExamplesValidate(t *testing.T) {
+	body := starterConfig(defaultFW)
+	if strings.Contains(body, "max_age_days") {
+		t.Error("parameters example names max_age_days, which no shipped policy declares")
+	}
+	uncommented := strings.ReplaceAll(body, "  # aws.", "  aws.")
+	cfg, err := spec.LoadProjectConfig([]byte(uncommented))
+	if err != nil {
+		t.Fatalf("scaffold with every AWS source uncommented does not validate: %v", err)
+	}
+	for id := range cfg.Sources {
+		if strings.HasPrefix(id, "aws.") {
+			if _, ok := sources.Lookup(id); !ok {
+				t.Errorf("scaffold lists unknown source %s", id)
+			}
+		}
 	}
 }
 

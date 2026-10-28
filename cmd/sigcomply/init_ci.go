@@ -99,7 +99,7 @@ func newInitCICmd() *cobra.Command {
 			return runInitCI(cmd.OutOrStdout(), flags)
 		},
 	}
-	cmd.Flags().StringVar(&flags.framework, "framework", "", "Framework to scaffold for: soc2 only in v1-alpha (defaults to .sigcomply.yaml framework, else soc2)")
+	cmd.Flags().StringVar(&flags.framework, "framework", "", "Framework to scaffold for: only soc2 is accepted; the workflows read the framework from .sigcomply.yaml, so --framework soc2 also serves an iso27001 project (defaults to .sigcomply.yaml framework, else soc2)")
 	cmd.Flags().StringVar(&flags.ci, "ci", "", "CI provider: github | gitlab (required)")
 	cmd.Flags().StringVar(&flags.outDir, "out", "", "Output directory (defaults to .github/workflows/ for github, repo root for gitlab)")
 	cmd.Flags().BoolVar(&flags.force, "force", false, "Overwrite existing files (default: refuse if any target file exists)")
@@ -118,9 +118,9 @@ func runInitCI(stdout io.Writer, flags initCIFlags) error {
 	framework := resolveInitCIFramework(flags)
 	if !frameworkSupported(framework) {
 		return &exitCodeError{code: orchestrator.ExitConfig,
-			err: fmt.Errorf("init-ci: framework %q not scaffolded in v1-alpha "+
-				"(the shipped cadence templates are validated against soc2 only; "+
-				"copy one from examples/ and adapt it — see docs/guides/ci-github.md)", framework)}
+			err: fmt.Errorf("init-ci: framework %q is not scaffolded: the templates are validated "+
+				"against soc2 only. The workflows read the framework from .sigcomply.yaml, so run "+
+				"`sigcomply init-ci --ci %s --framework soc2` and keep framework: %s in the config", framework, flags.ci, framework)}
 	}
 	plan, err := scaffoldPlan(flags.ci, flags.outDir)
 	if err != nil {

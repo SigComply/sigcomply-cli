@@ -15,7 +15,7 @@ access keys, UUIDs and JWTs are redacted at every log level, so it is safe in CI
 | `yaml: unmarshal errors` naming a field (exit `3`) | The config parser rejects unknown keys. Fix the spelling; the framework key is singular: `framework:`. All keys: [configuration reference](../configuration.md). |
 | `framework "hipaa" not supported (registered: [iso27001 soc2])` | Only `soc2` and `iso27001` exist. |
 | `init` or `init-ci` exits `3` with `refusing to overwrite existing file` | Pass `--force` to overwrite. |
-| `init-ci` exits `3` with `not scaffolded in v1-alpha` | `init-ci` scaffolds SOC 2 only. See [Use another framework](ci-github.md#use-another-framework). |
+| `init-ci` exits `3` with `is not scaffolded` | `init-ci` accepts only `--framework soc2`. Its workflows read the framework from `.sigcomply.yaml`, so run `sigcomply init-ci --ci github --framework soc2` and keep your framework in the config. See [Use another framework](ci-github.md#use-another-framework). |
 | `report` exits `3` | Pass `--period`. `--format pdf` is not available. JSON and CSV need `--out <file>`. |
 | A policy fails to plan with an unknown slot in `bindings:` (exit `3`) | The slot is named `evidence` (`roster` and `accounts` for roster policies; `deployments` and `changes` for the two `production_deploys_from_approved_changes` policies): `bindings: { evidence: [okta] }`. |
 
@@ -155,7 +155,9 @@ Link it as `sigcomply`:
 ln -sf "$(go env GOPATH)/bin/sigcomply-cli" "$(go env GOPATH)/bin/sigcomply"
 ```
 
-### The install script fails on 32-bit ARM or Windows
+### The install script stops with `Unsupported` or `There is no release`
 
-The script supports macOS and Linux on `amd64` and `arm64` only. Download the archive by hand:
+The script supports Linux on `amd64`, `arm64`, `armv6` and `armv7`, macOS on `amd64` and
+`arm64`, and Windows on `amd64` in Git Bash, MSYS2 or Cygwin. Any other platform has no release
+archive. On a supported platform where the script still fails, download the archive by hand:
 [Install a release archive by hand](install.md#install-a-release-archive-by-hand).

@@ -310,6 +310,10 @@ func TestInitCI_RejectsUnsupportedFramework(t *testing.T) {
 	if !strings.Contains(err.Error(), isoFW) {
 		t.Errorf("error should reference framework: %v", err)
 	}
+	// The error names the command that works, not release jargon.
+	if !strings.Contains(err.Error(), "--framework soc2") || strings.Contains(err.Error(), "v1-alpha") {
+		t.Errorf("error should name the --framework soc2 workaround without jargon: %v", err)
+	}
 }
 
 // Sanity-check the embedded FS: every shipped template references the

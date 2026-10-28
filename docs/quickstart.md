@@ -43,6 +43,12 @@ framework: soc2
 sources:
   aws.iam:
     region: us-east-1
+  aws.iam_access_key:
+    region: us-east-1
+  aws.password_policy:
+    region: us-east-1
+  # aws.acm: { region: us-east-1 }
+  # ... one commented line per AWS service
   manual.pdf:
     backend: local
     path: ./evidence
@@ -52,12 +58,25 @@ vault:
   path: ./.sigcomply/vault
 ```
 
-- `sources` lists where evidence comes from. `aws.iam` reads IAM users, access keys and the
-  password policy. `manual.pdf` reads documents you upload under `./evidence/manual/`
-  (`manual/` is the default prefix inside that folder).
+- `sources` lists where evidence comes from. AWS has one source per service: `aws.iam` reads IAM
+  users, `aws.iam_access_key` their access keys, and `aws.password_policy` the account password
+  policy. The file lists every other AWS source commented out; uncomment a line to read that
+  service too. `manual.pdf` reads documents you upload under `./evidence/manual/` (`manual/` is
+  the default prefix inside that folder).
 - `vault` is where SigComply writes signed results: here, a local folder.
 
 Credentials never go in this file. The CLI reads them from the environment.
+
+Relative paths such as `./evidence` and `./.sigcomply/vault` resolve against the directory you
+run `sigcomply` in, not the folder that holds the config. Run every command from the project
+root.
+
+`init` prints a reminder to keep the local vault out of git. Do it now, before a `git add .`
+picks up hundreds of run files:
+
+```sh
+echo '.sigcomply/vault/' >> .gitignore
+```
 
 ## 3. Export your AWS credentials
 
@@ -83,7 +102,8 @@ SigComply check soc2/2026-Q4 — <n> policies
   pass=... fail=... carried=0 skip=... error=0 na=0 waived=0
 ```
 
-Note this run period (`2026-Q4` here). You need it in step 6. The CLI takes the period from the
+Note this run period (`2026-Q4` here). You need it in step 6. The last lines name the run folder
+in the vault and the `report` command that reads it back. The CLI takes the period from the
 timestamp of the HEAD commit. The `sigcomply-quickstart` folder is not a git repository, so it
 uses the current UTC time instead. If you created the folder inside a git repository, the period
 comes from that repository's HEAD commit.
@@ -91,7 +111,8 @@ comes from that repository's HEAD commit.
 `echo $?` prints `1` on a first run. That is expected: some policies fail. You'll see three
 kinds of lines:
 
-- `[pass]` and `[fail]` lines for IAM policies, such as `soc2.cc6.1.mfa_enforced_all_users`.
+- `[pass]` and `[fail]` lines for IAM policies, such as `soc2.cc6.1.mfa_enforced_all_users`, and
+  for the access key and password policies.
   Under a failing policy, a `↳` line says what failed.
 - `[fail]` lines for documents you haven't uploaded yet. SOC 2 ships 50 catalog entries whose
   evidence is a document (a policy, a training record, a review), and each line names the
@@ -102,8 +123,8 @@ kinds of lines:
       ↳ manual evidence not found; expected files in: file://./evidence/manual/nda_policy/2026/
   ```
 
-- `[skip]` lines for policies that need a source you haven't configured, such as GitHub or a
-  database. A block at the end of the output lists each skipped policy and the evidence type it
+- `[skip]` lines for policies that need a source you haven't configured, such as GitHub or an
+  AWS service whose line is still commented out. A block at the end of the output lists each skipped policy and the evidence type it
   needs.
 
 If `check` exits `3` with `no usable AWS credentials`, the variables from step 3 aren't set in
@@ -143,9 +164,11 @@ run_20261026T201203Z_14f82a86/
   policies/<policy-id>/
     result.json          # the policy result, with the full list of failing resources
     envelopes/           # the evidence the policy read, signed
+    attachments/         # manual policies only: <entry ID>.pdf, the uploaded files merged
 ```
 
-Read it back with `report`, using the period ID from step 4:
+Read it back with `report`, using the period ID from step 4 (`2026-Q4` or `soc2/2026-Q4` both
+work):
 
 ```sh
 sigcomply report --period 2026-Q4

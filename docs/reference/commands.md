@@ -75,8 +75,11 @@ Next: sigcomply report --period 2026-Q4 (add --view integrity to verify the sign
 sigcomply init [flags]
 ```
 
-Writes a commented `.sigcomply.yaml` for the framework. It runs as written: AWS IAM as the one
-API source, a local `manual.pdf` source in `./evidence`, and a local vault.
+Writes a commented `.sigcomply.yaml` for the framework. It runs as written: three AWS sources
+(`aws.iam`, `aws.iam_access_key`, `aws.password_policy`) with every other `aws.*` source listed
+commented out, a local `manual.pdf` source in `./evidence`, and a local vault. Unless the
+directory's `.gitignore` already mentions `.sigcomply/`, it prints a reminder to ignore the
+local vault.
 
 | Flag | Short | Default | Meaning |
 |---|---|---|---|
