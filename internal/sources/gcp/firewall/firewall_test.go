@@ -20,6 +20,8 @@ import (
 const (
 	testDirectionIngress = "INGRESS"
 	testProtocolTCP      = "tcp"
+	cidrAllV4            = "0.0.0.0/0"
+	cidrAllV6            = "::/0"
 )
 
 // fakeAPI drives the plugin without hitting GCP. It records the project
@@ -104,7 +106,7 @@ func TestCollect_FlattensAndSorts(t *testing.T) {
 			Direction:    testDirectionIngress,
 			Network:      "projects/p/global/networks/default",
 			Priority:     1000,
-			SourceRanges: []string{"0.0.0.0/0"},
+			SourceRanges: []string{cidrAllV4},
 			Allowed: []*gce.FirewallAllowed{
 				{IPProtocol: testProtocolTCP, Ports: []string{"80", "443"}},
 				{IPProtocol: "icmp"},
@@ -133,7 +135,7 @@ func TestCollect_FlattensAndSorts(t *testing.T) {
 		ID: "allow-web:ingress:0", Name: "allow-web ingress rule", Provider: "gcp",
 		GroupID: "allow-web", Direction: "ingress", Protocol: testProtocolTCP,
 		FromPort: 80, ToPort: 80, IsUnrestrictedIPv4: true, IsUnrestrictedIPv6: false,
-		SourceCIDR: "0.0.0.0/0", Action: "allow", Network: "default", Priority: 1000, Disabled: false,
+		SourceCIDR: cidrAllV4, Action: "allow", Network: "default", Priority: 1000, Disabled: false,
 	}
 	if got := decodePayload(t, &records[0]); !reflect.DeepEqual(got, want0) {
 		t.Errorf("records[0] payload = %+v; want %+v", got, want0)
@@ -176,7 +178,7 @@ func TestCollect_PortRange(t *testing.T) {
 // detects open IPv6, and maps a Denied entry to action=deny.
 func TestCollect_EgressDeny(t *testing.T) {
 	fake := &fakeAPI{firewalls: []*gce.Firewall{{
-		Name: "deny-all-egress", Direction: "EGRESS", DestinationRanges: []string{"::/0"},
+		Name: "deny-all-egress", Direction: "EGRESS", DestinationRanges: []string{cidrAllV6},
 		Denied: []*gce.FirewallDenied{{IPProtocol: "all"}},
 	}}}
 	p := New(Options{API: fake})
@@ -194,11 +196,59 @@ func TestCollect_EgressDeny(t *testing.T) {
 	if !got.IsUnrestrictedIPv6 || got.IsUnrestrictedIPv4 {
 		t.Errorf("got v6=%v v4=%v; want true, false", got.IsUnrestrictedIPv6, got.IsUnrestrictedIPv4)
 	}
-	if got.DestCIDR != "::/0" || got.SourceCIDR != "" {
+	if got.DestCIDR != cidrAllV6 || got.SourceCIDR != "" {
 		t.Errorf("got dest=%q source=%q; want ::/0, empty", got.DestCIDR, got.SourceCIDR)
 	}
 	if got.FromPort != allPortsSentinel || got.ToPort != allPortsSentinel {
 		t.Errorf("got ports %d/%d; want -1/-1 (all)", got.FromPort, got.ToPort)
+	}
+}
+
+// The open-port policies skip deny and disabled rules, so a mapper that
+// dropped either would turn a closed port into a failure.
+
+// TestCollect_IngressDeny verifies an INGRESS Denied entry maps to
+// action=deny with direction ingress.
+func TestCollect_IngressDeny(t *testing.T) {
+	fake := &fakeAPI{firewalls: []*gce.Firewall{{
+		Name: "deny-ssh", Direction: testDirectionIngress, SourceRanges: []string{cidrAllV4, cidrAllV6},
+		Denied: []*gce.FirewallDenied{{IPProtocol: testProtocolTCP, Ports: []string{"22"}}},
+	}}}
+	records, err := New(Options{API: fake}).Collect(context.Background(), fwReq())
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("len = %d; want 1", len(records))
+	}
+	got := decodePayload(t, &records[0])
+	if got.ID != "deny-ssh:ingress:0" || got.Direction != "ingress" || got.Action != "deny" || got.Disabled {
+		t.Errorf("deny rule = %+v; want ingress, action deny, enabled", got)
+	}
+	if !got.IsUnrestrictedIPv4 || !got.IsUnrestrictedIPv6 || got.FromPort != 22 || got.ToPort != 22 {
+		t.Errorf("deny rule = %+v; want 22/22 open to both families", got)
+	}
+}
+
+// TestCollect_Disabled verifies a disabled firewall emits disabled true.
+func TestCollect_Disabled(t *testing.T) {
+	fake := &fakeAPI{firewalls: []*gce.Firewall{{
+		Name: "old-ssh", Direction: testDirectionIngress, SourceRanges: []string{cidrAllV4}, Disabled: true,
+		Allowed: []*gce.FirewallAllowed{{IPProtocol: testProtocolTCP, Ports: []string{"22"}}},
+	}}}
+	records, err := New(Options{API: fake}).Collect(context.Background(), fwReq())
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("len = %d; want 1", len(records))
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(records[0].Payload, &raw); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if raw["disabled"] != true || raw["action"] != "allow" {
+		t.Errorf("payload disabled=%v action=%v; want true, allow", raw["disabled"], raw["action"])
 	}
 }
 
