@@ -23,13 +23,9 @@ func techAccessPolicies() []core.Policy {
 		autoPolicy{
 			id: "iso27001.8.2.privileged_mfa_enforced", control: "A.8.2", severity: core.SeverityCritical, category: catAccess, cadence: cadenceDaily,
 			// Requires is_admin AND mfa_enabled, phrased as none(admin AND
-			// no-MFA). A source that does NOT populate is_admin (e.g. Okta,
-			// which can't determine admin status without a per-user roles
-			// call) ERRORS, which is the intended way to surface a coverage
-			// gap. A bare filter on is_admin would now error too — it no
-			// longer silently empties the set — but the none() phrasing
-			// keeps the requirement legible as one predicate. Sources that
-			// do populate is_admin (AWS IAM, GitHub) evaluate correctly.
+			// no-MFA). A source that does not populate is_admin errors, which
+			// is the intended way to surface a coverage gap; the in-tree
+			// directory_user sources populate it.
 			accepts: directoryUserTypes,
 			desc:    "Privileged users have MFA enabled.",
 			rem:     "Enable MFA for all admin users.",

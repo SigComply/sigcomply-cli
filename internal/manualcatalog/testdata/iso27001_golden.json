@@ -20,7 +20,7 @@
       "frequency": "yearly",
       "temporal_rule": "retrospective",
       "grace_period": "30d",
-      "name": "Roles And Responsibilities",
+      "name": "Roles and Responsibilities",
       "description": "Information security roles and responsibilities are defined.",
       "severity": "medium"
     },
@@ -75,7 +75,7 @@
       "frequency": "yearly",
       "temporal_rule": "retrospective",
       "grace_period": "30d",
-      "name": "Information Security In Projects",
+      "name": "Information Security in Projects",
       "description": "Information security is integrated into project management.",
       "severity": "medium"
     },
@@ -108,7 +108,7 @@
       "frequency": "yearly",
       "temporal_rule": "retrospective",
       "grace_period": "30d",
-      "name": "Return Of Assets",
+      "name": "Return of Assets",
       "description": "Assets are returned when employment or engagement ends.",
       "severity": "medium",
       "declaration_text": "I confirm that all organizational assets issued to personnel and third parties whose employment or engagement ended during this period have been returned or verifiably wiped, and that the return has been recorded."
@@ -329,7 +329,7 @@
       "frequency": "yearly",
       "temporal_rule": "retrospective",
       "grace_period": "30d",
-      "name": "Information Security In BCP",
+      "name": "Information Security in BCP",
       "description": "Information security is maintained during disruption.",
       "severity": "medium"
     },
@@ -391,7 +391,7 @@
       "frequency": "yearly",
       "temporal_rule": "retrospective",
       "grace_period": "30d",
-      "name": "Privacy And PII Protection",
+      "name": "Privacy and PII Protection",
       "description": "Privacy and PII protection requirements are documented.",
       "severity": "medium"
     },
@@ -447,7 +447,7 @@
       "frequency": "yearly",
       "temporal_rule": "retrospective",
       "grace_period": "30d",
-      "name": "Terms Of Employment",
+      "name": "Terms of Employment",
       "description": "Employment terms include security responsibilities.",
       "severity": "medium"
     },
@@ -480,7 +480,7 @@
       "frequency": "yearly",
       "temporal_rule": "retrospective",
       "grace_period": "30d",
-      "name": "Responsibilities On Termination",
+      "name": "Responsibilities on Termination",
       "description": "Security responsibilities persist after termination.",
       "severity": "medium"
     },
@@ -547,7 +547,7 @@
       "frequency": "yearly",
       "temporal_rule": "retrospective",
       "grace_period": "30d",
-      "name": "Securing Offices And Facilities",
+      "name": "Securing Offices and Facilities",
       "description": "Offices, rooms, and facilities holding information assets are physically secured.",
       "severity": "medium"
     },
@@ -569,7 +569,7 @@
       "frequency": "yearly",
       "temporal_rule": "retrospective",
       "grace_period": "30d",
-      "name": "Physical And Environmental Threats",
+      "name": "Physical and Environmental Threats",
       "description": "Facilities holding information assets are protected against physical and environmental threats.",
       "severity": "medium"
     },
@@ -580,7 +580,7 @@
       "frequency": "yearly",
       "temporal_rule": "retrospective",
       "grace_period": "30d",
-      "name": "Working In Secure Areas",
+      "name": "Working in Secure Areas",
       "description": "Rules for working in secure areas are defined and followed.",
       "severity": "medium",
       "declaration_text": "I confirm that secure areas within the organization's control are identified and that the rules for working in them are defined and followed during this period, and that where the organization operates no secure areas of its own, the hosting facilities are run by a third-party provider under its own certified controls."

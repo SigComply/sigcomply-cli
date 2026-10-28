@@ -4,20 +4,22 @@ import "strings"
 
 // TitleFromID turns a snake_case catalog id into a Title Case display
 // name, e.g. "security_awareness_training" → "Security Awareness
-// Training". A few domain acronyms are upper-cased. Used as the default
-// when a manual policy does not set an explicit name.
+// Training". A few domain acronyms are upper-cased, and short function
+// words after the first stay lowercase ("Code of Conduct"). Used as the
+// default when a manual policy does not set an explicit name.
 func TitleFromID(id string) string {
 	acronyms := map[string]string{
 		"nda": "NDA", "pii": "PII", "ict": "ICT", "sdlc": "SDLC",
 		"bcp": "BCP", "soc2": "SOC 2", "iso": "ISO", "isms": "ISMS",
 	}
+	small := map[string]bool{"of": true, "for": true, "and": true, "to": true, "in": true, "on": true, "the": true, "a": true}
 	parts := strings.Split(id, "_")
 	for i, p := range parts {
 		if up, ok := acronyms[p]; ok {
 			parts[i] = up
 			continue
 		}
-		if p == "" {
+		if p == "" || (i > 0 && small[p]) {
 			continue
 		}
 		parts[i] = strings.ToUpper(p[:1]) + p[1:]

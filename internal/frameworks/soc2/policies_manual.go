@@ -32,7 +32,7 @@ func manualSpecs() []manualPolicy {
 			declarationText: "I confirm that all personnel have acknowledged the organization's code of conduct during this period, either on hire or as part of the annual re-acknowledgment.",
 		},
 		{id: "soc2.cc1.2.board_security_oversight", control: "CC1.2", cadence: cadenceAnnual, catalog: "board_security_oversight", desc: "The board exercises security oversight.", rem: "Upload board/exec security review minutes.", tsc: tscSecurity},
-		{id: "soc2.cc1.3.org_chart_security_roles", control: "CC1.3", cadence: cadenceAnnual, catalog: "org_chart_security_roles", desc: "An org chart documents security responsibilities.", rem: "Upload an org chart showing security roles.", tsc: tscSecurity},
+		{id: "soc2.cc1.3.org_chart_security_roles", control: "CC1.3", cadence: cadenceAnnual, catalog: "org_chart_security_roles", name: "Org Chart with Security Roles", desc: "An org chart documents security responsibilities.", rem: "Upload an org chart showing security roles.", tsc: tscSecurity},
 		{id: "soc2.cc1.4.background_check_policy", control: "CC1.4", cadence: cadenceAnnual, catalog: "background_check_policy", desc: "A background-check process is documented.", rem: "Upload the background-check policy.", tsc: tscSecurity},
 		{id: "soc2.cc1.5.accountability_for_controls", control: "CC1.5", cadence: cadenceAnnual, catalog: "accountability_for_controls", desc: "Individuals are held accountable for their internal-control responsibilities.", rem: "Upload evidence that security responsibilities are defined in role descriptions and evaluated in performance reviews.", tsc: tscSecurity,
 			etype:           manualcatalog.TypeDeclaration,
@@ -65,7 +65,7 @@ func manualSpecs() []manualPolicy {
 		{id: "soc2.cc5.3.technology_controls_deployment", control: "CC5.3", cadence: cadenceAnnual, catalog: "technology_controls_deployment", desc: "Technology controls are deployed per policy.", rem: "Upload evidence of technology control deployment.", tsc: tscSecurity},
 
 		// CC6 — Logical access (manual portions).
-		{id: "soc2.cc6.3.access_review_quarterly", control: "CC6.3", cadence: cadenceQuarterly, catalog: "access_review_quarterly", desc: "A quarterly user access review is performed and signed.", rem: "Upload the signed quarterly access review.", tsc: tscSecurity},
+		{id: "soc2.cc6.3.access_review_quarterly", control: "CC6.3", cadence: cadenceQuarterly, catalog: "access_review_quarterly", name: "Quarterly Access Review", desc: "A quarterly user access review is performed and signed.", rem: "Upload the signed quarterly access review.", tsc: tscSecurity},
 		{id: "soc2.cc6.4.subservice_org_reports", control: "CC6.4", cadence: cadenceAnnual, catalog: "subservice_org_reports", desc: "Physical access to facilities hosting the system is restricted; for cloud-hosted infrastructure this control is carried by the subservice organization.", rem: "Upload the current SOC 2 or ISO 27001 report for each infrastructure subservice organization (AWS, GCP, Azure), or evidence of physical access controls for any facility you operate yourself.", tsc: tscSecurity},
 		// CC6.2: credentials are removed when access is no longer authorized.
 		{id: "soc2.cc6.2.termination_access_removal_process", control: ctrlCC62, cadence: cadenceAnnual, catalog: "termination_process_documented", desc: "An offboarding access-removal process is documented.", rem: "Upload the user offboarding procedure.", tsc: tscSecurity},
@@ -96,7 +96,7 @@ func manualSpecs() []manualPolicy {
 		// CC8 — Change management (manual portions).
 		{id: "soc2.cc8.1.change_management_policy", control: ctrlCC81, cadence: cadenceAnnual, catalog: "change_management_policy", desc: "A change management policy exists.", rem: "Upload the change management policy.", tsc: tscSecurity},
 		{id: "soc2.cc8.1.security_sdlc_process", control: ctrlCC81, cadence: cadenceAnnual, catalog: "security_sdlc_process", desc: "A secure SDLC process is documented.", rem: "Upload the secure SDLC process.", tsc: tscSecurity},
-		{id: "soc2.cc8.1.penetration_test_annual", control: ctrlCC81, cadence: cadenceAnnual, catalog: "penetration_test_annual", desc: "An annual penetration test is performed.", rem: "Upload the latest penetration test report.", tsc: tscSecurity},
+		{id: "soc2.cc8.1.penetration_test_annual", control: ctrlCC81, cadence: cadenceAnnual, catalog: "penetration_test_annual", name: "Annual Penetration Test", desc: "An annual penetration test is performed.", rem: "Upload the latest penetration test report.", tsc: tscSecurity},
 		{id: "soc2.cc8.1.vulnerability_management_policy", control: ctrlCC81, cadence: cadenceAnnual, catalog: "vulnerability_management_policy", desc: "A vulnerability management policy exists.", rem: "Upload the vulnerability management policy.", tsc: tscSecurity},
 		{id: "soc2.cc8.1.code_review_policy", control: ctrlCC81, cadence: cadenceAnnual, catalog: "code_review_policy", desc: "Code review requirements are documented.", rem: "Upload the code review policy.", tsc: tscSecurity},
 

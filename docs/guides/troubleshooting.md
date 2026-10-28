@@ -113,15 +113,16 @@ Every file is byte-identical to last period's. Upload this period's document.
 ### A policy reports `error` and names a field
 
 ```text
-[error] soc2.cc6.7.kms_key_rotation_enabled — CC6.7
-    ↳ pass_when: the filter for slot "evidence" could not be evaluated, so
-      the records in scope are unknown: policy references field
-      "payload.is_customer_managed" which is not present on record "…"
+[error] custom.keys.recently_used — CC6.1
+    ↳ policy references field "payload.last_used_days" which is not present on
+      record "…" (type "iam_access_key") — reference a field the evidence type
+      guarantees, or guard it with is_set
 ```
 
-A record lacks a field the policy reads. The CLI reports `error` (exit `2`) instead of guessing.
-If you wrote the policy, guard optional fields with `is_set`. For a built-in policy, report it
-with the error text.
+A record lacks a field the policy reads (here, a key that was never used has no
+`last_used_days`). The CLI reports `error` (exit `2`) instead of guessing. If you wrote the
+policy, guard optional fields with `is_set`. For a built-in policy, report it with the error
+text.
 
 ### A policy fails with `no <type> records`
 

@@ -63,8 +63,8 @@ The SOC 2 catalog has **52 entries**:
 Manual Evidence Catalog: soc2 (v1.0) — 52 entries
 
 ID                                CONTROL  TYPE             FREQUENCY  NAME
-access_review_quarterly           CC6.3    document_upload  quarterly  Access Review Quarterly
-accountability_for_controls       CC1.5    declaration      yearly     Accountability For Controls
+access_review_quarterly           CC6.3    document_upload  quarterly  Quarterly Access Review
+accountability_for_controls       CC1.5    declaration      yearly     Accountability for Controls
 background_check_policy           CC1.4    document_upload  yearly     Background Check Policy
 ...
 ```

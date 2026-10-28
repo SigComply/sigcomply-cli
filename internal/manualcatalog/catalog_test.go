@@ -205,6 +205,11 @@ func TestTitleFromID(t *testing.T) {
 		{"bcp_test", "BCP Test"},
 		{"ict_continuity", "ICT Continuity"},
 		{"single", "Single"},
+		// Short function words stay lowercase except at the start.
+		{"code_of_conduct_acknowledgment", "Code of Conduct Acknowledgment"},
+		{"accountability_for_controls", "Accountability for Controls"},
+		{"return_of_assets", "Return of Assets"},
+		{"of_course", "Of Course"},
 		{"", ""},
 		{"a__b", "A  B"}, // empty middle segment yields a double space (segments joined by " ")
 	}

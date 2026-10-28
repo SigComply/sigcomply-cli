@@ -37,13 +37,9 @@ func cc6AccessPolicies() []core.Policy {
 		autoPolicy{
 			id: "soc2.cc6.1.mfa_enforced_admins", control: ctrlCC61, severity: core.SeverityCritical, category: catAccess, cadence: cadenceDaily,
 			// Requires is_admin AND mfa_enabled, phrased as none(admin AND
-			// no-MFA). A source that does NOT populate is_admin (e.g. Okta,
-			// which needs a per-user roles call to determine admin status)
-			// ERRORS, which is the intended way to surface a coverage gap.
-			// A bare filter on is_admin would now error too — it no longer
-			// silently empties the set — but the none() phrasing keeps the
-			// requirement legible as one predicate. AWS IAM and GitHub
-			// populate is_admin and evaluate correctly.
+			// no-MFA). A source that does not populate is_admin errors, which
+			// is the intended way to surface a coverage gap; the in-tree
+			// directory_user sources populate it.
 			accepts: directoryUserTypes,
 			desc:    "All administrator users have MFA enabled.",
 			rem:     "Enable MFA for every admin user, or revoke their admin privileges.",
@@ -73,7 +69,7 @@ func cc6AccessPolicies() []core.Policy {
 		autoPolicy{
 			id: "soc2.cc6.1.access_keys_rotated_90d", control: ctrlCC61, severity: core.SeverityHigh, category: catAccess, cadence: cadenceDaily,
 			accepts: []string{etIAMAccessKey},
-			desc:    "All active access keys are younger than 90 days.",
+			desc:    "All active access keys are at most 90 days old.",
 			rem:     "Rotate access keys older than 90 days.",
 			clause:  allWhere(leaf("payload.is_active", "eq", true), leaf("payload.age_days", "lte", 90), "access key {{.payload.id}} is older than 90 days"),
 		}.policy(),
@@ -105,7 +101,7 @@ func cc6AccessPolicies() []core.Policy {
 		autoPolicy{
 			id: "soc2.cc6.1.password_expiry_90d", control: ctrlCC61, severity: core.SeverityMedium, category: catAccess, cadence: cadenceDaily,
 			accepts: passwordPolicyTypes,
-			desc:    "Passwords expire within 90 days (or rotation is centrally managed with no expiry).",
+			desc:    "Passwords expire within 90 days, or do not expire at all: no expiry passes, as NIST SP 800-63B recommends.",
 			rem:     "Set password expiry to 90 days or fewer.",
 			clause:  passwordExpiryClause(90),
 		}.policy(),
@@ -212,7 +208,7 @@ func cc6EncryptionPolicies() []core.Policy {
 			id: "soc2.cc6.7.storage_public_access_blocked", control: ctrlCC67, also: []string{ctrlC11}, severity: core.SeverityHigh, category: catDataProtection, cadence: cadenceDaily,
 			accepts: []string{etObjectStorageBucket},
 			desc:    "All object storage buckets block public access.",
-			rem:     "Enable public-access-block / uniform bucket-level access on each bucket.",
+			rem:     "Block public access on each bucket: S3 Block Public Access; on GCS, uniform bucket-level access plus public access prevention set to enforced.",
 			clause:  all(leaf("payload.public_access_blocked", "eq", true), "bucket {{.payload.name}} does not block public access"),
 		}.policy(),
 		autoPolicy{
