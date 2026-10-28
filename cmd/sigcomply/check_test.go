@@ -157,8 +157,10 @@ func TestExecute_UnknownCommand(t *testing.T) {
 	saved := os.Args
 	t.Cleanup(func() { os.Args = saved })
 	os.Args = []string{testBinaryName, "does-not-exist"}
-	if got := Execute(); got == 0 {
-		t.Errorf("Execute unknown command = 0; want non-zero")
+	// An unknown command is a usage error: exit 2, not the config code 3
+	// and not 1, which CI reads as a policy violation.
+	if got := Execute(); got != orchestrator.ExitExecution {
+		t.Errorf("Execute unknown command = %d; want %d", got, orchestrator.ExitExecution)
 	}
 }
 

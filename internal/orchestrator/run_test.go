@@ -3,7 +3,10 @@ package orchestrator
 import (
 	"bytes"
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -185,29 +188,66 @@ func (*emptyFramework) Version() string            { return "v0" }
 func (*emptyFramework) Controls() []core.Control   { return nil }
 func (*emptyFramework) Policies() []core.PolicyRef { return nil }
 
+// TestRun_NoCloudPath runs in a CI environment that has an OIDC token and
+// a reachable cloud endpoint, so every condition for an automatic
+// submission holds. --no-cloud must still send nothing. The control case
+// proves the setup would otherwise submit; without it, a broken
+// environment would make the --no-cloud case pass for the wrong reason.
 func TestRun_NoCloudPath(t *testing.T) {
-	regs := registry.NewSet()
-	if err := regs.Frameworks.Register(&emptyFramework{}); err != nil {
-		t.Fatal(err)
-	}
-	res, err := Run(context.Background(), &Options{
-		Config:       minimalConfig(),
-		Registries:   regs,
-		Vault:        newInMem(),
-		Stdout:       &bytes.Buffer{},
-		Logger:       log.New(&bytes.Buffer{}, false),
-		Now:          func() time.Time { return time.Now().UTC() },
-		DisableCloud: true,
-		SubmitterOpts: submitter.Options{
-			Disable: true,
-			BaseURL: "https://example.com",
-		},
-	})
-	if err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-	if res.Submitted {
-		t.Errorf("Submitted = true; want false (--no-cloud)")
+	t.Setenv("CI", "true")
+	t.Setenv("GITHUB_ACTIONS", "true")
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_URL", "")
+	t.Setenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "")
+	t.Setenv("SIGCOMPLY_ID_TOKEN", "test-oidc-token")
+
+	for _, tc := range []struct {
+		name          string
+		noCloud       bool
+		wantSubmitted bool
+	}{
+		{"no-cloud sends nothing", true, false},
+		{"control: same environment submits", false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var calls atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				calls.Add(1)
+				w.WriteHeader(http.StatusCreated)
+			}))
+			defer srv.Close()
+
+			regs := registry.NewSet()
+			if err := regs.Frameworks.Register(&emptyFramework{}); err != nil {
+				t.Fatal(err)
+			}
+			res, err := Run(context.Background(), &Options{
+				Config:     minimalConfig(),
+				Registries: regs,
+				Vault:      newInMem(),
+				Stdout:     &bytes.Buffer{},
+				Logger:     log.New(&bytes.Buffer{}, false),
+				Now:        func() time.Time { return time.Now().UTC() },
+				// check sets both from --no-cloud.
+				DisableCloud: tc.noCloud,
+				SubmitterOpts: submitter.Options{
+					Disable: tc.noCloud,
+					BaseURL: srv.URL,
+				},
+			})
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if res.Submitted != tc.wantSubmitted {
+				t.Errorf("Submitted = %v; want %v", res.Submitted, tc.wantSubmitted)
+			}
+			wantCalls := int32(0)
+			if tc.wantSubmitted {
+				wantCalls = 1
+			}
+			if got := calls.Load(); got != wantCalls {
+				t.Errorf("cloud endpoint received %d request(s); want %d", got, wantCalls)
+			}
+		})
 	}
 }
 
