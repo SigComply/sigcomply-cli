@@ -7,6 +7,7 @@ package ecr
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -34,6 +35,7 @@ const providerName = "aws"
 // API is the subset of the ECR client this plugin uses.
 type API interface {
 	DescribeRepositories(ctx context.Context, params *awsecr.DescribeRepositoriesInput, optFns ...func(*awsecr.Options)) (*awsecr.DescribeRepositoriesOutput, error)
+	GetRepositoryPolicy(ctx context.Context, params *awsecr.GetRepositoryPolicyInput, optFns ...func(*awsecr.Options)) (*awsecr.GetRepositoryPolicyOutput, error)
 }
 
 // Plugin is the in-process aws.ecr source.
@@ -125,15 +127,20 @@ func (p *Plugin) Collect(ctx context.Context, req core.SlotRequest) ([]core.Evid
 		if id == "" {
 			continue
 		}
+		public, err := p.repositoryIsPublic(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("aws.ecr: repository policy for %s: %w", id, err)
+		}
 		payload := registryPayload{
 			ID:                       id,
 			Name:                     id,
 			Provider:                 providerName,
 			ScanOnPushEnabled:        scanOnPushEnabled(repo),
 			ImageImmutabilityEnabled: string(repo.ImageTagMutability) == immutableTagSetting,
-			// ECR is a private registry; DescribeRepositories never returns
-			// public repositories (those live behind a separate ECR Public API).
-			IsPublic: false,
+			// DescribeRepositories lists private repositories (ECR Public is
+			// a separate API), but a repository policy can still let anyone
+			// pull from one.
+			IsPublic: public,
 			// ECR always encrypts images at rest (AES256 by default, or KMS);
 			// EncryptionConfiguration is always populated, so presence == encrypted.
 			EncryptionEnabled: repo.EncryptionConfiguration != nil,
@@ -173,6 +180,96 @@ func (p *Plugin) listAllRepositories(ctx context.Context) ([]ecrtypes.Repository
 		}
 		return out, nil
 	}
+}
+
+// repositoryIsPublic reports whether the repository policy lets anyone
+// in: an Allow statement whose principal is "*" (or {"AWS": "*"}) with no
+// Condition. A statement with a Condition is treated as restricted, since
+// conditions such as aws:PrincipalOrgID or aws:SourceIp narrow it. No
+// policy (RepositoryPolicyNotFoundException) means private.
+func (p *Plugin) repositoryIsPublic(ctx context.Context, name string) (bool, error) {
+	out, err := p.api.GetRepositoryPolicy(ctx, &awsecr.GetRepositoryPolicyInput{RepositoryName: &name})
+	if err != nil {
+		var notFound *ecrtypes.RepositoryPolicyNotFoundException
+		if errors.As(err, &notFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	if out == nil || out.PolicyText == nil {
+		return false, nil
+	}
+	return policyAllowsAnyone(*out.PolicyText)
+}
+
+// policyDoc is the subset of an IAM-style resource policy this plugin
+// reads. Statement and Principal each come in more than one JSON shape.
+type policyDoc struct {
+	Statement json.RawMessage `json:"Statement"`
+}
+
+type policyStatement struct {
+	Effect    string          `json:"Effect"`
+	Principal json.RawMessage `json:"Principal"`
+	Condition json.RawMessage `json:"Condition"`
+}
+
+func policyAllowsAnyone(text string) (bool, error) {
+	var doc policyDoc
+	if err := json.Unmarshal([]byte(text), &doc); err != nil {
+		return false, fmt.Errorf("parse repository policy: %w", err)
+	}
+	var stmts []policyStatement
+	if err := json.Unmarshal(doc.Statement, &stmts); err != nil {
+		var one policyStatement
+		if err := json.Unmarshal(doc.Statement, &one); err != nil {
+			return false, fmt.Errorf("parse repository policy statements: %w", err)
+		}
+		stmts = []policyStatement{one}
+	}
+	for i := range stmts {
+		st := &stmts[i]
+		if st.Effect != "Allow" || hasCondition(st.Condition) {
+			continue
+		}
+		if principalIsAnyone(st.Principal) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func hasCondition(raw json.RawMessage) bool {
+	c := string(raw)
+	return c != "" && c != "null" && c != "{}"
+}
+
+// principalIsAnyone accepts "*", {"AWS": "*"} and {"AWS": ["*", ...]}.
+func principalIsAnyone(raw json.RawMessage) bool {
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		return s == "*"
+	}
+	var m map[string]json.RawMessage
+	if json.Unmarshal(raw, &m) != nil {
+		return false
+	}
+	aws, ok := m["AWS"]
+	if !ok {
+		return false
+	}
+	if json.Unmarshal(aws, &s) == nil {
+		return s == "*"
+	}
+	var list []string
+	if json.Unmarshal(aws, &list) == nil {
+		for _, v := range list {
+			if v == "*" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // scanOnPushEnabled reports whether the repository scans images on push.

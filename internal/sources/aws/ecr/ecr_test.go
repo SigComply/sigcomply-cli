@@ -15,10 +15,25 @@ import (
 )
 
 type fakeAPI struct {
-	repos []ecrtypes.Repository
-	err   error
+	repos    []ecrtypes.Repository
+	err      error
+	policies map[string]string
+	polErr   map[string]error
 
 	count int
+}
+
+// GetRepositoryPolicy answers RepositoryPolicyNotFoundException for a
+// repository with no entry in policies.
+func (f *fakeAPI) GetRepositoryPolicy(_ context.Context, in *awsecr.GetRepositoryPolicyInput, _ ...func(*awsecr.Options)) (*awsecr.GetRepositoryPolicyOutput, error) {
+	if err, ok := f.polErr[*in.RepositoryName]; ok {
+		return nil, err
+	}
+	text, ok := f.policies[*in.RepositoryName]
+	if !ok {
+		return nil, &ecrtypes.RepositoryPolicyNotFoundException{Message: ptr("no policy")}
+	}
+	return &awsecr.GetRepositoryPolicyOutput{PolicyText: &text}, nil
 }
 
 func (f *fakeAPI) DescribeRepositories(_ context.Context, _ *awsecr.DescribeRepositoriesInput, _ ...func(*awsecr.Options)) (*awsecr.DescribeRepositoriesOutput, error) {
@@ -268,5 +283,43 @@ func TestNewFromAWS_SmokeTest(t *testing.T) {
 	}
 	if p.ID() != SourceID {
 		t.Errorf("ID = %q", p.ID())
+	}
+}
+
+// A private ECR repository whose repository policy lets "*" pull is
+// publicly accessible; is_public must say so.
+func TestCollect_IsPublicFromRepositoryPolicy(t *testing.T) {
+	fake := &fakeAPI{
+		repos: []ecrtypes.Repository{
+			repo("none", true, "IMMUTABLE"), repo("star", true, "IMMUTABLE"), repo("aws-star", true, "IMMUTABLE"),
+			repo("aws-list", true, "IMMUTABLE"), repo("conditioned", true, "IMMUTABLE"),
+			repo("account", true, "IMMUTABLE"), repo("deny-star", true, "IMMUTABLE"),
+		},
+		policies: map[string]string{
+			"star":        `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":"ecr:BatchGetImage"}]}`,
+			"aws-star":    `{"Statement":{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"ecr:*"}}`,
+			"aws-list":    `{"Statement":[{"Effect":"Allow","Principal":{"AWS":["arn:aws:iam::1:root","*"]},"Action":"ecr:*"}]}`,
+			"conditioned": `{"Statement":[{"Effect":"Allow","Principal":"*","Action":"ecr:*","Condition":{"StringEquals":{"aws:PrincipalOrgID":"o-1"}}}]}`,
+			"account":     `{"Statement":[{"Effect":"Allow","Principal":{"AWS":"arn:aws:iam::1:root"},"Action":"ecr:*"}]}`,
+			"deny-star":   `{"Statement":[{"Effect":"Deny","Principal":"*","Action":"ecr:*"}]}`,
+		},
+	}
+	got := collectByID(t, fake)
+	want := map[string]bool{"none": false, "star": true, "aws-star": true, "aws-list": true,
+		"conditioned": false, "account": false, "deny-star": false}
+	for id, w := range want {
+		if got[id].IsPublic != w {
+			t.Errorf("%s is_public = %v; want %v", id, got[id].IsPublic, w)
+		}
+	}
+}
+
+func TestCollect_RepositoryPolicyErrorPropagates(t *testing.T) {
+	fake := &fakeAPI{
+		repos:  []ecrtypes.Repository{repo("r", true, "IMMUTABLE")},
+		polErr: map[string]error{"r": errors.New("AccessDeniedException")},
+	}
+	if _, err := New(Options{API: fake}).Collect(context.Background(), core.SlotRequest{AcceptedTypes: []string{EvidenceTypeID}}); err == nil {
+		t.Fatal("Collect = nil error; want the denied GetRepositoryPolicy returned")
 	}
 }

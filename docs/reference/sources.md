@@ -70,7 +70,7 @@ those credentials, so the ambient principal needs that permission on the target 
 | `aws.config` | `config_change_tracking` | `config:DescribeConfigurationRecorders`, `config:DescribeConfigurationRecorderStatus` |
 | `aws.dynamodb` | `nosql_table` | `dynamodb:ListTables`, `dynamodb:DescribeTable`, `dynamodb:DescribeContinuousBackups` |
 | `aws.ec2` | `compute_instance` | `ec2:DescribeInstances`, `ec2:DescribeVolumes` |
-| `aws.ecr` | `container_registry` | `ecr:DescribeRepositories` |
+| `aws.ecr` | `container_registry` | `ecr:DescribeRepositories`, `ecr:GetRepositoryPolicy` |
 | `aws.eks` | `kubernetes_cluster` | `eks:ListClusters`, `eks:DescribeCluster` |
 | `aws.guardduty` | `threat_detection_service` | `guardduty:ListDetectors`, `guardduty:GetDetector` |
 | `aws.iam` | `directory_user.v2` | `iam:ListUsers`, `iam:ListMFADevices`, `iam:ListAccessKeys`, `iam:ListAttachedUserPolicies`, `iam:ListUserPolicies`, `iam:ListGroupsForUser`, `iam:ListAttachedGroupPolicies`, `iam:GenerateCredentialReport`, `iam:GetCredentialReport` |
@@ -116,6 +116,8 @@ For `role_arn`, the target role's trust policy must allow the ambient principal 
   failed validation) has no expiry date and emits no record. `auto_renew` is true only while ACM
   reports the certificate as eligible for renewal; an Amazon-issued certificate that no AWS
   resource uses is not renewed and reports `false`.
+- `aws.ecr` reports `is_public: true` when the repository policy has an `Allow` statement for the
+  principal `*` with no `Condition`. A statement with a condition counts as restricted.
 - `aws.kms` reports `rotation_enabled: false` for customer-managed keys that KMS cannot rotate
   automatically (asymmetric, HMAC, imported key material, custom key store) without asking KMS.
   The shipped rotation policies check only enabled customer-managed keys, so keys that are disabled
