@@ -577,6 +577,35 @@ func TestBinaryE2E_Check_NoCloudFlagSkipsSubmissionInCI(t *testing.T) {
 	}
 }
 
+// A filtered run covers a subset of policies, so in CI with cloud on it
+// says so and sends nothing; the dashboard reads every submitted run as
+// the project's full state.
+func TestBinaryE2E_Check_FilteredRunsDoNotSubmit(t *testing.T) {
+	for _, args := range [][]string{
+		{"--cadence", "weekly"},
+		{"--cadences", "daily,annual"},
+		{"--on-push"},
+		{"--pr"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			p := newE2EProject(t)
+			fc := newFakeCloud(t, http.StatusCreated)
+			res := runSigcomply(t, p.dir, fc.githubActionsEnv(), append([]string{"check", "--cloud-url", fc.srv.URL}, args...)...)
+			if res.code != 0 && res.code != 1 {
+				res.wantCode(t, 1)
+			}
+			if !strings.Contains(res.stdout, "cloud submission skipped: this run evaluates a subset of policies") {
+				t.Errorf("stdout missing the skip notice:\n%s", res.stdout)
+			}
+			fc.mu.Lock()
+			defer fc.mu.Unlock()
+			if fc.runsCalls != 0 {
+				t.Errorf("filtered run submitted %d time(s); want none", fc.runsCalls)
+			}
+		})
+	}
+}
+
 // A usage error (unknown flag) exits 2, not 1, so CI never reads it as
 // a violation, and names the flag in one line.
 func TestBinaryE2E_UnknownFlagExits2(t *testing.T) {

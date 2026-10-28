@@ -90,8 +90,10 @@ OR (new.LastRunAt == existing.LastRunAt AND new.LastRunID > existing.LastRunID)
 A runner with a slow clock cannot overwrite a newer result. A rejected write returns nil: the vault
 already holds equal or newer state.
 
-All modes advance state after evaluation (`advancePolicyStates`), so a passing `--on-push` run sets
-`LastPassAt` and a later `--scheduled` run can carry the policy forward. A failed state write is
+Every mode except `--pr` advances state after evaluation (`advancePolicyStates`), so a passing
+`--on-push` run on the default branch sets `LastPassAt` and a later `--scheduled` run can carry the
+policy forward. A `--pr` run evaluates a pull request's branch and config, so it neither advances
+state nor submits to Cloud. A failed state write is
 logged as a warning; the policy stays due and re-evaluates next time.
 
 ## The decision rule
@@ -231,7 +233,7 @@ vault, and the CLI keeps no cross-run state beyond the gating shards.
 | Mode | Set by | Loads state? | Gates by cadence? | Advances state? |
 |---|---|---|---|---|
 | `ModeManual` | default, `--cadence`, `--cadences`, `--on-push` | No | No | Yes |
-| `ModePR` | `--pr` | No | No (on-push set) | Yes |
+| `ModePR` | `--pr` | No | No (on-push set) | No |
 | `ModeScheduled` | `--scheduled` | Yes | Yes | Yes |
 
 `resolveMode` (`internal/orchestrator/orchestrator.go`) loads state only in `ModeScheduled`.

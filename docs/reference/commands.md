@@ -71,6 +71,12 @@ Results written to ./.sigcomply/vault/soc2/2026-Q4/run_20261026T201203Z_14f82a86
 Next: sigcomply report --period 2026-Q4 (add --view integrity to verify the signatures)
 ```
 
+Only a run that covers every policy submits: `check` with no filter, or `--scheduled`. A run with
+`--cadence`, `--cadences`, `--on-push` or `--pr` prints `cloud submission skipped: this run
+evaluates a subset of policies` and sends nothing (`--capture-cloud-payload` still writes the
+file). A `--pr` run also leaves the cadence state in the vault unchanged, so a pull request's
+result is never carried forward by a later `--scheduled` run.
+
 ## `sigcomply init`
 
 ```sh

@@ -29,7 +29,8 @@ sigcomply check --capture-cloud-payload payload.json
 ## 1. Create an account
 
 Sign up at <https://sigcomply.com/users/sign_up>. The first user of a new organization is its
-owner. Only owners see a project's **Reports**, **Auditors** and **Settings** tabs.
+owner. Every member of the organization sees a project's **Reports** tab and can generate
+reports; only owners see the **Auditors** and **Settings** tabs.
 
 ## 2. Connect the repository
 
@@ -62,6 +63,11 @@ The CLI submits only when all of these hold:
 `--no-cloud` turns submission off for one run. `--cloud` makes the CLI warn when the base URL or
 the token is missing, instead of skipping without a message.
 
+Only runs that cover every policy submit: `sigcomply check` with no filter, and
+`sigcomply check --scheduled`. A run with `--cadence`, `--cadences`, `--on-push` or `--pr` checks
+a subset, so it prints `cloud submission skipped: this run evaluates a subset of policies` and
+sends nothing. The workflows `init-ci` writes submit from the daily scheduled run only.
+
 ## 4. Run and check the result
 
 Start a CI run (for example the daily workflow). In the log, look for:
@@ -73,6 +79,11 @@ submission accepted (HTTP 201)
 The run then appears in the project's **Overview** tab, with the compliance score, the split
 between automated and manual evidence, and a table of runs. Open a run to see each policy's
 result.
+
+Each submitted run is a full snapshot of the project, and the dashboard shows the latest one. In
+a `--scheduled` run, a policy that is not due yet keeps its last result and is listed as
+`carried_forward`. A manual policy whose folder for the current period is still empty is a
+`fail` until the document is uploaded; the next daily run picks the upload up.
 
 A failed submission never fails the run. The CLI logs a `submit:` warning with the HTTP status
 and the response, and the exit code still reflects the policy results.
@@ -116,7 +127,7 @@ The `submit:` warning in the CI log includes the HTTP status and an error `code`
 | 401 | `validation_error` | The token is malformed, has the wrong issuer, or its audience is not `https://api.sigcomply.com`. | On GitLab, set `aud: https://api.sigcomply.com` on the ID token. |
 | 403 | `unregistered_provider` | No active project in SigComply Cloud matches the token's repository. | Connect the repository (step 2), re-paste the URL after a rename, and check the project is active in **Settings**. |
 | 402 | `subscription_required` | The trial ended and there is no Pro subscription. | Upgrade from the `upgrade_url`. |
-| 422 | `validation_failed` or a message | The payload was rejected, for example because its `run_id` was already submitted. | Re-run the job; each run gets a new run ID. Check the message. |
+| 422 | `validation_failed` or a message | The payload was rejected, for example because its `run_id` was already used by another project in your organization. Resending a run to the same project is not an error: it answers `200` and keeps the first copy. | Re-run the job; each run gets a new run ID. Check the message. |
 
 More causes: [Troubleshooting](troubleshooting.md#cloud-submission).
 

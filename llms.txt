@@ -7,7 +7,7 @@ Facts agents get wrong:
 - The config key is singular: `framework: soc2` or `framework: iso27001`. No other framework exists.
 - `sigcomply check` reads the framework from `.sigcomply.yaml` and has no `--framework` flag.
 - Exit codes: `0` no failures; `1` a policy failed or declared scope is incomplete (the default; `ci.fail_on_violation: false` turns it off); `2` execution error, including a policy with status `error` and unknown or conflicting flags; `3` configuration error.
-- Cloud submission happens only when `cloud.base_url` (for example `https://sigcomply.com`) or `--cloud-url` is set, and the run is in CI with an OIDC token.
+- Cloud submission happens only when `cloud.base_url` (for example `https://sigcomply.com`) or `--cloud-url` is set, and the run is in CI with an OIDC token. Only full runs submit (`sigcomply check` with no filter, or `--scheduled`); `--cadence`, `--cadences`, `--on-push` and `--pr` runs never do.
 - Binding slot names: `evidence` for most policies, `roster` and `accounts` for identity-roster policies, `changes` and `deployments` for change-management policies.
 - Manual evidence goes in `{prefix}{evidence_catalog_id}/{period_id}/` of the `manual.pdf` storage (default prefix `manual/`), where `{period_id}` is the entry's own cadence window (annual `2026`, quarterly `2026-Q1`). `sigcomply evidence due --all` prints every folder.
 - One repository holds one framework, one config and one evidence vault.

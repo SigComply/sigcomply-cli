@@ -202,10 +202,15 @@ func Run(ctx context.Context, opts *Options) (Result, error) {
 		return Result{ExitCode: ExitExecution, RunID: runID, RunRoot: runRoot}, err
 	}
 
-	advancePolicyStates(ctx, opts, plan, results, runID, runRoot, startedAt)
+	// A --pr run evaluates the pull request's branch and config; advancing
+	// state from it would let a later --scheduled run on the default
+	// branch carry forward a pass the branch earned.
+	if opts.Mode != ModePR {
+		advancePolicyStates(ctx, opts, plan, results, runID, runRoot, startedAt)
+	}
 
 	payload := buildPayload(opts, results, plan, runID, startedAt, completedAt)
-	submitted, submittedAt, captureErr := handleSubmission(ctx, opts, &payload, completedAt)
+	submitted, submittedAt, captureErr := handleSubmission(ctx, opts, &payload, completedAt, filter.IsExplicit())
 
 	exitCode := renderAndExitCode(opts.Stdout, plan, results, opts.Config.CI, scopeReport)
 	if captureErr != nil {
@@ -633,18 +638,39 @@ func buildPayload(opts *Options, results []core.PolicyResult, plan *planner.RunP
 	return aggregator.Build(results, &env)
 }
 
-// handleSubmission sends or captures the payload. A failed submission is
-// logged and never changes the exit code; a failed --capture-cloud-payload
-// write is returned as an error, because the operator asked for that file
-// and an exit 0 without it reads as success.
-func handleSubmission(ctx context.Context, opts *Options, payload *core.SubmissionPayload, completedAt time.Time) (submitted bool, submittedAt time.Time, err error) {
+// filteredSubmissionNotice is printed instead of submitting a run that
+// evaluated a subset of policies.
+const filteredSubmissionNotice = "cloud submission skipped: this run evaluates a subset of policies (use `sigcomply check` or `--scheduled`)"
+
+// handleSubmission sends the payload, or writes it to
+// --capture-cloud-payload instead.
+//
+// Every submitted run is a full snapshot: SigComply Cloud reads a
+// project's latest run as its current state. A filtered run (--cadence,
+// --cadences, --on-push, --pr) covers a subset of policies, so it never
+// POSTs; the dashboard would otherwise swap the score between unrelated
+// subsets. A --scheduled run without a filter is complete, because the
+// policies that are not due carry forward. The notice is printed only
+// when a submission or capture was in play, so a run with no cloud
+// configured stays quiet.
+//
+// A failed submission is logged and never changes the exit code; a failed
+// --capture-cloud-payload write is returned as an error, because the
+// operator asked for that file and an exit 0 without it reads as success.
+func handleSubmission(ctx context.Context, opts *Options, payload *core.SubmissionPayload, completedAt time.Time, filtered bool) (submitted bool, submittedAt time.Time, err error) {
+	decision := submitter.Decide(opts.SubmitterOpts, submitter.HasOIDC(), submitter.InCI())
+	if filtered && (opts.CapturePayloadPath != "" || decision != submitter.DecisionSkip) {
+		_, _ = fmt.Fprintln(opts.Stdout, filteredSubmissionNotice) //nolint:errcheck // status output
+	}
 	if opts.CapturePayloadPath != "" {
 		if err := writeCapturedPayload(opts.CapturePayloadPath, payload); err != nil {
 			return false, time.Time{}, fmt.Errorf("capture payload to %s: %w", opts.CapturePayloadPath, err)
 		}
 		return false, time.Time{}, nil
 	}
-	decision := submitter.Decide(opts.SubmitterOpts, submitter.HasOIDC(), submitter.InCI())
+	if filtered {
+		return false, time.Time{}, nil
+	}
 	switch decision {
 	case submitter.DecisionSubmit:
 		resp, err := submitter.Submit(ctx, opts.SubmitterOpts, payload)

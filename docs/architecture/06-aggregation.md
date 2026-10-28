@@ -85,11 +85,21 @@ semantics.
 ### Decision matrix
 
 The CLI decides per run (`submitter.Decide`, called from
-`handleSubmission` in `internal/orchestrator/orchestrator.go`):
+`handleSubmission` in `internal/orchestrator/orchestrator.go`).
+
+Every submitted run is a full snapshot. Rails reads a project's latest run as its current state
+(score, status, point-in-time reports), so a run over a subset of policies would swap the
+headline between unrelated subsets. Only an unfiltered `check` and a `--scheduled` run submit;
+under `--scheduled` the policies that are not due carry forward, so the payload still lists every
+policy. A filtered run (`--cadence`, `--cadences`, `--on-push`, `--pr`; `planner.Filter`
+`IsExplicit()` after `resolveMode`) never POSTs. When a submission or capture was in play it
+prints `cloud submission skipped: this run evaluates a subset of policies (use `sigcomply check`
+or `--scheduled`)` to stdout; with no cloud configured it stays quiet.
 
 | Input | Effect |
 |---|---|
-| `--capture-cloud-payload` | Writes the file and returns before `Decide`. Nothing is sent. |
+| Filtered run | Skip, with the stdout notice above. `--capture-cloud-payload` still writes. |
+| `--capture-cloud-payload` | Writes the file. Nothing is sent. |
 | `--no-cloud` | Skip. |
 | `--cloud`, no base URL | Skip with a warning naming `cloud.base_url` and `--cloud-url`. |
 | `--cloud`, base URL, no OIDC token | Skip with a warning. |

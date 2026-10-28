@@ -65,6 +65,14 @@ func schedPolicy() core.Policy {
 
 func schedRegistries(t *testing.T, src *schedSource) *registry.Set {
 	t.Helper()
+	p := schedPolicy()
+	return schedRegistriesWith(t, src, &p)
+}
+
+// schedRegistriesWith is schedRegistries with a caller-supplied variant
+// of the fixture policy (same ID, so schedFramework still lists it).
+func schedRegistriesWith(t *testing.T, src *schedSource, policy *core.Policy) *registry.Set {
+	t.Helper()
 	regs := registry.NewSet()
 	if err := regs.EvidenceTypes.Register(core.EvidenceType{
 		ID: evidenceTypeDirectoryUser, Version: 1,
@@ -75,7 +83,7 @@ func schedRegistries(t *testing.T, src *schedSource) *registry.Set {
 	if err := regs.Frameworks.Register(&schedFramework{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := regs.Policies.Register(schedPolicy()); err != nil {
+	if err := regs.Policies.Register(*policy); err != nil {
 		t.Fatal(err)
 	}
 	if err := regs.Sources.Register(src); err != nil {
